@@ -1,0 +1,63 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import Settings
+from app.core.db import get_db
+from app.core.deps import get_current_user, get_settings_dep
+from app.gateways.google_auth import GoogleAuthError
+from app.models.orm import User
+from app.models.schemas import AuthResponse, DevAuthRequest, GoogleAuthRequest, UserOut, UserUpdate
+from app.repositories import users as users_repo
+from app.services import auth as auth_service
+
+router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+@router.post("/google", response_model=AuthResponse)
+async def google_login(
+    body: GoogleAuthRequest,
+    session: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings_dep),
+) -> AuthResponse:
+    try:
+        return await auth_service.login_with_google(session, settings, body.id_token)
+    except GoogleAuthError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+
+
+@router.post("/dev", response_model=AuthResponse)
+async def dev_login(
+    body: DevAuthRequest,
+    session: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings_dep),
+) -> AuthResponse:
+    if not settings.dev_auth_enabled:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Dev auth disabled")
+    try:
+        return await auth_service.login_dev(
+            session,
+            settings,
+            email=body.email,
+            name=body.name,
+        )
+    except GoogleAuthError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+
+
+@router.get("/me", response_model=UserOut)
+async def me(user: User = Depends(get_current_user)) -> UserOut:
+    return UserOut.model_validate(user)
+
+
+@router.patch("/me", response_model=UserOut)
+async def update_me(
+    body: UserUpdate,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> UserOut:
+    updated = await users_repo.update(
+        session,
+        user,
+        **body.model_dump(exclude_unset=True),
+    )
+    return UserOut.model_validate(updated)

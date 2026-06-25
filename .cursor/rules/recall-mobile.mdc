@@ -1,0 +1,13 @@
+---
+description: Recall Expo mobile app conventions
+globs: apps/mobile/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Recall Mobile (Expo)
+
+- Functional components + hooks only
+- Network calls only through `lib/api.ts` — never call LLM providers from mobile
+- Use product model aliases, never provider names
+- Google Sign-In requires dev build; Expo Go uses dev auth placeholder
+- Physical device: `EXPO_PUBLIC_API_URL` must be Mac LAN IP, not localhost

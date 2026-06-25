@@ -1,0 +1,14 @@
+---
+description: Recall FastAPI backend conventions
+globs: apps/api/**/*.py
+alwaysApply: false
+---
+
+# Recall API (Python)
+
+- async/await for all IO; full type hints; Pydantic v2 schemas
+- Config via `app/core/config.py` — never read `os.environ` elsewhere
+- Background jobs: wrap body in try/except; never raise into chat path
+- Mock LiteLLM, Redis, Google, Neon in tests — zero real network calls
+- Format/lint: `uv run ruff format . && uv run ruff check .`
+- Coverage target 80%+ (`pytest --cov=app --cov-fail-under=80`)

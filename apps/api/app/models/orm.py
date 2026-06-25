@@ -1,0 +1,80 @@
+import uuid
+from datetime import date, datetime
+
+from sqlalchemy import Boolean, Date, ForeignKey, Integer, Numeric, String, Text, func
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.core.db import Base
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    google_sub: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    name: Mapped[str | None] = mapped_column(String)
+    avatar_url: Mapped[str | None] = mapped_column(String)
+    default_model: Mapped[str] = mapped_column(String, default="free-chat")
+    response_style: Mapped[str] = mapped_column(String, default="balanced")
+    memory_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+    chats: Mapped[list["Chat"]] = relationship(back_populates="user")
+    memories: Mapped[list["Memory"]] = relationship(back_populates="user")
+
+
+class Chat(Base):
+    __tablename__ = "chats"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    title: Mapped[str | None] = mapped_column(String)
+    model: Mapped[str] = mapped_column(String, default="free-chat")
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+    user: Mapped["User"] = relationship(back_populates="chats")
+    messages: Mapped[list["Message"]] = relationship(back_populates="chat")
+
+
+class Message(Base):
+    __tablename__ = "messages"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    chat_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("chats.id"), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    role: Mapped[str] = mapped_column(String, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    model: Mapped[str | None] = mapped_column(String)
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    chat: Mapped["Chat"] = relationship(back_populates="messages")
+
+
+class Memory(Base):
+    __tablename__ = "memories"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    type: Mapped[str] = mapped_column(String, nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    confidence: Mapped[float | None] = mapped_column(Numeric)
+    source_chat_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("chats.id"))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+    user: Mapped["User"] = relationship(back_populates="memories")
+
+
+class UsageDaily(Base):
+    __tablename__ = "usage_daily"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    date: Mapped[date] = mapped_column(Date, primary_key=True)
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0)
