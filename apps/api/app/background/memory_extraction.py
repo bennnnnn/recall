@@ -30,5 +30,9 @@ async def extract_and_store_memories(
         if not items:
             return
         await memories_repo.upsert_many(session, user_id=user_id, items=items)
+        # New facts learned — drop the cached memory block so the next turn rebuilds it
+        from app.services import memory as memory_service
+
+        await memory_service.invalidate_memory_block(user_id)
     except Exception:
         logger.exception("Memory extraction failed for user_id=%s", user_id)

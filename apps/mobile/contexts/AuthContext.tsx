@@ -8,9 +8,8 @@ import {
   type ReactNode,
 } from 'react';
 
-import { api, loginWithDev, loginWithGoogle, type User } from '@/lib/api';
-import { clearToken, getToken, setToken } from '@/lib/auth';
-import { config } from '@/lib/config';
+import { api, loginWithDev, loginWithGoogle, setUnauthorizedHandler, type User } from '@/lib/api';
+import { clearToken, getOnboarded, getToken, setOnboarded, setToken } from '@/lib/auth';
 
 type AuthContextValue = {
   user: User | null;
@@ -21,6 +20,8 @@ type AuthContextValue = {
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
   updateUser: (patch: Partial<User>) => Promise<void>;
+  onboarded: boolean;
+  completeOnboarding: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -29,9 +30,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setTokenState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [onboarded, setOnboardedState] = useState(false);
 
   const hydrate = useCallback(async () => {
-    const stored = await getToken();
+    const [stored, onb] = await Promise.all([getToken(), getOnboarded()]);
+    setOnboardedState(onb);
     if (!stored) {
       setLoading(false);
       return;
@@ -68,16 +71,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    try {
+      const { signOutGoogle } = await import('@/lib/google-auth');
+      await signOutGoogle();
+    } catch {
+      // best-effort — clearing the local token is what matters
+    }
     await clearToken();
     setTokenState(null);
     setUser(null);
   }, []);
+
+  // Sign out automatically when any authenticated request returns 401.
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      void signOut();
+    });
+    return () => setUnauthorizedHandler(null);
+  }, [signOut]);
 
   const refreshUser = useCallback(async () => {
     if (!token) return;
     const me = await api.me(token);
     setUser(me);
   }, [token]);
+
+  const completeOnboarding = useCallback(async () => {
+    await setOnboarded();
+    setOnboardedState(true);
+  }, []);
 
   const updateUser = useCallback(
     async (patch: Partial<User>) => {
@@ -98,8 +120,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut,
       refreshUser,
       updateUser,
+      onboarded,
+      completeOnboarding,
     }),
-    [user, token, loading, signInWithGoogle, signInWithDev, signOut, refreshUser, updateUser],
+    [
+      user,
+      token,
+      loading,
+      signInWithGoogle,
+      signInWithDev,
+      signOut,
+      refreshUser,
+      updateUser,
+      onboarded,
+      completeOnboarding,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

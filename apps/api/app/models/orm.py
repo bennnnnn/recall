@@ -48,13 +48,21 @@ class Chat(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     title: Mapped[str | None] = mapped_column(String)
     model: Mapped[str] = mapped_column(String, default="free-chat")
+    pinned: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Rolling summary of messages older than the recent window (history compression)
+    summary: Mapped[str | None] = mapped_column(Text)
+    summary_message_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
     user: Mapped["User"] = relationship(back_populates="chats")
-    messages: Mapped[list["Message"]] = relationship(back_populates="chat")
+    # passive_deletes defers child removal to the DB's ON DELETE CASCADE
+    # (messages.chat_id is NOT NULL, so the ORM must NOT try to null it out)
+    messages: Mapped[list["Message"]] = relationship(
+        back_populates="chat", passive_deletes=True
+    )
 
 
 class Message(Base):
@@ -72,6 +80,7 @@ class Message(Base):
     role: Mapped[str] = mapped_column(String, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     model: Mapped[str | None] = mapped_column(String)
+    feedback: Mapped[str | None] = mapped_column(String)  # 'up' | 'down' | None
     input_tokens: Mapped[int] = mapped_column(Integer, default=0)
     output_tokens: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

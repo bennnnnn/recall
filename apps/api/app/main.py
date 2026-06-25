@@ -3,18 +3,22 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.core import jobs
 from app.core.config import get_settings, validate_production_settings
 from app.core.db import engine
 from app.core.logging import setup_logging
 from app.core.redis import get_redis_client
-from app.routers import auth, chats, health, memories, ws
+from app.routers import auth, chats, health, memories, models, ws
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     setup_logging()
-    validate_production_settings(get_settings())
+    settings = get_settings()
+    validate_production_settings(settings)
+    await jobs.start_worker(settings)
     yield
+    await jobs.stop_worker()
     await engine.dispose()
     await get_redis_client().aclose()
 
@@ -36,6 +40,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router)
     app.include_router(chats.router)
     app.include_router(memories.router)
+    app.include_router(models.router)
     app.include_router(ws.router)
 
     return app

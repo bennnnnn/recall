@@ -18,9 +18,17 @@ class Settings(BaseSettings):
 
     daily_token_limit: int = 30_000
     max_output_tokens: int = 1200
-    recent_message_window: int = 20
+    recent_message_window: int = 40  # hard cap on verbatim messages
     memory_min_confidence: float = 0.4
     memory_inject_limit: int = 15
+    memory_cache_ttl: int = 300
+
+    # History compression — keep recent turns verbatim within a token budget,
+    # summarise everything older.
+    history_compression_enabled: bool = True
+    context_token_budget: int = 6000
+    history_summary_batch: int = 10
+    summary_max_tokens: int = 400
 
     cors_origins: str = ""
 

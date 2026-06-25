@@ -1,9 +1,9 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.orm import User
+from app.models.orm import Chat, Memory, Message, UsageDaily, User
 
 
 async def get_by_id(session: AsyncSession, user_id: UUID) -> User | None:
@@ -38,3 +38,15 @@ async def update(session: AsyncSession, user: User, **fields) -> User:
     await session.commit()
     await session.refresh(user)
     return user
+
+
+async def delete_user(session: AsyncSession, user_id: UUID) -> None:
+    """Hard-delete a user and all their data (FK-safe order)."""
+    await session.execute(delete(Message).where(Message.user_id == user_id))
+    await session.execute(delete(Memory).where(Memory.user_id == user_id))
+    await session.execute(delete(UsageDaily).where(UsageDaily.user_id == user_id))
+    await session.execute(delete(Chat).where(Chat.user_id == user_id))
+    user = await session.get(User, user_id)
+    if user is not None:
+        await session.delete(user)
+    await session.commit()

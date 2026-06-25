@@ -1,15 +1,27 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Pressable,
+  Share,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, useRouter } from 'expo-router';
 
+import { Avatar } from '@/components/Avatar';
 import { C } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, Usage } from '@/lib/api';
 
-const MODELS = ['free-chat', 'smart-chat'] as const;
+const MODELS = ['auto', 'free-chat', 'smart-chat'] as const;
 const STYLES = ['short', 'balanced', 'detailed'] as const;
-const MODEL_LABEL: Record<string, string> = { 'free-chat': 'Flash', 'smart-chat': 'Pro' };
+const MODEL_LABEL: Record<string, string> = { auto: 'Auto', 'free-chat': 'Flash', 'smart-chat': 'Pro' };
 
 export default function SettingsScreen() {
   const { token, user, signOut, refreshUser, updateUser } = useAuth();
@@ -18,6 +30,8 @@ export default function SettingsScreen() {
   const [usage, setUsage] = useState<Usage | null>(null);
   const [memCount, setMemCount] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [editNameVisible, setEditNameVisible] = useState(false);
+  const [nameText, setNameText] = useState('');
 
   useEffect(() => {
     if (!token) { setLoading(false); return; }
@@ -33,6 +47,41 @@ export default function SettingsScreen() {
     try { await updateUser(fields); } finally { setSaving(false); }
   };
 
+  const saveName = async () => {
+    const name = nameText.trim();
+    setEditNameVisible(false);
+    if (!name || name === user?.name) return;
+    await patch({ name });
+  };
+
+  const doExport = async () => {
+    if (!token) return;
+    try {
+      const data = await api.exportData(token);
+      await Share.share({ message: JSON.stringify(data, null, 2) });
+    } catch { /* cancelled or failed */ }
+  };
+
+  const confirmDeleteAccount = () => {
+    Alert.alert(
+      'Delete account',
+      'This permanently deletes your account, chats, and memories. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            if (!token) return;
+            try { await api.deleteAccount(token); } catch { /* ignore */ }
+            await signOut();
+            router.replace('/login');
+          },
+        },
+      ],
+    );
+  };
+
   if (!token) return <Redirect href="/login" />;
 
   if (loading) {
@@ -42,9 +91,18 @@ export default function SettingsScreen() {
   return (
     <View style={s.root}>
       <View style={s.card}>
-        <Text style={s.label}>Account</Text>
-        <Text style={s.value}>{user?.name ?? 'Unknown'}</Text>
-        <Text style={s.meta}>{user?.email}</Text>
+        <View style={s.row}>
+          <Avatar name={user?.name ?? null} uri={user?.avatar_url} size={44} />
+          <View style={[s.rowBody, { marginLeft: 12 }]}>
+            <Text style={s.value}>{user?.name ?? 'Unknown'}</Text>
+            <Text style={s.meta}>{user?.email}</Text>
+          </View>
+          <Pressable
+            hitSlop={8}
+            onPress={() => { setNameText(user?.name ?? ''); setEditNameVisible(true); }}>
+            <Ionicons name="pencil-outline" size={18} color={C.primary} />
+          </Pressable>
+        </View>
       </View>
 
       <View style={s.card}>
@@ -113,6 +171,18 @@ export default function SettingsScreen() {
         </View>
       )}
 
+      <View style={s.card}>
+        <Pressable style={s.actionRow} onPress={doExport}>
+          <Ionicons name="download-outline" size={18} color={C.primary} />
+          <Text style={s.actionText}>Export my data</Text>
+          <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
+        </Pressable>
+        <Pressable style={[s.actionRow, s.actionRowBorder]} onPress={confirmDeleteAccount}>
+          <Ionicons name="trash-outline" size={18} color={C.danger} />
+          <Text style={[s.actionText, { color: C.danger }]}>Delete account</Text>
+        </Pressable>
+      </View>
+
       <Pressable
         style={s.signOut}
         onPress={async () => {
@@ -121,6 +191,29 @@ export default function SettingsScreen() {
         }}>
         <Text style={s.signOutText}>Sign out</Text>
       </Pressable>
+
+      <Modal
+        visible={editNameVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditNameVisible(false)}>
+        <Pressable style={m.overlay} onPress={() => setEditNameVisible(false)}>
+          <Pressable style={m.sheet} onPress={(e) => e.stopPropagation()}>
+            <Text style={m.title}>Your name</Text>
+            <TextInput
+              style={m.input} value={nameText} onChangeText={setNameText}
+              autoFocus returnKeyType="done" onSubmitEditing={saveName} maxLength={80} />
+            <View style={m.actions}>
+              <Pressable style={m.cancel} onPress={() => setEditNameVisible(false)}>
+                <Text style={m.cancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={m.save} onPress={saveName}>
+                <Text style={m.saveText}>Save</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -153,4 +246,19 @@ const s = StyleSheet.create({
   barFill: { height: 4, borderRadius: 2, backgroundColor: C.primary },
   signOut: { marginTop: 12, backgroundColor: '#FFF0EF', borderRadius: 14, padding: 14, alignItems: 'center' },
   signOutText: { color: C.danger, fontWeight: '600', fontSize: 15 },
+  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
+  actionRowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.border, marginTop: 4, paddingTop: 14 },
+  actionText: { flex: 1, fontSize: 15, fontWeight: '600', color: C.text },
+});
+
+const m = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 24 },
+  sheet: { backgroundColor: C.bg, borderRadius: 20, padding: 20, gap: 14 },
+  title: { fontSize: 17, fontWeight: '700', color: C.text },
+  input: { backgroundColor: C.surface, borderRadius: 12, padding: 12, fontSize: 16, color: C.text, borderWidth: 1.5, borderColor: C.primary },
+  actions: { flexDirection: 'row', gap: 10 },
+  cancel: { flex: 1, borderRadius: 12, borderWidth: 1, borderColor: C.border, padding: 12, alignItems: 'center' },
+  cancelText: { fontSize: 15, color: C.textSecondary, fontWeight: '600' },
+  save: { flex: 1, borderRadius: 12, backgroundColor: C.primary, padding: 12, alignItems: 'center' },
+  saveText: { fontSize: 15, color: '#fff', fontWeight: '700' },
 });

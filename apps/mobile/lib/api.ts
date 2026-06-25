@@ -1,5 +1,12 @@
 import { getApiUrl } from '@/lib/config';
 
+// Registered by AuthContext so an expired/invalid token (401) signs the user out.
+let onUnauthorized: (() => void) | null = null;
+
+export function setUnauthorizedHandler(fn: (() => void) | null): void {
+  onUnauthorized = fn;
+}
+
 export type User = {
   id: string;
   email: string;
@@ -14,15 +21,20 @@ export type Chat = {
   id: string;
   title: string | null;
   model: string;
+  pinned: boolean;
   created_at: string;
   updated_at: string;
 };
+
+export type Feedback = 'up' | 'down' | null;
 
 export type Message = {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
   model: string | null;
+  feedback?: Feedback;
+  recalled?: number;
   created_at: string;
 };
 
@@ -36,6 +48,7 @@ export type Memory = {
 };
 
 export type ChatList = {
+  pinned: Chat[];
   today: Chat[];
   yesterday: Chat[];
   earlier: Chat[];
@@ -47,6 +60,17 @@ export type Usage = {
   output_tokens: number;
   daily_limit: number;
   remaining: number;
+};
+
+export type ModelInfo = {
+  id: string;
+  label: string;
+  provider: string;
+  description: string;
+  tier: string;
+  available: boolean;
+  input_price_per_m: number | null;
+  output_price_per_m: number | null;
 };
 
 export type AuthResult = { access_token: string; user: User };
@@ -66,6 +90,9 @@ async function request<T>(path: string, token: string, init?: RequestInit): Prom
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      onUnauthorized?.();
+    }
     const text = await response.text();
     throw new Error(text || `Request failed: ${response.status}`);
   }
@@ -109,20 +136,33 @@ export const api = {
   me: (token: string) => request<User>('/auth/me', token),
   updateMe: (token: string, body: Partial<User>) =>
     request<User>('/auth/me', token, { method: 'PATCH', body: JSON.stringify(body) }),
+  exportData: (token: string) => request<unknown>('/auth/me/export', token),
+  deleteAccount: (token: string) => request<void>('/auth/me', token, { method: 'DELETE' }),
   createChat: (token: string, model = 'free-chat') =>
     request<Chat>('/chats', token, { method: 'POST', body: JSON.stringify({ model }) }),
   getChat: (token: string, chatId: string) => request<Chat>(`/chats/${chatId}`, token),
   renameChat: (token: string, chatId: string, title: string) =>
     request<Chat>(`/chats/${chatId}`, token, { method: 'PATCH', body: JSON.stringify({ title }) }),
+  setPin: (token: string, chatId: string, pinned: boolean) =>
+    request<Chat>(`/chats/${chatId}/pin`, token, {
+      method: 'PATCH',
+      body: JSON.stringify({ pinned }),
+    }),
   deleteChat: (token: string, chatId: string) =>
     request<void>(`/chats/${chatId}`, token, { method: 'DELETE' }),
   listChats: (token: string) => request<ChatList>('/chats', token),
   listMessages: (token: string, chatId: string) =>
     request<Message[]>(`/chats/${chatId}/messages`, token),
+  setMessageFeedback: (token: string, chatId: string, messageId: string, feedback: Feedback) =>
+    request<Message>(`/chats/${chatId}/messages/${messageId}/feedback`, token, {
+      method: 'PATCH',
+      body: JSON.stringify({ feedback }),
+    }),
   listMemories: (token: string) => request<Memory[]>('/memories', token),
   deleteMemory: (token: string, memoryId: string) =>
     request<void>(`/memories/${memoryId}`, token, { method: 'DELETE' }),
   todayUsage: (token: string) => request<Usage>('/chats/usage/today', token),
+  listModels: (token: string) => request<ModelInfo[]>('/models', token),
 };
 
 export function chatWebSocketUrl(chatId: string) {

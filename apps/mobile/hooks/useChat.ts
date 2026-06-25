@@ -17,6 +17,7 @@ export function useChat(
   const [messages, setMessages] = useState<Message[]>([]);
   const [streaming, setStreaming] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
+  const connectingRef = useRef<Promise<void> | null>(null);
   const assistantBuffer = useRef('');
   const streamingRef = useRef(false);
   const firstReplyRef = useRef(false);
@@ -38,6 +39,7 @@ export function useChat(
   useEffect(() => {
     wsRef.current?.close();
     wsRef.current = null;
+    connectingRef.current = null;
     assistantBuffer.current = '';
     firstReplyRef.current = false;
     setStreaming(false);
@@ -46,13 +48,15 @@ export function useChat(
   const connect = useCallback((): Promise<void> => {
     if (!token || !chatId) return Promise.resolve();
     if (wsRef.current?.readyState === WebSocket.OPEN) return Promise.resolve();
+    // Reuse an in-flight connection so concurrent callers don't tear each other down
+    if (connectingRef.current) return connectingRef.current;
 
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
     }
 
-    return new Promise((resolve, reject) => {
+    const connectPromise = new Promise<void>((resolve, reject) => {
       const ws = new WebSocket(chatWebSocketUrl(chatId));
       wsRef.current = ws;
 
@@ -91,11 +95,18 @@ export function useChat(
       };
 
       ws.onmessage = (event) => {
-        const payload = JSON.parse(event.data) as {
+        let payload: {
           type: string;
           content?: string;
           message?: string;
+          message_id?: string;
+          recalled?: string;
         };
+        try {
+          payload = JSON.parse(event.data);
+        } catch {
+          return;
+        }
 
         if (payload.type === 'token') {
           assistantBuffer.current += payload.content ?? '';
@@ -121,10 +132,11 @@ export function useChat(
           setStreaming(false);
           streamingRef.current = false;
           assistantBuffer.current = '';
+          // Use the real server message id so feedback can target it
+          const finalId = payload.message_id ?? `streamed-${Date.now()}`;
+          const recalled = payload.recalled ? Number(payload.recalled) : undefined;
           setMessages((prev) =>
-            prev.map((m) =>
-              m.id === 'streaming' ? { ...m, id: `streamed-${Date.now()}` } : m,
-            ),
+            prev.map((m) => (m.id === 'streaming' ? { ...m, id: finalId, recalled } : m)),
           );
           // First reply done — background title generation may now be complete
           if (!firstReplyRef.current) {
@@ -139,6 +151,13 @@ export function useChat(
         }
       };
     });
+
+    connectingRef.current = connectPromise;
+    connectPromise.then(
+      () => { connectingRef.current = null; },
+      () => { connectingRef.current = null; },
+    );
+    return connectPromise;
   }, [token, chatId]);
 
   const ensureConnected = useCallback(async () => {
@@ -196,6 +215,34 @@ export function useChat(
     [token, chatId, ensureConnected],
   );
 
+  const editLastMessage = useCallback(
+    async (content: string, model?: string) => {
+      if (!token || !chatId) return;
+
+      // Locally: drop the trailing assistant reply and rewrite the last user message
+      setMessages((prev) => {
+        const next = [...prev];
+        if (next[next.length - 1]?.role === 'assistant') next.pop();
+        for (let i = next.length - 1; i >= 0; i--) {
+          if (next[i].role === 'user') {
+            next[i] = { ...next[i], content };
+            break;
+          }
+        }
+        return next;
+      });
+
+      await ensureConnected();
+      if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+
+      setStreaming(true);
+      streamingRef.current = true;
+      assistantBuffer.current = '';
+      wsRef.current.send(JSON.stringify({ type: 'edit', content, model }));
+    },
+    [token, chatId, ensureConnected],
+  );
+
   const stopGeneration = useCallback(() => {
     wsRef.current?.send(JSON.stringify({ type: 'cancel' }));
     setStreaming(false);
@@ -208,6 +255,7 @@ export function useChat(
     streaming,
     sendMessage,
     regenerateResponse,
+    editLastMessage,
     stopGeneration,
     connect,
   };

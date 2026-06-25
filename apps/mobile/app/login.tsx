@@ -17,7 +17,7 @@ function GoogleG() {
 }
 
 export default function LoginScreen() {
-  const { token, loading, signInWithGoogle, signInWithDev } = useAuth();
+  const { token, loading, onboarded, signInWithGoogle, signInWithDev } = useAuth();
   const [busy, setBusy] = useState<'google' | 'dev' | null>(null);
 
   if (loading) {
@@ -29,6 +29,7 @@ export default function LoginScreen() {
   }
 
   if (token) return <Redirect href="/(drawer)" />;
+  if (!onboarded) return <Redirect href="/onboarding" />;
 
   const handleGoogle = async () => {
     setBusy('google');

@@ -129,6 +129,7 @@ def test_create_chat():
     chat.id = uuid4()
     chat.title = None
     chat.model = "free-chat"
+    chat.pinned = False
     chat.created_at = datetime(2024, 1, 1)
     chat.updated_at = datetime(2024, 1, 1)
 
@@ -158,7 +159,7 @@ def test_list_chats():
         client = TestClient(app)
         r = client.get("/chats", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 200
-    assert r.json() == {"today": [], "yesterday": [], "earlier": []}
+    assert r.json() == {"pinned": [], "today": [], "yesterday": [], "earlier": []}
 
 
 def test_get_chat_not_found():

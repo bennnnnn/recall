@@ -64,6 +64,26 @@ async def list_all(
     return list(result.scalars().all())
 
 
+async def list_range(
+    session: AsyncSession,
+    chat_id: UUID,
+    *,
+    offset: int,
+    limit: int,
+) -> list[Message]:
+    """Oldest-first slice of a chat's messages — used by history compression."""
+    if limit <= 0:
+        return []
+    result = await session.execute(
+        select(Message)
+        .where(Message.chat_id == chat_id)
+        .order_by(Message.created_at.asc())
+        .offset(offset)
+        .limit(limit)
+    )
+    return list(result.scalars().all())
+
+
 async def get_last(session: AsyncSession, chat_id: UUID) -> Message | None:
     result = await session.execute(
         select(Message)
@@ -94,3 +114,34 @@ async def count_for_chat(session: AsyncSession, chat_id: UUID) -> int:
         select(func.count()).select_from(Message).where(Message.chat_id == chat_id)
     )
     return result.scalar_one()
+
+
+async def update_content(
+    session: AsyncSession,
+    message: Message,
+    content: str,
+    input_tokens: int,
+) -> Message:
+    message.content = content
+    message.input_tokens = input_tokens
+    await session.commit()
+    await session.refresh(message)
+    return message
+
+
+async def set_feedback(
+    session: AsyncSession,
+    message_id: UUID,
+    chat_id: UUID,
+    feedback: str | None,
+) -> Message | None:
+    result = await session.execute(
+        select(Message).where(Message.id == message_id, Message.chat_id == chat_id)
+    )
+    message = result.scalar_one_or_none()
+    if message is None:
+        return None
+    message.feedback = feedback
+    await session.commit()
+    await session.refresh(message)
+    return message

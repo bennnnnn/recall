@@ -26,6 +26,7 @@ function RootNavigator() {
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: C.bg } }}>
       <Stack.Screen name="login" />
+      <Stack.Screen name="onboarding" />
       <Stack.Screen name="(drawer)" />
       <Stack.Screen name="memory" options={{ ...HEADER, headerShown: true, title: 'Memory' }} />
       <Stack.Screen name="settings" options={{ ...HEADER, headerShown: true, title: 'Settings' }} />

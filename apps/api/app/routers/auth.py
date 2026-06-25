@@ -11,6 +11,7 @@ from app.models.orm import User
 from app.models.schemas import AuthResponse, DevAuthRequest, GoogleAuthRequest, UserOut, UserUpdate
 from app.repositories import users as users_repo
 from app.services import auth as auth_service
+from app.services import export_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -75,3 +76,19 @@ async def update_me(
         **body.model_dump(exclude_unset=True),
     )
     return UserOut.model_validate(updated)
+
+
+@router.get("/me/export")
+async def export_me(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> dict:
+    return await export_service.build_export(session, user)
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_me(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> None:
+    await users_repo.delete_user(session, user.id)

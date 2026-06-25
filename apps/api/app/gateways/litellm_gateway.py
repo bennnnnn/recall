@@ -1,7 +1,6 @@
 import json
 import logging
 from collections.abc import AsyncIterator
-from dataclasses import dataclass
 from typing import Any
 
 from litellm import acompletion
@@ -9,45 +8,30 @@ from litellm import acompletion
 from app.core.config import Settings
 from app.gateways import mock_llm
 from app.models.schemas import MemoryExtractionResult
+from app.services import model_catalog
+from app.services.model_catalog import ChatModel
 
 logger = logging.getLogger(__name__)
-
-OPENROUTER_API_BASE = "https://openrouter.ai/api/v1"
 
 
 class ModelUnavailableError(Exception):
     pass
 
 
-@dataclass(frozen=True)
-class ModelRoute:
-    model: str
-    api_key_field: str
-    api_base: str | None = None
-
-
-MODEL_ALIAS_MAP: dict[str, ModelRoute] = {
-    "free-chat": ModelRoute("deepseek/deepseek-chat", "deepseek_api_key"),
-    "smart-chat": ModelRoute("deepseek/deepseek-reasoner", "deepseek_api_key"),
-    "title-model": ModelRoute("deepseek/deepseek-chat", "deepseek_api_key"),
-    "memory-model": ModelRoute("deepseek/deepseek-chat", "deepseek_api_key"),
-}
-
-
 def resolve_model(alias: str) -> str:
-    return MODEL_ALIAS_MAP.get(alias, MODEL_ALIAS_MAP["free-chat"]).model
+    return model_catalog.get(alias).model
 
 
-def resolve_route(alias: str) -> ModelRoute:
-    return MODEL_ALIAS_MAP.get(alias, MODEL_ALIAS_MAP["free-chat"])
+def resolve_route(alias: str) -> ChatModel:
+    return model_catalog.get(alias)
 
 
-def _litellm_kwargs(settings: Settings, route: ModelRoute) -> dict[str, Any]:
+def _litellm_kwargs(settings: Settings, route: ChatModel) -> dict[str, Any]:
     kwargs: dict[str, Any] = {}
     api_key = getattr(settings, route.api_key_field, "")
     if not api_key:
         raise ModelUnavailableError(
-            f"No API key configured for model alias (needs {route.api_key_field})."
+            f"No API key configured for {route.label} (needs {route.api_key_field})."
         )
     kwargs["api_key"] = api_key
     if route.api_base:
@@ -203,3 +187,45 @@ async def extract_memories(
         schema=MemoryExtractionResult,
         max_tokens=512,
     )
+
+
+async def summarize_conversation(
+    settings: Settings,
+    prior_summary: str | None,
+    messages: list[dict[str, str]],
+) -> str | None:
+    if mock_llm.should_mock_llm(settings):
+        return await mock_llm.mock_summary(prior_summary, messages)
+
+    transcript = "\n".join(f"{m['role']}: {m['content']}" for m in messages)
+    parts: list[str] = []
+    if prior_summary:
+        parts.append(f"Existing summary:\n{prior_summary}")
+    parts.append(f"New messages to fold in:\n{transcript}")
+
+    msgs = [
+        {
+            "role": "system",
+            "content": (
+                "You compress a conversation into a concise running summary so an "
+                "assistant can continue it later. Merge the existing summary with the "
+                "new messages. Keep durable facts, decisions, goals, and open threads; "
+                "drop chit-chat. Reply with the summary only."
+            ),
+        },
+        {"role": "user", "content": "\n\n".join(parts)},
+    ]
+    route = resolve_route("memory-model")
+    kwargs = _litellm_kwargs(settings, route)
+    try:
+        response = await acompletion(
+            model=route.model,
+            messages=msgs,
+            max_tokens=settings.summary_max_tokens,
+            **kwargs,
+        )
+        text = (response.choices[0].message.content or "").strip()
+        return text or None
+    except Exception:
+        logger.exception("Conversation summarization failed")
+        return None

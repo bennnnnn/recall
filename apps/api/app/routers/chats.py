@@ -4,22 +4,28 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.background.tasks import spawn
+from app.core import jobs
 from app.core.config import Settings
-from app.core.db import SessionLocal, get_db
+from app.core.db import get_db
 from app.core.deps import get_current_user, get_redis, get_settings_dep
 from app.models.orm import User
-from app.models.schemas import ChatCreate, ChatListOut, ChatOut, ChatRename, MessageOut, UsageOut
+from app.models.schemas import (
+    ChatCreate,
+    ChatListOut,
+    ChatOut,
+    ChatRename,
+    FeedbackUpdate,
+    MessageOut,
+    PinUpdate,
+    UsageOut,
+)
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.repositories import usage as usage_repo
 from app.services import quota as quota_service
-from app.services import topic as topic_service
 from app.services.quota import utc_today
 
 router = APIRouter(prefix="/chats", tags=["chats"])
-
-_title_backfill_pending: set[UUID] = set()
 
 
 @router.post("", response_model=ChatOut, status_code=status.HTTP_201_CREATED)
@@ -38,8 +44,10 @@ async def list_chats(
     session: AsyncSession = Depends(get_db),
 ) -> ChatListOut:
     chats = await chats_repo.list_for_user(session, user.id)
-    grouped = chats_repo.group_by_recency(chats)
+    pinned = [c for c in chats if c.pinned]
+    grouped = chats_repo.group_by_recency([c for c in chats if not c.pinned])
     return ChatListOut(
+        pinned=[ChatOut.model_validate(c) for c in pinned],
         today=[ChatOut.model_validate(c) for c in grouped["today"]],
         yesterday=[ChatOut.model_validate(c) for c in grouped["yesterday"]],
         earlier=[ChatOut.model_validate(c) for c in grouped["earlier"]],
@@ -57,6 +65,20 @@ async def rename_chat(
     if chat is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
     chat = await chats_repo.set_title(session, chat, body.title)
+    return ChatOut.model_validate(chat)
+
+
+@router.patch("/{chat_id}/pin", response_model=ChatOut)
+async def pin_chat(
+    chat_id: UUID,
+    body: PinUpdate,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> ChatOut:
+    chat = await chats_repo.get_by_id(session, chat_id, user.id)
+    if chat is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
+    chat = await chats_repo.set_pinned(session, chat, body.pinned)
     return ChatOut.model_validate(chat)
 
 
@@ -109,7 +131,7 @@ async def list_messages(
     chat_id: UUID,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
-    settings: Settings = Depends(get_settings_dep),
+    redis: Redis = Depends(get_redis),
     limit: int = 200,
 ) -> list[MessageOut]:
     chat = await chats_repo.get_by_id(session, chat_id, user.id)
@@ -117,19 +139,37 @@ async def list_messages(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
     msgs = await messages_repo.list_all(session, chat_id, limit=limit)
 
-    if not chat.title and msgs and chat_id not in _title_backfill_pending:
+    # Backfill a missing title via the durable job queue. Idempotent: the handler
+    # only sets a title when the chat still has none.
+    if not chat.title and msgs:
         user_msg = next((m for m in msgs if m.role == "user"), None)
         asst_msg = next((m for m in msgs if m.role == "assistant"), None)
         if user_msg and asst_msg:
-            _title_backfill_pending.add(chat_id)
-
-            async def _backfill(cid: UUID, u: str, a: str) -> None:
-                try:
-                    async with SessionLocal() as bg_session:
-                        await topic_service.generate_chat_title(bg_session, settings, cid, u, a)
-                finally:
-                    _title_backfill_pending.discard(cid)
-
-            spawn(_backfill(chat_id, user_msg.content, asst_msg.content))
+            await jobs.enqueue(
+                redis,
+                "topic",
+                {
+                    "chat_id": str(chat_id),
+                    "user_message": user_msg.content,
+                    "assistant_message": asst_msg.content,
+                },
+            )
 
     return [MessageOut.model_validate(m) for m in msgs]
+
+
+@router.patch("/{chat_id}/messages/{message_id}/feedback", response_model=MessageOut)
+async def set_message_feedback(
+    chat_id: UUID,
+    message_id: UUID,
+    body: FeedbackUpdate,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> MessageOut:
+    chat = await chats_repo.get_by_id(session, chat_id, user.id)
+    if chat is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
+    message = await messages_repo.set_feedback(session, message_id, chat_id, body.feedback)
+    if message is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
+    return MessageOut.model_validate(message)

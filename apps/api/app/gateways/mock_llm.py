@@ -42,3 +42,9 @@ async def mock_memories(user_message: str):
             )
         ]
     )
+
+
+async def mock_summary(prior_summary: str | None, messages: list[dict[str, str]]) -> str:
+    snippets = "; ".join(m.get("content", "")[:40] for m in messages[:3] if m.get("content"))
+    base = f"{prior_summary} " if prior_summary else ""
+    return (base + f"Earlier the user and assistant discussed: {snippets}.").strip()

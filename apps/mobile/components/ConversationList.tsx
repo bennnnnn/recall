@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,38 +11,56 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { closeDrawer } from '@/lib/drawer';
+import { closeDrawer, startNewChatGlobal } from '@/lib/drawer';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Avatar } from '@/components/Avatar';
 import { C } from '@/constants/Colors';
 import { useAuth } from '@/contexts/AuthContext';
+import { useDrawer } from '@/contexts/DrawerContext';
 import { api, Chat } from '@/lib/api';
+import { tap } from '@/lib/haptics';
+import { shareConversation } from '@/lib/share';
 
 const TOP_CHROME = 92;
 const SEARCH_EXTRA = 44;
 const FOOTER_CHROME = 54;
 const FADE_EXTRA = 40;
 
-function ChatRow({ chat, onOpen }: { chat: Chat; onOpen: () => void }) {
+function ChatRow({
+  chat,
+  onOpen,
+  onLongPress,
+}: {
+  chat: Chat;
+  onOpen: () => void;
+  onLongPress: () => void;
+}) {
   return (
-    <Pressable style={r.row} onPress={onOpen}>
-      <Ionicons name="chatbubble-outline" size={16} color={C.textTertiary} style={r.rowIcon} />
+    <Pressable style={r.row} onPress={onOpen} onLongPress={onLongPress}>
+      <Ionicons
+        name={chat.pinned ? 'bookmark' : 'chatbubble-outline'}
+        size={16}
+        color={chat.pinned ? C.primary : C.textTertiary}
+        style={r.rowIcon}
+      />
       <Text style={r.title} numberOfLines={1}>{chat.title ?? 'New chat'}</Text>
     </Pressable>
   );
 }
 
-function Section({ title, chats, onOpen }: {
+function Section({ title, chats, onOpen, onLongPress }: {
   title: string; chats: Chat[];
   onOpen: (id: string) => void;
+  onLongPress: (chat: Chat) => void;
 }) {
   if (!chats.length) return null;
   return (
     <View style={s.section}>
       <Text style={s.sectionTitle}>{title}</Text>
       {chats.map((c) => (
-        <ChatRow key={c.id} chat={c} onOpen={() => onOpen(c.id)} />
+        <ChatRow key={c.id} chat={c} onOpen={() => onOpen(c.id)} onLongPress={() => onLongPress(c)} />
       ))}
     </View>
   );
@@ -49,19 +68,20 @@ function Section({ title, chats, onOpen }: {
 
 export function ConversationList(_props: unknown) {
   const { token, user } = useAuth();
+  const { isOpen } = useDrawer();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
   const [loading, setLoading] = useState(true);
-  const [groups, setGroups] = useState<{ today: Chat[]; yesterday: Chat[]; earlier: Chat[] }>({
-    today: [], yesterday: [], earlier: [],
-  });
+  const [groups, setGroups] = useState<{
+    pinned: Chat[]; today: Chat[]; yesterday: Chat[]; earlier: Chat[];
+  }>({ pinned: [], today: [], yesterday: [], earlier: [] });
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [error, setError] = useState(false);
 
   const allChats = useMemo(
-    () => [...groups.today, ...groups.yesterday, ...groups.earlier],
+    () => [...groups.pinned, ...groups.today, ...groups.yesterday, ...groups.earlier],
     [groups],
   );
 
@@ -70,6 +90,7 @@ export function ConversationList(_props: unknown) {
     const q = query.toLowerCase();
     const keep = (c: Chat) => (c.title ?? 'New chat').toLowerCase().includes(q);
     return {
+      pinned: groups.pinned.filter(keep),
       today: groups.today.filter(keep),
       yesterday: groups.yesterday.filter(keep),
       earlier: groups.earlier.filter(keep),
@@ -91,6 +112,13 @@ export function ConversationList(_props: unknown) {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
+  // The custom drawer is always mounted, so navigation focus doesn't change when
+  // it opens. Refresh the list each time it slides open so new chats and freshly
+  // generated titles appear without needing a remount.
+  useEffect(() => {
+    if (isOpen) load();
+  }, [isOpen, load]);
+
   const openChat = (id: string) => {
     closeDrawer();
     router.setParams({ chatId: id });
@@ -98,12 +126,49 @@ export function ConversationList(_props: unknown) {
 
   const newChat = () => {
     closeDrawer();
-    router.setParams({ chatId: undefined });
+    startNewChatGlobal();
   };
 
-  const initials = user?.name
-    ? user.name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
-    : '?';
+  const showRowMenu = (chat: Chat) => {
+    tap();
+    Alert.alert(chat.title ?? 'New chat', undefined, [
+      {
+        text: chat.pinned ? 'Unpin' : 'Pin',
+        onPress: async () => {
+          if (!token) return;
+          try { await api.setPin(token, chat.id, !chat.pinned); load(); } catch { /* ignore */ }
+        },
+      },
+      {
+        text: 'Share',
+        onPress: async () => {
+          if (!token) return;
+          try {
+            const msgs = await api.listMessages(token, chat.id);
+            await shareConversation(chat.title, msgs);
+          } catch { /* ignore */ }
+        },
+      },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          Alert.alert('Delete chat', 'This conversation will be permanently removed.', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Delete',
+              style: 'destructive',
+              onPress: async () => {
+                if (!token) return;
+                try { await api.deleteChat(token, chat.id); load(); } catch { /* ignore */ }
+              },
+            },
+          ]);
+        },
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
 
   const topInset = insets.top + 8 + TOP_CHROME + (searchOpen ? SEARCH_EXTRA : 0);
   const bottomInset = insets.bottom + 8 + FOOTER_CHROME;
@@ -129,9 +194,10 @@ export function ConversationList(_props: unknown) {
       style={s.list}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingTop: topInset, paddingBottom: bottomInset }}>
-      <Section title="Today" chats={filtered.today} onOpen={openChat} />
-      <Section title="Yesterday" chats={filtered.yesterday} onOpen={openChat} />
-      <Section title="Earlier" chats={filtered.earlier} onOpen={openChat} />
+      <Section title="Pinned" chats={filtered.pinned} onOpen={openChat} onLongPress={showRowMenu} />
+      <Section title="Today" chats={filtered.today} onOpen={openChat} onLongPress={showRowMenu} />
+      <Section title="Yesterday" chats={filtered.yesterday} onOpen={openChat} onLongPress={showRowMenu} />
+      <Section title="Earlier" chats={filtered.earlier} onOpen={openChat} onLongPress={showRowMenu} />
     </ScrollView>
   );
 
@@ -211,7 +277,7 @@ export function ConversationList(_props: unknown) {
 
       {/* Floating footer — user + settings */}
       <View style={[s.footer, { paddingBottom: insets.bottom + 8 }]} pointerEvents="box-none">
-        <View style={s.avatar}><Text style={s.avatarText}>{initials}</Text></View>
+        <Avatar name={user?.name ?? null} uri={user?.avatar_url} size={34} />
         <Text style={s.footerName} numberOfLines={1}>{user?.name ?? 'You'}</Text>
         <Pressable style={s.settingsBtn} onPress={() => { closeDrawer(); router.push('/settings'); }}>
           <Ionicons name="settings-outline" size={22} color={C.textSecondary} />

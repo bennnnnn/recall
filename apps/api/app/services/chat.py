@@ -6,8 +6,7 @@ from uuid import UUID
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.background import memory_extraction, topic_generation
-from app.background.tasks import spawn
+from app.core import jobs
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.exceptions import ChatNotFoundError, QuotaExceededError
@@ -20,6 +19,8 @@ from app.repositories import usage as usage_repo
 from app.repositories import users as users_repo
 from app.services import memory as memory_service
 from app.services import quota as quota_service
+from app.services import routing
+from app.services.context_window import estimate_tokens, select_recent_window
 from app.services.quota import utc_today
 
 logger = logging.getLogger(__name__)
@@ -31,10 +32,6 @@ STYLE_HINTS = {
 }
 
 
-def estimate_tokens(text: str) -> int:
-    return max(1, len(text) // 4)
-
-
 @dataclass
 class _StreamContext:
     user_id: UUID
@@ -44,6 +41,7 @@ class _StreamContext:
     run_title: bool
     user_message_content: str
     reserved_tokens: int
+    recalled_count: int = 0
 
 
 async def build_prompt_messages(
@@ -51,10 +49,21 @@ async def build_prompt_messages(
     user: User,
     chat_id: UUID,
     settings: Settings,
+    *,
+    summary: str | None = None,
+    out: dict[str, int] | None = None,
 ) -> list[dict[str, str]]:
-    memories = await memory_service.load_relevant_memories(session, user, settings)
-    memory_block = memory_service.format_memory_block(memories)
-    recent = await messages_repo.list_recent(session, chat_id, limit=settings.recent_message_window)
+    memory_block = await memory_service.get_memory_block(session, user, settings)
+    if out is not None:
+        # Number of memories injected this turn (one "- " bullet per memory).
+        out["recalled"] = memory_block.count("\n- ") if memory_block else 0
+    recent_all = await messages_repo.list_recent(
+        session, chat_id, limit=settings.recent_message_window
+    )
+    keep = select_recent_window(
+        recent_all, settings.context_token_budget, settings.recent_message_window
+    )
+    recent = recent_all[-keep:] if keep else []
 
     system_parts = [
         "You are Recall, a helpful personal AI assistant.",
@@ -62,6 +71,8 @@ async def build_prompt_messages(
     ]
     if memory_block:
         system_parts.append(memory_block)
+    if summary:
+        system_parts.append(f"Summary of earlier conversation:\n{summary}")
 
     messages: list[dict[str, str]] = [{"role": "system", "content": "\n\n".join(system_parts)}]
     for msg in recent:
@@ -78,6 +89,7 @@ async def stream_chat_response(
     content: str,
     model_alias: str | None = None,
     should_cancel: Callable[[], bool] | None = None,
+    result: dict[str, str] | None = None,
 ) -> AsyncIterator[str]:
     reserved = estimate_tokens(content) + settings.max_output_tokens
     if not await quota_service.reserve_usage(redis, str(user_id), reserved, settings):
@@ -107,6 +119,7 @@ async def stream_chat_response(
             settings,
             ctx,
             should_cancel=should_cancel,
+            result=result,
         ):
             yield token
     except ModelUnavailableError:
@@ -125,6 +138,7 @@ async def stream_regenerate_response(
     chat_id: UUID,
     model_alias: str | None = None,
     should_cancel: Callable[[], bool] | None = None,
+    result: dict[str, str] | None = None,
 ) -> AsyncIterator[str]:
     async with SessionLocal() as session:
         user = await users_repo.get_by_id(session, user_id)
@@ -146,7 +160,11 @@ async def stream_regenerate_response(
             raise ChatNotFoundError("No user message to regenerate from.")
 
         model = model_alias or chat.model or user.default_model
-        prompt_messages = await build_prompt_messages(session, user, chat_id, settings)
+        model = routing.resolve_alias(model, last_user.content)
+        meta: dict[str, int] = {}
+        prompt_messages = await build_prompt_messages(
+            session, user, chat_id, settings, summary=chat.summary, out=meta
+        )
         user_message_content = last_user.content
 
     reserved = estimate_tokens(user_message_content) + settings.max_output_tokens
@@ -161,6 +179,7 @@ async def stream_regenerate_response(
         run_title=False,
         user_message_content=user_message_content,
         reserved_tokens=reserved,
+        recalled_count=meta.get("recalled", 0),
     )
 
     try:
@@ -169,6 +188,77 @@ async def stream_regenerate_response(
             settings,
             ctx,
             should_cancel=should_cancel,
+            result=result,
+        ):
+            yield token
+    except ModelUnavailableError:
+        await quota_service.refund_usage(redis, str(user_id), reserved)
+        raise
+    except Exception:
+        await quota_service.refund_usage(redis, str(user_id), reserved)
+        raise
+
+
+async def stream_edit_last_response(
+    redis: Redis,
+    settings: Settings,
+    *,
+    user_id: UUID,
+    chat_id: UUID,
+    content: str,
+    model_alias: str | None = None,
+    should_cancel: Callable[[], bool] | None = None,
+    result: dict[str, str] | None = None,
+) -> AsyncIterator[str]:
+    """Replace the last user message with `content`, drop the last reply, re-run."""
+    async with SessionLocal() as session:
+        user = await users_repo.get_by_id(session, user_id)
+        if user is None:
+            raise ChatNotFoundError("User not found.")
+
+        chat = await chats_repo.get_by_id(session, chat_id, user_id)
+        if chat is None:
+            raise ChatNotFoundError("Chat not found.")
+
+        last = await messages_repo.get_last(session, chat_id)
+        if last is not None and last.role == "assistant":
+            await messages_repo.delete_message(session, last)
+
+        last_user = await messages_repo.get_last_user(session, chat_id)
+        if last_user is None:
+            raise ChatNotFoundError("No user message to edit.")
+
+        await messages_repo.update_content(session, last_user, content, estimate_tokens(content))
+
+        model = model_alias or chat.model or user.default_model
+        model = routing.resolve_alias(model, content)
+        meta: dict[str, int] = {}
+        prompt_messages = await build_prompt_messages(
+            session, user, chat_id, settings, summary=chat.summary, out=meta
+        )
+
+    reserved = estimate_tokens(content) + settings.max_output_tokens
+    if not await quota_service.reserve_usage(redis, str(user_id), reserved, settings):
+        raise QuotaExceededError("Daily token limit reached. Try again tomorrow.")
+
+    ctx = _StreamContext(
+        user_id=user_id,
+        chat_id=chat_id,
+        model=model,
+        prompt_messages=prompt_messages,
+        run_title=False,
+        user_message_content=content,
+        reserved_tokens=reserved,
+        recalled_count=meta.get("recalled", 0),
+    )
+
+    try:
+        async for token in _stream_and_finalize(
+            redis,
+            settings,
+            ctx,
+            should_cancel=should_cancel,
+            result=result,
         ):
             yield token
     except ModelUnavailableError:
@@ -198,6 +288,7 @@ async def _prepare_chat_turn(
             raise ChatNotFoundError("Chat not found.")
 
         model = model_alias or chat.model or user.default_model
+        model = routing.resolve_alias(model, content)
         prior_count = await messages_repo.count_for_chat(session, chat_id)
 
         await messages_repo.create(
@@ -209,7 +300,10 @@ async def _prepare_chat_turn(
             model=model,
             input_tokens=estimate_tokens(content),
         )
-        prompt_messages = await build_prompt_messages(session, user, chat_id, settings)
+        meta: dict[str, int] = {}
+        prompt_messages = await build_prompt_messages(
+            session, user, chat_id, settings, summary=chat.summary, out=meta
+        )
 
         return _StreamContext(
             user_id=user_id,
@@ -219,6 +313,7 @@ async def _prepare_chat_turn(
             run_title=prior_count == 0,
             user_message_content=content,
             reserved_tokens=reserved_tokens,
+            recalled_count=meta.get("recalled", 0),
         )
 
 
@@ -228,6 +323,7 @@ async def _stream_and_finalize(
     ctx: _StreamContext,
     *,
     should_cancel: Callable[[], bool] | None,
+    result: dict[str, str] | None = None,
 ) -> AsyncIterator[str]:
     usage: dict[str, int] = {}
     assistant_parts: list[str] = []
@@ -256,7 +352,7 @@ async def _stream_and_finalize(
     total_tokens = input_tokens + output_tokens
 
     async with SessionLocal() as session:
-        await messages_repo.create(
+        assistant_message = await messages_repo.create(
             session,
             chat_id=ctx.chat_id,
             user_id=ctx.user_id,
@@ -266,6 +362,10 @@ async def _stream_and_finalize(
             input_tokens=input_tokens,
             output_tokens=output_tokens,
         )
+        if result is not None:
+            result["message_id"] = str(assistant_message.id)
+            if ctx.recalled_count:
+                result["recalled"] = str(ctx.recalled_count)
 
         chat = await chats_repo.get_by_id(session, ctx.chat_id, ctx.user_id)
         if chat is not None:
@@ -284,45 +384,24 @@ async def _stream_and_finalize(
 
     await quota_service.adjust_usage(redis, str(ctx.user_id), ctx.reserved_tokens, total_tokens)
 
-    spawn(
-        _background_memory(
-            settings,
-            ctx.user_id,
-            ctx.chat_id,
-            ctx.user_message_content,
-            assistant_text,
-        )
+    await jobs.enqueue(
+        redis,
+        "memory",
+        {
+            "user_id": str(ctx.user_id),
+            "chat_id": str(ctx.chat_id),
+            "transcript": f"User: {ctx.user_message_content}\nAssistant: {assistant_text}",
+        },
     )
     if ctx.run_title:
-        spawn(
-            _background_topic(settings, ctx.chat_id, ctx.user_message_content, assistant_text),
+        await jobs.enqueue(
+            redis,
+            "topic",
+            {
+                "chat_id": str(ctx.chat_id),
+                "user_message": ctx.user_message_content,
+                "assistant_message": assistant_text,
+            },
         )
-
-
-async def _background_topic(
-    settings: Settings,
-    chat_id: UUID,
-    user_message: str,
-    assistant_message: str,
-) -> None:
-    async with SessionLocal() as session:
-        await topic_generation.generate_chat_title(
-            session, settings, chat_id, user_message, assistant_message
-        )
-
-
-async def _background_memory(
-    settings: Settings,
-    user_id: UUID,
-    chat_id: UUID,
-    user_message: str,
-    assistant_message: str,
-) -> None:
-    async with SessionLocal() as session:
-        await memory_extraction.extract_and_store_memories(
-            session,
-            settings,
-            user_id=user_id,
-            chat_id=chat_id,
-            transcript=f"User: {user_message}\nAssistant: {assistant_message}",
-        )
+    if settings.history_compression_enabled:
+        await jobs.enqueue(redis, "compress", {"chat_id": str(ctx.chat_id)})

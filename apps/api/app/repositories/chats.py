@@ -71,3 +71,10 @@ async def set_title(session: AsyncSession, chat: Chat, title: str) -> Chat:
     await session.commit()
     await session.refresh(chat)
     return chat
+
+
+async def set_pinned(session: AsyncSession, chat: Chat, pinned: bool) -> Chat:
+    chat.pinned = pinned
+    await session.commit()
+    await session.refresh(chat)
+    return chat

@@ -28,13 +28,21 @@ async def _stream_over_ws(
     websocket: WebSocket,
     stream: AsyncIterator[str],
     cancel_event: asyncio.Event,
+    result: dict[str, str],
 ) -> None:
     async def run_stream() -> None:
         async for token_text in stream:
             if cancel_event.is_set():
                 break
             await websocket.send_json({"type": "token", "content": token_text})
-        await websocket.send_json({"type": "done"})
+        done: dict[str, str] = {"type": "done"}
+        message_id = result.get("message_id")
+        if message_id:
+            done["message_id"] = message_id
+        recalled = result.get("recalled")
+        if recalled:
+            done["recalled"] = recalled
+        await websocket.send_json(done)
 
     producer = asyncio.create_task(run_stream())
     try:
@@ -72,15 +80,14 @@ async def _stream_over_ws(
 async def _run_chat_stream(
     websocket: WebSocket,
     *,
-    user_id: UUID,
-    chat_id: UUID,
     cancel_event: asyncio.Event,
-    stream_factory: Callable[[], AsyncIterator[str]],
+    stream_factory: Callable[[dict[str, str]], AsyncIterator[str]],
 ) -> None:
     cancel_event.clear()
     await websocket.send_json({"type": "start"})
+    result: dict[str, str] = {}
     try:
-        await _stream_over_ws(websocket, stream_factory(), cancel_event)
+        await _stream_over_ws(websocket, stream_factory(result), cancel_event, result)
     except ChatServiceError as exc:
         await websocket.send_json({"type": "error", "message": exc.message})
     except ModelUnavailableError as exc:
@@ -158,7 +165,7 @@ async def chat_websocket(
                         await websocket.send_json({"type": "error", "message": "User not found"})
                         continue
 
-                def _regen_stream(model=regen_model):
+                def _regen_stream(result, model=regen_model):
                     return chat_service.stream_regenerate_response(
                         redis,
                         settings,
@@ -166,14 +173,49 @@ async def chat_websocket(
                         chat_id=chat_id,
                         model_alias=model,
                         should_cancel=cancel_event.is_set,
+                        result=result,
                     )
 
                 await _run_chat_stream(
                     websocket,
-                    user_id=user_id,
-                    chat_id=chat_id,
                     cancel_event=cancel_event,
                     stream_factory=_regen_stream,
+                )
+                continue
+
+            if msg_type == "edit":
+                edit_content = payload.get("content", "").strip()
+                if not edit_content:
+                    continue
+                try:
+                    request = ChatMessageRequest.model_validate(payload)
+                except ValidationError:
+                    await websocket.send_json({"type": "error", "message": "Invalid edit request"})
+                    continue
+                edit_model = request.model
+
+                async with SessionLocal() as session:
+                    user = await auth_service.get_current_user(session, user_id)
+                    if user is None:
+                        await websocket.send_json({"type": "error", "message": "User not found"})
+                        continue
+
+                def _edit_stream(result, text=edit_content, model=edit_model):
+                    return chat_service.stream_edit_last_response(
+                        redis,
+                        settings,
+                        user_id=user_id,
+                        chat_id=chat_id,
+                        content=text,
+                        model_alias=model,
+                        should_cancel=cancel_event.is_set,
+                        result=result,
+                    )
+
+                await _run_chat_stream(
+                    websocket,
+                    cancel_event=cancel_event,
+                    stream_factory=_edit_stream,
                 )
                 continue
 
@@ -199,7 +241,7 @@ async def chat_websocket(
                     await websocket.send_json({"type": "error", "message": "User not found"})
                     continue
 
-            def _message_stream(text=message_content, model=message_model):
+            def _message_stream(result, text=message_content, model=message_model):
                 return chat_service.stream_chat_response(
                     redis,
                     settings,
@@ -208,12 +250,11 @@ async def chat_websocket(
                     content=text,
                     model_alias=model,
                     should_cancel=cancel_event.is_set,
+                    result=result,
                 )
 
             await _run_chat_stream(
                 websocket,
-                user_id=user_id,
-                chat_id=chat_id,
                 cancel_event=cancel_event,
                 stream_factory=_message_stream,
             )

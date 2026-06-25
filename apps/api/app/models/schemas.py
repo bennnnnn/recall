@@ -6,8 +6,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 MessageRole = Literal["user", "assistant", "system"]
 MemoryType = Literal["profile", "preference", "project", "fact", "focus"]
-ModelAlias = Literal["free-chat", "smart-chat", "title-model", "memory-model"]
+ModelAlias = Literal["auto", "free-chat", "smart-chat", "max-chat", "title-model", "memory-model"]
 ResponseStyle = Literal["short", "balanced", "detailed"]
+MessageFeedback = Literal["up", "down"]
 
 
 class UserOut(BaseModel):
@@ -53,17 +54,27 @@ class ChatRename(BaseModel):
     title: str = Field(min_length=1, max_length=80)
 
 
+class PinUpdate(BaseModel):
+    pinned: bool
+
+
+class FeedbackUpdate(BaseModel):
+    feedback: MessageFeedback | None = None
+
+
 class ChatOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
     title: str | None
     model: str
+    pinned: bool = False
     created_at: datetime
     updated_at: datetime
 
 
 class ChatListOut(BaseModel):
+    pinned: list[ChatOut] = Field(default_factory=list)
     today: list[ChatOut] = Field(default_factory=list)
     yesterday: list[ChatOut] = Field(default_factory=list)
     earlier: list[ChatOut] = Field(default_factory=list)
@@ -76,6 +87,7 @@ class MessageOut(BaseModel):
     role: MessageRole
     content: str
     model: str | None
+    feedback: MessageFeedback | None = None
     created_at: datetime
 
 
@@ -96,6 +108,17 @@ class UsageOut(BaseModel):
     output_tokens: int
     daily_limit: int
     remaining: int
+
+
+class ModelInfo(BaseModel):
+    id: str
+    label: str
+    provider: str
+    description: str
+    tier: str
+    available: bool
+    input_price_per_m: float | None = None
+    output_price_per_m: float | None = None
 
 
 class ChatMessageRequest(BaseModel):

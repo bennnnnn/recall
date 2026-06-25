@@ -1,16 +1,24 @@
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import Markdown from 'react-native-markdown-display';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useState } from 'react';
+import { Animated, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { C } from '@/constants/Colors';
+import { CodeBlock } from '@/components/CodeBlock';
 import { Message } from '@/lib/api';
+
+// Messages taller than this get folded behind a "Show more" toggle.
+const COLLAPSED_MAX_HEIGHT = 320;
+const OVERFLOW_SLACK = 24;
 
 type Props = {
   message: Message;
   isLastAssistant?: boolean;
   onRegenerate?: () => void;
+  onFeedback?: (messageId: string, feedback: 'up' | 'down' | null) => void;
+  onEdit?: () => void;
 };
 
 async function copyText(text: string) {
@@ -18,34 +26,32 @@ async function copyText(text: string) {
 }
 
 const renderRules = {
-  fence: (node: { key: string; content: string; info?: string }) => {
-    const lang = node.info?.trim() || '';
-    const code = node.content.trimEnd();
-    return (
-      <View key={node.key} style={cs.wrap}>
-        <View style={cs.header}>
-          {lang ? <Text style={cs.lang}>{lang}</Text> : <View />}
-          <Pressable style={cs.copyBtn} onPress={() => copyText(code)}>
-            <Ionicons name="copy-outline" size={13} color="#AEAEAE" />
-            <Text style={cs.copyText}> Copy</Text>
-          </Pressable>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <Text style={cs.code} selectable>{code}</Text>
-        </ScrollView>
-      </View>
-    );
+  fence: (node: { key: string; content: string; info?: string }) => (
+    <CodeBlock key={node.key} code={node.content.replace(/\n$/, '')} lang={node.info?.trim() || ''} />
+  ),
+  code_block: (node: { key: string; content: string; info?: string }) => (
+    <CodeBlock key={node.key} code={node.content.replace(/\n$/, '')} lang={node.info?.trim() || ''} />
+  ),
+  image: (node: { key: string; attributes: { src?: string; alt?: string } }) => {
+    const src = node.attributes?.src;
+    if (!src) return null;
+    return <Image key={node.key} source={{ uri: src }} style={mdImg.image} resizeMode="contain" />;
   },
 };
 
 function AssistantActions({
+  messageId,
   content,
+  feedback,
+  onFeedback,
   onRegenerate,
 }: {
+  messageId: string;
   content: string;
+  feedback: 'up' | 'down' | null;
+  onFeedback?: (messageId: string, feedback: 'up' | 'down' | null) => void;
   onRegenerate?: () => void;
 }) {
-  const [liked, setLiked] = useState<'up' | 'down' | null>(null);
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -53,6 +59,9 @@ function AssistantActions({
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
+
+  // Tapping the active rating clears it; otherwise sets it.
+  const rate = (dir: 'up' | 'down') => onFeedback?.(messageId, feedback === dir ? null : dir);
 
   return (
     <View style={a.row}>
@@ -63,24 +72,18 @@ function AssistantActions({
           color={copied ? C.primary : C.textSecondary}
         />
       </Pressable>
-      <Pressable
-        style={a.btn}
-        onPress={() => setLiked((v) => (v === 'up' ? null : 'up'))}
-        hitSlop={8}>
+      <Pressable style={a.btn} onPress={() => rate('up')} hitSlop={8}>
         <Ionicons
-          name={liked === 'up' ? 'thumbs-up' : 'thumbs-up-outline'}
+          name={feedback === 'up' ? 'thumbs-up' : 'thumbs-up-outline'}
           size={20}
-          color={liked === 'up' ? C.primary : C.textSecondary}
+          color={feedback === 'up' ? C.primary : C.textSecondary}
         />
       </Pressable>
-      <Pressable
-        style={a.btn}
-        onPress={() => setLiked((v) => (v === 'down' ? null : 'down'))}
-        hitSlop={8}>
+      <Pressable style={a.btn} onPress={() => rate('down')} hitSlop={8}>
         <Ionicons
-          name={liked === 'down' ? 'thumbs-down' : 'thumbs-down-outline'}
+          name={feedback === 'down' ? 'thumbs-down' : 'thumbs-down-outline'}
           size={20}
-          color={liked === 'down' ? C.primary : C.textSecondary}
+          color={feedback === 'down' ? C.primary : C.textSecondary}
         />
       </Pressable>
       {onRegenerate && (
@@ -92,43 +95,109 @@ function AssistantActions({
   );
 }
 
-export function MessageBubble({ message, isLastAssistant, onRegenerate }: Props) {
-  const isUser = message.role === 'user';
-  const isStreaming = message.id === 'streaming';
+function CollapsibleContent({
+  isUser,
+  enabled,
+  children,
+}: {
+  isUser: boolean;
+  enabled: boolean;
+  children: ReactNode;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [contentHeight, setContentHeight] = useState(0);
+
+  const overflowing = enabled && contentHeight > COLLAPSED_MAX_HEIGHT + OVERFLOW_SLACK;
+  const collapsed = overflowing && !expanded;
+
+  // Fade matches the bubble background so the clipped edge looks intentional.
+  const fadeColors = isUser
+    ? (['rgba(108,71,255,0)', C.userBubble] as const)
+    : (['rgba(240,240,245,0)', C.assistantBubble] as const);
 
   return (
-    <View style={[b.row, isUser ? b.userRow : b.assistantRow]}>
-      <View style={[b.bubble, isUser ? b.userBubble : b.assistantBubble]}>
-        {isUser ? (
-          <Text style={b.userText}>{message.content}</Text>
-        ) : (
-          <Markdown style={mdStyles} rules={renderRules as never}>
-            {message.content}
-          </Markdown>
-        )}
+    <View>
+      <View style={collapsed ? cl.clip : undefined}>
+        <View
+          onLayout={(e) => {
+            const h = e.nativeEvent.layout.height;
+            setContentHeight((prev) => (Math.abs(prev - h) > 1 ? h : prev));
+          }}>
+          {children}
+        </View>
+        {collapsed && <LinearGradient pointerEvents="none" colors={fadeColors} style={cl.fade} />}
       </View>
-
-      {!isUser && !isStreaming && (
-        <AssistantActions
-          content={message.content}
-          onRegenerate={isLastAssistant ? onRegenerate : undefined}
-        />
+      {overflowing && (
+        <Pressable onPress={() => setExpanded((v) => !v)} hitSlop={6} style={cl.toggle}>
+          <Text style={[cl.toggleText, isUser && cl.toggleTextUser]}>
+            {expanded ? 'Show less' : 'Show more'}
+          </Text>
+        </Pressable>
       )}
     </View>
   );
 }
 
-const cs = StyleSheet.create({
-  wrap: { backgroundColor: C.codeBg, borderRadius: 12, overflow: 'hidden', marginVertical: 6 },
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 12, paddingVertical: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#333',
+function RecalledChip({ count }: { count: number }) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(opacity, { toValue: 1, duration: 250, useNativeDriver: true }).start();
+  }, [opacity]);
+  return (
+    <Animated.View style={[rc.chip, { opacity }]}>
+      <Ionicons name="sparkles" size={12} color={C.primary} />
+      <Text style={rc.text}>Recalled {count} {count === 1 ? 'memory' : 'memories'}</Text>
+    </Animated.View>
+  );
+}
+
+export function MessageBubble({ message, isLastAssistant, onRegenerate, onFeedback, onEdit }: Props) {
+  const isUser = message.role === 'user';
+  const isStreaming = message.id === 'streaming';
+
+  return (
+    <View style={[b.row, isUser ? b.userRow : b.assistantRow]}>
+      {!isUser && !isStreaming && message.recalled ? <RecalledChip count={message.recalled} /> : null}
+      <View style={[b.bubble, isUser ? b.userBubble : b.assistantBubble]}>
+        {/* Don't fold while still streaming — the height is changing every token */}
+        <CollapsibleContent isUser={isUser} enabled={!isStreaming}>
+          {isUser ? (
+            <Text style={b.userText}>{message.content}</Text>
+          ) : (
+            <Markdown style={mdStyles} rules={renderRules as never}>
+              {message.content}
+            </Markdown>
+          )}
+        </CollapsibleContent>
+      </View>
+
+      {!isUser && !isStreaming && (
+        <AssistantActions
+          messageId={message.id}
+          content={message.content}
+          feedback={message.feedback ?? null}
+          onFeedback={onFeedback}
+          onRegenerate={isLastAssistant ? onRegenerate : undefined}
+        />
+      )}
+
+      {isUser && onEdit && (
+        <Pressable onPress={onEdit} hitSlop={8} style={b.editBtn}>
+          <Ionicons name="pencil-outline" size={15} color={C.textTertiary} />
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+const mdImg = StyleSheet.create({
+  image: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    marginVertical: 6,
+    backgroundColor: C.surface,
   },
-  lang: { fontSize: 12, color: C.codeLang, fontWeight: '600' },
-  copyBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, backgroundColor: '#2C2C2E' },
-  copyText: { fontSize: 12, color: '#AEAEAE' },
-  code: { fontFamily: 'SpaceMono', fontSize: 13, color: C.codeText, lineHeight: 20, padding: 12 },
 });
 
 const a = StyleSheet.create({
@@ -144,6 +213,7 @@ const b = StyleSheet.create({
   userBubble: { backgroundColor: C.userBubble, borderBottomRightRadius: 4 },
   assistantBubble: { backgroundColor: C.assistantBubble, borderBottomLeftRadius: 4 },
   userText: { color: C.userText, fontSize: 16, lineHeight: 22 },
+  editBtn: { marginTop: 4, padding: 4 },
 });
 
 const mdStyles = StyleSheet.create({
@@ -161,4 +231,38 @@ const mdStyles = StyleSheet.create({
   blockquote: { backgroundColor: C.surface, borderLeftWidth: 3, borderLeftColor: C.primary, paddingLeft: 12, paddingVertical: 4, marginVertical: 4, borderRadius: 4 },
   hr: { backgroundColor: C.border, height: 1, marginVertical: 12 },
   link: { color: C.primary },
+  table: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.border,
+    borderRadius: 8,
+    marginVertical: 8,
+    overflow: 'hidden',
+  },
+  thead: { backgroundColor: C.surface },
+  th: { flex: 1, padding: 8, fontWeight: '700', color: C.text },
+  tr: { flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth, borderColor: C.border },
+  td: { flex: 1, padding: 8, color: C.assistantText },
+});
+
+const rc = StyleSheet.create({
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    backgroundColor: C.primaryLight,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    marginBottom: 4,
+  },
+  text: { fontSize: 11, color: C.primary, fontWeight: '600' },
+});
+
+const cl = StyleSheet.create({
+  clip: { maxHeight: COLLAPSED_MAX_HEIGHT, overflow: 'hidden' },
+  fade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 44 },
+  toggle: { marginTop: 6, alignSelf: 'flex-start' },
+  toggleText: { fontSize: 13, fontWeight: '600', color: C.primary },
+  toggleTextUser: { color: 'rgba(255,255,255,0.92)' },
 });

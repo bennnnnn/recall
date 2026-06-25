@@ -79,7 +79,7 @@ async def test_stream_does_not_duplicate_user_message():
         patch("app.services.chat.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.chat.quota_service.adjust_usage", AsyncMock()),
         patch("app.services.chat.usage_repo.add_tokens", AsyncMock()),
-        patch("app.services.chat.spawn"),
+        patch("app.services.chat.jobs.enqueue", AsyncMock()),
     ):
         collected = []
         async for tok in chat_module.stream_chat_response(
@@ -123,9 +123,7 @@ async def test_memory_extraction_runs_on_later_turn():
         patch("app.services.chat.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.chat.quota_service.adjust_usage", AsyncMock()),
         patch("app.services.chat.usage_repo.add_tokens", AsyncMock()),
-        patch("app.services.chat.spawn"),
-        patch("app.services.chat._background_memory", AsyncMock()) as memory_job,
-        patch("app.services.chat._background_topic") as title_job,
+        patch("app.services.chat.jobs.enqueue", AsyncMock()) as enqueue_job,
     ):
         async for _ in chat_module.stream_chat_response(
             AsyncMock(),
@@ -136,5 +134,7 @@ async def test_memory_extraction_runs_on_later_turn():
         ):
             pass
 
-    memory_job.assert_called_once()
-    title_job.assert_not_called()
+    # Memory is enqueued every turn; the title job is first-turn only.
+    job_types = [call.args[1] for call in enqueue_job.call_args_list]
+    assert job_types.count("memory") == 1
+    assert "topic" not in job_types
