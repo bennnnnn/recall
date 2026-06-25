@@ -117,7 +117,9 @@ async def chat_websocket(
         window_seconds=60,
     )
     if not allowed:
-        await websocket.send_json({"type": "error", "message": "Too many requests. Try again shortly."})
+        await websocket.send_json(
+            {"type": "error", "message": "Too many requests. Try again shortly."},
+        )
         await websocket.close()
         return
 
