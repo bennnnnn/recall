@@ -1,12 +1,22 @@
 """WebSocket endpoint tests."""
+
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings
+from app.exceptions import QuotaExceededError
 from app.gateways.google_auth import create_access_token
 from app.main import create_app
+
+
+@pytest.fixture(autouse=True)
+def _ws_rate_limit():
+    with patch("app.routers.ws.allow_request", AsyncMock(return_value=True)):
+        yield
 
 
 def _settings():
@@ -45,6 +55,7 @@ async def _empty_stream(*args, **kwargs):
 
 # ── auth failure ───────────────────────────────────────────────────────────────
 
+
 def test_ws_missing_token_closes():
     app = _app(None)
     client = TestClient(app)
@@ -66,8 +77,9 @@ def test_ws_invalid_token_closes():
 
 # ── normal message flow ────────────────────────────────────────────────────────
 
+
 def test_ws_sends_message_and_receives_tokens():
-    uid_str, tok = _token()
+    _, tok = _token()
     user = _fake_user()
     chat_id = uuid4()
 
@@ -98,7 +110,7 @@ def test_ws_sends_message_and_receives_tokens():
 
 
 def test_ws_empty_message_ignored():
-    uid_str, tok = _token()
+    _, tok = _token()
     user = _fake_user()
     chat_id = uuid4()
 
@@ -112,11 +124,11 @@ def test_ws_empty_message_ignored():
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
             ws.send_json({"token": tok})
             ws.send_json({"type": "message", "content": "   "})
-            # no response expected — unknown type messages are silently skipped
             ws.send_json({"type": "unknown"})
 
 
 # ── regenerate ─────────────────────────────────────────────────────────────────
+
 
 def test_ws_regenerate():
     _, tok = _token()
@@ -147,16 +159,15 @@ def test_ws_regenerate():
 
 # ── cancel ─────────────────────────────────────────────────────────────────────
 
+
 def test_ws_cancel_sets_flag():
     _, tok = _token()
     user = _fake_user()
     chat_id = uuid4()
-    cancelled = []
 
     async def fake_stream(*args, should_cancel=None, **kwargs):
         for word in ["A", "B", "C"]:
             if should_cancel and should_cancel():
-                cancelled.append(True)
                 return
             yield word
 
@@ -170,14 +181,95 @@ def test_ws_cancel_sets_flag():
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
             ws.send_json({"token": tok})
-            # send cancel before message — tests that cancel clears the event
             ws.send_json({"type": "cancel"})
             ws.send_json({"type": "message", "content": "hi"})
-            start = ws.receive_json()
-            assert start["type"] == "start"
+            assert ws.receive_json()["type"] == "start"
+            while True:
+                msg = ws.receive_json()
+                if msg["type"] == "done":
+                    break
+
+
+def test_ws_mid_stream_cancel():
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+
+    async def slow_stream(*args, should_cancel=None, **kwargs):
+        for word in ["one", "two", "three", "four"]:
+            if should_cancel and should_cancel():
+                return
+            yield word
+            await asyncio.sleep(0.05)
+
+    app = _app(user)
+
+    with (
+        patch("app.routers.ws.decode_access_token", return_value=user.id),
+        patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
+        patch("app.routers.ws.chat_service.stream_chat_response", slow_stream),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "hi"})
+            assert ws.receive_json()["type"] == "start"
+            first = ws.receive_json()
+            assert first["type"] == "token"
+            ws.send_json({"type": "cancel"})
+            done = ws.receive_json()
+            assert done["type"] == "done"
+
+
+# ── validation / service errors ────────────────────────────────────────────────
+
+
+def test_ws_invalid_message_payload():
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+    app = _app(user)
+
+    with (
+        patch("app.routers.ws.decode_access_token", return_value=user.id),
+        patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "hi", "model": "not-a-model"})
+            err = ws.receive_json()
+            assert err["type"] == "error"
+
+
+def test_ws_quota_error_frame():
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+
+    async def quota_fail(*args, **kwargs):
+        raise QuotaExceededError("Daily token limit reached.")
+        yield  # pragma: no cover
+
+    app = _app(user)
+
+    with (
+        patch("app.routers.ws.decode_access_token", return_value=user.id),
+        patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
+        patch("app.routers.ws.chat_service.stream_chat_response", quota_fail),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "hi"})
+            assert ws.receive_json()["type"] == "start"
+            err = ws.receive_json()
+            assert err["type"] == "error"
+            assert "limit" in err["message"].lower()
 
 
 # ── user not found ─────────────────────────────────────────────────────────────
+
 
 def test_ws_user_not_found_sends_error():
     _, tok = _token()

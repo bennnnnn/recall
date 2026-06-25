@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -43,7 +43,6 @@ async def test_build_prompt_includes_memory_and_style():
 
 @pytest.mark.asyncio
 async def test_stream_does_not_duplicate_user_message():
-    """User message is saved once; prompt must not append it again."""
     from app.services import chat as chat_module
 
     tokens = ["Hello", " there"]
@@ -52,16 +51,8 @@ async def test_stream_does_not_duplicate_user_message():
         for t in tokens:
             yield t
 
-    user = AsyncMock()
-    user.id = "user-1"
-    user.default_model = "free-chat"
-    user.response_style = "balanced"
-
-    chat = AsyncMock()
-    chat.model = "free-chat"
-
-    session = AsyncMock()
-    redis = AsyncMock()
+    user_id = AsyncMock()
+    chat_id = AsyncMock()
 
     mock_build = AsyncMock(
         return_value=[
@@ -70,26 +61,80 @@ async def test_stream_does_not_duplicate_user_message():
         ]
     )
 
+    fake_user = MagicMock()
+    fake_user.id = user_id
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+
     with (
-        patch("app.services.chat.quota_service.can_spend", AsyncMock(return_value=True)),
-        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=chat)),
+        patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat)),
         patch("app.services.chat.messages_repo.count_for_chat", AsyncMock(return_value=1)),
         patch("app.services.chat.messages_repo.create", AsyncMock()),
         patch("app.services.chat.build_prompt_messages", mock_build),
         patch("app.services.chat.litellm_gateway.stream_chat_completion", fake_stream),
-        patch("app.services.chat.quota_service.record_usage", AsyncMock()),
+        patch("app.services.chat.quota_service.adjust_usage", AsyncMock()),
         patch("app.services.chat.usage_repo.add_tokens", AsyncMock()),
+        patch("app.services.chat.spawn"),
     ):
         collected = []
         async for tok in chat_module.stream_chat_response(
-            session,
-            redis,
-            AsyncMock(max_output_tokens=100),
-            user=user,
-            chat_id=AsyncMock(),
+            AsyncMock(),
+            Settings(max_output_tokens=100),
+            user_id=user_id,
+            chat_id=chat_id,
             content="question",
         ):
             collected.append(tok)
 
     assert collected == tokens
     assert mock_build.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_memory_extraction_runs_on_later_turn():
+    from app.services import chat as chat_module
+
+    async def fake_stream(**kwargs):
+        yield "answer"
+
+    fake_user = MagicMock()
+    fake_user.id = MagicMock()
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+
+    with (
+        patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.services.chat.messages_repo.count_for_chat", AsyncMock(return_value=3)),
+        patch("app.services.chat.messages_repo.create", AsyncMock()),
+        patch(
+            "app.services.chat.build_prompt_messages",
+            AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
+        ),
+        patch("app.services.chat.litellm_gateway.stream_chat_completion", fake_stream),
+        patch("app.services.chat.quota_service.adjust_usage", AsyncMock()),
+        patch("app.services.chat.usage_repo.add_tokens", AsyncMock()),
+        patch("app.services.chat.spawn"),
+        patch("app.services.chat._background_memory", AsyncMock()) as memory_job,
+        patch("app.services.chat._background_topic") as title_job,
+    ):
+        async for _ in chat_module.stream_chat_response(
+            AsyncMock(),
+            Settings(max_output_tokens=100),
+            user_id=fake_user.id,
+            chat_id=MagicMock(),
+            content="second turn info",
+        ):
+            pass
+
+    memory_job.assert_called_once()
+    title_job.assert_not_called()

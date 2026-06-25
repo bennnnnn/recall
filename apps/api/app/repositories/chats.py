@@ -1,12 +1,9 @@
-from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import delete as sql_delete
 from sqlalchemy import select
-from sqlalchemy import update as sql_update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.orm import Chat, Memory, Message
+from app.models.orm import Chat
 
 
 async def create(session: AsyncSession, *, user_id: UUID, model: str) -> Chat:
@@ -18,9 +15,7 @@ async def create(session: AsyncSession, *, user_id: UUID, model: str) -> Chat:
 
 
 async def get_by_id(session: AsyncSession, chat_id: UUID, user_id: UUID) -> Chat | None:
-    result = await session.execute(
-        select(Chat).where(Chat.id == chat_id, Chat.user_id == user_id)
-    )
+    result = await session.execute(select(Chat).where(Chat.id == chat_id, Chat.user_id == user_id))
     return result.scalar_one_or_none()
 
 
@@ -32,6 +27,8 @@ async def list_for_user(session: AsyncSession, user_id: UUID) -> list[Chat]:
 
 
 def group_by_recency(chats: list[Chat]) -> dict[str, list[Chat]]:
+    from datetime import UTC, datetime, timedelta
+
     now = datetime.now(UTC)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     yesterday_start = today_start - timedelta(days=1)
@@ -57,19 +54,14 @@ async def delete_by_id(session: AsyncSession, chat_id: UUID, user_id: UUID) -> b
     if chat is None:
         return False
 
-    # Nullify memory source references (nullable FK — SET NULL behaviour)
-    await session.execute(
-        sql_update(Memory).where(Memory.source_chat_id == chat_id).values(source_chat_id=None)
-    )
-    # Delete all messages (non-nullable FK — must go before chat)
-    await session.execute(sql_delete(Message).where(Message.chat_id == chat_id))
-
     await session.delete(chat)
     await session.commit()
     return True
 
 
 async def touch(session: AsyncSession, chat: Chat) -> None:
+    from datetime import UTC, datetime
+
     chat.updated_at = datetime.now(UTC)
     await session.commit()
 

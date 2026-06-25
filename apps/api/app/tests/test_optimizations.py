@@ -1,4 +1,5 @@
 """Tests for optimised repository paths and new router endpoints."""
+
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -9,6 +10,7 @@ from app.core.config import Settings
 from app.repositories.chats import group_by_recency
 
 # ── group_by_recency: pure-function O(n) grouper ─────────────────────────────
+
 
 def _chat(updated_at: datetime):
     c = MagicMock()
@@ -27,6 +29,7 @@ def test_group_by_recency_today():
 
 def test_group_by_recency_earlier():
     from datetime import timedelta
+
     old = datetime.now(UTC) - timedelta(days=10)
     chat = _chat(old)
     groups = group_by_recency([chat])
@@ -48,6 +51,7 @@ def test_group_by_recency_naive_datetime():
 
 
 # ── memories.upsert_many — single execute call ────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_upsert_many_single_query():
@@ -81,29 +85,20 @@ async def test_upsert_many_empty_is_noop():
 
 # ── chats.delete_by_id — correct cascade order ────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_delete_chat_cascades_then_deletes():
-    """delete_by_id must nullify memories, delete messages, then delete the chat."""
+    """delete_by_id relies on DB ON DELETE CASCADE for messages."""
     from app.repositories import chats as chats_repo
 
     chat = MagicMock()
     session = AsyncMock()
-    execute_calls = []
-
-    # Track execute call order
-    async def record_execute(stmt):
-        execute_calls.append(stmt)
-        result = AsyncMock()
-        return result
-
-    session.execute.side_effect = record_execute
 
     with patch.object(chats_repo, "get_by_id", AsyncMock(return_value=chat)):
         result = await chats_repo.delete_by_id(session, uuid4(), uuid4())
 
     assert result is True
-    # Two SQL statements (UPDATE memories + DELETE messages) + 1 ORM delete
-    assert session.execute.await_count == 2
+    session.execute.assert_not_awaited()
     session.delete.assert_called_once_with(chat)
     session.commit.assert_awaited_once()
 
@@ -121,6 +116,7 @@ async def test_delete_chat_not_found_returns_false():
 
 
 # ── delete_chat router ────────────────────────────────────────────────────────
+
 
 def _app_with_user(user):
     from app.core.deps import get_current_user, get_settings_dep
@@ -160,6 +156,7 @@ def test_router_delete_chat_404():
 
 # ── messages.count_for_chat — SQL scalar path ─────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_count_for_chat_uses_scalar():
     from unittest.mock import MagicMock
@@ -181,18 +178,22 @@ async def test_count_for_chat_uses_scalar():
 
 # ── estimate_tokens — O(1) ────────────────────────────────────────────────────
 
+
 def test_estimate_tokens_empty():
     from app.services.chat import estimate_tokens
+
     assert estimate_tokens("") == 1
 
 
 def test_estimate_tokens_short():
     from app.services.chat import estimate_tokens
+
     # "hello" → len=5 // 4 = 1, max(1,1)=1
     assert estimate_tokens("hello") == 1
 
 
 def test_estimate_tokens_long():
     from app.services.chat import estimate_tokens
+
     text = "a" * 400
     assert estimate_tokens(text) == 100

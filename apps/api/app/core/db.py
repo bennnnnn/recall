@@ -13,7 +13,15 @@ class Base(DeclarativeBase):
 
 settings = get_settings()
 _db_url, _connect_args = prepare_asyncpg_url(settings.database_url)
-engine = create_async_engine(_db_url, echo=False, connect_args=_connect_args)
+engine = create_async_engine(
+    _db_url,
+    echo=False,
+    connect_args=_connect_args,
+    pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=5,
+    pool_recycle=300,
+)
 SessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 

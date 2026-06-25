@@ -1,4 +1,5 @@
 """Router-level tests using FastAPI TestClient with mocked dependencies."""
+
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -35,6 +36,7 @@ def _app_with_user(user: User):
 
 # ── health ─────────────────────────────────────────────────────────────────────
 
+
 def test_health():
     client = TestClient(create_app())
     r = client.get("/health")
@@ -43,6 +45,7 @@ def test_health():
 
 
 # ── auth /me ───────────────────────────────────────────────────────────────────
+
 
 def test_me_returns_user():
     user = _fake_user()
@@ -70,6 +73,7 @@ def test_me_patch_updates_user():
 
 
 # ── dev login ──────────────────────────────────────────────────────────────────
+
 
 def test_dev_login():
     from app.models.schemas import AuthResponse, UserOut
@@ -115,6 +119,7 @@ def test_dev_login_disabled_returns_403():
 
 
 # ── chats ──────────────────────────────────────────────────────────────────────
+
 
 def test_create_chat():
     from app.models.orm import Chat
@@ -186,6 +191,7 @@ def test_today_usage():
 
 # ── memories ───────────────────────────────────────────────────────────────────
 
+
 def test_list_memories_empty():
     user = _fake_user()
     app = _app_with_user(user)
@@ -199,9 +205,7 @@ def test_list_memories_empty():
 def test_delete_memory_not_found():
     user = _fake_user()
     app = _app_with_user(user)
-    with patch(
-        "app.routers.memories.memory_service.delete_memory", AsyncMock(return_value=False)
-    ):
+    with patch("app.routers.memories.memory_service.delete_memory", AsyncMock(return_value=False)):
         client = TestClient(app)
         r = client.delete(f"/memories/{uuid4()}", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 404
@@ -210,9 +214,7 @@ def test_delete_memory_not_found():
 def test_delete_memory_ok():
     user = _fake_user()
     app = _app_with_user(user)
-    with patch(
-        "app.routers.memories.memory_service.delete_memory", AsyncMock(return_value=True)
-    ):
+    with patch("app.routers.memories.memory_service.delete_memory", AsyncMock(return_value=True)):
         client = TestClient(app)
         r = client.delete(f"/memories/{uuid4()}", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 204

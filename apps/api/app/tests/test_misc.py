@@ -1,4 +1,5 @@
 """Targeted coverage for utilities and small code paths."""
+
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
@@ -7,6 +8,7 @@ import pytest
 from app.core.database_url import prepare_asyncpg_url
 
 # ── database_url ───────────────────────────────────────────────────────────────
+
 
 def test_prepare_asyncpg_url_strips_sslmode():
     url = "postgresql+asyncpg://user:pass@host/db?sslmode=require"
@@ -30,12 +32,13 @@ def test_prepare_asyncpg_url_plain_host_no_ssl():
 
 def test_prepare_asyncpg_url_preserves_other_params():
     url = "postgresql+asyncpg://user:pass@host/db?sslmode=require&application_name=app"
-    clean, args = prepare_asyncpg_url(url)
+    clean, _args = prepare_asyncpg_url(url)
     assert "application_name=app" in clean
     assert "sslmode" not in clean
 
 
 # ── auth service: login_with_google ───────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_login_with_google_creates_user():

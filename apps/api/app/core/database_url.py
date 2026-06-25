@@ -8,8 +8,8 @@ def prepare_asyncpg_url(url: str) -> tuple[str, dict]:
     """Return (clean_url, connect_args) for SQLAlchemy + asyncpg."""
     parsed = urlparse(url)
     query = parse_qs(parsed.query)
-    ssl_required = (
-        query.get("sslmode", [None])[0] == "require" or "neon.tech" in (parsed.hostname or "")
+    ssl_required = query.get("sslmode", [None])[0] == "require" or "neon.tech" in (
+        parsed.hostname or ""
     )
     kept: list[tuple[str, str]] = []
     for key, values in query.items():

@@ -3,23 +3,31 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.core.config import get_settings, validate_production_settings
+from app.core.db import engine
 from app.core.logging import setup_logging
+from app.core.redis import get_redis_client
 from app.routers import auth, chats, health, memories, ws
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     setup_logging()
+    validate_production_settings(get_settings())
     yield
+    await engine.dispose()
+    await get_redis_client().aclose()
 
 
 def create_app() -> FastAPI:
+    settings = get_settings()
     app = FastAPI(title="Recall API", version="0.1.0", lifespan=lifespan)
 
+    cors_origins = [origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
+        allow_origins=cors_origins or ["*"],
+        allow_credentials=bool(cors_origins),
         allow_methods=["*"],
         allow_headers=["*"],
     )

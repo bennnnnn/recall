@@ -1,10 +1,10 @@
-import asyncio
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.background.tasks import spawn
 from app.core.config import Settings
 from app.core.db import SessionLocal, get_db
 from app.core.deps import get_current_user, get_redis, get_settings_dep
@@ -15,8 +15,11 @@ from app.repositories import messages as messages_repo
 from app.repositories import usage as usage_repo
 from app.services import quota as quota_service
 from app.services import topic as topic_service
+from app.services.quota import utc_today
 
 router = APIRouter(prefix="/chats", tags=["chats"])
+
+_title_backfill_pending: set[UUID] = set()
 
 
 @router.post("", response_model=ChatOut, status_code=status.HTTP_201_CREATED)
@@ -75,9 +78,7 @@ async def today_usage(
     redis: Redis = Depends(get_redis),
     settings: Settings = Depends(get_settings_dep),
 ) -> UsageOut:
-    from datetime import date
-
-    day = date.today()
+    day = utc_today()
     db_usage = await usage_repo.get_for_date(session, user.id, day)
     input_tokens = db_usage.input_tokens if db_usage else 0
     output_tokens = db_usage.output_tokens if db_usage else 0
@@ -116,14 +117,19 @@ async def list_messages(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
     msgs = await messages_repo.list_all(session, chat_id, limit=limit)
 
-    # Backfill title if missing and conversation already has content
-    if not chat.title and msgs:
+    if not chat.title and msgs and chat_id not in _title_backfill_pending:
         user_msg = next((m for m in msgs if m.role == "user"), None)
         asst_msg = next((m for m in msgs if m.role == "assistant"), None)
         if user_msg and asst_msg:
+            _title_backfill_pending.add(chat_id)
+
             async def _backfill(cid: UUID, u: str, a: str) -> None:
-                async with SessionLocal() as bg_session:
-                    await topic_service.generate_chat_title(bg_session, settings, cid, u, a)
-            asyncio.create_task(_backfill(chat_id, user_msg.content, asst_msg.content))
+                try:
+                    async with SessionLocal() as bg_session:
+                        await topic_service.generate_chat_title(bg_session, settings, cid, u, a)
+                finally:
+                    _title_backfill_pending.discard(cid)
+
+            spawn(_backfill(chat_id, user_msg.content, asst_msg.content))
 
     return [MessageOut.model_validate(m) for m in msgs]

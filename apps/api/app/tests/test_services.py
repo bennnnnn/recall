@@ -1,4 +1,5 @@
 """Coverage booster: unit tests for services, gateways and background jobs."""
+
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -65,6 +66,7 @@ async def test_delete_memory_delegates():
 
 # ── quota service ──────────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_remaining_when_nothing_used(fake_redis):
     from app.services import quota as quota_service
@@ -86,6 +88,7 @@ async def test_record_usage_accumulates(fake_redis):
 
 
 # ── litellm gateway (mock path) ────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_stream_chat_completion_mock():
@@ -142,6 +145,7 @@ async def test_extract_memories_mock():
 @pytest.mark.asyncio
 async def test_stream_chat_completion_handles_exception():
     from app.gateways import litellm_gateway
+    from app.gateways.litellm_gateway import ModelUnavailableError
 
     settings = Settings(mock_llm_enabled=False, deepseek_api_key="bad-key")
 
@@ -149,18 +153,18 @@ async def test_stream_chat_completion_handles_exception():
         raise RuntimeError("network down")
 
     with patch("app.gateways.litellm_gateway.acompletion", _fail):
-        tokens = []
-        async for t in litellm_gateway.stream_chat_completion(
-            settings=settings,
-            model_alias="free-chat",
-            messages=[{"role": "user", "content": "hi"}],
-            max_tokens=100,
-        ):
-            tokens.append(t)
-    assert any("Error" in t for t in tokens)
+        with pytest.raises(ModelUnavailableError):
+            async for _t in litellm_gateway.stream_chat_completion(
+                settings=settings,
+                model_alias="free-chat",
+                messages=[{"role": "user", "content": "hi"}],
+                max_tokens=100,
+            ):
+                pass
 
 
 # ── background: memory extraction ─────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_extract_and_store_no_result():
@@ -223,6 +227,7 @@ async def test_extract_and_store_swallows_exception():
 
 # ── topic service ──────────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_topic_service_skips_when_title_none():
     from app.services import topic as topic_service
@@ -235,9 +240,7 @@ async def test_topic_service_skips_when_title_none():
         ),
         patch("app.services.topic.chats_repo.set_title", mock_set),
     ):
-        await topic_service.generate_chat_title(
-            AsyncMock(), Settings(), uuid4(), "hi", "hello"
-        )
+        await topic_service.generate_chat_title(AsyncMock(), Settings(), uuid4(), "hi", "hello")
     mock_set.assert_not_awaited()
 
 
@@ -259,34 +262,33 @@ async def test_topic_service_saves_when_title_returned():
         ),
         patch("app.services.topic.chats_repo.set_title", mock_set),
     ):
-        await topic_service.generate_chat_title(
-            session, Settings(), uuid4(), "hi", "hello"
-        )
+        await topic_service.generate_chat_title(session, Settings(), uuid4(), "hi", "hello")
     mock_set.assert_awaited_once()
 
 
 # ── chat service: quota guard ──────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_stream_chat_response_quota_exceeded():
+    from app.exceptions import QuotaExceededError
     from app.services import chat as chat_service
 
-    user = MagicMock(id=uuid4(), default_model="free-chat", response_style="balanced")
-    with patch("app.services.chat.quota_service.can_spend", AsyncMock(return_value=False)):
-        tokens = []
-        async for t in chat_service.stream_chat_response(
-            AsyncMock(),
-            AsyncMock(),
-            Settings(),
-            user=user,
-            chat_id=uuid4(),
-            content="hi",
-        ):
-            tokens.append(t)
-    assert any("limit" in t.lower() for t in tokens)
+    user_id = uuid4()
+    with patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=False)):
+        with pytest.raises(QuotaExceededError):
+            async for _t in chat_service.stream_chat_response(
+                AsyncMock(),
+                Settings(),
+                user_id=user_id,
+                chat_id=uuid4(),
+                content="hi",
+            ):
+                pass
 
 
 # ── auth service ───────────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_login_dev_creates_user():
@@ -305,12 +307,11 @@ async def test_login_dev_creates_user():
         memory_enabled=True,
         created_at="2024-01-01T00:00:00",
     )
-    with patch(
-        "app.services.auth.users_repo.get_by_google_sub", AsyncMock(return_value=None)
-    ), patch("app.services.auth.users_repo.create", AsyncMock(return_value=MagicMock())), patch(
-        "app.services.auth.create_access_token", return_value="tok"
-    ), patch(
-        "app.services.auth.UserOut.model_validate", return_value=fake_user_out
+    with (
+        patch("app.services.auth.users_repo.get_by_google_sub", AsyncMock(return_value=None)),
+        patch("app.services.auth.users_repo.create", AsyncMock(return_value=MagicMock())),
+        patch("app.services.auth.create_access_token", return_value="tok"),
+        patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
     ):
         result = await auth_service.login_dev(
             AsyncMock(), settings, email="dev@test.local", name="Dev"
@@ -337,11 +338,13 @@ async def test_login_dev_returns_existing_user():
         created_at="2024-01-01T00:00:00",
     )
 
-    with patch(
-        "app.services.auth.users_repo.get_by_google_sub",
-        AsyncMock(return_value=MagicMock()),
-    ), patch("app.services.auth.create_access_token", return_value="tok"), patch(
-        "app.services.auth.UserOut.model_validate", return_value=fake_user_out
+    with (
+        patch(
+            "app.services.auth.users_repo.get_by_google_sub",
+            AsyncMock(return_value=MagicMock()),
+        ),
+        patch("app.services.auth.create_access_token", return_value="tok"),
+        patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
     ):
         result = await auth_service.login_dev(
             AsyncMock(), settings, email="existing@test.local", name="Old"

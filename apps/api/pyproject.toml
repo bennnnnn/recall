@@ -13,7 +13,6 @@ dependencies = [
     "litellm>=1.55.0",
     "pydantic-settings>=2.6.0",
     "pyjwt>=2.10.0",
-    "python-multipart>=0.0.18",
     "redis>=5.2.0",
     "sqlalchemy[asyncio]>=2.0.36",
     "uvicorn[standard]>=0.32.0",
@@ -24,6 +23,7 @@ dependencies = [
 dev = [
     "fakeredis>=2.26.0",
     "httpx>=0.28.0",
+    "mypy>=1.14.0",
     "pytest>=8.3.0",
     "pytest-asyncio>=0.24.0",
     "pytest-cov>=6.0.0",
@@ -40,7 +40,21 @@ line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP"]
+select = ["E", "F", "I", "UP", "RUF", "B", "ASYNC", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+"alembic/**" = ["UP", "I", "S"]
+"app/tests/**" = ["S101", "S105", "S106"]
+"app/routers/**" = ["B008"]
+"app/core/deps.py" = ["B008"]
+"app/core/config.py" = ["S105"]
+"app/models/schemas.py" = ["S105"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = false
+ignore_missing_imports = true
+files = ["app"]
 
 [tool.coverage.run]
 source = ["app"]

@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.db import get_db
-from app.core.deps import get_current_user, get_settings_dep
+from app.core.deps import get_current_user, get_redis, get_settings_dep
+from app.core.rate_limit import allow_request
 from app.gateways.google_auth import GoogleAuthError
 from app.models.orm import User
 from app.models.schemas import AuthResponse, DevAuthRequest, GoogleAuthRequest, UserOut, UserUpdate
@@ -18,7 +20,19 @@ async def google_login(
     body: GoogleAuthRequest,
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
+    redis: Redis = Depends(get_redis),
 ) -> AuthResponse:
+    allowed = await allow_request(
+        redis,
+        "rate:auth:google",
+        limit=30,
+        window_seconds=60,
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many login attempts. Try again shortly.",
+        )
     try:
         return await auth_service.login_with_google(session, settings, body.id_token)
     except GoogleAuthError as exc:

@@ -1,4 +1,5 @@
 """Tests for gateways: google_auth, mock_llm."""
+
 from uuid import uuid4
 
 import pytest
@@ -91,6 +92,31 @@ def test_decode_wrong_secret_raises():
     token = create_access_token(uid, s1)
     with pytest.raises(GoogleAuthError):
         decode_access_token(token, s2)
+
+
+def test_verify_google_id_token_requires_email_verified():
+    from unittest.mock import patch
+
+    from app.gateways.google_auth import verify_google_id_token
+
+    settings = Settings(google_client_id="test-client")
+    payload = {"email_verified": False}
+    with patch(
+        "app.gateways.google_auth.id_token.verify_oauth2_token",
+        return_value=payload,
+    ):
+        with pytest.raises(GoogleAuthError, match="not verified"):
+            verify_google_id_token("token", settings)
+
+
+def test_litellm_kwargs_use_matching_provider_key():
+    from app.gateways import litellm_gateway
+
+    settings = Settings(deepseek_api_key="sk-deep", openrouter_api_key="sk-or")
+    route = litellm_gateway.resolve_route("free-chat")
+    kwargs = litellm_gateway._litellm_kwargs(settings, route)
+    assert kwargs["api_key"] == "sk-deep"
+    assert "api_base" not in kwargs
 
 
 # ── deps: get_current_user ─────────────────────────────────────────────────────

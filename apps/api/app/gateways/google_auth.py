@@ -17,7 +17,7 @@ class GoogleAuthError(Exception):
 
 def verify_google_id_token(id_token_str: str, settings: Settings) -> dict:
     try:
-        return id_token.verify_oauth2_token(
+        payload = id_token.verify_oauth2_token(
             id_token_str,
             requests.Request(),
             settings.google_client_id,
@@ -26,10 +26,16 @@ def verify_google_id_token(id_token_str: str, settings: Settings) -> dict:
         logger.warning("Google ID token verification failed: %s", exc)
         raise GoogleAuthError("Invalid Google ID token") from exc
 
+    if not payload.get("email_verified"):
+        raise GoogleAuthError("Google email address is not verified")
+
+    return payload
+
 
 def create_access_token(user_id: UUID, settings: Settings) -> str:
-    expire = datetime.now(UTC) + timedelta(minutes=settings.jwt_expire_minutes)
-    payload = {"sub": str(user_id), "exp": expire}
+    now = datetime.now(UTC)
+    expire = now + timedelta(minutes=settings.jwt_expire_minutes)
+    payload = {"sub": str(user_id), "exp": expire, "iat": now}
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
 

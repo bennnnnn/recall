@@ -32,7 +32,7 @@ async def create(
 
 async def update(session: AsyncSession, user: User, **fields) -> User:
     for key, value in fields.items():
-        if value is not None or isinstance(value, bool):
+        if value is not None:
             if hasattr(user, key):
                 setattr(user, key, value)
     await session.commit()

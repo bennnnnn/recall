@@ -103,7 +103,6 @@ class ChatMessageRequest(BaseModel):
     model: ModelAlias | None = None
 
 
-
 class TitleGenerationResult(BaseModel):
     title: str = Field(min_length=3, max_length=80)
 
