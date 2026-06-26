@@ -691,7 +691,6 @@ export default function ChatScreen() {
           />
 
           <LinearGradient
-            pointerEvents="none"
             colors={[
               C.bg,
               "rgba(255,255,255,0.98)",
@@ -700,7 +699,7 @@ export default function ChatScreen() {
               "rgba(255,255,255,0)",
             ]}
             locations={[0, 0.25, 0.5, 0.78, 1]}
-            style={[s.headerFade, { height: fadeHeight }]}
+            style={[s.headerFade, { height: fadeHeight }, { pointerEvents: "none" }]}
           />
 
           {!drawerOpen && (
@@ -708,15 +707,15 @@ export default function ChatScreen() {
               style={[
                 s.header,
                 { paddingTop: insets.top, height: headerInset },
+                { pointerEvents: "box-none" },
               ]}
-              pointerEvents="box-none"
               collapsable={false}
               renderToHardwareTextureAndroid
             >
               <Pressable style={s.headerBtn} onPress={openDrawer} hitSlop={12}>
                 <HamburgerIcon size={22} color={C.text} />
               </Pressable>
-              <View style={{ flex: 1 }} pointerEvents="none" />
+              <View style={{ flex: 1, pointerEvents: "none" }} />
               <View style={s.headerRight}>
                 <Pressable
                   style={s.headerBtn}
@@ -1062,10 +1061,7 @@ const s = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: C.border,
-    shadowColor: "#000",
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: -4 },
+    boxShadow: "0 -4 12 0 rgba(0, 0, 0, 0.12)",
     elevation: 8,
     overflow: "hidden",
   },

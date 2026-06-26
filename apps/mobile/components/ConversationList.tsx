@@ -311,7 +311,6 @@ export function ConversationList(_props: unknown) {
 
       {/* Top fade — topics dim as they scroll under the header */}
       <LinearGradient
-        pointerEvents="none"
         colors={[
           C.bg,
           "rgba(255,255,255,0.98)",
@@ -320,12 +319,11 @@ export function ConversationList(_props: unknown) {
           "rgba(255,255,255,0)",
         ]}
         locations={[0, 0.25, 0.5, 0.78, 1]}
-        style={[s.topFade, { height: topFadeHeight }]}
+        style={[s.topFade, { height: topFadeHeight }, { pointerEvents: "none" }]}
       />
 
       {/* Bottom fade — topics dim as they scroll under the footer */}
       <LinearGradient
-        pointerEvents="none"
         colors={[
           "rgba(255,255,255,0)",
           "rgba(255,255,255,0.45)",
@@ -333,13 +331,16 @@ export function ConversationList(_props: unknown) {
           "rgba(255,255,255,0.95)",
         ]}
         locations={[0, 0.35, 0.72, 1]}
-        style={[s.bottomFade, { height: bottomFadeHeight }]}
+        style={[s.bottomFade, { height: bottomFadeHeight }, { pointerEvents: "none" }]}
       />
 
       {/* Floating header — Recall, search, new chat */}
       <View
-        style={[s.topOverlay, { paddingTop: insets.top + 8 }]}
-        pointerEvents="box-none"
+        style={[
+          s.topOverlay,
+          { paddingTop: insets.top + 8 },
+          { pointerEvents: "box-none" },
+        ]}
       >
         <View style={s.header}>
           <View style={s.logo}>
@@ -391,8 +392,11 @@ export function ConversationList(_props: unknown) {
 
       {/* Floating footer — user + settings */}
       <View
-        style={[s.footer, { paddingBottom: insets.bottom + 8 }]}
-        pointerEvents="box-none"
+        style={[
+          s.footer,
+          { paddingBottom: insets.bottom + 8 },
+          { pointerEvents: "box-none" },
+        ]}
       >
         <Avatar name={user?.name ?? null} uri={user?.avatar_url} size={34} />
         <Text style={s.footerName} numberOfLines={1}>

@@ -73,22 +73,27 @@ export default function DrawerLayout() {
         <View style={s.rootInner}>
           {/* Main content — chat screen sits behind drawer when open */}
           <View
-            style={[s.content, drawerOpen && s.contentBehind]}
-            pointerEvents={drawerOpen ? "none" : "auto"}
+            style={[
+              s.content,
+              drawerOpen && s.contentBehind,
+              { pointerEvents: drawerOpen ? "none" : "auto" },
+            ]}
           >
             <Slot />
           </View>
 
           {/* Dark overlay when drawer is open */}
           <Animated.View
-            pointerEvents="none"
-            style={[s.overlay, { opacity: overlayOpacity }]}
+            style={[s.overlay, { opacity: overlayOpacity }, { pointerEvents: "none" }]}
           />
 
           {/* Tap-to-close overlay — only active when drawer is open */}
           <Animated.View
-            pointerEvents={drawerOpen ? "auto" : "none"}
-            style={[s.tapClose, { opacity: overlayOpacity }]}
+            style={[
+              s.tapClose,
+              { opacity: overlayOpacity },
+              { pointerEvents: drawerOpen ? "auto" : "none" },
+            ]}
           >
             <Pressable style={StyleSheet.absoluteFill} onPress={close} />
           </Animated.View>
@@ -128,10 +133,7 @@ const s = StyleSheet.create({
     bottom: 0,
     left: 0,
     backgroundColor: C.bg,
-    shadowColor: "#000",
-    shadowOpacity: 0.18,
-    shadowRadius: 20,
-    shadowOffset: { width: 4, height: 0 },
+    boxShadow: "4 0 20 0 rgba(0, 0, 0, 0.18)",
     elevation: 24,
     zIndex: 200,
     overflow: "hidden",
