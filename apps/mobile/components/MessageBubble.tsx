@@ -1,7 +1,7 @@
+import React, { useState } from "react";
 import * as Clipboard from "expo-clipboard";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { useState } from "react";
 
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { MarkdownErrorBoundary } from "@/components/MarkdownErrorBoundary";
@@ -86,7 +86,7 @@ function AssistantActions({
   );
 }
 
-export function MessageBubble({
+export const MessageBubble = React.memo(function MessageBubble({
   message,
   isGenerating = false,
   isLastAssistant,
@@ -107,6 +107,12 @@ export function MessageBubble({
           </Text>
         ) : isStreaming && !hasContent ? (
           <RecallTypingIndicator />
+        ) : isStreaming ? (
+          // Show plain text while streaming — avoids O(n²) markdown re-parsing
+          // and prevents the formatting flicker (half-typed fences, tables, math).
+          <Text style={b.streamingText} selectable>
+            {message.content}
+          </Text>
         ) : (
           <>
             <MarkdownErrorBoundary
@@ -116,7 +122,7 @@ export function MessageBubble({
             >
               <MarkdownContent content={message.content} />
             </MarkdownErrorBoundary>
-            {!isStreaming ? <MessageMetaChips model={message.model} /> : null}
+            <MessageMetaChips model={message.model} />
           </>
         )}
       </View>
@@ -132,7 +138,7 @@ export function MessageBubble({
       )}
     </View>
   );
-}
+});
 
 const a = StyleSheet.create({
   row: {
@@ -167,4 +173,5 @@ const b = StyleSheet.create({
     paddingVertical: 8,
   },
   userText: { color: C.userText, fontSize: 16, lineHeight: 22 },
+  streamingText: { color: C.text, fontSize: 16, lineHeight: 24 },
 });

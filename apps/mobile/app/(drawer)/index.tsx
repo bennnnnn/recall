@@ -109,6 +109,7 @@ export default function ChatScreen() {
   const skipLoadForChatIdRef = useRef<string | null>(null);
   const priorRouteChatIdRef = useRef<string | null>(null);
   const listRef = useRef<FlashListRef<Message>>(null);
+  const atBottomRef = useRef(true);
 
   const discardEmptyChat = useCallback(
     (id: string | null) => {
@@ -159,11 +160,38 @@ export default function ChatScreen() {
     onError: handleChatError,
   });
 
+  // Scroll when a new message appears (count change = new bubble).
   useEffect(() => {
     if (messages.length > 0) {
       listRef.current?.scrollToEnd({ animated: true });
     }
   }, [messages.length]);
+
+  // Follow streaming content growth — scroll without animation so the
+  // view stays pinned to the growing text. Only fires when the user is
+  // already near the bottom (so we don't yank them away from reading history).
+  const streamingLen =
+    streaming &&
+    messages.length > 0 &&
+    messages[messages.length - 1]?.id === "streaming"
+      ? messages[messages.length - 1].content.length
+      : 0;
+  useEffect(() => {
+    if (streamingLen && atBottomRef.current) {
+      listRef.current?.scrollToEnd({ animated: false });
+    }
+  }, [streamingLen]);
+
+  // Track whether the list is scrolled near the bottom.
+  const handleScroll = useCallback(
+    (event: { nativeEvent: { contentOffset: { y: number }; contentSize: { height: number }; layoutMeasurement: { height: number } } }) => {
+      const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+      const threshold = 80; // px from bottom → considered "at bottom"
+      atBottomRef.current =
+        contentOffset.y + layoutMeasurement.height >= contentSize.height - threshold;
+    },
+    [],
+  );
 
   useEffect(() => {
     const showEvent =
@@ -616,9 +644,15 @@ export default function ChatScreen() {
             data={messages}
             style={s.list}
             drawDistance={280}
-            maintainVisibleContentPosition={{ disabled: false }}
+            maintainVisibleContentPosition={{
+              disabled: false,
+              autoscrollToBottomThreshold: 80,
+            }}
             keyExtractor={(item) => item.id}
+            getItemType={(item) => item.role}
             renderItem={renderItem}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
             contentContainerStyle={[
               s.listContent,
               { paddingTop: headerInset, paddingBottom: listBottomPad },
