@@ -2,8 +2,8 @@ import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Markdown from 'react-native-markdown-display';
-import { Animated, Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useState, type ReactNode } from 'react';
 
 import { C } from '@/constants/Colors';
 import { CodeBlock } from '@/components/CodeBlock';
@@ -138,26 +138,12 @@ function CollapsibleContent({
   );
 }
 
-function RecalledChip({ count }: { count: number }) {
-  const opacity = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.timing(opacity, { toValue: 1, duration: 250, useNativeDriver: true }).start();
-  }, [opacity]);
-  return (
-    <Animated.View style={[rc.chip, { opacity }]}>
-      <Ionicons name="sparkles" size={12} color={C.primary} />
-      <Text style={rc.text}>Recalled {count} {count === 1 ? 'memory' : 'memories'}</Text>
-    </Animated.View>
-  );
-}
-
 export function MessageBubble({ message, isLastAssistant, onRegenerate, onFeedback, onEdit }: Props) {
   const isUser = message.role === 'user';
   const isStreaming = message.id === 'streaming';
 
   return (
     <View style={[b.row, isUser ? b.userRow : b.assistantRow]}>
-      {!isUser && !isStreaming && message.recalled ? <RecalledChip count={message.recalled} /> : null}
       <View style={[b.bubble, isUser ? b.userBubble : b.assistantBubble]}>
         {/* Don't fold while still streaming — the height is changing every token */}
         <CollapsibleContent isUser={isUser} enabled={!isStreaming}>
@@ -242,21 +228,6 @@ const mdStyles = StyleSheet.create({
   th: { flex: 1, padding: 8, fontWeight: '700', color: C.text },
   tr: { flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth, borderColor: C.border },
   td: { flex: 1, padding: 8, color: C.assistantText },
-});
-
-const rc = StyleSheet.create({
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    alignSelf: 'flex-start',
-    backgroundColor: C.primaryLight,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-    marginBottom: 4,
-  },
-  text: { fontSize: 11, color: C.primary, fontWeight: '600' },
 });
 
 const cl = StyleSheet.create({

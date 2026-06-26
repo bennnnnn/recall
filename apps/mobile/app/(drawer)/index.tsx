@@ -51,7 +51,8 @@ function dotColorForTier(tier: string): string {
 }
 const HEADER_BAR_HEIGHT = 52;
 const HEADER_FADE_EXTRA = 48;
-const COMPOSER_HEIGHT = 108;
+const COMPOSER_HEIGHT = 118;
+const FEEDBACK_ROW_HEIGHT = 48;
 
 export default function ChatScreen() {
   const { token, user } = useAuth();
@@ -308,7 +309,7 @@ export default function ChatScreen() {
   const headerInset = insets.top + HEADER_BAR_HEIGHT;
   const fadeHeight = headerInset + HEADER_FADE_EXTRA;
   const composerBottomPad = keyboardHeight > 0 ? 8 : Math.max(insets.bottom, 10);
-  const listBottomPad = COMPOSER_HEIGHT + composerBottomPad + keyboardHeight;
+  const listBottomPad = COMPOSER_HEIGHT + FEEDBACK_ROW_HEIGHT + composerBottomPad + keyboardHeight;
 
   return (
     <>
