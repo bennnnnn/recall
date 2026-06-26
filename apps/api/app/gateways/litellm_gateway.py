@@ -4,6 +4,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 from litellm import acompletion
+from pydantic import BaseModel
 
 from app.core.config import Settings
 from app.gateways import mock_llm
@@ -94,7 +95,7 @@ async def stream_chat_completion(
         raise ModelUnavailableError("Model unavailable. Check API keys and try again.") from exc
 
 
-async def complete_structured[T](
+async def complete_structured[T: BaseModel](
     *,
     settings: Settings,
     model_alias: str,

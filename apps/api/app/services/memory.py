@@ -1,4 +1,5 @@
 import logging
+from typing import cast
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -77,7 +78,7 @@ async def get_memory_block(session: AsyncSession, user: User, settings: Settings
     try:
         cached = await redis.get(key)
         if cached is not None:
-            return cached
+            return cast(str, cached)
     except Exception:
         logger.debug("Memory block cache read failed", exc_info=True)
 

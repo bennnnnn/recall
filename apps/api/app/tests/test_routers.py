@@ -144,7 +144,6 @@ def test_create_chat():
 
 
 def test_list_chats():
-
     user = _fake_user()
     app = _app_with_user(user)
     empty_list: list = []

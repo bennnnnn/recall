@@ -1,7 +1,9 @@
+import asyncio
+import ipaddress
 import logging
 import re
 from html.parser import HTMLParser
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 
@@ -12,6 +14,36 @@ _OG_TAG_RE = re.compile(
     re.IGNORECASE,
 )
 _TITLE_RE = re.compile(r"<title[^>]*>([^<]+)</title>", re.IGNORECASE)
+
+_PRIVATE_IP_ERR = "Blocked request to internal/private address"
+
+
+async def _validate_external_url(url: str) -> None:
+    """Resolve URL hostname and validate all resulting IPs are external.
+
+    Raises ValueError if the hostname resolves to any private, loopback,
+    link-local, or unspecified address.
+    """
+    parsed = urlparse(url)
+    hostname = parsed.hostname or ""
+    if not hostname:
+        raise ValueError("URL has no hostname")
+
+    # Non-blocking DNS resolution via asyncio's thread-pool executor
+    loop = asyncio.get_event_loop()
+    try:
+        infos = await loop.getaddrinfo(hostname, None)
+    except OSError as exc:
+        raise ValueError(f"Cannot resolve hostname: {hostname}") from exc
+
+    for _family, _type, _proto, _canon, sockaddr in infos:
+        ip_str = sockaddr[0]
+        try:
+            addr = ipaddress.ip_address(ip_str)
+        except ValueError:
+            continue
+        if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_unspecified:
+            raise ValueError(_PRIVATE_IP_ERR)
 
 
 class _MetaParser(HTMLParser):
@@ -36,14 +68,31 @@ async def fetch_link_preview(url: str) -> dict[str, str | None]:
     description: str | None = None
 
     try:
+        await _validate_external_url(url)
+
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(6.0),
-            follow_redirects=True,
+            follow_redirects=False,
             headers={"User-Agent": "RecallLinkPreview/1.0"},
         ) as client:
             resp = await client.get(url)
+            # Manual redirect handling with per-hop validation
+            max_hops = 5
+            hops = 0
+            while resp.status_code in (301, 302, 303, 307, 308) and hops < max_hops:
+                redirect_target = resp.headers.get("Location")
+                if not redirect_target:
+                    break
+                redirect_target = urljoin(url, redirect_target)
+                await _validate_external_url(redirect_target)
+                resp = await client.get(redirect_target)
+                hops += 1
             resp.raise_for_status()
             html = resp.text[:120_000]
+    except ValueError:
+        # Re-raised from _validate_external_url — blocked internal address
+        logger.debug("Link preview blocked internal address: %s", url)
+        return {"url": url, "title": None, "description": None, "domain": domain}
     except Exception:
         logger.debug("Link preview fetch failed for %s", url, exc_info=True)
         return {"url": url, "title": None, "description": None, "domain": domain}

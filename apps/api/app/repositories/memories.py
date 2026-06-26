@@ -1,7 +1,9 @@
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Memory
@@ -49,8 +51,11 @@ async def upsert_many(
 
 
 async def delete_by_id(session: AsyncSession, user_id: UUID, memory_id: UUID) -> bool:
-    result = await session.execute(
-        delete(Memory).where(Memory.id == memory_id, Memory.user_id == user_id)
+    result = cast(
+        CursorResult[Any],
+        await session.execute(
+            delete(Memory).where(Memory.id == memory_id, Memory.user_id == user_id)
+        ),
     )
     await session.commit()
     return result.rowcount > 0

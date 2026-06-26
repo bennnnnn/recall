@@ -12,7 +12,7 @@ import json
 import logging
 import os
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 from redis.asyncio import Redis
@@ -106,7 +106,7 @@ async def _dispatch(settings: Settings, fields: dict[str, Any]) -> None:
 async def _process_entries(redis: Redis, settings: Settings, entries: list) -> None:
     for entry_id, fields in entries:
         try:
-            await _dispatch(settings, fields)
+            await _dispatch(settings, cast(dict[str, Any], fields))
         except Exception:
             logger.exception("Job failed id=%s", entry_id)
         finally:
@@ -148,8 +148,11 @@ async def _worker_loop(settings: Settings) -> None:
 
     while True:
         try:
-            resp = await redis.xreadgroup(
-                JOBS_GROUP, consumer, {JOBS_STREAM: ">"}, count=_BATCH, block=_BLOCK_MS
+            resp = cast(
+                list[tuple[str, list[tuple[str, dict[str, Any]]]]],
+                await redis.xreadgroup(
+                    JOBS_GROUP, consumer, {JOBS_STREAM: ">"}, count=_BATCH, block=_BLOCK_MS
+                ),
             )
         except asyncio.CancelledError:
             raise

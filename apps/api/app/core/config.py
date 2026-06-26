@@ -39,7 +39,7 @@ class Settings(BaseSettings):
 
 
 def validate_production_settings(settings: Settings) -> None:
-    if settings.environment != "production":
+    if settings.environment == "development":
         return
 
     errors: list[str] = []

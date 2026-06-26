@@ -22,8 +22,6 @@ from app.services import chat as chat_service
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["websocket"])
 
-_cancel_flags: dict[str, asyncio.Event] = {}
-
 
 async def _safe_send_json(websocket: WebSocket, payload: dict) -> bool:
     """Send a WS frame; return False if the client already disconnected."""
@@ -177,9 +175,7 @@ async def chat_websocket(
         await websocket.close()
         return
 
-    stream_key = f"{user_id}:{chat_id}"
     cancel_event = asyncio.Event()
-    _cancel_flags[stream_key] = cancel_event
 
     try:
         while True:
@@ -271,5 +267,3 @@ async def chat_websocket(
             )
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected chat_id=%s", chat_id)
-    finally:
-        _cancel_flags.pop(stream_key, None)

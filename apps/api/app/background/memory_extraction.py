@@ -22,7 +22,7 @@ async def extract_and_store_memories(
         result = await litellm_gateway.extract_memories(settings, transcript)
         if not result or not result.memories:
             return
-        items = [
+        items: list[tuple[str, str, float, UUID | None]] = [
             (item.type, item.text, item.confidence, chat_id)
             for item in result.memories
             if item.confidence >= settings.memory_min_confidence
