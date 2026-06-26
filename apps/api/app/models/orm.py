@@ -60,9 +60,7 @@ class Chat(Base):
     user: Mapped["User"] = relationship(back_populates="chats")
     # passive_deletes defers child removal to the DB's ON DELETE CASCADE
     # (messages.chat_id is NOT NULL, so the ORM must NOT try to null it out)
-    messages: Mapped[list["Message"]] = relationship(
-        back_populates="chat", passive_deletes=True
-    )
+    messages: Mapped[list["Message"]] = relationship(back_populates="chat", passive_deletes=True)
 
 
 class Message(Base):

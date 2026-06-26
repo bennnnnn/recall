@@ -64,6 +64,44 @@ async def list_all(
     return list(result.scalars().all())
 
 
+async def list_page(
+    session: AsyncSession,
+    chat_id: UUID,
+    *,
+    limit: int,
+    before_id: UUID | None = None,
+) -> tuple[list[Message], bool]:
+    """Return a chronological slice of messages (newest page or older-than cursor)."""
+    capped = max(1, min(limit, 200))
+    if before_id is not None:
+        ref = await session.execute(
+            select(Message).where(Message.id == before_id, Message.chat_id == chat_id)
+        )
+        anchor = ref.scalar_one_or_none()
+        if anchor is None:
+            return [], False
+        result = await session.execute(
+            select(Message)
+            .where(Message.chat_id == chat_id, Message.created_at < anchor.created_at)
+            .order_by(Message.created_at.desc())
+            .limit(capped + 1)
+        )
+    else:
+        result = await session.execute(
+            select(Message)
+            .where(Message.chat_id == chat_id)
+            .order_by(Message.created_at.desc())
+            .limit(capped + 1)
+        )
+
+    rows = list(result.scalars().all())
+    has_more = len(rows) > capped
+    if has_more:
+        rows = rows[:capped]
+    rows.reverse()
+    return rows, has_more
+
+
 async def list_range(
     session: AsyncSession,
     chat_id: UUID,
@@ -114,19 +152,6 @@ async def count_for_chat(session: AsyncSession, chat_id: UUID) -> int:
         select(func.count()).select_from(Message).where(Message.chat_id == chat_id)
     )
     return result.scalar_one()
-
-
-async def update_content(
-    session: AsyncSession,
-    message: Message,
-    content: str,
-    input_tokens: int,
-) -> Message:
-    message.content = content
-    message.input_tokens = input_tokens
-    await session.commit()
-    await session.refresh(message)
-    return message
 
 
 async def set_feedback(

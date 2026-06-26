@@ -18,7 +18,6 @@
     },
     "android": {
       "package": "com.recall.app",
-      "usesCleartextTraffic": true,
       "softwareKeyboardLayoutMode": "pan",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",

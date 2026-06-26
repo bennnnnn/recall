@@ -6,10 +6,22 @@ import {
   useMemo,
   useState,
   type ReactNode,
-} from 'react';
+} from "react";
 
-import { api, loginWithDev, loginWithGoogle, setUnauthorizedHandler, type User } from '@/lib/api';
-import { clearToken, getOnboarded, getToken, setOnboarded, setToken } from '@/lib/auth';
+import {
+  api,
+  loginWithDev,
+  loginWithGoogle,
+  setUnauthorizedHandler,
+  type User,
+} from "@/lib/api";
+import {
+  clearToken,
+  getOnboarded,
+  getToken,
+  setOnboarded,
+  setToken,
+} from "@/lib/auth";
 
 type AuthContextValue = {
   user: User | null;
@@ -55,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [hydrate]);
 
   const signInWithGoogle = useCallback(async () => {
-    const { signInWithGoogleIdToken } = await import('@/lib/google-auth');
+    const { signInWithGoogleIdToken } = await import("@/lib/google-auth");
     const idToken = await signInWithGoogleIdToken();
     const result = await loginWithGoogle(idToken);
     await setToken(result.access_token);
@@ -72,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     try {
-      const { signOutGoogle } = await import('@/lib/google-auth');
+      const { signOutGoogle } = await import("@/lib/google-auth");
       await signOutGoogle();
     } catch {
       // best-effort — clearing the local token is what matters
@@ -143,7 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) {
-    throw new Error('useAuth must be used within AuthProvider');
+    throw new Error("useAuth must be used within AuthProvider");
   }
   return ctx;
 }

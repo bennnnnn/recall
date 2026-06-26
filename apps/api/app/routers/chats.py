@@ -16,6 +16,7 @@ from app.models.schemas import (
     ChatRename,
     FeedbackUpdate,
     MessageOut,
+    MessagePageOut,
     PinUpdate,
     UsageOut,
 )
@@ -126,22 +127,23 @@ async def get_chat(
     return ChatOut.model_validate(chat)
 
 
-@router.get("/{chat_id}/messages", response_model=list[MessageOut])
+@router.get("/{chat_id}/messages", response_model=MessagePageOut)
 async def list_messages(
     chat_id: UUID,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
-    limit: int = 200,
-) -> list[MessageOut]:
+    limit: int = 40,
+    before: UUID | None = None,
+) -> MessagePageOut:
     chat = await chats_repo.get_by_id(session, chat_id, user.id)
     if chat is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
-    msgs = await messages_repo.list_all(session, chat_id, limit=limit)
+    msgs, has_more = await messages_repo.list_page(session, chat_id, limit=limit, before_id=before)
 
     # Backfill a missing title via the durable job queue. Idempotent: the handler
     # only sets a title when the chat still has none.
-    if not chat.title and msgs:
+    if not chat.title and not before and msgs:
         user_msg = next((m for m in msgs if m.role == "user"), None)
         asst_msg = next((m for m in msgs if m.role == "assistant"), None)
         if user_msg and asst_msg:
@@ -155,7 +157,10 @@ async def list_messages(
                 },
             )
 
-    return [MessageOut.model_validate(m) for m in msgs]
+    return MessagePageOut(
+        messages=[MessageOut.model_validate(m) for m in msgs],
+        has_more=has_more,
+    )
 
 
 @router.patch("/{chat_id}/messages/{message_id}/feedback", response_model=MessageOut)

@@ -91,6 +91,11 @@ class MessageOut(BaseModel):
     created_at: datetime
 
 
+class MessagePageOut(BaseModel):
+    messages: list[MessageOut]
+    has_more: bool
+
+
 class MemoryOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

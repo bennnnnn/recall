@@ -37,7 +37,7 @@ CATALOG: tuple[ChatModel, ...] = (
         api_key_field="deepseek_api_key",
         input_price_per_m=0.14,
         output_price_per_m=0.28,
-        description="Fast and low-cost — great for everyday chat.",
+        description="",
         tier="fast",
     ),
     ChatModel(
@@ -48,7 +48,7 @@ CATALOG: tuple[ChatModel, ...] = (
         api_key_field="deepseek_api_key",
         input_price_per_m=0.55,
         output_price_per_m=2.19,
-        description="Stronger reasoning — uses more quota.",
+        description="",
         tier="smart",
     ),
     ChatModel(
@@ -59,7 +59,7 @@ CATALOG: tuple[ChatModel, ...] = (
         model="openrouter/auto",
         api_key_field="openrouter_api_key",
         api_base=OPENROUTER_API_BASE,
-        description="Top-tier model via OpenRouter (needs an OpenRouter API key).",
+        description="",
         tier="max",
     ),
     # Internal aliases — not user-selectable.

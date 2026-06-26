@@ -1,4 +1,5 @@
 """Tests for token-budget history compression."""
+
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 

@@ -1,14 +1,15 @@
-import Constants from 'expo-constants';
+import Constants from "expo-constants";
 
 export const config = {
-  apiUrl: process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000',
+  apiUrl: process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8000",
   googleWebClientId:
     process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ??
-    'your-google-web-client-id.apps.googleusercontent.com',
+    "your-google-web-client-id.apps.googleusercontent.com",
   googleIosClientId:
-    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? 'your-ios-client-id.apps.googleusercontent.com',
-  devAuthEnabled: process.env.EXPO_PUBLIC_DEV_AUTH_ENABLED !== 'false',
-  appName: 'Recall',
+    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ??
+    "your-ios-client-id.apps.googleusercontent.com",
+  devAuthEnabled: process.env.EXPO_PUBLIC_DEV_AUTH_ENABLED !== "false",
+  appName: "Recall",
   isDev: __DEV__,
 } as const;
 
@@ -18,5 +19,5 @@ export function getApiUrl(): string {
     return process.env.EXPO_PUBLIC_API_URL;
   }
   const extra = Constants.expoConfig?.extra as { apiUrl?: string } | undefined;
-  return extra?.apiUrl ?? 'http://localhost:8000';
+  return extra?.apiUrl ?? "http://localhost:8000";
 }

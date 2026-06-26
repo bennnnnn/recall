@@ -1,9 +1,9 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.orm import Chat
+from app.models.orm import Chat, Message
 
 
 async def create(session: AsyncSession, *, user_id: UUID, model: str) -> Chat:
@@ -20,10 +20,33 @@ async def get_by_id(session: AsyncSession, chat_id: UUID, user_id: UUID) -> Chat
 
 
 async def list_for_user(session: AsyncSession, user_id: UUID) -> list[Chat]:
+    has_messages = exists().where(Message.chat_id == Chat.id)
     result = await session.execute(
-        select(Chat).where(Chat.user_id == user_id).order_by(Chat.updated_at.desc())
+        select(Chat)
+        .where(Chat.user_id == user_id)
+        .where(has_messages)
+        .order_by(Chat.updated_at.desc())
     )
     return list(result.scalars().all())
+
+
+async def delete_empty_for_user(session: AsyncSession, user_id: UUID) -> int:
+    """Remove chats with zero messages (abandoned drafts)."""
+    empty_ids = await session.execute(
+        select(Chat.id).where(
+            Chat.user_id == user_id,
+            ~exists().where(Message.chat_id == Chat.id),
+        )
+    )
+    ids = list(empty_ids.scalars().all())
+    if not ids:
+        return 0
+    for chat_id in ids:
+        chat = await session.get(Chat, chat_id)
+        if chat is not None:
+            await session.delete(chat)
+    await session.commit()
+    return len(ids)
 
 
 def group_by_recency(chats: list[Chat]) -> dict[str, list[Chat]]:

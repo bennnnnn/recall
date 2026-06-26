@@ -1,4 +1,5 @@
 """Tests for account deletion + data export."""
+
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -85,7 +86,10 @@ async def test_build_export_structure():
     mem = MagicMock(type="fact", text="x", confidence=None, created_at=datetime(2024, 1, 1))
 
     with (
-        patch("app.services.export_service.chats_repo.list_for_user", AsyncMock(return_value=[chat])),
+        patch(
+            "app.services.export_service.chats_repo.list_for_user",
+            AsyncMock(return_value=[chat]),
+        ),
         patch("app.services.export_service.messages_repo.list_all", AsyncMock(return_value=[msg])),
         patch(
             "app.services.export_service.memories_repo.list_for_user",

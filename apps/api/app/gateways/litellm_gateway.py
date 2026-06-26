@@ -80,9 +80,13 @@ async def stream_chat_completion(
         )
         async for chunk in response:
             _apply_usage(usage, chunk)
-            delta = chunk.choices[0].delta.content
-            if delta:
-                yield delta
+            choices = getattr(chunk, "choices", None) or []
+            if not choices:
+                continue
+            delta = choices[0].delta
+            content = getattr(delta, "content", None) or ""
+            if content:
+                yield content
     except ModelUnavailableError:
         raise
     except Exception as exc:

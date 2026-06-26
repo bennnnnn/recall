@@ -11,6 +11,7 @@ from app.core.config import Settings
 from app.exceptions import QuotaExceededError
 from app.gateways.google_auth import create_access_token
 from app.main import create_app
+from app.services.quota import QUOTA_EXCEEDED_MESSAGE
 
 
 @pytest.fixture(autouse=True)
@@ -105,6 +106,7 @@ def test_ws_sends_message_and_receives_tokens():
             assert token1["content"] == "Hello"
             token2 = ws.receive_json()
             assert token2["type"] == "token"
+            assert ws.receive_json()["type"] == "stream_end"
             done = ws.receive_json()
             assert done["type"] == "done"
 
@@ -153,6 +155,7 @@ def test_ws_regenerate():
             assert start["type"] == "start"
             token = ws.receive_json()
             assert token["content"] == "Regen"
+            assert ws.receive_json()["type"] == "stream_end"
             done = ws.receive_json()
             assert done["type"] == "done"
 
@@ -217,6 +220,7 @@ def test_ws_mid_stream_cancel():
             first = ws.receive_json()
             assert first["type"] == "token"
             ws.send_json({"type": "cancel"})
+            assert ws.receive_json()["type"] == "stream_end"
             done = ws.receive_json()
             assert done["type"] == "done"
 
@@ -248,7 +252,7 @@ def test_ws_quota_error_frame():
     chat_id = uuid4()
 
     async def quota_fail(*args, **kwargs):
-        raise QuotaExceededError("Daily token limit reached.")
+        raise QuotaExceededError(QUOTA_EXCEEDED_MESSAGE)
         yield  # pragma: no cover
 
     app = _app(user)

@@ -7,8 +7,12 @@ export function registerDrawer(open: () => void, close: () => void) {
   _close = close;
 }
 
-export function openDrawer() { _open?.(); }
-export function closeDrawer() { _close?.(); }
+export function openDrawer() {
+  _open?.();
+}
+export function closeDrawer() {
+  _close?.();
+}
 
 // Shared "start a new chat" action — registered by the chat screen so the
 // drawer can trigger it without prop drilling or fragile route params.

@@ -1,17 +1,17 @@
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from "react-native";
 
-import { C } from '@/constants/Colors';
+import { C } from "@/constants/Colors";
 
 function initials(name: string | null): string {
-  if (!name) return '?';
+  if (!name) return "?";
   const letters = name
-    .split(' ')
+    .split(" ")
     .map((w) => w[0])
     .filter(Boolean)
     .slice(0, 2)
-    .join('')
+    .join("")
     .toUpperCase();
-  return letters || '?';
+  return letters || "?";
 }
 
 /** Google profile picture when available, otherwise the user's initials. */
@@ -26,7 +26,9 @@ export function Avatar({
 }) {
   const dim = { width: size, height: size, borderRadius: size / 2 };
   if (uri) {
-    return <Image source={{ uri }} style={[dim, { backgroundColor: C.surface }]} />;
+    return (
+      <Image source={{ uri }} style={[dim, { backgroundColor: C.surface }]} />
+    );
   }
   return (
     <View style={[dim, a.fallback]}>
@@ -36,6 +38,10 @@ export function Avatar({
 }
 
 const a = StyleSheet.create({
-  fallback: { backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center' },
-  text: { color: '#fff', fontWeight: '700' },
+  fallback: {
+    backgroundColor: C.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  text: { color: "#fff", fontWeight: "700" },
 });

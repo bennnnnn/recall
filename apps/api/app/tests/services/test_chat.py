@@ -38,6 +38,7 @@ async def test_build_prompt_includes_memory_and_style():
     assert messages[0]["role"] == "system"
     assert "short" in messages[0]["content"].lower() or "concise" in messages[0]["content"].lower()
     assert "Python" in messages[0]["content"]
+    assert "clarifying questions" in messages[0]["content"].lower()
     assert messages[-1] == {"role": "user", "content": "Hi"}
 
 
@@ -125,14 +126,19 @@ async def test_memory_extraction_runs_on_later_turn():
         patch("app.services.chat.usage_repo.add_tokens", AsyncMock()),
         patch("app.services.chat.jobs.enqueue", AsyncMock()) as enqueue_job,
     ):
+        result: dict[str, str] = {}
         async for _ in chat_module.stream_chat_response(
             AsyncMock(),
             Settings(max_output_tokens=100),
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="second turn info",
+            result=result,
         ):
             pass
+        finalize = result.get("_finalize_task")
+        if finalize is not None:
+            await finalize
 
     # Memory is enqueued every turn; the title job is first-turn only.
     job_types = [call.args[1] for call in enqueue_job.call_args_list]

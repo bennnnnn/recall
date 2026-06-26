@@ -13,6 +13,12 @@ def utc_today() -> date:
     return datetime.now(UTC).date()
 
 
+# Shown when the daily free quota is exhausted — avoid internal "token" wording.
+QUOTA_EXCEEDED_MESSAGE = (
+    "You've used up today's free limit. Go Pro for more — or come back tomorrow."
+)
+
+
 async def get_daily_usage(redis: Redis, user_id: str) -> int:
     key = _usage_key(user_id, utc_today())
     value = await redis.get(key)

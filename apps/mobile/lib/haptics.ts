@@ -1,4 +1,4 @@
-import { Platform, Vibration } from 'react-native';
+import { Platform, Vibration } from "react-native";
 
 /**
  * Light tactile feedback for key actions.
@@ -9,7 +9,7 @@ import { Platform, Vibration } from 'react-native';
  * added, swap the body here and every call site upgrades automatically.
  */
 export function tap(): void {
-  if (Platform.OS === 'android') {
+  if (Platform.OS === "android") {
     Vibration.vibrate(10);
   }
 }

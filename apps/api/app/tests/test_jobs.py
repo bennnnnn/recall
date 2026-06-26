@@ -1,4 +1,5 @@
 """Tests for the durable Redis-stream job queue."""
+
 import asyncio
 import json
 from unittest.mock import AsyncMock, patch
@@ -84,9 +85,10 @@ async def test_handle_compress_delegates():
 
 @pytest.mark.asyncio
 async def test_handle_topic_delegates():
-    with _patch_session(), patch(
-        "app.core.jobs.topic_generation.generate_chat_title", AsyncMock()
-    ) as job:
+    with (
+        _patch_session(),
+        patch("app.core.jobs.topic_generation.generate_chat_title", AsyncMock()) as job,
+    ):
         await jobs._handle_topic(
             Settings(),
             {"chat_id": str(uuid4()), "user_message": "hi", "assistant_message": "yo"},
@@ -96,9 +98,10 @@ async def test_handle_topic_delegates():
 
 @pytest.mark.asyncio
 async def test_handle_memory_delegates():
-    with _patch_session(), patch(
-        "app.core.jobs.memory_extraction.extract_and_store_memories", AsyncMock()
-    ) as job:
+    with (
+        _patch_session(),
+        patch("app.core.jobs.memory_extraction.extract_and_store_memories", AsyncMock()) as job,
+    ):
         await jobs._handle_memory(
             Settings(),
             {"user_id": str(uuid4()), "chat_id": str(uuid4()), "transcript": "t"},

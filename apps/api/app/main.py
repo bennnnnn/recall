@@ -8,7 +8,7 @@ from app.core.config import get_settings, validate_production_settings
 from app.core.db import engine
 from app.core.logging import setup_logging
 from app.core.redis import get_redis_client
-from app.routers import auth, chats, health, memories, models, ws
+from app.routers import auth, chats, health, link_preview, memories, models, ws
 
 
 @asynccontextmanager
@@ -38,6 +38,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(auth.router)
+    app.include_router(link_preview.router)
     app.include_router(chats.router)
     app.include_router(memories.router)
     app.include_router(models.router)
