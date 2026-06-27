@@ -7,7 +7,8 @@ import {
   Text,
   View,
 } from "react-native";
-import { Redirect } from "expo-router";
+import { Redirect, router } from "expo-router";
+import { useTranslation } from "react-i18next";
 
 import { C } from "@/constants/Colors";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,6 +27,7 @@ function GoogleG() {
 export default function LoginScreen() {
   const { token, loading, onboarded, signInWithGoogle, signInWithDev } =
     useAuth();
+  const { t } = useTranslation();
   const [busy, setBusy] = useState<"google" | "dev" | null>(null);
 
   if (loading) {
@@ -78,7 +80,7 @@ export default function LoginScreen() {
           <Text style={s.sp3}>✦</Text>
         </View>
         <Text style={s.title}>Recall</Text>
-        <Text style={s.subtitle}>Your AI that remembers you.</Text>
+        <Text style={s.subtitle}>{t("login.tagline")}</Text>
       </View>
 
       <View style={s.sheet}>
@@ -95,7 +97,7 @@ export default function LoginScreen() {
               <Text style={s.googleText}>
                 {isExpoGo()
                   ? "Google Sign-In (dev build only)"
-                  : "Continue with Google"}
+                  : t("login.google")}
               </Text>
             </>
           )}
@@ -112,15 +114,17 @@ export default function LoginScreen() {
             {busy === "dev" ? (
               <ActivityIndicator color={C.primary} />
             ) : (
-              <Text style={s.devText}>Continue as Dev User</Text>
+              <Text style={s.devText}>{t("login.dev")}</Text>
             )}
           </Pressable>
         )}
 
         <View style={s.links}>
-          <Text style={s.link}>Terms</Text>
+          <Text style={s.link}>{t("login.terms")}</Text>
           <Text style={s.dot}> · </Text>
-          <Text style={s.link}>Privacy</Text>
+          <Pressable onPress={() => router.push("/privacy")}>
+            <Text style={s.link}>{t("login.privacy")}</Text>
+          </Pressable>
         </View>
       </View>
     </View>

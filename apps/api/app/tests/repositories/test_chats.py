@@ -63,16 +63,13 @@ async def test_delete_empty_for_user_with_no_empty_chats(fake_session):
     """delete_empty_for_user should return 0 when no empty chats exist."""
     from app.repositories.chats import delete_empty_for_user
 
-    mock_scalars = MagicMock()
-    mock_scalars.all.return_value = []
     mock_result = MagicMock()
-    mock_result.scalars.return_value = mock_scalars
+    mock_result.rowcount = 0
     fake_session.execute.return_value = mock_result
 
     result = await delete_empty_for_user(fake_session, uuid4())
 
     assert result == 0
-    fake_session.delete.assert_not_called()
 
 
 @pytest.mark.asyncio

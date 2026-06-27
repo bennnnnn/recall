@@ -1,11 +1,14 @@
+import "@/lib/i18n";
+
 import { Stack } from "expo-router";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { useFonts, SpaceMono_400Regular } from "@expo-google-fonts/space-mono";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { C } from "@/constants/Colors";
+import { useTranslation } from "react-i18next";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -19,17 +22,11 @@ const HEADER = {
 
 function RootNavigator() {
   const { loading } = useAuth();
+  const { t } = useTranslation();
 
   if (loading) {
     return (
-      <View
-        style={{
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: C.bg,
-        }}
-      >
+      <View style={s.loading}>
         <ActivityIndicator size="large" color={C.primary} />
       </View>
     );
@@ -47,11 +44,23 @@ function RootNavigator() {
       <Stack.Screen name="(drawer)" />
       <Stack.Screen
         name="memory"
-        options={{ ...HEADER, headerShown: true, title: "Memory" }}
+        options={{ ...HEADER, headerShown: true, title: t("memory.title") }}
       />
       <Stack.Screen
         name="settings"
-        options={{ ...HEADER, headerShown: true, title: "Settings" }}
+        options={{ ...HEADER, headerShown: true, title: t("settings.title") }}
+      />
+      <Stack.Screen
+        name="privacy"
+        options={{ ...HEADER, headerShown: true, title: t("privacy.title") }}
+      />
+      <Stack.Screen
+        name="todos"
+        options={{ ...HEADER, headerShown: true, title: t("todos.title") }}
+      />
+      <Stack.Screen
+        name="search"
+        options={{ headerShown: false }}
       />
     </Stack>
   );
@@ -79,4 +88,15 @@ export default function RootLayout() {
   );
 }
 
+// ErrorBoundary is re-exported for expo-router to use automatically when
+// errors occur in child routes (it catches crashes in screens).
 export { ErrorBoundary } from "expo-router";
+
+const s = StyleSheet.create({
+  loading: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: C.bg,
+  },
+});

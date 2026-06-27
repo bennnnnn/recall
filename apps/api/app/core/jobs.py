@@ -17,7 +17,7 @@ from uuid import UUID
 
 from redis.asyncio import Redis
 
-from app.background import compaction, memory_extraction, topic_generation
+from app.background import compaction, memory_extraction, suggestion_generation, topic_generation
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
@@ -84,6 +84,16 @@ async def _handle_compress(settings: Settings, payload: dict[str, Any]) -> None:
 register("topic", _handle_topic)
 register("memory", _handle_memory)
 register("compress", _handle_compress)
+
+
+async def _handle_suggestions(settings: Settings, payload: dict[str, Any]) -> None:
+    async with SessionLocal() as session:
+        await suggestion_generation.generate_suggestions(
+            session, settings, UUID(payload["user_id"])
+        )
+
+
+register("suggestions", _handle_suggestions)
 
 
 # ── worker ───────────────────────────────────────────────────────────────────

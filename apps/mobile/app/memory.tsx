@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, useFocusEffect } from "expo-router";
+import { useTranslation } from "react-i18next";
 
 import { C } from "@/constants/Colors";
 import { useAuth } from "@/contexts/AuthContext";
@@ -34,8 +35,11 @@ function groupByType(memories: Memory[]) {
 
 export default function MemoryScreen() {
   const { token } = useAuth();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [memories, setMemories] = useState<Memory[]>([]);
+
+  const [error, setError] = useState(false);
 
   const load = useCallback(async () => {
     if (!token) {
@@ -43,8 +47,11 @@ export default function MemoryScreen() {
       return;
     }
     setLoading(true);
+    setError(false);
     try {
       setMemories(await api.listMemories(token));
+    } catch {
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -66,6 +73,23 @@ export default function MemoryScreen() {
     );
   }
 
+  if (error) {
+    return (
+      <View style={s.empty}>
+        <Ionicons
+          name="cloud-offline-outline"
+          size={48}
+          color={C.textTertiary}
+          style={s.emptyIcon}
+        />
+        <Text style={s.emptyTitle}>{t("common.error")}</Text>
+        <Pressable style={s.retryBtn} onPress={() => load()}>
+          <Text style={s.retryText}>{t("common.retry")}</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   if (memories.length === 0) {
     return (
       <View style={s.empty}>
@@ -73,22 +97,19 @@ export default function MemoryScreen() {
           name="sparkles-outline"
           size={48}
           color={C.primary}
-          style={{ opacity: 0.5, marginBottom: 16 }}
+          style={s.emptyIcon}
         />
-        <Text style={s.emptyTitle}>No memories yet</Text>
-        <Text style={s.emptyBody}>
-          Chat with Recall and it will automatically learn your preferences,
-          projects, and facts about you.
-        </Text>
+        <Text style={s.emptyTitle}>{t("memory.empty_title")}</Text>
+        <Text style={s.emptyBody}>{t("memory.empty_body")}</Text>
       </View>
     );
   }
 
-  const groups = groupByType(memories);
+  const groups = useMemo(() => groupByType(memories), [memories]);
 
   return (
     <ScrollView style={s.root} contentContainerStyle={s.content}>
-      <Text style={s.heading}>What Recall knows about you</Text>
+      <Text style={s.heading}>{t("memory.heading")}</Text>
       {TYPE_ORDER.filter((t) => groups[t]?.length).map((type) => (
         <View key={type} style={s.group}>
           <Text style={s.groupTitle}>{TYPE_LABEL[type] ?? type}</Text>
@@ -138,6 +159,7 @@ const s = StyleSheet.create({
     padding: 32,
     backgroundColor: C.bg,
   },
+  emptyIcon: { opacity: 0.5, marginBottom: 16 },
   emptyTitle: { fontSize: 18, fontWeight: "600", color: C.text },
   emptyBody: {
     fontSize: 15,
@@ -170,4 +192,12 @@ const s = StyleSheet.create({
   cardText: { fontSize: 15, color: C.text, lineHeight: 21 },
   conf: { fontSize: 12, color: C.textTertiary, marginTop: 4 },
   del: { color: C.textTertiary, fontSize: 16, fontWeight: "700", marginTop: 2 },
+  retryBtn: {
+    marginTop: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: C.primary,
+  },
+  retryText: { fontSize: 14, fontWeight: "600", color: "#fff" },
 });

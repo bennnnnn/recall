@@ -2,6 +2,7 @@
  * Minimal markdown when the rich renderer fails — still formats headers,
  * tables, bold, and code (no Prism / rich cards).
  */
+import { useMemo } from "react";
 import Markdown, { renderRules as defaultRules } from "react-native-markdown-display";
 import { StyleSheet, Text, View } from "react-native";
 
@@ -13,7 +14,8 @@ import { preprocessMarkdown } from "@/lib/markdownPreprocess";
 type FenceNode = { key: string; content: string; info?: string };
 
 function simpleFence(node: FenceNode) {
-  const code = node.content.replace(/\n$/, "");
+  const code = node.content.replace(/\n$/, "").trim();
+  if (!code) return null;
   const lang = node.info?.trim().toLowerCase();
   return (
     <View key={node.key} style={s.codeWrap}>
@@ -57,7 +59,7 @@ const mdStyles = StyleSheet.create({
 type Props = { content: string };
 
 export function FallbackMarkdown({ content }: Props) {
-  const prepared = preprocessMarkdown(content);
+  const prepared = useMemo(() => preprocessMarkdown(content), [content]);
   return (
     <Markdown
       style={mdStyles}

@@ -139,7 +139,7 @@ const s = StyleSheet.create({
   table: {
     width: "100%",
     borderWidth: 1,
-    borderColor: "#D1D1D6",
+    borderColor: C.border,
     borderRadius: 12,
     overflow: "hidden",
     backgroundColor: C.bg,

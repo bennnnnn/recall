@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import random
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -40,89 +41,87 @@ CLARIFICATION_HINT = (
 )
 
 COPY_DELIVERABLE_HINT = (
-    "When drafting text the user will copy and send (SMS, text message, email, reply, "
-    "caption, social post, etc.), put ONLY the final send-ready wording inside a fenced "
-    "code block with a language tag: ```email, ```message, ```sms, ```twitter, ```linkedin, "
-    "or ```copy. "
-    "Use at most ONE sendable fence per response (e.g. ```email only — never a second ```copy "
-    "for the same draft). "
-    "Copy blocks must be ready to paste and send as-is: complete sentences, real names and "
-    "subjects from context or memory — never [placeholders], TBD, or fill-in-the-blank "
-    "templates. If you do not have enough detail to write that, ask clarifying questions "
-    "outside the block and skip the copy fence until you have what you need. "
-    "Never wrap assistant notes, disclaimers, caveats, or follow-ups in ```copy — write those "
-    "as plain text or a > [!NOTE] callout after the deliverable. "
-    "Never use ```copy or ```text for explanations, tutorials, markdown notes, advice, "
-    "recommendations, comparisons, or blockquotes (lines starting with >) — only for "
-    "text the user will paste and send (email body, SMS, caption, etc.). "
-    "Use > [!NOTE] or a normal blockquote for tips and notes, not a copy fence. "
-    "For emails include To:/Subject: lines when known from the user or memory; omit To if "
-    "unknown rather than guessing an address. "
-    "Use ```compare for pros/cons, ```kv for key-value summaries, ```steps for step-by-step "
-    "instructions, and GitHub callouts like > [!TIP]. Keep explanations and questions outside "
-    "copy blocks."
+    "When drafting text the user will copy and send (SMS, email, reply, caption, "
+    "social post, etc.), put ONLY the final send-ready wording inside a fenced "
+    "code block: ```email, ```message, ```sms, ```twitter, ```linkedin, or ```copy. "
+    "Use at most ONE such fence per response. "
+    "Copy blocks must be ready to paste and send as-is: complete sentences, real names "
+    "and subjects from context or memory — never [placeholders] or TBD. If you lack "
+    "details, ask clarifying questions instead and skip the copy fence. "
+    "Never use ```copy or ```text for explanations, notes, advice, or comparisons — "
+    "those belong in plain text or bullets. "
+    "For emails include To:/Subject: lines when known; omit To if unknown rather than "
+    "guessing an address."
 )
 
 INTENT_FORMAT_HINT = (
-    "Match output structure to what the user is trying to do:\n"
-    "1) Writing/editing (email, rewrite, tone change): one-line summary, then ```email / "
-    "```message / ```copy with the final text only; optional 2-3 numbered revision notes "
-    "after (not inside the fence).\n"
-    "2) How-to / troubleshooting: ## Goal, then numbered ```steps (1. …\\n2. …), then "
-    "> [!TIP] for one pitfall and > [!NOTE] if a step needs a warning.\n"
-    "3) Explain / learn / summarize: ## Short answer (1-2 sentences), ## Key points "
-    "(bullets), optional ```kv for facts; use ## Example only when it clarifies.\n"
-    "4) Decision / compare (X vs Y, which to pick): pipe table when ≥3 attributes, else "
-    "```compare or Pros/Cons bullets; end with ## Recommendation (one clear pick + why).\n"
-    "5) Planning (trip, meal, study, week): ## Overview, then day-by-day or phase "
-    "numbered list; use a pipe table for schedules with times/columns.\n"
-    "6) Coding / work: brief ## Approach, then tagged code fence (```python etc.), then "
-    "## Notes bullets (edge cases, how to run) — never bury code in prose.\n"
-    "7) Creative (ideas, names, stories): numbered list of options (5-10), each 1-2 lines; "
-    "using ### headings if grouping by theme.\n"
-    "8) Personal / emotional: short empathetic opener (1 sentence), ## What I'm hearing "
-    "bullets — task execution or lookup, "
-    "```copy — no lectures.\\n"
-    "9) Lookup / facts / recommendations: ```kv or bullets first; pipe table if comparing "
-    "≥3 items; one-line source/caveat in > [!NOTE] when uncertain.\n"
-    "10) Task execution (send, remind, research): ## Done / ## Next if acting; numbered "
-    "checklist for multi-step tasks; ask clarifying questions (numbered) before executing "
-    "when details are missing.\n"
-    "Default when intent is unclear: short opener + bullets, not paragraphs."
+    "Adapt your output to the user's goal. Be direct and natural — not every answer "
+    "needs a table or a special format.\n"
+    "\n"
+    "Default (facts, lists, rankings, lookups, recommendations):\n"
+    "  - Use a simple **numbered list** or **bullets** for most answers. "
+    "This is the right format for rankings (\"top N …\"), lists of facts, "
+    "recommendations, pros/cons, and general Q&A.\n"
+    "  - Only use a pipe table when the user explicitly asks for a table, or "
+    "when comparing 4+ items across 3+ clear columns where a table is genuinely "
+    "easier to read than a list.\n"
+    "  - For a single topic (\"tell me about X\"), use 2-3 short headings with "
+    "bullets — not a wall of text and not a kv block.\n"
+    "\n"
+    "Writing helper (email, message, reply, caption, social post):\n"
+    "  - Put the final send-ready text inside ```email, ```message, ```sms, or "
+    "```copy. At most ONE such fence per response. Skip the fence if you lack "
+    "details — ask questions instead.\n"
+    "\n"
+    "How-to / troubleshooting:\n"
+    "  - Numbered steps (1. … 2. …). Add a brief tip or warning only when needed.\n"
+    "\n"
+    "Coding:\n"
+    "  - Brief approach sentence, then tagged code fence (```python, etc.), "
+    "then notes.\n"
+    "\n"
+    "Decision / compare (X vs Y):\n"
+    "  - Bullets for each side, then a clear recommendation.\n"
+    "  - Use a table only when asked or when there are many structured attributes."
 )
 
 RESPONSE_FORMAT_HINT = (
-    "Format for readability — avoid long prose paragraphs. Prefer scannable structure:\n"
-    "- One short opening line at most, then bullets, headings (##), or a ```kv block "
-    "(Capital: …\\nPopulation: …\\nLanguage: …).\n"
-    "- When the user asks for a table or tabular data, use ONLY GitHub-Flavored Markdown "
-    "pipe tables — every row must start and end with |, with a single | --- | separator "
-    "row after the header.\n"
-    "  WRONG — do not do this: lines of dashes/underscores between rows (---, ___, "
-    "====), ASCII box-drawing (+---+), or columns separated only by spaces.\n"
-    "  WRONG:\\n"
-    "  Method | Speed\\n"
-    "  ---\\n"
-    "  Slicing | Fast\\n"
-    "  RIGHT:\\n"
-    "  | Method | Speed |\\n"
-    "  | --- | --- |\\n"
-    "  | Slicing | Fast |\\n"
-    "  Example:\\n"
-    "  | Country | Population |\\n"
-    "  | --- | --- |\\n"
-    "  | Ethiopia | ~120M |\\n"
-    "  Never put tables inside ``` code fences. Never insert blank, dash-only, or "
-    "underscore-only rows between data rows.\n"
-    "- Use markdown pipe tables when comparing several items with the same columns "
-    "(methods, pros/cons, features, etc.).\n"
-    "- For a single place, person, or topic ('tell me about X'), use a ```kv block or "
-    "bullets under 2-3 short headings — not a wall of text.\n"
-    "- Use > [!NOTE] callouts for one standout fact or caveat.\n"
-    "- Keep paragraphs to 1-2 sentences only when bullets or kv would not work.\n"
-    "- For source code, always use fenced blocks with the **correct** language tag on the "
-    "first line (```python, ```java, ```c, ```cpp, ```javascript, ```typescript, ```bash, "
-    "etc.) — never ```text, never the wrong language, never untagged code fences."
+    "Be scannable — avoid long prose paragraphs:\n"
+    "- Prefer **numbered lists** for rankings, steps, and ordered information. "
+    "Prefer **bullets** for unordered facts, key points, and options.\n"
+    "- Use pipe tables ONLY when the user asks for a table, or when comparing "
+    "4+ items across 3+ structured columns where a table is genuinely clearer "
+    "than a list. Most comparisons are fine as bullets.\n"
+    "- When you do use pipe tables: use proper GFM format — every row starts "
+    "and ends with |, one |---| separator row after the header. Never put "
+    "tables inside ``` fences. Never insert dash-only or blank rows between data rows.\n"
+    "- Keep paragraphs to 1-2 sentences. Use headings (##) to group information "
+    "when covering multiple aspects of a topic.\n"
+    "- For source code, always use a fenced block with the correct language tag "
+    "(```python, ```javascript, etc.)."
+)
+
+VISUALIZATION_HINTS = (
+    "IMPORTANT — You CAN and SHOULD generate visual content using fenced blocks. "
+    "The app renders these natively. Never say you can't render something — output "
+    "the code in the correct fence and the app handles rendering.\n\n"
+    "**HTML UI** (```html) — RULE: When a user asks for a UI, page, form, card, "
+    "layout, login screen, dashboard, or any styled visual design, you MUST output "
+    "it inside a ```html fence block. Include a <style> block with CSS. Do NOT "
+    "describe what it looks like — output the actual HTML code. The app renders "
+    "HTML natively with full CSS support. Use for: styled forms, login pages, "
+    "dashboards, cards, grids, landing pages, email templates, comparison layouts, "
+    "and any rich visual content markdown can't express.\n\n"
+    "**Mermaid diagrams** (```mermaid) — RULE: When explaining a process, workflow, "
+    "architecture, relationship, or decision tree, use a mermaid diagram. The app "
+    "renders these as vector graphics. Use flowchart/sequence/class/gantt/erd/mindmap. "
+    "Prefer a diagram over a bullet list when showing how things connect.\n\n"
+    "**Charts** (```chart) — RULE: When comparing numeric data, showing trends, or "
+    "visualizing statistics, output a Vega-Lite JSON spec in a ```chart fence. "
+    "Format: {\"mark\": \"bar\"|\"line\"|\"point\", \"data\": {\"values\": [...]}, "
+    "\"encoding\": {\"x\": {...}, \"y\": {...}}}. Use when a chart is clearer than a table.\n\n"
+    "CRITICAL: Never say \"I can't render\" or \"save this as a file\" or \"open in a browser.\" "
+    "The app renders these formats. Just output the code in the correct fence block."
 )
 
 STYLE_HINTS = {
@@ -176,8 +175,19 @@ async def build_prompt_messages(
         CLARIFICATION_HINT,
         INTENT_FORMAT_HINT,
         RESPONSE_FORMAT_HINT,
+        VISUALIZATION_HINTS,
         COPY_DELIVERABLE_HINT,
     ]
+    if user.custom_instructions:
+        system_parts.append(
+            f"User-specified instructions (follow these above general formatting "
+            f"guidance):\n{user.custom_instructions}"
+        )
+    if user.locale and user.locale != "en":
+        system_parts.append(
+            f"The user's preferred language is {user.locale}. "
+            f"Respond in {user.locale} unless the user writes in another language."
+        )
     if memory_block:
         system_parts.append(memory_block)
     if summary:
@@ -364,10 +374,16 @@ async def _finalize_stream_turn(
     usage: dict[str, int],
     result: dict[str, Any] | None,
 ) -> None:
-    input_tokens = usage.get("input") or sum(
-        estimate_tokens(m["content"]) for m in ctx.prompt_messages
+    input_tokens = (
+        usage.get("input")
+        if usage.get("input") is not None
+        else sum(estimate_tokens(m["content"]) for m in ctx.prompt_messages)
     )
-    output_tokens = usage.get("output") or estimate_tokens(assistant_text)
+    output_tokens = (
+        usage.get("output")
+        if usage.get("output") is not None
+        else estimate_tokens(assistant_text)
+    )
     total_tokens = input_tokens + output_tokens
 
     async with SessionLocal() as session:
@@ -388,9 +404,7 @@ async def _finalize_stream_turn(
             if ctx.memory_hints:
                 result["memory_hints"] = json.dumps(ctx.memory_hints)
 
-        chat = await chats_repo.get_by_id(session, ctx.chat_id, ctx.user_id)
-        if chat is not None:
-            await chats_repo.touch(session, chat)
+        await chats_repo.touch_by_id(session, ctx.chat_id)
 
         try:
             await usage_repo.add_tokens(
@@ -426,6 +440,9 @@ async def _finalize_stream_turn(
         )
     if settings.history_compression_enabled:
         await jobs.enqueue(redis, "compress", {"chat_id": str(ctx.chat_id)})
+    # Regenerate proactive suggestions ~10% of turns.
+    if random.random() < 0.1:
+        await jobs.enqueue(redis, "suggestions", {"user_id": str(ctx.user_id)})
 
 
 async def _stream_and_finalize(
@@ -458,6 +475,12 @@ async def _stream_and_finalize(
 
     finalize_task = asyncio.create_task(
         _finalize_stream_turn(redis, settings, ctx, assistant_text, usage, result),
+    )
+    # Prevent silent failures — log any exception in the background finalization.
+    finalize_task.add_done_callback(
+        lambda t: logger.exception("Background finalization failed", exc_info=t.exception())
+        if t.exception()
+        else None
     )
     if result is not None:
         result["_finalize_task"] = finalize_task

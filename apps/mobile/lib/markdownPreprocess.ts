@@ -152,7 +152,10 @@ function unwrapNonCodeFences(content: string): string {
       return full;
     }
 
-    const trimmed = body.replace(/\n$/, "");
+    const trimmed = body.replace(/\n$/, "").trim();
+
+    // Drop empty/whitespace fences — they render as blank gray boxes.
+    if (!trimmed) return "";
 
     if (isExplicitCodeLang(lang) || looksLikeCode(trimmed)) {
       return full;
@@ -198,6 +201,19 @@ export function preprocessMarkdown(content: string): string {
   });
 
   out = normalizeMarkdownTables(out);
+
+  // Re-tag fences that contain Vega / Vega-Lite specs so ChartBlock renders them.
+  out = out.replace(
+    /```(?:json|vega|vega-lite|chart|plot)?\s*\n(\s*\{[\s\S]*?"\$schema"\s*:\s*"https?:\/\/vega\.github\.io\/schema\/(?:vega-lite|vega)\/[\s\S]*?\}\s*)```/gi,
+    (_m, body: string) => `\`\`\`vega-lite\n${body.trim()}\n\`\`\``,
+  );
+
+  // Wrap bare Vega-Lite JSON blocks (not in fences) so they render as charts.
+  out = out.replace(
+    /(?:^|\n\n)(\{\s*"\$schema"\s*:\s*"https?:\/\/vega\.github\.io\/schema\/(?:vega-lite|vega)\/v\d+\.json"[\s\S]*?\n\})/g,
+    (_m: string, body: string) => `\n\n\`\`\`vega-lite\n${body.trim()}\n\`\`\`\n\n`,
+  );
+
   out = unwrapNonCodeFences(out);
 
   return out;

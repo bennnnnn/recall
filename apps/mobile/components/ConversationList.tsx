@@ -6,7 +6,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,6 +13,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { closeDrawer, startNewChatGlobal } from "@/lib/drawer";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
 
 import { Avatar } from "@/components/Avatar";
 import { C } from "@/constants/Colors";
@@ -24,7 +24,6 @@ import { tap } from "@/lib/haptics";
 import { shareConversation } from "@/lib/share";
 
 const TOP_CHROME = 92;
-const SEARCH_EXTRA = 44;
 const FOOTER_CHROME = 54;
 const FADE_EXTRA = 40;
 
@@ -93,6 +92,7 @@ function Section({
 export function ConversationList(_props: unknown) {
   const { token, user } = useAuth();
   const { isOpen } = useDrawer();
+  const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -104,8 +104,6 @@ export function ConversationList(_props: unknown) {
     yesterday: Chat[];
     earlier: Chat[];
   }>({ pinned: [], today: [], yesterday: [], earlier: [] });
-  const [query, setQuery] = useState("");
-  const [searchOpen, setSearchOpen] = useState(false);
   const [error, setError] = useState(false);
 
   const allChats = useMemo(
@@ -117,18 +115,6 @@ export function ConversationList(_props: unknown) {
     ],
     [groups],
   );
-
-  const filtered = useMemo(() => {
-    if (!query.trim()) return groups;
-    const q = query.toLowerCase();
-    const keep = (c: Chat) => (c.title ?? "New chat").toLowerCase().includes(q);
-    return {
-      pinned: groups.pinned.filter(keep),
-      today: groups.today.filter(keep),
-      yesterday: groups.yesterday.filter(keep),
-      earlier: groups.earlier.filter(keep),
-    };
-  }, [groups, query]);
 
   const load = useCallback(
     async (background = false) => {
@@ -187,9 +173,9 @@ export function ConversationList(_props: unknown) {
 
   const showRowMenu = (chat: Chat) => {
     tap();
-    Alert.alert(chat.title ?? "New chat", undefined, [
+    Alert.alert(chat.title ?? t("chat.new_chat"), undefined, [
       {
-        text: chat.pinned ? "Unpin" : "Pin",
+        text: chat.pinned ? t("chat.unpin") : t("chat.pin"),
         onPress: async () => {
           if (!token) return;
           try {
@@ -201,7 +187,7 @@ export function ConversationList(_props: unknown) {
         },
       },
       {
-        text: "Share",
+        text: t("chat.share"),
         onPress: async () => {
           if (!token) return;
           try {
@@ -213,16 +199,16 @@ export function ConversationList(_props: unknown) {
         },
       },
       {
-        text: "Delete",
+        text: t("common.delete"),
         style: "destructive",
         onPress: () => {
           Alert.alert(
-            "Delete chat",
-            "This conversation will be permanently removed.",
+            t("chat.delete_confirm_title"),
+            t("chat.delete_confirm_body"),
             [
-              { text: "Cancel", style: "cancel" },
+              { text: t("common.cancel"), style: "cancel" },
               {
-                text: "Delete",
+                text: t("common.delete"),
                 style: "destructive",
                 onPress: async () => {
                   if (!token) return;
@@ -238,12 +224,11 @@ export function ConversationList(_props: unknown) {
           );
         },
       },
-      { text: "Cancel", style: "cancel" },
+      { text: t("common.cancel"), style: "cancel" },
     ]);
   };
 
-  const topInset =
-    insets.top + 8 + TOP_CHROME + (searchOpen ? SEARCH_EXTRA : 0);
+  const topInset = insets.top + 8 + TOP_CHROME;
   const bottomInset = insets.bottom + 8 + FOOTER_CHROME;
   const topFadeHeight = topInset + FADE_EXTRA;
   const bottomFadeHeight = bottomInset + FADE_EXTRA;
@@ -260,14 +245,14 @@ export function ConversationList(_props: unknown) {
           size={36}
           color={C.textTertiary}
         />
-        <Text style={s.emptyText}>Can't reach server</Text>
+        <Text style={s.emptyText}>{t("drawer.cant_reach")}</Text>
         <Pressable style={s.retryBtn} onPress={() => void load()}>
-          <Text style={s.retryText}>Retry</Text>
+          <Text style={s.retryText}>{t("common.retry")}</Text>
         </Pressable>
       </View>
     ) : allChats.length === 0 ? (
       <View style={s.center}>
-        <Text style={s.emptyText}>No conversations yet</Text>
+        <Text style={s.emptyText}>{t("drawer.no_conversations")}</Text>
       </View>
     ) : (
       <ScrollView
@@ -279,26 +264,26 @@ export function ConversationList(_props: unknown) {
         }}
       >
         <Section
-          title="Pinned"
-          chats={filtered.pinned}
+          title={t("drawer.pinned")}
+          chats={groups.pinned}
           onOpen={openChat}
           onLongPress={showRowMenu}
         />
         <Section
-          title="Today"
-          chats={filtered.today}
+          title={t("drawer.today")}
+          chats={groups.today}
           onOpen={openChat}
           onLongPress={showRowMenu}
         />
         <Section
-          title="Yesterday"
-          chats={filtered.yesterday}
+          title={t("drawer.yesterday")}
+          chats={groups.yesterday}
           onOpen={openChat}
           onLongPress={showRowMenu}
         />
         <Section
-          title="Earlier"
-          chats={filtered.earlier}
+          title={t("drawer.earlier")}
+          chats={groups.earlier}
           onOpen={openChat}
           onLongPress={showRowMenu}
         />
@@ -319,7 +304,8 @@ export function ConversationList(_props: unknown) {
           "rgba(255,255,255,0)",
         ]}
         locations={[0, 0.25, 0.5, 0.78, 1]}
-        style={[s.topFade, { height: topFadeHeight }, { pointerEvents: "none" }]}
+        style={[s.topFade, { height: topFadeHeight }]}
+        pointerEvents="none"
       />
 
       {/* Bottom fade — topics dim as they scroll under the footer */}
@@ -331,7 +317,8 @@ export function ConversationList(_props: unknown) {
           "rgba(255,255,255,0.95)",
         ]}
         locations={[0, 0.35, 0.72, 1]}
-        style={[s.bottomFade, { height: bottomFadeHeight }, { pointerEvents: "none" }]}
+        style={[s.bottomFade, { height: bottomFadeHeight }]}
+        pointerEvents="none"
       />
 
       {/* Floating header — Recall, search, new chat */}
@@ -339,8 +326,8 @@ export function ConversationList(_props: unknown) {
         style={[
           s.topOverlay,
           { paddingTop: insets.top + 8 },
-          { pointerEvents: "box-none" },
         ]}
+        pointerEvents="box-none"
       >
         <View style={s.header}>
           <View style={s.logo}>
@@ -352,17 +339,15 @@ export function ConversationList(_props: unknown) {
               hitSlop={8}
               style={s.searchBtn}
               onPress={() => {
-                setSearchOpen((v) => {
-                  if (v) setQuery("");
-                  return !v;
-                });
+                closeDrawer();
+                router.push("/search");
               }}
             >
               {refreshing ? (
                 <ActivityIndicator size="small" color={C.textSecondary} />
               ) : (
                 <Ionicons
-                  name={searchOpen ? "close-outline" : "search-outline"}
+                  name={"search-outline"}
                   size={20}
                   color={C.textSecondary}
                 />
@@ -371,36 +356,35 @@ export function ConversationList(_props: unknown) {
           </View>
         </View>
 
-        {searchOpen && (
-          <View style={s.searchRow}>
-            <TextInput
-              style={s.searchInput}
-              placeholder="Search chats..."
-              placeholderTextColor={C.textTertiary}
-              value={query}
-              onChangeText={setQuery}
-              autoFocus
-            />
-          </View>
-        )}
-
         <Pressable style={s.newBtn} onPress={newChat}>
           <Ionicons name="create-outline" size={18} color={C.text} />
-          <Text style={s.newBtnText}>New chat</Text>
+          <Text style={s.newBtnText}>{t("drawer.new_chat")}</Text>
         </Pressable>
       </View>
+
+      {/* Quick links */}
+      <Pressable
+        style={s.linkRow}
+        onPress={() => {
+          closeDrawer();
+          router.push("/todos");
+        }}
+      >
+        <Ionicons name="checkbox-outline" size={18} color={C.primary} />
+        <Text style={s.linkRowText}>{t("drawer.todos")}</Text>
+      </Pressable>
 
       {/* Floating footer — user + settings */}
       <View
         style={[
           s.footer,
           { paddingBottom: insets.bottom + 8 },
-          { pointerEvents: "box-none" },
         ]}
+        pointerEvents="box-none"
       >
         <Avatar name={user?.name ?? null} uri={user?.avatar_url} size={34} />
         <Text style={s.footerName} numberOfLines={1}>
-          {user?.name ?? "You"}
+          {user?.name ?? t("common.you")}
         </Text>
         <Pressable
           style={s.settingsBtn}
@@ -465,15 +449,6 @@ const s = StyleSheet.create({
     letterSpacing: -0.5,
   },
   searchBtn: { marginLeft: 2, padding: 4 },
-  searchRow: {
-    marginHorizontal: 16,
-    marginBottom: 8,
-    backgroundColor: C.surface,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  searchInput: { fontSize: 15, color: C.text },
   newBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -484,6 +459,15 @@ const s = StyleSheet.create({
     gap: 10,
   },
   newBtnText: { fontSize: 15, fontWeight: "600", color: C.text },
+  linkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 4,
+  },
+  linkRowText: { fontSize: 15, fontWeight: "600", color: C.text },
   list: { flex: 1 },
   section: { marginTop: 14 },
   sectionTitle: {

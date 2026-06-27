@@ -102,6 +102,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => setUnauthorizedHandler(null);
   }, [signOut]);
 
+  // Sync i18n language with user preference.
+  useEffect(() => {
+    if (user?.locale) {
+      import("i18next").then((i18n) => {
+        i18n.default.changeLanguage(user.locale);
+      });
+    }
+  }, [user?.locale]);
+
   const refreshUser = useCallback(async () => {
     if (!token) return;
     const me = await api.me(token);

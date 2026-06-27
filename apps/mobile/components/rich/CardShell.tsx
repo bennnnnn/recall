@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { Ionicons } from "@expo/vector-icons";
@@ -23,12 +23,20 @@ export function CardShell({
   children,
 }: Props) {
   const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
 
   const onCopy = async () => {
     if (!copyText?.trim()) return;
     await Clipboard.setStringAsync(copyText);
     setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setCopied(false), 1500);
   };
 
   return (
@@ -62,7 +70,7 @@ const s = StyleSheet.create({
     backgroundColor: C.bg,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#D1D1D6",
+    borderColor: C.border,
     borderLeftWidth: 3,
     marginVertical: 8,
     overflow: "hidden",

@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import exists, select
+from sqlalchemy import delete, exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Chat, Message
@@ -19,34 +19,46 @@ async def get_by_id(session: AsyncSession, chat_id: UUID, user_id: UUID) -> Chat
     return result.scalar_one_or_none()
 
 
-async def list_for_user(session: AsyncSession, user_id: UUID) -> list[Chat]:
+async def list_for_user(
+    session: AsyncSession, user_id: UUID, limit: int | None = None
+) -> list[Chat]:
     has_messages = exists().where(Message.chat_id == Chat.id)
-    result = await session.execute(
+    stmt = (
         select(Chat)
         .where(Chat.user_id == user_id)
         .where(has_messages)
         .order_by(Chat.updated_at.desc())
     )
+    if limit is not None:
+        stmt = stmt.limit(limit)
+    result = await session.execute(stmt)
     return list(result.scalars().all())
 
 
 async def delete_empty_for_user(session: AsyncSession, user_id: UUID) -> int:
-    """Remove chats with zero messages (abandoned drafts)."""
-    empty_ids = await session.execute(
-        select(Chat.id).where(
-            Chat.user_id == user_id,
-            ~exists().where(Message.chat_id == Chat.id),
-        )
+    """Remove chats with zero messages (abandoned drafts). Uses a single bulk DELETE."""
+    empty_ids = select(Chat.id).where(
+        Chat.user_id == user_id,
+        ~exists().where(Message.chat_id == Chat.id),
     )
-    ids = list(empty_ids.scalars().all())
-    if not ids:
-        return 0
-    for chat_id in ids:
-        chat = await session.get(Chat, chat_id)
-        if chat is not None:
-            await session.delete(chat)
+    result = await session.execute(
+        delete(Chat).where(Chat.id.in_(empty_ids))
+    )
     await session.commit()
-    return len(ids)
+    return result.rowcount
+
+
+async def touch_by_id(session: AsyncSession, chat_id: UUID) -> None:
+    """Update updated_at with a direct UPDATE — avoids a separate SELECT round-trip."""
+    from datetime import UTC, datetime
+    from sqlalchemy import update as update_stmt
+
+    await session.execute(
+        update_stmt(Chat)
+        .where(Chat.id == chat_id)
+        .values(updated_at=datetime.now(UTC))
+    )
+    await session.commit()
 
 
 def group_by_recency(chats: list[Chat]) -> dict[str, list[Chat]]:

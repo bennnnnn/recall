@@ -387,7 +387,10 @@ const sharedRenderRules = {
 
 function renderFence(node: FenceNode) {
   const lang = parseFenceLang(node.info?.trim() || "");
-  const content = node.content.replace(/\n$/, "");
+  const content = node.content.replace(/\n$/, "").trim();
+  // Never render an empty fence — it produces a blank gray box with only a
+  // Copy button (CodeBlock fallthrough on line 405).
+  if (!content) return null;
   const rich = renderRichFence(lang, content, node.key);
   if (rich) return rich;
   const copyStyle = renderCopyStyleBlock(lang, content, node.key);
@@ -481,7 +484,8 @@ const mdStyles = StyleSheet.create({
     fontFamily: CODE_FONT,
     fontSize: 14,
   },
-  fence: { display: "none" as never },
+  // Custom fence renderer handles code blocks / HTML preview inline.
+  fence: { marginVertical: 0, padding: 0 },
   paragraph: { marginVertical: 0 },
   bullet_list: { marginVertical: 4 },
   ordered_list: { marginVertical: 4 },

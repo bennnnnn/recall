@@ -24,7 +24,7 @@ const s = StyleSheet.create({
     alignSelf: "stretch",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#D1D1D6",
+    borderColor: C.border,
     backgroundColor: C.bg,
     marginVertical: 8,
     overflow: "hidden",

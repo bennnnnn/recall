@@ -20,6 +20,8 @@ def _fake_user(**kw) -> User:
     u.default_model = "free-chat"
     u.response_style = "balanced"
     u.memory_enabled = True
+    u.custom_instructions = kw.get("custom_instructions", None)
+    u.locale = kw.get("locale", "en")
     u.created_at = datetime(2024, 1, 1)
     return u
 

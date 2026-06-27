@@ -21,6 +21,8 @@ class UserOut(BaseModel):
     default_model: str
     response_style: str
     memory_enabled: bool
+    custom_instructions: str | None = None
+    locale: str = "en"
     created_at: datetime
 
 
@@ -29,6 +31,8 @@ class UserUpdate(BaseModel):
     default_model: ModelAlias | None = None
     response_style: ResponseStyle | None = None
     memory_enabled: bool | None = None
+    custom_instructions: str | None = None
+    locale: str | None = None
 
 
 class GoogleAuthRequest(BaseModel):
@@ -143,3 +147,81 @@ class MemoryExtractionItem(BaseModel):
 
 class MemoryExtractionResult(BaseModel):
     memories: list[MemoryExtractionItem] = Field(default_factory=list)
+
+
+class TodoOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    content: str
+    checked: bool
+    chat_id: UUID | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class TodoCreate(BaseModel):
+    content: str = Field(min_length=1, max_length=1000)
+    chat_id: UUID | None = None
+
+
+class TodoUpdate(BaseModel):
+    content: str | None = None
+    checked: bool | None = None
+
+
+class SearchResultItem(BaseModel):
+    message_id: UUID
+    chat_id: UUID
+    chat_title: str | None
+    content: str
+    role: str
+    created_at: datetime
+
+
+class SearchResults(BaseModel):
+    results: list[SearchResultItem] = Field(default_factory=list)
+    total: int = 0
+
+
+class TemplateOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    title: str
+    content: str
+    category: str
+    is_builtin: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class TemplateCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    content: str = Field(min_length=1)
+    category: str = Field(default="general", max_length=50)
+
+
+class TemplateUpdate(BaseModel):
+    title: str | None = None
+    content: str | None = None
+    category: str | None = None
+
+
+class SuggestionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    text: str
+    category: str
+    source: str
+    created_at: datetime
+
+
+class SuggestionItem(BaseModel):
+    text: str = Field(min_length=3, max_length=200)
+    category: str = "general"
+
+
+class SuggestionGenerationResult(BaseModel):
+    items: list[SuggestionItem] = Field(default_factory=list)

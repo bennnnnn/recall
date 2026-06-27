@@ -15,6 +15,8 @@ export type User = {
   default_model: string;
   response_style: string;
   memory_enabled: boolean;
+  custom_instructions: string | null;
+  locale: string;
 };
 
 export type Chat = {
@@ -51,6 +53,42 @@ export type Memory = {
   confidence: number | null;
   created_at: string;
   updated_at: string;
+};
+
+export type Todo = {
+  id: string;
+  content: string;
+  checked: boolean;
+  chat_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SearchResult = {
+  message_id: string;
+  chat_id: string;
+  chat_title: string | null;
+  content: string;
+  role: string;
+  created_at: string;
+};
+
+export type Template = {
+  id: string;
+  title: string;
+  content: string;
+  category: string;
+  is_builtin: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Suggestion = {
+  id: string;
+  text: string;
+  category: string;
+  source: string;
+  created_at: string;
 };
 
 export type ChatList = {
@@ -90,28 +128,36 @@ async function request<T>(
   token: string,
   init?: RequestInit,
 ): Promise<T> {
-  const response = await fetch(apiUrl(path), {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      ...(init?.headers ?? {}),
-    },
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
 
-  if (!response.ok) {
-    if (response.status === 401) {
-      onUnauthorized?.();
+  try {
+    const response = await fetch(apiUrl(path), {
+      ...init,
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        ...(init?.headers ?? {}),
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        onUnauthorized?.();
+      }
+      const text = await response.text();
+      throw new Error(text || `Request failed: ${response.status}`);
     }
-    const text = await response.text();
-    throw new Error(text || `Request failed: ${response.status}`);
-  }
 
-  if (response.status === 204) {
-    return undefined as T;
-  }
+    if (response.status === 204) {
+      return undefined as T;
+    }
 
-  return response.json() as Promise<T>;
+    return response.json() as Promise<T>;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function loginWithGoogle(idToken: string): Promise<AuthResult> {
@@ -247,6 +293,28 @@ export const api = {
     request<void>(`/memories/${memoryId}`, token, { method: "DELETE" }),
   todayUsage: (token: string) => request<Usage>("/chats/usage/today", token),
   listModels: (token: string) => request<ModelInfo[]>("/models", token),
+  listTodos: (token: string) => request<Todo[]>("/todos", token),
+  createTodo: (token: string, content: string, chatId?: string) =>
+    request<Todo>("/todos", token, {
+      method: "POST",
+      body: JSON.stringify({ content, chat_id: chatId ?? null }),
+    }),
+  updateTodo: (token: string, id: string, patch: { content?: string; checked?: boolean }) =>
+    request<Todo>(`/todos/${id}`, token, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+  deleteTodo: (token: string, id: string) =>
+    request<void>(`/todos/${id}`, token, { method: "DELETE" }),
+  search: (token: string, q: string, limit = 20) =>
+    request<{ results: SearchResult[]; total: number }>(
+      `/search?q=${encodeURIComponent(q)}&limit=${limit}`,
+      token,
+    ),
+  listTemplates: (token: string) => request<Template[]>("/templates", token),
+  listSuggestions: (token: string) => request<Suggestion[]>("/suggestions", token),
+  dismissSuggestion: (token: string, id: string) =>
+    request<void>(`/suggestions/${id}/dismiss`, token, { method: "POST" }),
 };
 
 export function chatWebSocketUrl(chatId: string) {

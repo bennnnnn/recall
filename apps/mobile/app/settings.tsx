@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 
 import { Avatar } from "@/components/Avatar";
 import { C } from "@/constants/Colors";
@@ -27,8 +28,16 @@ const MODEL_LABEL: Record<string, string> = {
   "smart-chat": "Pro",
 };
 
+const LANG_LABEL: Record<string, string> = {
+  en: "English",
+  es: "Español",
+  fr: "Français",
+  am: "አማርኛ",
+};
+
 export default function SettingsScreen() {
   const { token, user, signOut, refreshUser, updateUser } = useAuth();
+  const { t } = useTranslation();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [usage, setUsage] = useState<Usage | null>(null);
@@ -36,22 +45,66 @@ export default function SettingsScreen() {
   const [saving, setSaving] = useState(false);
   const [editNameVisible, setEditNameVisible] = useState(false);
   const [nameText, setNameText] = useState("");
+  const [customText, setCustomText] = useState(user?.custom_instructions ?? "");
+  const customSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!token) {
       setLoading(false);
       return;
     }
+    let cancelled = false;
     Promise.all([
       refreshUser(),
       api.todayUsage(token),
       api.listMemories(token),
-    ]).then(([, u, mems]) => {
-      setUsage(u);
-      setMemCount(mems.length);
-      setLoading(false);
-    });
+    ])
+      .then(([, u, mems]) => {
+        if (cancelled) return;
+        setUsage(u);
+        setMemCount(mems.length);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [token, refreshUser]);
+
+  // Sync customText when user data loads/changes from server, but only if
+  // there's no pending local edit (the user isn't actively typing).
+  const customDirtyRef = useRef(false);
+  useEffect(() => {
+    if (!customDirtyRef.current) {
+      setCustomText(user?.custom_instructions ?? "");
+    }
+  }, [user?.custom_instructions]);
+
+  // Clean up debounce timer on unmount.
+  useEffect(() => {
+    return () => {
+      if (customSaveTimer.current) clearTimeout(customSaveTimer.current);
+    };
+  }, []);
+
+  // Debounced auto-save for custom instructions.
+  const saveCustom = (value: string) => {
+    customDirtyRef.current = true;
+    setCustomText(value);
+    if (customSaveTimer.current) clearTimeout(customSaveTimer.current);
+    customSaveTimer.current = setTimeout(() => {
+      const trimmed = value.trim();
+      if (trimmed !== (user?.custom_instructions ?? "")) {
+        patch({ custom_instructions: trimmed || "" }).finally(() => {
+          customDirtyRef.current = false;
+        });
+      } else {
+        customDirtyRef.current = false;
+      }
+    }, 600);
+  };
 
   const patch = async (fields: Parameters<typeof updateUser>[0]) => {
     setSaving(true);
@@ -81,12 +134,12 @@ export default function SettingsScreen() {
 
   const confirmDeleteAccount = () => {
     Alert.alert(
-      "Delete account",
-      "This permanently deletes your account, chats, and memories. This cannot be undone.",
+      t("delete.title"),
+      t("delete.message"),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "Delete",
+          text: t("common.delete"),
           style: "destructive",
           onPress: async () => {
             if (!token) return;
@@ -119,7 +172,7 @@ export default function SettingsScreen() {
         <View style={s.row}>
           <Avatar name={user?.name ?? null} uri={user?.avatar_url} size={44} />
           <View style={[s.rowBody, { marginLeft: 12 }]}>
-            <Text style={s.value}>{user?.name ?? "Unknown"}</Text>
+            <Text style={s.value}>{user?.name ?? t("common.you")}</Text>
             <Text style={s.meta}>{user?.email}</Text>
           </View>
           <Pressable
@@ -135,7 +188,7 @@ export default function SettingsScreen() {
       </View>
 
       <View style={s.card}>
-        <Text style={s.label}>Default model</Text>
+        <Text style={s.label}>{t("settings.model")}</Text>
         <View style={s.chipRow}>
           {MODELS.map((m) => (
             <Pressable
@@ -154,7 +207,7 @@ export default function SettingsScreen() {
             </Pressable>
           ))}
         </View>
-        <Text style={[s.label, { marginTop: 12 }]}>Response style</Text>
+        <Text style={[s.label, { marginTop: 12 }]}>{t("settings.style")}</Text>
         <View style={s.chipRow}>
           {STYLES.map((st) => (
             <Pressable
@@ -176,10 +229,71 @@ export default function SettingsScreen() {
       </View>
 
       <View style={s.card}>
+        <Text style={s.label}>{t("settings.custom_instructions")}</Text>
+        <Text style={[s.meta, { marginBottom: 10 }]}>
+          {t("settings.custom_instructions_hint")}
+        </Text>
+        <View style={s.customInputWrap}>
+          <TextInput
+            style={s.customInput}
+            placeholder={t("settings.custom_instructions_placeholder")}
+            placeholderTextColor={C.textTertiary}
+            value={customText}
+            onChangeText={saveCustom}
+            multiline
+            numberOfLines={5}
+            textAlignVertical="top"
+            returnKeyType="default"
+            blurOnSubmit
+          />
+          {user?.custom_instructions ? (
+            <Pressable
+              style={s.clearInstructions}
+              onPress={() => patch({ custom_instructions: "" })}
+              hitSlop={6}
+            >
+              <Ionicons
+                name="close-circle"
+                size={20}
+                color={C.textTertiary}
+              />
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+
+      <View style={s.card}>
+        <Text style={s.label}>{t("settings.language")}</Text>
+        <View style={s.chipRow}>
+          {(["en", "es", "fr", "am"] as const).map((code) => {
+            return (
+              <Pressable
+                key={code}
+                disabled={saving}
+                style={[
+                  s.chip,
+                  user?.locale === code && s.chipActive,
+                ]}
+                onPress={() => patch({ locale: code })}
+              >
+                <Text
+                  style={
+                    user?.locale === code ? s.chipTextActive : s.chipText
+                  }
+                >
+                  {LANG_LABEL[code]}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      <View style={s.card}>
         <View style={s.row}>
           <View style={s.rowBody}>
-            <Text style={s.label}>Memory</Text>
-            <Text style={s.meta}>Recall learns from your conversations</Text>
+            <Text style={s.label}>{t("settings.memory")}</Text>
+            <Text style={s.meta}>{t("settings.memory_desc")}</Text>
           </View>
           <Switch
             value={user?.memory_enabled ?? true}
@@ -192,11 +306,11 @@ export default function SettingsScreen() {
         <Pressable style={s.linkRow} onPress={() => router.push("/memory")}>
           <Ionicons name="sparkles-outline" size={18} color={C.primary} />
           <View style={s.rowBody}>
-            <Text style={s.linkText}>Saved memories</Text>
+            <Text style={s.linkText}>{t("settings.memory_view")}</Text>
             <Text style={s.meta}>
               {memCount > 0
-                ? `${memCount} saved`
-                : "View and manage what Recall remembers"}
+                ? t("settings.memory_count", { count: memCount })
+                : t("settings.memory_empty")}
             </Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
@@ -205,7 +319,7 @@ export default function SettingsScreen() {
 
       {usage && (
         <View style={s.card}>
-          <Text style={s.label}>Free plan today</Text>
+          <Text style={s.label}>{t("settings.free_plan")}</Text>
           <View style={s.bar}>
             <View
               style={[
@@ -232,7 +346,7 @@ export default function SettingsScreen() {
       <View style={s.card}>
         <Pressable style={s.actionRow} onPress={doExport}>
           <Ionicons name="download-outline" size={18} color={C.primary} />
-          <Text style={s.actionText}>Export my data</Text>
+          <Text style={s.actionText}>{t("settings.export")}</Text>
           <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
         </Pressable>
         <Pressable
@@ -241,7 +355,7 @@ export default function SettingsScreen() {
         >
           <Ionicons name="trash-outline" size={18} color={C.danger} />
           <Text style={[s.actionText, { color: C.danger }]}>
-            Delete account
+            {t("settings.delete")}
           </Text>
         </Pressable>
       </View>
@@ -253,7 +367,7 @@ export default function SettingsScreen() {
           router.replace("/login");
         }}
       >
-        <Text style={s.signOutText}>Sign out</Text>
+        <Text style={s.signOutText}>{t("settings.sign_out")}</Text>
       </Pressable>
 
       <Modal
@@ -264,7 +378,7 @@ export default function SettingsScreen() {
       >
         <Pressable style={m.overlay} onPress={() => setEditNameVisible(false)}>
           <Pressable style={m.sheet} onPress={(e) => e.stopPropagation()}>
-            <Text style={m.title}>Your name</Text>
+            <Text style={m.title}>{t("settings.your_name")}</Text>
             <TextInput
               style={m.input}
               value={nameText}
@@ -279,10 +393,10 @@ export default function SettingsScreen() {
                 style={m.cancel}
                 onPress={() => setEditNameVisible(false)}
               >
-                <Text style={m.cancelText}>Cancel</Text>
+                <Text style={m.cancelText}>{t("settings.cancel")}</Text>
               </Pressable>
               <Pressable style={m.save} onPress={saveName}>
-                <Text style={m.saveText}>Save</Text>
+                <Text style={m.saveText}>{t("settings.save")}</Text>
               </Pressable>
             </View>
           </Pressable>
@@ -337,6 +451,24 @@ const s = StyleSheet.create({
   label: { fontSize: 13, color: C.textSecondary, marginBottom: 4 },
   value: { fontSize: 16, fontWeight: "500", color: C.text, marginBottom: 4 },
   meta: { fontSize: 13, color: C.textTertiary },
+  customInputWrap: { position: "relative" },
+  customInput: {
+    backgroundColor: C.surface,
+    borderRadius: 12,
+    padding: 10,
+    fontSize: 14,
+    lineHeight: 20,
+    color: C.text,
+    borderWidth: 1,
+    borderColor: C.border,
+    minHeight: 100,
+    maxHeight: 200,
+  },
+  clearInstructions: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+  },
   bar: {
     height: 4,
     borderRadius: 2,

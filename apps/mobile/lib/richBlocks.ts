@@ -50,6 +50,14 @@ const STRUCTURED_LANGS = new Set([
   "collapse",
   "summary",
   "math",
+  // Diagram / chart / visualization fences
+  "mermaid",
+  "chart",
+  "vega",
+  "vega-lite",
+  "plot",
+  // HTML sandbox
+  "html",
   ...CALLOUT_LANGS,
   ...Object.keys(SOCIAL_LANGS),
   ...MESSAGE_LANGS,

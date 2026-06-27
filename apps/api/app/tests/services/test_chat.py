@@ -80,6 +80,7 @@ async def test_stream_does_not_duplicate_user_message():
         patch("app.services.chat.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.chat.quota_service.adjust_usage", AsyncMock()),
         patch("app.services.chat.usage_repo.add_tokens", AsyncMock()),
+        patch("app.services.chat.chats_repo.touch_by_id", AsyncMock()),
         patch("app.services.chat.jobs.enqueue", AsyncMock()),
     ):
         collected = []
@@ -124,6 +125,7 @@ async def test_memory_extraction_runs_on_later_turn():
         patch("app.services.chat.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.chat.quota_service.adjust_usage", AsyncMock()),
         patch("app.services.chat.usage_repo.add_tokens", AsyncMock()),
+        patch("app.services.chat.chats_repo.touch_by_id", AsyncMock()),
         patch("app.services.chat.jobs.enqueue", AsyncMock()) as enqueue_job,
     ):
         result: dict[str, str] = {}

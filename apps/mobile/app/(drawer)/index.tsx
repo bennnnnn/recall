@@ -17,11 +17,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import { openDrawer, registerNewChat } from "@/lib/drawer";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
 
 import { Ionicons } from "@expo/vector-icons";
 
 import { C } from "@/constants/Colors";
 import { MessageBubble } from "@/components/MessageBubble";
+import { SuggestionChips } from "@/components/SuggestionChips";
 import { HamburgerIcon } from "@/components/HamburgerIcon";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDrawer } from "@/contexts/DrawerContext";
@@ -46,7 +48,7 @@ const DEFAULT_MODELS: ModelInfo[] = [
   {
     id: "free-chat",
     label: "Flash",
-    provider: "deepseek",
+    provider: "",
     tier: "fast",
     description: "",
     available: true,
@@ -56,7 +58,7 @@ const DEFAULT_MODELS: ModelInfo[] = [
   {
     id: "smart-chat",
     label: "Pro",
-    provider: "deepseek",
+    provider: "",
     tier: "smart",
     description: "",
     available: true,
@@ -78,6 +80,7 @@ const KEYBOARD_LIFT_EXTRA = 0;
 
 export default function ChatScreen() {
   const { token, user } = useAuth();
+  const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
@@ -110,6 +113,7 @@ export default function ChatScreen() {
   const priorRouteChatIdRef = useRef<string | null>(null);
   const listRef = useRef<FlashListRef<Message>>(null);
   const atBottomRef = useRef(true);
+  const newMessageCountRef = useRef(0);
 
   const discardEmptyChat = useCallback(
     (id: string | null) => {
@@ -160,10 +164,12 @@ export default function ChatScreen() {
     onError: handleChatError,
   });
 
-  // Scroll when a new message appears (count change = new bubble).
+  // Scroll when a new message appears — but NOT when older messages are
+  // prepended during history load (which also changes length).
   useEffect(() => {
-    if (messages.length > 0) {
+    if (messages.length > 0 && newMessageCountRef.current > 0) {
       listRef.current?.scrollToEnd({ animated: true });
+      newMessageCountRef.current = 0;
     }
   }, [messages.length]);
 
@@ -372,6 +378,7 @@ export default function ChatScreen() {
     if (!text || streaming || !token || creatingRef.current) return;
     tap();
     setInput("");
+    newMessageCountRef.current += 1;
     // Lazily create the chat on the first message of a blank conversation.
     if (!chatId) {
       creatingRef.current = true;
@@ -401,6 +408,7 @@ export default function ChatScreen() {
       }
       return;
     }
+    newMessageCountRef.current += 1;
     sendMessage(text, model);
   };
 
@@ -480,12 +488,12 @@ export default function ChatScreen() {
 
   const confirmDelete = () => {
     Alert.alert(
-      "Delete chat",
-      "This conversation will be permanently removed.",
+      t("chat.delete_confirm_title"),
+      t("chat.delete_confirm_body"),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "Delete",
+          text: t("common.delete"),
           style: "destructive",
           onPress: async () => {
             if (!chatId || !token) return;
@@ -559,7 +567,7 @@ export default function ChatScreen() {
                   }}
                 >
                   <Ionicons name="share-outline" size={18} color={C.text} />
-                  <Text style={drop.label}>Share</Text>
+                  <Text style={drop.label}>{t("chat.share")}</Text>
                 </Pressable>
                 <View style={drop.divider} />
                 <Pressable
@@ -570,7 +578,7 @@ export default function ChatScreen() {
                   }}
                 >
                   <Ionicons name="pencil-outline" size={18} color={C.text} />
-                  <Text style={drop.label}>Rename</Text>
+                  <Text style={drop.label}>{t("chat.rename")}</Text>
                 </Pressable>
                 <View style={drop.divider} />
                 <Pressable
@@ -585,7 +593,7 @@ export default function ChatScreen() {
                     size={18}
                     color={C.text}
                   />
-                  <Text style={drop.label}>{pinned ? "Unpin" : "Pin"}</Text>
+                  <Text style={drop.label}>{pinned ? t("chat.unpin") : t("chat.pin")}</Text>
                 </Pressable>
                 <View style={drop.divider} />
                 <Pressable
@@ -596,7 +604,7 @@ export default function ChatScreen() {
                   }}
                 >
                   <Ionicons name="trash-outline" size={18} color={C.danger} />
-                  <Text style={[drop.label, drop.labelDanger]}>Delete</Text>
+                  <Text style={[drop.label, drop.labelDanger]}>{t("common.delete")}</Text>
                 </Pressable>
               </View>
             </TouchableWithoutFeedback>
@@ -612,7 +620,7 @@ export default function ChatScreen() {
       >
         <Pressable style={m.overlay} onPress={() => setRenameVisible(false)}>
           <Pressable style={m.sheet} onPress={(e) => e.stopPropagation()}>
-            <Text style={m.title}>Rename chat</Text>
+            <Text style={m.title}>{t("chat.rename_title")}</Text>
             <TextInput
               style={m.input}
               value={renameText}
@@ -627,10 +635,10 @@ export default function ChatScreen() {
                 style={m.cancel}
                 onPress={() => setRenameVisible(false)}
               >
-                <Text style={m.cancelText}>Cancel</Text>
+                <Text style={m.cancelText}>{t("common.cancel")}</Text>
               </Pressable>
               <Pressable style={m.save} onPress={confirmRename}>
-                <Text style={m.saveText}>Save</Text>
+                <Text style={m.saveText}>{t("settings.save")}</Text>
               </Pressable>
             </View>
           </Pressable>
@@ -666,25 +674,37 @@ export default function ChatScreen() {
                   onPress={loadOlderMessages}
                   disabled={loadingOlder}
                   accessibilityRole="button"
-                  accessibilityLabel="Load earlier messages"
+                  accessibilityLabel={t("chat.load_earlier")}
                 >
                   <Text style={s.loadEarlierText}>
-                    {loadingOlder ? "Loading…" : "Load earlier messages"}
+                    {loadingOlder ? "…" : t("chat.load_earlier")}
                   </Text>
                 </Pressable>
               ) : null
             }
             ListEmptyComponent={
               <View style={[s.empty, { height: emptyHeight }]}>
+                {token ? (
+                  <SuggestionChips
+                    token={token}
+                    onSelect={(text) => {
+                      setInput(text);
+                      // Use requestAnimationFrame to let state flush, then send.
+                      requestAnimationFrame(() => {
+                        handleSend();
+                      });
+                    }}
+                  />
+                ) : null}
                 <Ionicons
                   name="chatbubble-ellipses-outline"
                   size={48}
                   color={C.primary}
-                  style={{ opacity: 0.5, marginBottom: 12 }}
+                  style={s.emptyIcon}
                 />
-                <Text style={s.emptyTitle}>How can I help?</Text>
+                <Text style={s.emptyTitle}>{t("chat.empty_title")}</Text>
                 <Text style={s.emptyHint}>
-                  Ask me anything — I'll remember what matters.
+                  {t("chat.empty_hint")}
                 </Text>
               </View>
             }
@@ -699,7 +719,8 @@ export default function ChatScreen() {
               "rgba(255,255,255,0)",
             ]}
             locations={[0, 0.25, 0.5, 0.78, 1]}
-            style={[s.headerFade, { height: fadeHeight }, { pointerEvents: "none" }]}
+            style={[s.headerFade, { height: fadeHeight }]}
+            pointerEvents="none"
           />
 
           {!drawerOpen && (
@@ -707,15 +728,15 @@ export default function ChatScreen() {
               style={[
                 s.header,
                 { paddingTop: insets.top, height: headerInset },
-                { pointerEvents: "box-none" },
               ]}
+              pointerEvents="box-none"
               collapsable={false}
               renderToHardwareTextureAndroid
             >
               <Pressable style={s.headerBtn} onPress={openDrawer} hitSlop={12}>
                 <HamburgerIcon size={22} color={C.text} />
               </Pressable>
-              <View style={{ flex: 1, pointerEvents: "none" }} />
+              <View style={s.headerSpacer} />
               <View style={s.headerRight}>
                 <Pressable
                   style={s.headerBtn}
@@ -797,7 +818,7 @@ export default function ChatScreen() {
                 <View style={s.inputRowMain}>
                   <TextInput
                     style={s.input}
-                    placeholder="Message Recall..."
+                    placeholder={t("chat.placeholder")}
                     placeholderTextColor={C.textTertiary}
                     value={input}
                     onChangeText={setInput}
@@ -971,7 +992,8 @@ const s = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 40,
   },
-  emptyIcon: { fontSize: 32, color: C.primary, marginBottom: 12 },
+  emptyIcon: { opacity: 0.5, marginBottom: 12 },
+  headerSpacer: { flex: 1, pointerEvents: "none" as const },
   emptyTitle: {
     fontSize: 22,
     fontWeight: "700",

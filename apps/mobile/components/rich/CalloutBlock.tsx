@@ -32,16 +32,16 @@ type Props = { kind: CalloutKind; content: string };
 export function CalloutBlock({ kind, content }: Props) {
   const meta = CALLOUT_META[kind] ?? CALLOUT_META.note;
   const lines = content.split("\n");
-  const title = lines[0]?.trim();
-  const body =
-    lines
-      .slice(title && lines.length > 1 ? 1 : 0)
-      .join("\n")
-      .trim() || content;
+  const firstLine = lines[0]?.trim() || "";
+  const hasBody = lines.length > 1 && lines.slice(1).join("\n").trim();
+  // Use first line as title only when there's a body; otherwise show
+  // the single line as body only (avoids showing the same text twice).
+  const title = hasBody ? firstLine : meta.label;
+  const body = hasBody || firstLine;
 
   return (
     <CardShell
-      label={title || meta.label}
+      label={title}
       icon={meta.icon}
       accentColor={meta.color}
       iconColor={meta.color}
