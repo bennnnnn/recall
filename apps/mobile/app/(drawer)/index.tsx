@@ -11,6 +11,8 @@ import {
   TouchableWithoutFeedback,
   useWindowDimensions,
   View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from "react-native";
 import { FlashList, FlashListRef } from "@shopify/flash-list";
 import { LinearGradient } from "expo-linear-gradient";
@@ -77,6 +79,7 @@ const HEADER_FADE_EXTRA = 48;
 const COMPOSER_HEIGHT = 100;
 const FEEDBACK_ROW_HEIGHT = 48;
 const KEYBOARD_LIFT_EXTRA = 0;
+const SCROLL_BOTTOM_THRESHOLD = 96;
 
 export default function ChatScreen() {
   const { token, user } = useAuth();
@@ -114,6 +117,13 @@ export default function ChatScreen() {
   const listRef = useRef<FlashListRef<Message>>(null);
   const atBottomRef = useRef(true);
   const newMessageCountRef = useRef(0);
+  const showScrollBtnRef = useRef(false);
+  const messagesLenRef = useRef(0);
+  const listBottomPadRef = useRef(0);
+  const maxScrollOffsetRef = useRef(0);
+  const scrollOffsetRef = useRef(0);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const [scrollAwayCount, setScrollAwayCount] = useState(0);
 
   const discardEmptyChat = useCallback(
     (id: string | null) => {
@@ -163,13 +173,121 @@ export default function ChatScreen() {
     onFirstReply: handleFirstReply,
     onError: handleChatError,
   });
+  messagesLenRef.current = messages.length;
+
+  const updateAtBottom = useCallback((atBottom: boolean) => {
+    atBottomRef.current = atBottom;
+    const shouldShow = !atBottom && messagesLenRef.current > 0;
+    if (shouldShow === showScrollBtnRef.current) return;
+    showScrollBtnRef.current = shouldShow;
+    setShowScrollToBottom(shouldShow);
+    if (!shouldShow) setScrollAwayCount(0);
+  }, []);
+
+  const measureFromListRef = useCallback((): boolean | null => {
+    const list = listRef.current;
+    if (!list) return null;
+    try {
+      const scrollOffset = list.getAbsoluteLastScrollOffset();
+      scrollOffsetRef.current = scrollOffset;
+      const contentSize = list.getChildContainerDimensions();
+      const windowSize = list.getWindowSize();
+      const viewportHeight = windowSize.height;
+      const contentHeight = contentSize.height;
+      if (viewportHeight <= 0 || contentHeight <= 0) return null;
+      const maxOffset = Math.max(0, contentHeight - viewportHeight);
+      if (maxOffset > maxScrollOffsetRef.current) {
+        maxScrollOffsetRef.current = maxOffset;
+      }
+      if (maxOffset <= 0) return true;
+      const threshold = Math.max(
+        SCROLL_BOTTOM_THRESHOLD,
+        listBottomPadRef.current * 0.35,
+      );
+      return maxOffset - scrollOffset <= threshold;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const measureFromScrollEvent = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>): boolean | null => {
+      const { contentOffset, contentSize, layoutMeasurement } =
+        event.nativeEvent;
+      const viewportHeight = layoutMeasurement.height;
+      const contentHeight = contentSize.height;
+      const scrollY = contentOffset.y;
+      scrollOffsetRef.current = scrollY;
+      if (viewportHeight <= 0 || contentHeight <= 0) return null;
+      const maxOffset = Math.max(0, contentHeight - viewportHeight);
+      if (maxOffset > maxScrollOffsetRef.current) {
+        maxScrollOffsetRef.current = maxOffset;
+      }
+      if (maxOffset <= 0) {
+        if (maxScrollOffsetRef.current <= 0) return true;
+        const threshold = Math.max(
+          SCROLL_BOTTOM_THRESHOLD,
+          listBottomPadRef.current * 0.35,
+        );
+        return maxScrollOffsetRef.current - scrollY <= threshold;
+      }
+      const threshold = Math.max(
+        SCROLL_BOTTOM_THRESHOLD,
+        listBottomPadRef.current * 0.35,
+      );
+      return maxOffset - scrollY <= threshold;
+    },
+    [],
+  );
+
+  const measureFromTrackedScroll = useCallback((): boolean | null => {
+    if (maxScrollOffsetRef.current <= 0) return null;
+    const threshold = Math.max(
+      SCROLL_BOTTOM_THRESHOLD,
+      listBottomPadRef.current * 0.35,
+    );
+    return maxScrollOffsetRef.current - scrollOffsetRef.current <= threshold;
+  }, []);
+
+  const syncScrollPosition = useCallback(
+    (event?: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const len = messagesLenRef.current;
+      if (len === 0) {
+        updateAtBottom(true);
+        return;
+      }
+      const fromRef = measureFromListRef();
+      const fromEvent = event ? measureFromScrollEvent(event) : null;
+      const fromTrack = measureFromTrackedScroll();
+      const results = [fromRef, fromEvent, fromTrack].filter(
+        (value): value is boolean => value !== null,
+      );
+      if (results.length === 0) return;
+      // Show the button if any measurement says we're away from the bottom.
+      const atBottom = results.every((value) => value);
+      updateAtBottom(atBottom);
+    },
+    [
+      measureFromListRef,
+      measureFromScrollEvent,
+      measureFromTrackedScroll,
+      updateAtBottom,
+    ],
+  );
 
   // Scroll when a new message appears — but NOT when older messages are
   // prepended during history load (which also changes length).
   useEffect(() => {
     if (messages.length > 0 && newMessageCountRef.current > 0) {
-      listRef.current?.scrollToEnd({ animated: true });
+      const pending = newMessageCountRef.current;
       newMessageCountRef.current = 0;
+      if (atBottomRef.current) {
+        listRef.current?.scrollToEnd({ animated: true });
+      } else {
+        setScrollAwayCount((c) => c + pending);
+        showScrollBtnRef.current = true;
+        setShowScrollToBottom(true);
+      }
     }
   }, [messages.length]);
 
@@ -185,19 +303,40 @@ export default function ChatScreen() {
   useEffect(() => {
     if (streamingLen && atBottomRef.current) {
       listRef.current?.scrollToEnd({ animated: false });
+    } else if (streamingLen) {
+      requestAnimationFrame(() => syncScrollPosition());
     }
-  }, [streamingLen]);
+  }, [streamingLen, syncScrollPosition]);
 
-  // Track whether the list is scrolled near the bottom.
+  useEffect(() => {
+    requestAnimationFrame(() => syncScrollPosition());
+  }, [messages.length, syncScrollPosition]);
+
+  useEffect(() => {
+    maxScrollOffsetRef.current = 0;
+    scrollOffsetRef.current = 0;
+    showScrollBtnRef.current = false;
+    setShowScrollToBottom(false);
+    setScrollAwayCount(0);
+    atBottomRef.current = true;
+  }, [chatId]);
+
+  const scrollToLatest = useCallback(() => {
+    tap();
+    listRef.current?.scrollToEnd({ animated: true });
+    updateAtBottom(true);
+  }, [updateAtBottom]);
+
   const handleScroll = useCallback(
-    (event: { nativeEvent: { contentOffset: { y: number }; contentSize: { height: number }; layoutMeasurement: { height: number } } }) => {
-      const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-      const threshold = 80; // px from bottom → considered "at bottom"
-      atBottomRef.current =
-        contentOffset.y + layoutMeasurement.height >= contentSize.height - threshold;
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      syncScrollPosition(event);
     },
-    [],
+    [syncScrollPosition],
   );
+
+  const handleScrollEnd = useCallback(() => {
+    syncScrollPosition();
+  }, [syncScrollPosition]);
 
   useEffect(() => {
     const showEvent =
@@ -531,6 +670,7 @@ export default function ChatScreen() {
     composerBottomPad +
     composerLift +
     (messages.length > 0 && !streaming ? FEEDBACK_ROW_HEIGHT : 0);
+  listBottomPadRef.current = listBottomPad;
   const emptyHeight = Math.max(
     160,
     windowHeight - headerInset - composerClearance,
@@ -654,12 +794,15 @@ export default function ChatScreen() {
             drawDistance={280}
             maintainVisibleContentPosition={{
               disabled: false,
-              autoscrollToBottomThreshold: 80,
+              autoscrollToBottomThreshold: 0.1,
+              startRenderingFromBottom: true,
             }}
             keyExtractor={(item) => item.id}
             getItemType={(item) => item.role}
             renderItem={renderItem}
             onScroll={handleScroll}
+            onScrollEndDrag={handleScrollEnd}
+            onMomentumScrollEnd={handleScrollEnd}
             scrollEventThrottle={16}
             contentContainerStyle={[
               s.listContent,
@@ -762,6 +905,29 @@ export default function ChatScreen() {
             </View>
           )}
         </View>
+
+        {!drawerOpen && showScrollToBottom && (
+          <View
+            style={[s.scrollOverlay, { bottom: composerClearance + 8 }]}
+            pointerEvents="box-none"
+          >
+            <Pressable
+              style={s.scrollToBottom}
+              onPress={scrollToLatest}
+              accessibilityRole="button"
+              accessibilityLabel="Scroll to latest messages"
+            >
+              <Ionicons name="chevron-down" size={22} color={C.text} />
+              {scrollAwayCount > 0 ? (
+                <View style={s.scrollToBottomBadge}>
+                  <Text style={s.scrollToBottomBadgeText}>
+                    {scrollAwayCount > 9 ? "9+" : scrollAwayCount}
+                  </Text>
+                </View>
+              ) : null}
+            </Pressable>
+          </View>
+        )}
 
         {showModelPicker && !drawerOpen && (
           <Pressable
@@ -975,6 +1141,42 @@ const s = StyleSheet.create({
   headerRight: { flexDirection: "row", alignItems: "center", zIndex: 101 },
 
   list: { flex: 1 },
+  scrollOverlay: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    zIndex: 95,
+  },
+  scrollToBottom: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: C.bg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.border,
+    alignItems: "center",
+    justifyContent: "center",
+    boxShadow: "0 2 10 0 rgba(0, 0, 0, 0.18)",
+    elevation: 8,
+  },
+  scrollToBottomBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: C.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  scrollToBottomBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#fff",
+  },
   listContent: { paddingVertical: 8 },
   loadEarlier: {
     alignSelf: "center",

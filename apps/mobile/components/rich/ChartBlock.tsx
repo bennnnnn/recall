@@ -4,13 +4,13 @@
  */
 import { useCallback, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { WebView } from "react-native-webview";
 import * as Clipboard from "expo-clipboard";
 import * as WebBrowser from "expo-web-browser";
 import { Ionicons } from "@expo/vector-icons";
 
 import { C } from "@/constants/Colors";
 import { CODE_FONT } from "@/lib/fonts";
+import { getPreviewWebView } from "@/lib/webView";
 
 type Props = { content: string };
 
@@ -69,6 +69,9 @@ export function ChartBlock({ content }: Props) {
   const [showSource, setShowSource] = useState(false);
 
   const vegaHtml = useMemo(() => buildVegaHtml(content), [content]);
+  const previewWebView = getPreviewWebView();
+  const WebView = previewWebView?.Component;
+  const canRenderInlineChart = previewWebView?.mode === "rnc";
 
   const handleCopy = useCallback(async () => {
     await Clipboard.setStringAsync(content);
@@ -96,16 +99,24 @@ export function ChartBlock({ content }: Props) {
 
       {/* Inline chart preview via WebView */}
       <View style={[s.previewBox, expanded && s.previewBoxExpanded]}>
-        <WebView
-          originWhitelist={["*"]}
-          source={{ html: vegaHtml }}
-          style={{
-            height: expanded ? PREVIEW_HEIGHT * 2 : PREVIEW_HEIGHT,
-          }}
-          scrollEnabled={false}
-          javaScriptEnabled
-          domStorageEnabled
-        />
+        {WebView && canRenderInlineChart ? (
+          <WebView
+            originWhitelist={["*"]}
+            source={{ html: vegaHtml }}
+            style={{
+              height: expanded ? PREVIEW_HEIGHT * 2 : PREVIEW_HEIGHT,
+            }}
+            scrollEnabled={false}
+            javaScriptEnabled
+            domStorageEnabled
+          />
+        ) : (
+          <View style={s.previewPlaceholder}>
+            <Text style={s.previewPlaceholderText}>
+              Chart preview requires a dev build
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Source toggle */}
@@ -202,6 +213,17 @@ const s = StyleSheet.create({
     borderBottomColor: C.border,
   },
   previewBoxExpanded: {},
+  previewPlaceholder: {
+    height: PREVIEW_HEIGHT,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+  },
+  previewPlaceholderText: {
+    fontSize: 13,
+    color: C.textSecondary,
+    textAlign: "center",
+  },
   sourceBox: {
     paddingHorizontal: 14,
     paddingVertical: 10,

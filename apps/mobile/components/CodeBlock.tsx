@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { Ionicons } from "@expo/vector-icons";
@@ -30,7 +30,17 @@ const CODE_COLLAPSED_LINES = 14;
 /** Only fold code blocks with at least this many lines. */
 const CODE_COLLAPSE_MIN_LINES = 18;
 
-export function CodeBlock({ code, lang }: { code: string; lang: string }) {
+export function CodeBlock({
+  code,
+  lang,
+  headerExtra,
+  footerExtra,
+}: {
+  code: string;
+  lang: string;
+  headerExtra?: ReactNode;
+  footerExtra?: ReactNode;
+}) {
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const fenceLang = parseFenceLang(lang);
@@ -58,7 +68,9 @@ export function CodeBlock({ code, lang }: { code: string; lang: string }) {
     <View style={s.wrap}>
       <View style={s.header}>
         {badge ? <Text style={s.lang}>{badge}</Text> : <View />}
-        <Pressable style={s.copyBtn} onPress={onCopy} hitSlop={6}>
+        <View style={s.headerActions}>
+          {headerExtra}
+          <Pressable style={s.copyBtn} onPress={onCopy} hitSlop={6}>
           <Ionicons
             name={copied ? "checkmark-outline" : "copy-outline"}
             size={13}
@@ -68,6 +80,7 @@ export function CodeBlock({ code, lang }: { code: string; lang: string }) {
             {copied ? " Copied" : " Copy"}
           </Text>
         </Pressable>
+        </View>
       </View>
       <View
         style={[
@@ -110,6 +123,7 @@ export function CodeBlock({ code, lang }: { code: string; lang: string }) {
           </Text>
         </Pressable>
       )}
+      {footerExtra ? <View style={s.footer}>{footerExtra}</View> : null}
     </View>
   );
 }
@@ -142,6 +156,11 @@ const s = StyleSheet.create({
     fontWeight: "600",
     textTransform: "lowercase",
   },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
   copyBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -169,4 +188,15 @@ const s = StyleSheet.create({
     backgroundColor: C.codeBg,
   },
   expandText: { fontSize: 12, fontWeight: "600", color: C.textSecondary },
+  footer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: C.border,
+    backgroundColor: C.surface,
+  },
 });

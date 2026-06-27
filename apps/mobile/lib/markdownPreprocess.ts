@@ -4,7 +4,7 @@ import {
   looksLikeCode,
   shouldRenderAsPlainProseFence,
 } from "@/lib/copyBlock";
-import { parseFenceLang } from "@/lib/codeHighlight";
+import { isHtmlFenceLang, parseFenceLang } from "@/lib/codeHighlight";
 
 const CALLOUT_RE = /^>\s*\[!(\w+)\]\s*([^\n]*)\n((?:>\s?.*\n?)*)/gim;
 const BLOCK_MATH_RE = /\$\$([\s\S]+?)\$\$/g;
@@ -148,7 +148,7 @@ function unwrapNonCodeFences(content: string): string {
   return content.replace(FENCE_BLOCK_RE, (full, info: string, body: string) => {
     const lang = parseFenceLang((info || "").trim());
     const l = lang.toLowerCase();
-    if (isStructuredFenceLang(l) || l === "details" || l === "math") {
+    if (isStructuredFenceLang(l) || l === "details" || l === "math" || isHtmlFenceLang(l)) {
       return full;
     }
 

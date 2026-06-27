@@ -6,6 +6,7 @@ import { Image, Platform, StyleSheet, Text, View } from "react-native";
 
 import { LinkPreviewCard } from "@/components/LinkPreviewCard";
 import { CodeBlock } from "@/components/CodeBlock";
+import { WebPreviewCodeBlock } from "@/components/WebPreviewCodeBlock";
 import { CopyBlock } from "@/components/CopyBlock";
 import {
   MarkdownTable,
@@ -25,7 +26,7 @@ import {
   shouldRenderAsCodeBlock,
   shouldRenderAsCopyBlock,
 } from "@/lib/copyBlock";
-import { parseFenceLang } from "@/lib/codeHighlight";
+import { parseFenceLang, shouldUseHtmlPreview } from "@/lib/codeHighlight";
 import { markdownItInstance } from "@/lib/markdownIt";
 import {
   extractBlockquoteMeta,
@@ -388,24 +389,39 @@ const sharedRenderRules = {
 function renderFence(node: FenceNode) {
   const lang = parseFenceLang(node.info?.trim() || "");
   const content = node.content.replace(/\n$/, "").trim();
-  // Never render an empty fence — it produces a blank gray box with only a
-  // Copy button (CodeBlock fallthrough on line 405).
   if (!content) return null;
-  const rich = renderRichFence(lang, content, node.key);
-  if (rich) return rich;
-  const copyStyle = renderCopyStyleBlock(lang, content, node.key);
-  if (copyStyle) return copyStyle;
-  if (isExplicitCodeLang(lang) || shouldRenderAsCodeBlock(lang, content)) {
+
+  try {
+    return renderFenceInner(node.key, lang, content);
+  } catch (error) {
+    if (__DEV__) {
+      console.warn("[MarkdownContent] fence render failed", error);
+    }
     return <CodeBlock key={node.key} code={content} lang={lang} />;
   }
-  if (shouldRenderAsCopyBlock(lang, content)) {
-    const styled = renderCopyStyleBlock("copy", content, node.key);
-    if (styled) return styled;
+}
+
+function renderFenceInner(key: string, lang: string, content: string) {
+  if (shouldUseHtmlPreview(lang, content)) {
     return (
-      <CopyBlock key={node.key} text={content} label={copyBlockLabel(lang)} />
+      <WebPreviewCodeBlock key={key} code={content} lang={lang || "html"} />
     );
   }
-  return <CodeBlock key={node.key} code={content} lang={lang} />;
+  const rich = renderRichFence(lang, content, key);
+  if (rich) return rich;
+  const copyStyle = renderCopyStyleBlock(lang, content, key);
+  if (copyStyle) return copyStyle;
+  if (isExplicitCodeLang(lang) || shouldRenderAsCodeBlock(lang, content)) {
+    return <CodeBlock key={key} code={content} lang={lang} />;
+  }
+  if (shouldRenderAsCopyBlock(lang, content)) {
+    const styled = renderCopyStyleBlock("copy", content, key);
+    if (styled) return styled;
+    return (
+      <CopyBlock key={key} text={content} label={copyBlockLabel(lang)} />
+    );
+  }
+  return <CodeBlock key={key} code={content} lang={lang} />;
 }
 
 const renderRules = {

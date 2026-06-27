@@ -5,7 +5,6 @@ import { ChartBlock } from "@/components/rich/ChartBlock";
 import { CollapsibleBlock } from "@/components/rich/CollapsibleBlock";
 import { ComparisonBlock } from "@/components/rich/ComparisonBlock";
 import { EmailCard } from "@/components/rich/EmailCard";
-import { HTMLBlock } from "@/components/rich/HTMLBlock";
 import { KeyValueBlock } from "@/components/rich/KeyValueBlock";
 import { MathBlock } from "@/components/rich/MathView";
 import { MermaidBlock } from "@/components/rich/MermaidBlock";
@@ -86,11 +85,6 @@ export function renderRichFence(
   // Chart / data visualization (vega-lite, chart.js, plot)
   if (l === "chart" || l === "vega" || l === "vega-lite" || l === "plot") {
     return <ChartBlock key={key} content={content} />;
-  }
-
-  // Sandboxed HTML preview
-  if (l === "html") {
-    return <HTMLBlock key={key} content={content} />;
   }
 
   return null;
