@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
 from app.core.deps import get_current_user
 from app.models.orm import User
-from app.models.schemas import SearchResults
+from app.models.schemas import SearchResultItem, SearchResults
 from app.repositories import search as search_repo
 
 router = APIRouter(prefix="/search", tags=["search"])
@@ -21,4 +21,7 @@ async def search(
     results, total = await search_repo.search_messages(
         session, user.id, query=q, limit=limit, offset=offset
     )
-    return SearchResults(results=results, total=total)
+    return SearchResults(
+        results=[SearchResultItem.model_validate(r) for r in results],
+        total=total,
+    )

@@ -1,6 +1,6 @@
 """Tests for new features: todos, search, templates, suggestions, seed."""
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -8,19 +8,10 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas import (
-    SearchResults,
     SuggestionGenerationResult,
     SuggestionItem,
-    TodoOut,
-    TodoCreate,
-    TodoUpdate,
-    TemplateOut,
-    TemplateCreate,
-    TemplateUpdate,
-    SuggestionOut,
 )
-from app.tests.test_routers import _fake_user, _app_with_user
-
+from app.tests.test_routers import _app_with_user, _fake_user
 
 # ── todos router ────────────────────────────────────────────────────────────
 
@@ -41,7 +32,7 @@ def test_list_todos_returns_items():
     from fastapi.testclient import TestClient
 
     tid = uuid4()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     todo_mock = MagicMock()
     todo_mock.id = tid
     todo_mock.content = "Buy milk"
@@ -65,7 +56,7 @@ def test_create_todo():
     from fastapi.testclient import TestClient
 
     tid = uuid4()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     todo_mock = MagicMock()
     todo_mock.id = tid
     todo_mock.content = "Test todo"
@@ -92,7 +83,7 @@ def test_create_todo_with_chat_id():
 
     tid = uuid4()
     cid = uuid4()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     todo_mock = MagicMock()
     todo_mock.id = tid
     todo_mock.content = "From chat"
@@ -131,7 +122,7 @@ def test_update_todo():
     from fastapi.testclient import TestClient
 
     tid = uuid4()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     todo_mock = MagicMock()
     todo_mock.id = tid
     todo_mock.content = "Updated"
@@ -214,7 +205,7 @@ def test_search_returns_results():
             "chat_title": "Test Chat",
             "content": "…hello world…",
             "role": "user",
-            "created_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
         }
     ]
     with patch(
@@ -275,7 +266,7 @@ def test_search_respects_limit():
             "chat_title": "Chat",
             "content": "…x…",
             "role": "assistant",
-            "created_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
         }
         for _ in range(5)
     ]
@@ -301,7 +292,7 @@ def test_list_templates():
     from fastapi.testclient import TestClient
 
     tid = uuid4()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     tpl_mock = MagicMock()
     tpl_mock.id = tid
     tpl_mock.title = "Write email"
@@ -329,7 +320,7 @@ def test_create_template():
     from fastapi.testclient import TestClient
 
     tid = uuid4()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     tpl_mock = MagicMock()
     tpl_mock.id = tid
     tpl_mock.title = "Custom prompt"
@@ -360,7 +351,7 @@ def test_update_template_owned():
 
     tid = uuid4()
     uid = uuid4()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     tpl_mock = MagicMock()
     tpl_mock.id = tid
     tpl_mock.user_id = uid
@@ -397,7 +388,6 @@ def test_update_template_builtin_denied():
     from fastapi.testclient import TestClient
 
     tid = uuid4()
-    now = datetime.now(timezone.utc)
     tpl_mock = MagicMock()
     tpl_mock.id = tid
     tpl_mock.user_id = None  # built-in
@@ -478,7 +468,7 @@ def test_list_suggestions_returns_active():
     from fastapi.testclient import TestClient
 
     sid = uuid4()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     sug_mock = MagicMock()
     sug_mock.id = sid
     sug_mock.text = "Try writing a poem"
@@ -597,8 +587,8 @@ async def test_generate_suggestions_creates_items():
 @pytest.mark.asyncio
 async def test_generate_suggestions_skips_when_at_cap():
     from app.background.suggestion_generation import (
-        generate_suggestions,
         MAX_ACTIVE_SUGGESTIONS,
+        generate_suggestions,
     )
 
     uid = uuid4()
@@ -673,7 +663,7 @@ async def test_generate_suggestions_handles_exceptions():
 
 @pytest.mark.asyncio
 async def test_seed_templates_creates_on_empty():
-    from app.services.seed_templates import seed_templates, BUILTIN_TEMPLATES
+    from app.services.seed_templates import BUILTIN_TEMPLATES, seed_templates
 
     session = AsyncMock()
 
@@ -694,8 +684,8 @@ async def test_seed_templates_creates_on_empty():
 
 @pytest.mark.asyncio
 async def test_seed_templates_idempotent():
-    from app.services.seed_templates import seed_templates
     from app.models.orm import Template
+    from app.services.seed_templates import seed_templates
 
     session = AsyncMock()
 
@@ -747,8 +737,8 @@ async def test_suggestions_repo_list_active():
 
 @pytest.mark.asyncio
 async def test_suggestions_repo_dismiss_found():
-    from app.repositories.suggestions import dismiss
     from app.models.orm import Suggestion
+    from app.repositories.suggestions import dismiss
 
     sid = uuid4()
     uid = uuid4()
@@ -766,8 +756,8 @@ async def test_suggestions_repo_dismiss_found():
 
 @pytest.mark.asyncio
 async def test_suggestions_repo_dismiss_wrong_user():
-    from app.repositories.suggestions import dismiss
     from app.models.orm import Suggestion
+    from app.repositories.suggestions import dismiss
 
     sid = uuid4()
     item = MagicMock(spec=Suggestion)

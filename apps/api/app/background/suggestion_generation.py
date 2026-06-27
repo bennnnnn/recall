@@ -6,10 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.gateways import litellm_gateway
 from app.models.schemas import SuggestionGenerationResult
-from app.repositories import suggestions as suggestions_repo
 from app.repositories import chats as chats_repo
-from app.services import memory as memory_service
+from app.repositories import suggestions as suggestions_repo
 from app.repositories import users as users_repo
+from app.services import memory as memory_service
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,9 @@ async def generate_suggestions(
         if active_count >= MAX_ACTIVE_SUGGESTIONS:
             logger.debug(
                 "Skipping suggestions for %s: %d active (cap %d)",
-                user_id, active_count, MAX_ACTIVE_SUGGESTIONS,
+                user_id,
+                active_count,
+                MAX_ACTIVE_SUGGESTIONS,
             )
             return
 
@@ -59,8 +61,7 @@ async def generate_suggestions(
         memory_block = await memory_service.get_memory_block(session, user, settings)
 
         recent_summary = "\n".join(
-            f"- {c.title or 'New chat'} (updated {c.updated_at.strftime('%b %d')})"
-            for c in recent
+            f"- {c.title or 'New chat'} (updated {c.updated_at.strftime('%b %d')})" for c in recent
         )
 
         user_context = f"Recent conversations:\n{recent_summary}"

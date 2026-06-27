@@ -3,7 +3,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.orm import Message, Chat
+from app.models.orm import Chat, Message
 
 
 async def search_messages(

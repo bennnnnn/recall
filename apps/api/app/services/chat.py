@@ -60,12 +60,12 @@ INTENT_FORMAT_HINT = (
     "\n"
     "Default (facts, lists, rankings, lookups, recommendations):\n"
     "  - Use a simple **numbered list** or **bullets** for most answers. "
-    "This is the right format for rankings (\"top N …\"), lists of facts, "
+    'This is the right format for rankings ("top N …"), lists of facts, '
     "recommendations, pros/cons, and general Q&A.\n"
     "  - Only use a pipe table when the user explicitly asks for a table, or "
     "when comparing 4+ items across 3+ clear columns where a table is genuinely "
     "easier to read than a list.\n"
-    "  - For a single topic (\"tell me about X\"), use 2-3 short headings with "
+    '  - For a single topic ("tell me about X"), use 2-3 short headings with '
     "bullets — not a wall of text and not a kv block.\n"
     "\n"
     "Writing helper (email, message, reply, caption, social post):\n"
@@ -118,9 +118,9 @@ VISUALIZATION_HINTS = (
     "Prefer a diagram over a bullet list when showing how things connect.\n\n"
     "**Charts** (```chart) — RULE: When comparing numeric data, showing trends, or "
     "visualizing statistics, output a Vega-Lite JSON spec in a ```chart fence. "
-    "Format: {\"mark\": \"bar\"|\"line\"|\"point\", \"data\": {\"values\": [...]}, "
-    "\"encoding\": {\"x\": {...}, \"y\": {...}}}. Use when a chart is clearer than a table.\n\n"
-    "CRITICAL: Never say \"I can't render\" or \"save this as a file\" or \"open in a browser.\" "
+    'Format: {"mark": "bar"|"line"|"point", "data": {"values": [...]}, '
+    '"encoding": {"x": {...}, "y": {...}}}. Use when a chart is clearer than a table.\n\n'
+    'CRITICAL: Never say "I can\'t render" or "save this as a file" or "open in a browser." '
     "The app renders these formats. Just output the code in the correct fence block."
 )
 
@@ -374,16 +374,14 @@ async def _finalize_stream_turn(
     usage: dict[str, int],
     result: dict[str, Any] | None,
 ) -> None:
+    usage_input = usage.get("input")
     input_tokens = (
-        usage.get("input")
-        if usage.get("input") is not None
+        usage_input
+        if usage_input is not None
         else sum(estimate_tokens(m["content"]) for m in ctx.prompt_messages)
     )
-    output_tokens = (
-        usage.get("output")
-        if usage.get("output") is not None
-        else estimate_tokens(assistant_text)
-    )
+    usage_output = usage.get("output")
+    output_tokens = usage_output if usage_output is not None else estimate_tokens(assistant_text)
     total_tokens = input_tokens + output_tokens
 
     async with SessionLocal() as session:
@@ -440,8 +438,8 @@ async def _finalize_stream_turn(
         )
     if settings.history_compression_enabled:
         await jobs.enqueue(redis, "compress", {"chat_id": str(ctx.chat_id)})
-    # Regenerate proactive suggestions ~10% of turns.
-    if random.random() < 0.1:
+    # Regenerate proactive suggestions ~10% of turns. Non-crypto sampling.
+    if random.random() < 0.1:  # noqa: S311
         await jobs.enqueue(redis, "suggestions", {"user_id": str(ctx.user_id)})
 
 

@@ -4,6 +4,7 @@ Revision ID: 0008
 Revises: 0007
 Create Date: 2026-06-26
 """
+
 from collections.abc import Sequence
 from typing import Union
 
@@ -22,7 +23,12 @@ def upgrade() -> None:
         "todo_items",
         sa.Column("id", UUID(as_uuid=True), primary_key=True),
         sa.Column("user_id", UUID(as_uuid=True), sa.ForeignKey("users.id"), nullable=False),
-        sa.Column("chat_id", UUID(as_uuid=True), sa.ForeignKey("chats.id", ondelete="SET NULL"), nullable=True),
+        sa.Column(
+            "chat_id",
+            UUID(as_uuid=True),
+            sa.ForeignKey("chats.id", ondelete="SET NULL"),
+            nullable=True,
+        ),
         sa.Column("content", sa.Text(), nullable=False),
         sa.Column("checked", sa.Boolean(), server_default="false", nullable=False),
         sa.Column(

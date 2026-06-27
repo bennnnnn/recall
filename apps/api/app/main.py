@@ -5,11 +5,23 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core import jobs
 from app.core.config import get_settings, validate_production_settings
-from app.core.db import engine, SessionLocal
+from app.core.db import SessionLocal, engine
 from app.core.logging import setup_logging
 from app.core.redis import get_redis_client
+from app.routers import (
+    auth,
+    chats,
+    health,
+    link_preview,
+    memories,
+    models,
+    search,
+    suggestions,
+    templates,
+    todos,
+    ws,
+)
 from app.services import seed_templates
-from app.routers import auth, chats, health, link_preview, memories, models, search, suggestions, templates, todos, ws
 
 
 @asynccontextmanager

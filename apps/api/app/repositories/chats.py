@@ -1,6 +1,8 @@
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import delete, exists, select
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Chat, Message
@@ -41,8 +43,9 @@ async def delete_empty_for_user(session: AsyncSession, user_id: UUID) -> int:
         Chat.user_id == user_id,
         ~exists().where(Message.chat_id == Chat.id),
     )
-    result = await session.execute(
-        delete(Chat).where(Chat.id.in_(empty_ids))
+    result = cast(
+        CursorResult[Any],
+        await session.execute(delete(Chat).where(Chat.id.in_(empty_ids))),
     )
     await session.commit()
     return result.rowcount
@@ -51,12 +54,11 @@ async def delete_empty_for_user(session: AsyncSession, user_id: UUID) -> int:
 async def touch_by_id(session: AsyncSession, chat_id: UUID) -> None:
     """Update updated_at with a direct UPDATE — avoids a separate SELECT round-trip."""
     from datetime import UTC, datetime
+
     from sqlalchemy import update as update_stmt
 
     await session.execute(
-        update_stmt(Chat)
-        .where(Chat.id == chat_id)
-        .values(updated_at=datetime.now(UTC))
+        update_stmt(Chat).where(Chat.id == chat_id).values(updated_at=datetime.now(UTC))
     )
     await session.commit()
 

@@ -49,6 +49,8 @@ select = ["E", "F", "I", "UP", "RUF", "B", "ASYNC", "S"]
 "app/core/deps.py" = ["B008"]
 "app/core/config.py" = ["S105"]
 "app/models/schemas.py" = ["S105"]
+# Built-in template seed strings are long by nature (user-facing prompt copy).
+"app/services/seed_templates.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"

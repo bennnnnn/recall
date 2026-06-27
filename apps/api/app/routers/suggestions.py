@@ -29,6 +29,4 @@ async def dismiss_suggestion(
 ) -> None:
     ok = await suggestions_repo.dismiss(session, suggestion_id, user.id)
     if not ok:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Suggestion not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Suggestion not found")

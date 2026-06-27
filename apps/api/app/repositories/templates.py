@@ -1,9 +1,9 @@
+from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import select, delete
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import delete, select
 from sqlalchemy.engine import CursorResult
-from typing import Any, cast
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Template
 
@@ -45,18 +45,14 @@ async def create(
     content: str,
     category: str = "general",
 ) -> Template:
-    tpl = Template(
-        user_id=user_id, title=title, content=content, category=category
-    )
+    tpl = Template(user_id=user_id, title=title, content=content, category=category)
     session.add(tpl)
     await session.commit()
     await session.refresh(tpl)
     return tpl
 
 
-async def update(
-    session: AsyncSession, template: Template, **fields: Any
-) -> Template:
+async def update(session: AsyncSession, template: Template, **fields: Any) -> Template:
     for key, value in fields.items():
         if value is not None and hasattr(template, key):
             setattr(template, key, value)
@@ -65,9 +61,7 @@ async def update(
     return template
 
 
-async def delete_by_id(
-    session: AsyncSession, template_id: UUID, user_id: UUID
-) -> bool:
+async def delete_by_id(session: AsyncSession, template_id: UUID, user_id: UUID) -> bool:
     result = cast(
         CursorResult[Any],
         await session.execute(

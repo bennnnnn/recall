@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import get_db
 from app.core.deps import get_current_user
 from app.models.orm import User
-from app.models.schemas import TemplateOut, TemplateCreate, TemplateUpdate
+from app.models.schemas import TemplateCreate, TemplateOut, TemplateUpdate
 from app.repositories import templates as templates_repo
 
 router = APIRouter(prefix="/templates", tags=["templates"])
@@ -46,12 +46,8 @@ async def update_template(
 ) -> TemplateOut:
     item = await templates_repo.get_by_id(session, template_id, user_id=user.id)
     if not item or item.is_builtin:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Template not found"
-        )
-    updated = await templates_repo.update(
-        session, item, **body.model_dump(exclude_unset=True)
-    )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Template not found")
+    updated = await templates_repo.update(session, item, **body.model_dump(exclude_unset=True))
     return TemplateOut.model_validate(updated)
 
 

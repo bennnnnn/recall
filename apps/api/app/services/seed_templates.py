@@ -1,4 +1,5 @@
 """Built-in templates seeded on startup."""
+
 import logging
 
 from sqlalchemy import select
