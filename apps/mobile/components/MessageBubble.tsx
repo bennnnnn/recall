@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import * as Clipboard from "expo-clipboard";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -9,8 +9,7 @@ import { MessageMetaChips } from "@/components/MessageMetaChips";
 import { RecallTypingIndicator } from "@/components/RecallTypingIndicator";
 import { Message } from "@/lib/api";
 import { extractPrimaryCopyText } from "@/lib/copyBlock";
-
-import { C } from "@/constants/Colors";
+import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
   message: Message;
@@ -30,12 +29,14 @@ function AssistantActions({
   feedback,
   onFeedback,
   onRegenerate,
+  theme,
 }: {
   messageId: string;
   content: string;
   feedback: "up" | "down" | null;
   onFeedback?: (messageId: string, feedback: "up" | "down" | null) => void;
   onRegenerate?: () => void;
+  theme: Theme;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -59,27 +60,27 @@ function AssistantActions({
       >
         <Ionicons
           name={copied ? "checkmark-outline" : "copy-outline"}
-          size={20}
-          color={copied ? C.primary : C.textSecondary}
+          size={19}
+          color={copied ? theme.primary : theme.textSecondary}
         />
       </Pressable>
       <Pressable style={a.btn} onPress={() => rate("up")} hitSlop={8}>
         <Ionicons
           name={feedback === "up" ? "thumbs-up" : "thumbs-up-outline"}
-          size={20}
-          color={feedback === "up" ? C.primary : C.textSecondary}
+          size={19}
+          color={feedback === "up" ? theme.primary : theme.textSecondary}
         />
       </Pressable>
       <Pressable style={a.btn} onPress={() => rate("down")} hitSlop={8}>
         <Ionicons
           name={feedback === "down" ? "thumbs-down" : "thumbs-down-outline"}
-          size={20}
-          color={feedback === "down" ? C.primary : C.textSecondary}
+          size={19}
+          color={feedback === "down" ? theme.primary : theme.textSecondary}
         />
       </Pressable>
       {onRegenerate && (
         <Pressable style={a.btn} onPress={onRegenerate} hitSlop={8}>
-          <Ionicons name="refresh-outline" size={20} color={C.textSecondary} />
+          <Ionicons name="refresh-outline" size={19} color={theme.textSecondary} />
         </Pressable>
       )}
     </View>
@@ -93,6 +94,8 @@ export const MessageBubble = React.memo(function MessageBubble({
   onRegenerate,
   onFeedback,
 }: Props) {
+  const theme = useTheme();
+  const b = useMemo(() => makeStyles(theme), [theme]);
   const isUser = message.role === "user";
   const isStreaming = isGenerating;
   const hasContent = message.content.trim().length > 0;
@@ -100,7 +103,7 @@ export const MessageBubble = React.memo(function MessageBubble({
 
   return (
     <View style={[b.row, isUser ? b.userRow : b.assistantRow]}>
-      <View style={[b.bubble, isUser ? b.userBubble : b.assistantBubble]}>
+      <View style={isUser ? b.userBubble : b.assistantBubble}>
         {isUser ? (
           <Text style={b.userText} selectable>
             {message.content}
@@ -108,8 +111,8 @@ export const MessageBubble = React.memo(function MessageBubble({
         ) : isStreaming && !hasContent ? (
           <RecallTypingIndicator />
         ) : isStreaming ? (
-          // Show plain text while streaming — avoids O(n²) markdown re-parsing
-          // and prevents the formatting flicker (half-typed fences, tables, math).
+          // Plain text while streaming — avoids O(n²) markdown re-parsing
+          // and prevents formatting flicker (half-typed fences, tables, math).
           <Text style={b.streamingText} selectable>
             {message.content}
           </Text>
@@ -134,6 +137,7 @@ export const MessageBubble = React.memo(function MessageBubble({
           feedback={message.feedback ?? null}
           onFeedback={onFeedback}
           onRegenerate={isLastAssistant ? onRegenerate : undefined}
+          theme={theme}
         />
       )}
     </View>
@@ -144,34 +148,36 @@ const a = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    marginTop: 6,
-    paddingHorizontal: 2,
+    gap: 2,
+    marginTop: 4,
+    marginLeft: 2,
   },
   btn: {
-    width: 36,
-    height: 36,
+    width: 34,
+    height: 34,
     alignItems: "center",
     justifyContent: "center",
   },
 });
 
-const b = StyleSheet.create({
-  row: { marginVertical: 2, paddingHorizontal: 16 },
-  userRow: { alignItems: "flex-end" },
-  assistantRow: { alignItems: "stretch" },
-  bubble: { borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 },
-  userBubble: {
-    maxWidth: "82%",
-    backgroundColor: C.userBubble,
-    borderBottomRightRadius: 4,
-  },
-  assistantBubble: {
-    maxWidth: "100%",
-    backgroundColor: C.bg,
-    paddingHorizontal: 0,
-    paddingVertical: 8,
-  },
-  userText: { color: C.userText, fontSize: 16, lineHeight: 22 },
-  streamingText: { color: C.text, fontSize: 16, lineHeight: 24 },
-});
+function makeStyles(t: Theme) {
+  return StyleSheet.create({
+    row: { marginVertical: 4, paddingHorizontal: 16 },
+    userRow: { alignItems: "flex-end" },
+    assistantRow: { alignItems: "stretch" },
+    userBubble: {
+      maxWidth: "82%",
+      backgroundColor: t.userBubble,
+      borderRadius: 22,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+    },
+    assistantBubble: {
+      maxWidth: "100%",
+      backgroundColor: "transparent",
+      paddingVertical: 2,
+    },
+    userText: { color: t.userText, fontSize: 16, lineHeight: 23 },
+    streamingText: { color: t.assistantText, fontSize: 16, lineHeight: 25 },
+  });
+}

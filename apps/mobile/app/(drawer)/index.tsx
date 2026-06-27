@@ -23,9 +23,10 @@ import { useTranslation } from "react-i18next";
 
 import { Ionicons } from "@expo/vector-icons";
 
-import { C } from "@/constants/Colors";
+import { Theme, useTheme } from "@/lib/theme";
 import { MessageBubble } from "@/components/MessageBubble";
 import { SuggestionChips } from "@/components/SuggestionChips";
+import { TemplatePicker } from "@/components/TemplatePicker";
 import { HamburgerIcon } from "@/components/HamburgerIcon";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDrawer } from "@/contexts/DrawerContext";
@@ -84,6 +85,10 @@ const SCROLL_BOTTOM_THRESHOLD = 96;
 export default function ChatScreen() {
   const { token, user } = useAuth();
   const { t } = useTranslation();
+  const C = useTheme();
+  const s = useMemo(() => makeS(C), [C]);
+  const m = useMemo(() => makeM(C), [C]);
+  const drop = useMemo(() => makeDrop(C), [C]);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
@@ -849,19 +854,19 @@ export default function ChatScreen() {
                 <Text style={s.emptyHint}>
                   {t("chat.empty_hint")}
                 </Text>
+                {token ? (
+                  <TemplatePicker
+                    token={token}
+                    onSelect={(content) => setInput(content)}
+                  />
+                ) : null}
               </View>
             }
           />
 
           <LinearGradient
-            colors={[
-              C.bg,
-              "rgba(255,255,255,0.98)",
-              "rgba(255,255,255,0.82)",
-              "rgba(255,255,255,0.45)",
-              "rgba(255,255,255,0)",
-            ]}
-            locations={[0, 0.25, 0.5, 0.78, 1]}
+            colors={[C.bg, C.bg, `${C.bg}00`]}
+            locations={[0, 0.55, 1]}
             style={[s.headerFade, { height: fadeHeight }]}
             pointerEvents="none"
           />
@@ -1031,7 +1036,7 @@ export default function ChatScreen() {
   );
 }
 
-const drop = StyleSheet.create({
+const makeDrop = (C: Theme) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.06)",
@@ -1062,7 +1067,7 @@ const drop = StyleSheet.create({
   },
 });
 
-const m = StyleSheet.create({
+const makeM = (C: Theme) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.4)",
@@ -1100,7 +1105,7 @@ const m = StyleSheet.create({
   saveText: { fontSize: 15, color: "#fff", fontWeight: "700" },
 });
 
-const s = StyleSheet.create({
+const makeS = (C: Theme) => StyleSheet.create({
   center: {
     flex: 1,
     alignItems: "center",
