@@ -1,0 +1,24 @@
+---
+description: Execution discipline — plan first, keep changes scoped, finish green
+alwaysApply: true
+---
+
+# Plan, scope, and finish green
+
+## Plan first
+- For any non-trivial task (3+ steps or ambiguous), write a short todo/plan and confirm scope
+  before coding. Use Plan mode for large or ambiguous asks.
+- Anything outside the agreed scope goes to `FEATURES.md` as deferred — don't build it now.
+
+## Keep changes scoped
+- One concern per branch/commit. Don't bundle unrelated features into one big change
+  (past commits bundled 5+ things — unreviewable and un-bisectable).
+- Commit working increments often; don't let large piles of work sit uncommitted.
+
+## Definition of done (don't say "done" until this holds)
+- Run the full gate locally: `./scripts/dev.sh check` (API: ruff + format + mypy + pytest ≥80%;
+  mobile: typecheck + lint). It must be green.
+- CI order is ruff → format → mypy → pytest; an earlier failure means tests never run — so match
+  the whole chain locally, not just pytest.
+- Never weaken the gate to pass — no lowering the coverage bar, no blanket `# type: ignore` /
+  `# noqa` — without saying so explicitly.

@@ -8,7 +8,7 @@ A personal mobile AI chat app that remembers the user's preferences, projects, a
 2. **Use product model aliases, never provider names**, in app/business code: `free-chat`, `smart-chat`, `title-model`, `memory-model`. Only `gateways/litellm_gateway.py` maps aliases → real providers.
 3. **Never send full chat history to the model.** Build context from injected memory + the recent window (~10–20 messages) only.
 4. **Topic generation and memory extraction are best-effort background jobs.** They must never raise into the chat request path or block streaming.
-5. **No code execution.** Code in messages is rendered/highlighted only — never run user code or shell.
+5. **No arbitrary code execution — one sandboxed exception.** Code in messages is rendered/highlighted only, with a single exception: **HTML/CSS/JS may be previewed in a sandboxed WebView** (and charts/diagrams rendered from model output). Never execute Python, shell, or any other language, and never run code anywhere except inside the isolated preview WebView (no app token is ever exposed to it). The preview WebView requires a dev build — it does not work in Expo Go.
 6. **All LLM structured outputs are validated with Pydantic** before they touch the DB.
 
 ## Service Overview
@@ -23,8 +23,14 @@ A personal mobile AI chat app that remembers the user's preferences, projects, a
 - **memory** — a structured fact about the user, typed: `profile` | `preference` | `project` | `fact` | `focus`.
 - **model alias** — product-level model name mapped to a provider by the gateway.
 - **quota** — per-user daily token budget (free tier 30k/day).
+- **todo** — a lightweight task the user tracks; optionally linked to a chat.
+- **template** — a reusable starter prompt (seeded defaults + the user's own).
+- **suggestion** — a proactive follow-up prompt generated from the user's recent activity (best-effort background job).
+- **search** — full-text lookup across the user's chats and messages.
 
-**Not in scope (v1):** tools/agents, code execution, web app, multi-user/teams.
+**Rich rendering:** the message renderer also supports markdown, tables, math, callouts, code highlighting, and sandboxed previews — HTML/CSS/JS via WebView, charts (Vega), and Mermaid (source + external editor).
+
+**Not in scope (v1):** tools/agents, execution of non-web code (Python/shell/etc.), execution outside the sandboxed preview WebView, multi-user/teams. (A **web client sharing this same API** is planned for a later version — see FEATURES.md.)
 
 ## Architecture
 
@@ -59,7 +65,9 @@ app/
 
 **Streaming:** WebSocket endpoint (`routers/ws.py`) preferred (supports stop-generation); a cancel message aborts the active LLM task.
 
-**Mobile** (`apps/mobile/`): Expo Router screens (Login, Chat, History, Memory, Settings); API client in `lib/api.ts`; secure token storage; FlashList for messages; markdown + code highlighting in the message renderer.
+**Mobile** (`apps/mobile/`): Expo Router screens (Login, Chat, History, Memory, Settings, Search, Todos); API client in `lib/api.ts`; secure token storage; FlashList for messages; markdown + code highlighting + sandboxed HTML/chart previews in the message renderer; i18n via `lib/i18n`.
+
+**Clients & the API contract:** the backend is a client-agnostic HTTP/WebSocket API with stateless JWT (Bearer) auth, so a future **web client reuses the same API** (no rewrite). Keep `lib/api.ts` the single network boundary and rich-block rendering swappable; only platform bits differ per client (web: cookie/web-storage tokens instead of expo-secure-store, web OAuth instead of native Google Sign-In, `<iframe>` instead of `react-native-webview`). Web needs its origin added to `cors_origins`.
 
 ## Build / Run Commands
 
@@ -84,6 +92,7 @@ pnpm expo start          # dev; press i / a for iOS / Android
 
 - Run the backend on port 8000 and point the app's `EXPO_PUBLIC_API_URL` at it (use your machine's LAN IP on a physical device, not localhost).
 - Native Google Sign-In requires a dev build (`pnpm expo run:ios` / `run:android`), not Expo Go. Use dev auth in Expo Go.
+- The HTML/JS preview WebView (`react-native-webview`) is a **native module** — it only works in a dev build. After adding/updating it, rebuild the dev client (`pnpm expo run:ios` / `run:android`); in Expo Go the preview falls back to static HTML (scripts stripped) or "Open in browser".
 
 ## Testing
 
@@ -133,6 +142,8 @@ async def test_quota_enforced(fake_redis, used, requested, allowed):
 
 **Required services:** Neon Postgres + Upstash Redis (no Docker required).
 
+> **Neon setup:** use a **direct Neon account** (neon.com), *not* the Vercel-managed integration — the backend is FastAPI (not on Vercel), so that integration adds no value and limits the console/CLI/feature access. Create the project in **AWS us-east-2** to keep the option of trying Neon Storage (S3-compatible object storage, currently private preview). Just point `DATABASE_URL` at it.
+
 **Env** (`apps/api/.env`):
 
 ```
@@ -159,7 +170,9 @@ JWT_SECRET=...
 
 Neon · Upstash Redis · LiteLLM · Google OAuth · Sentry
 
-Later: pgvector, RevenueCat, LiteLLM Proxy.
+**Database — Neon (serverless Postgres), chosen over Supabase:** we run our own backend, auth (Google/JWT), and object storage (S3/R2 planned), so we only need a database — not a BaaS bundle (auth/storage/realtime) we wouldn't use. Neon's usage-based pricing + scale-to-zero is cheaper at our scale, branching helps CI/preview, it's plain Postgres (portable, good for the future web client), and `pgvector` runs in the **same DB** — so semantic memory/RAG needs no separate vector store. (Revisit only if we ever rebuild the whole backend as a Supabase app.)
+
+Later: pgvector (semantic memory/RAG — available in Neon), RevenueCat, LiteLLM Proxy.
 
 ## Milestones (MVP week)
 

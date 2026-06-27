@@ -1,0 +1,31 @@
+---
+description: Hard-won lessons & gotchas — read before debugging; append when you solve something tricky
+alwaysApply: true
+---
+
+# Lessons learned (don't relearn the hard way)
+
+When you figure out a tricky, non-obvious problem, **append a short entry below** so it isn't lost.
+Format each as **symptom → cause → fix** in 1–3 lines. Newest first. Keep it tight; prune duplicates.
+
+## Lessons
+
+- **"Coverage is failing" but really lint/types are.** CI order is `ruff check → ruff format
+  --check → mypy → pytest --cov-fail-under=80`; an earlier step failing means pytest never runs.
+  Run the whole chain locally before committing, not just pytest.
+- **Unpinned dev tooling silently breaks CI.** `mypy`/`ruff` were `>=`, so CI pulled a newer,
+  stricter mypy and failed. Keep them capped in `pyproject.toml` and pin Python (`<3.14`).
+- **SQLAlchemy `.rowcount` fails mypy.** `await session.execute(delete(...))` is typed `Result`
+  (no `.rowcount`) → `cast(CursorResult[Any], await session.execute(...))`. Also never
+  `from sqlalchemy import update` in a repo that defines its own `update()` (F811 shadow → wrong
+  symbol at type-check).
+- **mypy won't narrow a doubled `.get()`.** `usage.get("x") if usage.get("x") is not None else …`
+  stays `int | None`. Assign to a local first, then branch on the local.
+- **HTML/JS WebView preview "not working" = wrong build, not a bug.** `react-native-webview` is a
+  native module; it never works in Expo Go. Rebuild the dev client (`pnpm expo run:ios`). It
+  falls back to static HTML (scripts stripped) otherwise.
+- **System dark mode on a static `C` palette.** Keep `C` (light) for unmigrated screens; add
+  `useTheme()` and convert module-level `StyleSheet.create` into `makeX(t: Theme)` factories
+  called via `useMemo`. Low-churn and incremental.
+- **Mobile deps won't install in this env.** npm points at an auth-gated internal registry, so
+  `tsc`/Expo can't run here — verify mobile changes with `pnpm typecheck`/`pnpm lint` locally.

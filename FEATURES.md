@@ -32,7 +32,8 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
 - ✅ **Rename** — via the in-chat `⋯` menu (modal editor).
 - ✅ **Delete** — via the in-chat `⋯` menu with a confirmation prompt (DB-level cascade removes its
   messages).
-- ✅ **Search** — client-side filter over the loaded chat list (by title).
+- ✅ **Search** — full-text search across all your chats and messages on a dedicated search
+  screen (backend `/search`), plus the drawer's client-side title filter.
 - ✅ **Pin** — pin/unpin a chat (chat `⋯` menu + drawer long-press); pinned chats show in a
   **Pinned** section at the top of the drawer.
 - ✅ **Share / Export** — share a conversation as a markdown transcript via the native share sheet
@@ -65,8 +66,15 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
   dependency-free tokenizer; covers common languages with a monochrome fallback for the rest.
 - ✅ **Tables** — styled (header shading, borders, cell padding).
 - ✅ **Inline images** — Markdown `![alt](url)` images render (contained, rounded).
-- 🔜 **Math / LaTeX** — needs a KaTeX library (+ WebView).
-- 🔜 **Diagram rendering (Mermaid)** — needs a WebView + mermaid.js.
+- ✅ **Math / LaTeX** — KaTeX rendering for inline and block math.
+- ✅ **Charts** — `chart` / `vega` / `vega-lite` fences render inline via a sandboxed WebView
+  (Vega; needs a dev build).
+- ✅ **HTML/CSS/JS preview** — `html` fences get a sandboxed WebView preview ("run" → modal) plus
+  "open in browser" (needs a dev build; see the code-execution policy below).
+- ✅ **Rich blocks** — callouts (`> [!NOTE]`), key-value, comparison, step lists, and
+  email/message/social "copy" cards.
+- ⚠️ **Mermaid diagrams** — shows the diagram source with copy + "Open in Mermaid Live" (not yet
+  rendered inline).
 - 🔜 **Grammar-perfect highlighting** — current highlighter is heuristic; a full library
   (Shiki/Prism) would be more precise.
 
@@ -135,8 +143,10 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
   then signs out.
 - ✅ **Avatar** — shows the Google profile picture, falling back to the user's initials (no upload
   by design).
-- 🔜 Appearance/dark theme (color-system refactor), notifications (push infra), language/i18n
-  (i18n library).
+- ✅ **Language / i18n** — `react-i18next` with English, Spanish, French, and Amharic.
+- ⚠️ **Dark theme** — the chat screen follows the system light/dark scheme; the remaining screens
+  are still light (theme rollout in progress).
+- 🔜 Notifications (push infra), theming the remaining screens.
 
 ## 11. Navigation & UX
 - ✅ **Drawer** — custom slide-in: search, New chat, chat history, profile + settings.
@@ -173,8 +183,20 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
 - 🔜 **Dedicated worker process** (for multi-instance / serverless), Sentry/observability,
   structured request logging.
 
-## 14. Explicitly out of scope (no code execution this version)
-- 🔒 **No code execution** — code in replies is rendered/highlighted only, never run. (By design.)
+## 14. Todos, templates & suggestions
+- ✅ **Todos** — a lightweight task list (`/todos`): create, check off, delete; a todo can be
+  linked to the chat it came from.
+- ✅ **Templates** — reusable starter prompts: built-in templates seeded on first run plus the
+  user's own; start a chat from a template.
+- ✅ **Proactive suggestions** — follow-up prompt ideas generated in the background from recent
+  activity (best-effort; regenerated periodically).
+- 🔜 Surfacing suggestions inline under replies, template-editing polish, todo reminders.
+
+## 15. Code execution policy
+- ⚠️ **Sandboxed HTML/CSS/JS preview only** — `html` fences can be previewed/run in an isolated
+  WebView (no app token is exposed to it), and charts render via a sandboxed Vega WebView.
+- 🔒 **No other code execution** — all other code (Python, shell, etc.) is rendered/highlighted
+  only, and nothing runs outside the sandboxed preview WebView. (By design.)
 
 ---
 
@@ -192,7 +214,51 @@ A consolidated list of what's intentionally **not** in this version:
   camera capture (`expo-camera` / image picker), **image input** via a **vision model or math OCR**,
   and **LaTeX rendering** for the formatted answer. (Depends on the image-input + Math/LaTeX items.)
 - 🔜 **Web search**
-- 🔜 Math/LaTeX, Mermaid diagrams, grammar-perfect (library) syntax highlighting, payments/Pro
-  tier, structured profile, dedicated worker process, folders/projects, archive, multi-select,
+- 🔜 Inline Mermaid rendering, grammar-perfect (library) syntax highlighting, payments/Pro tier,
+  structured profile, dedicated worker process, folders/projects, archive, multi-select,
   swipe-to-delete (gesture lib), editing arbitrary (older) messages, live model latency/health,
-  user-tunable routing rules, dark theme, notifications, language/i18n, iOS haptics (expo-haptics).
+  user-tunable routing rules, notifications, theming the remaining screens, iOS haptics
+  (expo-haptics).
+
+### Multimodal & attachments (planned)
+
+Richer inputs/outputs, grouped because they share one prerequisite — an **attachments
+substrate** — so it's built once and reused by all of them.
+
+- 🔜 **Attachments substrate (build first)** — object storage on **S3** (or an
+  S3-compatible store such as **Cloudflare R2** to avoid egress fees when the app
+  re-downloads media), accessed via **presigned upload/download URLs** so the client
+  talks to storage directly and provider/storage keys stay server-side. Adds an
+  `attachments` table (owner, message link, storage key, content-type, size) — blobs
+  never live in Postgres. Private bucket + short-lived signed URLs, per-user scoping,
+  content-type/size validation.
+- 🔜 **Image upload (vision)** — attach or take a photo; routed to a vision-capable
+  catalog model (e.g. MiniMax M3 / other multimodal model). The message `content`
+  becomes a parts array (text + image reference) instead of a plain string.
+- 🔜 **File upload (PDF, docs, etc.)** — upload → extract text server-side → chunk →
+  retrieve (pairs with the RAG / pgvector item) → answer; file shown as an attachment chip.
+- 🔜 **Audio in (speech-to-text)** — record on device → transcribe (Whisper/STT) → feed
+  the transcript as a normal text turn. Minimal impact on the chat core.
+- 🔜 **Audio out (text-to-speech)** — "read aloud" the assistant's reply (TTS → play
+  audio). Output-only.
+- 🔒 **Out of scope: full voice mode** — real-time, full-duplex spoken conversation
+  (low-latency streaming, barge-in) is its own project; deferred indefinitely.
+
+Notes: multimodal routes through whichever catalog model supports the modality (DeepSeek
+is text-only), so each capability activates per provider/model as they're added. Multimodal
+calls cost more than text — likely gate behind a paid tier + the existing token quota.
+
+### Web client (planned)
+
+A future **web version that reuses this same API** — one backend, multiple clients.
+
+- 🔜 **Shared API + types** — the web app consumes the same HTTP/WebSocket endpoints and
+  request/response shapes; eventually extract the `lib/api.ts` types/client into a package both
+  apps import. Bearer-token (JWT) auth already works cross-origin.
+- 🔜 **Web-specific swaps** — `expo-secure-store` → httpOnly cookie / web storage; native Google
+  Sign-In → web OAuth; the `react-native-webview` previews → a real `<iframe>` / native HTML.
+  Keep rich-block rendering behind components so only the renderer differs per platform.
+- 🔜 **Backend** — add the web origin(s) to `cors_origins` (CORS is locked down by env) and allow
+  them on the WebSocket; no other backend change needed.
+- 🔜 **Approach to decide later** — react-native-web (reuse this Expo codebase) vs. a separate web
+  app (e.g. Next.js) sharing only the API + types. Same API either way.

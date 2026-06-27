@@ -13,7 +13,7 @@ Read `CLAUDE.md` at repo root for full architecture.
 2. Use model aliases in app code: `free-chat`, `smart-chat`, `title-model`, `memory-model`. Provider mapping only in `apps/api/app/gateways/litellm_gateway.py`.
 3. Never send full chat history to the model — memory + recent window (~10–20 messages) only.
 4. Topic generation and memory extraction are best-effort background jobs — must never block streaming.
-5. No code execution — render/highlight code only.
+5. No arbitrary code execution — render/highlight code only. The sole exception: HTML/CSS/JS preview in a sandboxed WebView (and chart/diagram rendering). Never run Python/shell/etc., and never run code outside that isolated WebView. The preview WebView needs a dev build (not Expo Go).
 6. Validate all LLM structured outputs with Pydantic before DB writes.
 
 ## Layering (backend)
@@ -28,6 +28,12 @@ New chat-loop code belongs in `apps/api/app/services/chat.py`.
 - Tokens in `expo-secure-store` only
 - Screens stay dumb; logic in hooks (`useChat`, auth context)
 
+## In scope (current)
+
+Chat + memory, todos, reusable templates, proactive suggestions, full-text search, i18n, and rich rendering (markdown, math, charts, sandboxed HTML/JS preview).
+
 ## v1 non-goals
 
-No tools/agents, code execution, web app, or multi-user.
+No tools/agents, no execution of non-web code (Python/shell/etc.) or execution outside the sandboxed preview WebView, no multi-user.
+
+A **web client sharing this same API** is planned for a later version — keep `lib/api.ts` the single network boundary and rich-block rendering swappable so the app stays portable.
