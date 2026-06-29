@@ -37,7 +37,7 @@ async def google_login(
             detail="Too many login attempts. Try again shortly.",
         )
     try:
-        return await auth_service.login_with_google(session, settings, body.id_token)
+        return await auth_service.login_with_google(session, settings, body.id_token, redis)
     except GoogleAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
@@ -47,6 +47,7 @@ async def dev_login(
     body: DevAuthRequest,
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
+    redis: Redis = Depends(get_redis),
 ) -> AuthResponse:
     if not settings.dev_auth_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Dev auth disabled")
@@ -56,6 +57,7 @@ async def dev_login(
             settings,
             email=body.email,
             name=body.name,
+            redis=redis,
         )
     except GoogleAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc

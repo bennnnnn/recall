@@ -30,6 +30,7 @@ from app.background import (
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
+from app.services import transactional_email as transactional_email_service
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,33 @@ async def enqueue(redis: Redis, job_type: str, payload: dict[str, Any]) -> None:
         )
     except Exception:
         logger.exception("Failed to enqueue job type=%s", job_type)
+
+
+async def enqueue_welcome_email(redis: Redis, user_id: UUID) -> None:
+    await enqueue(redis, "transactional_email", {"kind": "welcome", "user_id": str(user_id)})
+
+
+async def enqueue_purchase_receipt(
+    redis: Redis,
+    user_id: UUID | str,
+    *,
+    event_type: str,
+    store: str | None = None,
+    product_id: str | None = None,
+    expiration: str | None = None,
+) -> None:
+    await enqueue(
+        redis,
+        "transactional_email",
+        {
+            "kind": "receipt",
+            "user_id": str(user_id),
+            "event_type": event_type,
+            "store": store,
+            "product_id": product_id,
+            "expiration": expiration,
+        },
+    )
 
 
 # ── handlers ─────────────────────────────────────────────────────────────────
@@ -149,6 +177,39 @@ async def _handle_gmail_sync(settings: Settings, payload: dict[str, Any]) -> Non
 
 
 register("gmail_sync", _handle_gmail_sync)
+
+
+async def _handle_transactional_email(settings: Settings, payload: dict[str, Any]) -> None:
+    """Best-effort outbound email (welcome / receipts). Never raises into chat."""
+    from app.repositories import users as users_repo
+
+    async with SessionLocal() as session:
+        user = await users_repo.get_by_id(session, UUID(payload["user_id"]))
+    if user is None:
+        logger.warning("transactional_email: user not found id=%s", payload.get("user_id"))
+        return
+    kind = payload.get("kind")
+    try:
+        if kind == "welcome":
+            await transactional_email_service.send_welcome(settings, user)
+        elif kind == "receipt":
+            await transactional_email_service.send_purchase_receipt(
+                settings,
+                user,
+                event_type=str(payload.get("event_type") or ""),
+                store=payload.get("store"),
+                product_id=payload.get("product_id"),
+                expiration=payload.get("expiration"),
+            )
+        else:
+            logger.warning("transactional_email: unknown kind=%s", kind)
+    except Exception:
+        logger.exception(
+            "transactional_email job failed kind=%s user=%s", kind, payload.get("user_id")
+        )
+
+
+register("transactional_email", _handle_transactional_email)
 
 
 # ── worker ───────────────────────────────────────────────────────────────────
