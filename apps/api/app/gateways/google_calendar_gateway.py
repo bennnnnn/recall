@@ -122,8 +122,10 @@ def _events_from_payload(
             continue
         start_raw = item.get("start") or {}
         end_raw = item.get("end") or {}
-        all_day = isinstance(start_raw, dict) and bool(start_raw.get("date")) and not start_raw.get(
-            "dateTime"
+        all_day = (
+            isinstance(start_raw, dict)
+            and bool(start_raw.get("date"))
+            and not start_raw.get("dateTime")
         )
         start = _parse_event_time(start_raw, timezone)
         if start is None:
@@ -243,7 +245,7 @@ async def list_upcoming_events(
             )
     except Exception:
         logger.exception("Google Calendar events fetch failed")
-        raise GoogleCalendarError("Could not load calendar events.")
+        raise GoogleCalendarError("Could not load calendar events.") from None
 
     merged: dict[str, CalendarEvent] = {}
     for batch in batches:
@@ -278,7 +280,10 @@ async def create_event(
     }
     body: dict[str, Any] = {
         "summary": title.strip() or "Event",
-        "start": {"dateTime": start.astimezone(ZoneInfo(timezone)).isoformat(), "timeZone": timezone},
+        "start": {
+            "dateTime": start.astimezone(ZoneInfo(timezone)).isoformat(),
+            "timeZone": timezone,
+        },
         "end": {"dateTime": end.astimezone(ZoneInfo(timezone)).isoformat(), "timeZone": timezone},
     }
     if location:

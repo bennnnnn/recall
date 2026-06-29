@@ -8,10 +8,9 @@ import re
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
+from pydantic import BaseModel, Field
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from pydantic import BaseModel, Field
 
 from app.core.config import Settings
 from app.gateways import google_calendar_gateway
@@ -200,10 +199,7 @@ def _format_event_line(event: CalendarEvent, tz_name: str) -> str:
 def format_calendar_block(events: list[CalendarEvent], timezone: str | None) -> str:
     prompt_events = _events_within_days(events, 7)
     if not prompt_events:
-        return (
-            "Google Calendar (next 7 days):\n"
-            "No upcoming events found in the connected calendar."
-        )
+        return "Google Calendar (next 7 days):\nNo upcoming events found in the connected calendar."
     lines = ["Google Calendar (next 7 days):"]
     for event in prompt_events[:25]:
         lines.append(_format_event_line(event, timezone or "UTC"))
@@ -313,7 +309,9 @@ async def confirm_create_event(
     if connection is None:
         raise GoogleCalendarError("Google Calendar is not connected.")
     if not has_write_scope(connection.scopes):
-        raise GoogleCalendarError("Calendar write access not granted. Re-connect with write permission.")
+        raise GoogleCalendarError(
+            "Calendar write access not granted. Re-connect with write permission."
+        )
 
     proposal = await load_event_proposal(redis, user.id, proposal_id)
     if proposal is None:

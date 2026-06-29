@@ -264,7 +264,7 @@ async def _extract_with_llm(
     prompt = (
         "Extract at most one actionable reminder from this email. "
         "Look for interviews, flights, appointments, deliveries, deadlines. "
-        "If nothing actionable, return {\"reminders\": []}. "
+        'If nothing actionable, return {"reminders": []}. '
         "Use ISO 8601 UTC for due_at when a specific date/time exists."
     )
     content = (

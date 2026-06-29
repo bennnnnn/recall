@@ -181,12 +181,15 @@ async def test_extract_and_store_no_result():
     from app.background.memory_extraction import extract_and_store_memories
 
     settings = Settings(memory_min_confidence=0.5)
-    with patch(
-        "app.background.memory_extraction.litellm_gateway.revise_memory_sections",
-        AsyncMock(return_value=None),
-    ), patch(
-        "app.background.memory_extraction.memories_repo.list_for_user",
-        AsyncMock(return_value=[]),
+    with (
+        patch(
+            "app.background.memory_extraction.litellm_gateway.revise_memory_sections",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.background.memory_extraction.memories_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
     ):
         # should not raise
         await extract_and_store_memories(

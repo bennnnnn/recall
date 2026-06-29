@@ -3,9 +3,9 @@
 import pytest
 
 from app.core.config import Settings
-from app.gateways.mcp.registry import get, invoke
-from app.gateways.mcp.web_search_adapter import WebSearchAdapter
 from app.gateways.mcp import setup_mcp_adapters
+from app.gateways.mcp.registry import get
+from app.gateways.mcp.web_search_adapter import WebSearchAdapter
 
 
 @pytest.mark.asyncio

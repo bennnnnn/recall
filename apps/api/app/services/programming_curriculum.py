@@ -14,7 +14,10 @@ PROGRAMMING_CURRICULUM: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Control flow", ("if / else", "for loops", "while loops")),
     ("Functions", ("Defining functions", "Parameters and return values", "Scope in functions")),
     ("Data structures", ("Lists / arrays", "Dictionaries / maps", "Sets or tuples")),
-    ("Error handling", ("Reading error messages", "try / except (or equivalent)", "Debugging basics")),
+    (
+        "Error handling",
+        ("Reading error messages", "try / except (or equivalent)", "Debugging basics"),
+    ),
     ("Modules & imports", ("Importing libraries", "Project structure basics")),
     ("Objects & classes", ("Classes and instances", "Methods", "Inheritance basics")),
 )

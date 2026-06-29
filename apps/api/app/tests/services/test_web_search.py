@@ -84,7 +84,9 @@ def test_build_search_query_team_score_not_world_cup():
 
 def test_resolve_search_subject_follow_up():
     prior = ["Show me yesterdays game"]
-    assert resolve_search_subject("Look it up", prior_user_messages=prior) == "Show me yesterdays game"
+    assert (
+        resolve_search_subject("Look it up", prior_user_messages=prior) == "Show me yesterdays game"
+    )
 
 
 def test_build_search_query_strips_prefix():
@@ -207,7 +209,9 @@ async def test_augment_prompt_follow_up_look_it_up():
             ]
         ),
     ) as search_mock:
-        out, hits = await augment_prompt_messages(messages, "Look it up", settings, user_timezone="UTC")
+        out, hits = await augment_prompt_messages(
+            messages, "Look it up", settings, user_timezone="UTC"
+        )
     assert search_mock.await_count >= 1
     first_query = search_mock.await_args_list[0].args[1]
     assert first_query.lower() != "look it up"

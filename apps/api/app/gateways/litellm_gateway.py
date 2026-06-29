@@ -313,7 +313,7 @@ async def extract_todo_actions(
                 "- For add/set_due: due_at optional on add; required on set_due. "
                 "Interpret relative dates in the user's timezone (tomorrow, Friday 5pm).\n"
                 "- Bulk reschedule (all reminders due today → tomorrow): emit one set_due "
-                "per affected item, OR a single set_due with content=\"*\" when moving every "
+                'per affected item, OR a single set_due with content="*" when moving every '
                 "open item due today.\n"
                 "- If the user says you missed some / only moved one, emit set_due for every "
                 "remaining item still due today in the snapshot.\n"

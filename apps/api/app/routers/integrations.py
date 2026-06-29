@@ -4,9 +4,8 @@ from uuid import uuid4
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.db import get_db
@@ -154,10 +153,14 @@ async def propose_calendar_event(
     redis: Redis = Depends(get_redis),
 ) -> CalendarEventProposalOut:
     if body.end_at <= body.start_at:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="end_at must be after start_at")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="end_at must be after start_at"
+        )
     connection = await calendar_repo.get_for_user(session, user.id)
     if connection is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Calendar not connected")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Calendar not connected"
+        )
     if not calendar_service.has_write_scope(connection.scopes):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

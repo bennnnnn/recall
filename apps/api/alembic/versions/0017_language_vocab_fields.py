@@ -72,11 +72,7 @@ def upgrade() -> None:
             "WHERE example_sentence IS NULL AND note IS NOT NULL"
         )
     )
-    op.execute(
-        sa.text(
-            "UPDATE projects SET kind = 'language' WHERE kind = 'vocabulary'"
-        )
-    )
+    op.execute(sa.text("UPDATE projects SET kind = 'language' WHERE kind = 'vocabulary'"))
 
 
 def downgrade() -> None:

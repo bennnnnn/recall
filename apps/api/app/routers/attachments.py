@@ -30,7 +30,9 @@ async def presign_upload(
     settings: Settings = Depends(get_settings_dep),
 ) -> AttachmentPresignOut:
     if not is_allowed_content_type(body.content_type):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported content type")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported content type"
+        )
     if body.size_bytes <= 0 or body.size_bytes > MAX_SIZE:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid file size")
 
@@ -79,7 +81,9 @@ async def upload_attachment_bytes(
 
     gateway = get_storage_gateway(settings)
     if not isinstance(gateway, LocalStorageGateway):
-        raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Use presigned upload")
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Use presigned upload"
+        )
     await gateway.write_bytes(row.storage_key, data)
 
 

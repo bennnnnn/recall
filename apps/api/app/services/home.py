@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import TypeVar
 from uuid import UUID
 
@@ -252,9 +252,7 @@ def _format_urgent_due_label(due_at: datetime, user_timezone: str | None) -> str
     tz = time_context_service.resolve_timezone(user_timezone)
     now = datetime.now(tz)
     due_local = (
-        due_at.astimezone(tz)
-        if due_at.tzinfo
-        else due_at.replace(tzinfo=timezone.utc).astimezone(tz)
+        due_at.astimezone(tz) if due_at.tzinfo else due_at.replace(tzinfo=UTC).astimezone(tz)
     )
     time_str = due_local.strftime("%I:%M %p").lstrip("0")
     if due_local.date() == now.date():
@@ -271,7 +269,7 @@ def _urgent_subtitle(user: User, urgent_todos: list[HomeUrgentTodo]) -> str | No
         return f"{len(urgent_todos)} reminders in the next hour."
     first = urgent_todos[0]
     if first.minutes_until < 0:
-        return f"\"{first.content}\" is overdue."
+        return f'"{first.content}" is overdue.'
     when = _format_urgent_due_label(first.due_at, user.timezone)
     return f"Coming up: {first.content} {when}."
 
@@ -291,7 +289,11 @@ def _project_progress_line(stats: ProjectStats) -> str:
 
 def _project_starters(project: Project, stats: ProjectStats) -> list[HomeStarter]:
     title = project.title.strip()
-    goal = f" Goal: {project.description.strip()}." if project.description and project.description.strip() else ""
+    goal = (
+        f" Goal: {project.description.strip()}."
+        if project.description and project.description.strip()
+        else ""
+    )
     progress = _project_progress_line(stats)
 
     if _is_language_project(project):
@@ -328,8 +330,8 @@ def _project_subtitle(
                     f'You have {stats.total} words in "{title}" — '
                     f"{stats.due_for_review} ready to review."
                 ),
-                f"{stats.due_for_review} words in \"{title}\" are due for review.",
-                f"Review time — {stats.due_for_review} of {stats.total} words in \"{title}\".",
+                f'{stats.due_for_review} words in "{title}" are due for review.',
+                f'Review time — {stats.due_for_review} of {stats.total} words in "{title}".',
             ]
             return variants[seed % len(variants)]
         return f'You have {stats.total} words in "{title}" — ready to practice?'
@@ -377,7 +379,7 @@ async def build_home_screen(
     user: User,
     settings: Settings,
 ) -> HomeScreenOut:
-    now_utc = datetime.now(timezone.utc)
+    now_utc = datetime.now(UTC)
     due_cutoff_utc = now_utc + timedelta(minutes=URGENT_TODO_MINUTES)
     seed = _day_seed(user)
 
@@ -397,7 +399,9 @@ async def build_home_screen(
         recent = await chats_repo.list_for_user(session, user.id, limit=5)
         return [c.title or "" for c in recent]
 
-    async def load_project_content() -> tuple[list[HomeStarter], str | None, HomeProjectHighlight | None]:
+    async def load_project_content() -> tuple[
+        list[HomeStarter], str | None, HomeProjectHighlight | None
+    ]:
         return await _load_project_home_content(session, user.id, seed=seed)
 
     async def load_suggestions() -> list:
@@ -417,7 +421,7 @@ async def build_home_screen(
             continue
         due_utc = item.due_at
         if due_utc.tzinfo is None:
-            due_utc = due_utc.replace(tzinfo=timezone.utc)
+            due_utc = due_utc.replace(tzinfo=UTC)
         delta = due_utc - now_utc
         urgent_todos.append(
             HomeUrgentTodo(

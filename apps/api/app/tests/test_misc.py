@@ -126,4 +126,4 @@ async def test_login_dev_raises_when_disabled():
 
 # ── MagicMock import for test_login_with_google ────────────────────────────────
 
-from unittest.mock import MagicMock  # noqa: E402 (needed for the tests above)
+from unittest.mock import MagicMock

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from typing import Literal
 
 from app.core.config import Settings
 from app.models.math_schemas import (
@@ -98,7 +99,11 @@ def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> boo
     cleaned = text.strip()
     if not cleaned and not has_image_attachment:
         return False
-    if _DRAW_RECTANGLE.search(cleaned) or _DRAW_RIGHT_TRIANGLE.search(cleaned) or _DRAW_SQUARE.search(cleaned):
+    if (
+        _DRAW_RECTANGLE.search(cleaned)
+        or _DRAW_RIGHT_TRIANGLE.search(cleaned)
+        or _DRAW_SQUARE.search(cleaned)
+    ):
         return True
     if has_image_attachment and _MATH_KEYWORDS.search(cleaned):
         return True
@@ -140,7 +145,9 @@ def extract_math_intent(text: str) -> MathIntent | None:
         side_match = _SQUARE_SIDE.search(cleaned)
         if side_match:
             side = float(side_match.group("s"))
-            return MathIntent(kind="square", side=side, width=side, height=side, unit="cm", operation="solve")
+            return MathIntent(
+                kind="square", side=side, width=side, height=side, unit="cm", operation="solve"
+            )
         equal = re.search(
             r"(?P<s>\d+(?:\.\d+)?)\s*(?:×|x|\*|\sby\s)\s*(?P=s)\s*(?:cm|m|mm|in|ft)?",
             cleaned,
@@ -148,7 +155,9 @@ def extract_math_intent(text: str) -> MathIntent | None:
         )
         if equal:
             side = float(equal.group("s"))
-            return MathIntent(kind="square", side=side, width=side, height=side, unit="cm", operation="solve")
+            return MathIntent(
+                kind="square", side=side, width=side, height=side, unit="cm", operation="solve"
+            )
         return MathIntent(kind="square", side=5, width=5, height=5, unit="cm", operation="solve")
 
     if _RIGHT_TRI.search(cleaned):
@@ -189,12 +198,16 @@ def extract_math_intent(text: str) -> MathIntent | None:
     calc = _CALC_OP.search(cleaned)
     if calc:
         op_word = calc.group(1).lower()
-        op = "differentiate" if op_word in {"differentiate", "derivative"} else "integrate"
+        calc_op: Literal["simplify", "differentiate", "integrate"] = (
+            "differentiate" if op_word in {"differentiate", "derivative"} else "integrate"
+        )
         if op_word == "simplify":
-            op = "simplify"
-        expr_match = re.search(r"(?:simplify|differentiate|derivative|integrate|integral)\s+(.+)$", cleaned, re.I)
+            calc_op = "simplify"
+        expr_match = re.search(
+            r"(?:simplify|differentiate|derivative|integrate|integral)\s+(.+)$", cleaned, re.I
+        )
         expr = expr_match.group(1).strip() if expr_match else cleaned
-        return MathIntent(kind="calculus", expr=expr, operation=op)
+        return MathIntent(kind="calculus", expr=expr, operation=calc_op)
 
     eq = math_service.try_extract_equation_from_text(cleaned)
     if eq:
@@ -229,25 +242,26 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> str | None:
             return "\n".join(lines)
 
         if intent.kind == "rectangle" and intent.width and intent.height:
-            geo = math_service.rectangle_geometry(
+            rect_geo = math_service.rectangle_geometry(
                 RectangleGeometryInput(width=intent.width, height=intent.height, unit=intent.unit)
             )
             lines.append(
-                f"Rectangle: width={geo.width:g} {geo.unit} height={geo.height:g} {geo.unit} "
-                f"diagonal={geo.diagonal:g} angle={geo.angle_deg:g}°"
+                f"Rectangle: width={rect_geo.width:g} {rect_geo.unit} "
+                f"height={rect_geo.height:g} {rect_geo.unit} "
+                f"diagonal={rect_geo.diagonal:g} angle={rect_geo.angle_deg:g}°"
             )
             spec = GeometryBlockSpec(
                 type="rectangle",
-                width=geo.width,
-                height=geo.height,
-                unit=geo.unit,
+                width=rect_geo.width,
+                height=rect_geo.height,
+                unit=rect_geo.unit,
                 show_diagonal=True,
                 show_angle=True,
-                diagonal=geo.diagonal,
-                angle_deg=geo.angle_deg,
-                area=geo.area,
-                perimeter=geo.perimeter,
-                labels=geo.labels,
+                diagonal=rect_geo.diagonal,
+                angle_deg=rect_geo.angle_deg,
+                area=rect_geo.area,
+                perimeter=rect_geo.perimeter,
+                labels=rect_geo.labels,
             )
             lines.append(
                 "When a diagram helps, emit ONLY this fence (adjust labels if needed):\n"
@@ -258,24 +272,28 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> str | None:
 
         if intent.kind == "square" and (intent.side or intent.width):
             side = intent.side or intent.width or 5
-            geo = math_service.square_geometry(SquareGeometryInput(side=side, unit=intent.unit))
+            square_geo = math_service.square_geometry(
+                SquareGeometryInput(side=side, unit=intent.unit)
+            )
             lines.append(
-                f"Square: side={geo.side:g} {geo.unit} diagonal={geo.diagonal:g} {geo.unit} "
-                f"area={geo.area:g} {geo.unit}² perimeter={geo.perimeter:g} {geo.unit}"
+                f"Square: side={square_geo.side:g} {square_geo.unit} "
+                f"diagonal={square_geo.diagonal:g} {square_geo.unit} "
+                f"area={square_geo.area:g} {square_geo.unit}² "
+                f"perimeter={square_geo.perimeter:g} {square_geo.unit}"
             )
             spec = GeometryBlockSpec(
                 type="square",
-                side=geo.side,
-                width=geo.side,
-                height=geo.side,
-                unit=geo.unit,
+                side=square_geo.side,
+                width=square_geo.side,
+                height=square_geo.side,
+                unit=square_geo.unit,
                 show_diagonal=True,
                 show_area=True,
                 show_perimeter=True,
-                diagonal=geo.diagonal,
-                area=geo.area,
-                perimeter=geo.perimeter,
-                labels=geo.labels,
+                diagonal=square_geo.diagonal,
+                area=square_geo.area,
+                perimeter=square_geo.perimeter,
+                labels=square_geo.labels,
             )
             lines.append(
                 "When a diagram helps, emit ONLY this fence (NEVER ```json):\n"
@@ -285,54 +303,54 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> str | None:
             return "\n".join(lines)
 
         if intent.kind == "triangle" and intent.base and intent.height:
-            geo = math_service.triangle_geometry(
+            tri_geo = math_service.triangle_geometry(
                 TriangleGeometryInput(base=intent.base, height=intent.height, unit=intent.unit)
             )
             lines.append(
-                f"Triangle: base={geo.base:g} {geo.unit} height={geo.height:g} {geo.unit} "
-                f"area={geo.area:g} {geo.unit}²"
+                f"Triangle: base={tri_geo.base:g} {tri_geo.unit} "
+                f"height={tri_geo.height:g} {tri_geo.unit} area={tri_geo.area:g} {tri_geo.unit}²"
             )
-            spec = TriangleGeometryBlockSpec(
+            tri_spec = TriangleGeometryBlockSpec(
                 type="triangle",
-                base=geo.base,
-                height=geo.height,
-                unit=geo.unit,
+                base=tri_geo.base,
+                height=tri_geo.height,
+                unit=tri_geo.unit,
                 show_labels=True,
-                area=geo.area,
-                labels=geo.labels,
+                area=tri_geo.area,
+                labels=tri_geo.labels,
             )
             lines.append(
                 "When a diagram helps, emit ONLY this fence (NEVER ```json):\n"
-                f"```geometry\n{json.dumps(spec.model_dump(), separators=(',', ':'))}\n```"
+                f"```geometry\n{json.dumps(tri_spec.model_dump(), separators=(',', ':'))}\n```"
             )
             lines.append("Do NOT recompute area.")
             return "\n".join(lines)
 
         if intent.kind == "right_triangle" and intent.base and intent.height:
-            geo = math_service.right_triangle_geometry(
-                RightTriangleGeometryInput(
-                    base=intent.base, height=intent.height, unit=intent.unit
-                )
+            rt_geo = math_service.right_triangle_geometry(
+                RightTriangleGeometryInput(base=intent.base, height=intent.height, unit=intent.unit)
             )
             lines.append(
-                f"Right triangle: base={geo.base:g} {geo.unit} height={geo.height:g} {geo.unit} "
-                f"hypotenuse={geo.hypotenuse:g} {geo.unit} area={geo.area:g} {geo.unit}²"
+                f"Right triangle: base={rt_geo.base:g} {rt_geo.unit} "
+                f"height={rt_geo.height:g} {rt_geo.unit} "
+                f"hypotenuse={rt_geo.hypotenuse:g} {rt_geo.unit} "
+                f"area={rt_geo.area:g} {rt_geo.unit}²"
             )
-            spec = RightTriangleGeometryBlockSpec(
+            rt_spec = RightTriangleGeometryBlockSpec(
                 type="right_triangle",
-                base=geo.base,
-                height=geo.height,
-                unit=geo.unit,
+                base=rt_geo.base,
+                height=rt_geo.height,
+                unit=rt_geo.unit,
                 show_labels=True,
                 show_hypotenuse=True,
                 show_angle=True,
-                hypotenuse=geo.hypotenuse,
-                area=geo.area,
-                labels=geo.labels,
+                hypotenuse=rt_geo.hypotenuse,
+                area=rt_geo.area,
+                labels=rt_geo.labels,
             )
             lines.append(
                 "When a diagram helps, emit ONLY this fence (NEVER ```json):\n"
-                f"```geometry\n{json.dumps(spec.model_dump(), separators=(',', ':'))}\n```"
+                f"```geometry\n{json.dumps(rt_spec.model_dump(), separators=(',', ':'))}\n```"
             )
             lines.append("Do NOT recompute hypotenuse or area.")
             return "\n".join(lines)
@@ -347,7 +365,7 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> str | None:
                     n=min(settings.math_graph_max_points, 200),
                 )
             )
-            spec = GraphBlockSpec(
+            graph_spec = GraphBlockSpec(
                 expr=sample.expr,
                 variable=sample.variable,
                 x_min=sample.x_min,
@@ -357,7 +375,7 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> str | None:
             lines.append(f"Function samples for {sample.expr}: {len(sample.points)} points.")
             lines.append(
                 "When a plot helps, emit ONLY this fence:\n"
-                f"```graph\n{json.dumps(spec.model_dump(), separators=(',', ':'))}\n```"
+                f"```graph\n{json.dumps(graph_spec.model_dump(), separators=(',', ':'))}\n```"
             )
             return "\n".join(lines)
 

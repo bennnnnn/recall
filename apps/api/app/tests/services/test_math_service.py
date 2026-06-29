@@ -58,9 +58,7 @@ def test_triangle_geometry() -> None:
 def test_right_triangle_geometry() -> None:
     from app.models.math_schemas import RightTriangleGeometryInput
 
-    result = math_service.right_triangle_geometry(
-        RightTriangleGeometryInput(base=6, height=4)
-    )
+    result = math_service.right_triangle_geometry(RightTriangleGeometryInput(base=6, height=4))
     assert result.hypotenuse == pytest.approx(7.2111, rel=1e-3)
     assert result.area == 12.0
     assert "7.21" in result.labels["hypotenuse"]

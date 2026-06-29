@@ -17,7 +17,9 @@ class SympyAdapter:
         self.settings = settings
 
     def describe(self) -> str:
-        return "Symbolic math: solve equations, simplify, differentiate, integrate, geometry, graphs."
+        return (
+            "Symbolic math: solve equations, simplify, differentiate, integrate, geometry, graphs."
+        )
 
     async def invoke(self, args: dict[str, Any]) -> ToolResult:
         action = str(args.get("action") or "solve").strip().lower()
@@ -31,30 +33,30 @@ class SympyAdapter:
                 result = math_service.solve_equation(data)
                 return ToolResult(name=self.name, content="\n".join(result.steps))
             if action == "rectangle":
-                data = RectangleGeometryInput(
+                rect_input = RectangleGeometryInput(
                     width=float(args["width"]),
                     height=float(args["height"]),
                     unit=str(args.get("unit") or "cm"),
                 )
-                result = math_service.rectangle_geometry(data)
+                rect_result = math_service.rectangle_geometry(rect_input)
                 return ToolResult(
                     name=self.name,
                     content=(
-                        f"Rectangle {result.width}×{result.height} {result.unit}: "
-                        f"diagonal={result.diagonal}, angle={result.angle_deg}°"
+                        f"Rectangle {rect_result.width}x{rect_result.height} {rect_result.unit}: "
+                        f"diagonal={rect_result.diagonal}, angle={rect_result.angle_deg}°"
                     ),
                 )
             if action == "graph":
-                data = GraphSampleInput(
+                graph_input = GraphSampleInput(
                     expr=str(args.get("expr") or "x**2"),
                     variable=str(args.get("variable") or "x"),
                     x_min=float(args.get("x_min") or -10),
                     x_max=float(args.get("x_max") or 10),
                 )
-                result = math_service.sample_function(data)
+                graph_result = math_service.sample_function(graph_input)
                 return ToolResult(
                     name=self.name,
-                    content=f"Sampled {len(result.points)} points for {result.expr}",
+                    content=f"Sampled {len(graph_result.points)} points for {graph_result.expr}",
                 )
             intent = math_tools.extract_math_intent(str(args.get("text") or ""))
             if intent:

@@ -10,6 +10,7 @@ from app.core.db import get_db
 from app.core.deps import get_current_user, get_redis, get_settings_dep
 from app.models.orm import User
 from app.models.schemas import (
+    ArchiveUpdate,
     ChatCreate,
     ChatListOut,
     ChatOut,
@@ -18,7 +19,6 @@ from app.models.schemas import (
     MessageOut,
     MessagePageOut,
     PinUpdate,
-    ArchiveUpdate,
     UsageOut,
 )
 from app.repositories import chats as chats_repo

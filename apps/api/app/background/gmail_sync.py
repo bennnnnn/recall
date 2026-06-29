@@ -19,8 +19,6 @@ async def sync_gmail_for_user(
 
     try:
         redis = get_redis_client()
-        await email_service.sync_gmail_for_user(
-            session, settings, user_id, redis=redis
-        )
+        await email_service.sync_gmail_for_user(session, settings, user_id, redis=redis)
     except Exception:
         logger.exception("Gmail sync job failed for user_id=%s", user_id)

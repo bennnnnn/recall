@@ -27,9 +27,7 @@ async def test_process_todo_reminders_due_soon():
     token = MagicMock()
     token.expo_push_token = "ExponentPushToken[abc]"
 
-    session.execute = AsyncMock(
-        return_value=MagicMock(all=MagicMock(return_value=[(todo, user)]))
-    )
+    session.execute = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[(todo, user)])))
 
     with patch.object(
         push_service.push_repo,
@@ -73,9 +71,7 @@ async def test_process_email_suggestions_batches_per_user():
     token.expo_push_token = "ExponentPushToken[abc]"
 
     session.execute = AsyncMock(
-        return_value=MagicMock(
-            all=MagicMock(return_value=[(reminder_a, user), (reminder_b, user)])
-        )
+        return_value=MagicMock(all=MagicMock(return_value=[(reminder_a, user), (reminder_b, user)]))
     )
 
     with patch.object(
@@ -103,9 +99,7 @@ async def test_process_learning_nudges_respects_daily_dedup():
     user.timezone = "UTC"
     user.push_notifications_enabled = True
 
-    session.execute = AsyncMock(
-        return_value=MagicMock(all=MagicMock(return_value=[(user_id,)]))
-    )
+    session.execute = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[(user_id,)])))
     session.get = AsyncMock(return_value=user)
     redis.set = AsyncMock(return_value=False)
 
@@ -127,7 +121,9 @@ async def test_run_push_cycle_skips_expo_in_dev_mock():
         ),
         patch.object(push_service, "process_email_suggestions", AsyncMock(return_value=[])),
         patch.object(push_service, "process_learning_nudges", AsyncMock(return_value=[])),
-        patch.object(push_service.expo_push_gateway, "send_push_messages", AsyncMock()) as send_mock,
+        patch.object(
+            push_service.expo_push_gateway, "send_push_messages", AsyncMock()
+        ) as send_mock,
     ):
         count = await push_service.run_push_cycle(session, redis, settings)
 

@@ -25,8 +25,7 @@ def test_validates_triangle_geometry_fence() -> None:
 
 def test_validates_right_triangle_geometry_fence() -> None:
     content = (
-        '```geometry\n{"type":"right_triangle","base":6,"height":4,'
-        '"show_hypotenuse":true}\n```'
+        '```geometry\n{"type":"right_triangle","base":6,"height":4,"show_hypotenuse":true}\n```'
     )
     assert validate_math_fences(content) == content
 

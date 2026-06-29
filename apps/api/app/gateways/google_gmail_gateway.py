@@ -102,7 +102,7 @@ def _walk_parts(payload: dict[str, Any]) -> tuple[str, str | None]:
                 text = part_text
             if part_ics and not ics:
                 ics = part_ics
-            filename = str((part.get("filename") or "")).lower()
+            filename = str(part.get("filename") or "").lower()
             if filename.endswith(".ics"):
                 part_body = part.get("body") or {}
                 if part_body.get("data"):

@@ -35,9 +35,7 @@ async def get_by_id(session: AsyncSession, attachment_id: UUID, user_id: UUID) -
     return result.scalar_one_or_none()
 
 
-async def link_message(
-    session: AsyncSession, row: Attachment, message_id: UUID
-) -> Attachment:
+async def link_message(session: AsyncSession, row: Attachment, message_id: UUID) -> Attachment:
     row.message_id = message_id
     await session.commit()
     await session.refresh(row)

@@ -25,7 +25,11 @@ async def get_by_id(session: AsyncSession, chat_id: UUID, user_id: UUID) -> Chat
 
 
 async def list_for_user(
-    session: AsyncSession, user_id: UUID, limit: int | None = None, *, include_archived: bool = False
+    session: AsyncSession,
+    user_id: UUID,
+    limit: int | None = None,
+    *,
+    include_archived: bool = False,
 ) -> list[Chat]:
     has_messages = exists().where(Message.chat_id == Chat.id)
     stmt = (

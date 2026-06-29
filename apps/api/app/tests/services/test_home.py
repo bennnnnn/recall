@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -24,7 +24,7 @@ def _todo(content: str, *, minutes_from_now: int, topic: str = "Work"):
     item.id = uuid4()
     item.content = content
     item.topic = topic
-    due = datetime.now(timezone.utc) + timedelta(minutes=minutes_from_now)
+    due = datetime.now(UTC) + timedelta(minutes=minutes_from_now)
     item.due_at = due
     item.checked = False
     return item
@@ -225,7 +225,7 @@ def test_chat_starter_uses_friendly_label():
 
 def test_urgent_subtitle_single_uses_time_not_topic():
     user = _user(timezone="UTC")
-    due = datetime.now(timezone.utc) + timedelta(minutes=30)
+    due = datetime.now(UTC) + timedelta(minutes=30)
     urgent = [
         home_service.HomeUrgentTodo(
             id=uuid4(),
@@ -244,7 +244,7 @@ def test_urgent_subtitle_single_uses_time_not_topic():
 
 def test_urgent_subtitle_multiple_counts():
     user = _user()
-    due = datetime.now(timezone.utc) + timedelta(minutes=10)
+    due = datetime.now(UTC) + timedelta(minutes=10)
     urgent = [
         home_service.HomeUrgentTodo(
             id=uuid4(),

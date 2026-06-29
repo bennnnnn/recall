@@ -8,12 +8,12 @@ from app.core.deps import get_current_user
 from app.models.orm import User
 from app.models.schemas import (
     ProjectCreate,
+    ProjectDeckItemCreate,
+    ProjectDeckSummary,
     ProjectDetailOut,
     ProjectItemOut,
     ProjectOut,
     ProjectPosGroupSummary,
-    ProjectDeckSummary,
-    ProjectDeckItemCreate,
     ProjectStats,
     ProjectUpdate,
 )
@@ -88,9 +88,7 @@ async def get_project(
             decks=decks,
         )
 
-    project_items = await project_items_repo.list_for_user(
-        session, user.id, project_id=project_id
-    )
+    project_items = await project_items_repo.list_for_user(session, user.id, project_id=project_id)
     if item.kind == "programming" and not project_items:
         await seed_programming_curriculum(session, user_id=user.id, project_id=project_id)
         project_items = await project_items_repo.list_for_user(
@@ -143,7 +141,9 @@ async def add_deck_item(
     if not project:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
     if project.kind not in ("language", "vocabulary"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Not a language project")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Not a language project"
+        )
     item = await project_items_repo.create_deck_item(
         session,
         user_id=user.id,
@@ -169,7 +169,9 @@ async def list_pos_items(
     if not project:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
     if project.kind not in ("language", "vocabulary"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Not a language project")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Not a language project"
+        )
     items = await project_items_repo.list_by_pos(
         session,
         user.id,

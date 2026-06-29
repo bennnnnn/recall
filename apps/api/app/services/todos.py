@@ -1,6 +1,6 @@
 import logging
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -71,7 +71,7 @@ def _due_local(due_at: datetime, user_timezone: str | None):
     tz = time_context_service.resolve_timezone(user_timezone)
     due = due_at
     if due.tzinfo is None:
-        due = due.replace(tzinfo=timezone.utc)
+        due = due.replace(tzinfo=UTC)
     return due.astimezone(tz)
 
 
@@ -142,9 +142,7 @@ def format_todos_block(items: list[TodoItem], *, user_timezone: str | None = Non
                 )
                 rel = f", {due_label}" if due_label else ""
                 topic = todo.topic.strip() or DEFAULT_TOPIC
-                lines.append(
-                    f"- {mark} {todo.content} at {clock}{rel} ({status}, list: {topic})"
-                )
+                lines.append(f"- {mark} {todo.content} at {clock}{rel} ({status}, list: {topic})")
 
     if list_items:
         by_topic: dict[str, list[TodoItem]] = {}
@@ -152,9 +150,7 @@ def format_todos_block(items: list[TodoItem], *, user_timezone: str | None = Non
             topic = item.topic.strip() or DEFAULT_TOPIC
             by_topic.setdefault(topic, []).append(item)
 
-        lines.append(
-            "\nUser Lists (no due date — checklists only, not on the Reminders calendar):"
-        )
+        lines.append("\nUser Lists (no due date — checklists only, not on the Reminders calendar):")
         for topic in sorted(by_topic.keys(), key=str.casefold):
             lines.append(f"\n## {topic}")
             for todo in by_topic[topic]:
@@ -210,7 +206,7 @@ def _due_local_date(item: TodoItem, user_timezone: str | None):
     if due is None:
         return None
     if due.tzinfo is None:
-        due = due.replace(tzinfo=timezone.utc)
+        due = due.replace(tzinfo=UTC)
     return due.astimezone(tz).date()
 
 
@@ -235,14 +231,14 @@ def _shift_due_date_preserving_time(
     due = item.due_at
     assert due is not None
     if due.tzinfo is None:
-        due = due.replace(tzinfo=timezone.utc)
+        due = due.replace(tzinfo=UTC)
     due_local = due.astimezone(tz)
     shifted_local = due_local.replace(
         year=target_date.year,
         month=target_date.month,
         day=target_date.day,
     )
-    return shifted_local.astimezone(timezone.utc)
+    return shifted_local.astimezone(UTC)
 
 
 async def _apply_bulk_shift_due_today_to_tomorrow(
@@ -323,9 +319,7 @@ async def apply_todo_actions(
                 removed = await todos_repo.delete_by_topic(session, user_id, topic)
                 if removed:
                     applied += 1
-                    items = [
-                        i for i in items if _topic_key(i.topic) != _topic_key(topic)
-                    ]
+                    items = [i for i in items if _topic_key(i.topic) != _topic_key(topic)]
             elif action.action == "set_due":
                 item = _find_item_any_state(items, topic, action.content)
                 if item:

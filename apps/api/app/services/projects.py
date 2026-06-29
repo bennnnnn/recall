@@ -15,8 +15,8 @@ from app.models.schemas import (
     ProjectStats,
 )
 from app.repositories import project_items as project_items_repo
-from app.repositories.project_items import pos_list_title
 from app.repositories import projects as projects_repo
+from app.repositories.project_items import pos_list_title
 
 logger = logging.getLogger(__name__)
 
@@ -63,9 +63,7 @@ LEVEL_GUIDANCE: dict[str, str] = {
     "level4": (
         "Upper intermediate (B2): broader vocabulary including less common but still useful words."
     ),
-    "level5": (
-        "Advanced (C1): sophisticated vocabulary including nuance and formal register."
-    ),
+    "level5": ("Advanced (C1): sophisticated vocabulary including nuance and formal register."),
     "level6": (
         "Fluent (C2): full range including rare, literary, and technical words when relevant."
     ),
@@ -230,9 +228,7 @@ def _find_item(
     needle = _normalize(content)
     list_norm = _list_key(list_title)
     candidates = [
-        i
-        for i in items
-        if i.project_id == project_id and _list_key(i.list_title) == list_norm
+        i for i in items if i.project_id == project_id and _list_key(i.list_title) == list_norm
     ]
     if mastered_only is True:
         candidates = [i for i in candidates if _item_status(i) == "mastered"]
@@ -674,9 +670,7 @@ async def sync_projects_from_transcript(
         ],
         "items": [
             {
-                "project_title": next(
-                    (pr.title for pr in projects if pr.id == i.project_id), ""
-                ),
+                "project_title": next((pr.title for pr in projects if pr.id == i.project_id), ""),
                 "list_title": i.list_title,
                 "content": i.content,
                 "part_of_speech": i.part_of_speech,

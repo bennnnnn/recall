@@ -1,12 +1,13 @@
+from datetime import UTC, datetime
+
 import pytest
 
+from app.gateways.google_calendar_gateway import CalendarEvent
 from app.services.calendar import (
     format_calendar_block,
     format_not_connected_answer,
     is_external_calendar_question,
 )
-from app.gateways.google_calendar_gateway import CalendarEvent
-from datetime import UTC, datetime
 
 
 @pytest.mark.parametrize(

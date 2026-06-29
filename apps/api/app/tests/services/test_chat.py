@@ -248,10 +248,15 @@ async def test_stream_does_not_duplicate_user_message():
         patch("app.services.chat.messages_repo.create", AsyncMock()),
         patch("app.services.chat.build_prompt_messages", mock_build),
         patch("app.services.chat.calendar_service.is_connected", AsyncMock(return_value=False)),
-        patch("app.services.chat.calendar_service.load_calendar_for_prompt", AsyncMock(return_value=None)),
+        patch(
+            "app.services.chat.calendar_service.load_calendar_for_prompt",
+            AsyncMock(return_value=None),
+        ),
         patch("app.services.chat.email_service.is_connected", AsyncMock(return_value=False)),
         patch("app.services.chat.email_service.load_gmail_context", AsyncMock(return_value=None)),
-        patch("app.services.chat.email_service.load_gmail_for_prompt", AsyncMock(return_value=None)),
+        patch(
+            "app.services.chat.email_service.load_gmail_for_prompt", AsyncMock(return_value=None)
+        ),
         patch("app.services.chat.messages_repo.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.services.chat.web_search_service.augment_prompt_messages",
@@ -304,10 +309,15 @@ async def test_memory_extraction_runs_on_later_turn():
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
         patch("app.services.chat.calendar_service.is_connected", AsyncMock(return_value=False)),
-        patch("app.services.chat.calendar_service.load_calendar_for_prompt", AsyncMock(return_value=None)),
+        patch(
+            "app.services.chat.calendar_service.load_calendar_for_prompt",
+            AsyncMock(return_value=None),
+        ),
         patch("app.services.chat.email_service.is_connected", AsyncMock(return_value=False)),
         patch("app.services.chat.email_service.load_gmail_context", AsyncMock(return_value=None)),
-        patch("app.services.chat.email_service.load_gmail_for_prompt", AsyncMock(return_value=None)),
+        patch(
+            "app.services.chat.email_service.load_gmail_for_prompt", AsyncMock(return_value=None)
+        ),
         patch("app.services.chat.messages_repo.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.services.chat.web_search_service.augment_prompt_messages",

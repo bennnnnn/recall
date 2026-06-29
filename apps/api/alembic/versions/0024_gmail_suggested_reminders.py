@@ -61,7 +61,9 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["todo_id"], ["todo_items.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("user_id", "gmail_message_id", name="uq_suggested_reminders_user_message"),
+        sa.UniqueConstraint(
+            "user_id", "gmail_message_id", name="uq_suggested_reminders_user_message"
+        ),
     )
     op.create_index(
         "ix_suggested_reminders_user_status",

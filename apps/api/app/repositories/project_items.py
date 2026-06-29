@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -90,9 +90,7 @@ async def get_by_id(
     return (await session.execute(stmt)).scalar_one_or_none()
 
 
-async def count_stats(
-    session: AsyncSession, project_id: UUID, user_id: UUID
-) -> dict[str, int]:
+async def count_stats(session: AsyncSession, project_id: UUID, user_id: UUID) -> dict[str, int]:
     items = await list_for_user(session, user_id, project_id=project_id, limit=5000)
     now = datetime.now(UTC)
     week_ago = now - timedelta(days=7)
@@ -168,7 +166,13 @@ async def pos_group_summaries(
         pos = normalize_pos_key(item.part_of_speech)
         bucket = by_pos.setdefault(
             pos,
-            {"part_of_speech": pos, "count": 0, "new_count": 0, "learning_count": 0, "mastered_count": 0},
+            {
+                "part_of_speech": pos,
+                "count": 0,
+                "new_count": 0,
+                "learning_count": 0,
+                "mastered_count": 0,
+            },
         )
         bucket["count"] += 1
         status = _item_status_label(item)

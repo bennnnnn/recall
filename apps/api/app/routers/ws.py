@@ -246,7 +246,9 @@ async def chat_websocket(
                         await websocket.send_json({"type": "error", "message": "User not found"})
                         continue
 
-                def _edit_stream(result, mid=request.message_id, text=request.content, model=edit_model):
+                def _edit_stream(
+                    result, mid=request.message_id, text=request.content, model=edit_model
+                ):
                     return chat_service.stream_edit_response(
                         redis,
                         settings,
@@ -289,7 +291,9 @@ async def chat_websocket(
                     await websocket.send_json({"type": "error", "message": "User not found"})
                     continue
 
-            def _message_stream(result, text=message_content, model=message_model, aids=request.attachment_ids):
+            def _message_stream(
+                result, text=message_content, model=message_model, aids=request.attachment_ids
+            ):
                 return chat_service.stream_chat_response(
                     redis,
                     settings,

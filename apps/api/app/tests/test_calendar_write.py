@@ -1,6 +1,6 @@
 """Calendar write and conflict detection tests."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 import pytest
 

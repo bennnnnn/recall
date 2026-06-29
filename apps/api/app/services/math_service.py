@@ -23,17 +23,21 @@ from app.models.math_schemas import (
     MathSolveResult,
     RectangleGeometryInput,
     RectangleGeometryResult,
-    TriangleGeometryInput,
-    TriangleGeometryResult,
     RightTriangleGeometryInput,
     RightTriangleGeometryResult,
     SquareGeometryInput,
     SquareGeometryResult,
+    TriangleGeometryInput,
+    TriangleGeometryResult,
 )
 
 logger = logging.getLogger(__name__)
 
-_TRANSFORMATIONS = standard_transformations + (implicit_multiplication_application, convert_xor)
+_TRANSFORMATIONS = (
+    *standard_transformations,
+    implicit_multiplication_application,
+    convert_xor,
+)
 _LOCALS: dict[str, Any] = {
     "pi": math.pi,
     "e": math.e,
@@ -71,7 +75,6 @@ def _parse_expression(expr: str, variable_names: list[str] | None = None):
 
 
 def parse_equation(data: EquationInput) -> tuple[Any, Any, list[Any]]:
-    syms = [Symbol(v) for v in data.variables]
     lhs = _parse_expression(data.lhs, data.variables)
     rhs = _parse_expression(data.rhs, data.variables)
     return Eq(lhs, rhs), lhs, rhs

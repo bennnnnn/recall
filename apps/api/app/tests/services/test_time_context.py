@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -18,19 +18,19 @@ def test_normalize_due_at_naive_uses_user_timezone():
     due = datetime(2026, 6, 28, 17, 0, 0)
     utc = normalize_due_at(due, "America/New_York")
     assert utc is not None
-    assert utc.tzinfo == timezone.utc
+    assert utc.tzinfo == UTC
 
 
 def test_describe_due_at_overdue():
     tz = ZoneInfo("UTC")
     now = datetime.now(tz)
-    past = (now - timedelta(days=2)).astimezone(timezone.utc)
+    past = (now - timedelta(days=2)).astimezone(UTC)
     label = describe_due_at(past, "UTC")
     assert label.startswith("overdue")
 
 
 def test_describe_due_at_skips_checked():
-    due = datetime.now(timezone.utc) + timedelta(days=1)
+    due = datetime.now(UTC) + timedelta(days=1)
     assert describe_due_at(due, "UTC", checked=True) == ""
 
 

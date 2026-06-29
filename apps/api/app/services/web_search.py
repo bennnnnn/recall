@@ -121,6 +121,7 @@ def is_vocab_quiz_answer(text: str) -> bool:
     """Single-letter multiple-choice reply (A–D) in an in-chat vocabulary quiz."""
     return bool(_QUIZ_ANSWER.match(text.strip()))
 
+
 _QUERY_PREFIX = re.compile(
     r"^\s*(?:"
     r"(?:can\s+you\s+)?(?:please\s+)?"
@@ -284,7 +285,9 @@ def _today_iso(user_timezone: str | None) -> str:
     return datetime.now(tz).strftime("%Y-%m-%d")
 
 
-def _world_cup_queries(*, today: str, yesterday: str, yesterday_iso: str, today_iso: str) -> list[str]:
+def _world_cup_queries(
+    *, today: str, yesterday: str, yesterday_iso: str, today_iso: str
+) -> list[str]:
     return [
         f"FIFA World Cup 2026 live scores results {today}",
         f"FIFA World Cup 2026 match results scores {yesterday}",
@@ -344,7 +347,10 @@ def _prioritize_team_hits(hits: list[WebSearchHit], team: str) -> list[WebSearch
 def _is_team_specific_sports_query(cleaned: str) -> bool:
     if _WORLD_CUP.search(cleaned):
         return False
-    return _TEAM_SCORE.search(cleaned) is not None or _TEAM_POSSESSIVE_SCORE.search(cleaned) is not None
+    return (
+        _TEAM_SCORE.search(cleaned) is not None
+        or _TEAM_POSSESSIVE_SCORE.search(cleaned) is not None
+    )
 
 
 def build_search_queries(
@@ -456,10 +462,7 @@ def format_sources_fence(hits: list[WebSearchHit]) -> str:
 
 
 def sources_payload(hits: list[WebSearchHit]) -> list[dict[str, str]]:
-    return [
-        {"title": hit.title, "url": hit.url, "snippet": hit.snippet[:280]}
-        for hit in hits
-    ]
+    return [{"title": hit.title, "url": hit.url, "snippet": hit.snippet[:280]} for hit in hits]
 
 
 def format_search_empty_block(queries: list[str]) -> str:
@@ -532,9 +535,5 @@ async def augment_prompt_messages(
             if team:
                 break
     hits = _prioritize_team_hits(hits, team) if team else hits
-    block = (
-        format_search_block(hits, team=team)
-        if hits
-        else format_search_empty_block(tried)
-    )
+    block = format_search_block(hits, team=team) if hits else format_search_empty_block(tried)
     return _inject_before_last_user(messages, block), hits

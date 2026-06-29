@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -158,9 +158,7 @@ async def recent_user_contents(
     return [str(content) for content in reversed(result.scalars().all()) if str(content).strip()]
 
 
-async def get_by_id(
-    session: AsyncSession, message_id: UUID, chat_id: UUID
-) -> Message | None:
+async def get_by_id(session: AsyncSession, message_id: UUID, chat_id: UUID) -> Message | None:
     result = await session.execute(
         select(Message).where(Message.id == message_id, Message.chat_id == chat_id)
     )

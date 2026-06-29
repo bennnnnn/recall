@@ -6,7 +6,6 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 from redis.asyncio import Redis
 from sqlalchemy import select
@@ -18,8 +17,8 @@ from app.models.orm import PushToken, SuggestedReminder, TodoItem, User
 from app.repositories import project_items as project_items_repo
 from app.repositories import projects as projects_repo
 from app.repositories import push_tokens as push_repo
-from app.services.projects import group_programming_items
 from app.services import time_context as time_context_service
+from app.services.projects import group_programming_items
 
 logger = logging.getLogger(__name__)
 
@@ -103,10 +102,7 @@ async def process_todo_reminders(
             User.push_notifications_enabled.is_(True),
             (
                 (TodoItem.due_at <= window_end)
-                | (
-                    (TodoItem.due_at < now)
-                    & (TodoItem.due_at >= overdue_cutoff)
-                )
+                | ((TodoItem.due_at < now) & (TodoItem.due_at >= overdue_cutoff))
             ),
         )
     )
@@ -233,9 +229,7 @@ async def process_learning_nudges(
                     continue
                 if stats["due_for_review"] > 0:
                     score = float(stats["due_for_review"] + 10)
-                    body = (
-                        f'{stats["due_for_review"]} words ready to review in "{project.title}"'
-                    )
+                    body = f'{stats["due_for_review"]} words ready to review in "{project.title}"'
                     payload = {
                         "type": "learning_review",
                         "screen": "project",
@@ -265,9 +259,7 @@ async def process_learning_nudges(
                 if not topic:
                     continue
                 pending = sum(
-                    1
-                    for item in items
-                    if item.status != "mastered" and not item.mastered
+                    1 for item in items if item.status != "mastered" and not item.mastered
                 )
                 score = float(pending + 5)
                 body = f'Continue "{project.title}" — work on {topic}'

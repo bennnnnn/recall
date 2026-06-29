@@ -126,9 +126,7 @@ async def mock_todo_actions(user_message: str, current_todos: list[dict[str, obj
         topics = {str(t.get("topic") or "") for t in current_todos if t.get("topic")}
         for topic in sorted(topics):
             if topic and topic.lower() in text:
-                actions.append(
-                    TodoActionItem(action="delete_list", topic=topic, content="")
-                )
+                actions.append(TodoActionItem(action="delete_list", topic=topic, content=""))
                 break
     if "add" in text or "remind me" in text:
         # crude: extract after "add" or use whole user line
@@ -136,7 +134,9 @@ async def mock_todo_actions(user_message: str, current_todos: list[dict[str, obj
             if line.lower().startswith("user:"):
                 content = line.split(":", 1)[-1].strip()
                 if len(content) > 3:
-                    actions.append(TodoActionItem(action="add", topic="General", content=content[:200]))
+                    actions.append(
+                        TodoActionItem(action="add", topic="General", content=content[:200])
+                    )
                     break
     if "done" in text or "complete" in text or "finished" in text:
         open_items = [t for t in current_todos if not t.get("checked")]
@@ -208,10 +208,7 @@ def _extract_vocab_terms(transcript: str) -> list[str]:
     for line in transcript.splitlines():
         lower = line.lower()
         if not (
-            lower.startswith("assistant:")
-            or "add" in lower
-            or "added" in lower
-            or "words" in lower
+            lower.startswith("assistant:") or "add" in lower or "added" in lower or "words" in lower
         ):
             continue
         segment = line.split(":", 1)[-1] if ":" in line else line
@@ -339,9 +336,7 @@ async def mock_project_actions(user_message: str, snapshot: dict[str, object]):
                 continue
             title = str(proj.get("title") or "")
             if title and title.lower() in text:
-                actions.append(
-                    ProjectActionItem(action="delete_project", project_title=title)
-                )
+                actions.append(ProjectActionItem(action="delete_project", project_title=title))
                 break
 
     if "create" in text and "project" in text:

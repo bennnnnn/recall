@@ -25,9 +25,9 @@ from app.repositories import usage as usage_repo
 from app.repositories import users as users_repo
 from app.services import calendar as calendar_service
 from app.services import chat_tools as chat_tools_service
+from app.services import email as email_service
 from app.services import math_fence as math_fence_service
 from app.services import math_tools as math_tools_service
-from app.services import email as email_service
 from app.services import memory as memory_service
 from app.services import plan as plan_service
 from app.services import projects as projects_service
@@ -359,9 +359,7 @@ async def build_prompt_messages(
     minimal_quiz_context: bool = False,
 ) -> list[dict[str, str]]:
     recent_limit = (
-        _QUIZ_RECENT_MESSAGE_LIMIT
-        if minimal_quiz_context
-        else settings.recent_message_window
+        _QUIZ_RECENT_MESSAGE_LIMIT if minimal_quiz_context else settings.recent_message_window
     )
     if minimal_personal_context or minimal_quiz_context:
         recent_all = await messages_repo.list_recent(session, chat_id, limit=recent_limit)
@@ -388,12 +386,12 @@ async def build_prompt_messages(
             messages_repo.list_recent(session, chat_id, limit=recent_limit),
         )
         if out is not None:
-            bullets = [line[2:].strip() for line in memory_block.split("\n") if line.startswith("- ")]
+            bullets = [
+                line[2:].strip() for line in memory_block.split("\n") if line.startswith("- ")
+            ]
             out["recalled"] = len(bullets)
             out["memory_hints"] = bullets[:3]
-    keep = select_recent_window(
-        recent_all, settings.context_token_budget, recent_limit
-    )
+    keep = select_recent_window(recent_all, settings.context_token_budget, recent_limit)
     recent = recent_all[-keep:] if keep else []
 
     style = user.response_style if user.response_style in STYLE_HINTS else "balanced"
@@ -658,7 +656,9 @@ async def stream_edit_response(
         target = await messages_repo.get_by_id(session, message_id, chat_id)
         if target is None or target.role != "user":
             raise ChatNotFoundError("Only user messages can be edited.")
-        await messages_repo.delete_messages_from(session, chat_id, from_created_at=target.created_at)
+        await messages_repo.delete_messages_from(
+            session, chat_id, from_created_at=target.created_at
+        )
 
     async for token in stream_chat_response(
         redis,
@@ -701,8 +701,8 @@ async def _prepare_chat_turn(
         gateway = None
         image_attachments: list[tuple[str, str]] = []
         if attachment_ids and settings.attachments_enabled:
-            from app.repositories import attachments as attachments_repo
             from app.gateways.storage_gateway import get_storage_gateway
+            from app.repositories import attachments as attachments_repo
             from app.services import attachment_content as attachment_content_service
 
             gateway = get_storage_gateway(settings)
@@ -929,13 +929,30 @@ async def _enqueue_post_turn_jobs(
     job_specs: list[tuple[str, dict[str, str]]] = []
     if not ctx.skip_memory_jobs:
         job_specs.append(
-            ("memory", {"user_id": str(ctx.user_id), "chat_id": str(ctx.chat_id), "transcript": transcript}),
+            (
+                "memory",
+                {
+                    "user_id": str(ctx.user_id),
+                    "chat_id": str(ctx.chat_id),
+                    "transcript": transcript,
+                },
+            ),
         )
         job_specs.append(
-            ("todos", {"user_id": str(ctx.user_id), "chat_id": str(ctx.chat_id), "transcript": transcript}),
+            (
+                "todos",
+                {
+                    "user_id": str(ctx.user_id),
+                    "chat_id": str(ctx.chat_id),
+                    "transcript": transcript,
+                },
+            ),
         )
     job_specs.append(
-        ("projects", {"user_id": str(ctx.user_id), "chat_id": str(ctx.chat_id), "transcript": transcript}),
+        (
+            "projects",
+            {"user_id": str(ctx.user_id), "chat_id": str(ctx.chat_id), "transcript": transcript},
+        ),
     )
     if ctx.run_title:
         job_specs.append(

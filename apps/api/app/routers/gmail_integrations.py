@@ -1,15 +1,15 @@
 import logging
+from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
-from uuid import UUID
 
+from app.core import jobs
 from app.core.config import Settings
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_redis, get_settings_dep
-from app.core import jobs
 from app.gateways.google_gmail_gateway import GoogleGmailError, exchange_gmail_auth_code
 from app.models.orm import User
 from app.models.schemas import (
@@ -54,7 +54,9 @@ async def gmail_status(
     return GoogleGmailStatusOut(
         connected=row is not None,
         email=row.google_email if row else None,
-        configured=bool(settings.google_client_id and settings.google_client_secret and settings.gmail_enabled),
+        configured=bool(
+            settings.google_client_id and settings.google_client_secret and settings.gmail_enabled
+        ),
         last_sync_at=row.last_sync_at if row else None,
     )
 
@@ -145,7 +147,9 @@ async def sync_gmail(
 ) -> dict[str, int | str | bool]:
     conn = await gmail_repo.get_for_user(session, user.id)
     if conn is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Gmail is not connected.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Gmail is not connected."
+        )
     if not email_service.gmail_sync_is_due(conn.last_sync_at, settings, force=force):
         return {
             "status": "skipped",

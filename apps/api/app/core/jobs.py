@@ -17,7 +17,16 @@ from uuid import UUID
 
 from redis.asyncio import Redis
 
-from app.background import compaction, gmail_sync, memory_consolidation, memory_extraction, project_sync, suggestion_generation, todo_sync, topic_generation
+from app.background import (
+    compaction,
+    gmail_sync,
+    memory_consolidation,
+    memory_extraction,
+    project_sync,
+    suggestion_generation,
+    todo_sync,
+    topic_generation,
+)
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.redis import get_redis_client

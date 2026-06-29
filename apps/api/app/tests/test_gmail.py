@@ -99,13 +99,16 @@ async def test_dismiss_suggested_reminder():
     )
     session = MagicMock()
 
-    with patch(
-        "app.services.email.suggested_repo.get_by_id",
-        AsyncMock(return_value=row),
-    ), patch(
-        "app.services.email.suggested_repo.mark_dismissed",
-        AsyncMock(return_value=row),
-    ) as mark_mock:
+    with (
+        patch(
+            "app.services.email.suggested_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch(
+            "app.services.email.suggested_repo.mark_dismissed",
+            AsyncMock(return_value=row),
+        ) as mark_mock,
+    ):
         ok = await email_service.dismiss_suggested_reminder(session, user_id, reminder_id)
     assert ok is True
     mark_mock.assert_awaited_once()

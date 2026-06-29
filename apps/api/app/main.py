@@ -10,10 +10,13 @@ from app.core.db import SessionLocal, engine
 from app.core.logging import setup_logging
 from app.core.redis import get_redis_client
 from app.routers import (
+    attachments,
     auth,
     chats,
+    gmail_integrations,
     health,
     home,
+    integrations,
     link_preview,
     memories,
     models,
@@ -22,13 +25,10 @@ from app.routers import (
     suggestions,
     templates,
     todos,
+    users,
+    webhooks,
     ws,
 )
-from app.routers import integrations
-from app.routers import attachments
-from app.routers import gmail_integrations
-from app.routers import users
-from app.routers import webhooks
 from app.services import seed_templates
 
 

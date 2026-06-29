@@ -85,9 +85,7 @@ def extract_text_from_bytes(content_type: str, data: bytes) -> str | None:
     return None
 
 
-async def read_attachment_bytes(
-    gateway: StorageGateway, storage_key: str
-) -> bytes | None:
+async def read_attachment_bytes(gateway: StorageGateway, storage_key: str) -> bytes | None:
     if isinstance(gateway, LocalStorageGateway):
         path = gateway.resolve_local_path(storage_key)
         if path is None:

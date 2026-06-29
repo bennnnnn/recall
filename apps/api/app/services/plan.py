@@ -35,9 +35,7 @@ def free_pool(settings: Settings) -> list[str]:
 
 def default_pro_enabled(settings: Settings) -> list[str]:
     return [
-        m.id
-        for m in model_catalog.selectable_models()
-        if model_catalog.is_available(m, settings)
+        m.id for m in model_catalog.selectable_models() if model_catalog.is_available(m, settings)
     ]
 
 

@@ -1,7 +1,7 @@
 """User-local time context for LLM prompts (foundation for due dates & reminders)."""
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 DEFAULT_TIMEZONE = "UTC"
@@ -126,7 +126,7 @@ def normalize_due_at(due_at: datetime | None, user_timezone: str | None) -> date
         localized = due_at.replace(tzinfo=tz)
     else:
         localized = due_at.astimezone(tz)
-    return localized.astimezone(timezone.utc)
+    return localized.astimezone(UTC)
 
 
 def describe_due_at(
@@ -139,7 +139,10 @@ def describe_due_at(
         return ""
     tz = resolve_timezone(user_timezone)
     now = datetime.now(tz)
-    due_local = due_at.astimezone(tz) if due_at.tzinfo else due_at.replace(tzinfo=timezone.utc).astimezone(tz)
+    if due_at.tzinfo:
+        due_local = due_at.astimezone(tz)
+    else:
+        due_local = due_at.replace(tzinfo=UTC).astimezone(tz)
     delta = due_local - now
     if delta.total_seconds() < 0:
         if due_local.date() == now.date():

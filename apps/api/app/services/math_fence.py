@@ -7,7 +7,12 @@ import re
 
 from pydantic import ValidationError
 
-from app.models.math_schemas import GeometryBlockSpec, GraphBlockSpec, RightTriangleGeometryBlockSpec, TriangleGeometryBlockSpec
+from app.models.math_schemas import (
+    GeometryBlockSpec,
+    GraphBlockSpec,
+    RightTriangleGeometryBlockSpec,
+    TriangleGeometryBlockSpec,
+)
 
 _GEOMETRY_FENCE = re.compile(r"```geometry\s*\n([\s\S]*?)```", re.IGNORECASE)
 _GRAPH_FENCE = re.compile(r"```graph\s*\n([\s\S]*?)```", re.IGNORECASE)

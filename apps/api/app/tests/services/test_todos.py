@@ -1,5 +1,5 @@
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
@@ -26,7 +26,7 @@ def _item_due_today(content: str, *, hour: int = 9, tz_name: str = "UTC"):
     now = datetime.now(tz)
     due_local = now.replace(hour=hour, minute=0, second=0, microsecond=0)
     item = _item(content)
-    item.due_at = due_local.astimezone(timezone.utc)
+    item.due_at = due_local.astimezone(UTC)
     return item
 
 
@@ -78,7 +78,7 @@ async def test_sync_todos_bulk_shift_after_partial_llm_apply():
             action="set_due",
             topic="General",
             content="A",
-            due_at=datetime.now(timezone.utc) + timedelta(days=1),
+            due_at=datetime.now(UTC) + timedelta(days=1),
         )
     ]
 
@@ -138,7 +138,7 @@ def test_format_todos_block_groups_by_topic():
 
 def test_format_todos_block_splits_reminders_and_lists():
     due_item = _item("Reading at 10", "General")
-    due_item.due_at = datetime(2026, 7, 1, 10, 0, tzinfo=timezone.utc)
+    due_item.due_at = datetime(2026, 7, 1, 10, 0, tzinfo=UTC)
     block = todos_service.format_todos_block(
         [
             due_item,
@@ -210,7 +210,7 @@ async def test_apply_todo_actions_complete():
 async def test_apply_todo_actions_set_due():
     session = AsyncMock()
     existing = _item("Pay rent", "Home")
-    due = datetime(2026, 7, 1, 12, 0, tzinfo=timezone.utc)
+    due = datetime(2026, 7, 1, 12, 0, tzinfo=UTC)
     with (
         patch.object(
             todos_service.todos_repo,

@@ -89,7 +89,8 @@ def pick_cheapest_from_pool(pool: list[str], settings: Settings | None = None) -
 
 
 def _models_in_pool(pool: list[str]) -> list[model_catalog.ChatModel]:
-    return [model_catalog.get(model_id) for model_id in pool if model_id in model_catalog.known_ids()]
+    known = model_catalog.known_ids()
+    return [model_catalog.get(model_id) for model_id in pool if model_id in known]
 
 
 def _pick_cheapest_from_pool(pool: list[str], settings: Settings | None) -> str:

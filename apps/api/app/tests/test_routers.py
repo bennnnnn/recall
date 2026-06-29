@@ -159,7 +159,10 @@ def test_list_chats():
 
     with (
         patch("app.routers.chats.chats_repo.list_for_user", AsyncMock(return_value=empty_list)),
-        patch("app.routers.chats.chats_repo.list_archived_for_user", AsyncMock(return_value=empty_list)),
+        patch(
+            "app.routers.chats.chats_repo.list_archived_for_user",
+            AsyncMock(return_value=empty_list),
+        ),
         patch(
             "app.routers.chats.chats_repo.group_by_recency",
             return_value={"today": [], "yesterday": [], "earlier": []},
