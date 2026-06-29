@@ -56,7 +56,7 @@ class UserUpdate(BaseModel):
 
         normalized = normalize_display_name(value)
         if not normalized:
-            raise ValueError("Name must be 1–80 characters.")
+            raise ValueError("Name must be 1\u201380 characters.")
         return normalized
 
     @field_validator("default_model")

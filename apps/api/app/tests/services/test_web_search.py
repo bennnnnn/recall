@@ -384,7 +384,9 @@ def test_prioritize_team_hits():
 
     hits = [
         WebSearchHit(title="World Cup group stage", url="https://a.com", snippet="Brazil vs Spain"),
-        WebSearchHit(title="Ethiopia latest", url="https://b.com", snippet="Ethiopia national team"),
+        WebSearchHit(
+            title="Ethiopia latest", url="https://b.com", snippet="Ethiopia national team"
+        ),
         WebSearchHit(title="Other", url="https://c.com", snippet="generic"),
     ]
     ordered = _prioritize_team_hits(hits, "Ethiopia")

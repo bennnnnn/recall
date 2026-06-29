@@ -8,7 +8,7 @@ import re
 from datetime import UTC, datetime, timedelta
 from typing import TypeVar
 from uuid import UUID
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.ext.asyncio import AsyncSession
 

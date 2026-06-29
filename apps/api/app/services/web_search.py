@@ -163,7 +163,9 @@ def is_local_places_query(text: str) -> bool:
         return False
     if _LOCAL_PLACES.search(cleaned):
         return True
-    return bool(_BEST_NEAR.search(cleaned) and _LOCAL_PLACES.search(cleaned) is None and "?" in cleaned)
+    return bool(
+        _BEST_NEAR.search(cleaned) and _LOCAL_PLACES.search(cleaned) is None and "?" in cleaned
+    )
 
 
 def is_vocab_quiz_answer(text: str) -> bool:
@@ -214,6 +216,7 @@ def _extract_address_from_snippet(snippet: str) -> str | None:
 def _extract_price_from_snippet(snippet: str) -> str | None:
     match = _PRICE_RE.search(snippet)
     return match.group(1) if match else None
+
 
 WEB_SEARCH_HINT = (
     "Live web search may be injected immediately before the user's latest message. "
@@ -596,8 +599,8 @@ def format_search_block(
 LOCAL_PLACES_FORMAT_HINT = (
     "Local places output (restaurants, salons, shops, etc.):\n"
     "- One short intro sentence, then ONLY a ```places JSON fence — no duplicate markdown list.\n"
-    "- Schema: [{\"name\":\"Venue\",\"url\":\"https://www.google.com/maps/search/?api=1&query=...\","
-    "\"note\":\"rating/cuisine\",\"address\":\"street, city\",\"price\":\"$$\"}]\n"
+    '- Schema: [{"name":"Venue","url":"https://www.google.com/maps/search/?api=1&query=...",'
+    '"note":"rating/cuisine","address":"street, city","price":"$$"}]\n'
     "- url MUST open the venue on Google Maps (use address in the query). "
     "Never use generic Yelp/Google search pages.\n"
     "- address is required when the snippet mentions a street or neighborhood.\n"
@@ -645,7 +648,7 @@ def places_payload_from_hits(hits: list[WebSearchHit]) -> list[dict[str, str]]:
         note = snippet
         if price:
             row["price"] = price
-            note = note.replace(price, "").strip(" ,-–—()")
+            note = note.replace(price, "").strip(" ,-\u2013\u2014()")
         if address:
             row["address"] = address
         if note:

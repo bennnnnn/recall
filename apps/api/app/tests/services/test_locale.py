@@ -1,6 +1,6 @@
 import pytest
 
-from app.services.locale import locale_display_name, locale_system_hint, normalize_locale_code
+from app.services.locale import locale_display_name, locale_system_hint
 
 
 @pytest.mark.parametrize(

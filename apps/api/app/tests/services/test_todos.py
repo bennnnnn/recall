@@ -264,7 +264,7 @@ def test_select_todos_for_prompt_prioritizes_overdue():
     future = _item("Later task")
     future.due_at = now + timedelta(days=30)
     filler = [_item(f"Filler {i}") for i in range(50)]
-    items = filler + [future, overdue]
+    items = [*filler, future, overdue]
     selected = todos_service.select_todos_for_prompt(
         items,
         Settings(todo_prompt_limit=10),
@@ -290,9 +290,7 @@ def test_transcript_implies_todo_sync():
     assert todos_service.transcript_implies_todo_sync(
         "User: move all reminders due today to tomorrow\nAssistant: Done."
     )
-    assert not todos_service.transcript_implies_todo_sync(
-        "User: hello\nAssistant: Hi there!"
-    )
+    assert not todos_service.transcript_implies_todo_sync("User: hello\nAssistant: Hi there!")
 
 
 def test_should_inject_todos_prompt():

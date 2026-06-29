@@ -607,7 +607,8 @@ async def stream_regenerate_response(
             if integration_blocks:
                 prompt_messages[0] = {
                     "role": "system",
-                    "content": f"{prompt_messages[0]['content']}\n\n" + "\n\n".join(integration_blocks),
+                    "content": f"{prompt_messages[0]['content']}\n\n"
+                    + "\n\n".join(integration_blocks),
                 }
         search_sources: list[WebSearchHit] = []
         local_places = web_search_service.is_local_places_query(user_message_content)
@@ -809,9 +810,7 @@ async def _prepare_chat_turn(
         if time_context_service.is_time_question(content):
             instant_reply = time_context_service.format_time_answer(local_tz, user.locale)
         elif time_context_service.is_location_question(content):
-            instant_reply = time_context_service.format_location_answer(
-                user.location, local_tz
-            )
+            instant_reply = time_context_service.format_location_answer(user.location, local_tz)
 
         elif calendar_service.is_external_calendar_question(content):
             if not await calendar_service.is_connected(session, user.id):
@@ -871,7 +870,8 @@ async def _prepare_chat_turn(
             if integration_blocks:
                 prompt_messages[0] = {
                     "role": "system",
-                    "content": f"{prompt_messages[0]['content']}\n\n" + "\n\n".join(integration_blocks),
+                    "content": f"{prompt_messages[0]['content']}\n\n"
+                    + "\n\n".join(integration_blocks),
                 }
         if (
             instant_reply is None
@@ -1087,11 +1087,7 @@ async def _stream_and_finalize(
                 web_search_service.sources_payload(ctx.search_sources)
             )
 
-    if (
-        ctx.local_places
-        and ctx.search_sources
-        and "```places" not in assistant_text.lower()
-    ):
+    if ctx.local_places and ctx.search_sources and "```places" not in assistant_text.lower():
         places_fence = web_search_service.format_places_fence(ctx.search_sources)
         if places_fence and not (should_cancel and should_cancel()):
             assistant_parts.append(places_fence)

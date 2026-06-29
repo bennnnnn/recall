@@ -162,9 +162,7 @@ def select_todos_for_prompt(
 
     ranked = sorted(
         items,
-        key=lambda item: _todo_priority(
-            item, query_text=query_text, user_timezone=user_timezone
-        ),
+        key=lambda item: _todo_priority(item, query_text=query_text, user_timezone=user_timezone),
     )
     return ranked[:limit]
 
@@ -251,9 +249,7 @@ async def load_todos_for_prompt(
     tz = time_context_service.effective_timezone(user.timezone, client_timezone)
     if not should_inject_todos_prompt(items, query_text=query_text, user_timezone=tz):
         return ""
-    selected = select_todos_for_prompt(
-        items, settings, query_text=query_text, user_timezone=tz
-    )
+    selected = select_todos_for_prompt(items, settings, query_text=query_text, user_timezone=tz)
     return format_todos_block(selected, user_timezone=tz)
 
 
@@ -270,9 +266,7 @@ async def build_todos_system_section(
     tz = time_context_service.effective_timezone(user.timezone, client_timezone)
     if not should_inject_todos_prompt(items, query_text=query_text, user_timezone=tz):
         return None
-    selected = select_todos_for_prompt(
-        items, settings, query_text=query_text, user_timezone=tz
-    )
+    selected = select_todos_for_prompt(items, settings, query_text=query_text, user_timezone=tz)
     block = format_todos_block(selected, user_timezone=tz)
     if block:
         return f"{TODO_HINT}\n\n{block}"
