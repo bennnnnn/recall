@@ -13,6 +13,7 @@ import { useFocusEffect } from "expo-router";
 import { useAuthOptional } from "@/contexts/AuthContext";
 import { api, type HomeScreen } from "@/lib/api";
 import { loadHomeFallback } from "@/lib/homeFallback";
+import { getDeviceTimezone } from "@/lib/deviceTimezone";
 
 type HomeContextValue = {
   screen: HomeScreen | null;
@@ -48,7 +49,7 @@ export function HomeProvider({ children }: { children: ReactNode }) {
 
       const task = (async () => {
         try {
-          const data = await api.getHomeScreen(token);
+          const data = await api.getHomeScreen(token, getDeviceTimezone());
           setScreen(data);
         } catch {
           setScreen(await loadHomeFallback(token));

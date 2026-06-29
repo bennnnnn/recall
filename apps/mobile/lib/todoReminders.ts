@@ -3,13 +3,20 @@ import { Platform } from "react-native";
 
 import type { Todo } from "@/lib/api";
 import { ensureNotificationPermission } from "@/lib/pushNotifications";
+import { getReminderLeadMs } from "@/lib/reminderPrefs";
+import {
+  DEFAULT_REMINDER_LEAD_MINUTES,
+  leadMsFromMinutes,
+  reminderNotifyDate,
+} from "@/lib/reminderTiming";
 
 export { ensureNotificationPermission };
 
 const TODO_PREFIX = "todo-due-";
 const ANDROID_CHANNEL = "todo-reminders";
-/** Fire local reminders this many ms before `due_at`. */
-export const REMINDER_LEAD_MS = 10 * 60 * 1000;
+
+/** Default lead before `due_at` when prefs have not loaded yet. */
+export const REMINDER_LEAD_MS = leadMsFromMinutes(DEFAULT_REMINDER_LEAD_MINUTES);
 
 let androidChannelReady = false;
 
@@ -17,17 +24,7 @@ export function todoNotificationId(todoId: string): string {
   return `${TODO_PREFIX}${todoId}`;
 }
 
-/** When to schedule the local notification (null if due is past or invalid). */
-export function reminderNotifyDate(dueAt: Date, now = new Date()): Date | null {
-  const dueMs = dueAt.getTime();
-  if (Number.isNaN(dueMs) || dueMs <= now.getTime()) return null;
-
-  const leadMs = dueMs - REMINDER_LEAD_MS;
-  if (leadMs <= now.getTime()) {
-    return new Date(now.getTime() + 2_000);
-  }
-  return new Date(leadMs);
-}
+export { reminderNotifyDate };
 
 function formatDueTime(due: Date): string {
   return due.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
@@ -56,7 +53,8 @@ export async function scheduleTodoReminder(todo: Todo): Promise<void> {
   if (todo.checked || !todo.due_at) return;
 
   const due = new Date(todo.due_at);
-  const notifyAt = reminderNotifyDate(due);
+  const leadMs = await getReminderLeadMs();
+  const notifyAt = reminderNotifyDate(due, new Date(), leadMs);
   if (!notifyAt) return;
 
   const granted = await ensureNotificationPermission();

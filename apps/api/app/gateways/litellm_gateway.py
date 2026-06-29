@@ -16,6 +16,7 @@ from app.models.schemas import (
 )
 from app.services import model_catalog
 from app.services.chat_titles import normalize_chat_title
+from app.services.context_window import SUMMARY_SYSTEM_PROMPT, cap_summary
 from app.services.model_catalog import ChatModel
 
 logger = logging.getLogger(__name__)
@@ -437,12 +438,7 @@ async def summarize_conversation(
     msgs = [
         {
             "role": "system",
-            "content": (
-                "You compress a conversation into a concise running summary so an "
-                "assistant can continue it later. Merge the existing summary with the "
-                "new messages. Keep durable facts, decisions, goals, and open threads; "
-                "drop chit-chat. Reply with the summary only."
-            ),
+            "content": SUMMARY_SYSTEM_PROMPT,
         },
         {"role": "user", "content": "\n\n".join(parts)},
     ]
@@ -456,7 +452,7 @@ async def summarize_conversation(
             **kwargs,
         )
         text = (response.choices[0].message.content or "").strip()
-        return text or None
+        return cap_summary(text) if text else None
     except Exception:
         logger.exception("Conversation summarization failed")
         return None

@@ -60,6 +60,7 @@ const STRUCTURED_LANGS = new Set([
   "plot",
   "geometry",
   "graph",
+  "places",
   ...CALLOUT_LANGS,
   ...Object.keys(SOCIAL_LANGS),
   ...MESSAGE_LANGS,

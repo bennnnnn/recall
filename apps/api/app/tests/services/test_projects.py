@@ -282,3 +282,66 @@ async def test_load_project_for_prompt_scoped():
     assert "linked to ONE learning topic" in block
     assert "Spanish" in block
     assert "hola" in block
+
+
+def test_build_language_quiz_prompt_includes_vocab_quiz_fence():
+    project = _project("English")
+    stats = MagicMock()
+    stats.total = 5
+    stats.mastered_count = 1
+    stats.new_count = 2
+    stats.learning_count = 2
+    stats.due_for_review = 1
+
+    prompt = projects_service.build_language_quiz_prompt(project, stats)
+    assert "vocab_quiz" in prompt
+    assert '"correct"' in prompt
+    assert "Begin with the first question now" in prompt
+
+
+@pytest.mark.asyncio
+async def test_load_project_quiz_context():
+    session = AsyncMock()
+    user_id = uuid4()
+    project_id = uuid4()
+    project = _project("English")
+    project.id = project_id
+    item = _item("apple", project_id)
+
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "get_by_id",
+            AsyncMock(return_value=project),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_for_user",
+            AsyncMock(return_value=[item]),
+        ),
+    ):
+        block = await projects_service.load_project_quiz_context(
+            session, user_id, project_id, Settings()
+        )
+
+    assert "Active vocabulary quiz" in block
+    assert "apple" in block
+    assert "vocab_quiz" in block
+
+
+@pytest.mark.asyncio
+async def test_mock_project_actions_masters_on_quiz_answer():
+    from app.gateways import mock_llm
+
+    transcript = (
+        "User: Start vocabulary quiz\n"
+        "Assistant: **Word:** apple [noun]\nA) fruit\nB) car\nC) sky\nD) book\n"
+        "User: B\n"
+        "Assistant: Nice work — B is correct!"
+    )
+    snapshot = {
+        "projects": [{"title": "English", "kind": "language", "items": [{"content": "apple"}]}]
+    }
+    result = await mock_llm.mock_project_actions(transcript, snapshot)
+    assert result is not None
+    assert any(a.action == "master" and a.content == "apple" for a in result.actions)

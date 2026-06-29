@@ -1,6 +1,7 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 
 import { Theme, useTheme } from "@/lib/theme";
 import type { ParsedVocabQuiz } from "@/lib/parseVocabQuiz";
@@ -12,16 +13,37 @@ type Props = {
   quiz: ParsedVocabQuiz;
   disabled?: boolean;
   language?: string;
+  initialSelected?: "A" | "B" | "C" | "D" | null;
   onSelect?: (letter: "A" | "B" | "C" | "D") => void;
 };
 
-export function VocabQuizChoices({ quiz, disabled, language = "en", onSelect }: Props) {
+const SUCCESS = "#16a34a";
+const SUCCESS_LIGHT = "#dcfce7";
+
+export function VocabQuizChoices({
+  quiz,
+  disabled,
+  language = "en",
+  initialSelected = null,
+  onSelect,
+}: Props) {
   const theme = useTheme();
+  const { t } = useTranslation();
   const s = makeStyles(theme);
   const warnedSpeech = useRef(false);
-  const [selected, setSelected] = useState<"A" | "B" | "C" | "D" | null>(null);
+  const [selected, setSelected] = useState<"A" | "B" | "C" | "D" | null>(
+    initialSelected,
+  );
+
+  useEffect(() => {
+    if (initialSelected != null) {
+      setSelected(initialSelected);
+    }
+  }, [initialSelected]);
 
   const displayWord = cleanQuizWord(quiz.word);
+  const questionText = quiz.question?.trim() || t("quiz.question_default");
+  const revealResult = selected != null && quiz.correct != null;
 
   const handleSpeak = async () => {
     const result = await speakWord(displayWord, {
@@ -30,8 +52,8 @@ export function VocabQuizChoices({ quiz, disabled, language = "en", onSelect }: 
     if (!result.ok && result.reason === "unavailable" && !warnedSpeech.current) {
       warnedSpeech.current = true;
       Alert.alert(
-        "Pronunciation unavailable",
-        "Rebuild the dev app so native audio works:\ncd apps/mobile && pnpm expo run:ios",
+        t("quiz.pronunciation_unavailable_title"),
+        t("quiz.pronunciation_unavailable_body"),
       );
     }
   };
@@ -40,6 +62,15 @@ export function VocabQuizChoices({ quiz, disabled, language = "en", onSelect }: 
     if (disabled || selected) return;
     setSelected(letter);
     onSelect?.(letter);
+  };
+
+  const choiceState = (letter: "A" | "B" | "C" | "D") => {
+    if (!revealResult) {
+      return selected === letter ? "selected" : "idle";
+    }
+    if (letter === quiz.correct) return "correct";
+    if (letter === selected) return "wrong";
+    return "idle";
   };
 
   return (
@@ -56,37 +87,70 @@ export function VocabQuizChoices({ quiz, disabled, language = "en", onSelect }: 
             <Ionicons name="volume-high-outline" size={22} color={theme.primary} />
           </Pressable>
         </View>
+        <Text style={s.question}>{questionText}</Text>
       </View>
       <View style={s.choices}>
         {quiz.choices.map((choice) => {
-          const isSelected = selected === choice.letter;
+          const state = choiceState(choice.letter);
+          const isSelected = state === "selected" || state === "wrong";
+          const isCorrect = state === "correct";
+          const isWrong = state === "wrong";
           return (
             <Pressable
               key={choice.letter}
               style={({ pressed }) => [
                 s.choice,
                 isSelected && s.choiceSelected,
+                isCorrect && s.choiceCorrect,
+                isWrong && s.choiceWrong,
                 pressed && !disabled && !selected && s.choicePressed,
-                disabled && !isSelected && s.choiceDisabled,
+                disabled && !isSelected && !isCorrect && s.choiceDisabled,
               ]}
               disabled={disabled || selected != null}
               onPress={() => handleChoice(choice.letter)}
             >
-              <View style={[s.choiceLetter, isSelected && s.choiceLetterSelected]}>
-                <Text style={[s.choiceLetterText, isSelected && s.choiceLetterTextSelected]}>
+              <View
+                style={[
+                  s.choiceLetter,
+                  isSelected && s.choiceLetterSelected,
+                  isCorrect && s.choiceLetterCorrect,
+                  isWrong && s.choiceLetterWrong,
+                ]}
+              >
+                <Text
+                  style={[
+                    s.choiceLetterText,
+                    (isSelected || isCorrect || isWrong) && s.choiceLetterTextSelected,
+                  ]}
+                >
                   {choice.letter}
                 </Text>
               </View>
-              <Text style={[s.choiceText, isSelected && s.choiceTextSelected]}>
+              <Text
+                style={[
+                  s.choiceText,
+                  (isSelected || isCorrect) && s.choiceTextSelected,
+                  isWrong && s.choiceTextWrong,
+                ]}
+              >
                 {choice.text}
               </Text>
-              {isSelected ? (
+              {isCorrect ? (
+                <Ionicons name="checkmark-circle" size={20} color={SUCCESS} />
+              ) : isWrong ? (
+                <Ionicons name="close-circle" size={20} color={theme.danger} />
+              ) : isSelected ? (
                 <Ionicons name="checkmark-circle" size={20} color={theme.primary} />
               ) : null}
             </Pressable>
           );
         })}
       </View>
+      {revealResult ? (
+        <Text style={[s.feedback, selected === quiz.correct ? s.feedbackOk : s.feedbackBad]}>
+          {selected === quiz.correct ? t("quiz.correct") : t("quiz.incorrect")}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -133,6 +197,13 @@ function makeStyles(t: Theme) {
       color: t.text,
       textAlign: "center",
     },
+    question: {
+      marginTop: 10,
+      fontSize: 15,
+      lineHeight: 21,
+      color: t.textSecondary,
+      textAlign: "center",
+    },
     speakBtn: {
       width: 36,
       height: 36,
@@ -162,6 +233,14 @@ function makeStyles(t: Theme) {
       borderColor: t.primary,
       backgroundColor: t.primaryLight,
     },
+    choiceCorrect: {
+      borderColor: SUCCESS,
+      backgroundColor: SUCCESS_LIGHT,
+    },
+    choiceWrong: {
+      borderColor: t.danger,
+      backgroundColor: t.dangerLight,
+    },
     choiceDisabled: { opacity: 0.55 },
     choiceLetter: {
       width: 28,
@@ -173,6 +252,12 @@ function makeStyles(t: Theme) {
     },
     choiceLetterSelected: {
       backgroundColor: t.primary,
+    },
+    choiceLetterCorrect: {
+      backgroundColor: SUCCESS,
+    },
+    choiceLetterWrong: {
+      backgroundColor: t.danger,
     },
     choiceLetterText: {
       color: t.primary,
@@ -191,6 +276,20 @@ function makeStyles(t: Theme) {
     choiceTextSelected: {
       fontWeight: "700",
       color: t.text,
+    },
+    choiceTextWrong: {
+      color: t.danger,
+    },
+    feedback: {
+      fontSize: 14,
+      fontWeight: "600",
+      textAlign: "center",
+    },
+    feedbackOk: {
+      color: SUCCESS,
+    },
+    feedbackBad: {
+      color: t.danger,
     },
   });
 }

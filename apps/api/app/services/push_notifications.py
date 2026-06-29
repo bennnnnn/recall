@@ -19,11 +19,15 @@ from app.repositories import projects as projects_repo
 from app.repositories import push_tokens as push_repo
 from app.services import time_context as time_context_service
 from app.services.projects import group_programming_items
+from app.services.reminder_timing import (
+    MAX_REMINDER_LEAD_MINUTES,
+    OVERDUE_MAX_HOURS,
+    resolve_reminder_lead_minutes,
+    should_notify_todo,
+)
 
 logger = logging.getLogger(__name__)
 
-TODO_LEAD_MINUTES = 10
-OVERDUE_MAX_HOURS = 48
 LEARNING_REDIS_PREFIX = "recall:push:learning"
 
 
@@ -89,7 +93,7 @@ async def process_todo_reminders(
     now: datetime | None = None,
 ) -> list[dict[str, Any]]:
     now = now or datetime.now(UTC)
-    window_end = now + timedelta(minutes=TODO_LEAD_MINUTES)
+    window_end = now + timedelta(minutes=MAX_REMINDER_LEAD_MINUTES)
     overdue_cutoff = now - timedelta(hours=OVERDUE_MAX_HOURS)
 
     result = await session.execute(
@@ -111,11 +115,16 @@ async def process_todo_reminders(
         return []
 
     messages: list[dict[str, Any]] = []
-    for todo, _user in rows:
+    for todo, user in rows:
+        if todo.due_at is None:
+            continue
+        lead = resolve_reminder_lead_minutes(getattr(user, "reminder_lead_minutes", None))
+        if not should_notify_todo(todo.due_at, now=now, lead_minutes=lead):
+            continue
         tokens = await _tokens_for_user(session, todo.user_id)
         if not tokens:
             continue
-        is_overdue = todo.due_at is not None and todo.due_at < now
+        is_overdue = todo.due_at < now
         title = "Overdue reminder" if is_overdue else "Reminder"
         _append_messages(
             messages,
@@ -131,7 +140,8 @@ async def process_todo_reminders(
         )
         todo.notification_sent_at = now
 
-    await session.commit()
+    if messages:
+        await session.commit()
     return messages
 
 

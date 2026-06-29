@@ -1,11 +1,15 @@
+import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { ComparisonDraft } from "@/lib/richBlocks";
-import { C } from "@/constants/Colors";
+import { Theme, useTheme } from "@/lib/theme";
 
 type Props = { data: ComparisonDraft };
 
 export function ComparisonBlock({ data }: Props) {
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
+
   return (
     <View style={s.wrap}>
       <View style={s.row}>
@@ -37,24 +41,26 @@ export function ComparisonBlock({ data }: Props) {
   );
 }
 
-const s = StyleSheet.create({
-  wrap: {
-    alignSelf: "stretch",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: C.border,
-    backgroundColor: C.bg,
-    marginVertical: 8,
-    overflow: "hidden",
-  },
-  row: { flexDirection: "row" },
-  col: { flex: 1, padding: 12, gap: 6 },
-  leftCol: { backgroundColor: "#F0FFF4" },
-  rightCol: { backgroundColor: "#FFF5F5" },
-  divider: { width: StyleSheet.hairlineWidth, backgroundColor: C.border },
-  heading: { fontSize: 14, fontWeight: "700", color: C.text, marginBottom: 4 },
-  itemRow: { flexDirection: "row", gap: 6, alignItems: "flex-start" },
-  bullet: { fontSize: 14, fontWeight: "700", color: "#34C759", lineHeight: 21 },
-  bulletNeg: { color: "#FF3B30" },
-  item: { flex: 1, fontSize: 15, lineHeight: 21, color: C.text },
-});
+function makeStyles(t: Theme) {
+  return StyleSheet.create({
+    wrap: {
+      alignSelf: "stretch",
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: t.border,
+      backgroundColor: t.bg,
+      marginVertical: 8,
+      overflow: "hidden",
+    },
+    row: { flexDirection: "row" },
+    col: { flex: 1, padding: 12, gap: 6 },
+    leftCol: { backgroundColor: t.isDark ? "#1A2E22" : "#F0FFF4" },
+    rightCol: { backgroundColor: t.isDark ? "#2E1A1A" : "#FFF5F5" },
+    divider: { width: StyleSheet.hairlineWidth, backgroundColor: t.border },
+    heading: { fontSize: 14, fontWeight: "700", color: t.text, marginBottom: 4 },
+    itemRow: { flexDirection: "row", gap: 6, alignItems: "flex-start" },
+    bullet: { fontSize: 14, fontWeight: "700", color: "#34C759", lineHeight: 21 },
+    bulletNeg: { color: t.danger },
+    item: { flex: 1, fontSize: 15, lineHeight: 21, color: t.text },
+  });
+}

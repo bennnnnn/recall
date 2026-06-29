@@ -1,6 +1,6 @@
 import { StyleSheet, View } from "react-native";
 
-import { C } from "@/constants/Colors";
+import { useTheme } from "@/lib/theme";
 
 type Props = {
   size?: number;
@@ -8,7 +8,9 @@ type Props = {
 };
 
 /** Two-line menu icon (ChatGPT-style) — bottom bar shorter. */
-export function HamburgerIcon({ size = 22, color = C.text }: Props) {
+export function HamburgerIcon({ size = 22, color }: Props) {
+  const theme = useTheme();
+  const lineColor = color ?? theme.text;
   const lineHeight = 2.5;
   const gap = 7;
   const shortWidth = Math.round(size * 0.62);
@@ -18,13 +20,13 @@ export function HamburgerIcon({ size = 22, color = C.text }: Props) {
       <View
         style={[
           h.line,
-          { width: size, height: lineHeight, backgroundColor: color },
+          { width: size, height: lineHeight, backgroundColor: lineColor },
         ]}
       />
       <View
         style={[
           h.line,
-          { width: shortWidth, height: lineHeight, backgroundColor: color },
+          { width: shortWidth, height: lineHeight, backgroundColor: lineColor },
         ]}
       />
     </View>

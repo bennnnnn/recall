@@ -16,6 +16,8 @@ import {
   setUnauthorizedHandler,
   type User,
 } from "@/lib/api";
+import { signInWithGoogleIdToken, signOutGoogle } from "@/lib/google-auth";
+import i18n from "@/lib/i18n";
 import {
   clearToken,
   getOnboarded,
@@ -87,7 +89,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [hydrate]);
 
   const signInWithGoogle = useCallback(async () => {
-    const { signInWithGoogleIdToken } = await import("@/lib/google-auth");
     const idToken = await signInWithGoogleIdToken();
     const result = await loginWithGoogle(idToken);
     await setToken(result.access_token);
@@ -110,7 +111,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       /* best-effort */
     }
     try {
-      const { signOutGoogle } = await import("@/lib/google-auth");
       await signOutGoogle();
     } catch {
       // best-effort — clearing the local token is what matters
@@ -129,12 +129,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => setUnauthorizedHandler(null);
   }, [signOut]);
 
-  // Sync i18n language with user preference.
+  // Sync i18n language with user preference (including optimistic locale patches).
   useEffect(() => {
     if (user?.locale) {
-      import("i18next").then((i18n) => {
-        i18n.default.changeLanguage(user.locale);
-      });
+      void i18n.changeLanguage(user.locale);
     }
   }, [user?.locale]);
 
@@ -177,6 +175,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     return () => cleanup?.();
   }, [token]);
+
+  useEffect(() => {
+    if (user?.reminder_lead_minutes == null) return;
+    void import("@/lib/reminderPrefs").then(({ syncReminderLeadFromServer }) =>
+      syncReminderLeadFromServer(user.reminder_lead_minutes),
+    );
+  }, [user?.reminder_lead_minutes]);
 
   useEffect(() => {
     if (!user?.id) return;

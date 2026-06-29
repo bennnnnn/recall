@@ -8,6 +8,7 @@ import re
 from datetime import UTC, datetime, timedelta
 from typing import TypeVar
 from uuid import UUID
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -53,8 +54,17 @@ from app.services.chat_titles import BORING_CHAT_TITLES
 T = TypeVar("T")
 
 
-def _day_seed(user: User) -> int:
-    tz = time_context_service.resolve_timezone(user.timezone)
+def _resolve_home_tz(user: User, client_timezone: str | None = None) -> ZoneInfo:
+    return time_context_service.resolve_timezone(
+        time_context_service.effective_timezone(user.timezone, client_timezone)
+    )
+
+
+def _local_hour_for_tz(tz: ZoneInfo) -> int:
+    return datetime.now(tz).hour
+
+
+def _day_seed(user: User, tz: ZoneInfo) -> int:
     day = datetime.now(tz).strftime("%Y-%m-%d")
     digest = hashlib.sha256(f"{user.id}:{day}".encode()).hexdigest()
     return int(digest[:8], 16)
@@ -70,13 +80,12 @@ def _rotate_list(items: list[T], seed: int) -> list[T]:
     return rotated
 
 
-def _local_hour(user: User) -> int:
-    tz = time_context_service.resolve_timezone(user.timezone)
-    return datetime.now(tz).hour
+def _local_hour(user: User, tz: ZoneInfo | None = None) -> int:
+    return _local_hour_for_tz(tz or time_context_service.resolve_timezone(user.timezone))
 
 
-def _greeting(user: User) -> str:
-    hour = _local_hour(user)
+def _greeting(user: User, tz: ZoneInfo) -> str:
+    hour = _local_hour_for_tz(tz)
     name = (user.name or "").strip().split()[0] if user.name else None
     if 5 <= hour < 12:
         phrase = "Good morning"
@@ -91,8 +100,8 @@ def _greeting(user: User) -> str:
     return phrase
 
 
-def _time_starters(user: User) -> list[HomeStarter]:
-    hour = _local_hour(user)
+def _time_starters(user: User, tz: ZoneInfo) -> list[HomeStarter]:
+    hour = _local_hour_for_tz(tz)
     if 5 <= hour < 12:
         candidates = [
             HomeStarter(
@@ -378,10 +387,13 @@ async def build_home_screen(
     session: AsyncSession,
     user: User,
     settings: Settings,
+    *,
+    client_timezone: str | None = None,
 ) -> HomeScreenOut:
+    home_tz = _resolve_home_tz(user, client_timezone)
     now_utc = datetime.now(UTC)
     due_cutoff_utc = now_utc + timedelta(minutes=URGENT_TODO_MINUTES)
-    seed = _day_seed(user)
+    seed = _day_seed(user, home_tz)
 
     async def load_urgent() -> list:
         return await todos_repo.list_due_soon(
@@ -450,7 +462,7 @@ async def build_home_screen(
         seen_prompts.add(key)
         starters.append(starter)
 
-    time_pool = _time_starters(user)
+    time_pool = _time_starters(user, home_tz)
     if time_pool:
         add(_rotate_list(time_pool, seed)[0])
 
@@ -494,7 +506,7 @@ async def build_home_screen(
     rotated = _rotate_list(starters, seed + 17)
 
     return HomeScreenOut(
-        greeting=_greeting(user),
+        greeting=_greeting(user, home_tz),
         subtitle=subtitle,
         project_highlight=project_highlight,
         urgent_todos=urgent_todos,

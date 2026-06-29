@@ -2,15 +2,21 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import logging
 import re
+from dataclasses import asdict
 from datetime import datetime, timedelta
 
 from app.core.config import Settings
+from app.core.redis import get_redis_client
 from app.gateways import web_search_gateway
 from app.gateways.web_search_gateway import WebSearchHit
 from app.services import calendar as calendar_service
 from app.services import time_context as time_context_service
+
+logger = logging.getLogger(__name__)
 
 _EXPLICIT_SEARCH = re.compile(
     r"\b("
@@ -114,7 +120,50 @@ _SKIP = re.compile(
     re.IGNORECASE,
 )
 
+_PERSONAL_PLANNING = re.compile(
+    r"\b("
+    r"what\s+(?:am\s+I|are\s+we|do\s+I|should\s+I)\s+(?:trying\s+to\s+)?(?:get|have)\s+(?:done|to\s+do)"
+    r"|what(?:'s| is)\s+(?:on\s+my\s+(?:plate|list|agenda)|due|still\s+open)"
+    r"|what\s+(?:do\s+I|should\s+I)\s+need\s+to\s+(?:do|finish|tackle)"
+    r"|(?:my|any)\s+(?:tasks?|todos?|reminders?)\s+(?:for\s+)?(?:today|tonight|this\s+week)"
+    r"|how(?:'s| is)\s+my\s+day\s+looking"
+    r"|how\s+did\s+my\s+day\s+go"
+    r"|help\s+me\s+(?:prioriti[sz]e|plan|wrap\s+up)"
+    r"|(?:show|list)\s+(?:me\s+)?(?:my\s+)?(?:tasks?|todos?|reminders?)"
+    r"|what\s+(?:should\s+I|can\s+I)\s+(?:tackle|focus\s+on|work\s+on)\s+(?:today|tonight|now)?"
+    r"|anything\s+(?:left|open|due)\s+(?:for\s+)?(?:me\s+)?(?:today|tonight)"
+    r"|wrap\s+up\s+(?:loose\s+ends|my\s+day)"
+    r"|wind\s+down"
+    r")\b",
+    re.IGNORECASE,
+)
+
+_LOCAL_PLACES = re.compile(
+    r"\b("
+    r"restaurants?|caf[eé]s?|coffee\s+shops?|bars?|bakeries?|bistros?"
+    r"|salons?|saloons?|barbers?|spas?"
+    r"|food|dining|brunch|lunch|dinner|takeout|delivery"
+    r"|places?\s+to\s+eat|where\s+(?:should\s+(?:I|we)\s+)?(?:to\s+)?eat|what\s+(?:to\s+)?eat"
+    r"|near\s+me|nearby|around\s+here|in\s+town"
+    r")\b",
+    re.IGNORECASE,
+)
+
+_BEST_NEAR = re.compile(
+    r"\bbest\b.+\b(?:in|near|around|by)\b",
+    re.IGNORECASE,
+)
+
 _QUIZ_ANSWER = re.compile(r"^[A-D]\.?$", re.IGNORECASE)
+
+
+def is_local_places_query(text: str) -> bool:
+    cleaned = text.strip()
+    if not cleaned:
+        return False
+    if _LOCAL_PLACES.search(cleaned):
+        return True
+    return bool(_BEST_NEAR.search(cleaned) and _LOCAL_PLACES.search(cleaned) is None and "?" in cleaned)
 
 
 def is_vocab_quiz_answer(text: str) -> bool:
@@ -133,6 +182,16 @@ _QUERY_PREFIX = re.compile(
     re.IGNORECASE,
 )
 
+_STREET_SUFFIX = (
+    r"(?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Dr|Drive|Ln|Lane|Way|Pl|Place|"
+    r"Ct|Court|Sq|Square|Pkwy|Parkway)"
+)
+_ADDRESS_RE = re.compile(
+    rf"\b(\d+\s+[\w\s.'#-]{{2,40}}{_STREET_SUFFIX}\b(?:,\s*[\w\s.'-]{{2,30}})?)",
+    re.IGNORECASE,
+)
+_PRICE_RE = re.compile(r"(?<![\w$])(\$\$\$|\$\$|\$)(?![\w$])")
+
 _GENERIC_NEWS_QUERY = re.compile(
     r"^(?:"
     r"what(?:'s| is) (?:happening|going on|new)(?: in the world(?: today)?| in the news)?"
@@ -143,6 +202,18 @@ _GENERIC_NEWS_QUERY = re.compile(
     r")\s*[.!?]*$",
     re.IGNORECASE,
 )
+
+
+def _extract_address_from_snippet(snippet: str) -> str | None:
+    match = _ADDRESS_RE.search(snippet)
+    if not match:
+        return None
+    return match.group(1).strip(" ,.")
+
+
+def _extract_price_from_snippet(snippet: str) -> str | None:
+    match = _PRICE_RE.search(snippet)
+    return match.group(1) if match else None
 
 WEB_SEARCH_HINT = (
     "Live web search may be injected immediately before the user's latest message. "
@@ -155,9 +226,14 @@ WEB_SEARCH_HINT = (
     "did not qualify or has no match in that tournament, say so clearly. "
     "Do NOT offer fictional results, tournament-schedule guesses, or 'probably Matchday X' "
     "speculation. "
+    "When the user asks about restaurants, cafés, hair salons, or other local venues, "
+    "give a one-sentence intro then a ```places fence with JSON (see format hint). "
+    "The app renders places blocks natively — do NOT also hand-format a markdown list. "
+    "If you must use markdown links instead, use [Name](https://url) with parentheses "
+    "around the URL — never $url$ delimiters."
     "When search returned no hits, say so in one sentence — do NOT guess why or fill in "
     "from training data. "
-    "Do NOT include inline source links or a Sources section — the app renders source cards. "
+    "Do NOT add a separate Sources section — the app renders source cards. "
     "Never role-play searching."
 )
 
@@ -228,6 +304,8 @@ def needs_web_search(
         return False
     if _SKIP.search(cleaned):
         return False
+    if _PERSONAL_PLANNING.search(cleaned):
+        return False
     if calendar_service.is_external_calendar_question(cleaned):
         return False
     if _LOOK_IT_UP.match(cleaned):
@@ -259,6 +337,8 @@ def needs_web_search(
     if _RECENCY.search(cleaned) and "?" in cleaned:
         return True
     if _RECENCY.search(cleaned) and len(cleaned.split()) >= 6:
+        return True
+    if is_local_places_query(cleaned):
         return True
     return False
 
@@ -353,10 +433,23 @@ def _is_team_specific_sports_query(cleaned: str) -> bool:
     )
 
 
+def _local_places_queries(cleaned: str, user_location: str | None) -> list[str]:
+    query = _QUERY_PREFIX.sub("", cleaned.strip()).strip(" ?.!")
+    loc = (user_location or "").strip()
+    if loc:
+        if re.search(r"\bnear me\b", query, re.I):
+            query = re.sub(r"\bnear me\b", f"near {loc}", query, flags=re.I)
+        elif loc.lower() not in query.lower():
+            query = f"{query} {loc}"
+    primary = query or cleaned
+    return [primary, f"{primary} official website address"]
+
+
 def build_search_queries(
     text: str,
     *,
     user_timezone: str | None = None,
+    user_location: str | None = None,
     prior_user_messages: list[str] | None = None,
 ) -> list[str]:
     subject = resolve_search_subject(text, prior_user_messages=prior_user_messages)
@@ -403,6 +496,7 @@ def build_search_queries(
         return build_search_queries(
             subject,
             user_timezone=user_timezone,
+            user_location=user_location,
             prior_user_messages=None,
         )
 
@@ -410,8 +504,12 @@ def build_search_queries(
         return build_search_queries(
             subject,
             user_timezone=user_timezone,
+            user_location=user_location,
             prior_user_messages=None,
         )
+
+    if is_local_places_query(subject) or is_local_places_query(current):
+        return _local_places_queries(cleaned or current, user_location)
 
     fallback = cleaned or current
     return [fallback] if fallback else []
@@ -421,20 +519,37 @@ def build_search_query(
     text: str,
     *,
     user_timezone: str | None = None,
+    user_location: str | None = None,
     prior_user_messages: list[str] | None = None,
 ) -> str:
     queries = build_search_queries(
         text,
         user_timezone=user_timezone,
+        user_location=user_location,
         prior_user_messages=prior_user_messages,
     )
     return queries[0] if queries else text.strip()
 
 
-def format_search_block(hits: list[WebSearchHit], *, team: str | None = None) -> str:
+def _local_places_is_active(*texts: str) -> bool:
+    return any(is_local_places_query(t.strip()) for t in texts if t and t.strip())
+
+
+def format_search_block(
+    hits: list[WebSearchHit],
+    *,
+    team: str | None = None,
+    local_places: bool = False,
+    user_location: str | None = None,
+) -> str:
     lines = [
         "Web search results (retrieved just now — USE THESE for your answer):",
     ]
+    if local_places and not (user_location or "").strip():
+        lines.append(
+            "User location is not set — nearby results may be less precise. "
+            "If they asked for 'near me', briefly suggest Settings → Location."
+        )
     if team:
         lines.append(
             f"The user asked about **{team}**. Only report scores or tournament status for "
@@ -443,16 +558,111 @@ def format_search_block(hits: list[WebSearchHit], *, team: str | None = None) ->
     for index, hit in enumerate(hits, start=1):
         snippet = hit.snippet.replace("\n", " ").strip()
         lines.append(f"{index}. {hit.title} ({hit.url}) — {snippet}")
-    lines.append(
-        "Required: answer the user's question using the results above. "
-        "If they named a team or country, only use snippets about that entity — never "
-        "attribute generic tournament results to them unless they appear in the snippet. "
-        "If snippets show they did not qualify for a tournament, say so. "
-        "Include concrete scores, teams, and dates when the snippets mention them. "
-        "Do NOT say search failed or came up dry. "
-        "Do not paste this list or add links — the app shows source cards."
-    )
+    if local_places:
+        seed = places_payload_from_hits(hits)
+        seed_block = ""
+        if seed:
+            seed_block = (
+                "\nStarter JSON (refine name/url/note from snippets; include every real venue):\n"
+                f"```places\n{json.dumps(seed, ensure_ascii=False)}\n```\n"
+            )
+        lines.append(
+            "Required: one-sentence intro, then a ```places fence with JSON array "
+            '[{"name":"Venue","url":"https://www.google.com/maps/search/?api=1&query=...",'
+            '"note":"optional","address":"street when known","price":"$$"}]. '
+            "url must be a Google Maps link to the venue address — never a generic search page. "
+            "Do NOT also output a markdown numbered list of venues."
+            f"{seed_block}"
+        )
+    elif team:
+        lines.append(
+            f"Required: answer using the results above for **{team}** only. "
+            "Include concrete scores and dates when snippets mention them. "
+            "Do NOT say search failed. Do not paste this list — the app shows source cards."
+        )
+    else:
+        lines.append(
+            "Required: answer the user's question using the results above. "
+            "If they named a team or country, only use snippets about that entity — never "
+            "attribute generic tournament results to them unless they appear in the snippet. "
+            "If snippets show they did not qualify for a tournament, say so. "
+            "Include concrete scores, teams, and dates when the snippets mention them. "
+            "Do NOT say search failed or came up dry. "
+            "Do not paste this list — the app shows source cards."
+        )
     return "\n".join(lines)
+
+
+LOCAL_PLACES_FORMAT_HINT = (
+    "Local places output (restaurants, salons, shops, etc.):\n"
+    "- One short intro sentence, then ONLY a ```places JSON fence — no duplicate markdown list.\n"
+    "- Schema: [{\"name\":\"Venue\",\"url\":\"https://www.google.com/maps/search/?api=1&query=...\","
+    "\"note\":\"rating/cuisine\",\"address\":\"street, city\",\"price\":\"$$\"}]\n"
+    "- url MUST open the venue on Google Maps (use address in the query). "
+    "Never use generic Yelp/Google search pages.\n"
+    "- address is required when the snippet mentions a street or neighborhood.\n"
+    "- price is optional plain text like $, $$, or $$$ — never inside the url field."
+)
+
+
+def _is_generic_search_url(url: str) -> bool:
+    lowered = url.strip().lower()
+    if not lowered:
+        return True
+    if "yelp.com/search" in lowered:
+        return True
+    if "google.com/search" in lowered:
+        return True
+    if "bing.com/search" in lowered:
+        return True
+    return False
+
+
+def _maps_url_for_place(name: str, address: str | None = None) -> str:
+    query = name.strip()
+    if address and address.strip():
+        addr = address.strip()
+        if query.lower() not in addr.lower():
+            query = f"{query}, {addr}"
+        else:
+            query = addr
+    from urllib.parse import quote
+
+    return f"https://www.google.com/maps/search/?api=1&query={quote(query)}"
+
+
+def places_payload_from_hits(hits: list[WebSearchHit]) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for hit in hits[:8]:
+        name = hit.title.strip()
+        if not name:
+            continue
+        url = hit.url.strip()
+        snippet = hit.snippet.replace("\n", " ").strip()
+        address = _extract_address_from_snippet(snippet)
+        price = _extract_price_from_snippet(snippet)
+        row: dict[str, str] = {"name": name}
+        note = snippet
+        if price:
+            row["price"] = price
+            note = note.replace(price, "").strip(" ,-–—()")
+        if address:
+            row["address"] = address
+        if note:
+            row["note"] = note[:160]
+        if url and not _is_generic_search_url(url):
+            row["url"] = url
+        else:
+            row["url"] = _maps_url_for_place(name, address or (snippet[:120] if snippet else None))
+        rows.append(row)
+    return rows
+
+
+def format_places_fence(hits: list[WebSearchHit]) -> str:
+    payload = places_payload_from_hits(hits)
+    if not payload:
+        return ""
+    return f"\n\n```places\n{json.dumps(payload, ensure_ascii=False)}\n```"
 
 
 def format_sources_fence(hits: list[WebSearchHit]) -> str:
@@ -465,8 +675,14 @@ def sources_payload(hits: list[WebSearchHit]) -> list[dict[str, str]]:
     return [{"title": hit.title, "url": hit.url, "snippet": hit.snippet[:280]} for hit in hits]
 
 
-def format_search_empty_block(queries: list[str]) -> str:
+def format_search_empty_block(queries: list[str], *, local_places: bool = False) -> str:
     tried = ", ".join(f'"{q}"' for q in queries[:3])
+    if local_places:
+        return (
+            f"Web search was run ({tried}) but returned no usable results.\n"
+            "Tell the user live search found nothing useful — one short sentence only. "
+            "Do NOT invent restaurant names, addresses, or ratings from memory."
+        )
     return (
         f"Web search was run ({tried}) but returned no usable results.\n"
         "Tell the user live search found nothing useful — one short sentence only. "
@@ -497,7 +713,7 @@ async def _run_search(
 
     for query in queries:
         tried.append(query)
-        hits = await web_search_gateway.search_web(settings, query, max_results=limit)
+        hits = await _search_with_cache(settings, query, max_results=limit)
         for hit in hits:
             key = hit.url.strip().lower() or hit.title.strip().lower()
             if key in seen_urls:
@@ -510,21 +726,71 @@ async def _run_search(
     return merged, tried
 
 
+def _search_cache_key(query: str) -> str:
+    digest = hashlib.sha256(query.strip().lower().encode()).hexdigest()[:32]
+    return f"websearch:{digest}"
+
+
+async def _search_with_cache(
+    settings: Settings,
+    query: str,
+    *,
+    max_results: int,
+) -> list[WebSearchHit]:
+    cleaned = query.strip()
+    if not cleaned:
+        return []
+
+    cache_key = _search_cache_key(cleaned)
+    redis = get_redis_client()
+    try:
+        cached = await redis.get(cache_key)
+        if cached:
+            payload = json.loads(cached)
+            if isinstance(payload, list):
+                return [
+                    WebSearchHit(
+                        title=str(item.get("title") or ""),
+                        url=str(item.get("url") or ""),
+                        snippet=str(item.get("snippet") or ""),
+                    )
+                    for item in payload
+                    if isinstance(item, dict)
+                ]
+    except Exception:
+        logger.debug("Web search cache read failed", exc_info=True)
+
+    hits = await web_search_gateway.search_web(settings, cleaned, max_results=max_results)
+    if hits:
+        try:
+            await redis.set(
+                cache_key,
+                json.dumps([asdict(hit) for hit in hits]),
+                ex=max(60, settings.web_search_cache_ttl),
+            )
+        except Exception:
+            logger.debug("Web search cache write failed", exc_info=True)
+    return hits
+
+
 async def augment_prompt_messages(
     messages: list[dict[str, str]],
     user_content: str,
     settings: Settings,
     *,
     user_timezone: str | None = None,
+    user_location: str | None = None,
     prior_user_messages: list[str] | None = None,
 ) -> tuple[list[dict[str, str]], list[WebSearchHit]]:
     prior_user = prior_user_messages or _prior_user_messages(messages, user_content)
     if not needs_web_search(user_content, prior_user_messages=prior_user):
         return messages, []
 
+    subject = resolve_search_subject(user_content, prior_user_messages=prior_user)
     queries = build_search_queries(
         user_content,
         user_timezone=user_timezone,
+        user_location=user_location,
         prior_user_messages=prior_user,
     )
     hits, tried = await _run_search(settings, queries)
@@ -535,5 +801,11 @@ async def augment_prompt_messages(
             if team:
                 break
     hits = _prioritize_team_hits(hits, team) if team else hits
-    block = format_search_block(hits, team=team) if hits else format_search_empty_block(tried)
+    local_places = _local_places_is_active(user_content, subject)
+    if hits:
+        block = format_search_block(
+            hits, team=team, local_places=local_places, user_location=user_location
+        )
+    else:
+        block = format_search_empty_block(tried, local_places=local_places)
     return _inject_before_last_user(messages, block), hits

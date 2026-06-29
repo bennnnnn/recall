@@ -25,6 +25,7 @@ from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.repositories import usage as usage_repo
 from app.services import quota as quota_service
+from app.services.chat_titles import sanitize_manual_chat_title
 from app.services.quota import utc_today
 
 router = APIRouter(prefix="/chats", tags=["chats"])
@@ -76,7 +77,10 @@ async def rename_chat(
     chat = await chats_repo.get_by_id(session, chat_id, user.id)
     if chat is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
-    chat = await chats_repo.set_title(session, chat, body.title)
+    title = sanitize_manual_chat_title(body.title)
+    if not title:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid title")
+    chat = await chats_repo.set_title(session, chat, title)
     return ChatOut.model_validate(chat)
 
 
@@ -130,17 +134,15 @@ async def today_usage(
     db_usage = await usage_repo.get_for_date(session, user.id, day)
     input_tokens = db_usage.input_tokens if db_usage else 0
     output_tokens = db_usage.output_tokens if db_usage else 0
-    remaining = await quota_service.remaining(
-        redis,
-        str(user.id),
-        daily_limit=quota_service.daily_limit_for_user(user, settings),
-    )
     limit = quota_service.daily_limit_for_user(user, settings)
+    used_tokens = await quota_service.get_daily_usage(redis, str(user.id))
+    remaining = max(0, limit - used_tokens)
     return UsageOut(
         date=day.isoformat(),
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         daily_limit=limit,
+        used_tokens=used_tokens,
         remaining=remaining,
     )
 

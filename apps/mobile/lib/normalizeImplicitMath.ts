@@ -47,6 +47,9 @@ function wrapMath(expr: string): string {
 }
 
 function normalizeMathLine(line: string): string {
+  if (/\]\(https?:\/\//.test(line) || /\[places\s*\n/i.test(line)) {
+    return line;
+  }
   let out = line;
 
   const equationLabel = out.match(

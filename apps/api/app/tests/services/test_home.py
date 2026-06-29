@@ -183,11 +183,19 @@ async def test_build_home_highlight_skips_duplicate_starters():
 
 def test_time_starters_vary_by_hour():
     user = _user()
-    with patch.object(home_service, "_local_hour", return_value=8):
-        morning = home_service._time_starters(user)
-    with patch.object(home_service, "_local_hour", return_value=19):
-        evening = home_service._time_starters(user)
+    tz = home_service._resolve_home_tz(user, "UTC")
+    with patch.object(home_service, "_local_hour_for_tz", side_effect=[8, 19]):
+        morning = home_service._time_starters(user, tz)
+        evening = home_service._time_starters(user, tz)
     assert morning[0].text != evening[0].text
+    assert morning[0].text == "Plan my day"
+    assert evening[0].text == "How did today go?"
+
+
+def test_client_timezone_overrides_profile():
+    user = _user(timezone="UTC")
+    tz = home_service._resolve_home_tz(user, "America/New_York")
+    assert str(tz) == "America/New_York"
 
 
 def test_memory_starter_skips_profile_name_facts():

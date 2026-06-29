@@ -2,14 +2,23 @@
 export type QueuedChatLaunch = {
   prompt: string;
   projectId?: string;
+  quizLanguage?: string;
 };
 
 let queued: QueuedChatLaunch | null = null;
 
-export function queueChatLaunch(prompt: string, projectId?: string): void {
+export function queueChatLaunch(
+  prompt: string,
+  projectId?: string,
+  quizLanguage?: string,
+): void {
   const trimmed = prompt.trim();
   if (!trimmed) return;
-  queued = { prompt: trimmed, ...(projectId ? { projectId } : {}) };
+  queued = {
+    prompt: trimmed,
+    ...(projectId ? { projectId } : {}),
+    ...(quizLanguage ? { quizLanguage } : {}),
+  };
 }
 
 export function takeQueuedChatLaunch(): QueuedChatLaunch | null {

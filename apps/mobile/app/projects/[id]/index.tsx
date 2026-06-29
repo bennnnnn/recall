@@ -22,7 +22,7 @@ import {
   levelLabel,
 } from "@/lib/languageLevels";
 import { isProgrammingStack, programmingLanguageLabel } from "@/lib/programmingLanguages";
-import { buildProjectAskPrompt, buildProjectQuizPrompt } from "@/lib/projectChat";
+import { buildProjectAskPrompt, buildProjectPracticePrompt, buildProjectQuizPrompt } from "@/lib/projectChat";
 import {
   buildProgrammingNextUpPrompt,
   buildProgrammingStudyPrompt,
@@ -154,14 +154,17 @@ export default function ProjectDetailScreen() {
     });
   };
 
-  const launchChat = (prompt: string) => {
-    queueChatLaunch(prompt, project.id);
+  const launchChat = (prompt: string, quizLanguage?: string) => {
+    queueChatLaunch(prompt, project.id, quizLanguage);
     router.replace("/");
   };
 
   const askRecall = () => launchChat(buildProjectAskPrompt(project));
 
-  const quizWithRecall = () => launchChat(buildProjectQuizPrompt(project));
+  const quizWithRecall = () =>
+    launchChat(buildProjectQuizPrompt(project), project.target_language || "en");
+
+  const practiceWithRecall = () => launchChat(buildProjectPracticePrompt(project));
 
   const studyProgrammingTopic = (topic: string) =>
     launchChat(buildProgrammingStudyPrompt(project, topic));
@@ -294,11 +297,15 @@ export default function ProjectDetailScreen() {
             ))}
           </View>
         ))
-      ) : !isProgramming ? (
-        <View style={s.comingSoon}>
-          <Ionicons name="sparkles-outline" size={22} color={C.primary} />
-          <Text style={s.comingSoonTitle}>{t("projects.coming_title")}</Text>
-          <Text style={s.comingSoonBody}>{t("projects.lists_empty")}</Text>
+      ) : !isProgramming && !isLang ? (
+        <View style={s.practiceSection}>
+          <Ionicons name="calculator-outline" size={22} color={C.primary} />
+          <Text style={s.practiceTitle}>{t("projects.practice_title")}</Text>
+          <Text style={s.practiceBody}>{t("projects.practice_body")}</Text>
+          <Pressable style={s.studyBtn} onPress={practiceWithRecall}>
+            <Ionicons name="play-outline" size={20} color="#fff" />
+            <Text style={s.studyBtnText}>{t("projects.practice_start")}</Text>
+          </Pressable>
         </View>
       ) : null}
 
@@ -388,6 +395,14 @@ const s = StyleSheet.create({
   },
   comingSoonTitle: { fontSize: 16, fontWeight: "700", color: C.text },
   comingSoonBody: { fontSize: 14, lineHeight: 21, color: C.textSecondary },
+  practiceSection: {
+    backgroundColor: C.surface,
+    borderRadius: 16,
+    padding: 16,
+    gap: 10,
+  },
+  practiceTitle: { fontSize: 16, fontWeight: "700", color: C.text },
+  practiceBody: { fontSize: 14, lineHeight: 21, color: C.textSecondary },
   encourage: {
     fontSize: 14,
     lineHeight: 20,

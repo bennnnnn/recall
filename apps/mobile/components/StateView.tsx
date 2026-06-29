@@ -2,6 +2,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 import { Ionicons } from "@expo/vector-icons";
 
 import { Theme, useTheme } from "@/lib/theme";
+import { tap } from "@/lib/haptics";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -49,7 +50,13 @@ export function StateView({
       {title ? <Text style={s.title}>{title}</Text> : null}
       {message ? <Text style={s.message}>{message}</Text> : null}
       {onRetry ? (
-        <Pressable style={s.retryBtn} onPress={onRetry}>
+        <Pressable
+          style={s.retryBtn}
+          onPress={() => {
+            tap();
+            onRetry();
+          }}
+        >
           <Text style={s.retryText}>{retryLabel}</Text>
         </Pressable>
       ) : null}

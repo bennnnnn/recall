@@ -1,26 +1,28 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useMemo } from "react";
+import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Redirect, useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { tap } from "@/lib/haptics";
 import { Theme, useTheme } from "@/lib/theme";
 
 const FEATURES = [
   {
     icon: "school-outline",
-    title: "Learn",
-    body: "English, programming, and more — with quizzes that track your progress.",
+    titleKey: "onboarding.learn_title",
+    bodyKey: "onboarding.learn_body",
   },
   {
     icon: "calendar-outline",
-    title: "Stay organized",
-    body: "Reminders, calendar, and email suggestions — all in one place.",
+    titleKey: "onboarding.organize_title",
+    bodyKey: "onboarding.organize_body",
   },
   {
     icon: "sparkles-outline",
-    title: "Remembers you",
-    body: "Recall learns your goals and picks up where you left off.",
+    titleKey: "onboarding.remember_title",
+    bodyKey: "onboarding.remember_body",
   },
 ] as const;
 
@@ -28,11 +30,13 @@ export default function Onboarding() {
   const { onboarded, completeOnboarding } = useAuth();
   const router = useRouter();
   const theme = useTheme();
+  const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
 
   if (onboarded) return <Redirect href="/login" />;
 
   const finish = async () => {
+    tap();
     await completeOnboarding();
     router.replace("/login");
   };
@@ -43,26 +47,26 @@ export default function Onboarding() {
         <View style={s.badge}>
           <Text style={s.badgeStar}>✦</Text>
         </View>
-        <Text style={s.title}>Welcome to Recall</Text>
-        <Text style={s.subtitle}>Your personal AI for learning and daily life.</Text>
+        <Text style={s.title}>{t("onboarding.welcome")}</Text>
+        <Text style={s.subtitle}>{t("onboarding.subtitle")}</Text>
       </View>
 
       <View style={s.features}>
         {FEATURES.map((f) => (
-          <View key={f.title} style={s.feature}>
+          <View key={f.titleKey} style={s.feature}>
             <View style={s.featureIcon}>
               <Ionicons name={f.icon as never} size={20} color={theme.primary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={s.featureTitle}>{f.title}</Text>
-              <Text style={s.featureBody}>{f.body}</Text>
+              <Text style={s.featureTitle}>{t(f.titleKey)}</Text>
+              <Text style={s.featureBody}>{t(f.bodyKey)}</Text>
             </View>
           </View>
         ))}
       </View>
 
       <Pressable style={s.cta} onPress={finish}>
-        <Text style={s.ctaText}>Get started</Text>
+        <Text style={s.ctaText}>{t("onboarding.get_started")}</Text>
       </Pressable>
     </View>
   );

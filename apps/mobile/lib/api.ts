@@ -22,6 +22,7 @@ export type User = {
   response_tone: string;
   memory_enabled: boolean;
   push_notifications_enabled: boolean;
+  reminder_lead_minutes: number;
   locale: string;
   timezone: string;
   location: string | null;
@@ -54,6 +55,7 @@ export type Message = {
   feedback?: Feedback;
   recalled?: number;
   memory_hints?: string[];
+  context_summarized?: number;
   search_sources?: SearchSource[];
   local_image_uri?: string | null;
   created_at: string;
@@ -237,6 +239,7 @@ export type Usage = {
   input_tokens: number;
   output_tokens: number;
   daily_limit: number;
+  used_tokens?: number;
   remaining: number;
 };
 
@@ -580,7 +583,12 @@ export const api = {
   listTemplates: (token: string) => request<Template[]>("/templates", token),
   listSuggestions: (token: string) => request<Suggestion[]>("/suggestions", token),
 
-  getHomeScreen: (token: string) => request<HomeScreen>("/home", token),
+  getHomeScreen: (token: string, clientTimezone?: string) => {
+    const params = clientTimezone
+      ? `?client_timezone=${encodeURIComponent(clientTimezone)}`
+      : "";
+    return request<HomeScreen>(`/home${params}`, token);
+  },
   googleCalendarStatus: (token: string) =>
     request<GoogleCalendarStatus>("/integrations/google-calendar/status", token),
   connectGoogleCalendar: (token: string, serverAuthCode: string) =>

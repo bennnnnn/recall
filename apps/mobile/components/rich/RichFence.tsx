@@ -1,6 +1,8 @@
 import { ReactNode } from "react";
 
+import { PlacesListBlock } from "@/components/PlacesListBlock";
 import { CalloutBlock } from "@/components/rich/CalloutBlock";
+import { parsePlacesJson } from "@/lib/placesList";
 import { ChartBlock } from "@/components/rich/ChartBlock";
 import { CollapsibleBlock } from "@/components/rich/CollapsibleBlock";
 import { ComparisonBlock } from "@/components/rich/ComparisonBlock";
@@ -74,6 +76,12 @@ export function renderRichFence(
 
   if (l === "graph") {
     return <FunctionGraphBlock key={key} content={content} />;
+  }
+
+  if (l === "places") {
+    const places = parsePlacesJson(content);
+    if (places.length > 0) return <PlacesListBlock key={key} places={places} />;
+    return null;
   }
 
   if (l === "clock" || l === "time") {

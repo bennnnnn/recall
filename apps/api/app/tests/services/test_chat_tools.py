@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -38,6 +38,10 @@ async def test_augment_web_and_tools_uses_mcp_when_enabled():
 
     settings = Settings(mcp_tools_enabled=True, web_search_enabled=True)
     messages = [{"role": "system", "content": "base"}, {"role": "user", "content": "latest news?"}]
+    web_hit = MagicMock()
+    web_hit.title = "News"
+    web_hit.url = "https://news.example"
+    web_hit.snippet = "story"
 
     with (
         patch(
@@ -46,7 +50,7 @@ async def test_augment_web_and_tools_uses_mcp_when_enabled():
         ) as mcp_mock,
         patch(
             "app.services.chat.web_search_service.augment_prompt_messages",
-            AsyncMock(),
+            AsyncMock(return_value=([{"role": "system", "content": "web"}], [web_hit])),
         ) as web_mock,
         patch(
             "app.services.chat.math_tools_service.augment_prompt_messages",
@@ -59,8 +63,8 @@ async def test_augment_web_and_tools_uses_mcp_when_enabled():
             settings,
         )
 
+    web_mock.assert_awaited_once()
     mcp_mock.assert_awaited_once()
-    web_mock.assert_not_awaited()
     math_mock.assert_awaited_once()
     assert updated == [{"role": "system", "content": "mcp"}]
-    assert hits == []
+    assert hits == [web_hit]

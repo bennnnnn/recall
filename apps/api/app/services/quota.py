@@ -5,10 +5,20 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.models.orm import User
 
-# Shown when the daily free quota is exhausted — avoid internal "token" wording.
-QUOTA_EXCEEDED_MESSAGE = (
+# Shown when the daily quota is exhausted — avoid internal "token" wording.
+QUOTA_EXCEEDED_MESSAGE_FREE = (
     "You've used up today's free limit. Go Pro for more — or come back tomorrow."
 )
+QUOTA_EXCEEDED_MESSAGE_PRO = "You've reached today's limit. Come back tomorrow."
+
+# Backward-compatible alias for tests and imports.
+QUOTA_EXCEEDED_MESSAGE = QUOTA_EXCEEDED_MESSAGE_FREE
+
+
+def quota_exceeded_message(user: User) -> str:
+    if user.plan == "pro":
+        return QUOTA_EXCEEDED_MESSAGE_PRO
+    return QUOTA_EXCEEDED_MESSAGE_FREE
 
 
 def _usage_key(user_id: str, day: date) -> str:

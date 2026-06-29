@@ -89,6 +89,27 @@ def is_external_calendar_question(text: str) -> bool:
     return bool(_EXTERNAL_CALENDAR.search(cleaned))
 
 
+_SCHEDULE_CONTEXT = re.compile(
+    r"\b("
+    r"meeting|meetings|schedule|calendar|busy|free(?:\s+time)?|appointment|"
+    r"conflict|overlap|when am i|what am i doing|am i free"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def should_inject_calendar_block(text: str) -> bool:
+    """Load live calendar events only when the turn likely needs schedule context."""
+    cleaned = text.strip()
+    if not cleaned:
+        return False
+    if is_external_calendar_question(cleaned):
+        return True
+    if is_calendar_create_request(cleaned):
+        return True
+    return bool(_SCHEDULE_CONTEXT.search(cleaned))
+
+
 def format_not_connected_answer() -> str:
     return (
         "I don't have your Google Calendar connected yet.\n\n"

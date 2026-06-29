@@ -27,6 +27,7 @@ class UserOut(BaseModel):
     response_tone: str = "funny"
     memory_enabled: bool
     push_notifications_enabled: bool = True
+    reminder_lead_minutes: int = 10
     locale: str = "en"
     timezone: str = "UTC"
     location: str | None = None
@@ -34,16 +35,29 @@ class UserOut(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    name: str | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=80)
     default_model: str | None = None
     enabled_models: list[str] | None = None
     response_style: ResponseStyle | None = None
     response_tone: ResponseTone | None = None
     memory_enabled: bool | None = None
     push_notifications_enabled: bool | None = None
+    reminder_lead_minutes: int | None = Field(default=None, ge=5, le=30)
     locale: str | None = None
     timezone: str | None = Field(default=None, max_length=64)
     location: str | None = Field(default=None, max_length=128)
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        from app.services.profile import normalize_display_name
+
+        normalized = normalize_display_name(value)
+        if not normalized:
+            raise ValueError("Name must be 1–80 characters.")
+        return normalized
 
     @field_validator("default_model")
     @classmethod
@@ -64,6 +78,15 @@ class UserUpdate(BaseModel):
             if entry == "auto":
                 continue
             model_catalog.validate_user_alias(entry)
+        return value
+
+    @field_validator("reminder_lead_minutes")
+    @classmethod
+    def validate_reminder_lead_minutes(cls, value: int | None) -> int | None:
+        if value is None:
+            return None
+        if value not in {5, 10, 15, 30}:
+            raise ValueError("reminder_lead_minutes must be 5, 10, 15, or 30")
         return value
 
 
@@ -169,6 +192,7 @@ class UsageOut(BaseModel):
     input_tokens: int
     output_tokens: int
     daily_limit: int
+    used_tokens: int
     remaining: int
 
 

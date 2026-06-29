@@ -4,12 +4,46 @@ export type ParsedVocabQuiz = {
   word: string;
   partOfSpeech?: string;
   question?: string;
+  correct?: QuizChoice["letter"];
   choices: QuizChoice[];
 };
 
+export function isCompleteVocabQuiz(quiz: ParsedVocabQuiz | null): quiz is ParsedVocabQuiz {
+  return quiz != null && quiz.choices.length === 4;
+}
+
+/** Single-letter reply sent when the user taps a quiz choice. */
+export function isVocabQuizAnswer(content: string): boolean {
+  return /^[A-D]\.?$/i.test(content.trim());
+}
+
+export function parseQuizAnswerLetter(
+  content: string,
+): QuizChoice["letter"] | null {
+  const match = content.trim().match(/^([A-D])\.?$/i);
+  return match ? (match[1].toUpperCase() as QuizChoice["letter"]) : null;
+}
+
+/** Map assistant quiz message ids → the user's chosen letter (from chat history). */
+export function inferQuizAnswersFromMessages(
+  messages: Array<{ id: string; role: string; content: string }>,
+): Partial<Record<string, QuizChoice["letter"]>> {
+  const answers: Partial<Record<string, QuizChoice["letter"]>> = {};
+  for (let i = 0; i < messages.length - 1; i++) {
+    const msg = messages[i];
+    if (msg.role !== "assistant" || !isCompleteVocabQuiz(parseVocabQuiz(msg.content))) {
+      continue;
+    }
+    const next = messages[i + 1];
+    if (next.role !== "user") continue;
+    const letter = parseQuizAnswerLetter(next.content);
+    if (letter) answers[msg.id] = letter;
+  }
+  return answers;
+}
+
 const CHOICE_LINE = /^([A-D])\)\s*(.+)$/i;
-const WORD_LINE =
-  /(?:\*\*Word:\*\*|Word:)\s*([^\n\[]+?)(?:\s*\[([^\]]+)\])?(?:\s*$|\s*\n)/i;
+const VOCAB_QUIZ_FENCE_RE = /```vocab_quiz\s*\n([\s\S]*?)```/i;
 const QUESTION_LINE =
   /^(?:What does it mean\??|Choose the best meaning:?|Which definition is correct:?)\s*$/i;
 
@@ -26,6 +60,44 @@ type ChoiceBlock = {
   startLine: number;
   endLine: number;
 };
+
+function parseVocabQuizFence(content: string): ParsedVocabQuiz | null {
+  if (!content.includes("```vocab_quiz")) return null;
+  const match = VOCAB_QUIZ_FENCE_RE.exec(content);
+  if (!match) return null;
+  try {
+    const data = JSON.parse(match[1].trim()) as {
+      word?: string;
+      part_of_speech?: string;
+      question?: string;
+      correct?: string;
+      choices?: Array<{ letter?: string; text?: string }>;
+    };
+    const word = cleanQuizWord(String(data.word ?? ""));
+    if (!word || !Array.isArray(data.choices)) return null;
+    const choices: QuizChoice[] = [];
+    for (const item of data.choices) {
+      const letter = String(item.letter ?? "").toUpperCase();
+      const text = String(item.text ?? "").trim();
+      if (!/^[A-D]$/.test(letter) || !text) continue;
+      choices.push({ letter: letter as QuizChoice["letter"], text });
+    }
+    if (choices.length < 2) return null;
+    const correctRaw = String(data.correct ?? "").toUpperCase();
+    const correct = /^[A-D]$/.test(correctRaw)
+      ? (correctRaw as QuizChoice["letter"])
+      : undefined;
+    return {
+      word,
+      partOfSpeech: data.part_of_speech?.trim() || undefined,
+      question: data.question?.trim() || undefined,
+      correct,
+      choices,
+    };
+  } catch {
+    return null;
+  }
+}
 
 function findChoiceBlocks(lines: string[]): ChoiceBlock[] {
   const blocks: ChoiceBlock[] = [];
@@ -97,7 +169,7 @@ function extractQuestion(lines: string[], headerLine: number, choiceStartLine: n
   return undefined;
 }
 
-export function parseVocabQuiz(content: string): ParsedVocabQuiz | null {
+function parseVocabQuizMarkdown(content: string): ParsedVocabQuiz | null {
   const lines = content.split("\n");
   const blocks = findChoiceBlocks(lines);
   if (blocks.length === 0) return null;
@@ -114,11 +186,17 @@ export function parseVocabQuiz(content: string): ParsedVocabQuiz | null {
   };
 }
 
+export function parseVocabQuiz(content: string): ParsedVocabQuiz | null {
+  return parseVocabQuizFence(content) ?? parseVocabQuizMarkdown(content);
+}
+
 /** Intro/feedback text without the interactive quiz block. */
 export function stripVocabQuizBlock(content: string): string {
-  const lines = content.split("\n");
+  let stripped = content.replace(VOCAB_QUIZ_FENCE_RE, "").trim();
+
+  const lines = stripped.split("\n");
   const blocks = findChoiceBlocks(lines);
-  if (blocks.length === 0) return content.trim();
+  if (blocks.length === 0) return stripped.trim();
 
   const block = blocks[blocks.length - 1];
   const wordInfo = extractWordAbove(lines, block.startLine);

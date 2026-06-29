@@ -43,6 +43,18 @@ def resolve_timezone(tz: str | None) -> ZoneInfo:
         return ZoneInfo(DEFAULT_TIMEZONE)
 
 
+def effective_timezone(profile_tz: str | None, client_tz: str | None = None) -> str:
+    """Prefer device timezone from the client; fall back to stored profile."""
+    if client_tz and client_tz.strip():
+        try:
+            ZoneInfo(client_tz.strip())
+            return client_tz.strip()
+        except ZoneInfoNotFoundError:
+            pass
+    cleaned = (profile_tz or DEFAULT_TIMEZONE).strip()
+    return cleaned or DEFAULT_TIMEZONE
+
+
 def prefers_12h_clock(locale: str | None) -> bool:
     code = (locale or "en").split("-")[0].lower()
     return code == "en"

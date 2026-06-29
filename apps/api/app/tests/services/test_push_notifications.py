@@ -23,6 +23,7 @@ async def test_process_todo_reminders_due_soon():
 
     user = MagicMock()
     user.push_notifications_enabled = True
+    user.reminder_lead_minutes = 10
 
     token = MagicMock()
     token.expo_push_token = "ExponentPushToken[abc]"
@@ -42,6 +43,36 @@ async def test_process_todo_reminders_due_soon():
     assert messages[0]["data"]["todo_id"] == str(todo.id)
     session.commit.assert_awaited_once()
     assert todo.notification_sent_at == now
+
+
+@pytest.mark.asyncio
+async def test_process_todo_reminders_respects_user_lead():
+    session = AsyncMock()
+    user_id = uuid4()
+    now = datetime(2026, 6, 28, 12, 0, tzinfo=UTC)
+
+    todo = MagicMock()
+    todo.user_id = user_id
+    todo.id = uuid4()
+    todo.content = "Stretch"
+    todo.due_at = now + timedelta(minutes=20)
+    todo.notification_sent_at = None
+
+    user = MagicMock()
+    user.push_notifications_enabled = True
+    user.reminder_lead_minutes = 5
+
+    session.execute = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[(todo, user)])))
+
+    with patch.object(
+        push_service.push_repo,
+        "list_for_user",
+        AsyncMock(return_value=[]),
+    ):
+        messages = await push_service.process_todo_reminders(session, now=now)
+
+    assert messages == []
+    session.commit.assert_not_awaited()
 
 
 @pytest.mark.asyncio

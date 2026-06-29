@@ -61,15 +61,19 @@ function UrgentTodoSection({
   label,
   todos,
   onSelect,
+  onDismiss,
   styles: s,
   theme,
 }: {
   label: string;
   todos: HomeUrgentTodo[];
   onSelect: (prompt: string) => void;
+  onDismiss?: (todoId: string) => void;
   styles: ReturnType<typeof makeStyles>;
   theme: Theme;
 }) {
+  const { t } = useTranslation();
+
   return (
     <View style={s.urgentBlock}>
       <Text style={[s.sectionLabel, s.sectionLabelUrgent]}>{label}</Text>
@@ -77,28 +81,40 @@ function UrgentTodoSection({
         const due = describeDueAt(todo.due_at);
         const overdue = todo.minutes_until < 0 || due?.tone === "overdue";
         return (
-          <Pressable
-            key={todo.id}
-            style={[s.urgentCard, overdue && s.urgentCardOverdue]}
-            onPress={() => onSelect(homeUrgentPrompt(todo))}
-          >
-            <Ionicons
-              name={overdue ? "alert-circle-outline" : "alarm-outline"}
-              size={18}
-              color={theme.danger}
-            />
-            <View style={s.urgentMain}>
-              <Text style={s.urgentTitle} numberOfLines={2}>
-                {todo.content}
-              </Text>
-              {due ? (
-                <Text style={s.urgentDue} numberOfLines={1}>
-                  {due.label}
+          <View key={todo.id} style={s.urgentCardWrap}>
+            <Pressable
+              style={[s.urgentCard, overdue && s.urgentCardOverdue]}
+              onPress={() => onSelect(homeUrgentPrompt(todo))}
+            >
+              <Ionicons
+                name={overdue ? "alert-circle-outline" : "alarm-outline"}
+                size={18}
+                color={theme.danger}
+              />
+              <View style={s.urgentMain}>
+                <Text style={s.urgentTitle} numberOfLines={2}>
+                  {todo.content}
                 </Text>
-              ) : null}
-            </View>
-            <Ionicons name="chevron-forward" size={16} color={theme.danger} />
-          </Pressable>
+                {due ? (
+                  <Text style={s.urgentDue} numberOfLines={1}>
+                    {due.label}
+                  </Text>
+                ) : null}
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={theme.danger} />
+            </Pressable>
+            {onDismiss ? (
+              <Pressable
+                style={s.urgentDismiss}
+                onPress={() => onDismiss(todo.id)}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={t("chat.home.dismiss_reminder")}
+              >
+                <Ionicons name="close" size={14} color={theme.textSecondary} />
+              </Pressable>
+            ) : null}
+          </View>
         );
       })}
     </View>
@@ -110,12 +126,13 @@ export function HomeStarters({ onSelect }: Props) {
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { screen, loading } = useHome();
-  const { todos, loading: todosLoading } = useTodos();
+  const { todos, loading: todosLoading, seenReminderIds, dismissReminderNudge } = useTodos();
 
   const urgentTodos = useMemo(() => {
-    if (!todosLoading) return listHomeUrgentTodos(todos);
-    return screen?.urgent_todos ?? [];
-  }, [todos, todosLoading, screen?.urgent_todos]);
+    const raw =
+      !todosLoading ? listHomeUrgentTodos(todos) : (screen?.urgent_todos ?? []);
+    return raw.filter((todo) => !seenReminderIds.has(todo.id));
+  }, [todos, todosLoading, screen?.urgent_todos, seenReminderIds]);
 
   const urgentGroups = useMemo(() => partitionHomeUrgentTodos(urgentTodos), [urgentTodos]);
 
@@ -169,6 +186,7 @@ export function HomeStarters({ onSelect }: Props) {
           label={t("chat.home.overdue")}
           todos={urgentGroups.overdue}
           onSelect={onSelect}
+          onDismiss={(id) => void dismissReminderNudge(id)}
           styles={s}
           theme={theme}
         />
@@ -262,6 +280,9 @@ function makeStyles(t: Theme) {
       color: t.danger,
     },
     urgentBlock: { width: "100%", gap: 8, marginTop: 4 },
+    urgentCardWrap: {
+      position: "relative",
+    },
     urgentCard: {
       flexDirection: "row",
       alignItems: "center",
@@ -270,8 +291,22 @@ function makeStyles(t: Theme) {
       borderRadius: 14,
       paddingHorizontal: 14,
       paddingVertical: 12,
+      paddingRight: 36,
       borderWidth: 1,
       borderColor: t.danger + "40",
+    },
+    urgentDismiss: {
+      position: "absolute",
+      top: 6,
+      right: 6,
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: t.surface,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: t.border,
     },
     urgentCardOverdue: {
       borderColor: t.danger,

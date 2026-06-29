@@ -1,18 +1,15 @@
-import { Redirect } from "expo-router";
+import { useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useAuth } from "@/contexts/AuthContext";
 import { PRIVACY_POLICY } from "@/lib/privacyPolicy";
-import { C } from "@/constants/Colors";
+import { Theme, useTheme } from "@/lib/theme";
 
 export default function PrivacyScreen() {
-  const { token } = useAuth();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
 
-  if (!token) return <Redirect href="/login" />;
-
-  // Simple markdown-to-styled-text parser for the privacy policy.
   const sections = PRIVACY_POLICY.split("\n").filter(Boolean);
 
   const renderLine = (line: string, i: number) => {
@@ -59,25 +56,27 @@ export default function PrivacyScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: C.bg },
-  content: { paddingHorizontal: 20, paddingTop: 8 },
-  h1: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: C.text,
-    marginBottom: 12,
-    marginTop: 8,
-  },
-  h2: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: C.text,
-    marginBottom: 8,
-    marginTop: 20,
-  },
-  body: { fontSize: 15, lineHeight: 22, color: C.text, marginBottom: 8 },
-  bulletRow: { flexDirection: "row", gap: 8, marginBottom: 4, paddingLeft: 4 },
-  bullet: { fontSize: 15, color: C.primary, lineHeight: 22 },
-  bulletText: { flex: 1, fontSize: 15, lineHeight: 22, color: C.text },
-});
+function makeStyles(theme: Theme) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: theme.bg },
+    content: { paddingHorizontal: 20, paddingTop: 8 },
+    h1: {
+      fontSize: 22,
+      fontWeight: "700",
+      color: theme.text,
+      marginBottom: 12,
+      marginTop: 8,
+    },
+    h2: {
+      fontSize: 17,
+      fontWeight: "700",
+      color: theme.text,
+      marginBottom: 8,
+      marginTop: 20,
+    },
+    body: { fontSize: 15, lineHeight: 22, color: theme.text, marginBottom: 8 },
+    bulletRow: { flexDirection: "row", gap: 8, marginBottom: 4, paddingLeft: 4 },
+    bullet: { fontSize: 15, color: theme.primary, lineHeight: 22 },
+    bulletText: { flex: 1, fontSize: 15, lineHeight: 22, color: theme.text },
+  });
+}

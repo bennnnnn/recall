@@ -53,6 +53,11 @@ def is_external_email_question(text: str) -> bool:
     return bool(_EXTERNAL_EMAIL.search(cleaned))
 
 
+def should_inject_gmail_block(text: str) -> bool:
+    """Fetch inbox context only when the user is asking about email."""
+    return is_external_email_question(text)
+
+
 def format_not_connected_answer() -> str:
     return (
         "Gmail isn't connected yet.\n\n"

@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { FlashList, FlashListRef } from "@shopify/flash-list";
 import { LinearGradient } from "expo-linear-gradient";
-import { openDrawer, registerNewChat } from "@/lib/drawer";
+import { openDrawer, patchChatGlobal, registerNewChat, setChatTitleGenerating } from "@/lib/drawer";
 import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -23,6 +23,7 @@ import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 
 import { Theme, useTheme } from "@/lib/theme";
+import { messageListItemType } from "@/lib/messageListLayout";
 import { SuggestedRemindersNudge } from "@/components/SuggestedRemindersNudge";
 import { MessageBubble } from "@/components/MessageBubble";
 import { HomeStarters } from "@/components/HomeStarters";
@@ -45,8 +46,12 @@ import { api, Message } from "@/lib/api";
 import { tap } from "@/lib/haptics";
 import { shareConversation } from "@/lib/share";
 import { MESSAGE_PAGE_SIZE } from "@/lib/chatConstants";
+import { displayChatTitle, sanitizeManualChatTitle } from "@/lib/chatTitle";
+import { inferQuizAnswersFromMessages } from "@/lib/parseVocabQuiz";
+import { isQuotaErrorMessage, quotaAlertTitle } from "@/lib/quota";
 import { takeQueuedChatLaunch, type QueuedChatLaunch } from "@/lib/chatLaunch";
 import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
+import { useTodosOptional } from "@/contexts/TodosContext";
 import {
   messageTextForSend,
   pickDocument,
@@ -89,8 +94,10 @@ function ChatScreen() {
   const [draftChatId, setDraftChatId] = useState<string | null>(null);
   const draftChatIdRef = useRef<string | null>(null);
   const draftProjectIdRef = useRef<string | null>(null);
+  const [quizLanguage, setQuizLanguage] = useState("en");
   const draftCreatePromiseRef = useRef<Promise<string | null> | null>(null);
   const [chatTitle, setChatTitle] = useState<string | null>(null);
+  const [titleGenerating, setTitleGenerating] = useState(false);
   const [input, setInput] = useState("");
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
   const [attachBusy, setAttachBusy] = useState(false);
@@ -194,17 +201,25 @@ function ChatScreen() {
 
   // Poll GET /chats/{id} until a title appears (max 10 s)
   const pollForTitle = useCallback(async (tid: string, cid: string) => {
-    for (let i = 0; i < 5; i++) {
-      await new Promise((r) => setTimeout(r, 2000));
-      try {
-        const updated = await api.getChat(tid, cid);
-        if (updated.title) {
-          setChatTitle(updated.title);
-          return;
+    setTitleGenerating(true);
+    setChatTitleGenerating(cid);
+    try {
+      for (let i = 0; i < 5; i++) {
+        await new Promise((r) => setTimeout(r, 2000));
+        try {
+          const updated = await api.getChat(tid, cid);
+          if (updated.title) {
+            setChatTitle(updated.title);
+            patchChatGlobal(cid, { title: updated.title });
+            return;
+          }
+        } catch {
+          /* ignore */
         }
-      } catch {
-        /* ignore */
       }
+    } finally {
+      setTitleGenerating(false);
+      setChatTitleGenerating(null);
     }
   }, []);
 
@@ -214,20 +229,27 @@ function ChatScreen() {
   }, [token, chatId, pollForTitle]);
 
   const handleChatError = useCallback(
-    (message: string) => {
-      const isQuota = /free limit|daily limit/i.test(message);
+    (message: string, code?: string) => {
+      const isQuota =
+        code === "quota_exceeded" || isQuotaErrorMessage(message);
       Alert.alert(
-        isQuota ? t("chat.quota_title") : t("chat.error_title"),
+        isQuota ? quotaAlertTitle(isPro, t) : t("chat.error_title"),
         message,
       );
     },
-    [t],
+    [isPro, t],
   );
+
+  const todosCtx = useTodosOptional();
+  const handleTodosSync = useCallback(() => {
+    void todosCtx?.refresh({ silent: true });
+  }, [todosCtx]);
 
   const {
     messages,
     setMessages,
     streaming,
+    streamingDraft,
     sendMessage,
     regenerateResponse,
     editMessage,
@@ -236,8 +258,14 @@ function ChatScreen() {
   } = useChat(token, activeChatId, {
     onFirstReply: handleFirstReply,
     onError: handleChatError,
+    onTodosSync: handleTodosSync,
   });
   messagesLenRef.current = messages.length;
+
+  const quizAnswers = useMemo(
+    () => inferQuizAnswersFromMessages(messages),
+    [messages],
+  );
 
   // Pre-create an empty chat + warm the WebSocket while the home screen is visible.
   useEffect(() => {
@@ -501,6 +529,21 @@ function ChatScreen() {
     return null;
   }, [messages]);
 
+  const headerTitleLabel = useMemo(
+    () =>
+      messages.length > 0
+        ? displayChatTitle(chatTitle, { generating: titleGenerating }, t)
+        : null,
+    [messages.length, chatTitle, titleGenerating, t],
+  );
+
+  useEffect(() => {
+    if (!chatId) {
+      setTitleGenerating(false);
+      setChatTitleGenerating(null);
+    }
+  }, [chatId]);
+
   const showActionBanner = useCallback(
     (message: string, icon?: keyof typeof Ionicons.glyphMap) => {
       setActionBanner({ message, icon });
@@ -584,6 +627,7 @@ function ChatScreen() {
       clearDraftChat();
       draftProjectIdRef.current = queued.projectId ?? null;
       pendingProjectIdRef.current = queued.projectId ?? null;
+      setQuizLanguage(queued.quizLanguage ?? "en");
       setInput("");
       setChatId(null);
       setChatTitle(null);
@@ -782,7 +826,7 @@ function ChatScreen() {
   }, [pendingLaunch, chatId, streaming]);
 
   const handleQuizAnswer = useCallback(
-    (letter: "A" | "B" | "C" | "D") => {
+    (_messageId: string, letter: "A" | "B" | "C" | "D") => {
       if (streaming || creatingRef.current) return;
       void handleSend(letter);
     },
@@ -841,11 +885,14 @@ function ChatScreen() {
         item.role === "assistant" && index > 0 && messages[index - 1]?.role === "user"
           ? messages[index - 1].content
           : null;
+      const isStreamingItem = item.id === "streaming";
       return (
         <MessageBubble
           message={item}
           priorUserText={priorUserText}
-          isGenerating={streaming && item.id === "streaming"}
+          isGenerating={streaming && isStreamingItem}
+          liveContent={isStreamingItem ? streamingDraft?.content : undefined}
+          liveSearchSources={isStreamingItem ? streamingDraft?.search_sources : undefined}
           isLastAssistant={
             item.role === "assistant" && item.id === lastAssistantId
           }
@@ -865,10 +912,23 @@ function ChatScreen() {
               : undefined
           }
           quizDisabled={streaming || creatingRef.current}
+          quizLanguage={quizLanguage}
+          quizSelectedLetter={quizAnswers[item.id] ?? null}
         />
       );
     },
-    [messages, streaming, lastAssistantId, regenerateResponse, handleEditMessage, handleFeedback, handleQuizAnswer],
+    [
+      messages,
+      streaming,
+      streamingDraft,
+      lastAssistantId,
+      regenerateResponse,
+      handleEditMessage,
+      handleFeedback,
+      handleQuizAnswer,
+      quizLanguage,
+      quizAnswers,
+    ],
   );
 
   const openRename = () => {
@@ -877,7 +937,7 @@ function ChatScreen() {
   };
 
   const confirmRename = async () => {
-    const title = renameText.trim();
+    const title = sanitizeManualChatTitle(renameText);
     if (!title || !chatId || !token) {
       setRenameVisible(false);
       return;
@@ -885,6 +945,7 @@ function ChatScreen() {
     try {
       const u = await api.renameChat(token, chatId, title);
       setChatTitle(u.title);
+      patchChatGlobal(chatId, { title: u.title });
       showActionBanner(t("chat.renamed_toast"), "pencil-outline");
     } catch {
       Alert.alert(t("common.error"), t("chat.rename_failed"));
@@ -1013,7 +1074,7 @@ function ChatScreen() {
               startRenderingFromBottom: true,
             }}
             keyExtractor={(item) => item.id}
-            getItemType={(item) => item.role}
+            getItemType={messageListItemType}
             renderItem={renderItem}
             onScroll={handleScroll}
             onScrollEndDrag={handleScrollEnd}
@@ -1055,7 +1116,7 @@ function ChatScreen() {
 
           <LinearGradient
             colors={[C.bg, C.bg, `${C.bg}00`]}
-            locations={[0, 0.55, 1]}
+            locations={[0, 0.78, 1]}
             style={[s.headerFade, { height: fadeHeight }]}
             pointerEvents="none"
           />
@@ -1082,7 +1143,21 @@ function ChatScreen() {
               >
                 <HamburgerIcon size={22} color={C.text} />
               </Pressable>
-              <View style={s.headerSpacer} />
+              {headerTitleLabel ? (
+                <View style={s.headerCenter} pointerEvents="none">
+                  <Text
+                    style={[
+                      s.headerTitleText,
+                      titleGenerating && !chatTitle && s.headerTitlePending,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {headerTitleLabel}
+                  </Text>
+                </View>
+              ) : (
+                <View style={s.headerSpacer} />
+              )}
               <View style={s.headerRight}>
                 {showIndicator ? (
                   <Pressable
@@ -1325,7 +1400,7 @@ const makeS = (C: Theme) => StyleSheet.create({
     alignItems: "flex-end",
     paddingHorizontal: 4,
     paddingBottom: 4,
-    backgroundColor: "transparent",
+    backgroundColor: C.bg,
   },
   headerMuted: {
     opacity: 0.55,
@@ -1346,6 +1421,25 @@ const makeS = (C: Theme) => StyleSheet.create({
     backgroundColor: C.surfaceAlt,
   },
   headerRight: { flexDirection: "row", alignItems: "center", zIndex: 101 },
+  headerCenter: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
+    minWidth: 0,
+    backgroundColor: C.bg,
+  },
+  headerTitleText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: C.text,
+    textAlign: "center",
+  },
+  headerTitlePending: {
+    color: C.textTertiary,
+    fontStyle: "italic",
+    fontWeight: "600",
+  },
   headerIconWrap: {
     width: 24,
     height: 24,

@@ -8,7 +8,6 @@ from app.core.config import Settings
 from app.gateways.mcp import registry as mcp_registry
 from app.services import calendar as calendar_service
 from app.services import math_tools as math_tools_service
-from app.services import web_search as web_search_service
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +29,7 @@ async def augment_prompt_with_mcp_tools(
     settings: Settings,
     *,
     user_timezone: str | None = None,
+    user_location: str | None = None,
     prior_user_messages: list[str] | None = None,
 ) -> list[dict[str, str]]:
     """Run registered MCP adapters when heuristics match (single pre-stream round)."""
@@ -37,19 +37,6 @@ async def augment_prompt_with_mcp_tools(
         return messages
 
     blocks: list[str] = []
-
-    if web_search_service.needs_web_search(user_content, prior_user_messages=prior_user_messages):
-        query = web_search_service.build_search_query(
-            user_content,
-            user_timezone=user_timezone,
-            prior_user_messages=prior_user_messages,
-        )
-        result = await mcp_registry.invoke("web_search", {"query": query})
-        if result and result.content.strip():
-            blocks.append(
-                "Web search results (from MCP web_search tool — use for your answer):\n"
-                f"{result.content}"
-            )
 
     if calendar_service.is_calendar_create_request(user_content):
         blocks.append(calendar_service.CALENDAR_WRITE_HINT)

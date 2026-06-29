@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import re
 from typing import cast
@@ -96,6 +97,11 @@ def select_memories_semantic(
     return [memory for _, memory in scored[: settings.memory_inject_limit]]
 
 
+def _memory_query_cache_key(user_id: UUID, query_text: str) -> str:
+    digest = hashlib.sha256(query_text.strip().lower().encode()).hexdigest()[:32]
+    return f"memquery:{user_id}:{digest}"
+
+
 async def load_relevant_memories(
     session: AsyncSession,
     user: User,
@@ -113,6 +119,18 @@ async def load_relevant_memories(
 
         query_vec = await embedding_gateway.embed_text(settings, query_text.strip())
         if query_vec:
+            # Prefer DB-side ANN search over the pgvector column; fall back to the
+            # in-memory JSON-cosine path when no row has a populated vector yet
+            # (e.g. migration not applied, or only legacy embedding_json exists).
+            db_hits = await memories_repo.search_semantic(
+                session,
+                user.id,
+                query_vec,
+                min_confidence=settings.memory_min_confidence,
+                limit=settings.memory_inject_limit,
+            )
+            if db_hits:
+                return db_hits
             semantic = select_memories_semantic(all_memories, query_vec, settings)
             if semantic:
                 return semantic
@@ -132,8 +150,23 @@ async def get_memory_block(
 
     key = _memory_block_key(user.id)
     if query_text and settings.semantic_memory_enabled:
-        memories = await load_relevant_memories(session, user, settings, query_text=query_text)
-        return format_memory_block(memories)
+        q = query_text.strip()
+        query_key = _memory_query_cache_key(user.id, q)
+        redis = get_redis_client()
+        try:
+            cached = await redis.get(query_key)
+            if cached is not None:
+                return cast(str, cached)
+        except Exception:
+            logger.debug("Memory query cache read failed", exc_info=True)
+
+        memories = await load_relevant_memories(session, user, settings, query_text=q)
+        block = format_memory_block(memories)
+        try:
+            await redis.set(query_key, block, ex=max(30, settings.memory_query_cache_ttl))
+        except Exception:
+            logger.debug("Memory query cache write failed", exc_info=True)
+        return block
 
     redis = get_redis_client()
     try:
@@ -156,9 +189,27 @@ def _memory_block_key(user_id: UUID) -> str:
     return f"memblock:{user_id}"
 
 
+def _memory_query_key_prefix(user_id: UUID) -> str:
+    return f"memquery:{user_id}:"
+
+
 async def invalidate_memory_block(user_id: UUID) -> None:
+    """Drop the per-user memory block cache AND any per-query semantic cache
+    entries — both can hold stale content after a memory write or delete."""
     try:
-        await get_redis_client().delete(_memory_block_key(user_id))
+        redis = get_redis_client()
+        await redis.delete(_memory_block_key(user_id))
+        # Clear memquery:{user_id}:* entries (semantic recall is query-conditioned
+        # and can be stale after an extraction/rewrite/delete).
+        prefix = _memory_query_key_prefix(user_id)
+        batch: list[str] = []
+        async for key in redis.scan_iter(match=f"{prefix}*", count=200):
+            batch.append(key if isinstance(key, str) else key.decode())
+            if len(batch) >= 200:
+                await redis.delete(*batch)
+                batch.clear()
+        if batch:
+            await redis.delete(*batch)
     except Exception:
         logger.debug("Memory block cache invalidation failed", exc_info=True)
 

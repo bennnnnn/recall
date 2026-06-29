@@ -19,6 +19,14 @@ def test_is_external_email_question():
     assert not email_service.is_external_email_question("write an email to my boss")
 
 
+def test_should_inject_gmail_block_only_for_inbox_questions():
+    from app.services import email as email_service
+
+    assert email_service.should_inject_gmail_block("check my email")
+    assert not email_service.should_inject_gmail_block("solve x^2 = 4")
+    assert not email_service.should_inject_gmail_block("best restaurants near me")
+
+
 def test_format_inbox_answer_lists_messages():
     from app.gateways.google_gmail_gateway import GmailMessage
     from app.services import email as email_service

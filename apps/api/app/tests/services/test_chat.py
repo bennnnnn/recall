@@ -45,8 +45,8 @@ async def test_build_prompt_includes_memory_and_style():
             return_value="Known facts:\n- [preference] likes Python",
         ),
         patch(
-            "app.services.chat.todos_service.load_todos_for_prompt",
-            AsyncMock(return_value=""),
+            "app.services.chat.todos_service.build_todos_system_section",
+            AsyncMock(return_value=None),
         ),
         patch(
             "app.services.chat.projects_service.load_projects_for_prompt",
@@ -68,6 +68,101 @@ async def test_build_prompt_includes_memory_and_style():
     assert "Python" in messages[0]["content"]
     assert "clarifying questions" in messages[0]["content"].lower()
     assert messages[-1] == {"role": "user", "content": "Hi"}
+
+
+@pytest.mark.asyncio
+async def test_build_prompt_recalled_count_counts_section_headers():
+    """`recalled` must reflect `## {Label}` headers emitted by format_memory_block,
+    not "- " bullets (which it never produces). Regression for the chip-always-0 bug."""
+    user = MagicMock()
+    user.name = "Dev User"
+    user.email = "dev@example.com"
+    user.location = None
+    user.response_style = "balanced"
+    user.response_tone = "funny"
+    user.memory_enabled = True
+    user.locale = "en"
+    user.timezone = "UTC"
+
+    session = AsyncMock()
+    out: dict[str, object] = {}
+
+    # Real format: one `## {Label}` header per injected section.
+    block = (
+        "Known facts about the user:\n\n## Profile\nLives in Addis\n\n## Preferences\nlikes Python"
+    )
+
+    with (
+        patch(
+            "app.services.chat.memory_service.load_relevant_memories",
+            AsyncMock(return_value=[AsyncMock(type="profile", text="Lives in Addis")]),
+        ),
+        patch("app.services.chat.messages_repo.list_recent", return_value=[]),
+        patch(
+            "app.services.chat.memory_service.format_memory_block",
+            return_value=block,
+        ),
+        patch(
+            "app.services.chat.todos_service.build_todos_system_section",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.chat.projects_service.load_projects_for_prompt",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.chat.chats_repo.get_by_id",
+            AsyncMock(return_value=None),
+        ),
+    ):
+        await build_prompt_messages(session, user, uuid4(), Settings(), out=out)
+
+    assert out["recalled"] == 2
+    assert out["memory_hints"] == ["Profile", "Preferences"]
+
+
+@pytest.mark.asyncio
+async def test_build_prompt_recalled_count_zero_when_no_memory():
+    user = MagicMock()
+    user.name = "Dev User"
+    user.email = "dev@example.com"
+    user.location = None
+    user.response_style = "balanced"
+    user.response_tone = "funny"
+    user.memory_enabled = True
+    user.locale = "en"
+    user.timezone = "UTC"
+
+    session = AsyncMock()
+    out: dict[str, object] = {}
+
+    with (
+        patch(
+            "app.services.chat.memory_service.load_relevant_memories",
+            AsyncMock(return_value=[]),
+        ),
+        patch("app.services.chat.messages_repo.list_recent", return_value=[]),
+        patch(
+            "app.services.chat.memory_service.format_memory_block",
+            return_value="",
+        ),
+        patch(
+            "app.services.chat.todos_service.build_todos_system_section",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.chat.projects_service.load_projects_for_prompt",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.chat.chats_repo.get_by_id",
+            AsyncMock(return_value=None),
+        ),
+    ):
+        await build_prompt_messages(session, user, uuid4(), Settings(), out=out)
+
+    assert out["recalled"] == 0
+    assert out["memory_hints"] == []
 
 
 @pytest.mark.asyncio
@@ -95,8 +190,8 @@ async def test_build_prompt_includes_response_tone():
             return_value="",
         ),
         patch(
-            "app.services.chat.todos_service.load_todos_for_prompt",
-            AsyncMock(return_value=""),
+            "app.services.chat.todos_service.build_todos_system_section",
+            AsyncMock(return_value=None),
         ),
         patch(
             "app.services.chat.projects_service.load_projects_for_prompt",
@@ -113,6 +208,51 @@ async def test_build_prompt_includes_response_tone():
     assert "Privacy:" in messages[0]["content"]
     assert "'Who am I?'" in messages[0]["content"]
     assert "do NOT list email" in messages[0]["content"]
+
+
+@pytest.mark.asyncio
+async def test_build_prompt_includes_locale_hint_for_amharic():
+    user = MagicMock()
+    user.name = "Dev User"
+    user.email = "dev@example.com"
+    user.location = None
+    user.response_style = "balanced"
+    user.response_tone = "casual"
+    user.memory_enabled = False
+    user.locale = "am"
+    user.timezone = "UTC"
+
+    session = AsyncMock()
+
+    with (
+        patch(
+            "app.services.chat.memory_service.load_relevant_memories",
+            AsyncMock(return_value=[]),
+        ),
+        patch("app.services.chat.messages_repo.list_recent", return_value=[]),
+        patch(
+            "app.services.chat.memory_service.format_memory_block",
+            return_value="",
+        ),
+        patch(
+            "app.services.chat.todos_service.build_todos_system_section",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.chat.projects_service.load_projects_for_prompt",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.chat.chats_repo.get_by_id",
+            AsyncMock(return_value=None),
+        ),
+    ):
+        messages = await build_prompt_messages(session, user, uuid4(), Settings())
+
+    system = messages[0]["content"]
+    assert "Amharic" in system
+    assert "locale code: am" in system
+    assert "switch languages" in system.lower() or "switch language" in system.lower()
 
 
 @pytest.mark.parametrize(
@@ -175,21 +315,127 @@ async def test_build_prompt_minimal_for_vocab_quiz_answer():
 
     session = AsyncMock()
 
-    with patch("app.services.chat.messages_repo.list_recent", return_value=[]):
+    with (
+        patch("app.services.chat.messages_repo.list_recent", return_value=[]),
+        patch(
+            "app.services.chat.chats_repo.get_by_id",
+            AsyncMock(return_value=None),
+        ),
+    ):
         messages = await build_prompt_messages(
             session,
             user,
-            AsyncMock(),
+            uuid4(),
             Settings(),
             minimal_quiz_context=True,
         )
 
     system = messages[0]["content"]
     assert "vocabulary quiz" in system
+    assert "vocab_quiz" in system
     assert "Recall has two todo features" not in system
     assert "Web search results" not in system
     assert "Google Calendar" not in system
     assert "Known facts about the user" not in system
+
+
+@pytest.mark.asyncio
+async def test_build_prompt_minimal_quiz_includes_project_context():
+    from uuid import uuid4
+
+    user = MagicMock()
+    user.id = uuid4()
+    user.name = "Dev User"
+    user.email = "dev@example.com"
+    user.location = None
+    user.response_style = "balanced"
+    user.response_tone = "funny"
+    user.memory_enabled = False
+    user.locale = "en"
+    user.timezone = "UTC"
+
+    chat_id = uuid4()
+    project_id = uuid4()
+    chat = MagicMock()
+    chat.project_id = project_id
+    session = AsyncMock()
+
+    with (
+        patch("app.services.chat.messages_repo.list_recent", return_value=[]),
+        patch(
+            "app.services.chat.chats_repo.get_by_id",
+            AsyncMock(return_value=chat),
+        ),
+        patch(
+            "app.services.chat.projects_service.load_project_quiz_context",
+            AsyncMock(return_value="Active vocabulary quiz — project: English"),
+        ) as quiz_ctx_mock,
+    ):
+        messages = await build_prompt_messages(
+            session,
+            user,
+            chat_id,
+            Settings(),
+            minimal_quiz_context=True,
+        )
+
+    quiz_ctx_mock.assert_awaited_once()
+    assert "Active vocabulary quiz" in messages[0]["content"]
+
+
+@pytest.mark.asyncio
+async def test_build_prompt_passes_client_timezone():
+    user = MagicMock()
+    user.name = "Dev User"
+    user.email = "dev@example.com"
+    user.location = None
+    user.response_style = "balanced"
+    user.response_tone = "funny"
+    user.memory_enabled = False
+    user.locale = "en"
+    user.timezone = "UTC"
+
+    session = AsyncMock()
+    load_todos = AsyncMock(return_value=None)
+
+    with (
+        patch(
+            "app.services.chat.memory_service.load_relevant_memories",
+            AsyncMock(return_value=[]),
+        ),
+        patch("app.services.chat.messages_repo.list_recent", return_value=[]),
+        patch(
+            "app.services.chat.memory_service.format_memory_block",
+            return_value="",
+        ),
+        patch(
+            "app.services.chat.todos_service.build_todos_system_section",
+            load_todos,
+        ),
+        patch(
+            "app.services.chat.projects_service.load_projects_for_prompt",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.chat.chats_repo.get_by_id",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.chat.time_context_service.format_time_context",
+            return_value="LOCAL_TIME_BLOCK",
+        ) as format_time,
+    ):
+        await build_prompt_messages(
+            session,
+            user,
+            uuid4(),
+            Settings(),
+            client_timezone="America/New_York",
+        )
+
+    load_todos.assert_awaited_once()
+    assert load_todos.await_args.kwargs["client_timezone"] == "America/New_York"
+    format_time.assert_called_once_with("America/New_York", "en", None)
 
 
 def test_is_vocab_quiz_answer():
@@ -347,3 +593,148 @@ async def test_memory_extraction_runs_on_later_turn():
     job_types = [call.args[1] for call in enqueue_job.call_args_list]
     assert job_types.count("memory") == 1
     assert "topic" not in job_types
+
+
+@pytest.mark.asyncio
+async def test_stream_sets_final_content_on_cancel():
+    """On a user-initiated stop, the server persists text the client may not have
+    rendered yet; `result["final_content"]` carries the authoritative persisted
+    text so the client can reconcile (stop/regenerate desync fix)."""
+    from app.services import chat as chat_module
+
+    async def fake_stream(**kwargs):
+        for w in ["one ", "two ", "three "]:
+            yield w
+
+    fake_user = MagicMock()
+    fake_user.id = MagicMock()
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+    fake_chat.summary = None
+
+    cancel_after = {"n": 0}
+
+    def should_cancel():
+        cancel_after["n"] += 1
+        return cancel_after["n"] > 1  # let the first token through, then cancel
+
+    with (
+        patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.services.chat.messages_repo.count_for_chat", AsyncMock(return_value=3)),
+        patch("app.services.chat.messages_repo.create", AsyncMock()),
+        patch(
+            "app.services.chat.build_prompt_messages",
+            AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
+        ),
+        patch("app.services.chat.calendar_service.is_connected", AsyncMock(return_value=False)),
+        patch(
+            "app.services.chat.calendar_service.load_calendar_for_prompt",
+            AsyncMock(return_value=None),
+        ),
+        patch("app.services.chat.email_service.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.chat.email_service.load_gmail_context", AsyncMock(return_value=None)),
+        patch(
+            "app.services.chat.email_service.load_gmail_for_prompt", AsyncMock(return_value=None)
+        ),
+        patch("app.services.chat.messages_repo.recent_user_contents", AsyncMock(return_value=[])),
+        patch(
+            "app.services.chat.web_search_service.augment_prompt_messages",
+            AsyncMock(side_effect=lambda msgs, *_a, **_k: (msgs, [])),
+        ),
+        patch("app.services.chat.litellm_gateway.stream_chat_completion", fake_stream),
+        patch("app.services.chat.quota_service.adjust_usage", AsyncMock()),
+        patch("app.services.chat.usage_repo.add_tokens", AsyncMock()),
+        patch("app.services.chat.chats_repo.touch_by_id", AsyncMock()),
+        patch("app.services.chat.jobs.enqueue", AsyncMock()),
+    ):
+        result: dict[str, object] = {}
+        yielded: list[str] = []
+        async for tok in chat_module.stream_chat_response(
+            AsyncMock(),
+            Settings(max_output_tokens=100),
+            user_id=fake_user.id,
+            chat_id=MagicMock(),
+            content="question",
+            should_cancel=should_cancel,
+            result=result,
+        ):
+            yielded.append(tok)
+        finalize_db = result.get("_finalize_db_task")
+        if finalize_db is not None:
+            await finalize_db
+
+    # Only the first token was yielded before cancel broke the loop.
+    assert yielded == ["one "]
+    # The authoritative persisted text is exposed for client reconciliation.
+    assert result.get("final_content") == "one"
+
+
+@pytest.mark.asyncio
+async def test_stream_no_final_content_on_normal_completion():
+    """`final_content` must NOT be set on a normal (non-cancelled) turn — keep
+    `done` payloads small."""
+    from app.services import chat as chat_module
+
+    async def fake_stream(**kwargs):
+        yield "answer"
+
+    fake_user = MagicMock()
+    fake_user.id = MagicMock()
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+    fake_chat.summary = None
+
+    with (
+        patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.services.chat.messages_repo.count_for_chat", AsyncMock(return_value=3)),
+        patch("app.services.chat.messages_repo.create", AsyncMock()),
+        patch(
+            "app.services.chat.build_prompt_messages",
+            AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
+        ),
+        patch("app.services.chat.calendar_service.is_connected", AsyncMock(return_value=False)),
+        patch(
+            "app.services.chat.calendar_service.load_calendar_for_prompt",
+            AsyncMock(return_value=None),
+        ),
+        patch("app.services.chat.email_service.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.chat.email_service.load_gmail_context", AsyncMock(return_value=None)),
+        patch(
+            "app.services.chat.email_service.load_gmail_for_prompt", AsyncMock(return_value=None)
+        ),
+        patch("app.services.chat.messages_repo.recent_user_contents", AsyncMock(return_value=[])),
+        patch(
+            "app.services.chat.web_search_service.augment_prompt_messages",
+            AsyncMock(side_effect=lambda msgs, *_a, **_k: (msgs, [])),
+        ),
+        patch("app.services.chat.litellm_gateway.stream_chat_completion", fake_stream),
+        patch("app.services.chat.quota_service.adjust_usage", AsyncMock()),
+        patch("app.services.chat.usage_repo.add_tokens", AsyncMock()),
+        patch("app.services.chat.chats_repo.touch_by_id", AsyncMock()),
+        patch("app.services.chat.jobs.enqueue", AsyncMock()),
+    ):
+        result: dict[str, object] = {}
+        async for _ in chat_module.stream_chat_response(
+            AsyncMock(),
+            Settings(max_output_tokens=100),
+            user_id=fake_user.id,
+            chat_id=MagicMock(),
+            content="question",
+            result=result,
+        ):
+            pass
+        finalize_db = result.get("_finalize_db_task")
+        if finalize_db is not None:
+            await finalize_db
+
+    assert "final_content" not in result

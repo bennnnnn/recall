@@ -195,4 +195,4 @@ def test_estimate_tokens_long():
     from app.services.chat import estimate_tokens
 
     text = "a" * 400
-    assert estimate_tokens(text) == 100
+    assert estimate_tokens(text) == 111

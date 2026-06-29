@@ -34,7 +34,9 @@ type TodosContextValue = {
   setTodos: Dispatch<SetStateAction<Todo[]>>;
   unseenCount: number;
   showIndicator: boolean;
+  seenReminderIds: Set<string>;
   markSeen: () => Promise<void>;
+  dismissReminderNudge: (todoId: string) => Promise<void>;
 };
 
 const TodosContext = createContext<TodosContextValue | null>(null);
@@ -47,6 +49,7 @@ export function TodosProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [unseenCount, setUnseenCount] = useState(0);
+  const [seenReminderIds, setSeenReminderIds] = useState<Set<string>>(new Set());
   const inflightRef = useRef<Promise<void> | null>(null);
   const todosRef = useRef(todos);
   todosRef.current = todos;
@@ -55,6 +58,7 @@ export function TodosProvider({ children }: { children: ReactNode }) {
     async (items: Todo[]) => {
       if (!userId) {
         setUnseenCount(0);
+        setSeenReminderIds(new Set());
         return;
       }
       const openIds = items.filter((todo) => !todo.checked).map((todo) => todo.id);
@@ -64,6 +68,7 @@ export function TodosProvider({ children }: { children: ReactNode }) {
         await saveSeenReminderIds(userId, pruned);
       }
       seen = pruned;
+      setSeenReminderIds(seen);
       setUnseenCount(countUnseenUrgentReminders(items, seen));
     },
     [userId],
@@ -75,6 +80,7 @@ export function TodosProvider({ children }: { children: ReactNode }) {
         setTodos([]);
         setLoading(false);
         setUnseenCount(0);
+        setSeenReminderIds(new Set());
         return;
       }
       if (inflightRef.current) {
@@ -123,11 +129,27 @@ export function TodosProvider({ children }: { children: ReactNode }) {
         return;
       }
       await markReminderIdsSeen(userId, urgentIds);
+      setSeenReminderIds((prev) => new Set([...prev, ...urgentIds]));
       setUnseenCount(0);
     } catch {
       /* keep last count */
     }
   }, [token, userId]);
+
+  const dismissReminderNudge = useCallback(
+    async (todoId: string) => {
+      if (!userId) return;
+      try {
+        await markReminderIdsSeen(userId, [todoId]);
+        const seen = await loadSeenReminderIds(userId);
+        setSeenReminderIds(seen);
+        setUnseenCount(countUnseenUrgentReminders(todosRef.current, seen));
+      } catch {
+        /* keep last state */
+      }
+    },
+    [userId],
+  );
 
   useEffect(() => {
     void refresh();
@@ -156,7 +178,9 @@ export function TodosProvider({ children }: { children: ReactNode }) {
     setTodos,
     unseenCount,
     showIndicator: unseenCount > 0,
+    seenReminderIds,
     markSeen,
+    dismissReminderNudge,
   };
 
   return (

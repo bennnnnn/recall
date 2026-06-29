@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { CodeBlock } from "@/components/CodeBlock";
 import { HtmlPreviewModal } from "@/components/HtmlPreviewModal";
-import { C } from "@/constants/Colors";
 import { openHtmlInBrowser } from "@/lib/openHtmlPreview";
+import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
   code: string;
@@ -14,6 +14,8 @@ type Props = {
 
 /** HTML fence: syntax-highlighted code + preview modal + bottom actions. */
 export function WebPreviewCodeBlock({ code, lang = "html" }: Props) {
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
   const [modalOpen, setModalOpen] = useState(false);
 
   return (
@@ -31,7 +33,7 @@ export function WebPreviewCodeBlock({ code, lang = "html" }: Props) {
             <Ionicons
               name="play-outline"
               size={16}
-              color={modalOpen ? C.primary : C.textSecondary}
+              color={modalOpen ? theme.primary : theme.textSecondary}
             />
           </TouchableOpacity>
         }
@@ -43,7 +45,7 @@ export function WebPreviewCodeBlock({ code, lang = "html" }: Props) {
               activeOpacity={0.6}
               accessibilityLabel="Preview HTML"
             >
-              <Ionicons name="play-outline" size={18} color={C.textSecondary} />
+              <Ionicons name="play-outline" size={18} color={theme.textSecondary} />
             </TouchableOpacity>
             <TouchableOpacity
               style={s.iconBtn}
@@ -51,7 +53,7 @@ export function WebPreviewCodeBlock({ code, lang = "html" }: Props) {
               activeOpacity={0.6}
               accessibilityLabel="Open in browser"
             >
-              <Ionicons name="open-outline" size={18} color={C.textSecondary} />
+              <Ionicons name="open-outline" size={18} color={theme.textSecondary} />
             </TouchableOpacity>
           </View>
         }
@@ -64,20 +66,22 @@ export function WebPreviewCodeBlock({ code, lang = "html" }: Props) {
   );
 }
 
-const s = StyleSheet.create({
-  footerActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  iconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  iconBtnActive: {
-    backgroundColor: C.primaryLight,
-  },
-});
+function makeStyles(t: Theme) {
+  return StyleSheet.create({
+    footerActions: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+    },
+    iconBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 8,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    iconBtnActive: {
+      backgroundColor: t.primaryLight,
+    },
+  });
+}

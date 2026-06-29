@@ -31,6 +31,7 @@ TODO_HINT = (
     "unless they ask for the full list.\n"
     "Proactively nudge overdue or due-soon open reminders only when the conversation is "
     "about tasks, planning, or productivity — not in general or identity questions.\n"
+    "When a reminder appears under ### Today, say it is due today — never call it tomorrow.\n"
     "Creating lists via chat — ask for a list title first, then items; changes sync after your reply.\n"
     "Deleting — delete_list removes a whole list; delete removes one item.\n"
     "Due dates via chat — add/set_due/clear_due; bulk moves (e.g. all due today → tomorrow) sync "
@@ -54,6 +55,26 @@ _INCOMPLETE_BULK_SHIFT = re.compile(
     r"only (?:moved |did )?one|not all|didn'?t move them all|didn'?t work|"
     r"missed (?:some|a few|one)|move the rest|do the rest|try again|"
     r"still (?:due|show) today|you missed|fix (?:it|them)"
+    r")\b",
+    re.IGNORECASE,
+)
+_TODO_QUERY = re.compile(
+    r"\b("
+    r"todo|todos|task|tasks|reminder|reminders|list|lists|checklist|"
+    r"grocery|groceries|shopping|errand|errands|due|overdue|"
+    r"what('?s| is) (?:on|in) my|show my|my (?:list|lists|reminders?|tasks?)|"
+    r"add .+ to (?:my )?list|mark .+ (?:done|complete)|"
+    r"move .+ to tomorrow|reschedule|shopping list"
+    r")\b",
+    re.IGNORECASE,
+)
+_TODO_SYNC_TRANSCRIPT = re.compile(
+    r"\b("
+    r"added (?:to|on)|removed from|marked (?:as )?(?:done|complete)|"
+    r"new (?:list|reminder|task)|delete(?:d)? (?:the )?list|"
+    r"set (?:a )?(?:due|reminder)|moved .+ to tomorrow|"
+    r"check(?:ed)? off|uncheck(?:ed)?|groceries|shopping list|"
+    r"reminder for|due (?:at|on|tomorrow|today)"
     r")\b",
     re.IGNORECASE,
 )
@@ -89,6 +110,63 @@ def _reminder_day_group(todo: TodoItem, user_timezone: str | None) -> tuple[str,
     if due_date == (now + timedelta(days=1)).date():
         return ("2", "Tomorrow")
     return ("3", due_local.strftime("%a %b %d"))
+
+
+def _todo_priority(
+    item: TodoItem,
+    *,
+    query_text: str | None,
+    user_timezone: str | None,
+) -> tuple[int, int, datetime]:
+    """Lower tuple sorts first — overdue/today reminders beat distant lists."""
+    tz = time_context_service.resolve_timezone(user_timezone)
+    now = datetime.now(tz)
+    bucket = 50
+    if item.due_at is not None:
+        due_local = _due_local(item.due_at, user_timezone)
+        if not item.checked and due_local < now:
+            bucket = 0
+        elif due_local.date() == now.date():
+            bucket = 1
+        elif due_local.date() == (now + timedelta(days=1)).date():
+            bucket = 2
+        elif not item.checked:
+            bucket = 4
+        else:
+            bucket = 6
+        sort_due = due_local
+    else:
+        bucket = 8 if not item.checked else 9
+        sort_due = datetime.max.replace(tzinfo=UTC)
+
+    q = _normalize(query_text or "")
+    match_rank = 0
+    if q:
+        hay = f"{_normalize(item.content)} {_topic_key(item.topic)}"
+        if q in hay or any(token in hay for token in q.split() if len(token) >= 4):
+            match_rank = -1
+    return (bucket, match_rank, sort_due)
+
+
+def select_todos_for_prompt(
+    items: list[TodoItem],
+    settings: Settings,
+    *,
+    query_text: str | None = None,
+    user_timezone: str | None = None,
+) -> list[TodoItem]:
+    """Trim large todo snapshots — always keep overdue/today open reminders."""
+    limit = max(8, settings.todo_prompt_limit)
+    if len(items) <= limit:
+        return items
+
+    ranked = sorted(
+        items,
+        key=lambda item: _todo_priority(
+            item, query_text=query_text, user_timezone=user_timezone
+        ),
+    )
+    return ranked[:limit]
 
 
 def format_todos_block(items: list[TodoItem], *, user_timezone: str | None = None) -> str:
@@ -165,9 +243,40 @@ async def load_todos_for_prompt(
     session: AsyncSession,
     user: User,
     settings: Settings,
+    *,
+    client_timezone: str | None = None,
+    query_text: str | None = None,
 ) -> str:
     items = await todos_repo.list_for_user(session, user.id, limit=settings.todo_inject_limit)
-    return format_todos_block(items, user_timezone=user.timezone)
+    tz = time_context_service.effective_timezone(user.timezone, client_timezone)
+    if not should_inject_todos_prompt(items, query_text=query_text, user_timezone=tz):
+        return ""
+    selected = select_todos_for_prompt(
+        items, settings, query_text=query_text, user_timezone=tz
+    )
+    return format_todos_block(selected, user_timezone=tz)
+
+
+async def build_todos_system_section(
+    session: AsyncSession,
+    user: User,
+    settings: Settings,
+    *,
+    client_timezone: str | None = None,
+    query_text: str | None = None,
+) -> str | None:
+    """Todo hint + snapshot block, or None when the turn is unrelated."""
+    items = await todos_repo.list_for_user(session, user.id, limit=settings.todo_inject_limit)
+    tz = time_context_service.effective_timezone(user.timezone, client_timezone)
+    if not should_inject_todos_prompt(items, query_text=query_text, user_timezone=tz):
+        return None
+    selected = select_todos_for_prompt(
+        items, settings, query_text=query_text, user_timezone=tz
+    )
+    block = format_todos_block(selected, user_timezone=tz)
+    if block:
+        return f"{TODO_HINT}\n\n{block}"
+    return TODO_HINT
 
 
 def _find_item(items: list[TodoItem], topic: str, content: str) -> TodoItem | None:
@@ -219,6 +328,44 @@ def _transcript_implies_bulk_shift_to_tomorrow(transcript: str) -> bool:
     if _INCOMPLETE_BULK_SHIFT.search(text):
         return True
     return False
+
+
+def query_implies_todos(query_text: str | None) -> bool:
+    text = (query_text or "").strip()
+    if not text:
+        return False
+    return bool(_TODO_QUERY.search(text))
+
+
+def transcript_implies_todo_sync(transcript: str) -> bool:
+    text = transcript.strip()
+    if not text:
+        return False
+    if _transcript_implies_bulk_shift_to_tomorrow(text):
+        return True
+    return bool(_TODO_SYNC_TRANSCRIPT.search(text))
+
+
+def _has_overdue_open_reminders(items: list[TodoItem], user_timezone: str | None) -> bool:
+    for item in items:
+        if item.checked or item.due_at is None:
+            continue
+        label = time_context_service.describe_due_at(item.due_at, user_timezone)
+        if label.startswith("overdue"):
+            return True
+    return False
+
+
+def should_inject_todos_prompt(
+    items: list[TodoItem],
+    *,
+    query_text: str | None = None,
+    user_timezone: str | None = None,
+) -> bool:
+    """Skip todo blocks on unrelated turns to save tokens; keep overdue nudges."""
+    if query_implies_todos(query_text):
+        return True
+    return _has_overdue_open_reminders(items, user_timezone)
 
 
 def _shift_due_date_preserving_time(
@@ -288,6 +435,8 @@ async def apply_todo_actions(
                 content = action.content.strip()
                 if not content:
                     continue
+                if _find_item_any_state(items, topic, content):
+                    continue
                 due_at = time_context_service.normalize_due_at(action.due_at, user_timezone)
                 await todos_repo.create(
                     session,
@@ -321,11 +470,22 @@ async def apply_todo_actions(
                     applied += 1
                     items = [i for i in items if _topic_key(i.topic) != _topic_key(topic)]
             elif action.action == "set_due":
-                item = _find_item_any_state(items, topic, action.content)
-                if item:
-                    due_at = time_context_service.normalize_due_at(action.due_at, user_timezone)
-                    await todos_repo.update(session, item, due_at=due_at)
-                    applied += 1
+                due_at = time_context_service.normalize_due_at(action.due_at, user_timezone)
+                if action.content.strip() == "*":
+                    tz = time_context_service.resolve_timezone(user_timezone)
+                    today = datetime.now(tz).date()
+                    for item in items:
+                        if item.checked or item.due_at is None:
+                            continue
+                        if _due_local_date(item, user_timezone) != today:
+                            continue
+                        await todos_repo.update(session, item, due_at=due_at)
+                        applied += 1
+                else:
+                    item = _find_item_any_state(items, topic, action.content)
+                    if item:
+                        await todos_repo.update(session, item, due_at=due_at)
+                        applied += 1
             elif action.action == "clear_due":
                 item = _find_item_any_state(items, topic, action.content)
                 if item and item.due_at is not None:
