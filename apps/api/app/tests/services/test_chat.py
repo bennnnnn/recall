@@ -1,9 +1,15 @@
 from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
 import pytest
 
 from app.core.config import Settings
-from app.services.chat import build_prompt_messages, estimate_tokens
+from app.services.chat import (
+    build_prompt_messages,
+    estimate_tokens,
+    is_broad_self_question,
+    max_output_tokens_for_style,
+)
 
 
 def test_estimate_tokens_minimum():
@@ -13,9 +19,15 @@ def test_estimate_tokens_minimum():
 
 @pytest.mark.asyncio
 async def test_build_prompt_includes_memory_and_style():
-    user = AsyncMock()
+    user = MagicMock()
+    user.name = "Biniyam Mecuriaw"
+    user.email = "bmecuriaw@gmail.com"
+    user.location = None
     user.response_style = "short"
     user.memory_enabled = True
+    user.locale = "en"
+    user.timezone = "UTC"
+    user.response_tone = "funny"
 
     session = AsyncMock()
 
@@ -32,14 +44,171 @@ async def test_build_prompt_includes_memory_and_style():
             "app.services.chat.memory_service.format_memory_block",
             return_value="Known facts:\n- [preference] likes Python",
         ),
+        patch(
+            "app.services.chat.todos_service.load_todos_for_prompt",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.chat.projects_service.load_projects_for_prompt",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.chat.chats_repo.get_by_id",
+            AsyncMock(return_value=None),
+        ),
     ):
-        messages = await build_prompt_messages(session, user, AsyncMock(), Settings())
+        messages = await build_prompt_messages(session, user, uuid4(), Settings())
 
     assert messages[0]["role"] == "system"
-    assert "short" in messages[0]["content"].lower() or "concise" in messages[0]["content"].lower()
+    assert "Biniyam Mecuriaw" in messages[0]["content"]
+    assert "bmecuriaw@gmail.com" in messages[0]["content"]
+    assert "short" in messages[0]["content"].lower()
+    assert "1-3 sentences" in messages[0]["content"].lower()
+    assert "**HTML UI**" not in messages[0]["content"]
     assert "Python" in messages[0]["content"]
     assert "clarifying questions" in messages[0]["content"].lower()
     assert messages[-1] == {"role": "user", "content": "Hi"}
+
+
+@pytest.mark.asyncio
+async def test_build_prompt_includes_response_tone():
+    user = MagicMock()
+    user.name = "Dev User"
+    user.email = "dev@example.com"
+    user.location = None
+    user.response_style = "balanced"
+    user.response_tone = "professional"
+    user.memory_enabled = False
+    user.locale = "en"
+    user.timezone = "UTC"
+
+    session = AsyncMock()
+
+    with (
+        patch(
+            "app.services.chat.memory_service.load_relevant_memories",
+            AsyncMock(return_value=[]),
+        ),
+        patch("app.services.chat.messages_repo.list_recent", return_value=[]),
+        patch(
+            "app.services.chat.memory_service.format_memory_block",
+            return_value="",
+        ),
+        patch(
+            "app.services.chat.todos_service.load_todos_for_prompt",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.chat.projects_service.load_projects_for_prompt",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.chat.chats_repo.get_by_id",
+            AsyncMock(return_value=None),
+        ),
+    ):
+        messages = await build_prompt_messages(session, user, uuid4(), Settings())
+
+    assert "Tone: PROFESSIONAL" in messages[0]["content"]
+    assert "Privacy:" in messages[0]["content"]
+    assert "'Who am I?'" in messages[0]["content"]
+    assert "do NOT list email" in messages[0]["content"]
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("Who am I", True),
+        ("who am i?", True),
+        ("Tell me about me", True),
+        ("Where am I?", False),
+        ("What's my email?", False),
+        ("What's my name?", False),
+    ],
+)
+def test_is_broad_self_question(text, expected):
+    assert is_broad_self_question(text) is expected
+
+
+@pytest.mark.asyncio
+async def test_build_prompt_minimal_for_who_am_i():
+    user = MagicMock()
+    user.name = "Binalfew Mecuriaw"
+    user.email = "secret@example.com"
+    user.location = "San Francisco, CA"
+    user.response_style = "balanced"
+    user.response_tone = "funny"
+    user.memory_enabled = True
+    user.locale = "en"
+    user.timezone = "UTC"
+
+    session = AsyncMock()
+
+    with patch("app.services.chat.messages_repo.list_recent", return_value=[]):
+        messages = await build_prompt_messages(
+            session,
+            user,
+            AsyncMock(),
+            Settings(),
+            minimal_personal_context=True,
+        )
+
+    system = messages[0]["content"]
+    assert "Binalfew" in system
+    assert "secret@example.com" not in system
+    assert "San Francisco" not in system
+    assert "general 'who am I' question" in system
+    assert "Recall has two todo features" not in system
+
+
+@pytest.mark.asyncio
+async def test_build_prompt_minimal_for_vocab_quiz_answer():
+    user = MagicMock()
+    user.name = "Binalfew Mecuriaw"
+    user.email = "secret@example.com"
+    user.location = "San Francisco, CA"
+    user.response_style = "balanced"
+    user.response_tone = "funny"
+    user.memory_enabled = True
+    user.locale = "en"
+    user.timezone = "UTC"
+
+    session = AsyncMock()
+
+    with patch("app.services.chat.messages_repo.list_recent", return_value=[]):
+        messages = await build_prompt_messages(
+            session,
+            user,
+            AsyncMock(),
+            Settings(),
+            minimal_quiz_context=True,
+        )
+
+    system = messages[0]["content"]
+    assert "vocabulary quiz" in system
+    assert "Recall has two todo features" not in system
+    assert "Web search results" not in system
+    assert "Google Calendar" not in system
+    assert "Known facts about the user" not in system
+
+
+def test_is_vocab_quiz_answer():
+    from app.services.web_search import is_vocab_quiz_answer
+
+    assert is_vocab_quiz_answer("B") is True
+    assert is_vocab_quiz_answer("c.") is True
+    assert is_vocab_quiz_answer("hello") is False
+
+
+def test_max_output_tokens_for_style():
+    settings = Settings(max_output_tokens=1200)
+    assert max_output_tokens_for_style("short", settings) == 400
+    assert max_output_tokens_for_style("balanced", settings) == 1200
+    assert max_output_tokens_for_style("detailed", settings) == 2200
+    settings = Settings(max_output_tokens=1200)
+    assert max_output_tokens_for_style("short", settings) == 400
+    assert max_output_tokens_for_style("balanced", settings) == 1200
+    assert max_output_tokens_for_style("detailed", settings) == 2200
 
 
 @pytest.mark.asyncio
@@ -69,6 +238,7 @@ async def test_stream_does_not_duplicate_user_message():
 
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
+    fake_chat.summary = None
 
     with (
         patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True)),
@@ -77,6 +247,16 @@ async def test_stream_does_not_duplicate_user_message():
         patch("app.services.chat.messages_repo.count_for_chat", AsyncMock(return_value=1)),
         patch("app.services.chat.messages_repo.create", AsyncMock()),
         patch("app.services.chat.build_prompt_messages", mock_build),
+        patch("app.services.chat.calendar_service.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.chat.calendar_service.load_calendar_for_prompt", AsyncMock(return_value=None)),
+        patch("app.services.chat.email_service.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.chat.email_service.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.services.chat.email_service.load_gmail_for_prompt", AsyncMock(return_value=None)),
+        patch("app.services.chat.messages_repo.recent_user_contents", AsyncMock(return_value=[])),
+        patch(
+            "app.services.chat.web_search_service.augment_prompt_messages",
+            AsyncMock(side_effect=lambda msgs, *_a, **_k: (msgs, [])),
+        ),
         patch("app.services.chat.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.chat.quota_service.adjust_usage", AsyncMock()),
         patch("app.services.chat.usage_repo.add_tokens", AsyncMock()),
@@ -111,6 +291,7 @@ async def test_memory_extraction_runs_on_later_turn():
 
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
+    fake_chat.summary = None
 
     with (
         patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True)),
@@ -121,6 +302,16 @@ async def test_memory_extraction_runs_on_later_turn():
         patch(
             "app.services.chat.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
+        ),
+        patch("app.services.chat.calendar_service.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.chat.calendar_service.load_calendar_for_prompt", AsyncMock(return_value=None)),
+        patch("app.services.chat.email_service.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.chat.email_service.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.services.chat.email_service.load_gmail_for_prompt", AsyncMock(return_value=None)),
+        patch("app.services.chat.messages_repo.recent_user_contents", AsyncMock(return_value=[])),
+        patch(
+            "app.services.chat.web_search_service.augment_prompt_messages",
+            AsyncMock(side_effect=lambda msgs, *_a, **_k: (msgs, [])),
         ),
         patch("app.services.chat.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.chat.quota_service.adjust_usage", AsyncMock()),

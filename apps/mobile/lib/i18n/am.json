@@ -2,7 +2,7 @@
   "app.name": "ሪኮል",
   "chat.placeholder": "ለሪኮል መልእክት ይጻፉ...",
   "chat.empty_title": "እንዴት ልረዳዎት?",
-  "chat.empty_hint": "ማንኛውንም ነገር ይጠይቁኝ — አስፈላጊውን ነገር አስታውሳለሁ።",
+  "chat.empty_hint": "ምን እንደሚያስቡ?",
   "chat.suggestions": "ጥቆማዎች",
   "chat.templates": "ከአብነት ጀምር",
   "chat.load_earlier": "የቀድሞ መልእክቶችን ጫን",

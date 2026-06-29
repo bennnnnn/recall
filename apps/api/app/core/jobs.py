@@ -17,7 +17,7 @@ from uuid import UUID
 
 from redis.asyncio import Redis
 
-from app.background import compaction, memory_extraction, suggestion_generation, topic_generation
+from app.background import compaction, gmail_sync, memory_consolidation, memory_extraction, project_sync, suggestion_generation, todo_sync, topic_generation
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
@@ -77,12 +77,46 @@ async def _handle_memory(settings: Settings, payload: dict[str, Any]) -> None:
         )
 
 
+async def _handle_memory_consolidate(settings: Settings, payload: dict[str, Any]) -> None:
+    async with SessionLocal() as session:
+        await memory_consolidation.consolidate_user_memory_sections(
+            session,
+            settings,
+            user_id=UUID(payload["user_id"]),
+        )
+
+
+async def _handle_todos(settings: Settings, payload: dict[str, Any]) -> None:
+    async with SessionLocal() as session:
+        await todo_sync.sync_todos_from_chat(
+            session,
+            settings,
+            user_id=UUID(payload["user_id"]),
+            chat_id=UUID(payload["chat_id"]),
+            transcript=payload["transcript"],
+        )
+
+
+async def _handle_projects(settings: Settings, payload: dict[str, Any]) -> None:
+    async with SessionLocal() as session:
+        await project_sync.sync_projects_from_chat(
+            session,
+            settings,
+            user_id=UUID(payload["user_id"]),
+            chat_id=UUID(payload["chat_id"]),
+            transcript=payload["transcript"],
+        )
+
+
 async def _handle_compress(settings: Settings, payload: dict[str, Any]) -> None:
     await compaction.compress_chat_history(settings, UUID(payload["chat_id"]))
 
 
 register("topic", _handle_topic)
 register("memory", _handle_memory)
+register("memory_consolidate", _handle_memory_consolidate)
+register("todos", _handle_todos)
+register("projects", _handle_projects)
 register("compress", _handle_compress)
 
 
@@ -94,6 +128,18 @@ async def _handle_suggestions(settings: Settings, payload: dict[str, Any]) -> No
 
 
 register("suggestions", _handle_suggestions)
+
+
+async def _handle_gmail_sync(settings: Settings, payload: dict[str, Any]) -> None:
+    async with SessionLocal() as session:
+        await gmail_sync.sync_gmail_for_user(
+            session,
+            settings,
+            user_id=UUID(payload["user_id"]),
+        )
+
+
+register("gmail_sync", _handle_gmail_sync)
 
 
 # ── worker ───────────────────────────────────────────────────────────────────

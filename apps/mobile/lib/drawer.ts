@@ -1,4 +1,4 @@
-// Shared drawer control — avoids circular imports between _layout and ConversationList
+// Shared drawer control — avoids circular imports between DrawerShell and ConversationList
 let _open: (() => void) | null = null;
 let _close: (() => void) | null = null;
 

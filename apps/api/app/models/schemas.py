@@ -1,13 +1,15 @@
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Self
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from app.services import model_catalog
 
 MessageRole = Literal["user", "assistant", "system"]
 MemoryType = Literal["profile", "preference", "project", "fact", "focus"]
-ModelAlias = Literal["auto", "free-chat", "smart-chat", "max-chat", "title-model", "memory-model"]
 ResponseStyle = Literal["short", "balanced", "detailed"]
+ResponseTone = Literal["funny", "professional", "casual", "soft"]
 MessageFeedback = Literal["up", "down"]
 
 
@@ -19,20 +21,50 @@ class UserOut(BaseModel):
     name: str | None
     avatar_url: str | None
     default_model: str
+    plan: str = "free"
+    enabled_models: list[str] | None = None
     response_style: str
+    response_tone: str = "funny"
     memory_enabled: bool
-    custom_instructions: str | None = None
+    push_notifications_enabled: bool = True
     locale: str = "en"
+    timezone: str = "UTC"
+    location: str | None = None
     created_at: datetime
 
 
 class UserUpdate(BaseModel):
     name: str | None = None
-    default_model: ModelAlias | None = None
+    default_model: str | None = None
+    enabled_models: list[str] | None = None
     response_style: ResponseStyle | None = None
+    response_tone: ResponseTone | None = None
     memory_enabled: bool | None = None
-    custom_instructions: str | None = None
+    push_notifications_enabled: bool | None = None
     locale: str | None = None
+    timezone: str | None = Field(default=None, max_length=64)
+    location: str | None = Field(default=None, max_length=128)
+
+    @field_validator("default_model")
+    @classmethod
+    def validate_default_model(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        model_catalog.validate_user_alias(value, allow_auto=True)
+        return value
+
+    @field_validator("enabled_models")
+    @classmethod
+    def validate_enabled_models(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        if not value:
+            raise ValueError("Turn on Auto or at least one model.")
+        for entry in value:
+            if entry == "auto":
+                continue
+            model_catalog.validate_user_alias(entry)
+        return value
 
 
 class GoogleAuthRequest(BaseModel):
@@ -51,7 +83,14 @@ class AuthResponse(BaseModel):
 
 
 class ChatCreate(BaseModel):
-    model: ModelAlias = "free-chat"
+    model: str = "auto"
+    project_id: UUID | None = None
+
+    @field_validator("model")
+    @classmethod
+    def validate_model(cls, value: str) -> str:
+        model_catalog.validate_user_alias(value, allow_auto=True)
+        return value
 
 
 class ChatRename(BaseModel):
@@ -60,6 +99,10 @@ class ChatRename(BaseModel):
 
 class PinUpdate(BaseModel):
     pinned: bool
+
+
+class ArchiveUpdate(BaseModel):
+    archived: bool
 
 
 class FeedbackUpdate(BaseModel):
@@ -73,8 +116,17 @@ class ChatOut(BaseModel):
     title: str | None
     model: str
     pinned: bool = False
+    archived: bool = False
+    project_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
+
+    @model_validator(mode="after")
+    def sanitize_title(self) -> Self:
+        from app.services.chat_titles import normalize_chat_title
+
+        self.title = normalize_chat_title(self.title)
+        return self
 
 
 class ChatListOut(BaseModel):
@@ -82,6 +134,7 @@ class ChatListOut(BaseModel):
     today: list[ChatOut] = Field(default_factory=list)
     yesterday: list[ChatOut] = Field(default_factory=list)
     earlier: list[ChatOut] = Field(default_factory=list)
+    archived: list[ChatOut] = Field(default_factory=list)
 
 
 class MessageOut(BaseModel):
@@ -125,6 +178,7 @@ class ModelInfo(BaseModel):
     provider: str
     description: str
     tier: str
+    plan_access: str = "pro"
     available: bool
     input_price_per_m: float | None = None
     output_price_per_m: float | None = None
@@ -132,21 +186,44 @@ class ModelInfo(BaseModel):
 
 class ChatMessageRequest(BaseModel):
     content: str = ""
-    model: ModelAlias | None = None
+    model: str | None = None
+    attachment_ids: list[UUID] = Field(default_factory=list)
+
+    @field_validator("model")
+    @classmethod
+    def validate_model(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        model_catalog.validate_user_alias(value, allow_auto=True)
+        return value
+
+
+class EditMessageRequest(BaseModel):
+    message_id: UUID
+    content: str = Field(min_length=1, max_length=32_000)
+    model: str | None = None
+
+    @field_validator("model")
+    @classmethod
+    def validate_model(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        model_catalog.validate_user_alias(value, allow_auto=True)
+        return value
 
 
 class TitleGenerationResult(BaseModel):
     title: str = Field(min_length=3, max_length=80)
 
 
-class MemoryExtractionItem(BaseModel):
+class MemorySectionItem(BaseModel):
     type: MemoryType
-    text: str = Field(min_length=3, max_length=500)
+    summary: str = Field(min_length=3, max_length=4000)
     confidence: float = Field(ge=0.0, le=1.0)
 
 
-class MemoryExtractionResult(BaseModel):
-    memories: list[MemoryExtractionItem] = Field(default_factory=list)
+class MemorySectionUpdateResult(BaseModel):
+    sections: list[MemorySectionItem] = Field(default_factory=list)
 
 
 class TodoOut(BaseModel):
@@ -154,7 +231,10 @@ class TodoOut(BaseModel):
 
     id: UUID
     content: str
+    topic: str
     checked: bool
+    due_at: datetime | None = None
+    sort_order: int | None = None
     chat_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
@@ -162,16 +242,236 @@ class TodoOut(BaseModel):
 
 class TodoCreate(BaseModel):
     content: str = Field(min_length=1, max_length=1000)
+    topic: str = Field(default="General", min_length=1, max_length=200)
     chat_id: UUID | None = None
+    due_at: datetime | None = None
 
 
 class TodoUpdate(BaseModel):
     content: str | None = None
+    topic: str | None = Field(default=None, min_length=1, max_length=200)
     checked: bool | None = None
+    due_at: datetime | None = None
+    sort_order: int | None = None
+
+
+class TodoReorderItem(BaseModel):
+    id: UUID
+    sort_order: int = Field(ge=0)
+    topic: str | None = Field(default=None, min_length=1, max_length=200)
+
+
+class TodoReorderBody(BaseModel):
+    items: list[TodoReorderItem] = Field(min_length=1, max_length=100)
+
+
+class TodoActionItem(BaseModel):
+    action: Literal[
+        "add",
+        "complete",
+        "uncheck",
+        "delete",
+        "delete_list",
+        "set_due",
+        "clear_due",
+    ]
+    topic: str = Field(min_length=1, max_length=200)
+    content: str = Field(default="", max_length=1000)
+    due_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def validate_action_fields(self) -> Self:
+        if self.action == "delete_list":
+            return self
+        if not self.content.strip():
+            raise ValueError("content is required for this action")
+        if self.action == "set_due" and self.due_at is None:
+            raise ValueError("set_due requires due_at")
+        return self
+
+
+class TodoExtractionResult(BaseModel):
+    actions: list[TodoActionItem] = Field(default_factory=list)
+
+
+ProjectKind = Literal["general", "language", "vocabulary", "programming", "learning", "math"]
+LanguageLevel = Literal["level1", "level2", "level3", "level4", "level5", "level6"]
+PartOfSpeech = Literal[
+    "noun",
+    "verb",
+    "adjective",
+    "adverb",
+    "pronoun",
+    "preposition",
+    "conjunction",
+    "interjection",
+    "phrase",
+    "other",
+]
+VocabStatus = Literal["new", "learning", "mastered"]
+
+
+class ProjectOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    title: str
+    description: str | None
+    kind: ProjectKind
+    target_language: str = "en"
+    native_language: str | None = None
+    level: LanguageLevel = "level1"
+    archived: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class ProjectCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=4000)
+    kind: ProjectKind = "general"
+    target_language: str = Field(default="en", max_length=10)
+    native_language: str | None = Field(default=None, max_length=10)
+    level: LanguageLevel = "level1"
+
+
+class ProjectUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=4000)
+    kind: ProjectKind | None = None
+    target_language: str | None = Field(default=None, max_length=10)
+    native_language: str | None = Field(default=None, max_length=10)
+    level: LanguageLevel | None = None
+    archived: bool | None = None
+
+
+class ProjectItemOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    list_title: str
+    content: str
+    note: str | None
+    part_of_speech: PartOfSpeech | str | None
+    definition: str | None
+    example_sentence: str | None
+    status: VocabStatus
+    mastered: bool
+    mastered_at: datetime | None
+    last_reviewed_at: datetime | None
+    review_count: int
+    pronunciation_url: str | None
+    created_at: datetime
+
+
+class ProjectStats(BaseModel):
+    total: int = 0
+    new_count: int = 0
+    learning_count: int = 0
+    mastered_count: int = 0
+    added_this_week: int = 0
+    due_for_review: int = 0
+
+
+class ProjectListGroup(BaseModel):
+    list_title: str
+    items: list[ProjectItemOut] = Field(default_factory=list)
+
+
+class ProjectPosGroup(BaseModel):
+    part_of_speech: str
+    items: list[ProjectItemOut] = Field(default_factory=list)
+
+
+class ProjectPosGroupSummary(BaseModel):
+    part_of_speech: str
+    count: int = 0
+    new_count: int = 0
+    learning_count: int = 0
+    mastered_count: int = 0
+
+
+class ProjectDeckSummary(BaseModel):
+    title: str
+    count: int = 0
+    due_count: int = 0
+    mastered_count: int = 0
+
+
+class ProjectDeckItemCreate(BaseModel):
+    content: str = Field(min_length=1, max_length=500)
+    definition: str | None = Field(default=None, max_length=2000)
+    example_sentence: str | None = Field(default=None, max_length=2000)
+
+
+class ProjectDetailOut(ProjectOut):
+    mastered_count: int = 0
+    total_count: int = 0
+    stats: ProjectStats = Field(default_factory=ProjectStats)
+    lists: list[ProjectListGroup] = Field(default_factory=list)
+    by_part_of_speech: list[ProjectPosGroup] = Field(default_factory=list)
+    pos_groups: list[ProjectPosGroupSummary] = Field(default_factory=list)
+    decks: list[ProjectDeckSummary] = Field(default_factory=list)
+
+
+class ProjectActionItem(BaseModel):
+    action: Literal[
+        "create_project",
+        "delete_project",
+        "set_description",
+        "set_level",
+        "add",
+        "start_learning",
+        "master",
+        "unmaster",
+        "delete",
+        "delete_list",
+    ]
+    project_title: str = Field(min_length=1, max_length=200)
+    kind: ProjectKind | None = None
+    description: str | None = Field(default=None, max_length=4000)
+    level: LanguageLevel | None = None
+    list_title: str = Field(default="General", max_length=200)
+    content: str = Field(default="", max_length=1000)
+    note: str | None = Field(default=None, max_length=2000)
+    part_of_speech: PartOfSpeech | str | None = None
+    definition: str | None = Field(default=None, max_length=2000)
+    example_sentence: str | None = Field(default=None, max_length=2000)
+
+    @model_validator(mode="after")
+    def validate_action_fields(self) -> Self:
+        if self.action in ("delete_project", "delete_list", "set_level"):
+            if self.action == "set_level" and not self.level:
+                raise ValueError("set_level requires level")
+            return self
+        if self.action == "create_project":
+            if not self.kind:
+                raise ValueError("create_project requires kind")
+            return self
+        if self.action == "set_description":
+            if not (self.description or "").strip():
+                raise ValueError("set_description requires description")
+            return self
+        if self.action in ("start_learning", "master", "unmaster", "delete"):
+            if not self.content.strip():
+                raise ValueError("content is required for this action")
+            return self
+        if self.action == "add":
+            if not self.content.strip():
+                raise ValueError("content is required for add")
+            return self
+        if not self.content.strip():
+            raise ValueError("content is required for this action")
+        return self
+
+
+class ProjectExtractionResult(BaseModel):
+    actions: list[ProjectActionItem] = Field(default_factory=list)
 
 
 class SearchResultItem(BaseModel):
-    message_id: UUID
+    match_type: Literal["message", "title"] = "message"
+    message_id: UUID | None = None
     chat_id: UUID
     chat_title: str | None
     content: str
@@ -225,3 +525,139 @@ class SuggestionItem(BaseModel):
 
 class SuggestionGenerationResult(BaseModel):
     items: list[SuggestionItem] = Field(default_factory=list)
+
+
+class HomeUrgentTodo(BaseModel):
+    id: UUID
+    content: str
+    topic: str
+    due_at: datetime
+    minutes_until: int
+
+
+class HomeStarter(BaseModel):
+    text: str = Field(min_length=1, max_length=200)
+    prompt: str = Field(min_length=1, max_length=2000)
+    kind: Literal["time", "memory", "chat", "general", "todo", "project"] = "general"
+
+
+class HomeProjectHighlight(BaseModel):
+    project_id: UUID
+    title: str
+
+
+class HomeScreenOut(BaseModel):
+    greeting: str
+    subtitle: str | None = None
+    project_highlight: HomeProjectHighlight | None = None
+    urgent_todos: list[HomeUrgentTodo] = Field(default_factory=list)
+    starters: list[HomeStarter] = Field(default_factory=list)
+
+
+class GoogleCalendarConnectRequest(BaseModel):
+    server_auth_code: str = Field(min_length=8, max_length=4096)
+
+
+class GoogleCalendarStatusOut(BaseModel):
+    connected: bool
+    email: str | None = None
+    configured: bool = False
+    can_write: bool = False
+
+
+class CalendarEventProposalIn(BaseModel):
+    title: str = Field(min_length=1, max_length=500)
+    start_at: datetime
+    end_at: datetime
+    location: str | None = Field(default=None, max_length=500)
+    description: str | None = Field(default=None, max_length=2000)
+
+
+class CalendarEventProposalOut(BaseModel):
+    proposal_id: str
+    title: str
+    start_at: datetime
+    end_at: datetime
+    location: str | None = None
+
+
+class CalendarConflictOut(BaseModel):
+    event_id: str
+    title: str
+    start_at: datetime
+    end_at: datetime | None = None
+
+
+class CalendarConflictsOut(BaseModel):
+    conflicts: list[CalendarConflictOut] = Field(default_factory=list)
+
+
+class GoogleCalendarEventOut(BaseModel):
+    id: str
+    title: str
+    start_at: datetime
+    end_at: datetime | None = None
+    location: str | None = None
+    all_day: bool = False
+    calendar_name: str | None = None
+
+
+class GoogleCalendarEventsOut(BaseModel):
+    events: list[GoogleCalendarEventOut] = Field(default_factory=list)
+
+
+class GoogleGmailConnectRequest(BaseModel):
+    server_auth_code: str = Field(min_length=8, max_length=4096)
+
+
+class GoogleGmailStatusOut(BaseModel):
+    connected: bool
+    email: str | None = None
+    configured: bool = False
+    last_sync_at: datetime | None = None
+
+
+class SuggestedReminderOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    title: str
+    due_at: datetime | None = None
+    notes: str | None = None
+    confidence: float
+    source_snippet: str | None = None
+    status: str
+    created_at: datetime
+    gmail_message_id: str
+
+
+class SuggestedRemindersOut(BaseModel):
+    reminders: list[SuggestedReminderOut] = Field(default_factory=list)
+    pending_count: int = 0
+
+
+class PushTokenIn(BaseModel):
+    expo_push_token: str = Field(min_length=8, max_length=512)
+    platform: str = Field(min_length=2, max_length=20)
+    device_id: str | None = Field(default=None, max_length=128)
+
+
+class AttachmentPresignIn(BaseModel):
+    content_type: str = Field(min_length=3, max_length=128)
+    size_bytes: int = Field(gt=0, le=10_485_760)
+
+
+class AttachmentPresignOut(BaseModel):
+    attachment_id: UUID
+    upload_url: str
+    storage_key: str
+    headers: dict[str, str] = Field(default_factory=dict)
+    api_upload: bool = False
+
+
+class AttachmentOut(BaseModel):
+    id: UUID
+    content_type: str
+    size_bytes: int
+    download_url: str
+    created_at: datetime

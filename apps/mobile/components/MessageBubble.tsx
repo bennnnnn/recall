@@ -3,20 +3,43 @@ import * as Clipboard from "expo-clipboard";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { CalendarProposalCard } from "@/components/CalendarProposalCard";
+import { UserMessageContent } from "@/components/UserMessageContent";
+import { SearchSourcesStack } from "@/components/SearchSourcesStack";
+import { CircularClockBlock } from "@/components/rich/CircularClockBlock";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { MarkdownErrorBoundary } from "@/components/MarkdownErrorBoundary";
-import { MessageMetaChips } from "@/components/MessageMetaChips";
 import { RecallTypingIndicator } from "@/components/RecallTypingIndicator";
+import { VocabQuizChoices } from "@/components/VocabQuizChoices";
 import { Message } from "@/lib/api";
+import {
+  parseCalendarProposals,
+  stripCalendarProposalFences,
+} from "@/lib/calendarProposal";
 import { extractPrimaryCopyText } from "@/lib/copyBlock";
+import { parseVocabQuiz, stripVocabQuizBlock } from "@/lib/parseVocabQuiz";
+import {
+  resolveSearchSources,
+  stripSearchSourcesFence,
+} from "@/lib/searchSources";
+import {
+  assistantReplyIsTimeAnswer,
+  extractClockTimezone,
+  stripTimeAnswerFences,
+} from "@/lib/timeQuestion";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
   message: Message;
+  priorUserText?: string | null;
   isGenerating?: boolean;
   isLastAssistant?: boolean;
   onRegenerate?: () => void;
+  onEdit?: (message: Message) => void;
+  canEdit?: boolean;
   onFeedback?: (messageId: string, feedback: "up" | "down" | null) => void;
+  onQuizAnswer?: (letter: "A" | "B" | "C" | "D") => void;
+  quizDisabled?: boolean;
 };
 
 async function copyText(text: string) {
@@ -89,10 +112,15 @@ function AssistantActions({
 
 export const MessageBubble = React.memo(function MessageBubble({
   message,
+  priorUserText = null,
   isGenerating = false,
   isLastAssistant,
   onRegenerate,
+  onEdit,
+  canEdit,
   onFeedback,
+  onQuizAnswer,
+  quizDisabled,
 }: Props) {
   const theme = useTheme();
   const b = useMemo(() => makeStyles(theme), [theme]);
@@ -100,35 +128,102 @@ export const MessageBubble = React.memo(function MessageBubble({
   const isStreaming = isGenerating;
   const hasContent = message.content.trim().length > 0;
   const showActions = !isUser && hasContent && !isStreaming;
+  const quiz = useMemo(
+    () => (!isUser && hasContent && !isStreaming ? parseVocabQuiz(message.content) : null),
+    [isUser, hasContent, isStreaming, message.content],
+  );
+  const showQuizCard = quiz != null && !isStreaming;
+  const showQuizButtons =
+    showQuizCard && isLastAssistant && onQuizAnswer != null;
+  const showLiveClock =
+    !isUser &&
+    hasContent &&
+    !isStreaming &&
+    assistantReplyIsTimeAnswer(message.content, priorUserText ?? null);
+  const clockTimezone = useMemo(
+    () => extractClockTimezone(message.content),
+    [message.content],
+  );
+  const searchSources = useMemo(
+    () => resolveSearchSources(message.content, message.search_sources),
+    [message.content, message.search_sources],
+  );
+  const calendarProposals = useMemo(
+    () =>
+      !isUser && hasContent && !isStreaming
+        ? parseCalendarProposals(message.content)
+        : [],
+    [isUser, hasContent, isStreaming, message.content],
+  );
+  const showCalendarProposals = calendarProposals.length > 0 && !isStreaming;
+  const markdownContent = useMemo(() => {
+    let text = showQuizCard ? stripVocabQuizBlock(message.content) : message.content;
+    if (showLiveClock) text = stripTimeAnswerFences(text);
+    text = stripSearchSourcesFence(text);
+    if (showCalendarProposals) text = stripCalendarProposalFences(text);
+    return text;
+  }, [showQuizCard, showLiveClock, showCalendarProposals, message.content]);
+  const hasMarkdown = markdownContent.trim().length > 0;
+  const showSearchSources =
+    searchSources.length > 0 && !showLiveClock && !showQuizCard && !showCalendarProposals;
 
   return (
     <View style={[b.row, isUser ? b.userRow : b.assistantRow]}>
-      <View style={isUser ? b.userBubble : b.assistantBubble}>
-        {isUser ? (
-          <Text style={b.userText} selectable>
-            {message.content}
-          </Text>
-        ) : isStreaming && !hasContent ? (
-          <RecallTypingIndicator />
-        ) : isStreaming ? (
-          // Plain text while streaming — avoids O(n²) markdown re-parsing
-          // and prevents formatting flicker (half-typed fences, tables, math).
-          <Text style={b.streamingText} selectable>
-            {message.content}
-          </Text>
-        ) : (
-          <>
-            <MarkdownErrorBoundary
-              key={message.id}
-              resetKey={`${message.id}:${message.content.length}`}
-              content={message.content}
-            >
-              <MarkdownContent content={message.content} />
-            </MarkdownErrorBoundary>
-            <MessageMetaChips model={message.model} />
-          </>
-        )}
-      </View>
+      {isUser ? (
+        <View style={b.userColumn}>
+          <UserMessageContent message={message} />
+          {canEdit && onEdit && !message.id.startsWith("local-") ? (
+            <Pressable style={b.editBtn} onPress={() => onEdit(message)} hitSlop={8}>
+              <Ionicons name="pencil-outline" size={16} color={theme.textTertiary} />
+            </Pressable>
+          ) : null}
+        </View>
+      ) : (
+        <View style={b.assistantBubble}>
+          {isStreaming && !hasContent ? (
+            <RecallTypingIndicator />
+          ) : isStreaming ? (
+            <>
+              <Text style={b.streamingText} selectable>
+                {markdownContent}
+              </Text>
+              {showSearchSources ? <SearchSourcesStack sources={searchSources} /> : null}
+            </>
+          ) : (
+            <>
+              {showLiveClock ? (
+                <CircularClockBlock content={clockTimezone} />
+              ) : null}
+              {hasMarkdown ? (
+                <MarkdownErrorBoundary
+                  key={message.id}
+                  resetKey={`${message.id}:${markdownContent.length}`}
+                  content={markdownContent}
+                >
+                  <MarkdownContent content={markdownContent} streaming={isGenerating} />
+                </MarkdownErrorBoundary>
+              ) : null}
+              {showQuizCard ? (
+                <VocabQuizChoices
+                  quiz={quiz}
+                  disabled={!showQuizButtons || !!quizDisabled}
+                  onSelect={showQuizButtons ? onQuizAnswer : undefined}
+                />
+              ) : null}
+              {showCalendarProposals
+                ? calendarProposals.map((proposal, index) => (
+                    <CalendarProposalCard
+                      key={`${proposal.proposal_id ?? proposal.title}-${index}`}
+                      proposal={proposal}
+                      disabled={!isLastAssistant}
+                    />
+                  ))
+                : null}
+              {showSearchSources ? <SearchSourcesStack sources={searchSources} /> : null}
+            </>
+          )}
+        </View>
+      )}
 
       {showActions && (
         <AssistantActions
@@ -164,14 +259,9 @@ function makeStyles(t: Theme) {
   return StyleSheet.create({
     row: { marginVertical: 4, paddingHorizontal: 16 },
     userRow: { alignItems: "flex-end" },
+    userColumn: { alignItems: "flex-end", maxWidth: "88%" },
+    editBtn: { marginTop: 2, marginRight: 4, padding: 4 },
     assistantRow: { alignItems: "stretch" },
-    userBubble: {
-      maxWidth: "82%",
-      backgroundColor: t.userBubble,
-      borderRadius: 22,
-      paddingHorizontal: 16,
-      paddingVertical: 10,
-    },
     assistantBubble: {
       maxWidth: "100%",
       backgroundColor: "transparent",

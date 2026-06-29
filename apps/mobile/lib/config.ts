@@ -8,7 +8,7 @@ export const config = {
   googleIosClientId:
     process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ??
     "your-ios-client-id.apps.googleusercontent.com",
-  devAuthEnabled: process.env.EXPO_PUBLIC_DEV_AUTH_ENABLED !== "false",
+  devAuthEnabled: process.env.EXPO_PUBLIC_DEV_AUTH_ENABLED === "true",
   appName: "Recall",
   isDev: __DEV__,
 } as const;

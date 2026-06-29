@@ -262,7 +262,10 @@ export function isExplicitCodeLang(lang: string): boolean {
     l === "message" ||
     l === "email" ||
     l === "sms" ||
-    l === "reply"
+    l === "reply" ||
+    l === "clock" ||
+    l === "time" ||
+    l === "sources"
   )
     return false;
   return !isProseLang(l);

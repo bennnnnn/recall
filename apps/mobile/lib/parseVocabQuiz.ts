@@ -1,0 +1,129 @@
+export type QuizChoice = { letter: "A" | "B" | "C" | "D"; text: string };
+
+export type ParsedVocabQuiz = {
+  word: string;
+  partOfSpeech?: string;
+  question?: string;
+  choices: QuizChoice[];
+};
+
+const CHOICE_LINE = /^([A-D])\)\s*(.+)$/i;
+const WORD_LINE =
+  /(?:\*\*Word:\*\*|Word:)\s*([^\n\[]+?)(?:\s*\[([^\]]+)\])?(?:\s*$|\s*\n)/i;
+const QUESTION_LINE =
+  /^(?:What does it mean\??|Choose the best meaning:?|Which definition is correct:?)\s*$/i;
+
+/** Strip markdown bold markers the model sometimes leaves on quiz words. */
+export function cleanQuizWord(raw: string): string {
+  return raw
+    .replace(/\*\*/g, "")
+    .replace(/^\*+|\*+$/g, "")
+    .trim();
+}
+
+type ChoiceBlock = {
+  choices: QuizChoice[];
+  startLine: number;
+  endLine: number;
+};
+
+function findChoiceBlocks(lines: string[]): ChoiceBlock[] {
+  const blocks: ChoiceBlock[] = [];
+  let current: QuizChoice[] = [];
+  let blockStart = -1;
+
+  const flush = (endLine: number) => {
+    if (current.length >= 2) {
+      blocks.push({ choices: current, startLine: blockStart, endLine });
+    }
+    current = [];
+    blockStart = -1;
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const match = lines[i].trim().match(CHOICE_LINE);
+    if (match) {
+      if (current.length === 0) blockStart = i;
+      current.push({
+        letter: match[1].toUpperCase() as QuizChoice["letter"],
+        text: match[2].trim(),
+      });
+      continue;
+    }
+    if (current.length > 0) flush(i - 1);
+  }
+  if (current.length > 0) flush(lines.length - 1);
+  return blocks;
+}
+
+function extractWordAbove(lines: string[], choiceStartLine: number): {
+  word: string;
+  partOfSpeech?: string;
+  headerLine: number;
+} | null {
+  for (let i = choiceStartLine - 1; i >= Math.max(0, choiceStartLine - 10); i--) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    const wordMatch = line.match(
+      /(?:\*\*Word:\*\*|Word:)\s*([^[\n]+?)(?:\s*\[([^\]]+)\])?\s*$/i,
+    );
+    if (wordMatch) {
+      const word = cleanQuizWord(wordMatch[1]);
+      if (!word) continue;
+      return {
+        word,
+        partOfSpeech: wordMatch[2]?.trim(),
+        headerLine: i,
+      };
+    }
+
+    const boldWord = line.match(/^\*\*([^*\n]+)\*\*$/);
+    if (boldWord) {
+      const candidate = cleanQuizWord(boldWord[1]);
+      if (candidate && candidate.split(/\s+/).length <= 2) {
+        return { word: candidate, headerLine: i };
+      }
+    }
+  }
+  return null;
+}
+
+function extractQuestion(lines: string[], headerLine: number, choiceStartLine: number): string | undefined {
+  for (let i = headerLine + 1; i < choiceStartLine; i++) {
+    const line = lines[i].trim();
+    if (QUESTION_LINE.test(line)) return line;
+  }
+  return undefined;
+}
+
+export function parseVocabQuiz(content: string): ParsedVocabQuiz | null {
+  const lines = content.split("\n");
+  const blocks = findChoiceBlocks(lines);
+  if (blocks.length === 0) return null;
+
+  const block = blocks[blocks.length - 1];
+  const wordInfo = extractWordAbove(lines, block.startLine);
+  if (!wordInfo) return null;
+
+  return {
+    word: wordInfo.word,
+    partOfSpeech: wordInfo.partOfSpeech,
+    question: extractQuestion(lines, wordInfo.headerLine, block.startLine),
+    choices: block.choices,
+  };
+}
+
+/** Intro/feedback text without the interactive quiz block. */
+export function stripVocabQuizBlock(content: string): string {
+  const lines = content.split("\n");
+  const blocks = findChoiceBlocks(lines);
+  if (blocks.length === 0) return content.trim();
+
+  const block = blocks[blocks.length - 1];
+  const wordInfo = extractWordAbove(lines, block.startLine);
+  const stripFrom = wordInfo?.headerLine ?? block.startLine;
+
+  const kept = lines.slice(0, stripFrom);
+  return kept.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}

@@ -15,7 +15,7 @@ from app.core.redis import get_redis_client
 from app.exceptions import ChatServiceError
 from app.gateways.google_auth import GoogleAuthError, decode_access_token
 from app.gateways.litellm_gateway import ModelUnavailableError
-from app.models.schemas import ChatMessageRequest
+from app.models.schemas import ChatMessageRequest, EditMessageRequest
 from app.services import auth as auth_service
 from app.services import chat as chat_service
 
@@ -63,7 +63,7 @@ async def _stream_over_ws(
         if not await _safe_send_json(websocket, {"type": "stream_end"}):
             return
 
-        finalize_task = result.pop("_finalize_task", None)
+        finalize_task = result.pop("_finalize_db_task", None)
         if finalize_task is not None:
             try:
                 await finalize_task
@@ -80,6 +80,9 @@ async def _stream_over_ws(
         memory_hints = result.get("memory_hints")
         if memory_hints:
             done["memory_hints"] = memory_hints
+        search_sources = result.get("search_sources")
+        if search_sources:
+            done["search_sources"] = search_sources
         await _safe_send_json(websocket, done)
 
     producer = asyncio.create_task(run_stream())
@@ -226,17 +229,55 @@ async def chat_websocket(
                 )
                 continue
 
+            if msg_type == "edit":
+                try:
+                    request = EditMessageRequest.model_validate(payload)
+                except ValidationError:
+                    await websocket.send_json(
+                        {"type": "error", "message": "Invalid edit request"},
+                    )
+                    continue
+
+                edit_model = request.model
+
+                async with SessionLocal() as session:
+                    user = await auth_service.get_current_user(session, user_id)
+                    if user is None:
+                        await websocket.send_json({"type": "error", "message": "User not found"})
+                        continue
+
+                def _edit_stream(result, mid=request.message_id, text=request.content, model=edit_model):
+                    return chat_service.stream_edit_response(
+                        redis,
+                        settings,
+                        user_id=user_id,
+                        chat_id=chat_id,
+                        message_id=mid,
+                        new_content=text,
+                        model_alias=model,
+                        should_cancel=cancel_event.is_set,
+                        result=result,
+                    )
+
+                await _run_chat_stream(
+                    websocket,
+                    cancel_event=cancel_event,
+                    stream_factory=_edit_stream,
+                )
+                continue
+
             if msg_type != "message":
                 continue
 
             content = payload.get("content", "").strip()
-            if not content:
-                continue
 
             try:
                 request = ChatMessageRequest.model_validate(payload)
             except ValidationError:
                 await websocket.send_json({"type": "error", "message": "Invalid message"})
+                continue
+
+            if not content and not request.attachment_ids:
                 continue
 
             message_content = content
@@ -248,7 +289,7 @@ async def chat_websocket(
                     await websocket.send_json({"type": "error", "message": "User not found"})
                     continue
 
-            def _message_stream(result, text=message_content, model=message_model):
+            def _message_stream(result, text=message_content, model=message_model, aids=request.attachment_ids):
                 return chat_service.stream_chat_response(
                     redis,
                     settings,
@@ -256,6 +297,7 @@ async def chat_websocket(
                     chat_id=chat_id,
                     content=text,
                     model_alias=model,
+                    attachment_ids=aids,
                     should_cancel=cancel_event.is_set,
                     result=result,
                 )

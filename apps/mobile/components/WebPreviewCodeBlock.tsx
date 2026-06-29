@@ -15,7 +15,6 @@ type Props = {
 /** HTML fence: syntax-highlighted code + preview modal + bottom actions. */
 export function WebPreviewCodeBlock({ code, lang = "html" }: Props) {
   const [modalOpen, setModalOpen] = useState(false);
-  const badge = (lang || "html").trim().toUpperCase() || "HTML";
 
   return (
     <>
@@ -59,12 +58,7 @@ export function WebPreviewCodeBlock({ code, lang = "html" }: Props) {
       />
 
       {modalOpen ? (
-        <HtmlPreviewModal
-          visible
-          html={code}
-          title={`${badge} Preview`}
-          onClose={() => setModalOpen(false)}
-        />
+        <HtmlPreviewModal visible html={code} onClose={() => setModalOpen(false)} />
       ) : null}
     </>
   );

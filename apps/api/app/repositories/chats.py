@@ -1,3 +1,4 @@
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID
 
@@ -8,8 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.orm import Chat, Message
 
 
-async def create(session: AsyncSession, *, user_id: UUID, model: str) -> Chat:
-    chat = Chat(user_id=user_id, model=model)
+async def create(
+    session: AsyncSession, *, user_id: UUID, model: str, project_id: UUID | None = None
+) -> Chat:
+    chat = Chat(user_id=user_id, model=model, project_id=project_id)
     session.add(chat)
     await session.commit()
     await session.refresh(chat)
@@ -22,7 +25,7 @@ async def get_by_id(session: AsyncSession, chat_id: UUID, user_id: UUID) -> Chat
 
 
 async def list_for_user(
-    session: AsyncSession, user_id: UUID, limit: int | None = None
+    session: AsyncSession, user_id: UUID, limit: int | None = None, *, include_archived: bool = False
 ) -> list[Chat]:
     has_messages = exists().where(Message.chat_id == Chat.id)
     stmt = (
@@ -31,9 +34,25 @@ async def list_for_user(
         .where(has_messages)
         .order_by(Chat.updated_at.desc())
     )
+    if not include_archived:
+        stmt = stmt.where(Chat.archived.is_(False))
     if limit is not None:
         stmt = stmt.limit(limit)
     result = await session.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def list_archived_for_user(
+    session: AsyncSession, user_id: UUID, limit: int = 100
+) -> list[Chat]:
+    has_messages = exists().where(Message.chat_id == Chat.id)
+    result = await session.execute(
+        select(Chat)
+        .where(Chat.user_id == user_id, Chat.archived.is_(True))
+        .where(has_messages)
+        .order_by(Chat.updated_at.desc())
+        .limit(limit)
+    )
     return list(result.scalars().all())
 
 
@@ -63,23 +82,33 @@ async def touch_by_id(session: AsyncSession, chat_id: UUID) -> None:
     await session.commit()
 
 
-def group_by_recency(chats: list[Chat]) -> dict[str, list[Chat]]:
-    from datetime import UTC, datetime, timedelta
+def group_by_recency(
+    chats: list[Chat],
+    *,
+    user_timezone: str | None = None,
+    now: datetime | None = None,
+) -> dict[str, list[Chat]]:
+    from app.services.time_context import resolve_timezone
 
-    now = datetime.now(UTC)
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    tz = resolve_timezone(user_timezone)
+    if now is None:
+        now_local = datetime.now(tz)
+    else:
+        aware = now if now.tzinfo is not None else now.replace(tzinfo=UTC)
+        now_local = aware.astimezone(tz)
+
+    today_start = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
     yesterday_start = today_start - timedelta(days=1)
 
     grouped: dict[str, list[Chat]] = {"today": [], "yesterday": [], "earlier": []}
     for chat in chats:
-        updated = (
-            chat.updated_at.replace(tzinfo=UTC)
-            if chat.updated_at.tzinfo is None
-            else chat.updated_at
-        )
-        if updated >= today_start:
+        updated = chat.updated_at
+        if updated.tzinfo is None:
+            updated = updated.replace(tzinfo=UTC)
+        updated_local = updated.astimezone(tz)
+        if updated_local >= today_start:
             grouped["today"].append(chat)
-        elif updated >= yesterday_start:
+        elif updated_local >= yesterday_start:
             grouped["yesterday"].append(chat)
         else:
             grouped["earlier"].append(chat)
@@ -112,6 +141,15 @@ async def set_title(session: AsyncSession, chat: Chat, title: str) -> Chat:
 
 async def set_pinned(session: AsyncSession, chat: Chat, pinned: bool) -> Chat:
     chat.pinned = pinned
+    await session.commit()
+    await session.refresh(chat)
+    return chat
+
+
+async def set_archived(session: AsyncSession, chat: Chat, archived: bool) -> Chat:
+    chat.archived = archived
+    if archived:
+        chat.pinned = False
     await session.commit()
     await session.refresh(chat)
     return chat

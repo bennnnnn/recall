@@ -1,19 +1,13 @@
-import Constants from "expo-constants";
-
 import { config } from "@/lib/config";
+import { isExpoGo } from "@/lib/expoRuntime";
+
+export { isExpoGo } from "@/lib/expoRuntime";
 
 const EXPO_GO_MESSAGE =
-  'Google Sign-In requires a dev build (pnpm expo run:android). In Expo Go, use "Continue as Dev User".';
+  "Google Sign-In does not work in Expo Go. Build and run the Recall app on your simulator or device:\n\ncd apps/mobile && pnpm expo run:ios";
 
-export function isExpoGo(): boolean {
-  return Constants.appOwnership === "expo";
-}
-
-export async function signInWithGoogleIdToken(): Promise<string> {
-  if (isExpoGo()) {
-    throw new Error(EXPO_GO_MESSAGE);
-  }
-
+/** Recall account sign-in — identity only (no Gmail/Calendar scopes). */
+async function signInWithGoogleNative(): Promise<string> {
   const { GoogleSignin, statusCodes } =
     await import("@react-native-google-signin/google-signin");
 
@@ -44,6 +38,13 @@ export async function signInWithGoogleIdToken(): Promise<string> {
     }
     throw new Error(err.message ?? "Google Sign-In failed.");
   }
+}
+
+export async function signInWithGoogleIdToken(): Promise<string> {
+  if (isExpoGo()) {
+    throw new Error(EXPO_GO_MESSAGE);
+  }
+  return signInWithGoogleNative();
 }
 
 export async function signOutGoogle() {

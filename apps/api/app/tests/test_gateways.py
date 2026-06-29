@@ -11,7 +11,7 @@ from app.gateways.google_auth import (
     decode_access_token,
 )
 from app.gateways.mock_llm import (
-    mock_memories,
+    mock_memory_sections,
     mock_stream,
     mock_title,
     should_mock_llm,
@@ -21,17 +21,17 @@ from app.gateways.mock_llm import (
 
 
 def test_should_mock_llm_true_when_no_key():
-    s = Settings(mock_llm_enabled=True, deepseek_api_key="", openrouter_api_key="")
+    s = Settings(mock_llm_enabled=True, openrouter_api_key="")
     assert should_mock_llm(s) is True
 
 
 def test_should_mock_llm_false_when_key_present():
-    s = Settings(mock_llm_enabled=True, deepseek_api_key="sk-real")
+    s = Settings(mock_llm_enabled=True, openrouter_api_key="sk-or-real")
     assert should_mock_llm(s) is False
 
 
 def test_should_mock_llm_false_when_disabled():
-    s = Settings(mock_llm_enabled=False, deepseek_api_key="")
+    s = Settings(mock_llm_enabled=False, openrouter_api_key="")
     assert should_mock_llm(s) is False
 
 
@@ -51,21 +51,24 @@ async def test_mock_title_uses_first_words():
 @pytest.mark.asyncio
 async def test_mock_title_empty():
     title = await mock_title("")
-    assert title == "New chat"
+    assert title is None
 
 
 @pytest.mark.asyncio
-async def test_mock_memories_short_message():
-    result = await mock_memories("hi")
+async def test_mock_memory_sections_short_message():
+    result = await mock_memory_sections("hi", {})
     assert result is None
 
 
 @pytest.mark.asyncio
-async def test_mock_memories_long_message():
-    result = await mock_memories("I am working on a Python FastAPI project for my startup")
+async def test_mock_memory_sections_long_message():
+    result = await mock_memory_sections(
+        "I am working on a Python FastAPI project for my startup",
+        {},
+    )
     assert result is not None
-    assert len(result.memories) == 1
-    assert result.memories[0].type == "focus"
+    assert len(result.sections) == 1
+    assert result.sections[0].type == "focus"
 
 
 # ── google_auth JWT ─────────────────────────────────────────────────────────────
@@ -109,14 +112,23 @@ def test_verify_google_id_token_requires_email_verified():
             verify_google_id_token("token", settings)
 
 
-def test_litellm_kwargs_use_matching_provider_key():
+def test_litellm_kwargs_use_openrouter_key():
     from app.gateways import litellm_gateway
 
-    settings = Settings(deepseek_api_key="sk-deep", openrouter_api_key="sk-or")
+    settings = Settings(openrouter_api_key="sk-or")
     route = litellm_gateway.resolve_route("free-chat")
     kwargs = litellm_gateway._litellm_kwargs(settings, route)
-    assert kwargs["api_key"] == "sk-deep"
+    assert kwargs["api_key"] == "sk-or"
     assert "api_base" not in kwargs
+    assert route.model == "openrouter/deepseek/deepseek-chat"
+    assert "extra_headers" in kwargs
+
+
+def test_litellm_openrouter_model_prefix():
+    from app.services.model_catalog import litellm_openrouter_model
+
+    assert litellm_openrouter_model("deepseek/deepseek-chat") == "openrouter/deepseek/deepseek-chat"
+    assert litellm_openrouter_model("openrouter/auto") == "openrouter/openrouter/auto"
 
 
 # ── deps: get_current_user ─────────────────────────────────────────────────────

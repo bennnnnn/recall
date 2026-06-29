@@ -12,6 +12,8 @@ from app.models.schemas import AuthResponse, DevAuthRequest, GoogleAuthRequest, 
 from app.repositories import users as users_repo
 from app.services import auth as auth_service
 from app.services import export_service
+from app.services import plan as plan_service
+from app.services import subscription as subscription_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -69,12 +71,52 @@ async def update_me(
     body: UserUpdate,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings_dep),
 ) -> UserOut:
+    fields = body.model_dump(exclude_unset=True)
+    if "enabled_models" in fields:
+        try:
+            fields["enabled_models"] = plan_service.validate_enabled_models_for_update(
+                user,
+                fields["enabled_models"],
+                settings,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     updated = await users_repo.update(
         session,
         user,
-        **body.model_dump(exclude_unset=True),
+        **fields,
     )
+    return UserOut.model_validate(updated)
+
+
+@router.post("/me/pro-dev", response_model=UserOut)
+async def dev_upgrade_pro(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings_dep),
+) -> UserOut:
+    """Dev-only helper to simulate a Pro subscription."""
+    if not settings.dev_auth_enabled:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Dev upgrade disabled")
+    updated = await users_repo.update(session, user, plan="pro")
+    return UserOut.model_validate(updated)
+
+
+@router.post("/me/sync-subscription", response_model=UserOut)
+async def sync_subscription(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings_dep),
+) -> UserOut:
+    """Refresh plan from RevenueCat after a purchase or restore."""
+    if not settings.revenuecat_secret_key.strip():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Subscriptions are not configured on this server",
+        )
+    updated = await subscription_service.sync_user_plan_from_revenuecat(session, user, settings)
     return UserOut.model_validate(updated)
 
 

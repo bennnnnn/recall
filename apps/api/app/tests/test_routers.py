@@ -17,11 +17,15 @@ def _fake_user(**kw) -> User:
     u.email = kw.get("email", "test@recall.local")
     u.name = kw.get("name", "Tester")
     u.avatar_url = None
-    u.default_model = "free-chat"
+    u.default_model = "auto"
+    u.plan = kw.get("plan", "free")
+    u.enabled_models = kw.get("enabled_models", None)
     u.response_style = "balanced"
+    u.response_tone = kw.get("response_tone", "funny")
     u.memory_enabled = True
-    u.custom_instructions = kw.get("custom_instructions", None)
     u.locale = kw.get("locale", "en")
+    u.timezone = kw.get("timezone", "UTC")
+    u.location = kw.get("location", None)
     u.created_at = datetime(2024, 1, 1)
     return u
 
@@ -86,7 +90,9 @@ def test_dev_login():
         email="dev@recall.local",
         name="Dev",
         avatar_url=None,
-        default_model="free-chat",
+        default_model="auto",
+        plan="free",
+        enabled_models=None,
         response_style="balanced",
         memory_enabled=True,
         created_at=datetime(2024, 1, 1),
@@ -132,6 +138,7 @@ def test_create_chat():
     chat.title = None
     chat.model = "free-chat"
     chat.pinned = False
+    chat.project_id = None
     chat.created_at = datetime(2024, 1, 1)
     chat.updated_at = datetime(2024, 1, 1)
 
@@ -152,6 +159,7 @@ def test_list_chats():
 
     with (
         patch("app.routers.chats.chats_repo.list_for_user", AsyncMock(return_value=empty_list)),
+        patch("app.routers.chats.chats_repo.list_archived_for_user", AsyncMock(return_value=empty_list)),
         patch(
             "app.routers.chats.chats_repo.group_by_recency",
             return_value={"today": [], "yesterday": [], "earlier": []},
@@ -160,7 +168,7 @@ def test_list_chats():
         client = TestClient(app)
         r = client.get("/chats", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 200
-    assert r.json() == {"pinned": [], "today": [], "yesterday": [], "earlier": []}
+    assert r.json() == {"pinned": [], "today": [], "yesterday": [], "earlier": [], "archived": []}
 
 
 def test_get_chat_not_found():

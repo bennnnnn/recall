@@ -36,7 +36,9 @@ def test_list_todos_returns_items():
     todo_mock = MagicMock()
     todo_mock.id = tid
     todo_mock.content = "Buy milk"
+    todo_mock.topic = "General"
     todo_mock.checked = False
+    todo_mock.due_at = None
     todo_mock.chat_id = None
     todo_mock.created_at = now
     todo_mock.updated_at = now
@@ -60,7 +62,9 @@ def test_create_todo():
     todo_mock = MagicMock()
     todo_mock.id = tid
     todo_mock.content = "Test todo"
+    todo_mock.topic = "General"
     todo_mock.checked = False
+    todo_mock.due_at = None
     todo_mock.chat_id = None
     todo_mock.created_at = now
     todo_mock.updated_at = now
@@ -87,6 +91,7 @@ def test_create_todo_with_chat_id():
     todo_mock = MagicMock()
     todo_mock.id = tid
     todo_mock.content = "From chat"
+    todo_mock.topic = "General"
     todo_mock.checked = False
     todo_mock.chat_id = cid
     todo_mock.created_at = now
@@ -126,7 +131,9 @@ def test_update_todo():
     todo_mock = MagicMock()
     todo_mock.id = tid
     todo_mock.content = "Updated"
+    todo_mock.topic = "General"
     todo_mock.checked = True
+    todo_mock.due_at = None
     todo_mock.chat_id = None
     todo_mock.created_at = now
     todo_mock.updated_at = now
@@ -190,6 +197,52 @@ def test_delete_todo_not_found():
     assert r.status_code == 404
 
 
+# ── projects router ─────────────────────────────────────────────────────────
+
+
+def test_list_projects_empty():
+    from fastapi.testclient import TestClient
+
+    user = _fake_user()
+    app = _app_with_user(user)
+    with patch("app.routers.projects.projects_repo.list_for_user", AsyncMock(return_value=[])):
+        client = TestClient(app)
+        r = client.get("/projects", headers={"Authorization": "Bearer tok"})
+    assert r.status_code == 200
+    assert r.json() == []
+
+
+def test_create_project():
+    from fastapi.testclient import TestClient
+
+    user = _fake_user()
+    app = _app_with_user(user)
+    project_id = uuid4()
+    now = datetime.now(UTC)
+    fake = MagicMock()
+    fake.id = project_id
+    fake.title = "Learning English"
+    fake.description = "Daily vocab"
+    fake.kind = "language"
+    fake.target_language = "en"
+    fake.native_language = None
+    fake.level = "level1"
+    fake.archived = False
+    fake.created_at = now
+    fake.updated_at = now
+
+    with patch("app.routers.projects.projects_repo.create", AsyncMock(return_value=fake)):
+        client = TestClient(app)
+        r = client.post(
+            "/projects",
+            headers={"Authorization": "Bearer tok"},
+            json={"title": "Learning English", "kind": "vocabulary"},
+        )
+    assert r.status_code == 201
+    assert r.json()["title"] == "Learning English"
+    assert r.json()["kind"] == "language"
+
+
 # ── search router ───────────────────────────────────────────────────────────
 
 
@@ -200,6 +253,7 @@ def test_search_returns_results():
     app = _app_with_user(user)
     fake_results = [
         {
+            "match_type": "message",
             "message_id": uuid4(),
             "chat_id": uuid4(),
             "chat_title": "Test Chat",
@@ -209,7 +263,7 @@ def test_search_returns_results():
         }
     ]
     with patch(
-        "app.routers.search.search_repo.search_messages",
+        "app.routers.search.search_repo.search_conversations",
         AsyncMock(return_value=(fake_results, 1)),
     ):
         client = TestClient(app)
@@ -230,7 +284,7 @@ def test_search_returns_empty():
     user = _fake_user()
     app = _app_with_user(user)
     with patch(
-        "app.routers.search.search_repo.search_messages",
+        "app.routers.search.search_repo.search_conversations",
         AsyncMock(return_value=([], 0)),
     ):
         client = TestClient(app)
@@ -261,6 +315,7 @@ def test_search_respects_limit():
     app = _app_with_user(user)
     fake_results = [
         {
+            "match_type": "message",
             "message_id": uuid4(),
             "chat_id": uuid4(),
             "chat_title": "Chat",
@@ -271,7 +326,7 @@ def test_search_respects_limit():
         for _ in range(5)
     ]
     with patch(
-        "app.routers.search.search_repo.search_messages",
+        "app.routers.search.search_repo.search_conversations",
         AsyncMock(return_value=(fake_results, 42)),  # total=42, but only 5 returned
     ):
         client = TestClient(app)
@@ -858,10 +913,28 @@ async def test_todos_repo_create():
     session.commit = AsyncMock()
     session.refresh = AsyncMock()
 
-    with patch("app.repositories.todos.TodoItem", return_value=todo_mock):
+    with (
+        patch("app.repositories.todos.next_sort_order", AsyncMock(return_value=1)),
+        patch("app.repositories.todos.TodoItem", return_value=todo_mock),
+    ):
         result = await create(session, user_id=uuid4(), content="Task 1")
     assert result is todo_mock
     session.add.assert_called_once()
+    session.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_todos_repo_update_unchecks():
+    from app.repositories.todos import update
+
+    todo = MagicMock()
+    todo.checked = True
+    session = AsyncMock()
+    session.commit = AsyncMock()
+    session.refresh = AsyncMock()
+
+    updated = await update(session, todo, checked=False)
+    assert updated.checked is False
     session.commit.assert_awaited_once()
 
 

@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import get_db
 from app.core.deps import get_current_user
 from app.models.orm import User
-from app.models.schemas import TodoCreate, TodoOut, TodoUpdate
+from app.models.schemas import TodoCreate, TodoOut, TodoReorderBody, TodoUpdate
 from app.repositories import todos as todos_repo
 
 router = APIRouter(prefix="/todos", tags=["todos"])
@@ -21,6 +21,14 @@ async def list_todos(
     return [TodoOut.model_validate(item) for item in items]
 
 
+@router.get("/topics", response_model=list[str])
+async def list_todo_topics(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> list[str]:
+    return await todos_repo.list_topics(session, user.id)
+
+
 @router.post("", response_model=TodoOut, status_code=status.HTTP_201_CREATED)
 async def create_todo(
     body: TodoCreate,
@@ -31,9 +39,22 @@ async def create_todo(
         session,
         user_id=user.id,
         content=body.content,
+        topic=body.topic,
         chat_id=body.chat_id,
+        due_at=body.due_at,
     )
     return TodoOut.model_validate(item)
+
+
+@router.post("/reorder", response_model=list[TodoOut])
+async def reorder_todos(
+    body: TodoReorderBody,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> list[TodoOut]:
+    payload = [(item.id, item.sort_order, item.topic) for item in body.items]
+    items = await todos_repo.reorder(session, user.id, payload)
+    return [TodoOut.model_validate(item) for item in items]
 
 
 @router.patch("/{todo_id}", response_model=TodoOut)

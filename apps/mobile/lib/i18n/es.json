@@ -2,7 +2,7 @@
   "app.name": "Recall",
   "chat.placeholder": "Escribe a Recall...",
   "chat.empty_title": "¿En qué puedo ayudarte?",
-  "chat.empty_hint": "Pregúntame lo que sea — recordaré lo que importa.",
+  "chat.empty_hint": "¿Qué tienes en mente?",
   "chat.suggestions": "Sugerencias",
   "chat.templates": "Empezar con una plantilla",
   "chat.load_earlier": "Cargar mensajes anteriores",

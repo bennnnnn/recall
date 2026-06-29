@@ -12,6 +12,7 @@ import RenderHtml from "react-native-render-html";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
+import { CodeBlock } from "@/components/CodeBlock";
 import { C } from "@/constants/Colors";
 import {
   htmlForInlinePreview,
@@ -19,7 +20,7 @@ import {
 } from "@/lib/htmlForInlinePreview";
 import {
   looksLikeInteractiveHtml,
-  openHtmlInBrowser,
+  shareHtmlPreview,
   wrapFullDocument,
   writeHtmlPreviewFile,
 } from "@/lib/openHtmlPreview";
@@ -29,9 +30,10 @@ import { getPreviewWebView } from "@/lib/webView";
 type Props = {
   visible: boolean;
   html: string;
-  title?: string;
   onClose: () => void;
 };
+
+type PreviewTab = "run" | "code";
 
 const TAG_STYLES = {
   body: { color: C.text },
@@ -75,9 +77,6 @@ function LiveWebPreview({ html }: { html: string }) {
       setPreviewUri(null);
       return;
     }
-    // @expo/dom-webview only supports { uri } in source (no inline html).
-    // data: URIs are not resolved by Image.resolveAssetSource, so always
-    // write to a cache file to get a real file:// URI.
     let cancelled = false;
     void writeHtmlPreviewFile(fullHtml).then((uri) => {
       if (!cancelled) setPreviewUri(uri);
@@ -150,21 +149,46 @@ function StaticHtmlPreview({ html, contentWidth }: { html: string; contentWidth:
   );
 }
 
-export function HtmlPreviewModal({
-  visible,
-  html,
-  title = "Preview",
-  onClose,
-}: Props) {
+function ToolbarItem({
+  icon,
+  label,
+  onPress,
+  active,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+  active?: boolean;
+}) {
+  return (
+    <Pressable
+      style={[s.toolbarItem, active && s.toolbarItemActive]}
+      onPress={onPress}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: active }}
+    >
+      <Ionicons
+        name={icon}
+        size={24}
+        color={active ? C.primary : C.textSecondary}
+      />
+    </Pressable>
+  );
+}
+
+export function HtmlPreviewModal({ visible, html, onClose }: Props) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const contentWidth = Math.max(width - 32, 280);
+  const [tab, setTab] = useState<PreviewTab>("run");
   const interactive = useMemo(() => looksLikeInteractiveHtml(html), [html]);
   const canUseWebView = useMemo(() => getPreviewWebView() != null, []);
 
-  const openBrowser = () => {
-    void openHtmlInBrowser(html);
-  };
+  useEffect(() => {
+    if (visible) setTab("run");
+  }, [visible]);
 
   return (
     <Modal
@@ -176,52 +200,51 @@ export function HtmlPreviewModal({
       <View
         style={[s.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
       >
-        <View style={s.header}>
-          <Text style={s.title} numberOfLines={1}>
-            {title}
-          </Text>
-          <View style={s.headerActions}>
-            <Pressable style={s.iconBtn} onPress={openBrowser} hitSlop={8}>
-              <Ionicons name="open-outline" size={22} color={C.text} />
-            </Pressable>
-            <Pressable style={s.iconBtn} onPress={onClose} hitSlop={8}>
-              <Ionicons name="close" size={26} color={C.text} />
-            </Pressable>
-          </View>
-        </View>
-
-        {interactive || !canUseWebView ? (
-          <Pressable style={s.interactiveBanner} onPress={openBrowser}>
-            <Ionicons
-              name={interactive ? "flash-outline" : "globe-outline"}
-              size={16}
-              color={C.primary}
-            />
+        {tab === "run" && interactive && !canUseWebView ? (
+          <View style={s.interactiveBanner}>
+            <Ionicons name="flash-outline" size={16} color={C.primary} />
             <Text style={s.interactiveBannerText}>
-              {interactive
-                ? "This page uses JavaScript — tap here or ↗ to open the live version in Safari"
-                : "Tap here or ↗ to open the full page in Safari"}
+              This page uses JavaScript — switch to Run with a dev build for live
+              preview, or Share to open in Safari.
             </Text>
-          </Pressable>
+          </View>
         ) : null}
 
         <View style={s.body}>
-          {canUseWebView ? (
+          {tab === "code" ? (
+            <ScrollView
+              style={s.codeScroll}
+              contentContainerStyle={s.codeScrollContent}
+              showsVerticalScrollIndicator
+            >
+              <CodeBlock code={html} lang="html" />
+            </ScrollView>
+          ) : canUseWebView ? (
             <LiveWebPreview html={html} />
           ) : (
             <StaticHtmlPreview html={html} contentWidth={contentWidth} />
           )}
         </View>
 
-        <View style={s.footer}>
-          <Pressable
-            style={s.footerIconBtn}
-            onPress={openBrowser}
-            hitSlop={8}
-            accessibilityLabel="Open in Safari"
-          >
-            <Ionicons name="open-outline" size={22} color={C.primary} />
-          </Pressable>
+        <View style={s.toolbar}>
+          <ToolbarItem icon="close" label="Close" onPress={onClose} />
+          <ToolbarItem
+            icon="code-slash"
+            label="Code"
+            onPress={() => setTab("code")}
+            active={tab === "code"}
+          />
+          <ToolbarItem
+            icon="play"
+            label="Run"
+            onPress={() => setTab("run")}
+            active={tab === "run"}
+          />
+          <ToolbarItem
+            icon="share-outline"
+            label="Share"
+            onPress={() => void shareHtmlPreview(html)}
+          />
         </View>
       </View>
     </Modal>
@@ -230,30 +253,6 @@ export function HtmlPreviewModal({
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: C.border,
-  },
-  title: {
-    flex: 1,
-    fontSize: 17,
-    fontWeight: "700",
-    color: C.text,
-    marginRight: 8,
-  },
-  headerActions: { flexDirection: "row", alignItems: "center", gap: 4 },
-  iconBtn: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 10,
-  },
   interactiveBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -272,6 +271,8 @@ const s = StyleSheet.create({
     color: C.text,
   },
   body: { flex: 1, minHeight: 0 },
+  codeScroll: { flex: 1 },
+  codeScrollContent: { padding: 16, paddingBottom: 24 },
   webviewContainer: { flex: 1, alignSelf: "stretch" },
   webview: { flex: 1, backgroundColor: "#fff" },
   loading: { flex: 1, alignItems: "center", justifyContent: "center" },
@@ -285,22 +286,25 @@ const s = StyleSheet.create({
     lineHeight: 18,
     color: C.text,
   },
-  footer: {
+  toolbar: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    alignItems: "stretch",
+    justifyContent: "space-around",
+    paddingHorizontal: 8,
+    paddingTop: 8,
+    paddingBottom: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: C.border,
     backgroundColor: C.bg,
   },
-  footerIconBtn: {
-    width: 48,
-    height: 48,
+  toolbarItem: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  toolbarItemActive: {
     backgroundColor: C.primaryLight,
   },
 });

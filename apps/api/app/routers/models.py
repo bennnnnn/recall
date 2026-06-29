@@ -26,6 +26,7 @@ async def list_models(
             provider=m.provider,
             description=m.description,
             tier=m.tier,
+            plan_access=m.plan_access,
             available=model_catalog.is_available(m, settings),
             input_price_per_m=m.input_price_per_m,
             output_price_per_m=m.output_price_per_m,

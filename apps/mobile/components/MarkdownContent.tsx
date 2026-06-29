@@ -1,5 +1,5 @@
 /** Markdown renderer — v2 (no nested Markdown / plainFence), theme-aware. */
-import { ReactNode, useMemo } from "react";
+import { ReactNode, useDeferredValue, useMemo } from "react";
 import Markdown from "react-native-markdown-display";
 import { Ionicons } from "@expo/vector-icons";
 import { Image, Platform, StyleSheet, Text, View } from "react-native";
@@ -8,6 +8,16 @@ import { LinkPreviewCard } from "@/components/LinkPreviewCard";
 import { CodeBlock } from "@/components/CodeBlock";
 import { WebPreviewCodeBlock } from "@/components/WebPreviewCodeBlock";
 import { CopyBlock } from "@/components/CopyBlock";
+import { CircularClockBlock } from "@/components/rich/CircularClockBlock";
+import { MathBlock } from "@/components/rich/MathView";
+import { MathText } from "@/components/rich/MathText";
+import { GeometryBlock } from "@/components/rich/GeometryBlock";
+import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
+import {
+  fenceContentAsGeometry,
+  fenceContentAsGraph,
+  looksLikeLatexFence,
+} from "@/lib/mathFenceRetag";
 import {
   MarkdownTable,
   MarkdownTableCell,
@@ -26,6 +36,13 @@ import {
   shouldRenderAsCopyBlock,
 } from "@/lib/copyBlock";
 import { parseFenceLang, shouldUseHtmlPreview } from "@/lib/codeHighlight";
+import {
+  assistantReplyIsTimeAnswer,
+  extractClockTimezone,
+  isClockFenceBody,
+  isDigitalTimeOnly,
+  isIanaTimezoneOnly,
+} from "@/lib/timeQuestion";
 import { markdownItInstance } from "@/lib/markdownIt";
 import {
   extractBlockquoteMeta,
@@ -72,12 +89,65 @@ function astText(node: AstNode): string {
   return (node.children ?? []).map(astText).join("");
 }
 
+function collectHtmlInline(nodes: AstNode[] | undefined): string[] {
+  const out: string[] = [];
+  for (const node of nodes ?? []) {
+    if (node.sourceType === "html_inline" || node.type === "html_inline") {
+      if (node.content) out.push(node.content);
+    }
+    out.push(...collectHtmlInline(node.children));
+  }
+  return out;
+}
+
+function isTaskCheckboxChecked(html: string): boolean {
+  return /\bchecked(?:\s|=|>|\/)/i.test(html);
+}
+
 function taskChecked(node: AstNode): boolean | null {
   const cls = node.attributes?.class ?? "";
   if (!cls.includes("task-list-item")) return null;
-  const html = node.children?.find((c) => c.sourceType === "html_inline");
-  return Boolean(html?.content?.includes("checked"));
+  const checkbox = collectHtmlInline(node.children).find((html) =>
+    html.includes("task-list-item-checkbox"),
+  );
+  if (!checkbox) return false;
+  return isTaskCheckboxChecked(checkbox);
 }
+
+/** ChatGPT-style green verification tick for checked `- [x]` list items. */
+const VERIFY_CHECK_COLOR = "#10A37F";
+
+function VerifyCheckmark() {
+  return (
+    <View style={verifyCheckStyles.badge}>
+      <Ionicons name="checkmark" size={13} color="#FFFFFF" />
+    </View>
+  );
+}
+
+const verifyCheckStyles = StyleSheet.create({
+  badge: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    backgroundColor: VERIFY_CHECK_COLOR,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 8,
+    marginTop: 2,
+    flexShrink: 0,
+  },
+  verifyRow: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+  },
+  verifyContent: {
+    flex: 1,
+    flexShrink: 1,
+  },
+});
 
 function countTableColumns(node: AstNode): number {
   let max = 1;
@@ -114,7 +184,7 @@ function renderTextWithMath(
   styles: StyleMap,
   inheritedStyles: object,
   mdTable: TableStyles,
-  mdMath: MathStyles,
+  _mdMath: MathStyles,
 ) {
   const parts = splitInlineMath(node.content);
   const base = [
@@ -123,6 +193,7 @@ function renderTextWithMath(
     inTableCell(parent) && mdTable.cellText,
     inTableHeader(parent) && mdTable.headerText,
   ];
+
   if (parts.length === 1 && parts[0].type === "text") {
     return (
       <Text key={node.key} style={base} selectable>
@@ -130,13 +201,12 @@ function renderTextWithMath(
       </Text>
     );
   }
+
   return (
     <Text key={node.key} style={base} selectable>
       {parts.map((part, i) =>
         part.type === "math" ? (
-          <Text key={`${node.key}-m-${i}`} style={mdMath.inline}>
-            {part.value}
-          </Text>
+          <MathText key={`${node.key}-m-${i}`} latex={part.value} />
         ) : (
           part.value
         ),
@@ -198,12 +268,29 @@ function makeSharedRules(
       const task = taskChecked(node);
       if (parentHasType(parent, "bullet_list")) {
         if (task !== null) {
+          if (task) {
+            return (
+              <View key={node.key} style={styles._VIEW_SAFE_list_item as object}>
+                <Text style={styles.bullet_list_icon as object} accessible={false}>
+                  {Platform.select({
+                    android: "\u2022",
+                    ios: "\u00B7",
+                    default: "\u2022",
+                  })}
+                </Text>
+                <View style={verifyCheckStyles.verifyRow}>
+                  <View style={verifyCheckStyles.verifyContent}>{children}</View>
+                  <VerifyCheckmark />
+                </View>
+              </View>
+            );
+          }
           return (
             <View key={node.key} style={styles._VIEW_SAFE_list_item as object}>
               <Ionicons
-                name={task ? "checkbox" : "square-outline"}
+                name="square-outline"
                 size={18}
-                color={task ? t.primary : t.textTertiary}
+                color={t.textTertiary}
                 style={{ marginTop: 2 }}
               />
               <View style={styles._VIEW_SAFE_bullet_list_content as object}>
@@ -221,7 +308,7 @@ function makeSharedRules(
                 default: "\u2022",
               })}
             </Text>
-            <View style={styles._VIEW_SAFE_bullet_list_content as object}>
+            <View style={[styles._VIEW_SAFE_bullet_list_content as object, mdMath.listContent]}>
               {children}
             </View>
           </View>
@@ -237,7 +324,7 @@ function makeSharedRules(
               {listItemNumber}
               {node.markup}
             </Text>
-            <View style={styles._VIEW_SAFE_ordered_list_content as object}>
+            <View style={[styles._VIEW_SAFE_ordered_list_content as object, mdMath.listContent]}>
               {children}
             </View>
           </View>
@@ -383,6 +470,25 @@ function renderFenceInner(key: string, lang: string, content: string) {
   if (shouldUseHtmlPreview(lang, content)) {
     return <WebPreviewCodeBlock key={key} code={content} lang={lang || "html"} />;
   }
+  const l = lang.trim().toLowerCase();
+  if (fenceContentAsGeometry(content)) {
+    return <GeometryBlock key={key} content={content} />;
+  }
+  if (fenceContentAsGraph(content)) {
+    return <FunctionGraphBlock key={key} content={content} />;
+  }
+  if (looksLikeLatexFence(content) && l !== "python" && l !== "javascript") {
+    return <MathBlock key={key} latex={content} />;
+  }
+  if (
+    l === "clock" ||
+    l === "time" ||
+    isDigitalTimeOnly(content) ||
+    isIanaTimezoneOnly(content) ||
+    (l === "" && isClockFenceBody(content))
+  ) {
+    return <CircularClockBlock key={key} content={content} />;
+  }
   const rich = renderRichFence(lang, content, key);
   if (rich) return rich;
   const copyStyle = renderCopyStyleBlock(lang, content, key);
@@ -411,18 +517,20 @@ function makeRenderRules(t: Theme) {
   return { rules, mdStyles };
 }
 
-type Props = { content: string };
+type Props = { content: string; streaming?: boolean };
 
-export function MarkdownContent({ content }: Props) {
+export function MarkdownContent({ content, streaming = false }: Props) {
   const t = useTheme();
   const { rules, mdStyles } = useMemo(() => makeRenderRules(t), [t]);
+  const deferredContent = useDeferredValue(content);
+  const renderContent = streaming ? deferredContent : content;
   const prepared = useMemo(() => {
     try {
-      return preprocessMarkdown(content);
+      return preprocessMarkdown(renderContent);
     } catch {
-      return content;
+      return renderContent;
     }
-  }, [content]);
+  }, [renderContent]);
   return (
     <Markdown style={mdStyles} rules={rules as never} markdownit={markdownItInstance}>
       {prepared}
@@ -430,13 +538,11 @@ export function MarkdownContent({ content }: Props) {
   );
 }
 
-function makeMdMath(t: Theme) {
+function makeMdMath(_t: Theme) {
   return StyleSheet.create({
-    inline: {
-      fontFamily: CODE_FONT,
-      fontSize: 14,
-      color: t.primaryDark,
-      backgroundColor: t.contentSurface,
+    listContent: {
+      flex: 1,
+      flexShrink: 1,
     },
   });
 }

@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-
-import { chatWebSocketUrl, Message } from "@/lib/api";
+import { chatWebSocketUrl, Message, SearchSource } from "@/lib/api";
+import { parseSearchSources, parseSearchSourcesJson } from "@/lib/searchSources";
 
 const CONNECT_TIMEOUT_MS = 8000;
+
+function isVocabQuizAnswer(content: string): boolean {
+  return /^[A-D]\.?$/i.test(content.trim());
+}
 
 type UseChatOptions = {
   /** Called with the new title when the server sends one after first reply */
@@ -140,6 +144,7 @@ export function useChat(
           message_id?: string;
           recalled?: string;
           memory_hints?: string;
+          search_sources?: string;
         };
         try {
           payload = JSON.parse(event.data);
@@ -156,6 +161,7 @@ export function useChat(
 
         if (payload.type === "token") {
           assistantBuffer.current += payload.content ?? "";
+          const streamedSources = parseSearchSources(assistantBuffer.current);
           setMessages((prev) => {
             const next = [...prev];
             const last = next[next.length - 1];
@@ -163,6 +169,7 @@ export function useChat(
               next[next.length - 1] = {
                 ...last,
                 content: assistantBuffer.current,
+                search_sources: streamedSources.length ? streamedSources : undefined,
               };
             } else {
               next.push({
@@ -170,6 +177,7 @@ export function useChat(
                 role: "assistant",
                 content: assistantBuffer.current,
                 model: null,
+                search_sources: streamedSources.length ? streamedSources : undefined,
                 created_at: new Date().toISOString(),
               });
             }
@@ -198,6 +206,11 @@ export function useChat(
               memory_hints = undefined;
             }
           }
+          let search_sources: SearchSource[] | undefined;
+          if (payload.search_sources) {
+            const parsed = parseSearchSourcesJson(payload.search_sources);
+            if (parsed.length > 0) search_sources = parsed;
+          }
           setMessages((prev) => {
             if (prev.some((m) => m.id === "streaming")) {
               const streamingMsg = prev.find((m) => m.id === "streaming");
@@ -206,14 +219,14 @@ export function useChat(
               }
               return prev.map((m) =>
                 m.id === "streaming"
-                  ? { ...m, id: finalId, recalled, memory_hints }
+                  ? { ...m, id: finalId, recalled, memory_hints, search_sources }
                   : m,
               );
             }
             const next = [...prev];
             for (let i = next.length - 1; i >= 0; i--) {
               if (next[i].role === "assistant") {
-                next[i] = { ...next[i], id: finalId, recalled, memory_hints };
+                next[i] = { ...next[i], id: finalId, recalled, memory_hints, search_sources };
                 break;
               }
             }
@@ -266,8 +279,11 @@ export function useChat(
   const sendMessage = useCallback(
     async (
       content: string,
-      model?: string,
-      options?: { skipUserBubble?: boolean },
+      options?: {
+        skipUserBubble?: boolean;
+        attachmentIds?: string[];
+        localImageUri?: string | null;
+      },
     ) => {
       if (!token || !chatId) return;
 
@@ -278,7 +294,8 @@ export function useChat(
             id: `local-${Date.now()}`,
             role: "user",
             content,
-            model: model ?? null,
+            model: null,
+            local_image_uri: options?.localImageUri ?? null,
             created_at: new Date().toISOString(),
           },
         ]);
@@ -288,13 +305,23 @@ export function useChat(
       if (wsRef.current?.readyState !== WebSocket.OPEN) return;
 
       assistantBuffer.current = "";
-      wsRef.current.send(JSON.stringify({ type: "message", content, model }));
+      if (isVocabQuizAnswer(content) && !streamingRef.current) {
+        setStreaming(true);
+        streamingRef.current = true;
+        appendStreamingPlaceholder();
+      }
+      wsRef.current.send(
+        JSON.stringify({
+          type: "message",
+          content,
+          attachment_ids: options?.attachmentIds ?? [],
+        }),
+      );
     },
-    [token, chatId, ensureConnected],
+    [token, chatId, ensureConnected, appendStreamingPlaceholder],
   );
 
-  const regenerateResponse = useCallback(
-    async (model?: string) => {
+  const regenerateResponse = useCallback(async () => {
       if (!token || !chatId) return;
 
       setMessages((prev) => {
@@ -307,7 +334,41 @@ export function useChat(
       if (wsRef.current?.readyState !== WebSocket.OPEN) return;
 
       assistantBuffer.current = "";
-      wsRef.current.send(JSON.stringify({ type: "regenerate", model }));
+      wsRef.current.send(JSON.stringify({ type: "regenerate" }));
+    },
+    [token, chatId, ensureConnected],
+  );
+
+  const editMessage = useCallback(
+    async (messageId: string, content: string) => {
+      if (!token || !chatId || !content.trim()) return;
+
+      setMessages((prev) => {
+        const index = prev.findIndex((m) => m.id === messageId);
+        if (index < 0) return prev;
+        return [
+          ...prev.slice(0, index),
+          {
+            id: `local-edit-${Date.now()}`,
+            role: "user" as const,
+            content: content.trim(),
+            model: null,
+            created_at: new Date().toISOString(),
+          },
+        ];
+      });
+
+      await ensureConnected();
+      if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+
+      assistantBuffer.current = "";
+      wsRef.current.send(
+        JSON.stringify({
+          type: "edit",
+          message_id: messageId,
+          content: content.trim(),
+        }),
+      );
     },
     [token, chatId, ensureConnected],
   );
@@ -335,6 +396,7 @@ export function useChat(
     streaming,
     sendMessage,
     regenerateResponse,
+    editMessage,
     stopGeneration,
     connect,
   };

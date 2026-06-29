@@ -18,7 +18,7 @@ async def search(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> SearchResults:
-    results, total = await search_repo.search_messages(
+    results, total = await search_repo.search_conversations(
         session, user.id, query=q, limit=limit, offset=offset
     )
     return SearchResults(

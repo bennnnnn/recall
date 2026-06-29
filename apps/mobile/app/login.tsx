@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -10,11 +10,9 @@ import {
 import { Redirect, router } from "expo-router";
 import { useTranslation } from "react-i18next";
 
-import { C } from "@/constants/Colors";
 import { useAuth } from "@/contexts/AuthContext";
-import { checkHealth } from "@/lib/api";
-import { config, getApiUrl } from "@/lib/config";
 import { isExpoGo } from "@/lib/google-auth";
+import { Theme, useTheme } from "@/lib/theme";
 
 function GoogleG() {
   return (
@@ -25,24 +23,32 @@ function GoogleG() {
 }
 
 export default function LoginScreen() {
-  const { token, loading, onboarded, signInWithGoogle, signInWithDev } =
-    useAuth();
+  const { token, loading, onboarded, signInWithGoogle } = useAuth();
   const { t } = useTranslation();
-  const [busy, setBusy] = useState<"google" | "dev" | null>(null);
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
+  const [busy, setBusy] = useState(false);
 
   if (loading) {
     return (
       <View style={s.center}>
-        <ActivityIndicator size="large" color={C.primary} />
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
 
-  if (token) return <Redirect href="/(drawer)" />;
+  if (token) return <Redirect href="/" />;
   if (!onboarded) return <Redirect href="/onboarding" />;
 
   const handleGoogle = async () => {
-    setBusy("google");
+    if (isExpoGo()) {
+      Alert.alert(
+        t("login.google_unavailable_title"),
+        t("login.google_unavailable_body"),
+      );
+      return;
+    }
+    setBusy(true);
     try {
       await signInWithGoogle();
     } catch (e) {
@@ -51,20 +57,7 @@ export default function LoginScreen() {
         e instanceof Error ? e.message : "Try again",
       );
     } finally {
-      setBusy(null);
-    }
-  };
-
-  const handleDev = async () => {
-    setBusy("dev");
-    try {
-      const ok = await checkHealth();
-      if (!ok) throw new Error(`API unreachable at ${getApiUrl()}`);
-      await signInWithDev();
-    } catch (e) {
-      Alert.alert("Dev login", e instanceof Error ? e.message : "Login failed");
-    } finally {
-      setBusy(null);
+      setBusy(false);
     }
   };
 
@@ -85,39 +78,19 @@ export default function LoginScreen() {
 
       <View style={s.sheet}>
         <Pressable
-          style={[s.googleBtn, (busy === "google" || isExpoGo()) && s.dim]}
+          style={[s.googleBtn, busy && s.dim]}
           onPress={handleGoogle}
-          disabled={!!busy || isExpoGo()}
+          disabled={busy}
         >
-          {busy === "google" ? (
-            <ActivityIndicator color="#333" />
+          {busy ? (
+            <ActivityIndicator color={theme.textSecondary} />
           ) : (
             <>
               <GoogleG />
-              <Text style={s.googleText}>
-                {isExpoGo()
-                  ? "Google Sign-In (dev build only)"
-                  : t("login.google")}
-              </Text>
+              <Text style={s.googleText}>{t("login.google")}</Text>
             </>
           )}
         </Pressable>
-
-        <Text style={s.caption}>We only use Google to sign you in.</Text>
-
-        {config.devAuthEnabled && (
-          <Pressable
-            style={[s.devBtn, busy === "dev" && s.dim]}
-            onPress={handleDev}
-            disabled={!!busy}
-          >
-            {busy === "dev" ? (
-              <ActivityIndicator color={C.primary} />
-            ) : (
-              <Text style={s.devText}>{t("login.dev")}</Text>
-            )}
-          </Pressable>
-        )}
 
         <View style={s.links}>
           <Text style={s.link}>{t("login.terms")}</Text>
@@ -144,96 +117,95 @@ const g = StyleSheet.create({
   text: { color: "#fff", fontSize: 13, fontWeight: "700" },
 });
 
-const s = StyleSheet.create({
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: C.bg,
-  },
-  root: { flex: 1, backgroundColor: "#F0EBFF" },
-  hero: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingBottom: 24,
-  },
-  iconWrap: { position: "relative", marginBottom: 20 },
-  iconBubble: {
-    width: 80,
-    height: 80,
-    borderRadius: 28,
-    backgroundColor: C.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    boxShadow: "0 8 16 0 rgba(108, 71, 255, 0.4)",
-    elevation: 10,
-  },
-  iconStar: { fontSize: 32, color: "#fff" },
-  sp1: {
-    position: "absolute",
-    top: -12,
-    right: -16,
-    fontSize: 16,
-    color: C.primary,
-    opacity: 0.7,
-  },
-  sp2: {
-    position: "absolute",
-    bottom: 0,
-    left: -18,
-    fontSize: 22,
-    color: C.primary,
-    opacity: 0.4,
-  },
-  sp3: {
-    position: "absolute",
-    bottom: -10,
-    right: -6,
-    fontSize: 12,
-    color: C.primaryDark,
-    opacity: 0.6,
-  },
-  title: {
-    fontSize: 40,
-    fontWeight: "800",
-    color: "#1A0F4F",
-    letterSpacing: -1,
-  },
-  subtitle: { fontSize: 17, color: "#5A4F7A", marginTop: 6 },
-  sheet: {
-    backgroundColor: C.bg,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: 24,
-    paddingTop: 32,
-    paddingBottom: 48,
-    alignItems: "center",
-    gap: 12,
-  },
-  googleBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "100%",
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: C.border,
-    paddingVertical: 14,
-    backgroundColor: C.bg,
-  },
-  googleText: { fontSize: 16, fontWeight: "600", color: C.text },
-  caption: { fontSize: 13, color: C.textTertiary },
-  devBtn: {
-    width: "100%",
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: "center",
-    backgroundColor: C.primaryLight,
-  },
-  devText: { fontSize: 15, fontWeight: "600", color: C.primary },
-  dim: { opacity: 0.5 },
-  links: { flexDirection: "row", marginTop: 8 },
-  link: { fontSize: 13, color: C.textTertiary },
-  dot: { fontSize: 13, color: C.textTertiary },
-});
+function makeStyles(theme: Theme) {
+  const heroTint = theme.isDark ? theme.primaryLight : "#F0EBFF";
+  const titleColor = theme.isDark ? theme.text : "#1A0F4F";
+  const subtitleColor = theme.isDark ? theme.textSecondary : "#5A4F7A";
+
+  return StyleSheet.create({
+    center: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.bg,
+    },
+    root: { flex: 1, backgroundColor: heroTint },
+    hero: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingBottom: 24,
+    },
+    iconWrap: { position: "relative", marginBottom: 20 },
+    iconBubble: {
+      width: 80,
+      height: 80,
+      borderRadius: 28,
+      backgroundColor: theme.primary,
+      alignItems: "center",
+      justifyContent: "center",
+      boxShadow: theme.isDark
+        ? undefined
+        : "0 8 16 0 rgba(108, 71, 255, 0.4)",
+      elevation: 10,
+    },
+    iconStar: { fontSize: 32, color: "#fff" },
+    sp1: {
+      position: "absolute",
+      top: -12,
+      right: -16,
+      fontSize: 16,
+      color: theme.primary,
+      opacity: 0.7,
+    },
+    sp2: {
+      position: "absolute",
+      bottom: 0,
+      left: -18,
+      fontSize: 22,
+      color: theme.primary,
+      opacity: 0.4,
+    },
+    sp3: {
+      position: "absolute",
+      bottom: -10,
+      right: -6,
+      fontSize: 12,
+      color: theme.primaryDark,
+      opacity: 0.6,
+    },
+    title: {
+      fontSize: 40,
+      fontWeight: "800",
+      color: titleColor,
+      letterSpacing: -1,
+    },
+    subtitle: { fontSize: 17, color: subtitleColor, marginTop: 6 },
+    sheet: {
+      backgroundColor: theme.bg,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      paddingHorizontal: 24,
+      paddingTop: 32,
+      paddingBottom: 48,
+      alignItems: "center",
+      gap: 12,
+    },
+    googleBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      width: "100%",
+      borderRadius: 14,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+      paddingVertical: 14,
+      backgroundColor: theme.bg,
+    },
+    googleText: { fontSize: 16, fontWeight: "600", color: theme.text },
+    dim: { opacity: 0.5 },
+    links: { flexDirection: "row", marginTop: 8 },
+    link: { fontSize: 13, color: theme.textTertiary },
+    dot: { fontSize: 13, color: theme.textTertiary },
+  });
+}

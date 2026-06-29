@@ -26,7 +26,17 @@ export const resources = {
 i18n.use(initReactI18next).init({
   resources,
   lng: "en",
-  fallbackLng: "en",
+  fallbackLng: {
+    de: ["en"],
+    es: ["en"],
+    fr: ["en"],
+    it: ["en"],
+    pt: ["en"],
+    ru: ["en"],
+    tr: ["en"],
+    am: ["en"],
+    default: ["en"],
+  },
   interpolation: { escapeValue: false },
 });
 

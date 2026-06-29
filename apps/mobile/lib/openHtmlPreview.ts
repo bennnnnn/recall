@@ -106,6 +106,36 @@ export async function openHtmlInBrowser(html: string): Promise<boolean> {
   return false;
 }
 
+/** Share rendered HTML via the system share sheet. */
+export async function shareHtmlPreview(html: string): Promise<boolean> {
+  const fullHtml = wrapFullDocument(html);
+  const fileUri = await writeHtmlPreviewFile(fullHtml);
+
+  if (fileUri) {
+    try {
+      await Share.share(
+        Platform.OS === "ios"
+          ? { url: fileUri, title: "HTML Preview" }
+          : { message: fileUri, title: "HTML Preview" },
+      );
+      return true;
+    } catch {
+      /* fall through */
+    }
+  }
+
+  if (fullHtml.length < 120_000) {
+    try {
+      await Share.share({ message: fullHtml, title: "HTML Preview" });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
+}
+
 /** @deprecated use openHtmlInBrowser */
 export async function openHtmlPreview(html: string): Promise<boolean> {
   return openHtmlInBrowser(html);

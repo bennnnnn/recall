@@ -18,6 +18,7 @@ from app.models.schemas import (
     MessageOut,
     MessagePageOut,
     PinUpdate,
+    ArchiveUpdate,
     UsageOut,
 )
 from app.repositories import chats as chats_repo
@@ -28,6 +29,8 @@ from app.services.quota import utc_today
 
 router = APIRouter(prefix="/chats", tags=["chats"])
 
+DEFAULT_CHAT_LIST_LIMIT = 200
+
 
 @router.post("", response_model=ChatOut, status_code=status.HTTP_201_CREATED)
 async def create_chat(
@@ -35,7 +38,9 @@ async def create_chat(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> ChatOut:
-    chat = await chats_repo.create(session, user_id=user.id, model=body.model)
+    chat = await chats_repo.create(
+        session, user_id=user.id, model=body.model, project_id=body.project_id
+    )
     return ChatOut.model_validate(chat)
 
 
@@ -43,15 +48,21 @@ async def create_chat(
 async def list_chats(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
+    limit: int = DEFAULT_CHAT_LIST_LIMIT,
 ) -> ChatListOut:
-    chats = await chats_repo.list_for_user(session, user.id)
+    chats = await chats_repo.list_for_user(session, user.id, limit=limit)
+    archived = await chats_repo.list_archived_for_user(session, user.id, limit=50)
     pinned = [c for c in chats if c.pinned]
-    grouped = chats_repo.group_by_recency([c for c in chats if not c.pinned])
+    grouped = chats_repo.group_by_recency(
+        [c for c in chats if not c.pinned],
+        user_timezone=user.timezone,
+    )
     return ChatListOut(
         pinned=[ChatOut.model_validate(c) for c in pinned],
         today=[ChatOut.model_validate(c) for c in grouped["today"]],
         yesterday=[ChatOut.model_validate(c) for c in grouped["yesterday"]],
         earlier=[ChatOut.model_validate(c) for c in grouped["earlier"]],
+        archived=[ChatOut.model_validate(c) for c in archived],
     )
 
 
@@ -83,6 +94,20 @@ async def pin_chat(
     return ChatOut.model_validate(chat)
 
 
+@router.patch("/{chat_id}/archive", response_model=ChatOut)
+async def archive_chat(
+    chat_id: UUID,
+    body: ArchiveUpdate,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> ChatOut:
+    chat = await chats_repo.get_by_id(session, chat_id, user.id)
+    if chat is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
+    chat = await chats_repo.set_archived(session, chat, body.archived)
+    return ChatOut.model_validate(chat)
+
+
 @router.delete("/{chat_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_chat(
     chat_id: UUID,
@@ -105,14 +130,32 @@ async def today_usage(
     db_usage = await usage_repo.get_for_date(session, user.id, day)
     input_tokens = db_usage.input_tokens if db_usage else 0
     output_tokens = db_usage.output_tokens if db_usage else 0
-    remaining = await quota_service.remaining(redis, str(user.id), settings)
+    remaining = await quota_service.remaining(
+        redis,
+        str(user.id),
+        daily_limit=quota_service.daily_limit_for_user(user, settings),
+    )
+    limit = quota_service.daily_limit_for_user(user, settings)
     return UsageOut(
         date=day.isoformat(),
         input_tokens=input_tokens,
         output_tokens=output_tokens,
-        daily_limit=settings.daily_token_limit,
+        daily_limit=limit,
         remaining=remaining,
     )
+
+
+@router.post("/usage/today/reset", response_model=UsageOut)
+async def reset_today_usage(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+    settings: Settings = Depends(get_settings_dep),
+) -> UsageOut:
+    if not settings.dev_auth_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+    await quota_service.reset_daily_usage(redis, str(user.id))
+    return await today_usage(user, session, redis, settings)
 
 
 @router.get("/{chat_id}", response_model=ChatOut)

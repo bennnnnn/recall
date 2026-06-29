@@ -13,7 +13,11 @@
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
-        }
+        },
+        "NSUserNotificationsUsageDescription": "Recall sends reminders, learning nudges, and alerts from your connected email.",
+        "NSLocationWhenInUseUsageDescription": "Recall uses your location for local time and to answer where you are.",
+        "NSPhotoLibraryUsageDescription": "Recall needs access to your photos so you can attach images in chat.",
+        "NSCameraUsageDescription": "Recall uses the camera so you can take photos to attach in chat."
       }
     },
     "android": {
@@ -41,6 +45,27 @@
           "image": "./assets/images/splash-icon.png",
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#6366F1"
+        }
+      ],
+      "@react-native-community/datetimepicker",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Recall uses your location for local time and to answer where you are."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Recall needs access to your photos so you can attach images in chat.",
+          "cameraPermission": "Recall uses the camera so you can take photos to attach in chat."
         }
       ]
     ],

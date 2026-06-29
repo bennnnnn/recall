@@ -4,13 +4,21 @@ import { CalloutBlock } from "@/components/rich/CalloutBlock";
 import { ChartBlock } from "@/components/rich/ChartBlock";
 import { CollapsibleBlock } from "@/components/rich/CollapsibleBlock";
 import { ComparisonBlock } from "@/components/rich/ComparisonBlock";
+import { CircularClockBlock } from "@/components/rich/CircularClockBlock";
 import { EmailCard } from "@/components/rich/EmailCard";
+import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
+import { GeometryBlock } from "@/components/rich/GeometryBlock";
 import { KeyValueBlock } from "@/components/rich/KeyValueBlock";
 import { MathBlock } from "@/components/rich/MathView";
 import { MermaidBlock } from "@/components/rich/MermaidBlock";
 import { MessagePreview } from "@/components/rich/MessagePreview";
 import { SocialPostCard } from "@/components/rich/SocialPostCard";
 import { StepList } from "@/components/rich/StepList";
+import {
+  fenceContentAsGeometry,
+  fenceContentAsGraph,
+  looksLikeLatexFence,
+} from "@/lib/mathFenceRetag";
 import {
   isMessageLang,
   isStructuredFenceLang,
@@ -29,7 +37,18 @@ export function renderRichFence(
   key: string,
 ): ReactNode | null {
   const l = lang.trim().toLowerCase();
-  if (!isStructuredFenceLang(l)) return null;
+  if (!isStructuredFenceLang(l)) {
+    if (fenceContentAsGeometry(content)) {
+      return <GeometryBlock key={key} content={content} />;
+    }
+    if (fenceContentAsGraph(content)) {
+      return <FunctionGraphBlock key={key} content={content} />;
+    }
+    if (looksLikeLatexFence(content) && (l === "json" || l === "latex" || l === "tex" || l === "")) {
+      return <MathBlock key={key} latex={content} />;
+    }
+    return null;
+  }
 
   if (l === "email") {
     const draft = parseEmailDraft(content) ?? { body: content };
@@ -47,6 +66,18 @@ export function renderRichFence(
 
   if (l === "math") {
     return <MathBlock key={key} latex={content} />;
+  }
+
+  if (l === "geometry") {
+    return <GeometryBlock key={key} content={content} />;
+  }
+
+  if (l === "graph") {
+    return <FunctionGraphBlock key={key} content={content} />;
+  }
+
+  if (l === "clock" || l === "time") {
+    return <CircularClockBlock key={key} content={content} />;
   }
 
   if (

@@ -2,7 +2,7 @@
   "app.name": "Recall",
   "chat.placeholder": "Recall'a mesaj …",
   "chat.empty_title": "Nasıl yardımcı olabilirim?",
-  "chat.empty_hint": "Her şeyi sorabilirsin — önemli olanı hatırlarım.",
+  "chat.empty_hint": "Aklında ne var?",
   "chat.suggestions": "Öneriler",
   "chat.templates": "Bir şablonla başla",
   "chat.load_earlier": "Önceki mesajları yükle",

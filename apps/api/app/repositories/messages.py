@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -140,6 +141,45 @@ async def get_last_user(session: AsyncSession, chat_id: UUID) -> Message | None:
         .limit(1)
     )
     return result.scalar_one_or_none()
+
+
+async def recent_user_contents(
+    session: AsyncSession,
+    chat_id: UUID,
+    *,
+    limit: int = 8,
+) -> list[str]:
+    result = await session.execute(
+        select(Message.content)
+        .where(Message.chat_id == chat_id, Message.role == "user")
+        .order_by(Message.created_at.desc())
+        .limit(limit)
+    )
+    return [str(content) for content in reversed(result.scalars().all()) if str(content).strip()]
+
+
+async def get_by_id(
+    session: AsyncSession, message_id: UUID, chat_id: UUID
+) -> Message | None:
+    result = await session.execute(
+        select(Message).where(Message.id == message_id, Message.chat_id == chat_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def delete_messages_from(
+    session: AsyncSession, chat_id: UUID, *, from_created_at: datetime
+) -> int:
+    from sqlalchemy import delete as sql_delete
+
+    result = await session.execute(
+        sql_delete(Message).where(
+            Message.chat_id == chat_id,
+            Message.created_at >= from_created_at,
+        )
+    )
+    await session.commit()
+    return result.rowcount or 0
 
 
 async def delete_message(session: AsyncSession, message: Message) -> None:

@@ -29,6 +29,14 @@ async def login_with_google(
             name=name,
             avatar_url=avatar_url,
         )
+    else:
+        user = await users_repo.update(
+            session,
+            user,
+            email=email or user.email,
+            name=name or user.name,
+            avatar_url=avatar_url or user.avatar_url,
+        )
 
     token = create_access_token(user.id, settings)
     return AuthResponse(access_token=token, user=UserOut.model_validate(user))

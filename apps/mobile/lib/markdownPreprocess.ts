@@ -1,3 +1,5 @@
+import { retagMathAndDiagramFences } from "@/lib/mathFenceRetag";
+import { normalizeImplicitMath } from "@/lib/normalizeImplicitMath";
 import { parseQuoteAttribution, isStructuredFenceLang } from "@/lib/richBlocks";
 import {
   isExplicitCodeLang,
@@ -8,6 +10,7 @@ import { isHtmlFenceLang, parseFenceLang } from "@/lib/codeHighlight";
 
 const CALLOUT_RE = /^>\s*\[!(\w+)\]\s*([^\n]*)\n((?:>\s?.*\n?)*)/gim;
 const BLOCK_MATH_RE = /\$\$([\s\S]+?)\$\$/g;
+const BLOCK_MATH_BRACKET_RE = /\\\[([\s\S]+?)\\\]/g;
 const DETAILS_HTML_RE =
   /<details>\s*<summary>([\s\S]*?)<\/summary>\s*([\s\S]*?)<\/details>/gim;
 const FENCED_TABLE_RE =
@@ -173,9 +176,23 @@ function unwrapNonCodeFences(content: string): string {
   });
 }
 
+/** Turn `- step ✓` bullets into task-list items so MarkdownContent renders green ticks. */
+function normalizeVerificationBullets(content: string): string {
+  return content
+    .split("\n")
+    .map((line) => {
+      const match = line.match(/^(\s*[-*+]\s+)(.+?)\s*[✓✔✅]\s*$/u);
+      if (!match) return line;
+      const body = match[2].trim();
+      return `- [x] ${body}`;
+    })
+    .join("\n");
+}
+
 /** GitHub callouts, block math, and HTML details → fenced blocks the app understands. */
 export function preprocessMarkdown(content: string): string {
-  let out = content;
+  let out = normalizeVerificationBullets(content);
+  out = normalizeImplicitMath(out);
 
   out = out.replace(
     CALLOUT_RE,
@@ -200,6 +217,10 @@ export function preprocessMarkdown(content: string): string {
     return `\n\`\`\`math\n${latex.trim()}\n\`\`\`\n`;
   });
 
+  out = out.replace(BLOCK_MATH_BRACKET_RE, (_m, latex: string) => {
+    return `\n\`\`\`math\n${latex.trim()}\n\`\`\`\n`;
+  });
+
   out = normalizeMarkdownTables(out);
 
   // Re-tag fences that contain Vega / Vega-Lite specs so ChartBlock renders them.
@@ -214,6 +235,8 @@ export function preprocessMarkdown(content: string): string {
     (_m: string, body: string) => `\n\n\`\`\`vega-lite\n${body.trim()}\n\`\`\`\n\n`,
   );
 
+  out = retagMathAndDiagramFences(out);
+
   out = unwrapNonCodeFences(out);
 
   return out;
@@ -226,19 +249,19 @@ export function extractBlockquoteMeta(raw: string): {
   return parseQuoteAttribution(raw);
 }
 
-/** Split paragraph text into plain + inline math segments. */
+/** Split paragraph text into plain + inline math segments ($...$ or \\(...\\)). */
 export function splitInlineMath(
   text: string,
 ): Array<{ type: "text" | "math"; value: string }> {
   const parts: Array<{ type: "text" | "math"; value: string }> = [];
-  const re = /\$([^$\n]+?)\$/g;
+  const pattern = /\$([^$\n]+?)\$|\\\(([\s\S]+?)\\\)/g;
   let last = 0;
   let match: RegExpExecArray | null;
-  while ((match = re.exec(text)) !== null) {
+  while ((match = pattern.exec(text)) !== null) {
     if (match.index > last) {
       parts.push({ type: "text", value: text.slice(last, match.index) });
     }
-    parts.push({ type: "math", value: match[1].trim() });
+    parts.push({ type: "math", value: (match[1] ?? match[2] ?? "").trim() });
     last = match.index + match[0].length;
   }
   if (last < text.length) {

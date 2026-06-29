@@ -2,7 +2,7 @@
   "app.name": "Recall",
   "chat.placeholder": "Сообщение для Recall …",
   "chat.empty_title": "Чем могу помочь?",
-  "chat.empty_hint": "Спрашивайте о чём угодно — я запомню важное.",
+  "chat.empty_hint": "О чём хотите поговорить?",
   "chat.suggestions": "Подсказки",
   "chat.templates": "Начать с шаблона",
   "chat.load_earlier": "Загрузить ранние сообщения",

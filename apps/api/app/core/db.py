@@ -18,8 +18,8 @@ engine = create_async_engine(
     echo=False,
     connect_args=_connect_args,
     pool_pre_ping=True,
-    pool_size=5,
-    max_overflow=5,
+    pool_size=10,
+    max_overflow=10,
     pool_recycle=300,
 )
 SessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)

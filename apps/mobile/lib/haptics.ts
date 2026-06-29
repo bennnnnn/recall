@@ -1,15 +1,30 @@
 import { Platform, Vibration } from "react-native";
+import * as Haptics from "expo-haptics";
 
-/**
- * Light tactile feedback for key actions.
- *
- * Android gets a short vibration via the built-in API. iOS is intentionally a
- * no-op: `Vibration` on iOS is a heavy buzz, not a subtle tap. Proper iOS
- * haptics (impact/selection) need `expo-haptics` — see FEATURES.md. When that's
- * added, swap the body here and every call site upgrades automatically.
- */
+/** Cached after first call — false when native haptics aren't linked (e.g. Expo Go). */
+let iosHapticsAvailable: boolean | null = null;
+
+async function iosTap(): Promise<void> {
+  if (iosHapticsAvailable === false) return;
+  try {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    iosHapticsAvailable = true;
+  } catch {
+    iosHapticsAvailable = false;
+  }
+}
+
+/** Light tactile feedback for key actions. Never throws — safe in Expo Go. */
 export function tap(): void {
+  if (Platform.OS === "ios") {
+    void iosTap();
+    return;
+  }
   if (Platform.OS === "android") {
-    Vibration.vibrate(10);
+    try {
+      Vibration.vibrate(10);
+    } catch {
+      /* ignore */
+    }
   }
 }
