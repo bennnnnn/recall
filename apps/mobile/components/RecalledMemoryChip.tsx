@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import { Animated, StyleSheet, Text } from "react-native";
+import { Animated, StyleSheet } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { Theme, useTheme } from "@/lib/theme";

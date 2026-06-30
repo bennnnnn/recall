@@ -33,6 +33,7 @@ import { useDrawer } from "@/contexts/DrawerContext";
 import { useChat } from "@/hooks/useChat";
 import { useChatActions } from "@/hooks/useChatActions";
 import { useChatComposerState } from "@/hooks/useChatComposerState";
+import { useChatLayoutMetrics } from "@/hooks/useChatLayoutMetrics";
 import { useChatRouteLoader, useQueuedChatLaunch } from "@/hooks/useChatRouteLoader";
 import { useChatScroll } from "@/hooks/useChatScroll";
 import { useChatSend } from "@/hooks/useChatSend";
@@ -46,11 +47,7 @@ import { isQuotaErrorMessage, quotaAlertTitle } from "@/lib/quota";
 import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
 import { useTodosOptional } from "@/contexts/TodosContext";
 import { shouldPreCreateDraft, shouldWarmDraftSocket } from "@/lib/chatDraftLogic";
-
-const HEADER_BAR_HEIGHT = 52;
-const HEADER_FADE_EXTRA = 48;
-const FEEDBACK_ROW_HEIGHT = 48;
-const KEYBOARD_LIFT_EXTRA = 0;
+import { isComposerMenuOverlayOpen } from "@/lib/chatComposerLogic";
 
 function ChatScreen() {
   const { token } = useAuth();
@@ -314,7 +311,7 @@ function ChatScreen() {
 
   useEffect(() => {
     if (messages.length === 0) setMenuVisible(false);
-  }, [messages.length]);
+  }, [messages.length, setMenuVisible]);
 
   const lastAssistantId = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -364,32 +361,34 @@ function ChatScreen() {
       handleEditMessage,
       handleFeedback,
       handleQuizAnswer,
-      // creatingRef.current is intentionally read without listing the ref in deps.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+      creatingRef,
     ],
   );
 
+  const layout = useChatLayoutMetrics({
+    insetsTop: insets.top,
+    insetsBottom: insets.bottom,
+    windowHeight,
+    keyboardHeight,
+    composerHeight: COMPOSER_HEIGHT,
+    attachmentExtra: composerAttachmentExtra(pendingAttachment),
+    messagesLength: messages.length,
+    streaming,
+  });
+
   if (!token) return <Redirect href="/login" />;
 
-  const headerInset = insets.top + HEADER_BAR_HEIGHT;
-  const fadeHeight = headerInset + HEADER_FADE_EXTRA;
-  const composerLift =
-    keyboardHeight > 0 ? keyboardHeight + KEYBOARD_LIFT_EXTRA : 0;
-  const composerBottomPad =
-    keyboardHeight > 0 ? 0 : Math.max(insets.bottom, 10);
-  const composerBlockHeight = COMPOSER_HEIGHT + composerAttachmentExtra(pendingAttachment);
-  const composerClearance = composerBlockHeight + composerBottomPad + composerLift;
-  const listBottomPad =
-    composerBlockHeight +
-    composerBottomPad +
-    composerLift +
-    (messages.length > 0 && !streaming ? FEEDBACK_ROW_HEIGHT : 0);
+  const {
+    headerInset,
+    fadeHeight,
+    composerLift,
+    composerBottomPad,
+    composerClearance,
+    listBottomPad,
+    emptyHeight,
+  } = layout;
   listBottomPadRef.current = listBottomPad;
-  const emptyHeight = Math.max(
-    160,
-    windowHeight - headerInset - composerClearance,
-  );
-  const menuOverlayOpen = attachSheetOpen || showPlanPicker;
+  const menuOverlayOpen = isComposerMenuOverlayOpen(attachSheetOpen, showPlanPicker);
 
   return (
     <>

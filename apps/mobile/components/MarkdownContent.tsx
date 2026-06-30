@@ -40,8 +40,6 @@ import {
 } from "@/lib/copyBlock";
 import { parseFenceLang, shouldUseHtmlPreview } from "@/lib/codeHighlight";
 import {
-  assistantReplyIsTimeAnswer,
-  extractClockTimezone,
   isClockFenceBody,
   isDigitalTimeOnly,
   isIanaTimezoneOnly,

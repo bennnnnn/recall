@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
 import {
-  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -190,6 +189,7 @@ export function ListGroupsView({
       );
     },
     [
+      C,
       collapsed,
       draftByTopic,
       onAddItem,
@@ -197,6 +197,7 @@ export function ListGroupsView({
       onDeleteGroup,
       onReorderItems,
       onToggle,
+      s,
       togglingId,
       toggleCollapsed,
       t,

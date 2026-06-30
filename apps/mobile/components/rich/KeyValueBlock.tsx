@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { Theme, useTheme } from "@/lib/theme";
 
-type Props = { rows: Array<{ key: string; value: string }> };
+type Props = { rows: { key: string; value: string }[] };
 
 export function KeyValueBlock({ rows }: Props) {
   const theme = useTheme();

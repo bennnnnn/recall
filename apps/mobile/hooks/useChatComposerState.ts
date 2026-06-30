@@ -1,5 +1,11 @@
 import { useCallback, useMemo, useState } from "react";
 
+import {
+  buildModelOptions,
+  resolvePlanLabel,
+  resolveSelectedModelLabel,
+} from "@/lib/chatComposerLogic";
+
 type Options = {
   isPro: boolean;
   autoEnabled: boolean;
@@ -25,21 +31,27 @@ export function useChatComposerState({
   const [showModelPicker, setShowModelPicker] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>(autoModelId);
 
-  const planLabel = isPro ? t("chat.plan_pro") : t("chat.plan_free");
+  const autoLabel = t("settings.model_auto");
+  const planLabel = resolvePlanLabel(isPro, t("chat.plan_pro"), t("chat.plan_free"));
 
-  const modelOptions = useMemo(() => {
-    const opts: { id: string; label: string }[] = [];
-    if (autoEnabled) opts.push({ id: autoModelId, label: t("settings.model_auto") });
-    for (const id of modelEnabledSet) {
-      opts.push({ id, label: labelFor(id) || id });
-    }
-    return opts;
-  }, [autoEnabled, modelEnabledSet, labelFor, autoModelId, t]);
+  const modelOptions = useMemo(
+    () =>
+      buildModelOptions({
+        autoEnabled,
+        autoModelId,
+        autoLabel,
+        modelEnabledSet,
+        labelFor,
+      }),
+    [autoEnabled, modelEnabledSet, labelFor, autoModelId, autoLabel],
+  );
 
-  const selectedModelLabel =
-    selectedModel === autoModelId
-      ? t("settings.model_auto")
-      : labelFor(selectedModel) || selectedModel;
+  const selectedModelLabel = resolveSelectedModelLabel(
+    selectedModel,
+    autoModelId,
+    autoLabel,
+    labelFor,
+  );
 
   const closeAttachSheet = useCallback(() => {
     closeAttachSheetRef.current();

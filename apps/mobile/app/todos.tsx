@@ -46,7 +46,6 @@ import {
 } from "@/lib/listGroups";
 import { loadListGroupOrder, saveListGroupOrder } from "@/lib/listGroupOrder";
 import { markReminderIdsSeen } from "@/lib/reminderSeen";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   calendarEventsOnDay,
   formatDayHeading,
@@ -106,7 +105,6 @@ export default function TodosScreen() {
     focus === "list" || focus === "reminders" ? focus : null;
   const showReminders = focusSection !== "list";
   const showList = focusSection !== "reminders";
-  const insets = useSafeAreaInsets();
   const {
     todos,
     setTodos,
