@@ -1,0 +1,130 @@
+import { useEffect, useRef } from "react";
+import { Animated, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+type Props = {
+  message: string | null;
+  icon?: keyof typeof Ionicons.glyphMap;
+  onDismiss: () => void;
+  bottomOffset?: number;
+};
+
+const SHOW_MS = 2600;
+const TOAST_BG = "#1C1C1E";
+const TOAST_TEXT = "#FFFFFF";
+
+export function ActionBanner({
+  message,
+  icon = "checkmark-circle",
+  onDismiss,
+  bottomOffset = 24,
+}: Props) {
+  const insets = useSafeAreaInsets();
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(24)).current;
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!message) return;
+
+    opacity.setValue(0);
+    translateY.setValue(24);
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.spring(translateY, {
+        toValue: 0,
+        useNativeDriver: true,
+        friction: 9,
+        tension: 120,
+      }),
+    ]).start();
+
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(translateY, {
+          toValue: 16,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start(({ finished }) => {
+        if (finished) onDismiss();
+      });
+    }, SHOW_MS);
+
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [message, onDismiss, opacity, translateY]);
+
+  if (!message) return null;
+
+  return (
+    <Modal visible transparent animationType="none" onRequestClose={onDismiss}>
+      <View style={s.overlay} pointerEvents="box-none">
+        <Animated.View
+          style={[
+            s.wrap,
+            {
+              bottom: insets.bottom + bottomOffset,
+              opacity,
+              transform: [{ translateY }],
+            },
+          ]}
+          pointerEvents="box-none"
+        >
+          <Pressable style={s.toast} onPress={onDismiss}>
+            <Ionicons name={icon} size={18} color={TOAST_TEXT} />
+            <Text style={s.text} numberOfLines={2}>
+              {message}
+            </Text>
+          </Pressable>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+}
+
+const s = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    alignItems: "center",
+  },
+  wrap: {
+    position: "absolute",
+    left: 24,
+    right: 24,
+    alignItems: "center",
+    zIndex: 9999,
+  },
+  toast: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: TOAST_BG,
+    borderRadius: 999,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    maxWidth: 340,
+    boxShadow: "0 8 24 0 rgba(0, 0, 0, 0.45)",
+    elevation: 16,
+  },
+  text: {
+    flexShrink: 1,
+    fontSize: 15,
+    fontWeight: "600",
+    color: TOAST_TEXT,
+    textAlign: "center",
+  },
+});

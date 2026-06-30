@@ -1,235 +1,378 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { Redirect } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { Redirect, router } from "expo-router";
+import { useTranslation } from "react-i18next";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { C } from "@/constants/Colors";
 import { useAuth } from "@/contexts/AuthContext";
-import { checkHealth } from "@/lib/api";
-import { config, getApiUrl } from "@/lib/config";
-import { isExpoGo } from "@/lib/google-auth";
+import { config, isGoogleSignInConfigured } from "@/lib/config";
+import { formatGoogleSignInError, isExpoGo } from "@/lib/google-auth";
+import { Theme, useTheme } from "@/lib/theme";
 
-function GoogleG() {
-  return (
-    <View style={g.circle}>
-      <Text style={g.text}>G</Text>
-    </View>
-  );
-}
+const APP_ICON = require("@/assets/images/icon.png");
+
+const HIGHLIGHTS = [
+  { icon: "school-outline" as const, labelKey: "login.highlight_learn" },
+  { icon: "calendar-outline" as const, labelKey: "login.highlight_organize" },
+  { icon: "sparkles-outline" as const, labelKey: "login.highlight_remember" },
+];
 
 export default function LoginScreen() {
-  const { token, loading, onboarded, signInWithGoogle, signInWithDev } =
-    useAuth();
-  const [busy, setBusy] = useState<"google" | "dev" | null>(null);
+  const { token, loading, onboarded, signInWithGoogle, signInWithDev } = useAuth();
+  const { t } = useTranslation();
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
+  const [busy, setBusy] = useState(false);
+  const showDevLogin = config.devAuthEnabled && __DEV__;
+  const showGoogleLogin = !isExpoGo() && isGoogleSignInConfigured();
+  const googleOnlyDevBuild = !isExpoGo() && showDevLogin && showGoogleLogin;
 
   if (loading) {
     return (
       <View style={s.center}>
-        <ActivityIndicator size="large" color={C.primary} />
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
 
-  if (token) return <Redirect href="/(drawer)" />;
+  if (token) return <Redirect href="/" />;
   if (!onboarded) return <Redirect href="/onboarding" />;
 
+  const signInErrorMessage = (error: unknown) => {
+    const key = formatGoogleSignInError(error);
+    if (key === "bundle_load_failed") return t("login.error_bundle");
+    if (key === "native_module_missing") return t("login.error_native_module");
+    if (key === "not_configured") return t("login.error_not_configured");
+    if (key === "generic") return t("login.error_generic");
+    return key;
+  };
+
   const handleGoogle = async () => {
-    setBusy("google");
+    if (isExpoGo()) {
+      Alert.alert(
+        t("login.google_unavailable_title"),
+        t("login.google_unavailable_body"),
+      );
+      return;
+    }
+    if (!isGoogleSignInConfigured()) {
+      Alert.alert(t("login.sign_in_failed"), t("login.error_not_configured"));
+      return;
+    }
+    setBusy(true);
     try {
       await signInWithGoogle();
     } catch (e) {
-      Alert.alert(
-        "Sign-in failed",
-        e instanceof Error ? e.message : "Try again",
-      );
+      Alert.alert(t("login.sign_in_failed"), signInErrorMessage(e));
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
   };
 
   const handleDev = async () => {
-    setBusy("dev");
+    setBusy(true);
     try {
-      const ok = await checkHealth();
-      if (!ok) throw new Error(`API unreachable at ${getApiUrl()}`);
       await signInWithDev();
     } catch (e) {
-      Alert.alert("Dev login", e instanceof Error ? e.message : "Login failed");
+      Alert.alert(
+        t("login.sign_in_failed"),
+        e instanceof Error ? e.message : t("login.error_generic"),
+      );
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
   };
 
-  return (
-    <View style={s.root}>
-      <View style={s.hero}>
-        <View style={s.iconWrap}>
-          <View style={s.iconBubble}>
-            <Text style={s.iconStar}>✦</Text>
-          </View>
-          <Text style={s.sp1}>✦</Text>
-          <Text style={s.sp2}>·</Text>
-          <Text style={s.sp3}>✦</Text>
-        </View>
-        <Text style={s.title}>Recall</Text>
-        <Text style={s.subtitle}>Your AI that remembers you.</Text>
-      </View>
+  const gradientColors = theme.isDark
+    ? (["#1A1530", "#212121", theme.bg] as const)
+    : (["#EDE9FF", "#F7F5FF", theme.bg] as const);
 
-      <View style={s.sheet}>
-        <Pressable
-          style={[s.googleBtn, (busy === "google" || isExpoGo()) && s.dim]}
-          onPress={handleGoogle}
-          disabled={!!busy || isExpoGo()}
-        >
-          {busy === "google" ? (
-            <ActivityIndicator color="#333" />
+  return (
+    <LinearGradient colors={gradientColors} style={s.root}>
+      <SafeAreaView style={s.safe} edges={["top", "bottom"]}>
+        <View style={s.hero}>
+          <View style={s.logoGlow}>
+            <Image source={APP_ICON} style={s.logo} accessibilityLabel="Recall" />
+          </View>
+          <Text style={s.title}>Recall</Text>
+          <Text style={s.subtitle}>{t("login.tagline")}</Text>
+
+          <View style={s.highlights}>
+            {HIGHLIGHTS.map((item) => (
+              <View key={item.labelKey} style={s.highlight}>
+                <View style={s.highlightIcon}>
+                  <Ionicons name={item.icon} size={16} color={theme.primary} />
+                </View>
+                <Text style={s.highlightText}>{t(item.labelKey)}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={s.card}>
+          {showDevLogin && isExpoGo() ? (
+            <>
+              <View style={s.devBanner}>
+                <Ionicons name="information-circle-outline" size={18} color={theme.primary} />
+                <Text style={s.devBannerText}>{t("login.dev_expo_hint")}</Text>
+              </View>
+              <Pressable
+                style={[s.primaryBtn, busy && s.dim]}
+                onPress={handleDev}
+                disabled={busy}
+              >
+                {busy ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={s.primaryBtnText}>{t("login.dev")}</Text>
+                )}
+              </Pressable>
+            </>
           ) : (
             <>
-              <GoogleG />
-              <Text style={s.googleText}>
-                {isExpoGo()
-                  ? "Google Sign-In (dev build only)"
-                  : "Continue with Google"}
-              </Text>
+              {showGoogleLogin ? (
+                <Pressable
+                  style={[s.googleBtn, busy && s.dim]}
+                  onPress={handleGoogle}
+                  disabled={busy}
+                >
+                  {busy ? (
+                    <ActivityIndicator color={theme.textSecondary} />
+                  ) : (
+                    <>
+                      <Ionicons name="logo-google" size={20} color="#4285F4" />
+                      <Text style={s.googleText}>{t("login.google")}</Text>
+                    </>
+                  )}
+                </Pressable>
+              ) : showDevLogin ? (
+                <View style={s.devBanner}>
+                  <Ionicons name="information-circle-outline" size={18} color={theme.primary} />
+                  <Text style={s.devBannerText}>{t("login.error_not_configured")}</Text>
+                </View>
+              ) : null}
+              {googleOnlyDevBuild ? (
+                <>
+                  <Text style={s.orText}>{t("login.or_dev")}</Text>
+                  <Pressable
+                    style={[s.devSecondaryBtn, busy && s.dim]}
+                    onPress={handleDev}
+                    disabled={busy}
+                  >
+                    <Text style={s.devSecondaryText}>{t("login.dev")}</Text>
+                  </Pressable>
+                </>
+              ) : showDevLogin && !showGoogleLogin ? (
+                <Pressable
+                  style={[s.primaryBtn, busy && s.dim]}
+                  onPress={handleDev}
+                  disabled={busy}
+                >
+                  {busy ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={s.primaryBtnText}>{t("login.dev")}</Text>
+                  )}
+                </Pressable>
+              ) : null}
             </>
           )}
-        </Pressable>
 
-        <Text style={s.caption}>We only use Google to sign you in.</Text>
-
-        {config.devAuthEnabled && (
-          <Pressable
-            style={[s.devBtn, busy === "dev" && s.dim]}
-            onPress={handleDev}
-            disabled={!!busy}
-          >
-            {busy === "dev" ? (
-              <ActivityIndicator color={C.primary} />
-            ) : (
-              <Text style={s.devText}>Continue as Dev User</Text>
-            )}
-          </Pressable>
-        )}
-
-        <View style={s.links}>
-          <Text style={s.link}>Terms</Text>
-          <Text style={s.dot}> · </Text>
-          <Text style={s.link}>Privacy</Text>
+          <View style={s.links}>
+            <Pressable onPress={() => router.push("/terms")}>
+              <Text style={[s.link, s.linkPressable]}>{t("login.terms")}</Text>
+            </Pressable>
+            <Text style={s.dot}>·</Text>
+            <Pressable onPress={() => router.push("/privacy")}>
+              <Text style={[s.link, s.linkPressable]}>{t("login.privacy")}</Text>
+            </Pressable>
+          </View>
         </View>
-      </View>
-    </View>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
-const g = StyleSheet.create({
-  circle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "#4285F4",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 8,
-  },
-  text: { color: "#fff", fontSize: 13, fontWeight: "700" },
-});
-
-const s = StyleSheet.create({
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: C.bg,
-  },
-  root: { flex: 1, backgroundColor: "#F0EBFF" },
-  hero: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingBottom: 24,
-  },
-  iconWrap: { position: "relative", marginBottom: 20 },
-  iconBubble: {
-    width: 80,
-    height: 80,
-    borderRadius: 28,
-    backgroundColor: C.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    boxShadow: "0 8 16 0 rgba(108, 71, 255, 0.4)",
-    elevation: 10,
-  },
-  iconStar: { fontSize: 32, color: "#fff" },
-  sp1: {
-    position: "absolute",
-    top: -12,
-    right: -16,
-    fontSize: 16,
-    color: C.primary,
-    opacity: 0.7,
-  },
-  sp2: {
-    position: "absolute",
-    bottom: 0,
-    left: -18,
-    fontSize: 22,
-    color: C.primary,
-    opacity: 0.4,
-  },
-  sp3: {
-    position: "absolute",
-    bottom: -10,
-    right: -6,
-    fontSize: 12,
-    color: C.primaryDark,
-    opacity: 0.6,
-  },
-  title: {
-    fontSize: 40,
-    fontWeight: "800",
-    color: "#1A0F4F",
-    letterSpacing: -1,
-  },
-  subtitle: { fontSize: 17, color: "#5A4F7A", marginTop: 6 },
-  sheet: {
-    backgroundColor: C.bg,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: 24,
-    paddingTop: 32,
-    paddingBottom: 48,
-    alignItems: "center",
-    gap: 12,
-  },
-  googleBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "100%",
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: C.border,
-    paddingVertical: 14,
-    backgroundColor: C.bg,
-  },
-  googleText: { fontSize: 16, fontWeight: "600", color: C.text },
-  caption: { fontSize: 13, color: C.textTertiary },
-  devBtn: {
-    width: "100%",
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: "center",
-    backgroundColor: C.primaryLight,
-  },
-  devText: { fontSize: 15, fontWeight: "600", color: C.primary },
-  dim: { opacity: 0.5 },
-  links: { flexDirection: "row", marginTop: 8 },
-  link: { fontSize: 13, color: C.textTertiary },
-  dot: { fontSize: 13, color: C.textTertiary },
-});
+function makeStyles(theme: Theme) {
+  return StyleSheet.create({
+    center: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: theme.bg,
+    },
+    root: { flex: 1 },
+    safe: {
+      flex: 1,
+      paddingHorizontal: 24,
+      justifyContent: "space-between",
+    },
+    hero: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingTop: 12,
+      paddingBottom: 24,
+    },
+    logoGlow: {
+      borderRadius: 28,
+      marginBottom: 20,
+      ...Platform.select({
+        ios: {
+          shadowColor: theme.primary,
+          shadowOffset: { width: 0, height: 10 },
+          shadowOpacity: theme.isDark ? 0.35 : 0.28,
+          shadowRadius: 18,
+        },
+        android: { elevation: 8 },
+      }),
+    },
+    logo: {
+      width: 88,
+      height: 88,
+      borderRadius: 24,
+    },
+    title: {
+      fontSize: 36,
+      fontWeight: "800",
+      color: theme.text,
+      letterSpacing: -1,
+    },
+    subtitle: {
+      fontSize: 16,
+      lineHeight: 24,
+      color: theme.textSecondary,
+      marginTop: 8,
+      textAlign: "center",
+      maxWidth: 300,
+      paddingHorizontal: 8,
+    },
+    highlights: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      justifyContent: "center",
+      gap: 10,
+      marginTop: 28,
+      maxWidth: 340,
+    },
+    highlight: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      backgroundColor: theme.isDark ? theme.surface : "rgba(255,255,255,0.72)",
+      borderRadius: 999,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.isDark ? theme.border : "rgba(108, 71, 255, 0.12)",
+    },
+    highlightIcon: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: theme.primaryLight,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    highlightText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: theme.textSecondary,
+    },
+    card: {
+      backgroundColor: theme.bg,
+      borderRadius: 24,
+      paddingHorizontal: 20,
+      paddingTop: 24,
+      paddingBottom: 20,
+      gap: 14,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
+      ...Platform.select({
+        ios: {
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: theme.isDark ? 0.2 : 0.06,
+          shadowRadius: 12,
+        },
+        android: { elevation: 4 },
+      }),
+    },
+    devBanner: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 10,
+      backgroundColor: theme.primaryLight,
+      borderRadius: 14,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+    },
+    devBannerText: {
+      flex: 1,
+      fontSize: 13,
+      lineHeight: 19,
+      color: theme.textSecondary,
+    },
+    primaryBtn: {
+      alignItems: "center",
+      justifyContent: "center",
+      width: "100%",
+      borderRadius: 16,
+      paddingVertical: 16,
+      backgroundColor: theme.primary,
+    },
+    primaryBtnText: { fontSize: 16, fontWeight: "700", color: "#fff" },
+    googleBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 10,
+      width: "100%",
+      borderRadius: 16,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+      paddingVertical: 16,
+      backgroundColor: theme.surface,
+    },
+    googleText: { fontSize: 16, fontWeight: "600", color: theme.text },
+    orText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: theme.textTertiary,
+      textAlign: "center",
+    },
+    devSecondaryBtn: {
+      alignItems: "center",
+      justifyContent: "center",
+      width: "100%",
+      borderRadius: 16,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+      paddingVertical: 14,
+      backgroundColor: theme.surface,
+    },
+    devSecondaryText: { fontSize: 15, fontWeight: "600", color: theme.primary },
+    dim: { opacity: 0.55 },
+    links: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      marginTop: 2,
+    },
+    link: { fontSize: 13, color: theme.textTertiary },
+    linkPressable: { textDecorationLine: "underline" },
+    dot: { fontSize: 13, color: theme.textTertiary },
+  });
+}

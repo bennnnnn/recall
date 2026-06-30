@@ -1,3 +1,5 @@
+import { looksLikeMathFenceBody } from "@/lib/mathFenceRetag";
+
 const COPY_BLOCK_RE =
   /```(?:copy|text|message|email|sms|reply)\n([\s\S]*?)```/i;
 
@@ -23,6 +25,7 @@ export function isProseLang(lang: string): boolean {
 /** Heuristic: content is source code, not copy-ready prose. */
 export function looksLikeCode(content: string): boolean {
   if (looksLikeExplanatoryProse(content)) return false;
+  if (looksLikeMathFenceBody(content)) return false;
   const sample = content.slice(0, 2000);
   if (
     /^\s*(def |class |function |import |export |const |let |var |public |private |protected |#include |package |func |fn |interface |type |enum |struct |impl |module |namespace |using |SELECT |CREATE |INSERT |UPDATE |DELETE |<!DOCTYPE|<\/?[a-z][\w-]*[\s/>])/im.test(
@@ -262,7 +265,11 @@ export function isExplicitCodeLang(lang: string): boolean {
     l === "message" ||
     l === "email" ||
     l === "sms" ||
-    l === "reply"
+    l === "reply" ||
+    l === "clock" ||
+    l === "time" ||
+    l === "sources" ||
+    l === "places"
   )
     return false;
   return !isProseLang(l);

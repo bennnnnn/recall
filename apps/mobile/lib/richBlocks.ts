@@ -36,8 +36,11 @@ const SOCIAL_LANGS: Record<string, SocialPlatform> = {
   social: "generic",
 };
 const MESSAGE_LANGS = new Set(["sms", "message", "reply"]);
+const QUOTE_LANGS = new Set(["quote", "blockquote"]);
 const STRUCTURED_LANGS = new Set([
   "email",
+  "quote",
+  "blockquote",
   "compare",
   "comparison",
   "pros",
@@ -50,6 +53,17 @@ const STRUCTURED_LANGS = new Set([
   "collapse",
   "summary",
   "math",
+  "clock",
+  "time",
+  // Diagram / chart / visualization fences
+  "mermaid",
+  "chart",
+  "vega",
+  "vega-lite",
+  "plot",
+  "geometry",
+  "graph",
+  "places",
   ...CALLOUT_LANGS,
   ...Object.keys(SOCIAL_LANGS),
   ...MESSAGE_LANGS,

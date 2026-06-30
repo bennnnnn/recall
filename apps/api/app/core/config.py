@@ -10,24 +10,75 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379"
 
     google_client_id: str = ""
+    google_client_secret: str = ""
+
     jwt_secret: str = "dev-secret-change-me"
     jwt_expire_minutes: int = 60 * 24 * 7
 
-    deepseek_api_key: str = ""
+    deepseek_api_key: str = ""  # legacy — unused; all models route via OpenRouter
     openrouter_api_key: str = ""
+    tavily_api_key: str = ""
+
+    google_calendar_enabled: bool = True
+    calendar_cache_ttl: int = 300
+    calendar_fetch_days: int = 60
+    calendar_prompt_days: int = 14
+
+    gmail_enabled: bool = True
+    gmail_fetch_days: int = 7
+    gmail_max_messages: int = 30
+    gmail_cache_ttl: int = 300
+    gmail_sync_interval_seconds: int = 3600
+
+    attachments_enabled: bool = True
+    semantic_memory_enabled: bool = True
+    mcp_tools_enabled: bool = False
+
+    math_tools_enabled: bool = True
+    math_max_expr_length: int = 256
+    math_graph_max_points: int = 300
+
+    web_search_enabled: bool = True
+    web_search_fallback_enabled: bool = True
+    web_search_max_results: int = 5
+    web_search_cache_ttl: int = 300
+
+    push_enabled: bool = True
+    push_learning_hour: int = 9
+    server_todo_push_enabled: bool = False  # local notifications handle todo reminders
+
+    revenuecat_secret_key: str = ""
+    revenuecat_webhook_auth: str = ""
+    revenuecat_entitlement_id: str = "pro"
+
+    # Transactional email (welcome / receipts). Provider is Resend when
+    # `resend_api_key` is set; otherwise a mock that logs the message so dev
+    # works with zero external setup. Sending is always best-effort via the
+    # background jobs stream — it never blocks auth or the chat path.
+    email_enabled: bool = True
+    resend_api_key: str = ""
+    resend_api_url: str = "https://api.resend.com/emails"
+    email_from: str = "Recall <noreply@recall.app>"
 
     daily_token_limit: int = 30_000
+    daily_token_limit_pro: int = 500_000
     max_output_tokens: int = 1200
     recent_message_window: int = 40  # hard cap on verbatim messages
     memory_min_confidence: float = 0.4
     memory_inject_limit: int = 15
     memory_cache_ttl: int = 300
+    memory_query_cache_ttl: int = 120
+    todo_inject_limit: int = 100
+    todo_prompt_limit: int = 48
+    project_inject_limit: int = 50
+    project_item_inject_limit: int = 300
 
     # History compression — keep recent turns verbatim within a token budget,
     # summarise everything older.
     history_compression_enabled: bool = True
     context_token_budget: int = 6000
     history_summary_batch: int = 10
+    history_summary_urgent_pending: int = 3
     summary_max_tokens: int = 400
 
     cors_origins: str = ""

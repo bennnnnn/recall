@@ -1,13 +1,21 @@
+import { retagMathAndDiagramFences } from "@/lib/mathFenceRetag";
+import { repairBrokenMarkdownLinks } from "@/lib/placesList";
+import { normalizeImplicitMath } from "@/lib/normalizeImplicitMath";
 import { parseQuoteAttribution, isStructuredFenceLang } from "@/lib/richBlocks";
 import {
   isExplicitCodeLang,
   looksLikeCode,
   shouldRenderAsPlainProseFence,
 } from "@/lib/copyBlock";
-import { parseFenceLang } from "@/lib/codeHighlight";
+import { isHtmlFenceLang, parseFenceLang } from "@/lib/codeHighlight";
 
 const CALLOUT_RE = /^>\s*\[!(\w+)\]\s*([^\n]*)\n((?:>\s?.*\n?)*)/gim;
 const BLOCK_MATH_RE = /\$\$([\s\S]+?)\$\$/g;
+const BLOCK_MATH_BRACKET_RE = /\\\[([\s\S]+?)\\\]/g;
+/** Michelin / restaurant price tiers: ($), ($$), ($$$), ($$$$) — not LaTeX. */
+const PRICE_TIER_RE = /\(\s*\$+\s*\)/g;
+const PRICE_SHIELD_PREFIX = "\uE000P";
+const PRICE_SHIELD_SUFFIX = "\uE001";
 const DETAILS_HTML_RE =
   /<details>\s*<summary>([\s\S]*?)<\/summary>\s*([\s\S]*?)<\/details>/gim;
 const FENCED_TABLE_RE =
@@ -148,11 +156,20 @@ function unwrapNonCodeFences(content: string): string {
   return content.replace(FENCE_BLOCK_RE, (full, info: string, body: string) => {
     const lang = parseFenceLang((info || "").trim());
     const l = lang.toLowerCase();
-    if (isStructuredFenceLang(l) || l === "details" || l === "math") {
+    if (isStructuredFenceLang(l) || l === "details" || l === "math" || isHtmlFenceLang(l)) {
       return full;
     }
 
-    const trimmed = body.replace(/\n$/, "");
+    const trimmed = body.replace(/\n$/, "").trim();
+
+    // Drop empty/whitespace fences — they render as blank gray boxes.
+    if (!trimmed) return "";
+
+    if (/^\$\)?\s*$/.test(trimmed)) return "";
+
+    if (trimmed.startsWith("$$)\n") || trimmed.startsWith("$)\n")) {
+      return `\n\n${trimmed.replace(/^\$\)?\s*\n?/, "")}\n\n`;
+    }
 
     if (isExplicitCodeLang(lang) || looksLikeCode(trimmed)) {
       return full;
@@ -166,13 +183,119 @@ function unwrapNonCodeFences(content: string): string {
       return `\n\n${trimmed}\n\n`;
     }
 
+    if (looksLikeMarkdownListProse(trimmed)) {
+      return `\n\n${trimmed}\n\n`;
+    }
+
     return full;
   });
 }
 
+/** Numbered/bulleted lists and headings — never code fences. */
+export function looksLikeMarkdownListProse(content: string): boolean {
+  const lines = content
+    .trim()
+    .split("\n")
+    .filter((l) => l.trim());
+  if (lines.length === 0) return false;
+  const proseLines = lines.filter((line) => {
+    const t = line.trim();
+    return (
+      /^#{1,6}\s/.test(t) ||
+      /^\d+\.\s+\*\*/.test(t) ||
+      /^[-*]\s+\*\*/.test(t) ||
+      /^\d+\.\s+[A-Z]/.test(t)
+    );
+  });
+  return proseLines.length >= 1;
+}
+
+/** Hide ($$) / ($$$) price markers so block-math regex cannot swallow list prose. */
+function shieldPriceTiers(content: string): {
+  text: string;
+  restore: (s: string) => string;
+} {
+  const saved: string[] = [];
+  const text = content.replace(PRICE_TIER_RE, (match) => {
+    const idx = saved.length;
+    saved.push(match);
+    return `${PRICE_SHIELD_PREFIX}${idx}${PRICE_SHIELD_SUFFIX}`;
+  });
+  return {
+    text,
+    restore: (s) =>
+      s.replace(
+        new RegExp(`${PRICE_SHIELD_PREFIX}(\\d+)${PRICE_SHIELD_SUFFIX}`, "g"),
+        (_, index) => saved[Number(index)] ?? "",
+      ),
+  };
+}
+
+/** Undo mistaken ```math fences that contain markdown lists or price-tier debris. */
+function unwrapCorruptedMathFences(content: string): string {
+  return content.replace(/```math\n([\s\S]*?)```/gi, (full, body: string) => {
+    const trimmed = body.trim();
+    if (!trimmed) return "";
+    if (
+      looksLikeMarkdownListProse(trimmed) ||
+      /^\$\)?/.test(trimmed) ||
+      /\*\*[^*]+\*\*/.test(trimmed) ||
+      /^#{1,6}\s/.test(trimmed) ||
+      /^\d+\.\s/.test(trimmed) ||
+      /Michelin|restaurant|dining|fare|cuisine/i.test(trimmed)
+    ) {
+      return `\n\n${trimmed.replace(/^\$\)\s*\n?/, "")}\n\n`;
+    }
+    return full;
+  });
+}
+
+/** Repair list lines truncated by a prior bad ($$) → math-fence split. */
+function repairCorruptedPriceTierMarkdown(content: string): string {
+  let out = content.replace(
+    /```(?:math)?\n\s*\$\)?\s*\n```/gi,
+    "",
+  );
+  out = out.replace(
+    /```(?:math)?\n\s*\$\)?\s*\n([\s\S]*?)```/gi,
+    (_full, body: string) => `\n\n${String(body).replace(/^\$\)\s*\n?/, "")}\n\n`,
+  );
+
+  const lines = out.split("\n");
+  const fixed: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
+    if (/\(\s*$/.test(line) && !/\(\s*\$/.test(line)) {
+      const next = lines[i + 1]?.trim() ?? "";
+      if (/^\d+\.\s/.test(next) || next.startsWith("```") || next.startsWith("###")) {
+        line = line.replace(/\(\s*$/, "($$$)");
+      }
+    }
+    fixed.push(line);
+  }
+  return fixed.join("\n");
+}
+
+/** Turn `- step ✓` bullets into task-list items so MarkdownContent renders green ticks. */
+function normalizeVerificationBullets(content: string): string {
+  return content
+    .split("\n")
+    .map((line) => {
+      const match = line.match(/^(\s*[-*+]\s+)(.+?)\s*[✓✔✅]\s*$/u);
+      if (!match) return line;
+      const body = match[2].trim();
+      return `- [x] ${body}`;
+    })
+    .join("\n");
+}
+
 /** GitHub callouts, block math, and HTML details → fenced blocks the app understands. */
 export function preprocessMarkdown(content: string): string {
-  let out = content;
+  let out = repairBrokenMarkdownLinks(content);
+  out = repairCorruptedPriceTierMarkdown(out);
+  out = normalizeVerificationBullets(out);
+  out = normalizeImplicitMath(out);
+  out = normalizeBoldInlineMath(out);
 
   out = out.replace(
     CALLOUT_RE,
@@ -193,11 +316,32 @@ export function preprocessMarkdown(content: string): string {
     return `\n\`\`\`details ${title.trim()}\n${body.trim()}\n\`\`\`\n`;
   });
 
-  out = out.replace(BLOCK_MATH_RE, (_m, latex: string) => {
+  const { text: blockMathInput, restore: restorePriceTiers } = shieldPriceTiers(out);
+  let blockMathOut = blockMathInput.replace(BLOCK_MATH_RE, (_m, latex: string) => {
     return `\n\`\`\`math\n${latex.trim()}\n\`\`\`\n`;
   });
+  blockMathOut = blockMathOut.replace(BLOCK_MATH_BRACKET_RE, (_m, latex: string) => {
+    return `\n\`\`\`math\n${latex.trim()}\n\`\`\`\n`;
+  });
+  out = restorePriceTiers(blockMathOut);
+  out = unwrapCorruptedMathFences(out);
 
   out = normalizeMarkdownTables(out);
+
+  // Re-tag fences that contain Vega / Vega-Lite specs so ChartBlock renders them.
+  out = out.replace(
+    /```(?:json|vega|vega-lite|chart|plot)?\s*\n(\s*\{[\s\S]*?"\$schema"\s*:\s*"https?:\/\/vega\.github\.io\/schema\/(?:vega-lite|vega)\/[\s\S]*?\}\s*)```/gi,
+    (_m, body: string) => `\`\`\`vega-lite\n${body.trim()}\n\`\`\``,
+  );
+
+  // Wrap bare Vega-Lite JSON blocks (not in fences) so they render as charts.
+  out = out.replace(
+    /(?:^|\n\n)(\{\s*"\$schema"\s*:\s*"https?:\/\/vega\.github\.io\/schema\/(?:vega-lite|vega)\/v\d+\.json"[\s\S]*?\n\})/g,
+    (_m: string, body: string) => `\n\n\`\`\`vega-lite\n${body.trim()}\n\`\`\`\n\n`,
+  );
+
+  out = retagMathAndDiagramFences(out);
+
   out = unwrapNonCodeFences(out);
 
   return out;
@@ -210,19 +354,42 @@ export function extractBlockquoteMeta(raw: string): {
   return parseQuoteAttribution(raw);
 }
 
-/** Split paragraph text into plain + inline math segments. */
+/** Move $...$ out of **...** so emphasis nodes do not swallow math delimiters. */
+export function normalizeBoldInlineMath(content: string): string {
+  return content.replace(/\*\*((?:(?!\*\*).)+)\*\*/g, (full, inner: string) => {
+    if (!/\$[^$\n]+?\$/.test(inner)) return full;
+    const parts = splitInlineMath(inner);
+    if (!parts.some((part) => part.type === "math")) return full;
+
+    let out = "";
+    for (const part of parts) {
+      if (part.type === "math") {
+        out += `$${part.value}$`;
+        continue;
+      }
+      const lead = part.value.match(/^\s+/)?.[0] ?? "";
+      const trail = part.value.match(/\s+$/)?.[0] ?? "";
+      const core = part.value.trim();
+      if (core) out += `${lead}**${core}**${trail}`;
+      else out += part.value;
+    }
+    return out.trim() ? out : full;
+  });
+}
+
+/** Split paragraph text into plain + inline math segments ($...$ or \\(...\\)). */
 export function splitInlineMath(
   text: string,
 ): Array<{ type: "text" | "math"; value: string }> {
   const parts: Array<{ type: "text" | "math"; value: string }> = [];
-  const re = /\$([^$\n]+?)\$/g;
+  const pattern = /\$([^$\n]+?)\$|\\\(([\s\S]+?)\\\)/g;
   let last = 0;
   let match: RegExpExecArray | null;
-  while ((match = re.exec(text)) !== null) {
+  while ((match = pattern.exec(text)) !== null) {
     if (match.index > last) {
       parts.push({ type: "text", value: text.slice(last, match.index) });
     }
-    parts.push({ type: "math", value: match[1].trim() });
+    parts.push({ type: "math", value: (match[1] ?? match[2] ?? "").trim() });
     last = match.index + match[0].length;
   }
   if (last < text.length) {

@@ -1,6 +1,6 @@
 """Tests for app.repositories.chats with mocked AsyncSession."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
@@ -63,16 +63,13 @@ async def test_delete_empty_for_user_with_no_empty_chats(fake_session):
     """delete_empty_for_user should return 0 when no empty chats exist."""
     from app.repositories.chats import delete_empty_for_user
 
-    mock_scalars = MagicMock()
-    mock_scalars.all.return_value = []
     mock_result = MagicMock()
-    mock_result.scalars.return_value = mock_scalars
+    mock_result.rowcount = 0
     fake_session.execute.return_value = mock_result
 
     result = await delete_empty_for_user(fake_session, uuid4())
 
     assert result == 0
-    fake_session.delete.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -164,20 +161,37 @@ def test_group_by_recency_earlier():
 
 def test_group_by_recency_mixed():
     """Chats from different time periods should be split correctly."""
-    from datetime import timedelta
-
     from app.repositories.chats import group_by_recency
 
-    now = datetime.now(UTC)
+    now = datetime(2026, 6, 28, 15, 0, 0, tzinfo=UTC)
     today_chat = MagicMock()
     today_chat.updated_at = now
     yesterday_chat = MagicMock()
-    yesterday_chat.updated_at = now - timedelta(days=1)
+    yesterday_chat.updated_at = now - timedelta(hours=20)
     old_chat = MagicMock()
     old_chat.updated_at = now - timedelta(days=7)
 
-    result = group_by_recency([today_chat, yesterday_chat, old_chat])
+    result = group_by_recency([today_chat, yesterday_chat, old_chat], now=now)
 
     assert len(result["today"]) == 1
     assert len(result["yesterday"]) == 1
     assert len(result["earlier"]) == 1
+
+
+def test_group_by_recency_uses_user_timezone():
+    """Local yesterday must not appear under Today when UTC date already rolled forward."""
+    from app.repositories.chats import group_by_recency
+
+    # Sunday 2pm in Los Angeles
+    now = datetime(2026, 6, 28, 21, 0, 0, tzinfo=UTC)
+    # Saturday 11pm in Los Angeles (Sunday 06:00 UTC — UTC would call this "today")
+    chat = MagicMock()
+    chat.updated_at = datetime(2026, 6, 28, 6, 0, 0, tzinfo=UTC)
+
+    utc_groups = group_by_recency([chat], now=now)
+    la_groups = group_by_recency([chat], user_timezone="America/Los_Angeles", now=now)
+
+    assert len(utc_groups["today"]) == 1
+    assert utc_groups["yesterday"] == []
+    assert len(la_groups["yesterday"]) == 1
+    assert la_groups["today"] == []

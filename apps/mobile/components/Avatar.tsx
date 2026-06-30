@@ -1,18 +1,8 @@
+import { useMemo } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 
-import { C } from "@/constants/Colors";
-
-function initials(name: string | null): string {
-  if (!name) return "?";
-  const letters = name
-    .split(" ")
-    .map((w) => w[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-  return letters || "?";
-}
+import { getInitials } from "@/lib/profile";
+import { Theme, useTheme } from "@/lib/theme";
 
 /** Google profile picture when available, otherwise the user's initials. */
 export function Avatar({
@@ -24,24 +14,29 @@ export function Avatar({
   uri?: string | null;
   size?: number;
 }) {
+  const theme = useTheme();
+  const styles = useMemo(() => makeStyles(theme), [theme]);
   const dim = { width: size, height: size, borderRadius: size / 2 };
+
   if (uri) {
     return (
-      <Image source={{ uri }} style={[dim, { backgroundColor: C.surface }]} />
+      <Image source={{ uri }} style={[dim, { backgroundColor: theme.surface }]} />
     );
   }
   return (
-    <View style={[dim, a.fallback]}>
-      <Text style={[a.text, { fontSize: size * 0.4 }]}>{initials(name)}</Text>
+    <View style={[dim, styles.fallback]}>
+      <Text style={[styles.text, { fontSize: size * 0.4 }]}>{getInitials(name)}</Text>
     </View>
   );
 }
 
-const a = StyleSheet.create({
-  fallback: {
-    backgroundColor: C.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  text: { color: "#fff", fontWeight: "700" },
-});
+function makeStyles(theme: Theme) {
+  return StyleSheet.create({
+    fallback: {
+      backgroundColor: theme.primary,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    text: { color: "#fff", fontWeight: "700" },
+  });
+}

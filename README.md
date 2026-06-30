@@ -54,7 +54,7 @@ On a physical device, set `EXPO_PUBLIC_API_URL=http://<your-lan-ip>:8000` in `ap
 
 1. Start backend
 2. In the app → **Continue as Dev User**
-3. Mock LLM replies work until you add `DEEPSEEK_API_KEY`
+3. Mock LLM replies work until you add `OPENROUTER_API_KEY` ([openrouter.ai/keys](https://openrouter.ai/keys))
 
 ## Optional: Docker
 

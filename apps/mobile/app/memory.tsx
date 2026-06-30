@@ -1,7 +1,8 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,165 +10,280 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
 
-import { C } from "@/constants/Colors";
+import { StateView } from "@/components/StateView";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, Memory } from "@/lib/api";
+import { Theme, useTheme } from "@/lib/theme";
 
 const TYPE_LABEL: Record<string, string> = {
   profile: "👤 Profile",
   preference: "⭐ Preferences",
-  project: "🗂 Projects",
+  project: "🗂 Learning",
   fact: "📌 Facts",
   focus: "🎯 Focus",
 };
 const TYPE_ORDER = ["profile", "preference", "project", "fact", "focus"];
+const COLLAPSED_LINES = 3;
 
-function groupByType(memories: Memory[]) {
-  const g: Record<string, Memory[]> = {};
-  for (const m of memories) {
-    if (!g[m.type]) g[m.type] = [];
-    g[m.type].push(m);
-  }
-  return g;
+function sectionNeedsCollapse(text: string): boolean {
+  return text.trim().length > 120 || text.trim().split(/\n/).length > COLLAPSED_LINES;
+}
+
+type MemorySectionCardProps = {
+  section: Memory;
+  expanded: boolean;
+  onToggle: () => void;
+  onDelete: () => void;
+};
+
+function MemorySectionCard({
+  section,
+  expanded,
+  onToggle,
+  onDelete,
+  styles: s,
+  theme,
+}: MemorySectionCardProps & {
+  styles: ReturnType<typeof makeStyles>;
+  theme: Theme;
+}) {
+  const { t } = useTranslation();
+  const collapsible = sectionNeedsCollapse(section.text);
+
+  return (
+    <View style={s.group}>
+      <View style={s.groupHeader}>
+        <Pressable
+          style={s.groupHeaderMain}
+          onPress={collapsible ? onToggle : undefined}
+          disabled={!collapsible}
+        >
+          <Text style={s.groupTitle}>{TYPE_LABEL[section.type] ?? section.type}</Text>
+          {collapsible ? (
+            <Ionicons
+              name={expanded ? "chevron-up" : "chevron-down"}
+              size={18}
+              color={theme.textSecondary}
+            />
+          ) : null}
+        </Pressable>
+        <Pressable hitSlop={8} onPress={onDelete} accessibilityRole="button">
+          <Ionicons name="trash-outline" size={16} color={theme.textTertiary} />
+        </Pressable>
+      </View>
+      <Pressable
+        style={s.card}
+        onPress={collapsible ? onToggle : undefined}
+        disabled={!collapsible}
+      >
+        <Text
+          style={s.cardText}
+          numberOfLines={collapsible && !expanded ? COLLAPSED_LINES : undefined}
+        >
+          {section.text}
+        </Text>
+        {collapsible ? (
+          <Text style={s.expandHint}>
+            {expanded ? t("common.show_less") : t("common.show_more")}
+          </Text>
+        ) : null}
+        {section.confidence != null ? (
+          <Text style={s.conf}>{Math.round(section.confidence * 100)}% confident</Text>
+        ) : null}
+      </Pressable>
+    </View>
+  );
 }
 
 export default function MemoryScreen() {
   const { token } = useAuth();
+  const { t } = useTranslation();
+  const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  const s = useMemo(() => makeStyles(theme), [theme]);
   const [loading, setLoading] = useState(true);
   const [memories, setMemories] = useState<Memory[]>([]);
+  const [error, setError] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
+  const hasLoadedRef = useRef(false);
 
-  const load = useCallback(async () => {
+  const toggleSection = useCallback((type: string) => {
+    setExpandedTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  }, []);
+
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!token) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    const firstLoad = !hasLoadedRef.current;
+    if (!opts?.silent && firstLoad) {
+      setLoading(true);
+    }
+    setError(false);
     try {
       setMemories(await api.listMemories(token));
+    } catch {
+      setError(true);
     } finally {
-      setLoading(false);
+      hasLoadedRef.current = true;
+      if (!opts?.silent && firstLoad) {
+        setLoading(false);
+      }
     }
   }, [token]);
 
   useFocusEffect(
     useCallback(() => {
-      load();
+      void load({ silent: hasLoadedRef.current });
     }, [load]),
   );
 
+  const sections = useMemo(() => {
+    const byType = new Map<string, Memory>();
+    for (const memory of memories) {
+      if (!byType.has(memory.type)) byType.set(memory.type, memory);
+    }
+    return TYPE_ORDER.map((type) => byType.get(type)).filter(Boolean) as Memory[];
+  }, [memories]);
+
   if (!token) return <Redirect href="/login" />;
 
-  if (loading) {
+  if (loading && memories.length === 0) {
     return (
       <View style={s.center}>
-        <ActivityIndicator color={C.primary} />
+        <StateView variant="loading" />
       </View>
     );
   }
 
-  if (memories.length === 0) {
+  if (error && memories.length === 0) {
     return (
-      <View style={s.empty}>
-        <Ionicons
-          name="sparkles-outline"
-          size={48}
-          color={C.primary}
-          style={{ opacity: 0.5, marginBottom: 16 }}
+      <View style={s.center}>
+        <StateView
+          variant="error"
+          title={t("common.error")}
+          onRetry={() => void load()}
+          retryLabel={t("common.retry")}
         />
-        <Text style={s.emptyTitle}>No memories yet</Text>
-        <Text style={s.emptyBody}>
-          Chat with Recall and it will automatically learn your preferences,
-          projects, and facts about you.
-        </Text>
       </View>
     );
   }
 
-  const groups = groupByType(memories);
+  if (sections.length === 0) {
+    return (
+      <View style={s.center}>
+        <StateView
+          variant="empty"
+          icon="sparkles-outline"
+          title={t("memory.empty_title")}
+          message={t("memory.empty_body")}
+        />
+      </View>
+    );
+  }
 
   return (
-    <ScrollView style={s.root} contentContainerStyle={s.content}>
-      <Text style={s.heading}>What Recall knows about you</Text>
-      {TYPE_ORDER.filter((t) => groups[t]?.length).map((type) => (
-        <View key={type} style={s.group}>
-          <Text style={s.groupTitle}>{TYPE_LABEL[type] ?? type}</Text>
-          {groups[type].map((m) => (
-            <View key={m.id} style={s.card}>
-              <View style={s.cardMain}>
-                <Text style={s.cardText}>{m.text}</Text>
-                {m.confidence != null && (
-                  <Text style={s.conf}>
-                    {Math.round(m.confidence * 100)}% confident
-                  </Text>
-                )}
-              </View>
-              <Pressable
-                hitSlop={8}
-                onPress={async () => {
-                  if (!token) return;
-                  await api.deleteMemory(token, m.id);
-                  setMemories((prev) => prev.filter((x) => x.id !== m.id));
-                }}
-              >
-                <Ionicons
-                  name="trash-outline"
-                  size={16}
-                  color={C.textTertiary}
-                />
-              </Pressable>
-            </View>
-          ))}
-        </View>
+    <ScrollView
+      style={s.root}
+      contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 24 }]}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={async () => {
+            setRefreshing(true);
+            await load({ silent: true });
+            setRefreshing(false);
+          }}
+        />
+      }
+    >
+      <Text style={s.heading}>{t("memory.heading")}</Text>
+      <Text style={s.subheading}>{t("memory.section_hint")}</Text>
+      {sections.map((section) => (
+        <MemorySectionCard
+          key={section.type}
+          section={section}
+          expanded={expandedTypes.has(section.type)}
+          onToggle={() => toggleSection(section.type)}
+          styles={s}
+          theme={theme}
+          onDelete={async () => {
+            if (!token) return;
+            await api.deleteMemorySection(token, section.type);
+            setMemories((prev) => prev.filter((item) => item.type !== section.type));
+            setExpandedTypes((prev) => {
+              const next = new Set(prev);
+              next.delete(section.type);
+              return next;
+            });
+          }}
+        />
       ))}
     </ScrollView>
   );
 }
 
-const s = StyleSheet.create({
+function makeStyles(theme: Theme) {
+  return StyleSheet.create({
   center: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: C.bg,
+    backgroundColor: theme.bg,
   },
-  empty: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 32,
-    backgroundColor: C.bg,
-  },
-  emptyTitle: { fontSize: 18, fontWeight: "600", color: C.text },
-  emptyBody: {
-    fontSize: 15,
-    color: C.textSecondary,
-    marginTop: 6,
-    textAlign: "center",
-  },
-  root: { flex: 1, backgroundColor: C.bg },
+  root: { flex: 1, backgroundColor: theme.bg },
   content: { padding: 16 },
-  heading: { fontSize: 20, fontWeight: "700", color: C.text, marginBottom: 20 },
-  group: { marginBottom: 24 },
+  heading: { fontSize: 20, fontWeight: "700", color: theme.text, marginBottom: 6 },
+  subheading: {
+    fontSize: 14,
+    color: theme.textSecondary,
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  group: { marginBottom: 20 },
+  groupHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+    gap: 8,
+  },
+  groupHeaderMain: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
   groupTitle: {
     fontSize: 13,
     fontWeight: "700",
-    color: C.text,
-    marginBottom: 8,
+    color: theme.text,
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   card: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    backgroundColor: C.surface,
+    backgroundColor: theme.surface,
     borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
-    gap: 8,
+    padding: 14,
   },
-  cardMain: { flex: 1 },
-  cardText: { fontSize: 15, color: C.text, lineHeight: 21 },
-  conf: { fontSize: 12, color: C.textTertiary, marginTop: 4 },
-  del: { color: C.textTertiary, fontSize: 16, fontWeight: "700", marginTop: 2 },
-});
+  cardText: { fontSize: 15, color: theme.text, lineHeight: 22 },
+  expandHint: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: theme.primary,
+    marginTop: 8,
+  },
+  conf: { fontSize: 12, color: theme.textTertiary, marginTop: 8 },
+  });
+}

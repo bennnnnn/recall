@@ -1,0 +1,269 @@
+import { useMemo } from "react";
+import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import Svg, { Line, Polygon, Rect, Text as SvgText } from "react-native-svg";
+
+import {
+  computeRectangleLabels,
+  computeRightTriangleLabels,
+  computeTriangleLabels,
+  parseGeometrySpec,
+  scaleToFit,
+  type RectangleSpec,
+  type RightTriangleSpec,
+  type TriangleSpec,
+} from "@/lib/geometryBlock";
+import { Theme, useTheme } from "@/lib/theme";
+
+type Props = { content: string };
+
+const DIAGONAL_COLOR = "#ea4335";
+const HEIGHT_COLOR = "#0891b2";
+const HYPOTENUSE_COLOR = "#ea4335";
+
+function RectangleDiagram({ spec, screenWidth, theme }: { spec: RectangleSpec; screenWidth: number; theme: Theme }) {
+  const labels = computeRectangleLabels(spec);
+  const layout = scaleToFit(spec.width, spec.height, screenWidth - 48);
+  const offsetX = 40;
+  const offsetY = 36;
+  const x = offsetX;
+  const y = offsetY;
+  const w = layout.w;
+  const h = layout.h;
+  const svgW = w + offsetX + 40;
+  const svgH = h + offsetY + (spec.show_area || spec.show_perimeter ? 56 : 40);
+  const isSquare = spec.type === "square";
+  const corner = 12;
+
+  return (
+    <Svg width={svgW} height={svgH}>
+      <Rect
+        x={x}
+        y={y}
+        width={w}
+        height={h}
+        fill={theme.contentSurface}
+        stroke={theme.primary}
+        strokeWidth={2}
+        rx={isSquare ? 2 : 4}
+      />
+      {isSquare || spec.show_angle ? (
+        <>
+          <Polygon
+            points={`${x},${y + h} ${x + corner},${y + h} ${x + corner},${y + h - corner} ${x},${y + h - corner}`}
+            fill="none"
+            stroke={theme.textSecondary}
+            strokeWidth={1.5}
+          />
+          {isSquare ? (
+            <Polygon
+              points={`${x + w},${y + h} ${x + w - corner},${y + h} ${x + w - corner},${y + h - corner} ${x + w},${y + h - corner}`}
+              fill="none"
+              stroke={theme.textSecondary}
+              strokeWidth={1.5}
+            />
+          ) : null}
+        </>
+      ) : null}
+      {spec.show_diagonal ? (
+        <Line
+          x1={x}
+          y1={y}
+          x2={x + w}
+          y2={y + h}
+          stroke={DIAGONAL_COLOR}
+          strokeWidth={2}
+          strokeDasharray="6,4"
+        />
+      ) : null}
+      <SvgText x={x + w / 2} y={y - 10} fill={theme.text} fontSize={13} fontWeight="600" textAnchor="middle">
+        {isSquare ? labels.side : labels.width}
+      </SvgText>
+      <SvgText x={x - 8} y={y + h / 2} fill={theme.text} fontSize={13} fontWeight="600" textAnchor="end">
+        {isSquare ? labels.side : labels.height}
+      </SvgText>
+      {spec.show_diagonal ? (
+        <SvgText x={x + w / 2 + 8} y={y + h / 2 - 6} fill={DIAGONAL_COLOR} fontSize={12} fontWeight="600">
+          {labels.diagonal}
+        </SvgText>
+      ) : null}
+      {!isSquare && spec.show_angle ? (
+        <SvgText x={x + 12} y={y + h - 8} fill={theme.textSecondary} fontSize={12}>
+          {labels.angle}
+        </SvgText>
+      ) : null}
+      {spec.show_area ? (
+        <SvgText x={x + w / 2} y={y + h + 34} fill={theme.textSecondary} fontSize={12} textAnchor="middle">
+          Area: {labels.area}
+        </SvgText>
+      ) : null}
+      {spec.show_perimeter ? (
+        <SvgText x={x + w / 2} y={y + h + (spec.show_area ? 50 : 34)} fill={theme.textSecondary} fontSize={12} textAnchor="middle">
+          Perimeter: {labels.perimeter}
+        </SvgText>
+      ) : null}
+    </Svg>
+  );
+}
+
+function TriangleDiagram({ spec, screenWidth, theme }: { spec: TriangleSpec; screenWidth: number; theme: Theme }) {
+  const labels = computeTriangleLabels(spec);
+  const layout = scaleToFit(spec.base, spec.height, screenWidth - 48);
+  const offsetX = 48;
+  const offsetY = 28;
+  const b = layout.w;
+  const h = layout.h;
+  const x0 = offsetX;
+  const y0 = offsetY + h;
+  const x1 = offsetX + b;
+  const y1 = offsetY + h;
+  const x2 = offsetX + b / 2;
+  const y2 = offsetY;
+  const svgW = b + offsetX + 48;
+  const svgH = h + offsetY + 36;
+  const showLabels = spec.show_labels !== false;
+
+  return (
+    <Svg width={svgW} height={svgH}>
+      <Polygon
+        points={`${x0},${y0} ${x1},${y1} ${x2},${y2}`}
+        fill={theme.contentSurface}
+        stroke={theme.primary}
+        strokeWidth={2}
+      />
+      <Line
+        x1={x2}
+        y1={y2}
+        x2={x2}
+        y2={y0}
+        stroke={HEIGHT_COLOR}
+        strokeWidth={2}
+        strokeDasharray="5,4"
+      />
+      {showLabels ? (
+        <>
+          <SvgText x={(x0 + x1) / 2} y={y0 + 18} fill={theme.text} fontSize={13} fontWeight="600" textAnchor="middle">
+            {labels.base}
+          </SvgText>
+          <SvgText x={x2 + 10} y={(y2 + y0) / 2} fill={HEIGHT_COLOR} fontSize={12} fontWeight="600">
+            {labels.height}
+          </SvgText>
+          <SvgText x={x2} y={y2 - 8} fill={theme.textSecondary} fontSize={11} textAnchor="middle">
+            {labels.area}
+          </SvgText>
+        </>
+      ) : null}
+    </Svg>
+  );
+}
+
+function RightTriangleDiagram({
+  spec,
+  screenWidth,
+  theme,
+}: {
+  spec: RightTriangleSpec;
+  screenWidth: number;
+  theme: Theme;
+}) {
+  const labels = computeRightTriangleLabels(spec);
+  const layout = scaleToFit(spec.base, spec.height, screenWidth - 48);
+  const offsetX = 56;
+  const offsetY = 28;
+  const b = layout.w;
+  const h = layout.h;
+  const x0 = offsetX;
+  const y0 = offsetY;
+  const x1 = offsetX + b;
+  const y1 = offsetY + h;
+  const svgW = b + offsetX + 56;
+  const svgH = h + offsetY + 40;
+  const showLabels = spec.show_labels !== false;
+  const showHyp = spec.show_hypotenuse !== false;
+  const showAngle = spec.show_angle !== false;
+  const corner = 14;
+
+  return (
+    <Svg width={svgW} height={svgH}>
+      <Polygon
+        points={`${x0},${y1} ${x1},${y1} ${x0},${y0}`}
+        fill={theme.contentSurface}
+        stroke={theme.primary}
+        strokeWidth={2}
+      />
+      {showAngle ? (
+        <Polygon
+          points={`${x0},${y1} ${x0 + corner},${y1} ${x0 + corner},${y1 - corner} ${x0},${y1 - corner}`}
+          fill="none"
+          stroke={theme.textSecondary}
+          strokeWidth={1.5}
+        />
+      ) : null}
+      {showLabels ? (
+        <>
+          <SvgText x={(x0 + x1) / 2} y={y1 + 18} fill={theme.text} fontSize={13} fontWeight="600" textAnchor="middle">
+            {labels.base}
+          </SvgText>
+          <SvgText x={x0 - 10} y={(y0 + y1) / 2} fill={HEIGHT_COLOR} fontSize={12} fontWeight="600" textAnchor="end">
+            {labels.height}
+          </SvgText>
+          {showHyp ? (
+            <SvgText
+              x={(x0 + x1) / 2 + 8}
+              y={(y0 + y1) / 2 - 6}
+              fill={HYPOTENUSE_COLOR}
+              fontSize={12}
+              fontWeight="600"
+            >
+              {labels.hypotenuse}
+            </SvgText>
+          ) : null}
+        </>
+      ) : null}
+    </Svg>
+  );
+}
+
+export function GeometryBlock({ content }: Props) {
+  const theme = useTheme();
+  const { width: screenWidth } = useWindowDimensions();
+  const spec = useMemo(() => parseGeometrySpec(content), [content]);
+  const styles = useMemo(() => makeStyles(theme), [theme]);
+
+  if (!spec) {
+    return (
+      <View style={styles.fallback}>
+        <Text style={styles.fallbackText}>Could not render geometry diagram.</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.wrap}>
+      {spec.type === "right_triangle" ? (
+        <RightTriangleDiagram spec={spec} screenWidth={screenWidth} theme={theme} />
+      ) : spec.type === "triangle" ? (
+        <TriangleDiagram spec={spec} screenWidth={screenWidth} theme={theme} />
+      ) : (
+        <RectangleDiagram spec={spec} screenWidth={screenWidth} theme={theme} />
+      )}
+    </View>
+  );
+}
+
+const makeStyles = (theme: Theme) =>
+  StyleSheet.create({
+    wrap: {
+      marginVertical: 8,
+      alignItems: "center",
+    },
+    fallback: {
+      marginVertical: 8,
+      padding: 12,
+      borderRadius: 10,
+      backgroundColor: theme.contentSurface,
+    },
+    fallbackText: {
+      color: theme.textSecondary,
+      fontSize: 14,
+    },
+  });

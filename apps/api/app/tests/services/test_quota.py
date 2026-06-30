@@ -1,3 +1,5 @@
+from unittest.mock import MagicMock
+
 import pytest
 
 from app.core.config import Settings
@@ -6,7 +8,29 @@ from app.services import quota as quota_service
 
 @pytest.fixture
 def settings() -> Settings:
-    return Settings(daily_token_limit=30_000)
+    return Settings(daily_token_limit=30_000, daily_token_limit_pro=500_000)
+
+
+def _pro_user() -> MagicMock:
+    user = MagicMock()
+    user.plan = "pro"
+    return user
+
+
+def _free_user() -> MagicMock:
+    user = MagicMock()
+    user.plan = "free"
+    return user
+
+
+def test_daily_limit_for_user(settings):
+    assert quota_service.daily_limit_for_user(_free_user(), settings) == 30_000
+    assert quota_service.daily_limit_for_user(_pro_user(), settings) == 500_000
+
+
+def test_quota_exceeded_message(settings):
+    assert "Pro" in quota_service.quota_exceeded_message(_free_user())
+    assert "Pro" not in quota_service.quota_exceeded_message(_pro_user())
 
 
 @pytest.mark.parametrize(
@@ -24,7 +48,8 @@ async def test_quota_enforced(fake_redis, settings, used, requested, allowed):
     day = datetime.now(UTC).date().isoformat()
     if used:
         await fake_redis.set(f"usage:u1:{day}", used)
-    result = await quota_service.can_spend(fake_redis, "u1", requested, settings)
+    limit = quota_service.daily_limit_for_user(_free_user(), settings)
+    result = await quota_service.can_spend(fake_redis, "u1", requested, daily_limit=limit)
     assert result is allowed
 
 
@@ -42,16 +67,18 @@ async def test_reserve_usage_rejects_over_limit(fake_redis, settings):
 
     day = datetime.now(UTC).date().isoformat()
     await fake_redis.set(f"usage:u1:{day}", 29_500)
+    limit = quota_service.daily_limit_for_user(_free_user(), settings)
 
-    allowed = await quota_service.reserve_usage(fake_redis, "u1", 1000, settings)
+    allowed = await quota_service.reserve_usage(fake_redis, "u1", 1000, daily_limit=limit)
     assert allowed is False
     assert int(await fake_redis.get(f"usage:u1:{day}")) == 29_500
 
 
 @pytest.mark.asyncio
 async def test_reserve_and_adjust(fake_redis, settings):
+    limit = quota_service.daily_limit_for_user(_free_user(), settings)
     reserved = 1000
-    assert await quota_service.reserve_usage(fake_redis, "u1", reserved, settings) is True
+    assert await quota_service.reserve_usage(fake_redis, "u1", reserved, daily_limit=limit) is True
     await quota_service.adjust_usage(fake_redis, "u1", reserved, 700)
     assert await quota_service.get_daily_usage(fake_redis, "u1") == 700
 

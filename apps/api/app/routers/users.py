@@ -1,0 +1,34 @@
+from fastapi import APIRouter, Depends, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.db import get_db
+from app.core.deps import get_current_user
+from app.models.orm import User
+from app.models.schemas import PushTokenIn
+from app.repositories import push_tokens as push_repo
+
+router = APIRouter(prefix="/users", tags=["users"])
+
+
+@router.post("/push-token", status_code=status.HTTP_204_NO_CONTENT)
+async def register_push_token(
+    body: PushTokenIn,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> None:
+    await push_repo.upsert(
+        session,
+        user_id=user.id,
+        expo_push_token=body.expo_push_token,
+        platform=body.platform,
+        device_id=body.device_id,
+    )
+
+
+@router.delete("/push-token", status_code=status.HTTP_204_NO_CONTENT)
+async def unregister_push_token(
+    body: PushTokenIn,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> None:
+    await push_repo.delete_token(session, user.id, body.expo_push_token)

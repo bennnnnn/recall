@@ -109,6 +109,19 @@ async def test_handle_memory_delegates():
     job.assert_awaited_once()
 
 
+@pytest.mark.asyncio
+async def test_handle_memory_consolidate_delegates():
+    with (
+        _patch_session(),
+        patch(
+            "app.core.jobs.memory_consolidation.consolidate_user_memory_sections",
+            AsyncMock(),
+        ) as job,
+    ):
+        await jobs._handle_memory_consolidate(Settings(), {"user_id": str(uuid4())})
+    job.assert_awaited_once()
+
+
 # ── worker ───────────────────────────────────────────────────────────────────
 
 

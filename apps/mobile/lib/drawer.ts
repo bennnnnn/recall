@@ -1,4 +1,4 @@
-// Shared drawer control — avoids circular imports between _layout and ConversationList
+// Shared drawer control — avoids circular imports between DrawerShell and ConversationList
 let _open: (() => void) | null = null;
 let _close: (() => void) | null = null;
 
@@ -24,4 +24,41 @@ export function registerNewChat(fn: () => void) {
 
 export function startNewChatGlobal() {
   _newChat?.();
+}
+
+/** Patch a chat row in the drawer list (e.g. when auto-title arrives). */
+export type ChatListPatch = {
+  title?: string | null;
+  pinned?: boolean;
+};
+
+let _patchChat: ((chatId: string, patch: ChatListPatch) => void) | null = null;
+
+export function registerChatPatcher(fn: ((chatId: string, patch: ChatListPatch) => void) | null) {
+  _patchChat = fn;
+}
+
+export function patchChatGlobal(chatId: string, patch: ChatListPatch) {
+  _patchChat?.(chatId, patch);
+}
+
+const _pendingTitleChatIds = new Set<string>();
+let _onTitlePendingChange: (() => void) | null = null;
+
+/** Mark a chat as waiting for auto-title (header + drawer show "Generating…"). */
+export function setChatTitleGenerating(chatId: string | null) {
+  _pendingTitleChatIds.clear();
+  if (chatId) _pendingTitleChatIds.add(chatId);
+  _onTitlePendingChange?.();
+}
+
+export function isChatTitleGenerating(chatId: string): boolean {
+  return _pendingTitleChatIds.has(chatId);
+}
+
+export function subscribeChatTitleGenerating(fn: () => void) {
+  _onTitlePendingChange = fn;
+  return () => {
+    if (_onTitlePendingChange === fn) _onTitlePendingChange = null;
+  };
 }

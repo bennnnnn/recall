@@ -664,3 +664,36 @@ export function displayLang(lang: string): string {
 export function effectiveLang(code: string, lang: string): string {
   return resolveHighlightLang(lang, code);
 }
+
+/** True for ```html / ```htm / ```markup fences. */
+export function isHtmlFenceLang(lang: string): boolean {
+  const l = lang.trim().toLowerCase();
+  return l === "html" || l === "htm" || l === "markup";
+}
+
+/** True when fence content looks like a renderable HTML page or fragment. */
+export function looksLikeHtmlPage(code: string): boolean {
+  const sample = code.trim().slice(0, 800);
+  if (/^\s*<!DOCTYPE\s+html/i.test(sample)) return true;
+  if (/^\s*<html[\s>]/i.test(sample)) return true;
+  if (/^\s*<head[\s>]/i.test(sample)) return true;
+  if (/^\s*<style[\s>]/i.test(sample) && /<\/style>/i.test(code)) return true;
+  if (/^\s*<body[\s>]/i.test(sample)) return true;
+  if (
+    /<(?:html|head|body|div|section|main|form|table|style|script)[\s>]/i.test(
+      sample,
+    ) &&
+    /<\/(?:html|body|div|section|main|form|table|script)>/i.test(code)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/** Web preview UI — only for HTML fences, not JS/JSX/Python with angle brackets. */
+export function shouldUseHtmlPreview(lang: string, content: string): boolean {
+  if (isHtmlFenceLang(lang)) return true;
+  const l = lang.trim().toLowerCase();
+  if (l && l !== "plain" && l !== "text" && l !== "clike") return false;
+  return looksLikeHtmlPage(content);
+}

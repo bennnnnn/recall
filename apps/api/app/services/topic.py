@@ -8,6 +8,7 @@ from app.core.config import Settings
 from app.gateways import litellm_gateway
 from app.models.orm import Chat
 from app.repositories import chats as chats_repo
+from app.services.chat_titles import normalize_chat_title
 
 logger = logging.getLogger(__name__)
 
@@ -19,11 +20,14 @@ async def generate_chat_title(
     user_message: str,
     assistant_message: str,
 ) -> None:
+    if not user_message.strip() or not assistant_message.strip():
+        return
     try:
         title = await asyncio.wait_for(
             litellm_gateway.generate_title(settings, user_message, assistant_message),
             timeout=15.0,
         )
+        title = normalize_chat_title(title)
         if not title:
             return
         chat = await session.get(Chat, chat_id)

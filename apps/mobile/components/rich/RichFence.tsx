@@ -1,14 +1,27 @@
 import { ReactNode } from "react";
 
+import { PlacesListBlock } from "@/components/PlacesListBlock";
 import { CalloutBlock } from "@/components/rich/CalloutBlock";
+import { parsePlacesJson } from "@/lib/placesList";
+import { ChartBlock } from "@/components/rich/ChartBlock";
 import { CollapsibleBlock } from "@/components/rich/CollapsibleBlock";
 import { ComparisonBlock } from "@/components/rich/ComparisonBlock";
+import { CircularClockBlock } from "@/components/rich/CircularClockBlock";
 import { EmailCard } from "@/components/rich/EmailCard";
+import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
+import { GeometryBlock } from "@/components/rich/GeometryBlock";
 import { KeyValueBlock } from "@/components/rich/KeyValueBlock";
 import { MathBlock } from "@/components/rich/MathView";
+import { MermaidBlock } from "@/components/rich/MermaidBlock";
 import { MessagePreview } from "@/components/rich/MessagePreview";
+import { QuoteBlock } from "@/components/rich/QuoteBlock";
 import { SocialPostCard } from "@/components/rich/SocialPostCard";
 import { StepList } from "@/components/rich/StepList";
+import {
+  fenceContentAsGeometry,
+  fenceContentAsGraph,
+  looksLikeLatexFence,
+} from "@/lib/mathFenceRetag";
 import {
   isMessageLang,
   isStructuredFenceLang,
@@ -17,6 +30,7 @@ import {
   parseComparison,
   parseEmailDraft,
   parseKeyValue,
+  parseQuoteAttribution,
   parseSocialPlatform,
   parseSteps,
 } from "@/lib/richBlocks";
@@ -27,11 +41,28 @@ export function renderRichFence(
   key: string,
 ): ReactNode | null {
   const l = lang.trim().toLowerCase();
-  if (!isStructuredFenceLang(l)) return null;
+  if (!isStructuredFenceLang(l)) {
+    if (fenceContentAsGeometry(content)) {
+      return <GeometryBlock key={key} content={content} />;
+    }
+    if (fenceContentAsGraph(content)) {
+      return <FunctionGraphBlock key={key} content={content} />;
+    }
+    if (looksLikeLatexFence(content) && (l === "json" || l === "latex" || l === "tex" || l === "")) {
+      return <MathBlock key={key} latex={content} />;
+    }
+    return null;
+  }
 
   if (l === "email") {
     const draft = parseEmailDraft(content) ?? { body: content };
     return <EmailCard key={key} draft={draft} />;
+  }
+
+  if (l === "quote" || l === "blockquote") {
+    const { quote, author } = parseQuoteAttribution(content);
+    if (!quote) return null;
+    return <QuoteBlock key={key} quote={quote} author={author} />;
   }
 
   if (isMessageLang(l)) {
@@ -45,6 +76,24 @@ export function renderRichFence(
 
   if (l === "math") {
     return <MathBlock key={key} latex={content} />;
+  }
+
+  if (l === "geometry") {
+    return <GeometryBlock key={key} content={content} />;
+  }
+
+  if (l === "graph") {
+    return <FunctionGraphBlock key={key} content={content} />;
+  }
+
+  if (l === "places") {
+    const places = parsePlacesJson(content);
+    if (places.length > 0) return <PlacesListBlock key={key} places={places} />;
+    return null;
+  }
+
+  if (l === "clock" || l === "time") {
+    return <CircularClockBlock key={key} content={content} />;
   }
 
   if (
@@ -73,6 +122,16 @@ export function renderRichFence(
 
   if (l === "steps" || l === "step") {
     return <StepList key={key} steps={parseSteps(content)} />;
+  }
+
+  // Mermaid / graph diagrams
+  if (l === "mermaid") {
+    return <MermaidBlock key={key} content={content} />;
+  }
+
+  // Chart / data visualization (vega-lite, chart.js, plot)
+  if (l === "chart" || l === "vega" || l === "vega-lite" || l === "plot") {
+    return <ChartBlock key={key} content={content} />;
   }
 
   return null;

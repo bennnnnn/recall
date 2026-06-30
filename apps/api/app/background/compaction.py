@@ -6,7 +6,12 @@ from app.core.db import SessionLocal
 from app.gateways import litellm_gateway
 from app.models.orm import Chat
 from app.repositories import messages as messages_repo
-from app.services.context_window import select_recent_window
+from app.services.context_window import (
+    cap_summary,
+    compute_history_split,
+    should_run_compression,
+    trim_message_for_summary,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -14,8 +19,8 @@ logger = logging.getLogger(__name__)
 async def compress_chat_history(settings: Settings, chat_id: UUID) -> None:
     """Fold messages older than the recent window into a rolling chat summary.
 
-    Best-effort and batched: only runs once enough messages have aged out, so it
-    keeps the prompt small on long chats without summarising on every turn.
+    Best-effort and batched: runs when enough messages have aged out, or sooner
+    when the token budget is tight on long threads.
     """
     try:
         async with SessionLocal() as session:
@@ -27,32 +32,44 @@ async def compress_chat_history(settings: Settings, chat_id: UUID) -> None:
             recent_all = await messages_repo.list_recent(
                 session, chat_id, limit=settings.recent_message_window
             )
-            # Keep the most recent turns that fit the token budget verbatim;
-            # everything older is eligible to be folded into the summary.
-            keep = select_recent_window(
-                recent_all, settings.context_token_budget, settings.recent_message_window
+            split = compute_history_split(
+                total,
+                recent_all,
+                settings.context_token_budget,
+                settings.recent_message_window,
             )
 
-            aged_out = total - keep
             already = chat.summary_message_count or 0
-            if aged_out - already < settings.history_summary_batch:
+            if not should_run_compression(
+                split,
+                already,
+                settings.history_summary_batch,
+                urgent_min_pending=settings.history_summary_urgent_pending,
+            ):
                 return
 
+            pending = split.summarized_count - already
             slice_msgs = await messages_repo.list_range(
-                session, chat_id, offset=already, limit=aged_out - already
+                session, chat_id, offset=already, limit=pending
             )
             if not slice_msgs:
                 return
 
-            transcript = [{"role": m.role, "content": m.content} for m in slice_msgs]
+            transcript = [
+                {
+                    "role": m.role,
+                    "content": trim_message_for_summary(m.content),
+                }
+                for m in slice_msgs
+            ]
             new_summary = await litellm_gateway.summarize_conversation(
                 settings, chat.summary, transcript
             )
             if not new_summary:
                 return
 
-            chat.summary = new_summary
-            chat.summary_message_count = aged_out
+            chat.summary = cap_summary(new_summary)
+            chat.summary_message_count = split.summarized_count
             await session.commit()
     except Exception:
         logger.exception("History compression failed for chat_id=%s", chat_id)

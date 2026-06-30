@@ -17,10 +17,20 @@ from uuid import UUID
 
 from redis.asyncio import Redis
 
-from app.background import compaction, memory_extraction, topic_generation
+from app.background import (
+    compaction,
+    gmail_sync,
+    memory_consolidation,
+    memory_extraction,
+    project_sync,
+    suggestion_generation,
+    todo_sync,
+    topic_generation,
+)
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
+from app.services import transactional_email as transactional_email_service
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +62,33 @@ async def enqueue(redis: Redis, job_type: str, payload: dict[str, Any]) -> None:
         logger.exception("Failed to enqueue job type=%s", job_type)
 
 
+async def enqueue_welcome_email(redis: Redis, user_id: UUID) -> None:
+    await enqueue(redis, "transactional_email", {"kind": "welcome", "user_id": str(user_id)})
+
+
+async def enqueue_purchase_receipt(
+    redis: Redis,
+    user_id: UUID | str,
+    *,
+    event_type: str,
+    store: str | None = None,
+    product_id: str | None = None,
+    expiration: str | None = None,
+) -> None:
+    await enqueue(
+        redis,
+        "transactional_email",
+        {
+            "kind": "receipt",
+            "user_id": str(user_id),
+            "event_type": event_type,
+            "store": store,
+            "product_id": product_id,
+            "expiration": expiration,
+        },
+    )
+
+
 # ── handlers ─────────────────────────────────────────────────────────────────
 
 
@@ -77,13 +114,102 @@ async def _handle_memory(settings: Settings, payload: dict[str, Any]) -> None:
         )
 
 
+async def _handle_memory_consolidate(settings: Settings, payload: dict[str, Any]) -> None:
+    async with SessionLocal() as session:
+        await memory_consolidation.consolidate_user_memory_sections(
+            session,
+            settings,
+            user_id=UUID(payload["user_id"]),
+        )
+
+
+async def _handle_todos(settings: Settings, payload: dict[str, Any]) -> None:
+    async with SessionLocal() as session:
+        await todo_sync.sync_todos_from_chat(
+            session,
+            settings,
+            user_id=UUID(payload["user_id"]),
+            chat_id=UUID(payload["chat_id"]),
+            transcript=payload["transcript"],
+        )
+
+
+async def _handle_projects(settings: Settings, payload: dict[str, Any]) -> None:
+    async with SessionLocal() as session:
+        await project_sync.sync_projects_from_chat(
+            session,
+            settings,
+            user_id=UUID(payload["user_id"]),
+            chat_id=UUID(payload["chat_id"]),
+            transcript=payload["transcript"],
+        )
+
+
 async def _handle_compress(settings: Settings, payload: dict[str, Any]) -> None:
     await compaction.compress_chat_history(settings, UUID(payload["chat_id"]))
 
 
 register("topic", _handle_topic)
 register("memory", _handle_memory)
+register("memory_consolidate", _handle_memory_consolidate)
+register("todos", _handle_todos)
+register("projects", _handle_projects)
 register("compress", _handle_compress)
+
+
+async def _handle_suggestions(settings: Settings, payload: dict[str, Any]) -> None:
+    async with SessionLocal() as session:
+        await suggestion_generation.generate_suggestions(
+            session, settings, UUID(payload["user_id"])
+        )
+
+
+register("suggestions", _handle_suggestions)
+
+
+async def _handle_gmail_sync(settings: Settings, payload: dict[str, Any]) -> None:
+    async with SessionLocal() as session:
+        await gmail_sync.sync_gmail_for_user(
+            session,
+            settings,
+            user_id=UUID(payload["user_id"]),
+        )
+
+
+register("gmail_sync", _handle_gmail_sync)
+
+
+async def _handle_transactional_email(settings: Settings, payload: dict[str, Any]) -> None:
+    """Best-effort outbound email (welcome / receipts). Never raises into chat."""
+    from app.repositories import users as users_repo
+
+    async with SessionLocal() as session:
+        user = await users_repo.get_by_id(session, UUID(payload["user_id"]))
+    if user is None:
+        logger.warning("transactional_email: user not found id=%s", payload.get("user_id"))
+        return
+    kind = payload.get("kind")
+    try:
+        if kind == "welcome":
+            await transactional_email_service.send_welcome(settings, user)
+        elif kind == "receipt":
+            await transactional_email_service.send_purchase_receipt(
+                settings,
+                user,
+                event_type=str(payload.get("event_type") or ""),
+                store=payload.get("store"),
+                product_id=payload.get("product_id"),
+                expiration=payload.get("expiration"),
+            )
+        else:
+            logger.warning("transactional_email: unknown kind=%s", kind)
+    except Exception:
+        logger.exception(
+            "transactional_email job failed kind=%s user=%s", kind, payload.get("user_id")
+        )
+
+
+register("transactional_email", _handle_transactional_email)
 
 
 # ── worker ───────────────────────────────────────────────────────────────────

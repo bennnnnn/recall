@@ -7,6 +7,15 @@ import pytest
 
 from app.core.config import Settings
 
+
+class _FakeSessionCM:
+    async def __aenter__(self):
+        return AsyncMock()
+
+    async def __aexit__(self, *args):
+        return False
+
+
 # ── memory service ─────────────────────────────────────────────────────────────
 from app.services.memory import format_memory_block, select_memories_for_prompt
 
@@ -26,7 +35,7 @@ def test_format_memory_block_empty():
 
 def test_format_memory_block_nonempty():
     out = format_memory_block([_mem("preference", "Likes coffee")])
-    assert "preference" in out
+    assert "Preferences" in out
     assert "Likes coffee" in out
 
 
@@ -72,7 +81,7 @@ async def test_remaining_when_nothing_used(fake_redis):
     from app.services import quota as quota_service
 
     settings = Settings(daily_token_limit=30_000)
-    rem = await quota_service.remaining(fake_redis, "u1", settings)
+    rem = await quota_service.remaining(fake_redis, "u1", daily_limit=settings.daily_token_limit)
     assert rem == 30_000
 
 
@@ -83,7 +92,7 @@ async def test_record_usage_accumulates(fake_redis):
     await quota_service.record_usage(fake_redis, "u1", 500)
     await quota_service.record_usage(fake_redis, "u1", 300)
     settings = Settings(daily_token_limit=30_000)
-    rem = await quota_service.remaining(fake_redis, "u1", settings)
+    rem = await quota_service.remaining(fake_redis, "u1", daily_limit=settings.daily_token_limit)
     assert rem == 30_000 - 800
 
 
@@ -133,13 +142,14 @@ async def test_generate_title_mock():
 
 
 @pytest.mark.asyncio
-async def test_extract_memories_mock():
+async def test_revise_memory_sections_mock():
     from app.gateways import litellm_gateway
 
     settings = Settings(mock_llm_enabled=True)
-    result = await litellm_gateway.extract_memories(settings, "User likes Python")
-    # mock returns None or MemoryExtractionResult
-    assert result is None or hasattr(result, "memories")
+    result = await litellm_gateway.revise_memory_sections(
+        settings, "User likes Python", existing_sections={}
+    )
+    assert result is None or hasattr(result, "sections")
 
 
 @pytest.mark.asyncio
@@ -147,7 +157,7 @@ async def test_stream_chat_completion_handles_exception():
     from app.gateways import litellm_gateway
     from app.gateways.litellm_gateway import ModelUnavailableError
 
-    settings = Settings(mock_llm_enabled=False, deepseek_api_key="bad-key")
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="bad-key")
 
     async def _fail(**_kwargs):
         raise RuntimeError("network down")
@@ -171,9 +181,19 @@ async def test_extract_and_store_no_result():
     from app.background.memory_extraction import extract_and_store_memories
 
     settings = Settings(memory_min_confidence=0.5)
-    with patch(
-        "app.background.memory_extraction.litellm_gateway.extract_memories",
-        AsyncMock(return_value=None),
+    with (
+        patch(
+            "app.background.memory_extraction.users_repo.get_by_id",
+            AsyncMock(return_value=MagicMock(memory_enabled=True)),
+        ),
+        patch(
+            "app.background.memory_extraction.litellm_gateway.revise_memory_sections",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.background.memory_extraction.memories_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
     ):
         # should not raise
         await extract_and_store_memories(
@@ -184,22 +204,31 @@ async def test_extract_and_store_no_result():
 @pytest.mark.asyncio
 async def test_extract_and_store_filters_confidence():
     from app.background.memory_extraction import extract_and_store_memories
-    from app.models.schemas import MemoryExtractionItem, MemoryExtractionResult
+    from app.models.schemas import MemorySectionItem, MemorySectionUpdateResult
 
     settings = Settings(memory_min_confidence=0.7)
-    extraction = MemoryExtractionResult(
-        memories=[
-            MemoryExtractionItem(type="fact", text="uses Vim", confidence=0.9),
-            MemoryExtractionItem(type="fact", text="low conf", confidence=0.3),
+    extraction = MemorySectionUpdateResult(
+        sections=[
+            MemorySectionItem(type="fact", summary="Uses Vim daily.", confidence=0.9),
+            MemorySectionItem(type="fact", summary="Low conf fact.", confidence=0.3),
         ]
     )
     upsert = AsyncMock()
     with (
         patch(
-            "app.background.memory_extraction.litellm_gateway.extract_memories",
+            "app.background.memory_extraction.users_repo.get_by_id",
+            AsyncMock(return_value=MagicMock(memory_enabled=True)),
+        ),
+        patch(
+            "app.background.memory_extraction.memories_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.background.memory_extraction.litellm_gateway.revise_memory_sections",
             AsyncMock(return_value=extraction),
         ),
-        patch("app.background.memory_extraction.memories_repo.upsert_many", upsert),
+        patch("app.background.memory_extraction.memories_repo.upsert_sections", upsert),
+        patch("app.services.memory.invalidate_memory_block", AsyncMock()),
     ):
         await extract_and_store_memories(
             AsyncMock(), settings, user_id=uuid4(), chat_id=uuid4(), transcript="chat"
@@ -207,7 +236,7 @@ async def test_extract_and_store_filters_confidence():
     upsert.assert_awaited_once()
     items = upsert.call_args.kwargs["items"]
     assert len(items) == 1
-    assert items[0][1] == "uses Vim"
+    assert items[0][1] == "Uses Vim daily"
 
 
 @pytest.mark.asyncio
@@ -215,14 +244,95 @@ async def test_extract_and_store_swallows_exception():
     from app.background.memory_extraction import extract_and_store_memories
 
     settings = Settings()
-    with patch(
-        "app.background.memory_extraction.litellm_gateway.extract_memories",
-        AsyncMock(side_effect=RuntimeError("boom")),
+    with (
+        patch(
+            "app.background.memory_extraction.users_repo.get_by_id",
+            AsyncMock(return_value=MagicMock(memory_enabled=True)),
+        ),
+        patch(
+            "app.background.memory_extraction.litellm_gateway.revise_memory_sections",
+            AsyncMock(side_effect=RuntimeError("boom")),
+        ),
+        patch(
+            "app.background.memory_extraction.memories_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
     ):
         # must not raise
         await extract_and_store_memories(
             AsyncMock(), settings, user_id=uuid4(), chat_id=uuid4(), transcript="t"
         )
+
+
+@pytest.mark.asyncio
+async def test_extract_and_store_skips_when_memory_disabled():
+    from app.background.memory_extraction import extract_and_store_memories
+
+    settings = Settings()
+    with (
+        patch(
+            "app.background.memory_extraction.users_repo.get_by_id",
+            AsyncMock(return_value=MagicMock(memory_enabled=False)),
+        ),
+        patch(
+            "app.background.memory_extraction.litellm_gateway.revise_memory_sections",
+            AsyncMock(side_effect=AssertionError("should not be called")),
+        ),
+    ):
+        await extract_and_store_memories(
+            AsyncMock(), settings, user_id=uuid4(), chat_id=uuid4(), transcript="t"
+        )
+
+
+@pytest.mark.asyncio
+async def test_extract_and_store_reembeds_when_text_changed():
+    """Stale-embedding fix: a section whose text changed must be re-embedded,
+    even if it already had an embedding."""
+    from app.background.memory_extraction import extract_and_store_memories
+    from app.models.schemas import MemorySectionItem, MemorySectionUpdateResult
+
+    settings = Settings(memory_min_confidence=0.4)
+    extraction = MemorySectionUpdateResult(
+        sections=[MemorySectionItem(type="preference", summary="likes TypeScript", confidence=0.9)]
+    )
+
+    # Existing memory: has an embedding + old text. Text will change after upsert.
+    existing = MagicMock()
+    existing.type = "preference"
+    existing.text = "likes Python"
+    existing.embedding_json = "[0.1,0.2]"
+
+    # After upsert, the "updated" row has new text and still the old embedding.
+    updated = MagicMock()
+    updated.type = "preference"
+    updated.text = "likes TypeScript"
+    updated.embedding_json = "[0.1,0.2]"
+
+    embed_calls = AsyncMock(return_value=[0.9, 0.8])
+
+    with (
+        patch(
+            "app.background.memory_extraction.users_repo.get_by_id",
+            AsyncMock(return_value=MagicMock(memory_enabled=True)),
+        ),
+        patch(
+            "app.background.memory_extraction.memories_repo.list_for_user",
+            AsyncMock(side_effect=[[existing], [updated]]),
+        ),
+        patch(
+            "app.background.memory_extraction.litellm_gateway.revise_memory_sections",
+            AsyncMock(return_value=extraction),
+        ),
+        patch("app.background.memory_extraction.memories_repo.upsert_sections", AsyncMock()),
+        patch("app.services.memory.invalidate_memory_block", AsyncMock()),
+        patch("app.gateways.embedding_gateway.embed_text", embed_calls),
+        patch("app.gateways.embedding_gateway.serialize_embedding", return_value="[0.9,0.8]"),
+    ):
+        await extract_and_store_memories(
+            AsyncMock(), settings, user_id=uuid4(), chat_id=uuid4(), transcript="t"
+        )
+
+    embed_calls.assert_awaited_once()
 
 
 # ── topic service ──────────────────────────────────────────────────────────────
@@ -266,6 +376,57 @@ async def test_topic_service_saves_when_title_returned():
     mock_set.assert_awaited_once()
 
 
+@pytest.mark.asyncio
+async def test_topic_service_rejects_boring_title():
+    from app.services import topic as topic_service
+
+    mock_set = AsyncMock()
+    with (
+        patch(
+            "app.services.topic.litellm_gateway.generate_title",
+            AsyncMock(return_value="New chat"),
+        ),
+        patch("app.services.topic.chats_repo.set_title", mock_set),
+    ):
+        await topic_service.generate_chat_title(AsyncMock(), Settings(), uuid4(), "hi", "hello")
+    mock_set.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_topic_service_skips_empty_messages():
+    from app.services import topic as topic_service
+
+    with patch(
+        "app.services.topic.litellm_gateway.generate_title",
+        AsyncMock(return_value="Valid title here"),
+    ) as mock_gen:
+        await topic_service.generate_chat_title(AsyncMock(), Settings(), uuid4(), "  ", "hello")
+    mock_gen.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_topic_service_skips_when_chat_already_titled():
+    from app.models.orm import Chat
+    from app.services import topic as topic_service
+
+    mock_set = AsyncMock()
+    chat = MagicMock(spec=Chat)
+    chat.title = "Existing title"
+    session = AsyncMock()
+    session.get = AsyncMock(return_value=chat)
+
+    with (
+        patch(
+            "app.services.topic.litellm_gateway.generate_title",
+            AsyncMock(return_value="Fresh title"),
+        ) as mock_gen,
+        patch("app.services.topic.chats_repo.set_title", mock_set),
+    ):
+        await topic_service.generate_chat_title(session, Settings(), uuid4(), "hi", "hello")
+    mock_gen.assert_awaited_once()
+    mock_set.assert_not_awaited()
+
+
 # ── chat service: quota guard ──────────────────────────────────────────────────
 
 
@@ -275,7 +436,13 @@ async def test_stream_chat_response_quota_exceeded():
     from app.services import chat as chat_service
 
     user_id = uuid4()
-    with patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=False)):
+    fake_user = MagicMock()
+    fake_user.response_style = "balanced"
+    with (
+        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.services.chat.SessionLocal", lambda: _FakeSessionCM()),
+        patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=False)),
+    ):
         with pytest.raises(QuotaExceededError):
             async for _t in chat_service.stream_chat_response(
                 AsyncMock(),
@@ -314,7 +481,7 @@ async def test_login_dev_creates_user():
         patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
     ):
         result = await auth_service.login_dev(
-            AsyncMock(), settings, email="dev@test.local", name="Dev"
+            AsyncMock(), settings, email="dev@test.local", name="Dev", redis=AsyncMock()
         )
     assert result.access_token == "tok"
     assert result.user.email == "dev@test.local"
@@ -347,7 +514,7 @@ async def test_login_dev_returns_existing_user():
         patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
     ):
         result = await auth_service.login_dev(
-            AsyncMock(), settings, email="existing@test.local", name="Old"
+            AsyncMock(), settings, email="existing@test.local", name="Old", redis=AsyncMock()
         )
     assert result.user.email == "existing@test.local"
 

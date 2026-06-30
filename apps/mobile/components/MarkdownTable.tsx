@@ -5,6 +5,7 @@ import {
   createContext,
   isValidElement,
   useContext,
+  useMemo,
 } from "react";
 import {
   ScrollView,
@@ -13,7 +14,7 @@ import {
   View,
 } from "react-native";
 
-import { C } from "@/constants/Colors";
+import { Theme, useTheme } from "@/lib/theme";
 
 type CellProps = { isLast?: boolean };
 
@@ -45,6 +46,8 @@ type Props = {
 };
 
 export function MarkdownTable({ nodeKey, columns, children }: Props) {
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
   const { width: screenWidth } = useWindowDimensions();
   const colCount = Math.max(1, columns);
   const available = Math.max(200, screenWidth - TABLE_H_PAD);
@@ -86,6 +89,8 @@ export function MarkdownTableRow({
   nodeKey: string;
   children: ReactNode;
 }) {
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
   return (
     <View key={nodeKey} style={s.row}>
       {mapCells(children)}
@@ -104,6 +109,8 @@ function TableCell({
   isLast?: boolean;
   header?: boolean;
 }) {
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
   const { columnWidth, scrollable } = useContext(TableLayoutContext);
 
   return (
@@ -133,43 +140,45 @@ export function MarkdownTableCell(
   return <TableCell {...props} />;
 }
 
-const s = StyleSheet.create({
-  wrap: { marginVertical: 10, alignSelf: "stretch" },
-  scroll: { marginVertical: 10 },
-  table: {
-    width: "100%",
-    borderWidth: 1,
-    borderColor: "#D1D1D6",
-    borderRadius: 12,
-    overflow: "hidden",
-    backgroundColor: C.bg,
-    alignSelf: "stretch",
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: C.border,
-  },
-  cell: {
-    backgroundColor: C.bg,
-    minWidth: 0,
-  },
-  cellFlex: {
-    flex: 1,
-    flexBasis: 0,
-  },
-  cellBorderRight: {
-    borderRightWidth: StyleSheet.hairlineWidth,
-    borderRightColor: C.border,
-  },
-  cellInner: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    minWidth: 0,
-    flexShrink: 1,
-  },
-  headerCell: {
-    backgroundColor: C.surface,
-  },
-});
+function makeStyles(theme: Theme) {
+  return StyleSheet.create({
+    wrap: { marginVertical: 10, alignSelf: "stretch" },
+    scroll: { marginVertical: 10 },
+    table: {
+      width: "100%",
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 12,
+      overflow: "hidden",
+      backgroundColor: theme.bg,
+      alignSelf: "stretch",
+    },
+    row: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: theme.border,
+    },
+    cell: {
+      backgroundColor: theme.bg,
+      minWidth: 0,
+    },
+    cellFlex: {
+      flex: 1,
+      flexBasis: 0,
+    },
+    cellBorderRight: {
+      borderRightWidth: StyleSheet.hairlineWidth,
+      borderRightColor: theme.border,
+    },
+    cellInner: {
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      minWidth: 0,
+      flexShrink: 1,
+    },
+    headerCell: {
+      backgroundColor: theme.surface,
+    },
+  });
+}

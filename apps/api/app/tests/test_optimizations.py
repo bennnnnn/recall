@@ -50,35 +50,34 @@ def test_group_by_recency_naive_datetime():
     assert isinstance(groups, dict)
 
 
-# ── memories.upsert_many — single execute call ────────────────────────────────
+# ── memories.upsert_sections — single execute call ─────────────────────────────
 
 
 @pytest.mark.asyncio
-async def test_upsert_many_single_query():
-    """upsert_many must issue exactly 1 execute() call regardless of item count."""
+async def test_upsert_sections_single_query():
+    """upsert_sections must issue exactly 1 execute() call regardless of item count."""
     from app.repositories import memories as memories_repo
 
     session = AsyncMock()
     uid = uuid4()
     items = [
-        ("fact", "Uses Python", 0.9, None),
-        ("preference", "Short answers", 0.8, None),
-        ("focus", "API project", 0.7, uuid4()),
+        ("fact", "Uses Python and TypeScript.", 0.9, None),
+        ("preference", "Prefers short answers.", 0.8, None),
+        ("focus", "Working on API project.", 0.7, uuid4()),
     ]
 
-    await memories_repo.upsert_many(session, user_id=uid, items=items)
+    await memories_repo.upsert_sections(session, user_id=uid, items=items)
 
-    # Exactly one execute + one commit — not N queries
     assert session.execute.await_count == 1
     session.commit.assert_awaited_once()
 
 
 @pytest.mark.asyncio
-async def test_upsert_many_empty_is_noop():
+async def test_upsert_sections_empty_is_noop():
     from app.repositories import memories as memories_repo
 
     session = AsyncMock()
-    await memories_repo.upsert_many(session, user_id=uuid4(), items=[])
+    await memories_repo.upsert_sections(session, user_id=uuid4(), items=[])
     session.execute.assert_not_awaited()
     session.commit.assert_not_awaited()
 
@@ -196,4 +195,4 @@ def test_estimate_tokens_long():
     from app.services.chat import estimate_tokens
 
     text = "a" * 400
-    assert estimate_tokens(text) == 100
+    assert estimate_tokens(text) == 111

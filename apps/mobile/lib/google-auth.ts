@@ -1,30 +1,58 @@
-import Constants from "expo-constants";
+import { Platform } from "react-native";
+import {
+  GoogleSignin,
+  statusCodes,
+} from "@react-native-google-signin/google-signin";
 
-import { config } from "@/lib/config";
+import { config, isGoogleSignInConfigured } from "@/lib/config";
+import { isExpoGo } from "@/lib/expoRuntime";
+
+export { isExpoGo } from "@/lib/expoRuntime";
 
 const EXPO_GO_MESSAGE =
-  'Google Sign-In requires a dev build (pnpm expo run:android). In Expo Go, use "Continue as Dev User".';
+  "Google Sign-In does not work in Expo Go. Build and run the Recall app on your simulator or device:\n\ncd apps/mobile && pnpm expo run:ios";
 
-export function isExpoGo(): boolean {
-  return Constants.appOwnership === "expo";
-}
+let configured = false;
 
-export async function signInWithGoogleIdToken(): Promise<string> {
-  if (isExpoGo()) {
-    throw new Error(EXPO_GO_MESSAGE);
+function ensureGoogleConfigured() {
+  if (configured) return;
+  if (!isGoogleSignInConfigured()) {
+    throw new Error(
+      "Google Sign-In is not configured. Set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID and EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID in apps/mobile/.env, then rebuild with pnpm expo run:ios.",
+    );
   }
-
-  const { GoogleSignin, statusCodes } =
-    await import("@react-native-google-signin/google-signin");
-
   GoogleSignin.configure({
     webClientId: config.googleWebClientId,
     iosClientId: config.googleIosClientId,
     offlineAccess: false,
   });
+  configured = true;
+}
+
+/** Map native / Metro errors to actionable copy for the login alert. */
+export function formatGoogleSignInError(error: unknown): string {
+  const message =
+    error instanceof Error ? error.message : typeof error === "string" ? error : "";
+  if (/could not load bundle/i.test(message)) {
+    return "bundle_load_failed";
+  }
+  if (/RNGoogleSignin|native module/i.test(message)) {
+    return "native_module_missing";
+  }
+  if (/not configured/i.test(message)) {
+    return "not_configured";
+  }
+  return message || "generic";
+}
+
+/** Recall account sign-in — identity only (no Gmail/Calendar scopes). */
+async function signInWithGoogleNative(): Promise<string> {
+  ensureGoogleConfigured();
 
   try {
-    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    if (Platform.OS === "android") {
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    }
     const response = await GoogleSignin.signIn();
     const idToken = response.data?.idToken;
     if (!idToken) {
@@ -46,11 +74,17 @@ export async function signInWithGoogleIdToken(): Promise<string> {
   }
 }
 
+export async function signInWithGoogleIdToken(): Promise<string> {
+  if (isExpoGo()) {
+    throw new Error(EXPO_GO_MESSAGE);
+  }
+  return signInWithGoogleNative();
+}
+
 export async function signOutGoogle() {
   if (isExpoGo()) return;
   try {
-    const { GoogleSignin } =
-      await import("@react-native-google-signin/google-signin");
+    ensureGoogleConfigured();
     await GoogleSignin.signOut();
   } catch {
     // Best-effort
