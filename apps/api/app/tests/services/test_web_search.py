@@ -8,6 +8,7 @@ from app.services.web_search import (
     augment_prompt_messages,
     build_search_queries,
     build_search_query,
+    format_location_not_set_answer,
     format_search_block,
     format_search_empty_block,
     format_sources_fence,
@@ -419,6 +420,13 @@ def test_format_search_block_warns_when_location_missing():
         user_location=None,
     )
     assert "User location is not set" in block
+
+
+def test_format_location_not_set_answer_prompts_to_enable():
+    answer = format_location_not_set_answer()
+    assert "location" in answer.lower()
+    assert "Settings" in answer
+    assert "near me" in answer.lower()
 
 
 def test_places_payload_extracts_price():

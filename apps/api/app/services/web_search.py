@@ -538,6 +538,17 @@ def _local_places_is_active(*texts: str) -> bool:
     return any(is_local_places_query(t.strip()) for t in texts if t and t.strip())
 
 
+def format_location_not_set_answer() -> str:
+    """Deterministic reply for a 'near me' / places query when the user has no
+    location set — ask them to enable location (or share their city) instead of
+    running a vague search and guessing."""
+    return (
+        "I don't have your location yet, so I can't find places 'near me'.\n\n"
+        "To get accurate nearby results, enable location in **Settings → Location** "
+        "(or just tell me your city in this chat), then ask again."
+    )
+
+
 def format_search_block(
     hits: list[WebSearchHit],
     *,

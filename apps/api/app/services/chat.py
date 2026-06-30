@@ -833,6 +833,9 @@ async def _prepare_chat_turn(
 
         search_sources: list[WebSearchHit] = []
         local_places = web_search_service.is_local_places_query(content)
+        if instant_reply is None and local_places and not (user.location or "").strip():
+            # No location set → prompt to enable it instead of guessing "near me".
+            instant_reply = web_search_service.format_location_not_set_answer()
         if instant_reply is None and not minimal_personal and not minimal_quiz:
             integration_blocks: list[str] = []
             load_calendar = calendar_service.should_inject_calendar_block(content)

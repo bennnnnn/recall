@@ -675,6 +675,68 @@ async def test_stream_sets_final_content_on_cancel():
 
 
 @pytest.mark.asyncio
+async def test_stream_places_query_without_location_prompts_to_enable():
+    """A 'near me' places query with no user.location should yield a deterministic
+    'enable location' instant reply and skip web search (no guessing)."""
+    from app.services import chat as chat_module
+
+    fake_user = MagicMock()
+    fake_user.id = MagicMock()
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+    fake_user.location = ""  # no location set
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+    fake_chat.summary = None
+
+    augment = AsyncMock(return_value=([{"role": "system", "content": "sys"}], []))
+
+    with (
+        patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.services.chat.messages_repo.count_for_chat", AsyncMock(return_value=0)),
+        patch("app.services.chat.messages_repo.create", AsyncMock()),
+        patch(
+            "app.services.chat.build_prompt_messages",
+            AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
+        ),
+        patch("app.services.chat.calendar_service.is_connected", AsyncMock(return_value=False)),
+        patch(
+            "app.services.chat.calendar_service.load_calendar_for_prompt",
+            AsyncMock(return_value=None),
+        ),
+        patch("app.services.chat.email_service.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.chat.email_service.load_gmail_context", AsyncMock(return_value=None)),
+        patch(
+            "app.services.chat.email_service.load_gmail_for_prompt", AsyncMock(return_value=None)
+        ),
+        patch("app.services.chat.messages_repo.recent_user_contents", AsyncMock(return_value=[])),
+        patch("app.services.chat.web_search_service.augment_prompt_messages", augment),
+        patch("app.services.chat.litellm_gateway.stream_chat_completion", AsyncMock()),
+        patch("app.services.chat.quota_service.adjust_usage", AsyncMock()),
+        patch("app.services.chat.usage_repo.add_tokens", AsyncMock()),
+        patch("app.services.chat.chats_repo.touch_by_id", AsyncMock()),
+        patch("app.services.chat.jobs.enqueue", AsyncMock()),
+    ):
+        yielded: list[str] = []
+        async for tok in chat_module.stream_chat_response(
+            AsyncMock(),
+            Settings(max_output_tokens=100),
+            user_id=fake_user.id,
+            chat_id=MagicMock(),
+            content="best restaurants near me",
+        ):
+            yielded.append(tok)
+
+    # The instant reply is the enable-location prompt.
+    assert any("Settings" in t and "location" in t.lower() for t in yielded), yielded
+    # Web search must be skipped (no guessing "near me").
+    augment.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_stream_no_final_content_on_normal_completion():
     """`final_content` must NOT be set on a normal (non-cancelled) turn — keep
     `done` payloads small."""
