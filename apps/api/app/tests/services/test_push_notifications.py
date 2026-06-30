@@ -165,3 +165,165 @@ async def test_run_push_cycle_skips_expo_in_dev_mock():
 
     assert count == 1
     send_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_process_learning_nudges_language_review():
+    session = AsyncMock()
+    redis = AsyncMock()
+    settings = Settings(push_learning_hour=0)
+    user_id = uuid4()
+
+    user = MagicMock()
+    user.id = user_id
+    user.timezone = "UTC"
+    user.push_notifications_enabled = True
+    user.locale = "en"
+
+    project = MagicMock()
+    project.id = uuid4()
+    project.title = "Spanish"
+    project.kind = "language"
+
+    token = MagicMock()
+    token.expo_push_token = "ExponentPushToken[abc]"
+
+    session.execute = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[(user_id,)])))
+    session.get = AsyncMock(return_value=user)
+    redis.set = AsyncMock(return_value=True)
+
+    with (
+        patch.object(
+            push_service.projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch.object(
+            push_service.project_items_repo,
+            "count_stats",
+            AsyncMock(
+                return_value={
+                    "total": 5,
+                    "due_for_review": 2,
+                    "new_count": 1,
+                    "learning_count": 2,
+                    "mastered_count": 0,
+                }
+            ),
+        ),
+        patch.object(
+            push_service.push_repo,
+            "list_for_user",
+            AsyncMock(return_value=[token]),
+        ),
+    ):
+        messages = await push_service.process_learning_nudges(session, redis, settings)
+
+    assert len(messages) == 1
+    assert "Spanish" in messages[0]["body"]
+    assert messages[0]["data"]["type"] == "learning_review"
+
+
+@pytest.mark.asyncio
+async def test_process_learning_nudges_programming_topic():
+    session = AsyncMock()
+    redis = AsyncMock()
+    settings = Settings(push_learning_hour=0)
+    user_id = uuid4()
+
+    user = MagicMock()
+    user.id = user_id
+    user.timezone = "UTC"
+    user.push_notifications_enabled = True
+    user.locale = "en"
+
+    project = MagicMock()
+    project.id = uuid4()
+    project.title = "Python"
+    project.kind = "programming"
+
+    item = MagicMock()
+    item.id = uuid4()
+    item.list_title = "Variables"
+    item.content = "x"
+    item.note = None
+    item.part_of_speech = "noun"
+    item.definition = "a variable"
+    item.example_sentence = None
+    item.status = "new"
+    item.mastered = False
+    item.created_at = datetime(2026, 1, 1, tzinfo=UTC)
+    item.last_reviewed_at = None
+    item.mastered_at = None
+    item.review_count = 0
+    item.pronunciation_url = None
+
+    token = MagicMock()
+    token.expo_push_token = "ExponentPushToken[abc]"
+
+    session.execute = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[(user_id,)])))
+    session.get = AsyncMock(return_value=user)
+    redis.set = AsyncMock(return_value=True)
+
+    with (
+        patch.object(
+            push_service.projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch.object(
+            push_service.project_items_repo,
+            "list_for_user",
+            AsyncMock(return_value=[item]),
+        ),
+        patch.object(
+            push_service.push_repo,
+            "list_for_user",
+            AsyncMock(return_value=[token]),
+        ),
+    ):
+        messages = await push_service.process_learning_nudges(session, redis, settings)
+
+    assert len(messages) == 1
+    assert "Variables" in messages[0]["body"]
+
+
+@pytest.mark.asyncio
+async def test_run_push_cycle_disabled():
+    session = AsyncMock()
+    redis = AsyncMock()
+    settings = Settings(push_enabled=False)
+
+    count = await push_service.run_push_cycle(session, redis, settings)
+    assert count == 0
+
+
+@pytest.mark.asyncio
+async def test_run_push_cycle_sends_expo_in_production():
+    session = AsyncMock()
+    redis = AsyncMock()
+    settings = Settings(
+        push_enabled=True,
+        mock_llm_enabled=False,
+        environment="production",
+        server_todo_push_enabled=True,
+    )
+
+    with (
+        patch.object(
+            push_service,
+            "process_todo_reminders",
+            AsyncMock(return_value=[{"to": "token"}]),
+        ),
+        patch.object(push_service, "process_email_suggestions", AsyncMock(return_value=[])),
+        patch.object(push_service, "process_learning_nudges", AsyncMock(return_value=[])),
+        patch.object(
+            push_service.expo_push_gateway,
+            "send_push_messages",
+            AsyncMock(return_value=[]),
+        ) as send_mock,
+    ):
+        count = await push_service.run_push_cycle(session, redis, settings)
+
+    assert count == 1
+    send_mock.assert_awaited_once()

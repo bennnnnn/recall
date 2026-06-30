@@ -34,7 +34,7 @@ import { useProjects } from "@/contexts/ProjectsContext";
 import { useTodos } from "@/contexts/TodosContext";
 import { buildModelPreferences, useModels } from "@/hooks/useModels";
 import { UpgradeSheet } from "@/components/UpgradeSheet";
-import { api, GoogleCalendarStatus, GoogleGmailStatus, Todo, Usage } from "@/lib/api";
+import { api, GoogleCalendarStatus, GoogleGmailStatus, Usage } from "@/lib/api";
 import { describeDueAt } from "@/lib/dueDate";
 import { isExpoGo } from "@/lib/expoRuntime";
 import { connectGoogleCalendar } from "@/lib/google-calendar";
@@ -139,7 +139,7 @@ export default function SettingsScreen() {
     return () => {
       cancelled = true;
     };
-  }, [token, refreshUser]);
+  }, [token, refreshUser, user]);
 
   useEffect(() => {
     if (!user?.id) return;

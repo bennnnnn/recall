@@ -32,6 +32,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useDrawer } from "@/contexts/DrawerContext";
 import { useChat } from "@/hooks/useChat";
 import { useChatActions } from "@/hooks/useChatActions";
+import { useChatComposerState } from "@/hooks/useChatComposerState";
 import { useChatRouteLoader, useQueuedChatLaunch } from "@/hooks/useChatRouteLoader";
 import { useChatScroll } from "@/hooks/useChatScroll";
 import { useChatSend } from "@/hooks/useChatSend";
@@ -68,9 +69,6 @@ function ChatScreen() {
   const { isPro, labelFor, autoEnabled, modelEnabledSet, AUTO_MODEL_ID } = useModels();
   const { unseenCount, showIndicator } = useReminderBadgeCount({ enabled: Boolean(token) });
   const [upgradeVisible, setUpgradeVisible] = useState(false);
-  const [showPlanPicker, setShowPlanPicker] = useState(false);
-  const [showModelPicker, setShowModelPicker] = useState(false);
-  const [selectedModel, setSelectedModel] = useState<string>(AUTO_MODEL_ID);
   const [templatesVisible, setTemplatesVisible] = useState(false);
 
   const draft = useDraftChat({ token, chatId });
@@ -78,6 +76,7 @@ function ChatScreen() {
 
   const onFirstReplyRef = useRef<() => Promise<void>>(async () => {});
   const setInputRef = useRef<(value: string) => void>(() => {});
+  const closeAttachSheetRef = useRef<() => void>(() => {});
   const showActionBannerRef = useRef<
     (message: string, icon?: keyof typeof Ionicons.glyphMap) => void
   >(() => {});
@@ -203,6 +202,19 @@ function ChatScreen() {
     onDeleteFromMenu,
   } = chatActions;
 
+  const composer = useChatComposerState({
+    isPro,
+    autoEnabled,
+    modelEnabledSet,
+    labelFor,
+    autoModelId: AUTO_MODEL_ID,
+    t,
+    closeAttachSheetRef,
+    onRequestUpgrade: () => setUpgradeVisible(true),
+  });
+
+  const { selectedModel, ...composerUi } = composer;
+
   const send = useChatSend({
     token,
     chatId,
@@ -239,6 +251,21 @@ function ChatScreen() {
     handleEditMessage,
     creatingRef,
   } = send;
+
+  closeAttachSheetRef.current = () => setAttachSheetOpen(false);
+
+  const {
+    showPlanPicker,
+    showModelPicker,
+    planLabel,
+    modelOptions,
+    selectedModelLabel,
+    closePickers: closeComposerPickers,
+    togglePlanPicker,
+    toggleModelPicker,
+    selectPlan,
+    selectModel,
+  } = composerUi;
 
   setInputRef.current = setInput;
 
@@ -304,29 +331,6 @@ function ChatScreen() {
     [messages.length, chatTitle, titleGenerating, t],
   );
 
-  const handlePlanSelect = (plan: "free" | "pro") => {
-    setShowPlanPicker(false);
-    if (plan === "pro" && !isPro) {
-      setUpgradeVisible(true);
-    }
-  };
-
-  const planLabel = isPro ? t("chat.plan_pro") : t("chat.plan_free");
-
-  const modelOptions = useMemo(() => {
-    const opts: { id: string; label: string }[] = [];
-    if (autoEnabled) opts.push({ id: AUTO_MODEL_ID, label: t("settings.model_auto") });
-    for (const id of modelEnabledSet) {
-      opts.push({ id, label: labelFor(id) || id });
-    }
-    return opts;
-  }, [autoEnabled, modelEnabledSet, labelFor, AUTO_MODEL_ID, t]);
-
-  const selectedModelLabel =
-    selectedModel === AUTO_MODEL_ID
-      ? t("settings.model_auto")
-      : labelFor(selectedModel) || selectedModel;
-
   const renderItem = useCallback(
     ({ item, index }: { item: Message; index: number }) => (
       <ChatMessageRow
@@ -364,12 +368,6 @@ function ChatScreen() {
       // eslint-disable-next-line react-hooks/exhaustive-deps
     ],
   );
-
-  const closeComposerPickers = useCallback(() => {
-    setShowPlanPicker(false);
-    setShowModelPicker(false);
-    setAttachSheetOpen(false);
-  }, [setAttachSheetOpen]);
 
   if (!token) return <Redirect href="/login" />;
 
@@ -497,21 +495,10 @@ function ChatScreen() {
           modelOptions={modelOptions}
           selectedModel={selectedModel}
           selectedModelLabel={selectedModelLabel}
-          onTogglePlanPicker={() => {
-            setAttachSheetOpen(false);
-            setShowModelPicker(false);
-            setShowPlanPicker((v) => !v);
-          }}
-          onToggleModelPicker={() => {
-            setAttachSheetOpen(false);
-            setShowPlanPicker(false);
-            setShowModelPicker((v) => !v);
-          }}
-          onSelectPlan={handlePlanSelect}
-          onSelectModel={(id) => {
-            setSelectedModel(id);
-            setShowModelPicker(false);
-          }}
+          onTogglePlanPicker={togglePlanPicker}
+          onToggleModelPicker={toggleModelPicker}
+          onSelectPlan={selectPlan}
+          onSelectModel={selectModel}
           onClosePickers={closeComposerPickers}
           onPickAttachment={handlePickAttachment}
           onAttachmentSource={(source) => void handleAttachmentSheetSelect(source)}

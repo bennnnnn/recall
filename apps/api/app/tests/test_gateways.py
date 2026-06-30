@@ -143,6 +143,65 @@ async def test_mock_memory_sections_long_message():
     assert result.sections[0].type == "focus"
 
 
+@pytest.mark.asyncio
+async def test_mock_todo_actions_add_and_complete():
+    from app.gateways.mock_llm import mock_todo_actions
+
+    result = await mock_todo_actions(
+        "User: add buy milk\nAssistant: ok",
+        [{"topic": "General", "content": "Old task", "checked": False}],
+    )
+    assert result is not None
+    assert any(a.action == "add" for a in result.actions)
+
+    done = await mock_todo_actions(
+        "User: mark it done",
+        [{"topic": "General", "content": "Old task", "checked": False}],
+    )
+    assert done is not None
+    assert any(a.action == "complete" for a in done.actions)
+
+
+@pytest.mark.asyncio
+async def test_mock_todo_actions_delete_list():
+    from app.gateways.mock_llm import mock_todo_actions
+
+    result = await mock_todo_actions(
+        "User: delete the shopping list",
+        [{"topic": "Shopping", "content": "Eggs", "checked": False}],
+    )
+    assert result is not None
+    assert result.actions[0].action == "delete_list"
+
+
+def test_mock_llm_infer_list_title_and_pos():
+    from app.gateways.mock_llm import _guess_part_of_speech, _infer_list_title
+
+    assert _infer_list_title("add to my travel list") == "My Travel"
+    assert _guess_part_of_speech("quickly") == "adverb"
+    assert _guess_part_of_speech("run") == "verb"
+
+
+@pytest.mark.asyncio
+async def test_mock_summary_concatenates_messages():
+    from app.gateways.mock_llm import mock_summary
+
+    summary = await mock_summary(
+        "Prior context",
+        [{"role": "user", "content": "Hello"}, {"role": "assistant", "content": "Hi there"}],
+    )
+    assert "Prior context" in summary
+    assert "Hello" in summary
+
+
+def test_mock_reply_for_messages():
+    from app.gateways.mock_llm import mock_reply_for_messages
+
+    reply = mock_reply_for_messages([{"role": "user", "content": "What is 2+2?"}])
+    assert isinstance(reply, str)
+    assert len(reply) > 0
+
+
 # ── google_auth JWT ─────────────────────────────────────────────────────────────
 
 

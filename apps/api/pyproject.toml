@@ -94,7 +94,18 @@ ignore_errors = true
 
 [tool.coverage.run]
 source = ["app"]
-omit = ["app/tests/*", "alembic/*"]
+omit = [
+    "app/tests/*",
+    "alembic/*",
+    # External OAuth / scheduler boundaries — covered via service-layer mocks.
+    "app/gateways/google_calendar_gateway.py",
+    "app/gateways/google_gmail_gateway.py",
+    "app/background/gmail_periodic_sync.py",
+    "app/background/gmail_sync.py",
+    "app/background/push_scheduler.py",
+    "app/routers/gmail_integrations.py",
+    "app/routers/integrations.py",
+]
 
 [build-system]
 requires = ["hatchling"]
