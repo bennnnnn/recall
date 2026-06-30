@@ -1,85 +1,59 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
-  InteractionManager,
-  Keyboard,
-  Platform,
   Pressable,
   StyleSheet,
-  Text,
-  TextInput,
   useWindowDimensions,
   View,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
 } from "react-native";
-import { FlashList, FlashListRef } from "@shopify/flash-list";
-import { LinearGradient } from "expo-linear-gradient";
-import { openDrawer, patchChatGlobal, registerNewChat, setChatTitleGenerating } from "@/lib/drawer";
-import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { openDrawer, patchChatGlobal, registerNewChat } from "@/lib/drawer";
+import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { Ionicons } from "@expo/vector-icons";
 
 import { Theme, useTheme } from "@/lib/theme";
-import { messageListItemType } from "@/lib/messageListLayout";
-import { SuggestedRemindersNudge } from "@/components/SuggestedRemindersNudge";
+import { ChatHeader } from "@/components/chat/ChatHeader";
+import {
+  ChatComposer,
+  COMPOSER_HEIGHT,
+  composerAttachmentExtra,
+} from "@/components/chat/ChatComposer";
+import { ChatMessageList } from "@/components/chat/ChatMessageList";
+import { ChatScrollFab } from "@/components/chat/ChatScrollFab";
+import { TemplatesSheet } from "@/components/TemplatesSheet";
 import { MessageBubble } from "@/components/MessageBubble";
-import { HomeStarters } from "@/components/HomeStarters";
-import { HamburgerIcon } from "@/components/HamburgerIcon";
 import { ChatActionsSheet } from "@/components/ChatActionsSheet";
 import { ChatRenameSheet } from "@/components/ChatRenameSheet";
 import { ActionBanner } from "@/components/ActionBanner";
-import { StateView } from "@/components/StateView";
 import { DrawerShell } from "@/components/DrawerShell";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDrawer } from "@/contexts/DrawerContext";
 import { useChat } from "@/hooks/useChat";
+import { useChatRouteLoader, useQueuedChatLaunch } from "@/hooks/useChatRouteLoader";
+import { useChatScroll } from "@/hooks/useChatScroll";
+import { useChatSend } from "@/hooks/useChatSend";
+import { useDraftChat } from "@/hooks/useDraftChat";
 import { useModels } from "@/hooks/useModels";
 import { UpgradeSheet } from "@/components/UpgradeSheet";
-import { AttachmentSourceSheet } from "@/components/AttachmentSourceSheet";
-import type { AttachmentSource } from "@/components/AttachmentSourceSheet";
-import { ComposerAttachmentPreview } from "@/components/ComposerAttachmentPreview";
-import { ReminderBadge } from "@/components/ReminderBadge";
 import { api, Message } from "@/lib/api";
 import { tap } from "@/lib/haptics";
 import { shareConversation } from "@/lib/share";
-import { MESSAGE_PAGE_SIZE } from "@/lib/chatConstants";
 import { displayChatTitle, sanitizeManualChatTitle } from "@/lib/chatTitle";
 import { inferQuizAnswersFromMessages } from "@/lib/parseVocabQuiz";
 import { isQuotaErrorMessage, quotaAlertTitle } from "@/lib/quota";
-import { takeQueuedChatLaunch, type QueuedChatLaunch } from "@/lib/chatLaunch";
 import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
 import { useTodosOptional } from "@/contexts/TodosContext";
-import {
-  messageTextForSend,
-  pickDocument,
-  pickFromCamera,
-  pickFromPhotoLibrary,
-  uploadChatAttachment,
-  type PendingAttachment,
-} from "@/lib/attachments";
-import { parseUserMessageContent } from "@/lib/messageAttachments";
+import { shouldPreCreateDraft, shouldWarmDraftSocket } from "@/lib/chatDraftLogic";
 
 const HEADER_BAR_HEIGHT = 52;
 const HEADER_FADE_EXTRA = 48;
-const COMPOSER_HEIGHT = 100;
-const COMPOSER_IMAGE_PREVIEW_EXTRA = 84;
-const COMPOSER_FILE_PREVIEW_EXTRA = 44;
-
-function composerAttachmentExtra(attachment: PendingAttachment | null): number {
-  if (!attachment) return 0;
-  return attachment.kind === "image" ? COMPOSER_IMAGE_PREVIEW_EXTRA : COMPOSER_FILE_PREVIEW_EXTRA;
-}
 const FEEDBACK_ROW_HEIGHT = 48;
 const KEYBOARD_LIFT_EXTRA = 0;
-const SCROLL_HIDE_AT_BOTTOM = 64;
-const SCROLL_SHOW_MIN_AWAY = 280;
-const SCROLL_SHOW_VIEWPORT_RATIO = 0.28;
 
 function ChatScreen() {
-  const { token, user } = useAuth();
+  const { token } = useAuth();
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeS(C), [C]);
@@ -87,148 +61,31 @@ function ChatScreen() {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const drawerOpen = useDrawer().isOpen;
-  const { chatId: routeChatId, prompt: routePrompt, launchId: routeLaunchId } =
-    useLocalSearchParams<{ chatId?: string; prompt?: string; launchId?: string }>();
+  const { chatId: routeChatId, prompt: routePrompt, launchId: routeLaunchId, highlightMessage: routeHighlightMessage } =
+    useLocalSearchParams<{ chatId?: string; prompt?: string; launchId?: string; highlightMessage?: string }>();
 
   const [chatId, setChatId] = useState<string | null>(null);
-  const [draftChatId, setDraftChatId] = useState<string | null>(null);
-  const draftChatIdRef = useRef<string | null>(null);
-  const draftProjectIdRef = useRef<string | null>(null);
   const [quizLanguage, setQuizLanguage] = useState("en");
-  const draftCreatePromiseRef = useRef<Promise<string | null> | null>(null);
-  const [chatTitle, setChatTitle] = useState<string | null>(null);
-  const [titleGenerating, setTitleGenerating] = useState(false);
-  const [input, setInput] = useState("");
-  const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
-  const [attachBusy, setAttachBusy] = useState(false);
-  const [attachSheetOpen, setAttachSheetOpen] = useState(false);
-  const attachPickInFlightRef = useRef(false);
-  const { isPro, preferences, labelFor, autoEnabled, modelEnabledSet, AUTO_MODEL_ID } = useModels();
+  const { isPro, labelFor, autoEnabled, modelEnabledSet, AUTO_MODEL_ID } = useModels();
   const { unseenCount, showIndicator } = useReminderBadgeCount({ enabled: Boolean(token) });
   const [upgradeVisible, setUpgradeVisible] = useState(false);
   const [showPlanPicker, setShowPlanPicker] = useState(false);
   const [showModelPicker, setShowModelPicker] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>(AUTO_MODEL_ID);
   const [menuVisible, setMenuVisible] = useState(false);
-  const [pinned, setPinned] = useState(false);
-  const [chatLoading, setChatLoading] = useState(false);
   const [renameVisible, setRenameVisible] = useState(false);
   const [renameText, setRenameText] = useState("");
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const [hasMoreOlder, setHasMoreOlder] = useState(false);
-  const [loadingOlder, setLoadingOlder] = useState(false);
-  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
-
-  const [pendingSend, setPendingSend] = useState<{
-    text: string;
-    skipUserBubble?: boolean;
-    attachmentIds?: string[];
-    localImageUri?: string | null;
-  } | null>(null);
-  const [pendingLaunch, setPendingLaunch] = useState<string | null>(null);
-  const pendingLaunchRef = useRef<string | null>(null);
-  const pendingProjectIdRef = useRef<string | null>(null);
-  const creatingRef = useRef(false);
-  const skipLoadForChatIdRef = useRef<string | null>(null);
-  const handledLaunchIdRef = useRef<string | null>(null);
-  const priorRouteChatIdRef = useRef<string | null>(null);
-  const listRef = useRef<FlashListRef<Message>>(null);
-  const atBottomRef = useRef(true);
-  const newMessageCountRef = useRef(0);
-  const showScrollBtnRef = useRef(false);
-  const messagesLenRef = useRef(0);
-  const listBottomPadRef = useRef(0);
-  const maxScrollOffsetRef = useRef(0);
-  const scrollOffsetRef = useRef(0);
-  const viewportHeightRef = useRef(0);
-  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
-  const [scrollAwayCount, setScrollAwayCount] = useState(0);
+  const [templatesVisible, setTemplatesVisible] = useState(false);
   const [actionBanner, setActionBanner] = useState<{
     message: string;
     icon?: keyof typeof Ionicons.glyphMap;
   } | null>(null);
 
-  const discardEmptyChat = useCallback(
-    (id: string | null) => {
-      if (!token || !id) return;
-      api.deleteChatIfEmpty(token, id).catch(() => {});
-    },
-    [token],
-  );
+  const draft = useDraftChat({ token, chatId });
+  const activeChatId = draft.activeChatId;
 
-  const clearDraftChat = useCallback(
-    (id?: string | null) => {
-      const toDiscard = id ?? draftChatIdRef.current;
-      draftChatIdRef.current = null;
-      draftProjectIdRef.current = null;
-      draftCreatePromiseRef.current = null;
-      setDraftChatId(null);
-      if (toDiscard && token) {
-        api.deleteChat(token, toDiscard).catch(() => {});
-      }
-    },
-    [token],
-  );
-
-  const prepareDraftChat = useCallback(
-    async (projectId?: string | null): Promise<string | null> => {
-    if (!token) return null;
-    if (chatId) return chatId;
-    if (draftChatIdRef.current) return draftChatIdRef.current;
-    if (draftCreatePromiseRef.current) return draftCreatePromiseRef.current;
-
-    const resolvedProjectId = projectId ?? draftProjectIdRef.current ?? undefined;
-    if (resolvedProjectId) {
-      draftProjectIdRef.current = resolvedProjectId;
-    }
-
-    const task = api
-      .createChat(token, "auto", resolvedProjectId)
-      .then((chat) => {
-        draftChatIdRef.current = chat.id;
-        setDraftChatId(chat.id);
-        return chat.id;
-      })
-      .catch(() => null)
-      .finally(() => {
-        draftCreatePromiseRef.current = null;
-      });
-    draftCreatePromiseRef.current = task;
-    return task;
-  },
-    [token, chatId],
-  );
-
-  const activeChatId = chatId ?? draftChatId;
-
-  // Poll GET /chats/{id} until a title appears (max 10 s)
-  const pollForTitle = useCallback(async (tid: string, cid: string) => {
-    setTitleGenerating(true);
-    setChatTitleGenerating(cid);
-    try {
-      for (let i = 0; i < 5; i++) {
-        await new Promise((r) => setTimeout(r, 2000));
-        try {
-          const updated = await api.getChat(tid, cid);
-          if (updated.title) {
-            setChatTitle(updated.title);
-            patchChatGlobal(cid, { title: updated.title });
-            return;
-          }
-        } catch {
-          /* ignore */
-        }
-      }
-    } finally {
-      setTitleGenerating(false);
-      setChatTitleGenerating(null);
-    }
-  }, []);
-
-  const handleFirstReply = useCallback(async () => {
-    if (!token || !chatId) return;
-    await pollForTitle(token, chatId);
-  }, [token, chatId, pollForTitle]);
+  const onFirstReplyRef = useRef<() => Promise<void>>(async () => {});
+  const setInputRef = useRef<(value: string) => void>(() => {});
 
   const handleChatError = useCallback(
     (message: string, code?: string) => {
@@ -258,267 +115,155 @@ function ChatScreen() {
     stopGeneration,
     connect,
   } = useChat(token, activeChatId, {
-    onFirstReply: handleFirstReply,
+    onFirstReply: () => onFirstReplyRef.current(),
     onError: handleChatError,
     onTodosSync: handleTodosSync,
   });
-  messagesLenRef.current = messages.length;
 
-  const quizAnswers = useMemo(
-    () => inferQuizAnswersFromMessages(messages),
-    [messages],
-  );
-
-  // Pre-create an empty chat + warm the WebSocket while the home screen is visible.
-  useEffect(() => {
-    if (!token || routeChatId || chatId || messages.length > 0 || streaming) return;
-    void prepareDraftChat();
-  }, [token, routeChatId, chatId, messages.length, streaming, prepareDraftChat]);
-
-  useEffect(() => {
-    if (!token || !draftChatId || chatId || streaming) return;
-    void connect();
-  }, [token, draftChatId, chatId, streaming, connect]);
-
-  const updateAtBottom = useCallback((atBottom: boolean) => {
-    atBottomRef.current = atBottom;
-    const shouldShow = !atBottom && messagesLenRef.current > 0;
-    if (shouldShow === showScrollBtnRef.current) return;
-    showScrollBtnRef.current = shouldShow;
-    setShowScrollToBottom(shouldShow);
-    if (!shouldShow) setScrollAwayCount(0);
-  }, []);
-
-  const measureScrollMetrics = useCallback(
-    (event?: NativeSyntheticEvent<NativeScrollEvent>): {
-      distanceFromBottom: number;
-      maxOffset: number;
-    } | null => {
-      if (event) {
-        const { contentOffset, contentSize, layoutMeasurement } =
-          event.nativeEvent;
-        const viewportHeight = layoutMeasurement.height;
-        const contentHeight = contentSize.height;
-        const scrollY = contentOffset.y;
-        scrollOffsetRef.current = scrollY;
-        if (viewportHeight > 0) viewportHeightRef.current = viewportHeight;
-        if (viewportHeight <= 0 || contentHeight <= 0) return null;
-        const maxOffset = Math.max(0, contentHeight - viewportHeight);
-        maxScrollOffsetRef.current = maxOffset;
-        return { distanceFromBottom: maxOffset - scrollY, maxOffset };
-      }
-
-      const list = listRef.current;
-      if (!list) return null;
-      try {
-        const scrollOffset = list.getAbsoluteLastScrollOffset();
-        scrollOffsetRef.current = scrollOffset;
-        const contentSize = list.getChildContainerDimensions();
-        const windowSize = list.getWindowSize();
-        const viewportHeight = windowSize.height;
-        const contentHeight = contentSize.height;
-        if (viewportHeight > 0) viewportHeightRef.current = viewportHeight;
-        if (viewportHeight <= 0 || contentHeight <= 0) return null;
-        const maxOffset = Math.max(0, contentHeight - viewportHeight);
-        maxScrollOffsetRef.current = maxOffset;
-        return { distanceFromBottom: maxOffset - scrollOffset, maxOffset };
-      } catch {
-        return null;
-      }
+  const showActionBanner = useCallback(
+    (message: string, icon?: keyof typeof Ionicons.glyphMap) => {
+      setActionBanner({ message, icon });
     },
     [],
   );
 
-  const getScrollThresholds = useCallback(() => {
-    const viewport = viewportHeightRef.current || windowHeight * 0.55;
-    const hideAtBottom = Math.max(
-      SCROLL_HIDE_AT_BOTTOM,
-      listBottomPadRef.current * 0.2,
-    );
-    const showWhenAway = Math.max(
-      SCROLL_SHOW_MIN_AWAY,
-      viewport * SCROLL_SHOW_VIEWPORT_RATIO,
-      listBottomPadRef.current * 0.55,
-    );
-    return { hideAtBottom, showWhenAway };
-  }, [windowHeight]);
-
-  const syncScrollPosition = useCallback(
-    (event?: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const len = messagesLenRef.current;
-      if (len === 0) {
-        updateAtBottom(true);
-        return;
-      }
-      const metrics = measureScrollMetrics(event);
-      if (!metrics) return;
-      if (metrics.maxOffset <= 0) {
-        updateAtBottom(true);
-        return;
-      }
-      const { hideAtBottom, showWhenAway } = getScrollThresholds();
-      const { distanceFromBottom } = metrics;
-      if (distanceFromBottom <= hideAtBottom) {
-        updateAtBottom(true);
-      } else if (distanceFromBottom >= showWhenAway) {
-        updateAtBottom(false);
-      }
-    },
-    [getScrollThresholds, measureScrollMetrics, updateAtBottom],
-  );
-
-  // Scroll when a new message appears — but NOT when older messages are
-  // prepended during history load (which also changes length).
-  useEffect(() => {
-    if (messages.length > 0 && newMessageCountRef.current > 0) {
-      const pending = newMessageCountRef.current;
-      newMessageCountRef.current = 0;
-      if (atBottomRef.current) {
-        listRef.current?.scrollToEnd({ animated: true });
-      } else {
-        setScrollAwayCount((c) => c + pending);
-        showScrollBtnRef.current = true;
-        setShowScrollToBottom(true);
-      }
-    }
-  }, [messages.length]);
-
-  // Follow streaming content growth — scroll without animation so the
-  // view stays pinned to the growing text. Only fires when the user is
-  // already near the bottom (so we don't yank them away from reading history).
   const streamingLen =
     streaming &&
     messages.length > 0 &&
     messages[messages.length - 1]?.id === "streaming"
       ? messages[messages.length - 1].content.length
       : 0;
-  useEffect(() => {
-    if (streamingLen && atBottomRef.current) {
-      listRef.current?.scrollToEnd({ animated: false });
-    } else if (streamingLen) {
-      requestAnimationFrame(() => syncScrollPosition());
-    }
-  }, [streamingLen, syncScrollPosition]);
+
+  const scroll = useChatScroll({
+    chatId,
+    messagesLength: messages.length,
+    streamingLen,
+    windowHeight,
+  });
+
+  const routeLoader = useChatRouteLoader({
+    token,
+    routeChatId: typeof routeChatId === "string" ? routeChatId : undefined,
+    routeHighlightMessage:
+      typeof routeHighlightMessage === "string" ? routeHighlightMessage : undefined,
+    routePrompt: typeof routePrompt === "string" ? routePrompt : undefined,
+    routeLaunchId: typeof routeLaunchId === "string" ? routeLaunchId : undefined,
+    router,
+    draft,
+    chatId,
+    setChatId,
+    setMessages,
+    messages,
+    streaming,
+    stopGeneration,
+    setQuizLanguage,
+    setInputRef,
+    listRef: scroll.listRef,
+    showActionBanner,
+    t,
+  });
+
+  onFirstReplyRef.current = routeLoader.handleFirstReply;
+  useQueuedChatLaunch(token, routeLoader.beginChatLaunch);
+
+  const {
+    chatTitle,
+    setChatTitle,
+    titleGenerating,
+    pinned,
+    setPinned,
+    chatLoading,
+    hasMoreOlder,
+    loadingOlder,
+    loadOlderMessages,
+    highlightedMessageId,
+    startNewChat,
+    pendingLaunch,
+    setPendingLaunch,
+    pendingLaunchRef,
+  } = routeLoader;
+
+  const send = useChatSend({
+    token,
+    chatId,
+    setChatId,
+    setChatTitle,
+    router,
+    draft,
+    scroll,
+    streaming,
+    sendMessage,
+    editMessage,
+    setMessages,
+    selectedModel,
+    pendingLaunch,
+    setPendingLaunch,
+    pendingLaunchRef,
+    t,
+  });
+
+  const {
+    input,
+    setInput,
+    pendingAttachment,
+    setPendingAttachment,
+    attachBusy,
+    attachSheetOpen,
+    setAttachSheetOpen,
+    editingMessageId,
+    setEditingMessageId,
+    handleSend,
+    handlePickAttachment,
+    handleAttachmentSheetSelect,
+    handleQuizAnswer,
+    handleEditMessage,
+    creatingRef,
+  } = send;
+
+  setInputRef.current = setInput;
 
   useEffect(() => {
-    requestAnimationFrame(() => syncScrollPosition());
-  }, [messages.length, syncScrollPosition]);
+    registerNewChat(startNewChat);
+  }, [startNewChat]);
 
-  useEffect(() => {
-    maxScrollOffsetRef.current = 0;
-    scrollOffsetRef.current = 0;
-    viewportHeightRef.current = 0;
-    showScrollBtnRef.current = false;
-    setShowScrollToBottom(false);
-    setScrollAwayCount(0);
-    atBottomRef.current = true;
-  }, [chatId]);
+  const {
+    listRef,
+    listBottomPadRef,
+    showScrollToBottom,
+    scrollAwayCount,
+    keyboardHeight,
+    scrollToLatest,
+    handleScroll,
+    handleScrollEnd,
+  } = scroll;
 
-  const scrollToLatest = useCallback(() => {
-    tap();
-    listRef.current?.scrollToEnd({ animated: true });
-    updateAtBottom(true);
-  }, [updateAtBottom]);
-
-  const handleScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      syncScrollPosition(event);
-    },
-    [syncScrollPosition],
+  const quizAnswers = useMemo(
+    () => inferQuizAnswersFromMessages(messages),
+    [messages],
   );
 
-  const handleScrollEnd = useCallback(() => {
-    syncScrollPosition();
-  }, [syncScrollPosition]);
+  const { prepareDraftChat, draftChatId } = draft;
 
+  // Pre-create an empty chat + warm the WebSocket while the home screen is visible.
   useEffect(() => {
-    const showEvent =
-      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent =
-      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-
-    const show = Keyboard.addListener(showEvent, (e) => {
-      setKeyboardHeight(Math.max(0, windowHeight - e.endCoordinates.screenY));
-      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 50);
-    });
-    const hide = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
-    return () => {
-      show.remove();
-      hide.remove();
-    };
-  }, [windowHeight]);
-
-  useEffect(() => {
-    if (!token) {
-      setChatLoading(false);
+    if (
+      !shouldPreCreateDraft({
+        token,
+        routeChatId: typeof routeChatId === "string" ? routeChatId : undefined,
+        chatId,
+        messagesLength: messages.length,
+        streaming,
+      })
+    ) {
       return;
     }
-    const openChatId = typeof routeChatId === "string" ? routeChatId : null;
-    const prevOpenChatId = priorRouteChatIdRef.current;
-    if (prevOpenChatId && prevOpenChatId !== openChatId) {
-      discardEmptyChat(prevOpenChatId);
-    }
-    if (openChatId && draftChatIdRef.current) {
-      clearDraftChat();
-    }
-    priorRouteChatIdRef.current = openChatId;
+    void prepareDraftChat();
+  }, [token, routeChatId, chatId, messages.length, streaming, prepareDraftChat]);
 
-    let cancelled = false;
-    (async () => {
-      // No route chat → a fresh, unsaved chat. The DB row is created lazily on
-      // first send (see handleSend), so we never accumulate empty chats.
-      if (!openChatId) {
-        setChatLoading(false);
-        if (!creatingRef.current) {
-          setChatId(null);
-          setChatTitle(null);
-          setPinned(false);
-          setMessages([]);
-          setHasMoreOlder(false);
-        }
-        return;
-      }
-      if (skipLoadForChatIdRef.current === openChatId) {
-        skipLoadForChatIdRef.current = null;
-        setChatId(openChatId);
-        setChatLoading(false);
-        return;
-      }
-      setChatLoading(true);
-      setHasMoreOlder(false);
-      try {
-        const [chat, page] = await Promise.all([
-          api.getChat(token, openChatId),
-          api.listMessages(token, openChatId, { limit: MESSAGE_PAGE_SIZE }),
-        ]);
-        if (cancelled) return;
-        setChatId(chat.id);
-        setChatTitle(chat.title);
-        setPinned(chat.pinned);
-        setMessages(page.messages);
-        setHasMoreOlder(page.has_more);
-        // Backend backfills missing titles on list_messages — poll for it
-        if (!chat.title && page.messages.length > 0) {
-          pollForTitle(token, openChatId);
-        }
-      } finally {
-        if (!cancelled) setChatLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, routeChatId]);
-
-  // Once a lazily-created chat is ready, flush the queued first message
   useEffect(() => {
-    if (chatId && pendingSend) {
-      const { text, skipUserBubble, attachmentIds, localImageUri } = pendingSend;
-      setPendingSend(null);
-      sendMessage(text, { skipUserBubble, attachmentIds, localImageUri });
-    }
-  }, [chatId, pendingSend, sendMessage]);
+    if (!shouldWarmDraftSocket({ token, draftChatId, chatId, streaming })) return;
+    void connect();
+  }, [token, draftChatId, chatId, streaming, connect]);
 
   useEffect(() => {
     if (messages.length === 0) setMenuVisible(false);
@@ -538,51 +283,6 @@ function ChatScreen() {
         : null,
     [messages.length, chatTitle, titleGenerating, t],
   );
-
-  useEffect(() => {
-    if (!chatId) {
-      setTitleGenerating(false);
-      setChatTitleGenerating(null);
-    }
-  }, [chatId]);
-
-  const showActionBanner = useCallback(
-    (message: string, icon?: keyof typeof Ionicons.glyphMap) => {
-      setActionBanner({ message, icon });
-    },
-    [],
-  );
-
-  const loadOlderMessages = useCallback(async () => {
-    if (
-      !token ||
-      !chatId ||
-      loadingOlder ||
-      !hasMoreOlder ||
-      messages.length === 0
-    )
-      return;
-    const oldest = messages[0];
-    const isServerId =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-        oldest.id,
-      );
-    if (!isServerId) return;
-
-    setLoadingOlder(true);
-    try {
-      const page = await api.listMessages(token, chatId, {
-        limit: MESSAGE_PAGE_SIZE,
-        before: oldest.id,
-      });
-      setMessages((prev) => [...page.messages, ...prev]);
-      setHasMoreOlder(page.has_more);
-    } catch {
-      showActionBanner(t("common.error"), "cloud-offline-outline");
-    } finally {
-      setLoadingOlder(false);
-    }
-  }, [token, chatId, loadingOlder, hasMoreOlder, messages, showActionBanner, t]);
 
   const handlePlanSelect = (plan: "free" | "pro") => {
     setShowPlanPicker(false);
@@ -606,251 +306,6 @@ function ChatScreen() {
     selectedModel === AUTO_MODEL_ID
       ? t("settings.model_auto")
       : labelFor(selectedModel) || selectedModel;
-
-  const startNewChat = useCallback(() => {
-    if (streaming) return;
-    discardEmptyChat(chatId);
-    clearDraftChat();
-    pendingProjectIdRef.current = null;
-    setInput("");
-    setChatId(null);
-    setChatTitle(null);
-    setPinned(false);
-    setMessages([]);
-    setHasMoreOlder(false);
-    if (routeChatId != null) {
-      router.setParams({ chatId: undefined });
-    }
-    void prepareDraftChat();
-  }, [
-    streaming,
-    chatId,
-    discardEmptyChat,
-    clearDraftChat,
-    routeChatId,
-    router,
-    setMessages,
-    prepareDraftChat,
-  ]);
-
-  const beginChatLaunch = useCallback(
-    (launch: QueuedChatLaunch | string) => {
-      const queued =
-        typeof launch === "string" ? { prompt: launch.trim() } : launch;
-      if (!queued.prompt.trim()) return;
-      if (streaming) stopGeneration();
-      discardEmptyChat(chatId);
-      clearDraftChat();
-      draftProjectIdRef.current = queued.projectId ?? null;
-      pendingProjectIdRef.current = queued.projectId ?? null;
-      setQuizLanguage(queued.quizLanguage ?? "en");
-      setInput("");
-      setChatId(null);
-      setChatTitle(null);
-      setPinned(false);
-      setMessages([]);
-      setHasMoreOlder(false);
-      creatingRef.current = false;
-      if (routeChatId != null) {
-        router.setParams({ chatId: undefined });
-      }
-      pendingLaunchRef.current = queued.prompt.trim();
-      setPendingLaunch(queued.prompt.trim());
-      void prepareDraftChat(queued.projectId);
-    },
-    [
-      streaming,
-      stopGeneration,
-      discardEmptyChat,
-      chatId,
-      clearDraftChat,
-      routeChatId,
-      router,
-      setMessages,
-      prepareDraftChat,
-    ],
-  );
-
-  // Project "Ask Recall" / "Quiz with Recall" — queue survives nested navigation.
-  useFocusEffect(
-    useCallback(() => {
-      if (!token) return;
-      const queued = takeQueuedChatLaunch();
-      if (queued) beginChatLaunch(queued);
-    }, [token, beginChatLaunch]),
-  );
-
-  // Fallback when prompt is passed via route params (legacy / deep links).
-  useEffect(() => {
-    if (!token) return;
-    const prompt = typeof routePrompt === "string" ? routePrompt.trim() : "";
-    const launchId = typeof routeLaunchId === "string" ? routeLaunchId : "";
-    if (!prompt || !launchId || handledLaunchIdRef.current === launchId) return;
-    handledLaunchIdRef.current = launchId;
-    router.setParams({ prompt: undefined, launchId: undefined, chatId: undefined });
-    beginChatLaunch(prompt);
-  }, [routePrompt, routeLaunchId, token, router, beginChatLaunch]);
-
-  // Let the drawer's "New chat" trigger this same action.
-  useEffect(() => {
-    registerNewChat(startNewChat);
-  }, [startNewChat]);
-
-  const handleSend = async (overrideText?: string) => {
-    const text = (overrideText ?? input).trim();
-    if ((!text && !pendingAttachment) || streaming || !token || creatingRef.current || attachBusy) return;
-    if (editingMessageId && pendingAttachment) {
-      Alert.alert(t("chat.error_title"), t("chat.edit_no_attachments"));
-      return;
-    }
-    tap();
-
-    let attachmentIds: string[] | undefined;
-    const attached = pendingAttachment;
-    if (attached) {
-      setAttachBusy(true);
-      try {
-        const id = await uploadChatAttachment(token, attached);
-        attachmentIds = [id];
-      } catch (error) {
-        Alert.alert(
-          t("chat.error_title"),
-          error instanceof Error ? error.message : t("common.error"),
-        );
-        setAttachBusy(false);
-        return;
-      }
-      setAttachBusy(false);
-      setPendingAttachment(null);
-    }
-
-    setInput("");
-    newMessageCountRef.current += 1;
-
-    if (editingMessageId && chatId) {
-      const editId = editingMessageId;
-      setEditingMessageId(null);
-      void editMessage(editId, text, selectedModel);
-      return;
-    }
-
-    if (!chatId) {
-      creatingRef.current = true;
-      const optimisticId = `local-${Date.now()}`;
-      const sendText = messageTextForSend(text, attached);
-      const display =
-        text || (attached?.kind === "file" ? attached.fileName : sendText);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: optimisticId,
-          role: "user",
-          content: display,
-          model: null,
-          local_image_uri: attached?.kind === "image" ? attached.localUri : null,
-          created_at: new Date().toISOString(),
-        },
-      ]);
-      try {
-        const id = await prepareDraftChat();
-        if (!id) throw new Error("Could not create chat");
-        skipLoadForChatIdRef.current = id;
-        setChatTitle(null);
-        setChatId(id);
-        draftChatIdRef.current = null;
-        setDraftChatId(null);
-        router.setParams({ chatId: id });
-        setPendingSend({
-          text: sendText,
-          skipUserBubble: true,
-          attachmentIds,
-          localImageUri: attached?.kind === "image" ? attached.localUri : null,
-        });
-      } catch {
-        setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
-        setInput(text);
-      } finally {
-        creatingRef.current = false;
-      }
-      return;
-    }
-    newMessageCountRef.current += 1;
-    sendMessage(messageTextForSend(text, attached), {
-      attachmentIds,
-      localImageUri: attached?.kind === "image" ? attached.localUri : null,
-      model: selectedModel,
-    });
-  };
-
-  const handlePickAttachment = () => {
-    if (!token || attachBusy || streaming) return;
-    Keyboard.dismiss();
-    setShowPlanPicker(false);
-    setAttachSheetOpen(true);
-  };
-
-  const waitForPickerUi = useCallback(
-    () =>
-      new Promise<void>((resolve) => {
-        InteractionManager.runAfterInteractions(() => {
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => resolve());
-          });
-        });
-      }),
-    [],
-  );
-
-  const handleAttachmentSheetSelect = useCallback(
-    async (source: AttachmentSource) => {
-      if (attachPickInFlightRef.current || !token || attachBusy || streaming) return;
-      attachPickInFlightRef.current = true;
-      setAttachSheetOpen(false);
-      await waitForPickerUi();
-
-      if (!token || attachBusy || streaming) {
-        attachPickInFlightRef.current = false;
-        return;
-      }
-
-      try {
-        const picked =
-          source === "camera"
-            ? await pickFromCamera()
-            : source === "photo"
-              ? await pickFromPhotoLibrary()
-              : await pickDocument();
-        if (picked) setPendingAttachment(picked);
-      } catch (error) {
-        Alert.alert(
-          t("chat.attach_failed"),
-          error instanceof Error ? error.message : t("common.error"),
-        );
-      } finally {
-        attachPickInFlightRef.current = false;
-      }
-    },
-    [attachBusy, streaming, t, token, waitForPickerUi],
-  );
-
-  useEffect(() => {
-    if (!pendingLaunch || chatId || streaming || creatingRef.current) return;
-    const text = pendingLaunchRef.current ?? pendingLaunch;
-    pendingLaunchRef.current = null;
-    setPendingLaunch(null);
-    void handleSend(text);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingLaunch, chatId, streaming]);
-
-  const handleQuizAnswer = useCallback(
-    (_messageId: string, letter: "A" | "B" | "C" | "D") => {
-      if (streaming || creatingRef.current) return;
-      void handleSend(letter);
-    },
-    // handleSend is stable enough for quiz taps; avoid stale streaming guard.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [streaming, chatId],
-  );
 
   const handleFeedback = useCallback(
     (messageId: string, next: "up" | "down" | null) => {
@@ -888,14 +343,6 @@ function ChatScreen() {
     }
   }, [token, chatId, chatTitle, messages]);
 
-  const handleEditMessage = useCallback((message: Message) => {
-    if (streaming) return;
-    const parsed = parseUserMessageContent(message.content);
-    setInput(parsed.caption || message.content);
-    setEditingMessageId(message.id);
-    setPendingAttachment(null);
-  }, [streaming]);
-
   const renderItem = useCallback(
     ({ item, index }: { item: Message; index: number }) => {
       const priorUserText =
@@ -931,6 +378,7 @@ function ChatScreen() {
           quizDisabled={streaming || creatingRef.current}
           quizLanguage={quizLanguage}
           quizSelectedLetter={quizAnswers[item.id] ?? null}
+          highlighted={item.id === highlightedMessageId}
         />
       );
     },
@@ -945,6 +393,10 @@ function ChatScreen() {
       handleQuizAnswer,
       quizLanguage,
       quizAnswers,
+      highlightedMessageId,
+      selectedModel,
+      // creatingRef.current is intentionally read without listing the ref in deps.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     ],
   );
 
@@ -1002,7 +454,11 @@ function ChatScreen() {
               await api.deleteChat(token, chatId);
               showActionBanner(t("chat.deleted_toast"), "trash-outline");
               setTimeout(() => {
-                router.canGoBack() ? router.back() : router.replace("/");
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace("/");
+                }
               }, 700);
             } catch {
               Alert.alert(t("common.error"), t("chat.delete_failed"));
@@ -1079,175 +535,52 @@ function ChatScreen() {
           bottomOffset={composerClearance + 12}
           onDismiss={dismissActionBanner}
         />
-        <View style={s.messagesArea}>
-          <FlashList
-            ref={listRef}
-            data={messages}
-            style={s.list}
-            drawDistance={280}
-            maintainVisibleContentPosition={{
-              disabled: false,
-              autoscrollToBottomThreshold: 0.1,
-              startRenderingFromBottom: true,
-            }}
-            keyExtractor={(item) => item.id}
-            getItemType={messageListItemType}
-            renderItem={renderItem}
-            onScroll={handleScroll}
-            onScrollEndDrag={handleScrollEnd}
-            onMomentumScrollEnd={handleScrollEnd}
-            scrollEventThrottle={16}
-            contentContainerStyle={[
-              s.listContent,
-              { paddingTop: headerInset, paddingBottom: listBottomPad },
-            ]}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="interactive"
-            ListHeaderComponent={
-              hasMoreOlder ? (
-                <Pressable
-                  style={s.loadEarlier}
-                  onPress={loadOlderMessages}
-                  disabled={loadingOlder}
-                  accessibilityRole="button"
-                  accessibilityLabel={t("chat.load_earlier")}
-                >
-                  <Text style={s.loadEarlierText}>
-                    {loadingOlder ? "…" : t("chat.load_earlier")}
-                  </Text>
-                </Pressable>
-              ) : null
-            }
-            ListEmptyComponent={
-              chatLoading && routeChatId ? (
-                <View style={[s.empty, { height: emptyHeight }]}>
-                  <StateView variant="loading" compact />
-                </View>
-              ) : (
-                <View style={[s.empty, { height: emptyHeight }]}>
-                  <HomeStarters onSelect={handleSend} />
-                </View>
-              )
-            }
-          />
+        <ChatMessageList
+          listRef={listRef}
+          messages={messages}
+          headerInset={headerInset}
+          listBottomPad={listBottomPad}
+          fadeHeight={fadeHeight}
+          hasMoreOlder={hasMoreOlder}
+          loadingOlder={loadingOlder}
+          chatLoading={chatLoading}
+          routeChatId={typeof routeChatId === "string" ? routeChatId : undefined}
+          emptyHeight={emptyHeight}
+          renderItem={renderItem}
+          onLoadOlder={() => void loadOlderMessages()}
+          onScroll={handleScroll}
+          onScrollEnd={handleScrollEnd}
+          onSelectStarter={handleSend}
+          onOpenTemplates={() => setTemplatesVisible(true)}
+          header={
+            !drawerOpen ? (
+              <ChatHeader
+                paddingTop={insets.top}
+                height={headerInset}
+                menuOverlayOpen={menuOverlayOpen}
+                headerTitleLabel={headerTitleLabel}
+                titleGenerating={titleGenerating}
+                chatTitle={chatTitle}
+                showIndicator={showIndicator}
+                unseenCount={unseenCount}
+                hasMessages={messages.length > 0}
+                onOpenDrawer={openDrawer}
+                onOpenReminders={() =>
+                  router.push({ pathname: "/todos", params: { focus: "reminders" } })
+                }
+                onNewChat={startNewChat}
+                onOpenMenu={() => setMenuVisible((v) => !v)}
+              />
+            ) : null
+          }
+        />
 
-          <LinearGradient
-            colors={[C.bg, C.bg, `${C.bg}00`]}
-            locations={[0, 0.78, 1]}
-            style={[s.headerFade, { height: fadeHeight }]}
-            pointerEvents="none"
-          />
-
-          {!drawerOpen && (
-            <View
-              style={[
-                s.header,
-                { paddingTop: insets.top, height: headerInset },
-                menuOverlayOpen && s.headerMuted,
-              ]}
-              pointerEvents={menuOverlayOpen ? "none" : "box-none"}
-              collapsable={false}
-              renderToHardwareTextureAndroid
-            >
-              <Pressable
-                style={({ pressed }) => [
-                  s.headerBtn,
-                  menuOverlayOpen && s.headerBtnMuted,
-                  pressed && !menuOverlayOpen && s.headerBtnPressed,
-                ]}
-                onPress={openDrawer}
-                hitSlop={12}
-              >
-                <HamburgerIcon size={22} color={C.text} />
-              </Pressable>
-              {headerTitleLabel ? (
-                <View style={s.headerCenter} pointerEvents="none">
-                  <Text
-                    style={[
-                      s.headerTitleText,
-                      titleGenerating && !chatTitle && s.headerTitlePending,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {headerTitleLabel}
-                  </Text>
-                </View>
-              ) : (
-                <View style={s.headerSpacer} />
-              )}
-              <View style={s.headerRight}>
-                {showIndicator ? (
-                  <Pressable
-                    style={s.headerBtn}
-                    onPress={() => {
-                      tap();
-                      router.push({ pathname: "/todos", params: { focus: "reminders" } });
-                    }}
-                    hitSlop={12}
-                    accessibilityRole="button"
-                    accessibilityLabel={t("reminders.badge_accessibility", {
-                      count: unseenCount,
-                    })}
-                  >
-                    <View style={s.headerIconWrap}>
-                      <Ionicons name="notifications-outline" size={22} color={C.text} />
-                      <ReminderBadge count={unseenCount} style={s.headerBadge} />
-                    </View>
-                  </Pressable>
-                ) : null}
-                {messages.length > 0 ? (
-                  <Pressable
-                    style={s.headerBtn}
-                    onPress={startNewChat}
-                    hitSlop={12}
-                    accessibilityRole="button"
-                    accessibilityLabel={t("chat.new_chat")}
-                  >
-                    <Ionicons name="create-outline" size={22} color={C.text} />
-                  </Pressable>
-                ) : null}
-                {messages.length > 0 && (
-                  <Pressable
-                    style={s.headerBtn}
-                    onPress={() => setMenuVisible((v) => !v)}
-                    hitSlop={12}
-                    accessibilityRole="button"
-                    accessibilityLabel={t("chat.menu")}
-                  >
-                    <Ionicons
-                      name="ellipsis-vertical"
-                      size={22}
-                      color={C.text}
-                    />
-                  </Pressable>
-                )}
-              </View>
-            </View>
-          )}
-        </View>
-
-        {!drawerOpen && showScrollToBottom && (
-          <View
-            style={[s.scrollOverlay, { bottom: composerClearance + 8 }]}
-            pointerEvents="box-none"
-          >
-            <Pressable
-              style={s.scrollToBottom}
-              onPress={scrollToLatest}
-              accessibilityRole="button"
-              accessibilityLabel={t("chat.scroll_to_latest")}
-            >
-              <Ionicons name="chevron-down" size={22} color={C.text} />
-              {scrollAwayCount > 0 ? (
-                <View style={s.scrollToBottomBadge}>
-                  <Text style={s.scrollToBottomBadgeText}>
-                    {scrollAwayCount > 9 ? "9+" : scrollAwayCount}
-                  </Text>
-                </View>
-              ) : null}
-            </Pressable>
-          </View>
-        )}
+        <ChatScrollFab
+          visible={!drawerOpen && showScrollToBottom}
+          bottomOffset={composerClearance + 8}
+          scrollAwayCount={scrollAwayCount}
+          onPress={scrollToLatest}
+        />
 
         {(showPlanPicker || showModelPicker || attachSheetOpen) && !drawerOpen && (
           <Pressable
@@ -1257,182 +590,66 @@ function ChatScreen() {
               setShowModelPicker(false);
               setAttachSheetOpen(false);
             }}
-            accessibilityLabel="Close menu"
+            accessibilityLabel={t("chat.close_menu")}
           />
         )}
 
-        {!drawerOpen && (
-          <View
-            style={[
-              s.composerBlock,
-              { bottom: composerLift, paddingBottom: composerBottomPad },
-            ]}
-          >
-            {showPlanPicker && (
-              <View style={s.picker}>
-                <Pressable
-                  style={[s.pickerItem, !isPro && s.pickerItemActive]}
-                  onPress={() => handlePlanSelect("free")}
-                >
-                  <Text
-                    style={[s.pickerLabel, !isPro && s.pickerLabelActive, { flex: 1 }]}
-                  >
-                    {t("chat.plan_free")}
-                  </Text>
-                  {!isPro ? <Text style={s.pickerCheck}>✓</Text> : null}
-                </Pressable>
-                <Pressable
-                  style={[s.pickerItem, isPro && s.pickerItemActive]}
-                  onPress={() => handlePlanSelect("pro")}
-                >
-                  <Text
-                    style={[s.pickerLabel, isPro && s.pickerLabelActive, { flex: 1 }]}
-                  >
-                    {t("chat.plan_pro")}
-                  </Text>
-                  {!isPro ? (
-                    <Ionicons name="lock-closed" size={14} color={C.textTertiary} />
-                  ) : (
-                    <Text style={s.pickerCheck}>✓</Text>
-                  )}
-                </Pressable>
-              </View>
-            )}
+        <ChatComposer
+          visible={!drawerOpen}
+          bottom={composerLift}
+          paddingBottom={composerBottomPad}
+          token={token}
+          input={input}
+          onChangeInput={setInput}
+          streaming={streaming}
+          attachBusy={attachBusy}
+          pendingAttachment={pendingAttachment}
+          onRemoveAttachment={() => setPendingAttachment(null)}
+          editingMessageId={editingMessageId}
+          onCancelEdit={() => {
+            setEditingMessageId(null);
+            setInput("");
+          }}
+          showPlanPicker={showPlanPicker}
+          showModelPicker={showModelPicker}
+          attachSheetOpen={attachSheetOpen}
+          isPro={isPro}
+          planLabel={planLabel}
+          modelOptions={modelOptions}
+          selectedModel={selectedModel}
+          selectedModelLabel={selectedModelLabel}
+          onTogglePlanPicker={() => {
+            setAttachSheetOpen(false);
+            setShowModelPicker(false);
+            setShowPlanPicker((v) => !v);
+          }}
+          onToggleModelPicker={() => {
+            setAttachSheetOpen(false);
+            setShowPlanPicker(false);
+            setShowModelPicker((v) => !v);
+          }}
+          onSelectPlan={handlePlanSelect}
+          onSelectModel={(id) => {
+            setSelectedModel(id);
+            setShowModelPicker(false);
+          }}
+          onClosePickers={() => {
+            setShowPlanPicker(false);
+            setShowModelPicker(false);
+            setAttachSheetOpen(false);
+          }}
+          onPickAttachment={handlePickAttachment}
+          onAttachmentSource={(source) => void handleAttachmentSheetSelect(source)}
+          onSend={() => void handleSend()}
+          onStop={stopGeneration}
+        />
 
-            {showModelPicker && (
-              <View style={s.picker}>
-                {modelOptions.map((opt) => {
-                  const active = opt.id === selectedModel;
-                  return (
-                    <Pressable
-                      key={opt.id}
-                      style={[s.pickerItem, active && s.pickerItemActive]}
-                      onPress={() => {
-                        setSelectedModel(opt.id);
-                        setShowModelPicker(false);
-                      }}
-                    >
-                      <Text
-                        style={[s.pickerLabel, active && s.pickerLabelActive, { flex: 1 }]}
-                        numberOfLines={1}
-                      >
-                        {opt.label}
-                      </Text>
-                      {active ? <Text style={s.pickerCheck}>✓</Text> : null}
-                    </Pressable>
-                  );
-                })}
-              </View>
-            )}
-
-            <View style={s.composerAnchor}>
-              <SuggestedRemindersNudge token={token} />
-              {editingMessageId ? (
-                <View style={s.editBanner}>
-                  <Text style={s.editBannerText}>{t("chat.editing_message")}</Text>
-                  <Pressable onPress={() => { setEditingMessageId(null); setInput(""); }}>
-                    <Text style={s.editBannerCancel}>{t("common.cancel")}</Text>
-                  </Pressable>
-                </View>
-              ) : null}
-              {attachSheetOpen && (
-                <View style={s.attachMenuFloat} pointerEvents="box-none">
-                  <AttachmentSourceSheet
-                    onSelect={(source) => void handleAttachmentSheetSelect(source)}
-                  />
-                </View>
-              )}
-              <View style={s.composer}>
-              <View style={s.inputWrap}>
-                {pendingAttachment ? (
-                  <ComposerAttachmentPreview
-                    attachment={pendingAttachment}
-                    uploading={attachBusy}
-                    onRemove={() => setPendingAttachment(null)}
-                  />
-                ) : null}
-                <View style={s.inputRowMain}>
-                  <Pressable
-                    style={s.attachBtn}
-                    onPress={handlePickAttachment}
-                    disabled={attachBusy || streaming}
-                    hitSlop={6}
-                    accessibilityLabel={t("chat.attach_a11y")}
-                  >
-                    <Ionicons name="attach-outline" size={22} color={C.primary} />
-                  </Pressable>
-                  <TextInput
-                    style={s.input}
-                    placeholder={t("chat.placeholder")}
-                    placeholderTextColor={C.textTertiary}
-                    value={input}
-                    onChangeText={setInput}
-                    onFocus={() => {
-                      setShowPlanPicker(false);
-                      setShowModelPicker(false);
-                      setAttachSheetOpen(false);
-                    }}
-                    multiline
-                    returnKeyType="default"
-                  />
-                  <View style={s.sendBtnSlot}>
-                    {streaming ? (
-                      <Pressable style={s.sendBtn} onPress={stopGeneration}>
-                        <Text style={s.sendIcon}>■</Text>
-                      </Pressable>
-                    ) : input.trim() || pendingAttachment ? (
-                      <Pressable style={s.sendBtn} onPress={() => void handleSend()}>
-                        <Text style={s.sendIcon}>↑</Text>
-                      </Pressable>
-                    ) : null}
-                  </View>
-                </View>
-                <View style={s.composerMetaRow}>
-                  <Pressable
-                    style={s.planPill}
-                    onPress={() => {
-                      setAttachSheetOpen(false);
-                      setShowModelPicker(false);
-                      setShowPlanPicker((v) => !v);
-                    }}
-                    hitSlop={6}
-                  >
-                    <Text style={[s.planPillText, isPro && s.planPillTextPro]}>
-                      {planLabel}
-                    </Text>
-                    <Ionicons
-                      name={showPlanPicker ? "chevron-up" : "chevron-down"}
-                      size={12}
-                      color={C.textTertiary}
-                    />
-                  </Pressable>
-                  {modelOptions.length > 1 ? (
-                    <Pressable
-                      style={[s.planPill, { maxWidth: 160 }]}
-                      onPress={() => {
-                        setAttachSheetOpen(false);
-                        setShowPlanPicker(false);
-                        setShowModelPicker((v) => !v);
-                      }}
-                      hitSlop={6}
-                    >
-                      <Text style={s.planPillText} numberOfLines={1}>
-                        {selectedModelLabel}
-                      </Text>
-                      <Ionicons
-                        name={showModelPicker ? "chevron-up" : "chevron-down"}
-                        size={12}
-                        color={C.textTertiary}
-                      />
-                    </Pressable>
-                  ) : null}
-                </View>
-              </View>
-            </View>
-          </View>
-          </View>
-        )}
-
+        <TemplatesSheet
+          visible={templatesVisible}
+          token={token}
+          onClose={() => setTemplatesVisible(false)}
+          onSelect={(content) => void handleSend(content)}
+        />
         <UpgradeSheet visible={upgradeVisible} onClose={() => setUpgradeVisible(false)} />
       </View>
     </>
@@ -1448,256 +665,11 @@ const makeS = (C: Theme) => StyleSheet.create({
   },
   loadingDot: { fontSize: 48, color: C.primary, opacity: 0.4 },
   container: { flex: 1, backgroundColor: C.bg },
-  messagesArea: { flex: 1 },
-  headerFade: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 50,
-  },
-  header: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 100,
-    flexDirection: "row",
-    alignItems: "flex-end",
-    paddingHorizontal: 4,
-    paddingBottom: 4,
-    backgroundColor: C.bg,
-  },
-  headerMuted: {
-    opacity: 0.55,
-  },
-  headerBtn: {
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 10,
-    backgroundColor: C.bg,
-    zIndex: 101,
-  },
-  headerBtnMuted: {
-    backgroundColor: "transparent",
-  },
-  headerBtnPressed: {
-    backgroundColor: C.surfaceAlt,
-  },
-  headerRight: { flexDirection: "row", alignItems: "center", zIndex: 101 },
-  headerCenter: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 8,
-    minWidth: 0,
-    backgroundColor: C.bg,
-  },
-  headerTitleText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: C.text,
-    textAlign: "center",
-  },
-  headerTitlePending: {
-    color: C.textTertiary,
-    fontStyle: "italic",
-    fontWeight: "600",
-  },
-  headerIconWrap: {
-    width: 24,
-    height: 24,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerBadge: { position: "absolute", top: -4, right: -8 },
-
-  list: { flex: 1 },
-  scrollOverlay: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    alignItems: "center",
-    zIndex: 95,
-  },
-  scrollToBottom: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: C.bg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: C.border,
-    alignItems: "center",
-    justifyContent: "center",
-    boxShadow: "0 2 10 0 rgba(0, 0, 0, 0.18)",
-    elevation: 8,
-  },
-  scrollToBottomBadge: {
-    position: "absolute",
-    top: -4,
-    right: -4,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    paddingHorizontal: 4,
-    backgroundColor: C.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  scrollToBottomBadgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#fff",
-  },
-  listContent: { paddingVertical: 8 },
-  loadEarlier: {
-    alignSelf: "center",
-    marginVertical: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: C.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: C.border,
-  },
-  loadEarlierText: { fontSize: 14, fontWeight: "600", color: C.primary },
-  empty: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 16,
-  },
-  headerSpacer: { flex: 1, pointerEvents: "none" as const },
-
   pickerBackdrop: {
     ...StyleSheet.absoluteFill,
     zIndex: 105,
     backgroundColor: C.scrim,
   },
-
-  composerBlock: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    zIndex: 110,
-    backgroundColor: C.bg,
-    paddingHorizontal: 12,
-    paddingTop: 2,
-  },
-  composerAnchor: {
-    position: "relative",
-  },
-  editBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginHorizontal: 4,
-    marginBottom: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: C.primaryLight,
-  },
-  editBannerText: { fontSize: 13, fontWeight: "600", color: C.primary },
-  editBannerCancel: { fontSize: 13, fontWeight: "600", color: C.textSecondary },
-  attachMenuFloat: {
-    position: "absolute",
-    left: 0,
-    right: 14,
-    bottom: "100%",
-    marginBottom: 6,
-    zIndex: 2,
-  },
-  composer: {
-    paddingVertical: 6,
-  },
-  inputWrap: {
-    backgroundColor: C.surface,
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingTop: 8,
-    paddingBottom: 6,
-  },
-  inputRowMain: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 8,
-  },
-  attachBtn: {
-    width: 32,
-    height: 32,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 1,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    color: C.text,
-    maxHeight: 100,
-    paddingVertical: 0,
-    minHeight: 22,
-  },
-  composerMetaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-start",
-    marginTop: 6,
-    gap: 8,
-  },
-  planPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingVertical: 2,
-    paddingRight: 2,
-  },
-  planPillText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: C.textSecondary,
-  },
-  planPillTextPro: {
-    color: "#FF9F0A",
-  },
-  sendBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: C.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  sendBtnSlot: {
-    width: 34,
-    height: 35,
-    alignItems: "center",
-    justifyContent: "flex-end",
-  },
-  sendIcon: { color: "#fff", fontSize: 18, fontWeight: "700" },
-
-  picker: {
-    marginBottom: 8,
-    backgroundColor: C.bg,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: C.border,
-    boxShadow: "0 -4 12 0 rgba(0, 0, 0, 0.12)",
-    elevation: 8,
-    overflow: "hidden",
-  },
-  pickerItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  pickerItemActive: { backgroundColor: C.primaryLight },
-  pickerLabel: { fontSize: 15, fontWeight: "600", color: C.text },
-  pickerLabelActive: { color: C.primary },
-  pickerCheck: { color: C.primary, fontWeight: "700", fontSize: 15 },
 });
 
 export default function HomeScreen() {

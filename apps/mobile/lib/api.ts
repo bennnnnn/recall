@@ -201,6 +201,7 @@ export type HomeUrgentTodo = {
 };
 
 export type HomeStarter = {
+  id?: string;
   text: string;
   prompt: string;
   kind: "time" | "memory" | "chat" | "general" | "todo" | "project";

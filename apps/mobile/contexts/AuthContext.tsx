@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Alert, StyleSheet, View } from "react-native";
 
 import {
   api,
@@ -25,7 +25,7 @@ import {
   setOnboarded,
   setToken,
 } from "@/lib/auth";
-import { isExpoGo } from "@/lib/expoRuntime";
+import { useBootstrapSync } from "@/hooks/useBootstrapSync";
 import { useTheme } from "@/lib/theme";
 
 type AuthContextValue = {
@@ -79,6 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(me);
     } catch {
       await clearToken();
+      Alert.alert(i18n.t("login.sign_in_failed"), i18n.t("auth.session_expired"));
     } finally {
       setLoading(false);
     }
@@ -136,60 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user?.locale]);
 
-  // Keep server timezone in sync with the device for due-date-aware prompts.
-  useEffect(() => {
-    if (!token || !user) return;
-    import("@/lib/deviceTimezone").then(({ getDeviceTimezone }) => {
-      const deviceTz = getDeviceTimezone();
-      if (user.timezone !== deviceTz) {
-        void api.updateMe(token, { timezone: deviceTz }).then(setUser).catch(() => {});
-      }
-    });
-  }, [token, user?.id, user?.timezone]);
-
-  // Keep server location in sync with device GPS (city/region label).
-  useEffect(() => {
-    if (!token || !user || isExpoGo()) return;
-    void import("@/lib/deviceLocation").then(async ({ getDeviceLocationLabel }) => {
-      const label = await getDeviceLocationLabel();
-      if (label && user.location !== label) {
-        void api.updateMe(token, { location: label }).then(setUser).catch(() => {});
-      }
-    });
-  }, [token, user?.id, user?.location]);
-
-  useEffect(() => {
-    if (!token) return;
-    let cleanup: (() => void) | undefined;
-    void import("@/lib/gmailAutoSync").then(({ attachGmailForegroundSync }) => {
-      cleanup = attachGmailForegroundSync(token);
-    });
-    return () => cleanup?.();
-  }, [token]);
-
-  useEffect(() => {
-    if (!token) return;
-    let cleanup: (() => void) | undefined;
-    void import("@/lib/pushNotifications").then(({ attachPushForegroundSync }) => {
-      cleanup = attachPushForegroundSync(token);
-    });
-    return () => cleanup?.();
-  }, [token]);
-
-  useEffect(() => {
-    if (user?.reminder_lead_minutes == null) return;
-    void import("@/lib/reminderPrefs").then(({ syncReminderLeadFromServer }) =>
-      syncReminderLeadFromServer(user.reminder_lead_minutes),
-    );
-  }, [user?.reminder_lead_minutes]);
-
-  useEffect(() => {
-    if (!user?.id) return;
-    void import("@/lib/purchases").then(({ configurePurchases, isPurchasesConfigured }) => {
-      if (!isPurchasesConfigured()) return;
-      void configurePurchases(user.id);
-    });
-  }, [user?.id]);
+  useBootstrapSync({ token, user, setUser });
 
   const refreshUser = useCallback(async () => {
     if (!token) return;

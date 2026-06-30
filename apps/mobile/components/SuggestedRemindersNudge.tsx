@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -49,7 +49,7 @@ export function SuggestedRemindersNudge({ token, onDismiss, onAdded }: Props) {
       setReminders((prev) => prev.filter((r) => r.id !== id));
       onAdded?.();
     } catch {
-      /* ignore */
+      Alert.alert(t("common.error"), t("reminders.add_failed"));
     } finally {
       setBusyId(null);
     }
@@ -63,7 +63,7 @@ export function SuggestedRemindersNudge({ token, onDismiss, onAdded }: Props) {
       setReminders((prev) => prev.filter((r) => r.id !== id));
       onDismiss?.(id);
     } catch {
-      /* ignore */
+      Alert.alert(t("common.error"), t("reminders.dismiss_failed"));
     } finally {
       setBusyId(null);
     }

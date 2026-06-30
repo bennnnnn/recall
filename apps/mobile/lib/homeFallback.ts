@@ -1,3 +1,4 @@
+import i18n from "@/lib/i18n";
 import { api, type HomeScreen, type HomeStarter } from "@/lib/api";
 
 function looksInternal(text: string): boolean {
@@ -10,10 +11,10 @@ function looksInternal(text: string): boolean {
 
 function localGreeting(): string {
   const hour = new Date().getHours();
-  if (hour >= 5 && hour < 12) return "Good morning";
-  if (hour >= 12 && hour < 17) return "Good afternoon";
-  if (hour >= 17 && hour < 22) return "Good evening";
-  return "Hey there";
+  if (hour >= 5 && hour < 12) return i18n.t("chat.home.greeting_morning");
+  if (hour >= 12 && hour < 17) return i18n.t("chat.home.greeting_afternoon");
+  if (hour >= 17 && hour < 22) return i18n.t("chat.home.greeting_evening");
+  return i18n.t("chat.home.greeting_night");
 }
 
 function timeStarters(): HomeStarter[] {
@@ -21,8 +22,8 @@ function timeStarters(): HomeStarter[] {
   if (hour >= 5 && hour < 12) {
     return [
       {
-        text: "Plan my day",
-        prompt: "Help me plan my day based on what you know about me.",
+        text: i18n.t("chat.home.starter_plan_day"),
+        prompt: i18n.t("chat.home.starter_plan_day_prompt"),
         kind: "time",
       },
     ];
@@ -30,8 +31,8 @@ function timeStarters(): HomeStarter[] {
   if (hour >= 12 && hour < 17) {
     return [
       {
-        text: "How's your day?",
-        prompt: "How's my day looking so far — anything you think I should prioritize?",
+        text: i18n.t("chat.home.starter_hows_day"),
+        prompt: i18n.t("chat.home.starter_hows_day_prompt"),
         kind: "time",
       },
     ];
@@ -39,16 +40,16 @@ function timeStarters(): HomeStarter[] {
   if (hour >= 17 && hour < 22) {
     return [
       {
-        text: "How did today go?",
-        prompt: "How did my day go? Help me reflect and wrap up loose ends.",
+        text: i18n.t("chat.home.starter_reflect"),
+        prompt: i18n.t("chat.home.starter_reflect_prompt"),
         kind: "time",
       },
     ];
   }
   return [
     {
-      text: "Quick thought",
-      prompt: "I have a quick thought I want to talk through.",
+      text: i18n.t("chat.home.starter_quick_thought"),
+      prompt: i18n.t("chat.home.starter_quick_thought_prompt"),
       kind: "time",
     },
   ];
@@ -64,6 +65,7 @@ export async function loadHomeFallback(token: string): Promise<HomeScreen> {
     const prompt = item.text;
     if (starters.some((s) => s.prompt === prompt)) continue;
     starters.push({
+      id: item.id,
       text: item.text.slice(0, 48),
       prompt,
       kind: "general",
@@ -72,8 +74,8 @@ export async function loadHomeFallback(token: string): Promise<HomeScreen> {
 
   if (starters.length === 0) {
     starters.push({
-      text: "Help me think",
-      prompt: "I want to talk something through — ask me a good opening question.",
+      text: i18n.t("chat.home.starter_help_think"),
+      prompt: i18n.t("chat.home.starter_help_think_prompt"),
       kind: "general",
     });
   }

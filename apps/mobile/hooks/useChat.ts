@@ -2,7 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { chatWebSocketUrl, Message, SearchSource } from "@/lib/api";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { isVocabQuizAnswer } from "@/lib/parseVocabQuiz";
-import { parseSearchSources, parseSearchSourcesJson } from "@/lib/searchSources";
+import { parseSearchSources } from "@/lib/searchSources";
+import {
+  buildDoneMergeInput,
+  mergeDoneIntoMessages,
+  parseChatWsPayload,
+} from "@/lib/chatSocketReduce";
 
 const CONNECT_TIMEOUT_MS = 8000;
 
@@ -167,24 +172,8 @@ export function useChat(
       };
 
       ws.onmessage = (event) => {
-        let payload: {
-          type: string;
-          content?: string;
-          message?: string;
-          message_id?: string;
-          code?: string;
-          final_content?: string;
-          recalled?: string;
-          memory_hints?: string;
-          context_summarized?: string;
-          todos_sync?: string;
-          search_sources?: string;
-        };
-        try {
-          payload = JSON.parse(event.data);
-        } catch {
-          return;
-        }
+        const payload = parseChatWsPayload(String(event.data));
+        if (!payload) return;
 
         if (payload.type === "start") {
           setStreaming(true);
@@ -212,72 +201,14 @@ export function useChat(
           setStreaming(false);
           streamingRef.current = false;
           assistantBuffer.current = "";
-          const finalId = payload.message_id ?? `streamed-${Date.now()}`;
-          const recalled = payload.recalled
-            ? Number(payload.recalled)
-            : undefined;
-          const context_summarized = payload.context_summarized
-            ? Number(payload.context_summarized)
-            : undefined;
-          let memory_hints: string[] | undefined;
-          if (payload.memory_hints) {
-            try {
-              memory_hints = JSON.parse(payload.memory_hints) as string[];
-            } catch {
-              memory_hints = undefined;
-            }
-          }
-          let search_sources: SearchSource[] | undefined;
-          if (payload.search_sources) {
-            const parsed = parseSearchSourcesJson(payload.search_sources);
-            if (parsed.length > 0) search_sources = parsed;
-          }
-          // Authoritative persisted text from the server (only sent on a
-          // user-initiated stop). Reconciles the local `streamed-*` bubble,
-          // which may be shorter than what the DB persisted.
-          const finalContent =
-            typeof payload.final_content === "string" ? payload.final_content : undefined;
           const draft = streamingDraftRef.current;
           updateStreamingDraft(null);
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === "streaming")) {
-              const draftContent = draft?.content ?? "";
-              if (!payload.message_id && !draftContent.trim()) {
-                return prev.filter((m) => m.id !== "streaming");
-              }
-              return prev.map((m) =>
-                m.id === "streaming"
-                  ? {
-                      ...m,
-                      id: finalId,
-                      content: draftContent || m.content,
-                      recalled,
-                      memory_hints,
-                      context_summarized,
-                      search_sources: search_sources ?? draft?.search_sources,
-                    }
-                  : m,
-              );
-            }
-            const next = [...prev];
-            for (let i = next.length - 1; i >= 0; i--) {
-              if (next[i].role === "assistant") {
-                next[i] = {
-                  ...next[i],
-                  id: finalId,
-                  // Prefer the server's final persisted content (stop case) over
-                  // the locally-frozen draft, which can be shorter than the DB.
-                  content: finalContent ?? next[i].content,
-                  recalled,
-                  memory_hints,
-                  context_summarized,
-                  search_sources,
-                };
-                break;
-              }
-            }
-            return next;
-          });
+          setMessages((prev) =>
+            mergeDoneIntoMessages(
+              prev,
+              buildDoneMergeInput(payload, draft),
+            ),
+          );
           if (!firstReplyRef.current) {
             firstReplyRef.current = true;
             onFirstReplyRef.current?.();

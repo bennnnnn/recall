@@ -119,28 +119,23 @@ export default function SettingsScreen() {
       return;
     }
     let cancelled = false;
-    Promise.all([
-      refreshUser(),
-      api.todayUsage(token),
-      api.listMemories(token),
-      api.googleCalendarStatus(token).catch(() => null),
-      api.googleGmailStatus(token).catch(() => null),
-    ])
-      .then(([, u, mems, calendar, gmail]) => {
-        if (cancelled) return;
-        setUsage(u);
-        setMemCount(mems.length);
-        setCalendarStatus(calendar);
-        setGmailStatus(gmail);
-        setBootstrapError(false);
-        setLoading(false);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setBootstrapError(true);
-          setLoading(false);
-        }
-      });
+    void (async () => {
+      const results = await Promise.allSettled([
+        refreshUser(),
+        api.todayUsage(token),
+        api.listMemories(token),
+        api.googleCalendarStatus(token),
+        api.googleGmailStatus(token),
+      ]);
+      if (cancelled) return;
+      const [, usageR, memsR, calendarR, gmailR] = results;
+      if (usageR.status === "fulfilled") setUsage(usageR.value);
+      if (memsR.status === "fulfilled") setMemCount(memsR.value.length);
+      if (calendarR.status === "fulfilled") setCalendarStatus(calendarR.value);
+      if (gmailR.status === "fulfilled") setGmailStatus(gmailR.value);
+      setBootstrapError(results[0].status === "rejected" && !user);
+      setLoading(false);
+    })();
     return () => {
       cancelled = true;
     };

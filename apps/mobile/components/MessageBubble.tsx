@@ -56,6 +56,7 @@ type Props = {
   quizDisabled?: boolean;
   quizLanguage?: string;
   quizSelectedLetter?: "A" | "B" | "C" | "D" | null;
+  highlighted?: boolean;
 };
 
 async function copyText(text: string) {
@@ -154,6 +155,7 @@ export const MessageBubble = React.memo(function MessageBubble({
   quizDisabled,
   quizLanguage = "en",
   quizSelectedLetter = null,
+  highlighted = false,
 }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
@@ -221,7 +223,7 @@ export const MessageBubble = React.memo(function MessageBubble({
   const collapseAssistant = shouldCollapseMessage(markdownContent);
 
   return (
-    <View style={[b.row, isUser ? b.userRow : b.assistantRow]}>
+    <View style={[b.row, isUser ? b.userRow : b.assistantRow, highlighted && b.rowHighlighted]}>
       {isUser ? (
         <View style={b.userColumn}>
           <UserMessageContent message={message} />
@@ -322,6 +324,12 @@ const a = StyleSheet.create({
 function makeStyles(t: Theme) {
   return StyleSheet.create({
     row: { marginVertical: 4, paddingHorizontal: 16 },
+    rowHighlighted: {
+      backgroundColor: t.primaryLight,
+      borderRadius: 12,
+      marginHorizontal: 8,
+      paddingHorizontal: 8,
+    },
     userRow: { alignItems: "flex-end" },
     userColumn: { alignItems: "flex-end", maxWidth: "88%" },
     editBtn: { marginTop: 2, marginRight: 4, padding: 4 },

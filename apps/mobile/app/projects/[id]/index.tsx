@@ -49,14 +49,17 @@ export default function ProjectDetailScreen() {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [project, setProject] = useState<ProjectDetail | null>(null);
 
   const load = useCallback(async () => {
     if (!token || typeof id !== "string") return;
+    setLoadError(false);
     try {
       setProject(await api.getProject(token, id));
     } catch {
       setProject(null);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -109,7 +112,14 @@ export default function ProjectDetailScreen() {
   if (!project) {
     return (
       <View style={s.center}>
-        <Text style={s.empty}>{t("projects.not_found")}</Text>
+        <Text style={s.empty}>
+          {loadError ? t("projects.load_failed") : t("projects.not_found")}
+        </Text>
+        {loadError ? (
+          <Pressable style={s.retryBtn} onPress={() => void load()}>
+            <Text style={s.retryText}>{t("common.retry")}</Text>
+          </Pressable>
+        ) : null}
       </View>
     );
   }
@@ -332,7 +342,15 @@ function makeStyles(theme: Theme) {
     root: { flex: 1, backgroundColor: theme.bg },
     center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.bg },
     content: { padding: 16, gap: 16, paddingBottom: 40 },
-    empty: { fontSize: 15, color: theme.textSecondary },
+    empty: { fontSize: 15, color: theme.textSecondary, textAlign: "center", paddingHorizontal: 24 },
+    retryBtn: {
+      marginTop: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 999,
+      backgroundColor: theme.primaryLight,
+    },
+    retryText: { fontSize: 14, fontWeight: "600", color: theme.primary },
     hero: { gap: 8 },
     badgeRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     badge: {

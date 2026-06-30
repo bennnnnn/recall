@@ -1,10 +1,10 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
 import { ProjectPosGroupItems } from "@/components/ProjectPosGroupSection";
-import { C } from "@/constants/Colors";
+import { Theme, useTheme } from "@/lib/theme";
 import type { ProjectItem, ProjectPosGroupSummary } from "@/lib/api";
 import { partOfSpeechLabel } from "@/lib/languageLevels";
 
@@ -25,6 +25,8 @@ function groupMeta(group: ProjectPosGroupSummary): string {
 
 export function ProjectPosGroupList({ token, projectId, groups, itemsByPos }: Props) {
   const { t } = useTranslation();
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
   const warnedSpeech = useRef(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
@@ -64,7 +66,7 @@ export function ProjectPosGroupList({ token, projectId, groups, itemsByPos }: Pr
               <Ionicons
                 name={open ? "chevron-up" : "chevron-down"}
                 size={18}
-                color={C.textTertiary}
+                color={theme.textTertiary}
               />
             </Pressable>
             {open ? (
@@ -85,28 +87,30 @@ export function ProjectPosGroupList({ token, projectId, groups, itemsByPos }: Pr
   );
 }
 
-const s = StyleSheet.create({
-  wrap: { gap: 10 },
-  label: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: C.textTertiary,
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-  },
-  topicCard: {
-    backgroundColor: C.surface,
-    borderRadius: 16,
-    overflow: "hidden",
-  },
-  topicHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    padding: 14,
-  },
-  topicHeaderMain: { flex: 1, gap: 4 },
-  topicTitle: { fontSize: 16, fontWeight: "700", color: C.text },
-  topicMeta: { fontSize: 13, color: C.textSecondary },
-  topicBody: { paddingHorizontal: 14, paddingBottom: 14 },
-});
+function makeStyles(theme: Theme) {
+  return StyleSheet.create({
+    wrap: { gap: 10 },
+    label: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: theme.textTertiary,
+      textTransform: "uppercase",
+      letterSpacing: 0.6,
+    },
+    topicCard: {
+      backgroundColor: theme.surface,
+      borderRadius: 16,
+      overflow: "hidden",
+    },
+    topicHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      padding: 14,
+    },
+    topicHeaderMain: { flex: 1, gap: 4 },
+    topicTitle: { fontSize: 16, fontWeight: "700", color: theme.text },
+    topicMeta: { fontSize: 13, color: theme.textSecondary },
+    topicBody: { paddingHorizontal: 14, paddingBottom: 14 },
+  });
+}

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
+  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -18,15 +18,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { api, Memory } from "@/lib/api";
 import { Theme, useTheme } from "@/lib/theme";
 
-const TYPE_LABEL: Record<string, string> = {
-  profile: "👤 Profile",
-  preference: "⭐ Preferences",
-  project: "🗂 Learning",
-  fact: "📌 Facts",
-  focus: "🎯 Focus",
-};
 const TYPE_ORDER = ["profile", "preference", "project", "fact", "focus"];
 const COLLAPSED_LINES = 3;
+
+function memoryTypeLabel(type: string, t: (key: string) => string): string {
+  const key = `memory.type.${type}`;
+  const label = t(key);
+  return label === key ? type : label;
+}
 
 function sectionNeedsCollapse(text: string): boolean {
   return text.trim().length > 120 || text.trim().split(/\n/).length > COLLAPSED_LINES;
@@ -61,7 +60,7 @@ function MemorySectionCard({
           onPress={collapsible ? onToggle : undefined}
           disabled={!collapsible}
         >
-          <Text style={s.groupTitle}>{TYPE_LABEL[section.type] ?? section.type}</Text>
+          <Text style={s.groupTitle}>{memoryTypeLabel(section.type, t)}</Text>
           {collapsible ? (
             <Ionicons
               name={expanded ? "chevron-up" : "chevron-down"}
@@ -91,7 +90,11 @@ function MemorySectionCard({
           </Text>
         ) : null}
         {section.confidence != null ? (
-          <Text style={s.conf}>{Math.round(section.confidence * 100)}% confident</Text>
+          <Text style={s.conf}>
+            {t("memory.confidence", {
+              percent: Math.round(section.confidence * 100),
+            })}
+          </Text>
         ) : null}
       </Pressable>
     </View>
@@ -217,15 +220,34 @@ export default function MemoryScreen() {
           onToggle={() => toggleSection(section.type)}
           styles={s}
           theme={theme}
-          onDelete={async () => {
+          onDelete={() => {
             if (!token) return;
-            await api.deleteMemorySection(token, section.type);
-            setMemories((prev) => prev.filter((item) => item.type !== section.type));
-            setExpandedTypes((prev) => {
-              const next = new Set(prev);
-              next.delete(section.type);
-              return next;
-            });
+            Alert.alert(
+              t("memory.delete_confirm_title"),
+              t("memory.delete_confirm_body"),
+              [
+                { text: t("common.cancel"), style: "cancel" },
+                {
+                  text: t("common.delete"),
+                  style: "destructive",
+                  onPress: async () => {
+                    try {
+                      await api.deleteMemorySection(token, section.type);
+                      setMemories((prev) =>
+                        prev.filter((item) => item.type !== section.type),
+                      );
+                      setExpandedTypes((prev) => {
+                        const next = new Set(prev);
+                        next.delete(section.type);
+                        return next;
+                      });
+                    } catch {
+                      Alert.alert(t("common.error"), t("memory.delete_failed"));
+                    }
+                  },
+                },
+              ],
+            );
           }}
         />
       ))}

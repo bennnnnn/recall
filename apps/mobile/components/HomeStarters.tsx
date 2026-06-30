@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -7,13 +7,14 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { useTodos } from "@/contexts/TodosContext";
-import { type HomeUrgentTodo, type HomeProjectHighlight, type HomeStarter } from "@/lib/api";
+import { api, type HomeUrgentTodo, type HomeProjectHighlight, type HomeStarter } from "@/lib/api";
 import { describeDueAt } from "@/lib/dueDate";
 import { homeUrgentPrompt, homeUrgentSubtitle, listHomeUrgentTodos, partitionHomeUrgentTodos } from "@/lib/homeUrgentTodos";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
   onSelect: (prompt: string) => void;
+  onOpenTemplates?: () => void;
 };
 
 function starterIcon(kind: HomeStarter["kind"]): keyof typeof Ionicons.glyphMap {
@@ -122,14 +123,33 @@ function UrgentTodoSection({
   );
 }
 
-export function HomeStarters({ onSelect }: Props) {
+export function HomeStarters({ onSelect, onOpenTemplates }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const { token, user } = useAuth();
   const { screen, loading } = useHome();
   const { todos, loading: todosLoading, seenReminderIds, dismissReminderNudge } = useTodos();
-  const { user } = useAuth();
+  const [dismissedStarterKeys, setDismissedStarterKeys] = useState<Set<string>>(
+    () => new Set(),
+  );
   const leadMinutes = user?.reminder_lead_minutes ?? undefined;
+
+  const dismissStarter = async (starter: HomeStarter) => {
+    const key = starter.id ?? starter.prompt;
+    setDismissedStarterKeys((prev) => new Set(prev).add(key));
+    if (starter.id && token) {
+      try {
+        await api.dismissSuggestion(token, starter.id);
+      } catch {
+        setDismissedStarterKeys((prev) => {
+          const next = new Set(prev);
+          next.delete(key);
+          return next;
+        });
+      }
+    }
+  };
 
   const urgentTodos = useMemo(() => {
     const raw =
@@ -173,7 +193,9 @@ export function HomeStarters({ onSelect }: Props) {
     );
   }
 
-  const chips = screen.starters.filter((starter) => starter.kind !== "todo");
+  const chips = screen.starters
+    .filter((starter) => starter.kind !== "todo")
+    .filter((starter) => !dismissedStarterKeys.has(starter.id ?? starter.prompt));
 
   return (
     <View style={s.wrap}>
@@ -214,6 +236,8 @@ export function HomeStarters({ onSelect }: Props) {
                 key={`${starter.kind}-${index}-${starter.text}`}
                 style={s.chip}
                 onPress={() => onSelect(starter.prompt)}
+                onLongPress={() => void dismissStarter(starter)}
+                accessibilityHint={t("chat.home.dismiss_suggestion")}
               >
                 <Ionicons
                   name={starterIcon(starter.kind)}
@@ -227,6 +251,13 @@ export function HomeStarters({ onSelect }: Props) {
             ))}
           </View>
         </View>
+      ) : null}
+
+      {onOpenTemplates ? (
+        <Pressable style={s.templatesLink} onPress={onOpenTemplates}>
+          <Ionicons name="document-text-outline" size={16} color={theme.primary} />
+          <Text style={s.templatesLinkText}>{t("chat.templates")}</Text>
+        </Pressable>
       ) : null}
     </View>
   );
@@ -333,5 +364,13 @@ function makeStyles(t: Theme) {
       maxWidth: "100%",
     },
     chipText: { fontSize: 14, fontWeight: "600", color: t.text },
+    templatesLink: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      alignSelf: "center",
+      paddingVertical: 8,
+    },
+    templatesLinkText: { fontSize: 14, fontWeight: "600", color: t.primary },
   });
 }

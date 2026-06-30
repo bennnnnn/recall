@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-import { C } from "@/constants/Colors";
+import { Theme, useTheme } from "@/lib/theme";
 import { api, type ProjectItem, type ProjectPosGroupSummary } from "@/lib/api";
-import { partOfSpeechLabel, statusLabel } from "@/lib/languageLevels";
+import { statusLabel } from "@/lib/languageLevels";
 import { speakWord } from "@/lib/pronunciation";
 
 type Props = {
@@ -21,10 +21,10 @@ function statusIcon(item: ProjectItem): keyof typeof Ionicons.glyphMap {
   return "ellipse-outline";
 }
 
-function statusColor(item: ProjectItem): string {
-  if (item.status === "mastered" || item.mastered) return C.primary;
+function statusColor(item: ProjectItem, theme: Theme): string {
+  if (item.status === "mastered" || item.mastered) return theme.primary;
   if (item.status === "learning") return "#FF9F0A";
-  return C.textTertiary;
+  return theme.textTertiary;
 }
 
 export function ProjectPosGroupItems({
@@ -34,6 +34,8 @@ export function ProjectPosGroupItems({
   initialItems,
   onSpeechUnavailable,
 }: Props) {
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
   const [loading, setLoading] = useState(!initialItems);
   const [items, setItems] = useState<ProjectItem[]>(initialItems ?? []);
 
@@ -61,7 +63,7 @@ export function ProjectPosGroupItems({
   }, [initialItems, loadItems]);
 
   if (loading) {
-    return <ActivityIndicator color={C.primary} style={s.loader} />;
+    return <ActivityIndicator color={theme.primary} style={s.loader} />;
   }
 
   if (items.length === 0) {
@@ -72,7 +74,7 @@ export function ProjectPosGroupItems({
     <View style={s.items}>
       {items.map((item) => (
         <View key={item.id} style={s.itemRow}>
-          <Ionicons name={statusIcon(item)} size={20} color={statusColor(item)} />
+          <Ionicons name={statusIcon(item)} size={20} color={statusColor(item, theme)} />
           <View style={s.itemMain}>
             <View style={s.itemTop}>
               <Text style={[s.itemContent, item.mastered && s.itemMastered]}>
@@ -90,7 +92,7 @@ export function ProjectPosGroupItems({
                   }
                 }}
               >
-                <Ionicons name="volume-medium-outline" size={18} color={C.primary} />
+                <Ionicons name="volume-medium-outline" size={18} color={theme.primary} />
               </Pressable>
             </View>
             {item.definition ? <Text style={s.itemDef}>{item.definition}</Text> : null}
@@ -105,21 +107,23 @@ export function ProjectPosGroupItems({
   );
 }
 
-const s = StyleSheet.create({
-  loader: { paddingVertical: 16 },
-  empty: { fontSize: 14, color: C.textSecondary, paddingVertical: 8 },
-  items: { gap: 10 },
-  itemRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
-  itemMain: { flex: 1, gap: 2 },
-  itemTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-  itemContent: { fontSize: 16, fontWeight: "700", color: C.text, flex: 1 },
-  itemMastered: { color: C.textSecondary, textDecorationLine: "line-through" },
-  itemDef: { fontSize: 14, color: C.textSecondary },
-  itemNote: { fontSize: 13, lineHeight: 18, color: C.textSecondary, fontStyle: "italic" },
-  itemMeta: { fontSize: 11, fontWeight: "600", color: C.textTertiary, marginTop: 2 },
-});
+function makeStyles(theme: Theme) {
+  return StyleSheet.create({
+    loader: { paddingVertical: 16 },
+    empty: { fontSize: 14, color: theme.textSecondary, paddingVertical: 8 },
+    items: { gap: 10 },
+    itemRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+    itemMain: { flex: 1, gap: 2 },
+    itemTop: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 8,
+    },
+    itemContent: { fontSize: 16, fontWeight: "700", color: theme.text, flex: 1 },
+    itemMastered: { color: theme.textSecondary, textDecorationLine: "line-through" },
+    itemDef: { fontSize: 14, color: theme.textSecondary },
+    itemNote: { fontSize: 13, lineHeight: 18, color: theme.textSecondary, fontStyle: "italic" },
+    itemMeta: { fontSize: 11, fontWeight: "600", color: theme.textTertiary, marginTop: 2 },
+  });
+}

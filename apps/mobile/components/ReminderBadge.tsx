@@ -1,6 +1,7 @@
+import { useMemo } from "react";
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 
-import { C } from "@/constants/Colors";
+import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
   count: number;
@@ -8,6 +9,8 @@ type Props = {
 };
 
 export function ReminderBadge({ count, style }: Props) {
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
   if (count <= 0) return null;
   const label = count > 99 ? "99+" : String(count);
   return (
@@ -17,22 +20,24 @@ export function ReminderBadge({ count, style }: Props) {
   );
 }
 
-const s = StyleSheet.create({
-  badge: {
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    paddingHorizontal: 5,
-    backgroundColor: "#e74c3c",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1.5,
-    borderColor: C.surface,
-  },
-  text: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#fff",
-    lineHeight: 13,
-  },
-});
+function makeStyles(theme: Theme) {
+  return StyleSheet.create({
+    badge: {
+      minWidth: 18,
+      height: 18,
+      borderRadius: 9,
+      paddingHorizontal: 5,
+      backgroundColor: "#e74c3c",
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1.5,
+      borderColor: theme.surface,
+    },
+    text: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: "#fff",
+      lineHeight: 13,
+    },
+  });
+}

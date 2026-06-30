@@ -28,53 +28,18 @@ import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
 import { api, Chat, SearchResult } from "@/lib/api";
 import { tap } from "@/lib/haptics";
 import { scheduleIdleTask } from "@/lib/scheduleIdle";
-import { displayChatTitle, sanitizeManualChatTitle } from "@/lib/chatTitle";
+import { DrawerSearchResults } from "@/components/drawer/DrawerSearchResults";
+import {
+  ConversationRow,
+  makeConversationRowStyles,
+} from "@/components/drawer/ConversationRow";
+import { sanitizeManualChatTitle } from "@/lib/chatTitle";
 import { shareConversation } from "@/lib/share";
 
 const TOP_CHROME = 58;
 const FOOTER_CHROME = 54;
 const FADE_EXTRA = 40;
 const CHAT_LIST_STALE_MS = 20_000;
-
-function ChatRow({
-  chat,
-  onOpen,
-  onLongPress,
-  highlighted = false,
-  titleGenerating = false,
-  rowStyles: r,
-}: {
-  chat: Chat;
-  onOpen: () => void;
-  onLongPress: () => void;
-  highlighted?: boolean;
-  titleGenerating?: boolean;
-  rowStyles: ReturnType<typeof makeRowStyles>;
-}) {
-  const { t } = useTranslation();
-  const theme = useTheme();
-  const label = displayChatTitle(chat.title, { generating: titleGenerating }, t);
-  return (
-    <Pressable
-      style={[r.row, highlighted && r.rowHighlighted]}
-      onPress={onOpen}
-      onLongPress={onLongPress}
-    >
-      <Ionicons
-        name={chat.pinned ? "bookmark" : "chatbubble-outline"}
-        size={16}
-        color={chat.pinned ? theme.primary : theme.textTertiary}
-        style={r.rowIcon}
-      />
-      <Text
-        style={[r.title, titleGenerating && !chat.title && r.titlePending]}
-        numberOfLines={1}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
 
 function Section({
   title,
@@ -90,7 +55,7 @@ function Section({
   onOpen: (id: string) => void;
   onLongPress: (chat: Chat) => void;
   highlightedIds?: Set<string>;
-  rowStyles: ReturnType<typeof makeRowStyles>;
+  rowStyles: ReturnType<typeof makeConversationRowStyles>;
   sectionStyles: ReturnType<typeof makeStyles>;
 }) {
   if (!chats.length) return null;
@@ -98,7 +63,7 @@ function Section({
     <View style={sectionStyles.section}>
       {title ? <Text style={sectionStyles.sectionTitle}>{title}</Text> : null}
       {chats.map((c) => (
-        <ChatRow
+        <ConversationRow
           key={c.id}
           chat={c}
           rowStyles={rowStyles}
@@ -118,7 +83,7 @@ export function ConversationList(_props: unknown) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const rowStyles = useMemo(() => makeRowStyles(theme), [theme]);
+  const rowStyles = useMemo(() => makeConversationRowStyles(theme), [theme]);
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -441,9 +406,13 @@ export function ConversationList(_props: unknown) {
     };
   }, []);
 
-  const openChat = (id: string) => {
+  const openChat = (id: string, messageId?: string | null) => {
     closeDrawer();
-    router.setParams({ chatId: id });
+    closeSearch();
+    router.setParams({
+      chatId: id,
+      ...(messageId ? { highlightMessage: messageId } : { highlightMessage: undefined }),
+    });
   };
 
   const newChat = () => {
@@ -594,55 +563,13 @@ export function ConversationList(_props: unknown) {
     );
 
   const searchSection = searchOpen ? (
-    <View style={s.section}>
-      <Text style={s.sectionTitle}>{t("search.results")}</Text>
-      {!hasSearchQuery ? (
-        <Text style={s.searchHint}>{t("search.empty")}</Text>
-      ) : searchLoading ? (
-        <View style={s.searchStatus}>
-          <ActivityIndicator size="small" color={theme.primary} />
-        </View>
-      ) : searchError ? (
-        <Text style={s.searchHint}>{t("common.error")}</Text>
-      ) : searchResults.length === 0 ? (
-        <Text style={s.searchHint}>{t("search.no_results")}</Text>
-      ) : (
-        searchResults.map((result) => (
-          <Pressable
-            key={
-              result.message_id
-                ? result.message_id
-                : `title-${result.chat_id}`
-            }
-            style={s.searchResult}
-            onPress={() => openChat(result.chat_id)}
-          >
-            <View style={s.searchResultHeader}>
-              <Ionicons
-                name={
-                  result.match_type === "title"
-                    ? "chatbubble-outline"
-                    : result.role === "user"
-                      ? "person-outline"
-                      : "sparkles-outline"
-                }
-                size={14}
-                color={result.match_type === "title" ? theme.primary : theme.textSecondary}
-              />
-              <Text style={s.searchResultTitle} numberOfLines={1}>
-                {displayChatTitle(result.chat_title, {}, t)}
-              </Text>
-              {result.match_type === "title" ? (
-                <Text style={s.searchResultBadge}>{t("search.topic_match")}</Text>
-              ) : null}
-            </View>
-            <Text style={s.searchResultSnippet} numberOfLines={2}>
-              {result.content}
-            </Text>
-          </Pressable>
-        ))
-      )}
-    </View>
+    <DrawerSearchResults
+      hasSearchQuery={hasSearchQuery}
+      searchLoading={searchLoading}
+      searchError={searchError}
+      searchResults={searchResults}
+      onOpenChat={openChat}
+    />
   ) : null;
 
   const listBody = (
@@ -829,27 +756,6 @@ export function ConversationList(_props: unknown) {
       </View>
     </View>
   );
-}
-
-function makeRowStyles(theme: Theme) {
-  return StyleSheet.create({
-    row: {
-      flexDirection: "row",
-      alignItems: "center",
-      paddingVertical: 9,
-      paddingHorizontal: 14,
-      gap: 10,
-    },
-    rowIcon: { flexShrink: 0 },
-    title: { flex: 1, fontSize: 14, fontWeight: "500", color: theme.text },
-    titlePending: { color: theme.textTertiary, fontStyle: "italic" },
-    rowHighlighted: {
-      backgroundColor: theme.primaryLight,
-      borderRadius: 10,
-      marginHorizontal: 6,
-      paddingHorizontal: 8,
-    },
-  });
 }
 
 function makeStyles(theme: Theme) {
