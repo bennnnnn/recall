@@ -1,7 +1,8 @@
 import { useMemo } from "react";
-import { StyleSheet, Text } from "react-native";
+import { StyleSheet } from "react-native";
 
 import { CardShell } from "@/components/rich/CardShell";
+import { RichBodyText } from "@/components/rich/RichBodyText";
 import { CalloutKind } from "@/lib/richBlocks";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -51,9 +52,9 @@ export function CalloutBlock({ kind, content }: Props) {
       accentColor={meta.color}
       iconColor={meta.color}
     >
-      <Text style={s.body} selectable>
+      <RichBodyText style={s.body} selectable>
         {body}
-      </Text>
+      </RichBodyText>
     </CardShell>
   );
 }

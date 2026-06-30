@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import { RichBodyText } from "@/components/rich/RichBodyText";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = { quote: string; author?: string };
@@ -18,9 +19,9 @@ export function QuoteBlock({ quote, author }: Props) {
         color={theme.textTertiary}
         style={s.icon}
       />
-      <Text style={s.quote} selectable>
+      <RichBodyText style={s.quote} selectable>
         {quote}
-      </Text>
+      </RichBodyText>
       {author ? <Text style={s.author}>— {author}</Text> : null}
     </View>
   );

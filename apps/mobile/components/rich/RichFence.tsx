@@ -14,6 +14,7 @@ import { KeyValueBlock } from "@/components/rich/KeyValueBlock";
 import { MathBlock } from "@/components/rich/MathView";
 import { MermaidBlock } from "@/components/rich/MermaidBlock";
 import { MessagePreview } from "@/components/rich/MessagePreview";
+import { QuoteBlock } from "@/components/rich/QuoteBlock";
 import { SocialPostCard } from "@/components/rich/SocialPostCard";
 import { StepList } from "@/components/rich/StepList";
 import {
@@ -29,6 +30,7 @@ import {
   parseComparison,
   parseEmailDraft,
   parseKeyValue,
+  parseQuoteAttribution,
   parseSocialPlatform,
   parseSteps,
 } from "@/lib/richBlocks";
@@ -55,6 +57,12 @@ export function renderRichFence(
   if (l === "email") {
     const draft = parseEmailDraft(content) ?? { body: content };
     return <EmailCard key={key} draft={draft} />;
+  }
+
+  if (l === "quote" || l === "blockquote") {
+    const { quote, author } = parseQuoteAttribution(content);
+    if (!quote) return null;
+    return <QuoteBlock key={key} quote={quote} author={author} />;
   }
 
   if (isMessageLang(l)) {

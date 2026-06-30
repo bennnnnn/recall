@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
+import { RichBodyText } from "@/components/rich/RichBodyText";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = { steps: string[] };
@@ -16,9 +17,9 @@ export function StepList({ steps }: Props) {
           <View style={s.badge}>
             <Text style={s.badgeText}>{index + 1}</Text>
           </View>
-          <Text style={s.text} selectable>
+          <RichBodyText style={s.text} selectable>
             {step}
-          </Text>
+          </RichBodyText>
         </View>
       ))}
     </View>

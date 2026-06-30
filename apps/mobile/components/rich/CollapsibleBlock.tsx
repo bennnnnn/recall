@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import { RichBodyText } from "@/components/rich/RichBodyText";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = { title: string; body: string };
@@ -23,9 +24,9 @@ export function CollapsibleBlock({ title, body }: Props) {
       </Pressable>
       {open ? (
         <View style={s.bodyWrap}>
-          <Text style={s.body} selectable>
+          <RichBodyText style={s.body} selectable>
             {body}
-          </Text>
+          </RichBodyText>
         </View>
       ) : null}
     </View>

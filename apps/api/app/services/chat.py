@@ -222,6 +222,8 @@ VISUALIZATION_HINTS = (
     "**Graphs** (```graph) — JSON spec with expr + points for y=f(x) plots.\n\n"
     "**Places** (```places) — JSON array of {name, url, note?, address?, price?} for local "
     "venue recommendations (restaurants, salons, etc.).\n\n"
+    "**Quotes** (```quote) — A notable quote with optional attribution on the last line as "
+    "“— Author”. Use for pull-quotes; plain `>` blockquotes also work.\n\n"
     "For uploaded images, describe or answer about what you see — do not redraw them in HTML."
 )
 
