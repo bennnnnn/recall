@@ -1,7 +1,7 @@
 import json
 import logging
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Any, get_args, get_origin
 
 from litellm import acompletion
 from pydantic import BaseModel
@@ -110,6 +110,15 @@ async def stream_chat_completion(
         raise ModelUnavailableError("Model unavailable. Check API keys and try again.") from exc
 
 
+def _list_field_name(schema: type[BaseModel]) -> str | None:
+    """Name of the schema's first list-typed field, if any (for bare-list wrapping)."""
+    for name, field in schema.model_fields.items():
+        ann = field.annotation
+        if get_origin(ann) is list or any(get_origin(a) is list for a in get_args(ann)):
+            return name
+    return None
+
+
 async def complete_structured[T: BaseModel](
     *,
     settings: Settings,
@@ -138,6 +147,18 @@ async def complete_structured[T: BaseModel](
             if raw.startswith("json"):
                 raw = raw[4:]
         data = json.loads(raw.strip())
+        # Models occasionally return a bare array for a single-list schema
+        # (e.g. `[]` for TodoExtractionResult.actions). Wrap it under the
+        # schema's list field so it validates instead of raising.
+        if isinstance(data, list):
+            list_field = _list_field_name(schema)
+            if list_field is None:
+                logger.debug(
+                    "Structured completion: bare list returned for %s with no list field",
+                    schema.__name__,
+                )
+                return None
+            data = {list_field: data}
         return schema.model_validate(data)
     except Exception:
         logger.exception("LiteLLM structured completion failed for alias=%s", model_alias)

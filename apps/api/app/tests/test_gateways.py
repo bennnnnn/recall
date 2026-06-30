@@ -1,10 +1,12 @@
 """Tests for gateways: google_auth, mock_llm."""
 
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
 
 from app.core.config import Settings
+from app.gateways import litellm_gateway
 from app.gateways.google_auth import (
     GoogleAuthError,
     create_access_token,
@@ -16,6 +18,7 @@ from app.gateways.mock_llm import (
     mock_title,
     should_mock_llm,
 )
+from app.models.schemas import TodoExtractionResult
 
 # ── mock_llm ───────────────────────────────────────────────────────────────────
 
@@ -58,6 +61,75 @@ async def test_mock_title_empty():
 async def test_mock_memory_sections_short_message():
     result = await mock_memory_sections("hi", {})
     assert result is None
+
+
+# ── complete_structured: bare-list wrapping ───────────────────────────────────
+
+
+def _fake_completion(content: str):
+    """A fake litellm acompletion response whose message.content is `content`."""
+    msg = MagicMock()
+    msg.content = content
+    choice = MagicMock()
+    choice.message = msg
+    resp = MagicMock()
+    resp.choices = [choice]
+    return resp
+
+
+@pytest.mark.asyncio
+async def test_complete_structured_wraps_bare_empty_list():
+    """Model returning `[]` for a single-list schema should validate to an empty
+    result, not raise (regression for the noisy todo-extraction traceback)."""
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    with patch.object(
+        litellm_gateway, "acompletion", AsyncMock(return_value=_fake_completion("[]"))
+    ):
+        result = await litellm_gateway.complete_structured(
+            settings=settings,
+            model_alias="memory-model",
+            messages=[{"role": "user", "content": "x"}],
+            schema=TodoExtractionResult,
+        )
+    assert result is not None
+    assert isinstance(result, TodoExtractionResult)
+    assert result.actions == []
+
+
+@pytest.mark.asyncio
+async def test_complete_structured_wraps_bare_list_with_items():
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    payload = '[{"action": "add", "topic": "Shopping", "content": "Buy milk"}]'
+    with patch.object(
+        litellm_gateway, "acompletion", AsyncMock(return_value=_fake_completion(payload))
+    ):
+        result = await litellm_gateway.complete_structured(
+            settings=settings,
+            model_alias="memory-model",
+            messages=[{"role": "user", "content": "x"}],
+            schema=TodoExtractionResult,
+        )
+    assert result is not None
+    assert len(result.actions) == 1
+    assert result.actions[0].content == "Buy milk"
+    assert result.actions[0].topic == "Shopping"
+
+
+@pytest.mark.asyncio
+async def test_complete_structured_accepts_object_form():
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    payload = '{"actions": []}'
+    with patch.object(
+        litellm_gateway, "acompletion", AsyncMock(return_value=_fake_completion(payload))
+    ):
+        result = await litellm_gateway.complete_structured(
+            settings=settings,
+            model_alias="memory-model",
+            messages=[{"role": "user", "content": "x"}],
+            schema=TodoExtractionResult,
+        )
+    assert result is not None
+    assert result.actions == []
 
 
 @pytest.mark.asyncio
