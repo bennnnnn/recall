@@ -45,6 +45,7 @@ class Settings(BaseSettings):
 
     push_enabled: bool = True
     push_learning_hour: int = 9
+    server_todo_push_enabled: bool = False  # local notifications handle todo reminders
 
     revenuecat_secret_key: str = ""
     revenuecat_webhook_auth: str = ""

@@ -142,7 +142,12 @@ async def test_process_learning_nudges_respects_daily_dedup():
 async def test_run_push_cycle_skips_expo_in_dev_mock():
     session = AsyncMock()
     redis = AsyncMock()
-    settings = Settings(mock_llm_enabled=True, environment="development", push_enabled=True)
+    settings = Settings(
+        mock_llm_enabled=True,
+        environment="development",
+        push_enabled=True,
+        server_todo_push_enabled=True,
+    )
 
     with (
         patch.object(

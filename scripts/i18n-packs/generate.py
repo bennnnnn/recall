@@ -1036,12 +1036,20 @@ def validate(en: dict[str, str], translated: dict[str, str], lang: str) -> None:
 
 def main() -> None:
     en = json.loads(EN_PATH.read_text())
+    # Regenerate from inline translations.
     for lang in ("es", "fr", "de", "it"):
         pack = merge_lang(lang, en)
         validate(en, pack, lang)
         out_path = OUT_DIR / f"{lang}.json"
         out_path.write_text(json.dumps(pack, ensure_ascii=False, indent=2) + "\n")
         print(f"{lang}.json: {len(pack)} keys")
+    # Validate existing packs for locales without inline translations.
+    for lang in ("pt", "ru", "tr", "am"):
+        pack_path = OUT_DIR / f"{lang}.json"
+        if pack_path.exists():
+            pack = json.loads(pack_path.read_text())
+            validate(en, pack, lang)
+            print(f"{lang}.json: validated {len(pack)} keys (existing pack)")
 
 
 if __name__ == "__main__":
