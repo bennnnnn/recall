@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -131,6 +132,7 @@ export function ConversationList(_props: unknown) {
   }>({ pinned: [], today: [], yesterday: [], earlier: [], archived: [] });
   const [archivedExpanded, setArchivedExpanded] = useState(false);
   const [error, setError] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const lastFetchedRef = useRef(0);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -199,6 +201,16 @@ export function ConversationList(_props: unknown) {
     },
     [token],
   );
+
+  const handleRefresh = useCallback(async () => {
+    if (!token) return;
+    setRefreshing(true);
+    try {
+      await load(false);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [token, load]);
 
   useEffect(() => {
     load(false);
@@ -642,6 +654,14 @@ export function ConversationList(_props: unknown) {
         paddingBottom: bottomInset,
       }}
       keyboardShouldPersistTaps="handled"
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          colors={[theme.primary]}
+          tintColor={theme.primary}
+        />
+      }
     >
       {drawerNav}
       {loading && allChats.length === 0 && !searchOpen ? (
