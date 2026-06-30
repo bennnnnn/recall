@@ -637,6 +637,34 @@ export default function SettingsScreen() {
         </Pressable>
       </Section>
 
+      {/* Location */}
+      <Section label={t("settings.location")} styles={s}>
+        <Pressable
+          style={s.dropdown}
+          disabled={saving}
+          onPress={() => {
+            Alert.prompt(
+              t("settings.location_prompt_title"),
+              t("settings.location_desc"),
+              async (value) => {
+                const loc = (value ?? "").trim();
+                await patch({ location: loc });
+              },
+              "default",
+              user?.location ?? "",
+            );
+          }}
+        >
+          <Text style={s.dropdownText}>
+            {user?.location && user.location.trim()
+              ? user.location.trim()
+              : t("settings.location_not_set")}
+          </Text>
+          <Ionicons name="chevron-down" size={18} color={theme.textSecondary} />
+        </Pressable>
+        <Text style={s.meta}>{t("settings.location_desc")}</Text>
+      </Section>
+
       {/* Memory */}
       <Section label={t("settings.memory")} styles={s}>
         <View style={s.row}>
