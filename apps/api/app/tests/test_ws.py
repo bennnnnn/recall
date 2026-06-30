@@ -318,3 +318,54 @@ def test_ws_user_not_found_sends_error():
             err = ws.receive_json()
             assert err["type"] == "error"
             assert "User not found" in err["message"]
+
+
+def test_ws_edit_message():
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+    message_id = uuid4()
+
+    async def fake_edit(*args, **kwargs):
+        yield "Edited"
+
+    app = _app(user)
+
+    with (
+        patch("app.routers.ws.decode_access_token", return_value=user.id),
+        patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
+        patch("app.routers.ws.chat_service.stream_edit_response", fake_edit),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json(
+                {
+                    "type": "edit",
+                    "message_id": str(message_id),
+                    "content": "updated text",
+                }
+            )
+            assert ws.receive_json()["type"] == "start"
+            assert ws.receive_json()["content"] == "Edited"
+            assert ws.receive_json()["type"] == "stream_end"
+            assert ws.receive_json()["type"] == "done"
+
+
+def test_ws_edit_invalid_payload():
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+    app = _app(user)
+
+    with (
+        patch("app.routers.ws.decode_access_token", return_value=user.id),
+        patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "edit", "content": "missing message id"})
+            err = ws.receive_json()
+            assert err["type"] == "error"
+            assert "Invalid edit" in err["message"]

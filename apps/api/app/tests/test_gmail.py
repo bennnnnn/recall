@@ -288,3 +288,60 @@ def test_format_gmail_block_fetch_error():
         fetch_error="token expired",
     )
     assert "token expired" in block
+
+
+@pytest.mark.asyncio
+async def test_sync_gmail_processes_messages():
+    from app.gateways.google_gmail_gateway import GmailMessage
+    from app.services import email as email_service
+
+    session = MagicMock()
+    settings = Settings()
+    user_id = uuid4()
+    conn = MagicMock()
+    conn.refresh_token = "refresh"
+    conn.google_email = "me@example.com"
+
+    message = GmailMessage(
+        id="g1",
+        subject="Flight",
+        snippet="Your flight",
+        body_text="",
+        received_at=None,
+        ics_content="SUMMARY:Flight AA123\nDTSTART:20260701T080000Z",
+    )
+    created_row = MagicMock()
+
+    with (
+        patch(
+            "app.services.email.gmail_gateway.is_configured",
+            return_value=True,
+        ),
+        patch(
+            "app.services.email.gmail_repo.get_for_user",
+            AsyncMock(return_value=conn),
+        ),
+        patch(
+            "app.services.email.gmail_gateway.list_recent_messages",
+            AsyncMock(return_value=[message]),
+        ),
+        patch(
+            "app.services.email.suggested_repo.get_by_message_id",
+            AsyncMock(side_effect=[None, None, created_row]),
+        ),
+        patch(
+            "app.services.email.suggested_repo.create",
+            AsyncMock(return_value=created_row),
+        ) as create_mock,
+        patch(
+            "app.services.email.gmail_repo.update_last_sync",
+            AsyncMock(),
+        ),
+    ):
+        message_count, reminders_created = await email_service.sync_gmail_for_user(
+            session, settings, user_id
+        )
+
+    assert message_count == 1
+    assert reminders_created == 1
+    create_mock.assert_awaited_once()

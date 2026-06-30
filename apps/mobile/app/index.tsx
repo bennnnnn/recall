@@ -20,7 +20,6 @@ import {
   composerAttachmentExtra,
 } from "@/components/chat/ChatComposer";
 import { ChatMessageList } from "@/components/chat/ChatMessageList";
-import { ChatMessageRow } from "@/components/chat/ChatMessageRow";
 import { ChatScrollFab } from "@/components/chat/ChatScrollFab";
 import { ComposerPickerBackdrop } from "@/components/chat/ComposerPickerBackdrop";
 import { TemplatesSheet } from "@/components/TemplatesSheet";
@@ -33,20 +32,18 @@ import { useDrawer } from "@/contexts/DrawerContext";
 import { useChat } from "@/hooks/useChat";
 import { useChatActions } from "@/hooks/useChatActions";
 import { useChatComposerState } from "@/hooks/useChatComposerState";
+import { useChatDraftWarmup } from "@/hooks/useChatDraftWarmup";
 import { useChatLayoutMetrics } from "@/hooks/useChatLayoutMetrics";
+import { useChatMessageList } from "@/hooks/useChatMessageList";
 import { useChatRouteLoader, useQueuedChatLaunch } from "@/hooks/useChatRouteLoader";
 import { useChatScroll } from "@/hooks/useChatScroll";
 import { useChatSend } from "@/hooks/useChatSend";
 import { useDraftChat } from "@/hooks/useDraftChat";
 import { useModels } from "@/hooks/useModels";
 import { UpgradeSheet } from "@/components/UpgradeSheet";
-import { Message } from "@/lib/api";
-import { displayChatTitle } from "@/lib/chatTitle";
-import { inferQuizAnswersFromMessages } from "@/lib/parseVocabQuiz";
 import { isQuotaErrorMessage, quotaAlertTitle } from "@/lib/quota";
 import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
 import { useTodosOptional } from "@/contexts/TodosContext";
-import { shouldPreCreateDraft, shouldWarmDraftSocket } from "@/lib/chatDraftLogic";
 import { isComposerMenuOverlayOpen } from "@/lib/chatComposerLogic";
 
 function ChatScreen() {
@@ -281,89 +278,36 @@ function ChatScreen() {
     handleScrollEnd,
   } = scroll;
 
-  const quizAnswers = useMemo(
-    () => inferQuizAnswersFromMessages(messages),
-    [messages],
-  );
-
   const { prepareDraftChat, draftChatId } = draft;
 
-  // Pre-create an empty chat + warm the WebSocket while the home screen is visible.
-  useEffect(() => {
-    if (
-      !shouldPreCreateDraft({
-        token,
-        routeChatId: typeof routeChatId === "string" ? routeChatId : undefined,
-        chatId,
-        messagesLength: messages.length,
-        streaming,
-      })
-    ) {
-      return;
-    }
-    void prepareDraftChat();
-  }, [token, routeChatId, chatId, messages.length, streaming, prepareDraftChat]);
+  useChatDraftWarmup({
+    token,
+    routeChatId: typeof routeChatId === "string" ? routeChatId : undefined,
+    chatId,
+    messagesLength: messages.length,
+    streaming,
+    draftChatId,
+    prepareDraftChat,
+    connect,
+  });
 
-  useEffect(() => {
-    if (!shouldWarmDraftSocket({ token, draftChatId, chatId, streaming })) return;
-    void connect();
-  }, [token, draftChatId, chatId, streaming, connect]);
-
-  useEffect(() => {
-    if (messages.length === 0) setMenuVisible(false);
-  }, [messages.length, setMenuVisible]);
-
-  const lastAssistantId = useMemo(() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].role === "assistant") return messages[i].id;
-    }
-    return null;
-  }, [messages]);
-
-  const headerTitleLabel = useMemo(
-    () =>
-      messages.length > 0
-        ? displayChatTitle(chatTitle, { generating: titleGenerating }, t)
-        : null,
-    [messages.length, chatTitle, titleGenerating, t],
-  );
-
-  const renderItem = useCallback(
-    ({ item, index }: { item: Message; index: number }) => (
-      <ChatMessageRow
-        item={item}
-        index={index}
-        messages={messages}
-        streaming={streaming}
-        streamingDraft={streamingDraft}
-        lastAssistantId={lastAssistantId}
-        selectedModel={selectedModel}
-        quizLanguage={quizLanguage}
-        quizAnswers={quizAnswers}
-        highlightedMessageId={highlightedMessageId}
-        quizDisabled={streaming || creatingRef.current}
-        onRegenerate={regenerateResponse}
-        onEdit={handleEditMessage}
-        onFeedback={handleFeedback}
-        onQuizAnswer={handleQuizAnswer}
-      />
-    ),
-    [
-      messages,
-      streaming,
-      streamingDraft,
-      lastAssistantId,
-      selectedModel,
-      quizLanguage,
-      quizAnswers,
-      highlightedMessageId,
-      regenerateResponse,
-      handleEditMessage,
-      handleFeedback,
-      handleQuizAnswer,
-      creatingRef,
-    ],
-  );
+  const { headerTitleLabel, renderItem } = useChatMessageList({
+    messages,
+    streaming,
+    streamingDraft,
+    selectedModel,
+    quizLanguage,
+    highlightedMessageId,
+    creatingRef,
+    chatTitle,
+    titleGenerating,
+    setMenuVisible,
+    regenerateResponse,
+    handleEditMessage,
+    handleFeedback,
+    handleQuizAnswer,
+    t,
+  });
 
   const layout = useChatLayoutMetrics({
     insetsTop: insets.top,

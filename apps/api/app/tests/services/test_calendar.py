@@ -1,4 +1,6 @@
+import json
 from datetime import UTC, datetime
+from uuid import uuid4
 
 import pytest
 
@@ -76,3 +78,135 @@ def test_format_not_connected_mentions_create():
     # Updated copy: no longer says "won't create"; now mentions it can create events.
     assert "won't create" not in answer
     assert "create" in answer.lower()
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("schedule a meeting tomorrow", True),
+        ("book time on my calendar", True),
+        ("what is photosynthesis", False),
+        ("", False),
+    ],
+)
+def test_is_calendar_create_request(text, expected):
+    from app.services.calendar import is_calendar_create_request
+
+    assert is_calendar_create_request(text) is expected
+
+
+def test_datetime_from_iso_parses_z_suffix():
+    from app.services.calendar import datetime_from_iso
+
+    dt = datetime_from_iso("2026-06-30T14:00:00Z")
+    assert dt.year == 2026
+    assert dt.hour == 14
+
+
+@pytest.mark.asyncio
+async def test_is_connected():
+    from unittest.mock import AsyncMock, patch
+
+    from app.services.calendar import is_connected
+
+    session = AsyncMock()
+    with patch(
+        "app.services.calendar.calendar_repo.get_for_user",
+        AsyncMock(return_value=object()),
+    ):
+        assert await is_connected(session, uuid4()) is True
+
+
+@pytest.mark.asyncio
+async def test_has_write_access():
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from app.services.calendar import has_write_access
+
+    session = AsyncMock()
+    conn = MagicMock()
+    conn.scopes = "https://www.googleapis.com/auth/calendar.events"
+    with patch(
+        "app.services.calendar.calendar_repo.get_for_user",
+        AsyncMock(return_value=conn),
+    ):
+        assert await has_write_access(session, uuid4()) is True
+
+
+@pytest.mark.asyncio
+async def test_fetch_upcoming_events_uses_redis_cache():
+    from unittest.mock import AsyncMock, MagicMock, patch
+    from uuid import uuid4
+
+    from app.core.config import Settings
+    from app.services.calendar import fetch_upcoming_events
+
+    user = MagicMock()
+    user.id = uuid4()
+    user.timezone = "UTC"
+    session = AsyncMock()
+    redis = AsyncMock()
+    settings = Settings()
+
+    redis = AsyncMock()
+    redis.get = AsyncMock(
+        return_value=json.dumps(
+            [
+                {
+                    "id": "evt-1",
+                    "title": "Standup",
+                    "start": "2026-06-30T09:00:00+00:00",
+                    "end": "2026-06-30T09:30:00+00:00",
+                }
+            ]
+        )
+    )
+
+    with (
+        patch(
+            "app.services.calendar.calendar_repo.get_for_user",
+            AsyncMock(return_value=MagicMock(refresh_token="rt", calendar_id="primary")),
+        ),
+    ):
+        events = await fetch_upcoming_events(session, redis, user, settings)
+
+    assert len(events) == 1
+    assert events[0].title == "Standup"
+
+
+@pytest.mark.asyncio
+async def test_load_calendar_for_prompt_not_configured():
+    from unittest.mock import AsyncMock, MagicMock, patch
+    from uuid import uuid4
+
+    from app.core.config import Settings
+    from app.services.calendar import load_calendar_for_prompt
+
+    with patch(
+        "app.services.calendar.google_calendar_gateway.is_configured",
+        return_value=False,
+    ):
+        block = await load_calendar_for_prompt(
+            AsyncMock(), AsyncMock(), MagicMock(id=uuid4()), Settings()
+        )
+    assert block is None
+
+
+@pytest.mark.asyncio
+async def test_store_and_load_event_proposal(fake_redis):
+    from uuid import uuid4
+
+    from app.services.calendar import load_event_proposal, store_event_proposal
+
+    user_id = uuid4()
+    proposal_id = "prop-1"
+    payload = {
+        "title": "Sync",
+        "start": "2026-06-30T09:00:00+00:00",
+        "end": "2026-06-30T10:00:00+00:00",
+    }
+
+    await store_event_proposal(fake_redis, user_id, proposal_id, payload)
+    loaded = await load_event_proposal(fake_redis, user_id, proposal_id)
+
+    assert loaded == payload

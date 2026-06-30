@@ -202,6 +202,44 @@ def test_mock_reply_for_messages():
     assert len(reply) > 0
 
 
+@pytest.mark.asyncio
+async def test_mock_rewrite_memory_sections():
+    from app.gateways.mock_llm import mock_rewrite_memory_sections
+
+    result = await mock_rewrite_memory_sections({"profile": "Lives in NYC"})
+    assert result is not None
+    assert len(result.sections) == 1
+
+
+@pytest.mark.asyncio
+async def test_mock_project_actions_create_project():
+    from app.gateways.mock_llm import mock_project_actions
+
+    transcript = "User: create project Spanish vocabulary\nAssistant: ok"
+    result = await mock_project_actions(transcript, {"projects": []})
+    assert result is not None
+    assert any(a.action == "create_project" for a in result.actions)
+
+
+@pytest.mark.asyncio
+async def test_mock_project_actions_delete_project():
+    from app.gateways.mock_llm import mock_project_actions
+
+    transcript = "User: delete my English project"
+    snapshot = {"projects": [{"title": "English", "kind": "language"}]}
+    result = await mock_project_actions(transcript, snapshot)
+    assert result is not None
+    assert any(a.action == "delete_project" for a in result.actions)
+
+
+def test_extract_quiz_word_and_answer():
+    from app.gateways.mock_llm import _extract_quiz_answer, _extract_quiz_word
+
+    transcript = "Assistant: **Word:** apple\nUser: B\nAssistant: correct!"
+    assert _extract_quiz_word(transcript) == "apple"
+    assert _extract_quiz_answer(transcript) == "B"
+
+
 # ── google_auth JWT ─────────────────────────────────────────────────────────────
 
 

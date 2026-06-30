@@ -7,6 +7,8 @@ from app.core.config import Settings
 from app.services.chat import (
     build_prompt_messages,
     estimate_tokens,
+    format_user_name_only_block,
+    format_user_profile_block,
     is_broad_self_question,
     max_output_tokens_for_style,
 )
@@ -800,3 +802,89 @@ async def test_stream_no_final_content_on_normal_completion():
             await finalize_db
 
     assert "final_content" not in result
+
+
+def test_format_user_profile_block_includes_fields():
+    user = MagicMock()
+    user.name = "Ada Lovelace"
+    user.email = "ada@example.com"
+    user.location = "London"
+    block = format_user_profile_block(user)
+    assert "Ada Lovelace" in block
+    assert "ada@example.com" in block
+    assert "London" in block
+
+
+def test_format_user_name_only_block_uses_first_name():
+    user = MagicMock()
+    user.name = "Ada Lovelace"
+    block = format_user_name_only_block(user)
+    assert "Ada" in block
+
+
+def test_format_user_name_only_block_missing_name():
+    user = MagicMock()
+    user.name = "   "
+    block = format_user_name_only_block(user)
+    assert "not on file" in block
+
+
+def test_max_output_tokens_for_style_short():
+    settings = Settings(max_output_tokens=500)
+    assert max_output_tokens_for_style("short", settings) == 400
+
+
+def test_max_output_tokens_for_style_detailed():
+    settings = Settings(max_output_tokens=500)
+    assert max_output_tokens_for_style("detailed", settings) == 2200
+
+
+@pytest.mark.asyncio
+async def test_stream_edit_response_yields_tokens():
+    from app.services import chat as chat_module
+
+    user_id = uuid4()
+    chat_id = uuid4()
+    message_id = uuid4()
+
+    fake_user = MagicMock()
+    fake_user.id = user_id
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+
+    fake_message = MagicMock()
+    fake_message.id = message_id
+    fake_message.role = "user"
+    fake_message.created_at = MagicMock()
+
+    session = AsyncMock()
+    session.__aenter__ = AsyncMock(return_value=session)
+    session.__aexit__ = AsyncMock(return_value=None)
+
+    async def fake_stream(*args, **kwargs):
+        yield "edited"
+
+    with (
+        patch("app.services.chat.SessionLocal", return_value=session),
+        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.services.chat.messages_repo.get_by_id", AsyncMock(return_value=fake_message)),
+        patch("app.services.chat.messages_repo.delete_messages_from", AsyncMock()),
+        patch("app.services.chat.stream_chat_response", fake_stream),
+    ):
+        tokens = [
+            tok
+            async for tok in chat_module.stream_edit_response(
+                AsyncMock(),
+                Settings(max_output_tokens=100),
+                user_id=user_id,
+                chat_id=chat_id,
+                message_id=message_id,
+                new_content="new question",
+            )
+        ]
+
+    assert tokens == ["edited"]
