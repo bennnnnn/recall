@@ -1,6 +1,8 @@
 import { ReactNode } from "react";
 
+import { PlacesListBlock } from "@/components/PlacesListBlock";
 import { CalloutBlock } from "@/components/rich/CalloutBlock";
+import { parsePlacesJson } from "@/lib/placesList";
 import { ChartBlock } from "@/components/rich/ChartBlock";
 import { CollapsibleBlock } from "@/components/rich/CollapsibleBlock";
 import { ComparisonBlock } from "@/components/rich/ComparisonBlock";
@@ -12,6 +14,7 @@ import { KeyValueBlock } from "@/components/rich/KeyValueBlock";
 import { MathBlock } from "@/components/rich/MathView";
 import { MermaidBlock } from "@/components/rich/MermaidBlock";
 import { MessagePreview } from "@/components/rich/MessagePreview";
+import { QuoteBlock } from "@/components/rich/QuoteBlock";
 import { SocialPostCard } from "@/components/rich/SocialPostCard";
 import { StepList } from "@/components/rich/StepList";
 import {
@@ -27,6 +30,7 @@ import {
   parseComparison,
   parseEmailDraft,
   parseKeyValue,
+  parseQuoteAttribution,
   parseSocialPlatform,
   parseSteps,
 } from "@/lib/richBlocks";
@@ -55,6 +59,12 @@ export function renderRichFence(
     return <EmailCard key={key} draft={draft} />;
   }
 
+  if (l === "quote" || l === "blockquote") {
+    const { quote, author } = parseQuoteAttribution(content);
+    if (!quote) return null;
+    return <QuoteBlock key={key} quote={quote} author={author} />;
+  }
+
   if (isMessageLang(l)) {
     return <MessagePreview key={key} text={content} />;
   }
@@ -74,6 +84,12 @@ export function renderRichFence(
 
   if (l === "graph") {
     return <FunctionGraphBlock key={key} content={content} />;
+  }
+
+  if (l === "places") {
+    const places = parsePlacesJson(content);
+    if (places.length > 0) return <PlacesListBlock key={key} places={places} />;
+    return null;
   }
 
   if (l === "clock" || l === "time") {

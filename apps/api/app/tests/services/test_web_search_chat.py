@@ -26,8 +26,8 @@ async def test_build_prompt_includes_web_search_hint():
         ),
         patch("app.services.chat.messages_repo.list_recent", return_value=[]),
         patch(
-            "app.services.chat.todos_service.load_todos_for_prompt",
-            AsyncMock(return_value=""),
+            "app.services.chat.todos_service.build_todos_system_section",
+            AsyncMock(return_value=None),
         ),
         patch(
             "app.services.chat.projects_service.load_projects_for_prompt",

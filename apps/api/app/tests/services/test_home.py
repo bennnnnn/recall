@@ -109,6 +109,36 @@ async def test_build_home_includes_urgent_todo():
 
 
 @pytest.mark.asyncio
+async def test_home_urgent_window_uses_user_lead():
+    session = AsyncMock()
+    user = _user()
+    user.reminder_lead_minutes = 30
+
+    with _home_patches(list_due_soon=[]):
+        await home_service.build_home_screen(session, user, Settings())
+        before_utc = home_service.todos_repo.list_due_soon.call_args.kwargs.get("before_utc")
+
+    assert before_utc is not None
+    delta_min = (before_utc - datetime.now(UTC)).total_seconds() / 60
+    assert 25 <= delta_min <= 35  # ~now + 30 min lead
+
+
+@pytest.mark.asyncio
+async def test_home_urgent_window_defaults_to_10_min_when_lead_unset():
+    session = AsyncMock()
+    user = _user()
+    user.reminder_lead_minutes = None
+
+    with _home_patches(list_due_soon=[]):
+        await home_service.build_home_screen(session, user, Settings())
+        before_utc = home_service.todos_repo.list_due_soon.call_args.kwargs.get("before_utc")
+
+    assert before_utc is not None
+    delta_min = (before_utc - datetime.now(UTC)).total_seconds() / 60
+    assert 7 <= delta_min <= 13  # default lead = 10 min
+
+
+@pytest.mark.asyncio
 async def test_build_home_greeting_uses_name():
     session = AsyncMock()
     user = _user(name="Sam")
@@ -183,11 +213,19 @@ async def test_build_home_highlight_skips_duplicate_starters():
 
 def test_time_starters_vary_by_hour():
     user = _user()
-    with patch.object(home_service, "_local_hour", return_value=8):
-        morning = home_service._time_starters(user)
-    with patch.object(home_service, "_local_hour", return_value=19):
-        evening = home_service._time_starters(user)
+    tz = home_service._resolve_home_tz(user, "UTC")
+    with patch.object(home_service, "_local_hour_for_tz", side_effect=[8, 19]):
+        morning = home_service._time_starters(user, tz)
+        evening = home_service._time_starters(user, tz)
     assert morning[0].text != evening[0].text
+    assert morning[0].text == "Plan my day"
+    assert evening[0].text == "How did today go?"
+
+
+def test_client_timezone_overrides_profile():
+    user = _user(timezone="UTC")
+    tz = home_service._resolve_home_tz(user, "America/New_York")
+    assert str(tz) == "America/New_York"
 
 
 def test_memory_starter_skips_profile_name_facts():

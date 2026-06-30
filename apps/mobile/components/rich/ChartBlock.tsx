@@ -8,8 +8,8 @@ import * as Clipboard from "expo-clipboard";
 import * as WebBrowser from "expo-web-browser";
 import { Ionicons } from "@expo/vector-icons";
 
-import { C } from "@/constants/Colors";
 import { CODE_FONT } from "@/lib/fonts";
+import { Theme, useTheme } from "@/lib/theme";
 import { getPreviewWebView } from "@/lib/webView";
 
 type Props = { content: string };
@@ -17,12 +17,12 @@ type Props = { content: string };
 const PREVIEW_HEIGHT = 350;
 
 /** Build a self-contained HTML page that renders a Vega / Vega-Lite spec via CDN. */
-function buildVegaHtml(spec: string): string {
-  // Escape backticks / closing tags so the spec doesn't break the HTML.
+function buildVegaHtml(spec: string, isDark: boolean): string {
   const safeSpec = spec
     .replace(/`/g, "\\`")
     .replace(/\${/g, "\\${")
     .replace(/<\/script>/gi, "<\\/script>");
+  const bg = isDark ? "#212121" : "#ffffff";
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -33,7 +33,7 @@ function buildVegaHtml(spec: string): string {
 <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: -apple-system, sans-serif; }
+  body { display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: -apple-system, sans-serif; background: ${bg}; }
   #chart { width: 100%; max-width: 100%; padding: 8px; }
   #error { color: #dc2626; padding: 16px; font-size: 13px; display: none; white-space: pre-wrap; word-break: break-word; }
 </style>
@@ -64,11 +64,16 @@ function buildVegaHtml(spec: string): string {
 }
 
 export function ChartBlock({ content }: Props) {
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [showSource, setShowSource] = useState(false);
 
-  const vegaHtml = useMemo(() => buildVegaHtml(content), [content]);
+  const vegaHtml = useMemo(
+    () => buildVegaHtml(content, theme.isDark),
+    [content, theme.isDark],
+  );
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;
   const canRenderInlineChart = previewWebView?.mode === "rnc";
@@ -86,7 +91,6 @@ export function ChartBlock({ content }: Props) {
 
   return (
     <View style={s.wrap}>
-      {/* Header */}
       <View style={s.header}>
         <View style={s.headerLeft}>
           <Text style={s.headerIcon}>📈</Text>
@@ -97,7 +101,6 @@ export function ChartBlock({ content }: Props) {
         </Text>
       </View>
 
-      {/* Inline chart preview via WebView */}
       <View style={[s.previewBox, expanded && s.previewBoxExpanded]}>
         {WebView && canRenderInlineChart ? (
           <WebView
@@ -119,7 +122,6 @@ export function ChartBlock({ content }: Props) {
         )}
       </View>
 
-      {/* Source toggle */}
       {showSource && (
         <View style={s.sourceBox}>
           <Text style={s.sourceText} selectable>
@@ -128,13 +130,12 @@ export function ChartBlock({ content }: Props) {
         </View>
       )}
 
-      {/* Actions */}
       <View style={s.actions}>
         <Pressable style={s.actionBtn} onPress={handleCopy} hitSlop={8}>
           <Ionicons
             name={copied ? "checkmark-circle" : "copy-outline"}
             size={18}
-            color={copied ? C.primary : C.textSecondary}
+            color={copied ? theme.primary : theme.textSecondary}
           />
           <Text style={[s.actionLabel, copied && s.actionLabelActive]}>
             {copied ? "Copied" : "Copy"}
@@ -149,7 +150,7 @@ export function ChartBlock({ content }: Props) {
           <Ionicons
             name={showSource ? "eye-off-outline" : "code-slash-outline"}
             size={18}
-            color={showSource ? C.primary : C.textSecondary}
+            color={showSource ? theme.primary : theme.textSecondary}
           />
           <Text style={[s.actionLabel, showSource && s.actionLabelActive]}>
             Source
@@ -164,18 +165,14 @@ export function ChartBlock({ content }: Props) {
           <Ionicons
             name={expanded ? "contract-outline" : "expand-outline"}
             size={18}
-            color={C.textSecondary}
+            color={theme.textSecondary}
           />
           <Text style={s.actionLabel}>
             {expanded ? "Collapse" : "Expand"}
           </Text>
         </Pressable>
 
-        <Pressable
-          style={s.openBtn}
-          onPress={handleOpenVegaEditor}
-          hitSlop={8}
-        >
+        <Pressable style={s.openBtn} onPress={handleOpenVegaEditor} hitSlop={8}>
           <Ionicons name="open-outline" size={18} color="#fff" />
           <Text style={s.openLabel}>Vega Editor</Text>
         </Pressable>
@@ -184,89 +181,91 @@ export function ChartBlock({ content }: Props) {
   );
 }
 
-const s = StyleSheet.create({
-  wrap: {
-    marginVertical: 8,
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: C.border,
-    overflow: "hidden",
-    backgroundColor: "#fff",
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: C.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: C.border,
-  },
-  headerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
-  headerIcon: { fontSize: 16 },
-  headerLabel: { fontSize: 14, fontWeight: "700", color: C.text },
-  lineCount: { fontSize: 12, color: C.textTertiary },
-  previewBox: {
-    backgroundColor: "#fff",
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: C.border,
-  },
-  previewBoxExpanded: {},
-  previewPlaceholder: {
-    height: PREVIEW_HEIGHT,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 16,
-  },
-  previewPlaceholderText: {
-    fontSize: 13,
-    color: C.textSecondary,
-    textAlign: "center",
-  },
-  sourceBox: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: "#fafafa",
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: C.border,
-    maxHeight: 200,
-  },
-  sourceText: {
-    fontFamily: CODE_FONT,
-    fontSize: 11,
-    lineHeight: 17,
-    color: C.textSecondary,
-  },
-  actions: {
-    flexDirection: "row",
-    gap: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    flexWrap: "wrap",
-  },
-  actionBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    backgroundColor: C.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: C.border,
-  },
-  actionLabel: { fontSize: 14, fontWeight: "600", color: C.textSecondary },
-  actionLabelActive: { color: C.primary },
-  openBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    backgroundColor: "#6C5CE7",
-  },
-  openLabel: { fontSize: 14, fontWeight: "700", color: "#fff" },
-});
+function makeStyles(t: Theme) {
+  return StyleSheet.create({
+    wrap: {
+      marginVertical: 8,
+      borderRadius: 14,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: t.border,
+      overflow: "hidden",
+      backgroundColor: t.bg,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      backgroundColor: t.surface,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: t.border,
+    },
+    headerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
+    headerIcon: { fontSize: 16 },
+    headerLabel: { fontSize: 14, fontWeight: "700", color: t.text },
+    lineCount: { fontSize: 12, color: t.textTertiary },
+    previewBox: {
+      backgroundColor: t.bg,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: t.border,
+    },
+    previewBoxExpanded: {},
+    previewPlaceholder: {
+      height: PREVIEW_HEIGHT,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 16,
+    },
+    previewPlaceholderText: {
+      fontSize: 13,
+      color: t.textSecondary,
+      textAlign: "center",
+    },
+    sourceBox: {
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      backgroundColor: t.contentSurface,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: t.border,
+      maxHeight: 200,
+    },
+    sourceText: {
+      fontFamily: CODE_FONT,
+      fontSize: 11,
+      lineHeight: 17,
+      color: t.textSecondary,
+    },
+    actions: {
+      flexDirection: "row",
+      gap: 8,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      flexWrap: "wrap",
+    },
+    actionBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      borderRadius: 10,
+      backgroundColor: t.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: t.border,
+    },
+    actionLabel: { fontSize: 14, fontWeight: "600", color: t.textSecondary },
+    actionLabelActive: { color: t.primary },
+    openBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      borderRadius: 10,
+      backgroundColor: t.primary,
+    },
+    openLabel: { fontSize: 14, fontWeight: "700", color: "#fff" },
+  });
+}

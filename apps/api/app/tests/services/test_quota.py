@@ -28,6 +28,11 @@ def test_daily_limit_for_user(settings):
     assert quota_service.daily_limit_for_user(_pro_user(), settings) == 500_000
 
 
+def test_quota_exceeded_message(settings):
+    assert "Pro" in quota_service.quota_exceeded_message(_free_user())
+    assert "Pro" not in quota_service.quota_exceeded_message(_pro_user())
+
+
 @pytest.mark.parametrize(
     "used, requested, allowed",
     [

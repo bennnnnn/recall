@@ -7,6 +7,7 @@ from app.services.calendar import (
     format_calendar_block,
     format_not_connected_answer,
     is_external_calendar_question,
+    should_inject_calendar_block,
 )
 
 
@@ -31,6 +32,21 @@ def test_format_not_connected_mentions_settings():
     assert "Settings" in answer
 
 
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("check my calendar", True),
+        ("schedule a meeting tomorrow", True),
+        ("am I free at 3pm", True),
+        ("solve for the hypotenuse", False),
+        ("best restaurants near me", False),
+        ("what is photosynthesis", False),
+    ],
+)
+def test_should_inject_calendar_block(text, expected):
+    assert should_inject_calendar_block(text) is expected
+
+
 def test_format_calendar_block_lists_events():
     block = format_calendar_block(
         [
@@ -46,3 +62,17 @@ def test_format_calendar_block_lists_events():
     )
     assert "Team sync" in block
     assert "Zoom" in block
+
+
+def test_format_calendar_block_uses_custom_window():
+    block = format_calendar_block([], "UTC", days=14)
+    assert "next 14 days" in block
+
+
+def test_format_not_connected_mentions_create():
+    answer = format_not_connected_answer()
+    assert "Google Calendar" in answer
+    assert "Settings" in answer
+    # Updated copy: no longer says "won't create"; now mentions it can create events.
+    assert "won't create" not in answer
+    assert "create" in answer.lower()

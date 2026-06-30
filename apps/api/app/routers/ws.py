@@ -12,7 +12,7 @@ from app.core.config import get_settings
 from app.core.db import SessionLocal
 from app.core.rate_limit import allow_request
 from app.core.redis import get_redis_client
-from app.exceptions import ChatServiceError
+from app.exceptions import ChatServiceError, QuotaExceededError
 from app.gateways.google_auth import GoogleAuthError, decode_access_token
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.schemas import ChatMessageRequest, EditMessageRequest
@@ -46,6 +46,12 @@ async def _stream_over_ws(
                 if not await _safe_send_json(websocket, {"type": "token", "content": token_text}):
                     cancel_event.set()
                     break
+        except QuotaExceededError as exc:
+            await _safe_send_json(
+                websocket,
+                {"type": "error", "code": "quota_exceeded", "message": exc.message},
+            )
+            return
         except ChatServiceError as exc:
             await _safe_send_json(websocket, {"type": "error", "message": exc.message})
             return
@@ -80,9 +86,18 @@ async def _stream_over_ws(
         memory_hints = result.get("memory_hints")
         if memory_hints:
             done["memory_hints"] = memory_hints
+        context_summarized = result.get("context_summarized")
+        if context_summarized:
+            done["context_summarized"] = context_summarized
+        todos_sync = result.get("todos_sync")
+        if todos_sync:
+            done["todos_sync"] = todos_sync
         search_sources = result.get("search_sources")
         if search_sources:
             done["search_sources"] = search_sources
+        final_content = result.get("final_content")
+        if final_content:
+            done["final_content"] = final_content
         await _safe_send_json(websocket, done)
 
     producer = asyncio.create_task(run_stream())
@@ -130,6 +145,11 @@ async def _run_chat_stream(
     result: dict[str, str] = {}
     try:
         await _stream_over_ws(websocket, stream_factory(result), cancel_event, result)
+    except QuotaExceededError as exc:
+        await _safe_send_json(
+            websocket,
+            {"type": "error", "code": "quota_exceeded", "message": exc.message},
+        )
     except ChatServiceError as exc:
         await _safe_send_json(websocket, {"type": "error", "message": exc.message})
     except ModelUnavailableError as exc:
@@ -160,6 +180,9 @@ async def chat_websocket(
             return
 
         user_id = decode_access_token(token, settings)
+        client_timezone = auth_message.get("client_timezone")
+        if client_timezone is not None and not isinstance(client_timezone, str):
+            client_timezone = None
     except (GoogleAuthError, json.JSONDecodeError, KeyError):
         await websocket.send_json({"type": "error", "message": "Unauthorized"})
         await websocket.close()
@@ -211,7 +234,7 @@ async def chat_websocket(
                         await websocket.send_json({"type": "error", "message": "User not found"})
                         continue
 
-                def _regen_stream(result, model=regen_model):
+                def _regen_stream(result, model=regen_model, tz=client_timezone):
                     return chat_service.stream_regenerate_response(
                         redis,
                         settings,
@@ -220,6 +243,7 @@ async def chat_websocket(
                         model_alias=model,
                         should_cancel=cancel_event.is_set,
                         result=result,
+                        client_timezone=tz,
                     )
 
                 await _run_chat_stream(
@@ -247,7 +271,11 @@ async def chat_websocket(
                         continue
 
                 def _edit_stream(
-                    result, mid=request.message_id, text=request.content, model=edit_model
+                    result,
+                    mid=request.message_id,
+                    text=request.content,
+                    model=edit_model,
+                    tz=client_timezone,
                 ):
                     return chat_service.stream_edit_response(
                         redis,
@@ -259,6 +287,7 @@ async def chat_websocket(
                         model_alias=model,
                         should_cancel=cancel_event.is_set,
                         result=result,
+                        client_timezone=tz,
                     )
 
                 await _run_chat_stream(
@@ -292,7 +321,11 @@ async def chat_websocket(
                     continue
 
             def _message_stream(
-                result, text=message_content, model=message_model, aids=request.attachment_ids
+                result,
+                text=message_content,
+                model=message_model,
+                aids=request.attachment_ids,
+                tz=client_timezone,
             ):
                 return chat_service.stream_chat_response(
                     redis,
@@ -304,6 +337,7 @@ async def chat_websocket(
                     attachment_ids=aids,
                     should_cancel=cancel_event.is_set,
                     result=result,
+                    client_timezone=tz,
                 )
 
             await _run_chat_stream(

@@ -2,7 +2,10 @@
 import { ReactNode, useDeferredValue, useMemo } from "react";
 import Markdown from "react-native-markdown-display";
 import { Ionicons } from "@expo/vector-icons";
-import { Image, Platform, StyleSheet, Text, View } from "react-native";
+import { Image, Linking, Platform, StyleSheet, Text, View } from "react-native";
+
+import { isGenericSearchUrl } from "@/lib/placesList";
+import { openPlaceLink } from "@/lib/openPlaceLink";
 
 import { LinkPreviewCard } from "@/components/LinkPreviewCard";
 import { CodeBlock } from "@/components/CodeBlock";
@@ -46,6 +49,7 @@ import {
 import { markdownItInstance } from "@/lib/markdownIt";
 import {
   extractBlockquoteMeta,
+  looksLikeMarkdownListProse,
   preprocessMarkdown,
   splitInlineMath,
 } from "@/lib/markdownPreprocess";
@@ -184,7 +188,7 @@ function renderTextWithMath(
   styles: StyleMap,
   inheritedStyles: object,
   mdTable: TableStyles,
-  _mdMath: MathStyles,
+  mdMath: MathStyles,
 ) {
   const parts = splitInlineMath(node.content);
   const base = [
@@ -220,6 +224,7 @@ function makeSharedRules(
   mdTable: TableStyles,
   mdMath: MathStyles,
   mdImg: ImgStyles,
+  streaming = false,
 ) {
   return {
     image: (node: { key: string; attributes: { src?: string; alt?: string } }) => {
@@ -259,6 +264,31 @@ function makeSharedRules(
         {children}
       </Text>
     ),
+    link: (
+      node: AstNode,
+      children: ReactNode,
+      _parent: unknown,
+      styles: StyleMap,
+    ) => {
+      const href = node.attributes?.href ?? "";
+      const label = astText(node);
+      return (
+        <Text
+          key={node.key}
+          style={styles.link}
+          onPress={() => {
+            if (isGenericSearchUrl(href)) {
+              void openPlaceLink(href, label);
+            } else {
+              Linking.openURL(href).catch(() => {});
+            }
+          }}
+          suppressHighlighting
+        >
+          {children}
+        </Text>
+      );
+    },
     list_item: (
       node: AstNode & { index: number; markup?: string },
       children: ReactNode,
@@ -347,7 +377,7 @@ function makeSharedRules(
       styles: StyleMap,
     ) => {
       const url = detectStandaloneLink(node);
-      if (url) {
+      if (url && !streaming) {
         return <LinkPreviewCard key={node.key} url={url} />;
       }
       if (inTableCell(parent)) {
@@ -402,19 +432,33 @@ function makeSharedRules(
       </Text>
     ),
     strong: (
-      node: { key: string },
+      node: AstNode,
       children: ReactNode,
       parent: unknown,
       styles: StyleMap,
-    ) => (
-      <Text
-        key={node.key}
-        style={[styles.strong, inTableCell(parent) && mdTable.headerText]}
-        selectable
-      >
-        {children}
-      </Text>
-    ),
+    ) => {
+      const raw = astText(node);
+      const parts = splitInlineMath(raw);
+      const boldStyle = [styles.strong, inTableCell(parent) && mdTable.headerText];
+      if (parts.some((part) => part.type === "math")) {
+        return (
+          <Text key={node.key} style={boldStyle} selectable>
+            {parts.map((part, i) =>
+              part.type === "math" ? (
+                <MathText key={`${node.key}-m-${i}`} latex={part.value} />
+              ) : (
+                part.value
+              ),
+            )}
+          </Text>
+        );
+      }
+      return (
+        <Text key={node.key} style={boldStyle} selectable>
+          {children}
+        </Text>
+      );
+    },
     em: (node: { key: string }, children: ReactNode, _p: unknown, styles: StyleMap) => (
       <Text key={node.key} style={styles.em} selectable>
         {children}
@@ -477,6 +521,14 @@ function renderFenceInner(key: string, lang: string, content: string) {
   if (fenceContentAsGraph(content)) {
     return <FunctionGraphBlock key={key} content={content} />;
   }
+  if (
+    l === "math" &&
+    (looksLikeMarkdownListProse(content) ||
+      /^\$\)?/.test(content.trim()) ||
+      /\*\*[^*]+\*\*/.test(content))
+  ) {
+    return null;
+  }
   if (looksLikeLatexFence(content) && l !== "python" && l !== "javascript") {
     return <MathBlock key={key} latex={content} />;
   }
@@ -504,13 +556,13 @@ function renderFenceInner(key: string, lang: string, content: string) {
   return <CodeBlock key={key} code={content} lang={lang} />;
 }
 
-function makeRenderRules(t: Theme) {
+function makeRenderRules(t: Theme, streaming = false) {
   const mdMath = makeMdMath(t);
   const mdTable = makeMdTable(t);
   const mdImg = makeMdImg(t);
   const mdStyles = makeMdStyles(t);
   const rules = {
-    ...makeSharedRules(t, mdTable, mdMath, mdImg),
+    ...makeSharedRules(t, mdTable, mdMath, mdImg, streaming),
     fence: renderFence,
     code_block: renderFence,
   };
@@ -521,7 +573,7 @@ type Props = { content: string; streaming?: boolean };
 
 export function MarkdownContent({ content, streaming = false }: Props) {
   const t = useTheme();
-  const { rules, mdStyles } = useMemo(() => makeRenderRules(t), [t]);
+  const { rules, mdStyles } = useMemo(() => makeRenderRules(t, streaming), [t, streaming]);
   const deferredContent = useDeferredValue(content);
   const renderContent = streaming ? deferredContent : content;
   const prepared = useMemo(() => {
@@ -532,7 +584,11 @@ export function MarkdownContent({ content, streaming = false }: Props) {
     }
   }, [renderContent]);
   return (
-    <Markdown style={mdStyles} rules={rules as never} markdownit={markdownItInstance}>
+    <Markdown
+      style={mdStyles}
+      rules={rules as never}
+      markdownit={markdownItInstance}
+    >
       {prepared}
     </Markdown>
   );

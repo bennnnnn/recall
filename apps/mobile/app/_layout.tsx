@@ -1,6 +1,7 @@
 import "@/lib/i18n";
 
 import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useFonts, SpaceMono_400Regular } from "@expo-google-fonts/space-mono";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useMemo } from "react";
@@ -24,10 +25,13 @@ function RootNavigator() {
   const header = useMemo(() => stackHeaderOptions(theme), [theme]);
 
   return (
-    <Stack
+    <>
+      <StatusBar style={theme.isDark ? "light" : "dark"} />
+      <Stack
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: theme.bg },
+        animation: "slide_from_right",
       }}
     >
       <Stack.Screen name="login" />
@@ -64,6 +68,16 @@ function RootNavigator() {
         }}
       />
       <Stack.Screen
+        name="terms"
+        options={{
+          ...header,
+          headerShown: true,
+          title: t("terms.title"),
+          headerBackVisible: false,
+          headerLeft: () => <StackBackButton />,
+        }}
+      />
+      <Stack.Screen
         name="todos"
         options={{
           ...header,
@@ -75,6 +89,7 @@ function RootNavigator() {
       />
       <Stack.Screen name="projects" options={{ headerShown: false }} />
     </Stack>
+    </>
   );
 }
 

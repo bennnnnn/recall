@@ -88,6 +88,25 @@ def resolve_user_model(
     return routing.pick_cheapest_from_pool(pool, settings)
 
 
+def resolve_user_model_override(
+    user: User,
+    model_alias: str | None,
+    content: str,
+    settings: Settings,
+) -> str:
+    """Pick a concrete model, honoring a per-message override when allowed.
+
+    A per-chat/per-message picker passes ``model_alias`` over the WS. Use it
+    only if it's a concrete alias the user's plan allows; ``auto`` (or an
+    alias not in the user's allowed pool) falls back to the Settings-based
+    resolution so free users can't bypass plan gates.
+    """
+    if model_alias and model_alias != AUTO_ALIAS:
+        if model_alias in allowed_model_ids(user, settings):
+            return model_alias
+    return resolve_user_model(user, content, settings)
+
+
 def validate_enabled_models_for_update(
     user: User,
     enabled_models: list[str] | None,

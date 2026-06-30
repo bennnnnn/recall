@@ -28,6 +28,7 @@ _LOCATION_QUESTION = re.compile(
     r"^\s*(?:"
     r"where am i\??"
     r"|what(?:'s| is) my location\??"
+    r"|where(?:'s| is) my location\??"
     r"|where(?:'re| are) we\??"
     r"|my location\??"
     r"|location\??"
@@ -41,6 +42,18 @@ def resolve_timezone(tz: str | None) -> ZoneInfo:
         return ZoneInfo((tz or DEFAULT_TIMEZONE).strip() or DEFAULT_TIMEZONE)
     except ZoneInfoNotFoundError:
         return ZoneInfo(DEFAULT_TIMEZONE)
+
+
+def effective_timezone(profile_tz: str | None, client_tz: str | None = None) -> str:
+    """Prefer device timezone from the client; fall back to stored profile."""
+    if client_tz and client_tz.strip():
+        try:
+            ZoneInfo(client_tz.strip())
+            return client_tz.strip()
+        except ZoneInfoNotFoundError:
+            pass
+    cleaned = (profile_tz or DEFAULT_TIMEZONE).strip()
+    return cleaned or DEFAULT_TIMEZONE
 
 
 def prefers_12h_clock(locale: str | None) -> bool:

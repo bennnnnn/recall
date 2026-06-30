@@ -24,6 +24,7 @@ import {
   wrapFullDocument,
   writeHtmlPreviewFile,
 } from "@/lib/openHtmlPreview";
+import { injectPreviewCsp } from "@/lib/previewSandbox";
 import { CODE_FONT } from "@/lib/fonts";
 import { getPreviewWebView } from "@/lib/webView";
 
@@ -68,7 +69,7 @@ const TAG_STYLES = {
 };
 
 function LiveWebPreview({ html }: { html: string }) {
-  const fullHtml = useMemo(() => wrapFullDocument(html), [html]);
+  const fullHtml = useMemo(() => injectPreviewCsp(wrapFullDocument(html)), [html]);
   const previewWebView = useMemo(() => getPreviewWebView(), []);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
 

@@ -26,6 +26,7 @@ from app.repositories import users as users_repo
 from app.services import calendar as calendar_service
 from app.services import chat_tools as chat_tools_service
 from app.services import email as email_service
+from app.services import locale as locale_service
 from app.services import math_fence as math_fence_service
 from app.services import math_tools as math_tools_service
 from app.services import memory as memory_service
@@ -37,7 +38,7 @@ from app.services import time_context as time_context_service
 from app.services import todos as todos_service
 from app.services import web_search as web_search_service
 from app.services.context_window import estimate_tokens, select_recent_window
-from app.services.quota import QUOTA_EXCEEDED_MESSAGE, utc_today
+from app.services.quota import quota_exceeded_message, utc_today
 
 logger = logging.getLogger(__name__)
 
@@ -95,12 +96,12 @@ def is_broad_self_question(text: str) -> bool:
 QUIZ_ANSWER_HINT = (
     "The user just answered a vocabulary quiz with A, B, C, or D. "
     "The previous assistant message has the question and choices.\n"
-    "If correct: congratulate briefly, give one example sentence, offer the next question.\n"
-    "If wrong: gently correct, explain the meaning, encourage them, offer to continue.\n"
+    "If correct: congratulate briefly, give one example sentence, then ask the next question.\n"
+    "If wrong: gently correct, explain the meaning, encourage them, then offer to continue.\n"
     "When asking the next question, use the quiz card format:\n"
-    "**Word:** <term> [<part of speech>]\n"
-    "A) ...  B) ...  C) ...  D) ...\n"
+    f"{projects_service.VOCAB_QUIZ_FORMAT_BLOCK}\n"
     "One question per message — wait for their letter before revealing the answer.\n"
+    "On every correct answer, sync MUST master the quizzed word immediately.\n"
     "Keep feedback short and encouraging."
 )
 
@@ -219,6 +220,10 @@ VISUALIZATION_HINTS = (
     "**Charts** (```chart) — Vega-Lite JSON for numeric comparisons and trends.\n\n"
     "**Geometry** (```geometry) — JSON spec for rectangles/squares with labels, diagonals, area.\n\n"
     "**Graphs** (```graph) — JSON spec with expr + points for y=f(x) plots.\n\n"
+    "**Places** (```places) — JSON array of {name, url, note?, address?, price?} for local "
+    "venue recommendations (restaurants, salons, etc.).\n\n"
+    "**Quotes** (```quote) — A notable quote with optional attribution on the last line as "
+    "“— Author”. Use for pull-quotes; plain `>` blockquotes also work.\n\n"
     "For uploaded images, describe or answer about what you see — do not redraw them in HTML."
 )
 
@@ -271,8 +276,10 @@ class _StreamContext:
     max_output_tokens: int
     recalled_count: int = 0
     memory_hints: list[str] = field(default_factory=list)
+    context_summarized: int = 0
     instant_reply: str | None = None
     search_sources: list[WebSearchHit] = field(default_factory=list)
+    local_places: bool = False
     skip_memory_jobs: bool = False
 
 
@@ -314,26 +321,27 @@ async def _augment_web_and_tools(
     settings: Settings,
     *,
     user_timezone: str | None = None,
+    user_location: str | None = None,
     prior_user_messages: list[str] | None = None,
     has_image_attachment: bool = False,
 ) -> tuple[list[dict[str, str]], list[WebSearchHit]]:
-    """Web search via direct augment, or MCP adapters — never both. Math tools always when enabled."""
-    updated = prompt_messages
+    """Web search always uses the full direct path; MCP handles calendar/sympy only."""
+    updated, search_sources = await web_search_service.augment_prompt_messages(
+        prompt_messages,
+        user_content,
+        settings,
+        user_timezone=user_timezone,
+        user_location=user_location,
+        prior_user_messages=prior_user_messages,
+    )
+
     if settings.mcp_tools_enabled:
         updated = await chat_tools_service.augment_prompt_with_mcp_tools(
             updated,
             user_content,
             settings,
             user_timezone=user_timezone,
-            prior_user_messages=prior_user_messages,
-        )
-        search_sources: list[WebSearchHit] = []
-    else:
-        updated, search_sources = await web_search_service.augment_prompt_messages(
-            updated,
-            user_content,
-            settings,
-            user_timezone=user_timezone,
+            user_location=user_location,
             prior_user_messages=prior_user_messages,
         )
 
@@ -357,14 +365,16 @@ async def build_prompt_messages(
     query_text: str | None = None,
     minimal_personal_context: bool = False,
     minimal_quiz_context: bool = False,
+    client_timezone: str | None = None,
 ) -> list[dict[str, str]]:
     recent_limit = (
         _QUIZ_RECENT_MESSAGE_LIMIT if minimal_quiz_context else settings.recent_message_window
     )
+    chat = None
+    todos_section: str | None = None
     if minimal_personal_context or minimal_quiz_context:
         recent_all = await messages_repo.list_recent(session, chat_id, limit=recent_limit)
         memory_block = ""
-        todos_block = ""
         projects_block = ""
         if out is not None:
             out["recalled"] = 0
@@ -379,20 +389,35 @@ async def build_prompt_messages(
                 )
             return await projects_service.load_projects_for_prompt(session, user.id, settings)
 
-        memory_block, todos_block, projects_block, recent_all = await asyncio.gather(
+        memory_block, todos_section, projects_block, recent_all = await asyncio.gather(
             memory_service.get_memory_block(session, user, settings, query_text=query_text),
-            todos_service.load_todos_for_prompt(session, user, settings),
+            todos_service.build_todos_system_section(
+                session,
+                user,
+                settings,
+                client_timezone=client_timezone,
+                query_text=query_text,
+            ),
             _projects_block(),
             messages_repo.list_recent(session, chat_id, limit=recent_limit),
         )
         if out is not None:
-            bullets = [
-                line[2:].strip() for line in memory_block.split("\n") if line.startswith("- ")
+            # `format_memory_block` emits one `## {Label}` header per injected
+            # memory section — count those (not "- " bullets, which it never
+            # produces). Guard against memory text that itself contains "## ".
+            labels = set(memory_service.SECTION_LABELS.values())
+            hints = [
+                line[3:].strip()
+                for line in memory_block.split("\n")
+                if line.startswith("## ") and line[3:].strip() in labels
             ]
-            out["recalled"] = len(bullets)
-            out["memory_hints"] = bullets[:3]
+            out["recalled"] = len(hints)
+            out["memory_hints"] = hints[:3]
     keep = select_recent_window(recent_all, settings.context_token_budget, recent_limit)
     recent = recent_all[-keep:] if keep else []
+    if out is not None and chat and chat.summary and (chat.summary_message_count or 0) > 0:
+        out["context_summarized"] = chat.summary_message_count
+    local_tz = time_context_service.effective_timezone(user.timezone, client_timezone)
 
     style = user.response_style if user.response_style in STYLE_HINTS else "balanced"
     system_parts: list[str] = [
@@ -404,6 +429,13 @@ async def build_prompt_messages(
     ]
     if minimal_quiz_context:
         system_parts.extend([QUIZ_ANSWER_HINT, PRIVACY_HINT])
+        chat = await chats_repo.get_by_id(session, chat_id, user.id)
+        if chat and chat.project_id:
+            quiz_ctx = await projects_service.load_project_quiz_context(
+                session, user.id, chat.project_id, settings
+            )
+            if quiz_ctx:
+                system_parts.append(quiz_ctx)
     else:
         system_parts.extend([CLARIFICATION_HINT, PRIVACY_HINT])
         if minimal_personal_context:
@@ -416,26 +448,24 @@ async def build_prompt_messages(
             )
         system_parts.append(COPY_DELIVERABLE_HINT)
     system_parts.append(response_tone_service.tone_hint(getattr(user, "response_tone", None)))
-    if user.locale and user.locale != "en":
-        system_parts.append(
-            f"The user's preferred language is {user.locale}. "
-            f"Respond in {user.locale} unless the user writes in another language."
-        )
+    locale_hint = locale_service.locale_system_hint(user.locale)
+    if locale_hint:
+        system_parts.append(locale_hint)
     if not minimal_quiz_context and not minimal_personal_context:
         system_parts.append(
-            time_context_service.format_time_context(user.timezone, user.locale, user.location)
+            time_context_service.format_time_context(local_tz, user.locale, user.location)
         )
         if settings.web_search_enabled:
             system_parts.append(web_search_service.WEB_SEARCH_HINT)
+            system_parts.append(web_search_service.LOCAL_PLACES_FORMAT_HINT)
         if settings.google_calendar_enabled:
             system_parts.append(calendar_service.CALENDAR_HINT)
         if settings.gmail_enabled:
             system_parts.append(email_service.GMAIL_HINT)
         if memory_block:
             system_parts.append(memory_block)
-        system_parts.append(todos_service.TODO_HINT)
-        if todos_block:
-            system_parts.append(todos_block)
+        if todos_section:
+            system_parts.append(todos_section)
         system_parts.append(projects_service.PROJECT_HINT)
         if projects_block:
             system_parts.append(projects_block)
@@ -459,6 +489,7 @@ async def stream_chat_response(
     attachment_ids: list[UUID] | None = None,
     should_cancel: Callable[[], bool] | None = None,
     result: dict[str, Any] | None = None,
+    client_timezone: str | None = None,
 ) -> AsyncIterator[str]:
     async with SessionLocal() as session:
         user = await users_repo.get_by_id(session, user_id)
@@ -470,7 +501,7 @@ async def stream_chat_response(
     if not await quota_service.reserve_usage(
         redis, str(user_id), reserved, daily_limit=daily_limit
     ):
-        raise QuotaExceededError(QUOTA_EXCEEDED_MESSAGE)
+        raise QuotaExceededError(quota_exceeded_message(user))
 
     try:
         ctx = await _prepare_chat_turn(
@@ -482,6 +513,7 @@ async def stream_chat_response(
             redis=redis,
             reserved_tokens=reserved,
             attachment_ids=attachment_ids or [],
+            client_timezone=client_timezone,
         )
     except ChatNotFoundError:
         await quota_service.refund_usage(redis, str(user_id), reserved)
@@ -516,6 +548,7 @@ async def stream_regenerate_response(
     model_alias: str | None = None,
     should_cancel: Callable[[], bool] | None = None,
     result: dict[str, Any] | None = None,
+    client_timezone: str | None = None,
 ) -> AsyncIterator[str]:
     async with SessionLocal() as session:
         user = await users_repo.get_by_id(session, user_id)
@@ -536,11 +569,14 @@ async def stream_regenerate_response(
         if last_user is None:
             raise ChatNotFoundError("No user message to regenerate from.")
 
-        model = plan_service.resolve_user_model(user, last_user.content, settings)
+        model = plan_service.resolve_user_model_override(
+            user, model_alias, last_user.content, settings
+        )
         meta: dict[str, Any] = {}
         user_message_content = last_user.content
         minimal_personal = is_broad_self_question(user_message_content)
         minimal_quiz = web_search_service.is_vocab_quiz_answer(user_message_content)
+        local_tz = time_context_service.effective_timezone(user.timezone, client_timezone)
         prompt_messages = await build_prompt_messages(
             session,
             user,
@@ -551,6 +587,7 @@ async def stream_regenerate_response(
             query_text=user_message_content,
             minimal_personal_context=minimal_personal,
             minimal_quiz_context=minimal_quiz,
+            client_timezone=client_timezone,
         )
         max_out = (
             max_output_tokens_for_style("short", settings)
@@ -558,24 +595,27 @@ async def stream_regenerate_response(
             else max_output_tokens_for_style(user.response_style, settings)
         )
         if not minimal_personal and not minimal_quiz:
-            calendar_block = await calendar_service.load_calendar_for_prompt(
-                session, redis, user, settings
-            )
-            if calendar_block:
-                prompt_messages[0] = {
-                    "role": "system",
-                    "content": f"{prompt_messages[0]['content']}\n\n{calendar_block}",
-                }
+            integration_blocks: list[str] = []
+            if calendar_service.should_inject_calendar_block(user_message_content):
+                calendar_block = await calendar_service.load_calendar_for_prompt(
+                    session, redis, user, settings
+                )
+                if calendar_block:
+                    integration_blocks.append(calendar_block)
             if (
                 not settings.mcp_tools_enabled
                 and calendar_service.is_calendar_create_request(user_message_content)
                 and await calendar_service.has_write_access(session, user.id)
             ):
+                integration_blocks.append(calendar_service.CALENDAR_WRITE_HINT)
+            if integration_blocks:
                 prompt_messages[0] = {
                     "role": "system",
-                    "content": f"{prompt_messages[0]['content']}\n\n{calendar_service.CALENDAR_WRITE_HINT}",
+                    "content": f"{prompt_messages[0]['content']}\n\n"
+                    + "\n\n".join(integration_blocks),
                 }
         search_sources: list[WebSearchHit] = []
+        local_places = web_search_service.is_local_places_query(user_message_content)
         if (
             not minimal_personal
             and not minimal_quiz
@@ -586,7 +626,8 @@ async def stream_regenerate_response(
                 prompt_messages,
                 user_message_content,
                 settings,
-                user_timezone=user.timezone,
+                user_timezone=local_tz,
+                user_location=(user.location or "").strip() or None,
                 prior_user_messages=prior_user_messages,
             )
 
@@ -595,7 +636,7 @@ async def stream_regenerate_response(
     if not await quota_service.reserve_usage(
         redis, str(user_id), reserved, daily_limit=daily_limit
     ):
-        raise QuotaExceededError(QUOTA_EXCEEDED_MESSAGE)
+        raise QuotaExceededError(quota_exceeded_message(user))
 
     ctx = _StreamContext(
         user_id=user_id,
@@ -608,7 +649,9 @@ async def stream_regenerate_response(
         max_output_tokens=max_out,
         recalled_count=int(meta.get("recalled") or 0),
         memory_hints=list(meta.get("memory_hints") or []),
+        context_summarized=int(meta.get("context_summarized") or 0),
         search_sources=search_sources,
+        local_places=local_places,
         skip_memory_jobs=minimal_quiz,
     )
 
@@ -640,6 +683,7 @@ async def stream_edit_response(
     model_alias: str | None = None,
     should_cancel: Callable[[], bool] | None = None,
     result: dict[str, Any] | None = None,
+    client_timezone: str | None = None,
 ) -> AsyncIterator[str]:
     """Replace a user message and delete all turns after it, then re-stream."""
     content = new_content.strip()
@@ -669,6 +713,7 @@ async def stream_edit_response(
         model_alias=model_alias,
         should_cancel=should_cancel,
         result=result,
+        client_timezone=client_timezone,
     ):
         yield token
 
@@ -683,6 +728,7 @@ async def _prepare_chat_turn(
     redis: Redis,
     reserved_tokens: int,
     attachment_ids: list[UUID] | None = None,
+    client_timezone: str | None = None,
 ) -> _StreamContext:
     async with SessionLocal() as session:
         user = await users_repo.get_by_id(session, user_id)
@@ -693,7 +739,7 @@ async def _prepare_chat_turn(
         if chat is None:
             raise ChatNotFoundError("Chat not found.")
 
-        model = plan_service.resolve_user_model(user, content, settings)
+        model = plan_service.resolve_user_model_override(user, model_alias, content, settings)
         has_image_attachment = False
         prior_count = await messages_repo.count_for_chat(session, chat_id)
 
@@ -743,6 +789,7 @@ async def _prepare_chat_turn(
         meta: dict[str, Any] = {}
         minimal_personal = is_broad_self_question(content)
         minimal_quiz = web_search_service.is_vocab_quiz_answer(content)
+        local_tz = time_context_service.effective_timezone(user.timezone, client_timezone)
         prompt_messages = await build_prompt_messages(
             session,
             user,
@@ -753,6 +800,7 @@ async def _prepare_chat_turn(
             query_text=content,
             minimal_personal_context=minimal_personal,
             minimal_quiz_context=minimal_quiz,
+            client_timezone=client_timezone,
         )
         if has_image_attachment and image_attachments and gateway is not None:
             await attachment_content_service.inject_vision_content(
@@ -764,11 +812,9 @@ async def _prepare_chat_turn(
         instant_reply = None
         gmail_context: tuple[str, list, list, str | None] | None = None
         if time_context_service.is_time_question(content):
-            instant_reply = time_context_service.format_time_answer(user.timezone, user.locale)
+            instant_reply = time_context_service.format_time_answer(local_tz, user.locale)
         elif time_context_service.is_location_question(content):
-            instant_reply = time_context_service.format_location_answer(
-                user.location, user.timezone
-            )
+            instant_reply = time_context_service.format_location_answer(user.location, local_tz)
 
         elif calendar_service.is_external_calendar_question(content):
             if not await calendar_service.is_connected(session, user.id):
@@ -790,15 +836,21 @@ async def _prepare_chat_turn(
                     )
 
         search_sources: list[WebSearchHit] = []
+        local_places = web_search_service.is_local_places_query(content)
+        if instant_reply is None and local_places and not (user.location or "").strip():
+            # No location set → prompt to enable it instead of guessing "near me".
+            instant_reply = web_search_service.format_location_not_set_answer()
         if instant_reply is None and not minimal_personal and not minimal_quiz:
-            calendar_block = await calendar_service.load_calendar_for_prompt(
-                session, redis, user, settings
-            )
-            if calendar_block:
-                prompt_messages[0] = {
-                    "role": "system",
-                    "content": f"{prompt_messages[0]['content']}\n\n{calendar_block}",
-                }
+            integration_blocks: list[str] = []
+            load_calendar = calendar_service.should_inject_calendar_block(content)
+            load_gmail = email_service.should_inject_gmail_block(content)
+            calendar_block: str | None = None
+            gmail_block: str | None = None
+
+            if load_calendar:
+                calendar_block = await calendar_service.load_calendar_for_prompt(
+                    session, redis, user, settings
+                )
             if gmail_context is not None:
                 google_email, messages, pending, fetch_error = gmail_context
                 gmail_block = email_service.format_gmail_block(
@@ -807,23 +859,26 @@ async def _prepare_chat_turn(
                     pending_suggestions=pending,
                     fetch_error=fetch_error,
                 )
-            else:
+            elif load_gmail:
                 gmail_block = await email_service.load_gmail_for_prompt(
                     session, redis, user, settings
                 )
+
+            if calendar_block:
+                integration_blocks.append(calendar_block)
             if gmail_block:
-                prompt_messages[0] = {
-                    "role": "system",
-                    "content": f"{prompt_messages[0]['content']}\n\n{gmail_block}",
-                }
+                integration_blocks.append(gmail_block)
             if (
                 not settings.mcp_tools_enabled
                 and calendar_service.is_calendar_create_request(content)
                 and await calendar_service.has_write_access(session, user.id)
             ):
+                integration_blocks.append(calendar_service.CALENDAR_WRITE_HINT)
+            if integration_blocks:
                 prompt_messages[0] = {
                     "role": "system",
-                    "content": f"{prompt_messages[0]['content']}\n\n{calendar_service.CALENDAR_WRITE_HINT}",
+                    "content": f"{prompt_messages[0]['content']}\n\n"
+                    + "\n\n".join(integration_blocks),
                 }
         if (
             instant_reply is None
@@ -837,7 +892,8 @@ async def _prepare_chat_turn(
                 prompt_messages,
                 content,
                 settings,
-                user_timezone=user.timezone,
+                user_timezone=local_tz,
+                user_location=(user.location or "").strip() or None,
                 prior_user_messages=prior_user_messages,
                 has_image_attachment=has_image_attachment,
             )
@@ -860,8 +916,10 @@ async def _prepare_chat_turn(
             max_output_tokens=max_out,
             recalled_count=int(meta.get("recalled") or 0),
             memory_hints=list(meta.get("memory_hints") or []),
+            context_summarized=int(meta.get("context_summarized") or 0),
             instant_reply=instant_reply,
             search_sources=search_sources,
+            local_places=local_places,
             skip_memory_jobs=quiz_answer,
         )
 
@@ -902,6 +960,8 @@ async def _finalize_stream_turn_db(
                 result["recalled"] = str(ctx.recalled_count)
             if ctx.memory_hints:
                 result["memory_hints"] = json.dumps(ctx.memory_hints)
+            if ctx.context_summarized:
+                result["context_summarized"] = str(ctx.context_summarized)
 
         await chats_repo.touch_by_id(session, ctx.chat_id)
 
@@ -983,11 +1043,14 @@ async def _stream_and_finalize(
 ) -> AsyncIterator[str]:
     usage: dict[str, int] = {}
     assistant_parts: list[str] = []
+    was_cancelled = False
 
     if ctx.instant_reply:
         if not (should_cancel and should_cancel()):
             assistant_parts.append(ctx.instant_reply)
             yield ctx.instant_reply
+        else:
+            was_cancelled = True
     else:
         async for token in litellm_gateway.stream_chat_completion(
             settings=settings,
@@ -997,6 +1060,7 @@ async def _stream_and_finalize(
             usage=usage,
         ):
             if should_cancel and should_cancel():
+                was_cancelled = True
                 break
             assistant_parts.append(token)
             yield token
@@ -1030,9 +1094,28 @@ async def _stream_and_finalize(
                 web_search_service.sources_payload(ctx.search_sources)
             )
 
+    if ctx.local_places and ctx.search_sources and "```places" not in assistant_text.lower():
+        places_fence = web_search_service.format_places_fence(ctx.search_sources)
+        if places_fence and not (should_cancel and should_cancel()):
+            assistant_parts.append(places_fence)
+            yield places_fence
+            assistant_text = "".join(assistant_parts).strip()
+
     if ctx.instant_reply and not usage:
         usage["output_tokens"] = estimate_tokens(assistant_text)
         usage["input_tokens"] = 0
+
+    if result is not None and not ctx.skip_memory_jobs:
+        transcript = f"User: {ctx.user_message_content}\nAssistant: {assistant_text}"
+        if todos_service.transcript_implies_todo_sync(transcript):
+            result["todos_sync"] = "1"
+
+    # On a user-initiated stop, the client freezes its local buffer early but the
+    # server may persist a few more in-flight tokens. Send the authoritative
+    # persisted text so the client can reconcile (only on cancel, to keep normal
+    # `done` payloads small).
+    if result is not None and was_cancelled and assistant_text:
+        result["final_content"] = assistant_text
 
     finalize_db_task = asyncio.create_task(
         _finalize_stream_turn_db(redis, ctx, assistant_text, usage, result),

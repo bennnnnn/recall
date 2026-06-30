@@ -14,13 +14,21 @@ MOCK_REPLY = (
 )
 
 MOCK_QUIZ_QUESTION = (
-    "**Word:** ubiquitous [noun]\n\n"
+    "**Word:** ubiquitous [adjective]\n\n"
     "What does it mean?\n\n"
     "A) Extremely rare and hard to find\n"
     "B) Present or found everywhere\n"
     "C) Related to transportation\n"
     "D) A type of musical instrument\n\n"
-    "Tap A, B, C, or D — I'll wait for your answer before revealing it."
+    "Tap A, B, C, or D — I'll wait for your answer before revealing it.\n\n"
+    "```vocab_quiz\n"
+    '{"word":"ubiquitous","part_of_speech":"adjective","question":"What does it mean?",'
+    '"correct":"B",'
+    '"choices":[{"letter":"A","text":"Extremely rare and hard to find"},'
+    '{"letter":"B","text":"Present or found everywhere"},'
+    '{"letter":"C","text":"Related to transportation"},'
+    '{"letter":"D","text":"A type of musical instrument"}]}\n'
+    "```"
 )
 
 MOCK_QUIZ_FEEDBACK = (

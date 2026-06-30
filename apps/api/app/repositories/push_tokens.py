@@ -46,6 +46,15 @@ async def delete_token(session: AsyncSession, user_id: UUID, expo_push_token: st
     return (result.rowcount or 0) > 0
 
 
+async def delete_by_token(session: AsyncSession, expo_push_token: str) -> int:
+    """Delete a push token by its string (used for pruning invalid tokens)."""
+    result = await session.execute(
+        delete(PushToken).where(PushToken.expo_push_token == expo_push_token)
+    )
+    await session.commit()
+    return int(result.rowcount or 0)
+
+
 async def list_for_user(session: AsyncSession, user_id: UUID) -> list[PushToken]:
     result = await session.execute(select(PushToken).where(PushToken.user_id == user_id))
     return list(result.scalars().all())

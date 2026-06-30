@@ -4,6 +4,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { CalendarProposalCard } from "@/components/CalendarProposalCard";
+import { PlacesListBlock } from "@/components/PlacesListBlock";
+import { CollapsibleMessageBody } from "@/components/CollapsibleMessageBody";
+import { RecalledMemoryChip } from "@/components/RecalledMemoryChip";
 import { UserMessageContent } from "@/components/UserMessageContent";
 import { SearchSourcesStack } from "@/components/SearchSourcesStack";
 import { CircularClockBlock } from "@/components/rich/CircularClockBlock";
@@ -17,7 +20,13 @@ import {
   stripCalendarProposalFences,
 } from "@/lib/calendarProposal";
 import { extractPrimaryCopyText } from "@/lib/copyBlock";
-import { parseVocabQuiz, stripVocabQuizBlock } from "@/lib/parseVocabQuiz";
+import { notifySuccess, notifyWarning, tap } from "@/lib/haptics";
+import {
+  recalledMemoryCount,
+  shouldShowRecalledChip,
+} from "@/lib/messageMeta";
+import { parseVocabQuiz, stripVocabQuizBlock, isCompleteVocabQuiz } from "@/lib/parseVocabQuiz";
+import { resolvePlaces, stripPlacesContent } from "@/lib/placesList";
 import {
   resolveSearchSources,
   stripSearchSourcesFence,
@@ -27,19 +36,26 @@ import {
   extractClockTimezone,
   stripTimeAnswerFences,
 } from "@/lib/timeQuestion";
+import { shouldCollapseMessage } from "@/lib/messageFold";
 import { Theme, useTheme } from "@/lib/theme";
+import { useTranslation } from "react-i18next";
 
 type Props = {
   message: Message;
   priorUserText?: string | null;
   isGenerating?: boolean;
+  /** Live token stream — avoids mutating the messages array on every token. */
+  liveContent?: string;
+  liveSearchSources?: Message["search_sources"];
   isLastAssistant?: boolean;
   onRegenerate?: () => void;
   onEdit?: (message: Message) => void;
   canEdit?: boolean;
   onFeedback?: (messageId: string, feedback: "up" | "down" | null) => void;
-  onQuizAnswer?: (letter: "A" | "B" | "C" | "D") => void;
+  onQuizAnswer?: (messageId: string, letter: "A" | "B" | "C" | "D") => void;
   quizDisabled?: boolean;
+  quizLanguage?: string;
+  quizSelectedLetter?: "A" | "B" | "C" | "D" | null;
 };
 
 async function copyText(text: string) {
@@ -64,13 +80,19 @@ function AssistantActions({
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
+    tap();
     await copyText(content);
     setCopied(true);
+    notifySuccess();
     setTimeout(() => setCopied(false), 1500);
   };
 
   const rate = (dir: "up" | "down") => {
-    onFeedback?.(messageId, feedback === dir ? null : dir);
+    const next = feedback === dir ? null : dir;
+    onFeedback?.(messageId, next);
+    if (next === "up") notifySuccess();
+    else if (next === "down") notifyWarning();
+    else tap();
   };
 
   return (
@@ -102,7 +124,14 @@ function AssistantActions({
         />
       </Pressable>
       {onRegenerate && (
-        <Pressable style={a.btn} onPress={onRegenerate} hitSlop={8}>
+        <Pressable
+          style={a.btn}
+          onPress={() => {
+            tap();
+            onRegenerate();
+          }}
+          hitSlop={8}
+        >
           <Ionicons name="refresh-outline" size={19} color={theme.textSecondary} />
         </Pressable>
       )}
@@ -114,6 +143,8 @@ export const MessageBubble = React.memo(function MessageBubble({
   message,
   priorUserText = null,
   isGenerating = false,
+  liveContent,
+  liveSearchSources,
   isLastAssistant,
   onRegenerate,
   onEdit,
@@ -121,51 +152,73 @@ export const MessageBubble = React.memo(function MessageBubble({
   onFeedback,
   onQuizAnswer,
   quizDisabled,
+  quizLanguage = "en",
+  quizSelectedLetter = null,
 }: Props) {
   const theme = useTheme();
+  const { t } = useTranslation();
   const b = useMemo(() => makeStyles(theme), [theme]);
   const isUser = message.role === "user";
   const isStreaming = isGenerating;
-  const hasContent = message.content.trim().length > 0;
+  const content = liveContent ?? message.content;
+  const hasContent = content.trim().length > 0;
   const showActions = !isUser && hasContent && !isStreaming;
-  const quiz = useMemo(
-    () => (!isUser && hasContent && !isStreaming ? parseVocabQuiz(message.content) : null),
-    [isUser, hasContent, isStreaming, message.content],
-  );
-  const showQuizCard = quiz != null && !isStreaming;
+  const quiz = useMemo(() => {
+    if (isUser || !hasContent) return null;
+    const parsed = parseVocabQuiz(content);
+    return isCompleteVocabQuiz(parsed) ? parsed : null;
+  }, [isUser, hasContent, content]);
+  const showQuizCard = quiz != null;
   const showQuizButtons =
     showQuizCard && isLastAssistant && onQuizAnswer != null;
   const showLiveClock =
     !isUser &&
     hasContent &&
     !isStreaming &&
-    assistantReplyIsTimeAnswer(message.content, priorUserText ?? null);
+    assistantReplyIsTimeAnswer(content, priorUserText ?? null);
   const clockTimezone = useMemo(
-    () => extractClockTimezone(message.content),
-    [message.content],
+    () => extractClockTimezone(content),
+    [content],
   );
   const searchSources = useMemo(
-    () => resolveSearchSources(message.content, message.search_sources),
-    [message.content, message.search_sources],
+    () =>
+      resolveSearchSources(
+        content,
+        liveSearchSources ?? message.search_sources,
+      ),
+    [content, liveSearchSources, message.search_sources],
   );
   const calendarProposals = useMemo(
     () =>
       !isUser && hasContent && !isStreaming
-        ? parseCalendarProposals(message.content)
+        ? parseCalendarProposals(content)
         : [],
-    [isUser, hasContent, isStreaming, message.content],
+    [isUser, hasContent, isStreaming, content],
   );
   const showCalendarProposals = calendarProposals.length > 0 && !isStreaming;
+  const places = useMemo(
+    () => (!isUser && hasContent ? resolvePlaces(content) : []),
+    [isUser, hasContent, content],
+  );
+  const showPlaces = places.length > 0;
   const markdownContent = useMemo(() => {
-    let text = showQuizCard ? stripVocabQuizBlock(message.content) : message.content;
+    let text = showQuizCard ? stripVocabQuizBlock(content) : content;
     if (showLiveClock) text = stripTimeAnswerFences(text);
     text = stripSearchSourcesFence(text);
     if (showCalendarProposals) text = stripCalendarProposalFences(text);
+    if (showPlaces) text = stripPlacesContent(text, places);
     return text;
-  }, [showQuizCard, showLiveClock, showCalendarProposals, message.content]);
+  }, [showQuizCard, showLiveClock, showCalendarProposals, showPlaces, places, content]);
   const hasMarkdown = markdownContent.trim().length > 0;
   const showSearchSources =
     searchSources.length > 0 && !showLiveClock && !showQuizCard && !showCalendarProposals;
+  const showContextSummarized =
+    !isUser && !isStreaming && (message.context_summarized ?? 0) > 0;
+  const showRecalled = shouldShowRecalledChip(message, {
+    isStreaming,
+    isLastAssistant: !!isLastAssistant,
+  });
+  const collapseAssistant = shouldCollapseMessage(markdownContent);
 
   return (
     <View style={[b.row, isUser ? b.userRow : b.assistantRow]}>
@@ -182,15 +235,19 @@ export const MessageBubble = React.memo(function MessageBubble({
         <View style={b.assistantBubble}>
           {isStreaming && !hasContent ? (
             <RecallTypingIndicator />
-          ) : isStreaming ? (
-            <>
-              <Text style={b.streamingText} selectable>
-                {markdownContent}
-              </Text>
-              {showSearchSources ? <SearchSourcesStack sources={searchSources} /> : null}
-            </>
           ) : (
-            <>
+            <CollapsibleMessageBody
+              enabled={!isStreaming}
+              collapsible={collapseAssistant}
+            >
+              {showRecalled ? (
+                <RecalledMemoryChip count={recalledMemoryCount(message)} />
+              ) : null}
+              {showContextSummarized ? (
+                <Text style={b.contextChip}>
+                  {t("chat.context_summarized", { count: message.context_summarized })}
+                </Text>
+              ) : null}
               {showLiveClock ? (
                 <CircularClockBlock content={clockTimezone} />
               ) : null}
@@ -200,14 +257,21 @@ export const MessageBubble = React.memo(function MessageBubble({
                   resetKey={`${message.id}:${markdownContent.length}`}
                   content={markdownContent}
                 >
-                  <MarkdownContent content={markdownContent} streaming={isGenerating} />
+                  <MarkdownContent content={markdownContent} streaming={isStreaming} />
                 </MarkdownErrorBoundary>
               ) : null}
-              {showQuizCard ? (
+              {showPlaces ? <PlacesListBlock places={places} /> : null}
+              {showQuizCard && quiz ? (
                 <VocabQuizChoices
                   quiz={quiz}
                   disabled={!showQuizButtons || !!quizDisabled}
-                  onSelect={showQuizButtons ? onQuizAnswer : undefined}
+                  language={quizLanguage}
+                  initialSelected={quizSelectedLetter}
+                  onSelect={
+                    showQuizButtons && onQuizAnswer
+                      ? (letter) => onQuizAnswer(message.id, letter)
+                      : undefined
+                  }
                 />
               ) : null}
               {showCalendarProposals
@@ -220,7 +284,7 @@ export const MessageBubble = React.memo(function MessageBubble({
                   ))
                 : null}
               {showSearchSources ? <SearchSourcesStack sources={searchSources} /> : null}
-            </>
+            </CollapsibleMessageBody>
           )}
         </View>
       )}
@@ -228,7 +292,7 @@ export const MessageBubble = React.memo(function MessageBubble({
       {showActions && (
         <AssistantActions
           messageId={message.id}
-          content={extractPrimaryCopyText(message.content)}
+          content={extractPrimaryCopyText(content)}
           feedback={message.feedback ?? null}
           onFeedback={onFeedback}
           onRegenerate={isLastAssistant ? onRegenerate : undefined}
@@ -269,5 +333,11 @@ function makeStyles(t: Theme) {
     },
     userText: { color: t.userText, fontSize: 16, lineHeight: 23 },
     streamingText: { color: t.assistantText, fontSize: 16, lineHeight: 25 },
+    contextChip: {
+      fontSize: 12,
+      lineHeight: 16,
+      color: t.textTertiary,
+      marginBottom: 6,
+    },
   });
 }

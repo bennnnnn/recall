@@ -14,7 +14,6 @@ import { useTranslation } from "react-i18next";
 
 import { ProjectPosGroupList } from "@/components/ProjectPosGroupList";
 import { ProgrammingJourney } from "@/components/ProgrammingJourney";
-import { C } from "@/constants/Colors";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, type ProjectDetail, type ProjectItem } from "@/lib/api";
 import {
@@ -22,12 +21,13 @@ import {
   levelLabel,
 } from "@/lib/languageLevels";
 import { isProgrammingStack, programmingLanguageLabel } from "@/lib/programmingLanguages";
-import { buildProjectAskPrompt, buildProjectQuizPrompt } from "@/lib/projectChat";
+import { buildProjectAskPrompt, buildProjectPracticePrompt, buildProjectQuizPrompt } from "@/lib/projectChat";
 import {
   buildProgrammingNextUpPrompt,
   buildProgrammingStudyPrompt,
 } from "@/lib/programmingStudy";
 import { queueChatLaunch } from "@/lib/chatLaunch";
+import { Theme, useTheme } from "@/lib/theme";
 
 function statusIcon(item: ProjectItem): keyof typeof Ionicons.glyphMap {
   if (item.status === "mastered" || item.mastered) return "checkmark-circle";
@@ -35,10 +35,10 @@ function statusIcon(item: ProjectItem): keyof typeof Ionicons.glyphMap {
   return "ellipse-outline";
 }
 
-function statusColor(item: ProjectItem): string {
-  if (item.status === "mastered" || item.mastered) return C.primary;
+function statusColor(item: ProjectItem, theme: Theme): string {
+  if (item.status === "mastered" || item.mastered) return theme.primary;
   if (item.status === "learning") return "#FF9F0A";
-  return C.textTertiary;
+  return theme.textTertiary;
 }
 
 export default function ProjectDetailScreen() {
@@ -46,6 +46,8 @@ export default function ProjectDetailScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState<ProjectDetail | null>(null);
 
@@ -99,7 +101,7 @@ export default function ProjectDetailScreen() {
   if (loading) {
     return (
       <View style={s.center}>
-        <ActivityIndicator color={C.primary} />
+        <ActivityIndicator color={theme.primary} />
       </View>
     );
   }
@@ -154,14 +156,17 @@ export default function ProjectDetailScreen() {
     });
   };
 
-  const launchChat = (prompt: string) => {
-    queueChatLaunch(prompt, project.id);
+  const launchChat = (prompt: string, quizLanguage?: string) => {
+    queueChatLaunch(prompt, project.id, quizLanguage);
     router.replace("/");
   };
 
   const askRecall = () => launchChat(buildProjectAskPrompt(project));
 
-  const quizWithRecall = () => launchChat(buildProjectQuizPrompt(project));
+  const quizWithRecall = () =>
+    launchChat(buildProjectQuizPrompt(project), project.target_language || "en");
+
+  const practiceWithRecall = () => launchChat(buildProjectPracticePrompt(project));
 
   const studyProgrammingTopic = (topic: string) =>
     launchChat(buildProgrammingStudyPrompt(project, topic));
@@ -240,7 +245,7 @@ export default function ProjectDetailScreen() {
                     <Text style={s.deckMeta}>{deck.count} words</Text>
                   </View>
                   <Pressable onPress={() => addWordToDeck(deck.title)} hitSlop={8}>
-                    <Ionicons name="add-circle-outline" size={22} color={C.primary} />
+                    <Ionicons name="add-circle-outline" size={22} color={theme.primary} />
                   </Pressable>
                 </View>
               ))
@@ -266,7 +271,7 @@ export default function ProjectDetailScreen() {
             </>
           ) : (
             <View style={s.comingSoon}>
-              <ActivityIndicator color={C.primary} />
+              <ActivityIndicator color={theme.primary} />
               <Text style={s.comingSoonBody}>{t("projects.lists_empty")}</Text>
             </View>
           )}
@@ -286,7 +291,7 @@ export default function ProjectDetailScreen() {
             <Text style={s.listTitle}>{group.list_title}</Text>
             {group.items.map((item) => (
               <View key={item.id} style={s.itemRow}>
-                <Ionicons name={statusIcon(item)} size={20} color={statusColor(item)} />
+                <Ionicons name={statusIcon(item)} size={20} color={statusColor(item, theme)} />
                 <View style={s.itemMain}>
                   <Text style={s.itemContent}>{item.content}</Text>
                 </View>
@@ -294,11 +299,15 @@ export default function ProjectDetailScreen() {
             ))}
           </View>
         ))
-      ) : !isProgramming ? (
-        <View style={s.comingSoon}>
-          <Ionicons name="sparkles-outline" size={22} color={C.primary} />
-          <Text style={s.comingSoonTitle}>{t("projects.coming_title")}</Text>
-          <Text style={s.comingSoonBody}>{t("projects.lists_empty")}</Text>
+      ) : !isProgramming && !isLang ? (
+        <View style={s.practiceSection}>
+          <Ionicons name="calculator-outline" size={22} color={theme.primary} />
+          <Text style={s.practiceTitle}>{t("projects.practice_title")}</Text>
+          <Text style={s.practiceBody}>{t("projects.practice_body")}</Text>
+          <Pressable style={s.studyBtn} onPress={practiceWithRecall}>
+            <Ionicons name="play-outline" size={20} color="#fff" />
+            <Text style={s.studyBtnText}>{t("projects.practice_start")}</Text>
+          </Pressable>
         </View>
       ) : null}
 
@@ -318,107 +327,117 @@ export default function ProjectDetailScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: C.bg },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: C.bg },
-  content: { padding: 16, gap: 16, paddingBottom: 40 },
-  empty: { fontSize: 15, color: C.textSecondary },
-  hero: { gap: 8 },
-  badgeRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  badge: {
-    backgroundColor: C.primaryLight,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  badgeText: { fontSize: 12, fontWeight: "700", color: C.primary },
-  title: { fontSize: 28, fontWeight: "800", color: C.text, letterSpacing: -0.5 },
-  description: { fontSize: 16, lineHeight: 24, color: C.textSecondary },
-  statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  statCard: {
-    width: "47%",
-    flexGrow: 1,
-    backgroundColor: C.surface,
-    borderRadius: 14,
-    padding: 14,
-    alignItems: "center",
-    gap: 4,
-  },
-  statValue: { fontSize: 22, fontWeight: "800", color: C.text },
-  statHighlight: { color: C.primary },
-  statLabel: { fontSize: 11, fontWeight: "600", color: C.textSecondary, textAlign: "center" },
-  studyBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: C.primary,
-    borderRadius: 14,
-    paddingVertical: 14,
-  },
-  studyBtnMuted: { backgroundColor: C.primaryLight },
-  studyBtnText: { fontSize: 16, fontWeight: "700", color: "#fff" },
-  studyBtnTextMuted: { color: C.primary },
-  listSection: {
-    backgroundColor: C.surface,
-    borderRadius: 16,
-    padding: 14,
-    gap: 10,
-  },
-  listTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: C.textTertiary,
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-  },
-  itemRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
-  itemMain: { flex: 1, gap: 2 },
-  itemTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
-  itemContent: { fontSize: 16, fontWeight: "700", color: C.text, flex: 1 },
-  itemMastered: { color: C.textSecondary, textDecorationLine: "line-through" },
-  itemDef: { fontSize: 14, color: C.textSecondary },
-  itemNote: { fontSize: 13, lineHeight: 18, color: C.textSecondary, fontStyle: "italic" },
-  itemMeta: { fontSize: 11, fontWeight: "600", color: C.textTertiary, marginTop: 2 },
-  comingSoon: {
-    backgroundColor: C.surface,
-    borderRadius: 16,
-    padding: 16,
-    gap: 8,
-  },
-  comingSoonTitle: { fontSize: 16, fontWeight: "700", color: C.text },
-  comingSoonBody: { fontSize: 14, lineHeight: 21, color: C.textSecondary },
-  encourage: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: C.primary,
-    fontWeight: "600",
-    textAlign: "center",
-  },
-  decksSection: {
-    backgroundColor: C.surface,
-    borderRadius: 16,
-    padding: 14,
-    gap: 10,
-  },
-  decksHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  decksTitle: { fontSize: 13, fontWeight: "700", color: C.textSecondary, textTransform: "uppercase" },
-  decksLink: { fontSize: 13, fontWeight: "600", color: C.primary },
-  decksEmpty: { fontSize: 14, color: C.textSecondary, lineHeight: 20 },
-  deckRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  deckMain: { flex: 1, gap: 2 },
-  deckTitle: { fontSize: 16, fontWeight: "700", color: C.text },
-  deckMeta: { fontSize: 13, color: C.textSecondary },
-  chatBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: C.primary,
-    borderRadius: 14,
-    paddingVertical: 14,
-  },
-  chatBtnText: { fontSize: 16, fontWeight: "700", color: "#fff" },
-  deleteBtn: { alignItems: "center", paddingVertical: 10 },
-  deleteBtnText: { fontSize: 15, fontWeight: "600", color: C.danger },
-});
+function makeStyles(theme: Theme) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: theme.bg },
+    center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.bg },
+    content: { padding: 16, gap: 16, paddingBottom: 40 },
+    empty: { fontSize: 15, color: theme.textSecondary },
+    hero: { gap: 8 },
+    badgeRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    badge: {
+      backgroundColor: theme.primaryLight,
+      borderRadius: 999,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    badgeText: { fontSize: 12, fontWeight: "700", color: theme.primary },
+    title: { fontSize: 28, fontWeight: "800", color: theme.text, letterSpacing: -0.5 },
+    description: { fontSize: 16, lineHeight: 24, color: theme.textSecondary },
+    statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+    statCard: {
+      width: "47%",
+      flexGrow: 1,
+      backgroundColor: theme.surface,
+      borderRadius: 14,
+      padding: 14,
+      alignItems: "center",
+      gap: 4,
+    },
+    statValue: { fontSize: 22, fontWeight: "800", color: theme.text },
+    statHighlight: { color: theme.primary },
+    statLabel: { fontSize: 11, fontWeight: "600", color: theme.textSecondary, textAlign: "center" },
+    studyBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      backgroundColor: theme.primary,
+      borderRadius: 14,
+      paddingVertical: 14,
+    },
+    studyBtnMuted: { backgroundColor: theme.primaryLight },
+    studyBtnText: { fontSize: 16, fontWeight: "700", color: "#fff" },
+    studyBtnTextMuted: { color: theme.primary },
+    listSection: {
+      backgroundColor: theme.surface,
+      borderRadius: 16,
+      padding: 14,
+      gap: 10,
+    },
+    listTitle: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: theme.textTertiary,
+      textTransform: "uppercase",
+      letterSpacing: 0.6,
+    },
+    itemRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+    itemMain: { flex: 1, gap: 2 },
+    itemTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+    itemContent: { fontSize: 16, fontWeight: "700", color: theme.text, flex: 1 },
+    itemMastered: { color: theme.textSecondary, textDecorationLine: "line-through" },
+    itemDef: { fontSize: 14, color: theme.textSecondary },
+    itemNote: { fontSize: 13, lineHeight: 18, color: theme.textSecondary, fontStyle: "italic" },
+    itemMeta: { fontSize: 11, fontWeight: "600", color: theme.textTertiary, marginTop: 2 },
+    comingSoon: {
+      backgroundColor: theme.surface,
+      borderRadius: 16,
+      padding: 16,
+      gap: 8,
+    },
+    comingSoonTitle: { fontSize: 16, fontWeight: "700", color: theme.text },
+    comingSoonBody: { fontSize: 14, lineHeight: 21, color: theme.textSecondary },
+    practiceSection: {
+      backgroundColor: theme.surface,
+      borderRadius: 16,
+      padding: 16,
+      gap: 10,
+    },
+    practiceTitle: { fontSize: 16, fontWeight: "700", color: theme.text },
+    practiceBody: { fontSize: 14, lineHeight: 21, color: theme.textSecondary },
+    encourage: {
+      fontSize: 14,
+      lineHeight: 20,
+      color: theme.primary,
+      fontWeight: "600",
+      textAlign: "center",
+    },
+    decksSection: {
+      backgroundColor: theme.surface,
+      borderRadius: 16,
+      padding: 14,
+      gap: 10,
+    },
+    decksHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    decksTitle: { fontSize: 13, fontWeight: "700", color: theme.textSecondary, textTransform: "uppercase" },
+    decksLink: { fontSize: 13, fontWeight: "600", color: theme.primary },
+    decksEmpty: { fontSize: 14, color: theme.textSecondary, lineHeight: 20 },
+    deckRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+    deckMain: { flex: 1, gap: 2 },
+    deckTitle: { fontSize: 16, fontWeight: "700", color: theme.text },
+    deckMeta: { fontSize: 13, color: theme.textSecondary },
+    chatBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      backgroundColor: theme.primary,
+      borderRadius: 14,
+      paddingVertical: 14,
+    },
+    chatBtnText: { fontSize: 16, fontWeight: "700", color: "#fff" },
+    deleteBtn: { alignItems: "center", paddingVertical: 10 },
+    deleteBtnText: { fontSize: 15, fontWeight: "600", color: theme.danger },
+  });
+}

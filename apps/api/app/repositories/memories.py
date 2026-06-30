@@ -16,6 +16,32 @@ async def list_for_user(session: AsyncSession, user_id: UUID) -> list[Memory]:
     return list(result.scalars().all())
 
 
+async def search_semantic(
+    session: AsyncSession,
+    user_id: UUID,
+    query_embedding: list[float],
+    *,
+    min_confidence: float,
+    limit: int,
+) -> list[Memory]:
+    """DB-side cosine similarity search over the `embedding` vector column
+    (HNSW index). Returns up to `limit` memories ranked by cosine distance,
+    filtered by confidence. Empty result means no row has a populated vector
+    yet — callers fall back to the in-memory JSON path."""
+    stmt = (
+        select(Memory)
+        .where(
+            Memory.user_id == user_id,
+            Memory.embedding.isnot(None),
+            Memory.confidence >= min_confidence,
+        )
+        .order_by(Memory.embedding.cosine_distance(query_embedding))
+        .limit(limit)
+    )
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
+
+
 async def upsert_sections(
     session: AsyncSession,
     *,

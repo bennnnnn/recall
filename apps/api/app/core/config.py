@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     google_calendar_enabled: bool = True
     calendar_cache_ttl: int = 300
     calendar_fetch_days: int = 60
+    calendar_prompt_days: int = 14
 
     gmail_enabled: bool = True
     gmail_fetch_days: int = 7
@@ -40,13 +41,24 @@ class Settings(BaseSettings):
     web_search_enabled: bool = True
     web_search_fallback_enabled: bool = True
     web_search_max_results: int = 5
+    web_search_cache_ttl: int = 300
 
     push_enabled: bool = True
     push_learning_hour: int = 9
+    server_todo_push_enabled: bool = False  # local notifications handle todo reminders
 
     revenuecat_secret_key: str = ""
     revenuecat_webhook_auth: str = ""
     revenuecat_entitlement_id: str = "pro"
+
+    # Transactional email (welcome / receipts). Provider is Resend when
+    # `resend_api_key` is set; otherwise a mock that logs the message so dev
+    # works with zero external setup. Sending is always best-effort via the
+    # background jobs stream — it never blocks auth or the chat path.
+    email_enabled: bool = True
+    resend_api_key: str = ""
+    resend_api_url: str = "https://api.resend.com/emails"
+    email_from: str = "Recall <noreply@recall.app>"
 
     daily_token_limit: int = 30_000
     daily_token_limit_pro: int = 500_000
@@ -55,7 +67,9 @@ class Settings(BaseSettings):
     memory_min_confidence: float = 0.4
     memory_inject_limit: int = 15
     memory_cache_ttl: int = 300
+    memory_query_cache_ttl: int = 120
     todo_inject_limit: int = 100
+    todo_prompt_limit: int = 48
     project_inject_limit: int = 50
     project_item_inject_limit: int = 300
 
@@ -64,6 +78,7 @@ class Settings(BaseSettings):
     history_compression_enabled: bool = True
     context_token_budget: int = 6000
     history_summary_batch: int = 10
+    history_summary_urgent_pending: int = 3
     summary_max_tokens: int = 400
 
     cors_origins: str = ""

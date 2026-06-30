@@ -1,9 +1,9 @@
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { Ionicons } from "@expo/vector-icons";
 
-import { C } from "@/constants/Colors";
+import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
   label: string;
@@ -18,10 +18,14 @@ export function CardShell({
   label,
   copyText,
   icon,
-  iconColor = C.textSecondary,
-  accentColor = C.border,
+  iconColor,
+  accentColor,
   children,
 }: Props) {
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
+  const resolvedIconColor = iconColor ?? theme.textSecondary;
+  const resolvedAccent = accentColor ?? theme.border;
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -40,10 +44,10 @@ export function CardShell({
   };
 
   return (
-    <View style={[s.wrap, { borderLeftColor: accentColor }]}>
+    <View style={[s.wrap, { borderLeftColor: resolvedAccent }]}>
       <View style={s.header}>
         <View style={s.labelRow}>
-          {icon ? <Ionicons name={icon} size={15} color={iconColor} /> : null}
+          {icon ? <Ionicons name={icon} size={15} color={resolvedIconColor} /> : null}
           <Text style={s.label}>{label}</Text>
         </View>
         {copyText ? (
@@ -51,7 +55,7 @@ export function CardShell({
             <Ionicons
               name={copied ? "checkmark-outline" : "copy-outline"}
               size={14}
-              color={copied ? C.primary : C.textSecondary}
+              color={copied ? theme.primary : theme.textSecondary}
             />
             <Text style={[s.copyText, copied && s.copyTextDone]}>
               {copied ? "Copied" : "Copy"}
@@ -64,42 +68,44 @@ export function CardShell({
   );
 }
 
-const s = StyleSheet.create({
-  wrap: {
-    alignSelf: "stretch",
-    backgroundColor: C.bg,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: C.border,
-    borderLeftWidth: 3,
-    marginVertical: 8,
-    overflow: "hidden",
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: C.border,
-    backgroundColor: C.surface,
-  },
-  labelRow: { flexDirection: "row", alignItems: "center", gap: 6, flex: 1 },
-  label: { fontSize: 13, fontWeight: "600", color: C.textSecondary },
-  copyBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    backgroundColor: C.bg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: C.border,
-  },
-  copyText: { fontSize: 12, fontWeight: "600", color: C.textSecondary },
-  copyTextDone: { color: C.primary },
-  body: { paddingHorizontal: 12, paddingVertical: 10 },
-});
+function makeStyles(t: Theme) {
+  return StyleSheet.create({
+    wrap: {
+      alignSelf: "stretch",
+      backgroundColor: t.bg,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: t.border,
+      borderLeftWidth: 3,
+      marginVertical: 8,
+      overflow: "hidden",
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 9,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: t.border,
+      backgroundColor: t.surface,
+    },
+    labelRow: { flexDirection: "row", alignItems: "center", gap: 6, flex: 1 },
+    label: { fontSize: 13, fontWeight: "600", color: t.textSecondary },
+    copyBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 8,
+      backgroundColor: t.bg,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: t.border,
+    },
+    copyText: { fontSize: 12, fontWeight: "600", color: t.textSecondary },
+    copyTextDone: { color: t.primary },
+    body: { paddingHorizontal: 12, paddingVertical: 10 },
+  });
+}

@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import type { ProjectItem, ProjectListGroup } from "@/lib/api";
 import { suggestProgrammingTopic } from "@/lib/programmingStudy";
-import { C } from "@/constants/Colors";
+import { Theme, useTheme } from "@/lib/theme";
 
 function itemMastered(item: ProjectItem): boolean {
   return item.status === "mastered" || item.mastered;
@@ -28,10 +28,10 @@ function statusIcon(item: ProjectItem): keyof typeof Ionicons.glyphMap {
   return "ellipse-outline";
 }
 
-function statusColor(item: ProjectItem): string {
-  if (itemMastered(item)) return C.primary;
+function statusColor(item: ProjectItem, theme: Theme): string {
+  if (itemMastered(item)) return theme.primary;
   if (itemLearning(item)) return "#FF9F0A";
-  return C.textTertiary;
+  return theme.textTertiary;
 }
 
 type Props = {
@@ -41,6 +41,8 @@ type Props = {
 
 export function ProgrammingJourney({ lists, onStudyTopic }: Props) {
   const { t } = useTranslation();
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const suggestion = useMemo(() => suggestProgrammingTopic(lists), [lists]);
@@ -58,7 +60,7 @@ export function ProgrammingJourney({ lists, onStudyTopic }: Props) {
         <Text style={s.suggestion}>{t("projects.journey_all_done")}</Text>
       ) : suggestion ? (
         <View style={s.suggestionBox}>
-          <Ionicons name="bulb-outline" size={18} color={C.primary} />
+          <Ionicons name="bulb-outline" size={18} color={theme.primary} />
           <Text style={s.suggestion}>
             {t("projects.journey_suggestion", { topic: suggestion })}
           </Text>
@@ -95,14 +97,14 @@ export function ProgrammingJourney({ lists, onStudyTopic }: Props) {
               <Ionicons
                 name={open ? "chevron-up" : "chevron-down"}
                 size={18}
-                color={C.textTertiary}
+                color={theme.textTertiary}
               />
             </Pressable>
             {open ? (
               <View style={s.topicBody}>
                 {group.items.map((item) => (
                   <View key={item.id} style={s.itemRow}>
-                    <Ionicons name={statusIcon(item)} size={18} color={statusColor(item)} />
+                    <Ionicons name={statusIcon(item)} size={18} color={statusColor(item, theme)} />
                     <Text
                       style={[s.itemText, itemMastered(item) && s.itemMastered]}
                       numberOfLines={2}
@@ -127,56 +129,58 @@ export function ProgrammingJourney({ lists, onStudyTopic }: Props) {
   );
 }
 
-const s = StyleSheet.create({
-  wrap: { gap: 10 },
-  heading: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: C.textSecondary,
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-  },
-  suggestionBox: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    backgroundColor: C.primaryLight,
-    borderRadius: 12,
-    padding: 12,
-  },
-  suggestion: { flex: 1, fontSize: 14, lineHeight: 20, color: C.text, fontWeight: "600" },
-  topicCard: {
-    backgroundColor: C.surface,
-    borderRadius: 16,
-    overflow: "hidden",
-  },
-  topicHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    padding: 14,
-  },
-  topicHeaderMain: { flex: 1, gap: 6 },
-  topicTitle: { fontSize: 16, fontWeight: "700", color: C.text },
-  topicMeta: { fontSize: 13, color: C.textSecondary },
-  progressTrack: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: C.border,
-    overflow: "hidden",
-  },
-  progressFill: { height: 6, borderRadius: 3, backgroundColor: C.primary },
-  topicBody: { paddingHorizontal: 14, paddingBottom: 14, gap: 8 },
-  itemRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
-  itemText: { flex: 1, fontSize: 15, lineHeight: 21, color: C.text },
-  itemMastered: { color: C.textSecondary },
-  topicStudyBtn: {
-    marginTop: 4,
-    alignSelf: "flex-start",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    backgroundColor: C.primaryLight,
-  },
-  topicStudyText: { fontSize: 13, fontWeight: "700", color: C.primary },
-});
+function makeStyles(theme: Theme) {
+  return StyleSheet.create({
+    wrap: { gap: 10 },
+    heading: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: theme.textSecondary,
+      textTransform: "uppercase",
+      letterSpacing: 0.6,
+    },
+    suggestionBox: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 8,
+      backgroundColor: theme.primaryLight,
+      borderRadius: 12,
+      padding: 12,
+    },
+    suggestion: { flex: 1, fontSize: 14, lineHeight: 20, color: theme.text, fontWeight: "600" },
+    topicCard: {
+      backgroundColor: theme.surface,
+      borderRadius: 16,
+      overflow: "hidden",
+    },
+    topicHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      padding: 14,
+    },
+    topicHeaderMain: { flex: 1, gap: 6 },
+    topicTitle: { fontSize: 16, fontWeight: "700", color: theme.text },
+    topicMeta: { fontSize: 13, color: theme.textSecondary },
+    progressTrack: {
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: theme.border,
+      overflow: "hidden",
+    },
+    progressFill: { height: 6, borderRadius: 3, backgroundColor: theme.primary },
+    topicBody: { paddingHorizontal: 14, paddingBottom: 14, gap: 8 },
+    itemRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+    itemText: { flex: 1, fontSize: 15, lineHeight: 21, color: theme.text },
+    itemMastered: { color: theme.textSecondary },
+    topicStudyBtn: {
+      marginTop: 4,
+      alignSelf: "flex-start",
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 10,
+      backgroundColor: theme.primaryLight,
+    },
+    topicStudyText: { fontSize: 13, fontWeight: "700", color: theme.primary },
+  });
+}

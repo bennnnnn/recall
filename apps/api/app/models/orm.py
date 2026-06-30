@@ -1,6 +1,7 @@
 import uuid
 from datetime import date, datetime
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Boolean,
     Date,
@@ -37,6 +38,7 @@ class User(Base):
     push_notifications_enabled: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default="true"
     )
+    reminder_lead_minutes: Mapped[int] = mapped_column(Integer, default=10, server_default="10")
     custom_instructions: Mapped[str | None] = mapped_column(Text, nullable=True)
     locale: Mapped[str] = mapped_column(String(10), default="en", server_default="en")
     timezone: Mapped[str] = mapped_column(String(64), default="UTC", server_default="UTC")
@@ -126,6 +128,7 @@ class Memory(Base):
     text: Mapped[str] = mapped_column(Text, nullable=False)
     confidence: Mapped[float | None] = mapped_column(Numeric(3, 2))
     embedding_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)
     source_chat_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("chats.id", ondelete="SET NULL")
     )

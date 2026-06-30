@@ -73,7 +73,9 @@ async def test_login_with_google_creates_user():
         patch("app.services.auth.create_access_token", return_value="google-tok"),
         patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
     ):
-        result = await auth_service.login_with_google(AsyncMock(), settings_obj, "id-token")
+        result = await auth_service.login_with_google(
+            AsyncMock(), settings_obj, "id-token", AsyncMock()
+        )
     assert result.access_token == "google-tok"
     assert result.user.email == "google@test.local"
 
@@ -108,7 +110,9 @@ async def test_login_with_google_existing_user():
         patch("app.services.auth.create_access_token", return_value="tok2"),
         patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
     ):
-        result = await auth_service.login_with_google(AsyncMock(), settings_obj, "id-token")
+        result = await auth_service.login_with_google(
+            AsyncMock(), settings_obj, "id-token", AsyncMock()
+        )
     assert result.access_token == "tok2"
 
 
@@ -121,7 +125,9 @@ async def test_login_dev_raises_when_disabled():
         dev_auth_enabled=False
     )
     with pytest.raises(GoogleAuthError):
-        await auth_service.login_dev(AsyncMock(), settings_obj, email="x@x.com", name="X")
+        await auth_service.login_dev(
+            AsyncMock(), settings_obj, email="x@x.com", name="X", redis=AsyncMock()
+        )
 
 
 # ── MagicMock import for test_login_with_google ────────────────────────────────

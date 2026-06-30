@@ -15,6 +15,7 @@ import {
 import { ConversationList } from "@/components/ConversationList";
 import { DrawerProvider } from "@/contexts/DrawerContext";
 import { registerDrawer } from "@/lib/drawer";
+import { tap } from "@/lib/haptics";
 import { useTheme } from "@/lib/theme";
 
 export function DrawerShell({ children }: { children: ReactNode }) {
@@ -26,6 +27,7 @@ export function DrawerShell({ children }: { children: ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const open = useCallback(() => {
+    tap();
     setDrawerOpen(true);
     Animated.parallel([
       Animated.spring(translateX, {
@@ -81,7 +83,7 @@ export function DrawerShell({ children }: { children: ReactNode }) {
           </View>
 
           <Animated.View
-            style={[s.overlay, { opacity: overlayOpacity }, { pointerEvents: "none" }]}
+            style={[s.overlay, { opacity: overlayOpacity, backgroundColor: theme.scrim }, { pointerEvents: "none" }]}
           />
 
           <Animated.View
@@ -115,7 +117,6 @@ const s = StyleSheet.create({
   contentBehind: { zIndex: 0 },
   overlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: "rgba(0,0,0,0.35)",
     zIndex: 150,
   },
   tapClose: {

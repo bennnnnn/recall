@@ -17,6 +17,7 @@ const Colors = {
 };
 export default Colors;
 
+// Legacy static palette — prefer `useTheme()` from `@/lib/theme` for dark mode.
 export const C = {
   // Brand
   primary: "#6C47FF",

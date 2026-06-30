@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Animated, {
   Easing,
@@ -9,10 +9,12 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { C } from "@/constants/Colors";
+import { Theme, useTheme } from "@/lib/theme";
 
 /** Pulsing Recall mark while waiting for the first token (ChatGPT-style). */
 export function RecallTypingIndicator() {
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
   const scale = useSharedValue(0.92);
   const opacity = useSharedValue(0.45);
   const glow = useSharedValue(0.3);
@@ -65,33 +67,35 @@ export function RecallTypingIndicator() {
   );
 }
 
-const s = StyleSheet.create({
-  wrap: {
-    width: 36,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 4,
-  },
-  halo: {
-    position: "absolute",
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: C.primary,
-  },
-  logo: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: C.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  letter: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "700",
-    marginTop: -1,
-  },
-});
+function makeStyles(t: Theme) {
+  return StyleSheet.create({
+    wrap: {
+      width: 36,
+      height: 36,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 4,
+    },
+    halo: {
+      position: "absolute",
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: t.primary,
+    },
+    logo: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: t.primary,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    letter: {
+      color: "#fff",
+      fontSize: 15,
+      fontWeight: "700",
+      marginTop: -1,
+    },
+  });
+}

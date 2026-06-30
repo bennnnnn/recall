@@ -3,7 +3,7 @@
 import pytest
 
 from app.models.schemas import ChatOut
-from app.services.chat_titles import normalize_chat_title
+from app.services.chat_titles import normalize_chat_title, sanitize_manual_chat_title
 
 
 @pytest.mark.parametrize(
@@ -37,3 +37,17 @@ def test_chat_out_sanitizes_boring_title():
         updated_at=datetime.now(UTC),
     )
     assert out.title is None
+
+
+@pytest.mark.parametrize(
+    "raw, expected",
+    [
+        ('  "Pinned note"  ', "Pinned note"),
+        ("New chat", "New chat"),
+        ("ab", "ab"),
+        ("", None),
+        ("x" * 81, None),
+    ],
+)
+def test_sanitize_manual_chat_title(raw: str, expected: str | None):
+    assert sanitize_manual_chat_title(raw) == expected

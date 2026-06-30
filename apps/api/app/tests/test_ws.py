@@ -111,6 +111,32 @@ def test_ws_sends_message_and_receives_tokens():
             assert done["type"] == "done"
 
 
+def test_ws_passes_client_timezone_to_stream():
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+
+    async def fake_stream(*args, **kwargs):
+        assert kwargs.get("client_timezone") == "America/Los_Angeles"
+        yield "ok"
+
+    app = _app(user)
+
+    with (
+        patch("app.routers.ws.decode_access_token", return_value=user.id),
+        patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
+        patch("app.routers.ws.chat_service.stream_chat_response", fake_stream),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok, "client_timezone": "America/Los_Angeles"})
+            ws.send_json({"type": "message", "content": "hi"})
+            assert ws.receive_json()["type"] == "start"
+            assert ws.receive_json()["type"] == "token"
+            assert ws.receive_json()["type"] == "stream_end"
+            assert ws.receive_json()["type"] == "done"
+
+
 def test_ws_empty_message_ignored():
     _, tok = _token()
     user = _fake_user()
@@ -269,6 +295,7 @@ def test_ws_quota_error_frame():
             assert ws.receive_json()["type"] == "start"
             err = ws.receive_json()
             assert err["type"] == "error"
+            assert err["code"] == "quota_exceeded"
             assert "limit" in err["message"].lower()
 
 

@@ -69,6 +69,30 @@ LEVEL_GUIDANCE: dict[str, str] = {
     ),
 }
 
+VOCAB_QUIZ_MARKDOWN_EXAMPLE = (
+    "**Word:** apple [noun]\n"
+    "What does it mean?\n"
+    "A) a red fruit\n"
+    "B) a vehicle\n"
+    "C) a feeling\n"
+    "D) a color"
+)
+
+VOCAB_QUIZ_FENCE_EXAMPLE = (
+    "```vocab_quiz\n"
+    '{"word":"apple","part_of_speech":"noun","question":"What does it mean?",'
+    '"correct":"A",'
+    '"choices":[{"letter":"A","text":"a red fruit"},{"letter":"B","text":"a vehicle"},'
+    '{"letter":"C","text":"a feeling"},{"letter":"D","text":"a color"}]}\n'
+    "```"
+)
+
+VOCAB_QUIZ_FORMAT_BLOCK = (
+    f"{VOCAB_QUIZ_MARKDOWN_EXAMPLE}\n\n"
+    f"Then append this machine-readable block (required — include correct letter A–D):\n"
+    f"{VOCAB_QUIZ_FENCE_EXAMPLE}"
+)
+
 LANGUAGE_TUTOR_HINT = (
     "Active **language** projects (English etc.) — you are the user's vocabulary tutor.\n"
     "The project **level** is the user's **English skill level** (level1=beginner … level6=fluent), "
@@ -88,13 +112,11 @@ LANGUAGE_TUTOR_HINT = (
     "The user quizzes WITH you, not alone. Run a turn-by-turn multiple-choice quiz:\n"
     "1) Pick ONE word from their new/learning items that fits their project level "
     "(for level1, only the simplest words in their list).\n"
-    "2) Present it like a card, then exactly 4 options labeled A–D (plausible wrong answers):\n"
-    "   **Word:** <term> [<part of speech>]\n"
-    "   What does it mean?\n"
-    "   A) ...  B) ...  C) ...  D) ...\n"
+    "2) Present the quiz card using this EXACT format every time:\n"
+    f"{VOCAB_QUIZ_FORMAT_BLOCK}\n"
     "3) STOP — wait for the user to reply with A, B, C, or D. Do NOT reveal the answer yet.\n"
     "4) After they answer: if correct → congratulate, explain, give an example, "
-    "then offer the next question; if wrong → gently correct and encourage.\n"
+    "then ask the next question; if wrong → gently correct and encourage.\n"
     "5) One quiz question per message until they answer.\n"
     "6) **Auto-master:** when the user answers correctly, sync MUST mark that word mastered "
     "immediately — the user must NOT ask you to mark it.\n"
@@ -151,16 +173,46 @@ def build_language_quiz_prompt(project: Project, stats: ProjectStats) -> str:
         f"{_language_progress_line(stats)}\n\n"
         "Quiz me in chat: one word at a time from my new and learning words, matched to my level.\n"
         "Use this EXACT format for every question (required for the quiz card UI):\n\n"
-        "**Word:** apple [noun]\n"
-        "A) a red fruit\n"
-        "B) a vehicle\n"
-        "C) a feeling\n"
-        "D) a color\n\n"
+        f"{VOCAB_QUIZ_FORMAT_BLOCK}\n\n"
         "Do not wrap the word in extra asterisks. Wait for my answer before you explain. "
         "If I'm right, congratulate me, give an example, and mark the word mastered automatically. "
         "If wrong, explain and encourage me. Then ask the next question. "
         "Begin with the first question now."
     )
+
+
+async def load_project_quiz_context(
+    session: AsyncSession,
+    user_id: UUID,
+    project_id: UUID,
+    settings: Settings,
+) -> str:
+    """Lightweight tutor slice for quiz answer turns — level, pool, and card format."""
+    project = await projects_repo.get_by_id(session, project_id, user_id)
+    if project is None or not _is_language_project(project):
+        return ""
+    items = await project_items_repo.list_for_user(
+        session,
+        user_id,
+        project_id=project_id,
+        limit=settings.project_item_inject_limit,
+    )
+    quiz_pool = [i for i in items if _item_status(i) in ("new", "learning")]
+    level = project.level or "level1"
+    lines = [
+        f"Active vocabulary quiz — project: {project.title} ({_LEVEL_LABELS.get(level, level)}).",
+        f"English skill: {_level_guidance(level)}",
+        "After feedback, ask the NEXT question using the same card format:",
+        VOCAB_QUIZ_FORMAT_BLOCK,
+        "Pick the next word only from new/learning items at this level.",
+        "On correct answers, sync MUST master the quizzed word immediately.",
+    ]
+    if quiz_pool:
+        lines.append("\nNew/learning words available:")
+        for item in quiz_pool[:40]:
+            pos = item.part_of_speech or "other"
+            lines.append(f"- {item.content} [{pos}]")
+    return "\n".join(lines)
 
 
 def _resolve_list_title(project: Project, action: ProjectActionItem) -> str:

@@ -19,6 +19,7 @@ dependencies = [
     "uvicorn[standard]>=0.32.0",
     "websockets>=14.0",
     "pypdf>=5.1.0",
+    "pgvector>=0.3.5",
     "sympy>=1.13.0",
     "numpy>=2.0.0",
 ]
@@ -60,6 +61,8 @@ select = ["E", "F", "I", "UP", "RUF", "B", "ASYNC", "S"]
 "app/services/math_tools.py" = ["E501", "RUF001"]
 "app/services/math_service.py" = ["E501", "S112"]
 "app/services/projects.py" = ["E501", "RUF001"]
+"app/services/transactional_email.py" = ["RUF001", "RUF002", "RUF003"]
+"app/services/push_notifications.py" = ["RUF001", "RUF002", "RUF003"]
 "app/services/todos.py" = ["E501", "S101"]
 "app/services/web_search.py" = ["E501", "RUF002"]
 "app/services/seed_templates.py" = ["E501"]

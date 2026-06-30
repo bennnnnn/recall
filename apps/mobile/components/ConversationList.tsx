@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,7 +12,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { closeDrawer, startNewChatGlobal } from "@/lib/drawer";
+import { closeDrawer, registerChatPatcher, startNewChatGlobal, isChatTitleGenerating, subscribeChatTitleGenerating } from "@/lib/drawer";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -27,6 +28,7 @@ import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
 import { api, Chat, SearchResult } from "@/lib/api";
 import { tap } from "@/lib/haptics";
 import { scheduleIdleTask } from "@/lib/scheduleIdle";
+import { displayChatTitle, sanitizeManualChatTitle } from "@/lib/chatTitle";
 import { shareConversation } from "@/lib/share";
 
 const TOP_CHROME = 58;
@@ -39,16 +41,19 @@ function ChatRow({
   onOpen,
   onLongPress,
   highlighted = false,
+  titleGenerating = false,
   rowStyles: r,
 }: {
   chat: Chat;
   onOpen: () => void;
   onLongPress: () => void;
   highlighted?: boolean;
+  titleGenerating?: boolean;
   rowStyles: ReturnType<typeof makeRowStyles>;
 }) {
   const { t } = useTranslation();
   const theme = useTheme();
+  const label = displayChatTitle(chat.title, { generating: titleGenerating }, t);
   return (
     <Pressable
       style={[r.row, highlighted && r.rowHighlighted]}
@@ -61,8 +66,11 @@ function ChatRow({
         color={chat.pinned ? theme.primary : theme.textTertiary}
         style={r.rowIcon}
       />
-      <Text style={r.title} numberOfLines={1}>
-        {chat.title ?? t("common.untitled")}
+      <Text
+        style={[r.title, titleGenerating && !chat.title && r.titlePending]}
+        numberOfLines={1}
+      >
+        {label}
       </Text>
     </Pressable>
   );
@@ -95,6 +103,7 @@ function Section({
           chat={c}
           rowStyles={rowStyles}
           highlighted={highlightedIds?.has(c.id) ?? false}
+          titleGenerating={isChatTitleGenerating(c.id)}
           onOpen={() => onOpen(c.id)}
           onLongPress={() => onLongPress(c)}
         />
@@ -123,11 +132,13 @@ export function ConversationList(_props: unknown) {
   }>({ pinned: [], today: [], yesterday: [], earlier: [], archived: [] });
   const [archivedExpanded, setArchivedExpanded] = useState(false);
   const [error, setError] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const lastFetchedRef = useRef(0);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [, setTitlePendingTick] = useState(0);
   const [searchError, setSearchError] = useState(false);
   const searchInputRef = useRef<TextInput>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -191,6 +202,16 @@ export function ConversationList(_props: unknown) {
     [token],
   );
 
+  const handleRefresh = useCallback(async () => {
+    if (!token) return;
+    setRefreshing(true);
+    try {
+      await load(false);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [token, load]);
+
   useEffect(() => {
     load(false);
   }, [load]);
@@ -224,6 +245,15 @@ export function ConversationList(_props: unknown) {
         archived: apply(prev.archived),
       };
     });
+  }, []);
+
+  useEffect(() => {
+    registerChatPatcher(patchChatInGroups);
+    return () => registerChatPatcher(null);
+  }, [patchChatInGroups]);
+
+  useEffect(() => {
+    return subscribeChatTitleGenerating(() => setTitlePendingTick((n) => n + 1));
   }, []);
 
   const moveChatPinState = useCallback((chatId: string, pinned: boolean) => {
@@ -329,7 +359,7 @@ export function ConversationList(_props: unknown) {
   }, [menuChat, closeMenu]);
 
   const confirmRename = useCallback(async () => {
-    const title = renameText.trim();
+    const title = sanitizeManualChatTitle(renameText);
     if (!title || !renameTarget || !token) {
       setRenameVisible(false);
       return;
@@ -600,7 +630,7 @@ export function ConversationList(_props: unknown) {
                 color={result.match_type === "title" ? theme.primary : theme.textSecondary}
               />
               <Text style={s.searchResultTitle} numberOfLines={1}>
-                {result.chat_title ?? t("common.untitled")}
+                {displayChatTitle(result.chat_title, {}, t)}
               </Text>
               {result.match_type === "title" ? (
                 <Text style={s.searchResultBadge}>{t("search.topic_match")}</Text>
@@ -624,6 +654,14 @@ export function ConversationList(_props: unknown) {
         paddingBottom: bottomInset,
       }}
       keyboardShouldPersistTaps="handled"
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          colors={[theme.primary]}
+          tintColor={theme.primary}
+        />
+      }
     >
       {drawerNav}
       {loading && allChats.length === 0 && !searchOpen ? (
@@ -804,6 +842,7 @@ function makeRowStyles(theme: Theme) {
     },
     rowIcon: { flexShrink: 0 },
     title: { flex: 1, fontSize: 14, fontWeight: "500", color: theme.text },
+    titlePending: { color: theme.textTertiary, fontStyle: "italic" },
     rowHighlighted: {
       backgroundColor: theme.primaryLight,
       borderRadius: 10,

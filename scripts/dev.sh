@@ -23,6 +23,12 @@ case "${1:-}" in
     echo "Unplug USB or authorize USB debugging if Android is connected."
     pnpm exec expo start --lan --clear
     ;;
+  mobile-sim)
+    kill_metro
+    cd "$ROOT/apps/mobile"
+    echo "Simulator mode — opens Expo Go (LAN bind so 127.0.0.1 reload works)."
+    pnpm exec expo start --lan --go --ios
+    ;;
   mobile-tunnel)
     kill_metro
     cd "$ROOT/apps/mobile"
@@ -61,13 +67,14 @@ case "${1:-}" in
     echo "Optional local DB: ./scripts/dev.sh infra  (requires Docker)"
     ;;
   *)
-    echo "Usage: scripts/dev.sh {setup|migrate|api|mobile|mobile-tunnel|kill-metro|test-api|check|infra}"
+    echo "Usage: scripts/dev.sh {setup|migrate|api|mobile|mobile-sim|mobile-tunnel|kill-metro|test-api|check|infra}"
     echo ""
     echo "  setup          Install deps, copy .env (no Docker)"
     echo "  migrate        Apply DB migrations (needs DATABASE_URL in .env)"
     echo "  api            Run FastAPI on :8000"
     echo "  check          Run the full local gate (API ruff+format+mypy+pytest, mobile typecheck+lint)"
     echo "  mobile         Run Expo (LAN — same Wi‑Fi, unplug USB if adb errors)"
+    echo "  mobile-sim     Run Expo Go on iOS Simulator (localhost)"
     echo "  mobile-tunnel  Run Expo (tunnel — unplug USB, scan QR in Expo Go)"
     echo "  kill-metro     Stop stale Metro servers on ports 8081–8090"
     echo "  infra          Optional: Docker Postgres + Redis"

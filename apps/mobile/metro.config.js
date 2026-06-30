@@ -12,4 +12,10 @@ config.resolver.blockList = [
   /\/lib\/__tests__\//,
 ];
 
+// Bind IPv4 so iOS Simulator (127.0.0.1) can reach Metro when ::1-only would fail.
+config.server = {
+  ...(config.server ?? {}),
+  host: "0.0.0.0",
+};
+
 module.exports = config;

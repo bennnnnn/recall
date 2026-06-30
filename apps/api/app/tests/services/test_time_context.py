@@ -5,6 +5,7 @@ import pytest
 
 from app.services.time_context import (
     describe_due_at,
+    effective_timezone,
     format_digital_clock,
     format_location_answer,
     format_time_answer,
@@ -70,7 +71,11 @@ def test_format_time_answer_uses_clock_fence():
 def test_is_location_question():
     assert is_location_question("location")
     assert is_location_question("Where am I?")
+    assert is_location_question("Where is my location?")
+    assert is_location_question("Where's my location")
+    assert is_location_question("What's my location")
     assert not is_location_question("weather in Paris")
+    assert not is_location_question("Where is the meeting")
 
 
 def test_format_location_answer_with_city():
@@ -81,3 +86,15 @@ def test_format_location_answer_with_city():
 def test_format_location_answer_without_city():
     answer = format_location_answer(None, "UTC")
     assert "don't have your location" in answer.lower()
+
+
+def test_effective_timezone_prefers_client():
+    assert effective_timezone("UTC", "America/New_York") == "America/New_York"
+
+
+def test_effective_timezone_falls_back_to_profile():
+    assert effective_timezone("Europe/London", None) == "Europe/London"
+
+
+def test_effective_timezone_invalid_client_uses_profile():
+    assert effective_timezone("America/Chicago", "Not/A/Zone") == "America/Chicago"

@@ -13,6 +13,15 @@ export const config = {
   isDev: __DEV__,
 } as const;
 
+/** True when real Google OAuth client IDs are set (not placeholders). */
+export function isGoogleSignInConfigured(): boolean {
+  const placeholder = /your-(google|ios)/i;
+  return (
+    !placeholder.test(config.googleWebClientId) &&
+    !placeholder.test(config.googleIosClientId)
+  );
+}
+
 export function getApiUrl(): string {
   // .env wins over app.json (app.json extra is fallback for EAS builds)
   if (process.env.EXPO_PUBLIC_API_URL) {
