@@ -5,6 +5,9 @@ column (matches openai/text-embedding-3-small) and an HNSW index for DB-side
 cosine similarity ordering. The legacy `embedding_json` Text column is kept as
 a fallback and for the backfill below.
 
+On systems without the pgvector extension (e.g., CI test databases), the
+vector features are skipped — the app falls back to in-memory JSON cosine.
+
 Revision ID: 0033
 Revises: 0032
 Create Date: 2026-06-29
@@ -12,6 +15,7 @@ Create Date: 2026-06-29
 
 from typing import Sequence, Union
 
+import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0033"
@@ -23,8 +27,22 @@ EMBEDDING_DIM = 1536
 
 
 def upgrade() -> None:
-    # Requires the pgvector extension on Neon (enabled per-database).
-    op.execute("CREATE EXTENSION IF NOT EXISTS vector")
+    bind = op.get_bind()
+
+    # Try to create the pgvector extension. On systems where it isn't installed
+    # (e.g., CI test DBs), skip the vector column + index — the app falls back
+    # to in-memory JSON cosine when the DB-side search is unavailable.
+    has_vector = False
+    try:
+        nested = bind.begin_nested()
+        bind.execute(sa.text("CREATE EXTENSION IF NOT EXISTS vector"))
+        nested.commit()
+        has_vector = True
+    except Exception:
+        pass
+
+    if not has_vector:
+        return
 
     op.execute(f"ALTER TABLE memories ADD COLUMN IF NOT EXISTS embedding vector({EMBEDDING_DIM})")
 
