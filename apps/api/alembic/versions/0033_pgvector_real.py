@@ -29,21 +29,14 @@ EMBEDDING_DIM = 1536
 def upgrade() -> None:
     bind = op.get_bind()
 
-    # Try to create the pgvector extension. On systems where it isn't installed
-    # (e.g., CI test DBs), skip the vector column + index — the app falls back
-    # to in-memory JSON cosine when the DB-side search is unavailable.
-    has_vector = False
-    try:
-        nested = bind.begin_nested()
-        bind.execute(sa.text("CREATE EXTENSION IF NOT EXISTS vector"))
-        nested.commit()
-        has_vector = True
-    except Exception:
-        pass
+    # Check if the pgvector extension is installed on the system (the control
+    # file must exist). CI test DBs don't have it; Neon does. Checking first
+    # avoids a failed CREATE EXTENSION that would poison the transaction.
+    result = bind.execute(sa.text("SELECT 1 FROM pg_available_extensions WHERE name = 'vector'"))
+    if result.fetchone() is None:
+        return  # pgvector not available — app falls back to in-memory JSON cosine
 
-    if not has_vector:
-        return
-
+    op.execute("CREATE EXTENSION IF NOT EXISTS vector")
     op.execute(f"ALTER TABLE memories ADD COLUMN IF NOT EXISTS embedding vector({EMBEDDING_DIM})")
 
     # Backfill from legacy embedding_json, but only for rows whose stored vector
