@@ -178,6 +178,7 @@ export function useChat(
           context_summarized?: string;
           todos_sync?: string;
           search_sources?: string;
+          final_content?: string;
         };
         try {
           payload = JSON.parse(event.data);
