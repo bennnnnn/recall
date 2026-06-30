@@ -219,7 +219,7 @@ function makeStyles(theme: Theme) {
       color: theme.primary,
     },
     dayTextSelected: {
-      color: "#fff",
+      color: theme.onPrimary,
     },
     dot: {
       marginTop: 3,
@@ -231,7 +231,7 @@ function makeStyles(theme: Theme) {
       justifyContent: "center",
     },
     dotSelected: {
-      backgroundColor: "#fff",
+      backgroundColor: theme.onPrimary,
     },
     countBadge: {
       marginTop: 2,
@@ -244,12 +244,12 @@ function makeStyles(theme: Theme) {
       justifyContent: "center",
     },
     countBadgeSelected: {
-      backgroundColor: "#fff",
+      backgroundColor: theme.onPrimary,
     },
     countBadgeText: {
       fontSize: 9,
       fontWeight: "800",
-      color: "#fff",
+      color: theme.onPrimary,
     },
     countBadgeTextSelected: {
       color: theme.primary,

@@ -18,6 +18,7 @@ type Props = {
   unseenCount: number;
   hasMessages: boolean;
   onOpenDrawer: () => void;
+  onOpenSearch: () => void;
   onOpenReminders: () => void;
   onNewChat: () => void;
   onOpenMenu: () => void;
@@ -34,6 +35,7 @@ export function ChatHeader({
   unseenCount,
   hasMessages,
   onOpenDrawer,
+  onOpenSearch,
   onOpenReminders,
   onNewChat,
   onOpenMenu,
@@ -80,6 +82,18 @@ export function ChatHeader({
         <View style={s.headerSpacer} />
       )}
       <View style={s.headerRight}>
+        <Pressable
+          style={s.headerBtn}
+          onPress={() => {
+            tap();
+            onOpenSearch();
+          }}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel={t("search.open_accessibility")}
+        >
+          <Ionicons name="search-outline" size={22} color={theme.text} />
+        </Pressable>
         {showIndicator ? (
           <Pressable
             style={s.headerBtn}

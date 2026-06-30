@@ -43,6 +43,8 @@ export type Theme = {
   // Status
   danger: string;
   dangerLight: string;
+  warning: string;
+  onPrimary: string;
 
   // Code blocks
   codeBg: string;
@@ -83,6 +85,8 @@ export const lightTheme: Theme = {
 
   danger: "#E5484D",
   dangerLight: "#FFF0EF",
+  warning: "#FF9F0A",
+  onPrimary: "#FFFFFF",
 
   codeBg: "#F7F7F8",
   codeText: "#1F2328",
@@ -121,6 +125,8 @@ export const darkTheme: Theme = {
 
   danger: "#FF6B60",
   dangerLight: "#3A1F1E",
+  warning: "#FF9F0A",
+  onPrimary: "#FFFFFF",
 
   codeBg: "#0D0D0D",
   codeText: "#E6E6E6",

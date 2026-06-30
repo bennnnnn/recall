@@ -37,7 +37,7 @@ function statusIcon(item: ProjectItem): keyof typeof Ionicons.glyphMap {
 
 function statusColor(item: ProjectItem, theme: Theme): string {
   if (item.status === "mastered" || item.mastered) return theme.primary;
-  if (item.status === "learning") return "#FF9F0A";
+  if (item.status === "learning") return theme.warning;
   return theme.textTertiary;
 }
 
@@ -262,7 +262,7 @@ export default function ProjectDetailScreen() {
             )}
           </View>
           <Pressable style={s.studyBtn} onPress={quizWithRecall}>
-            <Ionicons name="help-circle-outline" size={20} color="#fff" />
+            <Ionicons name="help-circle-outline" size={20} color={theme.onPrimary} />
             <Text style={s.studyBtnText}>{t("projects.quiz.start")}</Text>
           </Pressable>
         </>
@@ -271,7 +271,7 @@ export default function ProjectDetailScreen() {
           {project.lists.length > 0 ? (
             <>
               <Pressable style={s.studyBtn} onPress={continueProgramming}>
-                <Ionicons name="play-outline" size={20} color="#fff" />
+                <Ionicons name="play-outline" size={20} color={theme.onPrimary} />
                 <Text style={s.studyBtnText}>{t("projects.journey_continue")}</Text>
               </Pressable>
               <ProgrammingJourney
@@ -315,7 +315,7 @@ export default function ProjectDetailScreen() {
           <Text style={s.practiceTitle}>{t("projects.practice_title")}</Text>
           <Text style={s.practiceBody}>{t("projects.practice_body")}</Text>
           <Pressable style={s.studyBtn} onPress={practiceWithRecall}>
-            <Ionicons name="play-outline" size={20} color="#fff" />
+            <Ionicons name="play-outline" size={20} color={theme.onPrimary} />
             <Text style={s.studyBtnText}>{t("projects.practice_start")}</Text>
           </Pressable>
         </View>
@@ -326,7 +326,7 @@ export default function ProjectDetailScreen() {
       ) : null}
 
       <Pressable style={s.chatBtn} onPress={askRecall}>
-        <Ionicons name="chatbubble-ellipses-outline" size={18} color="#fff" />
+        <Ionicons name="chatbubble-ellipses-outline" size={18} color={theme.onPrimary} />
         <Text style={s.chatBtnText}>{t("projects.ask_recall")}</Text>
       </Pressable>
 
@@ -385,7 +385,7 @@ function makeStyles(theme: Theme) {
       paddingVertical: 14,
     },
     studyBtnMuted: { backgroundColor: theme.primaryLight },
-    studyBtnText: { fontSize: 16, fontWeight: "700", color: "#fff" },
+    studyBtnText: { fontSize: 16, fontWeight: "700", color: theme.onPrimary },
     studyBtnTextMuted: { color: theme.primary },
     listSection: {
       backgroundColor: theme.surface,
@@ -454,7 +454,7 @@ function makeStyles(theme: Theme) {
       borderRadius: 14,
       paddingVertical: 14,
     },
-    chatBtnText: { fontSize: 16, fontWeight: "700", color: "#fff" },
+    chatBtnText: { fontSize: 16, fontWeight: "700", color: theme.onPrimary },
     deleteBtn: { alignItems: "center", paddingVertical: 10 },
     deleteBtnText: { fontSize: 15, fontWeight: "600", color: theme.danger },
   });

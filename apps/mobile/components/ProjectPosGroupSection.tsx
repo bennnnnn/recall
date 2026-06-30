@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import { useTranslation } from "react-i18next";
+
 import { Theme, useTheme } from "@/lib/theme";
 import { api, type ProjectItem, type ProjectPosGroupSummary } from "@/lib/api";
 import { statusLabel } from "@/lib/languageLevels";
@@ -23,7 +25,7 @@ function statusIcon(item: ProjectItem): keyof typeof Ionicons.glyphMap {
 
 function statusColor(item: ProjectItem, theme: Theme): string {
   if (item.status === "mastered" || item.mastered) return theme.primary;
-  if (item.status === "learning") return "#FF9F0A";
+  if (item.status === "learning") return theme.warning;
   return theme.textTertiary;
 }
 
@@ -34,6 +36,7 @@ export function ProjectPosGroupItems({
   initialItems,
   onSpeechUnavailable,
 }: Props) {
+  const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const [loading, setLoading] = useState(!initialItems);
@@ -67,7 +70,7 @@ export function ProjectPosGroupItems({
   }
 
   if (items.length === 0) {
-    return <Text style={s.empty}>No words in this group.</Text>;
+    return <Text style={s.empty}>{t("projects.pos_group_empty")}</Text>;
   }
 
   return (

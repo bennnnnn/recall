@@ -77,7 +77,7 @@ function makeStyles(theme: Theme) {
       borderRadius: 8,
       backgroundColor: theme.primary,
     },
-    addText: { color: "#fff", fontWeight: "600", fontSize: 14 },
+    addText: { color: theme.onPrimary, fontWeight: "600", fontSize: 14 },
     dismissBtn: { paddingHorizontal: 4, paddingVertical: 6, justifyContent: "center" },
     dismissText: { color: theme.textSecondary, fontSize: 14 },
   });

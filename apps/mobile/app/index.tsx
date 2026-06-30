@@ -5,7 +5,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { openDrawer, registerNewChat } from "@/lib/drawer";
+import { openDrawer, openDrawerSearch, registerNewChat } from "@/lib/drawer";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -392,6 +392,7 @@ function ChatScreen() {
                 unseenCount={unseenCount}
                 hasMessages={messages.length > 0}
                 onOpenDrawer={openDrawer}
+                onOpenSearch={openDrawerSearch}
                 onOpenReminders={() =>
                   router.push({ pathname: "/todos", params: { focus: "reminders" } })
                 }

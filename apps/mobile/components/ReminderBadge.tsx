@@ -27,7 +27,7 @@ function makeStyles(theme: Theme) {
       height: 18,
       borderRadius: 9,
       paddingHorizontal: 5,
-      backgroundColor: "#e74c3c",
+      backgroundColor: theme.danger,
       alignItems: "center",
       justifyContent: "center",
       borderWidth: 1.5,
@@ -36,7 +36,7 @@ function makeStyles(theme: Theme) {
     text: {
       fontSize: 11,
       fontWeight: "700",
-      color: "#fff",
+      color: theme.onPrimary,
       lineHeight: 13,
     },
   });

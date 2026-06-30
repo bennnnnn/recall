@@ -14,6 +14,18 @@ export function closeDrawer() {
   _close?.();
 }
 
+let _openSearch: (() => void) | null = null;
+
+/** Open the history drawer with search focused (registered by ConversationList). */
+export function registerDrawerSearch(fn: (() => void) | null) {
+  _openSearch = fn;
+}
+
+export function openDrawerSearch() {
+  _open?.();
+  _openSearch?.();
+}
+
 // Shared "start a new chat" action — registered by the chat screen so the
 // drawer can trigger it without prop drilling or fragile route params.
 let _newChat: (() => void) | null = null;

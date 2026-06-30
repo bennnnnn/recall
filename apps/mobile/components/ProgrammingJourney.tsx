@@ -30,7 +30,7 @@ function statusIcon(item: ProjectItem): keyof typeof Ionicons.glyphMap {
 
 function statusColor(item: ProjectItem, theme: Theme): string {
   if (itemMastered(item)) return theme.primary;
-  if (itemLearning(item)) return "#FF9F0A";
+  if (itemLearning(item)) return theme.warning;
   return theme.textTertiary;
 }
 

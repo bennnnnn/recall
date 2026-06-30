@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { closeDrawer, registerChatPatcher, startNewChatGlobal, isChatTitleGenerating, subscribeChatTitleGenerating } from "@/lib/drawer";
+import { closeDrawer, registerChatPatcher, registerDrawerSearch, startNewChatGlobal, isChatTitleGenerating, subscribeChatTitleGenerating } from "@/lib/drawer";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -253,6 +253,11 @@ export function ConversationList(_props: unknown) {
     setSearchOpen(true);
     requestAnimationFrame(() => searchInputRef.current?.focus());
   }, []);
+
+  useEffect(() => {
+    registerDrawerSearch(openSearch);
+    return () => registerDrawerSearch(null);
+  }, [openSearch]);
 
   const doSearch = useCallback(
     async (q: string) => {
@@ -741,7 +746,7 @@ export function ConversationList(_props: unknown) {
         pointerEvents="box-none"
       >
         <Pressable style={s.footerNewChat} onPress={newChat}>
-          <Ionicons name="create-outline" size={18} color="#fff" />
+          <Ionicons name="create-outline" size={18} color={theme.onPrimary} />
           <Text style={s.footerNewChatText}>{t("drawer.new_chat")}</Text>
         </Pressable>
         <Pressable
@@ -751,7 +756,7 @@ export function ConversationList(_props: unknown) {
             router.push("/settings");
           }}
         >
-          <Ionicons name="settings-outline" size={22} color="#fff" />
+          <Ionicons name="settings-outline" size={22} color={theme.onPrimary} />
         </Pressable>
       </View>
     </View>
@@ -794,7 +799,7 @@ function makeStyles(theme: Theme) {
     alignItems: "center",
     justifyContent: "center",
   },
-  logoStar: { fontSize: 13, color: "#fff" },
+  logoStar: { fontSize: 13, color: theme.onPrimary },
   logoText: {
     fontSize: 20,
     fontWeight: "800",
@@ -906,7 +911,7 @@ function makeStyles(theme: Theme) {
     borderRadius: 10,
     backgroundColor: theme.primary,
   },
-  retryText: { fontSize: 14, fontWeight: "600", color: "#fff" },
+  retryText: { fontSize: 14, fontWeight: "600", color: theme.onPrimary },
   footer: {
     position: "absolute",
     bottom: 0,
@@ -928,7 +933,7 @@ function makeStyles(theme: Theme) {
     borderRadius: 10,
     backgroundColor: theme.primary,
   },
-  footerNewChatText: { fontSize: 14, fontWeight: "600", color: "#fff" },
+  footerNewChatText: { fontSize: 14, fontWeight: "600", color: theme.onPrimary },
   settingsBtn: {
     marginLeft: "auto",
     padding: 8,
