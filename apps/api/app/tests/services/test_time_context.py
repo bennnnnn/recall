@@ -71,7 +71,11 @@ def test_format_time_answer_uses_clock_fence():
 def test_is_location_question():
     assert is_location_question("location")
     assert is_location_question("Where am I?")
+    assert is_location_question("Where is my location?")
+    assert is_location_question("Where's my location")
+    assert is_location_question("What's my location")
     assert not is_location_question("weather in Paris")
+    assert not is_location_question("Where is the meeting")
 
 
 def test_format_location_answer_with_city():

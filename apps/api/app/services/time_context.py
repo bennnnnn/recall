@@ -28,6 +28,7 @@ _LOCATION_QUESTION = re.compile(
     r"^\s*(?:"
     r"where am i\??"
     r"|what(?:'s| is) my location\??"
+    r"|where(?:'s| is) my location\??"
     r"|where(?:'re| are) we\??"
     r"|my location\??"
     r"|location\??"
