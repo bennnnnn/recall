@@ -336,6 +336,7 @@ export function useChat(
         skipUserBubble?: boolean;
         attachmentIds?: string[];
         localImageUri?: string | null;
+        model?: string | null;
       },
     ) => {
       if (!token || !chatId) return;
@@ -369,13 +370,15 @@ export function useChat(
           type: "message",
           content,
           attachment_ids: options?.attachmentIds ?? [],
+          model: options?.model ?? null,
         }),
       );
     },
     [token, chatId, ensureConnected, appendStreamingPlaceholder, updateStreamingDraft],
   );
 
-  const regenerateResponse = useCallback(async () => {
+  const regenerateResponse = useCallback(
+    async (model?: string | null) => {
       if (!token || !chatId) return;
 
       setMessages((prev) => {
@@ -388,13 +391,15 @@ export function useChat(
       if (wsRef.current?.readyState !== WebSocket.OPEN) return;
 
       assistantBuffer.current = "";
-      wsRef.current.send(JSON.stringify({ type: "regenerate" }));
+      wsRef.current.send(
+        JSON.stringify({ type: "regenerate", model: model ?? null }),
+      );
     },
     [token, chatId, ensureConnected],
   );
 
   const editMessage = useCallback(
-    async (messageId: string, content: string) => {
+    async (messageId: string, content: string, model?: string | null) => {
       if (!token || !chatId || !content.trim()) return;
 
       setMessages((prev) => {
@@ -421,6 +426,7 @@ export function useChat(
           type: "edit",
           message_id: messageId,
           content: content.trim(),
+          model: model ?? null,
         }),
       );
     },

@@ -103,10 +103,12 @@ function ChatScreen() {
   const [attachBusy, setAttachBusy] = useState(false);
   const [attachSheetOpen, setAttachSheetOpen] = useState(false);
   const attachPickInFlightRef = useRef(false);
-  const { isPro } = useModels();
+  const { isPro, preferences, labelFor, autoEnabled, modelEnabledSet, AUTO_MODEL_ID } = useModels();
   const { unseenCount, showIndicator } = useReminderBadgeCount({ enabled: Boolean(token) });
   const [upgradeVisible, setUpgradeVisible] = useState(false);
   const [showPlanPicker, setShowPlanPicker] = useState(false);
+  const [showModelPicker, setShowModelPicker] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<string>(AUTO_MODEL_ID);
   const [menuVisible, setMenuVisible] = useState(false);
   const [pinned, setPinned] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
@@ -591,6 +593,20 @@ function ChatScreen() {
 
   const planLabel = isPro ? t("chat.plan_pro") : t("chat.plan_free");
 
+  const modelOptions = useMemo(() => {
+    const opts: { id: string; label: string }[] = [];
+    if (autoEnabled) opts.push({ id: AUTO_MODEL_ID, label: t("settings.model_auto") });
+    for (const id of modelEnabledSet) {
+      opts.push({ id, label: labelFor(id) || id });
+    }
+    return opts;
+  }, [autoEnabled, modelEnabledSet, labelFor, AUTO_MODEL_ID, t]);
+
+  const selectedModelLabel =
+    selectedModel === AUTO_MODEL_ID
+      ? t("settings.model_auto")
+      : labelFor(selectedModel) || selectedModel;
+
   const startNewChat = useCallback(() => {
     if (streaming) return;
     discardEmptyChat(chatId);
@@ -714,7 +730,7 @@ function ChatScreen() {
     if (editingMessageId && chatId) {
       const editId = editingMessageId;
       setEditingMessageId(null);
-      void editMessage(editId, text);
+      void editMessage(editId, text, selectedModel);
       return;
     }
 
@@ -762,6 +778,7 @@ function ChatScreen() {
     sendMessage(messageTextForSend(text, attached), {
       attachmentIds,
       localImageUri: attached?.kind === "image" ? attached.localUri : null,
+      model: selectedModel,
     });
   };
 
@@ -900,7 +917,7 @@ function ChatScreen() {
             item.role === "assistant" &&
             item.id === lastAssistantId &&
             !streaming
-              ? () => regenerateResponse()
+              ? () => regenerateResponse(selectedModel)
               : undefined
           }
           onEdit={handleEditMessage}
@@ -1232,11 +1249,12 @@ function ChatScreen() {
           </View>
         )}
 
-        {(showPlanPicker || attachSheetOpen) && !drawerOpen && (
+        {(showPlanPicker || showModelPicker || attachSheetOpen) && !drawerOpen && (
           <Pressable
             style={s.pickerBackdrop}
             onPress={() => {
               setShowPlanPicker(false);
+              setShowModelPicker(false);
               setAttachSheetOpen(false);
             }}
             accessibilityLabel="Close menu"
@@ -1278,6 +1296,32 @@ function ChatScreen() {
                     <Text style={s.pickerCheck}>✓</Text>
                   )}
                 </Pressable>
+              </View>
+            )}
+
+            {showModelPicker && (
+              <View style={s.picker}>
+                {modelOptions.map((opt) => {
+                  const active = opt.id === selectedModel;
+                  return (
+                    <Pressable
+                      key={opt.id}
+                      style={[s.pickerItem, active && s.pickerItemActive]}
+                      onPress={() => {
+                        setSelectedModel(opt.id);
+                        setShowModelPicker(false);
+                      }}
+                    >
+                      <Text
+                        style={[s.pickerLabel, active && s.pickerLabelActive, { flex: 1 }]}
+                        numberOfLines={1}
+                      >
+                        {opt.label}
+                      </Text>
+                      {active ? <Text style={s.pickerCheck}>✓</Text> : null}
+                    </Pressable>
+                  );
+                })}
               </View>
             )}
 
@@ -1325,6 +1369,7 @@ function ChatScreen() {
                     onChangeText={setInput}
                     onFocus={() => {
                       setShowPlanPicker(false);
+                      setShowModelPicker(false);
                       setAttachSheetOpen(false);
                     }}
                     multiline
@@ -1347,6 +1392,7 @@ function ChatScreen() {
                     style={s.planPill}
                     onPress={() => {
                       setAttachSheetOpen(false);
+                      setShowModelPicker(false);
                       setShowPlanPicker((v) => !v);
                     }}
                     hitSlop={6}
@@ -1360,6 +1406,26 @@ function ChatScreen() {
                       color={C.textTertiary}
                     />
                   </Pressable>
+                  {modelOptions.length > 1 ? (
+                    <Pressable
+                      style={[s.planPill, { maxWidth: 160 }]}
+                      onPress={() => {
+                        setAttachSheetOpen(false);
+                        setShowPlanPicker(false);
+                        setShowModelPicker((v) => !v);
+                      }}
+                      hitSlop={6}
+                    >
+                      <Text style={s.planPillText} numberOfLines={1}>
+                        {selectedModelLabel}
+                      </Text>
+                      <Ionicons
+                        name={showModelPicker ? "chevron-up" : "chevron-down"}
+                        size={12}
+                        color={C.textTertiary}
+                      />
+                    </Pressable>
+                  ) : null}
                 </View>
               </View>
             </View>
@@ -1576,7 +1642,7 @@ const makeS = (C: Theme) => StyleSheet.create({
   composerMetaRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
     marginTop: 6,
     gap: 8,
   },

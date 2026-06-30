@@ -80,3 +80,34 @@ def test_validate_enabled_models_rejects_pro_model_on_free_plan():
         settings,
     )
     assert cleaned == ["auto", "free-chat"]
+
+
+def test_override_uses_requested_model_when_allowed():
+    user = ProUser()
+    settings = Settings(mock_llm_enabled=True)
+    resolved = plan_service.resolve_user_model_override(user, "smart-chat", "hi", settings)
+    assert resolved == "smart-chat"
+
+
+def test_override_falls_back_when_alias_is_auto():
+    user = ProUser()
+    settings = Settings(mock_llm_enabled=True)
+    # "auto" should not be returned as-is; it routes within the pool.
+    resolved = plan_service.resolve_user_model_override(user, "auto", "hi", settings)
+    assert resolved in plan_service.model_pool(user, settings)
+
+
+def test_override_ignores_pro_model_on_free_plan():
+    user = FakeUser()  # free plan
+    settings = Settings(mock_llm_enabled=True)
+    # smart-chat is pro-only; free user can't override to it — falls back.
+    resolved = plan_service.resolve_user_model_override(user, "smart-chat", "hi", settings)
+    assert resolved != "smart-chat"
+    assert resolved in plan_service.free_pool(settings)
+
+
+def test_override_none_falls_back_to_resolve_user_model():
+    user = ProUser()
+    settings = Settings(mock_llm_enabled=True)
+    resolved = plan_service.resolve_user_model_override(user, None, "hi", settings)
+    assert resolved == plan_service.resolve_user_model(user, "hi", settings)

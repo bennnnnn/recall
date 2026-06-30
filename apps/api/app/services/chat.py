@@ -569,7 +569,9 @@ async def stream_regenerate_response(
         if last_user is None:
             raise ChatNotFoundError("No user message to regenerate from.")
 
-        model = plan_service.resolve_user_model(user, last_user.content, settings)
+        model = plan_service.resolve_user_model_override(
+            user, model_alias, last_user.content, settings
+        )
         meta: dict[str, Any] = {}
         user_message_content = last_user.content
         minimal_personal = is_broad_self_question(user_message_content)
@@ -737,7 +739,7 @@ async def _prepare_chat_turn(
         if chat is None:
             raise ChatNotFoundError("Chat not found.")
 
-        model = plan_service.resolve_user_model(user, content, settings)
+        model = plan_service.resolve_user_model_override(user, model_alias, content, settings)
         has_image_attachment = False
         prior_count = await messages_repo.count_for_chat(session, chat_id)
 
