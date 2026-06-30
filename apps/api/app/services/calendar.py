@@ -114,7 +114,8 @@ def format_not_connected_answer() -> str:
     return (
         "I don't have your Google Calendar connected yet.\n\n"
         "To check meetings and events, connect it in **Settings → Google Calendar**. "
-        "Recall only reads your calendar — it won't create or change events without your say-so.\n\n"
+        "Once connected, I can show your upcoming schedule and, with the right permission, "
+        "create new events for you (you'll confirm each one before it's added).\n\n"
         "Want me to help with something else in the meantime?"
     )
 
@@ -217,11 +218,17 @@ def _format_event_line(event: CalendarEvent, tz_name: str) -> str:
     return line
 
 
-def format_calendar_block(events: list[CalendarEvent], timezone: str | None) -> str:
-    prompt_events = _events_within_days(events, 7)
+def format_calendar_block(
+    events: list[CalendarEvent],
+    timezone: str | None,
+    days: int = 14,
+) -> str:
+    window = max(1, days)
+    prompt_events = _events_within_days(events, window)
+    header = f"Google Calendar (next {window} days):"
     if not prompt_events:
-        return "Google Calendar (next 7 days):\nNo upcoming events found in the connected calendar."
-    lines = ["Google Calendar (next 7 days):"]
+        return f"{header}\nNo upcoming events found in the connected calendar."
+    lines = [header]
     for event in prompt_events[:25]:
         lines.append(_format_event_line(event, timezone or "UTC"))
     return "\n".join(lines)
@@ -273,7 +280,7 @@ async def load_calendar_for_prompt(
     if not await is_connected(session, user.id):
         return None
     events = await fetch_upcoming_events(session, redis, user, settings)
-    return format_calendar_block(events, user.timezone)
+    return format_calendar_block(events, user.timezone, settings.calendar_prompt_days)
 
 
 async def list_events_for_api(

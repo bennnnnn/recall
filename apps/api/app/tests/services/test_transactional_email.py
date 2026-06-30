@@ -18,19 +18,41 @@ def _user(*, email="user@test.local", name="Ada", locale=None):
 
 
 def test_build_welcome_uses_name_and_en_default():
-    user = _user(name="Ada", locale="fr")
+    user = _user(name="Ada", locale="en")
     subject, html, text = tx_email.build_welcome(user)
     assert subject == "Welcome to Recall"
     assert "Ada" in text
     assert "Ada" in html
-    # French locale falls back to English template (no fr bundle authored yet).
-    assert "Welcome to Recall" in text
 
 
 def test_build_welcome_falls_back_to_greeting_when_no_name():
     user = _user(name="", locale="en")
     _, _, text = tx_email.build_welcome(user)
     assert "Hi there" in text
+
+
+def test_build_welcome_uses_locale_template():
+    user = _user(name="Ada", locale="es")
+    subject, html, text = tx_email.build_welcome(user)
+    assert "Bienvenido" in subject
+    assert "Ada" in text
+    assert "Hola" in text
+
+
+def test_build_welcome_falls_back_to_en_for_amharic():
+    """Amharic has no template yet — falls back to English (honest gap)."""
+    user = _user(name="Ada", locale="am")
+    subject, _, _ = tx_email.build_welcome(user)
+    assert subject == "Welcome to Recall"
+
+
+def test_build_receipt_uses_locale_template():
+    user = _user(name="Bo", locale="fr")
+    subject, html, text = tx_email.build_receipt(
+        user, event_type="INITIAL_PURCHASE"
+    )
+    assert "reçu" in subject.lower()
+    assert "Bonjour" in text
 
 
 def test_build_receipt_includes_event_and_optional_fields():

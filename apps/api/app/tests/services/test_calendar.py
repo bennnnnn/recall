@@ -62,3 +62,17 @@ def test_format_calendar_block_lists_events():
     )
     assert "Team sync" in block
     assert "Zoom" in block
+
+
+def test_format_calendar_block_uses_custom_window():
+    block = format_calendar_block([], "UTC", days=14)
+    assert "next 14 days" in block
+
+
+def test_format_not_connected_mentions_create():
+    answer = format_not_connected_answer()
+    assert "Google Calendar" in answer
+    assert "Settings" in answer
+    # Updated copy: no longer says "won't create"; now mentions it can create events.
+    assert "won't create" not in answer
+    assert "create" in answer.lower()

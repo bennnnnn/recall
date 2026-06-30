@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     google_calendar_enabled: bool = True
     calendar_cache_ttl: int = 300
     calendar_fetch_days: int = 60
+    calendar_prompt_days: int = 14
 
     gmail_enabled: bool = True
     gmail_fetch_days: int = 7
