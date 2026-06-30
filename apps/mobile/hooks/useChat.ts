@@ -173,6 +173,7 @@ export function useChat(
           message?: string;
           message_id?: string;
           code?: string;
+          final_content?: string;
           recalled?: string;
           memory_hints?: string;
           context_summarized?: string;
