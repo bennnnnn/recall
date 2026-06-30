@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
+import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { useTodos } from "@/contexts/TodosContext";
 import { type HomeUrgentTodo, type HomeProjectHighlight, type HomeStarter } from "@/lib/api";
@@ -127,12 +128,14 @@ export function HomeStarters({ onSelect }: Props) {
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { screen, loading } = useHome();
   const { todos, loading: todosLoading, seenReminderIds, dismissReminderNudge } = useTodos();
+  const { user } = useAuth();
+  const leadMinutes = user?.reminder_lead_minutes ?? undefined;
 
   const urgentTodos = useMemo(() => {
     const raw =
-      !todosLoading ? listHomeUrgentTodos(todos) : (screen?.urgent_todos ?? []);
+      !todosLoading ? listHomeUrgentTodos(todos, undefined, leadMinutes) : (screen?.urgent_todos ?? []);
     return raw.filter((todo) => !seenReminderIds.has(todo.id));
-  }, [todos, todosLoading, screen?.urgent_todos, seenReminderIds]);
+  }, [todos, todosLoading, screen?.urgent_todos, seenReminderIds, leadMinutes]);
 
   const urgentGroups = useMemo(() => partitionHomeUrgentTodos(urgentTodos), [urgentTodos]);
 

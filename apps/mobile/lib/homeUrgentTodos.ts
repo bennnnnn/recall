@@ -1,12 +1,23 @@
 import type { HomeUrgentTodo, Todo } from "@/lib/api";
 import { describeDueAt } from "@/lib/dueDate";
 
-/** Matches backend `URGENT_TODO_MINUTES` in services/home.py */
-export const HOME_URGENT_MINUTES = 60;
+/**
+ * Default urgent window when no user lead preference is supplied. Mirrors the
+ * backend default reminder lead (services/reminder_timing.py).
+ */
+export const DEFAULT_HOME_URGENT_LEAD = 10;
 
-/** Open reminders due within the next hour (same rules as GET /home). */
-export function listHomeUrgentTodos(todos: Todo[], now = new Date()): HomeUrgentTodo[] {
-  const cutoffMs = now.getTime() + HOME_URGENT_MINUTES * 60_000;
+/**
+ * Open reminders that are overdue or due within the user's reminder lead
+ * (minutes). Same rule as the backend GET /home urgent todos and the mobile
+ * badge — one unified urgency window driven by `reminder_lead_minutes`.
+ */
+export function listHomeUrgentTodos(
+  todos: Todo[],
+  now = new Date(),
+  leadMinutes: number = DEFAULT_HOME_URGENT_LEAD,
+): HomeUrgentTodo[] {
+  const cutoffMs = now.getTime() + leadMinutes * 60_000;
 
   return todos
     .filter((todo) => {
@@ -60,7 +71,7 @@ export function homeUrgentSubtitle(urgent: HomeUrgentTodo[]): string | null {
       return `${urgent.length} reminders overdue.`;
     }
     if (dueSoon.length === urgent.length) {
-      return `${urgent.length} reminders in the next hour.`;
+      return `${urgent.length} reminders due soon.`;
     }
     return `${urgent.length} reminders need attention.`;
   }

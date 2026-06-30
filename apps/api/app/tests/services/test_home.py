@@ -109,6 +109,36 @@ async def test_build_home_includes_urgent_todo():
 
 
 @pytest.mark.asyncio
+async def test_home_urgent_window_uses_user_lead():
+    session = AsyncMock()
+    user = _user()
+    user.reminder_lead_minutes = 30
+
+    with _home_patches(list_due_soon=[]):
+        await home_service.build_home_screen(session, user, Settings())
+        before_utc = home_service.todos_repo.list_due_soon.call_args.kwargs.get("before_utc")
+
+    assert before_utc is not None
+    delta_min = (before_utc - datetime.now(UTC)).total_seconds() / 60
+    assert 25 <= delta_min <= 35  # ~now + 30 min lead
+
+
+@pytest.mark.asyncio
+async def test_home_urgent_window_defaults_to_10_min_when_lead_unset():
+    session = AsyncMock()
+    user = _user()
+    user.reminder_lead_minutes = None
+
+    with _home_patches(list_due_soon=[]):
+        await home_service.build_home_screen(session, user, Settings())
+        before_utc = home_service.todos_repo.list_due_soon.call_args.kwargs.get("before_utc")
+
+    assert before_utc is not None
+    delta_min = (before_utc - datetime.now(UTC)).total_seconds() / 60
+    assert 7 <= delta_min <= 13  # default lead = 10 min
+
+
+@pytest.mark.asyncio
 async def test_build_home_greeting_uses_name():
     session = AsyncMock()
     user = _user(name="Sam")

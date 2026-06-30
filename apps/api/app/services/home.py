@@ -27,9 +27,9 @@ from app.repositories import projects as projects_repo
 from app.repositories import suggestions as suggestions_repo
 from app.repositories import todos as todos_repo
 from app.services import memory as memory_service
+from app.services import reminder_timing
 from app.services import time_context as time_context_service
 
-URGENT_TODO_MINUTES = 60
 MAX_STARTERS = 5
 _HOME_MEMORY_TYPES = frozenset({"project", "focus", "preference"})
 _INTERNAL_TEXT = re.compile(
@@ -392,7 +392,11 @@ async def build_home_screen(
 ) -> HomeScreenOut:
     home_tz = _resolve_home_tz(user, client_timezone)
     now_utc = datetime.now(UTC)
-    due_cutoff_utc = now_utc + timedelta(minutes=URGENT_TODO_MINUTES)
+    # Urgent window = the user's reminder lead (5/10/15/30 min), unified with
+    # badge + notification semantics. Overdue todos are included by list_due_soon
+    # (any due_at <= cutoff). Replaces the former flat 60-minute window.
+    lead_minutes = reminder_timing.resolve_reminder_lead_minutes(user.reminder_lead_minutes)
+    due_cutoff_utc = now_utc + timedelta(minutes=lead_minutes)
     seed = _day_seed(user, home_tz)
 
     async def load_urgent() -> list:

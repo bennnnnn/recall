@@ -45,6 +45,7 @@ export function TodosProvider({ children }: { children: ReactNode }) {
   const auth = useAuthOptional();
   const token = auth?.token;
   const userId = auth?.user?.id;
+  const leadMinutes = auth?.user?.reminder_lead_minutes ?? undefined;
   const [todos, setTodos] = useState<Todo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -69,9 +70,9 @@ export function TodosProvider({ children }: { children: ReactNode }) {
       }
       seen = pruned;
       setSeenReminderIds(seen);
-      setUnseenCount(countUnseenUrgentReminders(items, seen));
+      setUnseenCount(countUnseenUrgentReminders(items, seen, undefined, leadMinutes));
     },
-    [userId],
+    [userId, leadMinutes],
   );
 
   const refresh = useCallback(
@@ -143,7 +144,7 @@ export function TodosProvider({ children }: { children: ReactNode }) {
         await markReminderIdsSeen(userId, [todoId]);
         const seen = await loadSeenReminderIds(userId);
         setSeenReminderIds(seen);
-        setUnseenCount(countUnseenUrgentReminders(todosRef.current, seen));
+        setUnseenCount(countUnseenUrgentReminders(todosRef.current, seen, undefined, leadMinutes));
       } catch {
         /* keep last state */
       }
