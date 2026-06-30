@@ -473,10 +473,6 @@ export const api = {
       body: JSON.stringify({ feedback }),
     }),
   listMemories: (token: string) => request<Memory[]>("/memories", token),
-  consolidateMemories: (token: string) =>
-    request<{ status: string }>("/memories/consolidate", token, { method: "POST" }),
-  deleteMemory: (token: string, memoryId: string) =>
-    request<void>(`/memories/${memoryId}`, token, { method: "DELETE" }),
   deleteMemorySection: (token: string, type: string) =>
     request<void>(`/memories/type/${type}`, token, { method: "DELETE" }),
   todayUsage: (token: string) => request<Usage>("/chats/usage/today", token),
