@@ -1,12 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
-  Pressable,
   StyleSheet,
   useWindowDimensions,
   View,
 } from "react-native";
-import { openDrawer, patchChatGlobal, registerNewChat } from "@/lib/drawer";
+import { openDrawer, registerNewChat } from "@/lib/drawer";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -21,9 +20,10 @@ import {
   composerAttachmentExtra,
 } from "@/components/chat/ChatComposer";
 import { ChatMessageList } from "@/components/chat/ChatMessageList";
+import { ChatMessageRow } from "@/components/chat/ChatMessageRow";
 import { ChatScrollFab } from "@/components/chat/ChatScrollFab";
+import { ComposerPickerBackdrop } from "@/components/chat/ComposerPickerBackdrop";
 import { TemplatesSheet } from "@/components/TemplatesSheet";
-import { MessageBubble } from "@/components/MessageBubble";
 import { ChatActionsSheet } from "@/components/ChatActionsSheet";
 import { ChatRenameSheet } from "@/components/ChatRenameSheet";
 import { ActionBanner } from "@/components/ActionBanner";
@@ -31,16 +31,15 @@ import { DrawerShell } from "@/components/DrawerShell";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDrawer } from "@/contexts/DrawerContext";
 import { useChat } from "@/hooks/useChat";
+import { useChatActions } from "@/hooks/useChatActions";
 import { useChatRouteLoader, useQueuedChatLaunch } from "@/hooks/useChatRouteLoader";
 import { useChatScroll } from "@/hooks/useChatScroll";
 import { useChatSend } from "@/hooks/useChatSend";
 import { useDraftChat } from "@/hooks/useDraftChat";
 import { useModels } from "@/hooks/useModels";
 import { UpgradeSheet } from "@/components/UpgradeSheet";
-import { api, Message } from "@/lib/api";
-import { tap } from "@/lib/haptics";
-import { shareConversation } from "@/lib/share";
-import { displayChatTitle, sanitizeManualChatTitle } from "@/lib/chatTitle";
+import { Message } from "@/lib/api";
+import { displayChatTitle } from "@/lib/chatTitle";
 import { inferQuizAnswersFromMessages } from "@/lib/parseVocabQuiz";
 import { isQuotaErrorMessage, quotaAlertTitle } from "@/lib/quota";
 import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
@@ -72,20 +71,16 @@ function ChatScreen() {
   const [showPlanPicker, setShowPlanPicker] = useState(false);
   const [showModelPicker, setShowModelPicker] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>(AUTO_MODEL_ID);
-  const [menuVisible, setMenuVisible] = useState(false);
-  const [renameVisible, setRenameVisible] = useState(false);
-  const [renameText, setRenameText] = useState("");
   const [templatesVisible, setTemplatesVisible] = useState(false);
-  const [actionBanner, setActionBanner] = useState<{
-    message: string;
-    icon?: keyof typeof Ionicons.glyphMap;
-  } | null>(null);
 
   const draft = useDraftChat({ token, chatId });
   const activeChatId = draft.activeChatId;
 
   const onFirstReplyRef = useRef<() => Promise<void>>(async () => {});
   const setInputRef = useRef<(value: string) => void>(() => {});
+  const showActionBannerRef = useRef<
+    (message: string, icon?: keyof typeof Ionicons.glyphMap) => void
+  >(() => {});
 
   const handleChatError = useCallback(
     (message: string, code?: string) => {
@@ -120,13 +115,6 @@ function ChatScreen() {
     onTodosSync: handleTodosSync,
   });
 
-  const showActionBanner = useCallback(
-    (message: string, icon?: keyof typeof Ionicons.glyphMap) => {
-      setActionBanner({ message, icon });
-    },
-    [],
-  );
-
   const streamingLen =
     streaming &&
     messages.length > 0 &&
@@ -159,7 +147,7 @@ function ChatScreen() {
     setQuizLanguage,
     setInputRef,
     listRef: scroll.listRef,
-    showActionBanner,
+    showActionBanner: (message, icon) => showActionBannerRef.current(message, icon),
     t,
   });
 
@@ -182,6 +170,38 @@ function ChatScreen() {
     setPendingLaunch,
     pendingLaunchRef,
   } = routeLoader;
+
+  const chatActions = useChatActions({
+    token,
+    chatId,
+    chatTitle,
+    messages,
+    pinned,
+    setPinned,
+    setChatTitle,
+    setMessages,
+    router,
+    t,
+  });
+
+  showActionBannerRef.current = chatActions.showActionBanner;
+
+  const {
+    menuVisible,
+    setMenuVisible,
+    renameVisible,
+    renameText,
+    setRenameText,
+    setRenameVisible,
+    actionBanner,
+    dismissActionBanner,
+    handleFeedback,
+    confirmRename,
+    onShareFromMenu,
+    onRenameFromMenu,
+    onTogglePinFromMenu,
+    onDeleteFromMenu,
+  } = chatActions;
 
   const send = useChatSend({
     token,
@@ -307,167 +327,49 @@ function ChatScreen() {
       ? t("settings.model_auto")
       : labelFor(selectedModel) || selectedModel;
 
-  const handleFeedback = useCallback(
-    (messageId: string, next: "up" | "down" | null) => {
-      setMessages((prev) =>
-        prev.map((mm) =>
-          mm.id === messageId ? { ...mm, feedback: next } : mm,
-        ),
-      );
-      // Only persist for real (server-issued) message ids
-      const isServerId =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-          messageId,
-        );
-      if (token && chatId && isServerId) {
-        api.setMessageFeedback(token, chatId, messageId, next).catch(() => {});
-      }
-    },
-    [token, chatId, setMessages],
-  );
-
-  const closeMenu = () => setMenuVisible(false);
-
-  const dismissActionBanner = useCallback(() => setActionBanner(null), []);
-
-  const handleShare = useCallback(async () => {
-    if (!token || !chatId) {
-      await shareConversation(chatTitle, messages);
-      return;
-    }
-    try {
-      const all = await api.listAllMessages(token, chatId);
-      await shareConversation(chatTitle, all);
-    } catch {
-      await shareConversation(chatTitle, messages);
-    }
-  }, [token, chatId, chatTitle, messages]);
-
   const renderItem = useCallback(
-    ({ item, index }: { item: Message; index: number }) => {
-      const priorUserText =
-        item.role === "assistant" && index > 0 && messages[index - 1]?.role === "user"
-          ? messages[index - 1].content
-          : null;
-      const isStreamingItem = item.id === "streaming";
-      return (
-        <MessageBubble
-          message={item}
-          priorUserText={priorUserText}
-          isGenerating={streaming && isStreamingItem}
-          liveContent={isStreamingItem ? streamingDraft?.content : undefined}
-          liveSearchSources={isStreamingItem ? streamingDraft?.search_sources : undefined}
-          isLastAssistant={
-            item.role === "assistant" && item.id === lastAssistantId
-          }
-          onRegenerate={
-            item.role === "assistant" &&
-            item.id === lastAssistantId &&
-            !streaming
-              ? () => regenerateResponse(selectedModel)
-              : undefined
-          }
-          onEdit={handleEditMessage}
-          canEdit={item.role === "user" && !streaming && !item.id.startsWith("local-")}
-          onFeedback={handleFeedback}
-          onQuizAnswer={
-            item.role === "assistant" && item.id === lastAssistantId && !streaming
-              ? handleQuizAnswer
-              : undefined
-          }
-          quizDisabled={streaming || creatingRef.current}
-          quizLanguage={quizLanguage}
-          quizSelectedLetter={quizAnswers[item.id] ?? null}
-          highlighted={item.id === highlightedMessageId}
-        />
-      );
-    },
+    ({ item, index }: { item: Message; index: number }) => (
+      <ChatMessageRow
+        item={item}
+        index={index}
+        messages={messages}
+        streaming={streaming}
+        streamingDraft={streamingDraft}
+        lastAssistantId={lastAssistantId}
+        selectedModel={selectedModel}
+        quizLanguage={quizLanguage}
+        quizAnswers={quizAnswers}
+        highlightedMessageId={highlightedMessageId}
+        quizDisabled={streaming || creatingRef.current}
+        onRegenerate={regenerateResponse}
+        onEdit={handleEditMessage}
+        onFeedback={handleFeedback}
+        onQuizAnswer={handleQuizAnswer}
+      />
+    ),
     [
       messages,
       streaming,
       streamingDraft,
       lastAssistantId,
+      selectedModel,
+      quizLanguage,
+      quizAnswers,
+      highlightedMessageId,
       regenerateResponse,
       handleEditMessage,
       handleFeedback,
       handleQuizAnswer,
-      quizLanguage,
-      quizAnswers,
-      highlightedMessageId,
-      selectedModel,
       // creatingRef.current is intentionally read without listing the ref in deps.
       // eslint-disable-next-line react-hooks/exhaustive-deps
     ],
   );
 
-  const openRename = () => {
-    setRenameText(chatTitle ?? "");
-    setRenameVisible(true);
-  };
-
-  const confirmRename = async () => {
-    const title = sanitizeManualChatTitle(renameText);
-    if (!title || !chatId || !token) {
-      setRenameVisible(false);
-      return;
-    }
-    try {
-      const u = await api.renameChat(token, chatId, title);
-      setChatTitle(u.title);
-      patchChatGlobal(chatId, { title: u.title });
-      showActionBanner(t("chat.renamed_toast"), "pencil-outline");
-    } catch {
-      Alert.alert(t("common.error"), t("chat.rename_failed"));
-    }
-    setRenameVisible(false);
-  };
-
-  const togglePin = async () => {
-    if (!chatId || !token) return;
-    tap();
-    const next = !pinned;
-    setPinned(next);
-    try {
-      await api.setPin(token, chatId, next);
-      showActionBanner(
-        next ? t("chat.pinned_toast") : t("chat.unpinned_toast"),
-        next ? "bookmark" : "bookmark-outline",
-      );
-    } catch {
-      setPinned(!next);
-      Alert.alert(t("common.error"), t("chat.pin_failed"));
-    }
-  };
-
-  const confirmDelete = () => {
-    Alert.alert(
-      t("chat.delete_confirm_title"),
-      t("chat.delete_confirm_body"),
-      [
-        { text: t("common.cancel"), style: "cancel" },
-        {
-          text: t("common.delete"),
-          style: "destructive",
-          onPress: async () => {
-            if (!chatId || !token) return;
-            try {
-              await api.deleteChat(token, chatId);
-              showActionBanner(t("chat.deleted_toast"), "trash-outline");
-              setTimeout(() => {
-                if (router.canGoBack()) {
-                  router.back();
-                } else {
-                  router.replace("/");
-                }
-              }, 700);
-            } catch {
-              Alert.alert(t("common.error"), t("chat.delete_failed"));
-            }
-          },
-        },
-      ],
-    );
-  };
+  const closeComposerPickers = useCallback(() => {
+    setShowPlanPicker(false);
+    setShowModelPicker(false);
+    setAttachSheetOpen(false);
+  }, [setAttachSheetOpen]);
 
   if (!token) return <Redirect href="/login" />;
 
@@ -497,27 +399,11 @@ function ChatScreen() {
         visible={menuVisible}
         title={chatTitle}
         pinned={pinned}
-        onClose={closeMenu}
-        onShare={() => {
-          tap();
-          closeMenu();
-          void handleShare();
-        }}
-        onRename={() => {
-          tap();
-          closeMenu();
-          openRename();
-        }}
-        onTogglePin={() => {
-          tap();
-          closeMenu();
-          void togglePin();
-        }}
-        onDelete={() => {
-          tap();
-          closeMenu();
-          confirmDelete();
-        }}
+        onClose={() => setMenuVisible(false)}
+        onShare={onShareFromMenu}
+        onRename={onRenameFromMenu}
+        onTogglePin={onTogglePinFromMenu}
+        onDelete={onDeleteFromMenu}
       />
 
       <ChatRenameSheet
@@ -582,17 +468,10 @@ function ChatScreen() {
           onPress={scrollToLatest}
         />
 
-        {(showPlanPicker || showModelPicker || attachSheetOpen) && !drawerOpen && (
-          <Pressable
-            style={s.pickerBackdrop}
-            onPress={() => {
-              setShowPlanPicker(false);
-              setShowModelPicker(false);
-              setAttachSheetOpen(false);
-            }}
-            accessibilityLabel={t("chat.close_menu")}
-          />
-        )}
+        <ComposerPickerBackdrop
+          visible={(showPlanPicker || showModelPicker || attachSheetOpen) && !drawerOpen}
+          onClose={closeComposerPickers}
+        />
 
         <ChatComposer
           visible={!drawerOpen}
@@ -633,11 +512,7 @@ function ChatScreen() {
             setSelectedModel(id);
             setShowModelPicker(false);
           }}
-          onClosePickers={() => {
-            setShowPlanPicker(false);
-            setShowModelPicker(false);
-            setAttachSheetOpen(false);
-          }}
+          onClosePickers={closeComposerPickers}
           onPickAttachment={handlePickAttachment}
           onAttachmentSource={(source) => void handleAttachmentSheetSelect(source)}
           onSend={() => void handleSend()}
@@ -665,11 +540,6 @@ const makeS = (C: Theme) => StyleSheet.create({
   },
   loadingDot: { fontSize: 48, color: C.primary, opacity: 0.4 },
   container: { flex: 1, backgroundColor: C.bg },
-  pickerBackdrop: {
-    ...StyleSheet.absoluteFill,
-    zIndex: 105,
-    backgroundColor: C.scrim,
-  },
 });
 
 export default function HomeScreen() {
