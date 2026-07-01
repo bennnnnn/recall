@@ -153,8 +153,94 @@ async def test_complete_structured_accepts_object_form():
     assert result.actions == []
 
 
+# ── background LLM fallback on provider outage ───────────────────────────────
+
+
 @pytest.mark.asyncio
-async def test_mock_memory_sections_long_message():
+async def test_complete_structured_retries_fallback_on_provider_outage():
+    """When the primary model's acompletion raises, retry once against the
+    fallback alias so a single-provider outage doesn't silently drop the job."""
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    payload = '{"actions": [{"action": "add", "topic": "T", "content": "C"}]}'
+    calls: list[str] = []
+
+    async def fake_acompletion(**kwargs):
+        calls.append(kwargs["model"])
+        if len(calls) == 1:
+            raise RuntimeError("deepseek down")
+        return _fake_completion(payload)
+
+    with patch.object(litellm_gateway, "acompletion", AsyncMock(side_effect=fake_acompletion)):
+        result = await litellm_gateway.complete_structured(
+            settings=settings,
+            model_alias="memory-model",
+            messages=[{"role": "user", "content": "x"}],
+            schema=TodoExtractionResult,
+        )
+    assert result is not None
+    assert len(result.actions) == 1
+    # First call used the primary model, second used the fallback.
+    assert calls[0].endswith("deepseek-chat")
+    assert calls[1].endswith("qwen-plus")
+
+
+@pytest.mark.asyncio
+async def test_complete_structured_no_retry_on_bad_output():
+    """A successful call that returns unparseable JSON should NOT retry — the
+    provider was up, the model just returned bad output, so the fallback won't help."""
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    calls: list[str] = []
+
+    async def fake_acompletion(**kwargs):
+        calls.append(kwargs["model"])
+        return _fake_completion("not valid json {{{")
+
+    with patch.object(litellm_gateway, "acompletion", AsyncMock(side_effect=fake_acompletion)):
+        result = await litellm_gateway.complete_structured(
+            settings=settings,
+            model_alias="memory-model",
+            messages=[{"role": "user", "content": "x"}],
+            schema=TodoExtractionResult,
+        )
+    assert result is None
+    assert len(calls) == 1  # no fallback attempt
+
+
+@pytest.mark.asyncio
+async def test_complete_structured_returns_none_when_both_fail():
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    calls: list[str] = []
+
+    async def fake_acompletion(**kwargs):
+        calls.append(kwargs["model"])
+        raise RuntimeError("all providers down")
+
+    with patch.object(litellm_gateway, "acompletion", AsyncMock(side_effect=fake_acompletion)):
+        result = await litellm_gateway.complete_structured(
+            settings=settings,
+            model_alias="memory-model",
+            messages=[{"role": "user", "content": "x"}],
+            schema=TodoExtractionResult,
+        )
+    assert result is None
+    assert len(calls) == 2  # primary + fallback both tried
+
+
+@pytest.mark.asyncio
+async def test_generate_title_retries_fallback_on_outage():
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    calls: list[str] = []
+
+    async def fake_acompletion(**kwargs):
+        calls.append(kwargs["model"])
+        if len(calls) == 1:
+            raise RuntimeError("title model down")
+        return _fake_completion("My Cool Chat")
+
+    with patch.object(litellm_gateway, "acompletion", AsyncMock(side_effect=fake_acompletion)):
+        title = await litellm_gateway.generate_title(settings, "hello", "hi there")
+    assert title == "My Cool Chat"
+    assert len(calls) == 2
     result = await mock_memory_sections(
         "I am working on a Python FastAPI project for my startup",
         {},

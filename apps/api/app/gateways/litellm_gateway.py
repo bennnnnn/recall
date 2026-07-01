@@ -92,6 +92,46 @@ def resolve_model(alias: str) -> str:
     return model_catalog.get(alias).model
 
 
+async def _acompletion_with_fallback(
+    settings: Settings,
+    primary_alias: str,
+    *,
+    messages: list[dict[str, str]],
+    max_tokens: int,
+    response_format: dict[str, str] | None = None,
+) -> Any | None:
+    """Run acompletion against the primary background alias; on provider outage
+    retry once against the fallback alias. Returns the LiteLLM response object,
+    or None if both fail. Used by the background paths (titles, summaries,
+    project extraction) so a single-provider DeepSeek incident doesn't silently
+    stall every background pipeline.
+    """
+    fallback = _fallback_alias(settings, primary_alias)
+    for alias in (primary_alias, fallback):
+        if alias is None:
+            continue
+        try:
+            route = resolve_route(alias)
+            kwargs = _litellm_kwargs(settings, route)
+            params: dict[str, Any] = dict(
+                model=route.model, messages=messages, max_tokens=max_tokens, **kwargs
+            )
+            if response_format is not None:
+                params["response_format"] = response_format
+            return await acompletion(**params)
+        except Exception:
+            if alias == primary_alias and fallback is not None:
+                logger.warning(
+                    "Background LLM %s unavailable; retrying with fallback %s",
+                    primary_alias,
+                    fallback,
+                )
+                continue
+            logger.exception("Background LLM %s failed", alias)
+            return None
+    return None
+
+
 def resolve_route(alias: str) -> ChatModel:
     return model_catalog.get(alias)
 
@@ -189,6 +229,65 @@ def _list_field_name(schema: type[BaseModel]) -> str | None:
     return None
 
 
+def _fallback_alias(settings: Settings, primary: str) -> str | None:
+    """The alias to retry against when the primary background model is down.
+
+    Returns None when mock mode is on, when no fallback is configured, or when
+    the primary IS the fallback (don't retry against itself).
+    """
+    if mock_llm.should_mock_llm(settings):
+        return None
+    fb = settings.memory_fallback_model_alias.strip()
+    if not fb or fb == primary:
+        return None
+    return fb
+
+
+async def _complete_structured_once[T: BaseModel](
+    *,
+    settings: Settings,
+    model_alias: str,
+    messages: list[dict[str, str]],
+    schema: type[T],
+    max_tokens: int,
+) -> T | None:
+    """One structured attempt. Raises on provider outage; returns None on bad output."""
+    route = resolve_route(model_alias)
+    kwargs = _litellm_kwargs(settings, route)  # ModelUnavailableError if no key
+    response = await acompletion(  # provider/network errors propagate for retry
+        model=route.model,
+        messages=messages,
+        max_tokens=max_tokens,
+        response_format={"type": "json_object"},
+        **kwargs,
+    )
+    raw = (response.choices[0].message.content or "{}").strip()
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+    try:
+        data = json.loads(raw.strip())
+    except json.JSONDecodeError:
+        logger.debug("Structured completion: bad JSON for %s", model_alias)
+        return None  # call succeeded but output was unparseable — retry won't help
+    # Models occasionally return a bare array for a single-list schema; wrap it.
+    if isinstance(data, list):
+        list_field = _list_field_name(schema)
+        if list_field is None:
+            logger.debug(
+                "Structured completion: bare list returned for %s with no list field",
+                schema.__name__,
+            )
+            return None
+        data = {list_field: data}
+    try:
+        return schema.model_validate(data)
+    except Exception:
+        logger.debug("Structured completion: validation failed for %s", model_alias)
+        return None
+
+
 async def complete_structured[T: BaseModel](
     *,
     settings: Settings,
@@ -200,39 +299,36 @@ async def complete_structured[T: BaseModel](
     if mock_llm.should_mock_llm(settings):
         return None
 
-    route = resolve_route(model_alias)
-    kwargs = _litellm_kwargs(settings, route)
+    fallback = _fallback_alias(settings, model_alias)
     try:
-        response = await acompletion(
-            model=route.model,
+        result = await _complete_structured_once(
+            settings=settings,
+            model_alias=model_alias,
             messages=messages,
+            schema=schema,
             max_tokens=max_tokens,
-            response_format={"type": "json_object"},
-            **kwargs,
         )
-        raw = response.choices[0].message.content or "{}"
-        raw = raw.strip()
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-        data = json.loads(raw.strip())
-        # Models occasionally return a bare array for a single-list schema
-        # (e.g. `[]` for TodoExtractionResult.actions). Wrap it under the
-        # schema's list field so it validates instead of raising.
-        if isinstance(data, list):
-            list_field = _list_field_name(schema)
-            if list_field is None:
-                logger.debug(
-                    "Structured completion: bare list returned for %s with no list field",
-                    schema.__name__,
-                )
-                return None
-            data = {list_field: data}
-        return schema.model_validate(data)
+        if result is not None:
+            return result
+        return None  # output parse/validation failed — retrying won't help
     except Exception:
-        logger.exception("LiteLLM structured completion failed for alias=%s", model_alias)
-        return None
+        if fallback is None:
+            logger.exception("Background LLM %s failed and no fallback configured", model_alias)
+            return None
+        logger.warning(
+            "Background LLM %s unavailable; retrying with fallback %s", model_alias, fallback
+        )
+        try:
+            return await _complete_structured_once(
+                settings=settings,
+                model_alias=fallback,
+                messages=messages,
+                schema=schema,
+                max_tokens=max_tokens,
+            )
+        except Exception:
+            logger.exception("Background LLM fallback %s also failed", fallback)
+            return None
 
 
 async def generate_title(
@@ -255,19 +351,16 @@ async def generate_title(
         {"role": "assistant", "content": assistant_message[:300]},
         {"role": "user", "content": "Title?"},
     ]
-    route = resolve_route("title-model")
-    kwargs = _litellm_kwargs(settings, route)
+    response = await _acompletion_with_fallback(
+        settings, "title-model", messages=messages, max_tokens=20
+    )
+    if response is None:
+        return None
     try:
-        response = await acompletion(
-            model=route.model,
-            messages=messages,
-            max_tokens=20,
-            **kwargs,
-        )
         raw = (response.choices[0].message.content or "").strip().strip('"').strip("'")
         return normalize_chat_title(raw)
     except Exception:
-        logger.exception("Title generation failed")
+        logger.exception("Title generation failed to parse response")
         return None
 
 
@@ -482,16 +575,16 @@ async def extract_project_actions(
         {"role": "user", "content": transcript},
     ]
 
-    route = resolve_route("memory-model")
-    kwargs = _litellm_kwargs(settings, route)
+    response = await _acompletion_with_fallback(
+        settings,
+        "memory-model",
+        messages=messages,
+        max_tokens=768,
+        response_format={"type": "json_object"},
+    )
+    if response is None:
+        return None
     try:
-        response = await acompletion(
-            model=route.model,
-            messages=messages,
-            max_tokens=768,
-            response_format={"type": "json_object"},
-            **kwargs,
-        )
         raw = (response.choices[0].message.content or "{}").strip()
         if raw.startswith("```"):
             raw = raw.split("```")[1]
@@ -508,7 +601,7 @@ async def extract_project_actions(
                 logger.warning("Skipping invalid project action: %s", item)
         return ProjectExtractionResult(actions=actions)
     except Exception:
-        logger.exception("Project action extraction failed")
+        logger.exception("Project action extraction failed to parse response")
         return None
 
 
@@ -533,17 +626,14 @@ async def summarize_conversation(
         },
         {"role": "user", "content": "\n\n".join(parts)},
     ]
-    route = resolve_route("memory-model")
-    kwargs = _litellm_kwargs(settings, route)
+    response = await _acompletion_with_fallback(
+        settings, "memory-model", messages=msgs, max_tokens=settings.summary_max_tokens
+    )
+    if response is None:
+        return None
     try:
-        response = await acompletion(
-            model=route.model,
-            messages=msgs,
-            max_tokens=settings.summary_max_tokens,
-            **kwargs,
-        )
         text = (response.choices[0].message.content or "").strip()
         return cap_summary(text) if text else None
     except Exception:
-        logger.exception("Conversation summarization failed")
+        logger.exception("Conversation summarization failed to parse response")
         return None

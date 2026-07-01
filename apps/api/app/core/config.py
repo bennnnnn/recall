@@ -51,6 +51,11 @@ class Settings(BaseSettings):
     math_max_expr_length: int = 256
     math_graph_max_points: int = 300
 
+    # Background LLM resilience: if the primary memory-model provider is down,
+    # retry background jobs (memory/todo/project extraction, titles, summaries)
+    # once against this alias. Empty disables the fallback.
+    memory_fallback_model_alias: str = "fallback-memory-model"
+
     web_search_enabled: bool = True
     web_search_fallback_enabled: bool = True
     web_search_max_results: int = 5
