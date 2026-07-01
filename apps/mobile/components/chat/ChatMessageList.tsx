@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { HomeStarters } from "@/components/HomeStarters";
 import { StateView } from "@/components/StateView";
 import { Message } from "@/lib/api";
-import { messageListItemType } from "@/lib/messageListLayout";
+import { ESTIMATED_MESSAGE_HEIGHT, messageListItemType } from "@/lib/messageListLayout";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -65,6 +65,7 @@ export function ChatMessageList({
         }}
         keyExtractor={(item) => item.id}
         getItemType={messageListItemType}
+        estimatedItemSize={ESTIMATED_MESSAGE_HEIGHT}
         renderItem={renderItem}
         onScroll={onScroll}
         onScrollEndDrag={onScrollEnd}

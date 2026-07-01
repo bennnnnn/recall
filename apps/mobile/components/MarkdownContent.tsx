@@ -1,5 +1,5 @@
 /** Markdown renderer — v2 (no nested Markdown / plainFence), theme-aware. */
-import { ReactNode, useDeferredValue, useMemo } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import Markdown from "react-native-markdown-display";
 import { Ionicons } from "@expo/vector-icons";
 import { Image, Linking, Platform, StyleSheet, Text, View } from "react-native";
@@ -572,8 +572,32 @@ type Props = { content: string; streaming?: boolean };
 export function MarkdownContent({ content, streaming = false }: Props) {
   const t = useTheme();
   const { rules, mdStyles } = useMemo(() => makeRenderRules(t, streaming), [t, streaming]);
-  const deferredContent = useDeferredValue(content);
-  const renderContent = streaming ? deferredContent : content;
+  // While streaming, throttle the markdown re-parse so we don't tokenize the
+  // whole reply on every token. useDeferredValue alone still re-parses on each
+  // deferred tick under fast streams; an explicit ~150ms cadence keeps the UI
+  // snappy. The trailing flush ensures the final render is always the complete
+  // content. Non-streaming renders parse immediately (no throttle).
+  const [throttled, setThrottled] = useState(content);
+  const lastFlushRef = useRef(0);
+  useEffect(() => {
+    if (!streaming) {
+      setThrottled(content);
+      return;
+    }
+    const now = Date.now();
+    const elapsed = now - lastFlushRef.current;
+    if (elapsed >= STREAM_PARSE_INTERVAL_MS) {
+      lastFlushRef.current = now;
+      setThrottled(content);
+      return;
+    }
+    const id = setTimeout(() => {
+      lastFlushRef.current = Date.now();
+      setThrottled(content);
+    }, STREAM_PARSE_INTERVAL_MS - elapsed);
+    return () => clearTimeout(id);
+  }, [content, streaming]);
+  const renderContent = streaming ? throttled : content;
   const prepared = useMemo(() => {
     try {
       return preprocessMarkdown(renderContent);
@@ -591,6 +615,11 @@ export function MarkdownContent({ content, streaming = false }: Props) {
     </Markdown>
   );
 }
+
+// Re-parse at most this often while streaming (ms). Lower = snappier but more
+// CPU; higher = cheaper but laggier. 150ms is ~6.7 renders/sec — smooth enough
+// for streaming text while avoiding a full markdown-it pass per token.
+const STREAM_PARSE_INTERVAL_MS = 150;
 
 function makeMdMath(_t: Theme) {
   return StyleSheet.create({
