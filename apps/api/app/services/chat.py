@@ -839,15 +839,12 @@ async def _prepare_chat_turn(
         client_coordinates = profile_service.normalize_client_coordinates(
             client_latitude, client_longitude
         )
-        if normalized_client_location and (
-            user.location != normalized_client_location or not user.location_enabled
-        ):
-            user = await users_repo.update(
-                session,
-                user,
-                location=normalized_client_location,
-                location_enabled=True,
-            )
+        # NOTE: ephemeral device GPS is used for THIS turn's prompt only — it
+        # must not mutate the user's stored profile (location / location_enabled).
+        # Previously every geo query overwrote the user's saved home city and
+        # flipped location_enabled on, which was surprising and unrecoverable
+        # from chat. Profile location changes only from Settings now. The prompt
+        # still receives the fresh location via effective_location_label below.
         user_location = profile_service.effective_location_label(user, normalized_client_location)
         geo_query = web_search_service.is_geo_query(content)
         if geo_query:
