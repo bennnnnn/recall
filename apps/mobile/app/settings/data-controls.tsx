@@ -22,7 +22,24 @@ export default function DataControlsScreen() {
   const doExport = async () => {
     try {
       const data = await api.exportData(token);
-      await Share.share({ message: JSON.stringify(data, null, 2) });
+      const payload = JSON.stringify(data, null, 2);
+      // The OS share sheet has platform-dependent size limits and silently
+      // truncates or fails on very large messages. For a long-running account
+      // the full export can be several MB, so warn before sharing and let the
+      // user decide rather than discovering a silent truncation later.
+      const MAX_SHARE_BYTES = 2_000_000;
+      if (payload.length > MAX_SHARE_BYTES) {
+        Alert.alert(
+          t("settings.export_large_title"),
+          t("settings.export_large_message", { size_mb: Math.round(payload.length / 1_000_000) }),
+          [
+            { text: t("common.cancel"), style: "cancel" },
+            { text: t("common.continue"), onPress: () => Share.share({ message: payload }) },
+          ],
+        );
+        return;
+      }
+      await Share.share({ message: payload });
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
       if (!message.toLowerCase().includes("cancel")) {

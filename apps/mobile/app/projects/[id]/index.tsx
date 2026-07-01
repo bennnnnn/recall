@@ -2,10 +2,12 @@ import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -54,6 +56,52 @@ export default function ProjectDetailScreen() {
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [statsExpanded, setStatsExpanded] = useState(false);
 
+  // Cross-platform prompt replacement for Alert.prompt (iOS-only). Deck create
+  // and add-word flows use this Modal+TextInput so they work on Android too.
+  const [promptVisible, setPromptVisible] = useState(false);
+  const [promptValue, setPromptValue] = useState("");
+  const [promptConfig, setPromptConfig] = useState<{
+    title: string;
+    message?: string;
+    placeholder?: string;
+    onSubmit: (value: string) => void | Promise<void>;
+  } | null>(null);
+
+  const showPrompt = useCallback(
+    (
+      title: string,
+      message: string | undefined,
+      placeholder: string | undefined,
+      onSubmit: (value: string) => void | Promise<void>,
+    ) => {
+      setPromptConfig({ title, message, placeholder, onSubmit });
+      setPromptValue("");
+      setPromptVisible(true);
+    },
+    [],
+  );
+
+  const submitPrompt = useCallback(async () => {
+    const cfg = promptConfig;
+    setPromptVisible(false);
+    setPromptConfig(null);
+    const value = promptValue.trim();
+    setPromptValue("");
+    if (cfg && value) {
+      try {
+        await cfg.onSubmit(value);
+      } catch {
+        Alert.alert(t("common.error"), t("projects.add_word_failed"));
+      }
+    }
+  }, [promptConfig, promptValue, t]);
+
+  const cancelPrompt = useCallback(() => {
+    setPromptVisible(false);
+    setPromptConfig(null);
+    setPromptValue("");
+  }, []);
+
   const load = useCallback(async () => {
     if (!token || typeof id !== "string") return;
     setLoadError(false);
@@ -96,7 +144,7 @@ export default function ProjectDetailScreen() {
             await api.deleteProject(token, project.id);
             router.back();
           } catch {
-            /* ignore */
+            Alert.alert(t("common.error"), t("projects.delete_failed"));
           }
         },
       },
@@ -136,38 +184,36 @@ export default function ProjectDetailScreen() {
 
   const promptNewDeck = () => {
     if (!token) return;
-    Alert.prompt(
+    // Two-step: deck title, then first word. Chain via showPrompt.
+    showPrompt(
       t("projects.decks_title"),
       t("projects.deck_new_title"),
-      async (title) => {
-        const deckTitle = title?.trim();
-        if (!deckTitle) return;
-        Alert.prompt(t("projects.deck_add_word"), t("projects.deck_word"), async (word) => {
-          const content = word?.trim();
-          if (!content) return;
-          try {
+      t("projects.deck_new_title"),
+      (deckTitle) => {
+        showPrompt(
+          t("projects.deck_add_word"),
+          t("projects.deck_word"),
+          t("projects.deck_word"),
+          async (content) => {
             await api.addProjectDeckItem(token, project.id, deckTitle, { content });
             await load();
-          } catch {
-            /* ignore */
-          }
-        });
+          },
+        );
       },
     );
   };
 
   const addWordToDeck = (deckTitle: string) => {
     if (!token) return;
-    Alert.prompt(t("projects.deck_add_word"), t("projects.deck_word"), async (word) => {
-      const content = word?.trim();
-      if (!content) return;
-      try {
+    showPrompt(
+      t("projects.deck_add_word"),
+      t("projects.deck_word"),
+      t("projects.deck_word"),
+      async (content) => {
         await api.addProjectDeckItem(token, project.id, deckTitle, { content });
         await load();
-      } catch {
-        /* ignore */
-      }
-    });
+      },
+    );
   };
 
   const launchChat = (prompt: string, quizLanguage?: string) => {
@@ -361,6 +407,49 @@ export default function ProjectDetailScreen() {
       <Pressable style={s.deleteBtn} onPress={confirmDelete}>
         <Text style={s.deleteBtnText}>{t("projects.delete")}</Text>
       </Pressable>
+
+      {/*
+        Cross-platform prompt modal (replaces iOS-only Alert.prompt for the
+        deck create / add-word flows so they work on Android).
+      */}
+      <Modal
+        visible={promptVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={cancelPrompt}
+      >
+        <Pressable style={s.promptOverlay} onPress={cancelPrompt}>
+          <Pressable style={s.promptCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={s.promptTitle}>{promptConfig?.title}</Text>
+            {promptConfig?.message ? (
+              <Text style={s.promptMessage}>{promptConfig.message}</Text>
+            ) : null}
+            <TextInput
+              style={s.promptInput}
+              value={promptValue}
+              onChangeText={setPromptValue}
+              placeholder={promptConfig?.placeholder}
+              placeholderTextColor={theme.textTertiary}
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={submitPrompt}
+            />
+            <View style={s.promptActions}>
+              <Pressable style={s.promptAction} onPress={cancelPrompt}>
+                <Text style={s.promptActionText}>{t("common.cancel")}</Text>
+              </Pressable>
+              <Pressable
+                style={[s.promptAction, s.promptActionPrimary]}
+                onPress={submitPrompt}
+              >
+                <Text style={[s.promptActionText, s.promptActionPrimaryText]}>
+                  {t("common.add")}
+                </Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }
@@ -490,5 +579,33 @@ function makeStyles(theme: Theme) {
     deckMeta: { fontSize: 13, color: theme.textSecondary },
     deleteBtn: { alignItems: "center", paddingVertical: 10 },
     deleteBtnText: { fontSize: 15, fontWeight: "600", color: theme.danger },
+    promptOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.4)",
+      justifyContent: "center",
+      padding: 28,
+    },
+    promptCard: {
+      backgroundColor: theme.surface,
+      borderRadius: 16,
+      padding: 18,
+      gap: 12,
+    },
+    promptTitle: { fontSize: 16, fontWeight: "700", color: theme.text },
+    promptMessage: { fontSize: 14, color: theme.textSecondary, lineHeight: 20 },
+    promptInput: {
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 16,
+      color: theme.text,
+    },
+    promptActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8 },
+    promptAction: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10 },
+    promptActionPrimary: { backgroundColor: theme.primary },
+    promptActionText: { fontSize: 15, fontWeight: "600", color: theme.textSecondary },
+    promptActionPrimaryText: { color: "#fff" },
   });
 }

@@ -22,6 +22,10 @@ import {
 } from "@/lib/reminderPrefs";
 import { normalizeReminderLeadMinutes } from "@/lib/reminderTiming";
 import { syncTodoReminders } from "@/lib/todoReminders";
+import {
+  ensureNotificationPermission,
+  registerRemotePushToken,
+} from "@/lib/pushNotifications";
 import { useTheme } from "@/lib/theme";
 
 export default function NotificationsSettingsScreen() {
@@ -61,6 +65,35 @@ export default function NotificationsSettingsScreen() {
     [t, todos, updateUser],
   );
 
+  const togglePush = useCallback(
+    async (v: boolean) => {
+      if (!v) {
+        // Disabling: just flip the server flag. Device notifications stop
+        // arriving once the server filters on push_notifications_enabled.
+        await updateUser({ push_notifications_enabled: false }).catch(() => {});
+        return;
+      }
+      // Enabling: the server flag alone does nothing on-device — we must also
+      // request OS notification permission and register the Expo push token.
+      // Without this the toggle silently lied "on" but no token was ever sent.
+      const granted = await ensureNotificationPermission();
+      if (!granted) {
+        Alert.alert(
+          t("settings.push_blocked_title"),
+          t("settings.push_blocked_message"),
+        );
+        return; // leave the toggle off — permission was denied
+      }
+      try {
+        await registerRemotePushToken(token);
+        await updateUser({ push_notifications_enabled: true });
+      } catch {
+        Alert.alert(t("common.error"), t("settings.push_register_failed"));
+      }
+    },
+    [t, token, updateUser],
+  );
+
   if (!token) return <Redirect href="/login" />;
 
   return (
@@ -73,9 +106,7 @@ export default function NotificationsSettingsScreen() {
           <SettingsSwitchRow
             title={t("settings.push_notifications")}
             value={user?.push_notifications_enabled ?? true}
-            onValueChange={(v) => {
-              void updateUser({ push_notifications_enabled: v }).catch(() => {});
-            }}
+            onValueChange={togglePush}
             styles={s}
             theme={theme}
           />
