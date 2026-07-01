@@ -107,10 +107,8 @@ function ChatScreen() {
   });
 
   const streamingLen =
-    streaming &&
-    messages.length > 0 &&
-    messages[messages.length - 1]?.id === "streaming"
-      ? messages[messages.length - 1].content.length
+    streaming && streamingDraft
+      ? streamingDraft.content.length
       : 0;
 
   const scroll = useChatScroll({

@@ -41,3 +41,21 @@ export function injectPreviewCsp(html: string): string {
   }
   return `<!DOCTYPE html><html><head>${meta}</head><body>${html}</body></html>`;
 }
+
+/**
+ * Remove `<script>...</script>` blocks and inline event handlers from HTML.
+ *
+ * Used for the "Open in browser" / share paths, which hand model-generated HTML
+ * to the system browser. The system browser runs `<script>` unsandboxed (no CSP,
+ * same origin as the browser), so untrusted model JS must never reach it.
+ * Interactive previews run in the in-app WebView instead, which applies the CSP
+ * above. Stripping scripts here keeps the browser path a static view only.
+ */
+export function stripScripts(html: string): string {
+  return html
+    .replace(/<\s*script\b[^>]*>[\s\S]*?<\s*\/\s*script\s*>/gi, "")
+    .replace(/<\s*script\b[^>]*\/>/gi, "")
+    .replace(/\son\w+\s*=\s*"[^"]*"/gi, "")
+    .replace(/\son\w+\s*=\s*'[^']*'/gi, "")
+    .replace(/\son\w+\s*=\s*[^\s>]+/gi, "");
+}

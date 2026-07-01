@@ -300,7 +300,11 @@ export function useChat(
 
       await ensureConnected();
       if (wsRef.current?.readyState !== WebSocket.OPEN) {
+        // ensureConnected already reports connection errors, but if the socket
+        // dropped in the narrow window between connect and send, surface it
+        // instead of silently swallowing the user's message.
         setSendingMessageId(null);
+        reportError("Couldn't reach the server. Check your connection and try again.");
         return;
       }
 
@@ -337,7 +341,10 @@ export function useChat(
       });
 
       await ensureConnected();
-      if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+      if (wsRef.current?.readyState !== WebSocket.OPEN) {
+        reportError("Couldn't reach the server. Check your connection and try again.");
+        return;
+      }
 
       assistantBuffer.current = "";
       wsRef.current.send(
@@ -371,6 +378,7 @@ export function useChat(
       await ensureConnected();
       if (wsRef.current?.readyState !== WebSocket.OPEN) {
         setSendingMessageId(null);
+        reportError("Couldn't reach the server. Check your connection and try again.");
         return;
       }
 

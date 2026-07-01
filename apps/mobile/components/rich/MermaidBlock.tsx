@@ -8,6 +8,7 @@ import * as WebBrowser from "expo-web-browser";
 import { Ionicons } from "@expo/vector-icons";
 
 import { CODE_FONT } from "@/lib/fonts";
+import { injectPreviewCsp } from "@/lib/previewSandbox";
 import { Theme, useTheme } from "@/lib/theme";
 import { getPreviewWebView } from "@/lib/webView";
 
@@ -24,7 +25,7 @@ function buildMermaidHtml(source: string, isDark: boolean): string {
     .replace(/<\/script>/gi, "<\\/script>");
   const bg = isDark ? "#212121" : "#ffffff";
   const theme = isDark ? "dark" : "neutral";
-  return `<!DOCTYPE html>
+  return injectPreviewCsp(`<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -50,7 +51,7 @@ function buildMermaidHtml(source: string, isDark: boolean): string {
   });
 </script>
 </body>
-</html>`;
+</html>`);
 }
 
 export function MermaidBlock({ content }: Props) {

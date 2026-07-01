@@ -5,6 +5,7 @@ import {
 } from "expo-file-system/legacy";
 import * as WebBrowser from "expo-web-browser";
 import { Linking, Platform, Share } from "react-native";
+import { stripScripts } from "@/lib/previewSandbox";
 
 /** Wrap bare HTML into a full document for browser rendering. */
 export function wrapFullDocument(html: string): string {
@@ -54,9 +55,13 @@ export async function writeHtmlPreviewFile(html: string): Promise<string | null>
   }
 }
 
-/** Open rendered HTML in the system browser (works in Expo Go). */
+/** Open rendered HTML in the system browser (works in Expo Go).
+
+The system browser runs `<script>` unsandboxed, so model-generated JS is stripped
+first — this path is a static view only. Interactive previews run in the in-app
+WebView (CSP-sandboxed) instead. */
 export async function openHtmlInBrowser(html: string): Promise<boolean> {
-  const fullHtml = wrapFullDocument(html);
+  const fullHtml = wrapFullDocument(stripScripts(html));
 
   if (fullHtml.length < 120_000) {
     const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(fullHtml)}`;
@@ -106,9 +111,9 @@ export async function openHtmlInBrowser(html: string): Promise<boolean> {
   return false;
 }
 
-/** Share rendered HTML via the system share sheet. */
+/** Share rendered HTML via the system share sheet (scripts stripped — static view only). */
 export async function shareHtmlPreview(html: string): Promise<boolean> {
-  const fullHtml = wrapFullDocument(html);
+  const fullHtml = wrapFullDocument(stripScripts(html));
   const fileUri = await writeHtmlPreviewFile(fullHtml);
 
   if (fileUri) {
