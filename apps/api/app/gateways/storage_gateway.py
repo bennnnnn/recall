@@ -41,6 +41,8 @@ class StorageGateway(Protocol):
 
     async def read_bytes(self, storage_key: str) -> bytes | None: ...
 
+    async def delete_bytes(self, storage_key: str) -> None: ...
+
     def resolve_local_path(self, storage_key: str) -> Path | None: ...
 
 
@@ -74,6 +76,13 @@ class LocalStorageGateway:
     async def read_bytes(self, storage_key: str) -> bytes | None:
         path = self.resolve_local_path(storage_key)
         return path.read_bytes() if path is not None else None
+
+    async def delete_bytes(self, storage_key: str) -> None:
+        path = self.base_path / storage_key
+        try:
+            path.unlink(missing_ok=True)
+        except IsADirectoryError:
+            pass
 
     def resolve_local_path(self, storage_key: str) -> Path | None:
         path = self.base_path / storage_key
@@ -169,6 +178,16 @@ class R2StorageGateway:
         except Exception:
             logger.debug("R2 get_object failed for %s", storage_key, exc_info=True)
             return None
+
+    async def delete_bytes(self, storage_key: str) -> None:
+        import asyncio
+
+        try:
+            await asyncio.to_thread(
+                self._client.delete_object, Bucket=self._bucket, Key=storage_key
+            )
+        except Exception:
+            logger.debug("R2 delete_object failed for %s", storage_key, exc_info=True)
 
     def resolve_local_path(self, storage_key: str) -> Path | None:
         return None

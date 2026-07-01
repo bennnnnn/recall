@@ -1000,6 +1000,14 @@ async def test_stream_edit_response_yields_tokens():
         patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
         patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat)),
         patch("app.services.chat.messages_repo.get_by_id", AsyncMock(return_value=fake_message)),
+        patch(
+            "app.services.chat.messages_repo.ids_from_chat_at_or_after",
+            AsyncMock(return_value=[message_id]),
+        ),
+        patch(
+            "app.services.chat.attachment_lifecycle.purge_attachments_for_messages",
+            AsyncMock(return_value=0),
+        ),
         patch("app.services.chat.messages_repo.delete_messages_from", AsyncMock()),
         patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True)),
         patch(

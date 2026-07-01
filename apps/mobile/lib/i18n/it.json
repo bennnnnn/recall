@@ -85,6 +85,8 @@
   "chat.plan_pro": "Pro",
   "chat.quota_title": "Limite gratuito raggiunto",
   "chat.quota_title_pro": "Limite giornaliero raggiunto",
+  "chat.quota_nudge_body": "Hai usato il {{pct}}% del limite gratuito di oggi. Passa a Pro per 500k token/giorno.",
+  "chat.quota_nudge_cta": "Passa a Pro",
   "chat.recalled_memories": "✨ {{count}} ricordi richiamati",
   "chat.rename": "Rinomina",
   "chat.rename_failed": "Impossibile rinominare questa chat.",

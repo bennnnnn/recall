@@ -578,7 +578,6 @@ export function ConversationList(_props: unknown) {
       renderItem={renderChatItem}
       keyExtractor={(item) => item.key}
       getItemType={(item) => item.type}
-      estimatedItemSize={72}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{
         paddingTop: topInset,

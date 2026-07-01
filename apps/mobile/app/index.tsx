@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
+  Pressable,
   StyleSheet,
+  Text,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -39,6 +41,7 @@ import { useChatScroll } from "@/hooks/useChatScroll";
 import { useChatSend } from "@/hooks/useChatSend";
 import { useDraftChat } from "@/hooks/useDraftChat";
 import { useModels } from "@/hooks/useModels";
+import { useQuotaNudge } from "@/hooks/useQuotaNudge";
 import { UpgradeSheet } from "@/components/UpgradeSheet";
 import { isQuotaErrorMessage, quotaAlertTitle } from "@/lib/quota";
 import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
@@ -110,6 +113,18 @@ function ChatScreen() {
     streaming && streamingDraft
       ? streamingDraft.content.length
       : 0;
+
+  // Refetch the quota nudge when a chat turn finishes (streaming true -> false)
+  // so the banner appears promptly once the user crosses the threshold.
+  const [quotaRefreshKey, setQuotaRefreshKey] = useState(0);
+  const prevStreamingRef = useRef(false);
+  useEffect(() => {
+    if (prevStreamingRef.current && !streaming) {
+      setQuotaRefreshKey((k) => k + 1);
+    }
+    prevStreamingRef.current = streaming;
+  }, [streaming]);
+  const quotaNudge = useQuotaNudge({ token, isPro, refreshKey: quotaRefreshKey });
 
   const scroll = useChatScroll({
     chatId,
@@ -407,6 +422,40 @@ function ChatScreen() {
           onClose={closeComposerPickers}
         />
 
+        {quotaNudge.show ? (
+          <View style={[s.quotaNudge, { bottom: composerClearance + 8 }]}>
+            <Pressable
+              style={s.quotaNudgeBody}
+              onPress={() => {
+                quotaNudge.dismiss();
+                setUpgradeVisible(true);
+              }}
+            >
+              <Ionicons
+                name="flash-outline"
+                size={16}
+                color={C.primary}
+                style={s.quotaNudgeIcon}
+              />
+              <Text style={s.quotaNudgeText}>
+                {t("chat.quota_nudge_body", { pct: quotaNudge.usedPct })}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={s.quotaNudgeCta}
+              onPress={() => {
+                quotaNudge.dismiss();
+                setUpgradeVisible(true);
+              }}
+            >
+              <Text style={s.quotaNudgeCtaText}>{t("chat.quota_nudge_cta")}</Text>
+            </Pressable>
+            <Pressable onPress={quotaNudge.dismiss} hitSlop={8} style={s.quotaNudgeClose}>
+              <Ionicons name="close" size={16} color={C.textTertiary} />
+            </Pressable>
+          </View>
+        ) : null}
+
         <ChatComposer
           visible={!drawerOpen}
           bottom={composerLift}
@@ -452,6 +501,37 @@ const makeS = (C: Theme) => StyleSheet.create({
   },
   loadingDot: { fontSize: 48, color: C.primary, opacity: 0.4 },
   container: { flex: 1, backgroundColor: C.bg },
+  quotaNudge: {
+    position: "absolute",
+    left: 8,
+    right: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: C.surface,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: C.border,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  quotaNudgeBody: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
+  quotaNudgeIcon: { flexShrink: 0 },
+  quotaNudgeText: { flex: 1, fontSize: 13, color: C.text, lineHeight: 18 },
+  quotaNudgeCta: {
+    backgroundColor: C.primary,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    flexShrink: 0,
+  },
+  quotaNudgeCtaText: { color: "#fff", fontSize: 13, fontWeight: "700" },
+  quotaNudgeClose: { padding: 4, flexShrink: 0 },
 });
 
 export default function HomeScreen() {

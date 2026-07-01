@@ -1,7 +1,6 @@
 import asyncio
 import json
 import logging
-import random
 import re
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
@@ -23,6 +22,7 @@ from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.repositories import usage as usage_repo
 from app.repositories import users as users_repo
+from app.services import attachment_lifecycle
 from app.services import calendar as calendar_service
 from app.services import chat_tools as chat_tools_service
 from app.services import email as email_service
@@ -307,6 +307,28 @@ def max_output_tokens_for_style(response_style: str, settings: Settings) -> int:
     return settings.max_output_tokens
 
 
+async def _count_image_attachments(
+    session: AsyncSession, user_id: UUID, attachment_ids: list[UUID]
+) -> int:
+    from app.repositories import attachments as attachments_repo
+    from app.services.attachment_content import IMAGE_CONTENT_TYPES, normalize_content_type
+
+    count = 0
+    for attachment_id in attachment_ids:
+        row = await attachments_repo.get_by_id(session, attachment_id, user_id)
+        if row is None:
+            continue
+        if normalize_content_type(row.content_type) in IMAGE_CONTENT_TYPES:
+            count += 1
+    return count
+
+
+def _vision_reserve_tokens(settings: Settings, image_count: int) -> int:
+    if image_count <= 0:
+        return 0
+    return image_count * settings.image_attachment_reserve_tokens
+
+
 @dataclass
 class _StreamContext:
     user_id: UUID
@@ -324,6 +346,7 @@ class _StreamContext:
     search_sources: list[WebSearchHit] = field(default_factory=list)
     local_places: bool = False
     skip_memory_jobs: bool = False
+    prior_count: int = 0
 
 
 def format_user_profile_block(user: User, *, location_override: str | None = None) -> str:
@@ -564,6 +587,10 @@ async def stream_chat_response(
         reserved = pre_reserved
     else:
         reserved = estimate_tokens(content) + settings.max_output_tokens
+        if attachment_ids:
+            async with SessionLocal() as session:
+                image_count = await _count_image_attachments(session, user_id, attachment_ids)
+            reserved += _vision_reserve_tokens(settings, image_count)
         if not await quota_service.reserve_usage(
             redis, str(user_id), reserved, daily_limit=daily_limit
         ):
@@ -704,6 +731,7 @@ async def stream_regenerate_response(
         # Reserve quota BEFORE destructively deleting the prior assistant turn —
         # otherwise a quota failure would leave the chat with the old reply gone
         # and no replacement. The delete is committed only once we know we can pay.
+        prior_count = await messages_repo.count_for_chat(session, chat_id)
         reserved = estimate_tokens(user_message_content) + max_out
         daily_limit = quota_service.daily_limit_for_user(user, settings)
         if not await quota_service.reserve_usage(
@@ -711,6 +739,7 @@ async def stream_regenerate_response(
         ):
             raise QuotaExceededError(quota_exceeded_message(user))
         if last.role == "assistant":
+            await attachment_lifecycle.purge_attachments_for_messages(session, settings, [last.id])
             await messages_repo.delete_message(session, last)
 
     ctx = _StreamContext(
@@ -728,6 +757,7 @@ async def stream_regenerate_response(
         search_sources=search_sources,
         local_places=local_places,
         skip_memory_jobs=minimal_quiz,
+        prior_count=prior_count,
     )
 
     try:
@@ -788,8 +818,18 @@ async def stream_edit_response(
             redis, str(user_id), reserved, daily_limit=daily_limit
         ):
             raise QuotaExceededError(quota_exceeded_message(user))
+        message_ids = await messages_repo.ids_from_chat_at_or_after(
+            session,
+            chat_id,
+            from_created_at=target.created_at,
+            from_message_id=target.id,
+        )
+        await attachment_lifecycle.purge_attachments_for_messages(session, settings, message_ids)
         await messages_repo.delete_messages_from(
-            session, chat_id, from_created_at=target.created_at
+            session,
+            chat_id,
+            from_created_at=target.created_at,
+            from_message_id=target.id,
         )
 
     async for token in stream_chat_response(
@@ -890,7 +930,7 @@ async def _prepare_chat_turn(
         if attachment_ids and settings.attachments_enabled and has_image_attachment:
             model = "vision-chat"
 
-        await messages_repo.create(
+        user_message = await messages_repo.create(
             session,
             chat_id=chat_id,
             user_id=user.id,
@@ -899,6 +939,15 @@ async def _prepare_chat_turn(
             model=model,
             input_tokens=estimate_tokens(user_content),
         )
+        if attachment_ids and settings.attachments_enabled:
+            from app.repositories import attachments as attachments_repo
+
+            await attachments_repo.link_to_message(
+                session,
+                user_id=user.id,
+                attachment_ids=attachment_ids,
+                message_id=user_message.id,
+            )
         meta: dict[str, Any] = {}
         minimal_personal = is_broad_self_question(content)
         minimal_quiz = web_search_service.is_vocab_quiz_answer(content)
@@ -1042,6 +1091,7 @@ async def _prepare_chat_turn(
             search_sources=search_sources,
             local_places=local_places,
             skip_memory_jobs=quiz_answer,
+            prior_count=prior_count,
         )
 
 
@@ -1156,7 +1206,7 @@ async def _enqueue_post_turn_jobs(
         )
     if settings.history_compression_enabled:
         job_specs.append(("compress", {"chat_id": str(ctx.chat_id)}))
-    if random.random() < 0.1:  # noqa: S311
+    if ctx.prior_count % 10 == 0:
         job_specs.append(("suggestions", {"user_id": str(ctx.user_id)}))
 
     await asyncio.gather(*(jobs.enqueue(redis, name, payload) for name, payload in job_specs))

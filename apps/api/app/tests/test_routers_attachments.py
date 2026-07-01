@@ -54,10 +54,14 @@ def test_presign_upload_success():
             api_upload=True,
         )
     )
+    fake_redis = AsyncMock()
+    fake_redis.incrby = AsyncMock(return_value=1)
+    fake_redis.expire = AsyncMock()
 
     with (
         patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
         patch("app.routers.attachments.attachments_repo.create_pending", AsyncMock()),
+        patch("app.routers.attachments.get_redis_client", return_value=fake_redis),
     ):
         client = TestClient(app)
         r = client.post(
@@ -68,6 +72,28 @@ def test_presign_upload_success():
 
     assert r.status_code == 200
     assert r.json()["attachment_id"] == str(attachment_id)
+
+
+def test_presign_upload_rejects_image_over_daily_limit():
+    user = _fake_user()
+    app = _app_with_user(user)
+    fake_redis = AsyncMock()
+
+    async def _incrby_over_limit(key, amount):
+        return 6
+
+    fake_redis.incrby = _incrby_over_limit
+    fake_redis.expire = AsyncMock()
+
+    with patch("app.routers.attachments.get_redis_client", return_value=fake_redis):
+        client = TestClient(app)
+        r = client.post(
+            "/attachments/presign",
+            headers={"Authorization": "Bearer tok"},
+            json={"content_type": "image/png", "size_bytes": 128},
+        )
+
+    assert r.status_code == 429
 
 
 def test_upload_rejects_bytes_not_matching_claimed_content_type():

@@ -1,4 +1,5 @@
 from datetime import UTC, date, datetime
+from uuid import UUID
 
 from redis.asyncio import Redis
 
@@ -14,11 +15,24 @@ QUOTA_EXCEEDED_MESSAGE_PRO = "You've reached today's limit. Come back tomorrow."
 # Backward-compatible alias for tests and imports.
 QUOTA_EXCEEDED_MESSAGE = QUOTA_EXCEEDED_MESSAGE_FREE
 
+IMAGE_LIMIT_EXCEEDED_MESSAGE_FREE = (
+    "You've reached today's image upload limit (5). Go Pro for more — or come back tomorrow."
+)
+IMAGE_LIMIT_EXCEEDED_MESSAGE_PRO = (
+    "You've reached today's image upload limit (30). Come back tomorrow."
+)
+
 
 def quota_exceeded_message(user: User) -> str:
     if user.plan == "pro":
         return QUOTA_EXCEEDED_MESSAGE_PRO
     return QUOTA_EXCEEDED_MESSAGE_FREE
+
+
+def image_limit_exceeded_message(user: User) -> str:
+    if user.plan == "pro":
+        return IMAGE_LIMIT_EXCEEDED_MESSAGE_PRO
+    return IMAGE_LIMIT_EXCEEDED_MESSAGE_FREE
 
 
 def _usage_key(user_id: str, day: date) -> str:
@@ -112,3 +126,46 @@ async def remaining(redis: Redis, user_id: str, *, daily_limit: int) -> int:
 async def reset_daily_usage(redis: Redis, user_id: str, day: date | None = None) -> None:
     """Clear Redis quota counter for a user/day (dev support)."""
     await redis.delete(_usage_key(user_id, day or utc_today()))
+
+
+# ── Daily image-upload cap (separate from the token quota) ───────────────────
+# Vision/image inputs cost more than text and aren't well captured by the text
+# token reserve, so image uploads are capped per user per UTC day. Counted at
+# upload-completion time (when bytes are actually stored); checked at presign.
+
+_IMAGE_TTL = 60 * 60 * 48
+
+
+def _image_key(user_id: UUID, day: date) -> str:
+    return f"imgup:{user_id}:{day.isoformat()}"
+
+
+def image_upload_limit_for_user(user: User, settings: Settings) -> int:
+    return settings.daily_image_limit_pro if user.plan == "pro" else settings.daily_image_limit
+
+
+async def get_image_upload_count(redis: Redis, user_id: UUID) -> int:
+    value = await redis.get(_image_key(user_id, utc_today()))
+    return int(value or 0)
+
+
+async def record_image_upload(redis: Redis, user_id: UUID) -> int:
+    key = _image_key(user_id, utc_today())
+    new_total = await redis.incrby(key, 1)
+    if new_total == 1:
+        await redis.expire(key, _IMAGE_TTL)
+    return new_total
+
+
+async def reserve_image_upload(redis: Redis, user_id: UUID, *, limit: int) -> bool:
+    """Atomically reserve one image upload slot for today. Rolls back if over limit."""
+    if limit <= 0:
+        return False
+    key = _image_key(user_id, utc_today())
+    new_total = await redis.incrby(key, 1)
+    if new_total == 1:
+        await redis.expire(key, _IMAGE_TTL)
+    if new_total > limit:
+        await redis.incrby(key, -1)
+        return False
+    return True

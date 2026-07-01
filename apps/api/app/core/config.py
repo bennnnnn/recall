@@ -34,6 +34,21 @@ class Settings(BaseSettings):
     semantic_memory_enabled: bool = True
     mcp_tools_enabled: bool = False
 
+    # Daily image-upload cap (per user, UTC day). Vision/image inputs cost more
+    # than text, so cap uploads separately from the token quota. Enforced at
+    # presign so a user can't accumulate uploads past the limit.
+    daily_image_limit: int = 5
+    daily_image_limit_pro: int = 30
+    # Per-image token reserve added to the quota reservation for vision turns,
+    # so a near-limit user can't start a heavy image call that blows past the
+    # daily cap. Real usage is still reconciled from the provider's usage chunk.
+    image_attachment_reserve_tokens: int = 1200
+    # Orphan attachment reaper: delete bytes + rows for attachments never linked
+    # to a message (e.g. uploaded then the send failed, or unlinked by a message
+    # delete) once they're older than this grace window.
+    attachment_orphan_grace_hours: int = 24
+    attachment_orphan_reaper_interval_seconds: int = 3600
+
     # Object storage for attachments. ``local`` writes to disk (dev);
     # ``r2`` presigns Cloudflare R2 (S3-compatible) URLs so the client uploads/
     # downloads directly — blobs never touch the API. R2 creds come from the

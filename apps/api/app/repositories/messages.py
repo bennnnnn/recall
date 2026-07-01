@@ -1,7 +1,8 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
+from sqlalchemy import delete as sql_delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Message
@@ -165,15 +166,47 @@ async def get_by_id(session: AsyncSession, message_id: UUID, chat_id: UUID) -> M
     return result.scalar_one_or_none()
 
 
-async def delete_messages_from(
-    session: AsyncSession, chat_id: UUID, *, from_created_at: datetime
-) -> int:
-    from sqlalchemy import delete as sql_delete
+async def ids_from_chat_at_or_after(
+    session: AsyncSession,
+    chat_id: UUID,
+    *,
+    from_created_at: datetime,
+    from_message_id: UUID,
+) -> list[UUID]:
+    result = await session.execute(
+        select(Message.id).where(
+            Message.chat_id == chat_id,
+            or_(
+                Message.created_at > from_created_at,
+                and_(
+                    Message.created_at == from_created_at,
+                    Message.id >= from_message_id,
+                ),
+            ),
+        )
+    )
+    return list(result.scalars().all())
 
+
+async def delete_messages_from(
+    session: AsyncSession,
+    chat_id: UUID,
+    *,
+    from_created_at: datetime,
+    from_message_id: UUID,
+) -> int:
+    # Tuple ordering (created_at, id) so messages with identical timestamps are
+    # deleted in stable order and the anchor message is included.
     result = await session.execute(
         sql_delete(Message).where(
             Message.chat_id == chat_id,
-            Message.created_at >= from_created_at,
+            or_(
+                Message.created_at > from_created_at,
+                and_(
+                    Message.created_at == from_created_at,
+                    Message.id >= from_message_id,
+                ),
+            ),
         )
     )
     await session.commit()

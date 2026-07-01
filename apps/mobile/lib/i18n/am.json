@@ -85,6 +85,8 @@
   "chat.plan_pro": "Pro",
   "chat.quota_title": "ነጻ ገደብ ተደርሷል",
   "chat.quota_title_pro": "የዕለቱ ገደብ ተደርሷል",
+  "chat.quota_nudge_body": "የዛሬው ነጻ ገደብ {{pct}}% ተጠቅመዋል። በቀን 500k ቶከን ለ Pro ይሂዱ።",
+  "chat.quota_nudge_cta": "Pro ይውሰዱ",
   "chat.recalled_memories": "✨ {{count}} ትዝታዎች ተመልሰዋል",
   "chat.rename": "እንደገና ስይም",
   "chat.rename_failed": "ይህን ውይይት መሰየም አልተቻለም።",

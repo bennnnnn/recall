@@ -116,6 +116,15 @@ async def _stream_over_ws(
                     break
                 if msg.get("type") == "cancel":
                     cancel_event.set()
+                elif msg.get("type") != "ping":
+                    await _safe_send_json(
+                        websocket,
+                        {
+                            "type": "error",
+                            "code": "busy",
+                            "message": "Still generating — wait or cancel first.",
+                        },
+                    )
             else:
                 receiver.cancel()
                 try:

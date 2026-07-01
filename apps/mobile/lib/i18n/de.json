@@ -85,6 +85,8 @@
   "chat.plan_pro": "Pro",
   "chat.quota_title": "Gratislimit erreicht",
   "chat.quota_title_pro": "Tageslimit erreicht",
+  "chat.quota_nudge_body": "Du hast {{pct}} % des heutigen Gratislimits verbraucht. Wechsle zu Pro für 500.000 Tokens/Tag.",
+  "chat.quota_nudge_cta": "Pro holen",
   "chat.recalled_memories": "✨ {{count}} Erinnerungen abgerufen",
   "chat.rename": "Umbenennen",
   "chat.rename_failed": "Chat konnte nicht umbenannt werden.",

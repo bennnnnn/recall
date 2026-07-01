@@ -85,6 +85,8 @@
   "chat.plan_pro": "Pro",
   "chat.quota_title": "Ücretsiz limit doldu",
   "chat.quota_title_pro": "Günlük limit doldu",
+  "chat.quota_nudge_body": "Bugünkü ücretsiz limitinizin %{{pct}}'ini kullandınız. Günde 500 bin token için Pro'ya geçin.",
+  "chat.quota_nudge_cta": "Pro'ya geç",
   "chat.recalled_memories": "✨ {{count}} anı hatırlandı",
   "chat.rename": "Yeniden adlandır",
   "chat.rename_failed": "Bu sohbet yeniden adlandırılamadı.",

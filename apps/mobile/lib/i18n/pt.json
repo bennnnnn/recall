@@ -85,6 +85,8 @@
   "chat.plan_pro": "Pro",
   "chat.quota_title": "Limite gratuito atingido",
   "chat.quota_title_pro": "Limite diário atingido",
+  "chat.quota_nudge_body": "Você usou {{pct}}% do limite gratuito de hoje. Vá para o Pro — 500 mil tokens/dia.",
+  "chat.quota_nudge_cta": "Ir para Pro",
   "chat.recalled_memories": "✨ {{count}} memórias recuperadas",
   "chat.rename": "Renomear",
   "chat.rename_failed": "Não foi possível renomear esta conversa.",

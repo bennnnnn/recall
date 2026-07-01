@@ -772,7 +772,6 @@ export default function TodosScreen() {
         renderItem={renderTodoItem}
         keyExtractor={(item) => item.key}
         getItemType={(item) => item.type}
-        estimatedItemSize={56}
         contentContainerStyle={showRemindersEmptyHero && !error ? s.listEmpty : undefined}
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={todosHeader}

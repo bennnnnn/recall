@@ -7,11 +7,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_settings_dep
+from app.core.redis import get_redis_client
 from app.gateways.storage_gateway import LocalStorageGateway, get_storage_gateway
 from app.models.orm import User
 from app.models.schemas import AttachmentOut, AttachmentPresignIn, AttachmentPresignOut
 from app.repositories import attachments as attachments_repo
+from app.services import quota as quota_service
 from app.services.attachment_content import (
+    IMAGE_CONTENT_TYPES,
     MAX_ATTACHMENT_SIZE,
     bytes_match_claimed,
     is_allowed_content_type,
@@ -38,6 +41,15 @@ async def presign_upload(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid file size")
 
     content_type = normalize_content_type(body.content_type)
+    if content_type in IMAGE_CONTENT_TYPES:
+        redis = get_redis_client()
+        image_limit = quota_service.image_upload_limit_for_user(user, settings)
+        if not await quota_service.reserve_image_upload(redis, user.id, limit=image_limit):
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=quota_service.image_limit_exceeded_message(user),
+            )
+
     gateway = get_storage_gateway(settings)
     presigned = await gateway.presign_upload(
         user_id=str(user.id),

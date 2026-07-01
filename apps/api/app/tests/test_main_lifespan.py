@@ -35,6 +35,8 @@ async def test_lifespan_starts_and_stops_workers():
         patch("app.main.push_scheduler.stop_push_scheduler", AsyncMock()),
         patch("app.main.gmail_periodic_sync.start_gmail_periodic_scheduler", AsyncMock()),
         patch("app.main.gmail_periodic_sync.stop_gmail_periodic_scheduler", AsyncMock()),
+        patch("app.main.attachment_orphan_reaper.start_orphan_reaper", AsyncMock()),
+        patch("app.main.attachment_orphan_reaper.stop_orphan_reaper", AsyncMock()),
         patch("app.main.SessionLocal", return_value=session),
         patch("app.main.seed_templates.seed_templates", AsyncMock()),
         patch("app.main.engine", mock_engine),

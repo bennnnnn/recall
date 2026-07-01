@@ -85,6 +85,8 @@
   "chat.plan_pro": "Pro",
   "chat.quota_title": "Достигнут бесплатный лимит",
   "chat.quota_title_pro": "Достигнут дневной лимит",
+  "chat.quota_nudge_body": "Вы использовали {{pct}}% сегодняшнего бесплатного лимита. Перейдите на Pro — 500 тыс. токенов в день.",
+  "chat.quota_nudge_cta": "Перейти на Pro",
   "chat.recalled_memories": "✨ Вспомнено {{count}} воспоминаний",
   "chat.rename": "Переименовать",
   "chat.rename_failed": "Не удалось переименовать этот чат.",

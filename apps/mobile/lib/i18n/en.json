@@ -85,6 +85,8 @@
   "chat.plan_pro": "Pro",
   "chat.quota_title": "Free limit reached",
   "chat.quota_title_pro": "Daily limit reached",
+  "chat.quota_nudge_body": "You've used {{pct}}% of today's free limit. Go Pro for 500k tokens/day.",
+  "chat.quota_nudge_cta": "Go Pro",
   "chat.recalled_memories": "✨ Recalled {{count}} memories",
   "chat.rename": "Rename",
   "chat.rename_failed": "Could not rename this chat.",
