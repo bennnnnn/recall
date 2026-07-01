@@ -380,6 +380,37 @@ A consolidated list of what's intentionally **not** in this version:
   (older) messages, live model latency/health, user-tunable routing rules, email-only reminders,
   theming the remaining screens.
 
+### Pre-deployment TODO (from the holistic review)
+
+Action items still open before the first production deploy. The security/data-integrity
+fixes from the review are shipped; these remain:
+
+- ⚠️ **R2 storage credentials** — the `R2StorageGateway` is wired and tested, but attachments
+  run on local fallback until `STORAGE_BACKEND=r2` + `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` /
+  `R2_SECRET_ACCESS_KEY` / `R2_BUCKET` secrets are set. (Code done; creds pending.)
+- ⚠️ **Production env secrets** — `validate_production_settings` now enforces
+  `OAUTH_TOKEN_ENCRYPTION_KEY`, `OPENROUTER_API_KEY`, `CORS_ORIGINS`,
+  `REVENUECAT_WEBHOOK_AUTH` (plus the existing DB/Redis/Google/JWT/dev-flags). The
+  `OPENROUTER_API_KEY` also makes the `fallback-memory-model` actually resolve.
+- 🔜 **Mobile gate + on-device pass** — `pnpm typecheck && pnpm lint && pnpm test` must run
+  locally (deps don't install in the CI/dev-container env). Then an iOS **and** Android
+  dev-build pass for: Google Sign-In, HTML/chart preview WebView, push, RevenueCat, the new
+  cross-platform deck Modal, autoscroll, and the markdown throttle.
+- 🔜 **FlashList migration** — `Todos` and `ConversationList` still use `ScrollView`; move to
+  `FlashList` for long lists (bigger refactor, needs on-device verification).
+- 🔜 **i18n migration** — the new keys were added to `en.json` only. Hardcoded English remains
+  in: the legal pages (`privacy`/`terms`), `todoReminders` ("Reminder" title/body),
+  `homeUrgentTodos` prompts/subtitles, and `share.ts` ("You"/"Recall"). The other 8 locale
+  files (es/fr/am/de/it/pt/ru/tr) need the new keys too.
+- 🔜 **DB session scope in `_prepare_chat_turn`** — the session is held through web
+  search/embeddings/calendar/Gmail/MCP prep, which can starve the Neon pool under concurrent
+  streams. Load → close → external I/O → reopen for writes. (Non-trivial refactor; deferred
+  as a follow-up, not a ship blocker for single-user MVP scale.)
+- 🔜 **Background-job DLQ / WS per-message re-auth** — failed jobs are ACKed by design
+  (poison-pill avoidance); a DLQ would make them visible/retryable. WS auth is checked once
+  at connect (7-day JWT); per-message re-auth is overkill — a shorter JWT expiry is the
+  better lever. Both deferred as judgment calls.
+
 ### Multimodal & attachments (planned)
 
 Richer inputs/outputs, grouped because they share one prerequisite — an **attachments
