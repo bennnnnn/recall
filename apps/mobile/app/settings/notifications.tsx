@@ -67,6 +67,7 @@ export default function NotificationsSettingsScreen() {
 
   const togglePush = useCallback(
     async (v: boolean) => {
+      if (!token) return;
       if (!v) {
         // Disabling: just flip the server flag. Device notifications stop
         // arriving once the server filters on push_notifications_enabled.

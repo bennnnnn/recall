@@ -396,12 +396,15 @@ fixes from the review are shipped; these remain:
   locally (deps don't install in the CI/dev-container env). Then an iOS **and** Android
   dev-build pass for: Google Sign-In, HTML/chart preview WebView, push, RevenueCat, the new
   cross-platform deck Modal, autoscroll, and the markdown throttle.
-- 🔜 **FlashList migration** — `Todos` and `ConversationList` still use `ScrollView`; move to
-  `FlashList` for long lists (bigger refactor, needs on-device verification).
-- 🔜 **i18n migration** — the new keys were added to `en.json` only. Hardcoded English remains
-  in: the legal pages (`privacy`/`terms`), `todoReminders` ("Reminder" title/body),
-  `homeUrgentTodos` prompts/subtitles, and `share.ts` ("You"/"Recall"). The other 8 locale
-  files (es/fr/am/de/it/pt/ru/tr) need the new keys too.
+- ✅ **FlashList migration** — `ConversationList` and `Todos` now use `FlashList`
+  (v2, auto-measured). Chat drawer rows and the flat reminders/done lists are
+  virtualized; the calendar day-view and `ListGroupsView` render in the header
+  (bounded/structured, not row-virtualized). Verify scroll/layout on-device.
+- 🔜 **i18n migration** — the new UI keys are now in all 9 locale files (English
+  placeholder values for the 8 non-EN locales — translate when ready). Hardcoded
+  English still remains in: the legal pages (`privacy`/`terms`), `todoReminders`
+  ("Reminder" title/body), `homeUrgentTodos` prompts/subtitles, and `share.ts`
+  ("You"/"Recall"). Those strings need extracting to keys + translations.
 - 🔜 **DB session scope in `_prepare_chat_turn`** — the session is held through web
   search/embeddings/calendar/Gmail/MCP prep, which can starve the Neon pool under concurrent
   streams. Load → close → external I/O → reopen for writes. (Non-trivial refactor; deferred
