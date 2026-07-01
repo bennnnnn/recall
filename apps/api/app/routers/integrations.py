@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_redis, get_settings_dep
+from app.core.secrets import encrypt_refresh_token
 from app.gateways.google_calendar_gateway import GoogleCalendarError, exchange_server_auth_code
 from app.models.orm import User
 from app.models.schemas import (
@@ -97,17 +98,22 @@ async def connect_calendar(
     except GoogleCalendarError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
-    refresh_token = str(token_data.get("refresh_token") or "").strip()
+    refresh_token_raw = str(token_data.get("refresh_token") or "").strip()
     access_token = str(token_data.get("access_token") or "").strip()
-    if not refresh_token:
+    if not refresh_token_raw:
         existing = await calendar_repo.get_for_user(session, user.id)
         if existing:
+            # Reuse the already-encrypted stored token (e.g. re-grant without a
+            # new refresh token). Don't re-encrypt — it's already ciphertext.
             refresh_token = existing.refresh_token
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Google did not return a refresh token. Revoke Recall in your Google account and try again.",
             )
+    else:
+        # Fresh token from Google — encrypt before it touches the DB.
+        refresh_token = encrypt_refresh_token(settings, refresh_token_raw)
 
     email = await _fetch_google_email(access_token) if access_token else None
     google_email = email or user.email

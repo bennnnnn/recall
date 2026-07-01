@@ -12,6 +12,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.core.secrets import decrypt_refresh_token
 from app.gateways import google_gmail_gateway as gmail_gateway
 from app.gateways import litellm_gateway
 from app.gateways.google_gmail_gateway import GmailMessage
@@ -212,7 +213,7 @@ async def load_gmail_context(
         try:
             messages = await gmail_gateway.list_recent_messages(
                 settings,
-                conn.refresh_token,
+                decrypt_refresh_token(settings, conn.refresh_token),
                 days=settings.gmail_fetch_days,
                 max_messages=min(settings.gmail_max_messages, 15),
             )
@@ -364,7 +365,7 @@ async def sync_gmail_for_user(
     try:
         messages = await gmail_gateway.list_recent_messages(
             settings,
-            conn.refresh_token,
+            decrypt_refresh_token(settings, conn.refresh_token),
             days=settings.gmail_fetch_days,
             max_messages=settings.gmail_max_messages,
         )

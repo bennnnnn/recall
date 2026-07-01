@@ -83,6 +83,13 @@ class Settings(BaseSettings):
 
     cors_origins: str = ""
 
+    # Fernet key used to encrypt OAuth refresh tokens (Calendar/Gmail) at rest.
+    # Generate one:
+    #   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    # When empty in development, tokens are stored plaintext (with a warning).
+    # Required in production (see validate_production_settings).
+    oauth_token_encryption_key: str = ""
+
     # Dev placeholders — disable in production
     dev_auth_enabled: bool = True
     mock_llm_enabled: bool = True
@@ -118,6 +125,14 @@ def validate_production_settings(settings: Settings) -> None:
     # Unsigned RevenueCat webhooks would let anyone grant themselves Pro.
     if not settings.revenuecat_webhook_auth:
         errors.append("REVENUECAT_WEBHOOK_AUTH is required in production")
+    # OAuth refresh tokens (Calendar/Gmail) must be encrypted at rest — a DB
+    # leak shouldn't expose reusable Google OAuth tokens.
+    if not settings.oauth_token_encryption_key:
+        errors.append(
+            "OAUTH_TOKEN_ENCRYPTION_KEY is required in production "
+            '(generate with: python -c "from cryptography.fernet import Fernet; '
+            'print(Fernet.generate_key().decode())")'
+        )
 
     if errors:
         raise RuntimeError("Invalid production configuration: " + "; ".join(errors))

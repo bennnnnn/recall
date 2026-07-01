@@ -13,6 +13,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.core.secrets import decrypt_refresh_token
 from app.gateways import google_calendar_gateway
 from app.gateways.google_calendar_gateway import CalendarEvent, GoogleCalendarError
 from app.models.orm import User
@@ -257,7 +258,7 @@ async def fetch_upcoming_events(
     try:
         events = await google_calendar_gateway.list_upcoming_events(
             settings,
-            refresh_token=connection.refresh_token,
+            refresh_token=decrypt_refresh_token(settings, connection.refresh_token),
             calendar_id=connection.calendar_id,
             timezone=user.timezone,
             days=settings.calendar_fetch_days,
@@ -349,7 +350,7 @@ async def confirm_create_event(
     end = datetime_from_iso(proposal["end"])
     event = await google_calendar_gateway.create_event(
         settings,
-        refresh_token=connection.refresh_token,
+        refresh_token=decrypt_refresh_token(settings, connection.refresh_token),
         calendar_id=connection.calendar_id or "primary",
         title=proposal.get("title") or "Event",
         start=start,
