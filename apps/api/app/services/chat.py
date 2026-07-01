@@ -551,6 +551,7 @@ async def stream_chat_response(
     client_location: str | None = None,
     client_latitude: float | None = None,
     client_longitude: float | None = None,
+    pre_reserved: int | None = None,
 ) -> AsyncIterator[str]:
     async with SessionLocal() as session:
         user = await users_repo.get_by_id(session, user_id)
@@ -558,11 +559,14 @@ async def stream_chat_response(
             raise ChatNotFoundError("User not found.")
         daily_limit = quota_service.daily_limit_for_user(user, settings)
 
-    reserved = estimate_tokens(content) + settings.max_output_tokens
-    if not await quota_service.reserve_usage(
-        redis, str(user_id), reserved, daily_limit=daily_limit
-    ):
-        raise QuotaExceededError(quota_exceeded_message(user))
+    if pre_reserved is not None:
+        reserved = pre_reserved
+    else:
+        reserved = estimate_tokens(content) + settings.max_output_tokens
+        if not await quota_service.reserve_usage(
+            redis, str(user_id), reserved, daily_limit=daily_limit
+        ):
+            raise QuotaExceededError(quota_exceeded_message(user))
 
     try:
         ctx = await _prepare_chat_turn(
@@ -629,8 +633,6 @@ async def stream_regenerate_response(
         last = await messages_repo.get_last(session, chat_id)
         if last is None:
             raise ChatNotFoundError("No messages to regenerate.")
-        if last.role == "assistant":
-            await messages_repo.delete_message(session, last)
 
         last_user = await messages_repo.get_last_user(session, chat_id)
         if last_user is None:
@@ -698,12 +700,17 @@ async def stream_regenerate_response(
                 prior_user_messages=prior_user_messages,
             )
 
-    reserved = estimate_tokens(user_message_content) + max_out
-    daily_limit = quota_service.daily_limit_for_user(user, settings)
-    if not await quota_service.reserve_usage(
-        redis, str(user_id), reserved, daily_limit=daily_limit
-    ):
-        raise QuotaExceededError(quota_exceeded_message(user))
+        # Reserve quota BEFORE destructively deleting the prior assistant turn —
+        # otherwise a quota failure would leave the chat with the old reply gone
+        # and no replacement. The delete is committed only once we know we can pay.
+        reserved = estimate_tokens(user_message_content) + max_out
+        daily_limit = quota_service.daily_limit_for_user(user, settings)
+        if not await quota_service.reserve_usage(
+            redis, str(user_id), reserved, daily_limit=daily_limit
+        ):
+            raise QuotaExceededError(quota_exceeded_message(user))
+        if last.role == "assistant":
+            await messages_repo.delete_message(session, last)
 
     ctx = _StreamContext(
         user_id=user_id,
@@ -770,6 +777,16 @@ async def stream_edit_response(
         target = await messages_repo.get_by_id(session, message_id, chat_id)
         if target is None or target.role != "user":
             raise ChatNotFoundError("Only user messages can be edited.")
+        # Reserve quota BEFORE destructively deleting trailing messages. If the
+        # reserve fails we must not have already truncated history with no reply
+        # to replace it. stream_chat_response honors `pre_reserved` and skips its
+        # own reserve so we don't double-count.
+        daily_limit = quota_service.daily_limit_for_user(user, settings)
+        reserved = estimate_tokens(content) + settings.max_output_tokens
+        if not await quota_service.reserve_usage(
+            redis, str(user_id), reserved, daily_limit=daily_limit
+        ):
+            raise QuotaExceededError(quota_exceeded_message(user))
         await messages_repo.delete_messages_from(
             session, chat_id, from_created_at=target.created_at
         )
@@ -784,6 +801,7 @@ async def stream_edit_response(
         should_cancel=should_cancel,
         result=result,
         client_timezone=client_timezone,
+        pre_reserved=reserved,
     ):
         yield token
 
@@ -1048,40 +1066,48 @@ async def _finalize_stream_turn_db(
 
     persisted_text = assistant_text
 
-    async with SessionLocal() as session:
-        assistant_message = await messages_repo.create(
-            session,
-            chat_id=ctx.chat_id,
-            user_id=ctx.user_id,
-            role="assistant",
-            content=persisted_text,
-            model=ctx.model,
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-        )
-        if result is not None:
-            result["message_id"] = str(assistant_message.id)
-            if ctx.recalled_count:
-                result["recalled"] = str(ctx.recalled_count)
-            if ctx.memory_hints:
-                result["memory_hints"] = json.dumps(ctx.memory_hints)
-            if ctx.context_summarized:
-                result["context_summarized"] = str(ctx.context_summarized)
-
-        await chats_repo.touch_by_id(session, ctx.chat_id)
-
-        try:
-            await usage_repo.add_tokens(
+    try:
+        async with SessionLocal() as session:
+            assistant_message = await messages_repo.create(
                 session,
-                ctx.user_id,
-                utc_today(),
+                chat_id=ctx.chat_id,
+                user_id=ctx.user_id,
+                role="assistant",
+                content=persisted_text,
+                model=ctx.model,
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
             )
-        except Exception:
-            logger.exception("Failed to record usage tokens")
+            if result is not None:
+                result["message_id"] = str(assistant_message.id)
+                result["resolved_model"] = ctx.model
+                if ctx.recalled_count:
+                    result["recalled"] = str(ctx.recalled_count)
+                if ctx.memory_hints:
+                    result["memory_hints"] = json.dumps(ctx.memory_hints)
+                if ctx.context_summarized:
+                    result["context_summarized"] = str(ctx.context_summarized)
 
-    await quota_service.adjust_usage(redis, str(ctx.user_id), ctx.reserved_tokens, total_tokens)
+            await chats_repo.touch_by_id(session, ctx.chat_id)
+
+            try:
+                await usage_repo.add_tokens(
+                    session,
+                    ctx.user_id,
+                    utc_today(),
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                )
+            except Exception:
+                logger.exception("Failed to record usage tokens")
+
+        await quota_service.adjust_usage(redis, str(ctx.user_id), ctx.reserved_tokens, total_tokens)
+    except Exception:
+        # Finalize failed (DB write, etc.) — refund the reserved quota so the
+        # user isn't stuck at the reserved amount with no persisted reply.
+        logger.exception("Stream-turn finalize failed; refunding reserved quota")
+        await quota_service.refund_usage(redis, str(ctx.user_id), ctx.reserved_tokens)
+        raise
 
 
 async def _enqueue_post_turn_jobs(

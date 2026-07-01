@@ -29,6 +29,11 @@ def utc_today() -> date:
     return datetime.now(UTC).date()
 
 
+# Floor the daily usage counter at 0 so a buggy double-refund can never drive it
+# negative (which would grant the user free quota). Set on refund/record.
+_USAGE_TTL = 60 * 60 * 48
+
+
 def daily_limit_for_user(user: User, settings: Settings) -> int:
     if user.plan == "pro":
         return settings.daily_token_limit_pro
@@ -75,7 +80,10 @@ async def reserve_usage(
 async def refund_usage(redis: Redis, user_id: str, amount: int) -> None:
     if amount <= 0:
         return
-    await redis.incrby(_usage_key(user_id, utc_today()), -amount)
+    key = _usage_key(user_id, utc_today())
+    new_total = await redis.incrby(key, -amount)
+    if new_total < 0:
+        await redis.set(key, 0)
 
 
 async def adjust_usage(redis: Redis, user_id: str, reserved: int, actual: int) -> int:
@@ -89,7 +97,10 @@ async def record_usage(redis: Redis, user_id: str, tokens: int) -> int:
     key = _usage_key(user_id, utc_today())
     new_total = await redis.incrby(key, tokens)
     if new_total == tokens:
-        await redis.expire(key, 60 * 60 * 48)
+        await redis.expire(key, _USAGE_TTL)
+    if new_total < 0:
+        await redis.set(key, 0)
+        new_total = 0
     return new_total
 
 

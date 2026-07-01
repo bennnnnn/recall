@@ -23,6 +23,27 @@ from app.models.schemas import TodoExtractionResult
 # ── mock_llm ───────────────────────────────────────────────────────────────────
 
 
+def test_think_stripper_passes_plain_text_through():
+    s = litellm_gateway._ThinkStripper()
+    assert s.feed("hello ") + s.feed("world") + s.flush() == "hello world"
+
+
+def test_think_stripper_removes_closed_think_block():
+    s = litellm_gateway._ThinkStripper()
+    assert s.feed("before  Doddreasoning here doable in after") + s.flush() == "before  after"
+
+
+def test_think_stripper_handles_tag_split_across_chunks():
+    s = litellm_gateway._ThinkStripper()
+    out = s.feed("answer  Dod") + s.feed("dwrong doable in done") + s.flush()
+    assert out == "answer  done"
+
+
+def test_think_stripper_drops_unclosed_block_on_flush():
+    s = litellm_gateway._ThinkStripper()
+    assert s.feed("visible  Doddnever closes") + s.flush() == "visible "
+
+
 def test_should_mock_llm_true_when_no_key():
     s = Settings(mock_llm_enabled=True, openrouter_api_key="")
     assert should_mock_llm(s) is True

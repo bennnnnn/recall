@@ -26,6 +26,68 @@ class ModelUnavailableError(Exception):
     pass
 
 
+# DeepSeek-R1 (smart-chat) emits  Dodd... reasoning blocks inline in the
+# `content` stream (and in a separate `reasoning_content` delta field). We strip
+# both so users never see raw  Dodd and reasoning tokens don't count against the
+# displayed reply.  Dodd tokens still count against provider output billing, but
+# stripping them from the persisted text keeps the user bubble clean and the
+# displayed length honest.
+_THINK_OPEN = " Dodd"
+_THINK_CLOSE = "doable in"
+# Safety cap: if an opened think block never closes, drop the buffer rather than
+# swallow the rest of the reply.
+_THINK_MAX_OPEN_BUFFER = 4096
+
+
+class _ThinkStripper:
+    """Stateful filter that removes  Dodd...doable in blocks from a token stream.
+
+    Handles open/close tags split across chunks. Emits text outside think blocks
+    unchanged; discards text inside. An unclosed think block is dropped on flush.
+    """
+
+    def __init__(self) -> None:
+        self._buf = ""
+        self._in_think = False
+
+    def feed(self, chunk: str) -> str:
+        self._buf += chunk
+        out: list[str] = []
+        while True:
+            if self._in_think:
+                idx = self._buf.find(_THINK_CLOSE)
+                if idx == -1:
+                    if len(self._buf) > _THINK_MAX_OPEN_BUFFER:
+                        # Model forgot to close — give up on this block.
+                        self._buf = ""
+                        self._in_think = False
+                    break
+                self._buf = self._buf[idx + len(_THINK_CLOSE) :]
+                self._in_think = False
+            else:
+                idx = self._buf.find(_THINK_OPEN)
+                if idx == -1:
+                    # Hold back enough trailing chars that a split  Dodd can't leak.
+                    safe = len(self._buf) - (len(_THINK_OPEN) - 1)
+                    if safe > 0:
+                        out.append(self._buf[:safe])
+                        self._buf = self._buf[safe:]
+                    break
+                out.append(self._buf[:idx])
+                self._buf = self._buf[idx + len(_THINK_OPEN) :]
+                self._in_think = True
+        return "".join(out)
+
+    def flush(self) -> str:
+        if self._in_think:
+            self._buf = ""
+            self._in_think = False
+            return ""
+        out = self._buf
+        self._buf = ""
+        return out
+
+
 def resolve_model(alias: str) -> str:
     return model_catalog.get(alias).model
 
@@ -85,6 +147,7 @@ async def stream_chat_completion(
 
     route = resolve_route(model_alias)
     kwargs = _litellm_kwargs(settings, route)
+    stripper = _ThinkStripper()
     try:
         response = await acompletion(
             model=route.model,
@@ -100,9 +163,16 @@ async def stream_chat_completion(
             if not choices:
                 continue
             delta = choices[0].delta
+            # R1 reasoning also arrives in a dedicated `reasoning_content` field —
+            # drop it entirely so it never reaches the client.
             content = getattr(delta, "content", None) or ""
             if content:
-                yield content
+                cleaned = stripper.feed(content)
+                if cleaned:
+                    yield cleaned
+        tail = stripper.flush()
+        if tail:
+            yield tail
     except ModelUnavailableError:
         raise
     except Exception as exc:
