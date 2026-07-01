@@ -99,7 +99,16 @@ def test_create_todo_with_chat_id():
 
     user = _fake_user()
     app = _app_with_user(user)
-    with patch("app.routers.todos.todos_repo.create", AsyncMock(return_value=todo_mock)):
+    # The router now verifies chat ownership before linking a todo to it
+    # (cross-user FK guard). Mock the chat lookup so the owned-chat path
+    # reaches todo creation.
+    chat_mock = MagicMock()
+    chat_mock.id = cid
+    chat_mock.user_id = user.id
+    with (
+        patch("app.routers.todos.todos_repo.create", AsyncMock(return_value=todo_mock)),
+        patch("app.routers.todos.chats_repo.get_by_id", AsyncMock(return_value=chat_mock)),
+    ):
         client = TestClient(app)
         r = client.post(
             "/todos",
@@ -121,6 +130,41 @@ def test_create_todo_empty_content_fails():
         json={"content": ""},
     )
     assert r.status_code == 422
+
+
+def test_create_todo_with_other_users_chat_id_rejected():
+    from fastapi.testclient import TestClient
+
+    cid = uuid4()
+    user = _fake_user()
+    app = _app_with_user(user)
+    # chats_repo.get_by_id returns None → the chat doesn't belong to this user
+    # (or doesn't exist). The cross-user FK guard must reject with 400 rather
+    # than silently linking the todo to a foreign chat.
+    with patch("app.routers.todos.chats_repo.get_by_id", AsyncMock(return_value=None)):
+        client = TestClient(app)
+        r = client.post(
+            "/todos",
+            headers={"Authorization": "Bearer tok"},
+            json={"content": "x", "chat_id": str(cid)},
+        )
+    assert r.status_code == 400
+    assert "Chat not found" in r.json()["detail"]
+
+
+def test_create_todo_with_unowned_chat_id_404s():
+    from fastapi.testclient import TestClient
+
+    user = _fake_user()
+    app = _app_with_user(user)
+    with patch("app.routers.todos.chats_repo.get_by_id", AsyncMock(return_value=None)):
+        client = TestClient(app)
+        r = client.post(
+            "/todos",
+            headers={"Authorization": "Bearer tok"},
+            json={"content": "x", "chat_id": str(uuid4())},
+        )
+    assert r.status_code == 400
 
 
 def test_update_todo():

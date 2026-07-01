@@ -164,6 +164,65 @@ def test_create_chat():
     assert r.json()["model"] == "free-chat"
 
 
+def test_create_chat_with_other_users_project_id_rejected():
+    from app.models.orm import Chat
+
+    user = _fake_user()
+    app = _app_with_user(user)
+    chat = MagicMock(spec=Chat)
+    chat.id = uuid4()
+    chat.title = None
+    chat.model = "free-chat"
+    chat.pinned = False
+    chat.project_id = None
+    chat.created_at = datetime(2024, 1, 1)
+    chat.updated_at = datetime(2024, 1, 1)
+
+    # project_id that doesn't belong to the user → projects_repo.get_by_id
+    # returns None → router must 400 instead of linking to a foreign project.
+    pid = uuid4()
+    with patch("app.routers.chats.projects_repo.get_by_id", AsyncMock(return_value=None)):
+        client = TestClient(app)
+        r = client.post(
+            "/chats",
+            headers={"Authorization": "Bearer tok"},
+            json={"model": "free-chat", "project_id": str(pid)},
+        )
+    assert r.status_code == 400
+    assert "Project not found" in r.json()["detail"]
+
+
+def test_create_chat_with_owned_project_id_accepted():
+    from app.models.orm import Chat
+
+    user = _fake_user()
+    app = _app_with_user(user)
+    pid = uuid4()
+    chat = MagicMock(spec=Chat)
+    chat.id = uuid4()
+    chat.title = None
+    chat.model = "free-chat"
+    chat.pinned = False
+    chat.project_id = pid
+    chat.created_at = datetime(2024, 1, 1)
+    chat.updated_at = datetime(2024, 1, 1)
+
+    project = MagicMock()
+    project.id = pid
+    project.user_id = user.id
+    with (
+        patch("app.routers.chats.projects_repo.get_by_id", AsyncMock(return_value=project)),
+        patch("app.routers.chats.chats_repo.create", AsyncMock(return_value=chat)),
+    ):
+        client = TestClient(app)
+        r = client.post(
+            "/chats",
+            headers={"Authorization": "Bearer tok"},
+            json={"model": "free-chat", "project_id": str(pid)},
+        )
+    assert r.status_code == 201
+
+
 def test_list_chats():
     user = _fake_user()
     app = _app_with_user(user)

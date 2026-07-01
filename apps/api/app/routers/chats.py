@@ -23,6 +23,7 @@ from app.models.schemas import (
 )
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
+from app.repositories import projects as projects_repo
 from app.repositories import usage as usage_repo
 from app.services import quota as quota_service
 from app.services.chat_titles import sanitize_manual_chat_title
@@ -39,6 +40,14 @@ async def create_chat(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> ChatOut:
+    # Verify the project belongs to this user before linking — without this a
+    # client could set project_id to another user's project (FK integrity / a
+    # form of cross-user metadata pollution). Downstream reads are user-scoped
+    # so there's no data leak, but the link itself must be owned.
+    if body.project_id is not None:
+        project = await projects_repo.get_by_id(session, body.project_id, user.id)
+        if project is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Project not found")
     chat = await chats_repo.create(
         session, user_id=user.id, model=body.model, project_id=body.project_id
     )

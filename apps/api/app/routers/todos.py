@@ -7,6 +7,7 @@ from app.core.db import get_db
 from app.core.deps import get_current_user
 from app.models.orm import User
 from app.models.schemas import TodoCreate, TodoOut, TodoReorderBody, TodoUpdate
+from app.repositories import chats as chats_repo
 from app.repositories import todos as todos_repo
 
 router = APIRouter(prefix="/todos", tags=["todos"])
@@ -35,6 +36,12 @@ async def create_todo(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> TodoOut:
+    # Verify the chat belongs to this user before linking — same cross-user FK
+    # concern as chats.project_id. chat_id is optional; only check when set.
+    if body.chat_id is not None:
+        chat = await chats_repo.get_by_id(session, body.chat_id, user.id)
+        if chat is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Chat not found")
     item = await todos_repo.create(
         session,
         user_id=user.id,
