@@ -8,7 +8,7 @@ import logging
 import re
 from typing import Any
 
-from app.gateways.storage_gateway import LocalStorageGateway, StorageGateway
+from app.gateways.storage_gateway import StorageGateway
 
 logger = logging.getLogger(__name__)
 
@@ -127,12 +127,7 @@ def extract_text_from_bytes(content_type: str, data: bytes) -> str | None:
 
 
 async def read_attachment_bytes(gateway: StorageGateway, storage_key: str) -> bytes | None:
-    if isinstance(gateway, LocalStorageGateway):
-        path = gateway.resolve_local_path(storage_key)
-        if path is None:
-            return None
-        return path.read_bytes()
-    return None
+    return await gateway.read_bytes(storage_key)
 
 
 async def format_attachment_lines(

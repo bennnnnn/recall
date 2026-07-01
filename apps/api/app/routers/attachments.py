@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -96,23 +96,27 @@ async def upload_attachment_bytes(
     await gateway.write_bytes(row.storage_key, data)
 
 
-@router.get("/{attachment_id}/file")
+@router.get("/{attachment_id}/file", response_model=None)
 async def serve_attachment_file(
     attachment_id: UUID,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
-) -> FileResponse:
+) -> FileResponse | RedirectResponse:
     row = await attachments_repo.get_by_id(session, attachment_id, user.id)
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
     gateway = get_storage_gateway(settings)
-    if not isinstance(gateway, LocalStorageGateway):
-        raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Not available")
-    path = gateway.resolve_local_path(row.storage_key)
-    if path is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File missing")
-    return FileResponse(path, media_type=row.content_type)
+    if isinstance(gateway, LocalStorageGateway):
+        path = gateway.resolve_local_path(row.storage_key)
+        if path is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File missing")
+        return FileResponse(path, media_type=row.content_type)
+    # R2/S3: redirect to a short-lived presigned GET so the client fetches the
+    # blob directly from object storage. Keeps the mobile's existing /file call
+    # working for both backends.
+    download_url = await gateway.presign_download(row.storage_key)
+    return RedirectResponse(url=download_url, status_code=status.HTTP_302_FOUND)
 
 
 @router.get("/{attachment_id}/url", response_model=AttachmentOut)

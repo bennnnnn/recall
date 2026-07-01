@@ -34,6 +34,19 @@ class Settings(BaseSettings):
     semantic_memory_enabled: bool = True
     mcp_tools_enabled: bool = False
 
+    # Object storage for attachments. ``local`` writes to disk (dev);
+    # ``r2`` presigns Cloudflare R2 (S3-compatible) URLs so the client uploads/
+    # downloads directly — blobs never touch the API. R2 creds come from the
+    # r2_* settings below; when missing in dev we fall back to local.
+    storage_backend: str = "local"
+    storage_local_path: str = "/tmp/recall-attachments"  # noqa: S108  # dev default; overridden in prod
+    r2_account_id: str = ""
+    r2_access_key_id: str = ""
+    r2_secret_access_key: str = ""
+    r2_bucket: str = ""
+    r2_endpoint: str = ""  # derived from account_id if empty
+    r2_presign_expiry_seconds: int = 600
+
     math_tools_enabled: bool = True
     math_max_expr_length: int = 256
     math_graph_max_points: int = 300
