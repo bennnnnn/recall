@@ -3,6 +3,7 @@
 import logging
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Template
@@ -66,11 +67,10 @@ BUILTIN_TEMPLATES = [
 async def seed_templates(session: AsyncSession) -> None:
     """Insert built-in templates only once, idempotent across restarts.
 
-    NOTE: In multi-worker deployments, a race condition exists where two
-    workers could both pass the existence check and attempt concurrent
-    inserts. This is acceptable for MVP — the worst case is a few
-    duplicate built-in templates. Add a UNIQUE constraint on
-    (is_builtin, title) before scaling to multiple workers.
+    A partial unique index `ux_templates_builtin_title` (migration 0036) guards
+    against the multi-worker race where two workers both pass the existence
+    check and try to insert the same builtins. The loser raises
+    IntegrityError, which we swallow here so startup never crashes on the race.
     """
     result = await session.execute(
         select(Template).where(Template.is_builtin == True).limit(1)  # noqa: E712
@@ -78,14 +78,20 @@ async def seed_templates(session: AsyncSession) -> None:
     if result.scalar_one_or_none():
         return  # Already seeded
 
-    for tpl in BUILTIN_TEMPLATES:
-        session.add(
-            Template(
-                title=tpl["title"],
-                content=tpl["content"],
-                category=tpl["category"],
-                is_builtin=True,
+    try:
+        for tpl in BUILTIN_TEMPLATES:
+            session.add(
+                Template(
+                    title=tpl["title"],
+                    content=tpl["content"],
+                    category=tpl["category"],
+                    is_builtin=True,
+                )
             )
-        )
-    await session.commit()
-    logger.info("Seeded %d built-in templates", len(BUILTIN_TEMPLATES))
+        await session.commit()
+        logger.info("Seeded %d built-in templates", len(BUILTIN_TEMPLATES))
+    except IntegrityError:
+        # Another worker won the race — the unique index blocked our insert.
+        # Roll back the partial add; builtins already exist from the winner.
+        await session.rollback()
+        logger.info("Built-in templates already seeded by another worker")
