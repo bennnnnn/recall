@@ -1,0 +1,42 @@
+# Fly.io config for the Recall API.
+# See the README "Production deployment (Fly.io)" section for the full setup.
+#
+# Requires a Fly Postgres cluster WITH pgvector (or keep using Neon):
+#   fly pg create --name recall-pg --image-ref flyio/postgres-flex:16
+#   # then psql into it and: CREATE EXTENSION vector;
+# Or set DATABASE_URL to your Neon connection string.
+#
+# Set secrets with: fly secrets set ENVIRONMENT=production DEV_AUTH_ENABLED=false ...
+# (see README for the full required-secrets list — they're enforced at startup).
+
+app = "recall-api"
+primary_region = "iad" # change to your region; Neon DB is in us-east-2
+
+[build]
+  dockerfile = "apps/api/Dockerfile"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = false # the in-process worker must keep running
+  auto_start_machines = true
+  min_machines_running = 1   # keep one warm for WS + background jobs
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 200
+    soft_limit = 150
+
+# WebSocket support is on by default for HTTP services on Fly.
+# Health checks hit /health/ready (DB + Redis).
+[[http_service.checks]]
+  interval = "20s"
+  timeout = "5s"
+  grace_period = "30s"
+  method = "GET"
+  path = "/health/ready"
+
+[vm]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

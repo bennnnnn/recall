@@ -23,9 +23,9 @@ else
   echo "    WARN: uv not found - skipping API checks"
 fi
 
-echo "==> Mobile: typecheck + lint"
+echo "==> Mobile: typecheck + lint + jest"
 if command -v pnpm >/dev/null 2>&1; then
-  (cd "$ROOT/apps/mobile" && pnpm typecheck && pnpm lint) || fail=1
+  (cd "$ROOT/apps/mobile" && pnpm typecheck && pnpm lint && pnpm test) || fail=1
 else
   echo "    WARN: pnpm not found - skipping mobile checks"
 fi
