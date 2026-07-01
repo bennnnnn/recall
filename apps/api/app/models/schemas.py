@@ -31,6 +31,7 @@ class UserOut(BaseModel):
     locale: str = "en"
     timezone: str = "UTC"
     location: str | None = None
+    location_enabled: bool = False
     created_at: datetime
 
 
@@ -46,6 +47,7 @@ class UserUpdate(BaseModel):
     locale: str | None = None
     timezone: str | None = Field(default=None, max_length=64)
     location: str | None = Field(default=None, max_length=128)
+    location_enabled: bool | None = None
 
     @field_validator("name")
     @classmethod
@@ -212,6 +214,9 @@ class ChatMessageRequest(BaseModel):
     content: str = ""
     model: str | None = None
     attachment_ids: list[UUID] = Field(default_factory=list)
+    client_location: str | None = Field(default=None, max_length=200)
+    client_latitude: float | None = Field(default=None, ge=-90, le=90)
+    client_longitude: float | None = Field(default=None, ge=-180, le=180)
 
     @field_validator("model")
     @classmethod

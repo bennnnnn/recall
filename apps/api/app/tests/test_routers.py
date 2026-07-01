@@ -26,6 +26,7 @@ def _fake_user(**kw) -> User:
     u.locale = kw.get("locale", "en")
     u.timezone = kw.get("timezone", "UTC")
     u.location = kw.get("location", None)
+    u.location_enabled = kw.get("location_enabled", bool(kw.get("location")))
     u.created_at = datetime(2024, 1, 1)
     return u
 

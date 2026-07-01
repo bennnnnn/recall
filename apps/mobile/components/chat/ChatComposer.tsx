@@ -39,17 +39,12 @@ type Props = {
   onRemoveAttachment: () => void;
   editingMessageId: string | null;
   onCancelEdit: () => void;
-  showPlanPicker: boolean;
   showModelPicker: boolean;
   attachSheetOpen: boolean;
-  isPro: boolean;
-  planLabel: string;
   modelOptions: ModelOption[];
   selectedModel: string;
   selectedModelLabel: string;
-  onTogglePlanPicker: () => void;
   onToggleModelPicker: () => void;
-  onSelectPlan: (plan: "free" | "pro") => void;
   onSelectModel: (id: string) => void;
   onClosePickers: () => void;
   onPickAttachment: () => void;
@@ -71,17 +66,12 @@ export function ChatComposer({
   onRemoveAttachment,
   editingMessageId,
   onCancelEdit,
-  showPlanPicker,
   showModelPicker,
   attachSheetOpen,
-  isPro,
-  planLabel,
   modelOptions,
   selectedModel,
   selectedModelLabel,
-  onTogglePlanPicker,
   onToggleModelPicker,
-  onSelectPlan,
   onSelectModel,
   onClosePickers,
   onPickAttachment,
@@ -97,33 +87,6 @@ export function ChatComposer({
 
   return (
     <View style={[s.composerBlock, { bottom, paddingBottom }]}>
-      {showPlanPicker ? (
-        <View style={s.picker}>
-          <Pressable
-            style={[s.pickerItem, !isPro && s.pickerItemActive]}
-            onPress={() => onSelectPlan("free")}
-          >
-            <Text style={[s.pickerLabel, !isPro && s.pickerLabelActive, { flex: 1 }]}>
-              {t("chat.plan_free")}
-            </Text>
-            {!isPro ? <Text style={s.pickerCheck}>✓</Text> : null}
-          </Pressable>
-          <Pressable
-            style={[s.pickerItem, isPro && s.pickerItemActive]}
-            onPress={() => onSelectPlan("pro")}
-          >
-            <Text style={[s.pickerLabel, isPro && s.pickerLabelActive, { flex: 1 }]}>
-              {t("chat.plan_pro")}
-            </Text>
-            {!isPro ? (
-              <Ionicons name="lock-closed" size={14} color={theme.textTertiary} />
-            ) : (
-              <Text style={s.pickerCheck}>✓</Text>
-            )}
-          </Pressable>
-        </View>
-      ) : null}
-
       {showModelPicker ? (
         <View style={s.picker}>
           {modelOptions.map((opt) => {
@@ -203,22 +166,14 @@ export function ChatComposer({
                 ) : null}
               </View>
             </View>
+            {modelOptions.length > 1 ? (
             <View style={s.composerMetaRow}>
-              <Pressable style={s.planPill} onPress={onTogglePlanPicker} hitSlop={6}>
-                <Text style={[s.planPillText, isPro && s.planPillTextPro]}>{planLabel}</Text>
-                <Ionicons
-                  name={showPlanPicker ? "chevron-up" : "chevron-down"}
-                  size={12}
-                  color={theme.textTertiary}
-                />
-              </Pressable>
-              {modelOptions.length > 1 ? (
                 <Pressable
-                  style={[s.planPill, { maxWidth: 160 }]}
+                  style={[s.modelPill, { maxWidth: 160 }]}
                   onPress={onToggleModelPicker}
                   hitSlop={6}
                 >
-                  <Text style={s.planPillText} numberOfLines={1}>
+                  <Text style={s.modelPillText} numberOfLines={1}>
                     {selectedModelLabel}
                   </Text>
                   <Ionicons
@@ -227,8 +182,8 @@ export function ChatComposer({
                     color={theme.textTertiary}
                   />
                 </Pressable>
-              ) : null}
             </View>
+            ) : null}
           </View>
         </View>
       </View>
@@ -300,15 +255,14 @@ function makeStyles(theme: Theme) {
       marginTop: 6,
       gap: 8,
     },
-    planPill: {
+    modelPill: {
       flexDirection: "row",
       alignItems: "center",
       gap: 4,
       paddingVertical: 2,
       paddingRight: 2,
     },
-    planPillText: { fontSize: 12, fontWeight: "600", color: theme.textSecondary },
-    planPillTextPro: { color: "#FF9F0A" },
+    modelPillText: { fontSize: 12, fontWeight: "600", color: theme.textSecondary },
     sendBtn: {
       width: 34,
       height: 34,

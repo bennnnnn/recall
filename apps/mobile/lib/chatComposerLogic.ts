@@ -35,12 +35,8 @@ export function resolveSelectedModelLabel(
     : labelFor(selectedModel) || selectedModel;
 }
 
-export function resolvePlanLabel(
-  isPro: boolean,
-  proLabel: string,
-  freeLabel: string,
-): string {
-  return isPro ? proLabel : freeLabel;
+export function isComposerMenuOverlayOpen(attachSheetOpen: boolean): boolean {
+  return attachSheetOpen;
 }
 
 export type ChatLayoutMetrics = {
@@ -99,9 +95,3 @@ export function computeChatLayoutMetrics(options: {
   };
 }
 
-export function isComposerMenuOverlayOpen(
-  attachSheetOpen: boolean,
-  showPlanPicker: boolean,
-): boolean {
-  return attachSheetOpen || showPlanPicker;
-}

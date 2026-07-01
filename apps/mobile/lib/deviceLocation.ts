@@ -1,7 +1,13 @@
 import { canUseDeviceLocation } from "@/lib/expoRuntime";
 
-/** City/region label from device GPS + reverse geocode, or null if unavailable. */
-export async function getDeviceLocationLabel(): Promise<string | null> {
+export type DeviceGeo = {
+  label: string | null;
+  latitude: number;
+  longitude: number;
+};
+
+/** GPS coordinates + optional city/region from reverse geocode. */
+export async function getDeviceGeo(): Promise<DeviceGeo | null> {
   if (!canUseDeviceLocation()) {
     return null;
   }
@@ -19,18 +25,30 @@ export async function getDeviceLocationLabel(): Promise<string | null> {
     const pos = await Location.getCurrentPositionAsync({
       accuracy: Location.Accuracy.Balanced,
     });
-    const places = await Location.reverseGeocodeAsync({
-      latitude: pos.coords.latitude,
-      longitude: pos.coords.longitude,
-    });
-    const place = places[0];
-    if (!place) return null;
+    const { latitude, longitude } = pos.coords;
 
-    const parts = [place.city, place.region, place.country].filter(
-      (p): p is string => Boolean(p?.trim()),
-    );
-    return parts.length > 0 ? parts.join(", ") : null;
+    let label: string | null = null;
+    try {
+      const places = await Location.reverseGeocodeAsync({ latitude, longitude });
+      const place = places[0];
+      if (place) {
+        const parts = [place.city, place.region, place.country].filter(
+          (p): p is string => Boolean(p?.trim()),
+        );
+        if (parts.length > 0) label = parts.join(", ");
+      }
+    } catch {
+      // Coordinates alone are enough for the backend.
+    }
+
+    return { label, latitude, longitude };
   } catch {
     return null;
   }
+}
+
+/** City/region label from device GPS + reverse geocode, or null if unavailable. */
+export async function getDeviceLocationLabel(): Promise<string | null> {
+  const geo = await getDeviceGeo();
+  return geo?.label ?? null;
 }

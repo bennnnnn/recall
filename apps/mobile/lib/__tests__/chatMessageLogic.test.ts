@@ -1,4 +1,8 @@
-import { findLastAssistantId } from "@/lib/chatMessageLogic";
+import {
+  findLastAssistantId,
+  findLastLocalUserMessageId,
+  isLocalPendingMessageId,
+} from "@/lib/chatMessageLogic";
 import type { Message } from "@/lib/api";
 
 describe("chatMessageLogic", () => {
@@ -13,5 +17,17 @@ describe("chatMessageLogic", () => {
     expect(findLastAssistantId(messages)).toBe("4");
     expect(findLastAssistantId([])).toBeNull();
     expect(findLastAssistantId([{ id: "1", role: "user", content: "x" } as Message])).toBeNull();
+  });
+
+  it("findLastLocalUserMessageId returns the latest optimistic user message", () => {
+    const messages = [
+      { id: "local-1", role: "user", content: "first" },
+      { id: "2", role: "assistant", content: "hello" },
+      { id: "local-2", role: "user", content: "second" },
+    ] as Message[];
+
+    expect(findLastLocalUserMessageId(messages)).toBe("local-2");
+    expect(isLocalPendingMessageId("local-edit-3")).toBe(true);
+    expect(isLocalPendingMessageId("abc")).toBe(false);
   });
 });

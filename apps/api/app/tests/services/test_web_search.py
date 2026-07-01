@@ -12,7 +12,6 @@ from app.services.web_search import (
     format_search_block,
     format_search_empty_block,
     format_sources_fence,
-    is_local_places_query,
     needs_web_search,
     resolve_search_subject,
 )
@@ -49,9 +48,35 @@ def test_needs_web_search(text, expected):
 
 
 def test_is_local_places_query():
-    assert is_local_places_query("Best restaurants near me")
-    assert is_local_places_query("coffee shops nearby")
-    assert not is_local_places_query("explain Python decorators")
+    from app.services.web_search import is_distance_query, is_geo_query, is_proximity_query
+
+    assert is_proximity_query("Best restaurants near me")
+    assert is_proximity_query("coffee shops nearby")
+    assert is_proximity_query("The nearest gas station")
+    assert is_proximity_query("nearest hospital")
+    assert is_proximity_query("closest casino")
+    assert is_proximity_query("libraries around here")
+    assert is_geo_query("The nearest gas station")
+    assert is_distance_query("how far is the airport")
+    assert is_distance_query("driving time to Golden Gate Bridge")
+    assert is_geo_query("how far is the airport")
+    assert not is_geo_query("distance between NYC and LA")
+    assert not is_proximity_query("explain Python decorators")
+    assert not is_proximity_query("find the nearest prime number")
+    assert not is_proximity_query("who is my closest friend")
+
+
+def test_is_ambiguous_local_places_query():
+    from app.services.web_search import is_ambiguous_local_places_query
+
+    assert is_ambiguous_local_places_query("Nearest house")
+    assert is_ambiguous_local_places_query("homes near me")
+    assert not is_ambiguous_local_places_query("Places near me")
+    assert is_ambiguous_local_places_query("closest property")
+    assert not is_ambiguous_local_places_query("nearest house for sale")
+    assert not is_ambiguous_local_places_query("nearest house near 123 Market St")
+    assert not is_ambiguous_local_places_query("nearest gas station")
+    assert not is_ambiguous_local_places_query("nearest hospital")
 
 
 def test_build_search_queries_local_places_with_location():
@@ -62,6 +87,17 @@ def test_build_search_queries_local_places_with_location():
     assert "San Francisco" in queries[0]
     assert "near me" not in queries[0].lower()
     assert any("official website" in q.lower() for q in queries)
+
+
+def test_build_search_queries_local_places_with_coordinates():
+    queries = build_search_queries(
+        "Nearest gas station",
+        user_location="San Francisco, CA",
+        latitude=37.8044,
+        longitude=-122.2712,
+    )
+    assert "37.80440,-122.27120" in queries[0]
+    assert "near me" not in queries[0].lower()
 
 
 def test_format_search_block_local_places_links():
@@ -426,7 +462,7 @@ def test_format_location_not_set_answer_prompts_to_enable():
     answer = format_location_not_set_answer()
     assert "location" in answer.lower()
     assert "Settings" in answer
-    assert "near me" in answer.lower()
+    assert "nearby" in answer.lower()
 
 
 def test_places_payload_extracts_price():

@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from "react-native";
@@ -11,6 +12,80 @@ import { Ionicons } from "@expo/vector-icons";
 import { Theme } from "@/lib/theme";
 
 export type SettingsStyles = ReturnType<typeof makeSettingsStyles>;
+
+export function SettingsGroup({
+  label,
+  children,
+  styles,
+}: {
+  label?: string;
+  children: ReactNode;
+  styles: SettingsStyles;
+}) {
+  return (
+    <View style={styles.section}>
+      {label ? <Text style={styles.sectionLabel}>{label}</Text> : null}
+      <View style={styles.footerGroup}>{children}</View>
+    </View>
+  );
+}
+
+export function SettingsLinkRow({
+  title,
+  value,
+  onPress,
+  styles,
+  theme,
+}: {
+  title: string;
+  value?: string;
+  onPress: () => void;
+  styles: SettingsStyles;
+  theme: Theme;
+}) {
+  return (
+    <Pressable style={styles.menuRow} onPress={onPress}>
+      <Text style={[styles.rowTitle, styles.menuRowTitle]}>{title}</Text>
+      <View style={styles.linkTrailing}>
+        {value ? (
+          <Text style={styles.linkValue} numberOfLines={1}>
+            {value}
+          </Text>
+        ) : null}
+        <Ionicons name="chevron-forward" size={18} color={theme.textTertiary} />
+      </View>
+    </Pressable>
+  );
+}
+
+export function SettingsSwitchRow({
+  title,
+  value,
+  disabled,
+  onValueChange,
+  styles,
+  theme,
+}: {
+  title: string;
+  value: boolean;
+  disabled?: boolean;
+  onValueChange: (next: boolean) => void;
+  styles: SettingsStyles;
+  theme: Theme;
+}) {
+  return (
+    <View style={styles.menuRow}>
+      <Text style={[styles.rowTitle, styles.menuRowTitle]}>{title}</Text>
+      <Switch
+        value={value}
+        disabled={disabled}
+        thumbColor={theme.bg}
+        trackColor={{ false: theme.border, true: theme.primary }}
+        onValueChange={onValueChange}
+      />
+    </View>
+  );
+}
 
 export function Section({
   label,
@@ -28,6 +103,32 @@ export function Section({
       {label ? <Text style={styles.sectionLabel}>{label}</Text> : null}
       {hint ? <Text style={styles.sectionHint}>{hint}</Text> : null}
       <View style={styles.group}>{children}</View>
+    </View>
+  );
+}
+
+export function InfoRow({
+  icon,
+  title,
+  value,
+  compact,
+  styles,
+  theme,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  value: string;
+  compact?: boolean;
+  styles: SettingsStyles;
+  theme: Theme;
+}) {
+  return (
+    <View style={compact ? styles.menuRow : styles.row}>
+      <Ionicons name={icon} size={19} color={theme.primary} />
+      <View style={styles.rowBody}>
+        <Text style={styles.rowTitle}>{title}</Text>
+        <Text style={styles.meta}>{value}</Text>
+      </View>
     </View>
   );
 }
@@ -201,6 +302,7 @@ export function NavRow({
   meta,
   onPress,
   danger,
+  compact,
   styles,
   theme,
 }: {
@@ -209,11 +311,13 @@ export function NavRow({
   meta?: string;
   onPress: () => void;
   danger?: boolean;
+  /** Tighter padding for footer menu rows. */
+  compact?: boolean;
   styles: SettingsStyles;
   theme: Theme;
 }) {
   return (
-    <Pressable style={styles.row} onPress={onPress}>
+    <Pressable style={compact ? styles.menuRow : styles.row} onPress={onPress}>
       <Ionicons name={icon} size={19} color={danger ? theme.danger : theme.primary} />
       <View style={styles.rowBody}>
         <Text style={[styles.rowTitle, danger && { color: theme.danger }]}>{title}</Text>
@@ -256,9 +360,21 @@ export function makeSettingsStyles(t: Theme) {
     },
 
     profileHeader: {
-      alignItems: "flex-start",
-      gap: 8,
-      marginBottom: 4,
+      alignItems: "center",
+      gap: 4,
+      marginBottom: 8,
+      paddingTop: 8,
+    },
+    profileName: {
+      fontSize: 20,
+      fontWeight: "700",
+      color: t.text,
+      marginTop: 4,
+    },
+    profilePlan: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: t.textSecondary,
     },
     accountPro: { color: "#FF9F0A" },
 
@@ -347,8 +463,29 @@ export function makeSettingsStyles(t: Theme) {
     pickerSheetScroll: { maxHeight: "70%" },
 
     row: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 32 },
+    menuRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 12,
+      minHeight: 48,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+    },
+    linkTrailing: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      flexShrink: 1,
+      maxWidth: "55%",
+    },
+    linkValue: {
+      fontSize: 15,
+      color: t.textTertiary,
+    },
     rowBody: { flex: 1 },
     rowTitle: { fontSize: 15, fontWeight: "600", color: t.text },
+    menuRowTitle: { flex: 1 },
     meta: { fontSize: 13, color: t.textTertiary, marginTop: 1 },
     linkBtn: { paddingHorizontal: 4, paddingVertical: 6 },
     rowActions: { alignItems: "flex-end", gap: 2 },
@@ -427,13 +564,35 @@ export function makeSettingsStyles(t: Theme) {
     barFill: { height: 6, borderRadius: 3, backgroundColor: t.primary },
 
     signOut: {
-      marginTop: 24,
-      backgroundColor: t.dangerLight,
-      borderRadius: 14,
-      padding: 14,
+      marginTop: 20,
+      paddingVertical: 16,
       alignItems: "center",
     },
     signOutText: { color: t.danger, fontWeight: "700", fontSize: 15 },
+
+    footerBand: {
+      marginTop: 24,
+      marginHorizontal: -16,
+      paddingHorizontal: 16,
+      paddingTop: 16,
+      paddingBottom: 8,
+      backgroundColor: t.surfaceAlt,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: t.border,
+    },
+    footerGroup: {
+      backgroundColor: t.surface,
+      borderRadius: 16,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: t.border,
+      overflow: "hidden",
+    },
+    menuStack: { gap: 12 },
+    menuSeparator: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: t.border,
+      marginLeft: 43,
+    },
 
     mOverlay: { flex: 1, backgroundColor: t.scrim, justifyContent: "center", padding: 24 },
     mSheet: { backgroundColor: t.bg, borderRadius: 20, padding: 20, gap: 14 },

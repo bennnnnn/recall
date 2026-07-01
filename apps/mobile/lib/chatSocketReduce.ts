@@ -82,7 +82,7 @@ export function mergeDoneIntoMessages(
         ? {
             ...m,
             id: finalId,
-            content: draftContent || m.content,
+            content: finalContent ?? (draftContent || m.content),
             recalled,
             memory_hints,
             context_summarized,

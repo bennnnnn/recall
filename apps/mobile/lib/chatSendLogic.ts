@@ -38,22 +38,30 @@ export function buildOptimisticUserMessage(options: {
   };
 }
 
+import type { ClientGeo } from "@/lib/clientGeo";
+
 export function buildPendingSendAfterCreate(options: {
   text: string;
   attached: PendingAttachment | null;
   attachmentIds?: string[];
+  optimisticId: string;
+  clientGeo?: ClientGeo | null;
 }): {
   text: string;
   skipUserBubble: true;
+  trackSendingMessageId: string;
   attachmentIds?: string[];
   localImageUri?: string | null;
+  clientGeo?: ClientGeo | null;
 } {
   const sendText = messageTextForSend(options.text, options.attached);
   return {
     text: sendText,
     skipUserBubble: true,
+    trackSendingMessageId: options.optimisticId,
     attachmentIds: options.attachmentIds,
     localImageUri:
       options.attached?.kind === "image" ? options.attached.localUri : null,
+    clientGeo: options.clientGeo ?? null,
   };
 }

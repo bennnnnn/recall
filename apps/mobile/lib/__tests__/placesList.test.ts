@@ -100,6 +100,19 @@ Want a reservation?`;
     expect(resolvePlaces(math)).toEqual([]);
   });
 
+  it("resolvePlaces reads mis-tagged json venue arrays", () => {
+    const content = `Here are gas stations:
+
+\`\`\`json
+[{"name":"Shell","url":"https://maps.google.com/?q=shell","address":"123 Market St","price":"$"}]
+\`\`\``;
+    expect(resolvePlaces(content)).toEqual([
+      expect.objectContaining({ name: "Shell", address: "123 Market St" }),
+    ]);
+    const places = resolvePlaces(content);
+    expect(stripPlacesContent(content, places)).not.toContain("```json");
+  });
+
   it("resolvePlaces only reads explicit places fences", () => {
     const content = `Intro
 1. **Old List Item** – should ignore

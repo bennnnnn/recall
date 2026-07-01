@@ -26,7 +26,6 @@ type Props = {
   onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   onScrollEnd: () => void;
   onSelectStarter: (prompt: string) => void;
-  onOpenTemplates: () => void;
   header?: ReactElement | null;
 };
 
@@ -46,7 +45,6 @@ export function ChatMessageList({
   onScroll,
   onScrollEnd,
   onSelectStarter,
-  onOpenTemplates,
   header,
 }: Props) {
   const { t } = useTranslation();
@@ -100,7 +98,7 @@ export function ChatMessageList({
             </View>
           ) : (
             <View style={[s.empty, { height: emptyHeight }]}>
-              <HomeStarters onSelect={onSelectStarter} onOpenTemplates={onOpenTemplates} />
+              <HomeStarters onSelect={onSelectStarter} />
             </View>
           )
         }

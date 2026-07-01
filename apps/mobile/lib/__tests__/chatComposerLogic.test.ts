@@ -2,7 +2,6 @@ import {
   buildModelOptions,
   computeChatLayoutMetrics,
   isComposerMenuOverlayOpen,
-  resolvePlanLabel,
   resolveSelectedModelLabel,
 } from "@/lib/chatComposerLogic";
 
@@ -28,9 +27,9 @@ describe("chatComposerLogic", () => {
     ).toBe("Free");
   });
 
-  it("resolvePlanLabel picks pro or free label", () => {
-    expect(resolvePlanLabel(true, "Pro", "Free")).toBe("Pro");
-    expect(resolvePlanLabel(false, "Pro", "Free")).toBe("Free");
+  it("isComposerMenuOverlayOpen reflects attach sheet", () => {
+    expect(isComposerMenuOverlayOpen(false)).toBe(false);
+    expect(isComposerMenuOverlayOpen(true)).toBe(true);
   });
 
   it("computeChatLayoutMetrics accounts for keyboard and feedback row", () => {
@@ -61,11 +60,5 @@ describe("chatComposerLogic", () => {
     expect(keyboard.composerLift).toBe(300);
     expect(keyboard.composerBottomPad).toBe(0);
     expect(keyboard.composerBlockHeight).toBe(144);
-  });
-
-  it("isComposerMenuOverlayOpen reflects attach sheet or plan picker", () => {
-    expect(isComposerMenuOverlayOpen(false, false)).toBe(false);
-    expect(isComposerMenuOverlayOpen(true, false)).toBe(true);
-    expect(isComposerMenuOverlayOpen(false, true)).toBe(true);
   });
 });

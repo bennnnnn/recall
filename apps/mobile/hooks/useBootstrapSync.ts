@@ -1,7 +1,6 @@
 import { useEffect, type Dispatch, type SetStateAction } from "react";
 
 import { api, type User } from "@/lib/api";
-import { isExpoGo } from "@/lib/expoRuntime";
 
 type Options = {
   token: string | null;
@@ -22,14 +21,14 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
   }, [token, user?.id, user?.timezone, setUser]);
 
   useEffect(() => {
-    if (!token || !user || isExpoGo()) return;
+    if (!token || !user?.location_enabled) return;
     void import("@/lib/deviceLocation").then(async ({ getDeviceLocationLabel }) => {
       const label = await getDeviceLocationLabel();
       if (label && user.location !== label) {
         void api.updateMe(token, { location: label }).then(setUser).catch(() => {});
       }
     });
-  }, [token, user?.id, user?.location, setUser]);
+  }, [token, user?.id, user?.location, user?.location_enabled, setUser]);
 
   useEffect(() => {
     if (!token) return;

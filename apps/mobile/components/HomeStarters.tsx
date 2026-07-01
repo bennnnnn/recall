@@ -14,7 +14,6 @@ import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
   onSelect: (prompt: string) => void;
-  onOpenTemplates?: () => void;
 };
 
 function starterIcon(kind: HomeStarter["kind"]): keyof typeof Ionicons.glyphMap {
@@ -123,7 +122,7 @@ function UrgentTodoSection({
   );
 }
 
-export function HomeStarters({ onSelect, onOpenTemplates }: Props) {
+export function HomeStarters({ onSelect }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -252,13 +251,6 @@ export function HomeStarters({ onSelect, onOpenTemplates }: Props) {
           </View>
         </View>
       ) : null}
-
-      {onOpenTemplates ? (
-        <Pressable style={s.templatesLink} onPress={onOpenTemplates}>
-          <Ionicons name="document-text-outline" size={16} color={theme.primary} />
-          <Text style={s.templatesLinkText}>{t("chat.templates")}</Text>
-        </Pressable>
-      ) : null}
     </View>
   );
 }
@@ -364,13 +356,5 @@ function makeStyles(t: Theme) {
       maxWidth: "100%",
     },
     chipText: { fontSize: 14, fontWeight: "600", color: t.text },
-    templatesLink: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      alignSelf: "center",
-      paddingVertical: 8,
-    },
-    templatesLinkText: { fontSize: 14, fontWeight: "600", color: t.primary },
   });
 }

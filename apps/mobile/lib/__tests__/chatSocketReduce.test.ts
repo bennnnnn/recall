@@ -33,6 +33,19 @@ describe("chatSocketReduce", () => {
     expect(next).toHaveLength(0);
   });
 
+  it("mergeDoneIntoMessages prefers final_content on streaming placeholder", () => {
+    const prev: Message[] = [
+      { id: "streaming", role: "assistant", content: "Intro\n```places", model: null, created_at: "t" },
+    ];
+    const next = mergeDoneIntoMessages(prev, {
+      finalId: "msg-1",
+      messageId: "msg-1",
+      draftContent: "Intro\n```places",
+      finalContent: "Intro\n\n```places\n[{\"name\":\"A\"}]\n```",
+    });
+    expect(next[0].content).toContain("```places");
+  });
+
   it("mergeDoneIntoMessages prefers final_content on stop for last assistant", () => {
     const prev: Message[] = [
       { id: "u1", role: "user", content: "Q", model: null, created_at: "t" },

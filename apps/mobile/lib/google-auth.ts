@@ -1,8 +1,4 @@
 import { Platform } from "react-native";
-import {
-  GoogleSignin,
-  statusCodes,
-} from "@react-native-google-signin/google-signin";
 
 import { config, isGoogleSignInConfigured } from "@/lib/config";
 import { isExpoGo } from "@/lib/expoRuntime";
@@ -12,15 +8,31 @@ export { isExpoGo } from "@/lib/expoRuntime";
 const EXPO_GO_MESSAGE =
   "Google Sign-In does not work in Expo Go. Build and run the Recall app on your simulator or device:\n\ncd apps/mobile && pnpm expo run:ios";
 
-let configured = false;
+type GoogleSignInModule = typeof import("@react-native-google-signin/google-signin");
 
-function ensureGoogleConfigured() {
+let configured = false;
+let googleModule: GoogleSignInModule | null = null;
+
+async function loadGoogleSignIn(): Promise<GoogleSignInModule> {
+  if (googleModule) return googleModule;
+  try {
+    googleModule = await import("@react-native-google-signin/google-signin");
+    return googleModule;
+  } catch {
+    throw new Error(
+      "Google Sign-In native module is missing. Rebuild the dev client: cd apps/mobile && pnpm expo run:ios",
+    );
+  }
+}
+
+async function ensureGoogleConfigured() {
   if (configured) return;
   if (!isGoogleSignInConfigured()) {
     throw new Error(
       "Google Sign-In is not configured. Set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID and EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID in apps/mobile/.env, then rebuild with pnpm expo run:ios.",
     );
   }
+  const { GoogleSignin } = await loadGoogleSignIn();
   GoogleSignin.configure({
     webClientId: config.googleWebClientId,
     iosClientId: config.googleIosClientId,
@@ -47,7 +59,8 @@ export function formatGoogleSignInError(error: unknown): string {
 
 /** Recall account sign-in — identity only (no Gmail/Calendar scopes). */
 async function signInWithGoogleNative(): Promise<string> {
-  ensureGoogleConfigured();
+  await ensureGoogleConfigured();
+  const { GoogleSignin, statusCodes } = await loadGoogleSignIn();
 
   try {
     if (Platform.OS === "android") {
@@ -84,7 +97,8 @@ export async function signInWithGoogleIdToken(): Promise<string> {
 export async function signOutGoogle() {
   if (isExpoGo()) return;
   try {
-    ensureGoogleConfigured();
+    await ensureGoogleConfigured();
+    const { GoogleSignin } = await loadGoogleSignIn();
     await GoogleSignin.signOut();
   } catch {
     // Best-effort

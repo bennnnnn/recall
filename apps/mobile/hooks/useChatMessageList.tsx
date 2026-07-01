@@ -14,6 +14,7 @@ type Options = {
   selectedModel: string;
   quizLanguage: string;
   highlightedMessageId: string | null;
+  sendingMessageId: string | null;
   creatingRef: React.MutableRefObject<boolean>;
   chatTitle: string | null;
   titleGenerating: boolean;
@@ -32,6 +33,7 @@ export function useChatMessageList({
   selectedModel,
   quizLanguage,
   highlightedMessageId,
+  sendingMessageId,
   creatingRef,
   chatTitle,
   titleGenerating,
@@ -77,6 +79,7 @@ export function useChatMessageList({
         quizLanguage={quizLanguage}
         quizAnswers={quizAnswers}
         highlightedMessageId={highlightedMessageId}
+        sendingMessageId={sendingMessageId}
         quizDisabled={streaming || creatingRef.current}
         onRegenerate={regenerateResponse}
         onEdit={handleEditMessage}
@@ -93,6 +96,7 @@ export function useChatMessageList({
       quizLanguage,
       quizAnswers,
       highlightedMessageId,
+      sendingMessageId,
       regenerateResponse,
       handleEditMessage,
       handleFeedback,

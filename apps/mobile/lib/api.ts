@@ -26,6 +26,7 @@ export type User = {
   locale: string;
   timezone: string;
   location: string | null;
+  location_enabled: boolean;
   created_at: string;
 };
 

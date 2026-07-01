@@ -1,7 +1,10 @@
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,6 +14,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, useFocusEffect, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { useAuth } from "@/contexts/AuthContext";
@@ -18,7 +22,24 @@ import { useProjects } from "@/contexts/ProjectsContext";
 import { api, type LanguageLevel, type ProjectKind } from "@/lib/api";
 import { LANGUAGE_LEVELS, levelLabel } from "@/lib/languageLevels";
 import {
-  DEFAULT_PROGRAMMING_LANGUAGE,
+  ENGLISH_LEARNING_TOPICS,
+  englishTopicLabel,
+  englishTopicsDescription,
+  sortEnglishTopics,
+  type EnglishLearningTopicId,
+} from "@/lib/englishLearningTopics";
+import { queueChatLaunch } from "@/lib/chatLaunch";
+import { buildEnglishOnboardingPrompt } from "@/lib/projectChat";
+import {
+  englishProjectTitle,
+  goalPlaceholderKey,
+  goalStepHint,
+  resolveProjectDescription,
+  resolveProjectTitle,
+  titlePlaceholderKey,
+  type CreateStep,
+} from "@/lib/projectCreateFlow";
+import {
   PROGRAMMING_LANGUAGES,
   programmingLanguageLabel,
   type ProgrammingLanguageId,
@@ -27,8 +48,6 @@ import { Theme, useTheme } from "@/lib/theme";
 
 const SUBJECTS: ProjectKind[] = ["language", "math", "programming"];
 
-type CreateStep = "subject" | "level" | "stack" | "goal";
-
 function kindIcon(kind: ProjectKind): keyof typeof Ionicons.glyphMap {
   if (kind === "language" || kind === "vocabulary") return "language-outline";
   if (kind === "programming") return "code-slash-outline";
@@ -36,50 +55,9 @@ function kindIcon(kind: ProjectKind): keyof typeof Ionicons.glyphMap {
   return "folder-outline";
 }
 
-function subjectKind(kind: ProjectKind): ProjectKind {
-  return kind === "vocabulary" ? "language" : kind;
-}
-
-function learningTitle(
-  kind: ProjectKind,
-  level: LanguageLevel,
-  programmingLanguage: ProgrammingLanguageId,
-  description: string,
-  t: (key: string) => string,
-): string {
-  const goal = description.trim();
-  if (goal.length > 0) {
-    const firstLine = goal.split("\n")[0]?.trim() ?? goal;
-    if (firstLine.length <= 80) return firstLine;
-    return `${firstLine.slice(0, 77)}…`;
-  }
-  if (kind === "language") {
-    return `${t("projects.kind.language")} · ${levelLabel(level)}`;
-  }
-  if (kind === "programming") {
-    return `${programmingLanguageLabel(programmingLanguage)} · ${t("projects.kind.programming")}`;
-  }
-  return t(`projects.kind.${subjectKind(kind)}`);
-}
-
-function goalStepHint(
-  kind: ProjectKind,
-  level: LanguageLevel,
-  programmingLanguage: ProgrammingLanguageId,
-  t: (key: string) => string,
-): string {
-  if (kind === "language") {
-    return `${t("projects.kind.language")} · ${levelLabel(level)}`;
-  }
-  if (kind === "programming") {
-    return `${programmingLanguageLabel(programmingLanguage)} · ${t("projects.kind.programming")}`;
-  }
-  return t(`projects.kind.${subjectKind(kind)}`);
-}
-
 function projectRowMeta(
   project: { kind: ProjectKind; level: LanguageLevel; target_language: string },
-  t: (key: string) => string,
+  t: (key: string, opts?: Record<string, unknown>) => string,
 ): string {
   const kindKey = project.kind === "vocabulary" ? "language" : project.kind;
   if (project.kind === "language" || project.kind === "vocabulary") {
@@ -91,27 +69,24 @@ function projectRowMeta(
   return t(`projects.kind.${kindKey}`);
 }
 
-function goalPlaceholderKey(kind: ProjectKind): string {
-  if (kind === "language" || kind === "vocabulary") return "projects.goal_placeholder_english";
-  if (kind === "math") return "projects.goal_placeholder_math";
-  return "projects.goal_placeholder_programming";
-}
-
 export default function ProjectsScreen() {
   const { token } = useAuth();
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { projects, loading, error, refresh, setProjects } = useProjects();
   const [createStep, setCreateStep] = useState<CreateStep | null>(null);
-  const [descriptionInput, setDescriptionInput] = useState("");
-  const [kind, setKind] = useState<ProjectKind>("language");
+  const [titleInput, setTitleInput] = useState("");
+  const [goalInput, setGoalInput] = useState("");
+  const [kind, setKind] = useState<ProjectKind | null>(null);
   const [level, setLevel] = useState<LanguageLevel>("level1");
-  const [programmingLanguage, setProgrammingLanguage] = useState<ProgrammingLanguageId>(
-    DEFAULT_PROGRAMMING_LANGUAGE,
+  const [programmingLanguage, setProgrammingLanguage] = useState<ProgrammingLanguageId | null>(
+    null,
   );
-  const [levelPickerOpen, setLevelPickerOpen] = useState(false);
+  const [englishTopics, setEnglishTopics] = useState<EnglishLearningTopicId[]>([]);
+  const [creating, setCreating] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -123,18 +98,27 @@ export default function ProjectsScreen() {
 
   const resetCreate = () => {
     setCreateStep(null);
-    setDescriptionInput("");
-    setKind("language");
+    setTitleInput("");
+    setGoalInput("");
+    setKind(null);
     setLevel("level1");
-    setProgrammingLanguage(DEFAULT_PROGRAMMING_LANGUAGE);
-    setLevelPickerOpen(false);
+    setProgrammingLanguage(null);
+    setEnglishTopics([]);
+    setCreating(false);
+  };
+
+  const openCreate = () => {
+    resetCreate();
+    setCreateStep("subject");
   };
 
   const selectSubject = (next: ProjectKind) => {
     setKind(next);
     if (next === "language") setCreateStep("level");
-    else if (next === "programming") setCreateStep("stack");
-    else setCreateStep("goal");
+    else if (next === "programming") {
+      setProgrammingLanguage(null);
+      setCreateStep("stack");
+    } else setCreateStep("goal");
   };
 
   const selectProgrammingLanguage = (lang: ProgrammingLanguageId) => {
@@ -148,27 +132,255 @@ export default function ProjectsScreen() {
     return "subject";
   };
 
-  const handleCreate = async () => {
-    const description = descriptionInput.trim();
-    if (!description || !token) return;
-    const title = learningTitle(kind, level, programmingLanguage, description, t);
+  const toggleEnglishTopic = (topicId: EnglishLearningTopicId) => {
+    setEnglishTopics((prev) =>
+      prev.includes(topicId) ? prev.filter((id) => id !== topicId) : [...prev, topicId],
+    );
+  };
+
+  const handleCreateEnglish = async () => {
+    if (!token || kind !== "language" || creating || englishTopics.length === 0) return;
+
+    const sortedTopics = sortEnglishTopics(englishTopics);
+    const title = englishProjectTitle(level, t);
+    const description = englishTopicsDescription(sortedTopics, t);
+    const focusLabels = sortedTopics.map((id) => englishTopicLabel(id, t));
+
+    setCreating(true);
     try {
       const project = await api.createProject(token, {
         title,
         description,
+        kind: "language",
+        level,
+        target_language: "en",
+      });
+      resetCreate();
+      setProjects((prev) => [project, ...prev]);
+      queueChatLaunch(buildEnglishOnboardingPrompt(title, level, focusLabels), project.id, "en");
+      router.replace("/");
+    } catch {
+      Alert.alert(t("common.error"), t("projects.create_failed"));
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleCreate = async () => {
+    if (!token || !kind || creating) return;
+    const title = resolveProjectTitle(titleInput, kind, level, programmingLanguage, t);
+    if (!title.trim()) return;
+    if (kind === "programming" && !programmingLanguage) return;
+
+    setCreating(true);
+    try {
+      const project = await api.createProject(token, {
+        title,
+        description: resolveProjectDescription(titleInput, goalInput),
         kind,
         level,
-        target_language: kind === "programming" ? programmingLanguage : "en",
+        target_language: kind === "programming" ? programmingLanguage! : "en",
       });
       resetCreate();
       setProjects((prev) => [project, ...prev]);
       router.push(`/projects/${project.id}`);
     } catch {
-      /* ignore */
+      Alert.alert(t("common.error"), t("projects.create_failed"));
+    } finally {
+      setCreating(false);
     }
   };
 
-  const canCreate = descriptionInput.trim().length > 0;
+  const canCreateEnglish = englishTopics.length > 0 && !creating;
+  const canCreate = titleInput.trim().length > 0 && !creating;
+
+  const renderCreateSteps = () => {
+    if (!createStep) return null;
+
+    return (
+      <>
+        {createStep === "subject" ? (
+          <>
+            <Text style={s.createLabel}>{t("projects.what_to_learn")}</Text>
+            <View style={s.subjectList}>
+              {SUBJECTS.map((item) => (
+                <Pressable
+                  key={item}
+                  style={s.subjectRow}
+                  onPress={() => selectSubject(item)}
+                >
+                  <View style={s.subjectIcon}>
+                    <Ionicons name={kindIcon(item)} size={22} color={C.primary} />
+                  </View>
+                  <Text style={s.subjectText}>{t(`projects.kind.${item}`)}</Text>
+                  <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
+                </Pressable>
+              ))}
+            </View>
+          </>
+        ) : null}
+
+        {createStep === "level" ? (
+          <>
+            <Text style={s.createLabel}>{t("projects.level_label")}</Text>
+            <Text style={s.stepHint}>{t("projects.level_hint")}</Text>
+            <View style={s.subjectList}>
+              {LANGUAGE_LEVELS.map((item) => (
+                <Pressable
+                  key={item}
+                  style={[s.subjectRow, level === item && s.subjectRowActive]}
+                  onPress={() => setLevel(item)}
+                >
+                  <Text
+                    style={[s.subjectText, level === item && s.subjectTextActive]}
+                  >
+                    {levelLabel(item)}
+                  </Text>
+                  {level === item ? (
+                    <Ionicons name="checkmark" size={18} color={C.primary} />
+                  ) : null}
+                </Pressable>
+              ))}
+            </View>
+            <View style={s.createActions}>
+              <Pressable style={s.secondaryBtn} onPress={() => setCreateStep("subject")}>
+                <Text style={s.secondaryBtnText}>{t("projects.back")}</Text>
+              </Pressable>
+              <Pressable style={s.primaryBtn} onPress={() => setCreateStep("topics")}>
+                <Text style={s.primaryBtnText}>{t("projects.next")}</Text>
+              </Pressable>
+            </View>
+          </>
+        ) : null}
+
+        {createStep === "topics" && kind === "language" ? (
+          <>
+            <Text style={s.createLabel}>{t("projects.english_topics_label")}</Text>
+            <Text style={s.stepHint}>{t("projects.english_topics_hint")}</Text>
+            <Text style={s.stepHint}>{goalStepHint(kind, level, programmingLanguage, t)}</Text>
+            <View style={s.subjectList}>
+              {ENGLISH_LEARNING_TOPICS.map((topic) => {
+                const selected = englishTopics.includes(topic.id);
+                return (
+                  <Pressable
+                    key={topic.id}
+                    style={[s.subjectRow, selected && s.subjectRowActive]}
+                    onPress={() => toggleEnglishTopic(topic.id)}
+                  >
+                    <View style={s.subjectIcon}>
+                      <Ionicons name={topic.icon} size={22} color={C.primary} />
+                    </View>
+                    <Text style={[s.subjectText, selected && s.subjectTextActive]}>
+                      {englishTopicLabel(topic.id, t)}
+                    </Text>
+                    {selected ? (
+                      <Ionicons name="checkmark" size={18} color={C.primary} />
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+            <View style={s.createActions}>
+              <Pressable style={s.secondaryBtn} onPress={() => setCreateStep("level")}>
+                <Text style={s.secondaryBtnText}>{t("projects.back")}</Text>
+              </Pressable>
+              <Pressable
+                style={[s.primaryBtn, !canCreateEnglish && s.primaryBtnDisabled]}
+                disabled={!canCreateEnglish}
+                onPress={() => void handleCreateEnglish()}
+              >
+                {creating ? (
+                  <ActivityIndicator color={C.onPrimary} />
+                ) : (
+                  <Text style={s.primaryBtnText}>{t("projects.create")}</Text>
+                )}
+              </Pressable>
+            </View>
+          </>
+        ) : null}
+
+        {createStep === "stack" ? (
+          <>
+            <Text style={s.createLabel}>{t("projects.pick_programming_language")}</Text>
+            <Text style={s.stepHint}>{t("projects.programming_language_hint")}</Text>
+            <View style={s.subjectList}>
+              {PROGRAMMING_LANGUAGES.map((lang) => (
+                <Pressable
+                  key={lang.id}
+                  style={[
+                    s.subjectRow,
+                    programmingLanguage === lang.id && s.subjectRowActive,
+                  ]}
+                  onPress={() => selectProgrammingLanguage(lang.id)}
+                >
+                  <View style={s.subjectIcon}>
+                    <Ionicons name="code-slash-outline" size={22} color={C.primary} />
+                  </View>
+                  <Text
+                    style={[
+                      s.subjectText,
+                      programmingLanguage === lang.id && s.subjectTextActive,
+                    ]}
+                  >
+                    {lang.label}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
+                </Pressable>
+              ))}
+            </View>
+            <Pressable style={s.secondaryBtn} onPress={() => setCreateStep("subject")}>
+              <Text style={s.secondaryBtnText}>{t("projects.back")}</Text>
+            </Pressable>
+          </>
+        ) : null}
+
+        {createStep === "goal" && kind && kind !== "language" ? (
+          <>
+            <Text style={s.createLabel}>{t("projects.step_goal")}</Text>
+            <Text style={s.stepHint}>
+              {goalStepHint(kind, level, programmingLanguage, t)}
+            </Text>
+            <Text style={s.fieldLabel}>{t("projects.title_label")}</Text>
+            <TextInput
+              style={s.input}
+              placeholder={t(titlePlaceholderKey(kind))}
+              placeholderTextColor={C.textTertiary}
+              value={titleInput}
+              onChangeText={setTitleInput}
+              autoFocus
+              maxLength={80}
+              returnKeyType="next"
+            />
+            <Text style={s.fieldLabel}>{t("projects.goal_optional_hint")}</Text>
+            <TextInput
+              style={[s.input, s.inputMultiline]}
+              placeholder={t(goalPlaceholderKey(kind))}
+              placeholderTextColor={C.textTertiary}
+              value={goalInput}
+              onChangeText={setGoalInput}
+              multiline
+            />
+            <View style={s.createActions}>
+              <Pressable style={s.secondaryBtn} onPress={() => setCreateStep(goalBackStep())}>
+                <Text style={s.secondaryBtnText}>{t("projects.back")}</Text>
+              </Pressable>
+              <Pressable
+                style={[s.primaryBtn, !canCreate && s.primaryBtnDisabled]}
+                disabled={!canCreate}
+                onPress={() => void handleCreate()}
+              >
+                {creating ? (
+                  <ActivityIndicator color={C.onPrimary} />
+                ) : (
+                  <Text style={s.primaryBtnText}>{t("projects.create")}</Text>
+                )}
+              </Pressable>
+            </View>
+          </>
+        ) : null}
+      </>
+    );
+  };
 
   return (
     <View style={s.root}>
@@ -178,128 +390,17 @@ export default function ProjectsScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-          {createStep !== null ? (
-            <View style={s.createCard}>
-              {createStep === "subject" ? (
-                <>
-                  <Text style={s.createLabel}>{t("projects.what_to_learn")}</Text>
-                  <View style={s.subjectList}>
-                    {SUBJECTS.map((item) => {
-                      const active = kind === item;
-                      return (
-                        <Pressable
-                          key={item}
-                          style={[s.subjectRow, active && s.subjectRowActive]}
-                          onPress={() => selectSubject(item)}
-                        >
-                          <View style={s.subjectIcon}>
-                            <Ionicons name={kindIcon(item)} size={22} color={C.primary} />
-                          </View>
-                          <Text style={[s.subjectText, active && s.subjectTextActive]}>
-                            {t(`projects.kind.${item}`)}
-                          </Text>
-                          <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                  <Pressable style={s.secondaryBtn} onPress={resetCreate}>
-                    <Text style={s.secondaryBtnText}>{t("common.cancel")}</Text>
-                  </Pressable>
-                </>
-              ) : null}
+          <Pressable style={s.newProjectBtn} onPress={openCreate}>
+            <Ionicons name="add-circle-outline" size={22} color={C.primary} />
+            <Text style={s.newProjectText}>{t("projects.add_learning")}</Text>
+          </Pressable>
 
-              {createStep === "level" ? (
-                <>
-                  <Text style={s.createLabel}>{t("projects.level_label")}</Text>
-                  <Text style={s.stepHint}>{t("projects.level_hint")}</Text>
-                  <Pressable style={s.dropdown} onPress={() => setLevelPickerOpen(true)}>
-                    <Text style={s.dropdownText}>{levelLabel(level)}</Text>
-                    <Ionicons name="chevron-down" size={18} color={C.textSecondary} />
-                  </Pressable>
-                  <View style={s.createActions}>
-                    <Pressable style={s.secondaryBtn} onPress={() => setCreateStep("subject")}>
-                      <Text style={s.secondaryBtnText}>{t("projects.back")}</Text>
-                    </Pressable>
-                    <Pressable style={s.primaryBtn} onPress={() => setCreateStep("goal")}>
-                      <Text style={s.primaryBtnText}>{t("projects.next")}</Text>
-                    </Pressable>
-                  </View>
-                </>
-              ) : null}
-
-              {createStep === "stack" ? (
-                <>
-                  <Text style={s.createLabel}>{t("projects.pick_programming_language")}</Text>
-                  <Text style={s.stepHint}>{t("projects.programming_language_hint")}</Text>
-                  <View style={s.subjectList}>
-                    {PROGRAMMING_LANGUAGES.map((lang) => (
-                      <Pressable
-                        key={lang.id}
-                        style={[
-                          s.subjectRow,
-                          programmingLanguage === lang.id && s.subjectRowActive,
-                        ]}
-                        onPress={() => selectProgrammingLanguage(lang.id)}
-                      >
-                        <View style={s.subjectIcon}>
-                          <Ionicons name="code-slash-outline" size={22} color={C.primary} />
-                        </View>
-                        <Text
-                          style={[
-                            s.subjectText,
-                            programmingLanguage === lang.id && s.subjectTextActive,
-                          ]}
-                        >
-                          {lang.label}
-                        </Text>
-                        <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
-                      </Pressable>
-                    ))}
-                  </View>
-                  <Pressable style={s.secondaryBtn} onPress={() => setCreateStep("subject")}>
-                    <Text style={s.secondaryBtnText}>{t("projects.back")}</Text>
-                  </Pressable>
-                </>
-              ) : null}
-
-              {createStep === "goal" ? (
-                <>
-                  <Text style={s.createLabel}>{t("projects.step_goal")}</Text>
-                  <Text style={s.stepHint}>
-                    {goalStepHint(kind, level, programmingLanguage, t)}
-                  </Text>
-                  <Text style={s.fieldLabel}>{t("projects.goal_hint")}</Text>
-                  <TextInput
-                    style={[s.input, s.inputMultiline]}
-                    placeholder={t(goalPlaceholderKey(kind))}
-                    placeholderTextColor={C.textTertiary}
-                    value={descriptionInput}
-                    onChangeText={setDescriptionInput}
-                    multiline
-                    autoFocus
-                  />
-                  <View style={s.createActions}>
-                    <Pressable style={s.secondaryBtn} onPress={() => setCreateStep(goalBackStep())}>
-                      <Text style={s.secondaryBtnText}>{t("projects.back")}</Text>
-                    </Pressable>
-                    <Pressable
-                      style={[s.primaryBtn, !canCreate && s.primaryBtnDisabled]}
-                      disabled={!canCreate}
-                      onPress={() => void handleCreate()}
-                    >
-                      <Text style={s.primaryBtnText}>{t("projects.create")}</Text>
-                    </Pressable>
-                  </View>
-                </>
-              ) : null}
+          {!error && projects.length === 0 ? (
+            <View style={s.emptyState}>
+              <Text style={s.emptyTitle}>{t("projects.empty_title")}</Text>
+              <Text style={s.emptyBody}>{t("projects.empty_body")}</Text>
             </View>
-          ) : (
-            <Pressable style={s.newProjectBtn} onPress={() => setCreateStep("subject")}>
-              <Ionicons name="add-circle-outline" size={22} color={C.primary} />
-              <Text style={s.newProjectText}>{t("projects.add_learning")}</Text>
-            </Pressable>
-          )}
+          ) : null}
 
           {error ? (
             <Text style={s.empty}>{t("common.error")}</Text>
@@ -328,30 +429,30 @@ export default function ProjectsScreen() {
         </ScrollView>
       )}
 
-      <Modal visible={levelPickerOpen} transparent animationType="fade">
-        <View style={s.modalBackdrop}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setLevelPickerOpen(false)} />
-          <View style={s.modalSheet}>
-            <Text style={s.modalTitle}>{t("projects.level_label")}</Text>
-            {LANGUAGE_LEVELS.map((item) => (
-              <Pressable
-                key={item}
-                style={[s.modalOption, level === item && s.modalOptionActive]}
-                onPress={() => {
-                  setLevel(item);
-                  setLevelPickerOpen(false);
-                }}
-              >
-                <Text style={[s.modalOptionText, level === item && s.modalOptionTextActive]}>
-                  {levelLabel(item)}
-                </Text>
-                {level === item ? (
-                  <Ionicons name="checkmark" size={18} color={C.primary} />
-                ) : null}
-              </Pressable>
-            ))}
+      <Modal
+        visible={createStep !== null}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={resetCreate}
+      >
+        <KeyboardAvoidingView
+          style={[s.modalRoot, { paddingTop: insets.top }]}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <View style={s.modalHeader}>
+            <Pressable style={s.modalClose} onPress={resetCreate} hitSlop={8}>
+              <Ionicons name="close" size={26} color={C.textSecondary} />
+            </Pressable>
+            <Text style={s.modalHeaderTitle}>{t("projects.add_learning")}</Text>
+            <View style={s.modalClose} />
           </View>
-        </View>
+          <ScrollView
+            contentContainerStyle={[s.modalContent, { paddingBottom: insets.bottom + 24 }]}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={s.createCard}>{renderCreateSteps()}</View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -372,13 +473,35 @@ function makeStyles(C: Theme) {
       backgroundColor: C.primaryLight,
     },
     newProjectText: { fontSize: 16, fontWeight: "700", color: C.primary },
-    createCard: {
+    emptyState: {
       backgroundColor: C.surface,
       borderRadius: 16,
-      padding: 16,
-      gap: 10,
+      padding: 20,
+      gap: 8,
+      alignItems: "center",
     },
-    createLabel: { fontSize: 17, fontWeight: "700", color: C.text },
+    emptyTitle: { fontSize: 17, fontWeight: "700", color: C.text, textAlign: "center" },
+    emptyBody: { fontSize: 15, lineHeight: 22, color: C.textSecondary, textAlign: "center" },
+    modalRoot: { flex: 1, backgroundColor: C.bg },
+    modalHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: C.border,
+    },
+    modalClose: { width: 40, alignItems: "center", justifyContent: "center" },
+    modalHeaderTitle: {
+      flex: 1,
+      textAlign: "center",
+      fontSize: 17,
+      fontWeight: "700",
+      color: C.text,
+    },
+    modalContent: { padding: 16 },
+    createCard: { gap: 10 },
+    createLabel: { fontSize: 20, fontWeight: "700", color: C.text },
     stepHint: { fontSize: 14, color: C.textSecondary, marginBottom: 4 },
     subjectList: { gap: 8 },
     subjectRow: {
@@ -388,7 +511,7 @@ function makeStyles(C: Theme) {
       paddingVertical: 14,
       paddingHorizontal: 12,
       borderRadius: 14,
-      backgroundColor: C.bg,
+      backgroundColor: C.surface,
       borderWidth: 1,
       borderColor: C.border,
     },
@@ -400,14 +523,14 @@ function makeStyles(C: Theme) {
       width: 40,
       height: 40,
       borderRadius: 12,
-      backgroundColor: C.surface,
+      backgroundColor: C.bg,
       alignItems: "center",
       justifyContent: "center",
     },
     subjectText: { flex: 1, fontSize: 16, fontWeight: "600", color: C.text },
     subjectTextActive: { color: C.primaryDark },
     input: {
-      backgroundColor: C.bg,
+      backgroundColor: C.surface,
       borderRadius: 12,
       borderWidth: 1,
       borderColor: C.border,
@@ -416,20 +539,8 @@ function makeStyles(C: Theme) {
       fontSize: 16,
       color: C.text,
     },
-    inputMultiline: { minHeight: 96, textAlignVertical: "top" },
-    dropdown: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      backgroundColor: C.bg,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: C.border,
-      paddingHorizontal: 12,
-      paddingVertical: 14,
-    },
-    dropdownText: { fontSize: 16, fontWeight: "600", color: C.text },
-    createActions: { flexDirection: "row", gap: 10, marginTop: 4 },
+    inputMultiline: { minHeight: 88, textAlignVertical: "top" },
+    createActions: { flexDirection: "row", gap: 10, marginTop: 8 },
     secondaryBtn: {
       flex: 1,
       borderRadius: 12,
@@ -445,9 +556,11 @@ function makeStyles(C: Theme) {
       backgroundColor: C.primary,
       paddingVertical: 12,
       alignItems: "center",
+      justifyContent: "center",
+      minHeight: 46,
     },
     primaryBtnDisabled: { opacity: 0.45 },
-    primaryBtnText: { fontSize: 15, fontWeight: "700", color: "#fff" },
+    primaryBtnText: { fontSize: 15, fontWeight: "700", color: C.onPrimary },
     empty: {
       textAlign: "center",
       color: C.textSecondary,
@@ -474,43 +587,11 @@ function makeStyles(C: Theme) {
     rowMain: { flex: 1, gap: 2 },
     rowTitle: { fontSize: 16, fontWeight: "700", color: C.text },
     rowMeta: { fontSize: 13, color: C.textSecondary },
-    modalBackdrop: {
-      flex: 1,
-      backgroundColor: "rgba(0,0,0,0.35)",
-      justifyContent: "flex-end",
-    },
-    modalSheet: {
-      backgroundColor: C.surface,
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
-      padding: 16,
-      paddingBottom: 32,
-      gap: 4,
-    },
-    modalTitle: {
-      fontSize: 13,
-      fontWeight: "700",
-      color: C.textTertiary,
-      textTransform: "uppercase",
-      letterSpacing: 0.6,
-      marginBottom: 8,
-    },
-    modalOption: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 12,
-      paddingVertical: 14,
-      paddingHorizontal: 8,
-      borderRadius: 12,
-    },
-    modalOptionActive: { backgroundColor: C.primaryLight },
-    modalOptionText: { flex: 1, fontSize: 16, fontWeight: "600", color: C.text },
-    modalOptionTextActive: { color: C.primary },
     fieldLabel: {
       fontSize: 14,
       fontWeight: "600",
       color: C.textSecondary,
-      marginTop: 2,
+      marginTop: 4,
     },
   });
 }

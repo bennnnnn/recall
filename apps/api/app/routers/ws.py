@@ -326,6 +326,9 @@ async def chat_websocket(
                 model=message_model,
                 aids=request.attachment_ids,
                 tz=client_timezone,
+                loc=request.client_location,
+                lat=request.client_latitude,
+                lng=request.client_longitude,
             ):
                 return chat_service.stream_chat_response(
                     redis,
@@ -338,6 +341,9 @@ async def chat_websocket(
                     should_cancel=cancel_event.is_set,
                     result=result,
                     client_timezone=tz,
+                    client_location=loc,
+                    client_latitude=lat,
+                    client_longitude=lng,
                 )
 
             await _run_chat_stream(

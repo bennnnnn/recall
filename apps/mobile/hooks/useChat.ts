@@ -33,6 +33,7 @@ export function useChat(
   const [messages, setMessages] = useState<Message[]>([]);
   const [streaming, setStreaming] = useState(false);
   const [streamingDraft, setStreamingDraft] = useState<StreamingDraft | null>(null);
+  const [sendingMessageId, setSendingMessageId] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const connectingRef = useRef<Promise<void> | null>(null);
   const assistantBuffer = useRef("");
@@ -96,6 +97,7 @@ export function useChat(
     firstReplyRef.current = false;
     updateStreamingDraft(null);
     setStreaming(false);
+    setSendingMessageId(null);
   }, [chatId, updateStreamingDraft]);
 
   const connect = useCallback((): Promise<void> => {
@@ -176,6 +178,7 @@ export function useChat(
         if (!payload) return;
 
         if (payload.type === "start") {
+          setSendingMessageId(null);
           setStreaming(true);
           streamingRef.current = true;
           assistantBuffer.current = "";
@@ -220,6 +223,7 @@ export function useChat(
         }
 
         if (payload.type === "error") {
+          setSendingMessageId(null);
           setStreaming(false);
           streamingRef.current = false;
           assistantBuffer.current = "";
@@ -266,18 +270,22 @@ export function useChat(
       content: string,
       options?: {
         skipUserBubble?: boolean;
+        trackSendingMessageId?: string;
         attachmentIds?: string[];
         localImageUri?: string | null;
         model?: string | null;
+        clientGeo?: import("@/lib/clientGeo").ClientGeo | null;
       },
     ) => {
       if (!token || !chatId) return;
 
+      let trackedId = options?.trackSendingMessageId ?? null;
       if (!options?.skipUserBubble) {
+        trackedId = `local-${Date.now()}`;
         setMessages((prev) => [
           ...prev,
           {
-            id: `local-${Date.now()}`,
+            id: trackedId!,
             role: "user",
             content,
             model: null,
@@ -286,9 +294,15 @@ export function useChat(
           },
         ]);
       }
+      if (trackedId) {
+        setSendingMessageId(trackedId);
+      }
 
       await ensureConnected();
-      if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+      if (wsRef.current?.readyState !== WebSocket.OPEN) {
+        setSendingMessageId(null);
+        return;
+      }
 
       assistantBuffer.current = "";
       if (isVocabQuizAnswer(content) && !streamingRef.current) {
@@ -303,6 +317,9 @@ export function useChat(
           content,
           attachment_ids: options?.attachmentIds ?? [],
           model: options?.model ?? null,
+          client_location: options?.clientGeo?.label ?? null,
+          client_latitude: options?.clientGeo?.latitude ?? null,
+          client_longitude: options?.clientGeo?.longitude ?? null,
         }),
       );
     },
@@ -337,10 +354,12 @@ export function useChat(
       setMessages((prev) => {
         const index = prev.findIndex((m) => m.id === messageId);
         if (index < 0) return prev;
+        const localId = `local-edit-${Date.now()}`;
+        setSendingMessageId(localId);
         return [
           ...prev.slice(0, index),
           {
-            id: `local-edit-${Date.now()}`,
+            id: localId,
             role: "user" as const,
             content: content.trim(),
             model: null,
@@ -350,7 +369,10 @@ export function useChat(
       });
 
       await ensureConnected();
-      if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+      if (wsRef.current?.readyState !== WebSocket.OPEN) {
+        setSendingMessageId(null);
+        return;
+      }
 
       assistantBuffer.current = "";
       wsRef.current.send(
@@ -397,6 +419,7 @@ export function useChat(
     setMessages,
     streaming,
     streamingDraft,
+    sendingMessageId,
     sendMessage,
     regenerateResponse,
     editMessage,

@@ -31,6 +31,7 @@ from app.services import math_fence as math_fence_service
 from app.services import math_tools as math_tools_service
 from app.services import memory as memory_service
 from app.services import plan as plan_service
+from app.services import profile as profile_service
 from app.services import projects as projects_service
 from app.services import quota as quota_service
 from app.services import response_tone as response_tone_service
@@ -47,10 +48,27 @@ CLARIFICATION_HINT = (
     "questions instead of guessing, inventing details, or filling gaps with placeholders. "
     "Never use bracket placeholders like [name], [topic], or [TBD]. Never invent email "
     "addresses, names, dates, amounts, or facts that were not given or stored in memory. "
-    "If the user has not given enough context for a send-ready draft (email, message, reply, "
-    "etc.), ask 1-3 specific questions first and do not include a copy/send fence until you "
-    "have what you need. Use known facts from memory when available; if memory does not "
-    "cover something, ask — never assume."
+    "Exception — email/message drafting: when the user asks you to write or send an email, "
+    "text, or message to someone (including relationships like my wife, my boss, mom), "
+    "draft immediately in a ```email or ```message fence using memory; do NOT ask what the "
+    "message should say. Omit To: if the address is not in memory — never invent it. "
+    "For other tasks, if the user has not given enough context for a send-ready deliverable, "
+    "ask 1-3 specific questions first and skip the copy fence until you have what you need. "
+    "Use known facts from memory when available; if memory does not cover something, ask — "
+    "never assume."
+)
+
+EMAIL_DRAFT_HINT = (
+    "Email and message drafting (ChatGPT-style — draft first, refine after):\n"
+    "When the user wants an email, text, or message written or sent:\n"
+    "1. Put a complete, warm, send-ready draft inside ```email (or ```message for SMS). "
+    "Include Subject: when you can infer one. Use To: only when the address is in memory or "
+    "profile — never invent addresses.\n"
+    "2. Resolve relationships from memory (my wife, my husband, mom, boss, etc.) to real "
+    "names and emails when stored. Greet them by name in the body even if To: is omitted.\n"
+    "3. After the fence, add at most ONE short line offering to adjust tone or length — "
+    "not a questionnaire about content or recipient.\n"
+    "4. Never ask 'what should the email say?' when they already named a recipient."
 )
 
 PRIVACY_HINT = (
@@ -93,6 +111,28 @@ def is_broad_self_question(text: str) -> bool:
     return bool(_BROAD_SELF_QUESTION.match(cleaned))
 
 
+_WRITING_DELIVERABLE = re.compile(
+    r"\b("
+    r"send (?:me )?(?:an? )?email|"
+    r"email (?:to|my)|"
+    r"write (?:me )?(?:an? )?email|"
+    r"draft (?:an? )?email|"
+    r"compose (?:an? )?email|"
+    r"send (?:a )?(?:text|message)|"
+    r"text (?:to|my)|"
+    r"message (?:to|my)"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def is_writing_deliverable_request(text: str) -> bool:
+    cleaned = text.strip()
+    if not cleaned:
+        return False
+    return bool(_WRITING_DELIVERABLE.search(cleaned))
+
+
 QUIZ_ANSWER_HINT = (
     "The user just answered a vocabulary quiz with A, B, C, or D. "
     "The previous assistant message has the question and choices.\n"
@@ -113,8 +153,9 @@ COPY_DELIVERABLE_HINT = (
     "code block: ```email, ```message, ```sms, ```twitter, ```linkedin, or ```copy. "
     "Use at most ONE such fence per response. "
     "Copy blocks must be ready to paste and send as-is: complete sentences, real names "
-    "and subjects from context or memory — never [placeholders] or TBD. If you lack "
-    "details, ask clarifying questions instead and skip the copy fence. "
+    "and subjects from context or memory — never [placeholders] or TBD. "
+    "For email/message requests with a named recipient, ALWAYS include the ```email fence "
+    "with a full draft — do not ask what to write first. "
     "Never use ```copy or ```text for explanations, notes, advice, or comparisons — "
     "those belong in plain text or bullets. "
     "For emails include To:/Subject: lines when known; omit To if unknown rather than "
@@ -137,8 +178,8 @@ INTENT_FORMAT_HINT = (
     "\n"
     "Writing helper (email, message, reply, caption, social post):\n"
     "  - Put the final send-ready text inside ```email, ```message, ```sms, or "
-    "```copy. At most ONE such fence per response. Skip the fence if you lack "
-    "details — ask questions instead.\n"
+    "```copy. At most ONE such fence per response. For email/message to a named "
+    "person, draft immediately — do not ask what to write.\n"
     "\n"
     "How-to / troubleshooting:\n"
     "  - Numbered steps (1. … 2. …). Add a brief tip or warning only when needed.\n"
@@ -221,7 +262,8 @@ VISUALIZATION_HINTS = (
     "**Geometry** (```geometry) — JSON spec for rectangles/squares with labels, diagonals, area.\n\n"
     "**Graphs** (```graph) — JSON spec with expr + points for y=f(x) plots.\n\n"
     "**Places** (```places) — JSON array of {name, url, note?, address?, price?} for local "
-    "venue recommendations (restaurants, salons, etc.).\n\n"
+    "venue recommendations (any nearby place). Use when the user asks for something "
+    "near them — nearest/closest/nearby — regardless of category.\n\n"
     "**Quotes** (```quote) — A notable quote with optional attribution on the last line as "
     "“— Author”. Use for pull-quotes; plain `>` blockquotes also work.\n\n"
     "For uploaded images, describe or answer about what you see — do not redraw them in HTML."
@@ -283,7 +325,7 @@ class _StreamContext:
     skip_memory_jobs: bool = False
 
 
-def format_user_profile_block(user: User) -> str:
+def format_user_profile_block(user: User, *, location_override: str | None = None) -> str:
     """Basic identity from Google sign-in — injected into every chat prompt."""
     lines = [
         "User profile (internal — from Google sign-in; do not quote email or location "
@@ -293,8 +335,9 @@ def format_user_profile_block(user: User) -> str:
         lines.append(f"- Name: {user.name.strip()}")
     if user.email and user.email.strip():
         lines.append(f"- Email: {user.email.strip()}")
-    if user.location and user.location.strip():
-        lines.append(f"- Location: {user.location.strip()}")
+    location = location_override or profile_service.user_location_label(user)
+    if location:
+        lines.append(f"- Location: {location}")
     lines.append(
         "Share profile fields only when the user asks for that specific field — never recite "
         "email or location in a general 'who am I' answer. Do not say their name is missing "
@@ -322,6 +365,8 @@ async def _augment_web_and_tools(
     *,
     user_timezone: str | None = None,
     user_location: str | None = None,
+    latitude: float | None = None,
+    longitude: float | None = None,
     prior_user_messages: list[str] | None = None,
     has_image_attachment: bool = False,
 ) -> tuple[list[dict[str, str]], list[WebSearchHit]]:
@@ -332,6 +377,8 @@ async def _augment_web_and_tools(
         settings,
         user_timezone=user_timezone,
         user_location=user_location,
+        latitude=latitude,
+        longitude=longitude,
         prior_user_messages=prior_user_messages,
     )
 
@@ -366,6 +413,7 @@ async def build_prompt_messages(
     minimal_personal_context: bool = False,
     minimal_quiz_context: bool = False,
     client_timezone: str | None = None,
+    prompt_location: str | None = None,
 ) -> list[dict[str, str]]:
     recent_limit = (
         _QUIZ_RECENT_MESSAGE_LIMIT if minimal_quiz_context else settings.recent_message_window
@@ -420,11 +468,12 @@ async def build_prompt_messages(
     local_tz = time_context_service.effective_timezone(user.timezone, client_timezone)
 
     style = user.response_style if user.response_style in STYLE_HINTS else "balanced"
+    location_for_context = prompt_location or profile_service.user_location_label(user)
     system_parts: list[str] = [
         "You are Recall, a helpful personal AI assistant.",
         format_user_name_only_block(user)
         if minimal_personal_context or minimal_quiz_context
-        else format_user_profile_block(user),
+        else format_user_profile_block(user, location_override=prompt_location),
         STYLE_HINTS[style],
     ]
     if minimal_quiz_context:
@@ -447,17 +496,26 @@ async def build_prompt_messages(
                 [INTENT_FORMAT_HINT, MATH_SOLVER_HINT, RESPONSE_FORMAT_HINT, VISUALIZATION_HINTS]
             )
         system_parts.append(COPY_DELIVERABLE_HINT)
+        if query_text and is_writing_deliverable_request(query_text):
+            system_parts.append(EMAIL_DRAFT_HINT)
     system_parts.append(response_tone_service.tone_hint(getattr(user, "response_tone", None)))
     locale_hint = locale_service.locale_system_hint(user.locale)
     if locale_hint:
         system_parts.append(locale_hint)
     if not minimal_quiz_context and not minimal_personal_context:
         system_parts.append(
-            time_context_service.format_time_context(local_tz, user.locale, user.location)
+            time_context_service.format_time_context(local_tz, user.locale, location_for_context)
         )
         if settings.web_search_enabled:
             system_parts.append(web_search_service.WEB_SEARCH_HINT)
-            system_parts.append(web_search_service.LOCAL_PLACES_FORMAT_HINT)
+            if query_text and web_search_service.is_ambiguous_local_places_query(query_text):
+                system_parts.append(web_search_service.AMBIGUOUS_NEARBY_HINT)
+            elif query_text and web_search_service.is_places_list_query(query_text):
+                system_parts.append(web_search_service.LOCAL_PLACES_FORMAT_HINT)
+            elif query_text and web_search_service.is_distance_query(query_text):
+                system_parts.append(web_search_service.GEO_DISTANCE_HINT)
+            if prompt_location and query_text and web_search_service.is_geo_query(query_text):
+                system_parts.append(web_search_service.GEO_ACTIVE_LOCATION_HINT)
         if settings.google_calendar_enabled:
             system_parts.append(calendar_service.CALENDAR_HINT)
         if settings.gmail_enabled:
@@ -490,6 +548,9 @@ async def stream_chat_response(
     should_cancel: Callable[[], bool] | None = None,
     result: dict[str, Any] | None = None,
     client_timezone: str | None = None,
+    client_location: str | None = None,
+    client_latitude: float | None = None,
+    client_longitude: float | None = None,
 ) -> AsyncIterator[str]:
     async with SessionLocal() as session:
         user = await users_repo.get_by_id(session, user_id)
@@ -514,6 +575,9 @@ async def stream_chat_response(
             reserved_tokens=reserved,
             attachment_ids=attachment_ids or [],
             client_timezone=client_timezone,
+            client_location=client_location,
+            client_latitude=client_latitude,
+            client_longitude=client_longitude,
         )
     except ChatNotFoundError:
         await quota_service.refund_usage(redis, str(user_id), reserved)
@@ -549,6 +613,9 @@ async def stream_regenerate_response(
     should_cancel: Callable[[], bool] | None = None,
     result: dict[str, Any] | None = None,
     client_timezone: str | None = None,
+    client_location: str | None = None,
+    client_latitude: float | None = None,
+    client_longitude: float | None = None,
 ) -> AsyncIterator[str]:
     async with SessionLocal() as session:
         user = await users_repo.get_by_id(session, user_id)
@@ -615,7 +682,7 @@ async def stream_regenerate_response(
                     + "\n\n".join(integration_blocks),
                 }
         search_sources: list[WebSearchHit] = []
-        local_places = web_search_service.is_local_places_query(user_message_content)
+        local_places = web_search_service.is_places_list_query(user_message_content)
         if (
             not minimal_personal
             and not minimal_quiz
@@ -627,7 +694,7 @@ async def stream_regenerate_response(
                 user_message_content,
                 settings,
                 user_timezone=local_tz,
-                user_location=(user.location or "").strip() or None,
+                user_location=profile_service.user_location_label(user),
                 prior_user_messages=prior_user_messages,
             )
 
@@ -684,6 +751,9 @@ async def stream_edit_response(
     should_cancel: Callable[[], bool] | None = None,
     result: dict[str, Any] | None = None,
     client_timezone: str | None = None,
+    client_location: str | None = None,
+    client_latitude: float | None = None,
+    client_longitude: float | None = None,
 ) -> AsyncIterator[str]:
     """Replace a user message and delete all turns after it, then re-stream."""
     content = new_content.strip()
@@ -729,6 +799,9 @@ async def _prepare_chat_turn(
     reserved_tokens: int,
     attachment_ids: list[UUID] | None = None,
     client_timezone: str | None = None,
+    client_location: str | None = None,
+    client_latitude: float | None = None,
+    client_longitude: float | None = None,
 ) -> _StreamContext:
     async with SessionLocal() as session:
         user = await users_repo.get_by_id(session, user_id)
@@ -742,6 +815,30 @@ async def _prepare_chat_turn(
         model = plan_service.resolve_user_model_override(user, model_alias, content, settings)
         has_image_attachment = False
         prior_count = await messages_repo.count_for_chat(session, chat_id)
+
+        normalized_client_location = profile_service.normalize_client_location(client_location)
+        client_coordinates = profile_service.normalize_client_coordinates(
+            client_latitude, client_longitude
+        )
+        if normalized_client_location and (
+            user.location != normalized_client_location or not user.location_enabled
+        ):
+            user = await users_repo.update(
+                session,
+                user,
+                location=normalized_client_location,
+                location_enabled=True,
+            )
+        user_location = profile_service.effective_location_label(user, normalized_client_location)
+        geo_query = web_search_service.is_geo_query(content)
+        if geo_query:
+            # Geo searches use fresh device GPS only — not a stale profile city.
+            user_location = normalized_client_location
+        client_lat: float | None = None
+        client_lng: float | None = None
+        if client_coordinates is not None:
+            client_lat, client_lng = client_coordinates
+        has_geo_fix = bool(user_location) or client_coordinates is not None
 
         user_content = content
         gateway = None
@@ -801,6 +898,7 @@ async def _prepare_chat_turn(
             minimal_personal_context=minimal_personal,
             minimal_quiz_context=minimal_quiz,
             client_timezone=client_timezone,
+            prompt_location=user_location if geo_query and has_geo_fix else None,
         )
         if has_image_attachment and image_attachments and gateway is not None:
             await attachment_content_service.inject_vision_content(
@@ -814,7 +912,7 @@ async def _prepare_chat_turn(
         if time_context_service.is_time_question(content):
             instant_reply = time_context_service.format_time_answer(local_tz, user.locale)
         elif time_context_service.is_location_question(content):
-            instant_reply = time_context_service.format_location_answer(user.location, local_tz)
+            instant_reply = time_context_service.format_location_answer(user_location, local_tz)
 
         elif calendar_service.is_external_calendar_question(content):
             if not await calendar_service.is_connected(session, user.id):
@@ -836,9 +934,13 @@ async def _prepare_chat_turn(
                     )
 
         search_sources: list[WebSearchHit] = []
-        local_places = web_search_service.is_local_places_query(content)
-        if instant_reply is None and local_places and not (user.location or "").strip():
-            # No location set → prompt to enable it instead of guessing "near me".
+        geo_query = web_search_service.is_geo_query(content)
+        local_places = web_search_service.is_places_list_query(content)
+        ambiguous_nearby = web_search_service.is_ambiguous_local_places_query(content)
+        if ambiguous_nearby:
+            local_places = False
+        if instant_reply is None and geo_query and not has_geo_fix:
+            # No location available — prompt to enable it instead of guessing "near me".
             instant_reply = web_search_service.format_location_not_set_answer()
         if instant_reply is None and not minimal_personal and not minimal_quiz:
             integration_blocks: list[str] = []
@@ -884,6 +986,7 @@ async def _prepare_chat_turn(
             instant_reply is None
             and not minimal_personal
             and not minimal_quiz
+            and not ambiguous_nearby
             and not calendar_service.is_external_calendar_question(content)
             and not email_service.is_external_email_question(content)
         ):
@@ -893,7 +996,9 @@ async def _prepare_chat_turn(
                 content,
                 settings,
                 user_timezone=local_tz,
-                user_location=(user.location or "").strip() or None,
+                user_location=user_location,
+                latitude=client_lat,
+                longitude=client_lng,
                 prior_user_messages=prior_user_messages,
                 has_image_attachment=has_image_attachment,
             )
@@ -1095,11 +1200,14 @@ async def _stream_and_finalize(
             )
 
     if ctx.local_places and ctx.search_sources and "```places" not in assistant_text.lower():
+        assistant_text = web_search_service.strip_duplicate_venue_list(assistant_text)
         places_fence = web_search_service.format_places_fence(ctx.search_sources)
         if places_fence and not (should_cancel and should_cancel()):
+            assistant_parts[:] = [assistant_text] if assistant_text.strip() else []
             assistant_parts.append(places_fence)
-            yield places_fence
             assistant_text = "".join(assistant_parts).strip()
+            if result is not None:
+                result["final_content"] = assistant_text
 
     if ctx.instant_reply and not usage:
         usage["output_tokens"] = estimate_tokens(assistant_text)

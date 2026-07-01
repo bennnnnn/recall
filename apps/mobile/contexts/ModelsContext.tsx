@@ -8,36 +8,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { AppState, type AppStateStatus } from "react-native";
 
 import { useAuthOptional } from "@/contexts/AuthContext";
 import { api, type ModelInfo } from "@/lib/api";
+import { MODEL_CATALOG_FALLBACK } from "@/lib/modelCatalogFallback";
 
 export const AUTO_MODEL_ID = "auto";
-
-const FALLBACK_MODELS: ModelInfo[] = [
-  {
-    id: "free-chat",
-    label: "DeepSeek Chat",
-    provider: "deepseek",
-    tier: "fast",
-    plan_access: "free",
-    description: "",
-    available: true,
-    input_price_per_m: null,
-    output_price_per_m: null,
-  },
-  {
-    id: "smart-chat",
-    label: "DeepSeek Reasoner",
-    provider: "deepseek",
-    tier: "smart",
-    plan_access: "pro",
-    description: "",
-    available: true,
-    input_price_per_m: null,
-    output_price_per_m: null,
-  },
-];
 
 export function defaultModelPreferences(
   models: ModelInfo[],
@@ -59,6 +36,7 @@ export function buildModelPreferences(
 
 type ModelsContextValue = {
   models: ModelInfo[];
+  loading: boolean;
   refresh: () => Promise<void>;
   labelFor: (id: string | null | undefined) => string;
   isPro: boolean;
@@ -75,7 +53,8 @@ export function ModelsProvider({ children }: { children: ReactNode }) {
   const auth = useAuthOptional();
   const token = auth?.token;
   const user = auth?.user;
-  const [models, setModels] = useState<ModelInfo[]>(FALLBACK_MODELS);
+  const [models, setModels] = useState<ModelInfo[]>(MODEL_CATALOG_FALLBACK);
+  const [loading, setLoading] = useState(false);
   const inflightRef = useRef<Promise<void> | null>(null);
 
   const refresh = useCallback(async () => {
@@ -84,11 +63,17 @@ export function ModelsProvider({ children }: { children: ReactNode }) {
       await inflightRef.current;
       return;
     }
+    setLoading(true);
     const task = (async () => {
       try {
-        setModels(await api.listModels(token));
+        const fetched = await api.listModels(token);
+        if (fetched.length > 0) {
+          setModels(fetched);
+        }
       } catch {
-        /* keep fallback list */
+        /* keep last list (fallback or prior fetch) */
+      } finally {
+        setLoading(false);
       }
     })();
     inflightRef.current = task;
@@ -102,6 +87,15 @@ export function ModelsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (!token) return;
+    const onAppState = (state: AppStateStatus) => {
+      if (state === "active") void refresh();
+    };
+    const sub = AppState.addEventListener("change", onAppState);
+    return () => sub.remove();
+  }, [refresh, token]);
 
   const isPro = user?.plan === "pro";
 
@@ -127,6 +121,7 @@ export function ModelsProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       models,
+      loading,
       refresh,
       labelFor,
       isPro,
@@ -138,6 +133,7 @@ export function ModelsProvider({ children }: { children: ReactNode }) {
     }),
     [
       models,
+      loading,
       refresh,
       labelFor,
       isPro,

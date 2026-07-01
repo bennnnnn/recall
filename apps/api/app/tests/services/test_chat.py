@@ -10,6 +10,7 @@ from app.services.chat import (
     format_user_name_only_block,
     format_user_profile_block,
     is_broad_self_question,
+    is_writing_deliverable_request,
     max_output_tokens_for_style,
 )
 
@@ -17,6 +18,63 @@ from app.services.chat import (
 def test_estimate_tokens_minimum():
     assert estimate_tokens("") == 1
     assert estimate_tokens("hello") == 1
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("Send me an email to my wife", True),
+        ("email my boss about PTO", True),
+        ("what is Python", False),
+    ],
+)
+def test_is_writing_deliverable_request(text: str, expected: bool):
+    assert is_writing_deliverable_request(text) is expected
+
+
+@pytest.mark.asyncio
+async def test_build_prompt_includes_email_draft_hint_for_email_request():
+    user = MagicMock()
+    user.name = "Test User"
+    user.email = "test@example.com"
+    user.location = None
+    user.response_style = "balanced"
+    user.memory_enabled = True
+    user.locale = "en"
+    user.timezone = None
+
+    session = AsyncMock()
+
+    with (
+        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=None)),
+        patch(
+            "app.services.chat.memory_service.get_memory_block",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.chat.todos_service.build_todos_system_section",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.chat.projects_service.load_projects_for_prompt",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.chat.messages_repo.list_recent",
+            AsyncMock(return_value=[]),
+        ),
+    ):
+        messages = await build_prompt_messages(
+            session,
+            user,
+            uuid4(),
+            Settings(),
+            query_text="Send an email to my wife",
+        )
+
+    system = messages[0]["content"]
+    assert "Email and message drafting" in system
+    assert "draft immediately" in system.lower()
 
 
 @pytest.mark.asyncio
@@ -278,6 +336,7 @@ async def test_build_prompt_minimal_for_who_am_i():
     user.name = "Binalfew Mecuriaw"
     user.email = "secret@example.com"
     user.location = "San Francisco, CA"
+    user.location_enabled = True
     user.response_style = "balanced"
     user.response_tone = "funny"
     user.memory_enabled = True
@@ -309,6 +368,7 @@ async def test_build_prompt_minimal_for_vocab_quiz_answer():
     user.name = "Binalfew Mecuriaw"
     user.email = "secret@example.com"
     user.location = "San Francisco, CA"
+    user.location_enabled = True
     user.response_style = "balanced"
     user.response_tone = "funny"
     user.memory_enabled = True
@@ -687,6 +747,7 @@ async def test_stream_places_query_without_location_prompts_to_enable():
     fake_user.default_model = "free-chat"
     fake_user.response_style = "balanced"
     fake_user.location = ""  # no location set
+    fake_user.location_enabled = False
 
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
@@ -736,6 +797,72 @@ async def test_stream_places_query_without_location_prompts_to_enable():
     assert any("Settings" in t and "location" in t.lower() for t in yielded), yielded
     # Web search must be skipped (no guessing "near me").
     augment.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_stream_places_query_uses_client_location_without_profile():
+    """Ephemeral client GPS should run web search instead of the enable-location block."""
+    from app.services import chat as chat_module
+
+    fake_user = MagicMock()
+    fake_user.id = MagicMock()
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+    fake_user.location = ""
+    fake_user.location_enabled = False
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+    fake_chat.summary = None
+
+    augment = AsyncMock(return_value=([{"role": "system", "content": "sys"}], []))
+
+    async def fake_stream(**kwargs):
+        yield "answer"
+
+    with (
+        patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.services.chat.users_repo.update", AsyncMock(return_value=fake_user)),
+        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.services.chat.messages_repo.count_for_chat", AsyncMock(return_value=0)),
+        patch("app.services.chat.messages_repo.create", AsyncMock()),
+        patch(
+            "app.services.chat.build_prompt_messages",
+            AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
+        ),
+        patch("app.services.chat.calendar_service.is_connected", AsyncMock(return_value=False)),
+        patch(
+            "app.services.chat.calendar_service.load_calendar_for_prompt",
+            AsyncMock(return_value=None),
+        ),
+        patch("app.services.chat.email_service.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.chat.email_service.load_gmail_context", AsyncMock(return_value=None)),
+        patch(
+            "app.services.chat.email_service.load_gmail_for_prompt", AsyncMock(return_value=None)
+        ),
+        patch("app.services.chat.messages_repo.recent_user_contents", AsyncMock(return_value=[])),
+        patch("app.services.chat.web_search_service.augment_prompt_messages", augment),
+        patch("app.services.chat.litellm_gateway.stream_chat_completion", fake_stream),
+        patch("app.services.chat.quota_service.adjust_usage", AsyncMock()),
+        patch("app.services.chat.usage_repo.add_tokens", AsyncMock()),
+        patch("app.services.chat.chats_repo.touch_by_id", AsyncMock()),
+        patch("app.services.chat.jobs.enqueue", AsyncMock()),
+    ):
+        yielded: list[str] = []
+        async for tok in chat_module.stream_chat_response(
+            AsyncMock(),
+            Settings(max_output_tokens=100),
+            user_id=fake_user.id,
+            chat_id=MagicMock(),
+            content="best restaurants near me",
+            client_location="San Francisco, CA",
+        ):
+            yielded.append(tok)
+
+    assert not any("Settings" in t for t in yielded), yielded
+    augment.assert_awaited_once()
+    assert augment.await_args.kwargs["user_location"] == "San Francisco, CA"
 
 
 @pytest.mark.asyncio
@@ -809,6 +936,7 @@ def test_format_user_profile_block_includes_fields():
     user.name = "Ada Lovelace"
     user.email = "ada@example.com"
     user.location = "London"
+    user.location_enabled = True
     block = format_user_profile_block(user)
     assert "Ada Lovelace" in block
     assert "ada@example.com" in block

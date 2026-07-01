@@ -1,13 +1,50 @@
-import type { ProjectDetail } from "@/lib/api";
+import type { LanguageLevel, ProjectDetail } from "@/lib/api";
 import { isLanguageProject, levelLabel } from "@/lib/languageLevels";
 import { VOCAB_QUIZ_FORMAT_BLOCK } from "@/lib/vocabQuizFormat";
 
 function progressLine(project: ProjectDetail): string {
-  const { stats } = project;
-  if (stats.total === 0) return "I have no words yet — help me add some first.";
+  const { stats, kind } = project;
+  if (stats.total === 0) {
+    if (kind === "math") return "I have no topics yet — help me add some first.";
+    if (isLanguageProject(kind)) return "I have no words yet — help me add some first.";
+    return "I have nothing tracked yet — help me add some first.";
+  }
+  if (isLanguageProject(kind)) {
+    return (
+      `${stats.mastered_count} mastered, ${stats.new_count} new words, ` +
+      `${stats.learning_count} learning, ${stats.due_for_review} due for review.`
+    );
+  }
+  if (kind === "math") {
+    return (
+      `${stats.mastered_count} concepts mastered, ${stats.new_count} new topics, ` +
+      `${stats.learning_count} in progress, ${stats.due_for_review} to review.`
+    );
+  }
   return (
     `${stats.mastered_count} mastered, ${stats.new_count} new, ` +
-    `${stats.learning_count} learning, ${stats.due_for_review} due for review.`
+    `${stats.learning_count} in progress, ${stats.due_for_review} due for review.`
+  );
+}
+
+/** Opens chat after a new English learning topic is created. */
+export function buildEnglishOnboardingPrompt(
+  title: string,
+  level: LanguageLevel,
+  focusLabels: string[],
+): string {
+  const lvl = levelLabel(level);
+  const focus = focusLabels.join(", ");
+  return (
+    `I just set up my "${title}" English learning topic.\n` +
+    `My level: ${lvl}.\n` +
+    `I want to focus on: ${focus}.\n\n` +
+    `You're my English tutor. Start by adding a small starter set of vocabulary words ` +
+    `matched to ${lvl} — about 5–8 high-frequency words I'll actually use. ` +
+    `Group them by part of speech and save them to this project.\n\n` +
+    `Then check in: does this feel too easy, too hard, or about right? ` +
+    `If I'm unsure, offer to adjust my level up or down.\n\n` +
+    `After that, we'll work toward my focus areas (${focus}) — but lead with vocabulary today.`
   );
 }
 

@@ -16,6 +16,7 @@ type Props = {
   quizLanguage: string;
   quizAnswers: Partial<Record<string, QuizChoice["letter"]>>;
   highlightedMessageId: string | null;
+  sendingMessageId: string | null;
   quizDisabled: boolean;
   onRegenerate: (model: string) => void;
   onEdit: (message: Message) => void;
@@ -34,6 +35,7 @@ export const ChatMessageRow = memo(function ChatMessageRow({
   quizLanguage,
   quizAnswers,
   highlightedMessageId,
+  sendingMessageId,
   quizDisabled,
   onRegenerate,
   onEdit,
@@ -68,6 +70,7 @@ export const ChatMessageRow = memo(function ChatMessageRow({
       quizLanguage={quizLanguage}
       quizSelectedLetter={quizAnswers[item.id] ?? null}
       highlighted={item.id === highlightedMessageId}
+      isSending={item.id === sendingMessageId}
     />
   );
 });

@@ -7,6 +7,7 @@ export type PlaceItem = {
 };
 
 const PLACES_FENCE_RE = /```places\s*\n([\s\S]*?)```/gi;
+const PLACES_JSON_FENCE_RE = /```json\s*\n([\s\S]*?)```/gi;
 const PRICE_IN_NOTE_RE = /\(\s*\$+\s*\)/;
 const NUMBERED_LINE_RE = /^\s*\d+\.\s+/;
 const SECTION_HEADING_RE = /^\s*#{1,6}\s+/;
@@ -117,16 +118,35 @@ export function parseAllPlacesFences(content: string): PlaceItem[] {
   return places;
 }
 
-/** Unified venue list — only from explicit ```places fences (never guess from prose). */
-export function resolvePlaces(content: string): PlaceItem[] {
-  if (!content.includes("```places")) return [];
-  return parseAllPlacesFences(content);
+/** Hide ```places / ```json venue blocks from markdown (incl. while streaming). */
+export function stripGeoFenceBlocks(text: string): string {
+  return text
+    .replace(/```(?:places|json)\s*\n[\s\S]*?(?:```|$)/gi, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trimEnd();
 }
 
-/** Remove ```places fence from prose (leave markdown body intact). */
+/** Unified venue list — ```places fences, or ```json arrays the model mis-tagged. */
+export function resolvePlaces(content: string): PlaceItem[] {
+  const fromPlaces = parseAllPlacesFences(content);
+  if (fromPlaces.length > 0) return fromPlaces;
+  return parsePlacesJsonFences(content);
+}
+
+/** Remove places/json venue fences from prose (leave markdown body intact). */
 export function stripPlacesContent(content: string, places: PlaceItem[]): string {
   if (places.length === 0) return content;
-  return content.replace(PLACES_FENCE_RE, "").replace(/\n{3,}/g, "\n\n").trimEnd();
+  let stripped = content.replace(PLACES_FENCE_RE, "");
+  if (stripped.includes("```json")) {
+    stripped = stripped.replace(PLACES_JSON_FENCE_RE, (block, raw: string) => {
+      try {
+        return looksLikePlacesArray(JSON.parse(String(raw).trim())) ? "" : block;
+      } catch {
+        return block;
+      }
+    });
+  }
+  return stripped.replace(/\n{3,}/g, "\n\n").trimEnd();
 }
 
 /** Google Maps search/deep link — opens Maps on iOS and Android. */
@@ -172,6 +192,31 @@ export function resolvePlaceLinkUrl(place: Pick<PlaceItem, "name" | "url" | "add
   const name = place.name.trim();
   const address = place.address?.trim() ?? "";
   return googleMapsSearchUrl(mapsQueryForPlace(name, address));
+}
+
+function looksLikePlacesArray(parsed: unknown): boolean {
+  if (!Array.isArray(parsed) || parsed.length === 0) return false;
+  return parsed.every((item) => {
+    if (!item || typeof item !== "object") return false;
+    const row = item as Record<string, unknown>;
+    return typeof row.name === "string" && row.name.trim().length > 0;
+  });
+}
+
+function parsePlacesJsonFences(content: string): PlaceItem[] {
+  const places: PlaceItem[] = [];
+  for (const match of content.matchAll(PLACES_JSON_FENCE_RE)) {
+    const raw = match[1]?.trim() ?? "";
+    try {
+      const parsed = JSON.parse(raw);
+      if (looksLikePlacesArray(parsed)) {
+        places.push(...normalizePlaceRows(parsed));
+      }
+    } catch {
+      // ignore non-JSON fences
+    }
+  }
+  return places;
 }
 
 function normalizePlaceRows(parsed: unknown): PlaceItem[] {

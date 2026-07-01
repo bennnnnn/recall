@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import * as Clipboard from "expo-clipboard";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -37,6 +37,7 @@ import {
   stripTimeAnswerFences,
 } from "@/lib/timeQuestion";
 import { shouldCollapseMessage } from "@/lib/messageFold";
+import { SENDING_LABEL_DELAY_MS } from "@/lib/chatMessageLogic";
 import { Theme, useTheme } from "@/lib/theme";
 import { useTranslation } from "react-i18next";
 
@@ -57,6 +58,7 @@ type Props = {
   quizLanguage?: string;
   quizSelectedLetter?: "A" | "B" | "C" | "D" | null;
   highlighted?: boolean;
+  isSending?: boolean;
 };
 
 async function copyText(text: string) {
@@ -156,10 +158,21 @@ export const MessageBubble = React.memo(function MessageBubble({
   quizLanguage = "en",
   quizSelectedLetter = null,
   highlighted = false,
+  isSending = false,
 }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
   const b = useMemo(() => makeStyles(theme), [theme]);
+  const [showSendingLabel, setShowSendingLabel] = useState(false);
+
+  useEffect(() => {
+    if (!isSending) {
+      setShowSendingLabel(false);
+      return;
+    }
+    const timer = setTimeout(() => setShowSendingLabel(true), SENDING_LABEL_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [isSending]);
   const isUser = message.role === "user";
   const isStreaming = isGenerating;
   const content = liveContent ?? message.content;
@@ -199,8 +212,8 @@ export const MessageBubble = React.memo(function MessageBubble({
   );
   const showCalendarProposals = calendarProposals.length > 0 && !isStreaming;
   const places = useMemo(
-    () => (!isUser && hasContent ? resolvePlaces(content) : []),
-    [isUser, hasContent, content],
+    () => (!isUser && hasContent && !isStreaming ? resolvePlaces(content) : []),
+    [isUser, hasContent, isStreaming, content],
   );
   const showPlaces = places.length > 0;
   const markdownContent = useMemo(() => {
@@ -227,6 +240,9 @@ export const MessageBubble = React.memo(function MessageBubble({
       {isUser ? (
         <View style={b.userColumn}>
           <UserMessageContent message={message} />
+          {showSendingLabel ? (
+            <Text style={b.sendingLabel}>{t("chat.sending")}</Text>
+          ) : null}
           {canEdit && onEdit && !message.id.startsWith("local-") ? (
             <Pressable style={b.editBtn} onPress={() => onEdit(message)} hitSlop={8}>
               <Ionicons name="pencil-outline" size={16} color={theme.textTertiary} />
@@ -332,6 +348,12 @@ function makeStyles(t: Theme) {
     },
     userRow: { alignItems: "flex-end" },
     userColumn: { alignItems: "flex-end", maxWidth: "88%" },
+    sendingLabel: {
+      marginTop: 4,
+      marginRight: 4,
+      fontSize: 13,
+      color: t.textTertiary,
+    },
     editBtn: { marginTop: 2, marginRight: 4, padding: 4 },
     assistantRow: { alignItems: "stretch" },
     assistantBubble: {

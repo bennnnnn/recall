@@ -138,13 +138,25 @@ _PERSONAL_PLANNING = re.compile(
     re.IGNORECASE,
 )
 
-_LOCAL_PLACES = re.compile(
+# Proximity intent — any "near me / nearest / closest …" ask, not a venue-type list.
+_NEARBY_INTENT = re.compile(
     r"\b("
-    r"restaurants?|caf[eé]s?|coffee\s+shops?|bars?|bakeries?|bistros?"
-    r"|salons?|saloons?|barbers?|spas?"
-    r"|food|dining|brunch|lunch|dinner|takeout|delivery"
-    r"|places?\s+to\s+eat|where\s+(?:should\s+(?:I|we)\s+)?(?:to\s+)?eat|what\s+(?:to\s+)?eat"
-    r"|near\s+me|nearby|around\s+here|in\s+town"
+    r"near\s+me|nearby|around\s+here|in\s+(?:this\s+)?town"
+    r"|close\s+(?:by|to\s+me)"
+    r"|(?:the\s+)?(?:nearest|closest)\b"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# "Nearest" used for abstract/math/social things — not a maps search.
+_NON_GEOGRAPHIC_NEAREST = re.compile(
+    r"\b(?:nearest|closest)\b.+\b("
+    r"number|numbers|integer|prime|multiple|"
+    r"match|deadline|"
+    r"star|planet|galaxy|sun|moon|"
+    r"approach|analogy|synonym|equivalent|"
+    r"friend|relative|cousin|neighbor|neighbour|"
+    r"guess|approximation|solution|competitor|rival"
     r")\b",
     re.IGNORECASE,
 )
@@ -154,18 +166,127 @@ _BEST_NEAR = re.compile(
     re.IGNORECASE,
 )
 
+# Implicit nearby intent without saying "near me" (e.g. "where should I eat tonight?").
+_IMPLICIT_LOCAL = re.compile(
+    r"\b(?:"
+    r"where\s+(?:should|can|do)\s+(?:I|we)\s+(?:eat|get|find|go|stay|park)"
+    r"|where\s+to\s+(?:eat|go|get|stay|park)"
+    r"|what(?:'s| is)\s+(?:good|open)\s+(?:around|near|nearby)"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# Real-estate asks that need sale/rent/address clarified — not generic "places near me".
+_AMBIGUOUS_NEARBY_SUBJECT = re.compile(
+    r"\b(?:"
+    r"house|houses|home|homes|property|properties|building|buildings"
+    r"|apartment|apartments|condo|condos|flat|flats|unit|units"
+    r")\b",
+    re.IGNORECASE,
+)
+
+_QUALIFIED_NEARBY = re.compile(
+    r"\b(?:"
+    r"for\s+sale|to\s+(?:buy|rent|lease)|for\s+rent|rentals?|buying|leasing"
+    r"|open\s+(?:now|today)|24\s*hours?"
+    r"|near\s+\d|at\s+\d|from\s+\d|\d+\s+\w+\s+(?:st|street|ave|avenue|rd|road|blvd|dr|drive|way|ln|lane)\b"
+    r")\b",
+    re.IGNORECASE,
+)
+
+_PROXIMITY_PHRASES = (
+    r"\bnear\s+me\b",
+    r"\bnearby\b",
+    r"\baround\s+here\b",
+    r"\bin(?:\s+this)?\s+town\b",
+    r"\bclose\s+(?:by|to\s+me)\b",
+    r"\b(?:the\s+)?(?:nearest|closest)\b",
+    r"\bbest\b",
+)
+
 _QUIZ_ANSWER = re.compile(r"^[A-D]\.?$", re.IGNORECASE)
 
+# Distance / travel from the user's location — venue-agnostic.
+_DISTANCE_INTENT = re.compile(
+    r"\b("
+    r"how\s+far"
+    r"|how\s+many\s+(?:miles|kilometers|kilometres|km|minutes|mins)"
+    r"|(?:walking|driving|drive|travel|commute)\s+(?:distance|time)"
+    r"|distance\s+(?:to|from)"
+    r"|how\s+long\s+(?:to\s+get|does\s+it\s+take|is\s+the\s+(?:drive|trip|walk))"
+    r"|(?:miles|km|kilometers?|kilometres?|minutes?)\s+(?:away|from\s+(?:me|here))"
+    r"|directions?\s+to"
+    r")\b",
+    re.IGNORECASE,
+)
 
-def is_local_places_query(text: str) -> bool:
+_FROM_USER = re.compile(
+    r"\b(?:from\s+(?:me|here|my\s+(?:location|place))|to\s+me|where\s+i\s+am)\b",
+    re.IGNORECASE,
+)
+
+_DISTANCE_BETWEEN = re.compile(r"\bdistance\b.+\bbetween\b", re.IGNORECASE)
+
+
+def _subject_without_proximity(cleaned: str) -> str:
+    subject = cleaned.strip()
+    for pattern in _PROXIMITY_PHRASES:
+        subject = re.sub(pattern, " ", subject, flags=re.IGNORECASE)
+    return " ".join(subject.split()).strip(" ?.!")
+
+
+def is_proximity_query(text: str) -> bool:
+    """Find something near the user — any category (restaurant, hospital, casino, …)."""
     cleaned = text.strip()
     if not cleaned:
         return False
-    if _LOCAL_PLACES.search(cleaned):
+    if _NON_GEOGRAPHIC_NEAREST.search(cleaned):
+        return False
+    if _NEARBY_INTENT.search(cleaned):
         return True
-    return bool(
-        _BEST_NEAR.search(cleaned) and _LOCAL_PLACES.search(cleaned) is None and "?" in cleaned
-    )
+    if _IMPLICIT_LOCAL.search(cleaned):
+        return True
+    return bool(_BEST_NEAR.search(cleaned) and "?" in cleaned)
+
+
+def is_distance_query(text: str) -> bool:
+    """Distance, travel time, or directions from the user's location."""
+    cleaned = text.strip()
+    if not cleaned or not _DISTANCE_INTENT.search(cleaned):
+        return False
+    if _DISTANCE_BETWEEN.search(cleaned) and not _FROM_USER.search(cleaned):
+        return False
+    return True
+
+
+def is_geo_query(text: str) -> bool:
+    """Any query that needs the user's location — places OR distance. Venue-agnostic."""
+    return is_proximity_query(text) or is_distance_query(text)
+
+
+def is_places_list_query(text: str) -> bool:
+    """Render the native ```places card (find venues, not mileage-only answers)."""
+    if is_ambiguous_local_places_query(text):
+        return False
+    return is_proximity_query(text)
+
+
+def is_local_places_query(text: str) -> bool:
+    """Backward-compatible alias — prefer is_geo_query / is_places_list_query."""
+    return is_proximity_query(text)
+
+
+def is_ambiguous_local_places_query(text: str) -> bool:
+    """Nearby intent but missing sale/rent/address/etc. — ask before web search."""
+    cleaned = text.strip()
+    if not is_proximity_query(cleaned):
+        return False
+    if _QUALIFIED_NEARBY.search(cleaned):
+        return False
+    subject = _subject_without_proximity(cleaned)
+    if not subject:
+        return False
+    return _AMBIGUOUS_NEARBY_SUBJECT.search(subject) is not None
 
 
 def is_vocab_quiz_answer(text: str) -> bool:
@@ -229,8 +350,10 @@ WEB_SEARCH_HINT = (
     "did not qualify or has no match in that tournament, say so clearly. "
     "Do NOT offer fictional results, tournament-schedule guesses, or 'probably Matchday X' "
     "speculation. "
-    "When the user asks about restaurants, cafés, hair salons, or other local venues, "
-    "give a one-sentence intro then a ```places fence with JSON (see format hint). "
+    "When the user asks for anything nearby or at a distance (venues, directions, "
+    "how far, travel time), give a one-sentence intro then a ```places fence with JSON "
+    "when listing findable places (see format hint). For mileage-only answers, state "
+    "distance and time in prose — no ```places fence. "
     "The app renders places blocks natively — do NOT also hand-format a markdown list. "
     "If you must use markdown links instead, use [Name](https://url) with parentheses "
     "around the URL — never $url$ delimiters."
@@ -341,7 +464,7 @@ def needs_web_search(
         return True
     if _RECENCY.search(cleaned) and len(cleaned.split()) >= 6:
         return True
-    if is_local_places_query(cleaned):
+    if is_geo_query(cleaned):
         return True
     return False
 
@@ -436,13 +559,35 @@ def _is_team_specific_sports_query(cleaned: str) -> bool:
     )
 
 
-def _local_places_queries(cleaned: str, user_location: str | None) -> list[str]:
+def _geo_located_queries(
+    cleaned: str,
+    user_location: str | None,
+    *,
+    latitude: float | None = None,
+    longitude: float | None = None,
+) -> list[str]:
     query = _QUERY_PREFIX.sub("", cleaned.strip()).strip(" ?.!")
     loc = (user_location or "").strip()
-    if loc:
-        if re.search(r"\bnear me\b", query, re.I):
-            query = re.sub(r"\bnear me\b", f"near {loc}", query, flags=re.I)
-        elif loc.lower() not in query.lower():
+    coord = (
+        f"{latitude:.5f},{longitude:.5f}"
+        if latitude is not None and longitude is not None
+        else None
+    )
+    anchor = coord or loc
+    if anchor:
+        for pattern, repl in (
+            (r"\bnear me\b", f"near {anchor}"),
+            (r"\bnearby\b", f"near {anchor}"),
+            (r"\baround here\b", f"near {anchor}"),
+            (r"\bin(?:\s+this)?\s+town\b", f"in {loc or anchor}"),
+            (r"\bclose to me\b", f"near {anchor}"),
+            (r"\bfrom me\b", f"from {anchor}"),
+            (r"\bfrom here\b", f"from {anchor}"),
+        ):
+            query = re.sub(pattern, repl, query, flags=re.I)
+        if anchor.lower() not in query.lower():
+            query = f"{query} {anchor}"
+        if loc and loc.lower() not in query.lower():
             query = f"{query} {loc}"
     primary = query or cleaned
     return [primary, f"{primary} official website address"]
@@ -453,6 +598,8 @@ def build_search_queries(
     *,
     user_timezone: str | None = None,
     user_location: str | None = None,
+    latitude: float | None = None,
+    longitude: float | None = None,
     prior_user_messages: list[str] | None = None,
 ) -> list[str]:
     subject = resolve_search_subject(text, prior_user_messages=prior_user_messages)
@@ -511,8 +658,13 @@ def build_search_queries(
             prior_user_messages=None,
         )
 
-    if is_local_places_query(subject) or is_local_places_query(current):
-        return _local_places_queries(cleaned or current, user_location)
+    if is_geo_query(subject) or is_geo_query(current):
+        return _geo_located_queries(
+            cleaned or current,
+            user_location,
+            latitude=latitude,
+            longitude=longitude,
+        )
 
     fallback = cleaned or current
     return [fallback] if fallback else []
@@ -523,29 +675,35 @@ def build_search_query(
     *,
     user_timezone: str | None = None,
     user_location: str | None = None,
+    latitude: float | None = None,
+    longitude: float | None = None,
     prior_user_messages: list[str] | None = None,
 ) -> str:
     queries = build_search_queries(
         text,
         user_timezone=user_timezone,
         user_location=user_location,
+        latitude=latitude,
+        longitude=longitude,
         prior_user_messages=prior_user_messages,
     )
     return queries[0] if queries else text.strip()
 
 
-def _local_places_is_active(*texts: str) -> bool:
-    return any(is_local_places_query(t.strip()) for t in texts if t and t.strip())
+def _geo_is_active(*texts: str) -> bool:
+    return any(is_geo_query(t.strip()) for t in texts if t and t.strip())
+
+
+def _places_list_is_active(*texts: str) -> bool:
+    return any(is_places_list_query(t.strip()) for t in texts if t and t.strip())
 
 
 def format_location_not_set_answer() -> str:
-    """Deterministic reply for a 'near me' / places query when the user has no
-    location set — ask them to enable location (or share their city) instead of
-    running a vague search and guessing."""
+    """No user location for a geo query — ask to enable location instead of guessing."""
     return (
-        "I don't have your location yet, so I can't find places 'near me'.\n\n"
-        "To get accurate nearby results, enable location in **Settings → Location** "
-        "(or just tell me your city in this chat), then ask again."
+        "I don't have your location yet, so I can't answer nearby or distance questions "
+        "accurately.\n\n"
+        "Turn on **Location** in **Settings** (or allow location when prompted), then ask again."
     )
 
 
@@ -608,7 +766,7 @@ def format_search_block(
 
 
 LOCAL_PLACES_FORMAT_HINT = (
-    "Local places output (restaurants, salons, shops, etc.):\n"
+    "Local places output (any nearby venue the user asked for):\n"
     "- One short intro sentence, then ONLY a ```places JSON fence — no duplicate markdown list.\n"
     '- Schema: [{"name":"Venue","url":"https://www.google.com/maps/search/?api=1&query=...",'
     '"note":"rating/cuisine","address":"street, city","price":"$$"}]\n'
@@ -616,6 +774,24 @@ LOCAL_PLACES_FORMAT_HINT = (
     "Never use generic Yelp/Google search pages.\n"
     "- address is required when the snippet mentions a street or neighborhood.\n"
     "- price is optional plain text like $, $$, or $$$ — never inside the url field."
+)
+
+AMBIGUOUS_NEARBY_HINT = (
+    "The user's nearby request is underspecified (e.g. 'nearest house' without sale vs rent "
+    "vs a specific address). Do NOT web-search or guess listings yet. Ask 1-3 concise "
+    "clarifying questions — e.g. homes for sale near their location, rentals, or nearest to "
+    "a specific address. No ```places fence and no listing links until they clarify."
+)
+
+GEO_DISTANCE_HINT = (
+    "Distance / travel query: use the user's location and search results. Give concrete "
+    "miles or km and drive/walk time when available. Do NOT use a ```places fence unless "
+    "they also asked to find venues."
+)
+
+GEO_ACTIVE_LOCATION_HINT = (
+    "The user's current device location for this nearby/distance query is shown above. "
+    "Use that location in your answer — do not substitute another city from memory or profile."
 )
 
 
@@ -677,6 +853,35 @@ def format_places_fence(hits: list[WebSearchHit]) -> str:
     if not payload:
         return ""
     return f"\n\n```places\n{json.dumps(payload, ensure_ascii=False)}\n```"
+
+
+_NUMBERED_VENUE_LINE = re.compile(r"^\s*\d+\.\s+")
+
+
+def strip_duplicate_venue_list(text: str) -> str:
+    """Drop model-numbered venue lists when the app renders a ```places block."""
+    lines = text.split("\n")
+    out: list[str] = []
+    index = 0
+    while index < len(lines):
+        if _NUMBERED_VENUE_LINE.match(lines[index]):
+            run_end = index
+            count = 0
+            while run_end < len(lines):
+                line = lines[run_end]
+                if _NUMBERED_VENUE_LINE.match(line):
+                    count += 1
+                    run_end += 1
+                elif not line.strip():
+                    run_end += 1
+                else:
+                    break
+            if count >= 2:
+                index = run_end
+                continue
+        out.append(lines[index])
+        index += 1
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip()
 
 
 def format_sources_fence(hits: list[WebSearchHit]) -> str:
@@ -794,6 +999,8 @@ async def augment_prompt_messages(
     *,
     user_timezone: str | None = None,
     user_location: str | None = None,
+    latitude: float | None = None,
+    longitude: float | None = None,
     prior_user_messages: list[str] | None = None,
 ) -> tuple[list[dict[str, str]], list[WebSearchHit]]:
     prior_user = prior_user_messages or _prior_user_messages(messages, user_content)
@@ -805,6 +1012,8 @@ async def augment_prompt_messages(
         user_content,
         user_timezone=user_timezone,
         user_location=user_location,
+        latitude=latitude,
+        longitude=longitude,
         prior_user_messages=prior_user,
     )
     hits, tried = await _run_search(settings, queries)
@@ -815,11 +1024,14 @@ async def augment_prompt_messages(
             if team:
                 break
     hits = _prioritize_team_hits(hits, team) if team else hits
-    local_places = _local_places_is_active(user_content, subject)
+    local_places = _places_list_is_active(user_content, subject)
+    geo_query = _geo_is_active(user_content, subject)
     if hits:
         block = format_search_block(
             hits, team=team, local_places=local_places, user_location=user_location
         )
+        if geo_query and not local_places:
+            block = f"{block}\n\n{GEO_DISTANCE_HINT}"
     else:
         block = format_search_empty_block(tried, local_places=local_places)
     return _inject_before_last_user(messages, block), hits

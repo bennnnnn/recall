@@ -47,16 +47,7 @@ function RootNavigator() {
           headerLeft: () => <StackBackButton />,
         }}
       />
-      <Stack.Screen
-        name="settings"
-        options={{
-          ...header,
-          headerShown: true,
-          title: t("settings.title"),
-          headerBackVisible: false,
-          headerLeft: () => <StackBackButton />,
-        }}
-      />
+      <Stack.Screen name="settings" options={{ headerShown: false }} />
       <Stack.Screen
         name="privacy"
         options={{

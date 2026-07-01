@@ -5,7 +5,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { openDrawer, openDrawerSearch, registerNewChat } from "@/lib/drawer";
+import { openDrawer, registerNewChat } from "@/lib/drawer";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -22,7 +22,6 @@ import {
 import { ChatMessageList } from "@/components/chat/ChatMessageList";
 import { ChatScrollFab } from "@/components/chat/ChatScrollFab";
 import { ComposerPickerBackdrop } from "@/components/chat/ComposerPickerBackdrop";
-import { TemplatesSheet } from "@/components/TemplatesSheet";
 import { ChatActionsSheet } from "@/components/ChatActionsSheet";
 import { ChatRenameSheet } from "@/components/ChatRenameSheet";
 import { ActionBanner } from "@/components/ActionBanner";
@@ -47,7 +46,7 @@ import { useTodosOptional } from "@/contexts/TodosContext";
 import { isComposerMenuOverlayOpen } from "@/lib/chatComposerLogic";
 
 function ChatScreen() {
-  const { token } = useAuth();
+  const { token, user, mergeUser } = useAuth();
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeS(C), [C]);
@@ -63,8 +62,6 @@ function ChatScreen() {
   const { isPro, labelFor, autoEnabled, modelEnabledSet, AUTO_MODEL_ID } = useModels();
   const { unseenCount, showIndicator } = useReminderBadgeCount({ enabled: Boolean(token) });
   const [upgradeVisible, setUpgradeVisible] = useState(false);
-  const [templatesVisible, setTemplatesVisible] = useState(false);
-
   const draft = useDraftChat({ token, chatId });
   const activeChatId = draft.activeChatId;
 
@@ -97,6 +94,7 @@ function ChatScreen() {
     setMessages,
     streaming,
     streamingDraft,
+    sendingMessageId,
     sendMessage,
     regenerateResponse,
     editMessage,
@@ -197,14 +195,12 @@ function ChatScreen() {
   } = chatActions;
 
   const composer = useChatComposerState({
-    isPro,
     autoEnabled,
     modelEnabledSet,
     labelFor,
     autoModelId: AUTO_MODEL_ID,
     t,
     closeAttachSheetRef,
-    onRequestUpgrade: () => setUpgradeVisible(true),
   });
 
   const { selectedModel, ...composerUi } = composer;
@@ -225,6 +221,8 @@ function ChatScreen() {
     pendingLaunch,
     setPendingLaunch,
     pendingLaunchRef,
+    user,
+    mergeUser,
     t,
   });
 
@@ -244,20 +242,17 @@ function ChatScreen() {
     handleQuizAnswer,
     handleEditMessage,
     creatingRef,
+    pendingOutboundId,
   } = send;
 
   closeAttachSheetRef.current = () => setAttachSheetOpen(false);
 
   const {
-    showPlanPicker,
     showModelPicker,
-    planLabel,
     modelOptions,
     selectedModelLabel,
     closePickers: closeComposerPickers,
-    togglePlanPicker,
     toggleModelPicker,
-    selectPlan,
     selectModel,
   } = composerUi;
 
@@ -298,6 +293,7 @@ function ChatScreen() {
     selectedModel,
     quizLanguage,
     highlightedMessageId,
+    sendingMessageId: sendingMessageId ?? pendingOutboundId,
     creatingRef,
     chatTitle,
     titleGenerating,
@@ -332,7 +328,7 @@ function ChatScreen() {
     emptyHeight,
   } = layout;
   listBottomPadRef.current = listBottomPad;
-  const menuOverlayOpen = isComposerMenuOverlayOpen(attachSheetOpen, showPlanPicker);
+  const menuOverlayOpen = isComposerMenuOverlayOpen(attachSheetOpen);
 
   return (
     <>
@@ -378,7 +374,6 @@ function ChatScreen() {
           onScroll={handleScroll}
           onScrollEnd={handleScrollEnd}
           onSelectStarter={handleSend}
-          onOpenTemplates={() => setTemplatesVisible(true)}
           header={
             !drawerOpen ? (
               <ChatHeader
@@ -392,7 +387,6 @@ function ChatScreen() {
                 unseenCount={unseenCount}
                 hasMessages={messages.length > 0}
                 onOpenDrawer={openDrawer}
-                onOpenSearch={openDrawerSearch}
                 onOpenReminders={() =>
                   router.push({ pathname: "/todos", params: { focus: "reminders" } })
                 }
@@ -411,7 +405,7 @@ function ChatScreen() {
         />
 
         <ComposerPickerBackdrop
-          visible={(showPlanPicker || showModelPicker || attachSheetOpen) && !drawerOpen}
+          visible={(showModelPicker || attachSheetOpen) && !drawerOpen}
           onClose={closeComposerPickers}
         />
 
@@ -431,17 +425,12 @@ function ChatScreen() {
             setEditingMessageId(null);
             setInput("");
           }}
-          showPlanPicker={showPlanPicker}
           showModelPicker={showModelPicker}
           attachSheetOpen={attachSheetOpen}
-          isPro={isPro}
-          planLabel={planLabel}
           modelOptions={modelOptions}
           selectedModel={selectedModel}
           selectedModelLabel={selectedModelLabel}
-          onTogglePlanPicker={togglePlanPicker}
           onToggleModelPicker={toggleModelPicker}
-          onSelectPlan={selectPlan}
           onSelectModel={selectModel}
           onClosePickers={closeComposerPickers}
           onPickAttachment={handlePickAttachment}
@@ -450,12 +439,6 @@ function ChatScreen() {
           onStop={stopGeneration}
         />
 
-        <TemplatesSheet
-          visible={templatesVisible}
-          token={token}
-          onClose={() => setTemplatesVisible(false)}
-          onSelect={(content) => void handleSend(content)}
-        />
         <UpgradeSheet visible={upgradeVisible} onClose={() => setUpgradeVisible(false)} />
       </View>
     </>

@@ -37,6 +37,7 @@ type AuthContextValue = {
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
   updateUser: (patch: Partial<User>) => Promise<void>;
+  mergeUser: (patch: Partial<User>) => void;
   onboarded: boolean;
   completeOnboarding: () => Promise<void>;
 };
@@ -169,6 +170,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [token],
   );
 
+  const mergeUser = useCallback((patch: Partial<User>) => {
+    setUser((current) => (current ? { ...current, ...patch } : current));
+  }, []);
+
   const value = useMemo(
     () => ({
       user,
@@ -179,6 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut,
       refreshUser,
       updateUser,
+      mergeUser,
       onboarded,
       completeOnboarding,
     }),
@@ -191,6 +197,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut,
       refreshUser,
       updateUser,
+      mergeUser,
       onboarded,
       completeOnboarding,
     ],

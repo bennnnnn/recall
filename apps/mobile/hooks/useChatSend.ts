@@ -15,11 +15,16 @@ import {
   buildPendingSendAfterCreate,
   shouldBlockSend,
 } from "@/lib/chatSendLogic";
+import { confirmGeoLocationAccess } from "@/lib/confirmGeoLocation";
+import type { ClientGeo } from "@/lib/clientGeo";
+import { ensureNearbyLocation } from "@/lib/ensureNearbyLocation";
+import { isAmbiguousLocalPlacesQuery, isGeoQuery } from "@/lib/localPlacesQuery";
 import {
   pickDocument,
   pickFromCamera,
   pickFromPhotoLibrary,
   uploadChatAttachment,
+  messageTextForSend,
   type PendingAttachment,
 } from "@/lib/attachments";
 
@@ -30,9 +35,11 @@ type SendMessageFn = (
   text: string,
   opts?: {
     skipUserBubble?: boolean;
+    trackSendingMessageId?: string;
     attachmentIds?: string[];
     localImageUri?: string | null;
     model?: string;
+    clientGeo?: ClientGeo | null;
   },
 ) => void;
 
@@ -52,6 +59,8 @@ type Options = {
   pendingLaunch: string | null;
   setPendingLaunch: React.Dispatch<React.SetStateAction<string | null>>;
   pendingLaunchRef: React.MutableRefObject<string | null>;
+  user: import("@/lib/api").User | null;
+  mergeUser: (patch: Partial<import("@/lib/api").User>) => void;
   t: (key: string) => string;
 };
 
@@ -71,6 +80,8 @@ export function useChatSend({
   pendingLaunch,
   setPendingLaunch,
   pendingLaunchRef,
+  user,
+  mergeUser,
   t,
 }: Options) {
   const {
@@ -87,20 +98,30 @@ export function useChatSend({
   const [attachBusy, setAttachBusy] = useState(false);
   const [attachSheetOpen, setAttachSheetOpen] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [pendingOutboundId, setPendingOutboundId] = useState<string | null>(null);
   const [pendingSend, setPendingSend] = useState<{
     text: string;
     skipUserBubble?: boolean;
+    trackSendingMessageId?: string;
     attachmentIds?: string[];
     localImageUri?: string | null;
+    clientGeo?: ClientGeo | null;
   } | null>(null);
 
   const attachPickInFlightRef = useRef(false);
 
   useEffect(() => {
     if (chatId && pendingSend) {
-      const { text, skipUserBubble, attachmentIds, localImageUri } = pendingSend;
+      const { text, skipUserBubble, trackSendingMessageId, attachmentIds, localImageUri, clientGeo } =
+        pendingSend;
       setPendingSend(null);
-      sendMessage(text, { skipUserBubble, attachmentIds, localImageUri });
+      sendMessage(text, {
+        skipUserBubble,
+        trackSendingMessageId,
+        attachmentIds,
+        localImageUri,
+        clientGeo,
+      });
     }
   }, [chatId, pendingSend, sendMessage]);
 
@@ -149,6 +170,22 @@ export function useChatSend({
       setInput("");
       newMessageCountRef.current += 1;
 
+      let clientGeo: ClientGeo | null = null;
+      if (isGeoQuery(text) && !isAmbiguousLocalPlacesQuery(text)) {
+        const allowed = await confirmGeoLocationAccess(t);
+        if (!allowed) {
+          setInput(text);
+          return;
+        }
+        clientGeo = await ensureNearbyLocation(authToken, text);
+        if (!clientGeo) {
+          setInput(text);
+          Alert.alert(t("chat.location_required_title"), t("chat.location_required_body"));
+          return;
+        }
+        mergeUser({ location: clientGeo.label, location_enabled: true });
+      }
+
       if (editingMessageId && chatId) {
         const editId = editingMessageId;
         setEditingMessageId(null);
@@ -160,6 +197,7 @@ export function useChatSend({
         creatingRef.current = true;
         const optimisticId = `local-${Date.now()}`;
         const createdAt = new Date().toISOString();
+        setPendingOutboundId(optimisticId);
         setMessages((prev) => [
           ...prev,
           buildOptimisticUserMessage({
@@ -179,9 +217,17 @@ export function useChatSend({
           setDraftChatId(null);
           router.setParams({ chatId: id });
           setPendingSend(
-            buildPendingSendAfterCreate({ text, attached, attachmentIds }),
+            buildPendingSendAfterCreate({
+              text,
+              attached,
+              attachmentIds,
+              optimisticId,
+              clientGeo,
+            }),
           );
+          setPendingOutboundId(null);
         } catch {
+          setPendingOutboundId(null);
           setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
           setInput(text);
         } finally {
@@ -190,15 +236,12 @@ export function useChatSend({
         return;
       }
       newMessageCountRef.current += 1;
-      sendMessage(
-        buildPendingSendAfterCreate({ text, attached, attachmentIds }).text,
-        {
-          attachmentIds,
-          localImageUri:
-            attached?.kind === "image" ? attached.localUri : null,
-          model: selectedModel,
-        },
-      );
+      sendMessage(messageTextForSend(text, attached), {
+        attachmentIds,
+        localImageUri: attached?.kind === "image" ? attached.localUri : null,
+        model: selectedModel,
+        clientGeo,
+      });
     },
     [
       input,
@@ -219,7 +262,8 @@ export function useChatSend({
       setDraftChatId,
       router,
       sendMessage,
-      t,
+      user,
+      mergeUser,
     ],
   );
 
@@ -318,5 +362,6 @@ export function useChatSend({
     handleQuizAnswer,
     handleEditMessage,
     creatingRef,
+    pendingOutboundId,
   };
 }

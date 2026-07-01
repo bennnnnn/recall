@@ -21,7 +21,8 @@ import {
   levelLabel,
 } from "@/lib/languageLevels";
 import { isProgrammingStack, programmingLanguageLabel } from "@/lib/programmingLanguages";
-import { buildProjectAskPrompt, buildProjectPracticePrompt, buildProjectQuizPrompt } from "@/lib/projectChat";
+import { formatProjectListTitle, isConceptProject, projectStatsLabels } from "@/lib/projectUi";
+import { buildProjectQuizPrompt } from "@/lib/projectChat";
 import {
   buildProgrammingNextUpPrompt,
   buildProgrammingStudyPrompt,
@@ -51,6 +52,7 @@ export default function ProjectDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [project, setProject] = useState<ProjectDetail | null>(null);
+  const [statsExpanded, setStatsExpanded] = useState(false);
 
   const load = useCallback(async () => {
     if (!token || typeof id !== "string") return;
@@ -126,7 +128,9 @@ export default function ProjectDetailScreen() {
 
   const isLang = isLanguageProject(project.kind);
   const isProgramming = project.kind === "programming";
+  const isConcept = isConceptProject(project.kind);
   const stats = project.stats;
+  const statLabels = projectStatsLabels(project.kind, t);
   const posGroups = isLang ? project.pos_groups ?? [] : [];
   const decks = isLang ? project.decks ?? [] : [];
 
@@ -171,12 +175,8 @@ export default function ProjectDetailScreen() {
     router.replace("/");
   };
 
-  const askRecall = () => launchChat(buildProjectAskPrompt(project));
-
   const quizWithRecall = () =>
     launchChat(buildProjectQuizPrompt(project), project.target_language || "en");
-
-  const practiceWithRecall = () => launchChat(buildProjectPracticePrompt(project));
 
   const studyProgrammingTopic = (topic: string) =>
     launchChat(buildProgrammingStudyPrompt(project, topic));
@@ -215,26 +215,51 @@ export default function ProjectDetailScreen() {
         ) : null}
       </View>
 
-      <View style={s.statsGrid}>
-        <View style={s.statCard}>
-          <Text style={s.statValue}>{stats.mastered_count}</Text>
-          <Text style={s.statLabel}>{t("projects.stats.learned")}</Text>
+      <Pressable
+        style={s.statsSection}
+        onPress={() => setStatsExpanded((open) => !open)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: statsExpanded }}
+      >
+        <View style={s.statsHeader}>
+          <Text style={s.statsHeaderTitle}>{t("projects.stats.progress")}</Text>
+          <Ionicons
+            name={statsExpanded ? "chevron-up" : "chevron-down"}
+            size={18}
+            color={theme.textTertiary}
+          />
         </View>
-        <View style={s.statCard}>
-          <Text style={s.statValue}>{stats.new_count}</Text>
-          <Text style={s.statLabel}>{t("projects.stats.new")}</Text>
-        </View>
-        <View style={s.statCard}>
-          <Text style={s.statValue}>{stats.added_this_week}</Text>
-          <Text style={s.statLabel}>{t("projects.stats.this_week")}</Text>
-        </View>
-        <View style={s.statCard}>
-          <Text style={[s.statValue, stats.due_for_review > 0 && s.statHighlight]}>
-            {stats.due_for_review}
+        {statsExpanded ? (
+          <View style={s.statsGrid}>
+            <View style={s.statCard}>
+              <Text style={s.statValue}>{stats.mastered_count}</Text>
+              <Text style={s.statLabel}>{statLabels.learned}</Text>
+            </View>
+            <View style={s.statCard}>
+              <Text style={s.statValue}>{stats.new_count}</Text>
+              <Text style={s.statLabel}>{statLabels.new}</Text>
+            </View>
+            <View style={s.statCard}>
+              <Text style={s.statValue}>{stats.added_this_week}</Text>
+              <Text style={s.statLabel}>{statLabels.thisWeek}</Text>
+            </View>
+            <View style={s.statCard}>
+              <Text style={[s.statValue, stats.due_for_review > 0 && s.statHighlight]}>
+                {stats.due_for_review}
+              </Text>
+              <Text style={s.statLabel}>{statLabels.due}</Text>
+            </View>
+          </View>
+        ) : (
+          <Text style={s.statsSummary}>
+            {[
+              `${stats.mastered_count} ${statLabels.learned}`,
+              `${stats.new_count} ${statLabels.new}`,
+              `${stats.due_for_review} ${statLabels.due}`,
+            ].join(" · ")}
           </Text>
-          <Text style={s.statLabel}>{t("projects.stats.due")}</Text>
-        </View>
-      </View>
+        )}
+      </Pressable>
 
       {isLang ? (
         <>
@@ -295,40 +320,43 @@ export default function ProjectDetailScreen() {
           groups={posGroups}
           itemsByPos={itemsByPos}
         />
-      ) : !isLang && !isProgramming && project.lists.length > 0 ? (
-        project.lists.map((group) => (
-          <View key={group.list_title} style={s.listSection}>
-            <Text style={s.listTitle}>{group.list_title}</Text>
-            {group.items.map((item) => (
-              <View key={item.id} style={s.itemRow}>
-                <Ionicons name={statusIcon(item)} size={20} color={statusColor(item, theme)} />
-                <View style={s.itemMain}>
-                  <Text style={s.itemContent}>{item.content}</Text>
-                </View>
+      ) : isConcept ? (
+        <>
+          {project.lists.length > 0 ? (
+            project.lists.map((group) => (
+              <View key={group.list_title} style={s.listSection}>
+                <Text style={s.listTitle}>
+                  {formatProjectListTitle(group.list_title, project.kind, t)}
+                </Text>
+                {group.items.map((item) => (
+                  <View key={item.id} style={s.itemRow}>
+                    <Ionicons
+                      name={statusIcon(item)}
+                      size={20}
+                      color={statusColor(item, theme)}
+                    />
+                    <View style={s.itemMain}>
+                      <Text style={[s.itemContent, item.mastered && s.itemMastered]}>
+                        {item.content}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
               </View>
-            ))}
-          </View>
-        ))
-      ) : !isProgramming && !isLang ? (
-        <View style={s.practiceSection}>
-          <Ionicons name="calculator-outline" size={22} color={theme.primary} />
-          <Text style={s.practiceTitle}>{t("projects.practice_title")}</Text>
-          <Text style={s.practiceBody}>{t("projects.practice_body")}</Text>
-          <Pressable style={s.studyBtn} onPress={practiceWithRecall}>
-            <Ionicons name="play-outline" size={20} color={theme.onPrimary} />
-            <Text style={s.studyBtnText}>{t("projects.practice_start")}</Text>
-          </Pressable>
-        </View>
+            ))
+          ) : (
+            <View style={s.comingSoon}>
+              <Text style={s.comingSoonBody}>
+                {t(project.kind === "math" ? "projects.math_empty" : "projects.concept_empty")}
+              </Text>
+            </View>
+          )}
+        </>
       ) : null}
 
       {isLang && stats.mastered_count > 0 && stats.total < 50 ? (
         <Text style={s.encourage}>{t("projects.encourage", { count: 10 - (stats.total % 10) })}</Text>
       ) : null}
-
-      <Pressable style={s.chatBtn} onPress={askRecall}>
-        <Ionicons name="chatbubble-ellipses-outline" size={18} color={theme.onPrimary} />
-        <Text style={s.chatBtnText}>{t("projects.ask_recall")}</Text>
-      </Pressable>
 
       <Pressable style={s.deleteBtn} onPress={confirmDelete}>
         <Text style={s.deleteBtnText}>{t("projects.delete")}</Text>
@@ -362,11 +390,26 @@ function makeStyles(theme: Theme) {
     badgeText: { fontSize: 12, fontWeight: "700", color: theme.primary },
     title: { fontSize: 28, fontWeight: "800", color: theme.text, letterSpacing: -0.5 },
     description: { fontSize: 16, lineHeight: 24, color: theme.textSecondary },
+    statsSection: {
+      backgroundColor: theme.surface,
+      borderRadius: 16,
+      padding: 14,
+      gap: 10,
+    },
+    statsHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    statsHeaderTitle: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: theme.textTertiary,
+      textTransform: "uppercase",
+      letterSpacing: 0.6,
+    },
+    statsSummary: { fontSize: 14, lineHeight: 20, color: theme.textSecondary },
     statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
     statCard: {
       width: "47%",
       flexGrow: 1,
-      backgroundColor: theme.surface,
+      backgroundColor: theme.bg,
       borderRadius: 14,
       padding: 14,
       alignItems: "center",
@@ -445,16 +488,6 @@ function makeStyles(theme: Theme) {
     deckMain: { flex: 1, gap: 2 },
     deckTitle: { fontSize: 16, fontWeight: "700", color: theme.text },
     deckMeta: { fontSize: 13, color: theme.textSecondary },
-    chatBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 8,
-      backgroundColor: theme.primary,
-      borderRadius: 14,
-      paddingVertical: 14,
-    },
-    chatBtnText: { fontSize: 16, fontWeight: "700", color: theme.onPrimary },
     deleteBtn: { alignItems: "center", paddingVertical: 10 },
     deleteBtnText: { fontSize: 15, fontWeight: "600", color: theme.danger },
   });
