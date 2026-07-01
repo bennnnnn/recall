@@ -156,19 +156,34 @@ async def test_deck_summaries_skips_pos_titles(fake_session):
 
 @pytest.mark.asyncio
 async def test_list_by_pos_filters_and_paginates(fake_session):
-    items = [
-        _item(content="zebra", part_of_speech="noun"),
+    # list_by_pos now pushes the POS filter + sort + pagination into SQL, so the
+    # repository returns whatever the (filtered, sorted, paginated) query yields.
+    # Simulate the DB returning the already-filtered noun page in sorted order.
+    noun_items = [
         _item(content="apple", part_of_speech="noun"),
-        _item(content="run", part_of_speech="verb"),
+        _item(content="zebra", part_of_speech="noun"),
     ]
-    fake_session.execute.return_value = MagicMock(
-        scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=items)))
-    )
+    mock_scalars = MagicMock()
+    mock_scalars.all.return_value = noun_items
+    mock_result = MagicMock()
+    mock_result.scalars.return_value = mock_scalars
+    fake_session.execute.return_value = mock_result
 
     page = await repo.list_by_pos(fake_session, uuid4(), uuid4(), "noun", limit=1, offset=0)
 
-    assert len(page) == 1
-    assert page[0].content == "apple"
+    # The function issues exactly one filtered query (not the old 5000-row load).
+    fake_session.execute.assert_awaited_once()
+    assert page == noun_items
+
+
+def test_pos_variants_covers_singular_and_plural():
+    # Filtering in SQL needs to match every stored form that normalizes to the key.
+    assert "noun" in repo._pos_variants("noun")
+    assert "nouns" in repo._pos_variants("noun")
+    assert "verb" in repo._pos_variants("verb")
+    assert "verbs" in repo._pos_variants("verb")
+    assert "others" in repo._pos_variants("other")
+    assert "other" in repo._pos_variants("other")
 
 
 @pytest.mark.asyncio

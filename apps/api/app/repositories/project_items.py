@@ -46,6 +46,21 @@ def normalize_pos_key(part_of_speech: str | None) -> str:
     return POS_SINGULAR.get(pos, pos)
 
 
+# Every stored part_of_speech string that normalizes to each canonical key.
+# Used to push the POS filter into SQL (part_of_speech IN (...)) instead of
+# loading every item and filtering in Python — list_by_pos no longer fetches
+# 5000 rows just to keep the ~50 matching ones.
+_ALL_POS_STRINGS: set[str] = set(POS_PLURAL) | set(POS_PLURAL.values()) | {"others"}
+_POS_VARIANTS: dict[str, set[str]] = {
+    key: {s for s in _ALL_POS_STRINGS if normalize_pos_key(s) == key}
+    for key in {normalize_pos_key(s) for s in _ALL_POS_STRINGS}
+}
+
+
+def _pos_variants(pos_key: str) -> set[str]:
+    return _POS_VARIANTS.get(pos_key, {pos_key})
+
+
 def _item_status_label(item: ProjectItem) -> str:
     if item.status:
         return item.status
@@ -259,11 +274,23 @@ async def list_by_pos(
     limit: int = 50,
     offset: int = 0,
 ) -> list[ProjectItem]:
+    # Filter + sort + paginate in SQL so we fetch only the matching page, not
+    # every item in the project. Matches any stored form that normalizes to the
+    # requested POS (noun/nouns, verb/verbs, …) via _pos_variants.
     pos_key = normalize_pos_key(part_of_speech)
-    items = await list_for_user(session, user_id, project_id=project_id, limit=5000)
-    filtered = [i for i in items if normalize_pos_key(i.part_of_speech) == pos_key]
-    filtered.sort(key=lambda i: (i.content or "").casefold())
-    return filtered[offset : offset + limit]
+    variants = _pos_variants(pos_key)
+    stmt = (
+        select(ProjectItem)
+        .where(
+            ProjectItem.user_id == user_id,
+            ProjectItem.project_id == project_id,
+            ProjectItem.part_of_speech.in_(variants),
+        )
+        .order_by(func.lower(ProjectItem.content).asc())
+        .offset(offset)
+        .limit(limit)
+    )
+    return list((await session.execute(stmt)).scalars().all())
 
 
 async def create(
