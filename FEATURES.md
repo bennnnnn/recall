@@ -39,7 +39,8 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
 - ✅ **Share / Export** — share a conversation as a markdown transcript via the native share sheet
   (chat `⋯` menu + drawer long-press); no backend needed.
 - ✅ **Manage from the drawer** — long-press any chat for **Pin/Unpin · Share · Delete**.
-- 🔜 Folders/projects, archive, multi-select, and a true swipe-to-delete gesture (needs a gesture
+- ✅ **Archive** — chats can be archived (chat `⋯` menu + drawer); archived chats show in a separate section and are excluded from the main list.
+- 🔜 Folders, multi-select, and a true swipe-to-delete gesture (needs a gesture
   library + dev build).
 - ✅ **Project-scoped chats** — chats created from a learning project carry `project_id` (see [§17](#17-projects-utility-workspaces)).
 
@@ -158,7 +159,7 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
   then signs out.
 - ✅ **Avatar** — shows the Google profile picture, falling back to the user's initials (no upload
   by design).
-- ✅ **Language / i18n** — `react-i18next` with English, Spanish, French, and Amharic.
+- ✅ **Language / i18n** — `react-i18next` with English, Spanish, French, Amharic, German, Italian, Portuguese, Russian, and Turkish.
 - ⚠️ **Dark theme** — the chat screen follows the system light/dark scheme; the remaining screens
   are still light (theme rollout in progress).
 - ✅ **Local todo reminders** — scheduled on-device notifications when a todo item is due (via
@@ -178,7 +179,8 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
   fades in above it (live replies only).
 - ✅ **Polish** — light haptic taps on key actions (Android via the built-in API) + chip fade-in
   animation.
-- 🔜 Proper iOS haptics (needs `expo-haptics`), richer screen transitions.
+- ✅ **iOS haptics** — `expo-haptics` on real devices (graceful no-op on Android / Expo Go).
+- 🔜 Richer screen transitions.
 
 ## 12. Monetization
 - ✅ **Pro subscription (RevenueCat)** — mobile purchase flow via lazy-loaded `react-native-purchases`
@@ -374,9 +376,9 @@ A consolidated list of what's intentionally **not** in this version:
 - ✅ **Web search** — Tavily primary + DuckDuckGo fallback; injected into chat when heuristics match;
   sources shown on assistant messages (hidden on vocab quiz cards).
 - 🔜 Inline Mermaid rendering, grammar-perfect (library) syntax highlighting, structured profile,
-  dedicated worker process, archive, multi-select, swipe-to-delete (gesture lib), editing arbitrary
+  dedicated worker process, multi-select, swipe-to-delete (gesture lib), editing arbitrary
   (older) messages, live model latency/health, user-tunable routing rules, email-only reminders,
-  theming the remaining screens, iOS haptics (expo-haptics).
+  theming the remaining screens.
 
 ### Multimodal & attachments (planned)
 
