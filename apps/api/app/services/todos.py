@@ -15,6 +15,15 @@ from app.services import time_context as time_context_service
 
 logger = logging.getLogger(__name__)
 
+# Defensive caps for LLM-inferred mutations applied from a chat transcript.
+# The model extracts actions from arbitrary user text; these limits prevent a
+# misparse from wiping large amounts of data in one turn.
+MAX_TODO_ACTIONS_PER_TURN = 3
+# Actions too destructive to apply from transcript inference — the user must
+# delete a whole list explicitly (e.g. via the Todos screen), not via a model
+# interpretation of a pasted email or ambiguous phrasing.
+TODO_BLOCKED_FROM_TRANSCRIPT = frozenset({"delete_list"})
+
 TODO_HINT = (
     "Recall has two todo features — do not confuse them:\n"
     "1) **Reminders** — items WITH a due date/time in the app's Reminders calendar.\n"
@@ -441,27 +450,57 @@ async def apply_todo_actions(
                     due_at=due_at,
                 )
                 applied += 1
+                logger.info(
+                    "Todo action applied: user_id=%s action=add topic=%s chat_id=%s",
+                    user_id,
+                    topic,
+                    chat_id,
+                )
                 items = await todos_repo.list_for_user(session, user_id, limit=500)
             elif action.action == "complete":
                 item = _find_item(items, topic, action.content)
                 if item and not item.checked:
                     await todos_repo.update(session, item, checked=True)
                     applied += 1
+                    logger.info(
+                        "Todo action applied: user_id=%s action=complete topic=%s chat_id=%s",
+                        user_id,
+                        topic,
+                        chat_id,
+                    )
             elif action.action == "uncheck":
                 item = _find_item_any_state(items, topic, action.content)
                 if item and item.checked:
                     await todos_repo.update(session, item, checked=False)
                     applied += 1
+                    logger.info(
+                        "Todo action applied: user_id=%s action=uncheck topic=%s chat_id=%s",
+                        user_id,
+                        topic,
+                        chat_id,
+                    )
             elif action.action == "delete":
                 item = _find_item_any_state(items, topic, action.content)
                 if item:
                     await todos_repo.delete_by_id(session, item.id, user_id)
                     applied += 1
+                    logger.info(
+                        "Todo action applied: user_id=%s action=delete topic=%s chat_id=%s",
+                        user_id,
+                        topic,
+                        chat_id,
+                    )
                     items = [i for i in items if i.id != item.id]
             elif action.action == "delete_list":
                 removed = await todos_repo.delete_by_topic(session, user_id, topic)
                 if removed:
                     applied += 1
+                    logger.info(
+                        "Todo action applied: user_id=%s action=delete_list topic=%s chat_id=%s",
+                        user_id,
+                        topic,
+                        chat_id,
+                    )
                     items = [i for i in items if _topic_key(i.topic) != _topic_key(topic)]
             elif action.action == "set_due":
                 due_at = time_context_service.normalize_due_at(action.due_at, user_timezone)
@@ -475,16 +514,34 @@ async def apply_todo_actions(
                             continue
                         await todos_repo.update(session, item, due_at=due_at)
                         applied += 1
+                        logger.info(
+                            "Todo action applied: user_id=%s action=set_due(*) topic=%s chat_id=%s",
+                            user_id,
+                            topic,
+                            chat_id,
+                        )
                 else:
                     item = _find_item_any_state(items, topic, action.content)
                     if item:
                         await todos_repo.update(session, item, due_at=due_at)
                         applied += 1
+                        logger.info(
+                            "Todo action applied: user_id=%s action=set_due topic=%s chat_id=%s",
+                            user_id,
+                            topic,
+                            chat_id,
+                        )
             elif action.action == "clear_due":
                 item = _find_item_any_state(items, topic, action.content)
                 if item and item.due_at is not None:
                     await todos_repo.update(session, item, due_at=None)
                     applied += 1
+                    logger.info(
+                        "Todo action applied: user_id=%s action=clear_due topic=%s chat_id=%s",
+                        user_id,
+                        topic,
+                        chat_id,
+                    )
         except Exception:
             logger.exception(
                 "Failed todo action %s for user_id=%s topic=%s",
@@ -526,13 +583,33 @@ async def sync_todos_from_transcript(
             user_timezone=user_timezone,
         )
         if result and result.actions:
-            await apply_todo_actions(
-                session,
-                user_id=user_id,
-                actions=result.actions,
-                chat_id=chat_id,
-                user_timezone=user_timezone,
-            )
+            # Defensive: cap actions per turn and refuse to apply whole-list
+            # deletes inferred from a transcript. The user can still delete a
+            # list explicitly from the Todos screen; a model interpretation of
+            # pasted text must not wipe it. Filtered actions are logged so the
+            # "the LLM did what?" trail is greppable.
+            safe_actions: list[TodoActionItem] = []
+            for action in result.actions:
+                if action.action in TODO_BLOCKED_FROM_TRANSCRIPT:
+                    logger.warning(
+                        "Refused destructive todo action %s from transcript for "
+                        "user_id=%s topic=%s (requires explicit user action)",
+                        action.action,
+                        user_id,
+                        action.topic,
+                    )
+                    continue
+                safe_actions.append(action)
+                if len(safe_actions) >= MAX_TODO_ACTIONS_PER_TURN:
+                    break
+            if safe_actions:
+                await apply_todo_actions(
+                    session,
+                    user_id=user_id,
+                    actions=safe_actions,
+                    chat_id=chat_id,
+                    user_timezone=user_timezone,
+                )
         if _transcript_implies_bulk_shift_to_tomorrow(transcript):
             items = await todos_repo.list_for_user(session, user_id, limit=500)
             bulk_applied = await _apply_bulk_shift_due_today_to_tomorrow(

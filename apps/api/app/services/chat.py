@@ -39,6 +39,7 @@ from app.services import time_context as time_context_service
 from app.services import todos as todos_service
 from app.services import web_search as web_search_service
 from app.services.context_window import estimate_tokens, select_recent_window
+from app.services.prompt_safety import wrap_untrusted
 from app.services.quota import quota_exceeded_message, utc_today
 
 logger = logging.getLogger(__name__)
@@ -521,7 +522,7 @@ async def build_prompt_messages(
         if settings.gmail_enabled:
             system_parts.append(email_service.GMAIL_HINT)
         if memory_block:
-            system_parts.append(memory_block)
+            system_parts.append(wrap_untrusted("memory", memory_block))
         if todos_section:
             system_parts.append(todos_section)
         system_parts.append(projects_service.PROJECT_HINT)
@@ -985,9 +986,9 @@ async def _prepare_chat_turn(
                 )
 
             if calendar_block:
-                integration_blocks.append(calendar_block)
+                integration_blocks.append(wrap_untrusted("calendar", calendar_block))
             if gmail_block:
-                integration_blocks.append(gmail_block)
+                integration_blocks.append(wrap_untrusted("gmail", gmail_block))
             if (
                 not settings.mcp_tools_enabled
                 and calendar_service.is_calendar_create_request(content)

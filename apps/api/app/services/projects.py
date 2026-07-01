@@ -20,6 +20,12 @@ from app.repositories.project_items import pos_list_title
 
 logger = logging.getLogger(__name__)
 
+# Defensive caps for LLM-inferred project mutations applied from a transcript.
+MAX_PROJECT_ACTIONS_PER_TURN = 3
+# Whole-project / whole-deck deletes are too destructive to apply from a model's
+# interpretation of chat text — the user must remove those explicitly.
+PROJECT_BLOCKED_FROM_TRANSCRIPT = frozenset({"delete_project", "delete_list"})
+
 DEFAULT_LIST = "General"
 POS_ORDER = (
     "noun",
@@ -554,6 +560,7 @@ async def apply_project_actions(
         title = action.project_title.strip()
         if not title:
             continue
+        applied_before = applied
         try:
             if action.action == "create_project":
                 if _find_project(projects, title):
@@ -689,6 +696,15 @@ async def apply_project_actions(
                 user_id,
                 title,
             )
+            continue
+        if applied > applied_before:
+            logger.info(
+                "Project action applied: user_id=%s action=%s project=%s chat_id=%s",
+                user_id,
+                action.action,
+                title,
+                chat_id,
+            )
     return applied
 
 
@@ -742,10 +758,29 @@ async def sync_projects_from_transcript(
         )
         if not result or not result.actions:
             return result
+        # Defensive: cap actions per turn and refuse whole-project / whole-deck
+        # deletes inferred from a transcript. The user must remove those
+        # explicitly from the Projects screen.
+        safe_actions: list[ProjectActionItem] = []
+        for action in result.actions:
+            if action.action in PROJECT_BLOCKED_FROM_TRANSCRIPT:
+                logger.warning(
+                    "Refused destructive project action %s from transcript for "
+                    "user_id=%s project=%s (requires explicit user action)",
+                    action.action,
+                    user_id,
+                    action.project_title,
+                )
+                continue
+            safe_actions.append(action)
+            if len(safe_actions) >= MAX_PROJECT_ACTIONS_PER_TURN:
+                break
+        if not safe_actions:
+            return result
         applied = await apply_project_actions(
             session,
             user_id=user_id,
-            actions=result.actions,
+            actions=safe_actions,
             chat_id=chat_id,
         )
         if result.actions and applied == 0:

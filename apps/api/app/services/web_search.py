@@ -15,6 +15,7 @@ from app.gateways import web_search_gateway
 from app.gateways.web_search_gateway import WebSearchHit
 from app.services import calendar as calendar_service
 from app.services import time_context as time_context_service
+from app.services.prompt_safety import wrap_untrusted
 
 logger = logging.getLogger(__name__)
 
@@ -715,7 +716,7 @@ def format_search_block(
     user_location: str | None = None,
 ) -> str:
     lines = [
-        "Web search results (retrieved just now — USE THESE for your answer):",
+        "Web search results (retrieved just now — ground your answer in these):",
     ]
     if local_places and not (user_location or "").strip():
         lines.append(
@@ -1032,6 +1033,7 @@ async def augment_prompt_messages(
         )
         if geo_query and not local_places:
             block = f"{block}\n\n{GEO_DISTANCE_HINT}"
+        block = wrap_untrusted("web search", block)
     else:
         block = format_search_empty_block(tried, local_places=local_places)
     return _inject_before_last_user(messages, block), hits

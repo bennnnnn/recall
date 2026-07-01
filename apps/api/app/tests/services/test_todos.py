@@ -118,6 +118,56 @@ async def test_sync_todos_bulk_shift_after_partial_llm_apply():
     bulk_mock.assert_awaited_once()
 
 
+@pytest.mark.asyncio
+async def test_sync_todos_refuses_delete_list_from_transcript_and_caps_actions():
+    """A delete_list inferred from a transcript must not be applied, and only the
+    first MAX_TODO_ACTIONS_PER_TURN actions run."""
+    session = AsyncMock()
+    user_id = uuid4()
+    user = MagicMock()
+    user.timezone = "UTC"
+    extraction = MagicMock()
+    extraction.actions = [
+        TodoActionItem(action="delete_list", topic="Work", content=""),
+        TodoActionItem(action="add", topic="Shop", content="milk"),
+        TodoActionItem(action="add", topic="Shop", content="eggs"),
+        TodoActionItem(action="add", topic="Shop", content="bread"),
+        TodoActionItem(action="add", topic="Shop", content="extra-should-not-run"),
+    ]
+
+    captured: dict[str, object] = {}
+
+    async def fake_apply(*args, **kwargs):
+        captured["actions"] = kwargs.get("actions") or args[0]
+        return len(captured["actions"])
+
+    with (
+        patch.object(todos_service.users_repo, "get_by_id", AsyncMock(return_value=user)),
+        patch.object(todos_service.todos_repo, "list_for_user", AsyncMock(return_value=[])),
+        patch(
+            "app.gateways.litellm_gateway.extract_todo_actions",
+            AsyncMock(return_value=extraction),
+        ),
+        patch.object(todos_service, "apply_todo_actions", AsyncMock(side_effect=fake_apply)),
+        patch.object(
+            todos_service,
+            "_apply_bulk_shift_due_today_to_tomorrow",
+            AsyncMock(return_value=0),
+        ),
+    ):
+        await todos_service.sync_todos_from_transcript(
+            session,
+            Settings(),
+            user_id=user_id,
+            chat_id=uuid4(),
+            transcript="User: delete my work list and add milk eggs bread extra\nAssistant: ok",
+        )
+
+    sent = captured["actions"]
+    assert all(a.action != "delete_list" for a in sent)
+    assert len(sent) == todos_service.MAX_TODO_ACTIONS_PER_TURN
+
+
 def test_format_todos_block_groups_by_topic():
     block = todos_service.format_todos_block(
         [
