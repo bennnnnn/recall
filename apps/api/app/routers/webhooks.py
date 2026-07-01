@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hmac
 import logging
 from datetime import UTC, datetime
 from typing import Any
@@ -19,6 +20,10 @@ from app.services import subscription as subscription_service
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
+
+# RevenueCat retries webhooks; dedup event ids for ~24h so a replay doesn't
+# reprocess (and, via the receipt path, re-email) the same event.
+_EVENT_ID_TTL = 60 * 60 * 24
 
 _PRO_EVENTS = frozenset(
     {
@@ -43,8 +48,32 @@ def _verify_auth(authorization: str | None, settings: Settings) -> None:
             detail="RevenueCat webhook not configured",
         )
     token = (authorization or "").strip()
-    if token != expected and token != f"Bearer {expected}":
+    # Accept either the raw shared secret or a Bearer-prefixed form. Compare in
+    # constant time to avoid leaking whether the prefix matched via timing.
+    candidates = (
+        [token, token.removeprefix("Bearer ").strip()] if token.startswith("Bearer ") else [token]
+    )
+    authorized = any(hmac.compare_digest(c, expected) for c in candidates)
+    if not authorized:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
+
+def _event_id(payload: dict[str, Any]) -> str | None:
+    event = payload.get("event")
+    if not isinstance(event, dict):
+        return None
+    for key in ("event_id", "id"):
+        value = event.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+async def _already_seen(redis: Redis, event_id: str) -> bool:
+    # SETNX returns 1 if the key was set (first sighting), 0 if it already
+    # existed (replay). True here means "already seen".
+    inserted = await redis.set(f"rcwebhook:{event_id}", "1", ex=_EVENT_ID_TTL, nx=True)
+    return not inserted
 
 
 def _app_user_id(payload: dict[str, Any]) -> str | None:
@@ -100,6 +129,11 @@ async def revenuecat_webhook(
     authorization: str | None = Header(default=None, alias="Authorization"),
 ) -> None:
     _verify_auth(authorization, settings)
+    # Dedup RevenueCat retries: if we've already processed this event id, stop.
+    event_id = _event_id(payload)
+    if event_id and await _already_seen(redis, event_id):
+        logger.info("RevenueCat webhook replay ignored event_id=%s", event_id)
+        return
     app_user_id = _app_user_id(payload)
     if not app_user_id:
         return

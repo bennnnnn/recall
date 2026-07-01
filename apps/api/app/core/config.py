@@ -106,6 +106,18 @@ def validate_production_settings(settings: Settings) -> None:
         errors.append("REDIS_URL is required in production")
     if not settings.google_client_id:
         errors.append("GOOGLE_CLIENT_ID is required in production")
+    # CORS must be explicit in production — an empty CORS_ORIGINS makes the API
+    # accept any origin (main.py falls back to ["*"]), which contradicts the
+    # "locked-down CORS" claim and is unsafe once a web client exists.
+    if not settings.cors_origins.strip():
+        errors.append("CORS_ORIGINS must be set to an explicit origin list in production")
+    # Without a real model key the app boots but every chat call fails at runtime
+    # with a generic ModelUnavailableError — fail fast at startup instead.
+    if not settings.openrouter_api_key:
+        errors.append("OPENROUTER_API_KEY is required in production (chat would otherwise fail)")
+    # Unsigned RevenueCat webhooks would let anyone grant themselves Pro.
+    if not settings.revenuecat_webhook_auth:
+        errors.append("REVENUECAT_WEBHOOK_AUTH is required in production")
 
     if errors:
         raise RuntimeError("Invalid production configuration: " + "; ".join(errors))

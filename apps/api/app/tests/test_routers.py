@@ -417,3 +417,76 @@ def test_revenuecat_webhook_free_event_does_not_enqueue_receipt():
 
     assert r.status_code == 204
     enq.assert_not_awaited()
+
+
+def test_revenuecat_webhook_dedups_replay_by_event_id():
+    import fakeredis.aioredis
+
+    from app.core.deps import get_redis, get_settings_dep
+
+    uid = uuid4()
+    app = create_app()
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(environment="development")
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    app.dependency_overrides[get_redis] = lambda: fake_redis
+
+    payload = {
+        "event": {
+            "type": "INITIAL_PURCHASE",
+            "event_id": "evt_123",
+            "app_user_id": str(uid),
+        }
+    }
+
+    with (
+        patch(
+            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            AsyncMock(return_value=True),
+        ) as apply_mock,
+        patch("app.routers.webhooks.enqueue_purchase_receipt", AsyncMock()),
+    ):
+        client = TestClient(app)
+        r1 = client.post("/webhooks/revenuecat", json=payload)
+        r2 = client.post("/webhooks/revenuecat", json=payload)
+
+    assert r1.status_code == 204
+    assert r2.status_code == 204
+    apply_mock.assert_awaited_once()
+
+
+def test_revenuecat_webhook_requires_auth_in_production():
+    import fakeredis.aioredis
+
+    from app.core.config import get_settings
+    from app.core.deps import get_redis
+
+    uid = uuid4()
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        environment="production",
+        revenuecat_webhook_auth="whsec-secret",
+    )
+    app.dependency_overrides[get_redis] = lambda: fakeredis.aioredis.FakeRedis(
+        decode_responses=True
+    )
+
+    payload = {"event": {"type": "INITIAL_PURCHASE", "app_user_id": str(uid)}}
+
+    with (
+        patch(
+            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            AsyncMock(return_value=True),
+        ) as apply_mock,
+        patch("app.routers.webhooks.enqueue_purchase_receipt", AsyncMock()),
+    ):
+        client = TestClient(app)
+        r_bad = client.post("/webhooks/revenuecat", json=payload)
+        r_ok = client.post(
+            "/webhooks/revenuecat",
+            json=payload,
+            headers={"Authorization": "Bearer whsec-secret"},
+        )
+
+    assert r_bad.status_code == 401
+    assert r_ok.status_code == 204
+    apply_mock.assert_awaited_once()

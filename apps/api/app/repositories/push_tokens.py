@@ -26,10 +26,26 @@ async def upsert(
             device_id=device_id,
         )
         session.add(row)
-    else:
-        row.user_id = user_id
+    elif row.user_id == user_id:
+        # Same user re-registering — refresh platform/device metadata.
         row.platform = platform
         row.device_id = device_id
+    else:
+        # The token is currently bound to a different account. This is the
+        # device-transferred-accounts case (sign out, sign in as someone else on
+        # the same device). Drop the stale binding and create a fresh row for the
+        # current user so the previous owner stops receiving this device's
+        # pushes. Reassigning in place would also work, but a clean row avoids
+        # carrying over the previous user's platform/device metadata.
+        await session.delete(row)
+        await session.flush()
+        row = PushToken(
+            user_id=user_id,
+            expo_push_token=expo_push_token,
+            platform=platform,
+            device_id=device_id,
+        )
+        session.add(row)
     await session.commit()
     await session.refresh(row)
     return row

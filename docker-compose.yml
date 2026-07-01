@@ -1,6 +1,8 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    # pgvector image so local migrations (0027/0033) that require the `vector`
+    # extension succeed — matches the image used in CI.
+    image: pgvector/pgvector:pg16
     ports:
       - "5432:5432"
     environment:

@@ -13,6 +13,7 @@ from app.models.schemas import AttachmentOut, AttachmentPresignIn, AttachmentPre
 from app.repositories import attachments as attachments_repo
 from app.services.attachment_content import (
     MAX_ATTACHMENT_SIZE,
+    bytes_match_claimed,
     is_allowed_content_type,
     normalize_content_type,
 )
@@ -78,6 +79,14 @@ async def upload_attachment_bytes(
     data = await request.body()
     if not data or len(data) > MAX_SIZE:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid upload size")
+    # Verify the actual bytes match the declared content type so a presigned
+    # "image/png" can't be used to store a non-image blob that later gets served
+    # back with the wrong Content-Type.
+    if not bytes_match_claimed(row.content_type, data):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded bytes do not match the declared content type",
+        )
 
     gateway = get_storage_gateway(settings)
     if not isinstance(gateway, LocalStorageGateway):

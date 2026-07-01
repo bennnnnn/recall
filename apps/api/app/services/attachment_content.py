@@ -46,6 +46,47 @@ _CONTENT_TYPE_ALIASES = {
     "image/pjpeg": "image/jpeg",
 }
 
+# Text-ish types have no reliable magic signature; we accept any bytes for them
+# (they can't impersonate a dangerous binary type, and the renderer treats them
+# as text). HEIC/HEIF use an ISO BMFF ftyp box that's awkward to sniff here and
+# are rare via the local upload path, so they're accepted on trust for now.
+_TEXTISH_TYPES = frozenset({"text/plain", "text/markdown", "text/csv", "application/json"})
+_UNVERIFIABLE_TYPES = frozenset({"image/heic", "image/heif"})
+
+
+def _sniff_signature(data: bytes) -> str | None:
+    """Detect a few common binary types by leading magic bytes."""
+    if len(data) >= 3 and data[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if len(data) >= 8 and data[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if len(data) >= 4 and data[:4] == b"%PDF":
+        return "application/pdf"
+    if len(data) >= 6 and data[:6] in (b"GIF87a", b"GIF89a"):
+        return "image/gif"
+    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
+def bytes_match_claimed(claimed: str, data: bytes) -> bool:
+    """True if the uploaded bytes are consistent with the claimed content type.
+
+    The presign step validates the *claim*; this checks the *actual bytes* on
+    upload so a client can't presign "image/png" and then upload a shell script
+    that later gets served back with `Content-Type: image/png` (a content-
+    spoofing risk for any externally-shared signed URL).
+    """
+    norm = "image/jpeg" if claimed == "image/jpg" else claimed
+    if norm in _UNVERIFIABLE_TYPES:
+        return True
+    detected = _sniff_signature(data)
+    if detected is None:
+        # No binary signature. Accept only for text-ish claims; an image/pdf
+        # claim with no matching signature is a spoof.
+        return norm in _TEXTISH_TYPES
+    return detected == norm
+
 
 def normalize_content_type(content_type: str) -> str:
     """Normalize client MIME types (strip params, map common aliases)."""

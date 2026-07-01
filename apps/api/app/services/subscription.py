@@ -60,7 +60,9 @@ async def apply_plan_for_app_user_id(
         logger.warning("RevenueCat webhook user not found id=%s", app_user_id)
         return False
     if user.plan == plan:
-        return True
+        # No change — return False so the caller doesn't fire a duplicate
+        # receipt email on every RENEWAL/replay of an already-Pro user.
+        return False
     await users_repo.update(session, user, plan=plan)
     logger.info("RevenueCat webhook set plan=%s user=%s", plan, user_id)
     return True

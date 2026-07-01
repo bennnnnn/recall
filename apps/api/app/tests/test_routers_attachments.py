@@ -70,6 +70,66 @@ def test_presign_upload_success():
     assert r.json()["attachment_id"] == str(attachment_id)
 
 
+def test_upload_rejects_bytes_not_matching_claimed_content_type():
+    user = _fake_user()
+    app = _app_with_user(user)
+    attachment_id = uuid4()
+    row = MagicMock()
+    row.id = attachment_id
+    row.content_type = "image/png"
+    row.storage_key = f"{user.id}/{attachment_id}"
+    gateway = MagicMock(spec=LocalStorageGateway)
+    gateway.write_bytes = AsyncMock()
+
+    with (
+        patch(
+            "app.routers.attachments.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
+    ):
+        client = TestClient(app)
+        r = client.put(
+            f"/attachments/{attachment_id}/upload",
+            headers={"Authorization": "Bearer tok"},
+            content=b"#!/bin/sh\nrm -rf /\n",
+        )
+
+    assert r.status_code == 400
+    gateway.write_bytes.assert_not_awaited()
+
+
+def test_upload_accepts_bytes_matching_claimed_content_type():
+    user = _fake_user()
+    app = _app_with_user(user)
+    attachment_id = uuid4()
+    row = MagicMock()
+    row.id = attachment_id
+    row.content_type = "image/png"
+    row.storage_key = f"{user.id}/{attachment_id}"
+    gateway = MagicMock(spec=LocalStorageGateway)
+    gateway.write_bytes = AsyncMock()
+
+    png_bytes = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+
+    with (
+        patch(
+            "app.routers.attachments.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
+    ):
+        client = TestClient(app)
+        r = client.put(
+            f"/attachments/{attachment_id}/upload",
+            headers={"Authorization": "Bearer tok"},
+            content=png_bytes,
+        )
+
+    assert r.status_code == 204
+    gateway.write_bytes.assert_awaited_once()
+
+
 def test_download_url_local_backend():
     user = _fake_user()
     app = _app_with_user(user)

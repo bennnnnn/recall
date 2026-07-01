@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,16 +18,28 @@ from app.services import subscription as subscription_service
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+def _client_ip(request: Request) -> str:
+    # Trust X-Forwarded-For when present (deploy behind a proxy that sets it).
+    # Take the first hop; fall back to the direct connection.
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
 @router.post("/google", response_model=AuthResponse)
 async def google_login(
     body: GoogleAuthRequest,
+    request: Request,
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(get_redis),
 ) -> AuthResponse:
+    # Per-IP, not global: a global bucket lets a credential-stuffer trip the
+    # limit and lock real users out of signing in.
     allowed = await allow_request(
         redis,
-        "rate:auth:google",
+        f"rate:auth:google:{_client_ip(request)}",
         limit=30,
         window_seconds=60,
     )

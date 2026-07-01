@@ -243,7 +243,9 @@ async def process_email_suggestions(
         if not tokens:
             continue
         count = len(reminders)
-        strings = _push_strings(getattr(user, "locale", None))
+        # Use the user for THIS batch, not a stale `user` left over from the
+        # rows loop above — otherwise the wrong locale (and wrong user) is used.
+        strings = _push_strings(getattr(users[user_id], "locale", None))
         if count == 1:
             body = reminders[0].title
         else:

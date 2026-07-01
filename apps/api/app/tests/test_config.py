@@ -12,6 +12,9 @@ def test_validate_production_settings_ok():
             mock_llm_enabled=False,
             jwt_secret="super-secret-key-that-is-at-least-32-chars!!",
             google_client_id="client-id",
+            cors_origins="https://app.recall.app",
+            openrouter_api_key="sk-or-xxx",
+            revenuecat_webhook_auth="whsec-xxx",
         )
     )
 
@@ -25,6 +28,46 @@ def test_validate_production_settings_rejects_dev_flags():
                 mock_llm_enabled=False,
                 jwt_secret="super-secret-key-that-is-at-least-32-chars!!",
                 google_client_id="client-id",
+                cors_origins="https://app.recall.app",
+                openrouter_api_key="sk-or-xxx",
+                revenuecat_webhook_auth="whsec-xxx",
+            )
+        )
+
+
+def test_validate_production_settings_rejects_empty_cors_and_missing_secrets():
+    base = dict(
+        environment="production",
+        dev_auth_enabled=False,
+        mock_llm_enabled=False,
+        jwt_secret="super-secret-key-that-is-at-least-32-chars!!",
+        google_client_id="client-id",
+    )
+    with pytest.raises(RuntimeError, match="CORS_ORIGINS"):
+        validate_production_settings(
+            Settings(
+                **base,
+                cors_origins="",
+                openrouter_api_key="sk-or-xxx",
+                revenuecat_webhook_auth="whsec-xxx",
+            )
+        )
+    with pytest.raises(RuntimeError, match="OPENROUTER_API_KEY"):
+        validate_production_settings(
+            Settings(
+                **base,
+                cors_origins="https://app.recall.app",
+                openrouter_api_key="",
+                revenuecat_webhook_auth="whsec-xxx",
+            )
+        )
+    with pytest.raises(RuntimeError, match="REVENUECAT_WEBHOOK_AUTH"):
+        validate_production_settings(
+            Settings(
+                **base,
+                cors_origins="https://app.recall.app",
+                openrouter_api_key="sk-or-xxx",
+                revenuecat_webhook_auth="",
             )
         )
 

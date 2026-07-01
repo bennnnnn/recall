@@ -19,9 +19,11 @@ async def ready() -> dict[str, str]:
             await session.execute(text("SELECT 1"))
         redis = get_redis_client()
         await redis.ping()
-    except Exception as exc:
+    except Exception:
+        # Don't leak the underlying exception text (it may include connection
+        # strings or internal details) — just signal not ready.
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Dependency check failed: {exc}",
-        ) from exc
+            detail="Dependency check failed",
+        ) from None
     return {"status": "ok"}
