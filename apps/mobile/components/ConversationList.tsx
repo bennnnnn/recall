@@ -4,12 +4,12 @@ import {
   Alert,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { closeDrawer, registerChatPatcher, registerDrawerSearch, startNewChatGlobal, isChatTitleGenerating, subscribeChatTitleGenerating } from "@/lib/drawer";
@@ -40,42 +40,6 @@ const TOP_CHROME = 58;
 const FOOTER_CHROME = 54;
 const FADE_EXTRA = 40;
 const CHAT_LIST_STALE_MS = 20_000;
-
-function Section({
-  title,
-  chats,
-  onOpen,
-  onLongPress,
-  highlightedIds,
-  rowStyles,
-  sectionStyles,
-}: {
-  title: string;
-  chats: Chat[];
-  onOpen: (id: string) => void;
-  onLongPress: (chat: Chat) => void;
-  highlightedIds?: Set<string>;
-  rowStyles: ReturnType<typeof makeConversationRowStyles>;
-  sectionStyles: ReturnType<typeof makeStyles>;
-}) {
-  if (!chats.length) return null;
-  return (
-    <View style={sectionStyles.section}>
-      {title ? <Text style={sectionStyles.sectionTitle}>{title}</Text> : null}
-      {chats.map((c) => (
-        <ConversationRow
-          key={c.id}
-          chat={c}
-          rowStyles={rowStyles}
-          highlighted={highlightedIds?.has(c.id) ?? false}
-          titleGenerating={isChatTitleGenerating(c.id)}
-          onOpen={() => onOpen(c.id)}
-          onLongPress={() => onLongPress(c)}
-        />
-      ))}
-    </View>
-  );
-}
 
 export function ConversationList(_props: unknown) {
   const { token } = useAuth();
@@ -496,76 +460,82 @@ export function ConversationList(_props: unknown) {
     </View>
   );
 
-  const chatSections =
-    allChats.length === 0 ? (
+  // Flatten the sectioned chat list into header + row items so FlashList can
+  // virtualize rows (the long part) instead of mounting every chat in a
+  // ScrollView. Section styling is just a top margin + padded title (no card
+  // background), so header items reproduce the look exactly.
+  type ChatListItem =
+    | { type: "header"; key: string; title: string }
+    | { type: "archivedHeader"; key: string; title: string; count: number }
+    | { type: "row"; key: string; chat: Chat };
+
+  const highlightedIds = searchOpen ? matchingChatIds : undefined;
+
+  const chatListData = useMemo<ChatListItem[]>(() => {
+    if (allChats.length === 0) return [];
+    const items: ChatListItem[] = [];
+    const pushSection = (title: string, chats: Chat[]) => {
+      if (chats.length === 0) return;
+      if (title) items.push({ type: "header", key: `h-${title}`, title });
+      for (const c of chats) items.push({ type: "row", key: c.id, chat: c });
+    };
+    pushSection(t("drawer.pinned"), groups.pinned);
+    pushSection(t("drawer.today"), groups.today);
+    pushSection(t("drawer.yesterday"), groups.yesterday);
+    pushSection(t("drawer.earlier"), groups.earlier);
+    if (groups.archived.length > 0) {
+      items.push({
+        type: "archivedHeader",
+        key: "archived-header",
+        title: t("drawer.archived"),
+        count: groups.archived.length,
+      });
+      if (archivedExpanded) pushSection("", groups.archived);
+    }
+    return items;
+  }, [allChats.length, groups, archivedExpanded, t]);
+
+  const renderChatItem = useCallback(
+    ({ item }: { item: ChatListItem }) => {
+      if (item.type === "header") {
+        return <Text style={[s.sectionTitle, s.section]}>{item.title}</Text>;
+      }
+      if (item.type === "archivedHeader") {
+        return (
+          <Pressable
+            style={s.archivedHeader}
+            onPress={() => setArchivedExpanded((v) => !v)}
+          >
+            <Text style={s.sectionTitle}>{item.title}</Text>
+            <Text style={s.archivedCount}>{item.count}</Text>
+            <Ionicons
+              name={archivedExpanded ? "chevron-up" : "chevron-down"}
+              size={16}
+              color={theme.textTertiary}
+            />
+          </Pressable>
+        );
+      }
+      return (
+        <ConversationRow
+          chat={item.chat}
+          rowStyles={rowStyles}
+          highlighted={highlightedIds?.has(item.chat.id) ?? false}
+          titleGenerating={isChatTitleGenerating(item.chat.id)}
+          onOpen={() => openChat(item.chat.id)}
+          onLongPress={() => showRowMenu(item.chat)}
+        />
+      );
+    },
+    [s, rowStyles, highlightedIds, archivedExpanded, theme, openChat, showRowMenu],
+  );
+
+  const chatListEmpty =
+    allChats.length === 0 && !loading && !error ? (
       <View style={s.inlineEmpty}>
         <Text style={s.emptyText}>{t("drawer.no_conversations")}</Text>
       </View>
-    ) : (
-      <>
-        <Section
-          title={t("drawer.pinned")}
-          chats={groups.pinned}
-          rowStyles={rowStyles}
-          sectionStyles={s}
-          highlightedIds={searchOpen ? matchingChatIds : undefined}
-          onOpen={openChat}
-          onLongPress={showRowMenu}
-        />
-        <Section
-          title={t("drawer.today")}
-          chats={groups.today}
-          rowStyles={rowStyles}
-          sectionStyles={s}
-          highlightedIds={searchOpen ? matchingChatIds : undefined}
-          onOpen={openChat}
-          onLongPress={showRowMenu}
-        />
-        <Section
-          title={t("drawer.yesterday")}
-          chats={groups.yesterday}
-          rowStyles={rowStyles}
-          sectionStyles={s}
-          highlightedIds={searchOpen ? matchingChatIds : undefined}
-          onOpen={openChat}
-          onLongPress={showRowMenu}
-        />
-        <Section
-          title={t("drawer.earlier")}
-          chats={groups.earlier}
-          rowStyles={rowStyles}
-          sectionStyles={s}
-          onOpen={openChat}
-          onLongPress={showRowMenu}
-        />
-        {groups.archived.length > 0 ? (
-          <>
-            <Pressable
-              style={s.archivedHeader}
-              onPress={() => setArchivedExpanded((v) => !v)}
-            >
-              <Text style={s.sectionTitle}>{t("drawer.archived")}</Text>
-              <Text style={s.archivedCount}>{groups.archived.length}</Text>
-              <Ionicons
-                name={archivedExpanded ? "chevron-up" : "chevron-down"}
-                size={16}
-                color={theme.textTertiary}
-              />
-            </Pressable>
-            {archivedExpanded ? (
-              <Section
-                title=""
-                chats={groups.archived}
-                rowStyles={rowStyles}
-                sectionStyles={s}
-                onOpen={openChat}
-                onLongPress={showRowMenu}
-              />
-            ) : null}
-          </>
-        ) : null}
-      </>
-    );
+    ) : null;
 
   const searchSection = searchOpen ? (
     <DrawerSearchResults
@@ -577,24 +547,8 @@ export function ConversationList(_props: unknown) {
     />
   ) : null;
 
-  const listBody = (
-    <ScrollView
-      style={s.list}
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={{
-        paddingTop: topInset,
-        paddingBottom: bottomInset,
-      }}
-      keyboardShouldPersistTaps="handled"
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={handleRefresh}
-          colors={[theme.primary]}
-          tintColor={theme.primary}
-        />
-      }
-    >
+  const listHeader = (
+    <>
       {drawerNav}
       {loading && allChats.length === 0 && !searchOpen ? (
         <View style={s.inlineEmpty}>
@@ -612,13 +566,36 @@ export function ConversationList(_props: unknown) {
             <Text style={s.retryText}>{t("common.retry")}</Text>
           </Pressable>
         </View>
-      ) : (
-        <>
-          {searchSection}
-          {chatSections}
-        </>
-      )}
-    </ScrollView>
+      ) : null}
+      {searchSection}
+    </>
+  );
+
+  const listBody = (
+    <FlashList
+      style={s.list}
+      data={chatListData}
+      renderItem={renderChatItem}
+      keyExtractor={(item) => item.key}
+      getItemType={(item) => item.type}
+      estimatedItemSize={72}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{
+        paddingTop: topInset,
+        paddingBottom: bottomInset,
+      }}
+      keyboardShouldPersistTaps="handled"
+      ListHeaderComponent={listHeader}
+      ListEmptyComponent={chatListEmpty}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          colors={[theme.primary]}
+          tintColor={theme.primary}
+        />
+      }
+    />
   );
 
   const topFadeColors = theme.isDark

@@ -5,12 +5,12 @@ import {
   Modal,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, {
   type DateTimePickerEvent,
@@ -537,6 +537,77 @@ export default function TodosScreen() {
     }
   };
 
+  // The screen is a multi-mode dashboard. The genuinely long, flat lists are
+  // `openReminders` (non-calendar mode) and `visibleDone` — those go into the
+  // FlashList data so rows are recycled. The calendar day-view, ListGroupsView,
+  // and the new-group link are bounded/structured, so they render in the header.
+  // (These hooks must run before the early returns below — rules-of-hooks.)
+  type TodoListItem =
+    | { type: "remindersHeader"; key: string; title: string }
+    | { type: "doneHeader"; key: string; title: string }
+    | { type: "todoRow"; key: string; todo: Todo; done: boolean };
+
+  const todosData = useMemo<TodoListItem[]>(() => {
+    const items: TodoListItem[] = [];
+    if (showReminders && !isRemindersPage && openReminders.length > 0) {
+      if (!focusSection) {
+        items.push({
+          type: "remindersHeader",
+          key: "reminders-h",
+          title: t("todos.section_reminders"),
+        });
+      }
+      for (const todo of openReminders) {
+        items.push({ type: "todoRow", key: todo.id, todo, done: false });
+      }
+    }
+    if (visibleDone.length > 0) {
+      items.push({
+        type: "doneHeader",
+        key: "done-h",
+        title: `${t("todos.done")} (${visibleDone.length})`,
+      });
+      for (const todo of visibleDone) {
+        items.push({ type: "todoRow", key: todo.id, todo, done: true });
+      }
+    }
+    return items;
+  }, [showReminders, isRemindersPage, openReminders, focusSection, visibleDone, t]);
+
+  const renderTodoItem = useCallback(
+    ({ item }: { item: TodoListItem }) => {
+      if (item.type === "remindersHeader" || item.type === "doneHeader") {
+        return <Text style={s.sectionHeading}>{item.title}</Text>;
+      }
+      const todo = item.todo;
+      if (item.done) {
+        return (
+          <TodoRow
+            key={todo.id}
+            todo={todo}
+            busy={togglingId === todo.id}
+            onToggle={() => void handleToggle(todo)}
+            onDue={isReminder(todo) ? () => openDuePicker(todo) : undefined}
+            onDelete={() => handleDeleteItem(todo)}
+          />
+        );
+      }
+      return (
+        <TodoRow
+          key={todo.id}
+          todo={todo}
+          highlighted={highlight === todo.id}
+          overlapWith={overlapNotes.get(todo.id)}
+          busy={togglingId === todo.id}
+          onToggle={() => void handleToggle(todo)}
+          onDue={() => openDuePicker(todo)}
+          onDelete={() => handleDeleteItem(todo)}
+        />
+      );
+    },
+    [s, togglingId, highlight, overlapNotes, handleToggle, openDuePicker, handleDeleteItem],
+  );
+
   if (!token) return <Redirect href="/login" />;
 
   if (loading) {
@@ -546,6 +617,128 @@ export default function TodosScreen() {
       </View>
     );
   }
+
+  // The screen is a multi-mode dashboard. The genuinely long, flat lists are
+  // `openReminders` (non-calendar mode) and `visibleDone` — those go into the
+  // FlashList data so rows are recycled. The calendar day-view, ListGroupsView,
+  // and the new-group link are bounded/structured, so they render in the header.
+  const todosHeader = (
+    <>
+      {error ? (
+        <View style={s.empty}>
+          <Ionicons
+            name="cloud-offline-outline"
+            size={48}
+            color={C.textTertiary}
+            style={s.emptyIcon}
+          />
+          <Text style={s.emptyTitle}>{t("common.error")}</Text>
+          <Pressable
+            style={s.retryBtn}
+            onPress={() => {
+              void refresh();
+            }}
+          >
+            <Text style={s.retryText}>{t("common.retry")}</Text>
+          </Pressable>
+        </View>
+      ) : showRemindersEmptyHero ? (
+        <View style={s.empty}>
+          <Ionicons
+            name={focusSection === "list" ? "list-outline" : "checkbox-outline"}
+            size={48}
+            color={C.primary}
+            style={s.emptyIcon}
+          />
+          <Text style={s.emptyTitle}>{t("todos.empty_title")}</Text>
+          <Text style={s.emptyBody}>
+            {focusSection === "list"
+              ? t("todos.empty_list_body")
+              : t("todos.empty_body")}
+          </Text>
+        </View>
+      ) : null}
+
+      {showReminders && isRemindersPage ? (
+        <View style={s.section}>
+          <ReminderCalendar
+            reminders={openReminders}
+            calendarEvents={calendarEvents}
+            suggestedReminders={suggestedReminders}
+            selectedDay={selectedDay}
+            visibleMonth={visibleMonth}
+            onSelectDay={(dayKey) => {
+              setSelectedDay(dayKey);
+              setVisibleMonth(startOfMonth(parseDateKey(dayKey)));
+            }}
+            onVisibleMonthChange={setVisibleMonth}
+          />
+          {selectedDaySuggestions.length > 0 ? (
+            <>
+              <Text style={s.sectionHeading}>{t("calendar.from_email")}</Text>
+              {selectedDaySuggestions.map((reminder) => (
+                <SuggestedReminderRow
+                  key={reminder.id}
+                  reminder={reminder}
+                  busy={suggestionBusyId === reminder.id}
+                  onAdd={() => void handleAddSuggestion(reminder)}
+                  onDismiss={() => void handleDismissSuggestion(reminder)}
+                />
+              ))}
+            </>
+          ) : null}
+          <Text style={s.dayHeading}>{selectedDayHeading}</Text>
+          {selectedDayMeetings.length === 0 &&
+          selectedDayReminders.length === 0 &&
+          selectedDaySuggestions.length === 0 ? (
+            <Text style={s.sectionEmpty}>{t("calendar.no_items_day")}</Text>
+          ) : (
+            <>
+              {selectedDayMeetings.map((event) => (
+                <CalendarMeetingRow key={event.id} event={event} />
+              ))}
+              {selectedDayReminders.map((todo) => (
+                <TodoRow
+                  key={todo.id}
+                  todo={todo}
+                  highlighted={highlight === todo.id}
+                  overlapWith={overlapNotes.get(todo.id)}
+                  busy={togglingId === todo.id}
+                  onToggle={() => void handleToggle(todo)}
+                  onDue={() => openDuePicker(todo)}
+                  onDelete={() => handleDeleteItem(todo)}
+                />
+              ))}
+            </>
+          )}
+        </View>
+      ) : null}
+
+      {showReminders && !isRemindersPage && openReminders.length === 0 && !showRemindersEmptyHero ? (
+        <Text style={s.sectionEmpty}>{t("todos.reminders_empty")}</Text>
+      ) : null}
+
+      {showList ? (
+        <>
+          <Pressable style={s.newGroupLink} onPress={() => setNewGroupOpen(true)}>
+            <Ionicons name="add-circle-outline" size={18} color={C.primary} />
+            <Text style={s.newGroupLinkText}>{t("lists.new_group")}</Text>
+          </Pressable>
+          <ListGroupsView
+            groups={listGroups}
+            initialExpandedTopic={focusTopic ?? undefined}
+            togglingId={togglingId}
+            onReorderGroups={(topics) => void handleReorderGroups(topics)}
+            onReorderItems={(topic, ordered) => void handleReorderItems(topic, ordered)}
+            onToggle={(todo) => void handleToggle(todo)}
+            onDelete={(todo) => handleDeleteItem(todo)}
+            onAddItem={(topic, text) => void handleCreateListItem(topic, text)}
+            onDeleteGroup={handleDeleteGroup}
+          />
+        </>
+      ) : null}
+    </>
+  );
 
   return (
     <GestureHandlerRootView style={s.root}>
@@ -573,164 +766,17 @@ export default function TodosScreen() {
         ) : null}
       </View>
 
-      <ScrollView
+      <FlashList
         style={s.list}
+        data={todosData}
+        renderItem={renderTodoItem}
+        keyExtractor={(item) => item.key}
+        getItemType={(item) => item.type}
+        estimatedItemSize={56}
         contentContainerStyle={showRemindersEmptyHero && !error ? s.listEmpty : undefined}
         keyboardShouldPersistTaps="handled"
-      >
-        {error ? (
-          <View style={s.empty}>
-            <Ionicons
-              name="cloud-offline-outline"
-              size={48}
-              color={C.textTertiary}
-              style={s.emptyIcon}
-            />
-            <Text style={s.emptyTitle}>{t("common.error")}</Text>
-            <Pressable
-              style={s.retryBtn}
-              onPress={() => {
-                void refresh();
-              }}
-            >
-              <Text style={s.retryText}>{t("common.retry")}</Text>
-            </Pressable>
-          </View>
-        ) : showRemindersEmptyHero ? (
-          <View style={s.empty}>
-            <Ionicons
-              name={focusSection === "list" ? "list-outline" : "checkbox-outline"}
-              size={48}
-              color={C.primary}
-              style={s.emptyIcon}
-            />
-            <Text style={s.emptyTitle}>{t("todos.empty_title")}</Text>
-            <Text style={s.emptyBody}>
-              {focusSection === "list"
-                ? t("todos.empty_list_body")
-                : t("todos.empty_body")}
-            </Text>
-          </View>
-        ) : null}
-
-        {showReminders ? (
-          <View style={s.section}>
-            {!focusSection ? (
-              <Text style={s.sectionHeading}>{t("todos.section_reminders")}</Text>
-            ) : null}
-
-            {isRemindersPage ? (
-              <>
-                <ReminderCalendar
-                  reminders={openReminders}
-                  calendarEvents={calendarEvents}
-                  suggestedReminders={suggestedReminders}
-                  selectedDay={selectedDay}
-                  visibleMonth={visibleMonth}
-                  onSelectDay={(dayKey) => {
-                    setSelectedDay(dayKey);
-                    setVisibleMonth(startOfMonth(parseDateKey(dayKey)));
-                  }}
-                  onVisibleMonthChange={setVisibleMonth}
-                />
-                {selectedDaySuggestions.length > 0 ? (
-                  <>
-                    <Text style={s.sectionHeading}>{t("calendar.from_email")}</Text>
-                    {selectedDaySuggestions.map((reminder) => (
-                      <SuggestedReminderRow
-                        key={reminder.id}
-                        reminder={reminder}
-                        busy={suggestionBusyId === reminder.id}
-                        onAdd={() => void handleAddSuggestion(reminder)}
-                        onDismiss={() => void handleDismissSuggestion(reminder)}
-                      />
-                    ))}
-                  </>
-                ) : null}
-                <Text style={s.dayHeading}>{selectedDayHeading}</Text>
-                {selectedDayMeetings.length === 0 &&
-                selectedDayReminders.length === 0 &&
-                selectedDaySuggestions.length === 0 ? (
-                  <Text style={s.sectionEmpty}>{t("calendar.no_items_day")}</Text>
-                ) : (
-                  <>
-                    {selectedDayMeetings.map((event) => (
-                      <CalendarMeetingRow key={event.id} event={event} />
-                    ))}
-                    {selectedDayReminders.map((todo) => (
-                      <TodoRow
-                        key={todo.id}
-                        todo={todo}
-                        highlighted={highlight === todo.id}
-                        overlapWith={overlapNotes.get(todo.id)}
-                        busy={togglingId === todo.id}
-                        onToggle={() => void handleToggle(todo)}
-                        onDue={() => openDuePicker(todo)}
-                        onDelete={() => handleDeleteItem(todo)}
-                      />
-                    ))}
-                  </>
-                )}
-              </>
-            ) : openReminders.length === 0 ? (
-              !showRemindersEmptyHero ? (
-                <Text style={s.sectionEmpty}>{t("todos.reminders_empty")}</Text>
-              ) : null
-            ) : (
-              openReminders.map((todo) => (
-                <TodoRow
-                  key={todo.id}
-                  todo={todo}
-                  highlighted={highlight === todo.id}
-                  overlapWith={overlapNotes.get(todo.id)}
-                  busy={togglingId === todo.id}
-                  onToggle={() => void handleToggle(todo)}
-                  onDue={() => openDuePicker(todo)}
-                  onDelete={() => handleDeleteItem(todo)}
-                />
-              ))
-            )}
-          </View>
-        ) : null}
-
-        {showList ? (
-          <>
-            <Pressable style={s.newGroupLink} onPress={() => setNewGroupOpen(true)}>
-              <Ionicons name="add-circle-outline" size={18} color={C.primary} />
-              <Text style={s.newGroupLinkText}>{t("lists.new_group")}</Text>
-            </Pressable>
-            <ListGroupsView
-              groups={listGroups}
-              initialExpandedTopic={focusTopic ?? undefined}
-              togglingId={togglingId}
-              onReorderGroups={(topics) => void handleReorderGroups(topics)}
-              onReorderItems={(topic, ordered) => void handleReorderItems(topic, ordered)}
-              onToggle={(todo) => void handleToggle(todo)}
-              onDelete={(todo) => handleDeleteItem(todo)}
-              onAddItem={(topic, text) => void handleCreateListItem(topic, text)}
-              onDeleteGroup={handleDeleteGroup}
-            />
-          </>
-        ) : null}
-
-        {visibleDone.length > 0 ? (
-          <View style={s.section}>
-            <Text style={s.sectionHeading}>
-              {t("todos.done")} ({visibleDone.length})
-            </Text>
-            {visibleDone.map((todo) => (
-              <TodoRow
-                key={todo.id}
-                todo={todo}
-                busy={togglingId === todo.id}
-                onToggle={() => void handleToggle(todo)}
-                onDue={isReminder(todo) ? () => openDuePicker(todo) : undefined}
-                onDelete={() => handleDeleteItem(todo)}
-              />
-            ))}
-          </View>
-        ) : null}
-      </ScrollView>
+        ListHeaderComponent={todosHeader}
+      />
 
       <AddTodoSheet
         visible={todoSheetOpen}
