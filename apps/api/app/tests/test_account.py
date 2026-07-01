@@ -57,8 +57,12 @@ async def test_delete_user_deletes_children_then_user():
     session = AsyncMock()
     session.get = AsyncMock(return_value=MagicMock())
     await users_repo.delete_user(session, uuid4())
-    # messages, memories, usage_daily, chats
-    assert session.execute.await_count == 4
+    # Every user-owned table is purged before the user row itself, so the delete
+    # never fails on an FK to users.id without ON DELETE CASCADE. 14 tables are
+    # cleared explicitly (messages, memories, usage, project_items, projects,
+    # todos, suggestions, suggested_reminders, templates, push_tokens,
+    # attachments, calendar connections, gmail connections, chats).
+    assert session.execute.await_count == 14
     session.delete.assert_called_once()
     session.commit.assert_awaited_once()
 

@@ -3,7 +3,23 @@ from uuid import UUID
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.orm import Chat, Memory, Message, UsageDaily, User
+from app.models.orm import (
+    Attachment,
+    Chat,
+    Memory,
+    Message,
+    Project,
+    ProjectItem,
+    PushToken,
+    SuggestedReminder,
+    Suggestion,
+    Template,
+    TodoItem,
+    UsageDaily,
+    User,
+    UserCalendarConnection,
+    UserGmailConnection,
+)
 
 
 async def get_by_id(session: AsyncSession, user_id: UUID) -> User | None:
@@ -41,10 +57,30 @@ async def update(session: AsyncSession, user: User, **fields) -> User:
 
 
 async def delete_user(session: AsyncSession, user_id: UUID) -> None:
-    """Hard-delete a user and all their data (FK-safe order)."""
+    """Hard-delete a user and all their data.
+
+    Deletes every user-owned row explicitly before the user row so the delete
+    succeeds even for tables whose FK to users.id has no ON DELETE CASCADE
+    (todos, projects, project_items, suggestions, messages, memories). Tables
+    that do cascade (attachments, push tokens, connections, suggested reminders,
+    user templates) are deleted explicitly too — harmless if already cascaded,
+    and keeps the operation correct regardless of migration state.
+    """
     await session.execute(delete(Message).where(Message.user_id == user_id))
     await session.execute(delete(Memory).where(Memory.user_id == user_id))
     await session.execute(delete(UsageDaily).where(UsageDaily.user_id == user_id))
+    await session.execute(delete(ProjectItem).where(ProjectItem.user_id == user_id))
+    await session.execute(delete(Project).where(Project.user_id == user_id))
+    await session.execute(delete(TodoItem).where(TodoItem.user_id == user_id))
+    await session.execute(delete(Suggestion).where(Suggestion.user_id == user_id))
+    await session.execute(delete(SuggestedReminder).where(SuggestedReminder.user_id == user_id))
+    await session.execute(delete(Template).where(Template.user_id == user_id))
+    await session.execute(delete(PushToken).where(PushToken.user_id == user_id))
+    await session.execute(delete(Attachment).where(Attachment.user_id == user_id))
+    await session.execute(
+        delete(UserCalendarConnection).where(UserCalendarConnection.user_id == user_id)
+    )
+    await session.execute(delete(UserGmailConnection).where(UserGmailConnection.user_id == user_id))
     await session.execute(delete(Chat).where(Chat.user_id == user_id))
     user = await session.get(User, user_id)
     if user is not None:
