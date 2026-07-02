@@ -4,6 +4,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
+import { TemplatesSheet } from "@/components/TemplatesSheet";
+
 import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { useTodos } from "@/contexts/TodosContext";
@@ -85,7 +87,7 @@ function UrgentTodoSection({
           <View key={todo.id} style={s.urgentCardWrap}>
             <Pressable
               style={[s.urgentCard, overdue && s.urgentCardOverdue]}
-              onPress={() => onSelect(homeUrgentPrompt(todo))}
+              onPress={() => onSelect(homeUrgentPrompt(todo, t))}
             >
               <Ionicons
                 name={overdue ? "alert-circle-outline" : "alarm-outline"}
@@ -129,6 +131,7 @@ export function HomeStarters({ onSelect }: Props) {
   const { token, user } = useAuth();
   const { screen, loading } = useHome();
   const { todos, loading: todosLoading, seenReminderIds, dismissReminderNudge } = useTodos();
+  const [templatesOpen, setTemplatesOpen] = useState(false);
   const [dismissedStarterKeys, setDismissedStarterKeys] = useState<Set<string>>(
     () => new Set(),
   );
@@ -161,7 +164,7 @@ export function HomeStarters({ onSelect }: Props) {
   const displaySubtitle = useMemo(() => {
     if (screen?.project_highlight) return null;
     if (!todosLoading) {
-      const fromUrgent = homeUrgentSubtitle(urgentTodos);
+      const fromUrgent = homeUrgentSubtitle(urgentTodos, t);
       if (fromUrgent) return fromUrgent;
       if ((screen?.urgent_todos.length ?? 0) > 0 && urgentTodos.length === 0) {
         return null;
@@ -174,6 +177,7 @@ export function HomeStarters({ onSelect }: Props) {
     urgentTodos,
     screen?.subtitle,
     screen?.urgent_todos.length,
+    t,
   ]);
 
   if (loading && !screen) {
@@ -251,6 +255,22 @@ export function HomeStarters({ onSelect }: Props) {
           </View>
         </View>
       ) : null}
+
+      <Pressable
+        style={s.templatesBtn}
+        onPress={() => setTemplatesOpen(true)}
+        accessibilityRole="button"
+        accessibilityLabel={t("chat.templates")}
+      >
+        <Ionicons name="copy-outline" size={16} color={theme.primary} />
+        <Text style={s.templatesBtnText}>{t("chat.templates")}</Text>
+      </Pressable>
+
+      <TemplatesSheet
+        visible={templatesOpen}
+        onClose={() => setTemplatesOpen(false)}
+        onSelect={onSelect}
+      />
     </View>
   );
 }
@@ -356,5 +376,20 @@ function makeStyles(t: Theme) {
       maxWidth: "100%",
     },
     chipText: { fontSize: 14, fontWeight: "600", color: t.text },
+    templatesBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      alignSelf: "center",
+      marginTop: 4,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 999,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: t.border,
+      backgroundColor: t.surface,
+    },
+    templatesBtnText: { fontSize: 14, fontWeight: "600", color: t.primary },
   });
 }

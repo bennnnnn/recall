@@ -137,6 +137,10 @@ class Settings(BaseSettings):
     mock_llm_enabled: bool = True
     environment: str = "development"
 
+    # Optional Sentry error reporting (leave empty to disable).
+    sentry_dsn: str = ""
+    sentry_traces_sample_rate: float = 0.1
+
 
 def validate_production_settings(settings: Settings) -> None:
     if settings.environment == "development":

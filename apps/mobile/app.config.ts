@@ -33,10 +33,21 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     plugins.push("./plugins/googleSignInPodfile.js");
   }
 
+  const iosInfoPlist: Record<string, unknown> = {
+    ...(base.ios?.infoPlist ?? {}),
+  };
+  if (includeDevClient) {
+    iosInfoPlist.NSAppTransportSecurity = { NSAllowsLocalNetworking: true };
+  }
+
   return {
     ...config,
     ...base,
     plugins,
+    ios: {
+      ...base.ios,
+      infoPlist: iosInfoPlist,
+    },
     extra: {
       ...base.extra,
       eas: {

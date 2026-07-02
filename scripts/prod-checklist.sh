@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Pre-launch checklist — verifies repo config; ops secrets are manual (see DEPLOY_TICKETS.md).
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
+echo "== Recall production checklist =="
+echo
+
+fail=0
+warn=0
+
+check() {
+  if eval "$2"; then
+    echo "  OK  $1"
+  else
+    echo "  FAIL  $1"
+    fail=$((fail + 1))
+  fi
+}
+
+warn_if() {
+  if eval "$2"; then
+    echo "  OK  $1"
+  else
+    echo "  WARN  $1"
+    warn=$((warn + 1))
+  fi
+}
+
+echo "Code gate"
+if ./scripts/dev.sh check; then
+  echo "  OK  ./scripts/dev.sh check"
+else
+  echo "  FAIL  ./scripts/dev.sh check"
+  fail=$((fail + 1))
+fi
+echo
+
+echo "API .env.example"
+check "JWT access TTL documented as 60m" "grep -q 'JWT_EXPIRE_MINUTES=60' apps/api/.env.example"
+check "JWT refresh TTL documented" "grep -q 'JWT_REFRESH_EXPIRE_DAYS' apps/api/.env.example"
+check "Sentry DSN documented" "grep -q 'SENTRY_DSN' apps/api/.env.example"
+echo
+
+echo "Legal routes (local API must be running for live check)"
+warn_if "GET /legal/privacy" "curl -sf http://localhost:8000/legal/privacy >/dev/null 2>&1"
+warn_if "GET /legal/terms" "curl -sf http://localhost:8000/legal/terms >/dev/null 2>&1"
+echo
+
+echo "Manual ops (cannot auto-verify — see DEPLOY_TICKETS.md):"
+echo "  - Fly secrets: ENVIRONMENT=production, DEV_AUTH_ENABLED=false, MOCK_LLM_ENABLED=false"
+echo "  - JWT_SECRET (>=32 chars), DATABASE_URL, REDIS_URL, GOOGLE_*, OPENROUTER_API_KEY"
+echo "  - STORAGE_BACKEND=r2 + R2 creds, OAUTH_TOKEN_ENCRYPTION_KEY, CORS_ORIGINS"
+echo "  - Neon: vector + pg_trgm, alembic upgrade head"
+echo "  - EAS: EXPO_PUBLIC_API_URL, production builds, store listings"
+echo "  - Hosted legal URLs: https://<api-host>/legal/privacy and /legal/terms"
+echo
+
+if [[ "$fail" -gt 0 ]]; then
+  echo "FAILED ($fail hard failures, $warn warnings)"
+  exit 1
+fi
+
+echo "PASSED ($warn warnings — review manual ops above)"
+exit 0

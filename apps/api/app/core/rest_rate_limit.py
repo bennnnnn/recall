@@ -15,7 +15,7 @@ from app.gateways.google_auth import GoogleAuthError, decode_access_token
 
 logger = logging.getLogger(__name__)
 
-_SKIP_PREFIXES = ("/health", "/webhooks/")
+_SKIP_PREFIXES = ("/health", "/webhooks/", "/legal/")
 
 
 def _client_key(request: Request, settings: Settings) -> str:

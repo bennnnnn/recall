@@ -1,11 +1,12 @@
 import { useMemo } from "react";
-import { ScrollView, View } from "react-native";
+import { Linking, ScrollView, View } from "react-native";
 import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { InfoRow, makeSettingsStyles, NavRow } from "@/components/settings/settingsUi";
+import { getLegalPrivacyUrl, getLegalTermsUrl } from "@/lib/legalUrls";
 import { useTheme } from "@/lib/theme";
 
 export default function AboutScreen() {
@@ -31,12 +32,28 @@ export default function AboutScreen() {
             styles={s}
             theme={theme}
           />
+          <NavRow
+            icon="globe-outline"
+            title={t("legal.view_online")}
+            onPress={() => void Linking.openURL(getLegalPrivacyUrl())}
+            compact
+            styles={s}
+            theme={theme}
+          />
         </View>
         <View style={s.footerGroup}>
           <NavRow
             icon="document-text-outline"
             title={t("terms.title")}
             onPress={() => router.push("/terms")}
+            compact
+            styles={s}
+            theme={theme}
+          />
+          <NavRow
+            icon="globe-outline"
+            title={t("legal.view_online")}
+            onPress={() => void Linking.openURL(getLegalTermsUrl())}
             compact
             styles={s}
             theme={theme}

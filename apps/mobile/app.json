@@ -11,9 +11,6 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.recall.app",
       "infoPlist": {
-        "NSAppTransportSecurity": {
-          "NSAllowsLocalNetworking": true
-        },
         "NSUserNotificationsUsageDescription": "Recall sends reminders, learning nudges, and alerts from your connected email.",
         "NSLocationWhenInUseUsageDescription": "Recall uses your location for local time and to answer where you are.",
         "NSPhotoLibraryUsageDescription": "Recall needs access to your photos so you can attach images in chat.",

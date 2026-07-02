@@ -9,7 +9,9 @@ from app.core.config import get_settings, validate_production_settings
 from app.core.db import SessionLocal, engine
 from app.core.logging import setup_logging
 from app.core.redis import get_redis_client
+from app.core.request_id import RequestIdMiddleware
 from app.core.rest_rate_limit import RestRateLimitMiddleware
+from app.core.sentry import init_sentry
 from app.routers import (
     attachments,
     auth,
@@ -19,6 +21,7 @@ from app.routers import (
     health,
     home,
     integrations,
+    legal,
     link_preview,
     memories,
     models,
@@ -38,6 +41,7 @@ from app.services import seed_templates
 async def lifespan(_: FastAPI):
     setup_logging()
     settings = get_settings()
+    init_sentry(settings)
     validate_production_settings(settings)
     from app.gateways.mcp import setup_mcp_adapters
 
@@ -70,8 +74,10 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.add_middleware(RestRateLimitMiddleware)
+    app.add_middleware(RequestIdMiddleware)
 
     app.include_router(health.router)
+    app.include_router(legal.router)
     app.include_router(auth.router)
     app.include_router(webhooks.router)
     app.include_router(users.router)

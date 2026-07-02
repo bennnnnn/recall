@@ -16,8 +16,11 @@ import { OfflineBanner } from "@/components/OfflineBanner";
 import { StackBackButton } from "@/components/StackBackButton";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { stackHeaderOptions } from "@/lib/stackHeader";
+import { initMobileSentry } from "@/lib/sentry";
 import { useTheme } from "@/lib/theme";
 import { useTranslation } from "react-i18next";
+
+initMobileSentry();
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 

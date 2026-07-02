@@ -1,3 +1,5 @@
+import type { TFunction } from "i18next";
+
 import type { Todo } from "@/lib/api";
 import {
   DEFAULT_HOME_URGENT_LEAD,
@@ -6,6 +8,16 @@ import {
   listHomeUrgentTodos,
   partitionHomeUrgentTodos,
 } from "@/lib/homeUrgentTodos";
+
+const mockT = ((key: string, opts?: Record<string, unknown>) => {
+  if (key === "chat.home.urgent_subtitle_overdue_many") {
+    return `${opts?.count} reminders overdue.`;
+  }
+  if (key === "chat.home.urgent_prompt_overdue") {
+    return `overdue: ${opts?.content}`;
+  }
+  return key;
+}) as TFunction;
 
 function todo(partial: Partial<Todo> & Pick<Todo, "id" | "content">): Todo {
   return {
@@ -113,39 +125,45 @@ describe("listHomeUrgentTodos", () => {
 
 describe("homeUrgentSubtitle", () => {
   it("returns null when empty", () => {
-    expect(homeUrgentSubtitle([])).toBeNull();
+    expect(homeUrgentSubtitle([], mockT)).toBeNull();
   });
 
   it("describes multiple overdue reminders", () => {
     expect(
-      homeUrgentSubtitle([
-        {
-          id: "1",
-          content: "A",
-          topic: "General",
-          due_at: "2026-06-26T12:00:00.000Z",
-          minutes_until: -60,
-        },
-        {
-          id: "2",
-          content: "B",
-          topic: "General",
-          due_at: "2026-06-26T11:00:00.000Z",
-          minutes_until: -120,
-        },
-      ]),
+      homeUrgentSubtitle(
+        [
+          {
+            id: "1",
+            content: "A",
+            topic: "General",
+            due_at: "2026-06-26T12:00:00.000Z",
+            minutes_until: -60,
+          },
+          {
+            id: "2",
+            content: "B",
+            topic: "General",
+            due_at: "2026-06-26T11:00:00.000Z",
+            minutes_until: -120,
+          },
+        ],
+        mockT,
+      ),
     ).toBe("2 reminders overdue.");
   });
 
   it("uses overdue prompt text", () => {
     expect(
-      homeUrgentPrompt({
-        id: "1",
-        content: "D",
-        topic: "General",
-        due_at: "2026-06-26T12:00:00.000Z",
-        minutes_until: -1440,
-      }),
+      homeUrgentPrompt(
+        {
+          id: "1",
+          content: "D",
+          topic: "General",
+          due_at: "2026-06-26T12:00:00.000Z",
+          minutes_until: -1440,
+        },
+        mockT,
+      ),
     ).toContain("overdue");
   });
 });
