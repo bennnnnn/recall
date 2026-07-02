@@ -16,7 +16,7 @@ type Options = {
   sendingMessageId: string | null;
   creatingRef: React.MutableRefObject<boolean>;
   setMenuVisible: React.Dispatch<React.SetStateAction<boolean>>;
-  regenerateResponse: (messageId: string) => void;
+  regenerateResponse: (model: string) => void | Promise<void>;
   handleEditMessage: (message: Message) => void;
   handleFeedback: (messageId: string, next: "up" | "down" | null) => void;
   handleQuizAnswer: (messageId: string, letter: "A" | "B" | "C" | "D") => void;

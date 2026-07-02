@@ -186,6 +186,41 @@ def test_ws_regenerate():
             assert done["type"] == "done"
 
 
+def test_ws_regenerate_passes_client_geo():
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+
+    async def fake_regen(*args, **kwargs):
+        assert kwargs.get("client_location") == "San Francisco, CA"
+        assert kwargs.get("client_latitude") == 37.77
+        assert kwargs.get("client_longitude") == -122.42
+        yield "nearby"
+
+    app = _app(user)
+
+    with (
+        patch("app.routers.ws.decode_access_token", return_value=user.id),
+        patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
+        patch("app.routers.ws.chat_service.stream_regenerate_response", fake_regen),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json(
+                {
+                    "type": "regenerate",
+                    "client_location": "San Francisco, CA",
+                    "client_latitude": 37.77,
+                    "client_longitude": -122.42,
+                }
+            )
+            assert ws.receive_json()["type"] == "start"
+            assert ws.receive_json()["type"] == "token"
+            assert ws.receive_json()["type"] == "stream_end"
+            assert ws.receive_json()["type"] == "done"
+
+
 # ── cancel ─────────────────────────────────────────────────────────────────────
 
 
@@ -344,6 +379,44 @@ def test_ws_edit_message():
                     "type": "edit",
                     "message_id": str(message_id),
                     "content": "updated text",
+                }
+            )
+            assert ws.receive_json()["type"] == "start"
+            assert ws.receive_json()["content"] == "Edited"
+            assert ws.receive_json()["type"] == "stream_end"
+            assert ws.receive_json()["type"] == "done"
+
+
+def test_ws_edit_passes_client_geo():
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+    message_id = uuid4()
+
+    async def fake_edit(*args, **kwargs):
+        assert kwargs.get("client_location") == "Oakland, CA"
+        assert kwargs.get("client_latitude") == 37.8
+        assert kwargs.get("client_longitude") == -122.27
+        yield "Edited"
+
+    app = _app(user)
+
+    with (
+        patch("app.routers.ws.decode_access_token", return_value=user.id),
+        patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
+        patch("app.routers.ws.chat_service.stream_edit_response", fake_edit),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json(
+                {
+                    "type": "edit",
+                    "message_id": str(message_id),
+                    "content": "coffee near me",
+                    "client_location": "Oakland, CA",
+                    "client_latitude": 37.8,
+                    "client_longitude": -122.27,
                 }
             )
             assert ws.receive_json()["type"] == "start"

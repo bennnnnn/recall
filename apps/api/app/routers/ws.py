@@ -236,6 +236,9 @@ async def chat_websocket(
                     continue
 
                 regen_model = request.model
+                regen_loc = request.client_location
+                regen_lat = request.client_latitude
+                regen_lng = request.client_longitude
 
                 async with SessionLocal() as session:
                     user = await auth_service.get_current_user(session, user_id)
@@ -243,7 +246,14 @@ async def chat_websocket(
                         await websocket.send_json({"type": "error", "message": "User not found"})
                         continue
 
-                def _regen_stream(result, model=regen_model, tz=client_timezone):
+                def _regen_stream(
+                    result,
+                    model=regen_model,
+                    tz=client_timezone,
+                    loc=regen_loc,
+                    lat=regen_lat,
+                    lng=regen_lng,
+                ):
                     return chat_service.stream_regenerate_response(
                         redis,
                         settings,
@@ -253,6 +263,9 @@ async def chat_websocket(
                         should_cancel=cancel_event.is_set,
                         result=result,
                         client_timezone=tz,
+                        client_location=loc,
+                        client_latitude=lat,
+                        client_longitude=lng,
                     )
 
                 await _run_chat_stream(
@@ -272,6 +285,9 @@ async def chat_websocket(
                     continue
 
                 edit_model = request.model
+                edit_loc = request.client_location
+                edit_lat = request.client_latitude
+                edit_lng = request.client_longitude
 
                 async with SessionLocal() as session:
                     user = await auth_service.get_current_user(session, user_id)
@@ -285,6 +301,9 @@ async def chat_websocket(
                     text=request.content,
                     model=edit_model,
                     tz=client_timezone,
+                    loc=edit_loc,
+                    lat=edit_lat,
+                    lng=edit_lng,
                 ):
                     return chat_service.stream_edit_response(
                         redis,
@@ -297,6 +316,9 @@ async def chat_websocket(
                         should_cancel=cancel_event.is_set,
                         result=result,
                         client_timezone=tz,
+                        client_location=loc,
+                        client_latitude=lat,
+                        client_longitude=lng,
                     )
 
                 await _run_chat_stream(
