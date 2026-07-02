@@ -387,8 +387,8 @@ async def test_sync_gmail_processes_messages():
 
 @pytest.mark.asyncio
 async def test_disconnect_gmail_clears_redis_cache():
-    from app.services import email as email_service
     from app.routers.gmail_integrations import disconnect_gmail
+    from app.services import email as email_service
 
     user = MagicMock()
     user.id = uuid4()
