@@ -22,7 +22,7 @@ RUN pip install --upgrade uv
 WORKDIR /app
 
 # Install dependencies first (better layer caching — app code changes more often).
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml uv.lock README.md ./
 RUN uv sync --frozen --no-dev
 
 # App + Alembic. alembic.ini and alembic/ are needed for migrations.
