@@ -14,13 +14,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { closeDrawer, registerChatInserter, registerChatPatcher, registerDrawerSearch, startNewChatGlobal, isChatTitleGenerating, subscribeChatTitleGenerating } from "@/lib/drawer";
 import { insertChatIntoGroups } from "@/lib/drawerChatList";
-import {
-  bottomChromeFadeColors,
-  BOTTOM_CHROME_FADE_LOCATIONS,
-  CHROME_FADE_EXTRA,
-  topChromeFadeColors,
-  TOP_CHROME_FADE_LOCATIONS,
-} from "@/lib/chromeFade";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -46,6 +39,7 @@ import { shareConversation } from "@/lib/share";
 
 const TOP_CHROME = 58;
 const FOOTER_CHROME = 54;
+const FADE_EXTRA = 40;
 const CHAT_LIST_STALE_MS = 20_000;
 
 export function ConversationList(_props: unknown) {
@@ -427,8 +421,8 @@ export function ConversationList(_props: unknown) {
 
   const topInset = insets.top + 8 + TOP_CHROME;
   const bottomInset = insets.bottom + 8 + FOOTER_CHROME;
-  const topFadeHeight = topInset + CHROME_FADE_EXTRA;
-  const bottomFadeHeight = bottomInset + CHROME_FADE_EXTRA;
+  const topFadeHeight = topInset + FADE_EXTRA;
+  const bottomFadeHeight = bottomInset + FADE_EXTRA;
 
   const drawerNav = (
     <View style={s.drawerNav}>
@@ -613,8 +607,23 @@ export function ConversationList(_props: unknown) {
     />
   );
 
-  const topFadeColors = topChromeFadeColors(theme);
-  const bottomFadeColors = bottomChromeFadeColors(theme);
+  const topFadeColors = theme.isDark
+    ? [theme.bg, `${theme.bg}FA`, `${theme.bg}D0`, `${theme.bg}70`, `${theme.bg}00`]
+    : [
+        theme.bg,
+        "rgba(255,255,255,0.98)",
+        "rgba(255,255,255,0.82)",
+        "rgba(255,255,255,0.45)",
+        "rgba(255,255,255,0)",
+      ];
+  const bottomFadeColors = theme.isDark
+    ? [`${theme.bg}00`, `${theme.bg}70`, `${theme.bg}D0`, theme.bg]
+    : [
+        "rgba(255,255,255,0)",
+        "rgba(255,255,255,0.45)",
+        "rgba(255,255,255,0.82)",
+        "rgba(255,255,255,0.95)",
+      ];
 
   return (
     <View style={s.root}>
@@ -665,14 +674,14 @@ export function ConversationList(_props: unknown) {
 
       <LinearGradient
         colors={topFadeColors as [string, string, ...string[]]}
-        locations={[...TOP_CHROME_FADE_LOCATIONS]}
+        locations={[0, 0.25, 0.5, 0.78, 1]}
         style={[s.topFade, { height: topFadeHeight }]}
         pointerEvents="none"
       />
 
       <LinearGradient
         colors={bottomFadeColors as [string, string, ...string[]]}
-        locations={[...BOTTOM_CHROME_FADE_LOCATIONS]}
+        locations={theme.isDark ? [0, 0.35, 0.72, 1] : [0, 0.35, 0.72, 1]}
         style={[s.bottomFade, { height: bottomFadeHeight }]}
         pointerEvents="none"
       />
