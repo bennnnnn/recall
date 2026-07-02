@@ -22,3 +22,8 @@ export function findLastAssistantId(messages: Message[]): string | null {
   }
   return null;
 }
+
+/** True while tokens are streaming or the server is persisting after stream_end. */
+export function isChatStreamActive(streaming: boolean, finalizing: boolean): boolean {
+  return streaming || finalizing;
+}

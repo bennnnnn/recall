@@ -37,6 +37,7 @@ export function useChat(
 ) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [streaming, setStreaming] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
   const [streamingDraft, setStreamingDraft] = useState<StreamingDraft | null>(null);
   const [sendingMessageId, setSendingMessageId] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -44,6 +45,7 @@ export function useChat(
   const assistantBuffer = useRef("");
   const streamingDraftRef = useRef<StreamingDraft | null>(null);
   const streamingRef = useRef(false);
+  const finalizingRef = useRef(false);
   /** Prior assistant reply kept until regenerate succeeds or is rolled back. */
   const regenerateBackupRef = useRef<Message | null>(null);
 
@@ -65,6 +67,7 @@ export function useChat(
 
   const clearStreamingBubble = useCallback(() => {
     updateStreamingDraft(null);
+    setFinalizing(false);
     setMessages((prev) => prev.filter((m) => m.id !== "streaming"));
   }, [updateStreamingDraft]);
 
@@ -73,6 +76,7 @@ export function useChat(
     regenerateBackupRef.current = null;
     clearStreamingBubble();
     setStreaming(false);
+    setFinalizing(false);
     streamingRef.current = false;
     if (backup) {
       setMessages((prev) => restoreAssistantMessage(prev, backup));
@@ -101,6 +105,10 @@ export function useChat(
   }, [streaming]);
 
   useEffect(() => {
+    finalizingRef.current = finalizing;
+  }, [finalizing]);
+
+  useEffect(() => {
     return () => {
       wsRef.current?.close();
     };
@@ -116,6 +124,7 @@ export function useChat(
     regenerateBackupRef.current = null;
     updateStreamingDraft(null);
     setStreaming(false);
+    setFinalizing(false);
     setSendingMessageId(null);
   }, [chatId, updateStreamingDraft]);
 
@@ -153,6 +162,7 @@ export function useChat(
       ws.onerror = () => {
         clearTimeout(timer);
         setStreaming(false);
+        setFinalizing(false);
         streamingRef.current = false;
         reject(new Error("WebSocket error"));
       };
@@ -162,9 +172,11 @@ export function useChat(
         if (wsRef.current === ws) {
           wsRef.current = null;
         }
-        if (streamingRef.current) {
+        if (streamingRef.current || finalizingRef.current) {
           setStreaming(false);
+          setFinalizing(false);
           streamingRef.current = false;
+          finalizingRef.current = false;
           const hadContent = assistantBuffer.current.trim().length > 0;
           const draft = streamingDraftRef.current;
           const failedRegenerateBackup = regenerateBackupRef.current;
@@ -204,6 +216,7 @@ export function useChat(
 
         if (payload.type === "start") {
           setSendingMessageId(null);
+          setFinalizing(false);
           setStreaming(true);
           streamingRef.current = true;
           assistantBuffer.current = "";
@@ -223,11 +236,13 @@ export function useChat(
         if (payload.type === "stream_end") {
           setStreaming(false);
           streamingRef.current = false;
+          setFinalizing(true);
         }
 
         if (payload.type === "done") {
           regenerateBackupRef.current = null;
           setStreaming(false);
+          setFinalizing(false);
           streamingRef.current = false;
           assistantBuffer.current = "";
           const draft = streamingDraftRef.current;
@@ -251,6 +266,7 @@ export function useChat(
         if (payload.type === "error") {
           setSendingMessageId(null);
           setStreaming(false);
+          setFinalizing(false);
           streamingRef.current = false;
           assistantBuffer.current = "";
           if (regenerateBackupRef.current) {
@@ -453,6 +469,7 @@ export function useChat(
   const stopGeneration = useCallback(() => {
     wsRef.current?.send(JSON.stringify({ type: "cancel" }));
     setStreaming(false);
+    setFinalizing(false);
     streamingRef.current = false;
     const draft = streamingDraftRef.current;
     assistantBuffer.current = "";
@@ -481,6 +498,7 @@ export function useChat(
     messages,
     setMessages,
     streaming,
+    finalizing,
     streamingDraft,
     sendingMessageId,
     sendMessage,

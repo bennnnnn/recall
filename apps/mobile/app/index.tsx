@@ -48,6 +48,7 @@ import { isQuotaErrorMessage, quotaAlertTitle } from "@/lib/quota";
 import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
 import { useTodosOptional } from "@/contexts/TodosContext";
 import { isComposerMenuOverlayOpen } from "@/lib/chatComposerLogic";
+import { isChatStreamActive } from "@/lib/chatMessageLogic";
 import { confirmGeoLocationAccess } from "@/lib/confirmGeoLocation";
 import { ensureNearbyLocation } from "@/lib/ensureNearbyLocation";
 import { isAmbiguousLocalPlacesQuery, isGeoQuery } from "@/lib/localPlacesQuery";
@@ -103,6 +104,7 @@ function ChatScreen() {
     messages,
     setMessages,
     streaming,
+    finalizing,
     streamingDraft,
     sendingMessageId,
     sendMessage,
@@ -116,23 +118,25 @@ function ChatScreen() {
     onTodosSync: handleTodosSync,
   });
 
+  const streamActive = isChatStreamActive(streaming, finalizing);
+
   const streamingLen =
-    streaming && streamingDraft
+    streamActive && streamingDraft
       ? streamingDraft.content.length
       : 0;
 
-  // Refetch the quota nudge when a chat turn finishes (streaming true -> false)
+  // Refetch the quota nudge when a chat turn finishes (stream active -> idle)
   // so the banner appears promptly once the user crosses the threshold.
   // Also refresh home starters silently — GET /home is not invalidated elsewhere.
   const [quotaRefreshKey, setQuotaRefreshKey] = useState(0);
-  const prevStreamingRef = useRef(false);
+  const prevStreamActiveRef = useRef(false);
   useEffect(() => {
-    if (prevStreamingRef.current && !streaming) {
+    if (prevStreamActiveRef.current && !streamActive) {
       setQuotaRefreshKey((k) => k + 1);
       void refreshHome({ silent: true });
     }
-    prevStreamingRef.current = streaming;
-  }, [streaming, refreshHome]);
+    prevStreamActiveRef.current = streamActive;
+  }, [streamActive, refreshHome]);
   const quotaNudge = useQuotaNudge({ token, isPro, refreshKey: quotaRefreshKey });
 
   const scroll = useChatScroll({
@@ -155,7 +159,7 @@ function ChatScreen() {
     setChatId,
     setMessages,
     messages,
-    streaming,
+    streaming: streamActive,
     stopGeneration,
     setQuizLanguage,
     setInputRef,
@@ -237,7 +241,7 @@ function ChatScreen() {
     router,
     draft,
     scroll,
-    streaming,
+    streaming: streamActive,
     sendMessage,
     editMessage,
     setMessages,
@@ -304,7 +308,7 @@ function ChatScreen() {
     routeChatId: typeof routeChatId === "string" ? routeChatId : undefined,
     chatId,
     messagesLength: messages.length,
-    streaming,
+    streaming: streamActive,
     draftChatId,
     prepareDraftChat,
     connect,
@@ -341,6 +345,7 @@ function ChatScreen() {
   const { headerTitleLabel, renderItem } = useChatMessageList({
     messages,
     streaming,
+    finalizing,
     streamingDraft,
     selectedModel,
     quizLanguage,
@@ -362,7 +367,7 @@ function ChatScreen() {
     composerHeight: COMPOSER_HEIGHT,
     attachmentExtra: composerAttachmentExtra(pendingAttachment),
     messagesLength: messages.length,
-    streaming,
+    streaming: streamActive,
   });
 
   if (!token) return <Redirect href="/login" />;

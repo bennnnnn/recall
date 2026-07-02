@@ -9,6 +9,7 @@ import { inferQuizAnswersFromMessages } from "@/lib/parseVocabQuiz";
 type Options = {
   messages: Message[];
   streaming: boolean;
+  finalizing: boolean;
   streamingDraft: StreamingDraft | null;
   selectedModel: string;
   quizLanguage: string;
@@ -25,6 +26,7 @@ type Options = {
 export function useChatMessageList({
   messages,
   streaming,
+  finalizing,
   streamingDraft,
   selectedModel,
   quizLanguage,
@@ -61,6 +63,7 @@ export function useChatMessageList({
         index={index}
         messages={messages}
         streaming={streaming}
+        finalizing={finalizing}
         streamingDraft={streamingDraft}
         lastAssistantId={lastAssistantId}
         selectedModel={selectedModel}
@@ -68,7 +71,7 @@ export function useChatMessageList({
         quizAnswers={quizAnswers}
         highlightedMessageId={highlightedMessageId}
         sendingMessageId={sendingMessageId}
-        quizDisabled={streaming || creatingRef.current}
+        quizDisabled={streaming || finalizing || creatingRef.current}
         onRegenerate={regenerateResponse}
         onEdit={handleEditMessage}
         onFeedback={handleFeedback}
@@ -78,6 +81,7 @@ export function useChatMessageList({
     [
       messages,
       streaming,
+      finalizing,
       streamingDraft,
       lastAssistantId,
       selectedModel,
