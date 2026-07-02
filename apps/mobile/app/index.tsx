@@ -30,6 +30,7 @@ import { ActionBanner } from "@/components/ActionBanner";
 import { DrawerShell } from "@/components/DrawerShell";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDrawer } from "@/contexts/DrawerContext";
+import { useHome } from "@/contexts/HomeContext";
 import { useChat } from "@/hooks/useChat";
 import { useChatActions } from "@/hooks/useChatActions";
 import { useChatComposerState } from "@/hooks/useChatComposerState";
@@ -64,6 +65,7 @@ function ChatScreen() {
   const [quizLanguage, setQuizLanguage] = useState("en");
   const { isPro, labelFor, autoEnabled, modelEnabledSet, AUTO_MODEL_ID } = useModels();
   const { unseenCount, showIndicator } = useReminderBadgeCount({ enabled: Boolean(token) });
+  const { refresh: refreshHome } = useHome();
   const [upgradeVisible, setUpgradeVisible] = useState(false);
   const draft = useDraftChat({ token, chatId });
   const activeChatId = draft.activeChatId;
@@ -116,14 +118,16 @@ function ChatScreen() {
 
   // Refetch the quota nudge when a chat turn finishes (streaming true -> false)
   // so the banner appears promptly once the user crosses the threshold.
+  // Also refresh home starters silently — GET /home is not invalidated elsewhere.
   const [quotaRefreshKey, setQuotaRefreshKey] = useState(0);
   const prevStreamingRef = useRef(false);
   useEffect(() => {
     if (prevStreamingRef.current && !streaming) {
       setQuotaRefreshKey((k) => k + 1);
+      void refreshHome({ silent: true });
     }
     prevStreamingRef.current = streaming;
-  }, [streaming]);
+  }, [streaming, refreshHome]);
   const quotaNudge = useQuotaNudge({ token, isPro, refreshKey: quotaRefreshKey });
 
   const scroll = useChatScroll({
