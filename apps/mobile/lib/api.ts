@@ -306,6 +306,10 @@ async function request<T>(
 ): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 30_000);
+  const externalSignal = init?.signal ?? null;
+
+  const onExternalAbort = () => controller.abort();
+  externalSignal?.addEventListener("abort", onExternalAbort);
 
   try {
     const response = await fetch(apiUrl(path), {
@@ -332,6 +336,7 @@ async function request<T>(
 
     return response.json() as Promise<T>;
   } finally {
+    externalSignal?.removeEventListener("abort", onExternalAbort);
     clearTimeout(timeout);
   }
 }
@@ -573,10 +578,11 @@ export const api = {
     ),
   deleteProject: (token: string, id: string) =>
     request<void>(`/projects/${id}`, token, { method: "DELETE" }),
-  search: (token: string, q: string, limit = 20) =>
+  search: (token: string, q: string, limit = 20, init?: Pick<RequestInit, "signal">) =>
     request<{ results: SearchResult[]; total: number }>(
       `/search?q=${encodeURIComponent(q)}&limit=${limit}`,
       token,
+      init,
     ),
   listTemplates: (token: string) => request<Template[]>("/templates", token),
   listSuggestions: (token: string) => request<Suggestion[]>("/suggestions", token),

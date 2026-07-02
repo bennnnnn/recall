@@ -12,7 +12,7 @@ import {
 import { FlashList } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { closeDrawer, registerChatInserter, registerChatPatcher, registerDrawerSearch, startNewChatGlobal, isChatTitleGenerating, subscribeChatTitleGenerating } from "@/lib/drawer";
+import { closeDrawer, registerChatInserter, registerChatPatcher, startNewChatGlobal, isChatTitleGenerating, subscribeChatTitleGenerating } from "@/lib/drawer";
 import { insertChatIntoGroups } from "@/lib/drawerChatList";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -26,7 +26,8 @@ import { ReminderBadge } from "@/components/ReminderBadge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDrawer } from "@/contexts/DrawerContext";
 import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
-import { api, Chat, SearchResult } from "@/lib/api";
+import { useDrawerSearch } from "@/hooks/useDrawerSearch";
+import { api, Chat } from "@/lib/api";
 import { tap } from "@/lib/haptics";
 import { scheduleIdleTask } from "@/lib/scheduleIdle";
 import { DrawerSearchResults } from "@/components/drawer/DrawerSearchResults";
@@ -64,14 +65,19 @@ export function ConversationList(_props: unknown) {
   const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const lastFetchedRef = useRef(0);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [searchLoading, setSearchLoading] = useState(false);
+  const {
+    searchOpen,
+    searchQuery,
+    searchResults,
+    searchLoading,
+    searchError,
+    hasSearchQuery,
+    searchInputRef,
+    openSearch,
+    closeSearch,
+    onSearchChange,
+  } = useDrawerSearch({ token, isDrawerOpen: isOpen });
   const [, setTitlePendingTick] = useState(0);
-  const [searchError, setSearchError] = useState(false);
-  const searchInputRef = useRef<TextInput>(null);
-  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [menuChat, setMenuChat] = useState<Chat | null>(null);
   const [renameVisible, setRenameVisible] = useState(false);
   const [renameText, setRenameText] = useState("");
@@ -98,8 +104,6 @@ export function ConversationList(_props: unknown) {
     () => new Set(searchResults.map((result) => result.chat_id)),
     [searchResults],
   );
-
-  const hasSearchQuery = searchQuery.trim().length > 0;
 
   const load = useCallback(
     async (background = false) => {
@@ -215,58 +219,6 @@ export function ConversationList(_props: unknown) {
     });
   }, []);
 
-  const closeSearch = useCallback(() => {
-    setSearchOpen(false);
-    setSearchQuery("");
-    setSearchResults([]);
-    setSearchError(false);
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-  }, []);
-
-  const openSearch = useCallback(() => {
-    setSearchOpen(true);
-    requestAnimationFrame(() => searchInputRef.current?.focus());
-  }, []);
-
-  useEffect(() => {
-    registerDrawerSearch(openSearch);
-    return () => registerDrawerSearch(null);
-  }, [openSearch]);
-
-  const doSearch = useCallback(
-    async (q: string) => {
-      if (!token || !q.trim()) {
-        setSearchResults([]);
-        setSearchError(false);
-        return;
-      }
-      setSearchLoading(true);
-      setSearchError(false);
-      try {
-        const data = await api.search(token, q.trim());
-        setSearchResults(data.results);
-      } catch {
-        setSearchError(true);
-        setSearchResults([]);
-      } finally {
-        setSearchLoading(false);
-      }
-    },
-    [token],
-  );
-
-  const onSearchChange = (text: string) => {
-    setSearchQuery(text);
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    searchTimerRef.current = setTimeout(() => {
-      void doSearch(text);
-    }, 300);
-  };
-
-  useEffect(() => {
-    if (!isOpen) closeSearch();
-  }, [isOpen, closeSearch]);
-
   useEffect(() => {
     if (!isOpen) setMenuChat(null);
   }, [isOpen]);
@@ -378,12 +330,6 @@ export function ConversationList(_props: unknown) {
       },
     ]);
   }, [menuChat, closeMenu, token, load, showActionBanner, t]);
-
-  useEffect(() => {
-    return () => {
-      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    };
-  }, []);
 
   const openChat = (id: string, messageId?: string | null) => {
     closeDrawer();
