@@ -118,6 +118,12 @@ class Settings(BaseSettings):
 
     cors_origins: str = ""
 
+    # Abort hung provider streams after this many seconds (WS chat path).
+    chat_stream_timeout_seconds: int = 180
+
+    # Per-user/IP REST requests per minute (health + webhooks excluded).
+    rest_rate_limit_per_minute: int = 240
+
     # Fernet key used to encrypt OAuth refresh tokens (Calendar/Gmail) at rest.
     # Generate one:
     #   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
@@ -148,6 +154,8 @@ def validate_production_settings(settings: Settings) -> None:
         errors.append("REDIS_URL is required in production")
     if not settings.google_client_id:
         errors.append("GOOGLE_CLIENT_ID is required in production")
+    if not settings.google_client_secret.strip():
+        errors.append("GOOGLE_CLIENT_SECRET is required in production (Calendar/Gmail OAuth)")
     # CORS must be explicit in production — an empty CORS_ORIGINS makes the API
     # accept any origin (main.py falls back to ["*"]), which contradicts the
     # "locked-down CORS" claim and is unsafe once a web client exists.

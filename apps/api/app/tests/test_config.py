@@ -12,6 +12,7 @@ def test_validate_production_settings_ok():
             mock_llm_enabled=False,
             jwt_secret="super-secret-key-that-is-at-least-32-chars!!",
             google_client_id="client-id",
+            google_client_secret="client-secret",
             cors_origins="https://app.recall.app",
             openrouter_api_key="sk-or-xxx",
             revenuecat_webhook_auth="whsec-xxx",
@@ -48,6 +49,7 @@ def test_validate_production_settings_rejects_empty_cors_and_missing_secrets():
         mock_llm_enabled=False,
         jwt_secret="super-secret-key-that-is-at-least-32-chars!!",
         google_client_id="client-id",
+        google_client_secret="secret",
     )
     with pytest.raises(RuntimeError, match="CORS_ORIGINS"):
         validate_production_settings(
@@ -95,6 +97,7 @@ def test_validate_production_settings_requires_r2():
         mock_llm_enabled=False,
         jwt_secret="super-secret-key-that-is-at-least-32-chars!!",
         google_client_id="client-id",
+        google_client_secret="secret",
         cors_origins="https://app.recall.app",
         openrouter_api_key="sk-or-xxx",
         revenuecat_webhook_auth="whsec-xxx",
