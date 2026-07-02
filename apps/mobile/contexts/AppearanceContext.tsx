@@ -1,8 +1,6 @@
-import { useCallback, useEffect, useSyncExternalStore, type ReactNode } from "react";
-import { useColorScheme as useSystemColorScheme } from "react-native";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import {
-  resolveColorScheme,
   type AppearancePreference,
 } from "@/lib/appearance";
 import {
@@ -14,6 +12,7 @@ import {
   getAppearancePreference,
   setAppearancePreference as persistAppearancePreference,
 } from "@/lib/appearancePrefs";
+import { useResolvedColorScheme } from "@/hooks/useResolvedColorScheme";
 
 export function AppearanceProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
@@ -24,16 +23,18 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
 }
 
 export function useAppearance() {
-  const systemScheme = useSystemColorScheme();
-  const preference = useSyncExternalStore(
-    subscribeAppearancePreference,
-    getAppearancePreferenceSnapshot,
-    getAppearancePreferenceSnapshot,
-  );
-  const colorScheme = resolveColorScheme(systemScheme, preference);
+  const colorScheme = useResolvedColorScheme();
+  const [preference, setPreferenceState] = useState(getAppearancePreferenceSnapshot);
+
+  useEffect(() => {
+    return subscribeAppearancePreference(() => {
+      setPreferenceState(getAppearancePreferenceSnapshot());
+    });
+  }, []);
 
   const setPreference = useCallback(async (next: AppearancePreference) => {
     setAppearancePreferenceSnapshot(next);
+    setPreferenceState(next);
     await persistAppearancePreference(next);
   }, []);
 

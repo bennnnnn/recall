@@ -4,7 +4,7 @@
  * `constants/Colors.ts`, so components can migrate to `useTheme()` incrementally
  * without breaking the screens that still import `C` (which stays light).
  */
-import { useColorScheme } from "@/components/useColorScheme";
+import { useResolvedColorScheme } from "@/hooks/useResolvedColorScheme";
 
 export type Theme = {
   scheme: "light" | "dark";
@@ -135,7 +135,7 @@ export const darkTheme: Theme = {
   scrim: "rgba(0,0,0,0.60)",
 };
 
-/** Active palette for the current system color scheme. */
+/** Active palette for the current color scheme (system or user override). */
 export function useTheme(): Theme {
-  return useColorScheme() === "dark" ? darkTheme : lightTheme;
+  return useResolvedColorScheme() === "dark" ? darkTheme : lightTheme;
 }
