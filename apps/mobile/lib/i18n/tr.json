@@ -239,6 +239,8 @@
   "projects.goal_placeholder_english": "örn. Seyahat konuşması, iş e-postaları, telaffuz…",
   "projects.goal_placeholder_math": "örn. Sınavlar için cebir, analiz temelleri, sözel problemler…",
   "projects.goal_placeholder_programming": "örn. React hooks, Python temelleri, system design kavramları…",
+  "projects.study_launch_failed": "Çalışma sohbeti açılamadı. Tekrar deneyin.",
+  "projects.study_launching": "Sohbet açılıyor…",
   "projects.journey_all_done": "Tüm başlangıç konularını tamamladın — Recall'dan daha derine inmesini iste!",
   "projects.journey_continue": "Öğrenmeye devam et",
   "projects.journey_study_topic": "{{topic}} konusunu Recall ile çalış",

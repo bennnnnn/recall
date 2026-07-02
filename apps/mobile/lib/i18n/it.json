@@ -239,6 +239,8 @@
   "projects.goal_placeholder_english": "es. Conversazione di viaggio, e-mail professionali, pronuncia…",
   "projects.goal_placeholder_math": "es. Algebra per esami, basi di calcolo, problemi…",
   "projects.goal_placeholder_programming": "es. React hooks, basi Python, system design…",
+  "projects.study_launch_failed": "Impossibile aprire la chat di studio. Riprova.",
+  "projects.study_launching": "Apertura chat…",
   "projects.journey_all_done": "Hai coperto tutti gli argomenti iniziali — chiedi a Recall di approfondire!",
   "projects.journey_continue": "Continua ad apprendere",
   "projects.journey_study_topic": "Studia {{topic}} con Recall",

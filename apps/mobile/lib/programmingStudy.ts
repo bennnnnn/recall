@@ -33,8 +33,10 @@ export function buildProgrammingStudyPrompt(
   project: ProjectDetail,
   topic: string,
 ): string {
+  const trimmedTopic = topic.trim();
+  if (!trimmedTopic) return "";
   const lists = project.lists ?? [];
-  const group = lists.find((g) => g.list_title === topic);
+  const group = lists.find((g) => g.list_title === trimmedTopic);
   const pending = (group?.items ?? []).filter(
     (item) => item.status !== "mastered" && !item.mastered,
   );
@@ -43,8 +45,8 @@ export function buildProgrammingStudyPrompt(
   const base = buildProjectAskPrompt(project);
   return (
     `${base}\n\n` +
-    `Help me study the **${topic}** topic in my ${stack} learning journey. ` +
-    `Focus on these concepts I have not mastered yet: ${concepts.join(", ") || topic}. ` +
+    `Help me study the **${trimmedTopic}** topic in my ${stack} learning journey. ` +
+    `Focus on these concepts I have not mastered yet: ${concepts.join(", ") || trimmedTopic}. ` +
     `Explain clearly, give a short example, then ask me a quick check question. ` +
     `When I demonstrate understanding, mark the concept as learned.`
   );

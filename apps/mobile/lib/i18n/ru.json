@@ -239,6 +239,8 @@
   "projects.goal_placeholder_english": "напр. Разговор для путешествий, деловые письма, произношение…",
   "projects.goal_placeholder_math": "напр. Алгебра к экзаменам, основы анализа, текстовые задачи…",
   "projects.goal_placeholder_programming": "напр. React hooks, основы Python, system design…",
+  "projects.study_launch_failed": "Не удалось открыть учебный чат. Попробуйте снова.",
+  "projects.study_launching": "Открываем чат…",
   "projects.journey_all_done": "Вы прошли все начальные темы — попросите Recall углубиться!",
   "projects.journey_continue": "Продолжить обучение",
   "projects.journey_study_topic": "Изучать {{topic}} с Recall",

@@ -55,6 +55,7 @@ export default function ProjectDetailScreen() {
   const [loadError, setLoadError] = useState(false);
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [statsExpanded, setStatsExpanded] = useState(false);
+  const [studyLaunching, setStudyLaunching] = useState(false);
 
   // Cross-platform prompt replacement for Alert.prompt (iOS-only). Deck create
   // and add-word flows use this Modal+TextInput so they work on Android too.
@@ -126,8 +127,22 @@ export default function ProjectDetailScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      setStudyLaunching(false);
       void load();
     }, [load]),
+  );
+
+  const launchStudyChat = useCallback(
+    (prompt: string, quizLanguage?: string) => {
+      if (studyLaunching || typeof id !== "string") return;
+      if (!queueChatLaunch(prompt, id, quizLanguage)) {
+        Alert.alert(t("common.error"), t("projects.study_launch_failed"));
+        return;
+      }
+      setStudyLaunching(true);
+      router.replace("/");
+    },
+    [id, router, studyLaunching, t],
   );
 
   if (!token) return <Redirect href="/login" />;
@@ -216,18 +231,14 @@ export default function ProjectDetailScreen() {
     );
   };
 
-  const launchChat = (prompt: string, quizLanguage?: string) => {
-    queueChatLaunch(prompt, project.id, quizLanguage);
-    router.replace("/");
-  };
-
   const quizWithRecall = () =>
-    launchChat(buildProjectQuizPrompt(project), project.target_language || "en");
+    launchStudyChat(buildProjectQuizPrompt(project), project.target_language || "en");
 
   const studyProgrammingTopic = (topic: string) =>
-    launchChat(buildProgrammingStudyPrompt(project, topic));
+    launchStudyChat(buildProgrammingStudyPrompt(project, topic));
 
-  const continueProgramming = () => launchChat(buildProgrammingNextUpPrompt(project));
+  const continueProgramming = () =>
+    launchStudyChat(buildProgrammingNextUpPrompt(project));
 
   return (
     <ScrollView style={s.root} contentContainerStyle={s.content}>
@@ -341,13 +352,26 @@ export default function ProjectDetailScreen() {
         <>
           {project.lists.length > 0 ? (
             <>
-              <Pressable style={s.studyBtn} onPress={continueProgramming}>
-                <Ionicons name="play-outline" size={20} color={theme.onPrimary} />
-                <Text style={s.studyBtnText}>{t("projects.journey_continue")}</Text>
+              <Pressable
+                style={[s.studyBtn, studyLaunching && s.studyBtnMuted]}
+                disabled={studyLaunching}
+                onPress={continueProgramming}
+              >
+                {studyLaunching ? (
+                  <ActivityIndicator size="small" color={theme.primary} />
+                ) : (
+                  <Ionicons name="play-outline" size={20} color={theme.onPrimary} />
+                )}
+                <Text style={[s.studyBtnText, studyLaunching && s.studyBtnTextMuted]}>
+                  {studyLaunching
+                    ? t("projects.study_launching")
+                    : t("projects.journey_continue")}
+                </Text>
               </Pressable>
               <ProgrammingJourney
                 lists={project.lists}
                 onStudyTopic={studyProgrammingTopic}
+                studyBusy={studyLaunching}
               />
             </>
           ) : (
