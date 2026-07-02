@@ -13,7 +13,8 @@ app = "recall-api"
 primary_region = "iad" # change to your region; Neon DB is in us-east-2
 
 [build]
-  dockerfile = "apps/api/Dockerfile"
+  context = "apps/api"
+  dockerfile = "Dockerfile"
 
 [http_service]
   internal_port = 8000
