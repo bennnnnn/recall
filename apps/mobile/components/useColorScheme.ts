@@ -1,16 +1,19 @@
-import { useContext } from "react";
+import { useSyncExternalStore } from "react";
 import { useColorScheme as useSystemColorScheme } from "react-native";
 
-import { AppearanceContext } from "@/lib/appearanceContext";
 import { resolveColorScheme } from "@/lib/appearance";
+import {
+  getAppearancePreferenceSnapshot,
+  subscribeAppearancePreference,
+} from "@/lib/appearanceRuntime";
 
 export const useColorScheme = (): "light" | "dark" => {
-  const ctx = useContext(AppearanceContext);
   const systemScheme = useSystemColorScheme();
+  const preference = useSyncExternalStore(
+    subscribeAppearancePreference,
+    getAppearancePreferenceSnapshot,
+    getAppearancePreferenceSnapshot,
+  );
 
-  if (ctx) {
-    return ctx.colorScheme;
-  }
-
-  return resolveColorScheme(systemScheme, "system");
+  return resolveColorScheme(systemScheme, preference);
 };

@@ -5,6 +5,7 @@ import {
   resetAppearancePreferenceCache,
   setAppearancePreference,
 } from "@/lib/appearancePrefs";
+import { resetAppearanceRuntime } from "@/lib/appearanceRuntime";
 
 jest.mock("expo-secure-store", () => ({
   getItemAsync: jest.fn(),
@@ -15,6 +16,7 @@ jest.mock("expo-secure-store", () => ({
 describe("appearancePrefs", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    resetAppearanceRuntime();
     resetAppearancePreferenceCache();
   });
 
