@@ -312,14 +312,11 @@ function ChatScreen() {
     highlightedMessageId,
     sendingMessageId: sendingMessageId ?? pendingOutboundId,
     creatingRef,
-    chatTitle,
-    titleGenerating,
     setMenuVisible,
     regenerateResponse,
     handleEditMessage,
     handleFeedback,
     handleQuizAnswer,
-    t,
   });
 
   const layout = useChatLayoutMetrics({
@@ -337,7 +334,6 @@ function ChatScreen() {
 
   const {
     headerInset,
-    fadeHeight,
     composerLift,
     composerBottomPad,
     composerClearance,
@@ -380,7 +376,6 @@ function ChatScreen() {
           messages={messages}
           headerInset={headerInset}
           listBottomPad={listBottomPad}
-          fadeHeight={fadeHeight}
           hasMoreOlder={hasMoreOlder}
           loadingOlder={loadingOlder}
           chatLoading={chatLoading}

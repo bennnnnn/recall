@@ -1,9 +1,15 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
 import { HamburgerIcon } from "@/components/HamburgerIcon";
 import { ReminderBadge } from "@/components/ReminderBadge";
+import {
+  CHROME_FADE_EXTRA,
+  TOP_CHROME_FADE_LOCATIONS,
+  topChromeFadeColors,
+} from "@/lib/chromeFade";
 import { tap } from "@/lib/haptics";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -16,6 +22,7 @@ type Props = {
   chatTitle: string | null;
   showIndicator: boolean;
   unseenCount: number;
+  /** False on the empty home screen (no turns yet). Keep — do not always show ⋮ / new-chat. */
   hasMessages: boolean;
   onOpenDrawer: () => void;
   onOpenReminders: () => void;
@@ -44,83 +51,101 @@ export function ChatHeader({
 
   return (
     <View
-      style={[
-        s.header,
-        { paddingTop, height },
-        menuOverlayOpen && s.headerMuted,
-      ]}
+      style={s.headerWrap}
       pointerEvents={menuOverlayOpen ? "none" : "box-none"}
       collapsable={false}
-      renderToHardwareTextureAndroid
     >
-      <Pressable
-        style={({ pressed }) => [
-          s.headerBtn,
-          menuOverlayOpen && s.headerBtnMuted,
-          pressed && !menuOverlayOpen && s.headerBtnPressed,
+      <LinearGradient
+        colors={topChromeFadeColors(theme) as [string, string, ...string[]]}
+        locations={[...TOP_CHROME_FADE_LOCATIONS]}
+        style={[s.headerFade, { height: height + CHROME_FADE_EXTRA }]}
+        pointerEvents="none"
+      />
+      <View
+        style={[
+          s.header,
+          { paddingTop, height },
+          menuOverlayOpen && s.headerMuted,
         ]}
-        onPress={onOpenDrawer}
-        hitSlop={12}
+        pointerEvents="box-none"
       >
-        <HamburgerIcon size={22} color={theme.text} />
-      </Pressable>
-      {headerTitleLabel ? (
-        <View style={s.headerCenter} pointerEvents="none">
-          <Text
-            style={[
-              s.headerTitleText,
-              titleGenerating && !chatTitle && s.headerTitlePending,
-            ]}
-            numberOfLines={1}
-          >
-            {headerTitleLabel}
-          </Text>
-        </View>
-      ) : (
-        <View style={s.headerSpacer} />
-      )}
-      <View style={s.headerRight}>
-        {showIndicator ? (
-          <Pressable
-            style={s.headerBtn}
-            onPress={() => {
-              tap();
-              onOpenReminders();
-            }}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel={t("reminders.badge_accessibility", {
-              count: unseenCount,
-            })}
-          >
-            <View style={s.headerIconWrap}>
-              <Ionicons name="notifications-outline" size={22} color={theme.text} />
-              <ReminderBadge count={unseenCount} style={s.headerBadge} />
+        <Pressable
+          style={({ pressed }) => [
+            s.headerBtn,
+            menuOverlayOpen && s.headerBtnMuted,
+            pressed && !menuOverlayOpen && s.headerBtnPressed,
+          ]}
+          onPress={onOpenDrawer}
+          hitSlop={12}
+        >
+          <HamburgerIcon size={22} color={theme.text} />
+        </Pressable>
+        {headerTitleLabel ? (
+          <View style={s.headerCenter} pointerEvents="none">
+            <Text
+              style={[
+                s.headerTitleText,
+                titleGenerating && !chatTitle && s.headerTitlePending,
+              ]}
+              numberOfLines={1}
+            >
+              {headerTitleLabel}
+            </Text>
+          </View>
+        ) : (
+          <View style={s.headerSpacer} />
+        )}
+        <View style={s.headerRight}>
+          {showIndicator ? (
+            <Pressable
+              style={s.headerBtn}
+              onPress={() => {
+                tap();
+                onOpenReminders();
+              }}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel={t("reminders.badge_accessibility", {
+                count: unseenCount,
+              })}
+            >
+              <View style={s.headerIconWrap}>
+                <Ionicons name="notifications-outline" size={22} color={theme.text} />
+                <ReminderBadge count={unseenCount} style={s.headerBadge} />
+              </View>
+            </Pressable>
+          ) : null}
+          {/* Home (hasMessages=false): only drawer (+ optional bell). Chat actions live in drawer. */}
+          {hasMessages ? (
+            <View style={s.actionGroup}>
+              <Pressable
+                style={({ pressed }) => [
+                  s.actionGroupBtn,
+                  pressed && s.actionGroupBtnPressed,
+                ]}
+                onPress={onNewChat}
+                hitSlop={4}
+                accessibilityRole="button"
+                accessibilityLabel={t("chat.new_chat")}
+              >
+                <Ionicons name="create-outline" size={22} color={theme.text} />
+              </Pressable>
+              <View style={s.actionGroupDivider} />
+              <Pressable
+                style={({ pressed }) => [
+                  s.actionGroupBtn,
+                  pressed && s.actionGroupBtnPressed,
+                ]}
+                onPress={onOpenMenu}
+                hitSlop={4}
+                accessibilityRole="button"
+                accessibilityLabel={t("chat.menu")}
+              >
+                <Ionicons name="ellipsis-vertical" size={22} color={theme.text} />
+              </Pressable>
             </View>
-          </Pressable>
-        ) : null}
-        {hasMessages ? (
-          <Pressable
-            style={s.headerBtn}
-            onPress={onNewChat}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel={t("chat.new_chat")}
-          >
-            <Ionicons name="create-outline" size={22} color={theme.text} />
-          </Pressable>
-        ) : null}
-        {hasMessages ? (
-          <Pressable
-            style={s.headerBtn}
-            onPress={onOpenMenu}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel={t("chat.menu")}
-          >
-            <Ionicons name="ellipsis-vertical" size={22} color={theme.text} />
-          </Pressable>
-        ) : null}
+          ) : null}
+        </View>
       </View>
     </View>
   );
@@ -128,17 +153,26 @@ export function ChatHeader({
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
-    header: {
+    headerWrap: {
       position: "absolute",
       top: 0,
       left: 0,
       right: 0,
       zIndex: 100,
+      overflow: "visible",
+    },
+    headerFade: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+    },
+    header: {
       flexDirection: "row",
       alignItems: "flex-end",
       paddingHorizontal: 4,
       paddingBottom: 4,
-      backgroundColor: theme.bg,
+      backgroundColor: "transparent",
     },
     headerMuted: { opacity: 0.55 },
     headerBtn: {
@@ -148,18 +182,41 @@ function makeStyles(theme: Theme) {
       justifyContent: "center",
       borderRadius: 10,
       backgroundColor: theme.bg,
-      zIndex: 101,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
     },
-    headerBtnMuted: { backgroundColor: "transparent" },
+    headerBtnMuted: { backgroundColor: theme.bg },
     headerBtnPressed: { backgroundColor: theme.surfaceAlt },
-    headerRight: { flexDirection: "row", alignItems: "center", zIndex: 101 },
+    headerRight: { flexDirection: "row", alignItems: "center", gap: 2 },
+    actionGroup: {
+      flexDirection: "row",
+      alignItems: "center",
+      height: 44,
+      borderRadius: 10,
+      backgroundColor: theme.bg,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
+      overflow: "hidden",
+      paddingHorizontal: 2,
+    },
+    actionGroupBtn: {
+      width: 36,
+      height: 40,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    actionGroupBtnPressed: { backgroundColor: theme.surfaceAlt },
+    actionGroupDivider: {
+      width: StyleSheet.hairlineWidth,
+      height: 18,
+      backgroundColor: theme.border,
+    },
     headerCenter: {
       flex: 1,
       alignItems: "center",
       justifyContent: "center",
       paddingHorizontal: 8,
       minWidth: 0,
-      backgroundColor: theme.bg,
     },
     headerTitleText: {
       fontSize: 16,
