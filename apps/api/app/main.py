@@ -13,6 +13,7 @@ from app.core.rest_rate_limit import RestRateLimitMiddleware
 from app.routers import (
     attachments,
     auth,
+    chat_stream,
     chats,
     gmail_integrations,
     health,
@@ -77,6 +78,7 @@ def create_app() -> FastAPI:
     app.include_router(home.router)
     app.include_router(link_preview.router)
     app.include_router(chats.router)
+    app.include_router(chat_stream.router)
     app.include_router(memories.router)
     app.include_router(models.router)
     app.include_router(todos.router)

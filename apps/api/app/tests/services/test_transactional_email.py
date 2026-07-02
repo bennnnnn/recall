@@ -373,7 +373,10 @@ async def test_login_dev_enqueues_welcome_for_new_user():
     with (
         patch("app.services.auth.users_repo.get_by_google_sub", AsyncMock(return_value=None)),
         patch("app.services.auth.users_repo.create", AsyncMock(return_value=MagicMock(id=uuid4()))),
-        patch("app.services.auth.create_access_token", return_value="tok"),
+        patch(
+            "app.services.auth.tokens_service.issue_token_pair",
+            AsyncMock(return_value=("tok", "refresh")),
+        ),
         patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
         patch("app.services.auth.jobs.enqueue_welcome_email", AsyncMock()) as enq,
     ):
@@ -404,7 +407,10 @@ async def test_login_dev_does_not_enqueue_for_existing_user():
 
     with (
         patch("app.services.auth.users_repo.get_by_google_sub", AsyncMock(return_value=existing)),
-        patch("app.services.auth.create_access_token", return_value="tok"),
+        patch(
+            "app.services.auth.tokens_service.issue_token_pair",
+            AsyncMock(return_value=("tok", "refresh")),
+        ),
         patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
         patch("app.services.auth.jobs.enqueue_welcome_email", AsyncMock()) as enq,
     ):
@@ -439,7 +445,10 @@ async def test_login_dev_skips_enqueue_when_email_disabled():
     with (
         patch("app.services.auth.users_repo.get_by_google_sub", AsyncMock(return_value=None)),
         patch("app.services.auth.users_repo.create", AsyncMock(return_value=MagicMock(id=uuid4()))),
-        patch("app.services.auth.create_access_token", return_value="tok"),
+        patch(
+            "app.services.auth.tokens_service.issue_token_pair",
+            AsyncMock(return_value=("tok", "refresh")),
+        ),
         patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
         patch("app.services.auth.jobs.enqueue_welcome_email", AsyncMock()) as enq,
     ):

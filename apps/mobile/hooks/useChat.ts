@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { chatWebSocketUrl, Message, SearchSource } from "@/lib/api";
+import { streamChatMessageSse, type ChatSsePayload } from "@/lib/chatSse";
 import { clientGeoWsFields, type ClientGeo } from "@/lib/clientGeo";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { isVocabQuizAnswer } from "@/lib/parseVocabQuiz";
@@ -42,6 +43,7 @@ export function useChat(
   const [sendingMessageId, setSendingMessageId] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const connectingRef = useRef<Promise<void> | null>(null);
+  const preferSseRef = useRef(false);
   const assistantBuffer = useRef("");
   const streamingDraftRef = useRef<StreamingDraft | null>(null);
   const streamingRef = useRef(false);
@@ -119,6 +121,7 @@ export function useChat(
     wsRef.current?.close();
     wsRef.current = null;
     connectingRef.current = null;
+    preferSseRef.current = false;
     assistantBuffer.current = "";
     firstReplyRef.current = false;
     regenerateBackupRef.current = null;
@@ -128,8 +131,83 @@ export function useChat(
     setSendingMessageId(null);
   }, [chatId, updateStreamingDraft]);
 
+  const handleChatPayload = useCallback(
+    (payload: ChatSsePayload) => {
+      if (payload.type === "start") {
+        setSendingMessageId(null);
+        setFinalizing(false);
+        setStreaming(true);
+        streamingRef.current = true;
+        assistantBuffer.current = "";
+        updateStreamingDraft({ content: "" });
+        appendStreamingPlaceholder();
+      }
+
+      if (payload.type === "token") {
+        assistantBuffer.current += payload.content ?? "";
+        const streamedSources = parseSearchSources(assistantBuffer.current);
+        updateStreamingDraft({
+          content: assistantBuffer.current,
+          search_sources: streamedSources.length ? streamedSources : undefined,
+        });
+      }
+
+      if (payload.type === "stream_end") {
+        setStreaming(false);
+        streamingRef.current = false;
+        setFinalizing(true);
+      }
+
+      if (payload.type === "done") {
+        regenerateBackupRef.current = null;
+        setStreaming(false);
+        setFinalizing(false);
+        streamingRef.current = false;
+        assistantBuffer.current = "";
+        const draft = streamingDraftRef.current;
+        updateStreamingDraft(null);
+        setMessages((prev) =>
+          mergeDoneIntoMessages(prev, buildDoneMergeInput(payload, draft)),
+        );
+        if (!firstReplyRef.current) {
+          firstReplyRef.current = true;
+          onFirstReplyRef.current?.();
+        }
+        if (payload.todos_sync === "1") {
+          onTodosSyncRef.current?.();
+          setTimeout(() => onTodosSyncRef.current?.(), 2500);
+        }
+      }
+
+      if (payload.type === "error") {
+        setSendingMessageId(null);
+        setStreaming(false);
+        setFinalizing(false);
+        streamingRef.current = false;
+        assistantBuffer.current = "";
+        if (regenerateBackupRef.current) {
+          restoreRegenerateBackup();
+        } else {
+          clearStreamingBubble();
+        }
+        reportError(
+          payload.message ?? "Something went wrong. Try again.",
+          typeof payload.code === "string" ? payload.code : undefined,
+        );
+      }
+    },
+    [
+      appendStreamingPlaceholder,
+      clearStreamingBubble,
+      restoreRegenerateBackup,
+      reportError,
+      updateStreamingDraft,
+    ],
+  );
+
   const connect = useCallback((): Promise<void> => {
     if (!token || !chatId) return Promise.resolve();
+    if (preferSseRef.current) return Promise.resolve();
     if (wsRef.current?.readyState === WebSocket.OPEN) return Promise.resolve();
     // Reuse an in-flight connection so concurrent callers don't tear each other down
     if (connectingRef.current) return connectingRef.current;
@@ -145,7 +223,8 @@ export function useChat(
 
       const timer = setTimeout(() => {
         ws.close();
-        reject(new Error("WebSocket connection timed out"));
+        preferSseRef.current = true;
+        resolve();
       }, CONNECT_TIMEOUT_MS);
 
       ws.onopen = () => {
@@ -161,10 +240,11 @@ export function useChat(
 
       ws.onerror = () => {
         clearTimeout(timer);
+        preferSseRef.current = true;
         setStreaming(false);
         setFinalizing(false);
         streamingRef.current = false;
-        reject(new Error("WebSocket error"));
+        resolve();
       };
 
       ws.onclose = () => {
@@ -213,72 +293,7 @@ export function useChat(
       ws.onmessage = (event) => {
         const payload = parseChatWsPayload(String(event.data));
         if (!payload) return;
-
-        if (payload.type === "start") {
-          setSendingMessageId(null);
-          setFinalizing(false);
-          setStreaming(true);
-          streamingRef.current = true;
-          assistantBuffer.current = "";
-          updateStreamingDraft({ content: "" });
-          appendStreamingPlaceholder();
-        }
-
-        if (payload.type === "token") {
-          assistantBuffer.current += payload.content ?? "";
-          const streamedSources = parseSearchSources(assistantBuffer.current);
-          updateStreamingDraft({
-            content: assistantBuffer.current,
-            search_sources: streamedSources.length ? streamedSources : undefined,
-          });
-        }
-
-        if (payload.type === "stream_end") {
-          setStreaming(false);
-          streamingRef.current = false;
-          setFinalizing(true);
-        }
-
-        if (payload.type === "done") {
-          regenerateBackupRef.current = null;
-          setStreaming(false);
-          setFinalizing(false);
-          streamingRef.current = false;
-          assistantBuffer.current = "";
-          const draft = streamingDraftRef.current;
-          updateStreamingDraft(null);
-          setMessages((prev) =>
-            mergeDoneIntoMessages(
-              prev,
-              buildDoneMergeInput(payload, draft),
-            ),
-          );
-          if (!firstReplyRef.current) {
-            firstReplyRef.current = true;
-            onFirstReplyRef.current?.();
-          }
-          if (payload.todos_sync === "1") {
-            onTodosSyncRef.current?.();
-            setTimeout(() => onTodosSyncRef.current?.(), 2500);
-          }
-        }
-
-        if (payload.type === "error") {
-          setSendingMessageId(null);
-          setStreaming(false);
-          setFinalizing(false);
-          streamingRef.current = false;
-          assistantBuffer.current = "";
-          if (regenerateBackupRef.current) {
-            restoreRegenerateBackup();
-          } else {
-            clearStreamingBubble();
-          }
-          reportError(
-            payload.message ?? "Something went wrong. Try again.",
-            typeof payload.code === "string" ? payload.code : undefined,
-          );
-        }
+        handleChatPayload(payload);
       };
     });
 
@@ -299,8 +314,41 @@ export function useChat(
     clearStreamingBubble,
     restoreRegenerateBackup,
     reportError,
+    handleChatPayload,
     updateStreamingDraft,
   ]);
+
+  const sendViaSse = useCallback(
+    async (
+      content: string,
+      options?: {
+        attachmentIds?: string[];
+        model?: string | null;
+        clientGeo?: ClientGeo | null;
+      },
+    ) => {
+      if (!token || !chatId) return;
+      try {
+        await streamChatMessageSse({
+          token,
+          chatId,
+          content,
+          attachmentIds: options?.attachmentIds,
+          model: options?.model,
+          clientGeo: options?.clientGeo,
+          onEvent: handleChatPayload,
+        });
+      } catch {
+        setSendingMessageId(null);
+        setStreaming(false);
+        setFinalizing(false);
+        streamingRef.current = false;
+        clearStreamingBubble();
+        reportError("Couldn't reach the server. Check your connection and try again.");
+      }
+    },
+    [token, chatId, handleChatPayload, clearStreamingBubble, reportError],
+  );
 
   const ensureConnected = useCallback(async () => {
     try {
@@ -346,12 +394,12 @@ export function useChat(
       }
 
       await ensureConnected();
-      if (wsRef.current?.readyState !== WebSocket.OPEN) {
-        // ensureConnected already reports connection errors, but if the socket
-        // dropped in the narrow window between connect and send, surface it
-        // instead of silently swallowing the user's message.
-        setSendingMessageId(null);
-        reportError("Couldn't reach the server. Check your connection and try again.");
+      if (preferSseRef.current || wsRef.current?.readyState !== WebSocket.OPEN) {
+        await sendViaSse(content, {
+          attachmentIds: options?.attachmentIds,
+          model: options?.model,
+          clientGeo: options?.clientGeo,
+        });
         return;
       }
 
@@ -372,7 +420,7 @@ export function useChat(
         }),
       );
     },
-    [token, chatId, ensureConnected, appendStreamingPlaceholder, updateStreamingDraft],
+    [token, chatId, ensureConnected, appendStreamingPlaceholder, updateStreamingDraft, sendViaSse],
   );
 
   const regenerateResponse = useCallback(

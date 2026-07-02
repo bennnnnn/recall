@@ -1,4 +1,5 @@
 import { getApiUrl } from "@/lib/config";
+import { getRefreshToken, setTokenPair } from "@/lib/auth";
 import type { SearchSource } from "@/lib/searchSources";
 
 export type { SearchSource };
@@ -293,7 +294,52 @@ export type SuggestedReminder = {
   gmail_message_id: string;
 };
 
-export type AuthResult = { access_token: string; user: User };
+export type AuthResult = {
+  access_token: string;
+  refresh_token: string;
+  user: User;
+};
+
+let refreshInFlight: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = (async () => {
+    const refreshToken = await getRefreshToken();
+    if (!refreshToken) return null;
+    try {
+      const response = await fetch(apiUrl("/auth/refresh"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+      if (!response.ok) return null;
+      const data = (await response.json()) as AuthResult;
+      await setTokenPair(data.access_token, data.refresh_token);
+      return data.access_token;
+    } catch {
+      return null;
+    } finally {
+      refreshInFlight = null;
+    }
+  })();
+  return refreshInFlight;
+}
+
+export async function logoutSession(token: string, refreshToken: string | null): Promise<void> {
+  try {
+    await fetch(apiUrl("/auth/logout"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+  } catch {
+    /* best-effort */
+  }
+}
 
 function apiUrl(path: string) {
   return `${getApiUrl()}${path}`;
@@ -303,6 +349,7 @@ async function request<T>(
   path: string,
   token: string,
   init?: RequestInit,
+  allowRefresh = true,
 ): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 30_000);
@@ -321,6 +368,14 @@ async function request<T>(
         ...(init?.headers ?? {}),
       },
     });
+
+    if (response.status === 401 && allowRefresh) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
+        return request<T>(path, refreshed, init, false);
+      }
+      onUnauthorized?.();
+    }
 
     if (!response.ok) {
       if (response.status === 401) {
@@ -482,6 +537,10 @@ export const api = {
   listMemories: (token: string) => request<Memory[]>("/memories", token),
   deleteMemorySection: (token: string, type: string) =>
     request<void>(`/memories/type/${type}`, token, { method: "DELETE" }),
+  deleteMemoryFact: (token: string, memoryId: string, factIndex: number) =>
+    request<void>(`/memories/${memoryId}/facts/${factIndex}`, token, {
+      method: "DELETE",
+    }),
   todayUsage: (token: string) => request<Usage>("/chats/usage/today", token),
   listModels: (token: string) => request<ModelInfo[]>("/models", token),
   listTodos: (token: string) => request<Todo[]>("/todos", token),

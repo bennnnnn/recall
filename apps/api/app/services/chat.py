@@ -961,6 +961,22 @@ async def _prepare_chat_turn(
     client_latitude: float | None = None,
     client_longitude: float | None = None,
 ) -> _StreamContext:
+    normalized_client_location = profile_service.normalize_client_location(client_location)
+    client_coordinates = profile_service.normalize_client_coordinates(
+        client_latitude, client_longitude
+    )
+    geo_query = web_search_service.is_geo_query(content)
+    client_lat: float | None = None
+    client_lng: float | None = None
+    if client_coordinates is not None:
+        client_lat, client_lng = client_coordinates
+
+    user_content = content
+    gateway = None
+    has_image_attachment = False
+    image_attachments: list[tuple[str, str]] = []
+    attachment_rows: list[Any] = []
+
     async with SessionLocal() as session:
         user = await users_repo.get_by_id(session, user_id)
         if user is None:
@@ -971,63 +987,76 @@ async def _prepare_chat_turn(
             raise ChatNotFoundError("Chat not found.")
 
         model = plan_service.resolve_user_model_override(user, model_alias, content, settings)
-        has_image_attachment = False
         prior_count = await messages_repo.count_for_chat(session, chat_id)
 
-        normalized_client_location = profile_service.normalize_client_location(client_location)
-        client_coordinates = profile_service.normalize_client_coordinates(
-            client_latitude, client_longitude
-        )
-        # NOTE: ephemeral device GPS is used for THIS turn's prompt only — it
-        # must not mutate the user's stored profile (location / location_enabled).
-        # Previously every geo query overwrote the user's saved home city and
-        # flipped location_enabled on, which was surprising and unrecoverable
-        # from chat. Profile location changes only from Settings now. The prompt
-        # still receives the fresh location via effective_location_label below.
         user_location = profile_service.effective_location_label(user, normalized_client_location)
-        geo_query = web_search_service.is_geo_query(content)
         if geo_query:
-            # Geo searches use fresh device GPS only — not a stale profile city.
             user_location = normalized_client_location
-        client_lat: float | None = None
-        client_lng: float | None = None
-        if client_coordinates is not None:
-            client_lat, client_lng = client_coordinates
         has_geo_fix = bool(user_location) or client_coordinates is not None
 
-        user_content = content
-        gateway = None
-        image_attachments: list[tuple[str, str]] = []
         if attachment_ids and settings.attachments_enabled:
-            from app.gateways.storage_gateway import get_storage_gateway
             from app.repositories import attachments as attachments_repo
-            from app.services import attachment_content as attachment_content_service
 
-            gateway = get_storage_gateway(settings)
-            attachment_lines: list[str] = []
             for attachment_id in attachment_ids:
                 row = await attachments_repo.get_by_id(session, attachment_id, user.id)
-                if row is None:
-                    continue
-                lines, is_image = await attachment_content_service.format_attachment_lines(
-                    gateway,
-                    attachment_id=str(attachment_id),
-                    content_type=row.content_type,
-                    storage_key=row.storage_key,
-                    size_bytes=row.size_bytes,
-                )
-                if is_image:
-                    has_image_attachment = True
-                    image_attachments.append((row.content_type, row.storage_key))
-                attachment_lines.extend(lines)
-            if attachment_lines:
-                if user_content.strip():
-                    user_content = f"{user_content}\n\n" + "\n".join(attachment_lines)
-                else:
-                    user_content = "\n".join(attachment_lines)
+                if row is not None:
+                    attachment_rows.append(row)
 
-        if attachment_ids and settings.attachments_enabled and has_image_attachment:
-            model = "vision-chat"
+    if attachment_rows and settings.attachments_enabled:
+        from app.gateways.storage_gateway import get_storage_gateway
+        from app.services import attachment_content as attachment_content_service
+
+        gateway = get_storage_gateway(settings)
+        attachment_lines: list[str] = []
+        for row in attachment_rows:
+            lines, is_image = await attachment_content_service.format_attachment_lines(
+                gateway,
+                attachment_id=str(row.id),
+                content_type=row.content_type,
+                storage_key=row.storage_key,
+                size_bytes=row.size_bytes,
+            )
+            if is_image:
+                has_image_attachment = True
+                image_attachments.append((row.content_type, row.storage_key))
+            attachment_lines.extend(lines)
+        if attachment_lines:
+            if user_content.strip():
+                user_content = f"{user_content}\n\n" + "\n".join(attachment_lines)
+            else:
+                user_content = "\n".join(attachment_lines)
+
+    if attachment_ids and settings.attachments_enabled and has_image_attachment:
+        model = "vision-chat"
+
+    meta: dict[str, Any] = {}
+    minimal_personal = is_broad_self_question(content)
+    minimal_quiz = web_search_service.is_vocab_quiz_answer(content)
+    instant_reply: str | None = None
+    gmail_context: tuple[str, list, list, str | None] | None = None
+    prompt_messages: list[dict[str, str]]
+    prior_user_messages: list[str] = []
+    local_tz = "UTC"
+    user_location = normalized_client_location if geo_query else None
+    fallback_models: list[str] = []
+    max_out = settings.max_output_tokens
+    quiz_answer = minimal_quiz
+
+    async with SessionLocal() as session:
+        user = await users_repo.get_by_id(session, user_id)
+        if user is None:
+            raise ChatNotFoundError("User not found.")
+
+        chat = await chats_repo.get_by_id(session, chat_id, user_id)
+        if chat is None:
+            raise ChatNotFoundError("Chat not found.")
+
+        if not geo_query:
+            user_location = profile_service.effective_location_label(
+                user, normalized_client_location
+            )
+        has_geo_fix = bool(user_location) or client_coordinates is not None
+        local_tz = time_context_service.effective_timezone(user.timezone, client_timezone)
 
         user_message = await messages_repo.create(
             session,
@@ -1047,10 +1076,7 @@ async def _prepare_chat_turn(
                 attachment_ids=attachment_ids,
                 message_id=user_message.id,
             )
-        meta: dict[str, Any] = {}
-        minimal_personal = is_broad_self_question(content)
-        minimal_quiz = web_search_service.is_vocab_quiz_answer(content)
-        local_tz = time_context_service.effective_timezone(user.timezone, client_timezone)
+
         prompt_messages = await build_prompt_messages(
             session,
             user,
@@ -1064,20 +1090,11 @@ async def _prepare_chat_turn(
             client_timezone=client_timezone,
             prompt_location=user_location if geo_query and has_geo_fix else None,
         )
-        if has_image_attachment and image_attachments and gateway is not None:
-            await attachment_content_service.inject_vision_content(
-                prompt_messages,
-                gateway,
-                image_attachments,
-                caption=content,
-            )
-        instant_reply = None
-        gmail_context: tuple[str, list, list, str | None] | None = None
+
         if time_context_service.is_time_question(content):
             instant_reply = time_context_service.format_time_answer(local_tz, user.locale)
         elif time_context_service.is_location_question(content):
             instant_reply = time_context_service.format_location_answer(user_location, local_tz)
-
         elif calendar_service.is_external_calendar_question(content):
             if not await calendar_service.is_connected(session, user.id):
                 instant_reply = calendar_service.format_not_connected_answer()
@@ -1097,14 +1114,11 @@ async def _prepare_chat_turn(
                         fetch_error=fetch_error,
                     )
 
-        search_sources: list[WebSearchHit] = []
-        geo_query = web_search_service.is_geo_query(content)
         local_places = web_search_service.is_places_list_query(content)
         ambiguous_nearby = web_search_service.is_ambiguous_local_places_query(content)
         if ambiguous_nearby:
             local_places = False
         if instant_reply is None and geo_query and not has_geo_fix:
-            # No location available — prompt to enable it instead of guessing "near me".
             instant_reply = web_search_service.format_location_not_set_answer()
         if instant_reply is None and not minimal_personal and not minimal_quiz:
             integration_blocks: list[str] = []
@@ -1146,6 +1160,7 @@ async def _prepare_chat_turn(
                     "content": f"{prompt_messages[0]['content']}\n\n"
                     + "\n\n".join(integration_blocks),
                 }
+
         if (
             instant_reply is None
             and not minimal_personal
@@ -1155,17 +1170,6 @@ async def _prepare_chat_turn(
             and not email_service.is_external_email_question(content)
         ):
             prior_user_messages = await messages_repo.recent_user_contents(session, chat_id)
-            prompt_messages, search_sources = await _augment_web_and_tools(
-                prompt_messages,
-                content,
-                settings,
-                user_timezone=local_tz,
-                user_location=user_location,
-                latitude=client_lat,
-                longitude=client_lng,
-                prior_user_messages=prior_user_messages,
-                has_image_attachment=has_image_attachment,
-            )
 
         quiz_answer = web_search_service.is_vocab_quiz_answer(content)
         max_out = (
@@ -1173,26 +1177,62 @@ async def _prepare_chat_turn(
             if quiz_answer
             else max_output_tokens_for_style(user.response_style, settings)
         )
+        fallback_models = plan_service.chat_fallback_models(user, settings, model)
 
-        return _StreamContext(
-            user_id=user_id,
-            chat_id=chat_id,
-            model=model,
-            prompt_messages=prompt_messages,
-            run_title=prior_count == 0,
-            user_message_content=content,
-            reserved_tokens=reserved_tokens,
-            max_output_tokens=max_out,
-            recalled_count=int(meta.get("recalled") or 0),
-            memory_hints=list(meta.get("memory_hints") or []),
-            context_summarized=int(meta.get("context_summarized") or 0),
-            instant_reply=instant_reply,
-            search_sources=search_sources,
-            local_places=local_places,
-            skip_memory_jobs=quiz_answer,
-            prior_count=prior_count,
-            fallback_models=plan_service.chat_fallback_models(user, settings, model),
+    if has_image_attachment and image_attachments and gateway is not None:
+        from app.services import attachment_content as attachment_content_service
+
+        await attachment_content_service.inject_vision_content(
+            prompt_messages,
+            gateway,
+            image_attachments,
+            caption=content,
         )
+
+    search_sources: list[WebSearchHit] = []
+    ambiguous_nearby = web_search_service.is_ambiguous_local_places_query(content)
+    local_places = web_search_service.is_places_list_query(content)
+    if ambiguous_nearby:
+        local_places = False
+    if (
+        instant_reply is None
+        and not minimal_personal
+        and not minimal_quiz
+        and not ambiguous_nearby
+        and not calendar_service.is_external_calendar_question(content)
+        and not email_service.is_external_email_question(content)
+    ):
+        prompt_messages, search_sources = await _augment_web_and_tools(
+            prompt_messages,
+            content,
+            settings,
+            user_timezone=local_tz,
+            user_location=user_location,
+            latitude=client_lat,
+            longitude=client_lng,
+            prior_user_messages=prior_user_messages,
+            has_image_attachment=has_image_attachment,
+        )
+
+    return _StreamContext(
+        user_id=user_id,
+        chat_id=chat_id,
+        model=model,
+        prompt_messages=prompt_messages,
+        run_title=prior_count == 0,
+        user_message_content=content,
+        reserved_tokens=reserved_tokens,
+        max_output_tokens=max_out,
+        recalled_count=int(meta.get("recalled") or 0),
+        memory_hints=list(meta.get("memory_hints") or []),
+        context_summarized=int(meta.get("context_summarized") or 0),
+        instant_reply=instant_reply,
+        search_sources=search_sources,
+        local_places=local_places,
+        skip_memory_jobs=quiz_answer,
+        prior_count=prior_count,
+        fallback_models=fallback_models,
+    )
 
 
 async def _finalize_stream_turn_db(

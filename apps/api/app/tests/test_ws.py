@@ -91,7 +91,10 @@ def test_ws_sends_message_and_receives_tokens():
     app = _app(user)
 
     with (
-        patch("app.routers.ws.decode_access_token", return_value=user.id),
+        patch(
+            "app.routers.ws.tokens_service.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
         patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
         patch("app.routers.ws.chat_service.stream_chat_response", fake_stream),
     ):
@@ -123,7 +126,10 @@ def test_ws_passes_client_timezone_to_stream():
     app = _app(user)
 
     with (
-        patch("app.routers.ws.decode_access_token", return_value=user.id),
+        patch(
+            "app.routers.ws.tokens_service.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
         patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
         patch("app.routers.ws.chat_service.stream_chat_response", fake_stream),
     ):
@@ -145,7 +151,10 @@ def test_ws_empty_message_ignored():
     app = _app(user)
 
     with (
-        patch("app.routers.ws.decode_access_token", return_value=user.id),
+        patch(
+            "app.routers.ws.tokens_service.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
         patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
     ):
         client = TestClient(app)
@@ -169,7 +178,10 @@ def test_ws_regenerate():
     app = _app(user)
 
     with (
-        patch("app.routers.ws.decode_access_token", return_value=user.id),
+        patch(
+            "app.routers.ws.tokens_service.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
         patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
         patch("app.routers.ws.chat_service.stream_regenerate_response", fake_regen),
     ):
@@ -200,7 +212,10 @@ def test_ws_regenerate_passes_client_geo():
     app = _app(user)
 
     with (
-        patch("app.routers.ws.decode_access_token", return_value=user.id),
+        patch(
+            "app.routers.ws.tokens_service.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
         patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
         patch("app.routers.ws.chat_service.stream_regenerate_response", fake_regen),
     ):
@@ -238,7 +253,10 @@ def test_ws_cancel_sets_flag():
     app = _app(user)
 
     with (
-        patch("app.routers.ws.decode_access_token", return_value=user.id),
+        patch(
+            "app.routers.ws.tokens_service.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
         patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
         patch("app.routers.ws.chat_service.stream_chat_response", fake_stream),
     ):
@@ -269,7 +287,10 @@ def test_ws_mid_stream_cancel():
     app = _app(user)
 
     with (
-        patch("app.routers.ws.decode_access_token", return_value=user.id),
+        patch(
+            "app.routers.ws.tokens_service.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
         patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
         patch("app.routers.ws.chat_service.stream_chat_response", slow_stream),
     ):
@@ -296,7 +317,10 @@ def test_ws_invalid_message_payload():
     app = _app(user)
 
     with (
-        patch("app.routers.ws.decode_access_token", return_value=user.id),
+        patch(
+            "app.routers.ws.tokens_service.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
         patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
     ):
         client = TestClient(app)
@@ -319,7 +343,10 @@ def test_ws_quota_error_frame():
     app = _app(user)
 
     with (
-        patch("app.routers.ws.decode_access_token", return_value=user.id),
+        patch(
+            "app.routers.ws.tokens_service.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
         patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
         patch("app.routers.ws.chat_service.stream_chat_response", quota_fail),
     ):
@@ -343,7 +370,10 @@ def test_ws_user_not_found_sends_error():
     app = _app(None)
 
     with (
-        patch("app.routers.ws.decode_access_token", return_value=uuid4()),
+        patch(
+            "app.routers.ws.tokens_service.verify_access_token",
+            AsyncMock(return_value=uuid4()),
+        ),
         patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=None)),
     ):
         client = TestClient(app)
@@ -367,7 +397,10 @@ def test_ws_edit_message():
     app = _app(user)
 
     with (
-        patch("app.routers.ws.decode_access_token", return_value=user.id),
+        patch(
+            "app.routers.ws.tokens_service.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
         patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
         patch("app.routers.ws.chat_service.stream_edit_response", fake_edit),
     ):
@@ -402,7 +435,10 @@ def test_ws_edit_passes_client_geo():
     app = _app(user)
 
     with (
-        patch("app.routers.ws.decode_access_token", return_value=user.id),
+        patch(
+            "app.routers.ws.tokens_service.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
         patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
         patch("app.routers.ws.chat_service.stream_edit_response", fake_edit),
     ):
@@ -432,7 +468,10 @@ def test_ws_edit_invalid_payload():
     app = _app(user)
 
     with (
-        patch("app.routers.ws.decode_access_token", return_value=user.id),
+        patch(
+            "app.routers.ws.tokens_service.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
         patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
     ):
         client = TestClient(app)

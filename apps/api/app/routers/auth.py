@@ -1,20 +1,30 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.db import get_db
-from app.core.deps import get_current_user, get_redis, get_settings_dep
+from app.core.deps import get_current_user, get_redis, get_settings_dep, security
 from app.core.rate_limit import allow_request
 from app.gateways.google_auth import GoogleAuthError
 from app.models.orm import User
-from app.models.schemas import AuthResponse, DevAuthRequest, GoogleAuthRequest, UserOut, UserUpdate
+from app.models.schemas import (
+    AuthResponse,
+    DevAuthRequest,
+    GoogleAuthRequest,
+    LogoutRequest,
+    RefreshRequest,
+    UserOut,
+    UserUpdate,
+)
 from app.repositories import users as users_repo
 from app.services import auth as auth_service
 from app.services import export_service
 from app.services import memory as memory_service
 from app.services import plan as plan_service
 from app.services import subscription as subscription_service
+from app.services import tokens as tokens_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -79,6 +89,37 @@ async def dev_login(
 @router.get("/me", response_model=UserOut)
 async def me(user: User = Depends(get_current_user)) -> UserOut:
     return UserOut.model_validate(user)
+
+
+@router.post("/refresh", response_model=AuthResponse)
+async def refresh_session(
+    body: RefreshRequest,
+    session: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings_dep),
+    redis: Redis = Depends(get_redis),
+) -> AuthResponse:
+    try:
+        access_token, refresh_token, user = await tokens_service.refresh_token_pair(
+            redis, body.refresh_token, session, settings
+        )
+    except GoogleAuthError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+    return AuthResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        user=user,
+    )
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+async def logout(
+    body: LogoutRequest,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    settings: Settings = Depends(get_settings_dep),
+    redis: Redis = Depends(get_redis),
+) -> None:
+    await tokens_service.revoke_access_token(redis, credentials.credentials, settings)
+    await tokens_service.revoke_refresh_token(redis, body.refresh_token)
 
 
 @router.patch("/me", response_model=UserOut)

@@ -85,3 +85,17 @@ async def delete_memory(
     deleted = await memory_service.delete_memory(session, user.id, memory_id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Memory not found")
+
+
+@router.delete("/{memory_id}/facts/{fact_index}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_memory_fact(
+    memory_id: UUID,
+    fact_index: int,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> None:
+    if fact_index < 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid fact index")
+    deleted = await memory_service.delete_memory_fact(session, user.id, memory_id, fact_index)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Memory fact not found")

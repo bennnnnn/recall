@@ -214,6 +214,55 @@ async def invalidate_memory_block(user_id: UUID) -> None:
         logger.debug("Memory block cache invalidation failed", exc_info=True)
 
 
+def split_memory_facts(text: str) -> list[str]:
+    return _split_sentences(text)
+
+
+def join_memory_facts(facts: list[str]) -> str:
+    parts: list[str] = []
+    seen: set[str] = set()
+    for raw in facts:
+        clean = normalize_memory_text(raw)
+        if not clean:
+            continue
+        key = clean.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        parts.append(clean)
+    merged = ". ".join(parts)
+    if merged and not merged.endswith("."):
+        merged += "."
+    return merged
+
+
+async def delete_memory_fact(
+    session: AsyncSession,
+    user_id: UUID,
+    memory_id: UUID,
+    fact_index: int,
+) -> bool:
+    from app.repositories import memories as memories_repo
+
+    memory = await memories_repo.get_by_id(session, user_id, memory_id)
+    if memory is None:
+        return False
+    facts = split_memory_facts(memory.text)
+    if fact_index < 0 or fact_index >= len(facts):
+        return False
+    facts.pop(fact_index)
+    if not facts:
+        deleted = await memories_repo.delete_by_id(session, user_id, memory_id)
+        if deleted:
+            await invalidate_memory_block(user_id)
+        return deleted
+    updated = await memories_repo.update_text(session, user_id, memory_id, join_memory_facts(facts))
+    if updated is not None:
+        await invalidate_memory_block(user_id)
+        return True
+    return False
+
+
 async def delete_memory(session: AsyncSession, user_id: UUID, memory_id: UUID) -> bool:
     from app.repositories import memories as memories_repo
 

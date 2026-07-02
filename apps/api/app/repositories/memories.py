@@ -100,3 +100,25 @@ async def delete_by_id(session: AsyncSession, user_id: UUID, memory_id: UUID) ->
     )
     await session.commit()
     return result.rowcount > 0
+
+
+async def get_by_id(session: AsyncSession, user_id: UUID, memory_id: UUID) -> Memory | None:
+    result = await session.execute(
+        select(Memory).where(Memory.id == memory_id, Memory.user_id == user_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def update_text(
+    session: AsyncSession,
+    user_id: UUID,
+    memory_id: UUID,
+    text: str,
+) -> Memory | None:
+    memory = await get_by_id(session, user_id, memory_id)
+    if memory is None:
+        return None
+    memory.text = text.strip()
+    await session.commit()
+    await session.refresh(memory)
+    return memory

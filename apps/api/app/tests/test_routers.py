@@ -157,7 +157,11 @@ def test_dev_login():
         memory_enabled=True,
         created_at=datetime(2024, 1, 1),
     )
-    fake_resp = AuthResponse(access_token="fake-token", user=fake_user_out)
+    fake_resp = AuthResponse(
+        access_token="fake-token",
+        refresh_token="fake-refresh",
+        user=fake_user_out,
+    )
 
     app = create_app()
     from app.core.deps import get_settings_dep

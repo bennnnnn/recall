@@ -426,7 +426,7 @@ async def test_get_current_user_from_valid_token():
 
     fake_user = MagicMock()
     with (
-        patch("app.core.deps.decode_access_token", return_value=uid),
+        patch("app.core.deps.tokens_service.verify_access_token", AsyncMock(return_value=uid)),
         patch("app.core.deps.auth_service.get_current_user", AsyncMock(return_value=fake_user)),
         patch("app.core.deps.get_settings", return_value=settings),
     ):
@@ -449,7 +449,7 @@ async def test_get_current_user_not_found_raises_401():
     creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials="tok")
 
     with (
-        patch("app.core.deps.decode_access_token", return_value=uid),
+        patch("app.core.deps.tokens_service.verify_access_token", AsyncMock(return_value=uid)),
         patch("app.core.deps.auth_service.get_current_user", AsyncMock(return_value=None)),
     ):
         with pytest.raises(HTTPException) as exc_info:

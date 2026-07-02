@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next";
 import { StateView } from "@/components/StateView";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, Memory } from "@/lib/api";
+import { splitMemoryFacts } from "@/lib/memoryFacts";
 import { Theme, useTheme } from "@/lib/theme";
 
 const TYPE_ORDER = ["profile", "preference", "project", "fact", "focus"];
@@ -35,14 +36,16 @@ type MemorySectionCardProps = {
   section: Memory;
   expanded: boolean;
   onToggle: () => void;
-  onDelete: () => void;
+  onDeleteSection: () => void;
+  onDeleteFact: (factIndex: number) => void;
 };
 
 function MemorySectionCard({
   section,
   expanded,
   onToggle,
-  onDelete,
+  onDeleteSection,
+  onDeleteFact,
   styles: s,
   theme,
 }: MemorySectionCardProps & {
@@ -50,18 +53,21 @@ function MemorySectionCard({
   theme: Theme;
 }) {
   const { t } = useTranslation();
-  const collapsible = sectionNeedsCollapse(section.text);
+  const facts = useMemo(() => splitMemoryFacts(section.text), [section.text]);
+  const showFacts = facts.length > 1;
+  const collapsible = !showFacts && sectionNeedsCollapse(section.text);
+  const visibleFacts = expanded || !collapsible ? facts : facts.slice(0, COLLAPSED_LINES);
 
   return (
     <View style={s.group}>
       <View style={s.groupHeader}>
         <Pressable
           style={s.groupHeaderMain}
-          onPress={collapsible ? onToggle : undefined}
-          disabled={!collapsible}
+          onPress={collapsible || (showFacts && facts.length > COLLAPSED_LINES) ? onToggle : undefined}
+          disabled={!collapsible && !(showFacts && facts.length > COLLAPSED_LINES)}
         >
           <Text style={s.groupTitle}>{memoryTypeLabel(section.type, t)}</Text>
-          {collapsible ? (
+          {collapsible || (showFacts && facts.length > COLLAPSED_LINES) ? (
             <Ionicons
               name={expanded ? "chevron-up" : "chevron-down"}
               size={18}
@@ -69,25 +75,50 @@ function MemorySectionCard({
             />
           ) : null}
         </Pressable>
-        <Pressable hitSlop={8} onPress={onDelete} accessibilityRole="button">
+        <Pressable hitSlop={8} onPress={onDeleteSection} accessibilityRole="button">
           <Ionicons name="trash-outline" size={16} color={theme.textTertiary} />
         </Pressable>
       </View>
-      <Pressable
-        style={s.card}
-        onPress={collapsible ? onToggle : undefined}
-        disabled={!collapsible}
-      >
-        <Text
-          style={s.cardText}
-          numberOfLines={collapsible && !expanded ? COLLAPSED_LINES : undefined}
-        >
-          {section.text}
-        </Text>
-        {collapsible ? (
-          <Text style={s.expandHint}>
-            {expanded ? t("common.show_less") : t("common.show_more")}
-          </Text>
+      <View style={s.card}>
+        {showFacts ? (
+          visibleFacts.map((fact, index) => (
+            <View key={`${section.id}-${index}`} style={s.factRow}>
+              <Text style={s.factText}>{fact}</Text>
+              <Pressable
+                hitSlop={8}
+                onPress={() => onDeleteFact(index)}
+                accessibilityRole="button"
+                accessibilityLabel={t("memory.delete_fact_a11y")}
+              >
+                <Ionicons name="close-circle-outline" size={18} color={theme.textTertiary} />
+              </Pressable>
+            </View>
+          ))
+        ) : (
+          <Pressable
+            onPress={collapsible ? onToggle : undefined}
+            disabled={!collapsible}
+          >
+            <Text
+              style={s.cardText}
+              numberOfLines={collapsible && !expanded ? COLLAPSED_LINES : undefined}
+            >
+              {section.text}
+            </Text>
+          </Pressable>
+        )}
+        {showFacts && facts.length > COLLAPSED_LINES ? (
+          <Pressable onPress={onToggle}>
+            <Text style={s.expandHint}>
+              {expanded ? t("common.show_less") : t("common.show_more")}
+            </Text>
+          </Pressable>
+        ) : collapsible ? (
+          <Pressable onPress={onToggle}>
+            <Text style={s.expandHint}>
+              {expanded ? t("common.show_less") : t("common.show_more")}
+            </Text>
+          </Pressable>
         ) : null}
         {section.confidence != null ? (
           <Text style={s.conf}>
@@ -96,7 +127,7 @@ function MemorySectionCard({
             })}
           </Text>
         ) : null}
-      </Pressable>
+      </View>
     </View>
   );
 }
@@ -220,7 +251,7 @@ export default function MemoryScreen() {
           onToggle={() => toggleSection(section.type)}
           styles={s}
           theme={theme}
-          onDelete={() => {
+          onDeleteSection={() => {
             if (!token) return;
             Alert.alert(
               t("memory.delete_confirm_title"),
@@ -241,6 +272,41 @@ export default function MemoryScreen() {
                         next.delete(section.type);
                         return next;
                       });
+                    } catch {
+                      Alert.alert(t("common.error"), t("memory.delete_failed"));
+                    }
+                  },
+                },
+              ],
+            );
+          }}
+          onDeleteFact={(factIndex) => {
+            if (!token) return;
+            Alert.alert(
+              t("memory.delete_fact_title"),
+              t("memory.delete_fact_body"),
+              [
+                { text: t("common.cancel"), style: "cancel" },
+                {
+                  text: t("common.delete"),
+                  style: "destructive",
+                  onPress: async () => {
+                    try {
+                      await api.deleteMemoryFact(token, section.id, factIndex);
+                      const facts = splitMemoryFacts(section.text);
+                      facts.splice(factIndex, 1);
+                      if (facts.length === 0) {
+                        setMemories((prev) =>
+                          prev.filter((item) => item.id !== section.id),
+                        );
+                        return;
+                      }
+                      const nextText = facts.join(". ") + (facts.at(-1)?.endsWith(".") ? "" : ".");
+                      setMemories((prev) =>
+                        prev.map((item) =>
+                          item.id === section.id ? { ...item, text: nextText } : item,
+                        ),
+                      );
                     } catch {
                       Alert.alert(t("common.error"), t("memory.delete_failed"));
                     }
@@ -299,6 +365,13 @@ function makeStyles(theme: Theme) {
     borderRadius: 12,
     padding: 14,
   },
+  factRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    marginBottom: 10,
+  },
+  factText: { flex: 1, fontSize: 15, color: theme.text, lineHeight: 22 },
   cardText: { fontSize: 15, color: theme.text, lineHeight: 22 },
   expandHint: {
     fontSize: 13,

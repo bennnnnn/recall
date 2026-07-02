@@ -5,10 +5,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import jobs
 from app.core.config import Settings
-from app.gateways.google_auth import GoogleAuthError, create_access_token, verify_google_id_token
+from app.gateways.google_auth import GoogleAuthError, verify_google_id_token
 from app.models.orm import User
 from app.models.schemas import AuthResponse, UserOut
 from app.repositories import users as users_repo
+from app.services import tokens as tokens_service
 
 
 async def login_with_google(
@@ -46,8 +47,12 @@ async def login_with_google(
         # Best-effort: never let a welcome email block signup.
         await jobs.enqueue_welcome_email(redis, user.id)
 
-    token = create_access_token(user.id, settings)
-    return AuthResponse(access_token=token, user=UserOut.model_validate(user))
+    access_token, refresh_token = await tokens_service.issue_token_pair(redis, user.id, settings)
+    return AuthResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        user=UserOut.model_validate(user),
+    )
 
 
 async def login_dev(
@@ -76,8 +81,12 @@ async def login_dev(
     if is_new_user and settings.email_enabled:
         await jobs.enqueue_welcome_email(redis, user.id)
 
-    token = create_access_token(user.id, settings)
-    return AuthResponse(access_token=token, user=UserOut.model_validate(user))
+    access_token, refresh_token = await tokens_service.issue_token_pair(redis, user.id, settings)
+    return AuthResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        user=UserOut.model_validate(user),
+    )
 
 
 async def get_current_user(session: AsyncSession, user_id: UUID) -> User | None:

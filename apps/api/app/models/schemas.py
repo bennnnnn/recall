@@ -103,8 +103,17 @@ class DevAuthRequest(BaseModel):
 
 class AuthResponse(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
     user: UserOut
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str = Field(min_length=1)
+
+
+class LogoutRequest(BaseModel):
+    refresh_token: str | None = None
 
 
 class ChatCreate(BaseModel):
@@ -214,6 +223,7 @@ class ChatMessageRequest(BaseModel):
     content: str = ""
     model: str | None = None
     attachment_ids: list[UUID] = Field(default_factory=list)
+    client_timezone: str | None = Field(default=None, max_length=64)
     client_location: str | None = Field(default=None, max_length=200)
     client_latitude: float | None = Field(default=None, ge=-90, le=90)
     client_longitude: float | None = Field(default=None, ge=-180, le=180)

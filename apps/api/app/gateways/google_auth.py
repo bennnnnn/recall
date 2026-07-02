@@ -1,4 +1,5 @@
 import logging
+import secrets
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
@@ -35,7 +36,12 @@ def verify_google_id_token(id_token_str: str, settings: Settings) -> dict:
 def create_access_token(user_id: UUID, settings: Settings) -> str:
     now = datetime.now(UTC)
     expire = now + timedelta(minutes=settings.jwt_expire_minutes)
-    payload = {"sub": str(user_id), "exp": expire, "iat": now}
+    payload = {
+        "sub": str(user_id),
+        "exp": expire,
+        "iat": now,
+        "jti": secrets.token_urlsafe(16),
+    }
     return jwt.encode(payload, settings.jwt_secret, algorithm="HS256")
 
 

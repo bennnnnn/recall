@@ -315,3 +315,41 @@ async def test_memory_reenable_loads_fresh_after_invalidation(fake_redis):
     assert "Old fact" in first
     assert "New fact" in second
     assert load_mock.await_count == 2
+
+
+def test_split_and_join_memory_facts():
+    from app.services.memory import join_memory_facts, split_memory_facts
+
+    text = "Likes hiking. Prefers morning runs. Lives in Austin."
+    facts = split_memory_facts(text)
+    assert len(facts) == 3
+    assert join_memory_facts(facts) == text
+
+
+@pytest.mark.asyncio
+async def test_delete_memory_fact_removes_one_sentence():
+    from app.services.memory import delete_memory_fact
+
+    user_id = uuid4()
+    session = AsyncMock()
+    memory = _memory("fact", "Alpha. Beta. Gamma.", 0.9)
+    memory.id = uuid4()
+
+    with (
+        patch(
+            "app.repositories.memories.get_by_id",
+            AsyncMock(return_value=memory),
+        ),
+        patch(
+            "app.repositories.memories.update_text",
+            AsyncMock(return_value=memory),
+        ),
+        patch(
+            "app.services.memory.invalidate_memory_block",
+            AsyncMock(),
+        ) as invalidate,
+    ):
+        ok = await delete_memory_fact(session, user_id, memory.id, 1)
+
+    assert ok is True
+    invalidate.assert_awaited_once()

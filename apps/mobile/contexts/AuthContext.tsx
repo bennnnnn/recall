@@ -21,10 +21,12 @@ import i18n from "@/lib/i18n";
 import {
   clearToken,
   getOnboarded,
+  getRefreshToken,
   getToken,
   setOnboarded,
-  setToken,
+  setTokenPair,
 } from "@/lib/auth";
+import { logoutSession } from "@/lib/api";
 import { useBootstrapSync } from "@/hooks/useBootstrapSync";
 import { useTheme } from "@/lib/theme";
 
@@ -93,20 +95,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithGoogle = useCallback(async () => {
     const idToken = await signInWithGoogleIdToken();
     const result = await loginWithGoogle(idToken);
-    await setToken(result.access_token);
+    await setTokenPair(result.access_token, result.refresh_token);
     setTokenState(result.access_token);
     setUser(result.user);
   }, []);
 
   const signInWithDev = useCallback(async () => {
     const result = await loginWithDev();
-    await setToken(result.access_token);
+    await setTokenPair(result.access_token, result.refresh_token);
     setTokenState(result.access_token);
     setUser(result.user);
   }, []);
 
   const signOut = useCallback(async () => {
     const userId = user?.id;
+    const accessToken = token;
+    const refreshToken = await getRefreshToken();
     try {
       const { cancelAllTodoReminders } = await import("@/lib/todoReminders");
       await cancelAllTodoReminders();
@@ -132,11 +136,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // best-effort — clearing the local token is what matters
     }
+    if (accessToken) {
+      await logoutSession(accessToken, refreshToken);
+    }
     // Server-side integrations (Gmail, Calendar) stay connected until explicitly disconnected.
     await clearToken();
     setTokenState(null);
     setUser(null);
-  }, [user?.id]);
+  }, [user?.id, token]);
 
   // Sign out automatically when any authenticated request returns 401.
   useEffect(() => {

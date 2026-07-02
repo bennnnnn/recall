@@ -13,11 +13,12 @@ from app.core.db import SessionLocal
 from app.core.rate_limit import allow_request
 from app.core.redis import get_redis_client
 from app.exceptions import ChatServiceError, QuotaExceededError
-from app.gateways.google_auth import GoogleAuthError, decode_access_token
+from app.gateways.google_auth import GoogleAuthError
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.schemas import ChatMessageRequest, EditMessageRequest
 from app.services import auth as auth_service
 from app.services import chat as chat_service
+from app.services import tokens as tokens_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["websocket"])
@@ -204,7 +205,7 @@ async def chat_websocket(
             await websocket.close()
             return
 
-        user_id = decode_access_token(token, settings)
+        user_id = await tokens_service.verify_access_token(redis, token, settings)
         client_timezone = auth_message.get("client_timezone")
         if client_timezone is not None and not isinstance(client_timezone, str):
             client_timezone = None

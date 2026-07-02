@@ -478,7 +478,10 @@ async def test_login_dev_creates_user():
     with (
         patch("app.services.auth.users_repo.get_by_google_sub", AsyncMock(return_value=None)),
         patch("app.services.auth.users_repo.create", AsyncMock(return_value=MagicMock())),
-        patch("app.services.auth.create_access_token", return_value="tok"),
+        patch(
+            "app.services.auth.tokens_service.issue_token_pair",
+            AsyncMock(return_value=("tok", "refresh")),
+        ),
         patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
     ):
         result = await auth_service.login_dev(
@@ -511,7 +514,10 @@ async def test_login_dev_returns_existing_user():
             "app.services.auth.users_repo.get_by_google_sub",
             AsyncMock(return_value=MagicMock()),
         ),
-        patch("app.services.auth.create_access_token", return_value="tok"),
+        patch(
+            "app.services.auth.tokens_service.issue_token_pair",
+            AsyncMock(return_value=("tok", "refresh")),
+        ),
         patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
     ):
         result = await auth_service.login_dev(

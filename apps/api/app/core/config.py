@@ -13,7 +13,8 @@ class Settings(BaseSettings):
     google_client_secret: str = ""
 
     jwt_secret: str = "dev-secret-change-me"
-    jwt_expire_minutes: int = 60 * 24 * 7
+    jwt_expire_minutes: int = 60
+    jwt_refresh_expire_days: int = 30
 
     deepseek_api_key: str = ""  # legacy — unused; all models route via OpenRouter
     openrouter_api_key: str = ""

@@ -11,7 +11,9 @@ import asyncio
 import json
 import logging
 import os
+import traceback
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from typing import Any, cast
 from uuid import UUID
 
@@ -35,8 +37,10 @@ from app.services import transactional_email as transactional_email_service
 logger = logging.getLogger(__name__)
 
 JOBS_STREAM = "recall:jobs"
+JOBS_DLQ_STREAM = "recall:jobs:dlq"
 JOBS_GROUP = "workers"
 _MAXLEN = 10_000
+_DLQ_MAXLEN = 5_000
 _BLOCK_MS = 5_000
 _BATCH = 10
 _CLAIM_IDLE_MS = 60_000
@@ -229,12 +233,38 @@ async def _dispatch(settings: Settings, fields: dict[str, Any]) -> None:
     await handler(settings, payload)
 
 
+async def _move_to_dlq(
+    redis: Redis,
+    entry_id: str,
+    fields: dict[str, Any],
+    error: str,
+) -> None:
+    """Persist failed jobs for inspection/replay without blocking the worker."""
+    try:
+        await redis.xadd(
+            JOBS_DLQ_STREAM,
+            {
+                "original_id": entry_id,
+                "type": fields.get("type", ""),
+                "payload": fields.get("payload", "{}"),
+                "error": error[:2000],
+                "failed_at": datetime.now(UTC).isoformat(),
+            },
+            maxlen=_DLQ_MAXLEN,
+            approximate=True,
+        )
+    except Exception:
+        logger.debug("Failed to write job to DLQ id=%s", entry_id, exc_info=True)
+
+
 async def _process_entries(redis: Redis, settings: Settings, entries: list) -> None:
     for entry_id, fields in entries:
+        cast_fields = cast(dict[str, Any], fields)
         try:
-            await _dispatch(settings, cast(dict[str, Any], fields))
+            await _dispatch(settings, cast_fields)
         except Exception:
             logger.exception("Job failed id=%s", entry_id)
+            await _move_to_dlq(redis, entry_id, cast_fields, traceback.format_exc(limit=8))
         finally:
             # Best-effort jobs: ack regardless so a poison entry can't loop forever.
             try:

@@ -138,6 +138,22 @@ async def test_process_entries_dispatches_and_acks():
     await jobs._process_entries(redis, Settings(), entries)
     assert seen == [{"k": 1}]
     redis.xack.assert_awaited_once()
+    redis.xadd.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_process_entries_failed_job_goes_to_dlq():
+    redis = AsyncMock()
+
+    async def handler(_settings, _payload):
+        raise RuntimeError("boom")
+
+    jobs.register("fail-job", handler)
+    entries = [("2-0", {"type": "fail-job", "payload": "{}"})]
+    await jobs._process_entries(redis, Settings(), entries)
+    redis.xadd.assert_awaited_once()
+    assert redis.xadd.call_args.args[0] == jobs.JOBS_DLQ_STREAM
+    redis.xack.assert_awaited_once()
 
 
 @pytest.mark.asyncio
