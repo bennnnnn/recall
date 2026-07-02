@@ -35,6 +35,18 @@ describe("chatComposerLogic", () => {
     expect(opts[0].label).toBe("Auto");
   });
 
+  it("buildModelOptions tolerates missing catalog", () => {
+    const opts = buildModelOptions({
+      autoEnabled: true,
+      autoModelId: "auto",
+      autoLabel: "Auto",
+      modelEnabledSet: new Set(["free-chat"]),
+      models: undefined as unknown as typeof catalog,
+      isPro: true,
+    });
+    expect(opts.map((o) => o.id)).toEqual(["auto"]);
+  });
+
   it("buildModelOptions omits unavailable and pro-locked models", () => {
     const opts = buildModelOptions({
       autoEnabled: false,

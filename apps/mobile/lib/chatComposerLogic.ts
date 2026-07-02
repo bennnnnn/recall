@@ -21,10 +21,11 @@ export function buildModelOptions(options: {
   autoModelId: string;
   autoLabel: string;
   modelEnabledSet: Set<string>;
-  models: Array<{ id: string; label: string; available: boolean; plan_access: "free" | "pro" }>;
+  models: Array<{ id: string; label: string; available: boolean; plan_access: "free" | "pro" }> | undefined;
   isPro: boolean;
 }): ModelOption[] {
-  const byId = new Map(options.models.map((model) => [model.id, model]));
+  const catalog = options.models ?? [];
+  const byId = new Map(catalog.map((model) => [model.id, model]));
   const opts: ModelOption[] = [];
   if (options.autoEnabled) {
     opts.push({ id: options.autoModelId, label: options.autoLabel });

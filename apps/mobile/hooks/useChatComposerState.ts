@@ -5,11 +5,12 @@ import {
   buildModelOptions,
   resolveSelectedModelLabel,
 } from "@/lib/chatComposerLogic";
+import { MODEL_CATALOG_FALLBACK } from "@/lib/modelCatalogFallback";
 
 type Options = {
   autoEnabled: boolean;
   modelEnabledSet: Set<string>;
-  models: ModelInfo[];
+  models?: ModelInfo[];
   isPro: boolean;
   labelFor: (id: string) => string | undefined;
   autoModelId: string;
@@ -20,13 +21,14 @@ type Options = {
 export function useChatComposerState({
   autoEnabled,
   modelEnabledSet,
-  models,
+  models: modelsProp,
   isPro,
   labelFor,
   autoModelId,
   t,
   closeAttachSheetRef,
 }: Options) {
+  const models = modelsProp ?? MODEL_CATALOG_FALLBACK;
   const [showModelPicker, setShowModelPicker] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string>(autoModelId);
 
