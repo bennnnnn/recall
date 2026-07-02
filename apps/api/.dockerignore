@@ -10,5 +10,6 @@
 !.env.example
 tests
 **/*.md
+!README.md
 Dockerfile
 .dockerignore
