@@ -18,7 +18,7 @@ async def get_home_screen(
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ) -> HomeScreenOut:
-    return await home_service.build_home_screen(
+    return await home_service.get_home_screen_cached(
         session,
         user,
         settings,

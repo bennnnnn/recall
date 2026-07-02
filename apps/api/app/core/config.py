@@ -101,6 +101,8 @@ class Settings(BaseSettings):
     memory_inject_limit: int = 15
     memory_cache_ttl: int = 300
     memory_query_cache_ttl: int = 120
+    link_preview_cache_ttl: int = 3600
+    home_cache_ttl: int = 60
     todo_inject_limit: int = 100
     todo_prompt_limit: int = 48
     project_inject_limit: int = 50

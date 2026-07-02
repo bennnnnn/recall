@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Alert } from "react-native";
+import { useFocusEffect } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { useAuth } from "@/contexts/AuthContext";
@@ -29,6 +30,12 @@ export function useSettingsIntegrations() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refresh();
+    }, [refresh]),
+  );
 
   const connectCalendar = async (write = false) => {
     if (!token || calendarBusy) return;

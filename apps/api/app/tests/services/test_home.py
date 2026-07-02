@@ -316,3 +316,32 @@ def test_project_starters_empty_language_project():
     stats = ProjectStats()
     starters = home_service._project_starters(project, stats)
     assert starters == []
+
+
+@pytest.mark.asyncio
+async def test_get_home_screen_cached_reuses_redis(fake_redis):
+    user = _user()
+    settings = Settings(home_cache_ttl=60)
+    session = AsyncMock()
+    screen = home_service.HomeScreenOut(
+        greeting="Hi",
+        subtitle=None,
+        project_highlight=None,
+        urgent_todos=[],
+        starters=[],
+    )
+
+    with (
+        patch("app.services.home.get_redis_client", return_value=fake_redis),
+        patch.object(
+            home_service,
+            "build_home_screen",
+            AsyncMock(return_value=screen),
+        ) as build_mock,
+    ):
+        first = await home_service.get_home_screen_cached(session, user, settings)
+        second = await home_service.get_home_screen_cached(session, user, settings)
+
+    assert first == screen
+    assert second == screen
+    build_mock.assert_awaited_once()

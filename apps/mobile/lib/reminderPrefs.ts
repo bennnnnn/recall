@@ -52,3 +52,12 @@ export async function getReminderLeadMs(): Promise<number> {
   const minutes = await getReminderLeadMinutes();
   return leadMsFromMinutes(minutes);
 }
+
+export async function clearReminderLeadPrefs(): Promise<void> {
+  cachedLeadMinutes = null;
+  try {
+    await SecureStore.deleteItemAsync(KEY);
+  } catch {
+    /* best-effort */
+  }
+}
