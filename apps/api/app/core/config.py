@@ -168,6 +168,20 @@ def validate_production_settings(settings: Settings) -> None:
             '(generate with: python -c "from cryptography.fernet import Fernet; '
             'print(Fernet.generate_key().decode())")'
         )
+    if settings.storage_backend.strip().lower() != "r2":
+        errors.append("STORAGE_BACKEND must be r2 in production (local disk is ephemeral on Fly)")
+    elif not all(
+        [
+            settings.r2_account_id.strip(),
+            settings.r2_access_key_id.strip(),
+            settings.r2_secret_access_key.strip(),
+            settings.r2_bucket.strip(),
+        ]
+    ):
+        errors.append(
+            "R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET "
+            "are required when STORAGE_BACKEND=r2"
+        )
 
     if errors:
         raise RuntimeError("Invalid production configuration: " + "; ".join(errors))
