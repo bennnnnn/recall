@@ -8,6 +8,7 @@ import { api, GoogleCalendarStatus, GoogleGmailStatus } from "@/lib/api";
 import { isExpoGo } from "@/lib/expoRuntime";
 import { connectGoogleCalendar } from "@/lib/google-calendar";
 import { connectGoogleGmail } from "@/lib/google-gmail";
+import { gmailSyncMessage } from "@/lib/gmailSyncFeedback";
 
 export function useSettingsIntegrations() {
   const { token } = useAuth();
@@ -89,12 +90,13 @@ export function useSettingsIntegrations() {
     if (!token || gmailBusy || !gmailStatus?.connected) return;
     setGmailBusy(true);
     try {
-      const result = await api.syncGoogleGmail(token);
+      const result = await api.syncGoogleGmail(token, { force: true });
       const status = await api.googleGmailStatus(token);
       setGmailStatus(status);
+      const message = gmailSyncMessage(result);
       Alert.alert(
         t("settings.gmail_title"),
-        t("settings.gmail_sync_done", { count: result.message_count }),
+        t(message.key, "params" in message ? message.params : undefined),
       );
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : t("settings.gmail_sync_failed");
@@ -110,7 +112,7 @@ export function useSettingsIntegrations() {
     try {
       const serverAuthCode = await connectGoogleGmail();
       await api.connectGoogleGmail(token, serverAuthCode);
-      await api.syncGoogleGmail(token);
+      await api.syncGoogleGmail(token, { force: true });
       const status = await api.googleGmailStatus(token);
       setGmailStatus(status);
     } catch (error: unknown) {

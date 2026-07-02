@@ -357,6 +357,7 @@
   "settings.gmail_not_configured": "Gmail connect server ገና አልተዋቀረም።",
   "settings.gmail_sync": "ማመሳሰል",
   "settings.gmail_sync_done": "{{count}} recent messages synced.",
+  "settings.gmail_sync_skipped": "Gmail is already up to date.",
   "settings.gmail_sync_failed": "Gmail sync failed.",
   "settings.gmail_title": "Gmail",
   "settings.integration_not_connected": "አልተገናኘም",
