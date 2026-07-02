@@ -53,7 +53,7 @@ type Options = {
   scroll: ChatScroll;
   streaming: boolean;
   sendMessage: SendMessageFn;
-  editMessage: (id: string, text: string, model: string) => void;
+  editMessage: (id: string, text: string, model: string, clientGeo?: ClientGeo | null) => void;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   selectedModel: string;
   pendingLaunch: string | null;
@@ -198,7 +198,7 @@ export function useChatSend({
       if (editingMessageId && chatId) {
         const editId = editingMessageId;
         setEditingMessageId(null);
-        void editMessage(editId, text, selectedModel);
+        void editMessage(editId, text, selectedModel, clientGeo);
         return;
       }
 

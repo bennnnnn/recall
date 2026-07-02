@@ -48,6 +48,9 @@ import { isQuotaErrorMessage, quotaAlertTitle } from "@/lib/quota";
 import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
 import { useTodosOptional } from "@/contexts/TodosContext";
 import { isComposerMenuOverlayOpen } from "@/lib/chatComposerLogic";
+import { confirmGeoLocationAccess } from "@/lib/confirmGeoLocation";
+import { ensureNearbyLocation } from "@/lib/ensureNearbyLocation";
+import { isAmbiguousLocalPlacesQuery, isGeoQuery } from "@/lib/localPlacesQuery";
 
 function ChatScreen() {
   const { token, user, mergeUser } = useAuth();
@@ -303,6 +306,34 @@ function ChatScreen() {
     connect,
   });
 
+  const handleRegenerate = useCallback(
+    async (model: string) => {
+      if (!token) return;
+      const lastUser = [...messages].reverse().find((m) => m.role === "user");
+      const queryText = lastUser?.content ?? "";
+      let clientGeo = null;
+      if (
+        queryText &&
+        isGeoQuery(queryText) &&
+        !isAmbiguousLocalPlacesQuery(queryText)
+      ) {
+        const allowed = await confirmGeoLocationAccess(t);
+        if (!allowed) return;
+        clientGeo = await ensureNearbyLocation(token, queryText);
+        if (!clientGeo) {
+          Alert.alert(
+            t("chat.location_required_title"),
+            t("chat.location_required_body"),
+          );
+          return;
+        }
+        mergeUser({ location: clientGeo.label, location_enabled: true });
+      }
+      await regenerateResponse(model, clientGeo);
+    },
+    [token, messages, regenerateResponse, t, mergeUser],
+  );
+
   const { headerTitleLabel, renderItem } = useChatMessageList({
     messages,
     streaming,
@@ -313,7 +344,7 @@ function ChatScreen() {
     sendingMessageId: sendingMessageId ?? pendingOutboundId,
     creatingRef,
     setMenuVisible,
-    regenerateResponse,
+    regenerateResponse: handleRegenerate,
     handleEditMessage,
     handleFeedback,
     handleQuizAnswer,

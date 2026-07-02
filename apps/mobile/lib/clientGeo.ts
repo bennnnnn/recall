@@ -4,3 +4,11 @@ export type ClientGeo = {
   latitude: number;
   longitude: number;
 };
+
+export function clientGeoWsFields(clientGeo?: ClientGeo | null) {
+  return {
+    client_location: clientGeo?.label ?? null,
+    client_latitude: clientGeo?.latitude ?? null,
+    client_longitude: clientGeo?.longitude ?? null,
+  };
+}

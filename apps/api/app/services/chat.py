@@ -336,6 +336,51 @@ class _RegenerateBackup:
 
 
 @dataclass
+class _ClientGeoContext:
+    user_location: str | None
+    client_lat: float | None
+    client_lng: float | None
+    has_geo_fix: bool
+    geo_query: bool
+    ambiguous_nearby: bool
+    local_places: bool
+
+
+def _resolve_client_geo(
+    user: User,
+    content: str,
+    *,
+    client_location: str | None,
+    client_latitude: float | None,
+    client_longitude: float | None,
+) -> _ClientGeoContext:
+    normalized_client_location = profile_service.normalize_client_location(client_location)
+    client_coordinates = profile_service.normalize_client_coordinates(
+        client_latitude, client_longitude
+    )
+    user_location = profile_service.effective_location_label(user, normalized_client_location)
+    geo_query = web_search_service.is_geo_query(content)
+    if geo_query:
+        user_location = normalized_client_location
+    client_lat = client_coordinates[0] if client_coordinates else None
+    client_lng = client_coordinates[1] if client_coordinates else None
+    has_geo_fix = bool(user_location) or client_coordinates is not None
+    local_places = web_search_service.is_places_list_query(content)
+    ambiguous_nearby = web_search_service.is_ambiguous_local_places_query(content)
+    if ambiguous_nearby:
+        local_places = False
+    return _ClientGeoContext(
+        user_location=user_location,
+        client_lat=client_lat,
+        client_lng=client_lng,
+        has_geo_fix=has_geo_fix,
+        geo_query=geo_query,
+        ambiguous_nearby=ambiguous_nearby,
+        local_places=local_places,
+    )
+
+
+@dataclass
 class _StreamContext:
     user_id: UUID
     chat_id: UUID
@@ -697,6 +742,13 @@ async def stream_regenerate_response(
         minimal_personal = is_broad_self_question(user_message_content)
         minimal_quiz = web_search_service.is_vocab_quiz_answer(user_message_content)
         local_tz = time_context_service.effective_timezone(user.timezone, client_timezone)
+        geo = _resolve_client_geo(
+            user,
+            user_message_content,
+            client_location=client_location,
+            client_latitude=client_latitude,
+            client_longitude=client_longitude,
+        )
         prompt_messages = await build_prompt_messages(
             session,
             user,
@@ -708,6 +760,7 @@ async def stream_regenerate_response(
             minimal_personal_context=minimal_personal,
             minimal_quiz_context=minimal_quiz,
             client_timezone=client_timezone,
+            prompt_location=geo.user_location if geo.geo_query and geo.has_geo_fix else None,
         )
         max_out = (
             max_output_tokens_for_style("short", settings)
@@ -735,10 +788,18 @@ async def stream_regenerate_response(
                     + "\n\n".join(integration_blocks),
                 }
         search_sources: list[WebSearchHit] = []
-        local_places = web_search_service.is_places_list_query(user_message_content)
+        instant_reply = None
+        if time_context_service.is_time_question(user_message_content):
+            instant_reply = time_context_service.format_time_answer(local_tz, user.locale)
+        elif time_context_service.is_location_question(user_message_content):
+            instant_reply = time_context_service.format_location_answer(geo.user_location, local_tz)
+        elif geo.geo_query and not geo.has_geo_fix:
+            instant_reply = web_search_service.format_location_not_set_answer()
         if (
-            not minimal_personal
+            instant_reply is None
+            and not minimal_personal
             and not minimal_quiz
+            and not geo.ambiguous_nearby
             and not calendar_service.is_external_calendar_question(user_message_content)
         ):
             prior_user_messages = await messages_repo.recent_user_contents(session, chat_id)
@@ -747,7 +808,9 @@ async def stream_regenerate_response(
                 user_message_content,
                 settings,
                 user_timezone=local_tz,
-                user_location=profile_service.user_location_label(user),
+                user_location=geo.user_location,
+                latitude=geo.client_lat,
+                longitude=geo.client_lng,
                 prior_user_messages=prior_user_messages,
             )
 
@@ -779,8 +842,9 @@ async def stream_regenerate_response(
         recalled_count=int(meta.get("recalled") or 0),
         memory_hints=list(meta.get("memory_hints") or []),
         context_summarized=int(meta.get("context_summarized") or 0),
+        instant_reply=instant_reply,
         search_sources=search_sources,
-        local_places=local_places,
+        local_places=geo.local_places,
         skip_memory_jobs=minimal_quiz,
         prior_count=prior_count,
         regenerate_backup=regenerate_backup,
@@ -872,6 +936,9 @@ async def stream_edit_response(
         should_cancel=should_cancel,
         result=result,
         client_timezone=client_timezone,
+        client_location=client_location,
+        client_latitude=client_latitude,
+        client_longitude=client_longitude,
         pre_reserved=reserved,
     ):
         yield token

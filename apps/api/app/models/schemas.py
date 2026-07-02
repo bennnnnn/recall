@@ -231,6 +231,9 @@ class EditMessageRequest(BaseModel):
     message_id: UUID
     content: str = Field(min_length=1, max_length=32_000)
     model: str | None = None
+    client_location: str | None = Field(default=None, max_length=200)
+    client_latitude: float | None = Field(default=None, ge=-90, le=90)
+    client_longitude: float | None = Field(default=None, ge=-180, le=180)
 
     @field_validator("model")
     @classmethod

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { chatWebSocketUrl, Message, SearchSource } from "@/lib/api";
+import { clientGeoWsFields, type ClientGeo } from "@/lib/clientGeo";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { isVocabQuizAnswer } from "@/lib/parseVocabQuiz";
 import { parseSearchSources } from "@/lib/searchSources";
@@ -304,7 +305,7 @@ export function useChat(
         attachmentIds?: string[];
         localImageUri?: string | null;
         model?: string | null;
-        clientGeo?: import("@/lib/clientGeo").ClientGeo | null;
+        clientGeo?: ClientGeo | null;
       },
     ) => {
       if (!token || !chatId) return;
@@ -351,9 +352,7 @@ export function useChat(
           content,
           attachment_ids: options?.attachmentIds ?? [],
           model: options?.model ?? null,
-          client_location: options?.clientGeo?.label ?? null,
-          client_latitude: options?.clientGeo?.latitude ?? null,
-          client_longitude: options?.clientGeo?.longitude ?? null,
+          ...clientGeoWsFields(options?.clientGeo),
         }),
       );
     },
@@ -361,7 +360,7 @@ export function useChat(
   );
 
   const regenerateResponse = useCallback(
-    async (model?: string | null) => {
+    async (model?: string | null, clientGeo?: ClientGeo | null) => {
       if (!token || !chatId) return;
 
       let backup: Message | null = null;
@@ -386,7 +385,11 @@ export function useChat(
       }
 
       wsRef.current.send(
-        JSON.stringify({ type: "regenerate", model: model ?? null }),
+        JSON.stringify({
+          type: "regenerate",
+          model: model ?? null,
+          ...clientGeoWsFields(clientGeo),
+        }),
       );
     },
     [
@@ -401,7 +404,12 @@ export function useChat(
   );
 
   const editMessage = useCallback(
-    async (messageId: string, content: string, model?: string | null) => {
+    async (
+      messageId: string,
+      content: string,
+      model?: string | null,
+      clientGeo?: ClientGeo | null,
+    ) => {
       if (!token || !chatId || !content.trim()) return;
 
       setMessages((prev) => {
@@ -435,6 +443,7 @@ export function useChat(
           message_id: messageId,
           content: content.trim(),
           model: model ?? null,
+          ...clientGeoWsFields(clientGeo),
         }),
       );
     },
