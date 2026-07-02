@@ -2,20 +2,78 @@ import {
   buildModelOptions,
   computeChatLayoutMetrics,
   isComposerMenuOverlayOpen,
+  isModelSelectableInComposer,
   resolveSelectedModelLabel,
 } from "@/lib/chatComposerLogic";
 
 describe("chatComposerLogic", () => {
+  const catalog = [
+    {
+      id: "free-chat",
+      label: "Free",
+      available: true,
+      plan_access: "free" as const,
+    },
+    {
+      id: "smart-chat",
+      label: "Smart",
+      available: false,
+      plan_access: "pro" as const,
+    },
+  ];
+
   it("buildModelOptions includes auto first when enabled", () => {
     const opts = buildModelOptions({
       autoEnabled: true,
       autoModelId: "auto",
       autoLabel: "Auto",
       modelEnabledSet: new Set(["free-chat", "smart-chat"]),
-      labelFor: (id) => (id === "free-chat" ? "Free" : "Smart"),
+      models: catalog,
+      isPro: true,
     });
-    expect(opts.map((o) => o.id)).toEqual(["auto", "free-chat", "smart-chat"]);
+    expect(opts.map((o) => o.id)).toEqual(["auto", "free-chat"]);
     expect(opts[0].label).toBe("Auto");
+  });
+
+  it("buildModelOptions omits unavailable and pro-locked models", () => {
+    const opts = buildModelOptions({
+      autoEnabled: false,
+      autoModelId: "auto",
+      autoLabel: "Auto",
+      modelEnabledSet: new Set(["free-chat", "smart-chat"]),
+      models: [
+        ...catalog,
+        {
+          id: "pro-only",
+          label: "Pro",
+          available: true,
+          plan_access: "pro" as const,
+        },
+      ],
+      isPro: false,
+    });
+    expect(opts.map((o) => o.id)).toEqual(["free-chat"]);
+  });
+
+  it("isModelSelectableInComposer respects availability and plan", () => {
+    expect(
+      isModelSelectableInComposer(
+        { available: false, plan_access: "free" },
+        true,
+      ),
+    ).toBe(false);
+    expect(
+      isModelSelectableInComposer(
+        { available: true, plan_access: "pro" },
+        false,
+      ),
+    ).toBe(false);
+    expect(
+      isModelSelectableInComposer(
+        { available: true, plan_access: "pro" },
+        true,
+      ),
+    ).toBe(true);
   });
 
   it("resolveSelectedModelLabel prefers auto label", () => {

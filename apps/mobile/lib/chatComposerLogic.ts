@@ -7,19 +7,34 @@ export const CHAT_EMPTY_MIN_HEIGHT = 160;
 
 export type ModelOption = { id: string; label: string };
 
+export function isModelSelectableInComposer(
+  model: { available: boolean; plan_access: "free" | "pro" },
+  isPro: boolean,
+): boolean {
+  if (!model.available) return false;
+  if (!isPro && model.plan_access === "pro") return false;
+  return true;
+}
+
 export function buildModelOptions(options: {
   autoEnabled: boolean;
   autoModelId: string;
   autoLabel: string;
   modelEnabledSet: Set<string>;
-  labelFor: (id: string) => string | undefined;
+  models: Array<{ id: string; label: string; available: boolean; plan_access: "free" | "pro" }>;
+  isPro: boolean;
 }): ModelOption[] {
+  const byId = new Map(options.models.map((model) => [model.id, model]));
   const opts: ModelOption[] = [];
   if (options.autoEnabled) {
     opts.push({ id: options.autoModelId, label: options.autoLabel });
   }
   for (const id of options.modelEnabledSet) {
-    opts.push({ id, label: options.labelFor(id) || id });
+    const info = byId.get(id);
+    if (!info || !isModelSelectableInComposer(info, options.isPro)) {
+      continue;
+    }
+    opts.push({ id, label: info.label || id });
   }
   return opts;
 }
