@@ -283,3 +283,35 @@ async def test_invalidate_memory_block_clears_multiple_query_keys(fake_redis):
 
     assert await fake_redis.exists(_memory_query_cache_key(user.id, "outdoor hobbies")) == 0
     assert await fake_redis.exists(_memory_query_cache_key(user.id, "weekend plans")) == 0
+
+
+@pytest.mark.asyncio
+async def test_memory_reenable_loads_fresh_after_invalidation(fake_redis):
+    from app.services.memory import get_memory_block, invalidate_memory_block
+
+    user = AsyncMock()
+    user.id = uuid4()
+    user.memory_enabled = True
+    session = AsyncMock()
+    settings = Settings(memory_cache_ttl=120)
+
+    load_mock = AsyncMock(
+        side_effect=[
+            [_memory("fact", "Old fact", 0.9)],
+            [_memory("fact", "New fact", 0.9)],
+        ]
+    )
+    with (
+        patch("app.services.memory.get_redis_client", return_value=fake_redis),
+        patch("app.services.memory.load_relevant_memories", load_mock),
+    ):
+        first = await get_memory_block(session, user, settings)
+        user.memory_enabled = False
+        assert await get_memory_block(session, user, settings) == ""
+        await invalidate_memory_block(user.id)
+        user.memory_enabled = True
+        second = await get_memory_block(session, user, settings)
+
+    assert "Old fact" in first
+    assert "New fact" in second
+    assert load_mock.await_count == 2
