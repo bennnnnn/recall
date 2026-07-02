@@ -79,6 +79,54 @@ def test_me_patch_updates_user():
     assert r.status_code == 200
 
 
+def test_me_patch_invalidates_memory_cache_on_toggle():
+    user = _fake_user()
+    user.memory_enabled = True
+    app = _app_with_user(user)
+    invalidate_mock = AsyncMock()
+
+    with (
+        patch("app.routers.auth.users_repo.update", AsyncMock(return_value=user)),
+        patch(
+            "app.routers.auth.memory_service.invalidate_memory_block",
+            invalidate_mock,
+        ),
+    ):
+        client = TestClient(app)
+        r = client.patch(
+            "/auth/me",
+            headers={"Authorization": "Bearer tok"},
+            json={"memory_enabled": False},
+        )
+
+    assert r.status_code == 200
+    invalidate_mock.assert_awaited_once_with(user.id)
+
+
+def test_me_patch_skips_memory_invalidation_when_unchanged():
+    user = _fake_user()
+    user.memory_enabled = True
+    app = _app_with_user(user)
+    invalidate_mock = AsyncMock()
+
+    with (
+        patch("app.routers.auth.users_repo.update", AsyncMock(return_value=user)),
+        patch(
+            "app.routers.auth.memory_service.invalidate_memory_block",
+            invalidate_mock,
+        ),
+    ):
+        client = TestClient(app)
+        r = client.patch(
+            "/auth/me",
+            headers={"Authorization": "Bearer tok"},
+            json={"memory_enabled": True},
+        )
+
+    assert r.status_code == 200
+    invalidate_mock.assert_not_called()
+
+
 def test_me_patch_rejects_blank_name():
     user = _fake_user()
     client = TestClient(_app_with_user(user))
