@@ -51,6 +51,10 @@ import {
   preprocessMarkdown,
   splitInlineMath,
 } from "@/lib/markdownPreprocess";
+import {
+  preprocessMarkdownForStream,
+  type StreamingPreprocessCache,
+} from "@/lib/markdownPreprocessStream";
 import { CODE_FONT } from "@/lib/fonts";
 import { isStandaloneUrl } from "@/lib/richBlocks";
 import { Theme, useTheme } from "@/lib/theme";
@@ -579,6 +583,12 @@ export function MarkdownContent({ content, streaming = false }: Props) {
   // content. Non-streaming renders parse immediately (no throttle).
   const [throttled, setThrottled] = useState(content);
   const lastFlushRef = useRef(0);
+  const streamPreprocessRef = useRef<StreamingPreprocessCache | null>(null);
+  useEffect(() => {
+    if (!streaming) {
+      streamPreprocessRef.current = null;
+    }
+  }, [streaming]);
   useEffect(() => {
     if (!streaming) {
       setThrottled(content);
@@ -600,11 +610,19 @@ export function MarkdownContent({ content, streaming = false }: Props) {
   const renderContent = streaming ? throttled : content;
   const prepared = useMemo(() => {
     try {
+      if (streaming) {
+        const { prepared: streamed, cache } = preprocessMarkdownForStream(
+          renderContent,
+          streamPreprocessRef.current,
+        );
+        streamPreprocessRef.current = cache;
+        return streamed;
+      }
       return preprocessMarkdown(renderContent);
     } catch {
       return renderContent;
     }
-  }, [renderContent]);
+  }, [renderContent, streaming]);
   return (
     <Markdown
       style={mdStyles}
