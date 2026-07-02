@@ -1,5 +1,6 @@
 """Tests for JWT refresh/logout token service."""
 
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
@@ -12,18 +13,13 @@ from app.services import tokens as tokens_service
 @pytest.mark.asyncio
 async def test_issue_and_refresh_token_pair(fake_redis):
     settings = Settings(jwt_secret="x" * 32)
-    from app.core.db import SessionLocal
-    from app.repositories import users as users_repo
+    from app.tests.test_routers import _fake_user
 
-    async with SessionLocal() as session:
-        user = await users_repo.create(
-            session,
-            google_sub=f"test:{uuid4()}",
-            email=f"token-test-{uuid4()}@example.com",
-            name="Token Test",
-            avatar_url=None,
-        )
-        access, refresh = await tokens_service.issue_token_pair(fake_redis, user.id, settings)
+    user = _fake_user()
+    session = AsyncMock()
+    access, refresh = await tokens_service.issue_token_pair(fake_redis, user.id, settings)
+
+    with patch("app.services.tokens.users_repo.get_by_id", AsyncMock(return_value=user)):
         new_access, new_refresh, user_out = await tokens_service.refresh_token_pair(
             fake_redis, refresh, session, settings
         )
@@ -36,13 +32,12 @@ async def test_issue_and_refresh_token_pair(fake_redis):
 @pytest.mark.asyncio
 async def test_refresh_rejects_unknown_token(fake_redis):
     settings = Settings(jwt_secret="x" * 32)
-    from app.core.db import SessionLocal
+    session = AsyncMock()
 
-    async with SessionLocal() as session:
-        with pytest.raises(GoogleAuthError):
-            await tokens_service.refresh_token_pair(
-                fake_redis, "not-a-real-refresh-token", session, settings
-            )
+    with pytest.raises(GoogleAuthError):
+        await tokens_service.refresh_token_pair(
+            fake_redis, "not-a-real-refresh-token", session, settings
+        )
 
 
 @pytest.mark.asyncio
