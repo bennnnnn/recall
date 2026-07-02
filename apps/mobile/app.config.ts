@@ -1,6 +1,10 @@
 import type { ConfigContext, ExpoConfig } from "expo/config";
 
 import appJson from "./app.json";
+import {
+  includeDevClientPlugin,
+  requirePublicApiUrlForReleaseBuild,
+} from "./lib/easBuildConfig";
 
 function iosUrlSchemeFromClientId(iosClientId: string): string | null {
   const trimmed = iosClientId.trim();
@@ -11,7 +15,8 @@ function iosUrlSchemeFromClientId(iosClientId: string): string | null {
 export default ({ config }: ConfigContext): ExpoConfig => {
   const base = appJson.expo as ExpoConfig;
   const buildProfile = process.env.EAS_BUILD_PROFILE ?? "";
-  const includeDevClient = !buildProfile || buildProfile === "development";
+  requirePublicApiUrlForReleaseBuild(buildProfile, process.env.EXPO_PUBLIC_API_URL);
+  const includeDevClient = includeDevClientPlugin(buildProfile);
   const plugins: ExpoConfig["plugins"] = [
     ...(includeDevClient ? (["expo-dev-client"] as const) : []),
     ...(base.plugins ?? []),
