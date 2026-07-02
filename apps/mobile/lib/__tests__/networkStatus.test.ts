@@ -7,9 +7,9 @@ describe("networkStatus", () => {
     );
   });
 
-  it("is offline when connected but internet is unreachable", () => {
+  it("is online when connected even if reachability is stuck false", () => {
     expect(isNetworkOffline({ isConnected: true, isInternetReachable: false } as never)).toBe(
-      true,
+      false,
     );
   });
 
@@ -22,6 +22,12 @@ describe("networkStatus", () => {
   it("is online when connected and internet is reachable", () => {
     expect(isNetworkOffline({ isConnected: true, isInternetReachable: true } as never)).toBe(
       false,
+    );
+  });
+
+  it("is offline when link state unknown and reachability is false", () => {
+    expect(isNetworkOffline({ isConnected: null, isInternetReachable: false } as never)).toBe(
+      true,
     );
   });
 });
