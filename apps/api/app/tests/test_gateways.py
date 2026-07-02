@@ -520,3 +520,64 @@ async def test_stream_chat_once_times_out_hung_provider():
             ):
                 pass
     assert "isn't responding" in exc_info.value.message
+
+
+@pytest.mark.asyncio
+async def test_acompletion_with_fallback_times_out_hung_provider():
+    """A hung background (non-streaming) LLM call must be aborted by the
+    background timeout and fall back to the next alias rather than stalling
+    the job worker."""
+    settings = Settings(
+        mock_llm_enabled=False,
+        openrouter_api_key="sk-or-test",
+        background_llm_timeout_seconds=1,
+    )
+    calls: list[str] = []
+
+    async def fake_acompletion(**kwargs):
+        calls.append(kwargs["model"])
+        await asyncio.sleep(2)  # exceed the 1s timeout
+        return _fake_completion("{}")
+
+    with patch.object(litellm_gateway, "acompletion", AsyncMock(side_effect=fake_acompletion)):
+        result = await litellm_gateway._acompletion_with_fallback(
+            settings,
+            "memory-model",
+            messages=[{"role": "user", "content": "x"}],
+            max_tokens=10,
+        )
+    # Both primary and fallback timed out → None.
+    assert result is None
+    assert len(calls) == 2
+    assert calls[0].endswith("deepseek-chat")
+    assert calls[1].endswith("qwen-plus")
+
+
+@pytest.mark.asyncio
+async def test_complete_structured_times_out_hung_provider():
+    """complete_structured must abort a hung call via the background timeout
+    and return None (after exhausting the fallback) instead of hanging."""
+    settings = Settings(
+        mock_llm_enabled=False,
+        openrouter_api_key="sk-or-test",
+        background_llm_timeout_seconds=1,
+    )
+    calls: list[str] = []
+
+    async def fake_acompletion(**kwargs):
+        calls.append(kwargs["model"])
+        await asyncio.sleep(2)  # exceed the 1s timeout
+        return _fake_completion("{}")
+
+    with patch.object(litellm_gateway, "acompletion", AsyncMock(side_effect=fake_acompletion)):
+        result = await litellm_gateway.complete_structured(
+            settings=settings,
+            model_alias="memory-model",
+            messages=[{"role": "user", "content": "x"}],
+            schema=TodoExtractionResult,
+        )
+    assert result is None
+    # Primary timed out, then fallback also timed out.
+    assert len(calls) == 2
+    assert calls[0].endswith("deepseek-chat")
+    assert calls[1].endswith("qwen-plus")

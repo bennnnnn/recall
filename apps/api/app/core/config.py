@@ -122,6 +122,11 @@ class Settings(BaseSettings):
     # Abort hung provider streams after this many seconds (WS chat path).
     chat_stream_timeout_seconds: int = 180
 
+    # Abort hung background (non-streaming) LLM calls after this many seconds.
+    # Covers title generation, memory extraction, todos, summaries — a hung
+    # provider would otherwise stall the job worker indefinitely.
+    background_llm_timeout_seconds: int = 60
+
     # Per-user/IP REST requests per minute (health + webhooks excluded).
     rest_rate_limit_per_minute: int = 240
 

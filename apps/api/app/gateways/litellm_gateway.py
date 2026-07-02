@@ -136,7 +136,23 @@ async def _acompletion_with_fallback(
             )
             if response_format is not None:
                 params["response_format"] = response_format
-            return await acompletion(**params)
+            async with asyncio.timeout(settings.background_llm_timeout_seconds):
+                return await acompletion(**params)
+        except TimeoutError:
+            if alias == primary_alias and fallback is not None:
+                logger.warning(
+                    "Background LLM %s timed out after %ss; retrying with fallback %s",
+                    primary_alias,
+                    settings.background_llm_timeout_seconds,
+                    fallback,
+                )
+                continue
+            logger.warning(
+                "Background LLM %s timed out after %ss",
+                alias,
+                settings.background_llm_timeout_seconds,
+            )
+            return None
         except Exception:
             if alias == primary_alias and fallback is not None:
                 logger.warning(
@@ -333,13 +349,14 @@ async def _complete_structured_once[T: BaseModel](
     """One structured attempt. Raises on provider outage; returns None on bad output."""
     route = resolve_route(model_alias)
     kwargs = _litellm_kwargs(settings, route)  # ModelUnavailableError if no key
-    response = await acompletion(  # provider/network errors propagate for retry
-        model=route.model,
-        messages=messages,
-        max_tokens=max_tokens,
-        response_format={"type": "json_object"},
-        **kwargs,
-    )
+    async with asyncio.timeout(settings.background_llm_timeout_seconds):
+        response = await acompletion(  # provider/network errors propagate for retry
+            model=route.model,
+            messages=messages,
+            max_tokens=max_tokens,
+            response_format={"type": "json_object"},
+            **kwargs,
+        )
     raw = (response.choices[0].message.content or "{}").strip()
     if raw.startswith("```"):
         raw = raw.split("```")[1]
