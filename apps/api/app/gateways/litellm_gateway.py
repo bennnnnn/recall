@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from collections.abc import AsyncIterator
@@ -261,22 +262,33 @@ async def _stream_chat_once(
             stream_options={"include_usage": True},
             **kwargs,
         )
-        async for chunk in response:
-            _apply_usage(usage, chunk)
-            choices = getattr(chunk, "choices", None) or []
-            if not choices:
-                continue
-            delta = choices[0].delta
-            # R1 reasoning also arrives in a dedicated `reasoning_content` field —
-            # drop it entirely so it never reaches the client.
-            content = getattr(delta, "content", None) or ""
-            if content:
-                cleaned = stripper.feed(content)
-                if cleaned:
-                    yield cleaned
+        async with asyncio.timeout(settings.chat_stream_timeout_seconds):
+            async for chunk in response:
+                _apply_usage(usage, chunk)
+                choices = getattr(chunk, "choices", None) or []
+                if not choices:
+                    continue
+                delta = choices[0].delta
+                # R1 reasoning also arrives in a dedicated `reasoning_content` field —
+                # drop it entirely so it never reaches the client.
+                content = getattr(delta, "content", None) or ""
+                if content:
+                    cleaned = stripper.feed(content)
+                    if cleaned:
+                        yield cleaned
         tail = stripper.flush()
         if tail:
             yield tail
+    except TimeoutError as exc:
+        logger.warning(
+            "LiteLLM stream timed out after %ss for alias=%s",
+            settings.chat_stream_timeout_seconds,
+            model_alias,
+        )
+        raise ModelUnavailableError(
+            _CHAT_MODEL_UNAVAILABLE_MSG,
+            failed_alias=model_alias,
+        ) from exc
     except ModelUnavailableError:
         raise
     except Exception as exc:
