@@ -239,6 +239,8 @@
   "projects.goal_placeholder_english": "напр. Travel conversation, business emails, pronunciation…",
   "projects.goal_placeholder_math": "напр. Algebra for exams, calculus basics, word problems…",
   "projects.goal_placeholder_programming": "напр. React hooks, Python basics, system design concepts…",
+  "projects.study_launch_failed": "የstudy chat መክፈት አልተቻለም። እንደገና ይሞክሩ።",
+  "projects.study_launching": "Chat በመክፈት ላይ…",
   "projects.journey_all_done": "ሁሉንም starter topics covering — deeper ለማድረግ Recall ask!",
   "projects.journey_continue": "መማር ቀጥል",
   "projects.journey_study_topic": "{{topic}} ከሪኮል ጋር ይማሩ",

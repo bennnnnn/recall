@@ -37,9 +37,10 @@ function statusColor(item: ProjectItem, theme: Theme): string {
 type Props = {
   lists: ProjectListGroup[];
   onStudyTopic?: (topic: string) => void;
+  studyBusy?: boolean;
 };
 
-export function ProgrammingJourney({ lists, onStudyTopic }: Props) {
+export function ProgrammingJourney({ lists, onStudyTopic, studyBusy = false }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -114,9 +115,15 @@ export function ProgrammingJourney({ lists, onStudyTopic }: Props) {
                   </View>
                 ))}
                 {onStudyTopic ? (
-                  <Pressable style={s.topicStudyBtn} onPress={() => onStudyTopic(group.list_title)}>
-                    <Text style={s.topicStudyText}>
-                      {t("projects.journey_study_topic", { topic: group.list_title })}
+                  <Pressable
+                    style={[s.topicStudyBtn, studyBusy && s.topicStudyBtnDisabled]}
+                    disabled={studyBusy}
+                    onPress={() => onStudyTopic(group.list_title)}
+                  >
+                    <Text style={[s.topicStudyText, studyBusy && s.topicStudyTextDisabled]}>
+                      {studyBusy
+                        ? t("projects.study_launching")
+                        : t("projects.journey_study_topic", { topic: group.list_title })}
                     </Text>
                   </Pressable>
                 ) : null}
@@ -181,6 +188,8 @@ function makeStyles(theme: Theme) {
       borderRadius: 10,
       backgroundColor: theme.primaryLight,
     },
+    topicStudyBtnDisabled: { opacity: 0.6 },
     topicStudyText: { fontSize: 13, fontWeight: "700", color: theme.primary },
+    topicStudyTextDisabled: { color: theme.textSecondary },
   });
 }

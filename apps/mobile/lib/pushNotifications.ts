@@ -108,9 +108,11 @@ async function openLearningProject(
   if (topic) {
     try {
       const project: ProjectDetail = await api.getProject(apiToken, projectId);
-      queueChatLaunch(buildProgrammingStudyPrompt(project, topic), project.id);
-      router.replace("/");
-      return;
+      const prompt = buildProgrammingStudyPrompt(project, topic);
+      if (queueChatLaunch(prompt, project.id)) {
+        router.replace("/");
+        return;
+      }
     } catch {
       /* fall through to project screen */
     }

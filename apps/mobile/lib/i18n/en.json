@@ -239,6 +239,8 @@
   "projects.goal_placeholder_english": "e.g. Travel conversation, business emails, pronunciation…",
   "projects.goal_placeholder_math": "e.g. Algebra for exams, calculus basics, word problems…",
   "projects.goal_placeholder_programming": "e.g. React hooks, Python basics, system design concepts…",
+  "projects.study_launch_failed": "Couldn't open a study chat. Try again.",
+  "projects.study_launching": "Opening chat…",
   "projects.journey_all_done": "You've covered all starter topics — ask Recall to go deeper!",
   "projects.journey_continue": "Continue learning",
   "projects.journey_study_topic": "Study {{topic}} with Recall",

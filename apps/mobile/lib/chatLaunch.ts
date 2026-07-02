@@ -11,14 +11,15 @@ export function queueChatLaunch(
   prompt: string,
   projectId?: string,
   quizLanguage?: string,
-): void {
+): boolean {
   const trimmed = prompt.trim();
-  if (!trimmed) return;
+  if (!trimmed) return false;
   queued = {
     prompt: trimmed,
     ...(projectId ? { projectId } : {}),
     ...(quizLanguage ? { quizLanguage } : {}),
   };
+  return true;
 }
 
 export function takeQueuedChatLaunch(): QueuedChatLaunch | null {
