@@ -39,7 +39,7 @@ export function useDraftChat({ token, chatId }: Options) {
   );
 
   const prepareDraftChat = useCallback(
-    async (projectId?: string | null): Promise<string | null> => {
+    async (projectId?: string | null, model = "auto"): Promise<string | null> => {
       if (!token) return null;
       if (chatId) return chatId;
       if (draftChatIdRef.current) return draftChatIdRef.current;
@@ -51,7 +51,7 @@ export function useDraftChat({ token, chatId }: Options) {
       }
 
       const task = api
-        .createChat(token, "auto", resolvedProjectId)
+        .createChat(token, model, resolvedProjectId)
         .then((chat) => {
           draftChatIdRef.current = chat.id;
           setDraftChatId(chat.id);

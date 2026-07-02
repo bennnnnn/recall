@@ -46,6 +46,7 @@ export function buildPendingSendAfterCreate(options: {
   attachmentIds?: string[];
   optimisticId: string;
   clientGeo?: ClientGeo | null;
+  model: string;
 }): {
   text: string;
   skipUserBubble: true;
@@ -53,6 +54,7 @@ export function buildPendingSendAfterCreate(options: {
   attachmentIds?: string[];
   localImageUri?: string | null;
   clientGeo?: ClientGeo | null;
+  model: string;
 } {
   const sendText = messageTextForSend(options.text, options.attached);
   return {
@@ -63,5 +65,6 @@ export function buildPendingSendAfterCreate(options: {
     localImageUri:
       options.attached?.kind === "image" ? options.attached.localUri : null,
     clientGeo: options.clientGeo ?? null,
+    model: options.model,
   };
 }
