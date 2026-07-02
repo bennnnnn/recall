@@ -1,7 +1,6 @@
 import { ReactElement, RefObject, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { FlashList, FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
-import { LinearGradient } from "expo-linear-gradient";
 import { useTranslation } from "react-i18next";
 
 import { HomeStarters } from "@/components/HomeStarters";
@@ -15,7 +14,6 @@ type Props = {
   messages: Message[];
   headerInset: number;
   listBottomPad: number;
-  fadeHeight: number;
   hasMoreOlder: boolean;
   loadingOlder: boolean;
   chatLoading: boolean;
@@ -34,7 +32,6 @@ export function ChatMessageList({
   messages,
   headerInset,
   listBottomPad,
-  fadeHeight,
   hasMoreOlder,
   loadingOlder,
   chatLoading,
@@ -104,13 +101,6 @@ export function ChatMessageList({
         }
       />
 
-      <LinearGradient
-        colors={[theme.bg, theme.bg, `${theme.bg}00`]}
-        locations={[0, 0.78, 1]}
-        style={[s.headerFade, { height: fadeHeight }]}
-        pointerEvents="none"
-      />
-
       {header}
     </View>
   );
@@ -121,13 +111,6 @@ function makeStyles(theme: Theme) {
     messagesArea: { flex: 1 },
     list: { flex: 1 },
     listContent: { paddingVertical: 8 },
-    headerFade: {
-      position: "absolute",
-      top: 0,
-      left: 0,
-      right: 0,
-      zIndex: 50,
-    },
     loadEarlier: {
       alignSelf: "center",
       marginVertical: 10,
@@ -140,9 +123,10 @@ function makeStyles(theme: Theme) {
     },
     loadEarlierText: { fontSize: 14, fontWeight: "600", color: theme.primary },
     empty: {
-      alignItems: "center",
-      justifyContent: "center",
-      paddingVertical: 16,
+      flexGrow: 1,
+      alignItems: "stretch",
+      justifyContent: "flex-start",
+      paddingTop: 4,
     },
   });
 }

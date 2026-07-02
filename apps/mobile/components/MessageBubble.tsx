@@ -6,7 +6,6 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { CalendarProposalCard } from "@/components/CalendarProposalCard";
 import { PlacesListBlock } from "@/components/PlacesListBlock";
 import { CollapsibleMessageBody } from "@/components/CollapsibleMessageBody";
-import { RecalledMemoryChip } from "@/components/RecalledMemoryChip";
 import { UserMessageContent } from "@/components/UserMessageContent";
 import { SearchSourcesStack } from "@/components/SearchSourcesStack";
 import { CircularClockBlock } from "@/components/rich/CircularClockBlock";
@@ -21,10 +20,6 @@ import {
 } from "@/lib/calendarProposal";
 import { extractPrimaryCopyText } from "@/lib/copyBlock";
 import { notifySuccess, notifyWarning, tap } from "@/lib/haptics";
-import {
-  recalledMemoryCount,
-  shouldShowRecalledChip,
-} from "@/lib/messageMeta";
 import { parseVocabQuiz, stripVocabQuizBlock, isCompleteVocabQuiz } from "@/lib/parseVocabQuiz";
 import { resolvePlaces, stripPlacesContent } from "@/lib/placesList";
 import {
@@ -229,10 +224,6 @@ export const MessageBubble = React.memo(function MessageBubble({
     searchSources.length > 0 && !showLiveClock && !showQuizCard && !showCalendarProposals;
   const showContextSummarized =
     !isUser && !isStreaming && (message.context_summarized ?? 0) > 0;
-  const showRecalled = shouldShowRecalledChip(message, {
-    isStreaming,
-    isLastAssistant: !!isLastAssistant,
-  });
   const collapseAssistant = shouldCollapseMessage(markdownContent);
 
   return (
@@ -258,9 +249,6 @@ export const MessageBubble = React.memo(function MessageBubble({
               enabled={!isStreaming}
               collapsible={collapseAssistant}
             >
-              {showRecalled ? (
-                <RecalledMemoryChip count={recalledMemoryCount(message)} />
-              ) : null}
               {showContextSummarized ? (
                 <Text style={b.contextChip}>
                   {t("chat.context_summarized", { count: message.context_summarized })}
