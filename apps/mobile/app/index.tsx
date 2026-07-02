@@ -44,7 +44,8 @@ import { useDraftChat } from "@/hooks/useDraftChat";
 import { useModels } from "@/hooks/useModels";
 import { useQuotaNudge } from "@/hooks/useQuotaNudge";
 import { UpgradeSheet } from "@/components/UpgradeSheet";
-import { isQuotaErrorMessage, quotaAlertTitle } from "@/lib/quota";
+import { ChatInlineError } from "@/components/chat/ChatInlineError";
+import { resolveChatError, type ResolvedChatError } from "@/lib/chatErrorMessage";
 import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
 import { useTodosOptional } from "@/contexts/TodosContext";
 import { isComposerMenuOverlayOpen } from "@/lib/chatComposerLogic";
@@ -70,6 +71,7 @@ function ChatScreen() {
   const { unseenCount, showIndicator } = useReminderBadgeCount({ enabled: Boolean(token) });
   const { refresh: refreshHome } = useHome();
   const [upgradeVisible, setUpgradeVisible] = useState(false);
+  const [chatError, setChatError] = useState<ResolvedChatError | null>(null);
   const draft = useDraftChat({ token, chatId });
   const activeChatId = draft.activeChatId;
 
@@ -82,17 +84,14 @@ function ChatScreen() {
 
   const handleChatError = useCallback(
     (message: string, code?: string) => {
-      const isQuota =
-        code === "quota_exceeded" || isQuotaErrorMessage(message);
-      const title = isQuota ? quotaAlertTitle(isPro, t) : t("chat.error_title");
-      const body =
-        code === "model_unavailable"
-          ? t("chat.model_unavailable")
-          : message;
-      Alert.alert(title, body);
+      setChatError(resolveChatError({ message, code, isPro, t }));
     },
     [isPro, t],
   );
+
+  const handleStreamBusy = useCallback(() => {
+    setChatError(resolveChatError({ message: "", code: "busy", isPro, t }));
+  }, [isPro, t]);
 
   const todosCtx = useTodosOptional();
   const handleTodosSync = useCallback(() => {
@@ -118,6 +117,10 @@ function ChatScreen() {
   });
 
   const streamActive = streaming || finalizing;
+
+  useEffect(() => {
+    if (streamActive) setChatError(null);
+  }, [streamActive]);
 
   const streamingLen =
     streamActive && streamingDraft
@@ -251,6 +254,7 @@ function ChatScreen() {
     user,
     mergeUser,
     t,
+    onStreamBusy: handleStreamBusy,
   });
 
   const {
@@ -460,7 +464,7 @@ function ChatScreen() {
           onClose={closeComposerPickers}
         />
 
-        {quotaNudge.show ? (
+        {quotaNudge.show && !chatError ? (
           <View style={[s.quotaNudge, { bottom: composerClearance + 8 }]}>
             <Pressable
               style={s.quotaNudgeBody}
@@ -493,6 +497,14 @@ function ChatScreen() {
             </Pressable>
           </View>
         ) : null}
+
+        <ChatInlineError
+          error={chatError}
+          bottom={composerClearance + 8}
+          upgradeLabel={!isPro ? t("chat.quota_nudge_cta") : undefined}
+          onUpgrade={!isPro ? () => setUpgradeVisible(true) : undefined}
+          onDismiss={() => setChatError(null)}
+        />
 
         <ChatComposer
           visible={!drawerOpen}
