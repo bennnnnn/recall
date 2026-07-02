@@ -5,7 +5,7 @@ import type { Ionicons } from "@expo/vector-icons";
 
 type Router = ReturnType<typeof useRouter>;
 
-import { patchChatGlobal, setChatTitleGenerating } from "@/lib/drawer";
+import { insertChatGlobal, patchChatGlobal, setChatTitleGenerating } from "@/lib/drawer";
 import { api, type Message } from "@/lib/api";
 import { MESSAGE_PAGE_SIZE } from "@/lib/chatConstants";
 import { takeQueuedChatLaunch, type QueuedChatLaunch } from "@/lib/chatLaunch";
@@ -106,6 +106,12 @@ export function useChatRouteLoader({
 
   const handleFirstReply = useCallback(async () => {
     if (!token || !chatId) return;
+    try {
+      const chat = await api.getChat(token, chatId);
+      insertChatGlobal(chat);
+    } catch {
+      /* drawer insert is best-effort */
+    }
     await pollForTitle(token, chatId);
   }, [token, chatId, pollForTitle]);
 

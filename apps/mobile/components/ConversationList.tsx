@@ -12,7 +12,8 @@ import {
 import { FlashList } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { closeDrawer, registerChatPatcher, registerDrawerSearch, startNewChatGlobal, isChatTitleGenerating, subscribeChatTitleGenerating } from "@/lib/drawer";
+import { closeDrawer, registerChatInserter, registerChatPatcher, registerDrawerSearch, startNewChatGlobal, isChatTitleGenerating, subscribeChatTitleGenerating } from "@/lib/drawer";
+import { insertChatIntoGroups } from "@/lib/drawerChatList";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -176,10 +177,19 @@ export function ConversationList(_props: unknown) {
     });
   }, []);
 
+  const insertChatInGroups = useCallback((chat: Chat) => {
+    setGroups((prev) => insertChatIntoGroups(prev, chat));
+  }, []);
+
   useEffect(() => {
     registerChatPatcher(patchChatInGroups);
     return () => registerChatPatcher(null);
   }, [patchChatInGroups]);
+
+  useEffect(() => {
+    registerChatInserter(insertChatInGroups);
+    return () => registerChatInserter(null);
+  }, [insertChatInGroups]);
 
   useEffect(() => {
     return subscribeChatTitleGenerating(() => setTitlePendingTick((n) => n + 1));
