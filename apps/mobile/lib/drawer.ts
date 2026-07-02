@@ -1,3 +1,5 @@
+import type { Chat } from "@/lib/api";
+
 // Shared drawer control — avoids circular imports between DrawerShell and ConversationList
 let _open: (() => void) | null = null;
 let _close: (() => void) | null = null;
@@ -52,6 +54,17 @@ export function registerChatPatcher(fn: ((chatId: string, patch: ChatListPatch) 
 
 export function patchChatGlobal(chatId: string, patch: ChatListPatch) {
   _patchChat?.(chatId, patch);
+}
+
+/** Insert a chat into the drawer list after the first reply (see insertChatIntoGroups). */
+let _insertChat: ((chat: Chat) => void) | null = null;
+
+export function registerChatInserter(fn: ((chat: Chat) => void) | null) {
+  _insertChat = fn;
+}
+
+export function insertChatGlobal(chat: Chat) {
+  _insertChat?.(chat);
 }
 
 const _pendingTitleChatIds = new Set<string>();

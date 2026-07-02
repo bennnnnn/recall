@@ -1,0 +1,47 @@
+import { insertChatIntoGroups } from "@/lib/drawerChatList";
+import type { Chat, ChatList } from "@/lib/api";
+
+const empty: ChatList = {
+  pinned: [],
+  today: [],
+  yesterday: [],
+  earlier: [],
+  archived: [],
+};
+
+function chat(id: string, overrides: Partial<Chat> = {}): Chat {
+  return {
+    id,
+    title: null,
+    model: "free-chat",
+    pinned: false,
+    created_at: "2026-07-01T12:00:00Z",
+    updated_at: "2026-07-01T12:00:00Z",
+    ...overrides,
+  };
+}
+
+describe("insertChatIntoGroups", () => {
+  it("adds a new chat to today", () => {
+    const next = insertChatIntoGroups(empty, chat("a"));
+    expect(next.today.map((c) => c.id)).toEqual(["a"]);
+  });
+
+  it("does not duplicate an existing chat", () => {
+    const groups: ChatList = { ...empty, today: [chat("a")] };
+    const next = insertChatIntoGroups(groups, chat("a", { title: "Renamed" }));
+    expect(next).toBe(groups);
+    expect(next.today).toHaveLength(1);
+  });
+
+  it("adds pinned chats to pinned", () => {
+    const next = insertChatIntoGroups(empty, chat("p", { pinned: true }));
+    expect(next.pinned.map((c) => c.id)).toEqual(["p"]);
+    expect(next.today).toHaveLength(0);
+  });
+
+  it("adds archived chats to archived", () => {
+    const next = insertChatIntoGroups(empty, chat("z", { archived: true }));
+    expect(next.archived.map((c) => c.id)).toEqual(["z"]);
+  });
+});
