@@ -62,6 +62,7 @@ type Options = {
   user: import("@/lib/api").User | null;
   mergeUser: (patch: Partial<import("@/lib/api").User>) => void;
   t: (key: string) => string;
+  onStreamBusy?: () => void;
 };
 
 export function useChatSend({
@@ -83,6 +84,7 @@ export function useChatSend({
   user,
   mergeUser,
   t,
+  onStreamBusy,
 }: Options) {
   const {
     draftChatIdRef,
@@ -137,6 +139,10 @@ export function useChatSend({
   const handleSend = useCallback(
     async (overrideText?: string) => {
       const text = (overrideText ?? input).trim();
+      if (streaming && (text || pendingAttachment)) {
+        onStreamBusy?.();
+        return;
+      }
       if (
         shouldBlockSend({
           text,
@@ -274,6 +280,8 @@ export function useChatSend({
       sendMessage,
       user,
       mergeUser,
+      t,
+      onStreamBusy,
     ],
   );
 
