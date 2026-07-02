@@ -89,6 +89,8 @@
   "chat.message_highlighted": "Search result",
   "chat.model_unavailable": "That model isn't responding right now. Pick a different model and try again.",
   "chat.new_chat": "Nova conversa",
+  "chat.offline_body": "Reconecte-se à Internet para enviar mensagens.",
+  "chat.offline_title": "Sem conexão",
   "chat.pin": "Fixar",
   "chat.pin_failed": "Não foi possível atualizar a fixação.",
   "chat.pinned_toast": "Conversa fixada",

@@ -10,12 +10,12 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { AppearanceProvider } from "@/contexts/AppearanceContext";
 import { HomeProvider } from "@/contexts/HomeContext";
 import { ModelsProvider } from "@/contexts/ModelsContext";
+import { NetworkProvider, useNetwork } from "@/contexts/NetworkContext";
 import { ProjectsProvider } from "@/contexts/ProjectsContext";
 import { TodosProvider } from "@/contexts/TodosContext";
 import { PushNotificationBootstrap } from "@/components/PushNotificationBootstrap";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { StackBackButton } from "@/components/StackBackButton";
-import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { stackHeaderOptions } from "@/lib/stackHeader";
 import { initMobileSentry } from "@/lib/sentry";
 import { useTheme } from "@/lib/theme";
@@ -29,7 +29,7 @@ function RootNavigator() {
   const { t } = useTranslation();
   const theme = useTheme();
   const header = useMemo(() => stackHeaderOptions(theme), [theme]);
-  const { isOffline } = useNetworkStatus();
+  const { isOffline } = useNetwork();
 
   return (
     <>
@@ -114,8 +114,10 @@ export default function RootLayout() {
           <TodosProvider>
             <ProjectsProvider>
               <HomeProvider>
-                <PushNotificationBootstrap />
-                <RootNavigator />
+                <NetworkProvider>
+                  <PushNotificationBootstrap />
+                  <RootNavigator />
+                </NetworkProvider>
               </HomeProvider>
             </ProjectsProvider>
           </TodosProvider>

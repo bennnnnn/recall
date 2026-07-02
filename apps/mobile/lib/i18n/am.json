@@ -89,6 +89,8 @@
   "chat.message_highlighted": "Search result",
   "chat.model_unavailable": "That model isn't responding right now. Pick a different model and try again.",
   "chat.new_chat": "አዲስ ውይይት",
+  "chat.offline_body": "መልዕክት ለመላክ እንደገና በይነመረብ ይገናኙ።",
+  "chat.offline_title": "ከመስመር ውጭ",
   "chat.pin": "ሰካ",
   "chat.pin_failed": "ማስተካከል አልተቻለም።",
   "chat.pinned_toast": "ውይይት ተሰክቷል",

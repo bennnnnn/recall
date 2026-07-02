@@ -91,6 +91,8 @@
   "chat.menu": "Chat options",
   "chat.message_highlighted": "Search result",
   "chat.new_chat": "New chat",
+  "chat.offline_body": "Reconnect to the internet to send messages.",
+  "chat.offline_title": "You're offline",
   "chat.pin": "Pin",
   "chat.pin_failed": "Could not update pin.",
   "chat.pinned_toast": "Chat pinned",

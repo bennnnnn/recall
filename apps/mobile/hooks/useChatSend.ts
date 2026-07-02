@@ -63,6 +63,7 @@ type Options = {
   mergeUser: (patch: Partial<import("@/lib/api").User>) => void;
   t: (key: string) => string;
   onStreamBusy?: () => void;
+  isOffline: boolean;
 };
 
 export function useChatSend({
@@ -85,6 +86,7 @@ export function useChatSend({
   mergeUser,
   t,
   onStreamBusy,
+  isOffline,
 }: Options) {
   const {
     draftChatIdRef,
@@ -139,6 +141,10 @@ export function useChatSend({
   const handleSend = useCallback(
     async (overrideText?: string) => {
       const text = (overrideText ?? input).trim();
+      if (isOffline) {
+        Alert.alert(t("chat.offline_title"), t("chat.offline_body"));
+        return;
+      }
       if (streaming && (text || pendingAttachment)) {
         onStreamBusy?.();
         return;
@@ -151,6 +157,7 @@ export function useChatSend({
           token,
           creating: creatingRef.current,
           attachBusy,
+          isOffline,
         })
       )
         return;
@@ -282,6 +289,7 @@ export function useChatSend({
       mergeUser,
       t,
       onStreamBusy,
+      isOffline,
     ],
   );
 

@@ -42,6 +42,7 @@ import { useChatScroll } from "@/hooks/useChatScroll";
 import { useChatSend } from "@/hooks/useChatSend";
 import { useDraftChat } from "@/hooks/useDraftChat";
 import { useModels } from "@/hooks/useModels";
+import { useNetwork } from "@/contexts/NetworkContext";
 import { useQuotaNudge } from "@/hooks/useQuotaNudge";
 import { UpgradeSheet } from "@/components/UpgradeSheet";
 import { ChatInlineError } from "@/components/chat/ChatInlineError";
@@ -234,6 +235,7 @@ function ChatScreen() {
   });
 
   const { selectedModel, ...composerUi } = composer;
+  const { isOffline } = useNetwork();
 
   const send = useChatSend({
     token,
@@ -255,6 +257,7 @@ function ChatScreen() {
     mergeUser,
     t,
     onStreamBusy: handleStreamBusy,
+    isOffline,
   });
 
   const {
@@ -534,6 +537,7 @@ function ChatScreen() {
           onAttachmentSource={(source) => void handleAttachmentSheetSelect(source)}
           onSend={() => void handleSend()}
           onStop={stopGeneration}
+          isOffline={isOffline}
         />
 
         <UpgradeSheet visible={upgradeVisible} onClose={() => setUpgradeVisible(false)} />

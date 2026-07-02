@@ -89,6 +89,8 @@
   "chat.message_highlighted": "Search result",
   "chat.model_unavailable": "That model isn't responding right now. Pick a different model and try again.",
   "chat.new_chat": "Yeni sohbet",
+  "chat.offline_body": "Mesaj göndermek için internete yeniden bağlanın.",
+  "chat.offline_title": "Çevrimdışı",
   "chat.pin": "Sabitle",
   "chat.pin_failed": "Sabitleme güncellenemedi.",
   "chat.pinned_toast": "Sohbet sabitlendi",

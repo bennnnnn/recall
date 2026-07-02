@@ -51,6 +51,7 @@ type Props = {
   onAttachmentSource: (source: AttachmentSource) => void;
   onSend: () => void;
   onStop: () => void;
+  isOffline: boolean;
 };
 
 export function ChatComposer({
@@ -78,6 +79,7 @@ export function ChatComposer({
   onAttachmentSource,
   onSend,
   onStop,
+  isOffline,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -160,8 +162,13 @@ export function ChatComposer({
                     <Text style={s.sendIcon}>■</Text>
                   </Pressable>
                 ) : input.trim() || pendingAttachment ? (
-                  <Pressable style={s.sendBtn} onPress={onSend}>
-                    <Text style={s.sendIcon}>↑</Text>
+                  <Pressable
+                    style={[s.sendBtn, isOffline && s.sendBtnDisabled]}
+                    onPress={onSend}
+                    accessibilityLabel={isOffline ? t("chat.offline_title") : undefined}
+                    accessibilityHint={isOffline ? t("chat.offline_body") : undefined}
+                  >
+                    <Text style={[s.sendIcon, isOffline && s.sendIconDisabled]}>↑</Text>
                   </Pressable>
                 ) : null}
               </View>
@@ -278,6 +285,8 @@ function makeStyles(theme: Theme) {
       justifyContent: "flex-end",
     },
     sendIcon: { color: theme.onPrimary, fontSize: 18, fontWeight: "700" },
+    sendBtnDisabled: { backgroundColor: theme.border },
+    sendIconDisabled: { color: theme.textTertiary },
     picker: {
       marginBottom: 8,
       backgroundColor: theme.bg,

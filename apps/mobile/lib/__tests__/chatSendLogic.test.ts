@@ -23,6 +23,7 @@ describe("chatSendLogic", () => {
         token: "tok",
         creating: false,
         attachBusy: false,
+        isOffline: false,
       }),
     ).toBe(true);
     expect(
@@ -33,6 +34,7 @@ describe("chatSendLogic", () => {
         token: "tok",
         creating: false,
         attachBusy: false,
+        isOffline: false,
       }),
     ).toBe(true);
     expect(
@@ -43,6 +45,7 @@ describe("chatSendLogic", () => {
         token: null,
         creating: false,
         attachBusy: false,
+        isOffline: false,
       }),
     ).toBe(true);
     expect(
@@ -53,6 +56,7 @@ describe("chatSendLogic", () => {
         token: "tok",
         creating: true,
         attachBusy: false,
+        isOffline: false,
       }),
     ).toBe(true);
     expect(
@@ -63,6 +67,7 @@ describe("chatSendLogic", () => {
         token: "tok",
         creating: false,
         attachBusy: false,
+        isOffline: false,
       }),
     ).toBe(false);
     expect(
@@ -73,8 +78,34 @@ describe("chatSendLogic", () => {
         token: "tok",
         creating: false,
         attachBusy: false,
+        isOffline: false,
       }),
     ).toBe(false);
+  });
+
+  it("shouldBlockSend blocks sends while offline even with valid text", () => {
+    expect(
+      shouldBlockSend({
+        text: "Hello",
+        hasAttachment: false,
+        streaming: false,
+        token: "tok",
+        creating: false,
+        attachBusy: false,
+        isOffline: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldBlockSend({
+        text: "",
+        hasAttachment: true,
+        streaming: false,
+        token: "tok",
+        creating: false,
+        attachBusy: false,
+        isOffline: true,
+      }),
+    ).toBe(true);
   });
 
   it("buildOptimisticUserMessage uses file name when caption empty", () => {

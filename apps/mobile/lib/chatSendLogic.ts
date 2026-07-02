@@ -8,9 +8,11 @@ export function shouldBlockSend(options: {
   token: string | null;
   creating: boolean;
   attachBusy: boolean;
+  isOffline: boolean;
 }): boolean {
   const trimmed = options.text.trim();
   if (!trimmed && !options.hasAttachment) return true;
+  if (options.isOffline) return true;
   if (options.streaming || !options.token || options.creating || options.attachBusy) {
     return true;
   }

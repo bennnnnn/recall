@@ -89,6 +89,8 @@
   "chat.message_highlighted": "Search result",
   "chat.model_unavailable": "That model isn't responding right now. Pick a different model and try again.",
   "chat.new_chat": "Новый чат",
+  "chat.offline_body": "Подключитесь к интернету, чтобы отправлять сообщения.",
+  "chat.offline_title": "Нет связи",
   "chat.pin": "Закрепить",
   "chat.pin_failed": "Не удалось обновить закрепление.",
   "chat.pinned_toast": "Чат закреплён",
