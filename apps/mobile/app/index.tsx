@@ -66,7 +66,7 @@ function ChatScreen() {
 
   const [chatId, setChatId] = useState<string | null>(null);
   const [quizLanguage, setQuizLanguage] = useState("en");
-  const { isPro, labelFor, autoEnabled, modelEnabledSet, AUTO_MODEL_ID } = useModels();
+  const { isPro, labelFor, autoEnabled, modelEnabledSet, AUTO_MODEL_ID, models } = useModels();
   const { unseenCount, showIndicator } = useReminderBadgeCount({ enabled: Boolean(token) });
   const { refresh: refreshHome } = useHome();
   const [upgradeVisible, setUpgradeVisible] = useState(false);
@@ -219,6 +219,8 @@ function ChatScreen() {
   const composer = useChatComposerState({
     autoEnabled,
     modelEnabledSet,
+    models,
+    isPro,
     labelFor,
     autoModelId: AUTO_MODEL_ID,
     t,

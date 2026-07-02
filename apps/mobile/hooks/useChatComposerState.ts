@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
+import type { ModelInfo } from "@/lib/api";
 import {
   buildModelOptions,
   resolveSelectedModelLabel,
@@ -8,6 +9,8 @@ import {
 type Options = {
   autoEnabled: boolean;
   modelEnabledSet: Set<string>;
+  models: ModelInfo[];
+  isPro: boolean;
   labelFor: (id: string) => string | undefined;
   autoModelId: string;
   t: (key: string) => string;
@@ -17,6 +20,8 @@ type Options = {
 export function useChatComposerState({
   autoEnabled,
   modelEnabledSet,
+  models,
+  isPro,
   labelFor,
   autoModelId,
   t,
@@ -34,10 +39,18 @@ export function useChatComposerState({
         autoModelId,
         autoLabel,
         modelEnabledSet,
-        labelFor,
+        models,
+        isPro,
       }),
-    [autoEnabled, modelEnabledSet, labelFor, autoModelId, autoLabel],
+    [autoEnabled, modelEnabledSet, models, isPro, autoModelId, autoLabel],
   );
+
+  useEffect(() => {
+    if (modelOptions.length === 0) return;
+    if (!modelOptions.some((option) => option.id === selectedModel)) {
+      setSelectedModel(modelOptions[0].id);
+    }
+  }, [modelOptions, selectedModel]);
 
   const selectedModelLabel = resolveSelectedModelLabel(
     selectedModel,
@@ -61,9 +74,10 @@ export function useChatComposerState({
   }, [closeAttachSheet]);
 
   const selectModel = useCallback((id: string) => {
+    if (!modelOptions.some((option) => option.id === id)) return;
     setSelectedModel(id);
     setShowModelPicker(false);
-  }, []);
+  }, [modelOptions]);
 
   return {
     showModelPicker,
