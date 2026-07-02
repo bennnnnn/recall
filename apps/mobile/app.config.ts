@@ -10,8 +10,10 @@ function iosUrlSchemeFromClientId(iosClientId: string): string | null {
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   const base = appJson.expo as ExpoConfig;
+  const buildProfile = process.env.EAS_BUILD_PROFILE ?? "";
+  const includeDevClient = !buildProfile || buildProfile === "development";
   const plugins: ExpoConfig["plugins"] = [
-    "expo-dev-client",
+    ...(includeDevClient ? (["expo-dev-client"] as const) : []),
     ...(base.plugins ?? []),
   ];
   const iosUrlScheme = iosUrlSchemeFromClientId(

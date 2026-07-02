@@ -72,9 +72,6 @@
     ],
     "experiments": {
       "typedRoutes": true
-    },
-    "extra": {
-      "apiUrl": "http://192.168.80.152:8000"
     }
   }
 }
