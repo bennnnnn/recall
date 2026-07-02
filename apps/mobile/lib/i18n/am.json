@@ -49,6 +49,7 @@
   "chat.empty_hint": "ምን እንደሚያስቡ?",
   "chat.empty_title": "እንዴት ልረዳዎት?",
   "chat.error_title": "ምላሽ ማግኘት አልተቻለም",
+  "chat.model_unavailable": "That model isn't responding right now. Pick a different model and try again.",
   "chat.home.dismiss_reminder": "ማስታወሻ አጥፋ",
   "chat.home.dismiss_suggestion": "Dismiss suggestion",
   "chat.home.due_soon": "በቅርብ ጊዜ",

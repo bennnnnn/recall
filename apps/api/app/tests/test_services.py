@@ -163,7 +163,7 @@ async def test_stream_chat_completion_handles_exception():
         raise RuntimeError("network down")
 
     with patch("app.gateways.litellm_gateway.acompletion", _fail):
-        with pytest.raises(ModelUnavailableError):
+        with pytest.raises(ModelUnavailableError) as exc_info:
             async for _t in litellm_gateway.stream_chat_completion(
                 settings=settings,
                 model_alias="free-chat",
@@ -171,6 +171,7 @@ async def test_stream_chat_completion_handles_exception():
                 max_tokens=100,
             ):
                 pass
+    assert "isn't responding" in exc_info.value.message
 
 
 # ── background: memory extraction ─────────────────────────────────────────────

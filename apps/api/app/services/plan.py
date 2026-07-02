@@ -107,6 +107,41 @@ def resolve_user_model_override(
     return resolve_user_model(user, content, settings)
 
 
+def chat_fallback_models(
+    user: User,
+    settings: Settings,
+    primary: str,
+    *,
+    max_fallbacks: int = 1,
+) -> list[str]:
+    """Other models in the user's pool to try when the primary provider is down."""
+    if max_fallbacks <= 0:
+        return []
+
+    allowed = allowed_model_ids(user, settings)
+    candidates: list[str] = []
+
+    fb = settings.memory_fallback_model_alias.strip()
+    if (
+        fb
+        and fb != primary
+        and fb in allowed
+        and model_catalog.is_available(model_catalog.get(fb), settings)
+    ):
+        candidates.append(fb)
+
+    for model_id in model_pool(user, settings):
+        if model_id == primary or model_id in candidates:
+            continue
+        if model_id not in allowed:
+            continue
+        if model_catalog.is_available(model_catalog.get(model_id), settings):
+            candidates.append(model_id)
+
+    candidates.sort(key=lambda mid: model_catalog.price_sort_key(model_catalog.get(mid)))
+    return candidates[:max_fallbacks]
+
+
 def validate_enabled_models_for_update(
     user: User,
     enabled_models: list[str] | None,

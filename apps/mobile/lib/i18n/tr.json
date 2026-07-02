@@ -49,6 +49,7 @@
   "chat.empty_hint": "Aklında ne var?",
   "chat.empty_title": "Nasıl yardımcı olabilirim?",
   "chat.error_title": "Yanıt alınamadı",
+  "chat.model_unavailable": "That model isn't responding right now. Pick a different model and try again.",
   "chat.home.dismiss_reminder": "Hatırlatmayı kapat",
   "chat.home.dismiss_suggestion": "Dismiss suggestion",
   "chat.home.due_soon": "Yakında",

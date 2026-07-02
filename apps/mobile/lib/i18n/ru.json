@@ -49,6 +49,7 @@
   "chat.empty_hint": "О чём хотите поговорить?",
   "chat.empty_title": "Чем могу помочь?",
   "chat.error_title": "Не удалось получить ответ",
+  "chat.model_unavailable": "That model isn't responding right now. Pick a different model and try again.",
   "chat.home.dismiss_reminder": "Скрыть напоминание",
   "chat.home.dismiss_suggestion": "Dismiss suggestion",
   "chat.home.due_soon": "Скоро срок",

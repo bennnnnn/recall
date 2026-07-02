@@ -454,3 +454,35 @@ async def test_get_current_user_not_found_raises_401():
         with pytest.raises(HTTPException) as exc_info:
             await get_current_user(creds, AsyncMock(), settings)
     assert exc_info.value.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_stream_chat_completion_retries_fallback_alias():
+    from app.gateways.litellm_gateway import ModelUnavailableError
+
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    calls: list[str] = []
+
+    async def fake_stream_once(**kwargs):
+        alias = kwargs["model_alias"]
+        calls.append(alias)
+        if alias == "smart-chat":
+            raise ModelUnavailableError("down", failed_alias=alias)
+        yield "hello"
+
+    with patch.object(litellm_gateway, "_stream_chat_once", fake_stream_once):
+        stream_meta: dict[str, str] = {}
+        tokens = [
+            t
+            async for t in litellm_gateway.stream_chat_completion(
+                settings=settings,
+                model_alias="smart-chat",
+                messages=[{"role": "user", "content": "hi"}],
+                max_tokens=10,
+                fallback_aliases=["free-chat"],
+                stream_meta=stream_meta,
+            )
+        ]
+    assert tokens == ["hello"]
+    assert calls == ["smart-chat", "free-chat"]
+    assert stream_meta["model_alias"] == "free-chat"
