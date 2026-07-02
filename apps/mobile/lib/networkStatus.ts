@@ -1,8 +1,12 @@
 import type { NetInfoState } from "@react-native-community/netinfo";
 
-/** True when the device has no usable internet (ignore unknown reachability on first tick). */
+/**
+ * Offline when the OS link is down, or reachability is unknown and reported bad.
+ * When the link is up (isConnected === true), always online — iOS/simulator often
+ * leaves isInternetReachable stuck false after reconnect.
+ */
 export function isNetworkOffline(state: NetInfoState): boolean {
+  if (state.isConnected === true) return false;
   if (state.isConnected === false) return true;
-  if (state.isInternetReachable === false) return true;
-  return false;
+  return state.isInternetReachable === false;
 }
