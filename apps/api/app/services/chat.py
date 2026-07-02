@@ -330,6 +330,12 @@ def _vision_reserve_tokens(settings: Settings, image_count: int) -> int:
 
 
 @dataclass
+class _RegenerateBackup:
+    content: str
+    model: str | None
+
+
+@dataclass
 class _StreamContext:
     user_id: UUID
     chat_id: UUID
@@ -347,6 +353,23 @@ class _StreamContext:
     local_places: bool = False
     skip_memory_jobs: bool = False
     prior_count: int = 0
+    regenerate_backup: _RegenerateBackup | None = None
+
+
+async def _restore_regenerate_backup(
+    user_id: UUID,
+    chat_id: UUID,
+    backup: _RegenerateBackup,
+) -> None:
+    async with SessionLocal() as session:
+        await messages_repo.create(
+            session,
+            chat_id=chat_id,
+            user_id=user_id,
+            role="assistant",
+            content=backup.content,
+            model=backup.model,
+        )
 
 
 def format_user_profile_block(user: User, *, location_override: str | None = None) -> str:
@@ -738,7 +761,9 @@ async def stream_regenerate_response(
             redis, str(user_id), reserved, daily_limit=daily_limit
         ):
             raise QuotaExceededError(quota_exceeded_message(user))
+        regenerate_backup: _RegenerateBackup | None = None
         if last.role == "assistant":
+            regenerate_backup = _RegenerateBackup(content=last.content, model=last.model)
             await attachment_lifecycle.purge_attachments_for_messages(session, settings, [last.id])
             await messages_repo.delete_message(session, last)
 
@@ -758,6 +783,7 @@ async def stream_regenerate_response(
         local_places=local_places,
         skip_memory_jobs=minimal_quiz,
         prior_count=prior_count,
+        regenerate_backup=regenerate_backup,
     )
 
     try:
@@ -771,9 +797,13 @@ async def stream_regenerate_response(
             yield token
     except ModelUnavailableError:
         await quota_service.refund_usage(redis, str(user_id), reserved)
+        if regenerate_backup is not None:
+            await _restore_regenerate_backup(user_id, chat_id, regenerate_backup)
         raise
     except Exception:
         await quota_service.refund_usage(redis, str(user_id), reserved)
+        if regenerate_backup is not None:
+            await _restore_regenerate_backup(user_id, chat_id, regenerate_backup)
         raise
 
 
@@ -1247,6 +1277,12 @@ async def _stream_and_finalize(
     assistant_text = "".join(assistant_parts).strip()
     if not assistant_text:
         await quota_service.refund_usage(redis, str(ctx.user_id), ctx.reserved_tokens)
+        if ctx.regenerate_backup is not None:
+            await _restore_regenerate_backup(
+                ctx.user_id,
+                ctx.chat_id,
+                ctx.regenerate_backup,
+            )
         return
 
     async with SessionLocal() as session:
