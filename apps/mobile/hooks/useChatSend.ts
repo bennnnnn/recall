@@ -106,20 +106,29 @@ export function useChatSend({
     attachmentIds?: string[];
     localImageUri?: string | null;
     clientGeo?: ClientGeo | null;
+    model: string;
   } | null>(null);
 
   const attachPickInFlightRef = useRef(false);
 
   useEffect(() => {
     if (chatId && pendingSend) {
-      const { text, skipUserBubble, trackSendingMessageId, attachmentIds, localImageUri, clientGeo } =
-        pendingSend;
+      const {
+        text,
+        skipUserBubble,
+        trackSendingMessageId,
+        attachmentIds,
+        localImageUri,
+        clientGeo,
+        model,
+      } = pendingSend;
       setPendingSend(null);
       sendMessage(text, {
         skipUserBubble,
         trackSendingMessageId,
         attachmentIds,
         localImageUri,
+        model,
         clientGeo,
       });
     }
@@ -208,7 +217,7 @@ export function useChatSend({
           }),
         ]);
         try {
-          const id = await prepareDraftChat();
+          const id = await prepareDraftChat(undefined, selectedModel);
           if (!id) throw new Error("Could not create chat");
           skipLoadForChatIdRef.current = id;
           setChatTitle(null);
@@ -223,6 +232,7 @@ export function useChatSend({
               attachmentIds,
               optimisticId,
               clientGeo,
+              model: selectedModel,
             }),
           );
           setPendingOutboundId(null);
