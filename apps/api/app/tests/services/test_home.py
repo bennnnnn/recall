@@ -345,3 +345,49 @@ async def test_get_home_screen_cached_reuses_redis(fake_redis):
     assert first == screen
     assert second == screen
     build_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_invalidate_home_cache_clears_user_keys(fake_redis):
+    user_id = uuid4()
+    other_id = uuid4()
+    await fake_redis.set(f"home:{user_id}:UTC:1", "{}", ex=60)
+    await fake_redis.set(f"home:{user_id}:America/New_York:1", "{}", ex=60)
+    await fake_redis.set(f"home:{other_id}:UTC:1", "{}", ex=60)
+
+    with patch("app.services.home.get_redis_client", return_value=fake_redis):
+        await home_service.invalidate_home_cache(user_id)
+
+    assert await fake_redis.get(f"home:{user_id}:UTC:1") is None
+    assert await fake_redis.get(f"home:{user_id}:America/New_York:1") is None
+    assert await fake_redis.get(f"home:{other_id}:UTC:1") == "{}"
+
+
+@pytest.mark.asyncio
+async def test_get_home_screen_cached_rebuilds_after_invalidate(fake_redis):
+    user = _user()
+    settings = Settings(home_cache_ttl=60)
+    session = AsyncMock()
+    screen = home_service.HomeScreenOut(
+        greeting="Hi",
+        subtitle=None,
+        project_highlight=None,
+        urgent_todos=[],
+        starters=[],
+    )
+
+    with (
+        patch("app.services.home.get_redis_client", return_value=fake_redis),
+        patch.object(
+            home_service,
+            "build_home_screen",
+            AsyncMock(return_value=screen),
+        ) as build_mock,
+    ):
+        first = await home_service.get_home_screen_cached(session, user, settings)
+        await home_service.invalidate_home_cache(user.id)
+        second = await home_service.get_home_screen_cached(session, user, settings)
+
+    assert first == screen
+    assert second == screen
+    assert build_mock.await_count == 2

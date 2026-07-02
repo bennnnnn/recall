@@ -11,6 +11,7 @@ from app.models.schemas import TodoActionItem, TodoExtractionResult
 from app.repositories import todos as todos_repo
 from app.repositories import users as users_repo
 from app.repositories.todos import DEFAULT_TOPIC
+from app.services import home as home_service
 from app.services import time_context as time_context_service
 
 logger = logging.getLogger(__name__)
@@ -549,6 +550,8 @@ async def apply_todo_actions(
                 user_id,
                 topic,
             )
+    if applied > 0:
+        await home_service.invalidate_home_cache(user_id)
     return applied
 
 
@@ -624,6 +627,7 @@ async def sync_todos_from_transcript(
                     bulk_applied,
                     user_id,
                 )
+                await home_service.invalidate_home_cache(user_id)
         return result
     except Exception:
         logger.exception("Todo sync failed for user_id=%s", user_id)

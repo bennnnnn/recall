@@ -526,6 +526,27 @@ def _home_cache_key(user_id: UUID, tz: ZoneInfo, day_seed: int) -> str:
     return f"home:{user_id}:{tz.key}:{day_seed}"
 
 
+def _home_cache_prefix(user_id: UUID) -> str:
+    return f"home:{user_id}:"
+
+
+async def invalidate_home_cache(user_id: UUID) -> None:
+    """Drop cached home payloads for all timezones/day seeds for this user."""
+    try:
+        redis = get_redis_client()
+        prefix = _home_cache_prefix(user_id)
+        batch: list[str] = []
+        async for key in redis.scan_iter(match=f"{prefix}*", count=200):
+            batch.append(key if isinstance(key, str) else key.decode())
+            if len(batch) >= 200:
+                await redis.delete(*batch)
+                batch.clear()
+        if batch:
+            await redis.delete(*batch)
+    except Exception:
+        logger.debug("Home cache invalidation failed", exc_info=True)
+
+
 async def get_home_screen_cached(
     session: AsyncSession,
     user: User,
