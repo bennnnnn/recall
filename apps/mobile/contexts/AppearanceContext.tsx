@@ -1,5 +1,4 @@
 import {
-  createContext,
   useCallback,
   useContext,
   useEffect,
@@ -10,6 +9,10 @@ import {
 import { useColorScheme as useSystemColorScheme } from "react-native";
 
 import {
+  AppearanceContext,
+  type AppearanceContextValue,
+} from "@/lib/appearanceContext";
+import {
   resolveColorScheme,
   type AppearancePreference,
 } from "@/lib/appearance";
@@ -17,16 +20,6 @@ import {
   getAppearancePreference,
   setAppearancePreference as persistAppearancePreference,
 } from "@/lib/appearancePrefs";
-
-type AppearanceContextValue = {
-  preference: AppearancePreference;
-  setPreference: (preference: AppearancePreference) => Promise<void>;
-  colorScheme: "light" | "dark";
-};
-
-const AppearanceContext = createContext<AppearanceContextValue | null>(null);
-
-export { AppearanceContext };
 
 export function AppearanceProvider({ children }: { children: ReactNode }) {
   const systemScheme = useSystemColorScheme();
