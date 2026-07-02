@@ -378,6 +378,58 @@ async def test_search_web_uses_mock_without_api_key():
 
 
 @pytest.mark.asyncio
+async def test_run_search_parallelizes_queries():
+    import asyncio
+    import time
+
+    from app.services.web_search import _run_search
+
+    settings = Settings(web_search_max_results=10, mock_llm_enabled=True)
+
+    async def mock_search(_settings, query, *, max_results):
+        await asyncio.sleep(0.04 if query == "slow" else 0.01)
+        return [
+            WebSearchHit(
+                title=f"{query} hit",
+                url=f"https://example.com/{query}",
+                snippet="snippet",
+            )
+        ]
+
+    with patch("app.services.web_search._search_with_cache", side_effect=mock_search):
+        start = time.monotonic()
+        merged, tried = await _run_search(settings, ["slow", "fast-a", "fast-b"])
+        elapsed = time.monotonic() - start
+
+    assert tried == ["slow", "fast-a", "fast-b"]
+    assert len(merged) == 3
+    assert elapsed < 0.08
+
+
+@pytest.mark.asyncio
+async def test_run_search_dedupes_across_queries_and_respects_limit():
+    from app.services.web_search import _run_search
+
+    settings = Settings(web_search_max_results=2, mock_llm_enabled=True)
+
+    async def mock_search(_settings, query, *, max_results):
+        if query == "q1":
+            return [
+                WebSearchHit(title="A", url="https://dup", snippet="1"),
+                WebSearchHit(title="B", url="https://b", snippet="2"),
+            ]
+        return [WebSearchHit(title="A dup", url="https://dup", snippet="3")]
+
+    with patch("app.services.web_search._search_with_cache", side_effect=mock_search):
+        merged, tried = await _run_search(settings, ["q1", "q2"])
+
+    assert tried == ["q1", "q2"]
+    assert len(merged) == 2
+    assert merged[0].url == "https://dup"
+    assert merged[1].url == "https://b"
+
+
+@pytest.mark.asyncio
 async def test_search_web_falls_back_to_duckduckgo():
     settings = Settings(mock_llm_enabled=False, tavily_api_key="", web_search_fallback_enabled=True)
     ddg_hit = WebSearchHit(title="DDG", url="https://news.example", snippet="story")
