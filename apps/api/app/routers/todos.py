@@ -9,6 +9,7 @@ from app.models.orm import User
 from app.models.schemas import TodoCreate, TodoOut, TodoReorderBody, TodoUpdate
 from app.repositories import chats as chats_repo
 from app.repositories import todos as todos_repo
+from app.services import home as home_service
 
 router = APIRouter(prefix="/todos", tags=["todos"])
 
@@ -50,6 +51,7 @@ async def create_todo(
         chat_id=body.chat_id,
         due_at=body.due_at,
     )
+    await home_service.invalidate_home_cache(user.id)
     return TodoOut.model_validate(item)
 
 
@@ -61,6 +63,7 @@ async def reorder_todos(
 ) -> list[TodoOut]:
     payload = [(item.id, item.sort_order, item.topic) for item in body.items]
     items = await todos_repo.reorder(session, user.id, payload)
+    await home_service.invalidate_home_cache(user.id)
     return [TodoOut.model_validate(item) for item in items]
 
 
@@ -75,6 +78,7 @@ async def update_todo(
     if not item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Todo not found")
     updated = await todos_repo.update(session, item, **body.model_dump(exclude_unset=True))
+    await home_service.invalidate_home_cache(user.id)
     return TodoOut.model_validate(updated)
 
 
@@ -87,3 +91,4 @@ async def delete_todo(
     deleted = await todos_repo.delete_by_id(session, todo_id, user.id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Todo not found")
+    await home_service.invalidate_home_cache(user.id)

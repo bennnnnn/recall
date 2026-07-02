@@ -71,7 +71,11 @@ def test_create_todo():
 
     user = _fake_user()
     app = _app_with_user(user)
-    with patch("app.routers.todos.todos_repo.create", AsyncMock(return_value=todo_mock)):
+    invalidate_mock = AsyncMock()
+    with (
+        patch("app.routers.todos.todos_repo.create", AsyncMock(return_value=todo_mock)),
+        patch("app.routers.todos.home_service.invalidate_home_cache", invalidate_mock),
+    ):
         client = TestClient(app)
         r = client.post(
             "/todos",
@@ -80,6 +84,7 @@ def test_create_todo():
         )
     assert r.status_code == 201
     assert r.json()["content"] == "Test todo"
+    invalidate_mock.assert_awaited_once_with(user.id)
 
 
 def test_create_todo_with_chat_id():

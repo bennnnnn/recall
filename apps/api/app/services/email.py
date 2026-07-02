@@ -20,6 +20,7 @@ from app.models.orm import User
 from app.repositories import gmail_connections as gmail_repo
 from app.repositories import suggested_reminders as suggested_repo
 from app.repositories import todos as todos_repo
+from app.services import home as home_service
 
 logger = logging.getLogger(__name__)
 
@@ -420,6 +421,7 @@ async def add_suggested_reminder(
         due_at=row.due_at,
     )
     await suggested_repo.mark_added(session, row, todo.id)
+    await home_service.invalidate_home_cache(user_id)
     return todo, None
 
 
