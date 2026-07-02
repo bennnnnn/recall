@@ -48,7 +48,6 @@ import { isQuotaErrorMessage, quotaAlertTitle } from "@/lib/quota";
 import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
 import { useTodosOptional } from "@/contexts/TodosContext";
 import { isComposerMenuOverlayOpen } from "@/lib/chatComposerLogic";
-import { isChatStreamActive } from "@/lib/chatMessageLogic";
 import { confirmGeoLocationAccess } from "@/lib/confirmGeoLocation";
 import { ensureNearbyLocation } from "@/lib/ensureNearbyLocation";
 import { isAmbiguousLocalPlacesQuery, isGeoQuery } from "@/lib/localPlacesQuery";
@@ -118,7 +117,7 @@ function ChatScreen() {
     onTodosSync: handleTodosSync,
   });
 
-  const streamActive = isChatStreamActive(streaming, finalizing);
+  const streamActive = streaming || finalizing;
 
   const streamingLen =
     streamActive && streamingDraft
