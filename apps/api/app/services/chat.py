@@ -44,6 +44,20 @@ from app.services.quota import quota_exceeded_message, utc_today
 
 logger = logging.getLogger(__name__)
 
+
+async def _seed_usage_from_db(redis: Redis, session: AsyncSession, user_id: UUID) -> None:
+    """Best-effort: re-seed the Redis daily usage counter from the DB total so a
+    Redis flush/eviction can't reset quota enforcement to zero. Never raises —
+    on DB or Redis failure the turn proceeds with Redis-only enforcement (the
+    pre-existing behavior). Called before ``reserve_usage`` on every chat path.
+    """
+    try:
+        db_total = await usage_repo.get_total_for_date(session, user_id, utc_today())
+        await quota_service.seed_usage_if_missing(redis, str(user_id), db_total)
+    except Exception:
+        logger.debug("Usage DB-seed skipped (best-effort)", exc_info=True)
+
+
 CLARIFICATION_HINT = (
     "When you lack information needed to complete a task correctly, ask concise clarifying "
     "questions instead of guessing, inventing details, or filling gaps with placeholders. "
@@ -651,6 +665,9 @@ async def stream_chat_response(
         if user is None:
             raise ChatNotFoundError("User not found.")
         daily_limit = quota_service.daily_limit_for_user(user, settings)
+        # Self-heal: if Redis lost today's counter (flush/eviction), re-seed it
+        # from the DB-recorded total so enforcement can't reset to zero.
+        await _seed_usage_from_db(redis, session, user_id)
 
     if pre_reserved is not None:
         reserved = pre_reserved
@@ -821,6 +838,7 @@ async def stream_regenerate_response(
         prior_count = await messages_repo.count_for_chat(session, chat_id)
         reserved = estimate_tokens(user_message_content) + max_out
         daily_limit = quota_service.daily_limit_for_user(user, settings)
+        await _seed_usage_from_db(redis, session, user_id)
         if not await quota_service.reserve_usage(
             redis, str(user_id), reserved, daily_limit=daily_limit
         ):
@@ -910,6 +928,7 @@ async def stream_edit_response(
         # own reserve so we don't double-count.
         daily_limit = quota_service.daily_limit_for_user(user, settings)
         reserved = estimate_tokens(content) + settings.max_output_tokens
+        await _seed_usage_from_db(redis, session, user_id)
         if not await quota_service.reserve_usage(
             redis, str(user_id), reserved, daily_limit=daily_limit
         ):

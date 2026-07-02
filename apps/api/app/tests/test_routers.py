@@ -402,6 +402,34 @@ def test_today_usage():
     assert data["remaining"] == data["daily_limit"] - data["used_tokens"]
 
 
+def test_today_usage_falls_back_to_db_total_when_redis_flushed():
+    """After a Redis flush, the usage display must not reset to zero — it
+    reconciles against the DB-recorded total so users see real consumption."""
+    import fakeredis.aioredis
+
+    from app.core.deps import get_redis
+
+    user = _fake_user()
+    app = _app_with_user(user)
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    app.dependency_overrides[get_redis] = lambda: fake_redis
+
+    db_usage = MagicMock()
+    db_usage.input_tokens = 8_000
+    db_usage.output_tokens = 4_000
+
+    with patch("app.routers.chats.usage_repo.get_for_date", AsyncMock(return_value=db_usage)):
+        client = TestClient(app)
+        r = client.get("/chats/usage/today", headers={"Authorization": "Bearer tok"})
+    assert r.status_code == 200
+    data = r.json()
+    # Redis is empty (0); DB total (12_000) wins via the max() reconciliation.
+    assert data["used_tokens"] == 12_000
+    assert data["input_tokens"] == 8_000
+    assert data["output_tokens"] == 4_000
+    assert data["remaining"] == data["daily_limit"] - 12_000
+
+
 # ── memories ───────────────────────────────────────────────────────────────────
 
 

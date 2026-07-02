@@ -144,7 +144,10 @@ async def today_usage(
     input_tokens = db_usage.input_tokens if db_usage else 0
     output_tokens = db_usage.output_tokens if db_usage else 0
     limit = quota_service.daily_limit_for_user(user, settings)
-    used_tokens = await quota_service.get_daily_usage(redis, str(user.id))
+    redis_used = await quota_service.get_daily_usage(redis, str(user.id))
+    # If Redis was flushed/evicted, fall back to the DB-recorded total so the
+    # usage display never under-reports real consumption between turns.
+    used_tokens = max(redis_used, input_tokens + output_tokens)
     remaining = max(0, limit - used_tokens)
     return UsageOut(
         date=day.isoformat(),

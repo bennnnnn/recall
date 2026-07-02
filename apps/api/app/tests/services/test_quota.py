@@ -91,6 +91,37 @@ async def test_refund_usage(fake_redis):
 
 
 @pytest.mark.asyncio
+async def test_seed_usage_if_missing_seeds_from_db_when_key_absent(fake_redis):
+    """After a Redis flush the counter is gone; seeding restores the DB total."""
+    from datetime import UTC, datetime
+
+    day = datetime.now(UTC).date().isoformat()
+    await quota_service.seed_usage_if_missing(fake_redis, "u1", 12_000)
+    assert int(await fake_redis.get(f"usage:u1:{day}")) == 12_000
+
+
+@pytest.mark.asyncio
+async def test_seed_usage_if_missing_does_not_overwrite_live_counter(fake_redis):
+    """SET NX must never overwrite a live (non-zero) counter — no double-count."""
+    from datetime import UTC, datetime
+
+    day = datetime.now(UTC).date().isoformat()
+    await fake_redis.set(f"usage:u1:{day}", 3_000)
+    await quota_service.seed_usage_if_missing(fake_redis, "u1", 12_000)
+    # Live counter wins; the DB total is NOT applied.
+    assert int(await fake_redis.get(f"usage:u1:{day}")) == 3_000
+
+
+@pytest.mark.asyncio
+async def test_seed_usage_if_missing_noop_when_db_total_zero(fake_redis):
+    from datetime import UTC, datetime
+
+    day = datetime.now(UTC).date().isoformat()
+    await quota_service.seed_usage_if_missing(fake_redis, "u1", 0)
+    assert await fake_redis.get(f"usage:u1:{day}") is None
+
+
+@pytest.mark.asyncio
 async def test_reserve_image_upload_enforces_limit(fake_redis, settings):
     from uuid import uuid4
 

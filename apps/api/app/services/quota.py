@@ -60,6 +60,26 @@ async def get_daily_usage(redis: Redis, user_id: str) -> int:
     return int(value or 0)
 
 
+async def seed_usage_if_missing(
+    redis: Redis,
+    user_id: str,
+    db_total: int,
+    *,
+    day: date | None = None,
+) -> None:
+    """Self-heal the Redis daily counter after a flush/eviction.
+
+    If the Redis key for today is absent, seed it with the DB-recorded total so
+    quota enforcement resumes from the correct baseline instead of resetting to
+    zero. Uses SET NX so concurrent calls (e.g. overlapping turns) can't
+    double-count, and never overwrites a live counter. No-op when db_total <= 0.
+    """
+    if db_total <= 0:
+        return
+    key = _usage_key(user_id, day or utc_today())
+    await redis.set(key, db_total, nx=True, ex=_USAGE_TTL)
+
+
 async def can_spend(
     redis: Redis,
     user_id: str,
