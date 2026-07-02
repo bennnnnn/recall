@@ -1,5 +1,6 @@
 """Tests for gateways: google_auth, mock_llm."""
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -486,3 +487,36 @@ async def test_stream_chat_completion_retries_fallback_alias():
     assert tokens == ["hello"]
     assert calls == ["smart-chat", "free-chat"]
     assert stream_meta["model_alias"] == "free-chat"
+
+
+@pytest.mark.asyncio
+async def test_stream_chat_once_times_out_hung_provider():
+    from app.gateways.litellm_gateway import ModelUnavailableError
+
+    settings = Settings(
+        mock_llm_enabled=False,
+        openrouter_api_key="sk-or-test",
+        chat_stream_timeout_seconds=1,
+    )
+
+    class HungStream:
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            await asyncio.sleep(2)
+            raise StopAsyncIteration
+
+    with patch(
+        "app.gateways.litellm_gateway.acompletion",
+        AsyncMock(return_value=HungStream()),
+    ):
+        with pytest.raises(ModelUnavailableError) as exc_info:
+            async for _ in litellm_gateway._stream_chat_once(
+                settings=settings,
+                model_alias="free-chat",
+                messages=[{"role": "user", "content": "hi"}],
+                max_tokens=10,
+            ):
+                pass
+    assert "isn't responding" in exc_info.value.message
