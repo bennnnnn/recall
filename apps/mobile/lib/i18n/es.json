@@ -433,6 +433,7 @@
   "suggested.add": "Add",
   "suggested.dismiss": "Dismiss",
   "templates.builtin": "Built-in",
+  "templates.custom": "Your templates",
   "templates.empty": "No templates yet",
   "templates.title": "Templates",
   "templates.use": "Use template",
