@@ -316,5 +316,9 @@
   "upgrade.restore": "Ripristina acquisti",
   "upgrade.restore_empty": "Nessun abbonamento attivo per questo account.",
   "upgrade.subscribe": "Passa a Pro — {{price}}/mese",
-  "upgrade.title": "Passa a Pro"
+  "upgrade.title": "Passa a Pro",
+  "settings.appearance": "Aspetto",
+  "settings.appearance_system": "Sistema",
+  "settings.appearance_light": "Chiaro",
+  "settings.appearance_dark": "Scuro"
 }

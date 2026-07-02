@@ -316,5 +316,9 @@
   "upgrade.restore": "Restaurar compras",
   "upgrade.restore_empty": "Nenhuma assinatura ativa encontrada para esta conta.",
   "upgrade.subscribe": "Assinar Pro — {{price}}/mês",
-  "upgrade.title": "Assinar o Pro"
+  "upgrade.title": "Assinar o Pro",
+  "settings.appearance": "Aparência",
+  "settings.appearance_system": "Sistema",
+  "settings.appearance_light": "Claro",
+  "settings.appearance_dark": "Escuro"
 }

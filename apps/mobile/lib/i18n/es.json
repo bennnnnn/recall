@@ -496,5 +496,9 @@
   "upgrade.restore": "Restaurar compras",
   "upgrade.restore_empty": "No se encontró suscripción activa para esta cuenta.",
   "upgrade.subscribe": "Hazte Pro — {{price}}/mes",
-  "upgrade.title": "Pásate a Pro"
+  "upgrade.title": "Pásate a Pro",
+  "settings.appearance": "Apariencia",
+  "settings.appearance_system": "Sistema",
+  "settings.appearance_light": "Claro",
+  "settings.appearance_dark": "Oscuro"
 }

@@ -496,5 +496,9 @@
   "upgrade.restore": "Restaurer les achats",
   "upgrade.restore_empty": "Aucun abonnement actif trouvé pour ce compte.",
   "upgrade.subscribe": "Passer à Pro — {{price}}/mois",
-  "upgrade.title": "Passer à Pro"
+  "upgrade.title": "Passer à Pro",
+  "settings.appearance": "Apparence",
+  "settings.appearance_system": "Système",
+  "settings.appearance_light": "Clair",
+  "settings.appearance_dark": "Sombre"
 }

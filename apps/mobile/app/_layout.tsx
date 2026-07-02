@@ -7,6 +7,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useMemo } from "react";
 
 import { AuthProvider } from "@/contexts/AuthContext";
+import { AppearanceProvider } from "@/contexts/AppearanceContext";
 import { HomeProvider } from "@/contexts/HomeContext";
 import { ModelsProvider } from "@/contexts/ModelsContext";
 import { ProjectsProvider } from "@/contexts/ProjectsContext";
@@ -107,18 +108,20 @@ export default function RootLayout() {
   }
 
   return (
-    <AuthProvider>
-      <ModelsProvider>
-        <TodosProvider>
-          <ProjectsProvider>
-            <HomeProvider>
-              <PushNotificationBootstrap />
-              <RootNavigator />
-            </HomeProvider>
-          </ProjectsProvider>
-        </TodosProvider>
-      </ModelsProvider>
-    </AuthProvider>
+    <AppearanceProvider>
+      <AuthProvider>
+        <ModelsProvider>
+          <TodosProvider>
+            <ProjectsProvider>
+              <HomeProvider>
+                <PushNotificationBootstrap />
+                <RootNavigator />
+              </HomeProvider>
+            </ProjectsProvider>
+          </TodosProvider>
+        </ModelsProvider>
+      </AuthProvider>
+    </AppearanceProvider>
   );
 }
 

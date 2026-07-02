@@ -16,6 +16,8 @@ import { canUseDeviceLocation } from "@/lib/expoRuntime";
 import { getDeviceLocationLabel } from "@/lib/deviceLocation";
 import { LANGUAGES } from "@/lib/i18n";
 import { DEFAULT_RESPONSE_TONE, normalizeResponseTone, RESPONSE_TONES } from "@/lib/responseTone";
+import { APPEARANCE_OPTIONS } from "@/lib/appearance";
+import { useAppearance } from "@/contexts/AppearanceContext";
 import { useTheme } from "@/lib/theme";
 
 const STYLES = ["short", "balanced", "detailed"] as const;
@@ -24,9 +26,12 @@ export default function PreferencesSettingsScreen() {
   const { token, user, updateUser } = useAuth();
   const { t } = useTranslation();
   const theme = useTheme();
+  const { preference: appearancePreference, setPreference: setAppearancePreference } =
+    useAppearance();
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
   const [saving, setSaving] = useState(false);
+  const [appearancePickerOpen, setAppearancePickerOpen] = useState(false);
   const [languagePickerOpen, setLanguagePickerOpen] = useState(false);
   const [stylePickerOpen, setStylePickerOpen] = useState(false);
   const [tonePickerOpen, setTonePickerOpen] = useState(false);
@@ -83,6 +88,14 @@ export default function PreferencesSettingsScreen() {
       >
         <SettingsGroup styles={s}>
           <SettingsLinkRow
+            title={t("settings.appearance")}
+            value={t(`settings.appearance_${appearancePreference}`)}
+            onPress={() => setAppearancePickerOpen(true)}
+            styles={s}
+            theme={theme}
+          />
+          <View style={s.menuSeparator} />
+          <SettingsLinkRow
             title={t("settings.style")}
             value={t(`settings.style_${selectedStyle}`)}
             onPress={() => setStylePickerOpen(true)}
@@ -117,6 +130,21 @@ export default function PreferencesSettingsScreen() {
         </SettingsGroup>
       </ScrollView>
 
+      <SettingsPickerModal
+        visible={appearancePickerOpen}
+        title={t("settings.appearance")}
+        selectedKey={appearancePreference}
+        options={APPEARANCE_OPTIONS.map((option) => ({
+          key: option,
+          label: t(`settings.appearance_${option}`),
+        }))}
+        onClose={() => setAppearancePickerOpen(false)}
+        onSelect={(option) =>
+          void setAppearancePreference(option as (typeof APPEARANCE_OPTIONS)[number])
+        }
+        styles={s}
+        theme={theme}
+      />
       <SettingsPickerModal
         visible={languagePickerOpen}
         title={t("settings.language")}

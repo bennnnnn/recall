@@ -496,5 +496,9 @@
   "upgrade.restore": "Satın alımları geri yükle",
   "upgrade.restore_empty": "Bu hesap için aktif abonelik bulunamadı.",
   "upgrade.subscribe": "Pro'ya geç — {{price}}/ay",
-  "upgrade.title": "Pro'ya yükselt"
+  "upgrade.title": "Pro'ya yükselt",
+  "settings.appearance": "Görünüm",
+  "settings.appearance_system": "Sistem",
+  "settings.appearance_light": "Açık",
+  "settings.appearance_dark": "Koyu"
 }

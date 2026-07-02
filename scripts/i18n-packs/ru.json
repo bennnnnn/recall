@@ -316,5 +316,9 @@
   "upgrade.restore": "Восстановить покупки",
   "upgrade.restore_empty": "Активная подписка для этого аккаунта не найдена.",
   "upgrade.subscribe": "Pro — {{price}}/мес",
-  "upgrade.title": "Перейти на Pro"
+  "upgrade.title": "Перейти на Pro",
+  "settings.appearance": "Оформление",
+  "settings.appearance_system": "Системная",
+  "settings.appearance_light": "Светлая",
+  "settings.appearance_dark": "Тёмная"
 }

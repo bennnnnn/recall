@@ -496,5 +496,9 @@
   "upgrade.restore": "Käufe wiederherstellen",
   "upgrade.restore_empty": "Kein aktives Abo für dieses Konto gefunden.",
   "upgrade.subscribe": "Pro werden — {{price}}/Monat",
-  "upgrade.title": "Upgrade auf Pro"
+  "upgrade.title": "Upgrade auf Pro",
+  "settings.appearance": "Erscheinungsbild",
+  "settings.appearance_system": "System",
+  "settings.appearance_light": "Hell",
+  "settings.appearance_dark": "Dunkel"
 }

@@ -496,5 +496,9 @@
   "upgrade.restore": "ግዢዎችን ይመልሱ",
   "upgrade.restore_empty": "ለዚህ መለያ aktiv subscription አልተገኘም።",
   "upgrade.subscribe": "Pro ይሁኑ — {{price}}/ወር",
-  "upgrade.title": "ወደ Pro ይሂዱ"
+  "upgrade.title": "ወደ Pro ይሂዱ",
+  "settings.appearance": "Appearance",
+  "settings.appearance_system": "System",
+  "settings.appearance_light": "Light",
+  "settings.appearance_dark": "Dark"
 }
