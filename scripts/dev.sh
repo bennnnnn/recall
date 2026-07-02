@@ -7,6 +7,17 @@ kill_metro() {
   "$ROOT/scripts/kill-metro.sh" || true
 }
 
+kill_all_dev() {
+  echo "Stopping API, Metro, and Expo…"
+  lsof -tiTCP:8000 -sTCP:LISTEN 2>/dev/null | xargs kill -9 2>/dev/null || true
+  pkill -9 -f "uvicorn app.main" 2>/dev/null || true
+  kill_metro
+  pkill -9 -f "expo start" 2>/dev/null || true
+  pkill -9 -f "expo/bin/cli" 2>/dev/null || true
+  xcrun simctl terminate booted host.exp.Exponent 2>/dev/null || true
+  echo "All dev servers stopped."
+}
+
 case "${1:-}" in
   infra)
     echo "Optional: starts local Postgres + Redis via Docker."
@@ -41,6 +52,9 @@ case "${1:-}" in
   kill-metro)
     kill_metro
     ;;
+  kill-all)
+    kill_all_dev
+    ;;
   migrate)
     cd "$ROOT/apps/api"
     uv run alembic upgrade head
@@ -68,7 +82,7 @@ case "${1:-}" in
     echo "Optional local DB: ./scripts/dev.sh infra  (requires Docker)"
     ;;
   *)
-    echo "Usage: scripts/dev.sh {setup|migrate|api|mobile|mobile-sim|mobile-tunnel|kill-metro|test-api|check|infra}"
+    echo "Usage: scripts/dev.sh {setup|migrate|api|mobile|mobile-sim|mobile-tunnel|kill-metro|kill-all|test-api|check|infra}"
     echo ""
     echo "  setup          Install deps, copy .env (no Docker)"
     echo "  migrate        Apply DB migrations (needs DATABASE_URL in .env)"
@@ -78,6 +92,7 @@ case "${1:-}" in
     echo "  mobile-sim     Run Expo Go on iOS Simulator (localhost)"
     echo "  mobile-tunnel  Run Expo (tunnel — unplug USB, scan QR in Expo Go)"
     echo "  kill-metro     Stop stale Metro servers on ports 8081–8090"
+    echo "  kill-all       Stop API (:8000), Metro, Expo, and Expo Go on simulator"
     echo "  infra          Optional: Docker Postgres + Redis"
     exit 1
     ;;
