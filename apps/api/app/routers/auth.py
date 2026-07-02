@@ -98,10 +98,7 @@ async def update_me(
             )
         except ValueError as exc:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    memory_toggled = (
-        "memory_enabled" in fields
-        and fields["memory_enabled"] != user.memory_enabled
-    )
+    memory_toggled = "memory_enabled" in fields and fields["memory_enabled"] != user.memory_enabled
     updated = await users_repo.update(
         session,
         user,
