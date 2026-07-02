@@ -49,6 +49,7 @@
   "chat.empty_hint": "O que você tem em mente?",
   "chat.empty_title": "Como posso ajudar?",
   "chat.error_title": "Não foi possível obter resposta",
+  "chat.model_unavailable": "That model isn't responding right now. Pick a different model and try again.",
   "chat.home.dismiss_reminder": "Dispensar lembrete",
   "chat.home.dismiss_suggestion": "Dismiss suggestion",
   "chat.home.due_soon": "Vence em breve",

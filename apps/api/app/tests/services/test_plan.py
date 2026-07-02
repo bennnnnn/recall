@@ -111,3 +111,18 @@ def test_override_none_falls_back_to_resolve_user_model():
     settings = Settings(mock_llm_enabled=True)
     resolved = plan_service.resolve_user_model_override(user, None, "hi", settings)
     assert resolved == plan_service.resolve_user_model(user, "hi", settings)
+
+
+def test_chat_fallback_models_skips_primary_and_respects_pool():
+    user = ProUser()
+    settings = Settings(mock_llm_enabled=True)
+    fallbacks = plan_service.chat_fallback_models(user, settings, "smart-chat")
+    assert "smart-chat" not in fallbacks
+    assert fallbacks
+    assert fallbacks[0] in plan_service.model_pool(user, settings)
+
+
+def test_chat_fallback_models_empty_when_only_one_model():
+    user = ManualUser()
+    settings = Settings(mock_llm_enabled=True)
+    assert plan_service.chat_fallback_models(user, settings, "free-chat") == []

@@ -84,10 +84,12 @@ function ChatScreen() {
     (message: string, code?: string) => {
       const isQuota =
         code === "quota_exceeded" || isQuotaErrorMessage(message);
-      Alert.alert(
-        isQuota ? quotaAlertTitle(isPro, t) : t("chat.error_title"),
-        message,
-      );
+      const title = isQuota ? quotaAlertTitle(isPro, t) : t("chat.error_title");
+      const body =
+        code === "model_unavailable"
+          ? t("chat.model_unavailable")
+          : message;
+      Alert.alert(title, body);
     },
     [isPro, t],
   );

@@ -399,6 +399,7 @@ class _StreamContext:
     skip_memory_jobs: bool = False
     prior_count: int = 0
     regenerate_backup: _RegenerateBackup | None = None
+    fallback_models: list[str] = field(default_factory=list)
 
 
 async def _restore_regenerate_backup(
@@ -848,6 +849,7 @@ async def stream_regenerate_response(
         skip_memory_jobs=minimal_quiz,
         prior_count=prior_count,
         regenerate_backup=regenerate_backup,
+        fallback_models=plan_service.chat_fallback_models(user, settings, model),
     )
 
     try:
@@ -1189,6 +1191,7 @@ async def _prepare_chat_turn(
             local_places=local_places,
             skip_memory_jobs=quiz_answer,
             prior_count=prior_count,
+            fallback_models=plan_service.chat_fallback_models(user, settings, model),
         )
 
 
@@ -1328,18 +1331,24 @@ async def _stream_and_finalize(
         else:
             was_cancelled = True
     else:
+        stream_meta: dict[str, str] = {}
         async for token in litellm_gateway.stream_chat_completion(
             settings=settings,
             model_alias=ctx.model,
             messages=ctx.prompt_messages,
             max_tokens=ctx.max_output_tokens,
             usage=usage,
+            fallback_aliases=ctx.fallback_models,
+            stream_meta=stream_meta,
         ):
             if should_cancel and should_cancel():
                 was_cancelled = True
                 break
             assistant_parts.append(token)
             yield token
+        resolved = stream_meta.get("model_alias")
+        if resolved:
+            ctx.model = resolved
 
     assistant_text = "".join(assistant_parts).strip()
     if not assistant_text:

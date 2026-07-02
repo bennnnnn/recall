@@ -56,7 +56,15 @@ async def _stream_over_ws(
             await _safe_send_json(websocket, {"type": "error", "message": exc.message})
             return
         except ModelUnavailableError as exc:
-            await _safe_send_json(websocket, {"type": "error", "message": str(exc)})
+            await _safe_send_json(
+                websocket,
+                {
+                    "type": "error",
+                    "code": exc.code,
+                    "message": exc.message,
+                    "failed_model": exc.failed_alias,
+                },
+            )
             return
         except Exception:
             logger.exception("Chat stream failed")
@@ -162,7 +170,15 @@ async def _run_chat_stream(
     except ChatServiceError as exc:
         await _safe_send_json(websocket, {"type": "error", "message": exc.message})
     except ModelUnavailableError as exc:
-        await _safe_send_json(websocket, {"type": "error", "message": str(exc)})
+        await _safe_send_json(
+            websocket,
+            {
+                "type": "error",
+                "code": exc.code,
+                "message": exc.message,
+                "failed_model": exc.failed_alias,
+            },
+        )
     except Exception:
         logger.exception("Unexpected chat stream error")
         await _safe_send_json(

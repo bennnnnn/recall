@@ -23,7 +23,24 @@ logger = logging.getLogger(__name__)
 
 
 class ModelUnavailableError(Exception):
-    pass
+    """Primary (and optional fallback) chat models could not stream."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: str = "model_unavailable",
+        failed_alias: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.message = message
+        self.code = code
+        self.failed_alias = failed_alias
+
+
+_CHAT_MODEL_UNAVAILABLE_MSG = (
+    "That model isn't responding right now. Pick a different model and try again."
+)
 
 
 # DeepSeek-R1 (smart-chat) emits  Dodd... reasoning blocks inline in the
@@ -141,7 +158,8 @@ def _litellm_kwargs(settings: Settings, route: ChatModel) -> dict[str, Any]:
     api_key = getattr(settings, route.api_key_field, "")
     if not api_key:
         raise ModelUnavailableError(
-            f"No API key configured for {route.label} (needs {route.api_key_field})."
+            _CHAT_MODEL_UNAVAILABLE_MSG,
+            failed_alias=route.id,
         )
     kwargs["api_key"] = api_key
     if route.api_base:
@@ -178,13 +196,59 @@ async def stream_chat_completion(
     messages: list[dict[str, Any]],
     max_tokens: int,
     usage: dict[str, int] | None = None,
+    fallback_aliases: list[str] | None = None,
+    stream_meta: dict[str, str] | None = None,
 ) -> AsyncIterator[str]:
     if mock_llm.should_mock_llm(settings):
         logger.info("Using mock LLM stream for alias=%s", model_alias)
+        if stream_meta is not None:
+            stream_meta["model_alias"] = model_alias
         async for token in mock_llm.mock_stream(messages=messages):
             yield token
         return
 
+    aliases = [model_alias, *(fallback_aliases or [])]
+    last_error: ModelUnavailableError | None = None
+
+    for index, alias in enumerate(aliases):
+        try:
+            async for token in _stream_chat_once(
+                settings=settings,
+                model_alias=alias,
+                messages=messages,
+                max_tokens=max_tokens,
+                usage=usage,
+            ):
+                yield token
+            if stream_meta is not None:
+                stream_meta["model_alias"] = alias
+            return
+        except ModelUnavailableError as exc:
+            last_error = exc
+            if index < len(aliases) - 1:
+                logger.warning(
+                    "Chat stream %s unavailable; retrying with fallback %s",
+                    alias,
+                    aliases[index + 1],
+                )
+                continue
+            raise ModelUnavailableError(
+                _CHAT_MODEL_UNAVAILABLE_MSG,
+                failed_alias=model_alias,
+            ) from exc
+
+    if last_error is not None:
+        raise last_error
+
+
+async def _stream_chat_once(
+    *,
+    settings: Settings,
+    model_alias: str,
+    messages: list[dict[str, Any]],
+    max_tokens: int,
+    usage: dict[str, int] | None = None,
+) -> AsyncIterator[str]:
     route = resolve_route(model_alias)
     kwargs = _litellm_kwargs(settings, route)
     stripper = _ThinkStripper()
@@ -217,7 +281,10 @@ async def stream_chat_completion(
         raise
     except Exception as exc:
         logger.exception("LiteLLM streaming failed for alias=%s", model_alias)
-        raise ModelUnavailableError("Model unavailable. Check API keys and try again.") from exc
+        raise ModelUnavailableError(
+            _CHAT_MODEL_UNAVAILABLE_MSG,
+            failed_alias=model_alias,
+        ) from exc
 
 
 def _list_field_name(schema: type[BaseModel]) -> str | None:
