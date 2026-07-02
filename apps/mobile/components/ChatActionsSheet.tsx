@@ -115,7 +115,7 @@ function makeStyles(C: Theme) {
     },
     backdrop: {
       ...StyleSheet.absoluteFill,
-      backgroundColor: "rgba(0,0,0,0.35)",
+      backgroundColor: C.scrim,
     },
     panel: {
       backgroundColor: C.bg,

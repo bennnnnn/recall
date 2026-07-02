@@ -92,7 +92,7 @@ function makeStyles(t: Theme) {
       justifyContent: "center",
     },
     letter: {
-      color: "#fff",
+      color: t.onPrimary,
       fontSize: 15,
       fontWeight: "700",
       marginTop: -1,

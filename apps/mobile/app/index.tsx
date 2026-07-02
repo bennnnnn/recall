@@ -580,7 +580,7 @@ const makeS = (C: Theme) => StyleSheet.create({
     paddingVertical: 6,
     flexShrink: 0,
   },
-  quotaNudgeCtaText: { color: "#fff", fontSize: 13, fontWeight: "700" },
+  quotaNudgeCtaText: { color: C.onPrimary, fontSize: 13, fontWeight: "700" },
   quotaNudgeClose: { padding: 4, flexShrink: 0 },
 });
 

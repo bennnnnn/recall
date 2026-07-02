@@ -125,6 +125,8 @@
   "common.delete": "ሰርዝ",
   "common.error": "የሆነ ችግር ተከስቷል",
   "common.no_internet": "የበይነመረብ ግንኙነት የለም",
+  "common.not_found_home": "Go to home screen",
+  "common.not_found_title": "This screen doesn't exist.",
   "common.ok": "እሺ",
   "common.retry": "እንደገና ሞክር",
   "common.show_less": "ያነሰ አሳይ",

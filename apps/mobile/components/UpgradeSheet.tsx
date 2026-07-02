@@ -129,7 +129,7 @@ export function UpgradeSheet({ visible, onClose }: Props) {
                 onPress={() => void onSubscribe()}
               >
                 {busy || loadingOffer ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={theme.onPrimary} />
                 ) : (
                   <Text style={s.primaryBtnText}>
                     {t("upgrade.subscribe", { price: priceLabel })}
@@ -177,7 +177,7 @@ const makeStyles = (theme: Theme) =>
   StyleSheet.create({
     backdrop: {
       flex: 1,
-      backgroundColor: "rgba(0,0,0,0.45)",
+      backgroundColor: theme.scrim,
       justifyContent: "flex-end",
     },
     sheet: {
@@ -226,7 +226,7 @@ const makeStyles = (theme: Theme) =>
       justifyContent: "center",
     },
     primaryBtnDisabled: { opacity: 0.6 },
-    primaryBtnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+    primaryBtnText: { color: theme.onPrimary, fontSize: 16, fontWeight: "700" },
     secondaryBtn: {
       alignItems: "center",
       paddingVertical: 10,

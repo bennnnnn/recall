@@ -20,7 +20,7 @@ export function ComposerAttachmentPreview({ attachment, uploading, onRemove }: P
         <Image source={{ uri: attachment.localUri }} style={s.image} resizeMode="cover" />
         {uploading ? (
           <View style={s.uploadOverlay}>
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={C.onPrimary} />
           </View>
         ) : null}
         <Pressable
@@ -73,7 +73,7 @@ function makeStyles(C: Theme) {
       ...StyleSheet.absoluteFill,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: "rgba(0,0,0,0.35)",
+      backgroundColor: C.scrim,
     },
     removeBtn: {
       position: "absolute",

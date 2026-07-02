@@ -133,7 +133,7 @@ export default function LoginScreen() {
                 disabled={busy}
               >
                 {busy ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={theme.onPrimary} />
                 ) : (
                   <Text style={s.primaryBtnText}>{t("login.dev")}</Text>
                 )}
@@ -180,7 +180,7 @@ export default function LoginScreen() {
                   disabled={busy}
                 >
                   {busy ? (
-                    <ActivityIndicator color="#fff" />
+                    <ActivityIndicator color={theme.onPrimary} />
                   ) : (
                     <Text style={s.primaryBtnText}>{t("login.dev")}</Text>
                   )}
@@ -332,7 +332,7 @@ function makeStyles(theme: Theme) {
       paddingVertical: 16,
       backgroundColor: theme.primary,
     },
-    primaryBtnText: { fontSize: 16, fontWeight: "700", color: "#fff" },
+    primaryBtnText: { fontSize: 16, fontWeight: "700", color: theme.onPrimary },
     googleBtn: {
       flexDirection: "row",
       alignItems: "center",

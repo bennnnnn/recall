@@ -28,6 +28,12 @@ import { useDrawer } from "@/contexts/DrawerContext";
 import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
 import { useDrawerSearch } from "@/hooks/useDrawerSearch";
 import { api, Chat } from "@/lib/api";
+import {
+  bottomChromeFadeColors,
+  BOTTOM_CHROME_FADE_LOCATIONS,
+  topChromeFadeColors,
+  TOP_CHROME_FADE_LOCATIONS,
+} from "@/lib/chromeFade";
 import { tap } from "@/lib/haptics";
 import { scheduleIdleTask } from "@/lib/scheduleIdle";
 import { DrawerSearchResults } from "@/components/drawer/DrawerSearchResults";
@@ -553,23 +559,8 @@ export function ConversationList(_props: unknown) {
     />
   );
 
-  const topFadeColors = theme.isDark
-    ? [theme.bg, `${theme.bg}FA`, `${theme.bg}D0`, `${theme.bg}70`, `${theme.bg}00`]
-    : [
-        theme.bg,
-        "rgba(255,255,255,0.98)",
-        "rgba(255,255,255,0.82)",
-        "rgba(255,255,255,0.45)",
-        "rgba(255,255,255,0)",
-      ];
-  const bottomFadeColors = theme.isDark
-    ? [`${theme.bg}00`, `${theme.bg}70`, `${theme.bg}D0`, theme.bg]
-    : [
-        "rgba(255,255,255,0)",
-        "rgba(255,255,255,0.45)",
-        "rgba(255,255,255,0.82)",
-        "rgba(255,255,255,0.95)",
-      ];
+  const topFadeColors = topChromeFadeColors(theme);
+  const bottomFadeColors = bottomChromeFadeColors(theme);
 
   return (
     <View style={s.root}>
@@ -620,14 +611,14 @@ export function ConversationList(_props: unknown) {
 
       <LinearGradient
         colors={topFadeColors as [string, string, ...string[]]}
-        locations={[0, 0.25, 0.5, 0.78, 1]}
+        locations={[...TOP_CHROME_FADE_LOCATIONS]}
         style={[s.topFade, { height: topFadeHeight }]}
         pointerEvents="none"
       />
 
       <LinearGradient
         colors={bottomFadeColors as [string, string, ...string[]]}
-        locations={theme.isDark ? [0, 0.35, 0.72, 1] : [0, 0.35, 0.72, 1]}
+        locations={[...BOTTOM_CHROME_FADE_LOCATIONS]}
         style={[s.bottomFade, { height: bottomFadeHeight }]}
         pointerEvents="none"
       />

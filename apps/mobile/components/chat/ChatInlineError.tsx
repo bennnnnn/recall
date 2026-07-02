@@ -81,7 +81,7 @@ function makeStyles(theme: Theme) {
       paddingVertical: 6,
       flexShrink: 0,
     },
-    ctaText: { color: "#fff", fontSize: 12, fontWeight: "700" },
+    ctaText: { color: theme.onPrimary, fontSize: 12, fontWeight: "700" },
     close: { padding: 4, flexShrink: 0 },
   });
 }

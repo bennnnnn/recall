@@ -15,6 +15,15 @@ alwaysApply: true
   (past commits bundled 5+ things — unreviewable and un-bisectable).
 - Commit working increments often; don't let large piles of work sit uncommitted.
 
+## One task, then merge, then continue
+- When the user gives a multi-item backlog (e.g. refinement lanes, ticket lists), **finish one
+  task completely** before starting the next — don't stack two lanes in one uncommitted batch.
+- **Done for one task** = code complete + `./scripts/dev.sh check` green + **commit and push**
+  (unless the user says not to push).
+- Only after that push lands (or the user confirms) start the next task.
+- If a task grows mid-flight, stop and ask whether to split or defer — don't silently absorb
+  the next item into the same diff.
+
 ## Definition of done (don't say "done" until this holds)
 - Run the full gate locally: `./scripts/dev.sh check` (API: ruff + format + mypy + pytest ≥80%;
   mobile: typecheck + lint). It must be green.

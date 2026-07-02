@@ -90,7 +90,7 @@ function makeStyles(theme: Theme) {
       justifyContent: "center",
       marginBottom: 16,
     },
-    badgeStar: { fontSize: 30, color: "#fff" },
+    badgeStar: { fontSize: 30, color: theme.onPrimary },
     title: {
       fontSize: 28,
       fontWeight: "800",
@@ -127,6 +127,6 @@ function makeStyles(theme: Theme) {
       paddingVertical: 16,
       alignItems: "center",
     },
-    ctaText: { fontSize: 16, fontWeight: "700", color: "#fff" },
+    ctaText: { fontSize: 16, fontWeight: "700", color: theme.onPrimary },
   });
 }

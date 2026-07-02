@@ -94,6 +94,6 @@ function makeStyles(theme: Theme, compact: boolean) {
       borderRadius: 10,
       backgroundColor: theme.primary,
     },
-    retryText: { fontSize: 14, fontWeight: "600", color: "#fff" },
+    retryText: { fontSize: 14, fontWeight: "600", color: theme.onPrimary },
   });
 }

@@ -113,7 +113,7 @@ const makeStyles = (theme: Theme) =>
       justifyContent: "center",
     },
     btnDisabled: { opacity: 0.6 },
-    btnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+    btnText: { color: theme.onPrimary, fontSize: 15, fontWeight: "700" },
     doneRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
     doneText: { fontSize: 14, fontWeight: "600", color: theme.primary },
   });

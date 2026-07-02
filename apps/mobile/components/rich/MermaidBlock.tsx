@@ -193,6 +193,6 @@ function makeStyles(t: Theme) {
       borderRadius: 10,
       backgroundColor: t.primary,
     },
-    openLabel: { fontSize: 14, fontWeight: "700", color: "#fff" },
+    openLabel: { fontSize: 14, fontWeight: "700", color: t.onPrimary },
   });
 }

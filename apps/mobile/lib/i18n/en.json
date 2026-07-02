@@ -125,6 +125,8 @@
   "common.delete": "Delete",
   "common.error": "Something went wrong",
   "common.no_internet": "No internet connection",
+  "common.not_found_home": "Go to home screen",
+  "common.not_found_title": "This screen doesn't exist.",
   "common.ok": "OK",
   "common.retry": "Retry",
   "common.show_less": "Show less",

@@ -605,7 +605,7 @@ function makeStyles(theme: Theme) {
     deleteBtnText: { fontSize: 15, fontWeight: "600", color: theme.danger },
     promptOverlay: {
       flex: 1,
-      backgroundColor: "rgba(0,0,0,0.4)",
+      backgroundColor: theme.scrim,
       justifyContent: "center",
       padding: 28,
     },
@@ -630,6 +630,6 @@ function makeStyles(theme: Theme) {
     promptAction: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10 },
     promptActionPrimary: { backgroundColor: theme.primary },
     promptActionText: { fontSize: 15, fontWeight: "600", color: theme.textSecondary },
-    promptActionPrimaryText: { color: "#fff" },
+    promptActionPrimaryText: { color: theme.onPrimary },
   });
 }

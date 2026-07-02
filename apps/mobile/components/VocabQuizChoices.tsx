@@ -156,6 +156,8 @@ export function VocabQuizChoices({
 }
 
 function makeStyles(t: Theme) {
+  const successLight = t.isDark ? "#1a2e1f" : SUCCESS_LIGHT;
+
   return StyleSheet.create({
     wrap: { gap: 12, marginTop: 8 },
     card: {
@@ -235,7 +237,7 @@ function makeStyles(t: Theme) {
     },
     choiceCorrect: {
       borderColor: SUCCESS,
-      backgroundColor: SUCCESS_LIGHT,
+      backgroundColor: successLight,
     },
     choiceWrong: {
       borderColor: t.danger,
@@ -265,7 +267,7 @@ function makeStyles(t: Theme) {
       fontWeight: "800",
     },
     choiceLetterTextSelected: {
-      color: "#fff",
+      color: t.onPrimary,
     },
     choiceText: {
       flex: 1,

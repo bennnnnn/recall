@@ -1118,7 +1118,7 @@ function AddReminderSheet({
 
           {overlap ? (
             <View style={s.overlapNote}>
-              <Ionicons name="information-circle-outline" size={16} color="#c0392b" />
+              <Ionicons name="information-circle-outline" size={16} color={C.danger} />
               <Text style={s.overlapNoteText}>
                 {t("todos.overlap_inline", { task: overlap.content })}
               </Text>
@@ -1186,7 +1186,7 @@ function DuePickerModal({
         />
         {overlap ? (
           <View style={[s.overlapNote, s.pickerOverlapNote]}>
-            <Ionicons name="information-circle-outline" size={16} color="#c0392b" />
+            <Ionicons name="information-circle-outline" size={16} color={C.danger} />
             <Text style={s.overlapNoteText}>
               {t("todos.overlap_inline", { task: overlap.content })}
             </Text>
@@ -1361,10 +1361,10 @@ function makeStyles(C: Theme) {
   todoMain: { flex: 1, gap: 4 },
   todoText: { fontSize: 16, lineHeight: 22, color: C.text },
   dueLabel: { fontSize: 12, fontWeight: "600" },
-  dueOverdue: { color: "#c0392b" },
+  dueOverdue: { color: C.danger },
   dueToday: { color: C.primary },
   dueSoon: { color: C.textSecondary },
-  overlapLabel: { fontSize: 12, fontWeight: "500", color: "#c0392b" },
+  overlapLabel: { fontSize: 12, fontWeight: "500", color: C.danger },
   overlapNote: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -1372,9 +1372,9 @@ function makeStyles(C: Theme) {
     marginTop: 12,
     padding: 10,
     borderRadius: 10,
-    backgroundColor: "#fff0ef",
+    backgroundColor: C.dangerLight,
   },
-  overlapNoteText: { flex: 1, fontSize: 13, lineHeight: 18, color: "#c0392b" },
+  overlapNoteText: { flex: 1, fontSize: 13, lineHeight: 18, color: C.danger },
   pickerOverlapNote: { marginHorizontal: 16, marginBottom: 8 },
   dueBtn: { padding: 2 },
   todoDone: {
@@ -1411,7 +1411,7 @@ function makeStyles(C: Theme) {
   },
   sheetBackdrop: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: "rgba(0,0,0,0.35)",
+    backgroundColor: C.scrim,
   },
   sheet: {
     backgroundColor: C.surface,
@@ -1444,7 +1444,7 @@ function makeStyles(C: Theme) {
   groupOptionText: { fontSize: 15, color: C.text },
   pickerBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.35)",
+    backgroundColor: C.scrim,
   },
   pickerSheet: {
     backgroundColor: C.bg,
@@ -1490,6 +1490,6 @@ function makeStyles(C: Theme) {
     borderRadius: 10,
     backgroundColor: C.primary,
   },
-  retryText: { fontSize: 14, fontWeight: "600", color: "#fff" },
+  retryText: { fontSize: 14, fontWeight: "600", color: C.onPrimary },
   });
 }

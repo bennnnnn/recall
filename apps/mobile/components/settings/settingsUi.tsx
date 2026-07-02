@@ -376,7 +376,7 @@ export function makeSettingsStyles(t: Theme) {
       fontWeight: "600",
       color: t.textSecondary,
     },
-    accountPro: { color: "#FF9F0A" },
+    accountPro: { color: t.warning },
 
     section: { marginTop: 20 },
     sectionLabel: {
@@ -410,7 +410,7 @@ export function makeSettingsStyles(t: Theme) {
     },
     chipActive: { backgroundColor: t.primary, borderColor: t.primary },
     chipText: { color: t.text, fontSize: 13, textTransform: "capitalize" },
-    chipTextActive: { color: "#fff", fontSize: 13, fontWeight: "600", textTransform: "capitalize" },
+    chipTextActive: { color: t.onPrimary, fontSize: 13, fontWeight: "600", textTransform: "capitalize" },
 
     dropdown: {
       flexDirection: "row",
@@ -617,6 +617,6 @@ export function makeSettingsStyles(t: Theme) {
     },
     mCancelText: { fontSize: 15, color: t.textSecondary, fontWeight: "600" },
     mSave: { flex: 1, borderRadius: 12, backgroundColor: t.primary, padding: 12, alignItems: "center" },
-    mSaveText: { fontSize: 15, color: "#fff", fontWeight: "700" },
+    mSaveText: { fontSize: 15, color: t.onPrimary, fontWeight: "700" },
   });
 }

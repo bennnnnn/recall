@@ -125,6 +125,8 @@
   "common.delete": "Eliminar",
   "common.error": "Algo salió mal",
   "common.no_internet": "Sin conexión a internet",
+  "common.not_found_home": "Go to home screen",
+  "common.not_found_title": "This screen doesn't exist.",
   "common.ok": "OK",
   "common.retry": "Reintentar",
   "common.show_less": "Mostrar menos",

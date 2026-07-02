@@ -277,7 +277,7 @@ function makeStyles(theme: Theme) {
       alignItems: "center",
       justifyContent: "flex-end",
     },
-    sendIcon: { color: "#fff", fontSize: 18, fontWeight: "700" },
+    sendIcon: { color: theme.onPrimary, fontSize: 18, fontWeight: "700" },
     picker: {
       marginBottom: 8,
       backgroundColor: theme.bg,

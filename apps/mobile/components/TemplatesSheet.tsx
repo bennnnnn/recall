@@ -132,7 +132,7 @@ function makeStyles(theme: Theme) {
   return StyleSheet.create({
     backdrop: {
       flex: 1,
-      backgroundColor: "rgba(0,0,0,0.35)",
+      backgroundColor: theme.scrim,
     },
     sheet: {
       maxHeight: "72%",

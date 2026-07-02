@@ -1,7 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Animated, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
   message: string | null;
@@ -11,8 +13,6 @@ type Props = {
 };
 
 const SHOW_MS = 2600;
-const TOAST_BG = "#1C1C1E";
-const TOAST_TEXT = "#FFFFFF";
 
 export function ActionBanner({
   message,
@@ -21,6 +21,8 @@ export function ActionBanner({
   bottomOffset = 24,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(24)).current;
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -69,6 +71,8 @@ export function ActionBanner({
 
   if (!message) return null;
 
+  const toastText = theme.isDark ? theme.text : "#FFFFFF";
+
   return (
     <Modal visible transparent animationType="none" onRequestClose={onDismiss}>
       <View style={s.overlay} pointerEvents="box-none">
@@ -84,7 +88,7 @@ export function ActionBanner({
           pointerEvents="box-none"
         >
           <Pressable style={s.toast} onPress={onDismiss}>
-            <Ionicons name={icon} size={18} color={TOAST_TEXT} />
+            <Ionicons name={icon} size={18} color={toastText} />
             <Text style={s.text} numberOfLines={2}>
               {message}
             </Text>
@@ -95,36 +99,43 @@ export function ActionBanner({
   );
 }
 
-const s = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: "flex-end",
-    alignItems: "center",
-  },
-  wrap: {
-    position: "absolute",
-    left: 24,
-    right: 24,
-    alignItems: "center",
-    zIndex: 9999,
-  },
-  toast: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: TOAST_BG,
-    borderRadius: 999,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    maxWidth: 340,
-    boxShadow: "0 8 24 0 rgba(0, 0, 0, 0.45)",
-    elevation: 16,
-  },
-  text: {
-    flexShrink: 1,
-    fontSize: 15,
-    fontWeight: "600",
-    color: TOAST_TEXT,
-    textAlign: "center",
-  },
-});
+function makeStyles(theme: Theme) {
+  const toastBg = theme.isDark ? theme.surfaceAlt : "#1C1C1E";
+  const toastText = theme.isDark ? theme.text : "#FFFFFF";
+
+  return StyleSheet.create({
+    overlay: {
+      flex: 1,
+      justifyContent: "flex-end",
+      alignItems: "center",
+    },
+    wrap: {
+      position: "absolute",
+      left: 24,
+      right: 24,
+      alignItems: "center",
+      zIndex: 9999,
+    },
+    toast: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      backgroundColor: toastBg,
+      borderRadius: 999,
+      paddingHorizontal: 20,
+      paddingVertical: 14,
+      maxWidth: 340,
+      borderWidth: theme.isDark ? StyleSheet.hairlineWidth : 0,
+      borderColor: theme.border,
+      boxShadow: "0 8 24 0 rgba(0, 0, 0, 0.45)",
+      elevation: 16,
+    },
+    text: {
+      flexShrink: 1,
+      fontSize: 15,
+      fontWeight: "600",
+      color: toastText,
+      textAlign: "center",
+    },
+  });
+}

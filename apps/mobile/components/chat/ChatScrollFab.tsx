@@ -79,6 +79,6 @@ const makeS = (C: Theme) =>
     badgeText: {
       fontSize: 11,
       fontWeight: "700",
-      color: "#fff",
+      color: C.onPrimary,
     },
   });

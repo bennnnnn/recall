@@ -125,6 +125,8 @@
   "common.delete": "Sil",
   "common.error": "Bir şeyler ters gitti",
   "common.no_internet": "İnternet bağlantısı yok",
+  "common.not_found_home": "Go to home screen",
+  "common.not_found_title": "This screen doesn't exist.",
   "common.ok": "Tamam",
   "common.retry": "Tekrar dene",
   "common.show_less": "Daha az göster",

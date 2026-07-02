@@ -37,6 +37,6 @@ function makeStyles(theme: Theme) {
       alignItems: "center",
       justifyContent: "center",
     },
-    text: { color: "#fff", fontWeight: "700" },
+    text: { color: theme.onPrimary, fontWeight: "700" },
   });
 }

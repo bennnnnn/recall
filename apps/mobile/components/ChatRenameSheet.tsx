@@ -62,7 +62,7 @@ function makeStyles(C: Theme) {
   return StyleSheet.create({
     overlay: {
       flex: 1,
-      backgroundColor: "rgba(0,0,0,0.4)",
+      backgroundColor: C.scrim,
       justifyContent: "center",
       padding: 24,
     },
@@ -94,6 +94,6 @@ function makeStyles(C: Theme) {
       padding: 12,
       alignItems: "center",
     },
-    saveText: { fontSize: 15, color: "#fff", fontWeight: "700" },
+    saveText: { fontSize: 15, color: C.onPrimary, fontWeight: "700" },
   });
 }
