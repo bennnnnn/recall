@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import logging
 import re
 from datetime import UTC, datetime, timedelta
 from typing import TypeVar
@@ -13,6 +14,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.core.redis import get_redis_client
 from app.models.orm import Memory, Project, User
 from app.models.schemas import (
     HomeProjectHighlight,
@@ -28,6 +30,8 @@ from app.repositories import suggestions as suggestions_repo
 from app.repositories import todos as todos_repo
 from app.services import memory as memory_service
 from app.services import reminder_timing
+
+logger = logging.getLogger(__name__)
 from app.services import time_context as time_context_service
 
 MAX_STARTERS = 5
@@ -516,3 +520,42 @@ async def build_home_screen(
         urgent_todos=urgent_todos,
         starters=rotated[:MAX_STARTERS],
     )
+
+
+def _home_cache_key(user_id: UUID, tz: ZoneInfo, day_seed: int) -> str:
+    return f"home:{user_id}:{tz.key}:{day_seed}"
+
+
+async def get_home_screen_cached(
+    session: AsyncSession,
+    user: User,
+    settings: Settings,
+    *,
+    client_timezone: str | None = None,
+) -> HomeScreenOut:
+    home_tz = _resolve_home_tz(user, client_timezone)
+    day_seed = _day_seed(user, home_tz)
+    cache_key = _home_cache_key(user.id, home_tz, day_seed)
+    redis = get_redis_client()
+    try:
+        cached = await redis.get(cache_key)
+        if cached:
+            return HomeScreenOut.model_validate_json(cached)
+    except Exception:
+        logger.debug("Home screen cache read failed", exc_info=True)
+
+    screen = await build_home_screen(
+        session,
+        user,
+        settings,
+        client_timezone=client_timezone,
+    )
+    try:
+        await redis.set(
+            cache_key,
+            screen.model_dump_json(),
+            ex=max(30, settings.home_cache_ttl),
+        )
+    except Exception:
+        logger.debug("Home screen cache write failed", exc_info=True)
+    return screen

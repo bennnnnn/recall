@@ -438,6 +438,35 @@ async def test_search_with_cache_separate_entries_per_max_results(fake_redis):
     assert search_mock.call_args_list[1].kwargs["max_results"] == 5
 
 
+@pytest.mark.asyncio
+async def test_search_with_cache_single_flight_on_miss(fake_redis):
+    import asyncio
+
+    from app.services.web_search import _search_with_cache
+
+    settings = Settings(web_search_cache_ttl=300, mock_llm_enabled=True)
+    call_count = 0
+
+    async def slow_search(_settings, _query, *, max_results=5):
+        nonlocal call_count
+        call_count += 1
+        await asyncio.sleep(0.25)
+        return [
+            WebSearchHit(title="Hit", url="https://example.com", snippet="snippet"),
+        ]
+
+    with (
+        patch("app.services.web_search.get_redis_client", return_value=fake_redis),
+        patch("app.services.web_search.web_search_gateway.search_web", slow_search),
+    ):
+        results = await asyncio.gather(
+            *[_search_with_cache(settings, "same query", max_results=3) for _ in range(3)]
+        )
+
+    assert call_count == 1
+    assert all(result == results[0] for result in results)
+
+
 def test_mock_search_results_respects_limit():
     hits = mock_search_results("query", max_results=1)
     assert len(hits) == 1

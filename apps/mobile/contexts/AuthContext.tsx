@@ -106,11 +106,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    const userId = user?.id;
     try {
       const { cancelAllTodoReminders } = await import("@/lib/todoReminders");
       await cancelAllTodoReminders();
     } catch {
       /* best-effort */
+    }
+    try {
+      const { clearReminderLeadPrefs } = await import("@/lib/reminderPrefs");
+      await clearReminderLeadPrefs();
+    } catch {
+      /* best-effort */
+    }
+    if (userId) {
+      try {
+        const { clearSeenReminderIds } = await import("@/lib/reminderSeen");
+        await clearSeenReminderIds(userId);
+      } catch {
+        /* best-effort */
+      }
     }
     try {
       await signOutGoogle();
@@ -121,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await clearToken();
     setTokenState(null);
     setUser(null);
-  }, []);
+  }, [user?.id]);
 
   // Sign out automatically when any authenticated request returns 401.
   useEffect(() => {

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -963,34 +964,66 @@ async def _search_with_cache(
 
     cache_key = _search_cache_key(cleaned, max_results)
     redis = get_redis_client()
+
+    def _hits_from_payload(payload: object) -> list[WebSearchHit] | None:
+        if not isinstance(payload, list):
+            return None
+        return [
+            WebSearchHit(
+                title=str(item.get("title") or ""),
+                url=str(item.get("url") or ""),
+                snippet=str(item.get("snippet") or ""),
+            )
+            for item in payload
+            if isinstance(item, dict)
+        ]
+
     try:
         cached = await redis.get(cache_key)
         if cached:
-            payload = json.loads(cached)
-            if isinstance(payload, list):
-                return [
-                    WebSearchHit(
-                        title=str(item.get("title") or ""),
-                        url=str(item.get("url") or ""),
-                        snippet=str(item.get("snippet") or ""),
-                    )
-                    for item in payload
-                    if isinstance(item, dict)
-                ]
+            hits = _hits_from_payload(json.loads(cached))
+            if hits is not None:
+                return hits
     except Exception:
         logger.debug("Web search cache read failed", exc_info=True)
 
-    hits = await web_search_gateway.search_web(settings, cleaned, max_results=max_results)
-    if hits:
-        try:
-            await redis.set(
-                cache_key,
-                json.dumps([asdict(hit) for hit in hits]),
-                ex=max(60, settings.web_search_cache_ttl),
-            )
-        except Exception:
-            logger.debug("Web search cache write failed", exc_info=True)
-    return hits
+    lock_key = f"{cache_key}:lock"
+    acquired = False
+    try:
+        acquired = bool(await redis.set(lock_key, "1", ex=30, nx=True))
+    except Exception:
+        logger.debug("Web search lock acquire failed", exc_info=True)
+
+    if not acquired:
+        for _ in range(20):
+            await asyncio.sleep(0.1)
+            try:
+                cached = await redis.get(cache_key)
+                if cached:
+                    hits = _hits_from_payload(json.loads(cached))
+                    if hits is not None:
+                        return hits
+            except Exception:
+                logger.debug("Web search cache read failed", exc_info=True)
+
+    try:
+        hits = await web_search_gateway.search_web(settings, cleaned, max_results=max_results)
+        if hits:
+            try:
+                await redis.set(
+                    cache_key,
+                    json.dumps([asdict(hit) for hit in hits]),
+                    ex=max(60, settings.web_search_cache_ttl),
+                )
+            except Exception:
+                logger.debug("Web search cache write failed", exc_info=True)
+        return hits
+    finally:
+        if acquired:
+            try:
+                await redis.delete(lock_key)
+            except Exception:
+                logger.debug("Web search lock release failed", exc_info=True)
 
 
 async def augment_prompt_messages(

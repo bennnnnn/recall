@@ -80,6 +80,7 @@ export function useChatRouteLoader({
   const pendingLaunchRef = useRef<string | null>(null);
   const pendingProjectIdRef = useRef<string | null>(null);
   const handledLaunchIdRef = useRef<string | null>(null);
+  const skipNextFocusRef = useRef(true);
 
   const pollForTitle = useCallback(async (tid: string, cid: string) => {
     setTitleGenerating(true);
@@ -121,6 +122,10 @@ export function useChatRouteLoader({
       setChatTitleGenerating(null);
     }
   }, [chatId]);
+
+  useEffect(() => {
+    skipNextFocusRef.current = true;
+  }, [routeChatId]);
 
   useEffect(() => {
     if (!token) {
@@ -181,6 +186,33 @@ export function useChatRouteLoader({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, routeChatId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const openChatId = typeof routeChatId === "string" ? routeChatId : null;
+      if (skipNextFocusRef.current) {
+        skipNextFocusRef.current = false;
+        return;
+      }
+      if (!token || !openChatId || streaming || chatLoading) return;
+
+      void (async () => {
+        try {
+          const [chat, page] = await Promise.all([
+            api.getChat(token, openChatId),
+            api.listMessages(token, openChatId, { limit: MESSAGE_PAGE_SIZE }),
+          ]);
+          setChatId(chat.id);
+          setChatTitle(chat.title);
+          setPinned(chat.pinned);
+          setMessages(page.messages);
+          setHasMoreOlder(page.has_more);
+        } catch {
+          /* keep existing messages on silent refetch failure */
+        }
+      })();
+    }, [token, routeChatId, streaming, chatLoading, setChatId, setMessages]),
+  );
 
   const loadOlderMessages = useCallback(async () => {
     if (!token || !chatId || loadingOlder || !hasMoreOlder || messages.length === 0) return;

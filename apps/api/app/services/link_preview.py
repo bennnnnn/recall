@@ -1,11 +1,16 @@
 import asyncio
+import hashlib
 import ipaddress
+import json
 import logging
 import re
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse
 
 import httpx
+
+from app.core.config import Settings
+from app.core.redis import get_redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -125,3 +130,37 @@ async def fetch_link_preview(url: str) -> dict[str, str | None]:
         "description": description,
         "domain": domain,
     }
+
+
+def _preview_cache_key(url: str) -> str:
+    digest = hashlib.sha256(url.strip().lower().encode()).hexdigest()[:32]
+    return f"linkpreview:{digest}"
+
+
+async def fetch_link_preview_cached(settings: Settings, url: str) -> dict[str, str | None]:
+    cache_key = _preview_cache_key(url)
+    redis = get_redis_client()
+    try:
+        cached = await redis.get(cache_key)
+        if cached:
+            payload = json.loads(cached)
+            if isinstance(payload, dict):
+                return {
+                    "url": str(payload.get("url") or url),
+                    "title": payload.get("title"),
+                    "description": payload.get("description"),
+                    "domain": str(payload.get("domain") or urlparse(url).netloc or url),
+                }
+    except Exception:
+        logger.debug("Link preview cache read failed", exc_info=True)
+
+    result = await fetch_link_preview(url)
+    try:
+        await redis.set(
+            cache_key,
+            json.dumps(result),
+            ex=max(60, settings.link_preview_cache_ttl),
+        )
+    except Exception:
+        logger.debug("Link preview cache write failed", exc_info=True)
+    return result

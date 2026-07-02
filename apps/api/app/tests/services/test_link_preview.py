@@ -196,6 +196,27 @@ async def test_fetch_link_preview_blocks_internal_address():
 
 
 @pytest.mark.asyncio
+async def test_fetch_link_preview_uses_redis_cache(fake_redis):
+    from app.core.config import Settings
+    from app.services.link_preview import fetch_link_preview_cached
+
+    settings = Settings(link_preview_cache_ttl=3600)
+    resp = _mock_response(text=_OG_HTML)
+    with (
+        patch("app.services.link_preview.get_redis_client", return_value=fake_redis),
+        patch("app.services.link_preview._validate_external_url", AsyncMock()),
+        patch("app.services.link_preview.httpx.AsyncClient") as mock_client,
+    ):
+        _setup_httpx_mock(mock_client, resp)
+        first = await fetch_link_preview_cached(settings, "https://example.com/page")
+        second = await fetch_link_preview_cached(settings, "https://example.com/page")
+
+    assert first["title"] == "OG Title"
+    assert second == first
+    assert mock_client.return_value.get.await_count == 1
+
+
+@pytest.mark.asyncio
 async def test_validate_external_url_unresolvable_hostname():
     """An unresolvable hostname should raise ValueError."""
     from app.services.link_preview import _validate_external_url

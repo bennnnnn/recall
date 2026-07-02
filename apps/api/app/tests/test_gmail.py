@@ -383,3 +383,28 @@ async def test_sync_gmail_processes_messages():
     assert message_count == 1
     assert reminders_created == 1
     create_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_disconnect_gmail_clears_redis_cache():
+    from app.services import email as email_service
+    from app.routers.gmail_integrations import disconnect_gmail
+
+    user = MagicMock()
+    user.id = uuid4()
+    session = AsyncMock()
+    redis = AsyncMock()
+
+    with (
+        patch(
+            "app.routers.gmail_integrations.suggested_repo.delete_for_user",
+            AsyncMock(),
+        ),
+        patch(
+            "app.routers.gmail_integrations.gmail_repo.delete_for_user",
+            AsyncMock(),
+        ),
+    ):
+        await disconnect_gmail(user=user, session=session, redis=redis)
+
+    redis.delete.assert_awaited_once_with(email_service._cache_key(user.id))

@@ -137,9 +137,14 @@ async def connect_gmail(
 async def disconnect_gmail(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
 ) -> None:
     await suggested_repo.delete_for_user(session, user.id)
     await gmail_repo.delete_for_user(session, user.id)
+    try:
+        await redis.delete(email_service._cache_key(user.id))
+    except Exception:
+        logger.exception("Failed to clear gmail cache after disconnect")
 
 
 @router.post("/sync")
