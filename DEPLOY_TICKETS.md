@@ -4,8 +4,8 @@ Code tickets only — ops items (Fly secrets, R2 creds, EAS signing, on-device Q
 
 | # | Ticket | Status |
 |---|--------|--------|
-| 1 | Offline banner clears when link reconnects (ignore stale `isInternetReachable`) | pending |
-| 2 | Templates UI — browse built-in/user templates, start chat from template | pending |
+| 1 | Offline banner clears when link reconnects (ignore stale `isInternetReachable`) | done (#29) |
+| 2 | Templates UI — browse built-in/user templates, start chat from template | in progress |
 | 3 | Production gate: require R2 storage config (not ephemeral local disk) | pending |
 | 4 | Fly Docker build context + `.dockerignore` | pending |
 | 5 | Mobile prod build: conditional `expo-dev-client`, remove hardcoded LAN `apiUrl` | pending |
