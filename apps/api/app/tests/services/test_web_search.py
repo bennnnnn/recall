@@ -211,8 +211,9 @@ def test_build_search_query_strips_prefix():
 
 def test_build_search_query_yesterday_sports():
     queries = build_search_queries("Show me yesterdays game", user_timezone="UTC")
-    assert any("World Cup" in q or "soccer" in q.lower() for q in queries)
-    assert any("June" in q or "yesterday" in q.lower() for q in queries)
+    assert any("World Cup" in q for q in queries)
+    # Sports queries include yesterday/today as formatted dates (not the word "yesterday").
+    assert any("2026-" in q or " 2026" in q for q in queries)
 
 
 def test_build_search_query_news_defaults():

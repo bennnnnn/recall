@@ -16,7 +16,7 @@ defaults:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     services:
       postgres:
         image: pgvector/pgvector:pg16
@@ -49,9 +49,11 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
 
       - name: Install dependencies
-        run: uv sync --all-groups
+        run: uv sync --all-groups --frozen
 
       - name: Ruff check
         run: uv run ruff check .
@@ -66,4 +68,13 @@ jobs:
         run: uv run alembic upgrade head
 
       - name: Pytest
-        run: uv run pytest --cov=app --cov-report=term-missing --cov-fail-under=80
+        env:
+          VIRTUAL_ENV: ""
+        run: |
+          rm -rf .pytest_cache
+          uv run pytest app/tests/services app/tests/repositories \
+            --cov=app --cov-report=
+          uv run pytest app/tests \
+            --ignore=app/tests/services \
+            --ignore=app/tests/repositories \
+            --cov=app --cov-append --cov-report=term-missing --cov-fail-under=80
