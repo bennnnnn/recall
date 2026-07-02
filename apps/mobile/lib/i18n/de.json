@@ -7,6 +7,7 @@
   "calendar.google_meeting": "Google Calendar",
   "calendar.google_meeting_from": "{{calendar}}",
   "calendar.jump_today": "Heute",
+  "calendar.load_failed": "Google Calendar konnte nicht geladen werden. Ihre Erinnerungen werden unten angezeigt.",
   "calendar.next_month": "Nächster Monat",
   "calendar.no_items_day": "Nichts an diesem Tag",
   "calendar.no_reminders_day": "Nichts an diesem Tag",

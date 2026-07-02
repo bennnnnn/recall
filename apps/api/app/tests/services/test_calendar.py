@@ -134,6 +134,43 @@ async def test_has_write_access():
 
 
 @pytest.mark.asyncio
+async def test_list_events_for_api_reports_fetch_failure():
+    from unittest.mock import AsyncMock, MagicMock, patch
+    from uuid import uuid4
+
+    from app.core.config import Settings
+    from app.gateways.google_calendar_gateway import GoogleCalendarError
+    from app.services.calendar import list_events_for_api
+
+    user = MagicMock()
+    user.id = uuid4()
+    user.timezone = "UTC"
+    session = AsyncMock()
+    redis = AsyncMock()
+    redis.get = AsyncMock(return_value=None)
+    settings = Settings()
+
+    with (
+        patch(
+            "app.services.calendar.is_connected",
+            AsyncMock(return_value=True),
+        ),
+        patch(
+            "app.services.calendar.calendar_repo.get_for_user",
+            AsyncMock(return_value=MagicMock(refresh_token="rt", calendar_id="primary")),
+        ),
+        patch(
+            "app.services.calendar.google_calendar_gateway.list_upcoming_events",
+            AsyncMock(side_effect=GoogleCalendarError("token expired")),
+        ),
+    ):
+        result = await list_events_for_api(session, redis, user, settings)
+
+    assert result.events == []
+    assert result.load_error == "fetch_failed"
+
+
+@pytest.mark.asyncio
 async def test_fetch_upcoming_events_uses_redis_cache():
     from unittest.mock import AsyncMock, MagicMock, patch
     from uuid import uuid4

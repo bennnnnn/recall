@@ -80,9 +80,9 @@ async def calendar_events(
             all_day=event.all_day,
             calendar_name=event.calendar_name,
         )
-        for event in raw
+        for event in raw.events
     ]
-    return GoogleCalendarEventsOut(events=events)
+    return GoogleCalendarEventsOut(events=events, load_error=raw.load_error)
 
 
 @router.post("/connect", response_model=GoogleCalendarStatusOut)
@@ -227,8 +227,8 @@ async def calendar_conflicts(
     redis: Redis = Depends(get_redis),
     settings: Settings = Depends(get_settings_dep),
 ) -> CalendarConflictsOut:
-    events = await calendar_service.list_events_for_api(session, redis, user, settings)
-    conflicts = calendar_service.find_conflicting_events(events, due_at)
+    result = await calendar_service.list_events_for_api(session, redis, user, settings)
+    conflicts = calendar_service.find_conflicting_events(result.events, due_at)
     return CalendarConflictsOut(
         conflicts=[
             CalendarConflictOut(

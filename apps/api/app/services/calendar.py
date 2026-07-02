@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
@@ -247,13 +248,31 @@ async def fetch_upcoming_events(
     user: User,
     settings: Settings,
 ) -> list[CalendarEvent]:
+    result = await _fetch_upcoming_events(session, redis, user, settings, report_errors=False)
+    return result.events
+
+
+@dataclass(frozen=True)
+class CalendarListResult:
+    events: list[CalendarEvent]
+    load_error: str | None = None
+
+
+async def _fetch_upcoming_events(
+    session: AsyncSession,
+    redis: Redis,
+    user: User,
+    settings: Settings,
+    *,
+    report_errors: bool,
+) -> CalendarListResult:
     connection = await calendar_repo.get_for_user(session, user.id)
     if connection is None:
-        return []
+        return CalendarListResult(events=[])
 
     cached = await _load_cached_events(redis, user.id)
     if cached is not None:
-        return cached
+        return CalendarListResult(events=cached)
 
     try:
         events = await google_calendar_gateway.list_upcoming_events(
@@ -264,10 +283,12 @@ async def fetch_upcoming_events(
             days=settings.calendar_fetch_days,
         )
     except GoogleCalendarError:
-        return []
+        if report_errors:
+            return CalendarListResult(events=[], load_error="fetch_failed")
+        return CalendarListResult(events=[])
 
     await _store_cached_events(redis, user.id, events, settings.calendar_cache_ttl)
-    return events
+    return CalendarListResult(events=events)
 
 
 async def load_calendar_for_prompt(
@@ -289,10 +310,10 @@ async def list_events_for_api(
     redis: Redis,
     user: User,
     settings: Settings,
-) -> list[CalendarEvent]:
+) -> CalendarListResult:
     if not await is_connected(session, user.id):
-        return []
-    return await fetch_upcoming_events(session, redis, user, settings)
+        return CalendarListResult(events=[])
+    return await _fetch_upcoming_events(session, redis, user, settings, report_errors=True)
 
 
 def has_write_scope(scopes: str) -> bool:

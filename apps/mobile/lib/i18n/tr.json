@@ -7,6 +7,7 @@
   "calendar.google_meeting": "Google Calendar",
   "calendar.google_meeting_from": "{{calendar}}",
   "calendar.jump_today": "Bugün",
+  "calendar.load_failed": "Google Calendar yüklenemedi. Hatırlatıcılarınız aşağıda görünüyor.",
   "calendar.next_month": "Sonraki ay",
   "calendar.no_items_day": "Bu günde bir şey yok",
   "calendar.no_reminders_day": "Bu günde bir şey yok",

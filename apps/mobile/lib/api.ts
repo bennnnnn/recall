@@ -603,7 +603,7 @@ export const api = {
   disconnectGoogleCalendar: (token: string) =>
     request<void>("/integrations/google-calendar", token, { method: "DELETE" }),
   listGoogleCalendarEvents: (token: string) =>
-    request<{ events: GoogleCalendarEvent[] }>(
+    request<{ events: GoogleCalendarEvent[]; load_error?: string | null }>(
       "/integrations/google-calendar/events",
       token,
     ),

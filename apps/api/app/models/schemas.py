@@ -636,6 +636,7 @@ class GoogleCalendarEventOut(BaseModel):
 
 class GoogleCalendarEventsOut(BaseModel):
     events: list[GoogleCalendarEventOut] = Field(default_factory=list)
+    load_error: str | None = None
 
 
 class GoogleGmailConnectRequest(BaseModel):
