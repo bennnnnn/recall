@@ -12,7 +12,9 @@ import { ModelsProvider } from "@/contexts/ModelsContext";
 import { ProjectsProvider } from "@/contexts/ProjectsContext";
 import { TodosProvider } from "@/contexts/TodosContext";
 import { PushNotificationBootstrap } from "@/components/PushNotificationBootstrap";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import { StackBackButton } from "@/components/StackBackButton";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { stackHeaderOptions } from "@/lib/stackHeader";
 import { useTheme } from "@/lib/theme";
 import { useTranslation } from "react-i18next";
@@ -23,10 +25,12 @@ function RootNavigator() {
   const { t } = useTranslation();
   const theme = useTheme();
   const header = useMemo(() => stackHeaderOptions(theme), [theme]);
+  const { isOffline } = useNetworkStatus();
 
   return (
     <>
       <StatusBar style={theme.isDark ? "light" : "dark"} />
+      <OfflineBanner visible={isOffline} />
       <Stack
       screenOptions={{
         headerShown: false,

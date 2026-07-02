@@ -116,6 +116,7 @@
   "common.copy": "ቅዳ",
   "common.delete": "ሰርዝ",
   "common.error": "የሆነ ችግር ተከስቷል",
+  "common.no_internet": "የበይነመረብ ግንኙነት የለም",
   "common.ok": "እሺ",
   "common.retry": "እንደገና ሞክር",
   "common.show_less": "ያነሰ አሳይ",

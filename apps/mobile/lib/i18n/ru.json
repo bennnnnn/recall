@@ -116,6 +116,7 @@
   "common.copy": "Копировать",
   "common.delete": "Удалить",
   "common.error": "Что-то пошло не так",
+  "common.no_internet": "Нет подключения к интернету",
   "common.ok": "ОК",
   "common.retry": "Повторить",
   "common.show_less": "Показать меньше",
