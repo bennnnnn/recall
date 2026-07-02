@@ -25,9 +25,10 @@ case "${1:-}" in
     ;;
   mobile-sim)
     kill_metro
+    "$ROOT/scripts/set-sim-ip.sh"
     cd "$ROOT/apps/mobile"
-    echo "Simulator mode — opens Expo Go (LAN bind so 127.0.0.1 reload works)."
-    pnpm exec expo start --lan --go --ios
+    echo "iOS Simulator — Expo Go on virtual device (API at 127.0.0.1:8000)."
+    pnpm exec expo start --lan --clear --go --ios
     ;;
   mobile-tunnel)
     kill_metro

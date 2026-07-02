@@ -44,11 +44,22 @@ REDIS_URL=rediss://default:xxx@xxx.upstash.io:6379
 ```
 
 **Mobile:**
+
+| Where you test | Start commands | `EXPO_PUBLIC_API_URL` |
+|----------------|----------------|------------------------|
+| **iOS Simulator (default here)** | `./scripts/dev.sh api` then `./scripts/dev.sh mobile-sim` | `http://127.0.0.1:8000` (set automatically) |
+| Physical device + Expo Go | `./scripts/dev.sh api` then `./scripts/set-lan-ip.sh` then `./scripts/dev.sh mobile` | `http://<your-lan-ip>:8000` |
+
 ```bash
-./scripts/dev.sh mobile
+./scripts/dev.sh api          # backend → http://localhost:8000/health
+./scripts/dev.sh mobile-sim   # iOS Simulator + Expo Go (not QR on a real phone)
+./scripts/dev.sh mobile       # LAN + QR for a physical device on same Wi‑Fi
+./scripts/dev.sh kill-metro   # stop Metro if ports are stuck
 ```
 
-On a physical device, set `EXPO_PUBLIC_API_URL=http://<your-lan-ip>:8000` in `apps/mobile/.env`.
+**Mobile app notes:** use **Continue as Dev User** in Expo Go (Google Sign-In needs a dev build). Theme: **Settings → Personalization → Appearance** (System / Light / Dark). After pulling mobile changes, restart Expo with `--clear` if the bundle looks stale.
+
+On a physical device only, run `./scripts/set-lan-ip.sh` before Expo — do **not** use the LAN IP in the simulator (use `127.0.0.1` instead).
 
 ## Dev without Google or API keys
 

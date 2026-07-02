@@ -10,6 +10,9 @@ Format each as **symptom → cause → fix** in 1–3 lines. Newest first. Keep 
 
 ## Lessons
 
+- **Simulator can't reach LAN API URL.** Physical device needs `EXPO_PUBLIC_API_URL=http://<lan-ip>:8000`
+  (`./scripts/set-lan-ip.sh`); iOS Simulator needs `http://127.0.0.1:8000` (`./scripts/set-sim-ip.sh`
+  or `./scripts/dev.sh mobile-sim`). Wrong URL → login/chat fails with network errors, not a code bug.
 - **"Coverage is failing" but really lint/types are.** CI order is `ruff check → ruff format
   --check → mypy → pytest --cov-fail-under=80`; an earlier step failing means pytest never runs.
   Run the whole chain locally before committing, not just pytest.
