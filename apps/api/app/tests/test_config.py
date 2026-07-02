@@ -111,6 +111,29 @@ def test_validate_production_settings_requires_r2():
         )
 
 
+def test_validate_production_settings_requires_google_client_secret():
+    base = dict(
+        environment="production",
+        dev_auth_enabled=False,
+        mock_llm_enabled=False,
+        jwt_secret="super-secret-key-that-is-at-least-32-chars!!",
+        google_client_id="client-id",
+        cors_origins="https://app.recall.app",
+        openrouter_api_key="sk-or-xxx",
+        revenuecat_webhook_auth="whsec-xxx",
+        oauth_token_encryption_key="key",
+        storage_backend="r2",
+        r2_account_id="acct",
+        r2_access_key_id="key",
+        r2_secret_access_key="secret",
+        r2_bucket="recall",
+    )
+    with pytest.raises(RuntimeError, match="GOOGLE_CLIENT_SECRET"):
+        validate_production_settings(Settings(**base, google_client_secret=""))
+    with pytest.raises(RuntimeError, match="GOOGLE_CLIENT_SECRET"):
+        validate_production_settings(Settings(**base, google_client_secret="   "))
+
+
 @pytest.mark.asyncio
 async def test_allow_request(fake_redis):
     assert await allow_request(fake_redis, "rate:test", limit=2, window_seconds=60) is True
