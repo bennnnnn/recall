@@ -116,6 +116,7 @@
   "common.copy": "Copia",
   "common.delete": "Elimina",
   "common.error": "Qualcosa è andato storto",
+  "common.no_internet": "Nessuna connessione Internet",
   "common.ok": "OK",
   "common.retry": "Riprova",
   "common.show_less": "Mostra meno",

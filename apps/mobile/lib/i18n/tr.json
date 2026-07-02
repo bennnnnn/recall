@@ -116,6 +116,7 @@
   "common.copy": "Kopyala",
   "common.delete": "Sil",
   "common.error": "Bir şeyler ters gitti",
+  "common.no_internet": "İnternet bağlantısı yok",
   "common.ok": "Tamam",
   "common.retry": "Tekrar dene",
   "common.show_less": "Daha az göster",
