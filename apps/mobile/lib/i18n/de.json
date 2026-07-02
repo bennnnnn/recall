@@ -357,6 +357,7 @@
   "settings.gmail_not_configured": "Gmail-Verbindung ist auf dem Server noch nicht eingerichtet.",
   "settings.gmail_sync": "Synchronisieren",
   "settings.gmail_sync_done": "{{count}} aktuelle Nachrichten synchronisiert.",
+  "settings.gmail_sync_skipped": "Gmail ist bereits auf dem neuesten Stand.",
   "settings.gmail_sync_failed": "Gmail konnte nicht synchronisiert werden.",
   "settings.gmail_title": "Gmail",
   "settings.integration_not_connected": "Nicht verbunden",

@@ -645,13 +645,19 @@ export const api = {
     }),
   disconnectGoogleGmail: (token: string) =>
     request<void>("/integrations/google-gmail", token, { method: "DELETE" }),
-  syncGoogleGmail: (token: string) =>
+  syncGoogleGmail: (token: string, options?: { force?: boolean }) =>
     request<{
       status: string;
       message_count: number;
       reminders_created: number;
       skipped?: boolean;
-    }>("/integrations/google-gmail/sync", token, { method: "POST" }),
+    }>(
+      options?.force
+        ? "/integrations/google-gmail/sync?force=true"
+        : "/integrations/google-gmail/sync",
+      token,
+      { method: "POST" },
+    ),
   listSuggestedReminders: (token: string) =>
     request<{ reminders: SuggestedReminder[]; pending_count: number }>(
       "/integrations/google-gmail/suggested-reminders",

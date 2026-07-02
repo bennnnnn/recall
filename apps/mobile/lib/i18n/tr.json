@@ -357,6 +357,7 @@
   "settings.gmail_not_configured": "Gmail bağlantısı sunucuda henüz yapılandırılmadı.",
   "settings.gmail_sync": "Eşitle",
   "settings.gmail_sync_done": "{{count}} son mesaj eşitlendi.",
+  "settings.gmail_sync_skipped": "Gmail zaten güncel.",
   "settings.gmail_sync_failed": "Gmail eşitlenemedi.",
   "settings.gmail_title": "Gmail",
   "settings.integration_not_connected": "Bağlı değil",
