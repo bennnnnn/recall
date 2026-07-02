@@ -202,14 +202,16 @@ async def load_gmail_context(
     cache_key = _cache_key(user.id)
     messages: list[GmailMessage] = []
     fetch_error: str | None = None
+    cache_hit = False
     try:
         cached = await redis.get(cache_key)
-        if cached:
+        if cached is not None:
             messages = _messages_from_cache(cached)
+            cache_hit = True
     except Exception:
         logger.debug("Gmail cache read failed", exc_info=True)
 
-    if not messages:
+    if not cache_hit:
         try:
             messages = await gmail_gateway.list_recent_messages(
                 settings,

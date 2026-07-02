@@ -252,6 +252,44 @@ async def test_load_gmail_context_uses_cache():
 
 
 @pytest.mark.asyncio
+async def test_load_gmail_context_uses_empty_cache_without_refetch():
+    from app.gateways import google_gmail_gateway
+    from app.services import email as email_service
+
+    session = MagicMock()
+    redis = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    settings = Settings()
+    conn = MagicMock()
+    conn.google_email = "me@example.com"
+    conn.refresh_token = "refresh"
+
+    list_recent = AsyncMock()
+
+    with (
+        patch.object(google_gmail_gateway, "is_configured", return_value=True),
+        patch(
+            "app.services.email.gmail_repo.get_for_user",
+            AsyncMock(return_value=conn),
+        ),
+        patch.object(redis, "get", AsyncMock(return_value="[]")),
+        patch.object(google_gmail_gateway, "list_recent_messages", list_recent),
+        patch(
+            "app.services.email.suggested_repo.list_pending_for_user",
+            AsyncMock(return_value=[]),
+        ),
+    ):
+        ctx = await email_service.load_gmail_context(session, redis, user, settings)
+
+    assert ctx is not None
+    _, messages, _, fetch_error = ctx
+    assert messages == []
+    assert fetch_error is None
+    list_recent.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_load_gmail_for_prompt_returns_block():
     from app.services import email as email_service
 
