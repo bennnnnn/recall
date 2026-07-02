@@ -38,11 +38,11 @@ async def test_process_todo_reminders_due_soon():
         messages = await push_service.process_todo_reminders(session, now=now)
 
     assert len(messages) == 1
-    assert messages[0]["title"] == "Reminder"
-    assert messages[0]["body"] == "Call dentist"
-    assert messages[0]["data"]["todo_id"] == str(todo.id)
-    session.commit.assert_awaited_once()
-    assert todo.notification_sent_at == now
+    assert messages[0].message["title"] == "Reminder"
+    assert messages[0].message["body"] == "Call dentist"
+    assert messages[0].message["data"]["todo_id"] == str(todo.id)
+    session.commit.assert_not_awaited()
+    assert todo.notification_sent_at is None
 
 
 @pytest.mark.asyncio
@@ -113,9 +113,9 @@ async def test_process_email_suggestions_batches_per_user():
         messages = await push_service.process_email_suggestions(session, now=now)
 
     assert len(messages) == 1
-    assert "2 reminders" in messages[0]["body"]
-    assert messages[0]["data"]["type"] == "email_suggestion"
-    session.commit.assert_awaited_once()
+    assert "2 reminders" in messages[0].message["body"]
+    assert messages[0].message["data"]["type"] == "email_suggestion"
+    session.commit.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -153,7 +153,11 @@ async def test_run_push_cycle_skips_expo_in_dev_mock():
         patch.object(
             push_service,
             "process_todo_reminders",
-            AsyncMock(return_value=[{"to": "token"}]),
+            AsyncMock(
+                return_value=[
+                    push_service.OutboundPush(message={"to": "token"}),
+                ]
+            ),
         ),
         patch.object(push_service, "process_email_suggestions", AsyncMock(return_value=[])),
         patch.object(push_service, "process_learning_nudges", AsyncMock(return_value=[])),
@@ -220,8 +224,8 @@ async def test_process_learning_nudges_language_review():
         messages = await push_service.process_learning_nudges(session, redis, settings)
 
     assert len(messages) == 1
-    assert "Spanish" in messages[0]["body"]
-    assert messages[0]["data"]["type"] == "learning_review"
+    assert "Spanish" in messages[0].message["body"]
+    assert messages[0].message["data"]["type"] == "learning_review"
 
 
 @pytest.mark.asyncio
@@ -285,7 +289,7 @@ async def test_process_learning_nudges_programming_topic():
         messages = await push_service.process_learning_nudges(session, redis, settings)
 
     assert len(messages) == 1
-    assert "Variables" in messages[0]["body"]
+    assert "Variables" in messages[0].message["body"]
 
 
 @pytest.mark.asyncio
@@ -313,17 +317,116 @@ async def test_run_push_cycle_sends_expo_in_production():
         patch.object(
             push_service,
             "process_todo_reminders",
-            AsyncMock(return_value=[{"to": "token"}]),
+            AsyncMock(
+                return_value=[
+                    push_service.OutboundPush(message={"to": "token"}),
+                ]
+            ),
         ),
         patch.object(push_service, "process_email_suggestions", AsyncMock(return_value=[])),
         patch.object(push_service, "process_learning_nudges", AsyncMock(return_value=[])),
         patch.object(
             push_service.expo_push_gateway,
             "send_push_messages",
-            AsyncMock(return_value=[]),
+            AsyncMock(
+                return_value=push_service.expo_push_gateway.PushSendResult(
+                    invalid_tokens=[],
+                    delivered=[True],
+                )
+            ),
         ) as send_mock,
     ):
         count = await push_service.run_push_cycle(session, redis, settings)
 
     assert count == 1
     send_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_run_push_cycle_marks_todo_sent_only_after_expo_ok():
+    session = AsyncMock()
+    redis = AsyncMock()
+    settings = Settings(
+        push_enabled=True,
+        mock_llm_enabled=False,
+        environment="production",
+        server_todo_push_enabled=True,
+    )
+    todo = MagicMock()
+    todo.notification_sent_at = None
+
+    outbound = [
+        push_service.OutboundPush(
+            message={"to": "ExponentPushToken[abc]"},
+            todos=[todo],
+        )
+    ]
+
+    with (
+        patch.object(
+            push_service,
+            "process_todo_reminders",
+            AsyncMock(return_value=outbound),
+        ),
+        patch.object(push_service, "process_email_suggestions", AsyncMock(return_value=[])),
+        patch.object(push_service, "process_learning_nudges", AsyncMock(return_value=[])),
+        patch.object(
+            push_service.expo_push_gateway,
+            "send_push_messages",
+            AsyncMock(
+                return_value=push_service.expo_push_gateway.PushSendResult(
+                    invalid_tokens=[],
+                    delivered=[True],
+                )
+            ),
+        ),
+    ):
+        await push_service.run_push_cycle(session, redis, settings)
+
+    assert todo.notification_sent_at is not None
+    session.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_run_push_cycle_does_not_mark_todo_when_expo_fails():
+    session = AsyncMock()
+    redis = AsyncMock()
+    settings = Settings(
+        push_enabled=True,
+        mock_llm_enabled=False,
+        environment="production",
+        server_todo_push_enabled=True,
+    )
+    todo = MagicMock()
+    todo.notification_sent_at = None
+
+    outbound = [
+        push_service.OutboundPush(
+            message={"to": "ExponentPushToken[abc]"},
+            todos=[todo],
+        )
+    ]
+
+    with (
+        patch.object(
+            push_service,
+            "process_todo_reminders",
+            AsyncMock(return_value=outbound),
+        ),
+        patch.object(push_service, "process_email_suggestions", AsyncMock(return_value=[])),
+        patch.object(push_service, "process_learning_nudges", AsyncMock(return_value=[])),
+        patch.object(
+            push_service.expo_push_gateway,
+            "send_push_messages",
+            AsyncMock(
+                return_value=push_service.expo_push_gateway.PushSendResult(
+                    invalid_tokens=[],
+                    delivered=[False],
+                )
+            ),
+        ),
+    ):
+        await push_service.run_push_cycle(session, redis, settings)
+
+    assert todo.notification_sent_at is None
+    session.commit.assert_not_awaited()

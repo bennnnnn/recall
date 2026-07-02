@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
@@ -30,6 +31,15 @@ from app.services.reminder_timing import (
 logger = logging.getLogger(__name__)
 
 LEARNING_REDIS_PREFIX = "recall:push:learning"
+
+
+@dataclass
+class OutboundPush:
+    message: dict[str, Any]
+    todos: list[TodoItem] = field(default_factory=list)
+    suggestions: list[SuggestedReminder] = field(default_factory=list)
+    learning_redis_key: str | None = None
+
 
 _PUSH_STRINGS: dict[str, dict[str, str]] = {
     "en": {
@@ -110,23 +120,31 @@ def _learning_redis_key(user_id: UUID, day_key: str) -> str:
     return f"{LEARNING_REDIS_PREFIX}:{user_id}:{day_key}"
 
 
-def _append_messages(
-    messages: list[dict[str, Any]],
+def _append_outbound(
+    out: list[OutboundPush],
     tokens: list[PushToken],
     *,
     title: str,
     body: str,
     data: dict[str, Any],
+    todos: list[TodoItem] | None = None,
+    suggestions: list[SuggestedReminder] | None = None,
+    learning_redis_key: str | None = None,
 ) -> None:
     for token in tokens:
-        messages.append(
-            {
-                "to": token.expo_push_token,
-                "title": title,
-                "body": body[:240],
-                "data": data,
-                "sound": "default",
-            }
+        out.append(
+            OutboundPush(
+                message={
+                    "to": token.expo_push_token,
+                    "title": title,
+                    "body": body[:240],
+                    "data": data,
+                    "sound": "default",
+                },
+                todos=list(todos or []),
+                suggestions=list(suggestions or []),
+                learning_redis_key=learning_redis_key,
+            )
         )
 
 
@@ -156,7 +174,7 @@ async def process_todo_reminders(
     session: AsyncSession,
     *,
     now: datetime | None = None,
-) -> list[dict[str, Any]]:
+) -> list[OutboundPush]:
     now = now or datetime.now(UTC)
     window_end = now + timedelta(minutes=MAX_REMINDER_LEAD_MINUTES)
     overdue_cutoff = now - timedelta(hours=OVERDUE_MAX_HOURS)
@@ -179,7 +197,7 @@ async def process_todo_reminders(
     if not rows:
         return []
 
-    messages: list[dict[str, Any]] = []
+    messages: list[OutboundPush] = []
     for todo, user in rows:
         if todo.due_at is None:
             continue
@@ -192,7 +210,7 @@ async def process_todo_reminders(
         is_overdue = todo.due_at < now
         strings = _push_strings(getattr(user, "locale", None))
         title = strings["overdue"] if is_overdue else strings["reminder"]
-        _append_messages(
+        _append_outbound(
             messages,
             tokens,
             title=title,
@@ -203,11 +221,9 @@ async def process_todo_reminders(
                 "todo_id": str(todo.id),
                 "focus": "reminders",
             },
+            todos=[todo],
         )
-        todo.notification_sent_at = now
 
-    if messages:
-        await session.commit()
     return messages
 
 
@@ -215,8 +231,8 @@ async def process_email_suggestions(
     session: AsyncSession,
     *,
     now: datetime | None = None,
-) -> list[dict[str, Any]]:
-    now = now or datetime.now(UTC)
+) -> list[OutboundPush]:
+    _ = now
     result = await session.execute(
         select(SuggestedReminder, User)
         .join(User, User.id == SuggestedReminder.user_id)
@@ -237,20 +253,18 @@ async def process_email_suggestions(
         by_user.setdefault(row.user_id, []).append(row)
         users[row.user_id] = user
 
-    messages: list[dict[str, Any]] = []
+    messages: list[OutboundPush] = []
     for user_id, reminders in by_user.items():
         tokens = await _tokens_for_user(session, user_id)
         if not tokens:
             continue
         count = len(reminders)
-        # Use the user for THIS batch, not a stale `user` left over from the
-        # rows loop above — otherwise the wrong locale (and wrong user) is used.
         strings = _push_strings(getattr(users[user_id], "locale", None))
         if count == 1:
             body = reminders[0].title
         else:
             body = strings["email_plural"].format(count=count)
-        _append_messages(
+        _append_outbound(
             messages,
             tokens,
             title=strings["from_inbox"],
@@ -260,11 +274,9 @@ async def process_email_suggestions(
                 "screen": "todos",
                 "focus": "reminders",
             },
+            suggestions=reminders,
         )
-        for reminder in reminders:
-            reminder.notification_sent_at = now
 
-    await session.commit()
     return messages
 
 
@@ -274,7 +286,7 @@ async def process_learning_nudges(
     settings: Settings,
     *,
     now: datetime | None = None,
-) -> list[dict[str, Any]]:
+) -> list[OutboundPush]:
     now = now or datetime.now(UTC)
     result = await session.execute(
         select(User.id)
@@ -286,7 +298,7 @@ async def process_learning_nudges(
     if not user_ids:
         return []
 
-    messages: list[dict[str, Any]] = []
+    messages: list[OutboundPush] = []
     for user_id in user_ids:
         user = await session.get(User, user_id)
         if user is None:
@@ -361,44 +373,93 @@ async def process_learning_nudges(
             continue
 
         strings = _push_strings(getattr(user, "locale", None))
-        _append_messages(
+        _append_outbound(
             messages,
             tokens,
             title=strings["time_to_learn"],
             body=best[0],
             data=best[2],
+            learning_redis_key=redis_key,
         )
 
     return messages
+
+
+async def _finalize_push_deliveries(
+    session: AsyncSession,
+    redis: Redis,
+    outbound: list[OutboundPush],
+    delivered: list[bool],
+    *,
+    now: datetime,
+) -> None:
+    todos_marked: set[int] = set()
+    suggestions_marked: set[int] = set()
+    learning_success: dict[str, bool] = {}
+
+    for item, ok in zip(outbound, delivered, strict=False):
+        if item.learning_redis_key is not None:
+            key = item.learning_redis_key
+            learning_success[key] = learning_success.get(key, False) or ok
+        if not ok:
+            continue
+        for todo in item.todos:
+            todo_id = id(todo)
+            if todo_id in todos_marked:
+                continue
+            todo.notification_sent_at = now
+            todos_marked.add(todo_id)
+        for suggestion in item.suggestions:
+            suggestion_id = id(suggestion)
+            if suggestion_id in suggestions_marked:
+                continue
+            suggestion.notification_sent_at = now
+            suggestions_marked.add(suggestion_id)
+
+    for key, had_success in learning_success.items():
+        if not had_success:
+            await redis.delete(key)
+
+    if todos_marked or suggestions_marked:
+        await session.commit()
 
 
 async def run_push_cycle(session: AsyncSession, redis: Redis, settings: Settings) -> int:
     if not settings.push_enabled:
         return 0
 
+    now = datetime.now(UTC)
+
     # Local (expo-notifications) reminders handle todo due-at alerts; server
     # todo push is disabled by default to avoid double notifications.
     # Re-enable via server_todo_push_enabled=true (e.g. for web-only clients).
-    todo_msgs: list[dict[str, Any]] = []
+    todo_msgs: list[OutboundPush] = []
     if settings.server_todo_push_enabled:
-        todo_msgs = await process_todo_reminders(session)
-    email_msgs = await process_email_suggestions(session)
-    learning_msgs = await process_learning_nudges(session, redis, settings)
+        todo_msgs = await process_todo_reminders(session, now=now)
+    email_msgs = await process_email_suggestions(session, now=now)
+    learning_msgs = await process_learning_nudges(session, redis, settings, now=now)
 
-    all_messages = todo_msgs + email_msgs + learning_msgs
-    if not all_messages:
+    outbound = todo_msgs + email_msgs + learning_msgs
+    if not outbound:
         return 0
 
     if settings.mock_llm_enabled and settings.environment == "development":
-        logger.debug("Skipping expo push in dev mock mode count=%s", len(all_messages))
-        return len(all_messages)
+        logger.debug("Skipping expo push in dev mock mode count=%s", len(outbound))
+        delivered = [True] * len(outbound)
+    else:
+        result = await expo_push_gateway.send_push_messages(
+            [item.message for item in outbound],
+        )
+        delivered = result.delivered
+        if len(delivered) != len(outbound):
+            delivered = [False] * len(outbound)
+        if result.invalid_tokens:
+            for token in result.invalid_tokens:
+                try:
+                    await push_repo.delete_by_token(session, token)
+                    logger.info("Pruned invalid push token=%s", token[:20])
+                except Exception:
+                    logger.debug("Failed to prune push token", exc_info=True)
 
-    failed_tokens = await expo_push_gateway.send_push_messages(all_messages)
-    if failed_tokens:
-        for token in failed_tokens:
-            try:
-                await push_repo.delete_by_token(session, token)
-                logger.info("Pruned invalid push token=%s", token[:20])
-            except Exception:
-                logger.debug("Failed to prune push token", exc_info=True)
-    return len(all_messages)
+    await _finalize_push_deliveries(session, redis, outbound, delivered, now=now)
+    return len(outbound)

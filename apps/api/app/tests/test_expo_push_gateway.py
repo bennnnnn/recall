@@ -10,7 +10,9 @@ from app.gateways import expo_push_gateway as gateway
 
 @pytest.mark.asyncio
 async def test_send_push_messages_empty_returns_no_failures():
-    assert await gateway.send_push_messages([]) == []
+    result = await gateway.send_push_messages([])
+    assert result.invalid_tokens == []
+    assert result.delivered == []
 
 
 @pytest.mark.asyncio
@@ -32,11 +34,12 @@ async def test_send_push_messages_prunes_invalid_tokens():
     client.__aexit__ = AsyncMock(return_value=None)
 
     with patch("app.gateways.expo_push_gateway.httpx.AsyncClient", return_value=client):
-        failed = await gateway.send_push_messages(
+        result = await gateway.send_push_messages(
             [{"to": "ExponentPushToken[aaa]"}, {"to": "ExponentPushToken[bbb]"}]
         )
 
-    assert failed == ["ExponentPushToken[bbb]"]
+    assert result.invalid_tokens == ["ExponentPushToken[bbb]"]
+    assert result.delivered == [True, False]
 
 
 @pytest.mark.asyncio
@@ -47,6 +50,7 @@ async def test_send_push_messages_network_error_returns_empty():
     client.__aexit__ = AsyncMock(return_value=None)
 
     with patch("app.gateways.expo_push_gateway.httpx.AsyncClient", return_value=client):
-        failed = await gateway.send_push_messages([{"to": "ExponentPushToken[x]"}])
+        result = await gateway.send_push_messages([{"to": "ExponentPushToken[x]"}])
 
-    assert failed == []
+    assert result.invalid_tokens == []
+    assert result.delivered == [False]
