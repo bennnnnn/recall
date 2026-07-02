@@ -16,6 +16,11 @@ def test_validate_production_settings_ok():
             openrouter_api_key="sk-or-xxx",
             revenuecat_webhook_auth="whsec-xxx",
             oauth_token_encryption_key="a-fernet-key",
+            storage_backend="r2",
+            r2_account_id="acct",
+            r2_access_key_id="key",
+            r2_secret_access_key="secret",
+            r2_bucket="recall",
         )
     )
 
@@ -80,6 +85,26 @@ def test_validate_production_settings_rejects_empty_cors_and_missing_secrets():
                 revenuecat_webhook_auth="whsec-xxx",
                 oauth_token_encryption_key="",
             )
+        )
+
+
+def test_validate_production_settings_requires_r2():
+    base = dict(
+        environment="production",
+        dev_auth_enabled=False,
+        mock_llm_enabled=False,
+        jwt_secret="super-secret-key-that-is-at-least-32-chars!!",
+        google_client_id="client-id",
+        cors_origins="https://app.recall.app",
+        openrouter_api_key="sk-or-xxx",
+        revenuecat_webhook_auth="whsec-xxx",
+        oauth_token_encryption_key="key",
+    )
+    with pytest.raises(RuntimeError, match="STORAGE_BACKEND"):
+        validate_production_settings(Settings(**base, storage_backend="local"))
+    with pytest.raises(RuntimeError, match="R2_ACCOUNT_ID"):
+        validate_production_settings(
+            Settings(**base, storage_backend="r2", r2_account_id="", r2_bucket="b")
         )
 
 
