@@ -8,6 +8,10 @@ import {
   mergeDoneIntoMessages,
   parseChatWsPayload,
 } from "@/lib/chatSocketReduce";
+import {
+  popLastAssistantMessage,
+  restoreAssistantMessage,
+} from "@/lib/chatRegenerateLogic";
 
 const CONNECT_TIMEOUT_MS = 8000;
 
@@ -39,6 +43,8 @@ export function useChat(
   const assistantBuffer = useRef("");
   const streamingDraftRef = useRef<StreamingDraft | null>(null);
   const streamingRef = useRef(false);
+  /** Prior assistant reply kept until regenerate succeeds or is rolled back. */
+  const regenerateBackupRef = useRef<Message | null>(null);
 
   const updateStreamingDraft = useCallback((draft: StreamingDraft | null) => {
     streamingDraftRef.current = draft;
@@ -60,6 +66,17 @@ export function useChat(
     updateStreamingDraft(null);
     setMessages((prev) => prev.filter((m) => m.id !== "streaming"));
   }, [updateStreamingDraft]);
+
+  const restoreRegenerateBackup = useCallback(() => {
+    const backup = regenerateBackupRef.current;
+    regenerateBackupRef.current = null;
+    clearStreamingBubble();
+    setStreaming(false);
+    streamingRef.current = false;
+    if (backup) {
+      setMessages((prev) => restoreAssistantMessage(prev, backup));
+    }
+  }, [clearStreamingBubble]);
 
   const appendStreamingPlaceholder = useCallback(() => {
     setMessages((prev) => {
@@ -95,6 +112,7 @@ export function useChat(
     connectingRef.current = null;
     assistantBuffer.current = "";
     firstReplyRef.current = false;
+    regenerateBackupRef.current = null;
     updateStreamingDraft(null);
     setStreaming(false);
     setSendingMessageId(null);
@@ -148,13 +166,19 @@ export function useChat(
           streamingRef.current = false;
           const hadContent = assistantBuffer.current.trim().length > 0;
           const draft = streamingDraftRef.current;
+          const failedRegenerateBackup = regenerateBackupRef.current;
+          regenerateBackupRef.current = null;
           assistantBuffer.current = "";
           updateStreamingDraft(null);
           setMessages((prev) => {
             const streamingMsg = prev.find((m) => m.id === "streaming");
             if (!streamingMsg) return prev;
             if (!hadContent) {
-              return prev.filter((m) => m.id !== "streaming");
+              const withoutStreaming = prev.filter((m) => m.id !== "streaming");
+              if (failedRegenerateBackup) {
+                return restoreAssistantMessage(withoutStreaming, failedRegenerateBackup);
+              }
+              return withoutStreaming;
             }
             return prev.map((m) =>
               m.id === "streaming"
@@ -167,7 +191,7 @@ export function useChat(
                 : m,
             );
           });
-          if (!hadContent) {
+          if (!hadContent && !failedRegenerateBackup) {
             reportError("Connection lost before the reply arrived. Try again.");
           }
         }
@@ -201,6 +225,7 @@ export function useChat(
         }
 
         if (payload.type === "done") {
+          regenerateBackupRef.current = null;
           setStreaming(false);
           streamingRef.current = false;
           assistantBuffer.current = "";
@@ -227,7 +252,11 @@ export function useChat(
           setStreaming(false);
           streamingRef.current = false;
           assistantBuffer.current = "";
-          clearStreamingBubble();
+          if (regenerateBackupRef.current) {
+            restoreRegenerateBackup();
+          } else {
+            clearStreamingBubble();
+          }
           reportError(
             payload.message ?? "Something went wrong. Try again.",
             typeof payload.code === "string" ? payload.code : undefined,
@@ -251,6 +280,7 @@ export function useChat(
     chatId,
     appendStreamingPlaceholder,
     clearStreamingBubble,
+    restoreRegenerateBackup,
     reportError,
     updateStreamingDraft,
   ]);
@@ -334,24 +364,40 @@ export function useChat(
     async (model?: string | null) => {
       if (!token || !chatId) return;
 
+      let backup: Message | null = null;
       setMessages((prev) => {
-        const next = [...prev];
-        if (next[next.length - 1]?.role === "assistant") next.pop();
-        return next;
+        const popped = popLastAssistantMessage(prev);
+        backup = popped.backup;
+        return popped.messages;
       });
+      regenerateBackupRef.current = backup;
+
+      setStreaming(true);
+      streamingRef.current = true;
+      assistantBuffer.current = "";
+      updateStreamingDraft({ content: "" });
+      appendStreamingPlaceholder();
 
       await ensureConnected();
       if (wsRef.current?.readyState !== WebSocket.OPEN) {
+        restoreRegenerateBackup();
         reportError("Couldn't reach the server. Check your connection and try again.");
         return;
       }
 
-      assistantBuffer.current = "";
       wsRef.current.send(
         JSON.stringify({ type: "regenerate", model: model ?? null }),
       );
     },
-    [token, chatId, ensureConnected],
+    [
+      token,
+      chatId,
+      ensureConnected,
+      appendStreamingPlaceholder,
+      restoreRegenerateBackup,
+      reportError,
+      updateStreamingDraft,
+    ],
   );
 
   const editMessage = useCallback(

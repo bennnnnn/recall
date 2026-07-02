@@ -1029,3 +1029,89 @@ async def test_stream_edit_response_yields_tokens():
         ]
 
     assert tokens == ["edited"]
+
+
+@pytest.mark.asyncio
+async def test_regenerate_restores_assistant_when_stream_empty():
+    """If regenerate deletes the prior assistant but the model returns nothing,
+    the old reply is restored so the chat is not left blank."""
+    from app.services import chat as chat_module
+
+    fake_user = MagicMock()
+    fake_user.id = MagicMock()
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+    fake_user.timezone = None
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+    fake_chat.summary = None
+
+    fake_last = MagicMock()
+    fake_last.role = "assistant"
+    fake_last.id = MagicMock()
+    fake_last.content = "prior answer"
+    fake_last.model = "free-chat"
+
+    fake_last_user = MagicMock()
+    fake_last_user.content = "question"
+
+    restore = AsyncMock()
+
+    async def empty_stream(**kwargs):
+        if False:
+            yield ""
+
+    with (
+        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.services.chat.messages_repo.get_last", AsyncMock(return_value=fake_last)),
+        patch(
+            "app.services.chat.messages_repo.get_last_user", AsyncMock(return_value=fake_last_user)
+        ),
+        patch("app.services.chat.messages_repo.count_for_chat", AsyncMock(return_value=2)),
+        patch(
+            "app.services.chat.build_prompt_messages",
+            AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
+        ),
+        patch(
+            "app.services.chat.web_search_service.is_vocab_quiz_answer",
+            MagicMock(return_value=False),
+        ),
+        patch(
+            "app.services.chat.web_search_service.is_places_list_query",
+            MagicMock(return_value=False),
+        ),
+        patch(
+            "app.services.chat.messages_repo.recent_user_contents",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.chat._augment_web_and_tools",
+            AsyncMock(return_value=([{"role": "system", "content": "sys"}], [])),
+        ),
+        patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.chat.quota_service.refund_usage", AsyncMock()),
+        patch(
+            "app.services.chat.attachment_lifecycle.purge_attachments_for_messages",
+            AsyncMock(),
+        ),
+        patch("app.services.chat.messages_repo.delete_message", AsyncMock()),
+        patch("app.services.chat.litellm_gateway.stream_chat_completion", empty_stream),
+        patch("app.services.chat._restore_regenerate_backup", restore),
+    ):
+        tokens = [
+            tok
+            async for tok in chat_module.stream_regenerate_response(
+                AsyncMock(),
+                Settings(max_output_tokens=100),
+                user_id=fake_user.id,
+                chat_id=MagicMock(),
+            )
+        ]
+
+    assert tokens == []
+    restore.assert_awaited_once()
+    backup = restore.await_args.args[2]
+    assert backup.content == "prior answer"
+    assert backup.model == "free-chat"
