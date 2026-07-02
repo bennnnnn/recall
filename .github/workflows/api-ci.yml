@@ -16,7 +16,7 @@ defaults:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     services:
       postgres:
         image: pgvector/pgvector:pg16
@@ -50,7 +50,6 @@ jobs:
 
       - uses: astral-sh/setup-uv@v5
         with:
-          python-version: "3.12"
           enable-cache: true
 
       - name: Install dependencies
@@ -69,6 +68,8 @@ jobs:
         run: uv run alembic upgrade head
 
       - name: Pytest
+        env:
+          VIRTUAL_ENV: ""
         run: |
           rm -rf .pytest_cache
           uv run pytest app/tests/services app/tests/repositories \
