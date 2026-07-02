@@ -1,9 +1,13 @@
 import pytest
 from uuid import uuid4
+from unittest.mock import AsyncMock, patch
+
+from fastapi.testclient import TestClient
 from starlette.requests import Request
 
 from app.core.config import Settings
 from app.core.rest_rate_limit import _client_key
+from app.main import create_app
 
 
 def test_client_key_uses_user_from_bearer():
@@ -34,3 +38,23 @@ def test_client_key_falls_back_to_ip():
     }
     request = Request(scope)
     assert _client_key(request, settings) == "ip:10.0.0.5"
+
+
+def test_middleware_skips_health_when_rate_limited():
+    with (
+        patch("app.core.rest_rate_limit.get_redis_client", return_value=AsyncMock()),
+        patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=False)),
+    ):
+        client = TestClient(create_app())
+        assert client.get("/health").status_code == 200
+
+
+def test_middleware_returns_429_when_over_limit():
+    with (
+        patch("app.core.rest_rate_limit.get_redis_client", return_value=AsyncMock()),
+        patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=False)),
+    ):
+        client = TestClient(create_app())
+        response = client.get("/openapi.json")
+    assert response.status_code == 429
+    assert response.json()["detail"] == "Too many requests. Please slow down."
