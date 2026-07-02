@@ -30,7 +30,7 @@ New chat-loop code belongs in `apps/api/app/services/chat.py`.
 
 ## In scope (current)
 
-Chat + memory, todos, reusable templates, proactive suggestions, full-text search, i18n, and rich rendering (markdown, math, charts, sandboxed HTML/JS preview).
+Chat + memory, todos, proactive suggestions, full-text search, i18n, and rich rendering (markdown, math, charts, sandboxed HTML/JS preview).
 
 ## v1 non-goals
 

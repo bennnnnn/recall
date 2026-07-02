@@ -181,16 +181,6 @@ export type SearchResult = {
   created_at: string;
 };
 
-export type Template = {
-  id: string;
-  title: string;
-  content: string;
-  category: string;
-  is_builtin: boolean;
-  created_at: string;
-  updated_at: string;
-};
-
 export type Suggestion = {
   id: string;
   text: string;
@@ -649,7 +639,6 @@ export const api = {
       token,
       init,
     ),
-  listTemplates: (token: string) => request<Template[]>("/templates", token),
   listSuggestions: (token: string) => request<Suggestion[]>("/suggestions", token),
 
   getHomeScreen: (token: string, clientTimezone?: string) => {

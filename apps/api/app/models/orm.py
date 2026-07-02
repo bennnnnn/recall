@@ -173,23 +173,6 @@ class TodoItem(Base):
     )
 
 
-class Template(Base):
-    __tablename__ = "templates"
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), nullable=True
-    )
-    title: Mapped[str] = mapped_column(String(200), nullable=False)
-    content: Mapped[str] = mapped_column(Text, nullable=False)
-    category: Mapped[str] = mapped_column(String(50), nullable=False, default="general")
-    is_builtin: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
-
-
 class Suggestion(Base):
     __tablename__ = "suggestions"
 

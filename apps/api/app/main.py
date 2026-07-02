@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.background import attachment_orphan_reaper, gmail_periodic_sync, push_scheduler
 from app.core import jobs
 from app.core.config import get_settings, validate_production_settings
-from app.core.db import SessionLocal, engine
+from app.core.db import engine
 from app.core.logging import setup_logging
 from app.core.redis import get_redis_client
 from app.core.request_id import RequestIdMiddleware
@@ -28,13 +28,11 @@ from app.routers import (
     projects,
     search,
     suggestions,
-    templates,
     todos,
     users,
     webhooks,
     ws,
 )
-from app.services import seed_templates
 
 
 @asynccontextmanager
@@ -50,8 +48,6 @@ async def lifespan(_: FastAPI):
     await push_scheduler.start_push_scheduler(settings)
     await gmail_periodic_sync.start_gmail_periodic_scheduler(settings)
     await attachment_orphan_reaper.start_orphan_reaper(settings)
-    async with SessionLocal() as session:
-        await seed_templates.seed_templates(session)
     yield
     await jobs.stop_worker()
     await push_scheduler.stop_push_scheduler()
@@ -91,7 +87,6 @@ def create_app() -> FastAPI:
     app.include_router(projects.router)
     app.include_router(search.router)
     app.include_router(suggestions.router)
-    app.include_router(templates.router)
     app.include_router(attachments.router)
     app.include_router(integrations.router)
     app.include_router(gmail_integrations.router)

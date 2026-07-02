@@ -5,7 +5,7 @@
 | # | Ticket | Status |
 |---|--------|--------|
 | 1 | Offline banner clears when link reconnects (ignore stale `isInternetReachable`) | done (#29) |
-| 2 | Templates UI — browse built-in/user templates, start chat from template | done |
+| 2 | Templates — removed from v1 (DB table retained; no API/UI) | removed |
 | 3 | Production gate: require R2 storage config (not ephemeral local disk) | done (#31) |
 | 4 | Fly Docker build context + `.dockerignore` | done (#32, #35) |
 | 5 | Mobile prod build: conditional `expo-dev-client`, remove hardcoded LAN `apiUrl` | done (#33, #36) |
@@ -73,7 +73,7 @@ Follow-up PRs #35–#39: Docker README fix, EAS API URL gate, tests/docs for #6�
 
 - `./scripts/dev.sh check` green locally (mobile deps need your machine)
 - `./scripts/prod-checklist.sh` (includes check gate + legal URL smoke if API is running)
-- **On-device pass (iOS + Android dev/production builds):** Google Sign-In, WebView HTML/chart preview, push, RevenueCat, offline banner reconnect, core chat/regen/quota, templates sheet
+- **On-device pass (iOS + Android dev/production builds):** Google Sign-In, WebView HTML/chart preview, push, RevenueCat, offline banner reconnect, core chat/regen/quota
 - Verify attachments upload/download against **real R2** (not local disk)
 
 ### Recently shipped (post-launch hardening batch)

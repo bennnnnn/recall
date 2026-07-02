@@ -526,30 +526,6 @@ class SearchResults(BaseModel):
     total: int = 0
 
 
-class TemplateOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: UUID
-    title: str
-    content: str
-    category: str
-    is_builtin: bool
-    created_at: datetime
-    updated_at: datetime
-
-
-class TemplateCreate(BaseModel):
-    title: str = Field(min_length=1, max_length=200)
-    content: str = Field(min_length=1)
-    category: str = Field(default="general", max_length=50)
-
-
-class TemplateUpdate(BaseModel):
-    title: str | None = None
-    content: str | None = None
-    category: str | None = None
-
-
 class SuggestionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

@@ -16,9 +16,6 @@ def test_create_app_registers_health_route():
 @pytest.mark.asyncio
 async def test_lifespan_starts_and_stops_workers():
     app = create_app()
-    session = AsyncMock()
-    session.__aenter__ = AsyncMock(return_value=session)
-    session.__aexit__ = AsyncMock(return_value=None)
 
     mock_engine = MagicMock()
     mock_engine.dispose = AsyncMock()
@@ -37,8 +34,6 @@ async def test_lifespan_starts_and_stops_workers():
         patch("app.main.gmail_periodic_sync.stop_gmail_periodic_scheduler", AsyncMock()),
         patch("app.main.attachment_orphan_reaper.start_orphan_reaper", AsyncMock()),
         patch("app.main.attachment_orphan_reaper.stop_orphan_reaper", AsyncMock()),
-        patch("app.main.SessionLocal", return_value=session),
-        patch("app.main.seed_templates.seed_templates", AsyncMock()),
         patch("app.main.engine", mock_engine),
         patch("app.main.get_redis_client", return_value=mock_redis),
     ):

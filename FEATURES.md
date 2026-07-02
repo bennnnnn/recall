@@ -212,7 +212,7 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
 - 🔜 **Dedicated worker process** (for multi-instance / serverless), Sentry/observability,
   structured request logging.
 
-## 14. Todos, templates & suggestions
+## 14. Todos & suggestions
 - ✅ **Todo lists** — named lists (topics) with a list-first UX: create a list title, then add items;
   drawer shows a single **Todos** entry (not per-list submenus).
 - ✅ **Todos API** — create, check off, delete items; delete entire list by topic; optional `due_at`.
@@ -222,11 +222,9 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
   (overdue, due today, due in N days); user timezone synced from device (`users.timezone`).
 - ✅ **Local due reminders** — schedules a device notification at due time; resyncs on login,
   foreground, and todo changes; tap opens Todos screen.
-- ✅ **Templates** — reusable starter prompts: built-in templates seeded on first run plus the
-  user's own; start a chat from a template.
 - ✅ **Proactive suggestions** — follow-up prompt ideas generated in the background from recent
   activity (best-effort; regenerated periodically).
-- 🔜 Surfacing suggestions inline under replies, template-editing polish, 1-hour-early reminders,
+- 🔜 Surfacing suggestions inline under replies, 1-hour-early reminders,
   remote push / email nudges.
 
 ## 15. Code execution policy
