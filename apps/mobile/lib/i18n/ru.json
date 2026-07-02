@@ -7,6 +7,7 @@
   "calendar.google_meeting": "Google Calendar",
   "calendar.google_meeting_from": "{{calendar}}",
   "calendar.jump_today": "Сегодня",
+  "calendar.load_failed": "Не удалось загрузить Google Calendar. Напоминания отображаются ниже.",
   "calendar.next_month": "Следующий месяц",
   "calendar.no_items_day": "На этот день ничего нет",
   "calendar.no_reminders_day": "На этот день ничего нет",

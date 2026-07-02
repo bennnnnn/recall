@@ -7,6 +7,7 @@
   "calendar.google_meeting": "Google Calendar",
   "calendar.google_meeting_from": "{{calendar}}",
   "calendar.jump_today": "ዛሬ",
+  "calendar.load_failed": "Google Calendar መጫን አልተቻለም። ማስታወሻዎችዎ ከዚህ በታች ይታያሉ።",
   "calendar.next_month": "የሚቀጥለው ወር",
   "calendar.no_items_day": "በዚህ ቀን ምንም የለም",
   "calendar.no_reminders_day": "በዚህ ቀን ምንም የለም",

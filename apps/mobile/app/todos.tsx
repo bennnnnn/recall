@@ -39,6 +39,7 @@ import { CalendarMeetingRow } from "@/components/CalendarMeetingRow";
 import { SuggestedReminderRow } from "@/components/SuggestedReminderRow";
 import { ListGroupsView } from "@/components/ListGroupsView";
 import { ReminderCalendar } from "@/components/ReminderCalendar";
+import { StateView } from "@/components/StateView";
 import {
   buildListGroups,
   isDefaultListTopic,
@@ -125,6 +126,8 @@ export default function TodosScreen() {
   const [selectedDay, setSelectedDay] = useState(() => localDateKey(new Date()));
   const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(new Date()));
   const [calendarEvents, setCalendarEvents] = useState<GoogleCalendarEvent[]>([]);
+  const [calendarLoadError, setCalendarLoadError] = useState(false);
+  const [calendarLoading, setCalendarLoading] = useState(false);
   const [suggestedReminders, setSuggestedReminders] = useState<SuggestedReminder[]>([]);
   const [suggestionBusyId, setSuggestionBusyId] = useState<string | null>(null);
   const highlightRef = useRef(highlight);
@@ -153,6 +156,22 @@ export default function TodosScreen() {
     [user?.id],
   );
 
+  const loadCalendarEvents = useCallback(async () => {
+    if (!token || focusSection === "list") return;
+    setCalendarLoading(true);
+    setCalendarLoadError(false);
+    try {
+      const result = await api.listGoogleCalendarEvents(token);
+      setCalendarEvents(result.events);
+      setCalendarLoadError(Boolean(result.load_error));
+    } catch {
+      setCalendarEvents([]);
+      setCalendarLoadError(true);
+    } finally {
+      setCalendarLoading(false);
+    }
+  }, [focusSection, token]);
+
   useFocusEffect(
     useCallback(() => {
       void refresh({ silent: todos.length > 0 });
@@ -160,16 +179,13 @@ export default function TodosScreen() {
         void markSeen();
       }
       if (token && focusSection !== "list") {
-        void api
-          .listGoogleCalendarEvents(token)
-          .then((result) => setCalendarEvents(result.events))
-          .catch(() => setCalendarEvents([]));
+        void loadCalendarEvents();
         void api
           .listSuggestedReminders(token)
           .then((result) => setSuggestedReminders(result.reminders))
           .catch(() => setSuggestedReminders([]));
       }
-    }, [focusSection, markSeen, refresh, token, todos.length]),
+    }, [focusSection, loadCalendarEvents, markSeen, refresh, token, todos.length]),
   );
 
   useEffect(() => {
@@ -673,6 +689,20 @@ export default function TodosScreen() {
             }}
             onVisibleMonthChange={setVisibleMonth}
           />
+          {calendarLoading ? (
+            <View style={s.calendarLoading}>
+              <ActivityIndicator size="small" color={C.primary} />
+            </View>
+          ) : null}
+          {calendarLoadError ? (
+            <StateView
+              variant="error"
+              compact
+              message={t("calendar.load_failed")}
+              onRetry={() => void loadCalendarEvents()}
+              retryLabel={t("common.retry")}
+            />
+          ) : null}
           {selectedDaySuggestions.length > 0 ? (
             <>
               <Text style={s.sectionHeading}>{t("calendar.from_email")}</Text>
@@ -1294,6 +1324,10 @@ function makeStyles(C: Theme) {
   section: {
     paddingTop: 8,
     paddingBottom: 4,
+  },
+  calendarLoading: {
+    alignItems: "center",
+    paddingVertical: 8,
   },
   sectionHeading: {
     fontSize: 12,
