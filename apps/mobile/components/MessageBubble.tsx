@@ -10,6 +10,7 @@ import { UserMessageContent } from "@/components/UserMessageContent";
 import { SearchSourcesStack } from "@/components/SearchSourcesStack";
 import { CircularClockBlock } from "@/components/rich/CircularClockBlock";
 import { MarkdownContent } from "@/components/MarkdownContent";
+import { StreamingCursor } from "@/components/StreamingCursor";
 import { MarkdownErrorBoundary } from "@/components/MarkdownErrorBoundary";
 import { RecallTypingIndicator } from "@/components/RecallTypingIndicator";
 import { VocabQuizChoices } from "@/components/VocabQuizChoices";
@@ -264,6 +265,7 @@ export const MessageBubble = React.memo(function MessageBubble({
                   content={markdownContent}
                 >
                   <MarkdownContent content={markdownContent} streaming={isStreaming} />
+                  {isStreaming && hasMarkdown ? <StreamingCursor /> : null}
                 </MarkdownErrorBoundary>
               ) : null}
               {showPlaces ? <PlacesListBlock places={places} /> : null}

@@ -13,6 +13,8 @@ import {
   api,
   loginWithDev,
   loginWithGoogle,
+  logoutSession,
+  setTokenRefreshHandler,
   setUnauthorizedHandler,
   type User,
 } from "@/lib/api";
@@ -26,7 +28,6 @@ import {
   setOnboarded,
   setTokenPair,
 } from "@/lib/auth";
-import { logoutSession } from "@/lib/api";
 import { useBootstrapSync } from "@/hooks/useBootstrapSync";
 import { useTheme } from "@/lib/theme";
 
@@ -152,6 +153,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     return () => setUnauthorizedHandler(null);
   }, [signOut]);
+
+  // Keep in-memory token in sync when api.ts silently refreshes after a 401.
+  useEffect(() => {
+    setTokenRefreshHandler((accessToken) => {
+      setTokenState(accessToken);
+    });
+    return () => setTokenRefreshHandler(null);
+  }, []);
 
   // Sync i18n language with user preference (including optimistic locale patches).
   useEffect(() => {

@@ -6,9 +6,14 @@ export type { SearchSource };
 
 // Registered by AuthContext so an expired/invalid token (401) signs the user out.
 let onUnauthorized: (() => void) | null = null;
+let onTokenRefresh: ((accessToken: string) => void) | null = null;
 
 export function setUnauthorizedHandler(fn: (() => void) | null): void {
   onUnauthorized = fn;
+}
+
+export function setTokenRefreshHandler(fn: ((accessToken: string) => void) | null): void {
+  onTokenRefresh = fn;
 }
 
 export type User = {
@@ -316,6 +321,7 @@ async function refreshAccessToken(): Promise<string | null> {
       if (!response.ok) return null;
       const data = (await response.json()) as AuthResult;
       await setTokenPair(data.access_token, data.refresh_token);
+      onTokenRefresh?.(data.access_token);
       return data.access_token;
     } catch {
       return null;

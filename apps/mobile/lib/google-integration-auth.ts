@@ -1,4 +1,5 @@
 import { config } from "@/lib/config";
+import { readServerAuthCode } from "@/lib/google-integration-auth-code";
 
 /**
  * OAuth for integrations (Gmail, Calendar) — separate from Recall sign-in.
@@ -29,14 +30,15 @@ export async function requestGoogleIntegrationAuthCode(
 
     if (signedIn) {
       const added = await GoogleSignin.addScopes({ scopes });
-      serverAuthCode = added?.data?.serverAuthCode ?? signedIn.serverAuthCode;
+      serverAuthCode =
+        readServerAuthCode(added) ?? signedIn.serverAuthCode ?? null;
       if (!serverAuthCode) {
         const refreshed = await GoogleSignin.signInSilently();
-        serverAuthCode = refreshed.data?.serverAuthCode;
+        serverAuthCode = readServerAuthCode(refreshed);
       }
     } else {
       const response = await GoogleSignin.signIn();
-      serverAuthCode = response.data?.serverAuthCode;
+      serverAuthCode = readServerAuthCode(response);
     }
 
     if (!serverAuthCode) {

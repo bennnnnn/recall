@@ -18,10 +18,11 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
 - ✅ **Account creation** — automatic on first Google sign-in (no separate sign-up flow).
 - ✅ **Dev login** — "Continue as Dev User" for Expo Go / local development (gated by
   `DEV_AUTH_ENABLED`, blocked in production).
-- ✅ **Sessions** — JWT (HS256) access token, stored in secure storage, 7-day lifetime.
-- ✅ **Auto sign-out on 401** — an expired/invalid token signs the user out globally.
-- ✅ **Sign out** — clears the local token and the native Google session.
-- 🔜 Email/password, Apple sign-in, magic links, multi-device session management, refresh tokens.
+- ✅ **Sessions** — JWT (HS256) access token (1h) + Redis-backed refresh token (30d), stored in
+  secure storage; `POST /auth/refresh` and `POST /auth/logout` with access-token revocation.
+- ✅ **Auto sign-out on 401** — refresh is attempted first; if it fails, the user is signed out.
+- ✅ **Sign out** — revokes server tokens, clears local storage, and signs out of Google.
+- 🔜 Email/password, Apple sign-in, magic links, multi-device session management.
 
 ## 2. Conversations (chats)
 - ✅ **New chat** — from the header `＋` and the drawer; created **lazily** on the first message
@@ -405,14 +406,12 @@ fixes from the review are shipped; these remain:
   English still remains in: the legal pages (`privacy`/`terms`), `todoReminders`
   ("Reminder" title/body), `homeUrgentTodos` prompts/subtitles, and `share.ts`
   ("You"/"Recall"). Those strings need extracting to keys + translations.
-- 🔜 **DB session scope in `_prepare_chat_turn`** — the session is held through web
-  search/embeddings/calendar/Gmail/MCP prep, which can starve the Neon pool under concurrent
-  streams. Load → close → external I/O → reopen for writes. (Non-trivial refactor; deferred
-  as a follow-up, not a ship blocker for single-user MVP scale.)
-- 🔜 **Background-job DLQ / WS per-message re-auth** — failed jobs are ACKed by design
-  (poison-pill avoidance); a DLQ would make them visible/retryable. WS auth is checked once
-  at connect (7-day JWT); per-message re-auth is overkill — a shorter JWT expiry is the
-  better lever. Both deferred as judgment calls.
+- ✅ **DB session scope in `_prepare_chat_turn`** — attachment S3 reads and web-search
+  augmentation run outside the DB session; calendar/Gmail still use a short session.
+- ✅ **Background-job DLQ** — failed jobs are copied to `recall:jobs:dlq` before ACK
+  (poison-pill avoidance unchanged).
+- ✅ **JWT refresh / logout** — 1h access + refresh rotation; mobile auto-refresh on 401.
+- ✅ **HTTP SSE chat fallback** — `POST /chats/{id}/messages/stream` when WebSocket fails.
 
 ### Multimodal & attachments (planned)
 
