@@ -1,6 +1,7 @@
 import {
   findLastAssistantId,
   findLastLocalUserMessageId,
+  isChatStreamActive,
   isLocalPendingMessageId,
 } from "@/lib/chatMessageLogic";
 import type { Message } from "@/lib/api";
@@ -29,5 +30,11 @@ describe("chatMessageLogic", () => {
     expect(findLastLocalUserMessageId(messages)).toBe("local-2");
     expect(isLocalPendingMessageId("local-edit-3")).toBe(true);
     expect(isLocalPendingMessageId("abc")).toBe(false);
+  });
+
+  it("isChatStreamActive stays true during post-stream finalization", () => {
+    expect(isChatStreamActive(true, false)).toBe(true);
+    expect(isChatStreamActive(false, true)).toBe(true);
+    expect(isChatStreamActive(false, false)).toBe(false);
   });
 });

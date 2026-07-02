@@ -10,6 +10,7 @@ type Props = {
   index: number;
   messages: Message[];
   streaming: boolean;
+  finalizing: boolean;
   streamingDraft: StreamingDraft | null;
   lastAssistantId: string | null;
   selectedModel: string;
@@ -29,6 +30,7 @@ export const ChatMessageRow = memo(function ChatMessageRow({
   index,
   messages,
   streaming,
+  finalizing,
   streamingDraft,
   lastAssistantId,
   selectedModel,
@@ -48,23 +50,24 @@ export const ChatMessageRow = memo(function ChatMessageRow({
       : null;
   const isStreamingItem = item.id === "streaming";
   const isLastAssistant = item.role === "assistant" && item.id === lastAssistantId;
+  const streamVisualActive = streaming || finalizing;
 
   return (
     <MessageBubble
       message={item}
       priorUserText={priorUserText}
-      isGenerating={streaming && isStreamingItem}
+      isGenerating={streamVisualActive && isStreamingItem}
       liveContent={isStreamingItem ? streamingDraft?.content : undefined}
       liveSearchSources={isStreamingItem ? streamingDraft?.search_sources : undefined}
       isLastAssistant={isLastAssistant}
       onRegenerate={
-        isLastAssistant && !streaming ? () => onRegenerate(selectedModel) : undefined
+        isLastAssistant && !streamVisualActive ? () => onRegenerate(selectedModel) : undefined
       }
       onEdit={onEdit}
-      canEdit={item.role === "user" && !streaming && !item.id.startsWith("local-")}
+      canEdit={item.role === "user" && !streamVisualActive && !item.id.startsWith("local-")}
       onFeedback={onFeedback}
       onQuizAnswer={
-        isLastAssistant && !streaming ? onQuizAnswer : undefined
+        isLastAssistant && !streamVisualActive ? onQuizAnswer : undefined
       }
       quizDisabled={quizDisabled}
       quizLanguage={quizLanguage}
