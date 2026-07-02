@@ -411,6 +411,32 @@ async def test_search_with_cache_reuses_redis(fake_redis):
     assert second == first
 
 
+def test_search_cache_key_includes_max_results():
+    from app.services.web_search import _search_cache_key
+
+    assert _search_cache_key("Foo", 3) != _search_cache_key("Foo", 5)
+    assert _search_cache_key("Foo", 3) == _search_cache_key("foo", 3)
+
+
+@pytest.mark.asyncio
+async def test_search_with_cache_separate_entries_per_max_results(fake_redis):
+    from app.services.web_search import _search_with_cache
+
+    settings = Settings(web_search_cache_ttl=300, mock_llm_enabled=True)
+    hit = WebSearchHit(title="Hit", url="https://example.com", snippet="snippet")
+    search_mock = AsyncMock(return_value=[hit])
+    with (
+        patch("app.services.web_search.get_redis_client", return_value=fake_redis),
+        patch("app.services.web_search.web_search_gateway.search_web", search_mock),
+    ):
+        await _search_with_cache(settings, "same query", max_results=1)
+        await _search_with_cache(settings, "same query", max_results=5)
+
+    assert search_mock.call_count == 2
+    assert search_mock.call_args_list[0].kwargs["max_results"] == 1
+    assert search_mock.call_args_list[1].kwargs["max_results"] == 5
+
+
 def test_mock_search_results_respects_limit():
     hits = mock_search_results("query", max_results=1)
     assert len(hits) == 1

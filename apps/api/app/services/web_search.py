@@ -946,9 +946,9 @@ async def _run_search(
     return merged, tried
 
 
-def _search_cache_key(query: str) -> str:
+def _search_cache_key(query: str, max_results: int) -> str:
     digest = hashlib.sha256(query.strip().lower().encode()).hexdigest()[:32]
-    return f"websearch:{digest}"
+    return f"websearch:{max_results}:{digest}"
 
 
 async def _search_with_cache(
@@ -961,7 +961,7 @@ async def _search_with_cache(
     if not cleaned:
         return []
 
-    cache_key = _search_cache_key(cleaned)
+    cache_key = _search_cache_key(cleaned, max_results)
     redis = get_redis_client()
     try:
         cached = await redis.get(cache_key)
