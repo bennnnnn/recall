@@ -928,13 +928,16 @@ async def _run_search(
     queries: list[str],
 ) -> tuple[list[WebSearchHit], list[str]]:
     limit = max(1, min(settings.web_search_max_results, 10))
+    if not queries:
+        return [], []
+
+    results = await asyncio.gather(
+        *(_search_with_cache(settings, query, max_results=limit) for query in queries)
+    )
+
     seen_urls: set[str] = set()
     merged: list[WebSearchHit] = []
-    tried: list[str] = []
-
-    for query in queries:
-        tried.append(query)
-        hits = await _search_with_cache(settings, query, max_results=limit)
+    for hits in results:
         for hit in hits:
             key = hit.url.strip().lower() or hit.title.strip().lower()
             if key in seen_urls:
@@ -942,9 +945,9 @@ async def _run_search(
             seen_urls.add(key)
             merged.append(hit)
             if len(merged) >= limit:
-                return merged, tried
+                return merged, list(queries)
 
-    return merged, tried
+    return merged, list(queries)
 
 
 def _search_cache_key(query: str, max_results: int) -> str:
