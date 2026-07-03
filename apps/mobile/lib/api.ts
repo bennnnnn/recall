@@ -33,6 +33,7 @@ export type User = {
   timezone: string;
   location: string | null;
   location_enabled: boolean;
+  custom_instructions: string | null;
   created_at: string;
 };
 

@@ -606,6 +606,10 @@ async def build_prompt_messages(
         if query_text and is_writing_deliverable_request(query_text):
             system_parts.append(EMAIL_DRAFT_HINT)
     system_parts.append(response_tone_service.tone_hint(getattr(user, "response_tone", None)))
+    ci = getattr(user, "custom_instructions", None)
+    custom_instructions = ci.strip() if isinstance(ci, str) and ci.strip() else ""
+    if custom_instructions:
+        system_parts.append(f"User's personal instructions:\n{custom_instructions}")
     locale_hint = locale_service.locale_system_hint(user.locale)
     if locale_hint:
         system_parts.append(locale_hint)

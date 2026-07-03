@@ -32,6 +32,7 @@ class UserOut(BaseModel):
     timezone: str = "UTC"
     location: str | None = None
     location_enabled: bool = False
+    custom_instructions: str | None = None
     created_at: datetime
 
 
@@ -48,6 +49,7 @@ class UserUpdate(BaseModel):
     timezone: str | None = Field(default=None, max_length=64)
     location: str | None = Field(default=None, max_length=128)
     location_enabled: bool | None = None
+    custom_instructions: str | None = Field(default=None, max_length=1000)
 
     @field_validator("name")
     @classmethod
@@ -90,6 +92,14 @@ class UserUpdate(BaseModel):
         if value not in {5, 10, 15, 30}:
             raise ValueError("reminder_lead_minutes must be 5, 10, 15, or 30")
         return value
+
+    @field_validator("custom_instructions")
+    @classmethod
+    def validate_custom_instructions(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        text = value.strip()
+        return text or None
 
 
 class GoogleAuthRequest(BaseModel):

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { Alert, ScrollView, View } from "react-native";
+import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -35,6 +35,8 @@ export default function PreferencesSettingsScreen() {
   const [languagePickerOpen, setLanguagePickerOpen] = useState(false);
   const [stylePickerOpen, setStylePickerOpen] = useState(false);
   const [tonePickerOpen, setTonePickerOpen] = useState(false);
+  const [instructionsOpen, setInstructionsOpen] = useState(false);
+  const [instructionsText, setInstructionsText] = useState("");
 
   const selectedLanguage =
     LANGUAGES.find((lang) => lang.code === user?.locale) ?? LANGUAGES[0];
@@ -80,6 +82,18 @@ export default function PreferencesSettingsScreen() {
 
   if (!token) return <Redirect href="/login" />;
 
+  const openInstructions = () => {
+    setInstructionsText(user?.custom_instructions ?? "");
+    setInstructionsOpen(true);
+  };
+
+  const saveInstructions = async () => {
+    setInstructionsOpen(false);
+    const trimmed = instructionsText.trim();
+    if ((user?.custom_instructions ?? null) === (trimmed || null)) return;
+    await patch({ custom_instructions: trimmed || null });
+  };
+
   return (
     <>
       <ScrollView
@@ -124,6 +138,14 @@ export default function PreferencesSettingsScreen() {
             value={user?.location_enabled ?? false}
             disabled={saving}
             onValueChange={(enabled) => void handleLocationToggle(enabled)}
+            styles={s}
+            theme={theme}
+          />
+          <View style={s.menuSeparator} />
+          <SettingsLinkRow
+            title={t("settings.custom_instructions")}
+            value={user?.custom_instructions || t("settings.custom_instructions_none")}
+            onPress={openInstructions}
             styles={s}
             theme={theme}
           />
@@ -183,6 +205,32 @@ export default function PreferencesSettingsScreen() {
         styles={s}
         theme={theme}
       />
+      <Modal visible={instructionsOpen} transparent animationType="fade">
+        <Pressable style={s.mOverlay} onPress={() => setInstructionsOpen(false)}>
+          <Pressable style={s.mSheet} onPress={(e) => e.stopPropagation()}>
+            <Text style={s.mTitle}>{t("settings.custom_instructions")}</Text>
+            <Text style={s.sectionHint}>{t("settings.custom_instructions_hint")}</Text>
+            <TextInput
+              style={[s.mInput, { minHeight: 96, textAlignVertical: "top" }]}
+              value={instructionsText}
+              onChangeText={setInstructionsText}
+              autoFocus
+              multiline
+              maxLength={1000}
+              placeholder={t("settings.custom_instructions_placeholder")}
+              placeholderTextColor={theme.textTertiary}
+            />
+            <View style={s.mActions}>
+              <Pressable style={s.mCancel} onPress={() => setInstructionsOpen(false)}>
+                <Text style={s.mCancelText}>{t("settings.cancel")}</Text>
+              </Pressable>
+              <Pressable style={s.mSave} onPress={() => void saveInstructions()}>
+                <Text style={s.mSaveText}>{t("settings.save")}</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </>
   );
 }

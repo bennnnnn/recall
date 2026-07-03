@@ -27,6 +27,7 @@ def _fake_user(**kw) -> User:
     u.timezone = kw.get("timezone", "UTC")
     u.location = kw.get("location", None)
     u.location_enabled = kw.get("location_enabled", bool(kw.get("location")))
+    u.custom_instructions = kw.get("custom_instructions", None)
     u.created_at = datetime(2024, 1, 1)
     return u
 
@@ -136,6 +137,44 @@ def test_me_patch_rejects_blank_name():
         json={"name": "   "},
     )
     assert r.status_code == 422
+
+
+def test_me_patch_persists_custom_instructions_and_blank_clears():
+    user = _fake_user()
+    app = _app_with_user(user)
+    captured: dict[str, object] = {}
+
+    async def capture(_session, _user, **fields):
+        captured.update(fields)
+        return user
+
+    with (
+        patch("app.routers.auth.users_repo.update", AsyncMock(side_effect=capture)),
+        # The global REST rate limiter reads the real Redis; disable it so this
+        # test is deterministic regardless of local Redis state.
+        patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
+    ):
+        client = TestClient(app)
+        r = client.patch(
+            "/auth/me",
+            headers={"Authorization": "Bearer tok"},
+            json={"custom_instructions": "  Always answer in bullet points.  "},
+        )
+    assert r.status_code == 200
+    assert captured["custom_instructions"] == "Always answer in bullet points."
+
+    # An empty/whitespace value normalizes to None (clears the field).
+    with (
+        patch("app.routers.auth.users_repo.update", AsyncMock(side_effect=capture)),
+        patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
+    ):
+        r2 = client.patch(
+            "/auth/me",
+            headers={"Authorization": "Bearer tok"},
+            json={"custom_instructions": "   "},
+        )
+    assert r2.status_code == 200
+    assert captured["custom_instructions"] is None
 
 
 # ── dev login ──────────────────────────────────────────────────────────────────

@@ -78,6 +78,87 @@ async def test_build_prompt_includes_email_draft_hint_for_email_request():
 
 
 @pytest.mark.asyncio
+async def test_build_prompt_injects_custom_instructions():
+    user = MagicMock()
+    user.name = "Test User"
+    user.email = "test@example.com"
+    user.location = None
+    user.response_style = "balanced"
+    user.response_tone = "funny"
+    user.memory_enabled = True
+    user.locale = "en"
+    user.timezone = None
+    user.custom_instructions = "Always answer in bullet points and cite sources."
+
+    session = AsyncMock()
+
+    with (
+        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=None)),
+        patch(
+            "app.services.chat.memory_service.get_memory_block",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.chat.todos_service.build_todos_system_section",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.chat.projects_service.load_projects_for_prompt",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.chat.messages_repo.list_recent",
+            AsyncMock(return_value=[]),
+        ),
+    ):
+        messages = await build_prompt_messages(session, user, uuid4(), Settings())
+
+    system = messages[0]["content"]
+    assert "User's personal instructions:" in system
+    assert "Always answer in bullet points and cite sources." in system
+
+
+@pytest.mark.asyncio
+async def test_build_prompt_omits_custom_instructions_block_when_empty():
+    user = MagicMock()
+    user.name = "Test User"
+    user.email = "test@example.com"
+    user.location = None
+    user.response_style = "balanced"
+    user.response_tone = "funny"
+    user.memory_enabled = True
+    user.locale = "en"
+    user.timezone = None
+    user.custom_instructions = None
+
+    session = AsyncMock()
+
+    with (
+        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=None)),
+        patch(
+            "app.services.chat.memory_service.get_memory_block",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.chat.todos_service.build_todos_system_section",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.chat.projects_service.load_projects_for_prompt",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.chat.messages_repo.list_recent",
+            AsyncMock(return_value=[]),
+        ),
+    ):
+        messages = await build_prompt_messages(session, user, uuid4(), Settings())
+
+    system = messages[0]["content"]
+    assert "User's personal instructions:" not in system
+
+
+@pytest.mark.asyncio
 async def test_build_prompt_includes_memory_and_style():
     user = MagicMock()
     user.name = "Biniyam Mecuriaw"
