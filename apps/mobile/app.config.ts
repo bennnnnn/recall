@@ -28,8 +28,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const buildProfile = process.env.EAS_BUILD_PROFILE ?? "";
   requirePublicApiUrlForReleaseBuild(buildProfile, process.env.EXPO_PUBLIC_API_URL);
   const includeDevClient = includeDevClientPlugin(buildProfile);
+  const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN?.trim();
   const plugins: ExpoConfig["plugins"] = [
     ...(includeDevClient ? (["expo-dev-client"] as const) : []),
+    ...(sentryDsn ? (["@sentry/react-native/expo"] as const) : []),
     ...(base.plugins ?? []),
   ];
   const iosUrlScheme = iosUrlSchemeFromClientId(
