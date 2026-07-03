@@ -4,7 +4,7 @@ export type SearchSource = {
   snippet?: string;
 };
 
-const SOURCES_FENCE_RE = /```sources\s*\n([\s\S]*?)```/i;
+const SOURCES_FENCE_RE = /```sources\s*\n([\s\S]*?)```/gi;
 
 function normalizeSourceRows(parsed: unknown): SearchSource[] {
   if (!Array.isArray(parsed)) return [];
@@ -32,10 +32,22 @@ export function parseSearchSourcesJson(raw: string): SearchSource[] {
   }
 }
 
+function findTrailingSourcesJson(content: string): { sources: SearchSource[]; start: number } | null {
+  const trimmed = content.trimEnd();
+  for (let index = trimmed.lastIndexOf("["); index >= 0; index = trimmed.lastIndexOf("[", index - 1)) {
+    const candidate = trimmed.slice(index);
+    const sources = parseSearchSourcesJson(candidate);
+    if (sources.length > 0) return { sources, start: index };
+  }
+  return null;
+}
+
 export function parseSearchSources(content: string): SearchSource[] {
-  const match = SOURCES_FENCE_RE.exec(content);
-  if (!match) return [];
-  return parseSearchSourcesJson(match[1].trim());
+  const fromFence = [...content.matchAll(SOURCES_FENCE_RE)].flatMap((match) =>
+    parseSearchSourcesJson(match[1].trim()),
+  );
+  if (fromFence.length > 0) return fromFence;
+  return findTrailingSourcesJson(content)?.sources ?? [];
 }
 
 export function resolveSearchSources(
@@ -46,8 +58,19 @@ export function resolveSearchSources(
   return parseSearchSources(content);
 }
 
+/** Remove ```sources fences and trailing LLM-emitted source JSON from visible markdown. */
+export function stripSearchSourcesFromContent(content: string): string {
+  let text = content.replace(SOURCES_FENCE_RE, "");
+  const trailing = findTrailingSourcesJson(text);
+  if (trailing) {
+    text = text.slice(0, trailing.start).trimEnd();
+  }
+  return text.trimEnd();
+}
+
+/** @deprecated Use stripSearchSourcesFromContent */
 export function stripSearchSourcesFence(content: string): string {
-  return content.replace(SOURCES_FENCE_RE, "").trimEnd();
+  return stripSearchSourcesFromContent(content);
 }
 
 export function hostnameFromUrl(url: string): string {

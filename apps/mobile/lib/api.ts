@@ -66,6 +66,8 @@ export type Message = {
   context_summarized?: number;
   search_sources?: SearchSource[];
   local_image_uri?: string | null;
+  /** Client-only FlashList key — stable while `id` changes streaming → persisted. */
+  renderKey?: string;
   created_at: string;
 };
 
@@ -225,7 +227,9 @@ export type ChatList = {
   pinned: Chat[];
   today: Chat[];
   yesterday: Chat[];
-  earlier: Chat[];
+  last_7_days: Chat[];
+  this_month: Chat[];
+  older: Chat[];
   archived: Chat[];
 };
 

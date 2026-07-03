@@ -15,7 +15,7 @@ export function MessagePreview({ text, label = "Message draft" }: Props) {
       label={label}
       copyText={text}
       icon="chatbubble-outline"
-      accentColor="#34C759"
+      accentColor={theme.primary}
     >
       <View style={s.previewArea}>
         <View style={s.bubble}>
@@ -34,13 +34,13 @@ function makeStyles(t: Theme) {
     previewArea: { alignItems: "flex-end", gap: 4 },
     bubble: {
       maxWidth: "92%",
-      backgroundColor: "#007AFF",
+      backgroundColor: t.primary,
       borderRadius: 18,
       borderBottomRightRadius: 4,
       paddingHorizontal: 14,
       paddingVertical: 10,
     },
-    bubbleText: { color: "#fff", fontSize: 16, lineHeight: 22 },
+    bubbleText: { color: t.onPrimary, fontSize: 16, lineHeight: 22 },
     hint: { fontSize: 11, color: t.textTertiary, marginRight: 4 },
   });
 }

@@ -13,7 +13,19 @@ import { FlashList } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { closeDrawer, registerChatInserter, registerChatPatcher, startNewChatGlobal, isChatTitleGenerating, subscribeChatTitleGenerating } from "@/lib/drawer";
-import { insertChatIntoGroups } from "@/lib/drawerChatList";
+import { insertChatIntoGroups, emptyChatList } from "@/lib/drawerChatList";
+import {
+  activeChatsFromGroups,
+  ARCHIVED_CHAT_SECTION,
+  CHAT_DATE_SECTIONS,
+  defaultChatSectionCollapsed,
+  drawerSectionTitleKey,
+  isCollapsibleChatSection,
+  patchChatListGroups,
+  PINNED_CHAT_SECTION,
+  removeChatFromGroups,
+  type ChatListSectionKey,
+} from "@/lib/chatListSections";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -60,14 +72,16 @@ export function ConversationList(_props: unknown) {
   const insets = useSafeAreaInsets();
 
   const [loading, setLoading] = useState(true);
-  const [groups, setGroups] = useState<{
-    pinned: Chat[];
-    today: Chat[];
-    yesterday: Chat[];
-    earlier: Chat[];
-    archived: Chat[];
-  }>({ pinned: [], today: [], yesterday: [], earlier: [], archived: [] });
-  const [archivedExpanded, setArchivedExpanded] = useState(false);
+  const [groups, setGroups] = useState(emptyChatList);
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    for (const key of [...CHAT_DATE_SECTIONS, ARCHIVED_CHAT_SECTION]) {
+      if (defaultChatSectionCollapsed(key)) {
+        initial[key] = true;
+      }
+    }
+    return initial;
+  });
   const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const lastFetchedRef = useRef(0);
@@ -96,15 +110,22 @@ export function ConversationList(_props: unknown) {
     enabled: Boolean(token),
   });
 
-  const allChats = useMemo(
-    () => [
-      ...groups.pinned,
-      ...groups.today,
-      ...groups.yesterday,
-      ...groups.earlier,
-    ],
-    [groups],
+  const allChats = useMemo(() => activeChatsFromGroups(groups), [groups]);
+
+  const isSectionCollapsed = useCallback(
+    (key: ChatListSectionKey) =>
+      isCollapsibleChatSection(key) &&
+      (collapsedSections[key] ?? defaultChatSectionCollapsed(key)),
+    [collapsedSections],
   );
+
+  const toggleSectionCollapsed = useCallback((key: ChatListSectionKey) => {
+    if (!isCollapsibleChatSection(key)) return;
+    setCollapsedSections((prev) => ({
+      ...prev,
+      [key]: !(prev[key] ?? defaultChatSectionCollapsed(key)),
+    }));
+  }, []);
 
   const matchingChatIds = useMemo(
     () => new Set(searchResults.map((result) => result.chat_id)),
@@ -127,7 +148,9 @@ export function ConversationList(_props: unknown) {
           pinned: chatGroups.pinned,
           today: chatGroups.today,
           yesterday: chatGroups.yesterday,
-          earlier: chatGroups.earlier,
+          last_7_days: chatGroups.last_7_days,
+          this_month: chatGroups.this_month,
+          older: chatGroups.older,
           archived: chatGroups.archived ?? [],
         });
         lastFetchedRef.current = Date.now();
@@ -174,17 +197,7 @@ export function ConversationList(_props: unknown) {
   }, [isOpen, load, allChats.length]);
 
   const patchChatInGroups = useCallback((chatId: string, patch: Partial<Chat>) => {
-    setGroups((prev) => {
-      const apply = (list: Chat[]) =>
-        list.map((c) => (c.id === chatId ? { ...c, ...patch } : c));
-      return {
-        pinned: apply(prev.pinned),
-        today: apply(prev.today),
-        yesterday: apply(prev.yesterday),
-        earlier: apply(prev.earlier),
-        archived: apply(prev.archived),
-      };
-    });
+    setGroups((prev) => patchChatListGroups(prev, chatId, patch));
   }, []);
 
   const insertChatInGroups = useCallback((chat: Chat) => {
@@ -207,17 +220,12 @@ export function ConversationList(_props: unknown) {
 
   const moveChatPinState = useCallback((chatId: string, pinned: boolean) => {
     setGroups((prev) => {
-      const all = [...prev.pinned, ...prev.today, ...prev.yesterday, ...prev.earlier];
-      const chat = all.find((c) => c.id === chatId);
+      const chat = [...activeChatsFromGroups(prev), ...prev.archived].find(
+        (c) => c.id === chatId,
+      );
       if (!chat) return prev;
       const updated = { ...chat, pinned };
-      const rest = {
-        pinned: prev.pinned.filter((c) => c.id !== chatId),
-        today: prev.today.filter((c) => c.id !== chatId),
-        yesterday: prev.yesterday.filter((c) => c.id !== chatId),
-        earlier: prev.earlier.filter((c) => c.id !== chatId),
-        archived: prev.archived.filter((c) => c.id !== chatId),
-      };
+      const rest = removeChatFromGroups(prev, chatId);
       if (pinned) {
         return { ...rest, pinned: [updated, ...rest.pinned] };
       }
@@ -427,51 +435,63 @@ export function ConversationList(_props: unknown) {
   // ScrollView. Section styling is just a top margin + padded title (no card
   // background), so header items reproduce the look exactly.
   type ChatListItem =
-    | { type: "header"; key: string; title: string }
-    | { type: "archivedHeader"; key: string; title: string; count: number }
+    | {
+        type: "sectionHeader";
+        key: ChatListSectionKey;
+        title: string;
+        count: number;
+        collapsible: boolean;
+      }
     | { type: "row"; key: string; chat: Chat };
 
   const highlightedIds = searchOpen ? matchingChatIds : undefined;
 
   const chatListData = useMemo<ChatListItem[]>(() => {
-    if (allChats.length === 0) return [];
+    if (allChats.length === 0 && groups.archived.length === 0) return [];
     const items: ChatListItem[] = [];
-    const pushSection = (title: string, chats: Chat[]) => {
-      if (chats.length === 0) return;
-      if (title) items.push({ type: "header", key: `h-${title}`, title });
-      for (const c of chats) items.push({ type: "row", key: c.id, chat: c });
-    };
-    pushSection(t("drawer.pinned"), groups.pinned);
-    pushSection(t("drawer.today"), groups.today);
-    pushSection(t("drawer.yesterday"), groups.yesterday);
-    pushSection(t("drawer.earlier"), groups.earlier);
-    if (groups.archived.length > 0) {
+    const sections: { key: ChatListSectionKey; chats: Chat[] }[] = [
+      { key: PINNED_CHAT_SECTION, chats: groups.pinned },
+      ...CHAT_DATE_SECTIONS.map((key) => ({ key, chats: groups[key] })),
+      { key: ARCHIVED_CHAT_SECTION, chats: groups.archived },
+    ];
+
+    for (const section of sections) {
+      if (section.chats.length === 0) continue;
       items.push({
-        type: "archivedHeader",
-        key: "archived-header",
-        title: t("drawer.archived"),
-        count: groups.archived.length,
+        type: "sectionHeader",
+        key: section.key,
+        title: t(drawerSectionTitleKey(section.key)),
+        count: section.chats.length,
+        collapsible: isCollapsibleChatSection(section.key),
       });
-      if (archivedExpanded) pushSection("", groups.archived);
+      if (isSectionCollapsed(section.key)) continue;
+      for (const chat of section.chats) {
+        items.push({ type: "row", key: chat.id, chat });
+      }
     }
     return items;
-  }, [allChats.length, groups, archivedExpanded, t]);
+  }, [allChats.length, groups, isSectionCollapsed, t]);
 
   const renderChatItem = useCallback(
     ({ item }: { item: ChatListItem }) => {
-      if (item.type === "header") {
-        return <Text style={[s.sectionTitle, s.section]}>{item.title}</Text>;
-      }
-      if (item.type === "archivedHeader") {
+      if (item.type === "sectionHeader") {
+        if (!item.collapsible) {
+          return (
+            <Text style={[s.sectionTitle, s.section]}>{item.title}</Text>
+          );
+        }
+        const collapsed = isSectionCollapsed(item.key);
         return (
           <Pressable
-            style={s.archivedHeader}
-            onPress={() => setArchivedExpanded((v) => !v)}
+            style={[s.sectionHeader, s.section]}
+            onPress={() => toggleSectionCollapsed(item.key)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: !collapsed }}
           >
             <Text style={s.sectionTitle}>{item.title}</Text>
-            <Text style={s.archivedCount}>{item.count}</Text>
+            <Text style={s.sectionCount}>{item.count}</Text>
             <Ionicons
-              name={archivedExpanded ? "chevron-up" : "chevron-down"}
+              name={collapsed ? "chevron-down" : "chevron-up"}
               size={16}
               color={theme.textTertiary}
             />
@@ -489,7 +509,16 @@ export function ConversationList(_props: unknown) {
         />
       );
     },
-    [s, rowStyles, highlightedIds, archivedExpanded, theme, openChat, showRowMenu],
+    [
+      s,
+      rowStyles,
+      highlightedIds,
+      isSectionCollapsed,
+      toggleSectionCollapsed,
+      theme,
+      openChat,
+      showRowMenu,
+    ],
   );
 
   const chatListEmpty =
@@ -814,7 +843,7 @@ function makeStyles(theme: Theme) {
     paddingHorizontal: 14,
     marginBottom: 2,
   },
-  archivedHeader: {
+  sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
@@ -822,7 +851,7 @@ function makeStyles(theme: Theme) {
     paddingHorizontal: 14,
     paddingVertical: 4,
   },
-  archivedCount: {
+  sectionCount: {
     fontSize: 12,
     color: theme.textTertiary,
     marginLeft: "auto",

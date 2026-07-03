@@ -71,7 +71,9 @@ async def list_chats(
         pinned=[ChatOut.model_validate(c) for c in pinned],
         today=[ChatOut.model_validate(c) for c in grouped["today"]],
         yesterday=[ChatOut.model_validate(c) for c in grouped["yesterday"]],
-        earlier=[ChatOut.model_validate(c) for c in grouped["earlier"]],
+        last_7_days=[ChatOut.model_validate(c) for c in grouped["last_7_days"]],
+        this_month=[ChatOut.model_validate(c) for c in grouped["this_month"]],
+        older=[ChatOut.model_validate(c) for c in grouped["older"]],
         archived=[ChatOut.model_validate(c) for c in archived],
     )
 

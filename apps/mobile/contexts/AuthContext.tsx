@@ -52,20 +52,24 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 function AuthLoadingShell() {
   const theme = useTheme();
+  const s = useMemo(
+    () =>
+      StyleSheet.create({
+        shell: {
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: theme.bg,
+        },
+      }),
+    [theme],
+  );
   return (
-    <View style={authLoadingStyles.shell}>
+    <View style={s.shell}>
       <ActivityIndicator size="large" color={theme.primary} />
     </View>
   );
 }
-
-const authLoadingStyles = StyleSheet.create({
-  shell: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);

@@ -19,6 +19,7 @@ from app.gateways import google_calendar_gateway
 from app.gateways.google_calendar_gateway import CalendarEvent, GoogleCalendarError
 from app.models.orm import User
 from app.repositories import calendar_connections as calendar_repo
+from app.services import day_planning as day_planning_service
 from app.services import time_context as time_context_service
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,8 @@ CALENDAR_HINT = (
     "The user may have Google Calendar connected. When a **Google Calendar** block is present, "
     "use it for external meetings and events. In-app **Reminders** (due-dated todos) are separate — "
     "mention both when relevant. "
+    "For day-planning questions (how's my day, plan my day, what to prioritize), lead with today's "
+    "calendar when a block is present. "
     "When they ask to check their calendar and no Google Calendar block is present, tell them "
     "it is not connected and they can connect it in Settings → Google Calendar."
 )
@@ -105,6 +108,8 @@ def should_inject_calendar_block(text: str) -> bool:
     cleaned = text.strip()
     if not cleaned:
         return False
+    if day_planning_service.is_day_planning_question(cleaned):
+        return True
     if is_external_calendar_question(cleaned):
         return True
     if is_calendar_create_request(cleaned):

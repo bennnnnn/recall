@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from uuid import UUID
 
@@ -5,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway
+from app.models.orm import Memory
 from app.repositories import memories as memories_repo
 from app.repositories import users as users_repo
 from app.services.memory import normalize_memory_text
@@ -58,6 +60,7 @@ async def extract_and_store_memories(
             # section that has no embedding yet. Previously only empty embeddings
             # were (re)generated, so rewrites kept the old vector.
             updated = await memories_repo.list_for_user(session, user_id)
+            embed_tasks: list[tuple[Memory, str]] = []
             for memory in updated:
                 needs_embed = not memory.embedding_json
                 if (
@@ -66,15 +69,17 @@ async def extract_and_store_memories(
                     and memory.text != existing_sections.get(memory.type)
                 ):
                     needs_embed = True
-                if not needs_embed:
-                    continue
-                vec = await embedding_gateway.embed_text(settings, memory.text)
-                if vec:
-                    # Populate both the real pgvector column (primary) and the
-                    # legacy JSON column (fallback for environments without the
-                    # vector extension / migration applied yet).
-                    memory.embedding = vec
-                    memory.embedding_json = embedding_gateway.serialize_embedding(vec)
+                if needs_embed:
+                    embed_tasks.append((memory, memory.text))
+
+            if embed_tasks:
+                vectors = await asyncio.gather(
+                    *(embedding_gateway.embed_text(settings, text) for _, text in embed_tasks)
+                )
+                for (memory, _), vec in zip(embed_tasks, vectors, strict=True):
+                    if vec:
+                        memory.embedding = vec
+                        memory.embedding_json = embedding_gateway.serialize_embedding(vec)
             await session.commit()
             await memory_service.invalidate_memory_block(user_id)
     except Exception:

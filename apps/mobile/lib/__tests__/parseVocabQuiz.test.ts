@@ -4,6 +4,7 @@ import {
   isVocabQuizAnswer,
   parseQuizAnswerLetter,
   parseVocabQuiz,
+  hasVocabQuizFence,
   stripVocabQuizBlock,
   isCompleteVocabQuiz,
 } from "@/lib/parseVocabQuiz";
@@ -128,7 +129,20 @@ describe("parseVocabQuiz", () => {
     expect(answers.q2).toBe("B");
   });
 
-  it("parses a vocab_quiz JSON fence", () => {
+  it("strips a partial vocab_quiz fence while streaming", () => {
+    const content = [
+      "Great — try this one:",
+      "",
+      "```vocab_quiz",
+      '{"word":"slow","choices":[{"letter":"A","text":"Very fast"}',
+    ].join("\n");
+
+    expect(hasVocabQuizFence(content)).toBe(true);
+    expect(stripVocabQuizBlock(content)).toBe("Great — try this one:");
+    expect(stripVocabQuizBlock(content)).not.toContain("{");
+  });
+
+  it("strips a vocab_quiz JSON fence", () => {
     const content = [
       "Great — try this one:",
       "",
@@ -155,6 +169,72 @@ describe("parseVocabQuiz", () => {
     const quiz = parseVocabQuiz(content);
     expect(quiz?.word).toBe("slow");
     expect(quiz?.choices).toHaveLength(4);
+    expect(stripVocabQuizBlock(content)).toBe("Great — try this one:");
     expect(stripVocabQuizBlock(content)).not.toContain("vocab_quiz");
+  });
+
+  it("strips duplicate trivia question text above a vocab_quiz fence", () => {
+    const content = [
+      "🎉 **Bingo!** Nice work.",
+      "",
+      "Next: **Pop Culture Throwdown**",
+      "",
+      '**Which American TV show famously had a "Central Perk" coffee shop?**',
+      "",
+      "```vocab_quiz",
+      JSON.stringify({
+        quiz_type: "trivia",
+        word: "Pop Culture",
+        question:
+          'Which American TV show famously had a "Central Perk" coffee shop?',
+        correct: "B",
+        choices: [
+          { letter: "A", text: "The Office" },
+          { letter: "B", text: "Friends" },
+          { letter: "C", text: "Seinfeld" },
+          { letter: "D", text: "Parks and Rec" },
+        ],
+      }),
+      "```",
+    ].join("\n");
+
+    const stripped = stripVocabQuizBlock(content);
+    expect(stripped).toContain("Bingo!");
+    expect(stripped).toContain("Pop Culture Throwdown");
+    expect(stripped).not.toContain("Central Perk");
+    expect(stripped).not.toContain("vocab_quiz");
+  });
+
+  it("strips trivia question with curly apostrophes and answer prompt line", () => {
+    const ap = "\u2019";
+    const content = [
+      "Next: **Pop Culture Throwdown**",
+      "",
+      `**Which American TV show famously had a ${ap}Central Perk${ap} coffee shop?**`,
+      "",
+      "(Answer A, B, C, or D!) *Pivot! Pivot!*",
+      "",
+      "```vocab_quiz",
+      JSON.stringify({
+        quiz_type: "trivia",
+        word: "Pop Culture",
+        question:
+          'Which American TV show famously had a "Central Perk" coffee shop?',
+        correct: "B",
+        choices: [
+          { letter: "A", text: "The Office" },
+          { letter: "B", text: "Friends" },
+          { letter: "C", text: "Seinfeld" },
+          { letter: "D", text: "Parks and Rec" },
+        ],
+      }),
+      "```",
+    ].join("\n");
+
+    const stripped = stripVocabQuizBlock(content);
+    expect(stripped).toContain("Pop Culture Throwdown");
+    expect(stripped).not.toContain("Central Perk");
+    expect(stripped).not.toContain("Answer A, B, C, or D");
+    expect(stripped).not.toContain("Pivot");
   });
 });

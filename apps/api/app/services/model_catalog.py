@@ -201,6 +201,12 @@ def auto_smart_alias() -> str:
     return _AUTO_SMART
 
 
+def is_reasoning_alias(model_id: str) -> bool:
+    """True for models that may think silently before the first token (R1, etc.)."""
+    tier = get(model_id).tier
+    return tier in {"smart", "max"}
+
+
 MODEL_MODES = frozenset({"auto"})
 
 

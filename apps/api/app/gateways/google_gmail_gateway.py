@@ -35,6 +35,8 @@ class GmailMessage:
     body_text: str
     received_at: datetime | None
     ics_content: str | None = None
+    from_address: str = ""
+    label_ids: tuple[str, ...] = ()
 
 
 def is_configured(settings: Settings) -> bool:
@@ -192,7 +194,9 @@ async def list_recent_messages(
                 payload = detail.get("payload") or {}
                 hdrs = payload.get("headers") or []
                 subject = _extract_header(hdrs, "Subject")
+                from_address = _extract_header(hdrs, "From")
                 snippet = str(detail.get("snippet") or "")
+                label_ids = tuple(str(label) for label in (detail.get("labelIds") or []))
                 date_hdr = _extract_header(hdrs, "Date")
                 received_at: datetime | None = None
                 if date_hdr:
@@ -212,6 +216,8 @@ async def list_recent_messages(
                         body_text=body_text or snippet,
                         received_at=received_at,
                         ics_content=ics_content,
+                        from_address=from_address,
+                        label_ids=label_ids,
                     )
                 )
     except GoogleGmailError:

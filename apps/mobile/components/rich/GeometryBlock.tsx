@@ -16,11 +16,16 @@ import { Theme, useTheme } from "@/lib/theme";
 
 type Props = { content: string };
 
-const DIAGONAL_COLOR = "#ea4335";
-const HEIGHT_COLOR = "#0891b2";
-const HYPOTENUSE_COLOR = "#ea4335";
+function diagramColors(theme: Theme) {
+  return {
+    diagonal: theme.danger,
+    height: theme.isDark ? "#22d3ee" : "#0891b2",
+    hypotenuse: theme.danger,
+  };
+}
 
 function RectangleDiagram({ spec, screenWidth, theme }: { spec: RectangleSpec; screenWidth: number; theme: Theme }) {
+  const colors = diagramColors(theme);
   const labels = computeRectangleLabels(spec);
   const layout = scaleToFit(spec.width, spec.height, screenWidth - 48);
   const offsetX = 40;
@@ -70,7 +75,7 @@ function RectangleDiagram({ spec, screenWidth, theme }: { spec: RectangleSpec; s
           y1={y}
           x2={x + w}
           y2={y + h}
-          stroke={DIAGONAL_COLOR}
+          stroke={colors.diagonal}
           strokeWidth={2}
           strokeDasharray="6,4"
         />
@@ -82,7 +87,7 @@ function RectangleDiagram({ spec, screenWidth, theme }: { spec: RectangleSpec; s
         {isSquare ? labels.side : labels.height}
       </SvgText>
       {spec.show_diagonal ? (
-        <SvgText x={x + w / 2 + 8} y={y + h / 2 - 6} fill={DIAGONAL_COLOR} fontSize={12} fontWeight="600">
+        <SvgText x={x + w / 2 + 8} y={y + h / 2 - 6} fill={colors.diagonal} fontSize={12} fontWeight="600">
           {labels.diagonal}
         </SvgText>
       ) : null}
@@ -106,6 +111,7 @@ function RectangleDiagram({ spec, screenWidth, theme }: { spec: RectangleSpec; s
 }
 
 function TriangleDiagram({ spec, screenWidth, theme }: { spec: TriangleSpec; screenWidth: number; theme: Theme }) {
+  const colors = diagramColors(theme);
   const labels = computeTriangleLabels(spec);
   const layout = scaleToFit(spec.base, spec.height, screenWidth - 48);
   const offsetX = 48;
@@ -135,7 +141,7 @@ function TriangleDiagram({ spec, screenWidth, theme }: { spec: TriangleSpec; scr
         y1={y2}
         x2={x2}
         y2={y0}
-        stroke={HEIGHT_COLOR}
+        stroke={colors.height}
         strokeWidth={2}
         strokeDasharray="5,4"
       />
@@ -144,7 +150,7 @@ function TriangleDiagram({ spec, screenWidth, theme }: { spec: TriangleSpec; scr
           <SvgText x={(x0 + x1) / 2} y={y0 + 18} fill={theme.text} fontSize={13} fontWeight="600" textAnchor="middle">
             {labels.base}
           </SvgText>
-          <SvgText x={x2 + 10} y={(y2 + y0) / 2} fill={HEIGHT_COLOR} fontSize={12} fontWeight="600">
+          <SvgText x={x2 + 10} y={(y2 + y0) / 2} fill={colors.height} fontSize={12} fontWeight="600">
             {labels.height}
           </SvgText>
           <SvgText x={x2} y={y2 - 8} fill={theme.textSecondary} fontSize={11} textAnchor="middle">
@@ -165,6 +171,7 @@ function RightTriangleDiagram({
   screenWidth: number;
   theme: Theme;
 }) {
+  const colors = diagramColors(theme);
   const labels = computeRightTriangleLabels(spec);
   const layout = scaleToFit(spec.base, spec.height, screenWidth - 48);
   const offsetX = 56;
@@ -203,14 +210,14 @@ function RightTriangleDiagram({
           <SvgText x={(x0 + x1) / 2} y={y1 + 18} fill={theme.text} fontSize={13} fontWeight="600" textAnchor="middle">
             {labels.base}
           </SvgText>
-          <SvgText x={x0 - 10} y={(y0 + y1) / 2} fill={HEIGHT_COLOR} fontSize={12} fontWeight="600" textAnchor="end">
+          <SvgText x={x0 - 10} y={(y0 + y1) / 2} fill={colors.height} fontSize={12} fontWeight="600" textAnchor="end">
             {labels.height}
           </SvgText>
           {showHyp ? (
             <SvgText
               x={(x0 + x1) / 2 + 8}
               y={(y0 + y1) / 2 - 6}
-              fill={HYPOTENUSE_COLOR}
+              fill={colors.hypotenuse}
               fontSize={12}
               fontWeight="600"
             >

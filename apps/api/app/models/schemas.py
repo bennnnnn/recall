@@ -182,7 +182,9 @@ class ChatListOut(BaseModel):
     pinned: list[ChatOut] = Field(default_factory=list)
     today: list[ChatOut] = Field(default_factory=list)
     yesterday: list[ChatOut] = Field(default_factory=list)
-    earlier: list[ChatOut] = Field(default_factory=list)
+    last_7_days: list[ChatOut] = Field(default_factory=list)
+    this_month: list[ChatOut] = Field(default_factory=list)
+    older: list[ChatOut] = Field(default_factory=list)
     archived: list[ChatOut] = Field(default_factory=list)
 
 
@@ -567,6 +569,10 @@ class ProjectActionItem(BaseModel):
 
 class ProjectExtractionResult(BaseModel):
     actions: list[ProjectActionItem] = Field(default_factory=list)
+
+
+class WebSearchClassification(BaseModel):
+    needs_search: bool
 
 
 class SearchResultItem(BaseModel):

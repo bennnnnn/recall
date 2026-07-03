@@ -327,13 +327,27 @@ def test_list_chats():
         ),
         patch(
             "app.routers.chats.chats_repo.group_by_recency",
-            return_value={"today": [], "yesterday": [], "earlier": []},
+            return_value={
+                "today": [],
+                "yesterday": [],
+                "last_7_days": [],
+                "this_month": [],
+                "older": [],
+            },
         ),
     ):
         client = TestClient(app)
         r = client.get("/chats", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 200
-    assert r.json() == {"pinned": [], "today": [], "yesterday": [], "earlier": [], "archived": []}
+    assert r.json() == {
+        "pinned": [],
+        "today": [],
+        "yesterday": [],
+        "last_7_days": [],
+        "this_month": [],
+        "older": [],
+        "archived": [],
+    }
 
 
 def test_get_chat_not_found():

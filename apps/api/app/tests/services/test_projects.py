@@ -9,6 +9,18 @@ from app.models.schemas import ProjectActionItem
 from app.services import projects as projects_service
 
 
+def test_transcript_implies_project_sync():
+    pid = uuid4()
+    assert projects_service.transcript_implies_project_sync(
+        "User: hello\nAssistant: Hi!",
+        chat_project_id=pid,
+    )
+    assert projects_service.transcript_implies_project_sync(
+        "User: add apple\nAssistant: Added apple to your vocabulary list."
+    )
+    assert not projects_service.transcript_implies_project_sync("User: hello\nAssistant: Hi there!")
+
+
 def _project(title: str, kind: str = "language"):
     p = MagicMock()
     p.id = uuid4()

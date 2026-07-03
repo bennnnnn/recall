@@ -34,8 +34,12 @@ function renderSegments(
     }
     if (seg.type === "frac") {
       return (
-        <Text key={key}>
-          {seg.num}/{seg.den}
+        <Text key={key} style={styles.frac}>
+          <Text style={styles.fracNum}>{seg.num}</Text>
+          {"\n"}
+          <Text style={styles.fracBar}>{"─"}</Text>
+          {"\n"}
+          <Text style={styles.fracDen}>{seg.den}</Text>
         </Text>
       );
     }
@@ -78,6 +82,26 @@ const makeStyles = (theme: Theme, textColor?: string) => {
     sub: {
       fontSize: 11,
       lineHeight: 18,
+      color,
+    },
+    frac: {
+      textAlign: "center",
+      lineHeight: 13,
+      paddingHorizontal: 1,
+    },
+    fracNum: {
+      fontSize: 11,
+      lineHeight: 13,
+      color,
+    },
+    fracBar: {
+      fontSize: 9,
+      lineHeight: 7,
+      color,
+    },
+    fracDen: {
+      fontSize: 11,
+      lineHeight: 13,
       color,
     },
   });

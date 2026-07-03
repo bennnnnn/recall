@@ -125,6 +125,20 @@ export function useChatScroll({
     }
   }, [messagesLength]);
 
+  const prevStreamingLenRef = useRef(0);
+  useEffect(() => {
+    const prev = prevStreamingLenRef.current;
+    prevStreamingLenRef.current = streamingLen;
+    if (prev > 0 && streamingLen === 0 && atBottomRef.current) {
+      requestAnimationFrame(() => {
+        listRef.current?.scrollToEnd({ animated: false });
+        requestAnimationFrame(() => {
+          listRef.current?.scrollToEnd({ animated: false });
+        });
+      });
+    }
+  }, [streamingLen]);
+
   useEffect(() => {
     if (streamingLen && atBottomRef.current) {
       listRef.current?.scrollToEnd({ animated: false });

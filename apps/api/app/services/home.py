@@ -28,6 +28,8 @@ from app.repositories import project_items as project_items_repo
 from app.repositories import projects as projects_repo
 from app.repositories import suggestions as suggestions_repo
 from app.repositories import todos as todos_repo
+from app.services import calendar as calendar_service
+from app.services import email as email_service
 from app.services import memory as memory_service
 from app.services import reminder_timing
 
@@ -387,6 +389,33 @@ async def _load_project_home_content(
     return starters, subtitle, highlight
 
 
+async def _integration_starters(
+    session: AsyncSession,
+    user_id: UUID,
+    settings: Settings,
+) -> list[HomeStarter]:
+    """Surface connected calendar/Gmail as home chips."""
+    starters: list[HomeStarter] = []
+
+    if settings.google_calendar_enabled and await calendar_service.is_connected(session, user_id):
+        starters.append(
+            HomeStarter(
+                text="Today's schedule",
+                prompt="What's on my calendar today and what should I prepare for?",
+                kind="general",
+            )
+        )
+    if settings.gmail_enabled and await email_service.is_connected(session, user_id):
+        starters.append(
+            HomeStarter(
+                text="Email to handle",
+                prompt="Check my inbox — anything I need to reply to or follow up on today?",
+                kind="general",
+            )
+        )
+    return starters
+
+
 async def build_home_screen(
     session: AsyncSession,
     user: User,
@@ -424,14 +453,25 @@ async def build_home_screen(
     ]:
         return await _load_project_home_content(session, user.id, seed=seed)
 
+    async def load_integrations() -> list[HomeStarter]:
+        return await _integration_starters(session, user.id, settings)
+
     async def load_suggestions() -> list:
         return await suggestions_repo.list_active(session, user.id)
 
-    urgent_items, memories, recent_titles, project_content, suggestion_items = await asyncio.gather(
+    (
+        urgent_items,
+        memories,
+        recent_titles,
+        project_content,
+        integration_starters,
+        suggestion_items,
+    ) = await asyncio.gather(
         load_urgent(),
         load_memories(),
         load_recent_titles(),
         load_project_content(),
+        load_integrations(),
         load_suggestions(),
     )
 
@@ -473,6 +513,9 @@ async def build_home_screen(
     time_pool = _time_starters(user, home_tz)
     if time_pool:
         add(_rotate_list(time_pool, seed)[0])
+
+    for item in integration_starters:
+        add(item)
 
     add(_chat_starter(recent_titles) if not project_highlight else None)
     if not project_highlight:

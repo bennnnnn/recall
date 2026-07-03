@@ -263,6 +263,9 @@ async def chat_websocket(
                         await websocket.send_json({"type": "error", "message": "User not found"})
                         continue
 
+                async def emit_status(phase: str) -> None:
+                    await _safe_send_json(websocket, {"type": "status", "phase": phase})
+
                 def _regen_stream(
                     result,
                     model=regen_model,
@@ -283,6 +286,7 @@ async def chat_websocket(
                         client_location=loc,
                         client_latitude=lat,
                         client_longitude=lng,
+                        on_status=emit_status,
                     )
 
                 await _run_chat_stream(
@@ -312,6 +316,9 @@ async def chat_websocket(
                         await websocket.send_json({"type": "error", "message": "User not found"})
                         continue
 
+                async def emit_status(phase: str) -> None:
+                    await _safe_send_json(websocket, {"type": "status", "phase": phase})
+
                 def _edit_stream(
                     result,
                     mid=request.message_id,
@@ -336,6 +343,7 @@ async def chat_websocket(
                         client_location=loc,
                         client_latitude=lat,
                         client_longitude=lng,
+                        on_status=emit_status,
                     )
 
                 await _run_chat_stream(
@@ -368,6 +376,9 @@ async def chat_websocket(
                     await websocket.send_json({"type": "error", "message": "User not found"})
                     continue
 
+            async def emit_status(phase: str) -> None:
+                await _safe_send_json(websocket, {"type": "status", "phase": phase})
+
             def _message_stream(
                 result,
                 text=message_content,
@@ -392,6 +403,7 @@ async def chat_websocket(
                     client_location=loc,
                     client_latitude=lat,
                     client_longitude=lng,
+                    on_status=emit_status,
                 )
 
             await _run_chat_stream(

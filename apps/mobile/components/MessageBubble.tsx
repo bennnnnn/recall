@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as Clipboard from "expo-clipboard";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -21,11 +21,11 @@ import {
 } from "@/lib/calendarProposal";
 import { extractPrimaryCopyText } from "@/lib/copyBlock";
 import { notifySuccess, notifyWarning, tap } from "@/lib/haptics";
-import { parseVocabQuiz, stripVocabQuizBlock, isCompleteVocabQuiz, cleanQuizWord, type QuizAnswerMeta } from "@/lib/parseVocabQuiz";
+import { parseVocabQuiz, stripVocabQuizBlock, isCompleteVocabQuiz, hasVocabQuizFence, cleanQuizWord, stripQuizMarkdownDuplicates, type QuizAnswerMeta } from "@/lib/parseVocabQuiz";
 import { resolvePlaces, stripPlacesContent } from "@/lib/placesList";
 import {
   resolveSearchSources,
-  stripSearchSourcesFence,
+  stripSearchSourcesFromContent,
 } from "@/lib/searchSources";
 import {
   assistantReplyIsTimeAnswer,
@@ -33,6 +33,7 @@ import {
   stripTimeAnswerFences,
 } from "@/lib/timeQuestion";
 import { SENDING_LABEL_DELAY_MS } from "@/lib/chatMessageLogic";
+import { STREAM_LAYOUT_SETTLE_MS } from "@/lib/messageListLayout";
 import { Theme, useTheme } from "@/lib/theme";
 import { useTranslation } from "react-i18next";
 
@@ -43,6 +44,7 @@ type Props = {
   /** Live token stream — avoids mutating the messages array on every token. */
   liveContent?: string;
   liveSearchSources?: Message["search_sources"];
+  streamStatus?: string;
   isLastAssistant?: boolean;
   onRegenerate?: () => void;
   onEdit?: (message: Message) => void;
@@ -72,6 +74,7 @@ function AssistantActions({
   onFeedback,
   onRegenerate,
   theme,
+  hidden = false,
 }: {
   messageId: string;
   content: string;
@@ -79,6 +82,7 @@ function AssistantActions({
   onFeedback?: (messageId: string, feedback: "up" | "down" | null) => void;
   onRegenerate?: () => void;
   theme: Theme;
+  hidden?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -99,7 +103,7 @@ function AssistantActions({
   };
 
   return (
-    <View style={a.row}>
+    <View style={[a.row, hidden && a.rowHidden]} pointerEvents={hidden ? "none" : "auto"}>
       <Pressable
         style={a.btn}
         onPress={handleCopy}
@@ -148,6 +152,7 @@ export const MessageBubble = React.memo(function MessageBubble({
   isGenerating = false,
   liveContent,
   liveSearchSources,
+  streamStatus,
   isLastAssistant,
   onRegenerate,
   onEdit,
@@ -165,6 +170,21 @@ export const MessageBubble = React.memo(function MessageBubble({
   const { t } = useTranslation();
   const b = useMemo(() => makeStyles(theme), [theme]);
   const [showSendingLabel, setShowSendingLabel] = useState(false);
+  const [holdStreamLayout, setHoldStreamLayout] = useState(false);
+  const wasGeneratingRef = useRef(false);
+
+  useEffect(() => {
+    if (isGenerating) {
+      wasGeneratingRef.current = true;
+      setHoldStreamLayout(false);
+      return;
+    }
+    if (!wasGeneratingRef.current) return;
+    wasGeneratingRef.current = false;
+    setHoldStreamLayout(true);
+    const timer = setTimeout(() => setHoldStreamLayout(false), STREAM_LAYOUT_SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [isGenerating]);
 
   useEffect(() => {
     if (!isSending) {
@@ -176,9 +196,14 @@ export const MessageBubble = React.memo(function MessageBubble({
   }, [isSending]);
   const isUser = message.role === "user";
   const isStreaming = isGenerating;
+  const layoutFrozen = isStreaming || holdStreamLayout;
   const content = liveContent ?? message.content;
   const hasContent = content.trim().length > 0;
-  const showActions = !isUser && hasContent && !isStreaming;
+  const statusKey = streamStatus ? `chat.status.${streamStatus}` : null;
+  const statusLabel =
+    statusKey && t(statusKey) !== statusKey ? t(statusKey) : null;
+  const showActions = !isUser && hasContent && !layoutFrozen;
+  const reserveActionRow = !isUser && hasContent && layoutFrozen;
   const quiz = useMemo(() => {
     if (isUser || !hasContent) return null;
     const parsed = parseVocabQuiz(content);
@@ -192,13 +217,14 @@ export const MessageBubble = React.memo(function MessageBubble({
       ? quiz.question?.trim() || quizTopicLabel
       : quiz.question?.trim() || ""
     : "";
-  const showQuizCard = quiz != null;
+  const showQuizCard = quiz != null && !layoutFrozen;
+  const hideQuizFenceInMarkdown = showQuizCard || hasVocabQuizFence(content);
   const showQuizButtons =
     showQuizCard && isLastAssistant && onQuizAnswer != null;
   const showLiveClock =
     !isUser &&
     hasContent &&
-    !isStreaming &&
+    !layoutFrozen &&
     assistantReplyIsTimeAnswer(content, priorUserText ?? null);
   const clockTimezone = useMemo(
     () => extractClockTimezone(content),
@@ -214,30 +240,39 @@ export const MessageBubble = React.memo(function MessageBubble({
   );
   const calendarProposals = useMemo(
     () =>
-      !isUser && hasContent && !isStreaming
+      !isUser && hasContent && !layoutFrozen
         ? parseCalendarProposals(content)
         : [],
-    [isUser, hasContent, isStreaming, content],
+    [isUser, hasContent, layoutFrozen, content],
   );
-  const showCalendarProposals = calendarProposals.length > 0 && !isStreaming;
+  const showCalendarProposals = calendarProposals.length > 0 && !layoutFrozen;
   const places = useMemo(
-    () => (!isUser && hasContent && !isStreaming ? resolvePlaces(content) : []),
-    [isUser, hasContent, isStreaming, content],
+    () => (!isUser && hasContent && !layoutFrozen ? resolvePlaces(content) : []),
+    [isUser, hasContent, layoutFrozen, content],
   );
   const showPlaces = places.length > 0;
   const markdownContent = useMemo(() => {
-    let text = showQuizCard ? stripVocabQuizBlock(content) : content;
+    let text = hideQuizFenceInMarkdown ? stripVocabQuizBlock(content) : content;
+    if (showQuizCard && quiz) {
+      text = stripQuizMarkdownDuplicates(text, quiz);
+    }
     if (showLiveClock) text = stripTimeAnswerFences(text);
-    text = stripSearchSourcesFence(text);
+    text = stripSearchSourcesFromContent(text);
     if (showCalendarProposals) text = stripCalendarProposalFences(text);
     if (showPlaces) text = stripPlacesContent(text, places);
     return text;
-  }, [showQuizCard, showLiveClock, showCalendarProposals, showPlaces, places, content]);
+  }, [hideQuizFenceInMarkdown, showQuizCard, quiz, showLiveClock, showCalendarProposals, showPlaces, places, content]);
   const hasMarkdown = markdownContent.trim().length > 0;
   const showSearchSources =
-    searchSources.length > 0 && !showLiveClock && !showQuizCard && !showCalendarProposals;
+    searchSources.length > 0 &&
+    !layoutFrozen &&
+    !showLiveClock &&
+    !showQuizCard &&
+    !showCalendarProposals;
   const showContextSummarized =
-    !isUser && !isStreaming && (message.context_summarized ?? 0) > 0;
+    !isUser && !layoutFrozen && (message.context_summarized ?? 0) > 0;
+  const markdownStreamMode = layoutFrozen;
+  const markdownResetKey = `${message.renderKey ?? message.id}:${markdownContent.length}`;
 
   return (
     <View style={[b.row, isUser ? b.userRow : b.assistantRow, highlighted && b.rowHighlighted]}>
@@ -255,75 +290,79 @@ export const MessageBubble = React.memo(function MessageBubble({
         </View>
       ) : (
         <View style={b.assistantBubble}>
-          {isStreaming && !hasContent ? (
-            <RecallTypingIndicator />
-          ) : (
-            <CollapsibleMessageBody enabled={!isStreaming} collapsible={false}>
-              {showContextSummarized ? (
-                <Text style={b.contextChip}>
-                  {t("chat.context_summarized", { count: message.context_summarized })}
-                </Text>
-              ) : null}
-              {showLiveClock ? (
-                <CircularClockBlock content={clockTimezone} />
-              ) : null}
-              {hasMarkdown ? (
-                <MarkdownErrorBoundary
-                  key={message.id}
-                  resetKey={`${message.id}:${markdownContent.length}`}
-                  content={markdownContent}
-                >
-                  <MarkdownContent content={markdownContent} streaming={isStreaming} />
-                  {isStreaming && hasMarkdown ? <StreamingCursor /> : null}
-                </MarkdownErrorBoundary>
-              ) : null}
-              {showPlaces ? <PlacesListBlock places={places} /> : null}
-              {showQuizCard && quiz ? (
-                <VocabQuizChoices
-                  quiz={quiz}
-                  variant={quizVariant === "trivia" || quiz.quizType === "trivia" ? "trivia" : "vocab"}
-                  disabled={!showQuizButtons || !!quizDisabled}
-                  language={quizLanguage}
-                  initialSelected={quizSelectedLetter}
-                  onSelect={
-                    showQuizButtons && onQuizAnswer
-                      ? (letter) => {
-                          const isCorrect =
-                            quiz.correct != null ? letter === quiz.correct : null;
-                          onQuizAnswer(message.id, letter, {
-                            topic: quizTopicLabel,
-                            question: quizQuestionText,
-                            isCorrect,
-                          });
-                        }
-                      : undefined
-                  }
-                />
-              ) : null}
-              {showCalendarProposals
-                ? calendarProposals.map((proposal, index) => (
-                    <CalendarProposalCard
-                      key={`${proposal.proposal_id ?? proposal.title}-${index}`}
-                      proposal={proposal}
-                      disabled={!isLastAssistant}
-                    />
-                  ))
-                : null}
-              {showSearchSources ? <SearchSourcesStack sources={searchSources} /> : null}
-            </CollapsibleMessageBody>
-          )}
+          <CollapsibleMessageBody enabled={!layoutFrozen && hasContent} collapsible={false}>
+            {isStreaming && !hasContent ? (
+              <View style={b.waitingWrap}>
+                <RecallTypingIndicator />
+                {statusLabel ? <Text style={b.statusLabel}>{statusLabel}</Text> : null}
+              </View>
+            ) : null}
+            {showContextSummarized ? (
+              <Text style={b.contextChip}>
+                {t("chat.context_summarized", { count: message.context_summarized })}
+              </Text>
+            ) : null}
+            {showLiveClock ? (
+              <CircularClockBlock content={clockTimezone} />
+            ) : null}
+            {hasMarkdown ? (
+              <MarkdownErrorBoundary
+                resetKey={markdownResetKey}
+                content={markdownContent}
+              >
+                <MarkdownContent content={markdownContent} streaming={markdownStreamMode} />
+                {isStreaming && hasMarkdown ? <StreamingCursor /> : null}
+              </MarkdownErrorBoundary>
+            ) : null}
+            {showPlaces ? <PlacesListBlock places={places} /> : null}
+            {showQuizCard && quiz ? (
+              <VocabQuizChoices
+                quiz={quiz}
+                variant={quizVariant === "trivia" || quiz.quizType === "trivia" ? "trivia" : "vocab"}
+                disabled={!showQuizButtons || !!quizDisabled}
+                language={quizLanguage}
+                initialSelected={quizSelectedLetter}
+                onSelect={
+                  showQuizButtons && onQuizAnswer
+                    ? (letter) => {
+                        const isCorrect =
+                          quiz.correct != null ? letter === quiz.correct : null;
+                        onQuizAnswer(message.id, letter, {
+                          topic: quizTopicLabel,
+                          question: quizQuestionText,
+                          isCorrect,
+                        });
+                      }
+                    : undefined
+                }
+              />
+            ) : null}
+            {showCalendarProposals
+              ? calendarProposals.map((proposal, index) => (
+                  <CalendarProposalCard
+                    key={`${proposal.proposal_id ?? proposal.title}-${index}`}
+                    proposal={proposal}
+                    disabled={!isLastAssistant}
+                  />
+                ))
+              : null}
+            {showSearchSources ? <SearchSourcesStack sources={searchSources} /> : null}
+          </CollapsibleMessageBody>
         </View>
       )}
 
-      {showActions && (
-        <AssistantActions
-          messageId={message.id}
-          content={extractPrimaryCopyText(content)}
-          feedback={message.feedback ?? null}
-          onFeedback={onFeedback}
-          onRegenerate={isLastAssistant ? onRegenerate : undefined}
-          theme={theme}
-        />
+      {(showActions || reserveActionRow) && (
+        <View style={reserveActionRow && !showActions ? b.actionRowReserved : undefined}>
+          <AssistantActions
+            messageId={message.id}
+            content={extractPrimaryCopyText(content)}
+            feedback={message.feedback ?? null}
+            onFeedback={onFeedback}
+            onRegenerate={isLastAssistant ? onRegenerate : undefined}
+            theme={theme}
+            hidden={reserveActionRow && !showActions}
+          />
+        </View>
       )}
     </View>
   );
@@ -336,6 +375,9 @@ const a = StyleSheet.create({
     gap: 2,
     marginTop: 4,
     marginLeft: 2,
+  },
+  rowHidden: {
+    opacity: 0,
   },
   btn: {
     width: 34,
@@ -369,6 +411,16 @@ function makeStyles(t: Theme) {
       backgroundColor: "transparent",
       paddingVertical: 2,
     },
+    waitingWrap: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      paddingVertical: 4,
+    },
+    statusLabel: {
+      fontSize: 14,
+      color: t.textTertiary,
+    },
     userText: { color: t.userText, fontSize: 16, lineHeight: 23 },
     streamingText: { color: t.assistantText, fontSize: 16, lineHeight: 25 },
     contextChip: {
@@ -376,6 +428,9 @@ function makeStyles(t: Theme) {
       lineHeight: 16,
       color: t.textTertiary,
       marginBottom: 6,
+    },
+    actionRowReserved: {
+      minHeight: 38,
     },
   });
 }

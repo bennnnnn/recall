@@ -40,7 +40,11 @@ async def _stream_chat_sse(
 ) -> AsyncIterator[str]:
     redis = get_redis_client()
     result: dict[str, Any] = {}
+    pending_status: list[str] = []
     yield _sse({"type": "start"})
+
+    async def on_status(phase: str) -> None:
+        pending_status.append(phase)
 
     def should_cancel() -> bool:
         return cancel_event.is_set() if cancel_event is not None else False
@@ -60,11 +64,16 @@ async def _stream_chat_sse(
             client_location=body.client_location,
             client_latitude=body.client_latitude,
             client_longitude=body.client_longitude,
+            on_status=on_status,
         )
         async for token_text in stream:
+            while pending_status:
+                yield _sse({"type": "status", "phase": pending_status.pop(0)})
             if should_cancel():
                 break
             yield _sse({"type": "token", "content": token_text})
+        while pending_status:
+            yield _sse({"type": "status", "phase": pending_status.pop(0)})
 
         yield _sse({"type": "stream_end"})
 

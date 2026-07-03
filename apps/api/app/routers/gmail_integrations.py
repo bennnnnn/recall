@@ -23,6 +23,7 @@ from app.models.schemas import (
 from app.repositories import gmail_connections as gmail_repo
 from app.repositories import suggested_reminders as suggested_repo
 from app.services import email as email_service
+from app.services import home as home_service
 
 logger = logging.getLogger(__name__)
 
@@ -125,6 +126,8 @@ async def connect_gmail(
     except Exception:
         logger.exception("Failed to enqueue gmail sync after connect")
 
+    await home_service.invalidate_home_cache(user.id)
+
     return GoogleGmailStatusOut(
         connected=True,
         email=google_email,
@@ -145,6 +148,7 @@ async def disconnect_gmail(
         await redis.delete(email_service._cache_key(user.id))
     except Exception:
         logger.exception("Failed to clear gmail cache after disconnect")
+    await home_service.invalidate_home_cache(user.id)
 
 
 @router.post("/sync")

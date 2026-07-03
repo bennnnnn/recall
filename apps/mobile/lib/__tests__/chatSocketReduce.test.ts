@@ -10,7 +10,14 @@ describe("chatSocketReduce", () => {
   it("mergeDoneIntoMessages replaces streaming placeholder", () => {
     const prev: Message[] = [
       { id: "u1", role: "user", content: "Hello", model: null, created_at: "t" },
-      { id: "streaming", role: "assistant", content: "", model: null, created_at: "t" },
+      {
+        id: "streaming",
+        renderKey: "stream-1",
+        role: "assistant",
+        content: "",
+        model: null,
+        created_at: "t",
+      },
     ];
     const next = mergeDoneIntoMessages(prev, {
       finalId: "msg-1",
@@ -19,6 +26,7 @@ describe("chatSocketReduce", () => {
     });
     expect(next).toHaveLength(2);
     expect(next[1].id).toBe("msg-1");
+    expect(next[1].renderKey).toBe("stream-1");
     expect(next[1].content).toBe("Hi back");
   });
 

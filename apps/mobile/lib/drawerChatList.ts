@@ -1,14 +1,9 @@
 import type { Chat, ChatList } from "@/lib/api";
+import { activeChatsFromGroups, emptyChatList } from "@/lib/chatListSections";
 
 /** Insert a chat into drawer groups if it is not already listed. */
 export function insertChatIntoGroups(groups: ChatList, chat: Chat): ChatList {
-  const listed = [
-    ...groups.pinned,
-    ...groups.today,
-    ...groups.yesterday,
-    ...groups.earlier,
-    ...groups.archived,
-  ];
+  const listed = activeChatsFromGroups(groups).concat(groups.archived);
   if (listed.some((row) => row.id === chat.id)) {
     return groups;
   }
@@ -21,3 +16,5 @@ export function insertChatIntoGroups(groups: ChatList, chat: Chat): ChatList {
   }
   return { ...groups, today: [chat, ...groups.today] };
 }
+
+export { emptyChatList };

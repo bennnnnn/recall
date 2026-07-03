@@ -40,6 +40,33 @@ POS_ORDER = (
     "other",
 )
 
+_PROJECT_SYNC_TRANSCRIPT = re.compile(
+    r"\b("
+    r"learning topic|vocab(?:ulary)?|add(?:ed)? (?:word|words)|"
+    r"master(?:ed)?|quiz|flashcard|"
+    r"set_level|programming (?:topic|project)|"
+    r"noun|verb|adjective|part of speech|"
+    r"save (?:to|this)|new list|word list|"
+    r"create (?:a )?(?:learning )?(?:topic|project)"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def transcript_implies_project_sync(
+    transcript: str,
+    *,
+    chat_project_id: UUID | None = None,
+) -> bool:
+    """Skip project-extraction jobs on unrelated chit-chat."""
+    if chat_project_id is not None:
+        return True
+    text = transcript.strip()
+    if not text:
+        return False
+    return bool(_PROJECT_SYNC_TRANSCRIPT.search(text))
+
+
 PROJECT_HINT = (
     "The user keeps **learning topics** (shown in the app as **Learning** — study workspaces for "
     "languages, vocab, courses, math, programming concepts, etc.).\n"

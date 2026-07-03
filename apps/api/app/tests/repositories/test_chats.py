@@ -140,23 +140,58 @@ def test_group_by_recency_today():
 
     assert len(result["today"]) == 1
     assert len(result["yesterday"]) == 0
-    assert len(result["earlier"]) == 0
+    assert len(result["last_7_days"]) == 0
+    assert len(result["this_month"]) == 0
+    assert len(result["older"]) == 0
 
 
-def test_group_by_recency_earlier():
-    """Chats from over a week ago should be grouped under 'earlier'."""
+def test_group_by_recency_older():
+    """Chats from before this month should be grouped under 'older'."""
     from datetime import timedelta
 
     from app.repositories.chats import group_by_recency
 
-    old = datetime.now(UTC) - timedelta(days=10)
+    now = datetime(2026, 7, 15, 12, 0, 0, tzinfo=UTC)
+    old = now - timedelta(days=20)
     chat = MagicMock()
     chat.updated_at = old
 
-    result = group_by_recency([chat])
+    result = group_by_recency([chat], now=now)
 
     assert len(result["today"]) == 0
-    assert len(result["earlier"]) == 1
+    assert len(result["older"]) == 1
+
+
+def test_group_by_recency_last_7_days():
+    """Chats from 2-7 days ago land in last_7_days."""
+    from datetime import timedelta
+
+    from app.repositories.chats import group_by_recency
+
+    now = datetime(2026, 7, 15, 12, 0, 0, tzinfo=UTC)
+    chat = MagicMock()
+    chat.updated_at = now - timedelta(days=4)
+
+    result = group_by_recency([chat], now=now)
+
+    assert result["today"] == []
+    assert result["yesterday"] == []
+    assert len(result["last_7_days"]) == 1
+
+
+def test_group_by_recency_this_month():
+    """Chats from earlier this month (but not last 7 days) land in this_month."""
+    from datetime import timedelta
+
+    from app.repositories.chats import group_by_recency
+
+    now = datetime(2026, 7, 15, 12, 0, 0, tzinfo=UTC)
+    chat = MagicMock()
+    chat.updated_at = now - timedelta(days=10)
+
+    result = group_by_recency([chat], now=now)
+
+    assert len(result["this_month"]) == 1
 
 
 def test_group_by_recency_mixed():
@@ -175,7 +210,7 @@ def test_group_by_recency_mixed():
 
     assert len(result["today"]) == 1
     assert len(result["yesterday"]) == 1
-    assert len(result["earlier"]) == 1
+    assert len(result["last_7_days"]) == 1
 
 
 def test_group_by_recency_uses_user_timezone():

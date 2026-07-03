@@ -105,12 +105,13 @@ async def test_load_relevant_memories_prefers_db_semantic_search():
         patch(
             "app.gateways.embedding_gateway.embed_text",
             AsyncMock(return_value=[0.1, 0.2, 0.3]),
-        ),
+        ) as embed_mock,
     ):
-        result = await load_relevant_memories(session, user, settings, query_text="outdoors")
+        result = await load_relevant_memories(session, user, settings, query_vec=[0.1, 0.2, 0.3])
 
     assert result == [db_hit]
     db_search.assert_awaited_once()
+    embed_mock.assert_not_awaited()
     kwargs = db_search.await_args.kwargs
     assert kwargs["min_confidence"] == settings.memory_min_confidence
     assert kwargs["limit"] == settings.memory_inject_limit
@@ -140,11 +141,12 @@ async def test_load_relevant_memories_falls_back_to_in_memory_when_db_empty():
         patch(
             "app.gateways.embedding_gateway.embed_text",
             AsyncMock(return_value=[0.95, 0.05, 0.0]),
-        ),
+        ) as embed_mock,
     ):
-        result = await load_relevant_memories(session, user, settings, query_text="coding")
+        result = await load_relevant_memories(session, user, settings, query_vec=[0.95, 0.05, 0.0])
 
     assert result == [in_memory_hit]
+    embed_mock.assert_not_awaited()
 
 
 @pytest.mark.asyncio

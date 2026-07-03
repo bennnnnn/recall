@@ -40,6 +40,11 @@ def test_format_not_connected_mentions_settings():
         ("check my calendar", True),
         ("schedule a meeting tomorrow", True),
         ("am I free at 3pm", True),
+        (
+            "How's my day looking so far — anything you think I should prioritize?",
+            True,
+        ),
+        ("Help me plan my day based on what you know about me.", True),
         ("solve for the hypotenuse", False),
         ("best restaurants near me", False),
         ("what is photosynthesis", False),

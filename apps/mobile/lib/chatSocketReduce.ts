@@ -1,5 +1,5 @@
 import type { Message, SearchSource } from "@/lib/api";
-import { parseSearchSourcesJson } from "@/lib/searchSources";
+import { parseSearchSources, parseSearchSourcesJson, stripSearchSourcesFromContent } from "@/lib/searchSources";
 
 export type ChatWsPayload = {
   type: string;
@@ -7,6 +7,7 @@ export type ChatWsPayload = {
   message?: string;
   message_id?: string;
   code?: string;
+  phase?: string;
   final_content?: string;
   recalled?: string;
   memory_hints?: string;
@@ -82,11 +83,17 @@ export function mergeDoneIntoMessages(
         ? {
             ...m,
             id: finalId,
-            content: finalContent ?? (draftContent || m.content),
+            renderKey: m.renderKey,
+            content: stripSearchSourcesFromContent(
+              finalContent ?? (draftContent || m.content),
+            ),
             recalled,
             memory_hints,
             context_summarized,
-            search_sources: search_sources ?? draftSearchSources,
+            search_sources:
+              search_sources ??
+              draftSearchSources ??
+              parseSearchSources(finalContent ?? draftContent ?? m.content),
           }
         : m,
     );

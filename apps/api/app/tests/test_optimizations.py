@@ -7,7 +7,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.repositories.chats import group_by_recency
+from app.repositories.chats import RECENCY_BUCKETS, group_by_recency
 
 # ── group_by_recency: pure-function O(n) grouper ─────────────────────────────
 
@@ -24,22 +24,25 @@ def test_group_by_recency_today():
     groups = group_by_recency([chat])
     assert len(groups["today"]) == 1
     assert groups["yesterday"] == []
-    assert groups["earlier"] == []
+    assert groups["last_7_days"] == []
+    assert groups["this_month"] == []
+    assert groups["older"] == []
 
 
-def test_group_by_recency_earlier():
+def test_group_by_recency_older():
     from datetime import timedelta
 
-    old = datetime.now(UTC) - timedelta(days=10)
+    now = datetime(2026, 7, 15, 12, 0, 0, tzinfo=UTC)
+    old = now - timedelta(days=20)
     chat = _chat(old)
-    groups = group_by_recency([chat])
+    groups = group_by_recency([chat], now=now)
     assert groups["today"] == []
-    assert groups["earlier"] == [chat]
+    assert groups["older"] == [chat]
 
 
 def test_group_by_recency_empty():
     groups = group_by_recency([])
-    assert groups == {"today": [], "yesterday": [], "earlier": []}
+    assert groups == {key: [] for key in RECENCY_BUCKETS}
 
 
 def test_group_by_recency_naive_datetime():

@@ -1,0 +1,430 @@
+import asyncio
+import json
+import logging
+from collections.abc import AsyncIterator, Callable
+from typing import Any
+from uuid import UUID
+
+from redis.asyncio import Redis
+
+from app.core.config import Settings
+from app.core.db import SessionLocal
+from app.exceptions import ChatNotFoundError, QuotaExceededError
+from app.gateways.litellm_gateway import ModelUnavailableError
+from app.services.chat.post_turn import (
+    enqueue_post_turn_jobs,
+    finalize_stream_turn_db,
+    seed_usage_from_db,
+)
+from app.services.chat.prompt_builder import StreamStatusFn
+from app.services.chat.turn_prep import (
+    RegenerateBackup,
+    StreamContext,
+    build_stream_prompt_context,
+    count_image_attachments,
+    vision_reserve_tokens,
+)
+from app.services.context_window import estimate_tokens
+from app.services.quota import quota_exceeded_message
+
+logger = logging.getLogger(__name__)
+
+
+async def stream_chat_response(
+    redis: Redis,
+    settings: Settings,
+    *,
+    user_id: UUID,
+    chat_id: UUID,
+    content: str,
+    model_alias: str | None = None,
+    attachment_ids: list[UUID] | None = None,
+    should_cancel: Callable[[], bool] | None = None,
+    result: dict[str, Any] | None = None,
+    client_timezone: str | None = None,
+    client_location: str | None = None,
+    client_latitude: float | None = None,
+    client_longitude: float | None = None,
+    pre_reserved: int | None = None,
+    on_status: StreamStatusFn | None = None,
+) -> AsyncIterator[str]:
+    import app.services.chat as chat_pkg
+
+    async with SessionLocal() as session:
+        user = await chat_pkg.users_repo.get_by_id(session, user_id)
+        if user is None:
+            raise ChatNotFoundError("User not found.")
+        daily_limit = chat_pkg.quota_service.daily_limit_for_user(user, settings)
+        await seed_usage_from_db(redis, session, user_id)
+
+    if pre_reserved is not None:
+        reserved = pre_reserved
+    else:
+        reserved = estimate_tokens(content) + settings.max_output_tokens
+        if attachment_ids:
+            async with SessionLocal() as session:
+                image_count = await count_image_attachments(session, user_id, attachment_ids)
+            reserved += vision_reserve_tokens(settings, image_count)
+        if not await chat_pkg.quota_service.reserve_usage(
+            redis, str(user_id), reserved, daily_limit=daily_limit
+        ):
+            raise QuotaExceededError(quota_exceeded_message(user))
+
+    try:
+        ctx = await chat_pkg._prepare_chat_turn(
+            user_id=user_id,
+            chat_id=chat_id,
+            content=content,
+            model_alias=model_alias,
+            settings=settings,
+            redis=redis,
+            reserved_tokens=reserved,
+            attachment_ids=attachment_ids or [],
+            client_timezone=client_timezone,
+            client_location=client_location,
+            client_latitude=client_latitude,
+            client_longitude=client_longitude,
+            on_status=on_status,
+        )
+    except ChatNotFoundError:
+        await chat_pkg.quota_service.refund_usage(redis, str(user_id), reserved)
+        raise
+    except Exception:
+        await chat_pkg.quota_service.refund_usage(redis, str(user_id), reserved)
+        raise
+
+    try:
+        async for token in chat_pkg._stream_and_finalize(
+            redis,
+            settings,
+            ctx,
+            should_cancel=should_cancel,
+            result=result,
+            on_status=on_status,
+        ):
+            yield token
+    except ModelUnavailableError:
+        await chat_pkg.quota_service.refund_usage(redis, str(user_id), reserved)
+        raise
+    except Exception:
+        await chat_pkg.quota_service.refund_usage(redis, str(user_id), reserved)
+        raise
+
+
+async def stream_regenerate_response(
+    redis: Redis,
+    settings: Settings,
+    *,
+    user_id: UUID,
+    chat_id: UUID,
+    model_alias: str | None = None,
+    should_cancel: Callable[[], bool] | None = None,
+    result: dict[str, Any] | None = None,
+    client_timezone: str | None = None,
+    client_location: str | None = None,
+    client_latitude: float | None = None,
+    client_longitude: float | None = None,
+    on_status: StreamStatusFn | None = None,
+) -> AsyncIterator[str]:
+    import app.services.chat as chat_pkg
+
+    regenerate_backup: RegenerateBackup | None = None
+
+    async with SessionLocal() as session:
+        user = await chat_pkg.users_repo.get_by_id(session, user_id)
+        if user is None:
+            raise ChatNotFoundError("User not found.")
+
+        chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user_id)
+        if chat is None:
+            raise ChatNotFoundError("Chat not found.")
+
+        last = await chat_pkg.messages_repo.get_last(session, chat_id)
+        if last is None:
+            raise ChatNotFoundError("No messages to regenerate.")
+
+        last_user = await chat_pkg.messages_repo.get_last_user(session, chat_id)
+        if last_user is None:
+            raise ChatNotFoundError("No user message to regenerate from.")
+
+        model = chat_pkg.plan_service.resolve_user_model_override(
+            user, model_alias, last_user.content, settings
+        )
+        user_message_content = last_user.content
+
+        bundle = await build_stream_prompt_context(
+            session,
+            user,
+            chat,
+            user_message_content,
+            model,
+            settings,
+            redis,
+            client_timezone=client_timezone,
+            client_location=client_location,
+            client_latitude=client_latitude,
+            client_longitude=client_longitude,
+            on_status=on_status,
+        )
+
+        prior_count = await chat_pkg.messages_repo.count_for_chat(session, chat_id)
+        reserved = estimate_tokens(user_message_content) + bundle.max_out
+        daily_limit = chat_pkg.quota_service.daily_limit_for_user(user, settings)
+        await seed_usage_from_db(redis, session, user_id)
+        if not await chat_pkg.quota_service.reserve_usage(
+            redis, str(user_id), reserved, daily_limit=daily_limit
+        ):
+            raise QuotaExceededError(quota_exceeded_message(user))
+
+        if last.role == "assistant":
+            regenerate_backup = RegenerateBackup(content=last.content, model=last.model)
+            await chat_pkg.attachment_lifecycle.purge_attachments_for_messages(
+                session, settings, [last.id]
+            )
+            await chat_pkg.messages_repo.delete_message(session, last)
+
+    ctx = StreamContext(
+        user_id=user_id,
+        chat_id=chat_id,
+        model=model,
+        prompt_messages=bundle.prompt_messages,
+        run_title=False,
+        user_message_content=user_message_content,
+        reserved_tokens=reserved,
+        max_output_tokens=bundle.max_out,
+        recalled_count=int(bundle.meta.get("recalled") or 0),
+        memory_hints=list(bundle.meta.get("memory_hints") or []),
+        context_summarized=int(bundle.meta.get("context_summarized") or 0),
+        instant_reply=bundle.instant_reply,
+        search_sources=bundle.search_sources,
+        local_places=bundle.local_places,
+        skip_memory_jobs=bundle.minimal_quiz,
+        prior_count=prior_count,
+        chat_project_id=chat.project_id,
+        regenerate_backup=regenerate_backup,
+        fallback_models=bundle.fallback_models,
+    )
+
+    try:
+        async for token in chat_pkg._stream_and_finalize(
+            redis,
+            settings,
+            ctx,
+            should_cancel=should_cancel,
+            result=result,
+            on_status=on_status,
+        ):
+            yield token
+    except ModelUnavailableError:
+        await chat_pkg.quota_service.refund_usage(redis, str(user_id), reserved)
+        if regenerate_backup is not None:
+            await chat_pkg._restore_regenerate_backup(user_id, chat_id, regenerate_backup)
+        raise
+    except Exception:
+        await chat_pkg.quota_service.refund_usage(redis, str(user_id), reserved)
+        if regenerate_backup is not None:
+            await chat_pkg._restore_regenerate_backup(user_id, chat_id, regenerate_backup)
+        raise
+
+
+async def stream_edit_response(
+    redis: Redis,
+    settings: Settings,
+    *,
+    user_id: UUID,
+    chat_id: UUID,
+    message_id: UUID,
+    new_content: str,
+    model_alias: str | None = None,
+    should_cancel: Callable[[], bool] | None = None,
+    result: dict[str, Any] | None = None,
+    client_timezone: str | None = None,
+    client_location: str | None = None,
+    client_latitude: float | None = None,
+    client_longitude: float | None = None,
+    on_status: StreamStatusFn | None = None,
+) -> AsyncIterator[str]:
+    """Replace a user message and delete all turns after it, then re-stream."""
+    import app.services.chat as chat_pkg
+
+    content = new_content.strip()
+    if not content:
+        raise ChatNotFoundError("Message cannot be empty.")
+
+    async with SessionLocal() as session:
+        user = await chat_pkg.users_repo.get_by_id(session, user_id)
+        if user is None:
+            raise ChatNotFoundError("User not found.")
+        chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user_id)
+        if chat is None:
+            raise ChatNotFoundError("Chat not found.")
+        target = await chat_pkg.messages_repo.get_by_id(session, message_id, chat_id)
+        if target is None or target.role != "user":
+            raise ChatNotFoundError("Only user messages can be edited.")
+        daily_limit = chat_pkg.quota_service.daily_limit_for_user(user, settings)
+        reserved = estimate_tokens(content) + settings.max_output_tokens
+        await seed_usage_from_db(redis, session, user_id)
+        if not await chat_pkg.quota_service.reserve_usage(
+            redis, str(user_id), reserved, daily_limit=daily_limit
+        ):
+            raise QuotaExceededError(quota_exceeded_message(user))
+        message_ids = await chat_pkg.messages_repo.ids_from_chat_at_or_after(
+            session,
+            chat_id,
+            from_created_at=target.created_at,
+            from_message_id=target.id,
+        )
+        await chat_pkg.attachment_lifecycle.purge_attachments_for_messages(
+            session, settings, message_ids
+        )
+        await chat_pkg.messages_repo.delete_messages_from(
+            session,
+            chat_id,
+            from_created_at=target.created_at,
+            from_message_id=target.id,
+        )
+
+    async for token in chat_pkg.stream_chat_response(
+        redis,
+        settings,
+        user_id=user_id,
+        chat_id=chat_id,
+        content=content,
+        model_alias=model_alias,
+        should_cancel=should_cancel,
+        result=result,
+        client_timezone=client_timezone,
+        client_location=client_location,
+        client_latitude=client_latitude,
+        client_longitude=client_longitude,
+        pre_reserved=reserved,
+        on_status=on_status,
+    ):
+        yield token
+
+
+async def stream_and_finalize(
+    redis: Redis,
+    settings: Settings,
+    ctx: StreamContext,
+    *,
+    should_cancel: Callable[[], bool] | None,
+    result: dict[str, Any] | None = None,
+    on_status: StreamStatusFn | None = None,
+) -> AsyncIterator[str]:
+    import app.services.chat as chat_pkg
+
+    usage: dict[str, int] = {}
+    assistant_parts: list[str] = []
+    was_cancelled = False
+
+    if ctx.instant_reply:
+        if not (should_cancel and should_cancel()):
+            assistant_parts.append(ctx.instant_reply)
+            yield ctx.instant_reply
+        else:
+            was_cancelled = True
+    else:
+        if on_status is not None and chat_pkg.model_catalog.is_reasoning_alias(ctx.model):
+            await on_status("thinking")
+        stream_meta: dict[str, str] = {}
+        async for token in chat_pkg.litellm_gateway.stream_chat_completion(
+            settings=settings,
+            model_alias=ctx.model,
+            messages=ctx.prompt_messages,
+            max_tokens=ctx.max_output_tokens,
+            usage=usage,
+            fallback_aliases=ctx.fallback_models,
+            stream_meta=stream_meta,
+        ):
+            if should_cancel and should_cancel():
+                was_cancelled = True
+                break
+            assistant_parts.append(token)
+            yield token
+        resolved = stream_meta.get("model_alias")
+        if resolved:
+            ctx.model = resolved
+
+    assistant_text = "".join(assistant_parts).strip()
+    if not assistant_text:
+        await chat_pkg.quota_service.refund_usage(redis, str(ctx.user_id), ctx.reserved_tokens)
+        if ctx.regenerate_backup is not None:
+            await chat_pkg._restore_regenerate_backup(
+                ctx.user_id,
+                ctx.chat_id,
+                ctx.regenerate_backup,
+            )
+        return
+
+    async with SessionLocal() as session:
+        user = await chat_pkg.users_repo.get_by_id(session, ctx.user_id)
+        if user is not None:
+            assistant_text = await chat_pkg.calendar_service.materialize_calendar_proposals(
+                session,
+                redis,
+                user,
+                settings,
+                assistant_text,
+            )
+
+    assistant_text = chat_pkg.math_fence_service.validate_math_fences(assistant_text)
+
+    if ctx.search_sources:
+        assistant_text = chat_pkg.web_search_service.strip_sources_from_text(assistant_text)
+        if result is not None:
+            result["search_sources"] = json.dumps(
+                chat_pkg.web_search_service.sources_payload(ctx.search_sources)
+            )
+            result["final_content"] = assistant_text
+        sources_fence = chat_pkg.web_search_service.format_sources_fence(ctx.search_sources)
+        if sources_fence and not (should_cancel and should_cancel()):
+            assistant_text = f"{assistant_text}{sources_fence}".strip()
+
+    if ctx.local_places and ctx.search_sources and "```places" not in assistant_text.lower():
+        assistant_text = chat_pkg.web_search_service.strip_duplicate_venue_list(assistant_text)
+        places_fence = chat_pkg.web_search_service.format_places_fence(ctx.search_sources)
+        if places_fence and not (should_cancel and should_cancel()):
+            assistant_parts[:] = [assistant_text] if assistant_text.strip() else []
+            assistant_parts.append(places_fence)
+            assistant_text = "".join(assistant_parts).strip()
+            if result is not None:
+                result["final_content"] = assistant_text
+
+    if ctx.instant_reply and not usage:
+        usage["output_tokens"] = estimate_tokens(assistant_text)
+        usage["input_tokens"] = 0
+
+    if result is not None and not ctx.skip_memory_jobs:
+        transcript = f"User: {ctx.user_message_content}\nAssistant: {assistant_text}"
+        if chat_pkg.todos_service.transcript_implies_todo_sync(transcript):
+            result["todos_sync"] = "1"
+
+    if result is not None and was_cancelled and assistant_text:
+        result["final_content"] = assistant_text
+
+    finalize_db_task = asyncio.create_task(
+        finalize_stream_turn_db(redis, ctx, assistant_text, usage, result),
+    )
+    finalize_db_task.add_done_callback(
+        lambda t: logger.exception("Background DB finalization failed", exc_info=t.exception())
+        if t.exception()
+        else None
+    )
+
+    async def _run_jobs_after_db() -> None:
+        try:
+            await finalize_db_task
+            await enqueue_post_turn_jobs(redis, settings, ctx, assistant_text)
+        except Exception:
+            logger.exception("Background job enqueue failed")
+
+    jobs_task = asyncio.create_task(_run_jobs_after_db())
+    jobs_task.add_done_callback(
+        lambda t: logger.exception("Background finalization failed", exc_info=t.exception())
+        if t.exception()
+        else None
+    )
+    if result is not None:
+        result["_finalize_task"] = jobs_task
+        result["_finalize_db_task"] = finalize_db_task

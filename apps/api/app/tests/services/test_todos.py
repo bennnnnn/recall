@@ -355,6 +355,11 @@ def test_should_inject_todos_prompt():
     assert todos_service.should_inject_todos_prompt(
         [_item("Milk")], query_text="Show my grocery list", user_timezone="UTC"
     )
+    assert todos_service.should_inject_todos_prompt(
+        [_item("Milk")],
+        query_text="How's my day looking so far — anything you think I should prioritize?",
+        user_timezone="UTC",
+    )
 
 
 @pytest.mark.asyncio

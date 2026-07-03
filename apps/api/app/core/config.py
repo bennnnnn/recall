@@ -74,6 +74,7 @@ class Settings(BaseSettings):
     memory_fallback_model_alias: str = "fallback-memory-model"
 
     web_search_enabled: bool = True
+    web_search_classifier_enabled: bool = True
     web_search_fallback_enabled: bool = True
     web_search_max_results: int = 5
     web_search_cache_ttl: int = 300
@@ -103,6 +104,9 @@ class Settings(BaseSettings):
     memory_inject_limit: int = 15
     memory_cache_ttl: int = 300
     memory_query_cache_ttl: int = 120
+    # Run memory extraction every N completed assistant turns (always runs on turn 1).
+    memory_extract_every_n_turns: int = 3
+    memory_query_embed_cache_ttl: int = 3600
     link_preview_cache_ttl: int = 3600
     home_cache_ttl: int = 60
     todo_inject_limit: int = 100

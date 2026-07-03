@@ -20,6 +20,7 @@ const CONNECT_TIMEOUT_MS = 8000;
 export type StreamingDraft = {
   content: string;
   search_sources?: SearchSource[];
+  status?: string;
 };
 
 type UseChatOptions = {
@@ -92,6 +93,7 @@ export function useChat(
         ...prev,
         {
           id: "streaming",
+          renderKey: `stream-${Date.now()}`,
           role: "assistant" as const,
           content: "",
           model: null,
@@ -143,18 +145,25 @@ export function useChat(
         appendStreamingPlaceholder();
       }
 
+      if (payload.type === "status" && typeof payload.phase === "string") {
+        updateStreamingDraft({
+          content: assistantBuffer.current,
+          search_sources: streamingDraftRef.current?.search_sources,
+          status: payload.phase,
+        });
+      }
+
       if (payload.type === "token") {
         assistantBuffer.current += payload.content ?? "";
         const streamedSources = parseSearchSources(assistantBuffer.current);
         updateStreamingDraft({
           content: assistantBuffer.current,
           search_sources: streamedSources.length ? streamedSources : undefined,
+          status: undefined,
         });
       }
 
       if (payload.type === "stream_end") {
-        setStreaming(false);
-        streamingRef.current = false;
         setFinalizing(true);
       }
 

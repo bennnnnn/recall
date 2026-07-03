@@ -11,6 +11,7 @@ from app.models.schemas import TodoActionItem, TodoExtractionResult
 from app.repositories import todos as todos_repo
 from app.repositories import users as users_repo
 from app.repositories.todos import DEFAULT_TOPIC
+from app.services import day_planning as day_planning_service
 from app.services import home as home_service
 from app.services import time_context as time_context_service
 
@@ -367,6 +368,8 @@ def should_inject_todos_prompt(
     user_timezone: str | None = None,
 ) -> bool:
     """Skip todo blocks on unrelated turns to save tokens; keep overdue nudges."""
+    if query_text and day_planning_service.is_day_planning_question(query_text):
+        return True
     if query_implies_todos(query_text):
         return True
     return _has_overdue_open_reminders(items, user_timezone)

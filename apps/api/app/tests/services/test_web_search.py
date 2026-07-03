@@ -14,6 +14,7 @@ from app.services.web_search import (
     format_sources_fence,
     needs_web_search,
     resolve_search_subject,
+    should_web_search,
 )
 
 
@@ -259,6 +260,19 @@ def test_format_sources_fence_json():
     assert '"url": "https://example.com/a"' in block
 
 
+def test_strip_sources_from_text_removes_fence_and_bare_json():
+    from app.services.web_search.formatting import strip_sources_from_text
+
+    fenced = 'Answer here.\n\n```sources\n[{"title":"A","url":"https://a.com","snippet":"x"}]\n```'
+    assert strip_sources_from_text(fenced) == "Answer here."
+
+    bare = (
+        'Answer here.\n\n[{"title":"World Cup","url":"https://example.com",'
+        '"snippet":"Scores today."}]'
+    )
+    assert strip_sources_from_text(bare) == "Answer here."
+
+
 @pytest.mark.asyncio
 async def test_augment_prompt_injects_results_before_user():
     settings = Settings(mock_llm_enabled=True, tavily_api_key="")
@@ -269,7 +283,7 @@ async def test_augment_prompt_injects_results_before_user():
         {"role": "user", "content": "search the web for latest AI news"},
     ]
     with patch(
-        "app.services.web_search.web_search_gateway.search_web",
+        "app.services.web_search.search_cache.web_search_gateway.search_web",
         AsyncMock(
             return_value=[
                 WebSearchHit(title="Hit", url="https://x.com", snippet="info"),
@@ -295,7 +309,7 @@ async def test_augment_prompt_injects_empty_block_when_no_hits():
         {"role": "user", "content": "what's happening in the world today"},
     ]
     with patch(
-        "app.services.web_search.web_search_gateway.search_web",
+        "app.services.web_search.search_cache.web_search_gateway.search_web",
         AsyncMock(return_value=[]),
     ):
         out, hits = await augment_prompt_messages(
@@ -319,9 +333,9 @@ async def test_augment_prompt_follow_up_look_it_up(fake_redis):
         {"role": "user", "content": "Look it up"},
     ]
     with (
-        patch("app.services.web_search.get_redis_client", return_value=fake_redis),
+        patch("app.services.web_search.search_cache.get_redis_client", return_value=fake_redis),
         patch(
-            "app.services.web_search.web_search_gateway.search_web",
+            "app.services.web_search.search_cache.web_search_gateway.search_web",
             AsyncMock(
                 return_value=[
                     WebSearchHit(title="Scores", url="https://scores.example", snippet="2-1"),
@@ -344,7 +358,7 @@ async def test_augment_prompt_skips_personal_planning():
     settings = Settings()
     messages = [{"role": "system", "content": "base"}]
     with patch(
-        "app.services.web_search.web_search_gateway.search_web",
+        "app.services.web_search.search_cache.web_search_gateway.search_web",
         AsyncMock(),
     ) as search_mock:
         out, hits = await augment_prompt_messages(
@@ -360,7 +374,7 @@ async def test_augment_prompt_skips_when_not_needed():
     settings = Settings()
     messages = [{"role": "system", "content": "base"}]
     with patch(
-        "app.services.web_search.web_search_gateway.search_web",
+        "app.services.web_search.search_cache.web_search_gateway.search_web",
         AsyncMock(),
     ) as search_mock:
         out, hits = await augment_prompt_messages(messages, "explain recursion", settings)
@@ -382,7 +396,7 @@ async def test_run_search_parallelizes_queries():
     import asyncio
     import time
 
-    from app.services.web_search import _run_search
+    from app.services.web_search.search_cache import _run_search
 
     settings = Settings(web_search_max_results=10, mock_llm_enabled=True)
 
@@ -396,7 +410,7 @@ async def test_run_search_parallelizes_queries():
             )
         ]
 
-    with patch("app.services.web_search._search_with_cache", side_effect=mock_search):
+    with patch("app.services.web_search.search_cache._search_with_cache", side_effect=mock_search):
         start = time.monotonic()
         merged, tried = await _run_search(settings, ["slow", "fast-a", "fast-b"])
         elapsed = time.monotonic() - start
@@ -408,7 +422,7 @@ async def test_run_search_parallelizes_queries():
 
 @pytest.mark.asyncio
 async def test_run_search_dedupes_across_queries_and_respects_limit():
-    from app.services.web_search import _run_search
+    from app.services.web_search.search_cache import _run_search
 
     settings = Settings(web_search_max_results=2, mock_llm_enabled=True)
 
@@ -420,7 +434,7 @@ async def test_run_search_dedupes_across_queries_and_respects_limit():
             ]
         return [WebSearchHit(title="A dup", url="https://dup", snippet="3")]
 
-    with patch("app.services.web_search._search_with_cache", side_effect=mock_search):
+    with patch("app.services.web_search.search_cache._search_with_cache", side_effect=mock_search):
         merged, tried = await _run_search(settings, ["q1", "q2"])
 
     assert tried == ["q1", "q2"]
@@ -454,10 +468,10 @@ async def test_search_web_returns_empty_when_all_providers_fail():
 
 @pytest.mark.asyncio
 async def test_search_with_cache_reuses_redis(fake_redis):
-    from app.services.web_search import _search_with_cache
+    from app.services.web_search.search_cache import _search_with_cache
 
     settings = Settings(web_search_cache_ttl=300, mock_llm_enabled=True)
-    with patch("app.services.web_search.get_redis_client", return_value=fake_redis):
+    with patch("app.services.web_search.search_cache.get_redis_client", return_value=fake_redis):
         first = await _search_with_cache(settings, "cached query", max_results=3)
         second = await _search_with_cache(settings, "cached query", max_results=3)
     assert len(first) >= 1
@@ -465,7 +479,7 @@ async def test_search_with_cache_reuses_redis(fake_redis):
 
 
 def test_search_cache_key_includes_max_results():
-    from app.services.web_search import _search_cache_key
+    from app.services.web_search.search_cache import _search_cache_key
 
     assert _search_cache_key("Foo", 3) != _search_cache_key("Foo", 5)
     assert _search_cache_key("Foo", 3) == _search_cache_key("foo", 3)
@@ -473,14 +487,14 @@ def test_search_cache_key_includes_max_results():
 
 @pytest.mark.asyncio
 async def test_search_with_cache_separate_entries_per_max_results(fake_redis):
-    from app.services.web_search import _search_with_cache
+    from app.services.web_search.search_cache import _search_with_cache
 
     settings = Settings(web_search_cache_ttl=300, mock_llm_enabled=True)
     hit = WebSearchHit(title="Hit", url="https://example.com", snippet="snippet")
     search_mock = AsyncMock(return_value=[hit])
     with (
-        patch("app.services.web_search.get_redis_client", return_value=fake_redis),
-        patch("app.services.web_search.web_search_gateway.search_web", search_mock),
+        patch("app.services.web_search.search_cache.get_redis_client", return_value=fake_redis),
+        patch("app.services.web_search.search_cache.web_search_gateway.search_web", search_mock),
     ):
         await _search_with_cache(settings, "same query", max_results=1)
         await _search_with_cache(settings, "same query", max_results=5)
@@ -494,7 +508,7 @@ async def test_search_with_cache_separate_entries_per_max_results(fake_redis):
 async def test_search_with_cache_single_flight_on_miss(fake_redis):
     import asyncio
 
-    from app.services.web_search import _search_with_cache
+    from app.services.web_search.search_cache import _search_with_cache
 
     settings = Settings(web_search_cache_ttl=300, mock_llm_enabled=True)
     call_count = 0
@@ -508,8 +522,8 @@ async def test_search_with_cache_single_flight_on_miss(fake_redis):
         ]
 
     with (
-        patch("app.services.web_search.get_redis_client", return_value=fake_redis),
-        patch("app.services.web_search.web_search_gateway.search_web", slow_search),
+        patch("app.services.web_search.search_cache.get_redis_client", return_value=fake_redis),
+        patch("app.services.web_search.search_cache.web_search_gateway.search_web", slow_search),
     ):
         results = await asyncio.gather(
             *[_search_with_cache(settings, "same query", max_results=3) for _ in range(3)]
@@ -525,7 +539,7 @@ def test_mock_search_results_respects_limit():
 
 
 def test_prioritize_team_hits():
-    from app.services.web_search import _prioritize_team_hits
+    from app.services.web_search.query_builders import _prioritize_team_hits
 
     hits = [
         WebSearchHit(title="World Cup group stage", url="https://a.com", snippet="Brazil vs Spain"),
@@ -602,3 +616,84 @@ def test_post_stream_fences_from_search_hits():
     assert "Venue" in sources
     assert "```places" in places
     assert "123 Main St" in places
+
+
+@pytest.mark.asyncio
+async def test_should_web_search_classifier_yes_for_factual_lookup():
+    settings = Settings(
+        mock_llm_enabled=True,
+        openrouter_api_key="",
+        web_search_classifier_enabled=True,
+    )
+    assert await should_web_search("Who is the CEO of Anthropic?", settings) is True
+
+
+@pytest.mark.asyncio
+async def test_should_web_search_classifier_no_for_stable_topic():
+    settings = Settings(
+        mock_llm_enabled=True,
+        openrouter_api_key="",
+        web_search_classifier_enabled=True,
+    )
+    assert await should_web_search("Explain how recursion works in Python", settings) is False
+
+
+@pytest.mark.asyncio
+async def test_should_web_search_fast_path_skips_classifier():
+    settings = Settings(
+        mock_llm_enabled=True,
+        openrouter_api_key="",
+        web_search_classifier_enabled=True,
+    )
+    with patch(
+        "app.gateways.litellm_gateway.classify_web_search_need",
+        AsyncMock(),
+    ) as classify:
+        assert await should_web_search("search the web for AI news", settings) is True
+        classify.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_should_web_search_classifier_disabled_uses_heuristic():
+    settings = Settings(web_search_classifier_enabled=False)
+    assert await should_web_search("What is the latest price of Bitcoin?", settings) is True
+
+
+@pytest.mark.asyncio
+async def test_should_web_search_falls_back_when_classifier_fails():
+    settings = Settings(mock_llm_enabled=False, web_search_classifier_enabled=True)
+    with patch(
+        "app.gateways.litellm_gateway.classify_web_search_need",
+        AsyncMock(return_value=None),
+    ):
+        assert await should_web_search("What is the latest price of Bitcoin?", settings) is True
+
+
+@pytest.mark.asyncio
+async def test_augment_prompt_classifier_routes_factual_lookup(fake_redis):
+    settings = Settings(
+        mock_llm_enabled=True,
+        openrouter_api_key="",
+        web_search_classifier_enabled=True,
+    )
+    messages = [
+        {"role": "system", "content": "base"},
+        {"role": "user", "content": "Who is the CEO of OpenAI?"},
+    ]
+    with (
+        patch("app.services.web_search.search_cache.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.services.web_search.search_cache.web_search_gateway.search_web",
+            AsyncMock(
+                return_value=[WebSearchHit(title="CEO", url="https://example.com", snippet="Sam")]
+            ),
+        ) as search_mock,
+    ):
+        out, hits = await augment_prompt_messages(
+            messages,
+            "Who is the CEO of OpenAI?",
+            settings,
+        )
+    search_mock.assert_awaited()
+    assert "Web search results" in out[-2]["content"]
+    assert len(hits) == 1

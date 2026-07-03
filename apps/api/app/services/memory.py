@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import logging
 import re
@@ -102,39 +103,119 @@ def _memory_query_cache_key(user_id: UUID, query_text: str) -> str:
     return f"memquery:{user_id}:{digest}"
 
 
+def _memory_query_embed_key(user_id: UUID, query_text: str) -> str:
+    digest = hashlib.sha256(query_text.strip().lower().encode()).hexdigest()[:32]
+    return f"memembed:{user_id}:{digest}"
+
+
+async def _get_cached_query_embedding(
+    user_id: UUID,
+    query_text: str,
+) -> list[float] | None:
+    from app.gateways.embedding_gateway import parse_embedding
+
+    redis = get_redis_client()
+    key = _memory_query_embed_key(user_id, query_text)
+    try:
+        cached = await redis.get(key)
+        if cached is None:
+            return None
+        raw = cached.decode() if isinstance(cached, bytes) else cached
+        return parse_embedding(raw)
+    except Exception:
+        logger.debug("Memory query embed cache read failed", exc_info=True)
+        return None
+
+
+async def _semantic_memories_from_vec(
+    session: AsyncSession,
+    user: User,
+    settings: Settings,
+    query_vec: list[float],
+) -> list[Memory]:
+    from app.repositories import memories as memories_repo
+
+    db_hits = await memories_repo.search_semantic(
+        session,
+        user.id,
+        query_vec,
+        min_confidence=settings.memory_min_confidence,
+        limit=settings.memory_inject_limit,
+    )
+    if db_hits:
+        return db_hits
+    all_memories = await memories_repo.list_for_user(session, user.id)
+    semantic = select_memories_semantic(all_memories, query_vec, settings)
+    if semantic:
+        return semantic
+    return select_memories_for_prompt(all_memories, settings)
+
+
 async def load_relevant_memories(
     session: AsyncSession,
     user: User,
     settings: Settings,
     *,
     query_text: str | None = None,
+    query_vec: list[float] | None = None,
 ) -> list:
     if not user.memory_enabled:
         return []
     from app.repositories import memories as memories_repo
 
-    all_memories = await memories_repo.list_for_user(session, user.id)
-    if settings.semantic_memory_enabled and query_text and query_text.strip():
-        from app.gateways import embedding_gateway
+    if query_vec is not None:
+        return await _semantic_memories_from_vec(session, user, settings, query_vec)
 
-        query_vec = await embedding_gateway.embed_text(settings, query_text.strip())
-        if query_vec:
-            # Prefer DB-side ANN search over the pgvector column; fall back to the
-            # in-memory JSON-cosine path when no row has a populated vector yet
-            # (e.g. migration not applied, or only legacy embedding_json exists).
-            db_hits = await memories_repo.search_semantic(
-                session,
-                user.id,
-                query_vec,
-                min_confidence=settings.memory_min_confidence,
-                limit=settings.memory_inject_limit,
-            )
-            if db_hits:
-                return db_hits
-            semantic = select_memories_semantic(all_memories, query_vec, settings)
-            if semantic:
-                return semantic
+    all_memories = await memories_repo.list_for_user(session, user.id)
     return select_memories_for_prompt(all_memories, settings)
+
+
+async def _warm_semantic_memory_cache(
+    settings: Settings,
+    user_id: UUID,
+    query_text: str,
+) -> None:
+    """Best-effort: embed query + cache semantic block for the next turn."""
+    from app.core.db import SessionLocal
+    from app.gateways import embedding_gateway
+    from app.repositories import users as users_repo
+
+    cleaned = query_text.strip()
+    if not cleaned:
+        return
+    try:
+        query_vec = await embedding_gateway.embed_text(settings, cleaned)
+        if not query_vec:
+            return
+        redis = get_redis_client()
+        embed_key = _memory_query_embed_key(user_id, cleaned)
+        ttl = max(60, settings.memory_query_embed_cache_ttl)
+        try:
+            await redis.set(
+                embed_key,
+                embedding_gateway.serialize_embedding(query_vec),
+                ex=ttl,
+            )
+        except Exception:
+            logger.debug("Memory query embed cache write failed", exc_info=True)
+
+        async with SessionLocal() as session:
+            user = await users_repo.get_by_id(session, user_id)
+            if user is None or not user.memory_enabled:
+                return
+            memories = await _semantic_memories_from_vec(session, user, settings, query_vec)
+            block = format_memory_block(memories)
+            query_key = _memory_query_cache_key(user_id, cleaned)
+            try:
+                await redis.set(
+                    query_key,
+                    block,
+                    ex=max(30, settings.memory_query_cache_ttl),
+                )
+            except Exception:
+                logger.debug("Memory query cache write failed", exc_info=True)
+    except Exception:
+        logger.debug("Background semantic memory warm failed", exc_info=True)
 
 
 async def get_memory_block(
@@ -160,12 +241,34 @@ async def get_memory_block(
         except Exception:
             logger.debug("Memory query cache read failed", exc_info=True)
 
-        memories = await load_relevant_memories(session, user, settings, query_text=q)
+        query_vec = await _get_cached_query_embedding(user.id, q)
+        if query_vec is not None:
+            memories = await load_relevant_memories(
+                session,
+                user,
+                settings,
+                query_vec=query_vec,
+            )
+            block = format_memory_block(memories)
+            try:
+                await redis.set(query_key, block, ex=max(30, settings.memory_query_cache_ttl))
+            except Exception:
+                logger.debug("Memory query cache write failed", exc_info=True)
+            return block
+
+        # Cache miss — type-priority memories now; warm semantic cache in background.
+        memories = await load_relevant_memories(session, user, settings)
         block = format_memory_block(memories)
         try:
             await redis.set(query_key, block, ex=max(30, settings.memory_query_cache_ttl))
         except Exception:
             logger.debug("Memory query cache write failed", exc_info=True)
+        warm_task = asyncio.create_task(_warm_semantic_memory_cache(settings, user.id, q))
+        warm_task.add_done_callback(
+            lambda t: logger.debug("Semantic memory warm failed", exc_info=t.exception())
+            if t.exception()
+            else None
+        )
         return block
 
     redis = get_redis_client()
@@ -204,6 +307,15 @@ async def invalidate_memory_block(user_id: UUID) -> None:
         prefix = _memory_query_key_prefix(user_id)
         batch: list[str] = []
         async for key in redis.scan_iter(match=f"{prefix}*", count=200):
+            batch.append(key if isinstance(key, str) else key.decode())
+            if len(batch) >= 200:
+                await redis.delete(*batch)
+                batch.clear()
+        if batch:
+            await redis.delete(*batch)
+        embed_prefix = f"memembed:{user_id}:"
+        batch = []
+        async for key in redis.scan_iter(match=f"{embed_prefix}*", count=200):
             batch.append(key if isinstance(key, str) else key.decode())
             if len(batch) >= 200:
                 await redis.delete(*batch)

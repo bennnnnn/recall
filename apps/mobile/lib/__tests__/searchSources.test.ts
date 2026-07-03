@@ -3,6 +3,7 @@ import {
   hostnameFromUrl,
   parseSearchSources,
   stripSearchSourcesFence,
+  stripSearchSourcesFromContent,
 } from "@/lib/searchSources";
 
 describe("searchSources", () => {
@@ -24,6 +25,20 @@ describe("searchSources", () => {
 
   it("returns empty when fence missing", () => {
     expect(parseSearchSources("hello")).toEqual([]);
+  });
+
+  it("parses trailing bare JSON source arrays from the model", () => {
+    const content = `Here is the answer.
+
+[{"title":"AP News","url":"https://apnews.com/a","snippet":"Story text."}]`;
+    expect(parseSearchSources(content)).toEqual([
+      {
+        title: "AP News",
+        url: "https://apnews.com/a",
+        snippet: "Story text.",
+      },
+    ]);
+    expect(stripSearchSourcesFromContent(content)).toBe("Here is the answer.");
   });
 
   it("extracts hostname", () => {

@@ -20,6 +20,8 @@ from app.models.orm import User
 from app.repositories import gmail_connections as gmail_repo
 from app.repositories import suggested_reminders as suggested_repo
 from app.repositories import todos as todos_repo
+from app.services import day_planning as day_planning_service
+from app.services import email_triage as email_triage_service
 from app.services import home as home_service
 
 logger = logging.getLogger(__name__)
@@ -28,10 +30,22 @@ REMINDER_TOPIC = "From email"
 
 GMAIL_HINT = (
     "The user may have Gmail connected (read-only) as a **separate integration** from their "
-    "Recall sign-in. When a **Gmail** block is present, use it to answer questions about "
-    "recent inbox mail. Suggested reminders from email live on the Reminders screen — "
-    "mention them when relevant. If they ask to check email and no Gmail block is present, "
-    "tell them to connect Gmail in **Settings → Gmail** (optional; not part of sign-in)."
+    "Recall sign-in. When a **Gmail** block is present, use the triage sections — "
+    "**Needs attention** vs **FYI** vs filtered noise.\n"
+    "Suggested reminders from email live on the Reminders screen — mention pending ones first.\n"
+    "For day-planning or inbox questions: lead with a short verdict (anything to reply to / "
+    "follow up on?), then 0-3 actionable threads with sender + one-line why. "
+    "Do NOT dump filtered promotional, automated, or spam mail unless they ask to see everything.\n"
+    "If they ask to check email and no Gmail block is present, tell them to connect Gmail in "
+    "**Settings → Gmail** (optional; not part of sign-in)."
+)
+
+GMAIL_INBOX_ANSWER_HINT = (
+    "The user asked about their inbox or follow-ups. Answer in plain prose:\n"
+    "1) One-sentence verdict — e.g. nothing needs a reply, or N threads worth a look.\n"
+    "2) Only items from **Needs attention** (and pending suggested reminders if any).\n"
+    "3) Optionally one line on FYI if relevant; skip filtered noise entirely.\n"
+    "4) Offer to open a specific thread or draft a reply if helpful."
 )
 
 _EXTERNAL_EMAIL = re.compile(
@@ -56,8 +70,13 @@ def is_external_email_question(text: str) -> bool:
 
 
 def should_inject_gmail_block(text: str) -> bool:
-    """Fetch inbox context only when the user is asking about email."""
-    return is_external_email_question(text)
+    """Fetch inbox context when the user asks about email or day planning."""
+    cleaned = text.strip()
+    if not cleaned:
+        return False
+    if day_planning_service.is_day_planning_question(cleaned):
+        return True
+    return is_external_email_question(cleaned)
 
 
 def format_not_connected_answer() -> str:
@@ -78,42 +97,14 @@ def format_inbox_answer(
     pending_suggestions: list,
     fetch_error: str | None = None,
 ) -> str:
-    lines = [f"Here's a snapshot of **{google_email}** (read-only):"]
-
-    if fetch_error:
-        lines.append("")
-        lines.append(f"**Could not load inbox:** {fetch_error}")
-
-    if pending_suggestions:
-        lines.append("")
-        lines.append(
-            f"**Suggested reminders from email** ({len(pending_suggestions)} pending — "
-            "open **Reminders** to add or dismiss):"
-        )
-        for row in pending_suggestions[:6]:
-            due = f" — due {row.due_at.strftime('%b %d')}" if row.due_at else ""
-            lines.append(f"- {row.title}{due}")
-
-    if messages:
-        lines.append("")
-        lines.append("**Recent inbox:**")
-        for msg in messages[:10]:
-            subj = msg.subject or "(no subject)"
-            snippet = (msg.snippet or "").strip()
-            if snippet:
-                lines.append(f"- **{subj}** — {snippet[:160]}")
-            else:
-                lines.append(f"- **{subj}**")
-    elif not pending_suggestions and not fetch_error:
-        lines.append("")
-        lines.append(
-            "No messages in the last 7 days (or inbox is empty). "
-            "Tap **Sync** under Settings → Gmail to refresh."
-        )
-
-    lines.append("")
-    lines.append("Want a summary of a specific thread or help drafting a reply?")
-    return "\n".join(lines)
+    """Legacy helper — prefer LLM + triaged block for user-facing inbox answers."""
+    block = email_triage_service.format_triaged_inbox_block(
+        google_email=google_email,
+        messages=messages,
+        pending_suggestions=pending_suggestions,
+        fetch_error=fetch_error,
+    )
+    return f"{block}\n\n(Want help with a specific thread or drafting a reply?)"
 
 
 def _cache_key(user_id: UUID) -> str:
@@ -128,7 +119,16 @@ async def write_gmail_cache(
 ) -> None:
     import json
 
-    payload = [{"id": m.id, "subject": m.subject, "snippet": m.snippet} for m in messages]
+    payload = [
+        {
+            "id": m.id,
+            "subject": m.subject,
+            "snippet": m.snippet,
+            "from_address": m.from_address,
+            "label_ids": list(m.label_ids),
+        }
+        for m in messages
+    ]
     try:
         await redis.set(
             _cache_key(user_id),
@@ -152,6 +152,8 @@ def _messages_from_cache(raw: str) -> list[GmailMessage]:
                 snippet=str(item.get("snippet") or ""),
                 body_text="",
                 received_at=None,
+                from_address=str(item.get("from_address") or ""),
+                label_ids=tuple(str(label) for label in (item.get("label_ids") or [])),
             )
         )
     return messages
@@ -168,23 +170,12 @@ def format_gmail_block(
     pending_suggestions: list,
     fetch_error: str | None = None,
 ) -> str:
-    lines = [f"Gmail (read-only, {google_email}):"]
-    if fetch_error:
-        lines.append(f"Inbox fetch failed: {fetch_error}")
-    if pending_suggestions:
-        lines.append(f"Pending suggested reminders ({len(pending_suggestions)}):")
-        for row in pending_suggestions[:8]:
-            due = f" — due {row.due_at.isoformat()}" if row.due_at else ""
-            lines.append(f"- {row.title}{due}")
-    if messages:
-        lines.append("Recent inbox (subjects + snippets):")
-        for msg in messages[:12]:
-            subj = msg.subject or "(no subject)"
-            snippet = (msg.snippet or "")[:120]
-            lines.append(f"- {subj}: {snippet}")
-    elif not pending_suggestions and not fetch_error:
-        lines.append("No recent inbox messages found in the last sync window.")
-    return "\n".join(lines)
+    return email_triage_service.format_triaged_inbox_block(
+        google_email=google_email,
+        messages=messages,
+        pending_suggestions=pending_suggestions,
+        fetch_error=fetch_error,
+    )
 
 
 async def load_gmail_context(

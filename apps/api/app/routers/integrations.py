@@ -25,6 +25,7 @@ from app.models.schemas import (
 )
 from app.repositories import calendar_connections as calendar_repo
 from app.services import calendar as calendar_service
+from app.services import home as home_service
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +131,7 @@ async def connect_calendar(
         await redis.delete(calendar_service._cache_key(user.id))
     except Exception:
         logger.exception("Failed to clear calendar cache after connect")
+    await home_service.invalidate_home_cache(user.id)
     return GoogleCalendarStatusOut(
         connected=True,
         email=google_email,
@@ -149,6 +151,7 @@ async def disconnect_calendar(
         await redis.delete(calendar_service._cache_key(user.id))
     except Exception:
         logger.exception("Failed to clear calendar cache after disconnect")
+    await home_service.invalidate_home_cache(user.id)
 
 
 @router.post("/events/propose", response_model=CalendarEventProposalOut)

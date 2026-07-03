@@ -391,3 +391,28 @@ async def test_get_home_screen_cached_rebuilds_after_invalidate(fake_redis):
     assert first == screen
     assert second == screen
     assert build_mock.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_integration_starters_when_connected():
+    session = AsyncMock()
+    user_id = uuid4()
+    settings = Settings()
+
+    with (
+        patch.object(
+            home_service.calendar_service,
+            "is_connected",
+            AsyncMock(return_value=True),
+        ),
+        patch.object(
+            home_service.email_service,
+            "is_connected",
+            AsyncMock(return_value=False),
+        ),
+    ):
+        starters = await home_service._integration_starters(session, user_id, settings)
+
+    assert len(starters) == 1
+    assert starters[0].text == "Today's schedule"
+    assert "calendar today" in starters[0].prompt.lower()

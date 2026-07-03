@@ -125,6 +125,29 @@ async def mock_rewrite_memory_sections(sections: dict[str, str]):
     return MemorySectionUpdateResult(sections=rewritten)
 
 
+_MOCK_FACTUAL_LOOKUP = re.compile(
+    r"\b("
+    r"who is|who was|what is the price|price of|how much|how many|"
+    r"population of|net worth|market cap|stock price|when did|when was|"
+    r"ceo of|current president|latest version|where can i buy"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+async def mock_web_search_classification(
+    user_message: str,
+    *,
+    prior_user_messages: list[str] | None = None,
+):
+    from app.models.schemas import WebSearchClassification
+
+    del prior_user_messages
+    if _MOCK_FACTUAL_LOOKUP.search(user_message):
+        return WebSearchClassification(needs_search=True)
+    return WebSearchClassification(needs_search=False)
+
+
 async def mock_todo_actions(user_message: str, current_todos: list[dict[str, object]]):
     from app.models.schemas import TodoActionItem, TodoExtractionResult
 

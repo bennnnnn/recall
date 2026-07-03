@@ -5,7 +5,9 @@ const empty: ChatList = {
   pinned: [],
   today: [],
   yesterday: [],
-  earlier: [],
+  last_7_days: [],
+  this_month: [],
+  older: [],
   archived: [],
 };
 

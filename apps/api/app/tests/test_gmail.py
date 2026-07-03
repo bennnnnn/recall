@@ -19,10 +19,13 @@ def test_is_external_email_question():
     assert not email_service.is_external_email_question("write an email to my boss")
 
 
-def test_should_inject_gmail_block_only_for_inbox_questions():
+def test_should_inject_gmail_block_for_inbox_and_day_planning():
     from app.services import email as email_service
 
     assert email_service.should_inject_gmail_block("check my email")
+    assert email_service.should_inject_gmail_block(
+        "How's my day looking so far — anything you think I should prioritize?"
+    )
     assert not email_service.should_inject_gmail_block("solve x^2 = 4")
     assert not email_service.should_inject_gmail_block("best restaurants near me")
 
@@ -38,6 +41,8 @@ def test_format_inbox_answer_lists_messages():
             snippet="Quick update",
             body_text="",
             received_at=None,
+            from_address="Friend <friend@example.com>",
+            label_ids=("INBOX", "UNREAD"),
         )
     ]
     answer = email_service.format_inbox_answer(
@@ -46,8 +51,8 @@ def test_format_inbox_answer_lists_messages():
         pending_suggestions=[],
     )
     assert "me@example.com" in answer
-    assert "**Hello**" in answer
-    assert "Quick update" in answer
+    assert "Needs attention" in answer
+    assert "Hello" in answer
 
 
 def test_parse_ics_event_extracts_title_and_time():
@@ -146,6 +151,8 @@ def test_format_gmail_block_includes_pending_and_messages():
                 snippet="Hi",
                 body_text="",
                 received_at=None,
+                from_address="Friend <friend@example.com>",
+                label_ids=("INBOX", "UNREAD"),
             )
         ],
         pending_suggestions=[pending],

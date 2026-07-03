@@ -86,12 +86,23 @@ async def touch_by_id(session: AsyncSession, chat_id: UUID) -> None:
     await session.commit()
 
 
+RECENCY_BUCKETS = ("today", "yesterday", "last_7_days", "this_month", "older")
+
+
 def group_by_recency(
     chats: list[Chat],
     *,
     user_timezone: str | None = None,
     now: datetime | None = None,
 ) -> dict[str, list[Chat]]:
+    """Bucket non-pinned chats by last activity in the user's timezone.
+
+    - today: since local midnight today
+    - yesterday: previous calendar day
+    - last_7_days: 2-7 days ago (excludes today/yesterday)
+    - this_month: earlier in the current calendar month
+    - older: before this month
+    """
     from app.services.time_context import resolve_timezone
 
     tz = resolve_timezone(user_timezone)
@@ -103,8 +114,10 @@ def group_by_recency(
 
     today_start = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
     yesterday_start = today_start - timedelta(days=1)
+    last_7_days_start = today_start - timedelta(days=7)
+    month_start = today_start.replace(day=1)
 
-    grouped: dict[str, list[Chat]] = {"today": [], "yesterday": [], "earlier": []}
+    grouped: dict[str, list[Chat]] = {key: [] for key in RECENCY_BUCKETS}
     for chat in chats:
         updated = chat.updated_at
         if updated.tzinfo is None:
@@ -114,8 +127,12 @@ def group_by_recency(
             grouped["today"].append(chat)
         elif updated_local >= yesterday_start:
             grouped["yesterday"].append(chat)
+        elif updated_local >= last_7_days_start:
+            grouped["last_7_days"].append(chat)
+        elif updated_local >= month_start:
+            grouped["this_month"].append(chat)
         else:
-            grouped["earlier"].append(chat)
+            grouped["older"].append(chat)
     return grouped
 
 
