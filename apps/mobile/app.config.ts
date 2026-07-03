@@ -37,13 +37,13 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const iosUrlScheme = iosUrlSchemeFromClientId(
     process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? "",
   );
+  const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? "";
 
-  if (iosUrlScheme) {
-    plugins.push([
-      "@react-native-google-signin/google-signin",
-      { iosUrlScheme },
-    ]);
-    plugins.push("./plugins/googleSignInPodfile.js");
+  if (webClientId && !/your-google/i.test(webClientId)) {
+    const googlePluginConfig: { iosUrlScheme?: string } = {};
+    if (iosUrlScheme) googlePluginConfig.iosUrlScheme = iosUrlScheme;
+    plugins.push(["@react-native-google-signin/google-signin", googlePluginConfig]);
+    if (iosUrlScheme) plugins.push("./plugins/googleSignInPodfile.js");
   }
 
   const iosInfoPlist: Record<string, unknown> = {

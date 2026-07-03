@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 
-import { config, isGoogleSignInConfigured } from "@/lib/config";
+import { config, isGoogleSignInConfigured, isGoogleWebClientConfigured } from "@/lib/config";
 import { isExpoGo } from "@/lib/expoRuntime";
 
 export { isExpoGo } from "@/lib/expoRuntime";
@@ -27,15 +27,20 @@ async function loadGoogleSignIn(): Promise<GoogleSignInModule> {
 
 async function ensureGoogleConfigured() {
   if (configured) return;
-  if (!isGoogleSignInConfigured()) {
+  if (!isGoogleWebClientConfigured()) {
     throw new Error(
-      "Google Sign-In is not configured. Set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID and EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID in apps/mobile/.env, then rebuild with pnpm expo run:ios.",
+      "Google Sign-In is not configured. Set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID in apps/mobile/.env, then rebuild.",
+    );
+  }
+  if (Platform.OS === "ios" && !isGoogleSignInConfigured()) {
+    throw new Error(
+      "Google Sign-In is not configured. Set EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID in apps/mobile/.env, then rebuild.",
     );
   }
   const { GoogleSignin } = await loadGoogleSignIn();
   GoogleSignin.configure({
     webClientId: config.googleWebClientId,
-    iosClientId: config.googleIosClientId,
+    ...(Platform.OS === "ios" ? { iosClientId: config.googleIosClientId } : {}),
     offlineAccess: false,
   });
   configured = true;
@@ -53,6 +58,9 @@ export function formatGoogleSignInError(error: unknown): string {
   }
   if (/not configured/i.test(message)) {
     return "not_configured";
+  }
+  if (/DEVELOPER_ERROR|12500|10:/i.test(message)) {
+    return "android_oauth_setup";
   }
   return message || "generic";
 }

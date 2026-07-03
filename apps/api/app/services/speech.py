@@ -15,22 +15,24 @@ logger = logging.getLogger(__name__)
 
 _MAX_BYTES = 5_000_000
 _OPENROUTER_TRANSCRIBE_URL = "https://openrouter.ai/api/v1/audio/transcriptions"
-_WHISPER_MODEL = "openai/whisper-1"
 _TRANSCRIBE_TIMEOUT = 60.0
 
-_FORMAT_BY_SUFFIX: dict[str, str] = {
+# OpenRouter `input_audio.format` values (see openrouter.ai audio transcription docs).
+_OPENROUTER_FORMAT_BY_SUFFIX: dict[str, str] = {
     ".m4a": "m4a",
     ".mp3": "mp3",
-    ".mp4": "mp4",
+    ".mp4": "m4a",
     ".wav": "wav",
     ".webm": "webm",
     ".flac": "flac",
+    ".caf": "m4a",
+    ".3gp": "m4a",
 }
 
 
-def _audio_format(filename: str) -> str:
+def _openrouter_audio_format(filename: str) -> str:
     suffix = Path(filename).suffix.lower()
-    return _FORMAT_BY_SUFFIX.get(suffix, suffix.lstrip(".") or "m4a")
+    return _OPENROUTER_FORMAT_BY_SUFFIX.get(suffix, suffix.lstrip(".") or "m4a")
 
 
 async def transcribe_audio(
@@ -42,17 +44,23 @@ async def transcribe_audio(
     if not settings.speech_transcription_enabled:
         return None
     if not audio_bytes or len(audio_bytes) > _MAX_BYTES:
+        logger.warning(
+            "Speech transcription rejected: payload size=%s",
+            len(audio_bytes) if audio_bytes else 0,
+        )
         return None
     if mock_llm.should_mock_llm(settings):
         return "This is a mock transcription."
     if not settings.openrouter_api_key:
         return None
 
+    model = (settings.speech_transcription_model or "openai/whisper-1").strip()
+    audio_format = _openrouter_audio_format(filename)
     payload = {
-        "model": _WHISPER_MODEL,
+        "model": model,
         "input_audio": {
             "data": base64.b64encode(audio_bytes).decode("ascii"),
-            "format": _audio_format(filename),
+            "format": audio_format,
         },
     }
     try:
@@ -65,10 +73,31 @@ async def transcribe_audio(
                 },
                 json=payload,
             )
+            if response.status_code >= 400:
+                logger.warning(
+                    "OpenRouter transcription failed model=%s format=%s size=%s status=%s body=%s",
+                    model,
+                    audio_format,
+                    len(audio_bytes),
+                    response.status_code,
+                    response.text[:500],
+                )
             response.raise_for_status()
             data = response.json()
         text = str(data.get("text") or "").strip()
+        if not text:
+            logger.warning(
+                "OpenRouter transcription returned empty text model=%s format=%s size=%s",
+                model,
+                audio_format,
+                len(audio_bytes),
+            )
         return text or None
     except Exception:
-        logger.exception("Speech transcription failed")
+        logger.exception(
+            "Speech transcription failed model=%s format=%s size=%s",
+            model,
+            audio_format,
+            len(audio_bytes),
+        )
         return None

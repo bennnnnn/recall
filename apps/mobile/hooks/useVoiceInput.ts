@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert } from "react-native";
 
-import { getApiUrl } from "@/lib/config";
+import { transcribeSpeech } from "@/lib/api";
 import {
   isVoiceInputAvailable,
+  loadExpoAudio,
+  requestVoicePermission,
   startVoiceRecording,
   type VoiceRecorder,
   VOICE_INPUT_REBUILD_HINT,
@@ -17,18 +19,14 @@ type Options = {
 
 export function useVoiceInput({ token, onTranscript, t }: Options) {
   const recordingRef = useRef<VoiceRecorder | null>(null);
+  const meterUnsubRef = useRef<(() => void) | null>(null);
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
+  const [meterLevel, setMeterLevel] = useState(0.12);
   const [voiceInputAvailable, setVoiceInputAvailable] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-    void isVoiceInputAvailable().then((available) => {
-      if (!cancelled) setVoiceInputAvailable(available);
-    });
-    return () => {
-      cancelled = true;
-    };
+    setVoiceInputAvailable(isVoiceInputAvailable());
   }, []);
 
   const showUnavailable = useCallback(() => {
@@ -38,7 +36,10 @@ export function useVoiceInput({ token, onTranscript, t }: Options) {
   const stopRecording = useCallback(async (): Promise<string | null> => {
     const active = recordingRef.current;
     recordingRef.current = null;
+    meterUnsubRef.current?.();
+    meterUnsubRef.current = null;
     setRecording(false);
+    setMeterLevel(0.12);
     if (!active) return null;
     try {
       return await active.stop();
@@ -50,8 +51,7 @@ export function useVoiceInput({ token, onTranscript, t }: Options) {
   const startRecording = useCallback(async () => {
     if (!token || recording || transcribing) return;
     try {
-      const { loadExpoAudio, requestVoicePermission } = await import("@/lib/voiceAudio");
-      const mod = await loadExpoAudio();
+      const mod = loadExpoAudio();
       if (!mod) {
         showUnavailable();
         return;
@@ -67,6 +67,8 @@ export function useVoiceInput({ token, onTranscript, t }: Options) {
         return;
       }
       recordingRef.current = next;
+      meterUnsubRef.current?.();
+      meterUnsubRef.current = next.subscribeMetering((level) => setMeterLevel(level));
       setRecording(true);
     } catch {
       Alert.alert(t("common.error"), t("chat.voice_start_failed"));
@@ -79,31 +81,27 @@ export function useVoiceInput({ token, onTranscript, t }: Options) {
 
   const finishRecording = useCallback(async () => {
     if (!token) return;
-    const uri = await stopRecording();
-    if (!uri) return;
     setTranscribing(true);
+    const uri = await stopRecording();
+    if (!uri) {
+      setTranscribing(false);
+      Alert.alert(t("common.error"), t("chat.voice_recording_empty"));
+      return;
+    }
     try {
-      const form = new FormData();
-      form.append("file", {
-        uri,
-        name: "speech.m4a",
-        type: "audio/m4a",
-      } as unknown as Blob);
-      const response = await fetch(`${getApiUrl()}/speech/transcribe`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: form,
-      });
-      if (!response.ok) {
-        throw new Error(await response.text());
+      const text = await transcribeSpeech(token, uri);
+      onTranscript(text);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (/network request failed|failed to fetch|timeout/i.test(message)) {
+        Alert.alert(t("common.error"), t("chat.voice_network_failed"));
+      } else if (message.includes("recording_empty")) {
+        Alert.alert(t("common.error"), t("chat.voice_recording_empty"));
+      } else if (message.includes("transcribe_empty")) {
+        Alert.alert(t("common.error"), t("chat.voice_transcribe_empty"));
+      } else {
+        Alert.alert(t("common.error"), t("chat.voice_transcribe_failed"));
       }
-      const data = (await response.json()) as { text?: string };
-      const text = (data.text ?? "").trim();
-      if (text) {
-        onTranscript(text);
-      }
-    } catch {
-      Alert.alert(t("common.error"), t("chat.voice_transcribe_failed"));
     } finally {
       setTranscribing(false);
     }
@@ -129,10 +127,18 @@ export function useVoiceInput({ token, onTranscript, t }: Options) {
     showUnavailable,
   ]);
 
+  useEffect(() => {
+    return () => {
+      meterUnsubRef.current?.();
+      meterUnsubRef.current = null;
+    };
+  }, []);
+
   return {
     voiceInputAvailable,
     voiceRecording: recording,
     voiceTranscribing: transcribing,
+    voiceMeterLevel: meterLevel,
     toggleVoiceInput: toggleRecording,
     cancelVoiceInput: cancelRecording,
     voiceInputRebuildHint: VOICE_INPUT_REBUILD_HINT,

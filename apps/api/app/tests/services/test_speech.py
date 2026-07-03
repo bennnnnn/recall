@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.core.config import Settings
-from app.services.speech import _audio_format, transcribe_audio
+from app.services.speech import _openrouter_audio_format, transcribe_audio
 
 
 @pytest.mark.asyncio
@@ -32,9 +32,10 @@ async def test_transcribe_empty_payload_returns_none():
     assert await transcribe_audio(settings, b"") is None
 
 
-def test_audio_format_from_filename():
-    assert _audio_format("speech.m4a") == "m4a"
-    assert _audio_format("clip.wav") == "wav"
+def test_openrouter_audio_format_from_filename():
+    assert _openrouter_audio_format("speech.m4a") == "m4a"
+    assert _openrouter_audio_format("clip.wav") == "wav"
+    assert _openrouter_audio_format("clip.mp4") == "m4a"
 
 
 @pytest.mark.asyncio
@@ -43,8 +44,10 @@ async def test_transcribe_openrouter_json_api():
         mock_llm_enabled=False,
         openrouter_api_key="sk-or-test",
         speech_transcription_enabled=True,
+        speech_transcription_model="openai/gpt-4o-mini-transcribe",
     )
     response = MagicMock()
+    response.status_code = 200
     response.raise_for_status = MagicMock()
     response.json.return_value = {"text": "hello there"}
 
@@ -60,5 +63,5 @@ async def test_transcribe_openrouter_json_api():
     call = client.post.call_args
     assert call.args[0] == "https://openrouter.ai/api/v1/audio/transcriptions"
     body = call.kwargs["json"]
-    assert body["model"] == "openai/whisper-1"
+    assert body["model"] == "openai/gpt-4o-mini-transcribe"
     assert body["input_audio"]["format"] == "m4a"

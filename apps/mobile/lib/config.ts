@@ -13,13 +13,15 @@ export const config = {
   isDev: __DEV__,
 } as const;
 
-/** True when real Google OAuth client IDs are set (not placeholders). */
+/** True when the Google OAuth web client ID is set (required on all platforms). */
+export function isGoogleWebClientConfigured(): boolean {
+  return !/your-google-web-client-id|your-google/i.test(config.googleWebClientId);
+}
+
+/** True when real Google OAuth client IDs are set (web + iOS for native sign-in). */
 export function isGoogleSignInConfigured(): boolean {
-  const placeholder = /your-(google|ios)/i;
-  return (
-    !placeholder.test(config.googleWebClientId) &&
-    !placeholder.test(config.googleIosClientId)
-  );
+  if (!isGoogleWebClientConfigured()) return false;
+  return !/your-ios-client-id|your-ios/i.test(config.googleIosClientId);
 }
 
 export function getApiUrl(): string {

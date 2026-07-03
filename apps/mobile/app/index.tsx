@@ -308,7 +308,13 @@ function ChatScreen() {
     pendingOutboundId,
   } = send;
 
-  const { voiceInputAvailable, voiceRecording, voiceTranscribing, toggleVoiceInput } = useVoiceInput({
+  const {
+    voiceInputAvailable,
+    voiceRecording,
+    voiceTranscribing,
+    voiceMeterLevel,
+    toggleVoiceInput,
+  } = useVoiceInput({
     token,
     onTranscript: (text) => {
       setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text));
@@ -578,6 +584,7 @@ function ChatScreen() {
           isOffline={isOffline}
           voiceRecording={voiceRecording}
           voiceTranscribing={voiceTranscribing}
+          voiceMeterLevel={voiceMeterLevel}
           onVoicePress={
             voiceInputAvailable ? () => void toggleVoiceInput() : undefined
           }

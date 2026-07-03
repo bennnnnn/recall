@@ -10,6 +10,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
 import { AttachmentSourceSheet, type AttachmentSource } from "@/components/AttachmentSourceSheet";
+import { VoiceComposerWaveform } from "@/components/chat/VoiceComposerWaveform";
+import { VoiceMicButton } from "@/components/chat/VoiceMicButton";
 import { ComposerAttachmentPreview } from "@/components/ComposerAttachmentPreview";
 import { SuggestedRemindersNudge } from "@/components/SuggestedRemindersNudge";
 import type { PendingAttachment } from "@/lib/attachments";
@@ -54,6 +56,7 @@ type Props = {
   isOffline: boolean;
   voiceRecording?: boolean;
   voiceTranscribing?: boolean;
+  voiceMeterLevel?: number;
   onVoicePress?: () => void;
 };
 
@@ -85,6 +88,7 @@ export function ChatComposer({
   isOffline,
   voiceRecording = false,
   voiceTranscribing = false,
+  voiceMeterLevel = 0.12,
   onVoicePress,
 }: Props) {
   const { t } = useTranslation();
@@ -152,16 +156,24 @@ export function ChatComposer({
               >
                 <Ionicons name="attach-outline" size={22} color={theme.primary} />
               </Pressable>
-              <TextInput
-                style={s.input}
-                placeholder={t("chat.placeholder")}
-                placeholderTextColor={theme.textTertiary}
-                value={input}
-                onChangeText={onChangeInput}
-                onFocus={onClosePickers}
-                multiline
-                returnKeyType="default"
-              />
+              {voiceRecording || voiceTranscribing ? (
+                <VoiceComposerWaveform
+                  recording={voiceRecording}
+                  transcribing={voiceTranscribing}
+                  meterLevel={voiceMeterLevel}
+                />
+              ) : (
+                <TextInput
+                  style={s.input}
+                  placeholder={t("chat.placeholder")}
+                  placeholderTextColor={theme.textTertiary}
+                  value={input}
+                  onChangeText={onChangeInput}
+                  onFocus={onClosePickers}
+                  multiline
+                  returnKeyType="default"
+                />
+              )}
               <View style={s.sendBtnSlot}>
                 {streaming ? (
                   <Pressable style={s.sendBtn} onPress={onStop}>
@@ -181,21 +193,12 @@ export function ChatComposer({
                     <Text style={[s.sendIcon, isOffline && s.sendIconDisabled]}>↑</Text>
                   </Pressable>
                 ) : onVoicePress && token ? (
-                  <Pressable
-                    style={[s.voiceBtn, voiceRecording && s.voiceBtnActive]}
-                    onPress={onVoicePress}
+                  <VoiceMicButton
+                    recording={voiceRecording}
+                    transcribing={voiceTranscribing}
                     disabled={attachBusy || isOffline}
-                    accessibilityLabel={t("chat.voice_a11y")}
-                    accessibilityHint={
-                      voiceRecording ? t("chat.voice_stop_hint") : t("chat.voice_start_hint")
-                    }
-                  >
-                    <Ionicons
-                      name={voiceRecording ? "stop-circle" : "mic-outline"}
-                      size={22}
-                      color={voiceRecording ? theme.onPrimary : theme.primary}
-                    />
-                  </Pressable>
+                    onPress={onVoicePress}
+                  />
                 ) : null}
               </View>
             </View>
@@ -313,20 +316,6 @@ function makeStyles(theme: Theme) {
     sendIcon: { color: theme.onPrimary, fontSize: 18, fontWeight: "700" },
     sendBtnDisabled: { backgroundColor: theme.border },
     sendIconDisabled: { color: theme.textTertiary },
-    voiceBtn: {
-      width: 34,
-      height: 34,
-      borderRadius: 17,
-      alignItems: "center",
-      justifyContent: "center",
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
-      backgroundColor: theme.surface,
-    },
-    voiceBtnActive: {
-      backgroundColor: theme.primary,
-      borderColor: theme.primary,
-    },
     picker: {
       marginBottom: 8,
       backgroundColor: theme.bg,

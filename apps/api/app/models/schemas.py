@@ -583,6 +583,11 @@ class SpeechTranscriptionOut(BaseModel):
     text: str
 
 
+class SpeechTranscriptionIn(BaseModel):
+    audio_base64: str
+    filename: str = "speech.m4a"
+
+
 class SearchResultItem(BaseModel):
     match_type: Literal["message", "title"] = "message"
     message_id: UUID | None = None

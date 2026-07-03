@@ -1,28 +1,28 @@
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+import base64
+import binascii
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.core.config import Settings
 from app.core.deps import get_current_user, get_settings_dep
 from app.models.orm import User
-from app.models.schemas import SpeechTranscriptionOut
+from app.models.schemas import SpeechTranscriptionIn, SpeechTranscriptionOut
 from app.services import speech as speech_service
 
 router = APIRouter(prefix="/speech", tags=["speech"])
 
 
-@router.post("/transcribe", response_model=SpeechTranscriptionOut)
-async def transcribe_speech(
-    file: UploadFile = File(...),
-    user: User = Depends(get_current_user),
-    settings: Settings = Depends(get_settings_dep),
+async def _transcribe_bytes(
+    settings: Settings,
+    data: bytes,
+    filename: str,
 ) -> SpeechTranscriptionOut:
-    del user
     if not settings.speech_transcription_enabled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
-    data = await file.read()
     text = await speech_service.transcribe_audio(
         settings,
         data,
-        filename=file.filename or "speech.m4a",
+        filename=filename,
     )
     if not text:
         raise HTTPException(
@@ -30,3 +30,34 @@ async def transcribe_speech(
             detail="Could not transcribe audio",
         )
     return SpeechTranscriptionOut(text=text)
+
+
+@router.post("/transcribe", response_model=SpeechTranscriptionOut)
+async def transcribe_speech(
+    request: Request,
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings_dep),
+) -> SpeechTranscriptionOut:
+    del user
+    content_type = request.headers.get("content-type", "")
+    if "application/json" in content_type:
+        try:
+            payload = SpeechTranscriptionIn.model_validate(await request.json())
+            data = base64.b64decode(payload.audio_base64, validate=True)
+        except (ValueError, binascii.Error) as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid audio payload",
+            ) from exc
+        return await _transcribe_bytes(settings, data, payload.filename)
+
+    form = await request.form()
+    upload = form.get("file")
+    if upload is None or not hasattr(upload, "read"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Missing audio file",
+        )
+    data = await upload.read()  # type: ignore[union-attr]
+    filename = getattr(upload, "filename", None) or "speech.m4a"
+    return await _transcribe_bytes(settings, data, filename)

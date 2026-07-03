@@ -1,3 +1,8 @@
+jest.mock("expo-file-system/legacy", () => ({
+  getInfoAsync: jest.fn(async () => ({ exists: true, size: 1200 })),
+  readAsStringAsync: jest.fn(async () => "ZmFrZQ=="),
+}));
+
 jest.mock("@/lib/expoRuntime", () => ({
   canUseVoiceInput: jest.fn(() => true),
 }));
@@ -7,7 +12,12 @@ jest.mock("expo-audio", () => {
 });
 
 import { canUseVoiceInput } from "@/lib/expoRuntime";
-import { isVoiceInputAvailable, loadExpoAudio } from "@/lib/voiceAudio";
+import {
+  isVoiceInputAvailable,
+  loadExpoAudio,
+  normalizeRecordingUri,
+  speechUploadFromUri,
+} from "@/lib/voiceAudio";
 
 const mockCanUseVoiceInput = canUseVoiceInput as jest.MockedFunction<
   typeof canUseVoiceInput
@@ -18,17 +28,30 @@ describe("voiceAudio", () => {
     mockCanUseVoiceInput.mockReturnValue(true);
   });
 
-  it("skips expo-audio import in Expo Go", async () => {
+  it("skips expo-audio import in Expo Go", () => {
     mockCanUseVoiceInput.mockReturnValue(false);
-    await expect(loadExpoAudio()).resolves.toBeNull();
-    await expect(isVoiceInputAvailable()).resolves.toBe(false);
+    expect(loadExpoAudio()).toBeNull();
+    expect(isVoiceInputAvailable()).toBe(false);
   });
 
-  it("loadExpoAudio returns null when native module is missing", async () => {
-    await expect(loadExpoAudio()).resolves.toBeNull();
+  it("loadExpoAudio returns null when native module is missing", () => {
+    expect(loadExpoAudio()).toBeNull();
   });
 
-  it("isVoiceInputAvailable is false when expo-audio fails to load", async () => {
-    await expect(isVoiceInputAvailable()).resolves.toBe(false);
+  it("isVoiceInputAvailable is false when expo-audio fails to load", () => {
+    expect(isVoiceInputAvailable()).toBe(false);
+  });
+
+  it("normalizes recording uri", () => {
+    expect(normalizeRecordingUri("/tmp/speech.m4a")).toBe("file:///tmp/speech.m4a");
+    expect(normalizeRecordingUri("file:///tmp/speech.m4a")).toBe("file:///tmp/speech.m4a");
+  });
+
+  it("builds upload metadata from uri", () => {
+    expect(speechUploadFromUri("file:///cache/recording.m4a")).toEqual({
+      uri: "file:///cache/recording.m4a",
+      name: "recording.m4a",
+      type: "audio/m4a",
+    });
   });
 });

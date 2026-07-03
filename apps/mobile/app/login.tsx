@@ -21,7 +21,7 @@ import {
   formatAppleSignInError,
   shouldShowAppleSignInButton,
 } from "@/lib/apple-auth";
-import { config, isGoogleSignInConfigured } from "@/lib/config";
+import { config, isGoogleSignInConfigured, isGoogleWebClientConfigured } from "@/lib/config";
 import { formatGoogleSignInError, isExpoGo } from "@/lib/google-auth";
 import { getLegalPrivacyUrl, getLegalTermsUrl } from "@/lib/legalUrls";
 import { Theme, useTheme } from "@/lib/theme";
@@ -42,7 +42,9 @@ export default function LoginScreen() {
   const s = useMemo(() => makeStyles(theme), [theme]);
   const [busy, setBusy] = useState(false);
   const showDevLogin = config.devAuthEnabled && __DEV__;
-  const showGoogleLogin = !isExpoGo() && isGoogleSignInConfigured();
+  const showGoogleLogin =
+    !isExpoGo() &&
+    (Platform.OS === "android" ? isGoogleWebClientConfigured() : isGoogleSignInConfigured());
   const showAppleLogin = shouldShowAppleSignInButton();
   const googleOnlyDevBuild = !isExpoGo() && showDevLogin && showGoogleLogin;
   const expoGoIos = isExpoGo() && Platform.OS === "ios";
@@ -65,6 +67,7 @@ export default function LoginScreen() {
     if (key === "bundle_load_failed") return t("login.error_bundle");
     if (key === "native_module_missing") return t("login.error_native_module");
     if (key === "not_configured") return t("login.error_not_configured");
+    if (key === "android_oauth_setup") return t("login.error_android_google");
     if (key === "generic") return t("login.error_generic");
     return key;
   };
@@ -88,7 +91,11 @@ export default function LoginScreen() {
       );
       return;
     }
-    if (!isGoogleSignInConfigured()) {
+    if (!isGoogleWebClientConfigured()) {
+      Alert.alert(t("login.sign_in_failed"), t("login.error_not_configured"));
+      return;
+    }
+    if (Platform.OS === "ios" && !isGoogleSignInConfigured()) {
       Alert.alert(t("login.sign_in_failed"), t("login.error_not_configured"));
       return;
     }
@@ -142,7 +149,7 @@ export default function LoginScreen() {
           </View>
         </View>
 
-        <View style={s.card}>
+        <View style={s.actions}>
           {expoGoAndroid && showDevLogin ? (
             <>
               <View style={s.devBanner}>
@@ -345,33 +352,20 @@ function makeStyles(theme: Theme) {
       fontWeight: "600",
       color: theme.textSecondary,
     },
-    card: {
-      backgroundColor: theme.bg,
-      borderRadius: 24,
-      paddingHorizontal: 20,
-      paddingTop: 24,
-      paddingBottom: 20,
+    actions: {
+      paddingBottom: 8,
       gap: 14,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
-      ...Platform.select({
-        ios: {
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: theme.isDark ? 0.2 : 0.06,
-          shadowRadius: 12,
-        },
-        android: { elevation: 4 },
-      }),
     },
     devBanner: {
       flexDirection: "row",
       alignItems: "flex-start",
       gap: 10,
-      backgroundColor: theme.primaryLight,
+      backgroundColor: theme.isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.5)",
       borderRadius: 14,
       paddingHorizontal: 14,
       paddingVertical: 12,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.isDark ? "rgba(255,255,255,0.1)" : "rgba(108, 71, 255, 0.12)",
     },
     devBannerText: {
       flex: 1,
@@ -407,9 +401,9 @@ function makeStyles(theme: Theme) {
       width: "100%",
       borderRadius: 16,
       borderWidth: 1.5,
-      borderColor: theme.border,
+      borderColor: theme.isDark ? "rgba(255,255,255,0.12)" : "rgba(108, 71, 255, 0.18)",
       paddingVertical: 16,
-      backgroundColor: theme.surface,
+      backgroundColor: theme.isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.55)",
     },
     googleText: { fontSize: 16, fontWeight: "600", color: theme.text },
     orText: {
@@ -424,9 +418,9 @@ function makeStyles(theme: Theme) {
       width: "100%",
       borderRadius: 16,
       borderWidth: 1.5,
-      borderColor: theme.border,
+      borderColor: theme.isDark ? "rgba(255,255,255,0.12)" : "rgba(108, 71, 255, 0.18)",
       paddingVertical: 14,
-      backgroundColor: theme.surface,
+      backgroundColor: theme.isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.45)",
     },
     devSecondaryText: { fontSize: 15, fontWeight: "600", color: theme.primary },
     dim: { opacity: 0.55 },

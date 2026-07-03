@@ -82,6 +82,7 @@ class Settings(BaseSettings):
     # Process role for production split: all (dev), api (HTTP only), worker (jobs only).
     process_role: str = "all"
     speech_transcription_enabled: bool = True
+    speech_transcription_model: str = "openai/whisper-1"
 
     push_enabled: bool = True
     push_learning_hour: int = 9

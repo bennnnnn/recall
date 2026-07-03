@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { Redirect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
@@ -35,6 +36,10 @@ export default function Onboarding() {
 
   if (onboarded) return <Redirect href="/login" />;
 
+  const gradientColors = theme.isDark
+    ? (["#1A1530", "#212121", theme.bg] as const)
+    : (["#EDE9FF", "#F7F5FF", theme.bg] as const);
+
   const finish = async () => {
     tap();
     await completeOnboarding();
@@ -42,7 +47,7 @@ export default function Onboarding() {
   };
 
   return (
-    <View style={s.root}>
+    <LinearGradient colors={gradientColors} style={s.root}>
       <View style={s.hero}>
         <View style={s.badge}>
           <Text style={s.badgeStar}>✦</Text>
@@ -68,7 +73,7 @@ export default function Onboarding() {
       <Pressable style={s.cta} onPress={finish}>
         <Text style={s.ctaText}>{t("onboarding.get_started")}</Text>
       </Pressable>
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -76,7 +81,6 @@ function makeStyles(theme: Theme) {
   return StyleSheet.create({
     root: {
       flex: 1,
-      backgroundColor: theme.bg,
       padding: 24,
       justifyContent: "center",
     },

@@ -1,6 +1,7 @@
 import { getApiUrl } from "@/lib/config";
 import { getRefreshToken, setTokenPair } from "@/lib/auth";
 import type { SearchSource } from "@/lib/searchSources";
+import { readRecordingBase64, speechUploadFromUri } from "@/lib/voiceAudio";
 
 export type { SearchSource };
 
@@ -461,6 +462,36 @@ export async function loginWithDev(
     throw new Error(text || "Dev login failed — is the API running?");
   }
   return response.json() as Promise<AuthResult>;
+}
+
+export async function transcribeSpeech(
+  token: string,
+  fileUri: string,
+): Promise<string> {
+  const upload = speechUploadFromUri(fileUri);
+  const audioBase64 = await readRecordingBase64(fileUri);
+  if (!audioBase64) {
+    throw new Error("recording_empty");
+  }
+  const response = await fetchWithTimeout(apiUrl("/speech/transcribe"), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      audio_base64: audioBase64,
+      filename: upload.name,
+    }),
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || "transcribe_failed");
+  }
+  const data = (await response.json()) as { text?: string };
+  const text = (data.text ?? "").trim();
+  if (!text) throw new Error("transcribe_empty");
+  return text;
 }
 
 function normalizeMessagePage(data: MessagePage | Message[]): MessagePage {

@@ -2,11 +2,9 @@ import { useCallback, useMemo, useState } from "react";
 import {
   Alert,
   LayoutAnimation,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
-  UIManager,
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,10 +16,6 @@ import { api } from "@/lib/api";
 import { programmingChapterIndex } from "@/lib/programmingCurriculum";
 import { suggestProgrammingTopic } from "@/lib/programmingStudy";
 import { Theme, useTheme } from "@/lib/theme";
-
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 function itemMastered(item: ProjectItem): boolean {
   return item.status === "mastered" || item.mastered;

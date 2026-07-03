@@ -754,6 +754,28 @@ def test_speech_transcribe_ok():
     assert r.json()["text"] == "hello world"
 
 
+def test_speech_transcribe_json_ok():
+    import base64
+
+    user = _fake_user()
+    client = TestClient(_app_with_user(user))
+    payload = {
+        "audio_base64": base64.b64encode(b"fake-audio").decode(),
+        "filename": "speech.m4a",
+    }
+    with patch(
+        "app.routers.speech.speech_service.transcribe_audio",
+        AsyncMock(return_value="hello json"),
+    ):
+        r = client.post(
+            "/speech/transcribe",
+            headers={"Authorization": "Bearer tok", "Content-Type": "application/json"},
+            json=payload,
+        )
+    assert r.status_code == 200
+    assert r.json()["text"] == "hello json"
+
+
 def test_speech_transcribe_disabled():
     user = _fake_user()
     from app.core.deps import get_current_user, get_settings_dep
