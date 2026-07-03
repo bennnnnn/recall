@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 from collections.abc import AsyncIterator
+from contextlib import suppress
 from typing import Any
 from uuid import UUID
 
@@ -46,6 +47,9 @@ async def _stream_chat_sse(
     async def on_status(phase: str) -> None:
         await event_queue.put(("status", phase))
 
+    async def on_reasoning(chunk: str) -> None:
+        await event_queue.put(("reasoning", chunk))
+
     def should_cancel() -> bool:
         return cancel_event.is_set() if cancel_event is not None else False
 
@@ -66,6 +70,7 @@ async def _stream_chat_sse(
                 client_latitude=body.client_latitude,
                 client_longitude=body.client_longitude,
                 on_status=on_status,
+                on_reasoning=on_reasoning,
             )
             async for token_text in stream:
                 if should_cancel():
@@ -84,6 +89,8 @@ async def _stream_chat_sse(
             kind, payload = item
             if kind == "status":
                 yield _sse({"type": "status", "phase": payload})
+            elif kind == "reasoning":
+                yield _sse({"type": "reasoning", "content": payload})
             else:
                 yield _sse({"type": "token", "content": payload})
 
@@ -134,7 +141,7 @@ async def _stream_chat_sse(
     finally:
         if not producer.done():
             producer.cancel()
-            with asyncio.suppress(asyncio.CancelledError):
+            with suppress(asyncio.CancelledError):
                 await producer
 
 

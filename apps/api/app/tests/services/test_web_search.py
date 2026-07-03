@@ -697,3 +697,44 @@ async def test_augment_prompt_classifier_routes_factual_lookup(fake_redis):
     search_mock.assert_awaited()
     assert "Web search results" in out[-2]["content"]
     assert len(hits) == 1
+
+
+@pytest.mark.asyncio
+async def test_augment_uses_classifier_query_when_present(fake_redis):
+    from app.models.schemas import WebSearchClassification
+
+    settings = Settings(
+        mock_llm_enabled=True,
+        openrouter_api_key="",
+        web_search_classifier_enabled=True,
+    )
+    messages = [
+        {"role": "system", "content": "base"},
+        {"role": "user", "content": "Who runs that company?"},
+    ]
+    with (
+        patch("app.services.web_search.search_cache.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.services.web_search.augment.classify_web_search",
+            AsyncMock(
+                return_value=WebSearchClassification(
+                    needs_search=True,
+                    query="OpenAI CEO 2026",
+                )
+            ),
+        ),
+        patch(
+            "app.services.web_search.search_cache.web_search_gateway.search_web",
+            AsyncMock(
+                return_value=[WebSearchHit(title="CEO", url="https://example.com", snippet="Sam")]
+            ),
+        ) as search_mock,
+    ):
+        await augment_prompt_messages(
+            messages,
+            "Who runs that company?",
+            settings,
+        )
+    search_mock.assert_awaited()
+    assert search_mock.await_args is not None
+    assert search_mock.await_args.args[1] == "OpenAI CEO 2026"

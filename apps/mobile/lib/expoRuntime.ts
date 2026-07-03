@@ -32,3 +32,8 @@ export function isExpoGo(): boolean {
 export function canUseDeviceLocation(): boolean {
   return !isExpoGo();
 }
+
+/** Microphone recording (expo-audio) is not bundled in Expo Go. */
+export function canUseVoiceInput(): boolean {
+  return !isExpoGo();
+}

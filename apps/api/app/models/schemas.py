@@ -573,6 +573,14 @@ class ProjectExtractionResult(BaseModel):
 
 class WebSearchClassification(BaseModel):
     needs_search: bool
+    query: str | None = Field(
+        default=None,
+        description="Concise web search query when needs_search is true",
+    )
+
+
+class SpeechTranscriptionOut(BaseModel):
+    text: str
 
 
 class SearchResultItem(BaseModel):

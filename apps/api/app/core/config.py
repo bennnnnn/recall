@@ -79,6 +79,10 @@ class Settings(BaseSettings):
     web_search_max_results: int = 5
     web_search_cache_ttl: int = 300
 
+    # Process role for production split: all (dev), api (HTTP only), worker (jobs only).
+    process_role: str = "all"
+    speech_transcription_enabled: bool = True
+
     push_enabled: bool = True
     push_learning_hour: int = 9
     server_todo_push_enabled: bool = False  # local notifications handle todo reminders

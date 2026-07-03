@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from app.core.config import Settings
+from app.models.schemas import WebSearchClassification
 from app.services import calendar as calendar_service
 from app.services import time_context as time_context_service
 from app.services.web_search.geo_intent import is_geo_query
@@ -120,6 +121,24 @@ def needs_web_search(
     return needs_web_search_heuristic(text, prior_user_messages=prior_user_messages)
 
 
+async def classify_web_search(
+    text: str,
+    settings: Settings,
+    *,
+    prior_user_messages: list[str] | None = None,
+) -> WebSearchClassification | None:
+    """LLM gate for ambiguous turns; None when classifier disabled or call fails."""
+    if not settings.web_search_classifier_enabled:
+        return None
+    from app.gateways import litellm_gateway
+
+    return await litellm_gateway.classify_web_search_need(
+        settings,
+        text,
+        prior_user_messages=prior_user_messages,
+    )
+
+
 async def should_web_search(
     text: str,
     settings: Settings,
@@ -133,13 +152,9 @@ async def should_web_search(
         return False
     if web_search_fast_yes(text, prior_user_messages=prior_user_messages):
         return True
-    if not settings.web_search_classifier_enabled:
-        return needs_web_search_heuristic(text, prior_user_messages=prior_user_messages)
-    from app.gateways import litellm_gateway
-
-    classification = await litellm_gateway.classify_web_search_need(
-        settings,
+    classification = await classify_web_search(
         text,
+        settings,
         prior_user_messages=prior_user_messages,
     )
     if classification is None:

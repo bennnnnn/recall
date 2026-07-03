@@ -13,6 +13,7 @@ import { MarkdownContent } from "@/components/MarkdownContent";
 import { StreamingCursor } from "@/components/StreamingCursor";
 import { MarkdownErrorBoundary } from "@/components/MarkdownErrorBoundary";
 import { RecallTypingIndicator } from "@/components/RecallTypingIndicator";
+import { ReasoningBlock } from "@/components/chat/ReasoningBlock";
 import { VocabQuizChoices } from "@/components/VocabQuizChoices";
 import { Message } from "@/lib/api";
 import {
@@ -45,6 +46,7 @@ type Props = {
   /** Live token stream — avoids mutating the messages array on every token. */
   liveContent?: string;
   liveSearchSources?: Message["search_sources"];
+  liveReasoning?: string;
   streamStatus?: string;
   isLastAssistant?: boolean;
   onRegenerate?: () => void;
@@ -153,6 +155,7 @@ export const MessageBubble = React.memo(function MessageBubble({
   isGenerating = false,
   liveContent,
   liveSearchSources,
+  liveReasoning,
   streamStatus,
   isLastAssistant,
   onRegenerate,
@@ -200,6 +203,8 @@ export const MessageBubble = React.memo(function MessageBubble({
   const layoutFrozen = isStreaming || holdStreamLayout;
   const content = liveContent ?? message.content;
   const hasContent = content.trim().length > 0;
+  const reasoningText = liveReasoning?.trim() ?? "";
+  const showReasoning = !isUser && reasoningText.length > 0;
   const statusLabel = useRotatingStreamStatus(
     streamStatus,
     isStreaming && !hasContent,
@@ -293,6 +298,9 @@ export const MessageBubble = React.memo(function MessageBubble({
         </View>
       ) : (
         <View style={b.assistantBubble}>
+          {showReasoning ? (
+            <ReasoningBlock content={reasoningText} streaming={isStreaming} />
+          ) : null}
           <CollapsibleMessageBody enabled={!layoutFrozen && hasContent} collapsible={false}>
             {isStreaming && !hasContent ? (
               <View style={b.waitingWrap}>

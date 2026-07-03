@@ -52,6 +52,9 @@ type Props = {
   onSend: () => void;
   onStop: () => void;
   isOffline: boolean;
+  voiceRecording?: boolean;
+  voiceTranscribing?: boolean;
+  onVoicePress?: () => void;
 };
 
 export function ChatComposer({
@@ -80,6 +83,9 @@ export function ChatComposer({
   onSend,
   onStop,
   isOffline,
+  voiceRecording = false,
+  voiceTranscribing = false,
+  onVoicePress,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -161,6 +167,10 @@ export function ChatComposer({
                   <Pressable style={s.sendBtn} onPress={onStop}>
                     <Text style={s.sendIcon}>■</Text>
                   </Pressable>
+                ) : voiceTranscribing ? (
+                  <View style={[s.sendBtn, s.sendBtnDisabled]}>
+                    <Text style={[s.sendIcon, s.sendIconDisabled]}>…</Text>
+                  </View>
                 ) : input.trim() || pendingAttachment ? (
                   <Pressable
                     style={[s.sendBtn, isOffline && s.sendBtnDisabled]}
@@ -169,6 +179,22 @@ export function ChatComposer({
                     accessibilityHint={isOffline ? t("chat.offline_body") : undefined}
                   >
                     <Text style={[s.sendIcon, isOffline && s.sendIconDisabled]}>↑</Text>
+                  </Pressable>
+                ) : onVoicePress && token ? (
+                  <Pressable
+                    style={[s.voiceBtn, voiceRecording && s.voiceBtnActive]}
+                    onPress={onVoicePress}
+                    disabled={attachBusy || isOffline}
+                    accessibilityLabel={t("chat.voice_a11y")}
+                    accessibilityHint={
+                      voiceRecording ? t("chat.voice_stop_hint") : t("chat.voice_start_hint")
+                    }
+                  >
+                    <Ionicons
+                      name={voiceRecording ? "stop-circle" : "mic-outline"}
+                      size={22}
+                      color={voiceRecording ? theme.onPrimary : theme.primary}
+                    />
                   </Pressable>
                 ) : null}
               </View>
@@ -287,6 +313,20 @@ function makeStyles(theme: Theme) {
     sendIcon: { color: theme.onPrimary, fontSize: 18, fontWeight: "700" },
     sendBtnDisabled: { backgroundColor: theme.border },
     sendIconDisabled: { color: theme.textTertiary },
+    voiceBtn: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
+    },
+    voiceBtnActive: {
+      backgroundColor: theme.primary,
+      borderColor: theme.primary,
+    },
     picker: {
       marginBottom: 8,
       backgroundColor: theme.bg,

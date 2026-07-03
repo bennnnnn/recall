@@ -7,6 +7,7 @@ type Router = ReturnType<typeof useRouter>;
 
 import { insertChatGlobal, patchChatGlobal, setChatTitleGenerating } from "@/lib/drawer";
 import { api, type Message } from "@/lib/api";
+import { readCachedChatMessages, writeCachedChatMessages } from "@/lib/chatMessageCache";
 import { MESSAGE_PAGE_SIZE } from "@/lib/chatConstants";
 import type { QueuedChatLaunch } from "@/lib/chatLaunch";
 import { takeQueuedChatLaunch } from "@/lib/chatLaunch";
@@ -171,6 +172,14 @@ export function useChatRouteLoader({
       setChatLoading(true);
       setHasMoreOlder(false);
       try {
+        const cached = await readCachedChatMessages(openChatId);
+        if (cancelled) return;
+        if (cached) {
+          setChatId(openChatId);
+          setMessages(cached.messages);
+          setHasMoreOlder(cached.has_more);
+          setChatLoading(false);
+        }
         const [chat, page] = await Promise.all([
           api.getChat(token, openChatId),
           api.listMessages(token, openChatId, { limit: MESSAGE_PAGE_SIZE }),
@@ -183,6 +192,7 @@ export function useChatRouteLoader({
         setQuizVariant(resolveQuizVariant(chat.project_id));
         setMessages(page.messages);
         setHasMoreOlder(page.has_more);
+        void writeCachedChatMessages(openChatId, page.messages, page.has_more);
         if (!chat.title && page.messages.length > 0) {
           pollForTitle(token, openChatId);
         }
@@ -218,6 +228,7 @@ export function useChatRouteLoader({
           setQuizVariant(resolveQuizVariant(chat.project_id));
           setMessages(page.messages);
           setHasMoreOlder(page.has_more);
+          void writeCachedChatMessages(openChatId, page.messages, page.has_more);
         } catch {
           /* keep existing messages on silent refetch failure */
         }

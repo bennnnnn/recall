@@ -65,6 +65,7 @@ export const ChatMessageRow = memo(function ChatMessageRow({
       isGenerating={streamVisualActive && isStreamingItem}
       liveContent={isStreamingItem ? streamingDraft?.content : undefined}
       liveSearchSources={isStreamingItem ? streamingDraft?.search_sources : undefined}
+      liveReasoning={isStreamingItem ? streamingDraft?.reasoning : undefined}
       streamStatus={isStreamingItem ? streamingDraft?.status : undefined}
       isLastAssistant={isLastAssistant}
       onRegenerate={

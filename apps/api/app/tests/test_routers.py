@@ -733,3 +733,40 @@ def test_admin_dlq_list_and_replay_in_dev():
         r_replay = client.post("/admin/dlq/replay", headers={"Authorization": "Bearer tok"})
         assert r_replay.status_code == 200
         assert r_replay.json()["replayed"] == 1
+
+
+# ── speech ─────────────────────────────────────────────────────────────────────
+
+
+def test_speech_transcribe_ok():
+    user = _fake_user()
+    client = TestClient(_app_with_user(user))
+    with patch(
+        "app.routers.speech.speech_service.transcribe_audio",
+        AsyncMock(return_value="hello world"),
+    ):
+        r = client.post(
+            "/speech/transcribe",
+            headers={"Authorization": "Bearer tok"},
+            files={"file": ("speech.m4a", b"fake-audio", "audio/m4a")},
+        )
+    assert r.status_code == 200
+    assert r.json()["text"] == "hello world"
+
+
+def test_speech_transcribe_disabled():
+    user = _fake_user()
+    from app.core.deps import get_current_user, get_settings_dep
+
+    app = create_app()
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
+        speech_transcription_enabled=False
+    )
+    client = TestClient(app)
+    r = client.post(
+        "/speech/transcribe",
+        headers={"Authorization": "Bearer tok"},
+        files={"file": ("speech.m4a", b"fake-audio", "audio/m4a")},
+    )
+    assert r.status_code == 404

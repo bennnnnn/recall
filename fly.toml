@@ -1,13 +1,8 @@
 # Fly.io config for the Recall API.
 # See the README "Production deployment (Fly.io)" section for the full setup.
 #
-# Requires a Fly Postgres cluster WITH pgvector (or keep using Neon):
-#   fly pg create --name recall-pg --image-ref flyio/postgres-flex:16
-#   # then psql into it and: CREATE EXTENSION vector;
-# Or set DATABASE_URL to your Neon connection string.
-#
-# Set secrets with: fly secrets set ENVIRONMENT=production DEV_AUTH_ENABLED=false ...
-# (see README for the full required-secrets list — they're enforced at startup).
+# Two processes: `app` serves HTTP/WebSocket (PROCESS_ROLE=api); `worker` runs
+# Redis-stream jobs + schedulers (PROCESS_ROLE=worker). Scale each independently.
 
 app = "recall-api"
 primary_region = "iad" # change to your region; Neon DB is in us-east-2
@@ -16,12 +11,20 @@ primary_region = "iad" # change to your region; Neon DB is in us-east-2
   context = "apps/api"
   dockerfile = "Dockerfile"
 
+[env]
+  PROCESS_ROLE = "api"
+
+[processes]
+  app = "sh -c 'uv run alembic upgrade head && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-access-log'"
+  worker = "sh -c 'PROCESS_ROLE=worker uv run python -m app.worker_main'"
+
 [http_service]
   internal_port = 8000
   force_https = true
-  auto_stop_machines = false # the in-process worker must keep running
+  auto_stop_machines = false
   auto_start_machines = true
-  min_machines_running = 1   # keep one warm for WS + background jobs
+  min_machines_running = 1
+  processes = ["app"]
 
   [http_service.concurrency]
     type = "requests"
@@ -37,7 +40,14 @@ primary_region = "iad" # change to your region; Neon DB is in us-east-2
   method = "GET"
   path = "/health/ready"
 
-[vm]
+[[vm]]
   memory = "512mb"
   cpu_kind = "shared"
   cpus = 1
+  processes = ["app"]
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
+  processes = ["worker"]

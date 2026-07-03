@@ -8,6 +8,7 @@ export type ChatWsPayload = {
   message_id?: string;
   code?: string;
   phase?: string;
+  reasoning?: string;
   final_content?: string;
   recalled?: string;
   memory_hints?: string;

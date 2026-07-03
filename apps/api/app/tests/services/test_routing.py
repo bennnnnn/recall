@@ -12,30 +12,26 @@ from app.services.routing import resolve_alias, route_chat_model
         ("hi", "free-chat"),
         ("hello world", "free-chat"),
         ("what's for lunch", "free-chat"),
+        ("explain quantum computing", "free-chat"),
+        ("why is the sky blue", "free-chat"),
+        ("compare two options", "free-chat"),
         # Smart triggers → smart-chat
-        ("explain quantum computing", "smart-chat"),
-        ("why is the sky blue", "smart-chat"),
         ("prove p = np", "smart-chat"),
-        ("analyze this algorithm", "smart-chat"),
         ("debug the memory leak", "smart-chat"),
-        ("compare two architectures", "smart-chat"),
+        ("analyze this algorithm", "smart-chat"),
         ("design a distributed queue", "smart-chat"),
-        ("evaluate this approach", "smart-chat"),
         ("derive the formula", "smart-chat"),
         ("refactor this module", "smart-chat"),
         ("step by step how to deploy", "smart-chat"),
-        ("reason about this design", "smart-chat"),
         ("optimize this query", "smart-chat"),
         ("trade-off between latency and throughput", "smart-chat"),
         ("what is the complexity of this", "smart-chat"),
-        # Long message (>500 chars → smart-chat)
-        ("a" * 501, "smart-chat"),
-        # At boundary: exactly 500 chars → smart-chat (>= trigger)
-        ("a" * 500, "smart-chat"),
-        # Just under boundary: 499 chars → free-chat
-        ("a" * 499, "free-chat"),
-        # Code block → smart-chat
-        ("check this out:\n```\nprint(1)\n```", "smart-chat"),
+        # Long message (>=800 chars → smart-chat)
+        ("a" * 801, "smart-chat"),
+        ("a" * 799, "free-chat"),
+        # Tagged code fence → smart-chat; bare fence → free-chat
+        ("check this:\n```python\nprint(1)\n```", "smart-chat"),
+        ("check this out:\n```\nprint(1)\n```", "free-chat"),
     ],
 )
 def test_route_chat_model(content: str, expected: str) -> None:
@@ -55,7 +51,8 @@ def test_is_reasoning_alias() -> None:
     [
         # auto resolves via route_chat_model
         ("auto", "hello", "free-chat"),
-        ("auto", "explain gravity", "smart-chat"),
+        ("auto", "explain gravity", "free-chat"),
+        ("auto", "debug this crash", "smart-chat"),
         # explicit aliases pass through
         ("free-chat", "explain gravity", "free-chat"),
         ("smart-chat", "hi", "smart-chat"),

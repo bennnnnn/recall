@@ -19,6 +19,7 @@ dependencies = [
     "uvicorn[standard]>=0.32.0",
     "websockets>=14.0",
     "pypdf>=5.1.0",
+    "python-multipart>=0.0.20",
     "pgvector>=0.3.5",
     "sympy>=1.13.0",
     "numpy>=2.0.0",

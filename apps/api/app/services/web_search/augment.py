@@ -7,7 +7,12 @@ from collections.abc import Awaitable, Callable
 from app.core.config import Settings
 from app.gateways.web_search_gateway import WebSearchHit
 from app.services.prompt_safety import wrap_untrusted
-from app.services.web_search.detection import should_web_search
+from app.services.web_search.detection import (
+    classify_web_search,
+    needs_web_search_heuristic,
+    web_search_fast_yes,
+    web_search_skip,
+)
 from app.services.web_search.formatting import (
     GEO_DISTANCE_HINT,
     format_search_block,
@@ -47,25 +52,47 @@ async def augment_prompt_messages(
     on_status: Callable[[str], Awaitable[None]] | None = None,
 ) -> tuple[list[dict[str, str]], list[WebSearchHit]]:
     prior_user = prior_user_messages or _prior_user_messages(messages, user_content)
-    if not await should_web_search(
-        user_content,
-        settings,
-        prior_user_messages=prior_user,
-    ):
+    if web_search_skip(user_content, prior_user_messages=prior_user):
+        return messages, []
+
+    if web_search_fast_yes(user_content, prior_user_messages=prior_user):
+        needs_search = True
+        classifier_query: str | None = None
+    else:
+        classification = await classify_web_search(
+            user_content,
+            settings,
+            prior_user_messages=prior_user,
+        )
+        if classification is not None:
+            if not classification.needs_search:
+                return messages, []
+            needs_search = True
+            classifier_query = (classification.query or "").strip() or None
+        elif not needs_web_search_heuristic(user_content, prior_user_messages=prior_user):
+            return messages, []
+        else:
+            needs_search = True
+            classifier_query = None
+
+    if not needs_search:
         return messages, []
 
     if on_status is not None:
         await on_status("searching")
 
     subject = resolve_search_subject(user_content, prior_user_messages=prior_user)
-    queries = build_search_queries(
-        user_content,
-        user_timezone=user_timezone,
-        user_location=user_location,
-        latitude=latitude,
-        longitude=longitude,
-        prior_user_messages=prior_user,
-    )
+    if classifier_query:
+        queries = [classifier_query]
+    else:
+        queries = build_search_queries(
+            user_content,
+            user_timezone=user_timezone,
+            user_location=user_location,
+            latitude=latitude,
+            longitude=longitude,
+            prior_user_messages=prior_user,
+        )
     hits, tried = await _run_search(settings, queries)
     team = _extract_team_subject(user_content.strip())
     if not team and prior_user:

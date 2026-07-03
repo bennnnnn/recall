@@ -16,7 +16,7 @@ from app.services.chat.post_turn import (
     finalize_stream_turn_db,
     seed_usage_from_db,
 )
-from app.services.chat.prompt_builder import StreamStatusFn
+from app.services.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
 from app.services.chat.turn_prep import (
     RegenerateBackup,
     StreamContext,
@@ -47,6 +47,7 @@ async def stream_chat_response(
     client_longitude: float | None = None,
     pre_reserved: int | None = None,
     on_status: StreamStatusFn | None = None,
+    on_reasoning: StreamReasoningFn | None = None,
 ) -> AsyncIterator[str]:
     import app.services.chat as chat_pkg
 
@@ -101,6 +102,7 @@ async def stream_chat_response(
             should_cancel=should_cancel,
             result=result,
             on_status=on_status,
+            on_reasoning=on_reasoning,
         ):
             yield token
     except ModelUnavailableError:
@@ -125,6 +127,7 @@ async def stream_regenerate_response(
     client_latitude: float | None = None,
     client_longitude: float | None = None,
     on_status: StreamStatusFn | None = None,
+    on_reasoning: StreamReasoningFn | None = None,
 ) -> AsyncIterator[str]:
     import app.services.chat as chat_pkg
 
@@ -213,6 +216,7 @@ async def stream_regenerate_response(
             should_cancel=should_cancel,
             result=result,
             on_status=on_status,
+            on_reasoning=on_reasoning,
         ):
             yield token
     except ModelUnavailableError:
@@ -243,6 +247,7 @@ async def stream_edit_response(
     client_latitude: float | None = None,
     client_longitude: float | None = None,
     on_status: StreamStatusFn | None = None,
+    on_reasoning: StreamReasoningFn | None = None,
 ) -> AsyncIterator[str]:
     """Replace a user message and delete all turns after it, then re-stream."""
     import app.services.chat as chat_pkg
@@ -299,6 +304,7 @@ async def stream_edit_response(
         client_longitude=client_longitude,
         pre_reserved=reserved,
         on_status=on_status,
+        on_reasoning=on_reasoning,
     ):
         yield token
 
@@ -311,6 +317,7 @@ async def stream_and_finalize(
     should_cancel: Callable[[], bool] | None,
     result: dict[str, Any] | None = None,
     on_status: StreamStatusFn | None = None,
+    on_reasoning: StreamReasoningFn | None = None,
 ) -> AsyncIterator[str]:
     import app.services.chat as chat_pkg
 
@@ -338,6 +345,7 @@ async def stream_and_finalize(
             usage=usage,
             fallback_aliases=ctx.fallback_models,
             stream_meta=stream_meta,
+            on_reasoning=on_reasoning,
         ):
             if should_cancel and should_cancel():
                 was_cancelled = True

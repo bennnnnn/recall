@@ -43,7 +43,7 @@ def test_pro_user_respects_enabled_models():
 def test_pro_user_auto_can_pick_smart():
     user = ProUser()
     settings = Settings(mock_llm_enabled=True)
-    resolved = plan_service.resolve_user_model(user, "explain gravity", settings)
+    resolved = plan_service.resolve_user_model(user, "debug this crash", settings)
     assert resolved == "smart-chat"
 
 

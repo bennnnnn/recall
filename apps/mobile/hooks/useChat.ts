@@ -20,6 +20,7 @@ export type StreamingDraft = {
   content: string;
   search_sources?: SearchSource[];
   status?: string;
+  reasoning?: string;
 };
 
 type UseChatOptions = {
@@ -45,6 +46,7 @@ export function useChat(
   const connectingRef = useRef<Promise<void> | null>(null);
   const preferSseRef = useRef(false);
   const assistantBuffer = useRef("");
+  const reasoningBuffer = useRef("");
   const streamingDraftRef = useRef<StreamingDraft | null>(null);
   const streamingRef = useRef(false);
   const finalizingRef = useRef(false);
@@ -124,6 +126,7 @@ export function useChat(
     connectingRef.current = null;
     preferSseRef.current = false;
     assistantBuffer.current = "";
+    reasoningBuffer.current = "";
     firstReplyRef.current = false;
     regenerateBackupRef.current = null;
     updateStreamingDraft(null);
@@ -140,6 +143,7 @@ export function useChat(
         setStreaming(true);
         streamingRef.current = true;
         assistantBuffer.current = "";
+        reasoningBuffer.current = "";
         updateStreamingDraft({ content: "" });
         appendStreamingPlaceholder();
       }
@@ -149,6 +153,17 @@ export function useChat(
           content: assistantBuffer.current,
           search_sources: streamingDraftRef.current?.search_sources,
           status: payload.phase,
+          reasoning: reasoningBuffer.current || undefined,
+        });
+      }
+
+      if (payload.type === "reasoning" && typeof payload.content === "string") {
+        reasoningBuffer.current += payload.content;
+        updateStreamingDraft({
+          content: assistantBuffer.current,
+          search_sources: streamingDraftRef.current?.search_sources,
+          status: streamingDraftRef.current?.status,
+          reasoning: reasoningBuffer.current,
         });
       }
 
@@ -158,6 +173,7 @@ export function useChat(
           content: assistantBuffer.current,
           search_sources: streamingDraftRef.current?.search_sources,
           status: undefined,
+          reasoning: reasoningBuffer.current || undefined,
         });
       }
 
@@ -171,6 +187,7 @@ export function useChat(
         setFinalizing(false);
         streamingRef.current = false;
         assistantBuffer.current = "";
+        reasoningBuffer.current = "";
         const draft = streamingDraftRef.current;
         updateStreamingDraft(null);
         setMessages((prev) =>
@@ -192,6 +209,7 @@ export function useChat(
         setFinalizing(false);
         streamingRef.current = false;
         assistantBuffer.current = "";
+        reasoningBuffer.current = "";
         if (regenerateBackupRef.current) {
           restoreRegenerateBackup();
         } else {
@@ -269,6 +287,7 @@ export function useChat(
           const failedRegenerateBackup = regenerateBackupRef.current;
           regenerateBackupRef.current = null;
           assistantBuffer.current = "";
+          reasoningBuffer.current = "";
           updateStreamingDraft(null);
           setMessages((prev) => {
             const streamingMsg = prev.find((m) => m.id === "streaming");
@@ -411,6 +430,7 @@ export function useChat(
       }
 
       assistantBuffer.current = "";
+      reasoningBuffer.current = "";
       if (isVocabQuizAnswer(content) && !streamingRef.current) {
         setStreaming(true);
         streamingRef.current = true;
@@ -445,6 +465,7 @@ export function useChat(
       setStreaming(true);
       streamingRef.current = true;
       assistantBuffer.current = "";
+      reasoningBuffer.current = "";
       updateStreamingDraft({ content: "" });
       appendStreamingPlaceholder();
 
@@ -508,6 +529,7 @@ export function useChat(
       }
 
       assistantBuffer.current = "";
+      reasoningBuffer.current = "";
       wsRef.current.send(
         JSON.stringify({
           type: "edit",
@@ -528,6 +550,7 @@ export function useChat(
     streamingRef.current = false;
     const draft = streamingDraftRef.current;
     assistantBuffer.current = "";
+    reasoningBuffer.current = "";
     updateStreamingDraft(null);
     setMessages((prev) => {
       const streamingMsg = prev.find((m) => m.id === "streaming");

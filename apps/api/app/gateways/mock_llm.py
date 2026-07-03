@@ -144,7 +144,7 @@ async def mock_web_search_classification(
 
     del prior_user_messages
     if _MOCK_FACTUAL_LOOKUP.search(user_message):
-        return WebSearchClassification(needs_search=True)
+        return WebSearchClassification(needs_search=True, query=user_message.strip()[:120])
     return WebSearchClassification(needs_search=False)
 
 

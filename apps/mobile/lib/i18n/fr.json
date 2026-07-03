@@ -580,5 +580,16 @@
   "upgrade.restore": "Restaurer les achats",
   "upgrade.restore_empty": "Aucun abonnement actif trouvé pour ce compte.",
   "upgrade.subscribe": "Passer à Pro — {{price}}/mois",
-  "upgrade.title": "Passer à Pro"
+  "upgrade.title": "Passer à Pro",
+  "chat.reasoning_title": "Reasoning",
+  "chat.reasoning_live": "Live",
+  "chat.voice_a11y": "Voice input",
+  "chat.voice_permission_body": "Allow microphone access in Settings to dictate messages.",
+  "chat.voice_permission_title": "Microphone access needed",
+  "chat.voice_start_failed": "Could not start recording.",
+  "chat.voice_start_hint": "Tap to start dictating",
+  "chat.voice_stop_hint": "Tap to stop and transcribe",
+  "chat.voice_transcribe_failed": "Could not transcribe your recording.",
+  "chat.voice_unavailable_body": "Voice input needs a dev build with microphone support. Rebuild:\n\ncd apps/mobile && pnpm expo run:ios",
+  "chat.voice_unavailable_title": "Voice input unavailable"
 }

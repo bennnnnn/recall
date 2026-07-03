@@ -28,6 +28,7 @@ from app.routers import (
     models,
     projects,
     search,
+    speech,
     suggestions,
     todos,
     users,
@@ -45,15 +46,18 @@ async def lifespan(_: FastAPI):
     from app.gateways.mcp import setup_mcp_adapters
 
     setup_mcp_adapters(settings)
-    await jobs.start_worker(settings)
-    await push_scheduler.start_push_scheduler(settings)
-    await gmail_periodic_sync.start_gmail_periodic_scheduler(settings)
-    await attachment_orphan_reaper.start_orphan_reaper(settings)
+    role = settings.process_role.strip().lower()
+    if role in ("all", "worker"):
+        await jobs.start_worker(settings)
+        await push_scheduler.start_push_scheduler(settings)
+        await gmail_periodic_sync.start_gmail_periodic_scheduler(settings)
+        await attachment_orphan_reaper.start_orphan_reaper(settings)
     yield
-    await jobs.stop_worker()
-    await push_scheduler.stop_push_scheduler()
-    await gmail_periodic_sync.stop_gmail_periodic_scheduler()
-    await attachment_orphan_reaper.stop_orphan_reaper()
+    if role in ("all", "worker"):
+        await jobs.stop_worker()
+        await push_scheduler.stop_push_scheduler()
+        await gmail_periodic_sync.stop_gmail_periodic_scheduler()
+        await attachment_orphan_reaper.stop_orphan_reaper()
     await engine.dispose()
     await get_redis_client().aclose()
 
@@ -92,6 +96,7 @@ def create_app() -> FastAPI:
     app.include_router(attachments.router)
     app.include_router(integrations.router)
     app.include_router(gmail_integrations.router)
+    app.include_router(speech.router)
     app.include_router(ws.router)
 
     return app

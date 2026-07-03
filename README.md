@@ -82,9 +82,11 @@ The compose file uses `pgvector/pgvector:pg16` so migrations that need the
 
 ## Production deployment (Fly.io)
 
-The API needs a long-running process (WebSockets + the in-process Redis-Stream
-background worker), so deploy to a host that keeps the process alive — not a
-serverless function platform. A Dockerfile + `fly.toml` are included.
+The API needs a long-running process (WebSockets + background jobs), so deploy to a
+host that keeps the process alive — not a serverless function platform. A Dockerfile
++ `fly.toml` are included with **two Fly processes**: `app` (HTTP/WebSocket,
+`PROCESS_ROLE=api`) and `worker` (Redis-stream jobs + schedulers,
+`PROCESS_ROLE=worker`). Scale them independently (`fly scale count app=1 worker=1`).
 
 1. **Provision:** `fly launch` (uses `apps/api/Dockerfile`), or point an
    existing Fly app at this directory. Provision a Fly Postgres cluster **with
@@ -108,6 +110,9 @@ serverless function platform. A Dockerfile + `fly.toml` are included.
 4. **Health:** point your monitor at `GET /health/ready` (checks DB + Redis).
 5. **RevenueCat:** set the webhook URL to `https://<api>/webhooks/revenuecat`
    with the `Authorization` header = your `REVENUECAT_WEBHOOK_AUTH`.
+6. **Process split:** `fly.toml` runs migrations + uvicorn on the `app` process and
+   `python -m app.worker_main` on `worker`. Local dev defaults to `PROCESS_ROLE=all`
+   (both in one process). Set `PROCESS_ROLE=api` or `worker` when splitting locally.
 
 ### Mobile production build
 

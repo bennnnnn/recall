@@ -44,6 +44,7 @@ import { useChatMessageList } from "@/hooks/useChatMessageList";
 import { useChatRouteLoader, useQueuedChatLaunch } from "@/hooks/useChatRouteLoader";
 import { useChatScroll } from "@/hooks/useChatScroll";
 import { useChatSend } from "@/hooks/useChatSend";
+import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { useDraftChat } from "@/hooks/useDraftChat";
 import { useModels } from "@/hooks/useModels";
 import { useNetwork } from "@/contexts/NetworkContext";
@@ -307,6 +308,14 @@ function ChatScreen() {
     pendingOutboundId,
   } = send;
 
+  const { voiceInputAvailable, voiceRecording, voiceTranscribing, toggleVoiceInput } = useVoiceInput({
+    token,
+    onTranscript: (text) => {
+      setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text));
+    },
+    t,
+  });
+
   closeAttachSheetRef.current = () => setAttachSheetOpen(false);
 
   const {
@@ -567,6 +576,11 @@ function ChatScreen() {
           onSend={() => void handleSend()}
           onStop={stopGeneration}
           isOffline={isOffline}
+          voiceRecording={voiceRecording}
+          voiceTranscribing={voiceTranscribing}
+          onVoicePress={
+            voiceInputAvailable ? () => void toggleVoiceInput() : undefined
+          }
         />
 
         <UpgradeSheet visible={upgradeVisible} onClose={() => setUpgradeVisible(false)} />

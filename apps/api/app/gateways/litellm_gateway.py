@@ -1,7 +1,7 @@
 import asyncio
 import json
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any, get_args, get_origin
 
 from litellm import acompletion
@@ -216,6 +216,7 @@ async def stream_chat_completion(
     usage: dict[str, int] | None = None,
     fallback_aliases: list[str] | None = None,
     stream_meta: dict[str, str] | None = None,
+    on_reasoning: Callable[[str], Awaitable[None]] | None = None,
 ) -> AsyncIterator[str]:
     if mock_llm.should_mock_llm(settings):
         logger.info("Using mock LLM stream for alias=%s", model_alias)
@@ -236,6 +237,7 @@ async def stream_chat_completion(
                 messages=messages,
                 max_tokens=max_tokens,
                 usage=usage,
+                on_reasoning=on_reasoning,
             ):
                 yield token
             if stream_meta is not None:
@@ -266,6 +268,7 @@ async def _stream_chat_once(
     messages: list[dict[str, Any]],
     max_tokens: int,
     usage: dict[str, int] | None = None,
+    on_reasoning: Callable[[str], Awaitable[None]] | None = None,
 ) -> AsyncIterator[str]:
     route = resolve_route(model_alias)
     kwargs = _litellm_kwargs(settings, route)
@@ -286,8 +289,9 @@ async def _stream_chat_once(
                 if not choices:
                     continue
                 delta = choices[0].delta
-                # R1 reasoning also arrives in a dedicated `reasoning_content` field —
-                # drop it entirely so it never reaches the client.
+                reasoning = getattr(delta, "reasoning_content", None) or ""
+                if reasoning and on_reasoning is not None:
+                    await on_reasoning(reasoning)
                 content = getattr(delta, "content", None) or ""
                 if content:
                     cleaned = stripper.feed(content)
@@ -454,7 +458,10 @@ async def classify_web_search_need(
             "role": "system",
             "content": (
                 "You decide if a personal chat assistant should run a live web search "
-                'before answering. Return ONLY JSON: {"needs_search": true|false}.\n\n'
+                "before answering. Return ONLY JSON: "
+                '{"needs_search": true|false, "query": "optional concise search query"}.\n\n'
+                "When needs_search is true, set query to a short web search string "
+                "(5-12 words) that would find the answer — not the user's full message.\n\n"
                 "Search YES for: current events, live scores, prices, people/org facts "
                 "that change over time, product release info, weather, local venues, "
                 "anything needing up-to-date data from the internet.\n\n"
@@ -478,7 +485,7 @@ async def classify_web_search_need(
         model_alias="memory-model",
         messages=messages,
         schema=WebSearchClassification,
-        max_tokens=32,
+        max_tokens=64,
     )
 
 

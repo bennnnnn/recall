@@ -2,25 +2,23 @@
 
 When a request uses the ``auto`` alias (or a user whose default model is
 ``auto``), pick a concrete model per message: cheap/fast for simple turns,
-the stronger model for harder ones. Heuristic only — no extra LLM call.
+the stronger model for genuinely hard ones. Heuristic only — no extra LLM call.
 
 Routing always respects the caller's allowed model pool (plan + enabled toggles).
 """
 
 from __future__ import annotations
 
+import re
+
 from app.core.config import Settings
 from app.services import model_catalog
 
+# Hard triggers only — broad words like "why/explain/compare" route too often to R1.
 _SMART_TRIGGERS = (
-    "explain",
-    "why",
-    "prove",
-    "analyze",
-    "analyse",
-    "debug",
-    "optimize",
-    "optimise",
+    "prove ",
+    "derive ",
+    "debug ",
     "algorithm",
     "complexity",
     "architecture",
@@ -28,14 +26,16 @@ _SMART_TRIGGERS = (
     "trade-off",
     "tradeoff",
     "step by step",
-    "reason",
-    "derive",
-    "compare",
-    "evaluate",
-    "design a",
+    "design a system",
+    "design a distributed",
+    "optimize this",
+    "big-o",
+    "time complexity",
+    "space complexity",
 )
 
-_LONG_MESSAGE_CHARS = 500
+_LONG_MESSAGE_CHARS = 800
+_CODE_FENCE_LANG = re.compile(r"```(?:python|javascript|typescript|rust|go|java|c\+\+|sql)\b", re.I)
 
 
 def route_chat_model(content: str) -> str:
@@ -45,7 +45,7 @@ def route_chat_model(content: str) -> str:
     fast = model_catalog.auto_fast_alias()
     if len(content) >= _LONG_MESSAGE_CHARS:
         return smart
-    if "```" in content:
+    if _CODE_FENCE_LANG.search(content):
         return smart
     if any(trigger in text for trigger in _SMART_TRIGGERS):
         return smart
@@ -94,6 +94,7 @@ def _models_in_pool(pool: list[str]) -> list[model_catalog.ChatModel]:
 
 
 def _pick_cheapest_from_pool(pool: list[str], settings: Settings | None) -> str:
+    del settings
     models = _models_in_pool(pool)
     if not models:
         return pool[0]

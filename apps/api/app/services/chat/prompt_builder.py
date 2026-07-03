@@ -33,6 +33,7 @@ from app.services.prompt_safety import wrap_untrusted
 logger = logging.getLogger(__name__)
 
 StreamStatusFn = Callable[[str], Awaitable[None]]
+StreamReasoningFn = Callable[[str], Awaitable[None]]
 
 
 def format_user_profile_block(user: User, *, location_override: str | None = None) -> str:

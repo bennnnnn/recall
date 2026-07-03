@@ -67,6 +67,12 @@
           "photosPermission": "Recall needs access to your photos so you can attach images in chat.",
           "cameraPermission": "Recall uses the camera so you can take photos to attach in chat."
         }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Recall uses the microphone so you can dictate messages."
+        }
       ]
     ],
     "experiments": {
