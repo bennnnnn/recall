@@ -90,7 +90,7 @@ export type Todo = {
   updated_at: string;
 };
 
-export type ProjectKind = "general" | "language" | "vocabulary" | "programming" | "learning" | "math";
+export type ProjectKind = "general" | "language" | "vocabulary" | "programming" | "learning" | "math" | "trivia";
 export type LanguageLevel = "level1" | "level2" | "level3" | "level4" | "level5" | "level6";
 export type VocabStatus = "new" | "learning" | "mastered";
 export type PartOfSpeech =
@@ -113,6 +113,7 @@ export type Project = {
   target_language: string;
   native_language: string | null;
   level: LanguageLevel;
+  daily_goal: number | null;
   archived: boolean;
   created_at: string;
   updated_at: string;
@@ -142,6 +143,8 @@ export type ProjectStats = {
   mastered_count: number;
   added_this_week: number;
   due_for_review: number;
+  mastered_today: number;
+  pending_today: number;
 };
 
 export type ProjectListGroup = {
@@ -405,6 +408,22 @@ export async function loginWithGoogle(idToken: string): Promise<AuthResult> {
   return response.json() as Promise<AuthResult>;
 }
 
+export async function loginWithApple(
+  idToken: string,
+  name?: string | null,
+): Promise<AuthResult> {
+  const response = await fetch(apiUrl("/auth/apple"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id_token: idToken, name: name ?? null }),
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || "Apple login failed");
+  }
+  return response.json() as Promise<AuthResult>;
+}
+
 export async function loginWithDev(
   email = "dev@recall.local",
   name = "Dev User",
@@ -601,6 +620,7 @@ export const api = {
       target_language?: string;
       native_language?: string | null;
       level?: LanguageLevel;
+      daily_goal?: number | null;
     },
   ) =>
     request<Project>("/projects", token, {
@@ -632,8 +652,34 @@ export const api = {
       token,
       { method: "POST", body: JSON.stringify(body) },
     ),
+  updateProjectItem: (
+    token: string,
+    projectId: string,
+    itemId: string,
+    patch: { status?: VocabStatus; definition?: string | null },
+  ) =>
+    request<ProjectItem>(`/projects/${projectId}/items/${itemId}`, token, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
   deleteProject: (token: string, id: string) =>
     request<void>(`/projects/${id}`, token, { method: "DELETE" }),
+  recordProjectQuizAnswer: (
+    token: string,
+    projectId: string,
+    body: {
+      chat_id: string;
+      assistant_message_id: string;
+      letter: string;
+      topic?: string;
+      question?: string;
+      is_correct?: boolean;
+    },
+  ) =>
+    request<void>(`/projects/${projectId}/quiz-answer`, token, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   search: (token: string, q: string, limit = 20, init?: Pick<RequestInit, "signal">) =>
     request<{ results: SearchResult[]; total: number }>(
       `/search?q=${encodeURIComponent(q)}&limit=${limit}`,

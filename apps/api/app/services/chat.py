@@ -1090,6 +1090,24 @@ async def _prepare_chat_turn(
             model=model,
             input_tokens=estimate_tokens(user_content),
         )
+        if quiz_answer:
+            prior_assistant = await messages_repo.get_last_assistant(session, chat_id)
+            if prior_assistant is not None:
+                try:
+                    await projects_service.apply_deterministic_quiz_answer(
+                        session,
+                        user_id=user.id,
+                        chat_id=chat_id,
+                        project_id=chat.project_id,
+                        assistant_content=prior_assistant.content,
+                        user_answer=content,
+                    )
+                except Exception:
+                    logger.exception(
+                        "Failed to record quiz answer for user_id=%s chat_id=%s",
+                        user.id,
+                        chat_id,
+                    )
         if attachment_ids and settings.attachments_enabled:
             from app.repositories import attachments as attachments_repo
 

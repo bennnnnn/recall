@@ -10,6 +10,7 @@ from app.core.rate_limit import allow_request
 from app.gateways.google_auth import GoogleAuthError
 from app.models.orm import User
 from app.models.schemas import (
+    AppleAuthRequest,
     AuthResponse,
     DevAuthRequest,
     GoogleAuthRequest,
@@ -61,6 +62,37 @@ async def google_login(
         )
     try:
         return await auth_service.login_with_google(session, settings, body.id_token, redis)
+    except GoogleAuthError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+
+
+@router.post("/apple", response_model=AuthResponse)
+async def apple_login(
+    body: AppleAuthRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings_dep),
+    redis: Redis = Depends(get_redis),
+) -> AuthResponse:
+    allowed = await allow_request(
+        redis,
+        f"rate:auth:apple:{_client_ip(request)}",
+        limit=30,
+        window_seconds=60,
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many login attempts. Try again shortly.",
+        )
+    try:
+        return await auth_service.login_with_apple(
+            session,
+            settings,
+            body.id_token,
+            redis,
+            name=body.name,
+        )
     except GoogleAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 

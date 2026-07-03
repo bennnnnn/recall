@@ -3,7 +3,7 @@
 Sequenced checklist from "code on main" to "live in the App Store / Play Store".
 Code blockers are all resolved; what remains is provisioning, building, and QA.
 
-> **Alembic head:** `0037` · **App/API version:** `1.0.0` / `0.1.0`
+> **Alembic head:** `0038` · **App/API version:** `1.0.0` / `0.1.0`
 > Local gate: `./scripts/dev.sh check` (API: ruff + format + mypy + pytest ≥80%; mobile: typecheck + lint + jest).
 
 ---
@@ -62,7 +62,7 @@ revocation, per-memory fact delete, SSE chat fallback, manual deploy workflow, p
 
 ## Step 3 — Migrate + deploy the API
 
-- [ ] `cd apps/api && uv run alembic upgrade head` (head: `0037` — idempotent; safe to re-run)
+- [ ] `cd apps/api && uv run alembic upgrade head` (head: `0038` — idempotent; safe to re-run)
 - [ ] `fly deploy` from repo root (build context `apps/api`, Dockerfile migrates-then-starts)
 - [ ] Verify `GET https://<api>/health/ready` → `{"status":"ok"}` (DB + Redis check)
 - [ ] Smoke: `curl https://<api>/legal/privacy` and `/legal/terms` (hosted legal docs)
@@ -89,6 +89,7 @@ Build + submit:
 - [ ] `./scripts/dev.sh check` green locally (mobile deps need your machine)
 - [ ] `./scripts/prod-checklist.sh` (check gate + legal URL smoke if API running)
 - [ ] Google Sign-In (iOS + Android)
+- [ ] Sign in with Apple (iOS only — not shown on Android)
 - [ ] WebView HTML/JS + chart + Mermaid previews
 - [ ] Push notifications (real device)
 - [ ] RevenueCat purchase flow (if monetizing)
@@ -105,6 +106,112 @@ Build + submit:
 - [ ] Monitor Sentry (backend + mobile) and `GET /health/ready`.
 - [ ] `JWT_SECRET` rotation: rotating invalidates all sessions (no graceful migration yet —
       refresh tokens are Redis-bound; document before doing it).
+
+---
+
+## Appendix A — RevenueCat setup (Pro subscriptions)
+
+Use a **new RevenueCat project** named **Recall**. Do not reuse old projects (e.g. Africana).
+
+**Billing site:** [https://app.revenuecat.com](https://app.revenuecat.com)
+
+### Naming (Recall vs other products)
+
+| Name | Can you use "Recall"? |
+|------|------------------------|
+| RevenueCat project label | Yes — dashboard label only |
+| App Store display name | Yes — many apps share "Recall"; bundle ID must be unique |
+| Bundle ID | **`com.recall.app`** (already in `app.json`) |
+| Entitlement ID | **`pro`** — hard-coded in app; do not rename |
+| Anthropic Claude "memory/recall" features | Not a product trademark blocker |
+| [recall.it](https://www.recall.it/) AI knowledge app | Same category — consider a distinct App Store subtitle |
+
+### Step-by-step
+
+1. **New project:** RevenueCat dropdown → **+ New project** → name **`Recall`**.
+2. **Add iOS app:** **Apps → + New → Apple App Store**
+   - App name: `Recall`
+   - Bundle ID: **`com.recall.app`**
+3. **Entitlement:** **Product catalog → Entitlements → + New**
+   - Identifier: **`pro`**
+4. **App Store Connect subscription** (before RevenueCat products):
+   - [appstoreconnect.apple.com](https://appstoreconnect.apple.com) → your app
+   - **Subscriptions** → group e.g. `Recall Pro`
+   - Product ID e.g. **`recall_pro_monthly`** (monthly)
+5. **RevenueCat product:** **Product catalog → Products → + New**
+   - Link `recall_pro_monthly` → entitlement **`pro`**
+6. **Offering:** **Product catalog → Offerings**
+   - Create `default`, mark **Current**
+   - Add **Monthly** package → `recall_pro_monthly`
+7. **API keys** (Recall project → **API keys**):
+
+   | Key | Env var |
+   |-----|---------|
+   | iOS public SDK (`appl_…`) | `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY` |
+   | Android public SDK (`goog_…`) | `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY` |
+   | Secret API (`sk_…`) | `REVENUECAT_SECRET_KEY` (API only) |
+
+   Generate webhook secret: `openssl rand -hex 32` → `REVENUECAT_WEBHOOK_AUTH`
+
+8. **Webhook** (after API deployed):
+   - URL: `https://<api>/webhooks/revenuecat`
+   - Authorization header = `REVENUECAT_WEBHOOK_AUTH`
+9. **Store credentials in RevenueCat:**
+   - iOS: App Store Connect API key (`.p8`)
+   - Android: Google Play service account JSON
+10. **Test:** dev/production build only — **not Expo Go**. Sandbox Apple/Google test accounts.
+
+### Checklist
+
+- [ ] New RevenueCat project **Recall** (not Africana)
+- [ ] iOS app `com.recall.app` + entitlement **`pro`**
+- [ ] App Store subscription product created
+- [ ] Current offering with monthly package
+- [ ] SDK keys → mobile EAS secrets
+- [ ] Secret key + webhook auth → Fly secrets
+- [ ] Webhook URL live after deploy
+
+---
+
+## Appendix B — Sign in with Apple (iOS only)
+
+The app shows **Sign in with Apple on iOS only** — hidden on Android. Google Sign-In remains on both platforms (dev/production builds).
+
+### Apple Developer + App Store Connect
+
+1. [developer.apple.com](https://developer.apple.com) → **Certificates, Identifiers & Profiles**
+2. **Identifiers → App IDs** → confirm **`com.recall.app`**
+3. Enable capability: **Sign In with Apple**
+4. App Store Connect → app → ensure same bundle ID
+
+No extra mobile env vars — native sign-in uses the bundle ID as audience.
+
+### Backend
+
+| Setting | Default | Notes |
+|---------|---------|-------|
+| `APPLE_CLIENT_ID` | `com.recall.app` | Must match iOS bundle ID |
+
+Migration **`0038`** adds `users.apple_sub` and makes `google_sub` nullable.
+
+Endpoint: `POST /auth/apple` with `{ "id_token": "…", "name": "…" }`.
+
+### Testing
+
+- **iOS Simulator / device:** works in Expo Go and dev builds (simulator needs Apple ID signed in)
+- **Android:** Apple button not shown
+- **Google:** still requires dev build (`pnpm expo run:ios` / `run:android`)
+
+### App Store review note
+
+If you offer Google Sign-In on iOS, Apple requires you to also offer Sign in with Apple — now implemented.
+
+### Checklist
+
+- [ ] Sign In with Apple enabled on App ID `com.recall.app`
+- [ ] Run migration `0038` on production DB
+- [ ] Rebuild iOS app after pulling Apple auth changes
+- [ ] QA: Apple login, Google login (dev build), account persists across relaunch
 
 ---
 

@@ -129,6 +129,12 @@ async def delete_by_id(session: AsyncSession, chat_id: UUID, user_id: UUID) -> b
     return True
 
 
+async def set_project_id(session: AsyncSession, chat: Chat, project_id: UUID) -> None:
+    if chat.project_id is None:
+        chat.project_id = project_id
+        await session.commit()
+
+
 async def touch(session: AsyncSession, chat: Chat) -> None:
     from datetime import UTC, datetime
 

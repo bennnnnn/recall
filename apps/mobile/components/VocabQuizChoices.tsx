@@ -8,9 +8,11 @@ import type { ParsedVocabQuiz } from "@/lib/parseVocabQuiz";
 import { cleanQuizWord } from "@/lib/parseVocabQuiz";
 import { partOfSpeechLabel } from "@/lib/languageLevels";
 import { speakWord } from "@/lib/pronunciation";
+import type { QuizVariant } from "@/lib/quizVariant";
 
 type Props = {
   quiz: ParsedVocabQuiz;
+  variant?: QuizVariant;
   disabled?: boolean;
   language?: string;
   initialSelected?: "A" | "B" | "C" | "D" | null;
@@ -20,20 +22,26 @@ type Props = {
 const SUCCESS = "#16a34a";
 const SUCCESS_LIGHT = "#dcfce7";
 
+function resolveVariant(quiz: ParsedVocabQuiz, variant?: QuizVariant): QuizVariant {
+  if (variant) return variant;
+  if (quiz.quizType === "trivia") return "trivia";
+  return "vocab";
+}
+
 export function VocabQuizChoices({
   quiz,
+  variant,
   disabled,
   language = "en",
   initialSelected = null,
   onSelect,
 }: Props) {
   const theme = useTheme();
+  const mode = resolveVariant(quiz, variant);
+  const s = makeStyles(theme, mode);
   const { t } = useTranslation();
-  const s = makeStyles(theme);
   const warnedSpeech = useRef(false);
-  const [selected, setSelected] = useState<"A" | "B" | "C" | "D" | null>(
-    initialSelected,
-  );
+  const [selected, setSelected] = useState<"A" | "B" | "C" | "D" | null>(initialSelected);
 
   useEffect(() => {
     if (initialSelected != null) {
@@ -41,12 +49,15 @@ export function VocabQuizChoices({
     }
   }, [initialSelected]);
 
-  const displayWord = cleanQuizWord(quiz.word);
-  const questionText = quiz.question?.trim() || t("quiz.question_default");
+  const topicLabel = cleanQuizWord(quiz.word);
+  const questionText =
+    mode === "trivia"
+      ? quiz.question?.trim() || topicLabel
+      : quiz.question?.trim() || t("quiz.question_default");
   const revealResult = selected != null && quiz.correct != null;
 
   const handleSpeak = async () => {
-    const result = await speakWord(displayWord, {
+    const result = await speakWord(topicLabel, {
       language: language === "en" ? "en-US" : language,
     });
     if (!result.ok && result.reason === "unavailable" && !warnedSpeech.current) {
@@ -76,18 +87,31 @@ export function VocabQuizChoices({
   return (
     <View style={s.wrap}>
       <View style={s.card}>
-        {quiz.partOfSpeech ? (
-          <View style={s.posBadge}>
-            <Text style={s.pos}>{partOfSpeechLabel(quiz.partOfSpeech)}</Text>
-          </View>
-        ) : null}
-        <View style={s.wordRow}>
-          <Text style={s.word}>{displayWord}</Text>
-          <Pressable style={s.speakBtn} onPress={() => void handleSpeak()} hitSlop={8}>
-            <Ionicons name="volume-high-outline" size={22} color={theme.primary} />
-          </Pressable>
-        </View>
-        <Text style={s.question}>{questionText}</Text>
+        {mode === "trivia" ? (
+          <>
+            <View style={s.triviaHeader}>
+              <View style={s.topicBadge}>
+                <Text style={s.topicBadgeText}>{topicLabel}</Text>
+              </View>
+            </View>
+            <Text style={s.triviaQuestion}>{questionText}</Text>
+          </>
+        ) : (
+          <>
+            {quiz.partOfSpeech ? (
+              <View style={s.posBadge}>
+                <Text style={s.pos}>{partOfSpeechLabel(quiz.partOfSpeech)}</Text>
+              </View>
+            ) : null}
+            <View style={s.wordRow}>
+              <Text style={s.word}>{topicLabel}</Text>
+              <Pressable style={s.speakBtn} onPress={() => void handleSpeak()} hitSlop={8}>
+                <Ionicons name="volume-high-outline" size={22} color={theme.primary} />
+              </Pressable>
+            </View>
+            <Text style={s.question}>{questionText}</Text>
+          </>
+        )}
       </View>
       <View style={s.choices}>
         {quiz.choices.map((choice) => {
@@ -155,21 +179,45 @@ export function VocabQuizChoices({
   );
 }
 
-function makeStyles(t: Theme) {
+function makeStyles(t: Theme, mode: QuizVariant) {
   const successLight = t.isDark ? "#1a2e1f" : SUCCESS_LIGHT;
 
   return StyleSheet.create({
-    wrap: { gap: 12, marginTop: 8 },
+    wrap: { gap: 10, marginTop: 8 },
     card: {
       position: "relative",
       backgroundColor: t.surface,
       borderRadius: 16,
       borderWidth: 1,
       borderColor: t.border,
-      paddingHorizontal: 18,
-      paddingVertical: 22,
-      alignItems: "center",
-      minHeight: 96,
+      paddingHorizontal: mode === "trivia" ? 16 : 18,
+      paddingVertical: mode === "trivia" ? 16 : 22,
+      alignItems: mode === "trivia" ? "stretch" : "center",
+      minHeight: mode === "trivia" ? undefined : 96,
+    },
+    topicBadge: {
+      alignSelf: "flex-end",
+      backgroundColor: t.primaryLight,
+      borderRadius: 999,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+    },
+    topicBadgeText: {
+      fontSize: 11,
+      fontWeight: "800",
+      color: t.primary,
+      letterSpacing: 0.4,
+    },
+    triviaHeader: {
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      marginBottom: 10,
+    },
+    triviaQuestion: {
+      fontSize: 17,
+      lineHeight: 24,
+      fontWeight: "600",
+      color: t.text,
     },
     posBadge: {
       position: "absolute",

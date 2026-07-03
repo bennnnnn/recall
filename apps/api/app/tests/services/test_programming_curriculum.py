@@ -3,14 +3,13 @@ from uuid import uuid4
 
 import pytest
 
-from app.services.programming_curriculum import (
-    PROGRAMMING_CURRICULUM,
-    seed_programming_curriculum,
-)
+from app.services.programming_curriculum import seed_programming_curriculum
 
 
 def _curriculum_item_count() -> int:
-    return sum(len(concepts) for _, concepts in PROGRAMMING_CURRICULUM)
+    from app.services.programming_curriculum import PROGRAMMING_CURRICULUM
+
+    return sum(len(topics) for _, topics in PROGRAMMING_CURRICULUM)
 
 
 @pytest.mark.asyncio

@@ -17,6 +17,10 @@ import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  formatAppleSignInError,
+  shouldShowAppleSignInButton,
+} from "@/lib/apple-auth";
 import { config, isGoogleSignInConfigured } from "@/lib/config";
 import { formatGoogleSignInError, isExpoGo } from "@/lib/google-auth";
 import { getLegalPrivacyUrl, getLegalTermsUrl } from "@/lib/legalUrls";
@@ -31,14 +35,18 @@ const HIGHLIGHTS = [
 ];
 
 export default function LoginScreen() {
-  const { token, loading, onboarded, signInWithGoogle, signInWithDev } = useAuth();
+  const { token, loading, onboarded, signInWithApple, signInWithGoogle, signInWithDev } =
+    useAuth();
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const [busy, setBusy] = useState(false);
   const showDevLogin = config.devAuthEnabled && __DEV__;
   const showGoogleLogin = !isExpoGo() && isGoogleSignInConfigured();
+  const showAppleLogin = shouldShowAppleSignInButton();
   const googleOnlyDevBuild = !isExpoGo() && showDevLogin && showGoogleLogin;
+  const expoGoIos = isExpoGo() && Platform.OS === "ios";
+  const expoGoAndroid = isExpoGo() && Platform.OS === "android";
 
   if (loading) {
     return (
@@ -51,13 +59,25 @@ export default function LoginScreen() {
   if (token) return <Redirect href="/" />;
   if (!onboarded) return <Redirect href="/onboarding" />;
 
-  const signInErrorMessage = (error: unknown) => {
-    const key = formatGoogleSignInError(error);
+  const signInErrorMessage = (error: unknown, provider: "google" | "apple") => {
+    const key =
+      provider === "google" ? formatGoogleSignInError(error) : formatAppleSignInError(error);
     if (key === "bundle_load_failed") return t("login.error_bundle");
     if (key === "native_module_missing") return t("login.error_native_module");
     if (key === "not_configured") return t("login.error_not_configured");
     if (key === "generic") return t("login.error_generic");
     return key;
+  };
+
+  const handleApple = async () => {
+    setBusy(true);
+    try {
+      await signInWithApple();
+    } catch (e) {
+      Alert.alert(t("login.sign_in_failed"), signInErrorMessage(e, "apple"));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleGoogle = async () => {
@@ -76,7 +96,7 @@ export default function LoginScreen() {
     try {
       await signInWithGoogle();
     } catch (e) {
-      Alert.alert(t("login.sign_in_failed"), signInErrorMessage(e));
+      Alert.alert(t("login.sign_in_failed"), signInErrorMessage(e, "google"));
     } finally {
       setBusy(false);
     }
@@ -123,7 +143,7 @@ export default function LoginScreen() {
         </View>
 
         <View style={s.card}>
-          {showDevLogin && isExpoGo() ? (
+          {expoGoAndroid && showDevLogin ? (
             <>
               <View style={s.devBanner}>
                 <Ionicons name="information-circle-outline" size={18} color={theme.primary} />
@@ -143,6 +163,28 @@ export default function LoginScreen() {
             </>
           ) : (
             <>
+              {expoGoIos ? (
+                <View style={s.devBanner}>
+                  <Ionicons name="information-circle-outline" size={18} color={theme.primary} />
+                  <Text style={s.devBannerText}>{t("login.dev_expo_ios_hint")}</Text>
+                </View>
+              ) : null}
+              {showAppleLogin ? (
+                <Pressable
+                  style={[s.appleBtn, busy && s.dim]}
+                  onPress={handleApple}
+                  disabled={busy}
+                >
+                  {busy ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Ionicons name="logo-apple" size={20} color="#FFFFFF" />
+                      <Text style={s.appleText}>{t("login.apple")}</Text>
+                    </>
+                  )}
+                </Pressable>
+              ) : null}
               {showGoogleLogin ? (
                 <Pressable
                   style={[s.googleBtn, busy && s.dim]}
@@ -158,7 +200,7 @@ export default function LoginScreen() {
                     </>
                   )}
                 </Pressable>
-              ) : showDevLogin ? (
+              ) : showDevLogin && !showAppleLogin ? (
                 <View style={s.devBanner}>
                   <Ionicons name="information-circle-outline" size={18} color={theme.primary} />
                   <Text style={s.devBannerText}>{t("login.error_not_configured")}</Text>
@@ -175,7 +217,7 @@ export default function LoginScreen() {
                     <Text style={s.devSecondaryText}>{t("login.dev")}</Text>
                   </Pressable>
                 </>
-              ) : showDevLogin && !showGoogleLogin ? (
+              ) : showDevLogin && !showGoogleLogin && !showAppleLogin ? (
                 <Pressable
                   style={[s.primaryBtn, busy && s.dim]}
                   onPress={handleDev}
@@ -187,6 +229,17 @@ export default function LoginScreen() {
                     <Text style={s.primaryBtnText}>{t("login.dev")}</Text>
                   )}
                 </Pressable>
+              ) : showDevLogin && expoGoIos ? (
+                <>
+                  <Text style={s.orText}>{t("login.or_dev")}</Text>
+                  <Pressable
+                    style={[s.devSecondaryBtn, busy && s.dim]}
+                    onPress={handleDev}
+                    disabled={busy}
+                  >
+                    <Text style={s.devSecondaryText}>{t("login.dev")}</Text>
+                  </Pressable>
+                </>
               ) : null}
             </>
           )}
@@ -335,6 +388,17 @@ function makeStyles(theme: Theme) {
       backgroundColor: theme.primary,
     },
     primaryBtnText: { fontSize: 16, fontWeight: "700", color: theme.onPrimary },
+    appleBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 10,
+      width: "100%",
+      borderRadius: 16,
+      paddingVertical: 16,
+      backgroundColor: "#000000",
+    },
+    appleText: { fontSize: 16, fontWeight: "600", color: "#FFFFFF" },
     googleBtn: {
       flexDirection: "row",
       alignItems: "center",

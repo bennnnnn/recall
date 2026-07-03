@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import jobs
 from app.core.config import Settings
+from app.gateways.apple_auth import verify_apple_id_token
 from app.gateways.google_auth import GoogleAuthError, verify_google_id_token
 from app.models.orm import User
 from app.models.schemas import AuthResponse, UserOut
@@ -45,6 +46,62 @@ async def login_with_google(
 
     if is_new_user and settings.email_enabled:
         # Best-effort: never let a welcome email block signup.
+        await jobs.enqueue_welcome_email(redis, user.id)
+
+    access_token, refresh_token = await tokens_service.issue_token_pair(redis, user.id, settings)
+    return AuthResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        user=UserOut.model_validate(user),
+    )
+
+
+async def login_with_apple(
+    session: AsyncSession,
+    settings: Settings,
+    id_token: str,
+    redis: Redis,
+    *,
+    name: str | None = None,
+) -> AuthResponse:
+    payload = verify_apple_id_token(id_token, settings)
+    apple_sub = payload["sub"]
+    email = payload.get("email")
+    email_verified = payload.get("email_verified")
+    if email_verified is False:
+        raise GoogleAuthError("Apple email address is not verified")
+
+    user = await users_repo.get_by_apple_sub(session, apple_sub)
+    is_new_user = user is None
+    if user is None and email:
+        existing = await users_repo.get_by_email(session, email)
+        if existing is not None:
+            user = await users_repo.update(session, existing, apple_sub=apple_sub)
+            is_new_user = False
+
+    if user is None:
+        if not email:
+            raise GoogleAuthError(
+                "Apple did not share an email. Revoke Recall in Apple ID settings "
+                "and sign in again, or use Google Sign-In."
+            )
+        user = await users_repo.create(
+            session,
+            apple_sub=apple_sub,
+            email=email,
+            name=name,
+            avatar_url=None,
+        )
+    else:
+        updates: dict[str, str | None] = {}
+        if email:
+            updates["email"] = email
+        if name:
+            updates["name"] = name
+        if updates:
+            user = await users_repo.update(session, user, **updates)
+
+    if is_new_user and settings.email_enabled:
         await jobs.enqueue_welcome_email(redis, user.id)
 
     access_token, refresh_token = await tokens_service.issue_token_pair(redis, user.id, settings)

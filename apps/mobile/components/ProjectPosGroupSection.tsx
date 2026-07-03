@@ -1,69 +1,86 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-
 import { useTranslation } from "react-i18next";
 
+import { ProjectItemRow } from "@/components/ProjectItemRow";
 import { Theme, useTheme } from "@/lib/theme";
-import { api, type ProjectItem, type ProjectPosGroupSummary } from "@/lib/api";
-import { statusLabel } from "@/lib/languageLevels";
-import { speakWord } from "@/lib/pronunciation";
+import { api, type ProjectItem, type ProjectPosGroupSummary, type VocabStatus } from "@/lib/api";
+
+export const VOCAB_PAGE_SIZE = 25;
 
 type Props = {
   token: string;
   projectId: string;
   group: ProjectPosGroupSummary;
-  initialItems?: ProjectItem[];
   onSpeechUnavailable?: () => void;
+  onItemUpdated?: () => void;
 };
-
-function statusIcon(item: ProjectItem): keyof typeof Ionicons.glyphMap {
-  if (item.status === "mastered" || item.mastered) return "checkmark-circle";
-  if (item.status === "learning") return "ellipse";
-  return "ellipse-outline";
-}
-
-function statusColor(item: ProjectItem, theme: Theme): string {
-  if (item.status === "mastered" || item.mastered) return theme.primary;
-  if (item.status === "learning") return theme.warning;
-  return theme.textTertiary;
-}
 
 export function ProjectPosGroupItems({
   token,
   projectId,
   group,
-  initialItems,
   onSpeechUnavailable,
+  onItemUpdated,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const [loading, setLoading] = useState(!initialItems);
-  const [items, setItems] = useState<ProjectItem[]>(initialItems ?? []);
+  const [items, setItems] = useState<ProjectItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
-  const loadItems = useCallback(async () => {
-    setLoading(true);
-    try {
-      setItems(
-        await api.getProjectPosItems(token, projectId, group.part_of_speech, { limit: 100 }),
-      );
-    } catch {
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [token, projectId, group.part_of_speech]);
+  const loadPage = useCallback(
+    async (offset: number, append: boolean) => {
+      if (append) setLoadingMore(true);
+      else setLoading(true);
+      try {
+        const page = await api.getProjectPosItems(token, projectId, group.part_of_speech, {
+          limit: VOCAB_PAGE_SIZE,
+          offset,
+        });
+        setItems((prev) => {
+          const next = append ? [...prev, ...page] : page;
+          setHasMore(page.length === VOCAB_PAGE_SIZE && next.length < group.count);
+          return next;
+        });
+      } catch {
+        if (!append) setItems([]);
+        setHasMore(false);
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    },
+    [token, projectId, group.part_of_speech, group.count],
+  );
 
   useEffect(() => {
-    if (initialItems) {
-      setItems(initialItems);
-      setLoading(false);
-      return;
-    }
     setItems([]);
-    void loadItems();
-  }, [initialItems, loadItems]);
+    setHasMore(false);
+    void loadPage(0, false);
+  }, [loadPage]);
+
+  const handleStatusChange = useCallback(
+    async (itemId: string, status: VocabStatus) => {
+      setBusyId(itemId);
+      try {
+        const updated = await api.updateProjectItem(token, projectId, itemId, { status });
+        setItems((prev) => prev.map((row) => (row.id === itemId ? updated : row)));
+        onItemUpdated?.();
+      } catch {
+        const { Alert } = await import("react-native");
+        Alert.alert(t("common.error"), t("projects.status_update_failed"));
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [token, projectId, onItemUpdated, t],
+  );
+
+  const remaining = Math.max(0, group.count - items.length);
 
   if (loading) {
     return <ActivityIndicator color={theme.primary} style={s.loader} />;
@@ -75,58 +92,67 @@ export function ProjectPosGroupItems({
 
   return (
     <View style={s.items}>
-      {items.map((item) => (
-        <View key={item.id} style={s.itemRow}>
-          <Ionicons name={statusIcon(item)} size={20} color={statusColor(item, theme)} />
-          <View style={s.itemMain}>
-            <View style={s.itemTop}>
-              <Text style={[s.itemContent, item.mastered && s.itemMastered]}>
-                {item.content}
-              </Text>
-              <Pressable
-                hitSlop={8}
-                onPress={async () => {
-                  const result = await speakWord(item.content, {
-                    language: "en-US",
-                    pronunciationUrl: item.pronunciation_url,
-                  });
-                  if (!result.ok && result.reason === "unavailable") {
-                    onSpeechUnavailable?.();
-                  }
-                }}
-              >
-                <Ionicons name="volume-medium-outline" size={18} color={theme.primary} />
-              </Pressable>
-            </View>
-            {item.definition ? <Text style={s.itemDef}>{item.definition}</Text> : null}
-            {item.example_sentence ? (
-              <Text style={s.itemNote}>"{item.example_sentence}"</Text>
-            ) : null}
-            <Text style={s.itemMeta}>{statusLabel(item.status)}</Text>
-          </View>
+      <Text style={s.countLine}>
+        {t("projects.words_showing", { shown: items.length, total: group.count })}
+      </Text>
+      {items.map((item, index) => (
+        <View key={item.id}>
+          {index > 0 ? <View style={s.divider} /> : null}
+          <ProjectItemRow
+            item={item}
+            busy={busyId === item.id}
+            onStatusChange={(status) => handleStatusChange(item.id, status)}
+            onSpeechUnavailable={onSpeechUnavailable}
+          />
         </View>
       ))}
+      {hasMore ? (
+        <Pressable
+          style={[s.loadMoreBtn, loadingMore && s.loadMoreBtnBusy]}
+          disabled={loadingMore}
+          onPress={() => void loadPage(items.length, true)}
+        >
+          {loadingMore ? (
+            <ActivityIndicator color={theme.primary} />
+          ) : (
+            <Text style={s.loadMoreText}>
+              {t("projects.words_load_more", { count: Math.min(remaining, VOCAB_PAGE_SIZE) })}
+            </Text>
+          )}
+        </Pressable>
+      ) : null}
     </View>
   );
 }
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
-    loader: { paddingVertical: 16 },
+    loader: { paddingVertical: 20 },
     empty: { fontSize: 14, color: theme.textSecondary, paddingVertical: 8 },
-    items: { gap: 10 },
-    itemRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
-    itemMain: { flex: 1, gap: 2 },
-    itemTop: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: 8,
+    items: { gap: 0 },
+    countLine: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: theme.textTertiary,
+      marginBottom: 10,
     },
-    itemContent: { fontSize: 16, fontWeight: "700", color: theme.text, flex: 1 },
-    itemMastered: { color: theme.textSecondary, textDecorationLine: "line-through" },
-    itemDef: { fontSize: 14, color: theme.textSecondary },
-    itemNote: { fontSize: 13, lineHeight: 18, color: theme.textSecondary, fontStyle: "italic" },
-    itemMeta: { fontSize: 11, fontWeight: "600", color: theme.textTertiary, marginTop: 2 },
+    divider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: theme.border,
+      marginVertical: 12,
+    },
+    loadMoreBtn: {
+      marginTop: 12,
+      paddingVertical: 12,
+      borderRadius: 12,
+      backgroundColor: theme.bg,
+      borderWidth: 1,
+      borderColor: theme.border,
+      alignItems: "center",
+      justifyContent: "center",
+      minHeight: 44,
+    },
+    loadMoreBtnBusy: { opacity: 0.7 },
+    loadMoreText: { fontSize: 14, fontWeight: "700", color: theme.primary },
   });
 }

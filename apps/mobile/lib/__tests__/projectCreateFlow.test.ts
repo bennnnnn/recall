@@ -2,17 +2,28 @@ import {
   createStepProgress,
   resolveProjectDescription,
   resolveProjectTitle,
+  programmingProjectTitle,
 } from "@/lib/projectCreateFlow";
 
 const t = (key: string) => key;
 
 describe("projectCreateFlow", () => {
-  it("tracks math as two steps", () => {
-    expect(createStepProgress("goal", "math")).toEqual({ current: 2, total: 2 });
+  it("tracks programming as two steps", () => {
+    expect(createStepProgress("stack", "programming")).toEqual({ current: 2, total: 2 });
   });
 
-  it("tracks english as three steps ending on topics", () => {
-    expect(createStepProgress("topics", "language")).toEqual({ current: 3, total: 3 });
+  it("tracks english as three steps ending on daily", () => {
+    expect(createStepProgress("level", "language")).toEqual({ current: 2, total: 3 });
+    expect(createStepProgress("daily", "language")).toEqual({ current: 3, total: 3 });
+  });
+
+  it("tracks trivia as three steps ending on daily", () => {
+    expect(createStepProgress("topics", "trivia")).toEqual({ current: 2, total: 3 });
+    expect(createStepProgress("daily", "trivia")).toEqual({ current: 3, total: 3 });
+  });
+
+  it("builds programming project title from language", () => {
+    expect(programmingProjectTitle("python", t)).toBe("Python · projects.kind.programming");
   });
 
   it("drops description when it matches title", () => {

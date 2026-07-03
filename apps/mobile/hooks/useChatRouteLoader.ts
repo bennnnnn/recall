@@ -8,7 +8,10 @@ type Router = ReturnType<typeof useRouter>;
 import { insertChatGlobal, patchChatGlobal, setChatTitleGenerating } from "@/lib/drawer";
 import { api, type Message } from "@/lib/api";
 import { MESSAGE_PAGE_SIZE } from "@/lib/chatConstants";
-import { takeQueuedChatLaunch, type QueuedChatLaunch } from "@/lib/chatLaunch";
+import type { QueuedChatLaunch } from "@/lib/chatLaunch";
+import { takeQueuedChatLaunch } from "@/lib/chatLaunch";
+import type { QuizVariant } from "@/lib/quizVariant";
+import { quizVariantForProjectKind } from "@/lib/quizVariant";
 import type { useDraftChat } from "@/hooks/useDraftChat";
 
 type DraftChat = ReturnType<typeof useDraftChat>;
@@ -28,6 +31,8 @@ type Options = {
   streaming: boolean;
   stopGeneration: () => void;
   setQuizLanguage: React.Dispatch<React.SetStateAction<string>>;
+  setQuizVariant: React.Dispatch<React.SetStateAction<QuizVariant>>;
+  resolveQuizVariant: (projectId: string | null | undefined) => QuizVariant;
   setInputRef: React.MutableRefObject<(value: string) => void>;
   listRef: React.RefObject<FlashListRef<Message> | null>;
   showActionBanner: (message: string, icon?: keyof typeof Ionicons.glyphMap) => void;
@@ -50,6 +55,8 @@ export function useChatRouteLoader({
   streaming,
   stopGeneration,
   setQuizLanguage,
+  setQuizVariant,
+  resolveQuizVariant,
   setInputRef,
   listRef,
   showActionBanner,
@@ -172,6 +179,8 @@ export function useChatRouteLoader({
         setChatId(chat.id);
         setChatTitle(chat.title);
         setPinned(chat.pinned);
+        draftProjectIdRef.current = chat.project_id ?? null;
+        setQuizVariant(resolveQuizVariant(chat.project_id));
         setMessages(page.messages);
         setHasMoreOlder(page.has_more);
         if (!chat.title && page.messages.length > 0) {
@@ -205,6 +214,8 @@ export function useChatRouteLoader({
           setChatId(chat.id);
           setChatTitle(chat.title);
           setPinned(chat.pinned);
+          draftProjectIdRef.current = chat.project_id ?? null;
+          setQuizVariant(resolveQuizVariant(chat.project_id));
           setMessages(page.messages);
           setHasMoreOlder(page.has_more);
         } catch {
@@ -312,6 +323,7 @@ export function useChatRouteLoader({
       draftProjectIdRef.current = queued.projectId ?? null;
       pendingProjectIdRef.current = queued.projectId ?? null;
       setQuizLanguage(queued.quizLanguage ?? "en");
+      setQuizVariant(queued.quizVariant ?? resolveQuizVariant(queued.projectId));
       setInputRef.current("");
       setChatId(null);
       setChatTitle(null);
@@ -337,6 +349,8 @@ export function useChatRouteLoader({
       router,
       setMessages,
       setQuizLanguage,
+      setQuizVariant,
+      resolveQuizVariant,
       setInputRef,
       prepareDraftChat,
       creatingRef,

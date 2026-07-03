@@ -7,7 +7,8 @@ type Router = ReturnType<typeof useRouter>;
 import type { AttachmentSource } from "@/components/AttachmentSourceSheet";
 import type { useDraftChat } from "@/hooks/useDraftChat";
 import type { useChatScroll } from "@/hooks/useChatScroll";
-import { type Message } from "@/lib/api";
+import { api, type Message } from "@/lib/api";
+import type { QuizAnswerMeta } from "@/lib/parseVocabQuiz";
 import { tap } from "@/lib/haptics";
 import { parseUserMessageContent } from "@/lib/messageAttachments";
 import {
@@ -64,6 +65,7 @@ type Options = {
   t: (key: string) => string;
   onStreamBusy?: () => void;
   isOffline: boolean;
+  resolveQuizProjectId?: () => string | null;
 };
 
 export function useChatSend({
@@ -87,6 +89,7 @@ export function useChatSend({
   t,
   onStreamBusy,
   isOffline,
+  resolveQuizProjectId,
 }: Options) {
   const {
     draftChatIdRef,
@@ -353,12 +356,26 @@ export function useChatSend({
   );
 
   const handleQuizAnswer = useCallback(
-    (_messageId: string, letter: "A" | "B" | "C" | "D") => {
+    (messageId: string, letter: "A" | "B" | "C" | "D", meta?: QuizAnswerMeta) => {
       if (streaming || creatingRef.current) return;
       void handleSend(letter);
+      const projectId = resolveQuizProjectId?.() ?? null;
+      const activeChatId = chatId ?? draftChatIdRef.current;
+      if (token && projectId && activeChatId && /^[0-9a-f-]{36}$/i.test(messageId)) {
+        void api
+          .recordProjectQuizAnswer(token, projectId, {
+            chat_id: activeChatId,
+            assistant_message_id: messageId,
+            letter,
+            ...(meta?.topic ? { topic: meta.topic } : {}),
+            ...(meta?.question ? { question: meta.question } : {}),
+            ...(meta?.isCorrect != null ? { is_correct: meta.isCorrect } : {}),
+          })
+          .catch(() => {});
+      }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [streaming, chatId],
+    [streaming, chatId, token, resolveQuizProjectId],
   );
 
   const handleEditMessage = useCallback(

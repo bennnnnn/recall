@@ -15,34 +15,25 @@ import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from "expo-
 import { useTranslation } from "react-i18next";
 
 import { ProjectPosGroupList } from "@/components/ProjectPosGroupList";
+import { ProjectProgressHero } from "@/components/ProjectProgressHero";
+import { ProjectItemRow } from "@/components/ProjectItemRow";
 import { ProgrammingJourney } from "@/components/ProgrammingJourney";
 import { useAuth } from "@/contexts/AuthContext";
-import { api, type ProjectDetail, type ProjectItem } from "@/lib/api";
+import { api, type ProjectDetail, type VocabStatus } from "@/lib/api";
+import { queueChatLaunch } from "@/lib/chatLaunch";
 import {
   isLanguageProject,
   levelLabel,
 } from "@/lib/languageLevels";
 import { isProgrammingStack, programmingLanguageLabel } from "@/lib/programmingLanguages";
-import { formatProjectListTitle, isConceptProject, projectStatsLabels } from "@/lib/projectUi";
-import { buildProjectQuizPrompt } from "@/lib/projectChat";
+import { resolveDailyGoal } from "@/lib/dailyGoals";
+import { buildProjectAskPrompt } from "@/lib/projectChat";
+import { formatProjectListTitle, isConceptProject, isTriviaProject, projectStatsLabels } from "@/lib/projectUi";
 import {
-  buildProgrammingNextUpPrompt,
-  buildProgrammingStudyPrompt,
-} from "@/lib/programmingStudy";
-import { queueChatLaunch } from "@/lib/chatLaunch";
+  formatTriviaTopicLabels,
+  parseTriviaTopics,
+} from "@/lib/triviaTopics";
 import { Theme, useTheme } from "@/lib/theme";
-
-function statusIcon(item: ProjectItem): keyof typeof Ionicons.glyphMap {
-  if (item.status === "mastered" || item.mastered) return "checkmark-circle";
-  if (item.status === "learning") return "ellipse";
-  return "ellipse-outline";
-}
-
-function statusColor(item: ProjectItem, theme: Theme): string {
-  if (item.status === "mastered" || item.mastered) return theme.primary;
-  if (item.status === "learning") return theme.warning;
-  return theme.textTertiary;
-}
 
 export default function ProjectDetailScreen() {
   const { token } = useAuth();
@@ -54,8 +45,7 @@ export default function ProjectDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [project, setProject] = useState<ProjectDetail | null>(null);
-  const [statsExpanded, setStatsExpanded] = useState(false);
-  const [studyLaunching, setStudyLaunching] = useState(false);
+  const [conceptBusyId, setConceptBusyId] = useState<string | null>(null);
 
   // Cross-platform prompt replacement for Alert.prompt (iOS-only). Deck create
   // and add-word flows use this Modal+TextInput so they work on Android too.
@@ -116,33 +106,10 @@ export default function ProjectDetailScreen() {
     }
   }, [token, id]);
 
-  const itemsByPos = useMemo(() => {
-    const map = new Map<string, ProjectItem[]>();
-    if (!project) return map;
-    for (const group of project.by_part_of_speech ?? []) {
-      map.set(group.part_of_speech, group.items);
-    }
-    return map;
-  }, [project]);
-
   useFocusEffect(
     useCallback(() => {
-      setStudyLaunching(false);
       void load();
     }, [load]),
-  );
-
-  const launchStudyChat = useCallback(
-    (prompt: string, quizLanguage?: string) => {
-      if (studyLaunching || typeof id !== "string") return;
-      if (!queueChatLaunch(prompt, id, quizLanguage)) {
-        Alert.alert(t("common.error"), t("projects.study_launch_failed"));
-        return;
-      }
-      setStudyLaunching(true);
-      router.replace("/");
-    },
-    [id, router, studyLaunching, t],
   );
 
   if (!token) return <Redirect href="/login" />;
@@ -191,9 +158,15 @@ export default function ProjectDetailScreen() {
 
   const isLang = isLanguageProject(project.kind);
   const isProgramming = project.kind === "programming";
-  const isConcept = isConceptProject(project.kind);
+  const isTrivia = isTriviaProject(project.kind);
+  const isConcept = isConceptProject(project.kind) && !isTrivia;
   const stats = project.stats;
   const statLabels = projectStatsLabels(project.kind, t);
+  const dailyGoal = isLang || isTrivia ? resolveDailyGoal(project.daily_goal) : undefined;
+  const remainingToday =
+    isTrivia && dailyGoal != null
+      ? Math.max(0, dailyGoal - stats.mastered_today)
+      : undefined;
   const posGroups = isLang ? project.pos_groups ?? [] : [];
   const decks = isLang ? project.decks ?? [] : [];
 
@@ -231,14 +204,24 @@ export default function ProjectDetailScreen() {
     );
   };
 
-  const quizWithRecall = () =>
-    launchStudyChat(buildProjectQuizPrompt(project), project.target_language || "en");
+  const handleConceptStatusChange = async (itemId: string, status: VocabStatus) => {
+    if (!token || typeof id !== "string") return;
+    setConceptBusyId(itemId);
+    try {
+      await api.updateProjectItem(token, id, itemId, { status });
+      await load();
+    } catch {
+      Alert.alert(t("common.error"), t("projects.status_update_failed"));
+    } finally {
+      setConceptBusyId(null);
+    }
+  };
 
-  const studyProgrammingTopic = (topic: string) =>
-    launchStudyChat(buildProgrammingStudyPrompt(project, topic));
-
-  const continueProgramming = () =>
-    launchStudyChat(buildProgrammingNextUpPrompt(project));
+  const startTriviaQuiz = () => {
+    if (!project || !isTrivia) return;
+    queueChatLaunch(buildProjectAskPrompt(project), project.id, undefined, "trivia");
+    router.replace("/");
+  };
 
   return (
     <ScrollView style={s.root} contentContainerStyle={s.content}>
@@ -248,7 +231,9 @@ export default function ProjectDetailScreen() {
             <Text style={s.badgeText}>
               {isLang
                 ? t("projects.kind.language")
-                : project.kind === "programming" && isProgrammingStack(project.target_language)
+                : isTrivia
+                  ? t("projects.kind.trivia")
+                  : project.kind === "programming" && isProgrammingStack(project.target_language)
                   ? programmingLanguageLabel(project.target_language)
                   : t(`projects.kind.${project.kind}`)}
             </Text>
@@ -264,63 +249,47 @@ export default function ProjectDetailScreen() {
           ) : null}
         </View>
         <Text style={s.title}>{project.title}</Text>
-        {project.description ? (
+        {isTrivia ? (
+          <Text style={s.description}>
+            {formatTriviaTopicLabels(parseTriviaTopics(project.description), t)}
+          </Text>
+        ) : project.description ? (
           <Text style={s.description}>{project.description}</Text>
+        ) : null}
+        {isTrivia ? (
+          <Text style={s.description}>{t("projects.trivia.detail_hint")}</Text>
         ) : null}
         {project.kind === "programming" ? (
           <Text style={s.description}>{t("projects.kind.programming_hint")}</Text>
         ) : null}
       </View>
 
-      <Pressable
-        style={s.statsSection}
-        onPress={() => setStatsExpanded((open) => !open)}
-        accessibilityRole="button"
-        accessibilityState={{ expanded: statsExpanded }}
-      >
-        <View style={s.statsHeader}>
-          <Text style={s.statsHeaderTitle}>{t("projects.stats.progress")}</Text>
-          <Ionicons
-            name={statsExpanded ? "chevron-up" : "chevron-down"}
-            size={18}
-            color={theme.textTertiary}
-          />
-        </View>
-        {statsExpanded ? (
-          <View style={s.statsGrid}>
-            <View style={s.statCard}>
-              <Text style={s.statValue}>{stats.mastered_count}</Text>
-              <Text style={s.statLabel}>{statLabels.learned}</Text>
-            </View>
-            <View style={s.statCard}>
-              <Text style={s.statValue}>{stats.new_count}</Text>
-              <Text style={s.statLabel}>{statLabels.new}</Text>
-            </View>
-            <View style={s.statCard}>
-              <Text style={s.statValue}>{stats.added_this_week}</Text>
-              <Text style={s.statLabel}>{statLabels.thisWeek}</Text>
-            </View>
-            <View style={s.statCard}>
-              <Text style={[s.statValue, stats.due_for_review > 0 && s.statHighlight]}>
-                {stats.due_for_review}
-              </Text>
-              <Text style={s.statLabel}>{statLabels.due}</Text>
-            </View>
-          </View>
-        ) : (
-          <Text style={s.statsSummary}>
-            {[
-              `${stats.mastered_count} ${statLabels.learned}`,
-              `${stats.new_count} ${statLabels.new}`,
-              `${stats.due_for_review} ${statLabels.due}`,
-            ].join(" · ")}
-          </Text>
-        )}
-      </Pressable>
+      <ProjectProgressHero
+        stats={stats}
+        learnedLabel={statLabels.learned}
+        dueLabel={statLabels.due}
+        dailyGoal={dailyGoal}
+        remainingToday={remainingToday}
+      />
+
+      {isTrivia ? (
+        <Pressable style={s.studyBtn} onPress={startTriviaQuiz}>
+          <Ionicons name="chatbubble-ellipses-outline" size={20} color={theme.onPrimary} />
+          <Text style={s.studyBtnText}>{t("projects.trivia.start_quiz")}</Text>
+        </Pressable>
+      ) : null}
+
+      {isLang && posGroups.length > 0 ? (
+        <ProjectPosGroupList
+          token={token}
+          projectId={project.id}
+          groups={posGroups}
+          onItemUpdated={load}
+        />
+      ) : null}
 
       {isLang ? (
-        <>
-          <View style={s.decksSection}>
+        <View style={s.decksSection}>
             <View style={s.decksHeader}>
               <Text style={s.decksTitle}>{t("projects.decks_title")}</Text>
               <Pressable onPress={promptNewDeck} hitSlop={8}>
@@ -343,37 +312,15 @@ export default function ProjectDetailScreen() {
               ))
             )}
           </View>
-          <Pressable style={s.studyBtn} onPress={quizWithRecall}>
-            <Ionicons name="help-circle-outline" size={20} color={theme.onPrimary} />
-            <Text style={s.studyBtnText}>{t("projects.quiz.start")}</Text>
-          </Pressable>
-        </>
       ) : isProgramming ? (
         <>
           {project.lists.length > 0 ? (
-            <>
-              <Pressable
-                style={[s.studyBtn, studyLaunching && s.studyBtnMuted]}
-                disabled={studyLaunching}
-                onPress={continueProgramming}
-              >
-                {studyLaunching ? (
-                  <ActivityIndicator size="small" color={theme.primary} />
-                ) : (
-                  <Ionicons name="play-outline" size={20} color={theme.onPrimary} />
-                )}
-                <Text style={[s.studyBtnText, studyLaunching && s.studyBtnTextMuted]}>
-                  {studyLaunching
-                    ? t("projects.study_launching")
-                    : t("projects.journey_continue")}
-                </Text>
-              </Pressable>
-              <ProgrammingJourney
-                lists={project.lists}
-                onStudyTopic={studyProgrammingTopic}
-                studyBusy={studyLaunching}
-              />
-            </>
+            <ProgrammingJourney
+              token={token}
+              projectId={project.id}
+              lists={project.lists}
+              onItemUpdated={load}
+            />
           ) : (
             <View style={s.comingSoon}>
               <ActivityIndicator color={theme.primary} />
@@ -383,14 +330,7 @@ export default function ProjectDetailScreen() {
         </>
       ) : null}
 
-      {isLang && posGroups.length > 0 ? (
-        <ProjectPosGroupList
-          token={token}
-          projectId={project.id}
-          groups={posGroups}
-          itemsByPos={itemsByPos}
-        />
-      ) : isConcept ? (
+      {isConcept ? (
         <>
           {project.lists.length > 0 ? (
             project.lists.map((group) => (
@@ -399,18 +339,13 @@ export default function ProjectDetailScreen() {
                   {formatProjectListTitle(group.list_title, project.kind, t)}
                 </Text>
                 {group.items.map((item) => (
-                  <View key={item.id} style={s.itemRow}>
-                    <Ionicons
-                      name={statusIcon(item)}
-                      size={20}
-                      color={statusColor(item, theme)}
-                    />
-                    <View style={s.itemMain}>
-                      <Text style={[s.itemContent, item.mastered && s.itemMastered]}>
-                        {item.content}
-                      </Text>
-                    </View>
-                  </View>
+                  <ProjectItemRow
+                    key={item.id}
+                    item={item}
+                    showSpeech={false}
+                    busy={conceptBusyId === item.id}
+                    onStatusChange={(status) => handleConceptStatusChange(item.id, status)}
+                  />
                 ))}
               </View>
             ))

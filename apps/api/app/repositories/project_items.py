@@ -105,7 +105,13 @@ async def get_by_id(
     return (await session.execute(stmt)).scalar_one_or_none()
 
 
-async def count_stats(session: AsyncSession, project_id: UUID, user_id: UUID) -> dict[str, int]:
+async def count_stats(
+    session: AsyncSession,
+    project_id: UUID,
+    user_id: UUID,
+    *,
+    timezone_name: str = "UTC",
+) -> dict[str, int]:
     items = await list_for_user(session, user_id, project_id=project_id, limit=5000)
     now = datetime.now(UTC)
     week_ago = now - timedelta(days=7)
@@ -117,6 +123,8 @@ async def count_stats(session: AsyncSession, project_id: UUID, user_id: UUID) ->
         "mastered_count": 0,
         "added_this_week": 0,
         "due_for_review": 0,
+        "mastered_today": 0,
+        "pending_today": 0,
     }
     for item in items:
         status = item.status or ("mastered" if item.mastered else "new")
@@ -133,6 +141,12 @@ async def count_stats(session: AsyncSession, project_id: UUID, user_id: UUID) ->
             stats["added_this_week"] += 1
         if _is_due(item, due_cutoff):
             stats["due_for_review"] += 1
+
+    from app.services.daily_learning import count_today_vocab_stats
+
+    mastered_today, pending_today = count_today_vocab_stats(items, timezone_name=timezone_name)
+    stats["mastered_today"] = mastered_today
+    stats["pending_today"] = pending_today
     return stats
 
 
@@ -333,6 +347,8 @@ async def create(
 
 
 async def update(session: AsyncSession, item: ProjectItem, **fields: Any) -> ProjectItem:
+    now = datetime.now(UTC)
+    prior_status = _item_status_label(item)
     for key, value in fields.items():
         if hasattr(item, key):
             if key == "list_title" and isinstance(value, str):
@@ -341,7 +357,11 @@ async def update(session: AsyncSession, item: ProjectItem, **fields: Any) -> Pro
                 value = value.strip().lower() or None
             setattr(item, key, value)
     if "status" in fields:
-        _sync_mastered_fields(item, str(fields["status"]))
+        new_status = str(fields["status"])
+        _sync_mastered_fields(item, new_status)
+        if new_status != prior_status:
+            item.last_reviewed_at = now
+            item.review_count = int(item.review_count or 0) + 1
     await session.commit()
     await session.refresh(item)
     return item

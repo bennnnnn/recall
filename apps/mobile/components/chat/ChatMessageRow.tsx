@@ -15,6 +15,7 @@ type Props = {
   lastAssistantId: string | null;
   selectedModel: string;
   quizLanguage: string;
+  quizVariant: "vocab" | "trivia";
   quizAnswers: Partial<Record<string, QuizChoice["letter"]>>;
   highlightedMessageId: string | null;
   sendingMessageId: string | null;
@@ -22,7 +23,11 @@ type Props = {
   onRegenerate: (model: string) => void;
   onEdit: (message: Message) => void;
   onFeedback: (messageId: string, next: "up" | "down" | null) => void;
-  onQuizAnswer: (messageId: string, letter: "A" | "B" | "C" | "D") => void;
+  onQuizAnswer: (
+    messageId: string,
+    letter: "A" | "B" | "C" | "D",
+    meta?: import("@/lib/parseVocabQuiz").QuizAnswerMeta,
+  ) => void;
 };
 
 export const ChatMessageRow = memo(function ChatMessageRow({
@@ -35,6 +40,7 @@ export const ChatMessageRow = memo(function ChatMessageRow({
   lastAssistantId,
   selectedModel,
   quizLanguage,
+  quizVariant,
   quizAnswers,
   highlightedMessageId,
   sendingMessageId,
@@ -71,6 +77,7 @@ export const ChatMessageRow = memo(function ChatMessageRow({
       }
       quizDisabled={quizDisabled}
       quizLanguage={quizLanguage}
+      quizVariant={quizVariant}
       quizSelectedLetter={quizAnswers[item.id] ?? null}
       highlighted={item.id === highlightedMessageId}
       isSending={item.id === sendingMessageId}

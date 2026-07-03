@@ -639,7 +639,7 @@ async def extract_project_actions(
                 '"create_project|delete_project|set_description|set_level|add|start_learning|'
                 'master|unmaster|delete|delete_list", '
                 '"project_title": "must match a topic title from state when possible", '
-                '"kind": "language|programming|learning|general (use language for English/vocab)", '
+                '"kind": "language|programming|trivia|learning|general (use language for English/vocab)", '
                 '"level": "level1-level6 (for language topics)", '
                 '"description": "optional description", '
                 '"list_title": "group/list name (e.g. Travel, Nouns)", '

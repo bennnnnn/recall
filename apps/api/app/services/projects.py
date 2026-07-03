@@ -50,6 +50,9 @@ PROJECT_HINT = (
     "study concepts or vocab for a stack.\n"
     "When they ask about learning topics, answer from the injected list below.\n"
     "Creating a learning topic via chat — name → type → description → confirm (syncs after reply).\n"
+    "For **language/vocabulary**, each user has at most ONE project per language (e.g. one English "
+    "vocabulary workspace). Do NOT create a second English project — use set_level on the existing "
+    "one when their skill grows.\n"
     "For programming learning topics, target_language stores the stack (python, javascript, …).\n"
     "Do not invent titles or list names the user did not choose."
 )
@@ -127,18 +130,56 @@ LANGUAGE_TUTOR_HINT = (
     "6) **Auto-master:** when the user answers correctly, sync MUST mark that word mastered "
     "immediately — the user must NOT ask you to mark it.\n"
     "7) Keep tone encouraging.\n\n"
-    "Encourage progress — mention stats and suggest adding more words appropriate for their level.\n"
-    "Status — new = just added; learning = studying; mastered = knows it.\n"
-    "Use start_learning when they begin studying a new word; master on every correct quiz answer."
+    "Use start_learning when they begin studying a new word; master on every correct quiz answer.\n\n"
+    "**Daily vocabulary batches (primary learning mode):**\n"
+    "Each project has daily_goal = N words per session (shown in the snapshot).\n"
+    "1) If ANY words are still new or learning, quiz those first — do NOT add new words yet.\n"
+    "2) When there are no pending new/learning words (or the user asks for today's words), "
+    "add exactly N fresh words at their English level via sync. Never duplicate a term "
+    "already in the deck (check content).\n"
+    "3) Teach each word briefly, then quiz one at a time until all N are mastered.\n"
+    "4) The user's dashboard tracks today's mastered count vs daily_goal and total words "
+    "accumulated over time."
 )
 
 PROGRAMMING_TUTOR_HINT = (
-    "Active **programming** learning topics — concepts are grouped by journey topic "
-    "(Variables, Data types, Functions, …). list_title must match the topic name exactly.\n"
-    "When the user learns or demonstrates a concept in chat, emit start_learning or master "
-    "with the matching content string from the snapshot.\n"
-    "Emit add only for genuinely new concepts. Suggest the topic with the most new/learning "
-    "items when they ask what to study next."
+    "Active **programming** learning — fixed chapters, each with sub-topics (see snapshot). "
+    "list_title = chapter title; content = sub-topic text exactly as stored.\n"
+    "Teach using the project's stack (target_language = python, javascript, …). "
+    "Mark individual sub-topics with start_learning while studying and master when the user "
+    "demonstrates each one. A chapter is done only when all its sub-topics are mastered.\n"
+    "Work chapters in order; suggest the first chapter that still has new/learning sub-topics."
+)
+
+TRIVIA_QUIZ_FENCE_EXAMPLE = (
+    "```vocab_quiz\n"
+    '{"quiz_type":"trivia","word":"History",'
+    '"question":"Which ancient wonder was a giant statue at the harbor of Rhodes?",'
+    '"correct":"A",'
+    '"choices":[{"letter":"A","text":"Colossus of Rhodes"},'
+    '{"letter":"B","text":"Great Pyramid of Giza"},'
+    '{"letter":"C","text":"Hanging Gardens of Babylon"},'
+    '{"letter":"D","text":"Lighthouse of Alexandria"}]}\n'
+    "```"
+)
+
+TRIVIA_TUTOR_HINT = (
+    "Active **trivia** project — daily general-knowledge quiz.\n"
+    "Quiz topics are in project description (comma-separated ids: history, science, …).\n"
+    "daily_goal = number of questions to get correct per session.\n"
+    "Each saved fact: list_title = topic label (e.g. History), content = short question, "
+    "definition = explanation.\n\n"
+    "**Daily quiz (in chat — primary mode):**\n"
+    "1) Ask ONE multiple-choice question at a time from the user's topics.\n"
+    "2) Use vocab_quiz JSON with quiz_type=trivia — word = topic label ONLY (e.g. History), "
+    "question = the full question text. NEVER set part_of_speech for trivia.\n"
+    f"Example:\n{TRIVIA_QUIZ_FENCE_EXAMPLE}\n"
+    "3) STOP — wait for A, B, C, or D before revealing the answer.\n"
+    "4) If correct → congratulate, explain — the app saves the fact automatically (no sync needed).\n"
+    "5) If wrong → explain gently, then ask the next question.\n"
+    "6) Continue until the user has daily_goal correct answers today.\n"
+    "7) Do not repeat questions already in the deck. Mix topics across the session.\n"
+    "8) When today's goal is met, congratulate and invite them back tomorrow."
 )
 
 
@@ -195,7 +236,17 @@ async def load_project_quiz_context(
 ) -> str:
     """Lightweight tutor slice for quiz answer turns — level, pool, and card format."""
     project = await projects_repo.get_by_id(session, project_id, user_id)
-    if project is None or not _is_language_project(project):
+    if project is None:
+        return ""
+    if _is_trivia_project(project):
+        return (
+            f"Active trivia quiz — project: {project.title}.\n"
+            f"Daily goal: {_trivia_daily_goal(project)} correct answers per session.\n"
+            "After feedback, ask the NEXT question using this format:\n"
+            f"{TRIVIA_QUIZ_FENCE_EXAMPLE}\n"
+            "Correct answers are saved automatically — congratulate, explain briefly, continue."
+        )
+    if not _is_language_project(project):
         return ""
     items = await project_items_repo.list_for_user(
         session,
@@ -219,6 +270,179 @@ async def load_project_quiz_context(
             pos = item.part_of_speech or "other"
             lines.append(f"- {item.content} [{pos}]")
     return "\n".join(lines)
+
+
+async def _resolve_quiz_project_id(
+    session: AsyncSession,
+    user_id: UUID,
+    *,
+    project_id: UUID | None,
+    quiz: object,
+) -> UUID | None:
+    if project_id is not None:
+        return project_id
+    is_trivia = getattr(quiz, "quiz_type", None) == "trivia" or (
+        getattr(quiz, "question", None) is not None
+        and getattr(quiz, "part_of_speech", None) is None
+        and getattr(quiz, "quiz_type", None) != "vocab"
+    )
+    if is_trivia:
+        project = await projects_repo.find_trivia_project(session, user_id)
+        return project.id if project else None
+    project = await projects_repo.find_language_by_target(session, user_id, "en")
+    return project.id if project else None
+
+
+async def apply_deterministic_quiz_answer(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    chat_id: UUID,
+    project_id: UUID | None,
+    assistant_content: str,
+    user_answer: str,
+    topic_hint: str | None = None,
+    question_hint: str | None = None,
+    is_correct_hint: bool | None = None,
+) -> bool:
+    """Persist quiz results without waiting on background LLM project sync."""
+    from app.services import vocab_quiz as vocab_quiz_service
+
+    quiz = vocab_quiz_service.parse_vocab_quiz(assistant_content)
+    letter = vocab_quiz_service.quiz_answer_letter(user_answer)
+    if letter is None:
+        return False
+
+    if quiz is None and topic_hint and question_hint:
+        from app.services.vocab_quiz import ParsedVocabQuiz
+
+        quiz = ParsedVocabQuiz(
+            word=topic_hint.strip(),
+            part_of_speech=None,
+            question=question_hint.strip(),
+            correct=None,
+            quiz_type="trivia",
+        )
+    if quiz is None:
+        return False
+
+    resolved_project_id = await _resolve_quiz_project_id(
+        session, user_id, project_id=project_id, quiz=quiz
+    )
+    if resolved_project_id is None:
+        return False
+
+    project = await projects_repo.get_by_id(session, resolved_project_id, user_id)
+    if project is None:
+        return False
+
+    is_trivia = (
+        _is_trivia_project(project)
+        or quiz.quiz_type == "trivia"
+        or (quiz.question is not None and not quiz.part_of_speech)
+    )
+    is_correct: bool | None = None
+    if quiz.correct:
+        is_correct = letter == quiz.correct.upper()
+    elif is_correct_hint is not None:
+        is_correct = is_correct_hint
+    if is_correct is None:
+        return False
+
+    items = await project_items_repo.list_for_user(
+        session, user_id, project_id=resolved_project_id, limit=500
+    )
+
+    if is_trivia:
+        topic = quiz.word.strip()
+        question = (quiz.question or quiz.word).strip()
+        if not question:
+            return False
+        list_title = topic or DEFAULT_LIST
+        status = "mastered" if is_correct else "learning"
+        existing = _find_item(items, project.id, list_title, question)
+        if existing:
+            if _item_status(existing) != status:
+                await project_items_repo.update(session, existing, status=status)
+        else:
+            await project_items_repo.create(
+                session,
+                user_id=user_id,
+                project_id=project.id,
+                content=question,
+                list_title=list_title,
+                chat_id=chat_id,
+                status=status,
+            )
+        return True
+
+    if not _is_language_project(project) or not is_correct:
+        return False
+
+    word = quiz.word.strip()
+    if not word:
+        return False
+    pos = (quiz.part_of_speech or "other").strip().lower()
+    list_title = pos_list_title(pos)
+    existing = _find_item(items, project.id, list_title, word) or _find_item_by_content(
+        items, project.id, word
+    )
+    if existing:
+        if _item_status(existing) != "mastered":
+            await project_items_repo.update(session, existing, status="mastered")
+    else:
+        await project_items_repo.create(
+            session,
+            user_id=user_id,
+            project_id=project.id,
+            content=word,
+            list_title=list_title,
+            part_of_speech=pos,
+            chat_id=chat_id,
+            status="mastered",
+        )
+    return True
+
+
+async def record_project_quiz_answer(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    project_id: UUID,
+    chat_id: UUID,
+    assistant_message_id: UUID,
+    letter: str,
+    topic: str | None = None,
+    question: str | None = None,
+    is_correct: bool | None = None,
+) -> bool:
+    from app.repositories import chats as chats_repo
+    from app.repositories import messages as messages_repo
+
+    project = await projects_repo.get_by_id(session, project_id, user_id)
+    if project is None:
+        return False
+    chat = await chats_repo.get_by_id(session, chat_id, user_id)
+    if chat is None:
+        return False
+    message = await messages_repo.get_by_id(session, assistant_message_id, chat_id)
+    if message is None or message.role != "assistant":
+        return False
+
+    recorded = await apply_deterministic_quiz_answer(
+        session,
+        user_id=user_id,
+        chat_id=chat_id,
+        project_id=project_id,
+        assistant_content=message.content,
+        user_answer=letter,
+        topic_hint=topic,
+        question_hint=question,
+        is_correct_hint=is_correct,
+    )
+    if recorded and chat.project_id is None:
+        await chats_repo.set_project_id(session, chat, project_id)
+    return recorded
 
 
 def _resolve_list_title(project: Project, action: ProjectActionItem) -> str:
@@ -252,12 +476,53 @@ def _is_programming_project(project: Project) -> bool:
     return project.kind == "programming"
 
 
+def _is_trivia_project(project: Project) -> bool:
+    return project.kind == "trivia"
+
+
+def _trivia_daily_goal(project: Project) -> int:
+    goal = getattr(project, "daily_goal", None)
+    if isinstance(goal, int) and goal >= 1:
+        return goal
+    return DEFAULT_DAILY_VOCAB_GOAL
+
+
 def _normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text.strip().lower())
 
 
 def _list_key(list_title: str) -> str:
     return _normalize(list_title or DEFAULT_LIST)
+
+
+def _find_programming_project(
+    projects: list[Project],
+    target_language: str,
+) -> Project | None:
+    lang = (target_language or "").strip().lower()
+    if not lang:
+        return None
+    for project in projects:
+        if (
+            _is_programming_project(project)
+            and (project.target_language or "").strip().lower() == lang
+        ):
+            return project
+    return None
+
+
+def _find_language_project(
+    projects: list[Project],
+    target_language: str = "en",
+) -> Project | None:
+    lang = (target_language or "en").strip().lower()
+    for project in projects:
+        if (
+            _is_language_project(project)
+            and (project.target_language or "en").strip().lower() == lang
+        ):
+            return project
+    return None
 
 
 def _find_project(projects: list[Project], title: str) -> Project | None:
@@ -303,6 +568,16 @@ def _find_item(
     return None
 
 
+DEFAULT_DAILY_VOCAB_GOAL = 10
+
+
+def _language_daily_goal(project: Project) -> int:
+    goal = getattr(project, "daily_goal", None)
+    if isinstance(goal, int) and goal >= 1:
+        return goal
+    return DEFAULT_DAILY_VOCAB_GOAL
+
+
 def format_projects_block(projects: list[Project], items: list[ProjectItem]) -> str:
     if not projects:
         return ""
@@ -323,9 +598,19 @@ def format_projects_block(projects: list[Project], items: list[ProjectItem]) -> 
             meta = f"{project.kind}, stack={stack}"
         elif _is_language_project(project):
             meta = f"{project.kind}, {level}"
+        elif _is_trivia_project(project):
+            meta = f"{project.kind}, topics={project.description or 'general'}"
         skill_line = ""
         if _is_language_project(project):
-            skill_line = f"English skill: {guidance}\n"
+            skill_line = (
+                f"English skill: {guidance}\n"
+                f"Daily goal: {_language_daily_goal(project)} new words per session\n"
+            )
+        elif _is_trivia_project(project):
+            skill_line = (
+                f"Daily quiz goal: {_trivia_daily_goal(project)} correct answers per session\n"
+                f"Topics: {project.description or 'general'}\n"
+            )
         elif project.kind == "programming" and stack != "en":
             skill_line = f"Programming language: {stack}\n"
         lines.append(
@@ -443,6 +728,8 @@ async def load_project_for_prompt(
         block = f"{block}\n\n{LANGUAGE_TUTOR_HINT}" if block else LANGUAGE_TUTOR_HINT
     if _is_programming_project(project):
         block = f"{block}\n\n{PROGRAMMING_TUTOR_HINT}" if block else PROGRAMMING_TUTOR_HINT
+    if _is_trivia_project(project):
+        block = f"{block}\n\n{TRIVIA_TUTOR_HINT}" if block else TRIVIA_TUTOR_HINT
     if block:
         block = (
             "This chat is linked to ONE learning topic — focus on it unless the user "
@@ -473,6 +760,8 @@ async def load_projects_for_prompt(
         block = f"{block}\n\n{LANGUAGE_TUTOR_HINT}" if block else LANGUAGE_TUTOR_HINT
     if any(_is_programming_project(p) for p in projects):
         block = f"{block}\n\n{PROGRAMMING_TUTOR_HINT}" if block else PROGRAMMING_TUTOR_HINT
+    if any(_is_trivia_project(p) for p in projects):
+        block = f"{block}\n\n{TRIVIA_TUTOR_HINT}" if block else TRIVIA_TUTOR_HINT
     return block
 
 
@@ -490,6 +779,11 @@ def group_items(items: list[ProjectItem]) -> list[ProjectListGroup]:
             )
         )
     return groups
+
+
+def group_trivia_items(items: list[ProjectItem]) -> list[ProjectListGroup]:
+    """Group saved quiz facts by topic (list_title)."""
+    return group_items(items)
 
 
 def group_programming_items(items: list[ProjectItem]) -> list[ProjectListGroup]:
@@ -563,11 +857,16 @@ async def apply_project_actions(
         applied_before = applied
         try:
             if action.action == "create_project":
-                if _find_project(projects, title):
-                    continue
                 kind = action.kind or "general"
                 if kind == "vocabulary":
                     kind = "language"
+                if kind == "language" and _find_language_project(projects, "en"):
+                    continue
+                stack = "python" if kind == "programming" else "en"
+                if kind == "programming" and _find_programming_project(projects, stack):
+                    continue
+                if _find_project(projects, title):
+                    continue
                 project = await projects_repo.create(
                     session,
                     user_id=user_id,
@@ -575,7 +874,7 @@ async def apply_project_actions(
                     description=(action.description or "").strip() or None,
                     kind=kind,
                     level=action.level or "level1",
-                    target_language="en",
+                    target_language=stack,
                 )
                 applied += 1
                 if _is_programming_project(project):

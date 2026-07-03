@@ -134,6 +134,16 @@ async def get_last(session: AsyncSession, chat_id: UUID) -> Message | None:
     return result.scalar_one_or_none()
 
 
+async def get_last_assistant(session: AsyncSession, chat_id: UUID) -> Message | None:
+    result = await session.execute(
+        select(Message)
+        .where(Message.chat_id == chat_id, Message.role == "assistant")
+        .order_by(Message.created_at.desc())
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
 async def get_last_user(session: AsyncSession, chat_id: UUID) -> Message | None:
     result = await session.execute(
         select(Message)

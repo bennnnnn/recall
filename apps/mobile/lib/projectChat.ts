@@ -1,5 +1,6 @@
 import type { LanguageLevel, ProjectDetail } from "@/lib/api";
 import { isLanguageProject, levelLabel } from "@/lib/languageLevels";
+import { programmingLanguageLabel, type ProgrammingLanguageId } from "@/lib/programmingLanguages";
 import { VOCAB_QUIZ_FORMAT_BLOCK } from "@/lib/vocabQuizFormat";
 
 function progressLine(project: ProjectDetail): string {
@@ -21,30 +22,64 @@ function progressLine(project: ProjectDetail): string {
       `${stats.learning_count} in progress, ${stats.due_for_review} to review.`
     );
   }
+  if (kind === "trivia") {
+    return (
+      `${stats.mastered_count} facts learned, ${stats.mastered_today} correct today, ` +
+      `${stats.total} total questions saved.`
+    );
+  }
   return (
     `${stats.mastered_count} mastered, ${stats.new_count} new, ` +
     `${stats.learning_count} in progress, ${stats.due_for_review} due for review.`
   );
 }
 
-/** Opens chat after a new English learning topic is created. */
+/** Opens chat after a new English vocabulary project is created. */
 export function buildEnglishOnboardingPrompt(
   title: string,
   level: LanguageLevel,
-  focusLabels: string[],
+  dailyGoal: number,
 ): string {
   const lvl = levelLabel(level);
-  const focus = focusLabels.join(", ");
   return (
-    `I just set up my "${title}" English learning topic.\n` +
-    `My level: ${lvl}.\n` +
-    `I want to focus on: ${focus}.\n\n` +
-    `You're my English tutor. Start by adding a small starter set of vocabulary words ` +
-    `matched to ${lvl} — about 5–8 high-frequency words I'll actually use. ` +
-    `Group them by part of speech and save them to this project.\n\n` +
-    `Then check in: does this feel too easy, too hard, or about right? ` +
-    `If I'm unsure, offer to adjust my level up or down.\n\n` +
-    `After that, we'll work toward my focus areas (${focus}) — but lead with vocabulary today.`
+    `I just set up my "${title}" English vocabulary project.\n` +
+    `My level: ${lvl}. My daily goal: ${dailyGoal} new words per session.\n\n` +
+    `You're my English tutor. Generate exactly ${dailyGoal} new vocabulary words matched to ${lvl} ` +
+    `(high-frequency words I'll actually use). Save them to this project with part_of_speech, ` +
+    `definition, and example_sentence.\n\n` +
+    `Then teach each word briefly and quiz me one at a time until I master all ${dailyGoal}. ` +
+    `When I'm done, I'll come back tomorrow for the next batch.\n\n` +
+    `Check in: does this level feel too easy, too hard, or about right?`
+  );
+}
+
+/** Opens chat after a new programming project is created — starts chapter 1. */
+export function buildProgrammingOnboardingPrompt(
+  language: ProgrammingLanguageId,
+  firstChapter: string,
+  firstTopics: string[],
+): string {
+  const stack = programmingLanguageLabel(language);
+  const topics = firstTopics.join(", ");
+  return (
+    `I just started learning ${stack} programming.\n\n` +
+    `Begin with chapter 1: **${firstChapter}**. Cover these sub-topics in order: ${topics}. ` +
+    `Teach clearly with ${stack} examples. Mark each sub-topic mastered when I demonstrate it, ` +
+    `then move to the next sub-topic and chapter.\n\n` +
+    `Follow the fixed curriculum — do not skip ahead unless I ask.`
+  );
+}
+
+/** Opens chat after a new general-knowledge trivia project is created. */
+export function buildTriviaOnboardingPrompt(topicLabels: string, dailyGoal: number): string {
+  return (
+    `I just set up my daily general knowledge quiz.\n` +
+    `Topics: ${topicLabels}. Daily goal: ${dailyGoal} correct answers per session.\n\n` +
+    `Run a multiple-choice quiz in chat — one question at a time from my topics. ` +
+    `Use vocab_quiz JSON with quiz_type=trivia: word=topic label (History, Science, …), ` +
+    `question=the full question. Never use part_of_speech. ` +
+    `When I answer correctly, save the fact and mark it mastered.\n\n` +
+    `Mix topics and keep questions interesting but fair. Start question 1 now.`
   );
 }
 
@@ -56,9 +91,27 @@ export function buildProjectAskPrompt(project: ProjectDetail): string {
 
   if (isLanguageProject(project.kind)) {
     const lvl = levelLabel(project.level);
+    const daily = project.daily_goal ?? 10;
+    const today =
+      project.stats.mastered_today > 0 || project.stats.pending_today > 0
+        ? ` Today: ${project.stats.mastered_today}/${daily} mastered`
+        : "";
     return (
-      `Help me with my "${project.title}" English project (${lvl}).${goal} ` +
-      `${progressLine(project)} Add words, or suggest what to study next.`
+      `Help me with my "${project.title}" English project (${lvl}, ${daily} words/day).${goal}` +
+      `${progressLine(project)}.${today} ` +
+      `If I have no pending words, generate today's batch. Otherwise quiz what I'm still learning.`
+    );
+  }
+
+  if (project.kind === "trivia") {
+    const daily = project.daily_goal ?? 10;
+    const remaining = Math.max(0, daily - project.stats.mastered_today);
+    return (
+      `Continue my daily general knowledge quiz (${daily} correct/day).${goal} ` +
+      `${progressLine(project)} ` +
+      (remaining > 0
+        ? `I need ${remaining} more correct answers today — ask the next question.`
+        : `I hit today's goal — offer a bonus question or wrap up.`)
     );
   }
 

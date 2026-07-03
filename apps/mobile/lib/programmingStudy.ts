@@ -1,60 +1,39 @@
-import type { ProjectItem, ProjectListGroup, ProjectDetail } from "@/lib/api";
+import type { ProjectDetail, ProjectListGroup } from "@/lib/api";
 import { buildProjectAskPrompt } from "@/lib/projectChat";
 
-function itemMastered(item: ProjectItem): boolean {
+function itemMastered(item: { status: string; mastered: boolean }): boolean {
   return item.status === "mastered" || item.mastered;
 }
 
-function itemLearning(item: ProjectItem): boolean {
-  return item.status === "learning";
-}
-
-function topicStats(items: ProjectItem[]) {
-  const total = items.length;
-  const mastered = items.filter(itemMastered).length;
-  const learning = items.filter(itemLearning).length;
-  return { total, mastered, learning, pending: total - mastered };
-}
-
+/** First chapter that still has uncovered sub-topics. */
 export function suggestProgrammingTopic(lists: ProjectListGroup[]): string | null {
-  let best: { title: string; score: number } | null = null;
   for (const group of lists) {
-    const { total, mastered, learning, pending } = topicStats(group.items);
-    if (total === 0 || pending === 0) continue;
-    const score = pending + learning * 0.25;
-    if (!best || score > best.score) {
-      best = { title: group.list_title, score };
-    }
+    const hasPending = group.items.some((item) => !itemMastered(item));
+    if (hasPending) return group.list_title;
   }
-  return best?.title ?? null;
+  return null;
 }
 
-export function buildProgrammingStudyPrompt(
-  project: ProjectDetail,
-  topic: string,
-): string {
-  const trimmedTopic = topic.trim();
-  if (!trimmedTopic) return "";
+export function buildProgrammingStudyPrompt(project: ProjectDetail, chapter: string): string {
+  const trimmed = chapter.trim();
+  if (!trimmed) return "";
   const lists = project.lists ?? [];
-  const group = lists.find((g) => g.list_title === trimmedTopic);
-  const pending = (group?.items ?? []).filter(
-    (item) => item.status !== "mastered" && !item.mastered,
-  );
-  const concepts = pending.map((item) => item.content).slice(0, 5);
+  const group = lists.find((g) => g.list_title === trimmed);
+  const pending = (group?.items ?? []).filter((item) => !itemMastered(item));
+  const topics = pending.map((item) => item.content);
   const stack = project.target_language;
   const base = buildProjectAskPrompt(project);
   return (
     `${base}\n\n` +
-    `Help me study the **${trimmedTopic}** topic in my ${stack} learning journey. ` +
-    `Focus on these concepts I have not mastered yet: ${concepts.join(", ") || trimmedTopic}. ` +
-    `Explain clearly, give a short example, then ask me a quick check question. ` +
-    `When I demonstrate understanding, mark the concept as learned.`
+    `Help me study the **${trimmed}** chapter in my ${stack} programming journey. ` +
+    `Cover these sub-topics I have not finished yet: ${topics.join(", ") || trimmed}. ` +
+    `Teach one sub-topic at a time with ${stack} examples, check my understanding, ` +
+    `then mark each sub-topic mastered when I demonstrate it.`
   );
 }
 
 export function buildProgrammingNextUpPrompt(project: ProjectDetail): string {
-  const topic =
-    suggestProgrammingTopic((project.lists ?? []) as ProjectListGroup[]) ??
-    "Variables";
-  return buildProgrammingStudyPrompt(project, topic);
+  const chapter = suggestProgrammingTopic((project.lists ?? []) as ProjectListGroup[]);
+  if (!chapter) return buildProjectAskPrompt(project);
+  return buildProgrammingStudyPrompt(project, chapter);
 }

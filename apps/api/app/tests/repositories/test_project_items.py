@@ -254,3 +254,19 @@ async def test_create_deck_item_delegates_to_create(fake_session, monkeypatch):
 
     create_mock.assert_awaited_once()
     assert result is mock_item
+
+
+@pytest.mark.asyncio
+async def test_update_records_review_on_status_change(fake_session):
+    item = _item(status="new")
+    item.review_count = 0
+    item.last_reviewed_at = None
+    item.mastered = False
+
+    await repo.update(fake_session, item, status="mastered")
+
+    assert item.status == "mastered"
+    assert item.mastered is True
+    assert item.review_count == 1
+    assert item.last_reviewed_at is not None
+    fake_session.commit.assert_awaited()

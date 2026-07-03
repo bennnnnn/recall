@@ -30,15 +30,34 @@ async def get_by_google_sub(session: AsyncSession, google_sub: str) -> User | No
     return result.scalar_one_or_none()
 
 
+async def get_by_apple_sub(session: AsyncSession, apple_sub: str) -> User | None:
+    result = await session.execute(select(User).where(User.apple_sub == apple_sub))
+    return result.scalar_one_or_none()
+
+
+async def get_by_email(session: AsyncSession, email: str) -> User | None:
+    result = await session.execute(select(User).where(User.email == email))
+    return result.scalar_one_or_none()
+
+
 async def create(
     session: AsyncSession,
     *,
-    google_sub: str,
     email: str,
     name: str | None,
     avatar_url: str | None,
+    google_sub: str | None = None,
+    apple_sub: str | None = None,
 ) -> User:
-    user = User(google_sub=google_sub, email=email, name=name, avatar_url=avatar_url)
+    if not google_sub and not apple_sub:
+        raise ValueError("google_sub or apple_sub is required")
+    user = User(
+        google_sub=google_sub,
+        apple_sub=apple_sub,
+        email=email,
+        name=name,
+        avatar_url=avatar_url,
+    )
     session.add(user)
     await session.commit()
     await session.refresh(user)

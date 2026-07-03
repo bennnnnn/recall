@@ -3,12 +3,12 @@ import type { ProgrammingLanguageId } from "@/lib/programmingLanguages";
 import { levelLabel } from "@/lib/languageLevels";
 import { programmingLanguageLabel } from "@/lib/programmingLanguages";
 
-export type CreateStep = "subject" | "level" | "topics" | "stack" | "goal";
+export type CreateStep = "subject" | "level" | "daily" | "stack" | "topics";
 
 export function createStepsForKind(kind: ProjectKind | null): CreateStep[] {
-  if (kind === "language") return ["subject", "level", "topics"];
-  if (kind === "programming") return ["subject", "stack", "goal"];
-  if (kind === "math") return ["subject", "goal"];
+  if (kind === "language") return ["subject", "level", "daily"];
+  if (kind === "trivia") return ["subject", "topics", "daily"];
+  if (kind === "programming") return ["subject", "stack"];
   return ["subject"];
 }
 
@@ -47,6 +47,17 @@ export function englishProjectTitle(
   return `${t("projects.kind.language")} · ${levelLabel(level)}`;
 }
 
+export function triviaProjectTitle(t: (key: string) => string): string {
+  return t("projects.trivia.title");
+}
+
+export function programmingProjectTitle(
+  programmingLanguage: ProgrammingLanguageId,
+  t: (key: string) => string,
+): string {
+  return `${programmingLanguageLabel(programmingLanguage)} · ${t("projects.kind.programming")}`;
+}
+
 export function fallbackProjectTitle(
   kind: ProjectKind,
   level: LanguageLevel,
@@ -57,7 +68,7 @@ export function fallbackProjectTitle(
     return englishProjectTitle(level, t);
   }
   if (kind === "programming" && programmingLanguage) {
-    return `${programmingLanguageLabel(programmingLanguage)} · ${t("projects.kind.programming")}`;
+    return programmingProjectTitle(programmingLanguage, t);
   }
   return t(`projects.kind.${kind}`);
 }

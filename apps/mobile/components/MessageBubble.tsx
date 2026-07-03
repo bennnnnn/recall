@@ -21,7 +21,7 @@ import {
 } from "@/lib/calendarProposal";
 import { extractPrimaryCopyText } from "@/lib/copyBlock";
 import { notifySuccess, notifyWarning, tap } from "@/lib/haptics";
-import { parseVocabQuiz, stripVocabQuizBlock, isCompleteVocabQuiz } from "@/lib/parseVocabQuiz";
+import { parseVocabQuiz, stripVocabQuizBlock, isCompleteVocabQuiz, cleanQuizWord, type QuizAnswerMeta } from "@/lib/parseVocabQuiz";
 import { resolvePlaces, stripPlacesContent } from "@/lib/placesList";
 import {
   resolveSearchSources,
@@ -32,7 +32,6 @@ import {
   extractClockTimezone,
   stripTimeAnswerFences,
 } from "@/lib/timeQuestion";
-import { shouldCollapseMessage } from "@/lib/messageFold";
 import { SENDING_LABEL_DELAY_MS } from "@/lib/chatMessageLogic";
 import { Theme, useTheme } from "@/lib/theme";
 import { useTranslation } from "react-i18next";
@@ -49,9 +48,14 @@ type Props = {
   onEdit?: (message: Message) => void;
   canEdit?: boolean;
   onFeedback?: (messageId: string, feedback: "up" | "down" | null) => void;
-  onQuizAnswer?: (messageId: string, letter: "A" | "B" | "C" | "D") => void;
+  onQuizAnswer?: (
+    messageId: string,
+    letter: "A" | "B" | "C" | "D",
+    meta?: QuizAnswerMeta,
+  ) => void;
   quizDisabled?: boolean;
   quizLanguage?: string;
+  quizVariant?: "vocab" | "trivia";
   quizSelectedLetter?: "A" | "B" | "C" | "D" | null;
   highlighted?: boolean;
   isSending?: boolean;
@@ -152,6 +156,7 @@ export const MessageBubble = React.memo(function MessageBubble({
   onQuizAnswer,
   quizDisabled,
   quizLanguage = "en",
+  quizVariant = "vocab",
   quizSelectedLetter = null,
   highlighted = false,
   isSending = false,
@@ -179,6 +184,14 @@ export const MessageBubble = React.memo(function MessageBubble({
     const parsed = parseVocabQuiz(content);
     return isCompleteVocabQuiz(parsed) ? parsed : null;
   }, [isUser, hasContent, content]);
+  const quizVariantResolved =
+    quizVariant === "trivia" || quiz?.quizType === "trivia" ? "trivia" : "vocab";
+  const quizTopicLabel = quiz ? cleanQuizWord(quiz.word) : "";
+  const quizQuestionText = quiz
+    ? quizVariantResolved === "trivia"
+      ? quiz.question?.trim() || quizTopicLabel
+      : quiz.question?.trim() || ""
+    : "";
   const showQuizCard = quiz != null;
   const showQuizButtons =
     showQuizCard && isLastAssistant && onQuizAnswer != null;
@@ -225,7 +238,6 @@ export const MessageBubble = React.memo(function MessageBubble({
     searchSources.length > 0 && !showLiveClock && !showQuizCard && !showCalendarProposals;
   const showContextSummarized =
     !isUser && !isStreaming && (message.context_summarized ?? 0) > 0;
-  const collapseAssistant = shouldCollapseMessage(markdownContent);
 
   return (
     <View style={[b.row, isUser ? b.userRow : b.assistantRow, highlighted && b.rowHighlighted]}>
@@ -246,10 +258,7 @@ export const MessageBubble = React.memo(function MessageBubble({
           {isStreaming && !hasContent ? (
             <RecallTypingIndicator />
           ) : (
-            <CollapsibleMessageBody
-              enabled={!isStreaming}
-              collapsible={collapseAssistant}
-            >
+            <CollapsibleMessageBody enabled={!isStreaming} collapsible={false}>
               {showContextSummarized ? (
                 <Text style={b.contextChip}>
                   {t("chat.context_summarized", { count: message.context_summarized })}
@@ -272,12 +281,21 @@ export const MessageBubble = React.memo(function MessageBubble({
               {showQuizCard && quiz ? (
                 <VocabQuizChoices
                   quiz={quiz}
+                  variant={quizVariant === "trivia" || quiz.quizType === "trivia" ? "trivia" : "vocab"}
                   disabled={!showQuizButtons || !!quizDisabled}
                   language={quizLanguage}
                   initialSelected={quizSelectedLetter}
                   onSelect={
                     showQuizButtons && onQuizAnswer
-                      ? (letter) => onQuizAnswer(message.id, letter)
+                      ? (letter) => {
+                          const isCorrect =
+                            quiz.correct != null ? letter === quiz.correct : null;
+                          onQuizAnswer(message.id, letter, {
+                            topic: quizTopicLabel,
+                            question: quizQuestionText,
+                            isCorrect,
+                          });
+                        }
                       : undefined
                   }
                 />

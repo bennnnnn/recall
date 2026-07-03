@@ -106,6 +106,11 @@ class GoogleAuthRequest(BaseModel):
     id_token: str
 
 
+class AppleAuthRequest(BaseModel):
+    id_token: str
+    name: str | None = None
+
+
 class DevAuthRequest(BaseModel):
     email: str = "dev@recall.local"
     name: str = "Dev User"
@@ -346,7 +351,15 @@ class TodoExtractionResult(BaseModel):
     actions: list[TodoActionItem] = Field(default_factory=list)
 
 
-ProjectKind = Literal["general", "language", "vocabulary", "programming", "learning", "math"]
+ProjectKind = Literal[
+    "general",
+    "language",
+    "vocabulary",
+    "programming",
+    "learning",
+    "math",
+    "trivia",
+]
 LanguageLevel = Literal["level1", "level2", "level3", "level4", "level5", "level6"]
 PartOfSpeech = Literal[
     "noun",
@@ -373,6 +386,7 @@ class ProjectOut(BaseModel):
     target_language: str = "en"
     native_language: str | None = None
     level: LanguageLevel = "level1"
+    daily_goal: int | None = None
     archived: bool
     created_at: datetime
     updated_at: datetime
@@ -385,6 +399,7 @@ class ProjectCreate(BaseModel):
     target_language: str = Field(default="en", max_length=10)
     native_language: str | None = Field(default=None, max_length=10)
     level: LanguageLevel = "level1"
+    daily_goal: int | None = Field(default=None, ge=1, le=50)
 
 
 class ProjectUpdate(BaseModel):
@@ -394,6 +409,7 @@ class ProjectUpdate(BaseModel):
     target_language: str | None = Field(default=None, max_length=10)
     native_language: str | None = Field(default=None, max_length=10)
     level: LanguageLevel | None = None
+    daily_goal: int | None = Field(default=None, ge=1, le=50)
     archived: bool | None = None
 
 
@@ -423,6 +439,8 @@ class ProjectStats(BaseModel):
     mastered_count: int = 0
     added_this_week: int = 0
     due_for_review: int = 0
+    mastered_today: int = 0
+    pending_today: int = 0
 
 
 class ProjectListGroup(BaseModel):
@@ -454,6 +472,36 @@ class ProjectDeckItemCreate(BaseModel):
     content: str = Field(min_length=1, max_length=500)
     definition: str | None = Field(default=None, max_length=2000)
     example_sentence: str | None = Field(default=None, max_length=2000)
+
+
+class ProjectItemUpdate(BaseModel):
+    status: VocabStatus | None = None
+    definition: str | None = Field(default=None, max_length=2000)
+
+    @field_validator("definition")
+    @classmethod
+    def validate_definition(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        text = value.strip()
+        return text or None
+
+
+class ProjectQuizAnswerIn(BaseModel):
+    chat_id: UUID
+    assistant_message_id: UUID
+    letter: str = Field(min_length=1, max_length=2)
+    topic: str | None = Field(default=None, max_length=120)
+    question: str | None = Field(default=None, max_length=500)
+    is_correct: bool | None = None
+
+    @field_validator("letter")
+    @classmethod
+    def normalize_letter(cls, value: str) -> str:
+        letter = value.strip().upper().rstrip(".")
+        if letter not in {"A", "B", "C", "D"}:
+            raise ValueError("letter must be A, B, C, or D")
+        return letter
 
 
 class ProjectDetailOut(ProjectOut):

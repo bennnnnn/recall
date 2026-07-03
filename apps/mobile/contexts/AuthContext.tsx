@@ -11,6 +11,7 @@ import { ActivityIndicator, Alert, StyleSheet, View } from "react-native";
 
 import {
   api,
+  loginWithApple,
   loginWithDev,
   loginWithGoogle,
   logoutSession,
@@ -18,6 +19,7 @@ import {
   setUnauthorizedHandler,
   type User,
 } from "@/lib/api";
+import { signInWithAppleCredentials } from "@/lib/apple-auth";
 import { signInWithGoogleIdToken, signOutGoogle } from "@/lib/google-auth";
 import i18n from "@/lib/i18n";
 import {
@@ -36,6 +38,7 @@ type AuthContextValue = {
   token: string | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
+  signInWithApple: () => Promise<void>;
   signInWithDev: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -96,6 +99,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithGoogle = useCallback(async () => {
     const idToken = await signInWithGoogleIdToken();
     const result = await loginWithGoogle(idToken);
+    await setTokenPair(result.access_token, result.refresh_token);
+    setTokenState(result.access_token);
+    setUser(result.user);
+  }, []);
+
+  const signInWithApple = useCallback(async () => {
+    const { idToken, name } = await signInWithAppleCredentials();
+    const result = await loginWithApple(idToken, name);
     await setTokenPair(result.access_token, result.refresh_token);
     setTokenState(result.access_token);
     setUser(result.user);
@@ -211,6 +222,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       token,
       loading,
       signInWithGoogle,
+      signInWithApple,
       signInWithDev,
       signOut,
       refreshUser,
@@ -224,6 +236,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       token,
       loading,
       signInWithGoogle,
+      signInWithApple,
       signInWithDev,
       signOut,
       refreshUser,

@@ -25,7 +25,8 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    google_sub: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    google_sub: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
+    apple_sub: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
     email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     name: Mapped[str | None] = mapped_column(String)
     avatar_url: Mapped[str | None] = mapped_column(String)
@@ -201,6 +202,7 @@ class Project(Base):
     target_language: Mapped[str] = mapped_column(String(10), default="en", server_default="en")
     native_language: Mapped[str | None] = mapped_column(String(10), nullable=True)
     level: Mapped[str] = mapped_column(String(20), default="level1", server_default="level1")
+    daily_goal: Mapped[int | None] = mapped_column(Integer, nullable=True)
     archived: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

@@ -85,10 +85,16 @@ def test_create_project_maps_vocabulary_to_language():
     app = _app_with_user(user)
     project = _project(kind="language")
 
-    with patch(
-        "app.routers.projects.projects_repo.create",
-        AsyncMock(return_value=project),
-    ) as create_mock:
+    with (
+        patch(
+            "app.routers.projects.projects_repo.create",
+            AsyncMock(return_value=project),
+        ) as create_mock,
+        patch(
+            "app.routers.projects.projects_repo.find_language_by_target",
+            AsyncMock(return_value=None),
+        ),
+    ):
         client = TestClient(app)
         r = client.post(
             "/projects",
@@ -100,12 +106,104 @@ def test_create_project_maps_vocabulary_to_language():
     assert create_mock.await_args.kwargs["kind"] == "language"
 
 
+def test_create_language_project_rejects_duplicate():
+    user = _fake_user()
+    app = _app_with_user(user)
+    existing = _project(kind="language", title="English · Beginner")
+
+    with (
+        patch(
+            "app.routers.projects.projects_repo.find_language_by_target",
+            AsyncMock(return_value=existing),
+        ),
+        patch(
+            "app.routers.projects.projects_repo.create",
+            AsyncMock(),
+        ) as create_mock,
+    ):
+        client = TestClient(app)
+        r = client.post(
+            "/projects",
+            headers={"Authorization": "Bearer tok"},
+            json={"title": "English · Elementary", "kind": "language", "level": "level2"},
+        )
+
+    assert r.status_code == 409
+    create_mock.assert_not_awaited()
+
+
+def test_create_programming_project_rejects_duplicate():
+    user = _fake_user()
+    app = _app_with_user(user)
+    existing = _project(kind="programming", title="Python", target_language="python")
+
+    with (
+        patch(
+            "app.routers.projects.projects_repo.find_programming_by_target",
+            AsyncMock(return_value=existing),
+        ),
+        patch(
+            "app.routers.projects.projects_repo.create",
+            AsyncMock(),
+        ) as create_mock,
+    ):
+        client = TestClient(app)
+        r = client.post(
+            "/projects",
+            headers={"Authorization": "Bearer tok"},
+            json={
+                "title": "Python · Programming",
+                "kind": "programming",
+                "target_language": "python",
+            },
+        )
+
+    assert r.status_code == 409
+    create_mock.assert_not_awaited()
+
+
+def test_create_trivia_project_rejects_duplicate():
+    user = _fake_user()
+    app = _app_with_user(user)
+    existing = _project(kind="trivia", title="General knowledge")
+
+    with (
+        patch(
+            "app.routers.projects.projects_repo.find_trivia_project",
+            AsyncMock(return_value=existing),
+        ),
+        patch(
+            "app.routers.projects.projects_repo.create",
+            AsyncMock(),
+        ) as create_mock,
+    ):
+        client = TestClient(app)
+        r = client.post(
+            "/projects",
+            headers={"Authorization": "Bearer tok"},
+            json={
+                "title": "General knowledge",
+                "kind": "trivia",
+                "description": "history,science",
+                "daily_goal": 10,
+            },
+        )
+
+    assert r.status_code == 409
+    assert r.json()["detail"] == "trivia_project_exists"
+    create_mock.assert_not_awaited()
+
+
 def test_create_programming_project_seeds_curriculum():
     user = _fake_user()
     app = _app_with_user(user)
     project = _project(kind="programming", title="Python")
 
     with (
+        patch(
+            "app.routers.projects.projects_repo.find_programming_by_target",
+            AsyncMock(return_value=None),
+        ),
         patch(
             "app.routers.projects.projects_repo.create",
             AsyncMock(return_value=project),
@@ -368,3 +466,35 @@ def test_delete_project_success():
         r = client.delete(f"/projects/{uuid4()}", headers={"Authorization": "Bearer tok"})
 
     assert r.status_code == 204
+
+
+def test_update_project_item_status():
+    user = _fake_user()
+    app = _app_with_user(user)
+    project = _project(user_id=user.id)
+    item = _item(project.id, status="new")
+
+    with (
+        patch(
+            "app.routers.projects.projects_repo.get_by_id",
+            AsyncMock(return_value=project),
+        ),
+        patch(
+            "app.routers.projects.project_items_repo.get_by_id",
+            AsyncMock(return_value=item),
+        ),
+        patch(
+            "app.routers.projects.project_items_repo.update",
+            AsyncMock(return_value=item),
+        ) as update_mock,
+    ):
+        client = TestClient(app)
+        r = client.patch(
+            f"/projects/{project.id}/items/{item.id}",
+            headers={"Authorization": "Bearer tok"},
+            json={"status": "mastered"},
+        )
+
+    assert r.status_code == 200
+    update_mock.assert_awaited_once()
+    assert update_mock.await_args.kwargs["status"] == "mastered"

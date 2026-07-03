@@ -16,6 +16,7 @@ def _project(title: str, kind: str = "language"):
     p.kind = kind
     p.description = "Learn daily"
     p.level = "level1"
+    p.target_language = "en"
     return p
 
 
@@ -55,6 +56,44 @@ def test_format_projects_block_groups_lists():
     assert "#### Nouns" in block
     assert "○ hello" in block
     assert "✓ goodbye" in block
+
+
+@pytest.mark.asyncio
+async def test_apply_project_actions_skips_duplicate_language_project():
+    session = AsyncMock()
+    user_id = uuid4()
+    existing = _project("English")
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[existing]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            projects_service.projects_repo,
+            "create",
+            AsyncMock(),
+        ) as create_mock,
+    ):
+        applied = await projects_service.apply_project_actions(
+            session,
+            user_id=user_id,
+            actions=[
+                ProjectActionItem(
+                    action="create_project",
+                    project_title="English · Elementary",
+                    kind="language",
+                    description="More words",
+                ),
+            ],
+        )
+    assert applied == 0
+    create_mock.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -378,8 +417,8 @@ def test_group_by_part_of_speech_orders_known_pos_first():
 
 def test_group_programming_items_sorts_by_curriculum():
     project_id = uuid4()
-    variables = _item("x", project_id, list_title="Variables")
-    functions = _item("def foo", project_id, list_title="Functions")
+    variables = _item("What a variable is", project_id, list_title="Variables")
+    functions = _item("Defining a function", project_id, list_title="Functions")
     groups = projects_service.group_programming_items([functions, variables])
     assert groups[0].list_title == "Variables"
     assert groups[1].list_title == "Functions"
@@ -388,11 +427,11 @@ def test_group_programming_items_sorts_by_curriculum():
 def test_format_projects_block_programming_stack():
     project = _project("Python basics", kind="programming")
     project.target_language = "python"
-    item = _item("variable", project.id, list_title="Variables")
+    item = _item("What programming is and what code does", project.id, list_title="Getting started")
     block = projects_service.format_projects_block([project], [item])
     assert "stack=python" in block
     assert "Programming language: python" in block
-    assert "#### Variables" in block
+    assert "#### Getting started" in block
 
 
 def test_format_projects_block_empty_items():
@@ -660,7 +699,7 @@ async def test_load_project_for_prompt_programming_hint():
     project_id = uuid4()
     project = _project("Python", kind="programming")
     project.id = project_id
-    item = _item("variable", project_id, list_title="Variables")
+    item = _item("What a variable is", project_id, list_title="Variables")
 
     with (
         patch.object(
@@ -679,4 +718,4 @@ async def test_load_project_for_prompt_programming_hint():
         )
 
     assert "programming" in block.lower()
-    assert "Variables" in block
+    assert "What a variable is" in block

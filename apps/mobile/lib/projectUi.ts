@@ -4,6 +4,10 @@ export function isConceptProject(kind: ProjectKind): boolean {
   return kind === "math" || kind === "general" || kind === "learning";
 }
 
+export function isTriviaProject(kind: ProjectKind): boolean {
+  return kind === "trivia";
+}
+
 export type ProjectStatLabels = {
   learned: string;
   new: string;
@@ -29,6 +33,14 @@ export function projectStatsLabels(
       new: t("projects.stats.topics_new"),
       thisWeek: t("projects.stats.this_week"),
       due: t("projects.stats.topics_due"),
+    };
+  }
+  if (kind === "trivia") {
+    return {
+      learned: t("projects.stats.correct_total"),
+      new: t("projects.stats.facts_new"),
+      thisWeek: t("projects.stats.this_week"),
+      due: t("projects.stats.facts_due"),
     };
   }
   if (kind === "math") {

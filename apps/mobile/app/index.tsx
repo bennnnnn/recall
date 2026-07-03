@@ -29,6 +29,10 @@ import { ChatRenameSheet } from "@/components/ChatRenameSheet";
 import { ActionBanner } from "@/components/ActionBanner";
 import { DrawerShell } from "@/components/DrawerShell";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProjects } from "@/contexts/ProjectsContext";
+import { quizVariantForProjectKind, type QuizVariant } from "@/lib/quizVariant";
+import { findLanguageProject } from "@/lib/languageProject";
+import { findTriviaProject } from "@/lib/triviaProject";
 import { useDrawer } from "@/contexts/DrawerContext";
 import { useHome } from "@/contexts/HomeContext";
 import { useChat } from "@/hooks/useChat";
@@ -56,6 +60,7 @@ import { isAmbiguousLocalPlacesQuery, isGeoQuery } from "@/lib/localPlacesQuery"
 
 function ChatScreen() {
   const { token, user, mergeUser } = useAuth();
+  const { projects } = useProjects();
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeS(C), [C]);
@@ -68,6 +73,15 @@ function ChatScreen() {
 
   const [chatId, setChatId] = useState<string | null>(null);
   const [quizLanguage, setQuizLanguage] = useState("en");
+  const [quizVariant, setQuizVariant] = useState<QuizVariant>("vocab");
+  const resolveQuizVariant = useCallback(
+    (projectId: string | null | undefined): QuizVariant => {
+      if (!projectId) return "vocab";
+      const project = projects.find((item) => item.id === projectId);
+      return quizVariantForProjectKind(project?.kind);
+    },
+    [projects],
+  );
   const { isPro, labelFor, autoEnabled, modelEnabledSet, AUTO_MODEL_ID, models } = useModels();
   const { unseenCount, showIndicator } = useReminderBadgeCount({ enabled: Boolean(token) });
   const { refresh: refreshHome } = useHome();
@@ -75,6 +89,17 @@ function ChatScreen() {
   const [chatError, setChatError] = useState<ResolvedChatError | null>(null);
   const draft = useDraftChat({ token, chatId });
   const activeChatId = draft.activeChatId;
+  const resolveQuizProjectId = useCallback((): string | null => {
+    const fromDraft = draft.draftProjectIdRef.current;
+    if (fromDraft) return fromDraft;
+    if (quizVariant === "trivia") {
+      return findTriviaProject(projects)?.id ?? null;
+    }
+    if (quizVariant === "vocab") {
+      return findLanguageProject(projects, "en")?.id ?? null;
+    }
+    return null;
+  }, [projects, quizVariant, draft.draftProjectIdRef]);
 
   const onFirstReplyRef = useRef<() => Promise<void>>(async () => {});
   const setInputRef = useRef<(value: string) => void>(() => {});
@@ -165,6 +190,8 @@ function ChatScreen() {
     streaming: streamActive,
     stopGeneration,
     setQuizLanguage,
+    setQuizVariant,
+    resolveQuizVariant,
     setInputRef,
     listRef: scroll.listRef,
     showActionBanner: (message, icon) => showActionBannerRef.current(message, icon),
@@ -258,6 +285,7 @@ function ChatScreen() {
     t,
     onStreamBusy: handleStreamBusy,
     isOffline,
+    resolveQuizProjectId,
   });
 
   const {
@@ -355,6 +383,7 @@ function ChatScreen() {
     streamingDraft,
     selectedModel,
     quizLanguage,
+    quizVariant,
     highlightedMessageId,
     sendingMessageId: sendingMessageId ?? pendingOutboundId,
     creatingRef,

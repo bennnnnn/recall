@@ -26,6 +26,20 @@ async def test_projects_list_excludes_archived_by_default(fake_session):
 
 
 @pytest.mark.asyncio
+async def test_find_language_by_target(fake_session):
+    from app.repositories.projects import find_language_by_target
+
+    project = MagicMock()
+    fake_session.execute.return_value = MagicMock(
+        scalar_one_or_none=MagicMock(return_value=project)
+    )
+
+    result = await find_language_by_target(fake_session, uuid4(), "EN")
+
+    assert result is project
+
+
+@pytest.mark.asyncio
 async def test_projects_create_normalizes_vocabulary_kind(fake_session):
     from app.repositories.projects import create
 

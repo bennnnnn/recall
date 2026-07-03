@@ -13,6 +13,7 @@ type Options = {
   streamingDraft: StreamingDraft | null;
   selectedModel: string;
   quizLanguage: string;
+  quizVariant: "vocab" | "trivia";
   highlightedMessageId: string | null;
   sendingMessageId: string | null;
   creatingRef: React.MutableRefObject<boolean>;
@@ -20,7 +21,11 @@ type Options = {
   regenerateResponse: (model: string) => void | Promise<void>;
   handleEditMessage: (message: Message) => void;
   handleFeedback: (messageId: string, next: "up" | "down" | null) => void;
-  handleQuizAnswer: (messageId: string, letter: "A" | "B" | "C" | "D") => void;
+  handleQuizAnswer: (
+    messageId: string,
+    letter: "A" | "B" | "C" | "D",
+    meta?: import("@/lib/parseVocabQuiz").QuizAnswerMeta,
+  ) => void;
 };
 
 export function useChatMessageList({
@@ -30,6 +35,7 @@ export function useChatMessageList({
   streamingDraft,
   selectedModel,
   quizLanguage,
+  quizVariant,
   highlightedMessageId,
   sendingMessageId,
   creatingRef,
@@ -68,6 +74,7 @@ export function useChatMessageList({
         lastAssistantId={lastAssistantId}
         selectedModel={selectedModel}
         quizLanguage={quizLanguage}
+        quizVariant={quizVariant}
         quizAnswers={quizAnswers}
         highlightedMessageId={highlightedMessageId}
         sendingMessageId={sendingMessageId}
@@ -86,6 +93,7 @@ export function useChatMessageList({
       lastAssistantId,
       selectedModel,
       quizLanguage,
+      quizVariant,
       quizAnswers,
       highlightedMessageId,
       sendingMessageId,

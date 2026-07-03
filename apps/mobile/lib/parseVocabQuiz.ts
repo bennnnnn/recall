@@ -1,11 +1,18 @@
 export type QuizChoice = { letter: "A" | "B" | "C" | "D"; text: string };
 
+export type QuizAnswerMeta = {
+  topic: string;
+  question: string;
+  isCorrect: boolean | null;
+};
+
 export type ParsedVocabQuiz = {
   word: string;
   partOfSpeech?: string;
   question?: string;
   correct?: QuizChoice["letter"];
   choices: QuizChoice[];
+  quizType?: "vocab" | "trivia";
 };
 
 export function isCompleteVocabQuiz(quiz: ParsedVocabQuiz | null): quiz is ParsedVocabQuiz {
@@ -71,10 +78,21 @@ function parseVocabQuizFence(content: string): ParsedVocabQuiz | null {
       part_of_speech?: string;
       question?: string;
       correct?: string;
+      quiz_type?: string;
+      quizType?: string;
       choices?: Array<{ letter?: string; text?: string }>;
     };
+    const quizTypeRaw = String(data.quiz_type ?? data.quizType ?? "").toLowerCase();
+    const quizType =
+      quizTypeRaw === "trivia" ? "trivia" : quizTypeRaw === "vocab" ? "vocab" : undefined;
     const word = cleanQuizWord(String(data.word ?? ""));
-    if (!word || !Array.isArray(data.choices)) return null;
+    const question = data.question?.trim() || undefined;
+    if (quizType === "trivia") {
+      if (!question && !word) return null;
+    } else if (!word) {
+      return null;
+    }
+    if (!Array.isArray(data.choices)) return null;
     const choices: QuizChoice[] = [];
     for (const item of data.choices) {
       const letter = String(item.letter ?? "").toUpperCase();
@@ -88,11 +106,12 @@ function parseVocabQuizFence(content: string): ParsedVocabQuiz | null {
       ? (correctRaw as QuizChoice["letter"])
       : undefined;
     return {
-      word,
-      partOfSpeech: data.part_of_speech?.trim() || undefined,
-      question: data.question?.trim() || undefined,
+      word: word || question?.slice(0, 40) || "Trivia",
+      partOfSpeech: quizType === "trivia" ? undefined : data.part_of_speech?.trim() || undefined,
+      question,
       correct,
       choices,
+      quizType,
     };
   } catch {
     return null;

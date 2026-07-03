@@ -25,6 +25,59 @@ async def get_by_id(session: AsyncSession, project_id: UUID, user_id: UUID) -> P
     return (await session.execute(stmt)).scalar_one_or_none()
 
 
+async def find_language_by_target(
+    session: AsyncSession,
+    user_id: UUID,
+    target_language: str,
+) -> Project | None:
+    lang = (target_language or "en").strip().lower()
+    stmt = (
+        select(Project)
+        .where(
+            Project.user_id == user_id,
+            Project.archived.is_(False),
+            Project.kind.in_(("language", "vocabulary")),
+            Project.target_language == lang,
+        )
+        .limit(1)
+    )
+    return (await session.execute(stmt)).scalar_one_or_none()
+
+
+async def find_programming_by_target(
+    session: AsyncSession,
+    user_id: UUID,
+    target_language: str,
+) -> Project | None:
+    lang = (target_language or "").strip().lower()
+    if not lang:
+        return None
+    stmt = (
+        select(Project)
+        .where(
+            Project.user_id == user_id,
+            Project.archived.is_(False),
+            Project.kind == "programming",
+            Project.target_language == lang,
+        )
+        .limit(1)
+    )
+    return (await session.execute(stmt)).scalar_one_or_none()
+
+
+async def find_trivia_project(session: AsyncSession, user_id: UUID) -> Project | None:
+    stmt = (
+        select(Project)
+        .where(
+            Project.user_id == user_id,
+            Project.archived.is_(False),
+            Project.kind == "trivia",
+        )
+        .limit(1)
+    )
+    return (await session.execute(stmt)).scalar_one_or_none()
+
+
 async def create(
     session: AsyncSession,
     *,
@@ -35,6 +88,7 @@ async def create(
     target_language: str = "en",
     native_language: str | None = None,
     level: str = "level1",
+    daily_goal: int | None = None,
 ) -> Project:
     normalized_kind = "language" if kind == "vocabulary" else kind
     project = Project(
@@ -42,9 +96,10 @@ async def create(
         title=title,
         description=description,
         kind=normalized_kind,
-        target_language=target_language,
+        target_language=(target_language or "en").strip().lower(),
         native_language=native_language,
         level=level,
+        daily_goal=daily_goal,
     )
     session.add(project)
     await session.commit()

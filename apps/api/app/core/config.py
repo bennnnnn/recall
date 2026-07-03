@@ -11,6 +11,7 @@ class Settings(BaseSettings):
 
     google_client_id: str = ""
     google_client_secret: str = ""
+    apple_client_id: str = "com.recall.app"
 
     jwt_secret: str = "dev-secret-change-me"
     jwt_expire_minutes: int = 60
