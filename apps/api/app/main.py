@@ -13,6 +13,7 @@ from app.core.request_id import RequestIdMiddleware
 from app.core.rest_rate_limit import RestRateLimitMiddleware
 from app.core.sentry import init_sentry
 from app.routers import (
+    admin,
     attachments,
     auth,
     chat_stream,
@@ -75,6 +76,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(legal.router)
     app.include_router(auth.router)
+    app.include_router(admin.router)
     app.include_router(webhooks.router)
     app.include_router(users.router)
     app.include_router(home.router)

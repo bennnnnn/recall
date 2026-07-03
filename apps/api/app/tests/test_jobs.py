@@ -144,16 +144,77 @@ async def test_process_entries_dispatches_and_acks():
 @pytest.mark.asyncio
 async def test_process_entries_failed_job_goes_to_dlq():
     redis = AsyncMock()
+    calls = {"n": 0}
 
     async def handler(_settings, _payload):
+        calls["n"] += 1
         raise RuntimeError("boom")
 
     jobs.register("fail-job", handler)
     entries = [("2-0", {"type": "fail-job", "payload": "{}"})]
-    await jobs._process_entries(redis, Settings(), entries)
+    # Retry backoff would slow the test; collapse sleeps to instant.
+    with patch("app.core.jobs.asyncio.sleep", AsyncMock()):
+        await jobs._process_entries(redis, Settings(), entries)
+    # Handler retried up to _MAX_ATTEMPTS, then went to the DLQ.
+    assert calls["n"] == jobs._MAX_ATTEMPTS
     redis.xadd.assert_awaited_once()
     assert redis.xadd.call_args.args[0] == jobs.JOBS_DLQ_STREAM
     redis.xack.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_process_entries_retries_then_succeeds_without_dlq():
+    redis = AsyncMock()
+    calls = {"n": 0}
+
+    async def handler(_settings, _payload):
+        calls["n"] += 1
+        if calls["n"] < jobs._MAX_ATTEMPTS:
+            raise RuntimeError("transient")
+        # succeeds on the final attempt
+
+    jobs.register("retry-then-ok", handler)
+    entries = [("3-0", {"type": "retry-then-ok", "payload": "{}"})]
+    with patch("app.core.jobs.asyncio.sleep", AsyncMock()):
+        await jobs._process_entries(redis, Settings(), entries)
+    assert calls["n"] == jobs._MAX_ATTEMPTS
+    # No DLQ write when the job eventually succeeds.
+    redis.xadd.assert_not_called()
+    redis.xack.assert_awaited_once()
+
+
+# ── DLQ inspection / replay ───────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_list_and_replay_dlq_roundtrip(fake_redis):
+    # Seed a failed job into the DLQ directly.
+    await fake_redis.xadd(
+        jobs.JOBS_DLQ_STREAM,
+        {
+            "original_id": "9-0",
+            "type": "memory",
+            "payload": json.dumps({"user_id": "u", "chat_id": "c", "transcript": "t"}),
+            "error": "RuntimeError: boom",
+            "failed_at": "2026-07-02T00:00:00+00:00",
+        },
+    )
+
+    listed = await jobs.list_dlq(fake_redis, count=10)
+    assert len(listed) == 1
+    assert listed[0]["type"] == "memory"
+    assert "boom" in listed[0]["error"]
+
+    # Replay moves it back onto the jobs stream and removes it from the DLQ.
+    replayed = await jobs.replay_dlq(fake_redis, count=10, delete=True)
+    assert replayed == 1
+    assert await fake_redis.xlen(jobs.JOBS_STREAM) == 1
+    assert await fake_redis.xlen(jobs.JOBS_DLQ_STREAM) == 0
+
+    # The replayed entry preserves type + payload.
+    main_entries = await fake_redis.xrange(jobs.JOBS_STREAM)
+    assert main_entries[0][1]["type"] == "memory"
+    assert json.loads(main_entries[0][1]["payload"])["transcript"] == "t"
 
 
 @pytest.mark.asyncio

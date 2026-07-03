@@ -668,3 +668,54 @@ def test_revenuecat_webhook_requires_auth_in_production():
     assert r_bad.status_code == 401
     assert r_ok.status_code == 204
     apply_mock.assert_awaited_once()
+
+
+# ── admin DLQ ─────────────────────────────────────────────────────────────────
+
+
+def test_admin_dlq_dev_gated_returns_403_in_production():
+    user = _fake_user()
+    app = _app_with_user(user)  # default Settings has dev_auth_enabled=True, but…
+
+    with patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)):
+        client = TestClient(app)
+        # Settings() defaults dev_auth_enabled=True; force production behavior.
+        from app.core.deps import get_settings_dep
+
+        app.dependency_overrides[get_settings_dep] = lambda: Settings(dev_auth_enabled=False)
+        r = client.get("/admin/dlq", headers={"Authorization": "Bearer tok"})
+    assert r.status_code == 403
+
+
+def test_admin_dlq_list_and_replay_in_dev():
+    user = _fake_user()
+    app = _app_with_user(user)
+    from app.core.deps import get_settings_dep
+
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(dev_auth_enabled=True)
+
+    listed = [
+        {
+            "id": "1-0",
+            "original_id": "0-0",
+            "type": "memory",
+            "payload": "{}",
+            "error": "boom",
+            "failed_at": "2026-07-02T00:00:00+00:00",
+        }
+    ]
+    with (
+        patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
+        patch("app.routers.admin.jobs.list_dlq", AsyncMock(return_value=listed)),
+        patch("app.routers.admin.jobs.replay_dlq", AsyncMock(return_value=1)),
+    ):
+        client = TestClient(app)
+        r_list = client.get("/admin/dlq", headers={"Authorization": "Bearer tok"})
+        assert r_list.status_code == 200
+        body = r_list.json()
+        assert len(body) == 1
+        assert body[0]["type"] == "memory"
+
+        r_replay = client.post("/admin/dlq/replay", headers={"Authorization": "Bearer tok"})
+        assert r_replay.status_code == 200
+        assert r_replay.json()["replayed"] == 1

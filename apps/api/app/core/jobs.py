@@ -44,6 +44,11 @@ _DLQ_MAXLEN = 5_000
 _BLOCK_MS = 5_000
 _BATCH = 10
 _CLAIM_IDLE_MS = 60_000
+# Retry a transient failure a few times before moving to the DLQ. Background
+# jobs are not latency-sensitive, so a short backoff in-process is cheaper and
+# safer than dropping the job on the first provider/DB blip.
+_MAX_ATTEMPTS = 3
+_RETRY_BACKOFF_S = 2.0
 
 JobHandler = Callable[[Settings, dict[str, Any]], Awaitable[None]]
 _HANDLERS: dict[str, JobHandler] = {}
@@ -261,12 +266,29 @@ async def _process_entries(redis: Redis, settings: Settings, entries: list) -> N
     for entry_id, fields in entries:
         cast_fields = cast(dict[str, Any], fields)
         try:
-            await _dispatch(settings, cast_fields)
-        except Exception:
-            logger.exception("Job failed id=%s", entry_id)
-            await _move_to_dlq(redis, entry_id, cast_fields, traceback.format_exc(limit=8))
+            for attempt in range(1, _MAX_ATTEMPTS + 1):
+                try:
+                    await _dispatch(settings, cast_fields)
+                    break
+                except Exception:
+                    if attempt < _MAX_ATTEMPTS:
+                        logger.warning(
+                            "Job failed attempt=%s/%s id=%s; retrying",
+                            attempt,
+                            _MAX_ATTEMPTS,
+                            entry_id,
+                        )
+                        await asyncio.sleep(_RETRY_BACKOFF_S * attempt)
+                    else:
+                        logger.exception(
+                            "Job failed after %s attempts id=%s", _MAX_ATTEMPTS, entry_id
+                        )
+                        await _move_to_dlq(
+                            redis, entry_id, cast_fields, traceback.format_exc(limit=8)
+                        )
         finally:
             # Best-effort jobs: ack regardless so a poison entry can't loop forever.
+            # Retry already happened above; the DLQ preserves the failed payload.
             try:
                 await redis.xack(JOBS_STREAM, JOBS_GROUP, entry_id)
             except Exception:
@@ -343,3 +365,55 @@ async def stop_worker() -> None:
     except asyncio.CancelledError:
         pass
     _worker_task = None
+
+
+# ── DLQ inspection / replay ──────────────────────────────────────────────────
+
+
+async def list_dlq(redis: Redis, *, count: int = 50) -> list[dict[str, Any]]:
+    """Return up to `count` recent DLQ entries for inspection."""
+    resp = await redis.xrevrange(JOBS_DLQ_STREAM, count=count)
+    out: list[dict[str, Any]] = []
+    if not resp:
+        return out
+    for entry in resp:
+        entry_id, fields = entry  # type: ignore[misc]
+        f = cast(dict[str, Any], fields)
+        out.append(
+            {
+                "id": entry_id,
+                "original_id": f.get("original_id", ""),
+                "type": f.get("type", ""),
+                "payload": f.get("payload", "{}"),
+                "error": f.get("error", ""),
+                "failed_at": f.get("failed_at", ""),
+            }
+        )
+    return out
+
+
+async def replay_dlq(redis: Redis, *, count: int = 50, delete: bool = True) -> int:
+    """Re-enqueue up to `count` DLQ entries back onto the jobs stream.
+
+    Returns the number of entries replayed. When ``delete`` is True (default),
+    replayed entries are trimmed from the DLQ so they aren't replayed twice.
+    """
+    entries = await list_dlq(redis, count=count)
+    replayed = 0
+    for entry in entries:
+        job_type = entry.get("type") or ""
+        if not job_type:
+            continue
+        try:
+            await redis.xadd(
+                JOBS_STREAM,
+                {"type": job_type, "payload": entry.get("payload", "{}")},
+                maxlen=_MAXLEN,
+                approximate=True,
+            )
+            if delete:
+                await redis.xdel(JOBS_DLQ_STREAM, entry["id"])
+            replayed += 1
+        except Exception:
+            logger.exception("Failed to replay DLQ entry id=%s", entry.get("id"))
+    return replayed
