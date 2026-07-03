@@ -1,5 +1,6 @@
 packages:
   - "."
 allowBuilds:
+  '@sentry/cli': set this to true or false
   core-js: true
   unrs-resolver: true

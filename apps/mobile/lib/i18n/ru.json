@@ -151,7 +151,6 @@
   "drawer.today": "Сегодня",
   "drawer.view_all_todos": "Списки и напоминания",
   "drawer.yesterday": "Вчера",
-  "legal.view_online": "View online version",
   "lists.add_to_group": "Группа",
   "lists.default_group": "Список",
   "lists.delete_group_body": "Удалить «{{name}}» и все его элементы?",

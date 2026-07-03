@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { Linking, ScrollView, View } from "react-native";
 import Constants from "expo-constants";
-import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -14,7 +13,6 @@ export default function AboutScreen() {
   const theme = useTheme();
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
-  const router = useRouter();
   const appVersion = Constants.expoConfig?.version ?? "1.0.0";
 
   return (
@@ -27,32 +25,14 @@ export default function AboutScreen() {
           <NavRow
             icon="shield-checkmark-outline"
             title={t("privacy.title")}
-            onPress={() => router.push("/privacy")}
-            compact
-            styles={s}
-            theme={theme}
-          />
-          <NavRow
-            icon="globe-outline"
-            title={t("legal.view_online")}
             onPress={() => void Linking.openURL(getLegalPrivacyUrl())}
             compact
             styles={s}
             theme={theme}
           />
-        </View>
-        <View style={s.footerGroup}>
           <NavRow
             icon="document-text-outline"
             title={t("terms.title")}
-            onPress={() => router.push("/terms")}
-            compact
-            styles={s}
-            theme={theme}
-          />
-          <NavRow
-            icon="globe-outline"
-            title={t("legal.view_online")}
             onPress={() => void Linking.openURL(getLegalTermsUrl())}
             compact
             styles={s}

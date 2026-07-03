@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
   Platform,
   Pressable,
   StyleSheet,
@@ -11,13 +12,14 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Redirect, router } from "expo-router";
+import { Redirect } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { config, isGoogleSignInConfigured } from "@/lib/config";
 import { formatGoogleSignInError, isExpoGo } from "@/lib/google-auth";
+import { getLegalPrivacyUrl, getLegalTermsUrl } from "@/lib/legalUrls";
 import { Theme, useTheme } from "@/lib/theme";
 
 const APP_ICON = require("@/assets/images/icon.png");
@@ -190,11 +192,11 @@ export default function LoginScreen() {
           )}
 
           <View style={s.links}>
-            <Pressable onPress={() => router.push("/terms")}>
+            <Pressable onPress={() => void Linking.openURL(getLegalTermsUrl())}>
               <Text style={[s.link, s.linkPressable]}>{t("login.terms")}</Text>
             </Pressable>
             <Text style={s.dot}>·</Text>
-            <Pressable onPress={() => router.push("/privacy")}>
+            <Pressable onPress={() => void Linking.openURL(getLegalPrivacyUrl())}>
               <Text style={[s.link, s.linkPressable]}>{t("login.privacy")}</Text>
             </Pressable>
           </View>
