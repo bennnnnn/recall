@@ -327,6 +327,8 @@ async def stream_and_finalize(
     else:
         if on_status is not None and chat_pkg.model_catalog.is_reasoning_alias(ctx.model):
             await on_status("thinking")
+        elif on_status is not None:
+            await on_status("composing")
         stream_meta: dict[str, str] = {}
         async for token in chat_pkg.litellm_gateway.stream_chat_completion(
             settings=settings,

@@ -104,7 +104,17 @@ async def _augment_web_and_tools(
             user_timezone=user_timezone,
             user_location=user_location,
             prior_user_messages=prior_user_messages,
+            on_status=on_status,
         )
+
+    if (
+        settings.math_tools_enabled
+        and chat_pkg.math_tools_service.needs_symbolic_math(
+            user_content, has_image_attachment=has_image_attachment
+        )
+        and on_status is not None
+    ):
+        await on_status("calculating")
 
     updated = await chat_pkg.math_tools_service.augment_prompt_messages(
         updated,

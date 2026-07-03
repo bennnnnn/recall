@@ -4,7 +4,6 @@ import { streamChatMessageSse, type ChatSsePayload } from "@/lib/chatSse";
 import { clientGeoWsFields, type ClientGeo } from "@/lib/clientGeo";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { isVocabQuizAnswer } from "@/lib/parseVocabQuiz";
-import { parseSearchSources } from "@/lib/searchSources";
 import {
   buildDoneMergeInput,
   mergeDoneIntoMessages,
@@ -155,10 +154,9 @@ export function useChat(
 
       if (payload.type === "token") {
         assistantBuffer.current += payload.content ?? "";
-        const streamedSources = parseSearchSources(assistantBuffer.current);
         updateStreamingDraft({
           content: assistantBuffer.current,
-          search_sources: streamedSources.length ? streamedSources : undefined,
+          search_sources: streamingDraftRef.current?.search_sources,
           status: undefined,
         });
       }

@@ -40,40 +40,56 @@ async def _stream_chat_sse(
 ) -> AsyncIterator[str]:
     redis = get_redis_client()
     result: dict[str, Any] = {}
-    pending_status: list[str] = []
+    event_queue: asyncio.Queue[tuple[str, str] | None] = asyncio.Queue()
     yield _sse({"type": "start"})
 
     async def on_status(phase: str) -> None:
-        pending_status.append(phase)
+        await event_queue.put(("status", phase))
 
     def should_cancel() -> bool:
         return cancel_event.is_set() if cancel_event is not None else False
 
+    async def produce_tokens() -> None:
+        try:
+            stream = chat_service.stream_chat_response(
+                redis,
+                settings,
+                user_id=user_id,
+                chat_id=chat_id,
+                content=body.content,
+                model_alias=body.model,
+                attachment_ids=body.attachment_ids or None,
+                should_cancel=should_cancel,
+                result=result,
+                client_timezone=body.client_timezone,
+                client_location=body.client_location,
+                client_latitude=body.client_latitude,
+                client_longitude=body.client_longitude,
+                on_status=on_status,
+            )
+            async for token_text in stream:
+                if should_cancel():
+                    break
+                await event_queue.put(("token", token_text))
+        finally:
+            await event_queue.put(None)
+
+    producer = asyncio.create_task(produce_tokens())
+
     try:
-        stream = chat_service.stream_chat_response(
-            redis,
-            settings,
-            user_id=user_id,
-            chat_id=chat_id,
-            content=body.content,
-            model_alias=body.model,
-            attachment_ids=body.attachment_ids or None,
-            should_cancel=should_cancel,
-            result=result,
-            client_timezone=body.client_timezone,
-            client_location=body.client_location,
-            client_latitude=body.client_latitude,
-            client_longitude=body.client_longitude,
-            on_status=on_status,
-        )
-        async for token_text in stream:
-            while pending_status:
-                yield _sse({"type": "status", "phase": pending_status.pop(0)})
-            if should_cancel():
+        while True:
+            item = await event_queue.get()
+            if item is None:
                 break
-            yield _sse({"type": "token", "content": token_text})
-        while pending_status:
-            yield _sse({"type": "status", "phase": pending_status.pop(0)})
+            kind, payload = item
+            if kind == "status":
+                yield _sse({"type": "status", "phase": payload})
+            else:
+                yield _sse({"type": "token", "content": payload})
+
+        await producer
+        if (exc := producer.exception()) is not None:
+            raise exc
 
         yield _sse({"type": "stream_end"})
 
@@ -115,6 +131,11 @@ async def _stream_chat_sse(
     except Exception:
         logger.exception("SSE chat stream failed chat_id=%s", chat_id)
         yield _sse({"type": "error", "message": "Something went wrong. Try again."})
+    finally:
+        if not producer.done():
+            producer.cancel()
+            with asyncio.suppress(asyncio.CancelledError):
+                await producer
 
 
 @router.post("/{chat_id}/messages/stream")

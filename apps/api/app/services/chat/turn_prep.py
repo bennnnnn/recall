@@ -165,6 +165,9 @@ async def build_stream_prompt_context(
     )
     local_tz = chat_pkg.time_context_service.effective_timezone(user.timezone, client_timezone)
 
+    if on_status is not None:
+        await on_status("preparing")
+
     prompt_messages = await chat_pkg.build_prompt_messages(
         session,
         user,
@@ -195,6 +198,8 @@ async def build_stream_prompt_context(
         if not await chat_pkg.email_service.is_connected(session, user.id):
             instant_reply = chat_pkg.email_service.format_not_connected_answer()
         else:
+            if on_status is not None:
+                await on_status("checking_inbox")
             gmail_context = await chat_pkg.email_service.load_gmail_context(
                 session, redis, user, settings
             )
@@ -211,6 +216,8 @@ async def build_stream_prompt_context(
         gmail_block: str | None = None
 
         if load_calendar:
+            if on_status is not None:
+                await on_status("loading_calendar")
             calendar_block = await chat_pkg.calendar_service.load_calendar_for_prompt(
                 session, redis, user, settings
             )
@@ -223,6 +230,8 @@ async def build_stream_prompt_context(
                 fetch_error=fetch_error,
             )
         elif load_gmail:
+            if on_status is not None:
+                await on_status("checking_inbox")
             gmail_block = await chat_pkg.email_service.load_gmail_for_prompt(
                 session, redis, user, settings
             )
@@ -321,7 +330,43 @@ async def prepare_chat_turn(
     gateway = None
     has_image_attachment = False
     image_attachments: list[tuple[str, str]] = []
-    attachment_rows: list[Attachment] = []
+
+    if attachment_ids and settings.attachments_enabled:
+        async with SessionLocal() as session:
+            user = await chat_pkg.users_repo.get_by_id(session, user_id)
+            if user is None:
+                raise ChatNotFoundError("User not found.")
+            from app.repositories import attachments as attachments_repo
+
+            attachment_rows: list[Attachment] = []
+            for attachment_id in attachment_ids:
+                row = await attachments_repo.get_by_id(session, attachment_id, user.id)
+                if row is not None:
+                    attachment_rows.append(row)
+
+        if attachment_rows:
+            from app.gateways.storage_gateway import get_storage_gateway
+            from app.services import attachment_content as attachment_content_service
+
+            gateway = get_storage_gateway(settings)
+            attachment_lines: list[str] = []
+            for row in attachment_rows:
+                lines, is_image = await attachment_content_service.format_attachment_lines(
+                    gateway,
+                    attachment_id=str(row.id),
+                    content_type=row.content_type,
+                    storage_key=row.storage_key,
+                    size_bytes=row.size_bytes,
+                )
+                if is_image:
+                    has_image_attachment = True
+                    image_attachments.append((row.content_type, row.storage_key))
+                attachment_lines.extend(lines)
+            if attachment_lines:
+                if user_content.strip():
+                    user_content = f"{user_content}\n\n" + "\n".join(attachment_lines)
+                else:
+                    user_content = "\n".join(attachment_lines)
 
     async with SessionLocal() as session:
         user = await chat_pkg.users_repo.get_by_id(session, user_id)
@@ -335,51 +380,10 @@ async def prepare_chat_turn(
         model = chat_pkg.plan_service.resolve_user_model_override(
             user, model_alias, content, settings
         )
+        if attachment_ids and settings.attachments_enabled and has_image_attachment:
+            model = "vision-chat"
+
         prior_count = await chat_pkg.messages_repo.count_for_chat(session, chat_id)
-
-        if attachment_ids and settings.attachments_enabled:
-            from app.repositories import attachments as attachments_repo
-
-            for attachment_id in attachment_ids:
-                row = await attachments_repo.get_by_id(session, attachment_id, user.id)
-                if row is not None:
-                    attachment_rows.append(row)
-
-    if attachment_rows and settings.attachments_enabled:
-        from app.gateways.storage_gateway import get_storage_gateway
-        from app.services import attachment_content as attachment_content_service
-
-        gateway = get_storage_gateway(settings)
-        attachment_lines: list[str] = []
-        for row in attachment_rows:
-            lines, is_image = await attachment_content_service.format_attachment_lines(
-                gateway,
-                attachment_id=str(row.id),
-                content_type=row.content_type,
-                storage_key=row.storage_key,
-                size_bytes=row.size_bytes,
-            )
-            if is_image:
-                has_image_attachment = True
-                image_attachments.append((row.content_type, row.storage_key))
-            attachment_lines.extend(lines)
-        if attachment_lines:
-            if user_content.strip():
-                user_content = f"{user_content}\n\n" + "\n".join(attachment_lines)
-            else:
-                user_content = "\n".join(attachment_lines)
-
-    if attachment_ids and settings.attachments_enabled and has_image_attachment:
-        model = "vision-chat"
-
-    async with SessionLocal() as session:
-        user = await chat_pkg.users_repo.get_by_id(session, user_id)
-        if user is None:
-            raise ChatNotFoundError("User not found.")
-
-        chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user_id)
-        if chat is None:
-            raise ChatNotFoundError("Chat not found.")
 
         user_message = await chat_pkg.messages_repo.create(
             session,

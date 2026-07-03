@@ -34,6 +34,7 @@ import {
 } from "@/lib/timeQuestion";
 import { SENDING_LABEL_DELAY_MS } from "@/lib/chatMessageLogic";
 import { STREAM_LAYOUT_SETTLE_MS } from "@/lib/messageListLayout";
+import { useRotatingStreamStatus } from "@/lib/streamStatusLabel";
 import { Theme, useTheme } from "@/lib/theme";
 import { useTranslation } from "react-i18next";
 
@@ -199,9 +200,11 @@ export const MessageBubble = React.memo(function MessageBubble({
   const layoutFrozen = isStreaming || holdStreamLayout;
   const content = liveContent ?? message.content;
   const hasContent = content.trim().length > 0;
-  const statusKey = streamStatus ? `chat.status.${streamStatus}` : null;
-  const statusLabel =
-    statusKey && t(statusKey) !== statusKey ? t(statusKey) : null;
+  const statusLabel = useRotatingStreamStatus(
+    streamStatus,
+    isStreaming && !hasContent,
+    t,
+  );
   const showActions = !isUser && hasContent && !layoutFrozen;
   const reserveActionRow = !isUser && hasContent && layoutFrozen;
   const quiz = useMemo(() => {

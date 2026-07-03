@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
 
 from app.core.config import Settings
 from app.gateways.mcp import registry as mcp_registry
@@ -31,6 +32,7 @@ async def augment_prompt_with_mcp_tools(
     user_timezone: str | None = None,
     user_location: str | None = None,
     prior_user_messages: list[str] | None = None,
+    on_status: Callable[[str], Awaitable[None]] | None = None,
 ) -> list[dict[str, str]]:
     """Run registered MCP adapters when heuristics match (single pre-stream round)."""
     if not settings.mcp_tools_enabled:
@@ -48,6 +50,8 @@ async def augment_prompt_with_mcp_tools(
             if verified:
                 blocks.append(verified)
             else:
+                if on_status is not None:
+                    await on_status("calculating")
                 result = await mcp_registry.invoke(
                     "sympy",
                     {

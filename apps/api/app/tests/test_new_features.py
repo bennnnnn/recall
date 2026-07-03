@@ -280,7 +280,13 @@ def test_create_project():
     fake.created_at = now
     fake.updated_at = now
 
-    with patch("app.routers.projects.projects_repo.create", AsyncMock(return_value=fake)):
+    with (
+        patch("app.routers.projects.projects_repo.create", AsyncMock(return_value=fake)),
+        patch(
+            "app.routers.projects.projects_repo.find_language_by_target",
+            AsyncMock(return_value=None),
+        ),
+    ):
         client = TestClient(app)
         r = client.post(
             "/projects",
