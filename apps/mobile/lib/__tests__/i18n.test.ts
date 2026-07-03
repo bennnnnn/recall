@@ -15,7 +15,10 @@ describe("i18n locale files", () => {
   for (const [code, bundle] of Object.entries(LOCALES)) {
     it(`${code}.json has every en.json key`, () => {
       const keys = Object.keys(bundle).sort();
-      expect(keys).toEqual(EN_KEYS);
+      const missing = EN_KEYS.filter((k) => !keys.includes(k));
+      const extra = keys.filter((k) => !EN_KEYS.includes(k));
+      expect(missing).toEqual([]);
+      expect(extra).toEqual([]);
     });
   }
 });

@@ -591,5 +591,11 @@
   "chat.voice_stop_hint": "Tap to stop and transcribe",
   "chat.voice_transcribe_failed": "Could not transcribe your recording.",
   "chat.voice_unavailable_body": "Voice input needs a dev build with microphone support. Rebuild:\n\ncd apps/mobile && pnpm expo run:ios",
-  "chat.voice_unavailable_title": "Voice input unavailable"
+  "chat.voice_unavailable_title": "Voice input unavailable",
+  "chat.voice_listening": "Listening…",
+  "chat.voice_transcribing": "Transcribing…",
+  "chat.voice_transcribe_empty": "We couldn't make out any speech. Try again a little closer to the mic.",
+  "chat.voice_recording_empty": "That recording was too short or empty. Hold the mic a bit longer and try again.",
+  "chat.voice_network_failed": "Couldn't reach the server to transcribe. Check your connection (USB: run adb reverse tcp:8000 tcp:8000).",
+  "login.error_android_google": "Google Sign-In on Android needs an OAuth client in Google Cloud with package com.recall.app and your debug SHA-1. Run: ./scripts/android-debug-sha1.sh"
 }
