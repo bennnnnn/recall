@@ -345,6 +345,25 @@ function apiUrl(path: string) {
   return `${getApiUrl()}${path}`;
 }
 
+const AUTH_FETCH_TIMEOUT_MS = 15_000;
+
+async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), AUTH_FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(
+        "Could not reach the Recall server. Check Wi‑Fi (same network as your Mac) or USB debugging with the API running.",
+      );
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function request<T>(
   path: string,
   token: string,
@@ -397,7 +416,7 @@ async function request<T>(
 }
 
 export async function loginWithGoogle(idToken: string): Promise<AuthResult> {
-  const response = await fetch(apiUrl("/auth/google"), {
+  const response = await fetchWithTimeout(apiUrl("/auth/google"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ id_token: idToken }),
@@ -412,7 +431,7 @@ export async function loginWithApple(
   idToken: string,
   name?: string | null,
 ): Promise<AuthResult> {
-  const response = await fetch(apiUrl("/auth/apple"), {
+  const response = await fetchWithTimeout(apiUrl("/auth/apple"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ id_token: idToken, name: name ?? null }),
@@ -428,7 +447,7 @@ export async function loginWithDev(
   email = "dev@recall.local",
   name = "Dev User",
 ): Promise<AuthResult> {
-  const response = await fetch(apiUrl("/auth/dev"), {
+  const response = await fetchWithTimeout(apiUrl("/auth/dev"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, name }),
