@@ -1,4 +1,4 @@
-"""Tests for new features: todos, search, templates, suggestions, seed."""
+"""Tests for new features: todos, search, suggestions, seed."""
 
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
