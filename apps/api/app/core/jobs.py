@@ -142,14 +142,12 @@ async def _handle_todos(settings: Settings, payload: dict[str, Any]) -> None:
 
 
 async def _handle_projects(settings: Settings, payload: dict[str, Any]) -> None:
-    async with SessionLocal() as session:
-        await project_sync.sync_projects_from_chat(
-            session,
-            settings,
-            user_id=UUID(payload["user_id"]),
-            chat_id=UUID(payload["chat_id"]),
-            transcript=payload["transcript"],
-        )
+    await project_sync.sync_projects_from_chat(
+        settings,
+        user_id=UUID(payload["user_id"]),
+        chat_id=UUID(payload["chat_id"]),
+        transcript=payload["transcript"],
+    )
 
 
 async def _handle_compress(settings: Settings, payload: dict[str, Any]) -> None:
