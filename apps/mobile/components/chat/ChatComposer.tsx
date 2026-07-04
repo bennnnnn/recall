@@ -5,7 +5,9 @@ import {
   Text,
   TextInput,
   View,
+  type ViewStyle,
 } from "react-native";
+import Animated, { type AnimatedStyle } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
@@ -30,8 +32,9 @@ type ModelOption = { id: string; label: string };
 
 type Props = {
   visible: boolean;
-  bottom: number;
-  paddingBottom: number;
+  bottom?: number;
+  paddingBottom?: number;
+  animatedContainerStyle?: AnimatedStyle<ViewStyle>;
   token: string | null;
   input: string;
   onChangeInput: (text: string) => void;
@@ -64,6 +67,7 @@ export const ChatComposer = memo(function ChatComposer({
   visible,
   bottom,
   paddingBottom,
+  animatedContainerStyle,
   token,
   input,
   onChangeInput,
@@ -97,8 +101,12 @@ export const ChatComposer = memo(function ChatComposer({
 
   if (!visible) return null;
 
+  const containerStyle = animatedContainerStyle
+    ? [s.composerBlock, animatedContainerStyle]
+    : [s.composerBlock, { bottom, paddingBottom }];
+
   return (
-    <View style={[s.composerBlock, { bottom, paddingBottom }]}>
+    <Animated.View style={containerStyle}>
       {showModelPicker ? (
         <View style={s.picker}>
           {modelOptions.map((opt) => {
@@ -223,7 +231,7 @@ export const ChatComposer = memo(function ChatComposer({
           </View>
         </View>
       </View>
-    </View>
+    </Animated.View>
   );
 });
 
