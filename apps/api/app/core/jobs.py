@@ -133,14 +133,12 @@ async def _handle_memory_consolidate(settings: Settings, payload: dict[str, Any]
 
 
 async def _handle_todos(settings: Settings, payload: dict[str, Any]) -> None:
-    async with SessionLocal() as session:
-        await todo_sync.sync_todos_from_chat(
-            session,
-            settings,
-            user_id=UUID(payload["user_id"]),
-            chat_id=UUID(payload["chat_id"]),
-            transcript=payload["transcript"],
-        )
+    await todo_sync.sync_todos_from_chat(
+        settings,
+        user_id=UUID(payload["user_id"]),
+        chat_id=UUID(payload["chat_id"]),
+        transcript=payload["transcript"],
+    )
 
 
 async def _handle_projects(settings: Settings, payload: dict[str, Any]) -> None:

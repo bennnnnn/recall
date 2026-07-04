@@ -9,6 +9,21 @@ from app.models.schemas import TodoActionItem
 from app.services import todos as todos_service
 
 
+class _FakeSessionCM:
+    def __init__(self, session: AsyncMock):
+        self._session = session
+
+    async def __aenter__(self) -> AsyncMock:
+        return self._session
+
+    async def __aexit__(self, *args: object) -> None:
+        return None
+
+
+def _session_local_side_effect(session: AsyncMock):
+    return [_FakeSessionCM(session), _FakeSessionCM(session)]
+
+
 def _item(content: str, topic: str = "Groceries", checked: bool = False):
     item = MagicMock()
     item.id = uuid4()
@@ -83,6 +98,10 @@ async def test_sync_todos_bulk_shift_after_partial_llm_apply():
     ]
 
     with (
+        patch(
+            "app.core.db.SessionLocal",
+            side_effect=_session_local_side_effect(session),
+        ),
         patch.object(
             todos_service.users_repo,
             "get_by_id",
@@ -109,13 +128,62 @@ async def test_sync_todos_bulk_shift_after_partial_llm_apply():
         ) as bulk_mock,
     ):
         await todos_service.sync_todos_from_transcript(
-            session,
             Settings(),
             user_id=user_id,
             chat_id=uuid4(),
             transcript="User: move all reminders due today to tomorrow\nAssistant: Done.",
         )
     bulk_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_sync_todos_from_transcript_releases_db_before_llm():
+    session = AsyncMock()
+    session.commit = AsyncMock()
+    db_open_during_extract: list[bool] = []
+
+    class _TrackingSessionCM(_FakeSessionCM):
+        def __init__(self) -> None:
+            super().__init__(session)
+            self.open = False
+
+        async def __aenter__(self) -> AsyncMock:
+            self.open = True
+            return await super().__aenter__()
+
+        async def __aexit__(self, *args: object) -> None:
+            self.open = False
+            await super().__aexit__(*args)
+
+    load_cm = _TrackingSessionCM()
+    apply_cm = _TrackingSessionCM()
+
+    async def fake_extract(*_args: object, **_kwargs: object) -> None:
+        db_open_during_extract.append(load_cm.open or apply_cm.open)
+        return None
+
+    with (
+        patch("app.core.db.SessionLocal", side_effect=[load_cm, apply_cm]),
+        patch.object(
+            todos_service.users_repo,
+            "get_by_id",
+            AsyncMock(return_value=MagicMock(timezone="UTC")),
+        ),
+        patch.object(todos_service.todos_repo, "list_for_user", AsyncMock(return_value=[])),
+        patch(
+            "app.gateways.litellm_gateway.extract_todo_actions",
+            AsyncMock(side_effect=fake_extract),
+        ),
+    ):
+        await todos_service.sync_todos_from_transcript(
+            Settings(),
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            transcript="User: add milk\nAssistant: ok",
+        )
+
+    assert db_open_during_extract == [False]
+    assert session.commit.await_count == 2
 
 
 @pytest.mark.asyncio
@@ -142,6 +210,10 @@ async def test_sync_todos_refuses_delete_list_from_transcript_and_caps_actions()
         return len(captured["actions"])
 
     with (
+        patch(
+            "app.core.db.SessionLocal",
+            side_effect=_session_local_side_effect(session),
+        ),
         patch.object(todos_service.users_repo, "get_by_id", AsyncMock(return_value=user)),
         patch.object(todos_service.todos_repo, "list_for_user", AsyncMock(return_value=[])),
         patch(
@@ -156,7 +228,6 @@ async def test_sync_todos_refuses_delete_list_from_transcript_and_caps_actions()
         ),
     ):
         await todos_service.sync_todos_from_transcript(
-            session,
             Settings(),
             user_id=user_id,
             chat_id=uuid4(),
