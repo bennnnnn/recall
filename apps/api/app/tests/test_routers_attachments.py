@@ -212,3 +212,33 @@ def test_download_url_local_backend():
 
     assert r.status_code == 200
     assert r.json()["download_url"] == f"/attachments/{attachment_id}/file"
+
+
+def test_upload_accepts_docx_bytes_matching_claimed_type():
+    user = _fake_user()
+    app = _app_with_user(user)
+    attachment_id = uuid4()
+    row = MagicMock()
+    row.id = attachment_id
+    row.content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    row.storage_key = f"{user.id}/{attachment_id}"
+    gateway = MagicMock(spec=LocalStorageGateway)
+    gateway.write_bytes = AsyncMock()
+    docx_bytes = b"PK\x03\x04" + b"\x00" * 32
+
+    with (
+        patch(
+            "app.routers.attachments.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
+    ):
+        client = TestClient(app)
+        r = client.put(
+            f"/attachments/{attachment_id}/upload",
+            headers={"Authorization": "Bearer tok"},
+            content=docx_bytes,
+        )
+
+    assert r.status_code == 204
+    gateway.write_bytes.assert_awaited_once()
