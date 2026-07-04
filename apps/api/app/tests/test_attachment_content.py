@@ -33,6 +33,22 @@ def test_extract_text_from_plain_text():
     assert text == "Hello, Recall."
 
 
+def test_bytes_match_claimed_accepts_word_documents():
+    from app.services.attachment_content import bytes_match_claimed
+
+    docx_bytes = b"PK\x03\x04" + b"\x00" * 32
+    doc_bytes = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 32
+    assert (
+        bytes_match_claimed(
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            docx_bytes,
+        )
+        is True
+    )
+    assert bytes_match_claimed("application/msword", doc_bytes) is True
+    assert bytes_match_claimed("application/msword", docx_bytes) is False
+
+
 def test_bytes_match_claimed_rejects_spoofed_image():
     from app.services.attachment_content import bytes_match_claimed
 

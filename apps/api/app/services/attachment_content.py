@@ -69,6 +69,10 @@ def _sniff_signature(data: bytes) -> str | None:
         return "image/gif"
     if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
         return "image/webp"
+    if len(data) >= 4 and data[:4] == b"PK\x03\x04":
+        return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    if len(data) >= 8 and data[:8] == b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1":
+        return "application/msword"
     return None
 
 
