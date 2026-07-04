@@ -225,5 +225,9 @@ export async function uploadChatAttachment(
     throw new Error("Upload failed.");
   }
 
+  if (!presign.api_upload) {
+    await api.confirmAttachment(token, presign.attachment_id);
+  }
+
   return presign.attachment_id;
 }

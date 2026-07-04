@@ -102,6 +102,97 @@ def test_presign_upload_returns_503_when_storage_unconfigured():
     assert r.status_code == 503
 
 
+def test_confirm_upload_rejects_spoofed_r2_bytes():
+    user = _fake_user()
+    app = _app_with_user(user)
+    attachment_id = uuid4()
+    row = MagicMock()
+    row.id = attachment_id
+    row.content_type = "image/png"
+    row.storage_key = "user/key"
+    row.size_bytes = 128
+
+    gateway = MagicMock()
+    gateway.read_bytes = AsyncMock(return_value=b"not-a-png")
+    gateway.delete_bytes = AsyncMock()
+
+    with (
+        patch(
+            "app.routers.attachments.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
+        patch(
+            "app.routers.attachments.attachments_repo.delete_rows",
+            AsyncMock(return_value=1),
+        ) as delete_rows,
+    ):
+        client = TestClient(app)
+        r = client.post(
+            f"/attachments/{attachment_id}/confirm",
+            headers={"Authorization": "Bearer tok"},
+        )
+
+    assert r.status_code == 400
+    gateway.delete_bytes.assert_awaited_once_with("user/key")
+    delete_rows.assert_awaited_once()
+
+
+def test_confirm_upload_accepts_valid_r2_bytes():
+    user = _fake_user()
+    app = _app_with_user(user)
+    attachment_id = uuid4()
+    row = MagicMock()
+    row.id = attachment_id
+    row.content_type = "image/png"
+    row.storage_key = "user/key"
+    row.size_bytes = 128
+    png_bytes = b"\x89PNG\r\n\x1a\n" + b"x" * 10
+
+    gateway = MagicMock()
+    gateway.read_bytes = AsyncMock(return_value=png_bytes)
+
+    with (
+        patch(
+            "app.routers.attachments.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
+    ):
+        client = TestClient(app)
+        r = client.post(
+            f"/attachments/{attachment_id}/confirm",
+            headers={"Authorization": "Bearer tok"},
+        )
+
+    assert r.status_code == 204
+
+
+def test_confirm_upload_noop_for_local_backend():
+    user = _fake_user()
+    app = _app_with_user(user)
+    attachment_id = uuid4()
+    row = MagicMock()
+    row.id = attachment_id
+
+    gateway = MagicMock(spec=LocalStorageGateway)
+
+    with (
+        patch(
+            "app.routers.attachments.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
+    ):
+        client = TestClient(app)
+        r = client.post(
+            f"/attachments/{attachment_id}/confirm",
+            headers={"Authorization": "Bearer tok"},
+        )
+
+    assert r.status_code == 204
+
+
 def test_presign_upload_rejects_image_over_daily_limit():
     user = _fake_user()
     app = _app_with_user(user)

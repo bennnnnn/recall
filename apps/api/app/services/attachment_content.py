@@ -7,6 +7,9 @@ import io
 import logging
 import re
 from typing import Any
+from uuid import UUID
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.gateways.storage_gateway import StorageGateway
 
@@ -132,6 +135,37 @@ def extract_text_from_bytes(content_type: str, data: bytes) -> str | None:
 
 async def read_attachment_bytes(gateway: StorageGateway, storage_key: str) -> bytes | None:
     return await gateway.read_bytes(storage_key)
+
+
+async def verify_uploaded_bytes(
+    gateway: StorageGateway,
+    *,
+    content_type: str,
+    storage_key: str,
+    max_size: int = MAX_ATTACHMENT_SIZE,
+) -> tuple[bytes | None, str | None]:
+    """Return uploaded bytes when they match the declared type, else an error detail."""
+    data = await read_attachment_bytes(gateway, storage_key)
+    if not data:
+        return None, "Upload not found"
+    if len(data) > max_size:
+        return None, "Invalid upload size"
+    if not bytes_match_claimed(content_type, data):
+        return None, "Uploaded bytes do not match the declared content type"
+    return data, None
+
+
+async def purge_invalid_upload(
+    gateway: StorageGateway,
+    session: AsyncSession,
+    *,
+    attachment_id: UUID,
+    storage_key: str,
+) -> None:
+    from app.repositories import attachments as attachments_repo
+
+    await gateway.delete_bytes(storage_key)
+    await attachments_repo.delete_rows(session, [attachment_id])
 
 
 async def format_attachment_lines(

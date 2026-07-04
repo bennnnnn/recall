@@ -49,6 +49,15 @@ def test_bytes_match_claimed_accepts_word_documents():
     assert bytes_match_claimed("application/msword", docx_bytes) is False
 
 
+def test_bytes_match_claimed_rejects_spoofed_image():
+    from app.services.attachment_content import bytes_match_claimed
+
+    png_header = b"\x89PNG\r\n\x1a\n" + b"fake"
+    assert bytes_match_claimed("image/png", png_header) is True
+    assert bytes_match_claimed("image/png", b"#!/bin/bash\n") is False
+    assert bytes_match_claimed("text/plain", b"hello") is True
+
+
 def test_extract_text_from_pdf_bytes():
     # Minimal PDF with a single empty page — extraction may return None; should not raise.
     minimal_pdf = (

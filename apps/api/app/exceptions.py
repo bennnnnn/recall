@@ -10,3 +10,7 @@ class QuotaExceededError(ChatServiceError):
 
 class ChatNotFoundError(ChatServiceError):
     pass
+
+
+class AttachmentValidationError(ChatServiceError):
+    pass

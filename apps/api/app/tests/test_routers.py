@@ -713,6 +713,40 @@ def test_revenuecat_webhook_requires_auth_in_production():
     apply_mock.assert_awaited_once()
 
 
+def test_revenuecat_webhook_transfer_downgrades_old_and_syncs_new():
+    import fakeredis.aioredis
+
+    from app.core.deps import get_redis, get_settings_dep
+
+    old_uid = uuid4()
+    new_uid = uuid4()
+    app = create_app()
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(environment="development")
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    app.dependency_overrides[get_redis] = lambda: fake_redis
+
+    payload = {
+        "event": {
+            "type": "TRANSFER",
+            "app_user_id": str(new_uid),
+            "transferred_from": [str(old_uid)],
+        }
+    }
+
+    with patch(
+        "app.routers.webhooks.subscription_service.handle_revenuecat_transfer",
+        AsyncMock(),
+    ) as transfer_mock:
+        client = TestClient(app)
+        r = client.post("/webhooks/revenuecat", json=payload)
+
+    assert r.status_code == 204
+    transfer_mock.assert_awaited_once()
+    kwargs = transfer_mock.await_args.kwargs
+    assert kwargs["new_app_user_id"] == str(new_uid)
+    assert kwargs["transferred_from"] == [str(old_uid)]
+
+
 # ── admin DLQ ─────────────────────────────────────────────────────────────────
 
 
@@ -735,7 +769,10 @@ def test_admin_dlq_list_and_replay_in_dev():
     app = _app_with_user(user)
     from app.core.deps import get_settings_dep
 
-    app.dependency_overrides[get_settings_dep] = lambda: Settings(dev_auth_enabled=True)
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
+        dev_auth_enabled=True,
+        admin_user_ids=str(user.id),
+    )
 
     listed = [
         {
@@ -762,6 +799,39 @@ def test_admin_dlq_list_and_replay_in_dev():
         r_replay = client.post("/admin/dlq/replay", headers={"Authorization": "Bearer tok"})
         assert r_replay.status_code == 200
         assert r_replay.json()["replayed"] == 1
+
+
+def test_admin_dlq_denies_non_allowlisted_user_in_dev():
+    user = _fake_user()
+    app = _app_with_user(user)
+    from app.core.deps import get_settings_dep
+
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
+        dev_auth_enabled=True,
+        admin_user_ids=str(uuid4()),
+    )
+
+    with patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)):
+        client = TestClient(app)
+        r = client.get("/admin/dlq", headers={"Authorization": "Bearer tok"})
+    assert r.status_code == 403
+
+
+def test_admin_dlq_denies_when_admin_allowlist_empty():
+    user = _fake_user()
+    app = _app_with_user(user)
+    from app.core.deps import get_settings_dep
+
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
+        dev_auth_enabled=True,
+        admin_user_ids="",
+    )
+
+    with patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)):
+        client = TestClient(app)
+        r = client.get("/admin/dlq", headers={"Authorization": "Bearer tok"})
+    assert r.status_code == 403
+    assert "ADMIN_USER_IDS" in r.json()["detail"]
 
 
 # ── speech ─────────────────────────────────────────────────────────────────────

@@ -136,6 +136,8 @@ class Settings(BaseSettings):
     cors_origins: str = ""
     # Only trust X-Forwarded-For when deployed behind a known reverse proxy (Fly, etc.).
     trust_x_forwarded_for: bool = False
+    # Peer CIDRs allowed to append X-Forwarded-For (private/LB ranges by default).
+    trusted_proxy_cidrs: str = "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1/32"
     # Comma-separated user UUIDs allowed to access /admin/* when dev_auth is on.
     admin_user_ids: str = ""
     # Minimum cosine similarity for semantic memory injection (0 = disabled).

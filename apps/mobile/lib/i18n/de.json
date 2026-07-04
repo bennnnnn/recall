@@ -643,6 +643,7 @@
   "todos.empty_title": "Noch keine Aufgaben",
   "todos.error": "Fehler",
   "todos.error_create": "Aufgabe konnte nicht erstellt werden",
+  "todos.error_delete": "Löschen fehlgeschlagen",
   "todos.error_due": "Datum konnte nicht aktualisiert werden",
   "todos.error_toggle": "Aktualisierung fehlgeschlagen",
   "todos.move_to_todos": "Datum entfernen (in Liste verschieben)",
