@@ -1009,6 +1009,90 @@ async def test_stream_sets_final_content_on_cancel(stream_offline_io):
 
 
 @pytest.mark.asyncio
+async def test_stream_closes_llm_stream_on_cancel(stream_offline_io):
+    """Stop generation must aclose the provider stream so upstream tokens stop accruing."""
+    from app.services import chat as chat_module
+
+    fake_user = MagicMock()
+    fake_user.id = MagicMock()
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+    fake_chat.summary = None
+
+    class TrackedStream:
+        def __init__(self) -> None:
+            self.aclose_called = False
+
+        def __call__(self, **_kwargs):
+            return self
+
+        def __aiter__(self):
+            self._remaining = ["one ", "two ", "three "]
+            return self
+
+        async def __anext__(self):
+            if not self._remaining:
+                raise StopAsyncIteration
+            return self._remaining.pop(0)
+
+        async def aclose(self) -> None:
+            self.aclose_called = True
+
+    tracked = TrackedStream()
+    cancel_after = {"n": 0}
+
+    def should_cancel():
+        cancel_after["n"] += 1
+        return cancel_after["n"] > 1
+
+    with (
+        patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.services.chat.messages_repo.count_for_chat", AsyncMock(return_value=3)),
+        patch("app.services.chat.messages_repo.create", AsyncMock()),
+        patch(
+            "app.services.chat.build_prompt_messages",
+            AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
+        ),
+        patch("app.services.chat.calendar_service.is_connected", AsyncMock(return_value=False)),
+        patch(
+            "app.services.chat.calendar_service.load_calendar_for_prompt",
+            AsyncMock(return_value=None),
+        ),
+        patch("app.services.chat.email_service.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.chat.email_service.load_gmail_context", AsyncMock(return_value=None)),
+        patch(
+            "app.services.chat.email_service.load_gmail_for_prompt", AsyncMock(return_value=None)
+        ),
+        patch("app.services.chat.messages_repo.recent_user_contents", AsyncMock(return_value=[])),
+        patch(
+            "app.services.chat.web_search_service.augment_prompt_messages",
+            AsyncMock(side_effect=lambda msgs, *_a, **_k: (msgs, [])),
+        ),
+        patch("app.services.chat.litellm_gateway.stream_chat_completion", tracked),
+        patch("app.services.chat.quota_service.adjust_usage", AsyncMock()),
+        patch("app.services.chat.usage_repo.add_tokens", AsyncMock()),
+        patch("app.services.chat.chats_repo.touch_by_id", AsyncMock()),
+        patch("app.services.chat.jobs.enqueue", AsyncMock()),
+    ):
+        async for _ in chat_module.stream_chat_response(
+            AsyncMock(),
+            Settings(max_output_tokens=100),
+            user_id=fake_user.id,
+            chat_id=MagicMock(),
+            content="question",
+            should_cancel=should_cancel,
+        ):
+            pass
+
+    assert tracked.aclose_called is True
+
+
+@pytest.mark.asyncio
 async def test_stream_places_query_without_location_prompts_to_enable(stream_offline_io):
     """A 'near me' places query with no user.location should yield a deterministic
     'enable location' instant reply and skip web search (no guessing)."""

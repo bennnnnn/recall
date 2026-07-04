@@ -340,7 +340,7 @@ async def stream_and_finalize(
         elif on_status is not None:
             await on_status("composing")
         stream_meta: dict[str, str] = {}
-        async for token in chat_pkg.litellm_gateway.stream_chat_completion(
+        llm_stream = chat_pkg.litellm_gateway.stream_chat_completion(
             settings=settings,
             model_alias=ctx.model,
             messages=ctx.prompt_messages,
@@ -349,12 +349,18 @@ async def stream_and_finalize(
             fallback_aliases=ctx.fallback_models,
             stream_meta=stream_meta,
             on_reasoning=on_reasoning,
-        ):
-            if should_cancel and should_cancel():
-                was_cancelled = True
-                break
-            assistant_parts.append(token)
-            yield token
+        )
+        try:
+            async for token in llm_stream:
+                if should_cancel and should_cancel():
+                    was_cancelled = True
+                    break
+                assistant_parts.append(token)
+                yield token
+        finally:
+            close = getattr(llm_stream, "aclose", None)
+            if close is not None:
+                await close()
         resolved = stream_meta.get("model_alias")
         if resolved:
             ctx.model = resolved
