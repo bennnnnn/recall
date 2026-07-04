@@ -40,3 +40,33 @@ async def test_purge_attachments_for_messages_deletes_bytes_and_rows():
 
     assert deleted == 1
     gateway.delete_bytes.assert_awaited_once_with("user/file")
+
+
+@pytest.mark.asyncio
+async def test_reap_orphan_attachments_skips_rows_linked_after_list():
+    settings = Settings()
+    orphan_id = uuid4()
+    orphan = MagicMock()
+    orphan.id = orphan_id
+    gateway = MagicMock()
+    gateway.delete_bytes = AsyncMock()
+
+    with (
+        patch(
+            "app.services.attachment_lifecycle.attachments_repo.list_orphans",
+            AsyncMock(return_value=[orphan]),
+        ),
+        patch(
+            "app.services.attachment_lifecycle.attachments_repo.delete_unlinked_returning",
+            AsyncMock(return_value=[]),
+        ) as delete_unlinked,
+        patch(
+            "app.services.attachment_lifecycle.get_storage_gateway",
+            return_value=gateway,
+        ),
+    ):
+        deleted = await attachment_lifecycle.reap_orphan_attachments(settings)
+
+    assert deleted == 0
+    delete_unlinked.assert_awaited_once()
+    gateway.delete_bytes.assert_not_awaited()
