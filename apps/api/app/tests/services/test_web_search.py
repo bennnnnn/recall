@@ -478,6 +478,40 @@ async def test_search_with_cache_reuses_redis(fake_redis):
     assert second == first
 
 
+@pytest.mark.asyncio
+async def test_search_with_cache_honors_injected_redis():
+    from app.services.web_search.search_cache import _search_with_cache
+
+    injected = AsyncMock()
+    injected.get = AsyncMock(return_value=None)
+    injected.set = AsyncMock(return_value=True)
+    injected.delete = AsyncMock(return_value=1)
+
+    settings = Settings(web_search_cache_ttl=300, mock_llm_enabled=True)
+    hit = WebSearchHit(title="Hit", url="https://example.com", snippet="snippet")
+    with (
+        patch(
+            "app.services.web_search.search_cache.get_redis_client",
+            side_effect=AssertionError("should use injected redis"),
+        ),
+        patch(
+            "app.services.web_search.search_cache.web_search_gateway.search_web",
+            AsyncMock(return_value=[hit]),
+        ),
+    ):
+        results = await _search_with_cache(
+            settings,
+            "injected query",
+            max_results=3,
+            redis=injected,
+        )
+
+    assert results == [hit]
+    injected.get.assert_awaited()
+    injected.set.assert_awaited()
+    injected.delete.assert_awaited()
+
+
 def test_search_cache_key_includes_max_results():
     from app.services.web_search.search_cache import _search_cache_key
 
