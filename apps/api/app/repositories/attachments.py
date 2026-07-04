@@ -114,9 +114,7 @@ async def delete_rows(session: AsyncSession, ids: list[UUID]) -> int:
     return result.rowcount or 0
 
 
-async def delete_unlinked_returning(
-    session: AsyncSession, ids: list[UUID]
-) -> list[str]:
+async def delete_unlinked_returning(session: AsyncSession, ids: list[UUID]) -> list[str]:
     """Delete rows still unlinked; return storage keys removed from the DB."""
     if not ids:
         return []

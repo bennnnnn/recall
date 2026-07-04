@@ -22,6 +22,7 @@ from app.services.attachment_content import (
     MAX_ATTACHMENT_SIZE,
     bytes_match_claimed,
     is_allowed_content_type,
+    is_image_content_type,
     normalize_content_type,
     purge_invalid_upload,
     verify_uploaded_bytes,
@@ -47,6 +48,14 @@ async def presign_upload(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid file size")
 
     content_type = normalize_content_type(body.content_type)
+
+    gateway = get_storage_gateway(settings)
+    if isinstance(gateway, UnconfiguredStorageGateway):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Attachment storage is not configured",
+        )
+
     if content_type in IMAGE_CONTENT_TYPES:
         redis = get_redis_client()
         image_limit = quota_service.image_upload_limit_for_user(user, settings)
@@ -56,12 +65,6 @@ async def presign_upload(
                 detail=quota_service.image_limit_exceeded_message(user),
             )
 
-    gateway = get_storage_gateway(settings)
-    if isinstance(gateway, UnconfiguredStorageGateway):
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Attachment storage is not configured",
-        )
     presigned = await gateway.presign_upload(
         user_id=str(user.id),
         content_type=content_type,
@@ -106,6 +109,8 @@ async def upload_attachment_bytes(
     # "image/png" can't be used to store a non-image blob that later gets served
     # back with the wrong Content-Type.
     if not bytes_match_claimed(row.content_type, data):
+        if is_image_content_type(row.content_type):
+            await quota_service.refund_image_upload(get_redis_client(), user.id)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Uploaded bytes do not match the declared content type",
@@ -117,6 +122,30 @@ async def upload_attachment_bytes(
             status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Use presigned upload"
         )
     await gateway.write_bytes(row.storage_key, data)
+
+
+@router.delete("/{attachment_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def cancel_pending_upload(
+    attachment_id: UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings_dep),
+) -> None:
+    """Cancel a pending upload and refund the daily image slot if one was reserved."""
+    row = await attachments_repo.get_by_id(session, attachment_id, user.id)
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+    if row.message_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Attachment is already linked to a message",
+        )
+
+    gateway = get_storage_gateway(settings)
+    await gateway.delete_bytes(row.storage_key)
+    await attachments_repo.delete_rows(session, [attachment_id])
+    if is_image_content_type(row.content_type):
+        await quota_service.refund_image_upload(get_redis_client(), user.id)
 
 
 @router.post("/{attachment_id}/confirm", status_code=status.HTTP_204_NO_CONTENT)
@@ -142,6 +171,8 @@ async def confirm_upload(
         storage_key=row.storage_key,
     )
     if error:
+        if is_image_content_type(row.content_type):
+            await quota_service.refund_image_upload(get_redis_client(), user.id)
         await purge_invalid_upload(
             gateway,
             session,
