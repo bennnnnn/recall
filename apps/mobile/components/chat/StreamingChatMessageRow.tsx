@@ -1,6 +1,7 @@
 import React, { memo } from "react";
 
 import { MessageBubble } from "@/components/MessageBubble";
+import { useStreamingDraft } from "@/contexts/StreamingDraftContext";
 import type { Message } from "@/lib/api";
 import type { QuizChoice } from "@/lib/parseVocabQuiz";
 
@@ -28,7 +29,7 @@ type Props = {
   ) => void;
 };
 
-export const ChatMessageRow = memo(function ChatMessageRow({
+export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
   item,
   index,
   messages,
@@ -47,6 +48,7 @@ export const ChatMessageRow = memo(function ChatMessageRow({
   onFeedback,
   onQuizAnswer,
 }: Props) {
+  const streamingDraft = useStreamingDraft();
   const priorUserText =
     item.role === "assistant" && index > 0 && messages[index - 1]?.role === "user"
       ? messages[index - 1].content
@@ -58,11 +60,11 @@ export const ChatMessageRow = memo(function ChatMessageRow({
     <MessageBubble
       message={item}
       priorUserText={priorUserText}
-      isGenerating={false}
-      liveContent={undefined}
-      liveSearchSources={undefined}
-      liveReasoning={undefined}
-      streamStatus={undefined}
+      isGenerating={streamVisualActive}
+      liveContent={streamingDraft?.content}
+      liveSearchSources={streamingDraft?.search_sources}
+      liveReasoning={streamingDraft?.reasoning}
+      streamStatus={streamingDraft?.status}
       isLastAssistant={isLastAssistant}
       onRegenerate={
         isLastAssistant && !streamVisualActive ? () => onRegenerate(selectedModel) : undefined

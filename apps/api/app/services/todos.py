@@ -301,11 +301,9 @@ async def build_todos_system_section(
 def _fuzzy_match(needle: str, haystack: str) -> bool:
     if needle == haystack:
         return True
-    if len(needle) < 4 or len(haystack) < 4:
+    if len(needle) < 6 or len(haystack) < 6:
         return False
-    if needle in haystack or haystack in needle:
-        return True
-    return SequenceMatcher(None, needle, haystack).ratio() >= 0.85
+    return SequenceMatcher(None, needle, haystack).ratio() >= 0.92
 
 
 def _find_item(items: list[TodoItem], topic: str, content: str) -> TodoItem | None:

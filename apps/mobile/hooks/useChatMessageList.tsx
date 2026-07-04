@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo } from "react";
 
 import { ChatMessageRow } from "@/components/chat/ChatMessageRow";
-import type { StreamingDraft } from "@/hooks/useChat";
+import { StreamingChatMessageRow } from "@/components/chat/StreamingChatMessageRow";
 import { Message } from "@/lib/api";
 import { findLastAssistantId } from "@/lib/chatMessageLogic";
 import { inferQuizAnswersFromMessages } from "@/lib/parseVocabQuiz";
@@ -10,7 +10,6 @@ type Options = {
   messages: Message[];
   streaming: boolean;
   finalizing: boolean;
-  streamingDraft: StreamingDraft | null;
   selectedModel: string;
   quizLanguage: string;
   quizVariant: "vocab" | "trivia";
@@ -32,7 +31,6 @@ export function useChatMessageList({
   messages,
   streaming,
   finalizing,
-  streamingDraft,
   selectedModel,
   quizLanguage,
   quizVariant,
@@ -62,34 +60,28 @@ export function useChatMessageList({
   // Names live in the drawer and ⋮ menu — do not wire displayChatTitle here.
   const headerTitleLabel = null;
 
-  const renderItem = useCallback(
-    ({ item, index }: { item: Message; index: number }) => (
-      <ChatMessageRow
-        item={item}
-        index={index}
-        messages={messages}
-        streaming={streaming}
-        finalizing={finalizing}
-        streamingDraft={streamingDraft}
-        lastAssistantId={lastAssistantId}
-        selectedModel={selectedModel}
-        quizLanguage={quizLanguage}
-        quizVariant={quizVariant}
-        quizAnswers={quizAnswers}
-        highlightedMessageId={highlightedMessageId}
-        sendingMessageId={sendingMessageId}
-        quizDisabled={streaming || finalizing || creatingRef.current}
-        onRegenerate={regenerateResponse}
-        onEdit={handleEditMessage}
-        onFeedback={handleFeedback}
-        onQuizAnswer={handleQuizAnswer}
-      />
-    ),
+  const sharedRowProps = useMemo(
+    () => ({
+      messages,
+      streaming,
+      finalizing,
+      lastAssistantId,
+      selectedModel,
+      quizLanguage,
+      quizVariant,
+      quizAnswers,
+      highlightedMessageId,
+      sendingMessageId,
+      quizDisabled: streaming || finalizing || creatingRef.current,
+      onRegenerate: regenerateResponse,
+      onEdit: handleEditMessage,
+      onFeedback: handleFeedback,
+      onQuizAnswer: handleQuizAnswer,
+    }),
     [
       messages,
       streaming,
       finalizing,
-      streamingDraft,
       lastAssistantId,
       selectedModel,
       quizLanguage,
@@ -103,6 +95,16 @@ export function useChatMessageList({
       handleQuizAnswer,
       creatingRef,
     ],
+  );
+
+  const renderItem = useCallback(
+    ({ item, index }: { item: Message; index: number }) =>
+      item.id === "streaming" ? (
+        <StreamingChatMessageRow item={item} index={index} {...sharedRowProps} />
+      ) : (
+        <ChatMessageRow item={item} index={index} {...sharedRowProps} />
+      ),
+    [sharedRowProps],
   );
 
   return { quizAnswers, lastAssistantId, headerTitleLabel, renderItem };

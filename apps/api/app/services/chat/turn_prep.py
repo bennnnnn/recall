@@ -152,10 +152,59 @@ def vision_reserve_tokens(settings: Settings, image_count: int) -> int:
     return image_count * settings.image_attachment_reserve_tokens
 
 
+async def _load_calendar_prompt_block(
+    user_id: UUID,
+    redis: Redis,
+    settings: Settings,
+    *,
+    cache_only: bool,
+) -> str | None:
+    import app.services.chat as chat_pkg
+
+    async with SessionLocal() as session:
+        user = await chat_pkg.users_repo.get_by_id(session, user_id)
+        if user is None:
+            return None
+        return await chat_pkg.calendar_service.load_calendar_for_prompt(
+            session,
+            redis,
+            user,
+            settings,
+            cache_only=cache_only,
+        )
+
+
+async def _load_gmail_prompt_block(
+    user_id: UUID,
+    redis: Redis,
+    settings: Settings,
+) -> str | None:
+    import app.services.chat as chat_pkg
+
+    async with SessionLocal() as session:
+        user = await chat_pkg.users_repo.get_by_id(session, user_id)
+        if user is None:
+            return None
+        return await chat_pkg.email_service.load_gmail_for_prompt(session, redis, user, settings)
+
+
+async def _load_gmail_context_block(
+    user_id: UUID,
+    redis: Redis,
+    settings: Settings,
+) -> tuple[str, list[Any], list[Any], str | None] | None:
+    import app.services.chat as chat_pkg
+
+    async with SessionLocal() as session:
+        user = await chat_pkg.users_repo.get_by_id(session, user_id)
+        if user is None:
+            return None
+        return await chat_pkg.email_service.load_gmail_context(session, redis, user, settings)
+
+
 async def build_stream_prompt_context(
-    session: AsyncSession,
-    user: User,
-    chat: Any,
+    user_id: UUID,
+    chat_id: UUID,
     content: str,
     model: str,
     settings: Settings,
@@ -178,59 +227,125 @@ async def build_stream_prompt_context(
     minimal_quiz = web_search_service.is_vocab_quiz_answer(content) and quiz_mode != "chat"
     day_planning = day_planning_service.is_day_planning_question(content)
     day_reflection = day_planning_service.is_day_reflection_question(content)
-    geo = resolve_client_geo(
-        user,
-        content,
-        client_location=client_location,
-        client_latitude=client_latitude,
-        client_longitude=client_longitude,
-    )
-    local_tz = chat_pkg.time_context_service.effective_timezone(user.timezone, client_timezone)
 
-    if on_status is not None:
-        await on_status("preparing")
-
-    prompt_messages = await chat_pkg.build_prompt_messages(
-        session,
-        user,
-        chat.id,
-        settings,
-        summary=chat.summary,
-        out=meta,
-        query_text=content,
-        minimal_personal_context=minimal_personal,
-        minimal_quiz_context=minimal_quiz,
-        client_timezone=client_timezone,
-        prompt_location=geo.user_location if geo.geo_query and geo.has_geo_fix else None,
-        todo_sync_feedback=todo_sync_feedback,
-    )
-
+    user_locale: str | None = None
+    chat_summary: str | None = None
+    prompt_messages: list[dict[str, str]]
     instant_reply: str | None = None
-    gmail_context: tuple[str, list, list, str | None] | None = None
+    prior_user_messages: list[str] = []
+    has_calendar_write = False
+    geo: ClientGeoContext
+    local_tz: str
+    max_out: int
+    fallback_models: list[str]
 
-    if chat_pkg.time_context_service.is_time_question(content):
-        instant_reply = chat_pkg.time_context_service.format_time_answer(local_tz, user.locale)
-    elif chat_pkg.time_context_service.is_location_question(content):
-        instant_reply = chat_pkg.time_context_service.format_location_answer(
-            geo.user_location, local_tz
+    async with SessionLocal() as session:
+        user = await chat_pkg.users_repo.get_by_id(session, user_id)
+        if user is None:
+            raise ChatNotFoundError("User not found.")
+        chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user_id)
+        if chat is None:
+            raise ChatNotFoundError("Chat not found.")
+
+        user_locale = user.locale
+        chat_summary = chat.summary
+        geo = resolve_client_geo(
+            user,
+            content,
+            client_location=client_location,
+            client_latitude=client_latitude,
+            client_longitude=client_longitude,
         )
-    elif chat_pkg.calendar_service.is_external_calendar_question(content):
-        if not await chat_pkg.calendar_service.is_connected(session, user.id):
-            instant_reply = chat_pkg.calendar_service.format_not_connected_answer()
-    elif chat_pkg.email_service.is_external_email_question(content):
-        if not await chat_pkg.email_service.is_connected(session, user.id):
-            instant_reply = chat_pkg.email_service.format_not_connected_answer()
-        else:
-            if on_status is not None:
-                await on_status("checking_inbox")
-            gmail_context = await chat_pkg.email_service.load_gmail_context(
-                session, redis, user, settings
+        local_tz = chat_pkg.time_context_service.effective_timezone(user.timezone, client_timezone)
+
+        if on_status is not None:
+            await on_status("preparing")
+
+        prompt_messages = await chat_pkg.build_prompt_messages(
+            session,
+            user,
+            chat.id,
+            settings,
+            summary=chat_summary,
+            out=meta,
+            query_text=content,
+            minimal_personal_context=minimal_personal,
+            minimal_quiz_context=minimal_quiz,
+            client_timezone=client_timezone,
+            prompt_location=geo.user_location if geo.geo_query and geo.has_geo_fix else None,
+            todo_sync_feedback=todo_sync_feedback,
+        )
+
+        if chat_pkg.time_context_service.is_time_question(content):
+            instant_reply = chat_pkg.time_context_service.format_time_answer(local_tz, user_locale)
+        elif chat_pkg.time_context_service.is_location_question(content):
+            instant_reply = chat_pkg.time_context_service.format_location_answer(
+                geo.user_location, local_tz
+            )
+        elif chat_pkg.calendar_service.is_external_calendar_question(content):
+            if not await chat_pkg.calendar_service.is_connected(session, user.id):
+                instant_reply = chat_pkg.calendar_service.format_not_connected_answer()
+        elif chat_pkg.email_service.is_external_email_question(content):
+            if not await chat_pkg.email_service.is_connected(session, user.id):
+                instant_reply = chat_pkg.email_service.format_not_connected_answer()
+
+        if (
+            instant_reply is None
+            and not minimal_personal
+            and not minimal_quiz
+            and not day_planning
+            and not geo.ambiguous_nearby
+            and not chat_pkg.calendar_service.is_external_calendar_question(content)
+            and not chat_pkg.email_service.is_external_email_question(content)
+        ):
+            prior_user_messages = await chat_pkg.messages_repo.recent_user_contents(
+                session, chat.id
             )
 
-    local_places = geo.local_places
+        if (
+            instant_reply is None
+            and not minimal_personal
+            and not minimal_quiz
+            and not day_planning
+            and not geo.ambiguous_nearby
+            and not chat_pkg.calendar_service.is_external_calendar_question(content)
+            and not chat_pkg.email_service.is_external_email_question(content)
+        ):
+            has_calendar_write = await chat_pkg.calendar_service.has_write_access(session, user.id)
+
+        if (
+            not settings.mcp_tools_enabled
+            and chat_pkg.calendar_service.is_calendar_create_request(content)
+            and instant_reply is None
+        ):
+            if not has_calendar_write:
+                has_calendar_write = await chat_pkg.calendar_service.has_write_access(
+                    session, user.id
+                )
+
+        max_out = (
+            max_output_tokens_for_style("short", settings)
+            if minimal_quiz
+            else max_output_tokens_for_style(user.response_style, settings)
+        )
+        fallback_models = chat_pkg.plan_service.chat_fallback_models(user, settings, model)
+
+        await session.commit()
+
+    # DB connection released before external integration / web search I/O.
+    gmail_context: tuple[str, list[Any], list[Any], str | None] | None = None
     if instant_reply is None and geo.geo_query and not geo.has_geo_fix:
         instant_reply = web_search_service.format_location_not_set_answer()
 
+    if instant_reply is None and chat_pkg.email_service.is_external_email_question(content):
+        async with SessionLocal() as session:
+            connected = await chat_pkg.email_service.is_connected(session, user_id)
+        if connected:
+            if on_status is not None:
+                await on_status("checking_inbox")
+            gmail_context = await _load_gmail_context_block(user_id, redis, settings)
+
+    local_places = geo.local_places
     if instant_reply is None and not minimal_personal and not minimal_quiz:
         integration_blocks: list[str] = []
         load_calendar = chat_pkg.calendar_service.should_inject_calendar_block(content)
@@ -247,10 +362,9 @@ async def build_stream_prompt_context(
                     "calendar",
                     _timed_integration_load(
                         "calendar",
-                        chat_pkg.calendar_service.load_calendar_for_prompt(
-                            session,
+                        _load_calendar_prompt_block(
+                            user_id,
                             redis,
-                            user,
                             settings,
                             cache_only=day_reflection,
                         ),
@@ -273,15 +387,12 @@ async def build_stream_prompt_context(
                     "gmail",
                     _timed_integration_load(
                         "gmail",
-                        chat_pkg.email_service.load_gmail_for_prompt(
-                            session, redis, user, settings
-                        ),
+                        _load_gmail_prompt_block(user_id, redis, settings),
                     ),
                 )
             )
 
         if pending:
-            await session.commit()
             results = await asyncio.gather(*(task for _, task in pending))
             for (label, _), result in zip(pending, results, strict=True):
                 if label == "calendar":
@@ -298,7 +409,7 @@ async def build_stream_prompt_context(
         if (
             not settings.mcp_tools_enabled
             and chat_pkg.calendar_service.is_calendar_create_request(content)
-            and await chat_pkg.calendar_service.has_write_access(session, user.id)
+            and has_calendar_write
         ):
             integration_blocks.append(chat_pkg.calendar_service.CALENDAR_WRITE_HINT)
         if integration_blocks:
@@ -306,25 +417,6 @@ async def build_stream_prompt_context(
                 "role": "system",
                 "content": f"{prompt_messages[0]['content']}\n\n" + "\n\n".join(integration_blocks),
             }
-
-    prior_user_messages: list[str] = []
-    if (
-        instant_reply is None
-        and not minimal_personal
-        and not minimal_quiz
-        and not day_planning
-        and not geo.ambiguous_nearby
-        and not chat_pkg.calendar_service.is_external_calendar_question(content)
-        and not chat_pkg.email_service.is_external_email_question(content)
-    ):
-        prior_user_messages = await chat_pkg.messages_repo.recent_user_contents(session, chat.id)
-
-    max_out = (
-        max_output_tokens_for_style("short", settings)
-        if minimal_quiz
-        else max_output_tokens_for_style(user.response_style, settings)
-    )
-    fallback_models = chat_pkg.plan_service.chat_fallback_models(user, settings, model)
 
     search_sources: list[WebSearchHit] = []
     if (
@@ -336,8 +428,10 @@ async def build_stream_prompt_context(
         and not chat_pkg.calendar_service.is_external_calendar_question(content)
         and not chat_pkg.email_service.is_external_email_question(content)
     ):
-        await session.commit()
-        has_calendar_write = await chat_pkg.calendar_service.has_write_access(session, user.id)
+        async with SessionLocal() as session:
+            user = await chat_pkg.users_repo.get_by_id(session, user_id)
+            if user is None:
+                raise ChatNotFoundError("User not found.")
         prompt_messages, search_sources = await chat_pkg._augment_web_and_tools(
             prompt_messages,
             content,
@@ -484,41 +578,45 @@ async def prepare_chat_turn(
                 message_id=user_message.id,
             )
 
-        todo_sync_feedback: str | None = None
-        todos_pre_synced = False
-        if not web_search_service.is_vocab_quiz_answer(content):
+        chat_project_id = chat.project_id
+        quiz_mode = getattr(chat, "quiz_mode", None)
+
+        await session.commit()
+
+    todo_sync_feedback: str | None = None
+    todos_pre_synced = False
+    if not web_search_service.is_vocab_quiz_answer(content):
+        async with SessionLocal() as session:
             recent_for_sync = await chat_pkg.messages_repo.list_recent(session, chat_id, limit=8)
             sync_transcript = chat_pkg.todos_service.format_chat_transcript(recent_for_sync)
             if chat_pkg.todos_service.should_pre_sync_todos(content, sync_transcript):
                 feedback = await chat_pkg.todos_service.sync_todos_before_reply(
                     session,
                     settings,
-                    user_id=user.id,
+                    user_id=user_id,
                     chat_id=chat_id,
                     transcript=sync_transcript,
                 )
                 todos_pre_synced = True
                 todo_sync_feedback = chat_pkg.todos_service.format_todo_sync_feedback(feedback)
+            await session.commit()
 
-        await session.commit()
-
-        bundle = await build_stream_prompt_context(
-            session,
-            user,
-            chat,
-            content,
-            model,
-            settings,
-            redis,
-            client_timezone=client_timezone,
-            client_location=client_location,
-            client_latitude=client_latitude,
-            client_longitude=client_longitude,
-            has_image_attachment=has_image_attachment,
-            on_status=on_status,
-            todo_sync_feedback=todo_sync_feedback,
-            quiz_mode=getattr(chat, "quiz_mode", None),
-        )
+    bundle = await build_stream_prompt_context(
+        user_id,
+        chat_id,
+        content,
+        model,
+        settings,
+        redis,
+        client_timezone=client_timezone,
+        client_location=client_location,
+        client_latitude=client_latitude,
+        client_longitude=client_longitude,
+        has_image_attachment=has_image_attachment,
+        on_status=on_status,
+        todo_sync_feedback=todo_sync_feedback,
+        quiz_mode=quiz_mode,
+    )
 
     prompt_messages = bundle.prompt_messages
     if has_image_attachment and image_attachments and gateway is not None:
@@ -549,6 +647,6 @@ async def prepare_chat_turn(
         skip_memory_jobs=bundle.minimal_quiz,
         todos_pre_synced=todos_pre_synced,
         prior_count=prior_count,
-        chat_project_id=chat.project_id,
+        chat_project_id=chat_project_id,
         fallback_models=bundle.fallback_models,
     )

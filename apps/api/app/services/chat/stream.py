@@ -87,12 +87,6 @@ async def stream_chat_response(
             client_longitude=client_longitude,
             on_status=on_status,
         )
-    except ChatNotFoundError:
-        await chat_pkg.quota_service.refund_usage(redis, str(user_id), reserved)
-        raise
-    except ModelUnavailableError:
-        await chat_pkg.quota_service.refund_usage(redis, str(user_id), reserved)
-        raise
     except Exception:
         await chat_pkg.quota_service.refund_usage(redis, str(user_id), reserved)
         raise
@@ -135,6 +129,9 @@ async def stream_regenerate_response(
     import app.services.chat as chat_pkg
 
     regenerate_backup: RegenerateBackup | None = None
+    model: str
+    user_message_content: str
+    chat_project_id: UUID | None
 
     async with SessionLocal() as session:
         user = await chat_pkg.users_repo.get_by_id(session, user_id)
@@ -157,21 +154,30 @@ async def stream_regenerate_response(
             user, model_alias, last_user.content, settings
         )
         user_message_content = last_user.content
+        chat_project_id = chat.project_id
 
-        bundle = await build_stream_prompt_context(
-            session,
-            user,
-            chat,
-            user_message_content,
-            model,
-            settings,
-            redis,
-            client_timezone=client_timezone,
-            client_location=client_location,
-            client_latitude=client_latitude,
-            client_longitude=client_longitude,
-            on_status=on_status,
-        )
+    bundle = await build_stream_prompt_context(
+        user_id,
+        chat_id,
+        user_message_content,
+        model,
+        settings,
+        redis,
+        client_timezone=client_timezone,
+        client_location=client_location,
+        client_latitude=client_latitude,
+        client_longitude=client_longitude,
+        on_status=on_status,
+    )
+
+    async with SessionLocal() as session:
+        user = await chat_pkg.users_repo.get_by_id(session, user_id)
+        if user is None:
+            raise ChatNotFoundError("User not found.")
+
+        last = await chat_pkg.messages_repo.get_last(session, chat_id)
+        if last is None:
+            raise ChatNotFoundError("No messages to regenerate.")
 
         prior_count = await chat_pkg.messages_repo.count_for_chat(session, chat_id)
         reserved = estimate_tokens(user_message_content) + bundle.max_out
@@ -206,7 +212,7 @@ async def stream_regenerate_response(
         local_places=bundle.local_places,
         skip_memory_jobs=bundle.minimal_quiz,
         prior_count=prior_count,
-        chat_project_id=chat.project_id,
+        chat_project_id=chat_project_id,
         regenerate_backup=regenerate_backup,
         fallback_models=bundle.fallback_models,
     )

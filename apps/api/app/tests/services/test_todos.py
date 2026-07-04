@@ -356,6 +356,14 @@ def test_query_implies_todos():
     assert not todos_service.query_implies_todos("Explain quantum physics")
 
 
+def test_fuzzy_match_requires_similarity_not_substring():
+    from app.services.todos import _fuzzy_match
+
+    assert not _fuzzy_match("milk", "buy milk today")
+    assert not _fuzzy_match("call mom", "call mom about dinner and groceries")
+    assert _fuzzy_match("buy organic milk", "buy organic milke")
+
+
 def test_transcript_implies_todo_sync():
     assert todos_service.transcript_implies_todo_sync(
         "User: add eggs\nAssistant: Added eggs to Groceries."

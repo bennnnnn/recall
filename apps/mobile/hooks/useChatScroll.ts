@@ -210,11 +210,17 @@ export function useChatScroll({
   }, [syncScrollPosition]);
 
   useEffect(() => {
-    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const readKeyboardHeight = (endCoordinates: { height: number }) =>
+      Math.max(0, endCoordinates.height);
+
+    const showEvent =
+      Platform.OS === "ios" ? "keyboardWillChangeFrame" : "keyboardDidShow";
     const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
 
     const show = Keyboard.addListener(showEvent, (e) => {
-      setKeyboardHeight(Math.max(0, windowHeight - e.endCoordinates.screenY));
+      const nextHeight = readKeyboardHeight(e.endCoordinates);
+      setKeyboardHeight(nextHeight);
+      if (nextHeight <= 0) return;
       if (keyboardScrollTimerRef.current != null) {
         clearTimeout(keyboardScrollTimerRef.current);
       }
@@ -232,7 +238,7 @@ export function useChatScroll({
         keyboardScrollTimerRef.current = null;
       }
     };
-  }, [windowHeight, scrollToEndIfAtBottom]);
+  }, [scrollToEndIfAtBottom]);
 
   return {
     listRef,

@@ -1,5 +1,6 @@
 import base64
 import binascii
+import json
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
@@ -13,6 +14,26 @@ from app.services import quota as quota_service
 from app.services import speech as speech_service
 
 router = APIRouter(prefix="/speech", tags=["speech"])
+
+# Matches SpeechTranscriptionIn.audio_base64 max_length plus JSON wrapper overhead.
+MAX_SPEECH_JSON_BYTES = 7_500_000
+
+
+def _reject_oversized_speech_body(content_length: str | None, body_len: int) -> None:
+    if content_length is not None:
+        try:
+            if int(content_length) > MAX_SPEECH_JSON_BYTES:
+                raise HTTPException(
+                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                    detail="Audio payload too large",
+                )
+        except ValueError:
+            pass
+    if body_len > MAX_SPEECH_JSON_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Audio payload too large",
+        )
 
 
 async def _transcribe_bytes(
@@ -69,8 +90,11 @@ async def transcribe_speech(
     try:
         content_type = request.headers.get("content-type", "")
         if "application/json" in content_type:
+            _reject_oversized_speech_body(request.headers.get("content-length"), 0)
             try:
-                payload = SpeechTranscriptionIn.model_validate(await request.json())
+                raw = await request.body()
+                _reject_oversized_speech_body(None, len(raw))
+                payload = SpeechTranscriptionIn.model_validate(json.loads(raw))
                 data = base64.b64decode(payload.audio_base64, validate=True)
             except (ValueError, binascii.Error) as exc:
                 raise HTTPException(

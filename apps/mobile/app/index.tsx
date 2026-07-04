@@ -22,6 +22,7 @@ import {
   composerAttachmentExtra,
 } from "@/components/chat/ChatComposer";
 import { ChatMessageList } from "@/components/chat/ChatMessageList";
+import { StreamingDraftProvider } from "@/contexts/StreamingDraftContext";
 import { ChatScrollFab } from "@/components/chat/ChatScrollFab";
 import { ComposerPickerBackdrop } from "@/components/chat/ComposerPickerBackdrop";
 import { ChatActionsSheet } from "@/components/ChatActionsSheet";
@@ -393,7 +394,6 @@ function ChatScreen() {
     messages,
     streaming,
     finalizing,
-    streamingDraft,
     selectedModel,
     quizLanguage,
     quizVariant,
@@ -459,43 +459,45 @@ function ChatScreen() {
           bottomOffset={composerClearance + 12}
           onDismiss={dismissActionBanner}
         />
-        <ChatMessageList
-          listRef={listRef}
-          messages={messages}
-          headerInset={headerInset}
-          listBottomPad={listBottomPad}
-          hasMoreOlder={hasMoreOlder}
-          loadingOlder={loadingOlder}
-          chatLoading={chatLoading}
-          routeChatId={typeof routeChatId === "string" ? routeChatId : undefined}
-          emptyHeight={emptyHeight}
-          renderItem={renderItem}
-          onLoadOlder={() => void loadOlderMessages()}
-          onScroll={handleScroll}
-          onScrollEnd={handleScrollEnd}
-          onSelectStarter={handleSend}
-          header={
-            !drawerOpen ? (
-              <ChatHeader
-                paddingTop={insets.top}
-                height={headerInset}
-                menuOverlayOpen={menuOverlayOpen}
-                headerTitleLabel={headerTitleLabel}
-                titleGenerating={titleGenerating}
-                chatTitle={chatTitle}
-                showIndicator={showIndicator}
-                unseenCount={unseenCount}
-                hasMessages={messages.length > 0}
-                onOpenDrawer={openDrawer}
-                onOpenReminders={() =>
-                  router.push({ pathname: "/todos", params: { focus: "reminders" } })
-                }
-                onNewChat={startNewChat}
-                onOpenMenu={() => setMenuVisible((v) => !v)}
-              />
-            ) : null
-          }
-        />
+        <StreamingDraftProvider value={streamingDraft}>
+          <ChatMessageList
+            listRef={listRef}
+            messages={messages}
+            headerInset={headerInset}
+            listBottomPad={listBottomPad}
+            hasMoreOlder={hasMoreOlder}
+            loadingOlder={loadingOlder}
+            chatLoading={chatLoading}
+            routeChatId={typeof routeChatId === "string" ? routeChatId : undefined}
+            emptyHeight={emptyHeight}
+            renderItem={renderItem}
+            onLoadOlder={() => void loadOlderMessages()}
+            onScroll={handleScroll}
+            onScrollEnd={handleScrollEnd}
+            onSelectStarter={handleSend}
+            header={
+              !drawerOpen ? (
+                <ChatHeader
+                  paddingTop={insets.top}
+                  height={headerInset}
+                  menuOverlayOpen={menuOverlayOpen}
+                  headerTitleLabel={headerTitleLabel}
+                  titleGenerating={titleGenerating}
+                  chatTitle={chatTitle}
+                  showIndicator={showIndicator}
+                  unseenCount={unseenCount}
+                  hasMessages={messages.length > 0}
+                  onOpenDrawer={openDrawer}
+                  onOpenReminders={() =>
+                    router.push({ pathname: "/todos", params: { focus: "reminders" } })
+                  }
+                  onNewChat={startNewChat}
+                  onOpenMenu={() => setMenuVisible((v) => !v)}
+                />
+              ) : null
+            }
+          />
+        </StreamingDraftProvider>
 
         <ChatScrollFab
           visible={!drawerOpen && showScrollToBottom}
