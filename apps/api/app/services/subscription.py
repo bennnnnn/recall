@@ -66,3 +66,31 @@ async def apply_plan_for_app_user_id(
     await users_repo.update(session, user, plan=plan)
     logger.info("RevenueCat webhook set plan=%s user=%s", plan, user_id)
     return True
+
+
+async def handle_revenuecat_transfer(
+    session: AsyncSession,
+    settings: Settings,
+    *,
+    new_app_user_id: str,
+    transferred_from: list[str],
+) -> None:
+    """Move entitlements between app user ids — downgrade sources, sync target from RC API."""
+    for old_id in transferred_from:
+        cleaned = old_id.strip()
+        if cleaned:
+            await apply_plan_for_app_user_id(session, cleaned, plan="free")
+
+    cleaned_new = new_app_user_id.strip()
+    if not cleaned_new:
+        return
+    try:
+        user_id = UUID(cleaned_new)
+    except ValueError:
+        logger.warning("RevenueCat TRANSFER ignored invalid app_user_id=%s", cleaned_new)
+        return
+    user = await users_repo.get_by_id(session, user_id)
+    if user is None:
+        logger.warning("RevenueCat TRANSFER user not found id=%s", cleaned_new)
+        return
+    await sync_user_plan_from_revenuecat(session, user, settings)

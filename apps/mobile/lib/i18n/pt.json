@@ -643,6 +643,7 @@
   "todos.empty_title": "Nenhuma tarefa ainda",
   "todos.error": "Erro",
   "todos.error_create": "Não foi possível criar a tarefa",
+  "todos.error_delete": "Não foi possível excluir",
   "todos.error_due": "Não foi possível atualizar a data",
   "todos.error_toggle": "Não foi possível atualizar",
   "todos.move_to_todos": "Remover data (mover para lista)",

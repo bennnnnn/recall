@@ -194,36 +194,49 @@ export async function uploadChatAttachment(
     size_bytes: sizeBytes,
   });
 
-  const fileResponse = await fetch(pending.localUri);
-  if (!fileResponse.ok) {
-    throw new Error("Could not read the selected file.");
+  try {
+    const fileResponse = await fetch(pending.localUri);
+    if (!fileResponse.ok) {
+      throw new Error("Could not read the selected file.");
+    }
+    const bytes = await fileResponse.arrayBuffer();
+
+    const uploadPath = presign.api_upload
+      ? `/attachments/${presign.attachment_id}/upload`
+      : presign.upload_url;
+
+    const uploadUrl = uploadPath.startsWith("http")
+      ? uploadPath
+      : `${getApiUrl()}${uploadPath.startsWith("/") ? uploadPath : `/${uploadPath}`}`;
+
+    const headers: Record<string, string> = {
+      "Content-Type": pending.contentType,
+    };
+    if (presign.api_upload || uploadUrl.startsWith(getApiUrl())) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const response = await fetch(uploadUrl, {
+      method: "PUT",
+      headers,
+      body: bytes,
+    });
+
+    if (!response.ok) {
+      throw new Error("Upload failed.");
+    }
+
+    if (!presign.api_upload) {
+      await api.confirmAttachment(token, presign.attachment_id);
+    }
+
+    return presign.attachment_id;
+  } catch (error) {
+    try {
+      await api.cancelAttachment(token, presign.attachment_id);
+    } catch {
+      /* best-effort refund */
+    }
+    throw error;
   }
-  const bytes = await fileResponse.arrayBuffer();
-
-  const uploadPath = presign.api_upload
-    ? `/attachments/${presign.attachment_id}/upload`
-    : presign.upload_url;
-
-  const uploadUrl = uploadPath.startsWith("http")
-    ? uploadPath
-    : `${getApiUrl()}${uploadPath.startsWith("/") ? uploadPath : `/${uploadPath}`}`;
-
-  const headers: Record<string, string> = {
-    "Content-Type": pending.contentType,
-  };
-  if (presign.api_upload || uploadUrl.startsWith(getApiUrl())) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
-  const response = await fetch(uploadUrl, {
-    method: "PUT",
-    headers,
-    body: bytes,
-  });
-
-  if (!response.ok) {
-    throw new Error("Upload failed.");
-  }
-
-  return presign.attachment_id;
 }

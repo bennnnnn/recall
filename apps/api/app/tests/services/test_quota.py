@@ -133,6 +133,20 @@ async def test_reserve_image_upload_enforces_limit(fake_redis, settings):
     assert await quota_service.get_image_upload_count(fake_redis, user_id) == limit
 
 
+@pytest.mark.asyncio
+async def test_refund_image_upload_floors_at_zero(fake_redis, settings):
+    from uuid import uuid4
+
+    user_id = uuid4()
+    limit = 5
+    assert await quota_service.reserve_image_upload(fake_redis, user_id, limit=limit) is True
+    assert await quota_service.get_image_upload_count(fake_redis, user_id) == 1
+    await quota_service.refund_image_upload(fake_redis, user_id)
+    assert await quota_service.get_image_upload_count(fake_redis, user_id) == 0
+    await quota_service.refund_image_upload(fake_redis, user_id)
+    assert await quota_service.get_image_upload_count(fake_redis, user_id) == 0
+
+
 def test_image_upload_limit_for_user(settings):
     assert quota_service.image_upload_limit_for_user(_free_user(), settings) == 5
     assert quota_service.image_upload_limit_for_user(_pro_user(), settings) == 30

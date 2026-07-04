@@ -499,10 +499,28 @@ async def prepare_chat_turn(
                     attachment_rows.append(row)
 
         if attachment_rows:
-            from app.gateways.storage_gateway import get_storage_gateway
+            from app.gateways.storage_gateway import LocalStorageGateway, get_storage_gateway
             from app.services import attachment_content as attachment_content_service
 
             gateway = get_storage_gateway(settings)
+            if not isinstance(gateway, LocalStorageGateway):
+                from app.exceptions import AttachmentValidationError
+
+                for row in attachment_rows:
+                    _, error = await attachment_content_service.verify_uploaded_bytes(
+                        gateway,
+                        content_type=row.content_type,
+                        storage_key=row.storage_key,
+                    )
+                    if error:
+                        async with SessionLocal() as purge_session:
+                            await attachment_content_service.purge_invalid_upload(
+                                gateway,
+                                purge_session,
+                                attachment_id=row.id,
+                                storage_key=row.storage_key,
+                            )
+                        raise AttachmentValidationError(error)
             attachment_lines: list[str] = []
             for row in attachment_rows:
                 lines, is_image = await attachment_content_service.format_attachment_lines(
@@ -550,7 +568,7 @@ async def prepare_chat_turn(
         )
         is_letter_answer = web_search_service.is_vocab_quiz_answer(content)
         minimal_quiz = is_letter_answer and getattr(chat, "quiz_mode", None) != "chat"
-        if is_letter_answer and minimal_quiz:
+        if is_letter_answer and minimal_quiz and chat.project_id is not None:
             prior_assistant = await chat_pkg.messages_repo.get_last_assistant(session, chat_id)
             if prior_assistant is not None:
                 try:

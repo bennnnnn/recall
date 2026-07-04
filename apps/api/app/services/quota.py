@@ -205,6 +205,17 @@ async def reserve_image_upload(redis: Redis, user_id: UUID, *, limit: int) -> bo
     return True
 
 
+async def refund_image_upload(redis: Redis, user_id: UUID) -> None:
+    """Release a reserved image slot (e.g. failed or cancelled upload). Floors at zero."""
+    key = _image_key(user_id, utc_today())
+    value = await redis.get(key)
+    if not value:
+        return
+    if int(value) <= 0:
+        return
+    await redis.incrby(key, -1)
+
+
 # ── Speech transcription caps ────────────────────────────────────────────────
 
 _SPEECH_TTL = 60 * 60 * 48

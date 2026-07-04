@@ -408,27 +408,6 @@ async def load_project_quiz_context(
     return "\n".join(lines)
 
 
-async def _resolve_quiz_project_id(
-    session: AsyncSession,
-    user_id: UUID,
-    *,
-    project_id: UUID | None,
-    quiz: object,
-) -> UUID | None:
-    if project_id is not None:
-        return project_id
-    is_trivia = getattr(quiz, "quiz_type", None) == "trivia" or (
-        getattr(quiz, "question", None) is not None
-        and getattr(quiz, "part_of_speech", None) is None
-        and getattr(quiz, "quiz_type", None) != "vocab"
-    )
-    if is_trivia:
-        project = await projects_repo.find_trivia_project(session, user_id)
-        return project.id if project else None
-    project = await projects_repo.find_language_by_target(session, user_id, "en")
-    return project.id if project else None
-
-
 async def apply_deterministic_quiz_answer(
     session: AsyncSession,
     *,
@@ -462,13 +441,11 @@ async def apply_deterministic_quiz_answer(
     if quiz is None:
         return False
 
-    resolved_project_id = await _resolve_quiz_project_id(
-        session, user_id, project_id=project_id, quiz=quiz
-    )
-    if resolved_project_id is None:
+    # Only score in project-linked chats — never guess trivia/vocab project from user id.
+    if project_id is None:
         return False
 
-    project = await projects_repo.get_by_id(session, resolved_project_id, user_id)
+    project = await projects_repo.get_by_id(session, project_id, user_id)
     if project is None:
         return False
 
@@ -486,7 +463,7 @@ async def apply_deterministic_quiz_answer(
         return False
 
     items = await project_items_repo.list_for_user(
-        session, user_id, project_id=resolved_project_id, limit=500
+        session, user_id, project_id=project.id, limit=500
     )
 
     if is_trivia:

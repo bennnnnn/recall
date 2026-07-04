@@ -643,6 +643,7 @@
   "todos.empty_title": "እስካሁን እዚህ ምንም የለም",
   "todos.error": "የሆነ ችግር ተከስቷል",
   "todos.error_create": "መቀመጥ አልተቻለም",
+  "todos.error_delete": "መሰረዝ አልተቻለም",
   "todos.error_due": "ቀን መዘመን አልተቻለም",
   "todos.error_toggle": "መዘመን አልተቻለም",
   "todos.move_to_todos": "ቀን አስወግድ (ወደ ዝርዝር አ 옮ድ)",
