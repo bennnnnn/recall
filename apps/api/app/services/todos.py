@@ -1,7 +1,9 @@
 import logging
 import re
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from difflib import SequenceMatcher
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -619,37 +621,46 @@ async def apply_todo_actions(
     return applied
 
 
-async def _apply_extracted_todo_actions(
+@dataclass(frozen=True)
+class _TodoSyncSnapshot:
+    user_timezone: str | None
+    snapshot: list[dict[str, Any]]
+
+
+async def _load_todo_sync_snapshot(
+    session: AsyncSession,
+    user_id: UUID,
+    settings: Settings,
+) -> _TodoSyncSnapshot:
+    user = await users_repo.get_by_id(session, user_id)
+    user_timezone = user.timezone if user else None
+    items = await todos_repo.list_for_user(session, user_id, limit=settings.todo_inject_limit)
+    return _TodoSyncSnapshot(
+        user_timezone=user_timezone,
+        snapshot=[
+            {
+                "topic": item.topic,
+                "content": item.content,
+                "checked": item.checked,
+                "due_at": item.due_at.isoformat() if item.due_at else None,
+            }
+            for item in items
+        ],
+    )
+
+
+async def _apply_todo_extraction_result(
     session: AsyncSession,
     settings: Settings,
     *,
     user_id: UUID,
     chat_id: UUID,
     transcript: str,
+    result: TodoExtractionResult | None,
     allow_delete_list: bool,
+    user_timezone: str | None,
     feedback: list[str] | None = None,
-) -> TodoExtractionResult | None:
-    from app.gateways import litellm_gateway
-
-    user = await users_repo.get_by_id(session, user_id)
-    user_timezone = user.timezone if user else None
-
-    items = await todos_repo.list_for_user(session, user_id, limit=settings.todo_inject_limit)
-    snapshot = [
-        {
-            "topic": item.topic,
-            "content": item.content,
-            "checked": item.checked,
-            "due_at": item.due_at.isoformat() if item.due_at else None,
-        }
-        for item in items
-    ]
-    result = await litellm_gateway.extract_todo_actions(
-        settings,
-        transcript,
-        snapshot,
-        user_timezone=user_timezone,
-    )
+) -> None:
     if result and result.actions:
         safe_actions: list[TodoActionItem] = []
         for action in result.actions:
@@ -691,11 +702,52 @@ async def _apply_extracted_todo_actions(
                 user_id,
             )
             await home_service.invalidate_home_cache(user_id)
+
+
+async def _run_extracted_todo_actions(
+    settings: Settings,
+    *,
+    user_id: UUID,
+    chat_id: UUID,
+    transcript: str,
+    allow_delete_list: bool,
+    feedback: list[str] | None = None,
+) -> TodoExtractionResult | None:
+    from app.core.db import SessionLocal
+    from app.gateways import litellm_gateway
+
+    async with SessionLocal() as session:
+        loaded = await _load_todo_sync_snapshot(session, user_id, settings)
+        await session.commit()
+
+    try:
+        result = await litellm_gateway.extract_todo_actions(
+            settings,
+            transcript,
+            loaded.snapshot,
+            user_timezone=loaded.user_timezone,
+        )
+    except Exception:
+        logger.exception("Todo action extraction failed for user_id=%s", user_id)
+        return None
+
+    async with SessionLocal() as session:
+        await _apply_todo_extraction_result(
+            session,
+            settings,
+            user_id=user_id,
+            chat_id=chat_id,
+            transcript=transcript,
+            result=result,
+            allow_delete_list=allow_delete_list,
+            user_timezone=loaded.user_timezone,
+            feedback=feedback,
+        )
+        await session.commit()
     return result
 
 
 async def sync_todos_before_reply(
-    session: AsyncSession,
     settings: Settings,
     *,
     user_id: UUID,
@@ -705,8 +757,7 @@ async def sync_todos_before_reply(
     """Apply todo mutations before the assistant reply; return user-facing notes."""
     feedback: list[str] = []
     try:
-        await _apply_extracted_todo_actions(
-            session,
+        await _run_extracted_todo_actions(
             settings,
             user_id=user_id,
             chat_id=chat_id,
@@ -720,7 +771,6 @@ async def sync_todos_before_reply(
 
 
 async def sync_todos_from_transcript(
-    session: AsyncSession,
     settings: Settings,
     *,
     user_id: UUID,
@@ -728,8 +778,7 @@ async def sync_todos_from_transcript(
     transcript: str,
 ) -> TodoExtractionResult | None:
     try:
-        return await _apply_extracted_todo_actions(
-            session,
+        return await _run_extracted_todo_actions(
             settings,
             user_id=user_id,
             chat_id=chat_id,

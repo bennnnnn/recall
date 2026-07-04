@@ -608,20 +608,23 @@ async def prepare_chat_turn(
     todo_sync_feedback: str | None = None
     todos_pre_synced = False
     if not web_search_service.is_vocab_quiz_answer(content):
+        sync_transcript: str | None = None
+        should_sync = False
         async with SessionLocal() as session:
             recent_for_sync = await chat_pkg.messages_repo.list_recent(session, chat_id, limit=8)
             sync_transcript = chat_pkg.todos_service.format_chat_transcript(recent_for_sync)
-            if chat_pkg.todos_service.should_pre_sync_todos(content, sync_transcript):
-                feedback = await chat_pkg.todos_service.sync_todos_before_reply(
-                    session,
-                    settings,
-                    user_id=user_id,
-                    chat_id=chat_id,
-                    transcript=sync_transcript,
-                )
-                todos_pre_synced = True
-                todo_sync_feedback = chat_pkg.todos_service.format_todo_sync_feedback(feedback)
+            should_sync = chat_pkg.todos_service.should_pre_sync_todos(content, sync_transcript)
             await session.commit()
+
+        if should_sync and sync_transcript is not None:
+            feedback = await chat_pkg.todos_service.sync_todos_before_reply(
+                settings,
+                user_id=user_id,
+                chat_id=chat_id,
+                transcript=sync_transcript,
+            )
+            todos_pre_synced = True
+            todo_sync_feedback = chat_pkg.todos_service.format_todo_sync_feedback(feedback)
 
     bundle = await build_stream_prompt_context(
         user_id,
