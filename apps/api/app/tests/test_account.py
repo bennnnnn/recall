@@ -49,8 +49,11 @@ def test_delete_account_returns_204():
 def test_export_returns_data():
     user = _fake_user()
     app = _app_with_user(user)
-    payload = {"exported_at": "now", "user": {}, "chats": [], "memories": []}
-    with patch("app.routers.auth.export_service.build_export", AsyncMock(return_value=payload)):
+
+    async def fake_iter(_user):
+        yield '{"exported_at":"now","export_limits":{},"user":{},"chats":[],"memories":[]}'
+
+    with patch("app.routers.auth.export_service.iter_export_json", fake_iter):
         client = TestClient(app)
         r = client.get("/auth/me/export", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 200
@@ -101,7 +104,10 @@ async def test_build_export_structure():
             "app.services.export_service.chats_repo.list_for_user",
             AsyncMock(return_value=[chat]),
         ),
-        patch("app.services.export_service.messages_repo.list_all", AsyncMock(return_value=[msg])),
+        patch(
+            "app.services.export_service.messages_repo.list_range",
+            AsyncMock(return_value=[msg]),
+        ),
         patch(
             "app.services.export_service.memories_repo.list_for_user",
             AsyncMock(return_value=[mem]),
@@ -118,3 +124,60 @@ async def test_build_export_structure():
         data["export_limits"]["max_messages_per_chat"]
         == export_service.EXPORT_MAX_MESSAGES_PER_CHAT
     )
+
+
+@pytest.mark.asyncio
+async def test_build_export_pages_messages_per_chat():
+    from app.services import export_service
+
+    session = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    user.email = "e@x"
+    user.name = "n"
+    user.created_at = datetime(2024, 1, 1)
+
+    chat = MagicMock()
+    chat.id = uuid4()
+    chat.title = "T"
+    chat.model = "free-chat"
+    chat.pinned = False
+    chat.created_at = datetime(2024, 1, 1)
+    chat.updated_at = datetime(2024, 1, 1)
+
+    page_one = [
+        MagicMock(role="user", content="one", model=None, created_at=datetime(2024, 1, 1)),
+        MagicMock(
+            role="assistant", content="two", model="free-chat", created_at=datetime(2024, 1, 2)
+        ),
+    ]
+    page_two = [
+        MagicMock(role="user", content="three", model=None, created_at=datetime(2024, 1, 3)),
+    ]
+
+    async def list_range(_session, _chat_id, *, offset, limit):
+        if offset == 0:
+            return page_one
+        if offset == len(page_one):
+            return page_two
+        return []
+
+    with (
+        patch.object(export_service, "EXPORT_MESSAGE_PAGE_SIZE", 2),
+        patch(
+            "app.services.export_service.chats_repo.list_for_user",
+            AsyncMock(return_value=[chat]),
+        ),
+        patch(
+            "app.services.export_service.messages_repo.list_range",
+            AsyncMock(side_effect=list_range),
+        ),
+        patch(
+            "app.services.export_service.memories_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+    ):
+        data = await export_service.build_export(session, user)
+
+    contents = [message["content"] for message in data["chats"][0]["messages"]]
+    assert contents == ["one", "two", "three"]
