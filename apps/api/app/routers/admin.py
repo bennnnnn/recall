@@ -40,7 +40,12 @@ def _require_dev(settings: Settings) -> None:
 def _require_admin(user: User, settings: Settings) -> None:
     _require_dev(settings)
     allowed = {value.strip() for value in settings.admin_user_ids.split(",") if value.strip()}
-    if allowed and str(user.id) not in allowed:
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access is not configured. Set ADMIN_USER_IDS.",
+        )
+    if str(user.id) not in allowed:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required.",

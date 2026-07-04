@@ -735,7 +735,10 @@ def test_admin_dlq_list_and_replay_in_dev():
     app = _app_with_user(user)
     from app.core.deps import get_settings_dep
 
-    app.dependency_overrides[get_settings_dep] = lambda: Settings(dev_auth_enabled=True)
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
+        dev_auth_enabled=True,
+        admin_user_ids=str(user.id),
+    )
 
     listed = [
         {
@@ -762,6 +765,39 @@ def test_admin_dlq_list_and_replay_in_dev():
         r_replay = client.post("/admin/dlq/replay", headers={"Authorization": "Bearer tok"})
         assert r_replay.status_code == 200
         assert r_replay.json()["replayed"] == 1
+
+
+def test_admin_dlq_denies_non_allowlisted_user_in_dev():
+    user = _fake_user()
+    app = _app_with_user(user)
+    from app.core.deps import get_settings_dep
+
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
+        dev_auth_enabled=True,
+        admin_user_ids=str(uuid4()),
+    )
+
+    with patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)):
+        client = TestClient(app)
+        r = client.get("/admin/dlq", headers={"Authorization": "Bearer tok"})
+    assert r.status_code == 403
+
+
+def test_admin_dlq_denies_when_admin_allowlist_empty():
+    user = _fake_user()
+    app = _app_with_user(user)
+    from app.core.deps import get_settings_dep
+
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
+        dev_auth_enabled=True,
+        admin_user_ids="",
+    )
+
+    with patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)):
+        client = TestClient(app)
+        r = client.get("/admin/dlq", headers={"Authorization": "Bearer tok"})
+    assert r.status_code == 403
+    assert "ADMIN_USER_IDS" in r.json()["detail"]
 
 
 # ── speech ─────────────────────────────────────────────────────────────────────
