@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Keyboard, Platform, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
+import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 import type { FlashListRef } from "@shopify/flash-list";
 
 import { tap } from "@/lib/haptics";
@@ -13,6 +13,7 @@ type Options = {
   messagesLength: number;
   streamingLen: number;
   windowHeight: number;
+  keyboardHeight: number;
 };
 
 export function useChatScroll({
@@ -20,6 +21,7 @@ export function useChatScroll({
   messagesLength,
   streamingLen,
   windowHeight,
+  keyboardHeight,
 }: Options) {
   const listRef = useRef<FlashListRef<Message>>(null);
   const atBottomRef = useRef(true);
@@ -34,7 +36,6 @@ export function useChatScroll({
   const keyboardScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [scrollAwayCount, setScrollAwayCount] = useState(0);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   messagesLenRef.current = messagesLength;
 
@@ -210,35 +211,15 @@ export function useChatScroll({
   }, [syncScrollPosition]);
 
   useEffect(() => {
-    const readKeyboardHeight = (endCoordinates: { height: number }) =>
-      Math.max(0, endCoordinates.height);
-
-    const showEvent =
-      Platform.OS === "ios" ? "keyboardWillChangeFrame" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-
-    const show = Keyboard.addListener(showEvent, (e) => {
-      const nextHeight = readKeyboardHeight(e.endCoordinates);
-      setKeyboardHeight(nextHeight);
-      if (nextHeight <= 0) return;
-      if (keyboardScrollTimerRef.current != null) {
-        clearTimeout(keyboardScrollTimerRef.current);
-      }
-      keyboardScrollTimerRef.current = setTimeout(() => {
-        keyboardScrollTimerRef.current = null;
-        scrollToEndIfAtBottom(true);
-      }, 50);
-    });
-    const hide = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
-    return () => {
-      show.remove();
-      hide.remove();
-      if (keyboardScrollTimerRef.current != null) {
-        clearTimeout(keyboardScrollTimerRef.current);
-        keyboardScrollTimerRef.current = null;
-      }
-    };
-  }, [scrollToEndIfAtBottom]);
+    if (keyboardHeight <= 0) return;
+    if (keyboardScrollTimerRef.current != null) {
+      clearTimeout(keyboardScrollTimerRef.current);
+    }
+    keyboardScrollTimerRef.current = setTimeout(() => {
+      keyboardScrollTimerRef.current = null;
+      scrollToEndIfAtBottom(true);
+    }, 50);
+  }, [keyboardHeight, scrollToEndIfAtBottom]);
 
   return {
     listRef,
@@ -246,7 +227,6 @@ export function useChatScroll({
     newMessageCountRef,
     showScrollToBottom,
     scrollAwayCount,
-    keyboardHeight,
     scrollToLatest,
     handleScroll,
     handleScrollEnd,

@@ -55,7 +55,8 @@ import { ChatInlineError } from "@/components/chat/ChatInlineError";
 import { resolveChatError, type ResolvedChatError } from "@/lib/chatErrorMessage";
 import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
 import { useTodosOptional } from "@/contexts/TodosContext";
-import { isComposerMenuOverlayOpen } from "@/lib/chatComposerLogic";
+import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/lib/chatComposerLogic";
+import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 import { confirmGeoLocationAccess } from "@/lib/confirmGeoLocation";
 import { ensureNearbyLocation } from "@/lib/ensureNearbyLocation";
 import { isAmbiguousLocalPlacesQuery, isGeoQuery } from "@/lib/localPlacesQuery";
@@ -167,11 +168,17 @@ function ChatScreen() {
   }, [streamActive, refreshHome]);
   const quotaNudge = useQuotaNudge({ token, isPro, refreshKey: quotaRefreshKey });
 
+  const idleComposerBottomPad = Math.max(insets.bottom, CHAT_COMPOSER_MIN_BOTTOM_PAD);
+  const { keyboardHeight, composerAnimatedStyle } = useKeyboardInset({
+    idleBottomPad: idleComposerBottomPad,
+  });
+
   const scroll = useChatScroll({
     chatId,
     messagesLength: messages.length,
     streamingLen,
     windowHeight,
+    keyboardHeight,
   });
 
   const routeLoader = useChatRouteLoader({
@@ -343,7 +350,6 @@ function ChatScreen() {
     listBottomPadRef,
     showScrollToBottom,
     scrollAwayCount,
-    keyboardHeight,
     scrollToLatest,
     handleScroll,
     handleScrollEnd,
@@ -422,8 +428,6 @@ function ChatScreen() {
 
   const {
     headerInset,
-    composerLift,
-    composerBottomPad,
     composerClearance,
     listBottomPad,
     emptyHeight,
@@ -555,8 +559,7 @@ function ChatScreen() {
 
         <ChatComposer
           visible={!drawerOpen}
-          bottom={composerLift}
-          paddingBottom={composerBottomPad}
+          animatedContainerStyle={composerAnimatedStyle}
           token={token}
           input={input}
           onChangeInput={setInput}
