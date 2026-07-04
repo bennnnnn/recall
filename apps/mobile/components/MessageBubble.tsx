@@ -39,6 +39,7 @@ import {
 import { SENDING_LABEL_DELAY_MS } from "@/lib/chatMessageLogic";
 import { STREAM_LAYOUT_SETTLE_MS } from "@/lib/messageListLayout";
 import { useRotatingStreamStatus } from "@/lib/streamStatusLabel";
+import { useModelsOptional } from "@/contexts/ModelsContext";
 import { Theme, useTheme } from "@/lib/theme";
 import { speakPlainText, stopSpeaking } from "@/lib/pronunciation";
 import { useTranslation } from "react-i18next";
@@ -235,6 +236,7 @@ export const MessageBubble = React.memo(function MessageBubble({
 }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
+  const modelsCtx = useModelsOptional();
   const b = useMemo(() => makeStyles(theme), [theme]);
   const [showSendingLabel, setShowSendingLabel] = useState(false);
   const [holdStreamLayout, setHoldStreamLayout] = useState(false);
@@ -354,6 +356,12 @@ export const MessageBubble = React.memo(function MessageBubble({
     !showCalendarProposals;
   const showContextSummarized =
     !isUser && !layoutFrozen && (message.context_summarized ?? 0) > 0;
+  const resolvedModelLabel = useMemo(() => {
+    if (isUser || !message.model) return null;
+    const label = modelsCtx?.labelFor(message.model) ?? message.model;
+    return label.trim() || null;
+  }, [isUser, message.model, modelsCtx]);
+  const showModelLabel = !isUser && !layoutFrozen && resolvedModelLabel != null;
   const markdownStreamMode = layoutFrozen;
   const markdownResetKey = `${message.renderKey ?? message.id}:${markdownContent.length}`;
 
@@ -436,6 +444,9 @@ export const MessageBubble = React.memo(function MessageBubble({
                 ))
               : null}
             {showSearchSources ? <SearchSourcesStack sources={searchSources} /> : null}
+            {showModelLabel ? (
+              <Text style={b.modelMeta}>{resolvedModelLabel}</Text>
+            ) : null}
           </CollapsibleMessageBody>
         </View>
       )}
@@ -517,6 +528,12 @@ function makeStyles(t: Theme) {
       lineHeight: 16,
       color: t.textTertiary,
       marginBottom: 6,
+    },
+    modelMeta: {
+      fontSize: 12,
+      lineHeight: 16,
+      color: t.textTertiary,
+      marginTop: 8,
     },
     actionRowReserved: {
       minHeight: 38,

@@ -15,6 +15,7 @@ export type ChatWsPayload = {
   context_summarized?: string;
   todos_sync?: string;
   search_sources?: string;
+  resolved_model?: string;
 };
 
 export function parseChatWsPayload(raw: string): ChatWsPayload | null {
@@ -56,6 +57,7 @@ export type DoneMergeInput = {
   context_summarized?: number;
   search_sources?: SearchSource[];
   draftSearchSources?: SearchSource[];
+  model?: string | null;
 };
 
 /** Pure merge for the WebSocket `done` event — used by useChat and unit tests. */
@@ -73,6 +75,7 @@ export function mergeDoneIntoMessages(
     context_summarized,
     search_sources,
     draftSearchSources,
+    model,
   } = input;
 
   if (prev.some((m) => m.id === "streaming")) {
@@ -95,6 +98,7 @@ export function mergeDoneIntoMessages(
               search_sources ??
               draftSearchSources ??
               parseSearchSources(finalContent ?? draftContent ?? m.content),
+            model: model ?? m.model,
           }
         : m,
     );
@@ -111,6 +115,7 @@ export function mergeDoneIntoMessages(
         memory_hints,
         context_summarized,
         search_sources,
+        model: model ?? next[i].model,
       };
       break;
     }
@@ -137,5 +142,6 @@ export function buildDoneMergeInput(
     memory_hints: parseMemoryHints(payload.memory_hints),
     search_sources: parsePayloadSearchSources(payload.search_sources),
     draftSearchSources: draft?.search_sources,
+    model: payload.resolved_model ?? null,
   };
 }
