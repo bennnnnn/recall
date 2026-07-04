@@ -40,10 +40,14 @@ async def reap_orphan_attachments(settings: Settings) -> int:
         )
     if not orphans:
         return 0
-    gateway = get_storage_gateway(settings)
-    for row in orphans:
-        await gateway.delete_bytes(row.storage_key)
     async with SessionLocal() as session:
-        deleted = await attachments_repo.delete_rows(session, [row.id for row in orphans])
-    logger.info("Reaped %d orphan attachment(s)", deleted)
-    return deleted
+        storage_keys = await attachments_repo.delete_unlinked_returning(
+            session, [row.id for row in orphans]
+        )
+    if not storage_keys:
+        return 0
+    gateway = get_storage_gateway(settings)
+    for storage_key in storage_keys:
+        await gateway.delete_bytes(storage_key)
+    logger.info("Reaped %d orphan attachment(s)", len(storage_keys))
+    return len(storage_keys)
