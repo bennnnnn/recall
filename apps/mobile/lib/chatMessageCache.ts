@@ -70,3 +70,14 @@ export async function clearCachedChatMessages(chatId: string): Promise<void> {
     /* ignore */
   }
 }
+
+export async function clearAllCachedChatMessages(): Promise<void> {
+  if (!cacheDirectory) return;
+  try {
+    const info = await getInfoAsync(CACHE_DIR);
+    if (!info.exists) return;
+    await deleteAsync(CACHE_DIR, { idempotent: true });
+  } catch {
+    /* best-effort */
+  }
+}

@@ -49,6 +49,30 @@ def test_is_reasoning_alias() -> None:
     assert quota_multiplier("max-chat") == 3.5
 
 
+def test_weighted_reserve_tokens_applies_quota_multiplier() -> None:
+    from unittest.mock import patch
+
+    from app.core.config import Settings
+    from app.services.chat.stream import weighted_reserve_tokens
+
+    settings = Settings()
+    with patch("app.services.chat.stream.estimate_tokens", return_value=100):
+        free = weighted_reserve_tokens(
+            content="hello",
+            model="free-chat",
+            settings=settings,
+            max_output=50,
+        )
+        smart = weighted_reserve_tokens(
+            content="hello",
+            model="smart-chat",
+            settings=settings,
+            max_output=50,
+        )
+    assert free == 150
+    assert smart == 525
+
+
 @pytest.mark.parametrize(
     "alias,content,expected",
     [

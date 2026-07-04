@@ -8,7 +8,11 @@ from fastapi.testclient import TestClient
 
 from app.core.config import Settings
 from app.core.deps import get_settings_dep
-from app.gateways.storage_gateway import LocalStorageGateway, PresignedUpload
+from app.gateways.storage_gateway import (
+    LocalStorageGateway,
+    PresignedUpload,
+    UnconfiguredStorageGateway,
+)
 from app.main import create_app
 from app.models.orm import User
 
@@ -72,6 +76,30 @@ def test_presign_upload_success():
 
     assert r.status_code == 200
     assert r.json()["attachment_id"] == str(attachment_id)
+
+
+def test_presign_upload_returns_503_when_storage_unconfigured():
+    user = _fake_user()
+    app = _app_with_user(user)
+    fake_redis = AsyncMock()
+    fake_redis.incrby = AsyncMock(return_value=1)
+    fake_redis.expire = AsyncMock()
+
+    with (
+        patch(
+            "app.routers.attachments.get_storage_gateway",
+            return_value=UnconfiguredStorageGateway(),
+        ),
+        patch("app.routers.attachments.get_redis_client", return_value=fake_redis),
+    ):
+        client = TestClient(app)
+        r = client.post(
+            "/attachments/presign",
+            headers={"Authorization": "Bearer tok"},
+            json={"content_type": "image/png", "size_bytes": 128},
+        )
+
+    assert r.status_code == 503
 
 
 def test_presign_upload_rejects_image_over_daily_limit():

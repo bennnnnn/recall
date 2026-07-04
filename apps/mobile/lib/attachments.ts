@@ -208,12 +208,16 @@ export async function uploadChatAttachment(
     ? uploadPath
     : `${getApiUrl()}${uploadPath.startsWith("/") ? uploadPath : `/${uploadPath}`}`;
 
+  const headers: Record<string, string> = {
+    "Content-Type": pending.contentType,
+  };
+  if (presign.api_upload || uploadUrl.startsWith(getApiUrl())) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   const response = await fetch(uploadUrl, {
     method: "PUT",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": pending.contentType,
-    },
+    headers,
     body: bytes,
   });
 

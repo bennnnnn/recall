@@ -6,7 +6,12 @@ import math
 
 import pytest
 
-from app.models.math_schemas import EquationInput, GraphSampleInput, RectangleGeometryInput
+from app.models.math_schemas import (
+    EquationInput,
+    GraphBlockSpec,
+    GraphSampleInput,
+    RectangleGeometryInput,
+)
 from app.services import math_service
 
 
@@ -88,3 +93,9 @@ def test_try_extract_equation() -> None:
     eq = math_service.try_extract_equation_from_text("Solve x^2 + 2 = 6")
     assert eq is not None
     assert eq.lhs.replace(" ", "") in {"x**2+2", "x^2+2"} or "2" in eq.lhs
+
+
+def test_graph_block_spec_requires_two_points_when_present() -> None:
+    GraphBlockSpec(expr="x", points=[[0.0, 0.0], [1.0, 1.0]])
+    with pytest.raises(ValueError, match="at least two"):
+        GraphBlockSpec(expr="x", points=[[0.0, 0.0]])

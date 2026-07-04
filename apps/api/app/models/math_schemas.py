@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class EquationInput(BaseModel):
@@ -163,6 +163,13 @@ class GraphBlockSpec(BaseModel):
     x_max: float = 10.0
     title: str | None = None
     points: list[list[float]] = Field(default_factory=list)
+
+    @field_validator("points")
+    @classmethod
+    def points_need_at_least_two(cls, value: list[list[float]]) -> list[list[float]]:
+        if value and len(value) < 2:
+            raise ValueError("graph points need at least two coordinates")
+        return value
 
 
 class MathIntent(BaseModel):

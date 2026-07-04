@@ -23,6 +23,7 @@ from app.models.schemas import (
 from app.repositories import users as users_repo
 from app.services import auth as auth_service
 from app.services import export_service
+from app.services import home as home_service
 from app.services import memory as memory_service
 from app.services import plan as plan_service
 from app.services import subscription as subscription_service
@@ -171,6 +172,7 @@ async def update_me(
     )
     if memory_toggled:
         await memory_service.invalidate_memory_block(user.id)
+    await home_service.invalidate_home_cache(user.id)
     return UserOut.model_validate(updated)
 
 

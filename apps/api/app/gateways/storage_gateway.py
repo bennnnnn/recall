@@ -193,6 +193,32 @@ class R2StorageGateway:
         return None
 
 
+class UnconfiguredStorageGateway:
+    """Fail closed when production expects R2 but credentials are missing."""
+
+    _msg = "Object storage is not configured"
+
+    async def presign_upload(
+        self, *, user_id: str, content_type: str, size_bytes: int
+    ) -> PresignedUpload:
+        raise RuntimeError(self._msg)
+
+    async def presign_download(self, storage_key: str) -> str:
+        raise RuntimeError(self._msg)
+
+    async def write_bytes(self, storage_key: str, data: bytes) -> None:
+        raise RuntimeError(self._msg)
+
+    async def read_bytes(self, storage_key: str) -> bytes | None:
+        return None
+
+    async def delete_bytes(self, storage_key: str) -> None:
+        return None
+
+    def resolve_local_path(self, storage_key: str) -> Path | None:
+        return None
+
+
 def _r2_configured(settings: Settings) -> bool:
     return bool(
         settings.r2_account_id
@@ -217,7 +243,6 @@ def get_storage_gateway(settings: Settings) -> StorageGateway:
             )
             return LocalStorageGateway(Path(settings.storage_local_path))
         logger.error("R2 storage selected but credentials incomplete in production")
-        # Return local so import/startup doesn't crash; routes 501 on use.
-        return LocalStorageGateway(Path(settings.storage_local_path))
+        return UnconfiguredStorageGateway()
     # default: local
     return LocalStorageGateway(Path(settings.storage_local_path))

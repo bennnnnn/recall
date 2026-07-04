@@ -8,7 +8,11 @@ from app.core.config import Settings
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_settings_dep
 from app.core.redis import get_redis_client
-from app.gateways.storage_gateway import LocalStorageGateway, get_storage_gateway
+from app.gateways.storage_gateway import (
+    LocalStorageGateway,
+    UnconfiguredStorageGateway,
+    get_storage_gateway,
+)
 from app.models.orm import User
 from app.models.schemas import AttachmentOut, AttachmentPresignIn, AttachmentPresignOut
 from app.repositories import attachments as attachments_repo
@@ -51,6 +55,11 @@ async def presign_upload(
             )
 
     gateway = get_storage_gateway(settings)
+    if isinstance(gateway, UnconfiguredStorageGateway):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Attachment storage is not configured",
+        )
     presigned = await gateway.presign_upload(
         user_id=str(user.id),
         content_type=content_type,

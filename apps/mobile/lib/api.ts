@@ -400,6 +400,8 @@ async function request<T>(
         return request<T>(path, refreshed, init, false);
       }
       onUnauthorized?.();
+      const text = await response.text();
+      throw new Error(text || `Request failed: ${response.status}`);
     }
 
     if (!response.ok) {

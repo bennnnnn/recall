@@ -10,12 +10,16 @@ from app.repositories import chats as chats_repo
 from app.repositories import memories as memories_repo
 from app.repositories import messages as messages_repo
 
+# Bound memory/time for a single export request — full history is streamed in pages.
+EXPORT_MAX_CHATS = 500
+EXPORT_MAX_MESSAGES_PER_CHAT = 2_000
+
 
 async def build_export(session: AsyncSession, user: User) -> dict[str, Any]:
-    chats = await chats_repo.list_for_user(session, user.id)
+    chats = await chats_repo.list_for_user(session, user.id, limit=EXPORT_MAX_CHATS)
     exported_chats: list[dict[str, Any]] = []
     for chat in chats:
-        msgs = await messages_repo.list_all(session, chat.id, limit=10_000)
+        msgs = await messages_repo.list_all(session, chat.id, limit=EXPORT_MAX_MESSAGES_PER_CHAT)
         exported_chats.append(
             {
                 "id": str(chat.id),
@@ -39,6 +43,10 @@ async def build_export(session: AsyncSession, user: User) -> dict[str, Any]:
     memories = await memories_repo.list_for_user(session, user.id)
     return {
         "exported_at": datetime.now(UTC).isoformat(),
+        "export_limits": {
+            "max_chats": EXPORT_MAX_CHATS,
+            "max_messages_per_chat": EXPORT_MAX_MESSAGES_PER_CHAT,
+        },
         "user": {
             "email": user.email,
             "name": user.name,

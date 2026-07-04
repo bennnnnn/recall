@@ -267,6 +267,11 @@ async def update_project(
     if not item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
     patch = body.model_dump(exclude_unset=True)
+    if patch.get("kind") == "programming":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="programming_not_supported",
+        )
     if patch.get("kind") == "vocabulary":
         patch["kind"] = "language"
     updated = await projects_repo.update(session, item, **patch)

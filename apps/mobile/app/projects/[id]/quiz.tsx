@@ -140,6 +140,10 @@ export default function ProjectExamQuizScreen() {
             ...(meta?.question ? { question: meta.question } : {}),
             ...(meta?.isCorrect != null ? { is_correct: meta.isCorrect } : {}),
           })
+          .then(() => api.getProject(token, project.id))
+          .then((detail) => {
+            setProject(detail);
+          })
           .catch(() => {});
       }
     },

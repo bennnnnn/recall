@@ -106,3 +106,8 @@ async def test_build_export_structure():
     assert len(data["chats"]) == 1
     assert data["chats"][0]["messages"][0]["content"] == "hi"
     assert len(data["memories"]) == 1
+    assert data["export_limits"]["max_chats"] == export_service.EXPORT_MAX_CHATS
+    assert (
+        data["export_limits"]["max_messages_per_chat"]
+        == export_service.EXPORT_MAX_MESSAGES_PER_CHAT
+    )

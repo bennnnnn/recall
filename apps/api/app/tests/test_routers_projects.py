@@ -157,6 +157,33 @@ def test_create_programming_project_rejected():
     create_mock.assert_not_awaited()
 
 
+def test_patch_programming_kind_rejected():
+    user = _fake_user()
+    app = _app_with_user(user)
+    project = _project(kind="language", title="Spanish")
+
+    with (
+        patch(
+            "app.routers.projects.projects_repo.get_by_id",
+            AsyncMock(return_value=project),
+        ),
+        patch(
+            "app.routers.projects.projects_repo.update",
+            AsyncMock(),
+        ) as update_mock,
+    ):
+        client = TestClient(app)
+        r = client.patch(
+            f"/projects/{project.id}",
+            headers={"Authorization": "Bearer tok"},
+            json={"kind": "programming"},
+        )
+
+    assert r.status_code == 400
+    assert r.json()["detail"] == "programming_not_supported"
+    update_mock.assert_not_awaited()
+
+
 def test_create_trivia_project_rejects_duplicate():
     user = _fake_user()
     app = _app_with_user(user)

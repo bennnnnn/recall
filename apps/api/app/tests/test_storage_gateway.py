@@ -9,6 +9,7 @@ from app.core.config import Settings
 from app.gateways.storage_gateway import (
     LocalStorageGateway,
     R2StorageGateway,
+    UnconfiguredStorageGateway,
     get_storage_gateway,
 )
 
@@ -70,6 +71,12 @@ def test_get_storage_gateway_falls_back_to_local_when_r2_creds_incomplete(
     settings = Settings(storage_backend="r2", environment="development")
     gateway = get_storage_gateway(settings)
     assert isinstance(gateway, LocalStorageGateway)
+
+
+def test_get_storage_gateway_production_fail_closed_when_r2_incomplete():
+    settings = Settings(storage_backend="r2", environment="production")
+    gateway = get_storage_gateway(settings)
+    assert isinstance(gateway, UnconfiguredStorageGateway)
 
 
 @pytest.mark.asyncio

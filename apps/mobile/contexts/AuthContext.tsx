@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -76,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setTokenState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [onboarded, setOnboardedState] = useState(false);
+  const signOutInFlightRef = useRef(false);
 
   const hydrate = useCallback(async () => {
     const [stored, onb] = await Promise.all([getToken(), getOnboarded()]);
@@ -124,41 +126,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    if (signOutInFlightRef.current) return;
+    signOutInFlightRef.current = true;
     const userId = user?.id;
     const accessToken = token;
     const refreshToken = await getRefreshToken();
     try {
-      const { cancelAllTodoReminders } = await import("@/lib/todoReminders");
-      await cancelAllTodoReminders();
-    } catch {
-      /* best-effort */
-    }
-    try {
-      const { clearReminderLeadPrefs } = await import("@/lib/reminderPrefs");
-      await clearReminderLeadPrefs();
-    } catch {
-      /* best-effort */
-    }
-    if (userId) {
       try {
-        const { clearSeenReminderIds } = await import("@/lib/reminderSeen");
-        await clearSeenReminderIds(userId);
+        const { cancelAllTodoReminders } = await import("@/lib/todoReminders");
+        await cancelAllTodoReminders();
       } catch {
         /* best-effort */
       }
+      try {
+        const { clearReminderLeadPrefs } = await import("@/lib/reminderPrefs");
+        await clearReminderLeadPrefs();
+      } catch {
+        /* best-effort */
+      }
+      if (userId) {
+        try {
+          const { clearSeenReminderIds } = await import("@/lib/reminderSeen");
+          await clearSeenReminderIds(userId);
+        } catch {
+          /* best-effort */
+        }
+      }
+      try {
+        const { clearAllCachedChatMessages } = await import("@/lib/chatMessageCache");
+        await clearAllCachedChatMessages();
+      } catch {
+        /* best-effort */
+      }
+      try {
+        await signOutGoogle();
+      } catch {
+        // best-effort — clearing the local token is what matters
+      }
+      if (accessToken) {
+        await logoutSession(accessToken, refreshToken);
+      }
+      // Server-side integrations (Gmail, Calendar) stay connected until explicitly disconnected.
+      await clearToken();
+      setTokenState(null);
+      setUser(null);
+    } finally {
+      signOutInFlightRef.current = false;
     }
-    try {
-      await signOutGoogle();
-    } catch {
-      // best-effort — clearing the local token is what matters
-    }
-    if (accessToken) {
-      await logoutSession(accessToken, refreshToken);
-    }
-    // Server-side integrations (Gmail, Calendar) stay connected until explicitly disconnected.
-    await clearToken();
-    setTokenState(null);
-    setUser(null);
   }, [user?.id, token]);
 
   // Sign out automatically when any authenticated request returns 401.

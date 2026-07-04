@@ -1048,6 +1048,8 @@ async def apply_project_actions(
                 kind = action.kind or "general"
                 if kind == "vocabulary":
                     kind = "language"
+                if kind == "programming":
+                    continue
                 if kind == "language" and _find_language_project(projects, "en"):
                     continue
                 stack = "python" if kind == "programming" else "en"

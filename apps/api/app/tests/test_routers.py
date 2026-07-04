@@ -104,6 +104,29 @@ def test_me_patch_invalidates_memory_cache_on_toggle():
     invalidate_mock.assert_awaited_once_with(user.id)
 
 
+def test_me_patch_invalidates_home_cache():
+    user = _fake_user()
+    app = _app_with_user(user)
+    invalidate_mock = AsyncMock()
+
+    with (
+        patch("app.routers.auth.users_repo.update", AsyncMock(return_value=user)),
+        patch(
+            "app.routers.auth.home_service.invalidate_home_cache",
+            invalidate_mock,
+        ),
+    ):
+        client = TestClient(app)
+        r = client.patch(
+            "/auth/me",
+            headers={"Authorization": "Bearer tok"},
+            json={"name": "New Name"},
+        )
+
+    assert r.status_code == 200
+    invalidate_mock.assert_awaited_once_with(user.id)
+
+
 def test_me_patch_skips_memory_invalidation_when_unchanged():
     user = _fake_user()
     user.memory_enabled = True

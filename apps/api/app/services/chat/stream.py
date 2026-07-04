@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 from collections.abc import AsyncIterator, Callable
 from typing import Any
 from uuid import UUID
@@ -30,6 +31,23 @@ from app.services.quota import quota_exceeded_message
 logger = logging.getLogger(__name__)
 
 
+def weighted_reserve_tokens(
+    *,
+    content: str,
+    model: str,
+    settings: Settings,
+    max_output: int | None = None,
+    vision_extra: int = 0,
+) -> int:
+    from app.services import model_catalog
+
+    base = estimate_tokens(content) + (
+        max_output if max_output is not None else settings.max_output_tokens
+    )
+    base += vision_extra
+    return math.ceil(base * model_catalog.quota_multiplier(model))
+
+
 async def stream_chat_response(
     redis: Redis,
     settings: Settings,
@@ -57,15 +75,24 @@ async def stream_chat_response(
             raise ChatNotFoundError("User not found.")
         daily_limit = chat_pkg.quota_service.daily_limit_for_user(user, settings)
         await seed_usage_from_db(redis, session, user_id)
+        model = chat_pkg.plan_service.resolve_user_model_override(
+            user, model_alias, content, settings
+        )
 
     if pre_reserved is not None:
         reserved = pre_reserved
     else:
-        reserved = estimate_tokens(content) + settings.max_output_tokens
+        vision_extra = 0
         if attachment_ids:
             async with SessionLocal() as session:
                 image_count = await count_image_attachments(session, user_id, attachment_ids)
-            reserved += vision_reserve_tokens(settings, image_count)
+            vision_extra = vision_reserve_tokens(settings, image_count)
+        reserved = weighted_reserve_tokens(
+            content=content,
+            model=model,
+            settings=settings,
+            vision_extra=vision_extra,
+        )
         if not await chat_pkg.quota_service.reserve_usage(
             redis, str(user_id), reserved, daily_limit=daily_limit
         ):
@@ -180,7 +207,12 @@ async def stream_regenerate_response(
             raise ChatNotFoundError("No messages to regenerate.")
 
         prior_count = await chat_pkg.messages_repo.count_for_chat(session, chat_id)
-        reserved = estimate_tokens(user_message_content) + bundle.max_out
+        reserved = weighted_reserve_tokens(
+            content=user_message_content,
+            model=model,
+            settings=settings,
+            max_output=bundle.max_out,
+        )
         daily_limit = chat_pkg.quota_service.daily_limit_for_user(user, settings)
         await seed_usage_from_db(redis, session, user_id)
         if not await chat_pkg.quota_service.reserve_usage(
@@ -276,7 +308,10 @@ async def stream_edit_response(
         if target is None or target.role != "user":
             raise ChatNotFoundError("Only user messages can be edited.")
         daily_limit = chat_pkg.quota_service.daily_limit_for_user(user, settings)
-        reserved = estimate_tokens(content) + settings.max_output_tokens
+        model = chat_pkg.plan_service.resolve_user_model_override(
+            user, model_alias, content, settings
+        )
+        reserved = weighted_reserve_tokens(content=content, model=model, settings=settings)
         await seed_usage_from_db(redis, session, user_id)
         if not await chat_pkg.quota_service.reserve_usage(
             redis, str(user_id), reserved, daily_limit=daily_limit
