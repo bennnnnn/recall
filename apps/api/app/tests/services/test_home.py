@@ -200,8 +200,9 @@ async def test_build_home_language_project_starters():
     assert screen.project_highlight.title == "Learning English"
     assert screen.project_highlight.kind == "language"
     assert screen.project_highlight.daily_goal == 5
-    assert screen.project_highlight.cue == "finish_pending"
-    assert "Review Learning English" in starter_texts
+    assert screen.project_highlight.cue == "not_started_today"
+    assert "Review Learning English" not in starter_texts
+    assert "Start Learning English" not in starter_texts
     assert "chat" not in kinds
     assert "memory" not in kinds
     assert screen.subtitle is None
@@ -255,14 +256,16 @@ async def test_build_home_language_review_chip_when_due():
             "mastered_count": 3,
             "added_this_week": 1,
             "due_for_review": 4,
+            "mastered_today": 2,
         },
     ):
         screen = await home_service.build_home_screen(session, user, Settings())
 
     assert screen.project_highlight is not None
+    assert screen.project_highlight.cue == "continue"
     starter_texts = {s.text for s in screen.starters}
-    assert "Review Learning English" in starter_texts
-    assert "Start Learning English" not in starter_texts
+    assert "Review Learning English" not in starter_texts
+    assert "Continue Learning English" not in starter_texts
 
 
 @pytest.mark.asyncio
@@ -329,7 +332,7 @@ async def test_build_home_trivia_project_shows_card_when_incomplete():
     assert screen.project_highlight.cue == "continue"
     assert screen.project_highlight.mastered_today == 2
     starter_texts = {s.text for s in screen.starters}
-    assert "Continue General knowledge" in starter_texts
+    assert "Continue General knowledge" not in starter_texts
 
 
 @pytest.mark.asyncio
@@ -573,10 +576,31 @@ def test_project_starters_language_not_started():
 def test_project_starters_language_review_when_due():
     project = _project()
     stats = ProjectStats(
-        total=10, due_for_review=3, learning_count=4, new_count=2, mastered_count=1
+        total=10,
+        due_for_review=3,
+        learning_count=4,
+        new_count=2,
+        mastered_count=1,
+        mastered_today=2,
     )
     starters = home_service._project_starters(project, stats)
-    assert starters[0].text == "Review Learning English"
+    assert starters[0].text == "Continue Learning English"
+    assert "review" in starters[0].prompt.lower()
+
+
+def test_project_starters_language_start_when_not_started_today():
+    project = _project()
+    stats = ProjectStats(
+        total=10,
+        due_for_review=3,
+        learning_count=4,
+        new_count=2,
+        mastered_count=1,
+        mastered_today=0,
+    )
+    starters = home_service._project_starters(project, stats)
+    assert starters[0].text == "Start Learning English"
+    assert "start today" in starters[0].prompt.lower()
 
 
 def test_project_starters_language_empty_when_daily_goal_met():

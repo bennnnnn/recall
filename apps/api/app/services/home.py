@@ -460,18 +460,13 @@ def _project_progress_line(project: Project, stats: ProjectStats) -> str:
 
 def _project_chip_label(project: Project, stats: ProjectStats) -> str:
     title = project.title.strip()
-    if _is_language_project(project):
-        if stats.total == 0:
+    if _is_daily_home_project(project):
+        daily_goal = daily_learning.resolve_daily_goal(project)
+        if stats.mastered_today >= daily_goal:
+            return ""
+        if stats.total == 0 or stats.mastered_today == 0:
             return f"Start {title}"[:48]
-        if stats.due_for_review > 0:
-            return f"Review {title}"[:48]
-        return f"Practice {title}"[:48]
-    if _is_trivia_project(project):
-        if stats.total == 0:
-            return f"Start {title}"[:48]
-        if stats.mastered_today > 0:
-            return f"Continue {title}"[:48]
-        return f"Quiz me on {title}"[:48]
+        return f"Continue {title}"[:48]
     if stats.total == 0:
         return f"Start {title}"[:48]
     return f"Continue {title}"[:48]
@@ -497,6 +492,13 @@ def _project_starters(project: Project, stats: ProjectStats) -> list[HomeStarter
                 f'Help me start my "{title}" vocabulary project.{goal} '
                 "Suggest how to add my first words and a simple first session."
             )
+        elif stats.mastered_today == 0:
+            prompt = (
+                f'Help me start today\'s "{title}" vocabulary session.{goal} {progress} '
+                f"My daily goal is {daily_goal} words. Begin with a short quiz — "
+                "prioritize words due for review, then new and learning words until "
+                "I hit today's goal."
+            )
         elif stats.due_for_review > 0:
             prompt = (
                 f'Help me review my "{title}" vocabulary.{goal} {progress} '
@@ -518,6 +520,12 @@ def _project_starters(project: Project, stats: ProjectStats) -> list[HomeStarter
         if stats.total == 0:
             prompt = (
                 f'Start my daily "{title}" general-knowledge quiz.{goal} '
+                f"Ask me one multiple-choice question at a time until I get "
+                f"{daily_goal} correct today."
+            )
+        elif stats.mastered_today == 0:
+            prompt = (
+                f'Start my daily "{title}" general-knowledge quiz.{goal} {progress} '
                 f"Ask me one multiple-choice question at a time until I get "
                 f"{daily_goal} correct today."
             )
@@ -839,17 +847,6 @@ async def build_home_screen(
     if not project_highlight:
         for item in project_starters:
             add(item)
-    elif project_starters:
-        # Daily learning card shown — add one chip that matches the card action.
-        chip = next(
-            (
-                item
-                for item in project_starters
-                if item.text.lower().startswith(("review ", "continue ", "quiz me on ", "start "))
-            ),
-            project_starters[0],
-        )
-        add(chip)
 
     chat_skip = [
         *continuity_anchors,

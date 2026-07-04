@@ -118,7 +118,7 @@ def daily_home_cue(
         return "start"
     if mastered_today > 0:
         return "continue"
-    if pending_today > 0 or learning_count > 0 or due_for_review > 0:
+    if pending_today > 0:
         return "finish_pending"
     today = datetime.now(home_tz).date()
     if last_mastery is not None:

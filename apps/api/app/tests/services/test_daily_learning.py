@@ -106,6 +106,23 @@ def test_daily_home_cue_continue_and_missed():
     )
 
 
+def test_daily_home_cue_not_started_when_due_words_but_zero_today():
+    tz = ZoneInfo("UTC")
+    assert (
+        daily_home_cue(
+            total=10,
+            mastered_today=0,
+            pending_today=0,
+            learning_count=4,
+            due_for_review=3,
+            daily_goal=5,
+            last_mastery=datetime.now(UTC),
+            home_tz=tz,
+        )
+        == "not_started_today"
+    )
+
+
 def test_build_daily_history_complete_partial_and_skipped():
     tz = ZoneInfo("UTC")
     today = datetime.now(tz).date()
