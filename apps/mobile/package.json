@@ -80,10 +80,5 @@
     "lint": "expo lint",
     "test": "jest"
   },
-  "pnpm": {
-    "patchedDependencies": {
-      "react-native-draggable-flatlist@4.0.3": "patches/react-native-draggable-flatlist@4.0.3.patch"
-    }
-  },
   "private": true
 }
