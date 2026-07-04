@@ -876,6 +876,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  cancelAttachment: (token: string, attachmentId: string) =>
+    request<void>(`/attachments/${attachmentId}`, token, {
+      method: "DELETE",
+    }),
   getAttachmentUrl: (token: string, attachmentId: string) =>
     request<{
       id: string;
