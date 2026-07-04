@@ -25,6 +25,7 @@ from app.models.schemas import (
 )
 from app.repositories import calendar_connections as calendar_repo
 from app.services import calendar as calendar_service
+from app.services import google_integrations as google_integrations_service
 from app.services import home as home_service
 
 logger = logging.getLogger(__name__)
@@ -145,7 +146,14 @@ async def disconnect_calendar(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
+    settings: Settings = Depends(get_settings_dep),
 ) -> None:
+    await google_integrations_service.revoke_on_disconnect(
+        session,
+        settings,
+        user.id,
+        disconnect="calendar",
+    )
     await calendar_repo.delete_for_user(session, user.id)
     try:
         await redis.delete(calendar_service._cache_key(user.id))

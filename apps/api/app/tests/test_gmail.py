@@ -404,8 +404,13 @@ async def test_disconnect_gmail_clears_redis_cache():
     user.id = uuid4()
     session = AsyncMock()
     redis = AsyncMock()
+    settings = Settings()
 
     with (
+        patch(
+            "app.routers.gmail_integrations.google_integrations_service.revoke_on_disconnect",
+            AsyncMock(),
+        ),
         patch(
             "app.routers.gmail_integrations.suggested_repo.delete_for_user",
             AsyncMock(),
@@ -415,6 +420,6 @@ async def test_disconnect_gmail_clears_redis_cache():
             AsyncMock(),
         ),
     ):
-        await disconnect_gmail(user=user, session=session, redis=redis)
+        await disconnect_gmail(user=user, session=session, redis=redis, settings=settings)
 
     redis.delete.assert_awaited_once_with(email_service._cache_key(user.id))

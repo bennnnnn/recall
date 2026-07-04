@@ -32,10 +32,17 @@ def _app_with_user(user):
 def test_delete_account_returns_204():
     user = _fake_user()
     app = _app_with_user(user)
-    with patch("app.routers.auth.users_repo.delete_user", AsyncMock()) as deleter:
+    with (
+        patch(
+            "app.routers.auth.google_integrations_service.revoke_all_google_tokens_for_user",
+            AsyncMock(),
+        ) as revoke_mock,
+        patch("app.routers.auth.users_repo.delete_user", AsyncMock()) as deleter,
+    ):
         client = TestClient(app)
         r = client.delete("/auth/me", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 204
+    revoke_mock.assert_awaited_once()
     deleter.assert_awaited_once()
 
 
