@@ -513,6 +513,10 @@ async def prepare_chat_turn(
                         storage_key=row.storage_key,
                     )
                     if error:
+                        if attachment_content_service.is_image_content_type(row.content_type):
+                            from app.services import quota as quota_service
+
+                            await quota_service.refund_image_upload(redis, user_id)
                         async with SessionLocal() as purge_session:
                             await attachment_content_service.purge_invalid_upload(
                                 gateway,
