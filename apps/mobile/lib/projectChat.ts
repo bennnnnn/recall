@@ -144,13 +144,23 @@ export function buildProjectBonusWordsPrompt(project: ProjectDetail): string {
   );
 }
 
-/** Chat tutor mode — word, definition, example; natural replies (no MC by default). */
+/** Chat tutor mode — conversational teaching (language: vocab_card; trivia: facts only). */
 export function buildProjectChatTutorPrompt(project: ProjectDetail): string {
-  return (
-    `We're in **chat tutor mode** — teach one word at a time with definition and example. ` +
-    `Use the vocab_card format for each word. No multiple choice unless I ask to be quizzed.\n\n` +
-    buildProjectAskPrompt(project)
-  );
+  if (project.kind === "trivia") {
+    return (
+      `We're in **chat tutor mode** for my general knowledge quiz — share facts and explain topics in plain prose. ` +
+      `Do NOT teach English vocabulary, do NOT use vocab_card blocks, and do NOT use multiple choice unless I ask.\n\n` +
+      buildProjectAskPrompt(project)
+    );
+  }
+  if (isLanguageProject(project.kind)) {
+    return (
+      `We're in **chat tutor mode** — teach one word at a time with definition and example. ` +
+      `Use the vocab_card format for each word. No multiple choice unless I ask to be quizzed.\n\n` +
+      buildProjectAskPrompt(project)
+    );
+  }
+  return buildProjectAskPrompt(project);
 }
 
 /** Exam quiz mode — multiple-choice cards only. */

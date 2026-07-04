@@ -277,6 +277,7 @@ TRIVIA_CHAT_TUTOR_HINT = (
     "**How to teach:** Share one interesting fact or question at a time in plain prose. "
     'Explain the answer when the user engages ("got it", "tell me more", "why?"). '
     "Save mastered facts via background sync when they demonstrate understanding.\n"
+    "Do NOT use ```vocab_card or teach English vocabulary words — this is general knowledge, not language.\n"
     "Do NOT use ```vocab_quiz unless the user explicitly asks to be quizzed with A–D.\n"
     "When today's daily_goal is met, congratulate and stop unless they want bonus facts."
 )
@@ -296,8 +297,13 @@ def _trivia_tutor_hint(quiz_mode: str | None) -> str:
     return TRIVIA_EXAM_TUTOR_HINT
 
 
-def _quiz_mode_banner(quiz_mode: str | None) -> str:
+def _quiz_mode_banner(quiz_mode: str | None, *, kind: str | None = None) -> str:
     if quiz_mode == "chat":
+        if kind == "trivia":
+            return (
+                "**Presentation mode: chat tutor.** Share general-knowledge facts in conversational prose. "
+                "Do NOT use vocab_card or teach vocabulary words. Multiple-choice only if the user asks."
+            )
         return (
             "**Presentation mode: chat tutor.** Teach in conversational prose; "
             "use vocab_card for language words. Multiple-choice only if the user asks."
@@ -869,7 +875,8 @@ async def load_project_for_prompt(
     if block:
         block = (
             "This chat is linked to ONE learning topic — focus on it unless the user "
-            f"explicitly asks about something else.\n\n{_quiz_mode_banner(quiz_mode)}\n\n{block}"
+            f"explicitly asks about something else.\n\n"
+            f"{_quiz_mode_banner(quiz_mode, kind=project.kind)}\n\n{block}"
         )
     return block
 

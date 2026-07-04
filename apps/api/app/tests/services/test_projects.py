@@ -446,6 +446,36 @@ async def test_load_project_for_prompt_chat_mode():
 
 
 @pytest.mark.asyncio
+async def test_load_project_for_prompt_trivia_chat_mode():
+    session = AsyncMock()
+    user_id = uuid4()
+    project_id = uuid4()
+    project = _project("General knowledge", kind="trivia")
+    project.id = project_id
+
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "get_by_id",
+            AsyncMock(return_value=project),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+    ):
+        block = await projects_service.load_project_for_prompt(
+            session, user_id, project_id, Settings(), quiz_mode="chat"
+        )
+
+    assert "chat tutor mode" in block
+    assert "Do NOT use ```vocab_card" in block
+    assert "Do NOT use vocab_card or teach vocabulary words" in block
+    assert "vocab_quiz JSON" not in block.split("Do NOT use ```vocab_quiz")[0]
+
+
+@pytest.mark.asyncio
 async def test_load_project_for_prompt_exam_mode():
     session = AsyncMock()
     user_id = uuid4()
