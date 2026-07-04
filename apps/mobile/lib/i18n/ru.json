@@ -630,5 +630,11 @@
   "upgrade.restore": "Восстановить покупки",
   "upgrade.restore_empty": "Активная подписка для этого аккаунта не найдена.",
   "upgrade.subscribe": "Pro — {{price}}/мес",
-  "upgrade.title": "Перейти на Pro"
+  "upgrade.title": "Перейти на Pro",
+  "projects.learn_in_chat": "Learn in chat",
+  "projects.take_quiz": "Take quiz",
+  "projects.quiz.exam_title": "Quiz",
+  "projects.quiz.exam_progress": "{{done}} / {{goal}} today",
+  "projects.quiz.exam_loading": "Loading next question…",
+  "projects.quiz.switch_to_chat": "Switch to chat tutor"
 }

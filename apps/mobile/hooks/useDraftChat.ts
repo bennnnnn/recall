@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 
 import { api } from "@/lib/api";
+import type { QuizMode } from "@/lib/quizMode";
 import { resolveActiveChatId } from "@/lib/chatDraftLogic";
 
 type Options = {
@@ -12,6 +13,7 @@ export function useDraftChat({ token, chatId }: Options) {
   const [draftChatId, setDraftChatId] = useState<string | null>(null);
   const draftChatIdRef = useRef<string | null>(null);
   const draftProjectIdRef = useRef<string | null>(null);
+  const draftQuizModeRef = useRef<QuizMode | null>(null);
   const draftCreatePromiseRef = useRef<Promise<string | null> | null>(null);
   const skipLoadForChatIdRef = useRef<string | null>(null);
   const creatingRef = useRef(false);
@@ -29,6 +31,7 @@ export function useDraftChat({ token, chatId }: Options) {
       const toDiscard = id ?? draftChatIdRef.current;
       draftChatIdRef.current = null;
       draftProjectIdRef.current = null;
+      draftQuizModeRef.current = null;
       draftCreatePromiseRef.current = null;
       setDraftChatId(null);
       if (toDiscard && token) {
@@ -39,7 +42,11 @@ export function useDraftChat({ token, chatId }: Options) {
   );
 
   const prepareDraftChat = useCallback(
-    async (projectId?: string | null, model = "auto"): Promise<string | null> => {
+    async (
+      projectId?: string | null,
+      model = "auto",
+      quizMode?: QuizMode | null,
+    ): Promise<string | null> => {
       if (!token) return null;
       if (chatId) return chatId;
       if (draftChatIdRef.current) return draftChatIdRef.current;
@@ -49,9 +56,13 @@ export function useDraftChat({ token, chatId }: Options) {
       if (resolvedProjectId) {
         draftProjectIdRef.current = resolvedProjectId;
       }
+      const resolvedQuizMode = quizMode ?? draftQuizModeRef.current ?? undefined;
+      if (resolvedQuizMode) {
+        draftQuizModeRef.current = resolvedQuizMode;
+      }
 
       const task = api
-        .createChat(token, model, resolvedProjectId)
+        .createChat(token, model, resolvedProjectId, resolvedQuizMode)
         .then((chat) => {
           draftChatIdRef.current = chat.id;
           setDraftChatId(chat.id);
@@ -72,6 +83,7 @@ export function useDraftChat({ token, chatId }: Options) {
     setDraftChatId,
     draftChatIdRef,
     draftProjectIdRef,
+    draftQuizModeRef,
     draftCreatePromiseRef,
     skipLoadForChatIdRef,
     creatingRef,

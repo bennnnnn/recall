@@ -10,9 +10,14 @@ from app.models.orm import Chat, Message
 
 
 async def create(
-    session: AsyncSession, *, user_id: UUID, model: str, project_id: UUID | None = None
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    model: str,
+    project_id: UUID | None = None,
+    quiz_mode: str | None = None,
 ) -> Chat:
-    chat = Chat(user_id=user_id, model=model, project_id=project_id)
+    chat = Chat(user_id=user_id, model=model, project_id=project_id, quiz_mode=quiz_mode)
     session.add(chat)
     await session.commit()
     await session.refresh(chat)

@@ -144,6 +144,30 @@ export function buildProjectBonusWordsPrompt(project: ProjectDetail): string {
   );
 }
 
+/** Chat tutor mode — word, definition, example; natural replies (no MC by default). */
+export function buildProjectChatTutorPrompt(project: ProjectDetail): string {
+  return (
+    `We're in **chat tutor mode** — teach one word at a time with definition and example. ` +
+    `Use the vocab_card format for each word. No multiple choice unless I ask to be quizzed.\n\n` +
+    buildProjectAskPrompt(project)
+  );
+}
+
+/** Exam quiz mode — multiple-choice cards only. */
+export function buildProjectExamPrompt(project: ProjectDetail): string {
+  if (isLanguageProject(project.kind)) {
+    return buildProjectQuizPrompt(project);
+  }
+  if (project.kind === "trivia") {
+    const base = buildProjectAskPrompt(project);
+    return (
+      `We're in **exam quiz mode** — one multiple-choice trivia question per turn using vocab_quiz JSON. ` +
+      `Wait for A–D before explaining.\n\n${base}`
+    );
+  }
+  return buildProjectAskPrompt(project);
+}
+
 /** Starts an interactive multiple-choice vocabulary quiz in chat. */
 export function buildProjectQuizPrompt(project: ProjectDetail): string {
   const lvl = levelLabel(project.level);

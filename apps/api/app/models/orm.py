@@ -75,6 +75,7 @@ class Chat(Base):
     project_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("projects.id", ondelete="SET NULL"), nullable=True
     )
+    quiz_mode: Mapped[str | None] = mapped_column(String(16), nullable=True)
     title: Mapped[str | None] = mapped_column(String)
     model: Mapped[str] = mapped_column(String, default="free-chat")
     pinned: Mapped[bool] = mapped_column(Boolean, default=False)

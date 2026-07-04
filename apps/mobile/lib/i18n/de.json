@@ -630,5 +630,11 @@
   "upgrade.restore": "Käufe wiederherstellen",
   "upgrade.restore_empty": "Kein aktives Abo für dieses Konto gefunden.",
   "upgrade.subscribe": "Pro werden — {{price}}/Monat",
-  "upgrade.title": "Upgrade auf Pro"
+  "upgrade.title": "Upgrade auf Pro",
+  "projects.learn_in_chat": "Learn in chat",
+  "projects.take_quiz": "Take quiz",
+  "projects.quiz.exam_title": "Quiz",
+  "projects.quiz.exam_progress": "{{done}} / {{goal}} today",
+  "projects.quiz.exam_loading": "Loading next question…",
+  "projects.quiz.switch_to_chat": "Switch to chat tutor"
 }

@@ -13,11 +13,13 @@ describe("chatLaunch", () => {
   });
 
   it("queues trimmed prompts and returns true", () => {
-    expect(queueChatLaunch("  Study loops  ", "proj-1", "en")).toBe(true);
+    expect(queueChatLaunch("  Study loops  ", "proj-1", "en", "vocab", "chat")).toBe(true);
     expect(takeQueuedChatLaunch()).toEqual({
       prompt: "Study loops",
       projectId: "proj-1",
       quizLanguage: "en",
+      quizVariant: "vocab",
+      quizMode: "chat",
     });
   });
 });

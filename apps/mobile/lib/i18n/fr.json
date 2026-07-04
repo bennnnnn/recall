@@ -630,5 +630,11 @@
   "upgrade.restore": "Restaurer les achats",
   "upgrade.restore_empty": "Aucun abonnement actif trouvé pour ce compte.",
   "upgrade.subscribe": "Passer à Pro — {{price}}/mois",
-  "upgrade.title": "Passer à Pro"
+  "upgrade.title": "Passer à Pro",
+  "projects.learn_in_chat": "Learn in chat",
+  "projects.take_quiz": "Take quiz",
+  "projects.quiz.exam_title": "Quiz",
+  "projects.quiz.exam_progress": "{{done}} / {{goal}} today",
+  "projects.quiz.exam_loading": "Loading next question…",
+  "projects.quiz.switch_to_chat": "Switch to chat tutor"
 }

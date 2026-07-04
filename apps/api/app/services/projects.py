@@ -137,7 +137,21 @@ VOCAB_QUIZ_FORMAT_BLOCK = (
     f"{VOCAB_QUIZ_FENCE_EXAMPLE}"
 )
 
-LANGUAGE_TUTOR_HINT = (
+VOCAB_CARD_FENCE_EXAMPLE = (
+    "```vocab_card\n"
+    '{"word":"resilient","part_of_speech":"adjective",'
+    '"definition":"able to recover quickly from difficulty",'
+    '"example_sentence":"She stayed resilient after the setback."}\n'
+    "```"
+)
+
+VOCAB_CARD_FORMAT_BLOCK = (
+    "Present each new word with a short friendly explanation, then append:\n"
+    f"{VOCAB_CARD_FENCE_EXAMPLE}\n"
+    "The card is for the app UI — keep your prose natural above it."
+)
+
+LANGUAGE_EXAM_TUTOR_HINT = (
     "Active **language** projects (English etc.) — you are the user's vocabulary tutor.\n"
     "The project **level** is the user's **English skill level** (level1=beginner … level6=fluent), "
     "NOT word difficulty stored per word.\n"
@@ -184,6 +198,32 @@ LANGUAGE_TUTOR_HINT = (
     "batch if they explicitly ask for extra/more/bonus words beyond today's goal — confirm first."
 )
 
+LANGUAGE_CHAT_TUTOR_HINT = (
+    "Active **language** project — **chat tutor mode** (conversational learning, NOT multiple choice).\n"
+    "The project **level** is the user's **English skill level** (level1=beginner … level6=fluent).\n"
+    "Each word has: term, part_of_speech, definition, example_sentence, status "
+    "(new | learning | mastered).\n\n"
+    "**How to teach (one word per turn):**\n"
+    "1) Pick ONE new/learning word at the user's level.\n"
+    "2) In plain markdown: show the word, a clear definition, and one example sentence.\n"
+    "3) Append the vocab card block for the app UI:\n"
+    f"{VOCAB_CARD_FORMAT_BLOCK}\n"
+    '4) STOP — invite the user to reply naturally: e.g. "got it", "more examples", '
+    '"use it in a sentence", or ask a question. Do NOT ask for A/B/C/D.\n'
+    "5) When they show understanding, congratulate briefly and use sync to "
+    "start_learning or master the word — never wait for them to ask.\n"
+    "6) Then move to the next word until today's daily_goal is met.\n"
+    '7) If the user says "quiz me", "test me", or opens exam mode, switch to '
+    "multiple-choice vocab_quiz cards (exam rules).\n\n"
+    "**Do NOT use ```vocab_quiz in chat tutor mode** unless the user explicitly "
+    "requests a quiz question.\n\n"
+    "**Daily batches:** Same rules as exam mode for daily_goal — quiz/teach pending "
+    "words first; add fresh words only to fill today's goal; stop when goal is met."
+)
+
+# Legacy alias — exam-style MC quiz (default when quiz_mode is unset).
+LANGUAGE_TUTOR_HINT = LANGUAGE_EXAM_TUTOR_HINT
+
 PROGRAMMING_TUTOR_HINT = (
     "Active **programming** learning — fixed chapters, each with sub-topics (see snapshot). "
     "list_title = chapter title; content = sub-topic text exactly as stored.\n"
@@ -205,8 +245,8 @@ TRIVIA_QUIZ_FENCE_EXAMPLE = (
     "```"
 )
 
-TRIVIA_TUTOR_HINT = (
-    "Active **trivia** project — daily general-knowledge quiz.\n"
+TRIVIA_EXAM_TUTOR_HINT = (
+    "Active **trivia** project — **exam quiz mode** (multiple choice).\n"
     "Quiz topics are in project description (comma-separated ids: history, science, …).\n"
     "daily_goal = number of questions to get correct per session.\n"
     "Each saved fact: list_title = topic label (e.g. History), content = short question, "
@@ -230,6 +270,47 @@ TRIVIA_TUTOR_HINT = (
     "topics, stats, and a list of mastered facts. Never say you cannot generate PDFs — tell "
     "them to tap the **document export** icon on your message to save a PDF file."
 )
+
+TRIVIA_CHAT_TUTOR_HINT = (
+    "Active **trivia** project — **chat tutor mode** (conversational, NOT multiple choice).\n"
+    "Topics are in project description. daily_goal = correct facts to learn per session.\n\n"
+    "**How to teach:** Share one interesting fact or question at a time in plain prose. "
+    'Explain the answer when the user engages ("got it", "tell me more", "why?"). '
+    "Save mastered facts via background sync when they demonstrate understanding.\n"
+    "Do NOT use ```vocab_quiz unless the user explicitly asks to be quizzed with A–D.\n"
+    "When today's daily_goal is met, congratulate and stop unless they want bonus facts."
+)
+
+TRIVIA_TUTOR_HINT = TRIVIA_EXAM_TUTOR_HINT
+
+
+def _language_tutor_hint(quiz_mode: str | None) -> str:
+    if quiz_mode == "chat":
+        return LANGUAGE_CHAT_TUTOR_HINT
+    return LANGUAGE_EXAM_TUTOR_HINT
+
+
+def _trivia_tutor_hint(quiz_mode: str | None) -> str:
+    if quiz_mode == "chat":
+        return TRIVIA_CHAT_TUTOR_HINT
+    return TRIVIA_EXAM_TUTOR_HINT
+
+
+def _quiz_mode_banner(quiz_mode: str | None) -> str:
+    if quiz_mode == "chat":
+        return (
+            "**Presentation mode: chat tutor.** Teach in conversational prose; "
+            "use vocab_card for language words. Multiple-choice only if the user asks."
+        )
+    if quiz_mode == "exam":
+        return (
+            "**Presentation mode: exam quiz.** One multiple-choice question per turn "
+            "using vocab_quiz JSON; wait for A–D before explaining."
+        )
+    return (
+        "**Presentation mode: exam quiz (default).** One multiple-choice question per turn "
+        "using vocab_quiz JSON; wait for A–D before explaining."
+    )
 
 
 def _level_guidance(level: str) -> str:
@@ -764,6 +845,8 @@ async def load_project_for_prompt(
     user_id: UUID,
     project_id: UUID,
     settings: Settings,
+    *,
+    quiz_mode: str | None = None,
 ) -> str:
     project = await projects_repo.get_by_id(session, project_id, user_id)
     if project is None:
@@ -776,15 +859,17 @@ async def load_project_for_prompt(
     )
     block = format_projects_block([project], items)
     if _is_language_project(project):
-        block = f"{block}\n\n{LANGUAGE_TUTOR_HINT}" if block else LANGUAGE_TUTOR_HINT
+        hint = _language_tutor_hint(quiz_mode)
+        block = f"{block}\n\n{hint}" if block else hint
     if _is_programming_project(project):
         block = f"{block}\n\n{PROGRAMMING_TUTOR_HINT}" if block else PROGRAMMING_TUTOR_HINT
     if _is_trivia_project(project):
-        block = f"{block}\n\n{TRIVIA_TUTOR_HINT}" if block else TRIVIA_TUTOR_HINT
+        hint = _trivia_tutor_hint(quiz_mode)
+        block = f"{block}\n\n{hint}" if block else hint
     if block:
         block = (
             "This chat is linked to ONE learning topic — focus on it unless the user "
-            f"explicitly asks about something else.\n\n{block}"
+            f"explicitly asks about something else.\n\n{_quiz_mode_banner(quiz_mode)}\n\n{block}"
         )
     return block
 

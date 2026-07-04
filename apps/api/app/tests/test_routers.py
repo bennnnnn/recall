@@ -241,6 +241,8 @@ def test_create_chat():
     chat.title = None
     chat.model = "free-chat"
     chat.pinned = False
+    chat.archived = False
+    chat.quiz_mode = None
     chat.project_id = None
     chat.created_at = datetime(2024, 1, 1)
     chat.updated_at = datetime(2024, 1, 1)
@@ -265,6 +267,8 @@ def test_create_chat_with_other_users_project_id_rejected():
     chat.title = None
     chat.model = "free-chat"
     chat.pinned = False
+    chat.archived = False
+    chat.quiz_mode = None
     chat.project_id = None
     chat.created_at = datetime(2024, 1, 1)
     chat.updated_at = datetime(2024, 1, 1)
@@ -294,6 +298,8 @@ def test_create_chat_with_owned_project_id_accepted():
     chat.title = None
     chat.model = "free-chat"
     chat.pinned = False
+    chat.archived = False
+    chat.quiz_mode = None
     chat.project_id = pid
     chat.created_at = datetime(2024, 1, 1)
     chat.updated_at = datetime(2024, 1, 1)

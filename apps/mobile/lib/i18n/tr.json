@@ -630,5 +630,11 @@
   "upgrade.restore": "Satın alımları geri yükle",
   "upgrade.restore_empty": "Bu hesap için aktif abonelik bulunamadı.",
   "upgrade.subscribe": "Pro'ya geç — {{price}}/ay",
-  "upgrade.title": "Pro'ya yükselt"
+  "upgrade.title": "Pro'ya yükselt",
+  "projects.learn_in_chat": "Learn in chat",
+  "projects.take_quiz": "Take quiz",
+  "projects.quiz.exam_title": "Quiz",
+  "projects.quiz.exam_progress": "{{done}} / {{goal}} today",
+  "projects.quiz.exam_loading": "Loading next question…",
+  "projects.quiz.switch_to_chat": "Switch to chat tutor"
 }

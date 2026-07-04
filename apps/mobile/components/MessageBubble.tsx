@@ -15,6 +15,7 @@ import { MarkdownErrorBoundary } from "@/components/MarkdownErrorBoundary";
 import { RecallTypingIndicator } from "@/components/RecallTypingIndicator";
 import { ReasoningBlock } from "@/components/chat/ReasoningBlock";
 import { VocabQuizChoices } from "@/components/VocabQuizChoices";
+import { VocabCard } from "@/components/VocabCard";
 import { Message } from "@/lib/api";
 import {
   parseCalendarProposals,
@@ -24,6 +25,7 @@ import { extractPrimaryCopyText } from "@/lib/copyBlock";
 import { exportMessageAsPdf } from "@/lib/exportMessagePdf";
 import { notifySuccess, notifyWarning, tap } from "@/lib/haptics";
 import { parseVocabQuiz, stripVocabQuizBlock, stripVocabSessionMetadata, isCompleteVocabQuiz, hasVocabQuizFence, cleanQuizWord, stripQuizMarkdownDuplicates, type QuizAnswerMeta } from "@/lib/parseVocabQuiz";
+import { parseVocabCard, stripVocabCardBlock, hasVocabCardFence } from "@/lib/parseVocabCard";
 import { resolvePlaces, stripPlacesContent } from "@/lib/placesList";
 import {
   resolveSearchSources,
@@ -278,6 +280,10 @@ export const MessageBubble = React.memo(function MessageBubble({
     const parsed = parseVocabQuiz(content);
     return isCompleteVocabQuiz(parsed) ? parsed : null;
   }, [isUser, hasContent, content]);
+  const vocabCard = useMemo(() => {
+    if (isUser || !hasContent || quiz) return null;
+    return parseVocabCard(content);
+  }, [isUser, hasContent, content, quiz]);
   const quizVariantResolved =
     quizVariant === "trivia" || quiz?.quizType === "trivia" ? "trivia" : "vocab";
   const quizTopicLabel = quiz ? cleanQuizWord(quiz.word) : "";
@@ -287,7 +293,10 @@ export const MessageBubble = React.memo(function MessageBubble({
       : quiz.question?.trim() || ""
     : "";
   const showQuizCard = quiz != null && !layoutFrozen;
+  const showVocabCard = vocabCard != null && !layoutFrozen && !showQuizCard;
   const hideQuizFenceInMarkdown = showQuizCard || hasVocabQuizFence(content);
+  const hideCardFenceInMarkdown =
+    hideQuizFenceInMarkdown || showVocabCard || hasVocabCardFence(content);
   const showQuizButtons =
     showQuizCard && isLastAssistant && onQuizAnswer != null;
   const showLiveClock =
@@ -321,7 +330,11 @@ export const MessageBubble = React.memo(function MessageBubble({
   );
   const showPlaces = places.length > 0;
   const markdownContent = useMemo(() => {
-    let text = hideQuizFenceInMarkdown ? stripVocabQuizBlock(content) : stripVocabSessionMetadata(content);
+    let text = hideCardFenceInMarkdown
+      ? stripVocabCardBlock(hideQuizFenceInMarkdown ? stripVocabQuizBlock(content) : content)
+      : hideQuizFenceInMarkdown
+        ? stripVocabQuizBlock(content)
+        : stripVocabSessionMetadata(content);
     if (showQuizCard && quiz) {
       text = stripQuizMarkdownDuplicates(text, quiz);
     }
@@ -330,13 +343,14 @@ export const MessageBubble = React.memo(function MessageBubble({
     if (showCalendarProposals) text = stripCalendarProposalFences(text);
     if (showPlaces) text = stripPlacesContent(text, places);
     return text;
-  }, [hideQuizFenceInMarkdown, showQuizCard, quiz, showLiveClock, showCalendarProposals, showPlaces, places, content]);
+  }, [hideCardFenceInMarkdown, hideQuizFenceInMarkdown, showQuizCard, quiz, showLiveClock, showCalendarProposals, showPlaces, places, content]);
   const hasMarkdown = markdownContent.trim().length > 0;
   const showSearchSources =
     searchSources.length > 0 &&
     !layoutFrozen &&
     !showLiveClock &&
     !showQuizCard &&
+    !showVocabCard &&
     !showCalendarProposals;
   const showContextSummarized =
     !isUser && !layoutFrozen && (message.context_summarized ?? 0) > 0;
@@ -387,6 +401,9 @@ export const MessageBubble = React.memo(function MessageBubble({
               </MarkdownErrorBoundary>
             ) : null}
             {showPlaces ? <PlacesListBlock places={places} /> : null}
+            {showVocabCard && vocabCard ? (
+              <VocabCard card={vocabCard} language={quizLanguage} />
+            ) : null}
             {showQuizCard && quiz ? (
               <VocabQuizChoices
                 quiz={quiz}

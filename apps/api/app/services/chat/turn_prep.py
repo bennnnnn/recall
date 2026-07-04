@@ -168,13 +168,14 @@ async def build_stream_prompt_context(
     has_image_attachment: bool = False,
     on_status: StreamStatusFn | None = None,
     todo_sync_feedback: str | None = None,
+    quiz_mode: str | None = None,
 ) -> TurnPromptBundle:
     """Shared prompt assembly for new turns and regenerate."""
     import app.services.chat as chat_pkg
 
     meta: dict[str, Any] = {}
     minimal_personal = is_broad_self_question(content)
-    minimal_quiz = web_search_service.is_vocab_quiz_answer(content)
+    minimal_quiz = web_search_service.is_vocab_quiz_answer(content) and quiz_mode != "chat"
     day_planning = day_planning_service.is_day_planning_question(content)
     day_reflection = day_planning_service.is_day_reflection_question(content)
     geo = resolve_client_geo(
@@ -449,8 +450,9 @@ async def prepare_chat_turn(
             model=model,
             input_tokens=estimate_tokens(user_content),
         )
-        minimal_quiz = web_search_service.is_vocab_quiz_answer(content)
-        if minimal_quiz:
+        is_letter_answer = web_search_service.is_vocab_quiz_answer(content)
+        minimal_quiz = is_letter_answer and getattr(chat, "quiz_mode", None) != "chat"
+        if is_letter_answer and minimal_quiz:
             prior_assistant = await chat_pkg.messages_repo.get_last_assistant(session, chat_id)
             if prior_assistant is not None:
                 try:
@@ -509,6 +511,7 @@ async def prepare_chat_turn(
             has_image_attachment=has_image_attachment,
             on_status=on_status,
             todo_sync_feedback=todo_sync_feedback,
+            quiz_mode=getattr(chat, "quiz_mode", None),
         )
 
     prompt_messages = bundle.prompt_messages

@@ -630,5 +630,11 @@
   "upgrade.restore": "Restaurar compras",
   "upgrade.restore_empty": "No se encontró suscripción activa para esta cuenta.",
   "upgrade.subscribe": "Hazte Pro — {{price}}/mes",
-  "upgrade.title": "Pásate a Pro"
+  "upgrade.title": "Pásate a Pro",
+  "projects.learn_in_chat": "Learn in chat",
+  "projects.take_quiz": "Take quiz",
+  "projects.quiz.exam_title": "Quiz",
+  "projects.quiz.exam_progress": "{{done}} / {{goal}} today",
+  "projects.quiz.exam_loading": "Loading next question…",
+  "projects.quiz.switch_to_chat": "Switch to chat tutor"
 }

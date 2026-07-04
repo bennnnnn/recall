@@ -26,7 +26,7 @@ import {
 } from "@/lib/languageLevels";
 import { resolveDailyGoal } from "@/lib/dailyGoals";
 import {
-  buildProjectAskPrompt,
+  buildProjectChatTutorPrompt,
   buildProjectBonusWordsPrompt,
   isDailyGoalMet,
 } from "@/lib/projectChat";
@@ -221,14 +221,24 @@ export default function ProjectDetailScreen() {
 
   const startTriviaQuiz = () => {
     if (!project || !isTrivia) return;
-    queueChatLaunch(buildProjectAskPrompt(project), project.id, undefined, "trivia");
+    router.push(`/projects/${project.id}/quiz`);
+  };
+
+  const startTriviaChat = () => {
+    if (!project || !isTrivia) return;
+    queueChatLaunch(buildProjectChatTutorPrompt(project), project.id, undefined, "trivia", "chat");
     router.replace("/");
   };
 
   const startLanguageSession = () => {
     if (!project || !isLang) return;
-    queueChatLaunch(buildProjectAskPrompt(project), project.id, "en");
+    queueChatLaunch(buildProjectChatTutorPrompt(project), project.id, "en", "vocab", "chat");
     router.replace("/");
+  };
+
+  const startLanguageExam = () => {
+    if (!project || !isLang) return;
+    router.push(`/projects/${project.id}/quiz`);
   };
 
   const startLanguageBonus = () => {
@@ -294,18 +304,30 @@ export default function ProjectDetailScreen() {
             </Text>
           </Pressable>
         ) : (
-          <Pressable style={s.studyBtn} onPress={startLanguageSession}>
-            <Ionicons name="chatbubble-ellipses-outline" size={20} color={theme.onPrimary} />
-            <Text style={s.studyBtnText}>{t("projects.continue_learning")}</Text>
-          </Pressable>
+          <>
+            <Pressable style={s.studyBtn} onPress={startLanguageSession}>
+              <Ionicons name="chatbubble-ellipses-outline" size={20} color={theme.onPrimary} />
+              <Text style={s.studyBtnText}>{t("projects.learn_in_chat")}</Text>
+            </Pressable>
+            <Pressable style={[s.studyBtn, s.studyBtnOutline]} onPress={startLanguageExam}>
+              <Ionicons name="school-outline" size={20} color={theme.primary} />
+              <Text style={[s.studyBtnText, s.studyBtnTextMuted]}>{t("projects.take_quiz")}</Text>
+            </Pressable>
+          </>
         )
       ) : null}
 
       {isTrivia ? (
-        <Pressable style={s.studyBtn} onPress={startTriviaQuiz}>
-          <Ionicons name="chatbubble-ellipses-outline" size={20} color={theme.onPrimary} />
-          <Text style={s.studyBtnText}>{t("projects.trivia.start_quiz")}</Text>
-        </Pressable>
+        <>
+          <Pressable style={s.studyBtn} onPress={startTriviaChat}>
+            <Ionicons name="chatbubble-ellipses-outline" size={20} color={theme.onPrimary} />
+            <Text style={s.studyBtnText}>{t("projects.learn_in_chat")}</Text>
+          </Pressable>
+          <Pressable style={[s.studyBtn, s.studyBtnOutline]} onPress={startTriviaQuiz}>
+            <Ionicons name="school-outline" size={20} color={theme.primary} />
+            <Text style={[s.studyBtnText, s.studyBtnTextMuted]}>{t("projects.take_quiz")}</Text>
+          </Pressable>
+        </>
       ) : null}
 
       {isLang && posGroups.length > 0 ? (
@@ -487,6 +509,12 @@ function makeStyles(theme: Theme) {
       paddingVertical: 14,
     },
     studyBtnMuted: { backgroundColor: theme.primaryLight },
+    studyBtnOutline: {
+      backgroundColor: theme.surface,
+      borderWidth: 1.5,
+      borderColor: theme.primary,
+      marginTop: 10,
+    },
     studyBtnText: { fontSize: 16, fontWeight: "700", color: theme.onPrimary },
     studyBtnTextMuted: { color: theme.primary },
     doneBanner: {

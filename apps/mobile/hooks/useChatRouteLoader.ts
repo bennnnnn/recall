@@ -66,6 +66,7 @@ export function useChatRouteLoader({
   const {
     draftChatIdRef,
     draftProjectIdRef,
+    draftQuizModeRef,
     skipLoadForChatIdRef,
     creatingRef,
     discardEmptyChat,
@@ -87,6 +88,7 @@ export function useChatRouteLoader({
   const highlightLoadInFlightRef = useRef(false);
   const pendingLaunchRef = useRef<string | null>(null);
   const pendingProjectIdRef = useRef<string | null>(null);
+  const pendingQuizModeRef = useRef<import("@/lib/quizMode").QuizMode | null>(null);
   const handledLaunchIdRef = useRef<string | null>(null);
   const skipNextFocusRef = useRef(true);
 
@@ -333,6 +335,8 @@ export function useChatRouteLoader({
       clearDraftChat();
       draftProjectIdRef.current = queued.projectId ?? null;
       pendingProjectIdRef.current = queued.projectId ?? null;
+      draftQuizModeRef.current = queued.quizMode ?? null;
+      pendingQuizModeRef.current = queued.quizMode ?? null;
       setQuizLanguage(queued.quizLanguage ?? "en");
       setQuizVariant(queued.quizVariant ?? resolveQuizVariant(queued.projectId));
       setInputRef.current("");
@@ -347,7 +351,7 @@ export function useChatRouteLoader({
       }
       pendingLaunchRef.current = queued.prompt.trim();
       setPendingLaunch(queued.prompt.trim());
-      void prepareDraftChat(queued.projectId);
+      void prepareDraftChat(queued.projectId, "auto", queued.quizMode);
     },
     [
       streaming,
@@ -356,6 +360,7 @@ export function useChatRouteLoader({
       chatId,
       clearDraftChat,
       draftProjectIdRef,
+      draftQuizModeRef,
       routeChatId,
       router,
       setMessages,

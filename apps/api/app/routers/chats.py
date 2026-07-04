@@ -49,7 +49,11 @@ async def create_chat(
         if project is None:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Project not found")
     chat = await chats_repo.create(
-        session, user_id=user.id, model=body.model, project_id=body.project_id
+        session,
+        user_id=user.id,
+        model=body.model,
+        project_id=body.project_id,
+        quiz_mode=body.quiz_mode,
     )
     return ChatOut.model_validate(chat)
 

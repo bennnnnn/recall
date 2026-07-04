@@ -416,6 +416,64 @@ async def test_load_project_for_prompt_scoped():
     assert "hola" in block
 
 
+@pytest.mark.asyncio
+async def test_load_project_for_prompt_chat_mode():
+    session = AsyncMock()
+    user_id = uuid4()
+    project_id = uuid4()
+    project = _project("English")
+    project.id = project_id
+
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "get_by_id",
+            AsyncMock(return_value=project),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+    ):
+        block = await projects_service.load_project_for_prompt(
+            session, user_id, project_id, Settings(), quiz_mode="chat"
+        )
+
+    assert "chat tutor mode" in block
+    assert "vocab_card" in block
+    assert "Presentation mode: chat tutor" in block
+
+
+@pytest.mark.asyncio
+async def test_load_project_for_prompt_exam_mode():
+    session = AsyncMock()
+    user_id = uuid4()
+    project_id = uuid4()
+    project = _project("English")
+    project.id = project_id
+
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "get_by_id",
+            AsyncMock(return_value=project),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+    ):
+        block = await projects_service.load_project_for_prompt(
+            session, user_id, project_id, Settings(), quiz_mode="exam"
+        )
+
+    assert "exam quiz" in block.lower()
+    assert "vocab_quiz" in block
+    assert "Presentation mode: exam quiz" in block
+
+
 def test_build_language_quiz_prompt_includes_vocab_quiz_fence():
     project = _project("English")
     stats = MagicMock()

@@ -11,6 +11,7 @@ MemoryType = Literal["profile", "preference", "project", "fact", "focus"]
 ResponseStyle = Literal["short", "balanced", "detailed"]
 ResponseTone = Literal["funny", "professional", "casual", "soft"]
 MessageFeedback = Literal["up", "down"]
+QuizMode = Literal["exam", "chat"]
 
 
 class UserOut(BaseModel):
@@ -134,6 +135,7 @@ class LogoutRequest(BaseModel):
 class ChatCreate(BaseModel):
     model: str = "auto"
     project_id: UUID | None = None
+    quiz_mode: QuizMode | None = None
 
     @field_validator("model")
     @classmethod
@@ -167,6 +169,7 @@ class ChatOut(BaseModel):
     pinned: bool = False
     archived: bool = False
     project_id: UUID | None = None
+    quiz_mode: QuizMode | None = None
     created_at: datetime
     updated_at: datetime
 

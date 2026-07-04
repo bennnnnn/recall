@@ -45,6 +45,7 @@ export type Chat = {
   pinned: boolean;
   archived?: boolean;
   project_id?: string | null;
+  quiz_mode?: "exam" | "chat" | null;
   created_at: string;
   updated_at: string;
 };
@@ -527,10 +528,19 @@ export const api = {
   exportData: (token: string) => request<unknown>("/auth/me/export", token),
   deleteAccount: (token: string) =>
     request<void>("/auth/me", token, { method: "DELETE" }),
-  createChat: (token: string, model = "auto", projectId?: string) =>
+  createChat: (
+    token: string,
+    model = "auto",
+    projectId?: string,
+    quizMode?: "exam" | "chat",
+  ) =>
     request<Chat>("/chats", token, {
       method: "POST",
-      body: JSON.stringify({ model, ...(projectId ? { project_id: projectId } : {}) }),
+      body: JSON.stringify({
+        model,
+        ...(projectId ? { project_id: projectId } : {}),
+        ...(quizMode ? { quiz_mode: quizMode } : {}),
+      }),
     }),
   getChat: (token: string, chatId: string) =>
     request<Chat>(`/chats/${chatId}`, token),

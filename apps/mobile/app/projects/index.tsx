@@ -147,7 +147,7 @@ export default function ProjectsScreen() {
       });
       resetCreate();
       setProjects((prev) => [project, ...prev]);
-      queueChatLaunch(buildEnglishOnboardingPrompt(title, level, dailyGoal), project.id, "en");
+      queueChatLaunch(buildEnglishOnboardingPrompt(title, level, dailyGoal), project.id, "en", "vocab", "chat");
       router.replace("/");
     } catch {
       Alert.alert(t("common.error"), t("projects.create_failed"));
@@ -175,7 +175,7 @@ export default function ProjectsScreen() {
       });
       resetCreate();
       setProjects((prev) => [project, ...prev]);
-      queueChatLaunch(buildTriviaOnboardingPrompt(topicLabels, dailyGoal), project.id, undefined, "trivia");
+      queueChatLaunch(buildTriviaOnboardingPrompt(topicLabels, dailyGoal), project.id, undefined, "trivia", "chat");
       router.replace("/");
     } catch {
       Alert.alert(t("common.error"), t("projects.create_failed"));

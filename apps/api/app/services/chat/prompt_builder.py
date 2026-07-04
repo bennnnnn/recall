@@ -176,7 +176,11 @@ async def build_prompt_messages(
                 return ""
             if chat and chat.project_id:
                 return await chat_pkg.projects_service.load_project_for_prompt(
-                    session, user.id, chat.project_id, settings
+                    session,
+                    user.id,
+                    chat.project_id,
+                    settings,
+                    quiz_mode=getattr(chat, "quiz_mode", None),
                 )
             return await chat_pkg.projects_service.load_projects_for_prompt(
                 session, user.id, settings

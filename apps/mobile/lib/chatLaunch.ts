@@ -1,9 +1,12 @@
 /** Queued chat opener — avoids fragile long strings in expo-router params. */
+import type { QuizMode } from "@/lib/quizMode";
+
 export type QueuedChatLaunch = {
   prompt: string;
   projectId?: string;
   quizLanguage?: string;
   quizVariant?: "vocab" | "trivia";
+  quizMode?: QuizMode;
 };
 
 let queued: QueuedChatLaunch | null = null;
@@ -13,6 +16,7 @@ export function queueChatLaunch(
   projectId?: string,
   quizLanguage?: string,
   quizVariant?: "vocab" | "trivia",
+  quizMode?: QuizMode,
 ): boolean {
   const trimmed = prompt.trim();
   if (!trimmed) return false;
@@ -21,6 +25,7 @@ export function queueChatLaunch(
     ...(projectId ? { projectId } : {}),
     ...(quizLanguage ? { quizLanguage } : {}),
     ...(quizVariant ? { quizVariant } : {}),
+    ...(quizMode ? { quizMode } : {}),
   };
   return true;
 }
