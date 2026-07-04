@@ -39,6 +39,9 @@ type SendMessageFn = (
     trackSendingMessageId?: string;
     attachmentIds?: string[];
     localImageUri?: string | null;
+    localFileUri?: string | null;
+    localFileName?: string | null;
+    localFileContentType?: string | null;
     model?: string;
     clientGeo?: ClientGeo | null;
   },
@@ -112,6 +115,9 @@ export function useChatSend({
     trackSendingMessageId?: string;
     attachmentIds?: string[];
     localImageUri?: string | null;
+    localFileUri?: string | null;
+    localFileName?: string | null;
+    localFileContentType?: string | null;
     clientGeo?: ClientGeo | null;
     model: string;
   } | null>(null);
@@ -126,6 +132,9 @@ export function useChatSend({
         trackSendingMessageId,
         attachmentIds,
         localImageUri,
+        localFileUri,
+        localFileName,
+        localFileContentType,
         clientGeo,
         model,
       } = pendingSend;
@@ -135,6 +144,9 @@ export function useChatSend({
         trackSendingMessageId,
         attachmentIds,
         localImageUri,
+        localFileUri,
+        localFileName,
+        localFileContentType,
         model,
         clientGeo,
       });
@@ -265,6 +277,9 @@ export function useChatSend({
       sendMessage(messageTextForSend(text, attached), {
         attachmentIds,
         localImageUri: attached?.kind === "image" ? attached.localUri : null,
+        localFileUri: attached?.kind === "file" ? attached.localUri : null,
+        localFileName: attached?.kind === "file" ? attached.fileName : null,
+        localFileContentType: attached?.kind === "file" ? attached.contentType : null,
         model: selectedModel,
         clientGeo,
       });

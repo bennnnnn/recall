@@ -1,3 +1,5 @@
+import pytest
+
 from app.services.attachment_content import (
     ALLOWED_CONTENT_TYPES,
     extract_text_from_bytes,
@@ -42,3 +44,24 @@ def test_extract_text_from_pdf_bytes():
     )
     result = extract_text_from_bytes("application/pdf", minimal_pdf)
     assert result is None or isinstance(result, str)
+
+
+@pytest.mark.asyncio
+async def test_format_attachment_lines_includes_file_ref():
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.services.attachment_content import format_attachment_lines
+
+    gateway = MagicMock()
+    gateway.read_bytes = AsyncMock(return_value=b"hello")
+
+    lines, is_image = await format_attachment_lines(
+        gateway,
+        attachment_id="550e8400-e29b-41d4-a716-446655440000",
+        content_type="text/plain",
+        storage_key="key",
+        size_bytes=5,
+    )
+    assert is_image is False
+    assert lines[0] == "[File: /attachments/550e8400-e29b-41d4-a716-446655440000/file]"
+    assert lines[1].startswith("[File (text/plain)]")

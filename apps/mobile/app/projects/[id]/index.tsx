@@ -17,7 +17,6 @@ import { useTranslation } from "react-i18next";
 import { ProjectPosGroupList } from "@/components/ProjectPosGroupList";
 import { ProjectProgressHero } from "@/components/ProjectProgressHero";
 import { ProjectItemRow } from "@/components/ProjectItemRow";
-import { ProgrammingJourney } from "@/components/ProgrammingJourney";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, type ProjectDetail, type VocabStatus } from "@/lib/api";
 import { queueChatLaunch } from "@/lib/chatLaunch";
@@ -25,7 +24,6 @@ import {
   isLanguageProject,
   levelLabel,
 } from "@/lib/languageLevels";
-import { isProgrammingStack, programmingLanguageLabel } from "@/lib/programmingLanguages";
 import { resolveDailyGoal } from "@/lib/dailyGoals";
 import { buildProjectAskPrompt } from "@/lib/projectChat";
 import { formatProjectListTitle, isConceptProject, isTriviaProject, projectStatsLabels } from "@/lib/projectUi";
@@ -97,14 +95,18 @@ export default function ProjectDetailScreen() {
     if (!token || typeof id !== "string") return;
     setLoadError(false);
     try {
-      setProject(await api.getProject(token, id));
+      const data = await api.getProject(token, id);
+      setProject(data);
+      if (data.kind === "programming") {
+        router.replace("/projects");
+      }
     } catch {
       setProject(null);
       setLoadError(true);
     } finally {
       setLoading(false);
     }
-  }, [token, id]);
+  }, [token, id, router]);
 
   useFocusEffect(
     useCallback(() => {
@@ -157,7 +159,6 @@ export default function ProjectDetailScreen() {
   }
 
   const isLang = isLanguageProject(project.kind);
-  const isProgramming = project.kind === "programming";
   const isTrivia = isTriviaProject(project.kind);
   const isConcept = isConceptProject(project.kind) && !isTrivia;
   const stats = project.stats;
@@ -233,18 +234,12 @@ export default function ProjectDetailScreen() {
                 ? t("projects.kind.language")
                 : isTrivia
                   ? t("projects.kind.trivia")
-                  : project.kind === "programming" && isProgrammingStack(project.target_language)
-                  ? programmingLanguageLabel(project.target_language)
                   : t(`projects.kind.${project.kind}`)}
             </Text>
           </View>
           {isLang ? (
             <View style={s.badge}>
               <Text style={s.badgeText}>{levelLabel(project.level)}</Text>
-            </View>
-          ) : project.kind === "programming" ? (
-            <View style={s.badge}>
-              <Text style={s.badgeText}>{t("projects.kind.programming")}</Text>
             </View>
           ) : null}
         </View>
@@ -258,9 +253,6 @@ export default function ProjectDetailScreen() {
         ) : null}
         {isTrivia ? (
           <Text style={s.description}>{t("projects.trivia.detail_hint")}</Text>
-        ) : null}
-        {project.kind === "programming" ? (
-          <Text style={s.description}>{t("projects.kind.programming_hint")}</Text>
         ) : null}
       </View>
 
@@ -312,25 +304,7 @@ export default function ProjectDetailScreen() {
               ))
             )}
           </View>
-      ) : isProgramming ? (
-        <>
-          {project.lists.length > 0 ? (
-            <ProgrammingJourney
-              token={token}
-              projectId={project.id}
-              lists={project.lists}
-              onItemUpdated={load}
-            />
-          ) : (
-            <View style={s.comingSoon}>
-              <ActivityIndicator color={theme.primary} />
-              <Text style={s.comingSoonBody}>{t("projects.lists_empty")}</Text>
-            </View>
-          )}
-        </>
-      ) : null}
-
-      {isConcept ? (
+      ) : isConcept ? (
         <>
           {project.lists.length > 0 ? (
             project.lists.map((group) => (

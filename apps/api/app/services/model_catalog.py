@@ -39,6 +39,7 @@ class ChatModel:
     tier: str = "standard"  # fast | standard | smart | max — used by Auto routing
     plan_access: str = "pro"  # free | pro — free-plan users only see free-tier models
     selectable: bool = True  # shown in the model picker
+    quota_multiplier: float = 1.0  # weight against daily token quota (R1 costs more)
 
 
 def _or(
@@ -53,6 +54,7 @@ def _or(
     tier: str = "standard",
     plan_access: str = "pro",
     selectable: bool = True,
+    quota_multiplier: float = 1.0,
 ) -> ChatModel:
     """OpenRouter-backed catalog entry (``openrouter_slug`` = OpenRouter model id)."""
     return ChatModel(
@@ -68,6 +70,7 @@ def _or(
         tier=tier,
         plan_access=plan_access,
         selectable=selectable,
+        quota_multiplier=quota_multiplier,
     )
 
 
@@ -92,6 +95,7 @@ CATALOG: tuple[ChatModel, ...] = (
         output_price_per_m=2.50,
         description="Stronger reasoning for hard questions and code.",
         tier="smart",
+        quota_multiplier=3.5,
     ),
     _or(
         id="minimax-m2",
@@ -136,6 +140,7 @@ CATALOG: tuple[ChatModel, ...] = (
         model="openrouter/auto",
         description="OpenRouter picks the best model for each request.",
         tier="max",
+        quota_multiplier=3.5,
     ),
     # Internal aliases — not user-selectable.
     _or(
@@ -205,6 +210,11 @@ def is_reasoning_alias(model_id: str) -> bool:
     """True for models that may think silently before the first token (R1, etc.)."""
     tier = get(model_id).tier
     return tier in {"smart", "max"}
+
+
+def quota_multiplier(model_id: str) -> float:
+    """Tokens charged against the daily quota (R1 and max tier cost more)."""
+    return get(model_id).quota_multiplier
 
 
 MODEL_MODES = frozenset({"auto"})

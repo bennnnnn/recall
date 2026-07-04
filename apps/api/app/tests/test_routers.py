@@ -739,11 +739,17 @@ def test_admin_dlq_list_and_replay_in_dev():
 
 
 def test_speech_transcribe_ok():
+    import fakeredis.aioredis
+
     user = _fake_user()
     client = TestClient(_app_with_user(user))
-    with patch(
-        "app.routers.speech.speech_service.transcribe_audio",
-        AsyncMock(return_value="hello world"),
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    with (
+        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.routers.speech.speech_service.transcribe_audio",
+            AsyncMock(return_value="hello world"),
+        ),
     ):
         r = client.post(
             "/speech/transcribe",
@@ -757,15 +763,21 @@ def test_speech_transcribe_ok():
 def test_speech_transcribe_json_ok():
     import base64
 
+    import fakeredis.aioredis
+
     user = _fake_user()
     client = TestClient(_app_with_user(user))
     payload = {
         "audio_base64": base64.b64encode(b"fake-audio").decode(),
         "filename": "speech.m4a",
     }
-    with patch(
-        "app.routers.speech.speech_service.transcribe_audio",
-        AsyncMock(return_value="hello json"),
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    with (
+        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.routers.speech.speech_service.transcribe_audio",
+            AsyncMock(return_value="hello json"),
+        ),
     ):
         r = client.post(
             "/speech/transcribe",
@@ -774,6 +786,73 @@ def test_speech_transcribe_json_ok():
         )
     assert r.status_code == 200
     assert r.json()["text"] == "hello json"
+
+
+def test_speech_transcribe_daily_cap():
+    import fakeredis.aioredis
+
+    from app.core.deps import get_current_user, get_settings_dep
+
+    user = _fake_user()
+    app = create_app()
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(daily_speech_transcriptions=1)
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    client = TestClient(app)
+    with (
+        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.routers.speech.speech_service.transcribe_audio",
+            AsyncMock(return_value="ok"),
+        ),
+    ):
+        first = client.post(
+            "/speech/transcribe",
+            headers={"Authorization": "Bearer tok"},
+            files={"file": ("speech.m4a", b"fake-audio", "audio/m4a")},
+        )
+        second = client.post(
+            "/speech/transcribe",
+            headers={"Authorization": "Bearer tok"},
+            files={"file": ("speech.m4a", b"fake-audio", "audio/m4a")},
+        )
+    assert first.status_code == 200
+    assert second.status_code == 429
+
+
+def test_speech_transcribe_rate_limit():
+    import fakeredis.aioredis
+
+    from app.core.deps import get_current_user, get_settings_dep
+
+    user = _fake_user()
+    app = create_app()
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
+        speech_rate_limit_per_minute=1,
+        daily_speech_transcriptions=100,
+    )
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    client = TestClient(app)
+    with (
+        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.routers.speech.speech_service.transcribe_audio",
+            AsyncMock(return_value="ok"),
+        ),
+    ):
+        first = client.post(
+            "/speech/transcribe",
+            headers={"Authorization": "Bearer tok"},
+            files={"file": ("speech.m4a", b"fake-audio", "audio/m4a")},
+        )
+        second = client.post(
+            "/speech/transcribe",
+            headers={"Authorization": "Bearer tok"},
+            files={"file": ("speech.m4a", b"fake-audio", "audio/m4a")},
+        )
+    assert first.status_code == 200
+    assert second.status_code == 429
 
 
 def test_speech_transcribe_disabled():

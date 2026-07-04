@@ -22,6 +22,14 @@ IMAGE_LIMIT_EXCEEDED_MESSAGE_PRO = (
     "You've reached today's image upload limit (30). Come back tomorrow."
 )
 
+SPEECH_LIMIT_EXCEEDED_MESSAGE_FREE = (
+    "You've reached today's voice transcription limit. Go Pro for more — or come back tomorrow."
+)
+SPEECH_LIMIT_EXCEEDED_MESSAGE_PRO = (
+    "You've reached today's voice transcription limit. Come back tomorrow."
+)
+SPEECH_RATE_LIMIT_MESSAGE = "Too many transcription requests. Please wait a moment and try again."
+
 
 def quota_exceeded_message(user: User) -> str:
     if user.plan == "pro":
@@ -33,6 +41,12 @@ def image_limit_exceeded_message(user: User) -> str:
     if user.plan == "pro":
         return IMAGE_LIMIT_EXCEEDED_MESSAGE_PRO
     return IMAGE_LIMIT_EXCEEDED_MESSAGE_FREE
+
+
+def speech_limit_exceeded_message(user: User) -> str:
+    if user.plan == "pro":
+        return SPEECH_LIMIT_EXCEEDED_MESSAGE_PRO
+    return SPEECH_LIMIT_EXCEEDED_MESSAGE_FREE
 
 
 def _usage_key(user_id: str, day: date) -> str:
@@ -185,6 +199,69 @@ async def reserve_image_upload(redis: Redis, user_id: UUID, *, limit: int) -> bo
     new_total = await redis.incrby(key, 1)
     if new_total == 1:
         await redis.expire(key, _IMAGE_TTL)
+    if new_total > limit:
+        await redis.incrby(key, -1)
+        return False
+    return True
+
+
+# ── Speech transcription caps ────────────────────────────────────────────────
+
+_SPEECH_TTL = 60 * 60 * 48
+
+
+def _speech_key(user_id: UUID, day: date) -> str:
+    return f"speech:{user_id}:{day.isoformat()}"
+
+
+def speech_transcription_limit_for_user(user: User, settings: Settings) -> int:
+    if user.plan == "pro":
+        return settings.daily_speech_transcriptions_pro
+    return settings.daily_speech_transcriptions
+
+
+async def reserve_speech_transcription(redis: Redis, user_id: UUID, *, limit: int) -> bool:
+    if limit <= 0:
+        return False
+    key = _speech_key(user_id, utc_today())
+    new_total = await redis.incrby(key, 1)
+    if new_total == 1:
+        await redis.expire(key, _SPEECH_TTL)
+    if new_total > limit:
+        await redis.incrby(key, -1)
+        return False
+    return True
+
+
+async def refund_speech_transcription(redis: Redis, user_id: UUID) -> None:
+    key = _speech_key(user_id, utc_today())
+    new_total = await redis.incrby(key, -1)
+    if new_total < 0:
+        await redis.set(key, 0)
+
+
+# ── Tavily web-search caps (DDG fallback when exceeded) ────────────────────────
+
+_TAVILY_TTL = 60 * 60 * 48
+
+
+def _tavily_key(user_id: UUID, day: date) -> str:
+    return f"tavily:{user_id}:{day.isoformat()}"
+
+
+def tavily_search_limit_for_user(user: User, settings: Settings) -> int:
+    if user.plan == "pro":
+        return settings.daily_tavily_searches_pro
+    return settings.daily_tavily_searches
+
+
+async def reserve_tavily_search(redis: Redis, user_id: UUID, *, limit: int) -> bool:
+    if limit <= 0:
+        return False
+    key = _tavily_key(user_id, utc_today())
+    new_total = await redis.incrby(key, 1)
+    if new_total == 1:
+        await redis.expire(key, _TAVILY_TTL)
     if new_total > limit:
         await redis.incrby(key, -1)
         return False

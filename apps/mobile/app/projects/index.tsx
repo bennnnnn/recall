@@ -21,13 +21,10 @@ import { useProjects } from "@/contexts/ProjectsContext";
 import { api, type LanguageLevel, type ProjectKind } from "@/lib/api";
 import { LANGUAGE_LEVELS, levelLabel } from "@/lib/languageLevels";
 import { findLanguageProject } from "@/lib/languageProject";
-import { findProgrammingProject, findAnyProgrammingProject } from "@/lib/programmingProject";
-import { firstProgrammingChapter, PROGRAMMING_CURRICULUM } from "@/lib/programmingCurriculum";
 import { queueChatLaunch } from "@/lib/chatLaunch";
-import { buildEnglishOnboardingPrompt, buildProgrammingOnboardingPrompt, buildTriviaOnboardingPrompt } from "@/lib/projectChat";
+import { buildEnglishOnboardingPrompt, buildTriviaOnboardingPrompt } from "@/lib/projectChat";
 import {
   englishProjectTitle,
-  programmingProjectTitle,
   triviaProjectTitle,
   type CreateStep,
 } from "@/lib/projectCreateFlow";
@@ -38,11 +35,6 @@ import {
   TRIVIA_TOPICS,
   type TriviaTopicId,
 } from "@/lib/triviaTopics";
-import {
-  PROGRAMMING_LANGUAGES,
-  programmingLanguageLabel,
-  type ProgrammingLanguageId,
-} from "@/lib/programmingLanguages";
 import {
   DEFAULT_VOCAB_DAILY_GOAL,
   VOCAB_DAILY_GOALS,
@@ -55,7 +47,6 @@ const SUBJECTS: ProjectKind[] = ["language", "trivia"];
 function kindIcon(kind: ProjectKind): keyof typeof Ionicons.glyphMap {
   if (kind === "language" || kind === "vocabulary") return "language-outline";
   if (kind === "trivia") return "bulb-outline";
-  if (kind === "programming") return "code-slash-outline";
   return "folder-outline";
 }
 
@@ -70,9 +61,6 @@ function projectRowMeta(
   if (project.kind === "trivia") {
     const topics = project.description?.split(",").filter(Boolean).length ?? 0;
     return `${t("projects.kind.trivia")} · ${t("projects.trivia.topic_count", { count: topics })}`;
-  }
-  if (project.kind === "programming") {
-    return `${programmingLanguageLabel(project.target_language)} · ${t("projects.kind.programming")}`;
   }
   return t(`projects.kind.${kindKey}`);
 }
@@ -95,8 +83,6 @@ export default function ProjectsScreen() {
   const [dailyGoal, setDailyGoal] = useState<VocabDailyGoal>(DEFAULT_VOCAB_DAILY_GOAL);
   const [triviaTopics, setTriviaTopics] = useState<TriviaTopicId[]>(["history", "science"]);
   const [creating, setCreating] = useState(false);
-  const [creatingProgrammingLang, setCreatingProgrammingLang] =
-    useState<ProgrammingLanguageId | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -113,7 +99,6 @@ export default function ProjectsScreen() {
     setDailyGoal(DEFAULT_VOCAB_DAILY_GOAL);
     setTriviaTopics(["history", "science"]);
     setCreating(false);
-    setCreatingProgrammingLang(null);
   };
 
   const openCreate = () => {
@@ -142,47 +127,6 @@ export default function ProjectsScreen() {
       }
       setKind(next);
       setCreateStep("topics");
-      return;
-    }
-    setKind(next);
-    if (next === "programming") {
-      setCreateStep("stack");
-    }
-  };
-
-  const handleCreateProgramming = async (lang: ProgrammingLanguageId) => {
-    if (!token || creatingProgrammingLang) return;
-    const existing = findProgrammingProject(projects, lang);
-    if (existing) {
-      resetCreate();
-      router.push(`/projects/${existing.id}`);
-      return;
-    }
-
-    const title = programmingProjectTitle(lang, t);
-    const firstChapter = firstProgrammingChapter();
-    const firstTopics = PROGRAMMING_CURRICULUM[0]?.topics ?? [];
-
-    setCreatingProgrammingLang(lang);
-    try {
-      const project = await api.createProject(token, {
-        title,
-        description: "",
-        kind: "programming",
-        level: "level1",
-        target_language: lang,
-      });
-      resetCreate();
-      setProjects((prev) => [project, ...prev]);
-      queueChatLaunch(
-        buildProgrammingOnboardingPrompt(lang, firstChapter, [...firstTopics]),
-        project.id,
-      );
-      router.replace("/");
-    } catch {
-      Alert.alert(t("common.error"), t("projects.create_failed"));
-    } finally {
-      setCreatingProgrammingLang(null);
     }
   };
 
@@ -263,16 +207,12 @@ export default function ProjectsScreen() {
                 const existingEnglish =
                   item === "language" ? findLanguageProject(projects, "en") : undefined;
                 const existingTrivia = item === "trivia" ? findTriviaProject(projects) : undefined;
-                const existingProgramming =
-                  item === "programming" ? findAnyProgrammingProject(projects) : undefined;
                 const continueHint =
                   existingEnglish && item === "language"
                     ? t("projects.language_continue")
                     : existingTrivia && item === "trivia"
                       ? t("projects.trivia_continue")
-                      : existingProgramming && item === "programming"
-                        ? t("projects.programming_continue")
-                        : null;
+                      : null;
                 return (
                   <Pressable
                     key={item}
@@ -410,47 +350,6 @@ export default function ProjectsScreen() {
                 )}
               </Pressable>
             </View>
-          </>
-        ) : null}
-
-        {createStep === "stack" ? (
-          <>
-            <Text style={s.createLabel}>{t("projects.pick_programming_language")}</Text>
-            <Text style={s.stepHint}>{t("projects.programming_language_hint")}</Text>
-            <View style={s.subjectList}>
-              {PROGRAMMING_LANGUAGES.map((lang) => {
-                const existing = findProgrammingProject(projects, lang.id);
-                const isCreating = creatingProgrammingLang === lang.id;
-                return (
-                  <Pressable
-                    key={lang.id}
-                    style={[s.subjectRow, isCreating && s.subjectRowMuted]}
-                    disabled={creatingProgrammingLang !== null}
-                    onPress={() => void handleCreateProgramming(lang.id)}
-                  >
-                    <View style={s.subjectIcon}>
-                      <Ionicons name="code-slash-outline" size={22} color={C.primary} />
-                    </View>
-                    <View style={s.subjectMain}>
-                      <Text style={s.subjectText}>{lang.label}</Text>
-                      {existing ? (
-                        <Text style={s.subjectHint}>{t("projects.programming_continue")}</Text>
-                      ) : (
-                        <Text style={s.subjectHint}>{t("projects.programming_start_chapter")}</Text>
-                      )}
-                    </View>
-                    {isCreating ? (
-                      <ActivityIndicator color={C.primary} />
-                    ) : (
-                      <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
-                    )}
-                  </Pressable>
-                );
-              })}
-            </View>
-            <Pressable style={s.secondaryBtn} onPress={() => setCreateStep("subject")}>
-              <Text style={s.secondaryBtnText}>{t("projects.back")}</Text>
-            </Pressable>
           </>
         ) : null}
       </>

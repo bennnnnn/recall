@@ -400,7 +400,7 @@ async def test_run_search_parallelizes_queries():
 
     settings = Settings(web_search_max_results=10, mock_llm_enabled=True)
 
-    async def mock_search(_settings, query, *, max_results):
+    async def mock_search(_settings, query, *, max_results, user=None, redis=None):
         await asyncio.sleep(0.04 if query == "slow" else 0.01)
         return [
             WebSearchHit(
@@ -426,7 +426,7 @@ async def test_run_search_dedupes_across_queries_and_respects_limit():
 
     settings = Settings(web_search_max_results=2, mock_llm_enabled=True)
 
-    async def mock_search(_settings, query, *, max_results):
+    async def mock_search(_settings, query, *, max_results, user=None, redis=None):
         if query == "q1":
             return [
                 WebSearchHit(title="A", url="https://dup", snippet="1"),
@@ -513,7 +513,7 @@ async def test_search_with_cache_single_flight_on_miss(fake_redis):
     settings = Settings(web_search_cache_ttl=300, mock_llm_enabled=True)
     call_count = 0
 
-    async def slow_search(_settings, _query, *, max_results=5):
+    async def slow_search(_settings, _query, *, max_results=5, skip_tavily=False):
         nonlocal call_count
         call_count += 1
         await asyncio.sleep(0.25)

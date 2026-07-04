@@ -4,8 +4,13 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { CollapsibleMessageBody } from "@/components/CollapsibleMessageBody";
 import { ChatMessageImage } from "@/components/ChatMessageImage";
+import { ChatMessagePdf } from "@/components/ChatMessagePdf";
 import { Message } from "@/lib/api";
-import { parseUserMessageContent } from "@/lib/messageAttachments";
+import {
+  guessFileNameFromCaption,
+  isPdfContentType,
+  parseUserMessageContent,
+} from "@/lib/messageAttachments";
 import { shouldCollapseMessage } from "@/lib/messageFold";
 import { isVocabQuizAnswer, parseQuizAnswerLetter } from "@/lib/parseVocabQuiz";
 import { Theme, useTheme } from "@/lib/theme";
@@ -23,10 +28,22 @@ export function UserMessageContent({ message }: Props) {
     [message.content],
   );
   const hasImages = parsed.images.length > 0 || Boolean(message.local_image_uri);
-  const showCaption = parsed.caption.length > 0;
-  const plainText = !hasImages && !parsed.hasFileAttachment ? message.content.trim() : "";
+  const pdfFile = parsed.files.find((file) => isPdfContentType(file.contentType));
+  const localPdf =
+    message.local_file_uri &&
+    isPdfContentType(message.local_file_content_type ?? "application/pdf");
+  const showPdf = Boolean(pdfFile || localPdf);
+  const pdfFileName =
+    message.local_file_name ??
+    guessFileNameFromCaption(parsed.caption, "document.pdf");
+  const showCaption =
+    parsed.caption.length > 0 &&
+    !(showPdf && (parsed.caption === pdfFileName || parsed.caption.endsWith(".pdf")));
+  const plainText =
+    !hasImages && !showPdf && !parsed.hasFileAttachment ? message.content.trim() : "";
   const showTextBubble =
-    !quizLetter && (showCaption || parsed.hasFileAttachment || plainText.length > 0);
+    !quizLetter &&
+    (showCaption || (parsed.hasFileAttachment && !showPdf) || plainText.length > 0);
   const collapseText = shouldCollapseMessage(showCaption ? parsed.caption : plainText);
 
   return (
@@ -43,6 +60,15 @@ export function UserMessageContent({ message }: Props) {
         <ChatMessageImage localUri={message.local_image_uri} />
       ) : null}
 
+      {showPdf ? (
+        <ChatMessagePdf
+          attachmentId={pdfFile?.attachmentId}
+          path={pdfFile?.path}
+          localUri={message.local_file_uri}
+          fileName={pdfFileName}
+        />
+      ) : null}
+
       {quizLetter ? (
         <View style={s.quizAnswer} accessibilityLabel={`Quiz answer ${quizLetter}`}>
           <Ionicons name="checkmark-circle-outline" size={16} color={C.primary} />
@@ -53,7 +79,7 @@ export function UserMessageContent({ message }: Props) {
       {showTextBubble ? (
         <CollapsibleMessageBody collapsible={collapseText} fadeColor={C.userBubble}>
           <View style={[s.textBubble, hasImages && s.textBubbleBelowImage]}>
-            {parsed.hasFileAttachment ? (
+            {parsed.hasFileAttachment && !showPdf ? (
               <View style={s.fileChip}>
                 <Ionicons name="document-outline" size={16} color={C.primary} />
                 <Text style={s.fileChipText} numberOfLines={1}>

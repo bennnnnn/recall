@@ -394,6 +394,9 @@ export function useChat(
         trackSendingMessageId?: string;
         attachmentIds?: string[];
         localImageUri?: string | null;
+        localFileUri?: string | null;
+        localFileName?: string | null;
+        localFileContentType?: string | null;
         model?: string | null;
         clientGeo?: ClientGeo | null;
       },
@@ -411,6 +414,9 @@ export function useChat(
             content,
             model: null,
             local_image_uri: options?.localImageUri ?? null,
+            local_file_uri: options?.localFileUri ?? null,
+            local_file_name: options?.localFileName ?? null,
+            local_file_content_type: options?.localFileContentType ?? null,
             created_at: new Date().toISOString(),
           },
         ]);

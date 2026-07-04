@@ -2,9 +2,7 @@ import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
 import { AppState, type AppStateStatus, Platform } from "react-native";
 
-import { queueChatLaunch } from "@/lib/chatLaunch";
-import { buildProgrammingStudyPrompt } from "@/lib/programmingStudy";
-import { api, type ProjectDetail } from "@/lib/api";
+import { api } from "@/lib/api";
 
 type AppRouter = {
   push: (href: unknown) => void;
@@ -101,22 +99,10 @@ type PushData = {
 
 async function openLearningProject(
   router: AppRouter,
-  apiToken: string,
+  _apiToken: string,
   projectId: string,
-  topic?: string,
+  _topic?: string,
 ): Promise<void> {
-  if (topic) {
-    try {
-      const project: ProjectDetail = await api.getProject(apiToken, projectId);
-      const prompt = buildProgrammingStudyPrompt(project, topic);
-      if (queueChatLaunch(prompt, project.id)) {
-        router.replace("/");
-        return;
-      }
-    } catch {
-      /* fall through to project screen */
-    }
-  }
   router.push(`/projects/${projectId}`);
 }
 

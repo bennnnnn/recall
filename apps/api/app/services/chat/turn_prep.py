@@ -292,6 +292,8 @@ async def build_stream_prompt_context(
             prior_user_messages=prior_user_messages,
             has_image_attachment=has_image_attachment,
             on_status=on_status,
+            user=user,
+            redis=redis,
         )
 
     return TurnPromptBundle(

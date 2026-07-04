@@ -4,8 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 
+from redis.asyncio import Redis
+
 from app.core.config import Settings
 from app.gateways.web_search_gateway import WebSearchHit
+from app.models.orm import User
 from app.services.prompt_safety import wrap_untrusted
 from app.services.web_search.detection import (
     classify_web_search,
@@ -50,6 +53,8 @@ async def augment_prompt_messages(
     longitude: float | None = None,
     prior_user_messages: list[str] | None = None,
     on_status: Callable[[str], Awaitable[None]] | None = None,
+    user: User | None = None,
+    redis: Redis | None = None,
 ) -> tuple[list[dict[str, str]], list[WebSearchHit]]:
     prior_user = prior_user_messages or _prior_user_messages(messages, user_content)
     if web_search_skip(user_content, prior_user_messages=prior_user):
@@ -93,7 +98,7 @@ async def augment_prompt_messages(
             longitude=longitude,
             prior_user_messages=prior_user,
         )
-    hits, tried = await _run_search(settings, queries)
+    hits, tried = await _run_search(settings, queries, user=user, redis=redis)
     team = _extract_team_subject(user_content.strip())
     if not team and prior_user:
         for prior in reversed(prior_user):

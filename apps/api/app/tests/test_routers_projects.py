@@ -132,21 +132,14 @@ def test_create_language_project_rejects_duplicate():
     create_mock.assert_not_awaited()
 
 
-def test_create_programming_project_rejects_duplicate():
+def test_create_programming_project_rejected():
     user = _fake_user()
     app = _app_with_user(user)
-    existing = _project(kind="programming", title="Python", target_language="python")
 
-    with (
-        patch(
-            "app.routers.projects.projects_repo.find_programming_by_target",
-            AsyncMock(return_value=existing),
-        ),
-        patch(
-            "app.routers.projects.projects_repo.create",
-            AsyncMock(),
-        ) as create_mock,
-    ):
+    with patch(
+        "app.routers.projects.projects_repo.create",
+        AsyncMock(),
+    ) as create_mock:
         client = TestClient(app)
         r = client.post(
             "/projects",
@@ -158,7 +151,8 @@ def test_create_programming_project_rejects_duplicate():
             },
         )
 
-    assert r.status_code == 409
+    assert r.status_code == 400
+    assert r.json()["detail"] == "programming_not_supported"
     create_mock.assert_not_awaited()
 
 
@@ -194,34 +188,20 @@ def test_create_trivia_project_rejects_duplicate():
     create_mock.assert_not_awaited()
 
 
-def test_create_programming_project_seeds_curriculum():
+def test_get_programming_project_not_found():
     user = _fake_user()
     app = _app_with_user(user)
-    project = _project(kind="programming", title="Python")
+    project = _project(kind="programming", title="JS")
+    project_id = project.id
 
-    with (
-        patch(
-            "app.routers.projects.projects_repo.find_programming_by_target",
-            AsyncMock(return_value=None),
-        ),
-        patch(
-            "app.routers.projects.projects_repo.create",
-            AsyncMock(return_value=project),
-        ),
-        patch(
-            "app.routers.projects.seed_programming_curriculum",
-            AsyncMock(),
-        ) as seed_mock,
+    with patch(
+        "app.routers.projects.projects_repo.get_by_id",
+        AsyncMock(return_value=project),
     ):
         client = TestClient(app)
-        r = client.post(
-            "/projects",
-            headers={"Authorization": "Bearer tok"},
-            json={"title": "Python", "kind": "programming"},
-        )
+        r = client.get(f"/projects/{project_id}", headers={"Authorization": "Bearer tok"})
 
-    assert r.status_code == 201
-    seed_mock.assert_awaited_once()
+    assert r.status_code == 404
 
 
 def test_get_project_not_found():
@@ -283,35 +263,6 @@ def test_get_language_project_detail():
     assert body["total_count"] == 2
     assert len(body["pos_groups"]) == 1
     assert len(body["decks"]) == 1
-
-
-def test_get_programming_project_detail_seeds_when_empty():
-    user = _fake_user()
-    app = _app_with_user(user)
-    project = _project(kind="programming", title="JS")
-    project_id = project.id
-    item = _item(project_id)
-
-    with (
-        patch(
-            "app.routers.projects.projects_repo.get_by_id",
-            AsyncMock(return_value=project),
-        ),
-        patch(
-            "app.routers.projects.project_items_repo.list_for_user",
-            AsyncMock(side_effect=[[], [item]]),
-        ),
-        patch(
-            "app.routers.projects.seed_programming_curriculum",
-            AsyncMock(),
-        ) as seed_mock,
-    ):
-        client = TestClient(app)
-        r = client.get(f"/projects/{project_id}", headers={"Authorization": "Bearer tok"})
-
-    assert r.status_code == 200
-    seed_mock.assert_awaited_once()
-    assert r.json()["lists"]
 
 
 def test_list_project_decks():

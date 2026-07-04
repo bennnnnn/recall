@@ -27,14 +27,6 @@ export function projectStatsLabels(
       due: t("projects.stats.due"),
     };
   }
-  if (kind === "programming") {
-    return {
-      learned: t("projects.stats.topics_mastered"),
-      new: t("projects.stats.topics_new"),
-      thisWeek: t("projects.stats.this_week"),
-      due: t("projects.stats.topics_due"),
-    };
-  }
   if (kind === "trivia") {
     return {
       learned: t("projects.stats.correct_total"),
@@ -68,7 +60,6 @@ export function formatProjectListTitle(
   const normalized = listTitle.trim().toLowerCase();
   if (normalized === "general") {
     if (kind === "math") return t("projects.list.topics");
-    if (kind === "programming") return t("projects.list.modules");
     return t("projects.list.general");
   }
   return listTitle;

@@ -8,10 +8,14 @@ import json
 import logging
 from dataclasses import asdict
 
+from redis.asyncio import Redis
+
 from app.core.config import Settings
 from app.core.redis import get_redis_client
 from app.gateways import web_search_gateway
 from app.gateways.web_search_gateway import WebSearchHit
+from app.models.orm import User
+from app.services import quota as quota_service
 
 logger = logging.getLogger(__name__)
 
@@ -30,13 +34,19 @@ def _inject_before_last_user(messages: list[dict[str, str]], block: str) -> list
 async def _run_search(
     settings: Settings,
     queries: list[str],
+    *,
+    user: User | None = None,
+    redis: Redis | None = None,
 ) -> tuple[list[WebSearchHit], list[str]]:
     limit = max(1, min(settings.web_search_max_results, 10))
     if not queries:
         return [], []
 
     results = await asyncio.gather(
-        *(_search_with_cache(settings, query, max_results=limit) for query in queries)
+        *(
+            _search_with_cache(settings, query, max_results=limit, user=user, redis=redis)
+            for query in queries
+        )
     )
 
     seen_urls: set[str] = set()
@@ -64,6 +74,8 @@ async def _search_with_cache(
     query: str,
     *,
     max_results: int,
+    user: User | None = None,
+    redis: Redis | None = None,
 ) -> list[WebSearchHit]:
     cleaned = query.strip()
     if not cleaned:
@@ -114,7 +126,23 @@ async def _search_with_cache(
                 logger.debug("Web search cache read failed", exc_info=True)
 
     try:
-        hits = await web_search_gateway.search_web(settings, cleaned, max_results=max_results)
+        skip_tavily = False
+        if user is not None:
+            client = redis or get_redis_client()
+            tavily_limit = quota_service.tavily_search_limit_for_user(user, settings)
+            if not await quota_service.reserve_tavily_search(
+                client,
+                user.id,
+                limit=tavily_limit,
+            ):
+                skip_tavily = True
+
+        hits = await web_search_gateway.search_web(
+            settings,
+            cleaned,
+            max_results=max_results,
+            skip_tavily=skip_tavily,
+        )
         if hits:
             try:
                 await redis.set(

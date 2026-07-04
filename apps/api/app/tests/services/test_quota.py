@@ -136,3 +136,41 @@ async def test_reserve_image_upload_enforces_limit(fake_redis, settings):
 def test_image_upload_limit_for_user(settings):
     assert quota_service.image_upload_limit_for_user(_free_user(), settings) == 5
     assert quota_service.image_upload_limit_for_user(_pro_user(), settings) == 30
+
+
+@pytest.mark.asyncio
+async def test_reserve_speech_transcription_enforces_limit(fake_redis, settings):
+    from uuid import uuid4
+
+    user_id = uuid4()
+    limit = quota_service.speech_transcription_limit_for_user(_free_user(), settings)
+    for _ in range(limit):
+        assert (
+            await quota_service.reserve_speech_transcription(fake_redis, user_id, limit=limit)
+            is True
+        )
+    assert (
+        await quota_service.reserve_speech_transcription(fake_redis, user_id, limit=limit) is False
+    )
+
+
+@pytest.mark.asyncio
+async def test_refund_speech_transcription(fake_redis, settings):
+    from uuid import uuid4
+
+    user_id = uuid4()
+    limit = quota_service.speech_transcription_limit_for_user(_free_user(), settings)
+    assert await quota_service.reserve_speech_transcription(fake_redis, user_id, limit=limit)
+    await quota_service.refund_speech_transcription(fake_redis, user_id)
+    assert await quota_service.reserve_speech_transcription(fake_redis, user_id, limit=limit)
+
+
+@pytest.mark.asyncio
+async def test_reserve_tavily_search_enforces_limit(fake_redis, settings):
+    from uuid import uuid4
+
+    user_id = uuid4()
+    limit = 3
+    for _ in range(limit):
+        assert await quota_service.reserve_tavily_search(fake_redis, user_id, limit=limit) is True
+    assert await quota_service.reserve_tavily_search(fake_redis, user_id, limit=limit) is False

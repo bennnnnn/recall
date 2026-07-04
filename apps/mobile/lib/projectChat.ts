@@ -1,6 +1,5 @@
 import type { LanguageLevel, ProjectDetail } from "@/lib/api";
 import { isLanguageProject, levelLabel } from "@/lib/languageLevels";
-import { programmingLanguageLabel, type ProgrammingLanguageId } from "@/lib/programmingLanguages";
 import { VOCAB_QUIZ_FORMAT_BLOCK } from "@/lib/vocabQuizFormat";
 
 function progressLine(project: ProjectDetail): string {
@@ -50,23 +49,6 @@ export function buildEnglishOnboardingPrompt(
     `Then teach each word briefly and quiz me one at a time until I master all ${dailyGoal}. ` +
     `When I'm done, I'll come back tomorrow for the next batch.\n\n` +
     `Check in: does this level feel too easy, too hard, or about right?`
-  );
-}
-
-/** Opens chat after a new programming project is created — starts chapter 1. */
-export function buildProgrammingOnboardingPrompt(
-  language: ProgrammingLanguageId,
-  firstChapter: string,
-  firstTopics: string[],
-): string {
-  const stack = programmingLanguageLabel(language);
-  const topics = firstTopics.join(", ");
-  return (
-    `I just started learning ${stack} programming.\n\n` +
-    `Begin with chapter 1: **${firstChapter}**. Cover these sub-topics in order: ${topics}. ` +
-    `Teach clearly with ${stack} examples. Mark each sub-topic mastered when I demonstrate it, ` +
-    `then move to the next sub-topic and chapter.\n\n` +
-    `Follow the fixed curriculum — do not skip ahead unless I ask.`
   );
 }
 
@@ -140,7 +122,7 @@ export function buildProjectQuizPrompt(project: ProjectDetail): string {
   );
 }
 
-/** Practice-problem opener for math / general (non-language, non-programming) projects. */
+/** Practice-problem opener for math / general projects. */
 export function buildProjectPracticePrompt(project: ProjectDetail): string {
   const goal = project.description?.trim() ? ` Goal: ${project.description.trim()}.` : "";
   return (

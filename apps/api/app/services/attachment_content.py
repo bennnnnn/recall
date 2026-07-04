@@ -144,12 +144,13 @@ async def format_attachment_lines(
         return [f"[Image: /attachments/{attachment_id}/file]"], True
 
     data = await read_attachment_bytes(gateway, storage_key)
+    file_ref = f"[File: /attachments/{attachment_id}/file]"
     if data:
         excerpt = extract_text_from_bytes(content_type, data)
         if excerpt:
-            return [f"[File ({content_type})]\n{excerpt}"], False
+            return [file_ref, f"[File ({content_type})]\n{excerpt}"], False
 
-    return [f"[File attached: {content_type}, {size_bytes} bytes]"], False
+    return [file_ref, f"[File attached: {content_type}, {size_bytes} bytes]"], False
 
 
 _IMAGE_MARKER = re.compile(r"^\[Image:\s*.+\]\s*$", re.MULTILINE)

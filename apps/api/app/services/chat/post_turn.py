@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import math
 from uuid import UUID
 
 from redis.asyncio import Redis
@@ -9,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import jobs
 from app.core.config import Settings
 from app.core.db import SessionLocal
+from app.services import model_catalog
 from app.services import projects as projects_service
 from app.services import quota as quota_service
 from app.services import todos as todos_service
@@ -66,6 +68,7 @@ async def finalize_stream_turn_db(
     usage_output = usage.get("output")
     output_tokens = usage_output if usage_output is not None else estimate_tokens(assistant_text)
     total_tokens = input_tokens + output_tokens
+    weighted_total = math.ceil(total_tokens * model_catalog.quota_multiplier(ctx.model))
 
     persisted_text = assistant_text
 
@@ -104,7 +107,12 @@ async def finalize_stream_turn_db(
             except Exception:
                 logger.exception("Failed to record usage tokens")
 
-        await quota_service.adjust_usage(redis, str(ctx.user_id), ctx.reserved_tokens, total_tokens)
+        await quota_service.adjust_usage(
+            redis,
+            str(ctx.user_id),
+            ctx.reserved_tokens,
+            weighted_total,
+        )
     except Exception:
         logger.exception("Stream-turn finalize failed; refunding reserved quota")
         await quota_service.refund_usage(redis, str(ctx.user_id), ctx.reserved_tokens)

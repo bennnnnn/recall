@@ -155,6 +155,7 @@ async def search_web(
     query: str,
     *,
     max_results: int | None = None,
+    skip_tavily: bool = False,
 ) -> list[WebSearchHit]:
     cleaned = query.strip()
     if not cleaned:
@@ -166,7 +167,7 @@ async def search_web(
     if not settings.web_search_enabled:
         return []
 
-    if settings.tavily_api_key.strip():
+    if not skip_tavily and settings.tavily_api_key.strip():
         hits = await _search_tavily(settings, cleaned, limit)
         if hits:
             return hits

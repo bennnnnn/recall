@@ -229,7 +229,7 @@ async def test_process_learning_nudges_language_review():
 
 
 @pytest.mark.asyncio
-async def test_process_learning_nudges_programming_topic():
+async def test_process_learning_nudges_skips_programming_projects():
     session = AsyncMock()
     redis = AsyncMock()
     settings = Settings(push_learning_hour=0)
@@ -246,22 +246,6 @@ async def test_process_learning_nudges_programming_topic():
     project.title = "Python"
     project.kind = "programming"
 
-    item = MagicMock()
-    item.id = uuid4()
-    item.list_title = "Variables"
-    item.content = "x"
-    item.note = None
-    item.part_of_speech = "noun"
-    item.definition = "a variable"
-    item.example_sentence = None
-    item.status = "new"
-    item.mastered = False
-    item.created_at = datetime(2026, 1, 1, tzinfo=UTC)
-    item.last_reviewed_at = None
-    item.mastered_at = None
-    item.review_count = 0
-    item.pronunciation_url = None
-
     token = MagicMock()
     token.expo_push_token = "ExponentPushToken[abc]"
 
@@ -276,11 +260,6 @@ async def test_process_learning_nudges_programming_topic():
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            push_service.project_items_repo,
-            "list_for_user",
-            AsyncMock(return_value=[item]),
-        ),
-        patch.object(
             push_service.push_repo,
             "list_for_user",
             AsyncMock(return_value=[token]),
@@ -288,8 +267,8 @@ async def test_process_learning_nudges_programming_topic():
     ):
         messages = await push_service.process_learning_nudges(session, redis, settings)
 
-    assert len(messages) == 1
-    assert "Variables" in messages[0].message["body"]
+    assert messages == []
+    redis.delete.assert_awaited_once()
 
 
 @pytest.mark.asyncio

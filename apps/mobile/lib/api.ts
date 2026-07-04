@@ -67,6 +67,9 @@ export type Message = {
   context_summarized?: number;
   search_sources?: SearchSource[];
   local_image_uri?: string | null;
+  local_file_uri?: string | null;
+  local_file_name?: string | null;
+  local_file_content_type?: string | null;
   /** Client-only FlashList key — stable while `id` changes streaming → persisted. */
   renderKey?: string;
   created_at: string;

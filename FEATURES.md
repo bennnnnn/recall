@@ -68,8 +68,8 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
 - ✅ **Markdown** — headings, **bold**/*italic*, bullet & numbered lists, blockquotes, links,
   inline code, horizontal rules.
 - ✅ **Code blocks** — dark card, language badge, copy button, horizontal scroll.
-- ✅ **Syntax highlighting** — token coloring (comments, strings, numbers, keywords) via a
-  dependency-free tokenizer; covers common languages with a monochrome fallback for the rest.
+- ✅ **Syntax highlighting** — **Prism.js** token coloring for 40+ languages (comments, strings,
+  numbers, keywords); heuristic fallback for unknown langs.
 - ✅ **Tables** — styled (header shading, borders, cell padding).
 - ✅ **Inline images** — Markdown `![alt](url)` images render (contained, rounded).
 - ✅ **Math / LaTeX** — inline `$...$` and ` ```math` fences render as native text with
@@ -85,10 +85,11 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
   "open in browser" (needs a dev build; see the code-execution policy below).
 - ✅ **Rich blocks** — callouts (`> [!NOTE]`), key-value, comparison, step lists, and
   email/message/social "copy" cards.
-- ⚠️ **Mermaid diagrams** — shows the diagram source with copy + "Open in Mermaid Live" (not yet
-  rendered inline).
-- 🔜 **Grammar-perfect highlighting** — current highlighter is heuristic; a full library
-  (Shiki/Prism) would be more precise.
+- ✅ **Mermaid diagrams** — inline SVG render via sandboxed WebView (dev build); source toggle +
+  copy + Mermaid Live link; Expo Go shows source + external editor hint.
+- ✅ **PDF attachments** — uploaded PDFs show a file card + inline first-page preview (pdf.js in
+  sandboxed WebView, dev build); tap opens full viewer with share/export.
+- 🔜 **Collaborative cursors / shared docs** — multi-user editing not in scope for v1 personal app.
 
 ## 5. Models & routing
 - ✅ **Multiple tiers** — **Flash** (`free-chat`) and **Pro** (`smart-chat`), plus **Max**
@@ -320,13 +321,13 @@ suggestions using existing `users.timezone` and `todo_items.due_at`.
 
 ## 17. Projects (utility workspaces)
 
-Recall is evolving from chat-only into a **holistic AI utility app**. **Projects** are
-user-created workspaces beside **Todos** — for learning English, programming practice, courses,
-habits, and anything else that needs structure over time.
+Recall is evolving from chat-only into a **holistic AI utility app**. **Learning** topics are
+user-created workspaces beside **Todos** — for English vocabulary, general knowledge quizzes,
+courses, habits, and anything else that needs structure over time.
 
 ### v1 (shipped foundation)
-- ✅ **`projects` table** — title, description, `kind` (`general` | `vocabulary` | `programming` |
-  `learning`), archive flag.
+- ✅ **`projects` table** — title, description, `kind` (`general` | `vocabulary` | `language` |
+  `trivia` | `learning`), archive flag.
 - ✅ **REST API** — `GET/POST /projects`, `GET/PATCH/DELETE /projects/{id}`.
 - ✅ **Mobile** — drawer **Projects** link → list → create → detail screen.
 - ✅ **Project kinds** — taxonomy hook for different toolkits per type (no modules yet).
@@ -349,8 +350,7 @@ habits, and anything else that needs structure over time.
 - ✅ **Home starters** — active project highlight on home; tap opens project or starts scoped chat.
 
 ### Phase 4 — More project types
-- ✅ **Programming** — language-specific curriculum seeded on create; journey lists + "Continue" /
-  per-topic study prompts; push nudge to resume learning.
+- ✅ **General knowledge (trivia)** — topic picker, scoped quiz chat, daily goal.
 - 🔜 **Learning (generic)** — lesson notes, spaced repetition beyond vocab, richer AI tutor mode.
 
 Chat + memory + todos + projects share one backend; the LLM orchestrates across them (no keys on
@@ -374,10 +374,10 @@ A consolidated list of what's intentionally **not** in this version:
   and **LaTeX rendering** for the formatted answer. (Depends on the image-input + Math/LaTeX items.)
 - ✅ **Web search** — Tavily primary + DuckDuckGo fallback; injected into chat when heuristics match;
   sources shown on assistant messages (hidden on vocab quiz cards).
-- 🔜 Inline Mermaid rendering, grammar-perfect (library) syntax highlighting, structured profile,
-  dedicated worker process, multi-select, swipe-to-delete (gesture lib), editing arbitrary
-  (older) messages, live model latency/health, user-tunable routing rules, email-only reminders,
-  theming the remaining screens.
+- 🔜 **Collaborative cursors / shared docs** — real-time co-editing; personal app only today.
+- 🔜 Structured profile fields, dedicated worker process, multi-select, swipe-to-delete (gesture lib),
+  editing arbitrary (older) messages, live model latency/health, user-tunable routing rules,
+  email-only reminders, theming the remaining screens.
 
 ### Pre-deployment TODO (from the holistic review)
 
@@ -453,3 +453,91 @@ A future **web version that reuses this same API** — one backend, multiple cli
   them on the WebSocket; no other backend change needed.
 - 🔜 **Approach to decide later** — react-native-web (reuse this Expo codebase) vs. a separate web
   app (e.g. Next.js) sharing only the API + types. Same API either way.
+
+---
+
+## 28. Product catalog (PM reference)
+
+Internal product snapshot for leadership, engineering, design, GTM, and App Store review.
+**Status:** pre–public launch on `main`. Supersedes one-off chat summaries when they disagree.
+
+### Mission
+Recall is a **personal AI utility** — not a generic chatbot. It remembers who you are, helps you
+act (todos, calendar, email), and supports **Learning** (English vocabulary + general knowledge
+quizzes). One trusted assistant combining ChatGPT-grade conversation with durable memory and
+everyday productivity. **Programming help lives in main chat** (code blocks, previews) — not as a
+structured Learning topic type.
+
+### Strategic pillars
+| Pillar | Meaning |
+|--------|---------|
+| Chat that feels fast | Streaming, stop/regenerate, rich answers, reasoning visible |
+| Memory that compounds | Facts learned across chats, injected when relevant |
+| Utility beyond chat | Todos, Learning, integrations, home starters |
+| Trust & control | Export, delete account, opt-in integrations, quota transparency |
+| Monetize fairly | Free tier with limits; Pro for power users |
+
+### Release plan
+| Phase | Scope | Status |
+|-------|--------|--------|
+| MVP (mobile) | Chat + memory + todos + Learning + integrations | ~90% code-complete |
+| Launch readiness | Provisioning, store builds, landing page, OAuth verification, on-device QA | ~70% ops |
+| v1.1 | Web client (same API), tsvector search, worker split | Not started |
+| v2 | Full agent/tool loop, RAG over attachments, gamification layer | Not started |
+
+### Learning (not “programming projects”)
+| Shipped | Not done |
+|---------|----------|
+| English vocabulary (`language`) — decks, POS, quiz, tutor | SM-2 spaced repetition |
+| General knowledge (`trivia`) — topics, scoped quiz chat | Curated trivia marketplace |
+| Project-scoped chats, home highlight | Link todos to Learning topics |
+| ~~Programming curriculum kind~~ **removed** — use main chat for code help | Certificates, GitHub linking, in-app code runner |
+
+### Rich rendering (§4 summary)
+| Capability | Status |
+|------------|--------|
+| Markdown, tables, math, geometry/graph SVG, charts, HTML sandbox | ✅ Shipped |
+| Prism.js syntax highlighting | ✅ Shipped |
+| Mermaid inline (WebView, dev build) | ✅ Shipped |
+| PDF preview in chat | ✅ Shipped (tap card → viewer modal) |
+| Collaborative cursors / shared docs | 🔜 Deferred (personal app; no multi-user) |
+
+### Attachments & multimodal
+| Shipped | Not done |
+|---------|----------|
+| Presigned upload, magic-byte validation, daily image cap | Production R2 until creds set |
+| Vision routing for images | Full pgvector RAG over PDF corpora |
+| PDF text extraction server-side (SymPy-style verify path for docs) | Camera math solver UX |
+| PDF inline preview in message bubble | Virus scan / enterprise DLP |
+
+### Voice
+| Shipped | Not done |
+|---------|----------|
+| Record → Whisper → composer (dev build), waveform UI, rate limits | TTS read-aloud, duplex voice mode |
+
+### Cost guards (recent)
+| Guard | Free | Pro |
+|-------|------|-----|
+| Daily tokens | 30k | 500k |
+| Speech transcriptions/day | 30 | 200 |
+| Tavily searches/day | 20 (then DDG only) | 150 |
+| R1 / smart-chat quota weight | 3.5× token charge | Same |
+
+### Integrations
+| Shipped | Not done |
+|---------|----------|
+| Google Calendar read + write (confirm flow) | Google OAuth verification for Gmail prod |
+| Gmail → suggested reminders | Outlook, Slack, user MCP servers |
+| MCP gateway skeleton + pre-stream adapter round | Full LiteLLM tool-calling loop |
+
+### Launch blockers (honest)
+1. Cost guards (speech, Tavily, R1 weight) ✅
+2. Provision Neon, Redis, R2, Fly, EAS ⬜
+3. Landing page + support URL ⬜
+4. Google OAuth verification (Gmail) ⬜
+5. On-device QA matrix (iOS + Android) ⬜
+6. R2 production attachments ⬜
+
+### Explicitly not v1
+Multi-user teams, collaborative editing, arbitrary code execution (except sandboxed HTML/chart
+preview WebView), web client, gamification (streaks/XP/badges), full RAG, dedicated worker fleet.

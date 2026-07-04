@@ -20,7 +20,6 @@ from app.repositories import projects as projects_repo
 from app.repositories import push_tokens as push_repo
 from app.services import time_context as time_context_service
 from app.services.locale import normalize_locale_code
-from app.services.projects import group_programming_items
 from app.services.reminder_timing import (
     MAX_REMINDER_LEAD_MINUTES,
     OVERDUE_MAX_HOURS,
@@ -146,24 +145,6 @@ def _append_outbound(
                 learning_redis_key=learning_redis_key,
             )
         )
-
-
-def _suggest_programming_topic(groups) -> str | None:
-    best: tuple[str, float] | None = None
-    for group in groups:
-        items = group.items
-        total = len(items)
-        if total == 0:
-            continue
-        mastered = sum(1 for item in items if item.status == "mastered" or item.mastered)
-        learning = sum(1 for item in items if item.status == "learning")
-        pending = total - mastered
-        if pending == 0:
-            continue
-        score = pending + learning * 0.25
-        if best is None or score > best[1]:
-            best = (group.list_title, score)
-    return best[0] if best else None
 
 
 async def _tokens_for_user(session: AsyncSession, user_id: UUID) -> list[PushToken]:
@@ -336,30 +317,6 @@ async def process_learning_nudges(
                     }
                 else:
                     continue
-                if best is None or score > best[1]:
-                    best = (body, score, payload)
-
-            elif project.kind == "programming":
-                items = await project_items_repo.list_for_user(
-                    session, user_id, project_id=project.id, limit=5000
-                )
-                if not items:
-                    continue
-                groups = group_programming_items(items)
-                topic = _suggest_programming_topic(groups)
-                if not topic:
-                    continue
-                pending = sum(
-                    1 for item in items if item.status != "mastered" and not item.mastered
-                )
-                score = float(pending + 5)
-                body = f'Continue "{project.title}" — work on {topic}'
-                payload = {
-                    "type": "learning_continue",
-                    "screen": "project",
-                    "project_id": str(project.id),
-                    "topic": topic,
-                }
                 if best is None or score > best[1]:
                     best = (body, score, payload)
 

@@ -3,6 +3,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from uuid import UUID
 
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -81,6 +82,8 @@ async def _augment_web_and_tools(
     prior_user_messages: list[str] | None = None,
     has_image_attachment: bool = False,
     on_status: StreamStatusFn | None = None,
+    user: User | None = None,
+    redis: Redis | None = None,
 ) -> tuple[list[dict[str, str]], list[WebSearchHit]]:
     """Web search always uses the full direct path; MCP handles calendar/sympy only."""
     import app.services.chat as chat_pkg
@@ -95,6 +98,8 @@ async def _augment_web_and_tools(
         longitude=longitude,
         prior_user_messages=prior_user_messages,
         on_status=on_status,
+        user=user,
+        redis=redis,
     )
 
     if settings.mcp_tools_enabled:

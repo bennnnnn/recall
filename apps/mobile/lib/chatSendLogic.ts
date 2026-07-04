@@ -36,6 +36,12 @@ export function buildOptimisticUserMessage(options: {
     model: null,
     local_image_uri:
       options.attached?.kind === "image" ? options.attached.localUri : null,
+    local_file_uri:
+      options.attached?.kind === "file" ? options.attached.localUri : null,
+    local_file_name:
+      options.attached?.kind === "file" ? options.attached.fileName : null,
+    local_file_content_type:
+      options.attached?.kind === "file" ? options.attached.contentType : null,
     created_at: options.createdAt,
   };
 }
@@ -55,6 +61,9 @@ export function buildPendingSendAfterCreate(options: {
   trackSendingMessageId: string;
   attachmentIds?: string[];
   localImageUri?: string | null;
+  localFileUri?: string | null;
+  localFileName?: string | null;
+  localFileContentType?: string | null;
   clientGeo?: ClientGeo | null;
   model: string;
 } {
@@ -66,6 +75,12 @@ export function buildPendingSendAfterCreate(options: {
     attachmentIds: options.attachmentIds,
     localImageUri:
       options.attached?.kind === "image" ? options.attached.localUri : null,
+    localFileUri:
+      options.attached?.kind === "file" ? options.attached.localUri : null,
+    localFileName:
+      options.attached?.kind === "file" ? options.attached.fileName : null,
+    localFileContentType:
+      options.attached?.kind === "file" ? options.attached.contentType : null,
     clientGeo: options.clientGeo ?? null,
     model: options.model,
   };

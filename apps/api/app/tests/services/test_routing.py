@@ -39,11 +39,14 @@ def test_route_chat_model(content: str, expected: str) -> None:
 
 
 def test_is_reasoning_alias() -> None:
-    from app.services.model_catalog import is_reasoning_alias
+    from app.services.model_catalog import is_reasoning_alias, quota_multiplier
 
     assert is_reasoning_alias("smart-chat") is True
     assert is_reasoning_alias("max-chat") is True
     assert is_reasoning_alias("free-chat") is False
+    assert quota_multiplier("free-chat") == 1.0
+    assert quota_multiplier("smart-chat") == 3.5
+    assert quota_multiplier("max-chat") == 3.5
 
 
 @pytest.mark.parametrize(

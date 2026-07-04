@@ -22,7 +22,6 @@ from app.models.schemas import (
 from app.repositories import project_items as project_items_repo
 from app.repositories import projects as projects_repo
 from app.services import projects as projects_service
-from app.services.programming_curriculum import seed_programming_curriculum
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -33,7 +32,7 @@ async def list_projects(
     session: AsyncSession = Depends(get_db),
 ) -> list[ProjectOut]:
     items = await projects_repo.list_for_user(session, user.id)
-    return [ProjectOut.model_validate(item) for item in items]
+    return [ProjectOut.model_validate(item) for item in items if item.kind != "programming"]
 
 
 @router.post("", response_model=ProjectOut, status_code=status.HTTP_201_CREATED)
@@ -45,6 +44,11 @@ async def create_project(
     kind = body.kind
     if kind == "vocabulary":
         kind = "language"
+    if kind == "programming":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="programming_not_supported",
+        )
     if kind == "language":
         existing = await projects_repo.find_language_by_target(
             session, user.id, body.target_language
@@ -53,15 +57,6 @@ async def create_project(
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="language_project_exists",
-            )
-    if kind == "programming":
-        existing = await projects_repo.find_programming_by_target(
-            session, user.id, body.target_language
-        )
-        if existing:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="programming_project_exists",
             )
     if kind == "trivia":
         existing = await projects_repo.find_trivia_project(session, user.id)
@@ -81,8 +76,6 @@ async def create_project(
         level=body.level,
         daily_goal=body.daily_goal if kind in ("language", "trivia") else None,
     )
-    if kind == "programming":
-        await seed_programming_curriculum(session, user_id=user.id, project_id=item.id)
     return ProjectOut.model_validate(item)
 
 
@@ -94,6 +87,8 @@ async def get_project(
 ) -> ProjectDetailOut:
     item = await projects_repo.get_by_id(session, project_id, user.id)
     if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    if item.kind == "programming":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
 
     is_language = item.kind in ("language", "vocabulary")
@@ -139,17 +134,8 @@ async def get_project(
         )
 
     project_items = await project_items_repo.list_for_user(session, user.id, project_id=project_id)
-    if item.kind == "programming" and not project_items:
-        await seed_programming_curriculum(session, user_id=user.id, project_id=project_id)
-        project_items = await project_items_repo.list_for_user(
-            session, user.id, project_id=project_id
-        )
     stats = projects_service.build_stats(project_items)
-    lists = (
-        projects_service.group_programming_items(project_items)
-        if item.kind == "programming"
-        else projects_service.group_items(project_items)
-    )
+    lists = projects_service.group_items(project_items)
     return ProjectDetailOut(
         **ProjectOut.model_validate(item).model_dump(),
         mastered_count=stats.mastered_count,

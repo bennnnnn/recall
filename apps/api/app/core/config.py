@@ -78,11 +78,17 @@ class Settings(BaseSettings):
     web_search_fallback_enabled: bool = True
     web_search_max_results: int = 5
     web_search_cache_ttl: int = 300
+    # Paid Tavily queries per user per UTC day; when exceeded, fall back to DuckDuckGo.
+    daily_tavily_searches: int = 20
+    daily_tavily_searches_pro: int = 150
 
     # Process role for production split: all (dev), api (HTTP only), worker (jobs only).
     process_role: str = "all"
     speech_transcription_enabled: bool = True
     speech_transcription_model: str = "openai/whisper-1"
+    speech_rate_limit_per_minute: int = 10
+    daily_speech_transcriptions: int = 30
+    daily_speech_transcriptions_pro: int = 200
 
     push_enabled: bool = True
     push_learning_hour: int = 9
