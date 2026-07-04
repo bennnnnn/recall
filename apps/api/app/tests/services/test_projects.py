@@ -9,6 +9,21 @@ from app.models.schemas import ProjectActionItem
 from app.services import projects as projects_service
 
 
+class _FakeSessionCM:
+    def __init__(self, session: AsyncMock):
+        self._session = session
+
+    async def __aenter__(self) -> AsyncMock:
+        return self._session
+
+    async def __aexit__(self, *args: object) -> None:
+        return None
+
+
+def _session_local_side_effect(session: AsyncMock):
+    return [_FakeSessionCM(session), _FakeSessionCM(session)]
+
+
 def test_transcript_implies_project_sync():
     pid = uuid4()
     assert projects_service.transcript_implies_project_sync(
@@ -307,6 +322,10 @@ async def test_sync_projects_from_transcript_adds_words():
     )
 
     with (
+        patch(
+            "app.core.db.SessionLocal",
+            side_effect=_session_local_side_effect(session),
+        ),
         patch.object(
             projects_service.projects_repo,
             "list_for_user",
@@ -325,7 +344,6 @@ async def test_sync_projects_from_transcript_adds_words():
         patch.object(mock_llm, "should_mock_llm", return_value=True),
     ):
         result = await sync_projects_from_transcript(
-            session,
             settings,
             user_id=user_id,
             chat_id=chat_id,
@@ -806,6 +824,10 @@ async def test_sync_projects_from_transcript_applies_litellm_actions():
     )
 
     with (
+        patch(
+            "app.core.db.SessionLocal",
+            side_effect=_session_local_side_effect(session),
+        ),
         patch.object(
             projects_service.projects_repo,
             "list_for_user",
@@ -827,7 +849,6 @@ async def test_sync_projects_from_transcript_applies_litellm_actions():
         ) as apply_mock,
     ):
         result = await projects_service.sync_projects_from_transcript(
-            session,
             settings,
             user_id=user_id,
             chat_id=chat_id,
@@ -839,11 +860,65 @@ async def test_sync_projects_from_transcript_applies_litellm_actions():
 
 
 @pytest.mark.asyncio
+async def test_sync_projects_from_transcript_releases_db_before_llm():
+    session = AsyncMock()
+    session.commit = AsyncMock()
+    db_open_during_extract: list[bool] = []
+
+    class _TrackingSessionCM(_FakeSessionCM):
+        def __init__(self) -> None:
+            super().__init__(session)
+            self.open = False
+
+        async def __aenter__(self) -> AsyncMock:
+            self.open = True
+            return await super().__aenter__()
+
+        async def __aexit__(self, *args: object) -> None:
+            self.open = False
+            await super().__aexit__(*args)
+
+    load_cm = _TrackingSessionCM()
+    apply_cm = _TrackingSessionCM()
+
+    async def fake_extract(*_args: object, **_kwargs: object) -> None:
+        db_open_during_extract.append(load_cm.open or apply_cm.open)
+        return None
+
+    with (
+        patch("app.core.db.SessionLocal", side_effect=[load_cm, apply_cm]),
+        patch.object(projects_service.projects_repo, "list_for_user", AsyncMock(return_value=[])),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.gateways.litellm_gateway.extract_project_actions",
+            AsyncMock(side_effect=fake_extract),
+        ),
+    ):
+        await projects_service.sync_projects_from_transcript(
+            Settings(),
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            transcript="add word",
+        )
+
+    assert db_open_during_extract == [False]
+    assert session.commit.await_count == 2
+
+
+@pytest.mark.asyncio
 async def test_sync_projects_from_transcript_returns_none_on_error():
     session = AsyncMock()
     settings = Settings()
 
     with (
+        patch(
+            "app.core.db.SessionLocal",
+            side_effect=_session_local_side_effect(session),
+        ),
         patch.object(
             projects_service.projects_repo,
             "list_for_user",
@@ -860,7 +935,6 @@ async def test_sync_projects_from_transcript_returns_none_on_error():
         ),
     ):
         result = await projects_service.sync_projects_from_transcript(
-            session,
             settings,
             user_id=uuid4(),
             chat_id=uuid4(),

@@ -1,5 +1,7 @@
 import logging
 import re
+from dataclasses import dataclass
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -1176,88 +1178,143 @@ async def apply_project_actions(
     return applied
 
 
-async def sync_projects_from_transcript(
-    session: AsyncSession,
-    settings: Settings,
-    *,
-    user_id: UUID,
-    chat_id: UUID,
-    transcript: str,
-) -> ProjectExtractionResult | None:
-    from app.gateways import litellm_gateway
+@dataclass(frozen=True)
+class _ProjectSyncSnapshot:
+    snapshot: dict[str, Any]
 
+
+async def _load_project_sync_snapshot(
+    session: AsyncSession,
+    user_id: UUID,
+    settings: Settings,
+) -> _ProjectSyncSnapshot:
     projects = await projects_repo.list_for_user(
         session, user_id, limit=settings.project_inject_limit
     )
     items = await project_items_repo.list_for_user(
         session, user_id, limit=settings.project_item_inject_limit
     )
-    snapshot = {
-        "projects": [
-            {
-                "title": p.title,
-                "kind": p.kind,
-                "level": getattr(p, "level", "level1"),
-                "target_language": getattr(p, "target_language", "en"),
-                "description": p.description,
-                "archived": p.archived,
-            }
-            for p in projects
-        ],
-        "items": [
-            {
-                "project_title": next((pr.title for pr in projects if pr.id == i.project_id), ""),
-                "list_title": i.list_title,
-                "content": i.content,
-                "part_of_speech": i.part_of_speech,
-                "definition": i.definition,
-                "example_sentence": i.example_sentence or i.note,
-                "status": _item_status(i),
-                "mastered": i.mastered,
-            }
-            for i in items
-        ],
-    }
+    return _ProjectSyncSnapshot(
+        snapshot={
+            "projects": [
+                {
+                    "title": p.title,
+                    "kind": p.kind,
+                    "level": getattr(p, "level", "level1"),
+                    "target_language": getattr(p, "target_language", "en"),
+                    "description": p.description,
+                    "archived": p.archived,
+                }
+                for p in projects
+            ],
+            "items": [
+                {
+                    "project_title": next(
+                        (pr.title for pr in projects if pr.id == i.project_id), ""
+                    ),
+                    "list_title": i.list_title,
+                    "content": i.content,
+                    "part_of_speech": i.part_of_speech,
+                    "definition": i.definition,
+                    "example_sentence": i.example_sentence or i.note,
+                    "status": _item_status(i),
+                    "mastered": i.mastered,
+                }
+                for i in items
+            ],
+        }
+    )
+
+
+async def _apply_project_extraction_result(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    chat_id: UUID,
+    result: ProjectExtractionResult | None,
+) -> int:
+    if not result or not result.actions:
+        return 0
+    safe_actions: list[ProjectActionItem] = []
+    for action in result.actions:
+        if action.action in PROJECT_BLOCKED_FROM_TRANSCRIPT:
+            logger.warning(
+                "Refused destructive project action %s from transcript for "
+                "user_id=%s project=%s (requires explicit user action)",
+                action.action,
+                user_id,
+                action.project_title,
+            )
+            continue
+        safe_actions.append(action)
+        if len(safe_actions) >= MAX_PROJECT_ACTIONS_PER_TURN:
+            break
+    if not safe_actions:
+        return 0
+    applied = await apply_project_actions(
+        session,
+        user_id=user_id,
+        actions=safe_actions,
+        chat_id=chat_id,
+    )
+    if result.actions and applied == 0:
+        logger.warning(
+            "Project sync extracted %d action(s) but applied 0 for user_id=%s",
+            len(result.actions),
+            user_id,
+        )
+    return applied
+
+
+async def _run_extracted_project_actions(
+    settings: Settings,
+    *,
+    user_id: UUID,
+    chat_id: UUID,
+    transcript: str,
+) -> ProjectExtractionResult | None:
+    from app.core.db import SessionLocal
+    from app.gateways import litellm_gateway
+
+    async with SessionLocal() as session:
+        loaded = await _load_project_sync_snapshot(session, user_id, settings)
+        await session.commit()
+
     try:
         result = await litellm_gateway.extract_project_actions(
             settings,
             transcript,
-            snapshot,
+            loaded.snapshot,
         )
-        if not result or not result.actions:
-            return result
-        # Defensive: cap actions per turn and refuse whole-project / whole-deck
-        # deletes inferred from a transcript. The user must remove those
-        # explicitly from the Projects screen.
-        safe_actions: list[ProjectActionItem] = []
-        for action in result.actions:
-            if action.action in PROJECT_BLOCKED_FROM_TRANSCRIPT:
-                logger.warning(
-                    "Refused destructive project action %s from transcript for "
-                    "user_id=%s project=%s (requires explicit user action)",
-                    action.action,
-                    user_id,
-                    action.project_title,
-                )
-                continue
-            safe_actions.append(action)
-            if len(safe_actions) >= MAX_PROJECT_ACTIONS_PER_TURN:
-                break
-        if not safe_actions:
-            return result
-        applied = await apply_project_actions(
+    except Exception:
+        logger.exception("Project action extraction failed for user_id=%s", user_id)
+        return None
+
+    async with SessionLocal() as session:
+        await _apply_project_extraction_result(
             session,
             user_id=user_id,
-            actions=safe_actions,
             chat_id=chat_id,
+            result=result,
         )
-        if result.actions and applied == 0:
-            logger.warning(
-                "Project sync extracted %d action(s) but applied 0 for user_id=%s",
-                len(result.actions),
-                user_id,
-            )
-        return result
+        await session.commit()
+    return result
+
+
+async def sync_projects_from_transcript(
+    settings: Settings,
+    *,
+    user_id: UUID,
+    chat_id: UUID,
+    transcript: str,
+) -> ProjectExtractionResult | None:
+    try:
+        return await _run_extracted_project_actions(
+            settings,
+            user_id=user_id,
+            chat_id=chat_id,
+            transcript=transcript,
+        )
     except Exception:
         logger.exception("Project sync failed for user_id=%s", user_id)
         return None
