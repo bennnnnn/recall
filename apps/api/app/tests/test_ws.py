@@ -481,3 +481,44 @@ def test_ws_edit_invalid_payload():
             err = ws.receive_json()
             assert err["type"] == "error"
             assert "Invalid edit" in err["message"]
+
+
+def test_ws_message_rate_limit_blocks_second_chargeable_message():
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+    app = _app(user)
+    msg_calls = {"count": 0}
+
+    async def allow_side_effect(_redis, key, *, limit, window_seconds):
+        if str(key).startswith("rate:ws:msg:"):
+            msg_calls["count"] += 1
+            return msg_calls["count"] <= 1
+        return True
+
+    async def fake_stream(*args, **kwargs):
+        yield "ok"
+
+    with (
+        patch("app.routers.ws.allow_request", side_effect=allow_side_effect),
+        patch(
+            "app.routers.ws.tokens_service.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
+        patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
+        patch("app.routers.ws.chat_service.stream_chat_response", fake_stream),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "first"})
+            assert ws.receive_json()["type"] == "start"
+            while True:
+                msg = ws.receive_json()
+                if msg["type"] == "done":
+                    break
+            ws.send_json({"type": "message", "content": "second"})
+            err = ws.receive_json()
+            assert err["type"] == "error"
+            assert "Too many requests" in err["message"]
+            assert msg_calls["count"] == 2

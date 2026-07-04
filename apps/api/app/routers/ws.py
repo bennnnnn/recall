@@ -23,6 +23,11 @@ from app.services import tokens as tokens_service
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["websocket"])
 
+_WS_MSG_RATE_LIMIT = 30
+_WS_MSG_WINDOW_SECONDS = 60
+_WS_CONNECT_RATE_LIMIT = 30
+_CHARGEABLE_WS_TYPES = frozenset({"message", "regenerate", "edit"})
+
 
 async def _safe_send_json(websocket: WebSocket, payload: dict) -> bool:
     """Send a WS frame; return False if the client already disconnected."""
@@ -34,11 +39,22 @@ async def _safe_send_json(websocket: WebSocket, payload: dict) -> bool:
 
 
 async def _ws_rate_limit(redis, user_id: UUID) -> bool:
+    """Per-message throttle for chat actions on an open WebSocket."""
     return await allow_request(
         redis,
         f"rate:ws:msg:{user_id}",
-        limit=30,
-        window_seconds=60,
+        limit=_WS_MSG_RATE_LIMIT,
+        window_seconds=_WS_MSG_WINDOW_SECONDS,
+    )
+
+
+async def _ws_connect_rate_limit(redis, user_id: UUID) -> bool:
+    """Limit new WebSocket handshakes per user (separate from per-message limits)."""
+    return await allow_request(
+        redis,
+        f"rate:ws:connect:{user_id}",
+        limit=_WS_CONNECT_RATE_LIMIT,
+        window_seconds=_WS_MSG_WINDOW_SECONDS,
     )
 
 
@@ -229,12 +245,7 @@ async def chat_websocket(
         await websocket.close()
         return
 
-    allowed = await allow_request(
-        redis,
-        f"rate:ws:{user_id}",
-        limit=30,
-        window_seconds=60,
-    )
+    allowed = await _ws_connect_rate_limit(redis, user_id)
     if not allowed:
         await websocket.send_json(
             {"type": "error", "message": "Too many requests. Try again shortly."},
@@ -258,12 +269,13 @@ async def chat_websocket(
                 cancel_event.set()
                 continue
 
+            if msg_type in _CHARGEABLE_WS_TYPES and not await _ws_rate_limit(redis, user_id):
+                await websocket.send_json(
+                    {"type": "error", "message": "Too many requests. Try again shortly."},
+                )
+                continue
+
             if msg_type == "regenerate":
-                if not await _ws_rate_limit(redis, user_id):
-                    await websocket.send_json(
-                        {"type": "error", "message": "Too many requests. Try again shortly."},
-                    )
-                    continue
                 try:
                     request = ChatMessageRequest.model_validate(payload)
                 except ValidationError:
@@ -321,11 +333,6 @@ async def chat_websocket(
                 continue
 
             if msg_type == "edit":
-                if not await _ws_rate_limit(redis, user_id):
-                    await websocket.send_json(
-                        {"type": "error", "message": "Too many requests. Try again shortly."},
-                    )
-                    continue
                 try:
                     request = EditMessageRequest.model_validate(payload)
                 except ValidationError:
@@ -387,12 +394,6 @@ async def chat_websocket(
                 continue
 
             if msg_type != "message":
-                continue
-
-            if not await _ws_rate_limit(redis, user_id):
-                await websocket.send_json(
-                    {"type": "error", "message": "Too many requests. Try again shortly."},
-                )
                 continue
 
             content = payload.get("content", "").strip()
