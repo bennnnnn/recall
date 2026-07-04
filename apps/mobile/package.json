@@ -2,6 +2,7 @@
   "name": "mobile",
   "main": "expo-router/entry",
   "version": "1.0.0",
+  "packageManager": "pnpm@9.15.9",
   "dependencies": {
     "@expo-google-fonts/space-mono": "^0.4.2",
     "@expo/dom-webview": "^56.0.5",
