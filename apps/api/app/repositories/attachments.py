@@ -112,3 +112,21 @@ async def delete_rows(session: AsyncSession, ids: list[UUID]) -> int:
     )
     await session.commit()
     return result.rowcount or 0
+
+
+async def delete_unlinked_returning(session: AsyncSession, ids: list[UUID]) -> list[str]:
+    """Delete rows still unlinked; return storage keys removed from the DB."""
+    if not ids:
+        return []
+    from sqlalchemy import delete as sql_delete
+
+    result = await session.execute(
+        sql_delete(Attachment)
+        .where(
+            Attachment.id.in_(ids),
+            Attachment.message_id.is_(None),
+        )
+        .returning(Attachment.storage_key)
+    )
+    await session.commit()
+    return [row[0] for row in result.all()]

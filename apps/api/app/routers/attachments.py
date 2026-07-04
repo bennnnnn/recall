@@ -24,6 +24,8 @@ from app.services.attachment_content import (
     is_allowed_content_type,
     is_image_content_type,
     normalize_content_type,
+    purge_invalid_upload,
+    verify_uploaded_bytes,
 )
 
 router = APIRouter(prefix="/attachments", tags=["attachments"])
@@ -144,6 +146,40 @@ async def cancel_pending_upload(
     await attachments_repo.delete_rows(session, [attachment_id])
     if is_image_content_type(row.content_type):
         await quota_service.refund_image_upload(get_redis_client(), user.id)
+
+
+@router.post("/{attachment_id}/confirm", status_code=status.HTTP_204_NO_CONTENT)
+async def confirm_upload(
+    attachment_id: UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings_dep),
+) -> None:
+    """Verify bytes stored at presigned URL match the declared content type."""
+    row = await attachments_repo.get_by_id(session, attachment_id, user.id)
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+
+    gateway = get_storage_gateway(settings)
+    if isinstance(gateway, LocalStorageGateway):
+        # Dev/local uploads are validated on PUT /upload.
+        return
+
+    _, error = await verify_uploaded_bytes(
+        gateway,
+        content_type=row.content_type,
+        storage_key=row.storage_key,
+    )
+    if error:
+        if is_image_content_type(row.content_type):
+            await quota_service.refund_image_upload(get_redis_client(), user.id)
+        await purge_invalid_upload(
+            gateway,
+            session,
+            attachment_id=attachment_id,
+            storage_key=row.storage_key,
+        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
 
 
 @router.get("/{attachment_id}/file", response_model=None)

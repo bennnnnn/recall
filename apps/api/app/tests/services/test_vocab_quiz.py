@@ -32,6 +32,25 @@ def test_quiz_answer_letter():
     assert vocab_quiz_service.quiz_answer_letter("hello") is None
 
 
+@pytest.mark.asyncio
+async def test_apply_deterministic_quiz_answer_skips_without_project_id():
+    session = AsyncMock()
+    with patch(
+        "app.services.projects.projects_repo.get_by_id",
+        new=AsyncMock(),
+    ) as get_by_id:
+        applied = await projects_service.apply_deterministic_quiz_answer(
+            session,
+            user_id=uuid.uuid4(),
+            chat_id=uuid.uuid4(),
+            project_id=None,
+            assistant_content=TRIVIA_FENCE,
+            user_answer="A",
+        )
+    assert applied is False
+    get_by_id.assert_not_awaited()
+
+
 def test_strip_vocab_session_metadata():
     content = (
         "🥳 Congratulations!\n\n"
