@@ -12,8 +12,9 @@ import { useFocusEffect } from "expo-router";
 
 import { useAuthOptional } from "@/contexts/AuthContext";
 import { api, type HomeScreen } from "@/lib/api";
-import { loadHomeFallback } from "@/lib/homeFallback";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
+import { CONTEXT_REFRESH_STALE_MS } from "@/lib/contextRefresh";
+import { loadHomeFallback } from "@/lib/homeFallback";
 
 type HomeContextValue = {
   screen: HomeScreen | null;
@@ -22,9 +23,6 @@ type HomeContextValue = {
 };
 
 const HomeContext = createContext<HomeContextValue | null>(null);
-
-/** Skip redundant /home round-trips when data is still fresh (matches drawer chat list). */
-const HOME_STALE_MS = 20_000;
 
 export function HomeProvider({ children }: { children: ReactNode }) {
   const auth = useAuthOptional();
@@ -47,7 +45,7 @@ export function HomeProvider({ children }: { children: ReactNode }) {
       if (
         !opts?.force &&
         screenRef.current &&
-        Date.now() - lastFetchedRef.current < HOME_STALE_MS
+        Date.now() - lastFetchedRef.current < CONTEXT_REFRESH_STALE_MS
       ) {
         return;
       }

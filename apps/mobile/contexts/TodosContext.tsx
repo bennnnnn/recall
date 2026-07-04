@@ -14,6 +14,7 @@ import { useFocusEffect } from "expo-router";
 
 import { useAuthOptional } from "@/contexts/AuthContext";
 import { api, type Todo } from "@/lib/api";
+import { CONTEXT_REFRESH_STALE_MS } from "@/lib/contextRefresh";
 import {
   countUnseenUrgentReminders,
   listUrgentReminderIds,
@@ -30,7 +31,7 @@ type TodosContextValue = {
   todos: Todo[];
   loading: boolean;
   error: boolean;
-  refresh: (opts?: { silent?: boolean }) => Promise<void>;
+  refresh: (opts?: { silent?: boolean; force?: boolean }) => Promise<void>;
   setTodos: Dispatch<SetStateAction<Todo[]>>;
   unseenCount: number;
   showIndicator: boolean;
@@ -53,6 +54,7 @@ export function TodosProvider({ children }: { children: ReactNode }) {
   const [seenReminderIds, setSeenReminderIds] = useState<Set<string>>(new Set());
   const inflightRef = useRef<Promise<void> | null>(null);
   const todosRef = useRef(todos);
+  const lastFetchedRef = useRef(0);
   todosRef.current = todos;
 
   const applyBadge = useCallback(
@@ -76,12 +78,20 @@ export function TodosProvider({ children }: { children: ReactNode }) {
   );
 
   const refresh = useCallback(
-    async (opts?: { silent?: boolean }) => {
+    async (opts?: { silent?: boolean; force?: boolean }) => {
       if (!token) {
         setTodos([]);
         setLoading(false);
         setUnseenCount(0);
         setSeenReminderIds(new Set());
+        lastFetchedRef.current = 0;
+        return;
+      }
+      if (
+        !opts?.force &&
+        todosRef.current.length > 0 &&
+        Date.now() - lastFetchedRef.current < CONTEXT_REFRESH_STALE_MS
+      ) {
         return;
       }
       if (inflightRef.current) {
@@ -99,6 +109,7 @@ export function TodosProvider({ children }: { children: ReactNode }) {
           setTodos(items);
           await applyBadge(items);
           void syncTodoReminders(items);
+          lastFetchedRef.current = Date.now();
         } catch {
           setError(true);
         } finally {

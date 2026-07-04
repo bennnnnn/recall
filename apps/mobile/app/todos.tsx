@@ -365,7 +365,7 @@ export default function TodosScreen() {
       });
       setReminderSheetOpen(false);
       if (user?.id) void markReminderIdsSeen(user.id, [created.id]);
-      void refresh({ silent: true });
+      void refresh({ silent: true, force: true });
     } catch {
       Alert.alert(t("todos.error"), t("todos.error_create"));
     } finally {
@@ -397,7 +397,7 @@ export default function TodosScreen() {
       Alert.alert(t("todos.error"), t("todos.error_toggle"));
     } finally {
       setTogglingId(null);
-      void refresh({ silent: true });
+      void refresh({ silent: true, force: true });
     }
   };
 
@@ -418,9 +418,9 @@ export default function TodosScreen() {
           try {
             await api.deleteTodo(token, todo.id);
           } catch {
-            void refresh({ silent: true });
+            void refresh({ silent: true, force: true });
           }
-          void refresh({ silent: true });
+          void refresh({ silent: true, force: true });
         },
       },
     ]);
@@ -461,9 +461,9 @@ export default function TodosScreen() {
             try {
               await Promise.all(items.map((item) => api.deleteTodo(token, item.id)));
             } catch {
-              void refresh({ silent: true });
+              void refresh({ silent: true, force: true });
             }
-            void refresh({ silent: true });
+            void refresh({ silent: true, force: true });
           },
         },
       ],
@@ -487,7 +487,7 @@ export default function TodosScreen() {
         void syncTodoReminders(next);
         return next;
       });
-      void refresh({ silent: true });
+      void refresh({ silent: true, force: true });
     } catch {
       Alert.alert(t("todos.error"), t("todos.error_due"));
     }
@@ -530,7 +530,7 @@ export default function TodosScreen() {
       setSuggestedReminders((prev) => prev.filter((item) => item.id !== reminder.id));
       setTodos((prev) => [created, ...prev]);
       void syncTodoReminders([created, ...todos]);
-      void refresh({ silent: true });
+      void refresh({ silent: true, force: true });
     } catch {
       Alert.alert(t("todos.error"), t("todos.error_create"));
     } finally {

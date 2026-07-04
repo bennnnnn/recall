@@ -122,7 +122,7 @@ function ChatScreen() {
 
   const todosCtx = useTodosOptional();
   const handleTodosSync = useCallback(() => {
-    void todosCtx?.refresh({ silent: true });
+    void todosCtx?.refresh({ silent: true, force: true });
   }, [todosCtx]);
 
   const {

@@ -15,6 +15,21 @@ from app.services.chat import (
 )
 
 
+@pytest.fixture
+def stream_offline_io():
+    """Keep stream_chat_response unit tests off DB/Redis after turn_prep pre-sync."""
+    with (
+        patch("app.services.chat.post_turn.seed_usage_from_db", AsyncMock()),
+        patch("app.services.chat.quota_service.refund_usage", AsyncMock()),
+        patch("app.services.chat.messages_repo.list_recent", AsyncMock(return_value=[])),
+        patch(
+            "app.services.chat.web_search_service.is_vocab_quiz_answer",
+            MagicMock(return_value=False),
+        ),
+    ):
+        yield
+
+
 def test_estimate_tokens_minimum():
     assert estimate_tokens("") == 1
     assert estimate_tokens("hello") == 1
@@ -601,7 +616,7 @@ def test_max_output_tokens_for_style():
 
 
 @pytest.mark.asyncio
-async def test_stream_does_not_duplicate_user_message():
+async def test_stream_does_not_duplicate_user_message(stream_offline_io):
     from app.services import chat as chat_module
 
     tokens = ["Hello", " there"]
@@ -628,6 +643,7 @@ async def test_stream_does_not_duplicate_user_message():
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
     fake_chat.summary = None
+    fake_chat.project_id = None
 
     with (
         patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True)),
@@ -672,7 +688,7 @@ async def test_stream_does_not_duplicate_user_message():
 
 
 @pytest.mark.asyncio
-async def test_memory_extraction_runs_on_later_turn():
+async def test_memory_extraction_runs_on_later_turn(stream_offline_io):
     from app.services import chat as chat_module
 
     async def fake_stream(**kwargs):
@@ -742,7 +758,7 @@ async def test_memory_extraction_runs_on_later_turn():
 
 
 @pytest.mark.asyncio
-async def test_memory_extraction_skipped_between_batch_turns():
+async def test_memory_extraction_skipped_between_batch_turns(stream_offline_io):
     from app.services import chat as chat_module
 
     async def fake_stream(**kwargs):
@@ -808,7 +824,7 @@ async def test_memory_extraction_skipped_between_batch_turns():
 
 
 @pytest.mark.asyncio
-async def test_post_turn_jobs_enqueue_todos_when_transcript_matches():
+async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offline_io):
     from app.services import chat as chat_module
 
     async def fake_stream(**kwargs):
@@ -846,6 +862,10 @@ async def test_post_turn_jobs_enqueue_todos_when_transcript_matches():
         ),
         patch("app.services.chat.messages_repo.recent_user_contents", AsyncMock(return_value=[])),
         patch(
+            "app.services.chat.todos_service.should_pre_sync_todos",
+            MagicMock(return_value=False),
+        ),
+        patch(
             "app.services.chat.web_search_service.augment_prompt_messages",
             AsyncMock(side_effect=lambda msgs, *_a, **_k: (msgs, [])),
         ),
@@ -875,7 +895,7 @@ async def test_post_turn_jobs_enqueue_todos_when_transcript_matches():
 
 
 @pytest.mark.asyncio
-async def test_stream_sets_final_content_on_cancel():
+async def test_stream_sets_final_content_on_cancel(stream_offline_io):
     """On a user-initiated stop, the server persists text the client may not have
     rendered yet; `result["final_content"]` carries the authoritative persisted
     text so the client can reconcile (stop/regenerate desync fix)."""
@@ -954,7 +974,7 @@ async def test_stream_sets_final_content_on_cancel():
 
 
 @pytest.mark.asyncio
-async def test_stream_places_query_without_location_prompts_to_enable():
+async def test_stream_places_query_without_location_prompts_to_enable(stream_offline_io):
     """A 'near me' places query with no user.location should yield a deterministic
     'enable location' instant reply and skip web search (no guessing)."""
     from app.services import chat as chat_module
@@ -1017,7 +1037,7 @@ async def test_stream_places_query_without_location_prompts_to_enable():
 
 
 @pytest.mark.asyncio
-async def test_stream_places_query_uses_client_location_without_profile():
+async def test_stream_places_query_uses_client_location_without_profile(stream_offline_io):
     """Ephemeral client GPS should run web search instead of the enable-location block."""
     from app.services import chat as chat_module
 
@@ -1083,7 +1103,7 @@ async def test_stream_places_query_uses_client_location_without_profile():
 
 
 @pytest.mark.asyncio
-async def test_stream_no_final_content_on_normal_completion():
+async def test_stream_no_final_content_on_normal_completion(stream_offline_io):
     """`final_content` must NOT be set on a normal (non-cancelled) turn — keep
     `done` payloads small."""
     from app.services import chat as chat_module
