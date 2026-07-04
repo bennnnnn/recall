@@ -25,9 +25,6 @@ function languageProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail 
       mastered_today: 3,
       pending_today: 2,
     },
-    decks: [],
-    pos_groups: [],
-    by_part_of_speech: [],
     lists: [],
     ...overrides,
   } as unknown as ProjectDetail;

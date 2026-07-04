@@ -8,6 +8,7 @@ import { Theme, useTheme } from "@/lib/theme";
 type Props = {
   stats: ProjectStats;
   learnedLabel: string;
+  todayLearnedLabel: string;
   dueLabel: string;
   /** When set, shows today's batch progress instead of lifetime %. */
   dailyGoal?: number;
@@ -16,6 +17,7 @@ type Props = {
 export function ProjectProgressHero({
   stats,
   learnedLabel,
+  todayLearnedLabel,
   dueLabel,
   dailyGoal,
 }: Props) {
@@ -64,8 +66,8 @@ export function ProjectProgressHero({
               highlight={!goalMet && leftToday > 0}
             />
             <MetricPill
-              label={learnedLabel}
-              value={stats.mastered_count}
+              label={todayLearnedLabel}
+              value={stats.mastered_today}
               theme={theme}
               accent={theme.primary}
             />

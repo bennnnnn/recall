@@ -1,6 +1,7 @@
+from datetime import date
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
@@ -8,23 +9,43 @@ from app.core.deps import get_current_user
 from app.models.orm import User
 from app.models.schemas import (
     ProjectCreate,
-    ProjectDeckItemCreate,
-    ProjectDeckSummary,
+    ProjectDailyHistoryDay,
     ProjectDetailOut,
     ProjectItemOut,
     ProjectItemUpdate,
     ProjectOut,
-    ProjectPosGroupSummary,
     ProjectQuizAnswerIn,
     ProjectStats,
     ProjectUpdate,
 )
 from app.repositories import project_items as project_items_repo
 from app.repositories import projects as projects_repo
+from app.services import daily_learning
 from app.services import home as home_service
 from app.services import projects as projects_service
+from app.services import time_context as time_context_service
 
 router = APIRouter(prefix="/projects", tags=["projects"])
+
+
+def _project_timezone(user: User, client_timezone: str | None) -> str:
+    return time_context_service.effective_timezone(user.timezone, client_timezone)
+
+
+def _daily_history_for_project(
+    project,
+    items: list,
+    *,
+    timezone_name: str,
+) -> list[ProjectDailyHistoryDay]:
+    raw = daily_learning.build_daily_history(
+        items,
+        timezone_name=timezone_name,
+        daily_goal=daily_learning.resolve_daily_goal(project),
+        active_since=project.created_at,
+        days=14,
+    )
+    return [ProjectDailyHistoryDay.model_validate(row) for row in raw]
 
 
 @router.get("", response_model=list[ProjectOut])
@@ -84,6 +105,7 @@ async def create_project(
 @router.get("/{project_id}", response_model=ProjectDetailOut)
 async def get_project(
     project_id: UUID,
+    client_timezone: str | None = Query(default=None, max_length=64),
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> ProjectDetailOut:
@@ -93,46 +115,46 @@ async def get_project(
     if item.kind == "programming":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
 
+    tz_name = _project_timezone(user, client_timezone)
     is_language = item.kind in ("language", "vocabulary")
     if is_language:
         await project_items_repo.normalize_pos_list_titles(session, user.id, project_id)
-        stats_raw = await project_items_repo.count_stats(
-            session, project_id, user.id, timezone_name=user.timezone or "UTC"
+        project_items = await project_items_repo.list_for_user(
+            session, user.id, project_id=project_id, limit=5000
         )
-        stats = ProjectStats.model_validate(stats_raw)
-        summaries = await project_items_repo.pos_group_summaries(session, user.id, project_id)
-        pos_groups = [ProjectPosGroupSummary.model_validate(s) for s in summaries]
-        deck_rows = await project_items_repo.deck_summaries(session, user.id, project_id)
-        decks = [ProjectDeckSummary.model_validate(d) for d in deck_rows]
+        stats = ProjectStats.model_validate(
+            project_items_repo.stats_from_items(project_items, timezone_name=tz_name)
+        )
+        daily_history = _daily_history_for_project(item, project_items, timezone_name=tz_name)
         return ProjectDetailOut(
             **ProjectOut.model_validate(item).model_dump(),
             mastered_count=stats.mastered_count,
             total_count=stats.total,
             stats=stats,
+            daily_history=daily_history,
             lists=[],
             by_part_of_speech=[],
-            pos_groups=pos_groups,
-            decks=decks,
+            pos_groups=[],
         )
 
     if item.kind == "trivia":
         project_items = await project_items_repo.list_for_user(
-            session, user.id, project_id=project_id
+            session, user.id, project_id=project_id, limit=5000
         )
-        stats_raw = await project_items_repo.count_stats(
-            session, project_id, user.id, timezone_name=user.timezone or "UTC"
+        stats = ProjectStats.model_validate(
+            project_items_repo.stats_from_items(project_items, timezone_name=tz_name)
         )
-        stats = ProjectStats.model_validate(stats_raw)
+        daily_history = _daily_history_for_project(item, project_items, timezone_name=tz_name)
         lists = projects_service.group_trivia_items(project_items)
         return ProjectDetailOut(
             **ProjectOut.model_validate(item).model_dump(),
             mastered_count=stats.mastered_count,
             total_count=stats.total,
             stats=stats,
+            daily_history=daily_history,
             lists=lists,
             by_part_of_speech=[],
             pos_groups=[],
-            decks=[],
         )
 
     project_items = await project_items_repo.list_for_user(session, user.id, project_id=project_id)
@@ -146,59 +168,14 @@ async def get_project(
         lists=lists,
         by_part_of_speech=projects_service.group_by_part_of_speech(project_items),
         pos_groups=[],
-        decks=[],
     )
 
 
-@router.get("/{project_id}/decks", response_model=list[ProjectDeckSummary])
-async def list_project_decks(
+@router.get("/{project_id}/daily-items", response_model=list[ProjectItemOut])
+async def list_daily_items(
     project_id: UUID,
-    user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db),
-) -> list[ProjectDeckSummary]:
-    project = await projects_repo.get_by_id(session, project_id, user.id)
-    if not project:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
-    rows = await project_items_repo.deck_summaries(session, user.id, project_id)
-    return [ProjectDeckSummary.model_validate(r) for r in rows]
-
-
-@router.post(
-    "/{project_id}/decks/{deck_title}/items",
-    response_model=ProjectItemOut,
-    status_code=status.HTTP_201_CREATED,
-)
-async def add_deck_item(
-    project_id: UUID,
-    deck_title: str,
-    body: ProjectDeckItemCreate,
-    user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db),
-) -> ProjectItemOut:
-    project = await projects_repo.get_by_id(session, project_id, user.id)
-    if not project:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
-    if project.kind not in ("language", "vocabulary"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Not a language project"
-        )
-    item = await project_items_repo.create_deck_item(
-        session,
-        user_id=user.id,
-        project_id=project_id,
-        deck_title=deck_title,
-        content=body.content,
-        definition=body.definition,
-        example_sentence=body.example_sentence,
-    )
-    await home_service.invalidate_home_cache(user.id)
-    return ProjectItemOut.model_validate(item)
-
-
-@router.get("/{project_id}/pos/{part_of_speech}/items", response_model=list[ProjectItemOut])
-async def list_pos_items(
-    project_id: UUID,
-    part_of_speech: str,
+    activity_date: str = Query(..., min_length=10, max_length=10),
+    client_timezone: str | None = Query(default=None, max_length=64),
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
     limit: int = 50,
@@ -207,17 +184,27 @@ async def list_pos_items(
     project = await projects_repo.get_by_id(session, project_id, user.id)
     if not project:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
-    if project.kind not in ("language", "vocabulary"):
+    if project.kind not in ("language", "vocabulary", "trivia"):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Not a language project"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Daily items are only available for language and trivia projects",
         )
-    items = await project_items_repo.list_by_pos(
+    try:
+        parsed_date = date.fromisoformat(activity_date)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="activity_date must be YYYY-MM-DD",
+        ) from exc
+    tz_name = _project_timezone(user, client_timezone)
+    items = await project_items_repo.list_by_activity_date(
         session,
         user.id,
         project_id,
-        part_of_speech,
-        limit=min(limit, 100),
-        offset=max(offset, 0),
+        parsed_date,
+        timezone_name=tz_name,
+        limit=limit,
+        offset=offset,
     )
     return [ProjectItemOut.model_validate(i) for i in items]
 

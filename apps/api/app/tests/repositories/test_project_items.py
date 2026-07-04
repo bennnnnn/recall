@@ -118,72 +118,28 @@ async def test_normalize_pos_list_titles_updates_mismatch(fake_session):
 
 
 @pytest.mark.asyncio
-async def test_pos_group_summaries_groups_by_part_of_speech(fake_session):
-    items = [
-        _item(content="a", part_of_speech="noun", status="new"),
-        _item(content="b", part_of_speech="noun", status="mastered", mastered=True),
-        _item(content="run", part_of_speech="verb", status="learning"),
-    ]
-    fake_session.execute.return_value = MagicMock(
-        scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=items)))
-    )
-
-    groups = await repo.pos_group_summaries(fake_session, uuid4(), uuid4())
-
-    by_pos = {str(g["part_of_speech"]): g for g in groups}
-    assert by_pos["noun"]["count"] == 2
-    assert by_pos["noun"]["new_count"] == 1
-    assert by_pos["noun"]["mastered_count"] == 1
-    assert by_pos["verb"]["learning_count"] == 1
-
-
-@pytest.mark.asyncio
-async def test_deck_summaries_skips_pos_titles(fake_session):
-    items = [
-        _item(content="hola", list_title="Travel", status="new"),
-        _item(content="nouns-only", list_title="nouns", status="new"),
-    ]
-    fake_session.execute.return_value = MagicMock(
-        scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=items)))
-    )
-
-    decks = await repo.deck_summaries(fake_session, uuid4(), uuid4())
-
-    assert len(decks) == 1
-    assert decks[0]["title"] == "Travel"
-    assert decks[0]["count"] == 1
-
-
-@pytest.mark.asyncio
-async def test_list_by_pos_filters_and_paginates(fake_session):
-    # list_by_pos now pushes the POS filter + sort + pagination into SQL, so the
-    # repository returns whatever the (filtered, sorted, paginated) query yields.
-    # Simulate the DB returning the already-filtered noun page in sorted order.
-    noun_items = [
-        _item(content="apple", part_of_speech="noun"),
-        _item(content="zebra", part_of_speech="noun"),
-    ]
+async def test_list_by_activity_date_queries_mastered_window(fake_session):
+    matched = [_item(content="book", part_of_speech="noun", status="mastered", mastered=True)]
     mock_scalars = MagicMock()
-    mock_scalars.all.return_value = noun_items
+    mock_scalars.all.return_value = matched
     mock_result = MagicMock()
     mock_result.scalars.return_value = mock_scalars
     fake_session.execute.return_value = mock_result
 
-    page = await repo.list_by_pos(fake_session, uuid4(), uuid4(), "noun", limit=1, offset=0)
+    from datetime import date
 
-    # The function issues exactly one filtered query (not the old 5000-row load).
+    page = await repo.list_by_activity_date(
+        fake_session,
+        uuid4(),
+        uuid4(),
+        date(2026, 7, 1),
+        timezone_name="UTC",
+        limit=25,
+        offset=0,
+    )
+
     fake_session.execute.assert_awaited_once()
-    assert page == noun_items
-
-
-def test_pos_variants_covers_singular_and_plural():
-    # Filtering in SQL needs to match every stored form that normalizes to the key.
-    assert "noun" in repo._pos_variants("noun")
-    assert "nouns" in repo._pos_variants("noun")
-    assert "verb" in repo._pos_variants("verb")
-    assert "verbs" in repo._pos_variants("verb")
-    assert "others" in repo._pos_variants("other")
-    assert "other" in repo._pos_variants("other")
+    assert page == matched
 
 
 @pytest.mark.asyncio
@@ -233,27 +189,6 @@ async def test_delete_by_list_empty_title_returns_zero(fake_session):
 
     assert deleted == 0
     fake_session.execute.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_create_deck_item_delegates_to_create(fake_session, monkeypatch):
-    user_id = uuid4()
-    project_id = uuid4()
-    mock_item = _item(list_title="Travel")
-    create_mock = AsyncMock(return_value=mock_item)
-    monkeypatch.setattr(repo, "create", create_mock)
-
-    result = await repo.create_deck_item(
-        fake_session,
-        user_id=user_id,
-        project_id=project_id,
-        deck_title=" Travel ",
-        content=" hola ",
-        definition="hi",
-    )
-
-    create_mock.assert_awaited_once()
-    assert result is mock_item
 
 
 @pytest.mark.asyncio

@@ -10,6 +10,7 @@ export function isTriviaProject(kind: ProjectKind): boolean {
 
 export type ProjectStatLabels = {
   learned: string;
+  learnedToday: string;
   new: string;
   thisWeek: string;
   due: string;
@@ -22,6 +23,7 @@ export function projectStatsLabels(
   if (kind === "language" || kind === "vocabulary") {
     return {
       learned: t("projects.stats.learned"),
+      learnedToday: t("projects.stats.mastered_today"),
       new: t("projects.stats.new"),
       thisWeek: t("projects.stats.this_week"),
       due: t("projects.stats.due"),
@@ -30,6 +32,7 @@ export function projectStatsLabels(
   if (kind === "trivia") {
     return {
       learned: t("projects.stats.correct_total"),
+      learnedToday: t("projects.stats.correct_today"),
       new: t("projects.stats.facts_new"),
       thisWeek: t("projects.stats.this_week"),
       due: t("projects.stats.facts_due"),
@@ -38,6 +41,7 @@ export function projectStatsLabels(
   if (kind === "math") {
     return {
       learned: t("projects.stats.concepts_mastered"),
+      learnedToday: t("projects.stats.mastered_today"),
       new: t("projects.stats.concepts_new"),
       thisWeek: t("projects.stats.this_week"),
       due: t("projects.stats.concepts_due"),
@@ -45,6 +49,7 @@ export function projectStatsLabels(
   }
   return {
     learned: t("projects.stats.items_mastered"),
+    learnedToday: t("projects.stats.mastered_today"),
     new: t("projects.stats.items_new"),
     thisWeek: t("projects.stats.this_week"),
     due: t("projects.stats.items_due"),

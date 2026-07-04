@@ -236,6 +236,13 @@ export default function SettingsScreen() {
           />
           <View style={s.menuSeparator} />
           <SettingsLinkRow
+            title={t("settings.learning.title")}
+            onPress={() => router.push("/settings/learning")}
+            styles={s}
+            theme={theme}
+          />
+          <View style={s.menuSeparator} />
+          <SettingsLinkRow
             title={t("settings.memory")}
             value={memoryValue}
             onPress={() => router.push("/settings/memory-settings")}

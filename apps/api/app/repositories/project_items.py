@@ -1,8 +1,8 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -47,18 +47,7 @@ def normalize_pos_key(part_of_speech: str | None) -> str:
 
 
 # Every stored part_of_speech string that normalizes to each canonical key.
-# Used to push the POS filter into SQL (part_of_speech IN (...)) instead of
-# loading every item and filtering in Python — list_by_pos no longer fetches
-# 5000 rows just to keep the ~50 matching ones.
-_ALL_POS_STRINGS: set[str] = set(POS_PLURAL) | set(POS_PLURAL.values()) | {"others"}
-_POS_VARIANTS: dict[str, set[str]] = {
-    key: {s for s in _ALL_POS_STRINGS if normalize_pos_key(s) == key}
-    for key in {normalize_pos_key(s) for s in _ALL_POS_STRINGS}
-}
-
-
-def _pos_variants(pos_key: str) -> set[str]:
-    return _POS_VARIANTS.get(pos_key, {pos_key})
+# Used when aligning list_title with part_of_speech for language vocab decks.
 
 
 def _item_status_label(item: ProjectItem) -> str:
@@ -113,10 +102,18 @@ async def count_stats(
     timezone_name: str = "UTC",
 ) -> dict[str, int]:
     items = await list_for_user(session, user_id, project_id=project_id, limit=5000)
+    return stats_from_items(items, timezone_name=timezone_name)
+
+
+def stats_from_items(
+    items: list[ProjectItem],
+    *,
+    timezone_name: str = "UTC",
+) -> dict[str, int]:
     now = datetime.now(UTC)
     week_ago = now - timedelta(days=7)
     due_cutoff = now - REVIEW_INTERVAL
-    stats = {
+    stats: dict[str, Any] = {
         "total": len(items),
         "new_count": 0,
         "learning_count": 0,
@@ -186,125 +183,38 @@ async def normalize_pos_list_titles(
     return changed
 
 
-async def pos_group_summaries(
+async def list_by_activity_date(
     session: AsyncSession,
     user_id: UUID,
     project_id: UUID,
-) -> list[dict[str, int | str]]:
-    items = await list_for_user(session, user_id, project_id=project_id, limit=5000)
-    by_pos: dict[str, dict[str, int]] = {}
-    for item in items:
-        pos = normalize_pos_key(item.part_of_speech)
-        bucket = by_pos.setdefault(
-            pos,
-            {
-                "part_of_speech": pos,
-                "count": 0,
-                "new_count": 0,
-                "learning_count": 0,
-                "mastered_count": 0,
-            },
-        )
-        bucket["count"] += 1
-        status = _item_status_label(item)
-        if status == "mastered":
-            bucket["mastered_count"] += 1
-        elif status == "learning":
-            bucket["learning_count"] += 1
-        else:
-            bucket["new_count"] += 1
-    order = list(POS_PLURAL.keys()) + ["other"]
-    seen = set(by_pos.keys())
-
-    def sort_key(pos: str) -> tuple[int, str]:
-        try:
-            return (order.index(pos), pos)
-        except ValueError:
-            return (len(order), pos)
-
-    return [by_pos[pos] for pos in sorted(seen, key=sort_key)]
-
-
-def _is_pos_list_title(title: str) -> bool:
-    normalized = title.strip().lower()
-    if normalized in {p.lower() for p in POS_PLURAL.values()}:
-        return True
-    return normalized in POS_SINGULAR or normalized in POS_PLURAL
-
-
-async def deck_summaries(
-    session: AsyncSession,
-    user_id: UUID,
-    project_id: UUID,
-) -> list[dict[str, int | str]]:
-    items = await list_for_user(session, user_id, project_id=project_id, limit=5000)
-    by_deck: dict[str, dict[str, int | str]] = {}
-    for item in items:
-        title = (item.list_title or DEFAULT_LIST).strip()
-        if not title or _is_pos_list_title(title):
-            continue
-        bucket = by_deck.setdefault(
-            title,
-            {"title": title, "count": 0, "due_count": 0, "mastered_count": 0},
-        )
-        bucket["count"] = int(bucket["count"]) + 1
-        status = _item_status_label(item)
-        if status == "mastered":
-            bucket["mastered_count"] = int(bucket["mastered_count"]) + 1
-        due_cutoff = datetime.now(UTC) - REVIEW_INTERVAL
-        if _is_due(item, due_cutoff):
-            bucket["due_count"] = int(bucket["due_count"]) + 1
-    return sorted(by_deck.values(), key=lambda d: str(d["title"]).casefold())
-
-
-async def create_deck_item(
-    session: AsyncSession,
+    activity_date: date,
     *,
-    user_id: UUID,
-    project_id: UUID,
-    deck_title: str,
-    content: str,
-    definition: str | None = None,
-    example_sentence: str | None = None,
-) -> ProjectItem:
-    title = deck_title.strip() or DEFAULT_LIST
-    return await create(
-        session,
-        user_id=user_id,
-        project_id=project_id,
-        content=content.strip(),
-        list_title=title,
-        definition=definition,
-        example_sentence=example_sentence,
-        part_of_speech=None,
-        status="new",
-    )
-
-
-async def list_by_pos(
-    session: AsyncSession,
-    user_id: UUID,
-    project_id: UUID,
-    part_of_speech: str,
-    *,
+    timezone_name: str = "UTC",
     limit: int = 50,
     offset: int = 0,
 ) -> list[ProjectItem]:
-    # Filter + sort + paginate in SQL so we fetch only the matching page, not
-    # every item in the project. Matches any stored form that normalizes to the
-    # requested POS (noun/nouns, verb/verbs, …) via _pos_variants.
-    pos_key = normalize_pos_key(part_of_speech)
-    variants = _pos_variants(pos_key)
+    """Mastered items whose mastery falls on one local calendar day."""
+    from app.services.daily_learning import day_bounds_utc
+
+    start, end = day_bounds_utc(activity_date, timezone_name)
+    mastered = or_(ProjectItem.status == "mastered", ProjectItem.mastered.is_(True))
+    in_window = or_(
+        (ProjectItem.mastered_at >= start) & (ProjectItem.mastered_at < end),
+        (ProjectItem.mastered_at.is_(None))
+        & (ProjectItem.created_at >= start)
+        & (ProjectItem.created_at < end),
+    )
     stmt = (
         select(ProjectItem)
         .where(
             ProjectItem.user_id == user_id,
             ProjectItem.project_id == project_id,
-            ProjectItem.part_of_speech.in_(variants),
+            mastered,
+            in_window,
         )
-        .order_by(func.lower(ProjectItem.content).asc())
-        .offset(offset)
-        .limit(limit)
+        .order_by(ProjectItem.mastered_at.desc().nullslast(), ProjectItem.created_at.desc())
+        .offset(max(offset, 0))
+        .limit(min(limit, 100))
     )
     return list((await session.execute(stmt)).scalars().all())
 

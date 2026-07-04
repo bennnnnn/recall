@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Literal
 from zoneinfo import ZoneInfo
 
@@ -17,6 +17,8 @@ HomeDailyCue = Literal[
     "finish_pending",
 ]
 
+DailyHistoryStatus = Literal["complete", "partial", "skipped", "today", "inactive"]
+
 # Backward-compatible alias for older imports/tests.
 HomeVocabCue = HomeDailyCue
 
@@ -29,6 +31,17 @@ def start_of_today_utc(timezone_name: str) -> datetime:
     local_now = datetime.now(tz)
     local_midnight = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
     return local_midnight.astimezone(UTC)
+
+
+def day_bounds_utc(activity_date: date, timezone_name: str) -> tuple[datetime, datetime]:
+    """Return [start, end) UTC bounds for one local calendar day."""
+    try:
+        tz = ZoneInfo(timezone_name)
+    except Exception:
+        tz = ZoneInfo("UTC")
+    local_start = datetime.combine(activity_date, datetime.min.time(), tzinfo=tz)
+    local_end = local_start + timedelta(days=1)
+    return local_start.astimezone(UTC), local_end.astimezone(UTC)
 
 
 def _as_utc(value: datetime) -> datetime:
@@ -117,3 +130,70 @@ def daily_home_cue(
 
 def daily_vocab_home_cue(**kwargs: object) -> HomeDailyCue | None:
     return daily_home_cue(**kwargs)  # type: ignore[arg-type]
+
+
+def _mastered_local_date(item: object, tz: ZoneInfo) -> date | None:
+    status = getattr(item, "status", None) or (
+        "mastered" if getattr(item, "mastered", False) else "new"
+    )
+    if status != "mastered":
+        return None
+    mastered_at = getattr(item, "mastered_at", None)
+    if mastered_at is not None:
+        return _as_utc(mastered_at).astimezone(tz).date()
+    created = getattr(item, "created_at", None)
+    if created is None:
+        return None
+    return _as_utc(created).astimezone(tz).date()
+
+
+def build_daily_history(
+    items: list,
+    *,
+    timezone_name: str,
+    daily_goal: int,
+    active_since: datetime,
+    days: int = 14,
+) -> list[dict[str, object]]:
+    """Per-calendar-day mastery counts for language/trivia projects."""
+    try:
+        tz = ZoneInfo(timezone_name)
+    except Exception:
+        tz = ZoneInfo("UTC")
+    today = datetime.now(tz).date()
+    active_since_date = _as_utc(active_since).astimezone(tz).date()
+    goal = max(1, daily_goal)
+
+    counts: dict[date, int] = {}
+    for item in items:
+        day = _mastered_local_date(item, tz)
+        if day is None:
+            continue
+        counts[day] = counts.get(day, 0) + 1
+
+    history: list[dict[str, object]] = []
+    span = max(1, min(days, 60))
+    for offset in range(span - 1, -1, -1):
+        day = today - timedelta(days=offset)
+        count = counts.get(day, 0)
+        if day < active_since_date:
+            status: DailyHistoryStatus = "inactive"
+        elif day == today:
+            status = "complete" if count >= goal else "today"
+        elif count >= goal:
+            status = "complete"
+        elif count > 0:
+            status = "partial"
+        else:
+            status = "skipped"
+        history.append(
+            {
+                "date": day.isoformat(),
+                "weekday": day.weekday(),
+                "mastered_count": count,
+                "daily_goal": goal,
+                "goal_met": count >= goal,
+                "status": status,
+            }
+        )
+    return history

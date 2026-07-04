@@ -1,5 +1,6 @@
 import { getApiUrl } from "@/lib/config";
 import { getRefreshToken, setTokenPair } from "@/lib/auth";
+import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import type { SearchSource } from "@/lib/searchSources";
 import { readRecordingBase64, speechUploadFromUri } from "@/lib/voiceAudio";
 
@@ -154,32 +155,26 @@ export type ProjectStats = {
   pending_today: number;
 };
 
+export type ProjectDailyHistoryDay = {
+  date: string;
+  weekday: number;
+  mastered_count: number;
+  daily_goal: number;
+  goal_met: boolean;
+  status: "complete" | "partial" | "skipped" | "today" | "inactive";
+};
+
 export type ProjectListGroup = {
   list_title: string;
   items: ProjectItem[];
-};
-
-export type ProjectPosGroup = {
-  part_of_speech: string;
-  items: ProjectItem[];
-};
-
-export type ProjectPosGroupSummary = {
-  part_of_speech: string;
-  count: number;
-  new_count: number;
-  learning_count: number;
-  mastered_count: number;
 };
 
 export type ProjectDetail = Project & {
   mastered_count: number;
   total_count: number;
   stats: ProjectStats;
+  daily_history: ProjectDailyHistoryDay[];
   lists: ProjectListGroup[];
-  by_part_of_speech: ProjectPosGroup[];
-  pos_groups: ProjectPosGroupSummary[];
-  decks: ProjectDeckSummary[];
 };
 
 export type SearchResult = {
@@ -245,13 +240,6 @@ export type ChatList = {
   this_month: Chat[];
   older: Chat[];
   archived: Chat[];
-};
-
-export type ProjectDeckSummary = {
-  title: string;
-  count: number;
-  due_count: number;
-  mastered_count: number;
 };
 
 export type Usage = {
@@ -672,21 +660,33 @@ export const api = {
   deleteTodo: (token: string, id: string) =>
     request<void>(`/todos/${id}`, token, { method: "DELETE" }),
   listProjects: (token: string) => request<Project[]>("/projects", token),
-  getProject: (token: string, id: string) => request<ProjectDetail>(`/projects/${id}`, token),
+  getProject: (token: string, id: string) => {
+    const tz = getDeviceTimezone();
+    const qs = tz ? `?client_timezone=${encodeURIComponent(tz)}` : "";
+    return request<ProjectDetail>(`/projects/${id}${qs}`, token);
+  },
 
-  getProjectPosItems: (
+  getProjectDailyItems: (
     token: string,
     projectId: string,
-    partOfSpeech: string,
+    activityDate: string,
     options?: { limit?: number; offset?: number },
   ) => {
+    const tz = getDeviceTimezone();
     const limit = options?.limit ?? 50;
     const offset = options?.offset ?? 0;
+    const params = new URLSearchParams({
+      activity_date: activityDate,
+      limit: String(limit),
+      offset: String(offset),
+    });
+    if (tz) params.set("client_timezone", tz);
     return request<ProjectItem[]>(
-      `/projects/${projectId}/pos/${encodeURIComponent(partOfSpeech)}/items?limit=${limit}&offset=${offset}`,
+      `/projects/${projectId}/daily-items?${params.toString()}`,
       token,
     );
   },
+
   createProject: (
     token: string,
     body: {
@@ -709,7 +709,14 @@ export const api = {
     patch: Partial<
       Pick<
         Project,
-        "title" | "description" | "kind" | "archived" | "level" | "target_language" | "native_language"
+        | "title"
+        | "description"
+        | "kind"
+        | "archived"
+        | "level"
+        | "target_language"
+        | "native_language"
+        | "daily_goal"
       >
     >,
   ) =>
@@ -717,17 +724,6 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(patch),
     }),
-  addProjectDeckItem: (
-    token: string,
-    projectId: string,
-    deckTitle: string,
-    body: { content: string; definition?: string; example_sentence?: string },
-  ) =>
-    request<ProjectItem>(
-      `/projects/${projectId}/decks/${encodeURIComponent(deckTitle)}/items`,
-      token,
-      { method: "POST", body: JSON.stringify(body) },
-    ),
   updateProjectItem: (
     token: string,
     projectId: string,

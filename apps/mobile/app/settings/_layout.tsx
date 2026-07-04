@@ -42,6 +42,10 @@ export default function SettingsLayout() {
         options={subScreen(t("settings.personalization"), header)}
       />
       <Stack.Screen
+        name="learning"
+        options={subScreen(t("settings.learning.title"), header)}
+      />
+      <Stack.Screen
         name="memory-settings"
         options={subScreen(t("settings.memory"), header)}
       />

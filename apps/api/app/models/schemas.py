@@ -449,6 +449,18 @@ class ProjectStats(BaseModel):
     last_mastery_at: datetime | None = None
 
 
+DailyHistoryStatus = Literal["complete", "partial", "skipped", "today", "inactive"]
+
+
+class ProjectDailyHistoryDay(BaseModel):
+    date: str
+    weekday: int = Field(ge=0, le=6)
+    mastered_count: int = Field(ge=0)
+    daily_goal: int = Field(ge=1)
+    goal_met: bool = False
+    status: DailyHistoryStatus
+
+
 class ProjectListGroup(BaseModel):
     list_title: str
     items: list[ProjectItemOut] = Field(default_factory=list)
@@ -465,19 +477,6 @@ class ProjectPosGroupSummary(BaseModel):
     new_count: int = 0
     learning_count: int = 0
     mastered_count: int = 0
-
-
-class ProjectDeckSummary(BaseModel):
-    title: str
-    count: int = 0
-    due_count: int = 0
-    mastered_count: int = 0
-
-
-class ProjectDeckItemCreate(BaseModel):
-    content: str = Field(min_length=1, max_length=500)
-    definition: str | None = Field(default=None, max_length=2000)
-    example_sentence: str | None = Field(default=None, max_length=2000)
 
 
 class ProjectItemUpdate(BaseModel):
@@ -514,10 +513,10 @@ class ProjectDetailOut(ProjectOut):
     mastered_count: int = 0
     total_count: int = 0
     stats: ProjectStats = Field(default_factory=ProjectStats)
+    daily_history: list[ProjectDailyHistoryDay] = Field(default_factory=list)
     lists: list[ProjectListGroup] = Field(default_factory=list)
     by_part_of_speech: list[ProjectPosGroup] = Field(default_factory=list)
     pos_groups: list[ProjectPosGroupSummary] = Field(default_factory=list)
-    decks: list[ProjectDeckSummary] = Field(default_factory=list)
 
 
 class ProjectActionItem(BaseModel):

@@ -2,19 +2,17 @@ import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
-import { ProjectPosGroupList } from "@/components/ProjectPosGroupList";
+import { ProjectDailyStrip } from "@/components/ProjectDailyStrip";
+import { ProjectDayItemsList, type ProjectStudyAction } from "@/components/ProjectDayItemsList";
 import { ProjectProgressHero } from "@/components/ProjectProgressHero";
 import { ProjectItemRow } from "@/components/ProjectItemRow";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,10 +23,12 @@ import {
   levelLabel,
 } from "@/lib/languageLevels";
 import { resolveDailyGoal } from "@/lib/dailyGoals";
+import { localDateKey } from "@/lib/reminderCalendar";
 import {
-  buildProjectChatTutorPrompt,
+  buildProjectBonusQuestionsPrompt,
   buildProjectBonusWordsPrompt,
   isDailyGoalMet,
+  remainingDailyGoal,
 } from "@/lib/projectChat";
 import { formatProjectListTitle, isConceptProject, isTriviaProject, projectStatsLabels } from "@/lib/projectUi";
 import {
@@ -47,53 +47,8 @@ export default function ProjectDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [project, setProject] = useState<ProjectDetail | null>(null);
+  const [selectedDay, setSelectedDay] = useState(() => localDateKey(new Date()));
   const [conceptBusyId, setConceptBusyId] = useState<string | null>(null);
-
-  // Cross-platform prompt replacement for Alert.prompt (iOS-only). Deck create
-  // and add-word flows use this Modal+TextInput so they work on Android too.
-  const [promptVisible, setPromptVisible] = useState(false);
-  const [promptValue, setPromptValue] = useState("");
-  const [promptConfig, setPromptConfig] = useState<{
-    title: string;
-    message?: string;
-    placeholder?: string;
-    onSubmit: (value: string) => void | Promise<void>;
-  } | null>(null);
-
-  const showPrompt = useCallback(
-    (
-      title: string,
-      message: string | undefined,
-      placeholder: string | undefined,
-      onSubmit: (value: string) => void | Promise<void>,
-    ) => {
-      setPromptConfig({ title, message, placeholder, onSubmit });
-      setPromptValue("");
-      setPromptVisible(true);
-    },
-    [],
-  );
-
-  const submitPrompt = useCallback(async () => {
-    const cfg = promptConfig;
-    setPromptVisible(false);
-    setPromptConfig(null);
-    const value = promptValue.trim();
-    setPromptValue("");
-    if (cfg && value) {
-      try {
-        await cfg.onSubmit(value);
-      } catch {
-        Alert.alert(t("common.error"), t("projects.add_word_failed"));
-      }
-    }
-  }, [promptConfig, promptValue, t]);
-
-  const cancelPrompt = useCallback(() => {
-    setPromptVisible(false);
-    setPromptConfig(null);
-    setPromptValue("");
-  }, []);
 
   const load = useCallback(async () => {
     if (!token || typeof id !== "string") return;
@@ -169,42 +124,10 @@ export default function ProjectDetailScreen() {
   const statLabels = projectStatsLabels(project.kind, t);
   const dailyGoal = isLang || isTrivia ? resolveDailyGoal(project.daily_goal) : undefined;
   const dailyGoalMet = isDailyGoalMet(project);
-  const posGroups = isLang ? project.pos_groups ?? [] : [];
-  const decks = isLang ? project.decks ?? [] : [];
-
-  const promptNewDeck = () => {
-    if (!token) return;
-    // Two-step: deck title, then first word. Chain via showPrompt.
-    showPrompt(
-      t("projects.decks_title"),
-      t("projects.deck_new_title"),
-      t("projects.deck_new_title"),
-      (deckTitle) => {
-        showPrompt(
-          t("projects.deck_add_word"),
-          t("projects.deck_word"),
-          t("projects.deck_word"),
-          async (content) => {
-            await api.addProjectDeckItem(token, project.id, deckTitle, { content });
-            await load();
-          },
-        );
-      },
-    );
-  };
-
-  const addWordToDeck = (deckTitle: string) => {
-    if (!token) return;
-    showPrompt(
-      t("projects.deck_add_word"),
-      t("projects.deck_word"),
-      t("projects.deck_word"),
-      async (content) => {
-        await api.addProjectDeckItem(token, project.id, deckTitle, { content });
-        await load();
-      },
-    );
-  };
+  const selectedDayMeta = project.daily_history?.find((day) => day.date === selectedDay);
+  const showDailyTracking = (isLang || isTrivia) && (project.daily_history?.length ?? 0) > 0;
+  const isToday = selectedDay === localDateKey(new Date());
+  const remainingToday = dailyGoal ? remainingDailyGoal(project) : 0;
 
   const handleConceptStatusChange = async (itemId: string, status: VocabStatus) => {
     if (!token || typeof id !== "string") return;
@@ -219,54 +142,85 @@ export default function ProjectDetailScreen() {
     }
   };
 
-  const startTriviaQuiz = () => {
-    if (!project || !isTrivia) return;
+  const startStudyQuiz = () => {
     router.push(`/projects/${project.id}/quiz`);
   };
 
-  const startTriviaChat = () => {
-    if (!project || !isTrivia) return;
-    queueChatLaunch(buildProjectChatTutorPrompt(project), project.id, undefined, "trivia", "chat");
+  const startStudyBonus = () => {
+    if (isTrivia) {
+      queueChatLaunch(buildProjectBonusQuestionsPrompt(project), project.id, undefined, "trivia", "chat");
+    } else if (isLang) {
+      queueChatLaunch(buildProjectBonusWordsPrompt(project), project.id, "en");
+    }
     router.replace("/");
   };
 
-  const startLanguageSession = () => {
-    if (!project || !isLang) return;
-    queueChatLaunch(buildProjectChatTutorPrompt(project), project.id, "en", "vocab", "chat");
-    router.replace("/");
-  };
-
-  const startLanguageExam = () => {
-    if (!project || !isLang) return;
-    router.push(`/projects/${project.id}/quiz`);
-  };
-
-  const startLanguageBonus = () => {
-    if (!project || !isLang) return;
-    queueChatLaunch(buildProjectBonusWordsPrompt(project), project.id, "en");
-    router.replace("/");
-  };
+  let todayStudyAction: ProjectStudyAction | null = null;
+  if ((isLang || isTrivia) && dailyGoal && isToday) {
+    if (dailyGoalMet) {
+      todayStudyAction = {
+        label: isTrivia ? t("projects.add_bonus_questions") : t("projects.add_bonus_words"),
+        onPress: startStudyBonus,
+      };
+    } else if (stats.mastered_today === 0) {
+      todayStudyAction = {
+        label: isTrivia
+          ? t("projects.study.start_questions", { count: dailyGoal })
+          : t("projects.study.start_words", { count: dailyGoal }),
+        onPress: startStudyQuiz,
+      };
+    } else {
+      todayStudyAction = {
+        label: isTrivia
+          ? t("projects.study.complete_questions", { count: remainingToday })
+          : t("projects.study.complete_words", { count: remainingToday }),
+        onPress: startStudyQuiz,
+      };
+    }
+  }
 
   return (
     <ScrollView style={s.root} contentContainerStyle={s.content}>
       <View style={s.hero}>
         <View style={s.badgeRow}>
-          <View style={s.badge}>
-            <Text style={s.badgeText}>
-              {isLang
-                ? t("projects.kind.language")
-                : isTrivia
-                  ? t("projects.kind.trivia")
-                  : t(`projects.kind.${project.kind}`)}
-            </Text>
-          </View>
-          {isLang ? (
+          <View style={s.badgeRowLeft}>
             <View style={s.badge}>
-              <Text style={s.badgeText}>{levelLabel(project.level)}</Text>
+              <Text style={s.badgeText}>
+                {isLang
+                  ? t("projects.kind.language")
+                  : isTrivia
+                    ? t("projects.kind.trivia")
+                    : t(`projects.kind.${project.kind}`)}
+              </Text>
+            </View>
+            {isLang ? (
+              <View style={s.badge}>
+                <Text style={s.badgeText}>{levelLabel(project.level)}</Text>
+              </View>
+            ) : null}
+          </View>
+          {isLang || isTrivia ? (
+            <View style={s.dayWordCountBox}>
+              <Text style={s.dayWordCountText}>
+                {isTrivia
+                  ? t("projects.daily_items.fact_count", { count: stats.mastered_count })
+                  : t("projects.daily_items.word_count", { count: stats.mastered_count })}
+              </Text>
             </View>
           ) : null}
         </View>
-        <Text style={s.title}>{project.title}</Text>
+        {(isLang || isTrivia) && dailyGoal ? (
+          <View style={s.dailyGoalHeadline}>
+            <Text style={s.dailyGoalNumber}>{dailyGoal}</Text>
+            <Text style={s.dailyGoalLabel}>
+              {isTrivia
+                ? t("projects.trivia.daily_goal_headline_label")
+                : t("projects.daily_goal_headline_label")}
+            </Text>
+          </View>
+        ) : (
+          <Text style={s.title}>{project.title}</Text>
+        )}
         {isTrivia ? (
           <Text style={s.description}>
             {formatTriviaTopicLabels(parseTriviaTopics(project.description), t)}
@@ -274,96 +228,37 @@ export default function ProjectDetailScreen() {
         ) : project.description ? (
           <Text style={s.description}>{project.description}</Text>
         ) : null}
-        {isTrivia ? (
-          <Text style={s.description}>{t("projects.trivia.detail_hint")}</Text>
-        ) : null}
       </View>
 
       <ProjectProgressHero
         stats={stats}
         learnedLabel={statLabels.learned}
+        todayLearnedLabel={statLabels.learnedToday}
         dueLabel={statLabels.due}
         dailyGoal={dailyGoal}
       />
 
-      {isLang && dailyGoalMet ? (
-        <View style={s.doneBanner}>
-          <Ionicons name="checkmark-circle" size={22} color={theme.primary} />
-          <Text style={s.doneBannerText}>
-            {t("projects.daily_goal_done_hint", { goal: dailyGoal })}
-          </Text>
-        </View>
+      {showDailyTracking ? (
+        <ProjectDailyStrip
+          days={project.daily_history ?? []}
+          selectedDate={selectedDay}
+          onSelectDate={setSelectedDay}
+        />
       ) : null}
 
-      {isLang ? (
-        dailyGoalMet ? (
-          <Pressable style={[s.studyBtn, s.studyBtnMuted]} onPress={startLanguageBonus}>
-            <Ionicons name="add-circle-outline" size={20} color={theme.primary} />
-            <Text style={[s.studyBtnText, s.studyBtnTextMuted]}>
-              {t("projects.add_bonus_words")}
-            </Text>
-          </Pressable>
-        ) : (
-          <>
-            <Pressable style={s.studyBtn} onPress={startLanguageSession}>
-              <Ionicons name="chatbubble-ellipses-outline" size={20} color={theme.onPrimary} />
-              <Text style={s.studyBtnText}>{t("projects.learn_in_chat")}</Text>
-            </Pressable>
-            <Pressable style={[s.studyBtn, s.studyBtnOutline]} onPress={startLanguageExam}>
-              <Ionicons name="school-outline" size={20} color={theme.primary} />
-              <Text style={[s.studyBtnText, s.studyBtnTextMuted]}>{t("projects.take_quiz")}</Text>
-            </Pressable>
-          </>
-        )
-      ) : null}
-
-      {isTrivia ? (
-        <>
-          <Pressable style={s.studyBtn} onPress={startTriviaChat}>
-            <Ionicons name="chatbubble-ellipses-outline" size={20} color={theme.onPrimary} />
-            <Text style={s.studyBtnText}>{t("projects.learn_in_chat")}</Text>
-          </Pressable>
-          <Pressable style={[s.studyBtn, s.studyBtnOutline]} onPress={startTriviaQuiz}>
-            <Ionicons name="school-outline" size={20} color={theme.primary} />
-            <Text style={[s.studyBtnText, s.studyBtnTextMuted]}>{t("projects.take_quiz")}</Text>
-          </Pressable>
-        </>
-      ) : null}
-
-      {isLang && posGroups.length > 0 ? (
-        <ProjectPosGroupList
+      {showDailyTracking && token ? (
+        <ProjectDayItemsList
           token={token}
           projectId={project.id}
-          groups={posGroups}
+          activityDate={selectedDay}
+          dayMeta={selectedDayMeta}
+          isTrivia={isTrivia}
+          studyAction={todayStudyAction}
           onItemUpdated={load}
         />
       ) : null}
 
-      {isLang ? (
-        <View style={s.decksSection}>
-            <View style={s.decksHeader}>
-              <Text style={s.decksTitle}>{t("projects.decks_title")}</Text>
-              <Pressable onPress={promptNewDeck} hitSlop={8}>
-                <Text style={s.decksLink}>+ {t("projects.deck_add_word")}</Text>
-              </Pressable>
-            </View>
-            {decks.length === 0 ? (
-              <Text style={s.decksEmpty}>{t("projects.decks_empty")}</Text>
-            ) : (
-              decks.map((deck) => (
-                <View key={deck.title} style={s.deckRow}>
-                  <View style={s.deckMain}>
-                    <Text style={s.deckTitle}>{deck.title}</Text>
-                    <Text style={s.deckMeta}>{deck.count} words</Text>
-                  </View>
-                  <Pressable onPress={() => addWordToDeck(deck.title)} hitSlop={8}>
-                    <Ionicons name="add-circle-outline" size={22} color={theme.primary} />
-                  </Pressable>
-                </View>
-              ))
-            )}
-          </View>
-      ) : isConcept ? (
+      {isConcept ? (
         <>
           {project.lists.length > 0 ? (
             project.lists.map((group) => (
@@ -392,56 +287,9 @@ export default function ProjectDetailScreen() {
         </>
       ) : null}
 
-      {isLang && stats.mastered_count > 0 && stats.total < 50 ? (
-        <Text style={s.encourage}>{t("projects.encourage", { count: 10 - (stats.total % 10) })}</Text>
-      ) : null}
-
       <Pressable style={s.deleteBtn} onPress={confirmDelete}>
         <Text style={s.deleteBtnText}>{t("projects.delete")}</Text>
       </Pressable>
-
-      {/*
-        Cross-platform prompt modal (replaces iOS-only Alert.prompt for the
-        deck create / add-word flows so they work on Android).
-      */}
-      <Modal
-        visible={promptVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={cancelPrompt}
-      >
-        <Pressable style={s.promptOverlay} onPress={cancelPrompt}>
-          <Pressable style={s.promptCard} onPress={(e) => e.stopPropagation()}>
-            <Text style={s.promptTitle}>{promptConfig?.title}</Text>
-            {promptConfig?.message ? (
-              <Text style={s.promptMessage}>{promptConfig.message}</Text>
-            ) : null}
-            <TextInput
-              style={s.promptInput}
-              value={promptValue}
-              onChangeText={setPromptValue}
-              placeholder={promptConfig?.placeholder}
-              placeholderTextColor={theme.textTertiary}
-              autoFocus
-              returnKeyType="done"
-              onSubmitEditing={submitPrompt}
-            />
-            <View style={s.promptActions}>
-              <Pressable style={s.promptAction} onPress={cancelPrompt}>
-                <Text style={s.promptActionText}>{t("common.cancel")}</Text>
-              </Pressable>
-              <Pressable
-                style={[s.promptAction, s.promptActionPrimary]}
-                onPress={submitPrompt}
-              >
-                <Text style={[s.promptActionText, s.promptActionPrimaryText]}>
-                  {t("common.add")}
-                </Text>
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
     </ScrollView>
   );
 }
@@ -461,7 +309,22 @@ function makeStyles(theme: Theme) {
     },
     retryText: { fontSize: 14, fontWeight: "600", color: theme.primary },
     hero: { gap: 8 },
-    badgeRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    badgeRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+    badgeRowLeft: { flexDirection: "row", flexWrap: "wrap", gap: 8, flex: 1 },
+    dayWordCountBox: {
+      borderWidth: 1,
+      borderStyle: "dashed",
+      borderColor: theme.primary,
+      borderRadius: 10,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      flexShrink: 0,
+    },
+    dayWordCountText: {
+      fontSize: 13,
+      fontWeight: "700",
+      color: theme.primary,
+    },
     badge: {
       backgroundColor: theme.primaryLight,
       borderRadius: 999,
@@ -469,6 +332,26 @@ function makeStyles(theme: Theme) {
       paddingVertical: 4,
     },
     badgeText: { fontSize: 12, fontWeight: "700", color: theme.primary },
+    dailyGoalHeadline: {
+      flexDirection: "row",
+      alignItems: "baseline",
+      gap: 8,
+      marginTop: 2,
+    },
+    dailyGoalNumber: {
+      fontSize: 28,
+      fontWeight: "600",
+      color: theme.primary,
+      letterSpacing: -1,
+      lineHeight: 32,
+    },
+    dailyGoalLabel: {
+      fontSize: 12,
+      fontWeight: "500",
+      color: theme.textSecondary,
+      textTransform: "uppercase",
+      letterSpacing: 0.8,
+    },
     title: { fontSize: 28, fontWeight: "800", color: theme.text, letterSpacing: -0.5 },
     description: { fontSize: 16, lineHeight: 24, color: theme.textSecondary },
     statsSection: {
@@ -499,41 +382,6 @@ function makeStyles(theme: Theme) {
     statValue: { fontSize: 22, fontWeight: "800", color: theme.text },
     statHighlight: { color: theme.primary },
     statLabel: { fontSize: 11, fontWeight: "600", color: theme.textSecondary, textAlign: "center" },
-    studyBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 8,
-      backgroundColor: theme.primary,
-      borderRadius: 14,
-      paddingVertical: 14,
-    },
-    studyBtnMuted: { backgroundColor: theme.primaryLight },
-    studyBtnOutline: {
-      backgroundColor: theme.surface,
-      borderWidth: 1.5,
-      borderColor: theme.primary,
-      marginTop: 10,
-    },
-    studyBtnText: { fontSize: 16, fontWeight: "700", color: theme.onPrimary },
-    studyBtnTextMuted: { color: theme.primary },
-    doneBanner: {
-      flexDirection: "row",
-      alignItems: "flex-start",
-      gap: 10,
-      backgroundColor: theme.primaryLight,
-      borderRadius: 14,
-      padding: 14,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
-    },
-    doneBannerText: {
-      flex: 1,
-      fontSize: 14,
-      lineHeight: 20,
-      fontWeight: "600",
-      color: theme.textSecondary,
-    },
     listSection: {
       backgroundColor: theme.surface,
       borderRadius: 16,
@@ -571,56 +419,7 @@ function makeStyles(theme: Theme) {
     },
     practiceTitle: { fontSize: 16, fontWeight: "700", color: theme.text },
     practiceBody: { fontSize: 14, lineHeight: 21, color: theme.textSecondary },
-    encourage: {
-      fontSize: 14,
-      lineHeight: 20,
-      color: theme.primary,
-      fontWeight: "600",
-      textAlign: "center",
-    },
-    decksSection: {
-      backgroundColor: theme.surface,
-      borderRadius: 16,
-      padding: 14,
-      gap: 10,
-    },
-    decksHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    decksTitle: { fontSize: 13, fontWeight: "700", color: theme.textSecondary, textTransform: "uppercase" },
-    decksLink: { fontSize: 13, fontWeight: "600", color: theme.primary },
-    decksEmpty: { fontSize: 14, color: theme.textSecondary, lineHeight: 20 },
-    deckRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-    deckMain: { flex: 1, gap: 2 },
-    deckTitle: { fontSize: 16, fontWeight: "700", color: theme.text },
-    deckMeta: { fontSize: 13, color: theme.textSecondary },
     deleteBtn: { alignItems: "center", paddingVertical: 10 },
     deleteBtnText: { fontSize: 15, fontWeight: "600", color: theme.danger },
-    promptOverlay: {
-      flex: 1,
-      backgroundColor: theme.scrim,
-      justifyContent: "center",
-      padding: 28,
-    },
-    promptCard: {
-      backgroundColor: theme.surface,
-      borderRadius: 16,
-      padding: 18,
-      gap: 12,
-    },
-    promptTitle: { fontSize: 16, fontWeight: "700", color: theme.text },
-    promptMessage: { fontSize: 14, color: theme.textSecondary, lineHeight: 20 },
-    promptInput: {
-      borderWidth: 1,
-      borderColor: theme.border,
-      borderRadius: 10,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
-      fontSize: 16,
-      color: theme.text,
-    },
-    promptActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8 },
-    promptAction: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10 },
-    promptActionPrimary: { backgroundColor: theme.primary },
-    promptActionText: { fontSize: 15, fontWeight: "600", color: theme.textSecondary },
-    promptActionPrimaryText: { color: theme.onPrimary },
   });
 }

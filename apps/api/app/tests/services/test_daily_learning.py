@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
 from app.services.daily_learning import (
+    build_daily_history,
     count_today_vocab_stats,
     daily_home_cue,
     start_of_today_utc,
@@ -103,3 +104,44 @@ def test_daily_home_cue_continue_and_missed():
         )
         == "missed_yesterday"
     )
+
+
+def test_build_daily_history_complete_partial_and_skipped():
+    tz = ZoneInfo("UTC")
+    today = datetime.now(tz).date()
+    yesterday = today - timedelta(days=1)
+    two_days_ago = today - timedelta(days=2)
+    start = datetime.combine(two_days_ago, datetime.min.time(), tzinfo=tz).astimezone(UTC)
+    items = [
+        _item(
+            status="mastered",
+            mastered=True,
+            created_at=start,
+            mastered_at=datetime.combine(yesterday, datetime.min.time(), tzinfo=tz).astimezone(UTC),
+        ),
+        _item(
+            status="mastered",
+            mastered=True,
+            created_at=start,
+            mastered_at=datetime.combine(yesterday, datetime.min.time(), tzinfo=tz).astimezone(UTC),
+        ),
+        _item(
+            status="mastered",
+            mastered=True,
+            created_at=start,
+            mastered_at=datetime.combine(today, datetime.min.time(), tzinfo=tz).astimezone(UTC),
+        ),
+    ]
+    history = build_daily_history(
+        items,
+        timezone_name="UTC",
+        daily_goal=5,
+        active_since=start,
+        days=3,
+    )
+    assert len(history) == 3
+    assert history[0]["status"] == "skipped"
+    assert history[1]["status"] == "partial"
+    assert history[1]["mastered_count"] == 2
+    assert history[2]["status"] == "today"
+    assert history[2]["mastered_count"] == 1

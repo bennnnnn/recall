@@ -9,3 +9,23 @@ export function resolveDailyGoal(value: number | null | undefined): number {
   if (value != null && value >= 1) return value;
   return DEFAULT_VOCAB_DAILY_GOAL;
 }
+
+export function formatDailyGoalLabel(
+  goal: number,
+  kind: "language" | "trivia",
+  t: (key: string, options?: { count: number }) => string,
+): string {
+  return kind === "trivia"
+    ? t("projects.trivia.daily_questions", { count: goal })
+    : t("projects.daily_goal_words", { count: goal });
+}
+
+export function dailyGoalPickerOptions(
+  kind: "language" | "trivia",
+  t: (key: string, options?: { count: number }) => string,
+): { key: string; label: string }[] {
+  return VOCAB_DAILY_GOALS.map((count) => ({
+    key: String(count),
+    label: formatDailyGoalLabel(count, kind, t),
+  }));
+}

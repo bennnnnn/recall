@@ -132,6 +132,17 @@ export function buildProjectAskPrompt(project: ProjectDetail): string {
   );
 }
 
+/** Explicit opt-in when the user wants questions beyond today's daily goal. */
+export function buildProjectBonusQuestionsPrompt(project: ProjectDetail): string {
+  const daily = resolveProjectDailyGoal(project);
+  return (
+    `I already finished my daily goal of ${daily} correct answers on my general knowledge quiz today ` +
+    `(${project.stats.mastered_today}/${daily}).\n\n` +
+    "I want BONUS trivia questions beyond today's goal. Confirm I'm ok with extra questions, then ask " +
+    "multiple-choice questions one at a time using vocab_quiz JSON. Do not start until I confirm."
+  );
+}
+
 /** Explicit opt-in when the user wants words beyond today's daily goal. */
 export function buildProjectBonusWordsPrompt(project: ProjectDetail): string {
   const daily = resolveProjectDailyGoal(project);

@@ -20,9 +20,6 @@ function mathProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
       due_for_review: 0,
       added_this_week: 0,
     },
-    decks: [],
-    pos_groups: [],
-    by_part_of_speech: [],
     lists: [],
     ...overrides,
   } as unknown as ProjectDetail;
@@ -72,9 +69,6 @@ function triviaProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
       mastered_today: 8,
       pending_today: 0,
     },
-    decks: [],
-    pos_groups: [],
-    by_part_of_speech: [],
     lists: [],
     ...overrides,
   } as unknown as ProjectDetail;
