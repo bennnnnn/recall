@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Redirect, Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
@@ -19,6 +19,7 @@ import { api, type ProjectDetail } from "@/lib/api";
 import { queueChatLaunch } from "@/lib/chatLaunch";
 import {
   buildProjectChatTutorPrompt,
+  buildProjectExamBonusPrompt,
   buildProjectExamPrompt,
   isDailyGoalMet,
   resolveProjectDailyGoal,
@@ -50,6 +51,11 @@ export default function ProjectExamQuizScreen() {
   const { messages, streaming, sendMessage } = useChat(token, chatId, {
     onError: () => {},
   });
+
+  const hasAssistantReply = useMemo(
+    () => messages.some((m) => m.role === "assistant" && m.id !== "streaming"),
+    [messages],
+  );
 
   const quizVariant =
     project != null ? quizVariantForProjectKind(project.kind) : ("vocab" as const);
@@ -103,9 +109,22 @@ export default function ProjectExamQuizScreen() {
 
   useEffect(() => {
     if (!project || !chatId || startedRef.current || streaming) return;
+    if (isDailyGoalMet(project)) return;
     startedRef.current = true;
     sendMessage(buildProjectExamPrompt(project));
   }, [project, chatId, streaming, sendMessage]);
+
+  const requestBonusQuestion = useCallback(() => {
+    if (!project || streaming) return;
+    sendMessage(buildProjectExamBonusPrompt(project));
+  }, [project, streaming, sendMessage]);
+
+  const retryQuestion = useCallback(() => {
+    if (!project || streaming) return;
+    sendMessage(
+      "Send the next multiple-choice question using vocab_quiz JSON only. One question — wait for my A–D answer.",
+    );
+  }, [project, streaming, sendMessage]);
 
   const handleQuizAnswer = useCallback(
     (messageId: string, letter: "A" | "B" | "C" | "D", meta?: QuizAnswerMeta) => {
@@ -139,9 +158,14 @@ export default function ProjectExamQuizScreen() {
   const dailyGoal = resolveProjectDailyGoal(project);
   const masteredToday = project.stats.mastered_today;
   const goalMet = isDailyGoalMet(project);
+  const goalDoneHint = t("projects.quiz.exam_goal_done_hint");
+  const showRetry = !activeQuiz && !streaming && hasAssistantReply;
+  const showGoalDone = goalMet && !activeQuiz && !streaming && !hasAssistantReply;
+  const showLoading =
+    !activeQuiz && !showGoalDone && !showRetry && (streaming || (!goalMet && !hasAssistantReply));
 
   return (
-    <SafeAreaView style={s.root}>
+    <SafeAreaView style={s.root} edges={["top", "bottom"]}>
       <Stack.Screen options={{ title: t("projects.quiz.exam_title") }} />
       <View style={s.header}>
         <Text style={s.progress}>
@@ -150,9 +174,7 @@ export default function ProjectExamQuizScreen() {
             goal: dailyGoal,
           })}
         </Text>
-        {goalMet ? (
-          <Text style={s.goalDone}>{t("projects.daily_goal_done_hint", { goal: dailyGoal })}</Text>
-        ) : null}
+        {goalMet ? <Text style={s.goalDone}>{goalDoneHint}</Text> : null}
       </View>
 
       <View style={s.body}>
@@ -183,12 +205,28 @@ export default function ProjectExamQuizScreen() {
               }}
             />
           </>
-        ) : (
+        ) : showGoalDone ? (
+          <View style={s.center}>
+            <Ionicons name="checkmark-circle" size={48} color={theme.primary} />
+            <Text style={s.doneTitle}>{t("projects.quiz.exam_done_title")}</Text>
+            <Text style={s.doneBody}>{t("projects.quiz.exam_done_body")}</Text>
+            <Pressable style={s.bonusBtn} onPress={requestBonusQuestion}>
+              <Text style={s.bonusBtnText}>{t("projects.quiz.exam_bonus")}</Text>
+            </Pressable>
+          </View>
+        ) : showLoading ? (
           <View style={s.center}>
             <ActivityIndicator color={theme.primary} />
             <Text style={s.waiting}>{t("projects.quiz.exam_loading")}</Text>
           </View>
-        )}
+        ) : showRetry ? (
+          <View style={s.center}>
+            <Text style={s.waiting}>{t("projects.quiz.exam_retry_hint")}</Text>
+            <Pressable style={s.bonusBtn} onPress={retryQuestion}>
+              <Text style={s.bonusBtnText}>{t("projects.quiz.exam_retry")}</Text>
+            </Pressable>
+          </View>
+        ) : null}
       </View>
 
       <View style={s.footer}>
@@ -228,7 +266,23 @@ function makeStyles(t: Theme) {
     goalDone: { fontSize: 14, color: t.textSecondary },
     body: { flex: 1, padding: 16, justifyContent: "center" },
     feedback: { marginBottom: 12 },
-    waiting: { color: t.textSecondary, fontSize: 15 },
+    waiting: { color: t.textSecondary, fontSize: 15, textAlign: "center", paddingHorizontal: 24 },
+    doneTitle: { fontSize: 20, fontWeight: "700", color: t.text },
+    doneBody: {
+      fontSize: 15,
+      lineHeight: 22,
+      color: t.textSecondary,
+      textAlign: "center",
+      paddingHorizontal: 24,
+    },
+    bonusBtn: {
+      marginTop: 8,
+      paddingHorizontal: 18,
+      paddingVertical: 12,
+      borderRadius: 12,
+      backgroundColor: t.primaryLight,
+    },
+    bonusBtnText: { fontSize: 15, fontWeight: "700", color: t.primary },
     footer: {
       padding: 16,
       borderTopWidth: StyleSheet.hairlineWidth,

@@ -636,5 +636,11 @@
   "projects.quiz.exam_title": "Quiz",
   "projects.quiz.exam_progress": "{{done}} / {{goal}} today",
   "projects.quiz.exam_loading": "Loading next question…",
+  "projects.quiz.exam_done_title": "Done for today!",
+  "projects.quiz.exam_done_body": "You hit your daily goal. Come back tomorrow, or try bonus questions.",
+  "projects.quiz.exam_goal_done_hint": "You hit your daily goal. Come back tomorrow, or try bonus questions.",
+  "projects.quiz.exam_bonus": "Bonus questions",
+  "projects.quiz.exam_retry": "Load question again",
+  "projects.quiz.exam_retry_hint": "Couldn't load a quiz question. Try again?",
   "projects.quiz.switch_to_chat": "Switch to chat tutor"
 }
