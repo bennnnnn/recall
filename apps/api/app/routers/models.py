@@ -14,16 +14,15 @@ async def list_models(
     user: User = Depends(get_current_user),
     settings: Settings = Depends(get_settings_dep),
 ) -> list[ModelInfo]:
-    """Selectable chat models with provider, pricing, and availability.
+    """Selectable chat models with pricing and availability.
 
     The "Auto" option is not a model — the client offers it separately and the
-    backend resolves it per message.
+    backend resolves it per message. Provider routing stays server-side only.
     """
     return [
         ModelInfo(
             id=m.id,
             label=m.label,
-            provider=m.provider,
             description=m.description,
             tier=m.tier,
             plan_access=m.plan_access,

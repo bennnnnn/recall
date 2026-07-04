@@ -254,7 +254,6 @@ export type Usage = {
 export type ModelInfo = {
   id: string;
   label: string;
-  provider: string;
   description: string;
   tier: string;
   plan_access: "free" | "pro";

@@ -230,7 +230,6 @@ class UsageOut(BaseModel):
 class ModelInfo(BaseModel):
     id: str
     label: str
-    provider: str
     description: str
     tier: str
     plan_access: str = "pro"

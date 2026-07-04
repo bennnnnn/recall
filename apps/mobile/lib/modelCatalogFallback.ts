@@ -5,7 +5,6 @@ export const MODEL_CATALOG_FALLBACK: ModelInfo[] = [
   {
     id: "free-chat",
     label: "DeepSeek Chat",
-    provider: "deepseek",
     tier: "fast",
     plan_access: "free",
     description: "Fast everyday chat — cheap and capable.",
@@ -16,7 +15,6 @@ export const MODEL_CATALOG_FALLBACK: ModelInfo[] = [
   {
     id: "smart-chat",
     label: "DeepSeek R1",
-    provider: "deepseek",
     tier: "smart",
     plan_access: "pro",
     description: "Stronger reasoning for hard questions and code.",
@@ -27,7 +25,6 @@ export const MODEL_CATALOG_FALLBACK: ModelInfo[] = [
   {
     id: "minimax-m2",
     label: "Minimax M2",
-    provider: "openrouter",
     tier: "standard",
     plan_access: "pro",
     description: "Minimax flagship model.",
@@ -38,7 +35,6 @@ export const MODEL_CATALOG_FALLBACK: ModelInfo[] = [
   {
     id: "glm-4-flash",
     label: "GLM-4 Flash",
-    provider: "openrouter",
     tier: "standard",
     plan_access: "free",
     description: "Zhipu GLM — fast multilingual model.",
@@ -49,7 +45,6 @@ export const MODEL_CATALOG_FALLBACK: ModelInfo[] = [
   {
     id: "qwen-plus",
     label: "Qwen Plus",
-    provider: "openrouter",
     tier: "standard",
     plan_access: "pro",
     description: "Alibaba Qwen — strong general assistant.",
@@ -60,7 +55,6 @@ export const MODEL_CATALOG_FALLBACK: ModelInfo[] = [
   {
     id: "gemini-flash",
     label: "Gemini 2.5 Flash",
-    provider: "google",
     tier: "fast",
     plan_access: "free",
     description: "Google Gemini — fast multimodal model.",
@@ -71,7 +65,6 @@ export const MODEL_CATALOG_FALLBACK: ModelInfo[] = [
   {
     id: "llama-70b",
     label: "Llama 3.3 70B",
-    provider: "meta",
     tier: "standard",
     plan_access: "pro",
     description: "Meta Llama — open-weight instruct model.",
@@ -82,7 +75,6 @@ export const MODEL_CATALOG_FALLBACK: ModelInfo[] = [
   {
     id: "max-chat",
     label: "OpenRouter Auto",
-    provider: "openrouter",
     tier: "max",
     plan_access: "pro",
     description: "OpenRouter picks the best model for each request.",

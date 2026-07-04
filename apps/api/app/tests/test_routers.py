@@ -52,6 +52,23 @@ def test_health():
     assert r.json()["status"] == "ok"
 
 
+# ── models ─────────────────────────────────────────────────────────────────────
+
+
+def test_list_models_omits_provider_field():
+    user = _fake_user()
+    client = TestClient(_app_with_user(user))
+    r = client.get("/models", headers={"Authorization": "Bearer tok"})
+    assert r.status_code == 200
+    body = r.json()
+    assert isinstance(body, list)
+    assert len(body) > 0
+    for model in body:
+        assert "id" in model
+        assert "label" in model
+        assert "provider" not in model
+
+
 # ── auth /me ───────────────────────────────────────────────────────────────────
 
 
