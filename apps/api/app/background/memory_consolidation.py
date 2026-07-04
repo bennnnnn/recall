@@ -37,6 +37,17 @@ async def consolidate_user_memory_sections(
         if not result or not result.sections:
             return False
 
+        existing_types = set(sections)
+        returned_types = {section.type for section in result.sections}
+        omitted = existing_types - returned_types
+        if omitted:
+            logger.warning(
+                "Skipping consolidation for user_id=%s: model omitted sections %s",
+                user_id,
+                sorted(omitted),
+            )
+            return False
+
         rows: list[tuple[str, str, float, UUID | None]] = []
         for section in result.sections:
             if section.confidence < settings.memory_min_confidence:

@@ -116,6 +116,50 @@ async def test_consolidate_skips_suspiciously_short_rewrite():
 
 
 @pytest.mark.asyncio
+async def test_consolidate_skips_when_model_omits_existing_section():
+    session = AsyncMock()
+    user_id = uuid4()
+    profile = AsyncMock()
+    profile.type = "profile"
+    profile.text = "User's name is Bini. User's name is Binalfew. User is a developer."
+    preference = AsyncMock()
+    preference.type = "preference"
+    preference.text = "Prefers concise answers. Prefers concise answers. Prefers concise answers."
+
+    rewrite = MemorySectionUpdateResult(
+        sections=[
+            MemorySectionItem(
+                type="profile",
+                summary=(
+                    "Bini is a software developer who builds mobile apps "
+                    "and backend services for Recall."
+                ),
+                confidence=0.9,
+            )
+        ]
+    )
+
+    with (
+        patch(
+            "app.background.memory_consolidation.memories_repo.list_for_user",
+            AsyncMock(return_value=[profile, preference]),
+        ),
+        patch(
+            "app.background.memory_consolidation.litellm_gateway.rewrite_memory_sections",
+            AsyncMock(return_value=rewrite),
+        ),
+        patch(
+            "app.background.memory_consolidation.memories_repo.upsert_sections",
+            AsyncMock(),
+        ) as upsert,
+    ):
+        changed = await consolidate_user_memory_sections(session, Settings(), user_id=user_id)
+
+    assert changed is False
+    upsert.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_consolidate_upserts_without_embedding_when_vector_missing():
     session = AsyncMock()
     user_id = uuid4()
