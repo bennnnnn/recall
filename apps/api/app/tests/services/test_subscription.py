@@ -78,3 +78,60 @@ async def test_apply_plan_for_app_user_id():
             )
     assert ok is True
     update.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_handle_revenuecat_transfer_downgrades_old_and_syncs_new():
+    old_id = uuid4()
+    new_id = uuid4()
+    user = MagicMock()
+    user.id = new_id
+    user.plan = "free"
+    session = AsyncMock()
+    settings = Settings(revenuecat_secret_key="sk_test", revenuecat_entitlement_id="pro")
+
+    with patch(
+        "app.services.subscription.apply_plan_for_app_user_id",
+        AsyncMock(return_value=True),
+    ) as apply_mock:
+        with patch(
+            "app.services.subscription.users_repo.get_by_id",
+            AsyncMock(return_value=user),
+        ):
+            with patch(
+                "app.services.subscription.sync_user_plan_from_revenuecat",
+                AsyncMock(return_value=MagicMock(plan="pro")),
+            ) as sync_mock:
+                await subscription_service.handle_revenuecat_transfer(
+                    session,
+                    settings,
+                    new_app_user_id=str(new_id),
+                    transferred_from=[str(old_id), "  "],
+                )
+
+    apply_mock.assert_awaited_once_with(session, str(old_id), plan="free")
+    sync_mock.assert_awaited_once_with(session, user, settings)
+
+
+@pytest.mark.asyncio
+async def test_handle_revenuecat_transfer_skips_invalid_new_id():
+    session = AsyncMock()
+    settings = Settings()
+
+    with patch(
+        "app.services.subscription.apply_plan_for_app_user_id",
+        AsyncMock(),
+    ) as apply_mock:
+        with patch(
+            "app.services.subscription.sync_user_plan_from_revenuecat",
+            AsyncMock(),
+        ) as sync_mock:
+            await subscription_service.handle_revenuecat_transfer(
+                session,
+                settings,
+                new_app_user_id="not-a-uuid",
+                transferred_from=[],
+            )
+
+    apply_mock.assert_not_awaited()
+    sync_mock.assert_not_awaited()
