@@ -91,4 +91,30 @@ describe("chatSocketReduce", () => {
     expect(input.memory_hints).toEqual(["goal"]);
     expect(input.finalContent).toBe("Full text");
   });
+
+  it("buildDoneMergeInput captures resolved_model", () => {
+    const input = buildDoneMergeInput(
+      {
+        type: "done",
+        message_id: "abc",
+        resolved_model: "smart-chat",
+      },
+      { content: "Hi" },
+    );
+    expect(input.model).toBe("smart-chat");
+  });
+
+  it("mergeDoneIntoMessages stores resolved model on assistant message", () => {
+    const prev: Message[] = [
+      { id: "u1", role: "user", content: "Hi", model: null, created_at: "" },
+      { id: "streaming", role: "assistant", content: "Hello", model: null, created_at: "" },
+    ];
+    const next = mergeDoneIntoMessages(prev, {
+      finalId: "a1",
+      messageId: "a1",
+      draftContent: "Hello",
+      model: "free-chat",
+    });
+    expect(next[1].model).toBe("free-chat");
+  });
 });
