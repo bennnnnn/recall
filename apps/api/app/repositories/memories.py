@@ -1,7 +1,7 @@
 from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,7 +33,7 @@ async def search_semantic(
         .where(
             Memory.user_id == user_id,
             Memory.embedding.isnot(None),
-            Memory.confidence >= min_confidence,
+            or_(Memory.confidence.is_(None), Memory.confidence >= min_confidence),
         )
         .order_by(Memory.embedding.cosine_distance(query_embedding))
         .limit(limit)

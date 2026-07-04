@@ -8,6 +8,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from app.core.client_ip import client_ip
 from app.core.config import Settings, get_settings
 from app.core.rate_limit import allow_request
 from app.core.redis import get_redis_client
@@ -27,10 +28,7 @@ def _client_key(request: Request, settings: Settings) -> str:
             return f"user:{user_id}"
         except GoogleAuthError:
             pass
-    host = request.client.host if request.client else "unknown"
-    forwarded = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
-    ip = forwarded or host
-    return f"ip:{ip}"
+    return f"ip:{client_ip(request, settings)}"
 
 
 class RestRateLimitMiddleware(BaseHTTPMiddleware):

@@ -139,6 +139,25 @@ async def revenuecat_webhook(
         return
 
     event_type = _event_type(payload)
+    if event_type == "TRANSFER":
+        event = payload.get("event")
+        if isinstance(event, dict):
+            new_id = event.get("app_user_id")
+            old_ids = event.get("transferred_from") or []
+            if isinstance(new_id, str) and new_id.strip():
+                for old in old_ids if isinstance(old_ids, list) else []:
+                    if isinstance(old, str) and old.strip():
+                        await subscription_service.apply_plan_for_app_user_id(
+                            session,
+                            old.strip(),
+                            plan="free",
+                        )
+                await subscription_service.apply_plan_for_app_user_id(
+                    session,
+                    new_id.strip(),
+                    plan="pro",
+                )
+        return
     if event_type in _PRO_EVENTS:
         applied = await subscription_service.apply_plan_for_app_user_id(
             session,

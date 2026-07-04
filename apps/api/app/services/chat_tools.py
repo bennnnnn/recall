@@ -33,6 +33,7 @@ async def augment_prompt_with_mcp_tools(
     user_location: str | None = None,
     prior_user_messages: list[str] | None = None,
     on_status: Callable[[str], Awaitable[None]] | None = None,
+    has_calendar_write: bool = False,
 ) -> list[dict[str, str]]:
     """Run registered MCP adapters when heuristics match (single pre-stream round)."""
     if not settings.mcp_tools_enabled:
@@ -40,7 +41,7 @@ async def augment_prompt_with_mcp_tools(
 
     blocks: list[str] = []
 
-    if calendar_service.is_calendar_create_request(user_content):
+    if has_calendar_write and calendar_service.is_calendar_create_request(user_content):
         blocks.append(calendar_service.CALENDAR_WRITE_HINT)
 
     if settings.math_tools_enabled and math_tools_service.needs_symbolic_math(user_content):

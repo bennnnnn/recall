@@ -2,7 +2,8 @@ import asyncio
 import json
 import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
-from typing import Any, get_args, get_origin
+from contextlib import suppress
+from typing import Any, cast, get_args, get_origin
 
 from litellm import acompletion
 from pydantic import BaseModel
@@ -10,6 +11,7 @@ from pydantic import BaseModel
 from app.core.config import Settings
 from app.gateways import mock_llm
 from app.models.schemas import (
+    MemorySectionItem,
     MemorySectionUpdateResult,
     ProjectActionItem,
     ProjectExtractionResult,
@@ -45,21 +47,19 @@ _CHAT_MODEL_UNAVAILABLE_MSG = (
 )
 
 
-# DeepSeek-R1 (smart-chat) emits  Dodd... reasoning blocks inline in the
+# DeepSeek-R1 (smart-chat) emits ... reasoning blocks inline in the
 # `content` stream (and in a separate `reasoning_content` delta field). We strip
-# both so users never see raw  Dodd and reasoning tokens don't count against the
-# displayed reply.  Dodd tokens still count against provider output billing, but
-# stripping them from the persisted text keeps the user bubble clean and the
-# displayed length honest.
-_THINK_OPEN = " Dodd"
-_THINK_CLOSE = "doable in"
+# both so users never see raw chain-of-thought and reasoning tokens don't count
+# against the displayed reply.
+_THINK_OPEN = "\x3credacted_thinking\x3e"
+_THINK_CLOSE = "\x3c/redacted_thinking\x3e"
 # Safety cap: if an opened think block never closes, drop the buffer rather than
 # swallow the rest of the reply.
 _THINK_MAX_OPEN_BUFFER = 4096
 
 
 class _ThinkStripper:
-    """Stateful filter that removes  Dodd...doable in blocks from a token stream.
+    """Stateful filter that removes redacted-thinking blocks from a token stream.
 
     Handles open/close tags split across chunks. Emits text outside think blocks
     unchanged; discards text inside. An unclosed think block is dropped on flush.
@@ -86,7 +86,7 @@ class _ThinkStripper:
             else:
                 idx = self._buf.find(_THINK_OPEN)
                 if idx == -1:
-                    # Hold back enough trailing chars that a split  Dodd can't leak.
+                    # Hold back enough trailing chars that a split open tag can't leak.
                     safe = len(self._buf) - (len(_THINK_OPEN) - 1)
                     if safe > 0:
                         out.append(self._buf[:safe])
@@ -273,6 +273,7 @@ async def _stream_chat_once(
     route = resolve_route(model_alias)
     kwargs = _litellm_kwargs(settings, route)
     stripper = _ThinkStripper()
+    response = None
     try:
         response = await acompletion(
             model=route.model,
@@ -318,6 +319,11 @@ async def _stream_chat_once(
             _CHAT_MODEL_UNAVAILABLE_MSG,
             failed_alias=model_alias,
         ) from exc
+    finally:
+        close = getattr(response, "aclose", None)
+        if close is not None:
+            with suppress(Exception):
+                await close()
 
 
 def _list_field_name(schema: type[BaseModel]) -> str | None:
@@ -385,8 +391,29 @@ async def _complete_structured_once[T: BaseModel](
     try:
         return schema.model_validate(data)
     except Exception:
+        if schema is MemorySectionUpdateResult and isinstance(data, dict):
+            partial = _parse_memory_sections_partial(data)
+            if partial is not None:
+                return cast(T, partial)
         logger.debug("Structured completion: validation failed for %s", model_alias)
         return None
+
+
+def _parse_memory_sections_partial(data: dict[str, object]) -> MemorySectionUpdateResult | None:
+    raw_sections = data.get("sections")
+    if not isinstance(raw_sections, list):
+        return None
+    valid: list[MemorySectionItem] = []
+    for item in raw_sections:
+        if not isinstance(item, dict):
+            continue
+        try:
+            valid.append(MemorySectionItem.model_validate(item))
+        except Exception:
+            logger.debug("Skipping invalid memory section item", exc_info=True)
+    if not valid:
+        return None
+    return MemorySectionUpdateResult(sections=valid)
 
 
 async def complete_structured[T: BaseModel](

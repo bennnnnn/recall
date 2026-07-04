@@ -134,6 +134,12 @@ class Settings(BaseSettings):
     summary_max_tokens: int = 400
 
     cors_origins: str = ""
+    # Only trust X-Forwarded-For when deployed behind a known reverse proxy (Fly, etc.).
+    trust_x_forwarded_for: bool = False
+    # Comma-separated user UUIDs allowed to access /admin/* when dev_auth is on.
+    admin_user_ids: str = ""
+    # Minimum cosine similarity for semantic memory injection (0 = disabled).
+    memory_min_similarity: float = 0.15
 
     # Abort hung provider streams after this many seconds (WS chat path).
     chat_stream_timeout_seconds: int = 180
@@ -187,6 +193,8 @@ def validate_production_settings(settings: Settings) -> None:
     # "locked-down CORS" claim and is unsafe once a web client exists.
     if not settings.cors_origins.strip():
         errors.append("CORS_ORIGINS must be set to an explicit origin list in production")
+    elif any(origin.strip() == "*" for origin in settings.cors_origins.split(",")):
+        errors.append("CORS_ORIGINS must not include wildcard (*) in production")
     # Without a real model key the app boots but every chat call fails at runtime
     # with a generic ModelUnavailableError — fail fast at startup instead.
     if not settings.openrouter_api_key:

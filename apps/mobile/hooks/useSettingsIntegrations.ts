@@ -17,15 +17,20 @@ export function useSettingsIntegrations() {
   const [calendarBusy, setCalendarBusy] = useState(false);
   const [gmailStatus, setGmailStatus] = useState<GoogleGmailStatus | null>(null);
   const [gmailBusy, setGmailBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    if (!token) return;
+    if (!token) {
+      setLoading(false);
+      return;
+    }
     const [calendarR, gmailR] = await Promise.allSettled([
       api.googleCalendarStatus(token),
       api.googleGmailStatus(token),
     ]);
     if (calendarR.status === "fulfilled") setCalendarStatus(calendarR.value);
     if (gmailR.status === "fulfilled") setGmailStatus(gmailR.value);
+    setLoading(false);
   }, [token]);
 
   useEffect(() => {
@@ -169,6 +174,7 @@ export function useSettingsIntegrations() {
     (calendarStatus?.connected ? 1 : 0) + (gmailStatus?.connected ? 1 : 0);
 
   return {
+    loading,
     calendarStatus,
     calendarBusy,
     gmailStatus,

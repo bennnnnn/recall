@@ -1,10 +1,37 @@
-import { messageListItemType, messageListKey, ESTIMATED_MESSAGE_HEIGHT } from "@/lib/messageListLayout";
+import {
+  messageListItemType,
+  messageListKey,
+  ESTIMATED_MESSAGE_HEIGHT,
+} from "@/lib/messageListLayout";
 
 describe("messageListLayout", () => {
-  it("uses role for FlashList item type", () => {
-    expect(messageListItemType({ id: "streaming", role: "assistant" })).toBe("assistant");
-    expect(messageListItemType({ id: "msg-1", role: "assistant" })).toBe("assistant");
+  it("uses role for user rows", () => {
     expect(messageListItemType({ id: "msg-2", role: "user" })).toBe("user");
+  });
+
+  it("distinguishes assistant row layouts by fenced content", () => {
+    expect(messageListItemType({ id: "streaming", role: "assistant" })).toBe("assistant");
+    expect(
+      messageListItemType({
+        id: "msg-quiz",
+        role: "assistant",
+        content: "```vocab_quiz\n{\"word\":\"hola\"}\n```",
+      }),
+    ).toBe("assistant-quiz");
+    expect(
+      messageListItemType({
+        id: "msg-vocab",
+        role: "assistant",
+        content: "```vocab_card\n{\"word\":\"hola\",\"definition\":\"hello\"}\n```",
+      }),
+    ).toBe("assistant-vocab");
+    expect(
+      messageListItemType({
+        id: "msg-cal",
+        role: "assistant",
+        content: '```calendar_proposal\n{"title":"Standup"}\n```',
+      }),
+    ).toBe("assistant-calendar");
   });
 
   it("prefers renderKey for FlashList identity", () => {

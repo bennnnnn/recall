@@ -31,18 +31,56 @@ def test_think_stripper_passes_plain_text_through():
 
 def test_think_stripper_removes_closed_think_block():
     s = litellm_gateway._ThinkStripper()
-    assert s.feed("before  Doddreasoning here doable in after") + s.flush() == "before  after"
+    open_tag = litellm_gateway._THINK_OPEN
+    close_tag = litellm_gateway._THINK_CLOSE
+    assert (
+        s.feed(f"before {open_tag}reasoning here{close_tag} after") + s.flush() == "before  after"
+    )
 
 
 def test_think_stripper_handles_tag_split_across_chunks():
     s = litellm_gateway._ThinkStripper()
-    out = s.feed("answer  Dod") + s.feed("dwrong doable in done") + s.flush()
+    open_tag = litellm_gateway._THINK_OPEN
+    close_tag = litellm_gateway._THINK_CLOSE
+    split = len(open_tag) // 2
+    out = (
+        s.feed(f"answer {open_tag[:split]}")
+        + s.feed(f"{open_tag[split:]}wrong{close_tag} done")
+        + s.flush()
+    )
     assert out == "answer  done"
 
 
 def test_think_stripper_drops_unclosed_block_on_flush():
     s = litellm_gateway._ThinkStripper()
-    assert s.feed("visible  Doddnever closes") + s.flush() == "visible "
+    open_tag = litellm_gateway._THINK_OPEN
+    assert s.feed(f"visible {open_tag}never closes") + s.flush() == "visible "
+
+
+def test_think_stripper_recovers_after_oversized_unclosed_block():
+    s = litellm_gateway._ThinkStripper()
+    open_tag = litellm_gateway._THINK_OPEN
+    oversized = "x" * (litellm_gateway._THINK_MAX_OPEN_BUFFER + 1)
+    out = s.feed(f"keep {open_tag}{oversized}") + s.feed(" tail") + s.flush()
+    assert out == "keep  tail"
+
+
+@pytest.mark.asyncio
+async def test_stream_chat_completion_wraps_acompletion_failure():
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+
+    async def fail(**_kwargs):
+        raise RuntimeError("network down")
+
+    with patch("app.gateways.litellm_gateway.acompletion", fail):
+        with pytest.raises(litellm_gateway.ModelUnavailableError, match="isn't responding"):
+            async for _ in litellm_gateway.stream_chat_completion(
+                settings=settings,
+                model_alias="free-chat",
+                messages=[{"role": "user", "content": "hi"}],
+                max_tokens=100,
+            ):
+                pass
 
 
 def test_should_mock_llm_true_when_no_key():
@@ -455,6 +493,28 @@ async def test_get_current_user_not_found_raises_401():
         with pytest.raises(HTTPException) as exc_info:
             await get_current_user(creds, AsyncMock(), settings)
     assert exc_info.value.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_get_current_user_invalid_token_raises_401():
+    from unittest.mock import AsyncMock, patch
+
+    from fastapi import HTTPException
+    from fastapi.security import HTTPAuthorizationCredentials
+
+    from app.core.deps import get_current_user
+
+    settings = Settings(jwt_secret="super-secret-key-that-is-at-least-32-chars!!")
+    creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials="bad-token")
+
+    with patch(
+        "app.core.deps.tokens_service.verify_access_token",
+        AsyncMock(side_effect=GoogleAuthError("Invalid token")),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            await get_current_user(creds, AsyncMock(), settings, AsyncMock())
+    assert exc_info.value.status_code == 401
+    assert "Invalid token" in exc_info.value.detail
 
 
 @pytest.mark.asyncio

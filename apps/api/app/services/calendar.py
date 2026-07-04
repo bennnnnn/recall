@@ -379,22 +379,29 @@ async def confirm_create_event(
     if proposal is None:
         raise GoogleCalendarError("Proposal expired or not found.")
 
-    start = datetime_from_iso(proposal["start"])
-    end = datetime_from_iso(proposal["end"])
-    event = await google_calendar_gateway.create_event(
-        settings,
-        refresh_token=decrypt_refresh_token(settings, connection.refresh_token),
-        calendar_id=connection.calendar_id or "primary",
-        title=proposal.get("title") or "Event",
-        start=start,
-        end=end,
-        timezone=user.timezone or "UTC",
-        location=proposal.get("location") or None,
-        description=proposal.get("description") or None,
-    )
-    await redis.delete(_cache_key(user.id))
-    await redis.delete(_proposal_key(user.id, proposal_id))
-    return event
+    lock_key = _proposal_key(user.id, proposal_id) + ":confirm"
+    if not await redis.set(lock_key, "1", ex=120, nx=True):
+        raise GoogleCalendarError("Event creation already in progress.")
+
+    try:
+        start = datetime_from_iso(proposal["start"])
+        end = datetime_from_iso(proposal["end"])
+        event = await google_calendar_gateway.create_event(
+            settings,
+            refresh_token=decrypt_refresh_token(settings, connection.refresh_token),
+            calendar_id=connection.calendar_id or "primary",
+            title=proposal.get("title") or "Event",
+            start=start,
+            end=end,
+            timezone=user.timezone or "UTC",
+            location=proposal.get("location") or None,
+            description=proposal.get("description") or None,
+        )
+        await redis.delete(_cache_key(user.id))
+        await redis.delete(_proposal_key(user.id, proposal_id))
+        return event
+    finally:
+        await redis.delete(lock_key)
 
 
 async def materialize_calendar_proposals(

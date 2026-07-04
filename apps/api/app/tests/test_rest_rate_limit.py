@@ -57,3 +57,30 @@ def test_middleware_returns_429_when_over_limit():
         response = client.get("/openapi.json")
     assert response.status_code == 429
     assert response.json()["detail"] == "Too many requests. Please slow down."
+
+
+def test_middleware_skips_when_limit_disabled():
+    with patch("app.core.config.get_settings", return_value=Settings(rest_rate_limit_per_minute=0)):
+        client = TestClient(create_app())
+        assert client.get("/openapi.json").status_code == 200
+
+
+def test_middleware_allows_request_when_redis_check_fails():
+    broken = AsyncMock()
+    broken.incr = AsyncMock(side_effect=RuntimeError("redis down"))
+    with patch("app.core.rest_rate_limit.get_redis_client", return_value=broken):
+        client = TestClient(create_app())
+        assert client.get("/openapi.json").status_code == 200
+
+
+def test_client_key_falls_back_to_ip_on_invalid_bearer():
+    settings = Settings(jwt_secret="super-secret-key-that-is-at-least-32-chars!!")
+    scope = {
+        "type": "http",
+        "method": "GET",
+        "path": "/chats",
+        "headers": [(b"authorization", b"Bearer not-a-jwt")],
+        "client": ("10.0.0.5", 1234),
+    }
+    request = Request(scope)
+    assert _client_key(request, settings) == "ip:10.0.0.5"

@@ -1,4 +1,6 @@
+import asyncio
 import logging
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -42,12 +44,37 @@ async def consolidate_user_memory_sections(
             summary = normalize_memory_text(section.summary)
             if not summary:
                 continue
+            prior = sections.get(section.type, "")
+            if prior and len(summary) < len(prior) * 0.5:
+                logger.warning(
+                    "Skipping consolidation for %s: new text much shorter than existing",
+                    section.type,
+                )
+                continue
             rows.append((section.type, summary, section.confidence, None))
 
         if not rows:
             return False
 
+        upserted_types = {memory_type for memory_type, _, _, _ in rows}
         await memories_repo.upsert_sections(session, user_id=user_id, items=rows)
+        from app.gateways import embedding_gateway
+
+        updated = await memories_repo.list_for_user(session, user_id)
+        embed_tasks: list[tuple[Any, str]] = []
+        for memory in updated:
+            if memory.type in upserted_types:
+                embed_tasks.append((memory, memory.text))
+
+        if embed_tasks:
+            vectors = await asyncio.gather(
+                *(embedding_gateway.embed_text(settings, text) for _, text in embed_tasks)
+            )
+            for (memory, _), vec in zip(embed_tasks, vectors, strict=True):
+                if vec:
+                    memory.embedding = vec
+                    memory.embedding_json = embedding_gateway.serialize_embedding(vec)
+        await session.commit()
         await invalidate_memory_block(user_id)
         return True
     except Exception:

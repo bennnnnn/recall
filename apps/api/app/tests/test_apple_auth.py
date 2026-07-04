@@ -64,3 +64,37 @@ def test_verify_apple_id_token_requires_server_config():
     settings = Settings(apple_client_id="")
     with pytest.raises(GoogleAuthError, match="not configured"):
         verify_apple_id_token("bad.token.here", settings)
+
+
+def test_public_key_for_kid_refetches_jwks_on_kid_miss():
+    import time
+
+    import app.gateways.apple_auth as apple_auth
+
+    _, kid, jwk = _make_apple_token()
+    jwks = {"keys": [{**jwk, "kid": kid, "alg": "RS256", "use": "sig"}]}
+    apple_auth._jwks_cache = {"keys": []}
+    apple_auth._jwks_fetched_at = time.time()
+
+    with patch(
+        "app.gateways.apple_auth._fetch_apple_jwks",
+        side_effect=[{"keys": []}, jwks],
+    ) as fetch:
+        key = apple_auth._public_key_for_kid(kid)
+
+    assert key is not None
+    assert fetch.call_count == 2
+
+
+def test_fetch_apple_jwks_uses_cache_within_ttl():
+    import time
+
+    import app.gateways.apple_auth as apple_auth
+
+    cached = {"keys": [{"kid": "cached"}]}
+    apple_auth._jwks_cache = cached
+    apple_auth._jwks_fetched_at = time.time()
+
+    with patch("app.gateways.apple_auth.httpx.get") as get:
+        assert apple_auth._fetch_apple_jwks() is cached
+    get.assert_not_called()

@@ -23,7 +23,7 @@ def test_stream_message_sse_returns_event_stream():
     with (
         patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
         patch(
-            "app.routers.chat_stream._stream_chat_sse",
+            "app.routers.chat_stream._stream_tokens_sse",
             side_effect=_fake_sse_stream,
         ),
     ):

@@ -84,6 +84,7 @@ async def _augment_web_and_tools(
     on_status: StreamStatusFn | None = None,
     user: User | None = None,
     redis: Redis | None = None,
+    has_calendar_write: bool = False,
 ) -> tuple[list[dict[str, str]], list[WebSearchHit]]:
     """Web search always uses the full direct path; MCP handles calendar/sympy only."""
     import app.services.chat as chat_pkg
@@ -111,6 +112,7 @@ async def _augment_web_and_tools(
             user_location=user_location,
             prior_user_messages=prior_user_messages,
             on_status=on_status,
+            has_calendar_write=has_calendar_write,
         )
 
     if (

@@ -409,6 +409,7 @@ export default function TodosScreen() {
         style: "destructive",
         onPress: async () => {
           if (!token) return;
+          const snapshot = [...todos];
           await cancelTodoReminder(todo.id);
           setTodos((prev) => {
             const next = prev.filter((item) => item.id !== todo.id);
@@ -418,9 +419,12 @@ export default function TodosScreen() {
           try {
             await api.deleteTodo(token, todo.id);
           } catch {
+            setTodos(snapshot);
+            void syncTodoReminders(snapshot);
+            Alert.alert(t("todos.error"), t("todos.error_create"));
+          } finally {
             void refresh({ silent: true, force: true });
           }
-          void refresh({ silent: true, force: true });
         },
       },
     ]);
@@ -445,6 +449,7 @@ export default function TodosScreen() {
           style: "destructive",
           onPress: async () => {
             if (!token) return;
+            const snapshot = [...todos];
             for (const item of items) {
               await cancelTodoReminder(item.id);
             }
@@ -461,9 +466,12 @@ export default function TodosScreen() {
             try {
               await Promise.all(items.map((item) => api.deleteTodo(token, item.id)));
             } catch {
+              setTodos(snapshot);
+              void syncTodoReminders(snapshot);
+              Alert.alert(t("todos.error"), t("todos.error_create"));
+            } finally {
               void refresh({ silent: true, force: true });
             }
-            void refresh({ silent: true, force: true });
           },
         },
       ],

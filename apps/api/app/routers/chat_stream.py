@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import suppress
 from typing import Any
 from uuid import UUID
@@ -19,7 +19,7 @@ from app.core.redis import get_redis_client
 from app.exceptions import ChatServiceError, QuotaExceededError
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.orm import User
-from app.models.schemas import ChatMessageRequest
+from app.models.schemas import ChatMessageRequest, EditMessageRequest
 from app.services import chat as chat_service
 
 logger = logging.getLogger(__name__)
@@ -31,15 +31,31 @@ def _sse(payload: dict[str, Any]) -> str:
     return f"data: {json.dumps(payload, separators=(',', ':'))}\n\n"
 
 
-async def _stream_chat_sse(
+async def _await_finalize_tasks(result: dict[str, Any]) -> None:
+    finalize_db_task = result.pop("_finalize_db_task", None)
+    finalize_jobs_task = result.pop("_finalize_task", None)
+    if finalize_db_task is not None:
+        try:
+            await finalize_db_task
+        except Exception:
+            logger.exception("Failed to finalize SSE chat stream")
+    if finalize_jobs_task is not None:
+        try:
+            await finalize_jobs_task
+        except Exception:
+            logger.exception("Failed to enqueue post-turn jobs SSE")
+
+
+async def _stream_tokens_sse(
     *,
     chat_id: UUID,
-    user_id: UUID,
-    body: ChatMessageRequest,
     settings: Settings,
+    stream_factory: Callable[
+        [dict[str, Any], Callable[[str], Any], Callable[[str], Any]],
+        AsyncIterator[str],
+    ],
     cancel_event: asyncio.Event | None = None,
 ) -> AsyncIterator[str]:
-    redis = get_redis_client()
     result: dict[str, Any] = {}
     event_queue: asyncio.Queue[tuple[str, str] | None] = asyncio.Queue()
     yield _sse({"type": "start"})
@@ -55,23 +71,7 @@ async def _stream_chat_sse(
 
     async def produce_tokens() -> None:
         try:
-            stream = chat_service.stream_chat_response(
-                redis,
-                settings,
-                user_id=user_id,
-                chat_id=chat_id,
-                content=body.content,
-                model_alias=body.model,
-                attachment_ids=body.attachment_ids or None,
-                should_cancel=should_cancel,
-                result=result,
-                client_timezone=body.client_timezone,
-                client_location=body.client_location,
-                client_latitude=body.client_latitude,
-                client_longitude=body.client_longitude,
-                on_status=on_status,
-                on_reasoning=on_reasoning,
-            )
+            stream = stream_factory(result, on_status, on_reasoning)
             async for token_text in stream:
                 if should_cancel():
                     break
@@ -99,13 +99,7 @@ async def _stream_chat_sse(
             raise exc
 
         yield _sse({"type": "stream_end"})
-
-        finalize_task = result.pop("_finalize_db_task", None)
-        if finalize_task is not None:
-            try:
-                await finalize_task
-            except Exception:
-                logger.exception("Failed to finalize SSE chat stream")
+        await _await_finalize_tasks(result)
 
         done: dict[str, Any] = {"type": "done"}
         for key in (
@@ -145,24 +139,9 @@ async def _stream_chat_sse(
                 await producer
 
 
-@router.post("/{chat_id}/messages/stream")
-async def stream_message_sse(
-    chat_id: UUID,
-    body: ChatMessageRequest,
-    user: User = Depends(get_current_user),
-    settings: Settings = Depends(get_settings),
-) -> StreamingResponse:
-    async def generate() -> AsyncIterator[str]:
-        async for chunk in _stream_chat_sse(
-            chat_id=chat_id,
-            user_id=user.id,
-            body=body,
-            settings=settings,
-        ):
-            yield chunk
-
+def _sse_response(body: AsyncIterator[str]) -> StreamingResponse:
     return StreamingResponse(
-        generate(),
+        body,
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -170,3 +149,112 @@ async def stream_message_sse(
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.post("/{chat_id}/messages/stream")
+async def stream_message_sse(
+    chat_id: UUID,
+    body: ChatMessageRequest,
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> StreamingResponse:
+    redis = get_redis_client()
+
+    async def generate() -> AsyncIterator[str]:
+        async for chunk in _stream_tokens_sse(
+            chat_id=chat_id,
+            settings=settings,
+            stream_factory=lambda result,
+            on_status,
+            on_reasoning: chat_service.stream_chat_response(
+                redis,
+                settings,
+                user_id=user.id,
+                chat_id=chat_id,
+                content=body.content,
+                model_alias=body.model,
+                attachment_ids=body.attachment_ids or None,
+                result=result,
+                client_timezone=body.client_timezone,
+                client_location=body.client_location,
+                client_latitude=body.client_latitude,
+                client_longitude=body.client_longitude,
+                on_status=on_status,
+                on_reasoning=on_reasoning,
+            ),
+        ):
+            yield chunk
+
+    return _sse_response(generate())
+
+
+@router.post("/{chat_id}/regenerate/stream")
+async def stream_regenerate_sse(
+    chat_id: UUID,
+    body: ChatMessageRequest,
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> StreamingResponse:
+    redis = get_redis_client()
+
+    async def generate() -> AsyncIterator[str]:
+        async for chunk in _stream_tokens_sse(
+            chat_id=chat_id,
+            settings=settings,
+            stream_factory=lambda result,
+            on_status,
+            on_reasoning: chat_service.stream_regenerate_response(
+                redis,
+                settings,
+                user_id=user.id,
+                chat_id=chat_id,
+                model_alias=body.model,
+                result=result,
+                client_timezone=body.client_timezone,
+                client_location=body.client_location,
+                client_latitude=body.client_latitude,
+                client_longitude=body.client_longitude,
+                on_status=on_status,
+                on_reasoning=on_reasoning,
+            ),
+        ):
+            yield chunk
+
+    return _sse_response(generate())
+
+
+@router.post("/{chat_id}/edit/stream")
+async def stream_edit_sse(
+    chat_id: UUID,
+    body: EditMessageRequest,
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+) -> StreamingResponse:
+    redis = get_redis_client()
+
+    async def generate() -> AsyncIterator[str]:
+        async for chunk in _stream_tokens_sse(
+            chat_id=chat_id,
+            settings=settings,
+            stream_factory=lambda result,
+            on_status,
+            on_reasoning: chat_service.stream_edit_response(
+                redis,
+                settings,
+                user_id=user.id,
+                chat_id=chat_id,
+                message_id=body.message_id,
+                new_content=body.content,
+                model_alias=body.model,
+                result=result,
+                client_timezone=body.client_timezone,
+                client_location=body.client_location,
+                client_latitude=body.client_latitude,
+                client_longitude=body.client_longitude,
+                on_status=on_status,
+                on_reasoning=on_reasoning,
+            ),
+        ):
+            yield chunk
+
+    return _sse_response(generate())

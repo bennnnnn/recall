@@ -65,7 +65,8 @@ def select_memories_for_prompt(memories: list[Memory], settings: Settings) -> li
         if _confidence_value(memory) >= settings.memory_min_confidence and memory.text.strip()
     ]
     filtered.sort(key=lambda m: (TYPE_PRIORITY.get(m.type, 99), -_confidence_value(m)))
-    return filtered[: settings.memory_inject_limit]
+    type_cap = min(settings.memory_inject_limit, len(TYPE_PRIORITY))
+    return filtered[:type_cap]
 
 
 def format_memory_block(memories: list) -> str:
@@ -95,7 +96,11 @@ def select_memories_semantic(
             continue
         scored.append((cosine_similarity(query_embedding, vec), memory))
     scored.sort(key=lambda pair: pair[0], reverse=True)
-    return [memory for _, memory in scored[: settings.memory_inject_limit]]
+    min_sim = settings.memory_min_similarity
+    if min_sim > 0:
+        scored = [(score, memory) for score, memory in scored if score >= min_sim]
+    type_cap = min(settings.memory_inject_limit, len(TYPE_PRIORITY))
+    return [memory for _, memory in scored[:type_cap]]
 
 
 def _memory_query_cache_key(user_id: UUID, query_text: str) -> str:
@@ -188,6 +193,7 @@ async def _warm_semantic_memory_cache(
         if not query_vec:
             return
         redis = get_redis_client()
+        gen_before = await redis.get(_memory_generation_key(user_id))
         embed_key = _memory_query_embed_key(user_id, cleaned)
         ttl = max(60, settings.memory_query_embed_cache_ttl)
         try:
@@ -205,6 +211,9 @@ async def _warm_semantic_memory_cache(
                 return
             memories = await _semantic_memories_from_vec(session, user, settings, query_vec)
             block = format_memory_block(memories)
+            gen_after = await redis.get(_memory_generation_key(user_id))
+            if gen_before != gen_after:
+                return
             query_key = _memory_query_cache_key(user_id, cleaned)
             try:
                 await redis.set(
@@ -296,11 +305,16 @@ def _memory_query_key_prefix(user_id: UUID) -> str:
     return f"memquery:{user_id}:"
 
 
+def _memory_generation_key(user_id: UUID) -> str:
+    return f"memgen:{user_id}"
+
+
 async def invalidate_memory_block(user_id: UUID) -> None:
     """Drop the per-user memory block cache AND any per-query semantic cache
     entries — both can hold stale content after a memory write or delete."""
     try:
         redis = get_redis_client()
+        await redis.incr(_memory_generation_key(user_id))
         await redis.delete(_memory_block_key(user_id))
         # Clear memquery:{user_id}:* entries (semantic recall is query-conditioned
         # and can be stale after an extraction/rewrite/delete).

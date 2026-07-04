@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Animated,
+  BackHandler,
   Pressable,
   StyleSheet,
   useWindowDimensions,
@@ -64,6 +65,15 @@ export function DrawerShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     registerDrawer(open, close);
   }, [open, close]);
+
+  useEffect(() => {
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (!drawerOpen) return false;
+      close();
+      return true;
+    });
+    return () => sub.remove();
+  }, [drawerOpen, close]);
 
   const fakeNav = { openDrawer: open, closeDrawer: close } as any;
   const fakeProps = { navigation: fakeNav } as any;

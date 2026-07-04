@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -30,7 +31,7 @@ type Props = {
   onOpenMenu: () => void;
 };
 
-export function ChatHeader({
+export const ChatHeader = memo(function ChatHeader({
   paddingTop,
   height,
   menuOverlayOpen,
@@ -149,7 +150,7 @@ export function ChatHeader({
       </View>
     </View>
   );
-}
+});
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({

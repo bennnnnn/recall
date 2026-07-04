@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import {
   Pressable,
   StyleSheet,
@@ -60,7 +60,7 @@ type Props = {
   onVoicePress?: () => void;
 };
 
-export function ChatComposer({
+export const ChatComposer = memo(function ChatComposer({
   visible,
   bottom,
   paddingBottom,
@@ -225,7 +225,7 @@ export function ChatComposer({
       </View>
     </View>
   );
-}
+});
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({

@@ -40,7 +40,9 @@ def _public_key_for_kid(kid: str) -> Any:
     for key in jwks.get("keys", []):
         if key.get("kid") == kid:
             return RSAAlgorithm.from_jwk(key)
+    global _jwks_cache, _jwks_fetched_at
     _jwks_cache = None
+    _jwks_fetched_at = 0.0
     jwks = _fetch_apple_jwks()
     for key in jwks.get("keys", []):
         if key.get("kid") == kid:

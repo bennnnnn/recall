@@ -93,3 +93,6 @@ async def transcribe_speech(
         if exc.status_code != status.HTTP_429_TOO_MANY_REQUESTS:
             await quota_service.refund_speech_transcription(redis, user.id)
         raise
+    except Exception:
+        await quota_service.refund_speech_transcription(redis, user.id)
+        raise

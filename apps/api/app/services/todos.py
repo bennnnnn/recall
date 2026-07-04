@@ -1,6 +1,7 @@
 import logging
 import re
 from datetime import UTC, datetime, timedelta
+from difflib import SequenceMatcher
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -297,17 +298,25 @@ async def build_todos_system_section(
     return TODO_HINT
 
 
+def _fuzzy_match(needle: str, haystack: str) -> bool:
+    if needle == haystack:
+        return True
+    if len(needle) < 4 or len(haystack) < 4:
+        return False
+    if needle in haystack or haystack in needle:
+        return True
+    return SequenceMatcher(None, needle, haystack).ratio() >= 0.85
+
+
 def _find_item(items: list[TodoItem], topic: str, content: str) -> TodoItem | None:
     needle = _normalize(content)
     topic_norm = _topic_key(topic)
     candidates = [i for i in items if _topic_key(i.topic) == topic_norm and not i.checked]
-    if not candidates:
-        candidates = [i for i in items if not i.checked]
     for item in candidates:
         if _normalize(item.content) == needle:
             return item
     for item in candidates:
-        if needle in _normalize(item.content) or _normalize(item.content) in needle:
+        if _fuzzy_match(needle, _normalize(item.content)):
             return item
     return None
 
@@ -316,13 +325,11 @@ def _find_item_any_state(items: list[TodoItem], topic: str, content: str) -> Tod
     needle = _normalize(content)
     topic_norm = _topic_key(topic)
     candidates = [i for i in items if _topic_key(i.topic) == topic_norm]
-    if not candidates:
-        candidates = list(items)
     for item in candidates:
         if _normalize(item.content) == needle:
             return item
     for item in candidates:
-        if needle in _normalize(item.content) or _normalize(item.content) in needle:
+        if _fuzzy_match(needle, _normalize(item.content)):
             return item
     return None
 

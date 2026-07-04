@@ -3,6 +3,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.client_ip import client_ip
 from app.core.config import Settings
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_redis, get_settings_dep, security
@@ -30,15 +31,6 @@ from app.services import tokens as tokens_service
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-def _client_ip(request: Request) -> str:
-    # Trust X-Forwarded-For when present (deploy behind a proxy that sets it).
-    # Take the first hop; fall back to the direct connection.
-    forwarded = request.headers.get("x-forwarded-for", "")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
-
-
 @router.post("/google", response_model=AuthResponse)
 async def google_login(
     body: GoogleAuthRequest,
@@ -51,7 +43,7 @@ async def google_login(
     # limit and lock real users out of signing in.
     allowed = await allow_request(
         redis,
-        f"rate:auth:google:{_client_ip(request)}",
+        f"rate:auth:google:{client_ip(request, settings)}",
         limit=30,
         window_seconds=60,
     )
@@ -76,7 +68,7 @@ async def apple_login(
 ) -> AuthResponse:
     allowed = await allow_request(
         redis,
-        f"rate:auth:apple:{_client_ip(request)}",
+        f"rate:auth:apple:{client_ip(request, settings)}",
         limit=30,
         window_seconds=60,
     )

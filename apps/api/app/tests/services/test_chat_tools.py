@@ -26,6 +26,7 @@ async def test_mcp_tools_calendar_create_hint():
         messages,
         user_text,
         settings,
+        has_calendar_write=True,
     )
     assert len(result) == 2
     assert result[0]["role"] == "system"

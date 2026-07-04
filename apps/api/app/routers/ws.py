@@ -33,6 +33,15 @@ async def _safe_send_json(websocket: WebSocket, payload: dict) -> bool:
         return False
 
 
+async def _ws_rate_limit(redis, user_id: UUID) -> bool:
+    return await allow_request(
+        redis,
+        f"rate:ws:msg:{user_id}",
+        limit=30,
+        window_seconds=60,
+    )
+
+
 async def _stream_over_ws(
     websocket: WebSocket,
     stream: AsyncIterator[str],
@@ -78,12 +87,18 @@ async def _stream_over_ws(
         if not await _safe_send_json(websocket, {"type": "stream_end"}):
             return
 
-        finalize_task = result.pop("_finalize_db_task", None)
-        if finalize_task is not None:
+        finalize_db_task = result.pop("_finalize_db_task", None)
+        finalize_jobs_task = result.pop("_finalize_task", None)
+        if finalize_db_task is not None:
             try:
-                await finalize_task
+                await finalize_db_task
             except Exception:
                 logger.exception("Failed to finalize chat stream")
+        if finalize_jobs_task is not None:
+            try:
+                await finalize_jobs_task
+            except Exception:
+                logger.exception("Failed to enqueue post-turn jobs")
 
         done: dict[str, str] = {"type": "done"}
         message_id = result.get("message_id")
@@ -244,6 +259,11 @@ async def chat_websocket(
                 continue
 
             if msg_type == "regenerate":
+                if not await _ws_rate_limit(redis, user_id):
+                    await websocket.send_json(
+                        {"type": "error", "message": "Too many requests. Try again shortly."},
+                    )
+                    continue
                 try:
                     request = ChatMessageRequest.model_validate(payload)
                 except ValidationError:
@@ -301,6 +321,11 @@ async def chat_websocket(
                 continue
 
             if msg_type == "edit":
+                if not await _ws_rate_limit(redis, user_id):
+                    await websocket.send_json(
+                        {"type": "error", "message": "Too many requests. Try again shortly."},
+                    )
+                    continue
                 try:
                     request = EditMessageRequest.model_validate(payload)
                 except ValidationError:
@@ -362,6 +387,12 @@ async def chat_websocket(
                 continue
 
             if msg_type != "message":
+                continue
+
+            if not await _ws_rate_limit(redis, user_id):
+                await websocket.send_json(
+                    {"type": "error", "message": "Too many requests. Try again shortly."},
+                )
                 continue
 
             content = payload.get("content", "").strip()

@@ -1,11 +1,25 @@
+import { hasVocabCardFence } from "@/lib/parseVocabCard";
+import { hasVocabQuizFence } from "@/lib/parseVocabQuiz";
+
 /** Typical bubble height for FlashList layout hints (variable-height items). */
 export const ESTIMATED_MESSAGE_HEIGHT = 88;
 
 /** Delay post-stream UI (actions, link previews, sources) so layout settles once. */
 export const STREAM_LAYOUT_SETTLE_MS = 280;
 
-export function messageListItemType(item: { id: string; role: string }): string {
-  return item.role;
+const CALENDAR_PROPOSAL_FENCE_RE = /```calendar_proposal/i;
+
+export function messageListItemType(item: {
+  id: string;
+  role: string;
+  content?: string;
+}): string {
+  if (item.role !== "assistant") return item.role;
+  const content = item.content ?? "";
+  if (hasVocabQuizFence(content)) return "assistant-quiz";
+  if (hasVocabCardFence(content)) return "assistant-vocab";
+  if (CALENDAR_PROPOSAL_FENCE_RE.test(content)) return "assistant-calendar";
+  return "assistant";
 }
 
 export function messageListKey(item: { id: string; renderKey?: string }): string {

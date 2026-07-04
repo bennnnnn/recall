@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import logging
 import re
@@ -180,10 +181,10 @@ async def list_recent_messages(
             list_data = list_resp.json()
             message_refs = list_data.get("messages") or []
 
-            for ref in message_refs[:max_messages]:
+            async def _fetch_message(ref: dict[str, object]) -> GmailMessage | None:
                 msg_id = str(ref.get("id") or "")
                 if not msg_id:
-                    continue
+                    return None
                 detail_resp = await client.get(
                     f"{GMAIL_MESSAGES_URL}/{msg_id}",
                     params={"format": "full"},
@@ -208,18 +209,25 @@ async def list_recent_messages(
                         received_at = None
 
                 body_text, ics_content = _walk_parts(payload)
-                messages.append(
-                    GmailMessage(
-                        id=msg_id,
-                        subject=subject,
-                        snippet=snippet,
-                        body_text=body_text or snippet,
-                        received_at=received_at,
-                        ics_content=ics_content,
-                        from_address=from_address,
-                        label_ids=label_ids,
-                    )
+                return GmailMessage(
+                    id=msg_id,
+                    subject=subject,
+                    snippet=snippet,
+                    body_text=body_text or snippet,
+                    received_at=received_at,
+                    ics_content=ics_content,
+                    from_address=from_address,
+                    label_ids=label_ids,
                 )
+
+            sem = asyncio.Semaphore(8)
+
+            async def _bounded(ref: dict[str, object]) -> GmailMessage | None:
+                async with sem:
+                    return await _fetch_message(ref)
+
+            fetched = await asyncio.gather(*(_bounded(ref) for ref in message_refs[:max_messages]))
+            messages.extend(msg for msg in fetched if msg is not None)
     except GoogleGmailError:
         raise
     except Exception as exc:

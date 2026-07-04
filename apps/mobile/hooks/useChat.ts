@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { chatWebSocketUrl, Message, SearchSource } from "@/lib/api";
-import { streamChatMessageSse, type ChatSsePayload } from "@/lib/chatSse";
+import { streamChatEditSse, streamChatMessageSse, streamChatRegenerateSse, type ChatSsePayload } from "@/lib/chatSse";
 import { clientGeoWsFields, type ClientGeo } from "@/lib/clientGeo";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { isVocabQuizAnswer } from "@/lib/parseVocabQuiz";
@@ -48,15 +48,34 @@ export function useChat(
   const assistantBuffer = useRef("");
   const reasoningBuffer = useRef("");
   const streamingDraftRef = useRef<StreamingDraft | null>(null);
+  const draftRafRef = useRef<number | null>(null);
   const streamingRef = useRef(false);
   const finalizingRef = useRef(false);
   /** Prior assistant reply kept until regenerate succeeds or is rolled back. */
   const regenerateBackupRef = useRef<Message | null>(null);
 
-  const updateStreamingDraft = useCallback((draft: StreamingDraft | null) => {
-    streamingDraftRef.current = draft;
-    setStreamingDraft(draft);
+  const flushStreamingDraft = useCallback(() => {
+    draftRafRef.current = null;
+    setStreamingDraft(streamingDraftRef.current);
   }, []);
+
+  const updateStreamingDraft = useCallback(
+    (draft: StreamingDraft | null) => {
+      streamingDraftRef.current = draft;
+      if (draft === null) {
+        if (draftRafRef.current != null) {
+          cancelAnimationFrame(draftRafRef.current);
+          draftRafRef.current = null;
+        }
+        setStreamingDraft(null);
+        return;
+      }
+      if (draftRafRef.current == null) {
+        draftRafRef.current = requestAnimationFrame(flushStreamingDraft);
+      }
+    },
+    [flushStreamingDraft],
+  );
   const firstReplyRef = useRef(false);
   const onFirstReplyRef = useRef(options.onFirstReply);
   const onErrorRef = useRef(options.onError);
@@ -115,6 +134,9 @@ export function useChat(
 
   useEffect(() => {
     return () => {
+      if (draftRafRef.current != null) {
+        cancelAnimationFrame(draftRafRef.current);
+      }
       wsRef.current?.close();
     };
   }, []);
@@ -376,6 +398,25 @@ export function useChat(
     [token, chatId, handleChatPayload, clearStreamingBubble, reportError],
   );
 
+  const regenerateViaSse = useCallback(
+    async (model?: string | null, clientGeo?: ClientGeo | null) => {
+      if (!token || !chatId) return;
+      try {
+        await streamChatRegenerateSse({
+          token,
+          chatId,
+          model,
+          clientGeo,
+          onEvent: handleChatPayload,
+        });
+      } catch {
+        restoreRegenerateBackup();
+        reportError("Couldn't reach the server. Check your connection and try again.");
+      }
+    },
+    [token, chatId, handleChatPayload, restoreRegenerateBackup, reportError],
+  );
+
   const ensureConnected = useCallback(async () => {
     try {
       await connect();
@@ -476,9 +517,8 @@ export function useChat(
       appendStreamingPlaceholder();
 
       await ensureConnected();
-      if (wsRef.current?.readyState !== WebSocket.OPEN) {
-        restoreRegenerateBackup();
-        reportError("Couldn't reach the server. Check your connection and try again.");
+      if (preferSseRef.current || wsRef.current?.readyState !== WebSocket.OPEN) {
+        await regenerateViaSse(model, clientGeo);
         return;
       }
 
@@ -495,8 +535,7 @@ export function useChat(
       chatId,
       ensureConnected,
       appendStreamingPlaceholder,
-      restoreRegenerateBackup,
-      reportError,
+      regenerateViaSse,
       updateStreamingDraft,
     ],
   );
@@ -510,11 +549,12 @@ export function useChat(
     ) => {
       if (!token || !chatId || !content.trim()) return;
 
+      let snapshot: Message[] = [];
+      const localId = `local-edit-${Date.now()}`;
       setMessages((prev) => {
+        snapshot = prev;
         const index = prev.findIndex((m) => m.id === messageId);
         if (index < 0) return prev;
-        const localId = `local-edit-${Date.now()}`;
-        setSendingMessageId(localId);
         return [
           ...prev.slice(0, index),
           {
@@ -526,11 +566,29 @@ export function useChat(
           },
         ];
       });
+      setSendingMessageId(localId);
+
+      const rollbackEdit = () => {
+        setSendingMessageId(null);
+        setMessages(snapshot);
+      };
 
       await ensureConnected();
-      if (wsRef.current?.readyState !== WebSocket.OPEN) {
-        setSendingMessageId(null);
-        reportError("Couldn't reach the server. Check your connection and try again.");
+      if (preferSseRef.current || wsRef.current?.readyState !== WebSocket.OPEN) {
+        try {
+          await streamChatEditSse({
+            token,
+            chatId,
+            messageId,
+            content: content.trim(),
+            model,
+            clientGeo,
+            onEvent: handleChatPayload,
+          });
+        } catch {
+          rollbackEdit();
+          reportError("Couldn't reach the server. Check your connection and try again.");
+        }
         return;
       }
 
@@ -546,7 +604,7 @@ export function useChat(
         }),
       );
     },
-    [token, chatId, ensureConnected],
+    [token, chatId, ensureConnected, handleChatPayload, reportError],
   );
 
   const stopGeneration = useCallback(() => {

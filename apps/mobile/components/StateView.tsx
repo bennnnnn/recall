@@ -1,5 +1,6 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 
 import { Theme, useTheme } from "@/lib/theme";
 import { tap } from "@/lib/haptics";
@@ -22,11 +23,13 @@ export function StateView({
   message,
   icon,
   onRetry,
-  retryLabel = "Retry",
+  retryLabel,
   compact = false,
 }: Props) {
+  const { t } = useTranslation();
   const theme = useTheme();
   const s = makeStyles(theme, compact);
+  const resolvedRetryLabel = retryLabel ?? (onRetry ? t("common.retry") : undefined);
 
   if (variant === "loading") {
     return (
@@ -57,7 +60,7 @@ export function StateView({
             onRetry();
           }}
         >
-          <Text style={s.retryText}>{retryLabel}</Text>
+          <Text style={s.retryText}>{resolvedRetryLabel}</Text>
         </Pressable>
       ) : null}
     </View>

@@ -1,4 +1,3 @@
-import asyncio
 import json
 import logging
 from collections.abc import AsyncIterator, Callable
@@ -7,6 +6,7 @@ from uuid import UUID
 
 from redis.asyncio import Redis
 
+from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.exceptions import ChatNotFoundError, QuotaExceededError
@@ -88,6 +88,9 @@ async def stream_chat_response(
             on_status=on_status,
         )
     except ChatNotFoundError:
+        await chat_pkg.quota_service.refund_usage(redis, str(user_id), reserved)
+        raise
+    except ModelUnavailableError:
         await chat_pkg.quota_service.refund_usage(redis, str(user_id), reserved)
         raise
     except Exception:
@@ -416,8 +419,9 @@ async def stream_and_finalize(
     if result is not None and was_cancelled and assistant_text:
         result["final_content"] = assistant_text
 
-    finalize_db_task = asyncio.create_task(
+    finalize_db_task = create_background_task(
         finalize_stream_turn_db(redis, ctx, assistant_text, usage, result),
+        name="finalize_stream_turn_db",
     )
     finalize_db_task.add_done_callback(
         lambda t: logger.exception("Background DB finalization failed", exc_info=t.exception())
@@ -432,7 +436,7 @@ async def stream_and_finalize(
         except Exception:
             logger.exception("Background job enqueue failed")
 
-    jobs_task = asyncio.create_task(_run_jobs_after_db())
+    jobs_task = create_background_task(_run_jobs_after_db(), name="post_turn_jobs")
     jobs_task.add_done_callback(
         lambda t: logger.exception("Background finalization failed", exc_info=t.exception())
         if t.exception()

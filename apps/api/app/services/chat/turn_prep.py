@@ -281,6 +281,7 @@ async def build_stream_prompt_context(
             )
 
         if pending:
+            await session.commit()
             results = await asyncio.gather(*(task for _, task in pending))
             for (label, _), result in zip(pending, results, strict=True):
                 if label == "calendar":
@@ -335,6 +336,8 @@ async def build_stream_prompt_context(
         and not chat_pkg.calendar_service.is_external_calendar_question(content)
         and not chat_pkg.email_service.is_external_email_question(content)
     ):
+        await session.commit()
+        has_calendar_write = await chat_pkg.calendar_service.has_write_access(session, user.id)
         prompt_messages, search_sources = await chat_pkg._augment_web_and_tools(
             prompt_messages,
             content,
@@ -348,6 +351,7 @@ async def build_stream_prompt_context(
             on_status=on_status,
             user=user,
             redis=redis,
+            has_calendar_write=has_calendar_write,
         )
 
     return TurnPromptBundle(
@@ -495,6 +499,8 @@ async def prepare_chat_turn(
                 )
                 todos_pre_synced = True
                 todo_sync_feedback = chat_pkg.todos_service.format_todo_sync_feedback(feedback)
+
+        await session.commit()
 
         bundle = await build_stream_prompt_context(
             session,

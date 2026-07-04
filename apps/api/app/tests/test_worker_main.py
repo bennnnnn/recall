@@ -42,3 +42,11 @@ async def test_run_worker_starts_and_shuts_down():
     stop_worker.assert_awaited_once()
     engine_mock.dispose.assert_awaited_once()
     redis.aclose.assert_awaited_once()
+
+
+def test_worker_main_calls_asyncio_run():
+    with patch("app.worker_main.asyncio.run") as run_mock:
+        from app.worker_main import main
+
+        main()
+    run_mock.assert_called_once()

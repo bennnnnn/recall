@@ -82,7 +82,7 @@ async def _search_with_cache(
         return []
 
     cache_key = _search_cache_key(cleaned, max_results)
-    redis = get_redis_client()
+    redis = redis or get_redis_client()
 
     def _hits_from_payload(payload: object) -> list[WebSearchHit] | None:
         if not isinstance(payload, list):

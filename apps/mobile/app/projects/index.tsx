@@ -18,6 +18,7 @@ import { useTranslation } from "react-i18next";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjects } from "@/contexts/ProjectsContext";
+import { StateView } from "@/components/StateView";
 import { api, type LanguageLevel, type ProjectKind } from "@/lib/api";
 import { LANGUAGE_LEVELS, levelLabel } from "@/lib/languageLevels";
 import { findLanguageProject } from "@/lib/languageProject";
@@ -377,7 +378,12 @@ export default function ProjectsScreen() {
           ) : null}
 
           {error ? (
-            <Text style={s.empty}>{t("common.error")}</Text>
+            <StateView
+              variant="error"
+              title={t("common.error")}
+              onRetry={() => void refresh()}
+              retryLabel={t("common.retry")}
+            />
           ) : (
             visibleProjects.map((project) => (
               <Pressable
