@@ -568,7 +568,7 @@ async def prepare_chat_turn(
         )
         is_letter_answer = web_search_service.is_vocab_quiz_answer(content)
         minimal_quiz = is_letter_answer and getattr(chat, "quiz_mode", None) != "chat"
-        if is_letter_answer and minimal_quiz:
+        if is_letter_answer and minimal_quiz and chat.project_id is not None:
             prior_assistant = await chat_pkg.messages_repo.get_last_assistant(session, chat_id)
             if prior_assistant is not None:
                 try:
