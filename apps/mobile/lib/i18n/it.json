@@ -643,6 +643,7 @@
   "todos.empty_title": "Nessuna attività",
   "todos.error": "Errore",
   "todos.error_create": "Impossibile creare l'attività",
+  "todos.error_delete": "Impossibile eliminare",
   "todos.error_due": "Impossibile aggiornare la data",
   "todos.error_toggle": "Impossibile aggiornare",
   "todos.move_to_todos": "Rimuovi data (sposta in lista)",

@@ -421,7 +421,7 @@ export default function TodosScreen() {
           } catch {
             setTodos(snapshot);
             void syncTodoReminders(snapshot);
-            Alert.alert(t("todos.error"), t("todos.error_create"));
+            Alert.alert(t("todos.error"), t("todos.error_delete"));
           } finally {
             void refresh({ silent: true, force: true });
           }
@@ -461,6 +461,7 @@ export default function TodosScreen() {
               void syncTodoReminders(filtered);
               return filtered;
             });
+            const snapshotOrder = [...groupOrder];
             const nextOrder = groupOrder.filter((entry) => entry !== topic);
             await persistGroupOrder(nextOrder);
             try {
@@ -468,7 +469,8 @@ export default function TodosScreen() {
             } catch {
               setTodos(snapshot);
               void syncTodoReminders(snapshot);
-              Alert.alert(t("todos.error"), t("todos.error_create"));
+              await persistGroupOrder(snapshotOrder);
+              Alert.alert(t("todos.error"), t("todos.error_delete"));
             } finally {
               void refresh({ silent: true, force: true });
             }

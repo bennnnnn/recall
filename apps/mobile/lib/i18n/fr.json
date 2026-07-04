@@ -643,6 +643,7 @@
   "todos.empty_title": "Aucune tâche",
   "todos.error": "Erreur",
   "todos.error_create": "Impossible de créer la tâche",
+  "todos.error_delete": "Impossible de supprimer",
   "todos.error_due": "Impossible de mettre à jour la date",
   "todos.error_toggle": "Impossible de mettre à jour",
   "todos.move_to_todos": "Retirer la date (déplacer vers la liste)",

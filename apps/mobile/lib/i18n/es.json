@@ -643,6 +643,7 @@
   "todos.empty_title": "Sin tareas aún",
   "todos.error": "Error",
   "todos.error_create": "No se pudo crear la tarea",
+  "todos.error_delete": "No se pudo eliminar",
   "todos.error_due": "No se pudo actualizar la fecha",
   "todos.error_toggle": "No se pudo actualizar",
   "todos.move_to_todos": "Quitar fecha (mover a la lista)",
