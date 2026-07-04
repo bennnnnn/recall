@@ -9,11 +9,20 @@ from app.core.config import Settings
 
 
 class _FakeSessionCM:
-    async def __aenter__(self):
-        return AsyncMock()
+    def __init__(self, session: AsyncMock | None = None) -> None:
+        self._session = session or AsyncMock()
 
-    async def __aexit__(self, *args):
-        return False
+    async def __aenter__(self) -> AsyncMock:
+        return self._session
+
+    async def __aexit__(self, *args: object) -> None:
+        return None
+
+
+def _memory_extraction_sessions(*, count: int = 1) -> tuple[AsyncMock, list[_FakeSessionCM]]:
+    session = AsyncMock()
+    session.commit = AsyncMock()
+    return session, [_FakeSessionCM(session) for _ in range(count)]
 
 
 # ── memory service ─────────────────────────────────────────────────────────────
@@ -182,7 +191,12 @@ async def test_extract_and_store_no_result():
     from app.background.memory_extraction import extract_and_store_memories
 
     settings = Settings(memory_min_confidence=0.5)
+    _, session_locals = _memory_extraction_sessions()
     with (
+        patch(
+            "app.background.memory_extraction.SessionLocal",
+            side_effect=session_locals,
+        ),
         patch(
             "app.background.memory_extraction.users_repo.get_by_id",
             AsyncMock(return_value=MagicMock(memory_enabled=True)),
@@ -198,7 +212,7 @@ async def test_extract_and_store_no_result():
     ):
         # should not raise
         await extract_and_store_memories(
-            AsyncMock(), settings, user_id=uuid4(), chat_id=uuid4(), transcript="hello"
+            settings, user_id=uuid4(), chat_id=uuid4(), transcript="hello"
         )
 
 
@@ -215,7 +229,12 @@ async def test_extract_and_store_filters_confidence():
         ]
     )
     upsert = AsyncMock()
+    _, session_locals = _memory_extraction_sessions(count=2)
     with (
+        patch(
+            "app.background.memory_extraction.SessionLocal",
+            side_effect=session_locals,
+        ),
         patch(
             "app.background.memory_extraction.users_repo.get_by_id",
             AsyncMock(return_value=MagicMock(memory_enabled=True)),
@@ -232,7 +251,7 @@ async def test_extract_and_store_filters_confidence():
         patch("app.services.memory.invalidate_memory_block", AsyncMock()),
     ):
         await extract_and_store_memories(
-            AsyncMock(), settings, user_id=uuid4(), chat_id=uuid4(), transcript="chat"
+            settings, user_id=uuid4(), chat_id=uuid4(), transcript="chat"
         )
     upsert.assert_awaited_once()
     items = upsert.call_args.kwargs["items"]
@@ -245,7 +264,12 @@ async def test_extract_and_store_swallows_exception():
     from app.background.memory_extraction import extract_and_store_memories
 
     settings = Settings()
+    _, session_locals = _memory_extraction_sessions()
     with (
+        patch(
+            "app.background.memory_extraction.SessionLocal",
+            side_effect=session_locals,
+        ),
         patch(
             "app.background.memory_extraction.users_repo.get_by_id",
             AsyncMock(return_value=MagicMock(memory_enabled=True)),
@@ -260,9 +284,7 @@ async def test_extract_and_store_swallows_exception():
         ),
     ):
         # must not raise
-        await extract_and_store_memories(
-            AsyncMock(), settings, user_id=uuid4(), chat_id=uuid4(), transcript="t"
-        )
+        await extract_and_store_memories(settings, user_id=uuid4(), chat_id=uuid4(), transcript="t")
 
 
 @pytest.mark.asyncio
@@ -270,7 +292,12 @@ async def test_extract_and_store_skips_when_memory_disabled():
     from app.background.memory_extraction import extract_and_store_memories
 
     settings = Settings()
+    _, session_locals = _memory_extraction_sessions()
     with (
+        patch(
+            "app.background.memory_extraction.SessionLocal",
+            side_effect=session_locals,
+        ),
         patch(
             "app.background.memory_extraction.users_repo.get_by_id",
             AsyncMock(return_value=MagicMock(memory_enabled=False)),
@@ -280,9 +307,7 @@ async def test_extract_and_store_skips_when_memory_disabled():
             AsyncMock(side_effect=AssertionError("should not be called")),
         ),
     ):
-        await extract_and_store_memories(
-            AsyncMock(), settings, user_id=uuid4(), chat_id=uuid4(), transcript="t"
-        )
+        await extract_and_store_memories(settings, user_id=uuid4(), chat_id=uuid4(), transcript="t")
 
 
 @pytest.mark.asyncio
@@ -310,8 +335,13 @@ async def test_extract_and_store_reembeds_when_text_changed():
     updated.embedding_json = "[0.1,0.2]"
 
     embed_calls = AsyncMock(return_value=[0.9, 0.8])
+    _, session_locals = _memory_extraction_sessions(count=2)
 
     with (
+        patch(
+            "app.background.memory_extraction.SessionLocal",
+            side_effect=session_locals,
+        ),
         patch(
             "app.background.memory_extraction.users_repo.get_by_id",
             AsyncMock(return_value=MagicMock(memory_enabled=True)),
@@ -329,11 +359,62 @@ async def test_extract_and_store_reembeds_when_text_changed():
         patch("app.gateways.embedding_gateway.embed_text", embed_calls),
         patch("app.gateways.embedding_gateway.serialize_embedding", return_value="[0.9,0.8]"),
     ):
-        await extract_and_store_memories(
-            AsyncMock(), settings, user_id=uuid4(), chat_id=uuid4(), transcript="t"
-        )
+        await extract_and_store_memories(settings, user_id=uuid4(), chat_id=uuid4(), transcript="t")
 
     embed_calls.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_extract_and_store_memories_releases_db_before_llm():
+    from app.background.memory_extraction import extract_and_store_memories
+
+    session = AsyncMock()
+    session.commit = AsyncMock()
+    db_open_during_extract: list[bool] = []
+
+    class _FakeSessionCM:
+        def __init__(self) -> None:
+            self.open = False
+
+        async def __aenter__(self) -> AsyncMock:
+            self.open = True
+            return session
+
+        async def __aexit__(self, *args: object) -> None:
+            self.open = False
+            return None
+
+    load_cm = _FakeSessionCM()
+    apply_cm = _FakeSessionCM()
+
+    async def fake_revise(*_args: object, **_kwargs: object) -> None:
+        db_open_during_extract.append(load_cm.open or apply_cm.open)
+        return None
+
+    with (
+        patch("app.background.memory_extraction.SessionLocal", side_effect=[load_cm, apply_cm]),
+        patch(
+            "app.background.memory_extraction.users_repo.get_by_id",
+            AsyncMock(return_value=MagicMock(memory_enabled=True)),
+        ),
+        patch(
+            "app.background.memory_extraction.memories_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.background.memory_extraction.litellm_gateway.revise_memory_sections",
+            AsyncMock(side_effect=fake_revise),
+        ),
+    ):
+        await extract_and_store_memories(
+            Settings(),
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            transcript="User: hi\nAssistant: hello",
+        )
+
+    assert db_open_during_extract == [False]
+    assert session.commit.await_count == 1
 
 
 # ── topic service ──────────────────────────────────────────────────────────────
