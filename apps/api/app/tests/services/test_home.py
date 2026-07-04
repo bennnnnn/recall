@@ -572,7 +572,9 @@ def test_project_starters_language_not_started():
 
 def test_project_starters_language_review_when_due():
     project = _project()
-    stats = ProjectStats(total=10, due_for_review=3, learning_count=4, new_count=2, mastered_count=1)
+    stats = ProjectStats(
+        total=10, due_for_review=3, learning_count=4, new_count=2, mastered_count=1
+    )
     starters = home_service._project_starters(project, stats)
     assert starters[0].text == "Review Learning English"
 

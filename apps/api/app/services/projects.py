@@ -27,6 +27,7 @@ async def _invalidate_home_for_user(user_id: UUID) -> None:
 
     await home_service.invalidate_home_cache(user_id)
 
+
 # Defensive caps for LLM-inferred project mutations applied from a transcript.
 MAX_PROJECT_ACTIONS_PER_TURN = 3
 # Whole-project / whole-deck deletes are too destructive to apply from a model's
@@ -823,7 +824,8 @@ async def load_daily_learning_summary_for_prompt(
     client_timezone: str | None = None,
 ) -> str:
     """Compact today-only stats for end-of-day reflection (not full word lists)."""
-    from app.services import daily_learning, time_context as time_context_service
+    from app.services import daily_learning
+    from app.services import time_context as time_context_service
 
     projects = await projects_repo.list_for_user(
         session, user.id, limit=settings.project_inject_limit

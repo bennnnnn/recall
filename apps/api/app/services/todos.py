@@ -681,9 +681,7 @@ async def _apply_extracted_todo_actions(
         )
         if bulk_applied:
             if feedback is not None:
-                feedback.append(
-                    f"Moved {bulk_applied} reminder(s) due today to tomorrow."
-                )
+                feedback.append(f"Moved {bulk_applied} reminder(s) due today to tomorrow.")
             logger.info(
                 "Bulk-shifted %d todo(s) due today → tomorrow for user_id=%s",
                 bulk_applied,

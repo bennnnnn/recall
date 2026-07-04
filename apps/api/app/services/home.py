@@ -29,10 +29,9 @@ from app.repositories import projects as projects_repo
 from app.repositories import suggestions as suggestions_repo
 from app.repositories import todos as todos_repo
 from app.services import calendar as calendar_service
-from app.services import daily_learning
+from app.services import daily_learning, reminder_timing
 from app.services import email as email_service
 from app.services import memory as memory_service
-from app.services import reminder_timing
 
 logger = logging.getLogger(__name__)
 from app.services import time_context as time_context_service
@@ -370,8 +369,10 @@ def _memory_blocked_by_completed_daily(
     ):
         return True
 
-    if trivia_done and memory.type == "project" and re.search(
-        r"\b(general\s+knowledge|trivia)\b", text, re.I
+    if (
+        trivia_done
+        and memory.type == "project"
+        and re.search(r"\b(general\s+knowledge|trivia)\b", text, re.I)
     ):
         return True
 
@@ -575,9 +576,7 @@ def _project_subtitle(
         if stats.total == 0:
             return f'Start your daily "{title}" quiz.'
         if stats.mastered_today > 0:
-            return (
-                f'{stats.mastered_today}/{daily_goal} correct on "{title}" today — keep going?'
-            )
+            return f'{stats.mastered_today}/{daily_goal} correct on "{title}" today — keep going?'
         return f'Ready for today\'s "{title}" quiz?'
     if stats.total > 0:
         return f'Pick up your "{title}" project?'
@@ -697,8 +696,7 @@ async def _integration_starters(
                 HomeStarter(
                     text="Today's calendar",
                     prompt=(
-                        "What's on my calendar for the rest of today "
-                        "and what should I prepare for?"
+                        "What's on my calendar for the rest of today and what should I prepare for?"
                     ),
                     kind="general",
                 )
@@ -708,8 +706,7 @@ async def _integration_starters(
                 HomeStarter(
                     text="Tomorrow's calendar",
                     prompt=(
-                        "What's on my calendar tomorrow "
-                        "and what should I prepare ahead of time?"
+                        "What's on my calendar tomorrow and what should I prepare ahead of time?"
                     ),
                     kind="general",
                 )
@@ -724,8 +721,7 @@ async def _integration_starters(
             HomeStarter(
                 text="Email to handle",
                 prompt=(
-                    "Check my inbox — anything I need to reply to "
-                    "or follow up on this morning?"
+                    "Check my inbox — anything I need to reply to or follow up on this morning?"
                 ),
                 kind="general",
             )
@@ -860,9 +856,7 @@ async def build_home_screen(
         *(title for title, _kind in completed_daily),
     ]
     chat_match = (
-        None
-        if project_highlight
-        else _chat_starter(recent_titles, skip_overlapping=chat_skip)
+        None if project_highlight else _chat_starter(recent_titles, skip_overlapping=chat_skip)
     )
     if chat_match:
         add(chat_match[0])
