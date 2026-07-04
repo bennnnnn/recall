@@ -638,7 +638,7 @@ async def _load_project_home_content(
                 user_id,
                 timezone_name=str(home_tz.key),
             )
-            stats = ProjectStats(**stats_raw)
+            stats = ProjectStats.model_validate(stats_raw)
             daily_goal = daily_learning.resolve_daily_goal(candidate)
             if stats.mastered_today >= daily_goal:
                 completed_daily.append((candidate.title.strip(), _daily_home_kind(candidate)))
@@ -662,7 +662,7 @@ async def _load_project_home_content(
         user_id,
         timezone_name=str(home_tz.key),
     )
-    stats = ProjectStats(**stats_raw)
+    stats = ProjectStats.model_validate(stats_raw)
     highlight = _project_highlight(primary, stats, home_tz=home_tz)
     completed_daily = []
     if highlight is None and _is_daily_home_project(primary):

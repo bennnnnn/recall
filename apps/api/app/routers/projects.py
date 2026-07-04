@@ -99,7 +99,7 @@ async def get_project(
         stats_raw = await project_items_repo.count_stats(
             session, project_id, user.id, timezone_name=user.timezone or "UTC"
         )
-        stats = ProjectStats(**stats_raw)
+        stats = ProjectStats.model_validate(stats_raw)
         summaries = await project_items_repo.pos_group_summaries(session, user.id, project_id)
         pos_groups = [ProjectPosGroupSummary.model_validate(s) for s in summaries]
         deck_rows = await project_items_repo.deck_summaries(session, user.id, project_id)
@@ -122,7 +122,7 @@ async def get_project(
         stats_raw = await project_items_repo.count_stats(
             session, project_id, user.id, timezone_name=user.timezone or "UTC"
         )
-        stats = ProjectStats(**stats_raw)
+        stats = ProjectStats.model_validate(stats_raw)
         lists = projects_service.group_trivia_items(project_items)
         return ProjectDetailOut(
             **ProjectOut.model_validate(item).model_dump(),

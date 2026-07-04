@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.models.orm import TodoItem, User
+from app.models.orm import Message, TodoItem, User
 from app.models.schemas import TodoActionItem, TodoExtractionResult
 from app.repositories import todos as todos_repo
 from app.repositories import users as users_repo
@@ -364,13 +364,11 @@ def transcript_implies_todo_sync(transcript: str) -> bool:
     return bool(_TODO_SYNC_TRANSCRIPT.search(text))
 
 
-def format_chat_transcript(messages: list[object]) -> str:
+def format_chat_transcript(messages: list[Message]) -> str:
     lines: list[str] = []
     for msg in messages:
-        role = getattr(msg, "role", "")
-        content = getattr(msg, "content", "")
-        prefix = "User" if role == "user" else "Assistant"
-        lines.append(f"{prefix}: {content}")
+        prefix = "User" if msg.role == "user" else "Assistant"
+        lines.append(f"{prefix}: {msg.content}")
     return "\n".join(lines)
 
 

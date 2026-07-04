@@ -931,7 +931,7 @@ def group_by_part_of_speech(items: list[ProjectItem]) -> list[ProjectPosGroup]:
 
 def build_stats(items: list[ProjectItem]) -> ProjectStats:
     raw = _stats_for_items(items)
-    return ProjectStats(**raw)
+    return ProjectStats.model_validate(raw)
 
 
 async def apply_project_actions(
