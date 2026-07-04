@@ -132,7 +132,6 @@ function ChatScreen() {
     setMessages,
     streaming,
     finalizing,
-    streamingDraft,
     sendingMessageId,
     sendMessage,
     regenerateResponse,
@@ -150,11 +149,6 @@ function ChatScreen() {
   useEffect(() => {
     if (streamActive) setChatError(null);
   }, [streamActive]);
-
-  const streamingLen =
-    streamActive && streamingDraft
-      ? streamingDraft.content.length
-      : 0;
 
   // Refetch quota + home when a chat turn finishes (vocab/todos/memory may have changed).
   const [quotaRefreshKey, setQuotaRefreshKey] = useState(0);
@@ -176,7 +170,7 @@ function ChatScreen() {
   const scroll = useChatScroll({
     chatId,
     messagesLength: messages.length,
-    streamingLen,
+    streamActive,
     windowHeight,
     keyboardHeight,
   });
@@ -463,7 +457,7 @@ function ChatScreen() {
           bottomOffset={composerClearance + 12}
           onDismiss={dismissActionBanner}
         />
-        <StreamingDraftProvider value={streamingDraft}>
+        <StreamingDraftProvider>
           <ChatMessageList
             listRef={listRef}
             messages={messages}

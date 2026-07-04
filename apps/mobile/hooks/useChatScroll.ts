@@ -2,16 +2,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 import type { FlashListRef } from "@shopify/flash-list";
 
-import { tap } from "@/lib/haptics";
+import { getStreamingDraftContentLength, subscribeStreamingDraft } from "@/lib/streamingDraftStore";
 import type { Message } from "@/lib/api";
 import { getScrollThresholds, resolveScrollAtBottom } from "@/lib/chatScrollLogic";
+import { tap } from "@/lib/haptics";
 
 const STREAMING_SCROLL_DEBOUNCE_MS = 150;
 
 type Options = {
   chatId: string | null;
   messagesLength: number;
-  streamingLen: number;
+  streamActive: boolean;
   windowHeight: number;
   keyboardHeight: number;
 };
@@ -19,7 +20,7 @@ type Options = {
 export function useChatScroll({
   chatId,
   messagesLength,
-  streamingLen,
+  streamActive,
   windowHeight,
   keyboardHeight,
 }: Options) {
@@ -150,23 +151,43 @@ export function useChatScroll({
   }, [messagesLength]);
 
   const prevStreamingLenRef = useRef(0);
-  useEffect(() => {
-    const prev = prevStreamingLenRef.current;
-    prevStreamingLenRef.current = streamingLen;
-    if (prev > 0 && streamingLen === 0 && atBottomRef.current) {
-      requestAnimationFrame(() => {
-        listRef.current?.scrollToEnd({ animated: false });
-        requestAnimationFrame(() => {
-          listRef.current?.scrollToEnd({ animated: false });
-        });
-      });
-    }
-  }, [streamingLen]);
 
   useEffect(() => {
-    if (!streamingLen) return;
-    scheduleStreamingScroll();
-  }, [streamingLen, scheduleStreamingScroll]);
+    if (!streamActive) {
+      const prev = prevStreamingLenRef.current;
+      prevStreamingLenRef.current = 0;
+      if (prev > 0 && atBottomRef.current) {
+        requestAnimationFrame(() => {
+          listRef.current?.scrollToEnd({ animated: false });
+          requestAnimationFrame(() => {
+            listRef.current?.scrollToEnd({ animated: false });
+          });
+        });
+      }
+      return;
+    }
+
+    const syncStreamingScroll = () => {
+      const nextLen = getStreamingDraftContentLength();
+      const prev = prevStreamingLenRef.current;
+      prevStreamingLenRef.current = nextLen;
+
+      if (nextLen > 0) {
+        scheduleStreamingScroll();
+      }
+      if (prev > 0 && nextLen === 0 && atBottomRef.current) {
+        requestAnimationFrame(() => {
+          listRef.current?.scrollToEnd({ animated: false });
+          requestAnimationFrame(() => {
+            listRef.current?.scrollToEnd({ animated: false });
+          });
+        });
+      }
+    };
+
+    syncStreamingScroll();
+    return subscribeStreamingDraft(syncStreamingScroll);
+  }, [streamActive, scheduleStreamingScroll]);
 
   useEffect(() => {
     requestAnimationFrame(() => syncScrollPosition());

@@ -10,18 +10,17 @@ import {
   parseChatWsPayload,
 } from "@/lib/chatSocketReduce";
 import {
+  publishStreamingDraft,
+  type StreamingDraft,
+} from "@/lib/streamingDraftStore";
+import {
   popLastAssistantMessage,
   restoreAssistantMessage,
 } from "@/lib/chatRegenerateLogic";
 
 const CONNECT_TIMEOUT_MS = 8000;
 
-export type StreamingDraft = {
-  content: string;
-  search_sources?: SearchSource[];
-  status?: string;
-  reasoning?: string;
-};
+export type { StreamingDraft };
 
 type UseChatOptions = {
   /** Called with the new title when the server sends one after first reply */
@@ -40,7 +39,6 @@ export function useChat(
   const [messages, setMessages] = useState<Message[]>([]);
   const [streaming, setStreaming] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
-  const [streamingDraft, setStreamingDraft] = useState<StreamingDraft | null>(null);
   const [sendingMessageId, setSendingMessageId] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const connectingRef = useRef<Promise<void> | null>(null);
@@ -56,7 +54,7 @@ export function useChat(
 
   const flushStreamingDraft = useCallback(() => {
     draftRafRef.current = null;
-    setStreamingDraft(streamingDraftRef.current);
+    publishStreamingDraft(streamingDraftRef.current);
   }, []);
 
   const updateStreamingDraft = useCallback(
@@ -67,7 +65,7 @@ export function useChat(
           cancelAnimationFrame(draftRafRef.current);
           draftRafRef.current = null;
         }
-        setStreamingDraft(null);
+        publishStreamingDraft(null);
         return;
       }
       if (draftRafRef.current == null) {
@@ -641,7 +639,6 @@ export function useChat(
     setMessages,
     streaming,
     finalizing,
-    streamingDraft,
     sendingMessageId,
     sendMessage,
     regenerateResponse,
