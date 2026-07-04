@@ -655,6 +655,7 @@
   "todos.empty_title": "Nothing here yet",
   "todos.error": "Something went wrong",
   "todos.error_create": "Could not save",
+  "todos.error_delete": "Could not delete",
   "todos.error_due": "Could not update date",
   "todos.error_toggle": "Could not update",
   "todos.move_to_todos": "Remove date (move to list)",

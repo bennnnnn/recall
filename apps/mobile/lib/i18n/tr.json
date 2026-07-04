@@ -643,6 +643,7 @@
   "todos.empty_title": "Henüz görev yok",
   "todos.error": "Hata",
   "todos.error_create": "Görev oluşturulamadı",
+  "todos.error_delete": "Silinemedi",
   "todos.error_due": "Tarih güncellenemedi",
   "todos.error_toggle": "Güncellenemedi",
   "todos.move_to_todos": "Tarihi kaldır (listeye taşı)",
