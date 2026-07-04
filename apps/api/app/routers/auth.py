@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -209,9 +210,11 @@ async def sync_subscription(
 @router.get("/me/export")
 async def export_me(
     user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db),
-) -> dict:
-    return await export_service.build_export(session, user)
+) -> StreamingResponse:
+    return StreamingResponse(
+        export_service.iter_export_json(user),
+        media_type="application/json",
+    )
 
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
