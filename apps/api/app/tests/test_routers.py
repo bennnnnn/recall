@@ -713,6 +713,40 @@ def test_revenuecat_webhook_requires_auth_in_production():
     apply_mock.assert_awaited_once()
 
 
+def test_revenuecat_webhook_transfer_downgrades_old_and_syncs_new():
+    import fakeredis.aioredis
+
+    from app.core.deps import get_redis, get_settings_dep
+
+    old_uid = uuid4()
+    new_uid = uuid4()
+    app = create_app()
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(environment="development")
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    app.dependency_overrides[get_redis] = lambda: fake_redis
+
+    payload = {
+        "event": {
+            "type": "TRANSFER",
+            "app_user_id": str(new_uid),
+            "transferred_from": [str(old_uid)],
+        }
+    }
+
+    with patch(
+        "app.routers.webhooks.subscription_service.handle_revenuecat_transfer",
+        AsyncMock(),
+    ) as transfer_mock:
+        client = TestClient(app)
+        r = client.post("/webhooks/revenuecat", json=payload)
+
+    assert r.status_code == 204
+    transfer_mock.assert_awaited_once()
+    kwargs = transfer_mock.await_args.kwargs
+    assert kwargs["new_app_user_id"] == str(new_uid)
+    assert kwargs["transferred_from"] == [str(old_uid)]
+
+
 # ── admin DLQ ─────────────────────────────────────────────────────────────────
 
 
