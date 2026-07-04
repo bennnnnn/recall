@@ -11,7 +11,6 @@ from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.exceptions import ChatNotFoundError, QuotaExceededError
-from app.gateways.litellm_gateway import ModelUnavailableError
 from app.services.chat.post_turn import (
     enqueue_post_turn_jobs,
     finalize_stream_turn_db,
@@ -29,6 +28,21 @@ from app.services.context_window import estimate_tokens
 from app.services.quota import quota_exceeded_message
 
 logger = logging.getLogger(__name__)
+
+
+async def _refund_after_stream_error(
+    redis: Redis,
+    user_id: UUID,
+    chat_id: UUID,
+    reserved: int,
+    *,
+    regenerate_backup: RegenerateBackup | None = None,
+) -> None:
+    import app.services.chat as chat_pkg
+
+    await chat_pkg.quota_service.refund_usage(redis, str(user_id), reserved)
+    if regenerate_backup is not None:
+        await chat_pkg._restore_regenerate_backup(user_id, chat_id, regenerate_backup)
 
 
 def weighted_reserve_tokens(
@@ -129,11 +143,8 @@ async def stream_chat_response(
             on_reasoning=on_reasoning,
         ):
             yield token
-    except ModelUnavailableError:
-        await chat_pkg.quota_service.refund_usage(redis, str(user_id), reserved)
-        raise
     except Exception:
-        await chat_pkg.quota_service.refund_usage(redis, str(user_id), reserved)
+        await _refund_after_stream_error(redis, user_id, chat_id, reserved)
         raise
 
 
@@ -260,15 +271,14 @@ async def stream_regenerate_response(
             on_reasoning=on_reasoning,
         ):
             yield token
-    except ModelUnavailableError:
-        await chat_pkg.quota_service.refund_usage(redis, str(user_id), reserved)
-        if regenerate_backup is not None:
-            await chat_pkg._restore_regenerate_backup(user_id, chat_id, regenerate_backup)
-        raise
     except Exception:
-        await chat_pkg.quota_service.refund_usage(redis, str(user_id), reserved)
-        if regenerate_backup is not None:
-            await chat_pkg._restore_regenerate_backup(user_id, chat_id, regenerate_backup)
+        await _refund_after_stream_error(
+            redis,
+            user_id,
+            chat_id,
+            reserved,
+            regenerate_backup=regenerate_backup,
+        )
         raise
 
 
