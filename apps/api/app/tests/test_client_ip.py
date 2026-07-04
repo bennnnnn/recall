@@ -36,3 +36,30 @@ def test_client_ip_uses_host_when_forwarded_header_blank():
     request.headers = {"x-forwarded-for": "   "}
 
     assert client_ip(request, Settings(trust_x_forwarded_for=True)) == "10.0.0.1"
+
+
+def test_client_ip_ignores_spoofed_forwarded_from_untrusted_peer():
+    request = MagicMock()
+    request.client.host = "203.0.113.5"
+    request.headers = {"x-forwarded-for": "1.2.3.4"}
+    settings = Settings(trust_x_forwarded_for=True)
+
+    assert client_ip(request, settings) == "203.0.113.5"
+
+
+def test_client_ip_uses_forwarded_only_from_trusted_proxy():
+    request = MagicMock()
+    request.client.host = "10.0.0.1"
+    request.headers = {"x-forwarded-for": "203.0.113.5, 10.0.0.1"}
+    settings = Settings(trust_x_forwarded_for=True)
+
+    assert client_ip(request, settings) == "203.0.113.5"
+
+
+def test_client_ip_rejects_invalid_forwarded_ip():
+    request = MagicMock()
+    request.client.host = "10.0.0.1"
+    request.headers = {"x-forwarded-for": "not-an-ip"}
+    settings = Settings(trust_x_forwarded_for=True)
+
+    assert client_ip(request, settings) == "10.0.0.1"
