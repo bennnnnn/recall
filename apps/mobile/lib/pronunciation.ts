@@ -1,21 +1,26 @@
 /** Device TTS via expo-speech; Whisper/pronunciation_url later. */
 
+import { markdownToPlainText } from "@/lib/markdownPlain";
+import { canUseVoiceInput } from "@/lib/expoRuntime";
+
 type SpeechModule = typeof import("expo-speech");
 
-let speechModule: SpeechModule | null = null;
-let speechLoadAttempted = false;
-let speechUnavailable = false;
+/** undefined = not loaded yet; null = unavailable or failed to load. */
+let speechModule: SpeechModule | null | undefined;
 
-async function loadSpeech(): Promise<SpeechModule | null> {
-  if (speechUnavailable) return null;
+/** Sync require keeps expo-speech in the main bundle (async import() breaks Metro module IDs). */
+function loadSpeech(): SpeechModule | null {
+  if (!canUseVoiceInput()) {
+    speechModule = null;
+    return null;
+  }
+  if (speechModule === null) return null;
   if (speechModule) return speechModule;
-  if (speechLoadAttempted) return null;
-  speechLoadAttempted = true;
   try {
-    speechModule = await import("expo-speech");
+    speechModule = require("expo-speech") as SpeechModule;
     return speechModule;
   } catch {
-    speechUnavailable = true;
+    speechModule = null;
     return null;
   }
 }
@@ -27,23 +32,26 @@ export async function speakWord(
   word: string,
   options?: { language?: string; pronunciationUrl?: string | null },
 ): Promise<SpeakResult> {
-  const text = word.trim();
-  if (!text) return { ok: false, reason: "error" };
+  return speakPlainText(word, options?.language);
+}
 
-  // Future: play pronunciationUrl or run Whisper scoring pipeline.
-  if (options?.pronunciationUrl) {
-    // Reserved for pre-generated audio from backend.
-  }
+/** Read aloud assistant text (markdown stripped). */
+export async function speakPlainText(
+  text: string,
+  language = "en-US",
+): Promise<SpeakResult> {
+  const plain = markdownToPlainText(text);
+  if (!plain) return { ok: false, reason: "error" };
 
-  const Speech = await loadSpeech();
+  const Speech = loadSpeech();
   if (!Speech) return { ok: false, reason: "unavailable" };
 
   try {
     Speech.stop();
     await new Promise<void>((resolve) => {
-      Speech.speak(text, {
-        language: options?.language ?? "en-US",
-        rate: 0.9,
+      Speech.speak(plain.slice(0, 8000), {
+        language,
+        rate: 0.92,
         onDone: () => resolve(),
         onStopped: () => resolve(),
         onError: () => resolve(),
@@ -51,17 +59,18 @@ export async function speakWord(
     });
     return { ok: true };
   } catch {
-    speechUnavailable = true;
+    speechModule = null;
     return { ok: false, reason: "unavailable" };
   }
 }
 
 export function stopSpeaking(): void {
-  if (!speechModule || speechUnavailable) return;
+  const Speech = loadSpeech();
+  if (!Speech) return;
   try {
-    speechModule.stop();
+    Speech.stop();
   } catch {
-    speechUnavailable = true;
+    speechModule = null;
   }
 }
 
@@ -71,5 +80,5 @@ export async function scorePronunciation(_audioUri: string, _expectedWord: strin
 }
 
 export function isSpeechAvailable(): boolean {
-  return !speechUnavailable && speechModule !== null;
+  return loadSpeech() !== null;
 }

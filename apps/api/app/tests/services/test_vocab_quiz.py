@@ -32,6 +32,23 @@ def test_quiz_answer_letter():
     assert vocab_quiz_service.quiz_answer_letter("hello") is None
 
 
+def test_strip_vocab_session_metadata():
+    content = (
+        "🥳 Congratulations!\n\n"
+        "```json\n"
+        '{"session_complete":true,"words_learned":5,"streak":1}\n'
+        "```"
+    )
+    stripped = vocab_quiz_service.strip_vocab_session_metadata(content)
+    assert stripped == "🥳 Congratulations!"
+    assert "session_complete" not in stripped
+
+
+def test_strip_vocab_session_metadata_keeps_unrelated_json():
+    content = 'Here is data:\n```json\n{"type":"square","side":5}\n```'
+    assert vocab_quiz_service.strip_vocab_session_metadata(content) == content
+
+
 @pytest.mark.asyncio
 async def test_apply_deterministic_quiz_answer_trivia_correct():
     from app.models.orm import Project

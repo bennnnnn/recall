@@ -21,6 +21,7 @@ from app.models.schemas import (
 )
 from app.repositories import project_items as project_items_repo
 from app.repositories import projects as projects_repo
+from app.services import home as home_service
 from app.services import projects as projects_service
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -76,6 +77,7 @@ async def create_project(
         level=body.level,
         daily_goal=body.daily_goal if kind in ("language", "trivia") else None,
     )
+    await home_service.invalidate_home_cache(user.id)
     return ProjectOut.model_validate(item)
 
 
@@ -189,6 +191,7 @@ async def add_deck_item(
         definition=body.definition,
         example_sentence=body.example_sentence,
     )
+    await home_service.invalidate_home_cache(user.id)
     return ProjectItemOut.model_validate(item)
 
 
@@ -237,6 +240,7 @@ async def update_project_item(
     if not item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
     updated = await project_items_repo.update(session, item, **patch)
+    await home_service.invalidate_home_cache(user.id)
     return ProjectItemOut.model_validate(updated)
 
 
@@ -279,6 +283,7 @@ async def update_project(
     if patch.get("kind") == "vocabulary":
         patch["kind"] = "language"
     updated = await projects_repo.update(session, item, **patch)
+    await home_service.invalidate_home_cache(user.id)
     return ProjectOut.model_validate(updated)
 
 
@@ -291,3 +296,4 @@ async def delete_project(
     deleted = await projects_repo.delete_by_id(session, project_id, user.id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    await home_service.invalidate_home_cache(user.id)

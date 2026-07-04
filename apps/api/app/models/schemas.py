@@ -443,6 +443,7 @@ class ProjectStats(BaseModel):
     due_for_review: int = 0
     mastered_today: int = 0
     pending_today: int = 0
+    last_mastery_at: datetime | None = None
 
 
 class ProjectListGroup(BaseModel):
@@ -639,6 +640,16 @@ class HomeStarter(BaseModel):
 class HomeProjectHighlight(BaseModel):
     project_id: UUID
     title: str
+    kind: Literal["language", "trivia"]
+    daily_goal: int = Field(ge=1, le=50)
+    mastered_today: int = Field(ge=0)
+    cue: Literal[
+        "start",
+        "continue",
+        "not_started_today",
+        "missed_yesterday",
+        "finish_pending",
+    ]
 
 
 class HomeScreenOut(BaseModel):

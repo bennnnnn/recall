@@ -8,6 +8,7 @@ from app.core.deps import get_current_user
 from app.models.orm import User
 from app.models.schemas import SuggestionOut
 from app.repositories import suggestions as suggestions_repo
+from app.services import home as home_service
 
 router = APIRouter(prefix="/suggestions", tags=["suggestions"])
 
@@ -30,3 +31,4 @@ async def dismiss_suggestion(
     ok = await suggestions_repo.dismiss(session, suggestion_id, user.id)
     if not ok:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Suggestion not found")
+    await home_service.invalidate_home_cache(user.id)

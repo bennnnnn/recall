@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.models.orm import Project, ProjectItem
+from app.models.orm import Project, ProjectItem, User
 from app.models.schemas import (
     ProjectActionItem,
     ProjectExtractionResult,
@@ -19,6 +19,13 @@ from app.repositories import projects as projects_repo
 from app.repositories.project_items import pos_list_title
 
 logger = logging.getLogger(__name__)
+
+
+async def _invalidate_home_for_user(user_id: UUID) -> None:
+    """Home cards depend on project stats — bust cache after learning mutations."""
+    from app.services import home as home_service
+
+    await home_service.invalidate_home_cache(user_id)
 
 # Defensive caps for LLM-inferred project mutations applied from a transcript.
 MAX_PROJECT_ACTIONS_PER_TURN = 3
@@ -166,7 +173,14 @@ LANGUAGE_TUTOR_HINT = (
     "already in the deck (check content).\n"
     "3) Teach each word briefly, then quiz one at a time until all N are mastered.\n"
     "4) The user's dashboard tracks today's mastered count vs daily_goal and total words "
-    "accumulated over time."
+    "accumulated over time.\n"
+    "5) When today's N words are all mastered, congratulate in plain markdown only — "
+    "the app tracks completion automatically. NEVER append ```json, session_complete, "
+    "words_learned, or any other machine-readable block on completion messages "
+    "(only ```vocab_quiz during active quiz questions).\n"
+    "6) **Daily goal reached:** When the user has already mastered daily_goal words today, "
+    "tell them clearly that today's goal is done. Do NOT sync new words. Only add a bonus "
+    "batch if they explicitly ask for extra/more/bonus words beyond today's goal — confirm first."
 )
 
 PROGRAMMING_TUTOR_HINT = (
@@ -206,7 +220,14 @@ TRIVIA_TUTOR_HINT = (
     "5) If wrong → explain gently, then ask the next question.\n"
     "6) Continue until the user has daily_goal correct answers today.\n"
     "7) Do not repeat questions already in the deck. Mix topics across the session.\n"
-    "8) When today's goal is met, congratulate and invite them back tomorrow."
+    "8) When today's goal is met, congratulate clearly — today's quiz is done. "
+    "Do NOT ask new questions unless the user explicitly wants bonus questions beyond today's goal.\n"
+    "9) Completion messages are markdown only — NEVER append ```json or session metadata "
+    "(the app tracks daily progress automatically).\n\n"
+    "**Export / PDF:** When the user asks to export, download, print, or save their progress "
+    "as a PDF (or report), write a complete structured summary in markdown: title, date, "
+    "topics, stats, and a list of mastered facts. Never say you cannot generate PDFs — tell "
+    "them to tap the **document export** icon on your message to save a PDF file."
 )
 
 
@@ -469,6 +490,8 @@ async def record_project_quiz_answer(
     )
     if recorded and chat.project_id is None:
         await chats_repo.set_project_id(session, chat, project_id)
+    if recorded:
+        await _invalidate_home_for_user(user_id)
     return recorded
 
 
@@ -792,6 +815,50 @@ async def load_projects_for_prompt(
     return block
 
 
+async def load_daily_learning_summary_for_prompt(
+    session: AsyncSession,
+    user: User,
+    settings: Settings,
+    *,
+    client_timezone: str | None = None,
+) -> str:
+    """Compact today-only stats for end-of-day reflection (not full word lists)."""
+    from app.services import daily_learning, time_context as time_context_service
+
+    projects = await projects_repo.list_for_user(
+        session, user.id, limit=settings.project_inject_limit
+    )
+    tz_name = time_context_service.effective_timezone(user.timezone, client_timezone)
+    lines: list[str] = []
+    for project in projects:
+        if not (_is_language_project(project) or _is_trivia_project(project)):
+            continue
+        stats = await project_items_repo.count_stats(
+            session,
+            project.id,
+            user.id,
+            timezone_name=tz_name,
+        )
+        daily_goal = daily_learning.resolve_daily_goal(project)
+        mastered_today = int(stats.get("mastered_today") or 0)
+        pending_today = int(stats.get("pending_today") or 0)
+        if mastered_today == 0 and pending_today == 0:
+            continue
+        if _is_language_project(project):
+            unit = "words mastered today"
+        else:
+            unit = "correct today"
+        if mastered_today >= daily_goal:
+            status = "daily goal complete"
+        else:
+            remaining = max(0, daily_goal - mastered_today)
+            status = f"{remaining} left for today's goal"
+        lines.append(f"- {project.title}: {mastered_today}/{daily_goal} {unit} ({status})")
+    if not lines:
+        return ""
+    return "Today's learning progress:\n" + "\n".join(lines)
+
+
 def group_items(items: list[ProjectItem]) -> list[ProjectListGroup]:
     by_list: dict[str, list[ProjectItem]] = {}
     for item in items:
@@ -1031,6 +1098,8 @@ async def apply_project_actions(
                 title,
                 chat_id,
             )
+    if applied > 0:
+        await _invalidate_home_for_user(user_id)
     return applied
 
 

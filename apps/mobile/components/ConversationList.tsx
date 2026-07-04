@@ -387,7 +387,7 @@ export function ConversationList(_props: unknown) {
   const drawerNav = (
     <View style={s.drawerNav}>
       <Pressable style={s.todosLink} onPress={openProjects}>
-        <Ionicons name="folder-outline" size={18} color={theme.primary} />
+        <Ionicons name="school-outline" size={18} color={theme.primary} />
         <Text style={s.todosLinkText}>{t("drawer.projects")}</Text>
         <Ionicons
           name="chevron-forward"

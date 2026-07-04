@@ -40,13 +40,11 @@ export function ConversationRow({
       onPress={onOpen}
       onLongPress={onLongPress}
     >
-      <View style={r.rowIcon}>
-        <Ionicons
-          name={chat.pinned ? "bookmark" : "chatbubble-outline"}
-          size={16}
-          color={chat.pinned ? theme.primary : theme.textTertiary}
-        />
-      </View>
+      {chat.pinned ? (
+        <View style={r.rowIcon}>
+          <Ionicons name="bookmark" size={16} color={theme.primary} />
+        </View>
+      ) : null}
       <Text
         style={[r.title, titleGenerating && !chat.title && r.titlePending]}
         numberOfLines={1}

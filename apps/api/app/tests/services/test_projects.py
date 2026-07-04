@@ -155,6 +155,48 @@ async def test_apply_project_actions_create_and_add():
 
 
 @pytest.mark.asyncio
+async def test_apply_project_actions_invalidates_home_cache():
+    session = AsyncMock()
+    user_id = uuid4()
+    project = _project("Spanish")
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "list_for_user",
+            AsyncMock(side_effect=[[], [project]]),
+        ),
+        patch.object(
+            projects_service.projects_repo,
+            "create",
+            AsyncMock(return_value=project),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            projects_service,
+            "_invalidate_home_for_user",
+            AsyncMock(),
+        ) as invalidate_mock,
+    ):
+        applied = await projects_service.apply_project_actions(
+            session,
+            user_id=user_id,
+            actions=[
+                ProjectActionItem(
+                    action="create_project",
+                    project_title="Spanish",
+                    kind="vocabulary",
+                ),
+            ],
+        )
+    assert applied == 1
+    invalidate_mock.assert_awaited_once_with(user_id)
+
+
+@pytest.mark.asyncio
 async def test_apply_project_actions_master():
     session = AsyncMock()
     user_id = uuid4()
@@ -306,6 +348,42 @@ async def test_mock_extract_vocab_terms():
     assert "hello" in terms
     assert "hola" in terms
     assert "gracias" in terms
+
+
+@pytest.mark.asyncio
+async def test_load_daily_learning_summary_for_prompt():
+    session = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    user.timezone = "America/Los_Angeles"
+    project = _project("English · Beginner")
+    project.daily_goal = 5
+
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "count_stats",
+            AsyncMock(
+                return_value={
+                    "mastered_today": 5,
+                    "pending_today": 0,
+                }
+            ),
+        ),
+    ):
+        block = await projects_service.load_daily_learning_summary_for_prompt(
+            session, user, Settings()
+        )
+
+    assert "Today's learning progress" in block
+    assert "English · Beginner" in block
+    assert "5/5 words mastered today" in block
+    assert "daily goal complete" in block
 
 
 @pytest.mark.asyncio

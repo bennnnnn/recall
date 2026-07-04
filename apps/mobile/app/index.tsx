@@ -154,15 +154,13 @@ function ChatScreen() {
       ? streamingDraft.content.length
       : 0;
 
-  // Refetch the quota nudge when a chat turn finishes (stream active -> idle)
-  // so the banner appears promptly once the user crosses the threshold.
-  // Also refresh home starters silently — GET /home is not invalidated elsewhere.
+  // Refetch quota + home when a chat turn finishes (vocab/todos/memory may have changed).
   const [quotaRefreshKey, setQuotaRefreshKey] = useState(0);
   const prevStreamActiveRef = useRef(false);
   useEffect(() => {
     if (prevStreamActiveRef.current && !streamActive) {
       setQuotaRefreshKey((k) => k + 1);
-      void refreshHome({ silent: true });
+      void refreshHome({ silent: true, force: true });
     }
     prevStreamActiveRef.current = streamActive;
   }, [streamActive, refreshHome]);
@@ -585,9 +583,7 @@ function ChatScreen() {
           voiceRecording={voiceRecording}
           voiceTranscribing={voiceTranscribing}
           voiceMeterLevel={voiceMeterLevel}
-          onVoicePress={
-            voiceInputAvailable ? () => void toggleVoiceInput() : undefined
-          }
+          onVoicePress={token ? () => void toggleVoiceInput() : undefined}
         />
 
         <UpgradeSheet visible={upgradeVisible} onClose={() => setUpgradeVisible(false)} />

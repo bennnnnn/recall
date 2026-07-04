@@ -7,7 +7,20 @@ import re
 from dataclasses import dataclass
 
 VOCAB_QUIZ_FENCE_RE = re.compile(r"```vocab_quiz\s*\n([\s\S]*?)```", re.IGNORECASE)
+VOCAB_SESSION_JSON_FENCE_RE = re.compile(r"```json\s*\n([\s\S]*?)```", re.IGNORECASE)
+VOCAB_SESSION_JSON_PARTIAL_RE = re.compile(r"```json[\s\S]*$", re.IGNORECASE)
 QUIZ_ANSWER_RE = re.compile(r"^([A-D])\.?$", re.IGNORECASE)
+
+_SESSION_METADATA_KEYS = frozenset(
+    {
+        "session_complete",
+        "sessionComplete",
+        "words_learned",
+        "wordsLearned",
+        "daily_goal_met",
+        "dailyGoalMet",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -26,6 +39,33 @@ def quiz_answer_letter(text: str) -> str | None:
 
 def _clean_word(raw: str) -> str:
     return raw.replace("**", "").strip()
+
+
+def _is_vocab_session_metadata(data: object) -> bool:
+    if not isinstance(data, dict):
+        return False
+    return any(key in data for key in _SESSION_METADATA_KEYS)
+
+
+def strip_vocab_session_metadata(content: str) -> str:
+    """Remove ```json fences the model sometimes emits when a daily vocab session ends."""
+
+    def _strip_fence(match: re.Match[str]) -> str:
+        try:
+            data = json.loads(match.group(1).strip())
+        except json.JSONDecodeError:
+            return match.group(0)
+        return "" if _is_vocab_session_metadata(data) else match.group(0)
+
+    stripped = VOCAB_SESSION_JSON_FENCE_RE.sub(_strip_fence, content)
+    partial = VOCAB_SESSION_JSON_PARTIAL_RE.search(stripped)
+    if partial and re.search(
+        r"session_complete|sessionComplete|words_learned|wordsLearned|daily_goal_met|dailyGoalMet",
+        partial.group(0),
+        re.IGNORECASE,
+    ):
+        stripped = stripped[: partial.start()].rstrip()
+    return stripped.strip()
 
 
 def parse_vocab_quiz(content: str) -> ParsedVocabQuiz | None:

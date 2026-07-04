@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, InteractionManager, Keyboard } from "react-native";
+import { Alert, Keyboard } from "react-native";
 import { useRouter } from "expo-router";
 
 type Router = ReturnType<typeof useRouter>;
@@ -17,6 +17,7 @@ import {
   shouldBlockSend,
 } from "@/lib/chatSendLogic";
 import { confirmGeoLocationAccess } from "@/lib/confirmGeoLocation";
+import { scheduleIdlePromise } from "@/lib/scheduleIdle";
 import type { ClientGeo } from "@/lib/clientGeo";
 import { ensureNearbyLocation } from "@/lib/ensureNearbyLocation";
 import { isAmbiguousLocalPlacesQuery, isGeoQuery } from "@/lib/localPlacesQuery";
@@ -326,17 +327,7 @@ export function useChatSend({
     setAttachSheetOpen(true);
   }, [token, attachBusy, streaming]);
 
-  const waitForPickerUi = useCallback(
-    () =>
-      new Promise<void>((resolve) => {
-        InteractionManager.runAfterInteractions(() => {
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => resolve());
-          });
-        });
-      }),
-    [],
-  );
+  const waitForPickerUi = useCallback(() => scheduleIdlePromise(), []);
 
   const handleAttachmentSheetSelect = useCallback(
     async (source: AttachmentSource) => {

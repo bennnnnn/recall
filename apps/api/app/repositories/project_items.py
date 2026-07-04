@@ -125,6 +125,7 @@ async def count_stats(
         "due_for_review": 0,
         "mastered_today": 0,
         "pending_today": 0,
+        "last_mastery_at": None,
     }
     for item in items:
         status = item.status or ("mastered" if item.mastered else "new")
@@ -142,11 +143,12 @@ async def count_stats(
         if _is_due(item, due_cutoff):
             stats["due_for_review"] += 1
 
-    from app.services.daily_learning import count_today_vocab_stats
+    from app.services.daily_learning import count_today_vocab_stats, last_mastery_at
 
     mastered_today, pending_today = count_today_vocab_stats(items, timezone_name=timezone_name)
     stats["mastered_today"] = mastered_today
     stats["pending_today"] = pending_today
+    stats["last_mastery_at"] = last_mastery_at(items)
     return stats
 
 

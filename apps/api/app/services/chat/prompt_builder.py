@@ -28,7 +28,7 @@ from app.services.chat.prompt_constants import (
     is_writing_deliverable_request,
 )
 from app.services.context_window import select_recent_window
-from app.services.day_planning import is_day_planning_question
+from app.services.day_planning import is_day_planning_question, is_day_reflection_question
 from app.services.prompt_safety import wrap_untrusted
 
 logger = logging.getLogger(__name__)
@@ -144,12 +144,14 @@ async def build_prompt_messages(
     minimal_quiz_context: bool = False,
     client_timezone: str | None = None,
     prompt_location: str | None = None,
+    todo_sync_feedback: str | None = None,
 ) -> list[dict[str, str]]:
     import app.services.chat as chat_pkg
 
     recent_limit = (
         QUIZ_RECENT_MESSAGE_LIMIT if minimal_quiz_context else settings.recent_message_window
     )
+    is_day_plan = bool(query_text and is_day_planning_question(query_text))
     chat = None
     todos_section: str | None = None
     if minimal_personal_context or minimal_quiz_context:
@@ -163,6 +165,15 @@ async def build_prompt_messages(
         chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user.id)
 
         async def _projects_block() -> str:
+            if query_text and is_day_reflection_question(query_text):
+                return await chat_pkg.projects_service.load_daily_learning_summary_for_prompt(
+                    session,
+                    user,
+                    settings,
+                    client_timezone=client_timezone,
+                )
+            if is_day_plan:
+                return ""
             if chat and chat.project_id:
                 return await chat_pkg.projects_service.load_project_for_prompt(
                     session, user.id, chat.project_id, settings
@@ -222,14 +233,23 @@ async def build_prompt_messages(
         system_parts.extend([CLARIFICATION_HINT, PRIVACY_HINT])
         if query_text and is_day_planning_question(query_text):
             system_parts.append(DAY_PLANNING_ANSWER_HINT)
+            if is_day_reflection_question(query_text):
+                system_parts.append(
+                    "This is an end-of-day reflection. Include a brief **Learning** section when "
+                    "today's learning progress is in context — celebrate completed daily goals "
+                    "(e.g. vocabulary words mastered) and note incomplete ones in one line. "
+                    "Keep todos, calendar, and loose ends as the main focus."
+                )
         if minimal_personal_context:
             system_parts.append(BROAD_SELF_ANSWER_HINT)
         if style == "short":
             system_parts.append(SHORT_RESPONSE_FORMAT_HINT)
-        else:
+        elif not is_day_plan:
             system_parts.extend(
                 [INTENT_FORMAT_HINT, MATH_SOLVER_HINT, RESPONSE_FORMAT_HINT, VISUALIZATION_HINTS]
             )
+        else:
+            system_parts.append(RESPONSE_FORMAT_HINT)
         system_parts.append(COPY_DELIVERABLE_HINT)
         if query_text and is_writing_deliverable_request(query_text):
             system_parts.append(EMAIL_DRAFT_HINT)
@@ -273,7 +293,10 @@ async def build_prompt_messages(
             system_parts.append(wrap_untrusted("memory", memory_block))
         if todos_section:
             system_parts.append(todos_section)
-        system_parts.append(chat_pkg.projects_service.PROJECT_HINT)
+        if todo_sync_feedback:
+            system_parts.append(todo_sync_feedback)
+        if not is_day_plan:
+            system_parts.append(chat_pkg.projects_service.PROJECT_HINT)
         if projects_block:
             system_parts.append(projects_block)
         if summary:

@@ -21,10 +21,13 @@ logger = logging.getLogger(__name__)
 # The model extracts actions from arbitrary user text; these limits prevent a
 # misparse from wiping large amounts of data in one turn.
 MAX_TODO_ACTIONS_PER_TURN = 3
-# Actions too destructive to apply from transcript inference — the user must
-# delete a whole list explicitly (e.g. via the Todos screen), not via a model
-# interpretation of a pasted email or ambiguous phrasing.
+# Actions blocked from the post-reply background job only (assistant text must not
+# trigger whole-list deletes). Pre-turn sync may apply delete_list when the user asks.
 TODO_BLOCKED_FROM_TRANSCRIPT = frozenset({"delete_list"})
+
+TODO_SYNC_FEEDBACK_HEADER = (
+    "Todo sync results (already applied before this reply — describe accurately):\n"
+)
 
 TODO_HINT = (
     "Recall has two todo features — do not confuse them:\n"
@@ -43,8 +46,14 @@ TODO_HINT = (
     "Proactively nudge overdue or due-soon open reminders only when the conversation is "
     "about tasks, planning, or productivity — not in general or identity questions.\n"
     "When a reminder appears under ### Today, say it is due today — never call it tomorrow.\n"
-    "Creating lists via chat — ask for a list title first, then items; changes sync after your reply.\n"
-    "Deleting — delete_list removes a whole list; delete removes one item.\n"
+    "Creating lists via chat — ask for a list title first, then items; changes apply before your reply.\n"
+    "Deleting lists via chat — whole-list delete runs before your reply when the user clearly asks. "
+    "It only succeeds when every item in that list is checked off or removed; otherwise sync results "
+    "below will say Blocked — explain that and never claim a list was deleted unless sync confirms it.\n"
+    "Deleting items via chat — complete, uncheck, or delete individual items; same pre-reply sync.\n"
+    "Deleting in the app (Lists tab) — trash on a row removes one item. To delete a whole list, "
+    "check off or delete every item first; then a trash icon appears on the list header. "
+    "Never invent swipe gestures or other UI.\n"
     "Due dates via chat — add/set_due/clear_due; bulk moves (e.g. all due today → tomorrow) sync "
     "automatically. Parse relative dates using the user's local time in the prompt.\n"
     "Do not invent list titles or due dates."
@@ -82,11 +91,15 @@ _TODO_QUERY = re.compile(
 _TODO_SYNC_TRANSCRIPT = re.compile(
     r"\b("
     r"added (?:to|on)|removed from|marked (?:as )?(?:done|complete)|"
-    r"new (?:list|reminder|task)|delete(?:d)? (?:the )?list|"
+    r"new (?:list|reminder|task)|delete(?:d)? (?:the )?list|delete all|"
     r"set (?:a )?(?:due|reminder)|moved .+ to tomorrow|"
     r"check(?:ed)? off|uncheck(?:ed)?|groceries|shopping list|"
     r"reminder for|due (?:at|on|tomorrow|today)"
     r")\b",
+    re.IGNORECASE,
+)
+_AFFIRMATIVE = re.compile(
+    r"^(yes|yeah|yep|sure|ok(?:ay)?|do it|confirm(?:ed)?|go ahead|please)\.?!?$",
     re.IGNORECASE,
 )
 
@@ -351,6 +364,34 @@ def transcript_implies_todo_sync(transcript: str) -> bool:
     return bool(_TODO_SYNC_TRANSCRIPT.search(text))
 
 
+def format_chat_transcript(messages: list[object]) -> str:
+    lines: list[str] = []
+    for msg in messages:
+        role = getattr(msg, "role", "")
+        content = getattr(msg, "content", "")
+        prefix = "User" if role == "user" else "Assistant"
+        lines.append(f"{prefix}: {content}")
+    return "\n".join(lines)
+
+
+def should_pre_sync_todos(user_message: str, transcript: str) -> bool:
+    if query_implies_todos(user_message):
+        return True
+    if transcript_implies_todo_sync(transcript):
+        return True
+    text = user_message.strip()
+    if _AFFIRMATIVE.match(text) and re.search(r"\bdelete\b", transcript, re.IGNORECASE):
+        return True
+    return False
+
+
+def format_todo_sync_feedback(feedback: list[str]) -> str | None:
+    if not feedback:
+        return None
+    body = "\n".join(f"- {line}" for line in feedback)
+    return f"{TODO_SYNC_FEEDBACK_HEADER}{body}"
+
+
 def _has_overdue_open_reminders(items: list[TodoItem], user_timezone: str | None) -> bool:
     for item in items:
         if item.checked or item.due_at is None:
@@ -428,6 +469,7 @@ async def apply_todo_actions(
     actions: list[TodoActionItem],
     chat_id: UUID | None = None,
     user_timezone: str | None = None,
+    feedback: list[str] | None = None,
 ) -> int:
     if not actions:
         return 0
@@ -496,9 +538,23 @@ async def apply_todo_actions(
                     )
                     items = [i for i in items if i.id != item.id]
             elif action.action == "delete_list":
+                list_items = [
+                    i
+                    for i in items
+                    if _topic_key(i.topic) == _topic_key(topic) and i.due_at is None
+                ]
+                open_count = sum(1 for i in list_items if not i.checked)
+                if open_count > 0:
+                    if feedback is not None:
+                        feedback.append(
+                            f'Blocked delete list "{topic}": {open_count} item(s) still open.'
+                        )
+                    continue
                 removed = await todos_repo.delete_by_topic(session, user_id, topic)
                 if removed:
                     applied += 1
+                    if feedback is not None:
+                        feedback.append(f'Deleted list "{topic}" ({removed} item(s)).')
                     logger.info(
                         "Todo action applied: user_id=%s action=delete_list topic=%s chat_id=%s",
                         user_id,
@@ -506,6 +562,8 @@ async def apply_todo_actions(
                         chat_id,
                     )
                     items = [i for i in items if _topic_key(i.topic) != _topic_key(topic)]
+                elif feedback is not None:
+                    feedback.append(f'List "{topic}" not found or already empty.')
             elif action.action == "set_due":
                 due_at = time_context_service.normalize_due_at(action.due_at, user_timezone)
                 if action.content.strip() == "*":
@@ -558,13 +616,15 @@ async def apply_todo_actions(
     return applied
 
 
-async def sync_todos_from_transcript(
+async def _apply_extracted_todo_actions(
     session: AsyncSession,
     settings: Settings,
     *,
     user_id: UUID,
     chat_id: UUID,
     transcript: str,
+    allow_delete_list: bool,
+    feedback: list[str] | None = None,
 ) -> TodoExtractionResult | None:
     from app.gateways import litellm_gateway
 
@@ -581,57 +641,100 @@ async def sync_todos_from_transcript(
         }
         for item in items
     ]
-    try:
-        result = await litellm_gateway.extract_todo_actions(
-            settings,
-            transcript,
-            snapshot,
-            user_timezone=user_timezone,
-        )
-        if result and result.actions:
-            # Defensive: cap actions per turn and refuse to apply whole-list
-            # deletes inferred from a transcript. The user can still delete a
-            # list explicitly from the Todos screen; a model interpretation of
-            # pasted text must not wipe it. Filtered actions are logged so the
-            # "the LLM did what?" trail is greppable.
-            safe_actions: list[TodoActionItem] = []
-            for action in result.actions:
-                if action.action in TODO_BLOCKED_FROM_TRANSCRIPT:
-                    logger.warning(
-                        "Refused destructive todo action %s from transcript for "
-                        "user_id=%s topic=%s (requires explicit user action)",
-                        action.action,
-                        user_id,
-                        action.topic,
-                    )
-                    continue
-                safe_actions.append(action)
-                if len(safe_actions) >= MAX_TODO_ACTIONS_PER_TURN:
-                    break
-            if safe_actions:
-                await apply_todo_actions(
-                    session,
-                    user_id=user_id,
-                    actions=safe_actions,
-                    chat_id=chat_id,
-                    user_timezone=user_timezone,
+    result = await litellm_gateway.extract_todo_actions(
+        settings,
+        transcript,
+        snapshot,
+        user_timezone=user_timezone,
+    )
+    if result and result.actions:
+        safe_actions: list[TodoActionItem] = []
+        for action in result.actions:
+            if not allow_delete_list and action.action in TODO_BLOCKED_FROM_TRANSCRIPT:
+                logger.warning(
+                    "Refused destructive todo action %s from transcript for "
+                    "user_id=%s topic=%s (requires explicit user action)",
+                    action.action,
+                    user_id,
+                    action.topic,
                 )
-        if _transcript_implies_bulk_shift_to_tomorrow(transcript):
-            items = await todos_repo.list_for_user(session, user_id, limit=500)
-            bulk_applied = await _apply_bulk_shift_due_today_to_tomorrow(
+                continue
+            safe_actions.append(action)
+            if len(safe_actions) >= MAX_TODO_ACTIONS_PER_TURN:
+                break
+        if safe_actions:
+            await apply_todo_actions(
                 session,
                 user_id=user_id,
-                items=items,
+                actions=safe_actions,
+                chat_id=chat_id,
                 user_timezone=user_timezone,
+                feedback=feedback,
             )
-            if bulk_applied:
-                logger.info(
-                    "Bulk-shifted %d todo(s) due today → tomorrow for user_id=%s",
-                    bulk_applied,
-                    user_id,
+    if _transcript_implies_bulk_shift_to_tomorrow(transcript):
+        items = await todos_repo.list_for_user(session, user_id, limit=500)
+        bulk_applied = await _apply_bulk_shift_due_today_to_tomorrow(
+            session,
+            user_id=user_id,
+            items=items,
+            user_timezone=user_timezone,
+        )
+        if bulk_applied:
+            if feedback is not None:
+                feedback.append(
+                    f"Moved {bulk_applied} reminder(s) due today to tomorrow."
                 )
-                await home_service.invalidate_home_cache(user_id)
-        return result
+            logger.info(
+                "Bulk-shifted %d todo(s) due today → tomorrow for user_id=%s",
+                bulk_applied,
+                user_id,
+            )
+            await home_service.invalidate_home_cache(user_id)
+    return result
+
+
+async def sync_todos_before_reply(
+    session: AsyncSession,
+    settings: Settings,
+    *,
+    user_id: UUID,
+    chat_id: UUID,
+    transcript: str,
+) -> list[str]:
+    """Apply todo mutations before the assistant reply; return user-facing notes."""
+    feedback: list[str] = []
+    try:
+        await _apply_extracted_todo_actions(
+            session,
+            settings,
+            user_id=user_id,
+            chat_id=chat_id,
+            transcript=transcript,
+            allow_delete_list=True,
+            feedback=feedback,
+        )
+    except Exception:
+        logger.exception("Pre-reply todo sync failed for user_id=%s", user_id)
+    return feedback
+
+
+async def sync_todos_from_transcript(
+    session: AsyncSession,
+    settings: Settings,
+    *,
+    user_id: UUID,
+    chat_id: UUID,
+    transcript: str,
+) -> TodoExtractionResult | None:
+    try:
+        return await _apply_extracted_todo_actions(
+            session,
+            settings,
+            user_id=user_id,
+            chat_id=chat_id,
+            transcript=transcript,
+            allow_delete_list=False,
+        )
     except Exception:
         logger.exception("Todo sync failed for user_id=%s", user_id)
         return None

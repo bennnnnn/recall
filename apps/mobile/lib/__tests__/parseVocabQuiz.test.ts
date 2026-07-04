@@ -6,6 +6,7 @@ import {
   parseVocabQuiz,
   hasVocabQuizFence,
   stripVocabQuizBlock,
+  stripVocabSessionMetadata,
   isCompleteVocabQuiz,
 } from "@/lib/parseVocabQuiz";
 
@@ -236,5 +237,20 @@ describe("parseVocabQuiz", () => {
     expect(stripped).not.toContain("Central Perk");
     expect(stripped).not.toContain("Answer A, B, C, or D");
     expect(stripped).not.toContain("Pivot");
+  });
+
+  it("strips session_complete json after daily vocab completion", () => {
+    const content = [
+      "🥳 **Congratulations, Dev!** You've mastered all 5 words today.",
+      "",
+      "```json",
+      '{"session_complete":true,"words_learned":5,"streak":1}',
+      "```",
+    ].join("\n");
+
+    expect(stripVocabSessionMetadata(content)).toBe(
+      "🥳 **Congratulations, Dev!** You've mastered all 5 words today.",
+    );
+    expect(stripVocabQuizBlock(content)).not.toContain("session_complete");
   });
 });

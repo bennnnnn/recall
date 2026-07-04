@@ -17,6 +17,8 @@ import { Theme, useTheme } from "@/lib/theme";
 import type { Todo } from "@/lib/api";
 import type { ListGroup } from "@/lib/listGroups";
 
+const CHECKBOX_SIZE = 22;
+
 type Props = {
   groups: ListGroup[];
   initialExpandedTopic?: string;
@@ -24,9 +26,9 @@ type Props = {
   onReorderGroups: (topics: string[]) => void;
   onReorderItems: (topic: string, ordered: Todo[]) => void;
   onToggle: (todo: Todo) => void;
-  onDelete: (todo: Todo) => void;
   onAddItem: (topic: string, text: string) => void;
-  onDeleteGroup: (topic: string, title: string) => void;
+  onDeleteItem: (todo: Todo) => void;
+  onDeleteList: (topic: string) => void;
 };
 
 export function ListGroupsView({
@@ -36,9 +38,9 @@ export function ListGroupsView({
   onReorderGroups,
   onReorderItems,
   onToggle,
-  onDelete,
   onAddItem,
-  onDeleteGroup,
+  onDeleteItem,
+  onDeleteList,
 }: Props) {
   const { t } = useTranslation();
   const C = useTheme();
@@ -54,6 +56,8 @@ export function ListGroupsView({
   });
   const [draftByTopic, setDraftByTopic] = useState<Record<string, string>>({});
 
+  const listData = useMemo(() => groups, [groups]);
+
   const toggleCollapsed = useCallback((topic: string) => {
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -68,52 +72,56 @@ export function ListGroupsView({
       const isCollapsed = collapsed.has(group.topic);
       const draft = draftByTopic[group.topic] ?? "";
 
+      const isDefault = group.isDefault;
+      const openCount = group.open.length;
+      const showHeader = !isDefault;
+      const expanded = isDefault || !isCollapsed;
+
       return (
         <ScaleDecorator>
-          <View style={[s.group, isActive && s.groupDragging]}>
-            <View style={s.groupHeader}>
-              <Pressable onLongPress={drag} delayLongPress={120} hitSlop={8} style={s.dragHandle}>
-                <Ionicons name="reorder-three" size={22} color={C.textTertiary} />
-              </Pressable>
-              <Pressable
-                style={s.groupHeaderMain}
-                onPress={() => toggleCollapsed(group.topic)}
-              >
-                <Ionicons
-                  name={isCollapsed ? "chevron-forward" : "chevron-down"}
-                  size={16}
-                  color={C.textSecondary}
-                />
-                <Text style={s.groupTitle}>{group.title}</Text>
-                <Text style={s.groupCount}>
-                  {group.open.length > 0
-                    ? t("lists.open_count", { count: group.open.length })
-                    : t("lists.group_empty")}
-                </Text>
-              </Pressable>
-              {!group.isDefault ? (
+          <View style={s.groupWrap}>
+            {showHeader ? (
+              <View style={s.sectionRow}>
                 <Pressable
-                  hitSlop={8}
-                  onPress={() => onDeleteGroup(group.topic, group.title)}
+                  style={s.sectionMain}
+                  onPress={() => toggleCollapsed(group.topic)}
+                  onLongPress={drag}
+                  delayLongPress={280}
                 >
-                  <Ionicons name="trash-outline" size={18} color={C.textTertiary} />
+                  <Text style={s.sectionTitle} numberOfLines={1}>
+                    {group.title}
+                  </Text>
+                  <Text style={s.sectionCount}>{openCount}</Text>
                 </Pressable>
-              ) : null}
-            </View>
+                {openCount === 0 ? (
+                  <Pressable
+                    hitSlop={8}
+                    onPress={() => onDeleteList(group.topic)}
+                    accessibilityRole="button"
+                    accessibilityLabel={t("lists.delete_group_confirm")}
+                  >
+                    <Ionicons name="trash-outline" size={16} color={C.textTertiary} />
+                  </Pressable>
+                ) : null}
+                <Pressable hitSlop={8} onPress={() => toggleCollapsed(group.topic)}>
+                  <Ionicons
+                    name={isCollapsed ? "chevron-down" : "chevron-up"}
+                    size={18}
+                    color={C.textTertiary}
+                  />
+                </Pressable>
+              </View>
+            ) : null}
 
-            {!isCollapsed ? (
-              <>
+            {expanded ? (
+              <View style={[s.groupBody, isActive && s.groupBodyDragging]}>
                 {group.open.length > 0 ? (
                   <DraggableFlatList
                     data={group.open}
                     keyExtractor={(todo) => todo.id}
                     scrollEnabled={false}
                     onDragEnd={({ data }) => onReorderItems(group.topic, data)}
-                    renderItem={({
-                      item: todo,
-                      drag: dragItem,
-                      isActive: itemActive,
-                    }) => (
+                    renderItem={({ item: todo, drag: dragItem, isActive: itemActive }) => (
                       <ScaleDecorator>
                         <ListItemRow
                           todo={todo}
@@ -121,54 +129,52 @@ export function ListGroupsView({
                           dragging={itemActive}
                           onDrag={dragItem}
                           onToggle={() => onToggle(todo)}
-                          onDelete={() => onDelete(todo)}
+                          onDelete={() => onDeleteItem(todo)}
                         />
                       </ScaleDecorator>
                     )}
                   />
-                ) : (
-                  <Text style={s.groupHint}>{t("lists.group_add_hint")}</Text>
-                )}
+                ) : null}
 
-                <View style={s.inlineAddRow}>
-                  <TextInput
-                    style={s.inlineInput}
-                    placeholder={t("lists.item_placeholder")}
-                    placeholderTextColor={C.textTertiary}
-                    value={draft}
-                    onChangeText={(text) =>
-                      setDraftByTopic((prev) => ({ ...prev, [group.topic]: text }))
-                    }
-                    onSubmitEditing={() => {
-                      const text = draft.trim();
-                      if (!text) return;
-                      onAddItem(group.topic, text);
-                      setDraftByTopic((prev) => ({ ...prev, [group.topic]: "" }));
-                    }}
-                    returnKeyType="done"
-                    maxLength={500}
-                  />
+                <View style={s.addSection}>
+                  <View style={s.addInputWrap}>
+                    <TextInput
+                      style={s.addInput}
+                      placeholder={t("lists.item_placeholder")}
+                      placeholderTextColor={C.textTertiary}
+                      value={draft}
+                      onChangeText={(text) =>
+                        setDraftByTopic((prev) => ({ ...prev, [group.topic]: text }))
+                      }
+                      onSubmitEditing={() => {
+                        const text = draft.trim();
+                        if (!text) return;
+                        onAddItem(group.topic, text);
+                        setDraftByTopic((prev) => ({ ...prev, [group.topic]: "" }));
+                      }}
+                      returnKeyType="done"
+                      maxLength={500}
+                    />
+                  </View>
                   <Pressable
-                    style={[s.inlineAddBtn, !draft.trim() && s.inlineAddBtnDisabled]}
-                    disabled={!draft.trim()}
+                    style={[s.addButton, !draft.trim() && s.addButtonDisabled]}
                     onPress={() => {
                       const text = draft.trim();
                       if (!text) return;
                       onAddItem(group.topic, text);
                       setDraftByTopic((prev) => ({ ...prev, [group.topic]: "" }));
                     }}
+                    disabled={!draft.trim()}
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: !draft.trim() }}
                   >
-                    <Ionicons
-                      name="add"
-                      size={20}
-                      color={draft.trim() ? C.primary : C.textTertiary}
-                    />
+                    <Text style={s.addButtonText}>{t("common.add")}</Text>
                   </Pressable>
                 </View>
 
                 {group.done.length > 0 ? (
-                  <View style={s.doneBlock}>
-                    <Text style={s.doneLabel}>
+                  <View style={s.doneSection}>
+                    <Text style={s.doneHeading}>
                       {t("todos.done")} ({group.done.length})
                     </Text>
                     {group.done.map((todo) => (
@@ -177,12 +183,12 @@ export function ListGroupsView({
                         todo={todo}
                         busy={togglingId === todo.id}
                         onToggle={() => onToggle(todo)}
-                        onDelete={() => onDelete(todo)}
+                        onDelete={() => onDeleteItem(todo)}
                       />
                     ))}
                   </View>
                 ) : null}
-              </>
+              </View>
             ) : null}
           </View>
         </ScaleDecorator>
@@ -193,8 +199,8 @@ export function ListGroupsView({
       collapsed,
       draftByTopic,
       onAddItem,
-      onDelete,
-      onDeleteGroup,
+      onDeleteItem,
+      onDeleteList,
       onReorderItems,
       onToggle,
       s,
@@ -203,8 +209,6 @@ export function ListGroupsView({
       t,
     ],
   );
-
-  const listData = useMemo(() => groups, [groups]);
 
   if (listData.length === 0) {
     return null;
@@ -239,130 +243,161 @@ function ListItemRow({
 }) {
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
+
   return (
-    <View style={[s.itemRow, dragging && s.itemDragging]}>
-      {onDrag ? (
-        <Pressable onPressIn={onDrag} hitSlop={8} style={s.dragHandle}>
-          <Ionicons name="reorder-three" size={20} color={C.textTertiary} />
-        </Pressable>
-      ) : (
-        <View style={s.dragSpacer} />
-      )}
+    <Pressable
+      onLongPress={onDrag}
+      delayLongPress={220}
+      disabled={!onDrag}
+      style={[s.row, dragging && s.rowDragging]}
+    >
       <Pressable
         onPress={onToggle}
         hitSlop={10}
         disabled={busy}
+        style={s.checkbox}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: todo.checked, disabled: busy }}
       >
         <Ionicons
           name={todo.checked ? "checkbox" : "square-outline"}
-          size={22}
+          size={CHECKBOX_SIZE}
           color={todo.checked ? C.primary : C.textTertiary}
         />
       </Pressable>
-      <Text
-        style={[s.itemText, todo.checked && s.itemDone]}
-        numberOfLines={4}
-        selectable
-      >
+      <Text style={[s.rowText, todo.checked && s.rowDone]} numberOfLines={4} selectable>
         {todo.content}
       </Text>
-      <Pressable onPress={onDelete} hitSlop={8}>
+      <Pressable onPress={onDelete} hitSlop={8} accessibilityRole="button">
         <Ionicons name="trash-outline" size={16} color={C.textTertiary} />
       </Pressable>
-    </View>
+    </Pressable>
   );
 }
 
 function makeStyles(C: Theme) {
+  const hairline = StyleSheet.hairlineWidth;
   return StyleSheet.create({
-  container: { paddingBottom: 8 },
-  group: {
-    marginHorizontal: 12,
-    marginBottom: 12,
-    borderRadius: 14,
-    backgroundColor: C.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: C.border,
-    overflow: "hidden",
-  },
-  groupDragging: { opacity: 0.92 },
-  groupHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: C.border,
-  },
-  groupHeaderMain: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  groupTitle: { flex: 1, fontSize: 16, fontWeight: "700", color: C.text },
-  groupCount: { fontSize: 12, color: C.textSecondary, marginRight: 4 },
-  groupHint: {
-    fontSize: 13,
-    color: C.textTertiary,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  dragHandle: { padding: 4 },
-  itemRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: C.border,
-  },
-  itemDragging: { backgroundColor: C.primaryLight },
-  dragSpacer: { width: 28 },
-  itemText: { flex: 1, fontSize: 16, lineHeight: 22, color: C.text },
-  itemDone: { color: C.textTertiary, textDecorationLine: "line-through" },
-  inlineAddRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-  },
-  inlineInput: {
-    flex: 1,
-    fontSize: 15,
-    color: C.text,
-    backgroundColor: C.bg,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  inlineAddBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: C.bg,
-  },
-  inlineAddBtnDisabled: { opacity: 0.45 },
-  doneBlock: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: C.border,
-    paddingTop: 4,
-  },
-  doneLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: C.textSecondary,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
+    container: {
+      paddingBottom: 24,
+      backgroundColor: C.bg,
+    },
+    groupWrap: {
+      paddingHorizontal: 16,
+      marginBottom: 24,
+    },
+    sectionRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      paddingBottom: 8,
+    },
+    sectionMain: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      minWidth: 0,
+    },
+    sectionTitle: {
+      flex: 1,
+      fontSize: 12,
+      fontWeight: "700",
+      color: C.textTertiary,
+      textTransform: "uppercase",
+      letterSpacing: 0.6,
+    },
+    sectionCount: {
+      fontSize: 13,
+      fontWeight: "500",
+      color: C.textTertiary,
+      fontVariant: ["tabular-nums"],
+    },
+    groupBody: {
+      backgroundColor: C.bg,
+      overflow: "hidden",
+    },
+    groupBodyDragging: {
+      backgroundColor: C.surface,
+    },
+    row: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      borderBottomWidth: hairline,
+      borderBottomColor: C.border,
+      backgroundColor: C.bg,
+    },
+    rowDragging: {
+      backgroundColor: C.surface,
+    },
+    checkbox: {
+      padding: 2,
+    },
+    rowText: {
+      flex: 1,
+      fontSize: 16,
+      lineHeight: 22,
+      color: C.text,
+    },
+    rowDone: {
+      color: C.textTertiary,
+      textDecorationLine: "line-through",
+    },
+    addSection: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      backgroundColor: C.bg,
+      borderTopWidth: hairline,
+      borderTopColor: C.border,
+    },
+    addInputWrap: {
+      flex: 1,
+      borderWidth: hairline,
+      borderColor: C.border,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      backgroundColor: C.bg,
+    },
+    addInput: {
+      fontSize: 16,
+      lineHeight: 22,
+      color: C.text,
+      paddingVertical: 0,
+    },
+    addButton: {
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 10,
+      backgroundColor: C.primary,
+    },
+    addButtonDisabled: {
+      opacity: 0.4,
+    },
+    addButtonText: {
+      fontSize: 15,
+      fontWeight: "700",
+      color: C.onPrimary,
+    },
+    doneSection: {
+      borderTopWidth: hairline,
+      borderTopColor: C.border,
+    },
+    doneHeading: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: C.textTertiary,
+      textTransform: "uppercase",
+      letterSpacing: 0.6,
+      paddingHorizontal: 16,
+      paddingTop: 12,
+      paddingBottom: 4,
+    },
   });
 }

@@ -4,3 +4,5 @@ allowBuilds:
   '@sentry/cli': true
   core-js: true
   unrs-resolver: true
+patchedDependencies:
+  react-native-draggable-flatlist@4.0.3: patches/react-native-draggable-flatlist@4.0.3.patch

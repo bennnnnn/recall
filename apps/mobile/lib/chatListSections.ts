@@ -56,7 +56,7 @@ export function isCollapsibleChatSection(key: ChatListSectionKey): boolean {
 }
 
 export function defaultChatSectionCollapsed(key: ChatListSectionKey): boolean {
-  if (key === PINNED_CHAT_SECTION || key === "today" || key === "yesterday") {
+  if (key === PINNED_CHAT_SECTION || key === "today") {
     return false;
   }
   return true;

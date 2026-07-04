@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as Clipboard from "expo-clipboard";
 import { Ionicons } from "@expo/vector-icons";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View, Alert } from "react-native";
 
 import { CalendarProposalCard } from "@/components/CalendarProposalCard";
 import { PlacesListBlock } from "@/components/PlacesListBlock";
@@ -21,8 +21,9 @@ import {
   stripCalendarProposalFences,
 } from "@/lib/calendarProposal";
 import { extractPrimaryCopyText } from "@/lib/copyBlock";
+import { exportMessageAsPdf } from "@/lib/exportMessagePdf";
 import { notifySuccess, notifyWarning, tap } from "@/lib/haptics";
-import { parseVocabQuiz, stripVocabQuizBlock, isCompleteVocabQuiz, hasVocabQuizFence, cleanQuizWord, stripQuizMarkdownDuplicates, type QuizAnswerMeta } from "@/lib/parseVocabQuiz";
+import { parseVocabQuiz, stripVocabQuizBlock, stripVocabSessionMetadata, isCompleteVocabQuiz, hasVocabQuizFence, cleanQuizWord, stripQuizMarkdownDuplicates, type QuizAnswerMeta } from "@/lib/parseVocabQuiz";
 import { resolvePlaces, stripPlacesContent } from "@/lib/placesList";
 import {
   resolveSearchSources,
@@ -37,6 +38,7 @@ import { SENDING_LABEL_DELAY_MS } from "@/lib/chatMessageLogic";
 import { STREAM_LAYOUT_SETTLE_MS } from "@/lib/messageListLayout";
 import { useRotatingStreamStatus } from "@/lib/streamStatusLabel";
 import { Theme, useTheme } from "@/lib/theme";
+import { speakPlainText, stopSpeaking } from "@/lib/pronunciation";
 import { useTranslation } from "react-i18next";
 
 type Props = {
@@ -87,7 +89,10 @@ function AssistantActions({
   theme: Theme;
   hidden?: boolean;
 }) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const handleCopy = async () => {
     tap();
@@ -95,6 +100,36 @@ function AssistantActions({
     setCopied(true);
     notifySuccess();
     setTimeout(() => setCopied(false), 1500);
+  };
+
+  const handleSpeak = async () => {
+    if (speaking) {
+      stopSpeaking();
+      setSpeaking(false);
+      return;
+    }
+    tap();
+    setSpeaking(true);
+    const result = await speakPlainText(content);
+    setSpeaking(false);
+    if (!result.ok) {
+      Alert.alert(t("chat.read_aloud_unavailable_title"), t("chat.read_aloud_unavailable_body"));
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (exporting || !content.trim()) return;
+    tap();
+    setExporting(true);
+    try {
+      const titleMatch = content.match(/^#\s+(.+)$/m);
+      const title = titleMatch?.[1]?.trim() || t("chat.export_pdf_default_title");
+      await exportMessageAsPdf(title, content);
+    } catch {
+      Alert.alert(t("common.error"), t("chat.export_pdf_failed"));
+    } finally {
+      setExporting(false);
+    }
   };
 
   const rate = (dir: "up" | "down") => {
@@ -117,6 +152,32 @@ function AssistantActions({
           name={copied ? "checkmark-outline" : "copy-outline"}
           size={19}
           color={copied ? theme.primary : theme.textSecondary}
+        />
+      </Pressable>
+      <Pressable
+        style={a.btn}
+        onPress={() => void handleSpeak()}
+        hitSlop={8}
+        disabled={!content.trim()}
+        accessibilityLabel={t("chat.read_aloud_a11y")}
+      >
+        <Ionicons
+          name={speaking ? "volume-high" : "volume-high-outline"}
+          size={19}
+          color={speaking ? theme.primary : theme.textSecondary}
+        />
+      </Pressable>
+      <Pressable
+        style={a.btn}
+        onPress={() => void handleExportPdf()}
+        hitSlop={8}
+        disabled={!content.trim() || exporting}
+        accessibilityLabel={t("chat.export_pdf_a11y")}
+      >
+        <Ionicons
+          name={exporting ? "hourglass-outline" : "document-text-outline"}
+          size={19}
+          color={theme.textSecondary}
         />
       </Pressable>
       <Pressable style={a.btn} onPress={() => rate("up")} hitSlop={8}>
@@ -260,7 +321,7 @@ export const MessageBubble = React.memo(function MessageBubble({
   );
   const showPlaces = places.length > 0;
   const markdownContent = useMemo(() => {
-    let text = hideQuizFenceInMarkdown ? stripVocabQuizBlock(content) : content;
+    let text = hideQuizFenceInMarkdown ? stripVocabQuizBlock(content) : stripVocabSessionMetadata(content);
     if (showQuizCard && quiz) {
       text = stripQuizMarkdownDuplicates(text, quiz);
     }

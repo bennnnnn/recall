@@ -379,6 +379,9 @@ async def stream_and_finalize(
             )
 
     assistant_text = chat_pkg.math_fence_service.validate_math_fences(assistant_text)
+    from app.services.vocab_quiz import strip_vocab_session_metadata
+
+    assistant_text = strip_vocab_session_metadata(assistant_text)
 
     if ctx.search_sources:
         assistant_text = chat_pkg.web_search_service.strip_sources_from_text(assistant_text)

@@ -26,6 +26,9 @@ def test_should_inject_gmail_block_for_inbox_and_day_planning():
     assert email_service.should_inject_gmail_block(
         "How's my day looking so far — anything you think I should prioritize?"
     )
+    assert not email_service.should_inject_gmail_block(
+        "How did my day go? Help me reflect and wrap up loose ends."
+    )
     assert not email_service.should_inject_gmail_block("solve x^2 = 4")
     assert not email_service.should_inject_gmail_block("best restaurants near me")
 

@@ -662,8 +662,8 @@ async def extract_todo_actions(
                 "remaining item still due today in the snapshot.\n"
                 "- For clear_due: remove due date from the matched item.\n"
                 "- For complete/uncheck/delete: match existing items; use their topic.\n"
-                "- For delete_list: when the user wants to remove an entire list, emit one "
-                "action with that list title; leave content empty.\n"
+                "- For delete_list: when the user clearly wants to remove an entire list, emit one "
+                "action per list title; leave content empty. Skipped server-side if open items remain.\n"
                 "- Only emit actions the user clearly requested this turn.\n"
                 "- Return empty actions array if none."
             ),

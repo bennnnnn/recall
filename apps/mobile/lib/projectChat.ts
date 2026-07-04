@@ -1,6 +1,20 @@
 import type { LanguageLevel, ProjectDetail } from "@/lib/api";
+import { resolveDailyGoal } from "@/lib/dailyGoals";
 import { isLanguageProject, levelLabel } from "@/lib/languageLevels";
 import { VOCAB_QUIZ_FORMAT_BLOCK } from "@/lib/vocabQuizFormat";
+
+export function resolveProjectDailyGoal(project: ProjectDetail): number {
+  return resolveDailyGoal(project.daily_goal);
+}
+
+export function isDailyGoalMet(project: ProjectDetail): boolean {
+  if (!isLanguageProject(project.kind) && project.kind !== "trivia") return false;
+  return project.stats.mastered_today >= resolveProjectDailyGoal(project);
+}
+
+export function remainingDailyGoal(project: ProjectDetail): number {
+  return Math.max(0, resolveProjectDailyGoal(project) - project.stats.mastered_today);
+}
 
 function progressLine(project: ProjectDetail): string {
   const { stats, kind } = project;
@@ -73,27 +87,42 @@ export function buildProjectAskPrompt(project: ProjectDetail): string {
 
   if (isLanguageProject(project.kind)) {
     const lvl = levelLabel(project.level);
-    const daily = project.daily_goal ?? 10;
-    const today =
-      project.stats.mastered_today > 0 || project.stats.pending_today > 0
-        ? ` Today: ${project.stats.mastered_today}/${daily} mastered`
-        : "";
+    const daily = resolveProjectDailyGoal(project);
+    const done = project.stats.mastered_today;
+    if (isDailyGoalMet(project)) {
+      return (
+        `I finished my daily goal of ${daily} words on my "${project.title}" English project (${lvl}).${goal}\n` +
+        `${progressLine(project)}\n\n` +
+        "Tell me clearly that today's goal is complete — congratulate me. " +
+        "Do NOT add or sync new words unless I explicitly ask for a bonus batch beyond today's goal. " +
+        "Offer to quiz words I already know for review, or invite me back tomorrow."
+      );
+    }
+    const remaining = remainingDailyGoal(project);
+    const today = ` Today: ${done}/${daily} mastered — ${remaining} left for today's goal.`;
     return (
       `Help me with my "${project.title}" English project (${lvl}, ${daily} words/day).${goal}` +
       `${progressLine(project)}.${today} ` +
-      `If I have no pending words, generate today's batch. Otherwise quiz what I'm still learning.`
+      "Quiz my new and learning words first. Only add fresh words if I still need them to reach today's goal — " +
+      "never exceed today's goal without my explicit ok."
     );
   }
 
   if (project.kind === "trivia") {
-    const daily = project.daily_goal ?? 10;
-    const remaining = Math.max(0, daily - project.stats.mastered_today);
+    const daily = resolveProjectDailyGoal(project);
+    const remaining = remainingDailyGoal(project);
+    if (isDailyGoalMet(project)) {
+      return (
+        `I finished my daily goal of ${daily} correct answers on my general knowledge quiz.${goal} ` +
+        `${progressLine(project)}\n\n` +
+        "Tell me clearly that today's quiz goal is complete. Do NOT ask new quiz questions unless I " +
+        "explicitly want bonus questions beyond today's goal."
+      );
+    }
     return (
       `Continue my daily general knowledge quiz (${daily} correct/day).${goal} ` +
       `${progressLine(project)} ` +
-      (remaining > 0
-        ? `I need ${remaining} more correct answers today — ask the next question.`
-        : `I hit today's goal — offer a bonus question or wrap up.`)
+      `I need ${remaining} more correct answers today — ask the next question.`
     );
   }
 
@@ -103,10 +132,32 @@ export function buildProjectAskPrompt(project: ProjectDetail): string {
   );
 }
 
+/** Explicit opt-in when the user wants words beyond today's daily goal. */
+export function buildProjectBonusWordsPrompt(project: ProjectDetail): string {
+  const daily = resolveProjectDailyGoal(project);
+  const lvl = levelLabel(project.level);
+  return (
+    `I already finished my daily goal of ${daily} words on "${project.title}" today ` +
+    `(${project.stats.mastered_today}/${daily} mastered). My level: ${lvl}.\n\n` +
+    `I want a BONUS batch beyond today's goal. Confirm I'm ok with extra words, then add up to ${daily} ` +
+    "fresh words at my level — teach and quiz them one at a time. Do not start until I confirm."
+  );
+}
+
 /** Starts an interactive multiple-choice vocabulary quiz in chat. */
 export function buildProjectQuizPrompt(project: ProjectDetail): string {
   const lvl = levelLabel(project.level);
   const goal = project.description?.trim() ? ` ${project.description.trim()}.` : "";
+  const daily = resolveProjectDailyGoal(project);
+
+  if (isDailyGoalMet(project)) {
+    return (
+      `I finished my daily goal of ${daily} words on "${project.title}" today.\n` +
+      `${progressLine(project)}\n\n` +
+      "Tell me today's goal is done. Ask whether I want a bonus batch or just review words I already know. " +
+      "Do not add new words unless I explicitly ask for more beyond today's goal."
+    );
+  }
 
   return (
     `Start an interactive vocabulary quiz for my "${project.title}" English project.\n` +

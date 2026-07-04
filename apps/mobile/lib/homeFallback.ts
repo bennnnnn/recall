@@ -1,6 +1,10 @@
 import i18n from "@/lib/i18n";
 import { api, type HomeScreen, type HomeStarter } from "@/lib/api";
 
+const MORNING_START = 5;
+const CALENDAR_TODAY_END = 12;
+const REFLECT_START = 15;
+
 function looksInternal(text: string): boolean {
   const clean = text.trim();
   if (!clean) return true;
@@ -19,7 +23,7 @@ function localGreeting(): string {
 
 function timeStarters(): HomeStarter[] {
   const hour = new Date().getHours();
-  if (hour >= 5 && hour < 12) {
+  if (hour >= MORNING_START && hour < CALENDAR_TODAY_END) {
     return [
       {
         text: i18n.t("chat.home.starter_plan_day"),
@@ -28,16 +32,16 @@ function timeStarters(): HomeStarter[] {
       },
     ];
   }
-  if (hour >= 12 && hour < 17) {
+  if (hour >= CALENDAR_TODAY_END && hour < REFLECT_START) {
     return [
       {
-        text: i18n.t("chat.home.starter_hows_day"),
-        prompt: i18n.t("chat.home.starter_hows_day_prompt"),
+        text: i18n.t("chat.home.starter_working_on"),
+        prompt: i18n.t("chat.home.starter_working_on_prompt"),
         kind: "time",
       },
     ];
   }
-  if (hour >= 17 && hour < 22) {
+  if (hour >= REFLECT_START && hour < 22) {
     return [
       {
         text: i18n.t("chat.home.starter_reflect"),

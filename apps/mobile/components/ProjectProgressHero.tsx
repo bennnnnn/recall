@@ -11,8 +11,6 @@ type Props = {
   dueLabel: string;
   /** When set, shows today's batch progress instead of lifetime %. */
   dailyGoal?: number;
-  /** When set with dailyGoal, shows goal minus today's correct instead of pending_today. */
-  remainingToday?: number;
 };
 
 export function ProjectProgressHero({
@@ -20,15 +18,17 @@ export function ProjectProgressHero({
   learnedLabel,
   dueLabel,
   dailyGoal,
-  remainingToday,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const isDaily = dailyGoal != null && dailyGoal > 0;
-  const leftToday = remainingToday ?? stats.pending_today;
+  const goalMet = isDaily && stats.mastered_today >= dailyGoal;
+  const doneToday = isDaily ? Math.min(stats.mastered_today, dailyGoal) : stats.mastered_today;
+  const leftToday =
+    isDaily && !goalMet ? Math.max(0, dailyGoal - stats.mastered_today) : 0;
   const pct = isDaily
-    ? Math.min(100, Math.round((stats.mastered_today / dailyGoal) * 100))
+    ? Math.min(100, Math.round((doneToday / dailyGoal) * 100))
     : stats.total > 0
       ? Math.min(100, Math.round((stats.mastered_count / stats.total) * 100))
       : 0;
@@ -42,7 +42,9 @@ export function ProjectProgressHero({
         </Text>
         <Text style={s.pct}>
           {isDaily
-            ? t("projects.daily_progress", { done: stats.mastered_today, goal: dailyGoal })
+            ? goalMet
+              ? t("projects.daily_goal_done")
+              : t("projects.daily_progress", { done: doneToday, goal: dailyGoal })
             : t("projects.progress_pct", { pct })}
         </Text>
       </View>
@@ -53,11 +55,13 @@ export function ProjectProgressHero({
         {isDaily ? (
           <>
             <MetricPill
-              label={t("projects.stats.pending_today")}
-              value={leftToday}
+              label={
+                goalMet ? t("projects.stats.goal_complete") : t("projects.stats.pending_today")
+              }
+              value={goalMet ? dailyGoal : leftToday}
               theme={theme}
-              accent={leftToday > 0 ? theme.warning : theme.textTertiary}
-              highlight={leftToday > 0}
+              accent={goalMet ? theme.primary : leftToday > 0 ? theme.warning : theme.textTertiary}
+              highlight={!goalMet && leftToday > 0}
             />
             <MetricPill
               label={learnedLabel}

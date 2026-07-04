@@ -30,3 +30,31 @@ def is_day_planning_question(text: str) -> bool:
     if not cleaned:
         return False
     return bool(_DAY_PLANNING.search(cleaned))
+
+
+_DAY_REFLECTION = re.compile(
+    r"\b("
+    r"how did my day go|"
+    r"wrap up(?: loose ends| my day)?|"
+    r"help me reflect|"
+    r"reflect(?: on)?(?: my day)?|"
+    r"wind down"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def is_day_reflection_question(text: str) -> bool:
+    """End-of-day reflection — todos/calendar only; skip inbox fetch."""
+    cleaned = text.strip()
+    if not cleaned:
+        return False
+    return bool(_DAY_REFLECTION.search(cleaned))
+
+
+def needs_gmail_for_day_planning(text: str) -> bool:
+    """Morning planning may use inbox; reflection turns should stay fast."""
+    cleaned = text.strip()
+    if not is_day_planning_question(cleaned):
+        return False
+    return not is_day_reflection_question(cleaned)

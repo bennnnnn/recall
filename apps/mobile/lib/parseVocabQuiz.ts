@@ -52,6 +52,16 @@ export function inferQuizAnswersFromMessages(
 const CHOICE_LINE = /^([A-D])[\).:]\s*(.+)$/i;
 const VOCAB_QUIZ_FENCE_RE = /```vocab_quiz\s*\n([\s\S]*?)```/i;
 const VOCAB_QUIZ_FENCE_PARTIAL_RE = /```vocab_quiz[\s\S]*$/i;
+const VOCAB_SESSION_JSON_FENCE_RE = /```json\s*\n([\s\S]*?)```/gi;
+const VOCAB_SESSION_JSON_PARTIAL_RE = /```json[\s\S]*$/i;
+const SESSION_METADATA_KEYS = new Set([
+  "session_complete",
+  "sessionComplete",
+  "words_learned",
+  "wordsLearned",
+  "daily_goal_met",
+  "dailyGoalMet",
+]);
 const QUESTION_LINE =
   /^(?:What does it mean\??|Choose the best meaning:?|Which definition is correct:?)\s*$/i;
 const QUIZ_ANSWER_PROMPT_LINE =
@@ -327,12 +337,44 @@ export function stripQuizMarkdownDuplicates(
   return stripQuizIntroLines(lines, quiz).join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
+function isVocabSessionMetadata(data: unknown): boolean {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return false;
+  return Object.keys(data as Record<string, unknown>).some((key) =>
+    SESSION_METADATA_KEYS.has(key),
+  );
+}
+
+/** Hide ```json session summary blocks the model sometimes emits after daily vocab sessions. */
+export function stripVocabSessionMetadata(content: string): string {
+  let stripped = content.replace(VOCAB_SESSION_JSON_FENCE_RE, (block, jsonBody: string) => {
+    try {
+      const data = JSON.parse(jsonBody.trim()) as unknown;
+      return isVocabSessionMetadata(data) ? "" : block;
+    } catch {
+      return block;
+    }
+  });
+
+  const partial = VOCAB_SESSION_JSON_PARTIAL_RE.exec(stripped);
+  if (
+    partial &&
+    /session_complete|sessionComplete|words_learned|wordsLearned|daily_goal_met|dailyGoalMet/i.test(
+      partial[0],
+    )
+  ) {
+    stripped = stripped.slice(0, partial.index).trimEnd();
+  }
+
+  return stripped.replace(/\n{3,}/g, "\n\n").trim();
+}
+
 /** Intro/feedback text without the interactive quiz block (incl. partial fences while streaming). */
 export function stripVocabQuizBlock(content: string): string {
-  const fromFence = hasVocabQuizFence(content);
-  const parsed = parseVocabQuiz(content);
+  let stripped = stripVocabSessionMetadata(content);
+  const fromFence = hasVocabQuizFence(stripped);
+  const parsed = parseVocabQuiz(stripped);
 
-  let stripped = content.replace(VOCAB_QUIZ_FENCE_RE, "");
+  stripped = stripped.replace(VOCAB_QUIZ_FENCE_RE, "");
   stripped = stripped.replace(VOCAB_QUIZ_FENCE_PARTIAL_RE, "").trimEnd();
 
   const lines = stripped.split("\n");

@@ -117,12 +117,9 @@ export default function TodosScreen() {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [duePicker, setDuePicker] = useState<{ todo: Todo; date: Date } | null>(null);
   const [reminderSheetOpen, setReminderSheetOpen] = useState(false);
-  const [todoSheetOpen, setTodoSheetOpen] = useState(false);
+  const [newListOpen, setNewListOpen] = useState(false);
   const [savingReminder, setSavingReminder] = useState(false);
-  const [savingTodo, setSavingTodo] = useState(false);
   const [groupOrder, setGroupOrder] = useState<string[]>([]);
-  const [newGroupOpen, setNewGroupOpen] = useState(false);
-  const [addListTopic, setAddListTopic] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState(() => localDateKey(new Date()));
   const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(new Date()));
   const [calendarEvents, setCalendarEvents] = useState<GoogleCalendarEvent[]>([]);
@@ -209,10 +206,18 @@ export default function TodosScreen() {
     () => doneItems.filter((item) => isReminder(item)),
     [doneItems],
   );
-  const listGroups = useMemo(
+  const allListGroups = useMemo(
     () => buildListGroups(todos, groupOrder, t("lists.default_group")),
     [todos, groupOrder, t],
   );
+  /** User-created lists only; legacy default bucket if no lists yet. */
+  const listGroups = useMemo(() => {
+    const named = allListGroups.filter((g) => !g.isDefault);
+    if (named.length > 0) return named;
+    const fallback = allListGroups.find((g) => g.isDefault);
+    if (fallback && fallback.open.length + fallback.done.length > 0) return [fallback];
+    return [];
+  }, [allListGroups]);
   const visibleDone = useMemo(() => {
     if (focusSection === "list" || focusSection === "reminders") return [];
     return doneReminders;
@@ -221,7 +226,7 @@ export default function TodosScreen() {
   const hasListItems = todos.some((item) => !isReminder(item));
   const isEmpty = useMemo(() => {
     if (focusSection === "list") {
-      return !hasListItems && !hasNamedGroups;
+      return listGroups.length === 0;
     }
     if (focusSection === "reminders") {
       return openReminders.length === 0 && doneReminders.length === 0;
@@ -273,7 +278,7 @@ export default function TodosScreen() {
   useEffect(() => {
     const title =
       focusSection === "list"
-        ? t("todos.section_todos")
+        ? ""
         : focusSection === "reminders"
           ? t("todos.section_reminders")
           : t("todos.title");
@@ -300,24 +305,7 @@ export default function TodosScreen() {
     }
   };
 
-  const handleCreateTodo = async (content: string, topic = DEFAULT_TOPIC) => {
-    if (!token || !content.trim()) return;
-    setSavingTodo(true);
-    try {
-      const created = await api.createTodo(token, content.trim(), topic);
-      setTodos((prev) => [created, ...prev]);
-      const nextOrder = mergeGroupOrder(groupOrder, [topic]);
-      void persistGroupOrder(nextOrder);
-      setTodoSheetOpen(false);
-      setAddListTopic(null);
-    } catch {
-      Alert.alert(t("todos.error"), t("todos.error_create"));
-    } finally {
-      setSavingTodo(false);
-    }
-  };
-
-  const handleCreateGroup = async (name: string) => {
+  const handleCreateList = async (name: string) => {
     const topic = name.trim();
     if (!topic || isDefaultListTopic(topic)) return;
     if (groupOrder.some((entry) => entry.toLowerCase() === topic.toLowerCase())) {
@@ -326,7 +314,7 @@ export default function TodosScreen() {
     }
     const nextOrder = mergeGroupOrder(groupOrder, [topic]);
     await persistGroupOrder(nextOrder);
-    setNewGroupOpen(false);
+    setNewListOpen(false);
   };
 
   const handleReorderGroups = async (topics: string[]) => {
@@ -357,40 +345,6 @@ export default function TodosScreen() {
       setTodos(original);
       Alert.alert(t("todos.error"), t("todos.error_create"));
     }
-  };
-
-  const handleDeleteGroup = (topic: string, title: string) => {
-    if (isDefaultListTopic(topic)) return;
-    Alert.alert(t("lists.delete_group_confirm"), t("lists.delete_group_body", { name: title }), [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("common.delete"),
-        style: "destructive",
-        onPress: async () => {
-          if (!token) return;
-          const toDelete = todos.filter(
-            (item) => !item.due_at && normalizeTopic(item.topic) === topic,
-          );
-          setTodos((prev) => prev.filter((item) => !toDelete.some((d) => d.id === item.id)));
-          const nextOrder = groupOrder.filter((entry) => entry !== topic);
-          await persistGroupOrder(nextOrder);
-          try {
-            await Promise.all(toDelete.map((item) => api.deleteTodo(token, item.id)));
-          } catch {
-            void refresh({ silent: true });
-          }
-        },
-      },
-    ]);
-  };
-
-  const openAddToList = () => {
-    if (listGroups.length <= 1) {
-      setAddListTopic(listGroups[0]?.topic ?? DEFAULT_TOPIC);
-    } else {
-      setAddListTopic(null);
-    }
-    setTodoSheetOpen(true);
   };
 
   const handleCreateReminder = async (content: string, dueDate: Date) => {
@@ -470,6 +424,50 @@ export default function TodosScreen() {
         },
       },
     ]);
+  };
+
+  const handleDeleteList = (topic: string) => {
+    const normalized = normalizeTopic(topic);
+    const items = todos.filter(
+      (item) => !item.due_at && normalizeTopic(item.topic) === normalized,
+    );
+    if (items.some((item) => !item.checked)) {
+      Alert.alert(t("lists.delete_group_blocked_title"), t("lists.delete_group_blocked_body"));
+      return;
+    }
+    Alert.alert(
+      t("lists.delete_group_confirm"),
+      t("lists.delete_group_body", { name: topic }),
+      [
+        { text: t("common.cancel"), style: "cancel" },
+        {
+          text: t("common.delete"),
+          style: "destructive",
+          onPress: async () => {
+            if (!token) return;
+            for (const item of items) {
+              await cancelTodoReminder(item.id);
+            }
+            setTodos((prev) => {
+              const filtered = prev.filter(
+                (item) =>
+                  item.due_at != null || normalizeTopic(item.topic) !== normalized,
+              );
+              void syncTodoReminders(filtered);
+              return filtered;
+            });
+            const nextOrder = groupOrder.filter((entry) => entry !== topic);
+            await persistGroupOrder(nextOrder);
+            try {
+              await Promise.all(items.map((item) => api.deleteTodo(token, item.id)));
+            } catch {
+              void refresh({ silent: true });
+            }
+            void refresh({ silent: true });
+          },
+        },
+      ],
+    );
   };
 
   const applyDueDate = async (todo: Todo, date: Date) => {
@@ -750,9 +748,9 @@ export default function TodosScreen() {
 
       {showList ? (
         <>
-          <Pressable style={s.newGroupLink} onPress={() => setNewGroupOpen(true)}>
-            <Ionicons name="add-circle-outline" size={18} color={C.primary} />
-            <Text style={s.newGroupLinkText}>{t("lists.new_group")}</Text>
+          <Pressable style={s.newListLink} onPress={() => setNewListOpen(true)}>
+            <Ionicons name="add-circle-outline" size={20} color={C.primary} />
+            <Text style={s.newListLinkText}>{t("lists.new_group")}</Text>
           </Pressable>
           <ListGroupsView
             groups={listGroups}
@@ -761,9 +759,9 @@ export default function TodosScreen() {
             onReorderGroups={(topics) => void handleReorderGroups(topics)}
             onReorderItems={(topic, ordered) => void handleReorderItems(topic, ordered)}
             onToggle={(todo) => void handleToggle(todo)}
-            onDelete={(todo) => handleDeleteItem(todo)}
             onAddItem={(topic, text) => void handleCreateListItem(topic, text)}
-            onDeleteGroup={handleDeleteGroup}
+            onDeleteItem={handleDeleteItem}
+            onDeleteList={handleDeleteList}
           />
         </>
       ) : null}
@@ -772,10 +770,10 @@ export default function TodosScreen() {
 
   return (
     <GestureHandlerRootView style={s.root}>
+      {showReminders ? (
       <View style={s.topBar}>
-        {showReminders ? (
           <Pressable
-            style={[s.topBtn, !showList && s.topBtnSolo]}
+            style={[s.topBtn, s.topBtnSolo]}
             onPress={() => {
               void ensureNotificationPermission();
               setReminderSheetOpen(true);
@@ -784,17 +782,8 @@ export default function TodosScreen() {
             <Ionicons name="notifications-outline" size={20} color={C.primary} />
             <Text style={s.topBtnText}>{t("todos.add_reminder")}</Text>
           </Pressable>
-        ) : null}
-        {showList ? (
-          <Pressable
-            style={[s.topBtn, !showReminders && s.topBtnSolo]}
-            onPress={openAddToList}
-          >
-            <Ionicons name="list-outline" size={20} color={C.primary} />
-            <Text style={s.topBtnText}>{t("todos.add_todo")}</Text>
-          </Pressable>
-        ) : null}
       </View>
+      ) : null}
 
       <FlashList
         style={s.list}
@@ -807,22 +796,10 @@ export default function TodosScreen() {
         ListHeaderComponent={todosHeader}
       />
 
-      <AddTodoSheet
-        visible={todoSheetOpen}
-        saving={savingTodo}
-        groups={listGroups}
-        selectedTopic={addListTopic}
-        onClose={() => {
-          setTodoSheetOpen(false);
-          setAddListTopic(null);
-        }}
-        onSave={(content, topic) => void handleCreateTodo(content, topic)}
-      />
-
-      <NewGroupSheet
-        visible={newGroupOpen}
-        onClose={() => setNewGroupOpen(false)}
-        onSave={(name) => void handleCreateGroup(name)}
+      <NewListSheet
+        visible={newListOpen}
+        onClose={() => setNewListOpen(false)}
+        onSave={(name) => void handleCreateList(name)}
       />
 
       <AddReminderSheet
@@ -844,104 +821,7 @@ export default function TodosScreen() {
   );
 }
 
-function AddTodoSheet({
-  visible,
-  saving,
-  groups,
-  selectedTopic,
-  onClose,
-  onSave,
-}: {
-  visible: boolean;
-  saving: boolean;
-  groups: { topic: string; title: string }[];
-  selectedTopic: string | null;
-  onClose: () => void;
-  onSave: (content: string, topic: string) => void;
-}) {
-  const { t } = useTranslation();
-  const C = useTheme();
-  const s = useMemo(() => makeStyles(C), [C]);
-  const [text, setText] = useState("");
-  const [topic, setTopic] = useState(DEFAULT_TOPIC);
-
-  useEffect(() => {
-    if (!visible) {
-      setText("");
-      setTopic(DEFAULT_TOPIC);
-      return;
-    }
-    if (selectedTopic) setTopic(selectedTopic);
-    else if (groups.length === 1) setTopic(groups[0].topic);
-  }, [visible, selectedTopic, groups]);
-
-  const canSave = text.trim().length > 0 && !saving;
-  const showGroupPicker = groups.length > 1 && !selectedTopic;
-
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={s.sheetOverlay}>
-        <Pressable style={s.sheetBackdrop} onPress={onClose} />
-        <View style={s.sheet}>
-        <View style={s.sheetHeader}>
-          <Pressable onPress={onClose} hitSlop={8}>
-            <Text style={s.sheetCancel}>{t("common.cancel")}</Text>
-          </Pressable>
-          <Text style={s.sheetTitle}>{t("todos.todo_sheet_title")}</Text>
-          <Pressable
-            onPress={() => canSave && onSave(text, topic)}
-            hitSlop={8}
-            disabled={!canSave}
-          >
-            <Text style={[s.sheetSave, !canSave && s.sheetSaveDisabled]}>
-              {t("todos.save")}
-            </Text>
-          </Pressable>
-        </View>
-
-        <View style={s.sheetBody}>
-          {showGroupPicker ? (
-            <>
-              <Text style={s.formLabel}>{t("lists.add_to_group")}</Text>
-              <View style={s.groupOptions}>
-                {groups.map((group) => (
-                  <Pressable
-                    key={group.topic}
-                    style={[s.groupOption, topic === group.topic && s.groupOptionSelected]}
-                    onPress={() => setTopic(group.topic)}
-                  >
-                    <Ionicons
-                      name={topic === group.topic ? "radio-button-on" : "radio-button-off"}
-                      size={18}
-                      color={topic === group.topic ? C.primary : C.textTertiary}
-                    />
-                    <Text style={s.groupOptionText}>{group.title}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </>
-          ) : null}
-
-          <Text style={[s.formLabel, showGroupPicker && s.fieldGap]}>{t("todos.todo_label")}</Text>
-          <TextInput
-            style={s.titleInput}
-            placeholder={t("todos.todo_placeholder")}
-            placeholderTextColor={C.textTertiary}
-            value={text}
-            onChangeText={setText}
-            autoFocus
-            returnKeyType="done"
-            onSubmitEditing={() => canSave && onSave(text, topic)}
-            maxLength={500}
-          />
-        </View>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-function NewGroupSheet({
+function NewListSheet({
   visible,
   onClose,
   onSave,
@@ -966,34 +846,34 @@ function NewGroupSheet({
       <View style={s.sheetOverlay}>
         <Pressable style={s.sheetBackdrop} onPress={onClose} />
         <View style={s.sheet}>
-        <View style={s.sheetHeader}>
-          <Pressable onPress={onClose} hitSlop={8}>
-            <Text style={s.sheetCancel}>{t("common.cancel")}</Text>
-          </Pressable>
-          <Text style={s.sheetTitle}>{t("lists.new_group_title")}</Text>
-          <Pressable
-            onPress={() => canSave && onSave(name.trim())}
-            hitSlop={8}
-            disabled={!canSave}
-          >
-            <Text style={[s.sheetSave, !canSave && s.sheetSaveDisabled]}>
-              {t("todos.save")}
-            </Text>
-          </Pressable>
-        </View>
-        <View style={s.sheetBody}>
-          <Text style={s.formLabel}>{t("lists.group_name_label")}</Text>
-          <TextInput
-            style={s.titleInput}
-            placeholder={t("lists.group_name_placeholder")}
-            placeholderTextColor={C.textTertiary}
-            value={name}
-            onChangeText={setName}
-            autoFocus
-            returnKeyType="done"
-            maxLength={200}
-          />
-        </View>
+          <View style={s.sheetHeader}>
+            <Pressable onPress={onClose} hitSlop={8}>
+              <Text style={s.sheetCancel}>{t("common.cancel")}</Text>
+            </Pressable>
+            <Text style={s.sheetTitle}>{t("lists.new_group_title")}</Text>
+            <Pressable
+              onPress={() => canSave && onSave(name.trim())}
+              hitSlop={8}
+              disabled={!canSave}
+            >
+              <Text style={[s.sheetSave, !canSave && s.sheetSaveDisabled]}>
+                {t("todos.save")}
+              </Text>
+            </Pressable>
+          </View>
+          <View style={s.sheetBody}>
+            <Text style={s.formLabel}>{t("lists.group_name_label")}</Text>
+            <TextInput
+              style={s.titleInput}
+              placeholder={t("lists.group_name_placeholder")}
+              placeholderTextColor={C.textTertiary}
+              value={name}
+              onChangeText={setName}
+              autoFocus
+              returnKeyType="done"
+              maxLength={200}
+            />
+          </View>
         </View>
       </View>
     </Modal>
@@ -1311,14 +1191,15 @@ function makeStyles(C: Theme) {
     marginBottom: 8,
   },
   topBtnSolo: { flex: 1 },
-  newGroupLink: {
+  newListLink: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     paddingHorizontal: 16,
     paddingVertical: 10,
+    marginBottom: 16,
   },
-  newGroupLinkText: { fontSize: 15, fontWeight: "600", color: C.primary },
+  newListLinkText: { fontSize: 15, fontWeight: "600", color: C.primary },
   list: { flex: 1 },
   listEmpty: { flexGrow: 1 },
   section: {

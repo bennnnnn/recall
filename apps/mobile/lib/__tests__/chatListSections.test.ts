@@ -42,10 +42,10 @@ describe("chatListSections", () => {
     expect(activeChatsFromGroups(groups).map((c) => c.id)).toEqual(["t"]);
   });
 
-  it("pinned is not collapsible; recent date buckets start expanded", () => {
+  it("pinned is not collapsible; only today starts expanded", () => {
     expect(isCollapsibleChatSection(PINNED_CHAT_SECTION)).toBe(false);
     expect(defaultChatSectionCollapsed("today")).toBe(false);
-    expect(defaultChatSectionCollapsed("yesterday")).toBe(false);
+    expect(defaultChatSectionCollapsed("yesterday")).toBe(true);
     expect(defaultChatSectionCollapsed("last_7_days")).toBe(true);
     expect(defaultChatSectionCollapsed("older")).toBe(true);
   });

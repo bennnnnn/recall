@@ -18,10 +18,13 @@ import { getDeviceTimezone } from "@/lib/deviceTimezone";
 type HomeContextValue = {
   screen: HomeScreen | null;
   loading: boolean;
-  refresh: (opts?: { silent?: boolean }) => Promise<void>;
+  refresh: (opts?: { silent?: boolean; force?: boolean }) => Promise<void>;
 };
 
 const HomeContext = createContext<HomeContextValue | null>(null);
+
+/** Skip redundant /home round-trips when data is still fresh (matches drawer chat list). */
+const HOME_STALE_MS = 20_000;
 
 export function HomeProvider({ children }: { children: ReactNode }) {
   const auth = useAuthOptional();
@@ -30,13 +33,22 @@ export function HomeProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const inflightRef = useRef<Promise<void> | null>(null);
   const screenRef = useRef(screen);
+  const lastFetchedRef = useRef(0);
   screenRef.current = screen;
 
   const refresh = useCallback(
-    async (opts?: { silent?: boolean }) => {
+    async (opts?: { silent?: boolean; force?: boolean }) => {
       if (!token) {
         setScreen(null);
         setLoading(false);
+        lastFetchedRef.current = 0;
+        return;
+      }
+      if (
+        !opts?.force &&
+        screenRef.current &&
+        Date.now() - lastFetchedRef.current < HOME_STALE_MS
+      ) {
         return;
       }
       if (inflightRef.current) {
@@ -51,8 +63,10 @@ export function HomeProvider({ children }: { children: ReactNode }) {
         try {
           const data = await api.getHomeScreen(token, getDeviceTimezone());
           setScreen(data);
+          lastFetchedRef.current = Date.now();
         } catch {
           setScreen(await loadHomeFallback(token));
+          lastFetchedRef.current = Date.now();
         } finally {
           if (!opts?.silent) {
             setLoading(false);

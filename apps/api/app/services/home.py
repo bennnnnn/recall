@@ -7,7 +7,7 @@ import hashlib
 import logging
 import re
 from datetime import UTC, datetime, timedelta
-from typing import TypeVar
+from typing import Literal, NamedTuple, TypeVar
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -29,6 +29,7 @@ from app.repositories import projects as projects_repo
 from app.repositories import suggestions as suggestions_repo
 from app.repositories import todos as todos_repo
 from app.services import calendar as calendar_service
+from app.services import daily_learning
 from app.services import email as email_service
 from app.services import memory as memory_service
 from app.services import reminder_timing
@@ -37,6 +38,12 @@ logger = logging.getLogger(__name__)
 from app.services import time_context as time_context_service
 
 MAX_STARTERS = 5
+MORNING_START_HOUR = 5
+EMAIL_END_HOUR = 11  # show inbox chip until 11:00
+CALENDAR_TODAY_END_HOUR = 12  # "Today's calendar" until noon
+CALENDAR_TOMORROW_START_HOUR = 12
+CALENDAR_TOMORROW_END_HOUR = 22  # hide calendar chips late evening
+REFLECT_START_HOUR = 15  # "How did today go?" from 3 PM
 _HOME_MEMORY_TYPES = frozenset({"project", "focus", "preference"})
 _INTERNAL_TEXT = re.compile(
     r"^(?:the\s+)?user(?:'s|\s+name\s+is|\s+email\s+is|\s+id\s+is)\b",
@@ -51,13 +58,23 @@ _LANGUAGE_LEARNING = re.compile(
     r"learn(?:ing)?\s+english|english\s+(?:learner|learning|practice|vocabulary|vocab)|"
     r"studying\s+english|improve\s+(?:my\s+)?english|"
     r"learn(?:ing)?\s+(?:a\s+)?(?:new\s+)?language|language\s+learner|"
-    r"vocabulary\s+practice|practice\s+(?:my\s+)?english"
+    r"vocabulary\s+practice|practice\s+(?:my\s+)?english|"
+    r"vocabulary\s+learning|vocabular\w*"
     r")\b",
     re.IGNORECASE,
 )
 from app.services.chat_titles import BORING_CHAT_TITLES
 
 T = TypeVar("T")
+
+CompletedDaily = tuple[str, Literal["language", "trivia"]]
+
+
+class ProjectHomeContent(NamedTuple):
+    starters: list[HomeStarter]
+    subtitle: str | None
+    highlight: HomeProjectHighlight | None
+    completed_daily: list[CompletedDaily]
 
 
 def _resolve_home_tz(user: User, client_timezone: str | None = None) -> ZoneInfo:
@@ -108,7 +125,7 @@ def _greeting(user: User, tz: ZoneInfo) -> str:
 
 def _time_starters(user: User, tz: ZoneInfo) -> list[HomeStarter]:
     hour = _local_hour_for_tz(tz)
-    if 5 <= hour < 12:
+    if MORNING_START_HOUR <= hour < CALENDAR_TODAY_END_HOUR:
         candidates = [
             HomeStarter(
                 text="Plan my day",
@@ -121,20 +138,20 @@ def _time_starters(user: User, tz: ZoneInfo) -> list[HomeStarter]:
                 kind="time",
             ),
         ]
-    elif 12 <= hour < 17:
+    elif CALENDAR_TODAY_END_HOUR <= hour < REFLECT_START_HOUR:
         candidates = [
-            HomeStarter(
-                text="How's your day?",
-                prompt="How's my day looking so far — anything you think I should prioritize?",
-                kind="time",
-            ),
             HomeStarter(
                 text="What are you working on?",
                 prompt="What am I trying to get done today?",
                 kind="time",
             ),
+            HomeStarter(
+                text="What's left today?",
+                prompt="What's still open for me to finish today?",
+                kind="time",
+            ),
         ]
-    elif 17 <= hour < 22:
+    elif REFLECT_START_HOUR <= hour < 22:
         candidates = [
             HomeStarter(
                 text="How did today go?",
@@ -248,19 +265,134 @@ def _memory_subtitle(memory: Memory) -> str | None:
     return None
 
 
-def _chat_starter(recent_titles: list[str]) -> HomeStarter | None:
+def _normalize_overlap_text(text: str) -> str:
+    return re.sub(r"\s+", " ", text.strip().lower())
+
+
+def _overlap_tokens(text: str) -> set[str]:
+    return {
+        token
+        for token in re.findall(r"[a-z0-9]+", _normalize_overlap_text(text))
+        if len(token) >= 3
+    }
+
+
+def _texts_overlap(a: str, b: str) -> bool:
+    left = _normalize_overlap_text(a)
+    right = _normalize_overlap_text(b)
+    if not left or not right:
+        return False
+    if left in right or right in left:
+        return True
+    left_tokens = _overlap_tokens(left)
+    right_tokens = _overlap_tokens(right)
+    if not left_tokens or not right_tokens:
+        return False
+    shared = left_tokens & right_tokens
+    if len(shared) >= 2:
+        return True
+    shorter = min(len(left_tokens), len(right_tokens))
+    return len(shared) >= 1 and len(shared) / shorter >= 0.5
+
+
+def _continuity_anchors(
+    *,
+    project_starters: list[HomeStarter],
+    project_highlight: HomeProjectHighlight | None,
+) -> list[str]:
+    anchors: list[str] = []
+    if project_highlight:
+        anchors.append(project_highlight.title.strip())
+    for starter in project_starters:
+        text = starter.text.strip()
+        if text.lower().startswith("continue "):
+            anchors.append(text[9:].strip())
+        elif text.lower().startswith("start "):
+            anchors.append(text[6:].strip())
+        elif text.lower().startswith("review "):
+            anchors.append(text[7:].strip())
+        elif text.lower().startswith("practice "):
+            anchors.append(text[9:].strip())
+        else:
+            anchors.append(text)
+    return [anchor for anchor in anchors if anchor]
+
+
+def _overlaps_any(text: str, anchors: list[str]) -> bool:
+    return any(_texts_overlap(text, anchor) for anchor in anchors)
+
+
+def _chat_starter(
+    recent_titles: list[str],
+    *,
+    skip_overlapping: list[str] | None = None,
+) -> tuple[HomeStarter, str] | None:
+    skip = skip_overlapping or []
     for title in recent_titles:
         clean = (title or "").strip()
         if not clean or clean.lower() in BORING_CHAT_TITLES:
             continue
         if _looks_internal(clean):
             continue
-        return HomeStarter(
-            text="Pick up where we left off",
-            prompt=f"Let's continue our conversation about {clean}.",
-            kind="chat",
+        if _overlaps_any(clean, skip):
+            continue
+        return (
+            HomeStarter(
+                text="Pick up where we left off",
+                prompt=f"Let's continue our conversation about {clean}.",
+                kind="chat",
+            ),
+            clean,
         )
     return None
+
+
+def _memory_blocked_by_completed_daily(
+    memory: Memory,
+    completed_daily: list[CompletedDaily],
+) -> bool:
+    if not completed_daily:
+        return False
+    display = _memory_display_text(memory.text)
+    text = memory.text
+    language_done = any(kind == "language" for _, kind in completed_daily)
+    trivia_done = any(kind == "trivia" for _, kind in completed_daily)
+
+    for title, _kind in completed_daily:
+        if _texts_overlap(display, title) or _texts_overlap(text, title):
+            return True
+
+    if language_done and (
+        memory.type == "project"
+        or _looks_like_language_learning(text)
+        or _looks_like_language_learning(display)
+        or re.search(r"\bvocabular", text, re.I)
+    ):
+        return True
+
+    if trivia_done and memory.type == "project" and re.search(
+        r"\b(general\s+knowledge|trivia)\b", text, re.I
+    ):
+        return True
+
+    return False
+
+
+def _memory_starter_if_distinct(
+    memory: Memory,
+    *,
+    skip_overlapping: list[str],
+    completed_daily: list[CompletedDaily] | None = None,
+) -> HomeStarter | None:
+    if completed_daily and _memory_blocked_by_completed_daily(memory, completed_daily):
+        return None
+    starter = _memory_starter(memory)
+    if not starter:
+        return None
+    display = _memory_display_text(memory.text.strip())
+    if _overlaps_any(display, skip_overlapping) or _overlaps_any(memory.text, skip_overlapping):
+        return None
+    return starter
 
 
 def _format_urgent_due_label(due_at: datetime, user_timezone: str | None) -> str:
@@ -293,13 +425,55 @@ def _is_language_project(project: Project) -> bool:
     return project.kind in ("language", "vocabulary")
 
 
-def _project_progress_line(stats: ProjectStats) -> str:
+def _is_trivia_project(project: Project) -> bool:
+    return project.kind == "trivia"
+
+
+def _is_daily_home_project(project: Project) -> bool:
+    return _is_language_project(project) or _is_trivia_project(project)
+
+
+def _daily_home_kind(project: Project) -> Literal["language", "trivia"]:
+    return "trivia" if _is_trivia_project(project) else "language"
+
+
+def _project_progress_line(project: Project, stats: ProjectStats) -> str:
+    if _is_language_project(project):
+        if stats.total == 0:
+            return "I have no words yet — help me add some first."
+        return (
+            f"{stats.mastered_count} mastered, {stats.new_count} new, "
+            f"{stats.learning_count} learning, {stats.due_for_review} due for review."
+        )
+    if _is_trivia_project(project):
+        if stats.total == 0:
+            return "I have not answered any trivia questions yet."
+        return (
+            f"{stats.mastered_count} facts learned, {stats.mastered_today} correct today, "
+            f"{stats.learning_count} still learning."
+        )
     if stats.total == 0:
-        return "I have no words yet — help me add some first."
-    return (
-        f"{stats.mastered_count} mastered, {stats.new_count} new, "
-        f"{stats.learning_count} learning, {stats.due_for_review} due for review."
-    )
+        return "I have not started this project yet."
+    return f"I have {stats.total} items tracked on this project."
+
+
+def _project_chip_label(project: Project, stats: ProjectStats) -> str:
+    title = project.title.strip()
+    if _is_language_project(project):
+        if stats.total == 0:
+            return f"Start {title}"[:48]
+        if stats.due_for_review > 0:
+            return f"Review {title}"[:48]
+        return f"Practice {title}"[:48]
+    if _is_trivia_project(project):
+        if stats.total == 0:
+            return f"Start {title}"[:48]
+        if stats.mastered_today > 0:
+            return f"Continue {title}"[:48]
+        return f"Quiz me on {title}"[:48]
+    if stats.total == 0:
+        return f"Start {title}"[:48]
+    return f"Continue {title}"[:48]
 
 
 def _project_starters(project: Project, stats: ProjectStats) -> list[HomeStarter]:
@@ -309,18 +483,64 @@ def _project_starters(project: Project, stats: ProjectStats) -> list[HomeStarter
         if project.description and project.description.strip()
         else ""
     )
-    progress = _project_progress_line(stats)
+    progress = _project_progress_line(project, stats)
+    label = _project_chip_label(project, stats)
 
     if _is_language_project(project):
-        return []
+        daily_goal = daily_learning.resolve_daily_goal(project)
+        if stats.mastered_today >= daily_goal:
+            return []
+        remaining = max(0, daily_goal - stats.mastered_today)
+        if stats.total == 0:
+            prompt = (
+                f'Help me start my "{title}" vocabulary project.{goal} '
+                "Suggest how to add my first words and a simple first session."
+            )
+        elif stats.due_for_review > 0:
+            prompt = (
+                f'Help me review my "{title}" vocabulary.{goal} {progress} '
+                f"I still need {remaining} more mastered today to hit my daily goal of "
+                f"{daily_goal}. Quiz words that are due — do not add fresh words yet."
+            )
+        else:
+            prompt = (
+                f'Help me with my "{title}" vocabulary.{goal} {progress} '
+                f"I need {remaining} more mastered today (daily goal: {daily_goal}). "
+                "Quiz my new and learning words first — only add fresh words if I still "
+                "need them for today's goal."
+            )
+    elif _is_trivia_project(project):
+        daily_goal = daily_learning.resolve_daily_goal(project)
+        if stats.mastered_today >= daily_goal:
+            return []
+        remaining = max(0, daily_goal - stats.mastered_today)
+        if stats.total == 0:
+            prompt = (
+                f'Start my daily "{title}" general-knowledge quiz.{goal} '
+                f"Ask me one multiple-choice question at a time until I get "
+                f"{daily_goal} correct today."
+            )
+        else:
+            prompt = (
+                f'Continue my daily "{title}" trivia quiz.{goal} {progress} '
+                f"I need {remaining} more correct today (daily goal: {daily_goal}). "
+                "Ask the next question."
+            )
+    elif stats.total == 0:
+        prompt = (
+            f'Help me start my "{title}" project ({project.kind}).{goal} '
+            "I have not begun yet — suggest a simple first step."
+        )
+    else:
+        prompt = (
+            f'Help me with my "{title}" project ({project.kind}).{goal} '
+            f"{progress} What should I focus on next?"
+        )
 
     return [
         HomeStarter(
-            text=f"Continue {title}"[:48],
-            prompt=(
-                f'Help me with my "{title}" project ({project.kind}).{goal} '
-                f"{progress} What should I focus on next?"
-            ),
+            text=label,
+            prompt=prompt,
             kind="project",
         ),
     ]
@@ -350,17 +570,48 @@ def _project_subtitle(
             ]
             return variants[seed % len(variants)]
         return f'You have {stats.total} words in "{title}" — ready to practice?'
+    if _is_trivia_project(project):
+        daily_goal = daily_learning.resolve_daily_goal(project)
+        if stats.total == 0:
+            return f'Start your daily "{title}" quiz.'
+        if stats.mastered_today > 0:
+            return (
+                f'{stats.mastered_today}/{daily_goal} correct on "{title}" today — keep going?'
+            )
+        return f'Ready for today\'s "{title}" quiz?'
     if stats.total > 0:
         return f'Pick up your "{title}" project?'
     return None
 
 
-def _project_highlight(project: Project) -> HomeProjectHighlight | None:
-    if not _is_language_project(project):
+def _project_highlight(
+    project: Project,
+    stats: ProjectStats,
+    *,
+    home_tz: ZoneInfo,
+) -> HomeProjectHighlight | None:
+    if not _is_daily_home_project(project):
+        return None
+    daily_goal = daily_learning.resolve_daily_goal(project)
+    cue = daily_learning.daily_home_cue(
+        total=stats.total,
+        mastered_today=stats.mastered_today,
+        pending_today=stats.pending_today,
+        learning_count=stats.learning_count,
+        due_for_review=stats.due_for_review,
+        daily_goal=daily_goal,
+        last_mastery=stats.last_mastery_at,
+        home_tz=home_tz,
+    )
+    if cue is None:
         return None
     return HomeProjectHighlight(
         project_id=project.id,
         title=project.title.strip(),
+        kind=_daily_home_kind(project),
+        daily_goal=daily_goal,
+        mastered_today=stats.mastered_today,
+        cue=cue,
     )
 
 
@@ -369,47 +620,113 @@ async def _load_project_home_content(
     user_id: UUID,
     *,
     seed: int,
-) -> tuple[list[HomeStarter], str | None, HomeProjectHighlight | None]:
+    home_tz: ZoneInfo,
+) -> ProjectHomeContent:
     projects = await projects_repo.list_for_user(session, user_id, limit=20)
     if not projects:
-        return [], None, None
+        return ProjectHomeContent([], None, None, [])
 
-    language_projects = [p for p in projects if _is_language_project(p)]
-    primary = language_projects[0] if language_projects else projects[0]
-    stats_raw = await project_items_repo.count_stats(session, primary.id, user_id)
+    daily_projects = sorted(
+        [p for p in projects if _is_daily_home_project(p)],
+        key=lambda p: (0 if _is_language_project(p) else 1, p.title.casefold()),
+    )
+    if daily_projects:
+        completed_daily: list[CompletedDaily] = []
+        for candidate in daily_projects:
+            stats_raw = await project_items_repo.count_stats(
+                session,
+                candidate.id,
+                user_id,
+                timezone_name=str(home_tz.key),
+            )
+            stats = ProjectStats(**stats_raw)
+            daily_goal = daily_learning.resolve_daily_goal(candidate)
+            if stats.mastered_today >= daily_goal:
+                completed_daily.append((candidate.title.strip(), _daily_home_kind(candidate)))
+                continue
+            highlight = _project_highlight(candidate, stats, home_tz=home_tz)
+            if highlight is not None:
+                starters = _project_starters(candidate, stats)
+                subtitle = _project_subtitle(
+                    candidate,
+                    stats,
+                    seed=seed,
+                    has_highlight=True,
+                )
+                return ProjectHomeContent(starters, subtitle, highlight, completed_daily)
+        return ProjectHomeContent([], None, None, completed_daily)
+
+    primary = projects[0]
+    stats_raw = await project_items_repo.count_stats(
+        session,
+        primary.id,
+        user_id,
+        timezone_name=str(home_tz.key),
+    )
     stats = ProjectStats(**stats_raw)
+    highlight = _project_highlight(primary, stats, home_tz=home_tz)
+    completed_daily = []
+    if highlight is None and _is_daily_home_project(primary):
+        daily_goal = daily_learning.resolve_daily_goal(primary)
+        if stats.mastered_today >= daily_goal:
+            completed_daily = [(primary.title.strip(), _daily_home_kind(primary))]
     starters = _project_starters(primary, stats)
-    highlight = _project_highlight(primary)
     subtitle = _project_subtitle(
         primary,
         stats,
         seed=seed,
         has_highlight=highlight is not None,
     )
-    return starters, subtitle, highlight
+    return ProjectHomeContent(starters, subtitle, highlight, completed_daily)
 
 
 async def _integration_starters(
     session: AsyncSession,
     user_id: UUID,
     settings: Settings,
+    *,
+    tz: ZoneInfo,
 ) -> list[HomeStarter]:
-    """Surface connected calendar/Gmail as home chips."""
+    """Surface connected calendar/Gmail as home chips — time-of-day aware."""
+    hour = _local_hour_for_tz(tz)
     starters: list[HomeStarter] = []
 
     if settings.google_calendar_enabled and await calendar_service.is_connected(session, user_id):
-        starters.append(
-            HomeStarter(
-                text="Today's schedule",
-                prompt="What's on my calendar today and what should I prepare for?",
-                kind="general",
+        if MORNING_START_HOUR <= hour < CALENDAR_TODAY_END_HOUR:
+            starters.append(
+                HomeStarter(
+                    text="Today's calendar",
+                    prompt=(
+                        "What's on my calendar for the rest of today "
+                        "and what should I prepare for?"
+                    ),
+                    kind="general",
+                )
             )
-        )
-    if settings.gmail_enabled and await email_service.is_connected(session, user_id):
+        elif CALENDAR_TOMORROW_START_HOUR <= hour < CALENDAR_TOMORROW_END_HOUR:
+            starters.append(
+                HomeStarter(
+                    text="Tomorrow's calendar",
+                    prompt=(
+                        "What's on my calendar tomorrow "
+                        "and what should I prepare ahead of time?"
+                    ),
+                    kind="general",
+                )
+            )
+
+    if (
+        settings.gmail_enabled
+        and await email_service.is_connected(session, user_id)
+        and MORNING_START_HOUR <= hour < EMAIL_END_HOUR
+    ):
         starters.append(
             HomeStarter(
                 text="Email to handle",
-                prompt="Check my inbox — anything I need to reply to or follow up on today?",
+                prompt=(
+                    "Check my inbox — anything I need to reply to "
+                    "or follow up on this morning?"
+                ),
                 kind="general",
             )
         )
@@ -448,13 +765,11 @@ async def build_home_screen(
         recent = await chats_repo.list_for_user(session, user.id, limit=5)
         return [c.title or "" for c in recent]
 
-    async def load_project_content() -> tuple[
-        list[HomeStarter], str | None, HomeProjectHighlight | None
-    ]:
-        return await _load_project_home_content(session, user.id, seed=seed)
+    async def load_project_content() -> ProjectHomeContent:
+        return await _load_project_home_content(session, user.id, seed=seed, home_tz=home_tz)
 
     async def load_integrations() -> list[HomeStarter]:
-        return await _integration_starters(session, user.id, settings)
+        return await _integration_starters(session, user.id, settings, tz=home_tz)
 
     async def load_suggestions() -> list:
         return await suggestions_repo.list_active(session, user.id)
@@ -494,7 +809,10 @@ async def build_home_screen(
         )
 
     home_memory: Memory | None = _pick_home_memory(memories)
-    project_starters, project_subtitle, project_highlight = project_content
+    project_starters = project_content.starters
+    project_subtitle = project_content.subtitle
+    project_highlight = project_content.highlight
+    completed_daily = project_content.completed_daily
 
     starters: list[HomeStarter] = []
     seen_prompts: set[str] = set()
@@ -517,12 +835,47 @@ async def build_home_screen(
     for item in integration_starters:
         add(item)
 
-    add(_chat_starter(recent_titles) if not project_highlight else None)
+    continuity_anchors = _continuity_anchors(
+        project_starters=project_starters,
+        project_highlight=project_highlight,
+    )
+
     if not project_highlight:
         for item in project_starters:
             add(item)
+    elif project_starters:
+        # Daily learning card shown — add one chip that matches the card action.
+        chip = next(
+            (
+                item
+                for item in project_starters
+                if item.text.lower().startswith(("review ", "continue ", "quiz me on ", "start "))
+            ),
+            project_starters[0],
+        )
+        add(chip)
+
+    chat_skip = [
+        *continuity_anchors,
+        *(title for title, _kind in completed_daily),
+    ]
+    chat_match = (
+        None
+        if project_highlight
+        else _chat_starter(recent_titles, skip_overlapping=chat_skip)
+    )
+    if chat_match:
+        add(chat_match[0])
+        continuity_anchors = [*continuity_anchors, chat_match[1]]
+
     if home_memory and not project_highlight:
-        add(_memory_starter(home_memory))
+        add(
+            _memory_starter_if_distinct(
+                home_memory,
+                skip_overlapping=continuity_anchors,
+                completed_daily=completed_daily,
+            )
+        )
 
     for item in suggestion_items:
         text = item.text.strip()
@@ -547,7 +900,7 @@ async def build_home_screen(
 
     if project_highlight:
         subtitle = None
-    elif home_memory:
+    elif home_memory and not _memory_blocked_by_completed_daily(home_memory, completed_daily):
         subtitle = _memory_subtitle(home_memory)
     else:
         subtitle = project_subtitle

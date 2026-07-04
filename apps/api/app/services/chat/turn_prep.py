@@ -1,7 +1,8 @@
+import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, TypeVar
 from uuid import UUID
 
 from redis.asyncio import Redis
@@ -12,6 +13,7 @@ from app.core.db import SessionLocal
 from app.exceptions import ChatNotFoundError
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Attachment, User
+from app.services import day_planning as day_planning_service
 from app.services import profile as profile_service
 from app.services import projects as projects_service
 from app.services import web_search as web_search_service
@@ -22,6 +24,21 @@ from app.services.prompt_safety import wrap_untrusted
 logger = logging.getLogger(__name__)
 
 StreamStatusFn = Callable[[str], Awaitable[None]]
+
+INTEGRATION_LOAD_TIMEOUT_SECONDS = 5.0
+
+_T = TypeVar("_T")
+
+
+async def _timed_integration_load(label: str, coro: Awaitable[_T]) -> _T | None:
+    try:
+        return await asyncio.wait_for(coro, timeout=INTEGRATION_LOAD_TIMEOUT_SECONDS)
+    except TimeoutError:
+        logger.warning("%s integration load timed out", label)
+        return None
+    except Exception:
+        logger.exception("%s integration load failed", label)
+        return None
 
 
 @dataclass
@@ -58,6 +75,7 @@ class StreamContext:
     search_sources: list[WebSearchHit] = field(default_factory=list)
     local_places: bool = False
     skip_memory_jobs: bool = False
+    todos_pre_synced: bool = False
     prior_count: int = 0
     chat_project_id: UUID | None = None
     regenerate_backup: RegenerateBackup | None = None
@@ -149,6 +167,7 @@ async def build_stream_prompt_context(
     client_longitude: float | None,
     has_image_attachment: bool = False,
     on_status: StreamStatusFn | None = None,
+    todo_sync_feedback: str | None = None,
 ) -> TurnPromptBundle:
     """Shared prompt assembly for new turns and regenerate."""
     import app.services.chat as chat_pkg
@@ -156,6 +175,8 @@ async def build_stream_prompt_context(
     meta: dict[str, Any] = {}
     minimal_personal = is_broad_self_question(content)
     minimal_quiz = web_search_service.is_vocab_quiz_answer(content)
+    day_planning = day_planning_service.is_day_planning_question(content)
+    day_reflection = day_planning_service.is_day_reflection_question(content)
     geo = resolve_client_geo(
         user,
         content,
@@ -180,6 +201,7 @@ async def build_stream_prompt_context(
         minimal_quiz_context=minimal_quiz,
         client_timezone=client_timezone,
         prompt_location=geo.user_location if geo.geo_query and geo.has_geo_fix else None,
+        todo_sync_feedback=todo_sync_feedback,
     )
 
     instant_reply: str | None = None
@@ -215,26 +237,55 @@ async def build_stream_prompt_context(
         calendar_block: str | None = None
         gmail_block: str | None = None
 
+        pending: list[tuple[str, Awaitable[str | None]]] = []
         if load_calendar:
             if on_status is not None:
                 await on_status("loading_calendar")
-            calendar_block = await chat_pkg.calendar_service.load_calendar_for_prompt(
-                session, redis, user, settings
+            pending.append(
+                (
+                    "calendar",
+                    _timed_integration_load(
+                        "calendar",
+                        chat_pkg.calendar_service.load_calendar_for_prompt(
+                            session,
+                            redis,
+                            user,
+                            settings,
+                            cache_only=day_reflection,
+                        ),
+                    ),
+                )
             )
         if gmail_context is not None:
-            google_email, messages, pending, fetch_error = gmail_context
+            google_email, messages, pending_suggestions, fetch_error = gmail_context
             gmail_block = chat_pkg.email_service.format_gmail_block(
                 google_email=google_email,
                 messages=messages,
-                pending_suggestions=pending,
+                pending_suggestions=pending_suggestions,
                 fetch_error=fetch_error,
             )
         elif load_gmail:
             if on_status is not None:
                 await on_status("checking_inbox")
-            gmail_block = await chat_pkg.email_service.load_gmail_for_prompt(
-                session, redis, user, settings
+            pending.append(
+                (
+                    "gmail",
+                    _timed_integration_load(
+                        "gmail",
+                        chat_pkg.email_service.load_gmail_for_prompt(
+                            session, redis, user, settings
+                        ),
+                    ),
+                )
             )
+
+        if pending:
+            results = await asyncio.gather(*(task for _, task in pending))
+            for (label, _), result in zip(pending, results, strict=True):
+                if label == "calendar":
+                    calendar_block = result
+                elif label == "gmail":
+                    gmail_block = result
 
         if calendar_block:
             integration_blocks.append(wrap_untrusted("calendar", calendar_block))
@@ -259,6 +310,7 @@ async def build_stream_prompt_context(
         instant_reply is None
         and not minimal_personal
         and not minimal_quiz
+        and not day_planning
         and not geo.ambiguous_nearby
         and not chat_pkg.calendar_service.is_external_calendar_question(content)
         and not chat_pkg.email_service.is_external_email_question(content)
@@ -277,6 +329,7 @@ async def build_stream_prompt_context(
         instant_reply is None
         and not minimal_personal
         and not minimal_quiz
+        and not day_planning
         and not geo.ambiguous_nearby
         and not chat_pkg.calendar_service.is_external_calendar_question(content)
         and not chat_pkg.email_service.is_external_email_question(content)
@@ -425,6 +478,22 @@ async def prepare_chat_turn(
                 message_id=user_message.id,
             )
 
+        todo_sync_feedback: str | None = None
+        todos_pre_synced = False
+        if not web_search_service.is_vocab_quiz_answer(content):
+            recent_for_sync = await chat_pkg.messages_repo.list_recent(session, chat_id, limit=8)
+            sync_transcript = chat_pkg.todos_service.format_chat_transcript(recent_for_sync)
+            if chat_pkg.todos_service.should_pre_sync_todos(content, sync_transcript):
+                feedback = await chat_pkg.todos_service.sync_todos_before_reply(
+                    session,
+                    settings,
+                    user_id=user.id,
+                    chat_id=chat_id,
+                    transcript=sync_transcript,
+                )
+                todos_pre_synced = True
+                todo_sync_feedback = chat_pkg.todos_service.format_todo_sync_feedback(feedback)
+
         bundle = await build_stream_prompt_context(
             session,
             user,
@@ -439,6 +508,7 @@ async def prepare_chat_turn(
             client_longitude=client_longitude,
             has_image_attachment=has_image_attachment,
             on_status=on_status,
+            todo_sync_feedback=todo_sync_feedback,
         )
 
     prompt_messages = bundle.prompt_messages
@@ -468,6 +538,7 @@ async def prepare_chat_turn(
         search_sources=bundle.search_sources,
         local_places=bundle.local_places,
         skip_memory_jobs=bundle.minimal_quiz,
+        todos_pre_synced=todos_pre_synced,
         prior_count=prior_count,
         chat_project_id=chat.project_id,
         fallback_models=bundle.fallback_models,

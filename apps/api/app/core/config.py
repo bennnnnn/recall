@@ -119,7 +119,7 @@ class Settings(BaseSettings):
     memory_extract_every_n_turns: int = 3
     memory_query_embed_cache_ttl: int = 3600
     link_preview_cache_ttl: int = 3600
-    home_cache_ttl: int = 60
+    home_cache_ttl: int = 120
     todo_inject_limit: int = 100
     todo_prompt_limit: int = 48
     project_inject_limit: int = 50

@@ -444,9 +444,15 @@ def test_dismiss_suggestion():
 
     user = _fake_user()
     app = _app_with_user(user)
-    with patch(
-        "app.routers.suggestions.suggestions_repo.dismiss",
-        AsyncMock(return_value=True),
+    with (
+        patch(
+            "app.routers.suggestions.suggestions_repo.dismiss",
+            AsyncMock(return_value=True),
+        ),
+        patch(
+            "app.routers.suggestions.home_service.invalidate_home_cache",
+            AsyncMock(),
+        ) as invalidate_mock,
     ):
         client = TestClient(app)
         r = client.post(
@@ -454,6 +460,7 @@ def test_dismiss_suggestion():
             headers={"Authorization": "Bearer tok"},
         )
     assert r.status_code == 204
+    invalidate_mock.assert_awaited_once_with(user.id)
 
 
 def test_dismiss_suggestion_not_found():

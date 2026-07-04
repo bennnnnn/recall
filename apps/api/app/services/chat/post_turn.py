@@ -143,7 +143,7 @@ async def enqueue_post_turn_jobs(
                 },
             ),
         )
-    if not ctx.skip_memory_jobs and todos_service.transcript_implies_todo_sync(transcript):
+    if not ctx.skip_memory_jobs and not ctx.todos_pre_synced and todos_service.transcript_implies_todo_sync(transcript):
         job_specs.append(
             (
                 "todos",

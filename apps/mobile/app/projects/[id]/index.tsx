@@ -25,7 +25,11 @@ import {
   levelLabel,
 } from "@/lib/languageLevels";
 import { resolveDailyGoal } from "@/lib/dailyGoals";
-import { buildProjectAskPrompt } from "@/lib/projectChat";
+import {
+  buildProjectAskPrompt,
+  buildProjectBonusWordsPrompt,
+  isDailyGoalMet,
+} from "@/lib/projectChat";
 import { formatProjectListTitle, isConceptProject, isTriviaProject, projectStatsLabels } from "@/lib/projectUi";
 import {
   formatTriviaTopicLabels,
@@ -164,10 +168,7 @@ export default function ProjectDetailScreen() {
   const stats = project.stats;
   const statLabels = projectStatsLabels(project.kind, t);
   const dailyGoal = isLang || isTrivia ? resolveDailyGoal(project.daily_goal) : undefined;
-  const remainingToday =
-    isTrivia && dailyGoal != null
-      ? Math.max(0, dailyGoal - stats.mastered_today)
-      : undefined;
+  const dailyGoalMet = isDailyGoalMet(project);
   const posGroups = isLang ? project.pos_groups ?? [] : [];
   const decks = isLang ? project.decks ?? [] : [];
 
@@ -224,6 +225,18 @@ export default function ProjectDetailScreen() {
     router.replace("/");
   };
 
+  const startLanguageSession = () => {
+    if (!project || !isLang) return;
+    queueChatLaunch(buildProjectAskPrompt(project), project.id, "en");
+    router.replace("/");
+  };
+
+  const startLanguageBonus = () => {
+    if (!project || !isLang) return;
+    queueChatLaunch(buildProjectBonusWordsPrompt(project), project.id, "en");
+    router.replace("/");
+  };
+
   return (
     <ScrollView style={s.root} contentContainerStyle={s.content}>
       <View style={s.hero}>
@@ -261,8 +274,32 @@ export default function ProjectDetailScreen() {
         learnedLabel={statLabels.learned}
         dueLabel={statLabels.due}
         dailyGoal={dailyGoal}
-        remainingToday={remainingToday}
       />
+
+      {isLang && dailyGoalMet ? (
+        <View style={s.doneBanner}>
+          <Ionicons name="checkmark-circle" size={22} color={theme.primary} />
+          <Text style={s.doneBannerText}>
+            {t("projects.daily_goal_done_hint", { goal: dailyGoal })}
+          </Text>
+        </View>
+      ) : null}
+
+      {isLang ? (
+        dailyGoalMet ? (
+          <Pressable style={[s.studyBtn, s.studyBtnMuted]} onPress={startLanguageBonus}>
+            <Ionicons name="add-circle-outline" size={20} color={theme.primary} />
+            <Text style={[s.studyBtnText, s.studyBtnTextMuted]}>
+              {t("projects.add_bonus_words")}
+            </Text>
+          </Pressable>
+        ) : (
+          <Pressable style={s.studyBtn} onPress={startLanguageSession}>
+            <Ionicons name="chatbubble-ellipses-outline" size={20} color={theme.onPrimary} />
+            <Text style={s.studyBtnText}>{t("projects.continue_learning")}</Text>
+          </Pressable>
+        )
+      ) : null}
 
       {isTrivia ? (
         <Pressable style={s.studyBtn} onPress={startTriviaQuiz}>
@@ -452,6 +489,23 @@ function makeStyles(theme: Theme) {
     studyBtnMuted: { backgroundColor: theme.primaryLight },
     studyBtnText: { fontSize: 16, fontWeight: "700", color: theme.onPrimary },
     studyBtnTextMuted: { color: theme.primary },
+    doneBanner: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 10,
+      backgroundColor: theme.primaryLight,
+      borderRadius: 14,
+      padding: 14,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
+    },
+    doneBannerText: {
+      flex: 1,
+      fontSize: 14,
+      lineHeight: 20,
+      fontWeight: "600",
+      color: theme.textSecondary,
+    },
     listSection: {
       backgroundColor: theme.surface,
       borderRadius: 16,

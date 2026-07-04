@@ -75,7 +75,7 @@ def should_inject_gmail_block(text: str) -> bool:
     if not cleaned:
         return False
     if day_planning_service.is_day_planning_question(cleaned):
-        return True
+        return day_planning_service.needs_gmail_for_day_planning(cleaned)
     return is_external_email_question(cleaned)
 
 

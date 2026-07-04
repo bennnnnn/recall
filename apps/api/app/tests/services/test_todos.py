@@ -207,12 +207,15 @@ def test_format_todos_block_splits_reminders_and_lists():
 @pytest.mark.asyncio
 async def test_apply_todo_actions_delete_list():
     session = AsyncMock()
-    items = [_item("Task A", "Work"), _item("Task B", "Work")]
+    done_a = _item("Task A", "Work")
+    done_a.checked = True
+    done_b = _item("Task B", "Work")
+    done_b.checked = True
     with (
         patch.object(
             todos_service.todos_repo,
             "list_for_user",
-            AsyncMock(return_value=items),
+            AsyncMock(return_value=[done_a, done_b]),
         ),
         patch.object(
             todos_service.todos_repo,
@@ -227,6 +230,26 @@ async def test_apply_todo_actions_delete_list():
         )
     assert applied == 1
     delete_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_apply_todo_actions_delete_list_blocked_when_open():
+    session = AsyncMock()
+    items = [_item("Task A", "Work")]
+    feedback: list[str] = []
+    with patch.object(
+        todos_service.todos_repo,
+        "list_for_user",
+        AsyncMock(return_value=items),
+    ):
+        applied = await todos_service.apply_todo_actions(
+            session,
+            user_id=uuid4(),
+            actions=[TodoActionItem(action="delete_list", topic="Work", content="")],
+            feedback=feedback,
+        )
+    assert applied == 0
+    assert any("Blocked delete list" in line for line in feedback)
 
 
 @pytest.mark.asyncio

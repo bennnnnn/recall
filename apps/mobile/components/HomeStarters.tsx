@@ -9,7 +9,7 @@ import { useHome } from "@/contexts/HomeContext";
 import { useTodos } from "@/contexts/TodosContext";
 import { api, type HomeUrgentTodo, type HomeProjectHighlight, type HomeStarter } from "@/lib/api";
 import { describeDueAt } from "@/lib/dueDate";
-import { homeUrgentPrompt, homeUrgentSubtitle, listHomeUrgentTodos, partitionHomeUrgentTodos } from "@/lib/homeUrgentTodos";
+import { homeUrgentPrompt, listHomeUrgentTodos, partitionHomeUrgentTodos } from "@/lib/homeUrgentTodos";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -31,6 +31,26 @@ function starterIcon(kind: HomeStarter["kind"]): keyof typeof Ionicons.glyphMap 
   }
 }
 
+function dailyCueLabel(
+  highlight: HomeProjectHighlight,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string {
+  const { cue, daily_goal: goal, mastered_today: done, kind } = highlight;
+  const prefix = kind === "trivia" ? "chat.home.trivia_cue_" : "chat.home.vocab_cue_";
+  switch (cue) {
+    case "start":
+      return t(`${prefix}start`, { goal });
+    case "continue":
+      return t(`${prefix}continue`, { done, goal });
+    case "finish_pending":
+      return t(`${prefix}finish_pending`, { done, goal });
+    case "missed_yesterday":
+      return t(`${prefix}missed_yesterday`, { goal });
+    default:
+      return t(`${prefix}not_started_today`, { goal });
+  }
+}
+
 function ProjectHighlightCard({
   highlight,
   styles: s,
@@ -41,6 +61,14 @@ function ProjectHighlightCard({
   theme: Theme;
 }) {
   const router = useRouter();
+  const { t } = useTranslation();
+  const progress =
+    highlight.daily_goal > 0
+      ? Math.min(100, Math.round((highlight.mastered_today / highlight.daily_goal) * 100))
+      : 0;
+  const subtitle = dailyCueLabel(highlight, t);
+  const iconName =
+    highlight.kind === "trivia" ? "bulb-outline" : ("language-outline" as const);
 
   return (
     <Pressable
@@ -48,11 +76,19 @@ function ProjectHighlightCard({
       onPress={() => router.push(`/projects/${highlight.project_id}`)}
     >
       <View style={s.projectIconWrap}>
-        <Ionicons name="language-outline" size={20} color={theme.primary} />
+        <Ionicons name={iconName} size={20} color={theme.primary} />
       </View>
-      <Text style={s.projectTitle} numberOfLines={1}>
-        {highlight.title}
-      </Text>
+      <View style={s.projectMain}>
+        <Text style={s.projectTitle} numberOfLines={1}>
+          {highlight.title}
+        </Text>
+        <Text style={s.projectSubtitle} numberOfLines={2}>
+          {subtitle}
+        </Text>
+        <View style={s.projectTrack}>
+          <View style={[s.projectFill, { width: `${progress}%` }]} />
+        </View>
+      </View>
       <Ionicons name="chevron-forward" size={18} color={theme.textTertiary} />
     </Pressable>
   );
@@ -158,25 +194,6 @@ export function HomeStarters({ onSelect }: Props) {
 
   const urgentGroups = useMemo(() => partitionHomeUrgentTodos(urgentTodos), [urgentTodos]);
 
-  const displaySubtitle = useMemo(() => {
-    if (screen?.project_highlight) return null;
-    if (!todosLoading) {
-      const fromUrgent = homeUrgentSubtitle(urgentTodos, t);
-      if (fromUrgent) return fromUrgent;
-      if ((screen?.urgent_todos.length ?? 0) > 0 && urgentTodos.length === 0) {
-        return null;
-      }
-    }
-    return screen?.subtitle ?? null;
-  }, [
-    screen?.project_highlight,
-    todosLoading,
-    urgentTodos,
-    screen?.subtitle,
-    screen?.urgent_todos.length,
-    t,
-  ]);
-
   if (loading && !screen) {
     return (
       <View style={s.loadingWrap}>
@@ -200,7 +217,6 @@ export function HomeStarters({ onSelect }: Props) {
   return (
     <View style={s.wrap}>
       <Text style={s.greeting}>{screen.greeting}</Text>
-      {displaySubtitle ? <Text style={s.subtitle}>{displaySubtitle}</Text> : null}
 
       {screen.project_highlight ? (
         <ProjectHighlightCard highlight={screen.project_highlight} styles={s} theme={theme} />
@@ -267,13 +283,6 @@ function makeStyles(t: Theme) {
       textAlign: "center",
       letterSpacing: -0.5,
     },
-    subtitle: {
-      fontSize: 15,
-      lineHeight: 22,
-      color: t.textSecondary,
-      textAlign: "center",
-      paddingHorizontal: 8,
-    },
     projectCard: {
       width: "100%",
       flexDirection: "row",
@@ -294,7 +303,16 @@ function makeStyles(t: Theme) {
       alignItems: "center",
       justifyContent: "center",
     },
-    projectTitle: { flex: 1, fontSize: 17, fontWeight: "700", color: t.text },
+    projectTitle: { fontSize: 17, fontWeight: "700", color: t.text },
+    projectMain: { flex: 1, gap: 6 },
+    projectSubtitle: { fontSize: 13, fontWeight: "600", color: t.textSecondary },
+    projectTrack: {
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: t.border,
+      overflow: "hidden",
+    },
+    projectFill: { height: 4, borderRadius: 2, backgroundColor: t.primary },
     sectionLabel: {
       fontSize: 11,
       fontWeight: "700",

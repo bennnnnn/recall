@@ -82,5 +82,8 @@ async def extract_and_store_memories(
                         memory.embedding_json = embedding_gateway.serialize_embedding(vec)
             await session.commit()
             await memory_service.invalidate_memory_block(user_id)
+            from app.services import home as home_service
+
+            await home_service.invalidate_home_cache(user_id)
     except Exception:
         logger.exception("Memory extraction failed for user_id=%s", user_id)

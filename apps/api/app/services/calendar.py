@@ -301,10 +301,17 @@ async def load_calendar_for_prompt(
     redis: Redis,
     user: User,
     settings: Settings,
+    *,
+    cache_only: bool = False,
 ) -> str | None:
     if not google_calendar_gateway.is_configured(settings):
         return None
     if not await is_connected(session, user.id):
+        return None
+    cached = await _load_cached_events(redis, user.id)
+    if cached is not None:
+        return format_calendar_block(cached, user.timezone, settings.calendar_prompt_days)
+    if cache_only:
         return None
     events = await fetch_upcoming_events(session, redis, user, settings)
     return format_calendar_block(events, user.timezone, settings.calendar_prompt_days)
