@@ -23,7 +23,7 @@ import type { Theme } from "@/lib/theme";
 
 type ModelOption = { id: string; label: string };
 
-type Props = {
+export type ChatScreenBodyProps = {
   styles: ChatScreenStyles;
   theme: Theme;
   token: string;
@@ -152,7 +152,7 @@ export function ChatScreenBody({
   onVoicePress,
   upgradeVisible,
   onCloseUpgrade,
-}: Props) {
+}: ChatScreenBodyProps) {
   const { t } = useTranslation();
 
   return (
