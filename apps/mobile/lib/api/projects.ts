@@ -116,6 +116,12 @@ export const projectsApi = {
     });
   },
 
+  getDailyQuiz: (token: string, projectId: string) => {
+    const tz = getDeviceTimezone();
+    const qs = tz ? `?client_timezone=${encodeURIComponent(tz)}` : "";
+    return request<ProjectDailyQuiz>(`/projects/${projectId}/quiz/daily${qs}`, token);
+  },
+
   answerDailyQuiz: (
     token: string,
     projectId: string,

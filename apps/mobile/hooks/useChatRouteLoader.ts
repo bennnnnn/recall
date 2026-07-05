@@ -72,6 +72,7 @@ export function useChatRouteLoader({
     discardEmptyChat,
     clearDraftChat,
     prepareDraftChat,
+    setDraftChatId,
   } = draft;
 
   const [chatTitle, setChatTitle] = useState<string | null>(null);
@@ -357,12 +358,31 @@ export function useChatRouteLoader({
         pendingLaunchRef.current = null;
         setPendingLaunch(null);
         setDailyQuizActive(true);
+        creatingRef.current = true;
+        void prepareDraftChat(queued.projectId, "auto", queued.quizMode)
+          .then(async (id) => {
+            if (!id || !token) return;
+            skipLoadForChatIdRef.current = id;
+            setChatId(id);
+            draftChatIdRef.current = null;
+            setDraftChatId(null);
+            router.setParams({ chatId: id });
+            try {
+              const chat = await api.getChat(token, id);
+              insertChatGlobal(chat);
+            } catch {
+              /* drawer insert is best-effort */
+            }
+          })
+          .finally(() => {
+            creatingRef.current = false;
+          });
       } else {
         setDailyQuizActive(false);
         pendingLaunchRef.current = prompt;
         setPendingLaunch(prompt);
+        void prepareDraftChat(queued.projectId, "auto", queued.quizMode);
       }
-      void prepareDraftChat(queued.projectId, "auto", queued.quizMode);
     },
     [
       streaming,
@@ -372,6 +392,8 @@ export function useChatRouteLoader({
       clearDraftChat,
       draftProjectIdRef,
       draftQuizModeRef,
+      draftChatIdRef,
+      skipLoadForChatIdRef,
       routeChatId,
       router,
       setMessages,
@@ -380,8 +402,10 @@ export function useChatRouteLoader({
       resolveQuizVariant,
       setInputRef,
       prepareDraftChat,
+      setDraftChatId,
       creatingRef,
       setChatId,
+      token,
     ],
   );
 

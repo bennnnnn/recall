@@ -38,12 +38,18 @@ export function useDailyQuiz({
     }
   }, []);
 
+  const loadInFlightRef = useRef(false);
+
   const load = useCallback(async () => {
-    if (!token || !projectId || !enabled) return;
+    if (!token || !projectId || !enabled || loadInFlightRef.current) return;
+    loadInFlightRef.current = true;
     setLoading(true);
     setError(null);
     try {
-      const data = await api.ensureDailyQuiz(token, projectId);
+      let data = await api.getDailyQuiz(token, projectId);
+      if (!data.current && !data.complete) {
+        data = await api.ensureDailyQuiz(token, projectId);
+      }
       setSession(data);
       onProgress?.(data.answered_count, data.daily_goal);
       if (data.current?.id) {
@@ -52,6 +58,7 @@ export function useDailyQuiz({
     } catch {
       setError("load_failed");
     } finally {
+      loadInFlightRef.current = false;
       setLoading(false);
     }
   }, [token, projectId, enabled, onProgress, resetQuestionState]);

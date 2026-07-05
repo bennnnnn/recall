@@ -13,12 +13,20 @@ export type ParsedVocabQuiz = {
   correct?: QuizChoice["letter"];
   choices: QuizChoice[];
   quizType?: "vocab" | "trivia";
+  dailyProgress?: { done: number; goal: number };
 };
+
+export function isRenderableVocabQuiz(quiz: ParsedVocabQuiz | null): quiz is ParsedVocabQuiz {
+  if (quiz == null || quiz.choices.length !== 4) return false;
+  if (quiz.quizType === "trivia") {
+    return Boolean(quiz.question?.trim() || quiz.word.trim());
+  }
+  return Boolean(quiz.word.trim());
+}
 
 export function isCompleteVocabQuiz(quiz: ParsedVocabQuiz | null): quiz is ParsedVocabQuiz {
   return (
-    quiz != null &&
-    quiz.choices.length === 4 &&
+    isRenderableVocabQuiz(quiz) &&
     quiz.correct != null &&
     /^[A-D]$/.test(quiz.correct)
   );
@@ -43,7 +51,7 @@ export function inferQuizAnswersFromMessages(
   const answers: Partial<Record<string, QuizChoice["letter"]>> = {};
   for (let i = 0; i < messages.length - 1; i++) {
     const msg = messages[i];
-    if (msg.role !== "assistant" || !isCompleteVocabQuiz(parseVocabQuiz(msg.content))) {
+    if (msg.role !== "assistant" || !isRenderableVocabQuiz(parseVocabQuiz(msg.content))) {
       continue;
     }
     const next = messages[i + 1];
@@ -98,6 +106,7 @@ function parseVocabQuizFence(content: string): ParsedVocabQuiz | null {
       correct?: string;
       quiz_type?: string;
       quizType?: string;
+      daily_progress?: { done?: number; goal?: number };
       choices?: Array<{ letter?: string; text?: string }>;
     };
     const quizTypeRaw = String(data.quiz_type ?? data.quizType ?? "").toLowerCase();
@@ -118,10 +127,16 @@ function parseVocabQuizFence(content: string): ParsedVocabQuiz | null {
       if (!/^[A-D]$/.test(letter) || !text) continue;
       choices.push({ letter: letter as QuizChoice["letter"], text });
     }
-    if (choices.length < 2) return null;
+    if (choices.length < 4) return null;
     const correctRaw = String(data.correct ?? "").toUpperCase();
-    if (!/^[A-D]$/.test(correctRaw)) return null;
-    const correct = correctRaw as QuizChoice["letter"];
+    const correct = /^[A-D]$/.test(correctRaw)
+      ? (correctRaw as QuizChoice["letter"])
+      : undefined;
+    const progressRaw = data.daily_progress;
+    const dailyProgress =
+      progressRaw && typeof progressRaw.done === "number" && typeof progressRaw.goal === "number"
+        ? { done: progressRaw.done, goal: progressRaw.goal }
+        : undefined;
     return {
       word: word || question?.slice(0, 40) || "Trivia",
       partOfSpeech: quizType === "trivia" ? undefined : data.part_of_speech?.trim() || undefined,
@@ -129,6 +144,7 @@ function parseVocabQuizFence(content: string): ParsedVocabQuiz | null {
       correct,
       choices,
       quizType,
+      dailyProgress,
     };
   } catch {
     return null;

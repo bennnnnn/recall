@@ -61,6 +61,8 @@ type Props = {
   voiceTranscribing?: boolean;
   voiceMeterLevel?: number;
   onVoicePress?: () => void;
+  /** When true, parent owns absolute bottom positioning (e.g. quiz dock). */
+  docked?: boolean;
 };
 
 export const ChatComposer = memo(function ChatComposer({
@@ -94,6 +96,7 @@ export const ChatComposer = memo(function ChatComposer({
   voiceTranscribing = false,
   voiceMeterLevel = 0.12,
   onVoicePress,
+  docked = false,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -101,9 +104,10 @@ export const ChatComposer = memo(function ChatComposer({
 
   if (!visible) return null;
 
+  const blockStyle = docked ? s.composerDocked : s.composerBlock;
   const containerStyle = animatedContainerStyle
-    ? [s.composerBlock, animatedContainerStyle]
-    : [s.composerBlock, { bottom, paddingBottom }];
+    ? [blockStyle, animatedContainerStyle]
+    : [blockStyle, { bottom, paddingBottom }];
 
   return (
     <Animated.View style={containerStyle}>
@@ -249,6 +253,11 @@ function makeStyles(theme: Theme) {
       left: 0,
       right: 0,
       zIndex: 110,
+      backgroundColor: theme.bg,
+      paddingHorizontal: 12,
+      paddingTop: 2,
+    },
+    composerDocked: {
       backgroundColor: theme.bg,
       paddingHorizontal: 12,
       paddingTop: 2,

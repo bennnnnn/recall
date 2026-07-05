@@ -107,10 +107,12 @@ export function DailyQuizPanel({
   }, [question?.id]);
 
   if (loading && !session) {
+    const loadingKey =
+      quizVariant === "trivia" ? "daily_quiz.loading_trivia" : "daily_quiz.loading_vocab";
     return (
       <View style={s.wrap}>
         <ActivityIndicator color={theme.primary} />
-        <Text style={s.hint}>{t("daily_quiz.loading")}</Text>
+        <Text style={s.hint}>{t(loadingKey)}</Text>
       </View>
     );
   }
@@ -255,7 +257,8 @@ function makeStyles(t: Theme) {
   return StyleSheet.create({
     wrap: {
       marginHorizontal: 12,
-      marginBottom: 8,
+      marginTop: 8,
+      marginBottom: 12,
       padding: 14,
       borderRadius: 16,
       backgroundColor: t.surface,
