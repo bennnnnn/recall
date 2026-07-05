@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -436,7 +437,27 @@ async def augment_prompt_messages(
     if intent is None:
         return messages
 
-    block = _build_verified_block(intent, settings)
+    block = await _build_verified_block_async(intent, settings)
     if not block:
         return messages
     return _inject_before_last_user(messages, block)
+
+
+async def _build_verified_block_async(intent: MathIntent, settings: Settings) -> str | None:
+    """Run the sync, CPU-bound SymPy work off the event loop with a hard timeout.
+
+    ``_build_verified_block`` calls into SymPy's ``solve``/``integrate``/etc.,
+    which are synchronous and can take arbitrarily long on a pathological
+    expression. Without offloading, that would stall every concurrent chat
+    stream on this worker's single event loop.
+    """
+    try:
+        async with asyncio.timeout(settings.math_solve_timeout_seconds):
+            return await asyncio.to_thread(_build_verified_block, intent, settings)
+    except TimeoutError:
+        logger.warning(
+            "math_tools solve timed out after %ss for kind=%s",
+            settings.math_solve_timeout_seconds,
+            intent.kind,
+        )
+        return None

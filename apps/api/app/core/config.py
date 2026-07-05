@@ -67,6 +67,10 @@ class Settings(BaseSettings):
     math_tools_enabled: bool = True
     math_max_expr_length: int = 256
     math_graph_max_points: int = 300
+    # SymPy solve/simplify/integrate run on a worker thread (they're sync, CPU-bound);
+    # this bounds how long a single pathological expression can occupy that thread
+    # before the chat turn falls back to an unverified reply.
+    math_solve_timeout_seconds: float = 5.0
 
     # Background LLM resilience: if the primary memory-model provider is down,
     # retry background jobs (memory/todo/project extraction, titles, summaries)
