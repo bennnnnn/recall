@@ -432,7 +432,7 @@ async def test_topic_service_skips_when_title_none():
         ),
         patch("app.services.topic.chats_repo.set_title", mock_set),
     ):
-        await topic_service.generate_chat_title(AsyncMock(), Settings(), uuid4(), "hi", "hello")
+        await topic_service.generate_chat_title(Settings(), uuid4(), "hi", "hello")
     mock_set.assert_not_awaited()
 
 
@@ -445,16 +445,18 @@ async def test_topic_service_saves_when_title_returned():
     chat = MagicMock(spec=Chat)
     chat.title = None
     session = AsyncMock()
+    session.commit = AsyncMock()
     session.get = AsyncMock(return_value=chat)
 
     with (
+        patch("app.services.topic.SessionLocal", side_effect=[_FakeSessionCM(session)]),
         patch(
             "app.services.topic.litellm_gateway.generate_title",
             AsyncMock(return_value="Cool chat title"),
         ),
         patch("app.services.topic.chats_repo.set_title", mock_set),
     ):
-        await topic_service.generate_chat_title(session, Settings(), uuid4(), "hi", "hello")
+        await topic_service.generate_chat_title(Settings(), uuid4(), "hi", "hello")
     mock_set.assert_awaited_once()
 
 
@@ -470,7 +472,7 @@ async def test_topic_service_rejects_boring_title():
         ),
         patch("app.services.topic.chats_repo.set_title", mock_set),
     ):
-        await topic_service.generate_chat_title(AsyncMock(), Settings(), uuid4(), "hi", "hello")
+        await topic_service.generate_chat_title(Settings(), uuid4(), "hi", "hello")
     mock_set.assert_not_awaited()
 
 
@@ -482,7 +484,7 @@ async def test_topic_service_skips_empty_messages():
         "app.services.topic.litellm_gateway.generate_title",
         AsyncMock(return_value="Valid title here"),
     ) as mock_gen:
-        await topic_service.generate_chat_title(AsyncMock(), Settings(), uuid4(), "  ", "hello")
+        await topic_service.generate_chat_title(Settings(), uuid4(), "  ", "hello")
     mock_gen.assert_not_awaited()
 
 
@@ -495,18 +497,62 @@ async def test_topic_service_skips_when_chat_already_titled():
     chat = MagicMock(spec=Chat)
     chat.title = "Existing title"
     session = AsyncMock()
+    session.commit = AsyncMock()
     session.get = AsyncMock(return_value=chat)
 
     with (
+        patch("app.services.topic.SessionLocal", side_effect=[_FakeSessionCM(session)]),
         patch(
             "app.services.topic.litellm_gateway.generate_title",
             AsyncMock(return_value="Fresh title"),
         ) as mock_gen,
         patch("app.services.topic.chats_repo.set_title", mock_set),
     ):
-        await topic_service.generate_chat_title(session, Settings(), uuid4(), "hi", "hello")
+        await topic_service.generate_chat_title(Settings(), uuid4(), "hi", "hello")
     mock_gen.assert_awaited_once()
     mock_set.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_topic_generate_chat_title_releases_db_before_llm():
+    from app.services import topic as topic_service
+
+    session = AsyncMock()
+    session.commit = AsyncMock()
+    db_open_during_generate: list[bool] = []
+
+    class _TrackingSessionCM(_FakeSessionCM):
+        def __init__(self) -> None:
+            super().__init__(session)
+            self.open = False
+
+        async def __aenter__(self) -> AsyncMock:
+            self.open = True
+            return await super().__aenter__()
+
+        async def __aexit__(self, *args: object) -> None:
+            self.open = False
+            await super().__aexit__(*args)
+
+    apply_cm = _TrackingSessionCM()
+
+    async def fake_generate(*_args: object, **_kwargs: object) -> str:
+        db_open_during_generate.append(apply_cm.open)
+        return "Generated title"
+
+    with (
+        patch("app.services.topic.SessionLocal", side_effect=[apply_cm]),
+        patch(
+            "app.services.topic.litellm_gateway.generate_title",
+            AsyncMock(side_effect=fake_generate),
+        ),
+        patch("app.services.topic.chats_repo.set_title", AsyncMock()),
+        patch.object(session, "get", AsyncMock(return_value=MagicMock(title=None))),
+    ):
+        await topic_service.generate_chat_title(Settings(), uuid4(), "hi", "hello")
+
+    assert db_open_during_generate == [False]
+    assert session.commit.await_count == 1
 
 
 # ── chat service: quota guard ──────────────────────────────────────────────────
