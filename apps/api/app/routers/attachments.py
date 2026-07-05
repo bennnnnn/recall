@@ -21,16 +21,37 @@ from app.services.attachment_content import (
     IMAGE_CONTENT_TYPES,
     MAX_ATTACHMENT_SIZE,
     bytes_match_claimed,
+    ensure_verified_or_purge,
     is_allowed_content_type,
     is_image_content_type,
     normalize_content_type,
-    purge_invalid_upload,
-    verify_uploaded_bytes,
 )
 
 router = APIRouter(prefix="/attachments", tags=["attachments"])
 
 MAX_SIZE = MAX_ATTACHMENT_SIZE
+
+
+async def _reject_unverified_upload(
+    *,
+    gateway,
+    session: AsyncSession,
+    user: User,
+    attachment_id: UUID,
+    content_type: str,
+    storage_key: str,
+) -> None:
+    error = await ensure_verified_or_purge(
+        gateway,
+        session,
+        attachment_id=attachment_id,
+        content_type=content_type,
+        storage_key=storage_key,
+    )
+    if error:
+        if is_image_content_type(content_type):
+            await quota_service.refund_image_upload(get_redis_client(), user.id)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
 
 
 @router.post("/presign", response_model=AttachmentPresignOut)
@@ -173,21 +194,14 @@ async def confirm_upload(
         # Dev/local uploads are validated on PUT /upload.
         return
 
-    _, error = await verify_uploaded_bytes(
-        gateway,
+    await _reject_unverified_upload(
+        gateway=gateway,
+        session=session,
+        user=user,
+        attachment_id=attachment_id,
         content_type=row.content_type,
         storage_key=row.storage_key,
     )
-    if error:
-        if is_image_content_type(row.content_type):
-            await quota_service.refund_image_upload(get_redis_client(), user.id)
-        await purge_invalid_upload(
-            gateway,
-            session,
-            attachment_id=attachment_id,
-            storage_key=row.storage_key,
-        )
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
 
 
 @router.get("/{attachment_id}/file", response_model=None)
@@ -201,6 +215,14 @@ async def serve_attachment_file(
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
     gateway = get_storage_gateway(settings)
+    await _reject_unverified_upload(
+        gateway=gateway,
+        session=session,
+        user=user,
+        attachment_id=attachment_id,
+        content_type=row.content_type,
+        storage_key=row.storage_key,
+    )
     if isinstance(gateway, LocalStorageGateway):
         path = gateway.resolve_local_path(row.storage_key)
         if path is None:
@@ -224,6 +246,14 @@ async def download_url(
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
     gateway = get_storage_gateway(settings)
+    await _reject_unverified_upload(
+        gateway=gateway,
+        session=session,
+        user=user,
+        attachment_id=attachment_id,
+        content_type=row.content_type,
+        storage_key=row.storage_key,
+    )
     if isinstance(gateway, LocalStorageGateway):
         url = f"/attachments/{attachment_id}/file"
     else:

@@ -442,6 +442,91 @@ def test_upload_accepts_bytes_matching_claimed_content_type():
     gateway.write_bytes.assert_awaited_once()
 
 
+def test_serve_file_rejects_spoofed_r2_bytes():
+    user = _fake_user()
+    app = _app_with_user(user)
+    attachment_id = uuid4()
+    row = MagicMock()
+    row.id = attachment_id
+    row.content_type = "image/png"
+    row.storage_key = "user/key"
+
+    gateway = MagicMock()
+    gateway.read_bytes = AsyncMock(return_value=b"not-a-png")
+    gateway.delete_bytes = AsyncMock()
+    fake_redis = AsyncMock()
+    refund_mock = AsyncMock()
+
+    with (
+        patch(
+            "app.routers.attachments.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
+        patch("app.routers.attachments.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.routers.attachments.quota_service.refund_image_upload",
+            refund_mock,
+        ),
+        patch(
+            "app.routers.attachments.attachments_repo.delete_rows",
+            AsyncMock(return_value=1),
+        ),
+    ):
+        client = TestClient(app)
+        r = client.get(
+            f"/attachments/{attachment_id}/file",
+            headers={"Authorization": "Bearer tok"},
+            follow_redirects=False,
+        )
+
+    assert r.status_code == 400
+    gateway.delete_bytes.assert_awaited_once_with("user/key")
+    refund_mock.assert_awaited_once_with(fake_redis, user.id)
+
+
+def test_download_url_rejects_spoofed_r2_bytes():
+    user = _fake_user()
+    app = _app_with_user(user)
+    attachment_id = uuid4()
+    row = MagicMock()
+    row.id = attachment_id
+    row.content_type = "image/png"
+    row.storage_key = "user/key"
+
+    gateway = MagicMock()
+    gateway.read_bytes = AsyncMock(return_value=b"not-a-png")
+    gateway.delete_bytes = AsyncMock()
+    fake_redis = AsyncMock()
+    refund_mock = AsyncMock()
+
+    with (
+        patch(
+            "app.routers.attachments.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
+        patch("app.routers.attachments.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.routers.attachments.quota_service.refund_image_upload",
+            refund_mock,
+        ),
+        patch(
+            "app.routers.attachments.attachments_repo.delete_rows",
+            AsyncMock(return_value=1),
+        ),
+    ):
+        client = TestClient(app)
+        r = client.get(
+            f"/attachments/{attachment_id}/url",
+            headers={"Authorization": "Bearer tok"},
+        )
+
+    assert r.status_code == 400
+    gateway.delete_bytes.assert_awaited_once_with("user/key")
+    refund_mock.assert_awaited_once_with(fake_redis, user.id)
+
+
 def test_download_url_local_backend():
     user = _fake_user()
     app = _app_with_user(user)

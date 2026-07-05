@@ -8,6 +8,10 @@ export type GraphSpec = {
   points: [number, number][];
 };
 
+/** Match backend `GraphSampleInput.n` cap and `GraphBlockSpec.expr` length. */
+export const MAX_GRAPH_POINTS = 300;
+export const MAX_GRAPH_EXPR_LENGTH = 256;
+
 function normalizePoint(raw: unknown): [number, number] | null {
   if (!Array.isArray(raw) || raw.length < 2) return null;
   const x = Number(raw[0]);
@@ -23,9 +27,11 @@ export function parseGraphSpec(raw: string): GraphSpec | null {
     const row = data as Record<string, unknown>;
     if (row.type !== "function") return null;
     const expr = String(row.expr ?? "").trim();
-    if (!expr) return null;
+    if (!expr || expr.length > MAX_GRAPH_EXPR_LENGTH) return null;
     const pointsRaw = row.points;
-    if (!Array.isArray(pointsRaw) || pointsRaw.length < 2) return null;
+    if (!Array.isArray(pointsRaw) || pointsRaw.length < 2 || pointsRaw.length > MAX_GRAPH_POINTS) {
+      return null;
+    }
     const points = pointsRaw
       .map(normalizePoint)
       .filter((p): p is [number, number] => p != null);

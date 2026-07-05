@@ -116,28 +116,20 @@ async def _stream_over_ws(
             except Exception:
                 logger.exception("Failed to enqueue post-turn jobs")
 
-        done: dict[str, str] = {"type": "done"}
-        message_id = result.get("message_id")
-        if message_id:
-            done["message_id"] = message_id
-        recalled = result.get("recalled")
-        if recalled:
-            done["recalled"] = recalled
-        memory_hints = result.get("memory_hints")
-        if memory_hints:
-            done["memory_hints"] = memory_hints
-        context_summarized = result.get("context_summarized")
-        if context_summarized:
-            done["context_summarized"] = context_summarized
-        todos_sync = result.get("todos_sync")
-        if todos_sync:
-            done["todos_sync"] = todos_sync
-        search_sources = result.get("search_sources")
-        if search_sources:
-            done["search_sources"] = search_sources
-        final_content = result.get("final_content")
-        if final_content:
-            done["final_content"] = final_content
+        done: dict[str, Any] = {"type": "done"}
+        for key in (
+            "message_id",
+            "recalled",
+            "memory_hints",
+            "context_summarized",
+            "todos_sync",
+            "search_sources",
+            "final_content",
+            "resolved_model",
+        ):
+            value = result.get(key)
+            if value:
+                done[key] = value
         await _safe_send_json(websocket, done)
 
     producer = asyncio.create_task(run_stream())

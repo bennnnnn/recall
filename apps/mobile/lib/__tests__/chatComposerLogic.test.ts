@@ -1,6 +1,7 @@
 import {
   buildModelOptions,
   computeChatLayoutMetrics,
+  formatModelCostHint,
   isComposerMenuOverlayOpen,
   isModelSelectableInComposer,
   resolveSelectedModelLabel,
@@ -13,14 +14,30 @@ describe("chatComposerLogic", () => {
       label: "Free",
       available: true,
       plan_access: "free" as const,
+      input_price_per_m: 0.14,
+      output_price_per_m: 0.28,
+      quota_multiplier: 1,
     },
     {
       id: "smart-chat",
       label: "Smart",
       available: false,
       plan_access: "pro" as const,
+      input_price_per_m: 0.7,
+      output_price_per_m: 2.5,
+      quota_multiplier: 3.5,
     },
   ];
+
+  const t = (key: string, params?: Record<string, string | number>) => {
+    if (key === "settings.model_price_per_m" && params) {
+      return `~$${params.input} in · ~$${params.output} out / 1M tokens`;
+    }
+    if (key === "settings.model_quota_multiplier" && params) {
+      return `${params.multiplier}× daily quota`;
+    }
+    return key;
+  };
 
   it("buildModelOptions includes auto first when enabled", () => {
     const opts = buildModelOptions({
@@ -30,9 +47,11 @@ describe("chatComposerLogic", () => {
       modelEnabledSet: new Set(["free-chat", "smart-chat"]),
       models: catalog,
       isPro: true,
+      t,
     });
     expect(opts.map((o) => o.id)).toEqual(["auto", "free-chat"]);
     expect(opts[0].label).toBe("Auto");
+    expect(opts[1].hint).toContain("0.14");
   });
 
   it("buildModelOptions tolerates missing catalog", () => {
@@ -130,5 +149,19 @@ describe("chatComposerLogic", () => {
     expect(keyboard.composerLift).toBe(300);
     expect(keyboard.composerBottomPad).toBe(0);
     expect(keyboard.composerBlockHeight).toBe(144);
+  });
+
+  it("formatModelCostHint includes price and quota multiplier", () => {
+    const hint = formatModelCostHint(
+      {
+        input_price_per_m: 0.7,
+        output_price_per_m: 2.5,
+        quota_multiplier: 3.5,
+      },
+      t,
+    );
+    expect(hint).toContain("0.70");
+    expect(hint).toContain("2.50");
+    expect(hint).toContain("3.5× daily quota");
   });
 });

@@ -91,6 +91,11 @@ describe("geometryBlock", () => {
     expect(scaled.w).toBeGreaterThan(0);
     expect(scaled.h).toBeGreaterThan(0);
   });
+
+  it("rejects dimensions above backend max", () => {
+    expect(parseGeometrySpec('{"type":"square","side":2000000}')).toBeNull();
+    expect(parseGeometrySpec('{"type":"triangle","base":2000000,"height":5}')).toBeNull();
+  });
 });
 
 describe("graphBlock", () => {
@@ -111,5 +116,26 @@ describe("graphBlock", () => {
     const poly = graphPolylinePoints(points, 200, 120);
     expect(poly).toContain(",");
     expect(graphBounds(points).yMax).toBe(4);
+  });
+
+  it("rejects too many points or long expr", () => {
+    const tooMany = Array.from({ length: 301 }, (_, i) => [i, i] as [number, number]);
+    expect(
+      parseGraphSpec(
+        JSON.stringify({ type: "function", expr: "x", points: tooMany }),
+      ),
+    ).toBeNull();
+    expect(
+      parseGraphSpec(
+        JSON.stringify({
+          type: "function",
+          expr: "x".repeat(257),
+          points: [
+            [0, 0],
+            [1, 1],
+          ],
+        }),
+      ),
+    ).toBeNull();
   });
 });

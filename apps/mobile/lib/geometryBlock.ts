@@ -39,6 +39,9 @@ export type RightTriangleSpec = {
 
 export type GeometrySpec = RectangleSpec | TriangleSpec | RightTriangleSpec;
 
+/** Match backend `RectangleGeometryInput` / triangle inputs (`le=1_000_000`). */
+export const MAX_GEOMETRY_DIMENSION = 1_000_000;
+
 const RECTANGLE_TYPES = new Set(["rectangle", "rect", "square"]);
 
 function readLabels(row: Record<string, unknown>): Record<string, string> | undefined {
@@ -51,7 +54,7 @@ function readLabels(row: Record<string, unknown>): Record<string, string> | unde
 function readPositive(row: Record<string, unknown>, ...keys: string[]): number | null {
   for (const key of keys) {
     const value = Number(row[key]);
-    if (Number.isFinite(value) && value > 0) return value;
+    if (Number.isFinite(value) && value > 0 && value <= MAX_GEOMETRY_DIMENSION) return value;
   }
   return null;
 }
@@ -101,7 +104,14 @@ function parseTriangle(row: Record<string, unknown>): TriangleSpec | null {
   if (row.type !== "triangle") return null;
   const base = Number(row.base);
   const height = Number(row.height);
-  if (!Number.isFinite(base) || !Number.isFinite(height) || base <= 0 || height <= 0) {
+  if (
+    !Number.isFinite(base) ||
+    !Number.isFinite(height) ||
+    base <= 0 ||
+    height <= 0 ||
+    base > MAX_GEOMETRY_DIMENSION ||
+    height > MAX_GEOMETRY_DIMENSION
+  ) {
     return null;
   }
   const spec: TriangleSpec = { type: "triangle", base, height };
@@ -118,7 +128,14 @@ function parseRightTriangle(row: Record<string, unknown>): RightTriangleSpec | n
   if (row.type !== "right_triangle") return null;
   const base = Number(row.base);
   const height = Number(row.height);
-  if (!Number.isFinite(base) || !Number.isFinite(height) || base <= 0 || height <= 0) {
+  if (
+    !Number.isFinite(base) ||
+    !Number.isFinite(height) ||
+    base <= 0 ||
+    height <= 0 ||
+    base > MAX_GEOMETRY_DIMENSION ||
+    height > MAX_GEOMETRY_DIMENSION
+  ) {
     return null;
   }
   const spec: RightTriangleSpec = { type: "right_triangle", base, height };

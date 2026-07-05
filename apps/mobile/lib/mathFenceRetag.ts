@@ -1,6 +1,3 @@
-import { parseGeometrySpec } from "@/lib/geometryBlock";
-import { parseGraphSpec } from "@/lib/graphBlock";
-
 const LATEX_CMD_RE =
   /\\(?:pm|mp|sqrt|frac|text|mathrm|times|cdot|leq|geq|neq|infty|alpha|beta|gamma|theta|begin|left|right)\b/;
 
@@ -34,34 +31,14 @@ export function looksLikeMathFenceBody(content: string): boolean {
   return false;
 }
 
-/** Model often emits ```json or ```latex — detect and reroute at render time. */
+/** Model often emits ```latex — detect and reroute at render time. */
 export function looksLikeLatexFence(content: string): boolean {
   return looksLikeMathFenceBody(content);
 }
 
-export function fenceContentAsGeometry(content: string): boolean {
-  return parseGeometrySpec(content) != null;
-}
-
-export function fenceContentAsGraph(content: string): boolean {
-  return parseGraphSpec(content) != null;
-}
-
-/** Rewrite model fences before markdown parse (mirrors vega-lite retagging). */
+/** Rewrite model math fences before markdown parse (latex/plain → math only). */
 export function retagMathAndDiagramFences(content: string): string {
   let out = content;
-
-  out = out.replace(/```(?:json)?\s*\n([\s\S]*?)```/gi, (full, body: string) => {
-    const trimmed = body.trim();
-    if (!trimmed.startsWith("{")) return full;
-    if (parseGeometrySpec(trimmed)) {
-      return `\`\`\`geometry\n${trimmed}\n\`\`\``;
-    }
-    if (parseGraphSpec(trimmed)) {
-      return `\`\`\`graph\n${trimmed}\n\`\`\``;
-    }
-    return full;
-  });
 
   out = out.replace(
     /```(?:latex|tex)\s*\n([\s\S]*?)```/gi,

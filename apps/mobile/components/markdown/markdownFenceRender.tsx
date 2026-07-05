@@ -3,13 +3,7 @@ import { WebPreviewCodeBlock } from "@/components/WebPreviewCodeBlock";
 import { CopyBlock } from "@/components/CopyBlock";
 import { CircularClockBlock } from "@/components/rich/CircularClockBlock";
 import { MathBlock } from "@/components/rich/MathView";
-import { GeometryBlock } from "@/components/rich/GeometryBlock";
-import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
-import {
-  fenceContentAsGeometry,
-  fenceContentAsGraph,
-  looksLikeLatexFence,
-} from "@/lib/mathFenceRetag";
+import { looksLikeLatexFence } from "@/lib/mathFenceRetag";
 import {
   renderCopyStyleBlock,
   renderRichFence,
@@ -35,12 +29,6 @@ function renderFenceInner(key: string, lang: string, content: string) {
     return <WebPreviewCodeBlock key={key} code={content} lang={lang || "html"} />;
   }
   const l = lang.trim().toLowerCase();
-  if (fenceContentAsGeometry(content)) {
-    return <GeometryBlock key={key} content={content} />;
-  }
-  if (fenceContentAsGraph(content)) {
-    return <FunctionGraphBlock key={key} content={content} />;
-  }
   if (
     l === "math" &&
     (looksLikeMarkdownListProse(content) ||

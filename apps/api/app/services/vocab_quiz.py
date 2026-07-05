@@ -98,7 +98,9 @@ def parse_vocab_quiz(content: str) -> ParsedVocabQuiz | None:
         return None
 
     correct_raw = str(data.get("correct") or "").upper()
-    correct = correct_raw if re.fullmatch(r"[A-D]", correct_raw) else None
+    if not re.fullmatch(r"[A-D]", correct_raw):
+        return None
+    correct = correct_raw
 
     pos = str(data.get("part_of_speech") or "").strip() or None
     if quiz_type == "trivia":

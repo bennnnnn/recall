@@ -93,9 +93,11 @@ export default function ProjectExamQuizScreen() {
         const detail = await api.getProject(token, id);
         if (cancelled) return;
         setProject(detail);
-        const chat = await api.createChat(token, "auto", id, "exam");
-        if (cancelled) return;
-        setChatId(chat.id);
+        if (!isDailyGoalMet(detail)) {
+          const chat = await api.createChat(token, "auto", id, "exam");
+          if (cancelled) return;
+          setChatId(chat.id);
+        }
       } catch {
         if (!cancelled) router.back();
       } finally {

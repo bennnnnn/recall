@@ -411,6 +411,140 @@ async def test_run_push_cycle_does_not_mark_todo_when_expo_fails():
     session.commit.assert_not_awaited()
 
 
+@pytest.mark.asyncio
+async def test_enqueue_push_receipts_stores_ticket_and_token():
+    redis = AsyncMock()
+    pipe = MagicMock()
+    pipe.set = MagicMock()
+    pipe.zadd = MagicMock()
+    pipe.execute = AsyncMock()
+    redis.pipeline = MagicMock(return_value=pipe)
+
+    with patch("app.services.push_notifications.time.time", return_value=1000.0):
+        await push_service.enqueue_push_receipts(
+            redis,
+            [("ticket-1", "ExponentPushToken[abc]")],
+        )
+
+    pipe.set.assert_called_once()
+    pipe.zadd.assert_called_once_with(
+        push_service.RECEIPT_PENDING_ZSET,
+        {"ticket-1": 1000.0},
+    )
+    pipe.execute.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_poll_deferred_push_receipts_prunes_invalid_token():
+    session = AsyncMock()
+    redis = AsyncMock()
+    redis.zrangebyscore = AsyncMock(side_effect=[[], ["ticket-1"]])
+    redis.get = AsyncMock(return_value=b"ExponentPushToken[dead]")
+    redis.delete = AsyncMock()
+    redis.zrem = AsyncMock()
+
+    with (
+        patch(
+            "app.services.push_notifications.expo_push_gateway.fetch_push_receipts",
+            AsyncMock(
+                return_value={
+                    "ticket-1": {
+                        "status": "error",
+                        "details": {"error": "DeviceNotRegistered"},
+                    }
+                }
+            ),
+        ),
+        patch.object(
+            push_service.push_repo,
+            "delete_by_token",
+            AsyncMock(),
+        ) as delete_mock,
+        patch("app.services.push_notifications.time.time", return_value=10_000.0),
+    ):
+        await push_service.poll_deferred_push_receipts(session, redis)
+
+    delete_mock.assert_awaited_once_with(session, "ExponentPushToken[dead]")
+    session.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_poll_deferred_push_receipts_keeps_pending_receipts():
+    session = AsyncMock()
+    redis = AsyncMock()
+    redis.zrangebyscore = AsyncMock(side_effect=[[], ["ticket-1"]])
+    redis.get = AsyncMock()
+    redis.delete = AsyncMock()
+    redis.zrem = AsyncMock()
+
+    with (
+        patch(
+            "app.services.push_notifications.expo_push_gateway.fetch_push_receipts",
+            AsyncMock(return_value={"ticket-1": {"status": "pending"}}),
+        ),
+        patch.object(push_service.push_repo, "delete_by_token", AsyncMock()) as delete_mock,
+        patch("app.services.push_notifications.time.time", return_value=10_000.0),
+    ):
+        await push_service.poll_deferred_push_receipts(session, redis)
+
+    delete_mock.assert_not_awaited()
+    redis.zrem.assert_not_awaited()
+    session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_run_push_cycle_enqueues_receipt_tickets():
+    session = AsyncMock()
+    redis = AsyncMock()
+    settings = Settings(
+        push_enabled=True,
+        mock_llm_enabled=False,
+        environment="production",
+        server_todo_push_enabled=True,
+    )
+
+    with (
+        patch.object(
+            push_service,
+            "poll_deferred_push_receipts",
+            AsyncMock(),
+        ),
+        patch.object(
+            push_service,
+            "process_todo_reminders",
+            AsyncMock(
+                return_value=[
+                    push_service.OutboundPush(message={"to": "ExponentPushToken[abc]"}),
+                ]
+            ),
+        ),
+        patch.object(push_service, "process_email_suggestions", AsyncMock(return_value=[])),
+        patch.object(push_service, "process_learning_nudges", AsyncMock(return_value=[])),
+        patch.object(
+            push_service.expo_push_gateway,
+            "send_push_messages",
+            AsyncMock(
+                return_value=push_service.expo_push_gateway.PushSendResult(
+                    invalid_tokens=[],
+                    delivered=[True],
+                    receipt_tickets=[("ticket-1", "ExponentPushToken[abc]")],
+                )
+            ),
+        ),
+        patch.object(
+            push_service,
+            "enqueue_push_receipts",
+            AsyncMock(),
+        ) as enqueue_mock,
+    ):
+        await push_service.run_push_cycle(session, redis, settings)
+
+    enqueue_mock.assert_awaited_once_with(
+        redis,
+        [("ticket-1", "ExponentPushToken[abc]")],
+    )
+
+
 def test_append_outbound_dedupes_duplicate_tokens():
     out: list[push_service.OutboundPush] = []
     token_a = MagicMock()

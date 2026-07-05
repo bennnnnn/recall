@@ -168,6 +168,39 @@ async def purge_invalid_upload(
     await attachments_repo.delete_rows(session, [attachment_id])
 
 
+async def ensure_verified_or_purge(
+    gateway: StorageGateway,
+    session: AsyncSession,
+    *,
+    attachment_id: UUID,
+    content_type: str,
+    storage_key: str,
+) -> str | None:
+    """Verify R2/S3 bytes match declared type; purge row+object on failure.
+
+    Local dev uploads are validated on PUT /upload — no-op for that backend.
+    Returns an error detail when verification fails (after purge).
+    """
+    from app.gateways.storage_gateway import LocalStorageGateway
+
+    if isinstance(gateway, LocalStorageGateway):
+        return None
+    _, error = await verify_uploaded_bytes(
+        gateway,
+        content_type=content_type,
+        storage_key=storage_key,
+    )
+    if error:
+        await purge_invalid_upload(
+            gateway,
+            session,
+            attachment_id=attachment_id,
+            storage_key=storage_key,
+        )
+        return error
+    return None
+
+
 async def format_attachment_lines(
     gateway: StorageGateway,
     *,

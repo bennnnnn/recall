@@ -103,8 +103,8 @@ class GraphSampleResult(BaseModel):
 
 class TriangleGeometryBlockSpec(BaseModel):
     type: Literal["triangle"] = "triangle"
-    base: float = Field(gt=0)
-    height: float = Field(gt=0)
+    base: float = Field(gt=0, le=1_000_000)
+    height: float = Field(gt=0, le=1_000_000)
     unit: str = "cm"
     show_labels: bool = True
     area: float | None = None
@@ -113,8 +113,8 @@ class TriangleGeometryBlockSpec(BaseModel):
 
 class RightTriangleGeometryBlockSpec(BaseModel):
     type: Literal["right_triangle"] = "right_triangle"
-    base: float = Field(gt=0)
-    height: float = Field(gt=0)
+    base: float = Field(gt=0, le=1_000_000)
+    height: float = Field(gt=0, le=1_000_000)
     unit: str = "cm"
     show_labels: bool = True
     show_hypotenuse: bool = True
@@ -126,9 +126,9 @@ class RightTriangleGeometryBlockSpec(BaseModel):
 
 class GeometryBlockSpec(BaseModel):
     type: Literal["rectangle", "rect", "square"] = "rectangle"
-    width: float | None = Field(default=None, gt=0)
-    height: float | None = Field(default=None, gt=0)
-    side: float | None = Field(default=None, gt=0)
+    width: float | None = Field(default=None, gt=0, le=1_000_000)
+    height: float | None = Field(default=None, gt=0, le=1_000_000)
+    side: float | None = Field(default=None, gt=0, le=1_000_000)
     unit: str = "cm"
     show_diagonal: bool = False
     show_angle: bool = False
@@ -167,7 +167,7 @@ class GraphBlockSpec(BaseModel):
     @field_validator("points")
     @classmethod
     def points_need_at_least_two(cls, value: list[list[float]]) -> list[list[float]]:
-        if value and len(value) < 2:
+        if len(value) < 2:
             raise ValueError("graph points need at least two coordinates")
         return value
 

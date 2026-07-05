@@ -43,8 +43,9 @@ export function useChatComposerState({
         modelEnabledSet,
         models,
         isPro,
+        t,
       }),
-    [autoEnabled, modelEnabledSet, models, isPro, autoModelId, autoLabel],
+    [autoEnabled, modelEnabledSet, models, isPro, autoModelId, autoLabel, t],
   );
 
   useEffect(() => {

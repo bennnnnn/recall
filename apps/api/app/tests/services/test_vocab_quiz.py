@@ -32,6 +32,54 @@ def test_quiz_answer_letter():
     assert vocab_quiz_service.quiz_answer_letter("hello") is None
 
 
+def test_parse_vocab_quiz_requires_correct_letter():
+    fence = (
+        "```vocab_quiz\n"
+        '{"word":"cat","choices":[{"letter":"A","text":"x"},{"letter":"B","text":"y"}]}\n'
+        "```"
+    )
+    assert vocab_quiz_service.parse_vocab_quiz(fence) is None
+
+
+@pytest.mark.asyncio
+async def test_apply_deterministic_quiz_answer_skips_without_correct():
+    from app.models.orm import Project
+
+    session = AsyncMock()
+    user_id = uuid.uuid4()
+    project_id = uuid.uuid4()
+    project = Project(
+        id=project_id,
+        user_id=user_id,
+        title="General knowledge",
+        kind="trivia",
+        level="level1",
+        target_language="en",
+    )
+    bad_fence = (
+        "```vocab_quiz\n"
+        '{"quiz_type":"trivia","word":"History",'
+        '"question":"Which wonder stood at Rhodes?",'
+        '"choices":[{"letter":"A","text":"Colossus"},{"letter":"B","text":"Pyramid"}]}\n'
+        "```"
+    )
+
+    with patch(
+        "app.services.projects.projects_repo.get_by_id",
+        new=AsyncMock(return_value=project),
+    ):
+        applied = await projects_service.apply_deterministic_quiz_answer(
+            session,
+            user_id=user_id,
+            chat_id=uuid.uuid4(),
+            project_id=project_id,
+            assistant_content=bad_fence,
+            user_answer="A",
+        )
+
+    assert applied is False
+
+
 @pytest.mark.asyncio
 async def test_apply_deterministic_quiz_answer_skips_without_project_id():
     session = AsyncMock()

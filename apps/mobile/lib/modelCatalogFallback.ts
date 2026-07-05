@@ -11,6 +11,7 @@ export const MODEL_CATALOG_FALLBACK: ModelInfo[] = [
     available: true,
     input_price_per_m: 0.14,
     output_price_per_m: 0.28,
+    quota_multiplier: 1,
   },
   {
     id: "smart-chat",
@@ -21,6 +22,7 @@ export const MODEL_CATALOG_FALLBACK: ModelInfo[] = [
     available: true,
     input_price_per_m: 0.7,
     output_price_per_m: 2.5,
+    quota_multiplier: 3.5,
   },
   {
     id: "minimax-m2",
@@ -31,6 +33,7 @@ export const MODEL_CATALOG_FALLBACK: ModelInfo[] = [
     available: true,
     input_price_per_m: null,
     output_price_per_m: null,
+    quota_multiplier: 1,
   },
   {
     id: "glm-4-flash",
@@ -41,6 +44,7 @@ export const MODEL_CATALOG_FALLBACK: ModelInfo[] = [
     available: true,
     input_price_per_m: null,
     output_price_per_m: null,
+    quota_multiplier: 1,
   },
   {
     id: "qwen-plus",
@@ -51,6 +55,7 @@ export const MODEL_CATALOG_FALLBACK: ModelInfo[] = [
     available: true,
     input_price_per_m: null,
     output_price_per_m: null,
+    quota_multiplier: 1,
   },
   {
     id: "gemini-flash",
@@ -61,6 +66,7 @@ export const MODEL_CATALOG_FALLBACK: ModelInfo[] = [
     available: true,
     input_price_per_m: null,
     output_price_per_m: null,
+    quota_multiplier: 1,
   },
   {
     id: "llama-70b",
@@ -71,6 +77,7 @@ export const MODEL_CATALOG_FALLBACK: ModelInfo[] = [
     available: true,
     input_price_per_m: null,
     output_price_per_m: null,
+    quota_multiplier: 1,
   },
   {
     id: "max-chat",
@@ -81,5 +88,6 @@ export const MODEL_CATALOG_FALLBACK: ModelInfo[] = [
     available: true,
     input_price_per_m: null,
     output_price_per_m: null,
+    quota_multiplier: 3.5,
   },
 ];

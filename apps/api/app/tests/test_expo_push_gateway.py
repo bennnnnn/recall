@@ -13,6 +13,7 @@ async def test_send_push_messages_empty_returns_no_failures():
     result = await gateway.send_push_messages([])
     assert result.invalid_tokens == []
     assert result.delivered == []
+    assert result.receipt_tickets == []
 
 
 @pytest.mark.asyncio
@@ -33,28 +34,18 @@ async def test_send_push_messages_prunes_invalid_tokens():
     client.__aenter__ = AsyncMock(return_value=client)
     client.__aexit__ = AsyncMock(return_value=None)
 
-    with (
-        patch("app.gateways.expo_push_gateway.httpx.AsyncClient", return_value=client),
-        patch(
-            "app.gateways.expo_push_gateway.fetch_push_receipts",
-            AsyncMock(
-                return_value={
-                    "ticket-1": {"status": "ok"},
-                }
-            ),
-        ),
-        patch("app.gateways.expo_push_gateway.asyncio.sleep", AsyncMock()),
-    ):
+    with patch("app.gateways.expo_push_gateway.httpx.AsyncClient", return_value=client):
         result = await gateway.send_push_messages(
             [{"to": "ExponentPushToken[aaa]"}, {"to": "ExponentPushToken[bbb]"}]
         )
 
     assert result.invalid_tokens == ["ExponentPushToken[bbb]"]
     assert result.delivered == [True, False]
+    assert result.receipt_tickets == [("ticket-1", "ExponentPushToken[aaa]")]
 
 
 @pytest.mark.asyncio
-async def test_send_push_messages_waits_for_receipt_before_marking_delivered():
+async def test_send_push_messages_marks_delivered_on_ticket_ok():
     response = MagicMock()
     response.raise_for_status = MagicMock()
     response.json.return_value = {"data": [{"status": "ok", "id": "ticket-1"}]}
@@ -63,23 +54,15 @@ async def test_send_push_messages_waits_for_receipt_before_marking_delivered():
     client.__aenter__ = AsyncMock(return_value=client)
     client.__aexit__ = AsyncMock(return_value=None)
 
-    with (
-        patch("app.gateways.expo_push_gateway.httpx.AsyncClient", return_value=client),
-        patch(
-            "app.gateways.expo_push_gateway.fetch_push_receipts",
-            AsyncMock(return_value={"ticket-1": {"status": "ok"}}),
-        ) as receipts_mock,
-        patch("app.gateways.expo_push_gateway.asyncio.sleep", AsyncMock()) as sleep_mock,
-    ):
+    with patch("app.gateways.expo_push_gateway.httpx.AsyncClient", return_value=client):
         result = await gateway.send_push_messages([{"to": "ExponentPushToken[aaa]"}])
 
-    sleep_mock.assert_awaited_once()
-    receipts_mock.assert_awaited_once_with(["ticket-1"])
     assert result.delivered == [True]
+    assert result.receipt_tickets == [("ticket-1", "ExponentPushToken[aaa]")]
 
 
 @pytest.mark.asyncio
-async def test_send_push_messages_leaves_pending_receipts_undelivered():
+async def test_send_push_messages_does_not_block_on_receipts():
     response = MagicMock()
     response.raise_for_status = MagicMock()
     response.json.return_value = {"data": [{"status": "ok", "id": "ticket-1"}]}
@@ -92,13 +75,13 @@ async def test_send_push_messages_leaves_pending_receipts_undelivered():
         patch("app.gateways.expo_push_gateway.httpx.AsyncClient", return_value=client),
         patch(
             "app.gateways.expo_push_gateway.fetch_push_receipts",
-            AsyncMock(return_value={"ticket-1": {"status": "pending"}}),
-        ),
-        patch("app.gateways.expo_push_gateway.asyncio.sleep", AsyncMock()),
+            AsyncMock(),
+        ) as receipts_mock,
     ):
         result = await gateway.send_push_messages([{"to": "ExponentPushToken[aaa]"}])
 
-    assert result.delivered == [False]
+    receipts_mock.assert_not_awaited()
+    assert result.delivered == [True]
 
 
 @pytest.mark.asyncio
@@ -121,6 +104,14 @@ async def test_fetch_push_receipts_batches_requests():
 
     assert receipts["ticket-1"]["status"] == "ok"
     assert receipts["ticket-2"]["status"] == "ok"
+
+
+@pytest.mark.asyncio
+async def test_receipt_indicates_invalid_token():
+    assert gateway.receipt_indicates_invalid_token(
+        {"status": "error", "details": {"error": "DeviceNotRegistered"}}
+    )
+    assert not gateway.receipt_indicates_invalid_token({"status": "ok"})
 
 
 @pytest.mark.asyncio
