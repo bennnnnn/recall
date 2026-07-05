@@ -93,3 +93,53 @@ async def test_augment_prompt_injects_sympy_block() -> None:
     assert out[1]["role"] == "system"
     assert "SymPy" in out[1]["content"]
     assert "Solutions" in out[1]["content"]
+
+
+@pytest.mark.asyncio
+async def test_sympy_solve_runs_off_event_loop(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The blocking SymPy call must not run on the event loop thread."""
+    import threading
+
+    settings = Settings(math_tools_enabled=True)
+    caller_thread = threading.current_thread()
+    seen_thread: dict[str, threading.Thread] = {}
+
+    original = math_tools._build_verified_block
+
+    def spy(intent, settings):  # type: ignore[no-untyped-def]
+        seen_thread["thread"] = threading.current_thread()
+        return original(intent, settings)
+
+    monkeypatch.setattr(math_tools, "_build_verified_block", spy)
+
+    out = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": "Solve x^2 + 2 = 6"}],
+        "Solve x^2 + 2 = 6",
+        settings,
+    )
+
+    assert seen_thread["thread"] is not caller_thread
+    assert len(out) == 2
+
+
+@pytest.mark.asyncio
+async def test_augment_prompt_times_out_gracefully(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A hung solve should fall back to no verified block, not hang the caller."""
+    settings = Settings(math_tools_enabled=True, math_solve_timeout_seconds=0.05)
+
+    def slow_build(intent, settings):  # type: ignore[no-untyped-def]
+        import time
+
+        time.sleep(0.5)
+        return "should never be returned"
+
+    monkeypatch.setattr(math_tools, "_build_verified_block", slow_build)
+
+    messages = [{"role": "user", "content": "Solve x^2 + 2 = 6"}]
+    out = await math_tools.augment_prompt_messages(
+        messages,
+        "Solve x^2 + 2 = 6",
+        settings,
+    )
+
+    assert out == messages
