@@ -1,6 +1,8 @@
 packages:
   - "."
 nodeLinker: hoisted
+overrides:
+  react-native-svg: "15.15.4"
 allowBuilds:
   '@sentry/cli': true
   core-js: true
