@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   useWindowDimensions,
 } from "react-native";
-import { openDrawer, registerNewChat } from "@/lib/drawer";
+import { registerNewChat } from "@/lib/drawer";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -10,7 +10,6 @@ import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useTheme } from "@/lib/theme";
-import { ChatHeader } from "@/components/chat/ChatHeader";
 import { ChatScreenBody } from "@/components/chat/ChatScreenBody";
 import { ChatScreenMenuSheets } from "@/components/chat/ChatScreenMenuSheets";
 import { makeChatScreenStyles } from "@/components/chat/chatScreenStyles";
@@ -39,6 +38,7 @@ import { useDraftChat } from "@/hooks/useDraftChat";
 import { useModels } from "@/hooks/useModels";
 import { useNetwork } from "@/contexts/NetworkContext";
 import { useChatErrorHandlers, useChatStreamLifecycle } from "@/hooks/useChatScreenError";
+import { useChatScreenBodyProps } from "@/hooks/useChatScreenBodyProps";
 import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
 import { useTodosOptional } from "@/contexts/TodosContext";
 import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/lib/chatComposerLogic";
@@ -73,7 +73,6 @@ function ChatScreen() {
   const { isPro, labelFor, autoEnabled, modelEnabledSet, AUTO_MODEL_ID, models } = useModels();
   const { unseenCount, showIndicator } = useReminderBadgeCount({ enabled: Boolean(token) });
   const { refresh: refreshHome } = useHome();
-  const [upgradeVisible, setUpgradeVisible] = useState(false);
   const { chatError, handleChatError, handleStreamBusy, dismissChatError } =
     useChatErrorHandlers(isPro);
   const activeChatId = draft.activeChatId;
@@ -352,37 +351,73 @@ function ChatScreen() {
     streaming: streamActive,
   });
 
-  if (!token) return <Redirect href="/login" />;
-
-  const {
-    headerInset,
-    composerClearance,
-    listBottomPad,
-    emptyHeight,
-  } = layout;
-  listBottomPadRef.current = listBottomPad;
   const menuOverlayOpen = isComposerMenuOverlayOpen(attachSheetOpen);
 
-  const listHeader =
-    !drawerOpen ? (
-      <ChatHeader
-        paddingTop={insets.top}
-        height={headerInset}
-        menuOverlayOpen={menuOverlayOpen}
-        headerTitleLabel={headerTitleLabel}
-        titleGenerating={titleGenerating}
-        chatTitle={chatTitle}
-        showIndicator={showIndicator}
-        unseenCount={unseenCount}
-        hasMessages={messages.length > 0}
-        onOpenDrawer={openDrawer}
-        onOpenReminders={() =>
-          router.push({ pathname: "/todos", params: { focus: "reminders" } })
-        }
-        onNewChat={startNewChat}
-        onOpenMenu={() => setMenuVisible((v) => !v)}
-      />
-    ) : null;
+  const chatScreenBodyProps = useChatScreenBodyProps({
+    styles: s,
+    theme: C,
+    token: token ?? "",
+    drawerOpen,
+    insetsTop: insets.top,
+    router,
+    routeChatId: typeof routeChatId === "string" ? routeChatId : undefined,
+    layout,
+    listBottomPadRef,
+    actionBanner,
+    dismissActionBanner,
+    listRef,
+    messages,
+    hasMoreOlder,
+    loadingOlder,
+    chatLoading,
+    renderItem,
+    loadOlderMessages,
+    handleScroll,
+    handleScrollEnd,
+    handleSend,
+    headerTitleLabel,
+    titleGenerating,
+    chatTitle,
+    showIndicator,
+    unseenCount,
+    startNewChat,
+    setMenuVisible,
+    menuOverlayOpen,
+    showScrollToBottom,
+    scrollAwayCount,
+    scrollToLatest,
+    showModelPicker,
+    attachSheetOpen,
+    closeComposerPickers,
+    quotaNudge,
+    chatError,
+    isPro,
+    dismissChatError,
+    composerAnimatedStyle,
+    input,
+    setInput,
+    streaming,
+    attachBusy,
+    pendingAttachment,
+    setPendingAttachment,
+    editingMessageId,
+    setEditingMessageId,
+    modelOptions,
+    selectedModel,
+    selectedModelLabel,
+    toggleModelPicker,
+    selectModel,
+    handlePickAttachment,
+    handleAttachmentSheetSelect,
+    stopGeneration,
+    isOffline,
+    voiceRecording,
+    voiceTranscribing,
+    voiceMeterLevel,
+    toggleVoiceInput,
+  });
+
+  if (!token) return <Redirect href="/login" />;
 
   return (
     <>
@@ -402,75 +437,7 @@ function ChatScreen() {
         onConfirmRename={() => void confirmRename()}
       />
 
-      <ChatScreenBody
-        styles={s}
-        theme={C}
-        token={token}
-        drawerOpen={drawerOpen}
-        composerClearance={composerClearance}
-        actionBanner={actionBanner}
-        onDismissActionBanner={dismissActionBanner}
-        listRef={listRef}
-        messages={messages}
-        headerInset={headerInset}
-        listBottomPad={listBottomPad}
-        hasMoreOlder={hasMoreOlder}
-        loadingOlder={loadingOlder}
-        chatLoading={chatLoading}
-        routeChatId={typeof routeChatId === "string" ? routeChatId : undefined}
-        emptyHeight={emptyHeight}
-        renderItem={renderItem}
-        onLoadOlder={() => void loadOlderMessages()}
-        onScroll={handleScroll}
-        onScrollEnd={handleScrollEnd}
-        onSelectStarter={handleSend}
-        listHeader={listHeader}
-        showScrollToBottom={showScrollToBottom}
-        scrollAwayCount={scrollAwayCount}
-        onScrollToLatest={scrollToLatest}
-        showModelPicker={showModelPicker}
-        attachSheetOpen={attachSheetOpen}
-        onCloseComposerPickers={closeComposerPickers}
-        quotaNudgeVisible={quotaNudge.show}
-        quotaUsedPct={quotaNudge.usedPct}
-        onQuotaUpgrade={() => {
-          quotaNudge.dismiss();
-          setUpgradeVisible(true);
-        }}
-        onQuotaDismiss={quotaNudge.dismiss}
-        chatError={chatError}
-        isPro={isPro}
-        onUpgrade={() => setUpgradeVisible(true)}
-        onDismissChatError={dismissChatError}
-        composerAnimatedStyle={composerAnimatedStyle}
-        input={input}
-        onChangeInput={setInput}
-        streaming={streaming}
-        attachBusy={attachBusy}
-        pendingAttachment={pendingAttachment}
-        onRemoveAttachment={() => setPendingAttachment(null)}
-        editingMessageId={editingMessageId}
-        onCancelEdit={() => {
-          setEditingMessageId(null);
-          setInput("");
-        }}
-        modelOptions={modelOptions}
-        selectedModel={selectedModel}
-        selectedModelLabel={selectedModelLabel}
-        onToggleModelPicker={toggleModelPicker}
-        onSelectModel={selectModel}
-        onPickAttachment={handlePickAttachment}
-        onAttachmentSource={(source) => void handleAttachmentSheetSelect(source)}
-        onSend={() => void handleSend()}
-        onStop={stopGeneration}
-        isOffline={isOffline}
-        voiceRecording={voiceRecording}
-        voiceTranscribing={voiceTranscribing}
-        voiceMeterLevel={voiceMeterLevel}
-        onVoicePress={() => void toggleVoiceInput()}
-        upgradeVisible={upgradeVisible}
-        onCloseUpgrade={() => setUpgradeVisible(false)}
-      />
+      <ChatScreenBody {...chatScreenBodyProps} />
     </>
   );
 }
