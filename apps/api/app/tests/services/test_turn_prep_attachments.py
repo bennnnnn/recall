@@ -8,6 +8,26 @@ from app.exceptions import AttachmentValidationError
 
 
 @pytest.mark.asyncio
+async def test_count_image_attachments_issues_a_single_batched_query():
+    from app.services.chat.turn_prep import count_image_attachments
+
+    user_id = uuid4()
+    attachment_ids = [uuid4(), uuid4(), uuid4()]
+    image_row = MagicMock(content_type="image/png")
+    pdf_row = MagicMock(content_type="application/pdf")
+    session = AsyncMock()
+
+    with patch(
+        "app.repositories.attachments.get_by_ids",
+        AsyncMock(return_value=[image_row, pdf_row]),
+    ) as get_by_ids_mock:
+        count = await count_image_attachments(session, user_id, attachment_ids)
+
+    assert count == 1
+    get_by_ids_mock.assert_awaited_once_with(session, attachment_ids, user_id)
+
+
+@pytest.mark.asyncio
 async def test_prepare_chat_turn_refunds_image_quota_when_r2_bytes_invalid():
     from app.services.chat.turn_prep import prepare_chat_turn
 
@@ -38,8 +58,8 @@ async def test_prepare_chat_turn_refunds_image_quota_when_r2_bytes_invalid():
         patch("app.services.chat.turn_prep.SessionLocal", return_value=SessionCM()),
         patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=user)),
         patch(
-            "app.repositories.attachments.get_by_id",
-            AsyncMock(return_value=row),
+            "app.repositories.attachments.get_by_ids",
+            AsyncMock(return_value=[row]),
         ),
         patch(
             "app.gateways.storage_gateway.get_storage_gateway",

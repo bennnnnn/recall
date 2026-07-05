@@ -45,6 +45,32 @@ async def test_get_by_id_returns_attachment(fake_session):
 
 
 @pytest.mark.asyncio
+async def test_get_by_ids_returns_empty_list_without_querying(fake_session):
+    from app.repositories.attachments import get_by_ids
+
+    result = await get_by_ids(fake_session, [], uuid4())
+
+    assert result == []
+    fake_session.execute.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_get_by_ids_issues_a_single_batched_query(fake_session):
+    from app.repositories.attachments import get_by_ids
+
+    rows = [MagicMock(), MagicMock()]
+    fake_session.execute.return_value = MagicMock(
+        scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=rows)))
+    )
+
+    ids = [uuid4(), uuid4(), uuid4()]
+    result = await get_by_ids(fake_session, ids, uuid4())
+
+    assert result == rows
+    fake_session.execute.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_link_message_sets_message_id(fake_session):
     from app.repositories.attachments import link_message
 
