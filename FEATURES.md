@@ -422,11 +422,11 @@ Still open (non-blocking):
 - ⚠️ **Android chat keyboard** — `softwareKeyboardLayoutMode: resize` is set for Reanimated's
   `useAnimatedKeyboard`; needs an **Android dev-client rebuild** and on-device composer smoke test
   (iOS confirmed smooth; Android unverified).
-- ⚠️ **Memory consolidation fact preservation** — background job skips rewrites when the model
-  omits a section or shrinks text below 50% of prior length. Heuristic guardrails only — not a
-  true diff/merge against prior section text.
-- 🔜 **Exact memory consolidation merge** — per-section entity overlap or merge-not-replace
-  (deferred; current job prefers skipping over losing facts).
+- ⚠️ **Memory consolidation fact preservation** — skips rewrites when the model omits a
+  section, shrinks text below 50% of prior length, or drops **≥20% of salient anchors**
+  (names, orgs, emails, numbers) extracted from the prior section. Heuristic — not a full
+  sentence-level diff/merge.
+- 🔜 **Exact memory consolidation merge** — per-section merge-not-replace LLM pass (deferred).
 
 ### Multimodal & attachments (planned)
 

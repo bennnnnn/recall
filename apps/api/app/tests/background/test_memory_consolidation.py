@@ -61,7 +61,7 @@ async def test_consolidate_rewrites_messy_sections():
             MemorySectionItem(
                 type="profile",
                 summary=(
-                    "Bini is a software developer who builds mobile apps "
+                    "Bini (Binalfew) is a software developer who builds mobile apps "
                     "and backend services for Recall."
                 ),
                 confidence=0.9,
@@ -98,7 +98,10 @@ async def test_consolidate_rewrites_messy_sections():
     ):
         changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
 
-    expected = "Bini is a software developer who builds mobile apps and backend services for Recall"
+    expected = (
+        "Bini (Binalfew) is a software developer who builds mobile apps "
+        "and backend services for Recall"
+    )
     assert changed is True
     upsert.assert_awaited_once()
     assert upsert.call_args.kwargs["items"][0][1] == expected
@@ -161,7 +164,7 @@ async def test_consolidate_skips_when_model_omits_existing_section():
             MemorySectionItem(
                 type="profile",
                 summary=(
-                    "Bini is a software developer who builds mobile apps "
+                    "Bini (Binalfew) is a software developer who builds mobile apps "
                     "and backend services for Recall."
                 ),
                 confidence=0.9,
@@ -195,6 +198,53 @@ async def test_consolidate_skips_when_model_omits_existing_section():
 
 
 @pytest.mark.asyncio
+async def test_consolidate_skips_rewrite_that_drops_fact_anchors():
+    user_id = uuid4()
+    memory = AsyncMock()
+    memory.type = "profile"
+    memory.text = (
+        "User's name is Bini. User works at Hooh. User's name is Binalfew. User is a developer."
+    )
+
+    rewrite = MemorySectionUpdateResult(
+        sections=[
+            MemorySectionItem(
+                type="profile",
+                summary=(
+                    "Bini (Binalfew) is a software developer who builds mobile apps "
+                    "and backend services for Recall."
+                ),
+                confidence=0.9,
+            )
+        ]
+    )
+
+    _, session_locals = _consolidation_sessions()
+    with (
+        patch(
+            "app.background.memory_consolidation.SessionLocal",
+            side_effect=session_locals,
+        ),
+        patch(
+            "app.background.memory_consolidation.memories_repo.list_for_user",
+            AsyncMock(return_value=[memory]),
+        ),
+        patch(
+            "app.background.memory_consolidation.litellm_gateway.rewrite_memory_sections",
+            AsyncMock(return_value=rewrite),
+        ),
+        patch(
+            "app.background.memory_consolidation.memories_repo.upsert_sections",
+            AsyncMock(),
+        ) as upsert,
+    ):
+        changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
+
+    assert changed is False
+    upsert.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_consolidate_upserts_without_embedding_when_vector_missing():
     user_id = uuid4()
     memory = AsyncMock()
@@ -203,7 +253,7 @@ async def test_consolidate_upserts_without_embedding_when_vector_missing():
 
     updated = SimpleNamespace(
         type="profile",
-        text="Bini is a software developer with backend and mobile experience",
+        text="Bini (Binalfew) is a software developer with backend and mobile experience",
         embedding=None,
         embedding_json=None,
     )
@@ -260,7 +310,7 @@ async def test_consolidate_stores_embedding_when_vector_present():
 
     updated = SimpleNamespace(
         type="profile",
-        text="Bini is a software developer with backend and mobile experience",
+        text="Bini (Binalfew) is a software developer with backend and mobile experience",
         embedding=None,
         embedding_json=None,
     )
