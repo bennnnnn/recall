@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -10,19 +10,15 @@ import {
 import { FlashList } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
 import { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
-import { Redirect, useFocusEffect, useLocalSearchParams, useNavigation } from "expo-router";
+import { Redirect, useLocalSearchParams, useNavigation } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useTranslation } from "react-i18next";
 
 import { useTheme } from "@/lib/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTodos } from "@/contexts/TodosContext";
-import { api, GoogleCalendarEvent, SuggestedReminder, Todo } from "@/lib/api";
+import { api, Todo } from "@/lib/api";
 import { toDueAtIso } from "@/lib/dueDate";
-import {
-  buildCalendarOverlapNotes,
-  buildReminderOverlapNotes,
-} from "@/lib/reminderOverlap";
 import {
   cancelTodoReminder,
   ensureNotificationPermission,
@@ -46,21 +42,12 @@ import {
 } from "@/components/todos/todoHelpers";
 import { makeTodosStyles } from "@/components/todos/todosStyles";
 import {
-  buildListGroups,
   isDefaultListTopic,
   mergeGroupOrder,
 } from "@/lib/listGroups";
-import { loadListGroupOrder, saveListGroupOrder } from "@/lib/listGroupOrder";
 import { markReminderIdsSeen } from "@/lib/reminderSeen";
-import {
-  calendarEventsOnDay,
-  formatDayHeading,
-  localDateKey,
-  parseDateKey,
-  remindersOnDay,
-  startOfMonth,
-  suggestedRemindersOnDay,
-} from "@/lib/reminderCalendar";
+import { useTodosCalendarIntegration } from "@/hooks/useTodosCalendarIntegration";
+import { useTodosListGroups } from "@/hooks/useTodosListGroups";
 
 type FocusSection = "list" | "reminders";
 
@@ -92,77 +79,41 @@ export default function TodosScreen() {
   const [reminderSheetOpen, setReminderSheetOpen] = useState(false);
   const [newListOpen, setNewListOpen] = useState(false);
   const [savingReminder, setSavingReminder] = useState(false);
-  const [groupOrder, setGroupOrder] = useState<string[]>([]);
-  const [selectedDay, setSelectedDay] = useState(() => localDateKey(new Date()));
-  const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(new Date()));
-  const [calendarEvents, setCalendarEvents] = useState<GoogleCalendarEvent[]>([]);
-  const [calendarLoadError, setCalendarLoadError] = useState(false);
-  const [calendarLoading, setCalendarLoading] = useState(false);
-  const [suggestedReminders, setSuggestedReminders] = useState<SuggestedReminder[]>([]);
-  const [suggestionBusyId, setSuggestionBusyId] = useState<string | null>(null);
-  const highlightRef = useRef(highlight);
-  highlightRef.current = highlight;
 
-  useEffect(() => {
-    const id = highlightRef.current;
-    if (!id || todos.length === 0) return;
-    const todo = todos.find((item) => item.id === id);
-    if (!todo?.due_at) return;
-    const dayKey = localDateKey(new Date(todo.due_at));
-    setSelectedDay(dayKey);
-    setVisibleMonth(startOfMonth(parseDateKey(dayKey)));
-  }, [highlight, todos]);
-  const syncGroupOrder = useCallback(
-    async (items: Todo[]) => {
-      if (!user?.id) return;
-      const saved = await loadListGroupOrder(user.id);
-      const topics = [
-        ...new Set(
-          items.filter((item) => !item.due_at).map((item) => normalizeTopic(item.topic)),
-        ),
-      ];
-      setGroupOrder(mergeGroupOrder(saved, topics));
-    },
-    [user?.id],
+  const { groupOrder, persistGroupOrder, listGroups, hasNamedGroups } = useTodosListGroups(
+    user?.id,
+    todos,
+    t("lists.default_group"),
   );
 
-  const loadCalendarEvents = useCallback(async () => {
-    if (!token || focusSection === "list") return;
-    setCalendarLoading(true);
-    setCalendarLoadError(false);
-    try {
-      const result = await api.listGoogleCalendarEvents(token);
-      setCalendarEvents(result.events);
-      setCalendarLoadError(Boolean(result.load_error));
-    } catch {
-      setCalendarEvents([]);
-      setCalendarLoadError(true);
-    } finally {
-      setCalendarLoading(false);
-    }
-  }, [focusSection, token]);
-
-  useFocusEffect(
-    useCallback(() => {
-      void refresh({ silent: todos.length > 0 });
-      if (focusSection !== "list") {
-        void markSeen();
-      }
-      if (token && focusSection !== "list") {
-        void loadCalendarEvents();
-        void api
-          .listSuggestedReminders(token)
-          .then((result) => setSuggestedReminders(result.reminders))
-          .catch(() => setSuggestedReminders([]));
-      }
-    }, [focusSection, loadCalendarEvents, markSeen, refresh, token, todos.length]),
-  );
-
-  useEffect(() => {
-    if (todos.length > 0) {
-      void syncGroupOrder(todos);
-    }
-  }, [syncGroupOrder, todos]);
+  const {
+    selectedDay,
+    visibleMonth,
+    setVisibleMonth,
+    goToDay,
+    calendarEvents,
+    calendarLoadError,
+    calendarLoading,
+    loadCalendarEvents,
+    suggestedReminders,
+    suggestionBusyId,
+    handleAddSuggestion,
+    handleDismissSuggestion,
+    overlapNotes,
+    selectedDayReminders,
+    selectedDayMeetings,
+    selectedDaySuggestions,
+    selectedDayHeading,
+  } = useTodosCalendarIntegration({
+    token,
+    focusSection,
+    todos,
+    highlight,
+    todosCount: todos.length,
+    refresh,
+    markSeen,
+    setTodos,
+  });
 
   const openReminders = useMemo(
     () => sortOpen(todos.filter((item) => isReminder(item) && !item.checked)),
@@ -179,23 +130,10 @@ export default function TodosScreen() {
     () => doneItems.filter((item) => isReminder(item)),
     [doneItems],
   );
-  const allListGroups = useMemo(
-    () => buildListGroups(todos, groupOrder, t("lists.default_group")),
-    [todos, groupOrder, t],
-  );
-  /** User-created lists only; legacy default bucket if no lists yet. */
-  const listGroups = useMemo(() => {
-    const named = allListGroups.filter((g) => !g.isDefault);
-    if (named.length > 0) return named;
-    const fallback = allListGroups.find((g) => g.isDefault);
-    if (fallback && fallback.open.length + fallback.done.length > 0) return [fallback];
-    return [];
-  }, [allListGroups]);
   const visibleDone = useMemo(() => {
     if (focusSection === "list" || focusSection === "reminders") return [];
     return doneReminders;
   }, [doneReminders, focusSection]);
-  const hasNamedGroups = groupOrder.some((topic) => !isDefaultListTopic(topic));
   const hasListItems = todos.some((item) => !isReminder(item));
   const isEmpty = useMemo(() => {
     if (focusSection === "list") {
@@ -214,38 +152,7 @@ export default function TodosScreen() {
     hasNamedGroups,
     openReminders.length,
   ]);
-  const overlapNotes = useMemo(() => {
-    const todoNotes = buildReminderOverlapNotes(todos);
-    const calNotes = buildCalendarOverlapNotes(todos, calendarEvents);
-    const merged = new Map(todoNotes);
-    for (const [id, title] of calNotes.entries()) {
-      merged.set(id, merged.has(id) ? `${merged.get(id)} · ${title}` : title);
-    }
-    return merged;
-  }, [calendarEvents, todos]);
   const isRemindersPage = focusSection === "reminders";
-  const allReminders = useMemo(() => todos.filter((item) => isReminder(item)), [todos]);
-  const selectedDayReminders = useMemo(
-    () => remindersOnDay(allReminders, selectedDay),
-    [allReminders, selectedDay],
-  );
-  const selectedDayMeetings = useMemo(
-    () => calendarEventsOnDay(calendarEvents, selectedDay),
-    [calendarEvents, selectedDay],
-  );
-  const selectedDaySuggestions = useMemo(
-    () => suggestedRemindersOnDay(suggestedReminders, selectedDay),
-    [selectedDay, suggestedReminders],
-  );
-  const selectedDayHeading = useMemo(() => {
-    const now = new Date();
-    const todayKey = localDateKey(now);
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    if (selectedDay === todayKey) return t("calendar.today_heading");
-    if (selectedDay === localDateKey(tomorrow)) return t("calendar.tomorrow_heading");
-    return formatDayHeading(selectedDay, now);
-  }, [selectedDay, t]);
   const showRemindersEmptyHero = isEmpty && focusSection !== "reminders";
 
   useEffect(() => {
@@ -257,14 +164,6 @@ export default function TodosScreen() {
           : t("todos.title");
     navigation.setOptions({ title });
   }, [focusSection, navigation, t]);
-
-  const persistGroupOrder = useCallback(
-    async (order: string[]) => {
-      setGroupOrder(order);
-      if (user?.id) await saveListGroupOrder(user.id, order);
-    },
-    [user?.id],
-  );
 
   const handleCreateListItem = async (topic: string, content: string) => {
     if (!token || !content.trim()) return;
@@ -329,8 +228,7 @@ export default function TodosScreen() {
         dueAt: dueIso,
       });
       const dayKey = dayKeyForDue(dueDate, created.due_at ?? dueIso);
-      setSelectedDay(dayKey);
-      setVisibleMonth(startOfMonth(parseDateKey(dayKey)));
+      goToDay(dayKey);
       setTodos((prev) => {
         const next = [created, ...prev];
         void syncTodoReminders(next);
@@ -461,9 +359,7 @@ export default function TodosScreen() {
         due_at: dueIso,
       });
       if (isRemindersPage) {
-        const dayKey = dayKeyForDue(date, updated.due_at ?? dueIso);
-        setSelectedDay(dayKey);
-        setVisibleMonth(startOfMonth(parseDateKey(dayKey)));
+        goToDay(dayKeyForDue(date, updated.due_at ?? dueIso));
       }
       setTodos((prev) => {
         const next = prev.map((item) => (item.id === todo.id ? updated : item));
@@ -503,35 +399,6 @@ export default function TodosScreen() {
     const { todo, date } = duePicker;
     setDuePicker(null);
     await applyDueDate(todo, date);
-  };
-
-  const handleAddSuggestion = async (reminder: SuggestedReminder) => {
-    if (!token || suggestionBusyId) return;
-    setSuggestionBusyId(reminder.id);
-    try {
-      const created = await api.addSuggestedReminder(token, reminder.id);
-      setSuggestedReminders((prev) => prev.filter((item) => item.id !== reminder.id));
-      setTodos((prev) => [created, ...prev]);
-      void syncTodoReminders([created, ...todos]);
-      void refresh({ silent: true, force: true });
-    } catch {
-      Alert.alert(t("todos.error"), t("todos.error_create"));
-    } finally {
-      setSuggestionBusyId(null);
-    }
-  };
-
-  const handleDismissSuggestion = async (reminder: SuggestedReminder) => {
-    if (!token || suggestionBusyId) return;
-    setSuggestionBusyId(reminder.id);
-    try {
-      await api.dismissSuggestedReminder(token, reminder.id);
-      setSuggestedReminders((prev) => prev.filter((item) => item.id !== reminder.id));
-    } catch {
-      Alert.alert(t("todos.error"), t("common.error"));
-    } finally {
-      setSuggestionBusyId(null);
-    }
   };
 
   // The screen is a multi-mode dashboard. The genuinely long, flat lists are
@@ -664,10 +531,7 @@ export default function TodosScreen() {
             suggestedReminders={suggestedReminders}
             selectedDay={selectedDay}
             visibleMonth={visibleMonth}
-            onSelectDay={(dayKey) => {
-              setSelectedDay(dayKey);
-              setVisibleMonth(startOfMonth(parseDateKey(dayKey)));
-            }}
+            onSelectDay={goToDay}
             onVisibleMonthChange={setVisibleMonth}
           />
           {calendarLoading ? (
