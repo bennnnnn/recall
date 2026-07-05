@@ -30,6 +30,7 @@ from app.services.chat.prompt_constants import (
 )
 from app.services.context_window import select_recent_window
 from app.services.day_planning import is_day_planning_question, is_day_reflection_question
+from app.services.math_tools import VerifiedMathBlock
 from app.services.prompt_safety import wrap_untrusted
 
 logger = logging.getLogger(__name__)
@@ -86,7 +87,7 @@ async def _augment_web_and_tools(
     user: User | None = None,
     redis: Redis | None = None,
     has_calendar_write: bool = False,
-) -> tuple[list[dict[str, str]], list[WebSearchHit]]:
+) -> tuple[list[dict[str, str]], list[WebSearchHit], VerifiedMathBlock | None]:
     """Web search always uses the full direct path; MCP handles calendar/sympy only."""
     import app.services.chat as chat_pkg
 
@@ -125,13 +126,13 @@ async def _augment_web_and_tools(
     ):
         await on_status("calculating")
 
-    updated = await chat_pkg.math_tools_service.augment_prompt_messages(
+    updated, verified_math = await chat_pkg.math_tools_service.augment_prompt_messages(
         updated,
         user_content,
         settings,
         has_image_attachment=has_image_attachment,
     )
-    return updated, search_sources
+    return updated, search_sources, verified_math
 
 
 async def build_prompt_messages(

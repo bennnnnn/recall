@@ -55,10 +55,10 @@ async def test_augment_web_and_tools_uses_mcp_when_enabled():
         ) as web_mock,
         patch(
             "app.services.chat.math_tools_service.augment_prompt_messages",
-            AsyncMock(return_value=[{"role": "system", "content": "mcp"}]),
+            AsyncMock(return_value=([{"role": "system", "content": "mcp"}], None)),
         ) as math_mock,
     ):
-        updated, hits = await _augment_web_and_tools(
+        updated, hits, verified_math = await _augment_web_and_tools(
             messages,
             "latest news?",
             settings,
@@ -69,3 +69,4 @@ async def test_augment_web_and_tools_uses_mcp_when_enabled():
     math_mock.assert_awaited_once()
     assert updated == [{"role": "system", "content": "mcp"}]
     assert hits == [web_hit]
+    assert verified_math is None

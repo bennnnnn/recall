@@ -1533,7 +1533,7 @@ async def test_regenerate_restores_assistant_when_stream_empty():
         stack.enter_context(
             patch(
                 "app.services.chat._augment_web_and_tools",
-                AsyncMock(return_value=([{"role": "system", "content": "sys"}], [])),
+                AsyncMock(return_value=([{"role": "system", "content": "sys"}], [], None)),
             )
         )
         stack.enter_context(
@@ -1592,7 +1592,7 @@ async def test_regenerate_passes_client_geo_to_web_search():
     fake_last_user = MagicMock()
     fake_last_user.content = "Best restaurants near me"
 
-    augment = AsyncMock(return_value=([{"role": "system", "content": "sys"}], []))
+    augment = AsyncMock(return_value=([{"role": "system", "content": "sys"}], [], None))
 
     async def empty_stream(**kwargs):
         if False:

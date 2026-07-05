@@ -6,7 +6,8 @@ import asyncio
 import json
 import logging
 import re
-from typing import Literal
+from dataclasses import dataclass
+from typing import Any, Literal
 
 from app.core.config import Settings
 from app.models.math_schemas import (
@@ -223,7 +224,17 @@ def extract_math_intent(text: str) -> MathIntent | None:
     return None
 
 
-def _build_verified_block(intent: MathIntent, settings: Settings) -> str | None:
+@dataclass(frozen=True)
+class VerifiedMathBlock:
+    """The system-prompt hint text plus the exact fence (if any) it asked
+    the model to reuse verbatim — canonical_fence lets a post-stream check
+    correct the model's actual output rather than only trusting compliance."""
+
+    text: str
+    canonical_fence: dict[str, Any] | None = None
+
+
+def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMathBlock | None:
     lines: list[str] = [
         "Symbolic math results (verified by SymPy — use these exact values in your answer):"
     ]
@@ -240,7 +251,7 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> str | None:
             lines.append(
                 "Emit formulas with $...$ or ```math fences. Do NOT recompute the solutions."
             )
-            return "\n".join(lines)
+            return VerifiedMathBlock(text="\n".join(lines))
 
         if intent.kind == "rectangle" and intent.width and intent.height:
             rect_geo = math_service.rectangle_geometry(
@@ -269,7 +280,7 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> str | None:
                 f"```geometry\n{json.dumps(spec.model_dump(), separators=(',', ':'))}\n```"
             )
             lines.append("Do NOT recompute diagonal, angle, area, or perimeter.")
-            return "\n".join(lines)
+            return VerifiedMathBlock(text="\n".join(lines), canonical_fence=spec.model_dump())
 
         if intent.kind == "square" and (intent.side or intent.width):
             side = intent.side or intent.width or 5
@@ -301,7 +312,7 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> str | None:
                 f"```geometry\n{json.dumps(spec.model_dump(), separators=(',', ':'))}\n```"
             )
             lines.append("Do NOT recompute diagonal, area, or perimeter.")
-            return "\n".join(lines)
+            return VerifiedMathBlock(text="\n".join(lines), canonical_fence=spec.model_dump())
 
         if intent.kind == "triangle" and intent.base and intent.height:
             tri_geo = math_service.triangle_geometry(
@@ -325,7 +336,7 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> str | None:
                 f"```geometry\n{json.dumps(tri_spec.model_dump(), separators=(',', ':'))}\n```"
             )
             lines.append("Do NOT recompute area.")
-            return "\n".join(lines)
+            return VerifiedMathBlock(text="\n".join(lines), canonical_fence=tri_spec.model_dump())
 
         if intent.kind == "right_triangle" and intent.base and intent.height:
             rt_geo = math_service.right_triangle_geometry(
@@ -354,7 +365,7 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> str | None:
                 f"```geometry\n{json.dumps(rt_spec.model_dump(), separators=(',', ':'))}\n```"
             )
             lines.append("Do NOT recompute hypotenuse or area.")
-            return "\n".join(lines)
+            return VerifiedMathBlock(text="\n".join(lines), canonical_fence=rt_spec.model_dump())
 
         if intent.kind == "graph" and intent.expr:
             sample = math_service.sample_function(
@@ -378,7 +389,7 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> str | None:
                 "When a plot helps, emit ONLY this fence:\n"
                 f"```graph\n{json.dumps(graph_spec.model_dump(), separators=(',', ':'))}\n```"
             )
-            return "\n".join(lines)
+            return VerifiedMathBlock(text="\n".join(lines), canonical_fence=graph_spec.model_dump())
 
         if intent.kind == "calculus" and intent.expr and intent.operation:
             if intent.operation == "simplify":
@@ -391,7 +402,7 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> str | None:
                 return None
             lines.append(f"Result: {out.latex}")
             lines.append("Do NOT recompute. Explain in plain language with $...$ for formulas.")
-            return "\n".join(lines)
+            return VerifiedMathBlock(text="\n".join(lines))
     except math_service.MathServiceError as exc:
         logger.info("math_tools skipped: %s", exc)
         return None
@@ -419,11 +430,11 @@ async def augment_prompt_messages(
     settings: Settings,
     *,
     has_image_attachment: bool = False,
-) -> list[dict[str, str]]:
+) -> tuple[list[dict[str, str]], VerifiedMathBlock | None]:
     if not settings.math_tools_enabled:
-        return messages
+        return messages, None
     if not needs_symbolic_math(user_content, has_image_attachment=has_image_attachment):
-        return messages
+        return messages, None
 
     intent = extract_math_intent(user_content)
     if intent is None and has_image_attachment:
@@ -432,18 +443,20 @@ async def augment_prompt_messages(
             "Extract the equation as lhs/rhs if possible, then explain using verified reasoning. "
             "Use $...$ for formulas and ```geometry / ```graph JSON fences for diagrams."
         ]
-        return _inject_before_last_user(messages, "\n".join(lines))
+        return _inject_before_last_user(messages, "\n".join(lines)), None
 
     if intent is None:
-        return messages
+        return messages, None
 
-    block = await _build_verified_block_async(intent, settings)
-    if not block:
-        return messages
-    return _inject_before_last_user(messages, block)
+    verified = await _build_verified_block_async(intent, settings)
+    if not verified:
+        return messages, None
+    return _inject_before_last_user(messages, verified.text), verified
 
 
-async def _build_verified_block_async(intent: MathIntent, settings: Settings) -> str | None:
+async def _build_verified_block_async(
+    intent: MathIntent, settings: Settings
+) -> VerifiedMathBlock | None:
     """Run the sync, CPU-bound SymPy work off the event loop with a hard timeout.
 
     ``_build_verified_block`` calls into SymPy's ``solve``/``integrate``/etc.,
