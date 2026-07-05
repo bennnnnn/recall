@@ -137,14 +137,8 @@ async def count_image_attachments(
     from app.repositories import attachments as attachments_repo
     from app.services.attachment_content import IMAGE_CONTENT_TYPES, normalize_content_type
 
-    count = 0
-    for attachment_id in attachment_ids:
-        row = await attachments_repo.get_by_id(session, attachment_id, user_id)
-        if row is None:
-            continue
-        if normalize_content_type(row.content_type) in IMAGE_CONTENT_TYPES:
-            count += 1
-    return count
+    rows = await attachments_repo.get_by_ids(session, attachment_ids, user_id)
+    return sum(1 for row in rows if normalize_content_type(row.content_type) in IMAGE_CONTENT_TYPES)
 
 
 def vision_reserve_tokens(settings: Settings, image_count: int) -> int:
@@ -469,11 +463,15 @@ async def prepare_chat_turn(
                     raise ChatNotFoundError("User not found.")
             from app.repositories import attachments as attachments_repo
 
-            attachment_rows: list[Attachment] = []
-            for attachment_id in attachment_ids:
-                row = await attachments_repo.get_by_id(session, attachment_id, user.id)
-                if row is not None:
-                    attachment_rows.append(row)
+            rows_by_id = {
+                row.id: row
+                for row in await attachments_repo.get_by_ids(session, attachment_ids, user.id)
+            }
+            attachment_rows: list[Attachment] = [
+                rows_by_id[attachment_id]
+                for attachment_id in attachment_ids
+                if attachment_id in rows_by_id
+            ]
 
         if attachment_rows:
             from app.gateways.storage_gateway import LocalStorageGateway, get_storage_gateway

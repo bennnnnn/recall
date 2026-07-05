@@ -38,6 +38,22 @@ async def get_by_id(session: AsyncSession, attachment_id: UUID, user_id: UUID) -
     return result.scalar_one_or_none()
 
 
+async def get_by_ids(
+    session: AsyncSession, attachment_ids: list[UUID], user_id: UUID
+) -> list[Attachment]:
+    """Batched ``get_by_id`` — one round-trip instead of one query per id.
+
+    Scoped by ``user_id`` like ``get_by_id``. Order is not guaranteed to match
+    ``attachment_ids``; callers that care should re-order by id themselves.
+    """
+    if not attachment_ids:
+        return []
+    result = await session.execute(
+        select(Attachment).where(Attachment.id.in_(attachment_ids), Attachment.user_id == user_id)
+    )
+    return list(result.scalars().all())
+
+
 async def link_message(session: AsyncSession, row: Attachment, message_id: UUID) -> Attachment:
     row.message_id = message_id
     await session.commit()
