@@ -22,7 +22,7 @@ async def test_augment_web_and_tools_injects_math_for_solve() -> None:
         "app.services.chat.web_search_service.augment_prompt_messages",
         AsyncMock(return_value=(messages, [])),
     ):
-        updated, hits = await _augment_web_and_tools(
+        updated, hits, verified_math = await _augment_web_and_tools(
             messages,
             "Solve x^2 + 2 = 6",
             settings,
@@ -33,3 +33,5 @@ async def test_augment_web_and_tools_injects_math_for_solve() -> None:
     assert updated[1]["role"] == "system"
     assert "SymPy" in updated[1]["content"]
     assert "Solutions" in updated[1]["content"]
+    assert verified_math is not None
+    assert verified_math.canonical_fence is None

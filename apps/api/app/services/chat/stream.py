@@ -263,6 +263,7 @@ async def stream_regenerate_response(
         chat_project_id=chat_project_id,
         regenerate_backup=regenerate_backup,
         fallback_models=bundle.fallback_models,
+        verified_math=bundle.verified_math,
     )
 
     try:
@@ -456,7 +457,9 @@ async def stream_and_finalize(
                     assistant_text,
                 )
 
-    assistant_text = chat_pkg.math_fence_service.validate_math_fences(assistant_text)
+    assistant_text = chat_pkg.math_fence_service.validate_math_fences(
+        assistant_text, verified=ctx.verified_math
+    )
     from app.services.vocab_quiz import strip_vocab_session_metadata
 
     assistant_text = strip_vocab_session_metadata(assistant_text)

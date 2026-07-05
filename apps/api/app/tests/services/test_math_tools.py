@@ -57,7 +57,7 @@ def test_extract_square_intent() -> None:
 async def test_augment_prompt_injects_geometry_block() -> None:
     settings = Settings(math_tools_enabled=True)
     messages = [{"role": "user", "content": "rectangle 8 x 5 cm diagonal angle"}]
-    out = await math_tools.augment_prompt_messages(
+    out, verified = await math_tools.augment_prompt_messages(
         messages,
         "rectangle 8 x 5 cm diagonal angle",
         settings,
@@ -65,16 +65,22 @@ async def test_augment_prompt_injects_geometry_block() -> None:
     assert len(out) == 2
     assert "```geometry" in out[0]["content"]
     assert "diagonal" in out[0]["content"]
+    assert verified is not None
+    assert verified.canonical_fence is not None
+    assert verified.canonical_fence["type"] == "rectangle"
 
 
 @pytest.mark.asyncio
 async def test_augment_prompt_injects_graph_block() -> None:
     settings = Settings(math_tools_enabled=True)
     messages = [{"role": "user", "content": "Graph y = x^2"}]
-    out = await math_tools.augment_prompt_messages(messages, "Graph y = x^2", settings)
+    out, verified = await math_tools.augment_prompt_messages(messages, "Graph y = x^2", settings)
     assert len(out) == 2
     assert "```graph" in out[0]["content"]
     assert "points" in out[0]["content"]
+    assert verified is not None
+    assert verified.canonical_fence is not None
+    assert verified.canonical_fence["type"] == "function"
 
 
 @pytest.mark.asyncio
@@ -84,7 +90,7 @@ async def test_augment_prompt_injects_sympy_block() -> None:
         {"role": "system", "content": "sys"},
         {"role": "user", "content": "Solve x^2 + 2 = 6"},
     ]
-    out = await math_tools.augment_prompt_messages(
+    out, verified = await math_tools.augment_prompt_messages(
         messages,
         "Solve x^2 + 2 = 6",
         settings,
@@ -93,6 +99,9 @@ async def test_augment_prompt_injects_sympy_block() -> None:
     assert out[1]["role"] == "system"
     assert "SymPy" in out[1]["content"]
     assert "Solutions" in out[1]["content"]
+    # Equation answers are plain-text/LaTeX, not a geometry/graph fence.
+    assert verified is not None
+    assert verified.canonical_fence is None
 
 
 @pytest.mark.asyncio
@@ -112,7 +121,7 @@ async def test_sympy_solve_runs_off_event_loop(monkeypatch: pytest.MonkeyPatch) 
 
     monkeypatch.setattr(math_tools, "_build_verified_block", spy)
 
-    out = await math_tools.augment_prompt_messages(
+    out, _verified = await math_tools.augment_prompt_messages(
         [{"role": "user", "content": "Solve x^2 + 2 = 6"}],
         "Solve x^2 + 2 = 6",
         settings,
@@ -136,10 +145,11 @@ async def test_augment_prompt_times_out_gracefully(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(math_tools, "_build_verified_block", slow_build)
 
     messages = [{"role": "user", "content": "Solve x^2 + 2 = 6"}]
-    out = await math_tools.augment_prompt_messages(
+    out, verified = await math_tools.augment_prompt_messages(
         messages,
         "Solve x^2 + 2 = 6",
         settings,
     )
 
     assert out == messages
+    assert verified is None

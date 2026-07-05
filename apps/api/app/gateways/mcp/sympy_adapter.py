@@ -62,7 +62,7 @@ class SympyAdapter:
             if intent:
                 block = math_tools._build_verified_block(intent, self.settings)
                 if block:
-                    return ToolResult(name=self.name, content=block)
+                    return ToolResult(name=self.name, content=block.text)
             return ToolResult(name=self.name, content="No math result.")
         except Exception as exc:
             return ToolResult(name=self.name, content=f"Math error: {exc}")

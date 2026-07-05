@@ -49,7 +49,7 @@ async def augment_prompt_with_mcp_tools(
         if intent is not None:
             verified = math_tools_service._build_verified_block(intent, settings)
             if verified:
-                blocks.append(verified)
+                blocks.append(verified.text)
             else:
                 if on_status is not None:
                     await on_status("calculating")

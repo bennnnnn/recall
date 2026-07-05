@@ -19,6 +19,7 @@ from app.services import projects as projects_service
 from app.services import web_search as web_search_service
 from app.services.chat.prompt_constants import is_broad_self_question, max_output_tokens_for_style
 from app.services.context_window import estimate_tokens
+from app.services.math_tools import VerifiedMathBlock
 from app.services.prompt_safety import wrap_untrusted
 
 logger = logging.getLogger(__name__)
@@ -81,6 +82,7 @@ class StreamContext:
     chat_project_id: UUID | None = None
     regenerate_backup: RegenerateBackup | None = None
     fallback_models: list[str] = field(default_factory=list)
+    verified_math: VerifiedMathBlock | None = None
 
 
 @dataclass
@@ -95,6 +97,7 @@ class TurnPromptBundle:
     minimal_quiz: bool
     geo: ClientGeoContext
     local_tz: str
+    verified_math: VerifiedMathBlock | None = None
 
 
 def resolve_client_geo(
@@ -392,6 +395,7 @@ async def build_stream_prompt_context(
             }
 
     search_sources: list[WebSearchHit] = []
+    verified_math: VerifiedMathBlock | None = None
     if (
         instant_reply is None
         and not minimal_personal
@@ -401,7 +405,7 @@ async def build_stream_prompt_context(
         and not chat_pkg.calendar_service.is_external_calendar_question(content)
         and not chat_pkg.email_service.is_external_email_question(content)
     ):
-        prompt_messages, search_sources = await chat_pkg._augment_web_and_tools(
+        prompt_messages, search_sources, verified_math = await chat_pkg._augment_web_and_tools(
             prompt_messages,
             content,
             settings,
@@ -428,6 +432,7 @@ async def build_stream_prompt_context(
         minimal_quiz=minimal_quiz,
         geo=geo,
         local_tz=local_tz,
+        verified_math=verified_math,
     )
 
 
@@ -654,4 +659,5 @@ async def prepare_chat_turn(
         prior_count=prior_count,
         chat_project_id=chat_project_id,
         fallback_models=bundle.fallback_models,
+        verified_math=bundle.verified_math,
     )
