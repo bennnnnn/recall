@@ -123,6 +123,12 @@ export function mergeDoneIntoMessages(
   return next;
 }
 
+/** Apply resolved model to the in-flight streaming bubble as soon as stream_end arrives. */
+export function applyStreamEndModel(messages: Message[], model: string | undefined): Message[] {
+  if (!model) return messages;
+  return messages.map((m) => (m.id === "streaming" ? { ...m, model } : m));
+}
+
 export function buildDoneMergeInput(
   payload: ChatWsPayload,
   draft: { content: string; search_sources?: SearchSource[] } | null,

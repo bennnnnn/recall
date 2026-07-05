@@ -141,7 +141,9 @@ def test_ws_done_includes_resolved_model():
             ws.send_json({"type": "message", "content": "hi"})
             assert ws.receive_json()["type"] == "start"
             assert ws.receive_json()["type"] == "token"
-            assert ws.receive_json()["type"] == "stream_end"
+            stream_end = ws.receive_json()
+            assert stream_end["type"] == "stream_end"
+            assert stream_end["resolved_model"] == "smart-chat"
             done = ws.receive_json()
             assert done["type"] == "done"
             assert done["resolved_model"] == "smart-chat"

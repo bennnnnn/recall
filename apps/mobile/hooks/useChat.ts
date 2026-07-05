@@ -5,6 +5,7 @@ import { clientGeoWsFields, type ClientGeo } from "@/lib/clientGeo";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { isVocabQuizAnswer } from "@/lib/parseVocabQuiz";
 import {
+  applyStreamEndModel,
   buildDoneMergeInput,
   mergeDoneIntoMessages,
   parseChatWsPayload,
@@ -199,6 +200,9 @@ export function useChat(
 
       if (payload.type === "stream_end") {
         setFinalizing(true);
+        if (typeof payload.resolved_model === "string" && payload.resolved_model) {
+          setMessages((prev) => applyStreamEndModel(prev, payload.resolved_model));
+        }
       }
 
       if (payload.type === "done") {

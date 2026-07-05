@@ -476,6 +476,9 @@ async def stream_and_finalize(
     if result is not None and was_cancelled and assistant_text:
         result["final_content"] = assistant_text
 
+    if result is not None:
+        result["resolved_model"] = ctx.model
+
     finalize_db_task = create_background_task(
         finalize_stream_turn_db(redis, ctx, assistant_text, usage, result),
         name="finalize_stream_turn_db",

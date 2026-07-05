@@ -361,7 +361,7 @@ export const MessageBubble = React.memo(function MessageBubble({
     const label = modelsCtx?.labelFor(message.model) ?? message.model;
     return label.trim() || null;
   }, [isUser, message.model, modelsCtx]);
-  const showModelLabel = !isUser && !layoutFrozen && resolvedModelLabel != null;
+  const showModelLabel = !isUser && resolvedModelLabel != null;
   const markdownStreamMode = layoutFrozen;
   const markdownResetKey = `${message.renderKey ?? message.id}:${markdownContent.length}`;
 

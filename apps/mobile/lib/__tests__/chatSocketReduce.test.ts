@@ -1,4 +1,4 @@
-import { mergeDoneIntoMessages, appendToken, buildDoneMergeInput } from "@/lib/chatSocketReduce";
+import { mergeDoneIntoMessages, appendToken, buildDoneMergeInput, applyStreamEndModel } from "@/lib/chatSocketReduce";
 import type { Message } from "@/lib/api";
 
 describe("chatSocketReduce", () => {
@@ -116,5 +116,13 @@ describe("chatSocketReduce", () => {
       model: "free-chat",
     });
     expect(next[1].model).toBe("free-chat");
+  });
+
+  it("applyStreamEndModel patches streaming placeholder", () => {
+    const prev: Message[] = [
+      { id: "streaming", role: "assistant", content: "Hi", model: null, created_at: "" },
+    ];
+    const next = applyStreamEndModel(prev, "smart-chat");
+    expect(next[0].model).toBe("smart-chat");
   });
 });

@@ -100,7 +100,11 @@ async def _stream_over_ws(
             )
             return
 
-        if not await _safe_send_json(websocket, {"type": "stream_end"}):
+        stream_end: dict[str, Any] = {"type": "stream_end"}
+        resolved_model = result.get("resolved_model")
+        if resolved_model:
+            stream_end["resolved_model"] = resolved_model
+        if not await _safe_send_json(websocket, stream_end):
             return
 
         finalize_db_task = result.pop("_finalize_db_task", None)

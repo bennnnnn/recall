@@ -545,6 +545,58 @@ async def test_run_push_cycle_enqueues_receipt_tickets():
     )
 
 
+@pytest.mark.asyncio
+async def test_run_push_cycle_marks_sent_on_ticket_without_receipt_poll():
+    """Ticket accept marks delivery; receipt polling is deferred for token pruning only."""
+    session = AsyncMock()
+    redis = AsyncMock()
+    settings = Settings(
+        push_enabled=True,
+        mock_llm_enabled=False,
+        environment="production",
+        server_todo_push_enabled=True,
+    )
+    todo = MagicMock()
+    todo.id = uuid4()
+    todo.content = "Call dentist"
+    todo.notification_sent_at = None
+
+    with (
+        patch.object(push_service, "poll_deferred_push_receipts", AsyncMock()),
+        patch.object(
+            push_service,
+            "process_todo_reminders",
+            AsyncMock(
+                return_value=[
+                    push_service.OutboundPush(
+                        message={"to": "ExponentPushToken[abc]"},
+                        todos=[todo],
+                    ),
+                ]
+            ),
+        ),
+        patch.object(push_service, "process_email_suggestions", AsyncMock(return_value=[])),
+        patch.object(push_service, "process_learning_nudges", AsyncMock(return_value=[])),
+        patch.object(
+            push_service.expo_push_gateway,
+            "send_push_messages",
+            AsyncMock(
+                return_value=push_service.expo_push_gateway.PushSendResult(
+                    invalid_tokens=[],
+                    delivered=[True],
+                    receipt_tickets=[("ticket-1", "ExponentPushToken[abc]")],
+                )
+            ),
+        ),
+        patch.object(push_service, "enqueue_push_receipts", AsyncMock()) as enqueue_mock,
+    ):
+        await push_service.run_push_cycle(session, redis, settings)
+
+    assert todo.notification_sent_at is not None
+    enqueue_mock.assert_awaited_once()
+    session.commit.assert_awaited()
+
+
 def test_append_outbound_dedupes_duplicate_tokens():
     out: list[push_service.OutboundPush] = []
     token_a = MagicMock()

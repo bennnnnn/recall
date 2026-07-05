@@ -72,9 +72,12 @@ def receipt_indicates_invalid_token(receipt: dict[str, Any]) -> bool:
 async def send_push_messages(messages: list[dict[str, Any]]) -> PushSendResult:
     """Send push messages via Expo.
 
-    Marks a message delivered when Expo accepts the ticket. Receipt polling for
-    stale-token cleanup is deferred — see push_notifications.poll_deferred_receipts.
-    On a transport/API failure, nothing is marked delivered so the caller can retry.
+    ``PushSendResult.delivered[i]`` is True when Expo returns ticket ``status: ok`` for
+    message *i* — not when a receipt confirms device delivery. Receipts are polled
+    later by ``push_notifications.poll_deferred_push_receipts`` for token pruning only.
+
+    On transport/API failure, nothing is marked delivered so the caller can retry on
+    the next scheduler cycle without duplicate sends for already-accepted tickets.
     """
     if not messages:
         return PushSendResult(invalid_tokens=[], delivered=[])
