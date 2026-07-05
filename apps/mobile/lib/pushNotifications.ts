@@ -64,9 +64,14 @@ export async function registerRemotePushToken(apiToken: string): Promise<void> {
   if (!expoPushToken) return;
 
   try {
+    const deviceId =
+      typeof Constants.installationId === "string" && Constants.installationId.trim()
+        ? Constants.installationId.trim()
+        : undefined;
     await api.registerPushToken(apiToken, {
       expo_push_token: expoPushToken,
       platform: Platform.OS,
+      device_id: deviceId,
     });
   } catch {
     /* best-effort */

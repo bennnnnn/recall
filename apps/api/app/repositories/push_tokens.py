@@ -46,9 +46,34 @@ async def upsert(
             device_id=device_id,
         )
         session.add(row)
+    if device_id:
+        await delete_stale_tokens_for_device(
+            session,
+            user_id=user_id,
+            device_id=device_id,
+            keep_expo_push_token=expo_push_token,
+        )
     await session.commit()
     await session.refresh(row)
     return row
+
+
+async def delete_stale_tokens_for_device(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    device_id: str,
+    keep_expo_push_token: str,
+) -> int:
+    """Remove rotated Expo tokens for the same physical device."""
+    result = await session.execute(
+        delete(PushToken).where(
+            PushToken.user_id == user_id,
+            PushToken.device_id == device_id,
+            PushToken.expo_push_token != keep_expo_push_token,
+        )
+    )
+    return int(result.rowcount or 0)
 
 
 async def delete_token(session: AsyncSession, user_id: UUID, expo_push_token: str) -> bool:
