@@ -56,31 +56,39 @@ async def presign_upload(
             detail="Attachment storage is not configured",
         )
 
+    redis = get_redis_client()
+    image_reserved = False
     if content_type in IMAGE_CONTENT_TYPES:
-        redis = get_redis_client()
         image_limit = quota_service.image_upload_limit_for_user(user, settings)
         if not await quota_service.reserve_image_upload(redis, user.id, limit=image_limit):
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail=quota_service.image_limit_exceeded_message(user),
             )
+        image_reserved = True
 
-    presigned = await gateway.presign_upload(
-        user_id=str(user.id),
-        content_type=content_type,
-        size_bytes=body.size_bytes,
-    )
-    from uuid import UUID as UUIDType
+    try:
+        presigned = await gateway.presign_upload(
+            user_id=str(user.id),
+            content_type=content_type,
+            size_bytes=body.size_bytes,
+        )
+        from uuid import UUID as UUIDType
 
-    attachment_id = UUIDType(presigned.attachment_id)
-    await attachments_repo.create_pending(
-        session,
-        attachment_id=attachment_id,
-        user_id=user.id,
-        storage_key=presigned.storage_key,
-        content_type=content_type,
-        size_bytes=body.size_bytes,
-    )
+        attachment_id = UUIDType(presigned.attachment_id)
+        await attachments_repo.create_pending(
+            session,
+            attachment_id=attachment_id,
+            user_id=user.id,
+            storage_key=presigned.storage_key,
+            content_type=content_type,
+            size_bytes=body.size_bytes,
+        )
+    except Exception:
+        if image_reserved:
+            await quota_service.refund_image_upload(redis, user.id)
+        raise
+
     return AttachmentPresignOut(
         attachment_id=attachment_id,
         upload_url=presigned.upload_url,
