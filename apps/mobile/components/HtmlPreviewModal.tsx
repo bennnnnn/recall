@@ -27,7 +27,7 @@ import {
 } from "@/lib/openHtmlPreview";
 import { injectPreviewCsp } from "@/lib/previewSandbox";
 import { CODE_FONT } from "@/lib/fonts";
-import { getPreviewWebView } from "@/lib/webView";
+import { getPreviewWebView, useStaticOnlyNavigation } from "@/lib/webView";
 import i18n from "@/lib/i18n";
 
 type Props = {
@@ -82,6 +82,7 @@ function LiveWebPreview({
   const fullHtml = useMemo(() => injectPreviewCsp(wrapFullDocument(html)), [html]);
   const previewWebView = useMemo(() => getPreviewWebView(), []);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
+  const onShouldStartLoadWithRequest = useStaticOnlyNavigation(fullHtml);
 
   useEffect(() => {
     if (previewWebView?.mode !== "expo-dom") {
@@ -121,6 +122,7 @@ function LiveWebPreview({
         source={source}
         style={s.webview}
         scrollEnabled
+        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         {...(isRnc
           ? {
               originWhitelist: ["*"],

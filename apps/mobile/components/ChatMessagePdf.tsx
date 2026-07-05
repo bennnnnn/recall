@@ -17,7 +17,7 @@ import { downloadChatAttachment } from "@/lib/downloadChatAttachment";
 import { fetchAttachmentBase64 } from "@/lib/fetchAttachmentBytes";
 import { buildPdfPreviewHtml } from "@/lib/pdfPreviewHtml";
 import { Theme, useTheme } from "@/lib/theme";
-import { getPreviewWebView } from "@/lib/webView";
+import { getPreviewWebView, useStaticOnlyNavigation } from "@/lib/webView";
 
 type Props = {
   attachmentId?: string | null;
@@ -79,6 +79,7 @@ export function ChatMessagePdf({
     () => (previewBase64 ? buildPdfPreviewHtml(previewBase64, theme.isDark) : null),
     [previewBase64, theme.isDark],
   );
+  const onShouldStartLoadWithRequest = useStaticOnlyNavigation(previewHtml);
 
   const handleShare = useCallback(async () => {
     if (!remoteUri) return;
@@ -122,6 +123,7 @@ export function ChatMessagePdf({
             scrollEnabled={false}
             style={s.previewWeb}
             javaScriptEnabled
+            onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
           />
         </Pressable>
       ) : !compact && loadingPreview ? (
@@ -179,6 +181,7 @@ function AttachmentPdfViewer({
 
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;
+  const onShouldStartLoadWithRequest = useStaticOnlyNavigation(html);
 
   useEffect(() => {
     if (!visible || !remoteUri) {
@@ -229,6 +232,7 @@ function AttachmentPdfViewer({
               source={{ html }}
               style={s.webview}
               javaScriptEnabled
+              onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
             />
           )}
         </View>

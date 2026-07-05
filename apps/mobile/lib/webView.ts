@@ -1,5 +1,14 @@
+import { useCallback, useEffect, useRef } from "react";
 import { NativeModules, TurboModuleRegistry } from "react-native";
 import type { ComponentType } from "react";
+
+import {
+  createStaticOnlyNavigationGuard,
+  type StaticOnlyNavigationGuard,
+} from "@/lib/staticOnlyNavigationGuard";
+
+export { createStaticOnlyNavigationGuard };
+export type { StaticOnlyNavigationGuard };
 
 export type PreviewWebViewMode = "rnc" | "expo-dom";
 
@@ -64,4 +73,23 @@ export function getWebView(): ComponentType<Record<string, unknown>> | null {
 
 export function isWebViewAvailable(): boolean {
   return getPreviewWebView() != null;
+}
+
+/**
+ * React wiring for {@link createStaticOnlyNavigationGuard}: pass the HTML
+ * string (or other value identifying "new content") as `sourceKey` so a
+ * legitimate content change still gets its one allowed load.
+ */
+export function useStaticOnlyNavigation(sourceKey: unknown): () => boolean {
+  const guardRef = useRef<StaticOnlyNavigationGuard | null>(null);
+  if (guardRef.current == null) {
+    guardRef.current = createStaticOnlyNavigationGuard();
+  }
+  const guard = guardRef.current;
+
+  useEffect(() => {
+    guard.reset();
+  }, [sourceKey, guard]);
+
+  return useCallback(() => guard.shouldAllow(), [guard]);
 }
