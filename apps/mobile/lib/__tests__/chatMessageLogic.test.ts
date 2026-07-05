@@ -3,6 +3,7 @@ import {
   findLastLocalUserMessageId,
   isChatStreamActive,
   isLocalPendingMessageId,
+  priorUserTextFor,
 } from "@/lib/chatMessageLogic";
 import type { Message } from "@/lib/api";
 
@@ -36,5 +37,34 @@ describe("chatMessageLogic", () => {
     expect(isChatStreamActive(true, false)).toBe(true);
     expect(isChatStreamActive(false, true)).toBe(true);
     expect(isChatStreamActive(false, false)).toBe(false);
+  });
+
+  describe("priorUserTextFor", () => {
+    const messages = [
+      { id: "1", role: "user", content: "what's the weather" },
+      { id: "2", role: "assistant", content: "sunny" },
+      { id: "3", role: "assistant", content: "anything else?" },
+    ] as Message[];
+
+    it("returns the preceding user message's content for an assistant reply", () => {
+      expect(priorUserTextFor(messages, 1)).toBe("what's the weather");
+    });
+
+    it("returns null when the preceding item isn't a user message", () => {
+      expect(priorUserTextFor(messages, 2)).toBeNull();
+    });
+
+    it("returns null for a user message", () => {
+      expect(priorUserTextFor(messages, 0)).toBeNull();
+    });
+
+    it("returns null at index 0 even if it were an assistant message", () => {
+      const leading = [{ id: "1", role: "assistant", content: "hi" }] as Message[];
+      expect(priorUserTextFor(leading, 0)).toBeNull();
+    });
+
+    it("returns null for an out-of-range index", () => {
+      expect(priorUserTextFor(messages, 99)).toBeNull();
+    });
   });
 });

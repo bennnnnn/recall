@@ -23,6 +23,21 @@ export function findLastAssistantId(messages: Message[]): string | null {
   return null;
 }
 
+/**
+ * Content of the user message immediately before `messages[index]`, when that
+ * item is the assistant's reply to it — otherwise null. Computed once per row
+ * by the list (which already has the full array) so row components can take
+ * a plain string prop instead of the whole `messages` array; passing the full
+ * array as a row prop defeats React.memo, since any new message anywhere in
+ * the chat produces a new array reference and re-renders every row.
+ */
+export function priorUserTextFor(messages: Message[], index: number): string | null {
+  const item = messages[index];
+  if (!item || item.role !== "assistant" || index <= 0) return null;
+  const prior = messages[index - 1];
+  return prior?.role === "user" ? prior.content : null;
+}
+
 /** True while tokens are streaming or the server is persisting after stream_end. */
 export function isChatStreamActive(streaming: boolean, finalizing: boolean): boolean {
   return streaming || finalizing;
