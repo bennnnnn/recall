@@ -1,0 +1,92 @@
+import { CodeBlock } from "@/components/CodeBlock";
+import { WebPreviewCodeBlock } from "@/components/WebPreviewCodeBlock";
+import { CopyBlock } from "@/components/CopyBlock";
+import { CircularClockBlock } from "@/components/rich/CircularClockBlock";
+import { MathBlock } from "@/components/rich/MathView";
+import { GeometryBlock } from "@/components/rich/GeometryBlock";
+import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
+import {
+  fenceContentAsGeometry,
+  fenceContentAsGraph,
+  looksLikeLatexFence,
+} from "@/lib/mathFenceRetag";
+import {
+  renderCopyStyleBlock,
+  renderRichFence,
+} from "@/components/rich/RichFence";
+import {
+  copyBlockLabel,
+  isExplicitCodeLang,
+  shouldRenderAsCodeBlock,
+  shouldRenderAsCopyBlock,
+} from "@/lib/copyBlock";
+import { parseFenceLang, shouldUseHtmlPreview } from "@/lib/codeHighlight";
+import {
+  isClockFenceBody,
+  isDigitalTimeOnly,
+  isIanaTimezoneOnly,
+} from "@/lib/timeQuestion";
+import { looksLikeMarkdownListProse } from "@/lib/markdownPreprocess";
+
+export type FenceNode = { key: string; content: string; info?: string };
+
+function renderFenceInner(key: string, lang: string, content: string) {
+  if (shouldUseHtmlPreview(lang, content)) {
+    return <WebPreviewCodeBlock key={key} code={content} lang={lang || "html"} />;
+  }
+  const l = lang.trim().toLowerCase();
+  if (fenceContentAsGeometry(content)) {
+    return <GeometryBlock key={key} content={content} />;
+  }
+  if (fenceContentAsGraph(content)) {
+    return <FunctionGraphBlock key={key} content={content} />;
+  }
+  if (
+    l === "math" &&
+    (looksLikeMarkdownListProse(content) ||
+      /^\$\)?/.test(content.trim()) ||
+      /\*\*[^*]+\*\*/.test(content))
+  ) {
+    return null;
+  }
+  if (looksLikeLatexFence(content) && l !== "python" && l !== "javascript") {
+    return <MathBlock key={key} latex={content} />;
+  }
+  if (
+    l === "clock" ||
+    l === "time" ||
+    isDigitalTimeOnly(content) ||
+    isIanaTimezoneOnly(content) ||
+    (l === "" && isClockFenceBody(content))
+  ) {
+    return <CircularClockBlock key={key} content={content} />;
+  }
+  const rich = renderRichFence(lang, content, key);
+  if (rich) return rich;
+  const copyStyle = renderCopyStyleBlock(lang, content, key);
+  if (copyStyle) return copyStyle;
+  if (isExplicitCodeLang(lang) || shouldRenderAsCodeBlock(lang, content)) {
+    return <CodeBlock key={key} code={content} lang={lang} />;
+  }
+  if (shouldRenderAsCopyBlock(lang, content)) {
+    const styled = renderCopyStyleBlock("copy", content, key);
+    if (styled) return styled;
+    return <CopyBlock key={key} text={content} label={copyBlockLabel(lang)} />;
+  }
+  return <CodeBlock key={key} code={content} lang={lang} />;
+}
+
+export function renderFence(node: FenceNode) {
+  const lang = parseFenceLang(node.info?.trim() || "");
+  const content = node.content.replace(/\n$/, "").trim();
+  if (!content) return null;
+
+  try {
+    return renderFenceInner(node.key, lang, content);
+  } catch (error) {
+    if (__DEV__) {
+      console.warn("[MarkdownContent] fence render failed", error);
+    }
+    return <CodeBlock key={node.key} code={content} lang={lang} />;
+  }
+}
