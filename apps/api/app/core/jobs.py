@@ -102,14 +102,12 @@ async def enqueue_purchase_receipt(
 
 
 async def _handle_topic(settings: Settings, payload: dict[str, Any]) -> None:
-    async with SessionLocal() as session:
-        await topic_generation.generate_chat_title(
-            session,
-            settings,
-            UUID(payload["chat_id"]),
-            payload.get("user_message", ""),
-            payload.get("assistant_message", ""),
-        )
+    await topic_generation.generate_chat_title(
+        settings,
+        UUID(payload["chat_id"]),
+        payload.get("user_message", ""),
+        payload.get("assistant_message", ""),
+    )
 
 
 async def _handle_memory(settings: Settings, payload: dict[str, Any]) -> None:
