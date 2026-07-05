@@ -19,9 +19,9 @@ let refreshInFlight: Promise<string | null> | null = null;
 async function refreshAccessToken(): Promise<string | null> {
   if (refreshInFlight) return refreshInFlight;
   refreshInFlight = (async () => {
-    const refreshToken = await getRefreshToken();
-    if (!refreshToken) return null;
     try {
+      const refreshToken = await getRefreshToken();
+      if (!refreshToken) return null;
       const response = await fetch(apiUrl("/auth/refresh"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -35,6 +35,10 @@ async function refreshAccessToken(): Promise<string | null> {
     } catch {
       return null;
     } finally {
+      // Every exit path (including the no-refresh-token early return) must
+      // clear this, or a single missing-refresh-token 401 permanently wedges
+      // refreshAccessToken to always short-circuit to this stale resolved
+      // promise for the rest of the app session.
       refreshInFlight = null;
     }
   })();
