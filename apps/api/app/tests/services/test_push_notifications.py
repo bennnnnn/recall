@@ -409,3 +409,43 @@ async def test_run_push_cycle_does_not_mark_todo_when_expo_fails():
 
     assert todo.notification_sent_at is None
     session.commit.assert_not_awaited()
+
+
+def test_append_outbound_dedupes_duplicate_tokens():
+    out: list[push_service.OutboundPush] = []
+    token_a = MagicMock()
+    token_a.expo_push_token = "ExponentPushToken[abc]"
+    token_b = MagicMock()
+    token_b.expo_push_token = "ExponentPushToken[abc]"
+
+    push_service._append_outbound(
+        out,
+        [token_a, token_b],
+        title="Reminder",
+        body="Call dentist",
+        data={"type": "todo_reminder"},
+    )
+
+    assert len(out) == 1
+    assert out[0].message["to"] == "ExponentPushToken[abc]"
+
+
+@pytest.mark.asyncio
+async def test_upsert_prunes_stale_tokens_for_device():
+    from app.repositories import push_tokens as repo
+
+    session = AsyncMock()
+    user_id = uuid4()
+    existing = MagicMock()
+    session.execute.return_value = MagicMock(scalar_one_or_none=MagicMock(return_value=existing))
+
+    await repo.upsert(
+        session,
+        user_id=user_id,
+        expo_push_token="ExponentPushToken[new]",
+        platform="ios",
+        device_id="device-1",
+    )
+
+    assert session.execute.await_count == 2
+    session.commit.assert_awaited()

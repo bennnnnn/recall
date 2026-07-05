@@ -130,7 +130,11 @@ def _append_outbound(
     suggestions: list[SuggestedReminder] | None = None,
     learning_redis_key: str | None = None,
 ) -> None:
+    seen_tokens: set[str] = set()
     for token in tokens:
+        if token.expo_push_token in seen_tokens:
+            continue
+        seen_tokens.add(token.expo_push_token)
         out.append(
             OutboundPush(
                 message={
