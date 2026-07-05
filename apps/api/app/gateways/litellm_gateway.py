@@ -275,14 +275,15 @@ async def _stream_chat_once(
     stripper = _ThinkStripper()
     response = None
     try:
-        response = await acompletion(
-            model=route.model,
-            messages=messages,
-            stream=True,
-            max_tokens=max_tokens,
-            stream_options={"include_usage": True},
-            **kwargs,
-        )
+        async with asyncio.timeout(settings.chat_stream_connect_timeout_seconds):
+            response = await acompletion(
+                model=route.model,
+                messages=messages,
+                stream=True,
+                max_tokens=max_tokens,
+                stream_options={"include_usage": True},
+                **kwargs,
+            )
         async with asyncio.timeout(settings.chat_stream_timeout_seconds):
             async for chunk in response:
                 _apply_usage(usage, chunk)
@@ -303,9 +304,10 @@ async def _stream_chat_once(
             yield tail
     except TimeoutError as exc:
         logger.warning(
-            "LiteLLM stream timed out after %ss for alias=%s",
-            settings.chat_stream_timeout_seconds,
+            "LiteLLM stream timed out for alias=%s (connect=%ss read=%ss)",
             model_alias,
+            settings.chat_stream_connect_timeout_seconds,
+            settings.chat_stream_timeout_seconds,
         )
         raise ModelUnavailableError(
             _CHAT_MODEL_UNAVAILABLE_MSG,

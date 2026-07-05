@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.gateways.web_search_gateway import WebSearchHit
-from app.models.orm import User
+from app.models.orm import Chat, User
 from app.services import profile as profile_service
 from app.services.chat.prompt_constants import (
     BROAD_SELF_ANSWER_HINT,
@@ -141,6 +141,7 @@ async def build_prompt_messages(
     settings: Settings,
     *,
     summary: str | None = None,
+    chat: Chat | None = None,
     out: dict[str, object] | None = None,
     query_text: str | None = None,
     minimal_personal_context: bool = False,
@@ -165,7 +166,8 @@ async def build_prompt_messages(
             out["recalled"] = 0
             out["memory_hints"] = []
     else:
-        chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user.id)
+        if chat is None:
+            chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user.id)
 
         async def _projects_block() -> str:
             if is_day_plan:
@@ -227,7 +229,8 @@ async def build_prompt_messages(
     ]
     if minimal_quiz_context:
         system_parts.extend([QUIZ_ANSWER_HINT, PRIVACY_HINT])
-        chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user.id)
+        if chat is None:
+            chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user.id)
         if chat and chat.project_id:
             quiz_ctx = await chat_pkg.projects_service.load_project_quiz_context(
                 session, user.id, chat.project_id, settings

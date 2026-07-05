@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings
-from app.exceptions import QuotaExceededError
+from app.exceptions import ChatNotFoundError, QuotaExceededError
 from app.gateways.google_auth import create_access_token
 from app.main import create_app
 from app.services.quota import QUOTA_EXCEEDED_MESSAGE
@@ -95,7 +95,6 @@ def test_ws_sends_message_and_receives_tokens():
             "app.routers.ws.tokens_service.verify_access_token",
             AsyncMock(return_value=user.id),
         ),
-        patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
         patch("app.routers.ws.chat_service.stream_chat_response", fake_stream),
     ):
         client = TestClient(app)
@@ -132,7 +131,6 @@ def test_ws_done_includes_resolved_model():
             "app.routers.ws.tokens_service.verify_access_token",
             AsyncMock(return_value=user.id),
         ),
-        patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
         patch("app.routers.ws.chat_service.stream_chat_response", fake_stream),
     ):
         client = TestClient(app)
@@ -165,7 +163,6 @@ def test_ws_passes_client_timezone_to_stream():
             "app.routers.ws.tokens_service.verify_access_token",
             AsyncMock(return_value=user.id),
         ),
-        patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
         patch("app.routers.ws.chat_service.stream_chat_response", fake_stream),
     ):
         client = TestClient(app)
@@ -190,7 +187,6 @@ def test_ws_empty_message_ignored():
             "app.routers.ws.tokens_service.verify_access_token",
             AsyncMock(return_value=user.id),
         ),
-        patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
     ):
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
@@ -217,7 +213,6 @@ def test_ws_regenerate():
             "app.routers.ws.tokens_service.verify_access_token",
             AsyncMock(return_value=user.id),
         ),
-        patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
         patch("app.routers.ws.chat_service.stream_regenerate_response", fake_regen),
     ):
         client = TestClient(app)
@@ -251,7 +246,6 @@ def test_ws_regenerate_passes_client_geo():
             "app.routers.ws.tokens_service.verify_access_token",
             AsyncMock(return_value=user.id),
         ),
-        patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
         patch("app.routers.ws.chat_service.stream_regenerate_response", fake_regen),
     ):
         client = TestClient(app)
@@ -292,7 +286,6 @@ def test_ws_cancel_sets_flag():
             "app.routers.ws.tokens_service.verify_access_token",
             AsyncMock(return_value=user.id),
         ),
-        patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
         patch("app.routers.ws.chat_service.stream_chat_response", fake_stream),
     ):
         client = TestClient(app)
@@ -326,7 +319,6 @@ def test_ws_mid_stream_cancel():
             "app.routers.ws.tokens_service.verify_access_token",
             AsyncMock(return_value=user.id),
         ),
-        patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
         patch("app.routers.ws.chat_service.stream_chat_response", slow_stream),
     ):
         client = TestClient(app)
@@ -356,7 +348,6 @@ def test_ws_invalid_message_payload():
             "app.routers.ws.tokens_service.verify_access_token",
             AsyncMock(return_value=user.id),
         ),
-        patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
     ):
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
@@ -382,7 +373,6 @@ def test_ws_quota_error_frame():
             "app.routers.ws.tokens_service.verify_access_token",
             AsyncMock(return_value=user.id),
         ),
-        patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
         patch("app.routers.ws.chat_service.stream_chat_response", quota_fail),
     ):
         client = TestClient(app)
@@ -404,17 +394,26 @@ def test_ws_user_not_found_sends_error():
     chat_id = uuid4()
     app = _app(None)
 
+    def missing_user_stream(*_args, **_kwargs):
+        async def _gen():
+            raise ChatNotFoundError("User not found.")
+            yield ""  # pragma: no cover
+
+        return _gen()
+
     with (
         patch(
             "app.routers.ws.tokens_service.verify_access_token",
             AsyncMock(return_value=uuid4()),
         ),
-        patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=None)),
+        patch("app.routers.ws.chat_service.stream_chat_response", missing_user_stream),
     ):
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
             ws.send_json({"token": tok})
             ws.send_json({"type": "message", "content": "hello"})
+            start = ws.receive_json()
+            assert start["type"] == "start"
             err = ws.receive_json()
             assert err["type"] == "error"
             assert "User not found" in err["message"]
@@ -436,7 +435,6 @@ def test_ws_edit_message():
             "app.routers.ws.tokens_service.verify_access_token",
             AsyncMock(return_value=user.id),
         ),
-        patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
         patch("app.routers.ws.chat_service.stream_edit_response", fake_edit),
     ):
         client = TestClient(app)
@@ -474,7 +472,6 @@ def test_ws_edit_passes_client_geo():
             "app.routers.ws.tokens_service.verify_access_token",
             AsyncMock(return_value=user.id),
         ),
-        patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
         patch("app.routers.ws.chat_service.stream_edit_response", fake_edit),
     ):
         client = TestClient(app)
@@ -507,7 +504,6 @@ def test_ws_edit_invalid_payload():
             "app.routers.ws.tokens_service.verify_access_token",
             AsyncMock(return_value=user.id),
         ),
-        patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
     ):
         client = TestClient(app)
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
@@ -540,7 +536,6 @@ def test_ws_message_rate_limit_blocks_second_chargeable_message():
             "app.routers.ws.tokens_service.verify_access_token",
             AsyncMock(return_value=user.id),
         ),
-        patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
         patch("app.routers.ws.chat_service.stream_chat_response", fake_stream),
     ):
         client = TestClient(app)

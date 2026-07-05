@@ -11,6 +11,7 @@ from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.exceptions import ChatNotFoundError, QuotaExceededError
+from app.models.orm import User
 from app.services.chat.post_turn import (
     enqueue_post_turn_jobs,
     finalize_stream_turn_db,
@@ -80,15 +81,19 @@ async def stream_chat_response(
     pre_reserved: int | None = None,
     on_status: StreamStatusFn | None = None,
     on_reasoning: StreamReasoningFn | None = None,
+    user: User | None = None,
+    skip_usage_seed: bool = False,
 ) -> AsyncIterator[str]:
     import app.services.chat as chat_pkg
 
     async with SessionLocal() as session:
-        user = await chat_pkg.users_repo.get_by_id(session, user_id)
         if user is None:
-            raise ChatNotFoundError("User not found.")
+            user = await chat_pkg.users_repo.get_by_id(session, user_id)
+            if user is None:
+                raise ChatNotFoundError("User not found.")
+        if not skip_usage_seed:
+            await seed_usage_from_db(redis, session, user_id)
         daily_limit = chat_pkg.quota_service.daily_limit_for_user(user, settings)
-        await seed_usage_from_db(redis, session, user_id)
         model = chat_pkg.plan_service.resolve_user_model_override(
             user, model_alias, content, settings
         )
@@ -127,6 +132,7 @@ async def stream_chat_response(
             client_latitude=client_latitude,
             client_longitude=client_longitude,
             on_status=on_status,
+            user=user,
         )
     except Exception:
         await chat_pkg.quota_service.refund_usage(redis, str(user_id), reserved)
@@ -206,13 +212,11 @@ async def stream_regenerate_response(
         client_latitude=client_latitude,
         client_longitude=client_longitude,
         on_status=on_status,
+        user=user,
+        chat=chat,
     )
 
     async with SessionLocal() as session:
-        user = await chat_pkg.users_repo.get_by_id(session, user_id)
-        if user is None:
-            raise ChatNotFoundError("User not found.")
-
         last = await chat_pkg.messages_repo.get_last(session, chat_id)
         if last is None:
             raise ChatNotFoundError("No messages to regenerate.")
@@ -247,6 +251,7 @@ async def stream_regenerate_response(
         user_message_content=user_message_content,
         reserved_tokens=reserved,
         max_output_tokens=bundle.max_out,
+        user=user,
         recalled_count=int(bundle.meta.get("recalled") or 0),
         memory_hints=list(bundle.meta.get("memory_hints") or []),
         context_summarized=int(bundle.meta.get("context_summarized") or 0),
@@ -359,6 +364,8 @@ async def stream_edit_response(
         pre_reserved=reserved,
         on_status=on_status,
         on_reasoning=on_reasoning,
+        user=user,
+        skip_usage_seed=True,
     ):
         yield token
 
@@ -427,9 +434,9 @@ async def stream_and_finalize(
             )
         return
 
-    async with SessionLocal() as session:
-        user = await chat_pkg.users_repo.get_by_id(session, ctx.user_id)
-        if user is not None:
+    user = ctx.user
+    if user is not None:
+        async with SessionLocal() as session:
             assistant_text = await chat_pkg.calendar_service.materialize_calendar_proposals(
                 session,
                 redis,
@@ -437,6 +444,17 @@ async def stream_and_finalize(
                 settings,
                 assistant_text,
             )
+    else:
+        async with SessionLocal() as session:
+            user = await chat_pkg.users_repo.get_by_id(session, ctx.user_id)
+            if user is not None:
+                assistant_text = await chat_pkg.calendar_service.materialize_calendar_proposals(
+                    session,
+                    redis,
+                    user,
+                    settings,
+                    assistant_text,
+                )
 
     assistant_text = chat_pkg.math_fence_service.validate_math_fences(assistant_text)
     from app.services.vocab_quiz import strip_vocab_session_metadata

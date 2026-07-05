@@ -12,7 +12,7 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.exceptions import ChatNotFoundError
 from app.gateways.web_search_gateway import WebSearchHit
-from app.models.orm import Attachment, User
+from app.models.orm import Attachment, Chat, User
 from app.services import day_planning as day_planning_service
 from app.services import profile as profile_service
 from app.services import projects as projects_service
@@ -68,6 +68,7 @@ class StreamContext:
     user_message_content: str
     reserved_tokens: int
     max_output_tokens: int
+    user: User | None = None
     recalled_count: int = 0
     memory_hints: list[str] = field(default_factory=list)
     context_summarized: int = 0
@@ -153,7 +154,7 @@ def vision_reserve_tokens(settings: Settings, image_count: int) -> int:
 
 
 async def _load_calendar_prompt_block(
-    user_id: UUID,
+    user: User,
     redis: Redis,
     settings: Settings,
     *,
@@ -162,9 +163,6 @@ async def _load_calendar_prompt_block(
     import app.services.chat as chat_pkg
 
     async with SessionLocal() as session:
-        user = await chat_pkg.users_repo.get_by_id(session, user_id)
-        if user is None:
-            return None
         return await chat_pkg.calendar_service.load_calendar_for_prompt(
             session,
             redis,
@@ -175,30 +173,24 @@ async def _load_calendar_prompt_block(
 
 
 async def _load_gmail_prompt_block(
-    user_id: UUID,
+    user: User,
     redis: Redis,
     settings: Settings,
 ) -> str | None:
     import app.services.chat as chat_pkg
 
     async with SessionLocal() as session:
-        user = await chat_pkg.users_repo.get_by_id(session, user_id)
-        if user is None:
-            return None
         return await chat_pkg.email_service.load_gmail_for_prompt(session, redis, user, settings)
 
 
 async def _load_gmail_context_block(
-    user_id: UUID,
+    user: User,
     redis: Redis,
     settings: Settings,
 ) -> tuple[str, list[Any], list[Any], str | None] | None:
     import app.services.chat as chat_pkg
 
     async with SessionLocal() as session:
-        user = await chat_pkg.users_repo.get_by_id(session, user_id)
-        if user is None:
-            return None
         return await chat_pkg.email_service.load_gmail_context(session, redis, user, settings)
 
 
@@ -218,6 +210,8 @@ async def build_stream_prompt_context(
     on_status: StreamStatusFn | None = None,
     todo_sync_feedback: str | None = None,
     quiz_mode: str | None = None,
+    user: User | None = None,
+    chat: Chat | None = None,
 ) -> TurnPromptBundle:
     """Shared prompt assembly for new turns and regenerate."""
     import app.services.chat as chat_pkg
@@ -240,12 +234,14 @@ async def build_stream_prompt_context(
     fallback_models: list[str]
 
     async with SessionLocal() as session:
-        user = await chat_pkg.users_repo.get_by_id(session, user_id)
         if user is None:
-            raise ChatNotFoundError("User not found.")
-        chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user_id)
+            user = await chat_pkg.users_repo.get_by_id(session, user_id)
+            if user is None:
+                raise ChatNotFoundError("User not found.")
         if chat is None:
-            raise ChatNotFoundError("Chat not found.")
+            chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user_id)
+            if chat is None:
+                raise ChatNotFoundError("Chat not found.")
 
         user_locale = user.locale
         chat_summary = chat.summary
@@ -267,6 +263,7 @@ async def build_stream_prompt_context(
             chat.id,
             settings,
             summary=chat_summary,
+            chat=chat,
             out=meta,
             query_text=content,
             minimal_personal_context=minimal_personal,
@@ -289,7 +286,7 @@ async def build_stream_prompt_context(
             if not await chat_pkg.email_service.is_connected(session, user.id):
                 instant_reply = chat_pkg.email_service.format_not_connected_answer()
 
-        if (
+        need_routing_context = (
             instant_reply is None
             and not minimal_personal
             and not minimal_quiz
@@ -297,31 +294,12 @@ async def build_stream_prompt_context(
             and not geo.ambiguous_nearby
             and not chat_pkg.calendar_service.is_external_calendar_question(content)
             and not chat_pkg.email_service.is_external_email_question(content)
-        ):
-            prior_user_messages = await chat_pkg.messages_repo.recent_user_contents(
-                session, chat.id
+        )
+        if need_routing_context:
+            prior_user_messages, has_calendar_write = await asyncio.gather(
+                chat_pkg.messages_repo.recent_user_contents(session, chat.id),
+                chat_pkg.calendar_service.has_write_access(session, user.id),
             )
-
-        if (
-            instant_reply is None
-            and not minimal_personal
-            and not minimal_quiz
-            and not day_planning
-            and not geo.ambiguous_nearby
-            and not chat_pkg.calendar_service.is_external_calendar_question(content)
-            and not chat_pkg.email_service.is_external_email_question(content)
-        ):
-            has_calendar_write = await chat_pkg.calendar_service.has_write_access(session, user.id)
-
-        if (
-            not settings.mcp_tools_enabled
-            and chat_pkg.calendar_service.is_calendar_create_request(content)
-            and instant_reply is None
-        ):
-            if not has_calendar_write:
-                has_calendar_write = await chat_pkg.calendar_service.has_write_access(
-                    session, user.id
-                )
 
         max_out = (
             max_output_tokens_for_style("short", settings)
@@ -343,7 +321,7 @@ async def build_stream_prompt_context(
         if connected:
             if on_status is not None:
                 await on_status("checking_inbox")
-            gmail_context = await _load_gmail_context_block(user_id, redis, settings)
+            gmail_context = await _load_gmail_context_block(user, redis, settings)
 
     local_places = geo.local_places
     if instant_reply is None and not minimal_personal and not minimal_quiz:
@@ -363,7 +341,7 @@ async def build_stream_prompt_context(
                     _timed_integration_load(
                         "calendar",
                         _load_calendar_prompt_block(
-                            user_id,
+                            user,
                             redis,
                             settings,
                             cache_only=day_reflection,
@@ -387,7 +365,7 @@ async def build_stream_prompt_context(
                     "gmail",
                     _timed_integration_load(
                         "gmail",
-                        _load_gmail_prompt_block(user_id, redis, settings),
+                        _load_gmail_prompt_block(user, redis, settings),
                     ),
                 )
             )
@@ -428,10 +406,6 @@ async def build_stream_prompt_context(
         and not chat_pkg.calendar_service.is_external_calendar_question(content)
         and not chat_pkg.email_service.is_external_email_question(content)
     ):
-        async with SessionLocal() as session:
-            user = await chat_pkg.users_repo.get_by_id(session, user_id)
-            if user is None:
-                raise ChatNotFoundError("User not found.")
         prompt_messages, search_sources = await chat_pkg._augment_web_and_tools(
             prompt_messages,
             content,
@@ -477,6 +451,7 @@ async def prepare_chat_turn(
     client_latitude: float | None = None,
     client_longitude: float | None = None,
     on_status: StreamStatusFn | None = None,
+    user: User | None = None,
 ) -> StreamContext:
     import app.services.chat as chat_pkg
 
@@ -487,9 +462,10 @@ async def prepare_chat_turn(
 
     if attachment_ids and settings.attachments_enabled:
         async with SessionLocal() as session:
-            user = await chat_pkg.users_repo.get_by_id(session, user_id)
             if user is None:
-                raise ChatNotFoundError("User not found.")
+                user = await chat_pkg.users_repo.get_by_id(session, user_id)
+                if user is None:
+                    raise ChatNotFoundError("User not found.")
             from app.repositories import attachments as attachments_repo
 
             attachment_rows: list[Attachment] = []
@@ -545,9 +521,10 @@ async def prepare_chat_turn(
                     user_content = "\n".join(attachment_lines)
 
     async with SessionLocal() as session:
-        user = await chat_pkg.users_repo.get_by_id(session, user_id)
         if user is None:
-            raise ChatNotFoundError("User not found.")
+            user = await chat_pkg.users_repo.get_by_id(session, user_id)
+            if user is None:
+                raise ChatNotFoundError("User not found.")
 
         chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user_id)
         if chat is None:
@@ -641,6 +618,8 @@ async def prepare_chat_turn(
         on_status=on_status,
         todo_sync_feedback=todo_sync_feedback,
         quiz_mode=quiz_mode,
+        user=user,
+        chat=chat,
     )
 
     prompt_messages = bundle.prompt_messages
@@ -663,6 +642,7 @@ async def prepare_chat_turn(
         user_message_content=content,
         reserved_tokens=reserved_tokens,
         max_output_tokens=bundle.max_out,
+        user=user,
         recalled_count=int(bundle.meta.get("recalled") or 0),
         memory_hints=list(bundle.meta.get("memory_hints") or []),
         context_summarized=int(bundle.meta.get("context_summarized") or 0),

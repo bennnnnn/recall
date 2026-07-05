@@ -185,6 +185,7 @@ async def stream_message_sse(
                 client_longitude=body.client_longitude,
                 on_status=on_status,
                 on_reasoning=on_reasoning,
+                user=user,
             ),
         ):
             yield chunk

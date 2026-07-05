@@ -74,6 +74,11 @@ async def get_daily_usage(redis: Redis, user_id: str) -> int:
     return int(value or 0)
 
 
+async def has_daily_usage_key(redis: Redis, user_id: str, *, day: date | None = None) -> bool:
+    """True when today's Redis usage counter already exists (seed is a no-op)."""
+    return bool(await redis.exists(_usage_key(user_id, day or utc_today())))
+
+
 async def seed_usage_if_missing(
     redis: Redis,
     user_id: str,
