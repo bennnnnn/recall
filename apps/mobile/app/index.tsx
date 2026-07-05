@@ -38,8 +38,7 @@ import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { useDraftChat } from "@/hooks/useDraftChat";
 import { useModels } from "@/hooks/useModels";
 import { useNetwork } from "@/contexts/NetworkContext";
-import { useQuotaNudge } from "@/hooks/useQuotaNudge";
-import { resolveChatError, type ResolvedChatError } from "@/lib/chatErrorMessage";
+import { useChatErrorHandlers, useChatStreamLifecycle } from "@/hooks/useChatScreenError";
 import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
 import { useTodosOptional } from "@/contexts/TodosContext";
 import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/lib/chatComposerLogic";
@@ -75,7 +74,8 @@ function ChatScreen() {
   const { unseenCount, showIndicator } = useReminderBadgeCount({ enabled: Boolean(token) });
   const { refresh: refreshHome } = useHome();
   const [upgradeVisible, setUpgradeVisible] = useState(false);
-  const [chatError, setChatError] = useState<ResolvedChatError | null>(null);
+  const { chatError, handleChatError, handleStreamBusy, dismissChatError } =
+    useChatErrorHandlers(isPro);
   const activeChatId = draft.activeChatId;
 
   const onFirstReplyRef = useRef<() => Promise<void>>(async () => {});
@@ -84,17 +84,6 @@ function ChatScreen() {
   const showActionBannerRef = useRef<
     (message: string, icon?: keyof typeof Ionicons.glyphMap) => void
   >(() => {});
-
-  const handleChatError = useCallback(
-    (message: string, code?: string) => {
-      setChatError(resolveChatError({ message, code, isPro, t }));
-    },
-    [isPro, t],
-  );
-
-  const handleStreamBusy = useCallback(() => {
-    setChatError(resolveChatError({ message: "", code: "busy", isPro, t }));
-  }, [isPro, t]);
 
   const todosCtx = useTodosOptional();
   const handleTodosSync = useCallback(() => {
@@ -120,21 +109,13 @@ function ChatScreen() {
 
   const streamActive = streaming || finalizing;
 
-  useEffect(() => {
-    if (streamActive) setChatError(null);
-  }, [streamActive]);
-
-  // Refetch quota + home when a chat turn finishes (vocab/todos/memory may have changed).
-  const [quotaRefreshKey, setQuotaRefreshKey] = useState(0);
-  const prevStreamActiveRef = useRef(false);
-  useEffect(() => {
-    if (prevStreamActiveRef.current && !streamActive) {
-      setQuotaRefreshKey((k) => k + 1);
-      void refreshHome({ silent: true, force: true });
-    }
-    prevStreamActiveRef.current = streamActive;
-  }, [streamActive, refreshHome]);
-  const quotaNudge = useQuotaNudge({ token, isPro, refreshKey: quotaRefreshKey });
+  const quotaNudge = useChatStreamLifecycle({
+    streamActive,
+    dismissChatError,
+    refreshHome,
+    token,
+    isPro,
+  });
 
   const idleComposerBottomPad = Math.max(insets.bottom, CHAT_COMPOSER_MIN_BOTTOM_PAD);
   const { keyboardHeight, composerAnimatedStyle } = useKeyboardInset({
@@ -460,7 +441,7 @@ function ChatScreen() {
         chatError={chatError}
         isPro={isPro}
         onUpgrade={() => setUpgradeVisible(true)}
-        onDismissChatError={() => setChatError(null)}
+        onDismissChatError={dismissChatError}
         composerAnimatedStyle={composerAnimatedStyle}
         input={input}
         onChangeInput={setInput}
