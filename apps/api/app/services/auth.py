@@ -64,7 +64,7 @@ async def login_with_apple(
     *,
     name: str | None = None,
 ) -> AuthResponse:
-    payload = verify_apple_id_token(id_token, settings)
+    payload = await verify_apple_id_token(id_token, settings)
     apple_sub = payload["sub"]
     email = payload.get("email")
     email_verified = payload.get("email_verified")
