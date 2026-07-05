@@ -9,26 +9,48 @@ from app.core.config import Settings
 from app.models.schemas import MemorySectionItem, MemorySectionUpdateResult
 
 
+class _FakeSessionCM:
+    def __init__(self, session: AsyncMock) -> None:
+        self._session = session
+
+    async def __aenter__(self) -> AsyncMock:
+        return self._session
+
+    async def __aexit__(self, *args: object) -> None:
+        return None
+
+
+def _consolidation_sessions(*, count: int = 1) -> tuple[AsyncMock, list[_FakeSessionCM]]:
+    session = AsyncMock()
+    session.commit = AsyncMock()
+    return session, [_FakeSessionCM(session) for _ in range(count)]
+
+
 @pytest.mark.asyncio
 async def test_consolidate_skips_clean_sections():
-    session = AsyncMock()
     user_id = uuid4()
     memory = AsyncMock()
     memory.type = "profile"
     memory.text = "Bini is a software engineer at Hooh."
 
-    with patch(
-        "app.background.memory_consolidation.memories_repo.list_for_user",
-        AsyncMock(return_value=[memory]),
+    _, session_locals = _consolidation_sessions()
+    with (
+        patch(
+            "app.background.memory_consolidation.SessionLocal",
+            side_effect=session_locals,
+        ),
+        patch(
+            "app.background.memory_consolidation.memories_repo.list_for_user",
+            AsyncMock(return_value=[memory]),
+        ),
     ):
-        changed = await consolidate_user_memory_sections(session, Settings(), user_id=user_id)
+        changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
 
     assert changed is False
 
 
 @pytest.mark.asyncio
 async def test_consolidate_rewrites_messy_sections():
-    session = AsyncMock()
     user_id = uuid4()
     memory = AsyncMock()
     memory.type = "profile"
@@ -47,7 +69,12 @@ async def test_consolidate_rewrites_messy_sections():
         ]
     )
 
+    _, session_locals = _consolidation_sessions(count=2)
     with (
+        patch(
+            "app.background.memory_consolidation.SessionLocal",
+            side_effect=session_locals,
+        ),
         patch(
             "app.background.memory_consolidation.memories_repo.list_for_user",
             AsyncMock(return_value=[memory]),
@@ -69,7 +96,7 @@ async def test_consolidate_rewrites_messy_sections():
             AsyncMock(return_value=[0.1, 0.2, 0.3]),
         ),
     ):
-        changed = await consolidate_user_memory_sections(session, Settings(), user_id=user_id)
+        changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
 
     expected = "Bini is a software developer who builds mobile apps and backend services for Recall"
     assert changed is True
@@ -79,7 +106,6 @@ async def test_consolidate_rewrites_messy_sections():
 
 @pytest.mark.asyncio
 async def test_consolidate_skips_suspiciously_short_rewrite():
-    session = AsyncMock()
     user_id = uuid4()
     memory = AsyncMock()
     memory.type = "profile"
@@ -95,7 +121,12 @@ async def test_consolidate_skips_suspiciously_short_rewrite():
         ]
     )
 
+    _, session_locals = _consolidation_sessions()
     with (
+        patch(
+            "app.background.memory_consolidation.SessionLocal",
+            side_effect=session_locals,
+        ),
         patch(
             "app.background.memory_consolidation.memories_repo.list_for_user",
             AsyncMock(return_value=[memory]),
@@ -109,7 +140,7 @@ async def test_consolidate_skips_suspiciously_short_rewrite():
             AsyncMock(),
         ) as upsert,
     ):
-        changed = await consolidate_user_memory_sections(session, Settings(), user_id=user_id)
+        changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
 
     assert changed is False
     upsert.assert_not_awaited()
@@ -117,7 +148,6 @@ async def test_consolidate_skips_suspiciously_short_rewrite():
 
 @pytest.mark.asyncio
 async def test_consolidate_skips_when_model_omits_existing_section():
-    session = AsyncMock()
     user_id = uuid4()
     profile = AsyncMock()
     profile.type = "profile"
@@ -139,7 +169,12 @@ async def test_consolidate_skips_when_model_omits_existing_section():
         ]
     )
 
+    _, session_locals = _consolidation_sessions()
     with (
+        patch(
+            "app.background.memory_consolidation.SessionLocal",
+            side_effect=session_locals,
+        ),
         patch(
             "app.background.memory_consolidation.memories_repo.list_for_user",
             AsyncMock(return_value=[profile, preference]),
@@ -153,7 +188,7 @@ async def test_consolidate_skips_when_model_omits_existing_section():
             AsyncMock(),
         ) as upsert,
     ):
-        changed = await consolidate_user_memory_sections(session, Settings(), user_id=user_id)
+        changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
 
     assert changed is False
     upsert.assert_not_awaited()
@@ -161,7 +196,6 @@ async def test_consolidate_skips_when_model_omits_existing_section():
 
 @pytest.mark.asyncio
 async def test_consolidate_upserts_without_embedding_when_vector_missing():
-    session = AsyncMock()
     user_id = uuid4()
     memory = AsyncMock()
     memory.type = "profile"
@@ -184,7 +218,12 @@ async def test_consolidate_upserts_without_embedding_when_vector_missing():
         ]
     )
 
+    _, session_locals = _consolidation_sessions(count=2)
     with (
+        patch(
+            "app.background.memory_consolidation.SessionLocal",
+            side_effect=session_locals,
+        ),
         patch(
             "app.background.memory_consolidation.memories_repo.list_for_user",
             AsyncMock(side_effect=[[memory], [updated]]),
@@ -206,7 +245,7 @@ async def test_consolidate_upserts_without_embedding_when_vector_missing():
             AsyncMock(return_value=None),
         ),
     ):
-        changed = await consolidate_user_memory_sections(session, Settings(), user_id=user_id)
+        changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
 
     assert changed is True
     assert updated.embedding is None
@@ -214,7 +253,6 @@ async def test_consolidate_upserts_without_embedding_when_vector_missing():
 
 @pytest.mark.asyncio
 async def test_consolidate_stores_embedding_when_vector_present():
-    session = AsyncMock()
     user_id = uuid4()
     memory = AsyncMock()
     memory.type = "profile"
@@ -238,7 +276,12 @@ async def test_consolidate_stores_embedding_when_vector_present():
     )
     vector = [0.1, 0.2, 0.3]
 
+    _, session_locals = _consolidation_sessions(count=2)
     with (
+        patch(
+            "app.background.memory_consolidation.SessionLocal",
+            side_effect=session_locals,
+        ),
         patch(
             "app.background.memory_consolidation.memories_repo.list_for_user",
             AsyncMock(side_effect=[[memory], [updated]]),
@@ -264,8 +307,60 @@ async def test_consolidate_stores_embedding_when_vector_present():
             return_value="[0.1,0.2,0.3]",
         ),
     ):
-        changed = await consolidate_user_memory_sections(session, Settings(), user_id=user_id)
+        changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
 
     assert changed is True
     assert updated.embedding == vector
     assert updated.embedding_json == "[0.1,0.2,0.3]"
+
+
+@pytest.mark.asyncio
+async def test_consolidate_releases_db_before_llm():
+    user_id = uuid4()
+    memory = AsyncMock()
+    memory.type = "profile"
+    memory.text = "User's name is Bini. User's name is Binalfew. User is a developer."
+
+    session = AsyncMock()
+    session.commit = AsyncMock()
+    db_open_during_rewrite: list[bool] = []
+
+    class _TrackingSessionCM(_FakeSessionCM):
+        def __init__(self) -> None:
+            super().__init__(session)
+            self.open = False
+
+        async def __aenter__(self) -> AsyncMock:
+            self.open = True
+            return await super().__aenter__()
+
+        async def __aexit__(self, *args: object) -> None:
+            self.open = False
+            await super().__aexit__(*args)
+
+    load_cm = _TrackingSessionCM()
+    apply_cm = _TrackingSessionCM()
+
+    async def fake_rewrite(*_args: object, **_kwargs: object) -> None:
+        db_open_during_rewrite.append(load_cm.open or apply_cm.open)
+        return None
+
+    with (
+        patch(
+            "app.background.memory_consolidation.SessionLocal",
+            side_effect=[load_cm, apply_cm],
+        ),
+        patch(
+            "app.background.memory_consolidation.memories_repo.list_for_user",
+            AsyncMock(return_value=[memory]),
+        ),
+        patch(
+            "app.background.memory_consolidation.litellm_gateway.rewrite_memory_sections",
+            AsyncMock(side_effect=fake_rewrite),
+        ),
+    ):
+        changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
+
+    assert changed is False
+    assert db_open_during_rewrite == [False]
+    assert session.commit.await_count == 1
