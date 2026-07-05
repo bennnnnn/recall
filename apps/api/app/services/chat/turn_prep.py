@@ -508,6 +508,7 @@ async def prepare_chat_turn(
                     content_type=row.content_type,
                     storage_key=row.storage_key,
                     size_bytes=row.size_bytes,
+                    settings=settings,
                 )
                 if is_image:
                     has_image_attachment = True

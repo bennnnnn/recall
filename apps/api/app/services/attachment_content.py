@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import io
 import logging
@@ -11,6 +12,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import Settings
 from app.gateways.storage_gateway import StorageGateway
 
 logger = logging.getLogger(__name__)
@@ -109,8 +111,19 @@ def is_image_content_type(content_type: str) -> bool:
     return normalize_content_type(content_type) in IMAGE_CONTENT_TYPES
 
 
+_DOCX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+# Types extract_text_from_bytes actually knows how to parse. Used to tell a
+# genuinely unsupported type (e.g. legacy .doc, which has no good pure-Python
+# parser) apart from a supported type that just yielded no text (e.g. a
+# scanned image-only PDF) — the two deserve different user-facing messages.
+EXTRACTABLE_CONTENT_TYPES = _TEXTISH_TYPES | {"application/pdf", _DOCX_CONTENT_TYPE}
+
+
 def extract_text_from_bytes(content_type: str, data: bytes) -> str | None:
-    if content_type in {"text/plain", "text/markdown", "text/csv", "application/json"}:
+    """Sync, CPU-bound parsing — call via extract_text_from_bytes_async on
+    any code path that isn't already off the event loop."""
+    if content_type in _TEXTISH_TYPES:
         text = data.decode("utf-8", errors="replace").strip()
         return text[:MAX_EXTRACT_CHARS] if text else None
 
@@ -130,7 +143,43 @@ def extract_text_from_bytes(content_type: str, data: bytes) -> str | None:
             logger.debug("PDF text extraction failed", exc_info=True)
             return None
 
+    if content_type == _DOCX_CONTENT_TYPE:
+        try:
+            from docx import Document
+
+            document = Document(io.BytesIO(data))
+            parts = [p.text.strip() for p in document.paragraphs if p.text.strip()]
+            for table in document.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        if cell.text.strip():
+                            parts.append(cell.text.strip())
+            joined = "\n".join(parts).strip()
+            return joined[:MAX_EXTRACT_CHARS] if joined else None
+        except Exception:
+            logger.debug("DOCX text extraction failed", exc_info=True)
+            return None
+
+    # Legacy .doc (application/msword) and anything else: no parser. Handled
+    # explicitly (not silently) by format_attachment_lines via
+    # EXTRACTABLE_CONTENT_TYPES.
     return None
+
+
+async def extract_text_from_bytes_async(
+    content_type: str,
+    data: bytes,
+    settings: Settings,
+) -> str | None:
+    """Offload the sync, CPU-bound parse to a worker thread with a timeout,
+    so a large or adversarially crafted PDF/DOCX can't block the event loop —
+    same pattern as the SymPy math solve offload."""
+    try:
+        async with asyncio.timeout(settings.attachment_extract_timeout_seconds):
+            return await asyncio.to_thread(extract_text_from_bytes, content_type, data)
+    except TimeoutError:
+        logger.warning("Attachment text extraction timed out for content_type=%s", content_type)
+        return None
 
 
 async def read_attachment_bytes(gateway: StorageGateway, storage_key: str) -> bytes | None:
@@ -208,6 +257,7 @@ async def format_attachment_lines(
     content_type: str,
     storage_key: str,
     size_bytes: int,
+    settings: Settings,
 ) -> tuple[list[str], bool]:
     """Return prompt lines and whether the attachment is an image."""
     if is_image_content_type(content_type):
@@ -217,9 +267,18 @@ async def format_attachment_lines(
     data = await read_attachment_bytes(gateway, storage_key)
     file_ref = f"[File: /attachments/{attachment_id}/file]"
     if data:
-        excerpt = extract_text_from_bytes(content_type, data)
+        excerpt = await extract_text_from_bytes_async(content_type, data, settings)
         if excerpt:
             return [file_ref, f"[File ({content_type})]\n{excerpt}"], False
+        if content_type not in EXTRACTABLE_CONTENT_TYPES:
+            return (
+                [
+                    file_ref,
+                    f"[File attached: {content_type}. Recall can't read this file type yet — "
+                    "tell the user to try a PDF, Word (.docx), or plain text file instead.]",
+                ],
+                False,
+            )
 
     return [file_ref, f"[File attached: {content_type}, {size_bytes} bytes]"], False
 
