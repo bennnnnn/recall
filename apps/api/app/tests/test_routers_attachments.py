@@ -103,6 +103,117 @@ def test_presign_upload_returns_503_when_storage_unconfigured():
     fake_redis.incrby.assert_not_called()
 
 
+def test_presign_upload_refunds_image_quota_when_presign_fails():
+    user = _fake_user()
+    app = _app_with_user(user)
+    gateway = MagicMock(spec=LocalStorageGateway)
+    gateway.presign_upload = AsyncMock(side_effect=RuntimeError("storage down"))
+    fake_redis = AsyncMock()
+    fake_redis.incrby = AsyncMock(return_value=1)
+    fake_redis.expire = AsyncMock()
+    refund_mock = AsyncMock()
+
+    with (
+        patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
+        patch("app.routers.attachments.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.routers.attachments.quota_service.refund_image_upload",
+            refund_mock,
+        ),
+    ):
+        client = TestClient(app, raise_server_exceptions=False)
+        r = client.post(
+            "/attachments/presign",
+            headers={"Authorization": "Bearer tok"},
+            json={"content_type": "image/png", "size_bytes": 128},
+        )
+
+    assert r.status_code == 500
+    refund_mock.assert_awaited_once_with(fake_redis, user.id)
+
+
+def test_presign_upload_refunds_image_quota_when_create_pending_fails():
+    user = _fake_user()
+    app = _app_with_user(user)
+    attachment_id = uuid4()
+    gateway = MagicMock(spec=LocalStorageGateway)
+    gateway.presign_upload = AsyncMock(
+        return_value=PresignedUpload(
+            attachment_id=str(attachment_id),
+            upload_url=f"/attachments/{attachment_id}/upload",
+            storage_key=f"{user.id}/{attachment_id}",
+            headers={"Content-Type": "image/png"},
+            api_upload=True,
+        )
+    )
+    fake_redis = AsyncMock()
+    fake_redis.incrby = AsyncMock(return_value=1)
+    fake_redis.expire = AsyncMock()
+    refund_mock = AsyncMock()
+
+    with (
+        patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
+        patch(
+            "app.routers.attachments.attachments_repo.create_pending",
+            AsyncMock(side_effect=RuntimeError("db error")),
+        ),
+        patch("app.routers.attachments.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.routers.attachments.quota_service.refund_image_upload",
+            refund_mock,
+        ),
+    ):
+        client = TestClient(app, raise_server_exceptions=False)
+        r = client.post(
+            "/attachments/presign",
+            headers={"Authorization": "Bearer tok"},
+            json={"content_type": "image/png", "size_bytes": 128},
+        )
+
+    assert r.status_code == 500
+    refund_mock.assert_awaited_once_with(fake_redis, user.id)
+
+
+def test_presign_upload_does_not_refund_for_non_image():
+    user = _fake_user()
+    app = _app_with_user(user)
+    attachment_id = uuid4()
+    gateway = MagicMock(spec=LocalStorageGateway)
+    gateway.presign_upload = AsyncMock(
+        return_value=PresignedUpload(
+            attachment_id=str(attachment_id),
+            upload_url=f"/attachments/{attachment_id}/upload",
+            storage_key=f"{user.id}/{attachment_id}",
+            headers={"Content-Type": "application/pdf"},
+            api_upload=True,
+        )
+    )
+    fake_redis = AsyncMock()
+    refund_mock = AsyncMock()
+
+    with (
+        patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
+        patch(
+            "app.routers.attachments.attachments_repo.create_pending",
+            AsyncMock(side_effect=RuntimeError("db error")),
+        ),
+        patch("app.routers.attachments.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.routers.attachments.quota_service.refund_image_upload",
+            refund_mock,
+        ),
+    ):
+        client = TestClient(app, raise_server_exceptions=False)
+        r = client.post(
+            "/attachments/presign",
+            headers={"Authorization": "Bearer tok"},
+            json={"content_type": "application/pdf", "size_bytes": 128},
+        )
+
+    assert r.status_code == 500
+    refund_mock.assert_not_called()
+
+
 def test_cancel_pending_upload_refunds_image_quota():
     user = _fake_user()
     app = _app_with_user(user)
