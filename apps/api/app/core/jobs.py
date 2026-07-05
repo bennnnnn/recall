@@ -157,10 +157,10 @@ register("compress", _handle_compress)
 
 
 async def _handle_suggestions(settings: Settings, payload: dict[str, Any]) -> None:
-    async with SessionLocal() as session:
-        await suggestion_generation.generate_suggestions(
-            session, settings, UUID(payload["user_id"])
-        )
+    await suggestion_generation.generate_suggestions(
+        settings,
+        UUID(payload["user_id"]),
+    )
 
 
 register("suggestions", _handle_suggestions)

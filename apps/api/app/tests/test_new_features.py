@@ -483,6 +483,23 @@ def test_dismiss_suggestion_not_found():
 # ── suggestion generation (background job) ──────────────────────────────────
 
 
+class _FakeSessionCM:
+    def __init__(self, session: AsyncMock) -> None:
+        self._session = session
+
+    async def __aenter__(self) -> AsyncMock:
+        return self._session
+
+    async def __aexit__(self, *args: object) -> None:
+        return None
+
+
+def _suggestion_sessions(*, count: int = 1) -> tuple[AsyncMock, list[_FakeSessionCM]]:
+    session = AsyncMock()
+    session.commit = AsyncMock()
+    return session, [_FakeSessionCM(session) for _ in range(count)]
+
+
 @pytest.mark.asyncio
 async def test_generate_suggestions_creates_items():
     from app.background.suggestion_generation import generate_suggestions
@@ -498,10 +515,14 @@ async def test_generate_suggestions_creates_items():
     ]
     structured_result = SuggestionGenerationResult(items=fake_items)
 
-    session = AsyncMock()
     settings = Settings()
+    _, session_locals = _suggestion_sessions(count=2)
 
     with (
+        patch(
+            "app.background.suggestion_generation.SessionLocal",
+            side_effect=session_locals,
+        ),
         patch(
             "app.background.suggestion_generation.users_repo.get_by_id",
             AsyncMock(return_value=user_mock),
@@ -531,7 +552,7 @@ async def test_generate_suggestions_creates_items():
             AsyncMock(),
         ) as create_many,
     ):
-        await generate_suggestions(session, settings, uid)
+        await generate_suggestions(settings, uid)
 
     create_many.assert_awaited_once()
     # Should create 2 items.
@@ -550,10 +571,14 @@ async def test_generate_suggestions_skips_when_at_cap():
     uid = uuid4()
     user_mock = MagicMock()
 
-    session = AsyncMock()
     settings = Settings()
+    _, session_locals = _suggestion_sessions()
 
     with (
+        patch(
+            "app.background.suggestion_generation.SessionLocal",
+            side_effect=session_locals,
+        ),
         patch(
             "app.background.suggestion_generation.users_repo.get_by_id",
             AsyncMock(return_value=user_mock),
@@ -575,7 +600,7 @@ async def test_generate_suggestions_skips_when_at_cap():
             AsyncMock(),
         ) as create_many,
     ):
-        await generate_suggestions(session, settings, uid)
+        await generate_suggestions(settings, uid)
 
     # Should skip without calling the LLM or creating.
     llm_call.assert_not_awaited()
@@ -586,15 +611,21 @@ async def test_generate_suggestions_skips_when_at_cap():
 async def test_generate_suggestions_user_not_found():
     from app.background.suggestion_generation import generate_suggestions
 
-    session = AsyncMock()
     settings = Settings()
     uid = uuid4()
+    _, session_locals = _suggestion_sessions()
 
-    with patch(
-        "app.background.suggestion_generation.users_repo.get_by_id",
-        AsyncMock(return_value=None),
+    with (
+        patch(
+            "app.background.suggestion_generation.SessionLocal",
+            side_effect=session_locals,
+        ),
+        patch(
+            "app.background.suggestion_generation.users_repo.get_by_id",
+            AsyncMock(return_value=None),
+        ),
     ):
-        await generate_suggestions(session, settings, uid)
+        await generate_suggestions(settings, uid)
     # Should return early without error.
 
 
@@ -602,16 +633,89 @@ async def test_generate_suggestions_user_not_found():
 async def test_generate_suggestions_handles_exceptions():
     from app.background.suggestion_generation import generate_suggestions
 
-    session = AsyncMock()
     settings = Settings()
     uid = uuid4()
+    _, session_locals = _suggestion_sessions()
 
-    with patch(
-        "app.background.suggestion_generation.users_repo.get_by_id",
-        AsyncMock(side_effect=RuntimeError("DB down")),
+    with (
+        patch(
+            "app.background.suggestion_generation.SessionLocal",
+            side_effect=session_locals,
+        ),
+        patch(
+            "app.background.suggestion_generation.users_repo.get_by_id",
+            AsyncMock(side_effect=RuntimeError("DB down")),
+        ),
     ):
-        await generate_suggestions(session, settings, uid)
+        await generate_suggestions(settings, uid)
     # Should not raise — exceptions are caught and logged.
+
+
+@pytest.mark.asyncio
+async def test_generate_suggestions_releases_db_before_llm():
+    from app.background.suggestion_generation import generate_suggestions
+
+    uid = uuid4()
+    user_mock = MagicMock()
+    user_mock.memory_enabled = True
+    session = AsyncMock()
+    session.commit = AsyncMock()
+    db_open_during_llm: list[bool] = []
+
+    class _TrackingSessionCM(_FakeSessionCM):
+        def __init__(self) -> None:
+            super().__init__(session)
+            self.open = False
+
+        async def __aenter__(self) -> AsyncMock:
+            self.open = True
+            return await super().__aenter__()
+
+        async def __aexit__(self, *args: object) -> None:
+            self.open = False
+            await super().__aexit__(*args)
+
+    load_cm = _TrackingSessionCM()
+    apply_cm = _TrackingSessionCM()
+
+    async def fake_complete(*_args: object, **_kwargs: object) -> None:
+        db_open_during_llm.append(load_cm.open or apply_cm.open)
+        return None
+
+    with (
+        patch(
+            "app.background.suggestion_generation.SessionLocal",
+            side_effect=[load_cm, apply_cm],
+        ),
+        patch(
+            "app.background.suggestion_generation.users_repo.get_by_id",
+            AsyncMock(return_value=user_mock),
+        ),
+        patch(
+            "app.background.suggestion_generation.suggestions_repo.delete_expired",
+            AsyncMock(return_value=0),
+        ),
+        patch(
+            "app.background.suggestion_generation.suggestions_repo.count_active",
+            AsyncMock(return_value=0),
+        ),
+        patch(
+            "app.background.suggestion_generation.chats_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.background.suggestion_generation.memory_service.get_memory_block",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.background.suggestion_generation.litellm_gateway.complete_structured",
+            AsyncMock(side_effect=fake_complete),
+        ),
+    ):
+        await generate_suggestions(Settings(), uid)
+
+    assert db_open_during_llm == [False]
+    assert session.commit.await_count == 1
 
 
 # ── suggestions repository ──────────────────────────────────────────────────
@@ -813,17 +917,15 @@ async def test_handle_suggestions_delegates():
     from app.core import jobs
 
     uid = uuid4()
+    settings = Settings()
 
-    with (
-        patch("app.core.jobs.SessionLocal", lambda: AsyncMock()),
-        patch(
-            "app.core.jobs.suggestion_generation.generate_suggestions",
-            AsyncMock(),
-        ) as handler,
-    ):
-        await jobs._handle_suggestions(Settings(), {"user_id": str(uid)})
+    with patch(
+        "app.core.jobs.suggestion_generation.generate_suggestions",
+        AsyncMock(),
+    ) as handler:
+        await jobs._handle_suggestions(settings, {"user_id": str(uid)})
 
     handler.assert_awaited_once()
-    # The session arg is a coroutine wrapper — just verify it was called.
     call_args = handler.call_args
-    assert call_args.args[2] == uid  # settings, user_id
+    assert call_args.args[0] is settings
+    assert call_args.args[1] == uid
