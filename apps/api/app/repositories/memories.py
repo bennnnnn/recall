@@ -16,6 +16,25 @@ async def list_for_user(session: AsyncSession, user_id: UUID) -> list[Memory]:
     return list(result.scalars().all())
 
 
+async def list_range(
+    session: AsyncSession,
+    user_id: UUID,
+    *,
+    offset: int,
+    limit: int,
+) -> list[Memory]:
+    if limit <= 0:
+        return []
+    result = await session.execute(
+        select(Memory)
+        .where(Memory.user_id == user_id)
+        .order_by(Memory.type.asc())
+        .offset(offset)
+        .limit(limit)
+    )
+    return list(result.scalars().all())
+
+
 async def search_semantic(
     session: AsyncSession,
     user_id: UUID,

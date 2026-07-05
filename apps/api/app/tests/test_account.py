@@ -109,7 +109,7 @@ async def test_build_export_structure():
             AsyncMock(return_value=[msg]),
         ),
         patch(
-            "app.services.export_service.memories_repo.list_for_user",
+            "app.services.export_service.memories_repo.list_range",
             AsyncMock(return_value=[mem]),
         ),
     ):
@@ -173,7 +173,7 @@ async def test_build_export_pages_messages_per_chat():
             AsyncMock(side_effect=list_range),
         ),
         patch(
-            "app.services.export_service.memories_repo.list_for_user",
+            "app.services.export_service.memories_repo.list_range",
             AsyncMock(return_value=[]),
         ),
     ):
@@ -181,3 +181,40 @@ async def test_build_export_pages_messages_per_chat():
 
     contents = [message["content"] for message in data["chats"][0]["messages"]]
     assert contents == ["one", "two", "three"]
+
+
+@pytest.mark.asyncio
+async def test_build_export_pages_memories():
+    from app.services import export_service
+
+    session = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    user.email = "e@x"
+    user.name = "n"
+    user.created_at = datetime(2024, 1, 1)
+
+    mem_one = MagicMock(type="fact", text="a", confidence=0.9, created_at=datetime(2024, 1, 1))
+    mem_two = MagicMock(type="focus", text="b", confidence=0.8, created_at=datetime(2024, 1, 2))
+    mem_three = MagicMock(
+        type="profile", text="c", confidence=None, created_at=datetime(2024, 1, 3)
+    )
+
+    async def list_memories(_session, _user_id, *, offset, limit):
+        page = [mem_one, mem_two, mem_three]
+        return page[offset : offset + limit]
+
+    with (
+        patch.object(export_service, "EXPORT_MEMORY_PAGE_SIZE", 2),
+        patch(
+            "app.services.export_service.chats_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.export_service.memories_repo.list_range",
+            AsyncMock(side_effect=list_memories),
+        ),
+    ):
+        data = await export_service.build_export(session, user)
+
+    assert [memory["text"] for memory in data["memories"]] == ["a", "b", "c"]

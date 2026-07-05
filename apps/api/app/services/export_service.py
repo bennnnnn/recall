@@ -17,6 +17,7 @@ from app.repositories import messages as messages_repo
 EXPORT_MAX_CHATS = 500
 EXPORT_MAX_MESSAGES_PER_CHAT = 2_000
 EXPORT_MESSAGE_PAGE_SIZE = 200
+EXPORT_MEMORY_PAGE_SIZE = 50
 
 
 def _user_payload(user: User) -> dict[str, Any]:
@@ -101,10 +102,27 @@ async def _iter_export_json(session: AsyncSession, user: User) -> AsyncIterator[
                 break
         yield "]}"
 
-    memories = await memories_repo.list_for_user(session, user.id)
-    memory_payloads = [_memory_payload(memory) for memory in memories]
-    yield f'],"memories":{json.dumps(memory_payloads)}'
-    yield "}"
+    yield '],"memories":['
+    memory_offset = 0
+    first_memory = True
+    while True:
+        memories = await memories_repo.list_range(
+            session,
+            user.id,
+            offset=memory_offset,
+            limit=EXPORT_MEMORY_PAGE_SIZE,
+        )
+        if not memories:
+            break
+        for memory in memories:
+            if not first_memory:
+                yield ","
+            first_memory = False
+            yield json.dumps(_memory_payload(memory))
+        memory_offset += len(memories)
+        if len(memories) < EXPORT_MEMORY_PAGE_SIZE:
+            break
+    yield "]}"
 
 
 async def iter_export_json(user: User) -> AsyncIterator[str]:
