@@ -1,16 +1,9 @@
 import { useCallback, useMemo } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  Text,
-  View,
-} from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { closeDrawer, startNewChatGlobal } from "@/lib/drawer";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useTranslation } from "react-i18next";
 
 import { useTheme } from "@/lib/theme";
 import { ActionBanner } from "@/components/ActionBanner";
@@ -31,10 +24,9 @@ import {
 } from "@/lib/chromeFade";
 import { tap } from "@/lib/haptics";
 import { DrawerChatFlashList } from "@/components/drawer/DrawerChatFlashList";
-import { DrawerSearchResults } from "@/components/drawer/DrawerSearchResults";
+import { DrawerListHeader } from "@/components/drawer/DrawerListHeader";
 import { DrawerFooter } from "@/components/drawer/DrawerFooter";
 import { DrawerHeader } from "@/components/drawer/DrawerHeader";
-import { DrawerNavLinks } from "@/components/drawer/DrawerNavLinks";
 import {
   FADE_EXTRA,
   FOOTER_CHROME,
@@ -45,7 +37,6 @@ import {
 export function ConversationList(_props: unknown) {
   const { token } = useAuth();
   const { isOpen } = useDrawer();
-  const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeConversationListStyles(theme), [theme]);
   const router = useRouter();
@@ -158,46 +149,26 @@ export function ConversationList(_props: unknown) {
 
   const highlightedIds = searchOpen ? matchingChatIds : undefined;
 
-  const searchSection = searchOpen ? (
-    <DrawerSearchResults
+  const listHeader = (
+    <DrawerListHeader
+      styles={s}
+      theme={theme}
+      showIndicator={showIndicator}
+      unseenCount={unseenCount}
+      onProjects={openProjects}
+      onLists={openLists}
+      onReminders={openReminders}
+      loading={loading}
+      error={error}
+      activeChatCount={allChats.length}
+      searchOpen={searchOpen}
+      onRetry={() => void load()}
       hasSearchQuery={hasSearchQuery}
       searchLoading={searchLoading}
       searchError={searchError}
       searchResults={searchResults}
       onOpenChat={openChat}
     />
-  ) : null;
-
-  const listHeader = (
-    <>
-      <DrawerNavLinks
-        styles={s}
-        theme={theme}
-        showIndicator={showIndicator}
-        unseenCount={unseenCount}
-        onProjects={openProjects}
-        onLists={openLists}
-        onReminders={openReminders}
-      />
-      {loading && allChats.length === 0 && !searchOpen ? (
-        <View style={s.inlineEmpty}>
-          <ActivityIndicator color={theme.primary} />
-        </View>
-      ) : error && allChats.length === 0 ? (
-        <View style={s.inlineEmpty}>
-          <Ionicons
-            name="cloud-offline-outline"
-            size={36}
-            color={theme.textTertiary}
-          />
-          <Text style={s.emptyText}>{t("drawer.cant_reach")}</Text>
-          <Pressable style={s.retryBtn} onPress={() => void load()}>
-            <Text style={s.retryText}>{t("common.retry")}</Text>
-          </Pressable>
-        </View>
-      ) : null}
-      {searchSection}
-    </>
   );
 
   const topFadeColors = topChromeFadeColors(theme);
