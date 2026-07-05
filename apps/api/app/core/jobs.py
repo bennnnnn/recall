@@ -113,14 +113,12 @@ async def _handle_topic(settings: Settings, payload: dict[str, Any]) -> None:
 
 
 async def _handle_memory(settings: Settings, payload: dict[str, Any]) -> None:
-    async with SessionLocal() as session:
-        await memory_extraction.extract_and_store_memories(
-            session,
-            settings,
-            user_id=UUID(payload["user_id"]),
-            chat_id=UUID(payload["chat_id"]),
-            transcript=payload["transcript"],
-        )
+    await memory_extraction.extract_and_store_memories(
+        settings,
+        user_id=UUID(payload["user_id"]),
+        chat_id=UUID(payload["chat_id"]),
+        transcript=payload["transcript"],
+    )
 
 
 async def _handle_memory_consolidate(settings: Settings, payload: dict[str, Any]) -> None:
