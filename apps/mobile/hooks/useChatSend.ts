@@ -16,11 +16,9 @@ import {
   buildPendingSendAfterCreate,
   shouldBlockSend,
 } from "@/lib/chatSendLogic";
-import { confirmGeoLocationAccess } from "@/lib/confirmGeoLocation";
 import { scheduleIdlePromise } from "@/lib/scheduleIdle";
 import type { ClientGeo } from "@/lib/clientGeo";
-import { ensureNearbyLocation } from "@/lib/ensureNearbyLocation";
-import { isAmbiguousLocalPlacesQuery, isGeoQuery } from "@/lib/localPlacesQuery";
+import { resolveClientGeoForQuery } from "@/lib/resolveClientGeoForQuery";
 import {
   pickDocument,
   pickFromCamera,
@@ -209,20 +207,12 @@ export function useChatSend({
       newMessageCountRef.current += 1;
 
       let clientGeo: ClientGeo | null = null;
-      if (isGeoQuery(text) && !isAmbiguousLocalPlacesQuery(text)) {
-        const allowed = await confirmGeoLocationAccess(t);
-        if (!allowed) {
-          setInput(text);
-          return;
-        }
-        clientGeo = await ensureNearbyLocation(authToken, text);
-        if (!clientGeo) {
-          setInput(text);
-          Alert.alert(t("chat.location_required_title"), t("chat.location_required_body"));
-          return;
-        }
-        mergeUser({ location: clientGeo.label, location_enabled: true });
+      const geoResult = await resolveClientGeoForQuery(authToken, text, t, mergeUser);
+      if (!geoResult.ok) {
+        setInput(text);
+        return;
       }
+      clientGeo = geoResult.clientGeo;
 
       if (editingMessageId && chatId) {
         const editId = editingMessageId;

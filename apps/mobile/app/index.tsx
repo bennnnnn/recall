@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Alert,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -41,6 +40,7 @@ import { useChatComposerState } from "@/hooks/useChatComposerState";
 import { useChatDraftWarmup } from "@/hooks/useChatDraftWarmup";
 import { useChatLayoutMetrics } from "@/hooks/useChatLayoutMetrics";
 import { useChatMessageList } from "@/hooks/useChatMessageList";
+import { useChatRegenerate } from "@/hooks/useChatRegenerate";
 import { useChatRouteLoader, useQueuedChatLaunch } from "@/hooks/useChatRouteLoader";
 import { useChatScroll } from "@/hooks/useChatScroll";
 import { useChatSend } from "@/hooks/useChatSend";
@@ -56,9 +56,6 @@ import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
 import { useTodosOptional } from "@/contexts/TodosContext";
 import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/lib/chatComposerLogic";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
-import { confirmGeoLocationAccess } from "@/lib/confirmGeoLocation";
-import { ensureNearbyLocation } from "@/lib/ensureNearbyLocation";
-import { isAmbiguousLocalPlacesQuery, isGeoQuery } from "@/lib/localPlacesQuery";
 
 function ChatScreen() {
   const { token, user, mergeUser } = useAuth();
@@ -361,33 +358,12 @@ function ChatScreen() {
     connect,
   });
 
-  const handleRegenerate = useCallback(
-    async (model: string) => {
-      if (!token) return;
-      const lastUser = [...messages].reverse().find((m) => m.role === "user");
-      const queryText = lastUser?.content ?? "";
-      let clientGeo = null;
-      if (
-        queryText &&
-        isGeoQuery(queryText) &&
-        !isAmbiguousLocalPlacesQuery(queryText)
-      ) {
-        const allowed = await confirmGeoLocationAccess(t);
-        if (!allowed) return;
-        clientGeo = await ensureNearbyLocation(token, queryText);
-        if (!clientGeo) {
-          Alert.alert(
-            t("chat.location_required_title"),
-            t("chat.location_required_body"),
-          );
-          return;
-        }
-        mergeUser({ location: clientGeo.label, location_enabled: true });
-      }
-      await regenerateResponse(model, clientGeo);
-    },
-    [token, messages, regenerateResponse, t, mergeUser],
-  );
+  const handleRegenerate = useChatRegenerate({
+    token,
+    messages,
+    mergeUser,
+    regenerateResponse,
+  });
 
   const { headerTitleLabel, renderItem } = useChatMessageList({
     messages,
