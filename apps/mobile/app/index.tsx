@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Alert,
   useWindowDimensions,
 } from "react-native";
 import { registerNewChat } from "@/lib/drawer";
@@ -11,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { useTheme } from "@/lib/theme";
 import { ChatScreenBody } from "@/components/chat/ChatScreenBody";
+import { DailyQuizPanel } from "@/components/DailyQuizPanel";
 import { ChatScreenMenuSheets } from "@/components/chat/ChatScreenMenuSheets";
 import { makeChatScreenStyles } from "@/components/chat/chatScreenStyles";
 import {
@@ -35,6 +37,8 @@ import { useChatScroll } from "@/hooks/useChatScroll";
 import { useChatSend } from "@/hooks/useChatSend";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { useDraftChat } from "@/hooks/useDraftChat";
+import { useDailyQuiz, appendQuizFeedbackMessage } from "@/hooks/useDailyQuiz";
+import { getQuizUiStyle, setQuizUiStyle, type QuizUiStyle } from "@/lib/quizUiPrefs";
 import { useModels } from "@/hooks/useModels";
 import { useNetwork } from "@/contexts/NetworkContext";
 import { useChatErrorHandlers, useChatStreamLifecycle } from "@/hooks/useChatScreenError";
@@ -171,7 +175,74 @@ function ChatScreen() {
     pendingLaunch,
     setPendingLaunch,
     pendingLaunchRef,
+    dailyQuizActive,
   } = routeLoader;
+
+  const dailyQuizProjectId = dailyQuizActive ? resolveQuizProjectId() : null;
+  const [quizUiStyle, setQuizUiStyleState] = useState<QuizUiStyle>("card");
+  const quizUiPrefPromptedRef = useRef(false);
+
+  useEffect(() => {
+    if (!dailyQuizActive) return;
+    void getQuizUiStyle().then((style) => {
+      if (style) setQuizUiStyleState(style);
+    });
+  }, [dailyQuizActive]);
+
+  const handleQuizFeedback = useCallback(
+    (feedback: string) => {
+      appendQuizFeedbackMessage(setMessages, feedback);
+      scroll.scrollToLatest();
+    },
+    [setMessages, scroll],
+  );
+
+  const handleSuggestMcq = useCallback(() => {
+    handleQuizFeedback(t("daily_quiz.switch_to_mcq"));
+  }, [handleQuizFeedback, t]);
+
+  const dailyQuiz = useDailyQuiz({
+    token,
+    projectId: dailyQuizProjectId,
+    chatId: activeChatId,
+    enabled: dailyQuizActive && Boolean(dailyQuizProjectId),
+    onFeedback: handleQuizFeedback,
+    onSuggestMcq: handleSuggestMcq,
+  });
+
+  useEffect(() => {
+    const currentId = dailyQuiz.session?.current?.id;
+    if (!dailyQuizActive || !currentId || quizUiPrefPromptedRef.current) return;
+    quizUiPrefPromptedRef.current = true;
+    void (async () => {
+      const existing = await getQuizUiStyle();
+      if (existing) {
+        setQuizUiStyleState(existing);
+        return;
+      }
+      Alert.alert(
+        t("daily_quiz.ui_pref_title"),
+        t("daily_quiz.ui_pref_body"),
+        [
+          {
+            text: t("daily_quiz.ui_pref_card"),
+            onPress: () => {
+              void setQuizUiStyle("card");
+              setQuizUiStyleState("card");
+            },
+          },
+          {
+            text: t("daily_quiz.ui_pref_simple"),
+            onPress: () => {
+              void setQuizUiStyle("simple");
+              setQuizUiStyleState("simple");
+            },
+          },
+        ],
+        { cancelable: false },
+      );
+    })();
+  }, [dailyQuizActive, dailyQuiz.session?.current?.id, t]);
 
   const chatActions = useChatActions({
     token,
@@ -353,6 +424,29 @@ function ChatScreen() {
 
   const menuOverlayOpen = isComposerMenuOverlayOpen(attachSheetOpen);
 
+  const quizPanel = useMemo(() => {
+    if (!dailyQuizActive) return null;
+    return (
+      <DailyQuizPanel
+        session={dailyQuiz.session}
+        loading={dailyQuiz.loading}
+        submitting={dailyQuiz.submitting}
+        quizVariant={quizVariant}
+        quizUiStyle={quizUiStyle}
+        modality={dailyQuiz.modality}
+        allowRetry={dailyQuiz.allowRetry}
+        onModalityChange={dailyQuiz.setModality}
+        error={dailyQuiz.error}
+        onRetry={() => void dailyQuiz.reload()}
+        onMcqAnswer={(q, letter) => void dailyQuiz.submitAnswer(q, { modality: "mcq", letter })}
+        onTextAnswer={(q, text, modality) =>
+          void dailyQuiz.submitAnswer(q, { modality, text })
+        }
+        onSkip={(q) => void dailyQuiz.skipQuestion(q)}
+      />
+    );
+  }, [dailyQuizActive, dailyQuiz, quizVariant, quizUiStyle]);
+
   const chatScreenBodyProps = useChatScreenBodyProps({
     styles: s,
     theme: C,
@@ -415,6 +509,7 @@ function ChatScreen() {
     voiceTranscribing,
     voiceMeterLevel,
     toggleVoiceInput,
+    quizPanel,
   });
 
   if (!token) return <Redirect href="/login" />;

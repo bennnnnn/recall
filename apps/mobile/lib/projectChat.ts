@@ -189,28 +189,6 @@ export function buildProjectExamPrompt(project: ProjectDetail): string {
   return buildProjectAskPrompt(project);
 }
 
-/** Bonus MC questions in exam mode after today's goal is already met. */
-export function buildProjectExamBonusPrompt(project: ProjectDetail): string {
-  const daily = resolveProjectDailyGoal(project);
-  if (project.kind === "trivia") {
-    return (
-      `I already finished my daily goal of ${daily} correct answers today ` +
-      `(${project.stats.mastered_today}/${daily}). I want BONUS trivia questions in **exam quiz mode**.\n\n` +
-      "Use vocab_quiz JSON with quiz_type=trivia — one multiple-choice question per turn. " +
-      "Wait for my A–D answer before explaining. Start the first bonus question now."
-    );
-  }
-  const lvl = levelLabel(project.level);
-  return (
-    `I already finished my daily goal of ${daily} words on "${project.title}" today ` +
-    `(${project.stats.mastered_today}/${daily}). My level: ${lvl}.\n\n` +
-    "I want a BONUS vocabulary quiz in **exam mode** beyond today's goal. " +
-    "Use this EXACT format for every question:\n\n" +
-    `${VOCAB_QUIZ_FORMAT_BLOCK}\n\n` +
-    "Start with the first bonus question now."
-  );
-}
-
 /** Starts an interactive multiple-choice vocabulary quiz in chat. */
 export function buildProjectQuizPrompt(project: ProjectDetail): string {
   const lvl = levelLabel(project.level);

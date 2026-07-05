@@ -17,7 +17,7 @@ import { ProjectProgressHero } from "@/components/ProjectProgressHero";
 import { ProjectItemRow } from "@/components/ProjectItemRow";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, type ProjectDetail, type VocabStatus } from "@/lib/api";
-import { queueChatLaunch } from "@/lib/chatLaunch";
+import { queueChatLaunch, queueDailyQuizLaunch } from "@/lib/chatLaunch";
 import {
   isLanguageProject,
   levelLabel,
@@ -143,7 +143,12 @@ export default function ProjectDetailScreen() {
   };
 
   const startStudyQuiz = () => {
-    router.push(`/projects/${project.id}/quiz`);
+    if (isTrivia) {
+      queueDailyQuizLaunch(project.id, "trivia");
+    } else if (isLang) {
+      queueDailyQuizLaunch(project.id, "vocab", "en");
+    }
+    router.replace("/");
   };
 
   const startStudyBonus = () => {

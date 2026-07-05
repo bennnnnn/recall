@@ -218,7 +218,8 @@ async def build_stream_prompt_context(
 
     meta: dict[str, Any] = {}
     minimal_personal = is_broad_self_question(content)
-    minimal_quiz = web_search_service.is_vocab_quiz_answer(content) and quiz_mode != "chat"
+    # Exam uses the DB daily-quiz panel; chat tutor uses full LLM for A-D follow-ups.
+    minimal_quiz = False
     day_planning = day_planning_service.is_day_planning_question(content)
     day_reflection = day_planning_service.is_day_reflection_question(content)
 
@@ -548,7 +549,7 @@ async def prepare_chat_turn(
             input_tokens=estimate_tokens(user_content),
         )
         is_letter_answer = web_search_service.is_vocab_quiz_answer(content)
-        minimal_quiz = is_letter_answer and getattr(chat, "quiz_mode", None) != "chat"
+        minimal_quiz = False
         if is_letter_answer and minimal_quiz and chat.project_id is not None:
             prior_assistant = await chat_pkg.messages_repo.get_last_assistant(session, chat_id)
             if prior_assistant is not None:

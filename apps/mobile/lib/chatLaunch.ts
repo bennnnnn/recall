@@ -2,7 +2,8 @@
 import type { QuizMode } from "@/lib/quizMode";
 
 export type QueuedChatLaunch = {
-  prompt: string;
+  prompt?: string;
+  dailyQuiz?: boolean;
   projectId?: string;
   quizLanguage?: string;
   quizVariant?: "vocab" | "trivia";
@@ -26,6 +27,23 @@ export function queueChatLaunch(
     ...(quizLanguage ? { quizLanguage } : {}),
     ...(quizVariant ? { quizVariant } : {}),
     ...(quizMode ? { quizMode } : {}),
+  };
+  return true;
+}
+
+/** Open exam mode using pre-generated daily quiz questions (no LLM prompt). */
+export function queueDailyQuizLaunch(
+  projectId: string,
+  quizVariant: "vocab" | "trivia",
+  quizLanguage?: string,
+): boolean {
+  if (!projectId) return false;
+  queued = {
+    dailyQuiz: true,
+    projectId,
+    quizVariant,
+    quizMode: "exam",
+    ...(quizLanguage ? { quizLanguage } : {}),
   };
   return true;
 }

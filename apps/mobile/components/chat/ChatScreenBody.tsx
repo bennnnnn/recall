@@ -88,6 +88,7 @@ export type ChatScreenBodyProps = {
   onVoicePress?: () => void;
   upgradeVisible: boolean;
   onCloseUpgrade: () => void;
+  quizPanel?: ReactElement | null;
 };
 
 export function ChatScreenBody({
@@ -152,6 +153,7 @@ export function ChatScreenBody({
   onVoicePress,
   upgradeVisible,
   onCloseUpgrade,
+  quizPanel,
 }: ChatScreenBodyProps) {
   const { t } = useTranslation();
 
@@ -213,6 +215,8 @@ export function ChatScreenBody({
         onUpgrade={!isPro ? onUpgrade : undefined}
         onDismiss={onDismissChatError}
       />
+
+      {quizPanel}
 
       <ChatComposer
         visible={!drawerOpen}

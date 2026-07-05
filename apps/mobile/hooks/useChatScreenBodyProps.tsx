@@ -95,6 +95,7 @@ export type UseChatScreenBodyPropsParams = {
   voiceTranscribing: boolean;
   voiceMeterLevel: number;
   toggleVoiceInput: () => void | Promise<void>;
+  quizPanel?: ReactElement | null;
 };
 
 export function useChatScreenBodyProps({
@@ -159,6 +160,7 @@ export function useChatScreenBodyProps({
   voiceTranscribing,
   voiceMeterLevel,
   toggleVoiceInput,
+  quizPanel = null,
 }: UseChatScreenBodyPropsParams): ChatScreenBodyProps {
   const [upgradeVisible, setUpgradeVisible] = useState(false);
 
@@ -272,6 +274,7 @@ export function useChatScreenBodyProps({
       onVoicePress: () => void toggleVoiceInput(),
       upgradeVisible,
       onCloseUpgrade: () => setUpgradeVisible(false),
+      quizPanel,
     }),
     [
       styles,
@@ -329,6 +332,7 @@ export function useChatScreenBodyProps({
       voiceMeterLevel,
       toggleVoiceInput,
       upgradeVisible,
+      quizPanel,
     ],
   );
 }

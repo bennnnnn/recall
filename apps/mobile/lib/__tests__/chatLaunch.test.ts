@@ -1,4 +1,4 @@
-import { queueChatLaunch, takeQueuedChatLaunch } from "@/lib/chatLaunch";
+import { queueChatLaunch, queueDailyQuizLaunch, takeQueuedChatLaunch } from "@/lib/chatLaunch";
 
 describe("chatLaunch", () => {
   beforeEach(() => {
@@ -20,6 +20,16 @@ describe("chatLaunch", () => {
       quizLanguage: "en",
       quizVariant: "vocab",
       quizMode: "chat",
+    });
+  });
+
+  it("queues daily quiz without LLM prompt", () => {
+    expect(queueDailyQuizLaunch("proj-2", "trivia")).toBe(true);
+    expect(takeQueuedChatLaunch()).toEqual({
+      dailyQuiz: true,
+      projectId: "proj-2",
+      quizVariant: "trivia",
+      quizMode: "exam",
     });
   });
 });

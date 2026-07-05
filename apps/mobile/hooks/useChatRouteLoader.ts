@@ -82,6 +82,7 @@ export function useChatRouteLoader({
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [pendingLaunch, setPendingLaunch] = useState<string | null>(null);
+  const [dailyQuizActive, setDailyQuizActive] = useState(false);
 
   const priorRouteChatIdRef = useRef<string | null>(null);
   const pendingHighlightRef = useRef<string | null>(null);
@@ -303,6 +304,7 @@ export function useChatRouteLoader({
     discardEmptyChat(chatId);
     clearDraftChat();
     pendingProjectIdRef.current = null;
+    setDailyQuizActive(false);
     setInputRef.current("");
     setChatId(null);
     setChatTitle(null);
@@ -329,7 +331,9 @@ export function useChatRouteLoader({
   const beginChatLaunch = useCallback(
     (launch: QueuedChatLaunch | string) => {
       const queued = typeof launch === "string" ? { prompt: launch.trim() } : launch;
-      if (!queued.prompt.trim()) return;
+      const isDailyQuiz = Boolean(queued.dailyQuiz && queued.projectId);
+      const prompt = queued.prompt?.trim() ?? "";
+      if (!isDailyQuiz && !prompt) return;
       if (streaming) stopGeneration();
       discardEmptyChat(chatId);
       clearDraftChat();
@@ -349,8 +353,15 @@ export function useChatRouteLoader({
       if (routeChatId != null) {
         router.setParams({ chatId: undefined });
       }
-      pendingLaunchRef.current = queued.prompt.trim();
-      setPendingLaunch(queued.prompt.trim());
+      if (isDailyQuiz) {
+        pendingLaunchRef.current = null;
+        setPendingLaunch(null);
+        setDailyQuizActive(true);
+      } else {
+        setDailyQuizActive(false);
+        pendingLaunchRef.current = prompt;
+        setPendingLaunch(prompt);
+      }
       void prepareDraftChat(queued.projectId, "auto", queued.quizMode);
     },
     [
@@ -401,6 +412,8 @@ export function useChatRouteLoader({
     pendingLaunch,
     setPendingLaunch,
     pendingLaunchRef,
+    dailyQuizActive,
+    setDailyQuizActive,
     pollForTitle,
   };
 }

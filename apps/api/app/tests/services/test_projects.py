@@ -661,7 +661,8 @@ async def test_load_project_for_prompt_exam_mode():
         )
 
     assert "exam quiz" in block.lower()
-    assert "vocab_quiz" in block
+    assert "Daily Quiz panel" in block
+    assert "Do NOT output ```vocab_quiz" in block
     assert "Presentation mode: exam quiz" in block
 
 
@@ -675,9 +676,8 @@ def test_build_language_quiz_prompt_includes_vocab_quiz_fence():
     stats.due_for_review = 1
 
     prompt = projects_service.build_language_quiz_prompt(project, stats)
-    assert "vocab_quiz" in prompt
-    assert '"correct"' in prompt
-    assert "Begin with the first question now" in prompt
+    assert "Daily Quiz panel" in prompt
+    assert "vocab_quiz" not in prompt
 
 
 @pytest.mark.asyncio
