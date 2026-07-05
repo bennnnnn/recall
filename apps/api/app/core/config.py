@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     calendar_cache_ttl: int = 300
     calendar_fetch_days: int = 60
     calendar_prompt_days: int = 14
+    # A user can have many selected Google calendars (shared/subscribed);
+    # both cap how many are fetched per refresh and bound how many of those
+    # fetches run concurrently, so one user with dozens of calendars can't
+    # fan out unboundedly.
+    calendar_max_calendars: int = 10
+    calendar_fetch_concurrency: int = 5
 
     gmail_enabled: bool = True
     gmail_fetch_days: int = 7

@@ -261,6 +261,10 @@ async def fetch_upcoming_events(
 class CalendarListResult:
     events: list[CalendarEvent]
     load_error: str | None = None
+    # How many of the user's selected calendars failed to fetch this round —
+    # events are still best-effort merged, but the prompt/caller should know
+    # the list may be incomplete rather than presenting it as the full picture.
+    failed_calendars: int = 0
 
 
 async def _fetch_upcoming_events(
@@ -280,7 +284,7 @@ async def _fetch_upcoming_events(
         return CalendarListResult(events=cached)
 
     try:
-        events = await google_calendar_gateway.list_upcoming_events(
+        result = await google_calendar_gateway.list_upcoming_events(
             settings,
             refresh_token=decrypt_refresh_token(settings, connection.refresh_token),
             calendar_id=connection.calendar_id,
@@ -292,8 +296,8 @@ async def _fetch_upcoming_events(
             return CalendarListResult(events=[], load_error="fetch_failed")
         return CalendarListResult(events=[])
 
-    await _store_cached_events(redis, user.id, events, settings.calendar_cache_ttl)
-    return CalendarListResult(events=events)
+    await _store_cached_events(redis, user.id, result.events, settings.calendar_cache_ttl)
+    return CalendarListResult(events=result.events, failed_calendars=result.failed_calendars)
 
 
 async def load_calendar_for_prompt(
@@ -313,8 +317,14 @@ async def load_calendar_for_prompt(
         return format_calendar_block(cached, user.timezone, settings.calendar_prompt_days)
     if cache_only:
         return None
-    events = await fetch_upcoming_events(session, redis, user, settings)
-    return format_calendar_block(events, user.timezone, settings.calendar_prompt_days)
+    result = await _fetch_upcoming_events(session, redis, user, settings, report_errors=False)
+    block = format_calendar_block(result.events, user.timezone, settings.calendar_prompt_days)
+    if result.failed_calendars:
+        block += (
+            f"\n(Note: {result.failed_calendars} of the user's calendars couldn't be loaded "
+            "this time — this list may be incomplete.)"
+        )
+    return block
 
 
 async def list_events_for_api(
