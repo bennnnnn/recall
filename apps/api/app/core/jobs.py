@@ -120,12 +120,10 @@ async def _handle_memory(settings: Settings, payload: dict[str, Any]) -> None:
 
 
 async def _handle_memory_consolidate(settings: Settings, payload: dict[str, Any]) -> None:
-    async with SessionLocal() as session:
-        await memory_consolidation.consolidate_user_memory_sections(
-            session,
-            settings,
-            user_id=UUID(payload["user_id"]),
-        )
+    await memory_consolidation.consolidate_user_memory_sections(
+        settings,
+        user_id=UUID(payload["user_id"]),
+    )
 
 
 async def _handle_todos(settings: Settings, payload: dict[str, Any]) -> None:

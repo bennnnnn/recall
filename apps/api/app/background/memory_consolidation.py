@@ -1,11 +1,13 @@
 import asyncio
 import logging
+from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.core.db import SessionLocal
 from app.gateways import litellm_gateway
 from app.repositories import memories as memories_repo
 from app.services.memory import (
@@ -17,22 +19,69 @@ from app.services.memory import (
 logger = logging.getLogger(__name__)
 
 
-async def consolidate_user_memory_sections(
+@dataclass(frozen=True)
+class _ConsolidationSnapshot:
+    sections: dict[str, str]
+
+
+async def _load_consolidation_snapshot(
     session: AsyncSession,
+    user_id: UUID,
+) -> _ConsolidationSnapshot | None:
+    existing = await memories_repo.list_for_user(session, user_id)
+    if not existing:
+        return None
+
+    sections = {memory.type: memory.text for memory in existing}
+    if not sections_need_consolidation(sections):
+        return None
+    return _ConsolidationSnapshot(sections=sections)
+
+
+async def _apply_consolidation_result(
+    session: AsyncSession,
+    settings: Settings,
+    *,
+    user_id: UUID,
+    rows: list[tuple[str, str, float, UUID | None]],
+) -> None:
+    upserted_types = {memory_type for memory_type, _, _, _ in rows}
+    await memories_repo.upsert_sections(session, user_id=user_id, items=rows)
+    from app.gateways import embedding_gateway
+
+    updated = await memories_repo.list_for_user(session, user_id)
+    embed_tasks: list[tuple[Any, str]] = []
+    for memory in updated:
+        if memory.type in upserted_types:
+            embed_tasks.append((memory, memory.text))
+
+    if embed_tasks:
+        vectors = await asyncio.gather(
+            *(embedding_gateway.embed_text(settings, text) for _, text in embed_tasks)
+        )
+        for (memory, _), vec in zip(embed_tasks, vectors, strict=True):
+            if vec:
+                memory.embedding = vec
+                memory.embedding_json = embedding_gateway.serialize_embedding(vec)
+    await session.commit()
+    await invalidate_memory_block(user_id)
+
+
+async def consolidate_user_memory_sections(
     settings: Settings,
     *,
     user_id: UUID,
 ) -> bool:
     """Rewrite messy section text into concise paragraphs via the memory model."""
     try:
-        existing = await memories_repo.list_for_user(session, user_id)
-        if not existing:
+        async with SessionLocal() as session:
+            snapshot = await _load_consolidation_snapshot(session, user_id)
+            await session.commit()
+
+        if snapshot is None:
             return False
 
-        sections = {memory.type: memory.text for memory in existing}
-        if not sections_need_consolidation(sections):
-            return False
-
+        sections = snapshot.sections
         result = await litellm_gateway.rewrite_memory_sections(settings, sections)
         if not result or not result.sections:
             return False
@@ -67,26 +116,13 @@ async def consolidate_user_memory_sections(
         if not rows:
             return False
 
-        upserted_types = {memory_type for memory_type, _, _, _ in rows}
-        await memories_repo.upsert_sections(session, user_id=user_id, items=rows)
-        from app.gateways import embedding_gateway
-
-        updated = await memories_repo.list_for_user(session, user_id)
-        embed_tasks: list[tuple[Any, str]] = []
-        for memory in updated:
-            if memory.type in upserted_types:
-                embed_tasks.append((memory, memory.text))
-
-        if embed_tasks:
-            vectors = await asyncio.gather(
-                *(embedding_gateway.embed_text(settings, text) for _, text in embed_tasks)
+        async with SessionLocal() as session:
+            await _apply_consolidation_result(
+                session,
+                settings,
+                user_id=user_id,
+                rows=rows,
             )
-            for (memory, _), vec in zip(embed_tasks, vectors, strict=True):
-                if vec:
-                    memory.embedding = vec
-                    memory.embedding_json = embedding_gateway.serialize_embedding(vec)
-        await session.commit()
-        await invalidate_memory_block(user_id)
         return True
     except Exception:
         logger.exception("Memory consolidation failed for user_id=%s", user_id)
