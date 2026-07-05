@@ -2,25 +2,13 @@
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import Markdown from "react-native-markdown-display";
 import { Ionicons } from "@expo/vector-icons";
-import { Image, Linking, Platform, StyleSheet, Text, View } from "react-native";
+import { Image, Linking, Platform, Text, View } from "react-native";
 
 import { isGenericSearchUrl } from "@/lib/placesList";
 import { openPlaceLink } from "@/lib/openPlaceLink";
 
 import { LinkPreviewCard } from "@/components/LinkPreviewCard";
-import { CodeBlock } from "@/components/CodeBlock";
-import { WebPreviewCodeBlock } from "@/components/WebPreviewCodeBlock";
-import { CopyBlock } from "@/components/CopyBlock";
-import { CircularClockBlock } from "@/components/rich/CircularClockBlock";
-import { MathBlock } from "@/components/rich/MathView";
 import { MathText } from "@/components/rich/MathText";
-import { GeometryBlock } from "@/components/rich/GeometryBlock";
-import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
-import {
-  fenceContentAsGeometry,
-  fenceContentAsGraph,
-  looksLikeLatexFence,
-} from "@/lib/mathFenceRetag";
 import {
   MarkdownTable,
   MarkdownTableCell,
@@ -29,25 +17,31 @@ import {
 } from "@/components/MarkdownTable";
 import { QuoteBlock } from "@/components/rich/QuoteBlock";
 import {
-  renderCopyStyleBlock,
-  renderRichFence,
-} from "@/components/rich/RichFence";
+  type AstNode,
+  type AstParent,
+  astText,
+  countTableColumns,
+  detectStandaloneLink,
+  inTableCell,
+  inTableHeader,
+  parentHasType,
+  taskChecked,
+} from "@/components/markdown/markdownAstHelpers";
 import {
-  copyBlockLabel,
-  isExplicitCodeLang,
-  shouldRenderAsCodeBlock,
-  shouldRenderAsCopyBlock,
-} from "@/lib/copyBlock";
-import { parseFenceLang, shouldUseHtmlPreview } from "@/lib/codeHighlight";
-import {
-  isClockFenceBody,
-  isDigitalTimeOnly,
-  isIanaTimezoneOnly,
-} from "@/lib/timeQuestion";
+  makeMdImg,
+  makeMdMath,
+  makeMdStyles,
+  makeMdTable,
+  verifyCheckStyles,
+  type MdImgStyles,
+  type MdMathStyles,
+  type MdTableStyles,
+} from "@/components/markdown/markdownContentStyles";
+import { renderFence } from "@/components/markdown/markdownFenceRender";
+import { VerifyCheckmark } from "@/components/markdown/VerifyCheckmark";
 import { markdownItInstance } from "@/lib/markdownIt";
 import {
   extractBlockquoteMeta,
-  looksLikeMarkdownListProse,
   preprocessMarkdown,
   splitInlineMath,
 } from "@/lib/markdownPreprocess";
@@ -55,142 +49,17 @@ import {
   preprocessMarkdownForStream,
   type StreamingPreprocessCache,
 } from "@/lib/markdownPreprocessStream";
-import { CODE_FONT } from "@/lib/fonts";
-import { isStandaloneUrl } from "@/lib/richBlocks";
 import { Theme, useTheme } from "@/lib/theme";
 
-type AstNode = {
-  key: string;
-  type?: string;
-  content?: string;
-  attributes?: Record<string, string>;
-  children?: AstNode[];
-  sourceType?: string;
-};
-
-type AstParent = {
-  type: string;
-  attributes?: { start?: number; class?: string };
-};
-
 type StyleMap = Record<string, object>;
-type TableStyles = ReturnType<typeof makeMdTable>;
-type MathStyles = ReturnType<typeof makeMdMath>;
-type ImgStyles = ReturnType<typeof makeMdImg>;
-
-function parentHasType(parent: unknown, type: string): boolean {
-  return Array.isArray(parent) && parent.some((node) => node?.type === type);
-}
-
-function inTableCell(parent: unknown): boolean {
-  return parentHasType(parent, "td") || parentHasType(parent, "th");
-}
-
-function inTableHeader(parent: unknown): boolean {
-  return parentHasType(parent, "th");
-}
-
-function astText(node: AstNode): string {
-  if (node.content) return node.content;
-  return (node.children ?? []).map(astText).join("");
-}
-
-function collectHtmlInline(nodes: AstNode[] | undefined): string[] {
-  const out: string[] = [];
-  for (const node of nodes ?? []) {
-    if (node.sourceType === "html_inline" || node.type === "html_inline") {
-      if (node.content) out.push(node.content);
-    }
-    out.push(...collectHtmlInline(node.children));
-  }
-  return out;
-}
-
-function isTaskCheckboxChecked(html: string): boolean {
-  return /\bchecked(?:\s|=|>|\/)/i.test(html);
-}
-
-function taskChecked(node: AstNode): boolean | null {
-  const cls = node.attributes?.class ?? "";
-  if (!cls.includes("task-list-item")) return null;
-  const checkbox = collectHtmlInline(node.children).find((html) =>
-    html.includes("task-list-item-checkbox"),
-  );
-  if (!checkbox) return false;
-  return isTaskCheckboxChecked(checkbox);
-}
-
-/** ChatGPT-style green verification tick for checked `- [x]` list items. */
-const VERIFY_CHECK_COLOR = "#10A37F";
-
-function VerifyCheckmark() {
-  return (
-    <View style={verifyCheckStyles.badge}>
-      <Ionicons name="checkmark" size={13} color="#FFFFFF" />
-    </View>
-  );
-}
-
-const verifyCheckStyles = StyleSheet.create({
-  badge: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    backgroundColor: VERIFY_CHECK_COLOR,
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: 8,
-    marginTop: 2,
-    flexShrink: 0,
-  },
-  verifyRow: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-  },
-  verifyContent: {
-    flex: 1,
-    flexShrink: 1,
-  },
-});
-
-function countTableColumns(node: AstNode): number {
-  let max = 1;
-  const walk = (n: AstNode) => {
-    if (n.type === "tr") {
-      const cells = (n.children ?? []).filter(
-        (c) => c.type === "th" || c.type === "td",
-      );
-      if (cells.length > max) max = cells.length;
-    }
-    (n.children ?? []).forEach(walk);
-  };
-  walk(node);
-  return max;
-}
-
-function detectStandaloneLink(node: AstNode): string | null {
-  const kids = node.children ?? [];
-  if (kids.length === 1 && kids[0].type === "link") {
-    const href = kids[0].attributes?.href;
-    return href && isStandaloneUrl(href) ? href : null;
-  }
-  if (kids.length === 1 && kids[0].type === "text") {
-    return isStandaloneUrl(kids[0].content ?? "");
-  }
-  return null;
-}
-
-type FenceNode = { key: string; content: string; info?: string };
 
 function renderTextWithMath(
   node: { key: string; content: string },
   parent: unknown,
   styles: StyleMap,
   inheritedStyles: object,
-  mdTable: TableStyles,
-  mdMath: MathStyles,
+  mdTable: MdTableStyles,
+  mdMath: MdMathStyles,
 ) {
   const parts = splitInlineMath(node.content);
   const base = [
@@ -223,9 +92,9 @@ function renderTextWithMath(
 
 function makeSharedRules(
   t: Theme,
-  mdTable: TableStyles,
-  mdMath: MathStyles,
-  mdImg: ImgStyles,
+  mdTable: MdTableStyles,
+  mdMath: MdMathStyles,
+  mdImg: MdImgStyles,
   streaming = false,
 ) {
   return {
@@ -495,69 +364,6 @@ function makeSharedRules(
   };
 }
 
-// Fence rendering delegates to components that theme themselves (CodeBlock, rich
-// fences), so it needs no theme parameter.
-function renderFence(node: FenceNode) {
-  const lang = parseFenceLang(node.info?.trim() || "");
-  const content = node.content.replace(/\n$/, "").trim();
-  if (!content) return null;
-
-  try {
-    return renderFenceInner(node.key, lang, content);
-  } catch (error) {
-    if (__DEV__) {
-      console.warn("[MarkdownContent] fence render failed", error);
-    }
-    return <CodeBlock key={node.key} code={content} lang={lang} />;
-  }
-}
-
-function renderFenceInner(key: string, lang: string, content: string) {
-  if (shouldUseHtmlPreview(lang, content)) {
-    return <WebPreviewCodeBlock key={key} code={content} lang={lang || "html"} />;
-  }
-  const l = lang.trim().toLowerCase();
-  if (fenceContentAsGeometry(content)) {
-    return <GeometryBlock key={key} content={content} />;
-  }
-  if (fenceContentAsGraph(content)) {
-    return <FunctionGraphBlock key={key} content={content} />;
-  }
-  if (
-    l === "math" &&
-    (looksLikeMarkdownListProse(content) ||
-      /^\$\)?/.test(content.trim()) ||
-      /\*\*[^*]+\*\*/.test(content))
-  ) {
-    return null;
-  }
-  if (looksLikeLatexFence(content) && l !== "python" && l !== "javascript") {
-    return <MathBlock key={key} latex={content} />;
-  }
-  if (
-    l === "clock" ||
-    l === "time" ||
-    isDigitalTimeOnly(content) ||
-    isIanaTimezoneOnly(content) ||
-    (l === "" && isClockFenceBody(content))
-  ) {
-    return <CircularClockBlock key={key} content={content} />;
-  }
-  const rich = renderRichFence(lang, content, key);
-  if (rich) return rich;
-  const copyStyle = renderCopyStyleBlock(lang, content, key);
-  if (copyStyle) return copyStyle;
-  if (isExplicitCodeLang(lang) || shouldRenderAsCodeBlock(lang, content)) {
-    return <CodeBlock key={key} code={content} lang={lang} />;
-  }
-  if (shouldRenderAsCopyBlock(lang, content)) {
-    const styled = renderCopyStyleBlock("copy", content, key);
-    if (styled) return styled;
-    return <CopyBlock key={key} text={content} label={copyBlockLabel(lang)} />;
-  }
-  return <CodeBlock key={key} code={content} lang={lang} />;
-}
-
 function makeRenderRules(t: Theme, streaming = false) {
   const mdMath = makeMdMath(t);
   const mdTable = makeMdTable(t);
@@ -638,68 +444,3 @@ export function MarkdownContent({ content, streaming = false }: Props) {
 // CPU; higher = cheaper but laggier. 150ms is ~6.7 renders/sec — smooth enough
 // for streaming text while avoiding a full markdown-it pass per token.
 const STREAM_PARSE_INTERVAL_MS = 150;
-
-function makeMdMath(_t: Theme) {
-  return StyleSheet.create({
-    listContent: {
-      flex: 1,
-      flexShrink: 1,
-    },
-  });
-}
-
-function makeMdTable(t: Theme) {
-  return StyleSheet.create({
-    cellText: { fontSize: 15, lineHeight: 22, color: t.text, flexShrink: 1 },
-    headerText: { fontWeight: "600", color: t.text },
-    cellCode: {
-      backgroundColor: t.contentSurface,
-      color: t.text,
-      fontFamily: CODE_FONT,
-      fontSize: 13,
-      lineHeight: 18,
-      paddingHorizontal: 3,
-      paddingVertical: 0,
-      borderRadius: 3,
-    },
-  });
-}
-
-function makeMdImg(t: Theme) {
-  return StyleSheet.create({
-    image: {
-      width: "100%",
-      height: 200,
-      borderRadius: 8,
-      marginVertical: 6,
-      backgroundColor: t.contentSurface,
-    },
-  });
-}
-
-function makeMdStyles(t: Theme) {
-  return StyleSheet.create({
-    body: { color: t.assistantText, fontSize: 16, lineHeight: 25 },
-    code_inline: {
-      backgroundColor: t.contentSurface,
-      color: t.text,
-      borderRadius: 4,
-      paddingHorizontal: 4,
-      fontFamily: CODE_FONT,
-      fontSize: 14,
-    },
-    // Custom fence renderer handles code blocks / HTML preview inline.
-    fence: { marginVertical: 0, padding: 0 },
-    paragraph: { marginVertical: 0 },
-    bullet_list: { marginVertical: 4 },
-    ordered_list: { marginVertical: 4 },
-    heading1: { fontSize: 20, fontWeight: "700", marginBottom: 8, color: t.text },
-    heading2: { fontSize: 18, fontWeight: "700", marginBottom: 6, color: t.text },
-    heading3: { fontSize: 16, fontWeight: "600", marginBottom: 4, color: t.text },
-    strong: { fontWeight: "700", color: t.text },
-    em: { fontStyle: "italic" },
-    blockquote: { marginVertical: 0, padding: 0, borderWidth: 0 },
-    hr: { backgroundColor: t.border, height: 1, marginVertical: 12 },
-    link: { color: t.primary },
-  });
-}
