@@ -26,6 +26,8 @@ async def seed_usage_from_db(redis: Redis, session: AsyncSession, user_id: UUID)
     import app.services.chat as chat_pkg
 
     try:
+        if await quota_service.has_daily_usage_key(redis, str(user_id)):
+            return
         db_total = await chat_pkg.usage_repo.get_total_for_date(session, user_id, utc_today())
         await quota_service.seed_usage_if_missing(redis, str(user_id), db_total)
     except Exception:

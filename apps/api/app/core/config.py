@@ -145,6 +145,11 @@ class Settings(BaseSettings):
 
     # Abort hung provider streams after this many seconds (WS chat path).
     chat_stream_timeout_seconds: int = 180
+    # Fail fast when the provider never opens an SSE stream (separate from read timeout).
+    chat_stream_connect_timeout_seconds: int = 15
+
+    # Prefer Neon's `-pooler` host when DATABASE_URL points at a direct Neon endpoint.
+    database_prefer_neon_pooler: bool = True
 
     # Abort hung background (non-streaming) LLM calls after this many seconds.
     # Covers title generation, memory extraction, todos, summaries — a hung

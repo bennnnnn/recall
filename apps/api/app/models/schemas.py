@@ -515,6 +515,7 @@ class ProjectDetailOut(ProjectOut):
     total_count: int = 0
     stats: ProjectStats = Field(default_factory=ProjectStats)
     daily_history: list[ProjectDailyHistoryDay] = Field(default_factory=list)
+    daily_items_by_date: dict[str, list[ProjectItemOut]] = Field(default_factory=dict)
     lists: list[ProjectListGroup] = Field(default_factory=list)
     by_part_of_speech: list[ProjectPosGroup] = Field(default_factory=list)
     pos_groups: list[ProjectPosGroupSummary] = Field(default_factory=list)

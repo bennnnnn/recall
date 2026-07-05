@@ -411,6 +411,23 @@ fixes from the review are shipped; these remain:
 - ✅ **JWT refresh / logout** — 1h access + refresh rotation; mobile auto-refresh on 401.
 - ✅ **HTTP SSE chat fallback** — `POST /chats/{id}/messages/stream` when WebSocket fails.
 
+### Review audit follow-ups (PR #129, Jul 2026)
+
+Shipped in the audit PR or follow-up commits: push ticket-vs-receipt semantics, 600s scheduler
+lock, attachment byte verification on GET, graph `points: []` rejection, live model badge via
+`stream_end` + `resolved_model`, day-planning quiz stats, instant project day-item cache.
+
+Still open (non-blocking):
+
+- ⚠️ **Android chat keyboard** — `softwareKeyboardLayoutMode: resize` is set for Reanimated's
+  `useAnimatedKeyboard`; needs an **Android dev-client rebuild** and on-device composer smoke test
+  (iOS confirmed smooth; Android unverified).
+- ⚠️ **Memory consolidation fact preservation** — skips rewrites when the model omits a
+  section, shrinks text below 50% of prior length, or drops **≥20% of salient anchors**
+  (names, orgs, emails, numbers) extracted from the prior section. Heuristic — not a full
+  sentence-level diff/merge.
+- 🔜 **Exact memory consolidation merge** — per-section merge-not-replace LLM pass (deferred).
+
 ### Multimodal & attachments (planned)
 
 Richer inputs/outputs, grouped because they share one prerequisite — an **attachments

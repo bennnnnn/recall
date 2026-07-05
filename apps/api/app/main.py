@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.background import attachment_orphan_reaper, gmail_periodic_sync, push_scheduler
 from app.core import jobs
 from app.core.config import get_settings, validate_production_settings
-from app.core.db import engine
+from app.core.db import engine, warmup_db_pool
 from app.core.logging import setup_logging
 from app.core.redis import get_redis_client
 from app.core.request_id import RequestIdMiddleware
@@ -46,6 +46,7 @@ async def lifespan(_: FastAPI):
     from app.gateways.mcp import setup_mcp_adapters
 
     setup_mcp_adapters(settings)
+    await warmup_db_pool()
     role = settings.process_role.strip().lower()
     if role in ("all", "worker"):
         await jobs.start_worker(settings)

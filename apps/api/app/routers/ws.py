@@ -9,14 +9,12 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
 from app.core.config import get_settings
-from app.core.db import SessionLocal
 from app.core.rate_limit import allow_request
 from app.core.redis import get_redis_client
 from app.exceptions import ChatServiceError, QuotaExceededError
 from app.gateways.google_auth import GoogleAuthError
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.schemas import ChatMessageRequest, EditMessageRequest
-from app.services import auth as auth_service
 from app.services import chat as chat_service
 from app.services import tokens as tokens_service
 
@@ -100,7 +98,11 @@ async def _stream_over_ws(
             )
             return
 
-        if not await _safe_send_json(websocket, {"type": "stream_end"}):
+        stream_end: dict[str, Any] = {"type": "stream_end"}
+        resolved_model = result.get("resolved_model")
+        if resolved_model:
+            stream_end["resolved_model"] = resolved_model
+        if not await _safe_send_json(websocket, stream_end):
             return
 
         finalize_db_task = result.pop("_finalize_db_task", None)
@@ -281,12 +283,6 @@ async def chat_websocket(
                 regen_lat = request.client_latitude
                 regen_lng = request.client_longitude
 
-                async with SessionLocal() as session:
-                    user = await auth_service.get_current_user(session, user_id)
-                    if user is None:
-                        await websocket.send_json({"type": "error", "message": "User not found"})
-                        continue
-
                 async def emit_status(phase: str) -> None:
                     await _safe_send_json(websocket, {"type": "status", "phase": phase})
 
@@ -337,12 +333,6 @@ async def chat_websocket(
                 edit_loc = request.client_location
                 edit_lat = request.client_latitude
                 edit_lng = request.client_longitude
-
-                async with SessionLocal() as session:
-                    user = await auth_service.get_current_user(session, user_id)
-                    if user is None:
-                        await websocket.send_json({"type": "error", "message": "User not found"})
-                        continue
 
                 async def emit_status(phase: str) -> None:
                     await _safe_send_json(websocket, {"type": "status", "phase": phase})
@@ -401,12 +391,6 @@ async def chat_websocket(
 
             message_content = content
             message_model = request.model
-
-            async with SessionLocal() as session:
-                user = await auth_service.get_current_user(session, user_id)
-                if user is None:
-                    await websocket.send_json({"type": "error", "message": "User not found"})
-                    continue
 
             async def emit_status(phase: str) -> None:
                 await _safe_send_json(websocket, {"type": "status", "phase": phase})

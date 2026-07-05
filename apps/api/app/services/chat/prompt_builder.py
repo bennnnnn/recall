@@ -8,12 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.gateways.web_search_gateway import WebSearchHit
-from app.models.orm import User
+from app.models.orm import Chat, User
 from app.services import profile as profile_service
 from app.services.chat.prompt_constants import (
     BROAD_SELF_ANSWER_HINT,
     CLARIFICATION_HINT,
     COPY_DELIVERABLE_HINT,
+    DAY_LEARNING_SNAPSHOT_HINT,
     DAY_PLANNING_ANSWER_HINT,
     EMAIL_DRAFT_HINT,
     INTENT_FORMAT_HINT,
@@ -140,6 +141,7 @@ async def build_prompt_messages(
     settings: Settings,
     *,
     summary: str | None = None,
+    chat: Chat | None = None,
     out: dict[str, object] | None = None,
     query_text: str | None = None,
     minimal_personal_context: bool = False,
@@ -164,18 +166,17 @@ async def build_prompt_messages(
             out["recalled"] = 0
             out["memory_hints"] = []
     else:
-        chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user.id)
+        if chat is None:
+            chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user.id)
 
         async def _projects_block() -> str:
-            if query_text and is_day_reflection_question(query_text):
+            if is_day_plan:
                 return await chat_pkg.projects_service.load_daily_learning_summary_for_prompt(
                     session,
                     user,
                     settings,
                     client_timezone=client_timezone,
                 )
-            if is_day_plan:
-                return ""
             if chat and chat.project_id:
                 return await chat_pkg.projects_service.load_project_for_prompt(
                     session,
@@ -228,7 +229,8 @@ async def build_prompt_messages(
     ]
     if minimal_quiz_context:
         system_parts.extend([QUIZ_ANSWER_HINT, PRIVACY_HINT])
-        chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user.id)
+        if chat is None:
+            chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user.id)
         if chat and chat.project_id:
             quiz_ctx = await chat_pkg.projects_service.load_project_quiz_context(
                 session, user.id, chat.project_id, settings
@@ -239,12 +241,11 @@ async def build_prompt_messages(
         system_parts.extend([CLARIFICATION_HINT, PRIVACY_HINT])
         if query_text and is_day_planning_question(query_text):
             system_parts.append(DAY_PLANNING_ANSWER_HINT)
+            system_parts.append(DAY_LEARNING_SNAPSHOT_HINT)
             if is_day_reflection_question(query_text):
                 system_parts.append(
-                    "This is an end-of-day reflection. Include a brief **Learning** section when "
-                    "today's learning progress is in context — celebrate completed daily goals "
-                    "(e.g. vocabulary words mastered) and note incomplete ones in one line. "
-                    "Keep todos, calendar, and loose ends as the main focus."
+                    "This is an end-of-day reflection — keep todos, calendar, and loose ends "
+                    "as the main focus."
                 )
         if minimal_personal_context:
             system_parts.append(BROAD_SELF_ANSWER_HINT)

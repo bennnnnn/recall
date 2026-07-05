@@ -5,6 +5,8 @@ import pytest
 
 from app.core.config import Settings
 from app.services.memory import (
+    consolidation_rewrite_preserves_facts,
+    extract_consolidation_anchors,
     normalize_memory_text,
     section_needs_consolidation,
     sections_need_consolidation,
@@ -48,6 +50,27 @@ def test_section_needs_consolidation_accepts_long_clean_summary():
 
 def test_sections_need_consolidation_any_section():
     assert sections_need_consolidation({"profile": "Short.", "preference": "Also short."}) is False
+
+
+def test_extract_consolidation_anchors_names_and_orgs():
+    prior = "User's name is Bini. User works at Hooh on Recall. Contact: dev@example.com"
+    anchors = extract_consolidation_anchors(prior)
+    assert "bini" in anchors
+    assert "hooh" in anchors
+    assert "recall" in anchors
+    assert "dev@example.com" in anchors
+
+
+def test_consolidation_rewrite_preserves_facts_accepts_good_rewrite():
+    prior = "User's name is Bini. User works at Hooh. User is a developer."
+    summary = "Bini is a developer at Hooh building mobile apps."
+    assert consolidation_rewrite_preserves_facts(prior, summary) is True
+
+
+def test_consolidation_rewrite_preserves_facts_rejects_dropped_anchor():
+    prior = "User's name is Bini. User works at Hooh. User is a developer."
+    summary = "Bini is a software developer building mobile apps."
+    assert consolidation_rewrite_preserves_facts(prior, summary) is False
 
 
 def test_select_memories_filters_low_confidence():

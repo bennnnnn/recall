@@ -887,6 +887,13 @@ async def load_projects_for_prompt(
     return block
 
 
+def _daily_learning_quiz_label(project: Project) -> tuple[str, str]:
+    """Return (quiz_type_label, progress_unit) for prompt injection."""
+    if _is_language_project(project):
+        return "vocabulary quiz", "words mastered today"
+    return "general knowledge quiz", "correct answers today"
+
+
 async def load_daily_learning_summary_for_prompt(
     session: AsyncSession,
     user: User,
@@ -894,7 +901,7 @@ async def load_daily_learning_summary_for_prompt(
     *,
     client_timezone: str | None = None,
 ) -> str:
-    """Compact today-only stats for end-of-day reflection (not full word lists)."""
+    """Compact today-only stats for day-planning turns (not full word lists)."""
     from app.services import daily_learning
     from app.services import time_context as time_context_service
 
@@ -912,24 +919,25 @@ async def load_daily_learning_summary_for_prompt(
             user.id,
             timezone_name=tz_name,
         )
+        total = int(stats.get("total") or 0)
+        if total == 0:
+            continue
         daily_goal = daily_learning.resolve_daily_goal(project)
         mastered_today = int(stats.get("mastered_today") or 0)
-        pending_today = int(stats.get("pending_today") or 0)
-        if mastered_today == 0 and pending_today == 0:
-            continue
-        if _is_language_project(project):
-            unit = "words mastered today"
-        else:
-            unit = "correct today"
         if mastered_today >= daily_goal:
-            status = "daily goal complete"
+            continue
+        quiz_label, unit = _daily_learning_quiz_label(project)
+        remaining = max(0, daily_goal - mastered_today)
+        if mastered_today == 0:
+            status = f"not started — {remaining} left for today's {quiz_label}"
         else:
-            remaining = max(0, daily_goal - mastered_today)
-            status = f"{remaining} left for today's goal"
-        lines.append(f"- {project.title}: {mastered_today}/{daily_goal} {unit} ({status})")
+            status = f"{remaining} left for today's {quiz_label}"
+        lines.append(
+            f"- {project.title} ({quiz_label}): {mastered_today}/{daily_goal} {unit} ({status})"
+        )
     if not lines:
         return ""
-    return "Today's learning progress:\n" + "\n".join(lines)
+    return "Today's learning progress (local calendar day, authoritative):\n" + "\n".join(lines)
 
 
 def group_items(items: list[ProjectItem]) -> list[ProjectListGroup]:

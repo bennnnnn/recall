@@ -11,6 +11,7 @@ from app.core.db import SessionLocal
 from app.gateways import litellm_gateway
 from app.repositories import memories as memories_repo
 from app.services.memory import (
+    consolidation_rewrite_preserves_facts,
     invalidate_memory_block,
     normalize_memory_text,
     sections_need_consolidation,
@@ -108,6 +109,12 @@ async def consolidate_user_memory_sections(
             if prior and len(summary) < len(prior) * 0.5:
                 logger.warning(
                     "Skipping consolidation for %s: new text much shorter than existing",
+                    section.type,
+                )
+                continue
+            if prior and not consolidation_rewrite_preserves_facts(prior, summary):
+                logger.warning(
+                    "Skipping consolidation for %s: rewrite dropped prior fact anchors",
                     section.type,
                 )
                 continue

@@ -494,6 +494,67 @@ async def test_build_prompt_minimal_for_who_am_i():
 
 
 @pytest.mark.asyncio
+async def test_build_prompt_day_planning_injects_daily_learning():
+    user = MagicMock()
+    user.name = "Dev User"
+    user.email = "dev@example.com"
+    user.location = None
+    user.location_enabled = False
+    user.response_style = "balanced"
+    user.response_tone = "casual"
+    user.memory_enabled = False
+    user.locale = "en"
+    user.timezone = "America/Los_Angeles"
+    user.custom_instructions = None
+
+    session = AsyncMock()
+    learning_block = (
+        "Today's learning progress (local calendar day, authoritative):\n"
+        "- English · Beginner (vocabulary quiz): 0/5 words mastered today "
+        "(not started — 5 left for today's vocabulary quiz)"
+    )
+
+    with (
+        patch("app.services.chat.messages_repo.list_recent", return_value=[]),
+        patch(
+            "app.services.chat.memory_service.get_memory_block",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.chat.todos_service.build_todos_system_section",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.chat.projects_service.load_daily_learning_summary_for_prompt",
+            AsyncMock(return_value=learning_block),
+        ) as daily_mock,
+        patch(
+            "app.services.chat.projects_service.load_projects_for_prompt",
+            AsyncMock(return_value="SHOULD NOT USE"),
+        ),
+        patch(
+            "app.services.chat.chats_repo.get_by_id",
+            AsyncMock(return_value=None),
+        ),
+    ):
+        messages = await build_prompt_messages(
+            session,
+            user,
+            uuid4(),
+            Settings(),
+            query_text="What's still open for me to finish tonight?",
+            client_timezone="America/Los_Angeles",
+        )
+
+    daily_mock.assert_awaited_once()
+    system = messages[0]["content"]
+    assert learning_block in system
+    assert "vocabulary quiz" in system
+    assert "Never reuse yesterday's scores from memory" in system
+    assert "SHOULD NOT USE" not in system
+
+
+@pytest.mark.asyncio
 async def test_build_prompt_minimal_for_vocab_quiz_answer():
     user = MagicMock()
     user.name = "Binalfew Mecuriaw"

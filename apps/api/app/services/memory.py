@@ -52,6 +52,64 @@ def sections_need_consolidation(sections: dict[str, str]) -> bool:
     return any(section_needs_consolidation(text) for text in sections.values())
 
 
+_CONSOLIDATION_ANCHOR_STOP = frozenset(
+    {
+        "user",
+        "the",
+        "and",
+        "for",
+        "with",
+        "who",
+        "that",
+        "this",
+        "their",
+        "they",
+        "prefers",
+        "likes",
+        "works",
+        "name",
+        "is",
+        "are",
+        "was",
+        "has",
+        "have",
+    }
+)
+
+
+def extract_consolidation_anchors(text: str) -> frozenset[str]:
+    """Salient tokens from prior memory text that a rewrite should preserve."""
+    anchors: set[str] = set()
+    for match in re.finditer(r"[\w.+-]+@[\w-]+\.[\w.-]+", text):
+        anchors.add(match.group(0).lower())
+    for match in re.finditer(r"\b\d{2,}\b", text):
+        anchors.add(match.group(0))
+    for match in re.finditer(r'"([^"]{2,80})"', text):
+        quoted = match.group(1).strip().lower()
+        if quoted:
+            anchors.add(quoted)
+    for match in re.finditer(r"\b[A-Z][a-zA-Z0-9-]{2,}\b", text):
+        token = match.group(0).lower()
+        if token not in _CONSOLIDATION_ANCHOR_STOP:
+            anchors.add(token)
+    return frozenset(anchors)
+
+
+def consolidation_rewrite_preserves_facts(
+    prior: str,
+    summary: str,
+    *,
+    min_preserved_ratio: float = 0.8,
+) -> bool:
+    """True when enough prior anchors appear in the rewritten summary."""
+    anchors = extract_consolidation_anchors(prior)
+    if len(anchors) < 2:
+        return True
+    haystack = summary.lower()
+    preserved = sum(1 for anchor in anchors if anchor in haystack)
+    return preserved / len(anchors) >= min_preserved_ratio
+
+
 def _confidence_value(memory: Memory) -> float:
     if memory.confidence is None:
         return 1.0

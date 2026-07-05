@@ -1,4 +1,13 @@
-"""Build and dispatch Expo push notifications for reminders, learning, and email."""
+"""Build and dispatch Expo push notifications for reminders, learning, and email.
+
+Delivery semantics (do not conflate ticket accept with receipt polling):
+
+- **Delivered** — set when Expo accepts a push ticket (`status: ok` on send). That is
+  when we mark todos/suggestions as sent and keep the daily learning nudge lock.
+- **Receipt polling** — deferred (see ``RECEIPT_MIN_AGE_SECONDS``) and used only to
+  prune invalid device tokens. A missing or slow receipt must never block delivery
+  marking or cause a resend on the next scheduler cycle.
+"""
 
 from __future__ import annotations
 

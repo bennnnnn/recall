@@ -253,6 +253,7 @@ export default function ProjectDetailScreen() {
           activityDate={selectedDay}
           dayMeta={selectedDayMeta}
           isTrivia={isTrivia}
+          itemsByDate={project.daily_items_by_date ?? {}}
           studyAction={todayStudyAction}
           onItemUpdated={load}
         />

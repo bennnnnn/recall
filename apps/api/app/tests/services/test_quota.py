@@ -1,3 +1,4 @@
+from datetime import date
 from unittest.mock import MagicMock
 
 import pytest
@@ -88,6 +89,28 @@ async def test_refund_usage(fake_redis):
     await quota_service.record_usage(fake_redis, "u1", 500)
     await quota_service.refund_usage(fake_redis, "u1", 200)
     assert await quota_service.get_daily_usage(fake_redis, "u1") == 300
+
+
+@pytest.mark.asyncio
+async def test_has_daily_usage_key(fake_redis):
+    assert await quota_service.has_daily_usage_key(fake_redis, "u1") is False
+    await fake_redis.set("usage:u1:2026-01-01", 100)
+    assert await quota_service.has_daily_usage_key(fake_redis, "u1", day=date(2026, 1, 1)) is True
+
+
+@pytest.mark.asyncio
+async def test_seed_usage_from_db_skips_db_when_redis_key_warm(fake_redis):
+    from unittest.mock import AsyncMock, patch
+    from uuid import uuid4
+
+    from app.services.chat.post_turn import seed_usage_from_db
+
+    session = AsyncMock()
+    user_id = uuid4()
+    await fake_redis.set(f"usage:{user_id}:{quota_service.utc_today().isoformat()}", 500)
+    with patch("app.services.chat.usage_repo.get_total_for_date", AsyncMock()) as get_total:
+        await seed_usage_from_db(fake_redis, session, user_id)
+        get_total.assert_not_awaited()
 
 
 @pytest.mark.asyncio

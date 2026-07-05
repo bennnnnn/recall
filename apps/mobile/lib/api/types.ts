@@ -165,6 +165,7 @@ export type ProjectDetail = Project & {
   total_count: number;
   stats: ProjectStats;
   daily_history: ProjectDailyHistoryDay[];
+  daily_items_by_date: Record<string, ProjectItem[]>;
   lists: ProjectListGroup[];
 };
 

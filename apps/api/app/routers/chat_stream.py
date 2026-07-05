@@ -98,7 +98,11 @@ async def _stream_tokens_sse(
         if (exc := producer.exception()) is not None:
             raise exc
 
-        yield _sse({"type": "stream_end"})
+        stream_end: dict[str, Any] = {"type": "stream_end"}
+        resolved_model = result.get("resolved_model")
+        if resolved_model:
+            stream_end["resolved_model"] = resolved_model
+        yield _sse(stream_end)
         await _await_finalize_tasks(result)
 
         done: dict[str, Any] = {"type": "done"}
@@ -181,6 +185,7 @@ async def stream_message_sse(
                 client_longitude=body.client_longitude,
                 on_status=on_status,
                 on_reasoning=on_reasoning,
+                user=user,
             ),
         ):
             yield chunk
