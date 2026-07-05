@@ -4,9 +4,7 @@ import {
   Alert,
   Pressable,
   RefreshControl,
-  StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
@@ -30,11 +28,10 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { Theme, useTheme } from "@/lib/theme";
+import { useTheme } from "@/lib/theme";
 import { ActionBanner } from "@/components/ActionBanner";
 import { ChatActionsSheet } from "@/components/ChatActionsSheet";
 import { ChatRenameSheet } from "@/components/ChatRenameSheet";
-import { ReminderBadge } from "@/components/ReminderBadge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDrawer } from "@/contexts/DrawerContext";
 import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
@@ -49,6 +46,16 @@ import {
 import { tap } from "@/lib/haptics";
 import { scheduleIdleTask } from "@/lib/scheduleIdle";
 import { DrawerSearchResults } from "@/components/drawer/DrawerSearchResults";
+import { DrawerFooter } from "@/components/drawer/DrawerFooter";
+import { DrawerHeader } from "@/components/drawer/DrawerHeader";
+import { DrawerNavLinks } from "@/components/drawer/DrawerNavLinks";
+import {
+  CHAT_LIST_STALE_MS,
+  FADE_EXTRA,
+  FOOTER_CHROME,
+  makeConversationListStyles,
+  TOP_CHROME,
+} from "@/components/drawer/conversationListStyles";
 import {
   ConversationRow,
   makeConversationRowStyles,
@@ -56,17 +63,12 @@ import {
 import { sanitizeManualChatTitle } from "@/lib/chatTitle";
 import { shareConversation } from "@/lib/share";
 
-const TOP_CHROME = 58;
-const FOOTER_CHROME = 54;
-const FADE_EXTRA = 40;
-const CHAT_LIST_STALE_MS = 20_000;
-
 export function ConversationList(_props: unknown) {
   const { token } = useAuth();
   const { isOpen } = useDrawer();
   const { t } = useTranslation();
   const theme = useTheme();
-  const s = useMemo(() => makeStyles(theme), [theme]);
+  const s = useMemo(() => makeConversationListStyles(theme), [theme]);
   const rowStyles = useMemo(() => makeConversationRowStyles(theme), [theme]);
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -385,49 +387,15 @@ export function ConversationList(_props: unknown) {
   const bottomFadeHeight = bottomInset + FADE_EXTRA;
 
   const drawerNav = (
-    <View style={s.drawerNav}>
-      <Pressable style={s.todosLink} onPress={openProjects}>
-        <Ionicons name="school-outline" size={18} color={theme.primary} />
-        <Text style={s.todosLinkText}>{t("drawer.projects")}</Text>
-        <Ionicons
-          name="chevron-forward"
-          size={16}
-          color={theme.textTertiary}
-          style={s.todosChevron}
-        />
-      </Pressable>
-
-      <Pressable style={s.todosLink} onPress={openLists}>
-        <Ionicons name="list-outline" size={18} color={theme.primary} />
-        <Text style={s.todosLinkText}>{t("drawer.lists")}</Text>
-        <Ionicons
-          name="chevron-forward"
-          size={16}
-          color={theme.textTertiary}
-          style={s.todosChevron}
-        />
-      </Pressable>
-
-      <Pressable style={s.todosLink} onPress={openReminders}>
-        <View style={s.navIconWrap}>
-          <Ionicons
-            name={showIndicator ? "notifications" : "notifications-outline"}
-            size={18}
-            color={theme.primary}
-          />
-          {showIndicator ? (
-            <ReminderBadge count={unseenCount} style={s.navBadge} />
-          ) : null}
-        </View>
-        <Text style={s.todosLinkText}>{t("drawer.reminders")}</Text>
-        <Ionicons
-          name="chevron-forward"
-          size={16}
-          color={theme.textTertiary}
-          style={s.todosChevron}
-        />
-      </Pressable>
-    </View>
+    <DrawerNavLinks
+      styles={s}
+      theme={theme}
+      showIndicator={showIndicator}
+      unseenCount={unseenCount}
+      onProjects={openProjects}
+      onLists={openLists}
+      onReminders={openReminders}
+    />
   );
 
   // Flatten the sectioned chat list into header + row items so FlashList can
@@ -652,245 +620,28 @@ export function ConversationList(_props: unknown) {
         pointerEvents="none"
       />
 
-      <View
-        style={[s.topOverlay, { paddingTop: insets.top + 8 }]}
-        pointerEvents="box-none"
-      >
-        <View style={s.header}>
-          {searchOpen ? (
-            <View style={s.searchBar}>
-              <Ionicons name="search-outline" size={18} color={theme.textSecondary} />
-              <TextInput
-                ref={searchInputRef}
-                style={s.searchInput}
-                placeholder={t("search.placeholder")}
-                placeholderTextColor={theme.textTertiary}
-                value={searchQuery}
-                onChangeText={onSearchChange}
-                returnKeyType="search"
-                autoCorrect={false}
-                clearButtonMode="while-editing"
-              />
-              <Pressable hitSlop={8} onPress={closeSearch} style={s.searchCancel}>
-                <Text style={s.searchCancelText}>{t("common.cancel")}</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <View style={s.logo}>
-              <View style={s.logoIcon}>
-                <Text style={s.logoStar}>✦</Text>
-              </View>
-              <Text style={s.logoText}>Recall</Text>
-              <Pressable hitSlop={8} style={s.searchBtn} onPress={openSearch}>
-                <Ionicons
-                  name="search-outline"
-                  size={20}
-                  color={theme.textSecondary}
-                />
-              </Pressable>
-            </View>
-          )}
-        </View>
-      </View>
+      <DrawerHeader
+        styles={s}
+        theme={theme}
+        paddingTop={insets.top + 8}
+        searchOpen={searchOpen}
+        searchQuery={searchQuery}
+        searchInputRef={searchInputRef}
+        onSearchChange={onSearchChange}
+        onOpenSearch={openSearch}
+        onCloseSearch={closeSearch}
+      />
 
-      <View
-        style={[s.footer, { paddingBottom: insets.bottom + 8 }]}
-        pointerEvents="box-none"
-      >
-        <Pressable style={s.footerNewChat} onPress={newChat}>
-          <Ionicons name="create-outline" size={18} color={theme.onPrimary} />
-          <Text style={s.footerNewChatText}>{t("drawer.new_chat")}</Text>
-        </Pressable>
-        <Pressable
-          style={s.settingsBtn}
-          onPress={() => {
-            closeDrawer();
-            router.push("/settings");
-          }}
-        >
-          <Ionicons name="settings-outline" size={22} color={theme.onPrimary} />
-        </Pressable>
-      </View>
+      <DrawerFooter
+        styles={s}
+        theme={theme}
+        paddingBottom={insets.bottom + 8}
+        onNewChat={newChat}
+        onSettings={() => {
+          closeDrawer();
+          router.push("/settings");
+        }}
+      />
     </View>
   );
-}
-
-function makeStyles(theme: Theme) {
-  return StyleSheet.create({
-  root: { flex: 1, backgroundColor: theme.bg, overflow: "visible" },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8 },
-  topFade: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 50 },
-  bottomFade: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 50,
-  },
-  topOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 100,
-    backgroundColor: "transparent",
-  },
-  header: { paddingHorizontal: 16, paddingBottom: 10 },
-  drawerNav: {
-    paddingBottom: 14,
-    marginBottom: 4,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.border,
-  },
-  logo: { flexDirection: "row", alignItems: "center", gap: 8 },
-  logoIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: theme.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  logoStar: { fontSize: 13, color: theme.onPrimary },
-  logoText: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: theme.text,
-    letterSpacing: -0.5,
-  },
-  searchBtn: { marginLeft: 2, padding: 4 },
-  searchBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: theme.surface,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: theme.text,
-    paddingVertical: 0,
-    minHeight: 22,
-  },
-  searchCancel: { paddingLeft: 4 },
-  searchCancelText: { fontSize: 15, fontWeight: "600", color: theme.primary },
-  searchResult: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.border,
-    gap: 4,
-  },
-  searchResultHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  searchResultTitle: { flex: 1, fontSize: 13, color: theme.textSecondary },
-  searchResultBadge: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: theme.primary,
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-  },
-  searchResultSnippet: { fontSize: 15, lineHeight: 21, color: theme.text },
-  searchHint: {
-    fontSize: 14,
-    color: theme.textSecondary,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  searchStatus: {
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  todosLink: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginHorizontal: 14,
-    marginBottom: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 10,
-  },
-  todosLinkText: { flex: 1, fontSize: 15, fontWeight: "600", color: theme.text },
-  todosChevron: { marginLeft: "auto" },
-  navIconWrap: {
-    width: 22,
-    height: 22,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  navBadge: { position: "absolute", top: -6, right: -10 },
-  inlineEmpty: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 32,
-    gap: 8,
-  },
-  list: { flex: 1 },
-  section: { marginTop: 18 },
-  sectionTitle: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: theme.textTertiary,
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-    paddingHorizontal: 14,
-    marginBottom: 2,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 4,
-  },
-  sectionCount: {
-    fontSize: 12,
-    color: theme.textTertiary,
-    marginLeft: "auto",
-  },
-  emptyText: { fontSize: 15, color: theme.textSecondary, fontWeight: "500" },
-  retryBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 10,
-    backgroundColor: theme.primary,
-  },
-  retryText: { fontSize: 14, fontWeight: "600", color: theme.onPrimary },
-  footer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 100,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 14,
-    paddingTop: 12,
-    backgroundColor: "transparent",
-  },
-  footerNewChat: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    backgroundColor: theme.primary,
-  },
-  footerNewChatText: { fontSize: 14, fontWeight: "600", color: theme.onPrimary },
-  settingsBtn: {
-    marginLeft: "auto",
-    padding: 8,
-    borderRadius: 10,
-    backgroundColor: theme.primary,
-  },
-  });
 }

@@ -1,0 +1,159 @@
+import { StyleSheet } from "react-native";
+
+import type { Theme } from "@/lib/theme";
+
+export const TOP_CHROME = 58;
+export const FOOTER_CHROME = 54;
+export const FADE_EXTRA = 40;
+export const CHAT_LIST_STALE_MS = 20_000;
+
+export function makeConversationListStyles(theme: Theme) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: theme.bg, overflow: "visible" },
+    center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8 },
+    topFade: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 50 },
+    bottomFade: {
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      zIndex: 50,
+    },
+    topOverlay: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      zIndex: 100,
+      backgroundColor: "transparent",
+    },
+    header: { paddingHorizontal: 16, paddingBottom: 10 },
+    drawerNav: {
+      paddingBottom: 14,
+      marginBottom: 4,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: theme.border,
+    },
+    logo: { flexDirection: "row", alignItems: "center", gap: 8 },
+    logoIcon: {
+      width: 28,
+      height: 28,
+      borderRadius: 8,
+      backgroundColor: theme.primary,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    logoStar: { fontSize: 13, color: theme.onPrimary },
+    logoText: {
+      fontSize: 20,
+      fontWeight: "800",
+      color: theme.text,
+      letterSpacing: -0.5,
+    },
+    searchBtn: { marginLeft: 2, padding: 4 },
+    searchBar: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      backgroundColor: theme.surface,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+    },
+    searchInput: {
+      flex: 1,
+      fontSize: 16,
+      color: theme.text,
+      paddingVertical: 0,
+      minHeight: 22,
+    },
+    searchCancel: { paddingLeft: 4 },
+    searchCancelText: { fontSize: 15, fontWeight: "600", color: theme.primary },
+    todosLink: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginHorizontal: 14,
+      marginBottom: 4,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      gap: 10,
+    },
+    todosLinkText: { flex: 1, fontSize: 15, fontWeight: "600", color: theme.text },
+    todosChevron: { marginLeft: "auto" },
+    navIconWrap: {
+      width: 22,
+      height: 22,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    navBadge: { position: "absolute", top: -6, right: -10 },
+    inlineEmpty: {
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 32,
+      gap: 8,
+    },
+    list: { flex: 1 },
+    section: { marginTop: 18 },
+    sectionTitle: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: theme.textTertiary,
+      textTransform: "uppercase",
+      letterSpacing: 0.8,
+      paddingHorizontal: 14,
+      marginBottom: 2,
+    },
+    sectionHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      marginTop: 18,
+      paddingHorizontal: 14,
+      paddingVertical: 4,
+    },
+    sectionCount: {
+      fontSize: 12,
+      color: theme.textTertiary,
+      marginLeft: "auto",
+    },
+    emptyText: { fontSize: 15, color: theme.textSecondary, fontWeight: "500" },
+    retryBtn: {
+      paddingHorizontal: 20,
+      paddingVertical: 8,
+      borderRadius: 10,
+      backgroundColor: theme.primary,
+    },
+    retryText: { fontSize: 14, fontWeight: "600", color: theme.onPrimary },
+    footer: {
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      zIndex: 100,
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 14,
+      paddingTop: 12,
+      backgroundColor: "transparent",
+    },
+    footerNewChat: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      paddingVertical: 8,
+      paddingHorizontal: 10,
+      borderRadius: 10,
+      backgroundColor: theme.primary,
+    },
+    footerNewChatText: { fontSize: 14, fontWeight: "600", color: theme.onPrimary },
+    settingsBtn: {
+      marginLeft: "auto",
+      padding: 8,
+      borderRadius: 10,
+      backgroundColor: theme.primary,
+    },
+  });
+}
+
+export type ConversationListStyles = ReturnType<typeof makeConversationListStyles>;
