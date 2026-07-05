@@ -28,6 +28,8 @@ type Props = {
   onScrollEnd: () => void;
   onSelectStarter: (prompt: string) => void;
   header?: ReactElement | null;
+  hideHomeStarters?: boolean;
+  listFooter?: ReactElement | null;
 };
 
 export function ChatMessageList({
@@ -46,10 +48,13 @@ export function ChatMessageList({
   onScrollEnd,
   onSelectStarter,
   header,
+  hideHomeStarters = false,
+  listFooter = null,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const showFooterInEmpty = Boolean(listFooter && messages.length === 0);
 
   return (
     <View style={s.messagesArea}>
@@ -92,15 +97,24 @@ export function ChatMessageList({
           ) : null
         }
         ListEmptyComponent={
-          chatLoading && routeChatId ? (
+          showFooterInEmpty ? (
+            <View style={[s.empty, s.emptyWithFooter, { minHeight: emptyHeight }]}>
+              {listFooter}
+            </View>
+          ) : listFooter ? null : chatLoading && routeChatId ? (
             <View style={[s.empty, { height: emptyHeight }]}>
               <StateView variant="loading" compact />
             </View>
+          ) : hideHomeStarters ? (
+            <View style={[s.empty, { height: emptyHeight }]} />
           ) : (
             <View style={[s.empty, { height: emptyHeight }]}>
               <HomeStarters onSelect={onSelectStarter} />
             </View>
           )
+        }
+        ListFooterComponent={
+          messages.length > 0 && listFooter ? listFooter : undefined
         }
       />
 
@@ -130,6 +144,10 @@ function makeStyles(theme: Theme) {
       alignItems: "stretch",
       justifyContent: "flex-start",
       paddingTop: 4,
+    },
+    emptyWithFooter: {
+      justifyContent: "flex-end",
+      paddingBottom: 8,
     },
   });
 }

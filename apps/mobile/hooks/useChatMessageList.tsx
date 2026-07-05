@@ -1,10 +1,28 @@
 import { useCallback, useEffect, useMemo } from "react";
 
 import { ChatMessageRow } from "@/components/chat/ChatMessageRow";
+import { DailyQuizLoadingRow } from "@/components/chat/DailyQuizLoadingRow";
+import { DailyQuizTextRow } from "@/components/chat/DailyQuizTextRow";
 import { StreamingChatMessageRow } from "@/components/chat/StreamingChatMessageRow";
-import { Message } from "@/lib/api";
+import type { Message, ProjectQuizQuestion, QuizModality } from "@/lib/api";
 import { findLastAssistantId } from "@/lib/chatMessageLogic";
+import {
+  DAILY_QUIZ_LOADING_ID,
+  hasDailyQuizTextFence,
+  parseDailyQuizText,
+  questionIdFromDailyQuizMessageId,
+} from "@/lib/dailyQuizMessage";
 import { inferQuizAnswersFromMessages } from "@/lib/parseVocabQuiz";
+
+type DailyQuizRowProps = {
+  active: boolean;
+  submitting: boolean;
+  allowRetry: boolean;
+  currentQuestion: ProjectQuizQuestion | null;
+  onModalityChange: (modality: QuizModality) => void;
+  onTextAnswer: (question: ProjectQuizQuestion, text: string, modality: "definition" | "sentence") => void;
+  onSkip: (question: ProjectQuizQuestion) => void;
+};
 
 type Options = {
   messages: Message[];
@@ -25,6 +43,7 @@ type Options = {
     letter: "A" | "B" | "C" | "D",
     meta?: import("@/lib/parseVocabQuiz").QuizAnswerMeta,
   ) => void;
+  dailyQuizRow?: DailyQuizRowProps;
 };
 
 export function useChatMessageList({
@@ -42,6 +61,7 @@ export function useChatMessageList({
   handleEditMessage,
   handleFeedback,
   handleQuizAnswer,
+  dailyQuizRow,
 }: Options) {
   useEffect(() => {
     if (messages.length === 0) setMenuVisible(false);
@@ -56,9 +76,10 @@ export function useChatMessageList({
     [messages],
   );
 
-  // Intentionally no chat title in the header (home or active threads).
-  // Names live in the drawer and ⋮ menu — do not wire displayChatTitle here.
   const headerTitleLabel = null;
+
+  const quizDisabled =
+    streaming || finalizing || creatingRef.current || Boolean(dailyQuizRow?.submitting);
 
   const sharedRowProps = useMemo(
     () => ({
@@ -72,7 +93,7 @@ export function useChatMessageList({
       quizAnswers,
       highlightedMessageId,
       sendingMessageId,
-      quizDisabled: streaming || finalizing || creatingRef.current,
+      quizDisabled,
       onRegenerate: regenerateResponse,
       onEdit: handleEditMessage,
       onFeedback: handleFeedback,
@@ -89,22 +110,65 @@ export function useChatMessageList({
       quizAnswers,
       highlightedMessageId,
       sendingMessageId,
+      quizDisabled,
       regenerateResponse,
       handleEditMessage,
       handleFeedback,
       handleQuizAnswer,
-      creatingRef,
     ],
   );
 
   const renderItem = useCallback(
-    ({ item, index }: { item: Message; index: number }) =>
-      item.id === "streaming" ? (
+    ({ item, index }: { item: Message; index: number }) => {
+      if (item.id === DAILY_QUIZ_LOADING_ID) {
+        return <DailyQuizLoadingRow quizVariant={quizVariant} />;
+      }
+
+      if (hasDailyQuizTextFence(item.content)) {
+        const parsed = parseDailyQuizText(item.content);
+        if (parsed) {
+          const question =
+            dailyQuizRow?.currentQuestion?.id === parsed.questionId
+              ? dailyQuizRow.currentQuestion
+              : ({
+                  id: parsed.questionId,
+                  sequence: 0,
+                  quiz_kind: "vocab",
+                  topic: parsed.topic,
+                  part_of_speech: null,
+                  question_text: "",
+                  choices: [],
+                  status: "answered",
+                  allowed_modalities: ["definition", "sentence"],
+                } satisfies ProjectQuizQuestion);
+          return (
+            <DailyQuizTextRow
+              parsed={parsed}
+              question={question}
+              submitting={dailyQuizRow?.submitting ?? false}
+              allowRetry={dailyQuizRow?.allowRetry ?? false}
+              active={
+                Boolean(dailyQuizRow?.active) &&
+                item.id === lastAssistantId &&
+                dailyQuizRow?.currentQuestion?.id === parsed.questionId
+              }
+              onModalityChange={dailyQuizRow?.onModalityChange ?? (() => {})}
+              onTextAnswer={(text, modality) =>
+                dailyQuizRow?.onTextAnswer(question, text, modality)
+              }
+              onSkip={() => dailyQuizRow?.onSkip(question)}
+            />
+          );
+        }
+      }
+
+      return item.id === "streaming" ? (
         <StreamingChatMessageRow item={item} index={index} {...sharedRowProps} />
       ) : (
         <ChatMessageRow item={item} index={index} {...sharedRowProps} />
-      ),
-    [sharedRowProps],
+      );
+    },
+    [sharedRowProps, dailyQuizRow, lastAssistantId, quizVariant],
   );
 
   return { quizAnswers, lastAssistantId, headerTitleLabel, renderItem };

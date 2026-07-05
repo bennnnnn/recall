@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Alert,
   useWindowDimensions,
 } from "react-native";
 import { registerNewChat } from "@/lib/drawer";
@@ -35,6 +36,15 @@ import { useChatScroll } from "@/hooks/useChatScroll";
 import { useChatSend } from "@/hooks/useChatSend";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { useDraftChat } from "@/hooks/useDraftChat";
+import { useDailyQuiz, appendQuizFeedbackMessage } from "@/hooks/useDailyQuiz";
+import {
+  buildDailyQuizLoadingMessage,
+  buildDailyQuizMessage,
+  dailyQuizMessageId,
+  isDailyQuizMessageId,
+  questionIdFromDailyQuizMessageId,
+} from "@/lib/dailyQuizMessage";
+import { getQuizUiStyle, setQuizUiStyle, type QuizUiStyle } from "@/lib/quizUiPrefs";
 import { useModels } from "@/hooks/useModels";
 import { useNetwork } from "@/contexts/NetworkContext";
 import { useChatErrorHandlers, useChatStreamLifecycle } from "@/hooks/useChatScreenError";
@@ -171,7 +181,117 @@ function ChatScreen() {
     pendingLaunch,
     setPendingLaunch,
     pendingLaunchRef,
+    dailyQuizActive,
   } = routeLoader;
+
+  const dailyQuizProjectId = dailyQuizActive ? resolveQuizProjectId() : null;
+  const [quizUiStyle, setQuizUiStyleState] = useState<QuizUiStyle>("card");
+  const quizUiPrefPromptedRef = useRef(false);
+  const displayedQuestionIdsRef = useRef(new Set<string>());
+
+  useEffect(() => {
+    if (!dailyQuizActive) return;
+    void getQuizUiStyle().then((style) => {
+      if (style) setQuizUiStyleState(style);
+    });
+  }, [dailyQuizActive]);
+
+  const handleQuizFeedback = useCallback(
+    (feedback: string) => {
+      appendQuizFeedbackMessage(setMessages, feedback);
+      scroll.scrollToLatest();
+    },
+    [setMessages, scroll],
+  );
+
+  const handleSuggestMcq = useCallback(() => {
+    handleQuizFeedback(t("daily_quiz.switch_to_mcq"));
+  }, [handleQuizFeedback, t]);
+
+  const dailyQuiz = useDailyQuiz({
+    token,
+    projectId: dailyQuizProjectId,
+    chatId: activeChatId,
+    enabled: dailyQuizActive && Boolean(dailyQuizProjectId),
+    onFeedback: handleQuizFeedback,
+    onSuggestMcq: handleSuggestMcq,
+  });
+
+  useEffect(() => {
+    const currentId = dailyQuiz.session?.current?.id;
+    if (!dailyQuizActive || !currentId || quizUiPrefPromptedRef.current) return;
+    quizUiPrefPromptedRef.current = true;
+    void (async () => {
+      const existing = await getQuizUiStyle();
+      if (existing) {
+        setQuizUiStyleState(existing);
+        return;
+      }
+      Alert.alert(
+        t("daily_quiz.ui_pref_title"),
+        t("daily_quiz.ui_pref_body"),
+        [
+          {
+            text: t("daily_quiz.ui_pref_card"),
+            onPress: () => {
+              void setQuizUiStyle("card");
+              setQuizUiStyleState("card");
+            },
+          },
+          {
+            text: t("daily_quiz.ui_pref_simple"),
+            onPress: () => {
+              void setQuizUiStyle("simple");
+              setQuizUiStyleState("simple");
+            },
+          },
+        ],
+        { cancelable: false },
+      );
+    })();
+  }, [dailyQuizActive, dailyQuiz.session?.current?.id, t]);
+
+  useEffect(() => {
+    if (!dailyQuizActive) return;
+    scroll.scrollToLatest();
+  }, [dailyQuizActive, dailyQuiz.session?.current?.id, scroll]);
+
+  useEffect(() => {
+    if (!dailyQuizActive) {
+      displayedQuestionIdsRef.current.clear();
+      return;
+    }
+    const session = dailyQuiz.session;
+    const question = session?.current;
+    if (!question || dailyQuiz.loading) return;
+
+    setMessages((prev) => {
+      const msgId = dailyQuizMessageId(question.id);
+      const nextMsg = buildDailyQuizMessage(question, session, dailyQuiz.modality);
+      const existing = prev.find((m) => m.id === msgId);
+      if (existing) {
+        if (existing.content === nextMsg.content) return prev;
+        return prev.map((m) => (m.id === msgId ? nextMsg : m));
+      }
+      displayedQuestionIdsRef.current.add(question.id);
+      return [...prev, nextMsg];
+    });
+  }, [
+    dailyQuizActive,
+    dailyQuiz.session,
+    dailyQuiz.session?.current?.id,
+    dailyQuiz.modality,
+    dailyQuiz.loading,
+    setMessages,
+  ]);
+
+  useEffect(() => {
+    if (!dailyQuizActive || !dailyQuizProjectId || chatTitle) return;
+    const project = projects.find((p) => p.id === dailyQuizProjectId);
+    if (project?.title) {
+      setChatTitle(project.title);
+    }
+  }, [dailyQuizActive, dailyQuizProjectId, chatTitle, projects, setChatTitle]);
 
   const chatActions = useChatActions({
     token,
@@ -323,8 +443,71 @@ function ChatScreen() {
     regenerateResponse,
   });
 
+  const displayMessages = useMemo(() => {
+    if (!dailyQuizActive) return messages;
+    if (dailyQuiz.loading && !dailyQuiz.session) {
+      return [...messages, buildDailyQuizLoadingMessage()];
+    }
+    return messages;
+  }, [messages, dailyQuizActive, dailyQuiz.loading, dailyQuiz.session]);
+
+  const wrappedHandleQuizAnswer = useCallback(
+    (
+      messageId: string,
+      letter: "A" | "B" | "C" | "D",
+      meta?: import("@/lib/parseVocabQuiz").QuizAnswerMeta,
+    ) => {
+      if (isDailyQuizMessageId(messageId)) {
+        const questionId = questionIdFromDailyQuizMessageId(messageId);
+        const question = dailyQuiz.session?.current;
+        if (question?.id === questionId && !dailyQuiz.submitting) {
+          const pickId = `local-quiz-pick-${questionId}`;
+          setMessages((prev) => {
+            const withoutOld = prev.filter((m) => m.id !== pickId);
+            return [
+              ...withoutOld,
+              {
+                id: pickId,
+                role: "user",
+                content: letter,
+                model: null,
+                created_at: new Date().toISOString(),
+              },
+            ];
+          });
+          scroll.scrollToLatest();
+          void dailyQuiz.submitAnswer(question, { modality: "mcq", letter });
+        }
+        return;
+      }
+      handleQuizAnswer(messageId, letter, meta);
+    },
+    [dailyQuiz, handleQuizAnswer, setMessages, scroll],
+  );
+
+  const dailyQuizRow = useMemo(
+    () =>
+      dailyQuizActive
+        ? {
+            active: true,
+            submitting: dailyQuiz.submitting,
+            allowRetry: dailyQuiz.allowRetry,
+            currentQuestion: dailyQuiz.session?.current ?? null,
+            onModalityChange: dailyQuiz.setModality,
+            onTextAnswer: (
+              question: import("@/lib/api").ProjectQuizQuestion,
+              text: string,
+              modality: "definition" | "sentence",
+            ) => void dailyQuiz.submitAnswer(question, { modality, text }),
+            onSkip: (question: import("@/lib/api").ProjectQuizQuestion) =>
+              void dailyQuiz.skipQuestion(question),
+          }
+        : undefined,
+    [dailyQuizActive, dailyQuiz],
+  );
+
   const { headerTitleLabel, renderItem } = useChatMessageList({
-    messages,
+    messages: displayMessages,
     streaming,
     finalizing,
     selectedModel,
@@ -337,7 +520,8 @@ function ChatScreen() {
     regenerateResponse: handleRegenerate,
     handleEditMessage,
     handleFeedback,
-    handleQuizAnswer,
+    handleQuizAnswer: wrappedHandleQuizAnswer,
+    dailyQuizRow,
   });
 
   const layout = useChatLayoutMetrics({
@@ -347,7 +531,7 @@ function ChatScreen() {
     keyboardHeight,
     composerHeight: COMPOSER_HEIGHT,
     attachmentExtra: composerAttachmentExtra(pendingAttachment),
-    messagesLength: messages.length,
+    messagesLength: displayMessages.length,
     streaming: streamActive,
   });
 
@@ -366,7 +550,7 @@ function ChatScreen() {
     actionBanner,
     dismissActionBanner,
     listRef,
-    messages,
+    messages: displayMessages,
     hasMoreOlder,
     loadingOlder,
     chatLoading,
@@ -415,6 +599,7 @@ function ChatScreen() {
     voiceTranscribing,
     voiceMeterLevel,
     toggleVoiceInput,
+    hideHomeStarters: dailyQuizActive,
   });
 
   if (!token) return <Redirect href="/login" />;

@@ -4,9 +4,12 @@ import { request } from "@/lib/api/client";
 import type {
   LanguageLevel,
   Project,
+  ProjectDailyQuiz,
   ProjectDetail,
   ProjectItem,
   ProjectKind,
+  ProjectQuizAnswerResult,
+  QuizModality,
   VocabStatus,
 } from "@/lib/api/types";
 
@@ -104,4 +107,39 @@ export const projectsApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+
+  ensureDailyQuiz: (token: string, projectId: string) => {
+    const tz = getDeviceTimezone();
+    const qs = tz ? `?client_timezone=${encodeURIComponent(tz)}` : "";
+    return request<ProjectDailyQuiz>(`/projects/${projectId}/quiz/daily/ensure${qs}`, token, {
+      method: "POST",
+    });
+  },
+
+  getDailyQuiz: (token: string, projectId: string) => {
+    const tz = getDeviceTimezone();
+    const qs = tz ? `?client_timezone=${encodeURIComponent(tz)}` : "";
+    return request<ProjectDailyQuiz>(`/projects/${projectId}/quiz/daily${qs}`, token);
+  },
+
+  answerDailyQuiz: (
+    token: string,
+    projectId: string,
+    questionId: string,
+    body: {
+      modality?: QuizModality;
+      letter?: string;
+      text?: string;
+      chat_id?: string;
+      skip?: boolean;
+    },
+  ) => {
+    const tz = getDeviceTimezone();
+    const qs = tz ? `?client_timezone=${encodeURIComponent(tz)}` : "";
+    return request<ProjectQuizAnswerResult>(
+      `/projects/${projectId}/quiz/daily/${questionId}/answer${qs}`,
+      token,
+      { method: "POST", body: JSON.stringify(body) },
+    );
+  },
 };

@@ -24,7 +24,8 @@ import {
 import { extractPrimaryCopyText } from "@/lib/copyBlock";
 import { exportMessageAsPdf } from "@/lib/exportMessagePdf";
 import { notifySuccess, notifyWarning, tap } from "@/lib/haptics";
-import { parseVocabQuiz, stripVocabQuizBlock, stripVocabSessionMetadata, isCompleteVocabQuiz, hasVocabQuizFence, cleanQuizWord, stripQuizMarkdownDuplicates, type QuizAnswerMeta } from "@/lib/parseVocabQuiz";
+import { parseVocabQuiz, stripVocabQuizBlock, stripVocabSessionMetadata, isRenderableVocabQuiz, hasVocabQuizFence, cleanQuizWord, stripQuizMarkdownDuplicates, type QuizAnswerMeta } from "@/lib/parseVocabQuiz";
+import { isDailyQuizMessageId } from "@/lib/dailyQuizMessage";
 import { parseVocabCard, stripVocabCardBlock, hasVocabCardFence } from "@/lib/parseVocabCard";
 import { resolvePlaces, stripPlacesContent } from "@/lib/placesList";
 import {
@@ -280,7 +281,7 @@ export const MessageBubble = React.memo(function MessageBubble({
   const quiz = useMemo(() => {
     if (isUser || !hasContent) return null;
     const parsed = parseVocabQuiz(content);
-    return isCompleteVocabQuiz(parsed) ? parsed : null;
+    return isRenderableVocabQuiz(parsed) ? parsed : null;
   }, [isUser, hasContent, content]);
   const vocabCard = useMemo(() => {
     if (isUser || !hasContent || quiz) return null;
@@ -294,13 +295,14 @@ export const MessageBubble = React.memo(function MessageBubble({
       ? quiz.question?.trim() || quizTopicLabel
       : quiz.question?.trim() || ""
     : "";
+  const isDailyQuiz = isDailyQuizMessageId(message.id);
   const showQuizCard = quiz != null && !layoutFrozen;
   const showVocabCard = vocabCard != null && !layoutFrozen && !showQuizCard;
   const hideQuizFenceInMarkdown = showQuizCard || hasVocabQuizFence(content);
   const hideCardFenceInMarkdown =
     hideQuizFenceInMarkdown || showVocabCard || hasVocabCardFence(content);
   const showQuizButtons =
-    showQuizCard && isLastAssistant && onQuizAnswer != null;
+    showQuizCard && isLastAssistant && onQuizAnswer != null && (!isDailyQuiz || !quizDisabled);
   const showLiveClock =
     !isUser &&
     hasContent &&
@@ -413,26 +415,36 @@ export const MessageBubble = React.memo(function MessageBubble({
               <VocabCard card={vocabCard} language={quizLanguage} />
             ) : null}
             {showQuizCard && quiz ? (
-              <VocabQuizChoices
-                quiz={quiz}
-                variant={quizVariant === "trivia" || quiz.quizType === "trivia" ? "trivia" : "vocab"}
-                disabled={!showQuizButtons || !!quizDisabled}
-                language={quizLanguage}
-                initialSelected={quizSelectedLetter}
-                onSelect={
-                  showQuizButtons && onQuizAnswer
-                    ? (letter) => {
-                        const isCorrect =
-                          quiz.correct != null ? letter === quiz.correct : null;
-                        onQuizAnswer(message.id, letter, {
-                          topic: quizTopicLabel,
-                          question: quizQuestionText,
-                          isCorrect,
-                        });
-                      }
-                    : undefined
-                }
-              />
+              <>
+                {quiz.dailyProgress ? (
+                  <Text style={b.dailyQuizProgress}>
+                    {t("daily_quiz.progress", {
+                      done: quiz.dailyProgress.done,
+                      goal: quiz.dailyProgress.goal,
+                    })}
+                  </Text>
+                ) : null}
+                <VocabQuizChoices
+                  quiz={quiz}
+                  variant={quizVariant === "trivia" || quiz.quizType === "trivia" ? "trivia" : "vocab"}
+                  disabled={!showQuizButtons || !!quizDisabled}
+                  language={quizLanguage}
+                  initialSelected={quizSelectedLetter}
+                  onSelect={
+                    showQuizButtons && onQuizAnswer
+                      ? (letter) => {
+                          const isCorrect =
+                            quiz.correct != null ? letter === quiz.correct : null;
+                          onQuizAnswer(message.id, letter, {
+                            topic: quizTopicLabel,
+                            question: quizQuestionText,
+                            isCorrect,
+                          });
+                        }
+                      : undefined
+                  }
+                />
+              </>
             ) : null}
             {showCalendarProposals
               ? calendarProposals.map((proposal, index) => (
@@ -451,7 +463,7 @@ export const MessageBubble = React.memo(function MessageBubble({
         </View>
       )}
 
-      {(showActions || reserveActionRow) && (
+      {(showActions || reserveActionRow) && !isDailyQuiz ? (
         <View style={reserveActionRow && !showActions ? b.actionRowReserved : undefined}>
           <AssistantActions
             messageId={message.id}
@@ -463,7 +475,7 @@ export const MessageBubble = React.memo(function MessageBubble({
             hidden={reserveActionRow && !showActions}
           />
         </View>
-      )}
+      ) : null}
     </View>
   );
 });
@@ -534,6 +546,12 @@ function makeStyles(t: Theme) {
       lineHeight: 16,
       color: t.textTertiary,
       marginTop: 8,
+    },
+    dailyQuizProgress: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: t.textSecondary,
+      marginBottom: 4,
     },
     actionRowReserved: {
       minHeight: 38,

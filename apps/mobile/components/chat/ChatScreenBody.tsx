@@ -88,6 +88,8 @@ export type ChatScreenBodyProps = {
   onVoicePress?: () => void;
   upgradeVisible: boolean;
   onCloseUpgrade: () => void;
+  listFooter?: ReactElement | null;
+  hideHomeStarters?: boolean;
 };
 
 export function ChatScreenBody({
@@ -152,6 +154,8 @@ export function ChatScreenBody({
   onVoicePress,
   upgradeVisible,
   onCloseUpgrade,
+  listFooter = null,
+  hideHomeStarters = false,
 }: ChatScreenBodyProps) {
   const { t } = useTranslation();
 
@@ -180,6 +184,8 @@ export function ChatScreenBody({
           onScrollEnd={onScrollEnd}
           onSelectStarter={onSelectStarter}
           header={listHeader}
+          hideHomeStarters={hideHomeStarters}
+          listFooter={listFooter}
         />
       </StreamingDraftProvider>
 

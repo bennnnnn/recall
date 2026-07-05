@@ -153,52 +153,24 @@ VOCAB_CARD_FORMAT_BLOCK = (
     "The card is for the app UI — keep your prose natural above it."
 )
 
-LANGUAGE_EXAM_TUTOR_HINT = (
-    "Active **language** projects (English etc.) — you are the user's vocabulary tutor.\n"
-    "The project **level** is the user's **English skill level** (level1=beginner … level6=fluent), "
-    "NOT word difficulty stored per word.\n"
-    "Each word has: term (content), part_of_speech, definition, example_sentence, status "
+LANGUAGE_DB_EXAM_HINT = (
+    "Active **language** project — **exam mode** (app-managed daily quiz).\n"
+    "The project **level** is the user's **English skill level** (level1=beginner … level6=fluent).\n"
+    "Each word has: term, part_of_speech, definition, example_sentence, status "
     "(new | learning | mastered).\n\n"
-    "**Grouping — mandatory:**\n"
-    "Every word MUST have part_of_speech. Words are stored in separate groups by speech type "
-    "(nouns, verbs, adjectives, …). Never mix nouns and verbs in one group. "
-    "book→noun/nouns, eat→verb/verbs.\n"
-    "When adding via sync, always set part_of_speech; list_title becomes nouns/verbs automatically.\n\n"
-    "**Level rules — mandatory:**\n"
-    "Match ALL quiz words and suggested new words to the project's level:\n"
-    + "\n".join(f"- {k}: {v}" for k, v in LEVEL_GUIDANCE.items())
-    + "\n\n"
-    "**Interactive quiz (in chat — primary way to practice):**\n"
-    "The user quizzes WITH you, not alone. Run a turn-by-turn multiple-choice quiz:\n"
-    "1) Pick ONE word from their new/learning items that fits their project level "
-    "(for level1, only the simplest words in their list).\n"
-    "2) Present the quiz card using this EXACT format every time:\n"
-    f"{VOCAB_QUIZ_FORMAT_BLOCK}\n"
-    "3) STOP — wait for the user to reply with A, B, C, or D. Do NOT reveal the answer yet.\n"
-    "4) After they answer: if correct → congratulate, explain, give an example, "
-    "then ask the next question; if wrong → gently correct and encourage.\n"
-    "5) One quiz question per message until they answer.\n"
-    "6) **Auto-master:** when the user answers correctly, sync MUST mark that word mastered "
-    "immediately — the user must NOT ask you to mark it.\n"
-    "7) Keep tone encouraging.\n\n"
-    "Use start_learning when they begin studying a new word; master on every correct quiz answer.\n\n"
-    "**Daily vocabulary batches (primary learning mode):**\n"
-    "Each project has daily_goal = N words per session (shown in the snapshot).\n"
-    "1) If ANY words are still new or learning, quiz those first — do NOT add new words yet.\n"
-    "2) When there are no pending new/learning words (or the user asks for today's words), "
-    "add exactly N fresh words at their English level via sync. Never duplicate a term "
-    "already in the deck (check content).\n"
-    "3) Teach each word briefly, then quiz one at a time until all N are mastered.\n"
-    "4) The user's dashboard tracks today's mastered count vs daily_goal and total words "
-    "accumulated over time.\n"
-    "5) When today's N words are all mastered, congratulate in plain markdown only — "
-    "the app tracks completion automatically. NEVER append ```json, session_complete, "
-    "words_learned, or any other machine-readable block on completion messages "
-    "(only ```vocab_quiz during active quiz questions).\n"
-    "6) **Daily goal reached:** When the user has already mastered daily_goal words today, "
-    "tell them clearly that today's goal is done. Do NOT sync new words. Only add a bonus "
-    "batch if they explicitly ask for extra/more/bonus words beyond today's goal — confirm first."
+    "**Daily quiz runs in the app panel** above the composer — questions are pre-loaded from "
+    "the database (A–D, definition, or sentence). **Do NOT output ```vocab_quiz blocks.**\n\n"
+    "Your role in this chat:\n"
+    "- Answer follow-up questions about words they missed or skipped.\n"
+    "- Give brief encouragement when they send free text.\n"
+    "- Use vocab_card only if they explicitly ask to learn a new word in conversational style.\n"
+    "- Do NOT generate quiz questions — the app handles scoring and progression.\n\n"
+    "**Daily goal:** When they finish today's batch in the panel, congratulate in plain markdown. "
+    "Do NOT sync new words unless they explicitly ask for bonus words beyond today's goal."
 )
+
+# Legacy alias kept for imports; exam mode uses the DB-backed hint above.
+LANGUAGE_EXAM_TUTOR_HINT = LANGUAGE_DB_EXAM_HINT
 
 LANGUAGE_CHAT_TUTOR_HINT = (
     "Active **language** project — **chat tutor mode** (conversational learning, NOT multiple choice).\n"
@@ -215,8 +187,8 @@ LANGUAGE_CHAT_TUTOR_HINT = (
     "5) When they show understanding, congratulate briefly and use sync to "
     "start_learning or master the word — never wait for them to ask.\n"
     "6) Then move to the next word until today's daily_goal is met.\n"
-    '7) If the user says "quiz me", "test me", or opens exam mode, switch to '
-    "multiple-choice vocab_quiz cards (exam rules).\n\n"
+    '7) If the user says "quiz me" or "test me", you may use ```vocab_quiz for one-off '
+    "A–D in chat. Exam mode (Start today's words) uses the app quiz panel instead.\n\n"
     "**Do NOT use ```vocab_quiz in chat tutor mode** unless the user explicitly "
     "requests a quiz question.\n\n"
     "**Daily batches:** Same rules as exam mode for daily_goal — quiz/teach pending "
@@ -247,31 +219,20 @@ TRIVIA_QUIZ_FENCE_EXAMPLE = (
     "```"
 )
 
-TRIVIA_EXAM_TUTOR_HINT = (
-    "Active **trivia** project — **exam quiz mode** (multiple choice).\n"
-    "Quiz topics are in project description (comma-separated ids: history, science, …).\n"
-    "daily_goal = number of questions to get correct per session.\n"
-    "Each saved fact: list_title = topic label (e.g. History), content = short question, "
-    "definition = explanation.\n\n"
-    "**Daily quiz (in chat — primary mode):**\n"
-    "1) Ask ONE multiple-choice question at a time from the user's topics.\n"
-    "2) Use vocab_quiz JSON with quiz_type=trivia — word = topic label ONLY (e.g. History), "
-    "question = the full question text. NEVER set part_of_speech for trivia.\n"
-    f"Example:\n{TRIVIA_QUIZ_FENCE_EXAMPLE}\n"
-    "3) STOP — wait for A, B, C, or D before revealing the answer.\n"
-    "4) If correct → congratulate, explain — the app saves the fact automatically (no sync needed).\n"
-    "5) If wrong → explain gently, then ask the next question.\n"
-    "6) Continue until the user has daily_goal correct answers today.\n"
-    "7) Do not repeat questions already in the deck. Mix topics across the session.\n"
-    "8) When today's goal is met, congratulate clearly — today's quiz is done. "
-    "Do NOT ask new questions unless the user explicitly wants bonus questions beyond today's goal.\n"
-    "9) Completion messages are markdown only — NEVER append ```json or session metadata "
-    "(the app tracks daily progress automatically).\n\n"
-    "**Export / PDF:** When the user asks to export, download, print, or save their progress "
-    "as a PDF (or report), write a complete structured summary in markdown: title, date, "
-    "topics, stats, and a list of mastered facts. Never say you cannot generate PDFs — tell "
-    "them to tap the **document export** icon on your message to save a PDF file."
+TRIVIA_DB_EXAM_HINT = (
+    "Active **trivia** project — **exam mode** (app-managed daily quiz).\n"
+    "Topics are in project description (comma-separated). daily_goal = correct answers per session.\n"
+    "**Daily quiz runs in the app panel** — multiple-choice questions are pre-loaded. "
+    "**Do NOT output ```vocab_quiz blocks.**\n\n"
+    "Your role: explain answers after the user completes questions in the panel; "
+    "answer follow-ups about facts they missed.\n"
+    "When today's goal is met, congratulate clearly. Do NOT ask new quiz questions unless "
+    "they want bonus practice beyond today's goal.\n\n"
+    "**Export / PDF:** When asked, write a structured markdown summary (title, date, topics, "
+    "stats, mastered facts). Tell them to tap the **document export** icon to save a PDF."
 )
+
+TRIVIA_EXAM_TUTOR_HINT = TRIVIA_DB_EXAM_HINT
 
 TRIVIA_CHAT_TUTOR_HINT = (
     "Active **trivia** project — **chat tutor mode** (conversational, NOT multiple choice).\n"
@@ -312,12 +273,13 @@ def _quiz_mode_banner(quiz_mode: str | None, *, kind: str | None = None) -> str:
         )
     if quiz_mode == "exam":
         return (
-            "**Presentation mode: exam quiz.** One multiple-choice question per turn "
-            "using vocab_quiz JSON; wait for A–D before explaining."
+            "**Presentation mode: exam quiz.** Questions run in the Daily Quiz panel "
+            "(pre-loaded from the database). Do NOT emit vocab_quiz JSON — help with "
+            "follow-ups and explanations only."
         )
     return (
-        "**Presentation mode: exam quiz (default).** One multiple-choice question per turn "
-        "using vocab_quiz JSON; wait for A–D before explaining."
+        "**Presentation mode: exam quiz (default).** Questions run in the Daily Quiz panel. "
+        "Do NOT emit vocab_quiz JSON."
     )
 
 
@@ -353,16 +315,11 @@ def build_language_quiz_prompt(project: Project, stats: ProjectStats) -> str:
         else ""
     )
     return (
-        f'Start an interactive vocabulary quiz for my "{title}" English project.\n'
+        f'Start today\'s vocabulary quiz for my "{title}" English project.\n'
         f"My English level: {lvl}.{goal}\n"
         f"{_language_progress_line(stats)}\n\n"
-        "Quiz me in chat: one word at a time from my new and learning words, matched to my level.\n"
-        "Use this EXACT format for every question (required for the quiz card UI):\n\n"
-        f"{VOCAB_QUIZ_FORMAT_BLOCK}\n\n"
-        "Do not wrap the word in extra asterisks. Wait for my answer before you explain. "
-        "If I'm right, congratulate me, give an example, and mark the word mastered automatically. "
-        "If wrong, explain and encourage me. Then ask the next question. "
-        "Begin with the first question now."
+        "Use the Daily Quiz panel — questions are pre-loaded. "
+        "Help me with follow-ups if I ask about words I missed."
     )
 
 
