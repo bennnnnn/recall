@@ -1,0 +1,173 @@
+import { useCallback, useEffect, useState } from "react";
+import { Alert } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
+
+import { api, Chat } from "@/lib/api";
+import { sanitizeManualChatTitle } from "@/lib/chatTitle";
+import { shareConversation } from "@/lib/share";
+
+type Params = {
+  token: string | null;
+  isDrawerOpen: boolean;
+  patchChatInGroups: (chatId: string, patch: Partial<Chat>) => void;
+  load: (background?: boolean) => Promise<void>;
+  moveChatPinState: (chatId: string, pinned: boolean) => void;
+};
+
+export function useDrawerChatActions({
+  token,
+  isDrawerOpen,
+  patchChatInGroups,
+  load,
+  moveChatPinState,
+}: Params) {
+  const { t } = useTranslation();
+  const [menuChat, setMenuChat] = useState<Chat | null>(null);
+  const [renameVisible, setRenameVisible] = useState(false);
+  const [renameText, setRenameText] = useState("");
+  const [renameTarget, setRenameTarget] = useState<Chat | null>(null);
+  const [actionBanner, setActionBanner] = useState<{
+    message: string;
+    icon?: keyof typeof Ionicons.glyphMap;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!isDrawerOpen) setMenuChat(null);
+  }, [isDrawerOpen]);
+
+  const showActionBanner = useCallback(
+    (message: string, icon?: keyof typeof Ionicons.glyphMap) => {
+      setActionBanner({ message, icon });
+    },
+    [],
+  );
+
+  const dismissActionBanner = useCallback(() => setActionBanner(null), []);
+
+  const closeMenu = useCallback(() => setMenuChat(null), []);
+
+  const showRowMenu = useCallback((chat: Chat) => {
+    setMenuChat(chat);
+  }, []);
+
+  const handleShareChat = useCallback(async () => {
+    if (!token || !menuChat) return;
+    const chat = menuChat;
+    closeMenu();
+    try {
+      const msgs = await api.listAllMessages(token, chat.id);
+      await shareConversation(chat.title, msgs);
+    } catch {
+      Alert.alert(t("common.error"), t("chat.share_failed"));
+    }
+  }, [token, menuChat, closeMenu, t]);
+
+  const openRenameFromMenu = useCallback(() => {
+    if (!menuChat) return;
+    setRenameTarget(menuChat);
+    setRenameText(menuChat.title ?? "");
+    closeMenu();
+    setRenameVisible(true);
+  }, [menuChat, closeMenu]);
+
+  const confirmRename = useCallback(async () => {
+    const title = sanitizeManualChatTitle(renameText);
+    if (!title || !renameTarget || !token) {
+      setRenameVisible(false);
+      return;
+    }
+    const prevTitle = renameTarget.title;
+    patchChatInGroups(renameTarget.id, { title });
+    setRenameVisible(false);
+    setRenameTarget(null);
+    try {
+      await api.renameChat(token, renameTarget.id, title);
+      showActionBanner(t("chat.renamed_toast"), "pencil-outline");
+    } catch {
+      patchChatInGroups(renameTarget.id, { title: prevTitle ?? null });
+      Alert.alert(t("common.error"), t("chat.rename_failed"));
+    }
+  }, [renameText, renameTarget, token, patchChatInGroups, showActionBanner, t]);
+
+  const togglePinChat = useCallback(async () => {
+    if (!token || !menuChat) return;
+    const chat = menuChat;
+    const next = !chat.pinned;
+    closeMenu();
+    moveChatPinState(chat.id, next);
+    try {
+      await api.setPin(token, chat.id, next);
+      showActionBanner(
+        next ? t("chat.pinned_toast") : t("chat.unpinned_toast"),
+        next ? "bookmark" : "bookmark-outline",
+      );
+    } catch {
+      moveChatPinState(chat.id, !next);
+      Alert.alert(t("common.error"), t("chat.pin_failed"));
+    }
+  }, [token, menuChat, closeMenu, moveChatPinState, showActionBanner, t]);
+
+  const toggleArchiveChat = useCallback(async () => {
+    if (!token || !menuChat) return;
+    const chat = menuChat;
+    const next = !chat.archived;
+    closeMenu();
+    try {
+      await api.setArchive(token, chat.id, next);
+      await load(true);
+      showActionBanner(
+        next ? t("chat.archived_toast") : t("chat.unarchived_toast"),
+        next ? "archive-outline" : "arrow-undo-outline",
+      );
+    } catch {
+      Alert.alert(t("common.error"), t("common.error"));
+    }
+  }, [token, menuChat, closeMenu, load, showActionBanner, t]);
+
+  const confirmDeleteChat = useCallback(() => {
+    if (!menuChat) return;
+    const chat = menuChat;
+    closeMenu();
+    Alert.alert(t("chat.delete_confirm_title"), t("chat.delete_confirm_body"), [
+      { text: t("common.cancel"), style: "cancel" },
+      {
+        text: t("common.delete"),
+        style: "destructive",
+        onPress: async () => {
+          if (!token) return;
+          try {
+            await api.deleteChat(token, chat.id);
+            await load(true);
+            showActionBanner(t("chat.deleted_toast"), "trash-outline");
+          } catch {
+            Alert.alert(t("common.error"), t("chat.delete_failed"));
+          }
+        },
+      },
+    ]);
+  }, [menuChat, closeMenu, token, load, showActionBanner, t]);
+
+  const closeRename = useCallback(() => {
+    setRenameVisible(false);
+    setRenameTarget(null);
+  }, []);
+
+  return {
+    menuChat,
+    renameVisible,
+    renameText,
+    setRenameText,
+    actionBanner,
+    dismissActionBanner,
+    closeMenu,
+    showRowMenu,
+    handleShareChat,
+    openRenameFromMenu,
+    confirmRename,
+    togglePinChat,
+    toggleArchiveChat,
+    confirmDeleteChat,
+    closeRename,
+  };
+}
