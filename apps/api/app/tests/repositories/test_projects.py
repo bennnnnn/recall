@@ -26,6 +26,31 @@ async def test_projects_list_excludes_archived_by_default(fake_session):
 
 
 @pytest.mark.asyncio
+async def test_list_for_users_returns_empty_without_querying(fake_session):
+    from app.repositories.projects import list_for_users
+
+    result = await list_for_users(fake_session, [])
+
+    assert result == []
+    fake_session.execute.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_list_for_users_issues_a_single_batched_query(fake_session):
+    from app.repositories.projects import list_for_users
+
+    projects = [MagicMock(), MagicMock()]
+    fake_session.execute.return_value = MagicMock(
+        scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=projects)))
+    )
+
+    result = await list_for_users(fake_session, [uuid4(), uuid4(), uuid4()])
+
+    assert result == projects
+    fake_session.execute.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_find_language_by_target(fake_session):
     from app.repositories.projects import find_language_by_target
 

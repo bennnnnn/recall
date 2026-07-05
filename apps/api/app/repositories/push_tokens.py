@@ -99,3 +99,11 @@ async def delete_by_token(session: AsyncSession, expo_push_token: str) -> int:
 async def list_for_user(session: AsyncSession, user_id: UUID) -> list[PushToken]:
     result = await session.execute(select(PushToken).where(PushToken.user_id == user_id))
     return list(result.scalars().all())
+
+
+async def list_for_users(session: AsyncSession, user_ids: list[UUID]) -> list[PushToken]:
+    """Batched list_for_user — one query across many users instead of one per user."""
+    if not user_ids:
+        return []
+    result = await session.execute(select(PushToken).where(PushToken.user_id.in_(user_ids)))
+    return list(result.scalars().all())

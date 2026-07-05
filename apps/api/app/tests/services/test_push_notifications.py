@@ -130,8 +130,9 @@ async def test_process_learning_nudges_respects_daily_dedup():
     user.timezone = "UTC"
     user.push_notifications_enabled = True
 
-    session.execute = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[(user_id,)])))
-    session.get = AsyncMock(return_value=user)
+    session.execute = AsyncMock(
+        return_value=MagicMock(scalars=MagicMock(return_value=MagicMock(all=lambda: [user])))
+    )
     redis.set = AsyncMock(return_value=False)
 
     messages = await push_service.process_learning_nudges(session, redis, settings)
@@ -171,6 +172,10 @@ async def test_run_push_cycle_skips_expo_in_dev_mock():
     send_mock.assert_not_awaited()
 
 
+def _users_execute_result(users):
+    return MagicMock(scalars=MagicMock(return_value=MagicMock(all=lambda: users)))
+
+
 @pytest.mark.asyncio
 async def test_process_learning_nudges_language_review():
     session = AsyncMock()
@@ -186,38 +191,41 @@ async def test_process_learning_nudges_language_review():
 
     project = MagicMock()
     project.id = uuid4()
+    project.user_id = user_id
     project.title = "Spanish"
     project.kind = "language"
 
     token = MagicMock()
+    token.user_id = user_id
     token.expo_push_token = "ExponentPushToken[abc]"
 
-    session.execute = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[(user_id,)])))
-    session.get = AsyncMock(return_value=user)
+    session.execute = AsyncMock(return_value=_users_execute_result([user]))
     redis.set = AsyncMock(return_value=True)
 
     with (
         patch.object(
             push_service.projects_repo,
-            "list_for_user",
+            "list_for_users",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
             push_service.project_items_repo,
-            "count_stats",
+            "count_stats_by_project",
             AsyncMock(
                 return_value={
-                    "total": 5,
-                    "due_for_review": 2,
-                    "new_count": 1,
-                    "learning_count": 2,
-                    "mastered_count": 0,
+                    project.id: {
+                        "total": 5,
+                        "due_for_review": 2,
+                        "new_count": 1,
+                        "learning_count": 2,
+                        "mastered_count": 0,
+                    }
                 }
             ),
         ),
         patch.object(
             push_service.push_repo,
-            "list_for_user",
+            "list_for_users",
             AsyncMock(return_value=[token]),
         ),
     ):
@@ -226,6 +234,75 @@ async def test_process_learning_nudges_language_review():
     assert len(messages) == 1
     assert "Spanish" in messages[0].message["body"]
     assert messages[0].message["data"]["type"] == "learning_review"
+
+
+@pytest.mark.asyncio
+async def test_process_learning_nudges_batches_across_users():
+    """This loop runs every minute across every opted-in user — projects,
+    item stats, and tokens must each be fetched in one query regardless of
+    how many candidate users there are, not one query per user."""
+    session = AsyncMock()
+    redis = AsyncMock()
+    settings = Settings(push_learning_hour=0)
+
+    users = []
+    projects = []
+    tokens = []
+    stats_by_project = {}
+    for _ in range(3):
+        uid = uuid4()
+        user = MagicMock()
+        user.id = uid
+        user.timezone = "UTC"
+        user.push_notifications_enabled = True
+        user.locale = "en"
+        users.append(user)
+
+        project = MagicMock()
+        project.id = uuid4()
+        project.user_id = uid
+        project.title = "Spanish"
+        project.kind = "language"
+        projects.append(project)
+        stats_by_project[project.id] = {
+            "total": 3,
+            "due_for_review": 1,
+            "new_count": 0,
+            "learning_count": 2,
+            "mastered_count": 0,
+        }
+
+        token = MagicMock()
+        token.user_id = uid
+        token.expo_push_token = f"ExponentPushToken[{uid}]"
+        tokens.append(token)
+
+    session.execute = AsyncMock(return_value=_users_execute_result(users))
+    redis.set = AsyncMock(return_value=True)
+
+    with (
+        patch.object(
+            push_service.projects_repo,
+            "list_for_users",
+            AsyncMock(return_value=projects),
+        ) as list_projects_mock,
+        patch.object(
+            push_service.project_items_repo,
+            "count_stats_by_project",
+            AsyncMock(return_value=stats_by_project),
+        ) as count_stats_mock,
+        patch.object(
+            push_service.push_repo,
+            "list_for_users",
+            AsyncMock(return_value=tokens),
+        ) as list_tokens_mock,
+    ):
+        messages = await push_service.process_learning_nudges(session, redis, settings)
+
+    assert len(messages) == 3
+    list_projects_mock.assert_awaited_once()
+    count_stats_mock.assert_awaited_once()
+    list_tokens_mock.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -243,25 +320,31 @@ async def test_process_learning_nudges_skips_programming_projects():
 
     project = MagicMock()
     project.id = uuid4()
+    project.user_id = user_id
     project.title = "Python"
     project.kind = "programming"
 
     token = MagicMock()
+    token.user_id = user_id
     token.expo_push_token = "ExponentPushToken[abc]"
 
-    session.execute = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[(user_id,)])))
-    session.get = AsyncMock(return_value=user)
+    session.execute = AsyncMock(return_value=_users_execute_result([user]))
     redis.set = AsyncMock(return_value=True)
 
     with (
         patch.object(
             push_service.projects_repo,
-            "list_for_user",
+            "list_for_users",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
+            push_service.project_items_repo,
+            "count_stats_by_project",
+            AsyncMock(return_value={}),
+        ),
+        patch.object(
             push_service.push_repo,
-            "list_for_user",
+            "list_for_users",
             AsyncMock(return_value=[token]),
         ),
     ):

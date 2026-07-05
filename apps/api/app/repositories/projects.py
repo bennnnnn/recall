@@ -20,6 +20,21 @@ async def list_for_user(
     return list((await session.execute(stmt)).scalars().all())
 
 
+async def list_for_users(
+    session: AsyncSession,
+    user_ids: list[UUID],
+    *,
+    include_archived: bool = False,
+) -> list[Project]:
+    """Batched list_for_user — one query across many users instead of one per user."""
+    if not user_ids:
+        return []
+    stmt = select(Project).where(Project.user_id.in_(user_ids))
+    if not include_archived:
+        stmt = stmt.where(Project.archived.is_(False))
+    return list((await session.execute(stmt)).scalars().all())
+
+
 async def get_by_id(session: AsyncSession, project_id: UUID, user_id: UUID) -> Project | None:
     stmt = select(Project).where(Project.id == project_id, Project.user_id == user_id)
     return (await session.execute(stmt)).scalar_one_or_none()
