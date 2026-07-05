@@ -1,9 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
-  Pressable,
-  StyleSheet,
-  Text,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -14,8 +11,10 @@ import { useTranslation } from "react-i18next";
 
 import { Ionicons } from "@expo/vector-icons";
 
-import { Theme, useTheme } from "@/lib/theme";
+import { useTheme } from "@/lib/theme";
 import { ChatHeader } from "@/components/chat/ChatHeader";
+import { ChatQuotaNudge } from "@/components/chat/ChatQuotaNudge";
+import { makeChatScreenStyles } from "@/components/chat/chatScreenStyles";
 import {
   ChatComposer,
   COMPOSER_HEIGHT,
@@ -66,7 +65,7 @@ function ChatScreen() {
   const { projects } = useProjects();
   const { t } = useTranslation();
   const C = useTheme();
-  const s = useMemo(() => makeS(C), [C]);
+  const s = useMemo(() => makeChatScreenStyles(C), [C]);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
@@ -510,37 +509,17 @@ function ChatScreen() {
         />
 
         {quotaNudge.show && !chatError ? (
-          <View style={[s.quotaNudge, { bottom: composerClearance + 8 }]}>
-            <Pressable
-              style={s.quotaNudgeBody}
-              onPress={() => {
-                quotaNudge.dismiss();
-                setUpgradeVisible(true);
-              }}
-            >
-              <Ionicons
-                name="flash-outline"
-                size={16}
-                color={C.primary}
-                style={s.quotaNudgeIcon}
-              />
-              <Text style={s.quotaNudgeText}>
-                {t("chat.quota_nudge_body", { pct: quotaNudge.usedPct })}
-              </Text>
-            </Pressable>
-            <Pressable
-              style={s.quotaNudgeCta}
-              onPress={() => {
-                quotaNudge.dismiss();
-                setUpgradeVisible(true);
-              }}
-            >
-              <Text style={s.quotaNudgeCtaText}>{t("chat.quota_nudge_cta")}</Text>
-            </Pressable>
-            <Pressable onPress={quotaNudge.dismiss} hitSlop={8} style={s.quotaNudgeClose}>
-              <Ionicons name="close" size={16} color={C.textTertiary} />
-            </Pressable>
-          </View>
+          <ChatQuotaNudge
+            styles={s}
+            theme={C}
+            bottomOffset={composerClearance + 8}
+            usedPct={quotaNudge.usedPct}
+            onUpgrade={() => {
+              quotaNudge.dismiss();
+              setUpgradeVisible(true);
+            }}
+            onDismiss={quotaNudge.dismiss}
+          />
         ) : null}
 
         <ChatInlineError
@@ -590,48 +569,6 @@ function ChatScreen() {
     </>
   );
 }
-
-const makeS = (C: Theme) => StyleSheet.create({
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: C.bg,
-  },
-  loadingDot: { fontSize: 48, color: C.primary, opacity: 0.4 },
-  container: { flex: 1, backgroundColor: C.bg },
-  quotaNudge: {
-    position: "absolute",
-    left: 8,
-    right: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: C.surface,
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    gap: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: C.border,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  quotaNudgeBody: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
-  quotaNudgeIcon: { flexShrink: 0 },
-  quotaNudgeText: { flex: 1, fontSize: 13, color: C.text, lineHeight: 18 },
-  quotaNudgeCta: {
-    backgroundColor: C.primary,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    flexShrink: 0,
-  },
-  quotaNudgeCtaText: { color: C.onPrimary, fontSize: 13, fontWeight: "700" },
-  quotaNudgeClose: { padding: 4, flexShrink: 0 },
-});
 
 export default function HomeScreen() {
   return (
