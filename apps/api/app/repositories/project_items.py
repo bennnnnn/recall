@@ -105,6 +105,42 @@ async def count_stats(
     return stats_from_items(items, timezone_name=timezone_name)
 
 
+async def list_for_projects(
+    session: AsyncSession,
+    project_ids: list[UUID],
+    *,
+    limit: int = 20_000,
+) -> list[ProjectItem]:
+    """Batched item fetch across many projects (each owned by exactly one
+    user) in one query, for callers that need per-project stats for many
+    users at once — e.g. count_stats_by_project below."""
+    if not project_ids:
+        return []
+    stmt = select(ProjectItem).where(ProjectItem.project_id.in_(project_ids)).limit(limit)
+    return list((await session.execute(stmt)).scalars().all())
+
+
+async def count_stats_by_project(
+    session: AsyncSession,
+    project_ids: list[UUID],
+    *,
+    timezone_by_project: dict[UUID, str] | None = None,
+) -> dict[UUID, dict[str, int]]:
+    """Batched count_stats — one query for every project's items instead of
+    one query per project, grouped back out per project_id in Python."""
+    if not project_ids:
+        return {}
+    items = await list_for_projects(session, project_ids)
+    by_project: dict[UUID, list[ProjectItem]] = {pid: [] for pid in project_ids}
+    for item in items:
+        by_project.setdefault(item.project_id, []).append(item)
+    tz_by_project = timezone_by_project or {}
+    return {
+        pid: stats_from_items(pid_items, timezone_name=tz_by_project.get(pid, "UTC"))
+        for pid, pid_items in by_project.items()
+    }
+
+
 def stats_from_items(
     items: list[ProjectItem],
     *,

@@ -102,6 +102,54 @@ async def test_count_stats_aggregates_statuses(fake_session):
 
 
 @pytest.mark.asyncio
+async def test_list_for_projects_returns_empty_without_querying(fake_session):
+    result = await repo.list_for_projects(fake_session, [])
+
+    assert result == []
+    fake_session.execute.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_count_stats_by_project_groups_items_per_project(fake_session):
+    project_a = uuid4()
+    project_b = uuid4()
+    now = datetime.now(UTC)
+
+    item_a = _item(status="new", created_at=now)
+    item_a.project_id = project_a
+    item_b1 = _item(status="mastered", mastered=True, created_at=now)
+    item_b1.project_id = project_b
+    item_b2 = _item(status="learning", created_at=now)
+    item_b2.project_id = project_b
+
+    fake_session.execute.return_value = MagicMock(
+        scalars=MagicMock(
+            return_value=MagicMock(all=MagicMock(return_value=[item_a, item_b1, item_b2]))
+        )
+    )
+
+    stats = await repo.count_stats_by_project(fake_session, [project_a, project_b])
+
+    assert fake_session.execute.await_count == 1
+    assert stats[project_a]["total"] == 1
+    assert stats[project_a]["new_count"] == 1
+    assert stats[project_b]["total"] == 2
+    assert stats[project_b]["mastered_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_count_stats_by_project_includes_projects_with_no_items(fake_session):
+    project_id = uuid4()
+    fake_session.execute.return_value = MagicMock(
+        scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[])))
+    )
+
+    stats = await repo.count_stats_by_project(fake_session, [project_id])
+
+    assert stats[project_id]["total"] == 0
+
+
+@pytest.mark.asyncio
 async def test_normalize_pos_list_titles_updates_mismatch(fake_session):
     project_id = uuid4()
     user_id = uuid4()

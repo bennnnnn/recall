@@ -24,7 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.gateways import expo_push_gateway
-from app.models.orm import PushToken, SuggestedReminder, TodoItem, User
+from app.models.orm import Project, PushToken, SuggestedReminder, TodoItem, User
 from app.repositories import project_items as project_items_repo
 from app.repositories import projects as projects_repo
 from app.repositories import push_tokens as push_repo
@@ -359,71 +359,103 @@ async def process_learning_nudges(
     *,
     now: datetime | None = None,
 ) -> list[OutboundPush]:
+    """Batched: one query each for users/projects/item-stats/tokens instead
+    of one query per user (and one more per project inside that) — this loop
+    runs every minute across every opted-in user, so N+1 here scales badly."""
     now = now or datetime.now(UTC)
     result = await session.execute(
-        select(User.id)
+        select(User)
         .join(PushToken, PushToken.user_id == User.id)
         .where(User.push_notifications_enabled.is_(True))
         .distinct()
     )
-    user_ids = [row[0] for row in result.all()]
-    if not user_ids:
+    users = list(result.scalars().all())
+    if not users:
         return []
 
-    messages: list[OutboundPush] = []
-    for user_id in user_ids:
-        user = await session.get(User, user_id)
-        if user is None:
-            continue
+    # Filter to users due for a nudge (and claim today's Redis lock for them)
+    # before doing any further batched fetch, so we don't pull projects/
+    # tokens for users we're not going to message this cycle.
+    candidates: list[tuple[User, str]] = []
+    for user in users:
         if _user_local_hour(user) < settings.push_learning_hour:
             continue
         day_key = _user_day_key(user)
-        redis_key = _learning_redis_key(user_id, day_key)
+        redis_key = _learning_redis_key(user.id, day_key)
         if not await redis.set(redis_key, "1", nx=True, ex=86_400):
             continue
+        candidates.append((user, redis_key))
 
-        projects = await projects_repo.list_for_user(session, user_id, include_archived=False)
+    if not candidates:
+        return []
+
+    user_by_id = {user.id: user for user, _ in candidates}
+    user_ids = list(user_by_id)
+
+    projects = await projects_repo.list_for_users(session, user_ids, include_archived=False)
+    learning_projects = [p for p in projects if p.kind in ("language", "vocabulary")]
+    projects_by_user: dict[UUID, list[Project]] = {}
+    for project in learning_projects:
+        projects_by_user.setdefault(project.user_id, []).append(project)
+
+    timezone_by_project = {
+        project.id: user_by_id[project.user_id].timezone
+        for project in learning_projects
+        if project.user_id in user_by_id
+    }
+    stats_by_project = await project_items_repo.count_stats_by_project(
+        session,
+        [project.id for project in learning_projects],
+        timezone_by_project=timezone_by_project,
+    )
+
+    tokens = await push_repo.list_for_users(session, user_ids)
+    tokens_by_user: dict[UUID, list[PushToken]] = {}
+    for token in tokens:
+        tokens_by_user.setdefault(token.user_id, []).append(token)
+
+    messages: list[OutboundPush] = []
+    for user, redis_key in candidates:
         best: tuple[str, float, dict[str, Any]] | None = None
 
-        for project in projects:
-            if project.kind in ("language", "vocabulary"):
-                stats = await project_items_repo.count_stats(session, project.id, user_id)
-                if stats["total"] == 0:
-                    continue
-                if stats["due_for_review"] > 0:
-                    score = float(stats["due_for_review"] + 10)
-                    body = f'{stats["due_for_review"]} words ready to review in "{project.title}"'
-                    payload = {
-                        "type": "learning_review",
-                        "screen": "project",
-                        "project_id": str(project.id),
-                    }
-                elif stats["new_count"] > 0:
-                    score = float(stats["new_count"])
-                    body = f'Keep going with "{project.title}" — {stats["new_count"]} new words'
-                    payload = {
-                        "type": "learning_continue",
-                        "screen": "project",
-                        "project_id": str(project.id),
-                    }
-                else:
-                    continue
-                if best is None or score > best[1]:
-                    best = (body, score, payload)
+        for project in projects_by_user.get(user.id, []):
+            stats = stats_by_project.get(project.id)
+            if stats is None or stats["total"] == 0:
+                continue
+            if stats["due_for_review"] > 0:
+                score = float(stats["due_for_review"] + 10)
+                body = f'{stats["due_for_review"]} words ready to review in "{project.title}"'
+                payload = {
+                    "type": "learning_review",
+                    "screen": "project",
+                    "project_id": str(project.id),
+                }
+            elif stats["new_count"] > 0:
+                score = float(stats["new_count"])
+                body = f'Keep going with "{project.title}" — {stats["new_count"]} new words'
+                payload = {
+                    "type": "learning_continue",
+                    "screen": "project",
+                    "project_id": str(project.id),
+                }
+            else:
+                continue
+            if best is None or score > best[1]:
+                best = (body, score, payload)
 
         if best is None:
             await redis.delete(redis_key)
             continue
 
-        tokens = await _tokens_for_user(session, user_id)
-        if not tokens:
+        user_tokens = tokens_by_user.get(user.id, [])
+        if not user_tokens:
             await redis.delete(redis_key)
             continue
 
         strings = _push_strings(getattr(user, "locale", None))
         _append_outbound(
             messages,
-            tokens,
+            user_tokens,
             title=strings["time_to_learn"],
             body=best[0],
             data=best[2],
