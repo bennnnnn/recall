@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { makeSettingsStyles, NavRow } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
+import { formatExportJsonForShare } from "@/lib/exportData";
 import { useTheme } from "@/lib/theme";
 
 export default function DataControlsScreen() {
@@ -21,8 +22,8 @@ export default function DataControlsScreen() {
 
   const doExport = async () => {
     try {
-      const data = await api.exportData(token);
-      const payload = JSON.stringify(data, null, 2);
+      const raw = await api.exportDataText(token);
+      const payload = formatExportJsonForShare(raw);
       // The OS share sheet has platform-dependent size limits and silently
       // truncates or fails on very large messages. For a long-running account
       // the full export can be several MB, so warn before sharing and let the

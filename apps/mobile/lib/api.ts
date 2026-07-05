@@ -422,6 +422,43 @@ async function request<T>(
   }
 }
 
+async function fetchExportText(token: string, allowRefresh = true): Promise<string> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 120_000);
+
+  try {
+    const response = await fetch(apiUrl("/auth/me/export"), {
+      signal: controller.signal,
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (response.status === 401 && allowRefresh) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
+        return fetchExportText(refreshed, false);
+      }
+      onUnauthorized?.();
+      const text = await response.text();
+      throw new Error(text || `Request failed: ${response.status}`);
+    }
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        onUnauthorized?.();
+      }
+      const text = await response.text();
+      throw new Error(text || `Request failed: ${response.status}`);
+    }
+
+    return response.text();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function loginWithGoogle(idToken: string): Promise<AuthResult> {
   const response = await fetchWithTimeout(apiUrl("/auth/google"), {
     method: "POST",
@@ -515,6 +552,7 @@ export const api = {
   syncSubscription: (token: string) =>
     request<User>("/auth/me/sync-subscription", token, { method: "POST" }),
   exportData: (token: string) => request<unknown>("/auth/me/export", token),
+  exportDataText: (token: string) => fetchExportText(token),
   deleteAccount: (token: string) =>
     request<void>("/auth/me", token, { method: "DELETE" }),
   createChat: (
