@@ -136,9 +136,9 @@ CATALOG: tuple[ChatModel, ...] = (
     ),
     _or(
         id="max-chat",
-        label="OpenRouter Auto",
+        label="Auto",
         model="openrouter/auto",
-        description="OpenRouter picks the best model for each request.",
+        description="Automatically picks the best model for each request.",
         tier="max",
         quota_multiplier=3.5,
     ),
