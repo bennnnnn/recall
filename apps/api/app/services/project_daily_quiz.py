@@ -775,13 +775,25 @@ async def _llm_generate_trivia(
         f"Generate exactly {count} trivia multiple-choice questions for topics: {topics}.\n"
         'Return JSON: {"questions": [{"topic": "History", "question": "...?", '
         '"choices": [{"letter":"A","text":"..."}, ...], "correct": "B"}]}. '
-        "topic = category label only. Exactly 4 choices per question."
+        "topic = category label only. Exactly 4 choices per question.\n"
+        "Only use well-established facts you are confident are correct — the kind found "
+        "in encyclopedias or textbooks. Avoid obscure trivia, disputed claims, statistics "
+        "that change over time (e.g. current records, populations, rankings), and anything "
+        "from after your training cutoff. If you are not sure a fact is accurate, pick a "
+        "different, more certain question instead."
     )
     return await litellm_gateway.complete_structured(
         settings=settings,
         model_alias="memory-model",
         messages=[
-            {"role": "system", "content": "You generate trivia quiz JSON only."},
+            {
+                "role": "system",
+                "content": (
+                    "You generate trivia quiz JSON only. Every question and its correct "
+                    "answer must be a well-established, verifiable fact — never guess or "
+                    "invent one."
+                ),
+            },
             {"role": "user", "content": prompt},
         ],
         schema=_GeneratedBatch,
