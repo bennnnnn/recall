@@ -6,6 +6,7 @@ from app.services.daily_learning import (
     build_daily_history,
     count_today_vocab_stats,
     daily_home_cue,
+    group_mastered_items_by_date,
     start_of_today_utc,
 )
 
@@ -121,6 +122,32 @@ def test_daily_home_cue_not_started_when_due_words_but_zero_today():
         )
         == "not_started_today"
     )
+
+
+def test_group_mastered_items_by_date():
+    tz = ZoneInfo("UTC")
+    today = datetime.now(tz).date()
+    yesterday = today - timedelta(days=1)
+    today_at = datetime.combine(today, datetime.min.time(), tzinfo=tz).astimezone(UTC)
+    yesterday_at = datetime.combine(yesterday, datetime.min.time(), tzinfo=tz).astimezone(UTC)
+    items = [
+        _item(
+            status="mastered",
+            mastered=True,
+            created_at=yesterday_at,
+            mastered_at=yesterday_at,
+        ),
+        _item(
+            status="mastered",
+            mastered=True,
+            created_at=today_at,
+            mastered_at=today_at,
+        ),
+        _item(status="new", created_at=today_at),
+    ]
+    grouped = group_mastered_items_by_date(items, timezone_name="UTC", days=14)
+    assert len(grouped[yesterday.isoformat()]) == 1
+    assert len(grouped[today.isoformat()]) == 1
 
 
 def test_build_daily_history_complete_partial_and_skipped():

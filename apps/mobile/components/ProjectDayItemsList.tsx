@@ -20,6 +20,7 @@ type Props = {
   dayMeta?: ProjectDailyHistoryDay;
   isTrivia?: boolean;
   studyAction?: ProjectStudyAction | null;
+  itemsByDate?: Record<string, ProjectItem[]>;
   onItemUpdated?: () => void;
 };
 
@@ -32,13 +33,15 @@ export function ProjectDayItemsList({
   dayMeta,
   isTrivia = false,
   studyAction = null,
+  itemsByDate,
   onItemUpdated,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const [items, setItems] = useState<ProjectItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cachedItems = itemsByDate ? (itemsByDate[activityDate] ?? []) : undefined;
+  const [items, setItems] = useState<ProjectItem[]>(cachedItems ?? []);
+  const [loading, setLoading] = useState(cachedItems === undefined);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -57,8 +60,13 @@ export function ProjectDayItemsList({
   }, [token, projectId, activityDate]);
 
   useEffect(() => {
+    if (itemsByDate) {
+      setItems(itemsByDate[activityDate] ?? []);
+      setLoading(false);
+      return;
+    }
     void load();
-  }, [load]);
+  }, [activityDate, itemsByDate, load]);
 
   const handleStatusChange = useCallback(
     async (itemId: string, status: VocabStatus) => {

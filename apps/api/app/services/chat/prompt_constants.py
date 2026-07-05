@@ -51,11 +51,22 @@ DAY_PLANNING_ANSWER_HINT = (
     "1) **Google Calendar** — today's and upcoming meetings/events\n"
     "2) **Reminders** — due today, overdue, and due soon\n"
     "3) **Gmail** — recent/unread mail and pending email-suggested reminders worth handling\n"
-    "4) Learning topics and memory — only if still relevant; do not let stale learning drown "
-    "out calendar, reminders, or inbox\n"
+    "4) **Today's learning progress** — incomplete daily vocabulary or general-knowledge goals\n"
+    "5) Memory — only if still relevant; do not let stale learning drown out calendar, reminders, "
+    "or inbox\n"
     "If they asked to plan or prioritize and Calendar or Gmail blocks are missing, add one short "
     "line that they can connect those in Settings — do not lecture.\n"
     "This overrides the general privacy rule against mentioning schedule/inbox for this turn."
+)
+
+DAY_LEARNING_SNAPSHOT_HINT = (
+    "When 'Today's learning progress' is in context, those counts are authoritative for the "
+    "user's local calendar day. Never reuse yesterday's scores from memory or chat history.\n"
+    "Name each track explicitly as **vocabulary quiz** or **general knowledge quiz** — never "
+    "the generic word 'quiz' alone.\n"
+    "If today's learning progress lists an incomplete goal, mention it briefly (e.g. "
+    "'You haven't started today's vocabulary quiz — 0/5 words'). If nothing is listed, "
+    "today's daily goals are complete or not set up — do not invent quiz stats."
 )
 
 _BROAD_SELF_QUESTION = re.compile(

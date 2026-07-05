@@ -288,6 +288,7 @@ def test_get_language_project_detail():
     assert body["total_count"] == 2
     assert body["pos_groups"] == []
     assert len(body["daily_history"]) == 14
+    assert body["daily_items_by_date"] == {}
 
 
 def test_list_daily_items():

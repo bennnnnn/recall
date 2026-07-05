@@ -388,7 +388,8 @@ async def test_load_daily_learning_summary_for_prompt():
             "count_stats",
             AsyncMock(
                 return_value={
-                    "mastered_today": 5,
+                    "total": 20,
+                    "mastered_today": 2,
                     "pending_today": 0,
                 }
             ),
@@ -400,8 +401,150 @@ async def test_load_daily_learning_summary_for_prompt():
 
     assert "Today's learning progress" in block
     assert "English · Beginner" in block
-    assert "5/5 words mastered today" in block
-    assert "daily goal complete" in block
+    assert "vocabulary quiz" in block
+    assert "2/5 words mastered today" in block
+    assert "3 left for today's vocabulary quiz" in block
+
+
+@pytest.mark.asyncio
+async def test_load_daily_learning_summary_not_started_today():
+    session = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    user.timezone = "America/Los_Angeles"
+    project = _project("English · Beginner")
+    project.daily_goal = 5
+
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "count_stats",
+            AsyncMock(
+                return_value={
+                    "total": 12,
+                    "mastered_today": 0,
+                    "pending_today": 0,
+                }
+            ),
+        ),
+    ):
+        block = await projects_service.load_daily_learning_summary_for_prompt(
+            session, user, Settings(), client_timezone="America/Los_Angeles"
+        )
+
+    assert "0/5 words mastered today" in block
+    assert "not started" in block
+    assert "vocabulary quiz" in block
+
+
+@pytest.mark.asyncio
+async def test_load_daily_learning_summary_skips_completed_goal():
+    session = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    user.timezone = "America/Los_Angeles"
+    project = _project("English · Beginner")
+    project.daily_goal = 5
+
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "count_stats",
+            AsyncMock(
+                return_value={
+                    "total": 20,
+                    "mastered_today": 5,
+                    "pending_today": 0,
+                }
+            ),
+        ),
+    ):
+        block = await projects_service.load_daily_learning_summary_for_prompt(
+            session, user, Settings()
+        )
+
+    assert block == ""
+
+
+@pytest.mark.asyncio
+async def test_load_daily_learning_summary_trivia_label():
+    session = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    user.timezone = "America/Los_Angeles"
+    project = _project("World History")
+    project.kind = "trivia"
+    project.daily_goal = 5
+
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "count_stats",
+            AsyncMock(
+                return_value={
+                    "total": 8,
+                    "mastered_today": 8,
+                    "pending_today": 0,
+                }
+            ),
+        ),
+    ):
+        block = await projects_service.load_daily_learning_summary_for_prompt(
+            session, user, Settings()
+        )
+
+    assert block == ""
+
+
+@pytest.mark.asyncio
+async def test_load_daily_learning_summary_trivia_incomplete():
+    session = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    user.timezone = "America/Los_Angeles"
+    project = _project("World History")
+    project.kind = "trivia"
+    project.daily_goal = 5
+
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "count_stats",
+            AsyncMock(
+                return_value={
+                    "total": 8,
+                    "mastered_today": 3,
+                    "pending_today": 0,
+                }
+            ),
+        ),
+    ):
+        block = await projects_service.load_daily_learning_summary_for_prompt(
+            session, user, Settings()
+        )
+
+    assert "general knowledge quiz" in block
+    assert "3/5 correct answers today" in block
 
 
 @pytest.mark.asyncio

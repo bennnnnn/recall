@@ -147,6 +147,46 @@ def _mastered_local_date(item: object, tz: ZoneInfo) -> date | None:
     return _as_utc(created).astimezone(tz).date()
 
 
+def _item_activity_sort_key(item: object) -> tuple[datetime, datetime]:
+    mastered_at = getattr(item, "mastered_at", None)
+    created = getattr(item, "created_at", None)
+    mastered = _as_utc(mastered_at) if mastered_at is not None else datetime.min.replace(tzinfo=UTC)
+    created_at = _as_utc(created) if created is not None else datetime.min.replace(tzinfo=UTC)
+    return mastered, created_at
+
+
+def group_mastered_items_by_date(
+    items: list,
+    *,
+    timezone_name: str,
+    days: int = 14,
+) -> dict[str, list]:
+    """Mastered items grouped by local activity date for the recent history window."""
+    try:
+        tz = ZoneInfo(timezone_name)
+    except Exception:
+        tz = ZoneInfo("UTC")
+    today = datetime.now(tz).date()
+    span = max(1, min(days, 60))
+    valid_dates = {
+        (today - timedelta(days=offset)).isoformat() for offset in range(span - 1, -1, -1)
+    }
+    grouped: dict[str, list] = {day_key: [] for day_key in valid_dates}
+    for item in items:
+        day = _mastered_local_date(item, tz)
+        if day is None:
+            continue
+        key = day.isoformat()
+        if key not in grouped:
+            continue
+        grouped[key].append(item)
+    return {
+        day_key: sorted(day_items, key=_item_activity_sort_key, reverse=True)
+        for day_key, day_items in grouped.items()
+        if day_items
+    }
+
+
 def build_daily_history(
     items: list,
     *,
