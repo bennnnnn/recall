@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   RefreshControl,
   Text,
@@ -10,18 +9,13 @@ import {
 import { FlashList } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { closeDrawer, registerChatInserter, registerChatPatcher, startNewChatGlobal, isChatTitleGenerating, subscribeChatTitleGenerating } from "@/lib/drawer";
-import { insertChatIntoGroups, emptyChatList } from "@/lib/drawerChatList";
+import { closeDrawer, startNewChatGlobal, isChatTitleGenerating } from "@/lib/drawer";
 import {
-  activeChatsFromGroups,
   ARCHIVED_CHAT_SECTION,
   CHAT_DATE_SECTIONS,
-  defaultChatSectionCollapsed,
   drawerSectionTitleKey,
   isCollapsibleChatSection,
-  patchChatListGroups,
   PINNED_CHAT_SECTION,
-  removeChatFromGroups,
   type ChatListSectionKey,
 } from "@/lib/chatListSections";
 import { useRouter } from "expo-router";
@@ -34,9 +28,11 @@ import { ChatActionsSheet } from "@/components/ChatActionsSheet";
 import { ChatRenameSheet } from "@/components/ChatRenameSheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDrawer } from "@/contexts/DrawerContext";
+import { useDrawerChatActions } from "@/hooks/useDrawerChatActions";
+import { useDrawerChatList } from "@/hooks/useDrawerChatList";
 import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
 import { useDrawerSearch } from "@/hooks/useDrawerSearch";
-import { api, Chat } from "@/lib/api";
+import { Chat } from "@/lib/api";
 import {
   bottomChromeFadeColors,
   BOTTOM_CHROME_FADE_LOCATIONS,
@@ -44,13 +40,11 @@ import {
   TOP_CHROME_FADE_LOCATIONS,
 } from "@/lib/chromeFade";
 import { tap } from "@/lib/haptics";
-import { scheduleIdleTask } from "@/lib/scheduleIdle";
 import { DrawerSearchResults } from "@/components/drawer/DrawerSearchResults";
 import { DrawerFooter } from "@/components/drawer/DrawerFooter";
 import { DrawerHeader } from "@/components/drawer/DrawerHeader";
 import { DrawerNavLinks } from "@/components/drawer/DrawerNavLinks";
 import {
-  CHAT_LIST_STALE_MS,
   FADE_EXTRA,
   FOOTER_CHROME,
   makeConversationListStyles,
@@ -60,8 +54,6 @@ import {
   ConversationRow,
   makeConversationRowStyles,
 } from "@/components/drawer/ConversationRow";
-import { sanitizeManualChatTitle } from "@/lib/chatTitle";
-import { shareConversation } from "@/lib/share";
 
 export function ConversationList(_props: unknown) {
   const { token } = useAuth();
@@ -73,20 +65,6 @@ export function ConversationList(_props: unknown) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const [loading, setLoading] = useState(true);
-  const [groups, setGroups] = useState(emptyChatList);
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
-    const initial: Record<string, boolean> = {};
-    for (const key of [...CHAT_DATE_SECTIONS, ARCHIVED_CHAT_SECTION]) {
-      if (defaultChatSectionCollapsed(key)) {
-        initial[key] = true;
-      }
-    }
-    return initial;
-  });
-  const [error, setError] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const lastFetchedRef = useRef(0);
   const {
     searchOpen,
     searchQuery,
@@ -99,287 +77,93 @@ export function ConversationList(_props: unknown) {
     closeSearch,
     onSearchChange,
   } = useDrawerSearch({ token, isDrawerOpen: isOpen });
-  const [, setTitlePendingTick] = useState(0);
-  const [menuChat, setMenuChat] = useState<Chat | null>(null);
-  const [renameVisible, setRenameVisible] = useState(false);
-  const [renameText, setRenameText] = useState("");
-  const [renameTarget, setRenameTarget] = useState<Chat | null>(null);
-  const [actionBanner, setActionBanner] = useState<{
-    message: string;
-    icon?: keyof typeof Ionicons.glyphMap;
-  } | null>(null);
+
+  const {
+    loading,
+    error,
+    refreshing,
+    groups,
+    allChats,
+    load,
+    handleRefresh,
+    patchChatInGroups,
+    isSectionCollapsed,
+    toggleSectionCollapsed,
+    moveChatPinState,
+  } = useDrawerChatList({ token, isDrawerOpen: isOpen });
+
+  const {
+    menuChat,
+    renameVisible,
+    renameText,
+    setRenameText,
+    actionBanner,
+    dismissActionBanner,
+    closeMenu,
+    showRowMenu,
+    handleShareChat,
+    openRenameFromMenu,
+    confirmRename,
+    togglePinChat,
+    toggleArchiveChat,
+    confirmDeleteChat,
+    closeRename,
+  } = useDrawerChatActions({
+    token,
+    isDrawerOpen: isOpen,
+    patchChatInGroups,
+    load,
+    moveChatPinState,
+  });
+
   const { unseenCount, showIndicator } = useReminderBadgeCount({
     enabled: Boolean(token),
   });
-
-  const allChats = useMemo(() => activeChatsFromGroups(groups), [groups]);
-
-  const isSectionCollapsed = useCallback(
-    (key: ChatListSectionKey) =>
-      isCollapsibleChatSection(key) &&
-      (collapsedSections[key] ?? defaultChatSectionCollapsed(key)),
-    [collapsedSections],
-  );
-
-  const toggleSectionCollapsed = useCallback((key: ChatListSectionKey) => {
-    if (!isCollapsibleChatSection(key)) return;
-    setCollapsedSections((prev) => ({
-      ...prev,
-      [key]: !(prev[key] ?? defaultChatSectionCollapsed(key)),
-    }));
-  }, []);
 
   const matchingChatIds = useMemo(
     () => new Set(searchResults.map((result) => result.chat_id)),
     [searchResults],
   );
 
-  const load = useCallback(
-    async (background = false) => {
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-      if (!background) {
-        setLoading(true);
-      }
-      setError(false);
-      try {
-        const chatGroups = await api.listChats(token);
-        setGroups({
-          pinned: chatGroups.pinned,
-          today: chatGroups.today,
-          yesterday: chatGroups.yesterday,
-          last_7_days: chatGroups.last_7_days,
-          this_month: chatGroups.this_month,
-          older: chatGroups.older,
-          archived: chatGroups.archived ?? [],
-        });
-        lastFetchedRef.current = Date.now();
-      } catch {
-        if (!background) setError(true);
-      } finally {
-        if (!background) {
-          setLoading(false);
-        }
-      }
+  const openChat = useCallback(
+    (id: string, messageId?: string | null) => {
+      closeDrawer();
+      closeSearch();
+      router.setParams({
+        chatId: id,
+        ...(messageId ? { highlightMessage: messageId } : { highlightMessage: undefined }),
+      });
     },
-    [token],
+    [closeSearch, router],
   );
 
-  const handleRefresh = useCallback(async () => {
-    if (!token) return;
-    setRefreshing(true);
-    try {
-      await load(false);
-    } finally {
-      setRefreshing(false);
-    }
-  }, [token, load]);
-
-  useEffect(() => {
-    load(false);
-  }, [load]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const stale =
-      Date.now() - lastFetchedRef.current > CHAT_LIST_STALE_MS ||
-      allChats.length === 0;
-    if (!stale) return;
-
-    let cancelled = false;
-    const cancelIdle = scheduleIdleTask(() => {
-      if (!cancelled) void load(true);
-    });
-    return () => {
-      cancelled = true;
-      cancelIdle();
-    };
-  }, [isOpen, load, allChats.length]);
-
-  const patchChatInGroups = useCallback((chatId: string, patch: Partial<Chat>) => {
-    setGroups((prev) => patchChatListGroups(prev, chatId, patch));
-  }, []);
-
-  const insertChatInGroups = useCallback((chat: Chat) => {
-    setGroups((prev) => insertChatIntoGroups(prev, chat));
-  }, []);
-
-  useEffect(() => {
-    registerChatPatcher(patchChatInGroups);
-    return () => registerChatPatcher(null);
-  }, [patchChatInGroups]);
-
-  useEffect(() => {
-    registerChatInserter(insertChatInGroups);
-    return () => registerChatInserter(null);
-  }, [insertChatInGroups]);
-
-  useEffect(() => {
-    return subscribeChatTitleGenerating(() => setTitlePendingTick((n) => n + 1));
-  }, []);
-
-  const moveChatPinState = useCallback((chatId: string, pinned: boolean) => {
-    setGroups((prev) => {
-      const chat = [...activeChatsFromGroups(prev), ...prev.archived].find(
-        (c) => c.id === chatId,
-      );
-      if (!chat) return prev;
-      const updated = { ...chat, pinned };
-      const rest = removeChatFromGroups(prev, chatId);
-      if (pinned) {
-        return { ...rest, pinned: [updated, ...rest.pinned] };
-      }
-      return { ...rest, today: [updated, ...rest.today] };
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!isOpen) setMenuChat(null);
-  }, [isOpen]);
-
-  const showActionBanner = useCallback(
-    (message: string, icon?: keyof typeof Ionicons.glyphMap) => {
-      setActionBanner({ message, icon });
-    },
-    [],
-  );
-
-  const dismissActionBanner = useCallback(() => setActionBanner(null), []);
-
-  const closeMenu = useCallback(() => setMenuChat(null), []);
-
-  const handleShareChat = useCallback(async () => {
-    if (!token || !menuChat) return;
-    const chat = menuChat;
-    closeMenu();
-    try {
-      const msgs = await api.listAllMessages(token, chat.id);
-      await shareConversation(chat.title, msgs);
-    } catch {
-      Alert.alert(t("common.error"), t("chat.share_failed"));
-    }
-  }, [token, menuChat, closeMenu, t]);
-
-  const openRenameFromMenu = useCallback(() => {
-    if (!menuChat) return;
-    setRenameTarget(menuChat);
-    setRenameText(menuChat.title ?? "");
-    closeMenu();
-    setRenameVisible(true);
-  }, [menuChat, closeMenu]);
-
-  const confirmRename = useCallback(async () => {
-    const title = sanitizeManualChatTitle(renameText);
-    if (!title || !renameTarget || !token) {
-      setRenameVisible(false);
-      return;
-    }
-    const prevTitle = renameTarget.title;
-    patchChatInGroups(renameTarget.id, { title });
-    setRenameVisible(false);
-    setRenameTarget(null);
-    try {
-      await api.renameChat(token, renameTarget.id, title);
-      showActionBanner(t("chat.renamed_toast"), "pencil-outline");
-    } catch {
-      patchChatInGroups(renameTarget.id, { title: prevTitle ?? null });
-      Alert.alert(t("common.error"), t("chat.rename_failed"));
-    }
-  }, [renameText, renameTarget, token, patchChatInGroups, showActionBanner, t]);
-
-  const togglePinChat = useCallback(async () => {
-    if (!token || !menuChat) return;
-    const chat = menuChat;
-    const next = !chat.pinned;
-    closeMenu();
-    moveChatPinState(chat.id, next);
-    try {
-      await api.setPin(token, chat.id, next);
-      showActionBanner(
-        next ? t("chat.pinned_toast") : t("chat.unpinned_toast"),
-        next ? "bookmark" : "bookmark-outline",
-      );
-    } catch {
-      moveChatPinState(chat.id, !next);
-      Alert.alert(t("common.error"), t("chat.pin_failed"));
-    }
-  }, [token, menuChat, closeMenu, moveChatPinState, showActionBanner, t]);
-
-  const toggleArchiveChat = useCallback(async () => {
-    if (!token || !menuChat) return;
-    const chat = menuChat;
-    const next = !chat.archived;
-    closeMenu();
-    try {
-      await api.setArchive(token, chat.id, next);
-      await load(true);
-      showActionBanner(
-        next ? t("chat.archived_toast") : t("chat.unarchived_toast"),
-        next ? "archive-outline" : "arrow-undo-outline",
-      );
-    } catch {
-      Alert.alert(t("common.error"), t("common.error"));
-    }
-  }, [token, menuChat, closeMenu, load, showActionBanner, t]);
-
-  const confirmDeleteChat = useCallback(() => {
-    if (!menuChat) return;
-    const chat = menuChat;
-    closeMenu();
-    Alert.alert(t("chat.delete_confirm_title"), t("chat.delete_confirm_body"), [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("common.delete"),
-        style: "destructive",
-        onPress: async () => {
-          if (!token) return;
-          try {
-            await api.deleteChat(token, chat.id);
-            await load(true);
-            showActionBanner(t("chat.deleted_toast"), "trash-outline");
-          } catch {
-            Alert.alert(t("common.error"), t("chat.delete_failed"));
-          }
-        },
-      },
-    ]);
-  }, [menuChat, closeMenu, token, load, showActionBanner, t]);
-
-  const openChat = (id: string, messageId?: string | null) => {
-    closeDrawer();
-    closeSearch();
-    router.setParams({
-      chatId: id,
-      ...(messageId ? { highlightMessage: messageId } : { highlightMessage: undefined }),
-    });
-  };
-
-  const newChat = () => {
+  const newChat = useCallback(() => {
     closeDrawer();
     startNewChatGlobal();
-  };
+  }, []);
 
-  const openLists = () => {
+  const openLists = useCallback(() => {
     closeDrawer();
     router.push({ pathname: "/todos", params: { focus: "list" } });
-  };
+  }, [router]);
 
-  const openReminders = () => {
+  const openReminders = useCallback(() => {
     closeDrawer();
     router.push({ pathname: "/todos", params: { focus: "reminders" } });
-  };
+  }, [router]);
 
-  const openProjects = () => {
+  const openProjects = useCallback(() => {
     closeDrawer();
     router.push("/projects");
-  };
+  }, [router]);
 
-  const showRowMenu = (chat: Chat) => {
-    tap();
-    setMenuChat(chat);
-  };
+  const onShowRowMenu = useCallback(
+    (chat: Chat) => {
+      tap();
+      showRowMenu(chat);
+    },
+    [showRowMenu],
+  );
 
   const topInset = insets.top + 8 + TOP_CHROME;
   const bottomInset = insets.bottom + 8 + FOOTER_CHROME;
@@ -398,10 +182,6 @@ export function ConversationList(_props: unknown) {
     />
   );
 
-  // Flatten the sectioned chat list into header + row items so FlashList can
-  // virtualize rows (the long part) instead of mounting every chat in a
-  // ScrollView. Section styling is just a top margin + padded title (no card
-  // background), so header items reproduce the look exactly.
   type ChatListItem =
     | {
         type: "sectionHeader";
@@ -473,7 +253,7 @@ export function ConversationList(_props: unknown) {
           highlighted={highlightedIds?.has(item.chat.id) ?? false}
           titleGenerating={isChatTitleGenerating(item.chat.id)}
           onOpen={() => openChat(item.chat.id)}
-          onLongPress={() => showRowMenu(item.chat)}
+          onLongPress={() => onShowRowMenu(item.chat)}
         />
       );
     },
@@ -485,7 +265,7 @@ export function ConversationList(_props: unknown) {
       toggleSectionCollapsed,
       theme,
       openChat,
-      showRowMenu,
+      onShowRowMenu,
     ],
   );
 
@@ -598,10 +378,7 @@ export function ConversationList(_props: unknown) {
         visible={renameVisible}
         value={renameText}
         onChangeText={setRenameText}
-        onClose={() => {
-          setRenameVisible(false);
-          setRenameTarget(null);
-        }}
+        onClose={closeRename}
         onSave={() => void confirmRename()}
       />
       {listBody}
