@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     gmail_periodic_sync_concurrency: int = 5
 
     attachments_enabled: bool = True
+    # PDF/DOCX text extraction is sync, CPU-bound parsing; it runs on a worker
+    # thread (like the SymPy math solve) bounded by this timeout so a large or
+    # adversarially crafted file can't block the event loop.
+    attachment_extract_timeout_seconds: float = 5.0
     semantic_memory_enabled: bool = True
     mcp_tools_enabled: bool = False
 

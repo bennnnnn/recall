@@ -1,5 +1,6 @@
 import pytest
 
+from app.core.config import Settings
 from app.services.attachment_content import (
     ALLOWED_CONTENT_TYPES,
     extract_text_from_bytes,
@@ -71,6 +72,68 @@ def test_extract_text_from_pdf_bytes():
     assert result is None or isinstance(result, str)
 
 
+def test_extract_text_from_docx_bytes():
+    import io
+
+    from docx import Document
+
+    document = Document()
+    document.add_paragraph("Hello from a Word document.")
+    buf = io.BytesIO()
+    document.save(buf)
+
+    result = extract_text_from_bytes(
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        buf.getvalue(),
+    )
+    assert result == "Hello from a Word document."
+
+
+def test_extract_text_from_legacy_doc_returns_none():
+    # No pure-Python parser for legacy .doc — must return None, not raise.
+    doc_bytes = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 32
+    assert extract_text_from_bytes("application/msword", doc_bytes) is None
+
+
+@pytest.mark.asyncio
+async def test_extract_text_from_bytes_async_offloads_to_thread(monkeypatch):
+    import threading
+
+    from app.services.attachment_content import extract_text_from_bytes_async
+
+    caller_thread = threading.current_thread()
+    seen_thread: dict[str, threading.Thread] = {}
+
+    def spy(content_type: str, data: bytes) -> str | None:
+        seen_thread["thread"] = threading.current_thread()
+        return "extracted"
+
+    monkeypatch.setattr("app.services.attachment_content.extract_text_from_bytes", spy)
+
+    result = await extract_text_from_bytes_async("text/plain", b"hi", Settings())
+
+    assert result == "extracted"
+    assert seen_thread["thread"] is not caller_thread
+
+
+@pytest.mark.asyncio
+async def test_extract_text_from_bytes_async_times_out_gracefully(monkeypatch):
+    import time
+
+    def slow_extract(content_type: str, data: bytes) -> str | None:
+        time.sleep(0.5)
+        return "should never be returned"
+
+    monkeypatch.setattr("app.services.attachment_content.extract_text_from_bytes", slow_extract)
+
+    from app.services.attachment_content import extract_text_from_bytes_async
+
+    settings = Settings(attachment_extract_timeout_seconds=0.05)
+    result = await extract_text_from_bytes_async("application/pdf", b"x", settings)
+
+    assert result is None
+
+
 @pytest.mark.asyncio
 async def test_format_attachment_lines_includes_file_ref():
     from unittest.mock import AsyncMock, MagicMock
@@ -86,7 +149,32 @@ async def test_format_attachment_lines_includes_file_ref():
         content_type="text/plain",
         storage_key="key",
         size_bytes=5,
+        settings=Settings(),
     )
     assert is_image is False
     assert lines[0] == "[File: /attachments/550e8400-e29b-41d4-a716-446655440000/file]"
     assert lines[1].startswith("[File (text/plain)]")
+
+
+@pytest.mark.asyncio
+async def test_format_attachment_lines_gives_honest_error_for_unsupported_type():
+    """Legacy .doc passes every validation check but has no parser — the
+    user should be told that plainly, not shown a misleading byte-count
+    placeholder that implies the content was read."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.services.attachment_content import format_attachment_lines
+
+    gateway = MagicMock()
+    gateway.read_bytes = AsyncMock(return_value=b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 32)
+
+    lines, is_image = await format_attachment_lines(
+        gateway,
+        attachment_id="550e8400-e29b-41d4-a716-446655440000",
+        content_type="application/msword",
+        storage_key="key",
+        size_bytes=40,
+        settings=Settings(),
+    )
+    assert is_image is False
+    assert "can't read this file type yet" in lines[1]
