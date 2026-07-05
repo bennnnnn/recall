@@ -5,7 +5,7 @@ import { DailyQuizLoadingRow } from "@/components/chat/DailyQuizLoadingRow";
 import { DailyQuizTextRow } from "@/components/chat/DailyQuizTextRow";
 import { StreamingChatMessageRow } from "@/components/chat/StreamingChatMessageRow";
 import type { Message, ProjectQuizQuestion, QuizModality } from "@/lib/api";
-import { findLastAssistantId } from "@/lib/chatMessageLogic";
+import { findLastAssistantId, priorUserTextFor } from "@/lib/chatMessageLogic";
 import {
   DAILY_QUIZ_LOADING_ID,
   hasDailyQuizTextFence,
@@ -83,7 +83,6 @@ export function useChatMessageList({
 
   const sharedRowProps = useMemo(
     () => ({
-      messages,
       streaming,
       finalizing,
       lastAssistantId,
@@ -100,7 +99,6 @@ export function useChatMessageList({
       onQuizAnswer: handleQuizAnswer,
     }),
     [
-      messages,
       streaming,
       finalizing,
       lastAssistantId,
@@ -162,13 +160,15 @@ export function useChatMessageList({
         }
       }
 
+      const priorUserText = priorUserTextFor(messages, index);
+
       return item.id === "streaming" ? (
-        <StreamingChatMessageRow item={item} index={index} {...sharedRowProps} />
+        <StreamingChatMessageRow item={item} priorUserText={priorUserText} {...sharedRowProps} />
       ) : (
-        <ChatMessageRow item={item} index={index} {...sharedRowProps} />
+        <ChatMessageRow item={item} priorUserText={priorUserText} {...sharedRowProps} />
       );
     },
-    [sharedRowProps, dailyQuizRow, lastAssistantId, quizVariant],
+    [sharedRowProps, dailyQuizRow, lastAssistantId, quizVariant, messages],
   );
 
   return { quizAnswers, lastAssistantId, headerTitleLabel, renderItem };

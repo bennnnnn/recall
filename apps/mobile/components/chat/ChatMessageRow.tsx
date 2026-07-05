@@ -6,8 +6,8 @@ import type { QuizChoice } from "@/lib/parseVocabQuiz";
 
 type Props = {
   item: Message;
-  index: number;
-  messages: Message[];
+  /** Content of the immediately preceding user message, when `item` is the assistant reply to it. */
+  priorUserText: string | null;
   streaming: boolean;
   finalizing: boolean;
   lastAssistantId: string | null;
@@ -30,8 +30,7 @@ type Props = {
 
 export const ChatMessageRow = memo(function ChatMessageRow({
   item,
-  index,
-  messages,
+  priorUserText,
   streaming,
   finalizing,
   lastAssistantId,
@@ -47,10 +46,6 @@ export const ChatMessageRow = memo(function ChatMessageRow({
   onFeedback,
   onQuizAnswer,
 }: Props) {
-  const priorUserText =
-    item.role === "assistant" && index > 0 && messages[index - 1]?.role === "user"
-      ? messages[index - 1].content
-      : null;
   const isLastAssistant = item.role === "assistant" && item.id === lastAssistantId;
   const streamVisualActive = streaming || finalizing;
 
