@@ -39,6 +39,15 @@ class CalendarEvent:
     calendar_name: str | None = None
 
 
+@dataclass(frozen=True)
+class CalendarFetchResult:
+    events: list[CalendarEvent]
+    # How many of the user's calendars failed to fetch this round — merged
+    # events are still returned (best-effort), but a caller presenting this
+    # as "your schedule" should know it may be incomplete.
+    failed_calendars: int = 0
+
+
 def is_configured(settings: Settings) -> bool:
     return bool(
         settings.google_calendar_enabled
@@ -205,9 +214,9 @@ async def list_upcoming_events(
     calendar_id: str = "primary",
     timezone: str | None = None,
     days: int = 7,
-) -> list[CalendarEvent]:
+) -> CalendarFetchResult:
     if not is_configured(settings):
-        return []
+        return CalendarFetchResult(events=[])
 
     tz = timezone or "UTC"
     access = await _access_token(settings, refresh_token)
@@ -227,9 +236,20 @@ async def list_upcoming_events(
             if not calendars:
                 calendars = [("primary", "Primary")]
 
-            batches = await asyncio.gather(
-                *[
-                    _fetch_events_for_calendar(
+            max_calendars = max(1, settings.calendar_max_calendars)
+            if len(calendars) > max_calendars:
+                logger.info(
+                    "Capping calendar fan-out from %s to %s selected calendars",
+                    len(calendars),
+                    max_calendars,
+                )
+                calendars = calendars[:max_calendars]
+
+            semaphore = asyncio.Semaphore(max(1, settings.calendar_fetch_concurrency))
+
+            async def _bounded_fetch(cal_id: str, cal_name: str) -> list[CalendarEvent]:
+                async with semaphore:
+                    return await _fetch_events_for_calendar(
                         client,
                         headers,
                         calendar_id=cal_id,
@@ -239,8 +259,9 @@ async def list_upcoming_events(
                         timezone=tz,
                         max_results=per_calendar_max,
                     )
-                    for cal_id, cal_name in calendars
-                ],
+
+            batches = await asyncio.gather(
+                *(_bounded_fetch(cal_id, cal_name) for cal_id, cal_name in calendars),
                 return_exceptions=True,
             )
     except Exception:
@@ -248,14 +269,19 @@ async def list_upcoming_events(
         raise GoogleCalendarError("Could not load calendar events.") from None
 
     merged: dict[str, CalendarEvent] = {}
+    failed_calendars = 0
     for batch in batches:
         if isinstance(batch, Exception):
             logger.warning("Skipping calendar batch: %s", batch)
+            failed_calendars += 1
             continue
         for event in batch:
             merged.setdefault(event.id, event)
 
-    return sorted(merged.values(), key=lambda event: event.start)
+    return CalendarFetchResult(
+        events=sorted(merged.values(), key=lambda event: event.start),
+        failed_calendars=failed_calendars,
+    )
 
 
 async def create_event(
