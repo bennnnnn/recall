@@ -10,7 +10,7 @@ from contextlib import suppress
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
 from app.core.config import Settings, get_settings
@@ -25,6 +25,8 @@ from app.services import chat as chat_service
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chats", tags=["chat-stream"])
+
+_DISCONNECT_POLL_SECONDS = 0.5
 
 
 def _sse(payload: dict[str, Any]) -> str:
@@ -54,7 +56,8 @@ async def _stream_tokens_sse(
         [dict[str, Any], Callable[[str], Any], Callable[[str], Any]],
         AsyncIterator[str],
     ],
-    cancel_event: asyncio.Event | None = None,
+    request: Request,
+    cancel_event: asyncio.Event,
 ) -> AsyncIterator[str]:
     result: dict[str, Any] = {}
     event_queue: asyncio.Queue[tuple[str, str] | None] = asyncio.Queue()
@@ -67,7 +70,7 @@ async def _stream_tokens_sse(
         await event_queue.put(("reasoning", chunk))
 
     def should_cancel() -> bool:
-        return cancel_event.is_set() if cancel_event is not None else False
+        return cancel_event.is_set()
 
     async def produce_tokens() -> None:
         try:
@@ -79,7 +82,25 @@ async def _stream_tokens_sse(
         finally:
             await event_queue.put(None)
 
+    async def watch_disconnect() -> None:
+        """SSE is one-way, so a client's only way to stop generation is
+        closing the connection — without this, a closed tab left the LLM
+        call running to completion with tokens streamed to nobody, still
+        burning quota and provider cost. `cancel_event` is also passed as
+        `should_cancel` into the actual chat_service stream call, so setting
+        it here stops generation at the source, not just this relay."""
+        try:
+            while not cancel_event.is_set():
+                if await request.is_disconnected():
+                    cancel_event.set()
+                    await event_queue.put(None)
+                    return
+                await asyncio.sleep(_DISCONNECT_POLL_SECONDS)
+        except asyncio.CancelledError:
+            pass
+
     producer = asyncio.create_task(produce_tokens())
+    disconnect_watcher = asyncio.create_task(watch_disconnect())
 
     try:
         while True:
@@ -137,10 +158,15 @@ async def _stream_tokens_sse(
         logger.exception("SSE chat stream failed chat_id=%s", chat_id)
         yield _sse({"type": "error", "message": "Something went wrong. Try again."})
     finally:
+        cancel_event.set()
         if not producer.done():
             producer.cancel()
             with suppress(asyncio.CancelledError):
                 await producer
+        if not disconnect_watcher.done():
+            disconnect_watcher.cancel()
+            with suppress(asyncio.CancelledError):
+                await disconnect_watcher
 
 
 def _sse_response(body: AsyncIterator[str]) -> StreamingResponse:
@@ -159,15 +185,19 @@ def _sse_response(body: AsyncIterator[str]) -> StreamingResponse:
 async def stream_message_sse(
     chat_id: UUID,
     body: ChatMessageRequest,
+    request: Request,
     user: User = Depends(get_current_user),
     settings: Settings = Depends(get_settings),
 ) -> StreamingResponse:
     redis = get_redis_client()
+    cancel_event = asyncio.Event()
 
     async def generate() -> AsyncIterator[str]:
         async for chunk in _stream_tokens_sse(
             chat_id=chat_id,
             settings=settings,
+            request=request,
+            cancel_event=cancel_event,
             stream_factory=lambda result,
             on_status,
             on_reasoning: chat_service.stream_chat_response(
@@ -178,6 +208,7 @@ async def stream_message_sse(
                 content=body.content,
                 model_alias=body.model,
                 attachment_ids=body.attachment_ids or None,
+                should_cancel=cancel_event.is_set,
                 result=result,
                 client_timezone=body.client_timezone,
                 client_location=body.client_location,
@@ -197,15 +228,19 @@ async def stream_message_sse(
 async def stream_regenerate_sse(
     chat_id: UUID,
     body: ChatMessageRequest,
+    request: Request,
     user: User = Depends(get_current_user),
     settings: Settings = Depends(get_settings),
 ) -> StreamingResponse:
     redis = get_redis_client()
+    cancel_event = asyncio.Event()
 
     async def generate() -> AsyncIterator[str]:
         async for chunk in _stream_tokens_sse(
             chat_id=chat_id,
             settings=settings,
+            request=request,
+            cancel_event=cancel_event,
             stream_factory=lambda result,
             on_status,
             on_reasoning: chat_service.stream_regenerate_response(
@@ -214,6 +249,7 @@ async def stream_regenerate_sse(
                 user_id=user.id,
                 chat_id=chat_id,
                 model_alias=body.model,
+                should_cancel=cancel_event.is_set,
                 result=result,
                 client_timezone=body.client_timezone,
                 client_location=body.client_location,
@@ -232,15 +268,19 @@ async def stream_regenerate_sse(
 async def stream_edit_sse(
     chat_id: UUID,
     body: EditMessageRequest,
+    request: Request,
     user: User = Depends(get_current_user),
     settings: Settings = Depends(get_settings),
 ) -> StreamingResponse:
     redis = get_redis_client()
+    cancel_event = asyncio.Event()
 
     async def generate() -> AsyncIterator[str]:
         async for chunk in _stream_tokens_sse(
             chat_id=chat_id,
             settings=settings,
+            request=request,
+            cancel_event=cancel_event,
             stream_factory=lambda result,
             on_status,
             on_reasoning: chat_service.stream_edit_response(
@@ -251,6 +291,7 @@ async def stream_edit_sse(
                 message_id=body.message_id,
                 new_content=body.content,
                 model_alias=body.model,
+                should_cancel=cancel_event.is_set,
                 result=result,
                 client_timezone=body.client_timezone,
                 client_location=body.client_location,
