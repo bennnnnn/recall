@@ -10,7 +10,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { CODE_FONT } from "@/lib/fonts";
 import { injectPreviewCsp } from "@/lib/previewSandbox";
 import { Theme, useTheme } from "@/lib/theme";
-import { getPreviewWebView } from "@/lib/webView";
+import { getPreviewWebView, useStaticOnlyNavigation } from "@/lib/webView";
 
 type Props = { content: string };
 
@@ -67,6 +67,7 @@ export function MermaidBlock({ content }: Props) {
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;
   const canRenderInline = previewWebView?.mode === "rnc";
+  const onShouldStartLoadWithRequest = useStaticOnlyNavigation(mermaidHtml);
 
   const handleCopy = useCallback(async () => {
     await Clipboard.setStringAsync(content);
@@ -103,6 +104,7 @@ export function MermaidBlock({ content }: Props) {
             scrollEnabled={false}
             style={s.webview}
             javaScriptEnabled
+            onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
           />
         </View>
       ) : (

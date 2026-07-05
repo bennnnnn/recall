@@ -7,7 +7,7 @@ import {
   type MathEngine,
 } from "@/lib/mathHtml";
 import { CODE_FONT } from "@/lib/fonts";
-import { getPreviewWebView } from "@/lib/webView";
+import { getPreviewWebView, useStaticOnlyNavigation } from "@/lib/webView";
 import { Theme, useTheme } from "@/lib/theme";
 
 const MAX_HEIGHT = 320;
@@ -67,6 +67,7 @@ export function MathFormulaWebView({
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;
   const canRenderInline = previewWebView?.mode === "rnc";
+  const onShouldStartLoadWithRequest = useStaticOnlyNavigation(html);
   const defaultHeight = compact ? 28 : displayMode ? 48 : 32;
   const [height, setHeight] = useState(minHeight ?? defaultHeight);
 
@@ -100,6 +101,7 @@ export function MathFormulaWebView({
         onMessage={onMessage}
         showsHorizontalScrollIndicator={false}
         showsVerticalScrollIndicator={false}
+        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
       />
     </View>
   );

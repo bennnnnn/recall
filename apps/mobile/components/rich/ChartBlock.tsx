@@ -11,7 +11,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { CODE_FONT } from "@/lib/fonts";
 import { injectPreviewCsp } from "@/lib/previewSandbox";
 import { Theme, useTheme } from "@/lib/theme";
-import { getPreviewWebView } from "@/lib/webView";
+import { getPreviewWebView, useStaticOnlyNavigation } from "@/lib/webView";
 
 type Props = { content: string };
 
@@ -78,6 +78,7 @@ export function ChartBlock({ content }: Props) {
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;
   const canRenderInlineChart = previewWebView?.mode === "rnc";
+  const onShouldStartLoadWithRequest = useStaticOnlyNavigation(vegaHtml);
 
   const handleCopy = useCallback(async () => {
     await Clipboard.setStringAsync(content);
@@ -113,6 +114,7 @@ export function ChartBlock({ content }: Props) {
             scrollEnabled={false}
             javaScriptEnabled
             domStorageEnabled
+            onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
           />
         ) : (
           <View style={s.previewPlaceholder}>
