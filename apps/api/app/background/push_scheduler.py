@@ -14,11 +14,14 @@ logger = logging.getLogger(__name__)
 
 LOCK_KEY = "recall:push:lock"
 INTERVAL_SECONDS = 60
+# Hold the lock longer than one loop tick and typical cycle runtime so a slow
+# run cannot overlap with a second instance/replica.
+LOCK_TTL_SECONDS = max(INTERVAL_SECONDS * 10, 300)
 
 
 async def run_push_cycle(settings: Settings) -> None:
     redis = get_redis_client()
-    acquired = await redis.set(LOCK_KEY, "1", nx=True, ex=55)
+    acquired = await redis.set(LOCK_KEY, "1", nx=True, ex=LOCK_TTL_SECONDS)
     if not acquired:
         return
     try:

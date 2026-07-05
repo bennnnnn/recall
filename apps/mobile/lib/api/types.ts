@@ -246,6 +246,7 @@ export type ModelInfo = {
   available: boolean;
   input_price_per_m: number | null;
   output_price_per_m: number | null;
+  quota_multiplier: number;
 };
 
 export type GoogleCalendarStatus = {

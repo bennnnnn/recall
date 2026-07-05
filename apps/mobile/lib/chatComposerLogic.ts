@@ -5,7 +5,59 @@ export const CHAT_KEYBOARD_LIFT_EXTRA = 0;
 export const CHAT_COMPOSER_MIN_BOTTOM_PAD = 10;
 export const CHAT_EMPTY_MIN_HEIGHT = 160;
 
-export type ModelOption = { id: string; label: string };
+export type ModelOption = { id: string; label: string; hint?: string };
+
+export type ModelCostFields = {
+  input_price_per_m: number | null;
+  output_price_per_m: number | null;
+  quota_multiplier?: number;
+};
+
+export type TranslateFn = (
+  key: string,
+  params?: Record<string, string | number>,
+) => string;
+
+function formatUsdPerM(value: number): string {
+  if (value >= 1) return value.toFixed(2);
+  if (value >= 0.01) return value.toFixed(2);
+  return value.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+}
+
+function formatQuotaMultiplier(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+/** Per-1M-token price and daily-quota weight for model picker rows. */
+export function formatModelCostHint(
+  model: ModelCostFields,
+  t: TranslateFn,
+): string | undefined {
+  const parts: string[] = [];
+  const input = model.input_price_per_m;
+  const output = model.output_price_per_m;
+  if (input != null && output != null) {
+    parts.push(
+      t("settings.model_price_per_m", {
+        input: formatUsdPerM(input),
+        output: formatUsdPerM(output),
+      }),
+    );
+  } else if (input != null) {
+    parts.push(
+      t("settings.model_price_in_per_m", { input: formatUsdPerM(input) }),
+    );
+  }
+  const mult = model.quota_multiplier ?? 1;
+  if (mult > 1.001) {
+    parts.push(
+      t("settings.model_quota_multiplier", {
+        multiplier: formatQuotaMultiplier(mult),
+      }),
+    );
+  }
+  return parts.length > 0 ? parts.join(" · ") : undefined;
+}
 
 export function isModelSelectableInComposer(
   model: { available: boolean; plan_access: "free" | "pro" },
@@ -21,8 +73,17 @@ export function buildModelOptions(options: {
   autoModelId: string;
   autoLabel: string;
   modelEnabledSet: Set<string>;
-  models: Array<{ id: string; label: string; available: boolean; plan_access: "free" | "pro" }> | undefined;
+  models: Array<{
+    id: string;
+    label: string;
+    available: boolean;
+    plan_access: "free" | "pro";
+    input_price_per_m?: number | null;
+    output_price_per_m?: number | null;
+    quota_multiplier?: number;
+  }> | undefined;
   isPro: boolean;
+  t?: TranslateFn;
 }): ModelOption[] {
   const catalog = options.models ?? [];
   const byId = new Map(catalog.map((model) => [model.id, model]));
@@ -35,7 +96,20 @@ export function buildModelOptions(options: {
     if (!info || !isModelSelectableInComposer(info, options.isPro)) {
       continue;
     }
-    opts.push({ id, label: info.label || id });
+    opts.push({
+      id,
+      label: info.label || id,
+      hint: options.t
+        ? formatModelCostHint(
+            {
+              input_price_per_m: info.input_price_per_m ?? null,
+              output_price_per_m: info.output_price_per_m ?? null,
+              quota_multiplier: info.quota_multiplier,
+            },
+            options.t,
+          )
+        : undefined,
+    });
   }
   return opts;
 }

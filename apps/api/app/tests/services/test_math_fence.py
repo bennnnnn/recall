@@ -34,3 +34,9 @@ def test_replaces_invalid_geometry_fence() -> None:
     content = "```geometry\n{bad json\n```"
     out = validate_math_fences(content)
     assert "Invalid geometry block" in out
+
+
+def test_replaces_invalid_graph_fence_with_empty_points() -> None:
+    content = '```graph\n{"type":"function","expr":"x","points":[]}\n```'
+    out = validate_math_fences(content)
+    assert "Invalid graph block" in out

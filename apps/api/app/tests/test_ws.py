@@ -114,6 +114,39 @@ def test_ws_sends_message_and_receives_tokens():
             assert done["type"] == "done"
 
 
+def test_ws_done_includes_resolved_model():
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+
+    async def fake_stream(*args, result=None, **kwargs):
+        if result is not None:
+            result["message_id"] = str(uuid4())
+            result["resolved_model"] = "smart-chat"
+        yield "Hello"
+
+    app = _app(user)
+
+    with (
+        patch(
+            "app.routers.ws.tokens_service.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
+        patch("app.routers.ws.auth_service.get_current_user", AsyncMock(return_value=user)),
+        patch("app.routers.ws.chat_service.stream_chat_response", fake_stream),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "hi"})
+            assert ws.receive_json()["type"] == "start"
+            assert ws.receive_json()["type"] == "token"
+            assert ws.receive_json()["type"] == "stream_end"
+            done = ws.receive_json()
+            assert done["type"] == "done"
+            assert done["resolved_model"] == "smart-chat"
+
+
 def test_ws_passes_client_timezone_to_stream():
     _, tok = _token()
     user = _fake_user()

@@ -236,6 +236,7 @@ class ModelInfo(BaseModel):
     available: bool
     input_price_per_m: float | None = None
     output_price_per_m: float | None = None
+    quota_multiplier: float = 1.0
 
 
 class ChatMessageRequest(BaseModel):

@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
@@ -13,7 +12,6 @@ logger = logging.getLogger(__name__)
 
 EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send"
 EXPO_RECEIPTS_URL = "https://exp.host/--/api/v2/push/getReceipts"
-RECEIPT_POLL_DELAY_SECONDS = 1.0
 MAX_RECEIPTS_PER_REQUEST = 100
 _INVALID_TOKEN_ERRORS = frozenset({"DeviceNotRegistered", "InvalidCredentials"})
 
@@ -24,6 +22,7 @@ class PushSendResult:
 
     invalid_tokens: list[str]
     delivered: list[bool]
+    receipt_tickets: list[tuple[str, str]] = field(default_factory=list)
 
 
 def _invalid_token_from_error(details: object) -> str | None:
@@ -64,10 +63,17 @@ async def fetch_push_receipts(ticket_ids: list[str]) -> dict[str, dict[str, Any]
     return receipts
 
 
-async def send_push_messages(messages: list[dict[str, Any]]) -> PushSendResult:
-    """Send push messages via Expo and confirm delivery via receipt polling.
+def receipt_indicates_invalid_token(receipt: dict[str, Any]) -> bool:
+    if receipt.get("status") != "error":
+        return False
+    return _invalid_token_from_error(receipt.get("details", {})) is not None
 
-    Returns invalid tokens to prune and a delivered flag per input message.
+
+async def send_push_messages(messages: list[dict[str, Any]]) -> PushSendResult:
+    """Send push messages via Expo.
+
+    Marks a message delivered when Expo accepts the ticket. Receipt polling for
+    stale-token cleanup is deferred — see push_notifications.poll_deferred_receipts.
     On a transport/API failure, nothing is marked delivered so the caller can retry.
     """
     if not messages:
@@ -75,7 +81,7 @@ async def send_push_messages(messages: list[dict[str, Any]]) -> PushSendResult:
 
     invalid: list[str] = []
     delivered = [False] * len(messages)
-    tickets_to_poll: list[tuple[int, str]] = []
+    receipt_tickets: list[tuple[str, str]] = []
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.post(
@@ -92,43 +98,27 @@ async def send_push_messages(messages: list[dict[str, Any]]) -> PushSendResult:
                         break
                     if not isinstance(ticket, dict):
                         continue
+                    token = str(messages[i].get("to", "") or "")
                     if ticket.get("status") == "ok":
                         ticket_id = ticket.get("id")
                         if isinstance(ticket_id, str) and ticket_id:
-                            tickets_to_poll.append((i, ticket_id))
+                            delivered[i] = True
+                            if token:
+                                receipt_tickets.append((ticket_id, token))
                         continue
                     if ticket.get("status") == "error":
                         details = ticket.get("details", {})
                         err = _invalid_token_from_error(details)
-                        if err:
-                            token = messages[i].get("to", "")
-                            if token:
-                                invalid.append(token)
+                        if err and token:
+                            invalid.append(token)
             except Exception:
                 logger.debug("Expo response parse failed", exc_info=True)
     except Exception:
         logger.exception("Expo push send failed count=%s", len(messages))
         return PushSendResult(invalid_tokens=invalid, delivered=delivered)
 
-    if not tickets_to_poll:
-        return PushSendResult(invalid_tokens=invalid, delivered=delivered)
-
-    await asyncio.sleep(RECEIPT_POLL_DELAY_SECONDS)
-    receipt_map = await fetch_push_receipts([ticket_id for _, ticket_id in tickets_to_poll])
-    for index, ticket_id in tickets_to_poll:
-        receipt = receipt_map.get(ticket_id)
-        if not receipt:
-            continue
-        status = receipt.get("status")
-        if status == "ok":
-            delivered[index] = True
-            continue
-        if status != "error":
-            continue
-        details = receipt.get("details", {})
-        if _invalid_token_from_error(details):
-            token = messages[index].get("to", "")
-            if token:
-                invalid.append(token)
-
-    return PushSendResult(invalid_tokens=invalid, delivered=delivered)
+    return PushSendResult(
+        invalid_tokens=invalid,
+        delivered=delivered,
+        receipt_tickets=receipt_tickets,
+    )

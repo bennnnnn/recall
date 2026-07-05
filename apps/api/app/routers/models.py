@@ -29,6 +29,7 @@ async def list_models(
             available=model_catalog.is_available(m, settings),
             input_price_per_m=m.input_price_per_m,
             output_price_per_m=m.output_price_per_m,
+            quota_multiplier=m.quota_multiplier,
         )
         for m in model_catalog.selectable_models()
     ]

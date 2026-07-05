@@ -16,7 +16,12 @@ export type ParsedVocabQuiz = {
 };
 
 export function isCompleteVocabQuiz(quiz: ParsedVocabQuiz | null): quiz is ParsedVocabQuiz {
-  return quiz != null && quiz.choices.length === 4;
+  return (
+    quiz != null &&
+    quiz.choices.length === 4 &&
+    quiz.correct != null &&
+    /^[A-D]$/.test(quiz.correct)
+  );
 }
 
 /** Single-letter reply sent when the user taps a quiz choice. */
@@ -115,9 +120,8 @@ function parseVocabQuizFence(content: string): ParsedVocabQuiz | null {
     }
     if (choices.length < 2) return null;
     const correctRaw = String(data.correct ?? "").toUpperCase();
-    const correct = /^[A-D]$/.test(correctRaw)
-      ? (correctRaw as QuizChoice["letter"])
-      : undefined;
+    if (!/^[A-D]$/.test(correctRaw)) return null;
+    const correct = correctRaw as QuizChoice["letter"];
     return {
       word: word || question?.slice(0, 40) || "Trivia",
       partOfSpeech: quizType === "trivia" ? undefined : data.part_of_speech?.trim() || undefined,

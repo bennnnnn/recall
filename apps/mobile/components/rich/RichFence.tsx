@@ -17,11 +17,7 @@ import { MessagePreview } from "@/components/rich/MessagePreview";
 import { QuoteBlock } from "@/components/rich/QuoteBlock";
 import { SocialPostCard } from "@/components/rich/SocialPostCard";
 import { StepList } from "@/components/rich/StepList";
-import {
-  fenceContentAsGeometry,
-  fenceContentAsGraph,
-  looksLikeLatexFence,
-} from "@/lib/mathFenceRetag";
+import { looksLikeLatexFence } from "@/lib/mathFenceRetag";
 import {
   isMessageLang,
   isStructuredFenceLang,
@@ -42,12 +38,6 @@ export function renderRichFence(
 ): ReactNode | null {
   const l = lang.trim().toLowerCase();
   if (!isStructuredFenceLang(l)) {
-    if (fenceContentAsGeometry(content)) {
-      return <GeometryBlock key={key} content={content} />;
-    }
-    if (fenceContentAsGraph(content)) {
-      return <FunctionGraphBlock key={key} content={content} />;
-    }
     if (looksLikeLatexFence(content) && (l === "json" || l === "latex" || l === "tex" || l === "")) {
       return <MathBlock key={key} latex={content} />;
     }

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -30,6 +31,9 @@ from app.services.reminder_timing import (
 logger = logging.getLogger(__name__)
 
 LEARNING_REDIS_PREFIX = "recall:push:learning"
+RECEIPT_PENDING_ZSET = "recall:push:receipts:pending"
+RECEIPT_MIN_AGE_SECONDS = 15 * 60
+RECEIPT_MAX_AGE_SECONDS = 24 * 60 * 60
 
 
 @dataclass
@@ -117,6 +121,80 @@ def _user_day_key(user: User) -> str:
 
 def _learning_redis_key(user_id: UUID, day_key: str) -> str:
     return f"{LEARNING_REDIS_PREFIX}:{user_id}:{day_key}"
+
+
+def _receipt_token_key(ticket_id: str) -> str:
+    return f"recall:push:receipt:token:{ticket_id}"
+
+
+def _redis_str_members(raw: list[object]) -> list[str]:
+    ids: list[str] = []
+    for item in raw:
+        if isinstance(item, bytes):
+            ids.append(item.decode())
+        elif isinstance(item, str):
+            ids.append(item)
+    return ids
+
+
+async def enqueue_push_receipts(redis: Redis, tickets: list[tuple[str, str]]) -> None:
+    """Queue Expo ticket ids for deferred receipt polling (token pruning only)."""
+    if not tickets:
+        return
+    now = time.time()
+    pipe = redis.pipeline()
+    for ticket_id, token in tickets:
+        pipe.set(_receipt_token_key(ticket_id), token, ex=RECEIPT_MAX_AGE_SECONDS)
+        pipe.zadd(RECEIPT_PENDING_ZSET, {ticket_id: now})
+    await pipe.execute()
+
+
+async def poll_deferred_push_receipts(session: AsyncSession, redis: Redis) -> None:
+    """Poll Expo receipts old enough to be ready; prune dead tokens."""
+    now = time.time()
+    stale_before = now - RECEIPT_MAX_AGE_SECONDS
+    stale_raw = await redis.zrangebyscore(RECEIPT_PENDING_ZSET, 0, stale_before)
+    stale_ids = _redis_str_members(list(stale_raw))
+    if stale_ids:
+        await redis.zrem(RECEIPT_PENDING_ZSET, *stale_ids)
+        for ticket_id in stale_ids:
+            await redis.delete(_receipt_token_key(ticket_id))
+
+    ready_before = now - RECEIPT_MIN_AGE_SECONDS
+    ticket_ids = _redis_str_members(
+        list(await redis.zrangebyscore(RECEIPT_PENDING_ZSET, 0, ready_before))
+    )
+    if not ticket_ids:
+        return
+
+    receipt_map = await expo_push_gateway.fetch_push_receipts(ticket_ids)
+    pruned = False
+    for ticket_id in ticket_ids:
+        receipt = receipt_map.get(ticket_id)
+        if not receipt:
+            continue
+        status = receipt.get("status")
+        if status in (None, "pending"):
+            continue
+
+        await redis.zrem(RECEIPT_PENDING_ZSET, ticket_id)
+        token_raw = await redis.get(_receipt_token_key(ticket_id))
+        await redis.delete(_receipt_token_key(ticket_id))
+        token = token_raw.decode() if isinstance(token_raw, bytes) else token_raw
+        if (
+            status == "error"
+            and token
+            and expo_push_gateway.receipt_indicates_invalid_token(receipt)
+        ):
+            try:
+                await push_repo.delete_by_token(session, token)
+                pruned = True
+                logger.info("Pruned invalid push token from receipt ticket=%s", ticket_id[:12])
+            except Exception:
+                logger.debug("Failed to prune push token from receipt", exc_info=True)
+
+    if pruned:
+        await session.commit()
 
 
 def _append_outbound(
@@ -389,6 +467,8 @@ async def run_push_cycle(session: AsyncSession, redis: Redis, settings: Settings
     if not settings.push_enabled:
         return 0
 
+    await poll_deferred_push_receipts(session, redis)
+
     now = datetime.now(UTC)
 
     # Local (expo-notifications) reminders handle todo due-at alerts; server
@@ -421,6 +501,8 @@ async def run_push_cycle(session: AsyncSession, redis: Redis, settings: Settings
                     logger.info("Pruned invalid push token=%s", token[:20])
                 except Exception:
                     logger.debug("Failed to prune push token", exc_info=True)
+        if result.receipt_tickets:
+            await enqueue_push_receipts(redis, result.receipt_tickets)
 
     await _finalize_push_deliveries(session, redis, outbound, delivered, now=now)
     return len(outbound)

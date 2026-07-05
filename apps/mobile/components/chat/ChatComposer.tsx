@@ -28,7 +28,7 @@ export function composerAttachmentExtra(attachment: PendingAttachment | null): n
   return attachment.kind === "image" ? COMPOSER_IMAGE_PREVIEW_EXTRA : COMPOSER_FILE_PREVIEW_EXTRA;
 }
 
-type ModelOption = { id: string; label: string };
+type ModelOption = { id: string; label: string; hint?: string };
 
 type Props = {
   visible: boolean;
@@ -117,12 +117,19 @@ export const ChatComposer = memo(function ChatComposer({
                 style={[s.pickerItem, active && s.pickerItemActive]}
                 onPress={() => onSelectModel(opt.id)}
               >
-                <Text
-                  style={[s.pickerLabel, active && s.pickerLabelActive, { flex: 1 }]}
-                  numberOfLines={1}
-                >
-                  {opt.label}
-                </Text>
+                <View style={s.pickerItemBody}>
+                  <Text
+                    style={[s.pickerLabel, active && s.pickerLabelActive]}
+                    numberOfLines={1}
+                  >
+                    {opt.label}
+                  </Text>
+                  {opt.hint ? (
+                    <Text style={s.pickerHint} numberOfLines={2}>
+                      {opt.hint}
+                    </Text>
+                  ) : null}
+                </View>
                 {active ? <Text style={s.pickerCheck}>✓</Text> : null}
               </Pressable>
             );
@@ -341,9 +348,11 @@ function makeStyles(theme: Theme) {
       paddingHorizontal: 16,
       paddingVertical: 12,
     },
+    pickerItemBody: { flex: 1, gap: 2 },
     pickerItemActive: { backgroundColor: theme.primaryLight },
     pickerLabel: { fontSize: 15, fontWeight: "600", color: theme.text },
     pickerLabelActive: { color: theme.primary },
+    pickerHint: { fontSize: 12, lineHeight: 16, color: theme.textSecondary },
     pickerCheck: { color: theme.primary, fontWeight: "700", fontSize: 15 },
   });
 }

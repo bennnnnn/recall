@@ -12,6 +12,7 @@ import {
 } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
 import { buildModelPreferences, useModels } from "@/hooks/useModels";
+import { formatModelCostHint } from "@/lib/chatComposerLogic";
 import { useTheme } from "@/lib/theme";
 
 export default function ModelsSettingsScreen() {
@@ -87,6 +88,7 @@ export default function ModelsSettingsScreen() {
             const isLastModel = enabled && modelEnabledSet.size <= 1 && !autoEnabled;
             const switchDisabled =
               isLastModel || (!enabled && !option.available && !proLocked);
+            const costHint = formatModelCostHint(option, t);
 
             return (
               <View key={option.id}>
@@ -94,6 +96,7 @@ export default function ModelsSettingsScreen() {
                 <View style={s.menuRow}>
                   <View style={s.rowBody}>
                     <Text style={s.rowTitle}>{option.label}</Text>
+                    {costHint ? <Text style={s.meta}>{costHint}</Text> : null}
                     {proLocked ? (
                       <Text style={s.meta}>{t("settings.account_pro")}</Text>
                     ) : null}

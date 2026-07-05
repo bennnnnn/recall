@@ -76,10 +76,11 @@ describe("parseVocabQuiz", () => {
     expect(quiz?.correct).toBe("A");
   });
 
-  it("isCompleteVocabQuiz requires four choices", () => {
+  it("isCompleteVocabQuiz requires four choices and a correct letter", () => {
     expect(
       isCompleteVocabQuiz({
         word: "cat",
+        correct: "A",
         choices: [
           { letter: "A", text: "a" },
           { letter: "B", text: "b" },
@@ -94,9 +95,36 @@ describe("parseVocabQuiz", () => {
         choices: [
           { letter: "A", text: "a" },
           { letter: "B", text: "b" },
+          { letter: "C", text: "c" },
+          { letter: "D", text: "d" },
         ],
       }),
     ).toBe(false);
+    expect(
+      isCompleteVocabQuiz({
+        word: "cat",
+        choices: [
+          { letter: "A", text: "a" },
+          { letter: "B", text: "b" },
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects vocab_quiz fence without correct letter", () => {
+    const content = [
+      "```vocab_quiz",
+      JSON.stringify({
+        word: "rain",
+        choices: [
+          { letter: "A", text: "Water from clouds" },
+          { letter: "B", text: "A fruit" },
+        ],
+      }),
+      "```",
+    ].join("\n");
+
+    expect(parseVocabQuiz(content)).toBeNull();
   });
 
   it("strips stray asterisks from partial bold", () => {
@@ -113,12 +141,20 @@ describe("parseVocabQuiz", () => {
 
   it("infers quiz answers from message pairs", () => {
     const quizBody = [
-      "**Word:** apple [noun]",
-      "What does it mean?",
-      "A) a red fruit",
-      "B) a vehicle",
-      "C) a feeling",
-      "D) a color",
+      "```vocab_quiz",
+      JSON.stringify({
+        word: "apple",
+        part_of_speech: "noun",
+        question: "What does it mean?",
+        correct: "A",
+        choices: [
+          { letter: "A", text: "a red fruit" },
+          { letter: "B", text: "a vehicle" },
+          { letter: "C", text: "a feeling" },
+          { letter: "D", text: "a color" },
+        ],
+      }),
+      "```",
     ].join("\n");
     const answers = inferQuizAnswersFromMessages([
       { id: "q1", role: "assistant", content: quizBody },

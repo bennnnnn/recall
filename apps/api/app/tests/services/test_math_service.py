@@ -99,3 +99,5 @@ def test_graph_block_spec_requires_two_points_when_present() -> None:
     GraphBlockSpec(expr="x", points=[[0.0, 0.0], [1.0, 1.0]])
     with pytest.raises(ValueError, match="at least two"):
         GraphBlockSpec(expr="x", points=[[0.0, 0.0]])
+    with pytest.raises(ValueError, match="at least two"):
+        GraphBlockSpec(expr="x", points=[])
