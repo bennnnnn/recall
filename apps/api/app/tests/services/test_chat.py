@@ -1569,6 +1569,124 @@ async def test_regenerate_restores_assistant_when_stream_empty():
 
 
 @pytest.mark.asyncio
+async def test_regenerate_deletes_assistant_before_building_prompt():
+    """The prior assistant reply must be deleted before prompt context is built."""
+    from app.services import chat as chat_module
+    from app.services.chat.turn_prep import ClientGeoContext, TurnPromptBundle
+
+    order: list[str] = []
+
+    fake_user = MagicMock()
+    fake_user.id = MagicMock()
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+    fake_user.timezone = None
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+    fake_chat.summary = None
+
+    fake_last = MagicMock()
+    fake_last.role = "assistant"
+    fake_last.id = MagicMock()
+    fake_last.content = "prior answer"
+    fake_last.model = "free-chat"
+
+    fake_last_user = MagicMock()
+    fake_last_user.content = "question"
+
+    async def track_delete(*_args, **_kwargs):
+        order.append("delete")
+
+    async def track_build(*_args, **_kwargs):
+        order.append("build")
+        return TurnPromptBundle(
+            prompt_messages=[{"role": "system", "content": "sys"}],
+            meta={},
+            instant_reply=None,
+            search_sources=[],
+            local_places=False,
+            max_out=100,
+            fallback_models=[],
+            minimal_quiz=False,
+            geo=ClientGeoContext(
+                user_location=None,
+                client_lat=None,
+                client_lng=None,
+                has_geo_fix=False,
+                geo_query=False,
+                ambiguous_nearby=False,
+                local_places=False,
+            ),
+            local_tz="UTC",
+            verified_math=None,
+        )
+
+    async def empty_stream(**kwargs):
+        if False:
+            yield ""
+
+    with ExitStack() as stack:
+        for patcher in _offline_session_patches():
+            stack.enter_context(patcher)
+        stack.enter_context(
+            patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user))
+        )
+        stack.enter_context(
+            patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat))
+        )
+        stack.enter_context(
+            patch("app.services.chat.messages_repo.get_last", AsyncMock(return_value=fake_last))
+        )
+        stack.enter_context(
+            patch(
+                "app.services.chat.messages_repo.get_last_user",
+                AsyncMock(return_value=fake_last_user),
+            )
+        )
+        stack.enter_context(
+            patch("app.services.chat.messages_repo.count_for_chat", AsyncMock(return_value=2))
+        )
+        stack.enter_context(
+            patch(
+                "app.services.chat.stream.build_stream_prompt_context",
+                side_effect=track_build,
+            )
+        )
+        stack.enter_context(
+            patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True))
+        )
+        stack.enter_context(patch("app.services.chat.quota_service.refund_usage", AsyncMock()))
+        stack.enter_context(
+            patch(
+                "app.services.chat.attachment_lifecycle.purge_attachments_for_messages",
+                AsyncMock(),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.services.chat.messages_repo.delete_message",
+                side_effect=track_delete,
+            )
+        )
+        stack.enter_context(
+            patch("app.services.chat.litellm_gateway.stream_chat_completion", empty_stream)
+        )
+        stack.enter_context(patch("app.services.chat._restore_regenerate_backup", AsyncMock()))
+        _ = [
+            tok
+            async for tok in chat_module.stream_regenerate_response(
+                AsyncMock(),
+                Settings(max_output_tokens=100),
+                user_id=fake_user.id,
+                chat_id=MagicMock(),
+            )
+        ]
+
+    assert order.index("delete") < order.index("build")
+
+
+@pytest.mark.asyncio
 async def test_regenerate_passes_client_geo_to_web_search():
     from app.services import chat as chat_module
 
