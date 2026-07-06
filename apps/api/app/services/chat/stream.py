@@ -176,6 +176,7 @@ async def stream_regenerate_response(
     model: str
     user_message_content: str
     chat_project_id: UUID | None
+    prior_count: int
 
     async with SessionLocal() as session:
         user = await chat_pkg.users_repo.get_by_id(session, user_id)
@@ -199,6 +200,15 @@ async def stream_regenerate_response(
         )
         user_message_content = last_user.content
         chat_project_id = chat.project_id
+        prior_count = await chat_pkg.messages_repo.count_for_chat(session, chat_id)
+
+        if last.role == "assistant":
+            regenerate_backup = RegenerateBackup(content=last.content, model=last.model)
+            await chat_pkg.attachment_lifecycle.purge_attachments_for_messages(
+                session, settings, [last.id]
+            )
+            await chat_pkg.messages_repo.delete_message(session, last)
+            await session.commit()
 
     bundle = await build_stream_prompt_context(
         user_id,
@@ -217,11 +227,6 @@ async def stream_regenerate_response(
     )
 
     async with SessionLocal() as session:
-        last = await chat_pkg.messages_repo.get_last(session, chat_id)
-        if last is None:
-            raise ChatNotFoundError("No messages to regenerate.")
-
-        prior_count = await chat_pkg.messages_repo.count_for_chat(session, chat_id)
         reserved = weighted_reserve_tokens(
             content=user_message_content,
             model=model,
@@ -234,13 +239,6 @@ async def stream_regenerate_response(
             redis, str(user_id), reserved, daily_limit=daily_limit
         ):
             raise QuotaExceededError(quota_exceeded_message(user))
-
-        if last.role == "assistant":
-            regenerate_backup = RegenerateBackup(content=last.content, model=last.model)
-            await chat_pkg.attachment_lifecycle.purge_attachments_for_messages(
-                session, settings, [last.id]
-            )
-            await chat_pkg.messages_repo.delete_message(session, last)
 
     ctx = StreamContext(
         user_id=user_id,
