@@ -163,6 +163,57 @@ async def test_build_prompt_injects_custom_instructions():
 
 
 @pytest.mark.asyncio
+async def test_build_prompt_reuses_passed_chat_without_db_fetch():
+    user = MagicMock()
+    user.name = "Test User"
+    user.email = "test@example.com"
+    user.location = None
+    user.response_style = "balanced"
+    user.response_tone = None
+    user.memory_enabled = True
+    user.locale = "en"
+    user.timezone = None
+    user.custom_instructions = None
+
+    passed_chat = MagicMock()
+    passed_chat.project_id = None
+    passed_chat.summary = None
+    passed_chat.summary_message_count = 0
+
+    session = AsyncMock()
+    get_by_id = AsyncMock()
+
+    with (
+        patch("app.services.chat.chats_repo.get_by_id", get_by_id),
+        patch(
+            "app.services.chat.memory_service.get_memory_block",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.chat.todos_service.build_todos_system_section",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.chat.projects_service.load_projects_for_prompt",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.chat.messages_repo.list_recent",
+            AsyncMock(return_value=[]),
+        ),
+    ):
+        await build_prompt_messages(
+            session,
+            user,
+            uuid4(),
+            Settings(),
+            chat=passed_chat,
+        )
+
+    get_by_id.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_build_prompt_omits_custom_instructions_block_when_empty():
     user = MagicMock()
     user.name = "Test User"
