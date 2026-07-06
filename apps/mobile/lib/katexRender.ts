@@ -1,6 +1,7 @@
 import katex from "katex";
 
 import { KATEX_MIN_CSS } from "@/lib/katexMinCss";
+import { injectPreviewCsp } from "@/lib/previewSandbox";
 
 const KATEX_CDN = "https://cdn.jsdelivr.net/npm/katex@0.17.0/dist";
 const KATEX_CSS = KATEX_MIN_CSS.replace(/url\(fonts\//g, `url(${KATEX_CDN}/fonts/`);
@@ -48,7 +49,7 @@ export function buildKatexStaticWebHtml(
   const inner = renderKatexHtml(latex, options);
   const justify = options.displayMode ? "center" : "flex-start";
 
-  return `<!DOCTYPE html>
+  return injectPreviewCsp(`<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -77,7 +78,7 @@ ${inner}
 })();
 </script>
 </body>
-</html>`;
+</html>`);
 }
 
 function escapeHtml(value: string): string {

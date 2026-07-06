@@ -9,7 +9,7 @@ Tickets from the full-app review. One branch + PR per ticket; finish green
 | R2 | [Move pre-turn todo sync off critical path](#r2-move-pre-turn-todo-sync-off-critical-path) | API | ✅ |
 | R3 | [Fix `chat=None` shadowing in prompt_builder](#r3-fix-chatnone-shadowing-in-prompt_builder) | API | ✅ |
 | R4 | [Wire SSE AbortController into stopGeneration](#r4-wire-sse-abortcontroller-into-stopgeneration) | Mobile | ✅ |
-| R5 | [Add CSP to math WebViews](#r5-add-csp-to-math-webviews) | Mobile | ⬜ |
+| R5 | [Add CSP to math WebViews](#r5-add-csp-to-math-webviews) | Mobile | ✅ |
 | R6 | [Refresh documentation drift](#r6-refresh-documentation-drift) | Docs | ⬜ |
 | R7 | [Align local gate with CI](#r7-align-local-gate-with-ci) | Infra | ⬜ |
 
