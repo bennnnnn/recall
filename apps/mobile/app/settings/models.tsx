@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ScrollView, Switch, Text, View } from "react-native";
-import { Redirect, useFocusEffect } from "expo-router";
+import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -23,19 +23,11 @@ export default function ModelsSettingsScreen() {
     isPro,
     autoEnabled,
     modelEnabledSet,
-    refresh: refreshModels,
   } = useModels();
   const theme = useTheme();
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
   const [upgradeVisible, setUpgradeVisible] = useState(false);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!token) return;
-      void refreshModels();
-    }, [refreshModels, token]),
-  );
 
   if (!token) return <Redirect href="/login" />;
 

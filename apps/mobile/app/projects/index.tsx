@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Redirect, useFocusEffect, useRouter } from "expo-router";
+import { Redirect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -84,12 +84,6 @@ export default function ProjectsScreen() {
   const [dailyGoal, setDailyGoal] = useState<VocabDailyGoal>(DEFAULT_VOCAB_DAILY_GOAL);
   const [triviaTopics, setTriviaTopics] = useState<TriviaTopicId[]>(["history", "science"]);
   const [creating, setCreating] = useState(false);
-
-  useFocusEffect(
-    useCallback(() => {
-      void refresh({ silent: projects.length > 0 });
-    }, [refresh, projects.length]),
-  );
 
   if (!token) return <Redirect href="/login" />;
 
@@ -359,7 +353,7 @@ export default function ProjectsScreen() {
 
   return (
     <View style={s.root}>
-      {loading ? (
+      {loading && visibleProjects.length === 0 && !error ? (
         <View style={s.center}>
           <ActivityIndicator color={C.primary} />
         </View>

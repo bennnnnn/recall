@@ -5,7 +5,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { IntegrationPanel, makeSettingsStyles, SettingsGroup } from "@/components/settings/settingsUi";
-import { StateView } from "@/components/StateView";
 import { useSettingsIntegrations } from "@/hooks/useSettingsIntegrations";
 import { useTheme } from "@/lib/theme";
 import { useAuth } from "@/contexts/AuthContext";
@@ -19,7 +18,6 @@ export default function IntegrationsSettingsScreen() {
   const [calendarExpanded, setCalendarExpanded] = useState(true);
   const [gmailExpanded, setGmailExpanded] = useState(true);
   const {
-    loading,
     calendarStatus,
     calendarBusy,
     gmailStatus,
@@ -32,14 +30,6 @@ export default function IntegrationsSettingsScreen() {
   } = useSettingsIntegrations();
 
   if (!token) return <Redirect href="/login" />;
-
-  if (loading) {
-    return (
-      <View style={s.center}>
-        <StateView variant="loading" />
-      </View>
-    );
-  }
 
   return (
     <ScrollView

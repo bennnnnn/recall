@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   Alert,
   Modal,
@@ -14,7 +14,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { AvatarUsageRing } from "@/components/AvatarUsageRing";
-import { StateView } from "@/components/StateView";
 import { UpgradeSheet } from "@/components/UpgradeSheet";
 import {
   makeSettingsStyles,
@@ -23,7 +22,6 @@ import {
   SettingsLinkRow,
 } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
-import { useSettingsIntegrations } from "@/hooks/useSettingsIntegrations";
 import { useModels } from "@/hooks/useModels";
 import { api } from "@/lib/api";
 import { LANGUAGES } from "@/lib/i18n";
@@ -32,65 +30,38 @@ import { getDisplayName, sanitizeDisplayName } from "@/lib/profile";
 import { useTheme } from "@/lib/theme";
 
 export default function SettingsScreen() {
-  const { token, user, signOut, refreshUser, updateUser } = useAuth();
+  const { token, user, signOut, updateUser } = useAuth();
   const { t } = useTranslation();
-  const { isPro, autoEnabled, modelEnabledSet, refresh: refreshModels } = useModels();
-  const { connectedCount } = useSettingsIntegrations();
+  const { isPro, autoEnabled, modelEnabledSet } = useModels();
   const theme = useTheme();
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const [loading, setLoading] = useState(true);
-  const [bootstrapError, setBootstrapError] = useState(false);
   const [usage, setUsage] = useState<Awaited<ReturnType<typeof api.todayUsage>> | null>(null);
-  const [memCount, setMemCount] = useState(0);
+  const [connectedCount, setConnectedCount] = useState(0);
   const [editNameVisible, setEditNameVisible] = useState(false);
   const [upgradeVisible, setUpgradeVisible] = useState(false);
   const [nameText, setNameText] = useState("");
 
-  const loadBootstrap = useCallback(async () => {
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-    setBootstrapError(false);
-    const results = await Promise.allSettled([
-      refreshUser(),
+  const refreshSummary = useCallback(async () => {
+    if (!token) return;
+    const [usageR, calendarR, gmailR] = await Promise.allSettled([
       api.todayUsage(token),
-      api.listMemories(token),
+      api.googleCalendarStatus(token),
+      api.googleGmailStatus(token),
     ]);
-    const [userR, usageR, memsR] = results;
     if (usageR.status === "fulfilled") setUsage(usageR.value);
-    if (memsR.status === "fulfilled") setMemCount(memsR.value.length);
-    if (userR.status === "rejected") setBootstrapError(true);
-  }, [token, refreshUser]);
-
-  useEffect(() => {
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      try {
-        await loadBootstrap();
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [token, loadBootstrap]);
+    let count = 0;
+    if (calendarR.status === "fulfilled" && calendarR.value.connected) count += 1;
+    if (gmailR.status === "fulfilled" && gmailR.value.connected) count += 1;
+    setConnectedCount(count);
+  }, [token]);
 
   useFocusEffect(
     useCallback(() => {
-      void refreshModels();
-      if (token) {
-        void api.todayUsage(token).then(setUsage).catch(() => {});
-      }
-    }, [refreshModels, token]),
+      void refreshSummary();
+    }, [refreshSummary]),
   );
 
   const saveName = async () => {
@@ -111,30 +82,6 @@ export default function SettingsScreen() {
 
   if (!token) return <Redirect href="/login" />;
 
-  if (loading) {
-    return (
-      <View style={s.center}>
-        <StateView variant="loading" />
-      </View>
-    );
-  }
-
-  if (bootstrapError && !user) {
-    return (
-      <View style={s.center}>
-        <StateView
-          variant="error"
-          title={t("common.error")}
-          onRetry={() => {
-            setLoading(true);
-            void loadBootstrap().finally(() => setLoading(false));
-          }}
-          retryLabel={t("common.retry")}
-        />
-      </View>
-    );
-  }
-
   const remainingPct = usage ? Math.round(usageRemainingPercent(usage)) : null;
   const displayName = getDisplayName(user?.name, t("common.you"));
   const accountLabel = isPro ? t("settings.account_pro") : t("settings.account_free");
@@ -143,12 +90,7 @@ export default function SettingsScreen() {
   const modelsValue = autoEnabled
     ? t("settings.model_auto")
     : t("settings.models_enabled", { count: modelEnabledSet.size });
-  const memoryValue =
-    memCount > 0
-      ? t("settings.memory_count", { count: memCount })
-      : user?.memory_enabled
-        ? t("settings.on")
-        : t("settings.off");
+  const memoryValue = user?.memory_enabled ? t("settings.on") : t("settings.off");
   const integrationsValue =
     connectedCount > 0
       ? t("settings.integrations_connected", { count: connectedCount })
@@ -236,7 +178,7 @@ export default function SettingsScreen() {
           />
           <View style={s.menuSeparator} />
           <SettingsLinkRow
-            title={t("settings.learning.title")}
+            title={t("settings.learning")}
             onPress={() => router.push("/settings/learning")}
             styles={s}
             theme={theme}

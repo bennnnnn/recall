@@ -27,7 +27,6 @@ type Params = {
   focusSection: FocusSection;
   todos: Todo[];
   highlight?: string;
-  todosCount: number;
   refresh: (opts?: { silent?: boolean; force?: boolean }) => Promise<void>;
   markSeen: () => Promise<void>;
   setTodos: React.Dispatch<React.SetStateAction<Todo[]>>;
@@ -38,7 +37,6 @@ export function useTodosCalendarIntegration({
   focusSection,
   todos,
   highlight,
-  todosCount,
   refresh,
   markSeen,
   setTodos,
@@ -96,7 +94,7 @@ export function useTodosCalendarIntegration({
 
   useFocusEffect(
     useCallback(() => {
-      void refresh({ silent: todosCount > 0 });
+      void refresh({ silent: true });
       if (focusSection !== "list") {
         void markSeen();
       }
@@ -111,7 +109,6 @@ export function useTodosCalendarIntegration({
       markSeen,
       refresh,
       token,
-      todosCount,
     ]),
   );
 

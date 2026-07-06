@@ -1,4 +1,3 @@
-import asyncio
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -62,12 +61,10 @@ async def search_conversations(
         .limit(max(limit + offset, limit))
     )
 
-    msg_count_result, title_result, message_chat_ids, msg_rows_result = await asyncio.gather(
-        session.execute(msg_count_stmt),
-        session.execute(title_stmt),
-        session.scalars(msg_chat_ids_stmt),
-        session.execute(msg_stmt),
-    )
+    msg_count_result = await session.execute(msg_count_stmt)
+    title_result = await session.execute(title_stmt)
+    message_chat_ids = await session.scalars(msg_chat_ids_stmt)
+    msg_rows_result = await session.execute(msg_stmt)
 
     message_total: int = msg_count_result.scalar_one()
     title_chats = list(title_result.scalars().all())

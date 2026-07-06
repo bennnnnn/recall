@@ -303,9 +303,11 @@ async def build_stream_prompt_context(
             and not chat_pkg.email_service.is_external_email_question(content)
         )
         if need_routing_context:
-            prior_user_messages, has_calendar_write = await asyncio.gather(
-                chat_pkg.messages_repo.recent_user_contents(session, chat.id),
-                chat_pkg.calendar_service.has_write_access(session, user.id),
+            prior_user_messages = await chat_pkg.messages_repo.recent_user_contents(
+                session, chat.id
+            )
+            has_calendar_write = await chat_pkg.calendar_service.has_write_access(
+                session, user.id
             )
 
         max_out = (

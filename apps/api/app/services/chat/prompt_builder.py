@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from uuid import UUID
@@ -189,20 +188,18 @@ async def build_prompt_messages(
                 session, user.id, settings
             )
 
-        memory_block, todos_section, projects_block, recent_all = await asyncio.gather(
-            chat_pkg.memory_service.get_memory_block(
-                session, user, settings, query_text=query_text
-            ),
-            chat_pkg.todos_service.build_todos_system_section(
-                session,
-                user,
-                settings,
-                client_timezone=client_timezone,
-                query_text=query_text,
-            ),
-            _projects_block(),
-            chat_pkg.messages_repo.list_recent(session, chat_id, limit=recent_limit),
+        memory_block = await chat_pkg.memory_service.get_memory_block(
+            session, user, settings, query_text=query_text
         )
+        todos_section = await chat_pkg.todos_service.build_todos_system_section(
+            session,
+            user,
+            settings,
+            client_timezone=client_timezone,
+            query_text=query_text,
+        )
+        projects_block = await _projects_block()
+        recent_all = await chat_pkg.messages_repo.list_recent(session, chat_id, limit=recent_limit)
         if out is not None:
             labels = set(chat_pkg.memory_service.SECTION_LABELS.values())
             hints = [

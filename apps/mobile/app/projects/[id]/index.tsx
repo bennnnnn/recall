@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -47,11 +47,14 @@ export default function ProjectDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [project, setProject] = useState<ProjectDetail | null>(null);
+  const hasLoadedRef = useRef(false);
   const [selectedDay, setSelectedDay] = useState(() => localDateKey(new Date()));
   const [conceptBusyId, setConceptBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!token || typeof id !== "string") return;
+    const firstLoad = !hasLoadedRef.current;
+    if (firstLoad) setLoading(true);
     setLoadError(false);
     try {
       const data = await api.getProject(token, id);
@@ -63,7 +66,8 @@ export default function ProjectDetailScreen() {
       setProject(null);
       setLoadError(true);
     } finally {
-      setLoading(false);
+      hasLoadedRef.current = true;
+      if (firstLoad) setLoading(false);
     }
   }, [token, id, router]);
 
@@ -94,7 +98,7 @@ export default function ProjectDetailScreen() {
     ]);
   };
 
-  if (loading) {
+  if (loading && !project) {
     return (
       <View style={s.center}>
         <ActivityIndicator color={theme.primary} />

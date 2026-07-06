@@ -169,7 +169,7 @@ export function TodosProvider({ children }: { children: ReactNode }) {
 
   useFocusEffect(
     useCallback(() => {
-      void refresh({ silent: todosRef.current.length > 0 });
+      void refresh({ silent: true });
     }, [refresh]),
   );
 

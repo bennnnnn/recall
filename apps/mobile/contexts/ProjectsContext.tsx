@@ -91,7 +91,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
 
   useFocusEffect(
     useCallback(() => {
-      void refresh({ silent: projectsRef.current.length > 0 });
+      void refresh({ silent: true });
     }, [refresh]),
   );
 

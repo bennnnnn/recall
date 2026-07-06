@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Alert } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -17,13 +17,14 @@ export function useSettingsIntegrations() {
   const [calendarBusy, setCalendarBusy] = useState(false);
   const [gmailStatus, setGmailStatus] = useState<GoogleGmailStatus | null>(null);
   const [gmailBusy, setGmailBusy] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!token) {
       setLoading(false);
       return;
     }
+    setLoading(true);
     const [calendarR, gmailR] = await Promise.allSettled([
       api.googleCalendarStatus(token),
       api.googleGmailStatus(token),
@@ -32,10 +33,6 @@ export function useSettingsIntegrations() {
     if (gmailR.status === "fulfilled") setGmailStatus(gmailR.value);
     setLoading(false);
   }, [token]);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
 
   useFocusEffect(
     useCallback(() => {

@@ -53,7 +53,6 @@ export default function LearningSettingsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      setLoading(true);
       void load();
     }, [load]),
   );
@@ -76,7 +75,7 @@ export default function LearningSettingsScreen() {
 
   if (!token) return <Redirect href="/login" />;
 
-  if (loading) {
+  if (loading && projects.length === 0) {
     return (
       <View style={s.center}>
         <StateView variant="loading" />

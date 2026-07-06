@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import logging
 import re
@@ -778,21 +777,12 @@ async def build_home_screen(
     async def load_suggestions() -> list:
         return await suggestions_repo.list_active(session, user.id)
 
-    (
-        urgent_items,
-        memories,
-        recent_titles,
-        project_content,
-        integration_starters,
-        suggestion_items,
-    ) = await asyncio.gather(
-        load_urgent(),
-        load_memories(),
-        load_recent_titles(),
-        load_project_content(),
-        load_integrations(),
-        load_suggestions(),
-    )
+    urgent_items = await load_urgent()
+    memories = await load_memories()
+    recent_titles = await load_recent_titles()
+    project_content = await load_project_content()
+    integration_starters = await load_integrations()
+    suggestion_items = await load_suggestions()
 
     urgent_todos: list[HomeUrgentTodo] = []
     for item in urgent_items:

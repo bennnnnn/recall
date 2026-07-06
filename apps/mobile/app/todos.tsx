@@ -59,7 +59,6 @@ export default function TodosScreen() {
     focusSection,
     todos,
     highlight,
-    todosCount: todos.length,
     refresh,
     markSeen,
     setTodos,
@@ -96,7 +95,7 @@ export default function TodosScreen() {
 
   if (!token) return <Redirect href="/login" />;
 
-  if (loading) {
+  if (loading && todos.length === 0) {
     return (
       <View style={s.center}>
         <ActivityIndicator size="large" color={C.primary} />

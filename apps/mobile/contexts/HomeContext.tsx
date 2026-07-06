@@ -93,7 +93,7 @@ export function HomeProvider({ children }: { children: ReactNode }) {
 
   useFocusEffect(
     useCallback(() => {
-      void refresh({ silent: screenRef.current !== null });
+      void refresh({ silent: true });
     }, [refresh]),
   );
 
