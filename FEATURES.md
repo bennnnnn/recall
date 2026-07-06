@@ -22,7 +22,8 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
   secure storage; `POST /auth/refresh` and `POST /auth/logout` with access-token revocation.
 - ✅ **Auto sign-out on 401** — refresh is attempted first; if it fails, the user is signed out.
 - ✅ **Sign out** — revokes server tokens, clears local storage, and signs out of Google.
-- 🔜 Email/password, Apple sign-in, magic links, multi-device session management.
+- ✅ **Sign in with Apple** — iOS only (hidden on Android); requires Apple capability on App ID.
+- 🔜 Email/password, magic links, multi-device session management.
 
 ## 2. Conversations (chats)
 - ✅ **New chat** — from the header `＋` and the drawer; created **lazily** on the first message

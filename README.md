@@ -106,7 +106,7 @@ host that keeps the process alive — not a serverless function platform. A Dock
      `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`)
    - `TAVILY_API_KEY=` (if web search is on)
 3. **Migrate on deploy:** `fly deploy` runs `alembic upgrade head` first (see
-   `fly.toml`). Confirm the head (`0036`) is applied.
+   `fly.toml`). Confirm the head (`0041`) is applied.
 4. **Health:** point your monitor at `GET /health/ready` (checks DB + Redis).
 5. **RevenueCat:** set the webhook URL to `https://<api>/webhooks/revenuecat`
    with the `Authorization` header = your `REVENUECAT_WEBHOOK_AUTH`.
