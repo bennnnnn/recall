@@ -3,7 +3,7 @@
 Sequenced checklist from "code on main" to "live in the App Store / Play Store".
 Code blockers are all resolved; what remains is provisioning, building, and QA.
 
-> **Alembic head:** `0038` · **App/API version:** `1.0.0` / `0.1.0`
+> **Alembic head:** `0041` · **App/API version:** `1.0.0` / `0.1.0`
 > Local gate: `./scripts/dev.sh check` (API: ruff + format + mypy + pytest ≥80%; mobile: typecheck + lint + jest).
 
 ---
@@ -62,7 +62,7 @@ revocation, per-memory fact delete, SSE chat fallback, manual deploy workflow, p
 
 ## Step 3 — Migrate + deploy the API
 
-- [ ] `cd apps/api && uv run alembic upgrade head` (head: `0038` — idempotent; safe to re-run)
+- [ ] `cd apps/api && uv run alembic upgrade head` (head: `0041` — idempotent; safe to re-run)
 - [ ] `fly deploy` from repo root (build context `apps/api`, Dockerfile migrates-then-starts)
 - [ ] Verify `GET https://<api>/health/ready` → `{"status":"ok"}` (DB + Redis check)
 - [ ] Smoke: `curl https://<api>/legal/privacy` and `/legal/terms` (hosted legal docs)

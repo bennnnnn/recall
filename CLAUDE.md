@@ -6,7 +6,7 @@ A personal mobile AI chat app that remembers the user's preferences, projects, a
 
 1. **Never put provider API keys in the mobile app.** Keys live only in the backend `.env`. The app only ever talks to our API.
 2. **Use product model aliases, never provider names**, in app/business code: `free-chat`, `smart-chat`, `title-model`, `memory-model`. Only `gateways/litellm_gateway.py` maps aliases → real providers.
-3. **Never send full chat history to the model.** Build context from injected memory + the recent window (~10–20 messages) only.
+3. **Never send full chat history to the model.** Build context from injected memory + the recent window (default hard cap 40 messages; token budget also trims) only.
 4. **Topic generation and memory extraction are best-effort background jobs.** They must never raise into the chat request path or block streaming.
 5. **No arbitrary code execution — one sandboxed exception.** Code in messages is rendered/highlighted only, with a single exception: **HTML/CSS/JS may be previewed in a sandboxed WebView** (and charts/diagrams rendered from model output). Never execute Python, shell, or any other language, and never run code anywhere except inside the isolated preview WebView (no app token is ever exposed to it). The preview WebView requires a dev build — it does not work in Expo Go.
 6. **All LLM structured outputs are validated with Pydantic** before they touch the DB.
@@ -18,7 +18,7 @@ A personal mobile AI chat app that remembers the user's preferences, projects, a
 
 **Domain concepts:**
 
-- **user** — Google-authenticated person; editable profile + preferences.
+- **user** — Google or Apple sign-in; editable profile + preferences.
 - **chat** — a conversation; has an auto-generated title.
 - **message** — one turn (`user` | `assistant` | `system`).
 - **memory** — a structured fact about the user, typed: `profile` | `preference` | `project` | `fact` | `focus`.
@@ -168,13 +168,17 @@ JWT_SECRET=...
 
 ## Key Dependencies (external services)
 
-Neon · Upstash Redis · LiteLLM · Google OAuth · Sentry
+Neon · Upstash Redis · LiteLLM (OpenRouter) · Google OAuth · Apple Sign-In · Sentry · RevenueCat
 
-**Database — Neon (serverless Postgres), chosen over Supabase:** we run our own backend, auth (Google/JWT), and object storage (S3/R2 planned), so we only need a database — not a BaaS bundle (auth/storage/realtime) we wouldn't use. Neon's usage-based pricing + scale-to-zero is cheaper at our scale, branching helps CI/preview, it's plain Postgres (portable, good for the future web client), and `pgvector` runs in the **same DB** — so semantic memory/RAG needs no separate vector store. (Revisit only if we ever rebuild the whole backend as a Supabase app.)
+**Database — Neon (serverless Postgres), chosen over Supabase:** we run our own backend, auth (Google/JWT/Apple), and object storage (R2 in production), so we only need a database — not a BaaS bundle (auth/storage/realtime) we wouldn't use. Neon's usage-based pricing + scale-to-zero is cheaper at our scale, branching helps CI/preview, it's plain Postgres (portable, good for the future web client), and `pgvector` runs in the **same DB** for memory embeddings.
 
-Later: pgvector (semantic memory/RAG — available in Neon), RevenueCat, LiteLLM Proxy.
+**Shipped beyond MVP:** pgvector memory embeddings, RevenueCat Pro subscriptions, Sentry (backend + mobile), Fly `api`/`worker` process split. See `FEATURES.md` for the full product catalog.
 
-## Milestones (MVP week)
+**Later:** LiteLLM Proxy (self-hosted routing), web client, full attachment RAG.
+
+## Milestones (MVP week — complete)
+
+The original week-one MVP is done. The table below is historical; current scope is in `FEATURES.md`.
 
 | Day | Deliverable |
 |-----|-------------|
