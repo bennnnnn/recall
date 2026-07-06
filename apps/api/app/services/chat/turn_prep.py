@@ -77,7 +77,6 @@ class StreamContext:
     search_sources: list[WebSearchHit] = field(default_factory=list)
     local_places: bool = False
     skip_memory_jobs: bool = False
-    todos_pre_synced: bool = False
     prior_count: int = 0
     chat_project_id: UUID | None = None
     regenerate_backup: RegenerateBackup | None = None
@@ -587,27 +586,6 @@ async def prepare_chat_turn(
 
         await session.commit()
 
-    todo_sync_feedback: str | None = None
-    todos_pre_synced = False
-    if not web_search_service.is_vocab_quiz_answer(content):
-        sync_transcript: str | None = None
-        should_sync = False
-        async with SessionLocal() as session:
-            recent_for_sync = await chat_pkg.messages_repo.list_recent(session, chat_id, limit=8)
-            sync_transcript = chat_pkg.todos_service.format_chat_transcript(recent_for_sync)
-            should_sync = chat_pkg.todos_service.should_pre_sync_todos(content, sync_transcript)
-            await session.commit()
-
-        if should_sync and sync_transcript is not None:
-            feedback = await chat_pkg.todos_service.sync_todos_before_reply(
-                settings,
-                user_id=user_id,
-                chat_id=chat_id,
-                transcript=sync_transcript,
-            )
-            todos_pre_synced = True
-            todo_sync_feedback = chat_pkg.todos_service.format_todo_sync_feedback(feedback)
-
     bundle = await build_stream_prompt_context(
         user_id,
         chat_id,
@@ -621,7 +599,6 @@ async def prepare_chat_turn(
         client_longitude=client_longitude,
         has_image_attachment=has_image_attachment,
         on_status=on_status,
-        todo_sync_feedback=todo_sync_feedback,
         quiz_mode=quiz_mode,
         user=user,
         chat=chat,
@@ -655,7 +632,6 @@ async def prepare_chat_turn(
         search_sources=bundle.search_sources,
         local_places=bundle.local_places,
         skip_memory_jobs=bundle.minimal_quiz,
-        todos_pre_synced=todos_pre_synced,
         prior_count=prior_count,
         chat_project_id=chat_project_id,
         fallback_models=bundle.fallback_models,
