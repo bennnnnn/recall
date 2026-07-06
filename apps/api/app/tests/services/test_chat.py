@@ -11,6 +11,7 @@ from app.services.chat import (
     format_user_name_only_block,
     format_user_profile_block,
     is_broad_self_question,
+    is_lightweight_chat_turn,
     is_writing_deliverable_request,
     max_output_tokens_for_style,
 )
@@ -504,6 +505,21 @@ async def test_build_prompt_includes_locale_hint_for_amharic():
 )
 def test_is_broad_self_question(text, expected):
     assert is_broad_self_question(text) is expected
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("hi", True),
+        ("Thanks!", True),
+        ("ok", True),
+        ("Hello there", False),
+        ("What's on my calendar today?", False),
+        ("add eggs to groceries", False),
+    ],
+)
+def test_is_lightweight_chat_turn(text, expected):
+    assert is_lightweight_chat_turn(text) is expected
 
 
 @pytest.mark.asyncio

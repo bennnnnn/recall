@@ -182,6 +182,11 @@ def test_needs_web_search_skips_vocab_quiz(text):
     assert needs_web_search(text, prior_user_messages=["Show me yesterdays game"]) is False
 
 
+def test_needs_web_search_skips_lightweight_greeting():
+    assert needs_web_search("thanks!") is False
+    assert needs_web_search("hi") is False
+
+
 def test_build_search_query_clarification_world_cup():
     queries = build_search_queries(
         "No, the ongoing one.",
