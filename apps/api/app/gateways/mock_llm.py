@@ -2,6 +2,7 @@ import asyncio
 import logging
 import re
 from collections.abc import AsyncIterator
+from typing import cast, get_args
 
 from app.core.config import Settings
 from app.services.chat_titles import normalize_chat_title
@@ -101,10 +102,11 @@ async def mock_memories(user_message: str):
 
 
 async def mock_rewrite_memory_sections(sections: dict[str, str]):
-    from app.models.schemas import MemorySectionItem, MemorySectionUpdateResult
+    from app.models.schemas import MemorySectionItem, MemorySectionUpdateResult, MemoryType
 
     if not sections:
         return None
+    valid_memory_types = frozenset(get_args(MemoryType))
     rewritten: list[MemorySectionItem] = []
     for memory_type, text in sections.items():
         sentences = [part.strip() for part in text.split(".") if part.strip()]
@@ -120,7 +122,14 @@ async def mock_rewrite_memory_sections(sections: dict[str, str]):
         if summary and not summary.endswith("."):
             summary += "."
         rewritten.append(
-            MemorySectionItem(type=memory_type, summary=summary or text[:300], confidence=0.85)
+            MemorySectionItem(
+                type=cast(
+                    MemoryType,
+                    memory_type if memory_type in valid_memory_types else "fact",
+                ),
+                summary=summary or text[:300],
+                confidence=0.85,
+            )
         )
     return MemorySectionUpdateResult(sections=rewritten)
 
@@ -353,7 +362,7 @@ def _extract_quiz_answer(transcript: str) -> str | None:
 
 
 async def mock_project_actions(user_message: str, snapshot: dict[str, object]):
-    from app.models.schemas import ProjectActionItem, ProjectExtractionResult
+    from app.models.schemas import ProjectActionItem, ProjectExtractionResult, ProjectKind
 
     text = user_message.lower()
     actions: list[ProjectActionItem] = []
@@ -375,7 +384,9 @@ async def mock_project_actions(user_message: str, snapshot: dict[str, object]):
             if line.lower().startswith("user:"):
                 content = line.split(":", 1)[-1].strip()
                 if len(content) > 3:
-                    kind = "vocabulary" if "vocab" in text or "english" in text else "general"
+                    kind: ProjectKind = (
+                        "vocabulary" if "vocab" in text or "english" in text else "general"
+                    )
                     actions.append(
                         ProjectActionItem(
                             action="create_project",

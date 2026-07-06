@@ -198,7 +198,8 @@ async def load_gmail_context(
     try:
         cached = await redis.get(cache_key)
         if cached is not None:
-            messages = _messages_from_cache(cached)
+            raw = cached.decode() if isinstance(cached, bytes) else cached
+            messages = _messages_from_cache(raw)
             cache_hit = True
     except Exception:
         logger.debug("Gmail cache read failed", exc_info=True)

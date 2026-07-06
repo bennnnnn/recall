@@ -322,17 +322,17 @@ async def chat_websocket(
 
             if msg_type == "edit":
                 try:
-                    request = EditMessageRequest.model_validate(payload)
+                    edit_request = EditMessageRequest.model_validate(payload)
                 except ValidationError:
                     await websocket.send_json(
                         {"type": "error", "message": "Invalid edit request"},
                     )
                     continue
 
-                edit_model = request.model
-                edit_loc = request.client_location
-                edit_lat = request.client_latitude
-                edit_lng = request.client_longitude
+                edit_model = edit_request.model
+                edit_loc = edit_request.client_location
+                edit_lat = edit_request.client_latitude
+                edit_lng = edit_request.client_longitude
 
                 async def emit_status(phase: str) -> None:
                     await _safe_send_json(websocket, {"type": "status", "phase": phase})
@@ -342,8 +342,8 @@ async def chat_websocket(
 
                 def _edit_stream(
                     result,
-                    mid=request.message_id,
-                    text=request.content,
+                    mid=edit_request.message_id,
+                    text=edit_request.content,
                     model=edit_model,
                     tz=client_timezone,
                     loc=edit_loc,

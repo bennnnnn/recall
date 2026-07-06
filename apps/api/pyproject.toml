@@ -81,22 +81,6 @@ strict = false
 ignore_missing_imports = true
 files = ["app"]
 
-[[tool.mypy.overrides]]
-module = [
-    "app.services.projects",
-    "app.repositories.search",
-    "app.repositories.push_tokens",
-    "app.repositories.project_items",
-    "app.repositories.messages",
-    "app.gateways.mock_llm",
-    "app.gateways.google_calendar_gateway",
-    "app.services.email",
-    "app.services.chat",
-    "app.routers.ws",
-    "app.tests.services.test_plan",
-]
-ignore_errors = true
-
 [tool.coverage.run]
 source = ["app"]
 omit = [

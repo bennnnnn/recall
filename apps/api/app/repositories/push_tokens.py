@@ -1,6 +1,8 @@
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import delete, select
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import PushToken
@@ -73,7 +75,7 @@ async def delete_stale_tokens_for_device(
             PushToken.expo_push_token != keep_expo_push_token,
         )
     )
-    return int(result.rowcount or 0)
+    return int(cast(CursorResult[Any], result).rowcount or 0)
 
 
 async def delete_token(session: AsyncSession, user_id: UUID, expo_push_token: str) -> bool:
@@ -84,7 +86,7 @@ async def delete_token(session: AsyncSession, user_id: UUID, expo_push_token: st
         )
     )
     await session.commit()
-    return (result.rowcount or 0) > 0
+    return cast(CursorResult[Any], result).rowcount > 0
 
 
 async def delete_by_token(session: AsyncSession, expo_push_token: str) -> int:
@@ -93,7 +95,7 @@ async def delete_by_token(session: AsyncSession, expo_push_token: str) -> int:
         delete(PushToken).where(PushToken.expo_push_token == expo_push_token)
     )
     await session.commit()
-    return int(result.rowcount or 0)
+    return int(cast(CursorResult[Any], result).rowcount or 0)
 
 
 async def list_for_user(session: AsyncSession, user_id: UUID) -> list[PushToken]:

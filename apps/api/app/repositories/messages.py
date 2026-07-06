@@ -1,8 +1,10 @@
 from datetime import datetime
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy import delete as sql_delete
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Message
@@ -220,7 +222,7 @@ async def delete_messages_from(
         )
     )
     await session.commit()
-    return result.rowcount or 0
+    return cast(CursorResult[Any], result).rowcount or 0
 
 
 async def delete_message(session: AsyncSession, message: Message) -> None:

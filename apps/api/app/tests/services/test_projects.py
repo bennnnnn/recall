@@ -313,7 +313,7 @@ async def test_sync_projects_from_transcript_adds_words():
     user_id = uuid4()
     chat_id = uuid4()
     project = _project("Learning English")
-    settings = Settings(mock_llm_enabled=True)
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
     settings.openrouter_api_key = ""
 
     transcript = (

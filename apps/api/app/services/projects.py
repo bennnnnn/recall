@@ -1035,27 +1035,28 @@ async def apply_project_actions(
                     applied += 1
                     items = await project_items_repo.list_for_user(session, user_id, limit=500)
             elif action.action == "delete_project":
-                project = _find_project(projects, title)
-                if project:
-                    await projects_repo.delete_by_id(session, project.id, user_id)
+                matched = _find_project(projects, title)
+                if matched:
+                    await projects_repo.delete_by_id(session, matched.id, user_id)
                     applied += 1
-                    projects = [p for p in projects if p.id != project.id]
-                    items = [i for i in items if i.project_id != project.id]
+                    projects = [p for p in projects if p.id != matched.id]
+                    items = [i for i in items if i.project_id != matched.id]
             elif action.action == "set_description":
-                project = _find_project(projects, title)
-                if project:
+                matched = _find_project(projects, title)
+                if matched:
                     desc = (action.description or "").strip() or None
-                    await projects_repo.update(session, project, description=desc)
+                    await projects_repo.update(session, matched, description=desc)
                     applied += 1
             elif action.action == "set_level":
-                project = _find_project(projects, title)
-                if project and action.level:
-                    await projects_repo.update(session, project, level=action.level)
+                matched = _find_project(projects, title)
+                if matched and action.level:
+                    await projects_repo.update(session, matched, level=action.level)
                     applied += 1
             else:
-                project = _find_project(projects, title)
-                if not project:
+                matched = _find_project(projects, title)
+                if not matched:
                     continue
+                project = matched
                 list_title = _resolve_list_title(project, action)
                 if action.action == "add":
                     content = action.content.strip()

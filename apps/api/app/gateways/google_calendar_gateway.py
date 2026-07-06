@@ -275,6 +275,8 @@ async def list_upcoming_events(
             logger.warning("Skipping calendar batch: %s", batch)
             failed_calendars += 1
             continue
+        if not isinstance(batch, list):
+            continue
         for event in batch:
             merged.setdefault(event.id, event)
 

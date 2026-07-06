@@ -112,7 +112,7 @@ async def test_record_usage_accumulates(fake_redis):
 async def test_stream_chat_completion_mock():
     from app.gateways import litellm_gateway
 
-    settings = Settings(mock_llm_enabled=True)
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
     tokens = []
     async for t in litellm_gateway.stream_chat_completion(
         settings=settings,
@@ -130,7 +130,7 @@ async def test_complete_structured_mock_returns_none():
     from app.gateways import litellm_gateway
     from app.models.schemas import TitleGenerationResult
 
-    settings = Settings(mock_llm_enabled=True)
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
     result = await litellm_gateway.complete_structured(
         settings=settings,
         model_alias="title-model",
@@ -144,7 +144,7 @@ async def test_complete_structured_mock_returns_none():
 async def test_generate_title_mock():
     from app.gateways import litellm_gateway
 
-    settings = Settings(mock_llm_enabled=True)
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
     title = await litellm_gateway.generate_title(settings, "Hello", "Hi there")
     assert title is not None
     assert isinstance(title, str)
@@ -154,7 +154,7 @@ async def test_generate_title_mock():
 async def test_revise_memory_sections_mock():
     from app.gateways import litellm_gateway
 
-    settings = Settings(mock_llm_enabled=True)
+    settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
     result = await litellm_gateway.revise_memory_sections(
         settings, "User likes Python", existing_sections={}
     )

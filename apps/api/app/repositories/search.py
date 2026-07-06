@@ -71,10 +71,11 @@ async def search_conversations(
 
     message_total: int = msg_count_result.scalar_one()
     title_chats = list(title_result.scalars().all())
-    message_chat_ids = set(message_chat_ids.all())
+    message_chat_id_rows = message_chat_ids.all()
+    message_chat_ids_set = set(message_chat_id_rows)
     msg_rows = msg_rows_result.all()
 
-    title_only = [chat for chat in title_chats if chat.id not in message_chat_ids]
+    title_only = [chat for chat in title_chats if chat.id not in message_chat_ids_set]
     total = message_total + len(title_only)
 
     results: list[dict] = []

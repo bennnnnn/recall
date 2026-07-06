@@ -34,6 +34,7 @@ async def test_lifespan_starts_and_stops_workers():
         patch("app.main.gmail_periodic_sync.stop_gmail_periodic_scheduler", AsyncMock()),
         patch("app.main.attachment_orphan_reaper.start_orphan_reaper", AsyncMock()),
         patch("app.main.attachment_orphan_reaper.stop_orphan_reaper", AsyncMock()),
+        patch("app.main.warmup_db_pool", AsyncMock()),
         patch("app.main.engine", mock_engine),
         patch("app.main.get_redis_client", return_value=mock_redis),
     ):
