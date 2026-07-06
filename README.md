@@ -6,8 +6,9 @@ Personal AI mobile chat that remembers who you are, what you prefer, and what yo
 
 ## One-time setup (no Docker)
 
+From the repo root (where this README lives):
+
 ```bash
-cd ~/Projects/recall
 ./scripts/dev.sh setup
 ```
 
@@ -129,6 +130,13 @@ eas build --platform android --profile production
 Native features require a dev/production build, **not** Expo Go: Google
 Sign-In, the HTML/chart preview WebView, push notifications, and RevenueCat
 purchases. Configure your EAS `projectId`.
+
+## Launch readiness
+
+- **On-device QA:** [`docs/QA_MATRIX.md`](docs/QA_MATRIX.md)
+- **Production provisioning:** [`docs/PRODUCTION.md`](docs/PRODUCTION.md)
+- **Automated smoke:** `./scripts/qa-smoke.sh` (add `--live` when API is running)
+- **Production verify:** `./scripts/verify-production.sh`
 
 ## Remote
 

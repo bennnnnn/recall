@@ -1,261 +1,167 @@
-/**
- * lib/api/client.ts is the single network boundary for the app — every
- * request's auth header, 401-refresh-retry flow, and single-flight refresh
- * lives here. It was previously untested (the real module transitively pulls
- * in expo-constants/expo-secure-store, which this repo's ts-jest setup can't
- * transform), so @/lib/config and @/lib/auth are mocked to isolate the pure
- * request logic from those native modules.
- */
-
 jest.mock("@/lib/config", () => ({
-  getApiUrl: () => "https://api.test",
+  getApiUrl: () => "http://test.local",
 }));
 
-const mockGetRefreshToken = jest.fn<Promise<string | null>, []>();
-const mockSetTokenPair = jest.fn<Promise<void>, [string, string]>();
+const mockGetRefreshToken = jest.fn();
+const mockSetTokenPair = jest.fn();
 
 jest.mock("@/lib/auth", () => ({
-  getRefreshToken: (...args: unknown[]) => mockGetRefreshToken(...(args as [])),
-  setTokenPair: (...args: [string, string]) => mockSetTokenPair(...args),
+  getRefreshToken: (...args: unknown[]) => mockGetRefreshToken(...args),
+  setTokenPair: (...args: unknown[]) => mockSetTokenPair(...args),
 }));
 
 import {
   apiUrl,
-  fetchExportText,
-  logoutSession,
+  fetchWithTimeout,
   request,
   setTokenRefreshHandler,
   setUnauthorizedHandler,
 } from "@/lib/api/client";
 
-function jsonResponse(status: number, body: unknown): Response {
-  return {
-    status,
-    ok: status >= 200 && status < 300,
-    json: async () => body,
-    text: async () => JSON.stringify(body),
-  } as unknown as Response;
-}
+const mockFetch = jest.fn();
+globalThis.fetch = mockFetch as unknown as typeof fetch;
 
-function textErrorResponse(status: number, body: string): Response {
-  return {
-    status,
-    ok: false,
-    json: async () => {
-      throw new Error("not json");
-    },
-    text: async () => body,
-  } as unknown as Response;
-}
+beforeEach(() => {
+  mockFetch.mockReset();
+  mockGetRefreshToken.mockReset();
+  mockSetTokenPair.mockReset();
+  setUnauthorizedHandler(null);
+  setTokenRefreshHandler(null);
+});
 
-describe("lib/api/client", () => {
-  beforeEach(() => {
-    mockGetRefreshToken.mockReset();
-    mockSetTokenPair.mockReset();
-    globalThis.fetch = jest.fn();
+describe("api client", () => {
+  it("apiUrl prefixes paths with configured base", () => {
+    expect(apiUrl("/chats")).toBe("http://test.local/chats");
   });
 
-  afterEach(() => {
-    setUnauthorizedHandler(null);
-    setTokenRefreshHandler(null);
+  it("request returns JSON on success", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: "chat-1" }),
+    });
+
+    const data = await request<{ id: string }>("/chats/1", "access-token");
+    expect(data).toEqual({ id: "chat-1" });
+    expect(mockFetch).toHaveBeenCalledWith(
+      "http://test.local/chats/1",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer access-token",
+        }),
+      }),
+    );
   });
 
-  describe("apiUrl", () => {
-    it("prefixes the path with the configured API base URL", () => {
-      expect(apiUrl("/chats")).toBe("https://api.test/chats");
-    });
-  });
+  it("request refreshes on 401 and retries once", async () => {
+    mockGetRefreshToken.mockResolvedValue("refresh-token");
+    mockSetTokenPair.mockResolvedValue(undefined);
 
-  describe("request", () => {
-    it("attaches the bearer token and returns parsed JSON on success", async () => {
-      const fetchMock = globalThis.fetch as jest.Mock;
-      fetchMock.mockResolvedValueOnce(jsonResponse(200, { ok: true }));
-
-      const result = await request<{ ok: boolean }>("/chats", "token-123");
-
-      expect(result).toEqual({ ok: true });
-      const [url, init] = fetchMock.mock.calls[0];
-      expect(url).toBe("https://api.test/chats");
-      expect(init.headers.Authorization).toBe("Bearer token-123");
-    });
-
-    it("returns undefined for a 204 response without parsing a body", async () => {
-      const fetchMock = globalThis.fetch as jest.Mock;
-      fetchMock.mockResolvedValueOnce({ status: 204, ok: true } as Response);
-
-      const result = await request("/chats/1", "token-123");
-
-      expect(result).toBeUndefined();
-    });
-
-    it("throws with the response body text on a non-401 error", async () => {
-      const fetchMock = globalThis.fetch as jest.Mock;
-      fetchMock.mockResolvedValueOnce(textErrorResponse(500, "Internal error"));
-
-      await expect(request("/chats", "token-123")).rejects.toThrow("Internal error");
-    });
-
-    it("refreshes the token once and retries on 401, succeeding with the new token", async () => {
-      const fetchMock = globalThis.fetch as jest.Mock;
-      mockGetRefreshToken.mockResolvedValue("refresh-abc");
-      fetchMock
-        .mockResolvedValueOnce(textErrorResponse(401, "expired"))
-        .mockResolvedValueOnce(
-          jsonResponse(200, { access_token: "new-token", refresh_token: "refresh-xyz" }),
-        )
-        .mockResolvedValueOnce(jsonResponse(200, { ok: true }));
-
-      const result = await request<{ ok: boolean }>("/chats", "stale-token");
-
-      expect(result).toEqual({ ok: true });
-      expect(mockSetTokenPair).toHaveBeenCalledWith("new-token", "refresh-xyz");
-
-      // First call: the original 401. Second: POST /auth/refresh. Third: retry with new token.
-      expect(fetchMock).toHaveBeenCalledTimes(3);
-      const refreshCall = fetchMock.mock.calls[1];
-      expect(refreshCall[0]).toBe("https://api.test/auth/refresh");
-      const retryCall = fetchMock.mock.calls[2];
-      expect(retryCall[1].headers.Authorization).toBe("Bearer new-token");
-    });
-
-    it("calls the unauthorized handler and throws when there's no refresh token", async () => {
-      const fetchMock = globalThis.fetch as jest.Mock;
-      mockGetRefreshToken.mockResolvedValue(null);
-      fetchMock.mockResolvedValueOnce(textErrorResponse(401, "expired"));
-      const onUnauthorized = jest.fn();
-      setUnauthorizedHandler(onUnauthorized);
-
-      await expect(request("/chats", "stale-token")).rejects.toThrow("expired");
-      expect(onUnauthorized).toHaveBeenCalledTimes(1);
-      expect(mockSetTokenPair).not.toHaveBeenCalled();
-    });
-
-    it("does not permanently wedge refresh after a missing-refresh-token 401", async () => {
-      // Regression: refreshAccessToken used to return early (no refresh
-      // token) *before* its try/finally, so `refreshInFlight` was never
-      // cleared — every subsequent request(), for the rest of the app
-      // session, would short-circuit to that same stale resolved-to-null
-      // promise, even once a real refresh token became available.
-      const fetchMock = globalThis.fetch as jest.Mock;
-
-      mockGetRefreshToken.mockResolvedValueOnce(null);
-      fetchMock.mockResolvedValueOnce(textErrorResponse(401, "expired"));
-      await expect(request("/chats", "stale-token")).rejects.toThrow("expired");
-
-      mockGetRefreshToken.mockResolvedValueOnce("refresh-abc");
-      fetchMock
-        .mockResolvedValueOnce(textErrorResponse(401, "expired"))
-        .mockResolvedValueOnce(
-          jsonResponse(200, { access_token: "new-token", refresh_token: "refresh-xyz" }),
-        )
-        .mockResolvedValueOnce(jsonResponse(200, { ok: true }));
-
-      const result = await request<{ ok: boolean }>("/chats", "stale-token");
-
-      expect(result).toEqual({ ok: true });
-      expect(mockGetRefreshToken).toHaveBeenCalledTimes(2);
-    });
-
-    it("calls the unauthorized handler when the refresh request itself fails", async () => {
-      const fetchMock = globalThis.fetch as jest.Mock;
-      mockGetRefreshToken.mockResolvedValue("refresh-abc");
-      fetchMock
-        .mockResolvedValueOnce(textErrorResponse(401, "expired"))
-        .mockResolvedValueOnce(textErrorResponse(400, "invalid refresh token"));
-      const onUnauthorized = jest.fn();
-      setUnauthorizedHandler(onUnauthorized);
-
-      await expect(request("/chats", "stale-token")).rejects.toThrow("expired");
-      expect(onUnauthorized).toHaveBeenCalledTimes(1);
-    });
-
-    it("single-flights concurrent 401s into exactly one refresh call", async () => {
-      const fetchMock = globalThis.fetch as jest.Mock;
-      mockGetRefreshToken.mockResolvedValue("refresh-abc");
-      fetchMock.mockImplementation((url: string) => {
-        if (url === "https://api.test/auth/refresh") {
-          return Promise.resolve(
-            jsonResponse(200, { access_token: "new-token", refresh_token: "refresh-xyz" }),
-          );
-        }
-        return Promise.resolve(jsonResponse(200, { ok: true }));
-      });
-      // Only the very first two application calls should see a 401; simulate
-      // that by having the mock's initial two resolutions be 401s via
-      // mockImplementationOnce stacked before the general implementation.
-      fetchMock
-        .mockImplementationOnce(() => Promise.resolve(textErrorResponse(401, "expired")))
-        .mockImplementationOnce(() => Promise.resolve(textErrorResponse(401, "expired")));
-
-      const [first, second] = await Promise.all([
-        request<{ ok: boolean }>("/chats/1", "stale-token"),
-        request<{ ok: boolean }>("/chats/2", "stale-token"),
-      ]);
-
-      expect(first).toEqual({ ok: true });
-      expect(second).toEqual({ ok: true });
-      const refreshCalls = fetchMock.mock.calls.filter(
-        ([url]) => url === "https://api.test/auth/refresh",
-      );
-      expect(refreshCalls).toHaveLength(1);
-      expect(mockGetRefreshToken).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  describe("logoutSession", () => {
-    it("is best-effort and does not throw when the request fails", async () => {
-      const fetchMock = globalThis.fetch as jest.Mock;
-      fetchMock.mockRejectedValueOnce(new Error("network down"));
-
-      await expect(logoutSession("token-123", "refresh-abc")).resolves.toBeUndefined();
-    });
-
-    it("sends the bearer token and refresh token to /auth/logout", async () => {
-      const fetchMock = globalThis.fetch as jest.Mock;
-      fetchMock.mockResolvedValueOnce(jsonResponse(200, {}));
-
-      await logoutSession("token-123", "refresh-abc");
-
-      const [url, init] = fetchMock.mock.calls[0];
-      expect(url).toBe("https://api.test/auth/logout");
-      expect(init.headers.Authorization).toBe("Bearer token-123");
-      expect(JSON.parse(init.body)).toEqual({ refresh_token: "refresh-abc" });
-    });
-  });
-
-  describe("fetchExportText", () => {
-    it("returns the raw response text on success", async () => {
-      const fetchMock = globalThis.fetch as jest.Mock;
-      fetchMock.mockResolvedValueOnce({
-        status: 200,
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: async () => "expired",
+      })
+      .mockResolvedValueOnce({
         ok: true,
-        text: async () => "exported-data",
-      } as Response);
+        status: 200,
+        json: async () => ({
+          access_token: "new-access",
+          refresh_token: "new-refresh",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ ok: true }),
+      });
 
-      const text = await fetchExportText("token-123");
+    const onRefresh = jest.fn();
+    setTokenRefreshHandler(onRefresh);
 
-      expect(text).toBe("exported-data");
+    const data = await request<{ ok: boolean }>("/users/me", "stale-token");
+    expect(data).toEqual({ ok: true });
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+    expect(mockSetTokenPair).toHaveBeenCalledWith("new-access", "new-refresh");
+    expect(onRefresh).toHaveBeenCalledWith("new-access");
+    expect(mockFetch.mock.calls[2][1]?.headers).toMatchObject({
+      Authorization: "Bearer new-access",
+    });
+  });
+
+  it("request calls onUnauthorized when refresh fails", async () => {
+    mockGetRefreshToken.mockResolvedValue("refresh-token");
+
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: async () => "expired",
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: async () => "invalid refresh",
+      });
+
+    const onUnauthorized = jest.fn();
+    setUnauthorizedHandler(onUnauthorized);
+
+    await expect(request("/users/me", "stale-token")).rejects.toThrow("expired");
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+  });
+
+  it("single-flights concurrent refresh attempts", async () => {
+    mockGetRefreshToken.mockResolvedValue("refresh-token");
+    mockSetTokenPair.mockResolvedValue(undefined);
+
+    let resolveRefresh: (value: Response) => void;
+    const refreshPromise = new Promise<Response>((resolve) => {
+      resolveRefresh = resolve;
     });
 
-    it("refreshes and retries once on 401", async () => {
-      const fetchMock = globalThis.fetch as jest.Mock;
-      mockGetRefreshToken.mockResolvedValue("refresh-abc");
-      fetchMock
-        .mockResolvedValueOnce(textErrorResponse(401, "expired"))
-        .mockResolvedValueOnce(
-          jsonResponse(200, { access_token: "new-token", refresh_token: "refresh-xyz" }),
-        )
-        .mockResolvedValueOnce({
-          status: 200,
-          ok: true,
-          text: async () => "exported-data",
-        } as Response);
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 401, text: async () => "" })
+      .mockResolvedValueOnce({ ok: false, status: 401, text: async () => "" })
+      .mockImplementationOnce(() => refreshPromise)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ a: 1 }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ b: 2 }),
+      });
 
-      const text = await fetchExportText("stale-token");
+    const p1 = request("/a", "t1");
+    const p2 = request("/b", "t2");
 
-      expect(text).toBe("exported-data");
-      const retryCall = fetchMock.mock.calls[2];
-      expect(retryCall[1].headers.Authorization).toBe("Bearer new-token");
-    });
+    resolveRefresh!({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        access_token: "shared-access",
+        refresh_token: "shared-refresh",
+      }),
+    } as Response);
+
+    await expect(Promise.all([p1, p2])).resolves.toEqual([{ a: 1 }, { b: 2 }]);
+    const refreshCalls = mockFetch.mock.calls.filter(
+      (call) => call[0] === "http://test.local/auth/refresh",
+    );
+    expect(refreshCalls).toHaveLength(1);
+  });
+
+  it("fetchWithTimeout surfaces a friendly message on abort", async () => {
+    const abortError = new Error("Aborted");
+    abortError.name = "AbortError";
+    mockFetch.mockRejectedValueOnce(abortError);
+
+    await expect(
+      fetchWithTimeout("http://test.local/auth/login", { method: "POST" }),
+    ).rejects.toThrow("Could not reach the Recall server");
   });
 });

@@ -66,6 +66,14 @@ case "${1:-}" in
   check)
     "$ROOT/scripts/check.sh"
     ;;
+  qa-smoke)
+    shift
+    "$ROOT/scripts/qa-smoke.sh" "$@"
+    ;;
+  verify-production)
+    shift
+    "$ROOT/scripts/verify-production.sh" "$@"
+    ;;
   setup)
     cp -n "$ROOT/apps/api/.env.example" "$ROOT/apps/api/.env" 2>/dev/null || true
     cp -n "$ROOT/apps/mobile/.env.example" "$ROOT/apps/mobile/.env" 2>/dev/null || true
@@ -82,12 +90,14 @@ case "${1:-}" in
     echo "Optional local DB: ./scripts/dev.sh infra  (requires Docker)"
     ;;
   *)
-    echo "Usage: scripts/dev.sh {setup|migrate|api|mobile|mobile-sim|mobile-tunnel|kill-metro|kill-all|test-api|check|infra}"
+    echo "Usage: scripts/dev.sh {setup|migrate|api|mobile|mobile-sim|mobile-tunnel|kill-metro|kill-all|test-api|check|qa-smoke|verify-production|infra}"
     echo ""
     echo "  setup          Install deps, copy .env (no Docker)"
     echo "  migrate        Apply DB migrations (needs DATABASE_URL in .env)"
     echo "  api            Run FastAPI on :8000"
     echo "  check          Run the full local gate (API ruff+format+mypy+pytest, mobile typecheck+lint)"
+    echo "  qa-smoke       Backend smoke checks (add --live when API is running)"
+    echo "  verify-production  Production readiness report (add --live for deployed API)"
     echo "  mobile         Run Expo (LAN — same Wi‑Fi, unplug USB if adb errors)"
     echo "  mobile-sim     Run Expo Go on iOS Simulator (localhost)"
     echo "  mobile-tunnel  Run Expo (tunnel — unplug USB, scan QR in Expo Go)"
