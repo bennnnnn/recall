@@ -1,6 +1,7 @@
 /** LaTeX → self-contained HTML for sandboxed WebView math preview. */
 
 import { buildKatexStaticWebHtml } from "@/lib/katexRender";
+import { injectPreviewCsp } from "@/lib/previewSandbox";
 
 export type MathEngine = "katex" | "mathjax";
 
@@ -43,7 +44,7 @@ export function buildMathWebHtml(latex: string, options: MathHtmlOptions): strin
     const display = options.displayMode ? "true" : "false";
     const pad = options.compact ? "0" : "12px 14px";
 
-    return `<!DOCTYPE html>
+    return injectPreviewCsp(`<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -100,7 +101,7 @@ export function buildMathWebHtml(latex: string, options: MathHtmlOptions): strin
 </script>
 <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
 </body>
-</html>`;
+</html>`);
   }
 
   return buildKatexStaticWebHtml(latex.trim(), {
