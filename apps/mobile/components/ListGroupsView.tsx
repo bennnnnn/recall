@@ -11,6 +11,7 @@ import DraggableFlatList, {
   type RenderItemParams,
   ScaleDecorator,
 } from "react-native-draggable-flatlist";
+import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import { useTranslation } from "react-i18next";
 
 import { Theme, useTheme } from "@/lib/theme";
@@ -125,6 +126,7 @@ export function ListGroupsView({
                       <ScaleDecorator>
                         <ListItemRow
                           todo={todo}
+                          variant="open"
                           busy={togglingId === todo.id}
                           dragging={itemActive}
                           onDrag={dragItem}
@@ -181,6 +183,7 @@ export function ListGroupsView({
                       <ListItemRow
                         key={todo.id}
                         todo={todo}
+                        variant="done"
                         busy={togglingId === todo.id}
                         onToggle={() => onToggle(todo)}
                         onDelete={() => onDeleteItem(todo)}
@@ -228,6 +231,7 @@ export function ListGroupsView({
 
 function ListItemRow({
   todo,
+  variant,
   busy,
   dragging,
   onDrag,
@@ -235,16 +239,18 @@ function ListItemRow({
   onDelete,
 }: {
   todo: Todo;
+  variant: "open" | "done";
   busy?: boolean;
   dragging?: boolean;
   onDrag?: () => void;
   onToggle: () => void;
   onDelete: () => void;
 }) {
+  const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
 
-  return (
+  const row = (
     <Pressable
       onLongPress={onDrag}
       delayLongPress={220}
@@ -268,10 +274,44 @@ function ListItemRow({
       <Text style={[s.rowText, todo.checked && s.rowDone]} numberOfLines={4} selectable>
         {todo.content}
       </Text>
-      <Pressable onPress={onDelete} hitSlop={8} accessibilityRole="button">
-        <Ionicons name="trash-outline" size={16} color={C.textTertiary} />
-      </Pressable>
+      {variant === "done" ? (
+        <Pressable
+          onPress={onDelete}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={t("common.delete")}
+        >
+          <Ionicons name="trash-outline" size={16} color={C.textTertiary} />
+        </Pressable>
+      ) : null}
     </Pressable>
+  );
+
+  if (variant !== "open") {
+    return row;
+  }
+
+  return (
+    <Swipeable
+      friction={2}
+      rightThreshold={40}
+      enabled={!dragging}
+      overshootRight={false}
+      containerStyle={s.swipeContainer}
+      renderRightActions={() => (
+        <Pressable
+          style={s.swipeDeleteAction}
+          onPress={onDelete}
+          accessibilityRole="button"
+          accessibilityLabel={t("common.delete")}
+        >
+          <Ionicons name="trash-outline" size={18} color={C.onPrimary} />
+          <Text style={s.swipeDeleteText}>{t("common.delete")}</Text>
+        </Pressable>
+      )}
+    >
+      {row}
+    </Swipeable>
   );
 }
 
@@ -332,6 +372,21 @@ function makeStyles(C: Theme) {
     },
     rowDragging: {
       backgroundColor: C.surface,
+    },
+    swipeContainer: {
+      overflow: "hidden",
+    },
+    swipeDeleteAction: {
+      width: 80,
+      backgroundColor: C.danger,
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 2,
+    },
+    swipeDeleteText: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: C.onPrimary,
     },
     checkbox: {
       padding: 2,

@@ -81,10 +81,10 @@ export const MODEL_CATALOG_FALLBACK: ModelInfo[] = [
   },
   {
     id: "max-chat",
-    label: "Auto",
+    label: "Max",
     tier: "max",
     plan_access: "pro",
-    description: "Automatically picks the best model for each request.",
+    description: "OpenRouter picks the best model for each request.",
     available: true,
     input_price_per_m: null,
     output_price_per_m: null,

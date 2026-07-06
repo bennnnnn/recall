@@ -178,7 +178,7 @@ export default function SettingsScreen() {
           />
           <View style={s.menuSeparator} />
           <SettingsLinkRow
-            title={t("settings.learning")}
+            title={t("settings.learning.title")}
             onPress={() => router.push("/settings/learning")}
             styles={s}
             theme={theme}

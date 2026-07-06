@@ -17,8 +17,6 @@ import type { ResolvedChatError } from "@/lib/chatErrorMessage";
 import { openDrawer } from "@/lib/drawer";
 import type { Theme } from "@/lib/theme";
 
-type ModelOption = { id: string; label: string };
-
 type QuotaNudge = {
   show: boolean;
   usedPct: number;
@@ -66,9 +64,8 @@ export type UseChatScreenBodyPropsParams = {
   showScrollToBottom: boolean;
   scrollAwayCount: number;
   scrollToLatest: () => void;
-  showModelPicker: boolean;
   attachSheetOpen: boolean;
-  closeComposerPickers: () => void;
+  closeAttachSheet: () => void;
   quotaNudge: QuotaNudge;
   chatError: ResolvedChatError | null;
   isPro: boolean;
@@ -82,11 +79,6 @@ export type UseChatScreenBodyPropsParams = {
   setPendingAttachment: (value: PendingAttachment | null) => void;
   editingMessageId: string | null;
   setEditingMessageId: (value: string | null) => void;
-  modelOptions: ModelOption[];
-  selectedModel: string;
-  selectedModelLabel: string;
-  toggleModelPicker: () => void;
-  selectModel: (id: string) => void;
   handlePickAttachment: () => void;
   handleAttachmentSheetSelect: (source: AttachmentSource) => void | Promise<void>;
   stopGeneration: () => void;
@@ -132,9 +124,8 @@ export function useChatScreenBodyProps({
   showScrollToBottom,
   scrollAwayCount,
   scrollToLatest,
-  showModelPicker,
   attachSheetOpen,
-  closeComposerPickers,
+  closeAttachSheet,
   quotaNudge,
   chatError,
   isPro,
@@ -148,11 +139,6 @@ export function useChatScreenBodyProps({
   setPendingAttachment,
   editingMessageId,
   setEditingMessageId,
-  modelOptions,
-  selectedModel,
-  selectedModelLabel,
-  toggleModelPicker,
-  selectModel,
   handlePickAttachment,
   handleAttachmentSheetSelect,
   stopGeneration,
@@ -234,9 +220,8 @@ export function useChatScreenBodyProps({
       showScrollToBottom,
       scrollAwayCount,
       onScrollToLatest: scrollToLatest,
-      showModelPicker,
       attachSheetOpen,
-      onCloseComposerPickers: closeComposerPickers,
+      onCloseAttachSheet: closeAttachSheet,
       quotaNudgeVisible: quotaNudge.show,
       quotaUsedPct: quotaNudge.usedPct,
       onQuotaUpgrade: () => {
@@ -260,11 +245,6 @@ export function useChatScreenBodyProps({
         setEditingMessageId(null);
         setInput("");
       },
-      modelOptions,
-      selectedModel,
-      selectedModelLabel,
-      onToggleModelPicker: toggleModelPicker,
-      onSelectModel: selectModel,
       onPickAttachment: handlePickAttachment,
       onAttachmentSource: (source) => void handleAttachmentSheetSelect(source),
       onSend: () => void handleSend(),
@@ -305,9 +285,8 @@ export function useChatScreenBodyProps({
       showScrollToBottom,
       scrollAwayCount,
       scrollToLatest,
-      showModelPicker,
       attachSheetOpen,
-      closeComposerPickers,
+      closeAttachSheet,
       quotaNudge,
       chatError,
       isPro,
@@ -321,11 +300,6 @@ export function useChatScreenBodyProps({
       setPendingAttachment,
       editingMessageId,
       setEditingMessageId,
-      modelOptions,
-      selectedModel,
-      selectedModelLabel,
-      toggleModelPicker,
-      selectModel,
       handlePickAttachment,
       handleAttachmentSheetSelect,
       stopGeneration,

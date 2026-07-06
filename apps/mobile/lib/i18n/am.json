@@ -228,6 +228,7 @@
   "lists.item_placeholder": "ንጥል ጨምር…",
   "lists.new_group": "አዲስ ዝርዝር",
   "lists.new_group_title": "አዲስ ዝርዝር",
+  "lists.empty_title": "ዝርዝር ጀምር",
   "lists.open_count": "{{count}} ቀርቷል",
   "login.apple": "በ Apple ይግቡ",
   "login.dev": "እንደ Dev ይቀጥሉ",

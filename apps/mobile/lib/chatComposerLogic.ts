@@ -18,45 +18,22 @@ export type TranslateFn = (
   params?: Record<string, string | number>,
 ) => string;
 
-function formatUsdPerM(value: number): string {
-  if (value >= 1) return value.toFixed(2);
-  if (value >= 0.01) return value.toFixed(2);
-  return value.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
-}
-
 function formatQuotaMultiplier(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
-/** Per-1M-token price and daily-quota weight for model picker rows. */
+/** Daily-quota weight for model picker rows (no per-token pricing in the UI). */
 export function formatModelCostHint(
   model: ModelCostFields,
   t: TranslateFn,
 ): string | undefined {
-  const parts: string[] = [];
-  const input = model.input_price_per_m;
-  const output = model.output_price_per_m;
-  if (input != null && output != null) {
-    parts.push(
-      t("settings.model_price_per_m", {
-        input: formatUsdPerM(input),
-        output: formatUsdPerM(output),
-      }),
-    );
-  } else if (input != null) {
-    parts.push(
-      t("settings.model_price_in_per_m", { input: formatUsdPerM(input) }),
-    );
-  }
   const mult = model.quota_multiplier ?? 1;
   if (mult > 1.001) {
-    parts.push(
-      t("settings.model_quota_multiplier", {
-        multiplier: formatQuotaMultiplier(mult),
-      }),
-    );
+    return t("settings.model_quota_multiplier", {
+      multiplier: formatQuotaMultiplier(mult),
+    });
   }
-  return parts.length > 0 ? parts.join(" · ") : undefined;
+  return undefined;
 }
 
 export function isModelSelectableInComposer(

@@ -19,7 +19,7 @@ import { SuggestedRemindersNudge } from "@/components/SuggestedRemindersNudge";
 import type { PendingAttachment } from "@/lib/attachments";
 import { Theme, useTheme } from "@/lib/theme";
 
-export const COMPOSER_HEIGHT = 100;
+export const COMPOSER_HEIGHT = 88;
 export const COMPOSER_IMAGE_PREVIEW_EXTRA = 84;
 export const COMPOSER_FILE_PREVIEW_EXTRA = 44;
 
@@ -27,8 +27,6 @@ export function composerAttachmentExtra(attachment: PendingAttachment | null): n
   if (!attachment) return 0;
   return attachment.kind === "image" ? COMPOSER_IMAGE_PREVIEW_EXTRA : COMPOSER_FILE_PREVIEW_EXTRA;
 }
-
-type ModelOption = { id: string; label: string; hint?: string };
 
 type Props = {
   visible: boolean;
@@ -44,14 +42,8 @@ type Props = {
   onRemoveAttachment: () => void;
   editingMessageId: string | null;
   onCancelEdit: () => void;
-  showModelPicker: boolean;
   attachSheetOpen: boolean;
-  modelOptions: ModelOption[];
-  selectedModel: string;
-  selectedModelLabel: string;
-  onToggleModelPicker: () => void;
-  onSelectModel: (id: string) => void;
-  onClosePickers: () => void;
+  onCloseAttachSheet: () => void;
   onPickAttachment: () => void;
   onAttachmentSource: (source: AttachmentSource) => void;
   onSend: () => void;
@@ -79,14 +71,8 @@ export const ChatComposer = memo(function ChatComposer({
   onRemoveAttachment,
   editingMessageId,
   onCancelEdit,
-  showModelPicker,
   attachSheetOpen,
-  modelOptions,
-  selectedModel,
-  selectedModelLabel,
-  onToggleModelPicker,
-  onSelectModel,
-  onClosePickers,
+  onCloseAttachSheet,
   onPickAttachment,
   onAttachmentSource,
   onSend,
@@ -111,36 +97,6 @@ export const ChatComposer = memo(function ChatComposer({
 
   return (
     <Animated.View style={containerStyle}>
-      {showModelPicker ? (
-        <View style={s.picker}>
-          {modelOptions.map((opt) => {
-            const active = opt.id === selectedModel;
-            return (
-              <Pressable
-                key={opt.id}
-                style={[s.pickerItem, active && s.pickerItemActive]}
-                onPress={() => onSelectModel(opt.id)}
-              >
-                <View style={s.pickerItemBody}>
-                  <Text
-                    style={[s.pickerLabel, active && s.pickerLabelActive]}
-                    numberOfLines={1}
-                  >
-                    {opt.label}
-                  </Text>
-                  {opt.hint ? (
-                    <Text style={s.pickerHint} numberOfLines={2}>
-                      {opt.hint}
-                    </Text>
-                  ) : null}
-                </View>
-                {active ? <Text style={s.pickerCheck}>✓</Text> : null}
-              </Pressable>
-            );
-          })}
-        </View>
-      ) : null}
-
       <View style={s.composerAnchor}>
         <SuggestedRemindersNudge token={token} />
         {editingMessageId ? (
@@ -188,7 +144,7 @@ export const ChatComposer = memo(function ChatComposer({
                   placeholderTextColor={theme.textTertiary}
                   value={input}
                   onChangeText={onChangeInput}
-                  onFocus={onClosePickers}
+                  onFocus={onCloseAttachSheet}
                   multiline
                   returnKeyType="default"
                 />
@@ -221,24 +177,6 @@ export const ChatComposer = memo(function ChatComposer({
                 ) : null}
               </View>
             </View>
-            {modelOptions.length > 1 ? (
-            <View style={s.composerMetaRow}>
-                <Pressable
-                  style={[s.modelPill, { maxWidth: 160 }]}
-                  onPress={onToggleModelPicker}
-                  hitSlop={6}
-                >
-                  <Text style={s.modelPillText} numberOfLines={1}>
-                    {selectedModelLabel}
-                  </Text>
-                  <Ionicons
-                    name={showModelPicker ? "chevron-up" : "chevron-down"}
-                    size={12}
-                    color={theme.textTertiary}
-                  />
-                </Pressable>
-            </View>
-            ) : null}
           </View>
         </View>
       </View>
@@ -290,7 +228,7 @@ function makeStyles(theme: Theme) {
       borderRadius: 20,
       paddingHorizontal: 12,
       paddingTop: 8,
-      paddingBottom: 6,
+      paddingBottom: 8,
     },
     inputRowMain: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
     attachBtn: {
@@ -308,21 +246,6 @@ function makeStyles(theme: Theme) {
       paddingVertical: 0,
       minHeight: 22,
     },
-    composerMetaRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "flex-start",
-      marginTop: 6,
-      gap: 8,
-    },
-    modelPill: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
-      paddingVertical: 2,
-      paddingRight: 2,
-    },
-    modelPillText: { fontSize: 12, fontWeight: "600", color: theme.textSecondary },
     sendBtn: {
       width: 34,
       height: 34,
@@ -340,28 +263,5 @@ function makeStyles(theme: Theme) {
     sendIcon: { color: theme.onPrimary, fontSize: 18, fontWeight: "700" },
     sendBtnDisabled: { backgroundColor: theme.border },
     sendIconDisabled: { color: theme.textTertiary },
-    picker: {
-      marginBottom: 8,
-      backgroundColor: theme.bg,
-      borderRadius: 16,
-      borderWidth: 1,
-      borderColor: theme.border,
-      boxShadow: "0 -4 12 0 rgba(0, 0, 0, 0.12)",
-      elevation: 8,
-      overflow: "hidden",
-    },
-    pickerItem: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-    },
-    pickerItemBody: { flex: 1, gap: 2 },
-    pickerItemActive: { backgroundColor: theme.primaryLight },
-    pickerLabel: { fontSize: 15, fontWeight: "600", color: theme.text },
-    pickerLabelActive: { color: theme.primary },
-    pickerHint: { fontSize: 12, lineHeight: 16, color: theme.textSecondary },
-    pickerCheck: { color: theme.primary, fontWeight: "700", fontSize: 15 },
   });
 }

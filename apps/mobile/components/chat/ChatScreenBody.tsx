@@ -21,8 +21,6 @@ import type { PendingAttachment } from "@/lib/attachments";
 import type { ResolvedChatError } from "@/lib/chatErrorMessage";
 import type { Theme } from "@/lib/theme";
 
-type ModelOption = { id: string; label: string };
-
 export type ChatScreenBodyProps = {
   styles: ChatScreenStyles;
   theme: Theme;
@@ -52,9 +50,8 @@ export type ChatScreenBodyProps = {
   showScrollToBottom: boolean;
   scrollAwayCount: number;
   onScrollToLatest: () => void;
-  showModelPicker: boolean;
   attachSheetOpen: boolean;
-  onCloseComposerPickers: () => void;
+  onCloseAttachSheet: () => void;
   quotaNudgeVisible: boolean;
   quotaUsedPct: number;
   onQuotaUpgrade: () => void;
@@ -72,11 +69,6 @@ export type ChatScreenBodyProps = {
   onRemoveAttachment: () => void;
   editingMessageId: string | null;
   onCancelEdit: () => void;
-  modelOptions: ModelOption[];
-  selectedModel: string;
-  selectedModelLabel: string;
-  onToggleModelPicker: () => void;
-  onSelectModel: (id: string) => void;
   onPickAttachment: () => void;
   onAttachmentSource: (source: AttachmentSource) => void;
   onSend: () => void;
@@ -118,9 +110,8 @@ export function ChatScreenBody({
   showScrollToBottom,
   scrollAwayCount,
   onScrollToLatest,
-  showModelPicker,
   attachSheetOpen,
-  onCloseComposerPickers,
+  onCloseAttachSheet,
   quotaNudgeVisible,
   quotaUsedPct,
   onQuotaUpgrade,
@@ -138,11 +129,6 @@ export function ChatScreenBody({
   onRemoveAttachment,
   editingMessageId,
   onCancelEdit,
-  modelOptions,
-  selectedModel,
-  selectedModelLabel,
-  onToggleModelPicker,
-  onSelectModel,
   onPickAttachment,
   onAttachmentSource,
   onSend,
@@ -197,8 +183,8 @@ export function ChatScreenBody({
       />
 
       <ComposerPickerBackdrop
-        visible={(showModelPicker || attachSheetOpen) && !drawerOpen}
-        onClose={onCloseComposerPickers}
+        visible={attachSheetOpen && !drawerOpen}
+        onClose={onCloseAttachSheet}
       />
 
       {quotaNudgeVisible && !chatError ? (
@@ -232,14 +218,8 @@ export function ChatScreenBody({
         onRemoveAttachment={onRemoveAttachment}
         editingMessageId={editingMessageId}
         onCancelEdit={onCancelEdit}
-        showModelPicker={showModelPicker}
         attachSheetOpen={attachSheetOpen}
-        modelOptions={modelOptions}
-        selectedModel={selectedModel}
-        selectedModelLabel={selectedModelLabel}
-        onToggleModelPicker={onToggleModelPicker}
-        onSelectModel={onSelectModel}
-        onClosePickers={onCloseComposerPickers}
+        onCloseAttachSheet={onCloseAttachSheet}
         onPickAttachment={onPickAttachment}
         onAttachmentSource={onAttachmentSource}
         onSend={onSend}

@@ -228,6 +228,7 @@
   "lists.item_placeholder": "Öğe ekle…",
   "lists.new_group": "Yeni liste",
   "lists.new_group_title": "Yeni liste",
+  "lists.empty_title": "Liste başlat",
   "lists.open_count": "{{count}} kaldı",
   "login.apple": "Apple ile giriş yap",
   "login.dev": "Dev kullanıcı olarak devam et",

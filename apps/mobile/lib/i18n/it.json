@@ -228,6 +228,7 @@
   "lists.item_placeholder": "Aggiungi elemento…",
   "lists.new_group": "Nuova lista",
   "lists.new_group_title": "Nuova lista",
+  "lists.empty_title": "Inizia una lista",
   "lists.open_count": "{{count}} rimasti",
   "login.apple": "Accedi con Apple",
   "login.dev": "Continua come utente Dev",

@@ -10,8 +10,8 @@ import {
   SettingsGroup,
   SettingsLinkRow,
 } from "@/components/settings/settingsUi";
-import { StateView } from "@/components/StateView";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProjects } from "@/contexts/ProjectsContext";
 import { api, type Project } from "@/lib/api";
 import {
   dailyGoalPickerOptions,
@@ -33,28 +33,20 @@ export default function LearningSettingsScreen() {
   const theme = useTheme();
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
+  const { projects: allProjects, refresh, setProjects } = useProjects();
 
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [projects, setProjects] = useState<Project[]>([]);
   const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
 
-  const load = useCallback(async () => {
-    if (!token) return;
-    try {
-      const rows = await api.listProjects(token);
-      setProjects(rows.filter((p) => !p.archived));
-    } catch {
-      setProjects([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
+  const projects = useMemo(
+    () => allProjects.filter((p) => !p.archived),
+    [allProjects],
+  );
 
   useFocusEffect(
     useCallback(() => {
-      void load();
-    }, [load]),
+      void refresh({ silent: true });
+    }, [refresh]),
   );
 
   const languageProject = projects.find((p) => isLanguageProject(p.kind));
@@ -74,14 +66,6 @@ export default function LearningSettingsScreen() {
   };
 
   if (!token) return <Redirect href="/login" />;
-
-  if (loading && projects.length === 0) {
-    return (
-      <View style={s.center}>
-        <StateView variant="loading" />
-      </View>
-    );
-  }
 
   const hasLearningProjects = languageProject != null || triviaProject != null;
 

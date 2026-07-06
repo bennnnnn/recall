@@ -40,7 +40,6 @@ import {
 import { SENDING_LABEL_DELAY_MS } from "@/lib/chatMessageLogic";
 import { STREAM_LAYOUT_SETTLE_MS } from "@/lib/messageListLayout";
 import { useRotatingStreamStatus } from "@/lib/streamStatusLabel";
-import { useModelsOptional } from "@/contexts/ModelsContext";
 import { Theme, useTheme } from "@/lib/theme";
 import { speakPlainText, stopSpeaking } from "@/lib/pronunciation";
 import { useTranslation } from "react-i18next";
@@ -237,7 +236,6 @@ export const MessageBubble = React.memo(function MessageBubble({
 }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
-  const modelsCtx = useModelsOptional();
   const b = useMemo(() => makeStyles(theme), [theme]);
   const [showSendingLabel, setShowSendingLabel] = useState(false);
   const [holdStreamLayout, setHoldStreamLayout] = useState(false);
@@ -276,8 +274,9 @@ export const MessageBubble = React.memo(function MessageBubble({
     isStreaming && !hasContent,
     t,
   );
-  const showActions = !isUser && hasContent && !layoutFrozen;
-  const reserveActionRow = !isUser && hasContent && layoutFrozen;
+  const isDailyQuiz = isDailyQuizMessageId(message.id);
+  const showActionSlot = !isUser && hasContent && !isDailyQuiz;
+  const actionsReady = showActionSlot && !isGenerating;
   const quiz = useMemo(() => {
     if (isUser || !hasContent) return null;
     const parsed = parseVocabQuiz(content);
@@ -295,7 +294,6 @@ export const MessageBubble = React.memo(function MessageBubble({
       ? quiz.question?.trim() || quizTopicLabel
       : quiz.question?.trim() || ""
     : "";
-  const isDailyQuiz = isDailyQuizMessageId(message.id);
   const showQuizCard = quiz != null && !layoutFrozen;
   const showVocabCard = vocabCard != null && !layoutFrozen && !showQuizCard;
   const hideQuizFenceInMarkdown = showQuizCard || hasVocabQuizFence(content);
@@ -358,12 +356,6 @@ export const MessageBubble = React.memo(function MessageBubble({
     !showCalendarProposals;
   const showContextSummarized =
     !isUser && !layoutFrozen && (message.context_summarized ?? 0) > 0;
-  const resolvedModelLabel = useMemo(() => {
-    if (isUser || !message.model) return null;
-    const label = modelsCtx?.labelFor(message.model) ?? message.model;
-    return label.trim() || null;
-  }, [isUser, message.model, modelsCtx]);
-  const showModelLabel = !isUser && resolvedModelLabel != null;
   const markdownStreamMode = layoutFrozen;
   const markdownResetKey = `${message.renderKey ?? message.id}:${markdownContent.length}`;
 
@@ -456,15 +448,12 @@ export const MessageBubble = React.memo(function MessageBubble({
                 ))
               : null}
             {showSearchSources ? <SearchSourcesStack sources={searchSources} /> : null}
-            {showModelLabel ? (
-              <Text style={b.modelMeta}>{resolvedModelLabel}</Text>
-            ) : null}
           </CollapsibleMessageBody>
         </View>
       )}
 
-      {(showActions || reserveActionRow) && !isDailyQuiz ? (
-        <View style={reserveActionRow && !showActions ? b.actionRowReserved : undefined}>
+      {showActionSlot ? (
+        <View style={b.actionRowSlot}>
           <AssistantActions
             messageId={message.id}
             content={extractPrimaryCopyText(content)}
@@ -472,7 +461,7 @@ export const MessageBubble = React.memo(function MessageBubble({
             onFeedback={onFeedback}
             onRegenerate={isLastAssistant ? onRegenerate : undefined}
             theme={theme}
-            hidden={reserveActionRow && !showActions}
+            hidden={!actionsReady}
           />
         </View>
       ) : null}
@@ -541,20 +530,15 @@ function makeStyles(t: Theme) {
       color: t.textTertiary,
       marginBottom: 6,
     },
-    modelMeta: {
-      fontSize: 12,
-      lineHeight: 16,
-      color: t.textTertiary,
-      marginTop: 8,
-    },
     dailyQuizProgress: {
       fontSize: 14,
       fontWeight: "600",
       color: t.textSecondary,
       marginBottom: 4,
     },
-    actionRowReserved: {
+    actionRowSlot: {
       minHeight: 38,
+      marginTop: 2,
     },
   });
 }

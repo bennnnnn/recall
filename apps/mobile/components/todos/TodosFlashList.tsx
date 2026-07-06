@@ -90,6 +90,7 @@ export function TodosFlashList({
           <TodoRow
             key={todo.id}
             todo={todo}
+            variant="done"
             busy={togglingId === todo.id}
             onToggle={() => onToggle(todo)}
             onDue={isReminder(todo) ? () => onDue(todo) : undefined}
@@ -101,6 +102,7 @@ export function TodosFlashList({
         <TodoRow
           key={todo.id}
           todo={todo}
+          variant="open"
           highlighted={highlight === todo.id}
           overlapWith={overlapNotes.get(todo.id)}
           busy={togglingId === todo.id}

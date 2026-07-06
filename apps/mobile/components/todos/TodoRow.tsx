@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import { useTranslation } from "react-i18next";
 
 import { makeTodosStyles } from "@/components/todos/todosStyles";
@@ -10,6 +11,7 @@ import { useTheme } from "@/lib/theme";
 
 export function TodoRow({
   todo,
+  variant,
   busy,
   highlighted,
   onToggle,
@@ -18,6 +20,7 @@ export function TodoRow({
   overlapWith,
 }: {
   todo: Todo;
+  variant?: "open" | "done";
   busy?: boolean;
   highlighted?: boolean;
   onToggle: () => void;
@@ -28,6 +31,7 @@ export function TodoRow({
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeTodosStyles(C), [C]);
+  const rowVariant = variant ?? (todo.checked ? "done" : "open");
   const due = describeDueAt(todo.due_at);
   const dueToneStyle =
     due?.tone === "overdue"
@@ -36,7 +40,7 @@ export function TodoRow({
         ? s.dueToday
         : s.dueSoon;
 
-  return (
+  const row = (
     <View style={[s.todoRow, highlighted && s.todoRowHighlighted]}>
       <Pressable
         onPress={onToggle}
@@ -69,7 +73,7 @@ export function TodoRow({
           </Text>
         ) : null}
       </View>
-      {!todo.checked && onDue ? (
+      {rowVariant === "open" && !todo.checked && onDue ? (
         <Pressable onPress={onDue} hitSlop={8} style={s.dueBtn}>
           <Ionicons
             name={todo.due_at ? "calendar" : "calendar-outline"}
@@ -78,9 +82,42 @@ export function TodoRow({
           />
         </Pressable>
       ) : null}
-      <Pressable onPress={onDelete} hitSlop={8}>
-        <Ionicons name="trash-outline" size={16} color={C.textTertiary} />
-      </Pressable>
+      {rowVariant === "done" ? (
+        <Pressable
+          onPress={onDelete}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={t("common.delete")}
+        >
+          <Ionicons name="trash-outline" size={16} color={C.textTertiary} />
+        </Pressable>
+      ) : null}
     </View>
+  );
+
+  if (rowVariant !== "open") {
+    return row;
+  }
+
+  return (
+    <Swipeable
+      friction={2}
+      rightThreshold={40}
+      overshootRight={false}
+      containerStyle={s.swipeContainer}
+      renderRightActions={() => (
+        <Pressable
+          style={s.swipeDeleteAction}
+          onPress={onDelete}
+          accessibilityRole="button"
+          accessibilityLabel={t("common.delete")}
+        >
+          <Ionicons name="trash-outline" size={18} color={C.onPrimary} />
+          <Text style={s.swipeDeleteText}>{t("common.delete")}</Text>
+        </Pressable>
+      )}
+    >
+      {row}
+    </Swipeable>
   );
 }

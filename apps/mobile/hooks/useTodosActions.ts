@@ -46,16 +46,45 @@ export function useTodosActions({
   const handleCreateListItem = useCallback(
     async (topic: string, content: string) => {
       if (!token || !content.trim()) return;
+      const trimmed = content.trim();
+      const normalizedTopic = normalizeTopic(topic);
+      const openInTopic = todos.filter(
+        (item) =>
+          !item.due_at &&
+          !item.checked &&
+          normalizeTopic(item.topic) === normalizedTopic,
+      );
+      const nextSort =
+        openInTopic.reduce(
+          (max, item) => Math.max(max, item.sort_order ?? Number.MAX_SAFE_INTEGER),
+          -1,
+        ) + 1;
+      const optimisticId = `local-todo-${Date.now()}`;
+      const now = new Date().toISOString();
+      const optimistic: Todo = {
+        id: optimisticId,
+        content: trimmed,
+        topic: normalizedTopic,
+        checked: false,
+        due_at: null,
+        sort_order: nextSort,
+        chat_id: null,
+        created_at: now,
+        updated_at: now,
+      };
+      setTodos((prev) => [...prev, optimistic]);
+      void persistGroupOrder(mergeGroupOrder(groupOrder, [topic]));
       try {
-        const created = await api.createTodo(token, content.trim(), topic);
-        setTodos((prev) => [created, ...prev]);
-        const nextOrder = mergeGroupOrder(groupOrder, [topic]);
-        void persistGroupOrder(nextOrder);
+        const created = await api.createTodo(token, trimmed, topic);
+        setTodos((prev) =>
+          prev.map((item) => (item.id === optimisticId ? created : item)),
+        );
       } catch {
+        setTodos((prev) => prev.filter((item) => item.id !== optimisticId));
         Alert.alert(t("todos.error"), t("todos.error_create"));
       }
     },
-    [token, setTodos, groupOrder, persistGroupOrder, t],
+    [token, todos, setTodos, groupOrder, persistGroupOrder, t],
   );
 
   const handleCreateList = useCallback(

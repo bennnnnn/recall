@@ -119,18 +119,24 @@ export function TodosScreenHeader({
         </View>
       ) : showRemindersEmptyHero ? (
         <View style={s.empty}>
-          <Ionicons
-            name={focusSection === "list" ? "list-outline" : "checkbox-outline"}
-            size={48}
-            color={C.primary}
-            style={s.emptyIcon}
-          />
-          <Text style={s.emptyTitle}>{t("todos.empty_title")}</Text>
-          <Text style={s.emptyBody}>
-            {focusSection === "list"
-              ? t("todos.empty_list_body")
-              : t("todos.empty_body")}
+          <View style={s.emptyIconWrap}>
+            <Ionicons
+              name={focusSection === "list" ? "list-outline" : "checkbox-outline"}
+              size={28}
+              color={C.primary}
+            />
+          </View>
+          <Text style={s.emptyTitle}>
+            {focusSection === "list" ? t("lists.empty_title") : t("todos.empty_title")}
           </Text>
+          {focusSection === "list" ? (
+            <Pressable style={s.emptyPrimaryBtn} onPress={onNewList}>
+              <Ionicons name="add-circle-outline" size={20} color={C.primary} />
+              <Text style={s.emptyPrimaryBtnText}>{t("lists.new_group")}</Text>
+            </Pressable>
+          ) : (
+            <Text style={s.emptyBody}>{t("todos.empty_body")}</Text>
+          )}
         </View>
       ) : null}
 
@@ -187,6 +193,7 @@ export function TodosScreenHeader({
                 <TodoRow
                   key={todo.id}
                   todo={todo}
+                  variant="open"
                   highlighted={highlight === todo.id}
                   overlapWith={overlapNotes.get(todo.id)}
                   busy={togglingId === todo.id}
@@ -206,21 +213,25 @@ export function TodosScreenHeader({
 
       {showList ? (
         <>
-          <Pressable style={s.newListLink} onPress={onNewList}>
-            <Ionicons name="add-circle-outline" size={20} color={C.primary} />
-            <Text style={s.newListLinkText}>{t("lists.new_group")}</Text>
-          </Pressable>
-          <ListGroupsView
-            groups={listGroups}
-            initialExpandedTopic={focusTopic}
-            togglingId={togglingId}
-            onReorderGroups={onReorderGroups}
-            onReorderItems={onReorderItems}
-            onToggle={onToggle}
-            onAddItem={onAddListItem}
-            onDeleteItem={onDeleteItem}
-            onDeleteList={onDeleteList}
-          />
+          {!(showRemindersEmptyHero && focusSection === "list") ? (
+            <Pressable style={s.newListLink} onPress={onNewList}>
+              <Ionicons name="add-circle-outline" size={20} color={C.primary} />
+              <Text style={s.newListLinkText}>{t("lists.new_group")}</Text>
+            </Pressable>
+          ) : null}
+          {listGroups.length > 0 ? (
+            <ListGroupsView
+              groups={listGroups}
+              initialExpandedTopic={focusTopic}
+              togglingId={togglingId}
+              onReorderGroups={onReorderGroups}
+              onReorderItems={onReorderItems}
+              onToggle={onToggle}
+              onAddItem={onAddListItem}
+              onDeleteItem={onDeleteItem}
+              onDeleteList={onDeleteList}
+            />
+          ) : null}
         </>
       ) : null}
     </>

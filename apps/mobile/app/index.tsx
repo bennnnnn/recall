@@ -80,7 +80,7 @@ function ChatScreen() {
     projects,
     draftProjectIdRef: draft.draftProjectIdRef,
   });
-  const { isPro, labelFor, autoEnabled, modelEnabledSet, AUTO_MODEL_ID, models } = useModels();
+  const { isPro, autoEnabled, modelEnabledSet, AUTO_MODEL_ID } = useModels();
   const { unseenCount, showIndicator } = useReminderBadgeCount({ enabled: Boolean(token) });
   const { refresh: refreshHome } = useHome();
   const { chatError, handleChatError, handleStreamBusy, dismissChatError } =
@@ -328,15 +328,10 @@ function ChatScreen() {
   const composer = useChatComposerState({
     autoEnabled,
     modelEnabledSet,
-    models,
-    isPro,
-    labelFor,
     autoModelId: AUTO_MODEL_ID,
-    t,
-    closeAttachSheetRef,
   });
 
-  const { selectedModel, ...composerUi } = composer;
+  const { selectedModel } = composer;
   const { isOffline } = useNetwork();
 
   const send = useChatSend({
@@ -398,14 +393,9 @@ function ChatScreen() {
 
   closeAttachSheetRef.current = () => setAttachSheetOpen(false);
 
-  const {
-    showModelPicker,
-    modelOptions,
-    selectedModelLabel,
-    closePickers: closeComposerPickers,
-    toggleModelPicker,
-    selectModel,
-  } = composerUi;
+  const closeAttachSheet = useCallback(() => {
+    setAttachSheetOpen(false);
+  }, []);
 
   setInputRef.current = setInput;
 
@@ -570,9 +560,8 @@ function ChatScreen() {
     showScrollToBottom,
     scrollAwayCount,
     scrollToLatest,
-    showModelPicker,
     attachSheetOpen,
-    closeComposerPickers,
+    closeAttachSheet,
     quotaNudge,
     chatError,
     isPro,
@@ -586,11 +575,6 @@ function ChatScreen() {
     setPendingAttachment,
     editingMessageId,
     setEditingMessageId,
-    modelOptions,
-    selectedModel,
-    selectedModelLabel,
-    toggleModelPicker,
-    selectModel,
     handlePickAttachment,
     handleAttachmentSheetSelect,
     stopGeneration,
