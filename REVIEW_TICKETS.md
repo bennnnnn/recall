@@ -6,7 +6,7 @@ Tickets from the full-app review. One branch + PR per ticket; finish green
 | # | Ticket | Area | Status |
 |---|--------|------|--------|
 | R1 | [Fix regenerate prompt order](#r1-fix-regenerate-prompt-order) | API | ✅ |
-| R2 | [Move pre-turn todo sync off critical path](#r2-move-pre-turn-todo-sync-off-critical-path) | API | ⬜ |
+| R2 | [Move pre-turn todo sync off critical path](#r2-move-pre-turn-todo-sync-off-critical-path) | API | ✅ |
 | R3 | [Fix `chat=None` shadowing in prompt_builder](#r3-fix-chatnone-shadowing-in-prompt_builder) | API | ⬜ |
 | R4 | [Wire SSE AbortController into stopGeneration](#r4-wire-sse-abortcontroller-into-stopgeneration) | Mobile | ⬜ |
 | R5 | [Add CSP to math WebViews](#r5-add-csp-to-math-webviews) | Mobile | ⬜ |
