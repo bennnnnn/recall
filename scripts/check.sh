@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # One-command local gate — mirrors CI exactly so "is it green?" is a single run.
-# API order matches .github/workflows/api-ci.yml: ruff -> format -> mypy -> pytest.
+# API order matches .github/workflows/api-ci.yml: ruff -> format -> mypy -> migrate -> pytest.
 # Skips a side cleanly if its toolchain isn't installed.
 #
 # Usage: ./scripts/check.sh            (also: ./scripts/dev.sh check)
@@ -17,6 +17,12 @@ if command -v uv >/dev/null 2>&1; then
       uv run ruff check . &&
       uv run ruff format --check . &&
       uv run mypy &&
+      if uv run python -c "from app.core.config import Settings; Settings().database_url" >/dev/null 2>&1; then
+        echo "    Migrating database (alembic upgrade head)..."
+        uv run alembic upgrade head
+      else
+        echo "    WARN: DATABASE_URL not configured - skipping alembic migrate"
+      fi &&
       uv run pytest --cov=app --cov-report=term-missing --cov-fail-under=80
   ) || fail=1
 else
