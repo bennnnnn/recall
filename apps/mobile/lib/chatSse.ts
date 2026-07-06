@@ -6,6 +6,10 @@ import { parseChatWsPayload } from "@/lib/chatSocketReduce";
 
 export type ChatSsePayload = NonNullable<ReturnType<typeof parseChatWsPayload>>;
 
+export function isSseAbortError(err: unknown): boolean {
+  return err instanceof DOMException && err.name === "AbortError";
+}
+
 type StreamChatSseOptions = {
   token: string;
   chatId: string;
@@ -90,7 +94,7 @@ type StreamChatEditOptions = {
   onEvent: (payload: ChatSsePayload) => void;
 };
 
-function parseSseChunk(buffer: string): { events: ChatSsePayload[]; rest: string } {
+export function parseSseChunk(buffer: string): { events: ChatSsePayload[]; rest: string } {
   const events: ChatSsePayload[] = [];
   const parts = buffer.split("\n\n");
   const rest = parts.pop() ?? "";

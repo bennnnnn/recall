@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { chatWebSocketUrl, Message, SearchSource } from "@/lib/api";
-import { streamChatEditSse, streamChatMessageSse, streamChatRegenerateSse, type ChatSsePayload } from "@/lib/chatSse";
+import { streamChatEditSse, streamChatMessageSse, streamChatRegenerateSse, isSseAbortError, type ChatSsePayload } from "@/lib/chatSse";
 import { clientGeoWsFields, type ClientGeo } from "@/lib/clientGeo";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { isVocabQuizAnswer } from "@/lib/parseVocabQuiz";
@@ -44,6 +44,7 @@ export function useChat(
   const wsRef = useRef<WebSocket | null>(null);
   const connectingRef = useRef<Promise<void> | null>(null);
   const preferSseRef = useRef(false);
+  const sseAbortRef = useRef<AbortController | null>(null);
   const assistantBuffer = useRef("");
   const reasoningBuffer = useRef("");
   const streamingDraftRef = useRef<StreamingDraft | null>(null);
@@ -85,6 +86,13 @@ export function useChat(
 
   const reportError = useCallback((message: string, code?: string) => {
     onErrorRef.current?.(message, code);
+  }, []);
+
+  const beginSseStream = useCallback(() => {
+    sseAbortRef.current?.abort();
+    const controller = new AbortController();
+    sseAbortRef.current = controller;
+    return controller.signal;
   }, []);
 
   const clearStreamingBubble = useCallback(() => {
@@ -136,12 +144,15 @@ export function useChat(
       if (draftRafRef.current != null) {
         cancelAnimationFrame(draftRafRef.current);
       }
+      sseAbortRef.current?.abort();
       wsRef.current?.close();
     };
   }, []);
 
   // Close and reset socket when chat changes
   useEffect(() => {
+    sseAbortRef.current?.abort();
+    sseAbortRef.current = null;
     wsRef.current?.close();
     wsRef.current = null;
     connectingRef.current = null;
@@ -378,6 +389,7 @@ export function useChat(
       },
     ) => {
       if (!token || !chatId) return;
+      const signal = beginSseStream();
       try {
         await streamChatMessageSse({
           token,
@@ -386,9 +398,11 @@ export function useChat(
           attachmentIds: options?.attachmentIds,
           model: options?.model,
           clientGeo: options?.clientGeo,
+          signal,
           onEvent: handleChatPayload,
         });
-      } catch {
+      } catch (err) {
+        if (isSseAbortError(err)) return;
         setSendingMessageId(null);
         setStreaming(false);
         setFinalizing(false);
@@ -397,26 +411,29 @@ export function useChat(
         reportError("Couldn't reach the server. Check your connection and try again.");
       }
     },
-    [token, chatId, handleChatPayload, clearStreamingBubble, reportError],
+    [token, chatId, beginSseStream, handleChatPayload, clearStreamingBubble, reportError],
   );
 
   const regenerateViaSse = useCallback(
     async (model?: string | null, clientGeo?: ClientGeo | null) => {
       if (!token || !chatId) return;
+      const signal = beginSseStream();
       try {
         await streamChatRegenerateSse({
           token,
           chatId,
           model,
           clientGeo,
+          signal,
           onEvent: handleChatPayload,
         });
-      } catch {
+      } catch (err) {
+        if (isSseAbortError(err)) return;
         restoreRegenerateBackup();
         reportError("Couldn't reach the server. Check your connection and try again.");
       }
     },
-    [token, chatId, handleChatPayload, restoreRegenerateBackup, reportError],
+    [token, chatId, beginSseStream, handleChatPayload, restoreRegenerateBackup, reportError],
   );
 
   const ensureConnected = useCallback(async () => {
@@ -577,6 +594,7 @@ export function useChat(
 
       await ensureConnected();
       if (preferSseRef.current || wsRef.current?.readyState !== WebSocket.OPEN) {
+        const signal = beginSseStream();
         try {
           await streamChatEditSse({
             token,
@@ -585,9 +603,11 @@ export function useChat(
             content: content.trim(),
             model,
             clientGeo,
+            signal,
             onEvent: handleChatPayload,
           });
-        } catch {
+        } catch (err) {
+          if (isSseAbortError(err)) return;
           rollbackEdit();
           reportError("Couldn't reach the server. Check your connection and try again.");
         }
@@ -606,10 +626,12 @@ export function useChat(
         }),
       );
     },
-    [token, chatId, ensureConnected, handleChatPayload, reportError],
+    [token, chatId, ensureConnected, beginSseStream, handleChatPayload, reportError],
   );
 
   const stopGeneration = useCallback(() => {
+    sseAbortRef.current?.abort();
+    sseAbortRef.current = null;
     wsRef.current?.send(JSON.stringify({ type: "cancel" }));
     setStreaming(false);
     setFinalizing(false);
