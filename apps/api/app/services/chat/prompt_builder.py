@@ -157,7 +157,6 @@ async def build_prompt_messages(
         QUIZ_RECENT_MESSAGE_LIMIT if minimal_quiz_context else settings.recent_message_window
     )
     is_day_plan = bool(query_text and is_day_planning_question(query_text))
-    chat = None
     todos_section: str | None = None
     if minimal_personal_context or minimal_quiz_context:
         recent_all = await chat_pkg.messages_repo.list_recent(session, chat_id, limit=recent_limit)
