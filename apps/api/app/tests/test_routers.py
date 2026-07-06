@@ -569,11 +569,14 @@ def test_delete_memory_ok():
 def test_revenuecat_webhook_enqueues_receipt_on_purchase():
     import fakeredis.aioredis
 
-    from app.core.deps import get_redis, get_settings_dep
+    from app.core.config import get_settings
+    from app.core.deps import get_redis
 
     uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings_dep] = lambda: Settings(environment="development")
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        environment="development", revenuecat_webhook_auth=""
+    )
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     app.dependency_overrides[get_redis] = lambda: fake_redis
 
@@ -609,11 +612,14 @@ def test_revenuecat_webhook_enqueues_receipt_on_purchase():
 def test_revenuecat_webhook_skips_receipt_when_plan_not_applied():
     import fakeredis.aioredis
 
-    from app.core.deps import get_redis, get_settings_dep
+    from app.core.config import get_settings
+    from app.core.deps import get_redis
 
     uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings_dep] = lambda: Settings(environment="development")
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        environment="development", revenuecat_webhook_auth=""
+    )
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     app.dependency_overrides[get_redis] = lambda: fake_redis
 
@@ -636,11 +642,14 @@ def test_revenuecat_webhook_skips_receipt_when_plan_not_applied():
 def test_revenuecat_webhook_free_event_does_not_enqueue_receipt():
     import fakeredis.aioredis
 
-    from app.core.deps import get_redis, get_settings_dep
+    from app.core.config import get_settings
+    from app.core.deps import get_redis
 
     uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings_dep] = lambda: Settings(environment="development")
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        environment="development", revenuecat_webhook_auth=""
+    )
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     app.dependency_overrides[get_redis] = lambda: fake_redis
 
@@ -663,11 +672,14 @@ def test_revenuecat_webhook_free_event_does_not_enqueue_receipt():
 def test_revenuecat_webhook_dedups_replay_by_event_id():
     import fakeredis.aioredis
 
-    from app.core.deps import get_redis, get_settings_dep
+    from app.core.config import get_settings
+    from app.core.deps import get_redis
 
     uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings_dep] = lambda: Settings(environment="development")
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        environment="development", revenuecat_webhook_auth=""
+    )
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     app.dependency_overrides[get_redis] = lambda: fake_redis
 
@@ -736,12 +748,15 @@ def test_revenuecat_webhook_requires_auth_in_production():
 def test_revenuecat_webhook_transfer_downgrades_old_and_syncs_new():
     import fakeredis.aioredis
 
-    from app.core.deps import get_redis, get_settings_dep
+    from app.core.config import get_settings
+    from app.core.deps import get_redis
 
     old_uid = uuid4()
     new_uid = uuid4()
     app = create_app()
-    app.dependency_overrides[get_settings_dep] = lambda: Settings(environment="development")
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        environment="development", revenuecat_webhook_auth=""
+    )
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     app.dependency_overrides[get_redis] = lambda: fake_redis
 
