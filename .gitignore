@@ -19,6 +19,7 @@ htmlcov/
 # Env
 .env
 .env.local
+.env.production
 .env.*.local
 
 # Expo / React Native
