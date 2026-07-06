@@ -306,9 +306,7 @@ async def build_stream_prompt_context(
             prior_user_messages = await chat_pkg.messages_repo.recent_user_contents(
                 session, chat.id
             )
-            has_calendar_write = await chat_pkg.calendar_service.has_write_access(
-                session, user.id
-            )
+            has_calendar_write = await chat_pkg.calendar_service.has_write_access(session, user.id)
 
         max_out = (
             max_output_tokens_for_style("short", settings)
