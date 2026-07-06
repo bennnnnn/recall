@@ -96,6 +96,31 @@ def is_broad_self_question(text: str) -> bool:
     return bool(_BROAD_SELF_QUESTION.match(cleaned))
 
 
+_LIGHTWEIGHT_TURN = re.compile(
+    r"^(?:"
+    r"hi|hello|hey|hiya|yo|sup"
+    r"|thanks|thank\s+you|thx|ty"
+    r"|ok|okay|k|cool|nice|great|perfect|awesome"
+    r"|got\s+it|sounds\s+good|makes\s+sense|understood"
+    r"|yes|no|yep|nope|sure|bye|goodbye|cya|see\s+ya"
+    r"|lol|lmao|haha|hehe"
+    r")(?:[!?.…,\s]+(?:thanks|thank\s+you|thx))?[!?.…\s]*$",
+    re.IGNORECASE,
+)
+
+
+def is_lightweight_chat_turn(text: str) -> bool:
+    """Short social turns that should skip integrations and web search."""
+    cleaned = text.strip()
+    if not cleaned:
+        return True
+    if len(cleaned) <= 2 and cleaned.isalpha():
+        return True
+    if len(cleaned) <= 24 and _LIGHTWEIGHT_TURN.match(cleaned):
+        return True
+    return False
+
+
 _WRITING_DELIVERABLE = re.compile(
     r"\b("
     r"send (?:me )?(?:an? )?email|"

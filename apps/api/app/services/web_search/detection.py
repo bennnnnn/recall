@@ -6,6 +6,7 @@ from app.core.config import Settings
 from app.models.schemas import WebSearchClassification
 from app.services import calendar as calendar_service
 from app.services import time_context as time_context_service
+from app.services.chat.prompt_constants import is_lightweight_chat_turn
 from app.services.web_search.geo_intent import is_geo_query
 from app.services.web_search.patterns import (
     _CLARIFICATION,
@@ -40,6 +41,8 @@ def web_search_skip(
     del prior_user_messages  # reserved for future context-aware skips
     cleaned = text.strip()
     if not cleaned or len(cleaned) < 4:
+        return True
+    if is_lightweight_chat_turn(cleaned):
         return True
     if _QUIZ_ANSWER.match(cleaned):
         return True

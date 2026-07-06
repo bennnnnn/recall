@@ -37,6 +37,7 @@ from app.services.chat.prompt_builder import (
 )
 from app.services.chat.prompt_constants import (
     is_broad_self_question,
+    is_lightweight_chat_turn,
     is_writing_deliverable_request,
     max_output_tokens_for_style,
 )
@@ -86,6 +87,7 @@ __all__ = [
     "format_user_name_only_block",
     "format_user_profile_block",
     "is_broad_self_question",
+    "is_lightweight_chat_turn",
     "is_writing_deliverable_request",
     "jobs",
     "litellm_gateway",

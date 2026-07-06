@@ -17,7 +17,12 @@ from app.services import day_planning as day_planning_service
 from app.services import profile as profile_service
 from app.services import projects as projects_service
 from app.services import web_search as web_search_service
-from app.services.chat.prompt_constants import is_broad_self_question, max_output_tokens_for_style
+from app.services.chat.prompt_constants import (
+    is_broad_self_question,
+    is_lightweight_chat_turn,
+    max_output_tokens_for_style,
+)
+from app.services.chat.turn_timing import TurnTimingTracker
 from app.services.context_window import estimate_tokens
 from app.services.math_tools import VerifiedMathBlock
 from app.services.prompt_safety import wrap_untrusted
@@ -82,6 +87,8 @@ class StreamContext:
     regenerate_backup: RegenerateBackup | None = None
     fallback_models: list[str] = field(default_factory=list)
     verified_math: VerifiedMathBlock | None = None
+    timing: TurnTimingTracker | None = None
+    lightweight_turn: bool = False
 
 
 @dataclass
@@ -208,11 +215,13 @@ async def build_stream_prompt_context(
     quiz_mode: str | None = None,
     user: User | None = None,
     chat: Chat | None = None,
+    timing: TurnTimingTracker | None = None,
 ) -> TurnPromptBundle:
     """Shared prompt assembly for new turns and regenerate."""
     import app.services.chat as chat_pkg
 
     meta: dict[str, Any] = {}
+    lightweight = is_lightweight_chat_turn(content)
     minimal_personal = is_broad_self_question(content)
     # Exam uses the DB daily-quiz panel; chat tutor uses full LLM for A-D follow-ups.
     minimal_quiz = False
@@ -285,6 +294,7 @@ async def build_stream_prompt_context(
 
         need_routing_context = (
             instant_reply is None
+            and not lightweight
             and not minimal_personal
             and not minimal_quiz
             and not day_planning
@@ -321,7 +331,7 @@ async def build_stream_prompt_context(
             gmail_context = await _load_gmail_context_block(user, redis, settings)
 
     local_places = geo.local_places
-    if instant_reply is None and not minimal_personal and not minimal_quiz:
+    if instant_reply is None and not minimal_personal and not minimal_quiz and not lightweight:
         integration_blocks: list[str] = []
         load_calendar = chat_pkg.calendar_service.should_inject_calendar_block(content)
         load_gmail = chat_pkg.email_service.should_inject_gmail_block(content)
@@ -397,6 +407,7 @@ async def build_stream_prompt_context(
     verified_math: VerifiedMathBlock | None = None
     if (
         instant_reply is None
+        and not lightweight
         and not minimal_personal
         and not minimal_quiz
         and not day_planning
@@ -419,6 +430,9 @@ async def build_stream_prompt_context(
             redis=redis,
             has_calendar_write=has_calendar_write,
         )
+
+    if timing is not None:
+        timing.mark_prompt_ready()
 
     return TurnPromptBundle(
         prompt_messages=prompt_messages,
@@ -451,6 +465,7 @@ async def prepare_chat_turn(
     client_longitude: float | None = None,
     on_status: StreamStatusFn | None = None,
     user: User | None = None,
+    timing: TurnTimingTracker | None = None,
 ) -> StreamContext:
     import app.services.chat as chat_pkg
 
@@ -602,6 +617,7 @@ async def prepare_chat_turn(
         quiz_mode=quiz_mode,
         user=user,
         chat=chat,
+        timing=timing,
     )
 
     prompt_messages = bundle.prompt_messages
@@ -636,4 +652,6 @@ async def prepare_chat_turn(
         chat_project_id=chat_project_id,
         fallback_models=bundle.fallback_models,
         verified_math=bundle.verified_math,
+        timing=timing,
+        lightweight_turn=is_lightweight_chat_turn(content),
     )
