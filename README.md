@@ -92,8 +92,10 @@ host that keeps the process alive — not a serverless function platform. A Dock
    existing Fly app at this directory. Provision a Fly Postgres cluster **with
    pgvector** (`fly pg create --image-ref flyio/postgres-flex:16` then
    `CREATE EXTENSION vector`), or keep using Neon.
-2. **Set secrets** (`fly secrets set …`) — every one of these is enforced at
-   startup by `validate_production_settings`:
+2. **Set secrets** — copy `apps/api/.env.production.example` → `.env.production`,
+   run `./scripts/generate-prod-secrets.sh`, `./scripts/validate-prod-env.sh`, then
+   `./scripts/fly-secrets-import.sh`. Every key is enforced at startup by
+   `validate_production_settings`:
    - `ENVIRONMENT=production`
    - `DEV_AUTH_ENABLED=false` · `MOCK_LLM_ENABLED=false`
    - `JWT_SECRET=` (≥32 random chars)
@@ -102,11 +104,12 @@ host that keeps the process alive — not a serverless function platform. A Dock
    - `OPENROUTER_API_KEY=`
    - `CORS_ORIGINS=https://app.recall.app` (explicit; never `*` in prod)
    - `REVENUECAT_WEBHOOK_AUTH=` (and `REVENUECAT_SECRET_KEY=` if monetizing)
-   - `OAUTH_TOKEN_ENCRYPTION_KEY=` (generate with
-     `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`)
+   - `OAUTH_TOKEN_ENCRYPTION_KEY=` (or `./scripts/generate-prod-secrets.sh`)
+   - `STORAGE_BACKEND=r2` · `R2_ACCOUNT_ID` · `R2_ACCESS_KEY_ID` ·
+     `R2_SECRET_ACCESS_KEY` · `R2_BUCKET`
    - `TAVILY_API_KEY=` (if web search is on)
-3. **Migrate on deploy:** `fly deploy` runs `alembic upgrade head` first (see
-   `fly.toml`). Confirm the head (`0041`) is applied.
+3. **Migrate + deploy:** `./scripts/deploy-api.sh` (or `fly deploy`) runs
+   `alembic upgrade head` first (see `fly.toml`). Confirm the head (`0041`) is applied.
 4. **Health:** point your monitor at `GET /health/ready` (checks DB + Redis).
 5. **RevenueCat:** set the webhook URL to `https://<api>/webhooks/revenuecat`
    with the `Authorization` header = your `REVENUECAT_WEBHOOK_AUTH`.

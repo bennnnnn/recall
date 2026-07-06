@@ -49,23 +49,42 @@ revocation, per-memory fact delete, SSE chat fallback, manual deploy workflow, p
 
 ## Step 2 — Set Fly API secrets
 
-`fly secrets set …` (all enforced at boot by `validate_production_settings`):
+All values are enforced at boot by `validate_production_settings`. Use the repo scripts
+(never commit `apps/api/.env.production` — it is gitignored):
+
+```bash
+# 1. Copy template and fill provider URLs/keys from Step 1
+cp apps/api/.env.production.example apps/api/.env.production
+
+# 2. Generate crypto secrets (JWT, Fernet, RevenueCat webhook auth)
+./scripts/generate-prod-secrets.sh
+
+# 3. Validate locally before touching Fly
+./scripts/validate-prod-env.sh
+
+# 4. Import into Fly app recall-api
+./scripts/fly-secrets-import.sh
+```
+
+Required keys (also listed in `apps/api/.env.production.example`):
 
 - [ ] `ENVIRONMENT=production`, `DEV_AUTH_ENABLED=false`, `MOCK_LLM_ENABLED=false`
 - [ ] `JWT_SECRET` (≥32 chars), `DATABASE_URL`, `REDIS_URL`
 - [ ] `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
 - [ ] `OPENROUTER_API_KEY`, `CORS_ORIGINS` (explicit list — not empty, not `*`)
 - [ ] `REVENUECAT_WEBHOOK_AUTH` (+ `REVENUECAT_SECRET_KEY` if monetizing)
-- [ ] `OAUTH_TOKEN_ENCRYPTION_KEY` (Fernet: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`)
+- [ ] `OAUTH_TOKEN_ENCRYPTION_KEY` (or use `./scripts/generate-prod-secrets.sh`)
 - [ ] **R2:** `STORAGE_BACKEND=r2`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`
 - [ ] Optional: `SENTRY_DSN`, `CHAT_STREAM_TIMEOUT_SECONDS` (180), `BACKGROUND_LLM_TIMEOUT_SECONDS` (60), `REST_RATE_LIMIT_PER_MINUTE` (240)
 
 ## Step 3 — Migrate + deploy the API
 
-- [ ] `cd apps/api && uv run alembic upgrade head` (head: `0041` — idempotent; safe to re-run)
-- [ ] `fly deploy` from repo root (build context `apps/api`, Dockerfile migrates-then-starts)
-- [ ] Verify `GET https://<api>/health/ready` → `{"status":"ok"}` (DB + Redis check)
-- [ ] Smoke: `curl https://<api>/legal/privacy` and `/legal/terms` (hosted legal docs)
+- [ ] `cd apps/api && uv run alembic upgrade head` (head: `0041` — idempotent; safe to re-run;
+      also runs automatically on `fly deploy` via Dockerfile)
+- [ ] `./scripts/deploy-api.sh` from repo root (or `fly deploy --remote-only` / GitHub Actions
+      **Deploy** workflow with `FLY_API_TOKEN` set)
+- [ ] Script smoke-checks: `GET https://<api>/health/ready` and `/legal/privacy`
+- [ ] Also verify `curl https://<api>/legal/terms` (hosted legal docs)
 
 ## Step 4 — EAS / store build
 

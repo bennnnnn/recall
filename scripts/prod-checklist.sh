@@ -49,10 +49,17 @@ warn_if "GET /legal/privacy" "curl -sf http://localhost:8000/legal/privacy >/dev
 warn_if "GET /legal/terms" "curl -sf http://localhost:8000/legal/terms >/dev/null 2>&1"
 echo
 
+echo "Production env scripts (run on your machine with real secrets):"
+warn_if "apps/api/.env.production.example exists" "test -f apps/api/.env.production.example"
+warn_if "validate-prod-env.sh executable" "test -x scripts/validate-prod-env.sh"
+echo "  Flow: cp .env.production.example → .env.production"
+echo "        ./scripts/generate-prod-secrets.sh"
+echo "        ./scripts/validate-prod-env.sh"
+echo "        ./scripts/fly-secrets-import.sh && ./scripts/deploy-api.sh"
+echo
+
 echo "Manual ops (cannot auto-verify — see DEPLOY_TICKETS.md):"
-echo "  - Fly secrets: ENVIRONMENT=production, DEV_AUTH_ENABLED=false, MOCK_LLM_ENABLED=false"
-echo "  - JWT_SECRET (>=32 chars), DATABASE_URL, REDIS_URL, GOOGLE_*, OPENROUTER_API_KEY"
-echo "  - STORAGE_BACKEND=r2 + R2 creds, OAUTH_TOKEN_ENCRYPTION_KEY, CORS_ORIGINS"
+echo "  - Fly secrets filled per apps/api/.env.production.example"
 echo "  - Neon: vector + pg_trgm, alembic upgrade head"
 echo "  - EAS: EXPO_PUBLIC_API_URL, production builds, store listings"
 echo "  - Hosted legal URLs: https://<api-host>/legal/privacy and /legal/terms"
