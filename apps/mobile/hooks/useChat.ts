@@ -280,6 +280,11 @@ export function useChat(
     const connectPromise = new Promise<void>((resolve, reject) => {
       const ws = new WebSocket(chatWebSocketUrl(chatId));
       wsRef.current = ws;
+      // Track whether the server ever sent us a frame. A close with no
+      // message means the connection never authenticated (expired token) or
+      // never reached the chat loop — fall back to SSE, which refreshes the
+      // access token on 401, instead of retrying WS with the same stale token.
+      let receivedAnyMessage = false;
 
       const timer = setTimeout(() => {
         ws.close();
@@ -311,6 +316,12 @@ export function useChat(
         clearTimeout(timer);
         if (wsRef.current === ws) {
           wsRef.current = null;
+        }
+        // No frame ever arrived → the socket never authenticated (likely an
+        // expired access token rejected by the server). Use SSE next so the
+        // 401-refresh path can heal the session instead of looping on WS.
+        if (!receivedAnyMessage) {
+          preferSseRef.current = true;
         }
         if (streamingRef.current || finalizingRef.current) {
           setStreaming(false);
@@ -352,6 +363,7 @@ export function useChat(
       };
 
       ws.onmessage = (event) => {
+        receivedAnyMessage = true;
         const payload = parseChatWsPayload(String(event.data));
         if (!payload) return;
         handleChatPayload(payload);
