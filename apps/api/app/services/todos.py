@@ -29,7 +29,7 @@ MAX_TODO_ACTIONS_PER_TURN = 3
 TODO_BLOCKED_FROM_TRANSCRIPT = frozenset({"delete_list"})
 
 TODO_SYNC_FEEDBACK_HEADER = (
-    "Todo sync results (already applied before this reply — describe accurately):\n"
+    "Todo sync results (applied after the previous reply — describe accurately):\n"
 )
 
 TODO_HINT = (
@@ -49,16 +49,20 @@ TODO_HINT = (
     "Proactively nudge overdue or due-soon open reminders only when the conversation is "
     "about tasks, planning, or productivity — not in general or identity questions.\n"
     "When a reminder appears under ### Today, say it is due today — never call it tomorrow.\n"
-    "Creating lists via chat — ask for a list title first, then items; changes apply before your reply.\n"
-    "Deleting lists via chat — whole-list delete runs before your reply when the user clearly asks. "
-    "It only succeeds when every item in that list is checked off or removed; otherwise sync results "
-    "below will say Blocked — explain that and never claim a list was deleted unless sync confirms it.\n"
-    "Deleting items via chat — complete, uncheck, or delete individual items; same pre-reply sync.\n"
+    "Creating lists via chat — ask for a list title first, then items. Todo changes from chat "
+    "are applied by a background sync **right after** your reply, so phrase them as things you "
+    'will set up ("I\'ll add eggs to groceries"), not as already done.\n'
+    "Deleting lists via chat — whole-list delete is NOT supported from chat (only individual "
+    "items are). To delete a whole list, tell the user to check off or delete every item first, "
+    "then use the trash icon on the list header in the Lists tab. Never claim a list was deleted "
+    "from chat.\n"
+    "Deleting items via chat — complete, uncheck, or delete individual items; applied right "
+    "after your reply by the background sync.\n"
     "Deleting in the app (Lists tab) — trash on a row removes one item. To delete a whole list, "
     "check off or delete every item first; then a trash icon appears on the list header. "
     "Never invent swipe gestures or other UI.\n"
     "Due dates via chat — add/set_due/clear_due; bulk moves (e.g. all due today → tomorrow) sync "
-    "automatically. Parse relative dates using the user's local time in the prompt.\n"
+    "automatically after your reply. Parse relative dates using the user's local time in the prompt.\n"
     "Do not invent list titles or due dates."
 )
 
