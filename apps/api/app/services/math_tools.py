@@ -249,7 +249,11 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
             result = math_service.solve_equation(eq)
             lines.extend(result.steps)
             lines.append(
-                "Emit formulas with $...$ or ```math fences. Do NOT recompute the solutions."
+                "Emit formulas with $...$ or ```math fences. Do NOT recompute the solutions. "
+                "Show worked steps by COPYING the verified steps above verbatim — do NOT derive "
+                "intermediate algebra yourself (that is where wrong steps like 'x^2 = 6 - 2x^2' "
+                "creep in). Keep any spacing (e.g. \\quad) INSIDE the $...$ math delimiters so it "
+                "renders."
             )
             return VerifiedMathBlock(text="\n".join(lines))
 
