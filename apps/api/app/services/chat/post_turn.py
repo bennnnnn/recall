@@ -134,7 +134,12 @@ async def enqueue_post_turn_jobs(
         settings.memory_extract_every_n_turns > 0
         and turn_number % settings.memory_extract_every_n_turns == 0
     )
-    if not ctx.skip_memory_jobs and should_extract_memory:
+    if (
+        not ctx.skip_memory_jobs
+        and should_extract_memory
+        and ctx.user is not None
+        and ctx.user.memory_enabled
+    ):
         job_specs.append(
             (
                 "memory",

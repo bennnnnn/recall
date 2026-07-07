@@ -61,7 +61,13 @@ async def _apply_memory_extraction_result(
     updated = await memories_repo.list_for_user(session, user_id)
     embed_tasks: list[tuple[Memory, str]] = []
     for memory in updated:
-        needs_embed = not memory.embedding_json
+        # Re-embed if EITHER vector representation is missing — the DB semantic
+        # search filters on the `embedding` (pgvector) column, while the
+        # in-memory fallback reads `embedding_json`, so both must be populated.
+        # Checking only `embedding_json` left rows with pgvector-but-null-JSON
+        # re-embedding forever, and rows with JSON-but-null-pgvector skipped
+        # entirely (invisible to DB semantic search).
+        needs_embed = memory.embedding is None or memory.embedding_json is None
         if (
             not needs_embed
             and memory.type in upserted_types

@@ -365,7 +365,60 @@ async def test_extract_and_store_reembeds_when_text_changed():
 
 
 @pytest.mark.asyncio
-async def test_extract_and_store_memories_releases_db_before_llm():
+async def test_extract_and_store_reembeds_when_pgvector_missing():
+    """A row with embedding_json present but the pgvector `embedding` column
+    null must be re-embedded — the DB semantic search filters on `embedding`,
+    so a null pgvector makes the memory invisible to DB-side recall even when
+    the JSON fallback has a vector."""
+    from app.background.memory_extraction import extract_and_store_memories
+    from app.models.schemas import MemorySectionItem, MemorySectionUpdateResult
+
+    settings = Settings(memory_min_confidence=0.4)
+    extraction = MemorySectionUpdateResult(
+        sections=[MemorySectionItem(type="preference", summary="likes TypeScript", confidence=0.9)]
+    )
+
+    existing = MagicMock()
+    existing.type = "preference"
+    existing.text = "likes TypeScript"
+    existing.embedding_json = "[0.1,0.2]"
+
+    # After upsert: JSON present but pgvector column null — previously this
+    # skipped re-embed (needs_embed checked embedding_json only).
+    updated = MagicMock()
+    updated.type = "preference"
+    updated.text = "likes TypeScript"
+    updated.embedding_json = "[0.1,0.2]"
+    updated.embedding = None
+
+    embed_calls = AsyncMock(return_value=[0.9, 0.8])
+    _, session_locals = _memory_extraction_sessions(count=2)
+
+    with (
+        patch(
+            "app.background.memory_extraction.SessionLocal",
+            side_effect=session_locals,
+        ),
+        patch(
+            "app.background.memory_extraction.users_repo.get_by_id",
+            AsyncMock(return_value=MagicMock(memory_enabled=True)),
+        ),
+        patch(
+            "app.background.memory_extraction.memories_repo.list_for_user",
+            AsyncMock(side_effect=[[existing], [updated]]),
+        ),
+        patch(
+            "app.background.memory_extraction.litellm_gateway.revise_memory_sections",
+            AsyncMock(return_value=extraction),
+        ),
+        patch("app.background.memory_extraction.memories_repo.upsert_sections", AsyncMock()),
+        patch("app.services.memory.invalidate_memory_block", AsyncMock()),
+        patch("app.gateways.embedding_gateway.embed_text", embed_calls),
+        patch("app.gateways.embedding_gateway.serialize_embedding", return_value="[0.9,0.8]"),
+    ):
+        await extract_and_store_memories(settings, user_id=uuid4(), chat_id=uuid4(), transcript="t")
+
+    embed_calls.assert_awaited_once()
     from app.background.memory_extraction import extract_and_store_memories
 
     session = AsyncMock()

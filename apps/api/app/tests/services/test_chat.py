@@ -952,6 +952,76 @@ async def test_memory_extraction_runs_on_later_turn(stream_offline_io):
 
 
 @pytest.mark.asyncio
+async def test_memory_extraction_skipped_when_memory_disabled(stream_offline_io):
+    """When the user has memory_enabled=False, the memory job must not be
+    enqueued at all — previously it was enqueued every N turns and the
+    extraction worker no-op'd internally, wasting a stream-job cycle."""
+    from app.services import chat as chat_module
+
+    async def fake_stream(**kwargs):
+        yield "answer"
+
+    fake_user = MagicMock()
+    fake_user.id = MagicMock()
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+    fake_user.memory_enabled = False
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+    fake_chat.summary = None
+    fake_chat.project_id = None
+
+    with (
+        patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.services.chat.messages_repo.count_for_chat", AsyncMock(return_value=3)),
+        patch("app.services.chat.messages_repo.create", AsyncMock()),
+        patch(
+            "app.services.chat.build_prompt_messages",
+            AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
+        ),
+        patch("app.services.chat.calendar_service.is_connected", AsyncMock(return_value=False)),
+        patch(
+            "app.services.chat.calendar_service.load_calendar_for_prompt",
+            AsyncMock(return_value=None),
+        ),
+        patch("app.services.chat.email_service.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.chat.email_service.load_gmail_context", AsyncMock(return_value=None)),
+        patch(
+            "app.services.chat.email_service.load_gmail_for_prompt", AsyncMock(return_value=None)
+        ),
+        patch("app.services.chat.messages_repo.recent_user_contents", AsyncMock(return_value=[])),
+        patch(
+            "app.services.chat.web_search_service.augment_prompt_messages",
+            AsyncMock(side_effect=lambda msgs, *_a, **_k: (msgs, [])),
+        ),
+        patch("app.services.chat.litellm_gateway.stream_chat_completion", fake_stream),
+        patch("app.services.chat.quota_service.adjust_usage", AsyncMock()),
+        patch("app.services.chat.usage_repo.add_tokens", AsyncMock()),
+        patch("app.services.chat.chats_repo.touch_by_id", AsyncMock()),
+        patch("app.services.chat.jobs.enqueue", AsyncMock()) as enqueue_job,
+    ):
+        result: dict[str, str] = {}
+        async for _ in chat_module.stream_chat_response(
+            AsyncMock(),
+            Settings(max_output_tokens=100, memory_extract_every_n_turns=1),
+            user_id=fake_user.id,
+            chat_id=MagicMock(),
+            content="second turn info",
+            result=result,
+        ):
+            pass
+        finalize = result.get("_finalize_task")
+        if finalize is not None:
+            await finalize
+
+    job_types = [call.args[1] for call in enqueue_job.call_args_list]
+    assert "memory" not in job_types
+
+
+@pytest.mark.asyncio
 async def test_memory_extraction_skipped_between_batch_turns(stream_offline_io):
     from app.services import chat as chat_module
 
