@@ -59,27 +59,6 @@ async def find_language_by_target(
     return (await session.execute(stmt)).scalar_one_or_none()
 
 
-async def find_programming_by_target(
-    session: AsyncSession,
-    user_id: UUID,
-    target_language: str,
-) -> Project | None:
-    lang = (target_language or "").strip().lower()
-    if not lang:
-        return None
-    stmt = (
-        select(Project)
-        .where(
-            Project.user_id == user_id,
-            Project.archived.is_(False),
-            Project.kind == "programming",
-            Project.target_language == lang,
-        )
-        .limit(1)
-    )
-    return (await session.execute(stmt)).scalar_one_or_none()
-
-
 async def find_trivia_project(session: AsyncSession, user_id: UUID) -> Project | None:
     stmt = (
         select(Project)
