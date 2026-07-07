@@ -1,4 +1,4 @@
-import { parseSimpleLatex, segmentsToPlain } from "@/lib/mathText";
+import { parseSimpleLatex, segmentsToPlain, splitMathLines } from "@/lib/mathText";
 
 describe("parseSimpleLatex", () => {
   it("parses superscripts", () => {
@@ -16,5 +16,19 @@ describe("parseSimpleLatex", () => {
   it("parses fractions", () => {
     const segs = parseSimpleLatex(String.raw`\frac{a}{b}`);
     expect(segs).toEqual([{ type: "frac", num: "a", den: "b" }]);
+  });
+});
+
+describe("splitMathLines", () => {
+  it("splits a multi-equation fence body into separate lines", () => {
+    expect(splitMathLines("x^2 = 5 - 1\nx^2 = 4")).toEqual(["x^2 = 5 - 1", "x^2 = 4"]);
+  });
+
+  it("returns a single-element array for a one-line body", () => {
+    expect(splitMathLines("x^2 = 4")).toEqual(["x^2 = 4"]);
+  });
+
+  it("drops blank lines", () => {
+    expect(splitMathLines("x = 2\n\nx = -2\n")).toEqual(["x = 2", "x = -2"]);
   });
 });
