@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import datetime
 from typing import Literal, Self
 from uuid import UUID
 
@@ -491,83 +491,6 @@ class ProjectItemUpdate(BaseModel):
             return None
         text = value.strip()
         return text or None
-
-
-class ProjectQuizAnswerIn(BaseModel):
-    chat_id: UUID
-    assistant_message_id: UUID
-    letter: str = Field(min_length=1, max_length=2)
-    topic: str | None = Field(default=None, max_length=120)
-    question: str | None = Field(default=None, max_length=500)
-    is_correct: bool | None = None
-
-    @field_validator("letter")
-    @classmethod
-    def normalize_letter(cls, value: str) -> str:
-        letter = value.strip().upper().rstrip(".")
-        if letter not in {"A", "B", "C", "D"}:
-            raise ValueError("letter must be A, B, C, or D")
-        return letter
-
-
-QuizModality = Literal["mcq", "definition", "sentence"]
-QuizKind = Literal["vocab", "trivia"]
-
-
-class QuizChoiceOut(BaseModel):
-    letter: Literal["A", "B", "C", "D"]
-    text: str
-
-
-class ProjectQuizQuestionOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: UUID
-    sequence: int
-    quiz_kind: QuizKind
-    topic: str
-    part_of_speech: str | None = None
-    question_text: str
-    choices: list[QuizChoiceOut]
-    correct_letter: Literal["A", "B", "C", "D"]
-    status: Literal["pending", "answered", "skipped"]
-    allowed_modalities: list[QuizModality] = Field(default_factory=list)
-
-
-class ProjectDailyQuizOut(BaseModel):
-    quiz_date: date
-    daily_goal: int
-    answered_count: int
-    complete: bool
-    current: ProjectQuizQuestionOut | None = None
-
-
-class ProjectQuizQuestionAnswerIn(BaseModel):
-    modality: QuizModality | None = None
-    letter: str | None = Field(default=None, max_length=2)
-    text: str | None = Field(default=None, max_length=2000)
-    chat_id: UUID | None = None
-    skip: bool = False
-
-    @field_validator("letter")
-    @classmethod
-    def normalize_letter(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        letter = value.strip().upper().rstrip(".")
-        if letter not in {"A", "B", "C", "D"}:
-            raise ValueError("letter must be A, B, C, or D")
-        return letter
-
-
-class ProjectQuizAnswerResultOut(BaseModel):
-    is_correct: bool
-    feedback: str
-    mastered: bool = False
-    batch_complete: bool = False
-    allow_retry: bool = False
-    suggest_mcq: bool = False
-    next_question: ProjectQuizQuestionOut | None = None
 
 
 class ProjectDetailOut(ProjectOut):

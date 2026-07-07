@@ -24,7 +24,6 @@ from app.models.schemas import (
 )
 from app.repositories import chats as chats_repo
 from app.repositories import project_items as project_items_repo
-from app.repositories import project_quiz_questions as quiz_questions_repo
 from app.repositories import projects as projects_repo
 from app.repositories import suggestions as suggestions_repo
 from app.repositories import todos as todos_repo
@@ -596,7 +595,6 @@ def _project_highlight(
     stats: ProjectStats,
     *,
     home_tz: ZoneInfo,
-    quiz_pending_today: int = 0,
 ) -> HomeProjectHighlight | None:
     if not _is_daily_home_project(project):
         return None
@@ -605,7 +603,6 @@ def _project_highlight(
         total=stats.total,
         mastered_today=stats.mastered_today,
         pending_today=stats.pending_today,
-        quiz_pending_today=quiz_pending_today,
         learning_count=stats.learning_count,
         due_for_review=stats.due_for_review,
         daily_goal=daily_goal,
@@ -653,13 +650,7 @@ async def _load_project_home_content(
             if stats.mastered_today >= daily_goal:
                 completed_daily.append((candidate.title.strip(), _daily_home_kind(candidate)))
                 continue
-            today = datetime.now(home_tz).date()
-            quiz_pending = await quiz_questions_repo.count_pending_today(
-                session, candidate.id, today
-            )
-            highlight = _project_highlight(
-                candidate, stats, home_tz=home_tz, quiz_pending_today=quiz_pending
-            )
+            highlight = _project_highlight(candidate, stats, home_tz=home_tz)
             if highlight is not None:
                 starters: list[HomeStarter] = []
                 subtitle = _project_subtitle(
@@ -679,11 +670,7 @@ async def _load_project_home_content(
         timezone_name=str(home_tz.key),
     )
     stats = ProjectStats.model_validate(stats_raw)
-    quiz_pending = 0
-    if _is_daily_home_project(primary):
-        today = datetime.now(home_tz).date()
-        quiz_pending = await quiz_questions_repo.count_pending_today(session, primary.id, today)
-    highlight = _project_highlight(primary, stats, home_tz=home_tz, quiz_pending_today=quiz_pending)
+    highlight = _project_highlight(primary, stats, home_tz=home_tz)
     completed_daily = []
     if highlight is None and _is_daily_home_project(primary):
         daily_goal = daily_learning.resolve_daily_goal(primary)
