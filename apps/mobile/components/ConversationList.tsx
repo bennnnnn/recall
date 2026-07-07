@@ -49,6 +49,9 @@ export function ConversationList(_props: unknown) {
     searchLoading,
     searchError,
     hasSearchQuery,
+    hasMore,
+    loadingMore,
+    loadMore,
     searchInputRef,
     openSearch,
     closeSearch,
@@ -167,6 +170,9 @@ export function ConversationList(_props: unknown) {
       searchLoading={searchLoading}
       searchError={searchError}
       searchResults={searchResults}
+      hasMore={hasMore}
+      loadingMore={loadingMore}
+      onLoadMore={loadMore}
       onOpenChat={openChat}
     />
   );

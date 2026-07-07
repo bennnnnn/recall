@@ -11,6 +11,9 @@ type Props = {
   searchLoading: boolean;
   searchError: boolean;
   searchResults: SearchResult[];
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
   onOpenChat: (chatId: string, messageId?: string | null) => void;
 };
 
@@ -19,6 +22,9 @@ export function DrawerSearchResults({
   searchLoading,
   searchError,
   searchResults,
+  hasMore,
+  loadingMore,
+  onLoadMore,
   onOpenChat,
 }: Props) {
   const { t } = useTranslation();
@@ -39,40 +45,57 @@ export function DrawerSearchResults({
       ) : searchResults.length === 0 ? (
         <Text style={s.searchHint}>{t("search.no_results")}</Text>
       ) : (
-        searchResults.map((result) => (
-          <Pressable
-            key={
-              result.message_id ? result.message_id : `title-${result.chat_id}`
-            }
-            style={s.searchResult}
-            onPress={() => onOpenChat(result.chat_id, result.message_id)}
-          >
-            <View style={s.searchResultHeader}>
-              <Ionicons
-                name={
-                  result.match_type === "title"
-                    ? "chatbubble-outline"
-                    : result.role === "user"
-                      ? "person-outline"
-                      : "sparkles-outline"
-                }
-                size={14}
-                color={
-                  result.match_type === "title" ? theme.primary : theme.textSecondary
-                }
-              />
-              <Text style={s.searchResultTitle} numberOfLines={1}>
-                {displayChatTitle(result.chat_title, {}, t)}
+        <>
+          {searchResults.map((result) => (
+            <Pressable
+              key={
+                result.message_id ? result.message_id : `title-${result.chat_id}`
+              }
+              style={s.searchResult}
+              onPress={() => onOpenChat(result.chat_id, result.message_id)}
+            >
+              <View style={s.searchResultHeader}>
+                <Ionicons
+                  name={
+                    result.match_type === "title"
+                      ? "chatbubble-outline"
+                      : result.role === "user"
+                        ? "person-outline"
+                        : "sparkles-outline"
+                  }
+                  size={14}
+                  color={
+                    result.match_type === "title" ? theme.primary : theme.textSecondary
+                  }
+                />
+                <Text style={s.searchResultTitle} numberOfLines={1}>
+                  {displayChatTitle(result.chat_title, {}, t)}
+                </Text>
+                {result.match_type === "title" ? (
+                  <Text style={s.searchResultBadge}>{t("search.topic_match")}</Text>
+                ) : null}
+              </View>
+              <Text style={s.searchResultSnippet} numberOfLines={2}>
+                {result.content}
               </Text>
-              {result.match_type === "title" ? (
-                <Text style={s.searchResultBadge}>{t("search.topic_match")}</Text>
-              ) : null}
-            </View>
-            <Text style={s.searchResultSnippet} numberOfLines={2}>
-              {result.content}
-            </Text>
-          </Pressable>
-        ))
+            </Pressable>
+          ))}
+          {hasMore ? (
+            <Pressable
+              style={s.loadMore}
+              onPress={onLoadMore}
+              disabled={loadingMore}
+              accessibilityRole="button"
+              accessibilityLabel={t("search.load_more")}
+            >
+              {loadingMore ? (
+                <ActivityIndicator size="small" color={theme.primary} />
+              ) : (
+                <Text style={s.loadMoreText}>{t("search.load_more")}</Text>
+              )}
+            </Pressable>
+          ) : null}
+        </>
       )}
     </View>
   );
@@ -116,5 +139,7 @@ function makeStyles(theme: Theme) {
       color: theme.primary,
     },
     searchResultSnippet: { fontSize: 15, lineHeight: 21, color: theme.text },
+    loadMore: { paddingVertical: 14, alignItems: "center" },
+    loadMoreText: { fontSize: 14, fontWeight: "600", color: theme.primary },
   });
 }

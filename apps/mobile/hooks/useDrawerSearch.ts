@@ -20,10 +20,16 @@ export function useDrawerSearch({ token, isDrawerOpen }: Options) {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState(false);
+  const [resultTotal, setResultTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
   const searchInputRef = useRef<TextInput>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
   const searchGenerationRef = useRef(0);
+  // Stable refs so loadMore reads the latest query/results without being in
+  // doSearch's dependency array (which would reset pagination state).
+  const queryRef = useRef("");
+  const resultsRef = useRef<SearchResult[]>([]);
 
   const cancelPendingSearch = useCallback(() => {
     if (searchTimerRef.current) {
@@ -39,9 +45,13 @@ export function useDrawerSearch({ token, isDrawerOpen }: Options) {
     searchGenerationRef.current += 1;
     setSearchOpen(false);
     setSearchQuery("");
+    queryRef.current = "";
+    resultsRef.current = [];
     setSearchResults([]);
+    setResultTotal(0);
     setSearchError(false);
     setSearchLoading(false);
+    setLoadingMore(false);
   }, [cancelPendingSearch]);
 
   const openSearch = useCallback(() => {
@@ -77,7 +87,10 @@ export function useDrawerSearch({ token, isDrawerOpen }: Options) {
         if (!shouldApplyDrawerSearchResult(generation, searchGenerationRef.current)) {
           return;
         }
+        queryRef.current = q.trim();
+        resultsRef.current = data.results;
         setSearchResults(data.results);
+        setResultTotal(data.total);
       } catch (error: unknown) {
         if (isAbortError(error)) return;
         if (!shouldApplyDrawerSearchResult(generation, searchGenerationRef.current)) {
@@ -85,6 +98,8 @@ export function useDrawerSearch({ token, isDrawerOpen }: Options) {
         }
         setSearchError(true);
         setSearchResults([]);
+        resultsRef.current = [];
+        setResultTotal(0);
       } finally {
         if (shouldApplyDrawerSearchResult(generation, searchGenerationRef.current)) {
           setSearchLoading(false);
@@ -96,6 +111,30 @@ export function useDrawerSearch({ token, isDrawerOpen }: Options) {
     },
     [token],
   );
+
+  const hasMore = searchResults.length < resultTotal && resultTotal > 0;
+
+  const loadMore = useCallback(async () => {
+    if (!token || loadingMore || searchLoading || !hasMore) return;
+    const q = queryRef.current;
+    if (!q) return;
+    const offset = resultsRef.current.length;
+    if (offset <= 0) return;
+    setLoadingMore(true);
+    try {
+      const data = await api.search(token, q, 20, undefined, offset);
+      // Drop if the query changed while the load-more was in flight.
+      if (queryRef.current !== q) return;
+      const merged = [...resultsRef.current, ...data.results];
+      resultsRef.current = merged;
+      setSearchResults(merged);
+      setResultTotal(data.total);
+    } catch {
+      /* best-effort: leave the existing page intact */
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [token, loadingMore, searchLoading, hasMore]);
 
   const onSearchChange = useCallback(
     (text: string) => {
@@ -129,6 +168,9 @@ export function useDrawerSearch({ token, isDrawerOpen }: Options) {
     searchLoading,
     searchError,
     hasSearchQuery,
+    hasMore,
+    loadingMore,
+    loadMore,
     searchInputRef: searchInputRef as RefObject<TextInput>,
     openSearch,
     closeSearch,

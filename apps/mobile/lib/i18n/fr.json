@@ -713,5 +713,6 @@
   "daily_quiz.ui_pref_title": "Answer style",
   "daily_quiz.ui_pref_body": "How would you like to answer A–D questions?",
   "daily_quiz.ui_pref_card": "Interactive cards",
-  "daily_quiz.ui_pref_simple": "Simple list"
+  "daily_quiz.ui_pref_simple": "Simple list",
+  "search.load_more": "Load more"
 }

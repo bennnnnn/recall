@@ -25,6 +25,9 @@ type Props = {
   searchLoading: boolean;
   searchError: boolean;
   searchResults: SearchResult[];
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
   onOpenChat: (chatId: string, messageId?: string | null) => void;
 };
 
@@ -45,6 +48,9 @@ export function DrawerListHeader({
   searchLoading,
   searchError,
   searchResults,
+  hasMore,
+  loadingMore,
+  onLoadMore,
   onOpenChat,
 }: Props) {
   const { t } = useTranslation();
@@ -83,6 +89,9 @@ export function DrawerListHeader({
           searchLoading={searchLoading}
           searchError={searchError}
           searchResults={searchResults}
+          hasMore={hasMore}
+          loadingMore={loadingMore}
+          onLoadMore={onLoadMore}
           onOpenChat={onOpenChat}
         />
       ) : null}
