@@ -15,7 +15,9 @@ from app.services import memory as memory_service
 
 logger = logging.getLogger(__name__)
 
-MAX_ACTIVE_SUGGESTIONS = 10
+# Shared with the repository so the generator cap and the list endpoint stay
+# in sync (see repositories/suggestions.py).
+MAX_ACTIVE_SUGGESTIONS = suggestions_repo.MAX_ACTIVE_SUGGESTIONS
 
 SUGGESTION_SYSTEM_PROMPT = (
     "You are a helpful assistant looking at a user's recent conversation history "
@@ -95,7 +97,10 @@ async def generate_suggestions(
     """Generate 2-3 proactive suggestions based on recent history.
 
     Skips generation if the user already has enough active suggestions
-    to avoid unbounded growth from the ~10% trigger in chat finalization.
+    to avoid unbounded growth from the every-10th-message trigger in chat
+    finalization (post_turn enqueues when prior_count % 10 == 0, where
+    prior_count is the per-chat message count — so a long chat regenerates
+    suggestions as it progresses).
     """
     try:
         async with SessionLocal() as session:
