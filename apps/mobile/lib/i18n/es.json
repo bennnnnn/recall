@@ -682,5 +682,6 @@
   "upgrade.title": "Pásate a Pro",
   "projects.learn_in_chat": "Learn in chat",
   "projects.take_quiz": "Take quiz",
-  "projects.quiz.switch_to_chat": "Switch to chat tutor"
+  "projects.quiz.switch_to_chat": "Switch to chat tutor",
+  "search.load_more": "Load more"
 }

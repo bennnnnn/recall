@@ -10,9 +10,15 @@ import type {
 export const discoverApi = {
   todayUsage: (token: string) => request<Usage>("/chats/usage/today", token),
   listModels: (token: string) => request<ModelInfo[]>("/models", token),
-  search: (token: string, q: string, limit = 20, init?: Pick<RequestInit, "signal">) =>
+  search: (
+    token: string,
+    q: string,
+    limit = 20,
+    init?: Pick<RequestInit, "signal">,
+    offset = 0,
+  ) =>
     request<{ results: SearchResult[]; total: number }>(
-      `/search?q=${encodeURIComponent(q)}&limit=${limit}`,
+      `/search?q=${encodeURIComponent(q)}&limit=${limit}&offset=${offset}`,
       token,
       init,
     ),
