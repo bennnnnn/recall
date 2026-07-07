@@ -296,6 +296,11 @@ export function preprocessMarkdown(content: string): string {
   out = normalizeVerificationBullets(out);
   out = normalizeImplicitMath(out);
   out = normalizeBoldInlineMath(out);
+  // The model often wraps inline math in backticks (`` `$x^2 = 4$` ``), which
+  // markdown renders as inline CODE → raw literal `$...$`. Un-wrap backtick-
+  // wrapped `$...$` so it renders as math inline with the prose (in sync with
+  // the text, no late fence pop-in).
+  out = out.replace(/`(\$[^`\n]+?\$)`/g, "$1");
 
   out = out.replace(
     CALLOUT_RE,
