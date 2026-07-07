@@ -33,6 +33,15 @@ def _app_with_user(user: User):
     return app
 
 
+def _app_with_user_attachments_disabled(user: User):
+    from app.core.deps import get_current_user
+
+    app = create_app()
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(attachments_enabled=False)
+    return app
+
+
 def test_presign_upload_rejects_bad_content_type():
     user = _fake_user()
     client = TestClient(_app_with_user(user))
@@ -585,3 +594,83 @@ def test_upload_accepts_docx_bytes_matching_claimed_type():
 
     assert r.status_code == 204
     gateway.write_bytes.assert_awaited_once()
+
+
+# ── attachments_enabled feature-flag guard ────────────────────────────────────
+
+
+def test_presign_rejected_when_attachments_disabled():
+    user = _fake_user()
+    app = _app_with_user_attachments_disabled(user)
+    client = TestClient(app)
+    r = client.post(
+        "/attachments/presign",
+        headers={"Authorization": "Bearer tok"},
+        json={"content_type": "image/png", "size_bytes": 128},
+    )
+    assert r.status_code == 503
+    assert r.json()["detail"] == "Attachments are disabled"
+
+
+def test_upload_rejected_when_attachments_disabled():
+    user = _fake_user()
+    app = _app_with_user_attachments_disabled(user)
+    attachment_id = uuid4()
+    client = TestClient(app)
+    r = client.put(
+        f"/attachments/{attachment_id}/upload",
+        headers={"Authorization": "Bearer tok"},
+        content=b"\x89PNG\r\n\x1a\n" + b"\x00" * 32,
+    )
+    assert r.status_code == 503
+    assert r.json()["detail"] == "Attachments are disabled"
+
+
+def test_confirm_rejected_when_attachments_disabled():
+    user = _fake_user()
+    app = _app_with_user_attachments_disabled(user)
+    attachment_id = uuid4()
+    client = TestClient(app)
+    r = client.post(
+        f"/attachments/{attachment_id}/confirm",
+        headers={"Authorization": "Bearer tok"},
+    )
+    assert r.status_code == 503
+    assert r.json()["detail"] == "Attachments are disabled"
+
+
+def test_cancel_still_allowed_when_attachments_disabled():
+    """Cancel (delete) and read endpoints stay open when the flag is off so
+    pending uploads can be cleaned up and existing attachments retrieved after
+    a flag flip."""
+    user = _fake_user()
+    app = _app_with_user_attachments_disabled(user)
+    attachment_id = uuid4()
+    row = MagicMock()
+    row.id = attachment_id
+    row.message_id = None
+    row.content_type = "image/png"
+    row.storage_key = "user/key"
+    gateway = MagicMock()
+    gateway.delete_bytes = AsyncMock()
+
+    with (
+        patch(
+            "app.routers.attachments.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch(
+            "app.routers.attachments.attachments_repo.delete_rows",
+            AsyncMock(return_value=1),
+        ),
+        patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
+        patch("app.routers.attachments.get_redis_client", return_value=AsyncMock()),
+        patch("app.routers.attachments.quota_service.refund_image_upload", AsyncMock()),
+    ):
+        client = TestClient(app)
+        r = client.delete(
+            f"/attachments/{attachment_id}",
+            headers={"Authorization": "Bearer tok"},
+        )
+
+    assert r.status_code == 204
