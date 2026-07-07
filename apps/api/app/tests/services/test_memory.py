@@ -141,6 +141,73 @@ async def test_load_relevant_memories_prefers_db_semantic_search():
 
 
 @pytest.mark.asyncio
+async def test_load_relevant_memories_applies_similarity_cutoff_to_db_path():
+    """The DB semantic path must receive max_distance derived from
+    memory_min_similarity, so it behaves like the in-memory path (which
+    filters low-similarity matches out)."""
+    from app.services.memory import load_relevant_memories
+
+    user = AsyncMock()
+    user.id = uuid4()
+    user.memory_enabled = True
+    session = AsyncMock()
+    settings = Settings(
+        semantic_memory_enabled=True,
+        memory_min_confidence=0.4,
+        memory_min_similarity=0.15,
+    )
+
+    with (
+        patch("app.repositories.memories.list_for_user", AsyncMock(return_value=[])),
+        patch(
+            "app.repositories.memories.search_semantic",
+            AsyncMock(return_value=[]),
+        ) as db_search,
+        patch(
+            "app.gateways.embedding_gateway.embed_text",
+            AsyncMock(return_value=[0.1, 0.2, 0.3]),
+        ),
+    ):
+        await load_relevant_memories(session, user, settings, query_vec=[0.1, 0.2, 0.3])
+
+    kwargs = db_search.await_args.kwargs
+    # cosine_distance = 1 - cosine_similarity → 1 - 0.15 = 0.85
+    assert kwargs["max_distance"] == pytest.approx(0.85)
+
+
+@pytest.mark.asyncio
+async def test_load_relevant_memories_skips_max_distance_when_cutoff_disabled():
+    """When memory_min_similarity is 0, no max_distance filter is applied
+    (preserves the prior behaviour for configs that disable the cutoff)."""
+    from app.services.memory import load_relevant_memories
+
+    user = AsyncMock()
+    user.id = uuid4()
+    user.memory_enabled = True
+    session = AsyncMock()
+    settings = Settings(
+        semantic_memory_enabled=True,
+        memory_min_confidence=0.4,
+        memory_min_similarity=0.0,
+    )
+
+    with (
+        patch("app.repositories.memories.list_for_user", AsyncMock(return_value=[])),
+        patch(
+            "app.repositories.memories.search_semantic",
+            AsyncMock(return_value=[]),
+        ) as db_search,
+        patch(
+            "app.gateways.embedding_gateway.embed_text",
+            AsyncMock(return_value=[0.1, 0.2, 0.3]),
+        ),
+    ):
+        await load_relevant_memories(session, user, settings, query_vec=[0.1, 0.2, 0.3])
+
+    assert db_search.await_args.kwargs["max_distance"] is None
+
+
+@pytest.mark.asyncio
 async def test_load_relevant_memories_falls_back_to_in_memory_when_db_empty():
     from app.services.memory import load_relevant_memories
 
@@ -357,6 +424,7 @@ async def test_delete_memory_fact_removes_one_sentence():
 
     user_id = uuid4()
     session = AsyncMock()
+    settings = Settings(mock_llm_enabled=True)
     memory = _memory("fact", "Alpha. Beta. Gamma.", 0.9)
     memory.id = uuid4()
 
@@ -364,6 +432,10 @@ async def test_delete_memory_fact_removes_one_sentence():
         patch(
             "app.repositories.memories.get_by_id",
             AsyncMock(return_value=memory),
+        ),
+        patch(
+            "app.gateways.embedding_gateway.embed_text",
+            AsyncMock(return_value=None),
         ),
         patch(
             "app.repositories.memories.update_text",
@@ -374,7 +446,56 @@ async def test_delete_memory_fact_removes_one_sentence():
             AsyncMock(),
         ) as invalidate,
     ):
-        ok = await delete_memory_fact(session, user_id, memory.id, 1)
+        ok = await delete_memory_fact(session, settings, user_id, memory.id, 1)
 
     assert ok is True
     invalidate.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_delete_memory_fact_re_embeds_updated_text():
+    """After a fact delete, the remaining text must be re-embedded so semantic
+    recall doesn't rank on the stale pre-delete vector."""
+    from app.services.memory import delete_memory_fact
+
+    user_id = uuid4()
+    session = AsyncMock()
+    settings = Settings(mock_llm_enabled=True)
+    memory = _memory("fact", "Alpha. Beta. Gamma.", 0.9)
+    memory.id = uuid4()
+
+    fake_vec = [0.1, 0.2, 0.3]
+    with (
+        patch(
+            "app.repositories.memories.get_by_id",
+            AsyncMock(return_value=memory),
+        ),
+        patch(
+            "app.gateways.embedding_gateway.embed_text",
+            AsyncMock(return_value=fake_vec),
+        ) as embed,
+        patch(
+            "app.gateways.embedding_gateway.serialize_embedding",
+            return_value="[0.1,0.2,0.3]",
+        ) as serialize,
+        patch(
+            "app.repositories.memories.update_text_and_embedding",
+            AsyncMock(return_value=memory),
+        ) as update_embed,
+        patch(
+            "app.repositories.memories.update_text",
+            AsyncMock(),
+        ) as update_text_only,
+        patch(
+            "app.services.memory.invalidate_memory_block",
+            AsyncMock(),
+        ),
+    ):
+        ok = await delete_memory_fact(session, settings, user_id, memory.id, 1)
+
+    assert ok is True
+    embed.assert_awaited_once()
+    serialize.assert_called_once_with(fake_vec)
+    update_embed.assert_awaited_once()
+    # The text-only fallback must NOT be used when an embedding is available.
+    update_text_only.assert_not_awaited()

@@ -198,12 +198,20 @@ async def _semantic_memories_from_vec(
 ) -> list[Memory]:
     from app.repositories import memories as memories_repo
 
+    # cosine_distance = 1 - cosine_similarity, so a min_similarity cutoff maps
+    # to a max_distance cutoff. Apply it DB-side so the DB path behaves like
+    # the in-memory path (which filters by memory_min_similarity).
+    max_distance: float | None = None
+    if settings.memory_min_similarity > 0:
+        max_distance = 1.0 - settings.memory_min_similarity
+
     db_hits = await memories_repo.search_semantic(
         session,
         user.id,
         query_vec,
         min_confidence=settings.memory_min_confidence,
         limit=settings.memory_inject_limit,
+        max_distance=max_distance,
     )
     if db_hits:
         return db_hits
@@ -422,10 +430,12 @@ def join_memory_facts(facts: list[str]) -> str:
 
 async def delete_memory_fact(
     session: AsyncSession,
+    settings: Settings,
     user_id: UUID,
     memory_id: UUID,
     fact_index: int,
 ) -> bool:
+    from app.gateways import embedding_gateway
     from app.repositories import memories as memories_repo
 
     memory = await memories_repo.get_by_id(session, user_id, memory_id)
@@ -440,7 +450,26 @@ async def delete_memory_fact(
         if deleted:
             await invalidate_memory_block(user_id)
         return deleted
-    updated = await memories_repo.update_text(session, user_id, memory_id, join_memory_facts(facts))
+    new_text = join_memory_facts(facts)
+    # Re-embed so semantic recall doesn't rank on the stale pre-delete vector.
+    # In dev/mock mode (no embedding key) embed_text returns None and we fall
+    # back to a text-only update so the feature still works.
+    try:
+        new_vec = await embedding_gateway.embed_text(settings, new_text)
+    except Exception:
+        logger.debug("Memory re-embed on fact delete failed", exc_info=True)
+        new_vec = None
+    if new_vec is not None:
+        updated = await memories_repo.update_text_and_embedding(
+            session,
+            user_id,
+            memory_id,
+            new_text,
+            new_vec,
+            embedding_gateway.serialize_embedding(new_vec),
+        )
+    else:
+        updated = await memories_repo.update_text(session, user_id, memory_id, new_text)
     if updated is not None:
         await invalidate_memory_block(user_id)
         return True
