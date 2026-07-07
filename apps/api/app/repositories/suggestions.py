@@ -8,6 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Suggestion
 
+# Cap shared with the generator (background/suggestion_generation.py) so the
+# list endpoint surfaces every active suggestion the generator may create,
+# instead of under-showing (previously list_active capped at 5 while the
+# generator allowed up to 10 active).
+MAX_ACTIVE_SUGGESTIONS = 10
+
 
 async def count_active(session: AsyncSession, user_id: UUID) -> int:
     """Return the number of active (non-dismissed, non-expired) suggestions."""
@@ -34,7 +40,7 @@ async def list_active(session: AsyncSession, user_id: UUID) -> list[Suggestion]:
             (Suggestion.expires_at == None) | (Suggestion.expires_at > now),  # noqa: E711
         )
         .order_by(Suggestion.created_at.desc())
-        .limit(5)
+        .limit(MAX_ACTIVE_SUGGESTIONS)
     )
     return list(result.scalars().all())
 
