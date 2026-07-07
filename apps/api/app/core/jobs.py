@@ -54,12 +54,32 @@ JobHandler = Callable[[Settings, dict[str, Any]], Awaitable[None]]
 _HANDLERS: dict[str, JobHandler] = {}
 
 
+def _capture_sentry_exception(message: str) -> None:
+    """Report a best-effort failure to Sentry without raising if it's absent.
+
+    Job enqueue/DLQ paths must never raise into the chat request, but silent
+    failures should be observable in production. Falls back to a no-op when
+    sentry-sdk isn't installed or initialized.
+    """
+    try:
+        import sentry_sdk
+
+        sentry_sdk.capture_exception(Exception(message))
+    except Exception:  # intentional swallow: never raise into chat
+        logger.debug("sentry capture failed for %s", message, exc_info=True)
+
+
 def register(job_type: str, handler: JobHandler) -> None:
     _HANDLERS[job_type] = handler
 
 
 async def enqueue(redis: Redis, job_type: str, payload: dict[str, Any]) -> None:
-    """Persist a job. Best-effort — a failure here never breaks the chat path."""
+    """Persist a job. Best-effort — a failure here never breaks the chat path.
+
+    A failed enqueue is logged AND reported to Sentry (when initialized) so
+    silent job loss is observable — otherwise titles/memory/compression can
+    quietly stop running with no signal.
+    """
     try:
         await redis.xadd(
             JOBS_STREAM,
@@ -69,6 +89,7 @@ async def enqueue(redis: Redis, job_type: str, payload: dict[str, Any]) -> None:
         )
     except Exception:
         logger.exception("Failed to enqueue job type=%s", job_type)
+        _capture_sentry_exception(f"enqueue_failed:{job_type}")
 
 
 async def enqueue_welcome_email(redis: Redis, user_id: UUID) -> None:
@@ -250,6 +271,7 @@ async def _move_to_dlq(
         )
     except Exception:
         logger.debug("Failed to write job to DLQ id=%s", entry_id, exc_info=True)
+        _capture_sentry_exception("dlq_write_failed")
 
 
 async def _process_entries(redis: Redis, settings: Settings, entries: list) -> None:
@@ -336,6 +358,15 @@ async def _worker_loop(settings: Settings) -> None:
 
 
 _worker_task: asyncio.Task | None = None
+
+
+def is_worker_alive() -> bool:
+    """True when the job-loop background task exists and hasn't finished.
+
+    Used by the worker health endpoint so Fly can detect + restart a stuck
+    worker (blocked event loop, deadlocked consumer) that hasn't crashed.
+    """
+    return _worker_task is not None and not _worker_task.done()
 
 
 async def start_worker(settings: Settings) -> None:
