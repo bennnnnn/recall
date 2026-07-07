@@ -12,7 +12,6 @@ import { MESSAGE_PAGE_SIZE } from "@/lib/chatConstants";
 import type { QueuedChatLaunch } from "@/lib/chatLaunch";
 import { takeQueuedChatLaunch } from "@/lib/chatLaunch";
 import type { QuizVariant } from "@/lib/quizVariant";
-import { quizVariantForProjectKind } from "@/lib/quizVariant";
 import type { useDraftChat } from "@/hooks/useDraftChat";
 
 type DraftChat = ReturnType<typeof useDraftChat>;
@@ -72,7 +71,6 @@ export function useChatRouteLoader({
     discardEmptyChat,
     clearDraftChat,
     prepareDraftChat,
-    setDraftChatId,
   } = draft;
 
   const [chatTitle, setChatTitle] = useState<string | null>(null);
@@ -83,9 +81,6 @@ export function useChatRouteLoader({
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [pendingLaunch, setPendingLaunch] = useState<string | null>(null);
-  const [dailyQuizActive, setDailyQuizActive] = useState(false);
-  const [dailyQuizProjectId, setDailyQuizProjectId] = useState<string | null>(null);
-  const dailyQuizActiveRef = useRef(false);
 
   const priorRouteChatIdRef = useRef<string | null>(null);
   const pendingHighlightRef = useRef<string | null>(null);
@@ -182,10 +177,8 @@ export function useChatRouteLoader({
         if (cancelled) return;
         if (cached) {
           setChatId(openChatId);
-          if (!dailyQuizActiveRef.current) {
-            setMessages(cached.messages);
-            setHasMoreOlder(cached.has_more);
-          }
+          setMessages(cached.messages);
+          setHasMoreOlder(cached.has_more);
           setChatLoading(false);
         }
         const [chat, page] = await Promise.all([
@@ -198,11 +191,9 @@ export function useChatRouteLoader({
         setPinned(chat.pinned);
         draftProjectIdRef.current = chat.project_id ?? draftProjectIdRef.current;
         setQuizVariant(resolveQuizVariant(chat.project_id));
-        if (!dailyQuizActiveRef.current) {
-          setMessages(page.messages);
-          setHasMoreOlder(page.has_more);
-          void writeCachedChatMessages(openChatId, page.messages, page.has_more);
-        }
+        setMessages(page.messages);
+        setHasMoreOlder(page.has_more);
+        void writeCachedChatMessages(openChatId, page.messages, page.has_more);
         if (!chat.title && page.messages.length > 0) {
           pollForTitle(token, openChatId);
         }
@@ -223,7 +214,6 @@ export function useChatRouteLoader({
         skipNextFocusRef.current = false;
         return;
       }
-      if (dailyQuizActiveRef.current) return;
       if (!token || !openChatId || streaming || chatLoading) return;
 
       void (async () => {
@@ -307,19 +297,11 @@ export function useChatRouteLoader({
     void tryScrollToHighlight();
   }, [tryScrollToHighlight]);
 
-  const releaseDailyQuizPanel = useCallback(() => {
-    dailyQuizActiveRef.current = false;
-    setDailyQuizActive(false);
-  }, []);
-
   const startNewChat = useCallback(() => {
     if (streaming) return;
     discardEmptyChat(chatId);
     clearDraftChat();
     pendingProjectIdRef.current = null;
-    dailyQuizActiveRef.current = false;
-    setDailyQuizActive(false);
-    setDailyQuizProjectId(null);
     setInputRef.current("");
     setChatId(null);
     setChatTitle(null);
@@ -346,9 +328,8 @@ export function useChatRouteLoader({
   const beginChatLaunch = useCallback(
     (launch: QueuedChatLaunch | string) => {
       const queued = typeof launch === "string" ? { prompt: launch.trim() } : launch;
-      const isDailyQuiz = Boolean(queued.dailyQuiz && queued.projectId);
       const prompt = queued.prompt?.trim() ?? "";
-      if (!isDailyQuiz && !prompt) return;
+      if (!prompt) return;
       if (streaming) stopGeneration();
       discardEmptyChat(chatId);
       clearDraftChat();
@@ -368,39 +349,9 @@ export function useChatRouteLoader({
       if (routeChatId != null) {
         router.setParams({ chatId: undefined });
       }
-      if (isDailyQuiz) {
-        pendingLaunchRef.current = null;
-        setPendingLaunch(null);
-        dailyQuizActiveRef.current = true;
-        setDailyQuizActive(true);
-        setDailyQuizProjectId(queued.projectId ?? null);
-        creatingRef.current = true;
-        void prepareDraftChat(queued.projectId, "auto", queued.quizMode, { force: true })
-          .then(async (id) => {
-            if (!id || !token) return;
-            skipLoadForChatIdRef.current = id;
-            setChatId(id);
-            draftChatIdRef.current = null;
-            setDraftChatId(null);
-            router.setParams({ chatId: id });
-            try {
-              const chat = await api.getChat(token, id);
-              insertChatGlobal(chat);
-            } catch {
-              /* drawer insert is best-effort */
-            }
-          })
-          .finally(() => {
-            creatingRef.current = false;
-          });
-      } else {
-        dailyQuizActiveRef.current = false;
-        setDailyQuizActive(false);
-        setDailyQuizProjectId(null);
-        pendingLaunchRef.current = prompt;
-        setPendingLaunch(prompt);
-        void prepareDraftChat(queued.projectId, "auto", queued.quizMode);
-      }
+      pendingLaunchRef.current = prompt;
+      setPendingLaunch(prompt);
+      void prepareDraftChat(queued.projectId, "auto", queued.quizMode);
     },
     [
       streaming,
@@ -410,8 +361,6 @@ export function useChatRouteLoader({
       clearDraftChat,
       draftProjectIdRef,
       draftQuizModeRef,
-      draftChatIdRef,
-      skipLoadForChatIdRef,
       routeChatId,
       router,
       setMessages,
@@ -420,10 +369,8 @@ export function useChatRouteLoader({
       resolveQuizVariant,
       setInputRef,
       prepareDraftChat,
-      setDraftChatId,
       creatingRef,
       setChatId,
-      token,
     ],
   );
 
@@ -454,10 +401,6 @@ export function useChatRouteLoader({
     pendingLaunch,
     setPendingLaunch,
     pendingLaunchRef,
-    dailyQuizActive,
-    dailyQuizProjectId,
-    setDailyQuizActive,
-    releaseDailyQuizPanel,
     pollForTitle,
   };
 }

@@ -749,6 +749,26 @@ async def test_suggestions_repo_list_active():
 
 
 @pytest.mark.asyncio
+async def test_suggestions_repo_list_active_cap_matches_generator():
+    """list_active must surface up to MAX_ACTIVE_SUGGESTIONS (the generator's
+    cap), not a smaller hard-coded limit — otherwise home/API under-shows."""
+    from app.background.suggestion_generation import MAX_ACTIVE_SUGGESTIONS as gen_cap
+    from app.repositories.suggestions import MAX_ACTIVE_SUGGESTIONS, list_active
+
+    assert MAX_ACTIVE_SUGGESTIONS == gen_cap == 10
+    session = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = []
+    session.execute = AsyncMock(return_value=mock_result)
+
+    await list_active(session, uuid4())
+
+    stmt = session.execute.await_args.args[0]
+    # SQLAlchemy stores the limit on the compiled select.
+    assert stmt._limit == MAX_ACTIVE_SUGGESTIONS  # type: ignore[attr-defined]
+
+
+@pytest.mark.asyncio
 async def test_suggestions_repo_dismiss_found():
     from app.models.orm import Suggestion
     from app.repositories.suggestions import dismiss

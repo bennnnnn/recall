@@ -27,6 +27,16 @@ async def login_with_google(
 
     user = await users_repo.get_by_google_sub(session, google_sub)
     is_new_user = user is None
+    # Mirror Apple sign-in: if no google_sub match but a user with this email
+    # already exists (e.g. created via Apple), link the accounts instead of
+    # creating a duplicate row — which would hit the unique(email) constraint
+    # and surface as an unhandled 500 IntegrityError.
+    if user is None and email:
+        existing = await users_repo.get_by_email(session, email)
+        if existing is not None:
+            user = await users_repo.update(session, existing, google_sub=google_sub)
+            is_new_user = False
+
     if user is None:
         user = await users_repo.create(
             session,

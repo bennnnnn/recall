@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -27,6 +27,70 @@ async def test_upsert_sections_executes_and_commits(fake_session):
     await memories_repo.upsert_sections(fake_session, user_id=user_id, items=items)
     fake_session.execute.assert_awaited_once()
     fake_session.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_upsert_sections_deduplicates_duplicate_types(fake_session):
+    """Two sections with the same type would make Postgres raise
+    'ON CONFLICT DO UPDATE cannot affect row a second time'. The repo must
+    dedupe by type, keeping the highest-confidence section."""
+    user_id = uuid4()
+    items = [
+        ("profile", "Low confidence profile.", 0.5, None),
+        ("profile", "High confidence profile.", 0.9, None),
+        ("preference", "Likes tea.", 0.8, None),
+    ]
+    captured: dict[str, list] = {}
+
+    def fake_pg_insert(_table):
+        stmt = MagicMock()
+
+        def values(rows):
+            captured["rows"] = rows
+            stmt.excluded = MagicMock()
+            return stmt
+
+        stmt.values = values
+        stmt.on_conflict_do_update.return_value = stmt
+        return stmt
+
+    with patch("app.repositories.memories.pg_insert", side_effect=fake_pg_insert):
+        await memories_repo.upsert_sections(fake_session, user_id=user_id, items=items)
+
+    types = [r["type"] for r in captured["rows"]]
+    assert sorted(types) == ["preference", "profile"]
+    profile_row = next(r for r in captured["rows"] if r["type"] == "profile")
+    assert profile_row["text"] == "High confidence profile."
+    assert profile_row["confidence"] == 0.9
+
+
+@pytest.mark.asyncio
+async def test_upsert_sections_duplicate_type_ties_break_to_later_item(fake_session):
+    """Equal confidence → the later item wins (last-writer semantics)."""
+    user_id = uuid4()
+    items = [
+        ("fact", "First fact.", 0.7, None),
+        ("fact", "Second fact.", 0.7, None),
+    ]
+    captured: dict[str, list] = {}
+
+    def fake_pg_insert(_table):
+        stmt = MagicMock()
+
+        def values(rows):
+            captured["rows"] = rows
+            stmt.excluded = MagicMock()
+            return stmt
+
+        stmt.values = values
+        stmt.on_conflict_do_update.return_value = stmt
+        return stmt
+
+    with patch("app.repositories.memories.pg_insert", side_effect=fake_pg_insert):
+        await memories_repo.upsert_sections(fake_session, user_id=user_id, items=items)
+
+    assert len(captured["rows"]) == 1
+    assert captured["rows"][0]["text"] == "Second fact."
 
 
 @pytest.mark.asyncio

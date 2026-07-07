@@ -24,7 +24,6 @@ import { extractPrimaryCopyText } from "@/lib/copyBlock";
 import { exportMessageAsPdf } from "@/lib/exportMessagePdf";
 import { notifySuccess, notifyWarning, tap } from "@/lib/haptics";
 import { parseVocabQuiz, stripVocabQuizBlock, stripVocabSessionMetadata, hasVocabQuizFence, stripQuizMarkdownDuplicates, stripVocabQuizPrologue, isRenderableVocabQuiz, isCompleteVocabQuiz, formatVocabQuizAsMarkdown, markdownHasQuizChoices } from "@/lib/parseVocabQuiz";
-import { isDailyQuizMessageId } from "@/lib/dailyQuizMessage";
 import { parseVocabCard, stripVocabCardBlock, hasVocabCardFence } from "@/lib/parseVocabCard";
 import { resolvePlaces, stripPlacesContent } from "@/lib/placesList";
 import {
@@ -261,9 +260,8 @@ export const MessageBubble = React.memo(function MessageBubble({
     isStreaming && !hasContent,
     t,
   );
-  const isDailyQuiz = isDailyQuizMessageId(message.id);
   const isQuizFeedback = message.id.startsWith("local-quiz-");
-  const showActionSlot = !isUser && hasContent && !isDailyQuiz && !isQuizFeedback;
+  const showActionSlot = !isUser && hasContent && !isQuizFeedback;
   const actionsReady = showActionSlot && !isGenerating;
   const quizForStrip = useMemo(() => {
     if (isUser || !hasContent || !hasVocabQuizFence(content)) return null;

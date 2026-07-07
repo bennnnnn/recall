@@ -32,6 +32,19 @@ router = APIRouter(prefix="/attachments", tags=["attachments"])
 MAX_SIZE = MAX_ATTACHMENT_SIZE
 
 
+async def require_attachments_enabled(
+    settings: Settings = Depends(get_settings_dep),
+) -> None:
+    """Reject write endpoints when the attachments feature flag is off.
+    Reads (file/url) and cancel-delete stay open so existing attachments can
+    still be retrieved and pending uploads cleaned up after a flag flip."""
+    if not settings.attachments_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Attachments are disabled",
+        )
+
+
 async def _reject_unverified_upload(
     *,
     gateway,
@@ -54,7 +67,11 @@ async def _reject_unverified_upload(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
 
 
-@router.post("/presign", response_model=AttachmentPresignOut)
+@router.post(
+    "/presign",
+    response_model=AttachmentPresignOut,
+    dependencies=[Depends(require_attachments_enabled)],
+)
 async def presign_upload(
     body: AttachmentPresignIn,
     user: User = Depends(get_current_user),
@@ -119,7 +136,11 @@ async def presign_upload(
     )
 
 
-@router.put("/{attachment_id}/upload", status_code=status.HTTP_204_NO_CONTENT)
+@router.put(
+    "/{attachment_id}/upload",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_attachments_enabled)],
+)
 async def upload_attachment_bytes(
     attachment_id: UUID,
     request: Request,
@@ -177,7 +198,11 @@ async def cancel_pending_upload(
         await quota_service.refund_image_upload(get_redis_client(), user.id)
 
 
-@router.post("/{attachment_id}/confirm", status_code=status.HTTP_204_NO_CONTENT)
+@router.post(
+    "/{attachment_id}/confirm",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_attachments_enabled)],
+)
 async def confirm_upload(
     attachment_id: UUID,
     user: User = Depends(get_current_user),

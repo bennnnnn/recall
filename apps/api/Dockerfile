@@ -1,6 +1,9 @@
 # Recall API — production image.
-# Long-running process: FastAPI (HTTP + WebSocket) + the in-process Redis-Stream
-# background worker. Do NOT deploy to a serverless function platform — the worker
+# Deployed as two Fly processes from this one image (see fly.toml):
+#   app    = FastAPI HTTP + WebSocket (PROCESS_ROLE=api)
+#   worker = Redis-stream jobs + schedulers (PROCESS_ROLE=worker)
+# The worker exposes a tiny /health/ready HTTP server on port 8001 so Fly can
+# health-check it. Do NOT deploy to a serverless function platform — the worker
 # and WS connections need a persistent process.
 
 FROM python:3.12-slim AS base

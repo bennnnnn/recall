@@ -591,22 +591,6 @@ def _list_key(list_title: str) -> str:
     return _normalize(list_title or DEFAULT_LIST)
 
 
-def _find_programming_project(
-    projects: list[Project],
-    target_language: str,
-) -> Project | None:
-    lang = (target_language or "").strip().lower()
-    if not lang:
-        return None
-    for project in projects:
-        if (
-            _is_programming_project(project)
-            and (project.target_language or "").strip().lower() == lang
-        ):
-            return project
-    return None
-
-
 def _find_language_project(
     projects: list[Project],
     target_language: str = "en",
@@ -1011,30 +995,6 @@ def group_trivia_items(items: list[ProjectItem]) -> list[ProjectListGroup]:
     return group_items(items)
 
 
-def group_programming_items(items: list[ProjectItem]) -> list[ProjectListGroup]:
-    from app.services.programming_curriculum import CURRICULUM_TOPIC_ORDER
-
-    by_list: dict[str, list[ProjectItem]] = {}
-    for item in items:
-        lst = item.list_title.strip() or DEFAULT_LIST
-        by_list.setdefault(lst, []).append(item)
-    order = {name: idx for idx, name in enumerate(CURRICULUM_TOPIC_ORDER)}
-
-    def topic_sort_key(title: str) -> tuple[int, str]:
-        return (order.get(title, len(CURRICULUM_TOPIC_ORDER)), title.casefold())
-
-    groups: list[ProjectListGroup] = []
-    for list_title in sorted(by_list.keys(), key=topic_sort_key):
-        topic_items = sorted(by_list[list_title], key=lambda i: i.content.casefold())
-        groups.append(
-            ProjectListGroup(
-                list_title=list_title,
-                items=[ProjectItemOut.model_validate(i) for i in topic_items],
-            )
-        )
-    return groups
-
-
 def group_by_part_of_speech(items: list[ProjectItem]) -> list[ProjectPosGroup]:
     by_pos: dict[str, list[ProjectItem]] = {}
     for item in items:
@@ -1089,9 +1049,6 @@ async def apply_project_actions(
                     continue
                 if kind == "language" and _find_language_project(projects, "en"):
                     continue
-                stack = "python" if kind == "programming" else "en"
-                if kind == "programming" and _find_programming_project(projects, stack):
-                    continue
                 if _find_project(projects, title):
                     continue
                 project = await projects_repo.create(
@@ -1101,15 +1058,9 @@ async def apply_project_actions(
                     description=(action.description or "").strip() or None,
                     kind=kind,
                     level=action.level or "level1",
-                    target_language=stack,
+                    target_language="en",
                 )
                 applied += 1
-                if _is_programming_project(project):
-                    from app.services.programming_curriculum import seed_programming_curriculum
-
-                    await seed_programming_curriculum(
-                        session, user_id=user_id, project_id=project.id
-                    )
                 projects = await projects_repo.list_for_user(session, user_id, limit=200)
                 if action.content.strip():
                     list_title = action.list_title.strip() or DEFAULT_LIST

@@ -44,6 +44,13 @@ _DLQ_MAXLEN = 5_000
 _BLOCK_MS = 5_000
 _BATCH = 10
 _CLAIM_IDLE_MS = 60_000
+# Observe queue health: report DLQ depth + pending entries to Sentry every
+# _METRICS_INTERVAL_S, and capture a warning when either crosses its threshold
+# so a backed-up queue or growing DLQ doesn't go unnoticed (the admin DLQ
+# endpoint is dev-only, so prod had no signal before).
+_METRICS_INTERVAL_S = 300
+_DLQ_ALERT_THRESHOLD = 20
+_PENDING_ALERT_THRESHOLD = 50
 # Retry a transient failure a few times before moving to the DLQ. Background
 # jobs are not latency-sensitive, so a short backoff in-process is cheaper and
 # safer than dropping the job on the first provider/DB blip.
@@ -54,12 +61,32 @@ JobHandler = Callable[[Settings, dict[str, Any]], Awaitable[None]]
 _HANDLERS: dict[str, JobHandler] = {}
 
 
+def _capture_sentry_exception(message: str) -> None:
+    """Report a best-effort failure to Sentry without raising if it's absent.
+
+    Job enqueue/DLQ paths must never raise into the chat request, but silent
+    failures should be observable in production. Falls back to a no-op when
+    sentry-sdk isn't installed or initialized.
+    """
+    try:
+        import sentry_sdk
+
+        sentry_sdk.capture_exception(Exception(message))
+    except Exception:  # intentional swallow: never raise into chat
+        logger.debug("sentry capture failed for %s", message, exc_info=True)
+
+
 def register(job_type: str, handler: JobHandler) -> None:
     _HANDLERS[job_type] = handler
 
 
 async def enqueue(redis: Redis, job_type: str, payload: dict[str, Any]) -> None:
-    """Persist a job. Best-effort — a failure here never breaks the chat path."""
+    """Persist a job. Best-effort — a failure here never breaks the chat path.
+
+    A failed enqueue is logged AND reported to Sentry (when initialized) so
+    silent job loss is observable — otherwise titles/memory/compression can
+    quietly stop running with no signal.
+    """
     try:
         await redis.xadd(
             JOBS_STREAM,
@@ -69,6 +96,7 @@ async def enqueue(redis: Redis, job_type: str, payload: dict[str, Any]) -> None:
         )
     except Exception:
         logger.exception("Failed to enqueue job type=%s", job_type)
+        _capture_sentry_exception(f"enqueue_failed:{job_type}")
 
 
 async def enqueue_welcome_email(redis: Redis, user_id: UUID) -> None:
@@ -250,6 +278,7 @@ async def _move_to_dlq(
         )
     except Exception:
         logger.debug("Failed to write job to DLQ id=%s", entry_id, exc_info=True)
+        _capture_sentry_exception("dlq_write_failed")
 
 
 async def _process_entries(redis: Redis, settings: Settings, entries: list) -> None:
@@ -314,7 +343,11 @@ async def _worker_loop(settings: Settings) -> None:
     except Exception:
         logger.debug("xautoclaim failed", exc_info=True)
 
+    last_metrics_at = 0.0
     while True:
+        if asyncio.get_event_loop().time() - last_metrics_at >= _METRICS_INTERVAL_S:
+            last_metrics_at = asyncio.get_event_loop().time()
+            await report_queue_metrics(redis)
         try:
             resp = cast(
                 list[tuple[str, list[tuple[str, dict[str, Any]]]]],
@@ -338,6 +371,15 @@ async def _worker_loop(settings: Settings) -> None:
 _worker_task: asyncio.Task | None = None
 
 
+def is_worker_alive() -> bool:
+    """True when the job-loop background task exists and hasn't finished.
+
+    Used by the worker health endpoint so Fly can detect + restart a stuck
+    worker (blocked event loop, deadlocked consumer) that hasn't crashed.
+    """
+    return _worker_task is not None and not _worker_task.done()
+
+
 async def start_worker(settings: Settings) -> None:
     global _worker_task
     if _worker_task is not None:
@@ -358,6 +400,60 @@ async def stop_worker() -> None:
 
 
 # ── DLQ inspection / replay ──────────────────────────────────────────────────
+
+
+async def collect_queue_metrics(redis: Redis) -> dict[str, int]:
+    """Return DLQ depth + jobs-stream pending count for observability.
+
+    Both are best-effort: a Redis error yields 0 rather than raising, so the
+    worker loop never breaks on a metrics collection blip.
+    """
+    try:
+        dlq_depth = int(await redis.xlen(JOBS_DLQ_STREAM))
+    except Exception:
+        dlq_depth = 0
+    try:
+        pending = await redis.xpending(JOBS_STREAM, JOBS_GROUP)
+        # xpending summary returns [count, min_id, max_id, [[consumer, count], ...]]
+        pending_count = int(cast(list[Any], pending)[0]) if pending else 0
+    except Exception:
+        pending_count = 0
+    return {"dlq_depth": dlq_depth, "pending_entries": pending_count}
+
+
+async def report_queue_metrics(redis: Redis) -> dict[str, int]:
+    """Collect queue metrics and report them to Sentry (when initialized).
+
+    A breadcrumb is added every call (cheap, visible in event context), and a
+    warning-level message is captured when DLQ depth or pending entries cross
+    their threshold — so prod gets an actionable alert instead of silent
+    queue growth. Falls back to a no-op when sentry-sdk is absent.
+    """
+    metrics = await collect_queue_metrics(redis)
+    try:
+        import sentry_sdk
+
+        sentry_sdk.add_breadcrumb(
+            category="jobs.queue",
+            message=(
+                f"queue metrics: dlq={metrics['dlq_depth']} pending={metrics['pending_entries']}"
+            ),
+            level="info",
+            data=metrics,
+        )
+        if metrics["dlq_depth"] >= _DLQ_ALERT_THRESHOLD:
+            sentry_sdk.capture_message(
+                f"Jobs DLQ depth {metrics['dlq_depth']} >= {_DLQ_ALERT_THRESHOLD}",
+                level="warning",
+            )
+        if metrics["pending_entries"] >= _PENDING_ALERT_THRESHOLD:
+            sentry_sdk.capture_message(
+                f"Jobs pending entries {metrics['pending_entries']} >= {_PENDING_ALERT_THRESHOLD}",
+                level="warning",
+            )
+    except Exception:
+        logger.debug("queue metrics report failed", exc_info=True)
+    return metrics
 
 
 async def list_dlq(redis: Redis, *, count: int = 50) -> list[dict[str, Any]]:

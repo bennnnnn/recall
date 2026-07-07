@@ -2,6 +2,7 @@ import { getApiUrl } from "@/lib/config";
 import type { ClientGeo } from "@/lib/clientGeo";
 import { clientGeoWsFields } from "@/lib/clientGeo";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
+import { refreshAccessToken } from "@/lib/api/client";
 import { parseChatWsPayload } from "@/lib/chatSocketReduce";
 
 export type ChatSsePayload = NonNullable<ReturnType<typeof parseChatWsPayload>>;
@@ -20,7 +21,7 @@ type StreamChatSseOptions = {
 };
 
 async function streamChatSseRequest(options: StreamChatSseOptions): Promise<void> {
-  const response = await fetch(`${getApiUrl()}${options.path}`, {
+  let response = await fetch(`${getApiUrl()}${options.path}`, {
     method: "POST",
     signal: options.signal,
     headers: {
@@ -30,6 +31,25 @@ async function streamChatSseRequest(options: StreamChatSseOptions): Promise<void
     },
     body: JSON.stringify(options.body),
   });
+
+  // Mirror the REST `request()` path: an expired access token surfaces as a
+  // 401 here (SSE uses raw fetch, so it can't auto-refresh). Refresh once and
+  // retry so a backgrounded-then-resumed app doesn't fail the stream silently.
+  if (response.status === 401) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      response = await fetch(`${getApiUrl()}${options.path}`, {
+        method: "POST",
+        signal: options.signal,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${refreshed}`,
+          Accept: "text/event-stream",
+        },
+        body: JSON.stringify(options.body),
+      });
+    }
+  }
 
   if (!response.ok) {
     const text = await response.text();

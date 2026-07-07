@@ -435,6 +435,26 @@ def test_fuzzy_match_requires_similarity_not_substring():
     assert _fuzzy_match("buy organic milk", "buy organic milke")
 
 
+def test_todo_hint_does_not_promise_pre_reply_application():
+    """The todo sync runs as a post-reply background job, so the prompt must
+    not tell the model changes apply 'before your reply' (it would then phrase
+    completed actions as already done, which is misleading). Guard against
+    regressing back to the old pre-reply copy."""
+    hint = todos_service.TODO_HINT
+    assert "before your reply" not in hint
+    assert "pre-reply sync" not in hint
+    # The honest phrasing must be present.
+    assert "right after" in hint
+    # Whole-list delete is blocked from chat — the prompt must say so.
+    assert "whole-list delete is NOT supported from chat" in hint
+
+
+def test_todo_sync_feedback_header_describes_post_reply_timing():
+    header = todos_service.TODO_SYNC_FEEDBACK_HEADER
+    assert "before this reply" not in header
+    assert "after the previous reply" in header
+
+
 def test_transcript_implies_todo_sync():
     assert todos_service.transcript_implies_todo_sync(
         "User: add eggs\nAssistant: Added eggs to Groceries."

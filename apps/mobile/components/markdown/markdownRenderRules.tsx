@@ -36,6 +36,7 @@ import { renderFence } from "@/components/markdown/markdownFenceRender";
 import { VerifyCheckmark } from "@/components/markdown/VerifyCheckmark";
 import { isGenericSearchUrl } from "@/lib/placesList";
 import { openPlaceLink } from "@/lib/openPlaceLink";
+import { isAllowedImageUri } from "@/lib/imageUriPolicy";
 import { extractBlockquoteMeta, splitInlineMath } from "@/lib/markdownPreprocess";
 import type { Theme } from "@/lib/theme";
 
@@ -88,7 +89,10 @@ function makeSharedRules(
   return {
     image: (node: { key: string; attributes: { src?: string; alt?: string } }) => {
       const src = node.attributes?.src;
-      if (!src) return null;
+      // Block insecure-scheme / local-file image URIs (tracking pixels, file:
+      // exfil, content:). Only https/data/blob render; everything else is
+      // dropped silently so a malicious or misformed URL can't auto-load.
+      if (!isAllowedImageUri(src)) return null;
       return (
         <Image
           key={node.key}

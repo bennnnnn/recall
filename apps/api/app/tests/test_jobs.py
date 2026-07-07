@@ -2,7 +2,7 @@
 
 import asyncio
 import json
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -37,6 +37,64 @@ async def test_enqueue_swallows_errors():
     redis = AsyncMock()
     redis.xadd = AsyncMock(side_effect=RuntimeError("redis down"))
     await jobs.enqueue(redis, "memory", {"a": 1})  # must not raise
+
+
+@pytest.mark.asyncio
+async def test_enqueue_failure_reports_to_sentry():
+    """A failed enqueue must be reported to Sentry (when available) so silent
+    job loss is observable — not just logged."""
+    redis = AsyncMock()
+    redis.xadd = AsyncMock(side_effect=RuntimeError("redis down"))
+    with patch("sentry_sdk.capture_exception") as capture:
+        await jobs.enqueue(redis, "memory", {"a": 1})
+    capture.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_enqueue_failure_still_swallows_when_sentry_unavailable():
+    """If sentry-sdk isn't importable, enqueue still swallows the redis error
+    (the helper's internal import is guarded)."""
+    redis = AsyncMock()
+    redis.xadd = AsyncMock(side_effect=RuntimeError("redis down"))
+    import sys
+
+    original = sys.modules.get("sentry_sdk")
+    sys.modules["sentry_sdk"] = None  # make `import sentry_sdk` raise ImportError
+    try:
+        await jobs.enqueue(redis, "memory", {"a": 1})
+    finally:
+        if original is not None:
+            sys.modules["sentry_sdk"] = original
+        else:
+            sys.modules.pop("sentry_sdk", None)
+
+
+# ── is_worker_alive ───────────────────────────────────────────────────────────
+
+
+def test_is_worker_alive_false_when_no_task():
+    jobs._worker_task = None
+    assert jobs.is_worker_alive() is False
+
+
+def test_is_worker_alive_true_when_task_running():
+    done_mock = MagicMock()
+    done_mock.done.return_value = False
+    jobs._worker_task = done_mock
+    try:
+        assert jobs.is_worker_alive() is True
+    finally:
+        jobs._worker_task = None
+
+
+def test_is_worker_alive_false_when_task_done():
+    done_mock = MagicMock()
+    done_mock.done.return_value = True
+    jobs._worker_task = done_mock
+    try:
+        assert jobs.is_worker_alive() is False
+    finally:
+        jobs._worker_task = None
 
 
 # ── dispatch ─────────────────────────────────────────────────────────────────
@@ -246,3 +304,133 @@ async def test_start_and_stop_worker():
         await jobs.start_worker(Settings())
         await jobs.stop_worker()
     assert jobs._worker_task is None
+
+
+# ── queue metrics / observability ────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_collect_queue_metrics_empty(fake_redis):
+    metrics = await jobs.collect_queue_metrics(fake_redis)
+    assert metrics == {"dlq_depth": 0, "pending_entries": 0}
+
+
+@pytest.mark.asyncio
+async def test_collect_queue_metrics_counts_dlq_depth(fake_redis):
+    await fake_redis.xadd(jobs.JOBS_DLQ_STREAM, {"type": "memory", "error": "x"})
+    await fake_redis.xadd(jobs.JOBS_DLQ_STREAM, {"type": "topic", "error": "y"})
+    await fake_redis.xadd(jobs.JOBS_DLQ_STREAM, {"type": "todos", "error": "z"})
+    metrics = await jobs.collect_queue_metrics(fake_redis)
+    assert metrics["dlq_depth"] == 3
+
+
+@pytest.mark.asyncio
+async def test_collect_queue_metrics_tolerates_redis_errors():
+    redis = AsyncMock()
+    redis.xlen = AsyncMock(side_effect=RuntimeError("redis down"))
+    redis.xpending = AsyncMock(side_effect=RuntimeError("redis down"))
+    metrics = await jobs.collect_queue_metrics(redis)
+    assert metrics == {"dlq_depth": 0, "pending_entries": 0}
+
+
+@pytest.mark.asyncio
+async def test_report_queue_metrics_warns_when_dlq_exceeds_threshold():
+    """A DLQ depth at/above the alert threshold must capture a Sentry warning
+    so queue growth is observable in prod (not just the dev-only admin endpoint)."""
+    redis = AsyncMock()
+    with (
+        patch.object(
+            jobs,
+            "collect_queue_metrics",
+            AsyncMock(
+                return_value={
+                    "dlq_depth": jobs._DLQ_ALERT_THRESHOLD,
+                    "pending_entries": 0,
+                }
+            ),
+        ),
+        patch("sentry_sdk.add_breadcrumb") as breadcrumb,
+        patch("sentry_sdk.capture_message") as capture,
+    ):
+        await jobs.report_queue_metrics(redis)
+
+    breadcrumb.assert_called_once()
+    capture.assert_called_once()
+    assert "DLQ depth" in capture.call_args.args[0]
+    assert capture.call_args.kwargs.get("level") == "warning"
+
+
+@pytest.mark.asyncio
+async def test_report_queue_metrics_warns_when_pending_exceeds_threshold():
+    redis = AsyncMock()
+    with (
+        patch.object(
+            jobs,
+            "collect_queue_metrics",
+            AsyncMock(
+                return_value={
+                    "dlq_depth": 0,
+                    "pending_entries": jobs._PENDING_ALERT_THRESHOLD,
+                }
+            ),
+        ),
+        patch("sentry_sdk.add_breadcrumb"),
+        patch("sentry_sdk.capture_message") as capture,
+    ):
+        await jobs.report_queue_metrics(redis)
+
+    capture.assert_called_once()
+    assert "pending entries" in capture.call_args.args[0]
+
+
+@pytest.mark.asyncio
+async def test_report_queue_metrics_quiet_below_thresholds():
+    redis = AsyncMock()
+    with (
+        patch.object(
+            jobs,
+            "collect_queue_metrics",
+            AsyncMock(
+                return_value={
+                    "dlq_depth": jobs._DLQ_ALERT_THRESHOLD - 1,
+                    "pending_entries": jobs._PENDING_ALERT_THRESHOLD - 1,
+                }
+            ),
+        ),
+        patch("sentry_sdk.add_breadcrumb") as breadcrumb,
+        patch("sentry_sdk.capture_message") as capture,
+    ):
+        await jobs.report_queue_metrics(redis)
+
+    # Breadcrumb still records the periodic status, but no warning is captured.
+    breadcrumb.assert_called_once()
+    capture.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_report_queue_metrics_noop_without_sentry():
+    """If sentry-sdk isn't importable, report_queue_metrics still returns the
+    metrics and never raises into the worker loop."""
+    redis = AsyncMock()
+    import sys
+
+    original = sys.modules.get("sentry_sdk")
+    sys.modules["sentry_sdk"] = None
+    try:
+        with patch.object(
+            jobs,
+            "collect_queue_metrics",
+            AsyncMock(
+                return_value={
+                    "dlq_depth": jobs._DLQ_ALERT_THRESHOLD,
+                    "pending_entries": 0,
+                }
+            ),
+        ):
+            metrics = await jobs.report_queue_metrics(redis)
+    finally:
+        if original is not None:
+            sys.modules["sentry_sdk"] = original
+        else:
+            sys.modules.pop("sentry_sdk", None)
+    assert metrics["dlq_depth"] == jobs._DLQ_ALERT_THRESHOLD

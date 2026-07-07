@@ -91,6 +91,7 @@ async def test_login_with_google_creates_user():
     with (
         patch("app.services.auth.verify_google_id_token", return_value=payload),
         patch("app.services.auth.users_repo.get_by_google_sub", AsyncMock(return_value=None)),
+        patch("app.services.auth.users_repo.get_by_email", AsyncMock(return_value=None)),
         patch("app.services.auth.users_repo.create", AsyncMock(return_value=MagicMock())),
         patch(
             "app.services.auth.tokens_service.issue_token_pair",
@@ -142,6 +143,70 @@ async def test_login_with_google_existing_user():
             AsyncMock(), settings_obj, "id-token", AsyncMock()
         )
     assert result.access_token == "tok2"
+
+
+@pytest.mark.asyncio
+async def test_login_with_google_links_existing_account_by_email():
+    """Google signup after an Apple signup with the same email must link the
+    accounts (set google_sub on the existing user) instead of creating a
+    duplicate row, which would violate the unique(email) constraint."""
+    from app.models.schemas import UserOut
+    from app.services import auth as auth_service
+
+    uid = uuid4()
+    fake_user_out = UserOut(
+        id=uid,
+        email="shared@test.local",
+        name="Shared",
+        avatar_url=None,
+        default_model="free-chat",
+        response_style="balanced",
+        memory_enabled=True,
+        created_at="2024-01-01T00:00:00",
+    )
+    settings_obj = __import__("app.core.config", fromlist=["Settings"]).Settings(
+        jwt_secret="super-secret-key-that-is-at-least-32-chars!!"
+    )
+    payload = {
+        "sub": "google-sub-new",
+        "email": "shared@test.local",
+        "name": "Shared",
+        "picture": None,
+    }
+    existing = MagicMock(id=uid, email="shared@test.local")
+
+    create_mock = AsyncMock(return_value=MagicMock())
+    update_mock = AsyncMock(return_value=existing)
+
+    with (
+        patch("app.services.auth.verify_google_id_token", return_value=payload),
+        patch(
+            "app.services.auth.users_repo.get_by_google_sub",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.auth.users_repo.get_by_email",
+            AsyncMock(return_value=existing),
+        ),
+        patch("app.services.auth.users_repo.create", create_mock),
+        patch("app.services.auth.users_repo.update", update_mock),
+        patch(
+            "app.services.auth.tokens_service.issue_token_pair",
+            AsyncMock(return_value=("linked-tok", "refresh")),
+        ),
+        patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
+    ):
+        result = await auth_service.login_with_google(
+            AsyncMock(), settings_obj, "id-token", AsyncMock()
+        )
+
+    # The existing account must be linked, not duplicated.
+    create_mock.assert_not_called()
+    # First update links google_sub; second refreshes email/name/avatar.
+    assert update_mock.await_count >= 1
+    first_call_kwargs = update_mock.call_args_list[0].kwargs
+    assert first_call_kwargs.get("google_sub") == "google-sub-new"
+    assert result.access_token == "linked-tok"
 
 
 @pytest.mark.asyncio
