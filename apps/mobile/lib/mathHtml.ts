@@ -1,7 +1,7 @@
 /** LaTeX → self-contained HTML for sandboxed WebView math preview. */
 
 import { buildKatexStaticWebHtml } from "@/lib/katexRender";
-import { injectPreviewCsp } from "@/lib/previewSandbox";
+import { injectPreviewCsp, MATH_PREVIEW_CSP } from "@/lib/previewSandbox";
 
 export type MathEngine = "katex" | "mathjax";
 
@@ -101,7 +101,7 @@ export function buildMathWebHtml(latex: string, options: MathHtmlOptions): strin
 </script>
 <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
 </body>
-</html>`);
+</html>`, MATH_PREVIEW_CSP);
   }
 
   return buildKatexStaticWebHtml(latex.trim(), {

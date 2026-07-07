@@ -26,9 +26,33 @@ export const PREVIEW_CSP = [
   "sandbox allow-scripts",
 ].join("; ");
 
+/**
+ * CSP for the math WebView (MathJax path).
+ *
+ * Unlike the user-HTML preview, the math WebView renders a *trusted* template
+ * (our own LaTeX + the MathJax CDN script) — not model-generated HTML/JS. So
+ * it can safely allow `connect-src` to the MathJax CDN: MathJax's loader
+ * fetches its tex extension packages (ams, noerrors, nundefined) at runtime,
+ * which the strict `connect-src 'none'` preview CSP blocks — causing the
+ * render to fall back to the error div. Everything else stays as locked-down
+ * as the preview CSP.
+ */
+export const MATH_PREVIEW_CSP = [
+  "default-src 'none'",
+  "style-src 'unsafe-inline' https:",
+  "script-src 'unsafe-inline' https:",
+  "img-src data: blob: https:",
+  "font-src data: https:",
+  "media-src data: blob: https:",
+  "connect-src https://cdn.jsdelivr.net",
+  "base-uri 'none'",
+  "form-action 'none'",
+  "sandbox allow-scripts",
+].join("; ");
+
 /** Inject the sandbox CSP meta into an HTML document (bare or full). */
-export function injectPreviewCsp(html: string): string {
-  const meta = `<meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}">`;
+export function injectPreviewCsp(html: string, csp: string = PREVIEW_CSP): string {
+  const meta = `<meta http-equiv="Content-Security-Policy" content="${csp}">`;
   const headMatch = /<head(\s[^>]*)?>/i.exec(html);
   if (headMatch && headMatch.index != null) {
     const at = headMatch.index + headMatch[0].length;
