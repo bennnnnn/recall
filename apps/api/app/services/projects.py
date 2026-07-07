@@ -153,6 +153,16 @@ VOCAB_CARD_FORMAT_BLOCK = (
     "The card is for the app UI — keep your prose natural above it."
 )
 
+DAILY_GOAL_COMPLETE_BEHAVIOR = (
+    "**When today's daily goal is already complete** (the Today: line says "
+    "'daily goal complete'): FIRST acknowledge they're done for today and "
+    "congratulate them briefly. Then ask whether they'd like bonus questions "
+    "or to raise their daily goal in Settings — do NOT serve a new question "
+    "unless they clearly ask for more (e.g. 'bonus', 'one more', 'keep "
+    "going'). A vague 'let's continue' is NOT a request for more questions "
+    "when the goal is already met."
+)
+
 LANGUAGE_BONUS_QUIZ_RULES = (
     "**Bonus quiz (after today's goal):** When the user explicitly asks for more quiz, bonus "
     "words, or extra practice beyond today's goal, ask ONE multiple-choice question per turn "
@@ -198,7 +208,8 @@ LANGUAGE_CHAT_TUTOR_HINT = (
     "Keep replies short and conversational. Wait for their answer before revealing the next word.\n\n"
     "**Session clarity:** Use the **Today:** line in the project snapshot as the only progress "
     "counter — never repeat it in a P.S. Do not quiz a word marked ✓ mastered and call it a "
-    "'freebie'. Prefer new or learning words."
+    "'freebie'. Prefer new or learning words.\n\n"
+    f"{DAILY_GOAL_COMPLETE_BEHAVIOR}"
 )
 
 # Default — chat-based daily sessions (LLM picks format each turn).
@@ -268,7 +279,8 @@ TRIVIA_CHAT_TUTOR_HINT = (
     "**Session clarity:** Use the **Today:** line in the project snapshot as the only progress "
     "counter — never repeat it in a P.S. Only quiz facts listed in the snapshot (not omitted as "
     "mastered). If the quiz pool is empty, invent a new question on the project's topics.\n\n"
-    f"{TRIVIA_BONUS_QUIZ_RULES}"
+    f"{TRIVIA_BONUS_QUIZ_RULES}\n\n"
+    f"{DAILY_GOAL_COMPLETE_BEHAVIOR}"
 )
 
 TRIVIA_TUTOR_HINT = TRIVIA_CHAT_TUTOR_HINT
