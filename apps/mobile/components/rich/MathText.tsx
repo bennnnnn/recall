@@ -4,6 +4,7 @@ import { StyleSheet, Text } from "react-native";
 import { CODE_FONT } from "@/lib/fonts";
 import { fixImplicitExponents } from "@/lib/normalizeImplicitMath";
 import { parseSimpleLatex, type MathSegment } from "@/lib/mathText";
+import { toSubscript, toSuperscript } from "@/lib/unicodeSupSub";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -19,6 +20,11 @@ function renderSegments(
   return segments.map((seg, i) => {
     const key = `${keyPrefix}-${i}`;
     if (seg.type === "sup") {
+      // Prefer a real Unicode superscript (renders raised in plain text, no
+      // KaTeX WebView needed). Fall back to styled smaller Text when a char
+      // has no Unicode superscript — better than nothing.
+      const uni = toSuperscript(seg.value);
+      if (uni) return <Text key={key}>{uni}</Text>;
       return (
         <Text key={key} style={styles.sup}>
           {seg.value}
@@ -26,6 +32,8 @@ function renderSegments(
       );
     }
     if (seg.type === "sub") {
+      const uni = toSubscript(seg.value);
+      if (uni) return <Text key={key}>{uni}</Text>;
       return (
         <Text key={key} style={styles.sub}>
           {seg.value}
