@@ -252,7 +252,10 @@ def test_dev_login():
         dev_auth_enabled=True, jwt_secret="test-secret-32-chars-long-enough!!"
     )
 
-    with patch("app.routers.auth.auth_service.login_dev", AsyncMock(return_value=fake_resp)):
+    with (
+        patch("app.routers.auth.auth_service.login_dev", AsyncMock(return_value=fake_resp)),
+        patch("app.routers.auth.allow_request", AsyncMock(return_value=True)),
+    ):
         client = TestClient(app)
         r = client.post(
             "/auth/dev",
@@ -270,6 +273,26 @@ def test_dev_login_disabled_returns_403():
     client = TestClient(app)
     r = client.post("/auth/dev", json={"email": "x@x.com", "name": "X"})
     assert r.status_code == 403
+
+
+def test_dev_login_rate_limited_returns_429():
+    """Dev login shares the per-IP rate limit pattern of Google/Apple so a
+    single client can't mint arbitrary accounts or credential-stuff when dev
+    auth is on."""
+    app = create_app()
+    from app.core.deps import get_settings_dep
+
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
+        dev_auth_enabled=True, jwt_secret="test-secret-32-chars-long-enough!!"
+    )
+    with (
+        patch("app.routers.auth.auth_service.login_dev", AsyncMock()),
+        patch("app.routers.auth.allow_request", AsyncMock(return_value=False)),
+    ):
+        client = TestClient(app)
+        r = client.post("/auth/dev", json={"email": "x@x.com", "name": "X"})
+    assert r.status_code == 429
+    assert "Too many login attempts" in r.json()["detail"]
 
 
 # ── chats ──────────────────────────────────────────────────────────────────────
