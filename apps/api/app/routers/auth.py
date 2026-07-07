@@ -95,12 +95,27 @@ async def apple_login(
 @router.post("/dev", response_model=AuthResponse)
 async def dev_login(
     body: DevAuthRequest,
+    request: Request,
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(get_redis),
 ) -> AuthResponse:
     if not settings.dev_auth_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Dev auth disabled")
+    # Per-IP rate limit, matching Google/Apple. Dev auth bypasses provider
+    # token verification, so without a limit a single client can mint
+    # arbitrary accounts or credential-stuff when dev auth is on.
+    allowed = await allow_request(
+        redis,
+        f"rate:auth:dev:{client_ip(request, settings)}",
+        limit=30,
+        window_seconds=60,
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many login attempts. Try again shortly.",
+        )
     try:
         return await auth_service.login_dev(
             session,
