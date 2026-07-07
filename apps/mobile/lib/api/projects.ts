@@ -4,12 +4,9 @@ import { request } from "@/lib/api/client";
 import type {
   LanguageLevel,
   Project,
-  ProjectDailyQuiz,
   ProjectDetail,
   ProjectItem,
   ProjectKind,
-  ProjectQuizAnswerResult,
-  QuizModality,
   VocabStatus,
 } from "@/lib/api/types";
 
@@ -91,63 +88,4 @@ export const projectsApi = {
     }),
   deleteProject: (token: string, id: string) =>
     request<void>(`/projects/${id}`, token, { method: "DELETE" }),
-  recordProjectQuizAnswer: (
-    token: string,
-    projectId: string,
-    body: {
-      chat_id: string;
-      assistant_message_id: string;
-      letter: string;
-      topic?: string;
-      question?: string;
-      is_correct?: boolean;
-    },
-  ) =>
-    request<void>(`/projects/${projectId}/quiz-answer`, token, {
-      method: "POST",
-      body: JSON.stringify(body),
-    }),
-
-  ensureDailyQuiz: (token: string, projectId: string) => {
-    const tz = getDeviceTimezone();
-    const qs = tz ? `?client_timezone=${encodeURIComponent(tz)}` : "";
-    return request<ProjectDailyQuiz>(`/projects/${projectId}/quiz/daily/ensure${qs}`, token, {
-      method: "POST",
-    }, true, 120_000);
-  },
-
-  getDailyQuiz: (token: string, projectId: string) => {
-    const tz = getDeviceTimezone();
-    const qs = tz ? `?client_timezone=${encodeURIComponent(tz)}` : "";
-    return request<ProjectDailyQuiz>(`/projects/${projectId}/quiz/daily${qs}`, token);
-  },
-
-  prefetchDailyQuiz: (token: string, projectId: string) => {
-    const tz = getDeviceTimezone();
-    const qs = tz ? `?client_timezone=${encodeURIComponent(tz)}` : "";
-    return request<void>(`/projects/${projectId}/quiz/daily/prefetch${qs}`, token, {
-      method: "POST",
-    }, true, 120_000);
-  },
-
-  answerDailyQuiz: (
-    token: string,
-    projectId: string,
-    questionId: string,
-    body: {
-      modality?: QuizModality;
-      letter?: string;
-      text?: string;
-      chat_id?: string;
-      skip?: boolean;
-    },
-  ) => {
-    const tz = getDeviceTimezone();
-    const qs = tz ? `?client_timezone=${encodeURIComponent(tz)}` : "";
-    return request<ProjectQuizAnswerResult>(
-      `/projects/${projectId}/quiz/daily/${questionId}/answer${qs}`,
-      token,
-      { method: "POST", body: JSON.stringify(body) },
-    );
-  },
 };

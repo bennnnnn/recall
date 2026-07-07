@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useMemo } from "react";
 
 import { ChatMessageRow } from "@/components/chat/ChatMessageRow";
-import { DailyQuizLoadingRow } from "@/components/chat/DailyQuizLoadingRow";
 import { StreamingChatMessageRow } from "@/components/chat/StreamingChatMessageRow";
 import type { Message } from "@/lib/api";
 import { findLastAssistantId, priorUserTextFor } from "@/lib/chatMessageLogic";
-import { DAILY_QUIZ_LOADING_ID, isDailyQuizStatusMessageId } from "@/lib/dailyQuizMessage";
 
 type Options = {
   messages: Message[];
@@ -13,7 +11,6 @@ type Options = {
   finalizing: boolean;
   selectedModel: string;
   quizLanguage: string;
-  quizVariant: "vocab" | "trivia";
   highlightedMessageId: string | null;
   sendingMessageId: string | null;
   setMenuVisible: React.Dispatch<React.SetStateAction<boolean>>;
@@ -28,7 +25,6 @@ export function useChatMessageList({
   finalizing,
   selectedModel,
   quizLanguage,
-  quizVariant,
   highlightedMessageId,
   sendingMessageId,
   setMenuVisible,
@@ -76,17 +72,7 @@ export function useChatMessageList({
 
   const renderItem = useCallback(
     ({ item, index }: { item: Message; index: number }) => {
-      if (item.id === DAILY_QUIZ_LOADING_ID) {
-        return <DailyQuizLoadingRow quizVariant={quizVariant} />;
-      }
-
       const priorUserText = priorUserTextFor(messages, index);
-
-      if (isDailyQuizStatusMessageId(item.id)) {
-        return (
-          <ChatMessageRow item={item} priorUserText={priorUserText} {...sharedRowProps} />
-        );
-      }
 
       return item.id === "streaming" ? (
         <StreamingChatMessageRow item={item} priorUserText={priorUserText} {...sharedRowProps} />
@@ -94,7 +80,7 @@ export function useChatMessageList({
         <ChatMessageRow item={item} priorUserText={priorUserText} {...sharedRowProps} />
       );
     },
-    [sharedRowProps, quizVariant, messages],
+    [sharedRowProps, messages],
   );
 
   return { lastAssistantId, headerTitleLabel, renderItem };
