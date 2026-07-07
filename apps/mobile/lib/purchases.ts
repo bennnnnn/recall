@@ -97,3 +97,33 @@ export async function hasActiveProEntitlement(): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Register a listener that fires when the Pro entitlement state changes.
+ * RevenueCat calls customerInfoUpdateListener on purchase/restore/expiry and
+ * on app foreground; we de-dupe to only invoke `onChange` when the active
+ * state actually flips, so callers don't spam a backend sync on every
+ * foreground. The listener also fires once on registration with the current
+ * state — that's intentional (gives a launch-time sync).
+ *
+ * Returns a cleanup that removes the listener, or null when Purchases isn't
+ * available (Expo Go / web / no API key). */
+export async function registerPlanChangeListener(
+  onChange: (isPro: boolean) => void,
+): Promise<(() => void) | null> {
+  const mod = await loadPurchases();
+  if (!mod) return null;
+  let lastActive: boolean | null = null;
+  const listener = (info: {
+    entitlements: { active: Record<string, unknown> };
+  }) => {
+    const active = info.entitlements.active[ENTITLEMENT_ID] != null;
+    if (active === lastActive) return;
+    lastActive = active;
+    onChange(active);
+  };
+  mod.default.addCustomerInfoUpdateListener(listener);
+  return () => {
+    mod.default.removeCustomerInfoUpdateListener(listener);
+  };
+}

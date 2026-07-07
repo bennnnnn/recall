@@ -56,10 +56,26 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
   }, [user?.reminder_lead_minutes]);
 
   useEffect(() => {
-    if (!user?.id) return;
-    void import("@/lib/purchases").then(({ configurePurchases, isPurchasesConfigured }) => {
-      if (!isPurchasesConfigured()) return;
-      void configurePurchases(user.id);
-    });
-  }, [user?.id]);
+    if (!token || !user?.id) return;
+    let cleanup: (() => void) | undefined;
+    void import("@/lib/purchases").then(
+      async ({
+        configurePurchases,
+        isPurchasesConfigured,
+        registerPlanChangeListener,
+      }) => {
+        if (!isPurchasesConfigured()) return;
+        await configurePurchases(user.id);
+        // Keep the backend plan in sync when the entitlement changes
+        // (purchase / restore / expiry). The webhook may fail or lag; this
+        // listener closes the gap without relying on a manual sync. The REST
+        // call auto-refreshes the access token on 401, so a stale token is
+        // fine.
+        cleanup = (await registerPlanChangeListener(() => {
+          void api.syncSubscription(token).then(setUser).catch(() => {});
+        })) ?? undefined;
+      },
+    );
+    return () => cleanup?.();
+  }, [token, user?.id, setUser]);
 }
