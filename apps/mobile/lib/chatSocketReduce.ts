@@ -58,6 +58,14 @@ export type DoneMergeInput = {
   search_sources?: SearchSource[];
   draftSearchSources?: SearchSource[];
   model?: string | null;
+  /**
+   * Local id given to the streaming bubble when the user stopped generation
+   * (e.g. `streamed-<ts>`). When the server's `done` arrives after a stop,
+   * we reconcile that bubble in place (picking up the authoritative
+   * `final_content` + real `message_id`) instead of appending a duplicate.
+   * If non-null and the id is no longer present, the `done` is dropped.
+   */
+  stoppedStreamedId?: string | null;
 };
 
 /** Pure merge for the WebSocket `done` event — used by useChat and unit tests. */
@@ -76,6 +84,7 @@ export function mergeDoneIntoMessages(
     search_sources,
     draftSearchSources,
     model,
+    stoppedStreamedId,
   } = input;
 
   if (prev.some((m) => m.id === "streaming")) {
@@ -91,6 +100,37 @@ export function mergeDoneIntoMessages(
             content: stripSearchSourcesFromContent(
               finalContent ?? (draftContent || m.content),
             ),
+            recalled,
+            memory_hints,
+            context_summarized,
+            search_sources:
+              search_sources ??
+              draftSearchSources ??
+              parseSearchSources(finalContent ?? draftContent ?? m.content),
+            model: model ?? m.model,
+          }
+        : m,
+    );
+  }
+
+  // User stopped generation: the streaming bubble was already committed
+  // locally as `stoppedStreamedId`. Reconcile it with the server's
+  // authoritative done (real id + final_content) instead of appending.
+  if (stoppedStreamedId) {
+    if (!prev.some((m) => m.id === stoppedStreamedId)) {
+      // Bubble is gone (chat switched / new send) — drop the late done.
+      return prev;
+    }
+    const content = stripSearchSourcesFromContent(finalContent ?? draftContent);
+    if (!messageId && !content.trim()) {
+      return prev.filter((m) => m.id !== stoppedStreamedId);
+    }
+    return prev.map((m) =>
+      m.id === stoppedStreamedId
+        ? {
+            ...m,
+            id: finalId,
+            content,
             recalled,
             memory_hints,
             context_summarized,
@@ -135,6 +175,7 @@ export function buildDoneMergeInput(
   payload: ChatWsPayload,
   draft: { content: string; search_sources?: SearchSource[] } | null,
   now = Date.now(),
+  stoppedStreamedId: string | null = null,
 ): DoneMergeInput {
   const finalContent =
     typeof payload.final_content === "string" ? payload.final_content : undefined;
@@ -151,5 +192,6 @@ export function buildDoneMergeInput(
     search_sources: parsePayloadSearchSources(payload.search_sources),
     draftSearchSources: draft?.search_sources,
     model: payload.resolved_model ?? null,
+    stoppedStreamedId,
   };
 }
