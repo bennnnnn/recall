@@ -35,6 +35,37 @@ def test_solve_x_squared_plus_two() -> None:
     assert "2" in joined
 
 
+def test_solve_quadratic_includes_worked_isolation_steps() -> None:
+    """The user's x^2 + 2 = 6 case: SymPy must emit the verified intermediate
+    steps (isolate x^2 = 4, take square root x = ±2) so the model copies them
+    instead of inventing wrong steps like 'x^2 = 6 - 2x^2'."""
+    result = math_service.solve_equation(EquationInput(lhs="x**2 + 2", rhs="6", variables=["x"]))
+    steps_text = "\n".join(result.steps)
+    # Isolation step: x^2 = 4
+    assert "x^{2} = 4" in steps_text
+    # Square-root step: x = ± 2
+    assert "\\pm 2" in steps_text
+    # No stray wrong terms the model was emitting.
+    assert "2x" not in steps_text
+    assert "\\sqrt{4x}" not in steps_text
+
+
+def test_solve_linear_includes_worked_isolation_steps() -> None:
+    result = math_service.solve_equation(EquationInput(lhs="2*x + 4", rhs="10", variables=["x"]))
+    steps_text = "\n".join(result.steps)
+    # 2*x = 6  →  x = 3
+    assert "2" in steps_text
+    assert "x = 3" in steps_text
+
+
+def test_worked_steps_empty_for_unrecognized_form() -> None:
+    """A multi-variable or higher-degree form gets no worked steps (caller
+    still has the equation + solutions)."""
+    result = math_service.solve_equation(EquationInput(lhs="x**3 + x", rhs="2", variables=["x"]))
+    # Only the Equation: line + Solutions: line — no Isolate/Solve steps.
+    assert not any(s.startswith("Isolate:") for s in result.steps)
+
+
 def test_rectangle_geometry() -> None:
     result = math_service.rectangle_geometry(RectangleGeometryInput(width=8, height=5))
     assert result.diagonal == pytest.approx(math.sqrt(89), rel=1e-3)

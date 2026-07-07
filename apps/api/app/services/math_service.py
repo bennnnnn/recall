@@ -80,6 +80,55 @@ def parse_equation(data: EquationInput) -> tuple[Any, Any, list[Any]]:
     return Eq(lhs, rhs), lhs, rhs
 
 
+def _worked_isolation_steps(lhs: Any, rhs: Any, variable: str) -> list[str]:
+    """Derive verified intermediate isolation steps for common single-variable
+    polynomial equations (degree 1, or degree 2 with no linear term) so the
+    model can copy them verbatim instead of re-deriving (and corrupting) the
+    algebra. Returns [] for forms it doesn't recognize — the caller still has
+    the equation + solutions."""
+    from sympy import Poly, sqrt
+
+    try:
+        var = Symbol(variable)
+        expr = simplify(lhs - rhs)
+        poly = Poly(expr, var)
+    except Exception:
+        return []
+
+    degree = poly.degree()
+    if degree not in (1, 2):
+        return []
+
+    # Coefficients of the polynomial in `var` (expr = 0 form).
+    c1 = poly.coeff_monomial(var) if degree >= 1 else 0
+    c2 = poly.coeff_monomial(var**2) if degree == 2 else 0
+    c0 = poly.coeff_monomial(1)  # constant term
+
+    steps: list[str] = []
+    if degree == 1 and c1 != 0:
+        # a*x + c0 = 0  →  a*x = -c0  →  x = -c0/a
+        isolated = simplify(-c0 / c1)
+        steps.append(f"Isolate: {latex(c1)} \\cdot {variable} = {latex(-c0)}")
+        steps.append(f"Solve: {variable} = {latex(isolated)}")
+        return steps
+
+    if degree == 2 and c2 != 0 and c1 == 0:
+        # a*x^2 + c0 = 0  →  x^2 = -c0/a  →  x = ±sqrt(-c0/a)
+        ratio = simplify(-c0 / c2)
+        steps.append(f"Isolate: {variable}^{{2}} = {latex(ratio)}")
+        radicand = simplify(ratio)
+        # Only emit the square-root step when the radicand is non-negative
+        # (so we don't claim a real root for a negative radicand).
+        if radicand.is_number and radicand >= 0:
+            root = simplify(sqrt(radicand))
+            steps.append(f"Take square root: {variable} = \\pm {latex(root)}")
+        else:
+            steps.append(f"Take square root: {variable} = \\pm \\sqrt{{{latex(radicand)}}}")
+        return steps
+
+    return steps
+
+
 def solve_equation(data: EquationInput) -> MathSolveResult:
     equation, lhs, rhs = parse_equation(data)
     syms = [Symbol(v) for v in data.variables]
@@ -99,6 +148,10 @@ def solve_equation(data: EquationInput) -> MathSolveResult:
     steps = [
         f"Equation: {latex(lhs)} = {latex(rhs)}",
     ]
+    # Include verified intermediate isolation steps for the common single-
+    # variable forms so the model copies them instead of inventing wrong ones.
+    if len(data.variables) == 1:
+        steps.extend(_worked_isolation_steps(lhs, rhs, data.variables[0]))
     if solutions_latex:
         steps.append(f"Solutions: {', '.join(solutions_latex)}")
     else:
