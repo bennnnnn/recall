@@ -41,6 +41,9 @@ from app.services.projects import (
 
 logger = logging.getLogger(__name__)
 
+_LIVE_QUESTIONS_PER_GENERATE = 1
+_MAX_GENERATE_ATTEMPTS = 3
+
 VOCAB_MODALITIES: list[Literal["mcq", "definition", "sentence"]] = [
     "mcq",
     "definition",
@@ -96,6 +99,11 @@ def _local_today(timezone_name: str) -> date:
     return datetime.now(tz).date()
 
 
+def local_quiz_date(timezone_name: str) -> date:
+    """Public helper for routers — today's quiz batch date in the user's timezone."""
+    return _local_today(timezone_name)
+
+
 def _question_out(row: ProjectQuizQuestion) -> ProjectQuizQuestionOut:
     choices = [
         QuizChoiceOut.model_validate(c)
@@ -113,6 +121,7 @@ def _question_out(row: ProjectQuizQuestion) -> ProjectQuizQuestionOut:
         part_of_speech=row.part_of_speech,
         question_text=row.question_text,
         choices=choices,
+        correct_letter=row.correct_letter,  # type: ignore[arg-type]
         status=row.status,  # type: ignore[arg-type]
         allowed_modalities=modalities,
     )
@@ -133,13 +142,13 @@ async def get_daily_quiz(
     daily_goal = daily_learning.resolve_daily_goal(project)
     answered = await quiz_questions_repo.count_answered_today(session, project_id, quiz_date)
     current_row = await quiz_questions_repo.next_pending(session, project_id, quiz_date)
-    complete = answered >= daily_goal or (current_row is None and answered > 0)
+    complete = answered >= daily_goal
     return ProjectDailyQuizOut(
         quiz_date=quiz_date,
         daily_goal=daily_goal,
         answered_count=answered,
         complete=complete,
-        current=_question_out(current_row) if current_row else None,
+        current=_question_out(current_row) if current_row and not complete else None,
     )
 
 
@@ -156,19 +165,15 @@ async def ensure_daily_quiz(
         return None
 
     quiz_date = _local_today(timezone_name)
-    daily_goal = daily_learning.resolve_daily_goal(project)
-    if not await quiz_questions_repo.batch_exists(
-        session, project_id, quiz_date, min_count=daily_goal
-    ):
-        await _generate_batch(
-            session,
-            settings,
-            user_id=user_id,
-            project=project,
-            quiz_date=quiz_date,
-            count=daily_goal,
-        )
-        await session.commit()
+    await purge_legacy_placeholder_pending(session, project_id, quiz_date)
+    await _top_up_pending_questions(
+        session,
+        settings,
+        user_id=user_id,
+        project=project,
+        quiz_date=quiz_date,
+    )
+    await session.commit()
 
     return await get_daily_quiz(
         session,
@@ -230,7 +235,12 @@ async def submit_answer(
         daily_goal = daily_learning.resolve_daily_goal(project)
         answered = await quiz_questions_repo.count_answered_today(session, project_id, quiz_date)
         batch_complete = answered >= daily_goal
-        next_row = await quiz_questions_repo.next_pending(session, project_id, quiz_date)
+        next_row = await _next_pending_question(
+            session,
+            project_id,
+            quiz_date,
+            batch_complete=batch_complete,
+        )
         if batch_complete:
             _tomorrow_task = asyncio.create_task(
                 _generate_tomorrow_batch(
@@ -266,7 +276,7 @@ async def submit_answer(
 
     if modality == "mcq":
         is_correct = letter is not None and letter.upper() == question.correct_letter.upper()
-        feedback = await _explain_mcq(settings, question, letter or "", is_correct)
+        feedback = _template_mcq_feedback(question, letter or "", is_correct)
     else:
         grade = await _grade_free_text(settings, question, modality, text or "")
         if grade is None:
@@ -310,7 +320,14 @@ async def submit_answer(
     daily_goal = daily_learning.resolve_daily_goal(project)
     answered = await quiz_questions_repo.count_answered_today(session, project_id, quiz_date)
     batch_complete = answered >= daily_goal
-    next_row = await quiz_questions_repo.next_pending(session, project_id, quiz_date)
+    next_row = None
+    if is_correct or not allow_retry:
+        next_row = await _next_pending_question(
+            session,
+            project_id,
+            quiz_date,
+            batch_complete=batch_complete,
+        )
 
     if batch_complete:
         _tomorrow_task = asyncio.create_task(
@@ -419,6 +436,8 @@ async def _generate_batch(
     quiz_date: date,
     count: int,
 ) -> None:
+    if count <= 0:
+        return
     if _is_language_project(project):
         await _generate_vocab_batch(
             session, settings, user_id=user_id, project=project, quiz_date=quiz_date, count=count
@@ -427,6 +446,134 @@ async def _generate_batch(
         await _generate_trivia_batch(
             session, settings, user_id=user_id, project=project, quiz_date=quiz_date, count=count
         )
+
+
+async def _top_up_pending_questions(
+    session: AsyncSession,
+    settings: Settings,
+    *,
+    user_id: UUID,
+    project: Project,
+    quiz_date: date,
+    target_pending: int = 1,
+) -> bool:
+    """Generate questions live until at least ``target_pending`` are waiting."""
+    daily_goal = daily_learning.resolve_daily_goal(project)
+    answered = await quiz_questions_repo.count_answered_today(session, project.id, quiz_date)
+    if answered >= daily_goal:
+        return False
+    pending = await quiz_questions_repo.count_pending_today(session, project.id, quiz_date)
+    if pending >= target_pending:
+        return False
+    shortfall = daily_goal - answered - pending
+    if shortfall <= 0:
+        return False
+    await purge_legacy_placeholder_pending(session, project.id, quiz_date)
+    start_pending = pending
+    for _ in range(_MAX_GENERATE_ATTEMPTS):
+        if pending >= target_pending:
+            break
+        await _generate_batch(
+            session,
+            settings,
+            user_id=user_id,
+            project=project,
+            quiz_date=quiz_date,
+            count=_LIVE_QUESTIONS_PER_GENERATE,
+        )
+        pending = await quiz_questions_repo.count_pending_today(session, project.id, quiz_date)
+    return pending > start_pending
+
+
+async def prefetch_daily_quiz(
+    session: AsyncSession,
+    settings: Settings,
+    *,
+    user_id: UUID,
+    project_id: UUID,
+    timezone_name: str,
+) -> None:
+    """Best-effort: keep a second question ready so the next answer feels instant."""
+    project = await projects_repo.get_by_id(session, project_id, user_id)
+    if project is None or not (_is_language_project(project) or _is_trivia_project(project)):
+        return
+    quiz_date = _local_today(timezone_name)
+    await _top_up_pending_questions(
+        session,
+        settings,
+        user_id=user_id,
+        project=project,
+        quiz_date=quiz_date,
+        target_pending=2,
+    )
+    await session.commit()
+
+
+async def _next_pending_question(
+    session: AsyncSession,
+    project_id: UUID,
+    quiz_date: date,
+    *,
+    batch_complete: bool,
+) -> ProjectQuizQuestion | None:
+    if batch_complete:
+        return None
+    return await quiz_questions_repo.next_pending(session, project_id, quiz_date)
+
+
+def schedule_prefetch_after_answer(
+    settings: Settings,
+    *,
+    user_id: UUID,
+    project_id: UUID,
+    timezone_name: str,
+) -> None:
+    _schedule_prefetch_background(
+        settings,
+        user_id=user_id,
+        project_id=project_id,
+        timezone_name=timezone_name,
+    )
+
+
+async def _prefetch_daily_quiz_background(
+    settings: Settings,
+    *,
+    user_id: UUID,
+    project_id: UUID,
+    timezone_name: str,
+) -> None:
+    from app.core.db import SessionLocal
+
+    try:
+        async with SessionLocal() as session:
+            await prefetch_daily_quiz(
+                session,
+                settings,
+                user_id=user_id,
+                project_id=project_id,
+                timezone_name=timezone_name,
+            )
+    except Exception:
+        logger.exception("Background quiz prefetch failed project_id=%s", project_id)
+
+
+def _schedule_prefetch_background(
+    settings: Settings,
+    *,
+    user_id: UUID,
+    project_id: UUID,
+    timezone_name: str,
+) -> None:
+    task = asyncio.create_task(
+        _prefetch_daily_quiz_background(
+            settings,
+            user_id=user_id,
+            project_id=project_id,
+            timezone_name=timezone_name,
+        )
+    )
+    del task
 
 
 def _mock_new_vocab_words(
@@ -559,11 +706,12 @@ async def _generate_vocab_batch(
         for i in items
         if _item_status(i) in ("new", "learning") and _normalize(i.content) not in existing_topics
     ]
-    already = await quiz_questions_repo.list_for_project_date(session, project.id, quiz_date)
-    start_seq = len(already)
-    need_questions = count - start_seq
+    need_questions = count
     if need_questions <= 0:
         return
+
+    already = await quiz_questions_repo.list_for_project_date(session, project.id, quiz_date)
+    start_seq = len(already)
 
     pool_shortfall = need_questions - len(pool)
     if pool_shortfall > 0:
@@ -584,10 +732,19 @@ async def _generate_vocab_batch(
         batch = await _llm_generate_vocab(settings, project, pool, need_questions)
         if batch:
             generated = batch.questions
+    if not generated:
+        logger.warning(
+            "vocab batch empty project_id=%s quiz_date=%s need=%s — using mock fallback",
+            project.id,
+            quiz_date,
+            need_questions,
+        )
+        generated = _mock_vocab_questions(pool, need_questions)
 
     seq = start_seq
+    max_seq = start_seq + need_questions
     for q in generated:
-        if seq >= count:
+        if seq >= max_seq:
             break
         topic_norm = quiz_questions_repo.normalize_topic(q.topic)
         if topic_norm in existing_topics:
@@ -623,12 +780,12 @@ async def _generate_trivia_batch(
     quiz_date: date,
     count: int,
 ) -> None:
-    existing_topics = await quiz_questions_repo.list_quizzed_topics(session, project.id)
-    already = await quiz_questions_repo.list_for_project_date(session, project.id, quiz_date)
-    start_seq = len(already)
-    need = count - start_seq
+    need = count
     if need <= 0:
         return
+
+    already = await quiz_questions_repo.list_for_project_date(session, project.id, quiz_date)
+    start_seq = len(already)
 
     generated: list[_GeneratedQuestion] = []
     if should_mock_llm(settings):
@@ -637,14 +794,20 @@ async def _generate_trivia_batch(
         batch = await _llm_generate_trivia(settings, project, need)
         if batch:
             generated = batch.questions
+    if not generated:
+        logger.warning(
+            "trivia batch empty project_id=%s quiz_date=%s need=%s — using mock fallback",
+            project.id,
+            quiz_date,
+            need,
+        )
+        generated = _mock_trivia_questions(project, need)
 
     seq = start_seq
+    max_seq = start_seq + need
     for q in generated:
-        if seq >= count:
+        if seq >= max_seq:
             break
-        topic_norm = quiz_questions_repo.normalize_topic(q.topic)
-        if topic_norm in existing_topics:
-            continue
         choices = [{"letter": c.letter, "text": c.text} for c in q.choices]
         row = await quiz_questions_repo.insert_question(
             session,
@@ -659,10 +822,9 @@ async def _generate_trivia_batch(
             question_text=q.question,
             choices=choices,
             correct_letter=q.correct,
-            reference_definition=None,
+            reference_definition=q.reference_definition,
         )
         if row is not None:
-            existing_topics.add(topic_norm)
             seq += 1
 
 
@@ -707,22 +869,80 @@ def _mock_vocab_questions(pool: list[ProjectItem], count: int) -> list[_Generate
     return out[:count]
 
 
+def _trivia_topic_labels(project: Project) -> list[str]:
+    raw = (project.description or "history,science,geography").split(",")
+    labels = [part.strip().title() for part in raw if part.strip()]
+    return labels or ["General knowledge"]
+
+
+_MOCK_TRIVIA_BANK: list[tuple[str, str, list[str], str]] = [
+    (
+        "History",
+        "Which ancient wonder was a giant statue at a Greek harbor?",
+        [
+            "Great Pyramid of Giza",
+            "Colossus of Rhodes",
+            "Hanging Gardens of Babylon",
+            "Lighthouse of Alexandria",
+        ],
+        "The Colossus of Rhodes was a bronze statue of the sun god Helios.",
+    ),
+    (
+        "History",
+        "In what year did World War II end?",
+        ["1918", "1945", "1969", "2001"],
+        "Japan surrendered in 1945, ending World War II.",
+    ),
+    (
+        "Science",
+        "What is the chemical symbol for water?",
+        ["O2", "H2O", "CO2", "NaCl"],
+        "Water is two hydrogen atoms bonded to one oxygen atom.",
+    ),
+    (
+        "Science",
+        "Which planet is known as the Red Planet?",
+        ["Venus", "Mars", "Jupiter", "Saturn"],
+        "Mars appears red because of iron oxide on its surface.",
+    ),
+    (
+        "Geography",
+        "Which is the longest river in the world?",
+        ["Amazon", "Nile", "Mississippi", "Yangtze"],
+        "The Nile flows about 6,650 km through northeastern Africa.",
+    ),
+    (
+        "Geography",
+        "What is the capital of Japan?",
+        ["Seoul", "Beijing", "Tokyo", "Bangkok"],
+        "Tokyo has been Japan's capital since 1869.",
+    ),
+]
+
+
 def _mock_trivia_questions(project: Project, count: int) -> list[_GeneratedQuestion]:
-    topics = (project.description or "General knowledge").split(",")
+    topics = _trivia_topic_labels(project)
     out: list[_GeneratedQuestion] = []
+    bank = [
+        row
+        for row in _MOCK_TRIVIA_BANK
+        if any(row[0].casefold() == topic.casefold() for topic in topics)
+    ] or list(_MOCK_TRIVIA_BANK)
     for i in range(count):
-        topic = topics[i % len(topics)].strip() or "Science"
+        topic, question_text, choice_texts, explanation = bank[i % len(bank)]
+        topic_label = topics[i % len(topics)] if topics else topic
         out.append(
             _GeneratedQuestion(
-                topic=topic,
-                question=f"Sample {topic} question #{i + 1}?",
+                topic=topic_label,
+                question=question_text,
                 choices=[
-                    _QuizChoice(letter="A", text="Wrong answer"),
-                    _QuizChoice(letter="B", text="Correct answer"),
-                    _QuizChoice(letter="C", text="Another wrong"),
-                    _QuizChoice(letter="D", text="Also wrong"),
+                    _QuizChoice(letter="A", text=choice_texts[0]),
+                    _QuizChoice(letter="B", text=choice_texts[1]),
+                    _QuizChoice(letter="C", text=choice_texts[2]),
+                    _QuizChoice(letter="D", text=choice_texts[3]),
                 ],
                 correct="B",
+                reference_definition=explanation,
             )
         )
     return out
@@ -808,17 +1028,7 @@ async def _explain_mcq(
     is_correct: bool,
 ) -> str:
     if should_mock_llm(settings):
-        if is_correct:
-            return (
-                f"**{letter}** is correct! *{question.topic}* - well done.\n\n"
-                "Want to try another format next time, or keep going?"
-            )
-        correct = question.correct_letter
-        return (
-            f"Not quite — the answer is **{correct}**. "
-            f"*{question.topic}*: {question.reference_definition or question.question_text}\n\n"
-            "You can retry with a definition or sentence, or move on."
-        )
+        return _template_mcq_feedback(question, letter, is_correct)
 
     correct_text = next(
         (c.get("text", "") for c in question.choices if c.get("letter") == question.correct_letter),
@@ -846,6 +1056,95 @@ async def _explain_mcq(
         if text
         else ("Correct!" if is_correct else "Not quite — try again or switch format.")
     )
+
+
+_PLACEHOLDER_CHOICE_TEXT = frozenset(
+    {
+        "correct answer",
+        "correct meaning",
+        "wrong answer",
+        "another wrong",
+        "also wrong",
+        "wrong a",
+        "wrong c",
+        "wrong d",
+        "another incorrect option",
+        "a completely wrong meaning",
+        "an unrelated definition",
+    }
+)
+
+
+def _is_legacy_placeholder_question(question: ProjectQuizQuestion) -> bool:
+    qtext = (question.question_text or "").strip().casefold()
+    if qtext.startswith("sample "):
+        return True
+    for choice in question.choices:
+        if not isinstance(choice, dict):
+            continue
+        text = str(choice.get("text", "")).strip().casefold()
+        if text in _PLACEHOLDER_CHOICE_TEXT:
+            return True
+        if text.startswith("wrong ") and len(text) < 24:
+            return True
+    return False
+
+
+async def purge_legacy_placeholder_pending(
+    session: AsyncSession,
+    project_id: UUID,
+    quiz_date: date,
+) -> int:
+    """Remove stale dev/mock placeholder rows so live generation can replace them."""
+    pending = await quiz_questions_repo.list_pending_for_date(session, project_id, quiz_date)
+    stale_ids = [row.id for row in pending if _is_legacy_placeholder_question(row)]
+    if not stale_ids:
+        return 0
+    removed = await quiz_questions_repo.delete_pending_by_ids(
+        session, project_id, quiz_date, stale_ids
+    )
+    if removed:
+        logger.info(
+            "purged legacy quiz placeholders project_id=%s quiz_date=%s count=%s",
+            project_id,
+            quiz_date,
+            removed,
+        )
+    return removed
+
+
+def _choice_text(question: ProjectQuizQuestion, letter: str) -> str:
+    return next(
+        (str(c.get("text", "")).strip() for c in question.choices if c.get("letter") == letter),
+        "",
+    )
+
+
+def _is_placeholder_choice(text: str) -> bool:
+    cleaned = text.strip().casefold()
+    if not cleaned:
+        return True
+    if cleaned in _PLACEHOLDER_CHOICE_TEXT:
+        return True
+    return cleaned.startswith("wrong ") and len(cleaned) < 24
+
+
+def _template_mcq_feedback(
+    question: ProjectQuizQuestion,
+    letter: str,
+    is_correct: bool,
+) -> str:
+    if is_correct:
+        return f"**{letter}** — correct!"
+    correct = question.correct_letter
+    correct_text = _choice_text(question, correct)
+    ref = (question.reference_definition or "").strip()
+    lines = [f"Not quite — **{correct}** is correct."]
+    if ref and not _is_placeholder_choice(ref) and ref.casefold() != correct_text.casefold():
+        lines.append(ref)
+    elif correct_text and not _is_placeholder_choice(correct_text):
+        lines.append(correct_text)
+    return "\n\n".join(lines)
 
 
 async def _grade_free_text(

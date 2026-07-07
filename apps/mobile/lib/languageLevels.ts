@@ -21,6 +21,13 @@ export function levelLabel(level: LanguageLevel): string {
   return labels[level];
 }
 
+export function levelPickerOptions(): { key: LanguageLevel; label: string }[] {
+  return LANGUAGE_LEVELS.map((level) => ({
+    key: level,
+    label: levelLabel(level),
+  }));
+}
+
 export function partOfSpeechLabel(pos: string | null | undefined): string {
   if (!pos) return "Other";
   return pos.charAt(0).toUpperCase() + pos.slice(1);

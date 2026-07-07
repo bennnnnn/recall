@@ -14,7 +14,6 @@ import { StreamingCursor } from "@/components/StreamingCursor";
 import { MarkdownErrorBoundary } from "@/components/MarkdownErrorBoundary";
 import { RecallTypingIndicator } from "@/components/RecallTypingIndicator";
 import { ReasoningBlock } from "@/components/chat/ReasoningBlock";
-import { VocabQuizChoices } from "@/components/VocabQuizChoices";
 import { VocabCard } from "@/components/VocabCard";
 import { Message } from "@/lib/api";
 import {
@@ -24,7 +23,7 @@ import {
 import { extractPrimaryCopyText } from "@/lib/copyBlock";
 import { exportMessageAsPdf } from "@/lib/exportMessagePdf";
 import { notifySuccess, notifyWarning, tap } from "@/lib/haptics";
-import { parseVocabQuiz, stripVocabQuizBlock, stripVocabSessionMetadata, isRenderableVocabQuiz, hasVocabQuizFence, cleanQuizWord, stripQuizMarkdownDuplicates, type QuizAnswerMeta } from "@/lib/parseVocabQuiz";
+import { parseVocabQuiz, stripVocabQuizBlock, stripVocabSessionMetadata, hasVocabQuizFence, stripQuizMarkdownDuplicates, stripVocabQuizPrologue, isRenderableVocabQuiz, isCompleteVocabQuiz, formatVocabQuizAsMarkdown, markdownHasQuizChoices } from "@/lib/parseVocabQuiz";
 import { isDailyQuizMessageId } from "@/lib/dailyQuizMessage";
 import { parseVocabCard, stripVocabCardBlock, hasVocabCardFence } from "@/lib/parseVocabCard";
 import { resolvePlaces, stripPlacesContent } from "@/lib/placesList";
@@ -58,15 +57,7 @@ type Props = {
   onEdit?: (message: Message) => void;
   canEdit?: boolean;
   onFeedback?: (messageId: string, feedback: "up" | "down" | null) => void;
-  onQuizAnswer?: (
-    messageId: string,
-    letter: "A" | "B" | "C" | "D",
-    meta?: QuizAnswerMeta,
-  ) => void;
-  quizDisabled?: boolean;
   quizLanguage?: string;
-  quizVariant?: "vocab" | "trivia";
-  quizSelectedLetter?: "A" | "B" | "C" | "D" | null;
   highlighted?: boolean;
   isSending?: boolean;
 };
@@ -226,11 +217,7 @@ export const MessageBubble = React.memo(function MessageBubble({
   onEdit,
   canEdit,
   onFeedback,
-  onQuizAnswer,
-  quizDisabled,
   quizLanguage = "en",
-  quizVariant = "vocab",
-  quizSelectedLetter = null,
   highlighted = false,
   isSending = false,
 }: Props) {
@@ -275,32 +262,22 @@ export const MessageBubble = React.memo(function MessageBubble({
     t,
   );
   const isDailyQuiz = isDailyQuizMessageId(message.id);
-  const showActionSlot = !isUser && hasContent && !isDailyQuiz;
+  const isQuizFeedback = message.id.startsWith("local-quiz-");
+  const showActionSlot = !isUser && hasContent && !isDailyQuiz && !isQuizFeedback;
   const actionsReady = showActionSlot && !isGenerating;
-  const quiz = useMemo(() => {
-    if (isUser || !hasContent) return null;
-    const parsed = parseVocabQuiz(content);
-    return isRenderableVocabQuiz(parsed) ? parsed : null;
+  const quizForStrip = useMemo(() => {
+    if (isUser || !hasContent || !hasVocabQuizFence(content)) return null;
+    const quiz = parseVocabQuiz(content);
+    return isRenderableVocabQuiz(quiz) ? quiz : null;
   }, [isUser, hasContent, content]);
   const vocabCard = useMemo(() => {
-    if (isUser || !hasContent || quiz) return null;
+    if (isUser || !hasContent || quizForStrip) return null;
     return parseVocabCard(content);
-  }, [isUser, hasContent, content, quiz]);
-  const quizVariantResolved =
-    quizVariant === "trivia" || quiz?.quizType === "trivia" ? "trivia" : "vocab";
-  const quizTopicLabel = quiz ? cleanQuizWord(quiz.word) : "";
-  const quizQuestionText = quiz
-    ? quizVariantResolved === "trivia"
-      ? quiz.question?.trim() || quizTopicLabel
-      : quiz.question?.trim() || ""
-    : "";
-  const showQuizCard = quiz != null && !layoutFrozen;
-  const showVocabCard = vocabCard != null && !layoutFrozen && !showQuizCard;
-  const hideQuizFenceInMarkdown = showQuizCard || hasVocabQuizFence(content);
+  }, [isUser, hasContent, content, quizForStrip]);
+  const showVocabCard = vocabCard != null && !layoutFrozen;
+  const hideQuizFenceInMarkdown = hasVocabQuizFence(content);
   const hideCardFenceInMarkdown =
     hideQuizFenceInMarkdown || showVocabCard || hasVocabCardFence(content);
-  const showQuizButtons =
-    showQuizCard && isLastAssistant && onQuizAnswer != null && (!isDailyQuiz || !quizDisabled);
   const showLiveClock =
     !isUser &&
     hasContent &&
@@ -337,21 +314,31 @@ export const MessageBubble = React.memo(function MessageBubble({
       : hideQuizFenceInMarkdown
         ? stripVocabQuizBlock(content)
         : stripVocabSessionMetadata(content);
-    if (showQuizCard && quiz) {
-      text = stripQuizMarkdownDuplicates(text, quiz);
+    if (quizForStrip && isRenderableVocabQuiz(quizForStrip)) {
+      if (isCompleteVocabQuiz(quizForStrip)) {
+        text = stripVocabQuizPrologue(text, quizForStrip);
+        const quizBody = formatVocabQuizAsMarkdown(quizForStrip);
+        text = text.trim() ? `${text.trim()}\n\n${quizBody}` : quizBody;
+      } else {
+        text = stripQuizMarkdownDuplicates(text, quizForStrip);
+        if (!markdownHasQuizChoices(text, quizForStrip)) {
+          const quizBody = formatVocabQuizAsMarkdown(quizForStrip);
+          text = text.trim() ? `${text.trim()}\n\n${quizBody}` : quizBody;
+        }
+      }
     }
     if (showLiveClock) text = stripTimeAnswerFences(text);
     text = stripSearchSourcesFromContent(text);
     if (showCalendarProposals) text = stripCalendarProposalFences(text);
     if (showPlaces) text = stripPlacesContent(text, places);
     return text;
-  }, [hideCardFenceInMarkdown, hideQuizFenceInMarkdown, showQuizCard, quiz, showLiveClock, showCalendarProposals, showPlaces, places, content]);
+  }, [hideCardFenceInMarkdown, hideQuizFenceInMarkdown, quizForStrip, showLiveClock, showCalendarProposals, showPlaces, places, content]);
   const hasMarkdown = markdownContent.trim().length > 0;
   const showSearchSources =
     searchSources.length > 0 &&
     !layoutFrozen &&
     !showLiveClock &&
-    !showQuizCard &&
+    !hideQuizFenceInMarkdown &&
     !showVocabCard &&
     !showCalendarProposals;
   const showContextSummarized =
@@ -405,38 +392,6 @@ export const MessageBubble = React.memo(function MessageBubble({
             {showPlaces ? <PlacesListBlock places={places} /> : null}
             {showVocabCard && vocabCard ? (
               <VocabCard card={vocabCard} language={quizLanguage} />
-            ) : null}
-            {showQuizCard && quiz ? (
-              <>
-                {quiz.dailyProgress ? (
-                  <Text style={b.dailyQuizProgress}>
-                    {t("daily_quiz.progress", {
-                      done: quiz.dailyProgress.done,
-                      goal: quiz.dailyProgress.goal,
-                    })}
-                  </Text>
-                ) : null}
-                <VocabQuizChoices
-                  quiz={quiz}
-                  variant={quizVariant === "trivia" || quiz.quizType === "trivia" ? "trivia" : "vocab"}
-                  disabled={!showQuizButtons || !!quizDisabled}
-                  language={quizLanguage}
-                  initialSelected={quizSelectedLetter}
-                  onSelect={
-                    showQuizButtons && onQuizAnswer
-                      ? (letter) => {
-                          const isCorrect =
-                            quiz.correct != null ? letter === quiz.correct : null;
-                          onQuizAnswer(message.id, letter, {
-                            topic: quizTopicLabel,
-                            question: quizQuestionText,
-                            isCorrect,
-                          });
-                        }
-                      : undefined
-                  }
-                />
-              </>
             ) : null}
             {showCalendarProposals
               ? calendarProposals.map((proposal, index) => (
@@ -529,12 +484,6 @@ function makeStyles(t: Theme) {
       lineHeight: 16,
       color: t.textTertiary,
       marginBottom: 6,
-    },
-    dailyQuizProgress: {
-      fontSize: 14,
-      fontWeight: "600",
-      color: t.textSecondary,
-      marginBottom: 4,
     },
     actionRowSlot: {
       minHeight: 38,

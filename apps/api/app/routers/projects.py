@@ -300,7 +300,31 @@ async def ensure_project_daily_quiz(
     if result is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
     await home_service.invalidate_home_cache(user.id)
+    daily_quiz_service.schedule_prefetch_after_answer(
+        settings,
+        user_id=user.id,
+        project_id=project_id,
+        timezone_name=tz,
+    )
     return result
+
+
+@router.post("/{project_id}/quiz/daily/prefetch", status_code=status.HTTP_204_NO_CONTENT)
+async def prefetch_project_daily_quiz(
+    project_id: UUID,
+    client_timezone: str | None = Query(default=None, max_length=64),
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> None:
+    settings = get_settings()
+    tz = _project_timezone(user, client_timezone)
+    await daily_quiz_service.prefetch_daily_quiz(
+        session,
+        settings,
+        user_id=user.id,
+        project_id=project_id,
+        timezone_name=tz,
+    )
 
 
 @router.get("/{project_id}/quiz/daily", response_model=ProjectDailyQuizOut)
@@ -311,6 +335,12 @@ async def get_project_daily_quiz(
     session: AsyncSession = Depends(get_db),
 ) -> ProjectDailyQuizOut:
     tz = _project_timezone(user, client_timezone)
+    quiz_date = daily_quiz_service.local_quiz_date(tz)
+    purged = await daily_quiz_service.purge_legacy_placeholder_pending(
+        session, project_id, quiz_date
+    )
+    if purged:
+        await session.commit()
     result = await daily_quiz_service.get_daily_quiz(
         session,
         user_id=user.id,
@@ -356,6 +386,13 @@ async def answer_project_daily_quiz(
         )
     await session.commit()
     await home_service.invalidate_home_cache(user.id)
+    if not result.batch_complete:
+        daily_quiz_service.schedule_prefetch_after_answer(
+            settings,
+            user_id=user.id,
+            project_id=project_id,
+            timezone_name=tz,
+        )
     return result
 
 

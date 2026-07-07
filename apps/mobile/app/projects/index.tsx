@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Redirect, useRouter } from "expo-router";
+import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -23,10 +23,12 @@ import { api, type LanguageLevel, type ProjectKind } from "@/lib/api";
 import { LANGUAGE_LEVELS, levelLabel } from "@/lib/languageLevels";
 import { findLanguageProject } from "@/lib/languageProject";
 import { queueChatLaunch } from "@/lib/chatLaunch";
+import { prefetchProjectDetail, prefetchProjectDetails } from "@/lib/projectDetailCache";
 import { buildEnglishOnboardingPrompt, buildTriviaOnboardingPrompt } from "@/lib/projectChat";
 import {
   englishProjectTitle,
   triviaProjectTitle,
+  canAddLearningProject,
   type CreateStep,
 } from "@/lib/projectCreateFlow";
 import { findTriviaProject } from "@/lib/triviaProject";
@@ -77,6 +79,20 @@ export default function ProjectsScreen() {
   const visibleProjects = useMemo(
     () => projects.filter((project) => project.kind !== "programming"),
     [projects],
+  );
+  const showAddLearning = useMemo(
+    () => canAddLearningProject(projects),
+    [projects],
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!token || visibleProjects.length === 0) return;
+      prefetchProjectDetails(
+        token,
+        visibleProjects.map((project) => project.id),
+      );
+    }, [token, visibleProjects]),
   );
   const [createStep, setCreateStep] = useState<CreateStep | null>(null);
   const [kind, setKind] = useState<ProjectKind | null>(null);
@@ -359,10 +375,12 @@ export default function ProjectsScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-          <Pressable style={s.newProjectBtn} onPress={openCreate}>
-            <Ionicons name="add-circle-outline" size={22} color={C.primary} />
-            <Text style={s.newProjectText}>{t("projects.add_learning")}</Text>
-          </Pressable>
+          {showAddLearning ? (
+            <Pressable style={s.newProjectBtn} onPress={openCreate}>
+              <Ionicons name="add-circle-outline" size={22} color={C.primary} />
+              <Text style={s.newProjectText}>{t("projects.add_learning")}</Text>
+            </Pressable>
+          ) : null}
 
           {!error && visibleProjects.length === 0 ? (
             <View style={s.emptyState}>
@@ -383,6 +401,7 @@ export default function ProjectsScreen() {
               <Pressable
                 key={project.id}
                 style={s.row}
+                onPressIn={() => token && prefetchProjectDetail(token, project.id)}
                 onPress={() => router.push(`/projects/${project.id}`)}
               >
                 <View style={s.rowIcon}>

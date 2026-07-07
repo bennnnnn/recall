@@ -8,6 +8,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useHome } from "@/contexts/HomeContext";
 import { useTodos } from "@/contexts/TodosContext";
 import { api, type HomeUrgentTodo, type HomeProjectHighlight, type HomeStarter } from "@/lib/api";
+import { queueChatLaunch } from "@/lib/chatLaunch";
+import { buildHomeDailyQuizChatPrompt } from "@/lib/projectChat";
 import { describeDueAt } from "@/lib/dueDate";
 import { homeUrgentPrompt, listHomeUrgentTodos, partitionHomeUrgentTodos } from "@/lib/homeUrgentTodos";
 import { Theme, useTheme } from "@/lib/theme";
@@ -70,10 +72,22 @@ function ProjectHighlightCard({
   const iconName =
     highlight.kind === "trivia" ? "bulb-outline" : ("language-outline" as const);
 
+  const startDailyQuiz = () => {
+    const variant = highlight.kind === "trivia" ? "trivia" : "vocab";
+    queueChatLaunch(
+      buildHomeDailyQuizChatPrompt(highlight),
+      highlight.project_id,
+      variant === "vocab" ? "en" : undefined,
+      variant,
+      "chat",
+    );
+    router.replace("/");
+  };
+
   return (
     <Pressable
       style={s.projectCard}
-      onPress={() => router.push(`/projects/${highlight.project_id}`)}
+      onPress={startDailyQuiz}
     >
       <View style={s.projectIconWrap}>
         <Ionicons name={iconName} size={20} color={theme.primary} />

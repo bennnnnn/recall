@@ -486,14 +486,6 @@ export function useChat(
       }
 
       await ensureConnected();
-      if (preferSseRef.current || wsRef.current?.readyState !== WebSocket.OPEN) {
-        await sendViaSse(content, {
-          attachmentIds: options?.attachmentIds,
-          model: options?.model,
-          clientGeo: options?.clientGeo,
-        });
-        return;
-      }
 
       assistantBuffer.current = "";
       reasoningBuffer.current = "";
@@ -503,6 +495,16 @@ export function useChat(
         updateStreamingDraft({ content: "" });
         appendStreamingPlaceholder();
       }
+
+      if (preferSseRef.current || wsRef.current?.readyState !== WebSocket.OPEN) {
+        await sendViaSse(content, {
+          attachmentIds: options?.attachmentIds,
+          model: options?.model,
+          clientGeo: options?.clientGeo,
+        });
+        return;
+      }
+
       wsRef.current.send(
         JSON.stringify({
           type: "message",

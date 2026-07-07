@@ -88,9 +88,10 @@ export async function request<T>(
   token: string,
   init?: RequestInit,
   allowRefresh = true,
+  timeoutMs = 30_000,
 ): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30_000);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const externalSignal = init?.signal ?? null;
 
   const onExternalAbort = () => controller.abort();

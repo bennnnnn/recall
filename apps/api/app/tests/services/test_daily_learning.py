@@ -107,6 +107,24 @@ def test_daily_home_cue_continue_and_missed():
     )
 
 
+def test_daily_home_cue_continue_when_quiz_pending():
+    tz = ZoneInfo("UTC")
+    assert (
+        daily_home_cue(
+            total=10,
+            mastered_today=0,
+            pending_today=0,
+            quiz_pending_today=3,
+            learning_count=0,
+            due_for_review=0,
+            daily_goal=5,
+            last_mastery=datetime.now(UTC),
+            home_tz=tz,
+        )
+        == "continue"
+    )
+
+
 def test_daily_home_cue_not_started_when_due_words_but_zero_today():
     tz = ZoneInfo("UTC")
     assert (

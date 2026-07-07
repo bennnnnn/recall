@@ -79,6 +79,64 @@ def test_mock_trivia_questions():
     questions = daily_quiz_service._mock_trivia_questions(project, 2)
     assert len(questions) == 2
     assert questions[0].topic == "History"
+    assert questions[1].topic == "Science"
+
+
+def test_mock_trivia_questions_reuses_categories():
+    project = SimpleNamespace(
+        id=uuid4(),
+        kind="trivia",
+        description="history,science",
+    )
+    questions = daily_quiz_service._mock_trivia_questions(project, 5)
+    assert len(questions) == 5
+    assert questions[0].topic == "History"
+    assert questions[2].topic == "History"
+    assert all(q.correct == "B" for q in questions)
+
+
+@pytest.mark.asyncio
+async def test_generate_trivia_batch_inserts_all_questions():
+    session = AsyncMock()
+    user_id = uuid4()
+    project = SimpleNamespace(
+        id=uuid4(),
+        kind="trivia",
+        description="history,science",
+    )
+    quiz_date = date.today()
+    inserted: list[int] = []
+
+    async def fake_insert(*_args, **kwargs):
+        inserted.append(kwargs["sequence"])
+        return SimpleNamespace(id=uuid4(), **kwargs)
+
+    with (
+        patch.object(
+            daily_quiz_service.quiz_questions_repo,
+            "list_for_project_date",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            daily_quiz_service.quiz_questions_repo,
+            "insert_question",
+            AsyncMock(side_effect=fake_insert),
+        ),
+        patch(
+            "app.services.project_daily_quiz.should_mock_llm",
+            return_value=True,
+        ),
+    ):
+        await daily_quiz_service._generate_trivia_batch(
+            session,
+            Settings(),
+            user_id=user_id,
+            project=project,
+            quiz_date=quiz_date,
+            count=5,
+        )
+
+    assert inserted == [0, 1, 2, 3, 4]
 
 
 def test_mock_new_vocab_words_skips_duplicates():
@@ -124,6 +182,135 @@ async def test_get_daily_quiz_returns_current_question():
     assert result.current is not None
     assert result.current.topic == "apple"
     assert result.daily_goal == 5
+
+
+@pytest.mark.asyncio
+async def test_get_daily_quiz_not_complete_when_goal_unmet():
+    session = AsyncMock()
+    user_id = uuid4()
+    project_id = uuid4()
+    project = _language_project(project_id)
+
+    with (
+        patch.object(
+            daily_quiz_service.projects_repo,
+            "get_by_id",
+            AsyncMock(return_value=project),
+        ),
+        patch.object(
+            daily_quiz_service.quiz_questions_repo,
+            "count_answered_today",
+            AsyncMock(return_value=2),
+        ),
+        patch.object(
+            daily_quiz_service.quiz_questions_repo,
+            "next_pending",
+            AsyncMock(return_value=None),
+        ),
+    ):
+        result = await daily_quiz_service.get_daily_quiz(
+            session,
+            user_id=user_id,
+            project_id=project_id,
+            timezone_name="UTC",
+        )
+
+    assert result is not None
+    assert result.complete is False
+    assert result.current is None
+    assert result.answered_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_daily_quiz_hides_current_when_goal_met():
+    session = AsyncMock()
+    user_id = uuid4()
+    project_id = uuid4()
+    project = _language_project(project_id)
+    row = _question()
+
+    with (
+        patch.object(
+            daily_quiz_service.projects_repo,
+            "get_by_id",
+            AsyncMock(return_value=project),
+        ),
+        patch.object(
+            daily_quiz_service.quiz_questions_repo,
+            "count_answered_today",
+            AsyncMock(return_value=5),
+        ),
+        patch.object(
+            daily_quiz_service.quiz_questions_repo,
+            "next_pending",
+            AsyncMock(return_value=row),
+        ),
+    ):
+        result = await daily_quiz_service.get_daily_quiz(
+            session,
+            user_id=user_id,
+            project_id=project_id,
+            timezone_name="UTC",
+        )
+
+    assert result is not None
+    assert result.complete is True
+    assert result.current is None
+
+
+@pytest.mark.asyncio
+async def test_ensure_daily_quiz_backfills_when_batch_exhausted_before_goal():
+    session = AsyncMock()
+    user_id = uuid4()
+    project_id = uuid4()
+    project = _language_project(project_id)
+    row = _question()
+
+    with (
+        patch.object(
+            daily_quiz_service.projects_repo,
+            "get_by_id",
+            AsyncMock(return_value=project),
+        ),
+        patch.object(
+            daily_quiz_service.quiz_questions_repo,
+            "count_answered_today",
+            AsyncMock(return_value=2),
+        ),
+        patch.object(
+            daily_quiz_service.quiz_questions_repo,
+            "count_pending_today",
+            AsyncMock(return_value=0),
+        ),
+        patch.object(
+            daily_quiz_service,
+            "purge_legacy_placeholder_pending",
+            AsyncMock(return_value=0),
+        ),
+        patch.object(
+            daily_quiz_service,
+            "_top_up_pending_questions",
+            AsyncMock(return_value=True),
+        ) as top_up,
+        patch.object(
+            daily_quiz_service.quiz_questions_repo,
+            "next_pending",
+            AsyncMock(return_value=row),
+        ),
+        patch.object(session, "commit", AsyncMock()),
+    ):
+        result = await daily_quiz_service.ensure_daily_quiz(
+            session,
+            Settings(),
+            user_id=user_id,
+            project_id=project_id,
+            timezone_name="UTC",
+        )
+
+    top_up.assert_awaited_once()
+    assert result is not None
+    assert result.complete is False
+    assert result.current is not None
 
 
 @pytest.mark.asyncio
@@ -212,19 +399,14 @@ async def test_submit_answer_mcq_correct_mock():
             AsyncMock(return_value=1),
         ),
         patch.object(
-            daily_quiz_service.quiz_questions_repo,
-            "next_pending",
+            daily_quiz_service,
+            "_next_pending_question",
             AsyncMock(return_value=None),
         ),
         patch.object(
             daily_quiz_service,
             "_apply_mastery",
             AsyncMock(return_value=True),
-        ),
-        patch.object(
-            daily_quiz_service,
-            "_explain_mcq",
-            AsyncMock(return_value="Nice work!"),
         ),
     ):
         result = await daily_quiz_service.submit_answer(
@@ -241,7 +423,7 @@ async def test_submit_answer_mcq_correct_mock():
 
     assert result is not None
     assert result.is_correct is True
-    assert result.feedback == "Nice work!"
+    assert "correct" in result.feedback.lower()
     assert result.mastered is True
 
 
@@ -351,19 +533,24 @@ async def test_ensure_daily_quiz_generates_when_batch_missing():
         ),
         patch.object(
             daily_quiz_service.quiz_questions_repo,
-            "batch_exists",
-            AsyncMock(return_value=False),
-        ),
-        patch.object(
-            daily_quiz_service,
-            "_generate_batch",
-            AsyncMock(),
-        ) as generate,
-        patch.object(
-            daily_quiz_service.quiz_questions_repo,
             "count_answered_today",
             AsyncMock(return_value=0),
         ),
+        patch.object(
+            daily_quiz_service.quiz_questions_repo,
+            "count_pending_today",
+            AsyncMock(return_value=0),
+        ),
+        patch.object(
+            daily_quiz_service,
+            "purge_legacy_placeholder_pending",
+            AsyncMock(return_value=0),
+        ),
+        patch.object(
+            daily_quiz_service,
+            "_top_up_pending_questions",
+            AsyncMock(return_value=True),
+        ) as top_up,
         patch.object(
             daily_quiz_service.quiz_questions_repo,
             "next_pending",
@@ -379,7 +566,7 @@ async def test_ensure_daily_quiz_generates_when_batch_missing():
             timezone_name="UTC",
         )
 
-    generate.assert_awaited_once()
+    top_up.assert_awaited_once()
     assert result is not None
     assert result.current is not None
 
@@ -396,3 +583,111 @@ async def test_explain_mcq_mock_incorrect():
         )
     assert "Not quite" in feedback
     assert "B" in feedback
+
+
+def test_template_mcq_feedback_skips_placeholder_explanation():
+    question = _question()
+    question.quiz_kind = "trivia"
+    question.topic = "History"
+    question.reference_definition = "Correct answer"
+    feedback = daily_quiz_service._template_mcq_feedback(question, "D", is_correct=False)
+    assert feedback == "Not quite — **B** is correct.\n\na fruit"
+
+
+def test_template_mcq_feedback_includes_reference_fact():
+    question = _question()
+    question.quiz_kind = "trivia"
+    question.reference_definition = "The Colossus stood at the harbor of Rhodes."
+    feedback = daily_quiz_service._template_mcq_feedback(question, "A", is_correct=False)
+    assert "Colossus" in feedback
+
+
+def test_is_legacy_placeholder_question_detects_sample_rows():
+    question = _question()
+    question.question_text = "Sample Geography question #3?"
+    question.choices = [
+        {"letter": "A", "text": "Wrong answer"},
+        {"letter": "B", "text": "Correct answer"},
+        {"letter": "C", "text": "Another wrong"},
+        {"letter": "D", "text": "Also wrong"},
+    ]
+    assert daily_quiz_service._is_legacy_placeholder_question(question) is True
+
+
+@pytest.mark.asyncio
+async def test_purge_legacy_placeholder_pending():
+    session = AsyncMock()
+    project_id = uuid4()
+    stale = _question()
+    stale.question_text = "Sample Science question #1?"
+    stale.choices = [
+        {"letter": "A", "text": "Wrong answer"},
+        {"letter": "B", "text": "Correct answer"},
+        {"letter": "C", "text": "Another wrong"},
+        {"letter": "D", "text": "Also wrong"},
+    ]
+    fresh = _question(topic="Science")
+    fresh.question_text = "What is the chemical symbol for water?"
+
+    with (
+        patch.object(
+            daily_quiz_service.quiz_questions_repo,
+            "list_pending_for_date",
+            AsyncMock(return_value=[stale, fresh]),
+        ),
+        patch.object(
+            daily_quiz_service.quiz_questions_repo,
+            "delete_pending_by_ids",
+            AsyncMock(return_value=1),
+        ) as delete_mock,
+    ):
+        removed = await daily_quiz_service.purge_legacy_placeholder_pending(
+            session, project_id, date.today()
+        )
+
+    assert removed == 1
+    delete_mock.assert_awaited_once()
+    deleted_ids = delete_mock.await_args.args[3]
+    assert stale.id in deleted_ids
+
+
+@pytest.mark.asyncio
+async def test_top_up_pending_generates_one_question():
+    session = AsyncMock()
+    user_id = uuid4()
+    project_id = uuid4()
+    project = _language_project(project_id)
+
+    with (
+        patch.object(
+            daily_quiz_service.quiz_questions_repo,
+            "count_answered_today",
+            AsyncMock(return_value=1),
+        ),
+        patch.object(
+            daily_quiz_service.quiz_questions_repo,
+            "count_pending_today",
+            AsyncMock(side_effect=[0, 1]),
+        ),
+        patch.object(
+            daily_quiz_service,
+            "purge_legacy_placeholder_pending",
+            AsyncMock(return_value=0),
+        ),
+        patch.object(
+            daily_quiz_service,
+            "_generate_batch",
+            AsyncMock(),
+        ) as generate,
+    ):
+        added = await daily_quiz_service._top_up_pending_questions(
+            session,
+            Settings(),
+            user_id=user_id,
+            project=project,
+            quiz_date=date.today(),
+        )
+
+    assert added is True
+    generate.assert_awaited_once()
+    assert generate.await_args.kwargs["count"] == 1

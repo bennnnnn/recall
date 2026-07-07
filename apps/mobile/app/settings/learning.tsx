@@ -12,20 +12,21 @@ import {
 } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjects } from "@/contexts/ProjectsContext";
-import { api, type Project } from "@/lib/api";
+import { api, type LanguageLevel, type Project } from "@/lib/api";
 import {
   dailyGoalPickerOptions,
   formatDailyGoalLabel,
   resolveDailyGoal,
 } from "@/lib/dailyGoals";
-import { isLanguageProject } from "@/lib/languageLevels";
+import { isLanguageProject, levelLabel, levelPickerOptions } from "@/lib/languageLevels";
+import { invalidateProjectDetail } from "@/lib/projectDetailCache";
+import { englishProjectTitle } from "@/lib/projectCreateFlow";
 import { isTriviaProject } from "@/lib/projectUi";
 import { useTheme } from "@/lib/theme";
 
-type PickerTarget = {
-  project: Project;
-  kind: "language" | "trivia";
-};
+type PickerTarget =
+  | { mode: "daily"; project: Project; kind: "language" | "trivia" }
+  | { mode: "level"; project: Project };
 
 export default function LearningSettingsScreen() {
   const { token } = useAuth();
@@ -58,6 +59,24 @@ export default function LearningSettingsScreen() {
     try {
       const updated = await api.updateProject(token, project.id, { daily_goal: nextGoal });
       setProjects((prev) => prev.map((row) => (row.id === updated.id ? updated : row)));
+      invalidateProjectDetail(project.id);
+    } catch {
+      Alert.alert(t("common.error"), t("settings.learning.save_failed"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveLevel = async (project: Project, level: LanguageLevel) => {
+    if (!token || saving) return;
+    setSaving(true);
+    try {
+      const updated = await api.updateProject(token, project.id, {
+        level,
+        title: englishProjectTitle(level, t),
+      });
+      setProjects((prev) => prev.map((row) => (row.id === updated.id ? updated : row)));
+      invalidateProjectDetail(project.id);
     } catch {
       Alert.alert(t("common.error"), t("settings.learning.save_failed"));
     } finally {
@@ -68,6 +87,27 @@ export default function LearningSettingsScreen() {
   if (!token) return <Redirect href="/login" />;
 
   const hasLearningProjects = languageProject != null || triviaProject != null;
+
+  const pickerTitle =
+    pickerTarget?.mode === "level"
+      ? t("settings.learning.level_picker_title")
+      : pickerTarget?.kind === "trivia"
+        ? t("settings.learning.questions_picker_title")
+        : t("settings.learning.words_picker_title");
+
+  const pickerOptions =
+    pickerTarget?.mode === "level"
+      ? levelPickerOptions()
+      : pickerTarget
+        ? dailyGoalPickerOptions(pickerTarget.kind, t)
+        : [];
+
+  const pickerSelectedKey =
+    pickerTarget?.mode === "level"
+      ? pickerTarget.project.level
+      : pickerTarget
+        ? String(resolveDailyGoal(pickerTarget.project.daily_goal))
+        : String(resolveDailyGoal(null));
 
   return (
     <View style={s.root}>
@@ -82,6 +122,14 @@ export default function LearningSettingsScreen() {
             {languageProject ? (
               <>
                 <SettingsLinkRow
+                  title={t("settings.learning.level_label")}
+                  value={levelLabel(languageProject.level)}
+                  onPress={() => setPickerTarget({ mode: "level", project: languageProject })}
+                  styles={s}
+                  theme={theme}
+                />
+                <View style={s.menuSeparator} />
+                <SettingsLinkRow
                   title={t("settings.learning.words_label")}
                   value={formatDailyGoalLabel(
                     resolveDailyGoal(languageProject.daily_goal),
@@ -89,7 +137,11 @@ export default function LearningSettingsScreen() {
                     t,
                   )}
                   onPress={() =>
-                    setPickerTarget({ project: languageProject, kind: "language" })
+                    setPickerTarget({
+                      mode: "daily",
+                      project: languageProject,
+                      kind: "language",
+                    })
                   }
                   styles={s}
                   theme={theme}
@@ -105,7 +157,9 @@ export default function LearningSettingsScreen() {
                   "trivia",
                   t,
                 )}
-                onPress={() => setPickerTarget({ project: triviaProject, kind: "trivia" })}
+                onPress={() =>
+                  setPickerTarget({ mode: "daily", project: triviaProject, kind: "trivia" })
+                }
                 styles={s}
                 theme={theme}
               />
@@ -118,22 +172,16 @@ export default function LearningSettingsScreen() {
 
       <SettingsPickerModal
         visible={pickerTarget != null}
-        title={
-          pickerTarget?.kind === "trivia"
-            ? t("settings.learning.questions_picker_title")
-            : t("settings.learning.words_picker_title")
-        }
-        options={
-          pickerTarget ? dailyGoalPickerOptions(pickerTarget.kind, t) : []
-        }
-        selectedKey={
-          pickerTarget
-            ? String(resolveDailyGoal(pickerTarget.project.daily_goal))
-            : String(resolveDailyGoal(null))
-        }
+        title={pickerTitle}
+        options={pickerOptions}
+        selectedKey={pickerSelectedKey}
         onClose={() => setPickerTarget(null)}
         onSelect={(key) => {
           if (!pickerTarget) return;
+          if (pickerTarget.mode === "level") {
+            void saveLevel(pickerTarget.project, key as LanguageLevel);
+            return;
+          }
           const nextGoal = Number(key);
           if (!Number.isFinite(nextGoal)) return;
           void saveDailyGoal(pickerTarget.project, nextGoal);

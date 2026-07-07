@@ -46,10 +46,15 @@ export function useDraftChat({ token, chatId }: Options) {
       projectId?: string | null,
       model = "auto",
       quizMode?: QuizMode | null,
+      opts?: { force?: boolean },
     ): Promise<string | null> => {
       if (!token) return null;
-      if (chatId) return chatId;
-      if (draftChatIdRef.current) return draftChatIdRef.current;
+      if (opts?.force) {
+        draftChatIdRef.current = null;
+        setDraftChatId(null);
+      }
+      if (chatId && !opts?.force) return chatId;
+      if (draftChatIdRef.current && !opts?.force) return draftChatIdRef.current;
       if (draftCreatePromiseRef.current) return draftCreatePromiseRef.current;
 
       const resolvedProjectId = projectId ?? draftProjectIdRef.current ?? undefined;

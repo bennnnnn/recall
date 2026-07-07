@@ -90,29 +90,29 @@ PROJECT_HINT = (
     "For **language/vocabulary**, each user has at most ONE project per language (e.g. one English "
     "vocabulary workspace). Do NOT create a second English project — use set_level on the existing "
     "one when their skill grows.\n"
+    "When telling the user their English level, use the plain label only (Beginner, Elementary, "
+    "Intermediate, …) — do not mention CEFR or A1–C2 codes unless they ask.\n"
     "For programming learning topics, target_language stores the stack (python, javascript, …).\n"
     "Do not invent titles or list names the user did not choose."
 )
 
 LEVEL_GUIDANCE: dict[str, str] = {
     "level1": (
-        "Beginner (CEFR A1): only basic high-frequency words — cat, eat, book, go, hello, water. "
+        "Beginner: only basic high-frequency words — cat, eat, book, go, hello, water. "
         "Never quiz or add advanced/rare words (ubiquitous, pragmatic, ephemeral, mitigate)."
     ),
     "level2": (
-        "Elementary (A2): everyday words a new learner meets in simple conversations. "
+        "Elementary: everyday words a new learner meets in simple conversations. "
         "Avoid academic or rare vocabulary."
     ),
     "level3": (
-        "Intermediate (B1): common words plus some idioms. Still avoid highly specialized jargon."
+        "Intermediate: common words plus some idioms. Still avoid highly specialized jargon."
     ),
     "level4": (
-        "Upper intermediate (B2): broader vocabulary including less common but still useful words."
+        "Upper intermediate: broader vocabulary including less common but still useful words."
     ),
-    "level5": ("Advanced (C1): sophisticated vocabulary including nuance and formal register."),
-    "level6": (
-        "Fluent (C2): full range including rare, literary, and technical words when relevant."
-    ),
+    "level5": ("Advanced: sophisticated vocabulary including nuance and formal register."),
+    "level6": ("Fluent: full range including rare, literary, and technical words when relevant."),
 }
 
 VOCAB_QUIZ_MARKDOWN_EXAMPLE = (
@@ -153,50 +153,56 @@ VOCAB_CARD_FORMAT_BLOCK = (
     "The card is for the app UI — keep your prose natural above it."
 )
 
+LANGUAGE_BONUS_QUIZ_RULES = (
+    "**Bonus quiz (after today's goal):** When the user explicitly asks for more quiz, bonus "
+    "words, or extra practice beyond today's goal, ask ONE multiple-choice question per turn "
+    "using ```vocab_quiz JSON:\n"
+    f"{VOCAB_QUIZ_FORMAT_BLOCK}\n"
+    "One question per message. Do NOT use spoiler syntax (>! !<) or bullet lists of Q&As. "
+    "Wait for A–D before revealing the answer."
+)
+
 LANGUAGE_DB_EXAM_HINT = (
     "Active **language** project — **exam mode** (app-managed daily quiz).\n"
     "The project **level** is the user's **English skill level** (level1=beginner … level6=fluent).\n"
     "Each word has: term, part_of_speech, definition, example_sentence, status "
     "(new | learning | mastered).\n\n"
     "**Daily quiz runs in the app panel** above the composer — questions are pre-loaded from "
-    "the database (A–D, definition, or sentence). **Do NOT output ```vocab_quiz blocks.**\n\n"
+    "the database (A–D, definition, or sentence). **Do NOT output ```vocab_quiz blocks during "
+    "the daily batch.**\n\n"
     "Your role in this chat:\n"
     "- Answer follow-up questions about words they missed or skipped.\n"
     "- Give brief encouragement when they send free text.\n"
     "- Use vocab_card only if they explicitly ask to learn a new word in conversational style.\n"
-    "- Do NOT generate quiz questions — the app handles scoring and progression.\n\n"
-    "**Daily goal:** When they finish today's batch in the panel, congratulate in plain markdown. "
-    "Do NOT sync new words unless they explicitly ask for bonus words beyond today's goal."
+    "- Do NOT generate daily-batch quiz questions — the app handles scoring and progression.\n\n"
+    "**Daily goal:** When they finish today's batch in the panel, congratulate in plain markdown.\n\n"
+    f"{LANGUAGE_BONUS_QUIZ_RULES}"
 )
 
 # Legacy alias kept for imports; exam mode uses the DB-backed hint above.
 LANGUAGE_EXAM_TUTOR_HINT = LANGUAGE_DB_EXAM_HINT
 
 LANGUAGE_CHAT_TUTOR_HINT = (
-    "Active **language** project — **chat tutor mode** (conversational learning, NOT multiple choice).\n"
+    "Active **language** project — **daily vocabulary in chat**.\n"
     "The project **level** is the user's **English skill level** (level1=beginner … level6=fluent).\n"
     "Each word has: term, part_of_speech, definition, example_sentence, status "
     "(new | learning | mastered).\n\n"
-    "**How to teach (one word per turn):**\n"
-    "1) Pick ONE new/learning word at the user's level.\n"
-    "2) In plain markdown: show the word, a clear definition, and one example sentence.\n"
-    "3) Append the vocab card block for the app UI:\n"
+    "**One word per turn — you choose the format:**\n"
+    "- **Multiple choice:** ```vocab_quiz fence with A–D (include correct letter).\n"
+    "- **Definition check:** ask what the word means; grade their free-text answer.\n"
+    "- **Production:** ask them to use the word in a sentence.\n"
+    "- **Teach then check:** brief definition + example, optional vocab_card, then a quick question.\n"
     f"{VOCAB_CARD_FORMAT_BLOCK}\n"
-    '4) STOP — invite the user to reply naturally: e.g. "got it", "more examples", '
-    '"use it in a sentence", or ask a question. Do NOT ask for A/B/C/D.\n'
-    "5) When they show understanding, congratulate briefly and use sync to "
-    "start_learning or master the word — never wait for them to ask.\n"
-    "6) Then move to the next word until today's daily_goal is met.\n"
-    '7) If the user says "quiz me" or "test me", you may use ```vocab_quiz for one-off '
-    "A–D in chat. Exam mode (Start today's words) uses the app quiz panel instead.\n\n"
-    "**Do NOT use ```vocab_quiz in chat tutor mode** unless the user explicitly "
-    "requests a quiz question.\n\n"
-    "**Daily batches:** Same rules as exam mode for daily_goal — quiz/teach pending "
-    "words first; add fresh words only to fill today's goal; stop when goal is met."
+    "When they demonstrate understanding, sync start_learning or master immediately — "
+    "do not wait for them to ask. Then move to the next word until today's daily_goal is met.\n"
+    "Keep replies short and conversational. Wait for their answer before revealing the next word.\n\n"
+    "**Session clarity:** Use the **Today:** line in the project snapshot as the only progress "
+    "counter — never repeat it in a P.S. Do not quiz a word marked ✓ mastered and call it a "
+    "'freebie'. Prefer new or learning words."
 )
 
-# Legacy alias — exam-style MC quiz (default when quiz_mode is unset).
-LANGUAGE_TUTOR_HINT = LANGUAGE_EXAM_TUTOR_HINT
+# Default — chat-based daily sessions (LLM picks format each turn).
+LANGUAGE_TUTOR_HINT = LANGUAGE_CHAT_TUTOR_HINT
 
 PROGRAMMING_TUTOR_HINT = (
     "Active **programming** learning — fixed chapters, each with sub-topics (see snapshot). "
@@ -219,15 +225,30 @@ TRIVIA_QUIZ_FENCE_EXAMPLE = (
     "```"
 )
 
+TRIVIA_QUIZ_FORMAT_BLOCK = (
+    "Use this EXACT format for each bonus question:\n"
+    f"{TRIVIA_QUIZ_FENCE_EXAMPLE}\n"
+    "One question per message. word = topic label (History, Science, …). "
+    "Do NOT use spoiler syntax (>! !<), bullet lists of multiple Q&As, or plain-text quizzes. "
+    "Wait for the user's A–D before revealing the answer."
+)
+
+TRIVIA_BONUS_QUIZ_RULES = (
+    "**Bonus quiz (after today's goal):** When the user explicitly asks for more quiz, bonus "
+    "questions, or extra practice beyond today's goal, ask ONE multiple-choice question per turn "
+    "using ```vocab_quiz JSON with quiz_type trivia:\n"
+    f"{TRIVIA_QUIZ_FORMAT_BLOCK}"
+)
+
 TRIVIA_DB_EXAM_HINT = (
     "Active **trivia** project — **exam mode** (app-managed daily quiz).\n"
     "Topics are in project description (comma-separated). daily_goal = correct answers per session.\n"
     "**Daily quiz runs in the app panel** — multiple-choice questions are pre-loaded. "
-    "**Do NOT output ```vocab_quiz blocks.**\n\n"
-    "Your role: explain answers after the user completes questions in the panel; "
-    "answer follow-ups about facts they missed.\n"
-    "When today's goal is met, congratulate clearly. Do NOT ask new quiz questions unless "
-    "they want bonus practice beyond today's goal.\n\n"
+    "**Do NOT output ```vocab_quiz blocks during the daily batch.**\n\n"
+    "Your role during the daily batch: explain answers after the user completes questions in the "
+    "panel; answer follow-ups about facts they missed.\n"
+    "When today's goal is met, congratulate clearly in plain markdown.\n\n"
+    f"{TRIVIA_BONUS_QUIZ_RULES}\n\n"
     "**Export / PDF:** When asked, write a structured markdown summary (title, date, topics, "
     "stats, mastered facts). Tell them to tap the **document export** icon to save a PDF."
 )
@@ -235,17 +256,22 @@ TRIVIA_DB_EXAM_HINT = (
 TRIVIA_EXAM_TUTOR_HINT = TRIVIA_DB_EXAM_HINT
 
 TRIVIA_CHAT_TUTOR_HINT = (
-    "Active **trivia** project — **chat tutor mode** (conversational, NOT multiple choice).\n"
-    "Topics are in project description. daily_goal = correct facts to learn per session.\n\n"
-    "**How to teach:** Share one interesting fact or question at a time in plain prose. "
-    'Explain the answer when the user engages ("got it", "tell me more", "why?"). '
-    "Save mastered facts via background sync when they demonstrate understanding.\n"
-    "Do NOT use ```vocab_card or teach English vocabulary words — this is general knowledge, not language.\n"
-    "Do NOT use ```vocab_quiz unless the user explicitly asks to be quizzed with A–D.\n"
-    "When today's daily_goal is met, congratulate and stop unless they want bonus facts."
+    "Active **trivia** project — **daily general knowledge in chat**.\n"
+    "Topics are in project description (comma-separated). daily_goal = correct/mastered per session.\n\n"
+    "**One question per turn — you choose the format:**\n"
+    "- **Multiple choice:** ```vocab_quiz JSON with quiz_type trivia (word = topic label).\n"
+    "- **Open-ended:** ask the question in plain prose; grade their answer.\n"
+    "- **Teach-then-check:** one interesting fact, then ask them to recall it.\n"
+    f"{TRIVIA_QUIZ_FORMAT_BLOCK}\n"
+    "When they get it right, sync the fact as mastered. Do NOT use vocab_card or teach English vocabulary.\n"
+    "Stop when today's daily_goal is met unless they ask for bonus practice.\n\n"
+    "**Session clarity:** Use the **Today:** line in the project snapshot as the only progress "
+    "counter — never repeat it in a P.S. Only quiz facts listed in the snapshot (not omitted as "
+    "mastered). If the quiz pool is empty, invent a new question on the project's topics.\n\n"
+    f"{TRIVIA_BONUS_QUIZ_RULES}"
 )
 
-TRIVIA_TUTOR_HINT = TRIVIA_EXAM_TUTOR_HINT
+TRIVIA_TUTOR_HINT = TRIVIA_CHAT_TUTOR_HINT
 
 
 def _language_tutor_hint(quiz_mode: str | None) -> str:
@@ -261,25 +287,21 @@ def _trivia_tutor_hint(quiz_mode: str | None) -> str:
 
 
 def _quiz_mode_banner(quiz_mode: str | None, *, kind: str | None = None) -> str:
-    if quiz_mode == "chat":
-        if kind == "trivia":
-            return (
-                "**Presentation mode: chat tutor.** Share general-knowledge facts in conversational prose. "
-                "Do NOT use vocab_card or teach vocabulary words. Multiple-choice only if the user asks."
-            )
-        return (
-            "**Presentation mode: chat tutor.** Teach in conversational prose; "
-            "use vocab_card for language words. Multiple-choice only if the user asks."
-        )
     if quiz_mode == "exam":
         return (
-            "**Presentation mode: exam quiz.** Questions run in the Daily Quiz panel "
-            "(pre-loaded from the database). Do NOT emit vocab_quiz JSON — help with "
-            "follow-ups and explanations only."
+            "**Presentation mode: exam (legacy).** Daily questions may run in a separate panel. "
+            "Prefer chat-based sessions unless the user explicitly opened exam mode."
+        )
+    if kind == "trivia":
+        return (
+            "**Presentation mode: chat.** Run today's trivia in this conversation — "
+            "pick multiple choice, open-ended, or teach-then-check each turn. "
+            "Use ```vocab_quiz when A–D helps."
         )
     return (
-        "**Presentation mode: exam quiz (default).** Questions run in the Daily Quiz panel. "
-        "Do NOT emit vocab_quiz JSON."
+        "**Presentation mode: chat.** Run today's vocabulary session in this conversation — "
+        "pick multiple choice, sentence production, definition checks, or teach-then-quiz each turn. "
+        "Use ```vocab_quiz or vocab_card when helpful."
     )
 
 
@@ -288,12 +310,12 @@ def _level_guidance(level: str) -> str:
 
 
 _LEVEL_LABELS: dict[str, str] = {
-    "level1": "Beginner (A1)",
-    "level2": "Elementary (A2)",
-    "level3": "Intermediate (B1)",
-    "level4": "Upper intermediate (B2)",
-    "level5": "Advanced (C1)",
-    "level6": "Fluent (C2)",
+    "level1": "Beginner",
+    "level2": "Elementary",
+    "level3": "Intermediate",
+    "level4": "Upper intermediate",
+    "level5": "Advanced",
+    "level6": "Fluent",
 }
 
 
@@ -308,7 +330,7 @@ def _language_progress_line(stats: ProjectStats) -> str:
 
 def build_language_quiz_prompt(project: Project, stats: ProjectStats) -> str:
     title = project.title.strip()
-    lvl = _LEVEL_LABELS.get(project.level or "level1", "Beginner (A1)")
+    lvl = _LEVEL_LABELS.get(project.level or "level1", "Beginner")
     goal = (
         f" {project.description.strip()}."
         if project.description and project.description.strip()
@@ -782,6 +804,46 @@ def _stats_for_items(items: list[ProjectItem]) -> dict[str, int]:
     return stats
 
 
+def _format_today_session_line(project: Project, stats: dict[str, int]) -> str:
+    from app.services import daily_learning
+
+    daily_goal = daily_learning.resolve_daily_goal(project)
+    mastered_today = int(stats.get("mastered_today") or 0)
+    remaining = max(0, daily_goal - mastered_today)
+    unit = "words mastered" if _is_language_project(project) else "correct"
+    if mastered_today >= daily_goal:
+        return f"**Today:** {mastered_today}/{daily_goal} {unit} — daily goal complete."
+    return (
+        f"**Today:** {mastered_today}/{daily_goal} {unit} ({remaining} more needed). "
+        "This is the authoritative progress line — do not restate or contradict it."
+    )
+
+
+def _quiz_pool_items(items: list[ProjectItem]) -> tuple[list[ProjectItem], int]:
+    pool = [i for i in items if _item_status(i) != "mastered"]
+    return pool, len(items) - len(pool)
+
+
+def _quiz_pool_note(project: Project, pool: list[ProjectItem], mastered_skip: int) -> str:
+    if mastered_skip <= 0:
+        return ""
+    if pool:
+        return (
+            f"\n\n({mastered_skip} already-mastered items omitted above — do not re-quiz them "
+            "in today's session unless the user asks for review.)"
+        )
+    if _is_trivia_project(project):
+        topics = project.description or "general knowledge"
+        return (
+            "\n\n**Quiz pool:** all saved facts are mastered. Ask a **new** question from "
+            f"topics ({topics}) — not a repeat of previously learned facts."
+        )
+    return (
+        "\n\n**Quiz pool:** all saved words are mastered. Teach/quiz **new** words at the "
+        "user's level toward today's goal."
+    )
+
+
 async def load_project_for_prompt(
     session: AsyncSession,
     user_id: UUID,
@@ -789,7 +851,11 @@ async def load_project_for_prompt(
     settings: Settings,
     *,
     quiz_mode: str | None = None,
+    client_timezone: str | None = None,
 ) -> str:
+    from app.repositories import users as users_repo
+    from app.services import time_context as time_context_service
+
     project = await projects_repo.get_by_id(session, project_id, user_id)
     if project is None:
         return ""
@@ -799,14 +865,41 @@ async def load_project_for_prompt(
         project_id=project_id,
         limit=settings.project_item_inject_limit,
     )
-    block = format_projects_block([project], items)
+    display_items = items
+    pool_note = ""
+    if quiz_mode != "exam" and (_is_language_project(project) or _is_trivia_project(project)):
+        pool, mastered_skip = _quiz_pool_items(items)
+        if mastered_skip > 0:
+            display_items = pool
+            pool_note = _quiz_pool_note(project, pool, mastered_skip)
+    block = format_projects_block([project], display_items)
+    if pool_note:
+        block = f"{block}{pool_note}"
+    today_line = ""
+    if _is_language_project(project) or _is_trivia_project(project):
+        user = await users_repo.get_by_id(session, user_id)
+        tz_name = time_context_service.effective_timezone(
+            user.timezone if user else None,
+            client_timezone,
+        )
+        stats = await project_items_repo.count_stats(
+            session,
+            project_id,
+            user_id,
+            timezone_name=tz_name,
+        )
+        today_line = _format_today_session_line(project, stats)
     if _is_language_project(project):
         hint = _language_tutor_hint(quiz_mode)
+        if today_line:
+            hint = f"{today_line}\n\n{hint}"
         block = f"{block}\n\n{hint}" if block else hint
     if _is_programming_project(project):
         block = f"{block}\n\n{PROGRAMMING_TUTOR_HINT}" if block else PROGRAMMING_TUTOR_HINT
     if _is_trivia_project(project):
         hint = _trivia_tutor_hint(quiz_mode)
+        if today_line:
+            hint = f"{today_line}\n\n{hint}"
         block = f"{block}\n\n{hint}" if block else hint
     if block:
         block = (
@@ -877,15 +970,15 @@ async def load_daily_learning_summary_for_prompt(
             timezone_name=tz_name,
         )
         total = int(stats.get("total") or 0)
-        if total == 0:
-            continue
         daily_goal = daily_learning.resolve_daily_goal(project)
         mastered_today = int(stats.get("mastered_today") or 0)
         if mastered_today >= daily_goal:
             continue
         quiz_label, unit = _daily_learning_quiz_label(project)
         remaining = max(0, daily_goal - mastered_today)
-        if mastered_today == 0:
+        if total == 0:
+            status = f"not started — {remaining} left for today's {quiz_label}"
+        elif mastered_today == 0:
             status = f"not started — {remaining} left for today's {quiz_label}"
         else:
             status = f"{remaining} left for today's {quiz_label}"

@@ -197,6 +197,23 @@ async def _load_gmail_context_block(
         return await chat_pkg.email_service.load_gmail_context(session, redis, user, settings)
 
 
+async def _should_minimal_quiz_context(
+    session: AsyncSession,
+    chat_id: UUID,
+    content: str,
+) -> bool:
+    """Letter answers after an in-chat ```vocab_quiz message use the quiz prompt path."""
+    if not web_search_service.is_vocab_quiz_answer(content):
+        return False
+    import app.services.chat as chat_pkg
+    from app.services import vocab_quiz as vocab_quiz_service
+
+    prior = await chat_pkg.messages_repo.get_last_assistant(session, chat_id)
+    if prior is None:
+        return False
+    return vocab_quiz_service.parse_vocab_quiz(prior.content) is not None
+
+
 async def build_stream_prompt_context(
     user_id: UUID,
     chat_id: UUID,
@@ -223,7 +240,6 @@ async def build_stream_prompt_context(
     meta: dict[str, Any] = {}
     lightweight = is_lightweight_chat_turn(content)
     minimal_personal = is_broad_self_question(content)
-    # Exam uses the DB daily-quiz panel; chat tutor uses full LLM for A-D follow-ups.
     minimal_quiz = False
     day_planning = day_planning_service.is_day_planning_question(content)
     day_reflection = day_planning_service.is_day_reflection_question(content)
@@ -248,6 +264,10 @@ async def build_stream_prompt_context(
             chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user_id)
             if chat is None:
                 raise ChatNotFoundError("Chat not found.")
+
+        minimal_quiz = await _should_minimal_quiz_context(session, chat.id, content)
+        if getattr(chat, "quiz_mode", None) == "exam":
+            minimal_quiz = False
 
         user_locale = user.locale
         chat_summary = chat.summary
@@ -567,8 +587,7 @@ async def prepare_chat_turn(
             input_tokens=estimate_tokens(user_content),
         )
         is_letter_answer = web_search_service.is_vocab_quiz_answer(content)
-        minimal_quiz = False
-        if is_letter_answer and minimal_quiz and chat.project_id is not None:
+        if is_letter_answer and chat.project_id is not None:
             prior_assistant = await chat_pkg.messages_repo.get_last_assistant(session, chat_id)
             if prior_assistant is not None:
                 try:

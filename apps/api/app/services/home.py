@@ -24,6 +24,7 @@ from app.models.schemas import (
 )
 from app.repositories import chats as chats_repo
 from app.repositories import project_items as project_items_repo
+from app.repositories import project_quiz_questions as quiz_questions_repo
 from app.repositories import projects as projects_repo
 from app.repositories import suggestions as suggestions_repo
 from app.repositories import todos as todos_repo
@@ -494,9 +495,9 @@ def _project_starters(project: Project, stats: ProjectStats) -> list[HomeStarter
         elif stats.mastered_today == 0:
             prompt = (
                 f'Help me start today\'s "{title}" vocabulary session.{goal} {progress} '
-                f"My daily goal is {daily_goal} words. Begin with a short quiz — "
-                "prioritize words due for review, then new and learning words until "
-                "I hit today's goal."
+                f"My daily goal is {daily_goal} words. Quiz and teach in chat — "
+                "you pick the format each turn (multiple choice, sentences, definitions, etc.). "
+                "Prioritize words due for review, then new and learning words."
             )
         elif stats.due_for_review > 0:
             prompt = (
@@ -518,21 +519,21 @@ def _project_starters(project: Project, stats: ProjectStats) -> list[HomeStarter
         remaining = max(0, daily_goal - stats.mastered_today)
         if stats.total == 0:
             prompt = (
-                f'Start my daily "{title}" general-knowledge quiz.{goal} '
-                f"Ask me one multiple-choice question at a time until I get "
-                f"{daily_goal} correct today."
+                f'Start my daily "{title}" general-knowledge session.{goal} '
+                f"Quiz me in chat — one question at a time, {daily_goal} correct today. "
+                "You choose the format (multiple choice, open-ended, etc.). Begin now."
             )
         elif stats.mastered_today == 0:
             prompt = (
-                f'Start my daily "{title}" general-knowledge quiz.{goal} {progress} '
-                f"Ask me one multiple-choice question at a time until I get "
-                f"{daily_goal} correct today."
+                f'Start my daily "{title}" general-knowledge session.{goal} {progress} '
+                f"Quiz me in chat — one question at a time until {daily_goal} correct today. "
+                "You choose the format each turn."
             )
         else:
             prompt = (
-                f'Continue my daily "{title}" trivia quiz.{goal} {progress} '
+                f'Continue my daily "{title}" session.{goal} {progress} '
                 f"I need {remaining} more correct today (daily goal: {daily_goal}). "
-                "Ask the next question."
+                "Ask the next question in chat — you pick the format."
             )
     elif stats.total == 0:
         prompt = (
@@ -595,6 +596,7 @@ def _project_highlight(
     stats: ProjectStats,
     *,
     home_tz: ZoneInfo,
+    quiz_pending_today: int = 0,
 ) -> HomeProjectHighlight | None:
     if not _is_daily_home_project(project):
         return None
@@ -603,6 +605,7 @@ def _project_highlight(
         total=stats.total,
         mastered_today=stats.mastered_today,
         pending_today=stats.pending_today,
+        quiz_pending_today=quiz_pending_today,
         learning_count=stats.learning_count,
         due_for_review=stats.due_for_review,
         daily_goal=daily_goal,
@@ -650,9 +653,15 @@ async def _load_project_home_content(
             if stats.mastered_today >= daily_goal:
                 completed_daily.append((candidate.title.strip(), _daily_home_kind(candidate)))
                 continue
-            highlight = _project_highlight(candidate, stats, home_tz=home_tz)
+            today = datetime.now(home_tz).date()
+            quiz_pending = await quiz_questions_repo.count_pending_today(
+                session, candidate.id, today
+            )
+            highlight = _project_highlight(
+                candidate, stats, home_tz=home_tz, quiz_pending_today=quiz_pending
+            )
             if highlight is not None:
-                starters = _project_starters(candidate, stats)
+                starters: list[HomeStarter] = []
                 subtitle = _project_subtitle(
                     candidate,
                     stats,
@@ -670,7 +679,11 @@ async def _load_project_home_content(
         timezone_name=str(home_tz.key),
     )
     stats = ProjectStats.model_validate(stats_raw)
-    highlight = _project_highlight(primary, stats, home_tz=home_tz)
+    quiz_pending = 0
+    if _is_daily_home_project(primary):
+        today = datetime.now(home_tz).date()
+        quiz_pending = await quiz_questions_repo.count_pending_today(session, primary.id, today)
+    highlight = _project_highlight(primary, stats, home_tz=home_tz, quiz_pending_today=quiz_pending)
     completed_daily = []
     if highlight is None and _is_daily_home_project(primary):
         daily_goal = daily_learning.resolve_daily_goal(primary)

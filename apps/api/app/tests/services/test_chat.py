@@ -646,7 +646,7 @@ async def test_build_prompt_minimal_for_vocab_quiz_answer():
         )
 
     system = messages[0]["content"]
-    assert "vocabulary quiz" in system
+    assert "Vocabulary (English words)" in system
     assert "vocab_quiz" in system
     assert "Recall has two todo features" not in system
     assert "Web search results" not in system
@@ -696,6 +696,43 @@ async def test_build_prompt_minimal_quiz_includes_project_context():
 
     quiz_ctx_mock.assert_awaited_once()
     assert "Active vocabulary quiz" in messages[0]["content"]
+
+
+@pytest.mark.asyncio
+async def test_should_minimal_quiz_context_after_vocab_quiz_fence():
+    from app.services.chat.turn_prep import _should_minimal_quiz_context
+
+    chat_id = uuid4()
+    session = AsyncMock()
+    quiz_msg = MagicMock()
+    quiz_msg.content = (
+        '```vocab_quiz\n{"quiz_type":"trivia","word":"History","question":"Which wonder?",'
+        '"correct":"A","choices":[{"letter":"A","text":"Colossus"},'
+        '{"letter":"B","text":"Pyramid"}]}\n```'
+    )
+
+    with patch(
+        "app.services.chat.messages_repo.get_last_assistant",
+        AsyncMock(return_value=quiz_msg),
+    ):
+        assert await _should_minimal_quiz_context(session, chat_id, "B") is True
+        assert await _should_minimal_quiz_context(session, chat_id, "more please") is False
+
+
+@pytest.mark.asyncio
+async def test_should_minimal_quiz_context_false_without_prior_quiz():
+    from app.services.chat.turn_prep import _should_minimal_quiz_context
+
+    chat_id = uuid4()
+    session = AsyncMock()
+    plain = MagicMock()
+    plain.content = "Just chatting — no quiz fence here."
+
+    with patch(
+        "app.services.chat.messages_repo.get_last_assistant",
+        AsyncMock(return_value=plain),
+    ):
+        assert await _should_minimal_quiz_context(session, chat_id, "A") is False
 
 
 @pytest.mark.asyncio

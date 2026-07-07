@@ -144,15 +144,20 @@ def is_writing_deliverable_request(text: str) -> bool:
 
 
 QUIZ_ANSWER_HINT = (
-    "The user just answered a vocabulary quiz with A, B, C, or D. "
-    "The previous assistant message has the question and choices.\n"
-    "If correct: congratulate briefly, give one example sentence, then ask the next question.\n"
-    "If wrong: gently correct, explain the meaning, encourage them, then offer to continue.\n"
-    "When asking the next question, use the quiz card format:\n"
+    "The user just answered a multiple-choice quiz with A, B, C, or D. "
+    "The previous assistant message has the question, choices, and correct letter.\n"
+    "Structure your reply as:\n"
+    "1) **Brief feedback only** (1-3 sentences): if wrong, say which option was correct and why; "
+    "if right, congratulate briefly. Do NOT use spoiler syntax (>! !<) or reveal the next answer.\n"
+    "2) **Exactly ONE next question** in a ```vocab_quiz fence — required so the app can show "
+    "A-D choices as plain text. Never use plain Q:/A: lines, bullet lists of multiple questions, "
+    "or unrelated task/topic pivots in the same message.\n"
+    "Vocabulary (English words):\n"
     f"{projects_service.VOCAB_QUIZ_FORMAT_BLOCK}\n"
-    "One question per message — wait for their letter before revealing the answer.\n"
-    "On every correct answer, sync MUST master the quizzed word immediately.\n"
-    "Keep feedback short and encouraging."
+    "General knowledge (trivia):\n"
+    f"{projects_service.TRIVIA_QUIZ_FORMAT_BLOCK}\n"
+    "One question per message — wait for their letter before explaining the next answer.\n"
+    "On correct vocabulary answers, sync MUST master the quizzed word immediately."
 )
 
 QUIZ_RECENT_MESSAGE_LIMIT = 12

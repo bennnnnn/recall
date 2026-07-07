@@ -1,5 +1,7 @@
-import type { LanguageLevel, ProjectKind } from "@/lib/api";
+import type { LanguageLevel, Project, ProjectKind } from "@/lib/api";
 import { levelLabel } from "@/lib/languageLevels";
+import { findLanguageProject } from "@/lib/languageProject";
+import { findTriviaProject } from "@/lib/triviaProject";
 
 export type CreateStep = "subject" | "level" | "daily" | "topics";
 
@@ -78,4 +80,12 @@ export function resolveProjectDescription(titleInput: string, goalInput: string)
   if (!goal) return "";
   if (title && goal === title) return "";
   return goal;
+}
+
+/** v1 learning is capped at English vocabulary + general knowledge. */
+export function canAddLearningProject(projects: Project[]): boolean {
+  const active = projects.filter((project) => !project.archived);
+  const hasLanguage = findLanguageProject(active, "en") != null;
+  const hasTrivia = findTriviaProject(active) != null;
+  return !(hasLanguage && hasTrivia);
 }

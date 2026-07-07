@@ -2,6 +2,9 @@ import type { Message, ProjectDailyQuiz, ProjectQuizQuestion, QuizModality } fro
 
 export const DAILY_QUIZ_MSG_PREFIX = "daily-quiz-";
 export const DAILY_QUIZ_LOADING_ID = "daily-quiz-loading";
+export const DAILY_QUIZ_ERROR_ID = "daily-quiz-error";
+export const DAILY_QUIZ_EMPTY_ID = "daily-quiz-empty";
+export const DAILY_QUIZ_DONE_ID = "daily-quiz-done";
 
 export function isDailyQuizMessageId(id: string): boolean {
   return id.startsWith(DAILY_QUIZ_MSG_PREFIX);
@@ -22,92 +25,41 @@ export function buildDailyQuizMcqContent(
   question: ProjectQuizQuestion,
   progress: { done: number; goal: number },
 ): string {
+  const pos = question.part_of_speech ? ` · _${question.part_of_speech}_` : "";
+  const header =
+    question.quiz_kind === "trivia"
+      ? `**${question.topic}**`
+      : `**${question.topic}**${pos}`;
   return [
-    "```vocab_quiz",
-    JSON.stringify({
-      word: question.topic,
-      part_of_speech: question.part_of_speech ?? undefined,
-      question: question.question_text,
-      quiz_type: question.quiz_kind === "trivia" ? "trivia" : "vocab",
-      choices: question.choices.map((c) => ({ letter: c.letter, text: c.text })),
-      daily_progress: progress,
-    }),
-    "```",
+    `**${progress.done} / ${progress.goal} correct today**`,
+    "",
+    header,
+    "",
+    question.question_text,
+    "",
+    ...question.choices.map((c) => `**${c.letter})** ${c.text}`),
+    "",
+    "Reply with **A**, **B**, **C**, or **D**.",
   ].join("\n");
 }
 
-const DAILY_QUIZ_TEXT_FENCE_RE = /```daily_quiz_text\s*\n([\s\S]*?)```/i;
-
-export type ParsedDailyQuizText = {
-  questionId: string;
-  topic: string;
-  modality: "definition" | "sentence";
-  progress: { done: number; goal: number };
-};
-
-export function buildDailyQuizTextContent(
-  question: ProjectQuizQuestion,
-  modality: "definition" | "sentence",
-  progress: { done: number; goal: number },
-): string {
-  return [
-    "```daily_quiz_text",
-    JSON.stringify({
-      question_id: question.id,
-      topic: question.topic,
-      modality,
-      progress,
-    }),
-    "```",
-  ].join("\n");
-}
-
-export function parseDailyQuizText(content: string): ParsedDailyQuizText | null {
-  const match = DAILY_QUIZ_TEXT_FENCE_RE.exec(content);
+export function parseDailyQuizLetterReply(text: string): "A" | "B" | "C" | "D" | null {
+  const trimmed = text.trim();
+  const match = /^([A-Da-d])\)?$/.exec(trimmed);
   if (!match) return null;
-  try {
-    const data = JSON.parse(match[1].trim()) as {
-      question_id?: string;
-      topic?: string;
-      modality?: string;
-      progress?: { done?: number; goal?: number };
-    };
-    const questionId = String(data.question_id ?? "");
-    const topic = String(data.topic ?? "").trim();
-    const modality = data.modality === "sentence" ? "sentence" : "definition";
-    if (!questionId || !topic) return null;
-    const done = Number(data.progress?.done ?? 0);
-    const goal = Number(data.progress?.goal ?? 0);
-    return {
-      questionId,
-      topic,
-      modality,
-      progress: { done, goal },
-    };
-  } catch {
-    return null;
-  }
-}
-
-export function hasDailyQuizTextFence(content: string): boolean {
-  return /```daily_quiz_text/i.test(content);
+  return match[1].toUpperCase() as "A" | "B" | "C" | "D";
 }
 
 export function buildDailyQuizMessage(
   question: ProjectQuizQuestion,
   session: ProjectDailyQuiz,
-  modality: QuizModality,
+  _modality: QuizModality,
 ): Message {
   const progress = { done: session.answered_count, goal: session.daily_goal };
-  const content =
-    modality === "mcq"
-      ? buildDailyQuizMcqContent(question, progress)
-      : buildDailyQuizTextContent(question, modality, progress);
-
   return {
     id: dailyQuizMessageId(question.id),
     role: "assistant",
-    content,
+    content: buildDailyQuizMcqContent(question, progress),
     model: null,
     created_at: new Date().toISOString(),
   };
@@ -121,4 +73,35 @@ export function buildDailyQuizLoadingMessage(): Message {
     model: null,
     created_at: new Date().toISOString(),
   };
+}
+
+function statusMessage(id: string, content: string): Message {
+  return {
+    id,
+    role: "assistant",
+    content,
+    model: null,
+    created_at: new Date().toISOString(),
+  };
+}
+
+export function buildDailyQuizErrorMessage(text: string): Message {
+  return statusMessage(DAILY_QUIZ_ERROR_ID, text);
+}
+
+export function buildDailyQuizEmptyMessage(text: string): Message {
+  return statusMessage(DAILY_QUIZ_EMPTY_ID, text);
+}
+
+export function buildDailyQuizDoneMessage(text: string): Message {
+  return statusMessage(DAILY_QUIZ_DONE_ID, text);
+}
+
+export function isDailyQuizStatusMessageId(id: string): boolean {
+  return (
+    id === DAILY_QUIZ_LOADING_ID ||
+    id === DAILY_QUIZ_ERROR_ID ||
+    id === DAILY_QUIZ_EMPTY_ID ||
+    id === DAILY_QUIZ_DONE_ID
+  );
 }

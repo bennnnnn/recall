@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Alert,
   useWindowDimensions,
 } from "react-native";
 import { registerNewChat } from "@/lib/drawer";
@@ -40,11 +39,15 @@ import { useDailyQuiz, appendQuizFeedbackMessage } from "@/hooks/useDailyQuiz";
 import {
   buildDailyQuizLoadingMessage,
   buildDailyQuizMessage,
+  buildDailyQuizErrorMessage,
+  buildDailyQuizEmptyMessage,
+  buildDailyQuizDoneMessage,
   dailyQuizMessageId,
-  isDailyQuizMessageId,
-  questionIdFromDailyQuizMessageId,
+  DAILY_QUIZ_DONE_ID,
+  DAILY_QUIZ_LOADING_ID,
+  isDailyQuizStatusMessageId,
+  parseDailyQuizLetterReply,
 } from "@/lib/dailyQuizMessage";
-import { getQuizUiStyle, setQuizUiStyle, type QuizUiStyle } from "@/lib/quizUiPrefs";
 import { useModels } from "@/hooks/useModels";
 import { useNetwork } from "@/contexts/NetworkContext";
 import { useChatErrorHandlers, useChatStreamLifecycle } from "@/hooks/useChatScreenError";
@@ -182,19 +185,12 @@ function ChatScreen() {
     setPendingLaunch,
     pendingLaunchRef,
     dailyQuizActive,
+    dailyQuizProjectId,
+    releaseDailyQuizPanel,
   } = routeLoader;
 
-  const dailyQuizProjectId = dailyQuizActive ? resolveQuizProjectId() : null;
-  const [quizUiStyle, setQuizUiStyleState] = useState<QuizUiStyle>("card");
-  const quizUiPrefPromptedRef = useRef(false);
+  const dailyQuizHandoffRef = useRef(false);
   const displayedQuestionIdsRef = useRef(new Set<string>());
-
-  useEffect(() => {
-    if (!dailyQuizActive) return;
-    void getQuizUiStyle().then((style) => {
-      if (style) setQuizUiStyleState(style);
-    });
-  }, [dailyQuizActive]);
 
   const handleQuizFeedback = useCallback(
     (feedback: string) => {
@@ -202,6 +198,15 @@ function ChatScreen() {
       scroll.scrollToLatest();
     },
     [setMessages, scroll],
+  );
+
+  const handleQuizProgress = useCallback(
+    (answered: number, goal: number) => {
+      if (answered >= goal) {
+        void refreshHome();
+      }
+    },
+    [refreshHome],
   );
 
   const handleSuggestMcq = useCallback(() => {
@@ -214,42 +219,9 @@ function ChatScreen() {
     chatId: activeChatId,
     enabled: dailyQuizActive && Boolean(dailyQuizProjectId),
     onFeedback: handleQuizFeedback,
+    onProgress: handleQuizProgress,
     onSuggestMcq: handleSuggestMcq,
   });
-
-  useEffect(() => {
-    const currentId = dailyQuiz.session?.current?.id;
-    if (!dailyQuizActive || !currentId || quizUiPrefPromptedRef.current) return;
-    quizUiPrefPromptedRef.current = true;
-    void (async () => {
-      const existing = await getQuizUiStyle();
-      if (existing) {
-        setQuizUiStyleState(existing);
-        return;
-      }
-      Alert.alert(
-        t("daily_quiz.ui_pref_title"),
-        t("daily_quiz.ui_pref_body"),
-        [
-          {
-            text: t("daily_quiz.ui_pref_card"),
-            onPress: () => {
-              void setQuizUiStyle("card");
-              setQuizUiStyleState("card");
-            },
-          },
-          {
-            text: t("daily_quiz.ui_pref_simple"),
-            onPress: () => {
-              void setQuizUiStyle("simple");
-              setQuizUiStyleState("simple");
-            },
-          },
-        ],
-        { cancelable: false },
-      );
-    })();
-  }, [dailyQuizActive, dailyQuiz.session?.current?.id, t]);
 
   useEffect(() => {
     if (!dailyQuizActive) return;
@@ -257,32 +229,85 @@ function ChatScreen() {
   }, [dailyQuizActive, dailyQuiz.session?.current?.id, scroll]);
 
   useEffect(() => {
+    if (!dailyQuizActive || !dailyQuiz.submitting) return;
+    scroll.scrollToLatest();
+  }, [dailyQuizActive, dailyQuiz.submitting, scroll]);
+
+  useEffect(() => {
     if (!dailyQuizActive) {
       displayedQuestionIdsRef.current.clear();
+      dailyQuizHandoffRef.current = false;
       return;
     }
-    const session = dailyQuiz.session;
-    const question = session?.current;
-    if (!question || dailyQuiz.loading) return;
+    if (dailyQuiz.loading) return;
+    if (dailyQuizHandoffRef.current) return;
 
+    if (dailyQuiz.error) {
+      setMessages([buildDailyQuizErrorMessage(t("daily_quiz.error"))]);
+      return;
+    }
+
+    const session = dailyQuiz.session;
+    if (!session) {
+      setMessages([buildDailyQuizEmptyMessage(t("daily_quiz.empty"))]);
+      return;
+    }
+
+    if (session.complete && session.answered_count >= session.daily_goal) {
+      setMessages((prev) => {
+        const withoutStatus = prev.filter((m) => !isDailyQuizStatusMessageId(m.id));
+        const withoutQuestions = withoutStatus.filter(
+          (m) => !m.id.startsWith("daily-quiz-") || m.id === DAILY_QUIZ_DONE_ID,
+        );
+        if (withoutQuestions.some((m) => m.id === DAILY_QUIZ_DONE_ID)) {
+          return withoutQuestions;
+        }
+        return [...withoutQuestions, buildDailyQuizDoneMessage(t("daily_quiz.done_body"))];
+      });
+      void refreshHome();
+      return;
+    }
+
+    if (!session.current) {
+      if (dailyQuiz.loadingNext) {
+        setMessages((prev) => {
+          const withoutStatus = prev.filter((m) => !isDailyQuizStatusMessageId(m.id));
+          if (withoutStatus.some((m) => m.id === DAILY_QUIZ_LOADING_ID)) {
+            return withoutStatus;
+          }
+          return [...withoutStatus, buildDailyQuizLoadingMessage()];
+        });
+        return;
+      }
+      setMessages([buildDailyQuizEmptyMessage(t("daily_quiz.empty"))]);
+      return;
+    }
+
+    const question = session.current;
     setMessages((prev) => {
+      const withoutStatus = prev.filter((m) => !isDailyQuizStatusMessageId(m.id));
       const msgId = dailyQuizMessageId(question.id);
       const nextMsg = buildDailyQuizMessage(question, session, dailyQuiz.modality);
-      const existing = prev.find((m) => m.id === msgId);
+      const existing = withoutStatus.find((m) => m.id === msgId);
       if (existing) {
-        if (existing.content === nextMsg.content) return prev;
-        return prev.map((m) => (m.id === msgId ? nextMsg : m));
+        if (existing.content === nextMsg.content) return withoutStatus;
+        return withoutStatus.map((m) => (m.id === msgId ? nextMsg : m));
       }
       displayedQuestionIdsRef.current.add(question.id);
-      return [...prev, nextMsg];
+      return [...withoutStatus, nextMsg];
     });
   }, [
     dailyQuizActive,
     dailyQuiz.session,
     dailyQuiz.session?.current?.id,
+    dailyQuiz.session?.complete,
     dailyQuiz.modality,
     dailyQuiz.loading,
+    dailyQuiz.loadingNext,
+    dailyQuiz.error,
     setMessages,
+    t,
+    refreshHome,
   ]);
 
   useEffect(() => {
@@ -334,6 +359,77 @@ function ChatScreen() {
   const { selectedModel } = composer;
   const { isOffline } = useNetwork();
 
+  const handleDailyQuizBeforeSend = useCallback(
+    (text: string): boolean => {
+      if (!dailyQuizActive) return false;
+
+      const session = dailyQuiz.session;
+      const question = session?.current;
+      const letter = parseDailyQuizLetterReply(text);
+
+      if (dailyQuiz.loading || dailyQuiz.submitting || dailyQuiz.loadingNext) {
+        setInputRef.current("");
+        return true;
+      }
+
+      if (letter && session && session.complete && session.answered_count >= session.daily_goal) {
+        setInputRef.current("");
+        return true;
+      }
+
+      if (question && session && !session.complete) {
+        if (letter) {
+          const pickId = `local-quiz-pick-${question.id}`;
+          setMessages((prev) => {
+            const withoutOld = prev.filter((m) => m.id !== pickId);
+            return [
+              ...withoutOld,
+              {
+                id: pickId,
+                role: "user",
+                content: letter,
+                model: null,
+                created_at: new Date().toISOString(),
+              },
+            ];
+          });
+          scroll.scrollToLatest();
+          setInputRef.current("");
+          void dailyQuiz.submitAnswer(question, { modality: "mcq", letter });
+          return true;
+        }
+        handleQuizFeedback(t("daily_quiz.reply_with_letter"));
+        setInputRef.current("");
+        return true;
+      }
+
+      if (session && !session.complete && !question) {
+        setInputRef.current("");
+        return true;
+      }
+
+      dailyQuizHandoffRef.current = true;
+      releaseDailyQuizPanel();
+      if (!/quiz|question|bonus|more/i.test(text) || quizVariant !== "trivia") return false;
+      setMessages((prev) => prev.filter((m) => !isDailyQuizStatusMessageId(m.id)));
+      return false;
+    },
+    [
+      dailyQuizActive,
+      dailyQuiz.session,
+      dailyQuiz.loading,
+      dailyQuiz.loadingNext,
+      dailyQuiz.submitting,
+      dailyQuiz,
+      handleQuizFeedback,
+      releaseDailyQuizPanel,
+      quizVariant,
+      setMessages,
+      scroll,
+      t,
+    ],
+  );
+
   const send = useChatSend({
     token,
     chatId,
@@ -356,6 +452,7 @@ function ChatScreen() {
     onStreamBusy: handleStreamBusy,
     isOffline,
     resolveQuizProjectId,
+    onBeforeSend: handleDailyQuizBeforeSend,
   });
 
   const {
@@ -371,7 +468,6 @@ function ChatScreen() {
     handleSend,
     handlePickAttachment,
     handleAttachmentSheetSelect,
-    handleQuizAnswer,
     handleEditMessage,
     creatingRef,
     pendingOutboundId,
@@ -435,66 +531,25 @@ function ChatScreen() {
 
   const displayMessages = useMemo(() => {
     if (!dailyQuizActive) return messages;
-    if (dailyQuiz.loading && !dailyQuiz.session) {
+    if (!dailyQuiz.error && !dailyQuiz.session && (dailyQuiz.loading || messages.length === 0)) {
+      return [buildDailyQuizLoadingMessage()];
+    }
+    if ((dailyQuiz.loading || dailyQuiz.loadingNext) && messages.length === 0) {
+      return [buildDailyQuizLoadingMessage()];
+    }
+    if (dailyQuiz.submitting && !messages.some((m) => m.id === DAILY_QUIZ_LOADING_ID)) {
       return [...messages, buildDailyQuizLoadingMessage()];
     }
     return messages;
-  }, [messages, dailyQuizActive, dailyQuiz.loading, dailyQuiz.session]);
-
-  const wrappedHandleQuizAnswer = useCallback(
-    (
-      messageId: string,
-      letter: "A" | "B" | "C" | "D",
-      meta?: import("@/lib/parseVocabQuiz").QuizAnswerMeta,
-    ) => {
-      if (isDailyQuizMessageId(messageId)) {
-        const questionId = questionIdFromDailyQuizMessageId(messageId);
-        const question = dailyQuiz.session?.current;
-        if (question?.id === questionId && !dailyQuiz.submitting) {
-          const pickId = `local-quiz-pick-${questionId}`;
-          setMessages((prev) => {
-            const withoutOld = prev.filter((m) => m.id !== pickId);
-            return [
-              ...withoutOld,
-              {
-                id: pickId,
-                role: "user",
-                content: letter,
-                model: null,
-                created_at: new Date().toISOString(),
-              },
-            ];
-          });
-          scroll.scrollToLatest();
-          void dailyQuiz.submitAnswer(question, { modality: "mcq", letter });
-        }
-        return;
-      }
-      handleQuizAnswer(messageId, letter, meta);
-    },
-    [dailyQuiz, handleQuizAnswer, setMessages, scroll],
-  );
-
-  const dailyQuizRow = useMemo(
-    () =>
-      dailyQuizActive
-        ? {
-            active: true,
-            submitting: dailyQuiz.submitting,
-            allowRetry: dailyQuiz.allowRetry,
-            currentQuestion: dailyQuiz.session?.current ?? null,
-            onModalityChange: dailyQuiz.setModality,
-            onTextAnswer: (
-              question: import("@/lib/api").ProjectQuizQuestion,
-              text: string,
-              modality: "definition" | "sentence",
-            ) => void dailyQuiz.submitAnswer(question, { modality, text }),
-            onSkip: (question: import("@/lib/api").ProjectQuizQuestion) =>
-              void dailyQuiz.skipQuestion(question),
-          }
-        : undefined,
-    [dailyQuizActive, dailyQuiz],
-  );
+  }, [
+    messages,
+    dailyQuizActive,
+    dailyQuiz.loading,
+    dailyQuiz.loadingNext,
+    dailyQuiz.submitting,
+    dailyQuiz.session,
+    dailyQuiz.error,
+  ]);
 
   const { headerTitleLabel, renderItem } = useChatMessageList({
     messages: displayMessages,
@@ -505,13 +560,10 @@ function ChatScreen() {
     quizVariant,
     highlightedMessageId,
     sendingMessageId: sendingMessageId ?? pendingOutboundId,
-    creatingRef,
     setMenuVisible,
     regenerateResponse: handleRegenerate,
     handleEditMessage,
     handleFeedback,
-    handleQuizAnswer: wrappedHandleQuizAnswer,
-    dailyQuizRow,
   });
 
   const layout = useChatLayoutMetrics({

@@ -105,22 +105,24 @@ export function mergeDoneIntoMessages(
   }
 
   const next = [...prev];
-  for (let i = next.length - 1; i >= 0; i--) {
-    if (next[i].role === "assistant") {
-      next[i] = {
-        ...next[i],
-        id: finalId,
-        content: finalContent ?? next[i].content,
-        recalled,
-        memory_hints,
-        context_summarized,
-        search_sources,
-        model: model ?? next[i].model,
-      };
-      break;
-    }
+  const content = stripSearchSourcesFromContent(finalContent ?? draftContent);
+  if (!content.trim()) {
+    return next;
   }
-  return next;
+  return [
+    ...next,
+    {
+      id: finalId,
+      role: "assistant" as const,
+      content,
+      model: model ?? null,
+      recalled,
+      memory_hints,
+      context_summarized,
+      search_sources: search_sources ?? parseSearchSources(content),
+      created_at: new Date().toISOString(),
+    },
+  ];
 }
 
 /** Apply resolved model to the in-flight streaming bubble as soon as stream_end arrives. */

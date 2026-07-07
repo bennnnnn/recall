@@ -14,6 +14,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -256,7 +257,16 @@ class ProjectItem(Base):
 
 class ProjectQuizQuestion(Base):
     __tablename__ = "project_quiz_questions"
-    __table_args__ = (Index("ix_project_quiz_project_date", "project_id", "quiz_date"),)
+    __table_args__ = (
+        Index("ix_project_quiz_project_date", "project_id", "quiz_date"),
+        Index(
+            "uq_project_quiz_vocab_topic",
+            "project_id",
+            "topic_normalized",
+            unique=True,
+            postgresql_where=text("quiz_kind = 'vocab'"),
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)

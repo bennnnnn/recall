@@ -105,6 +105,7 @@ def daily_home_cue(
     total: int,
     mastered_today: int,
     pending_today: int,
+    quiz_pending_today: int = 0,
     learning_count: int,
     due_for_review: int,
     daily_goal: int,
@@ -114,9 +115,11 @@ def daily_home_cue(
     """Return a home-card cue, or None when today's daily goal is complete."""
     if mastered_today >= daily_goal:
         return None
-    if total == 0:
+    if total == 0 and quiz_pending_today == 0:
         return "start"
     if mastered_today > 0:
+        return "continue"
+    if quiz_pending_today > 0:
         return "continue"
     if pending_today > 0:
         return "finish_pending"

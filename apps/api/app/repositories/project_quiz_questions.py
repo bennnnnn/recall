@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, date, datetime
+from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import ProjectQuizQuestion
@@ -59,6 +61,45 @@ async def get_by_id(
     return result.scalar_one_or_none()
 
 
+async def list_pending_for_date(
+    session: AsyncSession,
+    project_id: UUID,
+    quiz_date: date,
+) -> list[ProjectQuizQuestion]:
+    result = await session.execute(
+        select(ProjectQuizQuestion)
+        .where(
+            ProjectQuizQuestion.project_id == project_id,
+            ProjectQuizQuestion.quiz_date == quiz_date,
+            ProjectQuizQuestion.status == "pending",
+        )
+        .order_by(ProjectQuizQuestion.sequence)
+    )
+    return list(result.scalars().all())
+
+
+async def delete_pending_by_ids(
+    session: AsyncSession,
+    project_id: UUID,
+    quiz_date: date,
+    question_ids: list[UUID],
+) -> int:
+    if not question_ids:
+        return 0
+    result = cast(
+        CursorResult[Any],
+        await session.execute(
+            delete(ProjectQuizQuestion).where(
+                ProjectQuizQuestion.project_id == project_id,
+                ProjectQuizQuestion.quiz_date == quiz_date,
+                ProjectQuizQuestion.status == "pending",
+                ProjectQuizQuestion.id.in_(question_ids),
+            )
+        ),
+    )
+    return int(result.rowcount or 0)
+
+
 async def next_pending(
     session: AsyncSession,
     project_id: UUID,
@@ -90,6 +131,23 @@ async def count_answered_today(
             ProjectQuizQuestion.quiz_date == quiz_date,
             ProjectQuizQuestion.status == "answered",
             ProjectQuizQuestion.is_correct.is_(True),
+        )
+    )
+    return int(result.scalar_one())
+
+
+async def count_pending_today(
+    session: AsyncSession,
+    project_id: UUID,
+    quiz_date: date,
+) -> int:
+    result = await session.execute(
+        select(func.count())
+        .select_from(ProjectQuizQuestion)
+        .where(
+            ProjectQuizQuestion.project_id == project_id,
+            ProjectQuizQuestion.quiz_date == quiz_date,
+            ProjectQuizQuestion.status == "pending",
         )
     )
     return int(result.scalar_one())

@@ -17,7 +17,14 @@ import { ProjectProgressHero } from "@/components/ProjectProgressHero";
 import { ProjectItemRow } from "@/components/ProjectItemRow";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, type ProjectDetail, type VocabStatus } from "@/lib/api";
-import { queueChatLaunch, queueDailyQuizLaunch } from "@/lib/chatLaunch";
+import { queueChatLaunch } from "@/lib/chatLaunch";
+import { buildProjectAskPrompt } from "@/lib/projectChat";
+import {
+  fetchProjectDetail,
+  getCachedProjectDetail,
+  invalidateProjectDetail,
+  prefetchProjectDetail,
+} from "@/lib/projectDetailCache";
 import {
   isLanguageProject,
   levelLabel,
@@ -44,36 +51,50 @@ export default function ProjectDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const [loading, setLoading] = useState(true);
+  const initialProject =
+    typeof id === "string" ? getCachedProjectDetail(id) ?? null : null;
+  const [loading, setLoading] = useState(!initialProject);
   const [loadError, setLoadError] = useState(false);
-  const [project, setProject] = useState<ProjectDetail | null>(null);
-  const hasLoadedRef = useRef(false);
+  const [project, setProject] = useState<ProjectDetail | null>(initialProject);
+  const hasLoadedRef = useRef(Boolean(initialProject));
+  const projectRef = useRef(project);
+  projectRef.current = project;
   const [selectedDay, setSelectedDay] = useState(() => localDateKey(new Date()));
   const [conceptBusyId, setConceptBusyId] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    if (!token || typeof id !== "string") return;
-    const firstLoad = !hasLoadedRef.current;
-    if (firstLoad) setLoading(true);
-    setLoadError(false);
-    try {
-      const data = await api.getProject(token, id);
-      setProject(data);
-      if (data.kind === "programming") {
-        router.replace("/projects");
+  const load = useCallback(
+    async (opts?: { silent?: boolean; force?: boolean }) => {
+      if (!token || typeof id !== "string") return;
+      const firstLoad = !hasLoadedRef.current;
+      if (!opts?.silent && firstLoad && !projectRef.current) setLoading(true);
+      setLoadError(false);
+      try {
+        const data = await fetchProjectDetail(token, id, { force: opts?.force });
+        if (data) {
+          setProject(data);
+          if (data.kind === "programming") {
+            router.replace("/projects");
+          }
+        } else if (!projectRef.current) {
+          setProject(null);
+          setLoadError(true);
+        }
+      } catch {
+        if (!projectRef.current) {
+          setProject(null);
+          setLoadError(true);
+        }
+      } finally {
+        hasLoadedRef.current = true;
+        if (!opts?.silent && firstLoad) setLoading(false);
       }
-    } catch {
-      setProject(null);
-      setLoadError(true);
-    } finally {
-      hasLoadedRef.current = true;
-      if (firstLoad) setLoading(false);
-    }
-  }, [token, id, router]);
+    },
+    [token, id, router],
+  );
 
   useFocusEffect(
     useCallback(() => {
-      void load();
+      void load({ silent: hasLoadedRef.current });
     }, [load]),
   );
 
@@ -89,6 +110,7 @@ export default function ProjectDetailScreen() {
         onPress: async () => {
           try {
             await api.deleteProject(token, project.id);
+            invalidateProjectDetail(project.id);
             router.back();
           } catch {
             Alert.alert(t("common.error"), t("projects.delete_failed"));
@@ -138,7 +160,7 @@ export default function ProjectDetailScreen() {
     setConceptBusyId(itemId);
     try {
       await api.updateProjectItem(token, id, itemId, { status });
-      await load();
+      await load({ silent: true, force: true });
     } catch {
       Alert.alert(t("common.error"), t("projects.status_update_failed"));
     } finally {
@@ -147,11 +169,14 @@ export default function ProjectDetailScreen() {
   };
 
   const startStudyQuiz = () => {
-    if (isTrivia) {
-      queueDailyQuizLaunch(project.id, "trivia");
-    } else if (isLang) {
-      queueDailyQuizLaunch(project.id, "vocab", "en");
-    }
+    const variant = isTrivia ? "trivia" : isLang ? "vocab" : undefined;
+    queueChatLaunch(
+      buildProjectAskPrompt(project),
+      project.id,
+      isLang ? "en" : undefined,
+      variant,
+      "chat",
+    );
     router.replace("/");
   };
 
@@ -264,7 +289,7 @@ export default function ProjectDetailScreen() {
           isTrivia={isTrivia}
           itemsByDate={project.daily_items_by_date ?? {}}
           studyAction={todayStudyAction}
-          onItemUpdated={load}
+          onItemUpdated={() => load({ silent: true, force: true })}
         />
       ) : null}
 

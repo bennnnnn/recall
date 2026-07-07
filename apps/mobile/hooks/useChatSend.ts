@@ -7,8 +7,7 @@ type Router = ReturnType<typeof useRouter>;
 import type { AttachmentSource } from "@/components/AttachmentSourceSheet";
 import type { useDraftChat } from "@/hooks/useDraftChat";
 import type { useChatScroll } from "@/hooks/useChatScroll";
-import { api, type Message } from "@/lib/api";
-import type { QuizAnswerMeta } from "@/lib/parseVocabQuiz";
+import type { Message } from "@/lib/api";
 import { tap } from "@/lib/haptics";
 import { parseUserMessageContent } from "@/lib/messageAttachments";
 import {
@@ -68,6 +67,7 @@ type Options = {
   onStreamBusy?: () => void;
   isOffline: boolean;
   resolveQuizProjectId?: () => string | null;
+  onBeforeSend?: (text: string) => boolean | void;
 };
 
 export function useChatSend({
@@ -92,6 +92,7 @@ export function useChatSend({
   onStreamBusy,
   isOffline,
   resolveQuizProjectId,
+  onBeforeSend,
 }: Options) {
   const {
     draftChatIdRef,
@@ -180,6 +181,7 @@ export function useChatSend({
         return;
       }
       tap();
+      if (onBeforeSend?.(text) === true) return;
 
       const authToken = token;
       if (!authToken) return;
@@ -299,6 +301,7 @@ export function useChatSend({
       t,
       onStreamBusy,
       isOffline,
+      onBeforeSend,
     ],
   );
 
@@ -351,29 +354,6 @@ export function useChatSend({
     [attachBusy, streaming, t, token, waitForPickerUi],
   );
 
-  const handleQuizAnswer = useCallback(
-    (messageId: string, letter: "A" | "B" | "C" | "D", meta?: QuizAnswerMeta) => {
-      if (streaming || creatingRef.current) return;
-      void handleSend(letter);
-      const projectId = resolveQuizProjectId?.() ?? null;
-      const activeChatId = chatId ?? draftChatIdRef.current;
-      if (token && projectId && activeChatId && /^[0-9a-f-]{36}$/i.test(messageId)) {
-        void api
-          .recordProjectQuizAnswer(token, projectId, {
-            chat_id: activeChatId,
-            assistant_message_id: messageId,
-            letter,
-            ...(meta?.topic ? { topic: meta.topic } : {}),
-            ...(meta?.question ? { question: meta.question } : {}),
-            ...(meta?.isCorrect != null ? { is_correct: meta.isCorrect } : {}),
-          })
-          .catch(() => {});
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [streaming, chatId, token, resolveQuizProjectId],
-  );
-
   const handleEditMessage = useCallback(
     (message: Message) => {
       if (streaming) return;
@@ -398,7 +378,6 @@ export function useChatSend({
     handleSend,
     handlePickAttachment,
     handleAttachmentSheetSelect,
-    handleQuizAnswer,
     handleEditMessage,
     creatingRef,
     pendingOutboundId,

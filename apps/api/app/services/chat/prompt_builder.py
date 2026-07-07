@@ -183,6 +183,7 @@ async def build_prompt_messages(
                     chat.project_id,
                     settings,
                     quiz_mode=getattr(chat, "quiz_mode", None),
+                    client_timezone=client_timezone,
                 )
             return await chat_pkg.projects_service.load_projects_for_prompt(
                 session, user.id, settings

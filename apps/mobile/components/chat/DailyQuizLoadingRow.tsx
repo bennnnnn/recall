@@ -1,25 +1,21 @@
 import { useMemo } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
-import { useTranslation } from "react-i18next";
+import { StyleSheet, View } from "react-native";
 
+import { RecallTypingIndicator } from "@/components/RecallTypingIndicator";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
   quizVariant: "vocab" | "trivia";
 };
 
-export function DailyQuizLoadingRow({ quizVariant }: Props) {
-  const { t } = useTranslation();
+export function DailyQuizLoadingRow(_props: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const loadingKey =
-    quizVariant === "trivia" ? "daily_quiz.loading_trivia" : "daily_quiz.loading_vocab";
 
   return (
     <View style={s.row}>
       <View style={s.bubble}>
-        <ActivityIndicator color={theme.primary} />
-        <Text style={s.hint}>{t(loadingKey)}</Text>
+        <RecallTypingIndicator />
       </View>
     </View>
   );
@@ -31,9 +27,7 @@ function makeStyles(t: Theme) {
     bubble: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 10,
-      paddingVertical: 8,
+      paddingVertical: 4,
     },
-    hint: { fontSize: 15, color: t.textSecondary },
   });
 }

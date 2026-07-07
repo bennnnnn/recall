@@ -601,9 +601,9 @@ async def test_load_project_for_prompt_chat_mode():
             session, user_id, project_id, Settings(), quiz_mode="chat"
         )
 
-    assert "chat tutor mode" in block
-    assert "vocab_card" in block
-    assert "Presentation mode: chat tutor" in block
+    assert "daily vocabulary in chat" in block
+    assert "vocab_quiz" in block
+    assert "Presentation mode: chat" in block
 
 
 @pytest.mark.asyncio
@@ -630,10 +630,10 @@ async def test_load_project_for_prompt_trivia_chat_mode():
             session, user_id, project_id, Settings(), quiz_mode="chat"
         )
 
-    assert "chat tutor mode" in block
-    assert "Do NOT use ```vocab_card" in block
-    assert "Do NOT use vocab_card or teach vocabulary words" in block
-    assert "vocab_quiz JSON" not in block.split("Do NOT use ```vocab_quiz")[0]
+    assert "daily general knowledge in chat" in block
+    assert "vocab_quiz" in block
+    assert "Do NOT use vocab_card" in block
+    assert "Bonus quiz" in block
 
 
 @pytest.mark.asyncio
@@ -660,10 +660,12 @@ async def test_load_project_for_prompt_exam_mode():
             session, user_id, project_id, Settings(), quiz_mode="exam"
         )
 
-    assert "exam quiz" in block.lower()
-    assert "Daily Quiz panel" in block
-    assert "Do NOT output ```vocab_quiz" in block
-    assert "Presentation mode: exam quiz" in block
+    assert "exam (legacy)" in block.lower()
+    assert "exam mode" in block.lower()
+    assert "Do NOT output ```vocab_quiz blocks during the daily batch" in block
+    assert "Bonus quiz" in block
+    assert "```vocab_quiz" in block
+    assert "Presentation mode: exam (legacy)" in block
 
 
 def test_build_language_quiz_prompt_includes_vocab_quiz_fence():

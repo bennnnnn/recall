@@ -23,13 +23,16 @@ export function useDailyQuiz({
   onProgress,
   onSuggestMcq,
 }: Params) {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [loadingNext, setLoadingNext] = useState(false);
   const [session, setSession] = useState<ProjectDailyQuiz | null>(null);
   const [modality, setModality] = useState<QuizModality>("mcq");
   const [error, setError] = useState<string | null>(null);
   const [allowRetry, setAllowRetry] = useState(false);
   const attemptCounts = useRef<Record<string, number>>({});
+  const loadInFlightRef = useRef(false);
+  const prefetchInFlightRef = useRef(false);
 
   const resetQuestionState = useCallback((questionId: string | null) => {
     setAllowRetry(false);
@@ -38,7 +41,52 @@ export function useDailyQuiz({
     }
   }, []);
 
-  const loadInFlightRef = useRef(false);
+  const prefetchQuiz = useCallback(async () => {
+    if (!token || !projectId || prefetchInFlightRef.current) return;
+    prefetchInFlightRef.current = true;
+    try {
+      await api.prefetchDailyQuiz(token, projectId);
+    } catch {
+      /* best-effort background prefetch */
+    } finally {
+      prefetchInFlightRef.current = false;
+    }
+  }, [token, projectId]);
+
+  const refreshNextQuestion = useCallback(
+    async (answeredCount: number) => {
+      if (!token || !projectId) return;
+      setLoadingNext(true);
+      setError(null);
+      try {
+        await prefetchQuiz();
+        let data = await api.getDailyQuiz(token, projectId);
+        if (!data.complete && !data.current && data.answered_count < data.daily_goal) {
+          data = await api.ensureDailyQuiz(token, projectId);
+        }
+        setSession((prev) =>
+          prev
+            ? {
+                ...data,
+                answered_count: answeredCount,
+              }
+            : data,
+        );
+        onProgress?.(answeredCount, data.daily_goal);
+        if (data.current?.id) {
+          resetQuestionState(data.current.id);
+        }
+        if (data.current && !data.complete) {
+          void prefetchQuiz();
+        }
+      } catch {
+        setError("load_failed");
+      } finally {
+        setLoadingNext(false);
+      }
+    },
+    [token, projectId, onProgress, prefetchQuiz, resetQuestionState],
+  );
 
   const load = useCallback(async () => {
     if (!token || !projectId || !enabled || loadInFlightRef.current) return;
@@ -47,7 +95,7 @@ export function useDailyQuiz({
     setError(null);
     try {
       let data = await api.getDailyQuiz(token, projectId);
-      if (!data.current && !data.complete) {
+      if (!data.complete && data.answered_count < data.daily_goal && !data.current) {
         data = await api.ensureDailyQuiz(token, projectId);
       }
       setSession(data);
@@ -55,13 +103,16 @@ export function useDailyQuiz({
       if (data.current?.id) {
         resetQuestionState(data.current.id);
       }
+      if (data.current && !data.complete) {
+        void prefetchQuiz();
+      }
     } catch {
       setError("load_failed");
     } finally {
       loadInFlightRef.current = false;
       setLoading(false);
     }
-  }, [token, projectId, enabled, onProgress, resetQuestionState]);
+  }, [token, projectId, enabled, onProgress, prefetchQuiz, resetQuestionState]);
 
   useEffect(() => {
     void load();
@@ -71,11 +122,7 @@ export function useDailyQuiz({
     (result: Awaited<ReturnType<typeof api.answerDailyQuiz>>, prev: ProjectDailyQuiz | null) => {
       if (!prev) return prev;
       const answered = result.is_correct ? prev.answered_count + 1 : prev.answered_count;
-      onProgress?.(answered, prev.daily_goal);
       const nextQuestion = result.batch_complete ? null : result.next_question;
-      if (nextQuestion?.id) {
-        resetQuestionState(nextQuestion.id);
-      }
       return {
         ...prev,
         answered_count: answered,
@@ -83,7 +130,7 @@ export function useDailyQuiz({
         current: nextQuestion,
       };
     },
-    [onProgress, resetQuestionState],
+    [],
   );
 
   const submitAnswer = useCallback(
@@ -110,7 +157,27 @@ export function useDailyQuiz({
           setSession((prev) => (prev ? { ...prev, current: result.next_question ?? question } : prev));
         } else {
           setAllowRetry(false);
-          setSession((prev) => applyResult(result, prev));
+          let answeredCount = session?.answered_count ?? 0;
+          let dailyGoal = session?.daily_goal ?? 0;
+          setSession((prev) => {
+            const next = applyResult(result, prev);
+            if (next) {
+              answeredCount = next.answered_count;
+              dailyGoal = next.daily_goal;
+            }
+            return next;
+          });
+          onProgress?.(answeredCount, dailyGoal);
+          if (result.next_question?.id) {
+            resetQuestionState(result.next_question.id);
+          } else if (result.batch_complete) {
+            resetQuestionState(null);
+          }
+          if (!result.batch_complete && !result.next_question) {
+            void refreshNextQuestion(answeredCount);
+          } else if (!result.batch_complete) {
+            void prefetchQuiz();
+          }
         }
       } catch {
         setError("submit_failed");
@@ -118,7 +185,20 @@ export function useDailyQuiz({
         setSubmitting(false);
       }
     },
-    [token, projectId, chatId, submitting, onFeedback, onSuggestMcq, applyResult],
+    [
+      token,
+      projectId,
+      chatId,
+      submitting,
+      session?.answered_count,
+      onFeedback,
+      onSuggestMcq,
+      applyResult,
+      refreshNextQuestion,
+      prefetchQuiz,
+      onProgress,
+      resetQuestionState,
+    ],
   );
 
   const skipQuestion = useCallback(
@@ -134,19 +214,53 @@ export function useDailyQuiz({
         onFeedback(result.feedback);
         setAllowRetry(false);
         resetQuestionState(result.next_question?.id ?? null);
-        setSession((prev) => applyResult(result, prev));
+        let answeredCount = session?.answered_count ?? 0;
+        let dailyGoal = session?.daily_goal ?? 0;
+        setSession((prev) => {
+          const next = applyResult(result, prev);
+          if (next) {
+            answeredCount = next.answered_count;
+            dailyGoal = next.daily_goal;
+          }
+          return next;
+        });
+        onProgress?.(answeredCount, dailyGoal);
+        if (result.next_question?.id) {
+          resetQuestionState(result.next_question.id);
+        } else if (result.batch_complete) {
+          resetQuestionState(null);
+        }
+        if (!result.batch_complete && !result.next_question) {
+          void refreshNextQuestion(answeredCount);
+        } else if (!result.batch_complete) {
+          void prefetchQuiz();
+        }
       } catch {
         setError("submit_failed");
       } finally {
         setSubmitting(false);
       }
     },
-    [token, projectId, chatId, submitting, onFeedback, applyResult, resetQuestionState],
+    [
+      token,
+      projectId,
+      chatId,
+      submitting,
+      session?.answered_count,
+      onFeedback,
+      applyResult,
+      resetQuestionState,
+      refreshNextQuestion,
+      prefetchQuiz,
+      onProgress,
+      resetQuestionState,
+    ],
   );
 
   return {
     loading,
     submitting,
+    loadingNext,
     session,
     modality,
     setModality,

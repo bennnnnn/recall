@@ -1,9 +1,11 @@
 import {
   createStepProgress,
+  canAddLearningProject,
   resolveProjectDescription,
   resolveProjectTitle,
   englishProjectTitle,
 } from "@/lib/projectCreateFlow";
+import type { Project } from "@/lib/api";
 
 const t = (key: string) => key;
 
@@ -29,5 +31,39 @@ describe("projectCreateFlow", () => {
 
   it("uses title input when provided", () => {
     expect(resolveProjectTitle("Calculus", "math", "level1", t)).toBe("Calculus");
+  });
+
+  it("allows add learning until both english and trivia exist", () => {
+    const english: Project = {
+      id: "1",
+      title: "English",
+      description: "",
+      kind: "language",
+      level: "level1",
+      target_language: "en",
+      native_language: null,
+      daily_goal: 5,
+      archived: false,
+      created_at: "",
+      updated_at: "",
+    };
+    const trivia: Project = {
+      id: "2",
+      title: "General knowledge",
+      description: "history,science",
+      kind: "trivia",
+      level: "level1",
+      target_language: "en",
+      native_language: null,
+      daily_goal: 5,
+      archived: false,
+      created_at: "",
+      updated_at: "",
+    };
+    expect(canAddLearningProject([])).toBe(true);
+    expect(canAddLearningProject([english])).toBe(true);
+    expect(canAddLearningProject([trivia])).toBe(true);
+    expect(canAddLearningProject([english, trivia])).toBe(false);
+    expect(canAddLearningProject([english, { ...trivia, archived: true }])).toBe(true);
   });
 });

@@ -54,7 +54,7 @@ describe("chatSocketReduce", () => {
     expect(next[0].content).toContain("```places");
   });
 
-  it("mergeDoneIntoMessages prefers final_content on stop for last assistant", () => {
+  it("mergeDoneIntoMessages appends assistant when streaming placeholder missing", () => {
     const prev: Message[] = [
       { id: "u1", role: "user", content: "Q", model: null, created_at: "t" },
       {
@@ -71,7 +71,10 @@ describe("chatSocketReduce", () => {
       draftContent: "Partial",
       finalContent: "Partial plus more from server",
     });
-    expect(next[1].content).toBe("Partial plus more from server");
+    expect(next).toHaveLength(3);
+    expect(next[2].id).toBe("msg-final");
+    expect(next[2].content).toBe("Partial plus more from server");
+    expect(next[1].content).toBe("Partial");
   });
 
   it("buildDoneMergeInput parses metadata fields", () => {

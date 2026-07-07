@@ -24,6 +24,35 @@ export function isRenderableVocabQuiz(quiz: ParsedVocabQuiz | null): quiz is Par
   return Boolean(quiz.word.trim());
 }
 
+export function markdownHasQuizChoices(text: string, quiz: ParsedVocabQuiz): boolean {
+  const body = text.trim();
+  if (!body) return false;
+  return quiz.choices.every((c) => c.text.trim() && body.includes(c.text.trim()));
+}
+
+/** Readable A–D list when the model only emits a ```vocab_quiz fence (no card UI). */
+export function formatVocabQuizAsMarkdown(quiz: ParsedVocabQuiz): string {
+  const word = cleanQuizWord(quiz.word);
+  const isTrivia = quiz.quizType === "trivia";
+  const pos = quiz.partOfSpeech ? ` · _${quiz.partOfSpeech}_` : "";
+  const header = isTrivia ? `**${word}**` : `**${word}**${pos}`;
+  const question =
+    quiz.question?.trim() || (isTrivia ? "" : `What does "${word}" mean?`);
+  const lines: string[] = [];
+  if (quiz.dailyProgress) {
+    lines.push(
+      `**${quiz.dailyProgress.done} / ${quiz.dailyProgress.goal} today**`,
+      "",
+    );
+  }
+  lines.push(header);
+  if (question) {
+    lines.push("", question);
+  }
+  lines.push("", ...quiz.choices.map((c) => `**${c.letter})** ${c.text}`), "", "Reply with **A**, **B**, **C**, or **D**.");
+  return lines.join("\n");
+}
+
 export function isCompleteVocabQuiz(quiz: ParsedVocabQuiz | null): quiz is ParsedVocabQuiz {
   return (
     isRenderableVocabQuiz(quiz) &&
@@ -42,6 +71,10 @@ export function parseQuizAnswerLetter(
 ): QuizChoice["letter"] | null {
   const match = content.trim().match(/^([A-D])\.?$/i);
   return match ? (match[1].toUpperCase() as QuizChoice["letter"]) : null;
+}
+
+export function quizIdentity(quiz: ParsedVocabQuiz): string {
+  return `${quiz.quizType ?? "vocab"}:${quiz.word}:${quiz.question ?? ""}`;
 }
 
 /** Map assistant quiz message ids → the user's chosen letter (from chat history). */
@@ -340,12 +373,41 @@ function isQuizIntroLine(line: string, quiz: ParsedVocabQuiz): boolean {
       return true;
     }
     if (QUESTION_LINE.test(trimmed)) return true;
+    const word = cleanQuizWord(quiz.word).toLowerCase();
+    if (word) {
+      const lineNorm = normalizeQuizText(trimmed);
+      if (/what does .+ mean/.test(lineNorm) && lineNorm.includes(word)) {
+        return true;
+      }
+      if (quiz.choices.some((c) => normalizeQuizText(c.text) === lineNorm)) {
+        return true;
+      }
+    }
   }
   return false;
 }
 
 function stripQuizIntroLines(lines: string[], quiz: ParsedVocabQuiz): string[] {
   return lines.filter((line) => !isQuizIntroLine(line, quiz));
+}
+
+/** Remove prose that duplicates an embedded ```vocab_quiz block before rendering A–D. */
+export function stripVocabQuizPrologue(content: string, quiz: ParsedVocabQuiz): string {
+  const word = cleanQuizWord(quiz.word).toLowerCase();
+  const lines = content.split("\n");
+  const kept = lines.filter((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) return true;
+    if (isQuizIntroLine(trimmed, quiz)) return false;
+    if (word && normalizeQuizText(trimmed).includes(word)) {
+      const norm = normalizeQuizText(trimmed);
+      if (norm.startsWith("please ") || /^".+"$/.test(trimmed) || norm.includes("example")) {
+        return false;
+      }
+    }
+    return true;
+  });
+  return kept.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 /** Remove quiz question/choices/prompts already shown in the quiz card. */

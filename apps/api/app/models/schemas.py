@@ -529,6 +529,7 @@ class ProjectQuizQuestionOut(BaseModel):
     part_of_speech: str | None = None
     question_text: str
     choices: list[QuizChoiceOut]
+    correct_letter: Literal["A", "B", "C", "D"]
     status: Literal["pending", "answered", "skipped"]
     allowed_modalities: list[QuizModality] = Field(default_factory=list)
 

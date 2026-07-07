@@ -1,7 +1,7 @@
-import type { LanguageLevel, ProjectDetail } from "@/lib/api";
+import type { HomeProjectHighlight, LanguageLevel, ProjectDetail } from "@/lib/api";
 import { resolveDailyGoal } from "@/lib/dailyGoals";
 import { isLanguageProject, levelLabel } from "@/lib/languageLevels";
-import { VOCAB_QUIZ_FORMAT_BLOCK } from "@/lib/vocabQuizFormat";
+import { VOCAB_QUIZ_FORMAT_BLOCK, TRIVIA_QUIZ_FORMAT_BLOCK } from "@/lib/vocabQuizFormat";
 
 export function resolveProjectDailyGoal(project: ProjectDetail): number {
   return resolveDailyGoal(project.daily_goal);
@@ -79,6 +79,33 @@ export function buildTriviaOnboardingPrompt(topicLabels: string, dailyGoal: numb
   );
 }
 
+/** Home highlight card → in-chat daily session (LLM picks format each turn). */
+export function buildHomeDailyQuizChatPrompt(highlight: HomeProjectHighlight): string {
+  const { title, kind, cue } = highlight;
+  if (kind === "trivia") {
+    if (cue === "start") {
+      return (
+        `Start my daily "${title}" general-knowledge session. ` +
+        "Quiz me in chat — one question at a time. You choose the format. Begin now."
+      );
+    }
+    return (
+      `Continue my daily "${title}" session. ` +
+      "Ask the next question in chat — you pick the format."
+    );
+  }
+  if (cue === "start") {
+    return (
+      `Start today's "${title}" vocabulary session. ` +
+      "Teach and quiz in chat — one word at a time. You choose the format. Begin now."
+    );
+  }
+  return (
+    `Continue my "${title}" vocabulary session. ` +
+    "Teach or quiz the next word in chat — you pick the format."
+  );
+}
+
 /** General project chat opener. */
 export function buildProjectAskPrompt(project: ProjectDetail): string {
   const goal = project.description?.trim()
@@ -88,7 +115,6 @@ export function buildProjectAskPrompt(project: ProjectDetail): string {
   if (isLanguageProject(project.kind)) {
     const lvl = levelLabel(project.level);
     const daily = resolveProjectDailyGoal(project);
-    const done = project.stats.mastered_today;
     if (isDailyGoalMet(project)) {
       return (
         `I finished my daily goal of ${daily} words on my "${project.title}" English project (${lvl}).${goal}\n` +
@@ -98,19 +124,14 @@ export function buildProjectAskPrompt(project: ProjectDetail): string {
         "Offer to quiz words I already know for review, or invite me back tomorrow."
       );
     }
-    const remaining = remainingDailyGoal(project);
-    const today = ` Today: ${done}/${daily} mastered — ${remaining} left for today's goal.`;
     return (
-      `Help me with my "${project.title}" English project (${lvl}, ${daily} words/day).${goal}` +
-      `${progressLine(project)}.${today} ` +
-      "Quiz my new and learning words first. Only add fresh words if I still need them to reach today's goal — " +
-      "never exceed today's goal without my explicit ok."
+      `Continue my "${project.title}" vocabulary session.${goal} ` +
+      "Teach or quiz the next word in chat — you pick the format."
     );
   }
 
   if (project.kind === "trivia") {
     const daily = resolveProjectDailyGoal(project);
-    const remaining = remainingDailyGoal(project);
     if (isDailyGoalMet(project)) {
       return (
         `I finished my daily goal of ${daily} correct answers on my general knowledge quiz.${goal} ` +
@@ -120,9 +141,8 @@ export function buildProjectAskPrompt(project: ProjectDetail): string {
       );
     }
     return (
-      `Continue my daily general knowledge quiz (${daily} correct/day).${goal} ` +
-      `${progressLine(project)} ` +
-      `I need ${remaining} more correct answers today — ask the next question.`
+      `Continue my daily "${project.title}" general-knowledge session.${goal} ` +
+      "Ask the next question in chat — you pick the format."
     );
   }
 
@@ -138,8 +158,10 @@ export function buildProjectBonusQuestionsPrompt(project: ProjectDetail): string
   return (
     `I already finished my daily goal of ${daily} correct answers on my general knowledge quiz today ` +
     `(${project.stats.mastered_today}/${daily}).\n\n` +
-    "I want BONUS trivia questions beyond today's goal. Confirm I'm ok with extra questions, then ask " +
-    "multiple-choice questions one at a time using vocab_quiz JSON. Do not start until I confirm."
+    "I want BONUS trivia questions beyond today's goal. Ask ONE multiple-choice question at a time " +
+    "using vocab_quiz JSON with quiz_type=trivia. Do not use spoiler syntax or bullet lists.\n\n" +
+    `${TRIVIA_QUIZ_FORMAT_BLOCK}\n\n` +
+    "Start the first bonus question now."
   );
 }
 

@@ -3,9 +3,12 @@ import {
   inferQuizAnswersFromMessages,
   isVocabQuizAnswer,
   parseQuizAnswerLetter,
+  formatVocabQuizAsMarkdown,
+  markdownHasQuizChoices,
   parseVocabQuiz,
   hasVocabQuizFence,
   stripVocabQuizBlock,
+  stripVocabQuizPrologue,
   stripVocabSessionMetadata,
   isCompleteVocabQuiz,
 } from "@/lib/parseVocabQuiz";
@@ -288,5 +291,69 @@ describe("parseVocabQuiz", () => {
       "🥳 **Congratulations, Dev!** You've mastered all 5 words today.",
     );
     expect(stripVocabQuizBlock(content)).not.toContain("session_complete");
+  });
+
+  it("formatVocabQuizAsMarkdown renders fence-only bonus quiz", () => {
+    const content = [
+      "Here's your first quiz:",
+      "",
+      "```vocab_quiz",
+      JSON.stringify({
+        word: "shoe",
+        part_of_speech: "noun",
+        question: 'What does "shoe" mean?',
+        correct: "B",
+        choices: [
+          { letter: "A", text: "a hat" },
+          { letter: "B", text: "a covering for the foot" },
+          { letter: "C", text: "a fruit" },
+          { letter: "D", text: "a verb" },
+        ],
+      }),
+      "```",
+    ].join("\n");
+
+    const quiz = parseVocabQuiz(content);
+    expect(quiz).not.toBeNull();
+    const intro = stripVocabQuizBlock(content);
+    expect(markdownHasQuizChoices(intro, quiz!)).toBe(false);
+    const body = formatVocabQuizAsMarkdown(quiz!);
+    expect(body).toContain("**shoe**");
+    expect(body).toContain("**B)** a covering for the foot");
+    expect(body).toContain("Reply with **A**");
+    expect(`${intro.trim()}\n\n${body}`).toContain("Here's your first quiz:");
+  });
+
+  it("stripVocabQuizPrologue removes duplicate definition before rendered A-D", () => {
+    const content = [
+      "Let's go! First word:",
+      "To rest on a chair or the ground.",
+      '"Please sit on the chair."',
+      'What does "sit" mean?',
+      "",
+      "```vocab_quiz",
+      JSON.stringify({
+        word: "sit",
+        part_of_speech: "verb",
+        question: "What does it mean?",
+        correct: "B",
+        choices: [
+          { letter: "A", text: "To run quickly" },
+          { letter: "B", text: "To rest on a chair or the ground" },
+          { letter: "C", text: "To jump up and down" },
+          { letter: "D", text: "To sing a song" },
+        ],
+      }),
+      "```",
+    ].join("\n");
+
+    const quiz = parseVocabQuiz(content);
+    expect(quiz).not.toBeNull();
+    const intro = stripVocabQuizBlock(content);
+    const trimmed = stripVocabQuizPrologue(intro, quiz!);
+    expect(trimmed).toBe("Let's go! First word:");
+    expect(trimmed).not.toContain("What does");
+    expect(trimmed).not.toContain("Please sit");
+    expect(trimmed).not.toContain("To rest on a chair");
   });
 });

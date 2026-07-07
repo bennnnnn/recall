@@ -1,6 +1,6 @@
 import { hasVocabCardFence } from "@/lib/parseVocabCard";
 import { hasVocabQuizFence } from "@/lib/parseVocabQuiz";
-import { DAILY_QUIZ_LOADING_ID, hasDailyQuizTextFence, isDailyQuizMessageId } from "@/lib/dailyQuizMessage";
+import { DAILY_QUIZ_LOADING_ID, isDailyQuizMessageId } from "@/lib/dailyQuizMessage";
 
 /** Typical bubble height for FlashList layout hints (variable-height items). */
 export const ESTIMATED_MESSAGE_HEIGHT = 88;
@@ -18,7 +18,7 @@ export function messageListItemType(item: {
   if (item.role !== "assistant") return item.role;
   if (item.id === DAILY_QUIZ_LOADING_ID || isDailyQuizMessageId(item.id)) return "assistant-quiz";
   const content = item.content ?? "";
-  if (hasVocabQuizFence(content) || hasDailyQuizTextFence(content)) return "assistant-quiz";
+  if (hasVocabQuizFence(content)) return "assistant-quiz";
   if (hasVocabCardFence(content)) return "assistant-vocab";
   if (CALENDAR_PROPOSAL_FENCE_RE.test(content)) return "assistant-calendar";
   return "assistant";

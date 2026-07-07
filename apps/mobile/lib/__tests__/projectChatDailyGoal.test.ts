@@ -1,5 +1,6 @@
 import {
   buildProjectAskPrompt,
+  buildProjectBonusQuestionsPrompt,
   buildProjectBonusWordsPrompt,
   isDailyGoalMet,
   remainingDailyGoal,
@@ -30,6 +31,30 @@ function languageProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail 
   } as unknown as ProjectDetail;
 }
 
+function triviaProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
+  return {
+    id: "trivia-1",
+    kind: "trivia",
+    title: "General knowledge",
+    description: "history,science",
+    level: "level1",
+    target_language: "en",
+    daily_goal: 5,
+    stats: {
+      total: 10,
+      mastered_count: 8,
+      new_count: 0,
+      learning_count: 2,
+      due_for_review: 0,
+      added_this_week: 5,
+      mastered_today: 3,
+      pending_today: 0,
+    },
+    lists: [],
+    ...overrides,
+  } as unknown as ProjectDetail;
+}
+
 describe("projectChat daily goal helpers", () => {
   it("detects when daily goal is met", () => {
     expect(isDailyGoalMet(languageProject({ stats: { ...languageProject().stats, mastered_today: 5 } }))).toBe(
@@ -45,10 +70,12 @@ describe("projectChat daily goal helpers", () => {
     ).toBe(0);
   });
 
-  it("in-progress prompt asks to stay within today's goal", () => {
+  it("in-progress prompt opens chat without embedding stale counts", () => {
     const prompt = buildProjectAskPrompt(languageProject());
-    expect(prompt).toContain("3/5 mastered");
-    expect(prompt).toContain("2 left for today's goal");
+    expect(prompt).toContain("Continue my");
+    expect(prompt).toContain("vocabulary session");
+    expect(prompt).toContain("you pick the format");
+    expect(prompt).not.toContain("3/5 mastered");
     expect(prompt).not.toContain("generate today's batch");
   });
 
@@ -60,7 +87,17 @@ describe("projectChat daily goal helpers", () => {
     expect(prompt).toContain("Do NOT add or sync new words");
   });
 
-  it("bonus prompt requires explicit opt-in", () => {
+  it("bonus trivia prompt starts interactive quiz format", () => {
+    const prompt = buildProjectBonusQuestionsPrompt(
+      triviaProject({ stats: { ...triviaProject().stats, mastered_today: 5 } }),
+    );
+    expect(prompt).toContain("BONUS trivia");
+    expect(prompt).toContain("vocab_quiz");
+    expect(prompt).toContain("quiz_type");
+    expect(prompt).toContain("Start the first bonus question now");
+  });
+
+  it("bonus words prompt requires explicit opt-in", () => {
     const prompt = buildProjectBonusWordsPrompt(
       languageProject({ stats: { ...languageProject().stats, mastered_today: 5 } }),
     );

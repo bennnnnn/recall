@@ -307,6 +307,7 @@ export type ProjectQuizQuestion = {
   part_of_speech: string | null;
   question_text: string;
   choices: QuizChoice[];
+  correct_letter: "A" | "B" | "C" | "D";
   status: "pending" | "answered" | "skipped";
   allowed_modalities: QuizModality[];
 };

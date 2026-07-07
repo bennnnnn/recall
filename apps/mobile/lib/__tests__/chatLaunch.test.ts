@@ -12,7 +12,7 @@ describe("chatLaunch", () => {
     expect(takeQueuedChatLaunch()).toBeNull();
   });
 
-  it("queues trimmed prompts and returns true", () => {
+  it("queues trimmed prompts and defaults to chat mode", () => {
     expect(queueChatLaunch("  Study loops  ", "proj-1", "en", "vocab", "chat")).toBe(true);
     expect(takeQueuedChatLaunch()).toEqual({
       prompt: "Study loops",
@@ -23,13 +23,13 @@ describe("chatLaunch", () => {
     });
   });
 
-  it("queues daily quiz without LLM prompt", () => {
+  it("queueDailyQuizLaunch opens chat mode with a starter prompt", () => {
     expect(queueDailyQuizLaunch("proj-2", "trivia")).toBe(true);
     expect(takeQueuedChatLaunch()).toEqual({
-      dailyQuiz: true,
+      prompt: expect.stringContaining("general-knowledge"),
       projectId: "proj-2",
       quizVariant: "trivia",
-      quizMode: "exam",
+      quizMode: "chat",
     });
   });
 });

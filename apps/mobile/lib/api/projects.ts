@@ -113,13 +113,21 @@ export const projectsApi = {
     const qs = tz ? `?client_timezone=${encodeURIComponent(tz)}` : "";
     return request<ProjectDailyQuiz>(`/projects/${projectId}/quiz/daily/ensure${qs}`, token, {
       method: "POST",
-    });
+    }, true, 120_000);
   },
 
   getDailyQuiz: (token: string, projectId: string) => {
     const tz = getDeviceTimezone();
     const qs = tz ? `?client_timezone=${encodeURIComponent(tz)}` : "";
     return request<ProjectDailyQuiz>(`/projects/${projectId}/quiz/daily${qs}`, token);
+  },
+
+  prefetchDailyQuiz: (token: string, projectId: string) => {
+    const tz = getDeviceTimezone();
+    const qs = tz ? `?client_timezone=${encodeURIComponent(tz)}` : "";
+    return request<void>(`/projects/${projectId}/quiz/daily/prefetch${qs}`, token, {
+      method: "POST",
+    }, true, 120_000);
   },
 
   answerDailyQuiz: (
