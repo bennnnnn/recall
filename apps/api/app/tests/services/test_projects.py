@@ -1107,3 +1107,20 @@ async def test_load_project_for_prompt_programming_hint():
 
     assert "programming" in block.lower()
     assert "What a variable is" in block
+
+
+def test_chat_tutor_hints_acknowledge_completed_daily_goal():
+    """When the daily goal is already met, the chat tutor prompts must tell the
+    model to acknowledge completion and ask about bonus/raising the goal — not
+    silently serve a new question on a vague 'let's continue'."""
+    from app.services.projects import (
+        DAILY_GOAL_COMPLETE_BEHAVIOR,
+        LANGUAGE_CHAT_TUTOR_HINT,
+        TRIVIA_CHAT_TUTOR_HINT,
+    )
+
+    assert DAILY_GOAL_COMPLETE_BEHAVIOR in LANGUAGE_CHAT_TUTOR_HINT
+    assert DAILY_GOAL_COMPLETE_BEHAVIOR in TRIVIA_CHAT_TUTOR_HINT
+    # The behaviour must explicitly handle the "let's continue" case.
+    assert "let's continue" in DAILY_GOAL_COMPLETE_BEHAVIOR.lower()
+    assert "raise their daily goal" in DAILY_GOAL_COMPLETE_BEHAVIOR.lower()
