@@ -42,18 +42,25 @@ async def search_semantic(
     *,
     min_confidence: float,
     limit: int,
+    max_distance: float | None = None,
 ) -> list[Memory]:
     """DB-side cosine similarity search over the `embedding` vector column
     (HNSW index). Returns up to `limit` memories ranked by cosine distance,
-    filtered by confidence. Empty result means no row has a populated vector
-    yet — callers fall back to the in-memory JSON path."""
+    filtered by confidence. When ``max_distance`` is set, rows whose cosine
+    distance exceeds it are excluded — this mirrors the in-memory
+    ``memory_min_similarity`` cutoff so the two paths behave consistently.
+    Empty result means no row has a populated vector yet — callers fall back
+    to the in-memory JSON path."""
+    filters = [
+        Memory.user_id == user_id,
+        Memory.embedding.isnot(None),
+        or_(Memory.confidence.is_(None), Memory.confidence >= min_confidence),
+    ]
+    if max_distance is not None:
+        filters.append(Memory.embedding.cosine_distance(query_embedding) <= max_distance)
     stmt = (
         select(Memory)
-        .where(
-            Memory.user_id == user_id,
-            Memory.embedding.isnot(None),
-            or_(Memory.confidence.is_(None), Memory.confidence >= min_confidence),
-        )
+        .where(*filters)
         .order_by(Memory.embedding.cosine_distance(query_embedding))
         .limit(limit)
     )
@@ -67,9 +74,24 @@ async def upsert_sections(
     user_id: UUID,
     items: list[tuple[str, str, float, UUID | None]],
 ) -> None:
-    """Upsert one summary paragraph per memory type (profile, preference, …)."""
+    """Upsert one summary paragraph per memory type (profile, preference, …).
+
+    Deduplicates by type first: the LLM occasionally returns two sections with
+    the same type, which would make Postgres raise
+    ``ON CONFLICT DO UPDATE cannot affect row a second time`` and silently drop
+    the whole extraction. When duplicates exist, the highest-confidence section
+    wins (ties broken by later item).
+    """
     if not items:
         return
+
+    best_by_type: dict[str, tuple[str, str, float, UUID | None]] = {}
+    for memory_type, text, confidence, source_chat_id in items:
+        if not text.strip():
+            continue
+        existing = best_by_type.get(memory_type)
+        if existing is None or confidence >= existing[2]:
+            best_by_type[memory_type] = (memory_type, text, confidence, source_chat_id)
 
     rows = [
         {
@@ -79,8 +101,7 @@ async def upsert_sections(
             "confidence": confidence,
             "source_chat_id": source_chat_id,
         }
-        for memory_type, text, confidence, source_chat_id in items
-        if text.strip()
+        for memory_type, text, confidence, source_chat_id in best_by_type.values()
     ]
     if not rows:
         return
@@ -138,6 +159,27 @@ async def update_text(
     if memory is None:
         return None
     memory.text = text.strip()
+    await session.commit()
+    await session.refresh(memory)
+    return memory
+
+
+async def update_text_and_embedding(
+    session: AsyncSession,
+    user_id: UUID,
+    memory_id: UUID,
+    text: str,
+    embedding: list[float],
+    embedding_json: str,
+) -> Memory | None:
+    """Update text and its embedding together so semantic recall doesn't rank
+    on a stale vector after a fact delete/edit."""
+    memory = await get_by_id(session, user_id, memory_id)
+    if memory is None:
+        return None
+    memory.text = text.strip()
+    memory.embedding = embedding
+    memory.embedding_json = embedding_json
     await session.commit()
     await session.refresh(memory)
     return memory

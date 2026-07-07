@@ -5,8 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import jobs
+from app.core.config import Settings
 from app.core.db import get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, get_settings_dep
 from app.core.redis import get_redis_client
 from app.models.orm import User
 from app.models.schemas import MemoryOut, MemoryType
@@ -93,9 +94,12 @@ async def delete_memory_fact(
     fact_index: int,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings_dep),
 ) -> None:
     if fact_index < 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid fact index")
-    deleted = await memory_service.delete_memory_fact(session, user.id, memory_id, fact_index)
+    deleted = await memory_service.delete_memory_fact(
+        session, settings, user.id, memory_id, fact_index
+    )
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Memory fact not found")
