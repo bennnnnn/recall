@@ -102,6 +102,23 @@ class UserUpdate(BaseModel):
         text = value.strip()
         return text or None
 
+    @field_validator("locale")
+    @classmethod
+    def validate_locale(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        # Empty/whitespace locale → no change (treat as unset), matching the
+        # custom_instructions blank-clears behavior.
+        if not value.strip():
+            return None
+        from app.services.locale import LOCALE_NAMES, normalize_locale_code
+
+        code = normalize_locale_code(value)
+        if code not in LOCALE_NAMES:
+            supported = ", ".join(sorted(LOCALE_NAMES))
+            raise ValueError(f"Unsupported locale code. Supported: {supported}.")
+        return code
+
 
 class GoogleAuthRequest(BaseModel):
     id_token: str
