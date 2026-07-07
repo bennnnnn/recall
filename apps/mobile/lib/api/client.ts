@@ -16,7 +16,12 @@ export function setTokenRefreshHandler(fn: ((accessToken: string) => void) | nul
 
 let refreshInFlight: Promise<string | null> | null = null;
 
-async function refreshAccessToken(): Promise<string | null> {
+/** Refresh the access token using the stored refresh token. Returns the new
+ * access token, or null if refresh failed (caller should surface an auth
+ * error). Single-flighted so concurrent callers share one refresh. Exported
+ * so the SSE/WS streaming paths can mirror the REST `request()` 401→refresh
+ * behaviour (they use raw fetch/WebSocket and otherwise can't auto-refresh). */
+export async function refreshAccessToken(): Promise<string | null> {
   if (refreshInFlight) return refreshInFlight;
   refreshInFlight = (async () => {
     try {
