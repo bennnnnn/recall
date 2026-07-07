@@ -92,3 +92,19 @@ async def delete_todo(
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Todo not found")
     await home_service.invalidate_home_cache(user.id)
+
+
+@router.delete("/topic/{topic}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_todo_topic(
+    topic: str,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> None:
+    """Delete an entire list (topic) in one call — only items without a due_at
+    (lists, not reminders) are removed, matching delete_by_topic's semantics.
+    Lets the mobile delete a list with one request instead of N per-item DELETEs.
+    """
+    removed = await todos_repo.delete_by_topic(session, user.id, topic)
+    if not removed:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="List not found")
+    await home_service.invalidate_home_cache(user.id)

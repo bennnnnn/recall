@@ -38,4 +38,6 @@ export const todosApi = {
     }),
   deleteTodo: (token: string, id: string) =>
     request<void>(`/todos/${id}`, token, { method: "DELETE" }),
+  deleteTodoTopic: (token: string, topic: string) =>
+    request<void>(`/todos/topic/${encodeURIComponent(topic)}`, token, { method: "DELETE" }),
 };

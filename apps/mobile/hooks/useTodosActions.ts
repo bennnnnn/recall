@@ -264,7 +264,12 @@ export function useTodosActions({
               const nextOrder = groupOrder.filter((entry) => entry !== topic);
               await persistGroupOrder(nextOrder);
               try {
-                await Promise.all(items.map((item) => api.deleteTodo(token, item.id)));
+                // One batched DELETE instead of N per-item requests. The
+                // server's delete_by_topic removes only items without a due_at
+                // (lists, not reminders), which matches the items filtered
+                // above. Local reminder cancels above are per-item (no batch
+                // API for expo-notifications) but stay local/non-network.
+                await api.deleteTodoTopic(token, topic);
               } catch {
                 setTodos(snapshot);
                 void syncTodoReminders(snapshot);

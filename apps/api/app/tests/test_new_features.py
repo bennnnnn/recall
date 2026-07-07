@@ -246,6 +246,44 @@ def test_delete_todo_not_found():
     assert r.status_code == 404
 
 
+def test_delete_todo_topic_batches_list_delete():
+    """DELETE /todos/topic/{topic} removes a whole list in one call (only
+    items without a due_at — lists, not reminders — per delete_by_topic)."""
+    from fastapi.testclient import TestClient
+
+    user = _fake_user()
+    app = _app_with_user(user)
+    with (
+        patch(
+            "app.routers.todos.todos_repo.delete_by_topic", AsyncMock(return_value=5)
+        ) as delete_by_topic,
+        patch("app.routers.todos.home_service.invalidate_home_cache", AsyncMock()),
+    ):
+        client = TestClient(app)
+        r = client.delete(
+            "/todos/topic/Groceries",
+            headers={"Authorization": "Bearer tok"},
+        )
+    assert r.status_code == 204
+    delete_by_topic.assert_awaited_once()
+    # Topic is passed through case-insensitively to the repo.
+    assert delete_by_topic.call_args.args[2] == "Groceries"
+
+
+def test_delete_todo_topic_not_found():
+    from fastapi.testclient import TestClient
+
+    user = _fake_user()
+    app = _app_with_user(user)
+    with patch("app.routers.todos.todos_repo.delete_by_topic", AsyncMock(return_value=0)):
+        client = TestClient(app)
+        r = client.delete(
+            "/todos/topic/Nope",
+            headers={"Authorization": "Bearer tok"},
+        )
+    assert r.status_code == 404
+
+
 # ── projects router ─────────────────────────────────────────────────────────
 
 
