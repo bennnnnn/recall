@@ -1,8 +1,8 @@
 /**
  * App theme — ChatGPT-style light & dark palettes that follow the system
- * color scheme. The palette keys are a superset of the legacy `C` object in
- * `constants/Colors.ts`, so components can migrate to `useTheme()` incrementally
- * without breaking the screens that still import `C` (which stays light).
+ * color scheme. All live screens consume the palette via `useTheme()`; the
+ * legacy static `C` object and its scaffold consumers (Themed/StyledText/
+ * EditScreenInfo) have been removed.
  */
 import { useResolvedColorScheme } from "@/hooks/useResolvedColorScheme";
 
