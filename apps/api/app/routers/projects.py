@@ -4,21 +4,16 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.deps import get_current_user
 from app.models.orm import User
 from app.models.schemas import (
     ProjectCreate,
     ProjectDailyHistoryDay,
-    ProjectDailyQuizOut,
     ProjectDetailOut,
     ProjectItemOut,
     ProjectItemUpdate,
     ProjectOut,
-    ProjectQuizAnswerIn,
-    ProjectQuizAnswerResultOut,
-    ProjectQuizQuestionAnswerIn,
     ProjectStats,
     ProjectUpdate,
 )
@@ -26,7 +21,6 @@ from app.repositories import project_items as project_items_repo
 from app.repositories import projects as projects_repo
 from app.services import daily_learning
 from app.services import home as home_service
-from app.services import project_daily_quiz as daily_quiz_service
 from app.services import projects as projects_service
 from app.services import time_context as time_context_service
 
@@ -254,146 +248,6 @@ async def update_project_item(
     updated = await project_items_repo.update(session, item, **patch)
     await home_service.invalidate_home_cache(user.id)
     return ProjectItemOut.model_validate(updated)
-
-
-@router.post("/{project_id}/quiz-answer", status_code=status.HTTP_204_NO_CONTENT)
-async def record_project_quiz_answer(
-    project_id: UUID,
-    body: ProjectQuizAnswerIn,
-    user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db),
-) -> None:
-    recorded = await projects_service.record_project_quiz_answer(
-        session,
-        user_id=user.id,
-        project_id=project_id,
-        chat_id=body.chat_id,
-        assistant_message_id=body.assistant_message_id,
-        letter=body.letter,
-        topic=body.topic,
-        question=body.question,
-        is_correct=body.is_correct,
-    )
-    if not recorded:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="quiz_answer_not_recorded",
-        )
-
-
-@router.post("/{project_id}/quiz/daily/ensure", response_model=ProjectDailyQuizOut)
-async def ensure_project_daily_quiz(
-    project_id: UUID,
-    client_timezone: str | None = Query(default=None, max_length=64),
-    user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db),
-) -> ProjectDailyQuizOut:
-    settings = get_settings()
-    tz = _project_timezone(user, client_timezone)
-    result = await daily_quiz_service.ensure_daily_quiz(
-        session,
-        settings,
-        user_id=user.id,
-        project_id=project_id,
-        timezone_name=tz,
-    )
-    if result is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
-    await home_service.invalidate_home_cache(user.id)
-    daily_quiz_service.schedule_prefetch_after_answer(
-        settings,
-        user_id=user.id,
-        project_id=project_id,
-        timezone_name=tz,
-    )
-    return result
-
-
-@router.post("/{project_id}/quiz/daily/prefetch", status_code=status.HTTP_204_NO_CONTENT)
-async def prefetch_project_daily_quiz(
-    project_id: UUID,
-    client_timezone: str | None = Query(default=None, max_length=64),
-    user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db),
-) -> None:
-    settings = get_settings()
-    tz = _project_timezone(user, client_timezone)
-    await daily_quiz_service.prefetch_daily_quiz(
-        session,
-        settings,
-        user_id=user.id,
-        project_id=project_id,
-        timezone_name=tz,
-    )
-
-
-@router.get("/{project_id}/quiz/daily", response_model=ProjectDailyQuizOut)
-async def get_project_daily_quiz(
-    project_id: UUID,
-    client_timezone: str | None = Query(default=None, max_length=64),
-    user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db),
-) -> ProjectDailyQuizOut:
-    tz = _project_timezone(user, client_timezone)
-    quiz_date = daily_quiz_service.local_quiz_date(tz)
-    purged = await daily_quiz_service.purge_legacy_placeholder_pending(
-        session, project_id, quiz_date
-    )
-    if purged:
-        await session.commit()
-    result = await daily_quiz_service.get_daily_quiz(
-        session,
-        user_id=user.id,
-        project_id=project_id,
-        timezone_name=tz,
-    )
-    if result is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
-    return result
-
-
-@router.post(
-    "/{project_id}/quiz/daily/{question_id}/answer",
-    response_model=ProjectQuizAnswerResultOut,
-)
-async def answer_project_daily_quiz(
-    project_id: UUID,
-    question_id: UUID,
-    body: ProjectQuizQuestionAnswerIn,
-    client_timezone: str | None = Query(default=None, max_length=64),
-    user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db),
-) -> ProjectQuizAnswerResultOut:
-    settings = get_settings()
-    tz = _project_timezone(user, client_timezone)
-    result = await daily_quiz_service.submit_answer(
-        session,
-        settings,
-        user_id=user.id,
-        project_id=project_id,
-        question_id=question_id,
-        modality=body.modality or "mcq",
-        letter=body.letter,
-        text=body.text,
-        timezone_name=tz,
-        chat_id=body.chat_id,
-        skip=body.skip,
-    )
-    if result is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="quiz_answer_invalid",
-        )
-    await session.commit()
-    await home_service.invalidate_home_cache(user.id)
-    if not result.batch_complete:
-        daily_quiz_service.schedule_prefetch_after_answer(
-            settings,
-            user_id=user.id,
-            project_id=project_id,
-            timezone_name=tz,
-        )
-    return result
 
 
 @router.patch("/{project_id}", response_model=ProjectOut)

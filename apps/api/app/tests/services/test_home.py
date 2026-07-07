@@ -114,11 +114,6 @@ def _home_patches(**overrides):
             "count_stats",
             AsyncMock(return_value=defaults["count_project_stats"]),
         ),
-        patch.object(
-            home_service.quiz_questions_repo,
-            "count_pending_today",
-            AsyncMock(return_value=defaults.get("count_quiz_pending_today", 0)),
-        ),
     ):
         yield
 

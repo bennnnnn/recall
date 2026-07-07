@@ -498,49 +498,6 @@ async def apply_deterministic_quiz_answer(
     return True
 
 
-async def record_project_quiz_answer(
-    session: AsyncSession,
-    *,
-    user_id: UUID,
-    project_id: UUID,
-    chat_id: UUID,
-    assistant_message_id: UUID,
-    letter: str,
-    topic: str | None = None,
-    question: str | None = None,
-    is_correct: bool | None = None,
-) -> bool:
-    from app.repositories import chats as chats_repo
-    from app.repositories import messages as messages_repo
-
-    project = await projects_repo.get_by_id(session, project_id, user_id)
-    if project is None:
-        return False
-    chat = await chats_repo.get_by_id(session, chat_id, user_id)
-    if chat is None:
-        return False
-    message = await messages_repo.get_by_id(session, assistant_message_id, chat_id)
-    if message is None or message.role != "assistant":
-        return False
-
-    recorded = await apply_deterministic_quiz_answer(
-        session,
-        user_id=user_id,
-        chat_id=chat_id,
-        project_id=project_id,
-        assistant_content=message.content,
-        user_answer=letter,
-        topic_hint=topic,
-        question_hint=question,
-        is_correct_hint=is_correct,
-    )
-    if recorded and chat.project_id is None:
-        await chats_repo.set_project_id(session, chat, project_id)
-    if recorded:
-        await _invalidate_home_for_user(user_id)
-    return recorded
-
-
 def _resolve_list_title(project: Project, action: ProjectActionItem) -> str:
     if _is_language_project(project):
         pos = (action.part_of_speech or "").strip().lower() or "other"

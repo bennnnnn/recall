@@ -14,7 +14,6 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
-    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -253,46 +252,6 @@ class ProjectItem(Base):
     )
 
     project: Mapped["Project"] = relationship(back_populates="items")
-
-
-class ProjectQuizQuestion(Base):
-    __tablename__ = "project_quiz_questions"
-    __table_args__ = (
-        Index("ix_project_quiz_project_date", "project_id", "quiz_date"),
-        Index(
-            "uq_project_quiz_vocab_topic",
-            "project_id",
-            "topic_normalized",
-            unique=True,
-            postgresql_where=text("quiz_kind = 'vocab'"),
-        ),
-    )
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
-    project_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
-    )
-    project_item_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("project_items.id", ondelete="SET NULL"), nullable=True
-    )
-    quiz_date: Mapped[date] = mapped_column(Date, nullable=False)
-    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
-    quiz_kind: Mapped[str] = mapped_column(String(16), nullable=False)
-    topic: Mapped[str] = mapped_column(String(200), nullable=False)
-    topic_normalized: Mapped[str] = mapped_column(String(200), nullable=False)
-    part_of_speech: Mapped[str | None] = mapped_column(String(30), nullable=True)
-    question_text: Mapped[str] = mapped_column(Text, nullable=False)
-    choices: Mapped[list] = mapped_column(JSONB, nullable=False)
-    correct_letter: Mapped[str] = mapped_column(String(1), nullable=False)
-    reference_definition: Mapped[str | None] = mapped_column(Text, nullable=True)
-    status: Mapped[str] = mapped_column(String(16), default="pending", server_default="pending")
-    answered_modality: Mapped[str | None] = mapped_column(String(16), nullable=True)
-    user_answer_text: Mapped[str | None] = mapped_column(Text, nullable=True)
-    user_answer_letter: Mapped[str | None] = mapped_column(String(1), nullable=True)
-    is_correct: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
-    answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class UserCalendarConnection(Base):
