@@ -101,6 +101,10 @@ class Settings(BaseSettings):
 
     # Process role for production split: all (dev), api (HTTP only), worker (jobs only).
     process_role: str = "all"
+    # Port the worker process exposes a tiny /health/ready endpoint on, so Fly
+    # can health-check + auto-restart a stuck worker (the worker otherwise has
+    # no HTTP). 0 disables the worker health server (e.g. process_role=all dev).
+    worker_health_port: int = 8001
     speech_transcription_enabled: bool = True
     speech_transcription_model: str = "openai/whisper-1"
     speech_rate_limit_per_minute: int = 10

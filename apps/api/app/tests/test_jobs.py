@@ -2,7 +2,7 @@
 
 import asyncio
 import json
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -37,6 +37,64 @@ async def test_enqueue_swallows_errors():
     redis = AsyncMock()
     redis.xadd = AsyncMock(side_effect=RuntimeError("redis down"))
     await jobs.enqueue(redis, "memory", {"a": 1})  # must not raise
+
+
+@pytest.mark.asyncio
+async def test_enqueue_failure_reports_to_sentry():
+    """A failed enqueue must be reported to Sentry (when available) so silent
+    job loss is observable — not just logged."""
+    redis = AsyncMock()
+    redis.xadd = AsyncMock(side_effect=RuntimeError("redis down"))
+    with patch("sentry_sdk.capture_exception") as capture:
+        await jobs.enqueue(redis, "memory", {"a": 1})
+    capture.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_enqueue_failure_still_swallows_when_sentry_unavailable():
+    """If sentry-sdk isn't importable, enqueue still swallows the redis error
+    (the helper's internal import is guarded)."""
+    redis = AsyncMock()
+    redis.xadd = AsyncMock(side_effect=RuntimeError("redis down"))
+    import sys
+
+    original = sys.modules.get("sentry_sdk")
+    sys.modules["sentry_sdk"] = None  # make `import sentry_sdk` raise ImportError
+    try:
+        await jobs.enqueue(redis, "memory", {"a": 1})
+    finally:
+        if original is not None:
+            sys.modules["sentry_sdk"] = original
+        else:
+            sys.modules.pop("sentry_sdk", None)
+
+
+# ── is_worker_alive ───────────────────────────────────────────────────────────
+
+
+def test_is_worker_alive_false_when_no_task():
+    jobs._worker_task = None
+    assert jobs.is_worker_alive() is False
+
+
+def test_is_worker_alive_true_when_task_running():
+    done_mock = MagicMock()
+    done_mock.done.return_value = False
+    jobs._worker_task = done_mock
+    try:
+        assert jobs.is_worker_alive() is True
+    finally:
+        jobs._worker_task = None
+
+
+def test_is_worker_alive_false_when_task_done():
+    done_mock = MagicMock()
+    done_mock.done.return_value = True
+    jobs._worker_task = done_mock
+    try:
+        assert jobs.is_worker_alive() is False
+    finally:
+        jobs._worker_task = None
 
 
 # ── dispatch ─────────────────────────────────────────────────────────────────

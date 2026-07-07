@@ -51,3 +51,16 @@ primary_region = "iad" # change to your region; Neon DB is in us-east-2
   cpu_kind = "shared"
   cpus = 1
   processes = ["worker"]
+
+# Worker health check: the worker exposes a tiny /health/ready on port 8001
+# (worker_health_port) so Fly can detect + restart a stuck worker whose event
+# loop is blocked or whose job consumer has died — not just one that crashed.
+[[checks]]
+  name = "worker-health"
+  port = 8001
+  type = "http"
+  interval = "20s"
+  timeout = "5s"
+  grace_period = "30s"
+  path = "/health/ready"
+  process = "worker"
