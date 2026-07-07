@@ -53,6 +53,13 @@ export function useChat(
   const finalizingRef = useRef(false);
   /** Prior assistant reply kept until regenerate succeeds or is rolled back. */
   const regenerateBackupRef = useRef<Message | null>(null);
+  /**
+   * When the user stops generation, the streaming bubble is committed locally
+   * as `streamed-<ts>`. We track that id so the server's late `done` event
+   * reconciles it in place (authoritative id + final_content) instead of
+   * appending a duplicate. Cleared on done/error/chat-switch.
+   */
+  const stoppedStreamedIdRef = useRef<string | null>(null);
 
   const flushStreamingDraft = useCallback(() => {
     draftRafRef.current = null;
@@ -161,6 +168,7 @@ export function useChat(
     reasoningBuffer.current = "";
     firstReplyRef.current = false;
     regenerateBackupRef.current = null;
+    stoppedStreamedIdRef.current = null;
     updateStreamingDraft(null);
     setStreaming(false);
     setFinalizing(false);
@@ -218,6 +226,8 @@ export function useChat(
 
       if (payload.type === "done") {
         regenerateBackupRef.current = null;
+        const stoppedId = stoppedStreamedIdRef.current;
+        stoppedStreamedIdRef.current = null;
         setStreaming(false);
         setFinalizing(false);
         streamingRef.current = false;
@@ -226,7 +236,10 @@ export function useChat(
         const draft = streamingDraftRef.current;
         updateStreamingDraft(null);
         setMessages((prev) =>
-          mergeDoneIntoMessages(prev, buildDoneMergeInput(payload, draft)),
+          mergeDoneIntoMessages(
+            prev,
+            buildDoneMergeInput(payload, draft, undefined, stoppedId),
+          ),
         );
         if (!firstReplyRef.current) {
           firstReplyRef.current = true;
@@ -239,6 +252,7 @@ export function useChat(
       }
 
       if (payload.type === "error") {
+        stoppedStreamedIdRef.current = null;
         setSendingMessageId(null);
         setStreaming(false);
         setFinalizing(false);
@@ -642,6 +656,11 @@ export function useChat(
     assistantBuffer.current = "";
     reasoningBuffer.current = "";
     updateStreamingDraft(null);
+    // After a stop the partial reply is the source of truth (the backend
+    // already deleted any prior assistant on regenerate and persists this
+    // partial). Drop the backup so a later `error` can't wrongly restore it.
+    regenerateBackupRef.current = null;
+    const stoppedId = `streamed-${Date.now()}`;
     setMessages((prev) => {
       const streamingMsg = prev.find((m) => m.id === "streaming");
       if (!streamingMsg) return prev;
@@ -653,13 +672,16 @@ export function useChat(
         m.id === "streaming"
           ? {
               ...m,
-              id: `streamed-${Date.now()}`,
+              id: stoppedId,
               content,
               search_sources: draft?.search_sources ?? m.search_sources,
             }
           : m,
       );
     });
+    // Track the committed bubble id so the server's late `done` reconciles
+    // it (real message_id + final_content) instead of appending a duplicate.
+    stoppedStreamedIdRef.current = stoppedId;
   }, [updateStreamingDraft]);
 
   return {
