@@ -220,6 +220,75 @@ def test_me_patch_persists_custom_instructions_and_blank_clears():
     assert captured["custom_instructions"] is None
 
 
+def test_me_patch_accepts_supported_locale_and_normalizes():
+    user = _fake_user()
+    app = _app_with_user(user)
+    captured: dict[str, object] = {}
+
+    async def capture(_session, _user, **fields):
+        captured.update(fields)
+        return user
+
+    with (
+        patch("app.routers.auth.users_repo.update", AsyncMock(side_effect=capture)),
+        patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
+    ):
+        client = TestClient(app)
+        # "es-MX" normalizes to "es" (split on -, lowercased) — a supported code.
+        r = client.patch(
+            "/auth/me",
+            headers={"Authorization": "Bearer tok"},
+            json={"locale": "es-MX"},
+        )
+    assert r.status_code == 200
+    assert captured["locale"] == "es"
+
+
+def test_me_patch_rejects_unsupported_locale():
+    user = _fake_user()
+    app = _app_with_user(user)
+
+    with (
+        patch("app.routers.auth.users_repo.update", AsyncMock()) as update,
+        patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
+    ):
+        client = TestClient(app)
+        r = client.patch(
+            "/auth/me",
+            headers={"Authorization": "Bearer tok"},
+            json={"locale": "klingon"},
+        )
+    assert r.status_code == 422
+    update.assert_not_awaited()
+    assert "Unsupported locale" in r.text
+
+
+def test_me_patch_treats_empty_locale_as_noop():
+    """An empty/whitespace locale string is treated as unset (no change),
+    matching the custom_instructions blank-clears behavior — not stored as ''."""
+    user = _fake_user()
+    app = _app_with_user(user)
+    captured: dict[str, object] = {}
+
+    async def capture(_session, _user, **fields):
+        captured.update(fields)
+        return user
+
+    with (
+        patch("app.routers.auth.users_repo.update", AsyncMock(side_effect=capture)),
+        patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
+    ):
+        client = TestClient(app)
+        r = client.patch(
+            "/auth/me",
+            headers={"Authorization": "Bearer tok"},
+            json={"locale": "   "},
+        )
+    assert r.status_code == 200
+    # locale should not be passed through to the update (treated as no-change).
+    assert "locale" not in captured or captured.get("locale") is None
+
+
 # ── dev login ──────────────────────────────────────────────────────────────────
 
 
