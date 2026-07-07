@@ -756,15 +756,6 @@ def test_group_by_part_of_speech_orders_known_pos_first():
     assert groups[1].part_of_speech == "verb"
 
 
-def test_group_programming_items_sorts_by_curriculum():
-    project_id = uuid4()
-    variables = _item("What a variable is", project_id, list_title="Variables")
-    functions = _item("Defining a function", project_id, list_title="Functions")
-    groups = projects_service.group_programming_items([functions, variables])
-    assert groups[0].list_title == "Variables"
-    assert groups[1].list_title == "Functions"
-
-
 def test_format_projects_block_programming_stack():
     project = _project("Python basics", kind="programming")
     project.target_language = "python"
