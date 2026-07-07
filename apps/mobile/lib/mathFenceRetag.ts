@@ -36,7 +36,15 @@ export function looksLikeLatexFence(content: string): boolean {
   return looksLikeMathFenceBody(content);
 }
 
-/** Rewrite model math fences before markdown parse (latex/plain → math only). */
+/**
+ * Rewrite model math fences before markdown parse (latex/plain → math only).
+ *
+ * Matches every fence (tagged or not) in a single pass, so an already-tagged
+ * fence's own closing ``` is always consumed as part of ITS match, never
+ * mistaken for the opener of a new bare fence — a bare-fence-only regex here
+ * previously matched a tagged fence's closing ``` as an opener, silently
+ * swallowing everything up to the next fence as a single bogus "math" block.
+ */
 export function retagMathAndDiagramFences(content: string): string {
   let out = content;
 
@@ -45,7 +53,8 @@ export function retagMathAndDiagramFences(content: string): string {
     (_m, body: string) => `\`\`\`math\n${body.trim()}\n\`\`\``,
   );
 
-  out = out.replace(/```\s*\n([\s\S]*?)```/g, (full, body: string) => {
+  out = out.replace(/```([^\n]*)\n([\s\S]*?)```/g, (full, info: string, body: string) => {
+    if (info.trim()) return full;
     const trimmed = body.trim();
     if (looksLikeMathFenceBody(trimmed)) {
       return `\`\`\`math\n${trimmed}\n\`\`\``;
