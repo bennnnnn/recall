@@ -11,13 +11,15 @@ import Animated, {
 
 import { Theme, useTheme } from "@/lib/theme";
 
-/** Pulsing Recall mark while waiting for the first token (ChatGPT-style). */
+/** Pulsing Recall mark while waiting for the first token (ChatGPT-style).
+ * The logo scales/fades and rotates back and forth (pendulum, not a full spin)
+ * so the "thinking" state reads as active processing. */
 export function RecallTypingIndicator() {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const scale = useSharedValue(0.92);
   const opacity = useSharedValue(0.45);
-  const glow = useSharedValue(0.3);
+  const rotate = useSharedValue(0);
 
   useEffect(() => {
     const ease = Easing.inOut(Easing.ease);
@@ -37,29 +39,25 @@ export function RecallTypingIndicator() {
       -1,
       false,
     );
-    glow.value = withRepeat(
+    // Pendulum: swing -22° → +22° → -22°, ease-in-out so it eases at the
+    // extremes (looks like it's "thinking back and forth", not a uniform spin).
+    rotate.value = withRepeat(
       withSequence(
-        withTiming(0.55, { duration: 700, easing: ease }),
-        withTiming(0.2, { duration: 700, easing: ease }),
+        withTiming(22, { duration: 650, easing: Easing.inOut(Easing.sin) }),
+        withTiming(-22, { duration: 650, easing: Easing.inOut(Easing.sin) }),
       ),
       -1,
       false,
     );
-  }, [glow, opacity, scale]);
+  }, [opacity, rotate, scale]);
 
   const logoStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
+    transform: [{ rotate: `${rotate.value}deg` }, { scale: scale.value }],
     opacity: opacity.value,
-  }));
-
-  const haloStyle = useAnimatedStyle(() => ({
-    opacity: glow.value,
-    transform: [{ scale: scale.value * 1.35 }],
   }));
 
   return (
     <View style={s.wrap}>
-      <Animated.View style={[s.halo, haloStyle]} />
       <Animated.View style={[s.logo, logoStyle]}>
         <Text style={s.letter}>R</Text>
       </Animated.View>
@@ -75,13 +73,6 @@ function makeStyles(t: Theme) {
       alignItems: "center",
       justifyContent: "center",
       paddingVertical: 4,
-    },
-    halo: {
-      position: "absolute",
-      width: 28,
-      height: 28,
-      borderRadius: 14,
-      backgroundColor: t.primary,
     },
     logo: {
       width: 28,
