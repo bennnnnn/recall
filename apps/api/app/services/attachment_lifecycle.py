@@ -33,21 +33,25 @@ async def purge_attachments_for_messages(
 
 
 async def reap_orphan_attachments(settings: Settings) -> int:
-    """Delete bytes + rows for attachments never linked to a message past the grace window."""
+    """Delete bytes + rows for attachments never linked to a message past the grace window.
+
+    Storage bytes are deleted BEFORE DB rows: if the storage delete fails (or
+    the process crashes mid-loop), the DB rows remain and the next reap retries.
+    The old order (rows first, then bytes) left orphaned R2 objects with no DB
+    row — unrecoverable, since the reaper discovers orphans via the DB.
+    """
     async with SessionLocal() as session:
         orphans = await attachments_repo.list_orphans(
             session, older_than_hours=settings.attachment_orphan_grace_hours
         )
     if not orphans:
         return 0
+    gateway = get_storage_gateway(settings)
+    for row in orphans:
+        await gateway.delete_bytes(row.storage_key)
     async with SessionLocal() as session:
-        storage_keys = await attachments_repo.delete_unlinked_returning(
+        removed = await attachments_repo.delete_unlinked_returning(
             session, [row.id for row in orphans]
         )
-    if not storage_keys:
-        return 0
-    gateway = get_storage_gateway(settings)
-    for storage_key in storage_keys:
-        await gateway.delete_bytes(storage_key)
-    logger.info("Reaped %d orphan attachment(s)", len(storage_keys))
-    return len(storage_keys)
+    logger.info("Reaped %d orphan attachment(s)", len(removed))
+    return len(removed)
