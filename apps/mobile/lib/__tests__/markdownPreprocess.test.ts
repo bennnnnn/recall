@@ -98,6 +98,41 @@ $)
     expect(out).toContain("**Final Answer:**");
     expect(out).toContain("$x = 2 or x = -2$");
   });
+
+  it("keeps a short ```math fence inside a numbered solution step intact", () => {
+    const input = `1. Start with the equation:
+1 + 4 = 5 + x
+
+2. Simplify the left side:
+\`\`\`math
+5 = 5 + x
+\`\`\`
+
+3. Subtract 5 from both sides to isolate x:
+5 - 5 = 5 + x - 5
+
+4. Final result:
+\`\`\`math
+x = 0
+\`\`\``;
+
+    const out = preprocessMarkdown(input);
+
+    // Both math fences must survive as ```math fences, not be dropped/unwrapped.
+    expect(out).toContain("```math\n5 = 5 + x\n```");
+    expect(out).toContain("```math\nx = 0\n```");
+    // The ordered list numbering must stay intact — no renumbering/splitting.
+    expect(out).toContain("2. Simplify the left side:");
+    expect(out).toContain("3. Subtract 5 from both sides to isolate x:");
+    expect(out).toContain("4. Final result:");
+  });
+
+  it("does not unwrap a math fence just because its content has bold text", () => {
+    const input = "```math\n**x** = 5\n```";
+    const out = preprocessMarkdown(input);
+    expect(out).toContain("```math");
+    expect(out).toContain("**x** = 5");
+  });
 });
 
 describe("normalizeMarkdownTables", () => {
