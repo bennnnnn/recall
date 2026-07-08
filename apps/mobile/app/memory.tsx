@@ -13,6 +13,7 @@ import { Redirect, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
+import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, Memory } from "@/lib/api";
@@ -193,11 +194,7 @@ export default function MemoryScreen() {
   if (!token) return <Redirect href="/login" />;
 
   if (loading && memories.length === 0) {
-    return (
-      <View style={s.center}>
-        <StateView variant="loading" />
-      </View>
-    );
+    return <SkeletonList />;
   }
 
   if (error && memories.length === 0) {

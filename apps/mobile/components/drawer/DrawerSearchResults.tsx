@@ -2,6 +2,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { SkeletonList } from "@/components/SkeletonLoader";
 import { displayChatTitle } from "@/lib/chatTitle";
 import { Theme, useTheme } from "@/lib/theme";
 import type { SearchResult } from "@/lib/api";
@@ -37,9 +38,7 @@ export function DrawerSearchResults({
       {!hasSearchQuery ? (
         <Text style={s.searchHint}>{t("search.empty")}</Text>
       ) : searchLoading ? (
-        <View style={s.searchStatus}>
-          <ActivityIndicator size="small" color={theme.primary} />
-        </View>
+        <SkeletonList count={3} />
       ) : searchError ? (
         <Text style={s.searchHint}>{t("common.error")}</Text>
       ) : searchResults.length === 0 ? (
