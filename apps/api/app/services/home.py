@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 import re
@@ -636,16 +637,17 @@ async def _load_project_home_content(
         [p for p in projects if _is_daily_home_project(p)],
         key=lambda p: (0 if _is_language_project(p) else 1, p.title.casefold()),
     )
+    tz_name = str(home_tz.key)
+
     if daily_projects:
+        stats_by_project = await project_items_repo.count_stats_by_project(
+            session,
+            [candidate.id for candidate in daily_projects],
+            timezone_by_project={candidate.id: tz_name for candidate in daily_projects},
+        )
         completed_daily: list[CompletedDaily] = []
         for candidate in daily_projects:
-            stats_raw = await project_items_repo.count_stats(
-                session,
-                candidate.id,
-                user_id,
-                timezone_name=str(home_tz.key),
-            )
-            stats = ProjectStats.model_validate(stats_raw)
+            stats = ProjectStats.model_validate(stats_by_project.get(candidate.id, {}))
             daily_goal = daily_learning.resolve_daily_goal(candidate)
             if stats.mastered_today >= daily_goal:
                 completed_daily.append((candidate.title.strip(), _daily_home_kind(candidate)))
@@ -663,13 +665,12 @@ async def _load_project_home_content(
         return ProjectHomeContent([], None, None, completed_daily)
 
     primary = projects[0]
-    stats_raw = await project_items_repo.count_stats(
+    stats_by_primary = await project_items_repo.count_stats_by_project(
         session,
-        primary.id,
-        user_id,
-        timezone_name=str(home_tz.key),
+        [primary.id],
+        timezone_by_project={primary.id: tz_name},
     )
-    stats = ProjectStats.model_validate(stats_raw)
+    stats = ProjectStats.model_validate(stats_by_primary.get(primary.id, {}))
     highlight = _project_highlight(primary, stats, home_tz=home_tz)
     completed_daily = []
     if highlight is None and _is_daily_home_project(primary):
@@ -777,12 +778,21 @@ async def build_home_screen(
     async def load_suggestions() -> list:
         return await suggestions_repo.list_active(session, user.id)
 
-    urgent_items = await load_urgent()
-    memories = await load_memories()
-    recent_titles = await load_recent_titles()
-    project_content = await load_project_content()
-    integration_starters = await load_integrations()
-    suggestion_items = await load_suggestions()
+    (
+        urgent_items,
+        memories,
+        recent_titles,
+        project_content,
+        integration_starters,
+        suggestion_items,
+    ) = await asyncio.gather(
+        load_urgent(),
+        load_memories(),
+        load_recent_titles(),
+        load_project_content(),
+        load_integrations(),
+        load_suggestions(),
+    )
 
     urgent_todos: list[HomeUrgentTodo] = []
     for item in urgent_items:

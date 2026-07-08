@@ -902,16 +902,21 @@ async def load_daily_learning_summary_for_prompt(
         session, user.id, limit=settings.project_inject_limit
     )
     tz_name = time_context_service.effective_timezone(user.timezone, client_timezone)
+    learning_projects = [
+        project
+        for project in projects
+        if _is_language_project(project) or _is_trivia_project(project)
+    ]
+    if not learning_projects:
+        return ""
+    stats_by_project = await project_items_repo.count_stats_by_project(
+        session,
+        [project.id for project in learning_projects],
+        timezone_by_project={project.id: tz_name for project in learning_projects},
+    )
     lines: list[str] = []
-    for project in projects:
-        if not (_is_language_project(project) or _is_trivia_project(project)):
-            continue
-        stats = await project_items_repo.count_stats(
-            session,
-            project.id,
-            user.id,
-            timezone_name=tz_name,
-        )
+    for project in learning_projects:
+        stats = stats_by_project.get(project.id, {})
         total = int(stats.get("total") or 0)
         daily_goal = daily_learning.resolve_daily_goal(project)
         mastered_today = int(stats.get("mastered_today") or 0)

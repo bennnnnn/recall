@@ -4,7 +4,13 @@ import type { FlashListRef } from "@shopify/flash-list";
 
 import { getStreamingDraftContentLength, subscribeStreamingDraft } from "@/lib/streamingDraftStore";
 import type { Message } from "@/lib/api";
-import { getScrollThresholds, resolveScrollAtBottom } from "@/lib/chatScrollLogic";
+import {
+  getScrollThresholds,
+  resolveScrollAtBottom,
+  shouldSchedulePostStreamScroll,
+} from "@/lib/chatScrollLogic";
+import { STREAM_LAYOUT_SETTLE_MS } from "@/lib/messageListLayout";
+import { clearScheduledTimeout, scheduleTimeout } from "@/lib/scheduleTimeout";
 import { tap } from "@/lib/haptics";
 
 const STREAMING_SCROLL_DEBOUNCE_MS = 150;
@@ -34,7 +40,9 @@ export function useChatScroll({
   const scrollOffsetRef = useRef(0);
   const viewportHeightRef = useRef(0);
   const streamingScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const streamEndScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const keyboardScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevStreamActiveRef = useRef(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [scrollAwayCount, setScrollAwayCount] = useState(0);
 
@@ -123,18 +131,22 @@ export function useChatScroll({
   }, []);
 
   const scheduleStreamingScroll = useCallback(() => {
-    if (streamingScrollTimerRef.current != null) {
-      clearTimeout(streamingScrollTimerRef.current);
-    }
-    streamingScrollTimerRef.current = setTimeout(() => {
-      streamingScrollTimerRef.current = null;
+    scheduleTimeout(streamingScrollTimerRef, STREAMING_SCROLL_DEBOUNCE_MS, () => {
       if (atBottomRef.current) {
         listRef.current?.scrollToEnd({ animated: false });
       } else {
         requestAnimationFrame(() => syncScrollPosition());
       }
-    }, STREAMING_SCROLL_DEBOUNCE_MS);
+    });
   }, [syncScrollPosition]);
+
+  const schedulePostStreamScroll = useCallback(() => {
+    scheduleTimeout(streamEndScrollTimerRef, STREAM_LAYOUT_SETTLE_MS, () => {
+      if (atBottomRef.current) {
+        listRef.current?.scrollToEnd({ animated: false });
+      }
+    });
+  }, []);
 
   useEffect(() => {
     if (messagesLength > 0 && newMessageCountRef.current > 0) {
@@ -150,44 +162,26 @@ export function useChatScroll({
     }
   }, [messagesLength]);
 
-  const prevStreamingLenRef = useRef(0);
-
   useEffect(() => {
+    const wasStreamActive = prevStreamActiveRef.current;
+    prevStreamActiveRef.current = streamActive;
+
     if (!streamActive) {
-      const prev = prevStreamingLenRef.current;
-      prevStreamingLenRef.current = 0;
-      if (prev > 0 && atBottomRef.current) {
-        requestAnimationFrame(() => {
-          listRef.current?.scrollToEnd({ animated: false });
-          requestAnimationFrame(() => {
-            listRef.current?.scrollToEnd({ animated: false });
-          });
-        });
+      if (shouldSchedulePostStreamScroll(wasStreamActive, streamActive, atBottomRef.current)) {
+        schedulePostStreamScroll();
       }
       return;
     }
 
     const syncStreamingScroll = () => {
-      const nextLen = getStreamingDraftContentLength();
-      const prev = prevStreamingLenRef.current;
-      prevStreamingLenRef.current = nextLen;
-
-      if (nextLen > 0) {
+      if (getStreamingDraftContentLength() > 0) {
         scheduleStreamingScroll();
-      }
-      if (prev > 0 && nextLen === 0 && atBottomRef.current) {
-        requestAnimationFrame(() => {
-          listRef.current?.scrollToEnd({ animated: false });
-          requestAnimationFrame(() => {
-            listRef.current?.scrollToEnd({ animated: false });
-          });
-        });
       }
     };
 
     syncStreamingScroll();
     return subscribeStreamingDraft(syncStreamingScroll);
-  }, [streamActive, scheduleStreamingScroll]);
+  }, [streamActive, scheduleStreamingScroll, schedulePostStreamScroll]);
 
   useEffect(() => {
     requestAnimationFrame(() => syncScrollPosition());
@@ -205,12 +199,9 @@ export function useChatScroll({
 
   useEffect(() => {
     return () => {
-      if (streamingScrollTimerRef.current != null) {
-        clearTimeout(streamingScrollTimerRef.current);
-      }
-      if (keyboardScrollTimerRef.current != null) {
-        clearTimeout(keyboardScrollTimerRef.current);
-      }
+      clearScheduledTimeout(streamingScrollTimerRef);
+      clearScheduledTimeout(streamEndScrollTimerRef);
+      clearScheduledTimeout(keyboardScrollTimerRef);
     };
   }, []);
 
@@ -233,13 +224,7 @@ export function useChatScroll({
 
   useEffect(() => {
     if (keyboardHeight <= 0) return;
-    if (keyboardScrollTimerRef.current != null) {
-      clearTimeout(keyboardScrollTimerRef.current);
-    }
-    keyboardScrollTimerRef.current = setTimeout(() => {
-      keyboardScrollTimerRef.current = null;
-      scrollToEndIfAtBottom(true);
-    }, 50);
+    scheduleTimeout(keyboardScrollTimerRef, 50, () => scrollToEndIfAtBottom(true));
   }, [keyboardHeight, scrollToEndIfAtBottom]);
 
   return {

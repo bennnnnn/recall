@@ -73,6 +73,17 @@ def _item(
     return item
 
 
+def _patch_count_stats_by_project(stats: dict):
+    async def _mock(_session, project_ids, *, timezone_by_project=None):
+        return {pid: stats for pid in project_ids}
+
+    return patch.object(
+        projects_service.project_items_repo,
+        "count_stats_by_project",
+        AsyncMock(side_effect=_mock),
+    )
+
+
 def test_format_projects_block_groups_lists():
     project = _project("Learning English")
     item_a = _item("hello", project.id)
@@ -383,16 +394,12 @@ async def test_load_daily_learning_summary_for_prompt():
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
-        patch.object(
-            projects_service.project_items_repo,
-            "count_stats",
-            AsyncMock(
-                return_value={
-                    "total": 20,
-                    "mastered_today": 2,
-                    "pending_today": 0,
-                }
-            ),
+        _patch_count_stats_by_project(
+            {
+                "total": 20,
+                "mastered_today": 2,
+                "pending_today": 0,
+            }
         ),
     ):
         block = await projects_service.load_daily_learning_summary_for_prompt(
@@ -421,16 +428,12 @@ async def test_load_daily_learning_summary_not_started_today():
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
-        patch.object(
-            projects_service.project_items_repo,
-            "count_stats",
-            AsyncMock(
-                return_value={
-                    "total": 12,
-                    "mastered_today": 0,
-                    "pending_today": 0,
-                }
-            ),
+        _patch_count_stats_by_project(
+            {
+                "total": 12,
+                "mastered_today": 0,
+                "pending_today": 0,
+            }
         ),
     ):
         block = await projects_service.load_daily_learning_summary_for_prompt(
@@ -457,16 +460,12 @@ async def test_load_daily_learning_summary_skips_completed_goal():
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
-        patch.object(
-            projects_service.project_items_repo,
-            "count_stats",
-            AsyncMock(
-                return_value={
-                    "total": 20,
-                    "mastered_today": 5,
-                    "pending_today": 0,
-                }
-            ),
+        _patch_count_stats_by_project(
+            {
+                "total": 20,
+                "mastered_today": 5,
+                "pending_today": 0,
+            }
         ),
     ):
         block = await projects_service.load_daily_learning_summary_for_prompt(
@@ -492,16 +491,12 @@ async def test_load_daily_learning_summary_trivia_label():
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
-        patch.object(
-            projects_service.project_items_repo,
-            "count_stats",
-            AsyncMock(
-                return_value={
-                    "total": 8,
-                    "mastered_today": 8,
-                    "pending_today": 0,
-                }
-            ),
+        _patch_count_stats_by_project(
+            {
+                "total": 8,
+                "mastered_today": 8,
+                "pending_today": 0,
+            }
         ),
     ):
         block = await projects_service.load_daily_learning_summary_for_prompt(
@@ -527,16 +522,12 @@ async def test_load_daily_learning_summary_trivia_incomplete():
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
-        patch.object(
-            projects_service.project_items_repo,
-            "count_stats",
-            AsyncMock(
-                return_value={
-                    "total": 8,
-                    "mastered_today": 3,
-                    "pending_today": 0,
-                }
-            ),
+        _patch_count_stats_by_project(
+            {
+                "total": 8,
+                "mastered_today": 3,
+                "pending_today": 0,
+            }
         ),
     ):
         block = await projects_service.load_daily_learning_summary_for_prompt(
@@ -545,6 +536,47 @@ async def test_load_daily_learning_summary_trivia_incomplete():
 
     assert "general knowledge quiz" in block
     assert "3/5 correct answers today" in block
+
+
+@pytest.mark.asyncio
+async def test_load_daily_learning_summary_batches_stats():
+    session = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    user.timezone = "UTC"
+    english = _project("English · Beginner")
+    english.daily_goal = 5
+    trivia = _project("World History", kind="trivia")
+    trivia.daily_goal = 5
+    general = _project("Research notes", kind="research")
+
+    async def _mock(_session, project_ids, *, timezone_by_project=None):
+        by_id = {
+            english.id: {"total": 10, "mastered_today": 2, "pending_today": 0},
+            trivia.id: {"total": 8, "mastered_today": 1, "pending_today": 0},
+        }
+        return {pid: by_id[pid] for pid in project_ids if pid in by_id}
+
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[english, trivia, general]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "count_stats_by_project",
+            AsyncMock(side_effect=_mock),
+        ) as stats_mock,
+    ):
+        block = await projects_service.load_daily_learning_summary_for_prompt(
+            session, user, Settings()
+        )
+
+    stats_mock.assert_awaited_once()
+    assert set(stats_mock.await_args.args[1]) == {english.id, trivia.id}
+    assert "English · Beginner" in block
+    assert "World History" in block
 
 
 @pytest.mark.asyncio

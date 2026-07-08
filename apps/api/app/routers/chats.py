@@ -1,3 +1,4 @@
+import asyncio
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -64,8 +65,10 @@ async def list_chats(
     session: AsyncSession = Depends(get_db),
     limit: int = DEFAULT_CHAT_LIST_LIMIT,
 ) -> ChatListOut:
-    chats = await chats_repo.list_for_user(session, user.id, limit=limit)
-    archived = await chats_repo.list_archived_for_user(session, user.id, limit=50)
+    chats, archived = await asyncio.gather(
+        chats_repo.list_for_user(session, user.id, limit=limit),
+        chats_repo.list_archived_for_user(session, user.id, limit=50),
+    )
     pinned = [c for c in chats if c.pinned]
     grouped = chats_repo.group_by_recency(
         [c for c in chats if not c.pinned],
