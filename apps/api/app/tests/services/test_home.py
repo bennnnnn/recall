@@ -83,6 +83,11 @@ def _home_patches(**overrides):
         },
     }
     defaults.update(overrides)
+    stats_payload = defaults["count_project_stats"]
+
+    async def _count_stats_by_project(_session, project_ids, *, timezone_by_project=None):
+        return {pid: stats_payload for pid in project_ids}
+
     with (
         patch.object(
             home_service.todos_repo,
@@ -111,8 +116,8 @@ def _home_patches(**overrides):
         ),
         patch.object(
             home_service.project_items_repo,
-            "count_stats",
-            AsyncMock(return_value=defaults["count_project_stats"]),
+            "count_stats_by_project",
+            AsyncMock(side_effect=_count_stats_by_project),
         ),
     ):
         yield
@@ -389,6 +394,65 @@ async def test_build_home_prefers_language_when_both_need_nudging():
     assert screen.project_highlight is not None
     assert screen.project_highlight.kind == "language"
     assert screen.project_highlight.title == "Learning English"
+
+
+@pytest.mark.asyncio
+async def test_build_home_batches_daily_project_stats():
+    session = AsyncMock()
+    user = _user()
+    language = _project()
+    trivia = _trivia_project()
+
+    async def _count_stats_by_project(_session, project_ids, *, timezone_by_project=None):
+        payload = {
+            "total": 3,
+            "new_count": 2,
+            "learning_count": 1,
+            "mastered_count": 0,
+            "added_this_week": 0,
+            "due_for_review": 1,
+            "mastered_today": 0,
+            "pending_today": 0,
+            "last_mastery_at": None,
+        }
+        return {pid: payload for pid in project_ids}
+
+    with (
+        patch.object(
+            home_service.todos_repo,
+            "list_due_soon",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            home_service.chats_repo,
+            "list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            home_service.suggestions_repo,
+            "list_active",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            home_service.memory_service,
+            "load_relevant_memories",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            home_service.projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[trivia, language]),
+        ),
+        patch.object(
+            home_service.project_items_repo,
+            "count_stats_by_project",
+            AsyncMock(side_effect=_count_stats_by_project),
+        ) as stats_mock,
+    ):
+        await home_service.build_home_screen(session, user, Settings())
+
+    stats_mock.assert_awaited_once()
+    assert set(stats_mock.await_args.args[1]) == {language.id, trivia.id}
 
 
 @pytest.mark.asyncio
