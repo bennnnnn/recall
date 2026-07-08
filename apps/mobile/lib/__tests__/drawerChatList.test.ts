@@ -1,4 +1,5 @@
 import { insertChatIntoGroups } from "@/lib/drawerChatList";
+import { removeChatFromGroups } from "@/lib/chatListSections";
 import type { Chat, ChatList } from "@/lib/api";
 
 const empty: ChatList = {
@@ -45,5 +46,34 @@ describe("insertChatIntoGroups", () => {
   it("adds archived chats to archived", () => {
     const next = insertChatIntoGroups(empty, chat("z", { archived: true }));
     expect(next.archived.map((c) => c.id)).toEqual(["z"]);
+  });
+});
+
+describe("archive/unarchive move (remove + reinsert with flipped field)", () => {
+  it("moves an active chat into archived", () => {
+    const groups: ChatList = { ...empty, today: [chat("a")] };
+    const removed = removeChatFromGroups(groups, "a");
+    const next = insertChatIntoGroups(removed, { ...chat("a"), archived: true });
+    expect(next.today).toHaveLength(0);
+    expect(next.archived.map((c) => c.id)).toEqual(["a"]);
+  });
+
+  it("moves an archived chat back to today when unarchived", () => {
+    const groups: ChatList = { ...empty, archived: [chat("a", { archived: true })] };
+    const removed = removeChatFromGroups(groups, "a");
+    const next = insertChatIntoGroups(removed, { ...chat("a"), archived: false });
+    expect(next.archived).toHaveLength(0);
+    expect(next.today.map((c) => c.id)).toEqual(["a"]);
+  });
+
+  it("moves an archived pinned chat back to pinned when unarchived", () => {
+    const groups: ChatList = {
+      ...empty,
+      archived: [chat("a", { archived: true, pinned: true })],
+    };
+    const removed = removeChatFromGroups(groups, "a");
+    const next = insertChatIntoGroups(removed, { ...chat("a"), archived: false, pinned: true });
+    expect(next.archived).toHaveLength(0);
+    expect(next.pinned.map((c) => c.id)).toEqual(["a"]);
   });
 });

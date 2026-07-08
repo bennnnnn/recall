@@ -67,9 +67,12 @@ export function ConversationList(_props: unknown) {
     load,
     handleRefresh,
     patchChatInGroups,
+    insertChatInGroups,
     isSectionCollapsed,
     toggleSectionCollapsed,
     moveChatPinState,
+    moveChatArchiveState,
+    removeChatFromGroupsById,
   } = useDrawerChatList({ token, isDrawerOpen: isOpen });
 
   const {
@@ -92,8 +95,10 @@ export function ConversationList(_props: unknown) {
     token,
     isDrawerOpen: isOpen,
     patchChatInGroups,
-    load,
+    insertChatInGroups,
     moveChatPinState,
+    moveChatArchiveState,
+    removeChatFromGroupsById,
   });
 
   const { unseenCount, showIndicator } = useReminderBadgeCount({
