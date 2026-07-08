@@ -68,11 +68,6 @@ export function stripSearchSourcesFromContent(content: string): string {
   return text.trimEnd();
 }
 
-/** @deprecated Use stripSearchSourcesFromContent */
-export function stripSearchSourcesFence(content: string): string {
-  return stripSearchSourcesFromContent(content);
-}
-
 export function hostnameFromUrl(url: string): string {
   try {
     return new URL(url).hostname.replace(/^www\./, "");

@@ -7,6 +7,7 @@ import { CalendarProposalCard } from "@/components/CalendarProposalCard";
 import { PlacesListBlock } from "@/components/PlacesListBlock";
 import { CollapsibleMessageBody } from "@/components/CollapsibleMessageBody";
 import { UserMessageContent } from "@/components/UserMessageContent";
+import { ChatMessageImage } from "@/components/ChatMessageImage";
 import { SearchSourcesStack } from "@/components/SearchSourcesStack";
 import { CircularClockBlock } from "@/components/rich/CircularClockBlock";
 import { MarkdownContent } from "@/components/MarkdownContent";
@@ -16,26 +17,11 @@ import { RecallTypingIndicator } from "@/components/RecallTypingIndicator";
 import { ReasoningBlock } from "@/components/chat/ReasoningBlock";
 import { VocabCard } from "@/components/VocabCard";
 import { Message } from "@/lib/api";
-import {
-  parseCalendarProposals,
-  stripCalendarProposalFences,
-} from "@/lib/calendarProposal";
 import { extractPrimaryCopyText } from "@/lib/copyBlock";
 import { exportMessageAsPdf } from "@/lib/exportMessagePdf";
 import { notifySuccess, notifyWarning, tap } from "@/lib/haptics";
-import { parseVocabQuiz, stripVocabQuizBlock, stripVocabSessionMetadata, hasVocabQuizFence, stripQuizMarkdownDuplicates, stripVocabQuizPrologue, isRenderableVocabQuiz, isCompleteVocabQuiz, formatVocabQuizAsMarkdown, markdownHasQuizChoices } from "@/lib/parseVocabQuiz";
-import { parseVocabCard, stripVocabCardBlock, hasVocabCardFence } from "@/lib/parseVocabCard";
-import { resolvePlaces, stripPlacesContent } from "@/lib/placesList";
-import {
-  resolveSearchSources,
-  stripSearchSourcesFromContent,
-} from "@/lib/searchSources";
-import {
-  assistantReplyIsTimeAnswer,
-  extractClockTimezone,
-  stripTimeAnswerFences,
-} from "@/lib/timeQuestion";
 import { SENDING_LABEL_DELAY_MS } from "@/lib/chatMessageLogic";
+import { useAssistantMessageContent } from "@/hooks/useAssistantMessageContent";
 import { useStreamLayoutHold } from "@/hooks/useStreamLayoutHold";
 import { useRotatingStreamStatus } from "@/lib/streamStatusLabel";
 import { Theme, useTheme } from "@/lib/theme";
@@ -242,8 +228,39 @@ export const MessageBubble = React.memo(function MessageBubble({
     return () => clearTimeout(timer);
   }, [isSending]);
 
-  const content = liveContent ?? message.content;
-  const hasContent = content.trim().length > 0;
+  const assistant = useAssistantMessageContent({
+    message,
+    liveContent,
+    liveSearchSources,
+    priorUserText,
+    layoutFrozen,
+    isGenerating,
+    isUser,
+  });
+  const {
+    content,
+    hasContent,
+    showActionSlot,
+    actionsReady,
+    showVocabCard,
+    vocabCard,
+    showLiveClock,
+    clockTimezone,
+    calendarProposals,
+    showCalendarProposals,
+    places,
+    showPlaces,
+    images,
+    showImages,
+    markdownContent,
+    hasMarkdown,
+    showSearchSources,
+    searchSources,
+    showContextSummarized,
+    markdownStreamMode,
+    markdownResetKey,
+  } = assistant;
+
   const reasoningText = liveReasoning?.trim() ?? "";
   const showReasoning = !isUser && reasoningText.length > 0;
   const statusLabel = useRotatingStreamStatus(
@@ -251,89 +268,6 @@ export const MessageBubble = React.memo(function MessageBubble({
     isStreaming && !hasContent,
     t,
   );
-  const isQuizFeedback = message.id.startsWith("local-quiz-");
-  const showActionSlot = !isUser && hasContent && !isQuizFeedback;
-  const actionsReady = showActionSlot && !isGenerating;
-  const quizForStrip = useMemo(() => {
-    if (isUser || !hasContent || !hasVocabQuizFence(content)) return null;
-    const quiz = parseVocabQuiz(content);
-    return isRenderableVocabQuiz(quiz) ? quiz : null;
-  }, [isUser, hasContent, content]);
-  const vocabCard = useMemo(() => {
-    if (isUser || !hasContent || quizForStrip) return null;
-    return parseVocabCard(content);
-  }, [isUser, hasContent, content, quizForStrip]);
-  const showVocabCard = vocabCard != null && !layoutFrozen;
-  const hideQuizFenceInMarkdown = hasVocabQuizFence(content);
-  const hideCardFenceInMarkdown =
-    hideQuizFenceInMarkdown || showVocabCard || hasVocabCardFence(content);
-  const showLiveClock =
-    !isUser &&
-    hasContent &&
-    !layoutFrozen &&
-    assistantReplyIsTimeAnswer(content, priorUserText ?? null);
-  const clockTimezone = useMemo(
-    () => extractClockTimezone(content),
-    [content],
-  );
-  const searchSources = useMemo(
-    () =>
-      resolveSearchSources(
-        content,
-        liveSearchSources ?? message.search_sources,
-      ),
-    [content, liveSearchSources, message.search_sources],
-  );
-  const calendarProposals = useMemo(
-    () =>
-      !isUser && hasContent && !layoutFrozen
-        ? parseCalendarProposals(content)
-        : [],
-    [isUser, hasContent, layoutFrozen, content],
-  );
-  const showCalendarProposals = calendarProposals.length > 0 && !layoutFrozen;
-  const places = useMemo(
-    () => (!isUser && hasContent && !layoutFrozen ? resolvePlaces(content) : []),
-    [isUser, hasContent, layoutFrozen, content],
-  );
-  const showPlaces = places.length > 0;
-  const markdownContent = useMemo(() => {
-    let text = hideCardFenceInMarkdown
-      ? stripVocabCardBlock(hideQuizFenceInMarkdown ? stripVocabQuizBlock(content) : content)
-      : hideQuizFenceInMarkdown
-        ? stripVocabQuizBlock(content)
-        : stripVocabSessionMetadata(content);
-    if (quizForStrip && isRenderableVocabQuiz(quizForStrip)) {
-      if (isCompleteVocabQuiz(quizForStrip)) {
-        text = stripVocabQuizPrologue(text, quizForStrip);
-        const quizBody = formatVocabQuizAsMarkdown(quizForStrip);
-        text = text.trim() ? `${text.trim()}\n\n${quizBody}` : quizBody;
-      } else {
-        text = stripQuizMarkdownDuplicates(text, quizForStrip);
-        if (!markdownHasQuizChoices(text, quizForStrip)) {
-          const quizBody = formatVocabQuizAsMarkdown(quizForStrip);
-          text = text.trim() ? `${text.trim()}\n\n${quizBody}` : quizBody;
-        }
-      }
-    }
-    if (showLiveClock) text = stripTimeAnswerFences(text);
-    text = stripSearchSourcesFromContent(text);
-    if (showCalendarProposals) text = stripCalendarProposalFences(text);
-    if (showPlaces) text = stripPlacesContent(text, places);
-    return text;
-  }, [hideCardFenceInMarkdown, hideQuizFenceInMarkdown, quizForStrip, showLiveClock, showCalendarProposals, showPlaces, places, content]);
-  const hasMarkdown = markdownContent.trim().length > 0;
-  const showSearchSources =
-    searchSources.length > 0 &&
-    !layoutFrozen &&
-    !showLiveClock &&
-    !hideQuizFenceInMarkdown &&
-    !showVocabCard &&
-    !showCalendarProposals;
-  const showContextSummarized =
-    !isUser && !layoutFrozen && (message.context_summarized ?? 0) > 0;
-  const markdownStreamMode = layoutFrozen;
-  const markdownResetKey = `${message.renderKey ?? message.id}:${markdownContent.length}`;
 
   return (
     <View style={[b.row, isUser ? b.userRow : b.assistantRow, highlighted && b.rowHighlighted]}>
@@ -366,6 +300,15 @@ export const MessageBubble = React.memo(function MessageBubble({
                 {t("chat.context_summarized", { count: message.context_summarized })}
               </Text>
             ) : null}
+            {showImages
+              ? images.map((image, index) => (
+                  <ChatMessageImage
+                    key={`${image.attachmentId ?? image.path}-${index}`}
+                    attachmentId={image.attachmentId}
+                    path={image.path}
+                  />
+                ))
+              : null}
             {showLiveClock ? (
               <CircularClockBlock content={clockTimezone} />
             ) : null}
@@ -466,8 +409,6 @@ function makeStyles(t: Theme) {
       fontSize: 14,
       color: t.textTertiary,
     },
-    userText: { color: t.userText, fontSize: 16, lineHeight: 23 },
-    streamingText: { color: t.assistantText, fontSize: 16, lineHeight: 25 },
     contextChip: {
       fontSize: 12,
       lineHeight: 16,

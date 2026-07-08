@@ -42,6 +42,8 @@ import { useChatScreenBodyProps } from "@/hooks/useChatScreenBodyProps";
 import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
 import { useTodosOptional } from "@/contexts/TodosContext";
 import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/lib/chatComposerLogic";
+import { useImageGeneration } from "@/hooks/useImageGeneration";
+import { ImageGenPromptSheet } from "@/components/ImageGenPromptSheet";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 
 function ChatScreen() {
@@ -213,6 +215,28 @@ function ChatScreen() {
   const { selectedModel } = composer;
   const { isOffline } = useNetwork();
 
+  const openUpgradeRef = useRef<(() => void) | null>(null);
+  const openImageGenRef = useRef<(() => void) | null>(null);
+
+  const imageGen = useImageGeneration({
+    token,
+    chatId,
+    setChatId,
+    setChatTitle,
+    setMessages,
+    draft,
+    router,
+    selectedModel,
+    streaming: streamActive,
+    isPro,
+    isOffline,
+    onOpenUpgrade: () => openUpgradeRef.current?.(),
+    onScrollToLatest: scroll.scrollToLatest,
+    newMessageCountRef: scroll.newMessageCountRef,
+    t,
+  });
+  openImageGenRef.current = imageGen.openPrompt;
+
   const send = useChatSend({
     token,
     chatId,
@@ -235,6 +259,7 @@ function ChatScreen() {
     onStreamBusy: handleStreamBusy,
     isOffline,
     resolveQuizProjectId,
+    onOpenImageGen: () => openImageGenRef.current?.(),
   });
 
   const {
@@ -339,7 +364,7 @@ function ChatScreen() {
 
   const menuOverlayOpen = isComposerMenuOverlayOpen(attachSheetOpen);
 
-  const chatScreenBodyProps = useChatScreenBodyProps({
+  const chatScreenBody = useChatScreenBodyProps({
     styles: s,
     theme: C,
     token: token ?? "",
@@ -396,6 +421,8 @@ function ChatScreen() {
     voiceMeterLevel,
     toggleVoiceInput,
   });
+  openUpgradeRef.current = chatScreenBody.openUpgradeSheet;
+  const chatScreenBodyProps = chatScreenBody.bodyProps;
 
   if (!token) return <Redirect href="/login" />;
 
@@ -418,6 +445,12 @@ function ChatScreen() {
       />
 
       <ChatScreenBody {...chatScreenBodyProps} />
+      <ImageGenPromptSheet
+        visible={imageGen.promptOpen}
+        generating={imageGen.generating}
+        onClose={() => imageGen.setPromptOpen(false)}
+        onSubmit={(prompt) => void imageGen.submitPrompt(prompt)}
+      />
     </>
   );
 }

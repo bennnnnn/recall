@@ -159,10 +159,14 @@ class R2StorageGateway:
         )
 
     async def write_bytes(self, storage_key: str, data: bytes) -> None:
-        # R2 uploads go directly from the client via the presigned PUT URL;
-        # the API never holds the blob. This method exists for interface parity
-        # and is not expected to be called.
-        raise NotImplementedError("R2 uploads go via presigned PUT, not through the API")
+        import asyncio
+
+        await asyncio.to_thread(
+            self._client.put_object,
+            Bucket=self._bucket,
+            Key=storage_key,
+            Body=data,
+        )
 
     async def read_bytes(self, storage_key: str) -> bytes | None:
         # Used by attachment_content to extract text/vision bytes for the prompt.

@@ -182,6 +182,13 @@ CATALOG: tuple[ChatModel, ...] = (
         provider="google",
         selectable=False,
     ),
+    _or(
+        id="image-gen-model",
+        label="Image generation",
+        model="black-forest-labs/flux-schnell",
+        provider="openrouter",
+        selectable=False,
+    ),
 )
 
 _BY_ID: dict[str, ChatModel] = {m.id: m for m in CATALOG}

@@ -22,6 +22,7 @@ from app.routers import (
     gmail_integrations,
     health,
     home,
+    images,
     integrations,
     legal,
     link_preview,
@@ -100,6 +101,7 @@ def create_app() -> FastAPI:
     app.include_router(integrations.router)
     app.include_router(gmail_integrations.router)
     app.include_router(speech.router)
+    app.include_router(images.router)
     app.include_router(ws.router)
 
     return app

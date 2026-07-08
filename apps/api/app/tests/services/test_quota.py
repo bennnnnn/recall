@@ -211,3 +211,51 @@ async def test_reserve_tavily_search_enforces_limit(fake_redis, settings):
     for _ in range(limit):
         assert await quota_service.reserve_tavily_search(fake_redis, user_id, limit=limit) is True
     assert await quota_service.reserve_tavily_search(fake_redis, user_id, limit=limit) is False
+
+
+def test_image_generation_limit_for_user(settings):
+    settings = Settings(daily_image_generations=0, daily_image_generations_pro=10)
+    assert quota_service.image_generation_limit_for_user(_free_user(), settings) == 0
+    assert quota_service.image_generation_limit_for_user(_pro_user(), settings) == 10
+
+
+@pytest.mark.asyncio
+async def test_reserve_image_generation_blocks_free_plan(fake_redis, settings):
+    from uuid import uuid4
+
+    settings = Settings(daily_image_generations=0, daily_image_generations_pro=10)
+    user_id = uuid4()
+    assert (
+        await quota_service.reserve_image_generation(
+            fake_redis,
+            user_id,
+            limit=quota_service.image_generation_limit_for_user(_free_user(), settings),
+        )
+        is False
+    )
+
+
+@pytest.mark.asyncio
+async def test_reserve_image_generation_enforces_pro_limit(fake_redis):
+    from uuid import uuid4
+
+    settings = Settings(daily_image_generations_pro=2)
+    user_id = uuid4()
+    limit = quota_service.image_generation_limit_for_user(_pro_user(), settings)
+    for _ in range(limit):
+        assert (
+            await quota_service.reserve_image_generation(fake_redis, user_id, limit=limit) is True
+        )
+    assert await quota_service.reserve_image_generation(fake_redis, user_id, limit=limit) is False
+
+
+@pytest.mark.asyncio
+async def test_refund_image_generation(fake_redis):
+    from uuid import uuid4
+
+    settings = Settings(daily_image_generations_pro=5)
+    user_id = uuid4()
+    limit = quota_service.image_generation_limit_for_user(_pro_user(), settings)
+    assert await quota_service.reserve_image_generation(fake_redis, user_id, limit=limit)
+    await quota_service.refund_image_generation(fake_redis, user_id)
+    assert await quota_service.reserve_image_generation(fake_redis, user_id, limit=limit)

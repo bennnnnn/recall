@@ -73,6 +73,9 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
   numbers, keywords); heuristic fallback for unknown langs.
 - ✅ **Tables** — styled (header shading, borders, cell padding).
 - ✅ **Inline images** — Markdown `![alt](url)` images render (contained, rounded).
+- ✅ **Image generation (Pro)** — Composer **Generate image** opens a prompt sheet; Pro users get
+  daily-limited generations stored as chat attachments. Tap the result to view full-screen and save
+  via the system share sheet.
 - ✅ **Math / LaTeX** — inline `$...$` and ` ```math` fences render as native text with
   superscripts (x², ±, √). Server-side **SymPy** solves equations and samples graphs before the
   LLM explains (verified numbers injected into the prompt).
@@ -368,7 +371,8 @@ A consolidated list of what's intentionally **not** in this version:
 - 🔜 **Full RAG** (pgvector over attachments + chat corpora; memory embeddings exist today)
 - 🔜 **Code execution** (beyond sandboxed HTML/chart preview)
 - ⚠️ **File / image upload** — attachment substrate partially wired; not full vision/RAG pipeline
-- 🔜 **Image input/output** (multimodal models end-to-end)
+- ⚠️ **Image input/output** — Pro **image output** shipped via composer; vision input for chat
+  attachments exists; full multimodal end-to-end still in progress
 - 🔜 **Camera math solver** — snap a photo of a math problem → AI reads it, solves it, and renders
   the worked, step-by-step solution formatted to match the problem. Composite feature, built on:
   camera capture (`expo-camera` / image picker), **image input** via a **vision model or math OCR**,

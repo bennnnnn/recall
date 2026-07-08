@@ -30,6 +30,13 @@ SPEECH_LIMIT_EXCEEDED_MESSAGE_PRO = (
 )
 SPEECH_RATE_LIMIT_MESSAGE = "Too many transcription requests. Please wait a moment and try again."
 
+IMAGE_GENERATION_LIMIT_EXCEEDED_MESSAGE_FREE = (
+    "Image generation is a Pro feature. Upgrade to generate images."
+)
+IMAGE_GENERATION_LIMIT_EXCEEDED_MESSAGE_PRO = (
+    "You've reached today's image generation limit. Come back tomorrow."
+)
+
 
 def quota_exceeded_message(user: User) -> str:
     if user.plan == "pro":
@@ -47,6 +54,12 @@ def speech_limit_exceeded_message(user: User) -> str:
     if user.plan == "pro":
         return SPEECH_LIMIT_EXCEEDED_MESSAGE_PRO
     return SPEECH_LIMIT_EXCEEDED_MESSAGE_FREE
+
+
+def image_generation_limit_exceeded_message(user: User) -> str:
+    if user.plan == "pro":
+        return IMAGE_GENERATION_LIMIT_EXCEEDED_MESSAGE_PRO
+    return IMAGE_GENERATION_LIMIT_EXCEEDED_MESSAGE_FREE
 
 
 def _usage_key(user_id: str, day: date) -> str:
@@ -282,3 +295,38 @@ async def reserve_tavily_search(redis: Redis, user_id: UUID, *, limit: int) -> b
         await redis.incrby(key, -1)
         return False
     return True
+
+
+# ── AI image generation caps (Pro-only via limit=0 for free) ─────────────────
+
+_IMGGEN_TTL = 60 * 60 * 48
+
+
+def _imggen_key(user_id: UUID, day: date) -> str:
+    return f"imggen:{user_id}:{day.isoformat()}"
+
+
+def image_generation_limit_for_user(user: User, settings: Settings) -> int:
+    if user.plan == "pro":
+        return settings.daily_image_generations_pro
+    return settings.daily_image_generations
+
+
+async def reserve_image_generation(redis: Redis, user_id: UUID, *, limit: int) -> bool:
+    if limit <= 0:
+        return False
+    key = _imggen_key(user_id, utc_today())
+    new_total = await redis.incrby(key, 1)
+    if new_total == 1:
+        await redis.expire(key, _IMGGEN_TTL)
+    if new_total > limit:
+        await redis.incrby(key, -1)
+        return False
+    return True
+
+
+async def refund_image_generation(redis: Redis, user_id: UUID) -> None:
+    key = _imggen_key(user_id, utc_today())
+    new_total = await redis.incrby(key, -1)
+    if new_total < 0:
+        await redis.set(key, 0)

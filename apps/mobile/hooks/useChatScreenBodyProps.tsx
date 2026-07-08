@@ -1,4 +1,4 @@
-import { useMemo, useState, type MutableRefObject, type ReactElement, type RefObject } from "react";
+import { useMemo, useState, useCallback, type MutableRefObject, type ReactElement, type RefObject } from "react";
 import { FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
 import { type NativeScrollEvent, type NativeSyntheticEvent, type ViewStyle } from "react-native";
@@ -149,8 +149,9 @@ export function useChatScreenBodyProps({
   toggleVoiceInput,
   listFooter = null,
   hideHomeStarters = false,
-}: UseChatScreenBodyPropsParams): ChatScreenBodyProps {
+}: UseChatScreenBodyPropsParams): { bodyProps: ChatScreenBodyProps; openUpgradeSheet: () => void } {
   const [upgradeVisible, setUpgradeVisible] = useState(false);
+  const openUpgradeSheet = useCallback(() => setUpgradeVisible(true), []);
 
   const { headerInset, composerClearance, listBottomPad, emptyHeight } = layout;
   listBottomPadRef.current = listBottomPad;
@@ -193,7 +194,7 @@ export function useChatScreenBodyProps({
     ],
   );
 
-  return useMemo(
+  const bodyProps = useMemo(
     (): ChatScreenBodyProps => ({
       styles,
       theme,
@@ -313,4 +314,6 @@ export function useChatScreenBodyProps({
       hideHomeStarters,
     ],
   );
+
+  return { bodyProps, openUpgradeSheet };
 }
