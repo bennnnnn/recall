@@ -155,13 +155,32 @@ async def reorder(
     user_id: UUID,
     items: list[tuple[UUID, int, str | None]],
 ) -> list[TodoItem]:
-    updated: list[TodoItem] = []
+    """Bulk-fetch, mutate in memory, and commit once — instead of a SELECT +
+    COMMIT + REFRESH round trip per item."""
+    if not items:
+        return []
+
+    todo_ids = [todo_id for todo_id, _sort_order, _topic in items]
+    result = await session.execute(
+        select(TodoItem).where(TodoItem.id.in_(todo_ids), TodoItem.user_id == user_id)
+    )
+    todos_by_id = {todo.id: todo for todo in result.scalars().all()}
+
+    ordered_ids: list[UUID] = []
     for todo_id, sort_order, topic in items:
-        todo = await get_by_id(session, todo_id, user_id)
+        todo = todos_by_id.get(todo_id)
         if not todo:
             continue
-        fields: dict[str, Any] = {"sort_order": sort_order}
+        todo.sort_order = sort_order
         if topic is not None:
-            fields["topic"] = topic.strip() or DEFAULT_TOPIC
-        updated.append(await update(session, todo, **fields))
-    return updated
+            todo.topic = topic.strip() or DEFAULT_TOPIC
+        ordered_ids.append(todo_id)
+
+    if not ordered_ids:
+        return []
+
+    await session.commit()
+
+    refreshed = await session.execute(select(TodoItem).where(TodoItem.id.in_(ordered_ids)))
+    refreshed_by_id = {todo.id: todo for todo in refreshed.scalars().all()}
+    return [refreshed_by_id[todo_id] for todo_id in ordered_ids if todo_id in refreshed_by_id]
