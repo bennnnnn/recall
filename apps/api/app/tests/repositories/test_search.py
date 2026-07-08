@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -31,12 +31,24 @@ async def test_search_includes_title_only_match():
     msg_rows_result = MagicMock()
     msg_rows_result.all.return_value = []
 
-    session.execute = AsyncMock(
-        side_effect=[msg_count_result, title_result, msg_chat_ids_result, msg_rows_result]
-    )
-    session.scalars = AsyncMock(return_value=msg_chat_ids_result)
+    # search_conversations parallelizes the count/title/chat-ids queries on their
+    # own short-lived sessions (asyncio.gather); only the main msg_stmt uses the
+    # session passed in by the caller.
+    parallel_session = AsyncMock()
+    parallel_session.execute = AsyncMock(side_effect=[msg_count_result, title_result])
+    parallel_session.scalars = AsyncMock(return_value=msg_chat_ids_result)
 
-    results, total = await search_repo.search_conversations(session, user_id, "trip")
+    class SessionCM:
+        async def __aenter__(self):
+            return parallel_session
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+    session.execute = AsyncMock(return_value=msg_rows_result)
+
+    with patch("app.repositories.search.SessionLocal", return_value=SessionCM()):
+        results, total = await search_repo.search_conversations(session, user_id, "trip")
 
     assert total == 1
     assert len(results) == 1
