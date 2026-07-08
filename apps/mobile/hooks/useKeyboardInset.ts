@@ -6,10 +6,14 @@ import {
   useAnimatedStyle,
 } from "react-native-reanimated";
 
+import { shouldPushKeyboardHeight } from "@/lib/keyboardInset";
+
 type Options = {
   /** Bottom padding when the keyboard is hidden (safe area aware). */
   idleBottomPad: number;
 };
+
+const KEYBOARD_HEIGHT_THRESHOLD_PX = 4;
 
 /** Tracks the OS keyboard curve for the chat composer and layout metrics. */
 export function useKeyboardInset({ idleBottomPad }: Options) {
@@ -18,8 +22,13 @@ export function useKeyboardInset({ idleBottomPad }: Options) {
 
   useAnimatedReaction(
     () => keyboard.height.value,
-    (height) => {
-      runOnJS(setKeyboardHeight)(Math.max(0, height));
+    (height, previousHeight) => {
+      const next = Math.max(0, height);
+      const previous = Math.max(0, previousHeight ?? 0);
+      if (!shouldPushKeyboardHeight(next, previous, KEYBOARD_HEIGHT_THRESHOLD_PX)) {
+        return;
+      }
+      runOnJS(setKeyboardHeight)(next);
     },
   );
 
