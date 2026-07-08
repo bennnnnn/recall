@@ -156,6 +156,22 @@ export function useDrawerChatList({ token, isDrawerOpen }: Params) {
     });
   }, []);
 
+  const moveChatArchiveState = useCallback((chatId: string, archived: boolean) => {
+    setGroups((prev) => {
+      const chat = [...activeChatsFromGroups(prev), ...prev.archived].find(
+        (c) => c.id === chatId,
+      );
+      if (!chat) return prev;
+      const updated = { ...chat, archived };
+      const rest = removeChatFromGroups(prev, chatId);
+      return insertChatIntoGroups(rest, updated);
+    });
+  }, []);
+
+  const removeChatFromGroupsById = useCallback((chatId: string) => {
+    setGroups((prev) => removeChatFromGroups(prev, chatId));
+  }, []);
+
   return {
     loading,
     error,
@@ -165,8 +181,11 @@ export function useDrawerChatList({ token, isDrawerOpen }: Params) {
     load,
     handleRefresh,
     patchChatInGroups,
+    insertChatInGroups,
     isSectionCollapsed,
     toggleSectionCollapsed,
     moveChatPinState,
+    moveChatArchiveState,
+    removeChatFromGroupsById,
   };
 }
