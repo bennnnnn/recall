@@ -112,7 +112,7 @@ class Settings(BaseSettings):
     daily_speech_transcriptions_pro: int = 200
 
     image_generation_enabled: bool = True
-    image_generation_model: str = "black-forest-labs/flux-schnell"
+    image_generation_model: str = "google/gemini-2.5-flash-image"
     daily_image_generations: int = 0
     daily_image_generations_pro: int = 10
 

@@ -14,6 +14,8 @@ type Props = {
    * assistant row, so this row doesn't re-render when a turn starts/ends.
    */
   streamVisualActive: boolean;
+  imageGenPendingId?: string | null;
+  imageGenActive?: boolean;
   lastAssistantId: string | null;
   selectedModel: string;
   quizLanguage: string;
@@ -28,6 +30,8 @@ export const ChatMessageRow = memo(function ChatMessageRow({
   item,
   priorUserText,
   streamVisualActive,
+  imageGenPendingId = null,
+  imageGenActive = false,
   lastAssistantId,
   selectedModel,
   quizLanguage,
@@ -38,16 +42,19 @@ export const ChatMessageRow = memo(function ChatMessageRow({
   onFeedback,
 }: Props) {
   const isLastAssistant = item.role === "assistant" && item.id === lastAssistantId;
+  const isImageGenPending =
+    item.id === imageGenPendingId ||
+    (imageGenActive && item.role === "assistant" && item.id.startsWith("local-imggen-"));
 
   return (
     <MessageBubble
       message={item}
       priorUserText={priorUserText}
-      isGenerating={false}
+      isGenerating={isImageGenPending}
       liveContent={undefined}
       liveSearchSources={undefined}
       liveReasoning={undefined}
-      streamStatus={undefined}
+      streamStatus={isImageGenPending ? "image_gen" : undefined}
       isLastAssistant={isLastAssistant}
       onRegenerate={
         isLastAssistant && !streamVisualActive ? () => onRegenerate(selectedModel) : undefined

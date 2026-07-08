@@ -70,6 +70,7 @@ export function ChatMessageList({
         }}
         keyExtractor={messageListKey}
         getItemType={messageListItemType}
+        extraData={messages.length}
         renderItem={renderItem}
         onScroll={onScroll}
         onScrollEndDrag={onScrollEnd}

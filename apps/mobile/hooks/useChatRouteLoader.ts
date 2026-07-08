@@ -36,6 +36,7 @@ type Options = {
   setInputRef: React.MutableRefObject<(value: string) => void>;
   listRef: React.RefObject<FlashListRef<Message> | null>;
   showActionBanner: (message: string, icon?: keyof typeof Ionicons.glyphMap) => void;
+  blockMessageReloadRef?: React.MutableRefObject<boolean>;
   t: (key: string) => string;
   onFocusLaunch?: () => void;
 };
@@ -60,6 +61,7 @@ export function useChatRouteLoader({
   setInputRef,
   listRef,
   showActionBanner,
+  blockMessageReloadRef,
   t,
 }: Options) {
   const {
@@ -170,6 +172,11 @@ export function useChatRouteLoader({
         setChatLoading(false);
         return;
       }
+      if (blockMessageReloadRef?.current) {
+        setChatId(openChatId);
+        setChatLoading(false);
+        return;
+      }
       setChatLoading(true);
       setHasMoreOlder(false);
       try {
@@ -214,7 +221,9 @@ export function useChatRouteLoader({
         skipNextFocusRef.current = false;
         return;
       }
-      if (!token || !openChatId || streaming || chatLoading) return;
+      if (!token || !openChatId || streaming || chatLoading || blockMessageReloadRef?.current) {
+        return;
+      }
 
       void (async () => {
         try {
@@ -234,7 +243,7 @@ export function useChatRouteLoader({
           /* keep existing messages on silent refetch failure */
         }
       })();
-    }, [token, routeChatId, streaming, chatLoading, setChatId, setMessages]),
+    }, [token, routeChatId, streaming, chatLoading, setChatId, setMessages, blockMessageReloadRef]),
   );
 
   const loadOlderMessages = useCallback(async () => {

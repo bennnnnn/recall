@@ -44,7 +44,7 @@ async def test_generate_image_openrouter_b64_json():
     settings = Settings(
         openrouter_api_key="test-key",
         image_generation_enabled=True,
-        image_generation_model="black-forest-labs/flux-schnell",
+        image_generation_model="google/gemini-2.5-flash-image",
     )
     import base64
 

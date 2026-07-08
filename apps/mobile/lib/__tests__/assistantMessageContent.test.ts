@@ -81,4 +81,16 @@ describe("deriveAssistantMessageContent", () => {
     expect(result.markdownContent).toBe("");
     expect(result.hasMarkdown).toBe(false);
   });
+
+  it("shows image thumbnails even while layout is frozen", () => {
+    const attachmentId = "22222222-2222-2222-2222-222222222222";
+    const result = deriveAssistantMessageContent({
+      ...base,
+      layoutFrozen: true,
+      content: `[Image: /attachments/${attachmentId}/file]`,
+    });
+
+    expect(result.showImages).toBe(true);
+    expect(result.images).toHaveLength(1);
+  });
 });

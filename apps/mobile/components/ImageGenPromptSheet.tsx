@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   ActivityIndicator,
   Keyboard,
@@ -28,6 +28,10 @@ export function ImageGenPromptSheet({ visible, generating, onClose, onSubmit }: 
   const s = useMemo(() => makeStyles(theme), [theme]);
   const [prompt, setPrompt] = useState("");
 
+  useEffect(() => {
+    if (!visible) setPrompt("");
+  }, [visible]);
+
   const handleClose = () => {
     if (generating) return;
     setPrompt("");
@@ -49,6 +53,12 @@ export function ImageGenPromptSheet({ visible, generating, onClose, onSubmit }: 
           onPress={(event) => event.stopPropagation()}
         >
           <Text style={s.title}>{t("chat.image_gen_title")}</Text>
+          {generating ? (
+            <View style={s.statusRow}>
+              <ActivityIndicator color={theme.primary} size="small" />
+              <Text style={s.statusText}>{t("chat.image_gen_in_progress")}</Text>
+            </View>
+          ) : null}
           <TextInput
             style={s.input}
             value={prompt}
@@ -109,6 +119,15 @@ function makeStyles(t: Theme) {
       fontSize: 18,
       fontWeight: "600",
       color: t.text,
+    },
+    statusRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+    },
+    statusText: {
+      fontSize: 15,
+      color: t.textSecondary,
     },
     input: {
       minHeight: 96,

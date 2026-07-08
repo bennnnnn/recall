@@ -76,7 +76,10 @@ function ChatScreen() {
   const { refresh: refreshHome } = useHome();
   const { chatError, handleChatError, handleStreamBusy, dismissChatError } =
     useChatErrorHandlers(isPro);
-  const activeChatId = draft.activeChatId;
+  const activeChatId =
+    chatId ??
+    draft.draftChatId ??
+    (typeof routeChatId === "string" ? routeChatId : null);
 
   const onFirstReplyRef = useRef<() => Promise<void>>(async () => {});
   const setInputRef = useRef<(value: string) => void>(() => {});
@@ -84,6 +87,7 @@ function ChatScreen() {
   const showActionBannerRef = useRef<
     (message: string, icon?: keyof typeof Ionicons.glyphMap) => void
   >(() => {});
+  const blockMessageReloadRef = useRef(false);
 
   const todosCtx = useTodosOptional();
   const handleTodosSync = useCallback(() => {
@@ -151,6 +155,7 @@ function ChatScreen() {
     setInputRef,
     listRef: scroll.listRef,
     showActionBanner: (message, icon) => showActionBannerRef.current(message, icon),
+    blockMessageReloadRef,
     t,
   });
 
@@ -233,6 +238,7 @@ function ChatScreen() {
     onOpenUpgrade: () => openUpgradeRef.current?.(),
     onScrollToLatest: scroll.scrollToLatest,
     newMessageCountRef: scroll.newMessageCountRef,
+    blockMessageReloadRef,
     t,
   });
   openImageGenRef.current = imageGen.openPrompt;
@@ -345,6 +351,8 @@ function ChatScreen() {
     quizLanguage,
     highlightedMessageId,
     sendingMessageId: sendingMessageId ?? pendingOutboundId,
+    imageGenPendingId: imageGen.pendingAssistantId,
+    imageGenActive: imageGen.generating,
     setMenuVisible,
     regenerateResponse: handleRegenerate,
     handleEditMessage,

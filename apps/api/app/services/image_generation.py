@@ -49,7 +49,7 @@ async def generate_image(
     if not settings.openrouter_api_key:
         return None
 
-    model = (settings.image_generation_model or "black-forest-labs/flux-schnell").strip()
+    model = (settings.image_generation_model or "google/gemini-2.5-flash-image").strip()
     payload: dict[str, object] = {
         "model": model,
         "prompt": cleaned,

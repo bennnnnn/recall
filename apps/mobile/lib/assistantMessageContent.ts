@@ -174,7 +174,8 @@ export function deriveAssistantMessageContent(
   const showPlaces = places.length > 0;
 
   const parsedImages = !isUser && hasContent ? parseMessageImages(content) : { images: [], textWithoutImages: content };
-  const showImages = parsedImages.images.length > 0 && !layoutFrozen;
+  // Image thumbnails are stable — don't hide them during the post-stream layout hold.
+  const showImages = parsedImages.images.length > 0;
 
   const markdownContent = buildMarkdownContent({
     content: parsedImages.textWithoutImages,
