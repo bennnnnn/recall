@@ -2,6 +2,7 @@ import {
   formatScrollAwayBadge,
   getScrollThresholds,
   resolveScrollAtBottom,
+  shouldSchedulePostStreamScroll,
 } from "@/lib/chatScrollLogic";
 
 describe("chatScrollLogic", () => {
@@ -61,5 +62,12 @@ describe("chatScrollLogic", () => {
     expect(formatScrollAwayBadge(0)).toBeNull();
     expect(formatScrollAwayBadge(3)).toBe("3");
     expect(formatScrollAwayBadge(10)).toBe("9+");
+  });
+
+  it("shouldSchedulePostStreamScroll only when stream ends at bottom", () => {
+    expect(shouldSchedulePostStreamScroll(true, false, true)).toBe(true);
+    expect(shouldSchedulePostStreamScroll(false, false, true)).toBe(false);
+    expect(shouldSchedulePostStreamScroll(true, true, true)).toBe(false);
+    expect(shouldSchedulePostStreamScroll(true, false, false)).toBe(false);
   });
 });

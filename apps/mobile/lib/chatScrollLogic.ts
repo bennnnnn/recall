@@ -35,3 +35,12 @@ export function formatScrollAwayBadge(count: number): string | null {
   if (count <= 0) return null;
   return count > 9 ? "9+" : String(count);
 }
+
+/** Scroll once after stream ends — not on every draft clear / layout tick. */
+export function shouldSchedulePostStreamScroll(
+  wasStreamActive: boolean,
+  streamActive: boolean,
+  atBottom: boolean,
+): boolean {
+  return wasStreamActive && !streamActive && atBottom;
+}

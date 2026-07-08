@@ -1,7 +1,9 @@
 import {
+  isFreshStreamRenderKey,
   messageListItemType,
   messageListKey,
   ESTIMATED_MESSAGE_HEIGHT,
+  shouldHoldStreamLayoutOnPersistedMount,
 } from "@/lib/messageListLayout";
 
 describe("messageListLayout", () => {
@@ -42,5 +44,46 @@ describe("messageListLayout", () => {
   it("exports a reasonable default height hint", () => {
     expect(ESTIMATED_MESSAGE_HEIGHT).toBeGreaterThan(40);
     expect(ESTIMATED_MESSAGE_HEIGHT).toBeLessThan(200);
+  });
+
+  it("detects fresh stream render keys", () => {
+    expect(isFreshStreamRenderKey("stream-171")).toBe(true);
+    expect(isFreshStreamRenderKey("msg-1")).toBe(false);
+    expect(isFreshStreamRenderKey(undefined)).toBe(false);
+  });
+
+  it("shouldHoldStreamLayoutOnPersistedMount only for fresh assistant rows", () => {
+    expect(
+      shouldHoldStreamLayoutOnPersistedMount({
+        isUser: false,
+        isGenerating: false,
+        renderKey: "stream-1",
+        alreadyApplied: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldHoldStreamLayoutOnPersistedMount({
+        isUser: true,
+        isGenerating: false,
+        renderKey: "stream-1",
+        alreadyApplied: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldHoldStreamLayoutOnPersistedMount({
+        isUser: false,
+        isGenerating: true,
+        renderKey: "stream-1",
+        alreadyApplied: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldHoldStreamLayoutOnPersistedMount({
+        isUser: false,
+        isGenerating: false,
+        renderKey: "stream-1",
+        alreadyApplied: true,
+      }),
+    ).toBe(false);
   });
 });

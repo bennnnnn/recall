@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import * as Clipboard from "expo-clipboard";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View, Alert } from "react-native";
@@ -36,7 +36,7 @@ import {
   stripTimeAnswerFences,
 } from "@/lib/timeQuestion";
 import { SENDING_LABEL_DELAY_MS } from "@/lib/chatMessageLogic";
-import { STREAM_LAYOUT_SETTLE_MS } from "@/lib/messageListLayout";
+import { useStreamLayoutHold } from "@/hooks/useStreamLayoutHold";
 import { useRotatingStreamStatus } from "@/lib/streamStatusLabel";
 import { Theme, useTheme } from "@/lib/theme";
 import { speakPlainText, stopSpeaking } from "@/lib/pronunciation";
@@ -224,21 +224,14 @@ export const MessageBubble = React.memo(function MessageBubble({
   const { t } = useTranslation();
   const b = useMemo(() => makeStyles(theme), [theme]);
   const [showSendingLabel, setShowSendingLabel] = useState(false);
-  const [holdStreamLayout, setHoldStreamLayout] = useState(false);
-  const wasGeneratingRef = useRef(false);
-
-  useEffect(() => {
-    if (isGenerating) {
-      wasGeneratingRef.current = true;
-      setHoldStreamLayout(false);
-      return;
-    }
-    if (!wasGeneratingRef.current) return;
-    wasGeneratingRef.current = false;
-    setHoldStreamLayout(true);
-    const timer = setTimeout(() => setHoldStreamLayout(false), STREAM_LAYOUT_SETTLE_MS);
-    return () => clearTimeout(timer);
-  }, [isGenerating]);
+  const isUser = message.role === "user";
+  const holdStreamLayout = useStreamLayoutHold({
+    isGenerating,
+    isUser,
+    renderKey: message.renderKey,
+  });
+  const isStreaming = isGenerating;
+  const layoutFrozen = isStreaming || holdStreamLayout;
 
   useEffect(() => {
     if (!isSending) {
@@ -248,9 +241,7 @@ export const MessageBubble = React.memo(function MessageBubble({
     const timer = setTimeout(() => setShowSendingLabel(true), SENDING_LABEL_DELAY_MS);
     return () => clearTimeout(timer);
   }, [isSending]);
-  const isUser = message.role === "user";
-  const isStreaming = isGenerating;
-  const layoutFrozen = isStreaming || holdStreamLayout;
+
   const content = liveContent ?? message.content;
   const hasContent = content.trim().length > 0;
   const reasoningText = liveReasoning?.trim() ?? "";
