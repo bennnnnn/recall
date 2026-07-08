@@ -4,6 +4,7 @@ import {
   isChatStreamActive,
   isLocalPendingMessageId,
   priorUserTextFor,
+  streamVisualActiveForRow,
 } from "@/lib/chatMessageLogic";
 import type { Message } from "@/lib/api";
 
@@ -37,6 +38,27 @@ describe("chatMessageLogic", () => {
     expect(isChatStreamActive(true, false)).toBe(true);
     expect(isChatStreamActive(false, true)).toBe(true);
     expect(isChatStreamActive(false, false)).toBe(false);
+  });
+
+  describe("streamVisualActiveForRow", () => {
+    it("returns the real value for a user row while a turn is active", () => {
+      expect(streamVisualActiveForRow("user", "u1", "a2", true, false)).toBe(true);
+      expect(streamVisualActiveForRow("user", "u1", "a2", false, false)).toBe(false);
+    });
+
+    it("returns the real value for the row matching lastAssistantId", () => {
+      expect(streamVisualActiveForRow("assistant", "a2", "a2", true, false)).toBe(true);
+      expect(streamVisualActiveForRow("assistant", "a2", "a2", false, true)).toBe(true);
+    });
+
+    it("returns a stable false for other assistant rows regardless of stream state", () => {
+      expect(streamVisualActiveForRow("assistant", "a1", "a2", true, false)).toBe(false);
+      expect(streamVisualActiveForRow("assistant", "a1", "a2", false, true)).toBe(false);
+    });
+
+    it("returns false for a user row when no turn is active", () => {
+      expect(streamVisualActiveForRow("user", "u1", null, false, false)).toBe(false);
+    });
   });
 
   describe("priorUserTextFor", () => {

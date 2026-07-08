@@ -8,8 +8,8 @@ type Props = {
   item: Message;
   /** Content of the immediately preceding user message, when `item` is the assistant reply to it. */
   priorUserText: string | null;
-  streaming: boolean;
-  finalizing: boolean;
+  /** Always the real streaming/finalizing value — this row only exists while active. */
+  streamVisualActive: boolean;
   lastAssistantId: string | null;
   selectedModel: string;
   quizLanguage: string;
@@ -23,8 +23,7 @@ type Props = {
 export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
   item,
   priorUserText,
-  streaming,
-  finalizing,
+  streamVisualActive,
   lastAssistantId,
   selectedModel,
   quizLanguage,
@@ -36,7 +35,6 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
 }: Props) {
   const streamingDraft = useStreamingDraft();
   const isLastAssistant = item.role === "assistant" && item.id === lastAssistantId;
-  const streamVisualActive = streaming || finalizing;
 
   return (
     <MessageBubble

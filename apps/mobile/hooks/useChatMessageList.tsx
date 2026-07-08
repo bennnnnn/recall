@@ -3,7 +3,12 @@ import { useCallback, useEffect, useMemo } from "react";
 import { ChatMessageRow } from "@/components/chat/ChatMessageRow";
 import { StreamingChatMessageRow } from "@/components/chat/StreamingChatMessageRow";
 import type { Message } from "@/lib/api";
-import { findLastAssistantId, priorUserTextFor } from "@/lib/chatMessageLogic";
+import {
+  findLastAssistantId,
+  isChatStreamActive,
+  priorUserTextFor,
+  streamVisualActiveForRow,
+} from "@/lib/chatMessageLogic";
 
 type Options = {
   messages: Message[];
@@ -45,8 +50,6 @@ export function useChatMessageList({
 
   const sharedRowProps = useMemo(
     () => ({
-      streaming,
-      finalizing,
       lastAssistantId,
       selectedModel,
       quizLanguage,
@@ -57,8 +60,6 @@ export function useChatMessageList({
       onFeedback: handleFeedback,
     }),
     [
-      streaming,
-      finalizing,
       lastAssistantId,
       selectedModel,
       quizLanguage,
@@ -74,13 +75,34 @@ export function useChatMessageList({
     ({ item, index }: { item: Message; index: number }) => {
       const priorUserText = priorUserTextFor(messages, index);
 
-      return item.id === "streaming" ? (
-        <StreamingChatMessageRow item={item} priorUserText={priorUserText} {...sharedRowProps} />
-      ) : (
-        <ChatMessageRow item={item} priorUserText={priorUserText} {...sharedRowProps} />
+      if (item.id === "streaming") {
+        return (
+          <StreamingChatMessageRow
+            item={item}
+            priorUserText={priorUserText}
+            streamVisualActive={isChatStreamActive(streaming, finalizing)}
+            {...sharedRowProps}
+          />
+        );
+      }
+
+      const streamVisualActive = streamVisualActiveForRow(
+        item.role,
+        item.id,
+        lastAssistantId,
+        streaming,
+        finalizing,
+      );
+      return (
+        <ChatMessageRow
+          item={item}
+          priorUserText={priorUserText}
+          streamVisualActive={streamVisualActive}
+          {...sharedRowProps}
+        />
       );
     },
-    [sharedRowProps, messages],
+    [sharedRowProps, messages, streaming, finalizing, lastAssistantId],
   );
 
   return { lastAssistantId, headerTitleLabel, renderItem };

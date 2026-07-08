@@ -42,3 +42,25 @@ export function priorUserTextFor(messages: Message[], index: number): string | n
 export function isChatStreamActive(streaming: boolean, finalizing: boolean): boolean {
   return streaming || finalizing;
 }
+
+/**
+ * Whether a row's own rendered output depends on the current stream state —
+ * true for every user message (editing is locked for the whole chat while any
+ * turn is in flight) and for the single row matching lastAssistantId (gates
+ * the regenerate button). Every other assistant row returns a stable `false`
+ * regardless of streaming/finalizing, so passing this instead of the raw
+ * booleans means React.memo sees no prop change for those rows when a turn
+ * starts or ends, instead of re-rendering the entire historical list twice
+ * per turn for state none of those rows actually use.
+ */
+export function streamVisualActiveForRow(
+  role: Message["role"],
+  itemId: string,
+  lastAssistantId: string | null,
+  streaming: boolean,
+  finalizing: boolean,
+): boolean {
+  const isLastAssistant = role === "assistant" && itemId === lastAssistantId;
+  if (role !== "user" && !isLastAssistant) return false;
+  return isChatStreamActive(streaming, finalizing);
+}

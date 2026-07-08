@@ -127,8 +127,8 @@ export function DrawerChatFlashList({
           rowStyles={rowStyles}
           highlighted={highlightedIds?.has(item.chat.id) ?? false}
           titleGenerating={isChatTitleGenerating(item.chat.id)}
-          onOpen={() => onOpenChat(item.chat.id)}
-          onLongPress={() => onShowRowMenu(item.chat)}
+          onOpen={onOpenChat}
+          onLongPress={onShowRowMenu}
         />
       );
     },
