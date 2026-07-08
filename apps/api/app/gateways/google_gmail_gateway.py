@@ -11,10 +11,9 @@ from datetime import UTC, datetime, timedelta
 from email.utils import parsedate_to_datetime
 from typing import Any
 
-import httpx
-
 from app.core.config import Settings
 from app.gateways.google_calendar_gateway import GoogleCalendarError, exchange_server_auth_code
+from app.gateways.http_client import get_pooled_client
 
 logger = logging.getLogger(__name__)
 
@@ -56,10 +55,10 @@ async def _access_token(settings: Settings, refresh_token: str) -> str:
         "grant_type": "refresh_token",
     }
     try:
-        async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
-            response = await client.post(TOKEN_URL, data=payload)
-            response.raise_for_status()
-            data = response.json()
+        client = get_pooled_client(DEFAULT_TIMEOUT)
+        response = await client.post(TOKEN_URL, data=payload)
+        response.raise_for_status()
+        data = response.json()
     except Exception as exc:
         logger.exception("Gmail token refresh failed")
         raise GoogleGmailError("Could not refresh Gmail access.") from exc
@@ -162,72 +161,72 @@ async def list_recent_messages(
     messages: list[GmailMessage] = []
 
     try:
-        async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
-            list_resp = await client.get(
-                GMAIL_MESSAGES_URL,
-                params={"q": query, "maxResults": max_messages},
+        client = get_pooled_client(DEFAULT_TIMEOUT)
+        list_resp = await client.get(
+            GMAIL_MESSAGES_URL,
+            params={"q": query, "maxResults": max_messages},
+            headers=headers,
+        )
+        if list_resp.status_code == 403:
+            raise GoogleGmailError(
+                "Gmail access denied. In Google Cloud Console, enable the Gmail API "
+                "for this project, then disconnect and reconnect Gmail in Settings."
+            )
+        if list_resp.status_code == 401:
+            raise GoogleGmailError(
+                "Gmail authorization expired. Disconnect and reconnect Gmail in Settings."
+            )
+        list_resp.raise_for_status()
+        list_data = list_resp.json()
+        message_refs = list_data.get("messages") or []
+
+        async def _fetch_message(ref: dict[str, object]) -> GmailMessage | None:
+            msg_id = str(ref.get("id") or "")
+            if not msg_id:
+                return None
+            detail_resp = await client.get(
+                f"{GMAIL_MESSAGES_URL}/{msg_id}",
+                params={"format": "full"},
                 headers=headers,
             )
-            if list_resp.status_code == 403:
-                raise GoogleGmailError(
-                    "Gmail access denied. In Google Cloud Console, enable the Gmail API "
-                    "for this project, then disconnect and reconnect Gmail in Settings."
-                )
-            if list_resp.status_code == 401:
-                raise GoogleGmailError(
-                    "Gmail authorization expired. Disconnect and reconnect Gmail in Settings."
-                )
-            list_resp.raise_for_status()
-            list_data = list_resp.json()
-            message_refs = list_data.get("messages") or []
+            detail_resp.raise_for_status()
+            detail = detail_resp.json()
+            payload = detail.get("payload") or {}
+            hdrs = payload.get("headers") or []
+            subject = _extract_header(hdrs, "Subject")
+            from_address = _extract_header(hdrs, "From")
+            snippet = str(detail.get("snippet") or "")
+            label_ids = tuple(str(label) for label in (detail.get("labelIds") or []))
+            date_hdr = _extract_header(hdrs, "Date")
+            received_at: datetime | None = None
+            if date_hdr:
+                try:
+                    received_at = parsedate_to_datetime(date_hdr)
+                    if received_at.tzinfo is None:
+                        received_at = received_at.replace(tzinfo=UTC)
+                except Exception:
+                    received_at = None
 
-            async def _fetch_message(ref: dict[str, object]) -> GmailMessage | None:
-                msg_id = str(ref.get("id") or "")
-                if not msg_id:
-                    return None
-                detail_resp = await client.get(
-                    f"{GMAIL_MESSAGES_URL}/{msg_id}",
-                    params={"format": "full"},
-                    headers=headers,
-                )
-                detail_resp.raise_for_status()
-                detail = detail_resp.json()
-                payload = detail.get("payload") or {}
-                hdrs = payload.get("headers") or []
-                subject = _extract_header(hdrs, "Subject")
-                from_address = _extract_header(hdrs, "From")
-                snippet = str(detail.get("snippet") or "")
-                label_ids = tuple(str(label) for label in (detail.get("labelIds") or []))
-                date_hdr = _extract_header(hdrs, "Date")
-                received_at: datetime | None = None
-                if date_hdr:
-                    try:
-                        received_at = parsedate_to_datetime(date_hdr)
-                        if received_at.tzinfo is None:
-                            received_at = received_at.replace(tzinfo=UTC)
-                    except Exception:
-                        received_at = None
+            body_text, ics_content = _walk_parts(payload)
+            return GmailMessage(
+                id=msg_id,
+                subject=subject,
+                snippet=snippet,
+                body_text=body_text or snippet,
+                received_at=received_at,
+                ics_content=ics_content,
+                from_address=from_address,
+                label_ids=label_ids,
+            )
 
-                body_text, ics_content = _walk_parts(payload)
-                return GmailMessage(
-                    id=msg_id,
-                    subject=subject,
-                    snippet=snippet,
-                    body_text=body_text or snippet,
-                    received_at=received_at,
-                    ics_content=ics_content,
-                    from_address=from_address,
-                    label_ids=label_ids,
-                )
+        sem = asyncio.Semaphore(8)
 
-            sem = asyncio.Semaphore(8)
+        async def _bounded(ref: dict[str, object]) -> GmailMessage | None:
+            async with sem:
+                return await _fetch_message(ref)
 
-            async def _bounded(ref: dict[str, object]) -> GmailMessage | None:
-                async with sem:
-                    return await _fetch_message(ref)
-
-            fetched = await asyncio.gather(*(_bounded(ref) for ref in message_refs[:max_messages]))
-            messages.extend(msg for msg in fetched if msg is not None)
+        fetched = await asyncio.gather(*(_bounded(ref) for ref in message_refs[:max_messages]))
+        messages.extend(msg for msg in fetched if msg is not None)
     except GoogleGmailError:
         raise
     except Exception as exc:
