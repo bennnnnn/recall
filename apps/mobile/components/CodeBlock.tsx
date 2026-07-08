@@ -1,21 +1,38 @@
-import { ReactNode, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { Ionicons } from "@expo/vector-icons";
 
-import {
-  displayLang,
-  groupTokensByLine,
-  parseFenceLang,
-  resolveHighlightLang,
-  TOKEN_COLORS,
-  tokenize,
-} from "@/lib/codeHighlight";
+import { displayLang, groupTokensByLine, parseFenceLang, TOKEN_COLORS } from "@/lib/codeHighlight";
+import type * as CodeTokenizeModule from "@/lib/codeTokenize";
 import { Theme, useTheme } from "@/lib/theme";
 
 import { CODE_FONT } from "@/lib/fonts";
 const CODE_FONT_SIZE = 13;
 const CODE_LINE_HEIGHT = 20;
+
+// Prism (~47 grammars registered at module load) is only pulled in once a
+// code fence actually needs tokenizing, not on every message render — see
+// lib/codeTokenize.ts. Cached at module scope so only the very first
+// CodeBlock in a session pays the async-import cost; every one after it
+// gets the module synchronously on initial render.
+let cachedTokenizer: typeof CodeTokenizeModule | null = null;
+
+function useCodeTokenizer(): typeof CodeTokenizeModule | null {
+  const [tokenizer, setTokenizer] = useState(cachedTokenizer);
+  useEffect(() => {
+    if (cachedTokenizer) return;
+    let cancelled = false;
+    void import("@/lib/codeTokenize").then((mod) => {
+      cachedTokenizer = mod;
+      if (!cancelled) setTokenizer(mod);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  return tokenizer;
+}
 
 function tokenStyle(color: string) {
   return {
@@ -46,14 +63,19 @@ export function CodeBlock({
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const fenceLang = parseFenceLang(lang);
-  const highlightLang = resolveHighlightLang(fenceLang, code);
+  const tokenizer = useCodeTokenizer();
+  const highlightLang = useMemo(
+    () => (tokenizer ? tokenizer.resolveHighlightLang(fenceLang, code) : fenceLang),
+    [tokenizer, fenceLang, code],
+  );
   const tokens = useMemo(() => {
+    if (!tokenizer) return [{ text: code, color: TOKEN_COLORS.plain }];
     try {
-      return tokenize(code, fenceLang);
+      return tokenizer.tokenize(code, fenceLang);
     } catch {
       return [{ text: code, color: TOKEN_COLORS.plain }];
     }
-  }, [code, fenceLang]);
+  }, [tokenizer, code, fenceLang]);
   const lines = useMemo(() => groupTokensByLine(tokens), [tokens]);
   const lineCount = code.split("\n").length;
   const collapsible = lineCount >= CODE_COLLAPSE_MIN_LINES;
