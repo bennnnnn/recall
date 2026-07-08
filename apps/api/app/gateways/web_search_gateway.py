@@ -7,9 +7,8 @@ import logging
 import re
 from dataclasses import dataclass
 
-import httpx
-
 from app.core.config import Settings
+from app.gateways.http_client import get_pooled_client
 
 logger = logging.getLogger(__name__)
 
@@ -123,10 +122,10 @@ async def _search_tavily(settings: Settings, query: str, max_results: int) -> li
     }
 
     try:
-        async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT_SECONDS) as client:
-            response = await client.post(TAVILY_SEARCH_URL, json=payload)
-            response.raise_for_status()
-            data = response.json()
+        client = get_pooled_client(DEFAULT_TIMEOUT_SECONDS)
+        response = await client.post(TAVILY_SEARCH_URL, json=payload)
+        response.raise_for_status()
+        data = response.json()
     except Exception:
         logger.exception("Tavily web search failed for query=%r", query[:120])
         return []

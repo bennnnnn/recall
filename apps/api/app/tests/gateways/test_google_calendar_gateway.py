@@ -43,10 +43,8 @@ async def test_list_upcoming_events_caps_calendar_fanout(monkeypatch):
         patch.object(gw, "_access_token", AsyncMock(return_value="token")),
         patch.object(gw, "_list_selected_calendars", AsyncMock(return_value=calendars)),
         patch.object(gw, "_fetch_events_for_calendar", fake_fetch),
-        patch.object(gw.httpx, "AsyncClient") as mock_client_cls,
+        patch.object(gw, "get_pooled_client", return_value=AsyncMock()),
     ):
-        mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=AsyncMock())
-        mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=None)
         await gw.list_upcoming_events(settings, refresh_token="rt")
 
     assert len(fetched_calendar_ids) == 2
@@ -77,10 +75,8 @@ async def test_list_upcoming_events_bounds_concurrency(monkeypatch):
         patch.object(gw, "_access_token", AsyncMock(return_value="token")),
         patch.object(gw, "_list_selected_calendars", AsyncMock(return_value=calendars)),
         patch.object(gw, "_fetch_events_for_calendar", fake_fetch),
-        patch.object(gw.httpx, "AsyncClient") as mock_client_cls,
+        patch.object(gw, "get_pooled_client", return_value=AsyncMock()),
     ):
-        mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=AsyncMock())
-        mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=None)
         await gw.list_upcoming_events(settings, refresh_token="rt")
 
     assert max_in_flight <= 2
@@ -105,10 +101,8 @@ async def test_list_upcoming_events_reports_partial_failures(monkeypatch):
         patch.object(gw, "_access_token", AsyncMock(return_value="token")),
         patch.object(gw, "_list_selected_calendars", AsyncMock(return_value=calendars)),
         patch.object(gw, "_fetch_events_for_calendar", fake_fetch),
-        patch.object(gw.httpx, "AsyncClient") as mock_client_cls,
+        patch.object(gw, "get_pooled_client", return_value=AsyncMock()),
     ):
-        mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=AsyncMock())
-        mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=None)
         result = await gw.list_upcoming_events(settings, refresh_token="rt")
 
     assert result.failed_calendars == 1
