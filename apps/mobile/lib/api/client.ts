@@ -20,14 +20,21 @@ let refreshInFlight: Promise<string | null> | null = null;
  * access token, or null if refresh failed (caller should surface an auth
  * error). Single-flighted so concurrent callers share one refresh. Exported
  * so the SSE/WS streaming paths can mirror the REST `request()` 401→refresh
- * behaviour (they use raw fetch/WebSocket and otherwise can't auto-refresh). */
+ * behaviour (they use raw fetch/WebSocket and otherwise can't auto-refresh).
+ *
+ * Uses fetchWithTimeout (not a bare fetch) — a stalled refresh call here has
+ * no other guard, since the caller's own request has already settled (with a
+ * 401) by the time this runs. Without a bound, a hung network call would
+ * wedge every authenticated request behind it indefinitely (e.g. a Pro image
+ * generation call sent right as the access token expired would just spin
+ * forever, not time out). */
 export async function refreshAccessToken(): Promise<string | null> {
   if (refreshInFlight) return refreshInFlight;
   refreshInFlight = (async () => {
     try {
       const refreshToken = await getRefreshToken();
       if (!refreshToken) return null;
-      const response = await fetch(apiUrl("/auth/refresh"), {
+      const response = await fetchWithTimeout(apiUrl("/auth/refresh"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refresh_token: refreshToken }),

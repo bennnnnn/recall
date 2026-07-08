@@ -164,4 +164,64 @@ describe("api client", () => {
       fetchWithTimeout("http://test.local/auth/login", { method: "POST" }),
     ).rejects.toThrow("Could not reach the Recall server");
   });
+
+  it("forwards the caller's timeoutMs to the retried request after a 401 refresh", async () => {
+    mockGetRefreshToken.mockResolvedValue("refresh-token");
+    mockSetTokenPair.mockResolvedValue(undefined);
+
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 401, text: async () => "expired" })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ access_token: "new-access", refresh_token: "new-refresh" }),
+      })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ ok: true }) });
+
+    const setTimeoutSpy = jest.spyOn(globalThis, "setTimeout");
+    let abortTimerDelays: unknown[];
+    try {
+      await request<{ ok: boolean }>("/images/generate", "stale-token", undefined, true, 120_000);
+      // Read the recorded calls before mockRestore(), which also clears them.
+      abortTimerDelays = setTimeoutSpy.mock.calls.map((call: unknown[]) => call[1]);
+    } finally {
+      setTimeoutSpy.mockRestore();
+    }
+
+    // request() sets one abort-timer per attempt: the original call, the
+    // bounded refreshAccessToken() call in between (fetchWithTimeout's own
+    // 15s budget), and the post-refresh retry — which must inherit the
+    // caller's 120s budget, not silently fall back to the 30s default.
+    expect(abortTimerDelays).toEqual([120_000, 15_000, 120_000]);
+  });
+
+  it("refreshAccessToken bounds its own network call instead of hanging forever", async () => {
+    // A stalled /auth/refresh call must not be able to wedge the caller's
+    // request indefinitely — refreshAccessToken has to use a client with its
+    // own timeout (fetchWithTimeout), not a bare, unbounded fetch. Uses fake
+    // timers so the never-settling mock fetch below can't leak a real,
+    // uncleared setTimeout past the end of this test.
+    jest.useFakeTimers();
+    let timerCount: number;
+    try {
+      mockGetRefreshToken.mockResolvedValue("refresh-token");
+      mockFetch
+        .mockResolvedValueOnce({ ok: false, status: 401, text: async () => "expired" })
+        .mockImplementationOnce(() => new Promise(() => {})); // refresh call that never settles
+
+      // Fire the request but don't await it — we only need to observe that a
+      // bounded timer was armed for the refresh call, not let it resolve.
+      void request("/users/me", "stale-token").catch(() => {});
+      await Promise.resolve();
+      await Promise.resolve();
+      timerCount = jest.getTimerCount();
+    } finally {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
+
+    // A bare, unbounded fetch would leave nothing scheduled here — the whole
+    // point is that a real abort timer is armed for the stalled refresh call.
+    expect(timerCount).toBeGreaterThan(0);
+  });
 });
