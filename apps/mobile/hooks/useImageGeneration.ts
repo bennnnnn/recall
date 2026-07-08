@@ -8,6 +8,7 @@ import { writeCachedChatMessages } from "@/lib/chatMessageCache";
 import { parseApiErrorDetail, resolveChatError } from "@/lib/chatErrorMessage";
 
 const USER_MESSAGE_PREFIX = "Generate image: ";
+const IMAGE_GEN_TIMEOUT_MS = 125_000;
 
 type DraftChat = {
   prepareDraftChat: (
@@ -78,6 +79,46 @@ function mergeImageGenerationResult(
   return [...withoutOptimistic, result.user_message, result.assistant_message];
 }
 
+function replaceAssistantWithError(
+  prev: import("@/lib/api").Message[],
+  assistantId: string,
+  errorText: string,
+): import("@/lib/api").Message[] {
+  return prev.map((message) =>
+    message.id === assistantId
+      ? {
+          ...message,
+          content: errorText,
+          renderKey: `${assistantId}-error`,
+        }
+      : message,
+  );
+}
+
+function resolveImageGenErrorMessage(
+  error: unknown,
+  isPro: boolean,
+  t: (key: string) => string,
+): { message: string; openUpgrade: boolean; alertOnly: boolean } {
+  const raw = error instanceof Error ? error.message : t("common.error");
+  if (raw.includes("timed out") || raw.includes("AbortError")) {
+    return { message: t("chat.image_gen_timeout"), openUpgrade: false, alertOnly: true };
+  }
+  const parsed = parseApiErrorDetail(raw) ?? raw;
+  if (parsed.toLowerCase().includes("pro")) {
+    return { message: parsed, openUpgrade: true, alertOnly: false };
+  }
+  const resolved = resolveChatError({ message: raw, isPro, t });
+  if (resolved.kind === "quota") {
+    return { message: resolved.message, openUpgrade: false, alertOnly: true };
+  }
+  const message =
+    parsed.toLowerCase().includes("generate image") || parsed.toLowerCase().includes("could not generate")
+      ? parsed
+      : resolved.message;
+  return { message, openUpgrade: false, alertOnly: false };
+}
+
 async function syncChatMessagesFromServer(
   token: string,
   activeChatId: string,
@@ -140,6 +181,10 @@ export function useImageGeneration({
   const submitPrompt = useCallback(
     async (prompt: string) => {
       if (!token || generating || streaming) return;
+      if (!isPro) {
+        onOpenUpgrade();
+        return;
+      }
       if (isOffline) {
         Alert.alert(t("chat.offline_title"), t("chat.offline_body"));
         return;
@@ -151,6 +196,8 @@ export function useImageGeneration({
       const ts = Date.now();
       const optimistic = buildOptimisticImageMessages(trimmed, ts);
       let activeChatId: string | null = null;
+      const abort = new AbortController();
+      const abortTimer = setTimeout(() => abort.abort(), IMAGE_GEN_TIMEOUT_MS);
 
       setPromptOpen(false);
       setGenerating(true);
@@ -168,54 +215,41 @@ export function useImageGeneration({
         newMessageCountRef.current += 2;
         onScrollToLatest();
 
-        const result = await api.generateImage(token, {
-          chat_id: activeChatId,
-          prompt: trimmed,
-        });
+        const result = await api.generateImage(
+          token,
+          {
+            chat_id: activeChatId,
+            prompt: trimmed,
+          },
+          abort.signal,
+        );
 
         setPendingAssistantId(null);
+        setGenerating(false);
         setMessages((prev) =>
           mergeImageGenerationResult(prev, optimistic.userId, optimistic.assistantId, result),
         );
-        await syncChatMessagesFromServer(token, activeChatId, setMessages);
         onScrollToLatest();
+        void syncChatMessagesFromServer(token, activeChatId, setMessages)
+          .then(() => onScrollToLatest())
+          .catch(() => {});
       } catch (error) {
+        const { message, openUpgrade, alertOnly } = resolveImageGenErrorMessage(error, isPro, t);
+        setPendingAssistantId(null);
+        setGenerating(false);
         setMessages((prev) =>
-          prev.filter(
-            (message) =>
-              message.id !== optimistic.userId && message.id !== optimistic.assistantId,
-          ),
+          replaceAssistantWithError(prev, optimistic.assistantId, message),
         );
-        const message = error instanceof Error ? error.message : t("common.error");
-        if (message.includes("timed out") || message.includes("AbortError")) {
-          Alert.alert(t("chat.error_title"), t("chat.image_gen_timeout"));
-          return;
-        }
-        const parsed = parseApiErrorDetail(message) ?? message;
-        if (parsed.toLowerCase().includes("pro")) {
+        if (openUpgrade) {
           onOpenUpgrade();
-          return;
+        } else if (alertOnly) {
+          Alert.alert(t("chat.error_title"), message);
         }
-        const resolved = resolveChatError({ message, isPro, t });
-        if (resolved.kind === "quota") {
-          Alert.alert(t("chat.error_title"), resolved.message);
-          return;
-        }
-        Alert.alert(
-          t("chat.error_title"),
-          parsed.toLowerCase().includes("generate image")
-            ? parsed
-            : resolved.message,
-        );
       } finally {
+        clearTimeout(abortTimer);
         setGenerating(false);
         setPendingAssistantId(null);
         blockMessageReloadRef.current = false;
-        if (token && activeChatId) {
-          void syncChatMessagesFromServer(token, activeChatId, setMessages)
-            .then(() => onScrollToLatest())
-            .catch(() => {});
-        }
       }
     },
     [
@@ -223,12 +257,12 @@ export function useImageGeneration({
       generating,
       streaming,
       isOffline,
+      isPro,
       ensureChatId,
       draft,
       setMessages,
       newMessageCountRef,
       onScrollToLatest,
-      isPro,
       onOpenUpgrade,
       blockMessageReloadRef,
       t,

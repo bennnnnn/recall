@@ -113,6 +113,8 @@ class Settings(BaseSettings):
 
     image_generation_enabled: bool = True
     image_generation_model: str = "google/gemini-2.5-flash-image"
+    # Comma-separated OpenRouter model ids tried after the primary fails.
+    image_generation_fallback_models: str = ""
     daily_image_generations: int = 0
     daily_image_generations_pro: int = 10
 

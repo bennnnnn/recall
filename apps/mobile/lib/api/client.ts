@@ -116,7 +116,7 @@ export async function request<T>(
     if (response.status === 401 && allowRefresh) {
       const refreshed = await refreshAccessToken();
       if (refreshed) {
-        return request<T>(path, refreshed, init, false);
+        return request<T>(path, refreshed, init, false, timeoutMs);
       }
       onUnauthorized?.();
       const text = await response.text();

@@ -10,6 +10,7 @@ export const imagesApi = {
   generateImage: (
     token: string,
     body: { chat_id: string; prompt: string; aspect_ratio?: string | null },
+    signal?: AbortSignal,
   ) =>
     request<ImageGenerateResult>(
       "/images/generate",
@@ -17,6 +18,7 @@ export const imagesApi = {
       {
         method: "POST",
         body: JSON.stringify(body),
+        signal,
       },
       true,
       120_000,
