@@ -59,6 +59,14 @@ def test_bytes_match_claimed_rejects_spoofed_image():
     assert bytes_match_claimed("text/plain", b"hello") is True
 
 
+def test_content_type_for_image_bytes_prefers_sniffed_jpeg():
+    from app.services.attachment_content import content_type_for_image_bytes
+
+    jpeg = b"\xff\xd8\xff\xe0" + b"\x00" * 12
+    assert content_type_for_image_bytes(jpeg, claimed="image/png") == "image/jpeg"
+    assert content_type_for_image_bytes(jpeg, claimed="image/jpeg") == "image/jpeg"
+
+
 def test_extract_text_from_pdf_bytes():
     # Minimal PDF with a single empty page — extraction may return None; should not raise.
     minimal_pdf = (

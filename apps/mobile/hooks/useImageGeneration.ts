@@ -1,8 +1,9 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert } from "react-native";
 import { useRouter } from "expo-router";
 
 import { api } from "@/lib/api";
+import { isAbortError } from "@/lib/api/client";
 import { MESSAGE_PAGE_SIZE } from "@/lib/chatConstants";
 import { writeCachedChatMessages } from "@/lib/chatMessageCache";
 import { parseApiErrorDetail, resolveChatError } from "@/lib/chatErrorMessage";
@@ -39,6 +40,7 @@ type Options = {
   onScrollToLatest: () => void;
   newMessageCountRef: React.MutableRefObject<number>;
   blockMessageReloadRef: React.MutableRefObject<boolean>;
+  onClearComposer?: () => void;
   t: (key: string) => string;
 };
 
@@ -79,6 +81,14 @@ function mergeImageGenerationResult(
   return [...withoutOptimistic, result.user_message, result.assistant_message];
 }
 
+function removeOptimisticImageMessages(
+  prev: import("@/lib/api").Message[],
+  userId: string,
+  assistantId: string,
+): import("@/lib/api").Message[] {
+  return prev.filter((message) => message.id !== userId && message.id !== assistantId);
+}
+
 function replaceAssistantWithError(
   prev: import("@/lib/api").Message[],
   assistantId: string,
@@ -101,10 +111,13 @@ function resolveImageGenErrorMessage(
   t: (key: string) => string,
 ): { message: string; openUpgrade: boolean; alertOnly: boolean } {
   const raw = error instanceof Error ? error.message : t("common.error");
-  if (raw.includes("timed out") || raw.includes("AbortError")) {
+  if (isAbortError(error) || raw.includes("timed out") || raw.includes("AbortError")) {
     return { message: t("chat.image_gen_timeout"), openUpgrade: false, alertOnly: true };
   }
   const parsed = parseApiErrorDetail(raw) ?? raw;
+  if (parsed.toLowerCase().includes("image generation limit")) {
+    return { message: parsed, openUpgrade: false, alertOnly: true };
+  }
   if (parsed.toLowerCase().includes("pro")) {
     return { message: parsed, openUpgrade: true, alertOnly: false };
   }
@@ -145,11 +158,68 @@ export function useImageGeneration({
   onScrollToLatest,
   newMessageCountRef,
   blockMessageReloadRef,
+  onClearComposer,
   t,
 }: Options) {
   const [promptOpen, setPromptOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [pendingAssistantId, setPendingAssistantId] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const requestSeqRef = useRef(0);
+  const activeOptimisticRef = useRef<{ userId: string; assistantId: string } | null>(null);
+  const pendingAssistantIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    pendingAssistantIdRef.current = pendingAssistantId;
+  }, [pendingAssistantId]);
+
+  useEffect(
+    () => () => {
+      abortRef.current?.abort();
+      abortRef.current = null;
+    },
+    [],
+  );
+
+  const resetGenerationState = useCallback(() => {
+    setGenerating(false);
+    setPendingAssistantId(null);
+    activeOptimisticRef.current = null;
+    blockMessageReloadRef.current = false;
+  }, [blockMessageReloadRef]);
+
+  const cancelGeneration = useCallback(() => {
+    const optimistic = activeOptimisticRef.current;
+    const pendingId = pendingAssistantIdRef.current;
+    if (!abortRef.current && !optimistic && !pendingId) return;
+
+    requestSeqRef.current += 1;
+    abortRef.current?.abort();
+    abortRef.current = null;
+    resetGenerationState();
+    let removedPair = false;
+    setMessages((prev) => {
+      if (optimistic) {
+        removedPair = true;
+        return removeOptimisticImageMessages(prev, optimistic.userId, optimistic.assistantId);
+      }
+      if (!pendingId) return prev;
+      const userId = prev.find(
+        (message, index) =>
+          message.role === "user" &&
+          index + 1 < prev.length &&
+          prev[index + 1]?.id === pendingId,
+      )?.id;
+      if (userId) {
+        removedPair = true;
+        return removeOptimisticImageMessages(prev, userId, pendingId);
+      }
+      return replaceAssistantWithError(prev, pendingId, t("chat.image_gen_cancelled"));
+    });
+    if (removedPair) {
+      newMessageCountRef.current = Math.max(0, newMessageCountRef.current - 2);
+    }
+  }, [newMessageCountRef, resetGenerationState, setMessages, t]);
 
   const openPrompt = useCallback(() => {
     if (!token || streaming || generating) return;
@@ -193,21 +263,30 @@ export function useImageGeneration({
       const trimmed = prompt.trim();
       if (!trimmed) return;
 
+      const seq = requestSeqRef.current + 1;
+      requestSeqRef.current = seq;
+      abortRef.current?.abort();
+
       const ts = Date.now();
       const optimistic = buildOptimisticImageMessages(trimmed, ts);
       let activeChatId: string | null = null;
       const abort = new AbortController();
+      abortRef.current = abort;
       const abortTimer = setTimeout(() => abort.abort(), IMAGE_GEN_TIMEOUT_MS);
 
       setPromptOpen(false);
+      onClearComposer?.();
       setGenerating(true);
       blockMessageReloadRef.current = true;
+      activeOptimisticRef.current = { userId: optimistic.userId, assistantId: optimistic.assistantId };
 
       try {
         activeChatId = await ensureChatId();
         if (!activeChatId) {
           throw new Error(t("chat.error_generic"));
         }
+        if (seq !== requestSeqRef.current) return;
+
         draft.skipLoadForChatIdRef.current = activeChatId;
 
         setPendingAssistantId(optimistic.assistantId);
@@ -223,9 +302,8 @@ export function useImageGeneration({
           },
           abort.signal,
         );
+        if (seq !== requestSeqRef.current) return;
 
-        setPendingAssistantId(null);
-        setGenerating(false);
         setMessages((prev) =>
           mergeImageGenerationResult(prev, optimistic.userId, optimistic.assistantId, result),
         );
@@ -234,22 +312,30 @@ export function useImageGeneration({
           .then(() => onScrollToLatest())
           .catch(() => {});
       } catch (error) {
-        const { message, openUpgrade, alertOnly } = resolveImageGenErrorMessage(error, isPro, t);
-        setPendingAssistantId(null);
-        setGenerating(false);
-        setMessages((prev) =>
-          replaceAssistantWithError(prev, optimistic.assistantId, message),
-        );
-        if (openUpgrade) {
-          onOpenUpgrade();
-        } else if (alertOnly) {
-          Alert.alert(t("chat.error_title"), message);
+        if (seq !== requestSeqRef.current) return;
+        const aborted = isAbortError(error);
+        if (!aborted) {
+          const { message, openUpgrade, alertOnly } = resolveImageGenErrorMessage(error, isPro, t);
+          setMessages((prev) =>
+            replaceAssistantWithError(prev, optimistic.assistantId, message),
+          );
+          if (openUpgrade) {
+            onOpenUpgrade();
+          } else if (alertOnly) {
+            Alert.alert(t("chat.error_title"), message);
+          }
+        } else {
+          setMessages((prev) =>
+            removeOptimisticImageMessages(prev, optimistic.userId, optimistic.assistantId),
+          );
+          newMessageCountRef.current = Math.max(0, newMessageCountRef.current - 2);
         }
       } finally {
         clearTimeout(abortTimer);
-        setGenerating(false);
-        setPendingAssistantId(null);
-        blockMessageReloadRef.current = false;
+        if (seq === requestSeqRef.current) {
+          abortRef.current = null;
+          resetGenerationState();
+        }
       }
     },
     [
@@ -264,7 +350,8 @@ export function useImageGeneration({
       newMessageCountRef,
       onScrollToLatest,
       onOpenUpgrade,
-      blockMessageReloadRef,
+      onClearComposer,
+      resetGenerationState,
       t,
     ],
   );
@@ -274,7 +361,9 @@ export function useImageGeneration({
     setPromptOpen,
     generating,
     pendingAssistantId,
+    isActive: generating || pendingAssistantId != null,
     openPrompt,
     submitPrompt,
+    cancelGeneration,
   };
 }

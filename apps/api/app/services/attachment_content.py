@@ -78,6 +78,26 @@ def _sniff_signature(data: bytes) -> str | None:
     return None
 
 
+def content_type_for_image_bytes(data: bytes, *, claimed: str | None = None) -> str | None:
+    """Resolve a supported image MIME type from bytes, preferring magic-byte sniffing.
+
+    Image providers often label JPEG/WebP output as image/png — trust the bytes.
+    """
+    if not data:
+        return None
+    detected = _sniff_signature(data)
+    if detected and detected in IMAGE_CONTENT_TYPES:
+        return detected
+    if claimed:
+        norm = normalize_content_type(claimed)
+        if norm in IMAGE_CONTENT_TYPES:
+            if norm in _UNVERIFIABLE_TYPES:
+                return norm
+            if bytes_match_claimed(norm, data):
+                return norm
+    return None
+
+
 def bytes_match_claimed(claimed: str, data: bytes) -> bool:
     """True if the uploaded bytes are consistent with the claimed content type.
 

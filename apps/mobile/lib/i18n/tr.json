@@ -31,6 +31,7 @@
   "chat.image_gen_generate": "Oluştur",
   "chat.image_gen_in_progress": "Görsel oluşturuluyor…",
   "chat.image_gen_timeout": "Görsel oluşturma zaman aşımına uğradı. Tekrar dene.",
+  "chat.image_gen_cancelled": "Görsel oluşturma iptal edildi.",
   "chat.busy": "Hâlâ oluşturuluyor — bekleyin veya durdurup tekrar deneyin.",
   "chat.close_menu": "Close menu",
   "chat.context_summarized": "{{count}} önceki mesaj özetlendi",

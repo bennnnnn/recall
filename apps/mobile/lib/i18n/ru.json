@@ -31,6 +31,7 @@
   "chat.image_gen_generate": "Сгенерировать",
   "chat.image_gen_in_progress": "Генерация изображения…",
   "chat.image_gen_timeout": "Время генерации изображения истекло. Попробуйте снова.",
+  "chat.image_gen_cancelled": "Генерация изображения отменена.",
   "chat.busy": "Ответ ещё генерируется — подождите или нажмите «Стоп» и попробуйте снова.",
   "chat.close_menu": "Close menu",
   "chat.context_summarized": "{{count}} более ранних сообщений сжато",

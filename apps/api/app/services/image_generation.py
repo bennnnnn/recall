@@ -5,12 +5,18 @@ from __future__ import annotations
 import base64
 import binascii
 import logging
-from typing import Literal
+from typing import Any, Literal
 
 import httpx
 
 from app.core.config import Settings
 from app.gateways import mock_llm
+from app.gateways.openrouter_images import (
+    list_provider_slugs,
+    openrouter_image_headers,
+    provider_attempts,
+)
+from app.services.attachment_content import content_type_for_image_bytes
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +27,7 @@ _GENERATE_TIMEOUT = 90.0
 AspectRatio = Literal["1:1", "16:9", "9:16", "4:3", "3:4"]
 _ALLOWED_ASPECT_RATIOS: frozenset[str] = frozenset({"1:1", "16:9", "9:16", "4:3", "3:4"})
 _DEFAULT_FALLBACK_MODELS = (
-    "bytedance-seed/seedream-4.5",
+    "google/gemini-2.5-flash-image",
     "black-forest-labs/flux.2-pro",
 )
 
@@ -37,7 +43,7 @@ def normalize_aspect_ratio(value: str | None) -> AspectRatio | None:
 
 def image_model_candidates(settings: Settings) -> list[str]:
     """Primary model first, then configured fallbacks (deduped)."""
-    primary = (settings.image_generation_model or "google/gemini-2.5-flash-image").strip()
+    primary = (settings.image_generation_model or "bytedance-seed/seedream-4.5").strip()
     extra = [
         part.strip()
         for part in settings.image_generation_fallback_models.split(",")
@@ -64,12 +70,19 @@ def _decode_image_payload(first: dict[str, object]) -> tuple[bytes, str] | None:
             return None
         if raw:
             media_type = first.get("media_type")
-            content_type = (
+            claimed = (
                 media_type.split(";", 1)[0].strip()
                 if isinstance(media_type, str) and media_type.strip()
                 else "image/png"
             )
-            return raw, content_type
+            content_type = content_type_for_image_bytes(raw, claimed=claimed)
+            if content_type:
+                return raw, content_type
+            logger.warning(
+                "OpenRouter image generation returned bytes that failed validation claimed=%s",
+                claimed,
+            )
+            return None
 
     url = first.get("url")
     if isinstance(url, str) and url.startswith(("http://", "https://")):
@@ -77,10 +90,13 @@ def _decode_image_payload(first: dict[str, object]) -> tuple[bytes, str] | None:
     return None
 
 
-async def _fetch_image_url(url: str) -> tuple[bytes, str] | None:
+async def _fetch_image_url(
+    settings: Settings,
+    url: str,
+) -> tuple[bytes, str] | None:
     try:
         async with httpx.AsyncClient(timeout=_GENERATE_TIMEOUT) as client:
-            img_resp = await client.get(url)
+            img_resp = await client.get(url, headers=openrouter_image_headers(settings))
             if img_resp.status_code >= 400:
                 logger.warning(
                     "OpenRouter image URL fetch failed status=%s url=%s",
@@ -88,21 +104,24 @@ async def _fetch_image_url(url: str) -> tuple[bytes, str] | None:
                     url[:120],
                 )
                 return None
-            content_type = img_resp.headers.get("content-type", "image/png").split(";")[0]
-            if img_resp.content:
-                return img_resp.content, content_type or "image/png"
+            content_type = content_type_for_image_bytes(
+                img_resp.content,
+                claimed=img_resp.headers.get("content-type"),
+            )
+            if content_type:
+                return img_resp.content, content_type
     except Exception:
         logger.exception("OpenRouter image URL fetch failed url=%s", url[:120])
     return None
 
 
-async def _generate_with_model(
-    settings: Settings,
+def _build_payload(
     *,
     model: str,
     prompt: str,
     aspect_ratio: str | None,
-) -> tuple[bytes, str] | None:
+    provider_routing: dict[str, Any] | None,
+) -> dict[str, object]:
     payload: dict[str, object] = {
         "model": model,
         "prompt": prompt,
@@ -112,20 +131,40 @@ async def _generate_with_model(
     normalized_ratio = normalize_aspect_ratio(aspect_ratio)
     if normalized_ratio:
         payload["aspect_ratio"] = normalized_ratio
+    if provider_routing:
+        payload["provider"] = provider_routing
+    return payload
+
+
+async def _generate_with_model(
+    settings: Settings,
+    *,
+    model: str,
+    prompt: str,
+    aspect_ratio: str | None,
+    provider_routing: dict[str, Any] | None = None,
+) -> tuple[bytes, str] | None:
+    payload = _build_payload(
+        model=model,
+        prompt=prompt,
+        aspect_ratio=aspect_ratio,
+        provider_routing=provider_routing,
+    )
 
     async with httpx.AsyncClient(timeout=_GENERATE_TIMEOUT) as client:
         response = await client.post(
             _OPENROUTER_IMAGES_URL,
-            headers={
-                "Authorization": f"Bearer {settings.openrouter_api_key}",
-                "Content-Type": "application/json",
-            },
+            headers=openrouter_image_headers(settings),
             json=payload,
         )
         if response.status_code >= 400:
+            provider_label = (
+                provider_routing.get("order") if provider_routing else "workspace-default"
+            )
             logger.warning(
-                "OpenRouter image generation failed model=%s status=%s body=%s",
+                "OpenRouter image generation failed model=%s provider=%s status=%s body=%s",
                 model,
+                provider_label,
                 response.status_code,
                 response.text[:500],
             )
@@ -146,9 +185,40 @@ async def _generate_with_model(
 
     url = first.get("url")
     if isinstance(url, str) and url.startswith(("http://", "https://")):
-        return await _fetch_image_url(url)
+        return await _fetch_image_url(settings, url)
 
     logger.warning("OpenRouter image generation response missing image payload model=%s", model)
+    return None
+
+
+async def _generate_model_with_routing(
+    settings: Settings,
+    *,
+    model: str,
+    prompt: str,
+    aspect_ratio: str | None,
+) -> tuple[bytes, str] | None:
+    endpoint_slugs = await list_provider_slugs(settings, model)
+    for provider_routing in provider_attempts(
+        settings,
+        model=model,
+        endpoint_slugs=endpoint_slugs,
+    ):
+        generated = await _generate_with_model(
+            settings,
+            model=model,
+            prompt=prompt,
+            aspect_ratio=aspect_ratio,
+            provider_routing=provider_routing,
+        )
+        if generated:
+            if provider_routing:
+                logger.info(
+                    "Image generation succeeded model=%s provider=%s",
+                    model,
+                    provider_routing.get("order"),
+                )
+            return generated
     return None
 
 
@@ -170,17 +240,18 @@ async def generate_image(
     if not settings.openrouter_api_key:
         return None
 
+    candidates = image_model_candidates(settings)
     last_error: str | None = None
-    for model in image_model_candidates(settings):
+    for model in candidates:
         try:
-            generated = await _generate_with_model(
+            generated = await _generate_model_with_routing(
                 settings,
                 model=model,
                 prompt=cleaned,
                 aspect_ratio=aspect_ratio,
             )
             if generated:
-                if model != image_model_candidates(settings)[0]:
+                if model != candidates[0]:
                     logger.info(
                         "Image generation succeeded with fallback model=%s prompt_len=%s",
                         model,

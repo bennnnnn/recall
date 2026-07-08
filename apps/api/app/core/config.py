@@ -112,9 +112,13 @@ class Settings(BaseSettings):
     daily_speech_transcriptions_pro: int = 200
 
     image_generation_enabled: bool = True
-    image_generation_model: str = "google/gemini-2.5-flash-image"
+    image_generation_model: str = "bytedance-seed/seedream-4.5"
     # Comma-separated OpenRouter model ids tried after the primary fails.
     image_generation_fallback_models: str = ""
+    # Optional provider slug order for Image API routing (workspace routing applies first).
+    # Example: google-vertex,google-ai-studio
+    image_generation_provider_order: str = ""
+    image_generation_allow_provider_fallbacks: bool = True
     daily_image_generations: int = 0
     daily_image_generations_pro: int = 10
 

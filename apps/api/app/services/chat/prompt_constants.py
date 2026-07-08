@@ -160,6 +160,13 @@ QUIZ_ANSWER_HINT = (
     "On correct vocabulary answers, sync MUST master the quizzed word immediately."
 )
 
+PLAIN_CHAT_QUIZ_ANSWER_HINT = (
+    "The user just answered a multiple-choice vocabulary question with A, B, C, or D.\n"
+    "If a QUIZ GRADING block is present, follow it exactly — never congratulate a wrong letter.\n"
+    "Reply with brief feedback (1-3 sentences), then ask the NEXT word's question in the same "
+    "plain-markdown format (four lettered options A-D, no JSON fences)."
+)
+
 QUIZ_RECENT_MESSAGE_LIMIT = 12
 
 COPY_DELIVERABLE_HINT = (

@@ -193,8 +193,11 @@ LANGUAGE_CHAT_TUTOR_HINT = (
     "speech, definition, and an example sentence — then a quick question.\n"
     "If you say you're asking a multiple-choice question, you MUST include the lettered "
     "options in that same message — never describe a question without also asking it.\n"
+    "When grading A–D answers, compare ONLY to the correct option text — never call a wrong "
+    "letter correct, 'close enough', or congratulate random guesses.\n"
     "When they demonstrate understanding, sync start_learning or master immediately — "
-    "do not wait for them to ask. Then move to the next word until today's daily_goal is met.\n"
+    "do not wait for them to ask. Then ask the **next word's question in the same message** "
+    "(never end on 'I'll move to the next word' without actually asking it).\n"
     "Keep replies short and conversational. Wait for their answer before revealing the next word.\n\n"
     "**Session clarity:** Use the **Today:** line in the project snapshot as the only progress "
     "counter — never repeat it in a P.S. Do not quiz a word marked ✓ mastered and call it a "
@@ -406,7 +409,7 @@ async def apply_deterministic_quiz_answer(
     """Persist quiz results without waiting on background LLM project sync."""
     from app.services import vocab_quiz as vocab_quiz_service
 
-    quiz = vocab_quiz_service.parse_vocab_quiz(assistant_content)
+    quiz = vocab_quiz_service.parse_assistant_quiz(assistant_content)
     letter = vocab_quiz_service.quiz_answer_letter(user_answer)
     if letter is None:
         return False
@@ -432,6 +435,33 @@ async def apply_deterministic_quiz_answer(
     if project is None:
         return False
 
+    items = await project_items_repo.list_for_user(
+        session, user_id, project_id=project.id, limit=500
+    )
+
+    if quiz.correct is None and _is_language_project(project) and quiz.word:
+        item = _find_item_by_content(items, project.id, quiz.word)
+        if item is None and quiz.part_of_speech:
+            list_title = pos_list_title(quiz.part_of_speech)
+            item = _find_item(items, project.id, list_title, quiz.word)
+        choices = quiz.choices or vocab_quiz_service.extract_plain_markdown_choices(
+            assistant_content
+        )
+        inferred = vocab_quiz_service.infer_correct_letter_from_definition(
+            choices,
+            item.definition if item else None,
+            example=item.example_sentence if item else None,
+        )
+        if inferred:
+            quiz = vocab_quiz_service.ParsedVocabQuiz(
+                word=quiz.word,
+                part_of_speech=quiz.part_of_speech or (item.part_of_speech if item else None),
+                question=quiz.question,
+                correct=inferred,
+                quiz_type=quiz.quiz_type,
+                choices=choices or quiz.choices,
+            )
+
     is_trivia = (
         _is_trivia_project(project)
         or quiz.quiz_type == "trivia"
@@ -444,10 +474,6 @@ async def apply_deterministic_quiz_answer(
         is_correct = is_correct_hint
     if is_correct is None:
         return False
-
-    items = await project_items_repo.list_for_user(
-        session, user_id, project_id=project.id, limit=500
-    )
 
     if is_trivia:
         topic = quiz.word.strip()
@@ -498,6 +524,78 @@ async def apply_deterministic_quiz_answer(
             status="mastered",
         )
     return True
+
+
+async def build_quiz_grading_hint(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    project_id: UUID,
+    assistant_content: str,
+    user_answer: str,
+) -> str | None:
+    """Authoritative correct/incorrect grading for chat-mode plain MC quizzes."""
+    from app.services import vocab_quiz as vocab_quiz_service
+
+    quiz = vocab_quiz_service.parse_assistant_quiz(assistant_content)
+    if quiz is None:
+        return None
+
+    project = await projects_repo.get_by_id(session, project_id, user_id)
+    if project is None:
+        return None
+
+    items = await project_items_repo.list_for_user(
+        session, user_id, project_id=project.id, limit=500
+    )
+
+    if quiz.correct is None and _is_language_project(project) and quiz.word:
+        item = _find_item_by_content(items, project.id, quiz.word)
+        if item is None and quiz.part_of_speech:
+            list_title = pos_list_title(quiz.part_of_speech)
+            item = _find_item(items, project.id, list_title, quiz.word)
+        choices = quiz.choices or vocab_quiz_service.extract_plain_markdown_choices(
+            assistant_content
+        )
+        inferred = vocab_quiz_service.infer_correct_letter_from_definition(
+            choices,
+            item.definition if item else None,
+            example=item.example_sentence if item else None,
+        )
+        if inferred:
+            quiz = vocab_quiz_service.ParsedVocabQuiz(
+                word=quiz.word,
+                part_of_speech=quiz.part_of_speech or (item.part_of_speech if item else None),
+                question=quiz.question,
+                correct=inferred,
+                quiz_type=quiz.quiz_type,
+                choices=choices or quiz.choices,
+            )
+
+    graded = vocab_quiz_service.grade_quiz_answer(quiz, user_answer)
+    if graded is None:
+        return None
+    user_letter, correct_letter, is_correct = graded
+    choices = quiz.choices or {}
+    correct_text = choices.get(correct_letter, "")
+    result = "CORRECT" if is_correct else "INCORRECT"
+    lines = [
+        "QUIZ GRADING (authoritative — follow exactly; never congratulate a wrong letter):",
+        f"- User answered: {user_letter}",
+        f"- Correct answer: {correct_letter}" + (f" ({correct_text})" if correct_text else ""),
+        f"- Result: {result}",
+    ]
+    if is_correct:
+        lines.append(
+            "- Congratulate briefly, sync start_learning/master for this word, then ask the "
+            "NEXT word's question in the same message."
+        )
+    else:
+        lines.append(
+            "- Say it was wrong, name the correct option and why. Do NOT call it 'close enough'. "
+            "Then re-quiz the same word or move on only after they get it right."
+        )
+    return "\n".join(lines)
 
 
 def _resolve_list_title(project: Project, action: ProjectActionItem) -> str:

@@ -45,8 +45,7 @@ def test_generate_image_quota_exhausted():
     user = _fake_user(plan="pro")
     app = _app_with_user(user, settings=Settings(daily_image_generations_pro=1))
     fake_redis = AsyncMock()
-    fake_redis.incrby = AsyncMock(return_value=2)
-    fake_redis.expire = AsyncMock()
+    fake_redis.get = AsyncMock(return_value=b"1")
 
     with (
         patch("app.routers.images.get_redis_client", return_value=fake_redis),
@@ -59,6 +58,63 @@ def test_generate_image_quota_exhausted():
             json={"chat_id": str(uuid4()), "prompt": "a cat"},
         )
     assert r.status_code == 429
+    fake_redis.incrby.assert_not_called()
+
+
+def test_reset_image_generation_usage_dev_only():
+    user = _fake_user(plan="pro")
+    app = _app_with_user(user, settings=Settings(dev_auth_enabled=False))
+    client = TestClient(app)
+    r = client.post("/images/usage/today/reset", headers={"Authorization": "Bearer tok"})
+    assert r.status_code == 404
+
+
+def test_reset_image_generation_usage_success():
+    user = _fake_user(plan="pro")
+    app = _app_with_user(
+        user, settings=Settings(dev_auth_enabled=True, daily_image_generations_pro=10)
+    )
+    fake_redis = AsyncMock()
+    fake_redis.delete = AsyncMock()
+    fake_redis.get = AsyncMock(return_value=None)
+
+    with patch("app.routers.images.get_redis_client", return_value=fake_redis):
+        client = TestClient(app)
+        r = client.post("/images/usage/today/reset", headers={"Authorization": "Bearer tok"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["used"] == 0
+    assert body["daily_limit"] == 10
+    assert body["remaining"] == 10
+    fake_redis.delete.assert_awaited_once()
+
+
+def test_generate_image_failure_does_not_consume_quota():
+    user = _fake_user(plan="pro")
+    chat_id = uuid4()
+    app = _app_with_user(user)
+
+    fake_redis = AsyncMock()
+    fake_redis.get = AsyncMock(return_value=None)
+    fake_redis.incrby = AsyncMock(return_value=1)
+    fake_redis.expire = AsyncMock()
+
+    with (
+        patch("app.routers.images.get_redis_client", return_value=fake_redis),
+        patch("app.routers.images.chats_repo.get_by_id", AsyncMock(return_value=MagicMock())),
+        patch(
+            "app.routers.images.image_generation_service.generate_image",
+            AsyncMock(return_value=None),
+        ),
+    ):
+        client = TestClient(app)
+        r = client.post(
+            "/images/generate",
+            headers={"Authorization": "Bearer tok"},
+            json={"chat_id": str(chat_id), "prompt": "a cat"},
+        )
+    assert r.status_code == 502
+    fake_redis.incrby.assert_not_called()
 
 
 def test_generate_image_success():
@@ -99,6 +155,7 @@ def test_generate_image_success():
     gateway.write_bytes = AsyncMock()
 
     fake_redis = AsyncMock()
+    fake_redis.get = AsyncMock(return_value=None)
     fake_redis.incrby = AsyncMock(return_value=1)
     fake_redis.expire = AsyncMock()
 
@@ -116,7 +173,7 @@ def test_generate_image_success():
         patch("app.routers.images.chats_repo.get_by_id", AsyncMock(return_value=chat)),
         patch(
             "app.routers.images.image_generation_service.generate_image",
-            AsyncMock(return_value=(b"\x89PNG\r\n", "image/png")),
+            AsyncMock(return_value=(b"\x89PNG\r\n\x1a\n", "image/png")),
         ),
         patch("app.routers.images.get_storage_gateway", return_value=gateway),
         patch("app.routers.images.attachments_repo.create_pending", AsyncMock()),
@@ -125,7 +182,6 @@ def test_generate_image_success():
             AsyncMock(side_effect=[user_msg, assistant_msg]),
         ),
         patch("app.routers.images.attachments_repo.link_to_message", AsyncMock(return_value=1)),
-        patch("app.routers.images.bytes_match_claimed", return_value=True),
     ):
         client = TestClient(app)
         r = client.post(

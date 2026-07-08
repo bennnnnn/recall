@@ -312,7 +312,20 @@ def image_generation_limit_for_user(user: User, settings: Settings) -> int:
     return settings.daily_image_generations
 
 
+async def get_image_generation_used(redis: Redis, user_id: UUID) -> int:
+    key = _imggen_key(user_id, utc_today())
+    value = await redis.get(key)
+    return max(0, int(value or 0))
+
+
+async def is_image_generation_exhausted(redis: Redis, user_id: UUID, *, limit: int) -> bool:
+    if limit <= 0:
+        return True
+    return await get_image_generation_used(redis, user_id) >= limit
+
+
 async def reserve_image_generation(redis: Redis, user_id: UUID, *, limit: int) -> bool:
+    """Increment today's image-gen count if under limit (call only after success)."""
     if limit <= 0:
         return False
     key = _imggen_key(user_id, utc_today())
@@ -330,3 +343,7 @@ async def refund_image_generation(redis: Redis, user_id: UUID) -> None:
     new_total = await redis.incrby(key, -1)
     if new_total < 0:
         await redis.set(key, 0)
+
+
+async def reset_image_generation_usage(redis: Redis, user_id: UUID) -> None:
+    await redis.delete(_imggen_key(user_id, utc_today()))

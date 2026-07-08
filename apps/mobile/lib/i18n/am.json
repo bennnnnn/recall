@@ -31,6 +31,7 @@
   "chat.image_gen_generate": "Generate",
   "chat.image_gen_in_progress": "Generating image…",
   "chat.image_gen_timeout": "Image generation timed out. Try again.",
+  "chat.image_gen_cancelled": "Image generation cancelled.",
   "chat.busy": "አሁንም በመፍጠር ላይ — ይጠብቁ ወይም stop ይጫኑና እንደገና ይሞክሩ።",
   "chat.close_menu": "Close menu",
   "chat.context_summarized": "{{count}} ቀዳሚ መልእክቶች ተጠቃለሉ",

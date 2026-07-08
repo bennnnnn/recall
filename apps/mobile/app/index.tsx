@@ -239,6 +239,7 @@ function ChatScreen() {
     onScrollToLatest: scroll.scrollToLatest,
     newMessageCountRef: scroll.newMessageCountRef,
     blockMessageReloadRef,
+    onClearComposer: () => setInput(""),
     t,
   });
   openImageGenRef.current = imageGen.openPrompt;
@@ -352,7 +353,6 @@ function ChatScreen() {
     highlightedMessageId,
     sendingMessageId: sendingMessageId ?? pendingOutboundId,
     imageGenPendingId: imageGen.pendingAssistantId,
-    imageGenActive: imageGen.generating,
     setMenuVisible,
     regenerateResponse: handleRegenerate,
     handleEditMessage,
@@ -415,6 +415,8 @@ function ChatScreen() {
     input,
     setInput,
     streaming,
+    imageGenBusy: imageGen.isActive,
+    onCancelImageGen: () => imageGen.cancelGeneration(),
     attachBusy,
     pendingAttachment,
     setPendingAttachment,

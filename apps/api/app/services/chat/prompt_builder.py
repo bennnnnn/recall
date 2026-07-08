@@ -20,6 +20,7 @@ from app.services.chat.prompt_constants import (
     EMAIL_DRAFT_HINT,
     INTENT_FORMAT_HINT,
     MATH_SOLVER_HINT,
+    PLAIN_CHAT_QUIZ_ANSWER_HINT,
     PRIVACY_HINT,
     QUIZ_ANSWER_HINT,
     QUIZ_RECENT_MESSAGE_LIMIT,
@@ -148,6 +149,7 @@ async def build_prompt_messages(
     query_text: str | None = None,
     minimal_personal_context: bool = False,
     minimal_quiz_context: bool = False,
+    quiz_grading_hint: str | None = None,
     client_timezone: str | None = None,
     prompt_location: str | None = None,
     todo_sync_feedback: str | None = None,
@@ -243,7 +245,13 @@ async def build_prompt_messages(
         STYLE_HINTS[style],
     ]
     if minimal_quiz_context:
-        system_parts.extend([QUIZ_ANSWER_HINT, PRIVACY_HINT])
+        quiz_mode = getattr(chat, "quiz_mode", None) if chat else None
+        system_parts.append(
+            PLAIN_CHAT_QUIZ_ANSWER_HINT if quiz_mode == "chat" else QUIZ_ANSWER_HINT
+        )
+        if quiz_grading_hint:
+            system_parts.append(quiz_grading_hint)
+        system_parts.append(PRIVACY_HINT)
         if chat is None:
             chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user.id)
         if chat and chat.project_id:

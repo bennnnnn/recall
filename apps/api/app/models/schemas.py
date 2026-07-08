@@ -604,6 +604,12 @@ class ImageGenerateOut(BaseModel):
     assistant_message: MessageOut
 
 
+class ImageGenerationUsageOut(BaseModel):
+    used: int
+    daily_limit: int
+    remaining: int
+
+
 class SearchResultItem(BaseModel):
     match_type: Literal["message", "title"] = "message"
     message_id: UUID | None = None

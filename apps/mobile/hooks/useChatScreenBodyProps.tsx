@@ -74,6 +74,8 @@ export type UseChatScreenBodyPropsParams = {
   input: string;
   setInput: (value: string) => void;
   streaming: boolean;
+  imageGenBusy?: boolean;
+  onCancelImageGen?: () => void;
   attachBusy: boolean;
   pendingAttachment: PendingAttachment | null;
   setPendingAttachment: (value: PendingAttachment | null) => void;
@@ -134,6 +136,8 @@ export function useChatScreenBodyProps({
   input,
   setInput,
   streaming,
+  imageGenBusy = false,
+  onCancelImageGen,
   attachBusy,
   pendingAttachment,
   setPendingAttachment,
@@ -238,6 +242,8 @@ export function useChatScreenBodyProps({
       input,
       onChangeInput: setInput,
       streaming,
+      imageGenBusy,
+      onCancelImageGen,
       attachBusy,
       pendingAttachment,
       onRemoveAttachment: () => setPendingAttachment(null),
@@ -296,6 +302,8 @@ export function useChatScreenBodyProps({
       input,
       setInput,
       streaming,
+      imageGenBusy,
+      onCancelImageGen,
       attachBusy,
       pendingAttachment,
       setPendingAttachment,

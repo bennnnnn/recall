@@ -37,6 +37,8 @@ type Props = {
   input: string;
   onChangeInput: (text: string) => void;
   streaming: boolean;
+  imageGenBusy?: boolean;
+  onCancelImageGen?: () => void;
   attachBusy: boolean;
   pendingAttachment: PendingAttachment | null;
   onRemoveAttachment: () => void;
@@ -66,6 +68,8 @@ export const ChatComposer = memo(function ChatComposer({
   input,
   onChangeInput,
   streaming,
+  imageGenBusy = false,
+  onCancelImageGen,
   attachBusy,
   pendingAttachment,
   onRemoveAttachment,
@@ -89,6 +93,12 @@ export const ChatComposer = memo(function ChatComposer({
   const s = useMemo(() => makeStyles(theme), [theme]);
 
   if (!visible) return null;
+
+  const showStop = streaming || imageGenBusy;
+  const handleStopPress = () => {
+    if (imageGenBusy) onCancelImageGen?.();
+    if (streaming) onStop();
+  };
 
   const blockStyle = docked ? s.composerDocked : s.composerBlock;
   const containerStyle = animatedContainerStyle
@@ -125,7 +135,7 @@ export const ChatComposer = memo(function ChatComposer({
               <Pressable
                 style={s.attachBtn}
                 onPress={onPickAttachment}
-                disabled={attachBusy || streaming}
+                disabled={attachBusy || streaming || imageGenBusy}
                 hitSlop={6}
                 accessibilityLabel={t("chat.attach_a11y")}
               >
@@ -147,11 +157,16 @@ export const ChatComposer = memo(function ChatComposer({
                   onFocus={onCloseAttachSheet}
                   multiline
                   returnKeyType="default"
+                  editable={!imageGenBusy}
                 />
               )}
               <View style={s.sendBtnSlot}>
-                {streaming ? (
-                  <Pressable style={s.sendBtn} onPress={onStop}>
+                {showStop ? (
+                  <Pressable
+                    style={s.sendBtn}
+                    onPress={handleStopPress}
+                    accessibilityLabel={imageGenBusy ? t("common.cancel") : t("chat.busy")}
+                  >
                     <Text style={s.sendIcon}>■</Text>
                   </Pressable>
                 ) : voiceTranscribing ? (
@@ -160,8 +175,9 @@ export const ChatComposer = memo(function ChatComposer({
                   </View>
                 ) : input.trim() || pendingAttachment ? (
                   <Pressable
-                    style={[s.sendBtn, isOffline && s.sendBtnDisabled]}
+                    style={[s.sendBtn, (isOffline || imageGenBusy) && s.sendBtnDisabled]}
                     onPress={onSend}
+                    disabled={imageGenBusy}
                     accessibilityLabel={isOffline ? t("chat.offline_title") : undefined}
                     accessibilityHint={isOffline ? t("chat.offline_body") : undefined}
                   >
@@ -171,7 +187,7 @@ export const ChatComposer = memo(function ChatComposer({
                   <VoiceMicButton
                     recording={voiceRecording}
                     transcribing={voiceTranscribing}
-                    disabled={attachBusy || isOffline}
+                    disabled={attachBusy || isOffline || imageGenBusy}
                     onPress={onVoicePress}
                   />
                 ) : null}

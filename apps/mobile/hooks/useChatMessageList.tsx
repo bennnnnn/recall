@@ -19,7 +19,6 @@ type Options = {
   highlightedMessageId: string | null;
   sendingMessageId: string | null;
   imageGenPendingId?: string | null;
-  imageGenActive?: boolean;
   setMenuVisible: React.Dispatch<React.SetStateAction<boolean>>;
   regenerateResponse: (model: string) => void | Promise<void>;
   handleEditMessage: (message: Message) => void;
@@ -35,7 +34,6 @@ export function useChatMessageList({
   highlightedMessageId,
   sendingMessageId,
   imageGenPendingId = null,
-  imageGenActive = false,
   setMenuVisible,
   regenerateResponse,
   handleEditMessage,
@@ -60,7 +58,6 @@ export function useChatMessageList({
       highlightedMessageId,
       sendingMessageId,
       imageGenPendingId,
-      imageGenActive,
       onRegenerate: regenerateResponse,
       onEdit: handleEditMessage,
       onFeedback: handleFeedback,
@@ -72,7 +69,6 @@ export function useChatMessageList({
       highlightedMessageId,
       sendingMessageId,
       imageGenPendingId,
-      imageGenActive,
       regenerateResponse,
       handleEditMessage,
       handleFeedback,
@@ -110,7 +106,7 @@ export function useChatMessageList({
         />
       );
     },
-    [sharedRowProps, messages, streaming, finalizing, lastAssistantId, imageGenPendingId, imageGenActive],
+    [sharedRowProps, messages, streaming, finalizing, lastAssistantId, imageGenPendingId],
   );
 
   return { lastAssistantId, headerTitleLabel, renderItem };

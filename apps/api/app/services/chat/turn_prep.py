@@ -216,7 +216,7 @@ async def _should_minimal_quiz_context(
     chat_id: UUID,
     content: str,
 ) -> bool:
-    """Letter answers after an in-chat ```vocab_quiz message use the quiz prompt path."""
+    """Letter answers after a gradable quiz message use the quiz prompt path."""
     if not web_search_service.is_vocab_quiz_answer(content):
         return False
     import app.services.chat as chat_pkg
@@ -225,7 +225,7 @@ async def _should_minimal_quiz_context(
     prior = await chat_pkg.messages_repo.get_last_assistant(session, chat_id)
     if prior is None:
         return False
-    return vocab_quiz_service.parse_vocab_quiz(prior.content) is not None
+    return vocab_quiz_service.parse_assistant_quiz(prior.content) is not None
 
 
 async def build_stream_prompt_context(
@@ -283,6 +283,20 @@ async def build_stream_prompt_context(
         if getattr(chat, "quiz_mode", None) == "exam":
             minimal_quiz = False
 
+        quiz_grading_hint: str | None = None
+        if web_search_service.is_vocab_quiz_answer(content) and chat.project_id is not None:
+            prior_assistant = await chat_pkg.messages_repo.get_last_assistant(session, chat.id)
+            if prior_assistant is not None:
+                quiz_grading_hint = await chat_pkg.projects_service.build_quiz_grading_hint(
+                    session,
+                    user_id=user.id,
+                    project_id=chat.project_id,
+                    assistant_content=prior_assistant.content,
+                    user_answer=content,
+                )
+                if quiz_grading_hint and getattr(chat, "quiz_mode", None) != "exam":
+                    minimal_quiz = True
+
         user_locale = user.locale
         chat_summary = chat.summary
         geo = resolve_client_geo(
@@ -308,6 +322,7 @@ async def build_stream_prompt_context(
             query_text=content,
             minimal_personal_context=minimal_personal,
             minimal_quiz_context=minimal_quiz,
+            quiz_grading_hint=quiz_grading_hint,
             client_timezone=client_timezone,
             prompt_location=geo.user_location if geo.geo_query and geo.has_geo_fix else None,
             todo_sync_feedback=todo_sync_feedback,

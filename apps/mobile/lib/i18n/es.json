@@ -31,6 +31,7 @@
   "chat.image_gen_generate": "Generar",
   "chat.image_gen_in_progress": "Generando imagen…",
   "chat.image_gen_timeout": "La generación de imagen tardó demasiado. Inténtalo de nuevo.",
+  "chat.image_gen_cancelled": "Generación de imagen cancelada.",
   "chat.busy": "Sigue generando — espera o pulsa detener e inténtalo de nuevo.",
   "chat.close_menu": "Close menu",
   "chat.context_summarized": "{{count}} mensajes anteriores resumidos",

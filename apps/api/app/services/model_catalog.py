@@ -185,8 +185,8 @@ CATALOG: tuple[ChatModel, ...] = (
     _or(
         id="image-gen-model",
         label="Image generation",
-        model="google/gemini-2.5-flash-image",
-        provider="google",
+        model="bytedance-seed/seedream-4.5",
+        provider="bytedance",
         selectable=False,
     ),
 )

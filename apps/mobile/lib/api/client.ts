@@ -76,6 +76,19 @@ export function apiUrl(path: string) {
   return `${getApiUrl()}${path}`;
 }
 
+function throwIfAborted(signal: AbortSignal | null | undefined): void {
+  if (signal?.aborted) {
+    throw new DOMException("The operation was aborted.", "AbortError");
+  }
+}
+
+export function isAbortError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  if (error.name === "AbortError") return true;
+  const message = error.message.toLowerCase();
+  return message.includes("abort") || message.includes("aborted");
+}
+
 const AUTH_FETCH_TIMEOUT_MS = 15_000;
 
 export async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
@@ -110,6 +123,8 @@ export async function request<T>(
   externalSignal?.addEventListener("abort", onExternalAbort);
 
   try {
+    throwIfAborted(externalSignal);
+    throwIfAborted(controller.signal);
     const response = await fetch(apiUrl(path), {
       ...init,
       signal: controller.signal,
@@ -119,9 +134,13 @@ export async function request<T>(
         ...(init?.headers ?? {}),
       },
     });
+    throwIfAborted(externalSignal);
+    throwIfAborted(controller.signal);
 
     if (response.status === 401 && allowRefresh) {
       const refreshed = await refreshAccessToken();
+      throwIfAborted(externalSignal);
+      throwIfAborted(controller.signal);
       if (refreshed) {
         return request<T>(path, refreshed, init, false, timeoutMs);
       }
@@ -143,6 +162,11 @@ export async function request<T>(
     }
 
     return response.json() as Promise<T>;
+  } catch (error) {
+    if (isAbortError(error) || externalSignal?.aborted || controller.signal.aborted) {
+      throw new DOMException("The operation was aborted.", "AbortError");
+    }
+    throw error;
   } finally {
     externalSignal?.removeEventListener("abort", onExternalAbort);
     clearTimeout(timeout);

@@ -259,3 +259,27 @@ async def test_refund_image_generation(fake_redis):
     assert await quota_service.reserve_image_generation(fake_redis, user_id, limit=limit)
     await quota_service.refund_image_generation(fake_redis, user_id)
     assert await quota_service.reserve_image_generation(fake_redis, user_id, limit=limit)
+
+
+@pytest.mark.asyncio
+async def test_get_image_generation_used_and_exhausted(fake_redis):
+    from uuid import uuid4
+
+    user_id = uuid4()
+    assert await quota_service.get_image_generation_used(fake_redis, user_id) == 0
+    assert await quota_service.is_image_generation_exhausted(fake_redis, user_id, limit=2) is False
+
+    await quota_service.reserve_image_generation(fake_redis, user_id, limit=2)
+    await quota_service.reserve_image_generation(fake_redis, user_id, limit=2)
+    assert await quota_service.get_image_generation_used(fake_redis, user_id) == 2
+    assert await quota_service.is_image_generation_exhausted(fake_redis, user_id, limit=2) is True
+
+
+@pytest.mark.asyncio
+async def test_reset_image_generation_usage(fake_redis):
+    from uuid import uuid4
+
+    user_id = uuid4()
+    await quota_service.reserve_image_generation(fake_redis, user_id, limit=5)
+    await quota_service.reset_image_generation_usage(fake_redis, user_id)
+    assert await quota_service.get_image_generation_used(fake_redis, user_id) == 0

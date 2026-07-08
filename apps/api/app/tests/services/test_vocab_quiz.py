@@ -41,6 +41,45 @@ def test_parse_vocab_quiz_requires_correct_letter():
     assert vocab_quiz_service.parse_vocab_quiz(fence) is None
 
 
+def test_parse_plain_markdown_vocab_quiz_walk():
+    content = (
+        "**What does walk mean?**\n\n"
+        "A) To run very fast\n"
+        "B) To move at a regular pace by lifting and setting down each foot\n"
+        "C) To sit down\n"
+        "D) To jump high"
+    )
+    quiz = vocab_quiz_service.parse_plain_markdown_vocab_quiz(content)
+    assert quiz is not None
+    assert quiz.word == "walk"
+    assert quiz.choices is not None
+    assert "B" in quiz.choices
+
+
+def test_infer_correct_letter_from_definition_walk():
+    choices = {
+        "A": "To run very fast",
+        "B": "To move at a regular pace by lifting and setting down each foot",
+        "C": "To sit down",
+        "D": "To jump high",
+    }
+    definition = "To move at a regular pace by lifting and setting down each foot"
+    assert vocab_quiz_service.infer_correct_letter_from_definition(choices, definition) == "B"
+
+
+def test_grade_quiz_answer_wrong_letter():
+    quiz = vocab_quiz_service.ParsedVocabQuiz(
+        word="walk",
+        part_of_speech="verb",
+        question="What does walk mean?",
+        correct="B",
+        quiz_type="vocab",
+        choices={"B": "To move at a regular pace by lifting and setting down each foot"},
+    )
+    graded = vocab_quiz_service.grade_quiz_answer(quiz, "A")
+    assert graded == ("A", "B", False)
+
+
 @pytest.mark.asyncio
 async def test_apply_deterministic_quiz_answer_skips_without_correct():
     from app.models.orm import Project

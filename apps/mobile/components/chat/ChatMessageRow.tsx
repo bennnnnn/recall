@@ -15,7 +15,6 @@ type Props = {
    */
   streamVisualActive: boolean;
   imageGenPendingId?: string | null;
-  imageGenActive?: boolean;
   lastAssistantId: string | null;
   selectedModel: string;
   quizLanguage: string;
@@ -31,7 +30,6 @@ export const ChatMessageRow = memo(function ChatMessageRow({
   priorUserText,
   streamVisualActive,
   imageGenPendingId = null,
-  imageGenActive = false,
   lastAssistantId,
   selectedModel,
   quizLanguage,
@@ -42,9 +40,7 @@ export const ChatMessageRow = memo(function ChatMessageRow({
   onFeedback,
 }: Props) {
   const isLastAssistant = item.role === "assistant" && item.id === lastAssistantId;
-  const isImageGenPending =
-    item.id === imageGenPendingId ||
-    (imageGenActive && item.role === "assistant" && item.id.startsWith("local-imggen-"));
+  const isImageGenPending = item.id === imageGenPendingId;
 
   return (
     <MessageBubble

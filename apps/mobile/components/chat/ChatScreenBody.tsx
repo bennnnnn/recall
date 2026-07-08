@@ -64,6 +64,8 @@ export type ChatScreenBodyProps = {
   input: string;
   onChangeInput: (text: string) => void;
   streaming: boolean;
+  imageGenBusy?: boolean;
+  onCancelImageGen?: () => void;
   attachBusy: boolean;
   pendingAttachment: PendingAttachment | null;
   onRemoveAttachment: () => void;
@@ -124,6 +126,8 @@ export function ChatScreenBody({
   input,
   onChangeInput,
   streaming,
+  imageGenBusy = false,
+  onCancelImageGen,
   attachBusy,
   pendingAttachment,
   onRemoveAttachment,
@@ -213,6 +217,8 @@ export function ChatScreenBody({
         input={input}
         onChangeInput={onChangeInput}
         streaming={streaming}
+        imageGenBusy={imageGenBusy}
+        onCancelImageGen={onCancelImageGen}
         attachBusy={attachBusy}
         pendingAttachment={pendingAttachment}
         onRemoveAttachment={onRemoveAttachment}
