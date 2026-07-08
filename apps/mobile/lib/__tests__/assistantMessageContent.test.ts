@@ -67,4 +67,18 @@ describe("deriveAssistantMessageContent", () => {
     expect(result.isQuizFeedback).toBe(true);
     expect(result.showActionSlot).toBe(false);
   });
+
+  it("parses assistant image markers and strips them from markdown", () => {
+    const attachmentId = "11111111-1111-1111-1111-111111111111";
+    const result = deriveAssistantMessageContent({
+      ...base,
+      content: `[Image: /attachments/${attachmentId}/file]`,
+    });
+
+    expect(result.showImages).toBe(true);
+    expect(result.images).toHaveLength(1);
+    expect(result.images[0]?.attachmentId).toBe(attachmentId);
+    expect(result.markdownContent).toBe("");
+    expect(result.hasMarkdown).toBe(false);
+  });
 });

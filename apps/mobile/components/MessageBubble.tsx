@@ -7,6 +7,7 @@ import { CalendarProposalCard } from "@/components/CalendarProposalCard";
 import { PlacesListBlock } from "@/components/PlacesListBlock";
 import { CollapsibleMessageBody } from "@/components/CollapsibleMessageBody";
 import { UserMessageContent } from "@/components/UserMessageContent";
+import { ChatMessageImage } from "@/components/ChatMessageImage";
 import { SearchSourcesStack } from "@/components/SearchSourcesStack";
 import { CircularClockBlock } from "@/components/rich/CircularClockBlock";
 import { MarkdownContent } from "@/components/MarkdownContent";
@@ -249,6 +250,8 @@ export const MessageBubble = React.memo(function MessageBubble({
     showCalendarProposals,
     places,
     showPlaces,
+    images,
+    showImages,
     markdownContent,
     hasMarkdown,
     showSearchSources,
@@ -297,6 +300,15 @@ export const MessageBubble = React.memo(function MessageBubble({
                 {t("chat.context_summarized", { count: message.context_summarized })}
               </Text>
             ) : null}
+            {showImages
+              ? images.map((image, index) => (
+                  <ChatMessageImage
+                    key={`${image.attachmentId ?? image.path}-${index}`}
+                    attachmentId={image.attachmentId}
+                    path={image.path}
+                  />
+                ))
+              : null}
             {showLiveClock ? (
               <CircularClockBlock content={clockTimezone} />
             ) : null}
@@ -397,8 +409,6 @@ function makeStyles(t: Theme) {
       fontSize: 14,
       color: t.textTertiary,
     },
-    userText: { color: t.userText, fontSize: 16, lineHeight: 23 },
-    streamingText: { color: t.assistantText, fontSize: 16, lineHeight: 25 },
     contextChip: {
       fontSize: 12,
       lineHeight: 16,

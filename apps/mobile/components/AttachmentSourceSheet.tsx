@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import { Theme, useTheme } from "@/lib/theme";
 
-export type AttachmentSource = "camera" | "photo" | "file";
+export type AttachmentSource = "camera" | "photo" | "file" | "generate_image";
 
 type Props = {
   onSelect: (source: AttachmentSource) => void;
@@ -64,6 +64,14 @@ export function AttachmentSourceSheet({ onSelect }: Props) {
           icon="document-outline"
           label={t("chat.attach_file")}
           onPress={() => onSelect("file")}
+          theme={theme}
+          styles={s}
+          showDivider
+        />
+        <SheetRow
+          icon="color-wand-outline"
+          label={t("chat.attach_generate_image")}
+          onPress={() => onSelect("generate_image")}
           theme={theme}
           styles={s}
           showDivider

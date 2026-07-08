@@ -32,15 +32,6 @@ export type ParsedUserMessageContent = {
   hasFileAttachment: boolean;
 };
 
-function isAttachmentMarkerLine(trimmed: string): boolean {
-  return (
-    IMAGE_MARKER.test(trimmed) ||
-    FILE_MARKER.test(trimmed) ||
-    FILE_TYPE_MARKER.test(trimmed) ||
-    FILE_ATTACHED_MARKER.test(trimmed)
-  );
-}
-
 export function parseUserMessageContent(content: string): ParsedUserMessageContent {
   const images: ParsedMessageImage[] = [];
   const files: ParsedMessageFile[] = [];
@@ -108,6 +99,29 @@ export function parseUserMessageContent(content: string): ParsedUserMessageConte
   const visibleCaption =
     (images.length > 0 || files.length > 0) && isAttachmentBoilerplate(caption) ? "" : caption;
   return { caption: visibleCaption, images, files, hasFileAttachment };
+}
+
+/** Extract inline `[Image: …]` markers from any message role. */
+export function parseMessageImages(content: string): {
+  images: ParsedMessageImage[];
+  textWithoutImages: string;
+} {
+  const images: ParsedMessageImage[] = [];
+  const kept: string[] = [];
+  for (const line of content.split("\n")) {
+    const trimmed = line.trim();
+    const imageMatch = trimmed.match(IMAGE_MARKER);
+    if (imageMatch) {
+      const ref = imageMatch[1].trim();
+      images.push({
+        attachmentId: attachmentIdFromRef(ref),
+        path: ref,
+      });
+      continue;
+    }
+    kept.push(line);
+  }
+  return { images, textWithoutImages: kept.join("\n").trim() };
 }
 
 export function userMessageHasImage(content: string, localImageUri?: string | null): boolean {

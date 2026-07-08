@@ -593,6 +593,17 @@ class SpeechTranscriptionIn(BaseModel):
     filename: str = "speech.m4a"
 
 
+class ImageGenerateIn(BaseModel):
+    chat_id: UUID
+    prompt: str = Field(min_length=1, max_length=2000)
+    aspect_ratio: str | None = Field(default=None, max_length=16)
+
+
+class ImageGenerateOut(BaseModel):
+    user_message: MessageOut
+    assistant_message: MessageOut
+
+
 class SearchResultItem(BaseModel):
     match_type: Literal["message", "title"] = "message"
     message_id: UUID | None = None

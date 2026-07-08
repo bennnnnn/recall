@@ -68,6 +68,7 @@ type Options = {
   isOffline: boolean;
   resolveQuizProjectId?: () => string | null;
   onBeforeSend?: (text: string) => boolean | void;
+  onOpenImageGen?: () => void;
 };
 
 export function useChatSend({
@@ -93,6 +94,7 @@ export function useChatSend({
   isOffline,
   resolveQuizProjectId,
   onBeforeSend,
+  onOpenImageGen,
 }: Options) {
   const {
     draftChatIdRef,
@@ -325,6 +327,11 @@ export function useChatSend({
   const handleAttachmentSheetSelect = useCallback(
     async (source: AttachmentSource) => {
       if (attachPickInFlightRef.current || !token || attachBusy || streaming) return;
+      if (source === "generate_image") {
+        setAttachSheetOpen(false);
+        onOpenImageGen?.();
+        return;
+      }
       attachPickInFlightRef.current = true;
       setAttachSheetOpen(false);
       await waitForPickerUi();
@@ -351,7 +358,7 @@ export function useChatSend({
         attachPickInFlightRef.current = false;
       }
     },
-    [attachBusy, streaming, t, token, waitForPickerUi],
+    [attachBusy, streaming, t, token, waitForPickerUi, onOpenImageGen],
   );
 
   const handleEditMessage = useCallback(

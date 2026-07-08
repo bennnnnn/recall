@@ -47,11 +47,6 @@ export function stripTimeAnswerFences(markdown: string): string {
     .trim();
 }
 
-/** @deprecated use stripTimeAnswerFences */
-export function stripDigitalTimeFences(markdown: string): string {
-  return stripTimeAnswerFences(markdown);
-}
-
 export function extractClockTimezone(markdown: string): string {
   const match = markdown.match(/```[^\n]*\n([\s\S]*?)```/);
   if (!match) return "";

@@ -22,6 +22,7 @@ import {
 } from "@/lib/parseVocabCard";
 import { resolvePlaces, stripPlacesContent, type PlaceItem } from "@/lib/placesList";
 import { resolveSearchSources, stripSearchSourcesFromContent } from "@/lib/searchSources";
+import { parseMessageImages, type ParsedMessageImage } from "@/lib/messageAttachments";
 import {
   assistantReplyIsTimeAnswer,
   extractClockTimezone,
@@ -56,6 +57,8 @@ export type AssistantMessageContent = {
   showCalendarProposals: boolean;
   places: PlaceItem[];
   showPlaces: boolean;
+  images: ParsedMessageImage[];
+  showImages: boolean;
   markdownContent: string;
   hasMarkdown: boolean;
   showSearchSources: boolean;
@@ -170,8 +173,11 @@ export function deriveAssistantMessageContent(
     !isUser && hasContent && !layoutFrozen ? resolvePlaces(content) : [];
   const showPlaces = places.length > 0;
 
+  const parsedImages = !isUser && hasContent ? parseMessageImages(content) : { images: [], textWithoutImages: content };
+  const showImages = parsedImages.images.length > 0 && !layoutFrozen;
+
   const markdownContent = buildMarkdownContent({
-    content,
+    content: parsedImages.textWithoutImages,
     hideCardFenceInMarkdown,
     hideQuizFenceInMarkdown,
     quizForStrip,
@@ -208,6 +214,8 @@ export function deriveAssistantMessageContent(
     showCalendarProposals,
     places,
     showPlaces,
+    images: parsedImages.images,
+    showImages,
     markdownContent,
     hasMarkdown,
     showSearchSources,

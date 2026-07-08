@@ -111,6 +111,11 @@ class Settings(BaseSettings):
     daily_speech_transcriptions: int = 30
     daily_speech_transcriptions_pro: int = 200
 
+    image_generation_enabled: bool = True
+    image_generation_model: str = "black-forest-labs/flux-schnell"
+    daily_image_generations: int = 0
+    daily_image_generations_pro: int = 10
+
     push_enabled: bool = True
     push_learning_hour: int = 9
     server_todo_push_enabled: bool = False  # local notifications handle todo reminders

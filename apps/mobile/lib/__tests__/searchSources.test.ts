@@ -2,7 +2,6 @@ import {
   faviconUrl,
   hostnameFromUrl,
   parseSearchSources,
-  stripSearchSourcesFence,
   stripSearchSourcesFromContent,
 } from "@/lib/searchSources";
 
@@ -20,7 +19,7 @@ describe("searchSources", () => {
         snippet: "Story text.",
       },
     ]);
-    expect(stripSearchSourcesFence(content)).toBe("Here is the answer.");
+    expect(stripSearchSourcesFromContent(content)).toBe("Here is the answer.");
   });
 
   it("returns empty when fence missing", () => {
