@@ -31,6 +31,7 @@ import {
   setOnboarded,
   setTokenPair,
 } from "@/lib/auth";
+import { clearCachedUser, readCachedUser, writeCachedUser } from "@/lib/cachedUser";
 import { useBootstrapSync } from "@/hooks/useBootstrapSync";
 import { useTheme } from "@/lib/theme";
 
@@ -80,16 +81,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOutInFlightRef = useRef(false);
 
   const hydrate = useCallback(async () => {
-    const [stored, onb] = await Promise.all([getToken(), getOnboarded()]);
+    const [stored, onb, cachedUser] = await Promise.all([
+      getToken(),
+      getOnboarded(),
+      readCachedUser(),
+    ]);
     setOnboardedState(onb);
     if (!stored) {
       setLoading(false);
       return;
     }
+
+    if (cachedUser) {
+      // Paint the app immediately with the last-known user instead of
+      // holding the whole navigator behind this round trip, then validate
+      // in the background. A real 401 is handled by the global
+      // onUnauthorized -> signOut() handler (wired below), which already
+      // fires from inside api.me() before this catch runs — so a stale or
+      // revoked token still signs the user out, just without blocking
+      // first paint on the network first. A transient failure (offline,
+      // slow cold-start network) just leaves the cached user in place.
+      setTokenState(stored);
+      setUser(cachedUser);
+      setLoading(false);
+      try {
+        const me = await api.me(stored);
+        setUser(me);
+        void writeCachedUser(me);
+      } catch {
+        /* best-effort background refresh */
+      }
+      return;
+    }
+
     try {
       const me = await api.me(stored);
       setTokenState(stored);
       setUser(me);
+      void writeCachedUser(me);
     } catch {
       await clearToken();
       Alert.alert(i18n.t("login.sign_in_failed"), i18n.t("auth.session_expired"));
@@ -108,6 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await setTokenPair(result.access_token, result.refresh_token);
     setTokenState(result.access_token);
     setUser(result.user);
+    void writeCachedUser(result.user);
   }, []);
 
   const signInWithApple = useCallback(async () => {
@@ -116,6 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await setTokenPair(result.access_token, result.refresh_token);
     setTokenState(result.access_token);
     setUser(result.user);
+    void writeCachedUser(result.user);
   }, []);
 
   const signInWithDev = useCallback(async () => {
@@ -123,6 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await setTokenPair(result.access_token, result.refresh_token);
     setTokenState(result.access_token);
     setUser(result.user);
+    void writeCachedUser(result.user);
   }, []);
 
   const signOut = useCallback(async () => {
@@ -155,6 +187,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const { clearAllCachedChatMessages } = await import("@/lib/chatMessageCache");
         await clearAllCachedChatMessages();
+      } catch {
+        /* best-effort */
+      }
+      try {
+        await clearCachedUser();
       } catch {
         /* best-effort */
       }
@@ -204,6 +241,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!token) return;
     const me = await api.me(token);
     setUser(me);
+    void writeCachedUser(me);
   }, [token]);
 
   const completeOnboarding = useCallback(async () => {
@@ -222,6 +260,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const updated = await api.updateMe(token, patch);
         setUser(updated);
+        void writeCachedUser(updated);
       } catch {
         setUser(snapshot);
         throw new Error("update failed");
