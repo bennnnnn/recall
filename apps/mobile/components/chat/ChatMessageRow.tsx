@@ -7,8 +7,13 @@ type Props = {
   item: Message;
   /** Content of the immediately preceding user message, when `item` is the assistant reply to it. */
   priorUserText: string | null;
-  streaming: boolean;
-  finalizing: boolean;
+  /**
+   * Whether THIS row's own output depends on the active stream state — see
+   * streamVisualActiveForRow. Always the real streaming/finalizing value for
+   * user rows and the last-assistant row; a stable `false` for every other
+   * assistant row, so this row doesn't re-render when a turn starts/ends.
+   */
+  streamVisualActive: boolean;
   lastAssistantId: string | null;
   selectedModel: string;
   quizLanguage: string;
@@ -22,8 +27,7 @@ type Props = {
 export const ChatMessageRow = memo(function ChatMessageRow({
   item,
   priorUserText,
-  streaming,
-  finalizing,
+  streamVisualActive,
   lastAssistantId,
   selectedModel,
   quizLanguage,
@@ -34,7 +38,6 @@ export const ChatMessageRow = memo(function ChatMessageRow({
   onFeedback,
 }: Props) {
   const isLastAssistant = item.role === "assistant" && item.id === lastAssistantId;
-  const streamVisualActive = streaming || finalizing;
 
   return (
     <MessageBubble
