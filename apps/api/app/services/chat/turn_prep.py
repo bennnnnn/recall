@@ -554,15 +554,20 @@ async def prepare_chat_turn(
                             )
                         raise AttachmentValidationError(error)
             attachment_lines: list[str] = []
-            for row in attachment_rows:
-                lines, is_image = await attachment_content_service.format_attachment_lines(
-                    gateway,
-                    attachment_id=str(row.id),
-                    content_type=row.content_type,
-                    storage_key=row.storage_key,
-                    size_bytes=row.size_bytes,
-                    settings=settings,
+            formatted = await asyncio.gather(
+                *(
+                    attachment_content_service.format_attachment_lines(
+                        gateway,
+                        attachment_id=str(row.id),
+                        content_type=row.content_type,
+                        storage_key=row.storage_key,
+                        size_bytes=row.size_bytes,
+                        settings=settings,
+                    )
+                    for row in attachment_rows
                 )
+            )
+            for row, (lines, is_image) in zip(attachment_rows, formatted, strict=True):
                 if is_image:
                     has_image_attachment = True
                     image_attachments.append((row.content_type, row.storage_key))

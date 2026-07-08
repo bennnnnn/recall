@@ -178,3 +178,68 @@ async def test_format_attachment_lines_gives_honest_error_for_unsupported_type()
     )
     assert is_image is False
     assert "can't read this file type yet" in lines[1]
+
+
+@pytest.mark.asyncio
+async def test_inject_vision_content_preserves_image_order():
+    """Reads run concurrently via asyncio.gather — result order must still
+    match the input `images` order, not read-completion order."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.services.attachment_content import inject_vision_content
+
+    gateway = MagicMock()
+    reads = {"key-a": b"AAAA", "key-b": b"BBBB", "key-c": b"CCCC"}
+    gateway.read_bytes = AsyncMock(side_effect=lambda key: reads[key])
+
+    prompt_messages = [{"role": "user", "content": "look at these"}]
+    images = [
+        ("image/png", "key-a"),
+        ("image/jpeg", "key-b"),
+        ("image/png", "key-c"),
+    ]
+
+    await inject_vision_content(prompt_messages, gateway, images, caption="check these out")
+
+    content = prompt_messages[0]["content"]
+    image_parts = [p for p in content if p["type"] == "image_url"]
+    assert len(image_parts) == 3
+    assert image_parts[0]["image_url"]["url"].startswith("data:image/png;base64,QUFBQQ")
+    assert image_parts[1]["image_url"]["url"].startswith("data:image/jpeg;base64,QkJCQg")
+    assert image_parts[2]["image_url"]["url"].startswith("data:image/png;base64,Q0NDQw")
+
+
+@pytest.mark.asyncio
+async def test_inject_vision_content_skips_unreadable_images():
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.services.attachment_content import inject_vision_content
+
+    gateway = MagicMock()
+    gateway.read_bytes = AsyncMock(side_effect=[b"AAAA", None])
+
+    prompt_messages = [{"role": "user", "content": "hi"}]
+    images = [("image/png", "key-a"), ("image/png", "key-missing")]
+
+    await inject_vision_content(prompt_messages, gateway, images)
+
+    content = prompt_messages[0]["content"]
+    image_parts = [p for p in content if p["type"] == "image_url"]
+    assert len(image_parts) == 1
+
+
+@pytest.mark.asyncio
+async def test_inject_vision_content_noop_when_no_images_readable():
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.services.attachment_content import inject_vision_content
+
+    gateway = MagicMock()
+    gateway.read_bytes = AsyncMock(return_value=None)
+
+    prompt_messages = [{"role": "user", "content": "hi"}]
+    images = [("image/png", "key-missing")]
+
+    await inject_vision_content(prompt_messages, gateway, images)
+
+    assert prompt_messages[0]["content"] == "hi"

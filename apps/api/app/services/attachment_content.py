@@ -303,8 +303,10 @@ async def inject_vision_content(
     text = _strip_image_markers(caption).strip() or "What's in this image?"
     parts.append({"type": "text", "text": text})
 
-    for content_type, storage_key in images:
-        data = await read_attachment_bytes(gateway, storage_key)
+    image_bytes = await asyncio.gather(
+        *(read_attachment_bytes(gateway, storage_key) for _content_type, storage_key in images)
+    )
+    for (content_type, _storage_key), data in zip(images, image_bytes, strict=True):
         if not data:
             continue
         mime = normalize_content_type(content_type)
