@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from uuid import UUID
@@ -6,6 +7,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.core.db import SessionLocal
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Chat, User
 from app.services import profile as profile_service
@@ -168,39 +170,54 @@ async def build_prompt_messages(
         if chat is None:
             chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user.id)
 
-        async def _projects_block() -> str:
-            if is_day_plan:
-                return await chat_pkg.projects_service.load_daily_learning_summary_for_prompt(
-                    session,
+        # Each of these is an independent read with no dependency on the others'
+        # output — give each its own short-lived session (a single AsyncSession
+        # cannot safely run concurrent operations) and gather them, instead of
+        # awaiting four DB round-trips back-to-back before the LLM call starts.
+        async def _memory_block() -> str:
+            async with SessionLocal() as s:
+                return await chat_pkg.memory_service.get_memory_block(
+                    s, user, settings, query_text=query_text
+                )
+
+        async def _todos_section() -> str | None:
+            async with SessionLocal() as s:
+                return await chat_pkg.todos_service.build_todos_system_section(
+                    s,
                     user,
                     settings,
                     client_timezone=client_timezone,
+                    query_text=query_text,
                 )
-            if chat and chat.project_id:
-                return await chat_pkg.projects_service.load_project_for_prompt(
-                    session,
-                    user.id,
-                    chat.project_id,
-                    settings,
-                    quiz_mode=getattr(chat, "quiz_mode", None),
-                    client_timezone=client_timezone,
-                )
-            return await chat_pkg.projects_service.load_projects_for_prompt(
-                session, user.id, settings
-            )
 
-        memory_block = await chat_pkg.memory_service.get_memory_block(
-            session, user, settings, query_text=query_text
+        async def _projects_block() -> str:
+            async with SessionLocal() as s:
+                if is_day_plan:
+                    return await chat_pkg.projects_service.load_daily_learning_summary_for_prompt(
+                        s,
+                        user,
+                        settings,
+                        client_timezone=client_timezone,
+                    )
+                if chat and chat.project_id:
+                    return await chat_pkg.projects_service.load_project_for_prompt(
+                        s,
+                        user.id,
+                        chat.project_id,
+                        settings,
+                        quiz_mode=getattr(chat, "quiz_mode", None),
+                        client_timezone=client_timezone,
+                    )
+                return await chat_pkg.projects_service.load_projects_for_prompt(
+                    s, user.id, settings
+                )
+
+        memory_block, todos_section, projects_block, recent_all = await asyncio.gather(
+            _memory_block(),
+            _todos_section(),
+            _projects_block(),
+            chat_pkg.messages_repo.list_recent(session, chat_id, limit=recent_limit),
         )
-        todos_section = await chat_pkg.todos_service.build_todos_system_section(
-            session,
-            user,
-            settings,
-            client_timezone=client_timezone,
-            query_text=query_text,
-        )
-        projects_block = await _projects_block()
-        recent_all = await chat_pkg.messages_repo.list_recent(session, chat_id, limit=recent_limit)
         if out is not None:
             labels = set(chat_pkg.memory_service.SECTION_LABELS.values())
             hints = [
