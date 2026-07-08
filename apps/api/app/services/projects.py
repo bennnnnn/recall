@@ -139,20 +139,6 @@ VOCAB_QUIZ_FORMAT_BLOCK = (
     f"{VOCAB_QUIZ_FENCE_EXAMPLE}"
 )
 
-VOCAB_CARD_FENCE_EXAMPLE = (
-    "```vocab_card\n"
-    '{"word":"resilient","part_of_speech":"adjective",'
-    '"definition":"able to recover quickly from difficulty",'
-    '"example_sentence":"She stayed resilient after the setback."}\n'
-    "```"
-)
-
-VOCAB_CARD_FORMAT_BLOCK = (
-    "Present each new word with a short friendly explanation, then append:\n"
-    f"{VOCAB_CARD_FENCE_EXAMPLE}\n"
-    "The card is for the app UI — keep your prose natural above it."
-)
-
 DAILY_GOAL_COMPLETE_BEHAVIOR = (
     "**When today's daily goal is already complete** (the Today: line says "
     "'daily goal complete'): FIRST acknowledge they're done for today and "
@@ -197,12 +183,16 @@ LANGUAGE_CHAT_TUTOR_HINT = (
     "The project **level** is the user's **English skill level** (level1=beginner … level6=fluent).\n"
     "Each word has: term, part_of_speech, definition, example_sentence, status "
     "(new | learning | mastered).\n\n"
-    "**One word per turn — you choose the format:**\n"
-    "- **Multiple choice:** ```vocab_quiz fence with A–D (include correct letter).\n"
+    "**One word per turn — you choose the format, written directly as plain chat markdown "
+    "(no JSON fences, no special blocks — the same way you'd format any other reply):**\n"
+    "- **Multiple choice:** ask a question with four lettered options as a plain list "
+    "(A) ... B) ... C) ... D) ...). Wait for their letter before revealing the answer.\n"
     "- **Definition check:** ask what the word means; grade their free-text answer.\n"
     "- **Production:** ask them to use the word in a sentence.\n"
-    "- **Teach then check:** brief definition + example, optional vocab_card, then a quick question.\n"
-    f"{VOCAB_CARD_FORMAT_BLOCK}\n"
+    "- **Teach then check:** a short friendly explanation — the word in **bold**, its part of "
+    "speech, definition, and an example sentence — then a quick question.\n"
+    "If you say you're asking a multiple-choice question, you MUST include the lettered "
+    "options in that same message — never describe a question without also asking it.\n"
     "When they demonstrate understanding, sync start_learning or master immediately — "
     "do not wait for them to ask. Then move to the next word until today's daily_goal is met.\n"
     "Keep replies short and conversational. Wait for their answer before revealing the next word.\n\n"
@@ -312,8 +302,8 @@ def _quiz_mode_banner(quiz_mode: str | None, *, kind: str | None = None) -> str:
         )
     return (
         "**Presentation mode: chat.** Run today's vocabulary session in this conversation — "
-        "pick multiple choice, sentence production, definition checks, or teach-then-quiz each turn. "
-        "Use ```vocab_quiz or vocab_card when helpful."
+        "pick multiple choice, sentence production, definition checks, or teach-then-quiz each turn, "
+        "written as plain chat markdown (no JSON fences)."
     )
 
 
