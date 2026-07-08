@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Pressable, StyleSheet, Text, View, ViewStyle, TextStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
@@ -16,14 +17,20 @@ export type ConversationRowStyles = {
 
 type Props = {
   chat: Chat;
-  onOpen: () => void;
-  onLongPress: () => void;
+  /**
+   * Stable callbacks (e.g. the useCallback-wrapped onOpenChat/onShowRowMenu
+   * from the parent), not a per-row closure — this row is memoized, and a
+   * fresh `() => onOpen(chatId)` created on every renderItem call would
+   * defeat that by changing the onOpen prop's identity every render.
+   */
+  onOpen: (chatId: string) => void;
+  onLongPress: (chat: Chat) => void;
   highlighted?: boolean;
   titleGenerating?: boolean;
   rowStyles: ConversationRowStyles;
 };
 
-export function ConversationRow({
+export const ConversationRow = memo(function ConversationRow({
   chat,
   onOpen,
   onLongPress,
@@ -37,8 +44,8 @@ export function ConversationRow({
   return (
     <Pressable
       style={[r.row, highlighted && r.rowHighlighted]}
-      onPress={onOpen}
-      onLongPress={onLongPress}
+      onPress={() => onOpen(chat.id)}
+      onLongPress={() => onLongPress(chat)}
     >
       {chat.pinned ? (
         <View style={r.rowIcon}>
@@ -53,7 +60,7 @@ export function ConversationRow({
       </Text>
     </Pressable>
   );
-}
+});
 
 export function makeConversationRowStyles(theme: Theme): ConversationRowStyles {
   return StyleSheet.create({

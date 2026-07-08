@@ -197,6 +197,20 @@ async def _load_gmail_context_block(
         return await chat_pkg.email_service.load_gmail_context(session, redis, user, settings)
 
 
+async def _load_prior_user_messages(chat_id: UUID) -> list[str]:
+    import app.services.chat as chat_pkg
+
+    async with SessionLocal() as session:
+        return await chat_pkg.messages_repo.recent_user_contents(session, chat_id)
+
+
+async def _load_has_calendar_write(user_id: UUID) -> bool:
+    import app.services.chat as chat_pkg
+
+    async with SessionLocal() as session:
+        return await chat_pkg.calendar_service.has_write_access(session, user_id)
+
+
 async def _should_minimal_quiz_context(
     session: AsyncSession,
     chat_id: UUID,
@@ -323,10 +337,10 @@ async def build_stream_prompt_context(
             and not chat_pkg.email_service.is_external_email_question(content)
         )
         if need_routing_context:
-            prior_user_messages = await chat_pkg.messages_repo.recent_user_contents(
-                session, chat.id
+            prior_user_messages, has_calendar_write = await asyncio.gather(
+                _load_prior_user_messages(chat.id),
+                _load_has_calendar_write(user.id),
             )
-            has_calendar_write = await chat_pkg.calendar_service.has_write_access(session, user.id)
 
         max_out = (
             max_output_tokens_for_style("short", settings)
@@ -540,15 +554,20 @@ async def prepare_chat_turn(
                             )
                         raise AttachmentValidationError(error)
             attachment_lines: list[str] = []
-            for row in attachment_rows:
-                lines, is_image = await attachment_content_service.format_attachment_lines(
-                    gateway,
-                    attachment_id=str(row.id),
-                    content_type=row.content_type,
-                    storage_key=row.storage_key,
-                    size_bytes=row.size_bytes,
-                    settings=settings,
+            formatted = await asyncio.gather(
+                *(
+                    attachment_content_service.format_attachment_lines(
+                        gateway,
+                        attachment_id=str(row.id),
+                        content_type=row.content_type,
+                        storage_key=row.storage_key,
+                        size_bytes=row.size_bytes,
+                        settings=settings,
+                    )
+                    for row in attachment_rows
                 )
+            )
+            for row, (lines, is_image) in zip(attachment_rows, formatted, strict=True):
                 if is_image:
                     has_image_attachment = True
                     image_attachments.append((row.content_type, row.storage_key))

@@ -171,3 +171,18 @@ export function parseSimpleLatex(latex: string): MathSegment[] {
 export function segmentsToPlain(segments: MathSegment[]): string {
   return segments.map(segmentToPlain).join("");
 }
+
+/**
+ * Split a math fence body into individual display lines. A single
+ * `renderToString`/parse call on a multi-line body concatenates every line
+ * into one expression with no separator (no `\n` handling in LaTeX or in
+ * our simple parser) — e.g. "x^2 = 5 - 1\nx^2 = 4" renders as the
+ * nonsensical "x^2 = 5 - 1x^2 = 4". Each line must be rendered as its own
+ * block instead.
+ */
+export function splitMathLines(latex: string): string[] {
+  return latex
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}

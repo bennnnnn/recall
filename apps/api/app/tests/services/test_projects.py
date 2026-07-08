@@ -602,7 +602,9 @@ async def test_load_project_for_prompt_chat_mode():
         )
 
     assert "daily vocabulary in chat" in block
-    assert "vocab_quiz" in block
+    assert "vocab_quiz" not in block
+    assert "vocab_card" not in block
+    assert "plain chat markdown" in block
     assert "Presentation mode: chat" in block
 
 

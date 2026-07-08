@@ -1,7 +1,8 @@
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { SkeletonList } from "@/components/SkeletonLoader";
 import { DrawerNavLinks } from "@/components/drawer/DrawerNavLinks";
 import { DrawerSearchResults } from "@/components/drawer/DrawerSearchResults";
 import type { ConversationListStyles } from "@/components/drawer/conversationListStyles";
@@ -67,9 +68,7 @@ export function DrawerListHeader({
         onReminders={onReminders}
       />
       {loading && activeChatCount === 0 && !searchOpen ? (
-        <View style={s.inlineEmpty}>
-          <ActivityIndicator color={theme.primary} />
-        </View>
+        <SkeletonList count={4} />
       ) : error && activeChatCount === 0 ? (
         <View style={s.inlineEmpty}>
           <Ionicons

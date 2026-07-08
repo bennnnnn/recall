@@ -1,9 +1,11 @@
+import asyncio
 from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.db import SessionLocal
 from app.models.orm import Chat, Message
 
 TITLE_MATCH_LIMIT = 50
@@ -61,15 +63,24 @@ async def search_conversations(
         .limit(max(limit + offset, limit))
     )
 
-    msg_count_result = await session.execute(msg_count_stmt)
-    title_result = await session.execute(title_stmt)
-    message_chat_ids = await session.scalars(msg_chat_ids_stmt)
-    msg_rows_result = await session.execute(msg_stmt)
+    async def _count_messages() -> int:
+        async with SessionLocal() as s:
+            result = await s.execute(msg_count_stmt)
+            return result.scalar_one()
 
-    message_total: int = msg_count_result.scalar_one()
-    title_chats = list(title_result.scalars().all())
-    message_chat_id_rows = message_chat_ids.all()
-    message_chat_ids_set = set(message_chat_id_rows)
+    async def _title_matches() -> list[Chat]:
+        async with SessionLocal() as s:
+            result = await s.execute(title_stmt)
+            return list(result.scalars().all())
+
+    async def _message_chat_ids() -> set:
+        async with SessionLocal() as s:
+            result = await s.scalars(msg_chat_ids_stmt)
+            return set(result.all())
+
+    message_total, title_chats, message_chat_ids_set, msg_rows_result = await asyncio.gather(
+        _count_messages(), _title_matches(), _message_chat_ids(), session.execute(msg_stmt)
+    )
     msg_rows = msg_rows_result.all()
 
     title_only = [chat for chat in title_chats if chat.id not in message_chat_ids_set]

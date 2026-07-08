@@ -20,7 +20,6 @@ import {
   isDigitalTimeOnly,
   isIanaTimezoneOnly,
 } from "@/lib/timeQuestion";
-import { looksLikeMarkdownListProse } from "@/lib/markdownPreprocess";
 
 export type FenceNode = { key: string; content: string; info?: string };
 
@@ -29,14 +28,6 @@ function renderFenceInner(key: string, lang: string, content: string) {
     return <WebPreviewCodeBlock key={key} code={content} lang={lang || "html"} />;
   }
   const l = lang.trim().toLowerCase();
-  if (
-    l === "math" &&
-    (looksLikeMarkdownListProse(content) ||
-      /^\$\)?/.test(content.trim()) ||
-      /\*\*[^*]+\*\*/.test(content))
-  ) {
-    return null;
-  }
   if (looksLikeLatexFence(content) && l !== "python" && l !== "javascript") {
     return <MathBlock key={key} latex={content} />;
   }

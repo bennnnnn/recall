@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 import httpx
 
 from app.core.config import Settings
+from app.gateways.http_client import get_pooled_client
 
 logger = logging.getLogger(__name__)
 
@@ -67,10 +68,10 @@ async def exchange_server_auth_code(settings: Settings, code: str) -> dict[str, 
         "grant_type": "authorization_code",
     }
     try:
-        async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
-            response = await client.post(TOKEN_URL, data=payload)
-            response.raise_for_status()
-            return response.json()
+        client = get_pooled_client(DEFAULT_TIMEOUT)
+        response = await client.post(TOKEN_URL, data=payload)
+        response.raise_for_status()
+        return response.json()
     except Exception as exc:
         logger.exception("Google Calendar auth code exchange failed")
         raise GoogleCalendarError("Could not connect Google Calendar.") from exc
@@ -84,10 +85,10 @@ async def _access_token(settings: Settings, refresh_token: str) -> str:
         "grant_type": "refresh_token",
     }
     try:
-        async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
-            response = await client.post(TOKEN_URL, data=payload)
-            response.raise_for_status()
-            data = response.json()
+        client = get_pooled_client(DEFAULT_TIMEOUT)
+        response = await client.post(TOKEN_URL, data=payload)
+        response.raise_for_status()
+        data = response.json()
     except Exception as exc:
         logger.exception("Google Calendar token refresh failed")
         raise GoogleCalendarError("Google Calendar authorization expired.") from exc
@@ -227,43 +228,43 @@ async def list_upcoming_events(
     per_calendar_max = max(20, min(100, days * 2))
 
     try:
-        async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
-            if calendar_id == "primary":
-                calendars = await _list_selected_calendars(client, headers)
-            else:
-                calendars = [(calendar_id, calendar_id)]
+        client = get_pooled_client(DEFAULT_TIMEOUT)
+        if calendar_id == "primary":
+            calendars = await _list_selected_calendars(client, headers)
+        else:
+            calendars = [(calendar_id, calendar_id)]
 
-            if not calendars:
-                calendars = [("primary", "Primary")]
+        if not calendars:
+            calendars = [("primary", "Primary")]
 
-            max_calendars = max(1, settings.calendar_max_calendars)
-            if len(calendars) > max_calendars:
-                logger.info(
-                    "Capping calendar fan-out from %s to %s selected calendars",
-                    len(calendars),
-                    max_calendars,
-                )
-                calendars = calendars[:max_calendars]
-
-            semaphore = asyncio.Semaphore(max(1, settings.calendar_fetch_concurrency))
-
-            async def _bounded_fetch(cal_id: str, cal_name: str) -> list[CalendarEvent]:
-                async with semaphore:
-                    return await _fetch_events_for_calendar(
-                        client,
-                        headers,
-                        calendar_id=cal_id,
-                        calendar_name=cal_name,
-                        time_min=time_min,
-                        time_max=time_max,
-                        timezone=tz,
-                        max_results=per_calendar_max,
-                    )
-
-            batches = await asyncio.gather(
-                *(_bounded_fetch(cal_id, cal_name) for cal_id, cal_name in calendars),
-                return_exceptions=True,
+        max_calendars = max(1, settings.calendar_max_calendars)
+        if len(calendars) > max_calendars:
+            logger.info(
+                "Capping calendar fan-out from %s to %s selected calendars",
+                len(calendars),
+                max_calendars,
             )
+            calendars = calendars[:max_calendars]
+
+        semaphore = asyncio.Semaphore(max(1, settings.calendar_fetch_concurrency))
+
+        async def _bounded_fetch(cal_id: str, cal_name: str) -> list[CalendarEvent]:
+            async with semaphore:
+                return await _fetch_events_for_calendar(
+                    client,
+                    headers,
+                    calendar_id=cal_id,
+                    calendar_name=cal_name,
+                    time_min=time_min,
+                    time_max=time_max,
+                    timezone=tz,
+                    max_results=per_calendar_max,
+                )
+
+        batches = await asyncio.gather(
+            *(_bounded_fetch(cal_id, cal_name) for cal_id, cal_name in calendars),
+            return_exceptions=True,
+        )
     except Exception:
         logger.exception("Google Calendar events fetch failed")
         raise GoogleCalendarError("Could not load calendar events.") from None
@@ -321,10 +322,10 @@ async def create_event(
 
     url = CALENDAR_EVENTS_URL.format(calendar_id=quote(calendar_id or "primary", safe=""))
     try:
-        async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
-            response = await client.post(url, headers=headers, json=body)
-            response.raise_for_status()
-            data = response.json()
+        client = get_pooled_client(DEFAULT_TIMEOUT)
+        response = await client.post(url, headers=headers, json=body)
+        response.raise_for_status()
+        data = response.json()
     except Exception as exc:
         logger.exception("Google Calendar create event failed")
         raise GoogleCalendarError("Could not create calendar event.") from exc

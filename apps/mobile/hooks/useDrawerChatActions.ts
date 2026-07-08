@@ -11,16 +11,20 @@ type Params = {
   token: string | null;
   isDrawerOpen: boolean;
   patchChatInGroups: (chatId: string, patch: Partial<Chat>) => void;
-  load: (background?: boolean) => Promise<void>;
+  insertChatInGroups: (chat: Chat) => void;
   moveChatPinState: (chatId: string, pinned: boolean) => void;
+  moveChatArchiveState: (chatId: string, archived: boolean) => void;
+  removeChatFromGroupsById: (chatId: string) => void;
 };
 
 export function useDrawerChatActions({
   token,
   isDrawerOpen,
   patchChatInGroups,
-  load,
+  insertChatInGroups,
   moveChatPinState,
+  moveChatArchiveState,
+  removeChatFromGroupsById,
 }: Params) {
   const { t } = useTranslation();
   const [menuChat, setMenuChat] = useState<Chat | null>(null);
@@ -113,17 +117,18 @@ export function useDrawerChatActions({
     const chat = menuChat;
     const next = !chat.archived;
     closeMenu();
+    moveChatArchiveState(chat.id, next);
     try {
       await api.setArchive(token, chat.id, next);
-      await load(true);
       showActionBanner(
         next ? t("chat.archived_toast") : t("chat.unarchived_toast"),
         next ? "archive-outline" : "arrow-undo-outline",
       );
     } catch {
+      moveChatArchiveState(chat.id, !next);
       Alert.alert(t("common.error"), t("common.error"));
     }
-  }, [token, menuChat, closeMenu, load, showActionBanner, t]);
+  }, [token, menuChat, closeMenu, moveChatArchiveState, showActionBanner, t]);
 
   const confirmDeleteChat = useCallback(() => {
     if (!menuChat) return;
@@ -136,17 +141,26 @@ export function useDrawerChatActions({
         style: "destructive",
         onPress: async () => {
           if (!token) return;
+          removeChatFromGroupsById(chat.id);
           try {
             await api.deleteChat(token, chat.id);
-            await load(true);
             showActionBanner(t("chat.deleted_toast"), "trash-outline");
           } catch {
+            insertChatInGroups(chat);
             Alert.alert(t("common.error"), t("chat.delete_failed"));
           }
         },
       },
     ]);
-  }, [menuChat, closeMenu, token, load, showActionBanner, t]);
+  }, [
+    menuChat,
+    closeMenu,
+    token,
+    removeChatFromGroupsById,
+    insertChatInGroups,
+    showActionBanner,
+    t,
+  ]);
 
   const closeRename = useCallback(() => {
     setRenameVisible(false);

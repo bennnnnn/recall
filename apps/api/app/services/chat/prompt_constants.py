@@ -207,6 +207,10 @@ INTENT_FORMAT_HINT = (
     "  - When SymPy verified results appear in a system block, use those exact "
     "numbers — do NOT recompute.\n"
     "  - Show numbered solution steps, then the final answer.\n"
+    '  - Write each step number as its own plain-text line (e.g. "2. Simplify the left '
+    'side:"). NEVER indent a ```math fence inside that list item — put it unindented, '
+    "flush left, on its own line after the step text. Put ONLY the bare formula inside "
+    "the fence: no step labels, bold text, or extra ``` markers.\n"
     '  - Add a short verification block titled "You can check:" (or '
     '"Verification:") with bullet lines that substitute each intermediate step '
     "or the final result back into the original expression. Wrap each check "

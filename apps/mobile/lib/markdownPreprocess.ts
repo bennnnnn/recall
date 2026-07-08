@@ -239,7 +239,6 @@ function unwrapCorruptedMathFences(content: string): string {
     if (
       looksLikeMarkdownListProse(trimmed) ||
       /^\$\)?/.test(trimmed) ||
-      /\*\*[^*]+\*\*/.test(trimmed) ||
       /^#{1,6}\s/.test(trimmed) ||
       /^\d+\.\s/.test(trimmed) ||
       /Michelin|restaurant|dining|fare|cuisine/i.test(trimmed)

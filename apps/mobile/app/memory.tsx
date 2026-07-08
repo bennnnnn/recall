@@ -13,6 +13,7 @@ import { Redirect, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
+import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, Memory } from "@/lib/api";
@@ -193,11 +194,7 @@ export default function MemoryScreen() {
   if (!token) return <Redirect href="/login" />;
 
   if (loading && memories.length === 0) {
-    return (
-      <View style={s.center}>
-        <StateView variant="loading" />
-      </View>
-    );
+    return <SkeletonList />;
   }
 
   if (error && memories.length === 0) {
@@ -262,17 +259,19 @@ export default function MemoryScreen() {
                   text: t("common.delete"),
                   style: "destructive",
                   onPress: async () => {
+                    const snapshot = memories;
+                    setMemories((prev) =>
+                      prev.filter((item) => item.type !== section.type),
+                    );
+                    setExpandedTypes((prev) => {
+                      const next = new Set(prev);
+                      next.delete(section.type);
+                      return next;
+                    });
                     try {
                       await api.deleteMemorySection(token, section.type);
-                      setMemories((prev) =>
-                        prev.filter((item) => item.type !== section.type),
-                      );
-                      setExpandedTypes((prev) => {
-                        const next = new Set(prev);
-                        next.delete(section.type);
-                        return next;
-                      });
                     } catch {
+                      setMemories(snapshot);
                       Alert.alert(t("common.error"), t("memory.delete_failed"));
                     }
                   },
@@ -291,23 +290,26 @@ export default function MemoryScreen() {
                   text: t("common.delete"),
                   style: "destructive",
                   onPress: async () => {
-                    try {
-                      await api.deleteMemoryFact(token, section.id, factIndex);
-                      const facts = splitMemoryFacts(section.text);
-                      facts.splice(factIndex, 1);
-                      if (facts.length === 0) {
-                        setMemories((prev) =>
-                          prev.filter((item) => item.id !== section.id),
-                        );
-                        return;
-                      }
-                      const nextText = facts.join(". ") + (facts.at(-1)?.endsWith(".") ? "" : ".");
+                    const snapshot = memories;
+                    const facts = splitMemoryFacts(section.text);
+                    facts.splice(factIndex, 1);
+                    if (facts.length === 0) {
+                      setMemories((prev) =>
+                        prev.filter((item) => item.id !== section.id),
+                      );
+                    } else {
+                      const nextText =
+                        facts.join(". ") + (facts.at(-1)?.endsWith(".") ? "" : ".");
                       setMemories((prev) =>
                         prev.map((item) =>
                           item.id === section.id ? { ...item, text: nextText } : item,
                         ),
                       );
+                    }
+                    try {
+                      await api.deleteMemoryFact(token, section.id, factIndex);
                     } catch {
+                      setMemories(snapshot);
                       Alert.alert(t("common.error"), t("memory.delete_failed"));
                     }
                   },

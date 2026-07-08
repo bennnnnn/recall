@@ -4,7 +4,7 @@ import { FlashList, FlashListRef, ListRenderItemInfo } from "@shopify/flash-list
 import { useTranslation } from "react-i18next";
 
 import { HomeStarters } from "@/components/HomeStarters";
-import { StateView } from "@/components/StateView";
+import { SkeletonChatBubbles } from "@/components/SkeletonLoader";
 import { Message } from "@/lib/api";
 import {
   messageListItemType,
@@ -103,7 +103,7 @@ export function ChatMessageList({
             </View>
           ) : listFooter ? null : chatLoading && routeChatId ? (
             <View style={[s.empty, { height: emptyHeight }]}>
-              <StateView variant="loading" compact />
+              <SkeletonChatBubbles />
             </View>
           ) : hideHomeStarters ? (
             <View style={[s.empty, { height: emptyHeight }]} />

@@ -12,6 +12,7 @@ from app.core.redis import get_redis_client
 from app.core.request_id import RequestIdMiddleware
 from app.core.rest_rate_limit import RestRateLimitMiddleware
 from app.core.sentry import init_sentry
+from app.gateways.http_client import aclose_pooled_clients
 from app.routers import (
     admin,
     attachments,
@@ -61,6 +62,7 @@ async def lifespan(_: FastAPI):
         await attachment_orphan_reaper.stop_orphan_reaper()
     await engine.dispose()
     await get_redis_client().aclose()
+    await aclose_pooled_clients()
 
 
 def create_app() -> FastAPI:
