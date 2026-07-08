@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, useLocalSearchParams, useNavigation } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useTranslation } from "react-i18next";
 
+import { SkeletonList } from "@/components/SkeletonLoader";
 import { AddReminderSheet } from "@/components/todos/AddReminderSheet";
 import { DuePickerModal } from "@/components/todos/DuePickerModal";
 import { NewListSheet } from "@/components/todos/NewListSheet";
@@ -96,11 +97,7 @@ export default function TodosScreen() {
   if (!token) return <Redirect href="/login" />;
 
   if (loading && todos.length === 0) {
-    return (
-      <View style={s.center}>
-        <ActivityIndicator size="large" color={C.primary} />
-      </View>
-    );
+    return <SkeletonList />;
   }
 
   const listHeader = (
