@@ -13,8 +13,11 @@ import { AppState, type AppStateStatus } from "react-native";
 import { useAuthOptional } from "@/contexts/AuthContext";
 import { api, type ModelInfo } from "@/lib/api";
 import { MODEL_CATALOG_FALLBACK } from "@/lib/modelCatalogFallback";
+import { shouldRefreshModels } from "@/lib/modelRefresh";
 
 export const AUTO_MODEL_ID = "auto";
+
+const MODEL_REFRESH_TTL_MS = 5 * 60 * 1000;
 
 export function defaultModelPreferences(
   models: ModelInfo[],
@@ -56,6 +59,7 @@ export function ModelsProvider({ children }: { children: ReactNode }) {
   const [models, setModels] = useState<ModelInfo[]>(MODEL_CATALOG_FALLBACK);
   const [loading, setLoading] = useState(false);
   const inflightRef = useRef<Promise<void> | null>(null);
+  const lastFetchedAtRef = useRef<number>(0);
 
   const refresh = useCallback(async () => {
     if (!token) return;
@@ -70,6 +74,7 @@ export function ModelsProvider({ children }: { children: ReactNode }) {
         if (fetched.length > 0) {
           setModels(fetched);
         }
+        lastFetchedAtRef.current = Date.now();
       } catch {
         /* keep last list (fallback or prior fetch) */
       } finally {
@@ -91,7 +96,12 @@ export function ModelsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!token) return;
     const onAppState = (state: AppStateStatus) => {
-      if (state === "active") void refresh();
+      if (
+        state === "active" &&
+        shouldRefreshModels(lastFetchedAtRef.current, Date.now(), MODEL_REFRESH_TTL_MS)
+      ) {
+        void refresh();
+      }
     };
     const sub = AppState.addEventListener("change", onAppState);
     return () => sub.remove();
