@@ -20,6 +20,7 @@ import {
 } from "@/lib/chatRegenerateLogic";
 
 const CONNECT_TIMEOUT_MS = 8000;
+const EAGER_CONNECT_DEBOUNCE_MS = 300;
 
 export type { StreamingDraft };
 
@@ -404,6 +405,19 @@ export function useChat(
     handleChatPayload,
     updateStreamingDraft,
   ]);
+
+  // Eagerly open the WebSocket once the user has settled on a chat, so the
+  // handshake + auth frame overlap with reading/typing instead of sitting on
+  // the first send. Debounced so quickly flicking through the chat list
+  // doesn't fire a connect+auth+close cycle per chat glanced at (each open
+  // WS handshake counts against the server's per-user connect rate limit).
+  useEffect(() => {
+    if (!token || !chatId) return;
+    const timer = setTimeout(() => {
+      void connect();
+    }, EAGER_CONNECT_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [token, chatId, connect]);
 
   const sendViaSse = useCallback(
     async (
