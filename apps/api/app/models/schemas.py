@@ -451,6 +451,9 @@ class ProjectItemOut(BaseModel):
     mastered_at: datetime | None
     last_reviewed_at: datetime | None
     review_count: int
+    ease_factor: float = 2.5
+    interval_days: int = 0
+    due_at: datetime | None = None
     pronunciation_url: str | None
     created_at: datetime
 

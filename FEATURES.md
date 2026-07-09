@@ -353,12 +353,11 @@ courses, habits, and anything else that needs structure over time.
 - ✅ **Mark as known** — progress per item; stats on project detail (learned / due / this week).
 - ✅ **AI tutor + quiz** — scoped chats from Learning; model emits `vocab_quiz` blocks; mobile
   shows A–D choices (type letter; fast-path answers, minimal context, no web search on quiz turns).
-- ⚠️ **Pronunciation** — play button per word uses on-device `expo-speech`; cloud TTS /
-  `pronunciation_url` not wired yet.
-- 🔜 **Spaced repetition scheduling** — due-for-review uses a fixed ~24h heuristic today; richer
-  SM-2-style scheduling not built yet.
-- ⚠️ **Deck browse on language detail** — backend stores decks/POS; language detail UI currently
-  emphasizes daily mastered words more than a full deck browser.
+- ⚠️ **Pronunciation** — play button per word uses on-device `expo-speech` with cloud TTS fallback
+  when available; `pronunciation_url` wiring may still be partial.
+- ✅ **Spaced repetition scheduling** — SM-2 fields (`ease_factor`, `interval_days`, `due_at`)
+  update on vocab status changes; due counts prefer `due_at` (falls back to 24h heuristic).
+- ✅ **Deck browse on language detail** — decks / POS grouping on the language project detail screen.
 
 ### Phase 3 — Cross-linking
 - ✅ **`project_id` on chats** — conversations started from a project carry `project_id`; prompt
@@ -513,7 +512,7 @@ structured Learning topic type.
 ### Learning (not “programming projects”)
 | Shipped | Not done |
 |---------|----------|
-| English vocabulary (`language`) — decks, POS, quiz, tutor | SM-2 spaced repetition |
+| English vocabulary (`language`) — decks, POS, quiz, tutor, SM-2 | Curated trivia marketplace |
 | General knowledge (`trivia`) — topics, scoped quiz chat | Curated trivia marketplace |
 | Project-scoped chats, home highlight | Link todos to Learning topics |
 | ~~Programming curriculum kind~~ **removed** — use main chat for code help | Certificates, GitHub linking, in-app code runner |
