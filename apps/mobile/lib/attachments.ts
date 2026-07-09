@@ -74,12 +74,26 @@ function normalizeContentType(mimeType: string | null | undefined, uri: string):
   return "image/jpeg";
 }
 
+export class HeicUnsupportedError extends Error {
+  constructor() {
+    super("HEIC_UNSUPPORTED");
+    this.name = "HeicUnsupportedError";
+  }
+}
+
+function isHeicContentType(contentType: string): boolean {
+  return contentType === "image/heic" || contentType === "image/heif";
+}
+
 function assetToPending(
   uri: string,
   contentType: string,
   fileName: string,
 ): PendingAttachment {
   const normalizedType = normalizeContentType(contentType, uri);
+  if (isHeicContentType(normalizedType)) {
+    throw new HeicUnsupportedError();
+  }
   return {
     localUri: uri,
     contentType: normalizedType,

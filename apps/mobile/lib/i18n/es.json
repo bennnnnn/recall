@@ -23,6 +23,8 @@
   "chat.attach_a11y": "Añadir adjunto",
   "chat.attach_camera": "Cámara",
   "chat.attach_failed": "No se pudo adjuntar",
+  "chat.heic_unsupported_title": "HEIC not supported",
+  "chat.heic_unsupported_body": "Please convert to JPEG or PNG, or choose a different photo.",
   "chat.attach_file": "Archivo",
   "chat.attach_photo": "Biblioteca de fotos",
   "chat.attach_generate_image": "Generate image",

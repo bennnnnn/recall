@@ -20,6 +20,7 @@ import type { ClientGeo } from "@/lib/clientGeo";
 import { resolveClientGeoForQuery } from "@/lib/resolveClientGeoForQuery";
 import {
   pickDocument,
+  HeicUnsupportedError,
   pickFromCamera,
   pickFromPhotoLibrary,
   uploadChatAttachment,
@@ -350,10 +351,14 @@ export function useChatSend({
               : await pickDocument();
         if (picked) setPendingAttachment(picked);
       } catch (error) {
-        Alert.alert(
-          t("chat.attach_failed"),
-          error instanceof Error ? error.message : t("common.error"),
-        );
+        if (error instanceof HeicUnsupportedError) {
+          Alert.alert(t("chat.heic_unsupported_title"), t("chat.heic_unsupported_body"));
+        } else {
+          Alert.alert(
+            t("chat.attach_failed"),
+            error instanceof Error ? error.message : t("common.error"),
+          );
+        }
       } finally {
         attachPickInFlightRef.current = false;
       }
