@@ -129,8 +129,9 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
 - ✅ **Memory toggle** — turn learning on/off in Settings.
 - 🔜 **Structured profile fields** — name/age/country/job as discrete fields (today they're
   free-text memories).
-- 🔜 **Full RAG over chats/docs** — memory uses embeddings today; pgvector over attachments and
-  chat history is not built yet.
+- ✅ **Attachment RAG** — chunk + embed PDF/doc text into pgvector; retrieve top chunks into
+  the system prompt on follow-up turns (capped; invalidated on attachment delete). Chat-history
+  corpus RAG still deferred.
 
 ## 7. Context management & performance
 - ✅ **Token-budget window** — recent turns are kept verbatim up to a token budget
@@ -379,7 +380,8 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 - ✅ **Full MCP / multi-turn tool loop** — LiteLLM `tools=` rounds behind `MCP_TOOL_LOOP_ENABLED`
   (default off). See [§16 MCP & calendar](#16-mcp--calendar-planned).
 - 🔜 **Plugins / arbitrary user MCP servers**
-- 🔜 **Full RAG** (pgvector over attachments + chat corpora; memory embeddings exist today)
+- ✅ **Attachment RAG** (pgvector chunks over uploaded PDF/docs; chat-history corpus still deferred)
+- 🔜 **Full chat-history semantic RAG** (beyond keyword search + memory embeddings)
 - 🔜 **Code execution** (beyond sandboxed HTML/chart preview)
 - 🔜 **Cloud TTS** — device read-aloud shipped; server TTS not built
 - 🔜 **Camera math solver** — snap a photo of a math problem → AI reads it, solves it, and renders
@@ -529,8 +531,8 @@ structured Learning topic type.
 | Shipped | Not done |
 |---------|----------|
 | Presigned upload, magic-byte validation, daily image cap | Production R2 until creds set |
-| Vision routing for images (JPEG/PNG/WebP/GIF; HEIC rejected with clear UX) | Full pgvector RAG over PDF corpora |
-| PDF text extraction server-side; honest empty/scanned-PDF copy | Document OCR for scanned PDFs |
+| Vision routing for images | Chat-history corpus semantic RAG |
+| PDF text extraction + attachment chunk RAG (pgvector) | Document OCR for scanned PDFs |
 | PDF inline preview in message bubble | Virus scan / enterprise DLP |
 
 ### Voice
