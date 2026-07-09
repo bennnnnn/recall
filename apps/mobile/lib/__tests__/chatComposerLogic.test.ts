@@ -136,6 +136,20 @@ describe("chatComposerLogic", () => {
     expect(idle.composerBottomPad).toBe(20);
     expect(idle.listBottomPad).toBeGreaterThan(idle.composerClearance);
 
+    // Feedback-row clearance must be reserved during streaming too, so the list
+    // does not jump when a reply lands and the feedback icons appear.
+    const streaming = computeChatLayoutMetrics({
+      insetsTop: 44,
+      insetsBottom: 20,
+      windowHeight: 800,
+      keyboardHeight: 0,
+      composerHeight: 100,
+      attachmentExtra: 0,
+      messagesLength: 2,
+      streaming: true,
+    });
+    expect(streaming.listBottomPad).toBe(idle.listBottomPad);
+
     const keyboard = computeChatLayoutMetrics({
       insetsTop: 44,
       insetsBottom: 20,
