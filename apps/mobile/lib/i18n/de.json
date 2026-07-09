@@ -22,6 +22,7 @@
   "chat.archived_toast": "Chat archiviert",
   "chat.attach_a11y": "Anhang hinzufügen",
   "chat.attach_camera": "Kamera",
+  "chat.attach_solve_math_camera": "Solve math with camera",
   "chat.attach_failed": "Anhang fehlgeschlagen",
   "chat.heic_unsupported_title": "HEIC not supported",
   "chat.heic_unsupported_body": "Please convert to JPEG or PNG, or choose a different photo.",

@@ -578,6 +578,29 @@ async def prepare_chat_turn(
                 else:
                     user_content = "\n".join(attachment_lines)
 
+            # Camera math solver: vision-extract equation so SymPy can verify.
+            from app.services import math_image_extract as math_image_extract_service
+
+            if (
+                has_image_attachment
+                and image_attachments
+                and math_image_extract_service.is_math_camera_prompt(content)
+            ):
+                if on_status is not None:
+                    await on_status("calculating")
+                mime, storage_key = image_attachments[0]
+                image_bytes = await attachment_content_service.read_attachment_bytes(
+                    gateway, storage_key
+                )
+                if image_bytes:
+                    extracted = await math_image_extract_service.extract_equation_from_image(
+                        settings, content_type=mime, data=image_bytes
+                    )
+                    if extracted is not None:
+                        eq = f"{extracted.lhs} = {extracted.rhs}"
+                        user_content = f"{user_content}\n\nExtracted equation: {eq}"
+                        content = f"{content}\n\nSolve: {eq}"
+
     async with SessionLocal() as session:
         if user is None:
             user = await chat_pkg.users_repo.get_by_id(session, user_id)

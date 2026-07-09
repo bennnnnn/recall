@@ -383,11 +383,11 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 - ✅ **Attachment RAG** (pgvector chunks over uploaded PDF/docs; chat-history corpus still deferred)
 - 🔜 **Full chat-history semantic RAG** (beyond keyword search + memory embeddings)
 - 🔜 **Code execution** (beyond sandboxed HTML/chart preview)
-- 🔜 **Cloud TTS** — device read-aloud shipped; server TTS not built
-- 🔜 **Camera math solver** — snap a photo of a math problem → AI reads it, solves it, and renders
-  the worked, step-by-step solution formatted to match the problem. Composite feature, built on:
-  camera capture (`expo-camera` / image picker), **image input** via a **vision model or math OCR**,
-  and **LaTeX rendering** for the formatted answer. (Depends on the image-input + Math/LaTeX items.)
+- ⚠️ **File / image upload** — attachment substrate partially wired; not full vision/RAG pipeline
+- ⚠️ **Image input/output** — Pro **image output** shipped via composer; vision input for chat
+  attachments exists; full multimodal end-to-end still in progress
+- ✅ **Camera math solver** — attach sheet “Solve math with camera” → photo → vision extracts
+  equation → SymPy verifies → LaTeX/step rendering (reuses attach + vision + math paths).
 - ✅ **Web search** — Tavily primary + DuckDuckGo fallback; injected into chat when heuristics match;
   sources shown on assistant messages (hidden on vocab quiz cards).
 - 🔜 **Collaborative cursors / shared docs** — real-time co-editing; personal app only today.
@@ -531,8 +531,9 @@ structured Learning topic type.
 | Shipped | Not done |
 |---------|----------|
 | Presigned upload, magic-byte validation, daily image cap | Production R2 until creds set |
-| Vision routing for images | Chat-history corpus semantic RAG |
-| PDF text extraction + attachment chunk RAG (pgvector) | Document OCR for scanned PDFs |
+| Vision routing for images | Full pgvector RAG over PDF corpora |
+| PDF text extraction server-side (SymPy-style verify path for docs) | Document OCR for scanned PDFs |
+| Camera math solver (vision extract → SymPy → LaTeX) | Virus scan / enterprise DLP |
 | PDF inline preview in message bubble | Virus scan / enterprise DLP |
 
 ### Voice
