@@ -207,6 +207,93 @@ def _apply_usage(usage: dict[str, int] | None, chunk: Any) -> None:
         usage["output"] = int(completion)
 
 
+def _apply_usage_from_response(usage: dict[str, int] | None, response: Any) -> None:
+    if usage is None:
+        return
+    resp_usage = getattr(response, "usage", None)
+    if not resp_usage:
+        return
+    prompt = getattr(resp_usage, "prompt_tokens", None)
+    completion = getattr(resp_usage, "completion_tokens", None)
+    if prompt is not None:
+        usage["input"] = usage.get("input", 0) + int(prompt)
+    if completion is not None:
+        usage["output"] = usage.get("output", 0) + int(completion)
+
+
+def _tool_calls_to_jsonable(tool_calls: list[Any]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for call in tool_calls:
+        if isinstance(call, dict):
+            out.append(call)
+            continue
+        fn = getattr(call, "function", None)
+        out.append(
+            {
+                "id": getattr(call, "id", None) or "",
+                "type": getattr(call, "type", None) or "function",
+                "function": {
+                    "name": getattr(fn, "name", None) or "",
+                    "arguments": getattr(fn, "arguments", None) or "{}",
+                },
+            }
+        )
+    return out
+
+
+async def complete_with_tools(
+    *,
+    settings: Settings,
+    model_alias: str,
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]],
+    usage: dict[str, int] | None = None,
+    timeout_seconds: float = 30.0,
+) -> dict[str, Any]:
+    """Non-streaming completion that may return ``tool_calls``.
+
+    Returns a plain dict: ``{content, tool_calls}`` where ``tool_calls`` is a
+    list of OpenAI-shaped tool call dicts (empty when the model answers directly).
+    """
+    if mock_llm.should_mock_llm(settings):
+        return await mock_llm.mock_complete_with_tools(messages=messages, tools=tools)
+
+    route = resolve_route(model_alias)
+    kwargs = _litellm_kwargs(settings, route)
+    try:
+        async with asyncio.timeout(timeout_seconds):
+            response = await acompletion(
+                model=route.model,
+                messages=messages,
+                tools=tools,
+                tool_choice="auto",
+                stream=False,
+                **kwargs,
+            )
+    except TimeoutError as exc:
+        raise ModelUnavailableError(
+            _CHAT_MODEL_UNAVAILABLE_MSG,
+            failed_alias=model_alias,
+        ) from exc
+    except Exception as exc:
+        logger.warning("complete_with_tools failed alias=%s: %s", model_alias, exc)
+        raise ModelUnavailableError(
+            _CHAT_MODEL_UNAVAILABLE_MSG,
+            failed_alias=model_alias,
+        ) from exc
+
+    _apply_usage_from_response(usage, response)
+    choices = getattr(response, "choices", None) or []
+    if not choices:
+        return {"content": None, "tool_calls": []}
+    message = choices[0].message
+    raw_calls = getattr(message, "tool_calls", None) or []
+    return {
+        "content": getattr(message, "content", None),
+        "tool_calls": _tool_calls_to_jsonable(list(raw_calls)),
+    }
+
+
 async def stream_chat_completion(
     *,
     settings: Settings,

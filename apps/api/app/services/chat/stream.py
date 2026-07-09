@@ -429,6 +429,21 @@ async def stream_and_finalize(
                 await on_status("thinking")
             elif on_status is not None:
                 await on_status("composing")
+            if (
+                settings.mcp_tool_loop_enabled
+                and not ctx.instant_reply
+                and not ctx.lightweight_turn
+            ):
+                from app.services import tool_loop as tool_loop_service
+
+                ctx.prompt_messages = await tool_loop_service.run_tool_rounds(
+                    settings=settings,
+                    model_alias=ctx.model,
+                    messages=ctx.prompt_messages,
+                    usage=usage,
+                    on_status=on_status,
+                    should_cancel=should_cancel,
+                )
             stream_meta: dict[str, str] = {}
             llm_stream = chat_pkg.litellm_gateway.stream_chat_completion(
                 settings=settings,

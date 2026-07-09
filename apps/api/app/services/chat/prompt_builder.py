@@ -92,6 +92,11 @@ async def _augment_web_and_tools(
     """Web search always uses the full direct path; MCP handles calendar/sympy only."""
     import app.services.chat as chat_pkg
 
+    # Model-initiated tool loop owns web_search + sympy when enabled — skip
+    # heuristic pre-fetch so we don't double-search / double-solve.
+    if settings.mcp_tool_loop_enabled:
+        return prompt_messages, [], None
+
     updated, search_sources = await chat_pkg.web_search_service.augment_prompt_messages(
         prompt_messages,
         user_content,

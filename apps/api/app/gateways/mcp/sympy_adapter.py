@@ -7,11 +7,13 @@ from typing import Any
 from app.core.config import Settings
 from app.gateways.mcp.base import ToolResult
 from app.models.math_schemas import EquationInput, GraphSampleInput, RectangleGeometryInput
+from app.models.tool_schemas import SympyToolInput
 from app.services import math_service, math_tools
 
 
 class SympyAdapter:
     name = "sympy"
+    input_schema = SympyToolInput
 
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
@@ -20,6 +22,16 @@ class SympyAdapter:
         return (
             "Symbolic math: solve equations, simplify, differentiate, integrate, geometry, graphs."
         )
+
+    def to_openai_tool(self) -> dict[str, Any]:
+        return {
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.describe(),
+                "parameters": SympyToolInput.model_json_schema(),
+            },
+        }
 
     async def invoke(self, args: dict[str, Any]) -> ToolResult:
         action = str(args.get("action") or "solve").strip().lower()

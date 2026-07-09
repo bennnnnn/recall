@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     attachment_extract_timeout_seconds: float = 5.0
     semantic_memory_enabled: bool = True
     mcp_tools_enabled: bool = False
+    # Model-initiated LiteLLM tools= loop (bounded rounds before stream).
+    # When on, skips heuristic pre-stream MCP + web-search injection for that turn.
+    mcp_tool_loop_enabled: bool = False
+    mcp_tool_loop_max_rounds: int = 3
+    mcp_tool_loop_timeout_seconds: float = 30.0
 
     # Daily image-upload cap (per user, UTC day). Vision/image inputs cost more
     # than text, so cap uploads separately from the token quota. Enforced at

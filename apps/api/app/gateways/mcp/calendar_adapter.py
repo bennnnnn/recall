@@ -6,6 +6,7 @@ from typing import Any
 
 from app.gateways.google_calendar_gateway import CalendarEvent
 from app.gateways.mcp.base import ToolResult
+from app.models.tool_schemas import CalendarConflictsInput
 from app.services import calendar as calendar_service
 
 
@@ -49,9 +50,20 @@ def _parse_calendar_events(raw_events: object) -> list[CalendarEvent]:
 
 class CalendarAdapter:
     name = "calendar"
+    input_schema = CalendarConflictsInput
 
     def describe(self) -> str:
         return "List calendar conflicts or summarize scheduling context."
+
+    def to_openai_tool(self) -> dict[str, Any]:
+        return {
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.describe(),
+                "parameters": CalendarConflictsInput.model_json_schema(),
+            },
+        }
 
     async def invoke(self, args: dict[str, Any]) -> ToolResult:
         action = str(args.get("action") or "conflicts")
