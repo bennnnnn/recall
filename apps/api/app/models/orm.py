@@ -40,6 +40,9 @@ class User(Base):
     push_notifications_enabled: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default="true"
     )
+    email_reminders_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
     reminder_lead_minutes: Mapped[int] = mapped_column(Integer, default=10, server_default="10")
     custom_instructions: Mapped[str | None] = mapped_column(Text, nullable=True)
     locale: Mapped[str] = mapped_column(String(10), default="en", server_default="en")
@@ -173,6 +176,7 @@ class TodoItem(Base):
     notification_sent_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    email_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

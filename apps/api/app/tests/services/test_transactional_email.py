@@ -53,6 +53,24 @@ def test_build_receipt_uses_locale_template():
     assert "Bonjour" in text
 
 
+def test_build_todo_reminder_includes_content():
+    user = _user(name="Ada", locale="en")
+    subject, html, text = tx_email.build_todo_reminder(user, title="Reminder", content="Call mom")
+    assert "Call mom" in subject
+    assert "Call mom" in text
+    assert "Ada" in html
+
+
+def test_build_learning_nudge_includes_body():
+    user = _user(name="Ada", locale="en")
+    subject, html, text = tx_email.build_learning_nudge(
+        user, body='2 words ready to review in "Spanish"'
+    )
+    assert subject == "Time to learn"
+    assert "Spanish" in text
+    assert "Ada" in html
+
+
 def test_build_receipt_includes_event_and_optional_fields():
     user = _user(name="Bo", locale="en")
     subject, html, text = tx_email.build_receipt(

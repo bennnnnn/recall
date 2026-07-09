@@ -5,7 +5,12 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from app.background import attachment_orphan_reaper, gmail_periodic_sync, push_scheduler
+from app.background import (
+    attachment_orphan_reaper,
+    email_reminder_scheduler,
+    gmail_periodic_sync,
+    push_scheduler,
+)
 from app.core import jobs
 from app.core.config import get_settings, validate_production_settings
 from app.core.db import engine
@@ -24,6 +29,7 @@ async def _run_worker() -> None:
     setup_mcp_adapters(settings)
     await jobs.start_worker(settings)
     await push_scheduler.start_push_scheduler(settings)
+    await email_reminder_scheduler.start_email_reminder_scheduler(settings)
     await gmail_periodic_sync.start_gmail_periodic_scheduler(settings)
     await attachment_orphan_reaper.start_orphan_reaper(settings)
 
@@ -59,6 +65,7 @@ async def _run_worker() -> None:
                 pass
         await jobs.stop_worker()
         await push_scheduler.stop_push_scheduler()
+        await email_reminder_scheduler.stop_email_reminder_scheduler()
         await gmail_periodic_sync.stop_gmail_periodic_scheduler()
         await attachment_orphan_reaper.stop_orphan_reaper()
         await engine.dispose()

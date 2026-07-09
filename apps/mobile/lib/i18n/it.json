@@ -606,6 +606,8 @@
   "settings.push_blocked_title": "Notifications blocked",
   "settings.push_notifications": "Notifiche push",
   "settings.push_notifications_desc": "Promemoria, suggerimenti di studio e e-mail — anche con l'app chiusa",
+  "settings.email_reminders": "Email reminders",
+  "settings.email_reminders_desc": "Todo due times and learning nudges by email (opt-in)",
   "settings.push_register_failed": "Could not enable push notifications. Try again.",
   "settings.reminder_lead": "Avviso promemoria",
   "settings.reminder_lead_desc": "Quanto prima i promemoria locali scattano prima di ogni scadenza",

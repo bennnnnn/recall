@@ -95,6 +95,17 @@ export default function NotificationsSettingsScreen() {
     [t, token, updateUser],
   );
 
+  const toggleEmailReminders = useCallback(
+    async (v: boolean) => {
+      try {
+        await updateUser({ email_reminders_enabled: v });
+      } catch {
+        Alert.alert(t("common.error"), t("common.error"));
+      }
+    },
+    [t, updateUser],
+  );
+
   if (!token) return <Redirect href="/login" />;
 
   return (
@@ -108,6 +119,14 @@ export default function NotificationsSettingsScreen() {
             title={t("settings.push_notifications")}
             value={user?.push_notifications_enabled ?? true}
             onValueChange={togglePush}
+            styles={s}
+            theme={theme}
+          />
+          <View style={s.menuSeparator} />
+          <SettingsSwitchRow
+            title={t("settings.email_reminders")}
+            value={user?.email_reminders_enabled ?? false}
+            onValueChange={(v) => void toggleEmailReminders(v)}
             styles={s}
             theme={theme}
           />

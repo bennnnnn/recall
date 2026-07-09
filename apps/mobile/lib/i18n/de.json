@@ -606,6 +606,8 @@
   "settings.push_blocked_title": "Notifications blocked",
   "settings.push_notifications": "Push-Benachrichtigungen",
   "settings.push_notifications_desc": "Erinnerungen, Lernimpulse und E-Mail-Vorschläge — auch wenn die App geschlossen ist",
+  "settings.email_reminders": "Email reminders",
+  "settings.email_reminders_desc": "Todo due times and learning nudges by email (opt-in)",
   "settings.push_register_failed": "Could not enable push notifications. Try again.",
   "settings.reminder_lead": "Erinnerungsalarm",
   "settings.reminder_lead_desc": "Wie früh lokale Erinnerungen vor jeder Fälligkeit auslösen",

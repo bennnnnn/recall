@@ -28,6 +28,7 @@ class UserOut(BaseModel):
     response_tone: str = "funny"
     memory_enabled: bool
     push_notifications_enabled: bool = True
+    email_reminders_enabled: bool = False
     reminder_lead_minutes: int = 10
     locale: str = "en"
     timezone: str = "UTC"
@@ -45,6 +46,7 @@ class UserUpdate(BaseModel):
     response_tone: ResponseTone | None = None
     memory_enabled: bool | None = None
     push_notifications_enabled: bool | None = None
+    email_reminders_enabled: bool | None = None
     reminder_lead_minutes: int | None = Field(default=None, ge=5, le=30)
     locale: str | None = None
     timezone: str | None = Field(default=None, max_length=64)
