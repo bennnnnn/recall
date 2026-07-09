@@ -123,6 +123,8 @@ async def _stream_tokens_sse(
         resolved_model = result.get("resolved_model")
         if resolved_model:
             stream_end["resolved_model"] = resolved_model
+        if result.get("fallback_used"):
+            stream_end["fallback_used"] = result["fallback_used"]
         yield _sse(stream_end)
         await _await_finalize_tasks(result)
 
@@ -136,6 +138,7 @@ async def _stream_tokens_sse(
             "search_sources",
             "final_content",
             "resolved_model",
+            "fallback_used",
         ):
             value = result.get(key)
             if value:

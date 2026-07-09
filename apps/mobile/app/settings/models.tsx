@@ -89,6 +89,17 @@ export default function ModelsSettingsScreen() {
                     {proLocked ? (
                       <Text style={s.meta}>{t("settings.account_pro")}</Text>
                     ) : null}
+                    {!proLocked && option.healthy === false ? (
+                      <Text style={s.meta}>{t("settings.model_degraded")}</Text>
+                    ) : null}
+                    {!proLocked &&
+                    option.healthy !== false &&
+                    option.latency_p50_ms != null &&
+                    option.latency_p50_ms > 0 ? (
+                      <Text style={s.meta}>
+                        {t("settings.model_latency", { ms: option.latency_p50_ms })}
+                      </Text>
+                    ) : null}
                   </View>
                   <Switch
                     value={enabled}

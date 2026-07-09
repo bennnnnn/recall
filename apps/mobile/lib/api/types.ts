@@ -57,6 +57,8 @@ export type Message = {
   local_file_uri?: string | null;
   local_file_name?: string | null;
   local_file_content_type?: string | null;
+  /** Client-only: server fell back to another model for this reply. */
+  fallback_used?: boolean;
   /** Client-only FlashList key — stable while `id` changes streaming → persisted. */
   renderKey?: string;
   created_at: string;
@@ -256,6 +258,9 @@ export type ModelInfo = {
   input_price_per_m: number | null;
   output_price_per_m: number | null;
   quota_multiplier: number;
+  healthy?: boolean;
+  latency_p50_ms?: number | null;
+  health_samples?: number;
 };
 
 export type GoogleCalendarStatus = {

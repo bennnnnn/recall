@@ -256,6 +256,9 @@ class ModelInfo(BaseModel):
     input_price_per_m: float | None = None
     output_price_per_m: float | None = None
     quota_multiplier: float = 1.0
+    healthy: bool = True
+    latency_p50_ms: int | None = None
+    health_samples: int = 0
 
 
 class ChatMessageRequest(BaseModel):

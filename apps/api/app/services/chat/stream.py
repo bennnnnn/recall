@@ -445,6 +445,11 @@ async def stream_and_finalize(
                     should_cancel=should_cancel,
                 )
             stream_meta: dict[str, str] = {}
+            requested_model = ctx.model
+            import time
+
+            t0 = time.perf_counter()
+            stream_ok = False
             llm_stream = chat_pkg.litellm_gateway.stream_chat_completion(
                 settings=settings,
                 model_alias=ctx.model,
@@ -464,13 +469,31 @@ async def stream_and_finalize(
                         ctx.timing.mark_first_token()
                     assistant_parts.append(token)
                     yield token
+                stream_ok = bool(assistant_parts) or was_cancelled
             finally:
                 close = getattr(llm_stream, "aclose", None)
                 if close is not None:
                     await close()
+                latency_ms = (time.perf_counter() - t0) * 1000
+                resolved_for_health = stream_meta.get("model_alias") or requested_model
+                try:
+                    from app.services import model_health as model_health_service
+
+                    await model_health_service.record_sample(
+                        redis,
+                        resolved_for_health,
+                        latency_ms=latency_ms,
+                        success=stream_ok and not was_cancelled,
+                    )
+                except Exception:
+                    logger.debug("model health sample failed", exc_info=True)
             resolved = stream_meta.get("model_alias")
             if resolved:
                 ctx.model = resolved
+            if result is not None:
+                result["requested_model"] = requested_model
+                if resolved and resolved != requested_model:
+                    result["fallback_used"] = "1"
 
         assistant_text = "".join(assistant_parts).strip()
         if not assistant_text:

@@ -112,8 +112,10 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
   moment its key is set. Adding a provider/model is a one-line catalog entry.
 - ✅ **Model availability + cost** — `GET /models` reports each model's availability (key present)
   and price; the picker shows available models with a per-1M-token cost hint.
-- 🔜 **Live latency/health checks** and **user-tunable routing rules** (need runtime metrics +
-  a rules UI/storage).
+- ✅ **Live latency/health** — Redis rolling samples from stream outcomes; `GET /models` exposes
+  `healthy`, `latency_p50_ms`, and sample count. Settings shows degraded / latency; chat surfaces
+  a failover footnote when the server switched models.
+- 🔜 **User-tunable routing rules** (custom per-message heuristics beyond Auto + enabled set).
 
 ## 6. Memory (remembering the user)
 - ✅ **Automatic extraction** — durable facts are extracted in the background on **turn 1 and
@@ -392,7 +394,8 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   sources shown on assistant messages (hidden on vocab quiz cards).
 - 🔜 **Collaborative cursors / shared docs** — real-time co-editing; personal app only today.
 - 🔜 Structured profile fields, dedicated worker process, multi-select, swipe-to-delete (gesture lib),
-  live model latency/health, user-tunable routing rules, email reminders, duplex voice mode.
+  editing arbitrary (older) messages, user-tunable routing rules,
+  email-only reminders, theming the remaining screens.
 
 ### Pre-deployment TODO (from the holistic review)
 

@@ -221,7 +221,11 @@ export function useChat(
       if (payload.type === "stream_end") {
         setFinalizing(true);
         if (typeof payload.resolved_model === "string" && payload.resolved_model) {
-          setMessages((prev) => applyStreamEndModel(prev, payload.resolved_model));
+          const fallback =
+            payload.fallback_used === "1" || payload.fallback_used === "true";
+          setMessages((prev) =>
+            applyStreamEndModel(prev, payload.resolved_model, fallback),
+          );
         }
       }
 
