@@ -17,9 +17,9 @@ logger = logging.getLogger(__name__)
 
 _EXTRACT_PROMPT = (
     "Extract the primary math equation from this image as JSON with keys "
-    'lhs, rhs, variables (array of variable names), and found (boolean). '
+    "lhs, rhs, variables (array of variable names), and found (boolean). "
     'Example: {"lhs":"2*x+3","rhs":"7","variables":["x"],"found":true}. '
-    "If no equation is visible, set found=false and use lhs/rhs of \"0\"."
+    'If no equation is visible, set found=false and use lhs/rhs of "0".'
 )
 
 MATH_CAMERA_PROMPT = "Solve the math problem in this image step by step."

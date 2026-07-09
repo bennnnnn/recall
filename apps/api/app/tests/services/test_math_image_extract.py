@@ -32,9 +32,7 @@ async def test_extract_equation_mock_mode():
 
 @pytest.mark.asyncio
 async def test_extract_equation_empty_bytes():
-    result = await mie.extract_equation_from_image(
-        Settings(), content_type="image/jpeg", data=b""
-    )
+    result = await mie.extract_equation_from_image(Settings(), content_type="image/jpeg", data=b"")
     assert result is None
 
 
