@@ -34,10 +34,16 @@ export function parseSearchSourcesJson(raw: string): SearchSource[] {
 
 function findTrailingSourcesJson(content: string): { sources: SearchSource[]; start: number } | null {
   const trimmed = content.trimEnd();
-  for (let index = trimmed.lastIndexOf("["); index >= 0; index = trimmed.lastIndexOf("[", index - 1)) {
+  let index = trimmed.lastIndexOf("[");
+  while (index >= 0) {
     const candidate = trimmed.slice(index);
     const sources = parseSearchSourcesJson(candidate);
     if (sources.length > 0) return { sources, start: index };
+    // lastIndexOf clamps a negative fromIndex to 0 rather than returning -1,
+    // so once the leftmost "[" (index 0) fails to parse, searching from
+    // index - 1 would re-find the same "[" forever — stop explicitly instead.
+    if (index === 0) break;
+    index = trimmed.lastIndexOf("[", index - 1);
   }
   return null;
 }

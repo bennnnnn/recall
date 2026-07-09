@@ -26,6 +26,7 @@
   "chat.attach_file": "File",
   "chat.attach_generate_image": "Generate image",
   "chat.attach_photo": "Libreria foto",
+  "chat.attach_solve_math_camera": "Risolvi matematica (fotocamera)",
   "chat.busy": "Generazione in corso — attendi o tocca stop, poi riprova.",
   "chat.close_menu": "Close menu",
   "chat.context_summarized": "{{count}} messaggi precedenti riassunti",
