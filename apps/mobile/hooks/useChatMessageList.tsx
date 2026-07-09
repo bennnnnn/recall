@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 
 import { ChatMessageRow } from "@/components/chat/ChatMessageRow";
@@ -12,6 +12,7 @@ import {
   streamVisualActiveForRow,
 } from "@/lib/chatMessageLogic";
 import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/lib/imageGenIntent";
+import { STREAM_LAYOUT_SETTLE_MS } from "@/lib/messageListLayout";
 
 type Options = {
   messages: Message[];
@@ -58,10 +59,23 @@ export function useChatMessageList({
   );
 
   const headerTitleLabel = null;
+
+  // Defer inline suggestions until post-stream layout settle (avoids list bounce).
+  const [suggestionsDelayed, setSuggestionsDelayed] = useState(false);
+  useEffect(() => {
+    if (streaming || finalizing) {
+      setSuggestionsDelayed(true);
+      return;
+    }
+    const timer = setTimeout(() => setSuggestionsDelayed(false), STREAM_LAYOUT_SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [streaming, finalizing]);
+
   const showSuggestions =
     !streaming &&
     !finalizing &&
     !imageGenerating &&
+    !suggestionsDelayed &&
     suggestions.length > 0 &&
     Boolean(onSelectSuggestion) &&
     Boolean(onDismissSuggestion);

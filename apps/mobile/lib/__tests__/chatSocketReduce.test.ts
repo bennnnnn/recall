@@ -165,6 +165,14 @@ describe("chatSocketReduce", () => {
     expect(input.model).toBe("smart-chat");
   });
 
+  it("buildDoneMergeInput keeps reasoning preview for layout settle", () => {
+    const input = buildDoneMergeInput(
+      { type: "done", message_id: "abc" },
+      { content: "Hi", reasoning: "Thinking steps…" },
+    );
+    expect(input.reasoning_preview).toBe("Thinking steps…");
+  });
+
   it("buildDoneMergeInput passes stoppedStreamedId through", () => {
     const input = buildDoneMergeInput(
       { type: "done", message_id: "abc" },

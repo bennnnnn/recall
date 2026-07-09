@@ -61,6 +61,8 @@ export type Message = {
   fallback_used?: boolean;
   /** Client-only FlashList key — stable while `id` changes streaming → persisted. */
   renderKey?: string;
+  /** Client-only: reasoning shown during stream, kept through layout settle to avoid list bounce. */
+  reasoning_preview?: string;
   created_at: string;
 };
 

@@ -263,7 +263,10 @@ export const MessageBubble = React.memo(function MessageBubble({
     markdownResetKey,
   } = assistant;
 
-  const reasoningText = liveReasoning?.trim() ?? "";
+  const reasoningText =
+    liveReasoning?.trim() ||
+    (holdStreamLayout ? message.reasoning_preview?.trim() : "") ||
+    "";
   const showReasoning = !isUser && reasoningText.length > 0;
   const statusLabel = useRotatingStreamStatus(
     streamStatus,

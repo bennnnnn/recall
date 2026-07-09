@@ -59,6 +59,7 @@ export type DoneMergeInput = {
   context_summarized?: number;
   search_sources?: SearchSource[];
   draftSearchSources?: SearchSource[];
+  reasoning_preview?: string;
   model?: string | null;
   fallback_used?: boolean;
   /**
@@ -86,6 +87,7 @@ export function mergeDoneIntoMessages(
     context_summarized,
     search_sources,
     draftSearchSources,
+    reasoning_preview,
     model,
     fallback_used,
     stoppedStreamedId,
@@ -111,6 +113,7 @@ export function mergeDoneIntoMessages(
               search_sources ??
               draftSearchSources ??
               parseSearchSources(finalContent ?? draftContent ?? m.content),
+            reasoning_preview,
             model: model ?? m.model,
             fallback_used: fallback_used || m.fallback_used,
           }
@@ -143,6 +146,7 @@ export function mergeDoneIntoMessages(
               search_sources ??
               draftSearchSources ??
               parseSearchSources(finalContent ?? draftContent ?? m.content),
+            reasoning_preview,
             model: model ?? m.model,
             fallback_used: fallback_used || m.fallback_used,
           }
@@ -186,12 +190,13 @@ export function applyStreamEndModel(
 
 export function buildDoneMergeInput(
   payload: ChatWsPayload,
-  draft: { content: string; search_sources?: SearchSource[] } | null,
+  draft: { content: string; search_sources?: SearchSource[]; reasoning?: string } | null,
   now = Date.now(),
   stoppedStreamedId: string | null = null,
 ): DoneMergeInput {
   const finalContent =
     typeof payload.final_content === "string" ? payload.final_content : undefined;
+  const reasoningPreview = draft?.reasoning?.trim();
   return {
     finalId: payload.message_id ?? `streamed-${now}`,
     messageId: payload.message_id,
@@ -204,6 +209,7 @@ export function buildDoneMergeInput(
     memory_hints: parseMemoryHints(payload.memory_hints),
     search_sources: parsePayloadSearchSources(payload.search_sources),
     draftSearchSources: draft?.search_sources,
+    reasoning_preview: reasoningPreview || undefined,
     model: payload.resolved_model ?? null,
     fallback_used: payload.fallback_used === "1" || payload.fallback_used === "true",
     stoppedStreamedId,
