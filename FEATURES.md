@@ -178,11 +178,9 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
 - ✅ **Local todo reminders** — scheduled on-device notifications when a todo item is due (via
   `expo-notifications`; requires a dev build for full native support).
 - ✅ **Remote push (MVP)** — Expo push tokens registered with the backend; learning-review and
-  Gmail-suggestion nudges (requires dev build + EAS project ID). Server-side todo-due push exists
-  but is **off by default** (`server_todo_push_enabled`) so local reminders own todos.
-- ✅ **Transactional email (narrow)** — Resend welcome on signup + Pro purchase receipt
-  (background jobs; optional `RESEND_API_KEY`).
-- 🔜 Email reminders (todo/learning), fuller i18n for legal/reminder/share strings.
+  todo-due notifications (requires dev build + EAS project ID).
+- ✅ **Email reminders** — opt-in todo-due + learning nudge emails (Resend); Settings
+  toggle; worker scheduler only (welcome + Pro receipt unchanged).
 
 ## 11. Navigation & UX
 - ✅ **Drawer** — custom slide-in: search, New chat, chat history, profile + settings.

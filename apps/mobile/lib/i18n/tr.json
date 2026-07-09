@@ -606,6 +606,8 @@
   "settings.push_blocked_title": "Notifications blocked",
   "settings.push_notifications": "Anlık bildirimler",
   "settings.push_notifications_desc": "Hatırlatmalar, öğrenme dürtmeleri ve e-posta önerileri — uygulama kapalıyken bile",
+  "settings.email_reminders": "Email reminders",
+  "settings.email_reminders_desc": "Todo due times and learning nudges by email (opt-in)",
   "settings.push_register_failed": "Could not enable push notifications. Try again.",
   "settings.reminder_lead": "Hatırlatma uyarısı",
   "settings.reminder_lead_desc": "Yerel hatırlatmalar her vade saatinden ne kadar önce tetiklenir",

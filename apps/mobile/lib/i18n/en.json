@@ -615,6 +615,8 @@
   "settings.push_blocked_title": "Notifications blocked",
   "settings.push_notifications": "Push notifications",
   "settings.push_notifications_desc": "Reminders, learning nudges, and email suggestions — even when the app is closed",
+  "settings.email_reminders": "Email reminders",
+  "settings.email_reminders_desc": "Todo due times and learning nudges by email (opt-in)",
   "settings.push_register_failed": "Could not enable push notifications. Try again.",
   "settings.reminder_lead": "Reminder alert",
   "settings.reminder_lead_desc": "How early local reminders fire before each due time",

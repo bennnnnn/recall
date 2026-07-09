@@ -22,6 +22,7 @@ const user: User = {
   response_tone: "neutral",
   memory_enabled: true,
   push_notifications_enabled: true,
+  email_reminders_enabled: false,
   reminder_lead_minutes: 10,
   locale: "en",
   timezone: "UTC",

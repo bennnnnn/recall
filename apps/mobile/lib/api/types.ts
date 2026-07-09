@@ -14,6 +14,7 @@ export type User = {
   response_tone: string;
   memory_enabled: boolean;
   push_notifications_enabled: boolean;
+  email_reminders_enabled?: boolean;
   reminder_lead_minutes: number;
   locale: string;
   timezone: string;

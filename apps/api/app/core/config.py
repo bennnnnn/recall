@@ -136,6 +136,8 @@ class Settings(BaseSettings):
     # works with zero external setup. Sending is always best-effort via the
     # background jobs stream — it never blocks auth or the chat path.
     email_enabled: bool = True
+    # Opt-in todo-due / learning nudge emails (separate from welcome/receipt).
+    email_reminders_scheduler_enabled: bool = True
     resend_api_key: str = ""
     resend_api_url: str = "https://api.resend.com/emails"
     email_from: str = "Recall <noreply@recall.app>"

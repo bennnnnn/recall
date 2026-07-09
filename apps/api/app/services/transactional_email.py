@@ -409,6 +409,35 @@ _TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
 }
 
 
+_TEMPLATES["todo_reminder"] = {
+    "en": {
+        "subject": "{title}: {content}",
+        "text": (
+            "Hi {name},\n\n"
+            "{title}\n\n"
+            "{content}\n\n"
+            "Open Recall to mark it done or snooze.\n\n"
+            "— Recall"
+        ),
+        "html": (
+            "<p>Hi {name},</p>"
+            "<p><strong>{title}</strong></p>"
+            "<p>{content}</p>"
+            "<p>Open Recall to mark it done or snooze.</p>"
+            "<p>— Recall</p>"
+        ),
+    },
+}
+
+_TEMPLATES["learning_nudge"] = {
+    "en": {
+        "subject": "Time to learn",
+        "text": ("Hi {name},\n\n{body}\n\nOpen Recall to continue.\n\n— Recall"),
+        "html": ("<p>Hi {name},</p><p>{body}</p><p>Open Recall to continue.</p><p>— Recall</p>"),
+    },
+}
+
+
 def _template(kind: str, locale: str) -> dict[str, str]:
     bundle = _TEMPLATES.get(kind, {})
     return bundle.get(locale) or bundle["en"]
@@ -473,6 +502,28 @@ def build_receipt(
     )
 
 
+def build_todo_reminder(user: User, *, title: str, content: str) -> tuple[str, str, str]:
+    locale = _locale_for(user)
+    tpl = _template("todo_reminder", locale)
+    name = _display_name(user)
+    return (
+        _render(tpl["subject"], title=title, content=content),
+        _render(tpl["html"], name=name, title=title, content=content),
+        _render(tpl["text"], name=name, title=title, content=content),
+    )
+
+
+def build_learning_nudge(user: User, *, body: str) -> tuple[str, str, str]:
+    locale = _locale_for(user)
+    tpl = _template("learning_nudge", locale)
+    name = _display_name(user)
+    return (
+        tpl["subject"],
+        _render(tpl["html"], name=name, body=body),
+        _render(tpl["text"], name=name, body=body),
+    )
+
+
 # ── dispatch ────────────────────────────────────────────────────────────────
 
 
@@ -499,6 +550,20 @@ async def send_purchase_receipt(
         product_id=product_id,
         expiration=expiration,
     )
+    return await email_gateway.send_email(
+        settings, to=user.email, subject=subject, html=html, text=text
+    )
+
+
+async def send_todo_reminder(settings: Settings, user: User, *, title: str, content: str) -> bool:
+    subject, html, text = build_todo_reminder(user, title=title, content=content)
+    return await email_gateway.send_email(
+        settings, to=user.email, subject=subject, html=html, text=text
+    )
+
+
+async def send_learning_nudge(settings: Settings, user: User, *, body: str) -> bool:
+    subject, html, text = build_learning_nudge(user, body=body)
     return await email_gateway.send_email(
         settings, to=user.email, subject=subject, html=html, text=text
     )
