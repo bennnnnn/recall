@@ -55,9 +55,7 @@ def test_build_receipt_uses_locale_template():
 
 def test_build_todo_reminder_includes_content():
     user = _user(name="Ada", locale="en")
-    subject, html, text = tx_email.build_todo_reminder(
-        user, title="Reminder", content="Call mom"
-    )
+    subject, html, text = tx_email.build_todo_reminder(user, title="Reminder", content="Call mom")
     assert "Call mom" in subject
     assert "Call mom" in text
     assert "Ada" in html
