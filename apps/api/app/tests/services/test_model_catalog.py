@@ -12,6 +12,10 @@ def test_selectable_models_count():
     ids = {m.id for m in models}
     assert "free-chat" in ids
     assert "minimax-m2" in ids
+    assert "mercury-2" in ids
+    mercury = model_catalog.get("mercury-2")
+    assert mercury.tier == "fast"
+    assert mercury.model == "openrouter/inception/mercury-2"
 
 
 def test_validate_user_alias_allows_auto():

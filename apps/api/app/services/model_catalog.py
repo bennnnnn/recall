@@ -128,6 +128,16 @@ CATALOG: tuple[ChatModel, ...] = (
         plan_access="free",
     ),
     _or(
+        id="mercury-2",
+        label="Mercury 2",
+        model="inception/mercury-2",
+        provider="inception",
+        input_price_per_m=0.25,
+        output_price_per_m=0.75,
+        description="Ultra-fast diffusion LLM — lowest latency for everyday chat.",
+        tier="fast",
+    ),
+    _or(
         id="llama-70b",
         label="Llama 3.3 70B",
         model="meta-llama/llama-3.3-70b-instruct",

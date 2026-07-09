@@ -34,7 +34,7 @@ describe("deriveAssistantMessageContent", () => {
     expect(result.markdownStreamMode).toBe(true);
   });
 
-  it("shows actions when generation finished", () => {
+  it("shows actions when generation finished and layout settled", () => {
     const ready = deriveAssistantMessageContent({
       ...base,
       isGenerating: false,
@@ -43,9 +43,15 @@ describe("deriveAssistantMessageContent", () => {
       ...base,
       isGenerating: true,
     });
+    const settling = deriveAssistantMessageContent({
+      ...base,
+      isGenerating: false,
+      layoutFrozen: true,
+    });
 
     expect(ready.actionsReady).toBe(true);
     expect(streaming.actionsReady).toBe(false);
+    expect(settling.actionsReady).toBe(false);
   });
 
   it("builds markdown reset key from renderKey and content length", () => {

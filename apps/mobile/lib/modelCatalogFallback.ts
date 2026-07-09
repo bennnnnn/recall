@@ -69,6 +69,17 @@ export const MODEL_CATALOG_FALLBACK: ModelInfo[] = [
     quota_multiplier: 1,
   },
   {
+    id: "mercury-2",
+    label: "Mercury 2",
+    tier: "fast",
+    plan_access: "pro",
+    description: "Ultra-fast diffusion LLM — lowest latency for everyday chat.",
+    available: true,
+    input_price_per_m: 0.25,
+    output_price_per_m: 0.75,
+    quota_multiplier: 1,
+  },
+  {
     id: "llama-70b",
     label: "Llama 3.3 70B",
     tier: "standard",

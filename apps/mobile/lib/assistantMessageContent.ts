@@ -135,7 +135,8 @@ export function deriveAssistantMessageContent(
   const hasContent = content.trim().length > 0;
   const isQuizFeedback = messageId.startsWith("local-quiz-");
   const showActionSlot = !isUser && hasContent && !isQuizFeedback;
-  const actionsReady = showActionSlot && !isGenerating;
+  // Defer feedback icons until rich chrome finishes mounting (layoutFrozen).
+  const actionsReady = showActionSlot && !isGenerating && !layoutFrozen;
 
   const quizForStrip =
     isUser || !hasContent || !hasVocabQuizFence(content)
