@@ -40,6 +40,7 @@ def test_list_todos_returns_items():
     todo_mock.checked = False
     todo_mock.due_at = None
     todo_mock.chat_id = None
+    todo_mock.project_id = None
     todo_mock.created_at = now
     todo_mock.updated_at = now
 
@@ -65,7 +66,9 @@ def test_create_todo():
     todo_mock.topic = "General"
     todo_mock.checked = False
     todo_mock.due_at = None
+    todo_mock.sort_order = None
     todo_mock.chat_id = None
+    todo_mock.project_id = None
     todo_mock.created_at = now
     todo_mock.updated_at = now
 
@@ -98,7 +101,10 @@ def test_create_todo_with_chat_id():
     todo_mock.content = "From chat"
     todo_mock.topic = "General"
     todo_mock.checked = False
+    todo_mock.due_at = None
+    todo_mock.sort_order = None
     todo_mock.chat_id = cid
+    todo_mock.project_id = None
     todo_mock.created_at = now
     todo_mock.updated_at = now
 
@@ -172,6 +178,63 @@ def test_create_todo_with_unowned_chat_id_404s():
     assert r.status_code == 400
 
 
+def test_create_todo_with_project_id():
+    from fastapi.testclient import TestClient
+
+    tid = uuid4()
+    pid = uuid4()
+    now = datetime.now(UTC)
+    todo_mock = MagicMock()
+    todo_mock.id = tid
+    todo_mock.content = "Study vocab"
+    todo_mock.topic = "General"
+    todo_mock.checked = False
+    todo_mock.due_at = None
+    todo_mock.sort_order = None
+    todo_mock.chat_id = None
+    todo_mock.project_id = pid
+    todo_mock.created_at = now
+    todo_mock.updated_at = now
+
+    user = _fake_user()
+    app = _app_with_user(user)
+    project_mock = MagicMock()
+    project_mock.id = pid
+    project_mock.user_id = user.id
+    create_mock = AsyncMock(return_value=todo_mock)
+    with (
+        patch("app.routers.todos.todos_repo.create", create_mock),
+        patch("app.routers.todos.projects_repo.get_by_id", AsyncMock(return_value=project_mock)),
+        patch("app.routers.todos.home_service.invalidate_home_cache", AsyncMock()),
+    ):
+        client = TestClient(app)
+        r = client.post(
+            "/todos",
+            headers={"Authorization": "Bearer tok"},
+            json={"content": "Study vocab", "project_id": str(pid)},
+        )
+    assert r.status_code == 201
+    assert r.json()["project_id"] == str(pid)
+    assert create_mock.await_args.kwargs["project_id"] == pid
+
+
+def test_create_todo_with_other_users_project_id_rejected():
+    from fastapi.testclient import TestClient
+
+    pid = uuid4()
+    user = _fake_user()
+    app = _app_with_user(user)
+    with patch("app.routers.todos.projects_repo.get_by_id", AsyncMock(return_value=None)):
+        client = TestClient(app)
+        r = client.post(
+            "/todos",
+            headers={"Authorization": "Bearer tok"},
+            json={"content": "x", "project_id": str(pid)},
+        )
+    assert r.status_code == 400
+    assert "Project not found" in r.json()["detail"]
+
+
 def test_update_todo():
     from fastapi.testclient import TestClient
 
@@ -184,6 +247,7 @@ def test_update_todo():
     todo_mock.checked = True
     todo_mock.due_at = None
     todo_mock.chat_id = None
+    todo_mock.project_id = None
     todo_mock.created_at = now
     todo_mock.updated_at = now
 
@@ -201,6 +265,46 @@ def test_update_todo():
         )
     assert r.status_code == 200
     assert r.json()["checked"] is True
+
+
+def test_update_todo_project_id():
+    from fastapi.testclient import TestClient
+
+    tid = uuid4()
+    pid = uuid4()
+    now = datetime.now(UTC)
+    todo_mock = MagicMock()
+    todo_mock.id = tid
+    todo_mock.content = "Study"
+    todo_mock.topic = "General"
+    todo_mock.checked = False
+    todo_mock.due_at = None
+    todo_mock.sort_order = None
+    todo_mock.chat_id = None
+    todo_mock.project_id = pid
+    todo_mock.created_at = now
+    todo_mock.updated_at = now
+
+    user = _fake_user()
+    app = _app_with_user(user)
+    project_mock = MagicMock()
+    project_mock.id = pid
+    update_mock = AsyncMock(return_value=todo_mock)
+    with (
+        patch("app.routers.todos.todos_repo.get_by_id", AsyncMock(return_value=todo_mock)),
+        patch("app.routers.todos.todos_repo.update", update_mock),
+        patch("app.routers.todos.projects_repo.get_by_id", AsyncMock(return_value=project_mock)),
+        patch("app.routers.todos.home_service.invalidate_home_cache", AsyncMock()),
+    ):
+        client = TestClient(app)
+        r = client.patch(
+            f"/todos/{tid}",
+            headers={"Authorization": "Bearer tok"},
+            json={"project_id": str(pid)},
+        )
+    assert r.status_code == 200
+    assert r.json()["project_id"] == str(pid)
+    assert update_mock.await_args.kwargs["project_id"] == pid
 
 
 def test_update_todo_not_found():

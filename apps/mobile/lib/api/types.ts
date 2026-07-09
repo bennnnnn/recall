@@ -78,6 +78,7 @@ export type Todo = {
   due_at: string | null;
   sort_order: number | null;
   chat_id: string | null;
+  project_id?: string | null;
   created_at: string;
   updated_at: string;
 };

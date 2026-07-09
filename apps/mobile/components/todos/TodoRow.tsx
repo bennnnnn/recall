@@ -14,8 +14,10 @@ export function TodoRow({
   variant,
   busy,
   highlighted,
+  projectTitle,
   onToggle,
   onDue,
+  onLinkProject,
   onDelete,
   overlapWith,
 }: {
@@ -23,8 +25,10 @@ export function TodoRow({
   variant?: "open" | "done";
   busy?: boolean;
   highlighted?: boolean;
+  projectTitle?: string | null;
   onToggle: () => void;
   onDue?: () => void;
+  onLinkProject?: () => void;
   onDelete: () => void;
   overlapWith?: string;
 }) {
@@ -64,6 +68,11 @@ export function TodoRow({
         >
           {todo.content}
         </Text>
+        {projectTitle ? (
+          <Text style={s.projectLinked} numberOfLines={1}>
+            {t("todos.project_linked", { title: projectTitle })}
+          </Text>
+        ) : null}
         {due && !todo.checked ? (
           <Text style={[s.dueLabel, dueToneStyle]}>{due.label}</Text>
         ) : null}
@@ -73,6 +82,20 @@ export function TodoRow({
           </Text>
         ) : null}
       </View>
+      {rowVariant === "open" && !todo.checked && onLinkProject ? (
+        <Pressable
+          onPress={onLinkProject}
+          hitSlop={8}
+          style={s.dueBtn}
+          accessibilityLabel={t("todos.link_project")}
+        >
+          <Ionicons
+            name={todo.project_id ? "folder" : "folder-outline"}
+            size={18}
+            color={todo.project_id ? C.primary : C.textTertiary}
+          />
+        </Pressable>
+      ) : null}
       {rowVariant === "open" && !todo.checked && onDue ? (
         <Pressable onPress={onDue} hitSlop={8} style={s.dueBtn}>
           <Ionicons

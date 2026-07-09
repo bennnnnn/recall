@@ -69,6 +69,7 @@ export function useTodosActions({
         due_at: null,
         sort_order: nextSort,
         chat_id: null,
+        project_id: null,
         created_at: now,
         updated_at: now,
       };
@@ -342,6 +343,55 @@ export function useTodosActions({
     await applyDueDate(todo, date);
   }, [duePicker, applyDueDate]);
 
+  const handleLinkProject = useCallback(
+    (todo: Todo, projects: { id: string; title: string }[]) => {
+      if (!token) return;
+      const options: { text: string; style?: "cancel" | "destructive" | "default"; onPress?: () => void }[] =
+        [
+          { text: t("common.cancel"), style: "cancel" },
+        ];
+      if (todo.project_id) {
+        options.push({
+          text: t("todos.unlink_project"),
+          style: "destructive",
+          onPress: () => {
+            void (async () => {
+              try {
+                const updated = await api.updateTodo(token, todo.id, { project_id: null });
+                setTodos((prev) => prev.map((item) => (item.id === todo.id ? updated : item)));
+              } catch {
+                Alert.alert(t("todos.error"), t("todos.error_link"));
+              }
+            })();
+          },
+        });
+      }
+      if (projects.length === 0) {
+        Alert.alert(t("todos.link_project"), t("todos.no_projects"), options);
+        return;
+      }
+      for (const project of projects.slice(0, 5)) {
+        options.push({
+          text: project.title,
+          onPress: () => {
+            void (async () => {
+              try {
+                const updated = await api.updateTodo(token, todo.id, {
+                  project_id: project.id,
+                });
+                setTodos((prev) => prev.map((item) => (item.id === todo.id ? updated : item)));
+              } catch {
+                Alert.alert(t("todos.error"), t("todos.error_link"));
+              }
+            })();
+          },
+        });
+      }
+      Alert.alert(t("todos.link_project"), undefined, options);
+    },
+    [token, setTodos, t],
+  );
+
   return {
     togglingId,
     duePicker,
@@ -355,6 +405,7 @@ export function useTodosActions({
     handleToggle,
     handleDeleteItem,
     handleDeleteList,
+    handleLinkProject,
     openDuePicker,
     onDuePickerChange,
     confirmDuePicker,

@@ -162,6 +162,9 @@ class TodoItem(Base):
     chat_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("chats.id", ondelete="SET NULL"), nullable=True
     )
+    project_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="SET NULL"), nullable=True
+    )
     content: Mapped[str] = mapped_column(Text, nullable=False)
     topic: Mapped[str] = mapped_column(String(200), nullable=False, default="General")
     checked: Mapped[bool] = mapped_column(Boolean, default=False)
