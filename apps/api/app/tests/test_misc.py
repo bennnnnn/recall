@@ -374,9 +374,7 @@ async def test_login_with_apple_requires_email_on_first_sign_in():
         patch("app.services.auth.users_repo.get_by_email", AsyncMock(return_value=None)),
     ):
         with pytest.raises(GoogleAuthError, match="did not share an email"):
-            await auth_service.login_with_apple(
-                AsyncMock(), settings_obj, "id-token", AsyncMock()
-            )
+            await auth_service.login_with_apple(AsyncMock(), settings_obj, "id-token", AsyncMock())
 
 
 @pytest.mark.asyncio
