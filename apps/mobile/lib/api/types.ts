@@ -160,6 +160,11 @@ export type ProjectListGroup = {
   items: ProjectItem[];
 };
 
+export type ProjectPosGroup = {
+  part_of_speech: string;
+  items: ProjectItem[];
+};
+
 export type ProjectDetail = Project & {
   mastered_count: number;
   total_count: number;
@@ -167,6 +172,7 @@ export type ProjectDetail = Project & {
   daily_history: ProjectDailyHistoryDay[];
   daily_items_by_date: Record<string, ProjectItem[]>;
   lists: ProjectListGroup[];
+  by_part_of_speech?: ProjectPosGroup[];
 };
 
 export type SearchResult = {

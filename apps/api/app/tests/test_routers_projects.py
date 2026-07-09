@@ -251,6 +251,14 @@ def test_get_language_project_detail():
     app = _app_with_user(user)
     project = _project(kind="language")
     project_id = project.id
+    noun = _item(project_id)
+    noun.part_of_speech = "noun"
+    noun.list_title = "nouns"
+    noun.content = "apple"
+    verb = _item(project_id)
+    verb.part_of_speech = "verb"
+    verb.list_title = "verbs"
+    verb.content = "run"
 
     with (
         patch(
@@ -263,7 +271,7 @@ def test_get_language_project_detail():
         ),
         patch(
             "app.routers.projects.project_items_repo.list_for_user",
-            AsyncMock(return_value=[]),
+            AsyncMock(return_value=[noun, verb]),
         ),
         patch(
             "app.routers.projects.project_items_repo.stats_from_items",
@@ -287,8 +295,10 @@ def test_get_language_project_detail():
     body = r.json()
     assert body["total_count"] == 2
     assert body["pos_groups"] == []
+    assert len(body["by_part_of_speech"]) == 2
+    assert {g["part_of_speech"] for g in body["by_part_of_speech"]} == {"noun", "verb"}
+    assert len(body["lists"]) >= 1
     assert len(body["daily_history"]) == 14
-    assert body["daily_items_by_date"] == {}
 
 
 def test_list_daily_items():
