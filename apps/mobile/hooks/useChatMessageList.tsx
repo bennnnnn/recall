@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo } from "react";
+import { View } from "react-native";
 
 import { ChatMessageRow } from "@/components/chat/ChatMessageRow";
 import { StreamingChatMessageRow } from "@/components/chat/StreamingChatMessageRow";
-import type { Message } from "@/lib/api";
+import { SuggestionChips } from "@/components/SuggestionChips";
+import type { Message, Suggestion } from "@/lib/api";
 import {
   findLastAssistantId,
   isChatStreamActive,
@@ -22,6 +24,9 @@ type Options = {
   regenerateResponse: (model: string) => void | Promise<void>;
   handleEditMessage: (message: Message) => void;
   handleFeedback: (messageId: string, next: "up" | "down" | null) => void;
+  suggestions?: Suggestion[];
+  onSelectSuggestion?: (prompt: string) => void;
+  onDismissSuggestion?: (id: string) => void;
 };
 
 export function useChatMessageList({
@@ -36,6 +41,9 @@ export function useChatMessageList({
   regenerateResponse,
   handleEditMessage,
   handleFeedback,
+  suggestions = [],
+  onSelectSuggestion,
+  onDismissSuggestion,
 }: Options) {
   useEffect(() => {
     if (messages.length === 0) setMenuVisible(false);
@@ -47,6 +55,12 @@ export function useChatMessageList({
   );
 
   const headerTitleLabel = null;
+  const showSuggestions =
+    !streaming &&
+    !finalizing &&
+    suggestions.length > 0 &&
+    Boolean(onSelectSuggestion) &&
+    Boolean(onDismissSuggestion);
 
   const sharedRowProps = useMemo(
     () => ({
@@ -93,7 +107,7 @@ export function useChatMessageList({
         streaming,
         finalizing,
       );
-      return (
+      const row = (
         <ChatMessageRow
           item={item}
           priorUserText={priorUserText}
@@ -101,8 +115,39 @@ export function useChatMessageList({
           {...sharedRowProps}
         />
       );
+
+      if (
+        showSuggestions &&
+        item.role === "assistant" &&
+        item.id === lastAssistantId &&
+        onSelectSuggestion &&
+        onDismissSuggestion
+      ) {
+        return (
+          <View>
+            {row}
+            <SuggestionChips
+              suggestions={suggestions}
+              onSelect={onSelectSuggestion}
+              onDismiss={onDismissSuggestion}
+            />
+          </View>
+        );
+      }
+
+      return row;
     },
-    [sharedRowProps, messages, streaming, finalizing, lastAssistantId],
+    [
+      sharedRowProps,
+      messages,
+      streaming,
+      finalizing,
+      lastAssistantId,
+      showSuggestions,
+      suggestions,
+      onSelectSuggestion,
+      onDismissSuggestion,
+    ],
   );
 
   return { lastAssistantId, headerTitleLabel, renderItem };
