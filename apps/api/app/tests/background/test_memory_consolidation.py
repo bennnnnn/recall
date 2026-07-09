@@ -6,7 +6,7 @@ import pytest
 
 from app.background.memory_consolidation import consolidate_user_memory_sections
 from app.core.config import Settings
-from app.models.schemas import MemorySectionItem, MemorySectionUpdateResult
+from app.models.schemas import MemorySectionItem
 
 
 class _FakeSessionCM:
@@ -50,23 +50,19 @@ async def test_consolidate_skips_clean_sections():
 
 
 @pytest.mark.asyncio
-async def test_consolidate_rewrites_messy_sections():
+async def test_consolidate_merges_messy_sections():
     user_id = uuid4()
     memory = AsyncMock()
     memory.type = "profile"
     memory.text = "User's name is Bini. User's name is Binalfew. User is a developer."
 
-    rewrite = MemorySectionUpdateResult(
-        sections=[
-            MemorySectionItem(
-                type="profile",
-                summary=(
-                    "Bini (Binalfew) is a software developer who builds mobile apps "
-                    "and backend services for Recall."
-                ),
-                confidence=0.9,
-            )
-        ]
+    merged = MemorySectionItem(
+        type="profile",
+        summary=(
+            "Bini (Binalfew) is a software developer who builds mobile apps "
+            "and backend services for Recall."
+        ),
+        confidence=0.9,
     )
 
     _, session_locals = _consolidation_sessions(count=2)
@@ -80,8 +76,8 @@ async def test_consolidate_rewrites_messy_sections():
             AsyncMock(return_value=[memory]),
         ),
         patch(
-            "app.background.memory_consolidation.litellm_gateway.rewrite_memory_sections",
-            AsyncMock(return_value=rewrite),
+            "app.background.memory_consolidation.litellm_gateway.merge_memory_section",
+            AsyncMock(return_value=merged),
         ),
         patch(
             "app.background.memory_consolidation.memories_repo.upsert_sections",
@@ -108,20 +104,16 @@ async def test_consolidate_rewrites_messy_sections():
 
 
 @pytest.mark.asyncio
-async def test_consolidate_skips_suspiciously_short_rewrite():
+async def test_consolidate_skips_suspiciously_short_merge():
     user_id = uuid4()
     memory = AsyncMock()
     memory.type = "profile"
     memory.text = "User's name is Bini. User's name is Binalfew. User is a developer."
 
-    rewrite = MemorySectionUpdateResult(
-        sections=[
-            MemorySectionItem(
-                type="profile",
-                summary="Bini.",
-                confidence=0.9,
-            )
-        ]
+    merged = MemorySectionItem(
+        type="profile",
+        summary="Bini.",
+        confidence=0.9,
     )
 
     _, session_locals = _consolidation_sessions()
@@ -135,8 +127,8 @@ async def test_consolidate_skips_suspiciously_short_rewrite():
             AsyncMock(return_value=[memory]),
         ),
         patch(
-            "app.background.memory_consolidation.litellm_gateway.rewrite_memory_sections",
-            AsyncMock(return_value=rewrite),
+            "app.background.memory_consolidation.litellm_gateway.merge_memory_section",
+            AsyncMock(return_value=merged),
         ),
         patch(
             "app.background.memory_consolidation.memories_repo.upsert_sections",
@@ -150,29 +142,26 @@ async def test_consolidate_skips_suspiciously_short_rewrite():
 
 
 @pytest.mark.asyncio
-async def test_consolidate_skips_when_model_omits_existing_section():
+async def test_consolidate_applies_only_sections_that_need_merge():
+    """Clean sections are left alone; only messy ones are merged."""
     user_id = uuid4()
     profile = AsyncMock()
     profile.type = "profile"
     profile.text = "User's name is Bini. User's name is Binalfew. User is a developer."
     preference = AsyncMock()
     preference.type = "preference"
-    preference.text = "Prefers concise answers. Prefers concise answers. Prefers concise answers."
+    preference.text = "Prefers concise answers."
 
-    rewrite = MemorySectionUpdateResult(
-        sections=[
-            MemorySectionItem(
-                type="profile",
-                summary=(
-                    "Bini (Binalfew) is a software developer who builds mobile apps "
-                    "and backend services for Recall."
-                ),
-                confidence=0.9,
-            )
-        ]
+    merged = MemorySectionItem(
+        type="profile",
+        summary=(
+            "Bini (Binalfew) is a software developer who builds mobile apps "
+            "and backend services for Recall."
+        ),
+        confidence=0.9,
     )
 
-    _, session_locals = _consolidation_sessions()
+    _, session_locals = _consolidation_sessions(count=2)
     with (
         patch(
             "app.background.memory_consolidation.SessionLocal",
@@ -183,22 +172,33 @@ async def test_consolidate_skips_when_model_omits_existing_section():
             AsyncMock(return_value=[profile, preference]),
         ),
         patch(
-            "app.background.memory_consolidation.litellm_gateway.rewrite_memory_sections",
-            AsyncMock(return_value=rewrite),
-        ),
+            "app.background.memory_consolidation.litellm_gateway.merge_memory_section",
+            AsyncMock(return_value=merged),
+        ) as merge,
         patch(
             "app.background.memory_consolidation.memories_repo.upsert_sections",
             AsyncMock(),
         ) as upsert,
+        patch(
+            "app.background.memory_consolidation.invalidate_memory_block",
+            AsyncMock(),
+        ),
+        patch(
+            "app.gateways.embedding_gateway.embed_text",
+            AsyncMock(return_value=[0.1, 0.2, 0.3]),
+        ),
     ):
         changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
 
-    assert changed is False
-    upsert.assert_not_awaited()
+    assert changed is True
+    assert merge.await_count == 1
+    assert merge.await_args.kwargs["section_type"] == "profile"
+    assert len(upsert.call_args.kwargs["items"]) == 1
+    assert upsert.call_args.kwargs["items"][0][0] == "profile"
 
 
 @pytest.mark.asyncio
-async def test_consolidate_skips_rewrite_that_drops_fact_anchors():
+async def test_consolidate_skips_merge_that_drops_fact_anchors():
     user_id = uuid4()
     memory = AsyncMock()
     memory.type = "profile"
@@ -206,17 +206,13 @@ async def test_consolidate_skips_rewrite_that_drops_fact_anchors():
         "User's name is Bini. User works at Hooh. User's name is Binalfew. User is a developer."
     )
 
-    rewrite = MemorySectionUpdateResult(
-        sections=[
-            MemorySectionItem(
-                type="profile",
-                summary=(
-                    "Bini (Binalfew) is a software developer who builds mobile apps "
-                    "and backend services for Recall."
-                ),
-                confidence=0.9,
-            )
-        ]
+    merged = MemorySectionItem(
+        type="profile",
+        summary=(
+            "Bini (Binalfew) is a software developer who builds mobile apps "
+            "and backend services for Recall."
+        ),
+        confidence=0.9,
     )
 
     _, session_locals = _consolidation_sessions()
@@ -230,8 +226,8 @@ async def test_consolidate_skips_rewrite_that_drops_fact_anchors():
             AsyncMock(return_value=[memory]),
         ),
         patch(
-            "app.background.memory_consolidation.litellm_gateway.rewrite_memory_sections",
-            AsyncMock(return_value=rewrite),
+            "app.background.memory_consolidation.litellm_gateway.merge_memory_section",
+            AsyncMock(return_value=merged),
         ),
         patch(
             "app.background.memory_consolidation.memories_repo.upsert_sections",
@@ -258,14 +254,10 @@ async def test_consolidate_upserts_without_embedding_when_vector_missing():
         embedding_json=None,
     )
 
-    rewrite = MemorySectionUpdateResult(
-        sections=[
-            MemorySectionItem(
-                type="profile",
-                summary=updated.text,
-                confidence=0.9,
-            )
-        ]
+    merged = MemorySectionItem(
+        type="profile",
+        summary=updated.text,
+        confidence=0.9,
     )
 
     _, session_locals = _consolidation_sessions(count=2)
@@ -279,8 +271,8 @@ async def test_consolidate_upserts_without_embedding_when_vector_missing():
             AsyncMock(side_effect=[[memory], [updated]]),
         ),
         patch(
-            "app.background.memory_consolidation.litellm_gateway.rewrite_memory_sections",
-            AsyncMock(return_value=rewrite),
+            "app.background.memory_consolidation.litellm_gateway.merge_memory_section",
+            AsyncMock(return_value=merged),
         ),
         patch(
             "app.background.memory_consolidation.memories_repo.upsert_sections",
@@ -315,14 +307,10 @@ async def test_consolidate_stores_embedding_when_vector_present():
         embedding_json=None,
     )
 
-    rewrite = MemorySectionUpdateResult(
-        sections=[
-            MemorySectionItem(
-                type="profile",
-                summary=updated.text,
-                confidence=0.9,
-            )
-        ]
+    merged = MemorySectionItem(
+        type="profile",
+        summary=updated.text,
+        confidence=0.9,
     )
     vector = [0.1, 0.2, 0.3]
 
@@ -337,8 +325,8 @@ async def test_consolidate_stores_embedding_when_vector_present():
             AsyncMock(side_effect=[[memory], [updated]]),
         ),
         patch(
-            "app.background.memory_consolidation.litellm_gateway.rewrite_memory_sections",
-            AsyncMock(return_value=rewrite),
+            "app.background.memory_consolidation.litellm_gateway.merge_memory_section",
+            AsyncMock(return_value=merged),
         ),
         patch(
             "app.background.memory_consolidation.memories_repo.upsert_sections",
@@ -373,7 +361,7 @@ async def test_consolidate_releases_db_before_llm():
 
     session = AsyncMock()
     session.commit = AsyncMock()
-    db_open_during_rewrite: list[bool] = []
+    db_open_during_merge: list[bool] = []
 
     class _TrackingSessionCM(_FakeSessionCM):
         def __init__(self) -> None:
@@ -391,8 +379,8 @@ async def test_consolidate_releases_db_before_llm():
     load_cm = _TrackingSessionCM()
     apply_cm = _TrackingSessionCM()
 
-    async def fake_rewrite(*_args: object, **_kwargs: object) -> None:
-        db_open_during_rewrite.append(load_cm.open or apply_cm.open)
+    async def fake_merge(*_args: object, **_kwargs: object) -> None:
+        db_open_during_merge.append(load_cm.open or apply_cm.open)
         return None
 
     with (
@@ -405,12 +393,54 @@ async def test_consolidate_releases_db_before_llm():
             AsyncMock(return_value=[memory]),
         ),
         patch(
-            "app.background.memory_consolidation.litellm_gateway.rewrite_memory_sections",
-            AsyncMock(side_effect=fake_rewrite),
+            "app.background.memory_consolidation.litellm_gateway.merge_memory_section",
+            AsyncMock(side_effect=fake_merge),
         ),
     ):
         changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
 
     assert changed is False
-    assert db_open_during_rewrite == [False]
+    assert db_open_during_merge == [False]
     assert session.commit.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_consolidate_deterministic_dedupe_skips_llm():
+    """Exact duplicate sentences can be collapsed without calling the model."""
+    user_id = uuid4()
+    memory = AsyncMock()
+    memory.type = "preference"
+    memory.text = "Prefers concise answers. Prefers concise answers. Prefers concise answers."
+
+    _, session_locals = _consolidation_sessions(count=2)
+    with (
+        patch(
+            "app.background.memory_consolidation.SessionLocal",
+            side_effect=session_locals,
+        ),
+        patch(
+            "app.background.memory_consolidation.memories_repo.list_for_user",
+            AsyncMock(return_value=[memory]),
+        ),
+        patch(
+            "app.background.memory_consolidation.litellm_gateway.merge_memory_section",
+            AsyncMock(),
+        ) as merge,
+        patch(
+            "app.background.memory_consolidation.memories_repo.upsert_sections",
+            AsyncMock(),
+        ) as upsert,
+        patch(
+            "app.background.memory_consolidation.invalidate_memory_block",
+            AsyncMock(),
+        ),
+        patch(
+            "app.gateways.embedding_gateway.embed_text",
+            AsyncMock(return_value=None),
+        ),
+    ):
+        changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
+
+    assert changed is True
+    merge.assert_not_awaited()
+    assert upsert.call_args.kwargs["items"][0][1] == "Prefers concise answers"

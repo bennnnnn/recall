@@ -3,6 +3,7 @@ import * as Notifications from "expo-notifications";
 import { AppState, type AppStateStatus, Platform } from "react-native";
 
 import { api } from "@/lib/api";
+import i18n from "@/lib/i18n";
 
 type AppRouter = {
   push: (href: unknown) => void;
@@ -24,7 +25,7 @@ export async function ensureNotificationPermission(): Promise<boolean> {
 async function ensureAndroidChannel(): Promise<void> {
   if (Platform.OS !== "android" || androidChannelReady) return;
   await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL, {
-    name: "Recall",
+    name: i18n.t("notifications.app_channel"),
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 250, 250],
   });

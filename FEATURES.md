@@ -225,8 +225,10 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
 - ✅ **Background jobs** — title / memory / compression are enqueued to a **durable Redis Stream**
   and processed by an in-process worker (consumer group). Jobs survive process restarts, and an
   entry left unacked by a crash is reclaimed on the next startup (at-least-once).
-- 🔜 **Dedicated worker process** (for multi-instance / serverless), Sentry/observability,
-  structured request logging.
+- ✅ **Dedicated worker process** — Fly `app` (`PROCESS_ROLE=api`) + `worker` (`python -m
+  app.worker_main`); local/dev default `process_role=all` keeps a single process. Scale with
+  `fly scale count app=1 worker=1`. Multi-instance worker fleets remain a later ops concern.
+- 🔜 Sentry/observability polish, structured request logging.
 
 ## 14. Todos & suggestions
 - ✅ **Todo lists** — named lists (topics) with a list-first UX: create a list title, then add items;
@@ -393,7 +395,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 - ✅ **Web search** — Tavily primary + DuckDuckGo fallback; injected into chat when heuristics match;
   sources shown on assistant messages (hidden on vocab quiz cards).
 - 🔜 **Collaborative cursors / shared docs** — real-time co-editing; personal app only today.
-- 🔜 Structured profile fields, dedicated worker process, multi-select, swipe-to-delete (gesture lib),
+- 🔜 Structured profile fields, multi-select, swipe-to-delete (gesture lib),
   editing arbitrary (older) messages, user-tunable routing rules,
   email-only reminders, theming the remaining screens.
 
@@ -417,11 +419,10 @@ fixes from the review are shipped; these remain:
   (v2, auto-measured). Chat drawer rows and the flat reminders/done lists are
   virtualized; the calendar day-view and `ListGroupsView` render in the header
   (bounded/structured, not row-virtualized). Verify scroll/layout on-device.
-- 🔜 **i18n migration** — the new UI keys are now in all 9 locale files (English
-  placeholder values for the 8 non-EN locales — translate when ready). Hardcoded
-  English still remains in: the legal pages (`privacy`/`terms`), `todoReminders`
-  ("Reminder" title/body), `homeUrgentTodos` prompts/subtitles, and `share.ts`
-  ("You"/"Recall"). Those strings need extracting to keys + translations.
+- ✅ **i18n extraction (reminders / share / urgent)** — keys wired in `todoReminders`,
+  `homeUrgentTodos`, `share.ts`, and push channel names; translated in all 9 locales.
+- 🔜 **Legal page bodies** — `/legal/privacy` and `/legal/terms` remain English-only
+  markdown on the API (nav titles are localized). Locale-aware legal content is deferred.
 - ✅ **DB session scope in `_prepare_chat_turn`** — attachment S3 reads and web-search
   augmentation run outside the DB session; calendar/Gmail still use a short session.
 - ✅ **Background-job DLQ** — failed jobs are copied to `recall:jobs:dlq` before ACK
@@ -440,11 +441,9 @@ Still open (non-blocking):
 - ⚠️ **Android chat keyboard** — `softwareKeyboardLayoutMode: resize` is set for Reanimated's
   `useAnimatedKeyboard`; needs an **Android dev-client rebuild** and on-device composer smoke test
   (iOS confirmed smooth; Android unverified).
-- ⚠️ **Memory consolidation fact preservation** — skips rewrites when the model omits a
-  section, shrinks text below 50% of prior length, or drops **≥20% of salient anchors**
-  (names, orgs, emails, numbers) extracted from the prior section. Heuristic — not a full
-  sentence-level diff/merge.
-- 🔜 **Exact memory consolidation merge** — per-section merge-not-replace LLM pass (deferred).
+- ✅ **Memory consolidation (merge-not-replace)** — per-section LLM merge via
+  `merge_memory_section`, with a deterministic exact-sentence dedupe pre-pass. Safety gates
+  still skip merges that shrink below 50% (LLM path) or drop **≥20% of salient anchors**.
 
 ### Multimodal & attachments
 
@@ -510,7 +509,7 @@ structured Learning topic type.
 |-------|--------|--------|
 | MVP (mobile) | Chat + memory + todos + Learning + integrations | ~90% code-complete |
 | Launch readiness | Provisioning, store builds, landing page, OAuth verification, on-device QA | ~70% ops |
-| v1.1 | Web client (same API), tsvector search, worker split | Not started |
+| v1.1 | Web client (same API), tsvector search | Not started (Fly worker process split ✅) |
 | v2 | Full agent/tool loop, RAG over attachments, gamification layer | Not started |
 
 ### Learning (not “programming projects”)

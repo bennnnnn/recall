@@ -690,11 +690,63 @@ async def revise_memory_sections(
     )
 
 
+async def merge_memory_section(
+    settings: Settings,
+    *,
+    section_type: str,
+    prior_text: str,
+) -> MemorySectionItem | None:
+    """Merge duplicate facts in one section without dropping distinct facts."""
+    clean = prior_text.strip()
+    if not clean:
+        return None
+    if mock_llm.should_mock_llm(settings):
+        return await mock_llm.mock_merge_memory_section(section_type, clean)
+
+    import json
+
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You merge long-term memory facts for a personal AI assistant. "
+                "Return ONLY JSON (no markdown): "
+                '{"type": "profile|preference|project|fact|focus", '
+                '"summary": "2-6 sentence paragraph in third person", "confidence": 0.0-1.0}. '
+                "Rules:\n"
+                "- Preserve EVERY distinct fact from the draft — do not drop names, orgs, "
+                "emails, numbers, or preferences.\n"
+                "- Deduplicate near-duplicate sentences; merge contradictions sensibly.\n"
+                "- Output ONE paragraph (not a bullet list).\n"
+                "- Do not invent facts not supported by the draft.\n"
+                f"- The section type must remain `{section_type}`."
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                f"Section type: {section_type}\n"
+                f"Draft facts JSON:\n{json.dumps({'text': clean}, ensure_ascii=False)}"
+            ),
+        },
+    ]
+    return await complete_structured(
+        settings=settings,
+        model_alias="memory-model",
+        messages=messages,
+        schema=MemorySectionItem,
+        max_tokens=1024,
+    )
+
+
 async def rewrite_memory_sections(
     settings: Settings,
     sections: dict[str, str],
 ) -> MemorySectionUpdateResult | None:
-    """Rewrite bloated or duplicate section drafts into concise paragraphs."""
+    """Rewrite bloated or duplicate section drafts into concise paragraphs.
+
+    Prefer :func:`merge_memory_section` for production consolidation (merge-not-replace).
+    """
     if not sections:
         return None
     if mock_llm.should_mock_llm(settings):
