@@ -16,6 +16,8 @@ export type ChatWsPayload = {
   todos_sync?: string;
   search_sources?: string;
   resolved_model?: string;
+  requested_model?: string;
+  fallback_used?: string;
 };
 
 export function parseChatWsPayload(raw: string): ChatWsPayload | null {
@@ -58,6 +60,7 @@ export type DoneMergeInput = {
   search_sources?: SearchSource[];
   draftSearchSources?: SearchSource[];
   model?: string | null;
+  fallback_used?: boolean;
   /**
    * Local id given to the streaming bubble when the user stopped generation
    * (e.g. `streamed-<ts>`). When the server's `done` arrives after a stop,
@@ -84,6 +87,7 @@ export function mergeDoneIntoMessages(
     search_sources,
     draftSearchSources,
     model,
+    fallback_used,
     stoppedStreamedId,
   } = input;
 
@@ -108,6 +112,7 @@ export function mergeDoneIntoMessages(
               draftSearchSources ??
               parseSearchSources(finalContent ?? draftContent ?? m.content),
             model: model ?? m.model,
+            fallback_used: fallback_used || m.fallback_used,
           }
         : m,
     );
@@ -139,6 +144,7 @@ export function mergeDoneIntoMessages(
               draftSearchSources ??
               parseSearchSources(finalContent ?? draftContent ?? m.content),
             model: model ?? m.model,
+            fallback_used: fallback_used || m.fallback_used,
           }
         : m,
     );
@@ -156,6 +162,7 @@ export function mergeDoneIntoMessages(
       role: "assistant" as const,
       content,
       model: model ?? null,
+      fallback_used: fallback_used || undefined,
       recalled,
       memory_hints,
       context_summarized,
@@ -166,9 +173,15 @@ export function mergeDoneIntoMessages(
 }
 
 /** Apply resolved model to the in-flight streaming bubble as soon as stream_end arrives. */
-export function applyStreamEndModel(messages: Message[], model: string | undefined): Message[] {
+export function applyStreamEndModel(
+  messages: Message[],
+  model: string | undefined,
+  fallbackUsed = false,
+): Message[] {
   if (!model) return messages;
-  return messages.map((m) => (m.id === "streaming" ? { ...m, model } : m));
+  return messages.map((m) =>
+    m.id === "streaming" ? { ...m, model, fallback_used: fallbackUsed || undefined } : m,
+  );
 }
 
 export function buildDoneMergeInput(
@@ -192,6 +205,7 @@ export function buildDoneMergeInput(
     search_sources: parsePayloadSearchSources(payload.search_sources),
     draftSearchSources: draft?.search_sources,
     model: payload.resolved_model ?? null,
+    fallback_used: payload.fallback_used === "1" || payload.fallback_used === "true",
     stoppedStreamedId,
   };
 }

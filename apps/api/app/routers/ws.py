@@ -102,6 +102,8 @@ async def _stream_over_ws(
         resolved_model = result.get("resolved_model")
         if resolved_model:
             stream_end["resolved_model"] = resolved_model
+        if result.get("fallback_used"):
+            stream_end["fallback_used"] = result["fallback_used"]
         if not await _safe_send_json(websocket, stream_end):
             return
 
@@ -128,6 +130,7 @@ async def _stream_over_ws(
             "search_sources",
             "final_content",
             "resolved_model",
+            "fallback_used",
         ):
             value = result.get(key)
             if value:

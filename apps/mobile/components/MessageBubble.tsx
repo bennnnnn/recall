@@ -313,6 +313,11 @@ export const MessageBubble = React.memo(function MessageBubble({
                 {t("chat.context_summarized", { count: message.context_summarized })}
               </Text>
             ) : null}
+            {message.fallback_used && message.model ? (
+              <Text style={b.contextChip}>
+                {t("chat.model_fallback", { model: message.model })}
+              </Text>
+            ) : null}
             {showImages
               ? images.map((image, index) => (
                   <ChatMessageImage
