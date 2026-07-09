@@ -626,6 +626,7 @@ async def prepare_chat_turn(
                     )
         if attachment_ids and settings.attachments_enabled:
             from app.repositories import attachments as attachments_repo
+            from app.services import attachment_rag as attachment_rag_service
 
             await attachments_repo.link_to_message(
                 session,
@@ -633,6 +634,21 @@ async def prepare_chat_turn(
                 attachment_ids=attachment_ids,
                 message_id=user_message.id,
             )
+            if settings.attachment_rag_enabled:
+                from app.core import jobs as jobs_mod
+
+                indexable = await attachments_repo.get_by_ids(session, attachment_ids, user.id)
+                for row in indexable:
+                    if attachment_rag_service.is_indexable_attachment(row):
+                        await jobs_mod.enqueue(
+                            redis,
+                            "attachment_index",
+                            {
+                                "attachment_id": str(row.id),
+                                "user_id": str(user.id),
+                                "chat_id": str(chat_id),
+                            },
+                        )
 
         chat_project_id = chat.project_id
         quiz_mode = getattr(chat, "quiz_mode", None)

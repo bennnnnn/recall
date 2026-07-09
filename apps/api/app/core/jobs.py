@@ -20,6 +20,7 @@ from uuid import UUID
 from redis.asyncio import Redis
 
 from app.background import (
+    attachment_indexing,
     compaction,
     gmail_sync,
     memory_consolidation,
@@ -237,6 +238,7 @@ async def _handle_transactional_email(settings: Settings, payload: dict[str, Any
 
 
 register("transactional_email", _handle_transactional_email)
+register("attachment_index", attachment_indexing.index_attachment_job)
 
 
 # ── worker ───────────────────────────────────────────────────────────────────

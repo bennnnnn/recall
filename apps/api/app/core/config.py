@@ -54,6 +54,14 @@ class Settings(BaseSettings):
     mcp_tool_loop_max_rounds: int = 3
     mcp_tool_loop_timeout_seconds: float = 30.0
 
+    # Attachment RAG (chunk + embed PDF/doc text; retrieve into prompt).
+    attachment_rag_enabled: bool = True
+    attachment_rag_chunk_limit: int = 6
+    attachment_rag_min_similarity: float = 0.25
+    attachment_rag_chunk_chars: int = 900
+    attachment_rag_chunk_overlap: int = 120
+    attachment_rag_max_chunks_per_file: int = 40
+
     # Daily image-upload cap (per user, UTC day). Vision/image inputs cost more
     # than text, so cap uploads separately from the token quota. Enforced at
     # presign so a user can't accumulate uploads past the limit.

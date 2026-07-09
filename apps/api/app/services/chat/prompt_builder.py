@@ -168,6 +168,7 @@ async def build_prompt_messages(
         recent_all = await chat_pkg.messages_repo.list_recent(session, chat_id, limit=recent_limit)
         memory_block = ""
         projects_block = ""
+        attachment_rag_block = ""
         if out is not None:
             out["recalled"] = 0
             out["memory_hints"] = []
@@ -217,11 +218,28 @@ async def build_prompt_messages(
                     s, user.id, settings
                 )
 
-        memory_block, todos_section, projects_block, recent_all = await asyncio.gather(
-            _memory_block(),
-            _todos_section(),
-            _projects_block(),
-            chat_pkg.messages_repo.list_recent(session, chat_id, limit=recent_limit),
+        async def _attachment_rag_block() -> str:
+            if not settings.attachment_rag_enabled or not query_text:
+                return ""
+            from app.services import attachment_rag as attachment_rag_service
+
+            async with SessionLocal() as s:
+                return await attachment_rag_service.retrieve_for_prompt(
+                    s,
+                    settings,
+                    user_id=user.id,
+                    chat_id=chat_id,
+                    query=query_text,
+                )
+
+        memory_block, todos_section, projects_block, recent_all, attachment_rag_block = (
+            await asyncio.gather(
+                _memory_block(),
+                _todos_section(),
+                _projects_block(),
+                chat_pkg.messages_repo.list_recent(session, chat_id, limit=recent_limit),
+                _attachment_rag_block(),
+            )
         )
         if out is not None:
             labels = set(chat_pkg.memory_service.SECTION_LABELS.values())
@@ -318,6 +336,8 @@ async def build_prompt_messages(
             system_parts.append(chat_pkg.email_service.GMAIL_HINT)
         if memory_block:
             system_parts.append(wrap_untrusted("memory", memory_block))
+        if attachment_rag_block:
+            system_parts.append(attachment_rag_block)
         if todos_section:
             system_parts.append(todos_section)
         if todo_sync_feedback:

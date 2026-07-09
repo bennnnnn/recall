@@ -373,3 +373,27 @@ class Attachment(Base):
     content_type: Mapped[str] = mapped_column(String(128), nullable=False)
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class AttachmentChunk(Base):
+    __tablename__ = "attachment_chunks"
+    __table_args__ = (
+        Index("ix_attachment_chunks_user_chat", "user_id", "chat_id"),
+        Index("ix_attachment_chunks_attachment", "attachment_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    attachment_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("attachments.id", ondelete="CASCADE"), nullable=False
+    )
+    chat_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("chats.id", ondelete="CASCADE"), nullable=True
+    )
+    chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    embedding_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

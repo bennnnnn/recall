@@ -26,10 +26,14 @@ async def purge_attachments_for_messages(
     rows = await attachments_repo.list_for_message_ids(session, message_ids)
     if not rows:
         return 0
+    attachment_ids = [row.id for row in rows]
+    from app.repositories import attachment_chunks as chunks_repo
+
+    await chunks_repo.delete_for_attachment_ids(session, attachment_ids)
     gateway = get_storage_gateway(settings)
     for row in rows:
         await gateway.delete_bytes(row.storage_key)
-    return await attachments_repo.delete_rows(session, [row.id for row in rows])
+    return await attachments_repo.delete_rows(session, attachment_ids)
 
 
 async def reap_orphan_attachments(settings: Settings) -> int:
