@@ -235,7 +235,7 @@
   "lists.new_group_title": "አዲስ ዝርዝር",
   "lists.open_count": "{{count}} ቀርቷል",
   "login.apple": "በ Apple ይግቡ",
-  "login.dev": "እንደ Dev ይቀጥሉ",
+  "login.dev": "እንደ Bini ይቀጥሉ",
   "login.dev_expo_hint": "Google Sign-In dev build ይፈልጋል። Dev login በExpo Go ይሰራል።",
   "login.dev_expo_ios_hint": "Google Sign-In dev build ይፈልጋል። በ Apple ወይም Dev login በ Expo Go ይሰራል።",
   "login.error_android_google": "Google Sign-In on Android needs an OAuth client in Google Cloud with package com.recall.app and your debug SHA-1. Run: ./scripts/android-debug-sha1.sh",

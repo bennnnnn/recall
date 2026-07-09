@@ -235,7 +235,7 @@
   "lists.new_group_title": "Yeni liste",
   "lists.open_count": "{{count}} kaldı",
   "login.apple": "Apple ile giriş yap",
-  "login.dev": "Dev kullanıcı olarak devam et",
+  "login.dev": "Bini olarak devam et",
   "login.dev_expo_hint": "Google ile giriş için geliştirme derlemesi gerekir. Dev girişi Expo Go'da çalışır.",
   "login.dev_expo_ios_hint": "Google Sign-In dev build gerektirir. Apple veya Dev girişi Expo Go'da çalışır.",
   "login.error_android_google": "Google Sign-In on Android needs an OAuth client in Google Cloud with package com.recall.app and your debug SHA-1. Run: ./scripts/android-debug-sha1.sh",

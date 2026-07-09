@@ -235,7 +235,7 @@
   "lists.new_group_title": "Nova lista",
   "lists.open_count": "{{count}} restantes",
   "login.apple": "Sign in with Apple",
-  "login.dev": "Continuar como usuário Dev",
+  "login.dev": "Continuar como Bini",
   "login.dev_expo_hint": "O login com Google precisa de uma build de desenvolvimento. O login Dev funciona no Expo Go.",
   "login.dev_expo_ios_hint": "Google Sign-In precisa de um dev build. Entrar com Apple ou Dev funciona no Expo Go.",
   "login.error_android_google": "Google Sign-In on Android needs an OAuth client in Google Cloud with package com.recall.app and your debug SHA-1. Run: ./scripts/android-debug-sha1.sh",
