@@ -269,6 +269,42 @@ async def refund_speech_transcription(redis: Redis, user_id: UUID) -> None:
         await redis.set(key, 0)
 
 
+def _tts_key(user_id: UUID, day: date) -> str:
+    return f"tts:{user_id}:{day.isoformat()}"
+
+
+def speech_tts_limit_for_user(user: User, settings: Settings) -> int:
+    if user.plan == "pro":
+        return settings.daily_speech_tts_pro
+    return settings.daily_speech_tts
+
+
+async def reserve_speech_tts(redis: Redis, user_id: UUID, *, limit: int) -> bool:
+    if limit <= 0:
+        return False
+    key = _tts_key(user_id, utc_today())
+    new_total = await redis.incrby(key, 1)
+    if new_total == 1:
+        await redis.expire(key, _SPEECH_TTL)
+    if new_total > limit:
+        await redis.incrby(key, -1)
+        return False
+    return True
+
+
+async def refund_speech_tts(redis: Redis, user_id: UUID) -> None:
+    key = _tts_key(user_id, utc_today())
+    new_total = await redis.incrby(key, -1)
+    if new_total < 0:
+        await redis.set(key, 0)
+
+
+def speech_tts_limit_exceeded_message(user: User) -> str:
+    if user.plan == "pro":
+        return "Daily read-aloud limit reached. Try again tomorrow."
+    return "Daily read-aloud limit reached. Upgrade to Pro for more, or use device speech."
+
+
 # ── Tavily web-search caps (DDG fallback when exceeded) ────────────────────────
 
 _TAVILY_TTL = 60 * 60 * 48

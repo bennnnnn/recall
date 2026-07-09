@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.core.config import Settings
-from app.services.speech import _openrouter_audio_format, transcribe_audio
+from app.services.speech import _openrouter_audio_format, synthesize_speech, transcribe_audio
 
 
 @pytest.mark.asyncio
@@ -65,3 +65,31 @@ async def test_transcribe_openrouter_json_api():
     body = call.kwargs["json"]
     assert body["model"] == "openai/gpt-4o-mini-transcribe"
     assert body["input_audio"]["format"] == "m4a"
+
+
+@pytest.mark.asyncio
+async def test_synthesize_returns_mock_when_mock_llm_enabled():
+    settings = Settings(
+        mock_llm_enabled=True,
+        openrouter_api_key="",
+        speech_tts_enabled=True,
+    )
+    with patch("app.services.speech.mock_llm.should_mock_llm", return_value=True):
+        result = await synthesize_speech(settings, "Hello world")
+    assert result is not None
+    audio, content_type = result
+    assert content_type == "audio/mpeg"
+    assert len(audio) > 0
+
+
+@pytest.mark.asyncio
+async def test_synthesize_disabled_returns_none():
+    settings = Settings(speech_tts_enabled=False)
+    assert await synthesize_speech(settings, "Hello") is None
+
+
+@pytest.mark.asyncio
+async def test_synthesize_empty_returns_none():
+    settings = Settings(mock_llm_enabled=True, speech_tts_enabled=True)
+    with patch("app.services.speech.mock_llm.should_mock_llm", return_value=True):
+        assert await synthesize_speech(settings, "   ") is None

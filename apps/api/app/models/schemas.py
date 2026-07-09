@@ -593,6 +593,17 @@ class SpeechTranscriptionIn(BaseModel):
     filename: str = "speech.m4a"
 
 
+class SpeechTtsIn(BaseModel):
+    text: str = Field(min_length=1, max_length=4000)
+    language: str | None = Field(default=None, max_length=16)
+
+
+class SpeechTtsOut(BaseModel):
+    audio_base64: str
+    content_type: str = "audio/mpeg"
+    model: str = "tts-model"
+
+
 class ImageGenerateIn(BaseModel):
     chat_id: UUID
     prompt: str = Field(min_length=1, max_length=2000)

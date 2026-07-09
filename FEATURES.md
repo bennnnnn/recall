@@ -538,8 +538,8 @@ structured Learning topic type.
 ### Voice
 | Shipped | Not done |
 |---------|----------|
-| Record → Whisper → composer (dev build), waveform UI, rate limits | Cloud/server TTS |
-| Device TTS read-aloud (`expo-speech` on assistant + vocab) | Duplex full-voice mode (out of scope) |
+| Record → Whisper → composer (dev build), waveform UI, rate limits | Duplex full-voice mode (out of scope) |
+| Device TTS + cloud TTS (`POST /speech/tts`, daily caps, device fallback) | — |
 
 ### Cost guards (recent)
 | Guard | Free | Pro |

@@ -9,7 +9,12 @@ from app.core.deps import get_current_user, get_settings_dep
 from app.core.rate_limit import allow_request
 from app.core.redis import get_redis_client
 from app.models.orm import User
-from app.models.schemas import SpeechTranscriptionIn, SpeechTranscriptionOut
+from app.models.schemas import (
+    SpeechTranscriptionIn,
+    SpeechTranscriptionOut,
+    SpeechTtsIn,
+    SpeechTtsOut,
+)
 from app.services import quota as quota_service
 from app.services import speech as speech_service
 
@@ -54,6 +59,63 @@ async def _transcribe_bytes(
             detail="Could not transcribe audio",
         )
     return SpeechTranscriptionOut(text=text)
+
+
+@router.post("/tts", response_model=SpeechTtsOut)
+async def synthesize_speech(
+    body: SpeechTtsIn,
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings_dep),
+) -> SpeechTtsOut:
+    if not settings.speech_tts_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
+
+    redis = get_redis_client()
+    rate_limit = settings.speech_rate_limit_per_minute
+    if rate_limit > 0:
+        allowed = await allow_request(
+            redis,
+            f"speech_tts_rl:{user.id}",
+            limit=rate_limit,
+            window_seconds=60,
+        )
+        if not allowed:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=quota_service.SPEECH_RATE_LIMIT_MESSAGE,
+            )
+
+    daily_limit = quota_service.speech_tts_limit_for_user(user, settings)
+    if not await quota_service.reserve_speech_tts(redis, user.id, limit=daily_limit):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=quota_service.speech_tts_limit_exceeded_message(user),
+        )
+
+    try:
+        result = await speech_service.synthesize_speech(
+            settings,
+            body.text,
+            language=body.language,
+        )
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Could not synthesize speech",
+            )
+        audio_bytes, content_type = result
+        return SpeechTtsOut(
+            audio_base64=base64.b64encode(audio_bytes).decode("ascii"),
+            content_type=content_type,
+            model="tts-model",
+        )
+    except HTTPException as exc:
+        if exc.status_code != status.HTTP_429_TOO_MANY_REQUESTS:
+            await quota_service.refund_speech_tts(redis, user.id)
+        raise
+    except Exception:
+        await quota_service.refund_speech_tts(redis, user.id)
+        raise
 
 
 @router.post("/transcribe", response_model=SpeechTranscriptionOut)

@@ -27,6 +27,7 @@ import { useStreamLayoutHold } from "@/hooks/useStreamLayoutHold";
 import { useRotatingStreamStatus } from "@/lib/streamStatusLabel";
 import { Theme, useTheme } from "@/lib/theme";
 import { speakPlainText, stopSpeaking } from "@/lib/pronunciation";
+import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "react-i18next";
 
 type Props = {
@@ -70,6 +71,7 @@ function AssistantActions({
   hidden?: boolean;
 }) {
   const { t } = useTranslation();
+  const { token } = useAuth();
   const [copied, setCopied] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -90,7 +92,7 @@ function AssistantActions({
     }
     tap();
     setSpeaking(true);
-    const result = await speakPlainText(content);
+    const result = await speakPlainText(content, "en-US", { token });
     setSpeaking(false);
     if (!result.ok) {
       Alert.alert(t("chat.read_aloud_unavailable_title"), t("chat.read_aloud_unavailable_body"));
