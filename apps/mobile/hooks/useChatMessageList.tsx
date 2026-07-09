@@ -11,6 +11,7 @@ import {
   priorUserTextFor,
   streamVisualActiveForRow,
 } from "@/lib/chatMessageLogic";
+import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/lib/imageGenIntent";
 
 type Options = {
   messages: Message[];
@@ -27,6 +28,7 @@ type Options = {
   suggestions?: Suggestion[];
   onSelectSuggestion?: (prompt: string) => void;
   onDismissSuggestion?: (id: string) => void;
+  imageGenerating?: boolean;
 };
 
 export function useChatMessageList({
@@ -44,6 +46,7 @@ export function useChatMessageList({
   suggestions = [],
   onSelectSuggestion,
   onDismissSuggestion,
+  imageGenerating = false,
 }: Options) {
   useEffect(() => {
     if (messages.length === 0) setMenuVisible(false);
@@ -58,6 +61,7 @@ export function useChatMessageList({
   const showSuggestions =
     !streaming &&
     !finalizing &&
+    !imageGenerating &&
     suggestions.length > 0 &&
     Boolean(onSelectSuggestion) &&
     Boolean(onDismissSuggestion);
@@ -89,12 +93,17 @@ export function useChatMessageList({
     ({ item, index }: { item: Message; index: number }) => {
       const priorUserText = priorUserTextFor(messages, index);
 
-      if (item.id === "streaming") {
+      if (item.id === "streaming" || item.id === IMAGE_GEN_PENDING_ASSISTANT_ID) {
         return (
           <StreamingChatMessageRow
             item={item}
             priorUserText={priorUserText}
-            streamVisualActive={isChatStreamActive(streaming, finalizing)}
+            streamVisualActive={
+              item.id === IMAGE_GEN_PENDING_ASSISTANT_ID
+                ? true
+                : isChatStreamActive(streaming, finalizing)
+            }
+            imageGenPending={item.id === IMAGE_GEN_PENDING_ASSISTANT_ID}
             {...sharedRowProps}
           />
         );

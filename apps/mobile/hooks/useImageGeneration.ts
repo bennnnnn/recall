@@ -4,6 +4,10 @@ import { useRouter } from "expo-router";
 
 import { api } from "@/lib/api";
 import { parseApiErrorDetail, resolveChatError } from "@/lib/chatErrorMessage";
+import {
+  IMAGE_GEN_PENDING_ASSISTANT_ID,
+  imageGenUserMessageContent,
+} from "@/lib/imageGenIntent";
 
 type DraftChat = {
   prepareDraftChat: (
@@ -91,9 +95,41 @@ export function useImageGeneration({
         return;
       }
       setGenerating(true);
+      const optimisticUserId = `local-img-${Date.now()}`;
+      const createdAt = new Date().toISOString();
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: optimisticUserId,
+          role: "user",
+          content: imageGenUserMessageContent(prompt),
+          model: null,
+          created_at: createdAt,
+        },
+        {
+          id: IMAGE_GEN_PENDING_ASSISTANT_ID,
+          role: "assistant",
+          content: "",
+          model: "image-gen-model",
+          created_at: createdAt,
+        },
+      ]);
+      newMessageCountRef.current += 2;
+      onScrollToLatest();
+
+      const clearOptimistic = () => {
+        setMessages((prev) =>
+          prev.filter(
+            (m) => m.id !== optimisticUserId && m.id !== IMAGE_GEN_PENDING_ASSISTANT_ID,
+          ),
+        );
+        newMessageCountRef.current = Math.max(0, newMessageCountRef.current - 2);
+      };
+
       try {
         const activeChatId = await ensureChatId();
         if (!activeChatId) {
+          clearOptimistic();
           Alert.alert(t("chat.error_title"), t("chat.error_generic"));
           return;
         }
@@ -101,11 +137,16 @@ export function useImageGeneration({
           chat_id: activeChatId,
           prompt,
         });
-        setMessages((prev) => [...prev, result.user_message, result.assistant_message]);
-        newMessageCountRef.current += 2;
+        setMessages((prev) => {
+          const without = prev.filter(
+            (m) => m.id !== optimisticUserId && m.id !== IMAGE_GEN_PENDING_ASSISTANT_ID,
+          );
+          return [...without, result.user_message, result.assistant_message];
+        });
         setPromptOpen(false);
         onScrollToLatest();
       } catch (error) {
+        clearOptimistic();
         const message = error instanceof Error ? error.message : t("common.error");
         const parsed = parseApiErrorDetail(message) ?? message;
         if (parsed.toLowerCase().includes("pro")) {

@@ -10,6 +10,8 @@ type Props = {
   priorUserText: string | null;
   /** Always the real streaming/finalizing value — this row only exists while active. */
   streamVisualActive: boolean;
+  /** When true, show the image-generation status label instead of chat stream draft. */
+  imageGenPending?: boolean;
   lastAssistantId: string | null;
   selectedModel: string;
   quizLanguage: string;
@@ -24,6 +26,7 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
   item,
   priorUserText,
   streamVisualActive,
+  imageGenPending = false,
   lastAssistantId,
   selectedModel,
   quizLanguage,
@@ -44,7 +47,7 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
       liveContent={streamingDraft?.content}
       liveSearchSources={streamingDraft?.search_sources}
       liveReasoning={streamingDraft?.reasoning}
-      streamStatus={streamingDraft?.status}
+      streamStatus={imageGenPending ? "image_gen" : streamingDraft?.status}
       isLastAssistant={isLastAssistant}
       onRegenerate={
         isLastAssistant && !streamVisualActive ? () => onRegenerate(selectedModel) : undefined

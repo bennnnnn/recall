@@ -14,5 +14,5 @@ export const imagesApi = {
     request<ImageGenerateResult>("/images/generate", token, {
       method: "POST",
       body: JSON.stringify(body),
-    }),
+    }, true, 120_000),
 };

@@ -3,6 +3,12 @@
  * (ChatGPT-style) instead of the attach-menu flow.
  */
 
+export const IMAGE_GEN_PENDING_ASSISTANT_ID = "image-gen-pending";
+
+export function imageGenUserMessageContent(prompt: string): string {
+  return `Generate image: ${prompt}`;
+}
+
 const IMAGE_NOUN =
   /\b(?:images?|pictures?|pics?|photos?|illustrations?|artworks?|drawings?|portraits?)\b/i;
 

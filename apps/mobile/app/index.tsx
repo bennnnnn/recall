@@ -375,6 +375,7 @@ function ChatScreen() {
     suggestions,
     onSelectSuggestion,
     onDismissSuggestion: dismissSuggestion,
+    imageGenerating: imageGen.generating,
   });
 
   const layout = useChatLayoutMetrics({
