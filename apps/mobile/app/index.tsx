@@ -28,6 +28,7 @@ import { useChatComposerState } from "@/hooks/useChatComposerState";
 import { useChatDraftWarmup } from "@/hooks/useChatDraftWarmup";
 import { useChatLayoutMetrics } from "@/hooks/useChatLayoutMetrics";
 import { useChatMessageList } from "@/hooks/useChatMessageList";
+import { useChatSuggestions } from "@/hooks/useChatSuggestions";
 import { useChatQuizContext } from "@/hooks/useChatQuizContext";
 import { useChatRegenerate } from "@/hooks/useChatRegenerate";
 import { useChatRouteLoader, useQueuedChatLaunch } from "@/hooks/useChatRouteLoader";
@@ -337,6 +338,19 @@ function ChatScreen() {
 
   const displayMessages = messages;
 
+  const { suggestions, dismiss: dismissSuggestion } = useChatSuggestions({
+    token,
+    enabled: Boolean(token) && displayMessages.length > 0,
+    refreshKey: `${streaming}-${finalizing}-${displayMessages.length}`,
+  });
+
+  const onSelectSuggestion = useCallback(
+    (prompt: string) => {
+      void handleSend(prompt);
+    },
+    [handleSend],
+  );
+
   const { headerTitleLabel, renderItem } = useChatMessageList({
     messages: displayMessages,
     streaming,
@@ -349,6 +363,9 @@ function ChatScreen() {
     regenerateResponse: handleRegenerate,
     handleEditMessage,
     handleFeedback,
+    suggestions,
+    onSelectSuggestion,
+    onDismissSuggestion: dismissSuggestion,
   });
 
   const layout = useChatLayoutMetrics({
