@@ -139,7 +139,13 @@ export function computeChatLayoutMetrics(options: {
       : Math.max(options.insetsBottom, CHAT_COMPOSER_MIN_BOTTOM_PAD);
   const composerBlockHeight = options.composerHeight + options.attachmentExtra;
   const composerClearance = composerBlockHeight + composerBottomPad + composerLift;
-  const showFeedbackRow = options.messagesLength > 0 && !options.streaming;
+  // Reserve the feedback-row clearance whenever the thread has messages —
+  // NOT only when idle. Toggling this on `!streaming` grew the list's bottom
+  // padding the instant a stream ended; with maintainVisibleContentPosition
+  // pinning the bottom, that shifted every message up ~48px right as the reply
+  // landed (the feedback icons themselves fade in later, via the in-bubble
+  // slot). Keeping it constant across streaming→idle removes that jump.
+  const showFeedbackRow = options.messagesLength > 0;
   const listBottomPad =
     composerBlockHeight +
     composerBottomPad +
