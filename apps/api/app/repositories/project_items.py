@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.orm import ProjectItem
 
 DEFAULT_LIST = "General"
-REVIEW_INTERVAL = timedelta(hours=24)
+REVIEW_INTERVAL = timedelta(hours=24)  # legacy fallback when due_at is unset
 
 POS_PLURAL: dict[str, str] = {
     "noun": "nouns",
@@ -187,6 +187,12 @@ def stats_from_items(
 
 def _is_due(item: ProjectItem, due_cutoff: datetime) -> bool:
     status = item.status or ("mastered" if item.mastered else "new")
+    now = datetime.now(UTC)
+    due_at = getattr(item, "due_at", None)
+    if isinstance(due_at, datetime):
+        if due_at.tzinfo is None:
+            due_at = due_at.replace(tzinfo=UTC)
+        return due_at <= now
     if status == "new":
         return True
     if status == "learning":
@@ -308,8 +314,21 @@ async def update(session: AsyncSession, item: ProjectItem, **fields: Any) -> Pro
         new_status = str(fields["status"])
         _sync_mastered_fields(item, new_status)
         if new_status != prior_status:
+            from app.services.sm2 import apply_sm2, quality_for_status
+
+            quality = quality_for_status(new_status)
+            state = apply_sm2(
+                quality=quality,
+                ease_factor=float(getattr(item, "ease_factor", 2.5) or 2.5),
+                interval_days=int(getattr(item, "interval_days", 0) or 0),
+                review_count=int(item.review_count or 0),
+                now=now,
+            )
             item.last_reviewed_at = now
-            item.review_count = int(item.review_count or 0) + 1
+            item.review_count = state.review_count
+            item.ease_factor = state.ease_factor
+            item.interval_days = state.interval_days
+            item.due_at = state.due_at
     await session.commit()
     await session.refresh(item)
     return item
