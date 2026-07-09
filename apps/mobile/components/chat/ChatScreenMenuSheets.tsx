@@ -5,10 +5,12 @@ type Props = {
   menuVisible: boolean;
   chatTitle: string | null;
   pinned: boolean;
+  archived: boolean;
   onCloseMenu: () => void;
   onShare: () => void;
   onRename: () => void;
   onTogglePin: () => void;
+  onToggleArchive: () => void;
   onDelete: () => void;
   renameVisible: boolean;
   renameText: string;
@@ -21,10 +23,12 @@ export function ChatScreenMenuSheets({
   menuVisible,
   chatTitle,
   pinned,
+  archived,
   onCloseMenu,
   onShare,
   onRename,
   onTogglePin,
+  onToggleArchive,
   onDelete,
   renameVisible,
   renameText,
@@ -38,10 +42,12 @@ export function ChatScreenMenuSheets({
         visible={menuVisible}
         title={chatTitle}
         pinned={pinned}
+        archived={archived}
         onClose={onCloseMenu}
         onShare={onShare}
         onRename={onRename}
         onTogglePin={onTogglePin}
+        onToggleArchive={onToggleArchive}
         onDelete={onDelete}
       />
       <ChatRenameSheet

@@ -119,6 +119,8 @@
   "chat.offline_title": "You're offline",
   "chat.pin": "Pin",
   "chat.pin_failed": "Could not update pin.",
+  "chat.archive_failed": "Could not update archive.",
+  "chat.feedback_failed": "Could not save feedback.",
   "chat.pinned_toast": "Chat pinned",
   "chat.placeholder": "Message Recall...",
   "chat.plan_free": "Free",

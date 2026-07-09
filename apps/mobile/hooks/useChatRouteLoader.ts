@@ -76,6 +76,7 @@ export function useChatRouteLoader({
   const [chatTitle, setChatTitle] = useState<string | null>(null);
   const [titleGenerating, setTitleGenerating] = useState(false);
   const [pinned, setPinned] = useState(false);
+  const [archived, setArchived] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
   const [hasMoreOlder, setHasMoreOlder] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -159,6 +160,7 @@ export function useChatRouteLoader({
           setChatId(null);
           setChatTitle(null);
           setPinned(false);
+          setArchived(false);
           setMessages([]);
           setHasMoreOlder(false);
         }
@@ -189,6 +191,7 @@ export function useChatRouteLoader({
         setChatId(chat.id);
         setChatTitle(chat.title);
         setPinned(chat.pinned);
+        setArchived(Boolean(chat.archived));
         draftProjectIdRef.current = chat.project_id ?? draftProjectIdRef.current;
         setQuizVariant(resolveQuizVariant(chat.project_id));
         setMessages(page.messages);
@@ -225,6 +228,7 @@ export function useChatRouteLoader({
           setChatId(chat.id);
           setChatTitle(chat.title);
           setPinned(chat.pinned);
+          setArchived(Boolean(chat.archived));
           draftProjectIdRef.current = chat.project_id ?? draftProjectIdRef.current;
           setQuizVariant(resolveQuizVariant(chat.project_id));
           setMessages(page.messages);
@@ -306,6 +310,7 @@ export function useChatRouteLoader({
     setChatId(null);
     setChatTitle(null);
     setPinned(false);
+    setArchived(false);
     setMessages([]);
     setHasMoreOlder(false);
     if (routeChatId != null) {
@@ -343,6 +348,7 @@ export function useChatRouteLoader({
       setChatId(null);
       setChatTitle(null);
       setPinned(false);
+      setArchived(false);
       setMessages([]);
       setHasMoreOlder(false);
       creatingRef.current = false;
@@ -390,6 +396,8 @@ export function useChatRouteLoader({
     titleGenerating,
     pinned,
     setPinned,
+    archived,
+    setArchived,
     chatLoading,
     hasMoreOlder,
     loadingOlder,

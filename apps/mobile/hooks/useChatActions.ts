@@ -5,7 +5,7 @@ import type { Ionicons } from "@expo/vector-icons";
 
 type Router = ReturnType<typeof useRouter>;
 
-import { patchChatGlobal } from "@/lib/drawer";
+import { moveChatArchiveGlobal, patchChatGlobal } from "@/lib/drawer";
 import { api, type Message } from "@/lib/api";
 import { tap } from "@/lib/haptics";
 import { shareConversation } from "@/lib/share";
@@ -21,10 +21,12 @@ type Options = {
   messages: Message[];
   pinned: boolean;
   setPinned: React.Dispatch<React.SetStateAction<boolean>>;
+  archived: boolean;
+  setArchived: React.Dispatch<React.SetStateAction<boolean>>;
   setChatTitle: React.Dispatch<React.SetStateAction<string | null>>;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   router: Router;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, unknown>) => string;
 };
 
 export function useChatActions({
@@ -34,6 +36,8 @@ export function useChatActions({
   messages,
   pinned,
   setPinned,
+  archived,
+  setArchived,
   setChatTitle,
   setMessages,
   router,
@@ -60,16 +64,26 @@ export function useChatActions({
 
   const handleFeedback = useCallback(
     (messageId: string, next: "up" | "down" | null) => {
+      let previous: "up" | "down" | null = null;
       setMessages((prev) =>
-        prev.map((mm) =>
-          mm.id === messageId ? { ...mm, feedback: next } : mm,
-        ),
+        prev.map((mm) => {
+          if (mm.id !== messageId) return mm;
+          previous = mm.feedback ?? null;
+          return { ...mm, feedback: next };
+        }),
       );
       if (token && chatId && SERVER_MESSAGE_ID.test(messageId)) {
-        api.setMessageFeedback(token, chatId, messageId, next).catch(() => {});
+        void api.setMessageFeedback(token, chatId, messageId, next).catch(() => {
+          setMessages((prev) =>
+            prev.map((mm) =>
+              mm.id === messageId ? { ...mm, feedback: previous } : mm,
+            ),
+          );
+          Alert.alert(t("common.error"), t("chat.feedback_failed"));
+        });
       }
     },
-    [token, chatId, setMessages],
+    [token, chatId, setMessages, t],
   );
 
   const handleShare = useCallback(async () => {
@@ -124,6 +138,25 @@ export function useChatActions({
     }
   }, [chatId, token, pinned, setPinned, showActionBanner, t]);
 
+  const toggleArchive = useCallback(async () => {
+    if (!chatId || !token) return;
+    tap();
+    const next = !archived;
+    setArchived(next);
+    moveChatArchiveGlobal(chatId, next);
+    try {
+      await api.setArchive(token, chatId, next);
+      showActionBanner(
+        next ? t("chat.archived_toast") : t("chat.unarchived_toast"),
+        next ? "archive-outline" : "arrow-undo-outline",
+      );
+    } catch {
+      setArchived(!next);
+      moveChatArchiveGlobal(chatId, !next);
+      Alert.alert(t("common.error"), t("chat.archive_failed"));
+    }
+  }, [chatId, token, archived, setArchived, showActionBanner, t]);
+
   const confirmDelete = useCallback(() => {
     Alert.alert(
       t("chat.delete_confirm_title"),
@@ -172,6 +205,12 @@ export function useChatActions({
     void togglePin();
   }, [closeMenu, togglePin]);
 
+  const onToggleArchiveFromMenu = useCallback(() => {
+    tap();
+    closeMenu();
+    void toggleArchive();
+  }, [closeMenu, toggleArchive]);
+
   const onDeleteFromMenu = useCallback(() => {
     tap();
     closeMenu();
@@ -194,10 +233,12 @@ export function useChatActions({
     openRename,
     confirmRename,
     togglePin,
+    toggleArchive,
     confirmDelete,
     onShareFromMenu,
     onRenameFromMenu,
     onTogglePinFromMenu,
+    onToggleArchiveFromMenu,
     onDeleteFromMenu,
   };
 }
