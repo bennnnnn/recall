@@ -34,14 +34,15 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
 - ✅ **Rename** — via the in-chat `⋯` menu (modal editor).
 - ✅ **Delete** — via the in-chat `⋯` menu with a confirmation prompt (DB-level cascade removes its
   messages).
-- ✅ **Search** — full-text search across all your chats and messages on a dedicated search
-  screen (backend `/search`), plus the drawer's client-side title filter.
+- ✅ **Search** — full-text search across chats and messages via the drawer search bar
+  (backend `/search` with debounce + pagination).
 - ✅ **Pin** — pin/unpin a chat (chat `⋯` menu + drawer long-press); pinned chats show in a
   **Pinned** section at the top of the drawer.
 - ✅ **Share / Export** — share a conversation as a markdown transcript via the native share sheet
   (chat `⋯` menu + drawer long-press); no backend needed.
-- ✅ **Manage from the drawer** — long-press any chat for **Pin/Unpin · Share · Delete**.
-- ✅ **Archive** — chats can be archived (chat `⋯` menu + drawer); archived chats show in a separate section and are excluded from the main list.
+- ✅ **Manage from the drawer** — long-press any chat for **Pin/Unpin · Share · Archive · Delete**.
+- ⚠️ **Archive** — chats can be archived from the drawer (long-press); archived chats show in a
+  separate section and are excluded from the main list. In-chat `⋯` archive is pending.
 - 🔜 Folders, multi-select, and a true swipe-to-delete gesture (needs a gesture
   library + dev build).
 - ✅ **Project-scoped chats** — chats created from a learning project carry `project_id` (see [§17](#17-projects-utility-workspaces)).
@@ -51,19 +52,24 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
 - ✅ **Stop generation** — cancel mid-stream (send button becomes a stop button); the partial reply
   is kept.
 - ✅ **Regenerate** — re-run the last assistant reply.
-- ✅ **Message folding** — long user messages *and* long replies collapse past ~320px with a fade +
-  **Show more / Show less** (disabled while a reply is still streaming).
+- ⚠️ **Message folding** — long **user** messages collapse past ~320px with a fade +
+  **Show more / Show less** (disabled while a reply is still streaming). Assistant-reply folding
+  is pending.
 - ✅ **Copy** — copy a whole message, and a dedicated copy button per code block.
 - ✅ **Like / dislike** — thumbs up/down persist per message (saved to the backend and restored on
   load); tapping the active rating clears it.
 - ✅ **Per-message model** — the model used is recorded on each message.
-- ✅ **Edit & resend** — edit the **last** user message (pencil under the bubble); drops the old
-  reply, rewrites the message, and re-runs. (Last-message only, so it never rewrites summarized
-  history.)
+- ✅ **Edit & resend** — edit a user message (pencil under the bubble); truncates forward from that
+  turn, rewrites the message, and re-runs.
 - ✅ **Web search** — when the user's question needs fresh facts, the backend runs Tavily (or
   DuckDuckGo fallback) and injects results; source links render under the reply (skipped on vocab
   quiz turns).
-- 🔜 Edit any earlier message, message-level share, reactions, read receipts, voice input.
+- ✅ **Voice input (STT)** — mic in the composer records on-device (`expo-audio`, **dev build**),
+  transcribes via Whisper (OpenRouter), and injects the transcript as normal text. Daily caps
+  (30 free / 200 Pro). Not available in Expo Go.
+- ⚠️ **Read aloud (TTS)** — speaker on assistant messages (and vocab words) uses on-device
+  `expo-speech`. Cloud/server TTS not built yet.
+- 🔜 Message-level share, reactions, read receipts; duplex full-voice mode (out of scope).
 
 ## 4. Formatting & rendering
 - ✅ **Markdown** — headings, **bold**/*italic*, bullet & numbered lists, blockquotes, links,
@@ -110,7 +116,8 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
   a rules UI/storage).
 
 ## 6. Memory (remembering the user)
-- ✅ **Automatic extraction** — durable facts are extracted in the background **every turn**.
+- ✅ **Automatic extraction** — durable facts are extracted in the background on **turn 1 and
+  every 3rd turn** (`memory_extract_every_n_turns`), not every turn.
 - ✅ **Typed memories** — `profile` · `preference` · `project` · `fact` · `focus` (captures things
   like interests, what they're working on, name, job, country when mentioned).
 - ✅ **Quality controls** — confidence threshold, de-duplication, priority ordering, capped count.
@@ -166,13 +173,16 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
 - ✅ **Avatar** — shows the Google profile picture, falling back to the user's initials (no upload
   by design).
 - ✅ **Language / i18n** — `react-i18next` with English, Spanish, French, Amharic, German, Italian, Portuguese, Russian, and Turkish.
-- ⚠️ **Dark theme** — the chat screen follows the system light/dark scheme; the remaining screens
-  are still light (theme rollout in progress).
+- ✅ **Dark / light theme** — screens use `useTheme()` with system or manual appearance in
+  Preferences. Some older hardcoded English strings remain (see i18n backlog).
 - ✅ **Local todo reminders** — scheduled on-device notifications when a todo item is due (via
   `expo-notifications`; requires a dev build for full native support).
 - ✅ **Remote push (MVP)** — Expo push tokens registered with the backend; learning-review and
-  todo-due notifications (requires dev build + EAS project ID).
-- 🔜 Email reminders, theming the remaining screens.
+  Gmail-suggestion nudges (requires dev build + EAS project ID). Server-side todo-due push exists
+  but is **off by default** (`server_todo_push_enabled`) so local reminders own todos.
+- ✅ **Transactional email (narrow)** — Resend welcome on signup + Pro purchase receipt
+  (background jobs; optional `RESEND_API_KEY`).
+- 🔜 Email reminders (todo/learning), fuller i18n for legal/reminder/share strings.
 
 ## 11. Navigation & UX
 - ✅ **Drawer** — custom slide-in: search, New chat, chat history, profile + settings.
@@ -181,8 +191,8 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
 - ✅ **States** — login, loading, empty chat ("How can I help?"), empty memory, drawer offline/retry.
 - ✅ **Onboarding** — a first-run welcome screen (value props + "Get started"), shown once before
   the first sign-in.
-- ✅ **"Recalled" chips** — when a reply used your memories, a subtle "✨ Recalled N memories" chip
-  fades in above it (live replies only).
+- ⚠️ **"Recalled" chips** — backend streams `recalled` / memory hints on live replies; mobile
+  parses them into message state, but the chip UI is not rendered yet (i18n keys exist).
 - ✅ **Polish** — light haptic taps on key actions (Android via the built-in API) + chip fade-in
   animation.
 - ✅ **iOS haptics** — `expo-haptics` on real devices (graceful no-op on Android / Expo Go).
@@ -333,25 +343,28 @@ courses, habits, and anything else that needs structure over time.
 - ✅ **`projects` table** — title, description, `kind` (`general` | `vocabulary` | `language` |
   `trivia` | `learning`), archive flag.
 - ✅ **REST API** — `GET/POST /projects`, `GET/PATCH/DELETE /projects/{id}`.
-- ✅ **Mobile** — drawer **Projects** link → list → create → detail screen.
-- ✅ **Project kinds** — taxonomy hook for different toolkits per type (no modules yet).
+- ✅ **Mobile** — drawer **Learning** link → list → create → detail screen.
+- ✅ **Project kinds** — mobile create flow offers **English vocabulary** (`language`) and
+  **general knowledge** (`trivia`); other schema kinds are not exposed in the UI.
 
 ### Phase 2 — Vocabulary (Learning English)
 - ✅ **Decks / groups** — organize words by deck title; part-of-speech grouping on detail screen.
 - ✅ **Vocab items** — term, definition, example sentence, status (new / mastered), review tracking.
 - ✅ **Mark as known** — progress per item; stats on project detail (learned / due / this week).
-- ✅ **AI tutor + quiz** — "Ask Recall" and "Quiz with Recall" launch scoped chats; model emits
-  `vocab_quiz` blocks; mobile shows A–D choices with fast-path answers (minimal context, no web
-  search on quiz turns).
-- 🔜 **Pronunciation** — TTS play button per word (uses audio-out substrate).
-- 🔜 **Spaced repetition scheduling** — due-for-review uses last_reviewed_at today; richer SM-2-style
-  scheduling not built yet.
+- ✅ **AI tutor + quiz** — scoped chats from Learning; model emits `vocab_quiz` blocks; mobile
+  shows A–D choices (type letter; fast-path answers, minimal context, no web search on quiz turns).
+- ⚠️ **Pronunciation** — play button per word uses on-device `expo-speech`; cloud TTS /
+  `pronunciation_url` not wired yet.
+- 🔜 **Spaced repetition scheduling** — due-for-review uses a fixed ~24h heuristic today; richer
+  SM-2-style scheduling not built yet.
+- ⚠️ **Deck browse on language detail** — backend stores decks/POS; language detail UI currently
+  emphasizes daily mastered words more than a full deck browser.
 
 ### Phase 3 — Cross-linking
 - ✅ **`project_id` on chats** — conversations started from a project carry `project_id`; prompt
   injection scopes to that one project (+ tutor hints) instead of all projects.
 - 🔜 **Link todos to projects** — due dates + project goals in one view.
-- ✅ **Home starters** — active project highlight on home; tap opens project or starts scoped chat.
+- ✅ **Home starters** — active project highlight on home; tap starts a scoped daily chat.
 
 ### Phase 4 — More project types
 - ✅ **General knowledge (trivia)** — topic picker, scoped quiz chat, daily goal.
@@ -363,16 +376,14 @@ device).
 ---
 
 ## Deferred to upcoming version(s)
-A consolidated list of what's intentionally **not** in this version:
+A consolidated list of what's intentionally **not** (or only partially) in this version:
 
 - 🔜 **Full MCP / multi-turn tool loop** — pre-stream adapter round exists; LiteLLM `tools=` loop not
   built yet. See [§16 MCP & calendar](#16-mcp--calendar-planned).
-- 🔜 **Plugins / arbitrary user MCP servers**
+- 🔜 **Plugins / arbitrary user MCP servers** (out of scope for v1)
 - 🔜 **Full RAG** (pgvector over attachments + chat corpora; memory embeddings exist today)
 - 🔜 **Code execution** (beyond sandboxed HTML/chart preview)
-- ⚠️ **File / image upload** — attachment substrate partially wired; not full vision/RAG pipeline
-- ⚠️ **Image input/output** — Pro **image output** shipped via composer; vision input for chat
-  attachments exists; full multimodal end-to-end still in progress
+- 🔜 **Cloud TTS** — device read-aloud shipped; server TTS not built
 - 🔜 **Camera math solver** — snap a photo of a math problem → AI reads it, solves it, and renders
   the worked, step-by-step solution formatted to match the problem. Composite feature, built on:
   camera capture (`expo-camera` / image picker), **image input** via a **vision model or math OCR**,
@@ -381,8 +392,7 @@ A consolidated list of what's intentionally **not** in this version:
   sources shown on assistant messages (hidden on vocab quiz cards).
 - 🔜 **Collaborative cursors / shared docs** — real-time co-editing; personal app only today.
 - 🔜 Structured profile fields, dedicated worker process, multi-select, swipe-to-delete (gesture lib),
-  editing arbitrary (older) messages, live model latency/health, user-tunable routing rules,
-  email-only reminders, theming the remaining screens.
+  live model latency/health, user-tunable routing rules, email reminders, duplex voice mode.
 
 ### Pre-deployment TODO (from the holistic review)
 
@@ -433,33 +443,26 @@ Still open (non-blocking):
   sentence-level diff/merge.
 - 🔜 **Exact memory consolidation merge** — per-section merge-not-replace LLM pass (deferred).
 
-### Multimodal & attachments (planned)
+### Multimodal & attachments
 
-Richer inputs/outputs, grouped because they share one prerequisite — an **attachments
-substrate** — so it's built once and reused by all of them.
+Shared **attachments substrate** (presigned upload, `attachments` table, local or R2 storage,
+magic-byte validation, daily caps). Blobs never live in Postgres.
 
-- 🔜 **Attachments substrate (build first)** — object storage on **S3** (or an
-  S3-compatible store such as **Cloudflare R2** to avoid egress fees when the app
-  re-downloads media), accessed via **presigned upload/download URLs** so the client
-  talks to storage directly and provider/storage keys stay server-side. Adds an
-  `attachments` table (owner, message link, storage key, content-type, size) — blobs
-  never live in Postgres. Private bucket + short-lived signed URLs, per-user scoping,
-  content-type/size validation.
-- 🔜 **Image upload (vision)** — attach or take a photo; routed to a vision-capable
-  catalog model (e.g. MiniMax M3 / other multimodal model). The message `content`
-  becomes a parts array (text + image reference) instead of a plain string.
-- 🔜 **File upload (PDF, docs, etc.)** — upload → extract text server-side → chunk →
-  retrieve (pairs with the RAG / pgvector item) → answer; file shown as an attachment chip.
-- 🔜 **Audio in (speech-to-text)** — record on device → transcribe (Whisper/STT) → feed
-  the transcript as a normal text turn. Minimal impact on the chat core.
-- 🔜 **Audio out (text-to-speech)** — "read aloud" the assistant's reply (TTS → play
-  audio). Output-only.
-- 🔒 **Out of scope: full voice mode** — real-time, full-duplex spoken conversation
-  (low-latency streaming, barge-in) is its own project; deferred indefinitely.
+| Capability | Status |
+|------------|--------|
+| Presigned upload + confirm + orphan reaper | ✅ Shipped (local default; R2 when `STORAGE_BACKEND=r2` + secrets) |
+| Image upload → vision-chat routing (Gemini via OpenRouter) | ✅ Shipped |
+| Pro image generation (composer sheet, daily cap) | ✅ Shipped |
+| PDF / doc upload + server text extract into prompt | ✅ Shipped (no OCR for scanned PDFs) |
+| PDF inline preview (pdf.js WebView, dev build) | ✅ Shipped |
+| Audio in (Whisper STT → composer) | ✅ Shipped (dev build) |
+| Audio out (read aloud) | ⚠️ Device `expo-speech` only; cloud TTS 🔜 |
+| pgvector RAG over attachment corpora | 🔜 Deferred |
+| Camera math solver UX | 🔜 Deferred |
+| Full duplex voice mode | 🔒 Out of scope |
 
-Notes: multimodal routes through whichever catalog model supports the modality (DeepSeek
-is text-only), so each capability activates per provider/model as they're added. Multimodal
-calls cost more than text — likely gate behind a paid tier + the existing token quota.
+Notes: multimodal routes through whichever catalog model supports the modality (DeepSeek is
+text-only). Multimodal calls cost more than text — gated by plan + daily caps (images, speech).
 
 ### Web client (planned)
 
@@ -535,7 +538,8 @@ structured Learning topic type.
 ### Voice
 | Shipped | Not done |
 |---------|----------|
-| Record → Whisper → composer (dev build), waveform UI, rate limits | TTS read-aloud, duplex voice mode |
+| Record → Whisper → composer (dev build), waveform UI, rate limits | Cloud/server TTS |
+| Device TTS read-aloud (`expo-speech` on assistant + vocab) | Duplex full-voice mode (out of scope) |
 
 ### Cost guards (recent)
 | Guard | Free | Pro |
@@ -562,4 +566,6 @@ structured Learning topic type.
 
 ### Explicitly not v1
 Multi-user teams, collaborative editing, arbitrary code execution (except sandboxed HTML/chart
-preview WebView), web client, gamification (streaks/XP/badges), full RAG, dedicated worker fleet.
+preview WebView), web client, gamification (streaks/XP/badges), duplex voice mode, arbitrary
+user MCP servers. Full RAG, cloud TTS, SM-2, and the LiteLLM tool loop are planned grade-up
+work — see deferred list above.
