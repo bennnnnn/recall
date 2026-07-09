@@ -266,6 +266,10 @@ function ChatScreen() {
     isOffline,
     resolveQuizProjectId,
     onOpenImageGen: () => openImageGenRef.current?.(),
+    onSubmitImageGen: (prompt) => void imageGen.submitPrompt(prompt),
+    isPro,
+    onOpenUpgrade: () => openUpgradeRef.current?.(),
+    imageGenerating: imageGen.generating,
   });
 
   const {

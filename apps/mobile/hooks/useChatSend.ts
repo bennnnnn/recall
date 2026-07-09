@@ -15,6 +15,7 @@ import {
   buildPendingSendAfterCreate,
   shouldBlockSend,
 } from "@/lib/chatSendLogic";
+import { extractImageGenPrompt } from "@/lib/imageGenIntent";
 import { scheduleIdlePromise } from "@/lib/scheduleIdle";
 import type { ClientGeo } from "@/lib/clientGeo";
 import { resolveClientGeoForQuery } from "@/lib/resolveClientGeoForQuery";
@@ -71,6 +72,10 @@ type Options = {
   resolveQuizProjectId?: () => string | null;
   onBeforeSend?: (text: string) => boolean | void;
   onOpenImageGen?: () => void;
+  onSubmitImageGen?: (prompt: string) => void;
+  isPro?: boolean;
+  onOpenUpgrade?: () => void;
+  imageGenerating?: boolean;
 };
 
 export function useChatSend({
@@ -97,6 +102,10 @@ export function useChatSend({
   resolveQuizProjectId,
   onBeforeSend,
   onOpenImageGen,
+  onSubmitImageGen,
+  isPro = false,
+  onOpenUpgrade,
+  imageGenerating = false,
 }: Options) {
   const {
     draftChatIdRef,
@@ -168,6 +177,7 @@ export function useChatSend({
         onStreamBusy?.();
         return;
       }
+      if (imageGenerating) return;
       if (
         shouldBlockSend({
           text,
@@ -186,6 +196,20 @@ export function useChatSend({
       }
       tap();
       if (onBeforeSend?.(text) === true) return;
+
+      if (!pendingAttachment && !editingMessageId) {
+        const imagePrompt = extractImageGenPrompt(text);
+        if (imagePrompt && onSubmitImageGen) {
+          setInput("");
+          Keyboard.dismiss();
+          if (!isPro) {
+            onOpenUpgrade?.();
+            return;
+          }
+          onSubmitImageGen(imagePrompt);
+          return;
+        }
+      }
 
       const authToken = token;
       if (!authToken) return;
@@ -306,6 +330,10 @@ export function useChatSend({
       onStreamBusy,
       isOffline,
       onBeforeSend,
+      onSubmitImageGen,
+      isPro,
+      onOpenUpgrade,
+      imageGenerating,
     ],
   );
 

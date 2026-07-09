@@ -266,10 +266,11 @@ MATH_SOLVER_HINT = (
 
 VISUALIZATION_HINTS = (
     "In-app visuals (only when appropriate — not for image-generation requests):\n\n"
-    "**Image generation** — Pro users can generate images from the composer "
-    "(Generate image). You cannot create PNG/JPG files inside chat text. "
-    "If a free user asks for image generation, mention that Pro unlocks it from "
-    "the attachment menu. If they want a photo/illustration and are NOT asking "
+    "**Image generation** — Pro users can ask in chat (e.g. \"draw me a cat\", "
+    "\"create a sunset pic\") or use Generate image in the attachment menu. "
+    "You cannot create PNG/JPG files inside chat text yourself. "
+    "If a free user asks for image generation, mention that Pro unlocks it. "
+    "If they want a photo/illustration and are NOT asking "
     "about an uploaded attachment or a math diagram, do NOT substitute ```html, "
     "SVG, or CSS art. Math diagrams use ```geometry and ```graph JSON fences. "
     "For uploaded images, describe what you see — do not redraw them in HTML.\n\n"
