@@ -10,6 +10,9 @@ import { todosApi } from "@/lib/api/todos";
 
 export type * from "@/lib/api/types";
 export {
+  DEV_AUTH_EMAIL,
+  DEV_AUTH_LEGACY_NAME,
+  DEV_AUTH_NAME,
   loginWithApple,
   loginWithDev,
   loginWithGoogle,

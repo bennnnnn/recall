@@ -32,9 +32,15 @@ export async function loginWithApple(
   return response.json() as Promise<AuthResult>;
 }
 
+/** Dev-login identity. The stored name is refreshed to DEV_AUTH_NAME on login. */
+export const DEV_AUTH_EMAIL = "dev@recall.local";
+export const DEV_AUTH_NAME = "Bini";
+/** Old default the dev account may still carry — auto-corrected on launch. */
+export const DEV_AUTH_LEGACY_NAME = "Dev User";
+
 export async function loginWithDev(
-  email = "dev@recall.local",
-  name = "Bini",
+  email = DEV_AUTH_EMAIL,
+  name = DEV_AUTH_NAME,
 ): Promise<AuthResult> {
   const response = await fetchWithTimeout(apiUrl("/auth/dev"), {
     method: "POST",

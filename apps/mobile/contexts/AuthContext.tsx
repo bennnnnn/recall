@@ -12,6 +12,9 @@ import { ActivityIndicator, Alert, StyleSheet, View } from "react-native";
 
 import {
   api,
+  DEV_AUTH_EMAIL,
+  DEV_AUTH_LEGACY_NAME,
+  DEV_AUTH_NAME,
   loginWithApple,
   loginWithDev,
   loginWithGoogle,
@@ -79,6 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [onboarded, setOnboardedState] = useState(false);
   const signOutInFlightRef = useRef(false);
+  const devNameFixAttemptedRef = useRef(false);
 
   const hydrate = useCallback(async () => {
     const [stored, onb, cachedUser] = await Promise.all([
@@ -272,6 +276,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const mergeUser = useCallback((patch: Partial<User>) => {
     setUser((current) => (current ? { ...current, ...patch } : current));
   }, []);
+
+  // One-time correction for dev accounts still carrying the old default name:
+  // silently rename "Dev User" → "Bini" so an already-signed-in session picks
+  // up the rename without a sign-out. Scoped to the exact legacy value so a
+  // deliberately chosen name is never overwritten.
+  useEffect(() => {
+    if (!token || devNameFixAttemptedRef.current) return;
+    if (user?.email !== DEV_AUTH_EMAIL || user.name !== DEV_AUTH_LEGACY_NAME) return;
+    devNameFixAttemptedRef.current = true;
+    void updateUser({ name: DEV_AUTH_NAME }).catch(() => {
+      /* best-effort — re-login also refreshes the name server-side */
+    });
+  }, [token, user?.email, user?.name, updateUser]);
 
   const value = useMemo(
     () => ({
