@@ -110,6 +110,13 @@ class Settings(BaseSettings):
     speech_rate_limit_per_minute: int = 10
     daily_speech_transcriptions: int = 30
     daily_speech_transcriptions_pro: int = 200
+    # Cloud TTS (read-aloud). Product alias conceptually `tts-model`; provider
+    # mapping stays in speech.py (same pattern as Whisper).
+    speech_tts_enabled: bool = True
+    speech_tts_model: str = "openai/gpt-4o-mini-tts"
+    speech_tts_voice: str = "alloy"
+    daily_speech_tts: int = 20
+    daily_speech_tts_pro: int = 100
 
     image_generation_enabled: bool = True
     image_generation_model: str = "black-forest-labs/flux-schnell"
