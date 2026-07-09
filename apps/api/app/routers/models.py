@@ -23,9 +23,7 @@ async def list_models(
     """
     _ = user
     selectable = model_catalog.selectable_models()
-    health = await model_health.enrich_models_health(
-        redis, settings, [m.id for m in selectable]
-    )
+    health = await model_health.enrich_models_health(redis, settings, [m.id for m in selectable])
     return [
         ModelInfo(
             id=m.id,

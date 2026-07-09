@@ -486,7 +486,7 @@ async def stream_and_finalize(
                         success=stream_ok and not was_cancelled,
                     )
                 except Exception:
-                    pass
+                    logger.debug("model health sample failed", exc_info=True)
             resolved = stream_meta.get("model_alias")
             if resolved:
                 ctx.model = resolved
