@@ -10,6 +10,11 @@ Format each as **symptom → cause → fix** in 1–3 lines. Newest first. Keep 
 
 ## Lessons
 
+- **Unpushed local diffs cause real pain.** User runs other machines/simulators off `main` /
+  remote — finish every change with commit + push (see `execution.mdc`); don't say done with
+  local-only work.
+- **User rejected “Recalled N memories” chip + assistant Show more/less.** Do not reintroduce —
+  see `.cursor/rules/chat-ux-bans.mdc`. Code-block fold only; assistant body stays unfolded.
 - **`ERR_PNPM_LOCKFILE_CONFIG_MISMATCH` on patchedDependencies.** Regenerating `pnpm-lock.yaml`
   with pnpm 11 drops patch metadata while `package.json` still declares patches; CI uses pnpm 9 and
   fails frozen install. Regenerate with `npx pnpm@9.15.9 install` (or pin `"packageManager"`).

@@ -26,23 +26,12 @@ describe("deriveAssistantMessageContent", () => {
       ...base,
       content: "Answer with ```search_sources\n[]\n```",
       layoutFrozen: true,
-      recalled: 2,
       contextSummarized: 1,
     });
 
     expect(result.showSearchSources).toBe(false);
     expect(result.showContextSummarized).toBe(false);
-    expect(result.showRecalledMemories).toBe(false);
     expect(result.markdownStreamMode).toBe(true);
-  });
-
-  it("shows recalled memories chip when count is positive", () => {
-    const result = deriveAssistantMessageContent({
-      ...base,
-      recalled: 3,
-    });
-
-    expect(result.showRecalledMemories).toBe(true);
   });
 
   it("shows actions when generation finished", () => {

@@ -15,7 +15,7 @@ export function useReminderBadgeCount(options?: { enabled?: boolean }) {
 
   return {
     unseenCount: ctx.unseenCount,
-    showIndicator: ctx.showIndicator,
+    showIndicator: ctx.showIndicator && ctx.remindersReady,
     markSeen: ctx.markSeen,
     refresh: ctx.refresh,
   };

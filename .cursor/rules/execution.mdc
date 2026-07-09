@@ -15,18 +15,25 @@ alwaysApply: true
   (past commits bundled 5+ things — unreviewable and un-bisectable).
 - Commit working increments often; don't let large piles of work sit uncommitted.
 
+## Ship every change (commit + push)
+- After **any** code change — not only backlog tasks — **commit and push before you say done**
+  (unless the user explicitly says not to commit or not to push).
+- Do not leave local-only diffs across turns; unpushed work breaks the user's other machines,
+  simulators, and CI.
+- Flow: finish the change → `./scripts/dev.sh check` green → commit → `git push` → confirm push
+  landed.
+
 ## One task, then merge, then continue
 - When the user gives a multi-item backlog (e.g. refinement lanes, ticket lists), **finish one
   task completely** before starting the next — don't stack two lanes in one uncommitted batch.
-- **Done for one task** = code complete + `./scripts/dev.sh check` green + **commit and push**
-  (unless the user says not to push).
-- Only after that push lands (or the user confirms) start the next task.
+- Only after that push lands start the next task.
 - If a task grows mid-flight, stop and ask whether to split or defer — don't silently absorb
   the next item into the same diff.
 
 ## Definition of done (don't say "done" until this holds)
 - Run the full gate locally: `./scripts/dev.sh check` (API: ruff + format + mypy + pytest ≥80%;
   mobile: typecheck + lint). It must be green.
+- **Commit and push** — work is not done until the remote has the changes.
 - CI order is ruff → format → mypy → pytest; an earlier failure means tests never run — so match
   the whole chain locally, not just pytest.
 - Never weaken the gate to pass — no lowering the coverage bar, no blanket `# type: ignore` /

@@ -35,6 +35,8 @@ type TodosContextValue = {
   setTodos: Dispatch<SetStateAction<Todo[]>>;
   unseenCount: number;
   showIndicator: boolean;
+  /** False while todos/seen state is refreshing — avoids sub-frame urgent UI flashes. */
+  remindersReady: boolean;
   seenReminderIds: Set<string>;
   markSeen: () => Promise<void>;
   dismissReminderNudge: (todoId: string) => Promise<void>;
@@ -51,6 +53,7 @@ export function TodosProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [unseenCount, setUnseenCount] = useState(0);
+  const [remindersReady, setRemindersReady] = useState(false);
   const [seenReminderIds, setSeenReminderIds] = useState<Set<string>>(new Set());
   const inflightRef = useRef<Promise<void> | null>(null);
   const todosRef = useRef(todos);
@@ -83,6 +86,7 @@ export function TodosProvider({ children }: { children: ReactNode }) {
         setTodos([]);
         setLoading(false);
         setUnseenCount(0);
+        setRemindersReady(false);
         setSeenReminderIds(new Set());
         lastFetchedRef.current = 0;
         return;
@@ -104,6 +108,7 @@ export function TodosProvider({ children }: { children: ReactNode }) {
       setError(false);
 
       const task = (async () => {
+        setRemindersReady(false);
         try {
           const items = await api.listTodos(token);
           setTodos(items);
@@ -116,6 +121,7 @@ export function TodosProvider({ children }: { children: ReactNode }) {
           if (!opts?.silent) {
             setLoading(false);
           }
+          setRemindersReady(true);
         }
       })();
 
@@ -190,6 +196,7 @@ export function TodosProvider({ children }: { children: ReactNode }) {
     setTodos,
     unseenCount,
     showIndicator: unseenCount > 0,
+    remindersReady,
     seenReminderIds,
     markSeen,
     dismissReminderNudge,

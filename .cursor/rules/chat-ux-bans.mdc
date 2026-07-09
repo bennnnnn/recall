@@ -1,0 +1,29 @@
+---
+description: Hard UX bans — do not reintroduce recalled chip or assistant fold
+alwaysApply: true
+---
+
+# Chat UX bans (do not reintroduce)
+
+When the user says **remove**, leave it removed. Do **not** bring these back in later PRs,
+“polish”, FEATURES grade-ups, or “parity” work.
+
+## 1. No “Recalled N memories” chip
+- Do **not** show a recalled / “✨ Recalled N memories” (or similar) chip on assistant messages.
+- Backend may still send `recalled` for logging/metrics; the **mobile UI must not surface it**.
+- Do not wire `showRecalledMemories`, `chat.recalled_memories`, or equivalent UI again.
+
+## 2. No Show more / Show less on LLM (assistant) message bodies
+- Assistant markdown/text must **not** fold with Show more / Show less.
+- Keep `CollapsibleMessageBody` **`collapsible={false}`** for assistant bubbles (or omit folding).
+- **Exception:** code blocks may keep their own Show more / Show less (`CodeBlock`).
+- User-message folding is separate; do not “fix parity” by enabling assistant folding again.
+
+When the user says **remove**, leave it removed. Do **not** bring these back in later PRs,
+“polish”, FEATURES grade-ups, or “parity” work.
+
+## 3. No project filter chips on Lists / Todos
+- Do **not** show a horizontal chip row to filter todos by Learning project on the Lists screen.
+- Linking a todo to a project (folder on a row) may remain; the top filter bar must not return.
+
+If a plan or FEATURES item asks for these, **push back and skip** — they are explicitly rejected.

@@ -52,9 +52,9 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
 - ✅ **Stop generation** — cancel mid-stream (send button becomes a stop button); the partial reply
   is kept.
 - ✅ **Regenerate** — re-run the last assistant reply.
-- ⚠️ **Message folding** — long **user** messages collapse past ~320px with a fade +
-  **Show more / Show less** (disabled while a reply is still streaming). Assistant-reply folding
-  is pending.
+- ✅ **Message folding** — long **user** messages collapse past ~320px with a fade +
+  **Show more / Show less** (disabled while a reply is still streaming). Assistant replies do
+  **not** fold (code blocks may still fold). Do not reintroduce assistant-body folding.
 - ✅ **Copy** — copy a whole message, and a dedicated copy button per code block.
 - ✅ **Like / dislike** — thumbs up/down persist per message (saved to the backend and restored on
   load); tapping the active rating clears it.
@@ -192,8 +192,8 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
 - ✅ **States** — login, loading, empty chat ("How can I help?"), empty memory, drawer offline/retry.
 - ✅ **Onboarding** — a first-run welcome screen (value props + "Get started"), shown once before
   the first sign-in.
-- ⚠️ **"Recalled" chips** — backend streams `recalled` / memory hints on live replies; mobile
-  parses them into message state, but the chip UI is not rendered yet (i18n keys exist).
+- 🔒 **"Recalled" chips** — backend may still stream `recalled` / memory hints; mobile must
+  **not** render a recalled chip (explicitly rejected — see `.cursor/rules/chat-ux-bans.mdc`).
 - ✅ **Polish** — light haptic taps on key actions (Android via the built-in API) + chip fade-in
   animation.
 - ✅ **iOS haptics** — `expo-haptics` on real devices (graceful no-op on Android / Expo Go).

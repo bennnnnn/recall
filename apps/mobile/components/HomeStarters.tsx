@@ -178,7 +178,13 @@ export function HomeStarters({ onSelect }: Props) {
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { token, user } = useAuth();
   const { screen, loading } = useHome();
-  const { todos, loading: todosLoading, seenReminderIds, dismissReminderNudge } = useTodos();
+  const {
+    todos,
+    loading: todosLoading,
+    remindersReady,
+    seenReminderIds,
+    dismissReminderNudge,
+  } = useTodos();
   const [dismissedStarterKeys, setDismissedStarterKeys] = useState<Set<string>>(
     () => new Set(),
   );
@@ -201,10 +207,13 @@ export function HomeStarters({ onSelect }: Props) {
   };
 
   const urgentTodos = useMemo(() => {
-    const raw =
-      !todosLoading ? listHomeUrgentTodos(todos, undefined, leadMinutes) : (screen?.urgent_todos ?? []);
-    return raw.filter((todo) => !seenReminderIds.has(todo.id));
-  }, [todos, todosLoading, screen?.urgent_todos, seenReminderIds, leadMinutes]);
+    // Wait until todos + seen-state are in sync. Silent refreshes used to paint
+    // red urgent cards for a frame before seenReminderIds caught up.
+    if (todosLoading || !remindersReady) return [];
+    return listHomeUrgentTodos(todos, undefined, leadMinutes).filter(
+      (todo) => !seenReminderIds.has(todo.id),
+    );
+  }, [todos, todosLoading, remindersReady, seenReminderIds, leadMinutes]);
 
   const urgentGroups = useMemo(() => partitionHomeUrgentTodos(urgentTodos), [urgentTodos]);
 
