@@ -8,7 +8,7 @@ export const todosApi = {
     token: string,
     content: string,
     topic = "General",
-    options?: { chatId?: string; dueAt?: string | null },
+    options?: { chatId?: string; projectId?: string | null; dueAt?: string | null },
   ) =>
     request<Todo>("/todos", token, {
       method: "POST",
@@ -16,13 +16,16 @@ export const todosApi = {
         content,
         topic,
         chat_id: options?.chatId ?? null,
+        project_id: options?.projectId ?? null,
         due_at: options?.dueAt ?? undefined,
       }),
     }),
   updateTodo: (
     token: string,
     id: string,
-    patch: Partial<Pick<Todo, "content" | "topic" | "checked" | "due_at" | "sort_order">>,
+    patch: Partial<
+      Pick<Todo, "content" | "topic" | "checked" | "due_at" | "sort_order" | "project_id">
+    >,
   ) =>
     request<Todo>(`/todos/${id}`, token, {
       method: "PATCH",

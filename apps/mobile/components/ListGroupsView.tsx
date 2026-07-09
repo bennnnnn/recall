@@ -24,11 +24,13 @@ type Props = {
   groups: ListGroup[];
   initialExpandedTopic?: string;
   togglingId: string | null;
+  projectTitleById?: Map<string, string>;
   onReorderGroups: (topics: string[]) => void;
   onReorderItems: (topic: string, ordered: Todo[]) => void;
   onToggle: (todo: Todo) => void;
   onAddItem: (topic: string, text: string) => void;
   onDeleteItem: (todo: Todo) => void;
+  onLinkProject?: (todo: Todo) => void;
   onDeleteList: (topic: string) => void;
 };
 
@@ -36,11 +38,13 @@ export function ListGroupsView({
   groups,
   initialExpandedTopic,
   togglingId,
+  projectTitleById,
   onReorderGroups,
   onReorderItems,
   onToggle,
   onAddItem,
   onDeleteItem,
+  onLinkProject,
   onDeleteList,
 }: Props) {
   const { t } = useTranslation();
@@ -130,7 +134,15 @@ export function ListGroupsView({
                           busy={togglingId === todo.id}
                           dragging={itemActive}
                           onDrag={dragItem}
+                          projectTitle={
+                            todo.project_id && projectTitleById
+                              ? projectTitleById.get(todo.project_id) ?? null
+                              : null
+                          }
                           onToggle={() => onToggle(todo)}
+                          onLinkProject={
+                            onLinkProject ? () => onLinkProject(todo) : undefined
+                          }
                           onDelete={() => onDeleteItem(todo)}
                         />
                       </ScaleDecorator>
@@ -185,6 +197,11 @@ export function ListGroupsView({
                         todo={todo}
                         variant="done"
                         busy={togglingId === todo.id}
+                        projectTitle={
+                          todo.project_id && projectTitleById
+                            ? projectTitleById.get(todo.project_id) ?? null
+                            : null
+                        }
                         onToggle={() => onToggle(todo)}
                         onDelete={() => onDeleteItem(todo)}
                       />
@@ -204,8 +221,10 @@ export function ListGroupsView({
       onAddItem,
       onDeleteItem,
       onDeleteList,
+      onLinkProject,
       onReorderItems,
       onToggle,
+      projectTitleById,
       s,
       togglingId,
       toggleCollapsed,
@@ -235,7 +254,9 @@ function ListItemRow({
   busy,
   dragging,
   onDrag,
+  projectTitle,
   onToggle,
+  onLinkProject,
   onDelete,
 }: {
   todo: Todo;
@@ -243,7 +264,9 @@ function ListItemRow({
   busy?: boolean;
   dragging?: boolean;
   onDrag?: () => void;
+  projectTitle?: string | null;
   onToggle: () => void;
+  onLinkProject?: () => void;
   onDelete: () => void;
 }) {
   const { t } = useTranslation();
@@ -271,9 +294,29 @@ function ListItemRow({
           color={todo.checked ? C.primary : C.textTertiary}
         />
       </Pressable>
-      <Text style={[s.rowText, todo.checked && s.rowDone]} numberOfLines={4} selectable>
-        {todo.content}
-      </Text>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={[s.rowText, todo.checked && s.rowDone]} numberOfLines={4} selectable>
+          {todo.content}
+        </Text>
+        {projectTitle ? (
+          <Text style={{ fontSize: 12, fontWeight: "500", color: C.textSecondary }} numberOfLines={1}>
+            {t("todos.project_linked", { title: projectTitle })}
+          </Text>
+        ) : null}
+      </View>
+      {variant === "open" && onLinkProject ? (
+        <Pressable
+          onPress={onLinkProject}
+          hitSlop={8}
+          accessibilityLabel={t("todos.link_project")}
+        >
+          <Ionicons
+            name={todo.project_id ? "folder" : "folder-outline"}
+            size={16}
+            color={todo.project_id ? C.primary : C.textTertiary}
+          />
+        </Pressable>
+      ) : null}
       {variant === "done" ? (
         <Pressable
           onPress={onDelete}

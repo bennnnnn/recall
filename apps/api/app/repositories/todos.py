@@ -89,6 +89,7 @@ async def create(
     content: str,
     topic: str = DEFAULT_TOPIC,
     chat_id: UUID | None = None,
+    project_id: UUID | None = None,
     due_at: datetime | None = None,
     sort_order: int | None = None,
 ) -> TodoItem:
@@ -101,6 +102,7 @@ async def create(
         content=content.strip(),
         topic=normalized_topic,
         chat_id=chat_id,
+        project_id=project_id,
         due_at=due_at,
         sort_order=resolved_sort,
     )

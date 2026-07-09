@@ -49,6 +49,8 @@ type Props = {
   togglingId: string | null;
   onToggle: (todo: Todo) => void;
   onDue: (todo: Todo) => void;
+  onLinkProject?: (todo: Todo) => void;
+  projectTitleById?: Map<string, string>;
   onDeleteItem: (todo: Todo) => void;
   onNewList: () => void;
   listGroups: ListGroup[];
@@ -89,6 +91,8 @@ export function TodosScreenHeader({
   togglingId,
   onToggle,
   onDue,
+  onLinkProject,
+  projectTitleById,
   onDeleteItem,
   onNewList,
   listGroups,
@@ -197,8 +201,14 @@ export function TodosScreenHeader({
                   highlighted={highlight === todo.id}
                   overlapWith={overlapNotes.get(todo.id)}
                   busy={togglingId === todo.id}
+                  projectTitle={
+                    todo.project_id && projectTitleById
+                      ? projectTitleById.get(todo.project_id) ?? null
+                      : null
+                  }
                   onToggle={() => onToggle(todo)}
                   onDue={() => onDue(todo)}
+                  onLinkProject={onLinkProject ? () => onLinkProject(todo) : undefined}
                   onDelete={() => onDeleteItem(todo)}
                 />
               ))}
@@ -224,11 +234,13 @@ export function TodosScreenHeader({
               groups={listGroups}
               initialExpandedTopic={focusTopic}
               togglingId={togglingId}
+              projectTitleById={projectTitleById}
               onReorderGroups={onReorderGroups}
               onReorderItems={onReorderItems}
               onToggle={onToggle}
               onAddItem={onAddListItem}
               onDeleteItem={onDeleteItem}
+              onLinkProject={onLinkProject}
               onDeleteList={onDeleteList}
             />
           ) : null}

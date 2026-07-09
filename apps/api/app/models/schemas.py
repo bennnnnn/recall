@@ -316,6 +316,7 @@ class TodoOut(BaseModel):
     due_at: datetime | None = None
     sort_order: int | None = None
     chat_id: UUID | None = None
+    project_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -324,6 +325,7 @@ class TodoCreate(BaseModel):
     content: str = Field(min_length=1, max_length=1000)
     topic: str = Field(default="General", min_length=1, max_length=200)
     chat_id: UUID | None = None
+    project_id: UUID | None = None
     due_at: datetime | None = None
 
 
@@ -333,6 +335,7 @@ class TodoUpdate(BaseModel):
     checked: bool | None = None
     due_at: datetime | None = None
     sort_order: int | None = None
+    project_id: UUID | None = None
 
 
 class TodoReorderItem(BaseModel):

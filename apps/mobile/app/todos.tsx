@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, useLocalSearchParams, useNavigation } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -18,6 +18,7 @@ import { useTodosDerivedState } from "@/hooks/useTodosDerivedState";
 import { useTodosListGroups } from "@/hooks/useTodosListGroups";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTodos } from "@/contexts/TodosContext";
+import { api, type Project } from "@/lib/api";
 import { ensureNotificationPermission } from "@/lib/todoReminders";
 import { useTheme } from "@/lib/theme";
 
@@ -48,17 +49,47 @@ export default function TodosScreen() {
   } = useTodos();
   const [reminderSheetOpen, setReminderSheetOpen] = useState(false);
   const [newListOpen, setNewListOpen] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectFilterId, setProjectFilterId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const list = await api.listProjects(token);
+        if (!cancelled) {
+          setProjects(list.filter((project) => !project.archived));
+        }
+      } catch {
+        if (!cancelled) setProjects([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  const projectTitleById = useMemo(
+    () => new Map(projects.map((project) => [project.id, project.title])),
+    [projects],
+  );
+
+  const filteredTodos = useMemo(() => {
+    if (!projectFilterId) return todos;
+    return todos.filter((item) => item.project_id === projectFilterId);
+  }, [todos, projectFilterId]);
 
   const { groupOrder, persistGroupOrder, listGroups, hasNamedGroups } = useTodosListGroups(
     user?.id,
-    todos,
+    filteredTodos,
     t("lists.default_group"),
   );
 
   const calendar = useTodosCalendarIntegration({
     token,
     focusSection,
-    todos,
+    todos: filteredTodos,
     highlight,
     refresh,
     markSeen,
@@ -70,7 +101,7 @@ export default function TodosScreen() {
     visibleDone,
     isRemindersPage,
     showRemindersEmptyHero,
-  } = useTodosDerivedState(todos, focusSection, listGroups, hasNamedGroups);
+  } = useTodosDerivedState(filteredTodos, focusSection, listGroups, hasNamedGroups);
 
   const actions = useTodosActions({
     token,
@@ -101,45 +132,90 @@ export default function TodosScreen() {
   }
 
   const listHeader = (
-    <TodosScreenHeader
-      error={Boolean(error)}
-      onRetry={() => void refresh()}
-      focusSection={focusSection}
-      showReminders={showReminders}
-      showList={showList}
-      showRemindersEmptyHero={showRemindersEmptyHero}
-      isRemindersPage={isRemindersPage}
-      openReminders={openReminders}
-      calendarEvents={calendar.calendarEvents}
-      suggestedReminders={calendar.suggestedReminders}
-      selectedDay={calendar.selectedDay}
-      visibleMonth={calendar.visibleMonth}
-      onSelectDay={calendar.goToDay}
-      onVisibleMonthChange={calendar.setVisibleMonth}
-      calendarLoading={calendar.calendarLoading}
-      calendarLoadError={calendar.calendarLoadError}
-      onRetryCalendar={() => void calendar.loadCalendarEvents()}
-      selectedDaySuggestions={calendar.selectedDaySuggestions}
-      selectedDayHeading={calendar.selectedDayHeading}
-      selectedDayMeetings={calendar.selectedDayMeetings}
-      selectedDayReminders={calendar.selectedDayReminders}
-      suggestionBusyId={calendar.suggestionBusyId}
-      onAddSuggestion={(reminder) => void calendar.handleAddSuggestion(reminder)}
-      onDismissSuggestion={(reminder) => void calendar.handleDismissSuggestion(reminder)}
-      highlight={highlight}
-      overlapNotes={calendar.overlapNotes}
-      togglingId={actions.togglingId}
-      onToggle={(todo) => void actions.handleToggle(todo)}
-      onDue={actions.openDuePicker}
-      onDeleteItem={actions.handleDeleteItem}
-      onNewList={() => setNewListOpen(true)}
-      listGroups={listGroups}
-      focusTopic={focusTopic}
-      onReorderGroups={(topics) => void actions.handleReorderGroups(topics)}
-      onReorderItems={(topic, ordered) => void actions.handleReorderItems(topic, ordered)}
-      onAddListItem={(topic, text) => void actions.handleCreateListItem(topic, text)}
-      onDeleteList={actions.handleDeleteList}
-    />
+    <>
+      {projects.length > 0 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={s.projectFilterBar}
+        >
+          <Pressable
+            style={[s.projectFilterChip, !projectFilterId && s.projectFilterChipActive]}
+            onPress={() => setProjectFilterId(null)}
+          >
+            <Text
+              style={[
+                s.projectFilterChipText,
+                !projectFilterId && s.projectFilterChipTextActive,
+              ]}
+            >
+              {t("todos.filter_all_projects")}
+            </Text>
+          </Pressable>
+          {projects.map((project) => {
+            const active = projectFilterId === project.id;
+            return (
+              <Pressable
+                key={project.id}
+                style={[s.projectFilterChip, active && s.projectFilterChipActive]}
+                onPress={() => setProjectFilterId(project.id)}
+              >
+                <Text
+                  style={[
+                    s.projectFilterChipText,
+                    active && s.projectFilterChipTextActive,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {project.title}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      ) : null}
+      <TodosScreenHeader
+        error={Boolean(error)}
+        onRetry={() => void refresh()}
+        focusSection={focusSection}
+        showReminders={showReminders}
+        showList={showList}
+        showRemindersEmptyHero={showRemindersEmptyHero}
+        isRemindersPage={isRemindersPage}
+        openReminders={openReminders}
+        calendarEvents={calendar.calendarEvents}
+        suggestedReminders={calendar.suggestedReminders}
+        selectedDay={calendar.selectedDay}
+        visibleMonth={calendar.visibleMonth}
+        onSelectDay={calendar.goToDay}
+        onVisibleMonthChange={calendar.setVisibleMonth}
+        calendarLoading={calendar.calendarLoading}
+        calendarLoadError={calendar.calendarLoadError}
+        onRetryCalendar={() => void calendar.loadCalendarEvents()}
+        selectedDaySuggestions={calendar.selectedDaySuggestions}
+        selectedDayHeading={calendar.selectedDayHeading}
+        selectedDayMeetings={calendar.selectedDayMeetings}
+        selectedDayReminders={calendar.selectedDayReminders}
+        suggestionBusyId={calendar.suggestionBusyId}
+        onAddSuggestion={(reminder) => void calendar.handleAddSuggestion(reminder)}
+        onDismissSuggestion={(reminder) => void calendar.handleDismissSuggestion(reminder)}
+        highlight={highlight}
+        overlapNotes={calendar.overlapNotes}
+        togglingId={actions.togglingId}
+        onToggle={(todo) => void actions.handleToggle(todo)}
+        onDue={actions.openDuePicker}
+        onLinkProject={(todo) => actions.handleLinkProject(todo, projects)}
+        projectTitleById={projectTitleById}
+        onDeleteItem={actions.handleDeleteItem}
+        onNewList={() => setNewListOpen(true)}
+        listGroups={listGroups}
+        focusTopic={focusTopic}
+        onReorderGroups={(topics) => void actions.handleReorderGroups(topics)}
+        onReorderItems={(topic, ordered) => void actions.handleReorderItems(topic, ordered)}
+        onAddListItem={(topic, text) => void actions.handleCreateListItem(topic, text)}
+        onDeleteList={actions.handleDeleteList}
+      />
+    </>
   );
 
   return (
@@ -170,6 +246,8 @@ export default function TodosScreen() {
         overlapNotes={calendar.overlapNotes}
         onToggle={actions.handleToggle}
         onDue={actions.openDuePicker}
+        onLinkProject={(todo) => actions.handleLinkProject(todo, projects)}
+        projectTitleById={projectTitleById}
         onDeleteItem={actions.handleDeleteItem}
         showRemindersEmptyHero={showRemindersEmptyHero}
         error={Boolean(error)}

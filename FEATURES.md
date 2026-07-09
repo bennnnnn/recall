@@ -362,8 +362,9 @@ courses, habits, and anything else that needs structure over time.
 ### Phase 3 — Cross-linking
 - ✅ **`project_id` on chats** — conversations started from a project carry `project_id`; prompt
   injection scopes to that one project (+ tutor hints) instead of all projects.
-- 🔜 **Link todos to projects** — due dates + project goals in one view.
-- ✅ **Home starters** — active project highlight on home; tap starts a scoped daily chat.
+- ✅ **Link todos to projects** — optional `project_id` on todo items (API create/update,
+  prompt annotation, mobile link + project filter).
+- ✅ **Home starters** — active project highlight on home; tap opens project or starts scoped chat.
 
 ### Phase 4 — More project types
 - ✅ **General knowledge (trivia)** — topic picker, scoped quiz chat, daily goal.

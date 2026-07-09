@@ -249,7 +249,12 @@ def format_todos_block(items: list[TodoItem], *, user_timezone: str | None = Non
                 )
                 rel = f", {due_label}" if due_label else ""
                 topic = todo.topic.strip() or DEFAULT_TOPIC
-                lines.append(f"- {mark} {todo.content} at {clock}{rel} ({status}, list: {topic})")
+                project_bit = (
+                    f", project:{todo.project_id}" if getattr(todo, "project_id", None) else ""
+                )
+                lines.append(
+                    f"- {mark} {todo.content} at {clock}{rel} ({status}, list: {topic}{project_bit})"
+                )
 
     if list_items:
         by_topic: dict[str, list[TodoItem]] = {}

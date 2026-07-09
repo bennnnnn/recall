@@ -8,6 +8,7 @@ from app.core.deps import get_current_user
 from app.models.orm import User
 from app.models.schemas import TodoCreate, TodoOut, TodoReorderBody, TodoUpdate
 from app.repositories import chats as chats_repo
+from app.repositories import projects as projects_repo
 from app.repositories import todos as todos_repo
 from app.services import home as home_service
 
@@ -43,12 +44,17 @@ async def create_todo(
         chat = await chats_repo.get_by_id(session, body.chat_id, user.id)
         if chat is None:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Chat not found")
+    if body.project_id is not None:
+        project = await projects_repo.get_by_id(session, body.project_id, user.id)
+        if project is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Project not found")
     item = await todos_repo.create(
         session,
         user_id=user.id,
         content=body.content,
         topic=body.topic,
         chat_id=body.chat_id,
+        project_id=body.project_id,
         due_at=body.due_at,
     )
     await home_service.invalidate_home_cache(user.id)
@@ -77,7 +83,12 @@ async def update_todo(
     item = await todos_repo.get_by_id(session, todo_id, user.id)
     if not item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Todo not found")
-    updated = await todos_repo.update(session, item, **body.model_dump(exclude_unset=True))
+    fields = body.model_dump(exclude_unset=True)
+    if "project_id" in fields and fields["project_id"] is not None:
+        project = await projects_repo.get_by_id(session, fields["project_id"], user.id)
+        if project is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Project not found")
+    updated = await todos_repo.update(session, item, **fields)
     await home_service.invalidate_home_cache(user.id)
     return TodoOut.model_validate(updated)
 

@@ -26,6 +26,8 @@ type Props = {
   overlapNotes: Map<string, string>;
   onToggle: (todo: Todo) => void;
   onDue: (todo: Todo) => void;
+  onLinkProject?: (todo: Todo) => void;
+  projectTitleById?: Map<string, string>;
   onDeleteItem: (todo: Todo) => void;
   showRemindersEmptyHero: boolean;
   error: boolean;
@@ -43,6 +45,8 @@ export function TodosFlashList({
   overlapNotes,
   onToggle,
   onDue,
+  onLinkProject,
+  projectTitleById,
   onDeleteItem,
   showRemindersEmptyHero,
   error,
@@ -85,6 +89,10 @@ export function TodosFlashList({
         return <Text style={s.sectionHeading}>{item.title}</Text>;
       }
       const todo = item.todo;
+      const projectTitle =
+        todo.project_id && projectTitleById
+          ? projectTitleById.get(todo.project_id) ?? null
+          : null;
       if (item.done) {
         return (
           <TodoRow
@@ -92,6 +100,7 @@ export function TodosFlashList({
             todo={todo}
             variant="done"
             busy={togglingId === todo.id}
+            projectTitle={projectTitle}
             onToggle={() => onToggle(todo)}
             onDue={isReminder(todo) ? () => onDue(todo) : undefined}
             onDelete={() => onDeleteItem(todo)}
@@ -106,13 +115,25 @@ export function TodosFlashList({
           highlighted={highlight === todo.id}
           overlapWith={overlapNotes.get(todo.id)}
           busy={togglingId === todo.id}
+          projectTitle={projectTitle}
           onToggle={() => onToggle(todo)}
           onDue={() => onDue(todo)}
+          onLinkProject={onLinkProject ? () => onLinkProject(todo) : undefined}
           onDelete={() => onDeleteItem(todo)}
         />
       );
     },
-    [s, togglingId, highlight, overlapNotes, onToggle, onDue, onDeleteItem],
+    [
+      s,
+      togglingId,
+      highlight,
+      overlapNotes,
+      onToggle,
+      onDue,
+      onLinkProject,
+      projectTitleById,
+      onDeleteItem,
+    ],
   );
 
   return (
