@@ -13,8 +13,11 @@ from app.repositories import memories as memories_repo
 from app.services.memory import (
     consolidation_rewrite_preserves_facts,
     invalidate_memory_block,
+    join_memory_facts,
     normalize_memory_text,
+    section_needs_consolidation,
     sections_need_consolidation,
+    split_memory_facts,
 )
 
 logger = logging.getLogger(__name__)
@@ -68,12 +71,44 @@ async def _apply_consolidation_result(
     await invalidate_memory_block(user_id)
 
 
+def _accept_merged_summary(
+    *,
+    section_type: str,
+    prior: str,
+    summary: str,
+    confidence: float,
+    min_confidence: float,
+    enforce_length_floor: bool = True,
+) -> str | None:
+    if confidence < min_confidence:
+        return None
+    clean = normalize_memory_text(summary)
+    if not clean:
+        return None
+    # Exact-sentence dedupe can shrink well below 50%; only LLM merges use the floor.
+    if enforce_length_floor and prior and len(clean) < len(prior) * 0.5:
+        logger.warning(
+            "Skipping consolidation for %s: new text much shorter than existing",
+            section_type,
+        )
+        return None
+    if prior and not consolidation_rewrite_preserves_facts(prior, clean):
+        logger.warning(
+            "Skipping consolidation for %s: merge dropped prior fact anchors",
+            section_type,
+        )
+        return None
+    if clean == normalize_memory_text(prior):
+        return None
+    return clean
+
+
 async def consolidate_user_memory_sections(
     settings: Settings,
     *,
     user_id: UUID,
 ) -> bool:
-    """Rewrite messy section text into concise paragraphs via the memory model."""
+    """Merge duplicate facts per section (merge-not-replace) via the memory model."""
     try:
         async with SessionLocal() as session:
             snapshot = await _load_consolidation_snapshot(session, user_id)
@@ -82,43 +117,43 @@ async def consolidate_user_memory_sections(
         if snapshot is None:
             return False
 
-        sections = snapshot.sections
-        result = await litellm_gateway.rewrite_memory_sections(settings, sections)
-        if not result or not result.sections:
-            return False
-
-        existing_types = set(sections)
-        returned_types = {section.type for section in result.sections}
-        omitted = existing_types - returned_types
-        if omitted:
-            logger.warning(
-                "Skipping consolidation for user_id=%s: model omitted sections %s",
-                user_id,
-                sorted(omitted),
-            )
-            return False
-
         rows: list[tuple[str, str, float, UUID | None]] = []
-        for section in result.sections:
-            if section.confidence < settings.memory_min_confidence:
+        for section_type, prior in snapshot.sections.items():
+            if not section_needs_consolidation(prior):
                 continue
-            summary = normalize_memory_text(section.summary)
-            if not summary:
-                continue
-            prior = sections.get(section.type, "")
-            if prior and len(summary) < len(prior) * 0.5:
-                logger.warning(
-                    "Skipping consolidation for %s: new text much shorter than existing",
-                    section.type,
+
+            # Deterministic pre-pass: drop exact duplicate sentences before LLM.
+            deduped = join_memory_facts(split_memory_facts(prior))
+            draft = deduped if deduped else prior
+            if draft != normalize_memory_text(prior) and not section_needs_consolidation(draft):
+                accepted = _accept_merged_summary(
+                    section_type=section_type,
+                    prior=prior,
+                    summary=draft,
+                    confidence=0.95,
+                    min_confidence=settings.memory_min_confidence,
+                    enforce_length_floor=False,
                 )
+                if accepted:
+                    rows.append((section_type, accepted, 0.95, None))
                 continue
-            if prior and not consolidation_rewrite_preserves_facts(prior, summary):
-                logger.warning(
-                    "Skipping consolidation for %s: rewrite dropped prior fact anchors",
-                    section.type,
-                )
+
+            merged = await litellm_gateway.merge_memory_section(
+                settings,
+                section_type=section_type,
+                prior_text=draft,
+            )
+            if merged is None:
                 continue
-            rows.append((section.type, summary, section.confidence, None))
+            accepted = _accept_merged_summary(
+                section_type=section_type,
+                prior=prior,
+                summary=merged.summary,
+                confidence=merged.confidence,
+                min_confidence=settings.memory_min_confidence,
+            )
+            if accepted:
+                rows.append((section_type, accepted, merged.confidence, None))
 
         if not rows:
             return False

@@ -47,6 +47,8 @@ Required for production attachments (`STORAGE_BACKEND=r2`).
 
 - [ ] `fly launch` (or connect existing app to repo root; uses `apps/api/Dockerfile`)
 - [ ] Scale processes: `fly scale count app=1 worker=1`
+- [ ] Confirm worker health: `fly ssh console -C 'curl -sf http://127.0.0.1:8001/health/ready'`
+  (or check worker logs show the jobs consumer started)
 - [ ] Set **all** secrets (enforced by `validate_production_settings`):
 
 | Secret | Required | Notes |

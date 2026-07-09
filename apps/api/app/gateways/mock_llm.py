@@ -140,36 +140,42 @@ async def mock_memories(user_message: str):
     return await mock_memory_sections(user_message, {})
 
 
+async def mock_merge_memory_section(section_type: str, prior_text: str):
+    from app.models.schemas import MemorySectionItem, MemoryType
+
+    valid_memory_types = frozenset(get_args(MemoryType))
+    sentences = [part.strip() for part in prior_text.split(".") if part.strip()]
+    unique: list[str] = []
+    seen: set[str] = set()
+    for sentence in sentences:
+        key = sentence.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(sentence)
+    summary = ". ".join(unique).strip()
+    if summary and not summary.endswith("."):
+        summary += "."
+    return MemorySectionItem(
+        type=cast(
+            MemoryType,
+            section_type if section_type in valid_memory_types else "fact",
+        ),
+        summary=summary or prior_text[:300],
+        confidence=0.9,
+    )
+
+
 async def mock_rewrite_memory_sections(sections: dict[str, str]):
-    from app.models.schemas import MemorySectionItem, MemorySectionUpdateResult, MemoryType
+    from app.models.schemas import MemorySectionItem, MemorySectionUpdateResult
 
     if not sections:
         return None
-    valid_memory_types = frozenset(get_args(MemoryType))
     rewritten: list[MemorySectionItem] = []
     for memory_type, text in sections.items():
-        sentences = [part.strip() for part in text.split(".") if part.strip()]
-        unique: list[str] = []
-        seen: set[str] = set()
-        for sentence in sentences:
-            key = sentence.lower()
-            if key in seen:
-                continue
-            seen.add(key)
-            unique.append(sentence)
-        summary = ". ".join(unique[:3]).strip()
-        if summary and not summary.endswith("."):
-            summary += "."
-        rewritten.append(
-            MemorySectionItem(
-                type=cast(
-                    MemoryType,
-                    memory_type if memory_type in valid_memory_types else "fact",
-                ),
-                summary=summary or text[:300],
-                confidence=0.85,
-            )
-        )
+        item = await mock_merge_memory_section(memory_type, text)
+        if item is not None:
+            rewritten.append(item)
     return MemorySectionUpdateResult(sections=rewritten)
 
 
