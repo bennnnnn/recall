@@ -2,7 +2,7 @@ import { getApiUrl } from "@/lib/config";
 import type { ClientGeo } from "@/lib/clientGeo";
 import { clientGeoWsFields } from "@/lib/clientGeo";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
-import { refreshAccessToken } from "@/lib/api/client";
+import { notifyUnauthorized, refreshAccessToken } from "@/lib/api/client";
 import { parseChatWsPayload } from "@/lib/chatSocketReduce";
 
 export type ChatSsePayload = NonNullable<ReturnType<typeof parseChatWsPayload>>;
@@ -48,10 +48,16 @@ async function streamChatSseRequest(options: StreamChatSseOptions): Promise<void
         },
         body: JSON.stringify(options.body),
       });
+    } else {
+      notifyUnauthorized();
+      throw new Error("SSE request unauthorized");
     }
   }
 
   if (!response.ok) {
+    if (response.status === 401) {
+      notifyUnauthorized();
+    }
     const text = await response.text();
     throw new Error(text || `SSE request failed: ${response.status}`);
   }

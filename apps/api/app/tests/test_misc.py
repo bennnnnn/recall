@@ -210,6 +210,176 @@ async def test_login_with_google_links_existing_account_by_email():
 
 
 @pytest.mark.asyncio
+async def test_login_with_apple_creates_user():
+    from app.models.schemas import UserOut
+    from app.services import auth as auth_service
+
+    uid = uuid4()
+    fake_user_out = UserOut(
+        id=uid,
+        email="apple@test.local",
+        name="Apple User",
+        avatar_url=None,
+        default_model="free-chat",
+        response_style="balanced",
+        memory_enabled=True,
+        created_at="2024-01-01T00:00:00",
+    )
+    settings_obj = __import__("app.core.config", fromlist=["Settings"]).Settings(
+        jwt_secret="super-secret-key-that-is-at-least-32-chars!!"
+    )
+    payload = {
+        "sub": "apple-sub-123",
+        "email": "apple@test.local",
+        "email_verified": True,
+    }
+
+    with (
+        patch(
+            "app.services.auth.verify_apple_id_token",
+            AsyncMock(return_value=payload),
+        ),
+        patch("app.services.auth.users_repo.get_by_apple_sub", AsyncMock(return_value=None)),
+        patch("app.services.auth.users_repo.get_by_email", AsyncMock(return_value=None)),
+        patch("app.services.auth.users_repo.create", AsyncMock(return_value=MagicMock())),
+        patch(
+            "app.services.auth.tokens_service.issue_token_pair",
+            AsyncMock(return_value=("apple-tok", "refresh")),
+        ),
+        patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
+    ):
+        result = await auth_service.login_with_apple(
+            AsyncMock(), settings_obj, "id-token", AsyncMock(), name="Apple User"
+        )
+    assert result.access_token == "apple-tok"
+    assert result.user.email == "apple@test.local"
+
+
+@pytest.mark.asyncio
+async def test_login_with_apple_existing_user():
+    from app.models.schemas import UserOut
+    from app.services import auth as auth_service
+
+    uid = uuid4()
+    fake_user_out = UserOut(
+        id=uid,
+        email="apple-existing@test.local",
+        name="Existing Apple",
+        avatar_url=None,
+        default_model="free-chat",
+        response_style="balanced",
+        memory_enabled=True,
+        created_at="2024-01-01T00:00:00",
+    )
+    settings_obj = __import__("app.core.config", fromlist=["Settings"]).Settings(
+        jwt_secret="super-secret-key-that-is-at-least-32-chars!!"
+    )
+    payload = {
+        "sub": "apple-sub-456",
+        "email": "apple-existing@test.local",
+        "email_verified": True,
+    }
+
+    with (
+        patch(
+            "app.services.auth.verify_apple_id_token",
+            AsyncMock(return_value=payload),
+        ),
+        patch(
+            "app.services.auth.users_repo.get_by_apple_sub",
+            AsyncMock(return_value=MagicMock()),
+        ),
+        patch(
+            "app.services.auth.tokens_service.issue_token_pair",
+            AsyncMock(return_value=("tok-apple", "refresh")),
+        ),
+        patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
+    ):
+        result = await auth_service.login_with_apple(
+            AsyncMock(), settings_obj, "id-token", AsyncMock()
+        )
+    assert result.access_token == "tok-apple"
+
+
+@pytest.mark.asyncio
+async def test_login_with_apple_links_existing_account_by_email():
+    from app.models.schemas import UserOut
+    from app.services import auth as auth_service
+
+    uid = uuid4()
+    fake_user_out = UserOut(
+        id=uid,
+        email="shared-apple@test.local",
+        name="Shared",
+        avatar_url=None,
+        default_model="free-chat",
+        response_style="balanced",
+        memory_enabled=True,
+        created_at="2024-01-01T00:00:00",
+    )
+    settings_obj = __import__("app.core.config", fromlist=["Settings"]).Settings(
+        jwt_secret="super-secret-key-that-is-at-least-32-chars!!"
+    )
+    payload = {
+        "sub": "apple-sub-new",
+        "email": "shared-apple@test.local",
+        "email_verified": True,
+    }
+    existing = MagicMock(id=uid, email="shared-apple@test.local")
+    create_mock = AsyncMock(return_value=MagicMock())
+    update_mock = AsyncMock(return_value=existing)
+
+    with (
+        patch(
+            "app.services.auth.verify_apple_id_token",
+            AsyncMock(return_value=payload),
+        ),
+        patch("app.services.auth.users_repo.get_by_apple_sub", AsyncMock(return_value=None)),
+        patch("app.services.auth.users_repo.get_by_email", AsyncMock(return_value=existing)),
+        patch("app.services.auth.users_repo.create", create_mock),
+        patch("app.services.auth.users_repo.update", update_mock),
+        patch(
+            "app.services.auth.tokens_service.issue_token_pair",
+            AsyncMock(return_value=("linked-apple", "refresh")),
+        ),
+        patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
+    ):
+        result = await auth_service.login_with_apple(
+            AsyncMock(), settings_obj, "id-token", AsyncMock()
+        )
+
+    create_mock.assert_not_called()
+    assert update_mock.await_count >= 1
+    first_call_kwargs = update_mock.call_args_list[0].kwargs
+    assert first_call_kwargs.get("apple_sub") == "apple-sub-new"
+    assert result.access_token == "linked-apple"
+
+
+@pytest.mark.asyncio
+async def test_login_with_apple_requires_email_on_first_sign_in():
+    from app.gateways.google_auth import GoogleAuthError
+    from app.services import auth as auth_service
+
+    settings_obj = __import__("app.core.config", fromlist=["Settings"]).Settings(
+        jwt_secret="super-secret-key-that-is-at-least-32-chars!!"
+    )
+    payload = {"sub": "apple-sub-no-email", "email_verified": True}
+
+    with (
+        patch(
+            "app.services.auth.verify_apple_id_token",
+            AsyncMock(return_value=payload),
+        ),
+        patch("app.services.auth.users_repo.get_by_apple_sub", AsyncMock(return_value=None)),
+        patch("app.services.auth.users_repo.get_by_email", AsyncMock(return_value=None)),
+    ):
+        with pytest.raises(GoogleAuthError, match="did not share an email"):
+            await auth_service.login_with_apple(
+                AsyncMock(), settings_obj, "id-token", AsyncMock()
+            )
+
+
+@pytest.mark.asyncio
 async def test_login_dev_raises_when_disabled():
     from app.gateways.google_auth import GoogleAuthError
     from app.services import auth as auth_service

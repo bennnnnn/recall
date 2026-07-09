@@ -10,7 +10,8 @@ export async function loginWithGoogle(idToken: string): Promise<AuthResult> {
     body: JSON.stringify({ id_token: idToken }),
   });
   if (!response.ok) {
-    throw new Error("Google login failed");
+    const detail = await response.text();
+    throw new Error(detail || "Google login failed");
   }
   return response.json() as Promise<AuthResult>;
 }
