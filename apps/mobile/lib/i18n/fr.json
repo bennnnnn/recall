@@ -683,5 +683,11 @@
   "projects.learn_in_chat": "Learn in chat",
   "projects.take_quiz": "Take quiz",
   "projects.quiz.switch_to_chat": "Switch to chat tutor",
-  "search.load_more": "Load more"
+  "search.load_more": "Load more",
+  "chat.archive_failed": "Could not update archive.",
+  "chat.feedback_failed": "Could not save feedback.",
+  "chat.attach_generate_image": "Generate image",
+  "chat.image_gen_title": "Generate image",
+  "chat.image_gen_placeholder": "Describe the image you want…",
+  "chat.image_gen_generate": "Generate"
 }

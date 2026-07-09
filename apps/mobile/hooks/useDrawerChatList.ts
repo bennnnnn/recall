@@ -11,7 +11,12 @@ import {
   removeChatFromGroups,
   type ChatListSectionKey,
 } from "@/lib/chatListSections";
-import { registerChatInserter, registerChatPatcher, subscribeChatTitleGenerating } from "@/lib/drawer";
+import {
+  registerChatArchiveMover,
+  registerChatInserter,
+  registerChatPatcher,
+  subscribeChatTitleGenerating,
+} from "@/lib/drawer";
 import { emptyChatList, insertChatIntoGroups } from "@/lib/drawerChatList";
 import { api, Chat, ChatList } from "@/lib/api";
 import { scheduleIdleTask } from "@/lib/scheduleIdle";
@@ -167,6 +172,11 @@ export function useDrawerChatList({ token, isDrawerOpen }: Params) {
       return insertChatIntoGroups(rest, updated);
     });
   }, []);
+
+  useEffect(() => {
+    registerChatArchiveMover(moveChatArchiveState);
+    return () => registerChatArchiveMover(null);
+  }, [moveChatArchiveState]);
 
   const removeChatFromGroupsById = useCallback((chatId: string) => {
     setGroups((prev) => removeChatFromGroups(prev, chatId));

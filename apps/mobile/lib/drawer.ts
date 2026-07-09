@@ -56,6 +56,19 @@ export function patchChatGlobal(chatId: string, patch: ChatListPatch) {
   _patchChat?.(chatId, patch);
 }
 
+/** Move a chat between active and archived sections in the drawer list. */
+let _moveChatArchive: ((chatId: string, archived: boolean) => void) | null = null;
+
+export function registerChatArchiveMover(
+  fn: ((chatId: string, archived: boolean) => void) | null,
+) {
+  _moveChatArchive = fn;
+}
+
+export function moveChatArchiveGlobal(chatId: string, archived: boolean) {
+  _moveChatArchive?.(chatId, archived);
+}
+
 /** Insert a chat into the drawer list after the first reply (see insertChatIntoGroups). */
 let _insertChat: ((chat: Chat) => void) | null = null;
 

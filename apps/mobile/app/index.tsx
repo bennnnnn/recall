@@ -163,6 +163,8 @@ function ChatScreen() {
     titleGenerating,
     pinned,
     setPinned,
+    archived,
+    setArchived,
     chatLoading,
     hasMoreOlder,
     loadingOlder,
@@ -181,6 +183,8 @@ function ChatScreen() {
     messages,
     pinned,
     setPinned,
+    archived,
+    setArchived,
     setChatTitle,
     setMessages,
     router,
@@ -203,6 +207,7 @@ function ChatScreen() {
     onShareFromMenu,
     onRenameFromMenu,
     onTogglePinFromMenu,
+    onToggleArchiveFromMenu,
     onDeleteFromMenu,
   } = chatActions;
 
@@ -432,10 +437,12 @@ function ChatScreen() {
         menuVisible={menuVisible}
         chatTitle={chatTitle}
         pinned={pinned}
+        archived={archived}
         onCloseMenu={() => setMenuVisible(false)}
         onShare={onShareFromMenu}
         onRename={onRenameFromMenu}
         onTogglePin={onTogglePinFromMenu}
+        onToggleArchive={onToggleArchiveFromMenu}
         onDelete={onDeleteFromMenu}
         renameVisible={renameVisible}
         renameText={renameText}

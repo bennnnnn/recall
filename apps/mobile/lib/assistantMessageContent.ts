@@ -37,6 +37,7 @@ export type AssistantMessageContentInput = {
   storedSearchSources?: SearchSource[];
   liveSearchSources?: SearchSource[];
   contextSummarized?: number;
+  recalled?: number;
   messageId: string;
   isGenerating: boolean;
   renderKey?: string;
@@ -63,6 +64,7 @@ export type AssistantMessageContent = {
   hasMarkdown: boolean;
   showSearchSources: boolean;
   showContextSummarized: boolean;
+  showRecalledMemories: boolean;
   markdownStreamMode: boolean;
   markdownResetKey: string;
 };
@@ -127,6 +129,7 @@ export function deriveAssistantMessageContent(
     storedSearchSources,
     liveSearchSources,
     contextSummarized,
+    recalled,
     messageId,
     isGenerating,
     renderKey,
@@ -198,6 +201,8 @@ export function deriveAssistantMessageContent(
 
   const showContextSummarized =
     !isUser && !layoutFrozen && (contextSummarized ?? 0) > 0;
+  const showRecalledMemories =
+    !isUser && !layoutFrozen && (recalled ?? 0) > 0;
 
   return {
     hasContent,
@@ -220,6 +225,7 @@ export function deriveAssistantMessageContent(
     hasMarkdown,
     showSearchSources,
     showContextSummarized,
+    showRecalledMemories,
     markdownStreamMode: layoutFrozen,
     markdownResetKey: `${renderKey ?? messageId}:${markdownContent.length}`,
   };

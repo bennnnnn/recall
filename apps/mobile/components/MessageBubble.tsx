@@ -21,6 +21,7 @@ import { extractPrimaryCopyText } from "@/lib/copyBlock";
 import { exportMessageAsPdf } from "@/lib/exportMessagePdf";
 import { notifySuccess, notifyWarning, tap } from "@/lib/haptics";
 import { SENDING_LABEL_DELAY_MS } from "@/lib/chatMessageLogic";
+import { shouldCollapseMessage } from "@/lib/messageFold";
 import { useAssistantMessageContent } from "@/hooks/useAssistantMessageContent";
 import { useStreamLayoutHold } from "@/hooks/useStreamLayoutHold";
 import { useRotatingStreamStatus } from "@/lib/streamStatusLabel";
@@ -257,12 +258,14 @@ export const MessageBubble = React.memo(function MessageBubble({
     showSearchSources,
     searchSources,
     showContextSummarized,
+    showRecalledMemories,
     markdownStreamMode,
     markdownResetKey,
   } = assistant;
 
   const reasoningText = liveReasoning?.trim() ?? "";
   const showReasoning = !isUser && reasoningText.length > 0;
+  const collapseAssistant = shouldCollapseMessage(content);
   const statusLabel = useRotatingStreamStatus(
     streamStatus,
     isStreaming && !hasContent,
@@ -288,12 +291,20 @@ export const MessageBubble = React.memo(function MessageBubble({
           {showReasoning ? (
             <ReasoningBlock content={reasoningText} streaming={isStreaming} />
           ) : null}
-          <CollapsibleMessageBody enabled={!layoutFrozen && hasContent} collapsible={false}>
+          <CollapsibleMessageBody
+            enabled={!layoutFrozen && hasContent}
+            collapsible={collapseAssistant}
+          >
             {isStreaming && !hasContent ? (
               <View style={b.waitingWrap}>
                 <RecallTypingIndicator />
                 {statusLabel ? <Text style={b.statusLabel}>{statusLabel}</Text> : null}
               </View>
+            ) : null}
+            {showRecalledMemories ? (
+              <Text style={b.contextChip}>
+                {t("chat.recalled_memories", { count: message.recalled })}
+              </Text>
             ) : null}
             {showContextSummarized ? (
               <Text style={b.contextChip}>

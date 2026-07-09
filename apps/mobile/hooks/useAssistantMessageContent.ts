@@ -9,7 +9,7 @@ import {
 type Options = {
   message: Pick<
     Message,
-    "id" | "content" | "search_sources" | "context_summarized" | "renderKey"
+    "id" | "content" | "search_sources" | "context_summarized" | "recalled" | "renderKey"
   >;
   liveContent?: string;
   liveSearchSources?: Message["search_sources"];
@@ -40,6 +40,7 @@ export function useAssistantMessageContent({
         storedSearchSources: message.search_sources,
         liveSearchSources,
         contextSummarized: message.context_summarized,
+        recalled: message.recalled,
         messageId: message.id,
         isGenerating,
         renderKey: message.renderKey,
@@ -52,6 +53,7 @@ export function useAssistantMessageContent({
       message.search_sources,
       liveSearchSources,
       message.context_summarized,
+      message.recalled,
       message.id,
       isGenerating,
       message.renderKey,
