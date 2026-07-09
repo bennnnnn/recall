@@ -144,6 +144,11 @@ async def login_dev(
             name=name,
             avatar_url=None,
         )
+    elif name and user.name != name:
+        # Keep dev re-login in step with Google/Apple, which refresh the name
+        # each time — so renaming the dev identity takes effect for an existing
+        # account instead of being stuck at the name it was first created with.
+        user = await users_repo.update(session, user, name=name)
 
     if is_new_user and settings.email_enabled:
         await jobs.enqueue_welcome_email(redis, user.id)

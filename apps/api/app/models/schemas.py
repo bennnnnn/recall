@@ -133,7 +133,7 @@ class AppleAuthRequest(BaseModel):
 
 class DevAuthRequest(BaseModel):
     email: str = "dev@recall.local"
-    name: str = "Dev User"
+    name: str = "Bini"
 
 
 class AuthResponse(BaseModel):
