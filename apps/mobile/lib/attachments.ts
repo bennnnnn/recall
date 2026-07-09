@@ -111,6 +111,14 @@ export function defaultAttachmentPrompt(pending: PendingAttachment): string {
   return pending.kind === "image" ? "" : "Summarize this file.";
 }
 
+/** Preset caption for the camera math solver entry point. */
+export const MATH_CAMERA_PROMPT =
+  "Solve the math problem in this image step by step.";
+
+export function defaultMathCameraPrompt(): string {
+  return MATH_CAMERA_PROMPT;
+}
+
 /** Text sent to the API for a message that may include an attachment. */
 export function messageTextForSend(
   text: string,

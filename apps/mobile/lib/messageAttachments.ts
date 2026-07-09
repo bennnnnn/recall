@@ -8,6 +8,7 @@ const FILE_ATTACHED_MARKER = /^\[File attached:/;
 const ATTACHMENT_BOILERPLATE = new Set([
   "What's in this image?",
   "Summarize this file.",
+  "Solve the math problem in this image step by step.",
 ]);
 
 export function isAttachmentBoilerplate(text: string): boolean {

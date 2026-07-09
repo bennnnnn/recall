@@ -101,6 +101,10 @@ def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> boo
     cleaned = text.strip()
     if not cleaned and not has_image_attachment:
         return False
+    from app.services.math_image_extract import is_math_camera_prompt
+
+    if has_image_attachment and is_math_camera_prompt(cleaned):
+        return True
     if (
         _DRAW_RECTANGLE.search(cleaned)
         or _DRAW_RIGHT_TRIANGLE.search(cleaned)

@@ -13,6 +13,15 @@ class EquationInput(BaseModel):
     variables: list[str] = Field(default_factory=lambda: ["x"], min_length=1, max_length=4)
 
 
+class MathImageExtract(BaseModel):
+    """Vision-extracted equation from a photo (validated before SymPy)."""
+
+    lhs: str = Field(min_length=1, max_length=256)
+    rhs: str = Field(min_length=1, max_length=256)
+    variables: list[str] = Field(default_factory=lambda: ["x"], min_length=1, max_length=4)
+    found: bool = True
+
+
 class MathSolveResult(BaseModel):
     solutions_latex: list[str]
     steps: list[str] = Field(default_factory=list)

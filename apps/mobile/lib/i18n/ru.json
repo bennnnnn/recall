@@ -22,6 +22,7 @@
   "chat.archived_toast": "Чат архивирован",
   "chat.attach_a11y": "Добавить вложение",
   "chat.attach_camera": "Камера",
+  "chat.attach_solve_math_camera": "Solve math with camera",
   "chat.attach_failed": "Не удалось прикрепить",
   "chat.heic_unsupported_title": "HEIC not supported",
   "chat.heic_unsupported_body": "Please convert to JPEG or PNG, or choose a different photo.",
