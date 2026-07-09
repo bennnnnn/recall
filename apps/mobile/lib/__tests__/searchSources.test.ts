@@ -40,6 +40,22 @@ describe("searchSources", () => {
     expect(stripSearchSourcesFromContent(content)).toBe("Here is the answer.");
   });
 
+  it("does not hang when content starts with an unparseable '[' (e.g. an image marker)", () => {
+    // Regression: lastIndexOf("[", -1) clamps to 0 instead of returning -1,
+    // so the old loop re-found the same leading "[" forever once it reached
+    // index 0 without finding valid trailing JSON. Every generated-image
+    // reply is exactly this shape ("[Image: /attachments/<id>/file]"), so
+    // this previously froze the JS thread on every image generation.
+    const content = "[Image: /attachments/11111111-1111-1111-1111-111111111111/file]";
+    expect(parseSearchSources(content)).toEqual([]);
+    expect(stripSearchSourcesFromContent(content)).toBe(content);
+  }, 2000);
+
+  it("does not hang on other unparseable leading-bracket content", () => {
+    expect(parseSearchSources("[not json at all")).toEqual([]);
+    expect(parseSearchSources("[[[[[")).toEqual([]);
+  }, 2000);
+
   it("extracts hostname", () => {
     expect(hostnameFromUrl("https://www.bbc.com/news")).toBe("bbc.com");
   });
