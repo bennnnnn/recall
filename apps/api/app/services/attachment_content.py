@@ -27,8 +27,7 @@ IMAGE_CONTENT_TYPES = frozenset(
         "image/png",
         "image/webp",
         "image/gif",
-        "image/heic",
-        "image/heif",
+        # HEIC/HEIF rejected — unreliable cross-platform preview + vision; ask for JPEG/PNG.
     }
 )
 
@@ -56,7 +55,7 @@ _CONTENT_TYPE_ALIASES = {
 # as text). HEIC/HEIF use an ISO BMFF ftyp box that's awkward to sniff here and
 # are rare via the local upload path, so they're accepted on trust for now.
 _TEXTISH_TYPES = frozenset({"text/plain", "text/markdown", "text/csv", "application/json"})
-_UNVERIFIABLE_TYPES = frozenset({"image/heic", "image/heif"})
+_UNVERIFIABLE_TYPES: frozenset[str] = frozenset()
 
 
 def _sniff_signature(data: bytes) -> str | None:
@@ -279,6 +278,24 @@ async def format_attachment_lines(
                 ],
                 False,
             )
+        if content_type == "application/pdf":
+            return (
+                [
+                    file_ref,
+                    "[File attached: application/pdf. No extractable text — this is likely a "
+                    "scanned or image-only PDF. Tell the user Recall can't OCR scanned PDFs yet; "
+                    "suggest a text-based PDF or pasting the text.]",
+                ],
+                False,
+            )
+        return (
+            [
+                file_ref,
+                f"[File attached: {content_type}. No extractable text was found — "
+                "tell the user the file appears empty or unreadable.]",
+            ],
+            False,
+        )
 
     return [file_ref, f"[File attached: {content_type}, {size_bytes} bytes]"], False
 

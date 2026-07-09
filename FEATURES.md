@@ -529,8 +529,8 @@ structured Learning topic type.
 | Shipped | Not done |
 |---------|----------|
 | Presigned upload, magic-byte validation, daily image cap | Production R2 until creds set |
-| Vision routing for images | Full pgvector RAG over PDF corpora |
-| PDF text extraction server-side (SymPy-style verify path for docs) | Camera math solver UX |
+| Vision routing for images (JPEG/PNG/WebP/GIF; HEIC rejected with clear UX) | Full pgvector RAG over PDF corpora |
+| PDF text extraction server-side; honest empty/scanned-PDF copy | Document OCR for scanned PDFs |
 | PDF inline preview in message bubble | Virus scan / enterprise DLP |
 
 ### Voice

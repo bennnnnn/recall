@@ -10,7 +10,7 @@ from app.services.attachment_content import (
 
 def test_allowed_content_types_include_images_and_documents():
     assert "image/jpeg" in ALLOWED_CONTENT_TYPES
-    assert "image/heic" in ALLOWED_CONTENT_TYPES
+    assert "image/heic" not in ALLOWED_CONTENT_TYPES
     assert "application/pdf" in ALLOWED_CONTENT_TYPES
     assert "text/plain" in ALLOWED_CONTENT_TYPES
 
@@ -25,7 +25,7 @@ def test_normalize_content_type():
 
 def test_is_image_content_type():
     assert is_image_content_type("image/png") is True
-    assert is_image_content_type("image/heic") is True
+    assert is_image_content_type("image/heic") is False
     assert is_image_content_type("application/pdf") is False
 
 
@@ -178,6 +178,34 @@ async def test_format_attachment_lines_gives_honest_error_for_unsupported_type()
     )
     assert is_image is False
     assert "can't read this file type yet" in lines[1]
+
+
+@pytest.mark.asyncio
+async def test_format_attachment_lines_scanned_pdf_empty_text():
+    """Image-only PDFs extract to None — tell the model (and user) honestly
+    instead of a misleading byte-count placeholder."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from app.services.attachment_content import format_attachment_lines
+
+    gateway = MagicMock()
+    gateway.read_bytes = AsyncMock(return_value=b"%PDF-1.4 empty-ish")
+
+    with patch(
+        "app.services.attachment_content.extract_text_from_bytes_async",
+        AsyncMock(return_value=None),
+    ):
+        lines, is_image = await format_attachment_lines(
+            gateway,
+            attachment_id="550e8400-e29b-41d4-a716-446655440000",
+            content_type="application/pdf",
+            storage_key="key",
+            size_bytes=1200,
+            settings=Settings(),
+        )
+    assert is_image is False
+    assert "scanned" in lines[1].lower() or "OCR" in lines[1]
+    assert "bytes]" not in lines[1]
 
 
 @pytest.mark.asyncio
