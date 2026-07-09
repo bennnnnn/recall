@@ -297,11 +297,11 @@ suggestions using existing `users.timezone` and `todo_items.due_at`.
 ### Phase 2 — MCP layer
 - ✅ **MCP gateway skeleton** — `gateways/mcp/` with registry + adapters (`web_search`, `calendar`).
 - ⚠️ **Pre-stream tool round** — when `MCP_TOOLS_ENABLED=true`, `chat_tools.py` invokes matching
-  adapters once before streaming (web search query, calendar write hint). Not a full multi-turn
-  LiteLLM `tools=` loop yet.
-- 🔜 **Full tool-calling loop** — model-initiated tool rounds via LiteLLM; prerequisite for richer
-  agents.
-- 🔜 **Golden rules preserved** — product aliases in services; structured outputs validated with
+  adapters once before streaming (legacy; skipped when the tool loop is on).
+- ✅ **Full tool-calling loop** — when `MCP_TOOL_LOOP_ENABLED=true`, model-initiated LiteLLM
+  `tools=` rounds (`web_search` / `sympy` / `calendar`) with Pydantic-validated args, bounded by
+  `mcp_tool_loop_max_rounds` (default off).
+- ✅ **Golden rules preserved** — product aliases in services; structured outputs validated with
   Pydantic before DB writes (already enforced for calendar proposals and email extraction).
 
 ### Phase 3 — Smarter behavior
@@ -326,7 +326,7 @@ suggestions using existing `users.timezone` and `todo_items.due_at`.
 5. **Gmail read-only → suggested reminders** ✅
 6. MCP gateway abstraction + pre-stream adapter round ⚠️
 7. Write calendar events / confirm UX ✅
-8. Full LiteLLM tool-calling loop 🔜
+8. Full LiteLLM tool-calling loop ✅ (flag-gated)
 9. Email auto-add for high-confidence types (optional, post-MVP) 🔜
 
 ---
@@ -376,9 +376,9 @@ device).
 ## Deferred to upcoming version(s)
 A consolidated list of what's intentionally **not** (or only partially) in this version:
 
-- 🔜 **Full MCP / multi-turn tool loop** — pre-stream adapter round exists; LiteLLM `tools=` loop not
-  built yet. See [§16 MCP & calendar](#16-mcp--calendar-planned).
-- 🔜 **Plugins / arbitrary user MCP servers** (out of scope for v1)
+- ✅ **Full MCP / multi-turn tool loop** — LiteLLM `tools=` rounds behind `MCP_TOOL_LOOP_ENABLED`
+  (default off). See [§16 MCP & calendar](#16-mcp--calendar-planned).
+- 🔜 **Plugins / arbitrary user MCP servers**
 - 🔜 **Full RAG** (pgvector over attachments + chat corpora; memory embeddings exist today)
 - 🔜 **Code execution** (beyond sandboxed HTML/chart preview)
 - 🔜 **Cloud TTS** — device read-aloud shipped; server TTS not built
@@ -552,7 +552,7 @@ structured Learning topic type.
 |---------|----------|
 | Google Calendar read + write (confirm flow) | Google OAuth verification for Gmail prod |
 | Gmail → suggested reminders | Outlook, Slack, user MCP servers |
-| MCP gateway skeleton + pre-stream adapter round | Full LiteLLM tool-calling loop |
+| MCP gateway skeleton + LiteLLM tool loop (flag-gated) | Arbitrary user MCP servers |
 
 ### Launch blockers (honest)
 1. Cost guards (speech, Tavily, R1 weight) ✅

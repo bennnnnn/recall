@@ -86,6 +86,33 @@ async def mock_stream(
         await asyncio.sleep(0.03)
 
 
+async def mock_complete_with_tools(
+    *,
+    messages: list[dict],
+    tools: list[dict],
+) -> dict:
+    """Dev mock: one web_search tool call when the user asks to search, else no tools."""
+    _ = tools
+    last = _last_user_text(messages).lower()
+    if any(m.get("role") == "tool" for m in messages):
+        return {"content": MOCK_REPLY, "tool_calls": []}
+    if "search" in last or "look up" in last or "latest" in last:
+        return {
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "mock_web_search_1",
+                    "type": "function",
+                    "function": {
+                        "name": "web_search",
+                        "arguments": '{"query": "mock search"}',
+                    },
+                }
+            ],
+        }
+    return {"content": MOCK_REPLY, "tool_calls": []}
+
+
 async def mock_title(user_message: str) -> str | None:
     words = user_message.strip().split()[:4]
     if not words:

@@ -36,7 +36,7 @@ async def augment_prompt_with_mcp_tools(
     has_calendar_write: bool = False,
 ) -> list[dict[str, str]]:
     """Run registered MCP adapters when heuristics match (single pre-stream round)."""
-    if not settings.mcp_tools_enabled:
+    if not settings.mcp_tools_enabled or settings.mcp_tool_loop_enabled:
         return messages
 
     blocks: list[str] = []
