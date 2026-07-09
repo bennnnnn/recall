@@ -61,6 +61,7 @@ export default function ProjectDetailScreen() {
   projectRef.current = project;
   const [selectedDay, setSelectedDay] = useState(() => localDateKey(new Date()));
   const [conceptBusyId, setConceptBusyId] = useState<string | null>(null);
+  const [expandedDeck, setExpandedDeck] = useState<string | null>(null);
 
   const load = useCallback(
     async (opts?: { silent?: boolean; force?: boolean }) => {
@@ -155,7 +156,7 @@ export default function ProjectDetailScreen() {
   const isToday = selectedDay === localDateKey(new Date());
   const remainingToday = dailyGoal ? remainingDailyGoal(project) : 0;
 
-  const handleConceptStatusChange = async (itemId: string, status: VocabStatus) => {
+  const handleItemStatusChange = async (itemId: string, status: VocabStatus) => {
     if (!token || typeof id !== "string") return;
     setConceptBusyId(itemId);
     try {
@@ -167,6 +168,21 @@ export default function ProjectDetailScreen() {
       setConceptBusyId(null);
     }
   };
+
+  const vocabDecks =
+    isLang
+      ? project.by_part_of_speech && project.by_part_of_speech.length > 0
+        ? project.by_part_of_speech.map((g) => ({
+            key: g.part_of_speech,
+            title: formatProjectListTitle(g.part_of_speech, project.kind, t),
+            items: g.items,
+          }))
+        : project.lists.map((g) => ({
+            key: g.list_title,
+            title: formatProjectListTitle(g.list_title, project.kind, t),
+            items: g.items,
+          }))
+      : [];
 
   const startStudyQuiz = () => {
     const variant = isTrivia ? "trivia" : isLang ? "vocab" : undefined;
@@ -293,6 +309,44 @@ export default function ProjectDetailScreen() {
         />
       ) : null}
 
+      {isLang ? (
+        <View style={s.listSection}>
+          <Text style={s.listTitle}>{t("projects.word_lists")}</Text>
+          <Text style={s.comingSoonBody}>{t("projects.word_lists_hint")}</Text>
+          {vocabDecks.length > 0 ? (
+            vocabDecks.map((deck) => {
+              const open = expandedDeck === deck.key;
+              return (
+                <View key={deck.key} style={s.deckBlock}>
+                  <Pressable
+                    style={s.deckHeader}
+                    onPress={() => setExpandedDeck(open ? null : deck.key)}
+                  >
+                    <Text style={s.deckHeaderTitle}>{deck.title}</Text>
+                    <Text style={s.deckHeaderCount}>
+                      {t("projects.word_lists_total", { count: deck.items.length })}
+                    </Text>
+                  </Pressable>
+                  {open
+                    ? deck.items.map((item) => (
+                        <ProjectItemRow
+                          key={item.id}
+                          item={item}
+                          showSpeech
+                          busy={conceptBusyId === item.id}
+                          onStatusChange={(status) => handleItemStatusChange(item.id, status)}
+                        />
+                      ))
+                    : null}
+                </View>
+              );
+            })
+          ) : (
+            <Text style={s.comingSoonBody}>{t("projects.lists_empty")}</Text>
+          )}
+        </View>
+      ) : null}
+
       {isConcept ? (
         <>
           {project.lists.length > 0 ? (
@@ -307,7 +361,7 @@ export default function ProjectDetailScreen() {
                     item={item}
                     showSpeech={false}
                     busy={conceptBusyId === item.id}
-                    onStatusChange={(status) => handleConceptStatusChange(item.id, status)}
+                    onStatusChange={(status) => handleItemStatusChange(item.id, status)}
                   />
                 ))}
               </View>
@@ -430,6 +484,17 @@ function makeStyles(theme: Theme) {
       textTransform: "uppercase",
       letterSpacing: 0.6,
     },
+    deckBlock: { gap: 8 },
+    deckHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingVertical: 8,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: theme.border,
+    },
+    deckHeaderTitle: { fontSize: 15, fontWeight: "700", color: theme.text, flex: 1 },
+    deckHeaderCount: { fontSize: 12, fontWeight: "600", color: theme.textTertiary },
     itemRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
     itemMain: { flex: 1, gap: 2 },
     itemTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
