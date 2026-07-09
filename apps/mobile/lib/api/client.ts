@@ -10,6 +10,11 @@ export function setUnauthorizedHandler(fn: (() => void) | null): void {
   onUnauthorized = fn;
 }
 
+/** Invoke the global unauthorized handler (e.g. SSE refresh failure). */
+export function notifyUnauthorized(): void {
+  onUnauthorized?.();
+}
+
 export function setTokenRefreshHandler(fn: ((accessToken: string) => void) | null): void {
   onTokenRefresh = fn;
 }

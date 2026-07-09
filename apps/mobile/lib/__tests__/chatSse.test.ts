@@ -8,10 +8,11 @@ jest.mock("@/lib/deviceTimezone", () => ({
 
 jest.mock("@/lib/api/client", () => ({
   refreshAccessToken: jest.fn(),
+  notifyUnauthorized: jest.fn(),
 }));
 
 import { isSseAbortError, parseSseChunk, streamChatMessageSse } from "@/lib/chatSse";
-import { refreshAccessToken } from "@/lib/api/client";
+import { notifyUnauthorized, refreshAccessToken } from "@/lib/api/client";
 
 describe("parseSseChunk", () => {
   it("parses complete SSE frames and keeps trailing partial buffer", () => {
@@ -36,6 +37,7 @@ describe("isSseAbortError", () => {
 
 describe("streamChatMessageSse 401 refresh-retry", () => {
   const refreshMock = refreshAccessToken as jest.MockedFunction<typeof refreshAccessToken>;
+  const unauthorizedMock = notifyUnauthorized as jest.MockedFunction<typeof notifyUnauthorized>;
   const originalFetch = globalThis.fetch;
 
   const makeOkStream = (payload: string) =>
@@ -57,6 +59,7 @@ describe("streamChatMessageSse 401 refresh-retry", () => {
 
   beforeEach(() => {
     refreshMock.mockReset();
+    unauthorizedMock.mockReset();
   });
 
   afterEach(() => {
@@ -87,6 +90,7 @@ describe("streamChatMessageSse 401 refresh-retry", () => {
     expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe("Bearer stale-token");
     expect(fetchMock.mock.calls[1][1].headers.Authorization).toBe("Bearer fresh-token");
     expect(events).toEqual([{ type: "done" }]);
+    expect(unauthorizedMock).not.toHaveBeenCalled();
   });
 
   it("does not retry when refresh returns null", async () => {
@@ -109,6 +113,35 @@ describe("streamChatMessageSse 401 refresh-retry", () => {
       }),
     ).rejects.toThrow();
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(unauthorizedMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls onUnauthorized when retry still returns 401", async () => {
+    refreshMock.mockResolvedValue("fresh-token");
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: () => Promise.resolve("unauthorized"),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: () => Promise.resolve("still unauthorized"),
+      } as Response);
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(
+      streamChatMessageSse({
+        token: "stale-token",
+        chatId: "chat-1",
+        content: "hi",
+        onEvent: () => {},
+      }),
+    ).rejects.toThrow();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(unauthorizedMock).toHaveBeenCalledTimes(1);
   });
 
   it("does not refresh on a non-401 failure", async () => {
@@ -132,5 +165,6 @@ describe("streamChatMessageSse 401 refresh-retry", () => {
     ).rejects.toThrow();
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(refreshMock).not.toHaveBeenCalled();
+    expect(unauthorizedMock).not.toHaveBeenCalled();
   });
 });
