@@ -232,14 +232,18 @@ async def build_prompt_messages(
                     query=query_text,
                 )
 
-        memory_block, todos_section, projects_block, recent_all, attachment_rag_block = (
-            await asyncio.gather(
-                _memory_block(),
-                _todos_section(),
-                _projects_block(),
-                chat_pkg.messages_repo.list_recent(session, chat_id, limit=recent_limit),
-                _attachment_rag_block(),
-            )
+        (
+            memory_block,
+            todos_section,
+            projects_block,
+            recent_all,
+            attachment_rag_block,
+        ) = await asyncio.gather(
+            _memory_block(),
+            _todos_section(),
+            _projects_block(),
+            chat_pkg.messages_repo.list_recent(session, chat_id, limit=recent_limit),
+            _attachment_rag_block(),
         )
         if out is not None:
             labels = set(chat_pkg.memory_service.SECTION_LABELS.values())
