@@ -6,7 +6,7 @@ import asyncio
 import hashlib
 import json
 import logging
-from dataclasses import asdict
+from dataclasses import asdict, dataclass, field
 
 from redis.asyncio import Redis
 
@@ -18,6 +18,46 @@ from app.models.orm import User
 from app.services import quota as quota_service
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class _TurnTavilyBudget:
+    """One Tavily reservation shared across every query in a single search turn.
+
+    A turn fans out into several queries (e.g. sports/news build 3-4) that run
+    concurrently. Reserving per query would let one turn spend 3-4 of the
+    user's daily Tavily searches instead of one. This reserves at most once per
+    turn, lazily (only when a query actually misses cache and is about to hit
+    the network), and every concurrent query reuses that single decision. The
+    lock makes the check-then-reserve atomic across the gathered coroutines so
+    two cache-missing queries can't both reserve.
+    """
+
+    settings: Settings
+    user: User | None
+    _lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    _decided: bool = False
+    _skip_tavily: bool = False
+
+    async def skip_tavily(self, redis: Redis) -> bool:
+        """Whether this turn must skip Tavily (daily cap hit). Reserves once."""
+        if self.user is None:
+            return False
+        # Only spend the daily Tavily budget when Tavily can actually run. With
+        # no key (or web search off) the turn falls back to free, uncapped
+        # DuckDuckGo, so reserving here would burn a slot for a search Tavily
+        # never performs.
+        if not web_search_gateway.is_configured(self.settings):
+            return False
+        async with self._lock:
+            if not self._decided:
+                limit = quota_service.tavily_search_limit_for_user(self.user, self.settings)
+                reserved = await quota_service.reserve_tavily_search(
+                    redis, self.user.id, limit=limit
+                )
+                self._skip_tavily = not reserved
+                self._decided = True
+            return self._skip_tavily
 
 
 def _inject_before_last_user(messages: list[dict[str, str]], block: str) -> list[dict[str, str]]:
@@ -42,9 +82,12 @@ async def _run_search(
     if not queries:
         return [], []
 
+    # One Tavily reservation for the whole turn, shared by the fanned-out
+    # queries — a multi-query turn spends one daily search, not one per query.
+    budget = _TurnTavilyBudget(settings=settings, user=user)
     results = await asyncio.gather(
         *(
-            _search_with_cache(settings, query, max_results=limit, user=user, redis=redis)
+            _search_with_cache(settings, query, max_results=limit, budget=budget, redis=redis)
             for query in queries
         )
     )
@@ -74,7 +117,7 @@ async def _search_with_cache(
     query: str,
     *,
     max_results: int,
-    user: User | None = None,
+    budget: _TurnTavilyBudget | None = None,
     redis: Redis | None = None,
 ) -> list[WebSearchHit]:
     cleaned = query.strip()
@@ -126,15 +169,9 @@ async def _search_with_cache(
                 logger.debug("Web search cache read failed", exc_info=True)
 
     try:
-        skip_tavily = False
-        if user is not None:
-            tavily_limit = quota_service.tavily_search_limit_for_user(user, settings)
-            if not await quota_service.reserve_tavily_search(
-                cache_redis,
-                user.id,
-                limit=tavily_limit,
-            ):
-                skip_tavily = True
+        # Reserve one Tavily slot for the whole turn (shared budget), only now
+        # that this query has missed cache and is about to hit the network.
+        skip_tavily = await budget.skip_tavily(cache_redis) if budget is not None else False
 
         hits = await web_search_gateway.search_web(
             settings,
