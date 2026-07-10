@@ -1,23 +1,32 @@
-"""Assemble a user's full data export (profile + chats + messages + memories)."""
+"""Assemble a user's data export (profile, chats, memories, todos, projects)."""
 
 import json
+from collections import defaultdict
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import SessionLocal
-from app.models.orm import Chat, Memory, Message, User
+from app.models.orm import Chat, Memory, Message, Project, ProjectItem, TodoItem, User
 from app.repositories import chats as chats_repo
 from app.repositories import memories as memories_repo
 from app.repositories import messages as messages_repo
+from app.repositories import project_items as project_items_repo
+from app.repositories import projects as projects_repo
+from app.repositories import todos as todos_repo
 
 # Bound memory/time for a single export request — messages are paged per chat.
 EXPORT_MAX_CHATS = 500
 EXPORT_MAX_MESSAGES_PER_CHAT = 2_000
 EXPORT_MESSAGE_PAGE_SIZE = 200
 EXPORT_MEMORY_PAGE_SIZE = 50
+EXPORT_MAX_TODOS = 2_000
+EXPORT_TODO_PAGE_SIZE = 200
+EXPORT_MAX_PROJECTS = 100
+EXPORT_MAX_PROJECT_ITEMS = 20_000
 
 
 def _user_payload(user: User) -> dict[str, Any]:
@@ -57,10 +66,63 @@ def _memory_payload(memory: Memory) -> dict[str, Any]:
     }
 
 
+def _todo_payload(todo: TodoItem) -> dict[str, Any]:
+    return {
+        "id": str(todo.id),
+        "content": todo.content,
+        "topic": todo.topic,
+        "checked": todo.checked,
+        "due_at": todo.due_at.isoformat() if todo.due_at is not None else None,
+        "chat_id": str(todo.chat_id) if todo.chat_id is not None else None,
+        "project_id": str(todo.project_id) if todo.project_id is not None else None,
+        "sort_order": todo.sort_order,
+        "created_at": todo.created_at.isoformat(),
+        "updated_at": todo.updated_at.isoformat(),
+    }
+
+
+def _project_header(project: Project) -> dict[str, Any]:
+    return {
+        "id": str(project.id),
+        "title": project.title,
+        "description": project.description,
+        "kind": project.kind,
+        "target_language": project.target_language,
+        "native_language": project.native_language,
+        "level": project.level,
+        "daily_goal": project.daily_goal,
+        "archived": project.archived,
+        "created_at": project.created_at.isoformat(),
+        "updated_at": project.updated_at.isoformat(),
+    }
+
+
+def _project_item_payload(item: ProjectItem) -> dict[str, Any]:
+    return {
+        "id": str(item.id),
+        "list_title": item.list_title,
+        "content": item.content,
+        "note": item.note,
+        "definition": item.definition,
+        "example_sentence": item.example_sentence,
+        "status": item.status,
+        "mastered": item.mastered,
+        "mastered_at": item.mastered_at.isoformat() if item.mastered_at is not None else None,
+        "review_count": item.review_count,
+        "quiz_attempts": item.quiz_attempts,
+        "quiz_correct": item.quiz_correct,
+        "created_at": item.created_at.isoformat(),
+        "updated_at": item.updated_at.isoformat(),
+    }
+
+
 def _export_limits() -> dict[str, int]:
     return {
         "max_chats": EXPORT_MAX_CHATS,
         "max_messages_per_chat": EXPORT_MAX_MESSAGES_PER_CHAT,
+        "max_todos": EXPORT_MAX_TODOS,
+        "max_projects": EXPORT_MAX_PROJECTS,
+        "max_project_items": EXPORT_MAX_PROJECT_ITEMS,
     }
 
 
@@ -122,6 +184,58 @@ async def _iter_export_json(session: AsyncSession, user: User) -> AsyncIterator[
         memory_offset += len(memories)
         if len(memories) < EXPORT_MEMORY_PAGE_SIZE:
             break
+
+    yield '],"todos":['
+    todo_offset = 0
+    first_todo = True
+    while todo_offset < EXPORT_MAX_TODOS:
+        page_size = min(EXPORT_TODO_PAGE_SIZE, EXPORT_MAX_TODOS - todo_offset)
+        todos = await todos_repo.list_for_user(
+            session,
+            user.id,
+            limit=page_size,
+            offset=todo_offset,
+        )
+        if not todos:
+            break
+        for todo in todos:
+            if not first_todo:
+                yield ","
+            first_todo = False
+            yield json.dumps(_todo_payload(todo))
+        todo_offset += len(todos)
+        if len(todos) < page_size:
+            break
+
+    yield '],"projects":['
+    projects = await projects_repo.list_for_user(
+        session,
+        user.id,
+        include_archived=True,
+        limit=EXPORT_MAX_PROJECTS,
+    )
+    items_by_project: dict[UUID, list[ProjectItem]] = defaultdict(list)
+    if projects:
+        items = await project_items_repo.list_for_projects(
+            session,
+            [project.id for project in projects],
+            limit=EXPORT_MAX_PROJECT_ITEMS,
+        )
+        for item in items:
+            items_by_project[item.project_id].append(item)
+
+    for project_index, project in enumerate(projects):
+        if project_index:
+            yield ","
+        header = json.dumps(_project_header(project))
+        yield header[:-1]
+        yield ',"items":['
+        for item_index, item in enumerate(items_by_project.get(project.id, [])):
+            if item_index:
+                yield ","
+            yield json.dumps(_project_item_payload(item))
+        yield "]}"
+
     yield "]}"
 
 
@@ -137,5 +251,4 @@ async def build_export(session: AsyncSession, user: User) -> dict[str, Any]:
     parts: list[str] = []
     async for chunk in _iter_export_json(session, user):
         parts.append(chunk)
-    parsed: dict[str, Any] = json.loads("".join(parts))
-    return parsed
+    return json.loads("".join(parts))

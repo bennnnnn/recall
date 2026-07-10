@@ -180,8 +180,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Usage** — today's token meter.
 - ✅ **Sign out.**
 - ✅ **Edit name** — editable in Settings (Account → pencil → save).
-- ✅ **Data export** — exports your full data (profile + chats + messages + memories) as JSON via the
-  native share sheet (`GET /auth/me/export`).
+- ✅ **Data export** — exports profile + chats + messages + memories + todos + learning projects
+  (with items) as JSON via the native share sheet (`GET /auth/me/export`).
 - ✅ **Account deletion** — permanently deletes the account and all its data (`DELETE /auth/me`),
   then signs out.
 - ✅ **Avatar** — shows the Google profile picture, falling back to the user's initials (no upload
