@@ -88,6 +88,139 @@ def resolve_daily_vocab_goal(project: object) -> int:
     return resolve_daily_goal(project)
 
 
+STANDARD_DAILY_GOALS: tuple[int, ...] = (5, 10, 15)
+
+
+def _timezone(timezone_name: str) -> ZoneInfo:
+    try:
+        return ZoneInfo(timezone_name)
+    except Exception:
+        return ZoneInfo("UTC")
+
+
+def parse_daily_goal_history(project: object) -> list[dict[str, int | str]]:
+    raw = getattr(project, "daily_goal_history", None)
+    if not isinstance(raw, list):
+        return []
+    parsed: list[dict[str, int | str]] = []
+    for entry in raw:
+        if not isinstance(entry, dict):
+            continue
+        effective_from = entry.get("effective_from")
+        goal = entry.get("goal")
+        if not isinstance(effective_from, str) or not isinstance(goal, int) or goal < 1:
+            continue
+        parsed.append({"effective_from": effective_from, "goal": goal})
+    parsed.sort(key=lambda row: str(row["effective_from"]))
+    return parsed
+
+
+def prior_standard_goal(goal: int) -> int | None:
+    lowers = [tier for tier in STANDARD_DAILY_GOALS if tier < goal]
+    return lowers[-1] if lowers else None
+
+
+def goal_effective_on_date(
+    history: list[dict[str, int | str]],
+    day: date,
+    *,
+    fallback: int,
+) -> int:
+    if not history:
+        return fallback
+    effective = max(1, fallback)
+    for entry in history:
+        try:
+            entry_date = date.fromisoformat(str(entry["effective_from"]))
+        except ValueError:
+            continue
+        if entry_date <= day:
+            effective = max(1, int(entry["goal"]))
+        else:
+            break
+    return effective
+
+
+def append_daily_goal_history(
+    existing: list[dict[str, int | str]] | None,
+    *,
+    old_goal: int | None,
+    new_goal: int,
+    project_created: datetime,
+    effective_from: date,
+    timezone_name: str,
+) -> list[dict[str, int | str]]:
+    tz = _timezone(timezone_name)
+    created_local = _as_utc(project_created).astimezone(tz).date()
+    history = list(existing or [])
+    if not history:
+        seed_goal = old_goal if isinstance(old_goal, int) and old_goal >= 1 else new_goal
+        history = [{"effective_from": created_local.isoformat(), "goal": seed_goal}]
+    today_key = effective_from.isoformat()
+    history = [row for row in history if str(row["effective_from"]) != today_key]
+    history.append({"effective_from": today_key, "goal": max(1, new_goal)})
+    history.sort(key=lambda row: str(row["effective_from"]))
+    return history
+
+
+def infer_daily_goal_history(
+    project: object,
+    items: list,
+    *,
+    timezone_name: str,
+) -> list[dict[str, int | str]]:
+    """Best-effort backfill when goal changes were not logged."""
+    current = resolve_daily_goal(project)
+    tz = _timezone(timezone_name)
+    created = _as_utc(getattr(project, "created_at", datetime.now(UTC))).astimezone(tz).date()
+    today = datetime.now(tz).date()
+
+    mastered_by_day: dict[date, int] = {}
+    for item in items:
+        day = _mastered_local_date(item, tz)
+        if day is not None:
+            mastered_by_day[day] = mastered_by_day.get(day, 0) + 1
+
+    prior = prior_standard_goal(current)
+    if prior is None:
+        return [{"effective_from": created.isoformat(), "goal": current}]
+
+    days_at_prior = [day for day, count in mastered_by_day.items() if count >= prior]
+    if not days_at_prior:
+        return [{"effective_from": created.isoformat(), "goal": current}]
+
+    days_between = [day for day, count in mastered_by_day.items() if prior < count < current]
+    if days_between:
+        split = min(days_between)
+        return [
+            {"effective_from": created.isoformat(), "goal": prior},
+            {"effective_from": split.isoformat(), "goal": current},
+        ]
+
+    last_prior_day = max(days_at_prior)
+    split = min(last_prior_day + timedelta(days=1), today)
+    if split <= created:
+        split = min(created + timedelta(days=1), today)
+    if split.isoformat() == created.isoformat():
+        return [{"effective_from": created.isoformat(), "goal": current}]
+    return [
+        {"effective_from": created.isoformat(), "goal": prior},
+        {"effective_from": split.isoformat(), "goal": current},
+    ]
+
+
+def ensure_daily_goal_history(
+    project: object,
+    items: list,
+    *,
+    timezone_name: str,
+) -> list[dict[str, int | str]]:
+    existing = parse_daily_goal_history(project)
+    if existing:
+        return existing
+    return infer_daily_goal_history(project, items, timezone_name=timezone_name)
+
+
 def last_mastery_at(items: list) -> datetime | None:
     latest: datetime | None = None
     for item in items:
@@ -258,6 +391,7 @@ def build_daily_history(
     timezone_name: str,
     daily_goal: int,
     active_since: datetime,
+    daily_goal_history: list[dict[str, int | str]] | None = None,
     days: int = 14,
 ) -> list[dict[str, object]]:
     """Per-calendar-day mastery counts for language/trivia projects."""
@@ -267,7 +401,8 @@ def build_daily_history(
         tz = ZoneInfo("UTC")
     today = datetime.now(tz).date()
     active_since_date = _as_utc(active_since).astimezone(tz).date()
-    goal = max(1, daily_goal)
+    fallback_goal = max(1, daily_goal)
+    history = list(daily_goal_history or [])
 
     counts: dict[date, int] = {}
     for item in items:
@@ -278,12 +413,13 @@ def build_daily_history(
 
     missed_counts = count_missed_by_date(items, timezone_name=timezone_name)
 
-    history: list[dict[str, object]] = []
+    history_rows: list[dict[str, object]] = []
     span = max(1, min(days, 60))
     for offset in range(span - 1, -1, -1):
         day = today - timedelta(days=offset)
         count = counts.get(day, 0)
         missed = missed_counts.get(day, 0)
+        goal = goal_effective_on_date(history, day, fallback=fallback_goal)
         if day < active_since_date:
             status: DailyHistoryStatus = "inactive"
         elif day == today:
@@ -294,7 +430,7 @@ def build_daily_history(
             status = "partial"
         else:
             status = "skipped"
-        history.append(
+        history_rows.append(
             {
                 "date": day.isoformat(),
                 "weekday": day.weekday(),
@@ -305,4 +441,4 @@ def build_daily_history(
                 "status": status,
             }
         )
-    return history
+    return history_rows

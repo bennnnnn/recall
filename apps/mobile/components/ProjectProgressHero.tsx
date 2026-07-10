@@ -62,6 +62,13 @@ export function ProjectProgressHero({
     : isDaily
       ? t("projects.stats.today")
       : t("projects.progress_title");
+  const leftLabel = goalMet
+    ? t("projects.stats.goal_complete")
+    : useDay && !daySnapshot.isToday
+      ? t("projects.stats.pending_left")
+      : t("projects.stats.pending_today");
+  const correctLabel =
+    useDay && !daySnapshot.isToday ? t("projects.stats.correct_day") : todayLearnedLabel;
 
   return (
     <View style={s.card}>
@@ -71,7 +78,9 @@ export function ProjectProgressHero({
           {isDaily
             ? goalMet
               ? t("projects.daily_goal_done")
-              : t("projects.daily_progress", { done: doneToday, goal: activeGoal })
+              : useDay && !daySnapshot.isToday
+                ? t("projects.daily_progress_day", { done: doneToday, goal: activeGoal })
+                : t("projects.daily_progress", { done: doneToday, goal: activeGoal })
             : t("projects.progress_pct", { pct })}
         </Text>
       </View>
@@ -90,16 +99,14 @@ export function ProjectProgressHero({
         {isDaily ? (
           <>
             <MetricPill
-              label={
-                goalMet ? t("projects.stats.goal_complete") : t("projects.stats.pending_today")
-              }
+              label={leftLabel}
               value={goalMet ? (activeGoal ?? 0) : leftToday}
               theme={theme}
               accent={goalMet ? theme.primary : leftToday > 0 ? theme.warning : theme.textTertiary}
               highlight={!goalMet && leftToday > 0}
             />
             <MetricPill
-              label={todayLearnedLabel}
+              label={correctLabel}
               value={masteredForDay}
               theme={theme}
               accent={theme.primary}

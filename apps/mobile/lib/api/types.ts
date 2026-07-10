@@ -122,6 +122,8 @@ export type Project = {
   archived: boolean;
   created_at: string;
   updated_at: string;
+  /** Present on list responses for language/trivia projects. */
+  stats?: ProjectStats;
 };
 
 export type ProjectItem = {

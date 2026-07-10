@@ -1,9 +1,30 @@
+from datetime import datetime
+from types import SimpleNamespace
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Project
+from app.services import daily_learning
+
+
+def _initial_daily_goal_history(
+    *,
+    kind: str,
+    daily_goal: int | None,
+    timezone_name: str,
+) -> list[dict[str, int | str]] | None:
+    if kind not in ("language", "trivia"):
+        return None
+    try:
+        tz = ZoneInfo(timezone_name)
+    except Exception:
+        tz = ZoneInfo("UTC")
+    today = datetime.now(tz).date()
+    goal = daily_learning.resolve_daily_goal(SimpleNamespace(kind=kind, daily_goal=daily_goal))
+    return [{"effective_from": today.isoformat(), "goal": goal}]
 
 
 async def list_for_user(
@@ -83,6 +104,7 @@ async def create(
     native_language: str | None = None,
     level: str = "level1",
     daily_goal: int | None = None,
+    timezone_name: str = "UTC",
 ) -> Project:
     normalized_kind = "language" if kind == "vocabulary" else kind
     project = Project(
@@ -94,6 +116,11 @@ async def create(
         native_language=native_language,
         level=level,
         daily_goal=daily_goal,
+        daily_goal_history=_initial_daily_goal_history(
+            kind=normalized_kind,
+            daily_goal=daily_goal,
+            timezone_name=timezone_name,
+        ),
     )
     session.add(project)
     await session.commit()

@@ -212,6 +212,7 @@ class Project(Base):
     native_language: Mapped[str | None] = mapped_column(String(10), nullable=True)
     level: Mapped[str] = mapped_column(String(20), default="level1", server_default="level1")
     daily_goal: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    daily_goal_history: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     archived: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

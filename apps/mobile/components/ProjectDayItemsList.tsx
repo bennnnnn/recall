@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { ProjectItemRow } from "@/components/ProjectItemRow";
 import { api, type ProjectDailyHistoryDay, type ProjectItem, type VocabStatus } from "@/lib/api";
 import { Theme, useTheme } from "@/lib/theme";
+import { weekdayFullLabel } from "@/lib/weekdayLabels";
 
 const PAGE_SIZE = 25;
 
@@ -24,8 +25,6 @@ type Props = {
   missedItems?: ProjectItem[];
   onItemUpdated?: () => void;
 };
-
-const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 
 export function ProjectDayItemsList({
   token,
@@ -86,22 +85,24 @@ export function ProjectDayItemsList({
     [token, projectId, onItemUpdated, t],
   );
 
-  const emptyKey = useMemo(() => {
-    if (dayMeta?.status === "inactive") return "projects.daily_items.empty_inactive";
-    if (dayMeta?.status === "skipped") return "projects.daily_items.empty_skipped";
+  const dayName = weekdayFullLabel(dayMeta?.weekday ?? 0, t);
+
+  const emptyMessage = useMemo(() => {
+    if (dayMeta?.status === "inactive") return t("projects.daily_items.empty_inactive");
     if (dayMeta?.status === "today") {
-      return isTrivia ? "projects.daily_items.empty_today_trivia" : "projects.daily_items.empty_today";
+      return isTrivia
+        ? t("projects.daily_items.empty_today_trivia")
+        : t("projects.daily_items.empty_today");
     }
-    if ((dayMeta?.mastered_count ?? 0) === 0) return "projects.daily_items.empty_skipped";
-    return "projects.daily_items.empty_skipped";
-  }, [dayMeta, isTrivia]);
+    return isTrivia
+      ? t("projects.daily_items.empty_quiz_missed_day", { day: dayName })
+      : t("projects.daily_items.empty_words_missed_day", { day: dayName });
+  }, [dayMeta, dayName, isTrivia, t]);
 
   const title = isTrivia
-    ? t("projects.daily_items.title_facts", { day: weekdayLabel(dayMeta, t) })
-    : t("projects.daily_items.title_words", { day: weekdayLabel(dayMeta, t) });
-  const missedTitle = t("projects.daily_items.title_missed", {
-    day: weekdayLabel(dayMeta, t),
-  });
+    ? t("projects.daily_items.title_facts", { day: dayName })
+    : t("projects.daily_items.title_words", { day: dayName });
+  const missedTitle = t("projects.daily_items.title_missed", { day: dayName });
 
   return (
     <View style={s.wrap}>
@@ -132,7 +133,7 @@ export function ProjectDayItemsList({
         <ActivityIndicator color={theme.primary} style={s.loader} />
       ) : items.length === 0 ? (
         <View style={s.emptyBlock}>
-          <Text style={s.empty}>{t(emptyKey)}</Text>
+          <Text style={s.empty}>{emptyMessage}</Text>
           {studyAction ? (
             <Pressable style={s.actionBtn} onPress={studyAction.onPress}>
               <Text style={s.actionBtnText}>{studyAction.label}</Text>
@@ -163,11 +164,6 @@ export function ProjectDayItemsList({
       </View>
     </View>
   );
-}
-
-function weekdayLabel(dayMeta: ProjectDailyHistoryDay | undefined, t: (key: string) => string): string {
-  const key = WEEKDAY_KEYS[dayMeta?.weekday ?? 0] ?? "mon";
-  return t(`projects.daily_strip.${key}`);
 }
 
 function makeStyles(theme: Theme) {

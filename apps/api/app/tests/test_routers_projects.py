@@ -1,6 +1,6 @@
 """Projects router tests."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -70,15 +70,22 @@ def test_list_projects():
     app = _app_with_user(user)
     project = _project()
 
-    with patch(
-        "app.routers.projects.projects_repo.list_for_user",
-        AsyncMock(return_value=[project]),
+    with (
+        patch(
+            "app.routers.projects.projects_repo.list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch(
+            "app.routers.projects.project_items_repo.count_stats_by_project",
+            AsyncMock(return_value={project.id: {"mastered_count": 3, "mastered_today": 1}}),
+        ),
     ):
         client = TestClient(app)
         r = client.get("/projects", headers={"Authorization": "Bearer tok"})
 
     assert r.status_code == 200
     assert r.json()[0]["title"] == "Spanish"
+    assert r.json()[0]["stats"]["mastered_count"] == 3
 
 
 def test_create_project_maps_vocabulary_to_language():
@@ -332,6 +339,9 @@ def test_update_project_daily_goal():
     user = _fake_user()
     app = _app_with_user(user)
     project = _project(kind="language")
+    project.daily_goal = 5
+    project.daily_goal_history = [{"effective_from": "2026-07-07", "goal": 5}]
+    project.created_at = datetime(2026, 7, 7, tzinfo=UTC)
     project_id = project.id
     updated = _project(kind="language")
     updated.daily_goal = 15
@@ -346,7 +356,11 @@ def test_update_project_daily_goal():
             AsyncMock(return_value=updated),
         ) as update_mock,
         patch("app.routers.projects.home_service.invalidate_home_cache", AsyncMock()),
+        patch(
+            "app.routers.projects.datetime",
+        ) as dt_mock,
     ):
+        dt_mock.now.return_value = datetime(2026, 7, 8, 12, tzinfo=UTC)
         client = TestClient(app)
         r = client.patch(
             f"/projects/{project_id}",
@@ -356,6 +370,8 @@ def test_update_project_daily_goal():
 
     assert r.status_code == 200
     assert update_mock.await_args.kwargs["daily_goal"] == 15
+    history = update_mock.await_args.kwargs["daily_goal_history"]
+    assert history[-1]["goal"] == 15
     assert r.json()["daily_goal"] == 15
 
 

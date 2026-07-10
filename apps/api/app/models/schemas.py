@@ -483,6 +483,12 @@ class ProjectStats(BaseModel):
     suggested_level: Literal["up", "down"] | None = None
 
 
+class ProjectListOut(ProjectOut):
+    """Project list row; learning kinds include lightweight stats for list cards."""
+
+    stats: ProjectStats | None = None
+
+
 DailyHistoryStatus = Literal["complete", "partial", "skipped", "today", "inactive"]
 
 

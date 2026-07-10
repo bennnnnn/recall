@@ -11,7 +11,11 @@ import type {
 } from "@/lib/api/types";
 
 export const projectsApi = {
-  listProjects: (token: string) => request<Project[]>("/projects", token),
+  listProjects: (token: string) => {
+    const tz = getDeviceTimezone();
+    const qs = tz ? `?client_timezone=${encodeURIComponent(tz)}` : "";
+    return request<Project[]>(`/projects${qs}`, token);
+  },
   getProject: (token: string, id: string) => {
     const tz = getDeviceTimezone();
     const qs = tz ? `?client_timezone=${encodeURIComponent(tz)}` : "";

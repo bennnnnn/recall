@@ -1,12 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { useMemo } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
-import type { Project, ProjectDetail } from "@/lib/api";
+import type { Project } from "@/lib/api";
 import { resolveDailyGoal } from "@/lib/dailyGoals";
 import { isLanguageProject } from "@/lib/languageLevels";
-import { fetchProjectDetail } from "@/lib/projectDetailCache";
 import { isTriviaProject } from "@/lib/projectUi";
 import { Theme, useTheme } from "@/lib/theme";
 import {
@@ -16,7 +15,6 @@ import {
 
 type Props = {
   project: Project;
-  token: string;
   icon: keyof typeof Ionicons.glyphMap;
   onOpen: () => void;
   onLevelPress: () => void;
@@ -43,7 +41,6 @@ function cardTitle(
 
 export function LearningProjectCard({
   project,
-  token,
   icon,
   onOpen,
   onLevelPress,
@@ -57,23 +54,8 @@ export function LearningProjectCard({
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const [detail, setDetail] = useState<ProjectDetail | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    void fetchProjectDetail(token, project.id).then((data) => {
-      if (cancelled) return;
-      setDetail(data);
-      setLoading(false);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [token, project.id]);
-
-  const stats = detail?.stats;
+  const stats = project.stats;
   const dailyGoal = resolveDailyGoal(project.daily_goal);
   const isLang = isLanguageProject(project.kind);
   const isTrivia = isTriviaProject(project.kind);
@@ -101,14 +83,8 @@ export function LearningProjectCard({
     <View style={s.section}>
       {showLifetimeBadge ? (
         <View style={s.lifetimeBadge}>
-          {loading ? (
-            <ActivityIndicator size="small" color={theme.primary} />
-          ) : (
-            <>
-              <Text style={s.lifetimeBadgeLabel}>{lifetimeBadgeLabel}</Text>
-              <Text style={s.lifetimeBadgeCount}>{lifetimeTotal}</Text>
-            </>
-          )}
+          <Text style={s.lifetimeBadgeLabel}>{lifetimeBadgeLabel}</Text>
+          <Text style={s.lifetimeBadgeCount}>{lifetimeTotal}</Text>
         </View>
       ) : null}
 
@@ -123,12 +99,7 @@ export function LearningProjectCard({
           <Ionicons name="chevron-forward" size={18} color={theme.textTertiary} />
         </Pressable>
 
-        {loading && !showLifetimeBadge ? (
-          <View style={s.loadingRow}>
-            <ActivityIndicator size="small" color={theme.primary} />
-            <Text style={s.loadingText}>{t("projects.list.loading_stats")}</Text>
-          </View>
-        ) : !loading && stats && todayParts.length > 0 ? (
+        {stats && todayParts.length > 0 ? (
           <View style={[s.todayWrap, todayGoalMet ? s.todayWrapComplete : s.todayWrapPending]}>
             <Text style={[s.todayLine, todayGoalMet ? s.todayLineComplete : s.todayLinePending]}>
               {todayParts.join(" · ")}
@@ -137,30 +108,30 @@ export function LearningProjectCard({
         ) : null}
 
         <View style={s.dropdowns}>
-        <LearningDropdownRow
-          label={levelField}
-          value={levelLabel}
-          onPress={onLevelPress}
-          disabled={saving}
-        />
-        <LearningDropdownDivider />
-        <LearningDropdownRow
-          label={dailyField}
-          value={dailyLabel}
-          onPress={onDailyPress}
-          disabled={saving}
-        />
-        {isTrivia && onTopicsPress && topicsLabel ? (
-          <>
-            <LearningDropdownDivider />
-            <LearningDropdownRow
-              label={t("projects.list.topics_row")}
-              value={topicsLabel}
-              onPress={onTopicsPress}
-              disabled={saving}
-            />
-          </>
-        ) : null}
+          <LearningDropdownRow
+            label={levelField}
+            value={levelLabel}
+            onPress={onLevelPress}
+            disabled={saving}
+          />
+          <LearningDropdownDivider />
+          <LearningDropdownRow
+            label={dailyField}
+            value={dailyLabel}
+            onPress={onDailyPress}
+            disabled={saving}
+          />
+          {isTrivia && onTopicsPress && topicsLabel ? (
+            <>
+              <LearningDropdownDivider />
+              <LearningDropdownRow
+                label={t("projects.list.topics_row")}
+                value={topicsLabel}
+                onPress={onTopicsPress}
+                disabled={saving}
+              />
+            </>
+          ) : null}
         </View>
       </View>
     </View>
@@ -227,14 +198,6 @@ function makeStyles(theme: Theme) {
       fontWeight: "700",
       color: theme.text,
     },
-    loadingRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 8,
-      paddingHorizontal: 16,
-      paddingVertical: 16,
-    },
-    loadingText: { fontSize: 14, color: theme.textSecondary },
     todayWrap: {
       paddingVertical: 13,
       paddingHorizontal: 16,

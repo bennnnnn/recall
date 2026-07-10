@@ -623,6 +623,11 @@ def _project_highlight(
             timezone_name=str(home_tz.key),
             daily_goal=daily_goal,
             active_since=project.created_at,
+            daily_goal_history=daily_learning.ensure_daily_goal_history(
+                project,
+                project_items or [],
+                timezone_name=str(home_tz.key),
+            ),
         )
         if project_items
         else None,

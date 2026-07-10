@@ -1,11 +1,13 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
 from app.services.daily_learning import (
+    append_daily_goal_history,
     build_daily_history,
     count_today_vocab_stats,
     daily_home_cue,
+    goal_effective_on_date,
     group_mastered_items_by_date,
     start_of_today_utc,
 )
@@ -216,3 +218,68 @@ def test_build_daily_history_includes_missed_counts():
         days=3,
     )
     assert history[-1]["missed_count"] == 1
+
+
+def test_goal_effective_on_date_uses_history_segments():
+    history = [
+        {"effective_from": "2026-07-07", "goal": 5},
+        {"effective_from": "2026-07-08", "goal": 10},
+    ]
+    assert goal_effective_on_date(history, date(2026, 7, 7), fallback=10) == 5
+    assert goal_effective_on_date(history, date(2026, 7, 8), fallback=5) == 10
+    assert goal_effective_on_date(history, date(2026, 7, 9), fallback=5) == 10
+
+
+def test_build_daily_history_keeps_past_goal_after_increase():
+    tz = ZoneInfo("UTC")
+    today = datetime.now(tz).date()
+    monday = today - timedelta(days=1)
+    active = datetime.combine(
+        monday - timedelta(days=1), datetime.min.time(), tzinfo=tz
+    ).astimezone(UTC)
+    monday_at = datetime.combine(monday, datetime.min.time(), tzinfo=tz).astimezone(UTC)
+    items = [
+        _item(
+            status="mastered",
+            mastered=True,
+            created_at=active,
+            mastered_at=monday_at,
+        )
+        for _ in range(5)
+    ]
+    history = [
+        {"effective_from": monday.isoformat(), "goal": 5},
+        {"effective_from": today.isoformat(), "goal": 10},
+    ]
+    rows = build_daily_history(
+        items,
+        timezone_name="UTC",
+        daily_goal=10,
+        active_since=active,
+        daily_goal_history=history,
+        days=2,
+    )
+    monday_row = rows[0]
+    today_row = rows[1]
+    assert monday_row["date"] == monday.isoformat()
+    assert monday_row["daily_goal"] == 5
+    assert monday_row["goal_met"] is True
+    assert monday_row["status"] == "complete"
+    assert today_row["daily_goal"] == 10
+    assert today_row["goal_met"] is False
+
+
+def test_append_daily_goal_history_records_change_from_today():
+    created = datetime(2026, 7, 7, 12, tzinfo=UTC)
+    history = append_daily_goal_history(
+        [{"effective_from": "2026-07-07", "goal": 5}],
+        old_goal=5,
+        new_goal=10,
+        project_created=created,
+        effective_from=date(2026, 7, 8),
+        timezone_name="UTC",
+    )
+    assert history == [
+        {"effective_from": "2026-07-07", "goal": 5},
+        {"effective_from": "2026-07-08", "goal": 10},
+    ]

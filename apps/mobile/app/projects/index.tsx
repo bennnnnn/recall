@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Redirect, useFocusEffect, useRouter } from "expo-router";
+import { Redirect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -37,7 +37,6 @@ import { findLanguageProject } from "@/lib/languageProject";
 import { queueChatLaunch } from "@/lib/chatLaunch";
 import {
   invalidateProjectDetail,
-  prefetchProjectDetails,
 } from "@/lib/projectDetailCache";
 import {
   buildEnglishOnboardingPrompt,
@@ -97,15 +96,6 @@ export default function ProjectsScreen() {
     [projects],
   );
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!token || visibleProjects.length === 0) return;
-      prefetchProjectDetails(
-        token,
-        visibleProjects.map((project) => project.id),
-      );
-    }, [token, visibleProjects]),
-  );
   const [createStep, setCreateStep] = useState<CreateStep | null>(null);
   const [kind, setKind] = useState<ProjectKind | null>(null);
   const [level, setLevel] = useState<LanguageLevel>("level1");
@@ -131,8 +121,13 @@ export default function ProjectsScreen() {
     setSaving(true);
     try {
       const updated = await api.updateProject(token, project.id, { daily_goal: nextGoal });
-      setProjects((prev) => prev.map((row) => (row.id === updated.id ? updated : row)));
+      setProjects((prev) =>
+        prev.map((row) =>
+          row.id === updated.id ? { ...updated, stats: row.stats } : row,
+        ),
+      );
       invalidateProjectDetail(project.id);
+      void refresh({ silent: true, force: true });
     } catch {
       Alert.alert(t("common.error"), t("settings.learning.save_failed"));
     } finally {
@@ -149,8 +144,13 @@ export default function ProjectsScreen() {
           ? { level, title: englishProjectTitle(level, t) }
           : { level };
       const updated = await api.updateProject(token, project.id, patch);
-      setProjects((prev) => prev.map((row) => (row.id === updated.id ? updated : row)));
+      setProjects((prev) =>
+        prev.map((row) =>
+          row.id === updated.id ? { ...updated, stats: row.stats } : row,
+        ),
+      );
       invalidateProjectDetail(project.id);
+      void refresh({ silent: true, force: true });
     } catch {
       Alert.alert(t("common.error"), t("settings.learning.save_failed"));
     } finally {
@@ -165,8 +165,13 @@ export default function ProjectsScreen() {
       const updated = await api.updateProject(token, topicsProject.id, {
         description: encodeTriviaTopics(topicsDraft),
       });
-      setProjects((prev) => prev.map((row) => (row.id === updated.id ? updated : row)));
+      setProjects((prev) =>
+        prev.map((row) =>
+          row.id === updated.id ? { ...updated, stats: row.stats } : row,
+        ),
+      );
       invalidateProjectDetail(topicsProject.id);
+      void refresh({ silent: true, force: true });
       setTopicsProject(null);
     } catch {
       Alert.alert(t("common.error"), t("settings.learning.save_failed"));
@@ -544,7 +549,6 @@ export default function ProjectsScreen() {
                 <LearningProjectCard
                   key={project.id}
                   project={project}
-                  token={token}
                   icon={kindIcon(project.kind)}
                   levelLabel={levelValue}
                   dailyLabel={dailyValue}

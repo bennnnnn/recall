@@ -44,8 +44,7 @@ import {
   type TriviaTopicId,
 } from "@/lib/triviaTopics";
 import { Theme, useTheme } from "@/lib/theme";
-
-const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+import { weekdayFullLabel } from "@/lib/weekdayLabels";
 
 export default function ProjectDetailScreen() {
   const { token } = useAuth();
@@ -174,7 +173,7 @@ export default function ProjectDetailScreen() {
   const selectedDayMissed = project.daily_missed_by_date?.[selectedDay] ?? [];
   const daySnapshotTitle = isToday
     ? t("projects.stats.today")
-    : t(`projects.daily_strip.${WEEKDAY_KEYS[selectedDayMeta?.weekday ?? 0] ?? "mon"}`).toUpperCase();
+    : weekdayFullLabel(selectedDayMeta?.weekday ?? 0, t).toUpperCase();
   const daySnapshot: ProjectDaySnapshot | null =
     showDailyTracking && dailyGoal && selectedDayMeta
       ? {

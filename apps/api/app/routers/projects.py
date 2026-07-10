@@ -1,5 +1,6 @@
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +14,7 @@ from app.models.schemas import (
     ProjectDetailOut,
     ProjectItemOut,
     ProjectItemUpdate,
+    ProjectListOut,
     ProjectOut,
     ProjectStats,
     ProjectUpdate,
@@ -36,6 +38,7 @@ def _build_project_stats(
     items: list,
     *,
     timezone_name: str,
+    daily_goal_history: list[dict[str, int | str]] | None = None,
 ) -> ProjectStats:
     raw = project_items_repo.stats_from_items(items, timezone_name=timezone_name)
     daily_goal = daily_learning.resolve_daily_goal(project)
@@ -49,9 +52,36 @@ def _build_project_stats(
             timezone_name=timezone_name,
             daily_goal=daily_goal,
             active_since=project.created_at,
+            daily_goal_history=daily_goal_history,
         ),
     )
     return ProjectStats.model_validate(enriched)
+
+
+def _daily_goal_history_for_project(
+    project,
+    items: list,
+    *,
+    timezone_name: str,
+) -> list[dict[str, int | str]]:
+    return daily_learning.ensure_daily_goal_history(
+        project,
+        items,
+        timezone_name=timezone_name,
+    )
+
+
+async def _maybe_persist_daily_goal_history(
+    session: AsyncSession,
+    project,
+    items: list,
+    *,
+    timezone_name: str,
+) -> list[dict[str, int | str]]:
+    history = _daily_goal_history_for_project(project, items, timezone_name=timezone_name)
+    if project.daily_goal_history is None and project.kind in ("language", "vocabulary", "trivia"):
+        await projects_repo.update(session, project, daily_goal_history=history)
+    return history
 
 
 def _daily_history_for_project(
@@ -59,12 +89,14 @@ def _daily_history_for_project(
     items: list,
     *,
     timezone_name: str,
+    daily_goal_history: list[dict[str, int | str]] | None = None,
 ) -> list[ProjectDailyHistoryDay]:
     raw = daily_learning.build_daily_history(
         items,
         timezone_name=timezone_name,
         daily_goal=daily_learning.resolve_daily_goal(project),
         active_since=project.created_at,
+        daily_goal_history=daily_goal_history,
         days=14,
     )
     return [ProjectDailyHistoryDay.model_validate(row) for row in raw]
@@ -102,13 +134,35 @@ def _daily_missed_by_date_for_project(
     }
 
 
-@router.get("", response_model=list[ProjectOut])
+@router.get("", response_model=list[ProjectListOut])
 async def list_projects(
+    client_timezone: str | None = Query(default=None, max_length=64),
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
-) -> list[ProjectOut]:
+) -> list[ProjectListOut]:
     items = await projects_repo.list_for_user(session, user.id)
-    return [ProjectOut.model_validate(item) for item in items if item.kind != "programming"]
+    visible = [item for item in items if item.kind != "programming"]
+    learning_ids = [
+        item.id for item in visible if item.kind in ("language", "vocabulary", "trivia")
+    ]
+    stats_by_project: dict[UUID, ProjectStats] = {}
+    if learning_ids:
+        tz_name = _project_timezone(user, client_timezone)
+        raw_stats = await project_items_repo.count_stats_by_project(
+            session,
+            learning_ids,
+            timezone_by_project={pid: tz_name for pid in learning_ids},
+        )
+        stats_by_project = {
+            pid: ProjectStats.model_validate(raw_stats.get(pid, {})) for pid in learning_ids
+        }
+    return [
+        ProjectListOut(
+            **ProjectOut.model_validate(item).model_dump(),
+            stats=stats_by_project.get(item.id),
+        )
+        for item in visible
+    ]
 
 
 @router.post("", response_model=ProjectOut, status_code=status.HTTP_201_CREATED)
@@ -151,6 +205,7 @@ async def create_project(
         native_language=body.native_language,
         level=body.level,
         daily_goal=body.daily_goal if kind in ("language", "trivia") else None,
+        timezone_name=_project_timezone(user, None),
     )
     await home_service.invalidate_home_cache(user.id)
     return ProjectOut.model_validate(item)
@@ -176,8 +231,15 @@ async def get_project(
         project_items = await project_items_repo.list_for_user(
             session, user.id, project_id=project_id, limit=5000
         )
-        stats = _build_project_stats(item, project_items, timezone_name=tz_name)
-        daily_history = _daily_history_for_project(item, project_items, timezone_name=tz_name)
+        goal_history = await _maybe_persist_daily_goal_history(
+            session, item, project_items, timezone_name=tz_name
+        )
+        stats = _build_project_stats(
+            item, project_items, timezone_name=tz_name, daily_goal_history=goal_history
+        )
+        daily_history = _daily_history_for_project(
+            item, project_items, timezone_name=tz_name, daily_goal_history=goal_history
+        )
         daily_items_by_date = _daily_items_by_date_for_project(project_items, timezone_name=tz_name)
         daily_missed_by_date = _daily_missed_by_date_for_project(
             project_items, timezone_name=tz_name
@@ -201,8 +263,15 @@ async def get_project(
         project_items = await project_items_repo.list_for_user(
             session, user.id, project_id=project_id, limit=5000
         )
-        stats = _build_project_stats(item, project_items, timezone_name=tz_name)
-        daily_history = _daily_history_for_project(item, project_items, timezone_name=tz_name)
+        goal_history = await _maybe_persist_daily_goal_history(
+            session, item, project_items, timezone_name=tz_name
+        )
+        stats = _build_project_stats(
+            item, project_items, timezone_name=tz_name, daily_goal_history=goal_history
+        )
+        daily_history = _daily_history_for_project(
+            item, project_items, timezone_name=tz_name, daily_goal_history=goal_history
+        )
         daily_items_by_date = _daily_items_by_date_for_project(project_items, timezone_name=tz_name)
         daily_missed_by_date = _daily_missed_by_date_for_project(
             project_items, timezone_name=tz_name
@@ -299,6 +368,7 @@ async def update_project_item(
 async def update_project(
     project_id: UUID,
     body: ProjectUpdate,
+    client_timezone: str | None = Query(default=None, max_length=64),
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> ProjectOut:
@@ -313,6 +383,20 @@ async def update_project(
         )
     if patch.get("kind") == "vocabulary":
         patch["kind"] = "language"
+    new_goal = patch.get("daily_goal")
+    if isinstance(new_goal, int) and new_goal != item.daily_goal:
+        tz_name = _project_timezone(user, client_timezone)
+        tz = ZoneInfo(tz_name)
+        today = datetime.now(tz).date()
+        existing = daily_learning.parse_daily_goal_history(item)
+        patch["daily_goal_history"] = daily_learning.append_daily_goal_history(
+            existing or None,
+            old_goal=item.daily_goal,
+            new_goal=new_goal,
+            project_created=item.created_at,
+            effective_from=today,
+            timezone_name=tz_name,
+        )
     updated = await projects_repo.update(session, item, **patch)
     await home_service.invalidate_home_cache(user.id)
     return ProjectOut.model_validate(updated)
