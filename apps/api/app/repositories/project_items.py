@@ -281,6 +281,11 @@ async def create(
     else:
         normalized_list = list_title.strip() or DEFAULT_LIST
     example = (example_sentence or note or "").strip() or None
+    pronunciation: str | None = None
+    if pos and content.strip():
+        from app.gateways.pronunciation_lookup import lookup_pronunciation_url
+
+        pronunciation = await lookup_pronunciation_url(content)
     item = ProjectItem(
         user_id=user_id,
         project_id=project_id,
@@ -293,8 +298,52 @@ async def create(
         chat_id=chat_id,
         status=status,
         mastered=status == "mastered",
+        pronunciation_url=pronunciation,
     )
     session.add(item)
+    await session.commit()
+    await session.refresh(item)
+    return item
+
+
+async def apply_quiz_result(
+    session: AsyncSession,
+    item: ProjectItem,
+    *,
+    is_correct: bool,
+) -> ProjectItem:
+    """Record a quiz attempt, update status, and refresh SM-2 scheduling."""
+    now = datetime.now(UTC)
+    prior_status = _item_status_label(item)
+    if is_correct:
+        new_status = "mastered"
+    elif prior_status == "mastered":
+        new_status = "learning"
+    elif prior_status == "new":
+        new_status = "learning"
+    else:
+        new_status = prior_status
+
+    item.quiz_attempts = int(item.quiz_attempts or 0) + 1
+    if is_correct:
+        item.quiz_correct = int(item.quiz_correct or 0) + 1
+
+    _sync_mastered_fields(item, new_status)
+    from app.services.sm2 import apply_sm2, quality_for_status
+
+    quality = quality_for_status(new_status, was_correct=is_correct)
+    state = apply_sm2(
+        quality=quality,
+        ease_factor=float(getattr(item, "ease_factor", 2.5) or 2.5),
+        interval_days=int(getattr(item, "interval_days", 0) or 0),
+        review_count=int(item.review_count or 0),
+        now=now,
+    )
+    item.last_reviewed_at = now
+    item.review_count = state.review_count
+    item.ease_factor = state.ease_factor
+    item.interval_days = state.interval_days
+    item.due_at = state.due_at
     await session.commit()
     await session.refresh(item)
     return item
@@ -316,7 +365,11 @@ async def update(session: AsyncSession, item: ProjectItem, **fields: Any) -> Pro
         if new_status != prior_status:
             from app.services.sm2 import apply_sm2, quality_for_status
 
-            quality = quality_for_status(new_status)
+            was_correct = fields.get("was_correct")
+            quality = quality_for_status(
+                new_status,
+                was_correct=was_correct if isinstance(was_correct, bool) else None,
+            )
             state = apply_sm2(
                 quality=quality,
                 ease_factor=float(getattr(item, "ease_factor", 2.5) or 2.5),

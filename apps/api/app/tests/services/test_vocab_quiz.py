@@ -147,6 +147,10 @@ async def test_apply_deterministic_quiz_answer_trivia_correct():
             "app.services.projects.project_items_repo.create",
             new=AsyncMock(),
         ) as create_mock,
+        patch(
+            "app.services.projects.project_items_repo.apply_quiz_result",
+            new=AsyncMock(),
+        ) as apply_mock,
     ):
         applied = await projects_service.apply_deterministic_quiz_answer(
             session,
@@ -159,10 +163,8 @@ async def test_apply_deterministic_quiz_answer_trivia_correct():
 
     assert applied is True
     create_mock.assert_awaited_once()
-    kwargs = create_mock.await_args.kwargs
-    assert kwargs["content"] == "Which wonder stood at Rhodes?"
-    assert kwargs["list_title"] == "History"
-    assert kwargs["status"] == "mastered"
+    apply_mock.assert_awaited_once()
+    assert apply_mock.await_args.kwargs["is_correct"] is True
 
 
 @pytest.mark.asyncio
@@ -194,6 +196,10 @@ async def test_apply_deterministic_quiz_answer_records_wrong_trivia_as_learning(
             "app.services.projects.project_items_repo.create",
             new=AsyncMock(),
         ) as create_mock,
+        patch(
+            "app.services.projects.project_items_repo.apply_quiz_result",
+            new=AsyncMock(),
+        ) as apply_mock,
     ):
         applied = await projects_service.apply_deterministic_quiz_answer(
             session,
@@ -206,4 +212,5 @@ async def test_apply_deterministic_quiz_answer_records_wrong_trivia_as_learning(
 
     assert applied is True
     create_mock.assert_awaited_once()
-    assert create_mock.await_args.kwargs["status"] == "learning"
+    apply_mock.assert_awaited_once()
+    assert apply_mock.await_args.kwargs["is_correct"] is False

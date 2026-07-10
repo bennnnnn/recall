@@ -47,6 +47,13 @@ function dailyCueLabel(
     case "finish_pending":
       return t(`${prefix}finish_pending`, { done, goal });
     case "missed_yesterday":
+      if (highlight.days_inactive && highlight.days_inactive >= 2) {
+        return t(`${prefix}missed_days`, {
+          days: highlight.days_inactive,
+          goal,
+          due: highlight.due_for_review ?? 0,
+        });
+      }
       return t(`${prefix}missed_yesterday`, { goal });
     default:
       return t(`${prefix}not_started_today`, { goal });
@@ -99,6 +106,11 @@ function ProjectHighlightCard({
         <Text style={s.projectSubtitle} numberOfLines={2}>
           {subtitle}
         </Text>
+        {highlight.streak_days != null && highlight.streak_days > 0 ? (
+          <Text style={s.projectStreak}>
+            {t("projects.stats.streak", { count: highlight.streak_days })}
+          </Text>
+        ) : null}
         <View style={s.projectTrack}>
           <View style={[s.projectFill, { width: `${progress}%` }]} />
         </View>
@@ -329,6 +341,7 @@ function makeStyles(t: Theme) {
     projectTitle: { fontSize: 17, fontWeight: "700", color: t.text },
     projectMain: { flex: 1, gap: 6 },
     projectSubtitle: { fontSize: 13, fontWeight: "600", color: t.textSecondary },
+    projectStreak: { fontSize: 12, fontWeight: "700", color: t.primary },
     projectTrack: {
       height: 4,
       borderRadius: 2,

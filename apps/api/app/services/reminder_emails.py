@@ -19,6 +19,7 @@ from app.core.config import Settings
 from app.models.orm import Project, TodoItem, User
 from app.repositories import project_items as project_items_repo
 from app.repositories import projects as projects_repo
+from app.services import daily_learning, learning_insights
 from app.services import time_context as time_context_service
 from app.services import transactional_email as tx_email
 from app.services.reminder_timing import (
@@ -126,7 +127,7 @@ async def process_learning_nudge_emails(
     user_ids = list(user_by_id)
 
     projects = await projects_repo.list_for_users(session, user_ids, include_archived=False)
-    learning_projects = [p for p in projects if p.kind in ("language", "vocabulary")]
+    learning_projects = [p for p in projects if p.kind in ("language", "vocabulary", "trivia")]
     projects_by_user: dict[UUID, list[Project]] = {}
     for project in learning_projects:
         projects_by_user.setdefault(project.user_id, []).append(project)
@@ -141,30 +142,31 @@ async def process_learning_nudge_emails(
         [project.id for project in learning_projects],
         timezone_by_project=timezone_by_project,
     )
+    for project in learning_projects:
+        raw = stats_by_project.get(project.id)
+        if raw is None:
+            continue
+        stats_by_project[project.id] = learning_insights.enrich_learning_stats(
+            raw,
+            project=project,
+            items=[],
+            timezone_name=timezone_by_project.get(project.id, "UTC"),
+        )
 
     sent = 0
     for user, redis_key in candidates:
-        best: tuple[str, float] | None = None
-        for project in projects_by_user.get(user.id, []):
-            stats = stats_by_project.get(project.id)
-            if stats is None or stats["total"] == 0:
-                continue
-            if stats["due_for_review"] > 0:
-                score = float(stats["due_for_review"] + 10)
-                body = f'{stats["due_for_review"]} words ready to review in "{project.title}"'
-            elif stats["new_count"] > 0:
-                score = float(stats["new_count"])
-                body = f'Keep going with "{project.title}" — {stats["new_count"]} new words'
-            else:
-                continue
-            if best is None or score > best[1]:
-                best = (body, score)
-
-        if best is None:
+        user_projects = projects_by_user.get(user.id, [])
+        best_pick = learning_insights.best_learning_nudge_for_user(
+            user_projects,
+            stats_by_project,
+            daily_goal_for=daily_learning.resolve_daily_goal,
+        )
+        if best_pick is None:
             await redis.delete(redis_key)
             continue
 
-        ok = await tx_email.send_learning_nudge(settings, user, body=best[0])
+        _project, body, _score, _nudge_type, _payload = best_pick
+        ok = await tx_email.send_learning_nudge(settings, user, body=body)
         if ok:
             sent += 1
         else:

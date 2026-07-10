@@ -416,7 +416,7 @@
   "projects.progress_title": "Your progress",
   "projects.quiz.start": "Quiz mit Recall",
   "projects.quiz.switch_to_chat": "Switch to chat tutor",
-  "projects.review_due": "Review {{count}} due",
+  "projects.review_due": "Review {{count}} due now",
   "projects.stats.concepts_due": "To review",
   "projects.stats.concepts_mastered": "Mastered",
   "projects.stats.concepts_new": "New topics",
@@ -706,5 +706,16 @@
   "drawer.bulk_deleted_toast": "{{count}} Unterhaltungen gelöscht",
   "drawer.select": "Auswählen",
   "drawer.select_all": "Alle auswählen",
-  "drawer.selected_count": "{{count}} ausgewählt"
+  "drawer.selected_count": "{{count}} ausgewählt",
+  "chat.home.trivia_cue_missed_days": "Pick back up — {{goal}} questions waiting",
+  "chat.home.vocab_cue_missed_days": "Pick back up — {{goal}} words waiting",
+  "projects.level_suggest_down": "Consider lowering your level in Settings",
+  "projects.level_suggest_up": "Consider raising your level in Settings",
+  "projects.stats.inactive_days": "Inactive for {{days}} days",
+  "projects.stats.streak": "{{count}}-day streak",
+  "projects.trivia.difficulty.easy": "Easy",
+  "projects.trivia.difficulty.hard": "Hard",
+  "projects.trivia.difficulty.medium": "Medium",
+  "projects.trivia.difficulty_hint": "You can change this later in Settings.",
+  "projects.trivia.difficulty_label": "How hard should questions be?"
 }

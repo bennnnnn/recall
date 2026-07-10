@@ -3,7 +3,7 @@ import { levelLabel } from "@/lib/languageLevels";
 import { findLanguageProject } from "@/lib/languageProject";
 import { findTriviaProject } from "@/lib/triviaProject";
 
-export type CreateStep = "subject" | "level" | "daily" | "topics";
+export type CreateStep = "subject" | "level" | "daily" | "topics" | "trivia_level";
 
 export function createStepsForKind(kind: ProjectKind | null): CreateStep[] {
   if (kind === "language") return ["subject", "level", "daily"];

@@ -150,6 +150,11 @@ export type ProjectStats = {
   due_for_review: number;
   mastered_today: number;
   pending_today: number;
+  last_mastery_at?: string | null;
+  streak_days?: number;
+  days_inactive?: number | null;
+  quiz_accuracy_pct?: number | null;
+  suggested_level?: "up" | "down" | null;
 };
 
 export type ProjectDailyHistoryDay = {
@@ -221,6 +226,10 @@ export type HomeProjectHighlight = {
   daily_goal: number;
   mastered_today: number;
   cue: "start" | "continue" | "not_started_today" | "missed_yesterday" | "finish_pending";
+  streak_days?: number;
+  days_inactive?: number | null;
+  due_for_review?: number;
+  suggested_level?: "up" | "down" | null;
 };
 
 export type HomeScreen = {
@@ -305,42 +314,4 @@ export type AuthResult = {
   access_token: string;
   refresh_token: string;
   user: User;
-};
-
-export type QuizModality = "mcq" | "definition" | "sentence";
-
-export type QuizChoice = {
-  letter: "A" | "B" | "C" | "D";
-  text: string;
-};
-
-export type ProjectQuizQuestion = {
-  id: string;
-  sequence: number;
-  quiz_kind: "vocab" | "trivia";
-  topic: string;
-  part_of_speech: string | null;
-  question_text: string;
-  choices: QuizChoice[];
-  correct_letter: "A" | "B" | "C" | "D";
-  status: "pending" | "answered" | "skipped";
-  allowed_modalities: QuizModality[];
-};
-
-export type ProjectDailyQuiz = {
-  quiz_date: string;
-  daily_goal: number;
-  answered_count: number;
-  complete: boolean;
-  current: ProjectQuizQuestion | null;
-};
-
-export type ProjectQuizAnswerResult = {
-  is_correct: boolean;
-  feedback: string;
-  mastered: boolean;
-  batch_complete: boolean;
-  allow_retry: boolean;
-  suggest_mcq: boolean;
-  next_question: ProjectQuizQuestion | null;
 };

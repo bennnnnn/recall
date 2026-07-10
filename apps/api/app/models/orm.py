@@ -253,6 +253,8 @@ class ProjectItem(Base):
         DateTime(timezone=True), nullable=True
     )
     review_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    quiz_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    quiz_correct: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     ease_factor: Mapped[float] = mapped_column(
         Float, nullable=False, default=2.5, server_default="2.5"
     )

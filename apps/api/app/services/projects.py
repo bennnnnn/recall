@@ -115,6 +115,15 @@ LEVEL_GUIDANCE: dict[str, str] = {
     "level6": ("Fluent: full range including rare, literary, and technical words when relevant."),
 }
 
+TRIVIA_LEVEL_GUIDANCE: dict[str, str] = {
+    "level1": "Easy: well-known facts most adults would recognize from school or pop culture.",
+    "level2": "Easy-plus: straightforward facts with one clear correct answer.",
+    "level3": "Medium: moderately challenging facts that need some prior knowledge.",
+    "level4": "Medium-plus: less obvious facts across the chosen topics.",
+    "level5": "Hard: obscure, expert-level, or nuanced facts — still fair multiple-choice.",
+    "level6": "Expert: very difficult facts; wrong answers should be plausible distractors.",
+}
+
 VOCAB_QUIZ_MARKDOWN_EXAMPLE = (
     "**Word:** apple [noun]\n"
     "What does it mean?\n"
@@ -157,26 +166,6 @@ LANGUAGE_BONUS_QUIZ_RULES = (
     "One question per message. Do NOT use spoiler syntax (>! !<) or bullet lists of Q&As. "
     "Wait for A–D before revealing the answer."
 )
-
-LANGUAGE_DB_EXAM_HINT = (
-    "Active **language** project — **exam mode** (app-managed daily quiz).\n"
-    "The project **level** is the user's **English skill level** (level1=beginner … level6=fluent).\n"
-    "Each word has: term, part_of_speech, definition, example_sentence, status "
-    "(new | learning | mastered).\n\n"
-    "**Daily quiz runs in the app panel** above the composer — questions are pre-loaded from "
-    "the database (A–D, definition, or sentence). **Do NOT output ```vocab_quiz blocks during "
-    "the daily batch.**\n\n"
-    "Your role in this chat:\n"
-    "- Answer follow-up questions about words they missed or skipped.\n"
-    "- Give brief encouragement when they send free text.\n"
-    "- Use vocab_card only if they explicitly ask to learn a new word in conversational style.\n"
-    "- Do NOT generate daily-batch quiz questions — the app handles scoring and progression.\n\n"
-    "**Daily goal:** When they finish today's batch in the panel, congratulate in plain markdown.\n\n"
-    f"{LANGUAGE_BONUS_QUIZ_RULES}"
-)
-
-# Legacy alias kept for imports; exam mode uses the DB-backed hint above.
-LANGUAGE_EXAM_TUTOR_HINT = LANGUAGE_DB_EXAM_HINT
 
 LANGUAGE_CHAT_TUTOR_HINT = (
     "Active **language** project — **daily vocabulary in chat**.\n"
@@ -241,21 +230,6 @@ TRIVIA_BONUS_QUIZ_RULES = (
     f"{TRIVIA_QUIZ_FORMAT_BLOCK}"
 )
 
-TRIVIA_DB_EXAM_HINT = (
-    "Active **trivia** project — **exam mode** (app-managed daily quiz).\n"
-    "Topics are in project description (comma-separated). daily_goal = correct answers per session.\n"
-    "**Daily quiz runs in the app panel** — multiple-choice questions are pre-loaded. "
-    "**Do NOT output ```vocab_quiz blocks during the daily batch.**\n\n"
-    "Your role during the daily batch: explain answers after the user completes questions in the "
-    "panel; answer follow-ups about facts they missed.\n"
-    "When today's goal is met, congratulate clearly in plain markdown.\n\n"
-    f"{TRIVIA_BONUS_QUIZ_RULES}\n\n"
-    "**Export / PDF:** When asked, write a structured markdown summary (title, date, topics, "
-    "stats, mastered facts). Tell them to tap the **document export** icon to save a PDF."
-)
-
-TRIVIA_EXAM_TUTOR_HINT = TRIVIA_DB_EXAM_HINT
-
 TRIVIA_CHAT_TUTOR_HINT = (
     "Active **trivia** project — **daily general knowledge in chat**.\n"
     "Topics are in project description (comma-separated). daily_goal = correct/mastered per session.\n\n"
@@ -276,24 +250,15 @@ TRIVIA_CHAT_TUTOR_HINT = (
 TRIVIA_TUTOR_HINT = TRIVIA_CHAT_TUTOR_HINT
 
 
-def _language_tutor_hint(quiz_mode: str | None) -> str:
-    if quiz_mode == "chat":
-        return LANGUAGE_CHAT_TUTOR_HINT
-    return LANGUAGE_EXAM_TUTOR_HINT
+def _language_tutor_hint(_quiz_mode: str | None = None) -> str:
+    return LANGUAGE_CHAT_TUTOR_HINT
 
 
-def _trivia_tutor_hint(quiz_mode: str | None) -> str:
-    if quiz_mode == "chat":
-        return TRIVIA_CHAT_TUTOR_HINT
-    return TRIVIA_EXAM_TUTOR_HINT
+def _trivia_tutor_hint(_quiz_mode: str | None = None) -> str:
+    return TRIVIA_CHAT_TUTOR_HINT
 
 
-def _quiz_mode_banner(quiz_mode: str | None, *, kind: str | None = None) -> str:
-    if quiz_mode == "exam":
-        return (
-            "**Presentation mode: exam (legacy).** Daily questions may run in a separate panel. "
-            "Prefer chat-based sessions unless the user explicitly opened exam mode."
-        )
+def _quiz_mode_banner(_quiz_mode: str | None = None, *, kind: str | None = None) -> str:
     if kind == "trivia":
         return (
             "**Presentation mode: chat.** Run today's trivia in this conversation — "
@@ -309,6 +274,10 @@ def _quiz_mode_banner(quiz_mode: str | None, *, kind: str | None = None) -> str:
 
 def _level_guidance(level: str) -> str:
     return LEVEL_GUIDANCE.get(level or "level1", LEVEL_GUIDANCE["level1"])
+
+
+def _trivia_level_guidance(level: str) -> str:
+    return TRIVIA_LEVEL_GUIDANCE.get(level or "level1", TRIVIA_LEVEL_GUIDANCE["level1"])
 
 
 _LEVEL_LABELS: dict[str, str] = {
@@ -339,11 +308,10 @@ def build_language_quiz_prompt(project: Project, stats: ProjectStats) -> str:
         else ""
     )
     return (
-        f'Start today\'s vocabulary quiz for my "{title}" English project.\n'
+        f'Start today\'s vocabulary session for my "{title}" English project.\n'
         f"My English level: {lvl}.{goal}\n"
         f"{_language_progress_line(stats)}\n\n"
-        "Use the Daily Quiz panel — questions are pre-loaded. "
-        "Help me with follow-ups if I ask about words I missed."
+        "Quiz me in chat — one word at a time. You choose the format each turn."
     )
 
 
@@ -455,24 +423,23 @@ async def apply_deterministic_quiz_answer(
         if not question:
             return False
         list_title = topic or DEFAULT_LIST
-        status = "mastered" if is_correct else "learning"
         existing = _find_item(items, project.id, list_title, question)
         if existing:
-            if _item_status(existing) != status:
-                await project_items_repo.update(session, existing, status=status)
+            await project_items_repo.apply_quiz_result(session, existing, is_correct=is_correct)
         else:
-            await project_items_repo.create(
+            item = await project_items_repo.create(
                 session,
                 user_id=user_id,
                 project_id=project.id,
                 content=question,
                 list_title=list_title,
                 chat_id=chat_id,
-                status=status,
+                status="new",
             )
+            await project_items_repo.apply_quiz_result(session, item, is_correct=is_correct)
         return True
 
-    if not _is_language_project(project) or not is_correct:
+    if not _is_language_project(project):
         return False
 
     word = quiz.word.strip()
@@ -484,10 +451,9 @@ async def apply_deterministic_quiz_answer(
         items, project.id, word
     )
     if existing:
-        if _item_status(existing) != "mastered":
-            await project_items_repo.update(session, existing, status="mastered")
+        await project_items_repo.apply_quiz_result(session, existing, is_correct=is_correct)
     else:
-        await project_items_repo.create(
+        item = await project_items_repo.create(
             session,
             user_id=user_id,
             project_id=project.id,
@@ -495,8 +461,9 @@ async def apply_deterministic_quiz_answer(
             list_title=list_title,
             part_of_speech=pos,
             chat_id=chat_id,
-            status="mastered",
+            status="new",
         )
+        await project_items_repo.apply_quiz_result(session, item, is_correct=is_correct)
     return True
 
 
@@ -841,6 +808,8 @@ async def load_project_for_prompt(
         block = f"{block}\n\n{PROGRAMMING_TUTOR_HINT}" if block else PROGRAMMING_TUTOR_HINT
     if _is_trivia_project(project):
         hint = _trivia_tutor_hint(quiz_mode)
+        level_line = f"Trivia difficulty: {_trivia_level_guidance(project.level or 'level1')}"
+        hint = f"{level_line}\n\n{hint}"
         if today_line:
             hint = f"{today_line}\n\n{hint}"
         block = f"{block}\n\n{hint}" if block else hint

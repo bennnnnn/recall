@@ -66,12 +66,29 @@ export function buildEnglishOnboardingPrompt(
   );
 }
 
+/** Opens chat for spaced-repetition review of due items only. */
+export function buildProjectReviewPrompt(project: ProjectDetail): string {
+  const due = project.stats.due_for_review;
+  const unit = project.kind === "trivia" ? "facts" : "words";
+  return (
+    `Start a spaced-repetition review for my "${project.title}" project. ` +
+    `I have ${due} ${unit} due for review. ` +
+    `Quiz ONLY due items — do not add new ${unit} until the review queue is cleared. ` +
+    `One question at a time in chat.`
+  );
+}
+
 /** Opens chat after a new general-knowledge trivia project is created. */
-export function buildTriviaOnboardingPrompt(topicLabels: string, dailyGoal: number): string {
+export function buildTriviaOnboardingPrompt(
+  topicLabels: string,
+  dailyGoal: number,
+  level: LanguageLevel,
+): string {
+  const lvl = levelLabel(level);
   return (
     `I just set up my daily general knowledge quiz.\n` +
-    `Topics: ${topicLabels}. Daily goal: ${dailyGoal} correct answers per session.\n\n` +
-    `Run a multiple-choice quiz in chat — one question at a time from my topics. ` +
+    `Topics: ${topicLabels}. Difficulty: ${lvl}. Daily goal: ${dailyGoal} correct answers per session.\n\n` +
+    `Run a multiple-choice quiz in chat — one question at a time from my topics at ${lvl} difficulty. ` +
     `Use vocab_quiz JSON with quiz_type=trivia: word=topic label (History, Science, …), ` +
     `question=the full question. Never use part_of_speech. ` +
     `When I answer correctly, save the fact and mark it mastered.\n\n` +
@@ -191,21 +208,6 @@ export function buildProjectChatTutorPrompt(project: ProjectDetail): string {
       `We're in **chat tutor mode** — teach one word at a time with definition and example. ` +
       `Use the vocab_card format for each word. No multiple choice unless I ask to be quizzed.\n\n` +
       buildProjectAskPrompt(project)
-    );
-  }
-  return buildProjectAskPrompt(project);
-}
-
-/** Exam quiz mode — multiple-choice cards only. */
-export function buildProjectExamPrompt(project: ProjectDetail): string {
-  if (isLanguageProject(project.kind)) {
-    return buildProjectQuizPrompt(project);
-  }
-  if (project.kind === "trivia") {
-    const base = buildProjectAskPrompt(project);
-    return (
-      `We're in **exam quiz mode** — one multiple-choice trivia question per turn using vocab_quiz JSON. ` +
-      `Wait for A–D before explaining.\n\n${base}`
     );
   }
   return buildProjectAskPrompt(project);

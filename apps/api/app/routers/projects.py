@@ -19,7 +19,7 @@ from app.models.schemas import (
 )
 from app.repositories import project_items as project_items_repo
 from app.repositories import projects as projects_repo
-from app.services import daily_learning
+from app.services import daily_learning, learning_insights
 from app.services import home as home_service
 from app.services import projects as projects_service
 from app.services import time_context as time_context_service
@@ -29,6 +29,29 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 
 def _project_timezone(user: User, client_timezone: str | None) -> str:
     return time_context_service.effective_timezone(user.timezone, client_timezone)
+
+
+def _build_project_stats(
+    project,
+    items: list,
+    *,
+    timezone_name: str,
+) -> ProjectStats:
+    raw = project_items_repo.stats_from_items(items, timezone_name=timezone_name)
+    daily_goal = daily_learning.resolve_daily_goal(project)
+    enriched = learning_insights.enrich_learning_stats(
+        raw,
+        project=project,
+        items=items,
+        timezone_name=timezone_name,
+        daily_history=daily_learning.build_daily_history(
+            items,
+            timezone_name=timezone_name,
+            daily_goal=daily_goal,
+            active_since=project.created_at,
+        ),
+    )
+    return ProjectStats.model_validate(enriched)
 
 
 def _daily_history_for_project(
@@ -137,9 +160,7 @@ async def get_project(
         project_items = await project_items_repo.list_for_user(
             session, user.id, project_id=project_id, limit=5000
         )
-        stats = ProjectStats.model_validate(
-            project_items_repo.stats_from_items(project_items, timezone_name=tz_name)
-        )
+        stats = _build_project_stats(item, project_items, timezone_name=tz_name)
         daily_history = _daily_history_for_project(item, project_items, timezone_name=tz_name)
         daily_items_by_date = _daily_items_by_date_for_project(project_items, timezone_name=tz_name)
         lists = projects_service.group_items(project_items)
@@ -160,9 +181,7 @@ async def get_project(
         project_items = await project_items_repo.list_for_user(
             session, user.id, project_id=project_id, limit=5000
         )
-        stats = ProjectStats.model_validate(
-            project_items_repo.stats_from_items(project_items, timezone_name=tz_name)
-        )
+        stats = _build_project_stats(item, project_items, timezone_name=tz_name)
         daily_history = _daily_history_for_project(item, project_items, timezone_name=tz_name)
         daily_items_by_date = _daily_items_by_date_for_project(project_items, timezone_name=tz_name)
         lists = projects_service.group_trivia_items(project_items)

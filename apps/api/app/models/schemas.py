@@ -476,6 +476,10 @@ class ProjectStats(BaseModel):
     mastered_today: int = 0
     pending_today: int = 0
     last_mastery_at: datetime | None = None
+    streak_days: int = 0
+    days_inactive: int | None = None
+    quiz_accuracy_pct: int | None = Field(default=None, ge=0, le=100)
+    suggested_level: Literal["up", "down"] | None = None
 
 
 DailyHistoryStatus = Literal["complete", "partial", "skipped", "today", "inactive"]
@@ -687,6 +691,10 @@ class HomeProjectHighlight(BaseModel):
         "missed_yesterday",
         "finish_pending",
     ]
+    streak_days: int = 0
+    days_inactive: int | None = None
+    due_for_review: int = 0
+    suggested_level: Literal["up", "down"] | None = None
 
 
 class HomeScreenOut(BaseModel):

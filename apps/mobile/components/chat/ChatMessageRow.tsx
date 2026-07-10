@@ -22,6 +22,7 @@ type Props = {
   onRegenerate: (model: string) => void;
   onEdit: (message: Message) => void;
   onFeedback: (messageId: string, next: "up" | "down" | null) => void;
+  onQuizAnswer?: (letter: string) => void;
 };
 
 export const ChatMessageRow = memo(function ChatMessageRow({
@@ -36,6 +37,7 @@ export const ChatMessageRow = memo(function ChatMessageRow({
   onRegenerate,
   onEdit,
   onFeedback,
+  onQuizAnswer,
 }: Props) {
   const isLastAssistant = item.role === "assistant" && item.id === lastAssistantId;
 
@@ -58,6 +60,7 @@ export const ChatMessageRow = memo(function ChatMessageRow({
       quizLanguage={quizLanguage}
       highlighted={item.id === highlightedMessageId}
       isSending={item.id === sendingMessageId}
+      onQuizAnswer={isLastAssistant && !streamVisualActive ? onQuizAnswer : undefined}
     />
   );
 });

@@ -16,6 +16,7 @@ import { MarkdownErrorBoundary } from "@/components/MarkdownErrorBoundary";
 import { RecallTypingIndicator } from "@/components/RecallTypingIndicator";
 import { ReasoningBlock } from "@/components/chat/ReasoningBlock";
 import { VocabCard } from "@/components/VocabCard";
+import { VocabQuizChoices } from "@/components/VocabQuizChoices";
 import { Message } from "@/lib/api";
 import { extractPrimaryCopyText } from "@/lib/copyBlock";
 import { exportMessageAsPdf } from "@/lib/exportMessagePdf";
@@ -46,6 +47,7 @@ type Props = {
   quizLanguage?: string;
   highlighted?: boolean;
   isSending?: boolean;
+  onQuizAnswer?: (letter: string) => void;
 };
 
 async function copyText(text: string) {
@@ -207,6 +209,7 @@ export const MessageBubble = React.memo(function MessageBubble({
   quizLanguage = "en",
   highlighted = false,
   isSending = false,
+  onQuizAnswer,
 }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
@@ -261,6 +264,7 @@ export const MessageBubble = React.memo(function MessageBubble({
     showContextSummarized,
     markdownStreamMode,
     markdownResetKey,
+    interactiveQuiz,
   } = assistant;
 
   const reasoningText =
@@ -337,6 +341,13 @@ export const MessageBubble = React.memo(function MessageBubble({
             {showPlaces ? <PlacesListBlock places={places} /> : null}
             {showVocabCard && vocabCard ? (
               <VocabCard card={vocabCard} language={quizLanguage} />
+            ) : null}
+            {interactiveQuiz && isLastAssistant && !isStreaming && onQuizAnswer ? (
+              <VocabQuizChoices
+                choices={interactiveQuiz.choices}
+                disabled={isGenerating}
+                onSelect={(letter) => onQuizAnswer(letter)}
+              />
             ) : null}
             {showCalendarProposals
               ? calendarProposals.map((proposal, index) => (

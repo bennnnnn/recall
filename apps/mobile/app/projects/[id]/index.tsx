@@ -18,25 +18,23 @@ import { ProjectItemRow } from "@/components/ProjectItemRow";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, type ProjectDetail, type VocabStatus } from "@/lib/api";
 import { queueChatLaunch } from "@/lib/chatLaunch";
-import { buildProjectAskPrompt } from "@/lib/projectChat";
+import {
+  buildProjectAskPrompt,
+  buildProjectBonusQuestionsPrompt,
+  buildProjectBonusWordsPrompt,
+  buildProjectReviewPrompt,
+  isDailyGoalMet,
+  remainingDailyGoal,
+} from "@/lib/projectChat";
 import {
   fetchProjectDetail,
   getCachedProjectDetail,
   invalidateProjectDetail,
   prefetchProjectDetail,
 } from "@/lib/projectDetailCache";
-import {
-  isLanguageProject,
-  levelLabel,
-} from "@/lib/languageLevels";
+import { isLanguageProject, levelLabel } from "@/lib/languageLevels";
 import { resolveDailyGoal } from "@/lib/dailyGoals";
 import { localDateKey } from "@/lib/reminderCalendar";
-import {
-  buildProjectBonusQuestionsPrompt,
-  buildProjectBonusWordsPrompt,
-  isDailyGoalMet,
-  remainingDailyGoal,
-} from "@/lib/projectChat";
 import { formatProjectListTitle, isConceptProject, isTriviaProject, projectStatsLabels } from "@/lib/projectUi";
 import {
   formatTriviaTopicLabels,
@@ -184,6 +182,18 @@ export default function ProjectDetailScreen() {
           }))
       : [];
 
+  const startReviewSession = () => {
+    const variant = isTrivia ? "trivia" : isLang ? "vocab" : undefined;
+    queueChatLaunch(
+      buildProjectReviewPrompt(project),
+      project.id,
+      isLang ? "en" : undefined,
+      variant,
+      "chat",
+    );
+    router.replace("/");
+  };
+
   const startStudyQuiz = () => {
     const variant = isTrivia ? "trivia" : isLang ? "vocab" : undefined;
     queueChatLaunch(
@@ -286,7 +296,25 @@ export default function ProjectDetailScreen() {
         todayLearnedLabel={statLabels.learnedToday}
         dueLabel={statLabels.due}
         dailyGoal={dailyGoal}
+        streakDays={stats.streak_days}
+        daysInactive={stats.days_inactive}
       />
+
+      {stats.suggested_level ? (
+        <Pressable style={s.levelNudge} onPress={() => router.push("/settings/learning")}>
+          <Text style={s.levelNudgeText}>
+            {t(`projects.level_suggest_${stats.suggested_level}`)}
+          </Text>
+        </Pressable>
+      ) : null}
+
+      {stats.due_for_review > 0 ? (
+        <Pressable style={s.reviewBtn} onPress={startReviewSession}>
+          <Text style={s.reviewBtnText}>
+            {t("projects.review_due", { count: stats.due_for_review })}
+          </Text>
+        </Pressable>
+      ) : null}
 
       {showDailyTracking ? (
         <ProjectDailyStrip
@@ -521,5 +549,22 @@ function makeStyles(theme: Theme) {
     practiceBody: { fontSize: 14, lineHeight: 21, color: theme.textSecondary },
     deleteBtn: { alignItems: "center", paddingVertical: 10 },
     deleteBtnText: { fontSize: 15, fontWeight: "600", color: theme.danger },
+    levelNudge: {
+      borderRadius: 14,
+      backgroundColor: theme.primaryLight,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+    },
+    levelNudgeText: { fontSize: 14, fontWeight: "600", color: theme.primary },
+    reviewBtn: {
+      borderRadius: 14,
+      backgroundColor: theme.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.primary,
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      alignItems: "center",
+    },
+    reviewBtnText: { fontSize: 15, fontWeight: "700", color: theme.primary },
   });
 }

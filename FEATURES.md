@@ -363,7 +363,15 @@ courses, habits, and anything else that needs structure over time.
 - ✅ **Vocab items** — term, definition, example sentence, status (new / mastered), review tracking.
 - ✅ **Mark as known** — progress per item; stats on project detail (learned / due / this week).
 - ✅ **AI tutor + quiz** — scoped chats from Learning; model emits `vocab_quiz` blocks; mobile
-  shows A–D choices (type letter; fast-path answers, minimal context, no web search on quiz turns).
+  shows A–D choices (tap chips or type letter; fast-path answers, minimal context, no web search
+  on quiz turns). Wrong answers update SM-2 via deterministic ledger (`quiz_attempts` / `quiz_correct`).
+- ✅ **Tap-to-answer MCQ** — interactive choice chips on complete `vocab_quiz` messages.
+- ✅ **Review queue** — project detail CTA opens a due-only spaced-repetition chat session.
+- ✅ **Adaptive level hints** — suggests level up/down from mastery ratio + quiz accuracy.
+- ✅ **Streak + inactive days** — home highlight, project hero, and nudges show streak and
+  “inactive for N days” copy.
+- ✅ **Goal-aware learning nudges** — push/email prioritize finishing today's daily batch; trivia
+  included alongside vocabulary.
 - ✅ **Pronunciation** — play button per word tries `pronunciation_url` when set, then cloud TTS,
   then on-device `expo-speech`.
 - ✅ **Spaced repetition scheduling** — SM-2 fields (`ease_factor`, `interval_days`, `due_at`)
@@ -378,7 +386,8 @@ courses, habits, and anything else that needs structure over time.
 - ✅ **Home starters** — active project highlight on home; tap opens project or starts scoped chat.
 
 ### Phase 4 — More project types
-- ✅ **General knowledge (trivia)** — topic picker, scoped quiz chat, daily goal.
+- ✅ **General knowledge (trivia)** — topic picker, difficulty tiers (easy/medium/hard), scoped
+  quiz chat, daily goal, trivia nudges.
 - 🔜 **Learning (generic)** — lesson notes, spaced repetition beyond vocab, richer AI tutor mode.
 
 Chat + memory + todos + projects share one backend; the LLM orchestrates across them (no keys on

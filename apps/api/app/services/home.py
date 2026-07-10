@@ -29,12 +29,12 @@ from app.repositories import projects as projects_repo
 from app.repositories import suggestions as suggestions_repo
 from app.repositories import todos as todos_repo
 from app.services import calendar as calendar_service
-from app.services import daily_learning, reminder_timing
+from app.services import daily_learning, learning_insights, reminder_timing
 from app.services import email as email_service
 from app.services import memory as memory_service
+from app.services import time_context as time_context_service
 
 logger = logging.getLogger(__name__)
-from app.services import time_context as time_context_service
 
 MAX_STARTERS = 5
 MORNING_START_HOUR = 5
@@ -596,6 +596,7 @@ def _project_highlight(
     stats: ProjectStats,
     *,
     home_tz: ZoneInfo,
+    project_items: list | None = None,
 ) -> HomeProjectHighlight | None:
     if not _is_daily_home_project(project):
         return None
@@ -612,6 +613,20 @@ def _project_highlight(
     )
     if cue is None:
         return None
+    enriched = learning_insights.enrich_learning_stats(
+        stats.model_dump(),
+        project=project,
+        items=project_items or [],
+        timezone_name=str(home_tz.key),
+        daily_history=daily_learning.build_daily_history(
+            project_items or [],
+            timezone_name=str(home_tz.key),
+            daily_goal=daily_goal,
+            active_since=project.created_at,
+        )
+        if project_items
+        else None,
+    )
     return HomeProjectHighlight(
         project_id=project.id,
         title=project.title.strip(),
@@ -619,6 +634,10 @@ def _project_highlight(
         daily_goal=daily_goal,
         mastered_today=stats.mastered_today,
         cue=cue,
+        streak_days=int(enriched.get("streak_days") or 0),
+        days_inactive=enriched.get("days_inactive"),
+        due_for_review=stats.due_for_review,
+        suggested_level=enriched.get("suggested_level"),
     )
 
 
@@ -640,11 +659,16 @@ async def _load_project_home_content(
     tz_name = str(home_tz.key)
 
     if daily_projects:
+        project_ids = [candidate.id for candidate in daily_projects]
         stats_by_project = await project_items_repo.count_stats_by_project(
             session,
-            [candidate.id for candidate in daily_projects],
+            project_ids,
             timezone_by_project={candidate.id: tz_name for candidate in daily_projects},
         )
+        all_items = await project_items_repo.list_for_projects(session, project_ids)
+        items_by_project: dict[UUID, list] = {pid: [] for pid in project_ids}
+        for item in all_items:
+            items_by_project.setdefault(item.project_id, []).append(item)
         completed_daily: list[CompletedDaily] = []
         for candidate in daily_projects:
             stats = ProjectStats.model_validate(stats_by_project.get(candidate.id, {}))
@@ -652,7 +676,12 @@ async def _load_project_home_content(
             if stats.mastered_today >= daily_goal:
                 completed_daily.append((candidate.title.strip(), _daily_home_kind(candidate)))
                 continue
-            highlight = _project_highlight(candidate, stats, home_tz=home_tz)
+            highlight = _project_highlight(
+                candidate,
+                stats,
+                home_tz=home_tz,
+                project_items=items_by_project.get(candidate.id, []),
+            )
             if highlight is not None:
                 starters: list[HomeStarter] = []
                 subtitle = _project_subtitle(

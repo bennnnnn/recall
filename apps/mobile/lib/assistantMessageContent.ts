@@ -3,6 +3,7 @@ import { parseCalendarProposals, stripCalendarProposalFences } from "@/lib/calen
 import type { SearchSource } from "@/lib/api";
 import {
   formatVocabQuizAsMarkdown,
+  formatVocabQuizPromptOnly,
   hasVocabQuizFence,
   isCompleteVocabQuiz,
   isRenderableVocabQuiz,
@@ -65,6 +66,7 @@ export type AssistantMessageContent = {
   showContextSummarized: boolean;
   markdownStreamMode: boolean;
   markdownResetKey: string;
+  interactiveQuiz: ParsedVocabQuiz | null;
 };
 
 function buildMarkdownContent(options: {
@@ -97,7 +99,7 @@ function buildMarkdownContent(options: {
   if (quizForStrip && isRenderableVocabQuiz(quizForStrip)) {
     if (isCompleteVocabQuiz(quizForStrip)) {
       text = stripVocabQuizPrologue(text, quizForStrip);
-      const quizBody = formatVocabQuizAsMarkdown(quizForStrip);
+      const quizBody = formatVocabQuizPromptOnly(quizForStrip);
       text = text.trim() ? `${text.trim()}\n\n${quizBody}` : quizBody;
     } else {
       text = stripQuizMarkdownDuplicates(text, quizForStrip);
@@ -200,6 +202,11 @@ export function deriveAssistantMessageContent(
   const showContextSummarized =
     !isUser && !layoutFrozen && (contextSummarized ?? 0) > 0;
 
+  const interactiveQuiz =
+    !isUser && !layoutFrozen && quizForStrip && isCompleteVocabQuiz(quizForStrip)
+      ? quizForStrip
+      : null;
+
   return {
     hasContent,
     isQuizFeedback,
@@ -223,5 +230,6 @@ export function deriveAssistantMessageContent(
     showContextSummarized,
     markdownStreamMode: layoutFrozen,
     markdownResetKey: `${renderKey ?? messageId}:${markdownContent.length}`,
+    interactiveQuiz,
   };
 }

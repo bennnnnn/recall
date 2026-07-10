@@ -1,4 +1,6 @@
 /** General-knowledge quiz subjects — ids stored comma-separated in project.description. */
+import type { LanguageLevel } from "@/lib/api";
+
 export const TRIVIA_TOPICS = [
   { id: "history", labelKey: "projects.trivia.topic.history" },
   { id: "science", labelKey: "projects.trivia.topic.science" },
@@ -36,3 +38,9 @@ export function formatTriviaTopicLabels(
 ): string {
   return topicIds.map((id) => triviaTopicLabel(id, t)).join(", ");
 }
+
+export const TRIVIA_DIFFICULTY_LEVELS: { level: LanguageLevel; labelKey: string }[] = [
+  { level: "level1", labelKey: "projects.trivia.difficulty.easy" },
+  { level: "level3", labelKey: "projects.trivia.difficulty.medium" },
+  { level: "level5", labelKey: "projects.trivia.difficulty.hard" },
+];

@@ -375,6 +375,7 @@ function ChatScreen() {
     suggestions,
     onSelectSuggestion,
     onDismissSuggestion: dismissSuggestion,
+    onQuizAnswer: (letter) => void handleSend(letter),
     imageGenerating: imageGen.generating,
   });
 

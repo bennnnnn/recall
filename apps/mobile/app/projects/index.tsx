@@ -36,6 +36,7 @@ import {
   encodeTriviaTopics,
   formatTriviaTopicLabels,
   TRIVIA_TOPICS,
+  TRIVIA_DIFFICULTY_LEVELS,
   type TriviaTopicId,
 } from "@/lib/triviaTopics";
 import {
@@ -97,6 +98,7 @@ export default function ProjectsScreen() {
   const [createStep, setCreateStep] = useState<CreateStep | null>(null);
   const [kind, setKind] = useState<ProjectKind | null>(null);
   const [level, setLevel] = useState<LanguageLevel>("level1");
+  const [triviaLevel, setTriviaLevel] = useState<LanguageLevel>("level3");
   const [dailyGoal, setDailyGoal] = useState<VocabDailyGoal>(DEFAULT_VOCAB_DAILY_GOAL);
   const [triviaTopics, setTriviaTopics] = useState<TriviaTopicId[]>(["history", "science"]);
   const [creating, setCreating] = useState(false);
@@ -107,6 +109,7 @@ export default function ProjectsScreen() {
     setCreateStep(null);
     setKind(null);
     setLevel("level1");
+    setTriviaLevel("level3");
     setDailyGoal(DEFAULT_VOCAB_DAILY_GOAL);
     setTriviaTopics(["history", "science"]);
     setCreating(false);
@@ -180,13 +183,19 @@ export default function ProjectsScreen() {
         title,
         description,
         kind: "trivia",
-        level: "level1",
+        level: triviaLevel,
         target_language: "en",
         daily_goal: dailyGoal,
       });
       resetCreate();
       setProjects((prev) => [project, ...prev]);
-      queueChatLaunch(buildTriviaOnboardingPrompt(topicLabels, dailyGoal), project.id, undefined, "trivia", "chat");
+      queueChatLaunch(
+        buildTriviaOnboardingPrompt(topicLabels, dailyGoal, triviaLevel),
+        project.id,
+        undefined,
+        "trivia",
+        "chat",
+      );
       router.replace("/");
     } catch {
       Alert.alert(t("common.error"), t("projects.create_failed"));
@@ -305,6 +314,37 @@ export default function ProjectsScreen() {
               <Pressable style={s.secondaryBtn} onPress={() => setCreateStep("subject")}>
                 <Text style={s.secondaryBtnText}>{t("projects.back")}</Text>
               </Pressable>
+              <Pressable style={s.primaryBtn} onPress={() => setCreateStep("trivia_level")}>
+                <Text style={s.primaryBtnText}>{t("common.continue")}</Text>
+              </Pressable>
+            </View>
+          </>
+        ) : null}
+
+        {createStep === "trivia_level" ? (
+          <>
+            <Text style={s.createLabel}>{t("projects.trivia.difficulty_label")}</Text>
+            <Text style={s.stepHint}>{t("projects.trivia.difficulty_hint")}</Text>
+            <View style={s.subjectList}>
+              {TRIVIA_DIFFICULTY_LEVELS.map((item) => (
+                <Pressable
+                  key={item.level}
+                  style={[s.subjectRow, triviaLevel === item.level && s.subjectRowActive]}
+                  onPress={() => setTriviaLevel(item.level)}
+                >
+                  <Text style={[s.subjectText, triviaLevel === item.level && s.subjectTextActive]}>
+                    {t(item.labelKey)}
+                  </Text>
+                  {triviaLevel === item.level ? (
+                    <Ionicons name="checkmark" size={18} color={C.primary} />
+                  ) : null}
+                </Pressable>
+              ))}
+            </View>
+            <View style={s.createActions}>
+              <Pressable style={s.secondaryBtn} onPress={() => setCreateStep("topics")}>
+                <Text style={s.secondaryBtnText}>{t("projects.back")}</Text>
+              </Pressable>
               <Pressable style={s.primaryBtn} onPress={() => setCreateStep("daily")}>
                 <Text style={s.primaryBtnText}>{t("common.continue")}</Text>
               </Pressable>
@@ -343,7 +383,7 @@ export default function ProjectsScreen() {
             <View style={s.createActions}>
               <Pressable
                 style={s.secondaryBtn}
-                onPress={() => setCreateStep(kind === "trivia" ? "topics" : "level")}
+                onPress={() => setCreateStep(kind === "trivia" ? "trivia_level" : "level")}
               >
                 <Text style={s.secondaryBtnText}>{t("projects.back")}</Text>
               </Pressable>

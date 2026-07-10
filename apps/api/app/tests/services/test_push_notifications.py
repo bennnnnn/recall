@@ -220,6 +220,7 @@ async def test_process_learning_nudges_language_review():
                         "new_count": 1,
                         "learning_count": 2,
                         "mastered_count": 0,
+                        "mastered_today": 10,
                     }
                 }
             ),

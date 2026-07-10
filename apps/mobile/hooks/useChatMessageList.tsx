@@ -29,6 +29,7 @@ type Options = {
   suggestions?: Suggestion[];
   onSelectSuggestion?: (prompt: string) => void;
   onDismissSuggestion?: (id: string) => void;
+  onQuizAnswer?: (letter: string) => void;
   imageGenerating?: boolean;
 };
 
@@ -47,6 +48,7 @@ export function useChatMessageList({
   suggestions = [],
   onSelectSuggestion,
   onDismissSuggestion,
+  onQuizAnswer,
   imageGenerating = false,
 }: Options) {
   useEffect(() => {
@@ -90,6 +92,7 @@ export function useChatMessageList({
       onRegenerate: regenerateResponse,
       onEdit: handleEditMessage,
       onFeedback: handleFeedback,
+      onQuizAnswer,
     }),
     [
       lastAssistantId,
@@ -100,6 +103,7 @@ export function useChatMessageList({
       regenerateResponse,
       handleEditMessage,
       handleFeedback,
+      onQuizAnswer,
     ],
   );
 

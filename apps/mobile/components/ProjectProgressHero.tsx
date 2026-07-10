@@ -12,6 +12,8 @@ type Props = {
   dueLabel: string;
   /** When set, shows today's batch progress instead of lifetime %. */
   dailyGoal?: number;
+  streakDays?: number;
+  daysInactive?: number | null;
 };
 
 export function ProjectProgressHero({
@@ -20,6 +22,8 @@ export function ProjectProgressHero({
   todayLearnedLabel,
   dueLabel,
   dailyGoal,
+  streakDays = 0,
+  daysInactive,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -35,6 +39,10 @@ export function ProjectProgressHero({
       ? Math.min(100, Math.round((stats.mastered_count / stats.total) * 100))
       : 0;
   const hasDue = stats.due_for_review > 0;
+  const gapLabel =
+    daysInactive != null && daysInactive >= 2
+      ? t("projects.stats.inactive_days", { days: daysInactive })
+      : null;
 
   return (
     <View style={s.card}>
@@ -50,6 +58,10 @@ export function ProjectProgressHero({
             : t("projects.progress_pct", { pct })}
         </Text>
       </View>
+      {streakDays > 0 ? (
+        <Text style={s.streakText}>{t("projects.stats.streak", { count: streakDays })}</Text>
+      ) : null}
+      {gapLabel ? <Text style={s.gapText}>{gapLabel}</Text> : null}
       <View style={s.track}>
         <View style={[s.fill, { width: `${pct}%` }]} />
       </View>
@@ -167,6 +179,8 @@ function makeStyles(theme: Theme) {
       letterSpacing: 0.6,
     },
     pct: { fontSize: 14, fontWeight: "800", color: theme.primary },
+    streakText: { fontSize: 13, fontWeight: "700", color: theme.primary },
+    gapText: { fontSize: 13, fontWeight: "600", color: theme.warning },
     track: {
       height: 8,
       borderRadius: 4,

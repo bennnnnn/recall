@@ -671,7 +671,7 @@ async def test_load_project_for_prompt_trivia_chat_mode():
 
 
 @pytest.mark.asyncio
-async def test_load_project_for_prompt_exam_mode():
+async def test_load_project_for_prompt_uses_chat_mode_even_when_exam_requested():
     session = AsyncMock()
     user_id = uuid4()
     project_id = uuid4()
@@ -694,12 +694,9 @@ async def test_load_project_for_prompt_exam_mode():
             session, user_id, project_id, Settings(), quiz_mode="exam"
         )
 
-    assert "exam (legacy)" in block.lower()
-    assert "exam mode" in block.lower()
-    assert "Do NOT output ```vocab_quiz blocks during the daily batch" in block
-    assert "Bonus quiz" in block
-    assert "```vocab_quiz" in block
-    assert "Presentation mode: exam (legacy)" in block
+    assert "presentation mode: chat" in block.lower()
+    assert "daily vocabulary in chat" in block.lower()
+    assert "exam (legacy)" not in block.lower()
 
 
 def test_build_language_quiz_prompt_includes_vocab_quiz_fence():
@@ -712,8 +709,8 @@ def test_build_language_quiz_prompt_includes_vocab_quiz_fence():
     stats.due_for_review = 1
 
     prompt = projects_service.build_language_quiz_prompt(project, stats)
-    assert "Daily Quiz panel" in prompt
-    assert "vocab_quiz" not in prompt
+    assert "Quiz me in chat" in prompt
+    assert "Daily Quiz panel" not in prompt
 
 
 @pytest.mark.asyncio

@@ -139,6 +139,7 @@ export async function handlePushNotificationResponse(
   if (
     (data.type === "learning_review" ||
       data.type === "learning_continue" ||
+      data.type === "learning_daily_goal" ||
       data.type === "email_suggestion") &&
     apiToken &&
     data.project_id

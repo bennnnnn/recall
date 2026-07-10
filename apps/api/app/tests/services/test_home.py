@@ -119,6 +119,11 @@ def _home_patches(**overrides):
             "count_stats_by_project",
             AsyncMock(side_effect=_count_stats_by_project),
         ),
+        patch.object(
+            home_service.project_items_repo,
+            "list_for_projects",
+            AsyncMock(return_value=[]),
+        ),
     ):
         yield
 
@@ -442,6 +447,11 @@ async def test_build_home_batches_daily_project_stats():
             home_service.projects_repo,
             "list_for_user",
             AsyncMock(return_value=[trivia, language]),
+        ),
+        patch.object(
+            home_service.project_items_repo,
+            "list_for_projects",
+            AsyncMock(return_value=[]),
         ),
         patch.object(
             home_service.project_items_repo,
