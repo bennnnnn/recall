@@ -24,6 +24,8 @@ router = APIRouter(tags=["websocket"])
 _WS_MSG_RATE_LIMIT = 30
 _WS_MSG_WINDOW_SECONDS = 60
 _WS_CONNECT_RATE_LIMIT = 30
+# Drop sockets that connect but never send the auth frame (resource leak).
+_WS_AUTH_TIMEOUT_SECONDS = 10.0
 _CHARGEABLE_WS_TYPES = frozenset({"message", "regenerate", "edit"})
 
 
@@ -226,7 +228,10 @@ async def chat_websocket(
     redis = get_redis_client()
 
     try:
-        auth_message = await websocket.receive_json()
+        auth_message = await asyncio.wait_for(
+            websocket.receive_json(),
+            timeout=_WS_AUTH_TIMEOUT_SECONDS,
+        )
         token = auth_message.get("token")
         if not token:
             await websocket.send_json({"type": "error", "message": "Missing token"})
@@ -237,6 +242,10 @@ async def chat_websocket(
         client_timezone = auth_message.get("client_timezone")
         if client_timezone is not None and not isinstance(client_timezone, str):
             client_timezone = None
+    except TimeoutError:
+        await _safe_send_json(websocket, {"type": "error", "message": "Auth timeout"})
+        await websocket.close()
+        return
     except (GoogleAuthError, json.JSONDecodeError, KeyError):
         await websocket.send_json({"type": "error", "message": "Unauthorized"})
         await websocket.close()

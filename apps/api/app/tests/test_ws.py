@@ -76,6 +76,21 @@ def test_ws_invalid_token_closes():
     assert msg["type"] == "error"
 
 
+def test_ws_auth_timeout_closes():
+    """Sockets that never send an auth frame must not hang forever."""
+    app = _app(None)
+    client = TestClient(app)
+
+    with patch(
+        "app.routers.ws.asyncio.wait_for",
+        side_effect=TimeoutError(),
+    ):
+        with client.websocket_connect(f"/ws/chats/{uuid4()}") as ws:
+            msg = ws.receive_json()
+    assert msg["type"] == "error"
+    assert "timeout" in msg["message"].lower()
+
+
 # ── normal message flow ────────────────────────────────────────────────────────
 
 
