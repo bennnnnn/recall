@@ -48,7 +48,7 @@ import { ImageGenPromptSheet } from "@/components/ImageGenPromptSheet";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 
 function ChatScreen() {
-  const { token, user, mergeUser } = useAuth();
+  const { token, user, updateUser } = useAuth();
   const { projects } = useProjects();
   const { t } = useTranslation();
   const C = useTheme();
@@ -260,7 +260,7 @@ function ChatScreen() {
     setPendingLaunch,
     pendingLaunchRef,
     user,
-    mergeUser,
+    updateUser,
     t,
     onStreamBusy: handleStreamBusy,
     isOffline,
@@ -341,7 +341,8 @@ function ChatScreen() {
   const handleRegenerate = useChatRegenerate({
     token,
     messages,
-    mergeUser,
+    user,
+    updateUser,
     regenerateResponse,
   });
 

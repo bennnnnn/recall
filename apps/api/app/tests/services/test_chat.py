@@ -15,6 +15,41 @@ from app.services.chat import (
     is_writing_deliverable_request,
     max_output_tokens_for_style,
 )
+from app.services.chat.turn_prep import resolve_client_geo
+
+
+def test_resolve_client_geo_ignores_client_when_location_disabled():
+    user = MagicMock()
+    user.location_enabled = False
+    user.location = "Oakland, CA"
+    geo = resolve_client_geo(
+        user,
+        "Where am I",
+        client_location="San Francisco, CA",
+        client_latitude=37.7,
+        client_longitude=-122.4,
+    )
+    assert geo.user_location is None
+    assert geo.client_lat is None
+    assert geo.client_lng is None
+    assert geo.has_geo_fix is False
+
+
+def test_resolve_client_geo_uses_client_when_location_enabled():
+    user = MagicMock()
+    user.location_enabled = True
+    user.location = "Oakland, CA"
+    geo = resolve_client_geo(
+        user,
+        "Where am I",
+        client_location="Berkeley, CA",
+        client_latitude=37.87,
+        client_longitude=-122.27,
+    )
+    assert geo.user_location == "Berkeley, CA"
+    assert geo.client_lat == 37.87
+    assert geo.client_lng == -122.27
+    assert geo.has_geo_fix is True
 
 
 class _FakeSessionCM:
@@ -1534,7 +1569,7 @@ async def test_stream_places_query_without_location_prompts_to_enable(stream_off
 
 @pytest.mark.asyncio
 async def test_stream_places_query_uses_client_location_without_profile(stream_offline_io):
-    """Ephemeral client GPS should run web search instead of the enable-location block."""
+    """Opted-in client GPS (no saved profile city) should run web search."""
     from app.services import chat as chat_module
 
     fake_user = MagicMock()
@@ -1542,7 +1577,7 @@ async def test_stream_places_query_uses_client_location_without_profile(stream_o
     fake_user.default_model = "free-chat"
     fake_user.response_style = "balanced"
     fake_user.location = ""
-    fake_user.location_enabled = False
+    fake_user.location_enabled = True
 
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"

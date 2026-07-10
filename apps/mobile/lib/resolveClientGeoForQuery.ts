@@ -10,11 +10,16 @@ export type ClientGeoResolveResult =
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
+type PersistLocation = (patch: {
+  location: string;
+  location_enabled: boolean;
+}) => void | Promise<void>;
+
 function formatCoordLabel(latitude: number, longitude: number): string {
   return `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
 }
 
-function alertOpenSettings(t: Translate): void {
+function alertOpenDeviceSettings(t: Translate): void {
   Alert.alert(t("chat.location_required_title"), t("chat.location_required_body"), [
     { text: t("common.cancel"), style: "cancel" },
     {
@@ -26,19 +31,42 @@ function alertOpenSettings(t: Translate): void {
   ]);
 }
 
+/** Ask to enable Location here (same as the Preferences switch), without leaving chat. */
+function promptEnableLocation(t: Translate): Promise<boolean> {
+  return new Promise((resolve) => {
+    Alert.alert(t("chat.location_required_title"), t("chat.location_disabled_body"), [
+      {
+        text: t("common.cancel"),
+        style: "cancel",
+        onPress: () => resolve(false),
+      },
+      {
+        text: t("chat.location_turn_on"),
+        onPress: () => resolve(true),
+      },
+    ]);
+  });
+}
+
 /**
  * Resolve device geo for nearby / where-am-I asks.
- * Shows the system permission sheet directly (no custom pre-prompt).
- * Only offers Open Settings when the OS will not show that sheet again.
+ * If the in-app Location toggle is off, offers Turn on here (no Settings hop).
+ * Only offers device Settings when the OS will not show the permission sheet again.
  */
 export async function resolveClientGeoForQuery(
   _token: string,
   queryText: string,
   t: Translate,
-  mergeUser: (patch: { location: string; location_enabled: boolean }) => void,
+  persistLocation: PersistLocation,
+  locationEnabled = false,
 ): Promise<ClientGeoResolveResult> {
   if (!queryText || !isGeoQuery(queryText) || isAmbiguousLocalPlacesQuery(queryText)) {
     return { ok: true, clientGeo: null };
+  }
+
+  if (!locationEnabled) {
+    const turnOn = await promptEnableLocation(t);
+    if (!turnOn) return { ok: false };
   }
 
   const result = await requestDeviceGeo();
@@ -52,12 +80,16 @@ export async function resolveClientGeoForQuery(
       latitude: result.geo.latitude,
       longitude: result.geo.longitude,
     };
-    mergeUser({ location: clientGeo.label, location_enabled: true });
+    try {
+      await persistLocation({ location: clientGeo.label, location_enabled: true });
+    } catch {
+      // Still use this turn's fix; Settings may catch up on next refresh.
+    }
     return { ok: true, clientGeo };
   }
 
   if (result.status === "blocked") {
-    alertOpenSettings(t);
+    alertOpenDeviceSettings(t);
     return { ok: false };
   }
 

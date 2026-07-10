@@ -119,6 +119,12 @@ def resolve_client_geo(
     client_latitude: float | None,
     client_longitude: float | None,
 ) -> ClientGeoContext:
+    # Settings Location toggle is the opt-in. Ignore one-shot client geo when off
+    # so a stale/malicious client cannot bypass the user's choice.
+    if not getattr(user, "location_enabled", False):
+        client_location = None
+        client_latitude = None
+        client_longitude = None
     normalized_client_location = profile_service.normalize_client_location(client_location)
     client_coordinates = profile_service.normalize_client_coordinates(
         client_latitude, client_longitude

@@ -59,10 +59,18 @@ def test_normalize_client_location():
     assert normalize_client_location("x" * 201) is None
 
 
-def test_effective_location_label_prefers_client():
+def test_effective_location_label_ignores_client_when_disabled():
     class U:
         location_enabled = False
         location = None
+
+    assert effective_location_label(U(), "San Francisco, CA") is None
+
+
+def test_effective_location_label_prefers_client_when_enabled():
+    class U:
+        location_enabled = True
+        location = "Oakland, CA"
 
     assert effective_location_label(U(), "San Francisco, CA") == "San Francisco, CA"
 

@@ -2,20 +2,22 @@ import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { ClientGeo } from "@/lib/clientGeo";
-import type { Message } from "@/lib/api";
+import type { Message, User } from "@/lib/api";
 import { resolveClientGeoForQuery } from "@/lib/resolveClientGeoForQuery";
 
 type Params = {
   token: string | null;
   messages: Message[];
-  mergeUser: (patch: { location: string; location_enabled: boolean }) => void;
+  user: User | null;
+  updateUser: (patch: Partial<User>) => Promise<void>;
   regenerateResponse: (model?: string | null, clientGeo?: ClientGeo | null) => Promise<void>;
 };
 
 export function useChatRegenerate({
   token,
   messages,
-  mergeUser,
+  user,
+  updateUser,
   regenerateResponse,
 }: Params) {
   const { t } = useTranslation();
@@ -28,11 +30,12 @@ export function useChatRegenerate({
         token,
         lastUser?.content ?? "",
         t,
-        mergeUser,
+        updateUser,
+        user?.location_enabled ?? false,
       );
       if (!result.ok) return;
       await regenerateResponse(model, result.clientGeo);
     },
-    [token, messages, regenerateResponse, t, mergeUser],
+    [token, messages, regenerateResponse, t, updateUser, user?.location_enabled],
   );
 }

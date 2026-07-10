@@ -44,8 +44,11 @@ def normalize_client_coordinates(
 
 
 def effective_location_label(user: object, client_location: str | None = None) -> str | None:
-    """Profile location when enabled, otherwise an ephemeral client GPS label."""
+    """Fresh client GPS label when location is enabled; otherwise profile city."""
+    if not getattr(user, "location_enabled", False):
+        return None
     normalized = normalize_client_location(client_location)
     if normalized:
         return normalized
-    return user_location_label(user)
+    text = str(getattr(user, "location", None) or "").strip()
+    return text or None

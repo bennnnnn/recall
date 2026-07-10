@@ -115,6 +115,8 @@
   "chat.location_confirm_body": "Recall uses your location to find nearby places and distances.",
   "chat.location_open_settings": "Open Settings",
   "chat.location_required_body": "Location is turned off for Recall. Open Settings to allow access, then try again.",
+  "chat.location_disabled_body": "Location is turned off. Turn it on to use your current place for this question.",
+  "chat.location_turn_on": "Turn on",
   "chat.location_required_title": "Location access",
   "chat.menu": "Chat-Optionen",
   "chat.message_highlighted": "Search result",

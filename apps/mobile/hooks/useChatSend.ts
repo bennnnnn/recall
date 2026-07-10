@@ -65,7 +65,7 @@ type Options = {
   setPendingLaunch: React.Dispatch<React.SetStateAction<string | null>>;
   pendingLaunchRef: React.MutableRefObject<string | null>;
   user: import("@/lib/api").User | null;
-  mergeUser: (patch: Partial<import("@/lib/api").User>) => void;
+  updateUser: (patch: Partial<import("@/lib/api").User>) => Promise<void>;
   t: (key: string) => string;
   onStreamBusy?: () => void;
   isOffline: boolean;
@@ -95,7 +95,7 @@ export function useChatSend({
   setPendingLaunch,
   pendingLaunchRef,
   user,
-  mergeUser,
+  updateUser,
   t,
   onStreamBusy,
   isOffline,
@@ -237,7 +237,13 @@ export function useChatSend({
       newMessageCountRef.current += 1;
 
       let clientGeo: ClientGeo | null = null;
-      const geoResult = await resolveClientGeoForQuery(authToken, text, t, mergeUser);
+      const geoResult = await resolveClientGeoForQuery(
+        authToken,
+        text,
+        t,
+        updateUser,
+        user?.location_enabled ?? false,
+      );
       if (!geoResult.ok) {
         setInput(text);
         return;
@@ -325,7 +331,8 @@ export function useChatSend({
       router,
       sendMessage,
       user,
-      mergeUser,
+      user?.location_enabled,
+      updateUser,
       t,
       onStreamBusy,
       isOffline,

@@ -117,8 +117,8 @@ def format_location_answer(location: str | None, timezone: str | None) -> str:
     if location:
         return f"You're in **{location}**. Local time: {time_str}."
     return (
-        "I don't have your location yet. Enable location access for Recall in your "
-        "device Settings, then reopen the app — I'll pick up your city automatically."
+        "I don't have your location yet. Turn on Location in Recall Settings "
+        "(Preferences), allow access if prompted, then ask again."
     )
 
 
