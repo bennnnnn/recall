@@ -505,6 +505,17 @@ def test_search_empty_query_fails():
     assert r.status_code == 422
 
 
+def test_search_single_char_query_fails():
+    """1-char queries defeat the trigram index — require at least 2 chars."""
+    from fastapi.testclient import TestClient
+
+    user = _fake_user()
+    app = _app_with_user(user)
+    client = TestClient(app)
+    r = client.get("/search?q=a", headers={"Authorization": "Bearer tok"})
+    assert r.status_code == 422
+
+
 def test_search_respects_limit():
     from fastapi.testclient import TestClient
 
@@ -528,7 +539,7 @@ def test_search_respects_limit():
     ):
         client = TestClient(app)
         r = client.get(
-            "/search?q=x&limit=5",
+            "/search?q=xx&limit=5",
             headers={"Authorization": "Bearer tok"},
         )
     assert r.status_code == 200
