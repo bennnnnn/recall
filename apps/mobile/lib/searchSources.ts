@@ -5,6 +5,9 @@ export type SearchSource = {
 };
 
 const SOURCES_FENCE_RE = /```sources\s*\n([\s\S]*?)```/gi;
+/** Bare ``` … ``` fence whose body is only a sources JSON array. */
+const BARE_SOURCES_FENCE_RE = /```\s*\n(\[[\s\S]*?\])\s*```/g;
+const SOURCES_LABEL_RE = /(?:\*\*)?sources(?:\*\*)?\s*:?\s*$/i;
 
 function normalizeSourceRows(parsed: unknown): SearchSource[] {
   if (!Array.isArray(parsed)) return [];
@@ -25,8 +28,11 @@ function normalizeSourceRows(parsed: unknown): SearchSource[] {
 }
 
 export function parseSearchSourcesJson(raw: string): SearchSource[] {
+  let text = raw.trim();
+  // Model sometimes leaves a closing fence after the array.
+  text = text.replace(/\s*```+\s*$/g, "").trim();
   try {
-    return normalizeSourceRows(JSON.parse(raw));
+    return normalizeSourceRows(JSON.parse(text));
   } catch {
     return [];
   }
@@ -53,6 +59,12 @@ export function parseSearchSources(content: string): SearchSource[] {
     parseSearchSourcesJson(match[1].trim()),
   );
   if (fromFence.length > 0) return fromFence;
+
+  const fromBare = [...content.matchAll(BARE_SOURCES_FENCE_RE)].flatMap((match) =>
+    parseSearchSourcesJson(match[1].trim()),
+  );
+  if (fromBare.length > 0) return fromBare;
+
   return findTrailingSourcesJson(content)?.sources ?? [];
 }
 
@@ -67,10 +79,14 @@ export function resolveSearchSources(
 /** Remove ```sources fences and trailing LLM-emitted source JSON from visible markdown. */
 export function stripSearchSourcesFromContent(content: string): string {
   let text = content.replace(SOURCES_FENCE_RE, "");
+  text = text.replace(BARE_SOURCES_FENCE_RE, (match, body: string) =>
+    parseSearchSourcesJson(body).length > 0 ? "" : match,
+  );
   const trailing = findTrailingSourcesJson(text);
   if (trailing) {
     text = text.slice(0, trailing.start).trimEnd();
   }
+  text = text.replace(SOURCES_LABEL_RE, "").trimEnd();
   return text.trimEnd();
 }
 

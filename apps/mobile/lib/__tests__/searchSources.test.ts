@@ -40,6 +40,22 @@ describe("searchSources", () => {
     expect(stripSearchSourcesFromContent(content)).toBe("Here is the answer.");
   });
 
+  it("strips bare code fences and a sources label around JSON", () => {
+    const content = `It's afternoon there.
+
+**sources**
+\`\`\`
+[{"title":"Current Time in Washington, D.C.","url":"http://www.timeandzone.com/dc"}]
+\`\`\``;
+    expect(parseSearchSources(content)).toEqual([
+      {
+        title: "Current Time in Washington, D.C.",
+        url: "http://www.timeandzone.com/dc",
+      },
+    ]);
+    expect(stripSearchSourcesFromContent(content)).toBe("It's afternoon there.");
+  });
+
   it("does not hang when content starts with an unparseable '[' (e.g. an image marker)", () => {
     // Regression: lastIndexOf("[", -1) clamps to 0 instead of returning -1,
     // so the old loop re-found the same leading "[" forever once it reached

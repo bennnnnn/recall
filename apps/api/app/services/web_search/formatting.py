@@ -225,11 +225,15 @@ def strip_duplicate_venue_list(text: str) -> str:
 
 
 _SOURCES_FENCE_RE = re.compile(r"```sources\s*\n([\s\S]*?)```", re.IGNORECASE)
+_BARE_SOURCES_FENCE_RE = re.compile(r"```\s*\n(\[[\s\S]*?\])\s*```")
+_SOURCES_LABEL_RE = re.compile(r"(?:\*\*)?sources(?:\*\*)?\s*:?\s*$", re.IGNORECASE)
 
 
 def _parse_sources_json(raw: str) -> list[dict[str, str]]:
+    text = raw.strip()
+    text = re.sub(r"\s*```+\s*$", "", text).strip()
     try:
-        parsed = json.loads(raw)
+        parsed = json.loads(text)
     except json.JSONDecodeError:
         return []
     if not isinstance(parsed, list):
@@ -264,10 +268,16 @@ def _find_trailing_sources_json(text: str) -> tuple[list[dict[str, str]], int] |
 
 def strip_sources_from_text(text: str) -> str:
     """Remove ```sources fences and trailing LLM-emitted source JSON from assistant text."""
+
+    def _drop_bare(match: re.Match[str]) -> str:
+        return "" if _parse_sources_json(match.group(1)) else match.group(0)
+
     cleaned = _SOURCES_FENCE_RE.sub("", text)
+    cleaned = _BARE_SOURCES_FENCE_RE.sub(_drop_bare, cleaned)
     trailing = _find_trailing_sources_json(cleaned)
     if trailing:
         cleaned = cleaned[: trailing[1]].rstrip()
+    cleaned = _SOURCES_LABEL_RE.sub("", cleaned).rstrip()
     return cleaned.rstrip()
 
 

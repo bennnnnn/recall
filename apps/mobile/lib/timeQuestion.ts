@@ -2,6 +2,10 @@
 const TIME_QUESTION =
   /^\s*(?:what(?:'s| is) the time(?:\s+now)?|what time is it(?:\s+now)?|what time(?:\s+now)?|tell me the (?:current )?time|current time\??|do you know the time\??|time(?:\s+please)?\??)\s*[.!?]*\s*$/i;
 
+/** "What time is it in Tokyo / DC / …" — not the user's local clock. */
+const REMOTE_TIME_QUESTION =
+  /^\s*(?:what(?:'s| is) the time(?:\s+now)?\s+in\b.+|what time is it(?:\s+now)?\s+in\b.+|what time(?:\s+now)?\s+in\b.+|current time\s+in\b.+|time(?:\s+please)?\s+in\b.+)\s*[.!?]*\s*$/i;
+
 const TIME_FOLLOWUP =
   /^\s*(?:again|one more time|tell me again|refresh|update(?:\s+it)?)\s*[.!?]*\s*$/i;
 
@@ -13,9 +17,14 @@ const DIGITAL_TIME_ONLY =
 
 const IANA_TIMEZONE_ONLY = /^[A-Za-z_+\-]+\/[A-Za-z_+\-]+(?:\/[A-Za-z_+\-]+)?$/;
 
+export function isRemoteTimeQuestion(text: string): boolean {
+  return REMOTE_TIME_QUESTION.test(text.trim());
+}
+
 export function isTimeQuestion(text: string): boolean {
   const cleaned = text.trim();
   if (!cleaned) return false;
+  if (isRemoteTimeQuestion(cleaned)) return false;
   if (TIME_QUESTION.test(cleaned) || TIME_FOLLOWUP.test(cleaned)) {
     return !SCHEDULED_EVENT.test(cleaned);
   }
@@ -59,6 +68,12 @@ export function assistantReplyIsTimeAnswer(
   content: string,
   priorUserText: string | null,
 ): boolean {
+  const tz = extractClockTimezone(content);
+  // City/place questions: only show the widget when a timezone was pinned.
+  // An empty ```clock``` would wrongly render the user's local time.
+  if (priorUserText && isRemoteTimeQuestion(priorUserText)) {
+    return Boolean(tz);
+  }
   if (priorUserText && isTimeQuestion(priorUserText)) return true;
   if (/```\s*clock[\s\n]/i.test(content)) return true;
   const fence = content.match(/```[^\n]*\n([\s\S]*?)```/);

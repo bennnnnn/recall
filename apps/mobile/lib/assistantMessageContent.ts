@@ -191,10 +191,12 @@ export function deriveAssistantMessageContent(
   });
 
   const hasMarkdown = markdownContent.trim().length > 0;
+  // Hide the sources stack for a local empty-clock reply; keep it when the
+  // clock is pinned to another timezone (city time) or there is no clock.
   const showSearchSources =
     searchSources.length > 0 &&
     !layoutFrozen &&
-    !showLiveClock &&
+    !(showLiveClock && !clockTimezone) &&
     !hideQuizFenceInMarkdown &&
     !showVocabCard &&
     !showCalendarProposals;

@@ -48,6 +48,8 @@ def test_describe_due_at_skips_checked():
         ("tell me the time", True),
         ("again", True),
         ("is it", False),
+        ("what time is it in dc", False),
+        ("what time is it in Tokyo", False),
         ("what time is the meeting", False),
         ("what time is my flight", False),
         ("schedule a reminder for 5pm", False),
@@ -55,6 +57,23 @@ def test_describe_due_at_skips_checked():
 )
 def test_is_time_question(text, expected):
     assert is_time_question(text) is expected
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("what time is it in dc", True),
+        ("What time is it in Tokyo?", True),
+        ("what's the time in London", True),
+        ("time in Paris", True),
+        ("what time is it", False),
+        ("what time", False),
+    ],
+)
+def test_is_remote_time_question(text, expected):
+    from app.services.time_context import is_remote_time_question
+
+    assert is_remote_time_question(text) is expected
 
 
 def test_format_digital_clock_24h():
