@@ -506,20 +506,14 @@ async def stream_and_finalize(
                 )
             return
 
-        user = ctx.user
-        if user is not None:
-            async with SessionLocal() as session:
-                assistant_text = await chat_pkg.calendar_service.materialize_calendar_proposals(
-                    session,
-                    redis,
-                    user,
-                    settings,
-                    assistant_text,
-                )
-        else:
-            async with SessionLocal() as session:
-                user = await chat_pkg.users_repo.get_by_id(session, ctx.user_id)
-                if user is not None:
+        # Enrichment (calendar ids, math fences, sources, …) must never block
+        # persistence — the user already saw streamed tokens. On failure, keep
+        # the raw joined text so finalize_stream_turn_db still runs.
+        raw_assistant_text = assistant_text
+        try:
+            user = ctx.user
+            if user is not None:
+                async with SessionLocal() as session:
                     assistant_text = await chat_pkg.calendar_service.materialize_calendar_proposals(
                         session,
                         redis,
@@ -527,46 +521,72 @@ async def stream_and_finalize(
                         settings,
                         assistant_text,
                     )
+            else:
+                async with SessionLocal() as session:
+                    user = await chat_pkg.users_repo.get_by_id(session, ctx.user_id)
+                    if user is not None:
+                        assistant_text = (
+                            await chat_pkg.calendar_service.materialize_calendar_proposals(
+                                session,
+                                redis,
+                                user,
+                                settings,
+                                assistant_text,
+                            )
+                        )
 
-        assistant_text = chat_pkg.math_fence_service.validate_math_fences(
-            assistant_text, verified=ctx.verified_math
-        )
-        from app.services.vocab_quiz import strip_vocab_session_metadata
+            assistant_text = chat_pkg.math_fence_service.validate_math_fences(
+                assistant_text, verified=ctx.verified_math
+            )
+            from app.services.vocab_quiz import strip_vocab_session_metadata
 
-        assistant_text = strip_vocab_session_metadata(assistant_text)
+            assistant_text = strip_vocab_session_metadata(assistant_text)
 
-        if ctx.search_sources:
-            assistant_text = chat_pkg.web_search_service.strip_sources_from_text(assistant_text)
-            if result is not None:
-                result["search_sources"] = json.dumps(
-                    chat_pkg.web_search_service.sources_payload(ctx.search_sources)
-                )
-                result["final_content"] = assistant_text
-            sources_fence = chat_pkg.web_search_service.format_sources_fence(ctx.search_sources)
-            if sources_fence and not (should_cancel and should_cancel()):
-                assistant_text = f"{assistant_text}{sources_fence}".strip()
-
-        if ctx.local_places and ctx.search_sources and "```places" not in assistant_text.lower():
-            assistant_text = chat_pkg.web_search_service.strip_duplicate_venue_list(assistant_text)
-            places_fence = chat_pkg.web_search_service.format_places_fence(ctx.search_sources)
-            if places_fence and not (should_cancel and should_cancel()):
-                assistant_parts[:] = [assistant_text] if assistant_text.strip() else []
-                assistant_parts.append(places_fence)
-                assistant_text = "".join(assistant_parts).strip()
+            if ctx.search_sources:
+                assistant_text = chat_pkg.web_search_service.strip_sources_from_text(assistant_text)
                 if result is not None:
+                    result["search_sources"] = json.dumps(
+                        chat_pkg.web_search_service.sources_payload(ctx.search_sources)
+                    )
                     result["final_content"] = assistant_text
+                sources_fence = chat_pkg.web_search_service.format_sources_fence(ctx.search_sources)
+                if sources_fence and not (should_cancel and should_cancel()):
+                    assistant_text = f"{assistant_text}{sources_fence}".strip()
 
-        if ctx.instant_reply and not usage:
-            usage["output_tokens"] = estimate_tokens(assistant_text)
-            usage["input_tokens"] = 0
+            if (
+                ctx.local_places
+                and ctx.search_sources
+                and "```places" not in assistant_text.lower()
+            ):
+                assistant_text = chat_pkg.web_search_service.strip_duplicate_venue_list(
+                    assistant_text
+                )
+                places_fence = chat_pkg.web_search_service.format_places_fence(ctx.search_sources)
+                if places_fence and not (should_cancel and should_cancel()):
+                    assistant_parts[:] = [assistant_text] if assistant_text.strip() else []
+                    assistant_parts.append(places_fence)
+                    assistant_text = "".join(assistant_parts).strip()
+                    if result is not None:
+                        result["final_content"] = assistant_text
 
-        if result is not None and not ctx.skip_memory_jobs:
-            transcript = f"User: {ctx.user_message_content}\nAssistant: {assistant_text}"
-            if chat_pkg.todos_service.transcript_implies_todo_sync(transcript):
-                result["todos_sync"] = "1"
+            if ctx.instant_reply and not usage:
+                usage["output_tokens"] = estimate_tokens(assistant_text)
+                usage["input_tokens"] = 0
 
-        if result is not None and was_cancelled and assistant_text:
-            result["final_content"] = assistant_text
+            if result is not None and not ctx.skip_memory_jobs:
+                transcript = f"User: {ctx.user_message_content}\nAssistant: {assistant_text}"
+                if chat_pkg.todos_service.transcript_implies_todo_sync(transcript):
+                    result["todos_sync"] = "1"
+
+            if result is not None and was_cancelled and assistant_text:
+                result["final_content"] = assistant_text
+        except Exception:
+            logger.exception(
+                "Post-stream enrichment failed; persisting raw assistant text",
+            )
+            assistant_text = raw_assistant_text
+            if result is not None and was_cancelled and assistant_text:
+                result["final_content"] = assistant_text
 
         if result is not None:
             result["resolved_model"] = ctx.model

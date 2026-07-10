@@ -1537,6 +1537,118 @@ async def test_stream_places_query_uses_client_location_without_profile(stream_o
 
 
 @pytest.mark.asyncio
+async def test_stream_persists_raw_text_when_enrichment_fails(stream_offline_io):
+    """Post-stream enrichment (calendar materialize, math fences, …) must not
+    abort persistence — the user already saw streamed tokens."""
+    from app.services import chat as chat_module
+
+    async def fake_stream(**kwargs):
+        yield "hello "
+        yield "world"
+
+    fake_user = MagicMock()
+    fake_user.id = MagicMock()
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+    fake_chat.summary = None
+    fake_chat.project_id = None
+
+    finalize = AsyncMock()
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True))
+        )
+        stack.enter_context(
+            patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user))
+        )
+        stack.enter_context(
+            patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat))
+        )
+        stack.enter_context(
+            patch("app.services.chat.messages_repo.count_for_chat", AsyncMock(return_value=3))
+        )
+        stack.enter_context(patch("app.services.chat.messages_repo.create", AsyncMock()))
+        stack.enter_context(
+            patch(
+                "app.services.chat.build_prompt_messages",
+                AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
+            )
+        )
+        stack.enter_context(
+            patch("app.services.chat.calendar_service.is_connected", AsyncMock(return_value=False))
+        )
+        stack.enter_context(
+            patch(
+                "app.services.chat.calendar_service.load_calendar_for_prompt",
+                AsyncMock(return_value=None),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.services.chat.calendar_service.materialize_calendar_proposals",
+                AsyncMock(side_effect=RuntimeError("calendar boom")),
+            )
+        )
+        stack.enter_context(
+            patch("app.services.chat.email_service.is_connected", AsyncMock(return_value=False))
+        )
+        stack.enter_context(
+            patch(
+                "app.services.chat.email_service.load_gmail_context", AsyncMock(return_value=None)
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.services.chat.email_service.load_gmail_for_prompt",
+                AsyncMock(return_value=None),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.services.chat.messages_repo.recent_user_contents", AsyncMock(return_value=[])
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.services.chat.web_search_service.augment_prompt_messages",
+                AsyncMock(side_effect=lambda msgs, *_a, **_k: (msgs, [])),
+            )
+        )
+        stack.enter_context(
+            patch("app.services.chat.litellm_gateway.stream_chat_completion", fake_stream)
+        )
+        stack.enter_context(patch("app.services.chat.quota_service.adjust_usage", AsyncMock()))
+        stack.enter_context(patch("app.services.chat.usage_repo.add_tokens", AsyncMock()))
+        stack.enter_context(patch("app.services.chat.chats_repo.touch_by_id", AsyncMock()))
+        stack.enter_context(patch("app.services.chat.jobs.enqueue", AsyncMock()))
+        stack.enter_context(patch("app.services.chat.stream.finalize_stream_turn_db", finalize))
+
+        result: dict[str, object] = {}
+        collected: list[str] = []
+        async for tok in chat_module.stream_chat_response(
+            AsyncMock(),
+            Settings(max_output_tokens=100),
+            user_id=fake_user.id,
+            chat_id=MagicMock(),
+            content="question",
+            result=result,
+            user=fake_user,
+        ):
+            collected.append(tok)
+        finalize_db = result.get("_finalize_db_task")
+        if finalize_db is not None:
+            await finalize_db
+
+    assert collected == ["hello ", "world"]
+    finalize.assert_awaited()
+    assert finalize.await_args.args[2] == "hello world"
+
+
+@pytest.mark.asyncio
 async def test_stream_no_final_content_on_normal_completion(stream_offline_io):
     """`final_content` must NOT be set on a normal (non-cancelled) turn — keep
     `done` payloads small."""
