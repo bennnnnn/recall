@@ -679,10 +679,6 @@ async def _load_project_home_content(
             project_ids,
             timezone_by_project={candidate.id: tz_name for candidate in daily_projects},
         )
-        all_items = await project_items_repo.list_for_projects(session, project_ids)
-        items_by_project: dict[UUID, list] = {pid: [] for pid in project_ids}
-        for item in all_items:
-            items_by_project.setdefault(item.project_id, []).append(item)
         completed_daily: list[CompletedDaily] = []
         for candidate in daily_projects:
             stats = ProjectStats.model_validate(stats_by_project.get(candidate.id, {}))
@@ -690,11 +686,32 @@ async def _load_project_home_content(
             if _completed_today(stats) >= daily_goal:
                 completed_daily.append((candidate.title.strip(), _daily_home_kind(candidate)))
                 continue
+            # Cue can be decided from stats alone; only load items for the
+            # first project that will actually become the home highlight.
+            cue = daily_learning.daily_home_cue(
+                total=stats.total,
+                mastered_today=stats.mastered_today,
+                missed_today=int(getattr(stats, "missed_today", 0) or 0),
+                pending_today=stats.pending_today,
+                learning_count=stats.learning_count,
+                due_for_review=stats.due_for_review,
+                daily_goal=daily_goal,
+                last_mastery=stats.last_mastery_at,
+                home_tz=home_tz,
+            )
+            if cue is None:
+                continue
+            project_items = await project_items_repo.list_for_user(
+                session,
+                user_id,
+                project_id=candidate.id,
+                limit=500,
+            )
             highlight = _project_highlight(
                 candidate,
                 stats,
                 home_tz=home_tz,
-                project_items=items_by_project.get(candidate.id, []),
+                project_items=project_items,
             )
             if highlight is not None:
                 starters: list[HomeStarter] = []
