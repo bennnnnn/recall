@@ -13,6 +13,7 @@ type Props = {
   /** When true, show the image-generation status label instead of chat stream draft. */
   imageGenPending?: boolean;
   lastAssistantId: string | null;
+  activeQuizMessageId?: string | null;
   selectedModel: string;
   quizLanguage: string;
   highlightedMessageId: string | null;
@@ -20,6 +21,7 @@ type Props = {
   onRegenerate: (model: string) => void;
   onEdit: (message: Message) => void;
   onFeedback: (messageId: string, next: "up" | "down" | null) => void;
+  onQuizAnswer?: (letter: string) => void;
 };
 
 export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({

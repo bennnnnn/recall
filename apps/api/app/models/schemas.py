@@ -462,6 +462,7 @@ class ProjectStats(BaseModel):
     added_this_week: int = 0
     due_for_review: int = 0
     mastered_today: int = 0
+    missed_today: int = 0
     pending_today: int = 0
     last_mastery_at: datetime | None = None
     streak_days: int = 0

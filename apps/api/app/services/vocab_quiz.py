@@ -6,15 +6,19 @@ import json
 import re
 from dataclasses import dataclass
 
-VOCAB_QUIZ_FENCE_RE = re.compile(r"```vocab_quiz\s*\n([\s\S]*?)```", re.IGNORECASE)
+VOCAB_QUIZ_FENCE_RE = re.compile(r"```vocab_quiz[^\n]*\n([\s\S]*?)```", re.IGNORECASE)
 VOCAB_SESSION_JSON_FENCE_RE = re.compile(r"```json\s*\n([\s\S]*?)```", re.IGNORECASE)
 VOCAB_SESSION_JSON_PARTIAL_RE = re.compile(r"```json[\s\S]*$", re.IGNORECASE)
 QUIZ_ANSWER_RE = re.compile(r"^([A-D])\.?$", re.IGNORECASE)
+# Short confirmations only — avoid matching prose like "A bit more help".
 QUIZ_ANSWER_LOOSE_RE = re.compile(
-    r"(?:^|\b)(?:is\s+it\s+|option\s+|answer\s+is\s+|i\s+(?:think|say|choose|pick)\s+)?([A-D])\b",
+    r"^(?:is\s+it\s+|option\s+|answer\s*(?:is\s+)?|i\s+(?:think|say|choose|pick)\s+)?"
+    r"([A-D])\.?[?!.]*$",
     re.IGNORECASE,
 )
-MAX_LOOSE_QUIZ_ANSWER_LEN = 48
+MAX_LOOSE_QUIZ_ANSWER_LEN = 24
+# Wrong answers on the same open question before we mark it missed and move on.
+MAX_QUIZ_TRIES_PER_QUESTION = 3
 
 _SESSION_METADATA_KEYS = frozenset(
     {
@@ -34,6 +38,7 @@ class ParsedVocabQuiz:
     question: str | None
     correct: str | None
     quiz_type: str | None
+    correct_text: str | None = None
 
 
 @dataclass(frozen=True)
@@ -42,6 +47,12 @@ class QuizAnswerGrade:
     user_letter: str
     correct_letter: str
     word: str
+    quiz_type: str | None = None
+    question: str | None = None
+    # 1-based try count for this open question (letter answers since the quiz fence).
+    attempt: int = 1
+    # True when wrong and attempt >= MAX_QUIZ_TRIES_PER_QUESTION — mark missed, move on.
+    tries_exhausted: bool = False
 
 
 def quiz_answer_letter(text: str) -> str | None:
@@ -51,7 +62,7 @@ def quiz_answer_letter(text: str) -> str | None:
         return strict.group(1).upper()
     if len(stripped) > MAX_LOOSE_QUIZ_ANSWER_LEN:
         return None
-    loose = QUIZ_ANSWER_LOOSE_RE.search(stripped)
+    loose = QUIZ_ANSWER_LOOSE_RE.match(stripped)
     if loose:
         return loose.group(1).upper()
     return None
@@ -126,9 +137,21 @@ def parse_vocab_quiz(content: str) -> ParsedVocabQuiz | None:
         return None
     correct = correct_raw
 
+    correct_text: str | None = None
+    for choice in choices:
+        if not isinstance(choice, dict):
+            continue
+        letter = str(choice.get("letter") or "").upper()
+        if letter == correct:
+            text = str(choice.get("text") or "").strip()
+            if text:
+                correct_text = text
+            break
+
     return ParsedVocabQuiz(
         word=word or (question or "")[:80],
         question=question,
         correct=correct,
         quiz_type=quiz_type,
+        correct_text=correct_text,
     )

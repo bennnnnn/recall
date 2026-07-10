@@ -1,4 +1,5 @@
 import {
+  findActiveQuizMessageId,
   findLastAssistantId,
   findLastLocalUserMessageId,
   isChatStreamActive,
@@ -20,6 +21,37 @@ describe("chatMessageLogic", () => {
     expect(findLastAssistantId(messages)).toBe("4");
     expect(findLastAssistantId([])).toBeNull();
     expect(findLastAssistantId([{ id: "1", role: "user", content: "x" } as Message])).toBeNull();
+  });
+
+  it("findActiveQuizMessageId keeps the prior quiz after a hint-only wrong reply", () => {
+    const quiz = [
+      "**History**",
+      "",
+      "Which war?",
+      "",
+      "```vocab_quiz",
+      JSON.stringify({
+        quiz_type: "trivia",
+        word: "History",
+        question: "Which war?",
+        correct: "A",
+        choices: [
+          { letter: "A", text: "Thirty Years' War" },
+          { letter: "B", text: "English Civil War" },
+          { letter: "C", text: "Franco-Dutch War" },
+          { letter: "D", text: "War of the Spanish Succession" },
+        ],
+      }),
+      "```",
+    ].join("\n");
+    const messages = [
+      { id: "q1", role: "assistant", content: quiz },
+      { id: "u1", role: "user", content: "D" },
+      { id: "h1", role: "assistant", content: "You were wrong — hint: began in 1618." },
+    ] as Message[];
+
+    expect(findLastAssistantId(messages)).toBe("h1");
+    expect(findActiveQuizMessageId(messages)).toBe("q1");
   });
 
   it("findLastLocalUserMessageId returns the latest optimistic user message", () => {

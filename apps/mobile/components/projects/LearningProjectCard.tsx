@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { LearningContinueCta } from "@/components/projects/LearningContinueCta";
 import type { Project } from "@/lib/api";
 import { resolveDailyGoal } from "@/lib/dailyGoals";
 import { isLanguageProject } from "@/lib/languageLevels";
@@ -42,12 +43,16 @@ export function LearningProjectCard({
 
   const lifetimeTotal = stats?.mastered_count ?? 0;
   const masteredToday = stats?.mastered_today ?? 0;
+  const missedToday = stats?.missed_today ?? 0;
+  const completedToday = masteredToday + missedToday;
   const dueForReview = stats?.due_for_review ?? 0;
   const streakDays = stats?.streak_days ?? 0;
-  const goalMet = stats != null && masteredToday >= dailyGoal;
-  const remaining = Math.max(0, dailyGoal - masteredToday);
+  const goalMet = stats != null && completedToday >= dailyGoal;
+  const remaining = Math.max(0, dailyGoal - completedToday);
   const progressPct =
-    dailyGoal > 0 ? Math.min(100, Math.round((Math.min(masteredToday, dailyGoal) / dailyGoal) * 100)) : 0;
+    dailyGoal > 0
+      ? Math.min(100, Math.round((Math.min(completedToday, dailyGoal) / dailyGoal) * 100))
+      : 0;
 
   const lifetimeLine = isTrivia
     ? t("projects.list.lifetime_facts", { count: lifetimeTotal })
@@ -55,26 +60,28 @@ export function LearningProjectCard({
 
   const chips = [levelLabel, `${dailyLabel}/day`, ...(topicsChip ? [topicsChip] : [])];
 
-  let ctaLabel: string | null = null;
-  let ctaAction: (() => void) | undefined;
-  if (showLearningUi && stats) {
-    if (!goalMet && remaining > 0 && onStudy) {
-      ctaLabel =
-        masteredToday === 0
+  const ctaLabel =
+    showLearningUi && stats
+      ? !goalMet && remaining > 0 && onStudy
+        ? masteredToday === 0 && missedToday === 0
           ? isTrivia
             ? t("projects.study.start_questions")
             : t("projects.study.start_words", { count: dailyGoal })
           : isTrivia
             ? t("projects.list.continue_questions", { count: remaining })
-            : t("projects.list.continue_words", { count: remaining });
-      ctaAction = onStudy;
-    } else if (goalMet && dueForReview > 0 && onReview) {
-      ctaLabel = isTrivia
-        ? t("projects.list.review_facts", { count: dueForReview })
-        : t("projects.list.review_words", { count: dueForReview });
-      ctaAction = onReview;
-    }
-  }
+            : t("projects.list.continue_words", { count: remaining })
+        : goalMet && dueForReview > 0 && onReview
+          ? isTrivia
+            ? t("projects.list.review_facts", { count: dueForReview })
+            : t("projects.list.review_words", { count: dueForReview })
+          : null
+      : null;
+  const ctaAction =
+    ctaLabel && !goalMet && remaining > 0 && onStudy
+      ? onStudy
+      : ctaLabel && goalMet && dueForReview > 0 && onReview
+        ? onReview
+        : undefined;
 
   return (
     <View style={s.section}>
@@ -91,7 +98,6 @@ export function LearningProjectCard({
               {showLearningUi ? (
                 <Text style={s.headerSubtitle} numberOfLines={2}>
                   {lifetimeLine}
-                  {stats ? ` · ${t("projects.list.today_progress", { done: masteredToday, goal: dailyGoal })}` : ""}
                 </Text>
               ) : null}
             </View>
@@ -104,7 +110,7 @@ export function LearningProjectCard({
                 <Text style={[s.progressLabel, goalMet && s.progressLabelComplete]}>
                   {goalMet
                     ? t("projects.list.goal_met_today")
-                    : t("projects.list.today_remaining", { count: remaining })}
+                    : t("projects.list.today_progress", { done: completedToday, goal: dailyGoal })}
                 </Text>
                 {streakDays > 0 ? (
                   <Text style={s.streakText}>
@@ -138,9 +144,7 @@ export function LearningProjectCard({
         </Pressable>
 
         {ctaLabel && ctaAction ? (
-          <Pressable style={s.cta} onPress={ctaAction}>
-            <Text style={s.ctaText}>{ctaLabel}</Text>
-          </Pressable>
+          <LearningContinueCta label={ctaLabel} onPress={ctaAction} embedded />
         ) : null}
       </View>
     </View>
@@ -150,7 +154,7 @@ export function LearningProjectCard({
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     section: {
-      marginBottom: 16,
+      marginBottom: 24,
     },
     card: {
       borderRadius: 16,
@@ -209,12 +213,12 @@ function makeStyles(theme: Theme) {
       color: theme.primary,
     },
     progressLabelComplete: {
-      color: theme.isDark ? "#4ADE80" : "#15803D",
+      color: theme.success,
     },
     streakText: {
       fontSize: 12,
       fontWeight: "600",
-      color: theme.textTertiary,
+      color: theme.textSecondary,
     },
     track: {
       height: 6,
@@ -228,7 +232,7 @@ function makeStyles(theme: Theme) {
       backgroundColor: theme.primary,
     },
     fillComplete: {
-      backgroundColor: theme.isDark ? "#4ADE80" : "#22C55E",
+      backgroundColor: theme.success,
     },
     chipRow: {
       flexDirection: "row",
@@ -247,19 +251,6 @@ function makeStyles(theme: Theme) {
       fontSize: 12,
       fontWeight: "600",
       color: theme.textSecondary,
-    },
-    cta: {
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: theme.border,
-      paddingVertical: 14,
-      paddingHorizontal: 16,
-      alignItems: "center",
-      backgroundColor: theme.primaryLight,
-    },
-    ctaText: {
-      fontSize: 15,
-      fontWeight: "700",
-      color: theme.primary,
     },
   });
 }

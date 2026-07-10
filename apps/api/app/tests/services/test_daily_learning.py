@@ -57,9 +57,45 @@ def test_count_today_vocab_stats_mastered_and_pending():
             mastered_at=start.replace(year=start.year - 1),
         ),
     ]
-    mastered_today, pending_today = count_today_vocab_stats(items, timezone_name="UTC")
+    mastered_today, missed_today, pending_today = count_today_vocab_stats(
+        items, timezone_name="UTC"
+    )
     assert mastered_today == 1
+    assert missed_today == 0
     assert pending_today == 2
+
+
+def test_count_today_vocab_stats_counts_open_misses_toward_progress():
+    start = start_of_today_utc("UTC")
+    items = [
+        _item(
+            status="mastered",
+            mastered=True,
+            created_at=start,
+            mastered_at=start,
+        ),
+        SimpleNamespace(
+            status="learning",
+            mastered=False,
+            created_at=start,
+            mastered_at=None,
+            last_incorrect_at=start,
+        ),
+        SimpleNamespace(
+            status="mastered",
+            mastered=True,
+            created_at=start,
+            mastered_at=start,
+            last_incorrect_at=start,  # missed then mastered — counts as correct only
+        ),
+    ]
+    mastered_today, missed_today, pending_today = count_today_vocab_stats(
+        items, timezone_name="UTC"
+    )
+    assert mastered_today == 2
+    assert missed_today == 1
+    assert pending_today == 0
+    assert mastered_today + missed_today == 3
 
 
 def test_daily_home_cue_hides_when_goal_met():

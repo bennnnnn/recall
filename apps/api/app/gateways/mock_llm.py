@@ -32,10 +32,48 @@ MOCK_QUIZ_QUESTION = (
     "```"
 )
 
-MOCK_QUIZ_FEEDBACK = (
-    "Nice work — **B** is correct! *Ubiquitous* means something is everywhere you look.\n\n"
-    'Example: "Smartphones are ubiquitous in modern cities."\n\n'
-    "Want another question?"
+MOCK_QUIZ_RETRY = (
+    "Not quite — think about something you see *everywhere*. "
+    "Tap another choice on the question above."
+)
+
+MOCK_QUIZ_EXHAUSTED = (
+    "Out of tries — **ubiquitous** means present or found everywhere (B). "
+    "We'll revisit it later.\n\n"
+    "Next word:\n\n"
+    "**Word:** ephemeral\n\n"
+    "What does it mean?\n\n"
+    "A) Lasting a very short time\n"
+    "B) Extremely large\n"
+    "C) Very noisy\n"
+    "D) Deeply emotional\n\n"
+    "```vocab_quiz\n"
+    '{"word":"ephemeral","question":"What does it mean?",'
+    '"correct":"A",'
+    '"choices":[{"letter":"A","text":"Lasting a very short time"},'
+    '{"letter":"B","text":"Extremely large"},'
+    '{"letter":"C","text":"Very noisy"},'
+    '{"letter":"D","text":"Deeply emotional"}]}\n'
+    "```"
+)
+
+MOCK_QUIZ_CORRECT_NEXT = (
+    "Nice work — **correct!** *Ubiquitous* means present or found everywhere.\n\n"
+    "Next word:\n\n"
+    "**Word:** ephemeral\n\n"
+    "What does it mean?\n\n"
+    "A) Lasting a very short time\n"
+    "B) Extremely large\n"
+    "C) Very noisy\n"
+    "D) Deeply emotional\n\n"
+    "```vocab_quiz\n"
+    '{"word":"ephemeral","question":"What does it mean?",'
+    '"correct":"A",'
+    '"choices":[{"letter":"A","text":"Lasting a very short time"},'
+    '{"letter":"B","text":"Extremely large"},'
+    '{"letter":"C","text":"Very noisy"},'
+    '{"letter":"D","text":"Deeply emotional"}]}\n'
+    "```"
 )
 
 
@@ -65,11 +103,64 @@ def _last_user_text(messages: list[dict[str, str]] | None) -> str:
     return ""
 
 
+def _last_assistant_text(messages: list[dict[str, str]] | None) -> str:
+    if not messages:
+        return ""
+    for msg in reversed(messages):
+        if msg.get("role") == "assistant":
+            return str(msg.get("content") or "").strip()
+    return ""
+
+
+def _quiz_attempt_number(messages: list[dict[str, str]] | None) -> int:
+    """Count A-D user answers since the most recent quiz fence in the prompt history."""
+    from app.services.vocab_quiz import parse_vocab_quiz, quiz_answer_letter
+
+    if not messages:
+        return 1
+    quiz_idx = -1
+    for i in range(len(messages) - 1, -1, -1):
+        msg = messages[i]
+        if msg.get("role") == "assistant" and parse_vocab_quiz(str(msg.get("content") or "")):
+            quiz_idx = i
+            break
+    if quiz_idx < 0:
+        return 1
+    count = 0
+    for msg in messages[quiz_idx + 1 :]:
+        if msg.get("role") == "user" and quiz_answer_letter(str(msg.get("content") or "")):
+            count += 1
+    return max(1, count)
+
+
 def mock_reply_for_messages(messages: list[dict[str, str]] | None) -> str:
+    from app.services.vocab_quiz import (
+        MAX_QUIZ_TRIES_PER_QUESTION,
+        parse_vocab_quiz,
+        quiz_answer_letter,
+    )
+
     last_user = _last_user_text(messages)
     lower = last_user.lower()
-    if re.match(r"^[a-d]\)?$", lower) or lower in {"a", "b", "c", "d"}:
-        return MOCK_QUIZ_FEEDBACK
+    letter = quiz_answer_letter(last_user)
+    if letter:
+        # Prefer the open quiz fence (may not be the last assistant after a hint-only miss).
+        prior = None
+        if messages:
+            for msg in reversed(messages):
+                if msg.get("role") != "assistant":
+                    continue
+                parsed = parse_vocab_quiz(str(msg.get("content") or ""))
+                if parsed is not None:
+                    prior = parsed
+                    break
+        if prior and prior.correct:
+            if letter == prior.correct.upper():
+                return MOCK_QUIZ_CORRECT_NEXT
+            if _quiz_attempt_number(messages) >= MAX_QUIZ_TRIES_PER_QUESTION:
+                return MOCK_QUIZ_EXHAUSTED
+            return MOCK_QUIZ_RETRY
+        return MOCK_QUIZ_RETRY
     if "quiz" in lower or "multiple-choice" in lower or "vocabulary quiz" in lower:
         return MOCK_QUIZ_QUESTION
     return MOCK_REPLY
@@ -408,11 +499,10 @@ async def mock_project_actions(user_message: str, snapshot: dict[str, object]):
 
     quiz_word = _extract_quiz_word(user_message)
     user_answer = _extract_quiz_answer(user_message)
-    assistant_confirmed = any(
+    assistant_said_correct = any(
         phrase in text
         for phrase in (
-            "correct",
-            "right",
+            "correct!",
             "nice work",
             "you got it",
             "well done",
@@ -420,7 +510,16 @@ async def mock_project_actions(user_message: str, snapshot: dict[str, object]):
             "1 for 1",
         )
     )
-    if quiz_word and user_answer and assistant_confirmed and project_title:
+    assistant_said_wrong = any(
+        phrase in text for phrase in ("not quite", "wrong", "try again", "incorrect")
+    )
+    if (
+        quiz_word
+        and user_answer
+        and assistant_said_correct
+        and not assistant_said_wrong
+        and project_title
+    ):
         actions.append(
             ProjectActionItem(
                 action="master",

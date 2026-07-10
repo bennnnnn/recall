@@ -458,13 +458,18 @@ def _project_progress_line(project: Project, stats: ProjectStats) -> str:
     return f"I have {stats.total} items tracked on this project."
 
 
+def _completed_today(stats: ProjectStats) -> int:
+    return max(0, int(stats.mastered_today) + int(getattr(stats, "missed_today", 0) or 0))
+
+
 def _project_chip_label(project: Project, stats: ProjectStats) -> str:
     title = project.title.strip()
     if _is_daily_home_project(project):
         daily_goal = daily_learning.resolve_daily_goal(project)
-        if stats.mastered_today >= daily_goal:
+        completed = _completed_today(stats)
+        if completed >= daily_goal:
             return ""
-        if stats.total == 0 or stats.mastered_today == 0:
+        if stats.total == 0 or completed == 0:
             return f"Start {title}"[:48]
         return f"Continue {title}"[:48]
     if stats.total == 0:
@@ -484,15 +489,16 @@ def _project_starters(project: Project, stats: ProjectStats) -> list[HomeStarter
 
     if _is_language_project(project):
         daily_goal = daily_learning.resolve_daily_goal(project)
-        if stats.mastered_today >= daily_goal:
+        completed = _completed_today(stats)
+        if completed >= daily_goal:
             return []
-        remaining = max(0, daily_goal - stats.mastered_today)
+        remaining = max(0, daily_goal - completed)
         if stats.total == 0:
             prompt = (
                 f'Help me start my "{title}" vocabulary project.{goal} '
                 "Suggest how to add my first words and a simple first session."
             )
-        elif stats.mastered_today == 0:
+        elif completed == 0:
             prompt = (
                 f'Help me start today\'s "{title}" vocabulary session.{goal} {progress} '
                 f"My daily goal is {daily_goal} words. Quiz and teach in chat — "
@@ -502,37 +508,38 @@ def _project_starters(project: Project, stats: ProjectStats) -> list[HomeStarter
         elif stats.due_for_review > 0:
             prompt = (
                 f'Help me review my "{title}" vocabulary.{goal} {progress} '
-                f"I still need {remaining} more mastered today to hit my daily goal of "
+                f"I still need {remaining} more today to hit my daily goal of "
                 f"{daily_goal}. Quiz words that are due — do not add fresh words yet."
             )
         else:
             prompt = (
                 f'Help me with my "{title}" vocabulary.{goal} {progress} '
-                f"I need {remaining} more mastered today (daily goal: {daily_goal}). "
+                f"I need {remaining} more today (daily goal: {daily_goal}). "
                 "Quiz my new and learning words first — only add fresh words if I still "
                 "need them for today's goal."
             )
     elif _is_trivia_project(project):
         daily_goal = daily_learning.resolve_daily_goal(project)
-        if stats.mastered_today >= daily_goal:
+        completed = _completed_today(stats)
+        if completed >= daily_goal:
             return []
-        remaining = max(0, daily_goal - stats.mastered_today)
+        remaining = max(0, daily_goal - completed)
         if stats.total == 0:
             prompt = (
                 f'Start my daily "{title}" general-knowledge session.{goal} '
-                f"Quiz me in chat — one question at a time, {daily_goal} correct today. "
+                f"Quiz me in chat — one question at a time, {daily_goal} today. "
                 "You choose the format (multiple choice, open-ended, etc.). Begin now."
             )
-        elif stats.mastered_today == 0:
+        elif completed == 0:
             prompt = (
                 f'Start my daily "{title}" general-knowledge session.{goal} {progress} '
-                f"Quiz me in chat — one question at a time until {daily_goal} correct today. "
+                f"Quiz me in chat — one question at a time until {daily_goal} done today. "
                 "You choose the format each turn."
             )
         else:
             prompt = (
                 f'Continue my daily "{title}" session.{goal} {progress} '
-                f"I need {remaining} more correct today (daily goal: {daily_goal}). "
+                f"I need {remaining} more today (daily goal: {daily_goal}). "
                 "Ask the next question in chat — you pick the format."
             )
     elif stats.total == 0:
@@ -604,6 +611,7 @@ def _project_highlight(
     cue = daily_learning.daily_home_cue(
         total=stats.total,
         mastered_today=stats.mastered_today,
+        missed_today=int(getattr(stats, "missed_today", 0) or 0),
         pending_today=stats.pending_today,
         learning_count=stats.learning_count,
         due_for_review=stats.due_for_review,
@@ -678,7 +686,7 @@ async def _load_project_home_content(
         for candidate in daily_projects:
             stats = ProjectStats.model_validate(stats_by_project.get(candidate.id, {}))
             daily_goal = daily_learning.resolve_daily_goal(candidate)
-            if stats.mastered_today >= daily_goal:
+            if _completed_today(stats) >= daily_goal:
                 completed_daily.append((candidate.title.strip(), _daily_home_kind(candidate)))
                 continue
             highlight = _project_highlight(
@@ -709,7 +717,7 @@ async def _load_project_home_content(
     completed_daily = []
     if highlight is None and _is_daily_home_project(primary):
         daily_goal = daily_learning.resolve_daily_goal(primary)
-        if stats.mastered_today >= daily_goal:
+        if _completed_today(stats) >= daily_goal:
             completed_daily = [(primary.title.strip(), _daily_home_kind(primary))]
     starters = _project_starters(primary, stats)
     subtitle = _project_subtitle(

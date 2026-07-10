@@ -91,9 +91,9 @@ export function parseQuizAnswerLetter(
   const trimmed = content.trim();
   const strict = trimmed.match(/^([A-D])\.?$/i);
   if (strict) return strict[1].toUpperCase() as QuizChoice["letter"];
-  if (trimmed.length > 48) return null;
+  if (trimmed.length > 24) return null;
   const loose = trimmed.match(
-    /(?:^|\b)(?:is\s+it\s+|option\s+|answer\s+is\s+|i\s+(?:think|say|choose|pick)\s+)?([A-D])\b/i,
+    /^(?:is\s+it\s+|option\s+|answer\s*(?:is\s+)?|i\s+(?:think|say|choose|pick)\s+)?([A-D])\.?[?!.]*$/i,
   );
   return loose ? (loose[1].toUpperCase() as QuizChoice["letter"]) : null;
 }
@@ -121,7 +121,7 @@ export function inferQuizAnswersFromMessages(
 }
 
 const CHOICE_LINE = /^([A-D])[\).:]\s*(.+)$/i;
-const VOCAB_QUIZ_FENCE_RE = /```vocab_quiz\s*\n([\s\S]*?)```/i;
+const VOCAB_QUIZ_FENCE_RE = /```vocab_quiz[^\n]*\n([\s\S]*?)```/i;
 const VOCAB_QUIZ_FENCE_PARTIAL_RE = /```vocab_quiz[\s\S]*$/i;
 const VOCAB_SESSION_JSON_FENCE_RE = /```json\s*\n([\s\S]*?)```/gi;
 const VOCAB_SESSION_JSON_PARTIAL_RE = /```json[\s\S]*$/i;

@@ -224,12 +224,9 @@ async def _should_minimal_quiz_context(
     if not web_search_service.is_vocab_quiz_answer(content):
         return False
     import app.services.chat as chat_pkg
-    from app.services import vocab_quiz as vocab_quiz_service
 
-    prior = await chat_pkg.messages_repo.get_last_assistant(session, chat_id)
-    if prior is None:
-        return False
-    return vocab_quiz_service.parse_vocab_quiz(prior.content) is not None
+    prior = await chat_pkg.messages_repo.get_last_quiz_assistant(session, chat_id)
+    return prior is not None
 
 
 async def build_stream_prompt_context(
@@ -290,23 +287,20 @@ async def build_stream_prompt_context(
         if getattr(chat, "quiz_mode", None) == "exam":
             minimal_quiz = False
 
-        prior_assistant = await chat_pkg.messages_repo.get_last_assistant(session, chat.id)
-        if (
-            chat.project_id is not None
-            and prior_assistant is not None
-            and projects_service.looks_like_vocab_question(prior_assistant.content)
-        ):
-            active_vocab_turn = True
+        quiz_assistant = await chat_pkg.messages_repo.get_last_quiz_assistant(session, chat.id)
+        if chat.project_id is not None and quiz_assistant is not None:
             from app.services import vocab_quiz as vocab_quiz_service
 
-            has_letter = vocab_quiz_service.quiz_answer_letter(content) is not None
-            has_fence = vocab_quiz_service.parse_vocab_quiz(prior_assistant.content) is not None
-            if has_letter and has_fence:
-                minimal_quiz = True
-            elif not minimal_quiz and has_letter:
-                minimal_vocab_answer = True
-            elif not minimal_quiz and not has_letter:
-                minimal_vocab_answer = True
+            has_fence = vocab_quiz_service.parse_vocab_quiz(quiz_assistant.content) is not None
+            if has_fence or projects_service.looks_like_vocab_question(quiz_assistant.content):
+                active_vocab_turn = True
+                has_letter = vocab_quiz_service.quiz_answer_letter(content) is not None
+                if has_letter and has_fence:
+                    minimal_quiz = True
+                elif not minimal_quiz and has_letter:
+                    minimal_vocab_answer = True
+                elif not minimal_quiz and not has_letter:
+                    minimal_vocab_answer = True
 
         lightweight = is_lightweight_chat_turn(content, active_vocab_turn=active_vocab_turn)
 
@@ -650,6 +644,8 @@ async def prepare_chat_turn(
             model = "vision-chat"
 
         prior_count = await chat_pkg.messages_repo.count_for_chat(session, chat_id)
+        chat_project_id = chat.project_id
+        quiz_mode = getattr(chat, "quiz_mode", None)
 
         user_message = await chat_pkg.messages_repo.create(
             session,
@@ -659,27 +655,45 @@ async def prepare_chat_turn(
             content=user_content,
             model=model,
             input_tokens=estimate_tokens(user_content),
+            commit=False,
         )
         is_letter_answer = web_search_service.is_vocab_quiz_answer(content)
         quiz_grade: QuizAnswerGrade | None = None
-        if is_letter_answer and chat.project_id is not None:
-            prior_assistant = await chat_pkg.messages_repo.get_last_assistant(session, chat_id)
+        if is_letter_answer and chat_project_id is not None:
+            prior_assistant = await chat_pkg.messages_repo.get_last_quiz_assistant(session, chat_id)
             if prior_assistant is not None:
                 try:
+                    attempt = await chat_pkg.messages_repo.count_quiz_letter_answers_since(
+                        session,
+                        chat_id,
+                        after=prior_assistant.created_at,
+                    )
                     quiz_grade = await projects_service.apply_deterministic_quiz_answer(
                         session,
                         user_id=user.id,
                         chat_id=chat_id,
-                        project_id=chat.project_id,
+                        project_id=chat_project_id,
                         assistant_content=prior_assistant.content,
                         user_answer=content,
+                        attempt=max(1, attempt),
                     )
+                    if quiz_grade is None:
+                        logger.warning(
+                            "Quiz answer not recorded (no gradeable fence) user_id=%s chat_id=%s",
+                            user.id,
+                            chat_id,
+                        )
                 except Exception:
                     logger.exception(
                         "Failed to record quiz answer for user_id=%s chat_id=%s",
                         user.id,
                         chat_id,
                     )
+        elif is_letter_answer and chat_project_id is None:
+            logger.warning(
+                "Quiz letter answer without project_id — not recorded chat_id=%s",
+                chat_id,
+            )
         if attachment_ids and settings.attachments_enabled:
             from app.repositories import attachments as attachments_repo
             from app.services import attachment_rag as attachment_rag_service
@@ -706,10 +720,9 @@ async def prepare_chat_turn(
                             },
                         )
 
-        chat_project_id = chat.project_id
-        quiz_mode = getattr(chat, "quiz_mode", None)
-
         await session.commit()
+        if quiz_grade is not None:
+            await projects_service._invalidate_home_for_user(user.id)
 
     bundle = await build_stream_prompt_context(
         user_id,
@@ -758,7 +771,13 @@ async def prepare_chat_turn(
         instant_reply=bundle.instant_reply,
         search_sources=bundle.search_sources,
         local_places=bundle.local_places,
-        skip_memory_jobs=bundle.minimal_quiz or bundle.minimal_vocab_answer,
+        # Graded MCQ answers are already persisted — skip background sync.
+        # If a letter answer failed to grade (missing fence / no project), keep
+        # jobs so project sync can still record progress.
+        skip_memory_jobs=(
+            (bundle.minimal_quiz or bundle.minimal_vocab_answer)
+            and not (web_search_service.is_vocab_quiz_answer(content) and bundle.quiz_grade is None)
+        ),
         prior_count=prior_count,
         chat_project_id=chat_project_id,
         fallback_models=bundle.fallback_models,

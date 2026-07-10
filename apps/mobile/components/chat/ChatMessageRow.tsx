@@ -15,6 +15,7 @@ type Props = {
    */
   streamVisualActive: boolean;
   lastAssistantId: string | null;
+  activeQuizMessageId: string | null;
   selectedModel: string;
   quizLanguage: string;
   highlightedMessageId: string | null;
@@ -30,6 +31,7 @@ export const ChatMessageRow = memo(function ChatMessageRow({
   priorUserText,
   streamVisualActive,
   lastAssistantId,
+  activeQuizMessageId,
   selectedModel,
   quizLanguage,
   highlightedMessageId,
@@ -40,6 +42,7 @@ export const ChatMessageRow = memo(function ChatMessageRow({
   onQuizAnswer,
 }: Props) {
   const isLastAssistant = item.role === "assistant" && item.id === lastAssistantId;
+  const isActiveQuiz = item.role === "assistant" && item.id === activeQuizMessageId;
 
   return (
     <MessageBubble
@@ -60,7 +63,7 @@ export const ChatMessageRow = memo(function ChatMessageRow({
       quizLanguage={quizLanguage}
       highlighted={item.id === highlightedMessageId}
       isSending={item.id === sendingMessageId}
-      onQuizAnswer={isLastAssistant && !streamVisualActive ? onQuizAnswer : undefined}
+      onQuizAnswer={isActiveQuiz && !streamVisualActive ? onQuizAnswer : undefined}
     />
   );
 });

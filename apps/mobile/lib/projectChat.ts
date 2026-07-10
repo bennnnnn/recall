@@ -17,6 +17,7 @@ const EMPTY_STATS: ProjectStats = {
   added_this_week: 0,
   due_for_review: 0,
   mastered_today: 0,
+  missed_today: 0,
   pending_today: 0,
 };
 
@@ -38,13 +39,18 @@ export function resolveProjectDailyGoal(project: ProjectDetail): number {
   return resolveDailyGoal(project.daily_goal);
 }
 
+/** Correct + still-missed questions finished toward today's goal. */
+export function completedTodayCount(stats: Pick<ProjectStats, "mastered_today" | "missed_today">): number {
+  return Math.max(0, (stats.mastered_today ?? 0) + (stats.missed_today ?? 0));
+}
+
 export function isDailyGoalMet(project: ProjectDetail): boolean {
   if (!isLanguageProject(project.kind) && project.kind !== "trivia") return false;
-  return project.stats.mastered_today >= resolveProjectDailyGoal(project);
+  return completedTodayCount(project.stats) >= resolveProjectDailyGoal(project);
 }
 
 export function remainingDailyGoal(project: ProjectDetail): number {
-  return Math.max(0, resolveProjectDailyGoal(project) - project.stats.mastered_today);
+  return Math.max(0, resolveProjectDailyGoal(project) - completedTodayCount(project.stats));
 }
 
 export type ProjectAskPromptOptions = {
@@ -75,12 +81,14 @@ function triviaTopicsClause(project: ProjectDetail, topicLabels?: string): strin
 
 function todayProgressClause(project: ProjectDetail): string {
   const daily = resolveProjectDailyGoal(project);
-  const done = project.stats.mastered_today;
+  const done = completedTodayCount(project.stats);
+  const correct = project.stats.mastered_today;
+  const missed = project.stats.missed_today ?? 0;
   if (project.kind === "trivia") {
-    return `Today: ${done}/${daily} correct`;
+    return `Today: ${done}/${daily} done (${correct} correct, ${missed} missed)`;
   }
   if (isLanguageProject(project.kind)) {
-    return `Today: ${done}/${daily} words`;
+    return `Today: ${done}/${daily} done (${correct} mastered, ${missed} missed)`;
   }
   return `Today: ${done}/${daily}`;
 }

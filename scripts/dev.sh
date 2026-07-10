@@ -39,6 +39,7 @@ case "${1:-}" in
     "$ROOT/scripts/set-sim-ip.sh"
     cd "$ROOT/apps/mobile"
     echo "iOS Simulator — Expo Go on virtual device (API at 127.0.0.1:8000)."
+    # --lan binds 0.0.0.0 so Expo Go can reach Metro via 127.0.0.1 (not IPv6-only ::1).
     pnpm exec expo start --lan --clear --go --ios
     ;;
   mobile-tunnel)

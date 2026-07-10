@@ -140,6 +140,7 @@ export type ProjectStats = {
   added_this_week: number;
   due_for_review: number;
   mastered_today: number;
+  missed_today?: number;
   pending_today: number;
   last_mastery_at?: string | null;
   streak_days?: number;

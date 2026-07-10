@@ -20,11 +20,6 @@ const FEATURES = [
     titleKey: "onboarding.organize_title",
     bodyKey: "onboarding.organize_body",
   },
-  {
-    icon: "sparkles-outline",
-    titleKey: "onboarding.remember_title",
-    bodyKey: "onboarding.remember_body",
-  },
 ] as const;
 
 export default function Onboarding() {

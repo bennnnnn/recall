@@ -44,6 +44,9 @@ export type Theme = {
   danger: string;
   dangerLight: string;
   warning: string;
+  /** Goal met / daily complete — one green for bars, labels, and dots. */
+  success: string;
+  successLight: string;
   onPrimary: string;
 
   // Code blocks
@@ -86,6 +89,8 @@ export const lightTheme: Theme = {
   danger: "#E5484D",
   dangerLight: "#FFF0EF",
   warning: "#FF9F0A",
+  success: "#15803D",
+  successLight: "#DCFCE7",
   onPrimary: "#FFFFFF",
 
   codeBg: "#F7F7F8",
@@ -126,6 +131,8 @@ export const darkTheme: Theme = {
   danger: "#FF6B60",
   dangerLight: "#3A1F1E",
   warning: "#FF9F0A",
+  success: "#4ADE80",
+  successLight: "rgba(74, 222, 128, 0.16)",
   onPrimary: "#FFFFFF",
 
   codeBg: "#0D0D0D",

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { ProjectItemRow } from "@/components/ProjectItemRow";
+import { LearningContinueCta } from "@/components/projects/LearningContinueCta";
 import { api, type ProjectDailyHistoryDay, type ProjectItem, type VocabStatus } from "@/lib/api";
 import { Theme, useTheme } from "@/lib/theme";
 import { weekdayFullLabel } from "@/lib/weekdayLabels";
@@ -135,9 +136,11 @@ export function ProjectDayItemsList({
         <View style={s.emptyBlock}>
           <Text style={s.empty}>{emptyMessage}</Text>
           {studyAction ? (
-            <Pressable style={s.actionBtn} onPress={studyAction.onPress}>
-              <Text style={s.actionBtnText}>{studyAction.label}</Text>
-            </Pressable>
+            <LearningContinueCta
+              label={studyAction.label}
+              onPress={studyAction.onPress}
+              variant="outline"
+            />
           ) : null}
         </View>
       ) : (
@@ -155,9 +158,11 @@ export function ProjectDayItemsList({
             ))}
           </View>
           {studyAction ? (
-            <Pressable style={s.actionBtn} onPress={studyAction.onPress}>
-              <Text style={s.actionBtnText}>{studyAction.label}</Text>
-            </Pressable>
+            <LearningContinueCta
+              label={studyAction.label}
+              onPress={studyAction.onPress}
+              variant="outline"
+            />
           ) : null}
         </View>
       )}
@@ -184,7 +189,7 @@ function makeStyles(theme: Theme) {
     },
     loader: { paddingVertical: 16 },
     emptyBlock: { gap: 12 },
-    itemsBlock: { gap: 12 },
+    itemsBlock: { gap: 16 },
     empty: {
       fontSize: 14,
       lineHeight: 20,
@@ -195,18 +200,7 @@ function makeStyles(theme: Theme) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
     },
-    actionBtn: {
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: theme.surface,
-      borderWidth: 1.5,
-      borderColor: theme.primary,
-      borderRadius: 14,
-      paddingVertical: 14,
-      paddingHorizontal: 16,
-    },
-    actionBtnText: { fontSize: 16, fontWeight: "600", color: theme.primary },
-    items: { gap: 10 },
+    items: { gap: 16 },
     itemCard: {
       backgroundColor: theme.surface,
       borderRadius: 14,

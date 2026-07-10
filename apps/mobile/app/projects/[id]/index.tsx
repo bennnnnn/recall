@@ -15,6 +15,7 @@ import { ProjectDailyStrip } from "@/components/ProjectDailyStrip";
 import { ProjectDayItemsList, type ProjectStudyAction } from "@/components/ProjectDayItemsList";
 import { ProjectProgressHero, type ProjectDaySnapshot } from "@/components/ProjectProgressHero";
 import { ProjectItemRow } from "@/components/ProjectItemRow";
+import { LearningContinueCta } from "@/components/projects/LearningContinueCta";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, type ProjectDetail, type VocabStatus } from "@/lib/api";
 import { queueChatLaunch } from "@/lib/chatLaunch";
@@ -95,7 +96,8 @@ export default function ProjectDetailScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      void load({ silent: hasLoadedRef.current });
+      // Force so returning from a quiz chat shows freshly mastered items.
+      void load({ silent: hasLoadedRef.current, force: true });
     }, [load]),
   );
 
@@ -186,7 +188,7 @@ export default function ProjectDetailScreen() {
 
   const dailyStudyCtaLabel =
     !dailyGoalMet && remainingToday > 0
-      ? stats.mastered_today === 0
+      ? stats.mastered_today === 0 && (stats.missed_today ?? 0) === 0
         ? isTrivia
           ? t("projects.study.start_questions")
           : t("projects.study.start_words", { count: dailyGoal })
@@ -250,7 +252,7 @@ export default function ProjectDetailScreen() {
         label: isTrivia ? t("projects.add_bonus_questions") : t("projects.add_bonus_words"),
         onPress: startStudyBonus,
       };
-    } else if (stats.mastered_today === 0) {
+    } else if (stats.mastered_today === 0 && (stats.missed_today ?? 0) === 0) {
       todayStudyAction = {
         label: isTrivia
           ? t("projects.study.start_questions", { count: dailyGoal })
@@ -299,17 +301,16 @@ export default function ProjectDetailScreen() {
       />
 
       {showDailyStudyCta ? (
-        <Pressable style={s.studyCta} onPress={startStudyQuiz}>
-          <Text style={s.studyCtaText}>{dailyStudyCtaLabel}</Text>
-        </Pressable>
+        <LearningContinueCta label={dailyStudyCtaLabel} onPress={startStudyQuiz} />
       ) : showReviewCta ? (
-        <Pressable style={s.studyCta} onPress={startReviewSession}>
-          <Text style={s.studyCtaText}>
-            {isTrivia
+        <LearningContinueCta
+          label={
+            isTrivia
               ? t("projects.list.review_facts", { count: stats.due_for_review })
-              : t("projects.list.review_words", { count: stats.due_for_review })}
-          </Text>
-        </Pressable>
+              : t("projects.list.review_words", { count: stats.due_for_review })
+          }
+          onPress={startReviewSession}
+        />
       ) : null}
 
       {showDailyTracking && token ? (
@@ -447,13 +448,5 @@ function makeStyles(theme: Theme) {
     practiceBody: { fontSize: 14, lineHeight: 21, color: theme.textSecondary },
     deleteBtn: { alignItems: "center", paddingVertical: 10 },
     deleteBtnText: { fontSize: 15, fontWeight: "600", color: theme.danger },
-    studyCta: {
-      borderRadius: 14,
-      backgroundColor: theme.primaryLight,
-      paddingVertical: 14,
-      paddingHorizontal: 16,
-      alignItems: "center",
-    },
-    studyCtaText: { fontSize: 15, fontWeight: "700", color: theme.primary },
   });
 }

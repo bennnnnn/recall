@@ -106,11 +106,6 @@ function ProjectHighlightCard({
         <Text style={s.projectSubtitle} numberOfLines={2}>
           {subtitle}
         </Text>
-        {highlight.streak_days != null && highlight.streak_days > 0 ? (
-          <Text style={s.projectStreak}>
-            {t("projects.stats.streak", { count: highlight.streak_days })}
-          </Text>
-        ) : null}
         <View style={s.projectTrack}>
           <View style={[s.projectFill, { width: `${progress}%` }]} />
         </View>
@@ -341,7 +336,6 @@ function makeStyles(t: Theme) {
     projectTitle: { fontSize: 17, fontWeight: "700", color: t.text },
     projectMain: { flex: 1, gap: 6 },
     projectSubtitle: { fontSize: 13, fontWeight: "600", color: t.textSecondary },
-    projectStreak: { fontSize: 12, fontWeight: "700", color: t.primary },
     projectTrack: {
       height: 4,
       borderRadius: 2,

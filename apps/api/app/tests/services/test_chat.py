@@ -719,7 +719,7 @@ async def test_should_minimal_quiz_context_after_vocab_quiz_fence():
     )
 
     with patch(
-        "app.services.chat.messages_repo.get_last_assistant",
+        "app.services.chat.messages_repo.get_last_quiz_assistant",
         AsyncMock(return_value=quiz_msg),
     ):
         assert await _should_minimal_quiz_context(session, chat_id, "B") is True
@@ -732,12 +732,10 @@ async def test_should_minimal_quiz_context_false_without_prior_quiz():
 
     chat_id = uuid4()
     session = AsyncMock()
-    plain = MagicMock()
-    plain.content = "Just chatting — no quiz fence here."
 
     with patch(
-        "app.services.chat.messages_repo.get_last_assistant",
-        AsyncMock(return_value=plain),
+        "app.services.chat.messages_repo.get_last_quiz_assistant",
+        AsyncMock(return_value=None),
     ):
         assert await _should_minimal_quiz_context(session, chat_id, "A") is False
 

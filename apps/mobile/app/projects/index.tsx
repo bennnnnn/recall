@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Redirect, useRouter } from "expo-router";
+import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -91,6 +91,13 @@ export default function ProjectsScreen() {
   const [dailyGoal, setDailyGoal] = useState<VocabDailyGoal>(DEFAULT_VOCAB_DAILY_GOAL);
   const [triviaTopics, setTriviaTopics] = useState<TriviaTopicId[]>(["history", "science"]);
   const [creating, setCreating] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      // Force after quiz sessions so Today x/y isn't stuck on a 20s stale window.
+      void refresh({ silent: true, force: true });
+    }, [refresh]),
+  );
 
   if (!token) return <Redirect href="/login" />;
 

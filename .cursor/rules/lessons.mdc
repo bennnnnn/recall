@@ -10,6 +10,15 @@ Format each as **symptom → cause → fix** in 1–3 lines. Newest first. Keep 
 
 ## Lessons
 
+- **Quiz wrong-answer UX: hint only, no re-render.** User rejected re-asking the same MCQ
+  after a miss. Prompts must not emit a new ```vocab_quiz on wrong; chips stay on the prior
+  quiz message (`findActiveQuizMessageId`). Grade against `get_last_quiz_assistant`, not the
+  hint-only last assistant.
+- **Quiz answers “don’t register” (Today stays 0/x).** Causes: (1) nested `session.commit()` in
+  `messages.create` / `apply_quiz_result` mid–turn_prep; (2) letter answer + missing `vocab_quiz`
+  fence → grade `None` and `skip_memory_jobs` blocked background sync; (3) My Learning 20s stale
+  cache. Fix: `commit=False` until one outer commit; don’t skip jobs when letter grade fails;
+  force-refresh projects list/detail on focus; invalidate home after grade.
 - **Unpushed local diffs cause real pain.** User runs other machines/simulators off `main` /
   remote — finish every change with commit + push (see `execution.mdc`); don't say done with
   local-only work.

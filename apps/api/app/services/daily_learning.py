@@ -54,10 +54,15 @@ def count_today_vocab_stats(
     items: list,
     *,
     timezone_name: str,
-) -> tuple[int, int]:
-    """Return (mastered_today, pending_today) for language project items."""
+) -> tuple[int, int, int]:
+    """Return (mastered_today, missed_today, pending_today).
+
+    missed_today = incorrect today and not currently mastered (session slots that
+    finished without a correct answer). Correct + missed = daily progress.
+    """
     start = start_of_today_utc(timezone_name)
     mastered_today = 0
+    missed_today = 0
     pending_today = 0
     for item in items:
         status = item.status or ("mastered" if item.mastered else "new")
@@ -69,9 +74,18 @@ def count_today_vocab_stats(
                     mastered_today += 1
             elif created >= start:
                 mastered_today += 1
-        elif created >= start:
-            pending_today += 1
-    return mastered_today, pending_today
+        else:
+            incorrect_at = getattr(item, "last_incorrect_at", None)
+            if incorrect_at is not None and _as_utc(incorrect_at) >= start:
+                missed_today += 1
+            elif created >= start:
+                pending_today += 1
+    return mastered_today, missed_today, pending_today
+
+
+def completed_today_count(mastered_today: int, missed_today: int) -> int:
+    """Questions finished toward the daily goal (correct + open misses)."""
+    return max(0, int(mastered_today) + int(missed_today))
 
 
 def resolve_daily_goal(project: object) -> int:
@@ -260,13 +274,15 @@ def daily_home_cue(
     daily_goal: int,
     last_mastery: datetime | None,
     home_tz: ZoneInfo,
+    missed_today: int = 0,
 ) -> HomeDailyCue | None:
     """Return a home-card cue, or None when today's daily goal is complete."""
-    if mastered_today >= daily_goal:
+    completed_today = max(0, int(mastered_today) + int(missed_today))
+    if completed_today >= daily_goal:
         return None
     if total == 0:
         return "start"
-    if mastered_today > 0:
+    if completed_today > 0:
         return "continue"
     if pending_today > 0:
         return "finish_pending"
@@ -320,13 +336,37 @@ def _item_missed_sort_key(item: object) -> datetime:
     return _as_utc(created) if created is not None else datetime.min.replace(tzinfo=UTC)
 
 
+def count_missed_by_date(
+    items: list,
+    *,
+    timezone_name: str,
+) -> dict[date, int]:
+    """Open misses per local day (excludes items later mastered)."""
+    try:
+        tz = ZoneInfo(timezone_name)
+    except Exception:
+        tz = ZoneInfo("UTC")
+    counts: dict[date, int] = {}
+    for item in items:
+        status = getattr(item, "status", None) or (
+            "mastered" if getattr(item, "mastered", False) else "new"
+        )
+        if status == "mastered":
+            continue
+        day = _incorrect_local_date(item, tz)
+        if day is None:
+            continue
+        counts[day] = counts.get(day, 0) + 1
+    return counts
+
+
 def group_missed_items_by_date(
     items: list,
     *,
     timezone_name: str,
     days: int = 14,
 ) -> dict[str, list]:
-    """Items with a recorded incorrect attempt, grouped by local miss date."""
+    """Still-missed items (not mastered), grouped by local miss date."""
     try:
         tz = ZoneInfo(timezone_name)
     except Exception:
@@ -338,6 +378,11 @@ def group_missed_items_by_date(
     }
     grouped: dict[str, list] = {day_key: [] for day_key in valid_dates}
     for item in items:
+        status = getattr(item, "status", None) or (
+            "mastered" if getattr(item, "mastered", False) else "new"
+        )
+        if status == "mastered":
+            continue
         day = _incorrect_local_date(item, tz)
         if day is None:
             continue
@@ -350,24 +395,6 @@ def group_missed_items_by_date(
         for day_key, day_items in grouped.items()
         if day_items
     }
-
-
-def count_missed_by_date(
-    items: list,
-    *,
-    timezone_name: str,
-) -> dict[date, int]:
-    try:
-        tz = ZoneInfo(timezone_name)
-    except Exception:
-        tz = ZoneInfo("UTC")
-    counts: dict[date, int] = {}
-    for item in items:
-        day = _incorrect_local_date(item, tz)
-        if day is None:
-            continue
-        counts[day] = counts.get(day, 0) + 1
-    return counts
 
 
 def group_mastered_items_by_date(
@@ -434,23 +461,24 @@ def build_daily_history(
     span = max(1, min(days, 60))
     for offset in range(span - 1, -1, -1):
         day = today - timedelta(days=offset)
-        count = counts.get(day, 0)
+        mastered = counts.get(day, 0)
         missed = missed_counts.get(day, 0)
+        completed = mastered + missed
         goal = day_goal_for_history(
-            count=count,
+            count=completed,
             day=day,
             today=today,
             history=history,
             current_goal=fallback_goal,
         )
-        goal_met = count >= goal
+        goal_met = completed >= goal
         if day < active_since_date:
             status: DailyHistoryStatus = "inactive"
         elif day == today:
             status = "complete" if goal_met else "today"
         elif goal_met:
             status = "complete"
-        elif count > 0:
+        elif completed > 0:
             status = "partial"
         else:
             status = "skipped"
@@ -458,7 +486,7 @@ def build_daily_history(
             {
                 "date": day.isoformat(),
                 "weekday": day.weekday(),
-                "mastered_count": count,
+                "mastered_count": mastered,
                 "missed_count": missed,
                 "daily_goal": goal,
                 "goal_met": goal_met,

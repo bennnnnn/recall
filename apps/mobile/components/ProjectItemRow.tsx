@@ -25,7 +25,7 @@ function statusIcon(item: ProjectItem): keyof typeof Ionicons.glyphMap {
 
 function statusColor(item: ProjectItem, theme: Theme): string {
   if (item.status === "mastered" || item.mastered) return theme.primary;
-  if (item.status === "learning") return theme.warning;
+  // Missed / learning and new — gray (same as daily Missed metric)
   return theme.textTertiary;
 }
 

@@ -27,6 +27,13 @@ type Props = {
   hideHeaderSummary?: boolean;
 };
 
+/**
+ * Learning status colors (one mapping app-wide):
+ * - Goal met / complete → theme.success
+ * - Correct / mastered → theme.primary
+ * - Missed → theme.textTertiary (gray)
+ * - Left / pending → theme.warning when > 0
+ */
 export function ProjectProgressHero({
   stats,
   learnedLabel,
@@ -45,11 +52,14 @@ export function ProjectProgressHero({
   const activeGoal = useDay ? daySnapshot.dailyGoal : dailyGoal;
   const isDaily = activeGoal != null && activeGoal > 0;
   const masteredForDay = useDay ? daySnapshot.masteredCount : stats.mastered_today;
-  const missedForDay = useDay ? daySnapshot.missedCount : stats.learning_count;
-  const goalMet = isDaily && masteredForDay >= (activeGoal ?? 0);
-  const doneToday = isDaily ? Math.min(masteredForDay, activeGoal ?? 0) : stats.mastered_today;
+  const missedForDay = useDay
+    ? daySnapshot.missedCount
+    : (stats.missed_today ?? 0);
+  const completedForDay = masteredForDay + missedForDay;
+  const goalMet = isDaily && completedForDay >= (activeGoal ?? 0);
+  const doneToday = isDaily ? Math.min(completedForDay, activeGoal ?? 0) : stats.mastered_today;
   const leftToday =
-    isDaily && !goalMet ? Math.max(0, (activeGoal ?? 0) - masteredForDay) : 0;
+    isDaily && !goalMet ? Math.max(0, (activeGoal ?? 0) - completedForDay) : 0;
   const pct = isDaily
     ? Math.min(100, Math.round((doneToday / (activeGoal ?? 1)) * 100))
     : stats.total > 0
@@ -70,13 +80,18 @@ export function ProjectProgressHero({
     : useDay && !daySnapshot.isToday
       ? t("projects.stats.pending_left")
       : t("projects.stats.pending_today");
-  const correctLabel =
-    useDay && !daySnapshot.isToday ? t("projects.stats.correct_day") : todayLearnedLabel;
+  const correctLabel = isDaily ? t("projects.stats.correct_day") : todayLearnedLabel;
   const progressHint = isDaily
     ? goalMet
       ? t("projects.list.goal_met_today")
       : t("projects.list.today_remaining", { count: leftToday })
     : null;
+
+  const goalAccent = goalMet
+    ? theme.success
+    : leftToday > 0
+      ? theme.warning
+      : theme.textTertiary;
 
   return (
     <View style={s.card}>
@@ -96,6 +111,9 @@ export function ProjectProgressHero({
           <Text style={[s.pct, goalMet && s.pctComplete]}>{progressHint}</Text>
         ) : null}
       </View>
+      {isDaily && goalMet && !hideHeaderSummary ? (
+        <Text style={s.doneSubtitle}>{t("projects.daily_goal_done_subtitle")}</Text>
+      ) : null}
       {useDay && daySnapshot.isToday && streakDays > 0 ? (
         <Text style={s.streakText}>{t("projects.stats.streak", { count: streakDays })}</Text>
       ) : !useDay && streakDays > 0 ? (
@@ -114,21 +132,23 @@ export function ProjectProgressHero({
               label={leftLabel}
               value={goalMet ? (activeGoal ?? 0) : leftToday}
               theme={theme}
-              accent={goalMet ? theme.primary : leftToday > 0 ? theme.warning : theme.textTertiary}
-              highlight={!goalMet && leftToday > 0}
+              accent={goalAccent}
+              highlight={goalMet || leftToday > 0}
+              highlightBg={goalMet ? theme.successLight : undefined}
             />
             <MetricPill
               label={correctLabel}
               value={masteredForDay}
               theme={theme}
               accent={theme.primary}
+              highlight={goalMet || masteredForDay > 0}
+              highlightBg={goalMet || masteredForDay > 0 ? theme.primaryLight : undefined}
             />
             <MetricPill
               label={t("projects.status_missed")}
               value={missedForDay}
               theme={theme}
-              accent={missedForDay > 0 ? theme.warning : theme.textTertiary}
-              highlight={missedForDay > 0}
+              accent={theme.textTertiary}
             />
           </>
         ) : (
@@ -143,7 +163,7 @@ export function ProjectProgressHero({
               label={t("projects.status_missed")}
               value={stats.learning_count}
               theme={theme}
-              accent={theme.warning}
+              accent={theme.textTertiary}
             />
             <MetricPill
               label={dueLabel}
@@ -165,19 +185,21 @@ function MetricPill({
   theme,
   accent,
   highlight = false,
+  highlightBg,
 }: {
   label: string;
   value: number;
   theme: Theme;
   accent: string;
   highlight?: boolean;
+  highlightBg?: string;
 }) {
   return (
     <View
       style={{
         flex: 1,
         minWidth: 90,
-        backgroundColor: highlight ? theme.primaryLight : theme.bg,
+        backgroundColor: highlight ? (highlightBg ?? theme.primaryLight) : theme.bg,
         borderRadius: 12,
         paddingVertical: 10,
         paddingHorizontal: 8,
@@ -220,8 +242,15 @@ function makeStyles(theme: Theme) {
       letterSpacing: 0.6,
     },
     pct: { fontSize: 14, fontWeight: "800", color: theme.primary },
-    pctComplete: { color: theme.isDark ? "#4ADE80" : "#15803D" },
-    streakText: { fontSize: 13, fontWeight: "700", color: theme.primary },
+    pctComplete: { color: theme.success },
+    doneSubtitle: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: theme.textSecondary,
+      lineHeight: 20,
+      marginTop: -4,
+    },
+    streakText: { fontSize: 13, fontWeight: "700", color: theme.textSecondary },
     gapText: { fontSize: 13, fontWeight: "600", color: theme.warning },
     track: {
       height: 8,
@@ -230,7 +259,7 @@ function makeStyles(theme: Theme) {
       overflow: "hidden",
     },
     fill: { height: 8, borderRadius: 4, backgroundColor: theme.primary },
-    fillComplete: { backgroundColor: theme.isDark ? "#4ADE80" : "#22C55E" },
-    metrics: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    fillComplete: { backgroundColor: theme.success },
+    metrics: { flexDirection: "row", flexWrap: "wrap", gap: 16 },
   });
 }

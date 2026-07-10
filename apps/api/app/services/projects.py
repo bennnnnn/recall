@@ -156,16 +156,18 @@ LANGUAGE_CHAT_TUTOR_HINT = (
     "(new | learning | mastered).\n\n"
     "**Daily session format (required): multiple choice only.**\n"
     "One word per turn. Do NOT teach the definition before asking. Do NOT ask open-ended "
-    "'what does it mean?' without A–D choices. Do NOT use teach-then-define-then-quiz.\n"
+    "'what does it mean?' without A–D choices.\n"
     "Every question MUST include a readable A–D list AND a ```vocab_quiz JSON fence with the "
-    "correct letter (required for the app's tap-to-answer chips and grading):\n"
+    "correct letter (required for tap-to-answer chips and server grading):\n"
     f"{VOCAB_QUIZ_FORMAT_BLOCK}\n"
     "Wait for their letter before revealing the answer.\n"
-    "**On wrong answers:** say wrong clearly, give the correct meaning briefly, do NOT say "
-    "'word mastered', then ask the NEXT word as a fresh multiple-choice question (same format). "
-    "Do not re-ask the same MCQ without a new ```vocab_quiz fence.\n"
-    "**On correct answers:** congratulate briefly, sync master immediately, then ask the next "
-    "word until today's daily_goal is met.\n"
+    "**On wrong answers:** say wrong, give a short hint (not the full definition / correct "
+    "letter), do NOT say 'word mastered', and do NOT redisplay the question or emit a new "
+    "```vocab_quiz fence — they will answer again on the previous chips (up to 3 tries). "
+    "After 3 wrong tries: briefly reveal the answer, keep it as learning/missed for next time, "
+    "then ask a DIFFERENT next word.\n"
+    "**On correct answers:** congratulate briefly (mastering is recorded automatically), then "
+    "ask the NEXT word until today's daily_goal is met.\n"
     "Gibberish / unrelated text / random letters other than A–D = wrong.\n"
     "Keep replies short. Prefer new or learning words — never re-quiz ✓ mastered as a 'freebie'.\n"
     "Use the **Today:** line in the project snapshot as the only progress counter.\n\n"
@@ -218,11 +220,13 @@ TRIVIA_CHAT_TUTOR_HINT = (
     "One question per turn. Every question MUST use ```vocab_quiz JSON with quiz_type trivia "
     "(word = topic label such as History, Science):\n"
     f"{TRIVIA_QUIZ_FORMAT_BLOCK}\n"
-    "Do NOT use open-ended or teach-then-check during the daily session — those formats are "
-    "unreliable for grading. Wait for A–D before revealing the answer.\n"
-    "**On wrong answers:** say wrong clearly, explain briefly, do NOT mark mastered, then ask "
-    "the NEXT question in the same ```vocab_quiz format.\n"
-    "**On correct answers:** congratulate briefly, sync the fact as mastered, then continue.\n"
+    "Wait for A–D before revealing the answer.\n"
+    "**On wrong answers:** say wrong, give a short hint (not the full answer), do NOT mark "
+    "mastered, and do NOT redisplay the question or emit a new ```vocab_quiz fence — they will "
+    "answer again on the previous chips (up to 3 tries). After 3 wrong tries: briefly reveal "
+    "the answer, keep it as learning/missed for next time, then ask a DIFFERENT next question.\n"
+    "**On correct answers:** congratulate briefly (mastering is recorded automatically), then "
+    "ask the NEXT question.\n"
     "Do NOT use vocab_card or teach English vocabulary.\n"
     "Stop when today's daily_goal is met unless they ask for bonus practice.\n"
     "Use the **Today:** line as the only progress counter. If the quiz pool is empty, invent a "
@@ -301,7 +305,7 @@ def _format_missed_quiz_lines(items: list[ProjectItem], *, limit: int = 30) -> l
     learning = [item for item in items if _item_status(item) == "learning"]
     if not learning:
         return []
-    lines = ["\nItems the user missed (prioritize revisiting until mastered):"]
+    lines = ["\nStill learning (ok to revisit later — prefer a NEW item first when moving on):"]
     for item in learning[:limit]:
         missed_at = getattr(item, "last_incorrect_at", None)
         when = (
@@ -315,16 +319,76 @@ def _format_missed_quiz_lines(items: list[ProjectItem], *, limit: int = 30) -> l
     return lines
 
 
+def _format_covered_quiz_lines(
+    items: list[ProjectItem],
+    *,
+    just_answered: str | None = None,
+    limit: int = 25,
+) -> list[str]:
+    """Tell the model which facts/words are done so it does not loop the same question."""
+    covered: list[str] = []
+    seen: set[str] = set()
+    if just_answered:
+        key = just_answered.strip().lower()
+        if key:
+            covered.append(just_answered.strip())
+            seen.add(key)
+    mastered = [item for item in items if _item_status(item) == "mastered"]
+
+    def _covered_sort_key(item: ProjectItem) -> datetime:
+        for attr in ("mastered_at", "last_reviewed_at", "created_at"):
+            value = getattr(item, attr, None)
+            if isinstance(value, datetime):
+                return value.astimezone(UTC) if value.tzinfo else value.replace(tzinfo=UTC)
+        return datetime.min.replace(tzinfo=UTC)
+
+    mastered.sort(key=_covered_sort_key, reverse=True)
+    for item in mastered:
+        text = (item.content or "").strip()
+        key = text.lower()
+        if not text or key in seen:
+            continue
+        seen.add(key)
+        covered.append(text)
+        if len(covered) >= limit:
+            break
+    if not covered:
+        return []
+    lines = ["\nAlready covered — do NOT ask these again in this session:"]
+    lines.extend(f"- {text}" for text in covered)
+    return lines
+
+
 async def load_project_quiz_context(
     session: AsyncSession,
     user_id: UUID,
     project_id: UUID,
     settings: Settings,
+    *,
+    quiz_grade: QuizAnswerGrade | None = None,
 ) -> str:
     """Lightweight tutor slice for quiz answer turns — level, pool, and card format."""
+    from app.services.vocab_quiz import MAX_QUIZ_TRIES_PER_QUESTION
+
     project = await projects_repo.get_by_id(session, project_id, user_id)
     if project is None:
         return ""
+
+    retry_same = (
+        quiz_grade is not None and not quiz_grade.is_correct and not quiz_grade.tries_exhausted
+    )
+    just_correct = quiz_grade is not None and quiz_grade.is_correct
+    tries_exhausted = quiz_grade is not None and quiz_grade.tries_exhausted
+    answered_label = ""
+    attempt = quiz_grade.attempt if quiz_grade is not None else 1
+    if quiz_grade is not None:
+        # Trivia: question text; vocab: the word.
+        answered_label = (
+            (quiz_grade.question or quiz_grade.word)
+            if quiz_grade.quiz_type == "trivia"
+            else quiz_grade.word
+        ).strip()
+
     if _is_trivia_project(project):
         items = await project_items_repo.list_for_user(
             session,
@@ -332,14 +396,49 @@ async def load_project_quiz_context(
             project_id=project_id,
             limit=settings.project_item_inject_limit,
         )
+        if retry_same and answered_label:
+            follow = (
+                f'WRONG on "{answered_label}" (try {attempt}/{MAX_QUIZ_TRIES_PER_QUESTION}) — '
+                "reply with brief feedback + a short hint only. "
+                "Do NOT redisplay the question, choices, or a ```vocab_quiz fence. "
+                "Never switch to vocabulary words."
+            )
+        elif tries_exhausted and answered_label:
+            follow = (
+                f'MISSED after {attempt} tries — "{answered_label}" stays learning for next time. '
+                "Briefly reveal the correct answer, then ask a DIFFERENT next general-knowledge "
+                'question (quiz_type trivia — never vocabulary / "what does X mean?"):'
+            )
+        elif just_correct and answered_label:
+            follow = (
+                f'CORRECT — "{answered_label}" is done. Do NOT repeat that question. '
+                "Ask a DIFFERENT next general-knowledge question using this format "
+                '(quiz_type trivia only — never vocabulary / "what does X mean?"):'
+            )
+        else:
+            follow = (
+                "CORRECT (or starting) — after brief feedback, ask the NEXT general-knowledge "
+                "question using this format (quiz_type trivia only — never vocabulary/"
+                '"what does X mean?"). Never repeat a question already asked in this chat.'
+            )
         lines = [
             f"Active trivia quiz — project: {project.title}.",
             f"Daily goal: {_trivia_daily_goal(project)} correct answers per session.",
-            "After feedback, ask the NEXT question using this format:",
-            f"{TRIVIA_QUIZ_FENCE_EXAMPLE}",
-            "Correct answers are saved automatically — congratulate, explain briefly, continue.",
+            follow,
         ]
-        lines.extend(_format_missed_quiz_lines(items))
+        if not retry_same:
+            lines.extend(
+                [
+                    f"{TRIVIA_QUIZ_FENCE_EXAMPLE}",
+                    "Correct answers are saved automatically. Never master on a wrong answer.",
+                ]
+            )
+        else:
+            lines.append("Correct answers are saved automatically. Never master on a wrong answer.")
+        if just_correct or tries_exhausted or not retry_same:
+            lines.extend(_format_covered_quiz_lines(items, just_answered=answered_label or None))
+        if retry_same or tries_exhausted:
+            lines.extend(_format_missed_quiz_lines(items))
         return "\n".join(lines)
     if not _is_language_project(project):
         return ""
@@ -349,21 +448,68 @@ async def load_project_quiz_context(
         project_id=project_id,
         limit=settings.project_item_inject_limit,
     )
-    quiz_pool = [i for i in items if _item_status(i) in ("new", "learning")]
+    # Exclude the word they just got right even if the session snapshot is briefly stale.
+    quiz_pool = [
+        i
+        for i in items
+        if _item_status(i) in ("new", "learning")
+        and not (
+            just_correct
+            and answered_label
+            and (i.content or "").strip().lower() == answered_label.lower()
+        )
+    ]
     level = project.level or "level1"
+    if retry_same and answered_label:
+        follow = (
+            f'WRONG on "{answered_label}" (try {attempt}/{MAX_QUIZ_TRIES_PER_QUESTION}) — '
+            "reply with brief feedback + a short hint only. "
+            "Do NOT redisplay the question, choices, or a ```vocab_quiz fence."
+        )
+    elif tries_exhausted and answered_label:
+        follow = (
+            f'MISSED after {attempt} tries — "{answered_label}" stays learning for next time. '
+            "Briefly reveal the correct answer, then ask a DIFFERENT next word using the same "
+            "card format:"
+        )
+    elif just_correct and answered_label:
+        follow = (
+            f'CORRECT — "{answered_label}" is done. Do NOT re-ask that word. '
+            "Ask a DIFFERENT next word using the same card format:"
+        )
+    else:
+        follow = (
+            "CORRECT (or starting) — after brief feedback, ask the NEXT word using "
+            "the same card format. Never repeat a word already mastered in this session."
+        )
     lines = [
         f"Active vocabulary quiz — project: {project.title} ({_LEVEL_LABELS.get(level, level)}).",
         f"English skill: {_level_guidance(level)}",
-        "After feedback, ask the NEXT question using the same card format:",
-        VOCAB_QUIZ_FORMAT_BLOCK,
-        "Pick the next word only from new/learning items at this level.",
-        "On correct answers, sync MUST master the quizzed word immediately.",
+        follow,
     ]
-    if quiz_pool:
+    if not retry_same:
+        lines.extend(
+            [
+                VOCAB_QUIZ_FORMAT_BLOCK,
+                "Pick words only from new/learning items at this level (except when re-asking a miss).",
+                "Correct answers are saved automatically. Never master on a wrong answer.",
+            ]
+        )
+    else:
+        lines.append("Correct answers are saved automatically. Never master on a wrong answer.")
+    if quiz_pool and not retry_same:
         lines.append("\nNew/learning words available:")
         for item in quiz_pool[:40]:
             lines.append(f"- {item.content}")
-    lines.extend(_format_missed_quiz_lines(items))
+    elif just_correct or tries_exhausted:
+        lines.append(
+            "\nNo new/learning words left in the pool — invent a NEW word at this level "
+            "(not one already covered)."
+        )
+    if just_correct or tries_exhausted or not retry_same:
+        lines.extend(_format_covered_quiz_lines(items, just_answered=answered_label or None))
+    if retry_same or tries_exhausted:
+        lines.extend(_format_missed_quiz_lines(items))
     return "\n".join(lines)
 
 
@@ -411,6 +557,7 @@ async def apply_deterministic_quiz_answer(
     topic_hint: str | None = None,
     question_hint: str | None = None,
     is_correct_hint: bool | None = None,
+    attempt: int = 1,
 ) -> QuizAnswerGrade | None:
     """Persist quiz results without waiting on background LLM project sync."""
     from app.services import vocab_quiz as vocab_quiz_service
@@ -448,6 +595,14 @@ async def apply_deterministic_quiz_answer(
         is_correct = is_correct_hint
     if is_correct is None:
         return None
+    correct_letter = (quiz.correct or "").upper()
+    if not re.fullmatch(r"[A-D]", correct_letter):
+        return None
+
+    try_number = max(1, attempt)
+    tries_exhausted = (not is_correct) and (
+        try_number >= vocab_quiz_service.MAX_QUIZ_TRIES_PER_QUESTION
+    )
 
     items = await project_items_repo.list_for_user(
         session, user_id, project_id=project.id, limit=500
@@ -461,7 +616,9 @@ async def apply_deterministic_quiz_answer(
         list_title = topic or DEFAULT_LIST
         existing = _find_item(items, project.id, list_title, question)
         if existing:
-            await project_items_repo.apply_quiz_result(session, existing, is_correct=is_correct)
+            await project_items_repo.apply_quiz_result(
+                session, existing, is_correct=is_correct, commit=False
+            )
         else:
             item = await project_items_repo.create(
                 session,
@@ -471,13 +628,21 @@ async def apply_deterministic_quiz_answer(
                 list_title=list_title,
                 chat_id=chat_id,
                 status="new",
+                commit=False,
             )
-            await project_items_repo.apply_quiz_result(session, item, is_correct=is_correct)
+            await project_items_repo.apply_quiz_result(
+                session, item, is_correct=is_correct, commit=False
+            )
         return vocab_quiz_service.QuizAnswerGrade(
             is_correct=is_correct,
             user_letter=letter,
-            correct_letter=quiz.correct.upper(),
-            word=topic or question[:80],
+            correct_letter=correct_letter,
+            # Feedback label = correct choice text (not the topic like "History").
+            word=(quiz.correct_text or question)[:80],
+            quiz_type="trivia",
+            question=question,
+            attempt=try_number,
+            tries_exhausted=tries_exhausted,
         )
 
     if not _is_language_project(project):
@@ -491,7 +656,9 @@ async def apply_deterministic_quiz_answer(
         items, project.id, word
     )
     if existing:
-        await project_items_repo.apply_quiz_result(session, existing, is_correct=is_correct)
+        await project_items_repo.apply_quiz_result(
+            session, existing, is_correct=is_correct, commit=False
+        )
     else:
         item = await project_items_repo.create(
             session,
@@ -501,13 +668,20 @@ async def apply_deterministic_quiz_answer(
             list_title=list_title,
             chat_id=chat_id,
             status="new",
+            commit=False,
         )
-        await project_items_repo.apply_quiz_result(session, item, is_correct=is_correct)
+        await project_items_repo.apply_quiz_result(
+            session, item, is_correct=is_correct, commit=False
+        )
     return vocab_quiz_service.QuizAnswerGrade(
         is_correct=is_correct,
         user_letter=letter,
-        correct_letter=quiz.correct.upper(),
+        correct_letter=correct_letter,
         word=word,
+        quiz_type="vocab",
+        question=quiz.question,
+        attempt=try_number,
+        tries_exhausted=tries_exhausted,
     )
 
 
@@ -747,12 +921,18 @@ def _format_today_session_line(project: Project, stats: dict[str, int]) -> str:
 
     daily_goal = daily_learning.resolve_daily_goal(project)
     mastered_today = int(stats.get("mastered_today") or 0)
-    remaining = max(0, daily_goal - mastered_today)
-    unit = "words mastered" if _is_language_project(project) else "correct"
-    if mastered_today >= daily_goal:
-        return f"**Today:** {mastered_today}/{daily_goal} {unit} — daily goal complete."
+    missed_today = int(stats.get("missed_today") or 0)
+    completed_today = mastered_today + missed_today
+    remaining = max(0, daily_goal - completed_today)
+    if completed_today >= daily_goal:
+        return (
+            f"**Today:** {completed_today}/{daily_goal} done — daily goal complete "
+            f"({mastered_today} correct, {missed_today} missed). "
+            "This is the authoritative progress line — do not restate or contradict it."
+        )
     return (
-        f"**Today:** {mastered_today}/{daily_goal} {unit} ({remaining} more needed). "
+        f"**Today:** {completed_today}/{daily_goal} done "
+        f"({mastered_today} correct, {missed_today} missed; {remaining} more needed). "
         "This is the authoritative progress line — do not restate or contradict it."
     )
 
@@ -917,18 +1097,21 @@ async def load_daily_learning_summary_for_prompt(
         total = int(stats.get("total") or 0)
         daily_goal = daily_learning.resolve_daily_goal(project)
         mastered_today = int(stats.get("mastered_today") or 0)
-        if mastered_today >= daily_goal:
+        missed_today = int(stats.get("missed_today") or 0)
+        completed_today = mastered_today + missed_today
+        if completed_today >= daily_goal:
             continue
         quiz_label, unit = _daily_learning_quiz_label(project)
-        remaining = max(0, daily_goal - mastered_today)
+        remaining = max(0, daily_goal - completed_today)
         if total == 0:
             status = f"not started — {remaining} left for today's {quiz_label}"
-        elif mastered_today == 0:
+        elif completed_today == 0:
             status = f"not started — {remaining} left for today's {quiz_label}"
         else:
             status = f"{remaining} left for today's {quiz_label}"
         lines.append(
-            f"- {project.title} ({quiz_label}): {mastered_today}/{daily_goal} {unit} ({status})"
+            f"- {project.title} ({quiz_label}): {completed_today}/{daily_goal} done "
+            f"({mastered_today} correct, {missed_today} missed; {status})"
         )
     if not lines:
         return ""

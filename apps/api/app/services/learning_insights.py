@@ -129,19 +129,22 @@ def pick_learning_nudge(
     kind = project.kind
     unit = _unit_label(kind)
     mastered_today = int(stats.get("mastered_today") or 0)
+    missed_today = int(stats.get("missed_today") or 0)
+    completed_today = mastered_today + missed_today
     due = int(stats.get("due_for_review") or 0)
     new_count = int(stats.get("new_count") or 0)
     days_inactive = stats.get("days_inactive")
     title = project.title.strip()
 
-    if mastered_today < daily_goal:
-        remaining = daily_goal - mastered_today
+    if completed_today < daily_goal:
+        remaining = daily_goal - completed_today
         inactive_note = ""
         if isinstance(days_inactive, int) and days_inactive >= 2:
             inactive_note = f" — you have not studied in {days_inactive} days"
         body = (
             f'Finish today\'s "{title}" session — '
-            f"{mastered_today}/{daily_goal} {unit}{inactive_note}"
+            f"{completed_today}/{daily_goal} done "
+            f"({mastered_today} correct, {missed_today} missed){inactive_note}"
         )
         score = 55.0 + float(remaining)
         return (

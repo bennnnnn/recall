@@ -407,7 +407,7 @@ async def test_load_daily_learning_summary_for_prompt():
     assert "Today's learning progress" in block
     assert "English · Beginner" in block
     assert "vocabulary quiz" in block
-    assert "2/5 words mastered today" in block
+    assert "2/5 done" in block
     assert "3 left for today's vocabulary quiz" in block
 
 
@@ -438,7 +438,7 @@ async def test_load_daily_learning_summary_not_started_today():
             session, user, Settings(), client_timezone="America/Los_Angeles"
         )
 
-    assert "0/5 words mastered today" in block
+    assert "0/5 done" in block
     assert "not started" in block
     assert "vocabulary quiz" in block
 
@@ -533,7 +533,8 @@ async def test_load_daily_learning_summary_trivia_incomplete():
         )
 
     assert "general knowledge quiz" in block
-    assert "3/5 correct answers today" in block
+    assert "3/5 done" in block
+    assert "3 correct" in block
 
 
 @pytest.mark.asyncio
@@ -632,9 +633,8 @@ async def test_load_project_for_prompt_chat_mode():
         )
 
     assert "daily vocabulary in chat" in block
-    assert "vocab_quiz" not in block
-    assert "vocab_card" not in block
-    assert "plain chat markdown" in block
+    assert "vocab_quiz" in block
+    assert "multiple choice only" in block
     assert "Presentation mode: chat" in block
 
 
@@ -712,11 +712,7 @@ def test_build_language_quiz_prompt_includes_vocab_quiz_fence():
 
 
 def test_looks_like_vocab_question():
-    teach = (
-        "**Ephemeral**\n"
-        "lasting for a very short time.\n"
-        "What does **ephemeral** mean?"
-    )
+    teach = "**Ephemeral**\nlasting for a very short time.\nWhat does **ephemeral** mean?"
     assert projects_service.looks_like_vocab_question(teach) is True
     assert projects_service.looks_like_vocab_question("Hello! How can I help?") is False
 
@@ -749,6 +745,50 @@ async def test_load_project_quiz_context():
     assert "Active vocabulary quiz" in block
     assert "apple" in block
     assert "vocab_quiz" in block
+    assert "NEXT word" in block
+
+
+@pytest.mark.asyncio
+async def test_load_project_quiz_context_retries_same_word_on_wrong():
+    from app.services.vocab_quiz import QuizAnswerGrade
+
+    session = AsyncMock()
+    user_id = uuid4()
+    project_id = uuid4()
+    project = _project("English")
+    project.id = project_id
+    item = _item("ephemeral", project_id)
+
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "get_by_id",
+            AsyncMock(return_value=project),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_for_user",
+            AsyncMock(return_value=[item]),
+        ),
+    ):
+        block = await projects_service.load_project_quiz_context(
+            session,
+            user_id,
+            project_id,
+            Settings(),
+            quiz_grade=QuizAnswerGrade(
+                is_correct=False,
+                user_letter="A",
+                correct_letter="B",
+                word="ephemeral",
+            ),
+        )
+
+    assert "WRONG" in block
+    assert "ephemeral" in block
+    assert "Do NOT redisplay" in block
+    assert "NEXT word" not in block
+    assert "SAME word" not in block
 
 
 @pytest.mark.asyncio

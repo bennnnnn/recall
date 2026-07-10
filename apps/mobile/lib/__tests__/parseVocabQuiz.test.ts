@@ -139,6 +139,7 @@ describe("parseVocabQuiz", () => {
     expect(parseQuizAnswerLetter("C")).toBe("C");
     expect(parseQuizAnswerLetter("Is it a?")).toBe("A");
     expect(isVocabQuizAnswer("Is it a?")).toBe(true);
+    expect(isVocabQuizAnswer("A bit more help")).toBe(false);
     expect(isVocabQuizAnswer("Hi")).toBe(false);
   });
 

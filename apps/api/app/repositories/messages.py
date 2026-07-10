@@ -20,6 +20,7 @@ async def create(
     model: str | None = None,
     input_tokens: int = 0,
     output_tokens: int = 0,
+    commit: bool = True,
 ) -> Message:
     message = Message(
         chat_id=chat_id,
@@ -31,8 +32,11 @@ async def create(
         output_tokens=output_tokens,
     )
     session.add(message)
-    await session.commit()
-    await session.refresh(message)
+    if commit:
+        await session.commit()
+        await session.refresh(message)
+    else:
+        await session.flush()
     return message
 
 
@@ -144,6 +148,52 @@ async def get_last_assistant(session: AsyncSession, chat_id: UUID) -> Message | 
         .limit(1)
     )
     return result.scalar_one_or_none()
+
+
+async def get_last_quiz_assistant(
+    session: AsyncSession,
+    chat_id: UUID,
+    *,
+    lookback: int = 12,
+) -> Message | None:
+    """Most recent assistant message that still has a gradeable ```vocab_quiz fence.
+
+    After a wrong answer the model may reply with hint-only text (no fence); the
+    previous quiz message remains the one to grade against.
+    """
+    from app.services.vocab_quiz import parse_vocab_quiz
+
+    result = await session.execute(
+        select(Message)
+        .where(Message.chat_id == chat_id, Message.role == "assistant")
+        .order_by(Message.created_at.desc())
+        .limit(max(1, lookback))
+    )
+    for message in result.scalars().all():
+        if parse_vocab_quiz(message.content) is not None:
+            return message
+    return None
+
+
+async def count_quiz_letter_answers_since(
+    session: AsyncSession,
+    chat_id: UUID,
+    *,
+    after: datetime,
+) -> int:
+    """How many A-D answers the user sent after the open quiz message."""
+    from app.services.vocab_quiz import quiz_answer_letter
+
+    result = await session.execute(
+        select(Message)
+        .where(
+            Message.chat_id == chat_id,
+            Message.role == "user",
+            Message.created_at > after,
+        )
+        .order_by(Message.created_at.asc())
+    )
+    return sum(1 for message in result.scalars().all() if quiz_answer_letter(message.content))
 
 
 async def get_last_user(session: AsyncSession, chat_id: UUID) -> Message | None:

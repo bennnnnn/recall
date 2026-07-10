@@ -31,7 +31,6 @@ const APP_ICON = require("@/assets/images/icon.png");
 const HIGHLIGHTS = [
   { icon: "school-outline" as const, labelKey: "login.highlight_learn" },
   { icon: "calendar-outline" as const, labelKey: "login.highlight_organize" },
-  { icon: "sparkles-outline" as const, labelKey: "login.highlight_remember" },
 ];
 
 export default function LoginScreen() {

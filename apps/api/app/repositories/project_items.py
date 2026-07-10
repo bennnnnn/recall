@@ -118,6 +118,7 @@ def stats_from_items(
         "added_this_week": 0,
         "due_for_review": 0,
         "mastered_today": 0,
+        "missed_today": 0,
         "pending_today": 0,
         "last_mastery_at": None,
     }
@@ -149,8 +150,11 @@ def stats_from_items(
                 stats["due_for_review"] += 1
     from app.services.daily_learning import count_today_vocab_stats, last_mastery_at
 
-    mastered_today, pending_today = count_today_vocab_stats(items, timezone_name=timezone_name)
+    mastered_today, missed_today, pending_today = count_today_vocab_stats(
+        items, timezone_name=timezone_name
+    )
     stats["mastered_today"] = mastered_today
+    stats["missed_today"] = missed_today
     stats["pending_today"] = pending_today
     stats["last_mastery_at"] = last_mastery_at(items)
     return stats
@@ -201,6 +205,7 @@ async def create(
     example_sentence: str | None = None,
     chat_id: UUID | None = None,
     status: str = "new",
+    commit: bool = True,
 ) -> ProjectItem:
     normalized_list = list_title.strip() or DEFAULT_LIST
     example = (example_sentence or note or "").strip() or None
@@ -223,8 +228,11 @@ async def create(
         pronunciation_url=pronunciation,
     )
     session.add(item)
-    await session.commit()
-    await session.refresh(item)
+    if commit:
+        await session.commit()
+        await session.refresh(item)
+    else:
+        await session.flush()
     return item
 
 
@@ -233,6 +241,7 @@ async def apply_quiz_result(
     item: ProjectItem,
     *,
     is_correct: bool,
+    commit: bool = True,
 ) -> ProjectItem:
     """Record a quiz attempt, update status, and refresh SM-2 scheduling."""
     now = datetime.now(UTC)
@@ -268,8 +277,11 @@ async def apply_quiz_result(
     item.ease_factor = state.ease_factor
     item.interval_days = state.interval_days
     item.due_at = state.due_at
-    await session.commit()
-    await session.refresh(item)
+    if commit:
+        await session.commit()
+        await session.refresh(item)
+    else:
+        await session.flush()
     return item
 
 

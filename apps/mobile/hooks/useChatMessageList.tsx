@@ -6,6 +6,7 @@ import { StreamingChatMessageRow } from "@/components/chat/StreamingChatMessageR
 import { SuggestionChips } from "@/components/SuggestionChips";
 import type { Message, Suggestion } from "@/lib/api";
 import {
+  findActiveQuizMessageId,
   findLastAssistantId,
   isChatStreamActive,
   priorUserTextFor,
@@ -59,6 +60,10 @@ export function useChatMessageList({
     () => findLastAssistantId(messages),
     [messages],
   );
+  const activeQuizMessageId = useMemo(
+    () => findActiveQuizMessageId(messages),
+    [messages],
+  );
 
   const headerTitleLabel = null;
 
@@ -85,6 +90,7 @@ export function useChatMessageList({
   const sharedRowProps = useMemo(
     () => ({
       lastAssistantId,
+      activeQuizMessageId,
       selectedModel,
       quizLanguage,
       highlightedMessageId,
@@ -96,6 +102,7 @@ export function useChatMessageList({
     }),
     [
       lastAssistantId,
+      activeQuizMessageId,
       selectedModel,
       quizLanguage,
       highlightedMessageId,

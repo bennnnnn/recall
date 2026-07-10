@@ -1,4 +1,5 @@
 import { Message } from "@/lib/api";
+import { isCompleteVocabQuiz, parseVocabQuiz } from "@/lib/parseVocabQuiz";
 
 export const SENDING_LABEL_DELAY_MS = 400;
 
@@ -19,6 +20,21 @@ export function findLastLocalUserMessageId(messages: Message[]): string | null {
 export function findLastAssistantId(messages: Message[]): string | null {
   for (let i = messages.length - 1; i >= 0; i--) {
     if (messages[i].role === "assistant") return messages[i].id;
+  }
+  return null;
+}
+
+/**
+ * Most recent assistant message with a complete ```vocab_quiz — chips stay on this
+ * row even after a wrong-answer hint (which has no fence) becomes the last assistant.
+ */
+export function findActiveQuizMessageId(messages: Message[]): string | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (message.role !== "assistant") continue;
+    if (isCompleteVocabQuiz(parseVocabQuiz(message.content))) {
+      return message.id;
+    }
   }
   return null;
 }

@@ -171,9 +171,7 @@ async def build_prompt_messages(
     )
     is_day_plan = bool(query_text and is_day_planning_question(query_text))
     todos_section: str | None = None
-    slim_context = (
-        minimal_personal_context or minimal_quiz_context or minimal_vocab_answer_context
-    )
+    slim_context = minimal_personal_context or minimal_quiz_context or minimal_vocab_answer_context
     if slim_context:
         recent_all = await chat_pkg.messages_repo.list_recent(session, chat_id, limit=recent_limit)
         memory_block = ""
@@ -286,6 +284,10 @@ async def build_prompt_messages(
                 user_letter=quiz_grade.user_letter,
                 correct_letter=quiz_grade.correct_letter,
                 word=quiz_grade.word,
+                quiz_type=quiz_grade.quiz_type,
+                question=quiz_grade.question,
+                attempt=quiz_grade.attempt,
+                tries_exhausted=quiz_grade.tries_exhausted,
             )
         )
     if minimal_quiz_context:
@@ -294,7 +296,7 @@ async def build_prompt_messages(
             chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user.id)
         if chat and chat.project_id:
             quiz_ctx = await chat_pkg.projects_service.load_project_quiz_context(
-                session, user.id, chat.project_id, settings
+                session, user.id, chat.project_id, settings, quiz_grade=quiz_grade
             )
             if quiz_ctx:
                 system_parts.append(quiz_ctx)
@@ -304,7 +306,7 @@ async def build_prompt_messages(
             chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user.id)
         if chat and chat.project_id:
             quiz_ctx = await chat_pkg.projects_service.load_project_quiz_context(
-                session, user.id, chat.project_id, settings
+                session, user.id, chat.project_id, settings, quiz_grade=quiz_grade
             )
             if quiz_ctx:
                 system_parts.append(quiz_ctx)
@@ -341,7 +343,11 @@ async def build_prompt_messages(
     locale_hint = chat_pkg.locale_service.locale_system_hint(user.locale)
     if locale_hint:
         system_parts.append(locale_hint)
-    if not minimal_quiz_context and not minimal_vocab_answer_context and not minimal_personal_context:
+    if (
+        not minimal_quiz_context
+        and not minimal_vocab_answer_context
+        and not minimal_personal_context
+    ):
         system_parts.append(
             chat_pkg.time_context_service.format_time_context(
                 local_tz, user.locale, location_for_context

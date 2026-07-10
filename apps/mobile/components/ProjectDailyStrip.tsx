@@ -48,7 +48,7 @@ export function ProjectDailyStrip({
         ))}
       </View>
       <View style={s.legend}>
-        <LegendItem color={theme.primary} label={t("projects.daily_strip.complete")} theme={theme} />
+        <LegendItem color={theme.success} label={t("projects.daily_strip.complete")} theme={theme} />
         <LegendItem color={theme.warning} label={t("projects.daily_strip.partial")} theme={theme} />
         <LegendItem
           color={theme.textTertiary}
@@ -80,7 +80,7 @@ function DayCell({
   const weekdayKey = WEEKDAY_KEYS[day.weekday] ?? "mon";
   const weekdayLabel = t(`projects.daily_strip.${weekdayKey}`);
   const countLabel = t("projects.daily_strip.count", {
-    done: day.mastered_count,
+    done: day.mastered_count + (day.missed_count ?? 0),
     goal: day.daily_goal,
   });
   const isToday = day.date === todayKey;
@@ -90,8 +90,9 @@ function DayCell({
   const partial = day.status === "partial";
   const skipped = day.status === "skipped";
   const inProgressToday = day.status === "today";
+  const completedCount = day.mastered_count + (day.missed_count ?? 0);
   const todayPartial =
-    inProgressToday && day.mastered_count > 0 && !day.goal_met;
+    inProgressToday && completedCount > 0 && !day.goal_met;
 
   return (
     <Pressable
@@ -118,13 +119,17 @@ function DayCell({
         ]}
       >
         {inactive ? null : complete ? (
-          <Ionicons name="checkmark" size={14} color={theme.onPrimary} />
+          <Ionicons
+            name="checkmark"
+            size={14}
+            color={theme.isDark ? theme.bg : theme.onPrimary}
+          />
         ) : partial || todayPartial ? (
-          <Text style={s.partialText}>{day.mastered_count}</Text>
+          <Text style={s.partialText}>{completedCount}</Text>
         ) : skipped ? (
           <Ionicons name="remove" size={14} color={theme.textTertiary} />
         ) : (
-          <Text style={s.todayText}>{day.mastered_count > 0 ? day.mastered_count : "·"}</Text>
+          <Text style={s.todayText}>{completedCount > 0 ? completedCount : "·"}</Text>
         )}
       </View>
     </Pressable>
@@ -189,7 +194,7 @@ function makeStyles(t: Theme) {
       borderColor: t.border,
     },
     dotSelected: { borderWidth: 2, borderColor: t.primary },
-    completeDot: { backgroundColor: t.primary, borderColor: t.primary },
+    completeDot: { backgroundColor: t.success, borderColor: t.success },
     partialDot: { backgroundColor: `${t.warning}33`, borderColor: t.warning },
     skippedDot: { backgroundColor: t.bg, borderColor: t.border },
     todayDot: { backgroundColor: t.primaryLight, borderColor: t.primary },

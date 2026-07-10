@@ -147,21 +147,30 @@ def is_writing_deliverable_request(text: str) -> bool:
 
 QUIZ_ANSWER_HINT = (
     "The user just answered a multiple-choice quiz with A, B, C, or D. "
-    "The previous assistant message has the question, choices, and correct letter.\n"
+    "The previous assistant message has the question, choices, and correct letter. "
+    "If an **Automated grading** line is present, it is authoritative — match it exactly.\n"
     "Structure your reply as:\n"
-    "1) **Brief feedback only** (1-3 sentences): if wrong, say which option was correct and why; "
-    "if right, congratulate briefly. On wrong answers, never say 'word mastered', 'mastered', or "
-    "congratulate — the answer was incorrect. Do NOT use spoiler syntax (>! !<).\n"
-    "2) **Exactly ONE next multiple-choice question** in a ```vocab_quiz fence — required so the "
-    "app can show A-D choices as tap chips. Never use plain Q:/A: lines, open-ended questions, "
-    "bullet lists of multiple questions, or unrelated task/topic pivots in the same message.\n"
+    "1) **Brief feedback only** (1-2 sentences):\n"
+    "   - CORRECT: congratulate the answer (letter + choice text), not the topic label "
+    '(e.g. say "Treaty of Versailles" — never "History is correct").\n'
+    "   - WRONG: say they were wrong. Give a short hint (clue) — do NOT reveal the correct "
+    "letter or full answer yet. Never say 'word mastered' or congratulate. "
+    "Do NOT use spoiler syntax (>! !<).\n"
+    "2) **Next step:**\n"
+    "   - CORRECT: ask a DIFFERENT next word/fact in a ```vocab_quiz fence (required for "
+    "tap chips) — never repeat the one they just got right (or any already-covered item).\n"
+    "   - WRONG (tries 1–2): stop after the hint. Do NOT redisplay the question, choices, or a "
+    "```vocab_quiz fence. The previous chips stay available — they will answer again.\n"
+    "   - MISSED (3rd wrong try): briefly reveal the correct answer, keep it as learning for "
+    "next time (not mastered), then ask a DIFFERENT next ```vocab_quiz.\n"
+    "Stay in the active project kind: trivia stays trivia (quiz_type trivia); "
+    "vocabulary stays vocabulary. Never mix them in one session.\n"
     "Vocabulary (English words):\n"
     f"{projects_service.VOCAB_QUIZ_FORMAT_BLOCK}\n"
     "General knowledge (trivia):\n"
     f"{projects_service.TRIVIA_QUIZ_FORMAT_BLOCK}\n"
-    "One question per message — wait for their letter before explaining the next answer.\n"
-    "On correct vocabulary answers only, sync MUST master the quizzed word immediately. "
-    "Never sync master on a wrong answer."
+    "Never use plain Q:/A: lines, open-ended questions, or multiple questions in one message.\n"
+    "Mastering is recorded automatically on correct answers — do not sync master on a wrong answer."
 )
 
 VOCAB_CHAT_ANSWER_HINT = (
@@ -170,11 +179,12 @@ VOCAB_CHAT_ANSWER_HINT = (
     "- Only say correct if their answer actually demonstrates understanding of the word.\n"
     "- Gibberish, unrelated text, random single letters (unless you asked for A-D), or "
     "placeholder replies = **wrong** — never congratulate those.\n"
-    "- If wrong: say clearly they were wrong, give the right answer briefly, then continue "
-    "(re-quiz the same word or move on with a simpler format). Never say 'word mastered' or "
-    "'mastered' when they were wrong.\n"
-    "- Only sync master when genuinely correct.\n"
-    "- **Never** ask them to define a word you already fully defined in the prior message."
+    "- If wrong (tries 1–2): say wrong and give a short hint (not the full answer). Do NOT "
+    "redisplay the question or emit a ```vocab_quiz fence. Never say 'word mastered'.\n"
+    "- If missed (3rd wrong try): briefly reveal the answer, keep as learning for next time, "
+    "then ask a DIFFERENT next word as ```vocab_quiz.\n"
+    "- If correct: congratulate briefly, then ask the NEXT word as ```vocab_quiz.\n"
+    "- Only sync master when genuinely correct."
 )
 
 
@@ -184,21 +194,72 @@ def format_quiz_grading_hint(
     user_letter: str,
     correct_letter: str,
     word: str,
+    quiz_type: str | None = None,
+    question: str | None = None,
+    attempt: int = 1,
+    tries_exhausted: bool = False,
 ) -> str:
-    verdict = "CORRECT" if is_correct else "WRONG"
-    follow_up = (
-        "Congratulate briefly, then ask the NEXT question in ```vocab_quiz format."
-        if is_correct
-        else (
-            "Tell them they were wrong, explain briefly, then re-quiz the same word or continue. "
-            "Do NOT say 'word mastered' or sync master — the answer was WRONG."
-        )
-    )
+    from app.services.vocab_quiz import MAX_QUIZ_TRIES_PER_QUESTION
+
+    is_trivia = quiz_type == "trivia"
+    if is_correct:
+        if is_trivia:
+            done = (question or word).strip()
+            follow_up = (
+                f'Congratulate briefly that {user_letter} ("{word}") is correct. '
+                f'Do NOT ask "{done}" again. '
+                "Then ask a DIFFERENT next general-knowledge fact as a fresh ```vocab_quiz "
+                'with quiz_type "trivia" on one of their topics. '
+                'Never ask vocabulary/definition questions (no "What does X mean?").'
+            )
+        else:
+            follow_up = (
+                f'Congratulate briefly that "{word}" is correct. '
+                f'Do NOT re-ask "{word}". '
+                "Then ask a DIFFERENT next item as a fresh ```vocab_quiz."
+            )
+        verdict = "CORRECT"
+    elif tries_exhausted:
+        label = (question or word).strip()
+        if is_trivia:
+            follow_up = (
+                f"They missed after {attempt} tries. Briefly reveal that the answer was "
+                f'{correct_letter} ("{word}"). Mark it as missed for later review — do NOT say '
+                f'mastered. Then ask a DIFFERENT next question (not "{label}") as ```vocab_quiz '
+                'with quiz_type "trivia".'
+            )
+        else:
+            follow_up = (
+                f'They missed "{word}" after {attempt} tries. Briefly reveal the correct answer '
+                f"({correct_letter}). Keep it as learning/missed for next time — do NOT say "
+                f'mastered. Then ask a DIFFERENT next word (not "{word}") as ```vocab_quiz.'
+            )
+        verdict = "MISSED"
+    else:
+        if is_trivia:
+            follow_up = (
+                f"Tell them {user_letter} was wrong (try {attempt}/{MAX_QUIZ_TRIES_PER_QUESTION}). "
+                f"Give a short hint only — do NOT reveal the correct letter ({correct_letter}) "
+                "or full answer. Do NOT redisplay the question, choices, or a ```vocab_quiz fence. "
+                "They will tap an answer on the previous question."
+            )
+        else:
+            follow_up = (
+                f'Tell them "{word}" was wrong (try {attempt}/{MAX_QUIZ_TRIES_PER_QUESTION}, '
+                f"they picked {user_letter}). "
+                "Give a short hint only — do NOT reveal the correct letter or full definition. "
+                "Do NOT redisplay the question, choices, or a ```vocab_quiz fence. "
+                "They will tap an answer on the previous question. "
+                "Do NOT say 'word mastered'."
+            )
+        verdict = "WRONG"
+    subject = f'option {user_letter} ("{word}")' if is_trivia else f'"{word}"'
     return (
         f"**Automated grading (authoritative — your feedback MUST match this):** "
-        f'For "{word}", user answered {user_letter}. Correct answer: {correct_letter}. '
+        f"For {subject}, user answered {user_letter}. Correct answer: {correct_letter}. "
         f"Result: {verdict}. {follow_up}"
     )
+
 
 QUIZ_RECENT_MESSAGE_LIMIT = 12
 
