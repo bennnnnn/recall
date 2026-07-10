@@ -71,8 +71,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   transcribes via Whisper (OpenRouter), and injects the transcript as normal text. Daily caps
   (30 free / 200 Pro). Not available in Expo Go.
 - ✅ **Read aloud (TTS)** — speaker on assistant messages and vocab words prefers cloud
-  `POST /speech/tts` when a dev build + token are available; falls back to on-device
-  `expo-speech`.
+  `POST /speech/tts` when a **dev build** + token are available; falls back to on-device
+  `expo-speech`. Unavailable in Expo Go (same native gate as voice input).
 - 🔜 Message-level share, reactions, read receipts; duplex full-voice mode (out of scope).
 
 ## 4. Formatting & rendering
@@ -574,6 +574,7 @@ structured Learning topic type.
 |-------|------|-----|
 | Daily tokens | 100k | 500k |
 | Speech transcriptions/day | 30 | 200 |
+| Speech TTS (read aloud)/day | 20 | 100 |
 | Tavily searches/day | 20 (then DDG only) | 150 |
 | R1 / smart-chat quota weight | 3.5× token charge | Same |
 
@@ -595,5 +596,5 @@ structured Learning topic type.
 ### Explicitly not v1
 Multi-user teams, collaborative editing, arbitrary code execution (except sandboxed HTML/chart
 preview WebView), web client, gamification (streaks/XP/badges), duplex voice mode, arbitrary
-user MCP servers. Full RAG, cloud TTS, SM-2, and the LiteLLM tool loop are planned grade-up
+user MCP servers. Full RAG, SM-2 polish, and the LiteLLM tool loop are planned grade-up
 work — see deferred list above.

@@ -214,6 +214,28 @@ async def test_refund_speech_transcription(fake_redis, settings):
 
 
 @pytest.mark.asyncio
+async def test_reserve_speech_tts_enforces_limit(fake_redis, settings):
+    from uuid import uuid4
+
+    user_id = uuid4()
+    limit = quota_service.speech_tts_limit_for_user(_free_user(), settings)
+    for _ in range(limit):
+        assert await quota_service.reserve_speech_tts(fake_redis, user_id, limit=limit) is True
+    assert await quota_service.reserve_speech_tts(fake_redis, user_id, limit=limit) is False
+
+
+@pytest.mark.asyncio
+async def test_refund_speech_tts(fake_redis, settings):
+    from uuid import uuid4
+
+    user_id = uuid4()
+    limit = quota_service.speech_tts_limit_for_user(_free_user(), settings)
+    assert await quota_service.reserve_speech_tts(fake_redis, user_id, limit=limit)
+    await quota_service.refund_speech_tts(fake_redis, user_id)
+    assert await quota_service.reserve_speech_tts(fake_redis, user_id, limit=limit)
+
+
+@pytest.mark.asyncio
 async def test_reserve_tavily_search_enforces_limit(fake_redis, settings):
     from uuid import uuid4
 

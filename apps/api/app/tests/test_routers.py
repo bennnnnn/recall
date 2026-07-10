@@ -1207,3 +1207,115 @@ def test_speech_transcribe_disabled():
         files={"file": ("speech.m4a", b"fake-audio", "audio/m4a")},
     )
     assert r.status_code == 404
+
+
+def test_speech_tts_ok():
+    import base64
+
+    import fakeredis.aioredis
+
+    user = _fake_user()
+    client = TestClient(_app_with_user(user))
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    with (
+        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.routers.speech.speech_service.synthesize_speech",
+            AsyncMock(return_value=(b"fake-mp3", "audio/mpeg")),
+        ),
+    ):
+        r = client.post(
+            "/speech/tts",
+            headers={"Authorization": "Bearer tok"},
+            json={"text": "hello", "language": "en-US"},
+        )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["content_type"] == "audio/mpeg"
+    assert body["model"] == "tts-model"
+    assert base64.b64decode(body["audio_base64"]) == b"fake-mp3"
+
+
+def test_speech_tts_daily_cap():
+    import fakeredis.aioredis
+
+    from app.core.deps import get_current_user, get_settings_dep
+
+    user = _fake_user()
+    app = create_app()
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(daily_speech_tts=1)
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    client = TestClient(app)
+    with (
+        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.routers.speech.speech_service.synthesize_speech",
+            AsyncMock(return_value=(b"ok", "audio/mpeg")),
+        ),
+    ):
+        first = client.post(
+            "/speech/tts",
+            headers={"Authorization": "Bearer tok"},
+            json={"text": "one"},
+        )
+        second = client.post(
+            "/speech/tts",
+            headers={"Authorization": "Bearer tok"},
+            json={"text": "two"},
+        )
+    assert first.status_code == 200
+    assert second.status_code == 429
+    assert "read-aloud" in second.json()["detail"].lower()
+
+
+def test_speech_tts_rate_limit_message():
+    import fakeredis.aioredis
+
+    from app.core.deps import get_current_user, get_settings_dep
+
+    user = _fake_user()
+    app = create_app()
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
+        speech_rate_limit_per_minute=1,
+        daily_speech_tts=100,
+    )
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    client = TestClient(app)
+    with (
+        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.routers.speech.speech_service.synthesize_speech",
+            AsyncMock(return_value=(b"ok", "audio/mpeg")),
+        ),
+    ):
+        first = client.post(
+            "/speech/tts",
+            headers={"Authorization": "Bearer tok"},
+            json={"text": "one"},
+        )
+        second = client.post(
+            "/speech/tts",
+            headers={"Authorization": "Bearer tok"},
+            json={"text": "two"},
+        )
+    assert first.status_code == 200
+    assert second.status_code == 429
+    assert "read-aloud" in second.json()["detail"].lower()
+
+
+def test_speech_tts_disabled():
+    user = _fake_user()
+    from app.core.deps import get_current_user, get_settings_dep
+
+    app = create_app()
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(speech_tts_enabled=False)
+    client = TestClient(app)
+    r = client.post(
+        "/speech/tts",
+        headers={"Authorization": "Bearer tok"},
+        json={"text": "hello"},
+    )
+    assert r.status_code == 404

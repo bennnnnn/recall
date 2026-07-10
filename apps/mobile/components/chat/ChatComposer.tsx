@@ -53,6 +53,8 @@ type Props = {
   voiceTranscribing?: boolean;
   voiceMeterLevel?: number;
   onVoicePress?: () => void;
+  /** Discard in-progress recording without uploading/transcribing. */
+  onVoiceCancel?: () => void;
   /** When true, parent owns absolute bottom positioning (e.g. quiz dock). */
   docked?: boolean;
 };
@@ -82,6 +84,7 @@ export const ChatComposer = memo(function ChatComposer({
   voiceTranscribing = false,
   voiceMeterLevel = 0.12,
   onVoicePress,
+  onVoiceCancel,
   docked = false,
 }: Props) {
   const { t } = useTranslation();
@@ -154,27 +157,43 @@ export const ChatComposer = memo(function ChatComposer({
                   <Pressable style={s.sendBtn} onPress={onStop}>
                     <Text style={s.sendIcon}>■</Text>
                   </Pressable>
-                ) : voiceTranscribing ? (
-                  <View style={[s.sendBtn, s.sendBtnDisabled]}>
-                    <Text style={[s.sendIcon, s.sendIconDisabled]}>…</Text>
-                  </View>
-                ) : input.trim() || pendingAttachment ? (
-                  <Pressable
-                    style={[s.sendBtn, isOffline && s.sendBtnDisabled]}
-                    onPress={onSend}
-                    accessibilityLabel={isOffline ? t("chat.offline_title") : undefined}
-                    accessibilityHint={isOffline ? t("chat.offline_body") : undefined}
-                  >
-                    <Text style={[s.sendIcon, isOffline && s.sendIconDisabled]}>↑</Text>
-                  </Pressable>
-                ) : onVoicePress && token ? (
-                  <VoiceMicButton
-                    recording={voiceRecording}
-                    transcribing={voiceTranscribing}
-                    disabled={attachBusy || isOffline}
-                    onPress={onVoicePress}
-                  />
-                ) : null}
+                ) : (
+                  <>
+                    {voiceRecording && onVoiceCancel ? (
+                      <Pressable
+                        style={s.voiceCancelBtn}
+                        onPress={onVoiceCancel}
+                        hitSlop={6}
+                        accessibilityLabel={t("chat.voice_cancel_a11y")}
+                        accessibilityHint={t("chat.voice_cancel_hint")}
+                      >
+                        <Ionicons name="close" size={18} color={theme.textSecondary} />
+                      </Pressable>
+                    ) : null}
+                    {onVoicePress && token && !voiceTranscribing ? (
+                      <VoiceMicButton
+                        recording={voiceRecording}
+                        transcribing={voiceTranscribing}
+                        disabled={attachBusy || isOffline}
+                        onPress={onVoicePress}
+                      />
+                    ) : null}
+                    {voiceTranscribing ? (
+                      <View style={[s.sendBtn, s.sendBtnDisabled]}>
+                        <Text style={[s.sendIcon, s.sendIconDisabled]}>…</Text>
+                      </View>
+                    ) : input.trim() || pendingAttachment ? (
+                      <Pressable
+                        style={[s.sendBtn, isOffline && s.sendBtnDisabled]}
+                        onPress={onSend}
+                        accessibilityLabel={isOffline ? t("chat.offline_title") : undefined}
+                        accessibilityHint={isOffline ? t("chat.offline_body") : undefined}
+                      >
+                        <Text style={[s.sendIcon, isOffline && s.sendIconDisabled]}>↑</Text>
+                      </Pressable>
+                    ) : null}
+                  </>
+                )}
               </View>
             </View>
           </View>
@@ -255,10 +274,21 @@ function makeStyles(theme: Theme) {
       justifyContent: "center",
     },
     sendBtnSlot: {
-      width: 34,
-      height: 35,
+      flexDirection: "row",
       alignItems: "center",
       justifyContent: "flex-end",
+      gap: 6,
+      minHeight: 35,
+    },
+    voiceCancelBtn: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
     },
     sendIcon: { color: theme.onPrimary, fontSize: 18, fontWeight: "700" },
     sendBtnDisabled: { backgroundColor: theme.border },

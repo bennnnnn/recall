@@ -28,7 +28,8 @@ SPEECH_LIMIT_EXCEEDED_MESSAGE_FREE = (
 SPEECH_LIMIT_EXCEEDED_MESSAGE_PRO = (
     "You've reached today's voice transcription limit. Come back tomorrow."
 )
-SPEECH_RATE_LIMIT_MESSAGE = "Too many transcription requests. Please wait a moment and try again."
+SPEECH_RATE_LIMIT_MESSAGE = "Too many voice requests. Please wait a moment and try again."
+SPEECH_TTS_RATE_LIMIT_MESSAGE = "Too many read-aloud requests. Please wait a moment and try again."
 
 IMAGE_GENERATION_LIMIT_EXCEEDED_MESSAGE_FREE = (
     "Image generation is a Pro feature. Upgrade to generate images."

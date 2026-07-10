@@ -64,8 +64,11 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 |---|------|-----|---------|-------|
 | 4.1 | Image attach + send | ☐ | ☐ | |
 | 4.2 | PDF attach + preview | ☐ | ☐ | |
-| 4.3 | Speech → transcription → composer | ☐ | ☐ | Dev build |
-| 4.4 | Daily image cap enforced (free) | ☐ | ☐ | |
+| 4.3 | Speech → transcription → composer | ☐ | ☐ | Dev build; mic works with typed text too |
+| 4.4 | Cancel voice recording (no upload) | ☐ | ☐ | Dev build |
+| 4.5 | Read aloud (assistant + vocab) | ☐ | ☐ | Dev build; cloud TTS + device fallback |
+| 4.6 | Daily image cap enforced (free) | ☐ | ☐ | |
+| 4.7 | Daily speech STT / TTS caps | ☐ | ☐ | Free 30 STT / 20 TTS |
 
 ---
 

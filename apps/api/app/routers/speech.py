@@ -82,7 +82,7 @@ async def synthesize_speech(
         if not allowed:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=quota_service.SPEECH_RATE_LIMIT_MESSAGE,
+                detail=quota_service.SPEECH_TTS_RATE_LIMIT_MESSAGE,
             )
 
     daily_limit = quota_service.speech_tts_limit_for_user(user, settings)

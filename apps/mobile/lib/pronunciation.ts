@@ -59,6 +59,40 @@ async function fetchCloudTts(
   };
 }
 
+/** Prefer cloud TTS when token is set; fall back to on-device expo-speech. */
+type PlaybackHandle = {
+  addListener: (
+    event: "playbackStatusUpdate",
+    listener: (status: { didJustFinish: boolean }) => void,
+  ) => { remove: () => void };
+};
+
+const CLOUD_PLAYBACK_MAX_MS = 300_000;
+let cloudPlaybackFinish: (() => void) | null = null;
+
+function waitUntilPlaybackEnds(player: PlaybackHandle): Promise<void> {
+  return new Promise((resolve) => {
+    let settled = false;
+    let sub: { remove: () => void } | null = null;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      if (cloudPlaybackFinish === finish) cloudPlaybackFinish = null;
+      try {
+        sub?.remove();
+      } catch {
+        /* ignore */
+      }
+      resolve();
+    };
+    cloudPlaybackFinish = finish;
+    sub = player.addListener("playbackStatusUpdate", (status) => {
+      if (status.didJustFinish) finish();
+    });
+    setTimeout(finish, CLOUD_PLAYBACK_MAX_MS);
+  });
+}
+
 async function playCloudBase64(
   audioBase64: string,
   contentType: string,
@@ -79,6 +113,7 @@ async function playCloudBase64(
       }
     };
     player.play();
+    await waitUntilPlaybackEnds(player);
     return { ok: true };
   } catch {
     return { ok: false, reason: "error" };
@@ -99,6 +134,7 @@ async function playRemoteAudio(url: string): Promise<SpeakResult> {
       }
     };
     player.play();
+    await waitUntilPlaybackEnds(player);
     return { ok: true };
   } catch {
     return { ok: false, reason: "error" };
@@ -169,6 +205,10 @@ export async function speakWord(
 }
 
 export function stopSpeaking(): void {
+  if (cloudPlaybackFinish) {
+    cloudPlaybackFinish();
+    cloudPlaybackFinish = null;
+  }
   if (cloudPlayerCleanup) {
     cloudPlayerCleanup();
     cloudPlayerCleanup = null;

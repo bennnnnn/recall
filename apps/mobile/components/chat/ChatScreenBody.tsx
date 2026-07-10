@@ -78,6 +78,7 @@ export type ChatScreenBodyProps = {
   voiceTranscribing: boolean;
   voiceMeterLevel: number;
   onVoicePress?: () => void;
+  onVoiceCancel?: () => void;
   upgradeVisible: boolean;
   onCloseUpgrade: () => void;
   listFooter?: ReactElement | null;
@@ -138,6 +139,7 @@ export function ChatScreenBody({
   voiceTranscribing,
   voiceMeterLevel,
   onVoicePress,
+  onVoiceCancel,
   upgradeVisible,
   onCloseUpgrade,
   listFooter = null,
@@ -229,6 +231,7 @@ export function ChatScreenBody({
         voiceTranscribing={voiceTranscribing}
         voiceMeterLevel={voiceMeterLevel}
         onVoicePress={onVoicePress}
+        onVoiceCancel={onVoiceCancel}
       />
 
       <UpgradeSheet visible={upgradeVisible} onClose={onCloseUpgrade} />
