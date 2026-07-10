@@ -9,7 +9,7 @@ import * as WebBrowser from "expo-web-browser";
 import { Ionicons } from "@expo/vector-icons";
 
 import { CODE_FONT } from "@/lib/fonts";
-import { injectPreviewCsp } from "@/lib/previewSandbox";
+import { escapeForInlineJsTemplate, injectPreviewCsp } from "@/lib/previewSandbox";
 import { Theme, useTheme } from "@/lib/theme";
 import { getPreviewWebView, useStaticOnlyNavigation } from "@/lib/webView";
 
@@ -19,10 +19,7 @@ const PREVIEW_HEIGHT = 350;
 
 /** Build a self-contained HTML page that renders a Vega / Vega-Lite spec via CDN. */
 function buildVegaHtml(spec: string, isDark: boolean): string {
-  const safeSpec = spec
-    .replace(/`/g, "\\`")
-    .replace(/\${/g, "\\${")
-    .replace(/<\/script>/gi, "<\\/script>");
+  const safeSpec = escapeForInlineJsTemplate(spec);
   const bg = isDark ? "#212121" : "#ffffff";
   return injectPreviewCsp(`<!DOCTYPE html>
 <html lang="en">
@@ -113,7 +110,7 @@ export function ChartBlock({ content }: Props) {
             }}
             scrollEnabled={false}
             javaScriptEnabled
-            domStorageEnabled
+            domStorageEnabled={false}
             onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
           />
         ) : (

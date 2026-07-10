@@ -1,4 +1,4 @@
-import { PREVIEW_CSP, injectPreviewCsp } from "@/lib/previewSandbox";
+import { PREVIEW_CSP, escapeForInlineJsTemplate, injectPreviewCsp } from "@/lib/previewSandbox";
 
 describe("PREVIEW_CSP", () => {
   it("blocks network egress and forms, allows inline scripts", () => {
@@ -8,6 +8,14 @@ describe("PREVIEW_CSP", () => {
     expect(PREVIEW_CSP).toContain("form-action 'none'");
     expect(PREVIEW_CSP).toContain("base-uri 'none'");
     expect(PREVIEW_CSP).toContain("sandbox allow-scripts");
+  });
+});
+
+describe("escapeForInlineJsTemplate", () => {
+  it("escapes backslashes before backticks so a trailing slash cannot break out", () => {
+    expect(escapeForInlineJsTemplate("a\\")).toBe("a\\\\");
+    expect(escapeForInlineJsTemplate("x`y")).toBe("x\\`y");
+    expect(escapeForInlineJsTemplate("${hi}")).toBe("\\${hi}");
   });
 });
 
@@ -39,5 +47,13 @@ describe("injectPreviewCsp", () => {
     const out = injectPreviewCsp(html);
     const count = (out.match(/Content-Security-Policy/g) || []).length;
     expect(count).toBe(1);
+  });
+
+  it("strips scripts that appear before <head> (meta CSP would not cover them)", () => {
+    const html =
+      "<html><script>window.pwned=1</script><head><title>x</title></head><body></body></html>";
+    const out = injectPreviewCsp(html);
+    expect(out).not.toContain("window.pwned");
+    expect(out).toContain(`content="${PREVIEW_CSP}"`);
   });
 });

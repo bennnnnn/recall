@@ -127,7 +127,7 @@ function LiveWebPreview({
           ? {
               originWhitelist: ["*"],
               javaScriptEnabled: true,
-              domStorageEnabled: true,
+              domStorageEnabled: false,
               allowsInlineMediaPlayback: true,
             }
           : { allowsInlineMediaPlayback: true, containerStyle: s.webviewContainer })}
