@@ -43,6 +43,12 @@ class _TurnTavilyBudget:
         """Whether this turn must skip Tavily (daily cap hit). Reserves once."""
         if self.user is None:
             return False
+        # Only spend the daily Tavily budget when Tavily can actually run. With
+        # no key (or web search off) the turn falls back to free, uncapped
+        # DuckDuckGo, so reserving here would burn a slot for a search Tavily
+        # never performs.
+        if not web_search_gateway.is_configured(self.settings):
+            return False
         async with self._lock:
             if not self._decided:
                 limit = quota_service.tavily_search_limit_for_user(self.user, self.settings)

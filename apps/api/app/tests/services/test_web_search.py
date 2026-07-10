@@ -440,7 +440,7 @@ async def test_run_search_reserves_tavily_once_per_turn(fake_redis):
 
     from app.services.web_search.search_cache import _run_search
 
-    settings = Settings(web_search_max_results=10, mock_llm_enabled=True)
+    settings = Settings(web_search_max_results=10, mock_llm_enabled=True, tavily_api_key="test-key")
     user = MagicMock()
     user.id = uuid4()
     user.plan = "free"
@@ -472,6 +472,44 @@ async def test_run_search_reserves_tavily_once_per_turn(fake_redis):
 
     assert reserve_calls == 1
     assert len(merged) == 4
+
+
+@pytest.mark.asyncio
+async def test_run_search_skips_tavily_reservation_when_unconfigured(fake_redis):
+    """No Tavily key → the turn uses free DuckDuckGo, so it must not spend a
+    daily Tavily search reserving a call Tavily never performs."""
+    from unittest.mock import MagicMock
+    from uuid import uuid4
+
+    from app.services.web_search.search_cache import _run_search
+
+    settings = Settings(web_search_max_results=10, mock_llm_enabled=True, tavily_api_key="")
+    user = MagicMock()
+    user.id = uuid4()
+    user.plan = "free"
+
+    reserve_calls = 0
+
+    async def counting_reserve(_redis, _user_id, *, limit):
+        nonlocal reserve_calls
+        reserve_calls += 1
+        return True
+
+    async def fake_search(_settings, query, *, max_results=10, skip_tavily=False):
+        return [WebSearchHit(title=query, url=f"https://ex/{query}", snippet="s")]
+
+    with (
+        patch("app.services.web_search.search_cache.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.services.web_search.search_cache.quota_service.reserve_tavily_search",
+            counting_reserve,
+        ),
+        patch("app.services.web_search.search_cache.web_search_gateway.search_web", fake_search),
+    ):
+        merged, _tried = await _run_search(settings, ["q1", "q2"], user=user, redis=fake_redis)
+
+    assert reserve_calls == 0
+    assert len(merged) == 2
 
 
 @pytest.mark.asyncio
