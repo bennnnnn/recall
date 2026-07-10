@@ -112,7 +112,7 @@ def chat_fallback_models(
     settings: Settings,
     primary: str,
     *,
-    max_fallbacks: int = 1,
+    max_fallbacks: int = 2,
 ) -> list[str]:
     """Other models in the user's pool to try when the primary provider is down."""
     if max_fallbacks <= 0:

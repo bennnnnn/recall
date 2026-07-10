@@ -650,6 +650,35 @@ async def test_stream_chat_completion_retries_when_primary_yields_no_tokens():
 
 
 @pytest.mark.asyncio
+async def test_stream_chat_completion_retries_when_primary_yields_whitespace_only():
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    calls: list[str] = []
+
+    async def fake_stream_once(**kwargs):
+        alias = kwargs["model_alias"]
+        calls.append(alias)
+        if alias == "smart-chat":
+            yield "\n"
+            yield "  "
+            return
+        yield "ok"
+
+    with patch.object(litellm_gateway, "_stream_chat_once", fake_stream_once):
+        tokens = [
+            t
+            async for t in litellm_gateway.stream_chat_completion(
+                settings=settings,
+                model_alias="smart-chat",
+                messages=[{"role": "user", "content": "hi"}],
+                max_tokens=10,
+                fallback_aliases=["free-chat"],
+            )
+        ]
+    assert tokens == ["ok"]
+    assert calls == ["smart-chat", "free-chat"]
+
+
+@pytest.mark.asyncio
 async def test_stream_chat_completion_raises_when_all_aliases_empty():
     settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
 

@@ -43,7 +43,7 @@ class ModelUnavailableError(Exception):
 
 
 _CHAT_MODEL_UNAVAILABLE_MSG = (
-    "That model isn't responding right now. Pick a different model and try again."
+    "That model isn't responding right now. Try again — or pick a different model."
 )
 
 
@@ -318,7 +318,11 @@ async def stream_chat_completion(
 
     for index, alias in enumerate(aliases):
         try:
-            produced = False
+            # Buffer until the first non-whitespace token so whitespace-only
+            # "success" streams (common flaky provider quirk) still fall through
+            # to the next alias instead of locking in an empty reply.
+            pending: list[str] = []
+            started = False
             async for token in _stream_chat_once(
                 settings=settings,
                 model_alias=alias,
@@ -327,15 +331,27 @@ async def stream_chat_completion(
                 usage=usage,
                 on_reasoning=on_reasoning,
             ):
-                produced = True
+                if not started:
+                    pending.append(token)
+                    if not "".join(pending).strip():
+                        continue
+                    started = True
+                    for piece in pending:
+                        yield piece
+                    pending.clear()
+                    continue
                 yield token
-            if produced:
+            if started:
                 if stream_meta is not None:
                     stream_meta["model_alias"] = alias
                 return
-            # Provider closed the stream with zero content tokens (common with
-            # flaky chat models). Treat as unavailable so we try the next alias
-            # instead of leaving the user with a silent orphan turn.
+            logger.warning(
+                "Chat stream %s returned no content%s",
+                alias,
+                f"; retrying with fallback {aliases[index + 1]}"
+                if index < len(aliases) - 1
+                else "",
+            )
             raise ModelUnavailableError(
                 _CHAT_MODEL_UNAVAILABLE_MSG,
                 failed_alias=alias,

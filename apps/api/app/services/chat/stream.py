@@ -506,7 +506,7 @@ async def stream_and_finalize(
         if not assistant_text:
             # Caller refunds quota / restores regenerate backup on this error.
             raise ModelUnavailableError(
-                "That model isn't responding right now. Pick a different model and try again.",
+                "That model isn't responding right now. Try again — or pick a different model.",
                 failed_alias=ctx.model,
             )
 
