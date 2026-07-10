@@ -193,7 +193,9 @@ class Settings(BaseSettings):
     # Minimum cosine similarity for semantic memory injection (0 = disabled).
     memory_min_similarity: float = 0.15
 
-    # Abort hung provider streams after this many seconds (WS chat path).
+    # Abort hung provider streams after this many seconds with no new chunk
+    # (idle timeout). A long healthy reply can exceed this wall-clock total —
+    # only silence between tokens trips it.
     chat_stream_timeout_seconds: int = 180
     # Fail fast when the provider never opens an SSE stream (separate from read timeout).
     chat_stream_connect_timeout_seconds: int = 15
