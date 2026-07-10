@@ -1,6 +1,6 @@
 """Tests for app.services.link_preview with mocked HTTP and SSRF validation."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -13,9 +13,11 @@ _TITLE_HTML = "<html><head><title>Page Title</title></head></html>"
 
 _NO_META_HTML = "<html><head></head><body>Hello</body></html>"
 
+_PIN = ("example.com", "93.184.216.34")
+
 
 def _mock_response(status=200, text="", headers=None):
-    m = AsyncMock()
+    m = MagicMock()
     m.status_code = status
     m.text = text
     m.headers = headers or {}
@@ -31,6 +33,13 @@ def _setup_httpx_mock(mock_client_cls, *responses):
     return client_instance
 
 
+def _resolve_patch():
+    return patch(
+        "app.services.link_preview._resolve_external_host",
+        AsyncMock(return_value=_PIN),
+    )
+
+
 @pytest.mark.asyncio
 async def test_fetch_link_preview_returns_og_tags():
     """OG meta tags should be parsed as title and description."""
@@ -38,15 +47,20 @@ async def test_fetch_link_preview_returns_og_tags():
 
     resp = _mock_response(text=_OG_HTML)
     with (
-        patch("app.services.link_preview._validate_external_url", AsyncMock()),
+        _resolve_patch(),
         patch("app.services.link_preview.httpx.AsyncClient") as mock_client,
     ):
-        _setup_httpx_mock(mock_client, resp)
+        client = _setup_httpx_mock(mock_client, resp)
         result = await fetch_link_preview("https://example.com/page")
 
     assert result["title"] == "OG Title"
     assert result["description"] == "OG Description"
     assert result["domain"] == "example.com"
+    client.get.assert_awaited_once()
+    call = client.get.await_args
+    assert call.args[0] == "https://93.184.216.34/page"
+    assert call.kwargs["headers"]["Host"] == "example.com"
+    assert call.kwargs["extensions"] == {"sni_hostname": "example.com"}
 
 
 @pytest.mark.asyncio
@@ -56,7 +70,7 @@ async def test_fetch_link_preview_fallback_to_title():
 
     resp = _mock_response(text=_TITLE_HTML)
     with (
-        patch("app.services.link_preview._validate_external_url", AsyncMock()),
+        _resolve_patch(),
         patch("app.services.link_preview.httpx.AsyncClient") as mock_client,
     ):
         _setup_httpx_mock(mock_client, resp)
@@ -73,7 +87,7 @@ async def test_fetch_link_preview_handles_http_error():
 
     resp = _mock_response(status=500, text="Server Error")
     with (
-        patch("app.services.link_preview._validate_external_url", AsyncMock()),
+        _resolve_patch(),
         patch("app.services.link_preview.httpx.AsyncClient") as mock_client,
     ):
         _setup_httpx_mock(mock_client, resp)
@@ -90,7 +104,7 @@ async def test_fetch_link_preview_no_meta():
 
     resp = _mock_response(text=_NO_META_HTML)
     with (
-        patch("app.services.link_preview._validate_external_url", AsyncMock()),
+        _resolve_patch(),
         patch("app.services.link_preview.httpx.AsyncClient") as mock_client,
     ):
         _setup_httpx_mock(mock_client, resp)
@@ -154,7 +168,16 @@ async def test_validate_external_url_no_hostname():
     from app.services.link_preview import _validate_external_url
 
     with pytest.raises(ValueError, match="URL has no hostname"):
-        await _validate_external_url("not-a-url")
+        await _validate_external_url("http:///no-host")
+
+
+@pytest.mark.asyncio
+async def test_pin_url_formats_ipv4_and_ipv6():
+    from app.services.link_preview import _pin_url
+
+    assert _pin_url("https://example.com/a?b=1", "1.2.3.4") == "https://1.2.3.4/a?b=1"
+    assert _pin_url("https://example.com:8443/a", "1.2.3.4") == "https://1.2.3.4:8443/a"
+    assert _pin_url("https://example.com/a", "2001:db8::1") == "https://[2001:db8::1]/a"
 
 
 # ── Redirect handling and error path tests ──
@@ -169,7 +192,7 @@ async def test_fetch_link_preview_follows_redirect():
     final_resp = _mock_response(text=_OG_HTML)
 
     with (
-        patch("app.services.link_preview._validate_external_url", AsyncMock()),
+        _resolve_patch(),
         patch("app.services.link_preview.httpx.AsyncClient") as mock_client,
     ):
         _setup_httpx_mock(mock_client, redirect_resp, final_resp)
@@ -181,11 +204,11 @@ async def test_fetch_link_preview_follows_redirect():
 
 @pytest.mark.asyncio
 async def test_fetch_link_preview_blocks_internal_address():
-    """When _validate_external_url raises ValueError, return nulls gracefully."""
+    """When resolve raises ValueError, return nulls gracefully."""
     from app.services.link_preview import fetch_link_preview
 
     with patch(
-        "app.services.link_preview._validate_external_url",
+        "app.services.link_preview._resolve_external_host",
         AsyncMock(side_effect=ValueError("Blocked request to internal/private address")),
     ):
         result = await fetch_link_preview("http://169.254.169.254/metadata")
@@ -204,7 +227,7 @@ async def test_fetch_link_preview_uses_redis_cache(fake_redis):
     resp = _mock_response(text=_OG_HTML)
     with (
         patch("app.services.link_preview.get_redis_client", return_value=fake_redis),
-        patch("app.services.link_preview._validate_external_url", AsyncMock()),
+        _resolve_patch(),
         patch("app.services.link_preview.httpx.AsyncClient") as mock_client,
     ):
         _setup_httpx_mock(mock_client, resp)
