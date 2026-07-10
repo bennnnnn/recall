@@ -474,19 +474,22 @@ async def stream_and_finalize(
                 close = getattr(llm_stream, "aclose", None)
                 if close is not None:
                     await close()
-                latency_ms = (time.perf_counter() - t0) * 1000
-                resolved_for_health = stream_meta.get("model_alias") or requested_model
-                try:
-                    from app.services import model_health as model_health_service
+                # User-initiated stop is not a provider failure — skip the sample
+                # so cancel storms don't poison model-health / fallback routing.
+                if not was_cancelled:
+                    latency_ms = (time.perf_counter() - t0) * 1000
+                    resolved_for_health = stream_meta.get("model_alias") or requested_model
+                    try:
+                        from app.services import model_health as model_health_service
 
-                    await model_health_service.record_sample(
-                        redis,
-                        resolved_for_health,
-                        latency_ms=latency_ms,
-                        success=stream_ok and not was_cancelled,
-                    )
-                except Exception:
-                    logger.debug("model health sample failed", exc_info=True)
+                        await model_health_service.record_sample(
+                            redis,
+                            resolved_for_health,
+                            latency_ms=latency_ms,
+                            success=stream_ok,
+                        )
+                    except Exception:
+                        logger.debug("model health sample failed", exc_info=True)
             resolved = stream_meta.get("model_alias")
             if resolved:
                 ctx.model = resolved
