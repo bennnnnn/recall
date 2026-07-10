@@ -88,17 +88,27 @@ async def list_page(
         anchor = ref.scalar_one_or_none()
         if anchor is None:
             return [], False
+        # Tuple cursor (created_at, id): same-timestamp rows stay stable across pages.
         result = await session.execute(
             select(Message)
-            .where(Message.chat_id == chat_id, Message.created_at < anchor.created_at)
-            .order_by(Message.created_at.desc())
+            .where(
+                Message.chat_id == chat_id,
+                or_(
+                    Message.created_at < anchor.created_at,
+                    and_(
+                        Message.created_at == anchor.created_at,
+                        Message.id < anchor.id,
+                    ),
+                ),
+            )
+            .order_by(Message.created_at.desc(), Message.id.desc())
             .limit(capped + 1)
         )
     else:
         result = await session.execute(
             select(Message)
             .where(Message.chat_id == chat_id)
-            .order_by(Message.created_at.desc())
+            .order_by(Message.created_at.desc(), Message.id.desc())
             .limit(capped + 1)
         )
 
