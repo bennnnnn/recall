@@ -261,7 +261,6 @@ export const MessageBubble = React.memo(function MessageBubble({
     hasMarkdown,
     showSearchSources,
     searchSources,
-    showContextSummarized,
     markdownStreamMode,
     markdownResetKey,
     interactiveQuiz,
@@ -306,16 +305,6 @@ export const MessageBubble = React.memo(function MessageBubble({
                 <RecallTypingIndicator />
                 {statusLabel ? <Text style={b.statusLabel}>{statusLabel}</Text> : null}
               </View>
-            ) : null}
-            {showContextSummarized ? (
-              <Text style={b.contextChip}>
-                {t("chat.context_summarized", { count: message.context_summarized })}
-              </Text>
-            ) : null}
-            {message.fallback_used && message.model ? (
-              <Text style={b.contextChip}>
-                {t("chat.model_fallback", { model: message.model })}
-              </Text>
             ) : null}
             {showImages
               ? images.map((image, index) => (
@@ -432,12 +421,6 @@ function makeStyles(t: Theme) {
     statusLabel: {
       fontSize: 14,
       color: t.textTertiary,
-    },
-    contextChip: {
-      fontSize: 12,
-      lineHeight: 16,
-      color: t.textTertiary,
-      marginBottom: 6,
     },
     actionRowSlot: {
       minHeight: 38,

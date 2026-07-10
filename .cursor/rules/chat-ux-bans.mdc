@@ -26,4 +26,10 @@ When the user says **remove**, leave it removed. Do **not** bring these back in 
 - Do **not** show a horizontal chip row to filter todos by Learning project on the Lists screen.
 - Linking a todo to a project (folder on a row) may remain; the top filter bar must not return.
 
+## 4. No model-fallback / context-summarized chips on assistant messages
+- Do **not** show `chat.model_fallback`, “switched to …”, or “N earlier messages summarized”
+  chips on assistant bubbles.
+- Backend may still send `fallback_used` / `context_summarized` for logging; the **mobile UI
+  must not surface them**.
+
 If a plan or FEATURES item asks for these, **push back and skip** — they are explicitly rejected.
