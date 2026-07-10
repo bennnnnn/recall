@@ -1,6 +1,6 @@
 /** Matches simple "what time is it?" style questions (mirrors backend). */
 const TIME_QUESTION =
-  /^\s*(?:what(?:'s| is) the time(?:\s+now)?|what time is it(?:\s+now)?|tell me the (?:current )?time|current time\??|do you know the time\??|time(?:\s+please)?\??)\s*[.!?]*\s*$/i;
+  /^\s*(?:what(?:'s| is) the time(?:\s+now)?|what time is it(?:\s+now)?|what time(?:\s+now)?|tell me the (?:current )?time|current time\??|do you know the time\??|time(?:\s+please)?\??)\s*[.!?]*\s*$/i;
 
 const TIME_FOLLOWUP =
   /^\s*(?:again|one more time|tell me again|refresh|update(?:\s+it)?)\s*[.!?]*\s*$/i;

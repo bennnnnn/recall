@@ -10,6 +10,7 @@ _TIME_QUESTION = re.compile(
     r"^\s*(?:"
     r"what(?:'s| is) the time(?:\s+now)?"
     r"|what time is it(?:\s+now)?"
+    r"|what time(?:\s+now)?"
     r"|tell me the (?:current )?time"
     r"|current time\??"
     r"|do you know the time\??"
