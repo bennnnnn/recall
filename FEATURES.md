@@ -132,6 +132,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   is embedded and the top matching memories are selected (cosine similarity on stored embeddings;
   falls back to priority ordering when embeddings are missing).
 - ✅ **Memory screen** — view memories grouped by type, with confidence, and **delete** them.
+  Storage is one consolidated row per type (`profile` / `preference` / …); deleting a single
+  fact rewrites that section rather than removing a separate row per bullet.
 - ✅ **Memory toggle** — turn learning on/off in Settings.
 - 🔜 **Structured profile fields** — name/age/country/job as discrete fields (today they're
   free-text memories).
@@ -151,7 +153,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   model supports it (transparent to the app).
 - ✅ **Snappy delivery** — async backend, streaming, virtualized message list; DB connection is
   released during the model stream.
-- 🔜 Response caching, parallelized pre-stream reads, prompt token budgeting UI.
+- ✅ **Parallelized pre-stream reads** — memory, todos, projects, recent titles, and attachment
+  RAG gather on separate short-lived sessions so the prompt path stays concurrent without
+  sharing one `AsyncSession`.
+- 🔜 Response caching, prompt token budgeting UI.
 
 ## 8. Titles / topics
 - ✅ **Auto title** — a concise title is generated after the first exchange (cheap model).
@@ -389,7 +394,8 @@ courses, habits, and anything else that needs structure over time.
 
 ### Phase 4 — More project types
 - ✅ **General knowledge (trivia)** — topic picker, difficulty tiers (easy/medium/hard), scoped
-  quiz chat, daily goal, trivia nudges.
+  quiz chat, daily goal, trivia nudges. Each answered question stores a `project_items` row
+  (reads capped); retention/rollup for very large decks is deferred.
 - 🔜 **Learning (generic)** — lesson notes, spaced repetition beyond vocab, richer AI tutor mode.
 
 Chat + memory + todos + projects share one backend; the LLM orchestrates across them (no keys on
