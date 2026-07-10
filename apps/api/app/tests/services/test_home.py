@@ -136,7 +136,7 @@ def _home_patches(**overrides):
         ),
         patch.object(
             home_service.project_items_repo,
-            "list_for_projects",
+            "list_for_user",
             AsyncMock(return_value=[]),
         ),
     ):
@@ -532,7 +532,7 @@ async def test_build_home_batches_daily_project_stats():
         ),
         patch.object(
             home_service.project_items_repo,
-            "list_for_projects",
+            "list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
