@@ -75,6 +75,11 @@ def utc_today() -> date:
 _USAGE_TTL = 60 * 60 * 48
 
 
+async def _floor_counter(redis: Redis, key: str) -> None:
+    """Clamp a counter to 0 without wiping its TTL (SET alone drops EXPIRE)."""
+    await redis.set(key, 0, keepttl=True)
+
+
 def daily_limit_for_user(user: User, settings: Settings) -> int:
     if user.plan == "pro":
         return settings.daily_token_limit_pro
@@ -149,7 +154,7 @@ async def refund_usage(redis: Redis, user_id: str, amount: int) -> None:
     key = _usage_key(user_id, utc_today())
     new_total = await redis.incrby(key, -amount)
     if new_total < 0:
-        await redis.set(key, 0)
+        await _floor_counter(redis, key)
 
 
 async def adjust_usage(redis: Redis, user_id: str, reserved: int, actual: int) -> int:
@@ -165,7 +170,7 @@ async def record_usage(redis: Redis, user_id: str, tokens: int) -> int:
     if new_total == tokens:
         await redis.expire(key, _USAGE_TTL)
     if new_total < 0:
-        await redis.set(key, 0)
+        await _floor_counter(redis, key)
         new_total = 0
     return new_total
 
@@ -266,7 +271,7 @@ async def refund_speech_transcription(redis: Redis, user_id: UUID) -> None:
     key = _speech_key(user_id, utc_today())
     new_total = await redis.incrby(key, -1)
     if new_total < 0:
-        await redis.set(key, 0)
+        await _floor_counter(redis, key)
 
 
 def _tts_key(user_id: UUID, day: date) -> str:
@@ -296,7 +301,7 @@ async def refund_speech_tts(redis: Redis, user_id: UUID) -> None:
     key = _tts_key(user_id, utc_today())
     new_total = await redis.incrby(key, -1)
     if new_total < 0:
-        await redis.set(key, 0)
+        await _floor_counter(redis, key)
 
 
 def speech_tts_limit_exceeded_message(user: User) -> str:
@@ -365,4 +370,4 @@ async def refund_image_generation(redis: Redis, user_id: UUID) -> None:
     key = _imggen_key(user_id, utc_today())
     new_total = await redis.incrby(key, -1)
     if new_total < 0:
-        await redis.set(key, 0)
+        await _floor_counter(redis, key)

@@ -226,3 +226,12 @@ async def test_allow_request(fake_redis):
     assert await allow_request(fake_redis, "rate:test", limit=2, window_seconds=60) is True
     assert await allow_request(fake_redis, "rate:test", limit=2, window_seconds=60) is True
     assert await allow_request(fake_redis, "rate:test", limit=2, window_seconds=60) is False
+
+
+@pytest.mark.asyncio
+async def test_allow_request_sets_ttl_on_first_hit(fake_redis):
+    assert await allow_request(fake_redis, "rate:ttl", limit=5, window_seconds=90) is True
+    assert await fake_redis.ttl("rate:ttl") == 90
+    assert await allow_request(fake_redis, "rate:ttl", limit=5, window_seconds=90) is True
+    # Subsequent hits must not refresh the window (EXPIRE NX).
+    assert await fake_redis.ttl("rate:ttl") == 90

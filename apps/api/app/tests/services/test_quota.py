@@ -92,6 +92,17 @@ async def test_refund_usage(fake_redis):
 
 
 @pytest.mark.asyncio
+async def test_refund_usage_floor_preserves_ttl(fake_redis):
+    await quota_service.record_usage(fake_redis, "u1", 50)
+    key = quota_service._usage_key("u1", quota_service.utc_today())
+    ttl_before = await fake_redis.ttl(key)
+    assert ttl_before > 0
+    await quota_service.refund_usage(fake_redis, "u1", 100)  # floors at 0
+    assert await quota_service.get_daily_usage(fake_redis, "u1") == 0
+    assert await fake_redis.ttl(key) == ttl_before
+
+
+@pytest.mark.asyncio
 async def test_has_daily_usage_key(fake_redis):
     assert await quota_service.has_daily_usage_key(fake_redis, "u1") is False
     await fake_redis.set("usage:u1:2026-01-01", 100)
