@@ -99,10 +99,19 @@ _TODO_SYNC_TRANSCRIPT = re.compile(
     r"\b("
     r"added (?:to|on)|removed from|marked (?:as )?(?:done|complete)|"
     r"new (?:list|reminder|task)|delete(?:d)? (?:the )?list|delete all|"
+    # Overdue nudge → model says "I'll delete …" (prompted future tense)
+    r"I(?:'ll| will) delete|I deleted|deleting (?:the )?(?:reminder|task|todo)|"
+    r"delete(?:d)? (?:the )?(?:reminder|task|todo|it)|"
+    r"delete it|remove(?:d)? (?:the )?(?:reminder|task|todo)|"
     r"set (?:a )?(?:due|reminder)|moved .+ to tomorrow|"
     r"check(?:ed)? off|uncheck(?:ed)?|groceries|shopping list|"
     r"reminder for|due (?:at|on|tomorrow|today)"
     r")\b",
+    re.IGNORECASE,
+)
+# Bare "Delete" / "Yes" after an overdue nudge — current-turn transcript only.
+_USER_DELETE_TURN = re.compile(
+    r"(?:^|\n)User:\s*delete\.?!?\s*(?:\n|$)",
     re.IGNORECASE,
 )
 _AFFIRMATIVE = re.compile(
@@ -376,6 +385,8 @@ def transcript_implies_todo_sync(transcript: str) -> bool:
     if not text:
         return False
     if _transcript_implies_bulk_shift_to_tomorrow(text):
+        return True
+    if _USER_DELETE_TURN.search(text):
         return True
     return bool(_TODO_SYNC_TRANSCRIPT.search(text))
 

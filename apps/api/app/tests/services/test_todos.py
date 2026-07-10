@@ -465,6 +465,23 @@ def test_transcript_implies_todo_sync():
     assert not todos_service.transcript_implies_todo_sync("User: hello\nAssistant: Hi there!")
 
 
+def test_transcript_implies_todo_sync_overdue_delete():
+    """Bare 'Delete' + future-tense claim must enqueue the todos job."""
+    assert todos_service.transcript_implies_todo_sync(
+        "User: Delete\nAssistant: I'll delete the 'Prosecutor's Soccer Clinic' reminder now."
+    )
+    assert todos_service.transcript_implies_todo_sync(
+        "User: delete it\nAssistant: I'll delete that reminder now."
+    )
+    assert todos_service.transcript_implies_todo_sync(
+        "User: yes\nAssistant: I deleted Pay rent from your reminders."
+    )
+    # Unrelated chat must not fire a todo sync LLM call.
+    assert not todos_service.transcript_implies_todo_sync(
+        "User: how do I delete a file in Python?\nAssistant: Use os.remove."
+    )
+
+
 def test_should_inject_todos_prompt():
     overdue = _item("Late task")
     overdue.due_at = datetime.now(UTC) - timedelta(days=1)
