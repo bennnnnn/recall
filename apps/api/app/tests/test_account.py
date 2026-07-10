@@ -113,6 +113,48 @@ async def test_build_export_structure():
     msg = MagicMock(role="user", content="hi", model=None, created_at=datetime(2024, 1, 1))
     mem = MagicMock(type="fact", text="x", confidence=None, created_at=datetime(2024, 1, 1))
 
+    todo = MagicMock()
+    todo.id = uuid4()
+    todo.content = "buy milk"
+    todo.topic = "General"
+    todo.checked = False
+    todo.due_at = None
+    todo.chat_id = None
+    todo.project_id = None
+    todo.sort_order = 1
+    todo.created_at = datetime(2024, 1, 1)
+    todo.updated_at = datetime(2024, 1, 1)
+
+    project = MagicMock()
+    project.id = uuid4()
+    project.title = "Spanish"
+    project.description = None
+    project.kind = "language"
+    project.target_language = "es"
+    project.native_language = "en"
+    project.level = "level1"
+    project.daily_goal = 5
+    project.archived = False
+    project.created_at = datetime(2024, 1, 1)
+    project.updated_at = datetime(2024, 1, 1)
+
+    item = MagicMock()
+    item.id = uuid4()
+    item.project_id = project.id
+    item.list_title = "General"
+    item.content = "hola"
+    item.note = None
+    item.definition = "hello"
+    item.example_sentence = None
+    item.status = "new"
+    item.mastered = False
+    item.mastered_at = None
+    item.review_count = 0
+    item.quiz_attempts = 0
+    item.quiz_correct = 0
+    item.created_at = datetime(2024, 1, 1)
+    item.updated_at = datetime(2024, 1, 1)
+
     with (
         patch(
             "app.services.export_service.chats_repo.list_for_user",
@@ -126,6 +168,18 @@ async def test_build_export_structure():
             "app.services.export_service.memories_repo.list_range",
             AsyncMock(return_value=[mem]),
         ),
+        patch(
+            "app.services.export_service.todos_repo.list_for_user",
+            AsyncMock(return_value=[todo]),
+        ),
+        patch(
+            "app.services.export_service.projects_repo.list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch(
+            "app.services.export_service.project_items_repo.list_for_projects",
+            AsyncMock(return_value=[item]),
+        ),
     ):
         data = await export_service.build_export(session, user)
 
@@ -133,11 +187,16 @@ async def test_build_export_structure():
     assert len(data["chats"]) == 1
     assert data["chats"][0]["messages"][0]["content"] == "hi"
     assert len(data["memories"]) == 1
+    assert data["todos"][0]["content"] == "buy milk"
+    assert data["projects"][0]["title"] == "Spanish"
+    assert data["projects"][0]["items"][0]["content"] == "hola"
     assert data["export_limits"]["max_chats"] == export_service.EXPORT_MAX_CHATS
     assert (
         data["export_limits"]["max_messages_per_chat"]
         == export_service.EXPORT_MAX_MESSAGES_PER_CHAT
     )
+    assert data["export_limits"]["max_todos"] == export_service.EXPORT_MAX_TODOS
+    assert data["export_limits"]["max_projects"] == export_service.EXPORT_MAX_PROJECTS
 
 
 @pytest.mark.asyncio
@@ -190,6 +249,14 @@ async def test_build_export_pages_messages_per_chat():
             "app.services.export_service.memories_repo.list_range",
             AsyncMock(return_value=[]),
         ),
+        patch(
+            "app.services.export_service.todos_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.export_service.projects_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
     ):
         data = await export_service.build_export(session, user)
 
@@ -227,6 +294,14 @@ async def test_build_export_pages_memories():
         patch(
             "app.services.export_service.memories_repo.list_range",
             AsyncMock(side_effect=list_memories),
+        ),
+        patch(
+            "app.services.export_service.todos_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.export_service.projects_repo.list_for_user",
+            AsyncMock(return_value=[]),
         ),
     ):
         data = await export_service.build_export(session, user)
