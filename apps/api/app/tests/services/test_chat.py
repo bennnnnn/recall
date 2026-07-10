@@ -34,6 +34,20 @@ def _offline_session_patches():
     )
 
 
+def _quiz_message_repo_patches():
+    """New quiz helpers hit the DB; unit tests must stub them off AsyncMock sessions."""
+    return (
+        patch(
+            "app.services.chat.messages_repo.get_last_quiz_assistant",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.chat.messages_repo.count_quiz_letter_answers_since",
+            AsyncMock(return_value=0),
+        ),
+    )
+
+
 @pytest.fixture
 def stream_offline_io():
     """Keep stream_chat_response unit tests off DB/Redis after turn_prep pre-sync."""
@@ -45,6 +59,8 @@ def stream_offline_io():
         stack.enter_context(
             patch("app.services.chat.messages_repo.list_recent", AsyncMock(return_value=[]))
         )
+        for patcher in _quiz_message_repo_patches():
+            stack.enter_context(patcher)
         stack.enter_context(
             patch(
                 "app.services.chat.web_search_service.is_vocab_quiz_answer",
@@ -1720,6 +1736,8 @@ async def test_regenerate_restores_assistant_when_stream_empty():
     with ExitStack() as stack:
         for patcher in _offline_session_patches():
             stack.enter_context(patcher)
+        for patcher in _quiz_message_repo_patches():
+            stack.enter_context(patcher)
         stack.enter_context(
             patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user))
         )
@@ -1870,6 +1888,8 @@ async def test_regenerate_deletes_assistant_before_building_prompt():
     with ExitStack() as stack:
         for patcher in _offline_session_patches():
             stack.enter_context(patcher)
+        for patcher in _quiz_message_repo_patches():
+            stack.enter_context(patcher)
         stack.enter_context(
             patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user))
         )
@@ -1959,6 +1979,8 @@ async def test_regenerate_passes_client_geo_to_web_search():
 
     with ExitStack() as stack:
         for patcher in _offline_session_patches():
+            stack.enter_context(patcher)
+        for patcher in _quiz_message_repo_patches():
             stack.enter_context(patcher)
         stack.enter_context(
             patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user))

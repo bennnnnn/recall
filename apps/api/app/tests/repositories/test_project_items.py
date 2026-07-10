@@ -24,6 +24,7 @@ def _item(
     item.status = status
     item.mastered = mastered
     item.mastered_at = None
+    item.last_incorrect_at = None
     item.created_at = created_at or datetime.now(UTC)
     item.last_reviewed_at = last_reviewed_at
     item.due_at = None

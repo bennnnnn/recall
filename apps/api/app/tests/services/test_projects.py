@@ -66,6 +66,7 @@ def _item(
     item.created_at = datetime.now(UTC)
     item.last_reviewed_at = None
     item.mastered_at = None
+    item.last_incorrect_at = None
     item.review_count = 0
     item.pronunciation_url = None
     return item

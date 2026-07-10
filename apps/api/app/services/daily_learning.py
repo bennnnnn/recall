@@ -50,6 +50,12 @@ def _as_utc(value: datetime) -> datetime:
     return value
 
 
+def _optional_utc(value: object) -> datetime | None:
+    if not isinstance(value, datetime):
+        return None
+    return _as_utc(value)
+
+
 def count_today_vocab_stats(
     items: list,
     *,
@@ -66,17 +72,19 @@ def count_today_vocab_stats(
     pending_today = 0
     for item in items:
         status = item.status or ("mastered" if item.mastered else "new")
-        created = _as_utc(item.created_at)
+        created = _optional_utc(getattr(item, "created_at", None))
+        if created is None:
+            continue
         if status == "mastered":
-            mastered_at = item.mastered_at
+            mastered_at = _optional_utc(getattr(item, "mastered_at", None))
             if mastered_at is not None:
-                if _as_utc(mastered_at) >= start:
+                if mastered_at >= start:
                     mastered_today += 1
             elif created >= start:
                 mastered_today += 1
         else:
-            incorrect_at = getattr(item, "last_incorrect_at", None)
-            if incorrect_at is not None and _as_utc(incorrect_at) >= start:
+            incorrect_at = _optional_utc(getattr(item, "last_incorrect_at", None))
+            if incorrect_at is not None and incorrect_at >= start:
                 missed_today += 1
             elif created >= start:
                 pending_today += 1
