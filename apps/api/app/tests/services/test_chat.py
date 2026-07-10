@@ -2016,17 +2016,17 @@ async def test_regenerate_restores_assistant_when_stream_empty():
             patch("app.services.chat.litellm_gateway.stream_chat_completion", empty_stream)
         )
         stack.enter_context(patch("app.services.chat._restore_regenerate_backup", restore))
-        tokens = [
-            tok
-            async for tok in chat_module.stream_regenerate_response(
+        from app.gateways.litellm_gateway import ModelUnavailableError
+
+        with pytest.raises(ModelUnavailableError, match="isn't responding"):
+            async for _ in chat_module.stream_regenerate_response(
                 AsyncMock(),
                 Settings(max_output_tokens=100),
                 user_id=fake_user.id,
                 chat_id=MagicMock(),
-            )
-        ]
+            ):
+                pass
 
-    assert tokens == []
     restore.assert_awaited_once()
     backup = restore.await_args.args[2]
     assert backup.content == "prior answer"
@@ -2143,15 +2143,16 @@ async def test_regenerate_deletes_assistant_before_building_prompt():
             patch("app.services.chat.litellm_gateway.stream_chat_completion", empty_stream)
         )
         stack.enter_context(patch("app.services.chat._restore_regenerate_backup", AsyncMock()))
-        _ = [
-            tok
-            async for tok in chat_module.stream_regenerate_response(
+        from app.gateways.litellm_gateway import ModelUnavailableError
+
+        with pytest.raises(ModelUnavailableError):
+            async for _ in chat_module.stream_regenerate_response(
                 AsyncMock(),
                 Settings(max_output_tokens=100),
                 user_id=fake_user.id,
                 chat_id=MagicMock(),
-            )
-        ]
+            ):
+                pass
 
     assert order.index("delete") < order.index("build")
 
@@ -2249,16 +2250,19 @@ async def test_regenerate_passes_client_geo_to_web_search():
             patch("app.services.chat.litellm_gateway.stream_chat_completion", empty_stream)
         )
         stack.enter_context(patch("app.services.chat._restore_regenerate_backup", AsyncMock()))
-        async for _ in chat_module.stream_regenerate_response(
-            AsyncMock(),
-            Settings(max_output_tokens=100),
-            user_id=fake_user.id,
-            chat_id=MagicMock(),
-            client_location="San Francisco, CA",
-            client_latitude=37.77,
-            client_longitude=-122.42,
-        ):
-            pass
+        from app.gateways.litellm_gateway import ModelUnavailableError
+
+        with pytest.raises(ModelUnavailableError):
+            async for _ in chat_module.stream_regenerate_response(
+                AsyncMock(),
+                Settings(max_output_tokens=100),
+                user_id=fake_user.id,
+                chat_id=MagicMock(),
+                client_location="San Francisco, CA",
+                client_latitude=37.77,
+                client_longitude=-122.42,
+            ):
+                pass
 
     augment.assert_awaited_once()
     assert augment.await_args.kwargs["latitude"] == 37.77

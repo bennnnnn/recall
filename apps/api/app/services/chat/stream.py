@@ -11,6 +11,7 @@ from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.exceptions import ChatNotFoundError, QuotaExceededError
+from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.orm import User
 from app.services.chat.post_turn import (
     enqueue_post_turn_jobs,
@@ -291,7 +292,10 @@ async def stream_regenerate_response(
         fallback_models=bundle.fallback_models,
         verified_math=bundle.verified_math,
         timing=timing,
-        lightweight_turn=is_lightweight_chat_turn(user_message_content),
+        lightweight_turn=bundle.active_vocab_turn
+        or is_lightweight_chat_turn(
+            user_message_content, active_vocab_turn=bundle.active_vocab_turn
+        ),
     )
 
     try:
@@ -500,14 +504,11 @@ async def stream_and_finalize(
 
         assistant_text = "".join(assistant_parts).strip()
         if not assistant_text:
-            await chat_pkg.quota_service.refund_usage(redis, str(ctx.user_id), ctx.reserved_tokens)
-            if ctx.regenerate_backup is not None:
-                await chat_pkg._restore_regenerate_backup(
-                    ctx.user_id,
-                    ctx.chat_id,
-                    ctx.regenerate_backup,
-                )
-            return
+            # Caller refunds quota / restores regenerate backup on this error.
+            raise ModelUnavailableError(
+                "That model isn't responding right now. Pick a different model and try again.",
+                failed_alias=ctx.model,
+            )
 
         # Enrichment (calendar ids, math fences, sources, …) must never block
         # persistence — the user already saw streamed tokens. On failure, keep

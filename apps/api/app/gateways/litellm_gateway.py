@@ -318,6 +318,7 @@ async def stream_chat_completion(
 
     for index, alias in enumerate(aliases):
         try:
+            produced = False
             async for token in _stream_chat_once(
                 settings=settings,
                 model_alias=alias,
@@ -326,10 +327,19 @@ async def stream_chat_completion(
                 usage=usage,
                 on_reasoning=on_reasoning,
             ):
+                produced = True
                 yield token
-            if stream_meta is not None:
-                stream_meta["model_alias"] = alias
-            return
+            if produced:
+                if stream_meta is not None:
+                    stream_meta["model_alias"] = alias
+                return
+            # Provider closed the stream with zero content tokens (common with
+            # flaky chat models). Treat as unavailable so we try the next alias
+            # instead of leaving the user with a silent orphan turn.
+            raise ModelUnavailableError(
+                _CHAT_MODEL_UNAVAILABLE_MSG,
+                failed_alias=alias,
+            )
         except ModelUnavailableError as exc:
             last_error = exc
             if index < len(aliases) - 1:
