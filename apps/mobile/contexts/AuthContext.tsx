@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { ActivityIndicator, Alert, StyleSheet, View } from "react-native";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 
 import {
   api,
@@ -120,8 +120,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(me);
       void writeCachedUser(me);
     } catch {
-      await clearToken();
-      Alert.alert(i18n.t("login.sign_in_failed"), i18n.t("auth.session_expired"));
+      // 401 already triggers onUnauthorized → signOut before this catch.
+      // Transient failures (offline, 5xx) must not wipe a still-valid session —
+      // same policy as the cached-user path above.
+      setTokenState(stored);
     } finally {
       setLoading(false);
     }
