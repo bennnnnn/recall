@@ -320,12 +320,10 @@ async def test_mock_todo_actions_delete_list():
     assert result.actions[0].action == "delete_list"
 
 
-def test_mock_llm_infer_list_title_and_pos():
-    from app.gateways.mock_llm import _guess_part_of_speech, _infer_list_title
+def test_mock_llm_infer_list_title():
+    from app.gateways.mock_llm import _infer_list_title
 
     assert _infer_list_title("add to my travel list") == "My Travel"
-    assert _guess_part_of_speech("quickly") == "adverb"
-    assert _guess_part_of_speech("run") == "verb"
 
 
 @pytest.mark.asyncio

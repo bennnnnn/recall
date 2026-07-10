@@ -90,6 +90,8 @@ function DayCell({
   const partial = day.status === "partial";
   const skipped = day.status === "skipped";
   const inProgressToday = day.status === "today";
+  const todayPartial =
+    inProgressToday && day.mastered_count > 0 && !day.goal_met;
 
   return (
     <Pressable
@@ -108,15 +110,16 @@ function DayCell({
           inactive && s.inactiveDot,
           complete && s.completeDot,
           partial && s.partialDot,
+          todayPartial && s.partialDot,
           skipped && s.skippedDot,
-          inProgressToday && s.todayDot,
-          isToday && !complete && s.todayRing,
+          inProgressToday && !todayPartial && s.todayDot,
+          isToday && !complete && !todayPartial && s.todayRing,
           selected && s.dotSelected,
         ]}
       >
         {inactive ? null : complete ? (
           <Ionicons name="checkmark" size={14} color={theme.onPrimary} />
-        ) : partial ? (
+        ) : partial || todayPartial ? (
           <Text style={s.partialText}>{day.mastered_count}</Text>
         ) : skipped ? (
           <Ionicons name="remove" size={14} color={theme.textTertiary} />

@@ -5,7 +5,6 @@ import { useTranslation } from "react-i18next";
 import { Theme, useTheme } from "@/lib/theme";
 import type { ParsedVocabCard } from "@/lib/parseVocabCard";
 import { cleanQuizWord } from "@/lib/parseVocabQuiz";
-import { partOfSpeechLabel } from "@/lib/languageLevels";
 import { speakWord } from "@/lib/pronunciation";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -32,9 +31,6 @@ export function VocabCard({ card, language = "en" }: Props) {
     <View style={s.card} accessibilityRole="summary">
       <View style={s.header}>
         <Text style={s.word}>{word}</Text>
-        {card.partOfSpeech ? (
-          <Text style={s.pos}>{partOfSpeechLabel(card.partOfSpeech)}</Text>
-        ) : null}
         <Pressable
           onPress={handleSpeak}
           style={s.speakBtn}
@@ -73,11 +69,6 @@ function makeStyles(t: Theme) {
       fontSize: 20,
       fontWeight: "700",
       color: t.text,
-    },
-    pos: {
-      fontSize: 13,
-      color: t.textSecondary,
-      textTransform: "capitalize",
     },
     speakBtn: {
       marginLeft: "auto",

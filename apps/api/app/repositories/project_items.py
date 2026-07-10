@@ -11,44 +11,6 @@ from app.models.orm import ProjectItem
 DEFAULT_LIST = "General"
 REVIEW_INTERVAL = timedelta(hours=24)  # legacy fallback when due_at is unset
 
-POS_PLURAL: dict[str, str] = {
-    "noun": "nouns",
-    "verb": "verbs",
-    "adjective": "adjectives",
-    "adverb": "adverbs",
-    "pronoun": "pronouns",
-    "preposition": "prepositions",
-    "conjunction": "conjunctions",
-    "interjection": "interjections",
-    "phrase": "phrases",
-    "other": "other",
-}
-
-POS_SINGULAR: dict[str, str] = {v: k for k, v in POS_PLURAL.items()}
-POS_SINGULAR["others"] = "other"
-
-
-def pos_list_title(part_of_speech: str | None) -> str:
-    pos = (part_of_speech or "other").lower().strip()
-    if pos in POS_PLURAL:
-        return POS_PLURAL[pos]
-    if pos in POS_SINGULAR:
-        return POS_PLURAL[POS_SINGULAR[pos]]
-    if pos.endswith("s"):
-        return pos
-    return f"{pos}s"
-
-
-def normalize_pos_key(part_of_speech: str | None) -> str:
-    pos = (part_of_speech or "other").lower().strip()
-    if pos in POS_PLURAL:
-        return pos
-    return POS_SINGULAR.get(pos, pos)
-
-
-# Every stored part_of_speech string that normalizes to each canonical key.
-# Used when aligning list_title with part_of_speech for language vocab decks.
-
 
 def _item_status_label(item: ProjectItem) -> str:
     if item.status:
@@ -77,7 +39,6 @@ async def list_for_user(
     elif project_ids:
         stmt = stmt.where(ProjectItem.project_id.in_(project_ids))
     stmt = stmt.order_by(
-        ProjectItem.part_of_speech.asc().nullslast(),
         ProjectItem.list_title.asc(),
         ProjectItem.status.asc(),
         ProjectItem.created_at.desc(),
@@ -173,9 +134,19 @@ def stats_from_items(
             created = created.replace(tzinfo=UTC)
         if created >= week_ago:
             stats["added_this_week"] += 1
-        if _is_due(item, due_cutoff):
-            stats["due_for_review"] += 1
-
+        if status == "learning":
+            due_at = item.due_at
+            if due_at is None:
+                last = item.last_reviewed_at or item.created_at
+                if last and last.tzinfo is None:
+                    last = last.replace(tzinfo=UTC)
+                if last and last <= due_cutoff:
+                    stats["due_for_review"] += 1
+            elif due_at.tzinfo is None:
+                if due_at.replace(tzinfo=UTC) <= now:
+                    stats["due_for_review"] += 1
+            elif due_at <= now:
+                stats["due_for_review"] += 1
     from app.services.daily_learning import count_today_vocab_stats, last_mastery_at
 
     mastered_today, pending_today = count_today_vocab_stats(items, timezone_name=timezone_name)
@@ -183,46 +154,6 @@ def stats_from_items(
     stats["pending_today"] = pending_today
     stats["last_mastery_at"] = last_mastery_at(items)
     return stats
-
-
-def _is_due(item: ProjectItem, due_cutoff: datetime) -> bool:
-    status = item.status or ("mastered" if item.mastered else "new")
-    now = datetime.now(UTC)
-    due_at = getattr(item, "due_at", None)
-    if isinstance(due_at, datetime):
-        if due_at.tzinfo is None:
-            due_at = due_at.replace(tzinfo=UTC)
-        return due_at <= now
-    if status == "new":
-        return True
-    if status == "learning":
-        if item.last_reviewed_at is None:
-            return True
-        reviewed = item.last_reviewed_at
-        if reviewed.tzinfo is None:
-            reviewed = reviewed.replace(tzinfo=UTC)
-        return reviewed <= due_cutoff
-    return False
-
-
-async def normalize_pos_list_titles(
-    session: AsyncSession,
-    user_id: UUID,
-    project_id: UUID,
-) -> int:
-    """Align list_title with part_of_speech (nouns, verbs, …) for language vocab."""
-    items = await list_for_user(session, user_id, project_id=project_id, limit=5000)
-    changed = 0
-    for item in items:
-        if not item.part_of_speech:
-            continue
-        expected = pos_list_title(item.part_of_speech)
-        if (item.list_title or DEFAULT_LIST).strip().lower() != expected:
-            item.list_title = expected
-            changed += 1
-    if changed:
-        await session.commit()
-    return changed
 
 
 async def list_by_activity_date(
@@ -235,16 +166,13 @@ async def list_by_activity_date(
     limit: int = 50,
     offset: int = 0,
 ) -> list[ProjectItem]:
-    """Mastered items whose mastery falls on one local calendar day."""
     from app.services.daily_learning import day_bounds_utc
 
     start, end = day_bounds_utc(activity_date, timezone_name)
-    mastered = or_(ProjectItem.status == "mastered", ProjectItem.mastered.is_(True))
+    mastered = ProjectItem.mastered.is_(True)
     in_window = or_(
-        (ProjectItem.mastered_at >= start) & (ProjectItem.mastered_at < end),
-        (ProjectItem.mastered_at.is_(None))
-        & (ProjectItem.created_at >= start)
-        & (ProjectItem.created_at < end),
+        ProjectItem.mastered_at >= start,
+        ProjectItem.mastered_at < end,
     )
     stmt = (
         select(ProjectItem)
@@ -271,18 +199,13 @@ async def create(
     note: str | None = None,
     definition: str | None = None,
     example_sentence: str | None = None,
-    part_of_speech: str | None = None,
     chat_id: UUID | None = None,
     status: str = "new",
 ) -> ProjectItem:
-    pos = (part_of_speech or "").strip().lower() or None
-    if pos:
-        normalized_list = pos_list_title(pos)
-    else:
-        normalized_list = list_title.strip() or DEFAULT_LIST
+    normalized_list = list_title.strip() or DEFAULT_LIST
     example = (example_sentence or note or "").strip() or None
     pronunciation: str | None = None
-    if pos and content.strip():
+    if content.strip():
         from app.gateways.pronunciation_lookup import lookup_pronunciation_url
 
         pronunciation = await lookup_pronunciation_url(content)
@@ -294,7 +217,6 @@ async def create(
         note=example,
         definition=(definition or "").strip() or None,
         example_sentence=example,
-        part_of_speech=pos,
         chat_id=chat_id,
         status=status,
         mastered=status == "mastered",
@@ -358,8 +280,6 @@ async def update(session: AsyncSession, item: ProjectItem, **fields: Any) -> Pro
         if hasattr(item, key):
             if key == "list_title" and isinstance(value, str):
                 value = value.strip() or DEFAULT_LIST
-            if key == "part_of_speech" and isinstance(value, str):
-                value = value.strip().lower() or None
             setattr(item, key, value)
     if "status" in fields:
         new_status = str(fields["status"])

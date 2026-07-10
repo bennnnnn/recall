@@ -20,9 +20,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProjects } from "@/contexts/ProjectsContext";
 import { StateView } from "@/components/StateView";
 import { LearningProjectCard } from "@/components/projects/LearningProjectCard";
-import { TriviaTopicsPickerModal } from "@/components/projects/TriviaTopicsPickerModal";
-import { SettingsPickerModal } from "@/components/settings/SettingsPickerModal";
-import { makeSettingsStyles } from "@/components/settings/settingsUi";
 import { api, type LanguageLevel, type Project, type ProjectKind } from "@/lib/api";
 import {
   dailyGoalPickerOptions,
@@ -32,15 +29,15 @@ import {
   VOCAB_DAILY_GOALS,
   type VocabDailyGoal,
 } from "@/lib/dailyGoals";
-import { LANGUAGE_LEVELS, levelLabel, levelPickerOptions } from "@/lib/languageLevels";
+import { isLanguageProject, LANGUAGE_LEVELS, levelLabel } from "@/lib/languageLevels";
 import { findLanguageProject } from "@/lib/languageProject";
 import { queueChatLaunch } from "@/lib/chatLaunch";
 import {
-  invalidateProjectDetail,
-} from "@/lib/projectDetailCache";
-import {
   buildEnglishOnboardingPrompt,
+  buildProjectAskPromptFromProject,
+  buildProjectReviewPrompt,
   buildTriviaOnboardingPrompt,
+  projectDetailForChat,
 } from "@/lib/projectChat";
 import {
   canAddLearningProject,
@@ -53,18 +50,14 @@ import { isTriviaProject } from "@/lib/projectUi";
 import {
   encodeTriviaTopics,
   formatTriviaTopicLabels,
+  formatTriviaTopicsChip,
   TRIVIA_TOPICS,
   TRIVIA_DIFFICULTY_LEVELS,
   triviaDifficultyLabel,
-  triviaDifficultyPickerOptions,
   parseTriviaTopics,
   type TriviaTopicId,
 } from "@/lib/triviaTopics";
 import { Theme, useTheme } from "@/lib/theme";
-
-type PickerTarget =
-  | { mode: "daily"; project: Project; kind: "language" | "trivia" }
-  | { mode: "level"; project: Project; kind: "language" | "trivia" };
 
 const SUBJECTS: ProjectKind[] = ["language", "trivia"];
 
@@ -79,14 +72,9 @@ export default function ProjectsScreen() {
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
-  const settingsStyles = useMemo(() => makeSettingsStyles(C), [C]);
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { projects, loading, error, refresh, setProjects } = useProjects();
-  const [saving, setSaving] = useState(false);
-  const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
-  const [topicsProject, setTopicsProject] = useState<Project | null>(null);
-  const [topicsDraft, setTopicsDraft] = useState<TriviaTopicId[]>([]);
   const visibleProjects = useMemo(
     () => projects.filter((project) => project.kind !== "programming"),
     [projects],
@@ -116,108 +104,38 @@ export default function ProjectsScreen() {
     setCreating(false);
   };
 
-  const saveDailyGoal = async (project: Project, nextGoal: number) => {
-    if (!token || saving) return;
-    setSaving(true);
-    try {
-      const updated = await api.updateProject(token, project.id, { daily_goal: nextGoal });
-      setProjects((prev) =>
-        prev.map((row) =>
-          row.id === updated.id ? { ...updated, stats: row.stats } : row,
-        ),
-      );
-      invalidateProjectDetail(project.id);
-      void refresh({ silent: true, force: true });
-    } catch {
-      Alert.alert(t("common.error"), t("settings.learning.save_failed"));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const saveLevel = async (project: Project, level: LanguageLevel, kind: "language" | "trivia") => {
-    if (!token || saving) return;
-    setSaving(true);
-    try {
-      const patch =
-        kind === "language"
-          ? { level, title: englishProjectTitle(level, t) }
-          : { level };
-      const updated = await api.updateProject(token, project.id, patch);
-      setProjects((prev) =>
-        prev.map((row) =>
-          row.id === updated.id ? { ...updated, stats: row.stats } : row,
-        ),
-      );
-      invalidateProjectDetail(project.id);
-      void refresh({ silent: true, force: true });
-    } catch {
-      Alert.alert(t("common.error"), t("settings.learning.save_failed"));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const saveTopics = async () => {
-    if (!token || !topicsProject || saving || topicsDraft.length === 0) return;
-    setSaving(true);
-    try {
-      const updated = await api.updateProject(token, topicsProject.id, {
-        description: encodeTriviaTopics(topicsDraft),
-      });
-      setProjects((prev) =>
-        prev.map((row) =>
-          row.id === updated.id ? { ...updated, stats: row.stats } : row,
-        ),
-      );
-      invalidateProjectDetail(topicsProject.id);
-      void refresh({ silent: true, force: true });
-      setTopicsProject(null);
-    } catch {
-      Alert.alert(t("common.error"), t("settings.learning.save_failed"));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const toggleTopicsDraft = (id: TriviaTopicId) => {
-    setTopicsDraft((prev) => {
-      if (prev.includes(id)) {
-        const next = prev.filter((topic) => topic !== id);
-        return next.length > 0 ? next : prev;
-      }
-      return [...prev, id];
-    });
-  };
-
-  const pickerTitle =
-    pickerTarget?.mode === "level"
-      ? pickerTarget.kind === "trivia"
-        ? t("projects.trivia.difficulty_label")
-        : t("settings.learning.level_picker_title")
-      : pickerTarget?.kind === "trivia"
-        ? t("settings.learning.questions_picker_title")
-        : t("settings.learning.words_picker_title");
-
-  const pickerOptions =
-    pickerTarget?.mode === "level"
-      ? pickerTarget.kind === "trivia"
-        ? triviaDifficultyPickerOptions(t)
-        : levelPickerOptions()
-      : pickerTarget
-        ? dailyGoalPickerOptions(pickerTarget.kind, t)
-        : [];
-
-  const pickerSelectedKey =
-    pickerTarget?.mode === "level"
-      ? pickerTarget.project.level
-      : pickerTarget
-        ? String(resolveDailyGoal(pickerTarget.project.daily_goal))
-        : String(resolveDailyGoal(null));
-
   const openCreate = () => {
     resetCreate();
     setCreateStep("subject");
+  };
+
+  const startStudyForProject = (project: Project) => {
+    const isTrivia = isTriviaProject(project.kind);
+    const isLang = isLanguageProject(project.kind);
+    const variant = isTrivia ? "trivia" : isLang ? "vocab" : undefined;
+    queueChatLaunch(
+      buildProjectAskPromptFromProject(project, t),
+      project.id,
+      isLang ? "en" : undefined,
+      variant,
+      "chat",
+    );
+    router.replace("/");
+  };
+
+  const startReviewForProject = (project: Project) => {
+    const detail = projectDetailForChat(project);
+    const isTrivia = isTriviaProject(project.kind);
+    const isLang = isLanguageProject(project.kind);
+    const variant = isTrivia ? "trivia" : isLang ? "vocab" : undefined;
+    queueChatLaunch(
+      buildProjectReviewPrompt(detail),
+      project.id,
+      isLang ? "en" : undefined,
+      variant,
+      "chat",
+    );
+    router.replace("/");
   };
 
   const selectSubject = (next: ProjectKind) => {
@@ -544,7 +462,7 @@ export default function ProjectsScreen() {
                 : levelLabel(project.level);
               const dailyValue = formatDailyGoalShort(resolveDailyGoal(project.daily_goal));
               const topicIds = parseTriviaTopics(project.description);
-              const topicsValue = t("projects.list.topics_value", { count: topicIds.length });
+              const topicsChip = isTrivia ? formatTriviaTopicsChip(topicIds, t) : undefined;
               return (
                 <LearningProjectCard
                   key={project.id}
@@ -552,71 +470,16 @@ export default function ProjectsScreen() {
                   icon={kindIcon(project.kind)}
                   levelLabel={levelValue}
                   dailyLabel={dailyValue}
-                  topicsLabel={isTrivia ? topicsValue : undefined}
-                  saving={saving}
+                  topicsChip={topicsChip}
                   onOpen={() => router.push(`/projects/${project.id}`)}
-                  onLevelPress={() =>
-                    setPickerTarget({
-                      mode: "level",
-                      project,
-                      kind: isTrivia ? "trivia" : "language",
-                    })
-                  }
-                  onDailyPress={() =>
-                    setPickerTarget({
-                      mode: "daily",
-                      project,
-                      kind: isTrivia ? "trivia" : "language",
-                    })
-                  }
-                  onTopicsPress={
-                    isTrivia
-                      ? () => {
-                          setTopicsDraft(
-                            topicIds.length > 0
-                              ? (topicIds as TriviaTopicId[])
-                              : ["history", "science"],
-                          );
-                          setTopicsProject(project);
-                        }
-                      : undefined
-                  }
+                  onStudy={() => startStudyForProject(project)}
+                  onReview={() => startReviewForProject(project)}
                 />
               );
             })
           )}
         </ScrollView>
       )}
-
-      <SettingsPickerModal
-        visible={pickerTarget != null}
-        title={pickerTitle}
-        options={pickerOptions}
-        selectedKey={pickerSelectedKey}
-        onClose={() => setPickerTarget(null)}
-        onSelect={(key) => {
-          if (!pickerTarget) return;
-          if (pickerTarget.mode === "level") {
-            void saveLevel(pickerTarget.project, key as LanguageLevel, pickerTarget.kind);
-            return;
-          }
-          const nextGoal = Number(key);
-          if (!Number.isFinite(nextGoal)) return;
-          void saveDailyGoal(pickerTarget.project, nextGoal);
-        }}
-        disabled={saving}
-        styles={settingsStyles}
-        theme={C}
-      />
-
-      <TriviaTopicsPickerModal
-        visible={topicsProject != null}
-        selected={topicsDraft}
-        saving={saving}
-        onClose={() => setTopicsProject(null)}
-        onDone={() => void saveTopics()}
-        onToggle={toggleTopicsDraft}
-      />
 
       <Modal
         visible={createStep !== null}

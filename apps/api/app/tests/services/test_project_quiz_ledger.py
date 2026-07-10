@@ -7,7 +7,7 @@ from app.services import projects as projects_service
 
 VOCAB_FENCE = (
     "```vocab_quiz\n"
-    '{"word":"apple","part_of_speech":"noun","question":"What does it mean?",'
+    '{"word":"apple","question":"What does it mean?",'
     '"correct":"A",'
     '"choices":[{"letter":"A","text":"fruit"},{"letter":"B","text":"car"}]}\n'
     "```"
@@ -34,8 +34,7 @@ async def test_apply_deterministic_quiz_answer_records_wrong_vocab_as_learning()
         user_id=user_id,
         project_id=project_id,
         content="apple",
-        list_title="nouns",
-        part_of_speech="noun",
+        list_title="General",
         status="learning",
         quiz_attempts=1,
         quiz_correct=0,
@@ -58,7 +57,7 @@ async def test_apply_deterministic_quiz_answer_records_wrong_vocab_as_learning()
             new=AsyncMock(return_value=existing),
         ) as apply_mock,
     ):
-        applied = await projects_service.apply_deterministic_quiz_answer(
+        grade = await projects_service.apply_deterministic_quiz_answer(
             session,
             user_id=user_id,
             chat_id=uuid.uuid4(),
@@ -67,6 +66,7 @@ async def test_apply_deterministic_quiz_answer_records_wrong_vocab_as_learning()
             user_answer="B",
         )
 
-    assert applied is True
+    assert grade is not None
+    assert grade.is_correct is False
     apply_mock.assert_awaited_once()
     assert apply_mock.await_args.kwargs["is_correct"] is False

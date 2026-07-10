@@ -26,6 +26,7 @@ from app.services.chat.turn_timing import TurnTimingTracker
 from app.services.context_window import estimate_tokens
 from app.services.math_tools import VerifiedMathBlock
 from app.services.prompt_safety import wrap_untrusted
+from app.services.vocab_quiz import QuizAnswerGrade
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +102,9 @@ class TurnPromptBundle:
     max_out: int
     fallback_models: list[str]
     minimal_quiz: bool
+    minimal_vocab_answer: bool
+    active_vocab_turn: bool
+    quiz_grade: QuizAnswerGrade | None
     geo: ClientGeoContext
     local_tz: str
     verified_math: VerifiedMathBlock | None = None
@@ -247,14 +251,17 @@ async def build_stream_prompt_context(
     user: User | None = None,
     chat: Chat | None = None,
     timing: TurnTimingTracker | None = None,
+    quiz_grade: QuizAnswerGrade | None = None,
 ) -> TurnPromptBundle:
     """Shared prompt assembly for new turns and regenerate."""
     import app.services.chat as chat_pkg
 
     meta: dict[str, Any] = {}
-    lightweight = is_lightweight_chat_turn(content)
+    lightweight = False
     minimal_personal = is_broad_self_question(content)
     minimal_quiz = False
+    minimal_vocab_answer = False
+    active_vocab_turn = False
     day_planning = day_planning_service.is_day_planning_question(content)
     day_reflection = day_planning_service.is_day_reflection_question(content)
 
@@ -283,6 +290,26 @@ async def build_stream_prompt_context(
         if getattr(chat, "quiz_mode", None) == "exam":
             minimal_quiz = False
 
+        prior_assistant = await chat_pkg.messages_repo.get_last_assistant(session, chat.id)
+        if (
+            chat.project_id is not None
+            and prior_assistant is not None
+            and projects_service.looks_like_vocab_question(prior_assistant.content)
+        ):
+            active_vocab_turn = True
+            from app.services import vocab_quiz as vocab_quiz_service
+
+            has_letter = vocab_quiz_service.quiz_answer_letter(content) is not None
+            has_fence = vocab_quiz_service.parse_vocab_quiz(prior_assistant.content) is not None
+            if has_letter and has_fence:
+                minimal_quiz = True
+            elif not minimal_quiz and has_letter:
+                minimal_vocab_answer = True
+            elif not minimal_quiz and not has_letter:
+                minimal_vocab_answer = True
+
+        lightweight = is_lightweight_chat_turn(content, active_vocab_turn=active_vocab_turn)
+
         user_locale = user.locale
         chat_summary = chat.summary
         geo = resolve_client_geo(
@@ -308,6 +335,8 @@ async def build_stream_prompt_context(
             query_text=content,
             minimal_personal_context=minimal_personal,
             minimal_quiz_context=minimal_quiz,
+            minimal_vocab_answer_context=minimal_vocab_answer,
+            quiz_grade=quiz_grade,
             client_timezone=client_timezone,
             prompt_location=geo.user_location if geo.geo_query and geo.has_geo_fix else None,
             todo_sync_feedback=todo_sync_feedback,
@@ -477,6 +506,9 @@ async def build_stream_prompt_context(
         max_out=max_out,
         fallback_models=fallback_models,
         minimal_quiz=minimal_quiz,
+        minimal_vocab_answer=minimal_vocab_answer,
+        active_vocab_turn=active_vocab_turn,
+        quiz_grade=quiz_grade,
         geo=geo,
         local_tz=local_tz,
         verified_math=verified_math,
@@ -629,11 +661,12 @@ async def prepare_chat_turn(
             input_tokens=estimate_tokens(user_content),
         )
         is_letter_answer = web_search_service.is_vocab_quiz_answer(content)
+        quiz_grade: QuizAnswerGrade | None = None
         if is_letter_answer and chat.project_id is not None:
             prior_assistant = await chat_pkg.messages_repo.get_last_assistant(session, chat_id)
             if prior_assistant is not None:
                 try:
-                    await projects_service.apply_deterministic_quiz_answer(
+                    quiz_grade = await projects_service.apply_deterministic_quiz_answer(
                         session,
                         user_id=user.id,
                         chat_id=chat_id,
@@ -695,6 +728,7 @@ async def prepare_chat_turn(
         user=user,
         chat=chat,
         timing=timing,
+        quiz_grade=quiz_grade,
     )
 
     prompt_messages = bundle.prompt_messages
@@ -724,11 +758,12 @@ async def prepare_chat_turn(
         instant_reply=bundle.instant_reply,
         search_sources=bundle.search_sources,
         local_places=bundle.local_places,
-        skip_memory_jobs=bundle.minimal_quiz,
+        skip_memory_jobs=bundle.minimal_quiz or bundle.minimal_vocab_answer,
         prior_count=prior_count,
         chat_project_id=chat_project_id,
         fallback_models=bundle.fallback_models,
         verified_math=bundle.verified_math,
         timing=timing,
-        lightweight_turn=is_lightweight_chat_turn(content),
+        lightweight_turn=bundle.active_vocab_turn
+        or is_lightweight_chat_turn(content, active_vocab_turn=bundle.active_vocab_turn),
     )

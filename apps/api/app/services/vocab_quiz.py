@@ -10,6 +10,11 @@ VOCAB_QUIZ_FENCE_RE = re.compile(r"```vocab_quiz\s*\n([\s\S]*?)```", re.IGNORECA
 VOCAB_SESSION_JSON_FENCE_RE = re.compile(r"```json\s*\n([\s\S]*?)```", re.IGNORECASE)
 VOCAB_SESSION_JSON_PARTIAL_RE = re.compile(r"```json[\s\S]*$", re.IGNORECASE)
 QUIZ_ANSWER_RE = re.compile(r"^([A-D])\.?$", re.IGNORECASE)
+QUIZ_ANSWER_LOOSE_RE = re.compile(
+    r"(?:^|\b)(?:is\s+it\s+|option\s+|answer\s+is\s+|i\s+(?:think|say|choose|pick)\s+)?([A-D])\b",
+    re.IGNORECASE,
+)
+MAX_LOOSE_QUIZ_ANSWER_LEN = 48
 
 _SESSION_METADATA_KEYS = frozenset(
     {
@@ -26,15 +31,34 @@ _SESSION_METADATA_KEYS = frozenset(
 @dataclass(frozen=True)
 class ParsedVocabQuiz:
     word: str
-    part_of_speech: str | None
     question: str | None
     correct: str | None
     quiz_type: str | None
 
 
+@dataclass(frozen=True)
+class QuizAnswerGrade:
+    is_correct: bool
+    user_letter: str
+    correct_letter: str
+    word: str
+
+
 def quiz_answer_letter(text: str) -> str | None:
-    match = QUIZ_ANSWER_RE.match(text.strip())
-    return match.group(1).upper() if match else None
+    stripped = text.strip()
+    strict = QUIZ_ANSWER_RE.match(stripped)
+    if strict:
+        return strict.group(1).upper()
+    if len(stripped) > MAX_LOOSE_QUIZ_ANSWER_LEN:
+        return None
+    loose = QUIZ_ANSWER_LOOSE_RE.search(stripped)
+    if loose:
+        return loose.group(1).upper()
+    return None
+
+
+def is_vocab_quiz_answer(text: str) -> bool:
+    return quiz_answer_letter(text) is not None
 
 
 def _clean_word(raw: str) -> str:
@@ -102,13 +126,8 @@ def parse_vocab_quiz(content: str) -> ParsedVocabQuiz | None:
         return None
     correct = correct_raw
 
-    pos = str(data.get("part_of_speech") or "").strip() or None
-    if quiz_type == "trivia":
-        pos = None
-
     return ParsedVocabQuiz(
         word=word or (question or "")[:80],
-        part_of_speech=pos,
         question=question,
         correct=correct,
         quiz_type=quiz_type,

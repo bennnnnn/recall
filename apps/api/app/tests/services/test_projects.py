@@ -52,7 +52,6 @@ def _item(
     project_id,
     list_title: str = "Travel",
     mastered: bool = False,
-    part_of_speech: str = "noun",
 ):
     item = MagicMock()
     item.id = uuid4()
@@ -62,7 +61,6 @@ def _item(
     item.note = None
     item.definition = f"definition of {content}"
     item.example_sentence = None
-    item.part_of_speech = part_of_speech
     item.status = "mastered" if mastered else "new"
     item.mastered = mastered
     item.created_at = datetime.now(UTC)
@@ -91,7 +89,7 @@ def test_format_projects_block_groups_lists():
     block = projects_service.format_projects_block([project], [item_a, item_b])
     assert "### Learning English (language, level1)" in block
     assert "1/2 mastered" in block
-    assert "#### Nouns" in block
+    assert "#### Travel" in block
     assert "○ hello" in block
     assert "✓ goodbye" in block
 
@@ -713,6 +711,16 @@ def test_build_language_quiz_prompt_includes_vocab_quiz_fence():
     assert "Daily Quiz panel" not in prompt
 
 
+def test_looks_like_vocab_question():
+    teach = (
+        "**Ephemeral**\n"
+        "lasting for a very short time.\n"
+        "What does **ephemeral** mean?"
+    )
+    assert projects_service.looks_like_vocab_question(teach) is True
+    assert projects_service.looks_like_vocab_question("Hello! How can I help?") is False
+
+
 @pytest.mark.asyncio
 async def test_load_project_quiz_context():
     session = AsyncMock()
@@ -778,15 +786,6 @@ def test_group_items_and_build_stats():
     assert stats.new_count == 1
 
 
-def test_group_by_part_of_speech_orders_known_pos_first():
-    project_id = uuid4()
-    verb = _item("run", project_id, part_of_speech="verb")
-    noun = _item("book", project_id, part_of_speech="noun")
-    groups = projects_service.group_by_part_of_speech([verb, noun])
-    assert groups[0].part_of_speech == "noun"
-    assert groups[1].part_of_speech == "verb"
-
-
 def test_format_projects_block_programming_stack():
     project = _project("Python basics", kind="programming")
     project.target_language = "python"
@@ -808,6 +807,51 @@ def test_build_language_quiz_prompt_empty_progress():
     stats = projects_service.build_stats([])
     prompt = projects_service.build_language_quiz_prompt(project, stats)
     assert "no words yet" in prompt.lower()
+
+
+@pytest.mark.asyncio
+async def test_apply_project_actions_skips_master_after_recent_miss():
+    from datetime import UTC, datetime
+
+    session = AsyncMock()
+    user_id = uuid4()
+    project = _project("English")
+    existing = _item("luminous", project.id)
+    existing.status = "learning"
+    existing.last_incorrect_at = datetime.now(UTC)
+
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_for_user",
+            AsyncMock(return_value=[existing]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "update",
+            AsyncMock(return_value=existing),
+        ) as update_mock,
+    ):
+        applied = await projects_service.apply_project_actions(
+            session,
+            user_id=user_id,
+            actions=[
+                ProjectActionItem(
+                    action="master",
+                    project_title=project.title,
+                    list_title="General",
+                    content="luminous",
+                )
+            ],
+        )
+
+    assert applied == 0
+    update_mock.assert_not_awaited()
 
 
 @pytest.mark.asyncio

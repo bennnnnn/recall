@@ -39,6 +39,17 @@ export function formatTriviaTopicLabels(
   return topicIds.map((id) => triviaTopicLabel(id, t)).join(", ");
 }
 
+/** Compact chip label for list cards: "History, Science +2". */
+export function formatTriviaTopicsChip(
+  topicIds: string[],
+  t: (key: string) => string,
+): string {
+  if (topicIds.length === 0) return t("projects.list.topics_none");
+  const labels = topicIds.map((id) => triviaTopicLabel(id, t));
+  if (labels.length <= 2) return labels.join(", ");
+  return `${labels[0]}, ${labels[1]} +${labels.length - 2}`;
+}
+
 export const TRIVIA_DIFFICULTY_LEVELS: { level: LanguageLevel; labelKey: string }[] = [
   { level: "level1", labelKey: "projects.trivia.difficulty.easy" },
   { level: "level3", labelKey: "projects.trivia.difficulty.medium" },

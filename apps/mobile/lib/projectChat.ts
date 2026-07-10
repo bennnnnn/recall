@@ -1,7 +1,38 @@
-import type { HomeProjectHighlight, LanguageLevel, ProjectDetail } from "@/lib/api";
+import type { HomeProjectHighlight, LanguageLevel, Project, ProjectDetail, ProjectStats } from "@/lib/api";
 import { resolveDailyGoal } from "@/lib/dailyGoals";
 import { isLanguageProject, levelLabel } from "@/lib/languageLevels";
+import { learningProjectTitle } from "@/lib/projectUi";
+import {
+  formatTriviaTopicLabels,
+  parseTriviaTopics,
+  triviaDifficultyLabel,
+} from "@/lib/triviaTopics";
 import { VOCAB_QUIZ_FORMAT_BLOCK, TRIVIA_QUIZ_FORMAT_BLOCK } from "@/lib/vocabQuizFormat";
+
+const EMPTY_STATS: ProjectStats = {
+  total: 0,
+  new_count: 0,
+  learning_count: 0,
+  mastered_count: 0,
+  added_this_week: 0,
+  due_for_review: 0,
+  mastered_today: 0,
+  pending_today: 0,
+};
+
+/** Minimal detail shape for chat prompts when only list `Project` + stats are available. */
+export function projectDetailForChat(project: Project): ProjectDetail {
+  const stats = project.stats ?? EMPTY_STATS;
+  return {
+    ...project,
+    mastered_count: stats.mastered_count,
+    total_count: stats.total,
+    stats,
+    daily_history: [],
+    daily_items_by_date: {},
+    lists: [],
+  };
+}
 
 export function resolveProjectDailyGoal(project: ProjectDetail): number {
   return resolveDailyGoal(project.daily_goal);
@@ -14,6 +45,60 @@ export function isDailyGoalMet(project: ProjectDetail): boolean {
 
 export function remainingDailyGoal(project: ProjectDetail): number {
   return Math.max(0, resolveProjectDailyGoal(project) - project.stats.mastered_today);
+}
+
+export type ProjectAskPromptOptions = {
+  /** Product screen title, e.g. "Words" or "General Knowledge". */
+  screenTitle?: string;
+  /** Human-readable trivia topics, e.g. "History, Science". */
+  topicLabels?: string;
+  /** Trivia difficulty label from settings. */
+  difficultyLabel?: string;
+};
+
+function defaultScreenTitle(project: ProjectDetail): string {
+  if (project.kind === "trivia") return "General Knowledge";
+  if (isLanguageProject(project.kind)) return "Words";
+  return project.title;
+}
+
+function formatTriviaTopicIdsFallback(description: string | null | undefined): string {
+  const ids = parseTriviaTopics(description);
+  if (ids.length === 0) return "";
+  return ids.map((id) => id.charAt(0).toUpperCase() + id.slice(1)).join(", ");
+}
+
+function triviaTopicsClause(project: ProjectDetail, topicLabels?: string): string {
+  const labels = topicLabels?.trim() || formatTriviaTopicIdsFallback(project.description);
+  return labels ? `Topics: ${labels}. ` : "";
+}
+
+function todayProgressClause(project: ProjectDetail): string {
+  const daily = resolveProjectDailyGoal(project);
+  const done = project.stats.mastered_today;
+  if (project.kind === "trivia") {
+    return `Today: ${done}/${daily} correct`;
+  }
+  if (isLanguageProject(project.kind)) {
+    return `Today: ${done}/${daily} words`;
+  }
+  return `Today: ${done}/${daily}`;
+}
+
+/** List/detail Continue — passes localized screen title, topics, and difficulty. */
+export function buildProjectAskPromptFromProject(
+  project: Project,
+  t: (key: string) => string,
+): string {
+  const detail = projectDetailForChat(project);
+  const isTrivia = project.kind === "trivia";
+  return buildProjectAskPrompt(detail, {
+    screenTitle: learningProjectTitle(project.kind, t, project.title),
+    topicLabels: isTrivia
+      ? formatTriviaTopicLabels(parseTriviaTopics(project.description), t)
+      : undefined,
+    difficultyLabel: isTrivia ? triviaDifficultyLabel(project.level, t) : undefined,
+  });
 }
 
 function progressLine(project: ProjectDetail): string {
@@ -58,8 +143,8 @@ export function buildEnglishOnboardingPrompt(
     `I just set up my "${title}" English vocabulary project.\n` +
     `My level: ${lvl}. My daily goal: ${dailyGoal} new words per session.\n\n` +
     `You're my English tutor. Generate exactly ${dailyGoal} new vocabulary words matched to ${lvl} ` +
-    `(high-frequency words I'll actually use). Save them to this project with part_of_speech, ` +
-    `definition, and example_sentence.\n\n` +
+    `(high-frequency words I'll actually use). Save them to this project with ` +
+    `definition and example_sentence.\n\n` +
     `Then teach each word briefly and quiz me one at a time until I master all ${dailyGoal}. ` +
     `When I'm done, I'll come back tomorrow for the next batch.\n\n` +
     `Check in: does this level feel too easy, too hard, or about right?`
@@ -90,7 +175,7 @@ export function buildTriviaOnboardingPrompt(
     `Topics: ${topicLabels}. Difficulty: ${lvl}. Daily goal: ${dailyGoal} correct answers per session.\n\n` +
     `Run a multiple-choice quiz in chat — one question at a time from my topics at ${lvl} difficulty. ` +
     `Use vocab_quiz JSON with quiz_type=trivia: word=topic label (History, Science, …), ` +
-    `question=the full question. Never use part_of_speech. ` +
+    `question=the full question. ` +
     `When I answer correctly, save the fact and mark it mastered.\n\n` +
     `Mix topics and keep questions interesting but fair. Start question 1 now.`
   );
@@ -124,17 +209,18 @@ export function buildHomeDailyQuizChatPrompt(highlight: HomeProjectHighlight): s
 }
 
 /** General project chat opener. */
-export function buildProjectAskPrompt(project: ProjectDetail): string {
-  const goal = project.description?.trim()
-    ? ` Goal: ${project.description.trim()}.`
-    : "";
+export function buildProjectAskPrompt(
+  project: ProjectDetail,
+  options: ProjectAskPromptOptions = {},
+): string {
+  const screenTitle = options.screenTitle?.trim() || defaultScreenTitle(project);
 
   if (isLanguageProject(project.kind)) {
     const lvl = levelLabel(project.level);
     const daily = resolveProjectDailyGoal(project);
     if (isDailyGoalMet(project)) {
       return (
-        `I finished my daily goal of ${daily} words on my "${project.title}" English project (${lvl}).${goal}\n` +
+        `I finished my daily goal of ${daily} words on my ${screenTitle} session (Level: ${lvl}).\n` +
         `${progressLine(project)}\n\n` +
         "Tell me clearly that today's goal is complete — congratulate me. " +
         "Do NOT add or sync new words unless I explicitly ask for a bonus batch beyond today's goal. " +
@@ -142,29 +228,37 @@ export function buildProjectAskPrompt(project: ProjectDetail): string {
       );
     }
     return (
-      `Continue my "${project.title}" vocabulary session.${goal} ` +
-      "Teach or quiz the next word in chat — you pick the format."
+      `Continue my ${screenTitle} session.\n` +
+      `Level: ${lvl}. ${todayProgressClause(project)} — ask the next multiple-choice question.`
     );
   }
 
   if (project.kind === "trivia") {
     const daily = resolveProjectDailyGoal(project);
+    const topics = triviaTopicsClause(project, options.topicLabels);
+    const difficulty = options.difficultyLabel
+      ? `Difficulty: ${options.difficultyLabel}. `
+      : "";
     if (isDailyGoalMet(project)) {
       return (
-        `I finished my daily goal of ${daily} correct answers on my general knowledge quiz.${goal} ` +
+        `I finished my daily goal of ${daily} correct on my ${screenTitle} session. ` +
+        `${topics}${difficulty}\n` +
         `${progressLine(project)}\n\n` +
         "Tell me clearly that today's quiz goal is complete. Do NOT ask new quiz questions unless I " +
         "explicitly want bonus questions beyond today's goal."
       );
     }
     return (
-      `Continue my daily "${project.title}" general-knowledge session.${goal} ` +
-      "Ask the next question in chat — you pick the format."
+      `Continue my ${screenTitle} session.\n` +
+      `${topics}${difficulty}${todayProgressClause(project)} — ask the next multiple-choice question.`
     );
   }
 
+  const goal = project.description?.trim()
+    ? `Goal: ${project.description.trim()}. `
+    : "";
   return (
-    `Help me with my "${project.title}" project (${project.kind}).${goal} ` +
+    `Help me with my "${project.title}" project (${project.kind}). ${goal}` +
     `${progressLine(project)} What should I focus on next?`
   );
 }

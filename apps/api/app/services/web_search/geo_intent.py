@@ -15,7 +15,6 @@ from app.services.web_search.patterns import (
     _NON_GEOGRAPHIC_NEAREST,
     _PROXIMITY_PHRASES,
     _QUALIFIED_NEARBY,
-    _QUIZ_ANSWER,
 )
 
 
@@ -81,8 +80,10 @@ def is_ambiguous_local_places_query(text: str) -> bool:
 
 
 def is_vocab_quiz_answer(text: str) -> bool:
-    """Single-letter multiple-choice reply (A–D) in an in-chat vocabulary quiz."""
-    return bool(_QUIZ_ANSWER.match(text.strip()))
+    """Multiple-choice reply (A-D), including short phrases like 'Is it a?'."""
+    from app.services.vocab_quiz import is_vocab_quiz_answer as _is_vocab_quiz_answer
+
+    return _is_vocab_quiz_answer(text)
 
 
 def _geo_is_active(*texts: str) -> bool:

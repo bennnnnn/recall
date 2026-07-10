@@ -359,7 +359,7 @@ courses, habits, and anything else that needs structure over time.
   **general knowledge** (`trivia`); other schema kinds are not exposed in the UI.
 
 ### Phase 2 — Vocabulary (Learning English)
-- ✅ **Decks / groups** — organize words by deck title; part-of-speech grouping on detail screen.
+- ✅ **Decks / groups** — organize words by deck title on the detail screen.
 - ✅ **Vocab items** — term, definition, example sentence, status (new / mastered), review tracking.
 - ✅ **Mark as known** — progress per item; stats on project detail (learned / due / this week).
 - ✅ **AI tutor + quiz** — scoped chats from Learning; model emits `vocab_quiz` blocks; mobile
@@ -376,7 +376,7 @@ courses, habits, and anything else that needs structure over time.
   then on-device `expo-speech`.
 - ✅ **Spaced repetition scheduling** — SM-2 fields (`ease_factor`, `interval_days`, `due_at`)
   update on vocab status changes; due counts prefer `due_at` (falls back to 24h heuristic).
-- ✅ **Deck browse on language detail** — decks / POS grouping on the language project detail screen.
+- ✅ **Deck browse on language detail** — browse words by deck on the language project detail screen.
 
 ### Phase 3 — Cross-linking
 - ✅ **`project_id` on chats** — conversations started from a project carry `project_id`; prompt

@@ -244,7 +244,6 @@ class ProjectItem(Base):
     list_title: Mapped[str] = mapped_column(String(200), nullable=False, default="General")
     content: Mapped[str] = mapped_column(Text, nullable=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
-    part_of_speech: Mapped[str | None] = mapped_column(String(30), nullable=True)
     definition: Mapped[str | None] = mapped_column(Text, nullable=True)
     example_sentence: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="new", server_default="new")

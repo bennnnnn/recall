@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -8,21 +8,18 @@ import {
   Text,
   View,
 } from "react-native";
-import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { Redirect, useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { ProjectDailyStrip } from "@/components/ProjectDailyStrip";
 import { ProjectDayItemsList, type ProjectStudyAction } from "@/components/ProjectDayItemsList";
 import { ProjectProgressHero, type ProjectDaySnapshot } from "@/components/ProjectProgressHero";
 import { ProjectItemRow } from "@/components/ProjectItemRow";
-import { LearningDropdownCard, LearningDropdownRow } from "@/components/projects/LearningDropdownRow";
-import { TriviaTopicsPickerModal } from "@/components/projects/TriviaTopicsPickerModal";
 import { useAuth } from "@/contexts/AuthContext";
-import { useProjects } from "@/contexts/ProjectsContext";
 import { api, type ProjectDetail, type VocabStatus } from "@/lib/api";
 import { queueChatLaunch } from "@/lib/chatLaunch";
 import {
-  buildProjectAskPrompt,
+  buildProjectAskPromptFromProject,
   buildProjectBonusQuestionsPrompt,
   buildProjectBonusWordsPrompt,
   buildProjectReviewPrompt,
@@ -34,23 +31,24 @@ import {
   getCachedProjectDetail,
   invalidateProjectDetail,
 } from "@/lib/projectDetailCache";
-import { isLanguageProject, levelLabel } from "@/lib/languageLevels";
+import { isLanguageProject } from "@/lib/languageLevels";
 import { resolveDailyGoal } from "@/lib/dailyGoals";
 import { localDateKey } from "@/lib/reminderCalendar";
-import { formatProjectListTitle, isConceptProject, isTriviaProject, projectStatsLabels } from "@/lib/projectUi";
 import {
-  encodeTriviaTopics,
-  parseTriviaTopics,
-  type TriviaTopicId,
-} from "@/lib/triviaTopics";
+  formatProjectListTitle,
+  isConceptProject,
+  isTriviaProject,
+  learningProjectTitle,
+  projectStatsLabels,
+} from "@/lib/projectUi";
 import { Theme, useTheme } from "@/lib/theme";
 import { weekdayFullLabel } from "@/lib/weekdayLabels";
 
 export default function ProjectDetailScreen() {
   const { token } = useAuth();
-  const { setProjects } = useProjects();
   const { t } = useTranslation();
   const router = useRouter();
+  const navigation = useNavigation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -64,10 +62,6 @@ export default function ProjectDetailScreen() {
   projectRef.current = project;
   const [selectedDay, setSelectedDay] = useState(() => localDateKey(new Date()));
   const [conceptBusyId, setConceptBusyId] = useState<string | null>(null);
-  const [expandedDeck, setExpandedDeck] = useState<string | null>(null);
-  const [topicsOpen, setTopicsOpen] = useState(false);
-  const [topicsDraft, setTopicsDraft] = useState<TriviaTopicId[]>([]);
-  const [savingTopics, setSavingTopics] = useState(false);
 
   const load = useCallback(
     async (opts?: { silent?: boolean; force?: boolean }) => {
@@ -104,6 +98,13 @@ export default function ProjectDetailScreen() {
       void load({ silent: hasLoadedRef.current });
     }, [load]),
   );
+
+  useLayoutEffect(() => {
+    if (!project) return;
+    navigation.setOptions({
+      title: learningProjectTitle(project.kind, t, project.title),
+    });
+  }, [navigation, project, t]);
 
   if (!token) return <Redirect href="/login" />;
 
@@ -161,8 +162,6 @@ export default function ProjectDetailScreen() {
   const showDailyTracking = (isLang || isTrivia) && (project.daily_history?.length ?? 0) > 0;
   const isToday = selectedDay === localDateKey(new Date());
   const remainingToday = dailyGoal ? remainingDailyGoal(project) : 0;
-  const triviaTopicIds = isTrivia ? parseTriviaTopics(project.description) : [];
-  const triviaTopicsLabel = t("projects.list.topics_value", { count: triviaTopicIds.length });
   const showDailyStudyCta =
     isToday &&
     (isLang || isTrivia) &&
@@ -185,46 +184,15 @@ export default function ProjectDetailScreen() {
         }
       : null;
 
-  const openTopicsPicker = () => {
-    setTopicsDraft(
-      triviaTopicIds.length > 0 ? (triviaTopicIds as TriviaTopicId[]) : ["history", "science"],
-    );
-    setTopicsOpen(true);
-  };
-
-  const toggleTopicsDraft = (topicId: TriviaTopicId) => {
-    setTopicsDraft((prev) => {
-      if (prev.includes(topicId)) {
-        const next = prev.filter((id) => id !== topicId);
-        return next.length > 0 ? next : prev;
-      }
-      return [...prev, topicId];
-    });
-  };
-
-  const saveTriviaTopics = async () => {
-    if (!token || savingTopics || topicsDraft.length === 0) return;
-    setSavingTopics(true);
-    try {
-      const updated = await api.updateProject(token, project.id, {
-        description: encodeTriviaTopics(topicsDraft),
-      });
-      setProject((prev) => (prev ? { ...prev, description: updated.description } : prev));
-      setProjects((prev) => prev.map((row) => (row.id === updated.id ? updated : row)));
-      invalidateProjectDetail(project.id);
-      setTopicsOpen(false);
-    } catch {
-      Alert.alert(t("common.error"), t("settings.learning.save_failed"));
-    } finally {
-      setSavingTopics(false);
-    }
-  };
-
   const dailyStudyCtaLabel =
-    stats.mastered_today === 0
-      ? isTrivia
-        ? t("projects.study.start_questions")
-        : t("projects.study.start_words", { count: dailyGoal })
+    !dailyGoalMet && remainingToday > 0
+      ? stats.mastered_today === 0
+        ? isTrivia
+          ? t("projects.study.start_questions")
+          : t("projects.study.start_words", { count: dailyGoal })
+        : isTrivia
+          ? t("projects.list.continue_questions", { count: remainingToday })
+          : t("projects.list.continue_words", { count: remainingToday })
       : isTrivia
         ? t("projects.study.complete_questions", { count: remainingToday })
         : t("projects.study.complete_words", { count: remainingToday });
@@ -242,21 +210,6 @@ export default function ProjectDetailScreen() {
     }
   };
 
-  const vocabDecks =
-    isLang
-      ? project.by_part_of_speech && project.by_part_of_speech.length > 0
-        ? project.by_part_of_speech.map((g) => ({
-            key: g.part_of_speech,
-            title: formatProjectListTitle(g.part_of_speech, project.kind, t),
-            items: g.items,
-          }))
-        : project.lists.map((g) => ({
-            key: g.list_title,
-            title: formatProjectListTitle(g.list_title, project.kind, t),
-            items: g.items,
-          }))
-      : [];
-
   const startReviewSession = () => {
     const variant = isTrivia ? "trivia" : isLang ? "vocab" : undefined;
     queueChatLaunch(
@@ -272,7 +225,7 @@ export default function ProjectDetailScreen() {
   const startStudyQuiz = () => {
     const variant = isTrivia ? "trivia" : isLang ? "vocab" : undefined;
     queueChatLaunch(
-      buildProjectAskPrompt(project),
+      buildProjectAskPromptFromProject(project, t),
       project.id,
       isLang ? "en" : undefined,
       variant,
@@ -317,59 +270,14 @@ export default function ProjectDetailScreen() {
   return (
     <>
     <ScrollView style={s.root} contentContainerStyle={s.content}>
-      <View style={s.hero}>
-        <View style={s.badgeRow}>
-          <View style={s.badgeRowLeft}>
-            <View style={s.badge}>
-              <Text style={s.badgeText}>
-                {isLang
-                  ? t("projects.kind.language")
-                  : isTrivia
-                    ? t("projects.kind.trivia")
-                    : t(`projects.kind.${project.kind}`)}
-              </Text>
-            </View>
-            {isLang ? (
-              <View style={s.badge}>
-                <Text style={s.badgeText}>{levelLabel(project.level)}</Text>
-              </View>
-            ) : null}
-          </View>
-          {isLang || isTrivia ? (
-            <View style={s.dayWordCountBox}>
-              <Text style={s.dayWordCountText}>
-                {isTrivia
-                  ? t("projects.daily_items.fact_count", { count: stats.mastered_count })
-                  : t("projects.daily_items.word_count", { count: stats.mastered_count })}
-              </Text>
-            </View>
+      {isConcept ? (
+        <View style={s.hero}>
+          <Text style={s.title}>{project.title}</Text>
+          {project.description ? (
+            <Text style={s.description}>{project.description}</Text>
           ) : null}
         </View>
-        {(isLang || isTrivia) && dailyGoal ? (
-          <View style={s.dailyGoalHeadline}>
-            <Text style={s.dailyGoalNumber}>{dailyGoal}</Text>
-            <Text style={s.dailyGoalLabel}>
-              {isTrivia
-                ? t("projects.trivia.daily_goal_headline_label")
-                : t("projects.daily_goal_headline_label")}
-            </Text>
-          </View>
-        ) : (
-          <Text style={s.title}>{project.title}</Text>
-        )}
-        {isTrivia ? (
-          <LearningDropdownCard>
-            <LearningDropdownRow
-              label={t("projects.list.topics_row")}
-              value={triviaTopicsLabel}
-              onPress={openTopicsPicker}
-              disabled={savingTopics}
-            />
-          </LearningDropdownCard>
-        ) : project.description ? (
-          <Text style={s.description}>{project.description}</Text>
-        ) : null}
-      </View>
+      ) : null}
 
       {showDailyTracking ? (
         <ProjectDailyStrip
@@ -390,22 +298,16 @@ export default function ProjectDetailScreen() {
         daysInactive={stats.days_inactive}
       />
 
-      {stats.suggested_level ? (
-        <Pressable style={s.levelNudge} onPress={() => router.push("/settings/learning")}>
-          <Text style={s.levelNudgeText}>
-            {t(`projects.level_suggest_${stats.suggested_level}`)}
-          </Text>
-        </Pressable>
-      ) : null}
-
       {showDailyStudyCta ? (
-        <Pressable style={s.reviewBtn} onPress={startStudyQuiz}>
-          <Text style={s.reviewBtnText}>{dailyStudyCtaLabel}</Text>
+        <Pressable style={s.studyCta} onPress={startStudyQuiz}>
+          <Text style={s.studyCtaText}>{dailyStudyCtaLabel}</Text>
         </Pressable>
       ) : showReviewCta ? (
-        <Pressable style={s.reviewBtn} onPress={startReviewSession}>
-          <Text style={s.reviewBtnText}>
-            {t("projects.review_due", { count: stats.due_for_review })}
+        <Pressable style={s.studyCta} onPress={startReviewSession}>
+          <Text style={s.studyCtaText}>
+            {isTrivia
+              ? t("projects.list.review_facts", { count: stats.due_for_review })
+              : t("projects.list.review_words", { count: stats.due_for_review })}
           </Text>
         </Pressable>
       ) : null}
@@ -422,44 +324,6 @@ export default function ProjectDetailScreen() {
           studyAction={todayStudyAction}
           onItemUpdated={() => load({ silent: true, force: true })}
         />
-      ) : null}
-
-      {isLang ? (
-        <View style={s.listSection}>
-          <Text style={s.listTitle}>{t("projects.word_lists")}</Text>
-          <Text style={s.comingSoonBody}>{t("projects.word_lists_hint")}</Text>
-          {vocabDecks.length > 0 ? (
-            vocabDecks.map((deck) => {
-              const open = expandedDeck === deck.key;
-              return (
-                <View key={deck.key} style={s.deckBlock}>
-                  <Pressable
-                    style={s.deckHeader}
-                    onPress={() => setExpandedDeck(open ? null : deck.key)}
-                  >
-                    <Text style={s.deckHeaderTitle}>{deck.title}</Text>
-                    <Text style={s.deckHeaderCount}>
-                      {t("projects.word_lists_total", { count: deck.items.length })}
-                    </Text>
-                  </Pressable>
-                  {open
-                    ? deck.items.map((item) => (
-                        <ProjectItemRow
-                          key={item.id}
-                          item={item}
-                          showSpeech
-                          busy={conceptBusyId === item.id}
-                          onStatusChange={(status) => handleItemStatusChange(item.id, status)}
-                        />
-                      ))
-                    : null}
-                </View>
-              );
-            })
-          ) : (
-            <Text style={s.comingSoonBody}>{t("projects.lists_empty")}</Text>
-          )}
-        </View>
       ) : null}
 
       {isConcept ? (
@@ -495,15 +359,6 @@ export default function ProjectDetailScreen() {
         <Text style={s.deleteBtnText}>{t("projects.delete")}</Text>
       </Pressable>
     </ScrollView>
-
-    <TriviaTopicsPickerModal
-      visible={topicsOpen}
-      selected={topicsDraft}
-      saving={savingTopics}
-      onClose={() => setTopicsOpen(false)}
-      onDone={() => void saveTriviaTopics()}
-      onToggle={toggleTopicsDraft}
-    />
     </>
   );
 }
@@ -523,49 +378,6 @@ function makeStyles(theme: Theme) {
     },
     retryText: { fontSize: 14, fontWeight: "600", color: theme.primary },
     hero: { gap: 8 },
-    badgeRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
-    badgeRowLeft: { flexDirection: "row", flexWrap: "wrap", gap: 8, flex: 1 },
-    dayWordCountBox: {
-      borderWidth: 1,
-      borderStyle: "dashed",
-      borderColor: theme.primary,
-      borderRadius: 10,
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      flexShrink: 0,
-    },
-    dayWordCountText: {
-      fontSize: 13,
-      fontWeight: "700",
-      color: theme.primary,
-    },
-    badge: {
-      backgroundColor: theme.primaryLight,
-      borderRadius: 999,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-    },
-    badgeText: { fontSize: 12, fontWeight: "700", color: theme.primary },
-    dailyGoalHeadline: {
-      flexDirection: "row",
-      alignItems: "baseline",
-      gap: 8,
-      marginTop: 2,
-    },
-    dailyGoalNumber: {
-      fontSize: 28,
-      fontWeight: "600",
-      color: theme.primary,
-      letterSpacing: -1,
-      lineHeight: 32,
-    },
-    dailyGoalLabel: {
-      fontSize: 12,
-      fontWeight: "500",
-      color: theme.textSecondary,
-      textTransform: "uppercase",
-      letterSpacing: 0.8,
-    },
     title: { fontSize: 28, fontWeight: "800", color: theme.text, letterSpacing: -0.5 },
     description: { fontSize: 16, lineHeight: 24, color: theme.textSecondary },
     statsSection: {
@@ -609,17 +421,6 @@ function makeStyles(theme: Theme) {
       textTransform: "uppercase",
       letterSpacing: 0.6,
     },
-    deckBlock: { gap: 8 },
-    deckHeader: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      paddingVertical: 8,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: theme.border,
-    },
-    deckHeaderTitle: { fontSize: 15, fontWeight: "700", color: theme.text, flex: 1 },
-    deckHeaderCount: { fontSize: 12, fontWeight: "600", color: theme.textTertiary },
     itemRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
     itemMain: { flex: 1, gap: 2 },
     itemTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
@@ -646,22 +447,13 @@ function makeStyles(theme: Theme) {
     practiceBody: { fontSize: 14, lineHeight: 21, color: theme.textSecondary },
     deleteBtn: { alignItems: "center", paddingVertical: 10 },
     deleteBtnText: { fontSize: 15, fontWeight: "600", color: theme.danger },
-    levelNudge: {
+    studyCta: {
       borderRadius: 14,
       backgroundColor: theme.primaryLight,
-      paddingVertical: 12,
-      paddingHorizontal: 14,
-    },
-    levelNudgeText: { fontSize: 14, fontWeight: "600", color: theme.primary },
-    reviewBtn: {
-      borderRadius: 14,
-      backgroundColor: theme.surface,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.primary,
       paddingVertical: 14,
       paddingHorizontal: 16,
       alignItems: "center",
     },
-    reviewBtnText: { fontSize: 15, fontWeight: "700", color: theme.primary },
+    studyCtaText: { fontSize: 15, fontWeight: "700", color: theme.primary },
   });
 }

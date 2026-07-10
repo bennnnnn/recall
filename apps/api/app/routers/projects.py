@@ -79,7 +79,11 @@ async def _maybe_persist_daily_goal_history(
     timezone_name: str,
 ) -> list[dict[str, int | str]]:
     history = _daily_goal_history_for_project(project, items, timezone_name=timezone_name)
-    if project.daily_goal_history is None and project.kind in ("language", "vocabulary", "trivia"):
+    existing = daily_learning.parse_daily_goal_history(project)
+    should_persist = project.daily_goal_history is None or (
+        len(existing) == 1 and history != existing
+    )
+    if should_persist and project.kind in ("language", "vocabulary", "trivia"):
         await projects_repo.update(session, project, daily_goal_history=history)
     return history
 
@@ -227,7 +231,6 @@ async def get_project(
     tz_name = _project_timezone(user, client_timezone)
     is_language = item.kind in ("language", "vocabulary")
     if is_language:
-        await project_items_repo.normalize_pos_list_titles(session, user.id, project_id)
         project_items = await project_items_repo.list_for_user(
             session, user.id, project_id=project_id, limit=5000
         )
@@ -245,7 +248,6 @@ async def get_project(
             project_items, timezone_name=tz_name
         )
         lists = projects_service.group_items(project_items)
-        by_pos = projects_service.group_by_part_of_speech(project_items)
         return ProjectDetailOut(
             **ProjectOut.model_validate(item).model_dump(),
             mastered_count=stats.mastered_count,
@@ -255,8 +257,6 @@ async def get_project(
             daily_items_by_date=daily_items_by_date,
             daily_missed_by_date=daily_missed_by_date,
             lists=lists,
-            by_part_of_speech=by_pos,
-            pos_groups=[],
         )
 
     if item.kind == "trivia":
@@ -286,8 +286,6 @@ async def get_project(
             daily_items_by_date=daily_items_by_date,
             daily_missed_by_date=daily_missed_by_date,
             lists=lists,
-            by_part_of_speech=[],
-            pos_groups=[],
         )
 
     project_items = await project_items_repo.list_for_user(session, user.id, project_id=project_id)
@@ -299,8 +297,6 @@ async def get_project(
         total_count=stats.total,
         stats=stats,
         lists=lists,
-        by_part_of_speech=projects_service.group_by_part_of_speech(project_items),
-        pos_groups=[],
     )
 
 

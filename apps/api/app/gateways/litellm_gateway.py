@@ -872,10 +872,8 @@ async def extract_project_actions(
                 '"kind": "language|programming|trivia|learning|general (use language for English/vocab)", '
                 '"level": "level1-level6 (for language topics)", '
                 '"description": "optional description", '
-                '"list_title": "group/list name (e.g. Travel, Nouns)", '
+                '"list_title": "group/list name (e.g. Travel, General)", '
                 '"content": "one word/phrase per add action", '
-                '"part_of_speech": "noun|verb|adjective|adverb|pronoun|preposition|conjunction|'
-                'interjection|phrase|other", '
                 '"definition": "meaning in plain English", '
                 '"example_sentence": "example using the word", '
                 '"note": "alias for example_sentence"}]}. '
@@ -886,14 +884,14 @@ async def extract_project_actions(
                 "- For programming learning topics: list_title = journey topic (Variables, "
                 "Functions, …); content = concept name; use master/start_learning when the user "
                 "learns it in chat.\n"
-                "- add: ONE action per vocabulary word. part_of_speech is REQUIRED for language "
-                "topics (noun|verb|adjective|…). Never mix parts of speech in one group — "
-                "list_title is derived automatically (nouns, verbs, …).\n"
+                "- add: ONE action per vocabulary word. Use list_title=General unless the user "
+                "named a specific list.\n"
                 "- add: emit when user asked OR assistant listed new words to add this turn. "
                 "Only add words appropriate for the topic's level (level1=beginner basics only).\n"
                 "- start_learning / master / unmaster: update word status.\n"
-                "- master: REQUIRED when the user answered a vocabulary quiz correctly this turn. "
-                "Emit immediately with the quizzed word as content — user must NOT ask to mark it.\n"
+                "- master: ONLY when the user answered a vocabulary quiz correctly this turn. "
+                "NEVER emit master if the user picked the wrong letter, the assistant said their "
+                "answer was wrong, or the assistant corrected them to a different option.\n"
                 "- set_level: when user moves up (level1=beginner … level6=fluent English skill).\n"
                 "- Return empty actions array if nothing should change."
             ),

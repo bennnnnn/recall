@@ -49,12 +49,11 @@ def _item(project_id, **kw):
     item = MagicMock()
     item.id = kw.get("id", uuid4())
     item.project_id = project_id
-    item.list_title = kw.get("list_title", "nouns")
+    item.list_title = kw.get("list_title", "General")
     item.content = kw.get("content", "hola")
     item.definition = kw.get("definition", "hello")
     item.example_sentence = None
     item.note = None
-    item.part_of_speech = kw.get("part_of_speech", "noun")
     item.status = kw.get("status", "new")
     item.mastered = kw.get("mastered", False)
     item.created_at = datetime(2024, 1, 1)
@@ -259,22 +258,16 @@ def test_get_language_project_detail():
     project = _project(kind="language")
     project_id = project.id
     noun = _item(project_id)
-    noun.part_of_speech = "noun"
-    noun.list_title = "nouns"
+    noun.list_title = "General"
     noun.content = "apple"
     verb = _item(project_id)
-    verb.part_of_speech = "verb"
-    verb.list_title = "verbs"
+    verb.list_title = "General"
     verb.content = "run"
 
     with (
         patch(
             "app.routers.projects.projects_repo.get_by_id",
             AsyncMock(return_value=project),
-        ),
-        patch(
-            "app.routers.projects.project_items_repo.normalize_pos_list_titles",
-            AsyncMock(),
         ),
         patch(
             "app.routers.projects.project_items_repo.list_for_user",
@@ -301,9 +294,6 @@ def test_get_language_project_detail():
     assert r.status_code == 200
     body = r.json()
     assert body["total_count"] == 2
-    assert body["pos_groups"] == []
-    assert len(body["by_part_of_speech"]) == 2
-    assert {g["part_of_speech"] for g in body["by_part_of_speech"]} == {"noun", "verb"}
     assert len(body["lists"]) >= 1
     assert len(body["daily_history"]) == 14
 

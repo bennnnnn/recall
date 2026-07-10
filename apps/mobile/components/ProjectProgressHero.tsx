@@ -23,6 +23,8 @@ type Props = {
   daySnapshot?: ProjectDaySnapshot | null;
   streakDays?: number;
   daysInactive?: number | null;
+  /** Hide the header progress fraction when the screen already shows it above. */
+  hideHeaderSummary?: boolean;
 };
 
 export function ProjectProgressHero({
@@ -34,6 +36,7 @@ export function ProjectProgressHero({
   daySnapshot = null,
   streakDays = 0,
   daysInactive,
+  hideHeaderSummary = false,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -69,20 +72,29 @@ export function ProjectProgressHero({
       : t("projects.stats.pending_today");
   const correctLabel =
     useDay && !daySnapshot.isToday ? t("projects.stats.correct_day") : todayLearnedLabel;
+  const progressHint = isDaily
+    ? goalMet
+      ? t("projects.list.goal_met_today")
+      : t("projects.list.today_remaining", { count: leftToday })
+    : null;
 
   return (
     <View style={s.card}>
       <View style={s.header}>
         <Text style={s.title}>{cardTitle}</Text>
-        <Text style={s.pct}>
-          {isDaily
-            ? goalMet
-              ? t("projects.daily_goal_done")
-              : useDay && !daySnapshot.isToday
-                ? t("projects.daily_progress_day", { done: doneToday, goal: activeGoal })
-                : t("projects.daily_progress", { done: doneToday, goal: activeGoal })
-            : t("projects.progress_pct", { pct })}
-        </Text>
+        {!hideHeaderSummary ? (
+          <Text style={[s.pct, goalMet && s.pctComplete]}>
+            {isDaily
+              ? goalMet
+                ? t("projects.daily_goal_done")
+                : useDay && !daySnapshot.isToday
+                  ? t("projects.daily_progress_day", { done: doneToday, goal: activeGoal })
+                  : t("projects.daily_progress", { done: doneToday, goal: activeGoal })
+              : t("projects.progress_pct", { pct })}
+          </Text>
+        ) : progressHint ? (
+          <Text style={[s.pct, goalMet && s.pctComplete]}>{progressHint}</Text>
+        ) : null}
       </View>
       {useDay && daySnapshot.isToday && streakDays > 0 ? (
         <Text style={s.streakText}>{t("projects.stats.streak", { count: streakDays })}</Text>
@@ -93,7 +105,7 @@ export function ProjectProgressHero({
         <Text style={s.gapText}>{gapLabel}</Text>
       ) : null}
       <View style={s.track}>
-        <View style={[s.fill, { width: `${pct}%` }]} />
+        <View style={[s.fill, goalMet && s.fillComplete, { width: `${pct}%` }]} />
       </View>
       <View style={s.metrics}>
         {isDaily ? (
@@ -208,6 +220,7 @@ function makeStyles(theme: Theme) {
       letterSpacing: 0.6,
     },
     pct: { fontSize: 14, fontWeight: "800", color: theme.primary },
+    pctComplete: { color: theme.isDark ? "#4ADE80" : "#15803D" },
     streakText: { fontSize: 13, fontWeight: "700", color: theme.primary },
     gapText: { fontSize: 13, fontWeight: "600", color: theme.warning },
     track: {
@@ -217,6 +230,7 @@ function makeStyles(theme: Theme) {
       overflow: "hidden",
     },
     fill: { height: 8, borderRadius: 4, backgroundColor: theme.primary },
+    fillComplete: { backgroundColor: theme.isDark ? "#4ADE80" : "#22C55E" },
     metrics: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   });
 }

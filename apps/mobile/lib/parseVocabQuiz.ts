@@ -8,7 +8,6 @@ export type QuizAnswerMeta = {
 
 export type ParsedVocabQuiz = {
   word: string;
-  partOfSpeech?: string;
   question?: string;
   correct?: QuizChoice["letter"];
   choices: QuizChoice[];
@@ -34,8 +33,7 @@ export function markdownHasQuizChoices(text: string, quiz: ParsedVocabQuiz): boo
 export function formatVocabQuizAsMarkdown(quiz: ParsedVocabQuiz): string {
   const word = cleanQuizWord(quiz.word);
   const isTrivia = quiz.quizType === "trivia";
-  const pos = quiz.partOfSpeech ? ` · _${quiz.partOfSpeech}_` : "";
-  const header = isTrivia ? `**${word}**` : `**${word}**${pos}`;
+  const header = `**${word}**`;
   const question =
     quiz.question?.trim() || (isTrivia ? "" : `What does "${word}" mean?`);
   const lines: string[] = [];
@@ -57,8 +55,7 @@ export function formatVocabQuizAsMarkdown(quiz: ParsedVocabQuiz): string {
 export function formatVocabQuizPromptOnly(quiz: ParsedVocabQuiz): string {
   const word = cleanQuizWord(quiz.word);
   const isTrivia = quiz.quizType === "trivia";
-  const pos = quiz.partOfSpeech ? ` · _${quiz.partOfSpeech}_` : "";
-  const header = isTrivia ? `**${word}**` : `**${word}**${pos}`;
+  const header = `**${word}**`;
   const question =
     quiz.question?.trim() || (isTrivia ? "" : `What does "${word}" mean?`);
   const lines: string[] = [];
@@ -85,14 +82,20 @@ export function isCompleteVocabQuiz(quiz: ParsedVocabQuiz | null): quiz is Parse
 
 /** Single-letter reply sent when the user taps a quiz choice. */
 export function isVocabQuizAnswer(content: string): boolean {
-  return /^[A-D]\.?$/i.test(content.trim());
+  return parseQuizAnswerLetter(content) != null;
 }
 
 export function parseQuizAnswerLetter(
   content: string,
 ): QuizChoice["letter"] | null {
-  const match = content.trim().match(/^([A-D])\.?$/i);
-  return match ? (match[1].toUpperCase() as QuizChoice["letter"]) : null;
+  const trimmed = content.trim();
+  const strict = trimmed.match(/^([A-D])\.?$/i);
+  if (strict) return strict[1].toUpperCase() as QuizChoice["letter"];
+  if (trimmed.length > 48) return null;
+  const loose = trimmed.match(
+    /(?:^|\b)(?:is\s+it\s+|option\s+|answer\s+is\s+|i\s+(?:think|say|choose|pick)\s+)?([A-D])\b/i,
+  );
+  return loose ? (loose[1].toUpperCase() as QuizChoice["letter"]) : null;
 }
 
 export function quizIdentity(quiz: ParsedVocabQuiz): string {
@@ -156,7 +159,6 @@ function parseVocabQuizFence(content: string): ParsedVocabQuiz | null {
   try {
     const data = JSON.parse(match[1].trim()) as {
       word?: string;
-      part_of_speech?: string;
       question?: string;
       correct?: string;
       quiz_type?: string;
@@ -194,7 +196,6 @@ function parseVocabQuizFence(content: string): ParsedVocabQuiz | null {
         : undefined;
     return {
       word: word || question?.slice(0, 40) || "Trivia",
-      partOfSpeech: quizType === "trivia" ? undefined : data.part_of_speech?.trim() || undefined,
       question,
       correct,
       choices,
@@ -237,22 +238,18 @@ function findChoiceBlocks(lines: string[]): ChoiceBlock[] {
 
 function extractWordAbove(lines: string[], choiceStartLine: number): {
   word: string;
-  partOfSpeech?: string;
   headerLine: number;
 } | null {
   for (let i = choiceStartLine - 1; i >= Math.max(0, choiceStartLine - 10); i--) {
     const line = lines[i].trim();
     if (!line) continue;
 
-    const wordMatch = line.match(
-      /(?:\*\*Word:\*\*|Word:)\s*([^[\n]+?)(?:\s*\[([^\]]+)\])?\s*$/i,
-    );
+    const wordMatch = line.match(/(?:\*\*Word:\*\*|Word:)\s*([^[\n]+?)(?:\s*\[[^\]]+\])?\s*$/i);
     if (wordMatch) {
       const word = cleanQuizWord(wordMatch[1]);
       if (!word) continue;
       return {
         word,
-        partOfSpeech: wordMatch[2]?.trim(),
         headerLine: i,
       };
     }
@@ -286,7 +283,6 @@ function parseVocabQuizMarkdown(content: string): ParsedVocabQuiz | null {
   if (wordInfo) {
     return {
       word: wordInfo.word,
-      partOfSpeech: wordInfo.partOfSpeech,
       question: extractQuestion(lines, wordInfo.headerLine, block.startLine),
       choices: block.choices,
     };

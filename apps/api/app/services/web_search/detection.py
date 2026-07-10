@@ -7,7 +7,7 @@ from app.models.schemas import WebSearchClassification
 from app.services import calendar as calendar_service
 from app.services import time_context as time_context_service
 from app.services.chat.prompt_constants import is_lightweight_chat_turn
-from app.services.web_search.geo_intent import is_geo_query
+from app.services.web_search.geo_intent import is_geo_query, is_vocab_quiz_answer
 from app.services.web_search.patterns import (
     _CLARIFICATION,
     _EXPLICIT_SEARCH,
@@ -15,7 +15,6 @@ from app.services.web_search.patterns import (
     _NEWS,
     _ONGOING,
     _PERSONAL_PLANNING,
-    _QUIZ_ANSWER,
     _RECENCY,
     _SHORT_FOLLOWUP_WORDS,
     _SKIP,
@@ -44,7 +43,7 @@ def web_search_skip(
         return True
     if is_lightweight_chat_turn(cleaned):
         return True
-    if _QUIZ_ANSWER.match(cleaned):
+    if is_vocab_quiz_answer(cleaned):
         return True
     if time_context_service.is_time_question(cleaned):
         return True

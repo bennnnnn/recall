@@ -342,11 +342,11 @@ export const MessageBubble = React.memo(function MessageBubble({
             {showVocabCard && vocabCard ? (
               <VocabCard card={vocabCard} language={quizLanguage} />
             ) : null}
-            {interactiveQuiz && isLastAssistant && !isStreaming && onQuizAnswer ? (
+            {interactiveQuiz && !isStreaming ? (
               <VocabQuizChoices
                 choices={interactiveQuiz.choices}
-                disabled={isGenerating}
-                onSelect={(letter) => onQuizAnswer(letter)}
+                disabled={!isLastAssistant || !onQuizAnswer || Boolean(isGenerating)}
+                onSelect={(letter) => onQuizAnswer?.(letter)}
               />
             ) : null}
             {showCalendarProposals

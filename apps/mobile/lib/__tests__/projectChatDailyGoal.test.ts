@@ -1,11 +1,14 @@
 import {
   buildProjectAskPrompt,
+  buildProjectAskPromptFromProject,
   buildProjectBonusQuestionsPrompt,
   buildProjectBonusWordsPrompt,
   isDailyGoalMet,
   remainingDailyGoal,
 } from "@/lib/projectChat";
 import type { ProjectDetail } from "@/lib/api";
+
+const t = (key: string) => key;
 
 function languageProject(overrides: Partial<ProjectDetail> = {}): ProjectDetail {
   return {
@@ -70,18 +73,42 @@ describe("projectChat daily goal helpers", () => {
     ).toBe(0);
   });
 
-  it("in-progress prompt opens chat without embedding stale counts", () => {
-    const prompt = buildProjectAskPrompt(languageProject());
-    expect(prompt).toContain("Continue my");
-    expect(prompt).toContain("vocabulary session");
-    expect(prompt).toContain("you pick the format");
-    expect(prompt).not.toContain("3/5 mastered");
-    expect(prompt).not.toContain("generate today's batch");
+  it("in-progress words prompt includes level and today progress", () => {
+    const prompt = buildProjectAskPrompt(languageProject(), { screenTitle: "Words" });
+    expect(prompt).toContain("Continue my Words session.");
+    expect(prompt).toContain("Level: Beginner.");
+    expect(prompt).toContain("Today: 3/5 words");
+    expect(prompt).toContain("multiple-choice");
+    expect(prompt).not.toContain("Goal:");
+    expect(prompt).not.toContain("you pick the format");
+  });
+
+  it("in-progress trivia prompt uses topics and difficulty, not raw goal", () => {
+    const prompt = buildProjectAskPrompt(triviaProject(), {
+      screenTitle: "General Knowledge",
+      topicLabels: "History, Science",
+      difficultyLabel: "Easy",
+    });
+    expect(prompt).toContain("Continue my General Knowledge session.");
+    expect(prompt).toContain("Topics: History, Science.");
+    expect(prompt).toContain("Difficulty: Easy.");
+    expect(prompt).toContain("Today: 3/5 correct");
+    expect(prompt).toContain("multiple-choice");
+    expect(prompt).not.toContain("Goal: history");
+  });
+
+  it("buildProjectAskPromptFromProject localizes screen title and topics", () => {
+    const prompt = buildProjectAskPromptFromProject(triviaProject(), t);
+    expect(prompt).toContain("projects.trivia.title");
+    expect(prompt).toContain("projects.trivia.topic.history");
+    expect(prompt).toContain("projects.trivia.difficulty.easy");
+    expect(prompt).toContain("Today: 3/5 correct");
   });
 
   it("completed prompt tells Recall not to add words", () => {
     const prompt = buildProjectAskPrompt(
       languageProject({ stats: { ...languageProject().stats, mastered_today: 5 } }),
+      { screenTitle: "Words" },
     );
     expect(prompt).toContain("finished my daily goal");
     expect(prompt).toContain("Do NOT add or sync new words");

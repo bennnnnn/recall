@@ -8,6 +8,21 @@ export function isTriviaProject(kind: ProjectKind): boolean {
   return kind === "trivia";
 }
 
+/** User-facing title for vocabulary / trivia learning screens (list + detail). */
+export function learningProjectTitle(
+  kind: ProjectKind,
+  t: (key: string) => string,
+  fallbackTitle = "",
+): string {
+  if (kind === "language" || kind === "vocabulary") {
+    return t("projects.list.english_title");
+  }
+  if (kind === "trivia") {
+    return t("projects.trivia.title");
+  }
+  return fallbackTitle || t("projects.detail");
+}
+
 export type ProjectStatLabels = {
   learned: string;
   learnedToday: string;

@@ -98,17 +98,6 @@ export type ProjectKind =
   | "trivia";
 export type LanguageLevel = "level1" | "level2" | "level3" | "level4" | "level5" | "level6";
 export type VocabStatus = "new" | "learning" | "mastered";
-export type PartOfSpeech =
-  | "noun"
-  | "verb"
-  | "adjective"
-  | "adverb"
-  | "pronoun"
-  | "preposition"
-  | "conjunction"
-  | "interjection"
-  | "phrase"
-  | "other";
 
 export type Project = {
   id: string;
@@ -131,7 +120,6 @@ export type ProjectItem = {
   list_title: string;
   content: string;
   note: string | null;
-  part_of_speech: PartOfSpeech | string | null;
   definition: string | null;
   example_sentence: string | null;
   status: VocabStatus;
@@ -175,11 +163,6 @@ export type ProjectListGroup = {
   items: ProjectItem[];
 };
 
-export type ProjectPosGroup = {
-  part_of_speech: string;
-  items: ProjectItem[];
-};
-
 export type ProjectDetail = Project & {
   mastered_count: number;
   total_count: number;
@@ -188,7 +171,6 @@ export type ProjectDetail = Project & {
   daily_items_by_date: Record<string, ProjectItem[]>;
   daily_missed_by_date?: Record<string, ProjectItem[]>;
   lists: ProjectListGroup[];
-  by_part_of_speech?: ProjectPosGroup[];
 };
 
 export type SearchResult = {

@@ -392,18 +392,6 @@ ProjectKind = Literal[
     "trivia",
 ]
 LanguageLevel = Literal["level1", "level2", "level3", "level4", "level5", "level6"]
-PartOfSpeech = Literal[
-    "noun",
-    "verb",
-    "adjective",
-    "adverb",
-    "pronoun",
-    "preposition",
-    "conjunction",
-    "interjection",
-    "phrase",
-    "other",
-]
 VocabStatus = Literal["new", "learning", "mastered"]
 
 
@@ -451,7 +439,6 @@ class ProjectItemOut(BaseModel):
     list_title: str
     content: str
     note: str | None
-    part_of_speech: PartOfSpeech | str | None
     definition: str | None
     example_sentence: str | None
     status: VocabStatus
@@ -507,19 +494,6 @@ class ProjectListGroup(BaseModel):
     items: list[ProjectItemOut] = Field(default_factory=list)
 
 
-class ProjectPosGroup(BaseModel):
-    part_of_speech: str
-    items: list[ProjectItemOut] = Field(default_factory=list)
-
-
-class ProjectPosGroupSummary(BaseModel):
-    part_of_speech: str
-    count: int = 0
-    new_count: int = 0
-    learning_count: int = 0
-    mastered_count: int = 0
-
-
 class ProjectItemUpdate(BaseModel):
     status: VocabStatus | None = None
     definition: str | None = Field(default=None, max_length=2000)
@@ -541,8 +515,6 @@ class ProjectDetailOut(ProjectOut):
     daily_items_by_date: dict[str, list[ProjectItemOut]] = Field(default_factory=dict)
     daily_missed_by_date: dict[str, list[ProjectItemOut]] = Field(default_factory=dict)
     lists: list[ProjectListGroup] = Field(default_factory=list)
-    by_part_of_speech: list[ProjectPosGroup] = Field(default_factory=list)
-    pos_groups: list[ProjectPosGroupSummary] = Field(default_factory=list)
 
 
 class ProjectActionItem(BaseModel):
@@ -565,7 +537,6 @@ class ProjectActionItem(BaseModel):
     list_title: str = Field(default="General", max_length=200)
     content: str = Field(default="", max_length=1000)
     note: str | None = Field(default=None, max_length=2000)
-    part_of_speech: PartOfSpeech | str | None = None
     definition: str | None = Field(default=None, max_length=2000)
     example_sentence: str | None = Field(default=None, max_length=2000)
 

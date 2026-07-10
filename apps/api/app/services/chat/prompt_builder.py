@@ -27,12 +27,15 @@ from app.services.chat.prompt_constants import (
     SHORT_RESPONSE_FORMAT_HINT,
     STYLE_HINTS,
     VISUALIZATION_HINTS,
+    VOCAB_CHAT_ANSWER_HINT,
+    format_quiz_grading_hint,
     is_writing_deliverable_request,
 )
 from app.services.context_window import select_recent_window
 from app.services.day_planning import is_day_planning_question, is_day_reflection_question
 from app.services.math_tools import VerifiedMathBlock
 from app.services.prompt_safety import wrap_untrusted
+from app.services.vocab_quiz import QuizAnswerGrade
 
 logger = logging.getLogger(__name__)
 
@@ -153,6 +156,8 @@ async def build_prompt_messages(
     query_text: str | None = None,
     minimal_personal_context: bool = False,
     minimal_quiz_context: bool = False,
+    minimal_vocab_answer_context: bool = False,
+    quiz_grade: QuizAnswerGrade | None = None,
     client_timezone: str | None = None,
     prompt_location: str | None = None,
     todo_sync_feedback: str | None = None,
@@ -160,11 +165,16 @@ async def build_prompt_messages(
     import app.services.chat as chat_pkg
 
     recent_limit = (
-        QUIZ_RECENT_MESSAGE_LIMIT if minimal_quiz_context else settings.recent_message_window
+        QUIZ_RECENT_MESSAGE_LIMIT
+        if minimal_quiz_context or minimal_vocab_answer_context
+        else settings.recent_message_window
     )
     is_day_plan = bool(query_text and is_day_planning_question(query_text))
     todos_section: str | None = None
-    if minimal_personal_context or minimal_quiz_context:
+    slim_context = (
+        minimal_personal_context or minimal_quiz_context or minimal_vocab_answer_context
+    )
+    if slim_context:
         recent_all = await chat_pkg.messages_repo.list_recent(session, chat_id, limit=recent_limit)
         memory_block = ""
         projects_block = ""
@@ -265,12 +275,31 @@ async def build_prompt_messages(
     system_parts: list[str] = [
         "You are Recall, a helpful personal AI assistant.",
         format_user_name_only_block(user)
-        if minimal_personal_context or minimal_quiz_context
+        if slim_context
         else format_user_profile_block(user, location_override=prompt_location),
         STYLE_HINTS[style],
     ]
+    if quiz_grade is not None:
+        system_parts.append(
+            format_quiz_grading_hint(
+                is_correct=quiz_grade.is_correct,
+                user_letter=quiz_grade.user_letter,
+                correct_letter=quiz_grade.correct_letter,
+                word=quiz_grade.word,
+            )
+        )
     if minimal_quiz_context:
         system_parts.extend([QUIZ_ANSWER_HINT, PRIVACY_HINT])
+        if chat is None:
+            chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user.id)
+        if chat and chat.project_id:
+            quiz_ctx = await chat_pkg.projects_service.load_project_quiz_context(
+                session, user.id, chat.project_id, settings
+            )
+            if quiz_ctx:
+                system_parts.append(quiz_ctx)
+    elif minimal_vocab_answer_context:
+        system_parts.extend([VOCAB_CHAT_ANSWER_HINT, PRIVACY_HINT])
         if chat is None:
             chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user.id)
         if chat and chat.project_id:
@@ -312,7 +341,7 @@ async def build_prompt_messages(
     locale_hint = chat_pkg.locale_service.locale_system_hint(user.locale)
     if locale_hint:
         system_parts.append(locale_hint)
-    if not minimal_quiz_context and not minimal_personal_context:
+    if not minimal_quiz_context and not minimal_vocab_answer_context and not minimal_personal_context:
         system_parts.append(
             chat_pkg.time_context_service.format_time_context(
                 local_tz, user.locale, location_for_context

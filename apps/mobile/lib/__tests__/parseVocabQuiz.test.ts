@@ -18,7 +18,7 @@ describe("parseVocabQuiz", () => {
     const content = [
       "Let's quiz!",
       "",
-      "**Word:** slow [adjective]",
+      "**Word:** slow",
       "What does it mean?",
       "A) Very fast",
       "B) Not fast",
@@ -28,7 +28,6 @@ describe("parseVocabQuiz", () => {
 
     const quiz = parseVocabQuiz(content);
     expect(quiz?.word).toBe("slow");
-    expect(quiz?.partOfSpeech).toBe("adjective");
     expect(quiz?.choices).toHaveLength(4);
     expect(stripVocabQuizBlock(content)).toBe("Let's quiz!");
   });
@@ -47,7 +46,7 @@ describe("parseVocabQuiz", () => {
 
   it("strips markdown bold from the word", () => {
     const content = [
-      "**Word:** **Rain** [noun]",
+      "**Word:** **Rain**",
       "A) Water falling from clouds",
       "B) A red fruit",
       "C) Something you cook",
@@ -62,7 +61,6 @@ describe("parseVocabQuiz", () => {
       "```vocab_quiz",
       JSON.stringify({
         word: "rain",
-        part_of_speech: "noun",
         question: "What does it mean?",
         correct: "A",
         choices: [
@@ -139,6 +137,8 @@ describe("parseVocabQuiz", () => {
     expect(isVocabQuizAnswer("A")).toBe(true);
     expect(isVocabQuizAnswer("b.")).toBe(true);
     expect(parseQuizAnswerLetter("C")).toBe("C");
+    expect(parseQuizAnswerLetter("Is it a?")).toBe("A");
+    expect(isVocabQuizAnswer("Is it a?")).toBe(true);
     expect(isVocabQuizAnswer("Hi")).toBe(false);
   });
 
@@ -147,7 +147,6 @@ describe("parseVocabQuiz", () => {
       "```vocab_quiz",
       JSON.stringify({
         word: "apple",
-        part_of_speech: "noun",
         question: "What does it mean?",
         correct: "A",
         choices: [
@@ -186,7 +185,7 @@ describe("parseVocabQuiz", () => {
     const content = [
       "Great — try this one:",
       "",
-      "**Word:** slow [adjective]",
+      "**Word:** slow",
       "A) Very fast",
       "B) Not fast",
       "C) Loud",
@@ -194,7 +193,6 @@ describe("parseVocabQuiz", () => {
       "```vocab_quiz",
       JSON.stringify({
         word: "slow",
-        part_of_speech: "adjective",
         question: "What does it mean?",
         choices: [
           { letter: "A", text: "Very fast" },
@@ -300,7 +298,6 @@ describe("parseVocabQuiz", () => {
       "```vocab_quiz",
       JSON.stringify({
         word: "shoe",
-        part_of_speech: "noun",
         question: 'What does "shoe" mean?',
         correct: "B",
         choices: [
@@ -334,7 +331,6 @@ describe("parseVocabQuiz", () => {
       "```vocab_quiz",
       JSON.stringify({
         word: "sit",
-        part_of_speech: "verb",
         question: "What does it mean?",
         correct: "B",
         choices: [

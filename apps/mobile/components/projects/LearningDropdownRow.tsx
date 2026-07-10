@@ -7,13 +7,31 @@ import { Theme, useTheme } from "@/lib/theme";
 type RowProps = {
   label: string;
   value: string;
-  onPress: () => void;
+  onPress?: () => void;
   disabled?: boolean;
+  readOnly?: boolean;
 };
 
-export function LearningDropdownRow({ label, value, onPress, disabled }: RowProps) {
+export function LearningDropdownRow({
+  label,
+  value,
+  onPress,
+  disabled,
+  readOnly = false,
+}: RowProps) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
+
+  if (readOnly || !onPress) {
+    return (
+      <View style={s.row}>
+        <Text style={s.label}>{label}</Text>
+        <Text style={[s.value, s.valueReadOnly]} numberOfLines={2}>
+          {value}
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <Pressable
@@ -30,6 +48,11 @@ export function LearningDropdownRow({ label, value, onPress, disabled }: RowProp
       </View>
     </Pressable>
   );
+}
+
+/** Read-only label + value row for learning summary cards. */
+export function LearningSelectionRow({ label, value }: { label: string; value: string }) {
+  return <LearningDropdownRow label={label} value={value} readOnly />;
 }
 
 export function LearningDropdownCard({ children }: { children: ReactNode }) {
@@ -80,6 +103,10 @@ function makeStyles(theme: Theme) {
       fontWeight: "700",
       color: theme.text,
       textAlign: "right",
+    },
+    valueReadOnly: {
+      flexShrink: 1,
+      maxWidth: "58%",
     },
     divider: {
       height: StyleSheet.hairlineWidth,

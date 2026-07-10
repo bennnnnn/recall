@@ -1,6 +1,5 @@
 export type ParsedVocabCard = {
   word: string;
-  partOfSpeech?: string;
   definition: string;
   exampleSentence?: string;
 };
@@ -16,11 +15,9 @@ export function parseVocabCard(content: string): ParsedVocabCard | null {
     const word = String(raw.word ?? "").trim();
     const definition = String(raw.definition ?? "").trim();
     if (!word || !definition) return null;
-    const partOfSpeech =
-      typeof raw.part_of_speech === "string" ? raw.part_of_speech.trim() : undefined;
     const exampleSentence =
       typeof raw.example_sentence === "string" ? raw.example_sentence.trim() : undefined;
-    return { word, partOfSpeech, definition, exampleSentence };
+    return { word, definition, exampleSentence };
   } catch {
     return null;
   }

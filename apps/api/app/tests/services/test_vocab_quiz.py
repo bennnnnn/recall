@@ -23,13 +23,19 @@ def test_parse_trivia_quiz_fence():
     assert quiz.word == "History"
     assert quiz.question == "Which wonder stood at Rhodes?"
     assert quiz.correct == "A"
-    assert quiz.part_of_speech is None
 
 
 def test_quiz_answer_letter():
     assert vocab_quiz_service.quiz_answer_letter("B") == "B"
     assert vocab_quiz_service.quiz_answer_letter("c.") == "C"
+    assert vocab_quiz_service.quiz_answer_letter("Is it a?") == "A"
+    assert vocab_quiz_service.quiz_answer_letter("I think B") == "B"
     assert vocab_quiz_service.quiz_answer_letter("hello") is None
+
+
+def test_is_vocab_quiz_answer():
+    assert vocab_quiz_service.is_vocab_quiz_answer("Is it a?") is True
+    assert vocab_quiz_service.is_vocab_quiz_answer("hello") is False
 
 
 def test_parse_vocab_quiz_requires_correct_letter():
@@ -68,7 +74,7 @@ async def test_apply_deterministic_quiz_answer_skips_without_correct():
         "app.services.projects.projects_repo.get_by_id",
         new=AsyncMock(return_value=project),
     ):
-        applied = await projects_service.apply_deterministic_quiz_answer(
+        grade = await projects_service.apply_deterministic_quiz_answer(
             session,
             user_id=user_id,
             chat_id=uuid.uuid4(),
@@ -77,7 +83,7 @@ async def test_apply_deterministic_quiz_answer_skips_without_correct():
             user_answer="A",
         )
 
-    assert applied is False
+    assert grade is None
 
 
 @pytest.mark.asyncio
@@ -87,7 +93,7 @@ async def test_apply_deterministic_quiz_answer_skips_without_project_id():
         "app.services.projects.projects_repo.get_by_id",
         new=AsyncMock(),
     ) as get_by_id:
-        applied = await projects_service.apply_deterministic_quiz_answer(
+        grade = await projects_service.apply_deterministic_quiz_answer(
             session,
             user_id=uuid.uuid4(),
             chat_id=uuid.uuid4(),
@@ -95,7 +101,7 @@ async def test_apply_deterministic_quiz_answer_skips_without_project_id():
             assistant_content=TRIVIA_FENCE,
             user_answer="A",
         )
-    assert applied is False
+    assert grade is None
     get_by_id.assert_not_awaited()
 
 
@@ -152,7 +158,7 @@ async def test_apply_deterministic_quiz_answer_trivia_correct():
             new=AsyncMock(),
         ) as apply_mock,
     ):
-        applied = await projects_service.apply_deterministic_quiz_answer(
+        grade = await projects_service.apply_deterministic_quiz_answer(
             session,
             user_id=user_id,
             chat_id=chat_id,
@@ -161,7 +167,10 @@ async def test_apply_deterministic_quiz_answer_trivia_correct():
             user_answer="A",
         )
 
-    assert applied is True
+    assert grade is not None
+    assert grade.is_correct is True
+    assert grade.user_letter == "A"
+    assert grade.correct_letter == "A"
     create_mock.assert_awaited_once()
     apply_mock.assert_awaited_once()
     assert apply_mock.await_args.kwargs["is_correct"] is True
@@ -201,7 +210,7 @@ async def test_apply_deterministic_quiz_answer_records_wrong_trivia_as_learning(
             new=AsyncMock(),
         ) as apply_mock,
     ):
-        applied = await projects_service.apply_deterministic_quiz_answer(
+        grade = await projects_service.apply_deterministic_quiz_answer(
             session,
             user_id=user_id,
             chat_id=uuid.uuid4(),
@@ -210,7 +219,8 @@ async def test_apply_deterministic_quiz_answer_records_wrong_trivia_as_learning(
             user_answer="B",
         )
 
-    assert applied is True
+    assert grade is not None
+    assert grade.is_correct is False
     create_mock.assert_awaited_once()
     apply_mock.assert_awaited_once()
     assert apply_mock.await_args.kwargs["is_correct"] is False

@@ -15,7 +15,7 @@ MOCK_REPLY = (
 )
 
 MOCK_QUIZ_QUESTION = (
-    "**Word:** ubiquitous [adjective]\n\n"
+    "**Word:** ubiquitous\n\n"
     "What does it mean?\n\n"
     "A) Extremely rare and hard to find\n"
     "B) Present or found everywhere\n"
@@ -23,7 +23,7 @@ MOCK_QUIZ_QUESTION = (
     "D) A type of musical instrument\n\n"
     "Tap A, B, C, or D — I'll wait for your answer before revealing it.\n\n"
     "```vocab_quiz\n"
-    '{"word":"ubiquitous","part_of_speech":"adjective","question":"What does it mean?",'
+    '{"word":"ubiquitous","question":"What does it mean?",'
     '"correct":"B",'
     '"choices":[{"letter":"A","text":"Extremely rare and hard to find"},'
     '{"letter":"B","text":"Present or found everywhere"},'
@@ -331,64 +331,6 @@ def _extract_vocab_terms(transcript: str) -> list[str]:
     return terms[:20]
 
 
-def _guess_part_of_speech(term: str) -> str:
-    lower = term.strip().lower()
-    if lower.endswith("ly") and len(lower) > 3:
-        return "adverb"
-    if lower.endswith(("ful", "ous", "ive", "al", "ic")) and len(lower) > 4:
-        return "adjective"
-    verbs = {
-        "eat",
-        "go",
-        "run",
-        "walk",
-        "see",
-        "make",
-        "take",
-        "come",
-        "think",
-        "look",
-        "want",
-        "use",
-        "find",
-        "give",
-        "tell",
-        "work",
-        "call",
-        "try",
-        "ask",
-        "need",
-        "feel",
-        "become",
-        "leave",
-        "put",
-        "mean",
-        "keep",
-        "let",
-        "begin",
-        "seem",
-        "help",
-        "talk",
-        "turn",
-        "start",
-        "show",
-        "hear",
-        "play",
-        "move",
-        "live",
-        "believe",
-        "bring",
-        "write",
-        "sit",
-        "stand",
-        "learn",
-        "read",
-    }
-    if lower in verbs or lower.endswith("ing"):
-        return "verb"
-    return "noun"
-
-
 def _extract_quiz_word(transcript: str) -> str | None:
     matches = re.findall(r"(?:\*\*Word:\*\*|Word:)\s*([^\n\[]+)", transcript, flags=re.I)
     if not matches:
@@ -397,12 +339,15 @@ def _extract_quiz_word(transcript: str) -> str | None:
 
 
 def _extract_quiz_answer(transcript: str) -> str | None:
+    from app.services.vocab_quiz import quiz_answer_letter
+
     for line in reversed(transcript.splitlines()):
         if not line.lower().startswith("user:"):
             continue
         answer = line.split(":", 1)[-1].strip()
-        if re.match(r"^[A-Da-d]\)?$", answer):
-            return answer.upper()[0]
+        letter = quiz_answer_letter(answer)
+        if letter:
+            return letter
     return None
 
 
@@ -452,16 +397,12 @@ async def mock_project_actions(user_message: str, snapshot: dict[str, object]):
     )
     if should_add and project_title:
         for term in _extract_vocab_terms(user_message):
-            pos = _guess_part_of_speech(term)
-            from app.repositories.project_items import pos_list_title
-
             actions.append(
                 ProjectActionItem(
                     action="add",
                     project_title=project_title,
-                    list_title=pos_list_title(pos),
+                    list_title="General",
                     content=term,
-                    part_of_speech=pos,
                 )
             )
 
@@ -484,7 +425,7 @@ async def mock_project_actions(user_message: str, snapshot: dict[str, object]):
             ProjectActionItem(
                 action="master",
                 project_title=project_title,
-                list_title="nouns",
+                list_title="General",
                 content=quiz_word.strip(),
             )
         )

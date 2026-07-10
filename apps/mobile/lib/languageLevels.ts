@@ -28,11 +28,6 @@ export function levelPickerOptions(): { key: LanguageLevel; label: string }[] {
   }));
 }
 
-export function partOfSpeechLabel(pos: string | null | undefined): string {
-  if (!pos) return "Other";
-  return pos.charAt(0).toUpperCase() + pos.slice(1);
-}
-
 export function isLanguageProject(kind: string): boolean {
   return kind === "language" || kind === "vocabulary";
 }

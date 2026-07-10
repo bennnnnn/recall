@@ -141,6 +141,23 @@ def goal_effective_on_date(
     return effective
 
 
+def day_goal_for_history(
+    *,
+    count: int,
+    day: date,
+    today: date,
+    history: list[dict[str, int | str]],
+    current_goal: int,
+) -> int:
+    """Resolve the goal that should judge one calendar day."""
+    goal = goal_effective_on_date(history, day, fallback=current_goal)
+    prior = prior_standard_goal(current_goal)
+    # Past day hit exactly the prior tier (e.g. 5/5) before a goal increase was logged.
+    if prior is not None and day < today and count == prior and goal > prior:
+        return prior
+    return goal
+
+
 def append_daily_goal_history(
     existing: list[dict[str, int | str]] | None,
     *,
@@ -216,7 +233,7 @@ def ensure_daily_goal_history(
     timezone_name: str,
 ) -> list[dict[str, int | str]]:
     existing = parse_daily_goal_history(project)
-    if existing:
+    if len(existing) > 1:
         return existing
     return infer_daily_goal_history(project, items, timezone_name=timezone_name)
 
@@ -419,12 +436,19 @@ def build_daily_history(
         day = today - timedelta(days=offset)
         count = counts.get(day, 0)
         missed = missed_counts.get(day, 0)
-        goal = goal_effective_on_date(history, day, fallback=fallback_goal)
+        goal = day_goal_for_history(
+            count=count,
+            day=day,
+            today=today,
+            history=history,
+            current_goal=fallback_goal,
+        )
+        goal_met = count >= goal
         if day < active_since_date:
             status: DailyHistoryStatus = "inactive"
         elif day == today:
-            status = "complete" if count >= goal else "today"
-        elif count >= goal:
+            status = "complete" if goal_met else "today"
+        elif goal_met:
             status = "complete"
         elif count > 0:
             status = "partial"
@@ -437,7 +461,7 @@ def build_daily_history(
                 "mastered_count": count,
                 "missed_count": missed,
                 "daily_goal": goal,
-                "goal_met": count >= goal,
+                "goal_met": goal_met,
                 "status": status,
             }
         )

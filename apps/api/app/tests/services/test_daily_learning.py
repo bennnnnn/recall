@@ -7,6 +7,7 @@ from app.services.daily_learning import (
     build_daily_history,
     count_today_vocab_stats,
     daily_home_cue,
+    day_goal_for_history,
     goal_effective_on_date,
     group_mastered_items_by_date,
     start_of_today_utc,
@@ -283,3 +284,61 @@ def test_append_daily_goal_history_records_change_from_today():
         {"effective_from": "2026-07-07", "goal": 5},
         {"effective_from": "2026-07-08", "goal": 10},
     ]
+
+
+def test_day_goal_for_history_honors_exact_prior_tier_completion():
+    tz = ZoneInfo("UTC")
+    today = datetime.now(tz).date()
+    monday = today - timedelta(days=2)
+    history = [{"effective_from": monday.isoformat(), "goal": 10}]
+    assert (
+        day_goal_for_history(
+            count=5,
+            day=monday,
+            today=today,
+            history=history,
+            current_goal=10,
+        )
+        == 5
+    )
+    assert (
+        day_goal_for_history(
+            count=8,
+            day=monday,
+            today=today,
+            history=history,
+            current_goal=10,
+        )
+        == 10
+    )
+
+
+def test_build_daily_history_marks_exact_prior_day_complete_without_logged_change():
+    tz = ZoneInfo("UTC")
+    today = datetime.now(tz).date()
+    saturday = today - timedelta(days=6)
+    active = datetime.combine(
+        saturday - timedelta(days=1), datetime.min.time(), tzinfo=tz
+    ).astimezone(UTC)
+    saturday_at = datetime.combine(saturday, datetime.min.time(), tzinfo=tz).astimezone(UTC)
+    items = [
+        _item(
+            status="mastered",
+            mastered=True,
+            created_at=active,
+            mastered_at=saturday_at,
+        )
+        for _ in range(5)
+    ]
+    rows = build_daily_history(
+        items,
+        timezone_name="UTC",
+        daily_goal=10,
+        active_since=active,
+        daily_goal_history=[{"effective_from": active.date().isoformat(), "goal": 10}],
+        days=7,
+    )
+    saturday_row = next(row for row in rows if row["date"] == saturday.isoformat())
+    assert saturday_row["daily_goal"] == 5
+    assert saturday_row["goal_met"] is True
+    assert saturday_row["status"] == "complete"

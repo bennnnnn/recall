@@ -523,6 +523,11 @@ def test_is_lightweight_chat_turn(text, expected):
     assert is_lightweight_chat_turn(text) is expected
 
 
+def test_is_lightweight_skipped_during_vocab_answer():
+    assert is_lightweight_chat_turn("k", active_vocab_turn=True) is False
+    assert is_lightweight_chat_turn("ok", active_vocab_turn=True) is False
+
+
 @pytest.mark.asyncio
 async def test_build_prompt_minimal_for_who_am_i():
     user = MagicMock()
@@ -797,6 +802,7 @@ def test_is_vocab_quiz_answer():
 
     assert is_vocab_quiz_answer("B") is True
     assert is_vocab_quiz_answer("c.") is True
+    assert is_vocab_quiz_answer("Is it a?") is True
     assert is_vocab_quiz_answer("hello") is False
 
 
@@ -1843,6 +1849,9 @@ async def test_regenerate_deletes_assistant_before_building_prompt():
             max_out=100,
             fallback_models=[],
             minimal_quiz=False,
+            minimal_vocab_answer=False,
+            active_vocab_turn=False,
+            quiz_grade=None,
             geo=ClientGeoContext(
                 user_location=None,
                 client_lat=None,

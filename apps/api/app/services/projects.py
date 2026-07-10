@@ -14,12 +14,11 @@ from app.models.schemas import (
     ProjectExtractionResult,
     ProjectItemOut,
     ProjectListGroup,
-    ProjectPosGroup,
     ProjectStats,
 )
 from app.repositories import project_items as project_items_repo
 from app.repositories import projects as projects_repo
-from app.repositories.project_items import pos_list_title
+from app.services.vocab_quiz import QuizAnswerGrade
 
 logger = logging.getLogger(__name__)
 
@@ -38,25 +37,12 @@ MAX_PROJECT_ACTIONS_PER_TURN = 3
 PROJECT_BLOCKED_FROM_TRANSCRIPT = frozenset({"delete_project", "delete_list"})
 
 DEFAULT_LIST = "General"
-POS_ORDER = (
-    "noun",
-    "verb",
-    "adjective",
-    "adverb",
-    "pronoun",
-    "preposition",
-    "conjunction",
-    "interjection",
-    "phrase",
-    "other",
-)
 
 _PROJECT_SYNC_TRANSCRIPT = re.compile(
     r"\b("
     r"learning topic|vocab(?:ulary)?|add(?:ed)? (?:word|words)|"
     r"master(?:ed)?|quiz|flashcard|"
     r"set_level|programming (?:topic|project)|"
-    r"noun|verb|adjective|part of speech|"
     r"save (?:to|this)|new list|word list|"
     r"create (?:a )?(?:learning )?(?:topic|project)"
     r")\b",
@@ -126,17 +112,12 @@ TRIVIA_LEVEL_GUIDANCE: dict[str, str] = {
 }
 
 VOCAB_QUIZ_MARKDOWN_EXAMPLE = (
-    "**Word:** apple [noun]\n"
-    "What does it mean?\n"
-    "A) a red fruit\n"
-    "B) a vehicle\n"
-    "C) a feeling\n"
-    "D) a color"
+    "**Word:** apple\nWhat does it mean?\nA) a red fruit\nB) a vehicle\nC) a feeling\nD) a color"
 )
 
 VOCAB_QUIZ_FENCE_EXAMPLE = (
     "```vocab_quiz\n"
-    '{"word":"apple","part_of_speech":"noun","question":"What does it mean?",'
+    '{"word":"apple","question":"What does it mean?",'
     '"correct":"A",'
     '"choices":[{"letter":"A","text":"a red fruit"},{"letter":"B","text":"a vehicle"},'
     '{"letter":"C","text":"a feeling"},{"letter":"D","text":"a color"}]}\n'
@@ -171,24 +152,23 @@ LANGUAGE_BONUS_QUIZ_RULES = (
 LANGUAGE_CHAT_TUTOR_HINT = (
     "Active **language** project — **daily vocabulary in chat**.\n"
     "The project **level** is the user's **English skill level** (level1=beginner … level6=fluent).\n"
-    "Each word has: term, part_of_speech, definition, example_sentence, status "
+    "Each word has: term, definition, example_sentence, status "
     "(new | learning | mastered).\n\n"
-    "**One word per turn — you choose the format, written directly as plain chat markdown "
-    "(no JSON fences, no special blocks — the same way you'd format any other reply):**\n"
-    "- **Multiple choice:** ask a question with four lettered options as a plain list "
-    "(A) ... B) ... C) ... D) ...). Wait for their letter before revealing the answer.\n"
-    "- **Definition check:** ask what the word means; grade their free-text answer.\n"
-    "- **Production:** ask them to use the word in a sentence.\n"
-    "- **Teach then check:** a short friendly explanation — the word in **bold**, its part of "
-    "speech, definition, and an example sentence — then a quick question.\n"
-    "If you say you're asking a multiple-choice question, you MUST include the lettered "
-    "options in that same message — never describe a question without also asking it.\n"
-    "When they demonstrate understanding, sync start_learning or master immediately — "
-    "do not wait for them to ask. Then move to the next word until today's daily_goal is met.\n"
-    "Keep replies short and conversational. Wait for their answer before revealing the next word.\n\n"
-    "**Session clarity:** Use the **Today:** line in the project snapshot as the only progress "
-    "counter — never repeat it in a P.S. Do not quiz a word marked ✓ mastered and call it a "
-    "'freebie'. Prefer new or learning words.\n\n"
+    "**Daily session format (required): multiple choice only.**\n"
+    "One word per turn. Do NOT teach the definition before asking. Do NOT ask open-ended "
+    "'what does it mean?' without A–D choices. Do NOT use teach-then-define-then-quiz.\n"
+    "Every question MUST include a readable A–D list AND a ```vocab_quiz JSON fence with the "
+    "correct letter (required for the app's tap-to-answer chips and grading):\n"
+    f"{VOCAB_QUIZ_FORMAT_BLOCK}\n"
+    "Wait for their letter before revealing the answer.\n"
+    "**On wrong answers:** say wrong clearly, give the correct meaning briefly, do NOT say "
+    "'word mastered', then ask the NEXT word as a fresh multiple-choice question (same format). "
+    "Do not re-ask the same MCQ without a new ```vocab_quiz fence.\n"
+    "**On correct answers:** congratulate briefly, sync master immediately, then ask the next "
+    "word until today's daily_goal is met.\n"
+    "Gibberish / unrelated text / random letters other than A–D = wrong.\n"
+    "Keep replies short. Prefer new or learning words — never re-quiz ✓ mastered as a 'freebie'.\n"
+    "Use the **Today:** line in the project snapshot as the only progress counter.\n\n"
     f"{DAILY_GOAL_COMPLETE_BEHAVIOR}"
 )
 
@@ -234,16 +214,19 @@ TRIVIA_BONUS_QUIZ_RULES = (
 TRIVIA_CHAT_TUTOR_HINT = (
     "Active **trivia** project — **daily general knowledge in chat**.\n"
     "Topics are in project description (comma-separated). daily_goal = correct/mastered per session.\n\n"
-    "**One question per turn — you choose the format:**\n"
-    "- **Multiple choice:** ```vocab_quiz JSON with quiz_type trivia (word = topic label).\n"
-    "- **Open-ended:** ask the question in plain prose; grade their answer.\n"
-    "- **Teach-then-check:** one interesting fact, then ask them to recall it.\n"
+    "**Daily session format (required): multiple choice only.**\n"
+    "One question per turn. Every question MUST use ```vocab_quiz JSON with quiz_type trivia "
+    "(word = topic label such as History, Science):\n"
     f"{TRIVIA_QUIZ_FORMAT_BLOCK}\n"
-    "When they get it right, sync the fact as mastered. Do NOT use vocab_card or teach English vocabulary.\n"
-    "Stop when today's daily_goal is met unless they ask for bonus practice.\n\n"
-    "**Session clarity:** Use the **Today:** line in the project snapshot as the only progress "
-    "counter — never repeat it in a P.S. Only quiz facts listed in the snapshot (not omitted as "
-    "mastered). If the quiz pool is empty, invent a new question on the project's topics.\n\n"
+    "Do NOT use open-ended or teach-then-check during the daily session — those formats are "
+    "unreliable for grading. Wait for A–D before revealing the answer.\n"
+    "**On wrong answers:** say wrong clearly, explain briefly, do NOT mark mastered, then ask "
+    "the NEXT question in the same ```vocab_quiz format.\n"
+    "**On correct answers:** congratulate briefly, sync the fact as mastered, then continue.\n"
+    "Do NOT use vocab_card or teach English vocabulary.\n"
+    "Stop when today's daily_goal is met unless they ask for bonus practice.\n"
+    "Use the **Today:** line as the only progress counter. If the quiz pool is empty, invent a "
+    "new question on the project's topics.\n\n"
     f"{TRIVIA_BONUS_QUIZ_RULES}\n\n"
     f"{DAILY_GOAL_COMPLETE_BEHAVIOR}"
 )
@@ -262,14 +245,12 @@ def _trivia_tutor_hint(_quiz_mode: str | None = None) -> str:
 def _quiz_mode_banner(_quiz_mode: str | None = None, *, kind: str | None = None) -> str:
     if kind == "trivia":
         return (
-            "**Presentation mode: chat.** Run today's trivia in this conversation — "
-            "pick multiple choice, open-ended, or teach-then-check each turn. "
-            "Use ```vocab_quiz when A–D helps."
+            "**Presentation mode: chat.** Run today's trivia as multiple-choice only — "
+            "one ```vocab_quiz question per turn (quiz_type trivia)."
         )
     return (
-        "**Presentation mode: chat.** Run today's vocabulary session in this conversation — "
-        "pick multiple choice, sentence production, definition checks, or teach-then-quiz each turn, "
-        "written as plain chat markdown (no JSON fences)."
+        "**Presentation mode: chat.** Run today's vocabulary session as multiple-choice only — "
+        "one ```vocab_quiz question per turn (readable A–D + JSON fence)."
     )
 
 
@@ -381,10 +362,42 @@ async def load_project_quiz_context(
     if quiz_pool:
         lines.append("\nNew/learning words available:")
         for item in quiz_pool[:40]:
-            pos = item.part_of_speech or "other"
-            lines.append(f"- {item.content} [{pos}]")
+            lines.append(f"- {item.content}")
     lines.extend(_format_missed_quiz_lines(items))
     return "\n".join(lines)
+
+
+_VOCAB_QUESTION_MARKERS = re.compile(
+    r"(?:"
+    r"What does .+ mean\??|"
+    r"Which sentence uses|"
+    r"use .+ in a sentence|"
+    r"Reply with (?:the )?letter|"
+    r"\bA\)\s|"
+    r"\bB\)\s|"
+    r"```vocab_quiz"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def looks_like_vocab_question(content: str) -> bool:
+    """Heuristic: prior assistant turn was asking a vocab/trivia question."""
+    if not content or not content.strip():
+        return False
+    tail = content.strip()[-1200:]
+    if _VOCAB_QUESTION_MARKERS.search(tail):
+        return True
+    if re.search(r"\*\*[^*\n]{2,40}\*\*", tail) and "?" in tail[-400:]:
+        return True
+    return False
+
+
+def _recently_missed_quiz(item: ProjectItem, *, within_seconds: int = 180) -> bool:
+    missed = getattr(item, "last_incorrect_at", None)
+    if not isinstance(missed, datetime):
+        return False
+    return (datetime.now(UTC) - missed.astimezone(UTC)).total_seconds() < within_seconds
 
 
 async def apply_deterministic_quiz_answer(
@@ -398,48 +411,43 @@ async def apply_deterministic_quiz_answer(
     topic_hint: str | None = None,
     question_hint: str | None = None,
     is_correct_hint: bool | None = None,
-) -> bool:
+) -> QuizAnswerGrade | None:
     """Persist quiz results without waiting on background LLM project sync."""
     from app.services import vocab_quiz as vocab_quiz_service
 
     quiz = vocab_quiz_service.parse_vocab_quiz(assistant_content)
     letter = vocab_quiz_service.quiz_answer_letter(user_answer)
     if letter is None:
-        return False
+        return None
 
     if quiz is None and topic_hint and question_hint:
         from app.services.vocab_quiz import ParsedVocabQuiz
 
         quiz = ParsedVocabQuiz(
             word=topic_hint.strip(),
-            part_of_speech=None,
             question=question_hint.strip(),
             correct=None,
             quiz_type="trivia",
         )
     if quiz is None:
-        return False
+        return None
 
     # Only score in project-linked chats — never guess trivia/vocab project from user id.
     if project_id is None:
-        return False
+        return None
 
     project = await projects_repo.get_by_id(session, project_id, user_id)
     if project is None:
-        return False
+        return None
 
-    is_trivia = (
-        _is_trivia_project(project)
-        or quiz.quiz_type == "trivia"
-        or (quiz.question is not None and not quiz.part_of_speech)
-    )
+    is_trivia = _is_trivia_project(project) or quiz.quiz_type == "trivia"
     is_correct: bool | None = None
     if quiz.correct:
         is_correct = letter == quiz.correct.upper()
     elif is_correct_hint is not None:
         is_correct = is_correct_hint
     if is_correct is None:
-        return False
+        return None
 
     items = await project_items_repo.list_for_user(
         session, user_id, project_id=project.id, limit=500
@@ -449,7 +457,7 @@ async def apply_deterministic_quiz_answer(
         topic = quiz.word.strip()
         question = (quiz.question or quiz.word).strip()
         if not question:
-            return False
+            return None
         list_title = topic or DEFAULT_LIST
         existing = _find_item(items, project.id, list_title, question)
         if existing:
@@ -465,16 +473,20 @@ async def apply_deterministic_quiz_answer(
                 status="new",
             )
             await project_items_repo.apply_quiz_result(session, item, is_correct=is_correct)
-        return True
+        return vocab_quiz_service.QuizAnswerGrade(
+            is_correct=is_correct,
+            user_letter=letter,
+            correct_letter=quiz.correct.upper(),
+            word=topic or question[:80],
+        )
 
     if not _is_language_project(project):
-        return False
+        return None
 
     word = quiz.word.strip()
     if not word:
-        return False
-    pos = (quiz.part_of_speech or "other").strip().lower()
-    list_title = pos_list_title(pos)
+        return None
+    list_title = DEFAULT_LIST
     existing = _find_item(items, project.id, list_title, word) or _find_item_by_content(
         items, project.id, word
     )
@@ -487,18 +499,19 @@ async def apply_deterministic_quiz_answer(
             project_id=project.id,
             content=word,
             list_title=list_title,
-            part_of_speech=pos,
             chat_id=chat_id,
             status="new",
         )
         await project_items_repo.apply_quiz_result(session, item, is_correct=is_correct)
-    return True
+    return vocab_quiz_service.QuizAnswerGrade(
+        is_correct=is_correct,
+        user_letter=letter,
+        correct_letter=quiz.correct.upper(),
+        word=word,
+    )
 
 
 def _resolve_list_title(project: Project, action: ProjectActionItem) -> str:
-    if _is_language_project(project):
-        pos = (action.part_of_speech or "").strip().lower() or "other"
-        return pos_list_title(pos)
     return action.list_title.strip() or DEFAULT_LIST
 
 
@@ -658,28 +671,16 @@ def format_projects_block(projects: list[Project], items: list[ProjectItem]) -> 
         if not project_items:
             lines.append("- (no words yet)")
             continue
-        if _is_language_project(project):
-            by_pos: dict[str, list[ProjectItem]] = {}
-            for item in project_items:
-                pos = (item.part_of_speech or "other").lower()
-                by_pos.setdefault(pos, []).append(item)
-            for pos in POS_ORDER:
-                if pos not in by_pos:
-                    continue
-                lines.append(f"\n#### {pos.title()}s")
-                for item in by_pos[pos]:
-                    lines.append(_format_vocab_line(item))
-            for pos, pos_items in by_pos.items():
-                if pos in POS_ORDER:
-                    continue
-                lines.append(f"\n#### {pos.title()}")
-                for item in pos_items:
-                    lines.append(_format_vocab_line(item))
-            continue
         by_list: dict[str, list[ProjectItem]] = {}
         for item in project_items:
             lst = item.list_title.strip() or DEFAULT_LIST
             by_list.setdefault(lst, []).append(item)
+        if _is_language_project(project):
+            for list_title in sorted(by_list.keys(), key=str.casefold):
+                lines.append(f"\n#### {list_title}")
+                for item in by_list[list_title]:
+                    lines.append(_format_vocab_line(item))
+            continue
         for list_title in sorted(by_list.keys(), key=str.casefold):
             lines.append(f"\n#### {list_title}")
             for item in by_list[list_title]:
@@ -693,11 +694,10 @@ def format_projects_block(projects: list[Project], items: list[ProjectItem]) -> 
 def _format_vocab_line(item: ProjectItem) -> str:
     status = _item_status(item)
     mark = "✓" if status == "mastered" else ("◐" if status == "learning" else "○")
-    pos = f" [{item.part_of_speech}]" if item.part_of_speech else ""
     defn = f" — {item.definition}" if item.definition else ""
     example = item.example_sentence or item.note
     ex = f' e.g. "{example}"' if example else ""
-    return f"- {mark} {item.content}{pos}{defn}{ex} ({status})"
+    return f"- {mark} {item.content}{defn}{ex} ({status})"
 
 
 def _stats_for_items(items: list[ProjectItem]) -> dict[str, int]:
@@ -956,29 +956,6 @@ def group_trivia_items(items: list[ProjectItem]) -> list[ProjectListGroup]:
     return group_items(items)
 
 
-def group_by_part_of_speech(items: list[ProjectItem]) -> list[ProjectPosGroup]:
-    by_pos: dict[str, list[ProjectItem]] = {}
-    for item in items:
-        pos = (item.part_of_speech or "other").lower()
-        by_pos.setdefault(pos, []).append(item)
-
-    def sort_key(pos: str) -> tuple[int, str]:
-        try:
-            return (POS_ORDER.index(pos), pos)
-        except ValueError:
-            return (len(POS_ORDER), pos)
-
-    groups: list[ProjectPosGroup] = []
-    for pos in sorted(by_pos.keys(), key=sort_key):
-        groups.append(
-            ProjectPosGroup(
-                part_of_speech=pos,
-                items=[ProjectItemOut.model_validate(i) for i in by_pos[pos]],
-            )
-        )
-    return groups
-
-
 def build_stats(items: list[ProjectItem]) -> ProjectStats:
     raw = _stats_for_items(items)
     return ProjectStats.model_validate(raw)
@@ -1034,7 +1011,6 @@ async def apply_project_actions(
                         note=action.note,
                         definition=action.definition,
                         example_sentence=action.example_sentence or action.note,
-                        part_of_speech=action.part_of_speech,
                         chat_id=chat_id,
                     )
                     applied += 1
@@ -1067,9 +1043,6 @@ async def apply_project_actions(
                     content = action.content.strip()
                     if not content:
                         continue
-                    pos = (action.part_of_speech or "").strip().lower()
-                    if _is_language_project(project) and not pos:
-                        pos = "other"
                     if _find_item(items, project.id, list_title, content):
                         continue
                     await project_items_repo.create(
@@ -1081,7 +1054,6 @@ async def apply_project_actions(
                         note=action.note,
                         definition=action.definition,
                         example_sentence=action.example_sentence or action.note,
-                        part_of_speech=pos or action.part_of_speech,
                         chat_id=chat_id,
                         status="new",
                     )
@@ -1099,6 +1071,13 @@ async def apply_project_actions(
                     if not item:
                         item = _find_item_by_content(items, project.id, action.content)
                     if item and _item_status(item) != "mastered":
+                        if _recently_missed_quiz(item):
+                            logger.info(
+                                "Skipping master for recently missed quiz item user_id=%s word=%s",
+                                user_id,
+                                action.content,
+                            )
+                            continue
                         await project_items_repo.update(session, item, status="mastered")
                         applied += 1
                 elif action.action == "unmaster":
@@ -1185,7 +1164,6 @@ async def _load_project_sync_snapshot(
                     ),
                     "list_title": i.list_title,
                     "content": i.content,
-                    "part_of_speech": i.part_of_speech,
                     "definition": i.definition,
                     "example_sentence": i.example_sentence or i.note,
                     "status": _item_status(i),

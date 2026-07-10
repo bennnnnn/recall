@@ -1,7 +1,7 @@
 /** Shared quiz card format — keep in sync with apps/api/app/services/projects.py */
 
 export const VOCAB_QUIZ_MARKDOWN_EXAMPLE = [
-  "**Word:** apple [noun]",
+  "**Word:** apple",
   "What does it mean?",
   "A) a red fruit",
   "B) a vehicle",
@@ -13,7 +13,6 @@ export const VOCAB_QUIZ_FENCE_EXAMPLE = [
   "```vocab_quiz",
   JSON.stringify({
     word: "apple",
-    part_of_speech: "noun",
     question: "What does it mean?",
     correct: "A",
     choices: [

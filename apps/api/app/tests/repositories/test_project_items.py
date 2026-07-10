@@ -9,25 +9,10 @@ import pytest
 from app.repositories import project_items as repo
 
 
-def test_pos_list_title_plural_and_singular():
-    assert repo.pos_list_title("noun") == "nouns"
-    assert repo.pos_list_title("nouns") == "nouns"
-    assert repo.pos_list_title("NOUN") == "nouns"
-    assert repo.pos_list_title(None) == "other"
-    assert repo.pos_list_title("custom") == "customs"
-
-
-def test_normalize_pos_key():
-    assert repo.normalize_pos_key("Noun") == "noun"
-    assert repo.normalize_pos_key("verbs") == "verb"
-    assert repo.normalize_pos_key(None) == "other"
-
-
 def _item(
     *,
     content: str = "hello",
-    part_of_speech: str | None = "noun",
-    list_title: str = "nouns",
+    list_title: str = "General",
     status: str | None = "new",
     mastered: bool = False,
     created_at: datetime | None = None,
@@ -35,13 +20,13 @@ def _item(
 ):
     item = MagicMock()
     item.content = content
-    item.part_of_speech = part_of_speech
     item.list_title = list_title
     item.status = status
     item.mastered = mastered
     item.mastered_at = None
     item.created_at = created_at or datetime.now(UTC)
     item.last_reviewed_at = last_reviewed_at
+    item.due_at = None
     return item
 
 
@@ -150,24 +135,8 @@ async def test_count_stats_by_project_includes_projects_with_no_items(fake_sessi
 
 
 @pytest.mark.asyncio
-async def test_normalize_pos_list_titles_updates_mismatch(fake_session):
-    project_id = uuid4()
-    user_id = uuid4()
-    item = _item(part_of_speech="verb", list_title="General")
-    fake_session.execute.return_value = MagicMock(
-        scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[item])))
-    )
-
-    changed = await repo.normalize_pos_list_titles(fake_session, user_id, project_id)
-
-    assert changed == 1
-    assert item.list_title == "verbs"
-    fake_session.commit.assert_awaited_once()
-
-
-@pytest.mark.asyncio
 async def test_list_by_activity_date_queries_mastered_window(fake_session):
-    matched = [_item(content="book", part_of_speech="noun", status="mastered", mastered=True)]
+    matched = [_item(content="book", status="mastered", mastered=True)]
     mock_scalars = MagicMock()
     mock_scalars.all.return_value = matched
     mock_result = MagicMock()
@@ -191,19 +160,18 @@ async def test_list_by_activity_date_queries_mastered_window(fake_session):
 
 
 @pytest.mark.asyncio
-async def test_create_sets_pos_list_title(fake_session):
+async def test_create_normalizes_list_title(fake_session):
     created = await repo.create(
         fake_session,
         user_id=uuid4(),
         project_id=uuid4(),
         content="  hello  ",
-        part_of_speech="Noun",
+        list_title=" Travel ",
     )
 
     fake_session.add.assert_called_once()
     fake_session.commit.assert_awaited_once()
-    assert created.part_of_speech == "noun"
-    assert created.list_title == "nouns"
+    assert created.list_title == "Travel"
 
 
 @pytest.mark.asyncio

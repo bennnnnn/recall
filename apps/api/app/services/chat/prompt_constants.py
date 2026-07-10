@@ -109,8 +109,10 @@ _LIGHTWEIGHT_TURN = re.compile(
 )
 
 
-def is_lightweight_chat_turn(text: str) -> bool:
+def is_lightweight_chat_turn(text: str, *, active_vocab_turn: bool = False) -> bool:
     """Short social turns that should skip integrations and web search."""
+    if active_vocab_turn:
+        return False
     cleaned = text.strip()
     if not cleaned:
         return True
@@ -148,17 +150,55 @@ QUIZ_ANSWER_HINT = (
     "The previous assistant message has the question, choices, and correct letter.\n"
     "Structure your reply as:\n"
     "1) **Brief feedback only** (1-3 sentences): if wrong, say which option was correct and why; "
-    "if right, congratulate briefly. Do NOT use spoiler syntax (>! !<) or reveal the next answer.\n"
-    "2) **Exactly ONE next question** in a ```vocab_quiz fence — required so the app can show "
-    "A-D choices as plain text. Never use plain Q:/A: lines, bullet lists of multiple questions, "
-    "or unrelated task/topic pivots in the same message.\n"
+    "if right, congratulate briefly. On wrong answers, never say 'word mastered', 'mastered', or "
+    "congratulate — the answer was incorrect. Do NOT use spoiler syntax (>! !<).\n"
+    "2) **Exactly ONE next multiple-choice question** in a ```vocab_quiz fence — required so the "
+    "app can show A-D choices as tap chips. Never use plain Q:/A: lines, open-ended questions, "
+    "bullet lists of multiple questions, or unrelated task/topic pivots in the same message.\n"
     "Vocabulary (English words):\n"
     f"{projects_service.VOCAB_QUIZ_FORMAT_BLOCK}\n"
     "General knowledge (trivia):\n"
     f"{projects_service.TRIVIA_QUIZ_FORMAT_BLOCK}\n"
     "One question per message — wait for their letter before explaining the next answer.\n"
-    "On correct vocabulary answers, sync MUST master the quizzed word immediately."
+    "On correct vocabulary answers only, sync MUST master the quizzed word immediately. "
+    "Never sync master on a wrong answer."
 )
+
+VOCAB_CHAT_ANSWER_HINT = (
+    "The user is answering your vocabulary question from the previous assistant message. "
+    "Grade their reply **strictly**:\n"
+    "- Only say correct if their answer actually demonstrates understanding of the word.\n"
+    "- Gibberish, unrelated text, random single letters (unless you asked for A-D), or "
+    "placeholder replies = **wrong** — never congratulate those.\n"
+    "- If wrong: say clearly they were wrong, give the right answer briefly, then continue "
+    "(re-quiz the same word or move on with a simpler format). Never say 'word mastered' or "
+    "'mastered' when they were wrong.\n"
+    "- Only sync master when genuinely correct.\n"
+    "- **Never** ask them to define a word you already fully defined in the prior message."
+)
+
+
+def format_quiz_grading_hint(
+    *,
+    is_correct: bool,
+    user_letter: str,
+    correct_letter: str,
+    word: str,
+) -> str:
+    verdict = "CORRECT" if is_correct else "WRONG"
+    follow_up = (
+        "Congratulate briefly, then ask the NEXT question in ```vocab_quiz format."
+        if is_correct
+        else (
+            "Tell them they were wrong, explain briefly, then re-quiz the same word or continue. "
+            "Do NOT say 'word mastered' or sync master — the answer was WRONG."
+        )
+    )
+    return (
+        f"**Automated grading (authoritative — your feedback MUST match this):** "
+        f'For "{word}", user answered {user_letter}. Correct answer: {correct_letter}. '
+        f"Result: {verdict}. {follow_up}"
+    )
 
 QUIZ_RECENT_MESSAGE_LIMIT = 12
 
