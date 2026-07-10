@@ -19,9 +19,13 @@ OPENROUTER_KEY = "openrouter_api_key"
 
 
 def litellm_openrouter_model(openrouter_slug: str) -> str:
-    """LiteLLM expects ``openrouter/<openrouter-model-id>``."""
-    if openrouter_slug.startswith("openrouter/"):
-        return f"openrouter/{openrouter_slug}"
+    """Map an OpenRouter model id to a LiteLLM model string.
+
+    Always prefixes with ``openrouter/``. Slugs that already start with
+    ``openrouter/`` (notably Auto Router ``openrouter/auto``) intentionally
+    become ``openrouter/openrouter/...`` — that is LiteLLM's required form,
+    not a double-prefix bug.
+    """
     return f"openrouter/{openrouter_slug}"
 
 
