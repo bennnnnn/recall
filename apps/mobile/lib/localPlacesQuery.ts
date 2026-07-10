@@ -38,12 +38,20 @@ const PROXIMITY_PHRASES = [
   /\bbest\b/i,
 ];
 
+/** Mirrors backend `is_location_question` — needs a fresh device fix. */
+const LOCATION_QUESTION =
+  /^\s*(?:where am i(?:\s+(?:at|right\s+now|right\s+nwo|now|currently))?\??|what(?:'s| is) my (?:current\s+)?location\??|where(?:'s| is) my (?:current\s+)?location\??|where(?:'re| are) we(?:\s+(?:right\s+now|now|currently))?\??|my (?:current\s+)?location\??|location\??)\s*[.!?]*\s*$/i;
+
 function subjectWithoutProximity(cleaned: string): string {
   let subject = cleaned.trim();
   for (const pattern of PROXIMITY_PHRASES) {
     subject = subject.replace(pattern, " ");
   }
   return subject.replace(/\s+/g, " ").trim().replace(/[ ?.!]+$/, "");
+}
+
+export function isLocationQuestion(text: string): boolean {
+  return LOCATION_QUESTION.test(text.trim());
 }
 
 export function isProximityQuery(text: string): boolean {
@@ -62,9 +70,9 @@ export function isDistanceQuery(text: string): boolean {
   return true;
 }
 
-/** Needs user GPS / profile location — any nearby or distance ask. */
+/** Needs user GPS / profile location — nearby, distance, or "where am I". */
 export function isGeoQuery(text: string): boolean {
-  return isProximityQuery(text) || isDistanceQuery(text);
+  return isProximityQuery(text) || isDistanceQuery(text) || isLocationQuestion(text);
 }
 
 /** Native ```places card — find venues, not mileage-only. */

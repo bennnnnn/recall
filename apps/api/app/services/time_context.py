@@ -39,11 +39,11 @@ _SCHEDULED_EVENT = re.compile(
 
 _LOCATION_QUESTION = re.compile(
     r"^\s*(?:"
-    r"where am i\??"
-    r"|what(?:'s| is) my location\??"
-    r"|where(?:'s| is) my location\??"
-    r"|where(?:'re| are) we\??"
-    r"|my location\??"
+    r"where am i(?:\s+(?:at|right\s+now|right\s+nwo|now|currently))?\??"
+    r"|what(?:'s| is) my (?:current\s+)?location\??"
+    r"|where(?:'s| is) my (?:current\s+)?location\??"
+    r"|where(?:'re| are) we(?:\s+(?:right\s+now|now|currently))?\??"
+    r"|my (?:current\s+)?location\??"
     r"|location\??"
     r")\s*[.!?]*\s*$",
     re.IGNORECASE,

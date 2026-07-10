@@ -16,6 +16,7 @@ from app.models.orm import Attachment, Chat, User
 from app.services import day_planning as day_planning_service
 from app.services import profile as profile_service
 from app.services import projects as projects_service
+from app.services import time_context as time_context_service
 from app.services import web_search as web_search_service
 from app.services.chat.prompt_constants import (
     is_broad_self_question,
@@ -124,7 +125,10 @@ def resolve_client_geo(
     )
     user_location = profile_service.effective_location_label(user, normalized_client_location)
     geo_query = web_search_service.is_geo_query(content)
-    if geo_query:
+    location_question = time_context_service.is_location_question(content)
+    # "Where am I?" and nearby asks must use the fresh device fix, not a stale
+    # profile city (or prior-chat place names).
+    if geo_query or location_question:
         user_location = normalized_client_location
     client_lat = client_coordinates[0] if client_coordinates else None
     client_lng = client_coordinates[1] if client_coordinates else None
@@ -138,7 +142,7 @@ def resolve_client_geo(
         client_lat=client_lat,
         client_lng=client_lng,
         has_geo_fix=has_geo_fix,
-        geo_query=geo_query,
+        geo_query=geo_query or location_question,
         ambiguous_nearby=ambiguous_nearby,
         local_places=local_places,
     )
