@@ -1,6 +1,8 @@
+import asyncio
 import logging
 import secrets
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import UUID
 
 import jwt
@@ -11,16 +13,28 @@ from app.core.config import Settings
 
 logger = logging.getLogger(__name__)
 
+# Reuse one Request (and its underlying Session) so Google cert fetches can
+# hit the library's in-process cache / keep-alive instead of a cold TLS+HTTP
+# round-trip on every sign-in.
+_google_request: requests.Request | None = None
+
+
+def _shared_google_request() -> requests.Request:
+    global _google_request
+    if _google_request is None:
+        _google_request = requests.Request()
+    return _google_request
+
 
 class GoogleAuthError(Exception):
     pass
 
 
-def verify_google_id_token(id_token_str: str, settings: Settings) -> dict:
+def _verify_google_id_token_sync(id_token_str: str, settings: Settings) -> dict[str, Any]:
     try:
         payload = id_token.verify_oauth2_token(
             id_token_str,
-            requests.Request(),
+            _shared_google_request(),
             settings.google_client_id,
         )
     except ValueError as exc:
@@ -31,6 +45,11 @@ def verify_google_id_token(id_token_str: str, settings: Settings) -> dict:
         raise GoogleAuthError("Google email address is not verified")
 
     return payload
+
+
+async def verify_google_id_token(id_token_str: str, settings: Settings) -> dict[str, Any]:
+    """Verify a Google ID token off the event loop (sync cert/HTTP in a thread)."""
+    return await asyncio.to_thread(_verify_google_id_token_sync, id_token_str, settings)
 
 
 def create_access_token(user_id: UUID, settings: Settings) -> str:

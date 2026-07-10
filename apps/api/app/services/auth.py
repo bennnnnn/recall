@@ -19,7 +19,7 @@ async def login_with_google(
     id_token: str,
     redis: Redis,
 ) -> AuthResponse:
-    payload = verify_google_id_token(id_token, settings)
+    payload = await verify_google_id_token(id_token, settings)
     google_sub = payload["sub"]
     email = payload.get("email", "")
     name = payload.get("name")

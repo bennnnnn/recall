@@ -451,7 +451,8 @@ def test_decode_wrong_secret_raises():
         decode_access_token(token, s2)
 
 
-def test_verify_google_id_token_requires_email_verified():
+@pytest.mark.asyncio
+async def test_verify_google_id_token_requires_email_verified():
     from unittest.mock import patch
 
     from app.gateways.google_auth import verify_google_id_token
@@ -463,7 +464,36 @@ def test_verify_google_id_token_requires_email_verified():
         return_value=payload,
     ):
         with pytest.raises(GoogleAuthError, match="not verified"):
-            verify_google_id_token("token", settings)
+            await verify_google_id_token("token", settings)
+
+
+@pytest.mark.asyncio
+async def test_verify_google_id_token_offloads_to_thread():
+    """Sync Google cert/HTTP verify must run via asyncio.to_thread."""
+    from unittest.mock import patch
+
+    from app.gateways.google_auth import verify_google_id_token
+
+    settings = Settings(google_client_id="test-client")
+    payload = {"email_verified": True, "sub": "g-1", "email": "a@b.c"}
+    calls: list[str] = []
+    real_to_thread = asyncio.to_thread
+
+    async def spy_to_thread(func, /, *args, **kwargs):
+        calls.append(func.__name__)
+        return await real_to_thread(func, *args, **kwargs)
+
+    with (
+        patch(
+            "app.gateways.google_auth.id_token.verify_oauth2_token",
+            return_value=payload,
+        ),
+        patch("app.gateways.google_auth.asyncio.to_thread", side_effect=spy_to_thread),
+    ):
+        out = await verify_google_id_token("token", settings)
+
+    assert out == payload
+    assert calls == ["_verify_google_id_token_sync"]
 
 
 def test_litellm_kwargs_use_openrouter_key():
