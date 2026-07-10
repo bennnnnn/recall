@@ -1324,6 +1324,68 @@ async def test_stream_sets_final_content_on_cancel(stream_offline_io):
 
 
 @pytest.mark.asyncio
+async def test_cancelled_stream_skips_model_health_sample(stream_offline_io):
+    """User stop must not record a failed health sample (poisons fallback routing)."""
+    from uuid import uuid4
+
+    from app.services.chat.stream import stream_and_finalize
+    from app.services.chat.turn_prep import StreamContext
+
+    async def fake_stream(**_kwargs):
+        yield "one "
+        yield "two "
+
+    record = AsyncMock()
+    cancel_after = {"n": 0}
+
+    def should_cancel() -> bool:
+        cancel_after["n"] += 1
+        return cancel_after["n"] > 1
+
+    ctx = StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=[{"role": "user", "content": "hi"}],
+        run_title=False,
+        user_message_content="hi",
+        reserved_tokens=100,
+        max_output_tokens=50,
+        skip_memory_jobs=True,
+    )
+
+    result: dict[str, object] = {}
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch("app.services.chat.litellm_gateway.stream_chat_completion", fake_stream)
+        )
+        stack.enter_context(patch("app.services.model_health.record_sample", record))
+        stack.enter_context(patch("app.services.chat.stream.finalize_stream_turn_db", AsyncMock()))
+        stack.enter_context(
+            patch(
+                "app.services.chat.calendar_service.materialize_calendar_proposals",
+                AsyncMock(side_effect=lambda *_a, **_k: _a[-1]),
+            )
+        )
+        stack.enter_context(
+            patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=None))
+        )
+        async for _ in stream_and_finalize(
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            ctx,
+            should_cancel=should_cancel,
+            result=result,
+        ):
+            pass
+        finalize_db = result.get("_finalize_db_task")
+        if finalize_db is not None:
+            await finalize_db
+
+    record.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_stream_closes_llm_stream_on_cancel(stream_offline_io):
     """Stop generation must aclose the provider stream so upstream tokens stop accruing."""
     from app.services import chat as chat_module
