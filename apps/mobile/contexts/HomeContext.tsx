@@ -27,6 +27,7 @@ const HomeContext = createContext<HomeContextValue | null>(null);
 export function HomeProvider({ children }: { children: ReactNode }) {
   const auth = useAuthOptional();
   const token = auth?.token;
+  const userName = auth?.user?.name;
   const [screen, setScreen] = useState<HomeScreen | null>(null);
   const [loading, setLoading] = useState(true);
   const inflightRef = useRef<Promise<void> | null>(null);
@@ -90,6 +91,12 @@ export function HomeProvider({ children }: { children: ReactNode }) {
     }
     void refresh();
   }, [refresh, token]);
+
+  // Refetch greeting when profile name changes (e.g. dev login as bini).
+  useEffect(() => {
+    if (!token || !userName) return;
+    void refresh({ silent: true, force: true });
+  }, [refresh, token, userName]);
 
   useFocusEffect(
     useCallback(() => {

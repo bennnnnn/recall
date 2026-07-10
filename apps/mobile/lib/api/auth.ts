@@ -34,7 +34,7 @@ export async function loginWithApple(
 
 export async function loginWithDev(
   email = "dev@recall.local",
-  name = "Bini",
+  name = "bini",
 ): Promise<AuthResult> {
   const response = await fetchWithTimeout(apiUrl("/auth/dev"), {
     method: "POST",
