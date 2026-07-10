@@ -230,13 +230,16 @@ async def _should_minimal_quiz_context(
     chat_id: UUID,
     content: str,
 ) -> bool:
-    """Letter answers after an in-chat ```vocab_quiz message use the quiz prompt path."""
-    if not web_search_service.is_vocab_quiz_answer(content):
-        return False
+    """Letter/choice-text answers after an in-chat ```vocab_quiz use the quiz prompt path."""
     import app.services.chat as chat_pkg
+    from app.services import vocab_quiz as vocab_quiz_service
 
     prior = await chat_pkg.messages_repo.get_last_quiz_assistant(session, chat_id)
-    return prior is not None
+    if prior is None:
+        return False
+    quiz = vocab_quiz_service.parse_vocab_quiz(prior.content)
+    choices = quiz.choices if quiz is not None else None
+    return vocab_quiz_service.is_vocab_quiz_answer(content, choices=choices)
 
 
 async def build_stream_prompt_context(
@@ -301,10 +304,14 @@ async def build_stream_prompt_context(
         if chat.project_id is not None and quiz_assistant is not None:
             from app.services import vocab_quiz as vocab_quiz_service
 
-            has_fence = vocab_quiz_service.parse_vocab_quiz(quiz_assistant.content) is not None
+            parsed_quiz = vocab_quiz_service.parse_vocab_quiz(quiz_assistant.content)
+            has_fence = parsed_quiz is not None
+            quiz_choices = parsed_quiz.choices if parsed_quiz is not None else None
             if has_fence or projects_service.looks_like_vocab_question(quiz_assistant.content):
                 active_vocab_turn = True
-                has_letter = vocab_quiz_service.quiz_answer_letter(content) is not None
+                has_letter = (
+                    vocab_quiz_service.quiz_answer_letter(content, choices=quiz_choices) is not None
+                )
                 if has_letter and has_fence:
                     minimal_quiz = True
                 elif not minimal_quiz and has_letter:
@@ -667,16 +674,27 @@ async def prepare_chat_turn(
             input_tokens=estimate_tokens(user_content),
             commit=False,
         )
-        is_letter_answer = web_search_service.is_vocab_quiz_answer(content)
+        is_letter_answer = False
         quiz_grade: QuizAnswerGrade | None = None
-        if is_letter_answer and chat_project_id is not None:
+        if chat_project_id is not None:
+            from app.services import vocab_quiz as vocab_quiz_service
+
             prior_assistant = await chat_pkg.messages_repo.get_last_quiz_assistant(session, chat_id)
+            quiz_choices: tuple[tuple[str, str], ...] | None = None
             if prior_assistant is not None:
+                parsed = vocab_quiz_service.parse_vocab_quiz(prior_assistant.content)
+                if parsed is not None:
+                    quiz_choices = parsed.choices
+            is_letter_answer = vocab_quiz_service.is_vocab_quiz_answer(
+                content, choices=quiz_choices
+            )
+            if is_letter_answer and prior_assistant is not None:
                 try:
                     attempt = await chat_pkg.messages_repo.count_quiz_letter_answers_since(
                         session,
                         chat_id,
                         after=prior_assistant.created_at,
+                        choices=quiz_choices,
                     )
                     quiz_grade = await projects_service.apply_deterministic_quiz_answer(
                         session,
@@ -699,7 +717,7 @@ async def prepare_chat_turn(
                         user.id,
                         chat_id,
                     )
-        elif is_letter_answer and chat_project_id is None:
+        elif web_search_service.is_vocab_quiz_answer(content):
             logger.warning(
                 "Quiz letter answer without project_id — not recorded chat_id=%s",
                 chat_id,
@@ -786,7 +804,7 @@ async def prepare_chat_turn(
         # jobs so project sync can still record progress.
         skip_memory_jobs=(
             (bundle.minimal_quiz or bundle.minimal_vocab_answer)
-            and not (web_search_service.is_vocab_quiz_answer(content) and bundle.quiz_grade is None)
+            and not (is_letter_answer and bundle.quiz_grade is None)
         ),
         prior_count=prior_count,
         chat_project_id=chat_project_id,

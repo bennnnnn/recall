@@ -190,8 +190,9 @@ async def count_quiz_letter_answers_since(
     chat_id: UUID,
     *,
     after: datetime,
+    choices: tuple[tuple[str, str], ...] | None = None,
 ) -> int:
-    """How many A-D answers the user sent after the open quiz message."""
+    """How many A-D (or matching choice-text) answers the user sent after the open quiz."""
     from app.services.vocab_quiz import quiz_answer_letter
 
     result = await session.execute(
@@ -203,7 +204,11 @@ async def count_quiz_letter_answers_since(
         )
         .order_by(Message.created_at.asc())
     )
-    return sum(1 for message in result.scalars().all() if quiz_answer_letter(message.content))
+    return sum(
+        1
+        for message in result.scalars().all()
+        if quiz_answer_letter(message.content, choices=choices)
+    )
 
 
 async def get_last_user(session: AsyncSession, chat_id: UUID) -> Message | None:

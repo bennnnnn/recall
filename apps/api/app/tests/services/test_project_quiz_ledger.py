@@ -64,9 +64,11 @@ async def test_apply_deterministic_quiz_answer_records_wrong_vocab_as_learning()
             project_id=project_id,
             assistant_content=VOCAB_FENCE,
             user_answer="B",
+            attempt=3,
         )
 
     assert grade is not None
     assert grade.is_correct is False
+    assert grade.tries_exhausted is True
     apply_mock.assert_awaited_once()
     assert apply_mock.await_args.kwargs["is_correct"] is False

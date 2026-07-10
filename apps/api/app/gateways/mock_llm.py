@@ -119,16 +119,22 @@ def _quiz_attempt_number(messages: list[dict[str, str]] | None) -> int:
     if not messages:
         return 1
     quiz_idx = -1
+    choices: tuple[tuple[str, str], ...] | None = None
     for i in range(len(messages) - 1, -1, -1):
         msg = messages[i]
-        if msg.get("role") == "assistant" and parse_vocab_quiz(str(msg.get("content") or "")):
-            quiz_idx = i
-            break
+        if msg.get("role") == "assistant":
+            parsed = parse_vocab_quiz(str(msg.get("content") or ""))
+            if parsed is not None:
+                quiz_idx = i
+                choices = parsed.choices
+                break
     if quiz_idx < 0:
         return 1
     count = 0
     for msg in messages[quiz_idx + 1 :]:
-        if msg.get("role") == "user" and quiz_answer_letter(str(msg.get("content") or "")):
+        if msg.get("role") == "user" and quiz_answer_letter(
+            str(msg.get("content") or ""), choices=choices
+        ):
             count += 1
     return max(1, count)
 
@@ -142,18 +148,19 @@ def mock_reply_for_messages(messages: list[dict[str, str]] | None) -> str:
 
     last_user = _last_user_text(messages)
     lower = last_user.lower()
-    letter = quiz_answer_letter(last_user)
+    # Prefer the open quiz fence (may not be the last assistant after a hint-only miss).
+    prior = None
+    if messages:
+        for msg in reversed(messages):
+            if msg.get("role") != "assistant":
+                continue
+            parsed = parse_vocab_quiz(str(msg.get("content") or ""))
+            if parsed is not None:
+                prior = parsed
+                break
+    choices = prior.choices if prior is not None else None
+    letter = quiz_answer_letter(last_user, choices=choices)
     if letter:
-        # Prefer the open quiz fence (may not be the last assistant after a hint-only miss).
-        prior = None
-        if messages:
-            for msg in reversed(messages):
-                if msg.get("role") != "assistant":
-                    continue
-                parsed = parse_vocab_quiz(str(msg.get("content") or ""))
-                if parsed is not None:
-                    prior = parsed
-                    break
         if prior and prior.correct:
             if letter == prior.correct.upper():
                 return MOCK_QUIZ_CORRECT_NEXT
@@ -430,13 +437,15 @@ def _extract_quiz_word(transcript: str) -> str | None:
 
 
 def _extract_quiz_answer(transcript: str) -> str | None:
-    from app.services.vocab_quiz import quiz_answer_letter
+    from app.services.vocab_quiz import parse_vocab_quiz, quiz_answer_letter
 
+    parsed = parse_vocab_quiz(transcript)
+    choices = parsed.choices if parsed is not None else None
     for line in reversed(transcript.splitlines()):
         if not line.lower().startswith("user:"):
             continue
         answer = line.split(":", 1)[-1].strip()
-        letter = quiz_answer_letter(answer)
+        letter = quiz_answer_letter(answer, choices=choices)
         if letter:
             return letter
     return None

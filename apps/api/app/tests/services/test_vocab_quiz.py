@@ -192,6 +192,7 @@ async def test_apply_deterministic_wrong_before_limit_not_exhausted():
         level="level1",
         target_language="en",
     )
+    apply_result = AsyncMock()
 
     with (
         patch(
@@ -208,7 +209,7 @@ async def test_apply_deterministic_wrong_before_limit_not_exhausted():
         ),
         patch(
             "app.services.projects.project_items_repo.apply_quiz_result",
-            new=AsyncMock(),
+            new=apply_result,
         ),
     ):
         grade = await projects_service.apply_deterministic_quiz_answer(
@@ -225,6 +226,98 @@ async def test_apply_deterministic_wrong_before_limit_not_exhausted():
     assert grade.is_correct is False
     assert grade.tries_exhausted is False
     assert grade.attempt == 2
+    apply_result.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_apply_deterministic_persists_free_text_miss_on_third_try():
+    from app.models.orm import Project
+
+    session = AsyncMock()
+    user_id = uuid.uuid4()
+    project_id = uuid.uuid4()
+    project = Project(
+        id=project_id,
+        user_id=user_id,
+        title="General knowledge",
+        kind="trivia",
+        level="level1",
+        target_language="en",
+    )
+    apply_result = AsyncMock()
+    create_item = AsyncMock(return_value=MagicMock())
+
+    with (
+        patch(
+            "app.services.projects.projects_repo.get_by_id",
+            new=AsyncMock(return_value=project),
+        ),
+        patch(
+            "app.services.projects.project_items_repo.find_quiz_candidates",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.projects.project_items_repo.create",
+            new=create_item,
+        ),
+        patch(
+            "app.services.projects.project_items_repo.apply_quiz_result",
+            new=apply_result,
+        ),
+    ):
+        grade = await projects_service.apply_deterministic_quiz_answer(
+            session,
+            user_id=user_id,
+            chat_id=uuid.uuid4(),
+            project_id=project_id,
+            assistant_content=TRIVIA_FENCE,
+            user_answer="Pyramid",
+            attempt=3,
+        )
+
+    assert grade is not None
+    assert grade.is_correct is False
+    assert grade.user_letter == "B"
+    assert grade.tries_exhausted is True
+    create_item.assert_awaited()
+    apply_result.assert_awaited()
+    assert apply_result.await_args.kwargs["is_correct"] is False
+
+
+def test_quiz_answer_letter_matches_choice_text():
+    choices = (("A", "a typical example"), ("B", "lasting a short time"))
+    assert vocab_quiz_service.quiz_answer_letter("lasting a short time", choices=choices) == "B"
+    assert vocab_quiz_service.quiz_answer_letter("A typical example", choices=choices) == "A"
+    assert vocab_quiz_service.quiz_answer_letter("hello", choices=choices) is None
+
+
+def test_format_failed_review_lines_prioritizes_misses():
+    from datetime import UTC, datetime, timedelta
+
+    from app.models.orm import ProjectItem
+
+    older = MagicMock(spec=ProjectItem)
+    older.content = "ephemeral"
+    older.status = "learning"
+    older.last_incorrect_at = datetime.now(UTC) - timedelta(days=1)
+
+    newer = MagicMock(spec=ProjectItem)
+    newer.content = "quintessential"
+    newer.status = "learning"
+    newer.last_incorrect_at = datetime.now(UTC)
+
+    fresh = MagicMock(spec=ProjectItem)
+    fresh.content = "serendipity"
+    fresh.status = "new"
+    fresh.last_incorrect_at = None
+
+    lines = projects_service._format_failed_review_lines([fresh, older, newer])
+    joined = "\n".join(lines)
+    assert "Failed recently" in joined
+    assert "quintessential" in joined
+    assert "ephemeral" in joined
+    assert "serendipity" not in joined
+    assert joined.index("quintessential") < joined.index("ephemeral")
 
 
 def test_quiz_answer_letter():
@@ -476,10 +569,12 @@ async def test_apply_deterministic_quiz_answer_records_wrong_trivia_as_learning(
             project_id=project_id,
             assistant_content=TRIVIA_FENCE,
             user_answer="B",
+            attempt=3,
         )
 
     assert grade is not None
     assert grade.is_correct is False
+    assert grade.tries_exhausted is True
     assert grade.word == "Colossus"
     assert grade.quiz_type == "trivia"
     assert grade.question == "Which wonder stood at Rhodes?"

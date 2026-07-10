@@ -39,6 +39,8 @@ class ParsedVocabQuiz:
     correct: str | None
     quiz_type: str | None
     correct_text: str | None = None
+    # (letter, choice text) pairs for free-text answer matching.
+    choices: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -55,21 +57,54 @@ class QuizAnswerGrade:
     tries_exhausted: bool = False
 
 
-def quiz_answer_letter(text: str) -> str | None:
+def _normalize_choice_text(text: str) -> str:
+    cleaned = re.sub(r"[^\w\s]", " ", text.strip().lower())
+    return re.sub(r"\s+", " ", cleaned).strip()
+
+
+def match_choice_letter(user_text: str, choices: tuple[tuple[str, str], ...]) -> str | None:
+    """Map free-text like 'a typical example' to its A-D letter when unique."""
+    needle = _normalize_choice_text(user_text)
+    if not needle or len(needle) > 80:
+        return None
+    hits: list[str] = []
+    for letter, text in choices:
+        choice = _normalize_choice_text(text)
+        if not choice:
+            continue
+        if needle == choice or needle in choice or choice in needle:
+            hits.append(letter)
+    # Prefer exact / unique matches only — ambiguous substrings are ignored.
+    unique = list(dict.fromkeys(hits))
+    if len(unique) == 1:
+        return unique[0]
+    return None
+
+
+def quiz_answer_letter(
+    text: str,
+    *,
+    choices: tuple[tuple[str, str], ...] | None = None,
+) -> str | None:
     stripped = text.strip()
     strict = QUIZ_ANSWER_RE.match(stripped)
     if strict:
         return strict.group(1).upper()
-    if len(stripped) > MAX_LOOSE_QUIZ_ANSWER_LEN:
-        return None
-    loose = QUIZ_ANSWER_LOOSE_RE.match(stripped)
-    if loose:
-        return loose.group(1).upper()
+    if len(stripped) <= MAX_LOOSE_QUIZ_ANSWER_LEN:
+        loose = QUIZ_ANSWER_LOOSE_RE.match(stripped)
+        if loose:
+            return loose.group(1).upper()
+    if choices:
+        return match_choice_letter(stripped, choices)
     return None
 
 
-def is_vocab_quiz_answer(text: str) -> bool:
-    return quiz_answer_letter(text) is not None
+def is_vocab_quiz_answer(
+    text: str,
+    *,
+    choices: tuple[tuple[str, str], ...] | None = None,
+) -> bool:
+    return quiz_answer_letter(text, choices=choices) is not None
 
 
 def _clean_word(raw: str) -> str:
@@ -138,15 +173,19 @@ def parse_vocab_quiz(content: str) -> ParsedVocabQuiz | None:
     correct = correct_raw
 
     correct_text: str | None = None
+    choice_pairs: list[tuple[str, str]] = []
     for choice in choices:
         if not isinstance(choice, dict):
             continue
         letter = str(choice.get("letter") or "").upper()
+        if not re.fullmatch(r"[A-D]", letter):
+            continue
+        text = str(choice.get("text") or "").strip()
+        if not text:
+            continue
+        choice_pairs.append((letter, text))
         if letter == correct:
-            text = str(choice.get("text") or "").strip()
-            if text:
-                correct_text = text
-            break
+            correct_text = text
 
     return ParsedVocabQuiz(
         word=word or (question or "")[:80],
@@ -154,4 +193,5 @@ def parse_vocab_quiz(content: str) -> ParsedVocabQuiz | None:
         correct=correct,
         quiz_type=quiz_type,
         correct_text=correct_text,
+        choices=tuple(choice_pairs),
     )

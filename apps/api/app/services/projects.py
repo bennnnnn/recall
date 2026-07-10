@@ -165,11 +165,12 @@ LANGUAGE_CHAT_TUTOR_HINT = (
     "letter), do NOT say 'word mastered', and do NOT redisplay the question or emit a new "
     "```vocab_quiz fence — they will answer again on the previous chips (up to 3 tries). "
     "After 3 wrong tries: briefly reveal the answer, keep it as learning/missed for next time, "
-    "then ask a DIFFERENT next word.\n"
+    "then ask a DIFFERENT next word — never re-ask the missed word in this session.\n"
     "**On correct answers:** congratulate briefly (mastering is recorded automatically), then "
     "ask the NEXT word until today's daily_goal is met.\n"
     "Gibberish / unrelated text / random letters other than A–D = wrong.\n"
-    "Keep replies short. Prefer new or learning words — never re-quiz ✓ mastered as a 'freebie'.\n"
+    "Keep replies short. Prefer failed/learning words due for review, then new — never re-quiz "
+    "✓ mastered as a 'freebie'.\n"
     "Use the **Today:** line in the project snapshot as the only progress counter.\n\n"
     f"{DAILY_GOAL_COMPLETE_BEHAVIOR}"
 )
@@ -224,7 +225,8 @@ TRIVIA_CHAT_TUTOR_HINT = (
     "**On wrong answers:** say wrong, give a short hint (not the full answer), do NOT mark "
     "mastered, and do NOT redisplay the question or emit a new ```vocab_quiz fence — they will "
     "answer again on the previous chips (up to 3 tries). After 3 wrong tries: briefly reveal "
-    "the answer, keep it as learning/missed for next time, then ask a DIFFERENT next question.\n"
+    "the answer, keep it as learning/missed for next time, then ask a DIFFERENT next question — "
+    "never re-ask the missed question in this session.\n"
     "**On correct answers:** congratulate briefly (mastering is recorded automatically), then "
     "ask the NEXT question.\n"
     "Do NOT use vocab_card or teach English vocabulary.\n"
@@ -297,7 +299,8 @@ def build_language_quiz_prompt(project: Project, stats: ProjectStats) -> str:
         f'Start today\'s vocabulary session for my "{title}" English project.\n'
         f"My English level: {lvl}.{goal}\n"
         f"{_language_progress_line(stats)}\n\n"
-        "Quiz me in chat — one word at a time. You choose the format each turn."
+        "Quiz me with multiple-choice ```vocab_quiz only (A-D). "
+        "Start with words I failed recently, then new ones — never repeat a word in this session."
     )
 
 
@@ -305,7 +308,10 @@ def _format_missed_quiz_lines(items: list[ProjectItem], *, limit: int = 30) -> l
     learning = [item for item in items if _item_status(item) == "learning"]
     if not learning:
         return []
-    lines = ["\nStill learning (ok to revisit later — prefer a NEW item first when moving on):"]
+    lines = [
+        "\nStill learning / failed recently — prefer a NEW item next in this session; "
+        "bring these back on a later day (do NOT re-ask the one just missed):"
+    ]
     for item in learning[:limit]:
         missed_at = getattr(item, "last_incorrect_at", None)
         when = (
@@ -316,6 +322,32 @@ def _format_missed_quiz_lines(items: list[ProjectItem], *, limit: int = 30) -> l
         detail = (item.definition or item.note or item.example_sentence or "").strip()
         suffix = f" — {detail[:120]}" if detail else ""
         lines.append(f"- {item.content}{suffix} (missed {when})")
+    return lines
+
+
+def _format_failed_review_lines(items: list[ProjectItem], *, limit: int = 12) -> list[str]:
+    """Session-start nudge: bring back recent misses first."""
+    failed = [
+        item
+        for item in items
+        if _item_status(item) == "learning" and getattr(item, "last_incorrect_at", None) is not None
+    ]
+    if not failed:
+        return []
+
+    def _miss_key(item: ProjectItem) -> datetime:
+        missed = getattr(item, "last_incorrect_at", None)
+        if isinstance(missed, datetime):
+            return missed.astimezone(UTC) if missed.tzinfo else missed.replace(tzinfo=UTC)
+        return datetime.min.replace(tzinfo=UTC)
+
+    failed.sort(key=_miss_key, reverse=True)
+    lines = [
+        "\n**Failed recently — quiz these FIRST today** (then new words). "
+        "Do not skip them for brand-new items:"
+    ]
+    for item in failed[:limit]:
+        lines.append(f"- {item.content}")
     return lines
 
 
@@ -448,13 +480,13 @@ async def load_project_quiz_context(
         project_id=project_id,
         limit=settings.project_item_inject_limit,
     )
-    # Exclude the word they just got right even if the session snapshot is briefly stale.
+    # Exclude the word they just got right / exhausted even if the session snapshot is briefly stale.
     quiz_pool = [
         i
         for i in items
         if _item_status(i) in ("new", "learning")
         and not (
-            just_correct
+            (just_correct or tries_exhausted)
             and answered_label
             and (i.content or "").strip().lower() == answered_label.lower()
         )
@@ -539,7 +571,8 @@ def looks_like_vocab_question(content: str) -> bool:
     return False
 
 
-def _recently_missed_quiz(item: ProjectItem, *, within_seconds: int = 180) -> bool:
+def _recently_missed_quiz(item: ProjectItem, *, within_seconds: int = 86_400) -> bool:
+    """Block sync-master for a day after a miss so failed words stay learning."""
     missed = getattr(item, "last_incorrect_at", None)
     if not isinstance(missed, datetime):
         return False
@@ -563,7 +596,8 @@ async def apply_deterministic_quiz_answer(
     from app.services import vocab_quiz as vocab_quiz_service
 
     quiz = vocab_quiz_service.parse_vocab_quiz(assistant_content)
-    letter = vocab_quiz_service.quiz_answer_letter(user_answer)
+    choices = quiz.choices if quiz is not None else ()
+    letter = vocab_quiz_service.quiz_answer_letter(user_answer, choices=choices)
     if letter is None:
         return None
 
@@ -603,6 +637,8 @@ async def apply_deterministic_quiz_answer(
     tries_exhausted = (not is_correct) and (
         try_number >= vocab_quiz_service.MAX_QUIZ_TRIES_PER_QUESTION
     )
+    # Persist correct immediately; persist misses only after 3 wrong tries.
+    should_persist = is_correct or tries_exhausted
 
     if is_trivia:
         topic = quiz.word.strip()
@@ -614,24 +650,25 @@ async def apply_deterministic_quiz_answer(
             session, user_id, project.id, question
         )
         existing = _find_item(items, project.id, list_title, question)
-        if existing:
-            await project_items_repo.apply_quiz_result(
-                session, existing, is_correct=is_correct, commit=False
-            )
-        else:
-            item = await project_items_repo.create(
-                session,
-                user_id=user_id,
-                project_id=project.id,
-                content=question,
-                list_title=list_title,
-                chat_id=chat_id,
-                status="new",
-                commit=False,
-            )
-            await project_items_repo.apply_quiz_result(
-                session, item, is_correct=is_correct, commit=False
-            )
+        if should_persist:
+            if existing:
+                await project_items_repo.apply_quiz_result(
+                    session, existing, is_correct=is_correct, commit=False
+                )
+            else:
+                item = await project_items_repo.create(
+                    session,
+                    user_id=user_id,
+                    project_id=project.id,
+                    content=question,
+                    list_title=list_title,
+                    chat_id=chat_id,
+                    status="new",
+                    commit=False,
+                )
+                await project_items_repo.apply_quiz_result(
+                    session, item, is_correct=is_correct, commit=False
+                )
         return vocab_quiz_service.QuizAnswerGrade(
             is_correct=is_correct,
             user_letter=letter,
@@ -655,24 +692,25 @@ async def apply_deterministic_quiz_answer(
     existing = _find_item(items, project.id, list_title, word) or _find_item_by_content(
         items, project.id, word
     )
-    if existing:
-        await project_items_repo.apply_quiz_result(
-            session, existing, is_correct=is_correct, commit=False
-        )
-    else:
-        item = await project_items_repo.create(
-            session,
-            user_id=user_id,
-            project_id=project.id,
-            content=word,
-            list_title=list_title,
-            chat_id=chat_id,
-            status="new",
-            commit=False,
-        )
-        await project_items_repo.apply_quiz_result(
-            session, item, is_correct=is_correct, commit=False
-        )
+    if should_persist:
+        if existing:
+            await project_items_repo.apply_quiz_result(
+                session, existing, is_correct=is_correct, commit=False
+            )
+        else:
+            item = await project_items_repo.create(
+                session,
+                user_id=user_id,
+                project_id=project.id,
+                content=word,
+                list_title=list_title,
+                chat_id=chat_id,
+                status="new",
+                commit=False,
+            )
+            await project_items_repo.apply_quiz_result(
+                session, item, is_correct=is_correct, commit=False
+            )
     return vocab_quiz_service.QuizAnswerGrade(
         is_correct=is_correct,
         user_letter=letter,
@@ -993,6 +1031,10 @@ async def load_project_for_prompt(
     block = format_projects_block([project], display_items)
     if pool_note:
         block = f"{block}{pool_note}"
+    if _is_language_project(project) or _is_trivia_project(project):
+        failed_lines = _format_failed_review_lines(items)
+        if failed_lines:
+            block = f"{block}{''.join(failed_lines)}"
     today_line = ""
     if _is_language_project(project) or _is_trivia_project(project):
         user = await users_repo.get_by_id(session, user_id)

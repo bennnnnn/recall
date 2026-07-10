@@ -742,6 +742,8 @@ def test_project_starters_language_review_when_due():
     starters = home_service._project_starters(project, stats)
     assert starters[0].text == "Continue Learning English"
     assert "review" in starters[0].prompt.lower()
+    assert "vocab_quiz" in starters[0].prompt
+    assert "failed" in starters[0].prompt.lower() or "learning" in starters[0].prompt.lower()
 
 
 def test_project_starters_language_start_when_not_started_today():
@@ -757,6 +759,8 @@ def test_project_starters_language_start_when_not_started_today():
     starters = home_service._project_starters(project, stats)
     assert starters[0].text == "Start Learning English"
     assert "start today" in starters[0].prompt.lower()
+    assert "vocab_quiz" in starters[0].prompt
+    assert "failed" in starters[0].prompt.lower()
 
 
 def test_project_starters_language_empty_when_daily_goal_met():

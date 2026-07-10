@@ -708,7 +708,8 @@ def test_build_language_quiz_prompt_includes_vocab_quiz_fence():
     stats.due_for_review = 1
 
     prompt = projects_service.build_language_quiz_prompt(project, stats)
-    assert "Quiz me in chat" in prompt
+    assert "vocab_quiz" in prompt
+    assert "failed recently" in prompt.lower()
     assert "Daily Quiz panel" not in prompt
 
 

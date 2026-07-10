@@ -502,22 +502,23 @@ def _project_starters(project: Project, stats: ProjectStats) -> list[HomeStarter
         elif completed == 0:
             prompt = (
                 f'Help me start today\'s "{title}" vocabulary session.{goal} {progress} '
-                f"My daily goal is {daily_goal} words. Quiz and teach in chat — "
-                "you pick the format each turn (multiple choice, sentences, definitions, etc.). "
-                "Prioritize words due for review, then new and learning words."
+                f"My daily goal is {daily_goal} words. Quiz me with multiple-choice "
+                "```vocab_quiz only (A-D chips) - no open-ended 'what does X mean?'. "
+                "Start with words I failed recently (learning), then due for review, then new."
             )
-        elif stats.due_for_review > 0:
+        elif stats.due_for_review > 0 or stats.learning_count > 0:
             prompt = (
                 f'Help me review my "{title}" vocabulary.{goal} {progress} '
                 f"I still need {remaining} more today to hit my daily goal of "
-                f"{daily_goal}. Quiz words that are due — do not add fresh words yet."
+                f"{daily_goal}. Quiz failed/learning words first with multiple-choice "
+                "```vocab_quiz only — do not add fresh words yet."
             )
         else:
             prompt = (
                 f'Help me with my "{title}" vocabulary.{goal} {progress} '
                 f"I need {remaining} more today (daily goal: {daily_goal}). "
-                "Quiz my new and learning words first — only add fresh words if I still "
-                "need them for today's goal."
+                "Quiz my new and learning words first with multiple-choice ```vocab_quiz only "
+                "— only add fresh words if I still need them for today's goal."
             )
     elif _is_trivia_project(project):
         daily_goal = daily_learning.resolve_daily_goal(project)
@@ -528,20 +529,20 @@ def _project_starters(project: Project, stats: ProjectStats) -> list[HomeStarter
         if stats.total == 0:
             prompt = (
                 f'Start my daily "{title}" general-knowledge session.{goal} '
-                f"Quiz me in chat — one question at a time, {daily_goal} today. "
-                "You choose the format (multiple choice, open-ended, etc.). Begin now."
+                f"Quiz me in chat — one multiple-choice ```vocab_quiz at a time "
+                f"(A-D only, no open-ended), {daily_goal} today. Begin now."
             )
         elif completed == 0:
             prompt = (
                 f'Start my daily "{title}" general-knowledge session.{goal} {progress} '
-                f"Quiz me in chat — one question at a time until {daily_goal} done today. "
-                "You choose the format each turn."
+                f"Quiz me with multiple-choice ```vocab_quiz only until {daily_goal} done today. "
+                "Start with questions I failed recently, then new ones."
             )
         else:
             prompt = (
                 f'Continue my daily "{title}" session.{goal} {progress} '
                 f"I need {remaining} more today (daily goal: {daily_goal}). "
-                "Ask the next question in chat — you pick the format."
+                "Ask the next multiple-choice ```vocab_quiz — prioritize failed/learning first."
             )
     elif stats.total == 0:
         prompt = (

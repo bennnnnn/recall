@@ -79,11 +79,11 @@ def is_ambiguous_local_places_query(text: str) -> bool:
     return _AMBIGUOUS_NEARBY_SUBJECT.search(subject) is not None
 
 
-def is_vocab_quiz_answer(text: str) -> bool:
+def is_vocab_quiz_answer(text: str, *, choices: tuple[tuple[str, str], ...] | None = None) -> bool:
     """Multiple-choice reply (A-D), including short phrases like 'Is it a?'."""
     from app.services.vocab_quiz import is_vocab_quiz_answer as _is_vocab_quiz_answer
 
-    return _is_vocab_quiz_answer(text)
+    return _is_vocab_quiz_answer(text, choices=choices)
 
 
 def _geo_is_active(*texts: str) -> bool:
