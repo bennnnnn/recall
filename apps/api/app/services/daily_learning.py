@@ -155,6 +155,71 @@ def _item_activity_sort_key(item: object) -> tuple[datetime, datetime]:
     return mastered, created_at
 
 
+def _incorrect_local_date(item: object, tz: ZoneInfo) -> date | None:
+    incorrect_at = getattr(item, "last_incorrect_at", None)
+    if incorrect_at is None:
+        return None
+    return _as_utc(incorrect_at).astimezone(tz).date()
+
+
+def _item_missed_sort_key(item: object) -> datetime:
+    incorrect_at = getattr(item, "last_incorrect_at", None)
+    if incorrect_at is not None:
+        return _as_utc(incorrect_at)
+    created = getattr(item, "created_at", None)
+    return _as_utc(created) if created is not None else datetime.min.replace(tzinfo=UTC)
+
+
+def group_missed_items_by_date(
+    items: list,
+    *,
+    timezone_name: str,
+    days: int = 14,
+) -> dict[str, list]:
+    """Items with a recorded incorrect attempt, grouped by local miss date."""
+    try:
+        tz = ZoneInfo(timezone_name)
+    except Exception:
+        tz = ZoneInfo("UTC")
+    today = datetime.now(tz).date()
+    span = max(1, min(days, 60))
+    valid_dates = {
+        (today - timedelta(days=offset)).isoformat() for offset in range(span - 1, -1, -1)
+    }
+    grouped: dict[str, list] = {day_key: [] for day_key in valid_dates}
+    for item in items:
+        day = _incorrect_local_date(item, tz)
+        if day is None:
+            continue
+        key = day.isoformat()
+        if key not in grouped:
+            continue
+        grouped[key].append(item)
+    return {
+        day_key: sorted(day_items, key=_item_missed_sort_key, reverse=True)
+        for day_key, day_items in grouped.items()
+        if day_items
+    }
+
+
+def count_missed_by_date(
+    items: list,
+    *,
+    timezone_name: str,
+) -> dict[date, int]:
+    try:
+        tz = ZoneInfo(timezone_name)
+    except Exception:
+        tz = ZoneInfo("UTC")
+    counts: dict[date, int] = {}
+    for item in items:
+        day = _incorrect_local_date(item, tz)
+        if day is None:
+            continue
+        counts[day] = counts.get(day, 0) + 1
+    return counts
+
+
 def group_mastered_items_by_date(
     items: list,
     *,
@@ -211,11 +276,14 @@ def build_daily_history(
             continue
         counts[day] = counts.get(day, 0) + 1
 
+    missed_counts = count_missed_by_date(items, timezone_name=timezone_name)
+
     history: list[dict[str, object]] = []
     span = max(1, min(days, 60))
     for offset in range(span - 1, -1, -1):
         day = today - timedelta(days=offset)
         count = counts.get(day, 0)
+        missed = missed_counts.get(day, 0)
         if day < active_since_date:
             status: DailyHistoryStatus = "inactive"
         elif day == today:
@@ -231,6 +299,7 @@ def build_daily_history(
                 "date": day.isoformat(),
                 "weekday": day.weekday(),
                 "mastered_count": count,
+                "missed_count": missed,
                 "daily_goal": goal,
                 "goal_met": count >= goal,
                 "status": status,

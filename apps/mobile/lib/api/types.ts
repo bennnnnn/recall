@@ -136,6 +136,7 @@ export type ProjectItem = {
   mastered: boolean;
   mastered_at: string | null;
   last_reviewed_at: string | null;
+  last_incorrect_at?: string | null;
   review_count: number;
   pronunciation_url: string | null;
   created_at: string;
@@ -161,6 +162,7 @@ export type ProjectDailyHistoryDay = {
   date: string;
   weekday: number;
   mastered_count: number;
+  missed_count: number;
   daily_goal: number;
   goal_met: boolean;
   status: "complete" | "partial" | "skipped" | "today" | "inactive";
@@ -182,6 +184,7 @@ export type ProjectDetail = Project & {
   stats: ProjectStats;
   daily_history: ProjectDailyHistoryDay[];
   daily_items_by_date: Record<string, ProjectItem[]>;
+  daily_missed_by_date?: Record<string, ProjectItem[]>;
   lists: ProjectListGroup[];
   by_part_of_speech?: ProjectPosGroup[];
 };

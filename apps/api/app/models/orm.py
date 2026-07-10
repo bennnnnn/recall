@@ -252,6 +252,9 @@ class ProjectItem(Base):
     last_reviewed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    last_incorrect_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     review_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     quiz_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     quiz_correct: Mapped[int] = mapped_column(Integer, default=0, server_default="0")

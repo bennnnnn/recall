@@ -5,6 +5,14 @@ import { useTranslation } from "react-i18next";
 import type { ProjectStats } from "@/lib/api";
 import { Theme, useTheme } from "@/lib/theme";
 
+export type ProjectDaySnapshot = {
+  title: string;
+  masteredCount: number;
+  missedCount: number;
+  dailyGoal: number;
+  isToday: boolean;
+};
+
 type Props = {
   stats: ProjectStats;
   learnedLabel: string;
@@ -12,6 +20,7 @@ type Props = {
   dueLabel: string;
   /** When set, shows today's batch progress instead of lifetime %. */
   dailyGoal?: number;
+  daySnapshot?: ProjectDaySnapshot | null;
   streakDays?: number;
   daysInactive?: number | null;
 };
@@ -22,19 +31,24 @@ export function ProjectProgressHero({
   todayLearnedLabel,
   dueLabel,
   dailyGoal,
+  daySnapshot = null,
   streakDays = 0,
   daysInactive,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const isDaily = dailyGoal != null && dailyGoal > 0;
-  const goalMet = isDaily && stats.mastered_today >= dailyGoal;
-  const doneToday = isDaily ? Math.min(stats.mastered_today, dailyGoal) : stats.mastered_today;
+  const useDay = daySnapshot != null && daySnapshot.dailyGoal > 0;
+  const activeGoal = useDay ? daySnapshot.dailyGoal : dailyGoal;
+  const isDaily = activeGoal != null && activeGoal > 0;
+  const masteredForDay = useDay ? daySnapshot.masteredCount : stats.mastered_today;
+  const missedForDay = useDay ? daySnapshot.missedCount : stats.learning_count;
+  const goalMet = isDaily && masteredForDay >= (activeGoal ?? 0);
+  const doneToday = isDaily ? Math.min(masteredForDay, activeGoal ?? 0) : stats.mastered_today;
   const leftToday =
-    isDaily && !goalMet ? Math.max(0, dailyGoal - stats.mastered_today) : 0;
+    isDaily && !goalMet ? Math.max(0, (activeGoal ?? 0) - masteredForDay) : 0;
   const pct = isDaily
-    ? Math.min(100, Math.round((doneToday / dailyGoal) * 100))
+    ? Math.min(100, Math.round((doneToday / (activeGoal ?? 1)) * 100))
     : stats.total > 0
       ? Math.min(100, Math.round((stats.mastered_count / stats.total) * 100))
       : 0;
@@ -43,25 +57,32 @@ export function ProjectProgressHero({
     daysInactive != null && daysInactive >= 2
       ? t("projects.stats.inactive_days", { days: daysInactive })
       : null;
+  const cardTitle = useDay
+    ? daySnapshot.title
+    : isDaily
+      ? t("projects.stats.today")
+      : t("projects.progress_title");
 
   return (
     <View style={s.card}>
       <View style={s.header}>
-        <Text style={s.title}>
-          {isDaily ? t("projects.stats.today") : t("projects.progress_title")}
-        </Text>
+        <Text style={s.title}>{cardTitle}</Text>
         <Text style={s.pct}>
           {isDaily
             ? goalMet
               ? t("projects.daily_goal_done")
-              : t("projects.daily_progress", { done: doneToday, goal: dailyGoal })
+              : t("projects.daily_progress", { done: doneToday, goal: activeGoal })
             : t("projects.progress_pct", { pct })}
         </Text>
       </View>
-      {streakDays > 0 ? (
+      {useDay && daySnapshot.isToday && streakDays > 0 ? (
+        <Text style={s.streakText}>{t("projects.stats.streak", { count: streakDays })}</Text>
+      ) : !useDay && streakDays > 0 ? (
         <Text style={s.streakText}>{t("projects.stats.streak", { count: streakDays })}</Text>
       ) : null}
-      {gapLabel ? <Text style={s.gapText}>{gapLabel}</Text> : null}
+      {gapLabel && (!useDay || daySnapshot.isToday) ? (
+        <Text style={s.gapText}>{gapLabel}</Text>
+      ) : null}
       <View style={s.track}>
         <View style={[s.fill, { width: `${pct}%` }]} />
       </View>
@@ -72,22 +93,23 @@ export function ProjectProgressHero({
               label={
                 goalMet ? t("projects.stats.goal_complete") : t("projects.stats.pending_today")
               }
-              value={goalMet ? dailyGoal : leftToday}
+              value={goalMet ? (activeGoal ?? 0) : leftToday}
               theme={theme}
               accent={goalMet ? theme.primary : leftToday > 0 ? theme.warning : theme.textTertiary}
               highlight={!goalMet && leftToday > 0}
             />
             <MetricPill
               label={todayLearnedLabel}
-              value={stats.mastered_today}
+              value={masteredForDay}
               theme={theme}
               accent={theme.primary}
             />
             <MetricPill
-              label={t("projects.status_learning")}
-              value={stats.learning_count}
+              label={t("projects.status_missed")}
+              value={missedForDay}
               theme={theme}
-              accent={theme.warning}
+              accent={missedForDay > 0 ? theme.warning : theme.textTertiary}
+              highlight={missedForDay > 0}
             />
           </>
         ) : (
@@ -99,7 +121,7 @@ export function ProjectProgressHero({
               accent={theme.primary}
             />
             <MetricPill
-              label={t("projects.status_learning")}
+              label={t("projects.status_missed")}
               value={stats.learning_count}
               theme={theme}
               accent={theme.warning}

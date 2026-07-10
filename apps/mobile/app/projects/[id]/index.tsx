@@ -13,9 +13,12 @@ import { useTranslation } from "react-i18next";
 
 import { ProjectDailyStrip } from "@/components/ProjectDailyStrip";
 import { ProjectDayItemsList, type ProjectStudyAction } from "@/components/ProjectDayItemsList";
-import { ProjectProgressHero } from "@/components/ProjectProgressHero";
+import { ProjectProgressHero, type ProjectDaySnapshot } from "@/components/ProjectProgressHero";
 import { ProjectItemRow } from "@/components/ProjectItemRow";
+import { LearningDropdownCard, LearningDropdownRow } from "@/components/projects/LearningDropdownRow";
+import { TriviaTopicsPickerModal } from "@/components/projects/TriviaTopicsPickerModal";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProjects } from "@/contexts/ProjectsContext";
 import { api, type ProjectDetail, type VocabStatus } from "@/lib/api";
 import { queueChatLaunch } from "@/lib/chatLaunch";
 import {
@@ -30,20 +33,23 @@ import {
   fetchProjectDetail,
   getCachedProjectDetail,
   invalidateProjectDetail,
-  prefetchProjectDetail,
 } from "@/lib/projectDetailCache";
 import { isLanguageProject, levelLabel } from "@/lib/languageLevels";
 import { resolveDailyGoal } from "@/lib/dailyGoals";
 import { localDateKey } from "@/lib/reminderCalendar";
 import { formatProjectListTitle, isConceptProject, isTriviaProject, projectStatsLabels } from "@/lib/projectUi";
 import {
-  formatTriviaTopicLabels,
+  encodeTriviaTopics,
   parseTriviaTopics,
+  type TriviaTopicId,
 } from "@/lib/triviaTopics";
 import { Theme, useTheme } from "@/lib/theme";
 
+const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+
 export default function ProjectDetailScreen() {
   const { token } = useAuth();
+  const { setProjects } = useProjects();
   const { t } = useTranslation();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -60,6 +66,9 @@ export default function ProjectDetailScreen() {
   const [selectedDay, setSelectedDay] = useState(() => localDateKey(new Date()));
   const [conceptBusyId, setConceptBusyId] = useState<string | null>(null);
   const [expandedDeck, setExpandedDeck] = useState<string | null>(null);
+  const [topicsOpen, setTopicsOpen] = useState(false);
+  const [topicsDraft, setTopicsDraft] = useState<TriviaTopicId[]>([]);
+  const [savingTopics, setSavingTopics] = useState(false);
 
   const load = useCallback(
     async (opts?: { silent?: boolean; force?: boolean }) => {
@@ -153,6 +162,73 @@ export default function ProjectDetailScreen() {
   const showDailyTracking = (isLang || isTrivia) && (project.daily_history?.length ?? 0) > 0;
   const isToday = selectedDay === localDateKey(new Date());
   const remainingToday = dailyGoal ? remainingDailyGoal(project) : 0;
+  const triviaTopicIds = isTrivia ? parseTriviaTopics(project.description) : [];
+  const triviaTopicsLabel = t("projects.list.topics_value", { count: triviaTopicIds.length });
+  const showDailyStudyCta =
+    isToday &&
+    (isLang || isTrivia) &&
+    dailyGoal != null &&
+    !dailyGoalMet &&
+    remainingToday > 0;
+  const showReviewCta = isToday && dailyGoalMet && stats.due_for_review > 0;
+  const selectedDayMissed = project.daily_missed_by_date?.[selectedDay] ?? [];
+  const daySnapshotTitle = isToday
+    ? t("projects.stats.today")
+    : t(`projects.daily_strip.${WEEKDAY_KEYS[selectedDayMeta?.weekday ?? 0] ?? "mon"}`).toUpperCase();
+  const daySnapshot: ProjectDaySnapshot | null =
+    showDailyTracking && dailyGoal && selectedDayMeta
+      ? {
+          title: daySnapshotTitle,
+          masteredCount: selectedDayMeta.mastered_count,
+          missedCount: selectedDayMeta.missed_count ?? 0,
+          dailyGoal: selectedDayMeta.daily_goal,
+          isToday,
+        }
+      : null;
+
+  const openTopicsPicker = () => {
+    setTopicsDraft(
+      triviaTopicIds.length > 0 ? (triviaTopicIds as TriviaTopicId[]) : ["history", "science"],
+    );
+    setTopicsOpen(true);
+  };
+
+  const toggleTopicsDraft = (topicId: TriviaTopicId) => {
+    setTopicsDraft((prev) => {
+      if (prev.includes(topicId)) {
+        const next = prev.filter((id) => id !== topicId);
+        return next.length > 0 ? next : prev;
+      }
+      return [...prev, topicId];
+    });
+  };
+
+  const saveTriviaTopics = async () => {
+    if (!token || savingTopics || topicsDraft.length === 0) return;
+    setSavingTopics(true);
+    try {
+      const updated = await api.updateProject(token, project.id, {
+        description: encodeTriviaTopics(topicsDraft),
+      });
+      setProject((prev) => (prev ? { ...prev, description: updated.description } : prev));
+      setProjects((prev) => prev.map((row) => (row.id === updated.id ? updated : row)));
+      invalidateProjectDetail(project.id);
+      setTopicsOpen(false);
+    } catch {
+      Alert.alert(t("common.error"), t("settings.learning.save_failed"));
+    } finally {
+      setSavingTopics(false);
+    }
+  };
+
+  const dailyStudyCtaLabel =
+    stats.mastered_today === 0
+      ? isTrivia
+        ? t("projects.study.start_questions")
+        : t("projects.study.start_words", { count: dailyGoal })
+      : isTrivia
+        ? t("projects.study.complete_questions", { count: remainingToday })
+        : t("projects.study.complete_words", { count: remainingToday });
 
   const handleItemStatusChange = async (itemId: string, status: VocabStatus) => {
     if (!token || typeof id !== "string") return;
@@ -240,6 +316,7 @@ export default function ProjectDetailScreen() {
   }
 
   return (
+    <>
     <ScrollView style={s.root} contentContainerStyle={s.content}>
       <View style={s.hero}>
         <View style={s.badgeRow}>
@@ -282,13 +359,26 @@ export default function ProjectDetailScreen() {
           <Text style={s.title}>{project.title}</Text>
         )}
         {isTrivia ? (
-          <Text style={s.description}>
-            {formatTriviaTopicLabels(parseTriviaTopics(project.description), t)}
-          </Text>
+          <LearningDropdownCard>
+            <LearningDropdownRow
+              label={t("projects.list.topics_row")}
+              value={triviaTopicsLabel}
+              onPress={openTopicsPicker}
+              disabled={savingTopics}
+            />
+          </LearningDropdownCard>
         ) : project.description ? (
           <Text style={s.description}>{project.description}</Text>
         ) : null}
       </View>
+
+      {showDailyTracking ? (
+        <ProjectDailyStrip
+          days={project.daily_history ?? []}
+          selectedDate={selectedDay}
+          onSelectDate={setSelectedDay}
+        />
+      ) : null}
 
       <ProjectProgressHero
         stats={stats}
@@ -296,6 +386,7 @@ export default function ProjectDetailScreen() {
         todayLearnedLabel={statLabels.learnedToday}
         dueLabel={statLabels.due}
         dailyGoal={dailyGoal}
+        daySnapshot={daySnapshot}
         streakDays={stats.streak_days}
         daysInactive={stats.days_inactive}
       />
@@ -308,20 +399,16 @@ export default function ProjectDetailScreen() {
         </Pressable>
       ) : null}
 
-      {stats.due_for_review > 0 ? (
+      {showDailyStudyCta ? (
+        <Pressable style={s.reviewBtn} onPress={startStudyQuiz}>
+          <Text style={s.reviewBtnText}>{dailyStudyCtaLabel}</Text>
+        </Pressable>
+      ) : showReviewCta ? (
         <Pressable style={s.reviewBtn} onPress={startReviewSession}>
           <Text style={s.reviewBtnText}>
             {t("projects.review_due", { count: stats.due_for_review })}
           </Text>
         </Pressable>
-      ) : null}
-
-      {showDailyTracking ? (
-        <ProjectDailyStrip
-          days={project.daily_history ?? []}
-          selectedDate={selectedDay}
-          onSelectDate={setSelectedDay}
-        />
       ) : null}
 
       {showDailyTracking && token ? (
@@ -332,6 +419,7 @@ export default function ProjectDetailScreen() {
           dayMeta={selectedDayMeta}
           isTrivia={isTrivia}
           itemsByDate={project.daily_items_by_date ?? {}}
+          missedItems={selectedDayMissed}
           studyAction={todayStudyAction}
           onItemUpdated={() => load({ silent: true, force: true })}
         />
@@ -408,6 +496,16 @@ export default function ProjectDetailScreen() {
         <Text style={s.deleteBtnText}>{t("projects.delete")}</Text>
       </Pressable>
     </ScrollView>
+
+    <TriviaTopicsPickerModal
+      visible={topicsOpen}
+      selected={topicsDraft}
+      saving={savingTopics}
+      onClose={() => setTopicsOpen(false)}
+      onDone={() => void saveTriviaTopics()}
+      onToggle={toggleTopicsDraft}
+    />
+    </>
   );
 }
 

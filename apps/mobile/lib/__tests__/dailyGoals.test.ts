@@ -1,6 +1,7 @@
 import {
   dailyGoalPickerOptions,
   formatDailyGoalLabel,
+  formatDailyGoalShort,
   resolveDailyGoal,
   VOCAB_DAILY_GOALS,
 } from "@/lib/dailyGoals";
@@ -19,9 +20,14 @@ describe("dailyGoals", () => {
     expect(formatDailyGoalLabel(5, "trivia", t)).toBe("projects.trivia.daily_questions:5");
   });
 
-  it("dailyGoalPickerOptions lists all batch sizes", () => {
+  it("formatDailyGoalShort shows only the number", () => {
+    expect(formatDailyGoalShort(10)).toBe("10");
+  });
+
+  it("dailyGoalPickerOptions lists numeric batch sizes", () => {
     const options = dailyGoalPickerOptions("language", t);
     expect(options).toHaveLength(VOCAB_DAILY_GOALS.length);
     expect(options.map((row) => row.key)).toEqual(["5", "10", "15"]);
+    expect(options.map((row) => row.label)).toEqual(["5", "10", "15"]);
   });
 });

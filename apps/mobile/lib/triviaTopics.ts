@@ -44,3 +44,20 @@ export const TRIVIA_DIFFICULTY_LEVELS: { level: LanguageLevel; labelKey: string 
   { level: "level3", labelKey: "projects.trivia.difficulty.medium" },
   { level: "level5", labelKey: "projects.trivia.difficulty.hard" },
 ];
+
+export function triviaDifficultyLabel(
+  level: LanguageLevel,
+  t: (key: string) => string,
+): string {
+  const match = TRIVIA_DIFFICULTY_LEVELS.find((item) => item.level === level);
+  return match ? t(match.labelKey) : level;
+}
+
+export function triviaDifficultyPickerOptions(
+  t: (key: string) => string,
+): { key: LanguageLevel; label: string }[] {
+  return TRIVIA_DIFFICULTY_LEVELS.map((item) => ({
+    key: item.level,
+    label: t(item.labelKey),
+  }));
+}

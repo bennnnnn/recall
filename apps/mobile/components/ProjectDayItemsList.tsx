@@ -21,6 +21,7 @@ type Props = {
   isTrivia?: boolean;
   studyAction?: ProjectStudyAction | null;
   itemsByDate?: Record<string, ProjectItem[]>;
+  missedItems?: ProjectItem[];
   onItemUpdated?: () => void;
 };
 
@@ -34,6 +35,7 @@ export function ProjectDayItemsList({
   isTrivia = false,
   studyAction = null,
   itemsByDate,
+  missedItems = [],
   onItemUpdated,
 }: Props) {
   const { t } = useTranslation();
@@ -97,12 +99,34 @@ export function ProjectDayItemsList({
   const title = isTrivia
     ? t("projects.daily_items.title_facts", { day: weekdayLabel(dayMeta, t) })
     : t("projects.daily_items.title_words", { day: weekdayLabel(dayMeta, t) });
+  const missedTitle = t("projects.daily_items.title_missed", {
+    day: weekdayLabel(dayMeta, t),
+  });
 
   return (
     <View style={s.wrap}>
-      <View style={s.header}>
-        <Text style={s.label}>{title}</Text>
-      </View>
+      {missedItems.length > 0 ? (
+        <View style={s.section}>
+          <Text style={s.label}>{missedTitle}</Text>
+          <View style={s.items}>
+            {missedItems.map((item) => (
+              <View key={`missed-${item.id}`} style={s.itemCard}>
+                <ProjectItemRow
+                  item={item}
+                  showSpeech={!isTrivia}
+                  busy={busyId === item.id}
+                  onStatusChange={(status) => handleStatusChange(item.id, status)}
+                />
+              </View>
+            ))}
+          </View>
+        </View>
+      ) : null}
+
+      <View style={s.section}>
+        <View style={s.header}>
+          <Text style={s.label}>{title}</Text>
+        </View>
 
       {loading ? (
         <ActivityIndicator color={theme.primary} style={s.loader} />
@@ -136,6 +160,7 @@ export function ProjectDayItemsList({
           ) : null}
         </View>
       )}
+      </View>
     </View>
   );
 }
@@ -148,6 +173,9 @@ function weekdayLabel(dayMeta: ProjectDailyHistoryDay | undefined, t: (key: stri
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     wrap: {
+      gap: 16,
+    },
+    section: {
       gap: 10,
     },
     header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },

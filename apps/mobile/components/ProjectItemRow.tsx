@@ -50,7 +50,7 @@ export function ProjectItemRow({
         onPress: () => void onStatusChange("new"),
       },
       {
-        text: t("projects.status_learning"),
+        text: t("projects.status_missed"),
         onPress: () => void onStatusChange("learning"),
       },
       {
@@ -107,7 +107,9 @@ export function ProjectItemRow({
         <Pressable disabled={!onStatusChange || busy} onPress={openStatusMenu}>
           <View style={[s.statusChip, mastered && s.statusChipMastered]}>
             <Text style={[s.statusChipText, mastered && s.statusChipTextMastered]}>
-              {statusLabel(item.status)}
+              {item.status === "learning"
+                ? t("projects.status_missed")
+                : statusLabel(item.status)}
             </Text>
             {onStatusChange ? (
               <Ionicons name="chevron-down" size={12} color={theme.textTertiary} />

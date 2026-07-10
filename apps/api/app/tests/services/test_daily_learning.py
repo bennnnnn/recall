@@ -189,3 +189,30 @@ def test_build_daily_history_complete_partial_and_skipped():
     assert history[1]["mastered_count"] == 2
     assert history[2]["status"] == "today"
     assert history[2]["mastered_count"] == 1
+
+
+def test_build_daily_history_includes_missed_counts():
+    tz = ZoneInfo("UTC")
+    today = datetime.now(tz).date()
+    start = datetime.combine(today - timedelta(days=2), datetime.min.time(), tzinfo=tz).astimezone(
+        UTC
+    )
+    wrong_at = (
+        datetime.combine(today, datetime.min.time(), tzinfo=tz).replace(hour=12).astimezone(UTC)
+    )
+
+    class Item:
+        status = "learning"
+        mastered = False
+        mastered_at = None
+        created_at = start
+        last_incorrect_at = wrong_at
+
+    history = build_daily_history(
+        [Item()],
+        timezone_name="UTC",
+        daily_goal=5,
+        active_since=start,
+        days=3,
+    )
+    assert history[-1]["missed_count"] == 1

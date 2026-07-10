@@ -20,12 +20,17 @@ export function formatDailyGoalLabel(
     : t("projects.daily_goal_words", { count: goal });
 }
 
+/** Compact display for learning settings rows and pickers (5, 10, 15). */
+export function formatDailyGoalShort(goal: number): string {
+  return String(goal);
+}
+
 export function dailyGoalPickerOptions(
-  kind: "language" | "trivia",
-  t: (key: string, options?: { count: number }) => string,
+  _kind: "language" | "trivia",
+  _t: (key: string, options?: { count: number }) => string,
 ): { key: string; label: string }[] {
   return VOCAB_DAILY_GOALS.map((count) => ({
     key: String(count),
-    label: formatDailyGoalLabel(count, kind, t),
+    label: formatDailyGoalShort(count),
   }));
 }

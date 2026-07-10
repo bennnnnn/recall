@@ -327,6 +327,8 @@ async def apply_quiz_result(
     item.quiz_attempts = int(item.quiz_attempts or 0) + 1
     if is_correct:
         item.quiz_correct = int(item.quiz_correct or 0) + 1
+    else:
+        item.last_incorrect_at = now
 
     _sync_mastered_fields(item, new_status)
     from app.services.sm2 import apply_sm2, quality_for_status

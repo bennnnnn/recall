@@ -15,7 +15,7 @@ import { useProjects } from "@/contexts/ProjectsContext";
 import { api, type LanguageLevel, type Project } from "@/lib/api";
 import {
   dailyGoalPickerOptions,
-  formatDailyGoalLabel,
+  formatDailyGoalShort,
   resolveDailyGoal,
 } from "@/lib/dailyGoals";
 import { isLanguageProject, levelLabel, levelPickerOptions } from "@/lib/languageLevels";
@@ -131,11 +131,7 @@ export default function LearningSettingsScreen() {
                 <View style={s.menuSeparator} />
                 <SettingsLinkRow
                   title={t("settings.learning.words_label")}
-                  value={formatDailyGoalLabel(
-                    resolveDailyGoal(languageProject.daily_goal),
-                    "language",
-                    t,
-                  )}
+                  value={formatDailyGoalShort(resolveDailyGoal(languageProject.daily_goal))}
                   onPress={() =>
                     setPickerTarget({
                       mode: "daily",
@@ -152,11 +148,7 @@ export default function LearningSettingsScreen() {
             {triviaProject ? (
               <SettingsLinkRow
                 title={t("settings.learning.questions_label")}
-                value={formatDailyGoalLabel(
-                  resolveDailyGoal(triviaProject.daily_goal),
-                  "trivia",
-                  t,
-                )}
+                value={formatDailyGoalShort(resolveDailyGoal(triviaProject.daily_goal))}
                 onPress={() =>
                   setPickerTarget({ mode: "daily", project: triviaProject, kind: "trivia" })
                 }

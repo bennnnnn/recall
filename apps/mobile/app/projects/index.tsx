@@ -19,32 +19,53 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjects } from "@/contexts/ProjectsContext";
 import { StateView } from "@/components/StateView";
-import { api, type LanguageLevel, type ProjectKind } from "@/lib/api";
-import { LANGUAGE_LEVELS, levelLabel } from "@/lib/languageLevels";
+import { LearningProjectCard } from "@/components/projects/LearningProjectCard";
+import { TriviaTopicsPickerModal } from "@/components/projects/TriviaTopicsPickerModal";
+import { SettingsPickerModal } from "@/components/settings/SettingsPickerModal";
+import { makeSettingsStyles } from "@/components/settings/settingsUi";
+import { api, type LanguageLevel, type Project, type ProjectKind } from "@/lib/api";
+import {
+  dailyGoalPickerOptions,
+  DEFAULT_VOCAB_DAILY_GOAL,
+  formatDailyGoalShort,
+  resolveDailyGoal,
+  VOCAB_DAILY_GOALS,
+  type VocabDailyGoal,
+} from "@/lib/dailyGoals";
+import { LANGUAGE_LEVELS, levelLabel, levelPickerOptions } from "@/lib/languageLevels";
 import { findLanguageProject } from "@/lib/languageProject";
 import { queueChatLaunch } from "@/lib/chatLaunch";
-import { prefetchProjectDetail, prefetchProjectDetails } from "@/lib/projectDetailCache";
-import { buildEnglishOnboardingPrompt, buildTriviaOnboardingPrompt } from "@/lib/projectChat";
 import {
+  invalidateProjectDetail,
+  prefetchProjectDetails,
+} from "@/lib/projectDetailCache";
+import {
+  buildEnglishOnboardingPrompt,
+  buildTriviaOnboardingPrompt,
+} from "@/lib/projectChat";
+import {
+  canAddLearningProject,
   englishProjectTitle,
   triviaProjectTitle,
-  canAddLearningProject,
   type CreateStep,
 } from "@/lib/projectCreateFlow";
 import { findTriviaProject } from "@/lib/triviaProject";
+import { isTriviaProject } from "@/lib/projectUi";
 import {
   encodeTriviaTopics,
   formatTriviaTopicLabels,
   TRIVIA_TOPICS,
   TRIVIA_DIFFICULTY_LEVELS,
+  triviaDifficultyLabel,
+  triviaDifficultyPickerOptions,
+  parseTriviaTopics,
   type TriviaTopicId,
 } from "@/lib/triviaTopics";
-import {
-  DEFAULT_VOCAB_DAILY_GOAL,
-  VOCAB_DAILY_GOALS,
-  type VocabDailyGoal,
-} from "@/lib/dailyGoals";
 import { Theme, useTheme } from "@/lib/theme";
+
+type PickerTarget =
+  | { mode: "daily"; project: Project; kind: "language" | "trivia" }
+  | { mode: "level"; project: Project; kind: "language" | "trivia" };
 
 const SUBJECTS: ProjectKind[] = ["language", "trivia"];
 
@@ -54,29 +75,19 @@ function kindIcon(kind: ProjectKind): keyof typeof Ionicons.glyphMap {
   return "folder-outline";
 }
 
-function projectRowMeta(
-  project: { kind: ProjectKind; level: LanguageLevel; target_language: string; description: string | null },
-  t: (key: string, opts?: Record<string, unknown>) => string,
-): string {
-  const kindKey = project.kind === "vocabulary" ? "language" : project.kind;
-  if (project.kind === "language" || project.kind === "vocabulary") {
-    return `${t(`projects.kind.${kindKey}`)} · ${levelLabel(project.level)}`;
-  }
-  if (project.kind === "trivia") {
-    const topics = project.description?.split(",").filter(Boolean).length ?? 0;
-    return `${t("projects.kind.trivia")} · ${t("projects.trivia.topic_count", { count: topics })}`;
-  }
-  return t(`projects.kind.${kindKey}`);
-}
-
 export default function ProjectsScreen() {
   const { token } = useAuth();
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
+  const settingsStyles = useMemo(() => makeSettingsStyles(C), [C]);
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { projects, loading, error, refresh, setProjects } = useProjects();
+  const [saving, setSaving] = useState(false);
+  const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
+  const [topicsProject, setTopicsProject] = useState<Project | null>(null);
+  const [topicsDraft, setTopicsDraft] = useState<TriviaTopicId[]>([]);
   const visibleProjects = useMemo(
     () => projects.filter((project) => project.kind !== "programming"),
     [projects],
@@ -114,6 +125,90 @@ export default function ProjectsScreen() {
     setTriviaTopics(["history", "science"]);
     setCreating(false);
   };
+
+  const saveDailyGoal = async (project: Project, nextGoal: number) => {
+    if (!token || saving) return;
+    setSaving(true);
+    try {
+      const updated = await api.updateProject(token, project.id, { daily_goal: nextGoal });
+      setProjects((prev) => prev.map((row) => (row.id === updated.id ? updated : row)));
+      invalidateProjectDetail(project.id);
+    } catch {
+      Alert.alert(t("common.error"), t("settings.learning.save_failed"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveLevel = async (project: Project, level: LanguageLevel, kind: "language" | "trivia") => {
+    if (!token || saving) return;
+    setSaving(true);
+    try {
+      const patch =
+        kind === "language"
+          ? { level, title: englishProjectTitle(level, t) }
+          : { level };
+      const updated = await api.updateProject(token, project.id, patch);
+      setProjects((prev) => prev.map((row) => (row.id === updated.id ? updated : row)));
+      invalidateProjectDetail(project.id);
+    } catch {
+      Alert.alert(t("common.error"), t("settings.learning.save_failed"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveTopics = async () => {
+    if (!token || !topicsProject || saving || topicsDraft.length === 0) return;
+    setSaving(true);
+    try {
+      const updated = await api.updateProject(token, topicsProject.id, {
+        description: encodeTriviaTopics(topicsDraft),
+      });
+      setProjects((prev) => prev.map((row) => (row.id === updated.id ? updated : row)));
+      invalidateProjectDetail(topicsProject.id);
+      setTopicsProject(null);
+    } catch {
+      Alert.alert(t("common.error"), t("settings.learning.save_failed"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleTopicsDraft = (id: TriviaTopicId) => {
+    setTopicsDraft((prev) => {
+      if (prev.includes(id)) {
+        const next = prev.filter((topic) => topic !== id);
+        return next.length > 0 ? next : prev;
+      }
+      return [...prev, id];
+    });
+  };
+
+  const pickerTitle =
+    pickerTarget?.mode === "level"
+      ? pickerTarget.kind === "trivia"
+        ? t("projects.trivia.difficulty_label")
+        : t("settings.learning.level_picker_title")
+      : pickerTarget?.kind === "trivia"
+        ? t("settings.learning.questions_picker_title")
+        : t("settings.learning.words_picker_title");
+
+  const pickerOptions =
+    pickerTarget?.mode === "level"
+      ? pickerTarget.kind === "trivia"
+        ? triviaDifficultyPickerOptions(t)
+        : levelPickerOptions()
+      : pickerTarget
+        ? dailyGoalPickerOptions(pickerTarget.kind, t)
+        : [];
+
+  const pickerSelectedKey =
+    pickerTarget?.mode === "level"
+      ? pickerTarget.project.level
+      : pickerTarget
+        ? String(resolveDailyGoal(pickerTarget.project.daily_goal))
+        : String(resolveDailyGoal(null));
 
   const openCreate = () => {
     resetCreate();
@@ -437,30 +532,87 @@ export default function ProjectsScreen() {
               retryLabel={t("common.retry")}
             />
           ) : (
-            visibleProjects.map((project) => (
-              <Pressable
-                key={project.id}
-                style={s.row}
-                onPressIn={() => token && prefetchProjectDetail(token, project.id)}
-                onPress={() => router.push(`/projects/${project.id}`)}
-              >
-                <View style={s.rowIcon}>
-                  <Ionicons name={kindIcon(project.kind)} size={20} color={C.primary} />
-                </View>
-                <View style={s.rowMain}>
-                  <Text style={s.rowTitle} numberOfLines={1}>
-                    {project.title}
-                  </Text>
-                  <Text style={s.rowMeta} numberOfLines={1}>
-                    {projectRowMeta(project, t)}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
-              </Pressable>
-            ))
+            visibleProjects.map((project) => {
+              const isTrivia = isTriviaProject(project.kind);
+              const levelValue = isTrivia
+                ? triviaDifficultyLabel(project.level, t)
+                : levelLabel(project.level);
+              const dailyValue = formatDailyGoalShort(resolveDailyGoal(project.daily_goal));
+              const topicIds = parseTriviaTopics(project.description);
+              const topicsValue = t("projects.list.topics_value", { count: topicIds.length });
+              return (
+                <LearningProjectCard
+                  key={project.id}
+                  project={project}
+                  token={token}
+                  icon={kindIcon(project.kind)}
+                  levelLabel={levelValue}
+                  dailyLabel={dailyValue}
+                  topicsLabel={isTrivia ? topicsValue : undefined}
+                  saving={saving}
+                  onOpen={() => router.push(`/projects/${project.id}`)}
+                  onLevelPress={() =>
+                    setPickerTarget({
+                      mode: "level",
+                      project,
+                      kind: isTrivia ? "trivia" : "language",
+                    })
+                  }
+                  onDailyPress={() =>
+                    setPickerTarget({
+                      mode: "daily",
+                      project,
+                      kind: isTrivia ? "trivia" : "language",
+                    })
+                  }
+                  onTopicsPress={
+                    isTrivia
+                      ? () => {
+                          setTopicsDraft(
+                            topicIds.length > 0
+                              ? (topicIds as TriviaTopicId[])
+                              : ["history", "science"],
+                          );
+                          setTopicsProject(project);
+                        }
+                      : undefined
+                  }
+                />
+              );
+            })
           )}
         </ScrollView>
       )}
+
+      <SettingsPickerModal
+        visible={pickerTarget != null}
+        title={pickerTitle}
+        options={pickerOptions}
+        selectedKey={pickerSelectedKey}
+        onClose={() => setPickerTarget(null)}
+        onSelect={(key) => {
+          if (!pickerTarget) return;
+          if (pickerTarget.mode === "level") {
+            void saveLevel(pickerTarget.project, key as LanguageLevel, pickerTarget.kind);
+            return;
+          }
+          const nextGoal = Number(key);
+          if (!Number.isFinite(nextGoal)) return;
+          void saveDailyGoal(pickerTarget.project, nextGoal);
+        }}
+        disabled={saving}
+        styles={settingsStyles}
+        theme={C}
+      />
+
+      <TriviaTopicsPickerModal
+        visible={topicsProject != null}
+        selected={topicsDraft}
+        saving={saving}
+        onClose={() => setTopicsProject(null)}
+        onDone={() => void saveTopics()}
+        onToggle={toggleTopicsDraft}
+      />
 
       <Modal
         visible={createStep !== null}
@@ -623,6 +775,8 @@ function makeStyles(C: Theme) {
     rowMain: { flex: 1, gap: 2 },
     rowTitle: { fontSize: 16, fontWeight: "700", color: C.text },
     rowMeta: { fontSize: 13, color: C.textSecondary },
+    topicsDone: { fontSize: 16, fontWeight: "700", color: C.primary },
+    topicsDoneDisabled: { opacity: 0.4 },
     fieldLabel: {
       fontSize: 14,
       fontWeight: "600",

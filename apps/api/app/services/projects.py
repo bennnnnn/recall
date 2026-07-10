@@ -1,6 +1,7 @@
 import logging
 import re
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -315,6 +316,24 @@ def build_language_quiz_prompt(project: Project, stats: ProjectStats) -> str:
     )
 
 
+def _format_missed_quiz_lines(items: list[ProjectItem], *, limit: int = 30) -> list[str]:
+    learning = [item for item in items if _item_status(item) == "learning"]
+    if not learning:
+        return []
+    lines = ["\nItems the user missed (prioritize revisiting until mastered):"]
+    for item in learning[:limit]:
+        missed_at = getattr(item, "last_incorrect_at", None)
+        when = (
+            missed_at.astimezone(UTC).date().isoformat()
+            if isinstance(missed_at, datetime)
+            else "recent"
+        )
+        detail = (item.definition or item.note or item.example_sentence or "").strip()
+        suffix = f" — {detail[:120]}" if detail else ""
+        lines.append(f"- {item.content}{suffix} (missed {when})")
+    return lines
+
+
 async def load_project_quiz_context(
     session: AsyncSession,
     user_id: UUID,
@@ -326,13 +345,21 @@ async def load_project_quiz_context(
     if project is None:
         return ""
     if _is_trivia_project(project):
-        return (
-            f"Active trivia quiz — project: {project.title}.\n"
-            f"Daily goal: {_trivia_daily_goal(project)} correct answers per session.\n"
-            "After feedback, ask the NEXT question using this format:\n"
-            f"{TRIVIA_QUIZ_FENCE_EXAMPLE}\n"
-            "Correct answers are saved automatically — congratulate, explain briefly, continue."
+        items = await project_items_repo.list_for_user(
+            session,
+            user_id,
+            project_id=project_id,
+            limit=settings.project_item_inject_limit,
         )
+        lines = [
+            f"Active trivia quiz — project: {project.title}.",
+            f"Daily goal: {_trivia_daily_goal(project)} correct answers per session.",
+            "After feedback, ask the NEXT question using this format:",
+            f"{TRIVIA_QUIZ_FENCE_EXAMPLE}",
+            "Correct answers are saved automatically — congratulate, explain briefly, continue.",
+        ]
+        lines.extend(_format_missed_quiz_lines(items))
+        return "\n".join(lines)
     if not _is_language_project(project):
         return ""
     items = await project_items_repo.list_for_user(
@@ -356,6 +383,7 @@ async def load_project_quiz_context(
         for item in quiz_pool[:40]:
             pos = item.part_of_speech or "other"
             lines.append(f"- {item.content} [{pos}]")
+    lines.extend(_format_missed_quiz_lines(items))
     return "\n".join(lines)
 
 

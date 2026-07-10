@@ -458,6 +458,7 @@ class ProjectItemOut(BaseModel):
     mastered: bool
     mastered_at: datetime | None
     last_reviewed_at: datetime | None
+    last_incorrect_at: datetime | None = None
     review_count: int
     ease_factor: float = 2.5
     interval_days: int = 0
@@ -489,6 +490,7 @@ class ProjectDailyHistoryDay(BaseModel):
     date: str
     weekday: int = Field(ge=0, le=6)
     mastered_count: int = Field(ge=0)
+    missed_count: int = Field(ge=0, default=0)
     daily_goal: int = Field(ge=1)
     goal_met: bool = False
     status: DailyHistoryStatus
@@ -531,6 +533,7 @@ class ProjectDetailOut(ProjectOut):
     stats: ProjectStats = Field(default_factory=ProjectStats)
     daily_history: list[ProjectDailyHistoryDay] = Field(default_factory=list)
     daily_items_by_date: dict[str, list[ProjectItemOut]] = Field(default_factory=dict)
+    daily_missed_by_date: dict[str, list[ProjectItemOut]] = Field(default_factory=dict)
     lists: list[ProjectListGroup] = Field(default_factory=list)
     by_part_of_speech: list[ProjectPosGroup] = Field(default_factory=list)
     pos_groups: list[ProjectPosGroupSummary] = Field(default_factory=list)

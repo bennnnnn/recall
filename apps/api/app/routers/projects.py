@@ -86,6 +86,22 @@ def _daily_items_by_date_for_project(
     }
 
 
+def _daily_missed_by_date_for_project(
+    items: list,
+    *,
+    timezone_name: str,
+) -> dict[str, list[ProjectItemOut]]:
+    grouped = daily_learning.group_missed_items_by_date(
+        items,
+        timezone_name=timezone_name,
+        days=14,
+    )
+    return {
+        day_key: [ProjectItemOut.model_validate(item) for item in day_items]
+        for day_key, day_items in grouped.items()
+    }
+
+
 @router.get("", response_model=list[ProjectOut])
 async def list_projects(
     user: User = Depends(get_current_user),
@@ -163,6 +179,9 @@ async def get_project(
         stats = _build_project_stats(item, project_items, timezone_name=tz_name)
         daily_history = _daily_history_for_project(item, project_items, timezone_name=tz_name)
         daily_items_by_date = _daily_items_by_date_for_project(project_items, timezone_name=tz_name)
+        daily_missed_by_date = _daily_missed_by_date_for_project(
+            project_items, timezone_name=tz_name
+        )
         lists = projects_service.group_items(project_items)
         by_pos = projects_service.group_by_part_of_speech(project_items)
         return ProjectDetailOut(
@@ -172,6 +191,7 @@ async def get_project(
             stats=stats,
             daily_history=daily_history,
             daily_items_by_date=daily_items_by_date,
+            daily_missed_by_date=daily_missed_by_date,
             lists=lists,
             by_part_of_speech=by_pos,
             pos_groups=[],
@@ -184,6 +204,9 @@ async def get_project(
         stats = _build_project_stats(item, project_items, timezone_name=tz_name)
         daily_history = _daily_history_for_project(item, project_items, timezone_name=tz_name)
         daily_items_by_date = _daily_items_by_date_for_project(project_items, timezone_name=tz_name)
+        daily_missed_by_date = _daily_missed_by_date_for_project(
+            project_items, timezone_name=tz_name
+        )
         lists = projects_service.group_trivia_items(project_items)
         return ProjectDetailOut(
             **ProjectOut.model_validate(item).model_dump(),
@@ -192,6 +215,7 @@ async def get_project(
             stats=stats,
             daily_history=daily_history,
             daily_items_by_date=daily_items_by_date,
+            daily_missed_by_date=daily_missed_by_date,
             lists=lists,
             by_part_of_speech=[],
             pos_groups=[],
