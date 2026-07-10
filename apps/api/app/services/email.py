@@ -23,6 +23,7 @@ from app.repositories import todos as todos_repo
 from app.services import day_planning as day_planning_service
 from app.services import email_triage as email_triage_service
 from app.services import home as home_service
+from app.services.ics_parser import parse_ics_invite
 
 logger = logging.getLogger(__name__)
 
@@ -253,10 +254,24 @@ class SuggestedReminderExtractionResult(BaseModel):
 def _parse_from_ics(message: GmailMessage) -> SuggestedReminderItem | None:
     if not message.ics_content:
         return None
-    title, due_at = gmail_gateway.parse_ics_event(message.ics_content)
-    if not title:
-        title = message.subject or "Calendar event"
-    return SuggestedReminderItem(title=title, due_at=due_at, confidence=0.95, notes=message.snippet)
+    invite = parse_ics_invite(message.ics_content)
+    if invite is None:
+        return None
+    title = invite.title or message.subject or "Calendar event"
+    notes_parts: list[str] = []
+    if message.snippet:
+        notes_parts.append(message.snippet)
+    if invite.location:
+        notes_parts.append(invite.location)
+    elif invite.description:
+        notes_parts.append(invite.description[:500])
+    notes = "\n".join(notes_parts) if notes_parts else None
+    return SuggestedReminderItem(
+        title=title,
+        due_at=invite.due_at,
+        confidence=0.95,
+        notes=notes,
+    )
 
 
 async def _extract_with_llm(

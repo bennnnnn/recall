@@ -695,5 +695,16 @@
   "upgrade.restore": "Käufe wiederherstellen",
   "upgrade.restore_empty": "Kein aktives Abo für dieses Konto gefunden.",
   "upgrade.subscribe": "Pro werden — {{price}}/Monat",
-  "upgrade.title": "Upgrade auf Pro"
+  "upgrade.title": "Upgrade auf Pro",
+  "drawer.bulk_archive": "Archivieren",
+  "drawer.bulk_archive_confirm_body": "{{count}} Unterhaltungen archivieren?",
+  "drawer.bulk_archive_confirm_title": "Unterhaltungen archivieren",
+  "drawer.bulk_archived_toast": "{{count}} Unterhaltungen archiviert",
+  "drawer.bulk_delete": "Löschen",
+  "drawer.bulk_delete_confirm_body": "{{count}} Unterhaltungen dauerhaft löschen? Das kann nicht rückgängig gemacht werden.",
+  "drawer.bulk_delete_confirm_title": "Unterhaltungen löschen",
+  "drawer.bulk_deleted_toast": "{{count}} Unterhaltungen gelöscht",
+  "drawer.select": "Auswählen",
+  "drawer.select_all": "Alle auswählen",
+  "drawer.selected_count": "{{count}} ausgewählt"
 }

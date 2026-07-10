@@ -16,6 +16,11 @@ type Props = {
   onSearchChange: (text: string) => void;
   onOpenSearch: () => void;
   onCloseSearch: () => void;
+  selectionMode?: boolean;
+  selectedCount?: number;
+  onEnterSelection?: () => void;
+  onExitSelection?: () => void;
+  onSelectAll?: () => void;
 };
 
 export function DrawerHeader({
@@ -28,6 +33,11 @@ export function DrawerHeader({
   onSearchChange,
   onOpenSearch,
   onCloseSearch,
+  selectionMode = false,
+  selectedCount = 0,
+  onEnterSelection,
+  onExitSelection,
+  onSelectAll,
 }: Props) {
   const { t } = useTranslation();
 
@@ -52,6 +62,18 @@ export function DrawerHeader({
               <Text style={s.searchCancelText}>{t("common.cancel")}</Text>
             </Pressable>
           </View>
+        ) : selectionMode ? (
+          <View style={s.selectionHeader}>
+            <Pressable hitSlop={8} onPress={onExitSelection} style={s.selectionHeaderAction}>
+              <Text style={s.selectionHeaderActionText}>{t("common.cancel")}</Text>
+            </Pressable>
+            <Text style={s.selectionHeaderTitle}>
+              {t("drawer.selected_count", { count: selectedCount })}
+            </Text>
+            <Pressable hitSlop={8} onPress={onSelectAll} style={s.selectionHeaderAction}>
+              <Text style={s.selectionHeaderActionText}>{t("drawer.select_all")}</Text>
+            </Pressable>
+          </View>
         ) : (
           <View style={s.logo}>
             <View style={s.logoIcon}>
@@ -60,6 +82,9 @@ export function DrawerHeader({
             <Text style={s.logoText}>{t("app.name")}</Text>
             <Pressable hitSlop={8} style={s.searchBtn} onPress={onOpenSearch}>
               <Ionicons name="search-outline" size={20} color={theme.textSecondary} />
+            </Pressable>
+            <Pressable hitSlop={8} style={s.selectBtn} onPress={onEnterSelection}>
+              <Text style={s.selectionHeaderActionText}>{t("drawer.select")}</Text>
             </Pressable>
           </View>
         )}

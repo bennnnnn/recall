@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { LinearGradient } from "expo-linear-gradient";
 import { closeDrawer, startNewChatGlobal } from "@/lib/drawer";
 import { useRouter } from "expo-router";
@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useDrawer } from "@/contexts/DrawerContext";
 import { useDrawerChatActions } from "@/hooks/useDrawerChatActions";
 import { useDrawerChatList } from "@/hooks/useDrawerChatList";
+import { useDrawerChatSelection } from "@/hooks/useDrawerChatSelection";
 import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
 import { useDrawerSearch } from "@/hooks/useDrawerSearch";
 import { Chat } from "@/lib/api";
@@ -23,10 +24,12 @@ import {
   TOP_CHROME_FADE_LOCATIONS,
 } from "@/lib/chromeFade";
 import { tap } from "@/lib/haptics";
+import { chatsFromSelection } from "@/lib/drawerChatSelection";
 import { DrawerChatFlashList } from "@/components/drawer/DrawerChatFlashList";
 import { DrawerListHeader } from "@/components/drawer/DrawerListHeader";
 import { DrawerFooter } from "@/components/drawer/DrawerFooter";
 import { DrawerHeader } from "@/components/drawer/DrawerHeader";
+import { DrawerSelectionBar } from "@/components/drawer/DrawerSelectionBar";
 import {
   FADE_EXTRA,
   FOOTER_CHROME,
@@ -90,6 +93,9 @@ export function ConversationList(_props: unknown) {
     togglePinChat,
     toggleArchiveChat,
     confirmDeleteChat,
+    requestDeleteChat,
+    bulkArchiveChats,
+    bulkDeleteChats,
     closeRename,
   } = useDrawerChatActions({
     token,
@@ -99,6 +105,20 @@ export function ConversationList(_props: unknown) {
     moveChatPinState,
     moveChatArchiveState,
     removeChatFromGroupsById,
+    reloadChats: () => void load(),
+  });
+
+  const {
+    selectionMode,
+    selectedIds,
+    selectedCount,
+    enterSelectionMode,
+    exitSelectionMode,
+    toggleSelected,
+    selectAllListed,
+  } = useDrawerChatSelection({
+    isDrawerOpen: isOpen,
+    listedChats: allChats,
   });
 
   const { unseenCount, showIndicator } = useReminderBadgeCount({
@@ -150,6 +170,35 @@ export function ConversationList(_props: unknown) {
     [showRowMenu],
   );
 
+  const onDeleteChat = useCallback(
+    (chat: Chat) => {
+      tap();
+      requestDeleteChat(chat);
+    },
+    [requestDeleteChat],
+  );
+
+  const selectedChats = useMemo(
+    () => chatsFromSelection(groups, selectedIds),
+    [groups, selectedIds],
+  );
+
+  const handleBulkArchive = useCallback(() => {
+    tap();
+    bulkArchiveChats(selectedChats, exitSelectionMode);
+  }, [bulkArchiveChats, selectedChats, exitSelectionMode]);
+
+  const handleBulkDelete = useCallback(() => {
+    tap();
+    bulkDeleteChats(selectedChats, exitSelectionMode);
+  }, [bulkDeleteChats, selectedChats, exitSelectionMode]);
+
+  const handleEnterSelection = useCallback(() => {
+    tap();
+    closeSearch();
+    enterSelectionMode();
+  }, [closeSearch, enterSelectionMode]);
+
   const topInset = insets.top + 8 + TOP_CHROME;
   const bottomInset = insets.bottom + 8 + FOOTER_CHROME;
   const topFadeHeight = topInset + FADE_EXTRA;
@@ -186,7 +235,7 @@ export function ConversationList(_props: unknown) {
   const bottomFadeColors = bottomChromeFadeColors(theme);
 
   return (
-    <View style={s.root}>
+    <GestureHandlerRootView style={s.root}>
       <ActionBanner
         message={actionBanner?.message ?? null}
         icon={actionBanner?.icon}
@@ -237,6 +286,10 @@ export function ConversationList(_props: unknown) {
         highlightedIds={highlightedIds}
         onOpenChat={(id) => openChat(id)}
         onShowRowMenu={onShowRowMenu}
+        onDeleteChat={onDeleteChat}
+        selectionMode={selectionMode}
+        selectedIds={selectedIds}
+        onToggleSelect={toggleSelected}
         listHeader={listHeader}
         contentPaddingTop={topInset}
         contentPaddingBottom={bottomInset}
@@ -268,18 +321,34 @@ export function ConversationList(_props: unknown) {
         onSearchChange={onSearchChange}
         onOpenSearch={openSearch}
         onCloseSearch={closeSearch}
+        selectionMode={selectionMode}
+        selectedCount={selectedCount}
+        onEnterSelection={handleEnterSelection}
+        onExitSelection={exitSelectionMode}
+        onSelectAll={selectAllListed}
       />
 
-      <DrawerFooter
-        styles={s}
-        theme={theme}
-        paddingBottom={insets.bottom + 8}
-        onNewChat={newChat}
-        onSettings={() => {
-          closeDrawer();
-          router.push("/settings");
-        }}
-      />
-    </View>
+      {selectionMode ? (
+        <DrawerSelectionBar
+          styles={s}
+          theme={theme}
+          paddingBottom={insets.bottom + 8}
+          selectedCount={selectedCount}
+          onArchive={handleBulkArchive}
+          onDelete={handleBulkDelete}
+        />
+      ) : (
+        <DrawerFooter
+          styles={s}
+          theme={theme}
+          paddingBottom={insets.bottom + 8}
+          onNewChat={newChat}
+          onSettings={() => {
+            closeDrawer();
+            router.push("/settings");
+          }}
+        />
+      )}
+    </GestureHandlerRootView>
   );
 }

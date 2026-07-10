@@ -695,5 +695,16 @@
   "upgrade.restore": "Восстановить покупки",
   "upgrade.restore_empty": "Активная подписка для этого аккаунта не найдена.",
   "upgrade.subscribe": "Pro — {{price}}/мес",
-  "upgrade.title": "Перейти на Pro"
+  "upgrade.title": "Перейти на Pro",
+  "drawer.bulk_archive": "В архив",
+  "drawer.bulk_archive_confirm_body": "Переместить {{count}} чатов в архив?",
+  "drawer.bulk_archive_confirm_title": "Архивировать чаты",
+  "drawer.bulk_archived_toast": "В архиве: {{count}} чатов",
+  "drawer.bulk_delete": "Удалить",
+  "drawer.bulk_delete_confirm_body": "Удалить {{count}} чатов навсегда? Это нельзя отменить.",
+  "drawer.bulk_delete_confirm_title": "Удалить чаты",
+  "drawer.bulk_deleted_toast": "Удалено чатов: {{count}}",
+  "drawer.select": "Выбрать",
+  "drawer.select_all": "Выбрать все",
+  "drawer.selected_count": "Выбрано: {{count}}"
 }

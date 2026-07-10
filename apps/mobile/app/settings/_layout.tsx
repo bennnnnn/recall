@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { StackBackButton } from "@/components/StackBackButton";
 import { stackHeaderOptions } from "@/lib/stackHeader";
+import { stackPushTransition } from "@/lib/stackTransitions";
 import { useTheme } from "@/lib/theme";
 
 function subScreen(
@@ -25,6 +26,7 @@ export default function SettingsLayout() {
   return (
     <Stack
       screenOptions={{
+        ...stackPushTransition(),
         ...header,
         headerShown: true,
         contentStyle: { backgroundColor: theme.bg },

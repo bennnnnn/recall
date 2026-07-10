@@ -17,6 +17,12 @@ import { PushNotificationBootstrap } from "@/components/PushNotificationBootstra
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { StackBackButton } from "@/components/StackBackButton";
 import { stackHeaderOptions } from "@/lib/stackHeader";
+import {
+  stackAuthTransition,
+  stackHomeTransition,
+  stackPushTransition,
+  stackUtilityTransition,
+} from "@/lib/stackTransitions";
 import { initMobileSentry } from "@/lib/sentry";
 import { useTheme } from "@/lib/theme";
 import { useTranslation } from "react-i18next";
@@ -36,38 +42,49 @@ function RootNavigator() {
       <StatusBar style={theme.isDark ? "light" : "dark"} />
       <OfflineBanner visible={isOffline} />
       <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: theme.bg },
-        animation: "slide_from_right",
-      }}
-    >
-      <Stack.Screen name="login" />
-      <Stack.Screen name="onboarding" />
-      <Stack.Screen name="index" options={{ title: "", headerShown: false }} />
-      <Stack.Screen
-        name="memory"
-        options={{
-          ...header,
-          headerShown: true,
-          title: t("memory.title"),
-          headerBackVisible: false,
-          headerLeft: () => <StackBackButton />,
+        screenOptions={{
+          ...stackPushTransition(),
+          headerShown: false,
+          contentStyle: { backgroundColor: theme.bg },
         }}
-      />
-      <Stack.Screen name="settings" options={{ headerShown: false }} />
-      <Stack.Screen
-        name="todos"
-        options={{
-          ...header,
-          headerShown: true,
-          title: t("todos.title"),
-          headerBackVisible: false,
-          headerLeft: () => <StackBackButton />,
-        }}
-      />
-      <Stack.Screen name="projects" options={{ headerShown: false }} />
-    </Stack>
+      >
+        <Stack.Screen name="login" options={stackAuthTransition()} />
+        <Stack.Screen name="onboarding" options={stackAuthTransition()} />
+        <Stack.Screen
+          name="index"
+          options={{ ...stackHomeTransition(), title: "", headerShown: false }}
+        />
+        <Stack.Screen
+          name="memory"
+          options={{
+            ...stackUtilityTransition(),
+            ...header,
+            headerShown: true,
+            title: t("memory.title"),
+            headerBackVisible: false,
+            headerLeft: () => <StackBackButton />,
+          }}
+        />
+        <Stack.Screen
+          name="settings"
+          options={{ ...stackPushTransition(), headerShown: false }}
+        />
+        <Stack.Screen
+          name="todos"
+          options={{
+            ...stackUtilityTransition(),
+            ...header,
+            headerShown: true,
+            title: t("todos.title"),
+            headerBackVisible: false,
+            headerLeft: () => <StackBackButton />,
+          }}
+        />
+        <Stack.Screen
+          name="projects"
+          options={{ ...stackPushTransition(), headerShown: false }}
+        />
+      </Stack>
     </>
   );
 }

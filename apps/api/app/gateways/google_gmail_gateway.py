@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
-import re
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from email.utils import parsedate_to_datetime
@@ -14,8 +13,6 @@ from typing import Any
 from app.core.config import Settings
 from app.gateways.google_calendar_gateway import GoogleCalendarError, exchange_server_auth_code
 from app.gateways.http_client import get_pooled_client
-
-logger = logging.getLogger(__name__)
 
 GMAIL_READONLY_SCOPE = "https://www.googleapis.com/auth/gmail.readonly"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
@@ -113,33 +110,7 @@ def _walk_parts(payload: dict[str, Any]) -> tuple[str, str | None]:
     return text, ics
 
 
-def parse_ics_event(ics_content: str) -> tuple[str | None, datetime | None]:
-    """Best-effort parse SUMMARY and DTSTART from ICS content."""
-    summary_match = re.search(r"SUMMARY(?:;[^:]*)?:(.+)", ics_content, re.IGNORECASE)
-    title = summary_match.group(1).strip() if summary_match else None
-    if title:
-        title = title.replace("\\n", " ").replace("\\,", ",")
-
-    dtstart_match = re.search(
-        r"DTSTART(?:;[^:]*)?:(\d{8}T?\d{0,6}Z?)",
-        ics_content,
-        re.IGNORECASE,
-    )
-    due_at: datetime | None = None
-    if dtstart_match:
-        raw = dtstart_match.group(1).strip()
-        try:
-            if "T" in raw:
-                if raw.endswith("Z"):
-                    due_at = datetime.strptime(raw, "%Y%m%dT%H%M%SZ").replace(tzinfo=UTC)
-                else:
-                    due_at = datetime.strptime(raw[:15], "%Y%m%dT%H%M%S").replace(tzinfo=UTC)
-            else:
-                due_at = datetime.strptime(raw[:8], "%Y%m%d").replace(tzinfo=UTC)
-        except ValueError:
-            due_at = None
-
-    return title, due_at
+logger = logging.getLogger(__name__)
 
 
 async def list_recent_messages(

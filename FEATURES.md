@@ -43,8 +43,11 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
 - ✅ **Manage from the drawer** — long-press any chat for **Pin/Unpin · Share · Archive · Delete**.
 - ⚠️ **Archive** — chats can be archived from the drawer (long-press); archived chats show in a
   separate section and are excluded from the main list. In-chat `⋯` archive is pending.
-- 🔜 Folders, multi-select, and a true swipe-to-delete gesture (needs a gesture
-  library + dev build).
+- ✅ **Multi-select** — drawer **Select** mode: tap rows to choose, then bulk **Archive** or
+  **Delete** (with confirm).
+- 🔜 Folders.
+- ✅ **Swipe-to-delete** — swipe a chat row left in the drawer to reveal Delete (same confirm
+  flow as the long-press menu).
 - ✅ **Project-scoped chats** — chats created from a learning project carry `project_id` (see [§17](#17-projects-utility-workspaces)).
 
 ## 3. Messaging behaviour
@@ -67,8 +70,9 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
 - ✅ **Voice input (STT)** — mic in the composer records on-device (`expo-audio`, **dev build**),
   transcribes via Whisper (OpenRouter), and injects the transcript as normal text. Daily caps
   (30 free / 200 Pro). Not available in Expo Go.
-- ⚠️ **Read aloud (TTS)** — speaker on assistant messages (and vocab words) uses on-device
-  `expo-speech`. Cloud/server TTS not built yet.
+- ✅ **Read aloud (TTS)** — speaker on assistant messages and vocab words prefers cloud
+  `POST /speech/tts` when a dev build + token are available; falls back to on-device
+  `expo-speech`.
 - 🔜 Message-level share, reactions, read receipts; duplex full-voice mode (out of scope).
 
 ## 4. Formatting & rendering
@@ -180,8 +184,9 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
   Preferences. Some older hardcoded English strings remain (see i18n backlog).
 - ✅ **Local todo reminders** — scheduled on-device notifications when a todo item is due (via
   `expo-notifications`; requires a dev build for full native support).
-- ✅ **Remote push (MVP)** — Expo push tokens registered with the backend; learning-review and
-  todo-due notifications (requires dev build + EAS project ID).
+- ✅ **Remote push (MVP)** — Expo push tokens registered with the backend; learning-review,
+  todo-due, email-suggestion, and **calendar meeting** notifications (requires dev build + EAS
+  project ID).
 - ✅ **Email reminders** — opt-in todo-due + learning nudge emails (Resend); Settings
   toggle; worker scheduler only (welcome + Pro receipt unchanged).
 
@@ -197,7 +202,8 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
 - ✅ **Polish** — light haptic taps on key actions (Android via the built-in API) + chip fade-in
   animation.
 - ✅ **iOS haptics** — `expo-haptics` on real devices (graceful no-op on Android / Expo Go).
-- 🔜 Richer screen transitions.
+- ✅ **Screen transitions** — shared stack presets: iOS-native push + back gestures on nested
+  stacks, fade for auth/onboarding, fade-from-bottom for drawer utility screens (memory, todos).
 
 ## 12. Monetization
 - ✅ **Pro subscription (RevenueCat)** — mobile purchase flow via lazy-loaded `react-native-purchases`
@@ -239,11 +245,11 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
 - ✅ **Due dates** — `due_at` on items; mobile date/time picker; relative labels in prompts
   (overdue, due today, due in N days); user timezone synced from device (`users.timezone`).
 - ✅ **Local due reminders** — schedules a device notification at due time; resyncs on login,
-  foreground, and todo changes; tap opens Todos screen.
+  foreground, and todo changes; tap opens Todos screen. Lead time configurable (5 / 10 / 15 / 30 /
+  **60 min** before due).
 - ✅ **Proactive suggestions** — follow-up prompt ideas generated in the background from recent
-  activity (best-effort; regenerated periodically).
-- 🔜 Surfacing suggestions inline under replies, 1-hour-early reminders,
-  remote push / email nudges.
+  activity (best-effort; regenerated periodically); inline chips under the latest assistant reply.
+- 🔜 1-hour-early **email/push** nudges beyond the local lead picker (calendar-aware).
 
 ## 15. Code execution policy
 - ⚠️ **Sandboxed HTML/CSS/JS preview only** — `html` fences can be previewed/run in an isolated
@@ -287,7 +293,9 @@ suggestions using existing `users.timezone` and `todo_items.due_at`.
 - ✅ **Suggested reminders UI** — Reminders screen "From email" section + chat nudge chip;
   confirm before add (no silent auto-add).
 - ✅ **Background sync** — periodic Gmail sync job enqueued after connect.
-- 🔜 Higher-confidence `.ics` parsing paths, richer sender templates, proactive chat nudges.
+- ✅ **ICS invite parsing** — folded lines, `TZID` / all-day `VALUE=DATE`, location/description
+  notes, cancelled events skipped (LLM fallback when no `.ics`).
+- 🔜 Richer sender templates, proactive chat nudges for email suggestions.
 
 **Privacy & UX** (unchanged intent)
 - Clear copy: what is read, how long it is kept, revoke = stop + delete tokens
@@ -314,8 +322,8 @@ suggestions using existing `users.timezone` and `todo_items.due_at`.
 - ✅ **Create calendar events (confirm flow)** — user asks to schedule → model emits
   `calendar_proposal` fence → backend stores Redis proposal + injects `proposal_id` → mobile
   **Add to Calendar** card → confirm creates the Google event (requires calendar **write** scope).
-- 🔜 **Proactive nudges** — combine overdue todos + today's calendar in chat or push ("leave now —
-  meeting in 15 min").
+- ✅ **Proactive calendar nudges** — push scheduler warns before connected Google Calendar
+  events (default **15 min** lead; Redis dedupe per event). Tap opens Reminders calendar view.
 
 ### Privacy & UX
 - Opt-in connect; revoke clears tokens and stops injection.
@@ -356,8 +364,8 @@ courses, habits, and anything else that needs structure over time.
 - ✅ **Mark as known** — progress per item; stats on project detail (learned / due / this week).
 - ✅ **AI tutor + quiz** — scoped chats from Learning; model emits `vocab_quiz` blocks; mobile
   shows A–D choices (type letter; fast-path answers, minimal context, no web search on quiz turns).
-- ⚠️ **Pronunciation** — play button per word uses on-device `expo-speech` with cloud TTS fallback
-  when available; `pronunciation_url` wiring may still be partial.
+- ✅ **Pronunciation** — play button per word tries `pronunciation_url` when set, then cloud TTS,
+  then on-device `expo-speech`.
 - ✅ **Spaced repetition scheduling** — SM-2 fields (`ease_factor`, `interval_days`, `due_at`)
   update on vocab status changes; due counts prefer `due_at` (falls back to 24h heuristic).
 - ✅ **Deck browse on language detail** — decks / POS grouping on the language project detail screen.
@@ -395,7 +403,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 - ✅ **Web search** — Tavily primary + DuckDuckGo fallback; injected into chat when heuristics match;
   sources shown on assistant messages (hidden on vocab quiz cards).
 - 🔜 **Collaborative cursors / shared docs** — real-time co-editing; personal app only today.
-- 🔜 Structured profile fields, multi-select, swipe-to-delete (gesture lib),
+- 🔜 Structured profile fields,
   editing arbitrary (older) messages, user-tunable routing rules,
   email-only reminders, theming the remaining screens.
 
@@ -458,7 +466,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | PDF / doc upload + server text extract into prompt | ✅ Shipped (no OCR for scanned PDFs) |
 | PDF inline preview (pdf.js WebView, dev build) | ✅ Shipped |
 | Audio in (Whisper STT → composer) | ✅ Shipped (dev build) |
-| Audio out (read aloud) | ⚠️ Device `expo-speech` only; cloud TTS 🔜 |
+| Audio out (read aloud) | ✅ Cloud TTS + device `expo-speech` fallback (dev build) |
 | pgvector RAG over attachment corpora | 🔜 Deferred |
 | Camera math solver UX | 🔜 Deferred |
 | Full duplex voice mode | 🔒 Out of scope |

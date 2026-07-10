@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { Pressable, StyleSheet, Text, View, ViewStyle, TextStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import { useTranslation } from "react-i18next";
 
 import { Theme, useTheme } from "@/lib/theme";
@@ -13,6 +14,10 @@ export type ConversationRowStyles = {
   title: TextStyle;
   titlePending: TextStyle;
   rowHighlighted: ViewStyle;
+  rowSelected: ViewStyle;
+  swipeContainer: ViewStyle;
+  swipeDeleteAction: ViewStyle;
+  swipeDeleteText: TextStyle;
 };
 
 type Props = {
@@ -25,6 +30,10 @@ type Props = {
    */
   onOpen: (chatId: string) => void;
   onLongPress: (chat: Chat) => void;
+  onDelete?: (chat: Chat) => void;
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (chatId: string) => void;
   highlighted?: boolean;
   titleGenerating?: boolean;
   rowStyles: ConversationRowStyles;
@@ -34,6 +43,10 @@ export const ConversationRow = memo(function ConversationRow({
   chat,
   onOpen,
   onLongPress,
+  onDelete,
+  selectionMode = false,
+  selected = false,
+  onToggleSelect,
   highlighted = false,
   titleGenerating = false,
   rowStyles: r,
@@ -41,13 +54,28 @@ export const ConversationRow = memo(function ConversationRow({
   const { t } = useTranslation();
   const theme = useTheme();
   const label = displayChatTitle(chat.title, { generating: titleGenerating }, t);
-  return (
+
+  const row = (
     <Pressable
-      style={[r.row, highlighted && r.rowHighlighted]}
-      onPress={() => onOpen(chat.id)}
-      onLongPress={() => onLongPress(chat)}
+      style={[r.row, highlighted && r.rowHighlighted, selected && r.rowSelected]}
+      onPress={() => {
+        if (selectionMode) onToggleSelect?.(chat.id);
+        else onOpen(chat.id);
+      }}
+      onLongPress={() => {
+        if (selectionMode) onToggleSelect?.(chat.id);
+        else onLongPress(chat);
+      }}
     >
-      {chat.pinned ? (
+      {selectionMode ? (
+        <View style={r.rowIcon}>
+          <Ionicons
+            name={selected ? "checkbox" : "square-outline"}
+            size={20}
+            color={selected ? theme.primary : theme.textTertiary}
+          />
+        </View>
+      ) : chat.pinned ? (
         <View style={r.rowIcon}>
           <Ionicons name="bookmark" size={16} color={theme.primary} />
         </View>
@@ -59,6 +87,30 @@ export const ConversationRow = memo(function ConversationRow({
         {label}
       </Text>
     </Pressable>
+  );
+
+  if (!onDelete || selectionMode) return row;
+
+  return (
+    <Swipeable
+      friction={2}
+      rightThreshold={40}
+      overshootRight={false}
+      containerStyle={r.swipeContainer}
+      renderRightActions={() => (
+        <Pressable
+          style={r.swipeDeleteAction}
+          onPress={() => onDelete(chat)}
+          accessibilityRole="button"
+          accessibilityLabel={t("common.delete")}
+        >
+          <Ionicons name="trash-outline" size={18} color={theme.onPrimary} />
+          <Text style={r.swipeDeleteText}>{t("common.delete")}</Text>
+        </Pressable>
+      )}
+    >
+      {row}
+    </Swipeable>
   );
 });
 
@@ -79,6 +131,24 @@ export function makeConversationRowStyles(theme: Theme): ConversationRowStyles {
       borderRadius: 10,
       marginHorizontal: 6,
       paddingHorizontal: 8,
+    },
+    rowSelected: {
+      backgroundColor: theme.primaryLight,
+    },
+    swipeContainer: {
+      overflow: "hidden",
+    },
+    swipeDeleteAction: {
+      width: 80,
+      backgroundColor: theme.danger,
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 2,
+    },
+    swipeDeleteText: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: theme.onPrimary,
     },
   });
 }

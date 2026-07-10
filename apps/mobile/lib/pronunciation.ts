@@ -85,6 +85,26 @@ async function playCloudBase64(
   }
 }
 
+async function playRemoteAudio(url: string): Promise<SpeakResult> {
+  const Audio = loadExpoAudio();
+  if (!Audio) return { ok: false, reason: "unavailable" };
+  try {
+    stopSpeaking();
+    const player = Audio.createAudioPlayer(url);
+    cloudPlayerCleanup = () => {
+      try {
+        player.remove();
+      } catch {
+        /* ignore */
+      }
+    };
+    player.play();
+    return { ok: true };
+  } catch {
+    return { ok: false, reason: "error" };
+  }
+}
+
 async function speakDevicePlainText(
   text: string,
   language: string,
@@ -134,12 +154,18 @@ export async function speakPlainText(
   return speakDevicePlainText(text, language);
 }
 
-/** Device/cloud TTS for a single word. */
+/** Device/cloud TTS for a single word (optional stored pronunciation clip). */
 export async function speakWord(
   word: string,
   options?: { language?: string; pronunciationUrl?: string | null; token?: string | null },
 ): Promise<SpeakResult> {
-  return speakPlainText(word, options?.language ?? "en-US", { token: options?.token });
+  const language = options?.language ?? "en-US";
+  const pronunciationUrl = options?.pronunciationUrl?.trim();
+  if (pronunciationUrl) {
+    const played = await playRemoteAudio(pronunciationUrl);
+    if (played.ok) return played;
+  }
+  return speakPlainText(word, language, { token: options?.token });
 }
 
 export function stopSpeaking(): void {

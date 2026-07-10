@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import type { ProjectItem, VocabStatus } from "@/lib/api";
 import { statusLabel } from "@/lib/languageLevels";
 import { speakWord } from "@/lib/pronunciation";
+import { useAuth } from "@/contexts/AuthContext";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -37,6 +38,7 @@ export function ProjectItemRow({
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
+  const { token } = useAuth();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const mastered = item.status === "mastered" || item.mastered;
 
@@ -87,6 +89,7 @@ export function ProjectItemRow({
                 const result = await speakWord(item.content, {
                   language: "en-US",
                   pronunciationUrl: item.pronunciation_url,
+                  token,
                 });
                 if (!result.ok && result.reason === "unavailable") {
                   onSpeechUnavailable?.();

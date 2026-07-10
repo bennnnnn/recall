@@ -7,8 +7,9 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.gateways.google_gmail_gateway import GmailMessage, parse_ics_event
+from app.gateways.google_gmail_gateway import GmailMessage
 from app.services.email import _parse_from_ics
+from app.services.ics_parser import parse_ics_event
 
 
 def test_is_external_email_question():

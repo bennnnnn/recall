@@ -120,6 +120,11 @@ export async function handlePushNotificationResponse(
 ): Promise<void> {
   if (!data) return;
 
+  if (data.type === "calendar_nudge") {
+    router.push({ pathname: "/todos", params: { focus: "reminders" } });
+    return;
+  }
+
   if (data.type === "todo_due" || data.type === "todo_reminder" || data.screen === "todos") {
     router.push({
       pathname: "/todos",

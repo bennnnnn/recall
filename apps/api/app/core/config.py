@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     # fan out unboundedly.
     calendar_max_calendars: int = 10
     calendar_fetch_concurrency: int = 5
+    calendar_nudge_enabled: bool = True
+    calendar_nudge_lead_minutes: int = 15
 
     gmail_enabled: bool = True
     gmail_fetch_days: int = 7

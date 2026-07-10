@@ -47,7 +47,7 @@ class UserUpdate(BaseModel):
     memory_enabled: bool | None = None
     push_notifications_enabled: bool | None = None
     email_reminders_enabled: bool | None = None
-    reminder_lead_minutes: int | None = Field(default=None, ge=5, le=30)
+    reminder_lead_minutes: int | None = Field(default=None, ge=5, le=60)
     locale: str | None = None
     timezone: str | None = Field(default=None, max_length=64)
     location: str | None = Field(default=None, max_length=128)
@@ -92,8 +92,8 @@ class UserUpdate(BaseModel):
     def validate_reminder_lead_minutes(cls, value: int | None) -> int | None:
         if value is None:
             return None
-        if value not in {5, 10, 15, 30}:
-            raise ValueError("reminder_lead_minutes must be 5, 10, 15, or 30")
+        if value not in {5, 10, 15, 30, 60}:
+            raise ValueError("reminder_lead_minutes must be 5, 10, 15, 30, or 60")
         return value
 
     @field_validator("custom_instructions")

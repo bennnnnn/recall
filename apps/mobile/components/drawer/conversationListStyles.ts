@@ -51,6 +51,21 @@ export function makeConversationListStyles(theme: Theme) {
       letterSpacing: -0.5,
     },
     searchBtn: { marginLeft: 2, padding: 4 },
+  selectBtn: { marginLeft: "auto", padding: 4 },
+  selectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  selectionHeaderTitle: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 16,
+    fontWeight: "700",
+    color: theme.text,
+  },
+  selectionHeaderAction: { paddingHorizontal: 4, paddingVertical: 2 },
+  selectionHeaderActionText: { fontSize: 15, fontWeight: "600", color: theme.primary },
     searchBar: {
       flexDirection: "row",
       alignItems: "center",
@@ -152,6 +167,42 @@ export function makeConversationListStyles(theme: Theme) {
       padding: 8,
       borderRadius: 10,
       backgroundColor: theme.primary,
+    },
+    selectionBar: {
+      position: "absolute",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      zIndex: 100,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-evenly",
+      paddingHorizontal: 14,
+      paddingTop: 12,
+      backgroundColor: theme.bg,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: theme.border,
+    },
+    selectionAction: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+    },
+    selectionActionDisabled: {
+      opacity: 0.45,
+    },
+    selectionActionText: {
+      fontSize: 15,
+      fontWeight: "600",
+      color: theme.primary,
+    },
+    selectionActionTextDanger: {
+      color: theme.danger,
+    },
+    selectionActionTextDisabled: {
+      color: theme.textTertiary,
     },
   });
 }

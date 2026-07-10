@@ -12,6 +12,7 @@ from app.services.reminder_timing import (
 def test_resolve_reminder_lead_minutes():
     assert resolve_reminder_lead_minutes(5) == 5
     assert resolve_reminder_lead_minutes(30) == 30
+    assert resolve_reminder_lead_minutes(60) == 60
     assert resolve_reminder_lead_minutes(99) == DEFAULT_REMINDER_LEAD_MINUTES
     assert resolve_reminder_lead_minutes(None) == DEFAULT_REMINDER_LEAD_MINUTES
 
@@ -22,6 +23,8 @@ def test_resolve_reminder_lead_minutes():
         (4, 5, True),
         (20, 5, False),
         (20, 30, True),
+        (45, 60, True),
+        (90, 60, False),
         (-30, 10, True),
     ],
 )

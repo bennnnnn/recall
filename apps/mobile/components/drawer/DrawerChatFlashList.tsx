@@ -41,6 +41,10 @@ type Props = {
   highlightedIds?: Set<string>;
   onOpenChat: (id: string) => void;
   onShowRowMenu: (chat: Chat) => void;
+  onDeleteChat: (chat: Chat) => void;
+  selectionMode?: boolean;
+  selectedIds?: ReadonlySet<string>;
+  onToggleSelect?: (chatId: string) => void;
   listHeader: React.ReactElement;
   contentPaddingTop: number;
   contentPaddingBottom: number;
@@ -58,6 +62,10 @@ export function DrawerChatFlashList({
   highlightedIds,
   onOpenChat,
   onShowRowMenu,
+  onDeleteChat,
+  selectionMode = false,
+  selectedIds,
+  onToggleSelect,
   listHeader,
   contentPaddingTop,
   contentPaddingBottom,
@@ -129,6 +137,10 @@ export function DrawerChatFlashList({
           titleGenerating={isChatTitleGenerating(item.chat.id)}
           onOpen={onOpenChat}
           onLongPress={onShowRowMenu}
+          onDelete={selectionMode ? undefined : onDeleteChat}
+          selectionMode={selectionMode}
+          selected={selectedIds?.has(item.chat.id) ?? false}
+          onToggleSelect={onToggleSelect}
         />
       );
     },
@@ -141,6 +153,10 @@ export function DrawerChatFlashList({
       theme,
       onOpenChat,
       onShowRowMenu,
+      onDeleteChat,
+      selectionMode,
+      selectedIds,
+      onToggleSelect,
     ],
   );
 

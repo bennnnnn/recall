@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 DEFAULT_REMINDER_LEAD_MINUTES = 10
-MAX_REMINDER_LEAD_MINUTES = 30
-VALID_REMINDER_LEAD_MINUTES = frozenset({5, 10, 15, 30})
+MAX_REMINDER_LEAD_MINUTES = 60
+VALID_REMINDER_LEAD_MINUTES = frozenset({5, 10, 15, 30, 60})
 OVERDUE_MAX_HOURS = 48
 
 

@@ -13,6 +13,7 @@ describe("reminderTiming", () => {
   it("normalizes lead minutes to allowed values", () => {
     expect(normalizeReminderLeadMinutes(15)).toBe(15);
     expect(normalizeReminderLeadMinutes("30")).toBe(30);
+    expect(normalizeReminderLeadMinutes(60)).toBe(60);
     expect(normalizeReminderLeadMinutes(99)).toBe(DEFAULT_REMINDER_LEAD_MINUTES);
   });
 
@@ -34,8 +35,8 @@ describe("reminderTiming", () => {
   });
 
   it("respects each lead option", () => {
-    const due = new Date("2026-06-28T13:00:00.000Z");
-    for (const minutes of [5, 10, 15, 30] as const) {
+    const due = new Date("2026-06-28T14:00:00.000Z");
+    for (const minutes of [5, 10, 15, 30, 60] as const) {
       const notify = reminderNotifyDate(due, now, leadMsFromMinutes(minutes));
       expect(notify?.getTime()).toBe(due.getTime() - leadMsFromMinutes(minutes));
     }

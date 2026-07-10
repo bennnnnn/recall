@@ -695,5 +695,16 @@
   "upgrade.restore": "Restaurer les achats",
   "upgrade.restore_empty": "Aucun abonnement actif trouvé pour ce compte.",
   "upgrade.subscribe": "Passer à Pro — {{price}}/mois",
-  "upgrade.title": "Passer à Pro"
+  "upgrade.title": "Passer à Pro",
+  "drawer.bulk_archive": "Archiver",
+  "drawer.bulk_archive_confirm_body": "Archiver {{count}} conversations ?",
+  "drawer.bulk_archive_confirm_title": "Archiver les conversations",
+  "drawer.bulk_archived_toast": "{{count}} conversations archivées",
+  "drawer.bulk_delete": "Supprimer",
+  "drawer.bulk_delete_confirm_body": "Supprimer définitivement {{count}} conversations ? Action irréversible.",
+  "drawer.bulk_delete_confirm_title": "Supprimer les conversations",
+  "drawer.bulk_deleted_toast": "{{count}} conversations supprimées",
+  "drawer.select": "Sélectionner",
+  "drawer.select_all": "Tout sélectionner",
+  "drawer.selected_count": "{{count}} sélectionnés"
 }

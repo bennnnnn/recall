@@ -162,6 +162,7 @@ async def test_run_push_cycle_skips_expo_in_dev_mock():
         ),
         patch.object(push_service, "process_email_suggestions", AsyncMock(return_value=[])),
         patch.object(push_service, "process_learning_nudges", AsyncMock(return_value=[])),
+        patch.object(push_service, "process_calendar_nudges", AsyncMock(return_value=[])),
         patch.object(
             push_service.expo_push_gateway, "send_push_messages", AsyncMock()
         ) as send_mock,
@@ -387,6 +388,7 @@ async def test_run_push_cycle_sends_expo_in_production():
         ),
         patch.object(push_service, "process_email_suggestions", AsyncMock(return_value=[])),
         patch.object(push_service, "process_learning_nudges", AsyncMock(return_value=[])),
+        patch.object(push_service, "process_calendar_nudges", AsyncMock(return_value=[])),
         patch.object(
             push_service.expo_push_gateway,
             "send_push_messages",
@@ -432,6 +434,7 @@ async def test_run_push_cycle_marks_todo_sent_only_after_expo_ok():
         ),
         patch.object(push_service, "process_email_suggestions", AsyncMock(return_value=[])),
         patch.object(push_service, "process_learning_nudges", AsyncMock(return_value=[])),
+        patch.object(push_service, "process_calendar_nudges", AsyncMock(return_value=[])),
         patch.object(
             push_service.expo_push_gateway,
             "send_push_messages",
@@ -477,6 +480,7 @@ async def test_run_push_cycle_does_not_mark_todo_when_expo_fails():
         ),
         patch.object(push_service, "process_email_suggestions", AsyncMock(return_value=[])),
         patch.object(push_service, "process_learning_nudges", AsyncMock(return_value=[])),
+        patch.object(push_service, "process_calendar_nudges", AsyncMock(return_value=[])),
         patch.object(
             push_service.expo_push_gateway,
             "send_push_messages",
@@ -603,6 +607,7 @@ async def test_run_push_cycle_enqueues_receipt_tickets():
         ),
         patch.object(push_service, "process_email_suggestions", AsyncMock(return_value=[])),
         patch.object(push_service, "process_learning_nudges", AsyncMock(return_value=[])),
+        patch.object(push_service, "process_calendar_nudges", AsyncMock(return_value=[])),
         patch.object(
             push_service.expo_push_gateway,
             "send_push_messages",
@@ -660,6 +665,7 @@ async def test_run_push_cycle_marks_sent_on_ticket_without_receipt_poll():
         ),
         patch.object(push_service, "process_email_suggestions", AsyncMock(return_value=[])),
         patch.object(push_service, "process_learning_nudges", AsyncMock(return_value=[])),
+        patch.object(push_service, "process_calendar_nudges", AsyncMock(return_value=[])),
         patch.object(
             push_service.expo_push_gateway,
             "send_push_messages",
@@ -718,3 +724,70 @@ async def test_upsert_prunes_stale_tokens_for_device():
 
     assert session.execute.await_count == 2
     session.commit.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_process_calendar_nudges_sends_once_per_event():
+    from datetime import UTC, datetime, timedelta
+
+    from app.gateways.google_calendar_gateway import CalendarEvent
+
+    session = AsyncMock()
+    redis = AsyncMock()
+    redis.set = AsyncMock(return_value=True)
+    user_id = uuid4()
+    now = datetime(2026, 6, 28, 12, 0, tzinfo=UTC)
+
+    user = MagicMock()
+    user.id = user_id
+    user.push_notifications_enabled = True
+    user.locale = "en"
+    user.timezone = "UTC"
+
+    token = MagicMock()
+    token.expo_push_token = "ExponentPushToken[cal]"
+
+    event = CalendarEvent(
+        id="evt-42",
+        title="Standup",
+        start=now + timedelta(minutes=12),
+        end=now + timedelta(minutes=42),
+    )
+
+    settings = Settings(calendar_nudge_enabled=True, calendar_nudge_lead_minutes=15)
+
+    session.execute = AsyncMock(
+        return_value=MagicMock(
+            scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[user])))
+        )
+    )
+
+    with (
+        patch.object(
+            push_service.calendar_service,
+            "fetch_upcoming_events",
+            AsyncMock(return_value=[event]),
+        ),
+        patch.object(
+            push_service.push_repo,
+            "list_for_user",
+            AsyncMock(return_value=[token]),
+        ),
+        patch.object(
+            push_service.google_calendar_gateway,
+            "is_configured",
+            MagicMock(return_value=True),
+        ),
+    ):
+        messages = await push_service.process_calendar_nudges(
+            session,
+            redis,
+            settings,
+            now=now,
+        )
+
+    assert len(messages) == 1
+    assert messages[0].message["title"] == "Upcoming meeting"
+    assert "Standup" in messages[0].message["body"]
+    assert messages[0].message["data"]["type"] == "calendar_nudge"
+    redis.set.assert_awaited()

@@ -7,6 +7,7 @@ import type { ParsedVocabCard } from "@/lib/parseVocabCard";
 import { cleanQuizWord } from "@/lib/parseVocabQuiz";
 import { partOfSpeechLabel } from "@/lib/languageLevels";
 import { speakWord } from "@/lib/pronunciation";
+import { useAuth } from "@/contexts/AuthContext";
 
 type Props = {
   card: ParsedVocabCard;
@@ -17,10 +18,14 @@ export function VocabCard({ card, language = "en" }: Props) {
   const theme = useTheme();
   const s = makeStyles(theme);
   const { t } = useTranslation();
+  const { token } = useAuth();
   const word = cleanQuizWord(card.word);
 
   const handleSpeak = () => {
-    void speakWord(word, { language: language === "en" ? "en-US" : language });
+    void speakWord(word, {
+      language: language === "en" ? "en-US" : language,
+      token,
+    });
   };
 
   return (

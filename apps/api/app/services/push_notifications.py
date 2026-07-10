@@ -23,11 +23,20 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.gateways import expo_push_gateway
-from app.models.orm import Project, PushToken, SuggestedReminder, TodoItem, User
+from app.gateways import expo_push_gateway, google_calendar_gateway
+from app.models.orm import (
+    Project,
+    PushToken,
+    SuggestedReminder,
+    TodoItem,
+    User,
+    UserCalendarConnection,
+)
 from app.repositories import project_items as project_items_repo
 from app.repositories import projects as projects_repo
 from app.repositories import push_tokens as push_repo
+from app.services import calendar as calendar_service
+from app.services import calendar_nudges as calendar_nudge_service
 from app.services import time_context as time_context_service
 from app.services.locale import normalize_locale_code
 from app.services.reminder_timing import (
@@ -51,6 +60,7 @@ class OutboundPush:
     todos: list[TodoItem] = field(default_factory=list)
     suggestions: list[SuggestedReminder] = field(default_factory=list)
     learning_redis_key: str | None = None
+    dedupe_redis_key: str | None = None
 
 
 _PUSH_STRINGS: dict[str, dict[str, str]] = {
@@ -216,6 +226,7 @@ def _append_outbound(
     todos: list[TodoItem] | None = None,
     suggestions: list[SuggestedReminder] | None = None,
     learning_redis_key: str | None = None,
+    dedupe_redis_key: str | None = None,
 ) -> None:
     seen_tokens: set[str] = set()
     for token in tokens:
@@ -234,6 +245,7 @@ def _append_outbound(
                 todos=list(todos or []),
                 suggestions=list(suggestions or []),
                 learning_redis_key=learning_redis_key,
+                dedupe_redis_key=dedupe_redis_key,
             )
         )
 
@@ -465,6 +477,71 @@ async def process_learning_nudges(
     return messages
 
 
+async def process_calendar_nudges(
+    session: AsyncSession,
+    redis: Redis,
+    settings: Settings,
+    *,
+    now: datetime | None = None,
+) -> list[OutboundPush]:
+    if not settings.calendar_nudge_enabled or not settings.google_calendar_enabled:
+        return []
+    if not google_calendar_gateway.is_configured(settings):
+        return []
+
+    now = now or datetime.now(UTC)
+    lead = max(1, settings.calendar_nudge_lead_minutes)
+
+    result = await session.execute(
+        select(User)
+        .join(UserCalendarConnection, UserCalendarConnection.user_id == User.id)
+        .join(PushToken, PushToken.user_id == User.id)
+        .where(User.push_notifications_enabled.is_(True))
+        .distinct()
+    )
+    users = list(result.scalars().all())
+    if not users:
+        return []
+
+    messages: list[OutboundPush] = []
+    for user in users:
+        events = await calendar_service.fetch_upcoming_events(session, redis, user, settings)
+        due = calendar_nudge_service.events_needing_nudge(events, now=now, lead_minutes=lead)
+        if not due:
+            continue
+        tokens = await _tokens_for_user(session, user.id)
+        if not tokens:
+            continue
+
+        for event in due:
+            dedupe_key = calendar_nudge_service.calendar_nudge_redis_key(user.id, event.id)
+            ttl = calendar_nudge_service.nudge_ttl_seconds(event, now=now)
+            claimed = await redis.set(dedupe_key, "1", nx=True, ex=ttl)
+            if not claimed:
+                continue
+            title, body = calendar_nudge_service.format_calendar_nudge(
+                event,
+                now=now,
+                locale=getattr(user, "locale", None),
+            )
+            _append_outbound(
+                messages,
+                tokens,
+                title=title,
+                body=body,
+                data={
+                    "type": "calendar_nudge",
+                    "screen": "todos",
+                    "focus": "reminders",
+                    "event_id": event.id,
+                    "event_title": event.title,
+                },
+                dedupe_redis_key=dedupe_key,
+            )
+
+    return messages
+
+
 async def _finalize_push_deliveries(
     session: AsyncSession,
     redis: Redis,
@@ -476,11 +553,14 @@ async def _finalize_push_deliveries(
     todos_marked: set[int] = set()
     suggestions_marked: set[int] = set()
     learning_success: dict[str, bool] = {}
+    dedupe_failures: list[str] = []
 
     for item, ok in zip(outbound, delivered, strict=False):
         if item.learning_redis_key is not None:
             key = item.learning_redis_key
             learning_success[key] = learning_success.get(key, False) or ok
+        if item.dedupe_redis_key is not None and not ok:
+            dedupe_failures.append(item.dedupe_redis_key)
         if not ok:
             continue
         for todo in item.todos:
@@ -499,6 +579,9 @@ async def _finalize_push_deliveries(
     for key, had_success in learning_success.items():
         if not had_success:
             await redis.delete(key)
+
+    for key in dedupe_failures:
+        await redis.delete(key)
 
     if todos_marked or suggestions_marked:
         await session.commit()
@@ -520,8 +603,9 @@ async def run_push_cycle(session: AsyncSession, redis: Redis, settings: Settings
         todo_msgs = await process_todo_reminders(session, now=now)
     email_msgs = await process_email_suggestions(session, now=now)
     learning_msgs = await process_learning_nudges(session, redis, settings, now=now)
+    calendar_msgs = await process_calendar_nudges(session, redis, settings, now=now)
 
-    outbound = todo_msgs + email_msgs + learning_msgs
+    outbound = todo_msgs + email_msgs + learning_msgs + calendar_msgs
     if not outbound:
         return 0
 

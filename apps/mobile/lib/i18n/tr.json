@@ -695,5 +695,16 @@
   "upgrade.restore": "Satın alımları geri yükle",
   "upgrade.restore_empty": "Bu hesap için aktif abonelik bulunamadı.",
   "upgrade.subscribe": "Pro'ya geç — {{price}}/ay",
-  "upgrade.title": "Pro'ya yükselt"
+  "upgrade.title": "Pro'ya yükselt",
+  "drawer.bulk_archive": "Arşivle",
+  "drawer.bulk_archive_confirm_body": "{{count}} sohbet arşivlensin mi?",
+  "drawer.bulk_archive_confirm_title": "Sohbetleri arşivle",
+  "drawer.bulk_archived_toast": "{{count}} sohbet arşivlendi",
+  "drawer.bulk_delete": "Sil",
+  "drawer.bulk_delete_confirm_body": "{{count}} sohbet kalıcı olarak silinsin mi? Geri alınamaz.",
+  "drawer.bulk_delete_confirm_title": "Sohbetleri sil",
+  "drawer.bulk_deleted_toast": "{{count}} sohbet silindi",
+  "drawer.select": "Seç",
+  "drawer.select_all": "Tümünü seç",
+  "drawer.selected_count": "{{count}} seçildi"
 }

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { StackBackButton } from "@/components/StackBackButton";
 import { stackHeaderOptions } from "@/lib/stackHeader";
+import { stackPushTransition } from "@/lib/stackTransitions";
 import { useTheme } from "@/lib/theme";
 
 export default function ProjectIdLayout() {
@@ -14,6 +15,7 @@ export default function ProjectIdLayout() {
   return (
     <Stack
       screenOptions={{
+        ...stackPushTransition(),
         ...header,
         headerShown: true,
         contentStyle: { backgroundColor: theme.bg },

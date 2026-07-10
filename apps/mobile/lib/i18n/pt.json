@@ -695,5 +695,16 @@
   "upgrade.restore": "Restaurar compras",
   "upgrade.restore_empty": "Nenhuma assinatura ativa encontrada para esta conta.",
   "upgrade.subscribe": "Assinar Pro — {{price}}/mês",
-  "upgrade.title": "Assinar o Pro"
+  "upgrade.title": "Assinar o Pro",
+  "drawer.bulk_archive": "Arquivar",
+  "drawer.bulk_archive_confirm_body": "Arquivar {{count}} conversas?",
+  "drawer.bulk_archive_confirm_title": "Arquivar conversas",
+  "drawer.bulk_archived_toast": "{{count}} conversas arquivadas",
+  "drawer.bulk_delete": "Excluir",
+  "drawer.bulk_delete_confirm_body": "Excluir {{count}} conversas permanentemente? Não pode ser desfeito.",
+  "drawer.bulk_delete_confirm_title": "Excluir conversas",
+  "drawer.bulk_deleted_toast": "{{count}} conversas excluídas",
+  "drawer.select": "Selecionar",
+  "drawer.select_all": "Selecionar tudo",
+  "drawer.selected_count": "{{count}} selecionados"
 }

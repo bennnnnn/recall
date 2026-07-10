@@ -695,5 +695,16 @@
   "upgrade.restore": "Restaurar compras",
   "upgrade.restore_empty": "No se encontró suscripción activa para esta cuenta.",
   "upgrade.subscribe": "Hazte Pro — {{price}}/mes",
-  "upgrade.title": "Pásate a Pro"
+  "upgrade.title": "Pásate a Pro",
+  "drawer.bulk_archive": "Archivar",
+  "drawer.bulk_archive_confirm_body": "¿Archivar {{count}} conversaciones?",
+  "drawer.bulk_archive_confirm_title": "Archivar conversaciones",
+  "drawer.bulk_archived_toast": "{{count}} conversaciones archivadas",
+  "drawer.bulk_delete": "Eliminar",
+  "drawer.bulk_delete_confirm_body": "¿Eliminar {{count}} conversaciones permanentemente? No se puede deshacer.",
+  "drawer.bulk_delete_confirm_title": "Eliminar conversaciones",
+  "drawer.bulk_deleted_toast": "{{count}} conversaciones eliminadas",
+  "drawer.select": "Seleccionar",
+  "drawer.select_all": "Seleccionar todo",
+  "drawer.selected_count": "{{count}} seleccionados"
 }
