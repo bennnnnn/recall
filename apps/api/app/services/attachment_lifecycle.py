@@ -36,6 +36,30 @@ async def purge_attachments_for_messages(
     return await attachments_repo.delete_rows(session, attachment_ids)
 
 
+async def purge_attachments_for_user(
+    session: AsyncSession,
+    settings: Settings,
+    user_id: UUID,
+) -> int:
+    """Delete storage bytes then DB rows for every attachment owned by ``user_id``.
+
+    Bytes are removed before rows (same ordering as the orphan reaper): if storage
+    delete fails or the process dies mid-loop, rows remain so a retry can finish.
+    Call this before ``users_repo.delete_user``, which only clears attachment rows.
+    """
+    rows = await attachments_repo.list_for_user(session, user_id)
+    if not rows:
+        return 0
+    gateway = get_storage_gateway(settings)
+    for row in rows:
+        await gateway.delete_bytes(row.storage_key)
+    attachment_ids = [row.id for row in rows]
+    from app.repositories import attachment_chunks as chunks_repo
+
+    await chunks_repo.delete_for_attachment_ids(session, attachment_ids)
+    return await attachments_repo.delete_rows(session, attachment_ids)
+
+
 async def reap_orphan_attachments(settings: Settings) -> int:
     """Delete bytes + rows for attachments never linked to a message past the grace window.
 

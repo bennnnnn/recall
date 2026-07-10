@@ -32,18 +32,32 @@ def _app_with_user(user):
 def test_delete_account_returns_204():
     user = _fake_user()
     app = _app_with_user(user)
+    order: list[str] = []
+
+    async def revoke(*_a, **_k):
+        order.append("revoke")
+
+    async def purge(*_a, **_k):
+        order.append("purge")
+
+    async def delete_user(*_a, **_k):
+        order.append("delete_user")
+
     with (
         patch(
             "app.routers.auth.google_integrations_service.revoke_all_google_tokens_for_user",
-            AsyncMock(),
-        ) as revoke_mock,
-        patch("app.routers.auth.users_repo.delete_user", AsyncMock()) as deleter,
+            side_effect=revoke,
+        ),
+        patch(
+            "app.routers.auth.attachment_lifecycle.purge_attachments_for_user",
+            side_effect=purge,
+        ),
+        patch("app.routers.auth.users_repo.delete_user", side_effect=delete_user),
     ):
         client = TestClient(app)
         r = client.delete("/auth/me", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 204
-    revoke_mock.assert_awaited_once()
-    deleter.assert_awaited_once()
+    assert order == ["revoke", "purge", "delete_user"]
 
 
 def test_export_returns_data():

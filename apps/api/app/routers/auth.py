@@ -22,8 +22,8 @@ from app.models.schemas import (
     UserUpdate,
 )
 from app.repositories import users as users_repo
+from app.services import attachment_lifecycle, export_service
 from app.services import auth as auth_service
-from app.services import export_service
 from app.services import google_integrations as google_integrations_service
 from app.services import home as home_service
 from app.services import memory as memory_service
@@ -243,4 +243,6 @@ async def delete_me(
         settings,
         user.id,
     )
+    # Storage bytes before DB rows — delete_user only clears attachment rows.
+    await attachment_lifecycle.purge_attachments_for_user(session, settings, user.id)
     await users_repo.delete_user(session, user.id)
