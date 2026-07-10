@@ -60,6 +60,7 @@ export function SettingsLinkRow({
 
 export function SettingsSwitchRow({
   title,
+  subtitle,
   value,
   disabled,
   onValueChange,
@@ -67,6 +68,7 @@ export function SettingsSwitchRow({
   theme,
 }: {
   title: string;
+  subtitle?: string;
   value: boolean;
   disabled?: boolean;
   onValueChange: (next: boolean) => void;
@@ -75,7 +77,10 @@ export function SettingsSwitchRow({
 }) {
   return (
     <View style={styles.menuRow}>
-      <Text style={[styles.rowTitle, styles.menuRowTitle]}>{title}</Text>
+      <View style={styles.rowBody}>
+        <Text style={[styles.rowTitle, styles.menuRowTitle]}>{title}</Text>
+        {subtitle ? <Text style={styles.meta}>{subtitle}</Text> : null}
+      </View>
       <Switch
         value={value}
         disabled={disabled}

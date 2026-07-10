@@ -80,6 +80,12 @@ export default function PreferencesSettingsScreen() {
     }
   };
 
+  const locationAvailable = canUseDeviceLocation();
+  const locationEnabled = locationAvailable && (user?.location_enabled ?? false);
+  const locationSubtitle = !locationAvailable
+    ? t("settings.location_expo_go")
+    : user?.location?.trim() || undefined;
+
   if (!token) return <Redirect href="/login" />;
 
   const openInstructions = () => {
@@ -135,8 +141,9 @@ export default function PreferencesSettingsScreen() {
           <View style={s.menuSeparator} />
           <SettingsSwitchRow
             title={t("settings.location")}
-            value={user?.location_enabled ?? false}
-            disabled={saving}
+            subtitle={locationSubtitle}
+            value={locationEnabled}
+            disabled={saving || !locationAvailable}
             onValueChange={(enabled) => void handleLocationToggle(enabled)}
             styles={s}
             theme={theme}
