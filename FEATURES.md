@@ -38,7 +38,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (backend `/search` with debounce + pagination).
 - ✅ **Pin** — pin/unpin a chat (chat `⋯` menu + drawer long-press); pinned chats show in a
   **Pinned** section at the top of the drawer.
-- ✅ **Share / Export** — share a conversation as a markdown transcript via the native share sheet
+- ✅ **Share / Export** — share a conversation as a markdown transcript via the native share
+  sheet; export an assistant reply as PDF (structured headings/lists/code); export a learning
+  topic (vocab words or trivia facts) as PDF from the project screen.
   (chat `⋯` menu + drawer long-press); no backend needed.
 - ✅ **Manage from the drawer** — long-press any chat for **Pin/Unpin · Share · Archive · Delete**.
 - ⚠️ **Archive** — chats can be archived from the drawer (long-press); archived chats show in a
@@ -73,7 +75,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Read aloud (TTS)** — speaker on assistant messages and vocab words prefers cloud
   `POST /speech/tts` when a **dev build** + token are available; falls back to on-device
   `expo-speech`. Unavailable in Expo Go (same native gate as voice input).
-- 🔜 Message-level share, reactions, read receipts; duplex full-voice mode (out of scope).
+- 🔜 Reactions, read receipts; duplex full-voice mode (out of scope).
 
 ## 4. Formatting & rendering
 - ✅ **Markdown** — headings, **bold**/*italic*, bullet & numbered lists, blockquotes, links,

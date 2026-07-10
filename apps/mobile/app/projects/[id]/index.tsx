@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { Redirect, useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
@@ -19,6 +20,11 @@ import { LearningContinueCta } from "@/components/projects/LearningContinueCta";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, type ProjectDetail, type VocabStatus } from "@/lib/api";
 import { queueChatLaunch } from "@/lib/chatLaunch";
+import {
+  exportProjectAsPdf,
+  projectHasExportableItems,
+} from "@/lib/exportProjectPdf";
+import { isShareCancelled } from "@/lib/exportPdf";
 import {
   buildProjectAskPromptFromProject,
   buildProjectBonusQuestionsPrompt,
@@ -63,6 +69,7 @@ export default function ProjectDetailScreen() {
   projectRef.current = project;
   const [selectedDay, setSelectedDay] = useState(() => localDateKey(new Date()));
   const [conceptBusyId, setConceptBusyId] = useState<string | null>(null);
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   const load = useCallback(
     async (opts?: { silent?: boolean; force?: boolean }) => {
@@ -101,12 +108,59 @@ export default function ProjectDetailScreen() {
     }, [load]),
   );
 
+  const exportLearningPdf = useCallback(async () => {
+    if (!project || exportingPdf) return;
+    if (!projectHasExportableItems(project)) {
+      Alert.alert(t("projects.export_pdf_empty_title"), t("projects.export_pdf_empty_body"));
+      return;
+    }
+    setExportingPdf(true);
+    try {
+      await exportProjectAsPdf(project, {
+        mastered: t("projects.export_pdf.section_mastered"),
+        learning: t("projects.export_pdf.section_learning"),
+        new: t("projects.export_pdf.section_new"),
+        empty: t("projects.export_pdf.empty"),
+        definition: t("projects.export_pdf.definition"),
+        example: t("projects.export_pdf.example"),
+        topic: t("projects.export_pdf.topic"),
+        summary: ({ total, mastered, learning, newCount }) =>
+          t("projects.export_pdf.summary", {
+            total,
+            mastered,
+            learning,
+            new: newCount,
+          }),
+      });
+    } catch (error) {
+      if (isShareCancelled(error)) return;
+      Alert.alert(t("common.error"), t("projects.export_pdf_failed"));
+    } finally {
+      setExportingPdf(false);
+    }
+  }, [project, exportingPdf, t]);
+
   useLayoutEffect(() => {
     if (!project) return;
     navigation.setOptions({
       title: learningProjectTitle(project.kind, t, project.title),
+      headerRight: () => (
+        <Pressable
+          onPress={() => void exportLearningPdf()}
+          disabled={exportingPdf}
+          hitSlop={8}
+          accessibilityLabel={t("projects.export_pdf_a11y")}
+          style={{ marginRight: 4, opacity: exportingPdf ? 0.45 : 1 }}
+        >
+          {exportingPdf ? (
+            <ActivityIndicator size="small" color={theme.primary} />
+          ) : (
+            <Ionicons name="document-text-outline" size={22} color={theme.primary} />
+          )}
+        </Pressable>
+      ),
     });
-  }, [navigation, project, t]);
+  }, [navigation, project, t, exportLearningPdf, exportingPdf, theme.primary]);
 
   if (!token) return <Redirect href="/login" />;
 

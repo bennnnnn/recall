@@ -1,4 +1,7 @@
-/** Strip common markdown to plain text for TTS and PDF export. */
+/** Strip common markdown to plain text for TTS (and other non-print uses). */
+
+import { markdownToStructuredPrintHtml } from "@/lib/printDocument";
+
 export function markdownToPlainText(markdown: string): string {
   let text = markdown;
   text = text.replace(/```[\s\S]*?```/g, " ");
@@ -12,31 +15,7 @@ export function markdownToPlainText(markdown: string): string {
   return text.trim();
 }
 
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
+/** Structured print HTML for message PDF export. */
 export function markdownToPrintHtml(title: string, markdown: string): string {
-  const plain = markdownToPlainText(markdown);
-  const body = escapeHtml(plain).replace(/\n/g, "<br/>");
-  const safeTitle = escapeHtml(title.trim() || "Recall report");
-  return `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8"/>
-<style>
-  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 24px; color: #111; line-height: 1.5; }
-  h1 { font-size: 22px; margin: 0 0 16px; }
-  .body { font-size: 14px; white-space: normal; }
-</style>
-</head>
-<body>
-  <h1>${safeTitle}</h1>
-  <div class="body">${body}</div>
-</body>
-</html>`;
+  return markdownToStructuredPrintHtml(title, markdown);
 }

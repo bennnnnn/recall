@@ -67,8 +67,10 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 | 4.3 | Speech → transcription → composer | ☐ | ☐ | Dev build; mic works with typed text too |
 | 4.4 | Cancel voice recording (no upload) | ☐ | ☐ | Dev build |
 | 4.5 | Read aloud (assistant + vocab) | ☐ | ☐ | Dev build; cloud TTS + device fallback |
-| 4.6 | Daily image cap enforced (free) | ☐ | ☐ | |
-| 4.7 | Daily speech STT / TTS caps | ☐ | ☐ | Free 30 STT / 20 TTS |
+| 4.6 | Export assistant reply as PDF | ☐ | ☐ | Headings/lists/code preserved |
+| 4.7 | Export learning topic as PDF | ☐ | ☐ | Vocab words / trivia facts from project screen |
+| 4.8 | Daily image cap enforced (free) | ☐ | ☐ | |
+| 4.9 | Daily speech STT / TTS caps | ☐ | ☐ | Free 30 STT / 20 TTS |
 
 ---
 

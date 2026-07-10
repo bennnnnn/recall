@@ -20,6 +20,7 @@ import { VocabQuizChoices } from "@/components/VocabQuizChoices";
 import { Message } from "@/lib/api";
 import { extractPrimaryCopyText } from "@/lib/copyBlock";
 import { exportMessageAsPdf } from "@/lib/exportMessagePdf";
+import { isShareCancelled } from "@/lib/exportPdf";
 import { notifySuccess, notifyWarning, tap } from "@/lib/haptics";
 import { SENDING_LABEL_DELAY_MS } from "@/lib/chatMessageLogic";
 import { useAssistantMessageContent } from "@/hooks/useAssistantMessageContent";
@@ -108,7 +109,8 @@ function AssistantActions({
       const titleMatch = content.match(/^#\s+(.+)$/m);
       const title = titleMatch?.[1]?.trim() || t("chat.export_pdf_default_title");
       await exportMessageAsPdf(title, content);
-    } catch {
+    } catch (error) {
+      if (isShareCancelled(error)) return;
       Alert.alert(t("common.error"), t("chat.export_pdf_failed"));
     } finally {
       setExporting(false);
