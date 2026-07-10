@@ -587,6 +587,7 @@
   "settings.delete_desc": "Permanently removes your account and all data.",
   "settings.delete_failed": "Hesap silinemedi. Tekrar dene.",
   "settings.email_label": "E-posta",
+  "settings.email_reminders": "E-posta hatırlatmaları",
   "settings.export": "Verilerimi dışa aktar",
   "settings.export_desc": "JSON copy of your chats, memories, and settings",
   "settings.export_failed": "Veriler dışa aktarılamadı. Tekrar dene.",

@@ -587,6 +587,7 @@
   "settings.delete_desc": "Permanently removes your account and all data.",
   "settings.delete_failed": "Impossibile eliminare l'account. Riprova.",
   "settings.email_label": "E-mail",
+  "settings.email_reminders": "Promemoria e-mail",
   "settings.export": "Esporta i miei dati",
   "settings.export_desc": "JSON copy of your chats, memories, and settings",
   "settings.export_failed": "Impossibile esportare i dati. Riprova.",

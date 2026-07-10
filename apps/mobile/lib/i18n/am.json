@@ -587,6 +587,7 @@
   "settings.delete_desc": "Permanently removes your account and all data.",
   "settings.delete_failed": "መለያ መሰረዝ አልተቻለም። እንደገና ይሞክሩ።",
   "settings.email_label": "ኢሜይል",
+  "settings.email_reminders": "የኢሜይል ማስታወሻዎች",
   "settings.export": "ውሂቤን ላክ",
   "settings.export_desc": "JSON copy of your chats, memories, and settings",
   "settings.export_failed": "ውሂብ ማስመጣት አልተቻለም። እንደገና ይሞክሩ።",
