@@ -65,10 +65,15 @@ async def create(
 
 
 async def update(session: AsyncSession, user: User, **fields) -> User:
+    """Apply *fields* onto *user*.
+
+    Keys present in *fields* are written as-is, including explicit ``None``
+    (so nullable columns like ``custom_instructions`` / ``location`` can be
+    cleared). Omit a key to leave that column unchanged.
+    """
     for key, value in fields.items():
-        if value is not None:
-            if hasattr(user, key):
-                setattr(user, key, value)
+        if hasattr(user, key):
+            setattr(user, key, value)
     await session.commit()
     await session.refresh(user)
     return user
