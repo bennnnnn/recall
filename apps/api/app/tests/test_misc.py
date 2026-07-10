@@ -89,7 +89,7 @@ async def test_login_with_google_creates_user():
     }
 
     with (
-        patch("app.services.auth.verify_google_id_token", return_value=payload),
+        patch("app.services.auth.verify_google_id_token", AsyncMock(return_value=payload)),
         patch("app.services.auth.users_repo.get_by_google_sub", AsyncMock(return_value=None)),
         patch("app.services.auth.users_repo.get_by_email", AsyncMock(return_value=None)),
         patch("app.services.auth.users_repo.create", AsyncMock(return_value=MagicMock())),
@@ -128,7 +128,7 @@ async def test_login_with_google_existing_user():
     payload = {"sub": "google-sub-456", "email": "existing@test.local"}
 
     with (
-        patch("app.services.auth.verify_google_id_token", return_value=payload),
+        patch("app.services.auth.verify_google_id_token", AsyncMock(return_value=payload)),
         patch(
             "app.services.auth.users_repo.get_by_google_sub",
             AsyncMock(return_value=MagicMock()),
@@ -179,7 +179,7 @@ async def test_login_with_google_links_existing_account_by_email():
     update_mock = AsyncMock(return_value=existing)
 
     with (
-        patch("app.services.auth.verify_google_id_token", return_value=payload),
+        patch("app.services.auth.verify_google_id_token", AsyncMock(return_value=payload)),
         patch(
             "app.services.auth.users_repo.get_by_google_sub",
             AsyncMock(return_value=None),
