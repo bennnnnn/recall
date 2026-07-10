@@ -604,16 +604,15 @@ async def apply_deterministic_quiz_answer(
         try_number >= vocab_quiz_service.MAX_QUIZ_TRIES_PER_QUESTION
     )
 
-    items = await project_items_repo.list_for_user(
-        session, user_id, project_id=project.id, limit=500
-    )
-
     if is_trivia:
         topic = quiz.word.strip()
         question = (quiz.question or quiz.word).strip()
         if not question:
             return None
         list_title = topic or DEFAULT_LIST
+        items = await project_items_repo.find_quiz_candidates(
+            session, user_id, project.id, question
+        )
         existing = _find_item(items, project.id, list_title, question)
         if existing:
             await project_items_repo.apply_quiz_result(
@@ -652,6 +651,7 @@ async def apply_deterministic_quiz_answer(
     if not word:
         return None
     list_title = DEFAULT_LIST
+    items = await project_items_repo.find_quiz_candidates(session, user_id, project.id, word)
     existing = _find_item(items, project.id, list_title, word) or _find_item_by_content(
         items, project.id, word
     )

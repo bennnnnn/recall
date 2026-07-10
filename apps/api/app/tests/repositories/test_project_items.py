@@ -51,6 +51,21 @@ async def test_list_for_user_returns_items(fake_session):
 
 
 @pytest.mark.asyncio
+async def test_find_quiz_candidates_queries_project_content(fake_session):
+    mock_item = _item(content="Colossus")
+    mock_scalars = MagicMock()
+    mock_scalars.all.return_value = [mock_item]
+    mock_result = MagicMock()
+    mock_result.scalars.return_value = mock_scalars
+    fake_session.execute.return_value = mock_result
+
+    result = await repo.find_quiz_candidates(fake_session, uuid4(), uuid4(), "Colossus")
+
+    assert result == [mock_item]
+    fake_session.execute.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_get_by_id_returns_item(fake_session):
     mock_item = _item()
     mock_result = MagicMock()

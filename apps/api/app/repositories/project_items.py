@@ -46,6 +46,44 @@ async def list_for_user(
     return list((await session.execute(stmt)).scalars().all())
 
 
+def _like_escape(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+async def find_quiz_candidates(
+    session: AsyncSession,
+    user_id: UUID,
+    project_id: UUID,
+    content: str,
+    *,
+    limit: int = 32,
+) -> list[ProjectItem]:
+    """Small candidate set for quiz grading — avoids loading the whole deck.
+
+    Exact case-insensitive matches plus a bounded ILIKE neighborhood so the
+    service-layer fuzzy fallback (contains / reverse-contains) still works
+    without scanning hundreds of rows on the request path.
+    """
+    needle = content.strip()
+    if not needle:
+        return []
+    pattern = f"%{_like_escape(needle)}%"
+    stmt = (
+        select(ProjectItem)
+        .where(
+            ProjectItem.user_id == user_id,
+            ProjectItem.project_id == project_id,
+            or_(
+                func.lower(ProjectItem.content) == needle.lower(),
+                ProjectItem.content.ilike(pattern, escape="\\"),
+            ),
+        )
+        .order_by(ProjectItem.created_at.desc())
+        .limit(limit)
+    )
+    return list((await session.execute(stmt)).scalars().all())
+
+
 async def get_by_id(
     session: AsyncSession, item_id: UUID, user_id: UUID, project_id: UUID | None = None
 ) -> ProjectItem | None:
