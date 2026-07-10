@@ -1,5 +1,5 @@
 import type { ClientGeo } from "@/lib/clientGeo";
-import { getDeviceGeo } from "@/lib/deviceLocation";
+import { requestDeviceGeo } from "@/lib/deviceLocation";
 import { isAmbiguousLocalPlacesQuery, isGeoQuery } from "@/lib/localPlacesQuery";
 
 function formatCoordLabel(latitude: number, longitude: number): string {
@@ -13,18 +13,20 @@ lat-lng on the WS message; it is NOT written to the user's profile. Profile
 location changes only from Settings, so asking "restaurants nearby?" while
 traveling no longer overwrites the user's saved home city. */
 export async function ensureNearbyLocation(
-  token: string,
+  _token: string,
   text: string,
 ): Promise<ClientGeo | null> {
   if (!isGeoQuery(text) || isAmbiguousLocalPlacesQuery(text)) return null;
 
-  const geo = await getDeviceGeo();
-  if (!geo) return null;
+  const result = await requestDeviceGeo();
+  if (result.status !== "granted") return null;
 
-  const label = geo.label?.trim() || formatCoordLabel(geo.latitude, geo.longitude);
+  const label =
+    result.geo.label?.trim() ||
+    formatCoordLabel(result.geo.latitude, result.geo.longitude);
   return {
     label,
-    latitude: geo.latitude,
-    longitude: geo.longitude,
+    latitude: result.geo.latitude,
+    longitude: result.geo.longitude,
   };
 }
