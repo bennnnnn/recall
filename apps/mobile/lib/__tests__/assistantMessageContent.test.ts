@@ -88,4 +88,19 @@ describe("deriveAssistantMessageContent", () => {
     expect(result.markdownContent).toBe("");
     expect(result.hasMarkdown).toBe(false);
   });
+
+  it("hides Sources under a live clock even when search hits are attached", () => {
+    const result = deriveAssistantMessageContent({
+      ...base,
+      priorUserText: "What time is it in dc",
+      content: "```clock\nAmerica/New_York\n```",
+      liveSearchSources: [
+        { title: "DC time", url: "https://example.com/dc" },
+      ],
+    });
+
+    expect(result.showLiveClock).toBe(true);
+    expect(result.searchSources).toHaveLength(1);
+    expect(result.showSearchSources).toBe(false);
+  });
 });

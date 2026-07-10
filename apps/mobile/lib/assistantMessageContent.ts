@@ -191,12 +191,12 @@ export function deriveAssistantMessageContent(
   });
 
   const hasMarkdown = markdownContent.trim().length > 0;
-  // Hide the sources stack for a local empty-clock reply; keep it when the
-  // clock is pinned to another timezone (city time) or there is no clock.
+  // Live clock is device-driven (local or pinned IANA) — a Sources chip would
+  // imply the time came from those links, which it didn't.
   const showSearchSources =
     searchSources.length > 0 &&
     !layoutFrozen &&
-    !(showLiveClock && !clockTimezone) &&
+    !showLiveClock &&
     !hideQuizFenceInMarkdown &&
     !showVocabCard &&
     !showCalendarProposals;
