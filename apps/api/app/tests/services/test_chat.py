@@ -80,6 +80,7 @@ def test_is_writing_deliverable_request(text: str, expected: bool):
 @pytest.mark.asyncio
 async def test_build_prompt_includes_email_draft_hint_for_email_request():
     user = MagicMock()
+    user.id = uuid4()
     user.name = "Test User"
     user.email = "test@example.com"
     user.location = None
@@ -113,7 +114,7 @@ async def test_build_prompt_includes_email_draft_hint_for_email_request():
             session,
             user,
             uuid4(),
-            Settings(),
+            Settings(attachment_rag_enabled=False),
             query_text="Send an email to my wife",
         )
 
@@ -557,6 +558,7 @@ async def test_build_prompt_minimal_for_who_am_i():
 @pytest.mark.asyncio
 async def test_build_prompt_day_planning_injects_daily_learning():
     user = MagicMock()
+    user.id = uuid4()
     user.name = "Dev User"
     user.email = "dev@example.com"
     user.location = None
@@ -602,7 +604,7 @@ async def test_build_prompt_day_planning_injects_daily_learning():
             session,
             user,
             uuid4(),
-            Settings(),
+            Settings(attachment_rag_enabled=False),
             query_text="What's still open for me to finish tonight?",
             client_timezone="America/Los_Angeles",
         )

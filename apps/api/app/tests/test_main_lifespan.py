@@ -25,17 +25,27 @@ async def test_lifespan_starts_and_stops_workers():
 
     with (
         patch("app.main.setup_logging"),
+        patch("app.main.init_sentry"),
         patch("app.main.validate_production_settings"),
         patch("app.gateways.mcp.setup_mcp_adapters"),
         patch("app.main.jobs.start_worker", start_worker),
         patch("app.main.jobs.stop_worker", AsyncMock()),
         patch("app.main.push_scheduler.start_push_scheduler", AsyncMock()),
         patch("app.main.push_scheduler.stop_push_scheduler", AsyncMock()),
+        patch(
+            "app.main.email_reminder_scheduler.start_email_reminder_scheduler",
+            AsyncMock(),
+        ),
+        patch(
+            "app.main.email_reminder_scheduler.stop_email_reminder_scheduler",
+            AsyncMock(),
+        ),
         patch("app.main.gmail_periodic_sync.start_gmail_periodic_scheduler", AsyncMock()),
         patch("app.main.gmail_periodic_sync.stop_gmail_periodic_scheduler", AsyncMock()),
         patch("app.main.attachment_orphan_reaper.start_orphan_reaper", AsyncMock()),
         patch("app.main.attachment_orphan_reaper.stop_orphan_reaper", AsyncMock()),
         patch("app.main.warmup_db_pool", AsyncMock()),
+        patch("app.main.aclose_pooled_clients", AsyncMock()),
         patch("app.main.engine", mock_engine),
         patch("app.main.get_redis_client", return_value=mock_redis),
     ):
@@ -71,11 +81,20 @@ async def test_lifespan_api_role_skips_workers():
         patch("app.main.jobs.stop_worker", AsyncMock()),
         patch("app.main.push_scheduler.start_push_scheduler", start_push),
         patch("app.main.push_scheduler.stop_push_scheduler", AsyncMock()),
+        patch(
+            "app.main.email_reminder_scheduler.start_email_reminder_scheduler",
+            AsyncMock(),
+        ),
+        patch(
+            "app.main.email_reminder_scheduler.stop_email_reminder_scheduler",
+            AsyncMock(),
+        ),
         patch("app.main.gmail_periodic_sync.start_gmail_periodic_scheduler", AsyncMock()),
         patch("app.main.gmail_periodic_sync.stop_gmail_periodic_scheduler", AsyncMock()),
         patch("app.main.attachment_orphan_reaper.start_orphan_reaper", AsyncMock()),
         patch("app.main.attachment_orphan_reaper.stop_orphan_reaper", AsyncMock()),
         patch("app.main.warmup_db_pool", AsyncMock()),
+        patch("app.main.aclose_pooled_clients", AsyncMock()),
         patch("app.main.engine", mock_engine),
         patch("app.main.get_redis_client", return_value=mock_redis),
     ):

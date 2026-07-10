@@ -13,21 +13,21 @@ describe("quota helpers", () => {
     date: "2026-06-27",
     input_tokens: 1000,
     output_tokens: 2000,
-    daily_limit: 30_000,
+    daily_limit: 100_000,
     used_tokens: 12_000,
-    remaining: 18_000,
+    remaining: 88_000,
   };
 
   it("usageUsedTokens prefers authoritative used_tokens", () => {
     expect(usageUsedTokens(usage)).toBe(12_000);
     expect(
       usageUsedTokens({ ...usage, used_tokens: undefined, remaining: 5_000 }),
-    ).toBe(25_000);
+    ).toBe(95_000);
   });
 
   it("usageUsedPercent and usageRemainingPercent stay in sync", () => {
-    expect(usageUsedPercent(usage)).toBe(40);
-    expect(usageRemainingPercent(usage)).toBe(60);
+    expect(usageUsedPercent(usage)).toBe(12);
+    expect(usageRemainingPercent(usage)).toBe(88);
   });
 
   it("detects structured and legacy quota errors", () => {
@@ -44,8 +44,8 @@ describe("quota helpers", () => {
           ? `${opts?.pct}% pro left`
           : key;
 
-    expect(formatUsageSummary(usage, false, t)).toBe("60% free left");
-    expect(formatUsageSummary(usage, true, t)).toBe("60% pro left");
+    expect(formatUsageSummary(usage, false, t)).toBe("88% free left");
+    expect(formatUsageSummary(usage, true, t)).toBe("88% pro left");
   });
 
   it("quotaAlertTitle is plan-aware", () => {

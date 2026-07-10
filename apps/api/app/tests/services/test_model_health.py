@@ -28,7 +28,7 @@ class _FakeRedis:
 class _FakePipe:
     def __init__(self, redis: _FakeRedis) -> None:
         self._redis = redis
-        self._ops: list[tuple[str, Any]] = []
+        self._ops: list[tuple[Any, ...]] = []
 
     def zadd(self, key: str, mapping: dict[str, float]) -> None:
         self._ops.append(("zadd", key, mapping))

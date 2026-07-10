@@ -163,6 +163,8 @@
   "chat.status.thinking": "Düşünüyor…",
   "chat.status.thinking_1": "Üzerinde çalışıyorum…",
   "chat.status.thinking_2": "Neredeyse bitti…",
+  "chat.status.image_gen": "Görsel oluşturuluyor…",
+  "chat.status.image_gen_1": "Bu bir dakika sürebilir…",
   "chat.suggestions": "Öneriler",
   "chat.title_generating": "Başlık oluşturuluyor…",
   "chat.unarchive": "Geri yükle",

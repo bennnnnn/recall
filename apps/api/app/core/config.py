@@ -155,7 +155,7 @@ class Settings(BaseSettings):
     resend_api_url: str = "https://api.resend.com/emails"
     email_from: str = "Recall <noreply@recall.app>"
 
-    daily_token_limit: int = 30_000
+    daily_token_limit: int = 100_000
     daily_token_limit_pro: int = 500_000
     max_output_tokens: int = 1200
     recent_message_window: int = 20  # hard cap on verbatim messages

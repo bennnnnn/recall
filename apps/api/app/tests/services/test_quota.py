@@ -9,7 +9,7 @@ from app.services import quota as quota_service
 
 @pytest.fixture
 def settings() -> Settings:
-    return Settings(daily_token_limit=30_000, daily_token_limit_pro=500_000)
+    return Settings(daily_token_limit=100_000, daily_token_limit_pro=500_000)
 
 
 def _pro_user() -> MagicMock:
@@ -25,7 +25,7 @@ def _free_user() -> MagicMock:
 
 
 def test_daily_limit_for_user(settings):
-    assert quota_service.daily_limit_for_user(_free_user(), settings) == 30_000
+    assert quota_service.daily_limit_for_user(_free_user(), settings) == 100_000
     assert quota_service.daily_limit_for_user(_pro_user(), settings) == 500_000
 
 
@@ -38,8 +38,8 @@ def test_quota_exceeded_message(settings):
     "used, requested, allowed",
     [
         (0, 1000, True),
-        (29_000, 2000, False),
-        (30_000, 1, False),
+        (99_000, 2000, False),
+        (100_000, 1, False),
     ],
 )
 @pytest.mark.asyncio
@@ -67,12 +67,12 @@ async def test_reserve_usage_rejects_over_limit(fake_redis, settings):
     from datetime import UTC, datetime
 
     day = datetime.now(UTC).date().isoformat()
-    await fake_redis.set(f"usage:u1:{day}", 29_500)
+    await fake_redis.set(f"usage:u1:{day}", 99_500)
     limit = quota_service.daily_limit_for_user(_free_user(), settings)
 
     allowed = await quota_service.reserve_usage(fake_redis, "u1", 1000, daily_limit=limit)
     assert allowed is False
-    assert int(await fake_redis.get(f"usage:u1:{day}")) == 29_500
+    assert int(await fake_redis.get(f"usage:u1:{day}")) == 99_500
 
 
 @pytest.mark.asyncio

@@ -163,6 +163,8 @@
   "chat.status.thinking": "Thinking…",
   "chat.status.thinking_1": "Working through this…",
   "chat.status.thinking_2": "Almost there…",
+  "chat.status.image_gen": "Generating image…",
+  "chat.status.image_gen_1": "This can take up to a minute…",
   "chat.suggestions": "ጥቆማዎች",
   "chat.title_generating": "ርዕስ በመፍጠር ላይ…",
   "chat.unarchive": "መልስ",

@@ -163,6 +163,8 @@
   "chat.status.thinking": "Sto pensando…",
   "chat.status.thinking_1": "Ci sto lavorando…",
   "chat.status.thinking_2": "Quasi fatto…",
+  "chat.status.image_gen": "Generazione immagine…",
+  "chat.status.image_gen_1": "Può richiedere fino a un minuto…",
   "chat.suggestions": "Suggerimenti",
   "chat.title_generating": "Generazione titolo…",
   "chat.unarchive": "Ripristina",
