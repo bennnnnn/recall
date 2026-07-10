@@ -33,6 +33,34 @@ from app.services import tokens as tokens_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+_LOGIN_RATE_LIMIT = 30
+_LOGIN_RATE_WINDOW_SECONDS = 60
+
+
+async def _enforce_login_rate_limit(
+    redis: Redis,
+    request: Request,
+    settings: Settings,
+    *,
+    provider: str,
+) -> None:
+    """Per-provider login throttle; raises 429 when the bucket is exhausted.
+
+    Per-IP, not global: a global bucket lets a credential-stuffer trip the
+    limit and lock real users out of signing in.
+    """
+    allowed = await allow_request(
+        redis,
+        f"rate:auth:{provider}:{client_ip(request, settings)}",
+        limit=_LOGIN_RATE_LIMIT,
+        window_seconds=_LOGIN_RATE_WINDOW_SECONDS,
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many login attempts. Try again shortly.",
+        )
+
 
 @router.post("/google", response_model=AuthResponse)
 async def google_login(
@@ -42,19 +70,7 @@ async def google_login(
     settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(get_redis),
 ) -> AuthResponse:
-    # Per-IP, not global: a global bucket lets a credential-stuffer trip the
-    # limit and lock real users out of signing in.
-    allowed = await allow_request(
-        redis,
-        f"rate:auth:google:{client_ip(request, settings)}",
-        limit=30,
-        window_seconds=60,
-    )
-    if not allowed:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many login attempts. Try again shortly.",
-        )
+    await _enforce_login_rate_limit(redis, request, settings, provider="google")
     try:
         return await auth_service.login_with_google(session, settings, body.id_token, redis)
     except GoogleAuthError as exc:
@@ -69,17 +85,7 @@ async def apple_login(
     settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(get_redis),
 ) -> AuthResponse:
-    allowed = await allow_request(
-        redis,
-        f"rate:auth:apple:{client_ip(request, settings)}",
-        limit=30,
-        window_seconds=60,
-    )
-    if not allowed:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many login attempts. Try again shortly.",
-        )
+    await _enforce_login_rate_limit(redis, request, settings, provider="apple")
     try:
         return await auth_service.login_with_apple(
             session,
@@ -102,20 +108,10 @@ async def dev_login(
 ) -> AuthResponse:
     if not settings.dev_auth_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Dev auth disabled")
-    # Per-IP rate limit, matching Google/Apple. Dev auth bypasses provider
-    # token verification, so without a limit a single client can mint
-    # arbitrary accounts or credential-stuff when dev auth is on.
-    allowed = await allow_request(
-        redis,
-        f"rate:auth:dev:{client_ip(request, settings)}",
-        limit=30,
-        window_seconds=60,
-    )
-    if not allowed:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many login attempts. Try again shortly.",
-        )
+    # Dev auth bypasses provider token verification, so without a limit a
+    # single client can mint arbitrary accounts or credential-stuff when dev
+    # auth is on.
+    await _enforce_login_rate_limit(redis, request, settings, provider="dev")
     try:
         return await auth_service.login_dev(
             session,
