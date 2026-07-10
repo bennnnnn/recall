@@ -149,7 +149,7 @@ async def test_apply_deterministic_marks_tries_exhausted_on_third_wrong():
             new=AsyncMock(return_value=project),
         ),
         patch(
-            "app.services.projects.project_items_repo.list_for_user",
+            "app.services.projects.project_items_repo.find_quiz_candidates",
             new=AsyncMock(return_value=[]),
         ),
         patch(
@@ -199,7 +199,7 @@ async def test_apply_deterministic_wrong_before_limit_not_exhausted():
             new=AsyncMock(return_value=project),
         ),
         patch(
-            "app.services.projects.project_items_repo.list_for_user",
+            "app.services.projects.project_items_repo.find_quiz_candidates",
             new=AsyncMock(return_value=[]),
         ),
         patch(
@@ -402,7 +402,7 @@ async def test_apply_deterministic_quiz_answer_trivia_correct():
             new=AsyncMock(return_value=project),
         ),
         patch(
-            "app.services.projects.project_items_repo.list_for_user",
+            "app.services.projects.project_items_repo.find_quiz_candidates",
             new=AsyncMock(return_value=[]),
         ),
         patch(
@@ -457,7 +457,7 @@ async def test_apply_deterministic_quiz_answer_records_wrong_trivia_as_learning(
             new=AsyncMock(return_value=project),
         ),
         patch(
-            "app.services.projects.project_items_repo.list_for_user",
+            "app.services.projects.project_items_repo.find_quiz_candidates",
             new=AsyncMock(return_value=[]),
         ),
         patch(
