@@ -43,6 +43,69 @@ async def test_purge_attachments_for_messages_deletes_bytes_and_rows():
 
 
 @pytest.mark.asyncio
+async def test_purge_attachments_for_user_deletes_bytes_before_rows():
+    settings = Settings()
+    user_id = uuid4()
+    row = MagicMock()
+    row.id = uuid4()
+    row.storage_key = "user/acct-file"
+    session = AsyncMock()
+    order: list[str] = []
+
+    async def delete_bytes(key: str) -> None:
+        order.append(f"bytes:{key}")
+
+    async def delete_rows(_session, ids):
+        order.append(f"rows:{ids[0]}")
+        return 1
+
+    gateway = MagicMock()
+    gateway.delete_bytes = delete_bytes
+
+    with (
+        patch(
+            "app.services.attachment_lifecycle.attachments_repo.list_for_user",
+            AsyncMock(return_value=[row]),
+        ),
+        patch(
+            "app.services.attachment_lifecycle.attachments_repo.delete_rows",
+            side_effect=delete_rows,
+        ),
+        patch(
+            "app.repositories.attachment_chunks.delete_for_attachment_ids",
+            AsyncMock(),
+        ),
+        patch(
+            "app.services.attachment_lifecycle.get_storage_gateway",
+            return_value=gateway,
+        ),
+    ):
+        deleted = await attachment_lifecycle.purge_attachments_for_user(session, settings, user_id)
+
+    assert deleted == 1
+    assert order == [f"bytes:{row.storage_key}", f"rows:{row.id}"]
+
+
+@pytest.mark.asyncio
+async def test_purge_attachments_for_user_noop_when_empty():
+    settings = Settings()
+    session = AsyncMock()
+    with (
+        patch(
+            "app.services.attachment_lifecycle.attachments_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.attachment_lifecycle.get_storage_gateway",
+        ) as gateway_factory,
+    ):
+        deleted = await attachment_lifecycle.purge_attachments_for_user(session, settings, uuid4())
+
+    assert deleted == 0
+    gateway_factory.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_reap_orphan_attachments_skips_rows_linked_after_list():
     """Storage bytes are deleted BEFORE the DB unlink check (storage-first), so
     even if a row gets linked between list and delete, its bytes were already

@@ -102,6 +102,12 @@ async def list_for_message_ids(session: AsyncSession, message_ids: list[UUID]) -
     return list(result.scalars().all())
 
 
+async def list_for_user(session: AsyncSession, user_id: UUID) -> list[Attachment]:
+    """All attachments owned by ``user_id`` (linked and pending) — account delete."""
+    result = await session.execute(select(Attachment).where(Attachment.user_id == user_id))
+    return list(result.scalars().all())
+
+
 async def list_orphans(session: AsyncSession, *, older_than_hours: int) -> list[Attachment]:
     """Attachments never linked to a message (message_id IS NULL) past the grace
     window — candidates for the reaper. Pending uploads that were never sent and
