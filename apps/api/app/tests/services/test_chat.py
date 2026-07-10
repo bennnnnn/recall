@@ -2167,3 +2167,64 @@ async def test_regenerate_passes_client_geo_to_web_search():
     assert augment.await_args.kwargs["latitude"] == 37.77
     assert augment.await_args.kwargs["longitude"] == -122.42
     assert augment.await_args.kwargs["user_location"] == "San Francisco, CA"
+
+
+@pytest.mark.asyncio
+async def test_instant_reply_usage_uses_input_output_keys(stream_offline_io):
+    """Instant replies must seed usage with ``input``/``output`` — the keys
+    ``finalize_stream_turn_db`` reads. ``input_tokens``/``output_tokens`` were
+    ignored, so quota fell back to full prompt re-estimation and overcharged."""
+    from uuid import uuid4
+
+    from app.services.chat.stream import stream_and_finalize
+    from app.services.chat.turn_prep import StreamContext
+
+    captured: dict[str, object] = {}
+
+    async def capture_finalize(_redis, _ctx, assistant_text, usage, _result):
+        captured["usage"] = dict(usage)
+        captured["assistant_text"] = assistant_text
+
+    ctx = StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=[{"role": "user", "content": "what time is it?"}],
+        run_title=False,
+        user_message_content="what time is it?",
+        reserved_tokens=100,
+        max_output_tokens=50,
+        instant_reply="It's 3:00 PM.",
+        skip_memory_jobs=True,
+    )
+
+    result: dict[str, object] = {}
+    with (
+        patch("app.services.chat.stream.finalize_stream_turn_db", side_effect=capture_finalize),
+        patch(
+            "app.services.chat.calendar_service.materialize_calendar_proposals",
+            AsyncMock(side_effect=lambda *_a, **_k: _a[-1] if _a else "It's 3:00 PM."),
+        ),
+        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=None)),
+    ):
+        tokens: list[str] = []
+        async for tok in stream_and_finalize(
+            AsyncMock(),
+            Settings(max_output_tokens=100),
+            ctx,
+            should_cancel=None,
+            result=result,
+        ):
+            tokens.append(tok)
+        finalize_db = result.get("_finalize_db_task")
+        if finalize_db is not None:
+            await finalize_db
+
+    assert tokens == ["It's 3:00 PM."]
+    assert "usage" in captured
+    usage = captured["usage"]
+    assert isinstance(usage, dict)
+    assert "input" in usage and "output" in usage
+    assert "input_tokens" not in usage and "output_tokens" not in usage
+    assert usage["input"] == 0
+    assert usage["output"] >= 1

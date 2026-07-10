@@ -570,8 +570,8 @@ async def stream_and_finalize(
                         result["final_content"] = assistant_text
 
             if ctx.instant_reply and not usage:
-                usage["output_tokens"] = estimate_tokens(assistant_text)
-                usage["input_tokens"] = 0
+                usage["output"] = estimate_tokens(assistant_text)
+                usage["input"] = 0
 
             if result is not None and not ctx.skip_memory_jobs:
                 transcript = f"User: {ctx.user_message_content}\nAssistant: {assistant_text}"
