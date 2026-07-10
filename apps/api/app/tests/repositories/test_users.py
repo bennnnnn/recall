@@ -60,6 +60,26 @@ async def test_create_user(fake_session):
 
 
 @pytest.mark.asyncio
+async def test_update_applies_explicit_none():
+    """Explicit None must clear nullable fields (omit key to leave unchanged)."""
+    from app.repositories.users import update
+
+    session = AsyncMock(spec=AsyncSession)
+    user = MagicMock()
+    user.custom_instructions = "keep me"
+    user.location = "Seattle"
+    user.name = "Ada"
+
+    await update(session, user, custom_instructions=None, location=None)
+
+    assert user.custom_instructions is None
+    assert user.location is None
+    assert user.name == "Ada"
+    session.commit.assert_awaited_once()
+    session.refresh.assert_awaited_once_with(user)
+
+
+@pytest.mark.asyncio
 async def test_delete_user_deletes_all_related(fake_session):
     """delete_user should delete messages, memories, usage, chats, and the user."""
     from app.repositories.users import delete_user
