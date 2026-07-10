@@ -17,7 +17,6 @@ import { AvatarUsageRing } from "@/components/AvatarUsageRing";
 import { UpgradeSheet } from "@/components/UpgradeSheet";
 import {
   makeSettingsStyles,
-  NavRow,
   SettingsGroup,
   SettingsLinkRow,
 } from "@/components/settings/settingsUi";
@@ -94,7 +93,7 @@ export default function SettingsScreen() {
   const integrationsValue =
     connectedCount > 0
       ? t("settings.integrations_connected", { count: connectedCount })
-      : undefined;
+      : t("settings.integration_not_connected");
 
   return (
     <View style={s.root}>
@@ -113,52 +112,40 @@ export default function SettingsScreen() {
           <Text style={[s.profilePlan, isPro && s.accountPro]}>{accountLabel}</Text>
         </View>
 
-        <View style={s.section}>
-          <Text style={s.sectionLabel}>{t("settings.profile")}</Text>
-          <View style={s.menuStack}>
-            <View style={s.footerGroup}>
-              <Pressable
-                style={s.menuRow}
-                onPress={() => {
-                  setNameText(user?.name ?? "");
-                  setEditNameVisible(true);
-                }}
-              >
-                <Text style={s.rowTitle}>{t("settings.name_label")}</Text>
-                <View style={s.linkTrailing}>
-                  <Text style={s.linkValue} numberOfLines={1}>
-                    {displayName}
-                  </Text>
-                  <Ionicons name="chevron-forward" size={18} color={theme.textTertiary} />
-                </View>
-              </Pressable>
-            </View>
-            <View style={s.footerGroup}>
-              <View style={s.menuRow}>
-                <Text style={s.rowTitle}>{t("settings.email_label")}</Text>
-                <Text style={s.linkValue} numberOfLines={1}>
-                  {user?.email}
-                </Text>
-              </View>
-            </View>
-            <View style={s.footerGroup}>
-              <Pressable
-                style={s.menuRow}
-                onPress={() => {
-                  if (!isPro) setUpgradeVisible(true);
-                }}
-              >
-                <Text style={s.rowTitle}>{t("settings.account_label")}</Text>
-                <View style={s.linkTrailing}>
-                  <Text style={[s.linkValue, isPro && s.accountPro]}>{accountLabel}</Text>
-                  {!isPro ? (
-                    <Ionicons name="chevron-forward" size={18} color={theme.textTertiary} />
-                  ) : null}
-                </View>
-              </Pressable>
-            </View>
+        <SettingsGroup label={t("settings.profile")} styles={s}>
+          <SettingsLinkRow
+            title={t("settings.name_label")}
+            value={displayName}
+            onPress={() => {
+              setNameText(user?.name ?? "");
+              setEditNameVisible(true);
+            }}
+            styles={s}
+            theme={theme}
+          />
+          <View style={s.menuSeparator} />
+          <View style={s.menuRow}>
+            <Text style={[s.rowTitle, s.menuRowTitle]}>{t("settings.email_label")}</Text>
+            <Text style={s.linkValue} numberOfLines={1}>
+              {user?.email}
+            </Text>
           </View>
-        </View>
+          <View style={s.menuSeparator} />
+          {isPro ? (
+            <View style={s.menuRow}>
+              <Text style={[s.rowTitle, s.menuRowTitle]}>{t("settings.account_label")}</Text>
+              <Text style={s.linkValue}>{accountLabel}</Text>
+            </View>
+          ) : (
+            <SettingsLinkRow
+              title={t("settings.account_label")}
+              value={accountLabel}
+              onPress={() => setUpgradeVisible(true)}
+              styles={s}
+              theme={theme}
+            />
+          )}
+        </SettingsGroup>
 
         <SettingsGroup label={t("settings.general")} styles={s}>
           <SettingsLinkRow
@@ -209,30 +196,21 @@ export default function SettingsScreen() {
           />
         </SettingsGroup>
 
-        <View style={s.footerBand}>
-          <View style={s.menuStack}>
-            <View style={s.footerGroup}>
-              <NavRow
-                icon="server-outline"
-                title={t("settings.data_controls")}
-                onPress={() => router.push("/settings/data-controls")}
-                compact
-                styles={s}
-                theme={theme}
-              />
-            </View>
-            <View style={s.footerGroup}>
-              <NavRow
-                icon="information-circle-outline"
-                title={t("settings.about")}
-                onPress={() => router.push("/settings/about")}
-                compact
-                styles={s}
-                theme={theme}
-              />
-            </View>
-          </View>
-        </View>
+        <SettingsGroup styles={s}>
+          <SettingsLinkRow
+            title={t("settings.data_controls")}
+            onPress={() => router.push("/settings/data-controls")}
+            styles={s}
+            theme={theme}
+          />
+          <View style={s.menuSeparator} />
+          <SettingsLinkRow
+            title={t("settings.about")}
+            onPress={() => router.push("/settings/about")}
+            styles={s}
+            theme={theme}
+          />
+        </SettingsGroup>
 
         <Pressable
           style={s.signOut}
