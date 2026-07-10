@@ -19,6 +19,18 @@ _TIME_QUESTION = re.compile(
     re.IGNORECASE,
 )
 
+# "What time is it in Tokyo / DC / …" — not the user's local clock.
+_REMOTE_TIME_QUESTION = re.compile(
+    r"^\s*(?:"
+    r"what(?:'s| is) the time(?:\s+now)?\s+in\b.+"
+    r"|what time is it(?:\s+now)?\s+in\b.+"
+    r"|what time(?:\s+now)?\s+in\b.+"
+    r"|current time\s+in\b.+"
+    r"|time(?:\s+please)?\s+in\b.+"
+    r")\s*[.!?]*\s*$",
+    re.IGNORECASE | re.DOTALL,
+)
+
 _SCHEDULED_EVENT = re.compile(
     r"\b(meeting|appointment|flight|event|class|call|interview|game|train|bus)\b",
     re.IGNORECASE,
@@ -68,9 +80,20 @@ def format_digital_clock(when: datetime, locale: str | None = None) -> str:
     return when.strftime("%H:%M:%S")
 
 
-def is_time_question(text: str) -> bool:
+def is_remote_time_question(text: str) -> bool:
+    """True when the user asks for the time in another place (not local)."""
     cleaned = text.strip()
     if not cleaned:
+        return False
+    return bool(_REMOTE_TIME_QUESTION.match(cleaned))
+
+
+def is_time_question(text: str) -> bool:
+    """True for the user's *local* current-time question only."""
+    cleaned = text.strip()
+    if not cleaned:
+        return False
+    if is_remote_time_question(cleaned):
         return False
     if _TIME_QUESTION.match(cleaned):
         return _SCHEDULED_EVENT.search(cleaned) is None
@@ -122,9 +145,14 @@ def format_time_context(
     else:
         parts.append("User location is not synced yet.")
     parts.append(
-        "When the user asks what time it is, reply with only an empty ```clock``` fence. "
-        "The app renders a live circular analog clock — never paste timezone names, "
-        "HH:MM text, or any other content inside the fence. "
+        "When the user asks what time it is *here* (no other city/place), reply with "
+        "only an empty ```clock``` fence. The app renders a live circular analog clock "
+        "for their local timezone — never paste timezone names, HH:MM text, or any "
+        "other content inside that empty fence. "
+        "When they ask the time in another city or place, do NOT use an empty clock "
+        "fence (that would show the user's local time). Put the place's IANA timezone "
+        "alone inside the fence, e.g. ```clock\\nAmerica/New_York\\n``` for Washington "
+        "DC / US Eastern, or answer in short prose with the local time there. "
         "When they ask where they are, use the location above if set. "
         "Use this when answering questions about today, deadlines, overdue tasks, "
         "or how long until something is due."

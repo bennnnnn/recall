@@ -277,6 +277,12 @@ def test_strip_sources_from_text_removes_fence_and_bare_json():
     )
     assert strip_sources_from_text(bare) == "Answer here."
 
+    labeled = (
+        'Afternoon in DC.\n\n**sources**\n```\n'
+        '[{"title":"DC time","url":"https://example.com/dc"}]\n```'
+    )
+    assert strip_sources_from_text(labeled) == "Afternoon in DC."
+
 
 @pytest.mark.asyncio
 async def test_augment_prompt_injects_results_before_user():
