@@ -7,9 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import jobs
 from app.core.config import Settings
-from app.core.db import get_db
+from app.core.db import SessionLocal, get_db
 from app.core.deps import get_current_user, get_redis, get_settings_dep
-from app.models.orm import User
+from app.models.orm import Chat, User
 from app.models.schemas import (
     ArchiveUpdate,
     ChatCreate,
@@ -33,6 +33,7 @@ from app.services.quota import utc_today
 router = APIRouter(prefix="/chats", tags=["chats"])
 
 DEFAULT_CHAT_LIST_LIMIT = 200
+ARCHIVED_CHAT_LIST_LIMIT = 50
 
 
 @router.post("", response_model=ChatOut, status_code=status.HTTP_201_CREATED)
@@ -65,9 +66,19 @@ async def list_chats(
     session: AsyncSession = Depends(get_db),
     limit: int = DEFAULT_CHAT_LIST_LIMIT,
 ) -> ChatListOut:
+    # The two reads are independent, so they run concurrently — but never on
+    # the same AsyncSession: a session can only run one operation at a time
+    # (asyncpg raises InterfaceError on overlap). The archived query gets its
+    # own short-lived session; the main list keeps the request session.
+    async def _archived() -> list[Chat]:
+        async with SessionLocal() as archived_session:
+            return await chats_repo.list_archived_for_user(
+                archived_session, user.id, limit=ARCHIVED_CHAT_LIST_LIMIT
+            )
+
     chats, archived = await asyncio.gather(
         chats_repo.list_for_user(session, user.id, limit=limit),
-        chats_repo.list_archived_for_user(session, user.id, limit=50),
+        _archived(),
     )
     pinned = [c for c in chats if c.pinned]
     grouped = chats_repo.group_by_recency(

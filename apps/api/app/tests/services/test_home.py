@@ -62,6 +62,20 @@ def _trivia_project(title: str = "General knowledge", *, daily_goal: int = 5):
     return project
 
 
+def _fake_session_local():
+    """Stand-in for home_service.SessionLocal: each call yields a fresh
+    AsyncMock session, mirroring the real per-loader sessions without
+    touching a database."""
+
+    def _make():
+        cm = MagicMock()
+        cm.__aenter__ = AsyncMock(return_value=AsyncMock())
+        cm.__aexit__ = AsyncMock(return_value=False)
+        return cm
+
+    return MagicMock(side_effect=_make)
+
+
 @contextmanager
 def _home_patches(**overrides):
     defaults = {
@@ -89,6 +103,7 @@ def _home_patches(**overrides):
         return {pid: stats_payload for pid in project_ids}
 
     with (
+        patch.object(home_service, "SessionLocal", _fake_session_local()),
         patch.object(
             home_service.todos_repo,
             "list_due_soon",
@@ -126,6 +141,72 @@ def _home_patches(**overrides):
         ),
     ):
         yield
+
+
+@pytest.mark.asyncio
+async def test_build_home_screen_never_overlaps_ops_on_one_session():
+    """The six home loads run concurrently, and an AsyncSession can only run
+    one operation at a time (asyncpg raises InterfaceError on overlap) — so
+    each concurrent loader must use its own session. Simulate asyncpg's
+    guard: mark a session busy across a yield point and record a violation
+    if a second operation lands on it while busy."""
+    import asyncio
+
+    session = AsyncMock()
+    user = _user()
+    busy: set[int] = set()
+    violations: list[str] = []
+
+    def tracked(name: str, result):
+        async def impl(s, *args, **kwargs):
+            sid = id(s)
+            if sid in busy:
+                violations.append(name)
+            busy.add(sid)
+            await asyncio.sleep(0)  # yield so gathered loaders interleave
+            busy.discard(sid)
+            return result
+
+        return impl
+
+    empty_project_content = home_service.ProjectHomeContent([], None, None, [])
+    with (
+        patch.object(home_service, "SessionLocal", _fake_session_local()),
+        patch.object(
+            home_service.todos_repo,
+            "list_due_soon",
+            AsyncMock(side_effect=tracked("todos", [])),
+        ),
+        patch.object(
+            home_service.memory_service,
+            "load_relevant_memories",
+            AsyncMock(side_effect=tracked("memories", [])),
+        ),
+        patch.object(
+            home_service.chats_repo,
+            "list_for_user",
+            AsyncMock(side_effect=tracked("chats", [])),
+        ),
+        patch.object(
+            home_service.suggestions_repo,
+            "list_active",
+            AsyncMock(side_effect=tracked("suggestions", [])),
+        ),
+        patch.object(
+            home_service,
+            "_load_project_home_content",
+            AsyncMock(side_effect=tracked("projects", empty_project_content)),
+        ),
+        patch.object(
+            home_service,
+            "_integration_starters",
+            AsyncMock(side_effect=tracked("integrations", [])),
+        ),
+    ):
+        screen = await home_service.build_home_screen(session, user, Settings())
+
+    assert violations == []
+    assert screen.greeting
 
 
 @pytest.mark.asyncio
@@ -423,6 +504,7 @@ async def test_build_home_batches_daily_project_stats():
         return {pid: payload for pid in project_ids}
 
     with (
+        patch.object(home_service, "SessionLocal", _fake_session_local()),
         patch.object(
             home_service.todos_repo,
             "list_due_soon",

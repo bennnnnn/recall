@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
 from app.models.orm import Memory, Project, User
 from app.models.schemas import (
@@ -795,30 +796,40 @@ async def build_home_screen(
     due_cutoff_utc = now_utc + timedelta(minutes=lead_minutes)
     seed = _day_seed(user, home_tz)
 
+    # These loads are independent and run concurrently — but an AsyncSession
+    # can only run one operation at a time (asyncpg raises InterfaceError on
+    # overlap), so each loader gets its own short-lived session. The heaviest
+    # loader (project content, several sequential queries) keeps the request
+    # session so the gather uses it exactly once.
     async def load_urgent() -> list:
-        return await todos_repo.list_due_soon(
-            session,
-            user.id,
-            before_utc=due_cutoff_utc,
-        )
+        async with SessionLocal() as s:
+            return await todos_repo.list_due_soon(
+                s,
+                user.id,
+                before_utc=due_cutoff_utc,
+            )
 
     async def load_memories() -> list[Memory]:
         if not user.memory_enabled:
             return []
-        return list(await memory_service.load_relevant_memories(session, user, settings))
+        async with SessionLocal() as s:
+            return list(await memory_service.load_relevant_memories(s, user, settings))
 
     async def load_recent_titles() -> list[str]:
-        recent = await chats_repo.list_for_user(session, user.id, limit=5)
-        return [c.title or "" for c in recent]
+        async with SessionLocal() as s:
+            recent = await chats_repo.list_for_user(s, user.id, limit=5)
+            return [c.title or "" for c in recent]
 
     async def load_project_content() -> ProjectHomeContent:
         return await _load_project_home_content(session, user.id, seed=seed, home_tz=home_tz)
 
     async def load_integrations() -> list[HomeStarter]:
-        return await _integration_starters(session, user.id, settings, tz=home_tz)
+        async with SessionLocal() as s:
+            return await _integration_starters(s, user.id, settings, tz=home_tz)
 
     async def load_suggestions() -> list:
-        return await suggestions_repo.list_active(session, user.id)
+        async with SessionLocal() as s:
+            return await suggestions_repo.list_active(s, user.id)
 
     (
         urgent_items,
