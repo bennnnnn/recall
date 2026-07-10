@@ -591,7 +591,7 @@ export function makeSettingsStyles(t: Theme) {
     menuSeparator: {
       height: StyleSheet.hairlineWidth,
       backgroundColor: t.border,
-      marginLeft: 43,
+      marginLeft: 14,
     },
 
     mOverlay: { flex: 1, backgroundColor: t.scrim, justifyContent: "center", padding: 24 },
