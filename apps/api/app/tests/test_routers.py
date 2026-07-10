@@ -491,6 +491,58 @@ def test_list_chats():
     }
 
 
+def test_list_chats_never_overlaps_ops_on_one_session():
+    """The active + archived queries run concurrently, and an AsyncSession can
+    only run one operation at a time (asyncpg raises InterfaceError on
+    overlap) — so each concurrent query must get its own session. Simulate
+    asyncpg's guard: mark a session busy across a yield point and record a
+    violation if a second operation lands on it while busy."""
+    import asyncio
+
+    user = _fake_user()
+    app = _app_with_user(user)
+    busy: set[int] = set()
+    violations: list[str] = []
+
+    def tracked(name: str, result: list):
+        async def impl(s, *args, **kwargs):
+            sid = id(s)
+            if sid in busy:
+                violations.append(name)
+            busy.add(sid)
+            await asyncio.sleep(0)  # yield so gathered queries interleave
+            busy.discard(sid)
+            return result
+
+        return impl
+
+    with (
+        patch(
+            "app.routers.chats.chats_repo.list_for_user",
+            AsyncMock(side_effect=tracked("active", [])),
+        ),
+        patch(
+            "app.routers.chats.chats_repo.list_archived_for_user",
+            AsyncMock(side_effect=tracked("archived", [])),
+        ),
+        patch(
+            "app.routers.chats.chats_repo.group_by_recency",
+            return_value={
+                "today": [],
+                "yesterday": [],
+                "last_7_days": [],
+                "this_month": [],
+                "older": [],
+            },
+        ),
+    ):
+        client = TestClient(app)
+        r = client.get("/chats", headers={"Authorization": "Bearer tok"})
+
+    assert r.status_code == 200
+    assert violations == []
+
+
 def test_get_chat_not_found():
     user = _fake_user()
     app = _app_with_user(user)
