@@ -3,7 +3,7 @@
 A reference of what the app does **today** versus what is **deferred** to a future version.
 Recall is a personal AI chat app: a snappy chatbot with clean formatted answers, multi-model
 support, and long-term memory of the user. Mobile = Expo (React Native). Backend = FastAPI +
-Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
+Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 
 **Legend**
 - ✅ Implemented
@@ -112,8 +112,8 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
 - ✅ **Auto routing** — an **Auto** chip (composer + Settings) picks Flash vs Pro per message via a
   fast heuristic (length, code fences, reasoning keywords). No extra LLM call.
 - ✅ **Multi-provider** — a **model catalog** (`services/model_catalog.py`) defines provider, model,
-  key, base URL, and pricing per entry. DeepSeek is active; OpenRouter is wired and activates the
-  moment its key is set. Adding a provider/model is a one-line catalog entry.
+  key, base URL, and pricing per entry. All chat aliases route through **OpenRouter** via LiteLLM
+  (`gateways/litellm_gateway.py`). Adding a model is a catalog entry + OpenRouter slug.
 - ✅ **Model availability + cost** — `GET /models` reports each model's availability (key present)
   and price; the picker shows available models with a per-1M-token cost hint.
 - ✅ **Live latency/health** — Redis rolling samples from stream outcomes; `GET /models` exposes
@@ -147,7 +147,8 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
   without bloating the prompt.
 - ✅ **Memory caching** — the assembled memory block is cached in Redis per user (with
   invalidation on new/deleted memories) instead of rebuilt every turn.
-- ✅ **Provider context caching** — DeepSeek caches prompt prefixes automatically.
+- ✅ **Provider context caching** — OpenRouter/provider prompt-prefix caching when the upstream
+  model supports it (transparent to the app).
 - ✅ **Snappy delivery** — async backend, streaming, virtualized message list; DB connection is
   released during the model stream.
 - 🔜 Response caching, parallelized pre-stream reads, prompt token budgeting UI.
@@ -159,7 +160,8 @@ Neon Postgres + Upstash Redis + LiteLLM (DeepSeek).
 
 ## 9. Quotas & usage
 - ✅ **Daily token limit** — enforced in Redis with atomic **reserve → adjust → refund** (can't be
-  bypassed by parallel requests). Free tier default 30k/day; Pro tier 500k/day (`DAILY_TOKEN_LIMIT_PRO`).
+  bypassed by parallel requests). Free tier default **100k**/day; Pro tier **500k**/day
+  (`DAILY_TOKEN_LIMIT` / `DAILY_TOKEN_LIMIT_PRO`).
 - ✅ **Plan-aware enforcement** — quota service reads the user's subscription plan before reserving.
 - ✅ **Usage meter** — today's tokens vs. daily limit shown in Settings.
 - ✅ **Real token accounting** — uses the provider's reported usage when available.
@@ -480,8 +482,9 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | Camera math solver UX | 🔜 Deferred |
 | Full duplex voice mode | 🔒 Out of scope |
 
-Notes: multimodal routes through whichever catalog model supports the modality (DeepSeek is
-text-only). Multimodal calls cost more than text — gated by plan + daily caps (images, speech).
+Notes: multimodal routes through whichever catalog model supports the modality (vision/image-gen
+aliases on OpenRouter). Multimodal calls cost more than text — gated by plan + daily caps
+(images, speech).
 
 ### Web client (planned)
 
@@ -564,7 +567,7 @@ structured Learning topic type.
 ### Cost guards (recent)
 | Guard | Free | Pro |
 |-------|------|-----|
-| Daily tokens | 30k | 500k |
+| Daily tokens | 100k | 500k |
 | Speech transcriptions/day | 30 | 200 |
 | Tavily searches/day | 20 (then DDG only) | 150 |
 | R1 / smart-chat quota weight | 3.5× token charge | Same |

@@ -23,7 +23,7 @@ A personal mobile AI chat app that remembers the user's preferences, projects, a
 - **message** — one turn (`user` | `assistant` | `system`).
 - **memory** — a structured fact about the user, typed: `profile` | `preference` | `project` | `fact` | `focus`.
 - **model alias** — product-level model name mapped to a provider by the gateway.
-- **quota** — per-user daily token budget (free tier 30k/day).
+- **quota** — per-user daily token budget (free tier 100k/day).
 - **todo** — a lightweight task the user tracks; optionally linked to a chat.
 - **suggestion** — a proactive follow-up prompt generated from the user's recent activity (best-effort background job).
 - **search** — full-text lookup across the user's chats and messages.
