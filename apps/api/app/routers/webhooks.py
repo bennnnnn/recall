@@ -35,7 +35,9 @@ _PRO_EVENTS = frozenset(
         "SUBSCRIPTION_EXTENDED",
     }
 )
-_FREE_EVENTS = frozenset({"CANCELLATION", "EXPIRATION", "BILLING_ISSUE"})
+# BILLING_ISSUE is intentionally omitted: payment failed but the subscriber may
+# still be in a grace/retry window. Downgrade only on EXPIRATION (or cancel).
+_FREE_EVENTS = frozenset({"CANCELLATION", "EXPIRATION"})
 
 
 def _verify_auth(authorization: str | None, settings: Settings) -> None:

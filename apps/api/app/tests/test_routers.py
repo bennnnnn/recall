@@ -813,6 +813,62 @@ def test_revenuecat_webhook_free_event_does_not_enqueue_receipt():
     enq.assert_not_awaited()
 
 
+def test_revenuecat_webhook_billing_issue_does_not_downgrade():
+    """BILLING_ISSUE must not instantly set plan=free — wait for EXPIRATION."""
+    import fakeredis.aioredis
+
+    from app.core.config import get_settings
+    from app.core.deps import get_redis
+
+    uid = uuid4()
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        environment="development", revenuecat_webhook_auth=""
+    )
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    app.dependency_overrides[get_redis] = lambda: fake_redis
+
+    payload = {"event": {"type": "BILLING_ISSUE", "app_user_id": str(uid)}}
+
+    with patch(
+        "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+        AsyncMock(return_value=True),
+    ) as apply_plan:
+        client = TestClient(app)
+        r = client.post("/webhooks/revenuecat", json=payload)
+
+    assert r.status_code == 204
+    apply_plan.assert_not_awaited()
+
+
+def test_revenuecat_webhook_expiration_still_downgrades():
+    import fakeredis.aioredis
+
+    from app.core.config import get_settings
+    from app.core.deps import get_redis
+
+    uid = uuid4()
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        environment="development", revenuecat_webhook_auth=""
+    )
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    app.dependency_overrides[get_redis] = lambda: fake_redis
+
+    payload = {"event": {"type": "EXPIRATION", "app_user_id": str(uid)}}
+
+    with patch(
+        "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+        AsyncMock(return_value=True),
+    ) as apply_plan:
+        client = TestClient(app)
+        r = client.post("/webhooks/revenuecat", json=payload)
+
+    assert r.status_code == 204
+    apply_plan.assert_awaited_once()
+    assert apply_plan.await_args.kwargs["plan"] == "free"
+
+
 def test_revenuecat_webhook_dedups_replay_by_event_id():
     import fakeredis.aioredis
 
