@@ -411,7 +411,7 @@ async def test_run_search_parallelizes_queries():
 
     settings = Settings(web_search_max_results=10, mock_llm_enabled=True)
 
-    async def mock_search(_settings, query, *, max_results, user=None, redis=None):
+    async def mock_search(_settings, query, *, max_results, budget=None, redis=None):
         await asyncio.sleep(0.04 if query == "slow" else 0.01)
         return [
             WebSearchHit(
@@ -432,12 +432,55 @@ async def test_run_search_parallelizes_queries():
 
 
 @pytest.mark.asyncio
+async def test_run_search_reserves_tavily_once_per_turn(fake_redis):
+    """A multi-query turn must spend at most ONE daily Tavily search, not one
+    per fanned-out query — the whole point of the shared per-turn budget."""
+    from unittest.mock import MagicMock
+    from uuid import uuid4
+
+    from app.services.web_search.search_cache import _run_search
+
+    settings = Settings(web_search_max_results=10, mock_llm_enabled=True)
+    user = MagicMock()
+    user.id = uuid4()
+    user.plan = "free"
+
+    reserve_calls = 0
+
+    async def counting_reserve(_redis, _user_id, *, limit):
+        nonlocal reserve_calls
+        reserve_calls += 1
+        return True
+
+    async def fake_search(_settings, query, *, max_results=10, skip_tavily=False):
+        return [WebSearchHit(title=query, url=f"https://ex/{query}", snippet="s")]
+
+    with (
+        patch("app.services.web_search.search_cache.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.services.web_search.search_cache.quota_service.reserve_tavily_search",
+            counting_reserve,
+        ),
+        patch("app.services.web_search.search_cache.web_search_gateway.search_web", fake_search),
+    ):
+        merged, tried = await _run_search(
+            settings,
+            ["q1", "q2", "q3", "q4"],
+            user=user,
+            redis=fake_redis,
+        )
+
+    assert reserve_calls == 1
+    assert len(merged) == 4
+
+
+@pytest.mark.asyncio
 async def test_run_search_dedupes_across_queries_and_respects_limit():
     from app.services.web_search.search_cache import _run_search
 
     settings = Settings(web_search_max_results=2, mock_llm_enabled=True)
 
-    async def mock_search(_settings, query, *, max_results, user=None, redis=None):
+    async def mock_search(_settings, query, *, max_results, budget=None, redis=None):
         if query == "q1":
             return [
                 WebSearchHit(title="A", url="https://dup", snippet="1"),
