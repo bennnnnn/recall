@@ -602,8 +602,10 @@ def test_list_messages_enqueues_topic_backfill():
     ):
         client = TestClient(app)
         r = client.get(f"/chats/{chat_id}/messages", headers={"Authorization": "Bearer tok"})
+        r2 = client.get(f"/chats/{chat_id}/messages", headers={"Authorization": "Bearer tok"})
 
     assert r.status_code == 200
+    assert r2.status_code == 200
     enqueue_job.assert_awaited_once()
     assert enqueue_job.call_args.args[1] == "topic"
     payload = enqueue_job.call_args.args[2]

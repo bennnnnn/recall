@@ -219,20 +219,24 @@ async def list_messages(
     msgs, has_more = await messages_repo.list_page(session, chat_id, limit=limit, before_id=before)
 
     # Backfill a missing title via the durable job queue. Idempotent: the handler
-    # only sets a title when the chat still has none.
+    # only sets a title when the chat still has none. Redis NX dedupes rapid
+    # re-opens so we don't enqueue redundant LLM topic jobs.
     if not chat.title and not before and msgs:
         user_msg = next((m for m in msgs if m.role == "user"), None)
         asst_msg = next((m for m in msgs if m.role == "assistant"), None)
         if user_msg and asst_msg:
-            await jobs.enqueue(
-                redis,
-                "topic",
-                {
-                    "chat_id": str(chat_id),
-                    "user_message": user_msg.content,
-                    "assistant_message": asst_msg.content,
-                },
-            )
+            dedupe_key = f"topic_backfill:{chat_id}"
+            claimed = await redis.set(dedupe_key, "1", nx=True, ex=300)
+            if claimed:
+                await jobs.enqueue(
+                    redis,
+                    "topic",
+                    {
+                        "chat_id": str(chat_id),
+                        "user_message": user_msg.content,
+                        "assistant_message": asst_msg.content,
+                    },
+                )
 
     return MessagePageOut(
         messages=[MessageOut.model_validate(m) for m in msgs],
