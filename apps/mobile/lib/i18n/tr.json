@@ -29,7 +29,6 @@
   "chat.attach_solve_math_camera": "Matematik çöz (kamera)",
   "chat.busy": "Hâlâ oluşturuluyor — bekleyin veya durdurup tekrar deneyin.",
   "chat.close_menu": "Close menu",
-  "chat.context_summarized": "{{count}} önceki mesaj özetlendi",
   "chat.delete": "Sohbeti sil",
   "chat.delete_confirm_body": "Bu konuşma kalıcı olarak silinecek.",
   "chat.delete_confirm_title": "Sohbeti sil",

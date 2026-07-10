@@ -29,7 +29,6 @@
   "chat.attach_solve_math_camera": "Resolver matemáticas (cámara)",
   "chat.busy": "Sigue generando — espera o pulsa detener e inténtalo de nuevo.",
   "chat.close_menu": "Close menu",
-  "chat.context_summarized": "{{count}} mensajes anteriores resumidos",
   "chat.delete": "Eliminar chat",
   "chat.delete_confirm_body": "Esta conversación se eliminará permanentemente.",
   "chat.delete_confirm_title": "Eliminar chat",

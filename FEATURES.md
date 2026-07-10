@@ -117,8 +117,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Model availability + cost** — `GET /models` reports each model's availability (key present)
   and price; the picker shows available models with a per-1M-token cost hint.
 - ✅ **Live latency/health** — Redis rolling samples from stream outcomes; `GET /models` exposes
-  `healthy`, `latency_p50_ms`, and sample count. Settings shows degraded / latency; chat surfaces
-  a failover footnote when the server switched models.
+  `healthy`, `latency_p50_ms`, and sample count. Settings shows degraded / latency.
 - 🔜 **User-tunable routing rules** (custom per-message heuristics beyond Auto + enabled set).
 
 ## 6. Memory (remembering the user)

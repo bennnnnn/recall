@@ -291,7 +291,7 @@ def test_quiz_answer_letter_matches_choice_text():
     assert vocab_quiz_service.quiz_answer_letter("hello", choices=choices) is None
 
 
-def test_format_failed_review_lines_prioritizes_misses():
+def test_format_failed_review_lines_prioritizes_due_misses():
     from datetime import UTC, datetime, timedelta
 
     from app.models.orm import ProjectItem
@@ -300,24 +300,34 @@ def test_format_failed_review_lines_prioritizes_misses():
     older.content = "ephemeral"
     older.status = "learning"
     older.last_incorrect_at = datetime.now(UTC) - timedelta(days=1)
+    older.due_at = datetime.now(UTC) - timedelta(hours=1)
 
     newer = MagicMock(spec=ProjectItem)
     newer.content = "quintessential"
     newer.status = "learning"
     newer.last_incorrect_at = datetime.now(UTC)
+    newer.due_at = datetime.now(UTC) + timedelta(days=1)
 
     fresh = MagicMock(spec=ProjectItem)
     fresh.content = "serendipity"
     fresh.status = "new"
     fresh.last_incorrect_at = None
+    fresh.due_at = None
 
-    lines = projects_service._format_failed_review_lines([fresh, older, newer])
+    legacy = MagicMock(spec=ProjectItem)
+    legacy.content = "ubiquitous"
+    legacy.status = "learning"
+    legacy.last_incorrect_at = datetime.now(UTC) - timedelta(days=2)
+    legacy.due_at = None
+
+    lines = projects_service._format_failed_review_lines([fresh, older, newer, legacy])
     joined = "\n".join(lines)
-    assert "Failed recently" in joined
-    assert "quintessential" in joined
+    assert "Failed and due for review" in joined
     assert "ephemeral" in joined
+    assert "ubiquitous" in joined
+    assert "quintessential" not in joined
     assert "serendipity" not in joined
-    assert joined.index("quintessential") < joined.index("ephemeral")
+    assert joined.index("ephemeral") < joined.index("ubiquitous")
 
 
 def test_quiz_answer_letter():

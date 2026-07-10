@@ -1,7 +1,7 @@
 import logging
 import re
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -325,13 +325,30 @@ def _format_missed_quiz_lines(items: list[ProjectItem], *, limit: int = 30) -> l
     return lines
 
 
+# Misses stay out of the "quiz FIRST today" list until SM-2 due (usually next day),
+# so a mid-session miss is not immediately re-prioritized against "never re-ask".
+_FAILED_REVIEW_FALLBACK_MIN_AGE = timedelta(hours=12)
+
+
 def _format_failed_review_lines(items: list[ProjectItem], *, limit: int = 12) -> list[str]:
-    """Session-start nudge: bring back recent misses first."""
-    failed = [
-        item
-        for item in items
-        if _item_status(item) == "learning" and getattr(item, "last_incorrect_at", None) is not None
-    ]
+    """Session-start nudge: bring back due failed items first (not same-session misses)."""
+    now = datetime.now(UTC)
+    failed: list[ProjectItem] = []
+    for item in items:
+        if _item_status(item) != "learning":
+            continue
+        missed = getattr(item, "last_incorrect_at", None)
+        if not isinstance(missed, datetime):
+            continue
+        missed_utc = missed.astimezone(UTC) if missed.tzinfo else missed.replace(tzinfo=UTC)
+        due = getattr(item, "due_at", None)
+        if isinstance(due, datetime):
+            due_utc = due.astimezone(UTC) if due.tzinfo else due.replace(tzinfo=UTC)
+            if due_utc > now:
+                continue
+        elif now - missed_utc < _FAILED_REVIEW_FALLBACK_MIN_AGE:
+            continue
+        failed.append(item)
     if not failed:
         return []
 
@@ -343,8 +360,9 @@ def _format_failed_review_lines(items: list[ProjectItem], *, limit: int = 12) ->
 
     failed.sort(key=_miss_key, reverse=True)
     lines = [
-        "\n**Failed recently — quiz these FIRST today** (then new words). "
-        "Do not skip them for brand-new items:"
+        "\n**Failed and due for review — quiz these FIRST today** (then new words). "
+        "Do not skip them for brand-new items. Do not re-ask a word already missed "
+        "earlier in this same session:"
     ]
     for item in failed[:limit]:
         lines.append(f"- {item.content}")
