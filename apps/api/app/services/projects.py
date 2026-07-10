@@ -597,6 +597,37 @@ def _recently_missed_quiz(item: ProjectItem, *, within_seconds: int = 86_400) ->
     return (datetime.now(UTC) - missed.astimezone(UTC)).total_seconds() < within_seconds
 
 
+async def _persist_quiz_outcome(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    project_id: UUID,
+    chat_id: UUID,
+    existing: ProjectItem | None,
+    content: str,
+    list_title: str,
+    is_correct: bool,
+) -> None:
+    """Record a graded answer on the matched item, creating it on first sight.
+
+    Shared ledger write for the trivia and vocab branches; the commit stays
+    with the caller's outer transaction (commit=False throughout).
+    """
+    item = existing
+    if item is None:
+        item = await project_items_repo.create(
+            session,
+            user_id=user_id,
+            project_id=project_id,
+            content=content,
+            list_title=list_title,
+            chat_id=chat_id,
+            status="new",
+            commit=False,
+        )
+    await project_items_repo.apply_quiz_result(session, item, is_correct=is_correct, commit=False)
+
+
 async def apply_deterministic_quiz_answer(
     session: AsyncSession,
     *,
@@ -669,24 +700,16 @@ async def apply_deterministic_quiz_answer(
         )
         existing = _find_item(items, project.id, list_title, question)
         if should_persist:
-            if existing:
-                await project_items_repo.apply_quiz_result(
-                    session, existing, is_correct=is_correct, commit=False
-                )
-            else:
-                item = await project_items_repo.create(
-                    session,
-                    user_id=user_id,
-                    project_id=project.id,
-                    content=question,
-                    list_title=list_title,
-                    chat_id=chat_id,
-                    status="new",
-                    commit=False,
-                )
-                await project_items_repo.apply_quiz_result(
-                    session, item, is_correct=is_correct, commit=False
-                )
+            await _persist_quiz_outcome(
+                session,
+                user_id=user_id,
+                project_id=project.id,
+                chat_id=chat_id,
+                existing=existing,
+                content=question,
+                list_title=list_title,
+                is_correct=is_correct,
+            )
         return vocab_quiz_service.QuizAnswerGrade(
             is_correct=is_correct,
             user_letter=letter,
@@ -711,24 +734,16 @@ async def apply_deterministic_quiz_answer(
         items, project.id, word
     )
     if should_persist:
-        if existing:
-            await project_items_repo.apply_quiz_result(
-                session, existing, is_correct=is_correct, commit=False
-            )
-        else:
-            item = await project_items_repo.create(
-                session,
-                user_id=user_id,
-                project_id=project.id,
-                content=word,
-                list_title=list_title,
-                chat_id=chat_id,
-                status="new",
-                commit=False,
-            )
-            await project_items_repo.apply_quiz_result(
-                session, item, is_correct=is_correct, commit=False
-            )
+        await _persist_quiz_outcome(
+            session,
+            user_id=user_id,
+            project_id=project.id,
+            chat_id=chat_id,
+            existing=existing,
+            content=word,
+            list_title=list_title,
+            is_correct=is_correct,
+        )
     return vocab_quiz_service.QuizAnswerGrade(
         is_correct=is_correct,
         user_letter=letter,

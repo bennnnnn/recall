@@ -41,6 +41,11 @@ _REVOKED_SINCE_PREFIX = "revoked_since:"
 _REUSE_DETECTION_WINDOW_SECONDS = 24 * 60 * 60
 
 
+def _redis_str(value: str | bytes) -> str:
+    """Normalize a Redis reply that may be bytes or str (decode_responses varies)."""
+    return value.decode() if isinstance(value, bytes) else value
+
+
 def _refresh_key(token: str) -> str:
     return f"{_REFRESH_PREFIX}{token}"
 
@@ -78,7 +83,7 @@ async def _revoke_all_refresh_tokens(redis: Redis, user_id: UUID, settings: Sett
     user_set_key = _user_refresh_set_key(user_id)
     tokens = await redis.smembers(user_set_key)
     if tokens:
-        keys = [_refresh_key(t if isinstance(t, str) else t.decode()) for t in tokens]
+        keys = [_refresh_key(_redis_str(t)) for t in tokens]
         await redis.delete(*keys)
     await redis.delete(user_set_key)
     # Any access token issued before now is treated as revoked, regardless of
@@ -101,16 +106,14 @@ async def refresh_token_pair(
     if user_id_raw is None:
         tombstoned = await redis.get(_tombstone_key(refresh_token))
         if tombstoned is not None:
-            stolen_user_id = UUID(
-                tombstoned.decode() if isinstance(tombstoned, bytes) else tombstoned
-            )
+            stolen_user_id = UUID(_redis_str(tombstoned))
             logger.warning(
                 "Refresh token reuse detected for user_id=%s — revoking all sessions",
                 stolen_user_id,
             )
             await _revoke_all_refresh_tokens(redis, stolen_user_id, settings)
         raise GoogleAuthError("Invalid refresh token")
-    user_id = UUID(user_id_raw.decode() if isinstance(user_id_raw, bytes) else user_id_raw)
+    user_id = UUID(_redis_str(user_id_raw))
 
     user = await users_repo.get_by_id(session, user_id)
     if user is None:
@@ -145,7 +148,7 @@ async def revoke_refresh_token(redis: Redis, refresh_token: str | None) -> None:
     user_id_raw = await redis.get(_refresh_key(refresh_token))
     await redis.delete(_refresh_key(refresh_token))
     if user_id_raw is not None:
-        user_id = UUID(user_id_raw.decode() if isinstance(user_id_raw, bytes) else user_id_raw)
+        user_id = UUID(_redis_str(user_id_raw))
         await redis.srem(_user_refresh_set_key(user_id), refresh_token)
 
 
@@ -159,9 +162,7 @@ async def _is_access_revoked_since(redis: Redis, user_id: UUID, issued_at: float
     revoked_since_raw = await redis.get(_revoked_since_key(user_id))
     if revoked_since_raw is None:
         return False
-    revoked_since = float(
-        revoked_since_raw.decode() if isinstance(revoked_since_raw, bytes) else revoked_since_raw
-    )
+    revoked_since = float(_redis_str(revoked_since_raw))
     return issued_at <= revoked_since
 
 
