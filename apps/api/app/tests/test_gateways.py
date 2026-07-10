@@ -652,6 +652,53 @@ async def test_stream_chat_once_times_out_hung_provider():
 
 
 @pytest.mark.asyncio
+async def test_stream_chat_once_idle_timeout_allows_long_active_stream():
+    """A long reply with steady chunks must not die on total wall-clock time."""
+    settings = Settings(
+        mock_llm_enabled=False,
+        openrouter_api_key="sk-or-test",
+        chat_stream_timeout_seconds=1,
+    )
+
+    class SlowButActiveStream:
+        def __init__(self) -> None:
+            self.n = 0
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            if self.n >= 3:
+                raise StopAsyncIteration
+            self.n += 1
+            await asyncio.sleep(0.4)  # total ~1.2s > idle, but gaps < idle
+            delta = MagicMock()
+            delta.content = f"t{self.n}"
+            delta.reasoning_content = None
+            choice = MagicMock()
+            choice.delta = delta
+            chunk = MagicMock()
+            chunk.choices = [choice]
+            chunk.usage = None
+            return chunk
+
+    with patch(
+        "app.gateways.litellm_gateway.acompletion",
+        AsyncMock(return_value=SlowButActiveStream()),
+    ):
+        tokens = [
+            t
+            async for t in litellm_gateway._stream_chat_once(
+                settings=settings,
+                model_alias="free-chat",
+                messages=[{"role": "user", "content": "hi"}],
+                max_tokens=10,
+            )
+        ]
+    assert "".join(tokens) == "t1t2t3"
+
+
+@pytest.mark.asyncio
 async def test_acompletion_with_fallback_times_out_hung_provider():
     """A hung background (non-streaming) LLM call must be aborted by the
     background timeout and fall back to the next alias rather than stalling

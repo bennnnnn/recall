@@ -371,27 +371,50 @@ async def _stream_chat_once(
                 stream_options={"include_usage": True},
                 **kwargs,
             )
-        async with asyncio.timeout(settings.chat_stream_timeout_seconds):
-            async for chunk in response:
-                _apply_usage(usage, chunk)
-                choices = getattr(chunk, "choices", None) or []
-                if not choices:
-                    continue
-                delta = choices[0].delta
-                reasoning = getattr(delta, "reasoning_content", None) or ""
-                if reasoning and on_reasoning is not None:
-                    await on_reasoning(reasoning)
-                content = getattr(delta, "content", None) or ""
-                if content:
-                    cleaned = stripper.feed(content)
-                    if cleaned:
-                        yield cleaned
+        # Idle timeout per chunk — not a wall-clock cap on the whole reply.
+        idle_seconds = settings.chat_stream_timeout_seconds
+        stream_iter = response.__aiter__()
+
+        async def _next_chunk() -> Any | None:
+            try:
+                return await stream_iter.__anext__()
+            except StopAsyncIteration:
+                return None
+
+        while True:
+            try:
+                chunk = await asyncio.wait_for(_next_chunk(), timeout=idle_seconds)
+            except TimeoutError as exc:
+                logger.warning(
+                    "LiteLLM stream idle timed out for alias=%s (idle=%ss)",
+                    model_alias,
+                    idle_seconds,
+                )
+                raise ModelUnavailableError(
+                    _CHAT_MODEL_UNAVAILABLE_MSG,
+                    failed_alias=model_alias,
+                ) from exc
+            if chunk is None:
+                break
+            _apply_usage(usage, chunk)
+            choices = getattr(chunk, "choices", None) or []
+            if not choices:
+                continue
+            delta = choices[0].delta
+            reasoning = getattr(delta, "reasoning_content", None) or ""
+            if reasoning and on_reasoning is not None:
+                await on_reasoning(reasoning)
+            content = getattr(delta, "content", None) or ""
+            if content:
+                cleaned = stripper.feed(content)
+                if cleaned:
+                    yield cleaned
         tail = stripper.flush()
         if tail:
             yield tail
     except TimeoutError as exc:
         logger.warning(
-            "LiteLLM stream timed out for alias=%s (connect=%ss read=%ss)",
+            "LiteLLM stream timed out for alias=%s (connect=%ss idle=%ss)",
             model_alias,
             settings.chat_stream_connect_timeout_seconds,
             settings.chat_stream_timeout_seconds,
