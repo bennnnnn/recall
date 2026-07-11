@@ -11,6 +11,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 import traceback
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
@@ -63,6 +64,12 @@ _PENDING_ALERT_THRESHOLD = 50
 # safer than dropping the job on the first provider/DB blip.
 _MAX_ATTEMPTS = 3
 _RETRY_BACKOFF_S = 2.0
+# How stale the worker-loop heartbeat can get before is_worker_alive() reports
+# the worker as dead even though its task hasn't crashed. Generous on purpose:
+# comfortably longer than one full retry-backoff cycle in _process_entries
+# (up to roughly _MAX_ATTEMPTS * _RETRY_BACKOFF_S * _MAX_ATTEMPTS seconds) plus
+# handler time, so a normal slow batch never false-positives as "stuck".
+_HEARTBEAT_STALE_THRESHOLD_S = 120.0
 
 JobHandler = Callable[[Settings, dict[str, Any]], Awaitable[None]]
 _HANDLERS: dict[str, JobHandler] = {}
@@ -355,9 +362,16 @@ async def _ensure_group(redis: Redis) -> None:
             raise
 
 
+def _touch_heartbeat() -> None:
+    global _last_heartbeat
+    _last_heartbeat = time.monotonic()
+
+
 async def _worker_loop(settings: Settings) -> None:
     redis = get_redis_client()
     consumer = f"worker-{os.getpid()}"
+
+    _touch_heartbeat()
 
     try:
         await _ensure_group(redis)
@@ -378,6 +392,7 @@ async def _worker_loop(settings: Settings) -> None:
 
     last_metrics_at = 0.0
     while True:
+        _touch_heartbeat()
         if asyncio.get_event_loop().time() - last_metrics_at >= _METRICS_INTERVAL_S:
             last_metrics_at = asyncio.get_event_loop().time()
             await report_queue_metrics(redis)
@@ -399,18 +414,33 @@ async def _worker_loop(settings: Settings) -> None:
             continue
         for _stream, entries in resp:
             await _process_entries(redis, settings, entries)
+            _touch_heartbeat()
 
 
 _worker_task: asyncio.Task | None = None
+_last_heartbeat: float = 0.0
 
 
 def is_worker_alive() -> bool:
-    """True when the job-loop background task exists and hasn't finished.
+    """True when the job-loop background task exists, hasn't finished, and is
+    still checking in.
 
     Used by the worker health endpoint so Fly can detect + restart a stuck
-    worker (blocked event loop, deadlocked consumer) that hasn't crashed.
+    worker (blocked event loop, deadlocked consumer) that hasn't crashed. A
+    genuinely hung task (e.g. a handler awaiting something that never
+    resolves) never becomes done(), so we also track a heartbeat that
+    `_worker_loop` refreshes on every idle-poll iteration and after each
+    processed batch; if it goes stale while the task is still "running", the
+    worker is treated as dead. `_last_heartbeat` being unset (0.0) means the
+    loop hasn't had a chance to run its first iteration yet, which the
+    task.done() check already covers correctly, so we don't flag staleness
+    in that window.
     """
-    return _worker_task is not None and not _worker_task.done()
+    if _worker_task is None or _worker_task.done():
+        return False
+    if _last_heartbeat == 0.0:
+        return True
+    return time.monotonic() - _last_heartbeat < _HEARTBEAT_STALE_THRESHOLD_S
 
 
 async def start_worker(settings: Settings) -> None:
@@ -421,7 +451,7 @@ async def start_worker(settings: Settings) -> None:
 
 
 async def stop_worker() -> None:
-    global _worker_task
+    global _worker_task, _last_heartbeat
     if _worker_task is None:
         return
     _worker_task.cancel()
@@ -430,6 +460,7 @@ async def stop_worker() -> None:
     except asyncio.CancelledError:
         pass
     _worker_task = None
+    _last_heartbeat = 0.0
 
 
 # ── DLQ inspection / replay ──────────────────────────────────────────────────
