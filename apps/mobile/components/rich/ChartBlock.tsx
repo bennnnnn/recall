@@ -3,11 +3,12 @@
  * inline via WebView + Vega-Embed so the user sees the actual chart, not raw JSON.
  */
 import { useCallback, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import * as WebBrowser from "expo-web-browser";
 import { Ionicons } from "@expo/vector-icons";
 
+import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { CODE_FONT } from "@/lib/fonts";
 import { escapeForInlineJsTemplate, injectPreviewCsp } from "@/lib/previewSandbox";
 import { Theme, useTheme } from "@/lib/theme";
@@ -75,6 +76,9 @@ export function ChartBlock({ content }: Props) {
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;
   const canRenderInlineChart = previewWebView?.mode === "rnc";
+  const { canMount, onLoaded } = useDeferredWebViewMount(
+    Boolean(WebView) && canRenderInlineChart,
+  );
   const onShouldStartLoadWithRequest = useStaticOnlyNavigation(vegaHtml);
 
   const handleCopy = useCallback(async () => {
@@ -102,17 +106,24 @@ export function ChartBlock({ content }: Props) {
 
       <View style={[s.previewBox, expanded && s.previewBoxExpanded]}>
         {WebView && canRenderInlineChart ? (
-          <WebView
-            originWhitelist={["*"]}
-            source={{ html: vegaHtml }}
-            style={{
-              height: expanded ? PREVIEW_HEIGHT * 2 : PREVIEW_HEIGHT,
-            }}
-            scrollEnabled={false}
-            javaScriptEnabled
-            domStorageEnabled={false}
-            onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-          />
+          canMount ? (
+            <WebView
+              originWhitelist={["*"]}
+              source={{ html: vegaHtml }}
+              style={{
+                height: expanded ? PREVIEW_HEIGHT * 2 : PREVIEW_HEIGHT,
+              }}
+              scrollEnabled={false}
+              javaScriptEnabled
+              domStorageEnabled={false}
+              onLoadEnd={onLoaded}
+              onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+            />
+          ) : (
+            <View style={s.previewPlaceholder}>
+              <ActivityIndicator color={theme.primary} />
+            </View>
+          )
         ) : (
           <View style={s.previewPlaceholder}>
             <Text style={s.previewPlaceholderText}>
