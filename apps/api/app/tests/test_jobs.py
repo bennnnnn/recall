@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import time
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -77,10 +78,26 @@ def test_is_worker_alive_false_when_no_task():
     assert jobs.is_worker_alive() is False
 
 
-def test_is_worker_alive_true_when_task_running():
+def test_is_worker_alive_true_when_task_running_and_heartbeat_fresh():
     done_mock = MagicMock()
     done_mock.done.return_value = False
     jobs._worker_task = done_mock
+    jobs._last_heartbeat = time.monotonic()
+    try:
+        assert jobs.is_worker_alive() is True
+    finally:
+        jobs._worker_task = None
+        jobs._last_heartbeat = 0.0
+
+
+def test_is_worker_alive_true_when_task_running_and_heartbeat_never_set():
+    """Before the loop's first iteration has had a chance to run, heartbeat is
+    still 0.0 — that pre-first-iteration window is already covered by the
+    task.done() check, so we must not flag staleness during it."""
+    done_mock = MagicMock()
+    done_mock.done.return_value = False
+    jobs._worker_task = done_mock
+    jobs._last_heartbeat = 0.0
     try:
         assert jobs.is_worker_alive() is True
     finally:
@@ -91,10 +108,38 @@ def test_is_worker_alive_false_when_task_done():
     done_mock = MagicMock()
     done_mock.done.return_value = True
     jobs._worker_task = done_mock
+    jobs._last_heartbeat = time.monotonic()
     try:
         assert jobs.is_worker_alive() is False
     finally:
         jobs._worker_task = None
+        jobs._last_heartbeat = 0.0
+
+
+def test_is_worker_alive_false_when_heartbeat_stale_even_if_task_running():
+    """A task that's genuinely hung (e.g. a handler awaiting something that
+    never resolves) never becomes done() — the heartbeat is what catches it."""
+    done_mock = MagicMock()
+    done_mock.done.return_value = False
+    jobs._worker_task = done_mock
+    jobs._last_heartbeat = time.monotonic() - jobs._HEARTBEAT_STALE_THRESHOLD_S - 1
+    try:
+        assert jobs.is_worker_alive() is False
+    finally:
+        jobs._worker_task = None
+        jobs._last_heartbeat = 0.0
+
+
+def test_is_worker_alive_true_when_heartbeat_just_under_threshold():
+    done_mock = MagicMock()
+    done_mock.done.return_value = False
+    jobs._worker_task = done_mock
+    jobs._last_heartbeat = time.monotonic() - (jobs._HEARTBEAT_STALE_THRESHOLD_S - 1)
+    try:
+        assert jobs.is_worker_alive() is True
+    finally:
+        jobs._worker_task = None
+        jobs._last_heartbeat = 0.0
 
 
 # ── dispatch ─────────────────────────────────────────────────────────────────
