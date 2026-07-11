@@ -3,6 +3,13 @@
 // documented static-source fallback instead of crashing. See lib/webView.ts
 // (getPreviewWebView) for the detection/fallback chain this exercises.
 //
+// Imports come first (ESLint import/first) — jest.mock calls below are still
+// hoisted above them at execution time by babel-plugin-jest-hoist, so mock
+// registration order relative to these imports is unaffected.
+import { render } from "@testing-library/react-native";
+
+import { MermaidBlock } from "@/components/rich/MermaidBlock";
+
 // react-native-webview and @expo/dom-webview are the two require() calls
 // getPreviewWebView() falls through in turn; forcing both to throw is how a
 // real device without either native module linked (e.g. Expo Go) behaves
@@ -31,10 +38,6 @@ jest.mock("expo-web-browser", () => ({
 jest.mock("@expo/vector-icons", () => ({
   Ionicons: "Ionicons",
 }));
-
-import { render } from "@testing-library/react-native";
-
-import { MermaidBlock } from "@/components/rich/MermaidBlock";
 
 describe("MermaidBlock", () => {
   it("renders the static source fallback when no preview WebView is available", async () => {

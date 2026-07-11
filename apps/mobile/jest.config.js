@@ -1,3 +1,11 @@
+// Package-name prefixes that ship untranspiled source and must be run through
+// Babel instead of being treated as pre-built node_modules content. Used to
+// build transformIgnorePatterns for both possible on-disk layouts below.
+const RN_TRANSFORM_ALLOWLIST =
+  "(?:(?:jest-)?react-native|@react-native(?:-community)?|@react-native-google-signin|" +
+  "@react-native-masked-view|expo(?:nent)?|@expo(?:nent)?|@expo-google-fonts|" +
+  "react-navigation|@react-navigation|@sentry|native-base|react-native-svg)";
+
 /** @type {import('jest').Config} */
 module.exports = {
   projects: [
@@ -39,8 +47,22 @@ module.exports = {
       // transform; Expo packages (expo, @expo/*, expo-*) ship untranspiled
       // source too, so they need to be added or Jest's default
       // transformIgnorePatterns will skip them and fail on import.
+      //
+      // pnpm's default (non-hoisted) store nests every package under
+      // node_modules/.pnpm/<encoded-name>@<version>/node_modules/<real-path>,
+      // so a single "node_modules/(?!ALLOWLIST)" pattern never reaches the
+      // real package name — it matches (and wrongly ignores) right after the
+      // *first* node_modules/, since ".pnpm/..." itself doesn't start with
+      // an allow-listed name. A second pattern anchored on the literal
+      // ".pnpm/" segment checks the allowlist against pnpm's encoded folder
+      // name directly (scoped packages keep their "@scope" prefix verbatim,
+      // e.g. "@react-native+jest-preset@...", just with "+" instead of "/").
       transformIgnorePatterns: [
-        "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg)",
+        // Hoisted-style layout — excludes .pnpm/ so it defers to the pattern
+        // below for that segment instead of wrongly matching "ignore" at the
+        // first node_modules/ (.pnpm never itself starts with an allowed name).
+        `node_modules/(?!\\.pnpm)(?!${RN_TRANSFORM_ALLOWLIST})`,
+        `node_modules/\\.pnpm/(?!${RN_TRANSFORM_ALLOWLIST})`,
       ],
     },
   ],
