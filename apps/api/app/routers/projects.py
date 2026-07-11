@@ -83,7 +83,7 @@ async def get_project(
     client_timezone: str | None = Query(default=None, max_length=64),
     include_lists: bool = Query(
         default=False,
-        description="Include full item lists (for PDF export). Default omits lists and day item maps for a faster detail open.",
+        description="Include full item lists (for PDF export). Default omits the full deck; recent day maps are still included for a fast detail open.",
     ),
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),

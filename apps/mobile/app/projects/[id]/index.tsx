@@ -229,6 +229,7 @@ export default function ProjectDetailScreen() {
     !dailyGoalMet &&
     remainingToday > 0;
   const showReviewCta = isToday && dailyGoalMet && stats.due_for_review > 0;
+  const selectedDayMissed = project.daily_missed_by_date?.[selectedDay] ?? [];
   const daySnapshotTitle = isToday
     ? t("projects.stats.today")
     : weekdayFullLabel(selectedDayMeta?.weekday ?? 0, t).toUpperCase();
@@ -362,6 +363,8 @@ export default function ProjectDetailScreen() {
           activityDate={selectedDay}
           dayMeta={selectedDayMeta}
           isTrivia={isTrivia}
+          itemsByDate={project.daily_items_by_date ?? {}}
+          missedItems={selectedDayMissed}
           studyAction={todayStudyAction}
           onItemUpdated={() => load({ silent: true, force: true })}
         />

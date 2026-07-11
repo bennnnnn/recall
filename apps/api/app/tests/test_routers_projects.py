@@ -284,8 +284,8 @@ def test_get_language_project_detail():
     body = r.json()
     assert body["total_count"] == 2
     assert body["lists"] == []
-    assert body["daily_items_by_date"] == {}
-    assert body["daily_missed_by_date"] == {}
+    assert "daily_items_by_date" in body
+    assert "daily_missed_by_date" in body
     assert len(body["daily_history"]) == 14
 
 

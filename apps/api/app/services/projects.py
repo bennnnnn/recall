@@ -1366,11 +1366,11 @@ async def get_project_detail(
 ) -> dict[str, Any] | None:
     """Assemble project detail for language/trivia; None if missing or unsupported.
 
-    Default response is slim: stats + 14-day count history only. Day item payloads are
-    loaded on demand via ``GET /projects/{id}/daily-items``. Pass ``include_lists=True``
-    for PDF export (full deck lists).
+    Default response includes stats, 14-day count history, and recent day item maps
+    built from the same in-memory item load (no extra queries). Full deck ``lists``
+    stay omitted unless ``include_lists=True`` (PDF export).
     """
-    from app.models.schemas import ProjectDailyHistoryDay, ProjectOut
+    from app.models.schemas import ProjectDailyHistoryDay, ProjectItemOut, ProjectOut
     from app.services import daily_learning
     from app.services import time_context as time_context_service
 
@@ -1402,6 +1402,21 @@ async def get_project_detail(
         daily_history=history_rows,
     )
     daily_history = [ProjectDailyHistoryDay.model_validate(row) for row in history_rows]
+    # Recent activity only (not the full deck) — cheap to serialize from items
+    # already loaded for stats, and lets the detail screen paint without a
+    # second /daily-items round trip.
+    daily_items_by_date = {
+        day_key: [ProjectItemOut.model_validate(i) for i in day_items]
+        for day_key, day_items in daily_learning.group_mastered_items_by_date(
+            project_items, timezone_name=tz_name, days=14
+        ).items()
+    }
+    daily_missed_by_date = {
+        day_key: [ProjectItemOut.model_validate(i) for i in day_items]
+        for day_key, day_items in daily_learning.group_missed_items_by_date(
+            project_items, timezone_name=tz_name, days=14
+        ).items()
+    }
     lists: list[Any] = []
     if include_lists:
         lists = (
@@ -1416,9 +1431,8 @@ async def get_project_detail(
         "total_count": stats.total,
         "stats": stats,
         "daily_history": daily_history,
-        # Day item maps omitted — client loads via /daily-items for the selected day.
-        "daily_items_by_date": {},
-        "daily_missed_by_date": {},
+        "daily_items_by_date": daily_items_by_date,
+        "daily_missed_by_date": daily_missed_by_date,
         "lists": lists,
     }
 
