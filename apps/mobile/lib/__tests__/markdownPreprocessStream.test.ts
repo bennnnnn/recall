@@ -2,7 +2,28 @@ import { preprocessMarkdown } from "@/lib/markdownPreprocess";
 import {
   findStableMarkdownPrefixLen,
   preprocessMarkdownForStream,
+  type StreamingPreprocessCache,
 } from "@/lib/markdownPreprocessStream";
+
+/**
+ * Simulate a message streaming in by repeatedly growing `full` in chunks of
+ * `step` raw characters and feeding it through `preprocessMarkdownForStream`,
+ * threading the returned cache back in each time (as `MarkdownContent.tsx`
+ * does with its ref). After every tick, cross-checks the incremental
+ * result's `rawStableLen` against `findStableMarkdownPrefixLen`, the simple
+ * from-scratch reference implementation — the two must always agree.
+ */
+function simulateStreamingAndCrossCheck(full: string, step: number): void {
+  let content = "";
+  let cache: StreamingPreprocessCache | null = null;
+  for (let i = 0; i < full.length; i += step) {
+    content = full.slice(0, Math.min(i + step, full.length));
+    const result = preprocessMarkdownForStream(content, cache);
+    cache = result.cache;
+    expect(cache.rawStableLen).toBe(findStableMarkdownPrefixLen(content));
+  }
+  expect(content).toBe(full);
+}
 
 describe("markdownPreprocessStream", () => {
   it("treats a trailing partial line as unstable", () => {
@@ -36,5 +57,97 @@ describe("markdownPreprocessStream", () => {
     const content = "The area is $$\\pi r^2$$ for a circle.\n\nTail line.\n";
     const streamed = preprocessMarkdownForStream(content, null).prepared;
     expect(streamed).toBe(preprocessMarkdown(content));
+  });
+
+  it("reports a huge unclosed code fence as unstable and stays fast", () => {
+    const intro = "Intro before the fence.\n\n";
+    const fenceOpen = "```text\n";
+    // A single fence opener followed by tens of thousands of characters of
+    // filler with no closing ``` — the pathological case that used to make
+    // every throttle tick re-walk/re-scan back to the fence's opening line.
+    const filler = `${"x".repeat(80)}\n`.repeat(700); // 56,000+ filler chars
+    const content = intro + fenceOpen + filler;
+    expect(content.length).toBeGreaterThan(50_000);
+
+    const start = Date.now();
+    const result = preprocessMarkdownForStream(content, null);
+    const elapsed = Date.now() - start;
+
+    // (a) still correctly reported as unstable / not safe to settle: the
+    // stable prefix must stop before the fence, and the raw (unprocessed)
+    // fence content must still be sitting in the tail.
+    expect(result.cache.rawStableLen).toBe(intro.length);
+    expect(result.prepared.endsWith(content.slice(intro.length))).toBe(true);
+    expect(result.cache.rawStableLen).toBe(findStableMarkdownPrefixLen(content));
+
+    // (b) a single call over 50k+ chars of open structure completes quickly
+    // — a sanity check against the quadratic blowup this fixes, not a tight
+    // perf assertion (generous bound to avoid CI flakiness).
+    expect(elapsed).toBeLessThan(2000);
+  });
+
+  it("bounds cumulative cost across many streaming ticks of one still-open fence", () => {
+    const intro = "Intro\n\n";
+    const fenceOpen = "```text\n";
+    const line = `${"y".repeat(60)}\n`;
+    const numTicks = 800;
+
+    let content = intro + fenceOpen;
+    let cache: StreamingPreprocessCache | null = null;
+
+    const start = Date.now();
+    for (let i = 0; i < numTicks; i++) {
+      content += line;
+      const result = preprocessMarkdownForStream(content, cache);
+      cache = result.cache;
+      // The stable boundary must never advance into the still-open fence,
+      // on any tick, no matter how long the fence has been streaming.
+      expect(cache.rawStableLen).toBe(intro.length);
+    }
+    const elapsed = Date.now() - start;
+    // ~800 ticks over a fence that grows past 48,000 chars. With the old
+    // whole-prefix re-walk this would be badly superlinear; bounding the
+    // total to a generous ceiling guards against that regression without
+    // asserting an exact, flake-prone number.
+    expect(elapsed).toBeLessThan(3000);
+
+    // Once the fence finally closes, the incremental scan must catch up and
+    // agree exactly with the from-scratch reference implementation.
+    content += "```\n\nDone.\n";
+    const finalResult = preprocessMarkdownForStream(content, cache);
+    expect(finalResult.cache.rawStableLen).toBe(content.length);
+    expect(finalResult.cache.rawStableLen).toBe(findStableMarkdownPrefixLen(content));
+  });
+
+  it("agrees with the reference implementation while streaming a closed fence, math, and a callout", () => {
+    const content =
+      "Intro\n\n" +
+      "```python\nprint('hi')\n```\n\n" +
+      "The area is $$\\pi r^2$$ for a circle.\n\n" +
+      "> [!note] Heads up\n> keep going\n> and more\n\n" +
+      "After the callout.\n";
+    simulateStreamingAndCrossCheck(content, 3);
+    simulateStreamingAndCrossCheck(content, 17);
+  });
+
+  it("agrees with the reference implementation for a callout left open at stream end", () => {
+    const content = "Notes\n\n> [!note] Heads up\n> keep going\n";
+    simulateStreamingAndCrossCheck(content, 5);
+    expect(findStableMarkdownPrefixLen(content)).toBe("Notes\n\n".length);
+  });
+
+  it("agrees with the reference implementation for multi-line block math that closes later", () => {
+    const content = "Before.\n\n$$\n\\pi r^2\n$$\n\nAfter.\n";
+    simulateStreamingAndCrossCheck(content, 4);
+  });
+
+  it("matches the reference implementation's position-0 callout-marker quirk", () => {
+    // A callout marker as the very first line of the message lacks a
+    // preceding "\n", so the original regex never treats it as an unclosed
+    // callout even though it looks like one. The incremental scanner must
+    // reproduce this exactly, not "fix" it.
+    const content = "> [!note] Hi\n> more\n";
+    expect(findStableMarkdownPrefixLen(content)).toBe(content.length);
+    simulateStreamingAndCrossCheck(content, 6);
   });
 });
