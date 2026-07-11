@@ -15,6 +15,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -72,6 +73,14 @@ class Chat(Base):
     __table_args__ = (
         Index("ix_chats_user_updated", "user_id", "updated_at"),
         Index("ix_chats_user_project", "user_id", "project_id"),
+        Index("ix_chats_user_archived", "user_id", "archived"),
+        # DB index (migration 0021) is actually:
+        #   CREATE INDEX ix_chats_title_trgm ON chats USING gin (title gin_trgm_ops)
+        #   WHERE title IS NOT NULL AND title <> ''
+        # Plain Index() can't express the gin/trgm opclass or the partial predicate;
+        # declared on `title` so autogenerate knows an index with this name exists
+        # here and won't propose dropping it.
+        Index("ix_chats_title_trgm", "title"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -106,6 +115,12 @@ class Message(Base):
         Index("ix_messages_chat_created", "chat_id", "created_at"),
         Index("ix_messages_chat_role", "chat_id", "role"),
         Index("ix_messages_user_id", "user_id"),
+        # DB index (migration 0009) is actually:
+        #   CREATE INDEX ix_messages_content_trgm ON messages USING gin (content gin_trgm_ops)
+        # Plain Index() can't express the gin/trgm opclass; declared on `content` so
+        # autogenerate knows an index with this name exists here and won't propose
+        # dropping it.
+        Index("ix_messages_content_trgm", "content"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -131,6 +146,12 @@ class Memory(Base):
     __table_args__ = (
         Index("ix_memories_user_updated", "user_id", "updated_at"),
         UniqueConstraint("user_id", "type", name="uq_memories_user_type"),
+        # DB index (migration 0033) is actually:
+        #   CREATE INDEX ix_memories_embedding ON memories USING hnsw (embedding vector_cosine_ops)
+        # Plain Index() can't express the hnsw method/vector_cosine_ops opclass; declared
+        # on `embedding` so autogenerate knows an index with this name exists here and
+        # won't propose dropping it.
+        Index("ix_memories_embedding", "embedding"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -166,7 +187,21 @@ class UsageDaily(Base):
 
 class TodoItem(Base):
     __tablename__ = "todo_items"
-    __table_args__ = (Index("ix_todo_user_created", "user_id", "created_at"),)
+    __table_args__ = (
+        Index("ix_todo_user_created", "user_id", "created_at"),
+        Index("ix_todo_user_topic", "user_id", "topic"),
+        Index("ix_todo_user_topic_sort", "user_id", "topic", "sort_order"),
+        Index("ix_todo_items_user_project", "user_id", "project_id"),
+        # DB index (migration 0021) is actually a partial index:
+        #   CREATE INDEX ix_todo_user_open_due ON todo_items (user_id, due_at)
+        #   WHERE checked = false AND due_at IS NOT NULL
+        Index(
+            "ix_todo_user_open_due",
+            "user_id",
+            "due_at",
+            postgresql_where=text("checked = false AND due_at IS NOT NULL"),
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
@@ -245,6 +280,7 @@ class ProjectItem(Base):
         Index("ix_project_items_project_list", "project_id", "list_title"),
         Index("ix_project_items_user_project", "user_id", "project_id"),
         Index("ix_project_items_status_review", "project_id", "status", "last_reviewed_at"),
+        Index("ix_project_items_project_due_at", "project_id", "due_at"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -401,6 +437,13 @@ class AttachmentChunk(Base):
     __table_args__ = (
         Index("ix_attachment_chunks_user_chat", "user_id", "chat_id"),
         Index("ix_attachment_chunks_attachment", "attachment_id"),
+        # DB index (migration 0047) is actually:
+        #   CREATE INDEX ix_attachment_chunks_embedding ON attachment_chunks
+        #   USING hnsw (embedding vector_cosine_ops)
+        # Plain Index() can't express the hnsw method/vector_cosine_ops opclass; declared
+        # on `embedding` so autogenerate knows an index with this name exists here and
+        # won't propose dropping it.
+        Index("ix_attachment_chunks_embedding", "embedding"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
