@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
-
 from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import User
+from app.services.chat.stream_status import StreamStatusFn, clip_status_detail
 from app.services.prompt_safety import wrap_untrusted
 from app.services.web_search.detection import (
     classify_web_search,
@@ -52,7 +51,7 @@ async def augment_prompt_messages(
     latitude: float | None = None,
     longitude: float | None = None,
     prior_user_messages: list[str] | None = None,
-    on_status: Callable[[str], Awaitable[None]] | None = None,
+    on_status: StreamStatusFn | None = None,
     user: User | None = None,
     redis: Redis | None = None,
 ) -> tuple[list[dict[str, str]], list[WebSearchHit]]:
@@ -83,9 +82,6 @@ async def augment_prompt_messages(
     if not needs_search:
         return messages, []
 
-    if on_status is not None:
-        await on_status("searching")
-
     subject = resolve_search_subject(user_content, prior_user_messages=prior_user)
     if classifier_query:
         queries = [classifier_query]
@@ -98,6 +94,11 @@ async def augment_prompt_messages(
             longitude=longitude,
             prior_user_messages=prior_user,
         )
+
+    if on_status is not None:
+        # Surface what we're searching for so the client label is specific.
+        await on_status("searching", clip_status_detail(queries[0] if queries else None))
+
     hits, tried = await _run_search(settings, queries, user=user, redis=redis)
     team = _extract_team_subject(user_content.strip())
     if not team and prior_user:

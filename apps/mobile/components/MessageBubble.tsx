@@ -41,6 +41,7 @@ type Props = {
   liveSearchSources?: Message["search_sources"];
   liveReasoning?: string;
   streamStatus?: string;
+  streamStatusDetail?: string;
   isLastAssistant?: boolean;
   onRegenerate?: () => void;
   onEdit?: (message: Message) => void;
@@ -204,6 +205,7 @@ export const MessageBubble = React.memo(function MessageBubble({
   liveSearchSources,
   liveReasoning,
   streamStatus,
+  streamStatusDetail,
   isLastAssistant,
   onRegenerate,
   onEdit,
@@ -275,7 +277,12 @@ export const MessageBubble = React.memo(function MessageBubble({
     "";
   const showReasoning = !isUser && reasoningText.length > 0;
   const showWaitingIndicator = shouldShowWaitingIndicator({ isStreaming, hasContent, showReasoning });
-  const statusLabel = useRotatingStreamStatus(streamStatus, showWaitingIndicator, t);
+  const statusLabel = useRotatingStreamStatus(
+    streamStatus,
+    showWaitingIndicator,
+    t,
+    streamStatusDetail,
+  );
 
   return (
     <View style={[b.row, isUser ? b.userRow : b.assistantRow, highlighted && b.rowHighlighted]}>

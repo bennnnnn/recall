@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable
 from dataclasses import dataclass, field
 from typing import Any, TypeVar
 from uuid import UUID
@@ -24,6 +24,7 @@ from app.services.chat.prompt_constants import (
     is_lightweight_chat_turn,
     max_output_tokens_for_style,
 )
+from app.services.chat.stream_status import StreamStatusFn
 from app.services.chat.turn_timing import TurnTimingTracker
 from app.services.context_window import estimate_tokens
 from app.services.math_tools import VerifiedMathBlock
@@ -31,8 +32,6 @@ from app.services.prompt_safety import wrap_untrusted
 from app.services.vocab_quiz import QuizAnswerGrade
 
 logger = logging.getLogger(__name__)
-
-StreamStatusFn = Callable[[str], Awaitable[None]]
 
 INTEGRATION_LOAD_TIMEOUT_SECONDS = 5.0
 
@@ -358,6 +357,7 @@ async def build_stream_prompt_context(
             client_timezone=client_timezone,
             prompt_location=geo.user_location if geo.geo_query and geo.has_geo_fix else None,
             todo_sync_feedback=todo_sync_feedback,
+            on_status=on_status,
         )
 
         if chat_pkg.time_context_service.is_time_question(content):
@@ -581,6 +581,9 @@ async def prepare_chat_turn(
         if attachment_rows:
             from app.gateways.storage_gateway import LocalStorageGateway, get_storage_gateway
             from app.services import attachment_content as attachment_content_service
+
+            if on_status is not None:
+                await on_status("reading_files")
 
             gateway = get_storage_gateway(settings)
             if not isinstance(gateway, LocalStorageGateway):

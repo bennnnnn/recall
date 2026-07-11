@@ -50,6 +50,7 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
       liveSearchSources={streamingDraft?.search_sources}
       liveReasoning={streamingDraft?.reasoning}
       streamStatus={imageGenPending ? "image_gen" : streamingDraft?.status}
+      streamStatusDetail={imageGenPending ? undefined : streamingDraft?.statusDetail}
       isLastAssistant={isLastAssistant}
       onRegenerate={
         isLastAssistant && !streamVisualActive ? () => onRegenerate(selectedModel) : undefined

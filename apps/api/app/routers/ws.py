@@ -358,8 +358,11 @@ async def chat_websocket(
                 regen_lat = request.client_latitude
                 regen_lng = request.client_longitude
 
-                async def emit_status(phase: str) -> None:
-                    await _safe_send_json(websocket, {"type": "status", "phase": phase})
+                async def emit_status(phase: str, detail: str | None = None) -> None:
+                    payload = {"type": "status", "phase": phase}
+                    if detail:
+                        payload["detail"] = detail
+                    await _safe_send_json(websocket, payload)
 
                 async def emit_reasoning(chunk: str) -> None:
                     await _safe_send_json(websocket, {"type": "reasoning", "content": chunk})
@@ -409,8 +412,11 @@ async def chat_websocket(
                 edit_lat = edit_request.client_latitude
                 edit_lng = edit_request.client_longitude
 
-                async def emit_status(phase: str) -> None:
-                    await _safe_send_json(websocket, {"type": "status", "phase": phase})
+                async def emit_status(phase: str, detail: str | None = None) -> None:
+                    payload = {"type": "status", "phase": phase}
+                    if detail:
+                        payload["detail"] = detail
+                    await _safe_send_json(websocket, payload)
 
                 async def emit_reasoning(chunk: str) -> None:
                     await _safe_send_json(websocket, {"type": "reasoning", "content": chunk})
@@ -467,8 +473,11 @@ async def chat_websocket(
             message_content = content
             message_model = request.model
 
-            async def emit_status(phase: str) -> None:
-                await _safe_send_json(websocket, {"type": "status", "phase": phase})
+            async def emit_status(phase: str, detail: str | None = None) -> None:
+                payload = {"type": "status", "phase": phase}
+                if detail:
+                    payload["detail"] = detail
+                await _safe_send_json(websocket, payload)
 
             async def emit_reasoning(chunk: str) -> None:
                 await _safe_send_json(websocket, {"type": "reasoning", "content": chunk})

@@ -1,13 +1,36 @@
 import { useEffect, useMemo, useState } from "react";
 import type { TFunction } from "i18next";
 
-const MAX_VARIANTS = 4;
+const MAX_VARIANTS = 6;
 export const STREAM_STATUS_ROTATE_MS = 3200;
+const STATUS_DETAIL_MAX_CHARS = 44;
 
-/** Collect translated labels for a stream phase (base key + `_1`, `_2`, …). */
-export function streamStatusLabels(t: TFunction, phase: string): string[] {
+/** Bound the inline detail so the label stays one line on small screens. */
+export function clipStreamStatusDetail(detail: string): string {
+  const flattened = detail.replace(/\s+/g, " ").trim();
+  if (flattened.length <= STATUS_DETAIL_MAX_CHARS) return flattened;
+  return `${flattened.slice(0, STATUS_DETAIL_MAX_CHARS - 1).trimEnd()}…`;
+}
+
+/**
+ * Collect translated labels for a stream phase (base key + `_1`, `_2`, …).
+ * When the server sent activity context (e.g. the search query) and a
+ * `<phase>_detail` template exists, that label leads the rotation.
+ */
+export function streamStatusLabels(
+  t: TFunction,
+  phase: string,
+  detail?: string,
+): string[] {
   const labels: string[] = [];
   const baseKey = `chat.status.${phase}`;
+  if (detail) {
+    const detailKey = `${baseKey}_detail`;
+    const withDetail = t(detailKey, { detail: clipStreamStatusDetail(detail) });
+    if (withDetail !== detailKey) {
+      labels.push(withDetail);
+    }
+  }
   const base = t(baseKey);
   if (base !== baseKey) {
     labels.push(base);
@@ -41,19 +64,35 @@ export function shouldShowWaitingIndicator(options: {
   return options.isStreaming && !options.hasContent && !options.showReasoning;
 }
 
+/**
+ * Starting variant for a phase. Detail labels always lead; otherwise start at
+ * a random variant so consecutive turns don't open with identical strings.
+ */
+export function initialStreamStatusTick(
+  labelCount: number,
+  hasDetail: boolean,
+  random: () => number = Math.random,
+): number {
+  if (hasDetail || labelCount <= 1) {
+    return 0;
+  }
+  return Math.floor(random() * labelCount) % labelCount;
+}
+
 export function useRotatingStreamStatus(
   phase: string | undefined,
   enabled: boolean,
   t: TFunction,
+  detail?: string,
 ): string | null {
   const labels = useMemo(
-    () => (phase ? streamStatusLabels(t, phase) : []),
-    [phase, t],
+    () => (phase ? streamStatusLabels(t, phase, detail) : []),
+    [phase, detail, t],
   );
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    setTick(0);
+    setTick(initialStreamStatusTick(labels.length, Boolean(detail)));
     if (!enabled || labels.length <= 1) {
       return;
     }
@@ -61,7 +100,7 @@ export function useRotatingStreamStatus(
       setTick((value) => value + 1);
     }, STREAM_STATUS_ROTATE_MS);
     return () => clearInterval(id);
-  }, [enabled, labels.length, phase]);
+  }, [enabled, labels.length, phase, detail]);
 
   if (!phase || labels.length === 0) {
     return null;

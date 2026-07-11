@@ -8,6 +8,8 @@ export type ChatWsPayload = {
   message_id?: string;
   code?: string;
   phase?: string;
+  /** Optional activity context for a `status` event (e.g. the search query). */
+  detail?: string;
   reasoning?: string;
   final_content?: string;
   recalled?: string;
