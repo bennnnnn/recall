@@ -252,7 +252,11 @@ async def serve_attachment_file(
         path = gateway.resolve_local_path(row.storage_key)
         if path is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File missing")
-        return FileResponse(path, media_type=row.content_type)
+        return FileResponse(
+            path,
+            media_type=row.content_type,
+            headers={"X-Content-Type-Options": "nosniff"},
+        )
     # R2/S3: redirect to a short-lived presigned GET so the client fetches the
     # blob directly from object storage. Keeps the mobile's existing /file call
     # working for both backends.
