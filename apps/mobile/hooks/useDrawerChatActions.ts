@@ -4,6 +4,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
 import { api, Chat } from "@/lib/api";
+import { clearCachedChatMessages } from "@/lib/chatMessageCache";
+import {
+  deletedIncludesActiveChat,
+  startNewChatGlobal,
+} from "@/lib/drawer";
 import { archiveBulkTargets } from "@/lib/drawerChatSelection";
 import { sanitizeManualChatTitle } from "@/lib/chatTitle";
 import { shareConversation } from "@/lib/share";
@@ -18,6 +23,11 @@ type Params = {
   removeChatFromGroupsById: (chatId: string) => void;
   reloadChats: () => void;
 };
+
+function abandonActiveChatIfDeleted(deletedIds: readonly string[]) {
+  if (!deletedIncludesActiveChat(deletedIds)) return;
+  startNewChatGlobal({ force: true });
+}
 
 export function useDrawerChatActions({
   token,
@@ -145,6 +155,8 @@ export function useDrawerChatActions({
             removeChatFromGroupsById(chat.id);
             try {
               await api.deleteChat(token, chat.id);
+              void clearCachedChatMessages(chat.id);
+              abandonActiveChatIfDeleted([chat.id]);
               showActionBanner(t("chat.deleted_toast"), "trash-outline");
             } catch {
               insertChatInGroups(chat);
@@ -212,6 +224,7 @@ export function useDrawerChatActions({
             onPress: async () => {
               if (!token) return;
               const snapshots = chats.map((chat) => ({ ...chat }));
+              const deletedIds = chats.map((chat) => chat.id);
               for (const chat of chats) {
                 removeChatFromGroupsById(chat.id);
               }
@@ -220,6 +233,10 @@ export function useDrawerChatActions({
               );
               const failed = results.filter((r) => r.status === "rejected").length;
               if (failed === 0) {
+                for (const id of deletedIds) {
+                  void clearCachedChatMessages(id);
+                }
+                abandonActiveChatIfDeleted(deletedIds);
                 showActionBanner(
                   t("drawer.bulk_deleted_toast", { count: chats.length }),
                   "trash-outline",

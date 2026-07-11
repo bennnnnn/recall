@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   useWindowDimensions,
 } from "react-native";
-import { registerNewChat } from "@/lib/drawer";
+import { registerNewChat, setActiveChatIdGlobal } from "@/lib/drawer";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -312,8 +312,16 @@ function ChatScreen() {
   setInputRef.current = setInput;
 
   useEffect(() => {
-    registerNewChat(startNewChat);
-  }, [startNewChat]);
+    setActiveChatIdGlobal(chatId);
+    return () => setActiveChatIdGlobal(null);
+  }, [chatId]);
+
+  useEffect(() => {
+    registerNewChat((opts) => {
+      dismissChatError();
+      startNewChat(opts);
+    });
+  }, [startNewChat, dismissChatError]);
 
   const {
     listRef,

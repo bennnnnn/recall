@@ -58,7 +58,7 @@ export type UseChatScreenBodyPropsParams = {
   chatTitle: string | null;
   showIndicator: boolean;
   unseenCount: number;
-  startNewChat: () => void;
+  startNewChat: (opts?: { force?: boolean }) => void;
   setMenuVisible: React.Dispatch<React.SetStateAction<boolean>>;
   menuOverlayOpen: boolean;
   showScrollToBottom: boolean;

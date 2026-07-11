@@ -301,34 +301,41 @@ export function useChatRouteLoader({
     void tryScrollToHighlight();
   }, [tryScrollToHighlight]);
 
-  const startNewChat = useCallback(() => {
-    if (streaming) return;
-    discardEmptyChat(chatId);
-    clearDraftChat();
-    pendingProjectIdRef.current = null;
-    setInputRef.current("");
-    setChatId(null);
-    setChatTitle(null);
-    setPinned(false);
-    setArchived(false);
-    setMessages([]);
-    setHasMoreOlder(false);
-    if (routeChatId != null) {
-      router.setParams({ chatId: undefined });
-    }
-    void prepareDraftChat();
-  }, [
-    streaming,
-    chatId,
-    discardEmptyChat,
-    clearDraftChat,
-    routeChatId,
-    router,
-    setMessages,
-    setInputRef,
-    prepareDraftChat,
-    setChatId,
-  ]);
+  const startNewChat = useCallback(
+    (opts?: { force?: boolean }) => {
+      if (streaming) {
+        if (!opts?.force) return;
+        stopGeneration();
+      }
+      discardEmptyChat(chatId);
+      clearDraftChat();
+      pendingProjectIdRef.current = null;
+      setInputRef.current("");
+      setChatId(null);
+      setChatTitle(null);
+      setPinned(false);
+      setArchived(false);
+      setMessages([]);
+      setHasMoreOlder(false);
+      if (routeChatId != null) {
+        router.setParams({ chatId: undefined });
+      }
+      void prepareDraftChat();
+    },
+    [
+      streaming,
+      stopGeneration,
+      chatId,
+      discardEmptyChat,
+      clearDraftChat,
+      routeChatId,
+      router,
+      setMessages,
+      setInputRef,
+      prepareDraftChat,
+      setChatId,
+    ],
+  );
 
   const beginChatLaunch = useCallback(
     (launch: QueuedChatLaunch | string) => {

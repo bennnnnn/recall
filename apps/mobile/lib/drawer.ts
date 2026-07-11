@@ -30,14 +30,37 @@ export function openDrawerSearch() {
 
 // Shared "start a new chat" action — registered by the chat screen so the
 // drawer can trigger it without prop drilling or fragile route params.
-let _newChat: (() => void) | null = null;
+export type StartNewChatOptions = { force?: boolean };
+export type StartNewChatFn = (opts?: StartNewChatOptions) => void;
 
-export function registerNewChat(fn: () => void) {
+let _newChat: StartNewChatFn | null = null;
+
+export function registerNewChat(fn: StartNewChatFn) {
   _newChat = fn;
 }
 
-export function startNewChatGlobal() {
-  _newChat?.();
+export function startNewChatGlobal(opts?: StartNewChatOptions) {
+  _newChat?.(opts);
+}
+
+/** Active chat id on the home screen — drawer deletes use this to avoid orphans. */
+let _activeChatId: string | null = null;
+
+export function setActiveChatIdGlobal(chatId: string | null) {
+  _activeChatId = chatId;
+}
+
+export function getActiveChatIdGlobal(): string | null {
+  return _activeChatId;
+}
+
+/** True when a delete batch includes the chat currently open on the home screen. */
+export function deletedIncludesActiveChat(
+  deletedIds: readonly string[],
+  activeChatId: string | null = getActiveChatIdGlobal(),
+): boolean {
+  if (!activeChatId) return false;
+  return deletedIds.includes(activeChatId);
 }
 
 /** Patch a chat row in the drawer list (e.g. when auto-title arrives). */
