@@ -494,6 +494,40 @@ def test_serve_file_rejects_spoofed_r2_bytes():
     refund_mock.assert_awaited_once_with(fake_redis, user.id)
 
 
+def test_serve_file_local_backend_sets_nosniff_header(tmp_path):
+    user = _fake_user()
+    app = _app_with_user(user)
+    attachment_id = uuid4()
+    row = MagicMock()
+    row.id = attachment_id
+    row.content_type = "image/png"
+    row.storage_key = "user/key"
+
+    png_bytes = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+    local_path = tmp_path / "attachment.png"
+    local_path.write_bytes(png_bytes)
+
+    gateway = MagicMock(spec=LocalStorageGateway)
+    gateway.resolve_local_path = MagicMock(return_value=local_path)
+
+    with (
+        patch(
+            "app.routers.attachments.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
+    ):
+        client = TestClient(app)
+        r = client.get(
+            f"/attachments/{attachment_id}/file",
+            headers={"Authorization": "Bearer tok"},
+            follow_redirects=False,
+        )
+
+    assert r.status_code == 200
+    assert r.headers["x-content-type-options"] == "nosniff"
+
+
 def test_download_url_rejects_spoofed_r2_bytes():
     user = _fake_user()
     app = _app_with_user(user)
