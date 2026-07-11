@@ -12,7 +12,10 @@ import { queueChatLaunch } from "@/lib/chatLaunch";
 import { buildHomeDailyQuizChatPrompt } from "@/lib/projectChat";
 import { describeDueAt } from "@/lib/dueDate";
 import { homeUrgentPrompt, listHomeUrgentTodos, partitionHomeUrgentTodos } from "@/lib/homeUrgentTodos";
-import { learningProjectTitle } from "@/lib/projectUi";
+import {
+  homeLearningCardColors,
+  homeLearningUrgency,
+} from "@/lib/homeLearningCard";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -34,35 +37,6 @@ function starterIcon(kind: HomeStarter["kind"]): keyof typeof Ionicons.glyphMap 
   }
 }
 
-function dailyCueLabel(
-  highlight: HomeProjectHighlight,
-  t: (key: string, options?: Record<string, unknown>) => string,
-): string {
-  const completed =
-    highlight.mastered_today + (highlight.missed_today ?? 0);
-  const { cue, daily_goal: goal, kind } = highlight;
-  const prefix = kind === "trivia" ? "chat.home.trivia_cue_" : "chat.home.vocab_cue_";
-  switch (cue) {
-    case "start":
-      return t(`${prefix}start`, { goal });
-    case "continue":
-      return t(`${prefix}continue`, { done: completed, goal });
-    case "finish_pending":
-      return t(`${prefix}finish_pending`, { done: completed, goal });
-    case "missed_yesterday":
-      if (highlight.days_inactive && highlight.days_inactive >= 2) {
-        return t(`${prefix}missed_days`, {
-          days: highlight.days_inactive,
-          goal,
-          due: highlight.due_for_review ?? 0,
-        });
-      }
-      return t(`${prefix}missed_yesterday`, { goal });
-    default:
-      return t(`${prefix}not_started_today`, { goal });
-  }
-}
-
 function ProjectHighlightCard({
   highlight,
   styles: s,
@@ -76,13 +50,28 @@ function ProjectHighlightCard({
   const { t } = useTranslation();
   const completedToday =
     highlight.mastered_today + (highlight.missed_today ?? 0);
+  const goal = highlight.daily_goal;
   const progress =
-    highlight.daily_goal > 0
-      ? Math.min(100, Math.round((completedToday / highlight.daily_goal) * 100))
-      : 0;
-  const subtitle = dailyCueLabel(highlight, t);
-  const iconName =
-    highlight.kind === "trivia" ? "bulb-outline" : ("language-outline" as const);
+    goal > 0 ? Math.min(100, Math.round((completedToday / goal) * 100)) : 0;
+  const goalMet = goal > 0 && completedToday >= goal;
+  const label =
+    highlight.kind === "trivia"
+      ? t("chat.home.trivia_cue_continue", { done: completedToday, goal })
+      : t("chat.home.vocab_cue_continue", { done: completedToday, goal });
+  const urgency = homeLearningUrgency({
+    completedToday,
+    dailyGoal: goal,
+    hour: new Date().getHours(),
+  });
+  const colors = homeLearningCardColors({
+    urgency,
+    surface: theme.surface,
+    primaryLight: theme.primaryLight,
+    dangerLight: theme.dangerLight,
+    primary: theme.primary,
+    danger: theme.danger,
+    success: goalMet,
+  });
 
   const startDailyQuiz = () => {
     const variant = highlight.kind === "trivia" ? "trivia" : "vocab";
@@ -98,24 +87,27 @@ function ProjectHighlightCard({
 
   return (
     <Pressable
-      style={s.projectCard}
+      style={[s.projectCard, { backgroundColor: colors.background }]}
       onPress={startDailyQuiz}
+      accessibilityRole="button"
+      accessibilityLabel={label}
     >
-      <View style={s.projectIconWrap}>
-        <Ionicons name={iconName} size={20} color={theme.primary} />
-      </View>
       <View style={s.projectMain}>
-        <Text style={s.projectTitle} numberOfLines={1}>
-          {learningProjectTitle(highlight.kind, t, highlight.title)}
-        </Text>
-        <Text style={s.projectSubtitle} numberOfLines={2}>
-          {subtitle}
-        </Text>
-        <View style={s.projectTrack}>
-          <View style={[s.projectFill, { width: `${progress}%` }]} />
+        <View style={s.projectLabelRow}>
+          <Text style={s.projectProgressLabel} numberOfLines={1}>
+            {label}
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color={theme.textTertiary} />
+        </View>
+        <View style={[s.projectTrack, { backgroundColor: colors.track }]}>
+          <View
+            style={[
+              s.projectFill,
+              { width: `${progress}%`, backgroundColor: colors.fill },
+            ]}
+          />
         </View>
       </View>
-      <Ionicons name="chevron-forward" size={18} color={theme.textTertiary} />
     </Pressable>
   );
 }
@@ -320,34 +312,32 @@ function makeStyles(t: Theme) {
     },
     projectCard: {
       width: "100%",
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 12,
-      backgroundColor: t.surface,
-      borderRadius: 16,
+      borderRadius: 14,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
-      padding: 14,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
       marginTop: 4,
     },
-    projectIconWrap: {
-      width: 40,
-      height: 40,
-      borderRadius: 12,
-      backgroundColor: t.primaryLight,
+    projectMain: { gap: 8 },
+    projectLabelRow: {
+      flexDirection: "row",
       alignItems: "center",
-      justifyContent: "center",
+      justifyContent: "space-between",
+      gap: 8,
     },
-    projectTitle: { fontSize: 17, fontWeight: "700", color: t.text },
-    projectMain: { flex: 1, gap: 6 },
-    projectSubtitle: { fontSize: 13, fontWeight: "600", color: t.textSecondary },
+    projectProgressLabel: {
+      flex: 1,
+      fontSize: 14,
+      fontWeight: "700",
+      color: t.text,
+    },
     projectTrack: {
       height: 4,
       borderRadius: 2,
-      backgroundColor: t.border,
       overflow: "hidden",
     },
-    projectFill: { height: 4, borderRadius: 2, backgroundColor: t.primary },
+    projectFill: { height: 4, borderRadius: 2 },
     sectionLabel: {
       fontSize: 11,
       fontWeight: "700",
