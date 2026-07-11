@@ -4,6 +4,7 @@ from datetime import date, datetime
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     Float,
@@ -25,6 +26,13 @@ from app.core.db import Base
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (
+        CheckConstraint("plan IN ('free', 'pro')", name="ck_users_plan"),
+        CheckConstraint(
+            "response_tone IN ('funny', 'professional', 'casual', 'soft')",
+            name="ck_users_response_tone",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     google_sub: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
@@ -81,6 +89,10 @@ class Chat(Base):
         # declared on `title` so autogenerate knows an index with this name exists
         # here and won't propose dropping it.
         Index("ix_chats_title_trgm", "title"),
+        CheckConstraint(
+            "quiz_mode IS NULL OR quiz_mode IN ('exam', 'chat')",
+            name="ck_chats_quiz_mode",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -121,6 +133,10 @@ class Message(Base):
         # autogenerate knows an index with this name exists here and won't propose
         # dropping it.
         Index("ix_messages_content_trgm", "content"),
+        CheckConstraint("role IN ('user', 'assistant', 'system')", name="ck_messages_role"),
+        CheckConstraint(
+            "feedback IS NULL OR feedback IN ('up', 'down')", name="ck_messages_feedback"
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -152,6 +168,10 @@ class Memory(Base):
         # on `embedding` so autogenerate knows an index with this name exists here and
         # won't propose dropping it.
         Index("ix_memories_embedding", "embedding"),
+        CheckConstraint(
+            "type IN ('profile', 'preference', 'project', 'fact', 'focus')",
+            name="ck_memories_type",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -248,6 +268,11 @@ class Project(Base):
     __table_args__ = (
         Index("ix_projects_user_updated", "user_id", "updated_at"),
         Index("ix_projects_user_kind", "user_id", "kind"),
+        CheckConstraint("kind IN ('language', 'trivia', 'general')", name="ck_projects_kind"),
+        CheckConstraint(
+            "level IN ('level1', 'level2', 'level3', 'level4', 'level5', 'level6')",
+            name="ck_projects_level",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -281,6 +306,9 @@ class ProjectItem(Base):
         Index("ix_project_items_user_project", "user_id", "project_id"),
         Index("ix_project_items_status_review", "project_id", "status", "last_reviewed_at"),
         Index("ix_project_items_project_due_at", "project_id", "due_at"),
+        CheckConstraint(
+            "status IN ('new', 'learning', 'mastered')", name="ck_project_items_status"
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
