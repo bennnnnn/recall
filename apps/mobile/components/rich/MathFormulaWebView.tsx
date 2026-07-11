@@ -6,6 +6,7 @@ import {
   pickMathEngine,
   type MathEngine,
 } from "@/lib/mathHtml";
+import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { CODE_FONT } from "@/lib/fonts";
 import { getPreviewWebView, useStaticOnlyNavigation } from "@/lib/webView";
 import { Theme, useTheme } from "@/lib/theme";
@@ -67,6 +68,7 @@ export function MathFormulaWebView({
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;
   const canRenderInline = previewWebView?.mode === "rnc";
+  const { canMount, onLoaded } = useDeferredWebViewMount(Boolean(WebView) && canRenderInline);
   const onShouldStartLoadWithRequest = useStaticOnlyNavigation(html);
   const defaultHeight = compact ? 28 : displayMode ? 48 : 32;
   const [height, setHeight] = useState(minHeight ?? defaultHeight);
@@ -89,6 +91,10 @@ export function MathFormulaWebView({
     return <MathLatexFallback latex={latex} engine={engine} compact={compact} theme={theme} />;
   }
 
+  if (!canMount) {
+    return <MathLoadingPlaceholder latex={latex} compact={compact} theme={theme} />;
+  }
+
   return (
     <View style={[s.wrap, compact ? s.wrapCompact : null, displayMode ? s.wrapBlock : null]}>
       <WebView
@@ -101,8 +107,33 @@ export function MathFormulaWebView({
         onMessage={onMessage}
         showsHorizontalScrollIndicator={false}
         showsVerticalScrollIndicator={false}
+        onLoadEnd={onLoaded}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
       />
+    </View>
+  );
+}
+
+/**
+ * Shown while a WebView slot is granted (see useDeferredWebViewMount) —
+ * distinct from MathLatexFallback because the WebView *is* available here,
+ * just deferred a beat, so it must not claim a dev build is required.
+ */
+function MathLoadingPlaceholder({
+  latex,
+  compact,
+  theme,
+}: {
+  latex: string;
+  compact?: boolean;
+  theme: Theme;
+}) {
+  const s = makeStyles(theme);
+  return (
+    <View style={[s.fallback, compact ? s.fallbackCompact : null]}>
+      <Text style={s.fallbackText} selectable>
+        {latex.trim()}
+      </Text>
     </View>
   );
 }

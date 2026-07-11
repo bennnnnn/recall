@@ -2,11 +2,12 @@
  * Mermaid diagram — inline SVG render via WebView (dev build), with source fallback.
  */
 import { useCallback, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import * as WebBrowser from "expo-web-browser";
 import { Ionicons } from "@expo/vector-icons";
 
+import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { CODE_FONT } from "@/lib/fonts";
 import { injectPreviewCsp } from "@/lib/previewSandbox";
 import { Theme, useTheme } from "@/lib/theme";
@@ -67,6 +68,7 @@ export function MermaidBlock({ content }: Props) {
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;
   const canRenderInline = previewWebView?.mode === "rnc";
+  const { canMount, onLoaded } = useDeferredWebViewMount(Boolean(WebView) && canRenderInline);
   const onShouldStartLoadWithRequest = useStaticOnlyNavigation(mermaidHtml);
 
   const handleCopy = useCallback(async () => {
@@ -97,16 +99,23 @@ export function MermaidBlock({ content }: Props) {
           <Text style={s.previewText}>{content.trim()}</Text>
         </View>
       ) : canRenderInline && WebView ? (
-        <View style={s.webWrap}>
-          <WebView
-            originWhitelist={["*"]}
-            source={{ html: mermaidHtml }}
-            scrollEnabled={false}
-            style={s.webview}
-            javaScriptEnabled
-            onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-          />
-        </View>
+        canMount ? (
+          <View style={s.webWrap}>
+            <WebView
+              originWhitelist={["*"]}
+              source={{ html: mermaidHtml }}
+              scrollEnabled={false}
+              style={s.webview}
+              javaScriptEnabled
+              onLoadEnd={onLoaded}
+              onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+            />
+          </View>
+        ) : (
+          <View style={s.loadingWrap}>
+            <ActivityIndicator color={theme.primary} />
+          </View>
+        )
       ) : (
         <View style={s.previewBox}>
           <Text style={s.previewText} numberOfLines={6}>
@@ -162,6 +171,12 @@ function makeStyles(t: Theme) {
     toggleSource: { fontSize: 13, fontWeight: "600", color: t.primary },
     webWrap: { height: PREVIEW_HEIGHT, backgroundColor: t.bg },
     webview: { flex: 1, backgroundColor: "transparent" },
+    loadingWrap: {
+      height: PREVIEW_HEIGHT,
+      backgroundColor: t.bg,
+      alignItems: "center",
+      justifyContent: "center",
+    },
     previewBox: {
       paddingHorizontal: 14,
       paddingVertical: 10,
