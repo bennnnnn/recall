@@ -800,11 +800,11 @@ async def prepare_chat_turn(
         search_sources=bundle.search_sources,
         local_places=bundle.local_places,
         # Graded MCQ answers are already persisted — skip background sync.
+        # Open-ended vocab answers still need project sync to record mastery.
         # If a letter answer failed to grade (missing fence / no project), keep
         # jobs so project sync can still record progress.
         skip_memory_jobs=(
-            (bundle.minimal_quiz or bundle.minimal_vocab_answer)
-            and not (is_letter_answer and bundle.quiz_grade is None)
+            bundle.minimal_quiz and not (is_letter_answer and bundle.quiz_grade is None)
         ),
         prior_count=prior_count,
         chat_project_id=chat_project_id,

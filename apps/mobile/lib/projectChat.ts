@@ -183,30 +183,31 @@ export function buildTriviaOnboardingPrompt(
   );
 }
 
-/** Home highlight card → in-chat daily session (LLM picks format each turn). */
+/** Home highlight card → in-chat daily session. */
 export function buildHomeDailyQuizChatPrompt(highlight: HomeProjectHighlight): string {
   const { title, kind, cue } = highlight;
   if (kind === "trivia") {
     if (cue === "start") {
       return (
         `Start my daily "${title}" general-knowledge session. ` +
-        "Quiz me in chat — one question at a time. You choose the format. Begin now."
+        "Quiz me with multiple-choice ```vocab_quiz (A–D chips) — one question at a time. Begin now."
       );
     }
     return (
       `Continue my daily "${title}" session. ` +
-      "Ask the next question in chat — you pick the format."
+      "Ask the next multiple-choice ```vocab_quiz question (A–D chips)."
     );
   }
   if (cue === "start") {
     return (
       `Start today's "${title}" vocabulary session. ` +
-      "Teach and quiz in chat — one word at a time. You choose the format. Begin now."
+      "One word at a time — mix teach→use (show definition, ask for a sentence), " +
+      "use→define (show a sentence, ask what it means), and occasional A–D multiple choice. Begin now."
     );
   }
   return (
     `Continue my "${title}" vocabulary session. ` +
-    "Teach or quiz the next word in chat — you pick the format."
+    "Next word: use a learning format (teach→use, use→define, or occasional MCQ) — vary it."
   );
 }
 
@@ -231,7 +232,8 @@ export function buildProjectAskPrompt(
     }
     return (
       `Continue my ${screenTitle} session.\n` +
-      `Level: ${lvl}. ${todayProgressClause(project)} — ask the next multiple-choice question.`
+      `Level: ${lvl}. ${todayProgressClause(project)} — continue with the next word using a ` +
+      `learning format (teach→use, use→define, or occasional MCQ).`
     );
   }
 
@@ -325,16 +327,18 @@ export function buildProjectQuizPrompt(project: ProjectDetail): string {
   }
 
   return (
-    `Start an interactive vocabulary quiz for my "${project.title}" English project.\n` +
+    `Start an interactive vocabulary session for my "${project.title}" English project.\n` +
     `My English level: ${lvl}.${goal}\n` +
     `${progressLine(project)}\n\n` +
-    "Quiz me in chat: one word at a time from my new and learning words, matched to my level.\n" +
-    "Use this EXACT format for every question (required for the quiz card UI):\n\n" +
+    "One word at a time from my new and learning words, matched to my level.\n" +
+    "Mix learning formats: teach→use (```vocab_card``` then ask for a sentence), " +
+    "use→define (example sentence then open definition), and occasional A–D ```vocab_quiz```.\n\n" +
+    "When you use MCQ, use this format:\n\n" +
     `${VOCAB_QUIZ_FORMAT_BLOCK}\n\n` +
-    "Do not wrap the word in extra asterisks. Wait for my answer before you explain. " +
-    "If I'm right, congratulate me, give an example, and mark the word mastered automatically. " +
-    "If wrong, explain and encourage me. Then ask if I want another question. " +
-    "Begin with the first question now."
+    "Wait for my answer before you explain. " +
+    "If I'm right, congratulate me and mark the word mastered. " +
+    "If wrong, hint and let me try again. " +
+    "Begin with the first word now — prefer teach→use or use→define over MCQ."
   );
 }
 

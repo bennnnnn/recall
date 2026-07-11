@@ -95,23 +95,25 @@ def project_starters(project: Project, stats: ProjectStats) -> list[HomeStarter]
         elif completed == 0:
             prompt = (
                 f'Help me start today\'s "{title}" vocabulary session.{goal} {progress} '
-                f"My daily goal is {daily_goal} words. Quiz me with multiple-choice "
-                "```vocab_quiz only (A-D chips) - no open-ended 'what does X mean?'. "
+                f"My daily goal is {daily_goal} words. One word at a time — mix teach→use "
+                "(vocab_card then a sentence), use→define (sentence then open definition), "
+                "and occasional A-D ```vocab_quiz. "
                 "Start with words I failed recently (learning), then due for review, then new."
             )
         elif stats.due_for_review > 0 or stats.learning_count > 0:
             prompt = (
                 f'Help me review my "{title}" vocabulary.{goal} {progress} '
                 f"I still need {remaining} more today to hit my daily goal of "
-                f"{daily_goal}. Quiz failed/learning words first with multiple-choice "
-                "```vocab_quiz only — do not add fresh words yet."
+                f"{daily_goal}. Practice failed/learning words first with mixed learning "
+                "formats (teach→use, use→define, occasional MCQ) — do not add fresh words yet."
             )
         else:
             prompt = (
                 f'Help me with my "{title}" vocabulary.{goal} {progress} '
                 f"I need {remaining} more today (daily goal: {daily_goal}). "
-                "Quiz my new and learning words first with multiple-choice ```vocab_quiz only "
-                "— only add fresh words if I still need them for today's goal."
+                "Practice my new and learning words first with mixed learning formats "
+                "(teach→use, use→define, occasional MCQ) — only add fresh words if I still "
+                "need them for today's goal."
             )
     elif is_trivia_project(project):
         daily_goal = daily_learning.resolve_daily_goal(project)

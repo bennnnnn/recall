@@ -161,34 +161,42 @@ QUIZ_ANSWER_HINT = (
     "letter or full answer yet. Never say 'word mastered' or congratulate. "
     "Do NOT use spoiler syntax (>! !<).\n"
     "2) **Next step:**\n"
-    "   - CORRECT: ask a DIFFERENT next word/fact in a ```vocab_quiz fence (required for "
-    "tap chips) — never repeat the one they just got right (or any already-covered item).\n"
+    "   - CORRECT (trivia): ask a DIFFERENT next fact in a ```vocab_quiz fence "
+    "(quiz_type trivia) — never repeat the one they just got right.\n"
+    "   - CORRECT (vocabulary): continue with a DIFFERENT next word using a **different** "
+    "learning format when possible (teach→use with vocab_card, use→define open-ended, or "
+    "occasional MCQ ```vocab_quiz) — never default to MCQ every turn.\n"
     "   - WRONG (tries 1-2): stop after the hint. Do NOT redisplay the question, choices, or a "
     "```vocab_quiz fence. The previous chips stay available — they will answer again.\n"
-    "   - MISSED (3rd wrong try): briefly reveal the correct answer, keep it as learning for "
-    "next time (not mastered), then ask a DIFFERENT next ```vocab_quiz.\n"
+    "   - MISSED (3rd wrong try): briefly reveal the correct answer, keep as learning for "
+    "next time (not mastered), then ask a DIFFERENT next item (trivia: ```vocab_quiz; "
+    "vocabulary: any learning format).\n"
     "Stay in the active project kind: trivia stays trivia (quiz_type trivia); "
     "vocabulary stays vocabulary. Never mix them in one session.\n"
-    "Vocabulary (English words):\n"
-    f"{projects_service.VOCAB_QUIZ_FORMAT_BLOCK}\n"
-    "General knowledge (trivia):\n"
+    "Vocabulary (English words) — format rotation:\n"
+    f"{projects_service.VOCAB_LEARNING_FORMATS_BLOCK}\n"
+    "General knowledge (trivia) — MCQ only:\n"
     f"{projects_service.TRIVIA_QUIZ_FORMAT_BLOCK}\n"
-    "Never use plain Q:/A: lines, open-ended questions, or multiple questions in one message.\n"
-    "Mastering is recorded automatically on correct answers — do not sync master on a wrong answer."
+    "Never use plain Q:/A: lines or multiple questions in one message.\n"
+    "Mastering is recorded automatically on correct MCQ answers — do not sync master on a wrong answer."
 )
 
 VOCAB_CHAT_ANSWER_HINT = (
-    "The user is answering your vocabulary question from the previous assistant message. "
-    "Grade their reply **strictly**:\n"
-    "- Only say correct if their answer actually demonstrates understanding of the word.\n"
+    "The user is answering your vocabulary prompt from the previous assistant message "
+    "(sentence, definition, or MCQ). Grade their reply **strictly**:\n"
+    "- Only say correct if their answer actually demonstrates understanding of the word "
+    "(good sentence uses the word correctly; definition matches the meaning).\n"
     "- Gibberish, unrelated text, random single letters (unless you asked for A-D), or "
     "placeholder replies = **wrong** — never congratulate those.\n"
     "- If wrong (tries 1-2): say wrong and give a short hint (not the full answer). Do NOT "
-    "redisplay the question or emit a ```vocab_quiz fence. Never say 'word mastered'.\n"
-    "- If missed (3rd wrong try): briefly reveal the answer, keep as learning for next time, "
-    "then ask a DIFFERENT next word as ```vocab_quiz.\n"
-    "- If correct: congratulate briefly, then ask the NEXT word as ```vocab_quiz.\n"
-    "- Only sync master when genuinely correct."
+    "redisplay an MCQ fence. Never say 'word mastered'.\n"
+    "- If missed after repeated weak tries: briefly reveal the answer, keep as learning, "
+    "then continue with a DIFFERENT next word in another learning format.\n"
+    "- If correct: congratulate briefly, then continue with a DIFFERENT next word — prefer a "
+    "**different** format than the one you just used (teach→use, use→define, occasional MCQ).\n"
+    f"{projects_service.VOCAB_LEARNING_FORMATS_BLOCK}\n"
+    "- Only treat as mastered when genuinely correct (MCQ auto-grades; for open-ended, "
+    "confirm clearly so project sync can record mastery)."
 )
 
 
@@ -220,7 +228,8 @@ def format_quiz_grading_hint(
             follow_up = (
                 f'Congratulate briefly that "{word}" is correct. '
                 f'Do NOT re-ask "{word}". '
-                "Then ask a DIFFERENT next item as a fresh ```vocab_quiz."
+                "Then continue with a DIFFERENT next word using a different learning format "
+                "(teach→use, use→define, or occasional MCQ) — do not default to MCQ every turn."
             )
         verdict = "CORRECT"
     elif tries_exhausted:
@@ -236,7 +245,8 @@ def format_quiz_grading_hint(
             follow_up = (
                 f'They missed "{word}" after {attempt} tries. Briefly reveal the correct answer '
                 f"({correct_letter}). Keep it as learning/missed for next time — do NOT say "
-                f'mastered. Then ask a DIFFERENT next word (not "{word}") as ```vocab_quiz.'
+                f'mastered. Then continue with a DIFFERENT next word (not "{word}") using another '
+                "learning format (teach→use, use→define, or MCQ)."
             )
         verdict = "MISSED"
     else:

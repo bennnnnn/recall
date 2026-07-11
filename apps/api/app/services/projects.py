@@ -141,6 +141,27 @@ VOCAB_QUIZ_FORMAT_BLOCK = (
     f"{VOCAB_QUIZ_FENCE_EXAMPLE}"
 )
 
+VOCAB_CARD_FENCE_EXAMPLE = (
+    "```vocab_card\n"
+    '{"word":"serendipity","definition":"finding something good by accident",'
+    '"example_sentence":"Meeting her was pure serendipity."}\n'
+    "```"
+)
+
+# Learning-oriented rotation for vocabulary (trivia stays MCQ-only).
+VOCAB_LEARNING_FORMATS_BLOCK = (
+    "Rotate these formats across turns (vary; do **not** default to MCQ every time):\n"
+    "1) **Teach → use:** show a ```vocab_card``` (definition + example), then ask the user to "
+    "write their **own** sentence using the word. Example card:\n"
+    f"{VOCAB_CARD_FENCE_EXAMPLE}\n"
+    "Then: *Write your own sentence with **serendipity**.*\n"
+    "2) **Use → define:** give one clear example sentence with the target word in **bold**, "
+    "then ask what it means in their own words (open-ended — no A–D).\n"
+    "3) **Quick check (MCQ):** about **one turn in three**, use A–D tap chips:\n"
+    f"{VOCAB_QUIZ_FORMAT_BLOCK}\n"
+    "One word per turn. Prefer teach→use and use→define for learning; MCQ is a quick check only."
+)
+
 DAILY_GOAL_COMPLETE_BEHAVIOR = (
     "**When today's daily goal is already complete** (the Today: line says "
     "'daily goal complete'): FIRST acknowledge they're done for today and "
@@ -152,12 +173,9 @@ DAILY_GOAL_COMPLETE_BEHAVIOR = (
 )
 
 LANGUAGE_BONUS_QUIZ_RULES = (
-    "**Bonus quiz (after today's goal):** When the user explicitly asks for more quiz, bonus "
-    "words, or extra practice beyond today's goal, ask ONE multiple-choice question per turn "
-    "using ```vocab_quiz JSON:\n"
-    f"{VOCAB_QUIZ_FORMAT_BLOCK}\n"
-    "One question per message. Do NOT use spoiler syntax (>! !<) or bullet lists of Q&As. "
-    "Wait for A–D before revealing the answer."
+    "**Bonus practice (after today's goal):** When the user explicitly asks for more quiz, bonus "
+    "words, or extra practice beyond today's goal, continue with the same learning-format "
+    f"rotation — one word per turn.\n{VOCAB_LEARNING_FORMATS_BLOCK}"
 )
 
 LANGUAGE_CHAT_TUTOR_HINT = (
@@ -165,21 +183,17 @@ LANGUAGE_CHAT_TUTOR_HINT = (
     "The project **level** is the user's **English skill level** (level1=beginner … level6=fluent).\n"
     "Each word has: term, definition, example_sentence, status "
     "(new | learning | mastered).\n\n"
-    "**Daily session format (required): multiple choice only.**\n"
-    "One word per turn. Do NOT teach the definition before asking. Do NOT ask open-ended "
-    "'what does it mean?' without A–D choices.\n"
-    "Every question MUST include a readable A–D list AND a ```vocab_quiz JSON fence with the "
-    "correct letter (required for tap-to-answer chips and server grading):\n"
-    f"{VOCAB_QUIZ_FORMAT_BLOCK}\n"
-    "Wait for their letter before revealing the answer.\n"
-    "**On wrong answers:** say wrong, give a short hint (not the full definition / correct "
-    "letter), do NOT say 'word mastered', and do NOT redisplay the question or emit a new "
-    "```vocab_quiz fence — they will answer again on the previous chips (up to 3 tries). "
-    "After 3 wrong tries: briefly reveal the answer, keep it as learning/missed for next time, "
-    "then ask a DIFFERENT next word — never re-ask the missed word in this session.\n"
-    "**On correct answers:** congratulate briefly (mastering is recorded automatically), then "
-    "ask the NEXT word until today's daily_goal is met.\n"
-    "Gibberish / unrelated text / random letters other than A–D = wrong.\n"
+    "**Daily session: learning formats (not exam-only).**\n"
+    f"{VOCAB_LEARNING_FORMATS_BLOCK}\n"
+    "Wait for their reply before revealing whether they are right.\n"
+    "**On wrong / weak answers:** say so briefly, give a short hint (not the full answer), "
+    "do NOT say 'word mastered'. For MCQ wrongs: do NOT redisplay choices or a new "
+    "```vocab_quiz fence — chips stay on the previous message (up to 3 tries). "
+    "After 3 MCQ wrongs: briefly reveal, keep as learning, then a DIFFERENT next word.\n"
+    "**On correct / solid answers:** congratulate briefly (mastery is recorded via sync or "
+    "MCQ auto-grade), then continue with a DIFFERENT next word in a **different** format "
+    "when possible until today's daily_goal is met.\n"
+    "Gibberish / unrelated text = wrong.\n"
     "Keep replies short. Prefer failed/learning words due for review, then new — never re-quiz "
     "✓ mastered as a 'freebie'.\n"
     "Use the **Today:** line in the project snapshot as the only progress counter.\n\n"
@@ -257,8 +271,8 @@ def _quiz_mode_banner(_quiz_mode: str | None = None, *, kind: str | None = None)
             "one ```vocab_quiz question per turn (quiz_type trivia)."
         )
     return (
-        "**Presentation mode: chat.** Run today's vocabulary session as multiple-choice only — "
-        "one ```vocab_quiz question per turn (readable A–D + JSON fence)."
+        "**Presentation mode: chat.** Run today's vocabulary session with mixed learning "
+        "formats (teach→use, use→define, occasional MCQ) — one word per turn."
     )
 
 
@@ -301,7 +315,8 @@ def build_language_quiz_prompt(project: Project, stats: ProjectStats) -> str:
         f'Start today\'s vocabulary session for my "{title}" English project.\n'
         f"My English level: {lvl}.{goal}\n"
         f"{_language_progress_line(stats)}\n\n"
-        "Quiz me with multiple-choice ```vocab_quiz only (A-D). "
+        "Teach and practice one word at a time — mix teach→use (vocab_card then a sentence), "
+        "use→define (sentence then open definition), and occasional A–D ```vocab_quiz. "
         "Start with words I failed recently, then new ones — never repeat a word in this session."
     )
 
@@ -567,30 +582,31 @@ async def load_project_quiz_context(
     elif tries_exhausted and answered_label:
         follow = (
             f'MISSED after {attempt} tries — "{answered_label}" stays learning for next time. '
-            "Briefly reveal the correct answer, then ask a DIFFERENT next word using the same "
-            "card format:"
+            "Briefly reveal the correct answer, then continue with a DIFFERENT next word "
+            "using a different learning format (teach→use, use→define, or MCQ):"
         )
     elif just_correct and answered_label:
         follow = (
             f'CORRECT — "{answered_label}" is done. Do NOT re-ask that word. '
-            "Ask a DIFFERENT next word using the same card format:"
+            "Continue with a DIFFERENT next word using a different learning format:"
         )
     else:
         follow = (
-            "CORRECT (or starting) — after brief feedback, ask the NEXT word using "
-            "the same card format. Never repeat a word already mastered in this session."
+            "After brief feedback, continue with the NEXT word using a learning format "
+            "(teach→use, use→define, or occasional MCQ). Never repeat a mastered word."
         )
     lines = [
-        f"Active vocabulary quiz — project: {project.title} ({_LEVEL_LABELS.get(level, level)}).",
+        f"Active vocabulary session — project: {project.title} ({_LEVEL_LABELS.get(level, level)}).",
         f"English skill: {_level_guidance(level)}",
         follow,
     ]
     if not retry_same:
         lines.extend(
             [
-                VOCAB_QUIZ_FORMAT_BLOCK,
+                VOCAB_LEARNING_FORMATS_BLOCK,
                 "Pick words only from new/learning items at this level (except when re-asking a miss).",
-                "Correct answers are saved automatically. Never master on a wrong answer.",
+                "On MCQ correct answers mastery is automatic; on open-ended correct answers, "
+                "confirm clearly so project sync can record mastery. Never master on a wrong answer.",
             ]
         )
     else:
@@ -624,10 +640,13 @@ _VOCAB_QUESTION_MARKERS = re.compile(
     r"What does .+ mean\??|"
     r"Which sentence uses|"
     r"use .+ in a sentence|"
+    r"write (?:your own |a )?sentence|"
+    r"in your own words|"
     r"Reply with (?:the )?letter|"
     r"\bA\)\s|"
     r"\bB\)\s|"
-    r"```vocab_quiz"
+    r"```vocab_quiz|"
+    r"```vocab_card"
     r")",
     re.IGNORECASE,
 )

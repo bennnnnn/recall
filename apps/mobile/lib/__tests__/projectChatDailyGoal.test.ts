@@ -78,9 +78,10 @@ describe("projectChat daily goal helpers", () => {
     expect(prompt).toContain("Continue my Words session.");
     expect(prompt).toContain("Level: Beginner.");
     expect(prompt).toContain("Today: 3/5 done (3 mastered, 0 missed)");
-    expect(prompt).toContain("multiple-choice");
+    expect(prompt).toMatch(/teach→use|learning format|use→define/);
     expect(prompt).not.toContain("Goal:");
     expect(prompt).not.toContain("you pick the format");
+    expect(prompt).not.toContain("ask the next multiple-choice question");
   });
 
   it("in-progress trivia prompt uses topics and difficulty, not raw goal", () => {

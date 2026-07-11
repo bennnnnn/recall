@@ -166,11 +166,14 @@ async def get_last_quiz_assistant(
     *,
     lookback: int = 12,
 ) -> Message | None:
-    """Most recent assistant message that still has a gradeable ```vocab_quiz fence.
+    """Most recent assistant message that is still an active learning/quiz prompt.
 
-    After a wrong answer the model may reply with hint-only text (no fence); the
-    previous quiz message remains the one to grade against.
+    Prefers a gradeable ```vocab_quiz fence (for MCQ chips). Falls back to
+    open-ended vocab prompts (vocab_card / sentence / define) so those turns
+    still get the vocab answer grading path. After a wrong MCQ the model may
+    reply hint-only; the previous fence remains the one to grade against.
     """
+    from app.services.projects import looks_like_vocab_question
     from app.services.vocab_quiz import parse_vocab_quiz
 
     result = await session.execute(
@@ -179,10 +182,13 @@ async def get_last_quiz_assistant(
         .order_by(Message.created_at.desc())
         .limit(max(1, lookback))
     )
+    open_ended: Message | None = None
     for message in result.scalars().all():
         if parse_vocab_quiz(message.content) is not None:
             return message
-    return None
+        if open_ended is None and looks_like_vocab_question(message.content):
+            open_ended = message
+    return open_ended
 
 
 async def count_quiz_letter_answers_since(

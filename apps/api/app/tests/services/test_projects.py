@@ -644,9 +644,10 @@ async def test_load_project_for_prompt_chat_mode():
         )
 
     assert "daily vocabulary in chat" in block
-    assert "vocab_quiz" in block
-    assert "multiple choice only" in block
+    assert "learning formats" in block.lower() or "teach→use" in block
+    assert "vocab_card" in block
     assert "Presentation mode: chat" in block
+    assert "multiple choice only" not in block.lower()
 
 
 @pytest.mark.asyncio
@@ -729,6 +730,7 @@ def test_build_language_quiz_prompt_includes_vocab_quiz_fence():
 
     prompt = projects_service.build_language_quiz_prompt(project, stats)
     assert "vocab_quiz" in prompt
+    assert "teach→use" in prompt or "vocab_card" in prompt
     assert "failed recently" in prompt.lower()
     assert "Daily Quiz panel" not in prompt
 
@@ -737,6 +739,10 @@ def test_looks_like_vocab_question():
     teach = "**Ephemeral**\nlasting for a very short time.\nWhat does **ephemeral** mean?"
     assert projects_service.looks_like_vocab_question(teach) is True
     assert projects_service.looks_like_vocab_question("Hello! How can I help?") is False
+    card = '```vocab_card\n{"word":"hope","definition":"wanting something"}\n```\nWrite a sentence.'
+    assert projects_service.looks_like_vocab_question(card) is True
+    sentence = "Write your own sentence with **serendipity**."
+    assert projects_service.looks_like_vocab_question(sentence) is True
 
 
 @pytest.mark.asyncio
@@ -769,9 +775,9 @@ async def test_load_project_quiz_context():
             session, user_id, project_id, Settings()
         )
 
-    assert "Active vocabulary quiz" in block
+    assert "Active vocabulary session" in block
     assert "apple" in block
-    assert "vocab_quiz" in block
+    assert "vocab_quiz" in block or "teach→use" in block
     assert "NEXT word" in block
 
 
