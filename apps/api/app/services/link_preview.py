@@ -1,16 +1,17 @@
-import asyncio
 import hashlib
-import ipaddress
 import json
 import logging
 import re
 from html.parser import HTMLParser
-from urllib.parse import urljoin, urlparse, urlunparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 
 from app.core.config import Settings
 from app.core.redis import get_redis_client
+from app.gateways.safe_fetch import host_header as _host_header
+from app.gateways.safe_fetch import pin_url as _pin_url
+from app.gateways.safe_fetch import resolve_external_host as _resolve_external_host
 
 logger = logging.getLogger(__name__)
 
@@ -20,88 +21,7 @@ _OG_TAG_RE = re.compile(
 )
 _TITLE_RE = re.compile(r"<title[^>]*>([^<]+)</title>", re.IGNORECASE)
 
-_PRIVATE_IP_ERR = "Blocked request to internal/private address"
 _USER_AGENT = "RecallLinkPreview/1.0"
-
-
-def _is_blocked_ip(addr: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-    return (
-        addr.is_private
-        or addr.is_loopback
-        or addr.is_link_local
-        or addr.is_unspecified
-        or addr.is_multicast
-        or addr.is_reserved
-    )
-
-
-def _format_netloc(ip: str, port: int | None) -> str:
-    host = f"[{ip}]" if ":" in ip else ip
-    if port is not None:
-        return f"{host}:{port}"
-    return host
-
-
-def _host_header(hostname: str, port: int | None, scheme: str) -> str:
-    if port is None or (scheme == "https" and port == 443) or (scheme == "http" and port == 80):
-        return hostname
-    return f"{hostname}:{port}"
-
-
-def _pin_url(url: str, ip: str) -> str:
-    parsed = urlparse(url)
-    return urlunparse(parsed._replace(netloc=_format_netloc(ip, parsed.port)))
-
-
-async def _resolve_external_host(url: str) -> tuple[str, str]:
-    """Resolve URL hostname once and return (hostname, pinned public IP).
-
-    Raises ValueError if the hostname is missing, unresolvable, or resolves to
-    any private/loopback/link-local/reserved address. Callers must connect to
-    the returned IP (not re-resolve) to close the DNS-rebinding TOCTOU window.
-    """
-    parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https"):
-        raise ValueError("Unsupported URL scheme")
-    hostname = parsed.hostname or ""
-    if not hostname:
-        raise ValueError("URL has no hostname")
-
-    try:
-        literal = ipaddress.ip_address(hostname)
-    except ValueError:
-        literal = None
-    if literal is not None:
-        if _is_blocked_ip(literal):
-            raise ValueError(_PRIVATE_IP_ERR)
-        return hostname, str(literal)
-
-    loop = asyncio.get_running_loop()
-    try:
-        infos = await loop.getaddrinfo(hostname, None)
-    except OSError as exc:
-        raise ValueError(f"Cannot resolve hostname: {hostname}") from exc
-
-    public_ips: list[str] = []
-    for _family, _type, _proto, _canon, sockaddr in infos:
-        ip_str = sockaddr[0]
-        try:
-            addr = ipaddress.ip_address(ip_str)
-        except ValueError:
-            continue
-        if _is_blocked_ip(addr):
-            raise ValueError(_PRIVATE_IP_ERR)
-        if ip_str not in public_ips:
-            public_ips.append(ip_str)
-
-    if not public_ips:
-        raise ValueError(f"Cannot resolve hostname: {hostname}")
-    return hostname, public_ips[0]
-
-
-async def _validate_external_url(url: str) -> None:
-    """Resolve URL hostname and validate all resulting IPs are external."""
-    await _resolve_external_host(url)
 
 
 class _MetaParser(HTMLParser):
@@ -117,6 +37,11 @@ class _MetaParser(HTMLParser):
             content = data.get("content")
             if key and content:
                 self.meta[key.lower()] = content
+
+
+async def _validate_external_url(url: str) -> None:
+    """Resolve URL hostname and validate all resulting IPs are external."""
+    await _resolve_external_host(url)
 
 
 async def _get_pinned(

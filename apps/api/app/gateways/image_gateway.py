@@ -9,6 +9,7 @@ import logging
 import httpx
 
 from app.core.config import Settings
+from app.gateways import safe_fetch
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +70,10 @@ async def generate_via_openrouter(
                 return raw, "image/png"
         url = first.get("url")
         if isinstance(url, str) and url.startswith(("http://", "https://")):
-            async with httpx.AsyncClient(timeout=_GENERATE_TIMEOUT) as client:
-                img_resp = await client.get(url)
+            async with httpx.AsyncClient(
+                timeout=_GENERATE_TIMEOUT, follow_redirects=False
+            ) as client:
+                img_resp = await safe_fetch.fetch_safely(client, url)
                 img_resp.raise_for_status()
                 content_type = img_resp.headers.get("content-type", "image/png").split(";")[0]
                 if img_resp.content:
