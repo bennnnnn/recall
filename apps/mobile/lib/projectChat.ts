@@ -112,20 +112,14 @@ export function buildProjectAskPromptFromProject(
 function progressLine(project: ProjectDetail): string {
   const { stats, kind } = project;
   if (stats.total === 0) {
-    if (kind === "math") return "I have no topics yet — help me add some first.";
     if (isLanguageProject(kind)) return "I have no words yet — help me add some first.";
+    if (kind === "trivia") return "I have no facts yet — help me add some first.";
     return "I have nothing tracked yet — help me add some first.";
   }
   if (isLanguageProject(kind)) {
     return (
       `${stats.mastered_count} mastered, ${stats.new_count} new words, ` +
       `${stats.learning_count} learning, ${stats.due_for_review} due for review.`
-    );
-  }
-  if (kind === "math") {
-    return (
-      `${stats.mastered_count} concepts mastered, ${stats.new_count} new topics, ` +
-      `${stats.learning_count} in progress, ${stats.due_for_review} to review.`
     );
   }
   if (kind === "trivia") {

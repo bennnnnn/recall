@@ -88,14 +88,8 @@ export type Todo = {
   updated_at: string;
 };
 
-export type ProjectKind =
-  | "general"
-  | "language"
-  | "vocabulary"
-  | "programming"
-  | "learning"
-  | "math"
-  | "trivia";
+/** Product learning kinds: English vocabulary + general knowledge. */
+export type ProjectKind = "language" | "vocabulary" | "trivia";
 export type LanguageLevel = "level1" | "level2" | "level3" | "level4" | "level5" | "level6";
 export type VocabStatus = "new" | "learning" | "mastered";
 

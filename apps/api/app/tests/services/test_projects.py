@@ -828,14 +828,13 @@ def test_group_items_and_build_stats():
     assert stats.new_count == 1
 
 
-def test_format_projects_block_programming_stack():
-    project = _project("Python basics", kind="programming")
-    project.target_language = "python"
-    item = _item("What programming is and what code does", project.id, list_title="Getting started")
+def test_format_projects_block_trivia_topics():
+    project = _project("World facts", kind="trivia")
+    project.description = "history,science"
+    item = _item("Colossus of Rhodes", project.id, list_title="History")
     block = projects_service.format_projects_block([project], [item])
-    assert "stack=python" in block
-    assert "Programming language: python" in block
-    assert "#### Getting started" in block
+    assert "topics=history,science" in block
+    assert "#### History" in block
 
 
 def test_format_projects_block_empty_items():
@@ -1198,13 +1197,14 @@ async def test_sync_projects_from_transcript_returns_none_on_error():
 
 
 @pytest.mark.asyncio
-async def test_load_project_for_prompt_programming_hint():
+async def test_load_project_for_prompt_trivia_hint():
     session = AsyncMock()
     user_id = uuid4()
     project_id = uuid4()
-    project = _project("Python", kind="programming")
+    project = _project("World", kind="trivia")
     project.id = project_id
-    item = _item("What a variable is", project_id, list_title="Variables")
+    project.description = "history"
+    item = _item("Colossus of Rhodes", project_id, list_title="History")
 
     with (
         patch.object(
@@ -1217,13 +1217,32 @@ async def test_load_project_for_prompt_programming_hint():
             "list_for_user",
             AsyncMock(return_value=[item]),
         ),
+        patch.object(
+            projects_service.project_items_repo,
+            "count_stats",
+            AsyncMock(
+                return_value={
+                    "total": 1,
+                    "mastered_count": 0,
+                    "new_count": 1,
+                    "learning_count": 0,
+                    "mastered_today": 0,
+                    "missed_today": 0,
+                    "pending_today": 1,
+                }
+            ),
+        ),
+        patch(
+            "app.repositories.users.get_by_id",
+            AsyncMock(return_value=MagicMock(timezone="UTC")),
+        ),
     ):
         block = await projects_service.load_project_for_prompt(
             session, user_id, project_id, Settings()
         )
 
-    assert "programming" in block.lower()
-    assert "What a variable is" in block
+    assert "trivia" in block.lower() or "general knowledge" in block.lower()
+    assert "Colossus of Rhodes" in block
 
 
 def test_chat_tutor_hints_acknowledge_completed_daily_goal():

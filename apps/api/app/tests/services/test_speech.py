@@ -5,7 +5,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.core.config import Settings
-from app.services.speech import _openrouter_audio_format, synthesize_speech, transcribe_audio
+from app.gateways.speech_gateway import openrouter_audio_format
+from app.services.speech import synthesize_speech, transcribe_audio
 
 
 @pytest.mark.asyncio
@@ -33,9 +34,9 @@ async def test_transcribe_empty_payload_returns_none():
 
 
 def test_openrouter_audio_format_from_filename():
-    assert _openrouter_audio_format("speech.m4a") == "m4a"
-    assert _openrouter_audio_format("clip.wav") == "wav"
-    assert _openrouter_audio_format("clip.mp4") == "m4a"
+    assert openrouter_audio_format("speech.m4a") == "m4a"
+    assert openrouter_audio_format("clip.wav") == "wav"
+    assert openrouter_audio_format("clip.mp4") == "m4a"
 
 
 @pytest.mark.asyncio
@@ -56,7 +57,7 @@ async def test_transcribe_openrouter_json_api():
     client.__aenter__ = AsyncMock(return_value=client)
     client.__aexit__ = AsyncMock(return_value=None)
 
-    with patch("app.services.speech.httpx.AsyncClient", return_value=client):
+    with patch("app.gateways.speech_gateway.httpx.AsyncClient", return_value=client):
         text = await transcribe_audio(settings, b"audio-bytes", filename="speech.m4a")
 
     assert text == "hello there"

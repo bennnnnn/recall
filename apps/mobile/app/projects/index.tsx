@@ -75,10 +75,7 @@ export default function ProjectsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { projects, loading, error, refresh, setProjects } = useProjects();
-  const visibleProjects = useMemo(
-    () => projects.filter((project) => project.kind !== "programming"),
-    [projects],
-  );
+  const visibleProjects = projects;
   const showAddLearning = useMemo(
     () => canAddLearningProject(projects),
     [projects],

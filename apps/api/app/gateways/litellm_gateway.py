@@ -918,7 +918,7 @@ async def extract_project_actions(
                 '"create_project|delete_project|set_description|set_level|add|start_learning|'
                 'master|unmaster|delete|delete_list", '
                 '"project_title": "must match a topic title from state when possible", '
-                '"kind": "language|programming|trivia|learning|general (use language for English/vocab)", '
+                '"kind": "language|trivia (language = English vocabulary; trivia = general knowledge)", '
                 '"level": "level1-level6 (for language topics)", '
                 '"description": "optional description", '
                 '"list_title": "group/list name (e.g. Travel, General)", '
@@ -927,12 +927,10 @@ async def extract_project_actions(
                 '"example_sentence": "example using the word", '
                 '"note": "alias for example_sentence"}]}. '
                 "Rules:\n"
+                "- Only create language (English vocab) or trivia (general knowledge) topics. "
+                "Never create coding/math/other subject workspaces.\n"
                 "- Do NOT emit create_project for software products, apps to build, repos, or "
-                "codebases (e.g. 'dating app project', 'my React app') — GitHub coding projects "
-                "are a separate future feature.\n"
-                "- For programming learning topics: list_title = journey topic (Variables, "
-                "Functions, …); content = concept name; use master/start_learning when the user "
-                "learns it in chat.\n"
+                "codebases (e.g. 'dating app project', 'my React app').\n"
                 "- add: ONE action per vocabulary word. Use list_title=General unless the user "
                 "named a specific list.\n"
                 "- add: emit when user asked OR assistant listed new words to add this turn. "

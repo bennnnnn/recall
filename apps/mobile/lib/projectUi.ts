@@ -1,7 +1,8 @@
 import type { ProjectKind } from "@/lib/api";
 
-export function isConceptProject(kind: ProjectKind): boolean {
-  return kind === "math" || kind === "general" || kind === "learning";
+export function isConceptProject(_kind: ProjectKind): boolean {
+  // Concept/math workspaces are not a product surface — only language + trivia.
+  return false;
 }
 
 export function isTriviaProject(kind: ProjectKind): boolean {
@@ -44,30 +45,12 @@ export function projectStatsLabels(
       due: t("projects.stats.due"),
     };
   }
-  if (kind === "trivia") {
-    return {
-      learned: t("projects.stats.correct_total"),
-      learnedToday: t("projects.stats.correct_today"),
-      new: t("projects.stats.facts_new"),
-      thisWeek: t("projects.stats.this_week"),
-      due: t("projects.stats.facts_due"),
-    };
-  }
-  if (kind === "math") {
-    return {
-      learned: t("projects.stats.concepts_mastered"),
-      learnedToday: t("projects.stats.mastered_today"),
-      new: t("projects.stats.concepts_new"),
-      thisWeek: t("projects.stats.this_week"),
-      due: t("projects.stats.concepts_due"),
-    };
-  }
   return {
-    learned: t("projects.stats.items_mastered"),
-    learnedToday: t("projects.stats.mastered_today"),
-    new: t("projects.stats.items_new"),
+    learned: t("projects.stats.correct_total"),
+    learnedToday: t("projects.stats.correct_today"),
+    new: t("projects.stats.facts_new"),
     thisWeek: t("projects.stats.this_week"),
-    due: t("projects.stats.items_due"),
+    due: t("projects.stats.facts_due"),
   };
 }
 
@@ -79,7 +62,6 @@ export function formatProjectListTitle(
 ): string {
   const normalized = listTitle.trim().toLowerCase();
   if (normalized === "general") {
-    if (kind === "math") return t("projects.list.topics");
     return t("projects.list.general");
   }
   return listTitle;

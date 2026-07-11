@@ -30,7 +30,7 @@ describe("projectCreateFlow", () => {
   });
 
   it("uses title input when provided", () => {
-    expect(resolveProjectTitle("Calculus", "math", "level1", t)).toBe("Calculus");
+    expect(resolveProjectTitle("World facts", "trivia", "level1", t)).toBe("World facts");
   });
 
   it("allows add learning until both english and trivia exist", () => {

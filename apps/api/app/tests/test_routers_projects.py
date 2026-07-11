@@ -39,9 +39,11 @@ def _project(**kw):
     p.target_language = kw.get("target_language", "en")
     p.native_language = kw.get("native_language", "en")
     p.level = kw.get("level", "level1")
+    p.daily_goal = kw.get("daily_goal", 10)
+    p.daily_goal_history = kw.get("daily_goal_history", None)
     p.archived = False
-    p.created_at = datetime(2024, 1, 1)
-    p.updated_at = datetime(2024, 1, 1)
+    p.created_at = datetime(2024, 1, 1, tzinfo=UTC)
+    p.updated_at = datetime(2024, 1, 1, tzinfo=UTC)
     return p
 
 
@@ -71,11 +73,11 @@ def test_list_projects():
 
     with (
         patch(
-            "app.routers.projects.projects_repo.list_for_user",
+            "app.services.projects.projects_repo.list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch(
-            "app.routers.projects.project_items_repo.count_stats_by_project",
+            "app.services.projects.project_items_repo.count_stats_by_project",
             AsyncMock(return_value={project.id: {"mastered_count": 3, "mastered_today": 1}}),
         ),
     ):
@@ -94,11 +96,11 @@ def test_create_project_maps_vocabulary_to_language():
 
     with (
         patch(
-            "app.routers.projects.projects_repo.create",
+            "app.services.projects.projects_repo.create",
             AsyncMock(return_value=project),
         ) as create_mock,
         patch(
-            "app.routers.projects.projects_repo.find_language_by_target",
+            "app.services.projects.projects_repo.find_language_by_target",
             AsyncMock(return_value=None),
         ),
     ):
@@ -120,11 +122,11 @@ def test_create_language_project_rejects_duplicate():
 
     with (
         patch(
-            "app.routers.projects.projects_repo.find_language_by_target",
+            "app.services.projects.projects_repo.find_language_by_target",
             AsyncMock(return_value=existing),
         ),
         patch(
-            "app.routers.projects.projects_repo.create",
+            "app.services.projects.projects_repo.create",
             AsyncMock(),
         ) as create_mock,
     ):
@@ -139,44 +141,32 @@ def test_create_language_project_rejects_duplicate():
     create_mock.assert_not_awaited()
 
 
-def test_create_programming_project_rejected():
+def test_create_unsupported_kind_rejected():
     user = _fake_user()
     app = _app_with_user(user)
 
-    with patch(
-        "app.routers.projects.projects_repo.create",
-        AsyncMock(),
-    ) as create_mock:
-        client = TestClient(app)
-        r = client.post(
-            "/projects",
-            headers={"Authorization": "Bearer tok"},
-            json={
-                "title": "Python · Programming",
-                "kind": "programming",
-                "target_language": "python",
-            },
-        )
+    client = TestClient(app)
+    r = client.post(
+        "/projects",
+        headers={"Authorization": "Bearer tok"},
+        json={
+            "title": "Python · Programming",
+            "kind": "programming",
+            "target_language": "python",
+        },
+    )
 
-    assert r.status_code == 400
-    assert r.json()["detail"] == "programming_not_supported"
-    create_mock.assert_not_awaited()
+    assert r.status_code == 422
 
 
-def test_patch_programming_kind_rejected():
+def test_patch_unsupported_kind_rejected():
     user = _fake_user()
     app = _app_with_user(user)
     project = _project(kind="language", title="Spanish")
 
-    with (
-        patch(
-            "app.routers.projects.projects_repo.get_by_id",
-            AsyncMock(return_value=project),
-        ),
-        patch(
-            "app.routers.projects.projects_repo.update",
-            AsyncMock(),
-        ) as update_mock,
+    with patch(
+        "app.routers.projects.projects_repo.get_by_id",
+        AsyncMock(return_value=project),
     ):
         client = TestClient(app)
         r = client.patch(
@@ -185,9 +175,7 @@ def test_patch_programming_kind_rejected():
             json={"kind": "programming"},
         )
 
-    assert r.status_code == 400
-    assert r.json()["detail"] == "programming_not_supported"
-    update_mock.assert_not_awaited()
+    assert r.status_code == 422
 
 
 def test_create_trivia_project_rejects_duplicate():
@@ -197,11 +185,11 @@ def test_create_trivia_project_rejects_duplicate():
 
     with (
         patch(
-            "app.routers.projects.projects_repo.find_trivia_project",
+            "app.services.projects.projects_repo.find_trivia_project",
             AsyncMock(return_value=existing),
         ),
         patch(
-            "app.routers.projects.projects_repo.create",
+            "app.services.projects.projects_repo.create",
             AsyncMock(),
         ) as create_mock,
     ):
@@ -222,14 +210,14 @@ def test_create_trivia_project_rejects_duplicate():
     create_mock.assert_not_awaited()
 
 
-def test_get_programming_project_not_found():
+def test_get_unsupported_legacy_project_not_found():
     user = _fake_user()
     app = _app_with_user(user)
     project = _project(kind="programming", title="JS")
     project_id = project.id
 
     with patch(
-        "app.routers.projects.projects_repo.get_by_id",
+        "app.services.projects.projects_repo.get_by_id",
         AsyncMock(return_value=project),
     ):
         client = TestClient(app)
@@ -243,7 +231,7 @@ def test_get_project_not_found():
     app = _app_with_user(user)
 
     with patch(
-        "app.routers.projects.projects_repo.get_by_id",
+        "app.services.projects.projects_repo.get_by_id",
         AsyncMock(return_value=None),
     ):
         client = TestClient(app)
@@ -256,6 +244,7 @@ def test_get_language_project_detail():
     user = _fake_user()
     app = _app_with_user(user)
     project = _project(kind="language")
+    project.daily_goal_history = [{"effective_from": "2024-01-01", "goal": 10}]
     project_id = project.id
     noun = _item(project_id)
     noun.list_title = "General"
@@ -266,15 +255,15 @@ def test_get_language_project_detail():
 
     with (
         patch(
-            "app.routers.projects.projects_repo.get_by_id",
+            "app.services.projects.projects_repo.get_by_id",
             AsyncMock(return_value=project),
         ),
         patch(
-            "app.routers.projects.project_items_repo.list_for_user",
+            "app.services.projects.project_items_repo.list_for_user",
             AsyncMock(return_value=[noun, verb]),
         ),
         patch(
-            "app.routers.projects.project_items_repo.stats_from_items",
+            "app.services.projects.project_items_repo.stats_from_items",
             return_value={
                 "total": 2,
                 "mastered_count": 1,
@@ -398,8 +387,8 @@ def test_delete_project_not_found():
     app = _app_with_user(user)
 
     with patch(
-        "app.routers.projects.projects_repo.delete_by_id",
-        AsyncMock(return_value=False),
+        "app.routers.projects.projects_repo.get_by_id",
+        AsyncMock(return_value=None),
     ):
         client = TestClient(app)
         r = client.delete(f"/projects/{uuid4()}", headers={"Authorization": "Bearer tok"})
@@ -410,13 +399,21 @@ def test_delete_project_not_found():
 def test_delete_project_success():
     user = _fake_user()
     app = _app_with_user(user)
+    project = _project(kind="language")
 
-    with patch(
-        "app.routers.projects.projects_repo.delete_by_id",
-        AsyncMock(return_value=True),
+    with (
+        patch(
+            "app.routers.projects.projects_repo.get_by_id",
+            AsyncMock(return_value=project),
+        ),
+        patch(
+            "app.routers.projects.projects_repo.delete_by_id",
+            AsyncMock(return_value=True),
+        ),
+        patch("app.routers.projects.home_service.invalidate_home_cache", AsyncMock()),
     ):
         client = TestClient(app)
-        r = client.delete(f"/projects/{uuid4()}", headers={"Authorization": "Bearer tok"})
+        r = client.delete(f"/projects/{project.id}", headers={"Authorization": "Bearer tok"})
 
     assert r.status_code == 204
 
@@ -440,6 +437,7 @@ def test_update_project_item_status():
             "app.routers.projects.project_items_repo.update",
             AsyncMock(return_value=item),
         ) as update_mock,
+        patch("app.routers.projects.home_service.invalidate_home_cache", AsyncMock()),
     ):
         client = TestClient(app)
         r = client.patch(

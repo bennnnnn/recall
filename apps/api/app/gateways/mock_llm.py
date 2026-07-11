@@ -475,7 +475,11 @@ async def mock_project_actions(user_message: str, snapshot: dict[str, object]):
                 content = line.split(":", 1)[-1].strip()
                 if len(content) > 3:
                     kind: ProjectKind = (
-                        "vocabulary" if "vocab" in text or "english" in text else "general"
+                        "language"
+                        if "vocab" in text or "english" in text
+                        else "trivia"
+                        if "trivia" in text or "knowledge" in text
+                        else "language"
                     )
                     actions.append(
                         ProjectActionItem(

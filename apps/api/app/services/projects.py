@@ -38,11 +38,25 @@ PROJECT_BLOCKED_FROM_TRANSCRIPT = frozenset({"delete_project", "delete_list"})
 
 DEFAULT_LIST = "General"
 
+# Product surface: English vocabulary + general knowledge only.
+LEARNING_PRODUCT_KINDS = frozenset({"language", "trivia"})
+LEARNING_KIND_ALIASES = {"vocabulary": "language"}
+
+
+def normalize_project_kind(kind: str) -> str:
+    """Map write aliases (vocabulary → language); leave unknown kinds unchanged."""
+    return LEARNING_KIND_ALIASES.get(kind, kind)
+
+
+def is_learning_product_kind(kind: str) -> bool:
+    return normalize_project_kind(kind) in LEARNING_PRODUCT_KINDS
+
+
 _PROJECT_SYNC_TRANSCRIPT = re.compile(
     r"\b("
     r"learning topic|vocab(?:ulary)?|add(?:ed)? (?:word|words)|"
     r"master(?:ed)?|quiz|flashcard|"
-    r"set_level|programming (?:topic|project)|"
+    r"set_level|trivia|general knowledge|"
     r"save (?:to|this)|new list|word list|"
     r"create (?:a )?(?:learning )?(?:topic|project)"
     r")\b",
@@ -65,21 +79,16 @@ def transcript_implies_project_sync(
 
 
 PROJECT_HINT = (
-    "The user keeps **learning topics** (shown in the app as **Learning** — study workspaces for "
-    "languages, vocab, courses, math, programming concepts, etc.).\n"
-    "**Coding repos / software products** (apps to build, 'create my dating app', GitHub projects): "
-    "NOT supported yet — those will link via **GitHub** later with dont-do rules per repo. "
-    "Do NOT create a learning topic when the user wants to build or manage a codebase. Say coding "
-    "projects are coming via GitHub; help in chat or offer a learning topic only if they want to "
-    "study concepts or vocab for a stack.\n"
+    "The user keeps **Learning** workspaces — only two kinds:\n"
+    "1) **English vocabulary** (`language`) — words, definitions, daily quiz.\n"
+    "2) **General knowledge** (`trivia`) — topic facts, daily quiz.\n"
+    "Do NOT create learning topics for coding repos, apps to build, math courses, or other subjects.\n"
     "When they ask about learning topics, answer from the injected list below.\n"
-    "Creating a learning topic via chat — name → type → description → confirm (syncs after reply).\n"
-    "For **language/vocabulary**, each user has at most ONE project per language (e.g. one English "
-    "vocabulary workspace). Do NOT create a second English project — use set_level on the existing "
-    "one when their skill grows.\n"
+    "Creating via chat — name → type (language|trivia) → description → confirm (syncs after reply).\n"
+    "At most ONE English vocabulary project and ONE trivia project per user. "
+    "Do NOT create a second — use set_level on the existing one when skill grows.\n"
     "When telling the user their English level, use the plain label only (Beginner, Elementary, "
     "Intermediate, …) — do not mention CEFR or A1–C2 codes unless they ask.\n"
-    "For programming learning topics, target_language stores the stack (python, javascript, …).\n"
     "Do not invent titles or list names the user did not choose."
 )
 
@@ -177,15 +186,6 @@ LANGUAGE_CHAT_TUTOR_HINT = (
 
 # Default — chat-based daily sessions (LLM picks format each turn).
 LANGUAGE_TUTOR_HINT = LANGUAGE_CHAT_TUTOR_HINT
-
-PROGRAMMING_TUTOR_HINT = (
-    "Active **programming** learning — fixed chapters, each with sub-topics (see snapshot). "
-    "list_title = chapter title; content = sub-topic text exactly as stored.\n"
-    "Teach using the project's stack (target_language = python, javascript, …). "
-    "Mark individual sub-topics with start_learning while studying and master when the user "
-    "demonstrates each one. A chapter is done only when all its sub-topics are mastered.\n"
-    "Work chapters in order; suggest the first chapter that still has new/learning sub-topics."
-)
 
 TRIVIA_QUIZ_FENCE_EXAMPLE = (
     "```vocab_quiz\n"
@@ -780,10 +780,6 @@ def _is_language_project(project: Project) -> bool:
     return project.kind in ("language", "vocabulary")
 
 
-def _is_programming_project(project: Project) -> bool:
-    return project.kind == "programming"
-
-
 def _is_trivia_project(project: Project) -> bool:
     return project.kind == "trivia"
 
@@ -884,11 +880,8 @@ def format_projects_block(projects: list[Project], items: list[ProjectItem]) -> 
         desc = f" — {project.description}" if project.description else ""
         level = getattr(project, "level", "level1") or "level1"
         guidance = _level_guidance(level)
-        stack = getattr(project, "target_language", "en") or "en"
         meta = project.kind
-        if project.kind == "programming" and stack != "en":
-            meta = f"{project.kind}, stack={stack}"
-        elif _is_language_project(project):
+        if _is_language_project(project):
             meta = f"{project.kind}, {level}"
         elif _is_trivia_project(project):
             meta = f"{project.kind}, topics={project.description or 'general'}"
@@ -903,8 +896,6 @@ def format_projects_block(projects: list[Project], items: list[ProjectItem]) -> 
                 f"Daily quiz goal: {_trivia_daily_goal(project)} correct answers per session\n"
                 f"Topics: {project.description or 'general'}\n"
             )
-        elif project.kind == "programming" and stack != "en":
-            skill_line = f"Programming language: {stack}\n"
         lines.append(
             f"\n### {project.title} ({meta}){desc}\n"
             f"{skill_line}"
@@ -1087,8 +1078,6 @@ async def load_project_for_prompt(
         if today_line:
             hint = f"{today_line}\n\n{hint}"
         block = f"{block}\n\n{hint}" if block else hint
-    if _is_programming_project(project):
-        block = f"{block}\n\n{PROGRAMMING_TUTOR_HINT}" if block else PROGRAMMING_TUTOR_HINT
     if _is_trivia_project(project):
         hint = _trivia_tutor_hint(quiz_mode)
         level_line = f"Trivia difficulty: {_trivia_level_guidance(project.level or 'level1')}"
@@ -1125,8 +1114,6 @@ async def load_projects_for_prompt(
     block = format_projects_block(projects, items)
     if any(_is_language_project(p) for p in projects):
         block = f"{block}\n\n{LANGUAGE_TUTOR_HINT}" if block else LANGUAGE_TUTOR_HINT
-    if any(_is_programming_project(p) for p in projects):
-        block = f"{block}\n\n{PROGRAMMING_TUTOR_HINT}" if block else PROGRAMMING_TUTOR_HINT
     if any(_is_trivia_project(p) for p in projects):
         block = f"{block}\n\n{TRIVIA_TUTOR_HINT}" if block else TRIVIA_TUTOR_HINT
     return block
@@ -1219,6 +1206,207 @@ def build_stats(items: list[ProjectItem]) -> ProjectStats:
     return ProjectStats.model_validate(raw)
 
 
+def _build_enriched_stats(
+    project: Project,
+    items: list[ProjectItem],
+    *,
+    timezone_name: str,
+    daily_goal_history: list[dict[str, int | str]] | None = None,
+) -> ProjectStats:
+    from app.services import daily_learning, learning_insights
+
+    raw = project_items_repo.stats_from_items(items, timezone_name=timezone_name)
+    daily_goal = daily_learning.resolve_daily_goal(project)
+    enriched = learning_insights.enrich_learning_stats(
+        raw,
+        project=project,
+        items=items,
+        timezone_name=timezone_name,
+        daily_history=daily_learning.build_daily_history(
+            items,
+            timezone_name=timezone_name,
+            daily_goal=daily_goal,
+            active_since=project.created_at,
+            daily_goal_history=daily_goal_history,
+        ),
+    )
+    return ProjectStats.model_validate(enriched)
+
+
+async def _maybe_persist_daily_goal_history(
+    session: AsyncSession,
+    project: Project,
+    items: list[ProjectItem],
+    *,
+    timezone_name: str,
+) -> list[dict[str, int | str]]:
+    from app.services import daily_learning
+
+    history = daily_learning.ensure_daily_goal_history(
+        project,
+        items,
+        timezone_name=timezone_name,
+    )
+    existing = daily_learning.parse_daily_goal_history(project)
+    should_persist = project.daily_goal_history is None or (
+        len(existing) == 1 and history != existing
+    )
+    if should_persist and is_learning_product_kind(project.kind):
+        await projects_repo.update(session, project, daily_goal_history=history)
+    return history
+
+
+async def list_projects_for_user(
+    session: AsyncSession,
+    user: User,
+    *,
+    client_timezone: str | None = None,
+) -> list[dict[str, Any]]:
+    """Return product learning projects (language + trivia) with optional stats."""
+    from app.services import time_context as time_context_service
+
+    items = await projects_repo.list_for_user(session, user.id)
+    visible = [item for item in items if is_learning_product_kind(item.kind)]
+    learning_ids = [item.id for item in visible]
+    stats_by_project: dict[UUID, ProjectStats] = {}
+    if learning_ids:
+        tz_name = time_context_service.effective_timezone(user.timezone, client_timezone)
+        raw_stats = await project_items_repo.count_stats_by_project(
+            session,
+            learning_ids,
+            timezone_by_project={pid: tz_name for pid in learning_ids},
+        )
+        stats_by_project = {
+            pid: ProjectStats.model_validate(raw_stats.get(pid, {})) for pid in learning_ids
+        }
+    return [
+        {
+            **{
+                "id": item.id,
+                "title": item.title,
+                "description": item.description,
+                "kind": normalize_project_kind(item.kind),
+                "target_language": item.target_language,
+                "native_language": item.native_language,
+                "level": item.level,
+                "daily_goal": item.daily_goal,
+                "archived": item.archived,
+                "created_at": item.created_at,
+                "updated_at": item.updated_at,
+            },
+            "stats": stats_by_project.get(item.id),
+        }
+        for item in visible
+    ]
+
+
+async def create_learning_project(
+    session: AsyncSession,
+    user: User,
+    *,
+    title: str,
+    description: str | None,
+    kind: str,
+    target_language: str = "en",
+    native_language: str | None = None,
+    level: str = "level1",
+    daily_goal: int | None = None,
+) -> Project:
+    """Create a language or trivia project; raises ValueError with a stable code."""
+    from app.services import time_context as time_context_service
+
+    normalized = normalize_project_kind(kind)
+    if normalized not in LEARNING_PRODUCT_KINDS:
+        raise ValueError("unsupported_project_kind")
+    if normalized == "language":
+        existing = await projects_repo.find_language_by_target(session, user.id, target_language)
+        if existing:
+            raise ValueError("language_project_exists")
+    if normalized == "trivia":
+        existing = await projects_repo.find_trivia_project(session, user.id)
+        if existing:
+            raise ValueError("trivia_project_exists")
+    return await projects_repo.create(
+        session,
+        user_id=user.id,
+        title=title,
+        description=description,
+        kind=normalized,
+        target_language=target_language,
+        native_language=native_language,
+        level=level,
+        daily_goal=daily_goal if normalized in LEARNING_PRODUCT_KINDS else None,
+        timezone_name=time_context_service.effective_timezone(user.timezone, None),
+    )
+
+
+async def get_project_detail(
+    session: AsyncSession,
+    user: User,
+    project_id: UUID,
+    *,
+    client_timezone: str | None = None,
+) -> dict[str, Any] | None:
+    """Assemble project detail for language/trivia; None if missing or unsupported."""
+    from app.models.schemas import ProjectDailyHistoryDay, ProjectOut
+    from app.services import daily_learning
+    from app.services import time_context as time_context_service
+
+    item = await projects_repo.get_by_id(session, project_id, user.id)
+    if item is None or not is_learning_product_kind(item.kind):
+        return None
+
+    tz_name = time_context_service.effective_timezone(user.timezone, client_timezone)
+    project_items = await project_items_repo.list_for_user(
+        session, user.id, project_id=project_id, limit=5000
+    )
+    goal_history = await _maybe_persist_daily_goal_history(
+        session, item, project_items, timezone_name=tz_name
+    )
+    stats = _build_enriched_stats(
+        item, project_items, timezone_name=tz_name, daily_goal_history=goal_history
+    )
+    daily_history = [
+        ProjectDailyHistoryDay.model_validate(row)
+        for row in daily_learning.build_daily_history(
+            project_items,
+            timezone_name=tz_name,
+            daily_goal=daily_learning.resolve_daily_goal(item),
+            active_since=item.created_at,
+            daily_goal_history=goal_history,
+            days=14,
+        )
+    ]
+    daily_items_by_date = {
+        day_key: [ProjectItemOut.model_validate(i) for i in day_items]
+        for day_key, day_items in daily_learning.group_mastered_items_by_date(
+            project_items, timezone_name=tz_name, days=14
+        ).items()
+    }
+    daily_missed_by_date = {
+        day_key: [ProjectItemOut.model_validate(i) for i in day_items]
+        for day_key, day_items in daily_learning.group_missed_items_by_date(
+            project_items, timezone_name=tz_name, days=14
+        ).items()
+    }
+    lists = (
+        group_trivia_items(project_items)
+        if _is_trivia_project(item)
+        else group_items(project_items)
+    )
+    return {
+        **ProjectOut.model_validate(item).model_dump(),
+        "kind": normalize_project_kind(item.kind),
+        "mastered_count": stats.mastered_count,
+        "total_count": stats.total,
+        "stats": stats,
+        "daily_history": daily_history,
+        "daily_items_by_date": daily_items_by_date,
+        "daily_missed_by_date": daily_missed_by_date,
+        "lists": lists,
+    }
+
+
 async def apply_project_actions(
     session: AsyncSession,
     *,
@@ -1238,12 +1426,12 @@ async def apply_project_actions(
         applied_before = applied
         try:
             if action.action == "create_project":
-                kind = action.kind or "general"
-                if kind == "vocabulary":
-                    kind = "language"
-                if kind == "programming":
+                kind = normalize_project_kind(action.kind or "language")
+                if kind not in LEARNING_PRODUCT_KINDS:
                     continue
                 if kind == "language" and _find_language_project(projects, "en"):
+                    continue
+                if kind == "trivia" and any(_is_trivia_project(p) for p in projects):
                     continue
                 if _find_project(projects, title):
                     continue

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from uuid import UUID
 
@@ -17,6 +18,9 @@ from app.services import attachment_content as attachment_content_service
 from app.services.prompt_safety import wrap_untrusted
 
 logger = logging.getLogger(__name__)
+
+# Cap concurrent embedding calls so a large PDF doesn't stampede the provider.
+_EMBED_CONCURRENCY = 8
 
 
 def chunk_text(text: str, *, chunk_chars: int = 900, overlap: int = 120) -> list[str]:
@@ -41,6 +45,20 @@ def is_indexable_attachment(row: Attachment) -> bool:
         not attachment_content_service.is_image_content_type(row.content_type)
         and row.content_type in attachment_content_service.EXTRACTABLE_CONTENT_TYPES
     )
+
+
+async def _embed_pieces(
+    settings: Settings,
+    pieces: list[str],
+) -> list[tuple[int, str, list[float] | None]]:
+    sem = asyncio.Semaphore(_EMBED_CONCURRENCY)
+
+    async def _one(index: int, piece: str) -> tuple[int, str, list[float] | None]:
+        async with sem:
+            vec = await embedding_gateway.embed_text(settings, piece)
+        return index, piece, vec
+
+    return list(await asyncio.gather(*(_one(i, piece) for i, piece in enumerate(pieces))))
 
 
 async def index_attachment(
@@ -78,10 +96,7 @@ async def index_attachment(
     if not pieces:
         return 0
 
-    embedded: list[tuple[int, str, list[float] | None]] = []
-    for index, piece in enumerate(pieces):
-        vec = await embedding_gateway.embed_text(settings, piece)
-        embedded.append((index, piece, vec))
+    embedded = await _embed_pieces(settings, pieces)
 
     await chunks_repo.replace_chunks(
         session,

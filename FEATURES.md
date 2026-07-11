@@ -363,8 +363,9 @@ courses, habits, and anything else that needs structure over time.
   `trivia` | `learning`), archive flag.
 - ✅ **REST API** — `GET/POST /projects`, `GET/PATCH/DELETE /projects/{id}`.
 - ✅ **Mobile** — drawer **Learning** link → list → create → detail screen.
-- ✅ **Project kinds** — mobile create flow offers **English vocabulary** (`language`) and
-  **general knowledge** (`trivia`); other schema kinds are not exposed in the UI.
+- ✅ **Project kinds** — API + mobile support only **English vocabulary** (`language`, with
+  `vocabulary` as a write alias) and **general knowledge** (`trivia`). Legacy kinds
+  (`programming`, `math`, …) are rejected on create and hidden from list/detail.
 
 ### Phase 2 — Vocabulary (Learning English)
 - ✅ **Decks / groups** — organize words by deck title on the detail screen.

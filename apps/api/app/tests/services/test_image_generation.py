@@ -62,7 +62,7 @@ async def test_generate_image_openrouter_b64_json():
 
     with (
         patch("app.services.image_generation.mock_llm.should_mock_llm", return_value=False),
-        patch("app.services.image_generation.httpx.AsyncClient", return_value=mock_client),
+        patch("app.gateways.image_gateway.httpx.AsyncClient", return_value=mock_client),
     ):
         result = await generate_image(settings, prompt="sunset over mountains", aspect_ratio="16:9")
 

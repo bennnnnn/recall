@@ -308,7 +308,7 @@ async def test_process_learning_nudges_batches_across_users():
 
 
 @pytest.mark.asyncio
-async def test_process_learning_nudges_skips_programming_projects():
+async def test_process_learning_nudges_skips_non_learning_projects():
     session = AsyncMock()
     redis = AsyncMock()
     settings = Settings(push_learning_hour=0)
@@ -323,8 +323,8 @@ async def test_process_learning_nudges_skips_programming_projects():
     project = MagicMock()
     project.id = uuid4()
     project.user_id = user_id
-    project.title = "Python"
-    project.kind = "programming"
+    project.title = "Legacy math"
+    project.kind = "math"
 
     token = MagicMock()
     token.user_id = user_id

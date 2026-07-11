@@ -81,9 +81,6 @@ export default function ProjectDetailScreen() {
         const data = await fetchProjectDetail(token, id, { force: opts?.force });
         if (data) {
           setProject(data);
-          if (data.kind === "programming") {
-            router.replace("/projects");
-          }
         } else if (!projectRef.current) {
           setProject(null);
           setLoadError(true);
@@ -403,7 +400,7 @@ export default function ProjectDetailScreen() {
           ) : (
             <View style={s.comingSoon}>
               <Text style={s.comingSoonBody}>
-                {t(project.kind === "math" ? "projects.math_empty" : "projects.concept_empty")}
+                {t("projects.concept_empty")}
               </Text>
             </View>
           )}

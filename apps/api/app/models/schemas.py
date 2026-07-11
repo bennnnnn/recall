@@ -382,15 +382,9 @@ class TodoExtractionResult(BaseModel):
     actions: list[TodoActionItem] = Field(default_factory=list)
 
 
-ProjectKind = Literal[
-    "general",
-    "language",
-    "vocabulary",
-    "programming",
-    "learning",
-    "math",
-    "trivia",
-]
+# Product learning kinds: English vocabulary + general knowledge.
+# `vocabulary` is accepted as a write alias and normalized to `language`.
+ProjectKind = Literal["language", "vocabulary", "trivia"]
 LanguageLevel = Literal["level1", "level2", "level3", "level4", "level5", "level6"]
 VocabStatus = Literal["new", "learning", "mastered"]
 
@@ -414,7 +408,7 @@ class ProjectOut(BaseModel):
 class ProjectCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=4000)
-    kind: ProjectKind = "general"
+    kind: ProjectKind = "language"
     target_language: str = Field(default="en", max_length=10)
     native_language: str | None = Field(default=None, max_length=10)
     level: LanguageLevel = "level1"
