@@ -31,6 +31,7 @@ export function DrawerSelectionBar({
         style={[s.selectionAction, disabled && s.selectionActionDisabled]}
         disabled={disabled}
         onPress={onArchive}
+        accessibilityRole="button"
       >
         <Ionicons
           name="archive-outline"
@@ -45,6 +46,7 @@ export function DrawerSelectionBar({
         style={[s.selectionAction, disabled && s.selectionActionDisabled]}
         disabled={disabled}
         onPress={onDelete}
+        accessibilityRole="button"
       >
         <Ionicons
           name="trash-outline"

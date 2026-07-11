@@ -1,4 +1,4 @@
-import React, { memo } from "react";
+import React, { memo, useCallback } from "react";
 
 import { MessageBubble } from "@/components/MessageBubble";
 import type { Message } from "@/lib/api";
@@ -44,6 +44,10 @@ export const ChatMessageRow = memo(function ChatMessageRow({
   const isLastAssistant = item.role === "assistant" && item.id === lastAssistantId;
   const isActiveQuiz = item.role === "assistant" && item.id === activeQuizMessageId;
 
+  const handleRegenerate = useCallback(() => {
+    onRegenerate(selectedModel);
+  }, [onRegenerate, selectedModel]);
+
   return (
     <MessageBubble
       message={item}
@@ -54,9 +58,7 @@ export const ChatMessageRow = memo(function ChatMessageRow({
       liveReasoning={undefined}
       streamStatus={undefined}
       isLastAssistant={isLastAssistant}
-      onRegenerate={
-        isLastAssistant && !streamVisualActive ? () => onRegenerate(selectedModel) : undefined
-      }
+      onRegenerate={isLastAssistant && !streamVisualActive ? handleRegenerate : undefined}
       onEdit={onEdit}
       canEdit={item.role === "user" && !streamVisualActive && !item.id.startsWith("local-")}
       onFeedback={onFeedback}
