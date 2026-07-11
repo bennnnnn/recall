@@ -17,6 +17,7 @@ import {
   resolveClockTimezone,
   type ClockParts,
 } from "@/lib/clockTime";
+import { subscribeClockTick } from "@/lib/clockTick";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = { content: string };
@@ -144,8 +145,11 @@ export function CircularClockBlock({ content }: Props) {
       );
     };
     tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
+    // One shared interval drives every mounted clock — see lib/clockTick.ts —
+    // instead of each instance running its own setInterval indefinitely
+    // (FlashList keeps rows mounted slightly past the viewport, so N clocks
+    // used to mean N live timers).
+    return subscribeClockTick(tick);
   }, [pulse, ringOpacity]);
 
   const parts = useMemo(
