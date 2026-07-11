@@ -244,17 +244,13 @@ export default function ProjectDetailScreen() {
       : null;
 
   const dailyStudyCtaLabel =
-    !dailyGoalMet && remainingToday > 0
-      ? stats.mastered_today === 0 && (stats.missed_today ?? 0) === 0
-        ? isTrivia
-          ? t("projects.study.start_questions")
-          : t("projects.study.start_words", { count: dailyGoal })
-        : isTrivia
-          ? t("projects.list.continue_questions", { count: remainingToday })
-          : t("projects.list.continue_words", { count: remainingToday })
+    stats.mastered_today === 0 && (stats.missed_today ?? 0) === 0
+      ? isTrivia
+        ? t("projects.study.start_questions")
+        : t("projects.study.start_words", { count: dailyGoal })
       : isTrivia
-        ? t("projects.study.complete_questions", { count: remainingToday })
-        : t("projects.study.complete_words", { count: remainingToday });
+        ? t("projects.list.continue_questions", { count: remainingToday })
+        : t("projects.list.continue_words", { count: remainingToday });
 
   const handleItemStatusChange = async (itemId: string, status: VocabStatus) => {
     if (!token || typeof id !== "string") return;
@@ -305,28 +301,14 @@ export default function ProjectDetailScreen() {
     router.replace("/");
   };
 
+  // List-footer CTA only when it's a different action than the primary filled
+  // button under TODAY (bonus after goal). Start/continue live on the primary CTA.
   let todayStudyAction: ProjectStudyAction | null = null;
-  if ((isLang || isTrivia) && dailyGoal && isToday) {
-    if (dailyGoalMet) {
-      todayStudyAction = {
-        label: isTrivia ? t("projects.add_bonus_questions") : t("projects.add_bonus_words"),
-        onPress: startStudyBonus,
-      };
-    } else if (stats.mastered_today === 0 && (stats.missed_today ?? 0) === 0) {
-      todayStudyAction = {
-        label: isTrivia
-          ? t("projects.study.start_questions", { count: dailyGoal })
-          : t("projects.study.start_words", { count: dailyGoal }),
-        onPress: startStudyQuiz,
-      };
-    } else {
-      todayStudyAction = {
-        label: isTrivia
-          ? t("projects.study.complete_questions", { count: remainingToday })
-          : t("projects.study.complete_words", { count: remainingToday }),
-        onPress: startStudyQuiz,
-      };
-    }
+  if ((isLang || isTrivia) && dailyGoal && isToday && dailyGoalMet) {
+    todayStudyAction = {
+      label: isTrivia ? t("projects.add_bonus_questions") : t("projects.add_bonus_words"),
+      onPress: startStudyBonus,
+    };
   }
 
   return (
