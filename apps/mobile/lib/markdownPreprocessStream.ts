@@ -5,11 +5,30 @@ export type StreamingPreprocessCache = {
   rawStableLen: number;
   /** Preprocessed output for `content.slice(0, rawStableLen)`. */
   preparedStable: string;
+  /**
+   * Incremental-scan state for `preprocessMarkdownForStream`'s stability
+   * check (see `scanStableMarkdownPrefix` below). Opaque to callers — just
+   * round-trip it back in on the next call. `null` means "start a fresh
+   * scan" (e.g. a new stream, or a cache that predates this field).
+   */
+  scanState: StableScanState | null;
 };
 
 /**
  * Longest raw prefix safe to preprocess while the message is still growing.
  * Excludes partial lines and regions inside unclosed fences / block math.
+ *
+ * This is the simple, non-incremental reference implementation: it re-scans
+ * from the start of `content` on every call. It is kept exactly as it was
+ * (and is still covered directly by tests) as the ground truth that
+ * `scanStableMarkdownPrefix`'s incremental fast path is checked against.
+ *
+ * The streaming hot path (`preprocessMarkdownForStream`) does NOT call this
+ * function — it uses the incremental scanner instead, because re-running a
+ * whole-prefix scan from scratch on every ~48ms throttle tick is
+ * O(content length) per call, and while a single fence/math block/callout
+ * stays open across many ticks, that cost is paid again and again as the
+ * unstable region grows (cost grows with how long the structure stays open).
  */
 export function findStableMarkdownPrefixLen(content: string): number {
   if (!content) return 0;
@@ -55,6 +74,109 @@ function countOccurrences(text: string, needle: string): number {
   return count;
 }
 
+const CALLOUT_MARKER_LINE_RE = /^>\s*\[!\w+\]/i;
+
+export type StableScanState = {
+  /** Absolute offset into `content` already folded into the fields below. */
+  scannedLen: number;
+  /** Parity of ``` fence-marker lines seen so far (true = inside a fence). */
+  fenceOpen: boolean;
+  /** Parity of `$$` occurrences seen so far (true = inside block math). */
+  dollarOpen: boolean;
+  /** Whether an unclosed `> [!type]` callout chain reaches `scannedLen`. */
+  calloutOpen: boolean;
+  /** Largest confirmed-stable prefix length found up to `scannedLen`. */
+  stableEnd: number;
+};
+
+/**
+ * Incremental equivalent of `findStableMarkdownPrefixLen`, used by the
+ * streaming hot path.
+ *
+ * `findStableMarkdownPrefixLen` finds the answer by walking backward from
+ * the end of `content` line by line, re-running a whole-prefix regex/count
+ * scan (`hasUnclosedStreamingStructure`) at every candidate boundary. For a
+ * reply that opens one giant code fence and keeps streaming for thousands of
+ * characters before closing it, every candidate boundary inside that fence
+ * is unstable, so the walk visits — and fully re-scans from position 0 —
+ * every line of the fence, every tick, for as long as it stays open.
+ *
+ * This function instead scans `content` forward line by line exactly once,
+ * maintaining running parity/state for fences, `$$` math, and callouts as it
+ * goes (folding in each line is O(1)), and remembers the last line boundary
+ * where all three were "closed". Given a previous call's returned state, a
+ * later call for grown (append-only) `content` resumes from
+ * `state.scannedLen` instead of re-scanning from position 0 — so the work
+ * done on each call is bounded by how much *new* text arrived since the
+ * previous call, not by how much of the message is still open.
+ *
+ * Why resuming is safe: `scannedLen` is always a full-line boundary (0 or
+ * right after a `\n`), and the fence/`$$` parity + callout state cached at
+ * that boundary are exactly the running state a whole-prefix scan of
+ * `content.slice(0, scannedLen)` would have computed. Appending more text
+ * cannot retroactively change whether that earlier text closed its
+ * fences/math/callouts (its own parity/chain state is a closed fact once
+ * written), so the cached state stays valid — only the newly appended lines
+ * need to be folded in. (This mirrors why `findStableMarkdownPrefixLen`'s
+ * own answer never needs to re-examine text before a boundary it already
+ * proved stable: a stable prefix's internal balance can't be undone by
+ * appending after it.)
+ *
+ * If `prevState` looks stale (its `scannedLen` is past the current content —
+ * should not happen for append-only streaming content, but checked
+ * defensively), the scan restarts from 0.
+ */
+function scanStableMarkdownPrefix(
+  content: string,
+  prevState: StableScanState | null,
+): StableScanState {
+  let end0 = content.length;
+  if (!content.endsWith("\n")) {
+    const lastNl = content.lastIndexOf("\n");
+    end0 = lastNl === -1 ? 0 : lastNl + 1;
+  }
+
+  let fenceOpen = false;
+  let dollarOpen = false;
+  let calloutOpen = false;
+  let stableEnd = 0;
+  let pos = 0;
+
+  if (prevState && prevState.scannedLen <= end0) {
+    pos = prevState.scannedLen;
+    fenceOpen = prevState.fenceOpen;
+    dollarOpen = prevState.dollarOpen;
+    calloutOpen = prevState.calloutOpen;
+    stableEnd = prevState.stableEnd;
+  }
+
+  while (pos < end0) {
+    const nl = content.indexOf("\n", pos);
+    if (nl === -1 || nl >= end0) break;
+    const line = content.slice(pos, nl);
+    const isAbsoluteFirstLine = pos === 0;
+
+    if (line.startsWith("```")) fenceOpen = !fenceOpen;
+    if (countOccurrences(line, "$$") % 2 !== 0) dollarOpen = !dollarOpen;
+    // A callout chain continues as long as each new line still starts with
+    // ">" (matching the original regex's permissive continuation pattern);
+    // otherwise it only (re)starts on a proper `> [!type]` marker line — and
+    // per the original regex, a marker line at the absolute start of the
+    // whole message (no preceding "\n" before it) never counts, so that's
+    // excluded here too.
+    calloutOpen = calloutOpen
+      ? line.startsWith(">")
+      : !isAbsoluteFirstLine && CALLOUT_MARKER_LINE_RE.test(line);
+
+    pos = nl + 1;
+    if (!fenceOpen && !dollarOpen && !calloutOpen) {
+      stableEnd = pos;
+    }
+  }
+
+  return { scannedLen: end0, fenceOpen, dollarOpen, calloutOpen, stableEnd };
+}
+
 /**
  * Incrementally preprocess append-only streaming markdown.
  * Stable prefix is fully preprocessed; the trailing unstable region stays raw
@@ -64,15 +186,22 @@ export function preprocessMarkdownForStream(
   content: string,
   cache: StreamingPreprocessCache | null,
 ): { prepared: string; cache: StreamingPreprocessCache } {
-  const stableLen = findStableMarkdownPrefixLen(content);
+  const scanState = scanStableMarkdownPrefix(content, cache?.scanState ?? null);
+  const stableLen = scanState.stableEnd;
 
   if (stableLen === 0) {
-    return { prepared: content, cache: { rawStableLen: 0, preparedStable: "" } };
+    return {
+      prepared: content,
+      cache: { rawStableLen: 0, preparedStable: "", scanState },
+    };
   }
 
   if (stableLen === content.length) {
     const prepared = preprocessMarkdown(content);
-    return { prepared, cache: { rawStableLen: stableLen, preparedStable: prepared } };
+    return {
+      prepared,
+      cache: { rawStableLen: stableLen, preparedStable: prepared, scanState },
+    };
   }
 
   const stableRaw = content.slice(0, stableLen);
@@ -88,6 +217,6 @@ export function preprocessMarkdownForStream(
   const tail = content.slice(stableLen);
   return {
     prepared: preparedStable + tail,
-    cache: { rawStableLen: stableLen, preparedStable },
+    cache: { rawStableLen: stableLen, preparedStable, scanState },
   };
 }
