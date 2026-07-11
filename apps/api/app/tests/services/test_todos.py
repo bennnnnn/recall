@@ -197,10 +197,10 @@ async def test_sync_todos_refuses_delete_list_from_transcript_and_caps_actions()
     extraction = MagicMock()
     extraction.actions = [
         TodoActionItem(action="delete_list", topic="Work", content=""),
-        TodoActionItem(action="add", topic="Shop", content="milk"),
-        TodoActionItem(action="add", topic="Shop", content="eggs"),
-        TodoActionItem(action="add", topic="Shop", content="bread"),
-        TodoActionItem(action="add", topic="Shop", content="extra-should-not-run"),
+        *[
+            TodoActionItem(action="add", topic="Shop", content=f"item-{i}")
+            for i in range(todos_service.MAX_TODO_ACTIONS_PER_TURN + 3)
+        ],
     ]
 
     captured: dict[str, object] = {}
@@ -603,7 +603,7 @@ async def test_materialize_reminder_fences_skips_invalid():
 def test_todo_hint_covers_reminder_confirm_timing():
     hint = todos_service.TODO_HINT
     assert "```reminder" in hint
-    assert "Without the fence, nothing is saved" in hint
+    assert "Only say a reminder is set if you emitted that fence" in hint
 
 
 def test_should_inject_todos_prompt():

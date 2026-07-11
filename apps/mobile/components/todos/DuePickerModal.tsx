@@ -66,7 +66,7 @@ export function DuePickerModal({
           <View style={[s.overlapNote, s.pickerOverlapNote]}>
             <Ionicons name="information-circle-outline" size={16} color={C.danger} />
             <Text style={s.overlapNoteText}>
-              {t("todos.overlap_inline", { task: overlap.content })}
+              {t("todos.overlap_inline", { title: overlap.content })}
             </Text>
           </View>
         ) : null}

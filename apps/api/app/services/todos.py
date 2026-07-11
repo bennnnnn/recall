@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 # Defensive caps for LLM-inferred mutations applied from a chat transcript.
 # The model extracts actions from arbitrary user text; these limits prevent a
 # misparse from wiping large amounts of data in one turn.
-MAX_TODO_ACTIONS_PER_TURN = 3
+MAX_TODO_ACTIONS_PER_TURN = 12
 # Actions blocked from the post-reply background job only (assistant text must not
 # trigger whole-list deletes). Pre-turn sync may apply delete_list when the user asks.
 TODO_BLOCKED_FROM_TRANSCRIPT = frozenset({"delete_list"})
@@ -58,7 +58,9 @@ TODO_HINT = (
     "```\n"
     "Include exactly one ```reminder fence when the user confirms or clearly asks to set a "
     "dated reminder. due_at must be ISO-8601 with timezone offset (or Z). Then confirm briefly. "
-    "Without the fence, nothing is saved — never claim a reminder is set without emitting it.\n"
+    "Only say a reminder is set if you emitted that fence in this reply — without it, nothing "
+    "is saved. Background sync may still apply list changes and recover missed fences, but "
+    "do not rely on that for a confident confirm.\n"
     "Deleting lists via chat — whole-list delete is NOT supported from chat (only individual "
     "items are). To delete a whole list, tell the user to check off or delete every item first, "
     "then use the trash icon on the list header in the Lists tab. Never claim a list was deleted "

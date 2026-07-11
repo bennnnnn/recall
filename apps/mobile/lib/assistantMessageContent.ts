@@ -1,5 +1,6 @@
 import type { CalendarProposal } from "@/lib/calendarProposal";
 import { parseCalendarProposals, stripCalendarProposalFences } from "@/lib/calendarProposal";
+import { stripReminderFences } from "@/lib/reminderFence";
 import type { SearchSource } from "@/lib/api";
 import {
   formatVocabQuizAsMarkdown,
@@ -112,6 +113,7 @@ function buildMarkdownContent(options: {
 
   if (showLiveClock) text = stripTimeAnswerFences(text);
   text = stripSearchSourcesFromContent(text);
+  text = stripReminderFences(text);
   if (showCalendarProposals) text = stripCalendarProposalFences(text);
   if (showPlaces) text = stripPlacesContent(text, places);
   return text;

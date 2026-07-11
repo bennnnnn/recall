@@ -252,7 +252,9 @@ export function useChat(
         }
         if (payload.todos_sync === "1") {
           onTodosSyncRef.current?.();
+          // Background list extract can lag; refresh again so Lists/Reminders catch up.
           setTimeout(() => onTodosSyncRef.current?.(), 2500);
+          setTimeout(() => onTodosSyncRef.current?.(), 7000);
         }
       }
 

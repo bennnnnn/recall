@@ -747,7 +747,7 @@
   "todos.move_to_todos": "ቀን አስወግድ (ወደ ዝርዝር አ 옮ድ)",
   "todos.no_projects": "እስካሁን የLearning ፕሮጀክት የለም። መጀመሪያ ይፍጠሩ።",
   "todos.notifications_hint": "Turn on notifications for reminders (Settings → Reminder alert).",
-  "todos.overlap_inline": "ከ\"{{task}}\" ጋር አንድ ጊዜ",
+  "todos.overlap_inline": "ከ\"{{title}}\" ጋር አንድ ጊዜ",
   "todos.project_linked": "ከ {{title}} ጋር ተገናኝቷል",
   "todos.reminder_label": "ማስታወሻ",
   "todos.reminder_placeholder": "ወደ NYC የበረራ",

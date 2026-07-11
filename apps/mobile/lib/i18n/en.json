@@ -747,7 +747,7 @@
   "todos.move_to_todos": "Remove date (move to list)",
   "todos.no_projects": "No Learning projects yet. Create one under Learning first.",
   "todos.notifications_hint": "Turn on notifications to get reminded before each due time (see Settings → Reminder alert).",
-  "todos.overlap_inline": "Same time as \"{{task}}\"",
+  "todos.overlap_inline": "Same time as \"{{title}}\"",
   "todos.project_linked": "Linked to {{title}}",
   "todos.reminder_label": "Reminder",
   "todos.reminder_placeholder": "Flight to NYC",

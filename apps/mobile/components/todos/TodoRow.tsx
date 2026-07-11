@@ -78,7 +78,7 @@ export function TodoRow({
         ) : null}
         {overlapWith && !todo.checked ? (
           <Text style={s.overlapLabel}>
-            {t("todos.overlap_inline", { task: overlapWith })}
+            {t("todos.overlap_inline", { title: overlapWith })}
           </Text>
         ) : null}
       </View>

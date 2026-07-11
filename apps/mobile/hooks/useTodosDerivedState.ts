@@ -51,7 +51,8 @@ export function useTodosDerivedState(
     openReminders.length,
   ]);
   const isRemindersPage = focusSection === "reminders";
-  const showRemindersEmptyHero = isEmpty && focusSection !== "reminders";
+  // Empty hero for Lists page, combined empty, AND Reminders page with zero reminders.
+  const showRemindersEmptyHero = isEmpty;
 
   return {
     openReminders,

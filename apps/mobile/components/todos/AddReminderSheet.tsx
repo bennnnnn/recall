@@ -131,7 +131,7 @@ export function AddReminderSheet({
             <View style={s.overlapNote}>
               <Ionicons name="information-circle-outline" size={16} color={C.danger} />
               <Text style={s.overlapNoteText}>
-                {t("todos.overlap_inline", { task: overlap.content })}
+                {t("todos.overlap_inline", { title: overlap.content })}
               </Text>
             </View>
           ) : null}

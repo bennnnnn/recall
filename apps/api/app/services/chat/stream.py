@@ -604,6 +604,9 @@ async def stream_and_finalize(
                     transcript
                 ):
                     result["todos_sync"] = "1"
+                # Push stripped text so the live bubble matches DB (no raw ```reminder JSON).
+                if reminder_created > 0:
+                    result["final_content"] = assistant_text
 
             if result is not None and was_cancelled and assistant_text:
                 result["final_content"] = assistant_text
