@@ -151,13 +151,24 @@ async def enqueue_post_turn_jobs(
             ),
         )
     if not ctx.skip_memory_jobs and todos_service.transcript_implies_todo_sync(transcript):
+        todo_transcript = transcript
+        try:
+            async with SessionLocal() as session:
+                todo_transcript = await todos_service.build_todo_sync_transcript(
+                    session,
+                    ctx.chat_id,
+                    user_message=ctx.user_message_content,
+                    assistant_text=assistant_text,
+                )
+        except Exception:
+            logger.exception("Failed to expand todo sync transcript; using current turn only")
         job_specs.append(
             (
                 "todos",
                 {
                     "user_id": str(ctx.user_id),
                     "chat_id": str(ctx.chat_id),
-                    "transcript": transcript,
+                    "transcript": todo_transcript,
                 },
             ),
         )

@@ -866,12 +866,20 @@ async def extract_todo_actions(
                 '"topic": "list title", "content": "item text (omit for delete_list)", '
                 '"due_at": "ISO-8601 datetime or null"}]}. '
                 "Rules:\n"
-                "- For add: only when the user gave a clear list title AND item text. "
-                "If they want a new list but no title yet, return empty actions.\n"
-                "- For add: topic must be the agreed list name (e.g. Groceries, Taxes). "
-                "Never invent titles or default to General.\n"
-                "- For add/set_due: due_at optional on add; required on set_due. "
-                "Interpret relative dates in the user's timezone (tomorrow, Friday 5pm).\n"
+                "- For add WITHOUT a due date (list item): only when the user gave a clear "
+                "list title AND item text. If they want a new list but no title yet, return "
+                "empty actions. Topic must be the agreed list name (e.g. Groceries, Taxes) — "
+                "never invent list titles.\n"
+                "- For add WITH a due date (reminder): content = short reminder title; "
+                "due_at = the agreed ISO-8601 datetime from the transcript (including prior "
+                'turns when the user only said Yes/Sure). Topic may be "Reminders" or '
+                "omitted. Do NOT skip just because there is no grocery-style list title.\n"
+                "- When the assistant confirmed setting a reminder (e.g. Reminder set / "
+                "I'll set a reminder) and the transcript has a title + date/time, emit that "
+                "add with due_at.\n"
+                "- For add/set_due: due_at optional on list adds; required on set_due and on "
+                "reminder adds. Interpret relative dates in the user's timezone "
+                "(tomorrow, Friday 5pm).\n"
                 "- Bulk reschedule (all reminders due today → tomorrow): emit one set_due "
                 'per affected item, OR a single set_due with content="*" when moving every '
                 "open item due today.\n"
@@ -881,7 +889,8 @@ async def extract_todo_actions(
                 "- For complete/uncheck/delete: match existing items; use their topic.\n"
                 "- For delete_list: when the user clearly wants to remove an entire list, emit one "
                 "action per list title; leave content empty. Skipped server-side if open items remain.\n"
-                "- Only emit actions the user clearly requested this turn.\n"
+                "- Only emit actions the user clearly requested this turn (or confirmed via "
+                "Yes after an offer in the transcript).\n"
                 "- Return empty actions array if none."
             ),
         },

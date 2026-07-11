@@ -52,6 +52,10 @@ TODO_HINT = (
     "Creating lists via chat — ask for a list title first, then items. Todo changes from chat "
     "are applied by a background sync **right after** your reply, so phrase them as things you "
     'will set up ("I\'ll add eggs to groceries"), not as already done.\n'
+    "Creating reminders via chat — confirm the title and due date/time, then say you will set "
+    'it (e.g. "I\'ll set a reminder for …"). Never claim it is already set '
+    '("✅ Reminder set!", "Done — reminder created") — the sync applies it after your reply. '
+    "Dated reminders do not need a list title.\n"
     "Deleting lists via chat — whole-list delete is NOT supported from chat (only individual "
     "items are). To delete a whole list, tell the user to check off or delete every item first, "
     "then use the trash icon on the list header in the Lists tab. Never claim a list was deleted "
@@ -105,7 +109,12 @@ _TODO_SYNC_TRANSCRIPT = re.compile(
     r"delete it|remove(?:d)? (?:the )?(?:reminder|task|todo)|"
     r"set (?:a )?(?:due|reminder)|moved .+ to tomorrow|"
     r"check(?:ed)? off|uncheck(?:ed)?|groceries|shopping list|"
-    r"reminder for|due (?:at|on|tomorrow|today)"
+    r"reminder for|due (?:at|on|tomorrow|today)|"
+    # Past-tense / emoji confirms the model still emits despite the future-tense hint
+    r"reminder set|reminders? (?:are |is )?set|"
+    r"I(?:'ve| have) set (?:a |the |your )?reminder|"
+    r"I(?:'ll| will) set (?:a |the |your )?reminder|"
+    r"I set (?:a |the |your )?reminder"
     r")\b",
     re.IGNORECASE,
 )
@@ -118,6 +127,12 @@ _AFFIRMATIVE = re.compile(
     r"^(yes|yeah|yep|sure|ok(?:ay)?|do it|confirm(?:ed)?|go ahead|please)\.?!?$",
     re.IGNORECASE,
 )
+_USER_LINE = re.compile(r"(?:^|\n)User:\s*(.+?)(?:\n|$)", re.IGNORECASE)
+_ASSISTANT_BLOCK = re.compile(r"(?:^|\n)Assistant:\s*(.+)\Z", re.IGNORECASE | re.DOTALL)
+_REMINDER_OR_TODO_WORD = re.compile(r"\b(reminders?|todos?|tasks?|lists?)\b", re.IGNORECASE)
+
+TODO_SYNC_RECENT_MESSAGES = 8
+REMINDER_TOPIC = "Reminders"
 
 
 def _normalize(text: str) -> str:
@@ -388,7 +403,19 @@ def transcript_implies_todo_sync(transcript: str) -> bool:
         return True
     if _USER_DELETE_TURN.search(text):
         return True
-    return bool(_TODO_SYNC_TRANSCRIPT.search(text))
+    if _TODO_SYNC_TRANSCRIPT.search(text):
+        return True
+    # "Yes" / "Sure" after a reminder offer — assistant reply mentions reminder/todo.
+    user_m = _USER_LINE.search(text)
+    asst_m = _ASSISTANT_BLOCK.search(text)
+    if (
+        user_m
+        and asst_m
+        and _AFFIRMATIVE.match(user_m.group(1).strip())
+        and _REMINDER_OR_TODO_WORD.search(asst_m.group(1))
+    ):
+        return True
+    return False
 
 
 def format_chat_transcript(messages: list[Message]) -> str:
@@ -397,6 +424,23 @@ def format_chat_transcript(messages: list[Message]) -> str:
         prefix = "User" if msg.role == "user" else "Assistant"
         lines.append(f"{prefix}: {msg.content}")
     return "\n".join(lines)
+
+
+async def build_todo_sync_transcript(
+    session: AsyncSession,
+    chat_id: UUID,
+    *,
+    user_message: str,
+    assistant_text: str,
+    recent_limit: int = TODO_SYNC_RECENT_MESSAGES,
+) -> str:
+    """Prefer recent chat messages so Yes/confirm turns include the prior offer + date."""
+    from app.repositories import messages as messages_repo
+
+    recent = await messages_repo.list_recent(session, chat_id, limit=recent_limit)
+    if len(recent) >= 2:
+        return format_chat_transcript(recent)
+    return f"User: {user_message}\nAssistant: {assistant_text}"
 
 
 def should_pre_sync_todos(user_message: str, transcript: str) -> bool:
@@ -503,7 +547,11 @@ async def apply_todo_actions(
     for action in actions:
         topic = action.topic.strip()
         if not topic:
-            continue
+            # Dated reminders don't need a list title — land in Reminders via due_at.
+            if action.action == "add" and action.due_at is not None:
+                topic = REMINDER_TOPIC
+            else:
+                continue
         try:
             if action.action == "add":
                 content = action.content.strip()

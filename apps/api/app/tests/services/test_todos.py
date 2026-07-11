@@ -482,6 +482,65 @@ def test_transcript_implies_todo_sync_overdue_delete():
     )
 
 
+def test_transcript_implies_todo_sync_reminder_confirm():
+    """Past-tense / emoji confirms and Yes+reminder must enqueue sync."""
+    assert todos_service.transcript_implies_todo_sync(
+        "User: Yes\nAssistant: ✅ Reminder set!\n\n**2026 FIFA World Cup Final**"
+    )
+    assert todos_service.transcript_implies_todo_sync(
+        "User: sure\nAssistant: I've set a reminder for the match on Sunday."
+    )
+    assert todos_service.transcript_implies_todo_sync(
+        "User: yes\nAssistant: I'll set a reminder for July 19 at 3 PM ET."
+    )
+    assert not todos_service.transcript_implies_todo_sync(
+        "User: yes\nAssistant: Sounds good — anything else?"
+    )
+
+
+@pytest.mark.asyncio
+async def test_apply_todo_actions_reminder_without_topic():
+    """Dated reminder adds work even when the extractor omits a list title."""
+    session = AsyncMock()
+    due = datetime(2026, 7, 19, 19, 0, tzinfo=UTC)
+    with (
+        patch.object(
+            todos_service.todos_repo,
+            "list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            todos_service.todos_repo,
+            "create",
+            AsyncMock(),
+        ) as create_mock,
+    ):
+        applied = await todos_service.apply_todo_actions(
+            session,
+            user_id=uuid4(),
+            actions=[
+                TodoActionItem(
+                    action="add",
+                    topic="",
+                    content="2026 FIFA World Cup Final – Watch the match",
+                    due_at=due,
+                ),
+            ],
+            user_timezone="America/New_York",
+        )
+    assert applied == 1
+    create_mock.assert_awaited_once()
+    kwargs = create_mock.await_args.kwargs
+    assert kwargs["topic"] == todos_service.REMINDER_TOPIC
+    assert kwargs["due_at"] is not None
+
+
+def test_todo_hint_covers_reminder_confirm_timing():
+    hint = todos_service.TODO_HINT
+    assert "Never claim it is already set" in hint
+    assert "Dated reminders do not need a list title" in hint
+
+
 def test_should_inject_todos_prompt():
     overdue = _item("Late task")
     overdue.due_at = datetime.now(UTC) - timedelta(days=1)

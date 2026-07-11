@@ -363,18 +363,26 @@ class TodoActionItem(BaseModel):
         "set_due",
         "clear_due",
     ]
-    topic: str = Field(min_length=1, max_length=200)
+    # Empty topic allowed for dated reminder adds (server defaults to Reminders).
+    topic: str = Field(default="", max_length=200)
     content: str = Field(default="", max_length=1000)
     due_at: datetime | None = None
 
     @model_validator(mode="after")
     def validate_action_fields(self) -> Self:
         if self.action == "delete_list":
+            if not self.topic.strip():
+                raise ValueError("delete_list requires topic")
             return self
         if not self.content.strip():
             raise ValueError("content is required for this action")
         if self.action == "set_due" and self.due_at is None:
             raise ValueError("set_due requires due_at")
+        # Dated reminder adds may omit topic; everything else needs a list title.
+        if self.action == "add" and self.due_at is not None:
+            return self
+        if not self.topic.strip():
+            raise ValueError("topic is required for this action")
         return self
 
 
