@@ -344,16 +344,20 @@ export default function ProjectDetailScreen() {
       />
 
       {showDailyStudyCta ? (
-        <LearningContinueCta label={dailyStudyCtaLabel} onPress={startStudyQuiz} />
+        <View style={showDailyTracking ? s.studyCtaBeforeList : undefined}>
+          <LearningContinueCta label={dailyStudyCtaLabel} onPress={startStudyQuiz} />
+        </View>
       ) : showReviewCta ? (
-        <LearningContinueCta
-          label={
-            isTrivia
-              ? t("projects.list.review_facts", { count: stats.due_for_review })
-              : t("projects.list.review_words", { count: stats.due_for_review })
-          }
-          onPress={startReviewSession}
-        />
+        <View style={showDailyTracking ? s.studyCtaBeforeList : undefined}>
+          <LearningContinueCta
+            label={
+              isTrivia
+                ? t("projects.list.review_facts", { count: stats.due_for_review })
+                : t("projects.list.review_words", { count: stats.due_for_review })
+            }
+            onPress={startReviewSession}
+          />
+        </View>
       ) : null}
 
       {showDailyTracking && token ? (
@@ -412,6 +416,7 @@ function makeStyles(theme: Theme) {
     root: { flex: 1, backgroundColor: theme.bg },
     center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.bg },
     content: { padding: 16, gap: 16, paddingBottom: 40 },
+    studyCtaBeforeList: { marginBottom: 8 },
     empty: { fontSize: 15, color: theme.textSecondary, textAlign: "center", paddingHorizontal: 24 },
     retryBtn: {
       marginTop: 12,
