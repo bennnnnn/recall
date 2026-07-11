@@ -231,6 +231,8 @@ async def test_build_prompt_includes_comparison_table_hint():
         ("difference between SQL and NoSQL", True),
         ("which is better, Go or Rust?", True),
         ("tell me about Python", False),
+        ("Give me tips on how to master python", False),
+        ("roadmap to learn TypeScript", False),
         ("hi", False),
         ("", False),
     ],
@@ -239,6 +241,18 @@ def test_is_comparison_question(text, expected):
     from app.services.chat.prompt_constants import is_comparison_question
 
     assert is_comparison_question(text) is expected
+
+
+def test_format_hints_discourage_tables_for_how_tos():
+    from app.services.chat.prompt_constants import (
+        INTENT_FORMAT_HINT,
+        RESPONSE_FORMAT_HINT,
+    )
+
+    for blob in (INTENT_FORMAT_HINT, RESPONSE_FORMAT_HINT):
+        assert "roadmap" in blob.lower() or "how-to" in blob.lower()
+        assert "NEVER" in blob or "Never" in blob
+        assert "pipe table" in blob.lower() or "pipe tables" in blob.lower()
 
 
 @pytest.mark.asyncio
