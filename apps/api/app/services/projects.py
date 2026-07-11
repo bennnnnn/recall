@@ -609,12 +609,15 @@ async def _persist_quiz_outcome(
     content: str,
     list_title: str,
     is_correct: bool,
+    definition: str | None = None,
 ) -> None:
     """Record a graded answer on the matched item, creating it on first sight.
 
     Shared ledger write for the trivia and vocab branches; the commit stays
     with the caller's outer transaction (commit=False throughout).
+    For trivia, ``definition`` holds the correct answer text shown on the day list.
     """
+    answer = (definition or "").strip() or None
     item = existing
     if item is None:
         item = await project_items_repo.create(
@@ -623,10 +626,14 @@ async def _persist_quiz_outcome(
             project_id=project_id,
             content=content,
             list_title=list_title,
+            definition=answer,
             chat_id=chat_id,
             status="new",
             commit=False,
         )
+    elif answer and not (item.definition or "").strip():
+        # Backfill answer on older trivia rows that only stored the question.
+        item.definition = answer
     await project_items_repo.apply_quiz_result(session, item, is_correct=is_correct, commit=False)
 
 
@@ -711,6 +718,7 @@ async def apply_deterministic_quiz_answer(
                 content=question,
                 list_title=list_title,
                 is_correct=is_correct,
+                definition=(quiz.correct_text or "").strip() or None,
             )
         return vocab_quiz_service.QuizAnswerGrade(
             is_correct=is_correct,

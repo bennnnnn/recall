@@ -536,6 +536,8 @@ async def test_apply_deterministic_quiz_answer_trivia_correct():
     create_mock.assert_awaited_once()
     apply_mock.assert_awaited_once()
     assert apply_mock.await_args.kwargs["is_correct"] is True
+    assert create_mock.await_args.kwargs["definition"] == "Colossus"
+    assert create_mock.await_args.kwargs["content"] == "Which wonder stood at Rhodes?"
 
 
 @pytest.mark.asyncio
@@ -591,6 +593,65 @@ async def test_apply_deterministic_quiz_answer_records_wrong_trivia_as_learning(
     create_mock.assert_awaited_once()
     apply_mock.assert_awaited_once()
     assert apply_mock.await_args.kwargs["is_correct"] is False
+    assert create_mock.await_args.kwargs["definition"] == "Colossus"
+
+
+@pytest.mark.asyncio
+async def test_apply_deterministic_trivia_backfills_answer_on_existing_item():
+    from unittest.mock import MagicMock
+
+    from app.models.orm import Project
+
+    session = AsyncMock()
+    user_id = uuid.uuid4()
+    project_id = uuid.uuid4()
+    project = Project(
+        id=project_id,
+        user_id=user_id,
+        title="General knowledge",
+        kind="trivia",
+        level="level1",
+        target_language="en",
+    )
+    existing = MagicMock()
+    existing.project_id = project_id
+    existing.list_title = "History"
+    existing.content = "Which wonder stood at Rhodes?"
+    existing.definition = None
+    existing.status = "learning"
+    existing.mastered = False
+
+    with (
+        patch(
+            "app.services.projects.projects_repo.get_by_id",
+            new=AsyncMock(return_value=project),
+        ),
+        patch(
+            "app.services.projects.project_items_repo.find_quiz_candidates",
+            new=AsyncMock(return_value=[existing]),
+        ),
+        patch(
+            "app.services.projects.project_items_repo.create",
+            new=AsyncMock(),
+        ) as create_mock,
+        patch(
+            "app.services.projects.project_items_repo.apply_quiz_result",
+            new=AsyncMock(),
+        ),
+    ):
+        grade = await projects_service.apply_deterministic_quiz_answer(
+            session,
+            user_id=user_id,
+            chat_id=uuid.uuid4(),
+            project_id=project_id,
+            assistant_content=TRIVIA_FENCE,
+            user_answer="A",
+        )
+
+    assert grade is not None
+    assert grade.is_correct is True
+    create_mock.assert_not_awaited()
+    assert existing.definition == "Colossus"
 
 
 @pytest.mark.asyncio
