@@ -535,10 +535,75 @@ async def test_apply_todo_actions_reminder_without_topic():
     assert kwargs["due_at"] is not None
 
 
+@pytest.mark.asyncio
+async def test_materialize_reminder_fences_creates_todo():
+    session = AsyncMock()
+    due = datetime(2026, 7, 19, 19, 0, tzinfo=UTC)
+    text = (
+        "✅ Reminder set!\n\n"
+        "```reminder\n"
+        '{"title":"2026 FIFA World Cup Final","due_at":"2026-07-19T15:00:00-04:00"}\n'
+        "```\n"
+    )
+    with (
+        patch.object(
+            todos_service.todos_repo,
+            "list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            todos_service.todos_repo,
+            "create",
+            AsyncMock(),
+        ) as create_mock,
+        patch.object(
+            todos_service.home_service,
+            "invalidate_home_cache",
+            AsyncMock(),
+        ) as invalidate_mock,
+    ):
+        updated, created = await todos_service.materialize_reminder_fences(
+            session,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text=text,
+            user_timezone="America/New_York",
+        )
+    assert created == 1
+    assert "```reminder" not in updated
+    assert "Reminder set" in updated
+    create_mock.assert_awaited_once()
+    kwargs = create_mock.await_args.kwargs
+    assert kwargs["topic"] == todos_service.REMINDER_TOPIC
+    assert kwargs["content"] == "2026 FIFA World Cup Final"
+    assert kwargs["due_at"] is not None
+    assert kwargs["due_at"].tzinfo is not None
+    # 3pm ET → 19:00 UTC
+    assert kwargs["due_at"].hour == due.hour
+    invalidate_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_materialize_reminder_fences_skips_invalid():
+    session = AsyncMock()
+    text = 'Hello\n```reminder\n{"title":"x"}\n```\n'
+    with patch.object(todos_service.todos_repo, "create", AsyncMock()) as create_mock:
+        updated, created = await todos_service.materialize_reminder_fences(
+            session,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text=text,
+            user_timezone="UTC",
+        )
+    assert created == 0
+    assert "```reminder" in updated
+    create_mock.assert_not_awaited()
+
+
 def test_todo_hint_covers_reminder_confirm_timing():
     hint = todos_service.TODO_HINT
-    assert "Never claim it is already set" in hint
-    assert "Dated reminders do not need a list title" in hint
+    assert "```reminder" in hint
+    assert "Without the fence, nothing is saved" in hint
 
 
 def test_should_inject_todos_prompt():

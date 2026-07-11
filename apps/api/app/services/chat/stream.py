@@ -514,6 +514,7 @@ async def stream_and_finalize(
         # persistence — the user already saw streamed tokens. On failure, keep
         # the raw joined text so finalize_stream_turn_db still runs.
         raw_assistant_text = assistant_text
+        reminder_created = 0
         try:
             user = ctx.user
             if user is not None:
@@ -524,6 +525,16 @@ async def stream_and_finalize(
                         user,
                         settings,
                         assistant_text,
+                    )
+                    (
+                        assistant_text,
+                        reminder_created,
+                    ) = await chat_pkg.todos_service.materialize_reminder_fences(
+                        session,
+                        user_id=ctx.user_id,
+                        chat_id=ctx.chat_id,
+                        assistant_text=assistant_text,
+                        user_timezone=getattr(user, "timezone", None),
                     )
             else:
                 async with SessionLocal() as session:
@@ -537,6 +548,16 @@ async def stream_and_finalize(
                                 settings,
                                 assistant_text,
                             )
+                        )
+                        (
+                            assistant_text,
+                            reminder_created,
+                        ) = await chat_pkg.todos_service.materialize_reminder_fences(
+                            session,
+                            user_id=ctx.user_id,
+                            chat_id=ctx.chat_id,
+                            assistant_text=assistant_text,
+                            user_timezone=getattr(user, "timezone", None),
                         )
 
             assistant_text = chat_pkg.math_fence_service.validate_math_fences(
@@ -579,7 +600,9 @@ async def stream_and_finalize(
 
             if result is not None and not ctx.skip_memory_jobs:
                 transcript = f"User: {ctx.user_message_content}\nAssistant: {assistant_text}"
-                if chat_pkg.todos_service.transcript_implies_todo_sync(transcript):
+                if reminder_created > 0 or chat_pkg.todos_service.transcript_implies_todo_sync(
+                    transcript
+                ):
                     result["todos_sync"] = "1"
 
             if result is not None and was_cancelled and assistant_text:

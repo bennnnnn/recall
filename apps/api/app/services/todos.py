@@ -52,10 +52,13 @@ TODO_HINT = (
     "Creating lists via chat — ask for a list title first, then items. Todo changes from chat "
     "are applied by a background sync **right after** your reply, so phrase them as things you "
     'will set up ("I\'ll add eggs to groceries"), not as already done.\n'
-    "Creating reminders via chat — confirm the title and due date/time, then say you will set "
-    'it (e.g. "I\'ll set a reminder for …"). Never claim it is already set '
-    '("✅ Reminder set!", "Done — reminder created") — the sync applies it after your reply. '
-    "Dated reminders do not need a list title.\n"
+    "Creating reminders via chat — REQUIRED fence (the app only saves from this fence):\n"
+    "```reminder\n"
+    '{"title":"short title","due_at":"2026-07-19T15:00:00-04:00"}\n'
+    "```\n"
+    "Include exactly one ```reminder fence when the user confirms or clearly asks to set a "
+    "dated reminder. due_at must be ISO-8601 with timezone offset (or Z). Then confirm briefly. "
+    "Without the fence, nothing is saved — never claim a reminder is set without emitting it.\n"
     "Deleting lists via chat — whole-list delete is NOT supported from chat (only individual "
     "items are). To delete a whole list, tell the user to check off or delete every item first, "
     "then use the trash icon on the list header in the Lists tab. Never claim a list was deleted "
@@ -133,6 +136,7 @@ _REMINDER_OR_TODO_WORD = re.compile(r"\b(reminders?|todos?|tasks?|lists?)\b", re
 
 TODO_SYNC_RECENT_MESSAGES = 8
 REMINDER_TOPIC = "Reminders"
+_REMINDER_FENCE = re.compile(r"```reminder\s*\n([\s\S]*?)```", re.IGNORECASE)
 
 
 def _normalize(text: str) -> str:
@@ -441,6 +445,92 @@ async def build_todo_sync_transcript(
     if len(recent) >= 2:
         return format_chat_transcript(recent)
     return f"User: {user_message}\nAssistant: {assistant_text}"
+
+
+async def materialize_reminder_fences(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    chat_id: UUID,
+    assistant_text: str,
+    user_timezone: str | None,
+) -> tuple[str, int]:
+    """Create reminders from ```reminder JSON fences and strip fences from the reply.
+
+    Returns (updated_text, created_count). The chat model must emit the fence for a
+    dated reminder to be saved — prose alone is not enough.
+    """
+    import json
+
+    from pydantic import BaseModel, Field, ValidationError
+
+    class _ReminderFence(BaseModel):
+        title: str = Field(min_length=1, max_length=500)
+        due_at: datetime
+
+    if not _REMINDER_FENCE.search(assistant_text):
+        return assistant_text, 0
+
+    created = 0
+
+    async def _create_one(raw: str) -> bool:
+        nonlocal created
+        try:
+            data = json.loads(raw.strip())
+        except json.JSONDecodeError:
+            logger.warning("Invalid reminder fence JSON for user_id=%s", user_id)
+            return False
+        if not isinstance(data, dict):
+            return False
+        try:
+            draft = _ReminderFence.model_validate(data)
+        except ValidationError:
+            logger.warning("Invalid reminder fence payload for user_id=%s", user_id)
+            return False
+        due_at = time_context_service.normalize_due_at(draft.due_at, user_timezone)
+        if due_at is None:
+            return False
+        title = draft.title.strip()
+        existing = await todos_repo.list_for_user(session, user_id, limit=500)
+        if any(
+            (i.content or "").strip().lower() == title.lower()
+            and i.due_at is not None
+            and not i.checked
+            for i in existing
+        ):
+            return True  # already present — still strip fence
+        await todos_repo.create(
+            session,
+            user_id=user_id,
+            content=title,
+            topic=REMINDER_TOPIC,
+            chat_id=chat_id,
+            due_at=due_at,
+        )
+        created += 1
+        logger.info(
+            "Reminder fence applied: user_id=%s chat_id=%s title=%s",
+            user_id,
+            chat_id,
+            title[:80],
+        )
+        return True
+
+    # Process fences sequentially (create commits per row).
+    parts: list[str] = []
+    last = 0
+    for match in _REMINDER_FENCE.finditer(assistant_text):
+        parts.append(assistant_text[last : match.start()])
+        ok = await _create_one(match.group(1))
+        if not ok:
+            parts.append(match.group(0))  # keep invalid fence visible for debugging
+        last = match.end()
+    parts.append(assistant_text[last:])
+    updated = "".join(parts)
+    updated = re.sub(r"\n{3,}", "\n\n", updated).strip()
+    if created:
+        await home_service.invalidate_home_cache(user_id)
+    return updated, created
 
 
 def should_pre_sync_todos(user_message: str, transcript: str) -> bool:
