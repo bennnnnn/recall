@@ -12,6 +12,7 @@ import { queueChatLaunch } from "@/lib/chatLaunch";
 import { buildHomeDailyQuizChatPrompt } from "@/lib/projectChat";
 import { describeDueAt } from "@/lib/dueDate";
 import { homeUrgentPrompt, listHomeUrgentTodos, partitionHomeUrgentTodos } from "@/lib/homeUrgentTodos";
+import { learningProjectTitle } from "@/lib/projectUi";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -105,7 +106,7 @@ function ProjectHighlightCard({
       </View>
       <View style={s.projectMain}>
         <Text style={s.projectTitle} numberOfLines={1}>
-          {highlight.title}
+          {learningProjectTitle(highlight.kind, t, highlight.title)}
         </Text>
         <Text style={s.projectSubtitle} numberOfLines={2}>
           {subtitle}
