@@ -64,6 +64,11 @@ export function HomeProvider({ children }: { children: ReactNode }) {
           setScreen(data);
           lastFetchedRef.current = Date.now();
         } catch {
+          // Keep a good screen on silent refresh failure — only fall back when
+          // we have nothing to show yet.
+          if (screenRef.current) {
+            return;
+          }
           setScreen(await loadHomeFallback(token));
           lastFetchedRef.current = Date.now();
         } finally {

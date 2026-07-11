@@ -207,6 +207,7 @@ export type HomeProjectHighlight = {
   kind: "language" | "trivia";
   daily_goal: number;
   mastered_today: number;
+  missed_today?: number;
   cue: "start" | "continue" | "not_started_today" | "missed_yesterday" | "finish_pending";
   streak_days?: number;
   days_inactive?: number | null;

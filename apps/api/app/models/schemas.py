@@ -656,6 +656,7 @@ class HomeUrgentTodo(BaseModel):
 
 
 class HomeStarter(BaseModel):
+    id: str | None = None
     text: str = Field(min_length=1, max_length=200)
     prompt: str = Field(min_length=1, max_length=2000)
     kind: Literal["time", "memory", "chat", "general", "todo", "project"] = "general"
@@ -667,6 +668,7 @@ class HomeProjectHighlight(BaseModel):
     kind: Literal["language", "trivia"]
     daily_goal: int = Field(ge=1, le=50)
     mastered_today: int = Field(ge=0)
+    missed_today: int = Field(ge=0, default=0)
     cue: Literal[
         "start",
         "continue",

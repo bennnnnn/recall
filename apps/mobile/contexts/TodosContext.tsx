@@ -108,7 +108,12 @@ export function TodosProvider({ children }: { children: ReactNode }) {
       setError(false);
 
       const task = (async () => {
-        setRemindersReady(false);
+        // Only blank urgents on a cold load — silent refresh keeps the last
+        // good list until the new one arrives (avoids mid-refresh flicker).
+        const hadTodos = todosRef.current.length > 0;
+        if (!hadTodos) {
+          setRemindersReady(false);
+        }
         try {
           const items = await api.listTodos(token);
           setTodos(items);

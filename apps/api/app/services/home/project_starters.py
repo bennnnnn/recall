@@ -241,6 +241,7 @@ def project_highlight(
         kind=daily_home_kind(project),
         daily_goal=daily_goal,
         mastered_today=stats.mastered_today,
+        missed_today=int(getattr(stats, "missed_today", 0) or 0),
         cue=cue,
         streak_days=int(enriched.get("streak_days") or 0),
         days_inactive=enriched.get("days_inactive"),
@@ -268,11 +269,18 @@ async def load_project_home_content(
 
     if daily_projects:
         project_ids = [candidate.id for candidate in daily_projects]
-        stats_by_project = await project_items_repo.count_stats_by_project(
-            session,
-            project_ids,
-            timezone_by_project={candidate.id: tz_name for candidate in daily_projects},
-        )
+        # One item fetch for all daily projects — reuse for stats + highlight enrich.
+        all_items = await project_items_repo.list_for_projects(session, project_ids)
+        items_by_project: dict[UUID, list] = {pid: [] for pid in project_ids}
+        for row in all_items:
+            items_by_project.setdefault(row.project_id, []).append(row)
+        stats_by_project = {
+            pid: project_items_repo.stats_from_items(
+                items_by_project.get(pid, []),
+                timezone_name=tz_name,
+            )
+            for pid in project_ids
+        }
         completed_daily: list[CompletedDaily] = []
         for candidate in daily_projects:
             stats = ProjectStats.model_validate(stats_by_project.get(candidate.id, {}))
@@ -280,8 +288,7 @@ async def load_project_home_content(
             if completed_today(stats) >= daily_goal:
                 completed_daily.append((candidate.title.strip(), daily_home_kind(candidate)))
                 continue
-            # Cue can be decided from stats alone; only load items for the
-            # first project that will actually become the home highlight.
+            # Cue can be decided from stats alone; only enrich the first highlight.
             cue = daily_learning.daily_home_cue(
                 total=stats.total,
                 mastered_today=stats.mastered_today,
@@ -295,12 +302,7 @@ async def load_project_home_content(
             )
             if cue is None:
                 continue
-            project_items = await project_items_repo.list_for_user(
-                session,
-                user_id,
-                project_id=candidate.id,
-                limit=500,
-            )
+            project_items = items_by_project.get(candidate.id, [])
             highlight = project_highlight(
                 candidate,
                 stats,

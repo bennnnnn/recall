@@ -92,6 +92,7 @@ def _home_patches(**overrides):
             "added_this_week": 0,
             "due_for_review": 0,
             "mastered_today": 0,
+            "missed_today": 0,
             "pending_today": 0,
             "last_mastery_at": None,
         },
@@ -136,6 +137,16 @@ def _home_patches(**overrides):
         ),
         patch.object(
             home_service.project_items_repo,
+            "list_for_projects",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            home_service.project_items_repo,
+            "stats_from_items",
+            MagicMock(return_value=stats_payload),
+        ),
+        patch.object(
+            home_service.project_items_repo,
             "list_for_user",
             AsyncMock(return_value=[]),
         ),
@@ -145,11 +156,10 @@ def _home_patches(**overrides):
 
 @pytest.mark.asyncio
 async def test_build_home_screen_never_overlaps_ops_on_one_session():
-    """The six home loads run concurrently, and an AsyncSession can only run
-    one operation at a time (asyncpg raises InterfaceError on overlap) — so
-    each concurrent loader must use its own session. Simulate asyncpg's
-    guard: mark a session busy across a yield point and record a violation
-    if a second operation lands on it while busy."""
+    """Core home loaders run concurrently; each concurrent loader must use its
+    own session (asyncpg raises InterfaceError on overlap). Memories/chats load
+    only when there is no project highlight — still on separate sessions.
+    """
     import asyncio
 
     session = AsyncMock()
@@ -170,6 +180,8 @@ async def test_build_home_screen_never_overlaps_ops_on_one_session():
         return impl
 
     empty_project_content = home_service.ProjectHomeContent([], None, None, [])
+    memories_mock = AsyncMock(side_effect=tracked("memories", []))
+    chats_mock = AsyncMock(side_effect=tracked("chats", []))
     with (
         patch.object(home_service, "SessionLocal", _fake_session_local()),
         patch.object(
@@ -180,12 +192,12 @@ async def test_build_home_screen_never_overlaps_ops_on_one_session():
         patch.object(
             home_service.memory_service,
             "load_relevant_memories",
-            AsyncMock(side_effect=tracked("memories", [])),
+            memories_mock,
         ),
         patch.object(
             home_service.chats_repo,
             "list_for_user",
-            AsyncMock(side_effect=tracked("chats", [])),
+            chats_mock,
         ),
         patch.object(
             home_service.suggestions_repo,
@@ -207,6 +219,65 @@ async def test_build_home_screen_never_overlaps_ops_on_one_session():
 
     assert violations == []
     assert screen.greeting
+    memories_mock.assert_awaited()
+    chats_mock.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_build_home_skips_memories_when_highlight_present():
+    session = AsyncMock()
+    user = _user()
+    project = _project()
+    memories_mock = AsyncMock(return_value=[])
+    chats_mock = AsyncMock(return_value=[])
+
+    with (
+        _home_patches(
+            list_projects=[project],
+            count_project_stats={
+                "total": 5,
+                "new_count": 2,
+                "learning_count": 1,
+                "mastered_count": 0,
+                "added_this_week": 0,
+                "due_for_review": 2,
+                "mastered_today": 0,
+                "missed_today": 0,
+                "pending_today": 0,
+                "last_mastery_at": None,
+            },
+        ),
+        patch.object(
+            home_service.memory_service,
+            "load_relevant_memories",
+            memories_mock,
+        ),
+        patch.object(
+            home_service.chats_repo,
+            "list_for_user",
+            chats_mock,
+        ),
+    ):
+        screen = await home_service.build_home_screen(session, user, Settings())
+
+    assert screen.project_highlight is not None
+    memories_mock.assert_not_awaited()
+    chats_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_build_home_suggestion_starters_include_id():
+    session = AsyncMock()
+    user = _user()
+    suggestion = MagicMock()
+    suggestion.id = uuid4()
+    suggestion.text = "Try a 5-minute reflection"
+
+    with _home_patches(list_active_suggestions=[suggestion]):
+        screen = await home_service.build_home_screen(session, user, Settings())
+
+    match = next(s for s in screen.starters if "reflection" in s.prompt.lower())
+    assert match.id == str(suggestion.id)
 
 
 @pytest.mark.asyncio
@@ -354,6 +425,8 @@ async def test_build_home_language_review_chip_when_due():
 
     assert screen.project_highlight is not None
     assert screen.project_highlight.cue == "continue"
+    assert screen.project_highlight.mastered_today == 2
+    assert screen.project_highlight.missed_today == 0
     starter_texts = {s.text for s in screen.starters}
     assert "Review Learning English" not in starter_texts
     assert "Continue Learning English" not in starter_texts
@@ -489,20 +562,6 @@ async def test_build_home_batches_daily_project_stats():
     language = _project()
     trivia = _trivia_project()
 
-    async def _count_stats_by_project(_session, project_ids, *, timezone_by_project=None):
-        payload = {
-            "total": 3,
-            "new_count": 2,
-            "learning_count": 1,
-            "mastered_count": 0,
-            "added_this_week": 0,
-            "due_for_review": 1,
-            "mastered_today": 0,
-            "pending_today": 0,
-            "last_mastery_at": None,
-        }
-        return {pid: payload for pid in project_ids}
-
     with (
         patch.object(home_service, "SessionLocal", _fake_session_local()),
         patch.object(
@@ -532,19 +591,32 @@ async def test_build_home_batches_daily_project_stats():
         ),
         patch.object(
             home_service.project_items_repo,
-            "list_for_user",
+            "list_for_projects",
             AsyncMock(return_value=[]),
-        ),
+        ) as items_mock,
         patch.object(
             home_service.project_items_repo,
-            "count_stats_by_project",
-            AsyncMock(side_effect=_count_stats_by_project),
-        ) as stats_mock,
+            "stats_from_items",
+            MagicMock(
+                return_value={
+                    "total": 3,
+                    "new_count": 2,
+                    "learning_count": 1,
+                    "mastered_count": 0,
+                    "added_this_week": 0,
+                    "due_for_review": 1,
+                    "mastered_today": 0,
+                    "missed_today": 0,
+                    "pending_today": 0,
+                    "last_mastery_at": None,
+                }
+            ),
+        ),
     ):
         await home_service.build_home_screen(session, user, Settings())
 
-    stats_mock.assert_awaited_once()
-    assert set(stats_mock.await_args.args[1]) == {language.id, trivia.id}
+    items_mock.assert_awaited_once()
+    assert set(items_mock.await_args.args[1]) == {language.id, trivia.id}
 
 
 @pytest.mark.asyncio

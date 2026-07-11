@@ -127,21 +127,28 @@ async def build_home_screen(
         async with SessionLocal() as s:
             return await suggestions_repo.list_active(s, user.id)
 
+    # Project highlight is the common path — load it with the always-needed
+    # loaders first, then only fetch memories/recent chats when there is no
+    # highlight (those starters are skipped when a highlight is present).
     (
         urgent_items,
-        memories,
-        recent_titles,
         project_content,
         integration_chips,
         suggestion_items,
     ) = await asyncio.gather(
         load_urgent(),
-        load_memories(),
-        load_recent_titles(),
         load_project_content(),
         load_integrations(),
         load_suggestions(),
     )
+
+    memories: list[Memory] = []
+    recent_titles: list[str] = []
+    if project_content.highlight is None:
+        memories, recent_titles = await asyncio.gather(
+            load_memories(),
+            load_recent_titles(),
+        )
 
     urgent_todos: list[HomeUrgentTodo] = []
     for item in urgent_items:
@@ -223,6 +230,7 @@ async def build_home_screen(
             continue
         add(
             HomeStarter(
+                id=str(item.id),
                 text=short_phrase(text, limit=48),
                 prompt=text,
                 kind="general",

@@ -37,15 +37,17 @@ function dailyCueLabel(
   highlight: HomeProjectHighlight,
   t: (key: string, options?: Record<string, unknown>) => string,
 ): string {
-  const { cue, daily_goal: goal, mastered_today: done, kind } = highlight;
+  const completed =
+    highlight.mastered_today + (highlight.missed_today ?? 0);
+  const { cue, daily_goal: goal, kind } = highlight;
   const prefix = kind === "trivia" ? "chat.home.trivia_cue_" : "chat.home.vocab_cue_";
   switch (cue) {
     case "start":
       return t(`${prefix}start`, { goal });
     case "continue":
-      return t(`${prefix}continue`, { done, goal });
+      return t(`${prefix}continue`, { done: completed, goal });
     case "finish_pending":
-      return t(`${prefix}finish_pending`, { done, goal });
+      return t(`${prefix}finish_pending`, { done: completed, goal });
     case "missed_yesterday":
       if (highlight.days_inactive && highlight.days_inactive >= 2) {
         return t(`${prefix}missed_days`, {
@@ -71,9 +73,11 @@ function ProjectHighlightCard({
 }) {
   const router = useRouter();
   const { t } = useTranslation();
+  const completedToday =
+    highlight.mastered_today + (highlight.missed_today ?? 0);
   const progress =
     highlight.daily_goal > 0
-      ? Math.min(100, Math.round((highlight.mastered_today / highlight.daily_goal) * 100))
+      ? Math.min(100, Math.round((completedToday / highlight.daily_goal) * 100))
       : 0;
   const subtitle = dailyCueLabel(highlight, t);
   const iconName =
