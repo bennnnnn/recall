@@ -22,7 +22,9 @@ type Props = {
   dayMeta?: ProjectDailyHistoryDay;
   isTrivia?: boolean;
   studyAction?: ProjectStudyAction | null;
+  /** Optional embedded map from a fat detail payload; omit to lazy-load via /daily-items. */
   itemsByDate?: Record<string, ProjectItem[]>;
+  /** Optional embedded misses; omit to lazy-load via /daily-items?bucket=missed. */
   missedItems?: ProjectItem[];
   onItemUpdated?: () => void;
 };
@@ -35,40 +37,80 @@ export function ProjectDayItemsList({
   isTrivia = false,
   studyAction = null,
   itemsByDate,
-  missedItems = [],
+  missedItems: missedItemsProp,
   onItemUpdated,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const cachedItems = itemsByDate ? (itemsByDate[activityDate] ?? []) : undefined;
+  const useEmbedded =
+    itemsByDate !== undefined && missedItemsProp !== undefined;
   const [items, setItems] = useState<ProjectItem[]>(cachedItems ?? []);
-  const [loading, setLoading] = useState(cachedItems === undefined);
+  const [missedItems, setMissedItems] = useState<ProjectItem[]>(missedItemsProp ?? []);
+  const [loading, setLoading] = useState(!useEmbedded && cachedItems === undefined);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const page = await api.getProjectDailyItems(token, projectId, activityDate, {
-        limit: PAGE_SIZE,
-        offset: 0,
-      });
+      const [page, missed] = await Promise.all([
+        api.getProjectDailyItems(token, projectId, activityDate, {
+          limit: PAGE_SIZE,
+          offset: 0,
+          bucket: "mastered",
+        }),
+        api.getProjectDailyItems(token, projectId, activityDate, {
+          limit: PAGE_SIZE,
+          offset: 0,
+          bucket: "missed",
+        }),
+      ]);
       setItems(page);
+      setMissedItems(missed);
     } catch {
       setItems([]);
+      setMissedItems([]);
     } finally {
       setLoading(false);
     }
   }, [token, projectId, activityDate]);
 
   useEffect(() => {
-    if (itemsByDate) {
-      setItems(itemsByDate[activityDate] ?? []);
+    if (useEmbedded) {
+      setItems(itemsByDate?.[activityDate] ?? []);
+      setMissedItems(missedItemsProp ?? []);
       setLoading(false);
       return;
     }
+    if (itemsByDate) {
+      setItems(itemsByDate[activityDate] ?? []);
+      setLoading(false);
+      // Still fetch misses when only mastered map was embedded.
+      void (async () => {
+        try {
+          const missed = await api.getProjectDailyItems(token, projectId, activityDate, {
+            limit: PAGE_SIZE,
+            offset: 0,
+            bucket: "missed",
+          });
+          setMissedItems(missed);
+        } catch {
+          setMissedItems([]);
+        }
+      })();
+      return;
+    }
     void load();
-  }, [activityDate, itemsByDate, load]);
+  }, [
+    activityDate,
+    itemsByDate,
+    load,
+    missedItemsProp,
+    projectId,
+    token,
+    useEmbedded,
+  ]);
 
   const handleStatusChange = useCallback(
     async (itemId: string, status: VocabStatus) => {
@@ -76,6 +118,12 @@ export function ProjectDayItemsList({
       try {
         const updated = await api.updateProjectItem(token, projectId, itemId, { status });
         setItems((prev) => prev.map((row) => (row.id === itemId ? updated : row)));
+        setMissedItems((prev) => {
+          if (status === "mastered") {
+            return prev.filter((row) => row.id !== itemId);
+          }
+          return prev.map((row) => (row.id === itemId ? updated : row));
+        });
         onItemUpdated?.();
       } catch {
         Alert.alert(t("common.error"), t("projects.status_update_failed"));

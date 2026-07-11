@@ -284,6 +284,8 @@ def test_get_language_project_detail():
     body = r.json()
     assert body["total_count"] == 2
     assert body["lists"] == []
+    assert body["daily_items_by_date"] == {}
+    assert body["daily_missed_by_date"] == {}
     assert len(body["daily_history"]) == 14
 
 
@@ -361,6 +363,37 @@ def test_list_daily_items():
 
     assert r.status_code == 200
     assert r.json()[0]["content"] == "hola"
+
+
+def test_list_daily_items_missed_bucket():
+    user = _fake_user()
+    app = _app_with_user(user)
+    project = _project(kind="language")
+    project_id = project.id
+    item = _item(project_id)
+    item.content = "missed-word"
+    item.mastered = False
+    item.status = "learning"
+
+    with (
+        patch(
+            "app.routers.projects.projects_repo.get_by_id",
+            AsyncMock(return_value=project),
+        ),
+        patch(
+            "app.routers.projects.project_items_repo.list_missed_by_activity_date",
+            AsyncMock(return_value=[item]),
+        ) as missed_mock,
+    ):
+        client = TestClient(app)
+        r = client.get(
+            f"/projects/{project_id}/daily-items?activity_date=2026-07-01&bucket=missed",
+            headers={"Authorization": "Bearer tok"},
+        )
+
+    assert r.status_code == 200
+    assert r.json()[0]["content"] == "missed-word"
+    missed_mock.assert_awaited_once()
 
 
 def test_update_project_daily_goal():

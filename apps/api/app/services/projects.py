@@ -1237,13 +1237,15 @@ def _build_enriched_stats(
     return ProjectStats.model_validate(enriched)
 
 
-async def _maybe_persist_daily_goal_history(
+async def _resolve_daily_goal_history(
     session: AsyncSession,
     project: Project,
     items: list[ProjectItem],
     *,
     timezone_name: str,
+    persist: bool = False,
 ) -> list[dict[str, int | str]]:
+    """Compute goal history for stats. Persist only when explicitly requested (not on GET)."""
     from app.services import daily_learning
 
     history = daily_learning.ensure_daily_goal_history(
@@ -1251,6 +1253,8 @@ async def _maybe_persist_daily_goal_history(
         items,
         timezone_name=timezone_name,
     )
+    if not persist:
+        return history
     existing = daily_learning.parse_daily_goal_history(project)
     should_persist = project.daily_goal_history is None or (
         len(existing) == 1 and history != existing
@@ -1354,8 +1358,9 @@ async def get_project_detail(
 ) -> dict[str, Any] | None:
     """Assemble project detail for language/trivia; None if missing or unsupported.
 
-    ``lists`` (full deck) is omitted by default — the Words/GK detail screen only
-    needs stats + 14-day day maps. Pass ``include_lists=True`` for PDF export.
+    Default response is slim: stats + 14-day count history only. Day item payloads are
+    loaded on demand via ``GET /projects/{id}/daily-items``. Pass ``include_lists=True``
+    for PDF export (full deck lists).
     """
     from app.models.schemas import ProjectDailyHistoryDay, ProjectOut
     from app.services import daily_learning
@@ -1369,8 +1374,9 @@ async def get_project_detail(
     project_items = await project_items_repo.list_for_user(
         session, user.id, project_id=project_id, limit=5000
     )
-    goal_history = await _maybe_persist_daily_goal_history(
-        session, item, project_items, timezone_name=tz_name
+    # Read path must not write — compute history in memory only.
+    goal_history = await _resolve_daily_goal_history(
+        session, item, project_items, timezone_name=tz_name, persist=False
     )
     history_rows = daily_learning.build_daily_history(
         project_items,
@@ -1388,18 +1394,6 @@ async def get_project_detail(
         daily_history=history_rows,
     )
     daily_history = [ProjectDailyHistoryDay.model_validate(row) for row in history_rows]
-    daily_items_by_date = {
-        day_key: [ProjectItemOut.model_validate(i) for i in day_items]
-        for day_key, day_items in daily_learning.group_mastered_items_by_date(
-            project_items, timezone_name=tz_name, days=14
-        ).items()
-    }
-    daily_missed_by_date = {
-        day_key: [ProjectItemOut.model_validate(i) for i in day_items]
-        for day_key, day_items in daily_learning.group_missed_items_by_date(
-            project_items, timezone_name=tz_name, days=14
-        ).items()
-    }
     lists: list[Any] = []
     if include_lists:
         lists = (
@@ -1414,8 +1408,9 @@ async def get_project_detail(
         "total_count": stats.total,
         "stats": stats,
         "daily_history": daily_history,
-        "daily_items_by_date": daily_items_by_date,
-        "daily_missed_by_date": daily_missed_by_date,
+        # Day item maps omitted — client loads via /daily-items for the selected day.
+        "daily_items_by_date": {},
+        "daily_missed_by_date": {},
         "lists": lists,
     }
 

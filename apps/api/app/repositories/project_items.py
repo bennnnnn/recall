@@ -2,7 +2,7 @@ from datetime import UTC, date, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -211,20 +211,53 @@ async def list_by_activity_date(
     from app.services.daily_learning import day_bounds_utc
 
     start, end = day_bounds_utc(activity_date, timezone_name)
-    mastered = ProjectItem.mastered.is_(True)
-    in_window = or_(
-        ProjectItem.mastered_at >= start,
-        ProjectItem.mastered_at < end,
-    )
     stmt = (
         select(ProjectItem)
         .where(
             ProjectItem.user_id == user_id,
             ProjectItem.project_id == project_id,
-            mastered,
-            in_window,
+            ProjectItem.mastered.is_(True),
+            and_(
+                ProjectItem.mastered_at >= start,
+                ProjectItem.mastered_at < end,
+            ),
         )
         .order_by(ProjectItem.mastered_at.desc().nullslast(), ProjectItem.created_at.desc())
+        .offset(max(offset, 0))
+        .limit(min(limit, 100))
+    )
+    return list((await session.execute(stmt)).scalars().all())
+
+
+async def list_missed_by_activity_date(
+    session: AsyncSession,
+    user_id: UUID,
+    project_id: UUID,
+    activity_date: date,
+    *,
+    timezone_name: str = "UTC",
+    limit: int = 50,
+    offset: int = 0,
+) -> list[ProjectItem]:
+    """Still-open misses (not mastered) whose last_incorrect_at falls on activity_date."""
+    from app.services.daily_learning import day_bounds_utc
+
+    start, end = day_bounds_utc(activity_date, timezone_name)
+    stmt = (
+        select(ProjectItem)
+        .where(
+            ProjectItem.user_id == user_id,
+            ProjectItem.project_id == project_id,
+            ProjectItem.mastered.is_(False),
+            and_(
+                ProjectItem.last_incorrect_at >= start,
+                ProjectItem.last_incorrect_at < end,
+            ),
+        )
+        .order_by(
+            ProjectItem.last_incorrect_at.desc().nullslast(),
+            ProjectItem.created_at.desc(),
+        )
         .offset(max(offset, 0))
         .limit(min(limit, 100))
     )

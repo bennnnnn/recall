@@ -176,6 +176,31 @@ async def test_list_by_activity_date_queries_mastered_window(fake_session):
 
 
 @pytest.mark.asyncio
+async def test_list_missed_by_activity_date_queries_incorrect_window(fake_session):
+    matched = [_item(content="book", status="learning", mastered=False)]
+    mock_scalars = MagicMock()
+    mock_scalars.all.return_value = matched
+    mock_result = MagicMock()
+    mock_result.scalars.return_value = mock_scalars
+    fake_session.execute.return_value = mock_result
+
+    from datetime import date
+
+    page = await repo.list_missed_by_activity_date(
+        fake_session,
+        uuid4(),
+        uuid4(),
+        date(2026, 7, 1),
+        timezone_name="UTC",
+        limit=25,
+        offset=0,
+    )
+
+    fake_session.execute.assert_awaited_once()
+    assert page == matched
+
+
+@pytest.mark.asyncio
 async def test_create_normalizes_list_title(fake_session):
     created = await repo.create(
         fake_session,

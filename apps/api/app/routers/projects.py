@@ -83,7 +83,7 @@ async def get_project(
     client_timezone: str | None = Query(default=None, max_length=64),
     include_lists: bool = Query(
         default=False,
-        description="Include full item lists (for PDF export). Default omits them for a faster detail open.",
+        description="Include full item lists (for PDF export). Default omits lists and day item maps for a faster detail open.",
     ),
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
@@ -105,6 +105,11 @@ async def list_daily_items(
     project_id: UUID,
     activity_date: str = Query(..., min_length=10, max_length=10),
     client_timezone: str | None = Query(default=None, max_length=64),
+    bucket: str = Query(
+        default="mastered",
+        pattern="^(mastered|missed)$",
+        description="mastered = completed that day; missed = still-open misses that day",
+    ),
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
     limit: int = 50,
@@ -121,15 +126,26 @@ async def list_daily_items(
             detail="activity_date must be YYYY-MM-DD",
         ) from exc
     tz_name = _project_timezone(user, client_timezone)
-    items = await project_items_repo.list_by_activity_date(
-        session,
-        user.id,
-        project_id,
-        parsed_date,
-        timezone_name=tz_name,
-        limit=limit,
-        offset=offset,
-    )
+    if bucket == "missed":
+        items = await project_items_repo.list_missed_by_activity_date(
+            session,
+            user.id,
+            project_id,
+            parsed_date,
+            timezone_name=tz_name,
+            limit=limit,
+            offset=offset,
+        )
+    else:
+        items = await project_items_repo.list_by_activity_date(
+            session,
+            user.id,
+            project_id,
+            parsed_date,
+            timezone_name=tz_name,
+            limit=limit,
+            offset=offset,
+        )
     return [ProjectItemOut.model_validate(i) for i in items]
 
 

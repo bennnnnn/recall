@@ -33,7 +33,7 @@ export const projectsApi = {
     token: string,
     projectId: string,
     activityDate: string,
-    options?: { limit?: number; offset?: number },
+    options?: { limit?: number; offset?: number; bucket?: "mastered" | "missed" },
   ) => {
     const tz = getDeviceTimezone();
     const limit = options?.limit ?? 50;
@@ -43,6 +43,7 @@ export const projectsApi = {
       limit: String(limit),
       offset: String(offset),
     });
+    if (options?.bucket) params.set("bucket", options.bucket);
     if (tz) params.set("client_timezone", tz);
     return request<ProjectItem[]>(
       `/projects/${projectId}/daily-items?${params.toString()}`,
