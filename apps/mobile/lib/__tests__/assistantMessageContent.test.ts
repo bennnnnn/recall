@@ -127,4 +127,26 @@ describe("deriveAssistantMessageContent", () => {
     expect(result.markdownContent).not.toMatch(/^A\)/m);
     expect(result.markdownContent).toContain("ephemeral");
   });
+
+  it("hides vocab_card example sentence when asking the user to write one", () => {
+    const result = deriveAssistantMessageContent({
+      ...base,
+      content: [
+        "Write your own sentence using **effervescent**.",
+        "",
+        "```vocab_card",
+        JSON.stringify({
+          word: "effervescent",
+          definition: "bubbly and lively",
+          example_sentence: "Her effervescent laughter filled the room.",
+        }),
+        "```",
+      ].join("\n"),
+    });
+
+    expect(result.showVocabCard).toBe(true);
+    expect(result.vocabCard?.word).toBe("effervescent");
+    expect(result.vocabCard?.definition).toBe("bubbly and lively");
+    expect(result.vocabCard?.exampleSentence).toBeUndefined();
+  });
 });

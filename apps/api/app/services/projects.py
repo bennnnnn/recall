@@ -143,20 +143,22 @@ VOCAB_QUIZ_FORMAT_BLOCK = (
 
 VOCAB_CARD_FENCE_EXAMPLE = (
     "```vocab_card\n"
-    '{"word":"serendipity","definition":"finding something good by accident",'
-    '"example_sentence":"Meeting her was pure serendipity."}\n'
+    '{"word":"serendipity","definition":"finding something good by accident"}\n'
     "```"
 )
 
 # Learning-oriented rotation for vocabulary (trivia stays MCQ-only).
 VOCAB_LEARNING_FORMATS_BLOCK = (
     "Rotate these formats across turns (vary; do **not** default to MCQ every time):\n"
-    "1) **Teach → use:** show a ```vocab_card``` (definition + example), then ask the user to "
+    "1) **Teach → use:** show a ```vocab_card``` with **word + definition only** "
+    "(do **NOT** include example_sentence — that spoils the exercise). Then ask the user to "
     "write their **own** sentence using the word. Example card:\n"
     f"{VOCAB_CARD_FENCE_EXAMPLE}\n"
-    "Then: *Write your own sentence with **serendipity**.*\n"
+    "Then: *Write your own sentence with **serendipity**.* "
+    "Only after they answer may you share an example sentence.\n"
     "2) **Use → define:** give one clear example sentence with the target word in **bold**, "
-    "then ask what it means in their own words (open-ended — no A–D).\n"
+    "then ask what it means in their own words (open-ended — no A–D). "
+    "Do **not** show the definition until after they answer.\n"
     "3) **Quick check (MCQ):** about **one turn in three**, use A–D tap chips:\n"
     f"{VOCAB_QUIZ_FORMAT_BLOCK}\n"
     "One word per turn. Prefer teach→use and use→define for learning; MCQ is a quick check only."

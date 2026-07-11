@@ -201,7 +201,7 @@ export function buildHomeDailyQuizChatPrompt(highlight: HomeProjectHighlight): s
   if (cue === "start") {
     return (
       `Start today's "${title}" vocabulary session. ` +
-      "One word at a time — mix teach→use (show definition, ask for a sentence), " +
+      "One word at a time — mix teach→use (definition only, then I write a sentence — no example first), " +
       "use→define (show a sentence, ask what it means), and occasional A–D multiple choice. Begin now."
     );
   }
@@ -303,8 +303,9 @@ export function buildProjectChatTutorPrompt(project: ProjectDetail): string {
   }
   if (isLanguageProject(project.kind)) {
     return (
-      `We're in **chat tutor mode** — teach one word at a time with definition and example. ` +
-      `Use the vocab_card format for each word. No multiple choice unless I ask to be quizzed.\n\n` +
+      `We're in **chat tutor mode** — teach one word at a time with definition only on the card ` +
+      `(no example sentence until after I try). Use the vocab_card format. ` +
+      `No multiple choice unless I ask to be quizzed.\n\n` +
       buildProjectAskPrompt(project)
     );
   }
@@ -331,7 +332,8 @@ export function buildProjectQuizPrompt(project: ProjectDetail): string {
     `My English level: ${lvl}.${goal}\n` +
     `${progressLine(project)}\n\n` +
     "One word at a time from my new and learning words, matched to my level.\n" +
-    "Mix learning formats: teach→use (```vocab_card``` then ask for a sentence), " +
+    "Mix learning formats: teach→use (```vocab_card``` with word+definition only — " +
+    "no example_sentence — then ask for a sentence), " +
     "use→define (example sentence then open definition), and occasional A–D ```vocab_quiz```.\n\n" +
     "When you use MCQ, use this format:\n\n" +
     `${VOCAB_QUIZ_FORMAT_BLOCK}\n\n` +

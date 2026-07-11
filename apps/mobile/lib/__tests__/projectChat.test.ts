@@ -70,6 +70,7 @@ describe("buildProjectChatTutorPrompt", () => {
       stats: { ...triviaProject().stats, mastered_today: 2 },
     } as ProjectDetail);
     expect(prompt).toContain("vocab_card format");
+    expect(prompt).toContain("no example sentence");
     expect(prompt).not.toContain("Do NOT teach English vocabulary");
   });
 });

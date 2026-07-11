@@ -18,6 +18,13 @@ import {
   stripVocabCardBlock,
   type ParsedVocabCard,
 } from "@/lib/parseVocabCard";
+
+/** True when the assistant is asking the user to produce a sentence (teach→use). */
+function asksUserToWriteSentence(content: string): boolean {
+  return /write (?:your own |a |an )?sentence|use .+ in (?:a |your own )?sentence/i.test(
+    content,
+  );
+}
 import { resolvePlaces, stripPlacesContent, type PlaceItem } from "@/lib/placesList";
 import { resolveSearchSources, stripSearchSourcesFromContent } from "@/lib/searchSources";
 import { parseMessageImages, type ParsedMessageImage } from "@/lib/messageAttachments";
@@ -142,8 +149,13 @@ export function deriveAssistantMessageContent(
           return isRenderableVocabQuiz(quiz) ? quiz : null;
         })();
 
-  const vocabCard =
+  const rawVocabCard =
     isUser || !hasContent || quizForStrip ? null : parseVocabCard(content);
+  // Teach→use: never show the example sentence before the user writes theirs.
+  const vocabCard =
+    rawVocabCard && asksUserToWriteSentence(content)
+      ? { ...rawVocabCard, exampleSentence: undefined }
+      : rawVocabCard;
 
   const showVocabCard = vocabCard != null && !layoutFrozen;
   const hideQuizFenceInMarkdown = hasVocabQuizFence(content);
