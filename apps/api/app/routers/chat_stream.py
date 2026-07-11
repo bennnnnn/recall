@@ -33,19 +33,13 @@ def _sse(payload: dict[str, Any]) -> str:
     return f"data: {json.dumps(payload, separators=(',', ':'))}\n\n"
 
 
-async def _await_finalize_tasks(result: dict[str, Any]) -> None:
-    finalize_db_task = result.pop("_finalize_db_task", None)
-    finalize_jobs_task = result.pop("_finalize_task", None)
-    if finalize_db_task is not None:
-        try:
-            await finalize_db_task
-        except Exception:
-            logger.exception("Failed to finalize SSE chat stream")
-    if finalize_jobs_task is not None:
-        try:
-            await finalize_jobs_task
-        except Exception:
-            logger.exception("Failed to enqueue post-turn jobs SSE")
+def _detach_finalize_tasks(result: dict[str, Any]) -> None:
+    """DB finalize + job enqueue keep running as background tasks; `done` is
+    sent immediately with the pre-assigned message_id instead of holding the
+    stream open on Neon/Redis round trips. The finalize registry guards the
+    next turn against the still-pending commit."""
+    result.pop("_finalize_db_task", None)
+    result.pop("_finalize_task", None)
 
 
 async def _stream_tokens_sse(
@@ -126,7 +120,7 @@ async def _stream_tokens_sse(
         if result.get("fallback_used"):
             stream_end["fallback_used"] = result["fallback_used"]
         yield _sse(stream_end)
-        await _await_finalize_tasks(result)
+        _detach_finalize_tasks(result)
 
         done: dict[str, Any] = {"type": "done"}
         for key in (

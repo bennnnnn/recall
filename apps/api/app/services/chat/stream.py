@@ -3,7 +3,7 @@ import logging
 import math
 from collections.abc import AsyncIterator, Callable
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from redis.asyncio import Redis
 
@@ -13,6 +13,10 @@ from app.core.db import SessionLocal
 from app.exceptions import ChatNotFoundError, QuotaExceededError
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.orm import User
+from app.services.chat.finalize_registry import (
+    register_pending_finalize,
+    wait_for_pending_finalize,
+)
 from app.services.chat.post_turn import (
     enqueue_post_turn_jobs,
     finalize_stream_turn_db,
@@ -109,6 +113,10 @@ async def stream_chat_response(
     timing.mark_phase("turn_start")
     status = wrap_stream_status(timing, on_status)
 
+    # The previous turn's DB commit may still be in flight (done is sent
+    # before it lands) — wait so this turn's prompt sees that reply.
+    await wait_for_pending_finalize(chat_id)
+
     async with SessionLocal() as session:
         if user is None:
             user = await chat_pkg.users_repo.get_by_id(session, user_id)
@@ -199,6 +207,10 @@ async def stream_regenerate_response(
     timing = TurnTimingTracker()
     timing.mark_phase("turn_start")
     status = wrap_stream_status(timing, on_status)
+
+    # The reply being regenerated may not be committed yet — wait so we
+    # delete/replace the real row instead of racing the background insert.
+    await wait_for_pending_finalize(chat_id)
 
     regenerate_backup: RegenerateBackup | None = None
     model: str
@@ -344,6 +356,10 @@ async def stream_edit_response(
     content = new_content.strip()
     if not content:
         raise ChatNotFoundError("Message cannot be empty.")
+
+    # Turns after the edited message are deleted below — make sure the
+    # previous turn's background insert has landed so it gets deleted too.
+    await wait_for_pending_finalize(chat_id)
 
     async with SessionLocal() as session:
         user = await chat_pkg.users_repo.get_by_id(session, user_id)
@@ -620,13 +636,27 @@ async def stream_and_finalize(
             if result is not None and was_cancelled and assistant_text:
                 result["final_content"] = assistant_text
 
+        # Give the assistant row its id now so `done` (message_id + metadata)
+        # can be sent the moment the stream ends — the DB commit happens in the
+        # background and anything reading this chat next awaits it via the
+        # finalize registry.
+        if ctx.assistant_message_id is None:
+            ctx.assistant_message_id = uuid4()
         if result is not None:
             result["resolved_model"] = ctx.model
+            result["message_id"] = str(ctx.assistant_message_id)
+            if ctx.recalled_count:
+                result["recalled"] = str(ctx.recalled_count)
+            if ctx.memory_hints:
+                result["memory_hints"] = json.dumps(ctx.memory_hints)
+            if ctx.context_summarized:
+                result["context_summarized"] = str(ctx.context_summarized)
 
         finalize_db_task = create_background_task(
             finalize_stream_turn_db(redis, ctx, assistant_text, usage, result),
             name="finalize_stream_turn_db",
         )
+        register_pending_finalize(ctx.chat_id, finalize_db_task)
         finalize_db_task.add_done_callback(
             lambda t: logger.exception("Background DB finalization failed", exc_info=t.exception())
             if t.exception()

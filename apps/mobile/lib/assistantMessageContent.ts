@@ -138,8 +138,9 @@ export function deriveAssistantMessageContent(
   const hasContent = content.trim().length > 0;
   const isQuizFeedback = messageId.startsWith("local-quiz-");
   const showActionSlot = !isUser && hasContent && !isQuizFeedback;
-  // Defer feedback icons until rich chrome finishes mounting (layoutFrozen).
-  const actionsReady = showActionSlot && !isGenerating && !layoutFrozen;
+  // Icons appear the moment generation ends: the action slot reserves fixed
+  // height, so revealing them during the post-stream settle can't shift layout.
+  const actionsReady = showActionSlot && !isGenerating;
 
   const quizForStrip =
     isUser || !hasContent

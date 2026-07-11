@@ -77,6 +77,9 @@ class StreamContext:
     reserved_tokens: int
     max_output_tokens: int
     user: User | None = None
+    # Pre-assigned id for the assistant row so `done` can be sent to the client
+    # before the background DB insert commits.
+    assistant_message_id: UUID | None = None
     recalled_count: int = 0
     memory_hints: list[str] = field(default_factory=list)
     context_summarized: int = 0

@@ -567,3 +567,63 @@ def test_ws_message_rate_limit_blocks_second_chargeable_message():
             assert err["type"] == "error"
             assert "Too many requests" in err["message"]
             assert msg_calls["count"] == 2
+
+
+# ── done is not blocked by background finalization ─────────────────────────────
+
+
+def test_ws_done_sent_while_finalize_still_pending():
+    """`done` (with the pre-assigned message_id) must reach the client
+    immediately after `stream_end` — the DB finalize runs in the background
+    and must not hold the socket. Before this behavior, a slow finalize kept
+    the client in the streaming state (feedback icons hidden) for seconds."""
+    import time
+
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+    message_id = str(uuid4())
+    release_finalize = asyncio.Event()
+    captured: dict = {}
+
+    async def fake_stream(*args, result=None, **kwargs):
+        captured["loop"] = asyncio.get_running_loop()
+        yield "Hello"
+        if result is not None:
+            result["message_id"] = message_id
+            result["resolved_model"] = "free-chat"
+
+            async def slow_finalize():
+                # Bounded so a regression fails the elapsed assert below
+                # instead of hanging the suite.
+                try:
+                    await asyncio.wait_for(release_finalize.wait(), timeout=8)
+                except TimeoutError:
+                    pass
+
+            result["_finalize_db_task"] = asyncio.create_task(slow_finalize())
+
+    app = _app(user)
+
+    with (
+        patch(
+            "app.routers.ws.tokens_service.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
+        patch("app.routers.ws.chat_service.stream_chat_response", fake_stream),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "hi"})
+            assert ws.receive_json()["type"] == "start"
+            assert ws.receive_json()["type"] == "token"
+            assert ws.receive_json()["type"] == "stream_end"
+            started = time.monotonic()
+            done = ws.receive_json()
+            elapsed = time.monotonic() - started
+            assert done["type"] == "done"
+            assert done["message_id"] == message_id
+            # Old behavior awaited the finalize task before done (>=8s here).
+            assert elapsed < 4
+            captured["loop"].call_soon_threadsafe(release_finalize.set)

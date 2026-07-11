@@ -109,18 +109,12 @@ async def _stream_over_ws(
         if not await _safe_send_json(websocket, stream_end):
             return
 
-        finalize_db_task = result.pop("_finalize_db_task", None)
-        finalize_jobs_task = result.pop("_finalize_task", None)
-        if finalize_db_task is not None:
-            try:
-                await finalize_db_task
-            except Exception:
-                logger.exception("Failed to finalize chat stream")
-        if finalize_jobs_task is not None:
-            try:
-                await finalize_jobs_task
-            except Exception:
-                logger.exception("Failed to enqueue post-turn jobs")
+        # DB finalize + job enqueue run as background tasks; `done` already
+        # carries the pre-assigned message_id and turn metadata, so send it
+        # now instead of holding the client on Neon/Redis round trips. The
+        # finalize registry guards the next turn against the pending commit.
+        result.pop("_finalize_db_task", None)
+        result.pop("_finalize_task", None)
 
         done: dict[str, Any] = {"type": "done"}
         for key in (

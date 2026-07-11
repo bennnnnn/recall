@@ -34,7 +34,7 @@ describe("deriveAssistantMessageContent", () => {
     expect(result.markdownStreamMode).toBe(true);
   });
 
-  it("shows actions when generation finished and layout settled", () => {
+  it("shows actions as soon as generation finishes (even mid layout settle)", () => {
     const ready = deriveAssistantMessageContent({
       ...base,
       isGenerating: false,
@@ -51,7 +51,9 @@ describe("deriveAssistantMessageContent", () => {
 
     expect(ready.actionsReady).toBe(true);
     expect(streaming.actionsReady).toBe(false);
-    expect(settling.actionsReady).toBe(false);
+    // The action slot is fixed-height, so icons can show while rich chrome
+    // is still deferred — no layout shift.
+    expect(settling.actionsReady).toBe(true);
   });
 
   it("builds markdown reset key from renderKey and content length", () => {

@@ -21,6 +21,7 @@ async def create(
     input_tokens: int = 0,
     output_tokens: int = 0,
     commit: bool = True,
+    message_id: UUID | None = None,
 ) -> Message:
     message = Message(
         chat_id=chat_id,
@@ -31,6 +32,8 @@ async def create(
         input_tokens=input_tokens,
         output_tokens=output_tokens,
     )
+    if message_id is not None:
+        message.id = message_id
     session.add(message)
     if commit:
         await session.commit()
