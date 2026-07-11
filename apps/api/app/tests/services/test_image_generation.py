@@ -69,3 +69,81 @@ async def test_generate_image_openrouter_b64_json():
     assert result == (png, "image/png")
     call_json = mock_client.post.await_args.kwargs["json"]
     assert call_json["aspect_ratio"] == "16:9"
+
+
+def _mock_http_client(**kwargs):
+    client = AsyncMock()
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=None)
+    for name, value in kwargs.items():
+        setattr(client, name, value)
+    return client
+
+
+@pytest.mark.asyncio
+async def test_generate_image_openrouter_url_response_is_fetched_ssrf_safely():
+    """When OpenRouter returns a `url` instead of b64_json, the image bytes must be
+    fetched through the shared SSRF-safe helper (DNS-pinned), not a plain GET."""
+    settings = Settings(
+        openrouter_api_key="test-key",
+        image_generation_enabled=True,
+        image_generation_model="black-forest-labs/flux-schnell",
+    )
+    payload = {"data": [{"url": "https://cdn.example.com/out.png"}]}
+    post_response = MagicMock()
+    post_response.status_code = 200
+    post_response.json.return_value = payload
+    post_response.raise_for_status = MagicMock()
+    post_client = _mock_http_client(post=AsyncMock(return_value=post_response))
+
+    png = b"\x89PNG\r\n\x1a\n"
+    get_response = MagicMock()
+    get_response.status_code = 200
+    get_response.headers = {"content-type": "image/png"}
+    get_response.content = png
+    get_response.raise_for_status = MagicMock()
+    get_client = _mock_http_client(get=AsyncMock(return_value=get_response))
+
+    with (
+        patch("app.services.image_generation.mock_llm.should_mock_llm", return_value=False),
+        patch(
+            "app.gateways.image_gateway.httpx.AsyncClient",
+            side_effect=[post_client, get_client],
+        ),
+        patch(
+            "app.gateways.safe_fetch.resolve_external_host",
+            AsyncMock(return_value=("cdn.example.com", "93.184.216.34")),
+        ),
+    ):
+        result = await generate_image(settings, prompt="sunset over mountains")
+
+    assert result == (png, "image/png")
+    call = get_client.get.await_args
+    # The request must go out to the pinned IP, not the raw hostname.
+    assert call.args[0] == "https://93.184.216.34/out.png"
+    assert call.kwargs["headers"]["Host"] == "cdn.example.com"
+
+
+@pytest.mark.asyncio
+async def test_generate_image_openrouter_url_response_blocks_private_ip():
+    """A provider-returned URL pointing at an internal address must be rejected,
+    not fetched."""
+    settings = Settings(
+        openrouter_api_key="test-key",
+        image_generation_enabled=True,
+        image_generation_model="black-forest-labs/flux-schnell",
+    )
+    payload = {"data": [{"url": "http://169.254.169.254/latest/meta-data/"}]}
+    post_response = MagicMock()
+    post_response.status_code = 200
+    post_response.json.return_value = payload
+    post_response.raise_for_status = MagicMock()
+    post_client = _mock_http_client(post=AsyncMock(return_value=post_response))
+
+    with (
+        patch("app.services.image_generation.mock_llm.should_mock_llm", return_value=False),
+        patch("app.gateways.image_gateway.httpx.AsyncClient", return_value=post_client),
+    ):
+        result = await generate_image(settings, prompt="sunset over mountains")
+
+    assert result is None
