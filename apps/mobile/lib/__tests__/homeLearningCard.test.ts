@@ -1,6 +1,7 @@
 import {
   homeLearningCardColors,
   homeLearningUrgency,
+  learningProgressColors,
   mixHexColors,
 } from "@/lib/homeLearningCard";
 
@@ -69,5 +70,21 @@ describe("homeLearningCard", () => {
     expect(calm.background.toLowerCase()).toBe("#ede9ff");
     expect(hot.background.toLowerCase()).toBe("#fee2e2");
     expect(hot.fill.toLowerCase()).not.toBe(calm.fill.toLowerCase());
+    expect(hot.accent.toLowerCase()).toBe(hot.fill.toLowerCase());
+  });
+
+  it("learningProgressColors matches urgency helpers for CTAs", () => {
+    const colors = learningProgressColors({
+      completedToday: 0,
+      dailyGoal: 10,
+      hour: 20,
+      surface: "#F4F4F4",
+      primaryLight: "#EDE9FF",
+      dangerLight: "#FEE2E2",
+      primary: "#6C47FF",
+      danger: "#DC2626",
+    });
+    expect(colors.background.toLowerCase()).not.toBe("#ede9ff");
+    expect(colors.accent.toLowerCase()).toBe(colors.fill.toLowerCase());
   });
 });

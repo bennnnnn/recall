@@ -1,4 +1,4 @@
-/** Home Learning highlight: slim progress + end-of-day urgency tint. */
+/** Shared Learning progress tint (home card + Continue CTAs). */
 
 const DAY_START_HOUR = 6;
 const DAY_END_HOUR = 22;
@@ -55,6 +55,14 @@ export function mixHexColors(from: string, to: string, amount: number): string {
   return `#${r}${g}${bl}`;
 }
 
+export type LearningProgressColors = {
+  background: string;
+  fill: string;
+  track: string;
+  /** Text, chevron, outline border — same urgency curve as the fill. */
+  accent: string;
+};
+
 export function homeLearningCardColors(options: {
   urgency: number;
   surface: string;
@@ -63,18 +71,51 @@ export function homeLearningCardColors(options: {
   primary: string;
   danger: string;
   success: boolean;
-}): { background: string; fill: string; track: string } {
+}): LearningProgressColors {
   if (options.success) {
     return {
       background: options.primaryLight,
       fill: options.primary,
       track: options.surface,
+      accent: options.primary,
     };
   }
   const u = Math.min(1, Math.max(0, options.urgency));
+  const accent = mixHexColors(options.primary, options.danger, u * 0.85);
   return {
     background: mixHexColors(options.primaryLight, options.dangerLight, u),
-    fill: mixHexColors(options.primary, options.danger, u * 0.85),
+    fill: accent,
     track: mixHexColors(options.surface, options.dangerLight, u * 0.4),
+    accent,
   };
+}
+
+/** Resolve tint from today's progress + local hour (shared by home + CTAs). */
+export function learningProgressColors(options: {
+  completedToday: number;
+  dailyGoal: number;
+  hour?: number;
+  surface: string;
+  primaryLight: string;
+  dangerLight: string;
+  primary: string;
+  danger: string;
+}): LearningProgressColors {
+  const hour = options.hour ?? new Date().getHours();
+  const success =
+    options.dailyGoal > 0 && options.completedToday >= options.dailyGoal;
+  const urgency = homeLearningUrgency({
+    completedToday: options.completedToday,
+    dailyGoal: options.dailyGoal,
+    hour,
+  });
+  return homeLearningCardColors({
+    urgency,
+    surface: options.surface,
+    primaryLight: options.primaryLight,
+    dangerLight: options.dangerLight,
+    primary: options.primary,
+    danger: options.danger,
+    success,
+  });
 }

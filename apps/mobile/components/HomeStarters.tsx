@@ -12,10 +12,7 @@ import { queueChatLaunch } from "@/lib/chatLaunch";
 import { buildHomeDailyQuizChatPrompt } from "@/lib/projectChat";
 import { describeDueAt } from "@/lib/dueDate";
 import { homeUrgentPrompt, listHomeUrgentTodos, partitionHomeUrgentTodos } from "@/lib/homeUrgentTodos";
-import {
-  homeLearningCardColors,
-  homeLearningUrgency,
-} from "@/lib/homeLearningCard";
+import { learningProgressColors } from "@/lib/homeLearningCard";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -51,26 +48,20 @@ function ProjectHighlightCard({
   const completedToday =
     highlight.mastered_today + (highlight.missed_today ?? 0);
   const goal = highlight.daily_goal;
-  const progress =
+  const progressPct =
     goal > 0 ? Math.min(100, Math.round((completedToday / goal) * 100)) : 0;
-  const goalMet = goal > 0 && completedToday >= goal;
   const label =
     highlight.kind === "trivia"
       ? t("chat.home.trivia_cue_continue", { done: completedToday, goal })
       : t("chat.home.vocab_cue_continue", { done: completedToday, goal });
-  const urgency = homeLearningUrgency({
+  const colors = learningProgressColors({
     completedToday,
     dailyGoal: goal,
-    hour: new Date().getHours(),
-  });
-  const colors = homeLearningCardColors({
-    urgency,
     surface: theme.surface,
     primaryLight: theme.primaryLight,
     dangerLight: theme.dangerLight,
     primary: theme.primary,
     danger: theme.danger,
-    success: goalMet,
   });
 
   const startDailyQuiz = () => {
@@ -103,7 +94,7 @@ function ProjectHighlightCard({
           <View
             style={[
               s.projectFill,
-              { width: `${progress}%`, backgroundColor: colors.fill },
+              { width: `${progressPct}%`, backgroundColor: colors.fill },
             ]}
           />
         </View>

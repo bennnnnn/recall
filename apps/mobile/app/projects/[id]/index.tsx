@@ -315,6 +315,13 @@ export default function ProjectDetailScreen() {
     };
   }
 
+  const completedTodayCount =
+    (stats.mastered_today ?? 0) + (stats.missed_today ?? 0);
+  const studyProgress =
+    dailyGoal != null
+      ? { completedToday: completedTodayCount, dailyGoal }
+      : undefined;
+
   return (
     <>
     <ScrollView style={s.root} contentContainerStyle={s.content}>
@@ -348,7 +355,11 @@ export default function ProjectDetailScreen() {
 
       {showDailyStudyCta ? (
         <View style={showDailyTracking ? s.studyCtaBeforeList : undefined}>
-          <LearningContinueCta label={dailyStudyCtaLabel} onPress={startStudyQuiz} />
+          <LearningContinueCta
+            label={dailyStudyCtaLabel}
+            onPress={startStudyQuiz}
+            progress={studyProgress}
+          />
         </View>
       ) : showReviewCta ? (
         <View style={showDailyTracking ? s.studyCtaBeforeList : undefined}>
@@ -359,6 +370,7 @@ export default function ProjectDetailScreen() {
                 : t("projects.list.review_words", { count: stats.due_for_review })
             }
             onPress={startReviewSession}
+            progress={studyProgress}
           />
         </View>
       ) : null}

@@ -144,7 +144,12 @@ export function LearningProjectCard({
         </Pressable>
 
         {ctaLabel && ctaAction ? (
-          <LearningContinueCta label={ctaLabel} onPress={ctaAction} embedded />
+          <LearningContinueCta
+            label={ctaLabel}
+            onPress={ctaAction}
+            embedded
+            progress={{ completedToday, dailyGoal }}
+          />
         ) : null}
       </View>
     </View>
