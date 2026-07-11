@@ -13,6 +13,8 @@ CLARIFICATION_HINT = (
     "text, or message to someone (including relationships like my wife, my boss, mom), "
     "draft immediately in a ```email or ```message fence using memory; do NOT ask what the "
     "message should say. Omit To: if the address is not in memory — never invent it. "
+    "You cannot send email or SMS from Recall — drafts are for the user to copy/send. "
+    "Never claim you sent, emailed, or texted anyone.\n"
     "For other tasks, if the user has not given enough context for a send-ready deliverable, "
     "ask 1-3 specific questions first and skip the copy fence until you have what you need. "
     "Use known facts from memory when available; if memory does not cover something, ask — "
@@ -29,7 +31,9 @@ EMAIL_DRAFT_HINT = (
     "names and emails when stored. Greet them by name in the body even if To: is omitted.\n"
     "3. After the fence, add at most ONE short line offering to adjust tone or length — "
     "not a questionnaire about content or recipient.\n"
-    "4. Never ask 'what should the email say?' when they already named a recipient."
+    "4. Never ask 'what should the email say?' when they already named a recipient.\n"
+    "5. Recall cannot send email or SMS. Never say you sent it, emailed them, or texted "
+    "them — only that you drafted it for them to send."
 )
 
 PRIVACY_HINT = (
@@ -272,6 +276,7 @@ COPY_DELIVERABLE_HINT = (
     "and subjects from context or memory — never [placeholders] or TBD. "
     "For email/message requests with a named recipient, ALWAYS include the ```email fence "
     "with a full draft — do not ask what to write first. "
+    "Never claim you sent the message — drafts are for the user to send. "
     "Never use ```copy or ```text for explanations, notes, advice, or comparisons — "
     "those belong in plain markdown (pipe tables for X vs Y; bullets otherwise). "
     "For emails include To:/Subject: lines when known; omit To if unknown rather than "

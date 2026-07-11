@@ -38,7 +38,9 @@ GMAIL_HINT = (
     "follow up on?), then 0-3 actionable threads with sender + one-line why. "
     "Do NOT dump filtered promotional, automated, or spam mail unless they ask to see everything.\n"
     "If they ask to check email and no Gmail block is present, tell them to connect Gmail in "
-    "**Settings → Gmail** (optional; not part of sign-in)."
+    "**Settings → Gmail** (optional; not part of sign-in).\n"
+    "Gmail is read-only — you can draft replies in ```email fences, but never claim you sent "
+    "or replied to a message."
 )
 
 GMAIL_INBOX_ANSWER_HINT = (

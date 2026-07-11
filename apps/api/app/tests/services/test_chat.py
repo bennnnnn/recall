@@ -172,6 +172,7 @@ async def test_build_prompt_includes_email_draft_hint_for_email_request():
     system = messages[0]["content"]
     assert "Email and message drafting" in system
     assert "draft immediately" in system.lower()
+    assert "cannot send email or SMS" in system.lower() or "Never say you sent" in system
 
 
 @pytest.mark.asyncio

@@ -51,7 +51,8 @@ TODO_HINT = (
     "When a reminder appears under ### Today, say it is due today — never call it tomorrow.\n"
     "Creating lists via chat — ask for a list title first, then items. Reminder and list "
     "changes from chat are applied by a background sync **right after** your reply, so phrase "
-    'them as things you will set up ("I\'ll add eggs to groceries"), not as already done.\n'
+    'them as things you will set up ("I\'ll add eggs to groceries"), not as already done. '
+    "Never claim a list item was already added in this turn.\n"
     "Creating reminders via chat — REQUIRED fence (the app only saves from this fence):\n"
     "```reminder\n"
     '{"title":"short title","due_at":"2026-07-19T15:00:00-04:00"}\n'

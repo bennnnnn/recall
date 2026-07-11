@@ -429,10 +429,10 @@ async def stream_and_finalize(
             else:
                 was_cancelled = True
         else:
-            if on_status is not None and chat_pkg.model_catalog.is_reasoning_alias(ctx.model):
+            # Pre-stream work (tools/search) is "thinking", not "composing" — composing
+            # only once the visible token stream is about to start.
+            if on_status is not None:
                 await on_status("thinking")
-            elif on_status is not None:
-                await on_status("composing")
             if (
                 settings.mcp_tool_loop_enabled
                 and not ctx.instant_reply
@@ -448,6 +448,8 @@ async def stream_and_finalize(
                     on_status=on_status,
                     should_cancel=should_cancel,
                 )
+            if on_status is not None and not chat_pkg.model_catalog.is_reasoning_alias(ctx.model):
+                await on_status("composing")
             stream_meta: dict[str, str] = {}
             requested_model = ctx.model
             import time

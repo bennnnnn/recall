@@ -46,7 +46,9 @@ WEB_SEARCH_HINT = (
     "When search returned no hits, say so in one sentence — do NOT guess why or fill in "
     "from training data. "
     "Do NOT add a separate Sources section — the app renders source cards. "
-    "Never role-play searching."
+    "Never role-play searching. "
+    "If no **Web search results** block is in this prompt, do not claim you searched the "
+    "live web — answer from knowledge or say you don't have live results."
 )
 
 

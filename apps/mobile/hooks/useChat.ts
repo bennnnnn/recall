@@ -3,7 +3,6 @@ import { chatWebSocketUrl, Message, SearchSource } from "@/lib/api";
 import { streamChatEditSse, streamChatMessageSse, streamChatRegenerateSse, isSseAbortError, type ChatSsePayload } from "@/lib/chatSse";
 import { clientGeoWsFields, type ClientGeo } from "@/lib/clientGeo";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
-import { isVocabQuizAnswer } from "@/lib/parseVocabQuiz";
 import {
   applyStreamEndModel,
   buildDoneMergeInput,
@@ -264,10 +263,31 @@ export function useChat(
         setStreaming(false);
         setFinalizing(false);
         streamingRef.current = false;
+        const draft = streamingDraftRef.current;
+        const partial = (draft?.content ?? assistantBuffer.current).trim();
         assistantBuffer.current = "";
         reasoningBuffer.current = "";
         if (regenerateBackupRef.current) {
           restoreRegenerateBackup();
+        } else if (partial) {
+          // Keep what the user already saw (same idea as stop / disconnect).
+          const keptId = `streamed-${Date.now()}`;
+          updateStreamingDraft(null);
+          setMessages((prev) => {
+            const streamingMsg = prev.find((m) => m.id === "streaming");
+            if (!streamingMsg) return prev;
+            return prev.map((m) =>
+              m.id === "streaming"
+                ? {
+                    ...m,
+                    id: keptId,
+                    content: partial,
+                    search_sources: draft?.search_sources ?? m.search_sources,
+                  }
+                : m,
+            );
+          });
+          stoppedStreamedIdRef.current = keptId;
         } else {
           clearStreamingBubble();
         }
@@ -535,7 +555,8 @@ export function useChat(
 
       assistantBuffer.current = "";
       reasoningBuffer.current = "";
-      if (isVocabQuizAnswer(content) && !streamingRef.current) {
+      // Show typing immediately (parity with regenerate) — don't wait for server `start`.
+      if (!streamingRef.current) {
         setStreaming(true);
         streamingRef.current = true;
         updateStreamingDraft({ content: "" });
