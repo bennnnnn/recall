@@ -567,6 +567,9 @@ def test_download_url_local_backend():
 
 
 def test_upload_accepts_docx_bytes_matching_claimed_type():
+    import io
+    import zipfile
+
     user = _fake_user()
     app = _app_with_user(user)
     attachment_id = uuid4()
@@ -576,7 +579,11 @@ def test_upload_accepts_docx_bytes_matching_claimed_type():
     row.storage_key = f"{user.id}/{attachment_id}"
     gateway = MagicMock(spec=LocalStorageGateway)
     gateway.write_bytes = AsyncMock()
-    docx_bytes = b"PK\x03\x04" + b"\x00" * 32
+    docx_buf = io.BytesIO()
+    with zipfile.ZipFile(docx_buf, "w") as archive:
+        archive.writestr("word/document.xml", "<content/>")
+        archive.writestr("[Content_Types].xml", "<content/>")
+    docx_bytes = docx_buf.getvalue()
 
     with (
         patch(

@@ -1,3 +1,6 @@
+import io
+import zipfile
+
 import pytest
 
 from app.core.config import Settings
@@ -6,6 +9,17 @@ from app.services.attachment_content import (
     extract_text_from_bytes,
     is_image_content_type,
 )
+
+_DOCX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+
+def _build_zip_bytes(names: list[str]) -> bytes:
+    """Build an in-memory ZIP archive containing the given (dummy-content) entries."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as archive:
+        for name in names:
+            archive.writestr(name, "<content/>")
+    return buf.getvalue()
 
 
 def test_allowed_content_types_include_images_and_documents():
@@ -37,17 +51,35 @@ def test_extract_text_from_plain_text():
 def test_bytes_match_claimed_accepts_word_documents():
     from app.services.attachment_content import bytes_match_claimed
 
-    docx_bytes = b"PK\x03\x04" + b"\x00" * 32
+    docx_bytes = _build_zip_bytes(["word/document.xml", "[Content_Types].xml"])
     doc_bytes = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 32
-    assert (
-        bytes_match_claimed(
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            docx_bytes,
-        )
-        is True
-    )
+    assert bytes_match_claimed(_DOCX_CONTENT_TYPE, docx_bytes) is True
     assert bytes_match_claimed("application/msword", doc_bytes) is True
     assert bytes_match_claimed("application/msword", docx_bytes) is False
+
+
+def test_bytes_match_claimed_rejects_non_docx_zip_family():
+    """.xlsx/.pptx/.jar/.apk/plain .zip all share the PK\\x03\\x04 ZIP
+    signature but aren't DOCX — a claimed DOCX upload must actually contain
+    the word/document.xml marker entry, not just look like a ZIP."""
+    from app.services.attachment_content import bytes_match_claimed
+
+    xlsx_bytes = _build_zip_bytes(["xl/workbook.xml", "[Content_Types].xml"])
+    pptx_bytes = _build_zip_bytes(["ppt/presentation.xml", "[Content_Types].xml"])
+    plain_zip_bytes = _build_zip_bytes(["readme.txt"])
+
+    assert bytes_match_claimed(_DOCX_CONTENT_TYPE, xlsx_bytes) is False
+    assert bytes_match_claimed(_DOCX_CONTENT_TYPE, pptx_bytes) is False
+    assert bytes_match_claimed(_DOCX_CONTENT_TYPE, plain_zip_bytes) is False
+
+
+def test_bytes_match_claimed_handles_corrupt_zip_gracefully():
+    """A truncated/corrupt buffer that merely starts with the ZIP magic
+    bytes must not raise — it should just fail to match DOCX."""
+    from app.services.attachment_content import bytes_match_claimed
+
+    corrupt_zip_bytes = b"PK\x03\x04" + b"\x00" * 32
+    assert bytes_match_claimed(_DOCX_CONTENT_TYPE, corrupt_zip_bytes) is False
 
 
 def test_bytes_match_claimed_rejects_spoofed_image():

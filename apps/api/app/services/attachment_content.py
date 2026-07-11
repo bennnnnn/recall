@@ -7,6 +7,7 @@ import base64
 import io
 import logging
 import re
+import zipfile
 from typing import Any
 from uuid import UUID
 
@@ -58,6 +59,31 @@ _TEXTISH_TYPES = frozenset({"text/plain", "text/markdown", "text/csv", "applicat
 _UNVERIFIABLE_TYPES: frozenset[str] = frozenset()
 
 
+_DOCX_MARKER_ENTRY = "word/document.xml"
+
+
+def _is_docx_zip(data: bytes) -> bool:
+    """True only for a ZIP archive that contains the canonical DOCX marker
+    entry, `word/document.xml`.
+
+    The ZIP local-file-header signature (`PK\\x03\\x04`) alone is shared by
+    .xlsx (`xl/workbook.xml`), .pptx (`ppt/presentation.xml`), .jar, .apk, and
+    plain .zip files, so it isn't enough to confirm a claimed DOCX upload is
+    actually a DOCX. This only inspects the archive's namelist — it never
+    reads/parses `document.xml` itself.
+
+    Runs on untrusted, potentially adversarial or truncated bytes: any
+    failure to open the buffer as a well-formed ZIP is treated as "not a
+    DOCX" rather than raised.
+    """
+    try:
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            return _DOCX_MARKER_ENTRY in archive.namelist()
+    except (zipfile.BadZipFile, OSError, EOFError, NotImplementedError) as exc:
+        logger.debug("ZIP signature present but not a valid/DOCX archive: %s", exc)
+        return False
+
+
 def _sniff_signature(data: bytes) -> str | None:
     """Detect a few common binary types by leading magic bytes."""
     if len(data) >= 3 and data[:3] == b"\xff\xd8\xff":
@@ -70,7 +96,7 @@ def _sniff_signature(data: bytes) -> str | None:
         return "image/gif"
     if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
         return "image/webp"
-    if len(data) >= 4 and data[:4] == b"PK\x03\x04":
+    if len(data) >= 4 and data[:4] == b"PK\x03\x04" and _is_docx_zip(data):
         return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     if len(data) >= 8 and data[:8] == b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1":
         return "application/msword"
