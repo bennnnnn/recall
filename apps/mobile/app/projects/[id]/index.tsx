@@ -170,7 +170,10 @@ export default function ProjectDetailScreen() {
 
   const confirmDelete = () => {
     if (!token || !project) return;
-    Alert.alert(t("projects.delete_title"), t("projects.delete_body"), [
+    Alert.alert(
+      t("projects.delete_title", { title: project.title }),
+      t("projects.delete_body"),
+      [
       { text: t("common.cancel"), style: "cancel" },
       {
         text: t("common.delete"),
@@ -404,7 +407,7 @@ export default function ProjectDetailScreen() {
       ) : null}
 
       <Pressable style={s.deleteBtn} onPress={confirmDelete}>
-        <Text style={s.deleteBtnText}>{t("projects.delete")}</Text>
+        <Text style={s.deleteBtnText}>{t("projects.delete", { title: project.title })}</Text>
       </Pressable>
     </ScrollView>
     </>
