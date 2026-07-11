@@ -25,6 +25,7 @@ def _fake_redis() -> AsyncMock:
     redis = AsyncMock()
     redis.set = AsyncMock(return_value=True)
     redis.delete = AsyncMock()
+    redis.eval = AsyncMock(return_value=1)
     return redis
 
 
@@ -154,4 +155,6 @@ async def test_periodic_cycle_isolates_one_users_failure_from_the_rest():
         await gmail_periodic_sync.run_gmail_periodic_cycle(settings)
 
     assert set(succeeded) == {c.user_id for c in connections if c.user_id != failing_id}
-    redis.delete.assert_awaited_once_with(gmail_periodic_sync.LOCK_KEY)
+    # Token-based release uses Lua compare-and-delete via EVAL, not bare DELETE.
+    redis.eval.assert_awaited()
+    redis.delete.assert_not_awaited()
