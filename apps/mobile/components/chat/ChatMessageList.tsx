@@ -65,7 +65,9 @@ export function ChatMessageList({
         drawDistance={280}
         maintainVisibleContentPosition={{
           disabled: false,
-          autoscrollToBottomThreshold: 0.1,
+          // Generous threshold so bottom-pinning keeps following the stream
+          // even when a large block (code fence, table) lands in one frame.
+          autoscrollToBottomThreshold: 0.25,
           startRenderingFromBottom: true,
         }}
         keyExtractor={messageListKey}

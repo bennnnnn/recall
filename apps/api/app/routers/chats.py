@@ -27,6 +27,7 @@ from app.repositories import messages as messages_repo
 from app.repositories import projects as projects_repo
 from app.repositories import usage as usage_repo
 from app.services import quota as quota_service
+from app.services.chat import finalize_registry
 from app.services.chat_titles import sanitize_manual_chat_title
 from app.services.quota import utc_today
 
@@ -216,6 +217,9 @@ async def list_messages(
     chat = await chats_repo.get_by_id(session, chat_id, user.id)
     if chat is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
+    # A just-finished turn may still be committing in the background (done is
+    # sent to the client first) — no-op unless a finalize is actually pending.
+    await finalize_registry.wait_for_pending_finalize(chat_id)
     msgs, has_more = await messages_repo.list_page(session, chat_id, limit=limit, before_id=before)
 
     # Backfill a missing title via the durable job queue. Idempotent: the handler
@@ -256,6 +260,11 @@ async def set_message_feedback(
     if chat is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
     message = await messages_repo.set_feedback(session, message_id, chat_id, body.feedback)
+    if message is None:
+        # `done` reaches the client before the assistant row commits — a fast
+        # thumbs tap can race the background finalize. Wait for it and retry.
+        await finalize_registry.wait_for_pending_finalize(chat_id)
+        message = await messages_repo.set_feedback(session, message_id, chat_id, body.feedback)
     if message is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
     return MessageOut.model_validate(message)

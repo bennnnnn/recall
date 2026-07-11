@@ -85,16 +85,19 @@ async def finalize_stream_turn_db(
                 model=ctx.model,
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
+                message_id=ctx.assistant_message_id,
             )
             if result is not None:
-                result["message_id"] = str(assistant_message.id)
-                result["resolved_model"] = ctx.model
+                # `done` is sent before this task finishes; stream_and_finalize
+                # already filled these. Kept for callers that await the task.
+                result.setdefault("message_id", str(assistant_message.id))
+                result.setdefault("resolved_model", ctx.model)
                 if ctx.recalled_count:
-                    result["recalled"] = str(ctx.recalled_count)
+                    result.setdefault("recalled", str(ctx.recalled_count))
                 if ctx.memory_hints:
-                    result["memory_hints"] = json.dumps(ctx.memory_hints)
+                    result.setdefault("memory_hints", json.dumps(ctx.memory_hints))
                 if ctx.context_summarized:
-                    result["context_summarized"] = str(ctx.context_summarized)
+                    result.setdefault("context_summarized", str(ctx.context_summarized))
 
             await chat_pkg.chats_repo.touch_by_id(session, ctx.chat_id)
 

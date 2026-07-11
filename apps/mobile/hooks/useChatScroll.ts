@@ -13,7 +13,9 @@ import { STREAM_LAYOUT_SETTLE_MS } from "@/lib/messageListLayout";
 import { clearScheduledTimeout, scheduleTimeout } from "@/lib/scheduleTimeout";
 import { tap } from "@/lib/haptics";
 
-const STREAMING_SCROLL_DEBOUNCE_MS = 150;
+const STREAMING_SCROLL_DEBOUNCE_MS = 120;
+/** Ignore sub-pixel-ish drift — FlashList's own bottom-pinning owns that range. */
+const STREAMING_SCROLL_SLACK_PX = 16;
 
 type Options = {
   chatId: string | null;
@@ -133,12 +135,20 @@ export function useChatScroll({
   const scheduleStreamingScroll = useCallback(() => {
     scheduleTimeout(streamingScrollTimerRef, STREAMING_SCROLL_DEBOUNCE_MS, () => {
       if (atBottomRef.current) {
+        // FlashList's maintainVisibleContentPosition already pins to the
+        // bottom as streamed content grows. Only issue a manual catch-up
+        // when it visibly lost the bottom (e.g. a large block mounted at
+        // once) — a second scroll writer on its own timer causes jitter.
+        const metrics = measureScrollMetrics();
+        if (metrics && metrics.distanceFromBottom <= STREAMING_SCROLL_SLACK_PX) {
+          return;
+        }
         listRef.current?.scrollToEnd({ animated: false });
       } else {
         requestAnimationFrame(() => syncScrollPosition());
       }
     });
-  }, [syncScrollPosition]);
+  }, [measureScrollMetrics, syncScrollPosition]);
 
   const schedulePostStreamScroll = useCallback(() => {
     scheduleTimeout(streamEndScrollTimerRef, STREAM_LAYOUT_SETTLE_MS, () => {
