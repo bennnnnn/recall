@@ -14,6 +14,7 @@ from app.services import profile as profile_service
 from app.services.chat.prompt_constants import (
     BROAD_SELF_ANSWER_HINT,
     CLARIFICATION_HINT,
+    COMPARISON_FORMAT_HINT,
     COPY_DELIVERABLE_HINT,
     DAY_LEARNING_SNAPSHOT_HINT,
     DAY_PLANNING_ANSWER_HINT,
@@ -29,6 +30,7 @@ from app.services.chat.prompt_constants import (
     VISUALIZATION_HINTS,
     VOCAB_CHAT_ANSWER_HINT,
     format_quiz_grading_hint,
+    is_comparison_question,
     is_writing_deliverable_request,
 )
 from app.services.context_window import select_recent_window
@@ -330,6 +332,9 @@ async def build_prompt_messages(
             )
         else:
             system_parts.append(RESPONSE_FORMAT_HINT)
+        # Turn-specific: overrides soft format map (and short-mode "no tables") for X vs Y.
+        if query_text and is_comparison_question(query_text):
+            system_parts.append(COMPARISON_FORMAT_HINT)
         system_parts.append(COPY_DELIVERABLE_HINT)
         if query_text and is_writing_deliverable_request(query_text):
             system_parts.append(EMAIL_DRAFT_HINT)

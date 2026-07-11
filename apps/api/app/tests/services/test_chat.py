@@ -175,6 +175,72 @@ async def test_build_prompt_includes_email_draft_hint_for_email_request():
 
 
 @pytest.mark.asyncio
+async def test_build_prompt_includes_comparison_table_hint():
+    user = MagicMock()
+    user.id = uuid4()
+    user.name = "Test User"
+    user.email = "test@example.com"
+    user.location = None
+    user.response_style = "balanced"
+    user.memory_enabled = True
+    user.locale = "en"
+    user.timezone = None
+
+    session = AsyncMock()
+
+    with (
+        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=None)),
+        patch(
+            "app.services.chat.memory_service.get_memory_block",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.chat.todos_service.build_todos_system_section",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.chat.projects_service.load_projects_for_prompt",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.services.chat.messages_repo.list_recent",
+            AsyncMock(return_value=[]),
+        ),
+    ):
+        messages = await build_prompt_messages(
+            session,
+            user,
+            uuid4(),
+            Settings(attachment_rag_enabled=False),
+            query_text="Python vs java",
+        )
+
+    system = messages[0]["content"]
+    assert "This turn is a comparison" in system
+    assert "| Feature | Option A | Option B |" in system
+    assert "do NOT answer as long bullet paragraphs" in system
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("Python vs java", True),
+        ("python versus Java", True),
+        ("compare React and Vue", True),
+        ("difference between SQL and NoSQL", True),
+        ("which is better, Go or Rust?", True),
+        ("tell me about Python", False),
+        ("hi", False),
+        ("", False),
+    ],
+)
+def test_is_comparison_question(text, expected):
+    from app.services.chat.prompt_constants import is_comparison_question
+
+    assert is_comparison_question(text) is expected
+
+
+@pytest.mark.asyncio
 async def test_build_prompt_injects_custom_instructions():
     user = MagicMock()
     user.name = "Test User"

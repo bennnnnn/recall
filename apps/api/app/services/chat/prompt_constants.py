@@ -273,22 +273,54 @@ COPY_DELIVERABLE_HINT = (
     "For email/message requests with a named recipient, ALWAYS include the ```email fence "
     "with a full draft — do not ask what to write first. "
     "Never use ```copy or ```text for explanations, notes, advice, or comparisons — "
-    "those belong in plain text or bullets. "
+    "those belong in plain markdown (pipe tables for X vs Y; bullets otherwise). "
     "For emails include To:/Subject: lines when known; omit To if unknown rather than "
     "guessing an address."
 )
 
+_COMPARISON_TURN = re.compile(
+    r"(?:"
+    r"\bvs\.?\b|"
+    r"\bversus\b|"
+    r"\bcompar(?:e|ed|ing|ison)\b|"
+    r"\bdifference(?:s)?\s+between\b|"
+    r"\bside[\s-]?by[\s-]?side\b|"
+    r"\bwhich\s+is\s+better\b"
+    r")",
+    re.IGNORECASE,
+)
+
+COMPARISON_FORMAT_HINT = (
+    "This turn is a comparison (X vs Y / feature grid). Lead with a markdown "
+    "pipe table — do NOT answer as long bullet paragraphs.\n"
+    "Required shape:\n"
+    "| Feature | Option A | Option B |\n"
+    "| --- | --- | --- |\n"
+    "| Typing | … | … |\n"
+    "(Add one column per option; one attribute per row — typing, syntax, use cases, "
+    "performance, ecosystem, learning curve, etc.)\n"
+    "After the table: at most 1-3 short bullets on when to pick each, then a clear "
+    "recommendation if they asked which to choose. Proper GFM only — every row starts "
+    "and ends with |; never wrap the table in a code fence."
+)
+
+
+def is_comparison_question(text: str) -> bool:
+    """True when the user is asking for an X vs Y / feature comparison."""
+    cleaned = text.strip()
+    if not cleaned:
+        return False
+    return bool(_COMPARISON_TURN.search(cleaned))
+
+
 INTENT_FORMAT_HINT = (
-    "Adapt your output to the user's goal. Be direct and natural — not every answer "
-    "needs a table or a special format.\n"
+    "Adapt your output to the user's goal. Be direct and natural — pick the format "
+    "that is easiest to scan for that intent.\n"
     "\n"
     "Default (facts, lists, rankings, lookups, recommendations):\n"
     "  - Use a simple **numbered list** or **bullets** for most answers. "
     'This is the right format for rankings ("top N …"), lists of facts, '
-    "recommendations, pros/cons, and general Q&A.\n"
-    "  - Only use a pipe table when the user explicitly asks for a table, or "
-    "when comparing 4+ items across 3+ clear columns where a table is genuinely "
-    "easier to read than a list.\n"
+    "recommendations, and general Q&A.\n"
     '  - For a single topic ("tell me about X"), use 2-3 short headings with '
     "bullets — not a wall of text and not a kv block.\n"
     "\n"
@@ -321,19 +353,27 @@ INTENT_FORMAT_HINT = (
     "  - Brief approach sentence, then tagged code fence (```python, etc.), "
     "then notes.\n"
     "\n"
-    "Decision / compare (X vs Y):\n"
-    "  - Bullets for each side, then a clear recommendation.\n"
-    "  - Use a table only when asked or when there are many structured attributes."
+    "Decision / compare (X vs Y, A vs B vs C, feature comparison):\n"
+    "  - Lead with a **markdown pipe table** (required for multi-attribute compares). "
+    "Feature/Aspect column + one column per option (e.g. | Feature | Python | Java |). "
+    "One attribute per row (typing, syntax, use cases, performance, ecosystem, …).\n"
+    "  - After the table, add 1-3 bullets: when to pick each option, then a clear "
+    "recommendation if the user asked which to choose.\n"
+    "  - Use bullets instead of a table only when there is almost nothing to "
+    "compare (one short difference) or the user asked for a narrative.\n"
+    "  - For pure pros/cons of ONE thing, a ```comparison fence (left=pros, "
+    "right=cons) is fine; for multi-option feature grids, use a pipe table."
 )
 
 RESPONSE_FORMAT_HINT = (
     "Be scannable — avoid long prose paragraphs:\n"
     "- Prefer **numbered lists** for rankings, steps, and ordered information. "
     "Prefer **bullets** for unordered facts, key points, and options.\n"
-    "- Use pipe tables ONLY when the user asks for a table, or when comparing "
-    "4+ items across 3+ structured columns where a table is genuinely clearer "
-    "than a list. Most comparisons are fine as bullets.\n"
-    "- When you do use pipe tables: use proper GFM format — every row starts "
+    "- Prefer **pipe tables** for comparisons (X vs Y, feature grids, side-by-side "
+    "attributes). For those turns, the table comes first — do not bury the same "
+    "comparison in long bullet paragraphs. Example header: "
+    "| Feature | Option A | Option B |. One attribute per row.\n"
+    "- When you use pipe tables: use proper GFM format — every row starts "
     "and ends with |, one |---| separator row after the header. Never put "
     "tables inside ``` fences. Never insert dash-only or blank rows between data rows.\n"
     "- Keep paragraphs to 1-2 sentences. Use headings (##) to group information "
