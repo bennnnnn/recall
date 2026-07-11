@@ -106,6 +106,27 @@ export function isComposerMenuOverlayOpen(attachSheetOpen: boolean): boolean {
   return attachSheetOpen;
 }
 
+/** Mic when empty; send when there is text/attachment. Never both (except stop while streaming). */
+export function composerShowsMic(options: {
+  voiceAvailable: boolean;
+  voiceRecording: boolean;
+  voiceTranscribing: boolean;
+  hasSendableContent: boolean;
+}): boolean {
+  if (!options.voiceAvailable || options.voiceTranscribing) return false;
+  if (options.voiceRecording) return true;
+  return !options.hasSendableContent;
+}
+
+export function composerShowsSend(options: {
+  voiceRecording: boolean;
+  voiceTranscribing: boolean;
+  hasSendableContent: boolean;
+}): boolean {
+  if (options.voiceRecording || options.voiceTranscribing) return false;
+  return options.hasSendableContent;
+}
+
 export type ChatLayoutMetrics = {
   headerInset: number;
   fadeHeight: number;

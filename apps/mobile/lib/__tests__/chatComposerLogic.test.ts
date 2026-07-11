@@ -1,5 +1,7 @@
 import {
   buildModelOptions,
+  composerShowsMic,
+  composerShowsSend,
   computeChatLayoutMetrics,
   formatModelCostHint,
   isComposerMenuOverlayOpen,
@@ -119,6 +121,57 @@ describe("chatComposerLogic", () => {
   it("isComposerMenuOverlayOpen reflects attach sheet", () => {
     expect(isComposerMenuOverlayOpen(false)).toBe(false);
     expect(isComposerMenuOverlayOpen(true)).toBe(true);
+  });
+
+  it("composerShowsMic and composerShowsSend are mutually exclusive for typed text", () => {
+    expect(
+      composerShowsMic({
+        voiceAvailable: true,
+        voiceRecording: false,
+        voiceTranscribing: false,
+        hasSendableContent: false,
+      }),
+    ).toBe(true);
+    expect(
+      composerShowsSend({
+        voiceRecording: false,
+        voiceTranscribing: false,
+        hasSendableContent: false,
+      }),
+    ).toBe(false);
+
+    expect(
+      composerShowsMic({
+        voiceAvailable: true,
+        voiceRecording: false,
+        voiceTranscribing: false,
+        hasSendableContent: true,
+      }),
+    ).toBe(false);
+    expect(
+      composerShowsSend({
+        voiceRecording: false,
+        voiceTranscribing: false,
+        hasSendableContent: true,
+      }),
+    ).toBe(true);
+
+    // Mid-dictation: mic only (plus cancel), never send.
+    expect(
+      composerShowsMic({
+        voiceAvailable: true,
+        voiceRecording: true,
+        voiceTranscribing: false,
+        hasSendableContent: true,
+      }),
+    ).toBe(true);
+    expect(
+      composerShowsSend({
+        voiceRecording: true,
+        voiceTranscribing: false,
+        hasSendableContent: true,
+      }),
+    ).toBe(false);
   });
 
   it("computeChatLayoutMetrics accounts for keyboard and feedback row", () => {

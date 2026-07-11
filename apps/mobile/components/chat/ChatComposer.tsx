@@ -17,6 +17,10 @@ import { VoiceMicButton } from "@/components/chat/VoiceMicButton";
 import { ComposerAttachmentPreview } from "@/components/ComposerAttachmentPreview";
 import { SuggestedRemindersNudge } from "@/components/SuggestedRemindersNudge";
 import type { PendingAttachment } from "@/lib/attachments";
+import {
+  composerShowsMic,
+  composerShowsSend,
+} from "@/lib/chatComposerLogic";
 import { Theme, useTheme } from "@/lib/theme";
 
 export const COMPOSER_HEIGHT = 88;
@@ -93,6 +97,19 @@ export const ChatComposer = memo(function ChatComposer({
 
   if (!visible) return null;
 
+  const hasSendableContent = Boolean(input.trim() || pendingAttachment);
+  const showMic = composerShowsMic({
+    voiceAvailable: Boolean(onVoicePress && token),
+    voiceRecording,
+    voiceTranscribing,
+    hasSendableContent,
+  });
+  const showSend = composerShowsSend({
+    voiceRecording,
+    voiceTranscribing,
+    hasSendableContent,
+  });
+
   const blockStyle = docked ? s.composerDocked : s.composerBlock;
   const containerStyle = animatedContainerStyle
     ? [blockStyle, animatedContainerStyle]
@@ -159,7 +176,7 @@ export const ChatComposer = memo(function ChatComposer({
                   </Pressable>
                 ) : (
                   <>
-                    {voiceRecording && onVoiceCancel ? (
+                    {onVoiceCancel && voiceRecording ? (
                       <Pressable
                         style={s.voiceCancelBtn}
                         onPress={onVoiceCancel}
@@ -170,7 +187,7 @@ export const ChatComposer = memo(function ChatComposer({
                         <Ionicons name="close" size={18} color={theme.textSecondary} />
                       </Pressable>
                     ) : null}
-                    {onVoicePress && token && !voiceTranscribing ? (
+                    {showMic && onVoicePress ? (
                       <VoiceMicButton
                         recording={voiceRecording}
                         transcribing={voiceTranscribing}
@@ -182,7 +199,7 @@ export const ChatComposer = memo(function ChatComposer({
                       <View style={[s.sendBtn, s.sendBtnDisabled]}>
                         <Text style={[s.sendIcon, s.sendIconDisabled]}>…</Text>
                       </View>
-                    ) : input.trim() || pendingAttachment ? (
+                    ) : showSend ? (
                       <Pressable
                         style={[s.sendBtn, isOffline && s.sendBtnDisabled]}
                         onPress={onSend}
