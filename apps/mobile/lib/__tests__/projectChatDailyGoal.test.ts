@@ -77,7 +77,7 @@ describe("projectChat daily goal helpers", () => {
     const prompt = buildProjectAskPrompt(languageProject(), { screenTitle: "Words" });
     expect(prompt).toContain("Continue my Words session.");
     expect(prompt).toContain("Level: Beginner.");
-    expect(prompt).toContain("Today: 3/5 done (3 mastered, 0 missed)");
+    expect(prompt).toContain("Today: 3/5 done (3 mastered, 0 failed)");
     expect(prompt).toMatch(/teach→use|learning format|use→define/);
     expect(prompt).not.toContain("Goal:");
     expect(prompt).not.toContain("you pick the format");
@@ -93,7 +93,7 @@ describe("projectChat daily goal helpers", () => {
     expect(prompt).toContain("Continue my General Knowledge session.");
     expect(prompt).toContain("Topics: History, Science.");
     expect(prompt).toContain("Difficulty: Easy.");
-    expect(prompt).toContain("Today: 3/5 done (3 correct, 0 missed)");
+    expect(prompt).toContain("Today: 3/5 done (3 correct, 0 failed)");
     expect(prompt).toContain("multiple-choice");
     expect(prompt).not.toContain("Goal: history");
   });
@@ -103,7 +103,7 @@ describe("projectChat daily goal helpers", () => {
     expect(prompt).toContain("projects.trivia.title");
     expect(prompt).toContain("projects.trivia.topic.history");
     expect(prompt).toContain("projects.trivia.difficulty.easy");
-    expect(prompt).toContain("Today: 3/5 done (3 correct, 0 missed)");
+    expect(prompt).toContain("Today: 3/5 done (3 correct, 0 failed)");
   });
 
   it("completed prompt tells Recall not to add words", () => {

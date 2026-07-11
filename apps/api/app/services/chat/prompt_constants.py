@@ -168,7 +168,7 @@ QUIZ_ANSWER_HINT = (
     "occasional MCQ ```vocab_quiz) — never default to MCQ every turn.\n"
     "   - WRONG (tries 1-2): stop after the hint. Do NOT redisplay the question, choices, or a "
     "```vocab_quiz fence. The previous chips stay available — they will answer again.\n"
-    "   - MISSED (3rd wrong try): briefly reveal the correct answer, keep as learning for "
+    "   - FAILED (3rd wrong try): briefly reveal the correct answer, keep as learning for "
     "next time (not mastered), then ask a DIFFERENT next item (trivia: ```vocab_quiz; "
     "vocabulary: any learning format).\n"
     "Stay in the active project kind: trivia stays trivia (quiz_type trivia); "
@@ -190,13 +190,16 @@ VOCAB_CHAT_ANSWER_HINT = (
     "placeholder replies = **wrong** — never congratulate those.\n"
     "- If wrong (tries 1-2): say wrong and give a short hint (not the full answer). Do NOT "
     "redisplay an MCQ fence. Never say 'word mastered'.\n"
-    "- If missed after repeated weak tries: briefly reveal the answer, keep as learning, "
+    "- If failed after repeated weak tries: briefly reveal the answer, keep as learning, "
     "then continue with a DIFFERENT next word in another learning format.\n"
     "- If correct: congratulate briefly, then continue with a DIFFERENT next word — prefer a "
     "**different** format than the one you just used (teach→use, use→define, occasional MCQ).\n"
     f"{projects_service.VOCAB_LEARNING_FORMATS_BLOCK}\n"
     "- Only treat as mastered when genuinely correct (MCQ auto-grades; for open-ended, "
-    "confirm clearly so project sync can record mastery)."
+    "confirm clearly so project sync can record mastery).\n"
+    "- When the answer is wrong / weak and you move on (or they clearly failed): the app "
+    "records the fail via project sync — say they got it wrong and keep the word as learning; "
+    "do not call it 'missed' (that means skipped a study day)."
 )
 
 
@@ -236,19 +239,19 @@ def format_quiz_grading_hint(
         label = (question or word).strip()
         if is_trivia:
             follow_up = (
-                f"They missed after {attempt} tries. Briefly reveal that the answer was "
-                f'{correct_letter} ("{word}"). Mark it as missed for later review — do NOT say '
+                f"They failed after {attempt} tries. Briefly reveal that the answer was "
+                f'{correct_letter} ("{word}"). Mark it as failed for later review — do NOT say '
                 f'mastered. Then ask a DIFFERENT next question (not "{label}") as ```vocab_quiz '
                 'with quiz_type "trivia".'
             )
         else:
             follow_up = (
-                f'They missed "{word}" after {attempt} tries. Briefly reveal the correct answer '
-                f"({correct_letter}). Keep it as learning/missed for next time — do NOT say "
+                f'They failed "{word}" after {attempt} tries. Briefly reveal the correct answer '
+                f"({correct_letter}). Keep it as learning/failed for next time — do NOT say "
                 f'mastered. Then continue with a DIFFERENT next word (not "{word}") using another '
                 "learning format (teach→use, use→define, or MCQ)."
             )
-        verdict = "MISSED"
+        verdict = "FAILED"
     else:
         if is_trivia:
             follow_up = (

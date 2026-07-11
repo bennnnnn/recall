@@ -25,7 +25,7 @@ function statusIcon(item: ProjectItem): keyof typeof Ionicons.glyphMap {
 
 function statusColor(item: ProjectItem, theme: Theme): string {
   if (item.status === "mastered" || item.mastered) return theme.primary;
-  // Missed / learning and new — gray (same as daily Missed metric)
+  // Failed / learning and new — gray (same as daily Failed metric)
   return theme.textTertiary;
 }
 
@@ -108,7 +108,9 @@ export function ProjectItemRow({
           <View style={[s.statusChip, mastered && s.statusChipMastered]}>
             <Text style={[s.statusChipText, mastered && s.statusChipTextMastered]}>
               {item.status === "learning"
-                ? t("projects.status_missed")
+                ? item.last_incorrect_at
+                  ? t("projects.status_missed")
+                  : t("projects.status_learning")
                 : statusLabel(item.status)}
             </Text>
             {onStatusChange ? (

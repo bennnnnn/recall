@@ -144,7 +144,7 @@ def pick_learning_nudge(
         body = (
             f'Finish today\'s "{title}" session — '
             f"{completed_today}/{daily_goal} done "
-            f"({mastered_today} correct, {missed_today} missed){inactive_note}"
+            f"({mastered_today} correct, {missed_today} failed){inactive_note}"
         )
         score = 55.0 + float(remaining)
         return (

@@ -83,12 +83,12 @@ function todayProgressClause(project: ProjectDetail): string {
   const daily = resolveProjectDailyGoal(project);
   const done = completedTodayCount(project.stats);
   const correct = project.stats.mastered_today;
-  const missed = project.stats.missed_today ?? 0;
+    const missed = project.stats.missed_today ?? 0;
   if (project.kind === "trivia") {
-    return `Today: ${done}/${daily} done (${correct} correct, ${missed} missed)`;
+    return `Today: ${done}/${daily} done (${correct} correct, ${missed} failed)`;
   }
   if (isLanguageProject(project.kind)) {
-    return `Today: ${done}/${daily} done (${correct} mastered, ${missed} missed)`;
+    return `Today: ${done}/${daily} done (${correct} mastered, ${missed} failed)`;
   }
   return `Today: ${done}/${daily}`;
 }

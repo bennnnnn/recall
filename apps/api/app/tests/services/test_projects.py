@@ -973,6 +973,49 @@ async def test_apply_project_actions_start_learning_and_unmaster():
 
 
 @pytest.mark.asyncio
+async def test_apply_project_actions_start_learning_records_failed_quiz():
+    session = AsyncMock()
+    user_id = uuid4()
+    project = _project("English")
+    existing = _item("serendipity", project.id)
+    existing.status = "new"
+    existing.last_incorrect_at = None
+
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_for_user",
+            AsyncMock(return_value=[existing]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "apply_quiz_result",
+            AsyncMock(return_value=existing),
+        ) as apply_result,
+    ):
+        applied = await projects_service.apply_project_actions(
+            session,
+            user_id=user_id,
+            actions=[
+                ProjectActionItem(
+                    action="start_learning",
+                    project_title="English",
+                    content="serendipity",
+                ),
+            ],
+        )
+
+    assert applied == 1
+    apply_result.assert_awaited_once()
+    assert apply_result.await_args.kwargs["is_correct"] is False
+
+
+@pytest.mark.asyncio
 async def test_apply_project_actions_delete_list():
     session = AsyncMock()
     user_id = uuid4()

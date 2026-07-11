@@ -142,9 +142,7 @@ VOCAB_QUIZ_FORMAT_BLOCK = (
 )
 
 VOCAB_CARD_FENCE_EXAMPLE = (
-    "```vocab_card\n"
-    '{"word":"serendipity","definition":"finding something good by accident"}\n'
-    "```"
+    '```vocab_card\n{"word":"serendipity","definition":"finding something good by accident"}\n```'
 )
 
 # Learning-oriented rotation for vocabulary (trivia stays MCQ-only).
@@ -340,12 +338,12 @@ def _format_missed_quiz_lines(items: list[ProjectItem], *, limit: int = 30) -> l
         )
         detail = (item.definition or item.note or item.example_sentence or "").strip()
         suffix = f" — {detail[:120]}" if detail else ""
-        lines.append(f"- {item.content}{suffix} (missed {when})")
+        lines.append(f"- {item.content}{suffix} (failed {when})")
     return lines
 
 
-# Misses stay out of the "quiz FIRST today" list until SM-2 due (usually next day),
-# so a mid-session miss is not immediately re-prioritized against "never re-ask".
+# Fails stay out of the "quiz FIRST today" list until SM-2 due (usually next day),
+# so a mid-session fail is not immediately re-prioritized against "never re-ask".
 _FAILED_REVIEW_FALLBACK_MIN_AGE = timedelta(hours=12)
 
 
@@ -512,7 +510,7 @@ async def load_project_quiz_context(
             )
         elif tries_exhausted and answered_label:
             follow = (
-                f'MISSED after {attempt} tries — "{answered_label}" stays learning for next time. '
+                f'FAILED after {attempt} tries — "{answered_label}" stays learning for next time. '
                 "Briefly reveal the correct answer, then ask a DIFFERENT next general-knowledge "
                 'question (quiz_type trivia — never vocabulary / "what does X mean?"):'
             )
@@ -583,7 +581,7 @@ async def load_project_quiz_context(
         )
     elif tries_exhausted and answered_label:
         follow = (
-            f'MISSED after {attempt} tries — "{answered_label}" stays learning for next time. '
+            f'FAILED after {attempt} tries — "{answered_label}" stays learning for next time. '
             "Briefly reveal the correct answer, then continue with a DIFFERENT next word "
             "using a different learning format (teach→use, use→define, or MCQ):"
         )
@@ -667,11 +665,19 @@ def looks_like_vocab_question(content: str) -> bool:
 
 
 def _recently_missed_quiz(item: ProjectItem, *, within_seconds: int = 86_400) -> bool:
-    """Block sync-master for a day after a miss so failed words stay learning."""
+    """Block sync-master for a day after a fail so failed words stay learning."""
     missed = getattr(item, "last_incorrect_at", None)
     if not isinstance(missed, datetime):
         return False
     return (datetime.now(UTC) - missed.astimezone(UTC)).total_seconds() < within_seconds
+
+
+def _failed_quiz_today(item: ProjectItem) -> bool:
+    """True when last_incorrect_at is already on today's UTC calendar day."""
+    missed = getattr(item, "last_incorrect_at", None)
+    if not isinstance(missed, datetime):
+        return False
+    return missed.astimezone(UTC).date() == datetime.now(UTC).date()
 
 
 async def _persist_quiz_outcome(
@@ -1074,12 +1080,12 @@ def _format_today_session_line(project: Project, stats: dict[str, int]) -> str:
     if completed_today >= daily_goal:
         return (
             f"**Today:** {completed_today}/{daily_goal} done — daily goal complete "
-            f"({mastered_today} correct, {missed_today} missed). "
+            f"({mastered_today} correct, {missed_today} failed). "
             "This is the authoritative progress line — do not restate or contradict it."
         )
     return (
         f"**Today:** {completed_today}/{daily_goal} done "
-        f"({mastered_today} correct, {missed_today} missed; {remaining} more needed). "
+        f"({mastered_today} correct, {missed_today} failed; {remaining} more needed). "
         "This is the authoritative progress line — do not restate or contradict it."
     )
 
@@ -1267,7 +1273,7 @@ async def load_daily_learning_summary_for_prompt(
             status = f"{remaining} left for today's {quiz_label}"
         lines.append(
             f"- {project.title} ({quiz_label}): {completed_today}/{daily_goal} done "
-            f"({mastered_today} correct, {missed_today} missed; {status})"
+            f"({mastered_today} correct, {missed_today} failed; {status})"
         )
     if not lines:
         return ""
@@ -1620,10 +1626,35 @@ async def apply_project_actions(
                     applied += 1
                     items = await project_items_repo.list_for_user(session, user_id, limit=500)
                 elif action.action == "start_learning":
+                    # Record a failed/incorrect quiz outcome (open-ended or exhausted).
+                    # Stamps last_incorrect_at so failed_today / day lists stay accurate.
                     item = _find_item(items, project.id, list_title, action.content)
-                    if item and _item_status(item) == "new":
-                        await project_items_repo.update(session, item, status="learning")
-                        applied += 1
+                    if not item:
+                        item = _find_item_by_content(items, project.id, action.content)
+                    content = action.content.strip()
+                    if not item and content:
+                        item = await project_items_repo.create(
+                            session,
+                            user_id=user_id,
+                            project_id=project.id,
+                            content=content,
+                            list_title=list_title,
+                            note=action.note,
+                            definition=action.definition,
+                            example_sentence=action.example_sentence or action.note,
+                            chat_id=chat_id,
+                            status="new",
+                        )
+                        items = await project_items_repo.list_for_user(session, user_id, limit=500)
+                    if item and _item_status(item) != "mastered":
+                        if not _failed_quiz_today(item):
+                            await project_items_repo.apply_quiz_result(
+                                session, item, is_correct=False, commit=False
+                            )
+                            applied += 1
+                        elif _item_status(item) == "new":
+                            await project_items_repo.update(session, item, status="learning")
+                            applied += 1
                 elif action.action == "master":
                     item = _find_item(
                         items, project.id, list_title, action.content, mastered_only=False

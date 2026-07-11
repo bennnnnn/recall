@@ -150,7 +150,7 @@ def test_format_quiz_grading_hint_exhausted_moves_on():
         attempt=3,
         tries_exhausted=True,
     )
-    assert "MISSED" in hint
+    assert "FAILED" in hint
     assert "Thirty Years' War" in hint
     assert "DIFFERENT" in hint
     assert "redisplay" not in hint.lower() or "Do NOT redisplay" not in hint
@@ -503,7 +503,7 @@ async def test_load_trivia_quiz_context_exhausted_moves_on():
             ),
         )
 
-    assert "MISSED" in block
+    assert "FAILED" in block
     assert "DIFFERENT" in block
     assert "Do NOT redisplay" not in block
     assert "```vocab_quiz" in block or "vocab_quiz" in block

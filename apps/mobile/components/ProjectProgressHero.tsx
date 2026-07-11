@@ -31,7 +31,7 @@ type Props = {
  * Learning status colors (one mapping app-wide):
  * - Goal met / complete → theme.success
  * - Correct / mastered → theme.primary
- * - Missed → theme.textTertiary (gray)
+ * - Failed → theme.textTertiary (gray)
  * - Left / pending → theme.warning when > 0
  */
 export function ProjectProgressHero({
