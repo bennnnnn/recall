@@ -123,5 +123,7 @@ export async function exportProjectAsPdf(
 }
 
 export function projectHasExportableItems(project: ProjectDetail): boolean {
+  if (project.total_count > 0) return true;
+  if ((project.stats?.total ?? 0) > 0) return true;
   return flattenItems(project).length > 0;
 }

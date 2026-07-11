@@ -1212,23 +1212,25 @@ def _build_enriched_stats(
     *,
     timezone_name: str,
     daily_goal_history: list[dict[str, int | str]] | None = None,
+    daily_history: list[dict[str, object]] | None = None,
 ) -> ProjectStats:
     from app.services import daily_learning, learning_insights
 
     raw = project_items_repo.stats_from_items(items, timezone_name=timezone_name)
-    daily_goal = daily_learning.resolve_daily_goal(project)
+    if daily_history is None:
+        daily_history = daily_learning.build_daily_history(
+            items,
+            timezone_name=timezone_name,
+            daily_goal=daily_learning.resolve_daily_goal(project),
+            active_since=project.created_at,
+            daily_goal_history=daily_goal_history,
+        )
     enriched = learning_insights.enrich_learning_stats(
         raw,
         project=project,
         items=items,
         timezone_name=timezone_name,
-        daily_history=daily_learning.build_daily_history(
-            items,
-            timezone_name=timezone_name,
-            daily_goal=daily_goal,
-            active_since=project.created_at,
-            daily_goal_history=daily_goal_history,
-        ),
+        daily_history=daily_history,
     )
     return ProjectStats.model_validate(enriched)
 
@@ -1346,8 +1348,13 @@ async def get_project_detail(
     project_id: UUID,
     *,
     client_timezone: str | None = None,
+    include_lists: bool = False,
 ) -> dict[str, Any] | None:
-    """Assemble project detail for language/trivia; None if missing or unsupported."""
+    """Assemble project detail for language/trivia; None if missing or unsupported.
+
+    ``lists`` (full deck) is omitted by default — the Words/GK detail screen only
+    needs stats + 14-day day maps. Pass ``include_lists=True`` for PDF export.
+    """
     from app.models.schemas import ProjectDailyHistoryDay, ProjectOut
     from app.services import daily_learning
     from app.services import time_context as time_context_service
@@ -1363,20 +1370,22 @@ async def get_project_detail(
     goal_history = await _maybe_persist_daily_goal_history(
         session, item, project_items, timezone_name=tz_name
     )
-    stats = _build_enriched_stats(
-        item, project_items, timezone_name=tz_name, daily_goal_history=goal_history
+    history_rows = daily_learning.build_daily_history(
+        project_items,
+        timezone_name=tz_name,
+        daily_goal=daily_learning.resolve_daily_goal(item),
+        active_since=item.created_at,
+        daily_goal_history=goal_history,
+        days=14,
     )
-    daily_history = [
-        ProjectDailyHistoryDay.model_validate(row)
-        for row in daily_learning.build_daily_history(
-            project_items,
-            timezone_name=tz_name,
-            daily_goal=daily_learning.resolve_daily_goal(item),
-            active_since=item.created_at,
-            daily_goal_history=goal_history,
-            days=14,
-        )
-    ]
+    stats = _build_enriched_stats(
+        item,
+        project_items,
+        timezone_name=tz_name,
+        daily_goal_history=goal_history,
+        daily_history=history_rows,
+    )
+    daily_history = [ProjectDailyHistoryDay.model_validate(row) for row in history_rows]
     daily_items_by_date = {
         day_key: [ProjectItemOut.model_validate(i) for i in day_items]
         for day_key, day_items in daily_learning.group_mastered_items_by_date(
@@ -1389,11 +1398,13 @@ async def get_project_detail(
             project_items, timezone_name=tz_name, days=14
         ).items()
     }
-    lists = (
-        group_trivia_items(project_items)
-        if _is_trivia_project(item)
-        else group_items(project_items)
-    )
+    lists: list[Any] = []
+    if include_lists:
+        lists = (
+            group_trivia_items(project_items)
+            if _is_trivia_project(item)
+            else group_items(project_items)
+        )
     return {
         **ProjectOut.model_validate(item).model_dump(),
         "kind": normalize_project_kind(item.kind),

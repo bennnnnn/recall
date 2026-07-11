@@ -47,6 +47,7 @@ import {
 } from "@/lib/projectCreateFlow";
 import { findTriviaProject } from "@/lib/triviaProject";
 import { isTriviaProject } from "@/lib/projectUi";
+import { invalidateProjectDetail, prefetchProjectDetails } from "@/lib/projectDetailCache";
 import {
   encodeTriviaTopics,
   formatTriviaTopicLabels,
@@ -96,6 +97,16 @@ export default function ProjectsScreen() {
     }, [refresh]),
   );
 
+  useFocusEffect(
+    useCallback(() => {
+      if (!token || visibleProjects.length === 0) return;
+      prefetchProjectDetails(
+        token,
+        visibleProjects.map((p) => p.id),
+      );
+    }, [token, visibleProjects]),
+  );
+
   if (!token) return <Redirect href="/login" />;
 
   const resetCreate = () => {
@@ -117,6 +128,7 @@ export default function ProjectsScreen() {
     const isTrivia = isTriviaProject(project.kind);
     const isLang = isLanguageProject(project.kind);
     const variant = isTrivia ? "trivia" : isLang ? "vocab" : undefined;
+    invalidateProjectDetail(project.id);
     queueChatLaunch(
       buildProjectAskPromptFromProject(project, t),
       project.id,
@@ -132,6 +144,7 @@ export default function ProjectsScreen() {
     const isTrivia = isTriviaProject(project.kind);
     const isLang = isLanguageProject(project.kind);
     const variant = isTrivia ? "trivia" : isLang ? "vocab" : undefined;
+    invalidateProjectDetail(project.id);
     queueChatLaunch(
       buildProjectReviewPrompt(detail),
       project.id,

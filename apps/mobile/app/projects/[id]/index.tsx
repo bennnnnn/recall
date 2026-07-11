@@ -37,6 +37,7 @@ import {
   fetchProjectDetail,
   getCachedProjectDetail,
   invalidateProjectDetail,
+  isProjectDetailFresh,
 } from "@/lib/projectDetailCache";
 import { isLanguageProject } from "@/lib/languageLevels";
 import { resolveDailyGoal } from "@/lib/dailyGoals";
@@ -100,20 +101,26 @@ export default function ProjectDetailScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // Force so returning from a quiz chat shows freshly mastered items.
-      void load({ silent: hasLoadedRef.current, force: true });
-    }, [load]),
+      if (typeof id !== "string") return;
+      const cached = getCachedProjectDetail(id);
+      const hasPaint = Boolean(projectRef.current || cached);
+      const fresh = isProjectDetailFresh(id);
+      // Paint cache immediately; only force-network when stale/missing so quiz
+      // returns still refresh after invalidateProjectDetail.
+      void load({ silent: hasPaint, force: !fresh });
+    }, [load, id]),
   );
 
   const exportLearningPdf = useCallback(async () => {
-    if (!project || exportingPdf) return;
+    if (!token || !project || exportingPdf) return;
     if (!projectHasExportableItems(project)) {
       Alert.alert(t("projects.export_pdf_empty_title"), t("projects.export_pdf_empty_body"));
       return;
     }
     setExportingPdf(true);
     try {
-      await exportProjectAsPdf(project, {
+      const withLists = await api.getProject(token, project.id, { includeLists: true });
+      await exportProjectAsPdf(withLists, {
         mastered: t("projects.export_pdf.section_mastered"),
         learning: t("projects.export_pdf.section_learning"),
         new: t("projects.export_pdf.section_new"),
@@ -135,7 +142,7 @@ export default function ProjectDetailScreen() {
     } finally {
       setExportingPdf(false);
     }
-  }, [project, exportingPdf, t]);
+  }, [token, project, exportingPdf, t]);
 
   useLayoutEffect(() => {
     if (!project) return;
@@ -265,6 +272,7 @@ export default function ProjectDetailScreen() {
 
   const startReviewSession = () => {
     const variant = isTrivia ? "trivia" : isLang ? "vocab" : undefined;
+    invalidateProjectDetail(project.id);
     queueChatLaunch(
       buildProjectReviewPrompt(project),
       project.id,
@@ -277,6 +285,7 @@ export default function ProjectDetailScreen() {
 
   const startStudyQuiz = () => {
     const variant = isTrivia ? "trivia" : isLang ? "vocab" : undefined;
+    invalidateProjectDetail(project.id);
     queueChatLaunch(
       buildProjectAskPromptFromProject(project, t),
       project.id,
@@ -288,6 +297,7 @@ export default function ProjectDetailScreen() {
   };
 
   const startStudyBonus = () => {
+    invalidateProjectDetail(project.id);
     if (isTrivia) {
       queueChatLaunch(buildProjectBonusQuestionsPrompt(project), project.id, undefined, "trivia", "chat");
     } else if (isLang) {

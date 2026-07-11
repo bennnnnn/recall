@@ -81,11 +81,19 @@ async def create_project(
 async def get_project(
     project_id: UUID,
     client_timezone: str | None = Query(default=None, max_length=64),
+    include_lists: bool = Query(
+        default=False,
+        description="Include full item lists (for PDF export). Default omits them for a faster detail open.",
+    ),
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> ProjectDetailOut:
     detail = await projects_service.get_project_detail(
-        session, user, project_id, client_timezone=client_timezone
+        session,
+        user,
+        project_id,
+        client_timezone=client_timezone,
+        include_lists=include_lists,
     )
     if detail is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")

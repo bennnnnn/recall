@@ -283,8 +283,57 @@ def test_get_language_project_detail():
     assert r.status_code == 200
     body = r.json()
     assert body["total_count"] == 2
-    assert len(body["lists"]) >= 1
+    assert body["lists"] == []
     assert len(body["daily_history"]) == 14
+
+
+def test_get_project_include_lists():
+    user = _fake_user()
+    app = _app_with_user(user)
+    project = _project(kind="language")
+    project.daily_goal_history = [{"effective_from": "2024-01-01", "goal": 10}]
+    project_id = project.id
+    noun = _item(project_id)
+    noun.list_title = "General"
+    noun.content = "apple"
+    verb = _item(project_id)
+    verb.list_title = "General"
+    verb.content = "run"
+
+    with (
+        patch(
+            "app.services.projects.projects_repo.get_by_id",
+            AsyncMock(return_value=project),
+        ),
+        patch(
+            "app.services.projects.project_items_repo.list_for_user",
+            AsyncMock(return_value=[noun, verb]),
+        ),
+        patch(
+            "app.services.projects.project_items_repo.stats_from_items",
+            return_value={
+                "total": 2,
+                "mastered_count": 1,
+                "new_count": 1,
+                "learning_count": 0,
+                "added_this_week": 1,
+                "due_for_review": 1,
+                "mastered_today": 0,
+                "pending_today": 0,
+                "last_mastery_at": None,
+            },
+        ),
+    ):
+        client = TestClient(app)
+        r = client.get(
+            f"/projects/{project_id}?include_lists=true",
+            headers={"Authorization": "Bearer tok"},
+        )
+
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body["lists"]) >= 1
+    assert sum(len(g["items"]) for g in body["lists"]) == 2
 
 
 def test_list_daily_items():

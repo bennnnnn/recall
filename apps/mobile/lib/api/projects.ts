@@ -16,10 +16,17 @@ export const projectsApi = {
     const qs = tz ? `?client_timezone=${encodeURIComponent(tz)}` : "";
     return request<Project[]>(`/projects${qs}`, token);
   },
-  getProject: (token: string, id: string) => {
+  getProject: (
+    token: string,
+    id: string,
+    opts?: { includeLists?: boolean },
+  ) => {
     const tz = getDeviceTimezone();
-    const qs = tz ? `?client_timezone=${encodeURIComponent(tz)}` : "";
-    return request<ProjectDetail>(`/projects/${id}${qs}`, token);
+    const params = new URLSearchParams();
+    if (tz) params.set("client_timezone", tz);
+    if (opts?.includeLists) params.set("include_lists", "true");
+    const qs = params.toString();
+    return request<ProjectDetail>(`/projects/${id}${qs ? `?${qs}` : ""}`, token);
   },
 
   getProjectDailyItems: (
