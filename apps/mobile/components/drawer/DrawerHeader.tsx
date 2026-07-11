@@ -78,7 +78,13 @@ export function DrawerHeader({
           <View style={s.logo}>
             <Text style={s.logoText}>{t("app.name")}</Text>
             <View style={s.headerActions}>
-              <Pressable hitSlop={8} style={s.searchBtn} onPress={onOpenSearch}>
+              <Pressable
+                hitSlop={8}
+                style={s.searchBtn}
+                onPress={onOpenSearch}
+                accessibilityRole="button"
+                accessibilityLabel={t("search.placeholder")}
+              >
                 <Ionicons name="search-outline" size={20} color={theme.textSecondary} />
               </Pressable>
               <Pressable hitSlop={8} style={s.selectBtn} onPress={onEnterSelection}>

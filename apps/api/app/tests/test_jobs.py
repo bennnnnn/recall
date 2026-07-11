@@ -113,20 +113,34 @@ async def test_dispatch_routes_to_handler():
 
 
 @pytest.mark.asyncio
-async def test_dispatch_unknown_type_is_noop():
-    await jobs._dispatch(Settings(), {"type": "does-not-exist", "payload": "{}"})
+async def test_dispatch_unknown_type_raises_discard():
+    with pytest.raises(jobs.JobDiscardError, match="unknown job type"):
+        await jobs._dispatch(Settings(), {"type": "does-not-exist", "payload": "{}"})
 
 
 @pytest.mark.asyncio
-async def test_dispatch_bad_payload_skips_handler():
+async def test_dispatch_bad_payload_raises_discard():
     calls = {"n": 0}
 
     async def handler(settings, payload):
         calls["n"] += 1
 
     jobs.register("bad-payload-job", handler)
-    await jobs._dispatch(Settings(), {"type": "bad-payload-job", "payload": "{not-json"})
+    with pytest.raises(jobs.JobDiscardError, match="bad payload"):
+        await jobs._dispatch(Settings(), {"type": "bad-payload-job", "payload": "{not-json"})
     assert calls["n"] == 0
+
+
+@pytest.mark.asyncio
+async def test_process_entries_moves_unknown_type_to_dlq(fake_redis):
+    await jobs._ensure_group(fake_redis)
+    entry_id = await fake_redis.xadd(
+        jobs.JOBS_STREAM,
+        {"type": "no-such-handler", "payload": "{}"},
+    )
+    entries = [(entry_id, {"type": "no-such-handler", "payload": "{}"})]
+    await jobs._process_entries(fake_redis, Settings(), entries)
+    assert await fake_redis.xlen(jobs.JOBS_DLQ_STREAM) == 1
 
 
 # ── handlers ─────────────────────────────────────────────────────────────────

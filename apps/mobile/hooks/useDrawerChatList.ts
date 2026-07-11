@@ -15,6 +15,7 @@ import {
   registerChatArchiveMover,
   registerChatInserter,
   registerChatPatcher,
+  registerChatRemover,
   subscribeChatTitleGenerating,
 } from "@/lib/drawer";
 import { emptyChatList, insertChatIntoGroups } from "@/lib/drawerChatList";
@@ -142,6 +143,15 @@ export function useDrawerChatList({ token, isDrawerOpen }: Params) {
     return () => registerChatInserter(null);
   }, [insertChatInGroups]);
 
+  const removeChatFromGroupsById = useCallback((chatId: string) => {
+    setGroups((prev) => removeChatFromGroups(prev, chatId));
+  }, []);
+
+  useEffect(() => {
+    registerChatRemover(removeChatFromGroupsById);
+    return () => registerChatRemover(null);
+  }, [removeChatFromGroupsById]);
+
   useEffect(() => {
     return subscribeChatTitleGenerating(() => setTitlePendingTick((n) => n + 1));
   }, []);
@@ -177,10 +187,6 @@ export function useDrawerChatList({ token, isDrawerOpen }: Params) {
     registerChatArchiveMover(moveChatArchiveState);
     return () => registerChatArchiveMover(null);
   }, [moveChatArchiveState]);
-
-  const removeChatFromGroupsById = useCallback((chatId: string) => {
-    setGroups((prev) => removeChatFromGroups(prev, chatId));
-  }, []);
 
   return {
     loading,

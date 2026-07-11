@@ -10,6 +10,7 @@ from uuid import UUID
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
+from app.core.redis_lock import acquire_lock, release_lock
 from app.repositories import gmail_connections as gmail_repo
 from app.services import email as email_service
 
@@ -32,8 +33,8 @@ async def run_gmail_periodic_cycle(settings: Settings) -> None:
     if not settings.gmail_enabled:
         return
     redis = get_redis_client()
-    acquired = await redis.set(LOCK_KEY, "1", nx=True, ex=CHECK_INTERVAL_SECONDS - 30)
-    if not acquired:
+    token = await acquire_lock(redis, LOCK_KEY, CHECK_INTERVAL_SECONDS - 30)
+    if not token:
         return
     try:
         async with SessionLocal() as session:
@@ -61,7 +62,7 @@ async def run_gmail_periodic_cycle(settings: Settings) -> None:
     except Exception:
         logger.exception("Gmail periodic cycle failed")
     finally:
-        await redis.delete(LOCK_KEY)
+        await release_lock(redis, LOCK_KEY, token)
 
 
 async def gmail_periodic_loop(settings: Settings) -> None:

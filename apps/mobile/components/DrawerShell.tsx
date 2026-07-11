@@ -3,7 +3,7 @@
  * Works in Expo Go. The chat is always rendered; the sidebar slides
  * in from the left as an animated overlay.
  */
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Animated,
   BackHandler,
@@ -77,9 +77,13 @@ export function DrawerShell({ children }: { children: ReactNode }) {
 
   const fakeNav = { openDrawer: open, closeDrawer: close } as any;
   const fakeProps = { navigation: fakeNav } as any;
+  const drawerValue = useMemo(
+    () => ({ isOpen: drawerOpen, open, close }),
+    [drawerOpen, open, close],
+  );
 
   return (
-    <DrawerProvider value={{ isOpen: drawerOpen, open, close }}>
+    <DrawerProvider value={drawerValue}>
       <View style={s.root}>
         <View style={s.rootInner}>
           <View

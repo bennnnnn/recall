@@ -32,20 +32,30 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
 
   useEffect(() => {
     if (!token) return;
+    let cancelled = false;
     let cleanup: (() => void) | undefined;
     void import("@/lib/gmailAutoSync").then(({ attachGmailForegroundSync }) => {
+      if (cancelled) return;
       cleanup = attachGmailForegroundSync(token);
     });
-    return () => cleanup?.();
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
   }, [token]);
 
   useEffect(() => {
     if (!token) return;
+    let cancelled = false;
     let cleanup: (() => void) | undefined;
     void import("@/lib/pushNotifications").then(({ attachPushForegroundSync }) => {
+      if (cancelled) return;
       cleanup = attachPushForegroundSync(token);
     });
-    return () => cleanup?.();
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
   }, [token]);
 
   useEffect(() => {
@@ -57,6 +67,7 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
 
   useEffect(() => {
     if (!token || !user?.id) return;
+    let cancelled = false;
     let cleanup: (() => void) | undefined;
     void import("@/lib/purchases").then(
       async ({
@@ -64,18 +75,28 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
         isPurchasesConfigured,
         registerPlanChangeListener,
       }) => {
+        if (cancelled) return;
         if (!isPurchasesConfigured()) return;
         await configurePurchases(user.id);
+        if (cancelled) return;
         // Keep the backend plan in sync when the entitlement changes
         // (purchase / restore / expiry). The webhook may fail or lag; this
         // listener closes the gap without relying on a manual sync. The REST
         // call auto-refreshes the access token on 401, so a stale token is
         // fine.
-        cleanup = (await registerPlanChangeListener(() => {
-          void api.syncSubscription(token).then(setUser).catch(() => {});
-        })) ?? undefined;
+        cleanup =
+          (await registerPlanChangeListener(() => {
+            void api.syncSubscription(token).then(setUser).catch(() => {});
+          })) ?? undefined;
+        if (cancelled) {
+          cleanup?.();
+          cleanup = undefined;
+        }
       },
     );
-    return () => cleanup?.();
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
   }, [token, user?.id, setUser]);
 }

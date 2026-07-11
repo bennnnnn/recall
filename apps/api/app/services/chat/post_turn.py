@@ -204,5 +204,16 @@ async def enqueue_post_turn_jobs(
         job_specs.append(("compress", {"chat_id": str(ctx.chat_id)}))
     if ctx.prior_count % 10 == 0:
         job_specs.append(("suggestions", {"user_id": str(ctx.user_id)}))
+    for attachment_id in ctx.indexable_attachment_ids:
+        job_specs.append(
+            (
+                "attachment_index",
+                {
+                    "attachment_id": attachment_id,
+                    "user_id": str(ctx.user_id),
+                    "chat_id": str(ctx.chat_id),
+                },
+            ),
+        )
 
     await asyncio.gather(*(jobs.enqueue(redis, name, payload) for name, payload in job_specs))

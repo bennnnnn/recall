@@ -218,10 +218,13 @@ class Settings(BaseSettings):
     # Required in production (see validate_production_settings).
     oauth_token_encryption_key: str = ""
 
-    # Dev placeholders — disable in production
+    # Dev placeholders — disable in production.
+    # ``environment`` defaults to production (fail-closed): a deploy that forgets
+    # ENVIRONMENT=development boots into validate_production_settings instead of
+    # leaving auth/LLM/CORS open. Local `.env` / `.env.example` set development.
     dev_auth_enabled: bool = True
     mock_llm_enabled: bool = True
-    environment: str = "development"
+    environment: str = "production"
 
     # Optional Sentry error reporting (leave empty to disable).
     sentry_dsn: str = ""

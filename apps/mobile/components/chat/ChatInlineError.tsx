@@ -44,7 +44,13 @@ export function ChatInlineError({
           <Text style={s.ctaText}>{upgradeLabel}</Text>
         </Pressable>
       ) : null}
-      <Pressable onPress={onDismiss} hitSlop={8} style={s.close}>
+      <Pressable
+        onPress={onDismiss}
+        hitSlop={8}
+        style={s.close}
+        accessibilityRole="button"
+        accessibilityLabel="Dismiss error"
+      >
         <Ionicons name="close" size={16} color={theme.textTertiary} />
       </Pressable>
     </View>

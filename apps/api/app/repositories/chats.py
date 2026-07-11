@@ -32,7 +32,7 @@ async def get_by_id(session: AsyncSession, chat_id: UUID, user_id: UUID) -> Chat
 async def list_for_user(
     session: AsyncSession,
     user_id: UUID,
-    limit: int | None = None,
+    limit: int | None = 200,
     *,
     include_archived: bool = False,
 ) -> list[Chat]:

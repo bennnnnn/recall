@@ -103,6 +103,16 @@ export function insertChatGlobal(chat: Chat) {
   _insertChat?.(chat);
 }
 
+let _removeChat: ((chatId: string) => void) | null = null;
+
+export function registerChatRemover(fn: ((chatId: string) => void) | null) {
+  _removeChat = fn;
+}
+
+export function removeChatGlobal(chatId: string) {
+  _removeChat?.(chatId);
+}
+
 const _pendingTitleChatIds = new Set<string>();
 let _onTitlePendingChange: (() => void) | null = null;
 

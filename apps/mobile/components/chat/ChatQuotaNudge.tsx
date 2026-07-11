@@ -40,7 +40,7 @@ export function ChatQuotaNudge({
       <Pressable style={s.quotaNudgeCta} onPress={onUpgrade}>
         <Text style={s.quotaNudgeCtaText}>{t("chat.quota_nudge_cta")}</Text>
       </Pressable>
-      <Pressable onPress={onDismiss} hitSlop={8} style={s.quotaNudgeClose}>
+      <Pressable onPress={onDismiss} hitSlop={8} style={s.quotaNudgeClose} accessibilityRole="button" accessibilityLabel={t("common.cancel")}>
         <Ionicons name="close" size={16} color={theme.textTertiary} />
       </Pressable>
     </View>

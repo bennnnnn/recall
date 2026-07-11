@@ -168,17 +168,6 @@ async def seed_usage_if_missing(
     await redis.set(key, db_total, nx=True, ex=_DAILY_TTL)
 
 
-async def can_spend(
-    redis: Redis,
-    user_id: str,
-    requested: int,
-    *,
-    daily_limit: int,
-) -> bool:
-    used = await get_daily_usage(redis, user_id)
-    return used + requested <= daily_limit
-
-
 async def reserve_usage(
     redis: Redis,
     user_id: str,

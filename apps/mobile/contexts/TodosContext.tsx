@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type Dispatch,
@@ -193,19 +194,32 @@ export function TodosProvider({ children }: { children: ReactNode }) {
     return () => sub.remove();
   }, [refresh, token]);
 
-  const value: TodosContextValue = {
-    todos,
-    loading,
-    error,
-    refresh,
-    setTodos,
-    unseenCount,
-    showIndicator: unseenCount > 0,
-    remindersReady,
-    seenReminderIds,
-    markSeen,
-    dismissReminderNudge,
-  };
+  const value = useMemo<TodosContextValue>(
+    () => ({
+      todos,
+      loading,
+      error,
+      refresh,
+      setTodos,
+      unseenCount,
+      showIndicator: unseenCount > 0,
+      remindersReady,
+      seenReminderIds,
+      markSeen,
+      dismissReminderNudge,
+    }),
+    [
+      todos,
+      loading,
+      error,
+      refresh,
+      unseenCount,
+      remindersReady,
+      seenReminderIds,
+      markSeen,
+      dismissReminderNudge,
+    ],
+  );
 
   return (
     <TodosContext.Provider value={value}>{children}</TodosContext.Provider>

@@ -39,7 +39,15 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    # transaction_per_migration=True lets individual revisions opt into
+    # ``with op.get_context().autocommit_block():`` for CREATE INDEX CONCURRENTLY
+    # (which cannot run inside a transaction). Default migrations still wrap
+    # each revision in its own transaction.
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        transaction_per_migration=True,
+    )
     with context.begin_transaction():
         context.run_migrations()
 

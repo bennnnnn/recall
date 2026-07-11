@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type Dispatch,
@@ -104,13 +105,16 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     return () => sub.remove();
   }, [refresh, token]);
 
-  const value: ProjectsContextValue = {
-    projects,
-    loading,
-    error,
-    refresh,
-    setProjects,
-  };
+  const value = useMemo<ProjectsContextValue>(
+    () => ({
+      projects,
+      loading,
+      error,
+      refresh,
+      setProjects,
+    }),
+    [projects, loading, error, refresh],
+  );
 
   return (
     <ProjectsContext.Provider value={value}>{children}</ProjectsContext.Provider>

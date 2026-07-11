@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -118,11 +119,14 @@ export function HomeProvider({ children }: { children: ReactNode }) {
     return () => sub.remove();
   }, [refresh, token]);
 
-  const value: HomeContextValue = {
-    screen,
-    loading,
-    refresh,
-  };
+  const value = useMemo<HomeContextValue>(
+    () => ({
+      screen,
+      loading,
+      refresh,
+    }),
+    [screen, loading, refresh],
+  );
 
   return <HomeContext.Provider value={value}>{children}</HomeContext.Provider>;
 }

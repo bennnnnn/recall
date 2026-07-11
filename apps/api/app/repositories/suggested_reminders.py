@@ -1,7 +1,8 @@
 from datetime import datetime
+from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import CursorResult, delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import SuggestedReminder
@@ -94,11 +95,7 @@ async def mark_dismissed(session: AsyncSession, row: SuggestedReminder) -> Sugge
 
 
 async def delete_for_user(session: AsyncSession, user_id: UUID) -> int:
-    result = await session.execute(
-        select(SuggestedReminder).where(SuggestedReminder.user_id == user_id)
-    )
-    rows = list(result.scalars().all())
-    for row in rows:
-        await session.delete(row)
+    stmt = delete(SuggestedReminder).where(SuggestedReminder.user_id == user_id)
+    result = cast(CursorResult[Any], await session.execute(stmt))
     await session.commit()
-    return len(rows)
+    return int(result.rowcount or 0)

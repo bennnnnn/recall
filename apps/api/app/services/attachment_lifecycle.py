@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from uuid import UUID
 
@@ -31,8 +32,7 @@ async def purge_attachments_for_messages(
 
     await chunks_repo.delete_for_attachment_ids(session, attachment_ids)
     gateway = get_storage_gateway(settings)
-    for row in rows:
-        await gateway.delete_bytes(row.storage_key)
+    await asyncio.gather(*(gateway.delete_bytes(row.storage_key) for row in rows))
     return await attachments_repo.delete_rows(session, attachment_ids)
 
 
@@ -51,8 +51,7 @@ async def purge_attachments_for_user(
     if not rows:
         return 0
     gateway = get_storage_gateway(settings)
-    for row in rows:
-        await gateway.delete_bytes(row.storage_key)
+    await asyncio.gather(*(gateway.delete_bytes(row.storage_key) for row in rows))
     attachment_ids = [row.id for row in rows]
     from app.repositories import attachment_chunks as chunks_repo
 

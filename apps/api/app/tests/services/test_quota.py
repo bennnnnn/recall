@@ -50,7 +50,7 @@ async def test_quota_enforced(fake_redis, settings, used, requested, allowed):
     if used:
         await fake_redis.set(f"usage:u1:{day}", used)
     limit = quota_service.daily_limit_for_user(_free_user(), settings)
-    result = await quota_service.can_spend(fake_redis, "u1", requested, daily_limit=limit)
+    result = await quota_service.reserve_usage(fake_redis, "u1", requested, daily_limit=limit)
     assert result is allowed
 
 

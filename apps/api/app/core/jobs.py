@@ -45,6 +45,12 @@ _DLQ_MAXLEN = 5_000
 _BLOCK_MS = 5_000
 _BATCH = 10
 _CLAIM_IDLE_MS = 60_000
+
+
+class JobDiscardError(Exception):
+    """Non-retryable job — move to DLQ and ack (unknown type / bad payload)."""
+
+
 # Observe queue health: report DLQ depth + pending entries to Sentry every
 # _METRICS_INTERVAL_S, and capture a warning when either crosses its threshold
 # so a backed-up queue or growing DLQ doesn't go unnoticed (the admin DLQ
@@ -92,12 +98,35 @@ async def enqueue(redis: Redis, job_type: str, payload: dict[str, Any]) -> None:
         await redis.xadd(
             JOBS_STREAM,
             {"type": job_type, "payload": json.dumps(payload)},
-            maxlen=_MAXLEN,
-            approximate=True,
         )
+        await _trim_jobs_stream(redis)
     except Exception:
         logger.exception("Failed to enqueue job type=%s", job_type)
         _capture_sentry_exception(f"enqueue_failed:{job_type}")
+
+
+async def _trim_jobs_stream(redis: Redis) -> None:
+    """Trim the jobs stream without dropping consumer-group pending entries.
+
+    Prefer MINID at the oldest pending id so approximate MAXLEN cannot silently
+    erase unacked work. Fall back to MAXLEN when the group has no pending list.
+    """
+    try:
+        pending = await redis.xpending(JOBS_STREAM, JOBS_GROUP)
+        min_id: str | None = None
+        if isinstance(pending, dict):
+            raw = pending.get("min")
+            if raw:
+                min_id = str(raw)
+        elif isinstance(pending, list | tuple) and len(pending) >= 2 and pending[0]:
+            # redis-py may return (count, min, max, consumers)
+            min_id = str(pending[1]) if pending[1] else None
+        if min_id:
+            await redis.xtrim(JOBS_STREAM, minid=min_id, approximate=True)
+        else:
+            await redis.xtrim(JOBS_STREAM, maxlen=_MAXLEN, approximate=True)
+    except Exception:
+        logger.debug("jobs stream trim skipped", exc_info=True)
 
 
 async def enqueue_welcome_email(redis: Redis, user_id: UUID) -> None:
@@ -248,13 +277,11 @@ async def _dispatch(settings: Settings, fields: dict[str, Any]) -> None:
     job_type = fields.get("type")
     handler = _HANDLERS.get(job_type or "")
     if handler is None:
-        logger.warning("No handler for job type=%s", job_type)
-        return
+        raise JobDiscardError(f"unknown job type={job_type!r}")
     try:
         payload = json.loads(fields.get("payload") or "{}")
-    except json.JSONDecodeError:
-        logger.warning("Discarding job with bad payload type=%s", job_type)
-        return
+    except json.JSONDecodeError as exc:
+        raise JobDiscardError(f"bad payload type={job_type!r}") from exc
     await handler(settings, payload)
 
 
@@ -290,6 +317,10 @@ async def _process_entries(redis: Redis, settings: Settings, entries: list) -> N
             for attempt in range(1, _MAX_ATTEMPTS + 1):
                 try:
                     await _dispatch(settings, cast_fields)
+                    break
+                except JobDiscardError as exc:
+                    logger.warning("Discarding job id=%s: %s", entry_id, exc)
+                    await _move_to_dlq(redis, entry_id, cast_fields, str(exc))
                     break
                 except Exception:
                     if attempt < _MAX_ATTEMPTS:

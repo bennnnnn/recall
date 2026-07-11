@@ -7,6 +7,7 @@ import logging
 
 from app.core.config import Settings
 from app.core.redis import get_redis_client
+from app.core.redis_lock import acquire_lock, release_lock
 from app.services import attachment_lifecycle
 
 logger = logging.getLogger(__name__)
@@ -19,15 +20,15 @@ _task: asyncio.Task | None = None
 async def run_orphan_reaper_cycle(settings: Settings) -> None:
     interval = settings.attachment_orphan_reaper_interval_seconds
     redis = get_redis_client()
-    acquired = await redis.set(LOCK_KEY, "1", nx=True, ex=max(interval - 30, 60))
-    if not acquired:
+    token = await acquire_lock(redis, LOCK_KEY, max(interval - 30, 60))
+    if not token:
         return
     try:
         await attachment_lifecycle.reap_orphan_attachments(settings)
     except Exception:
         logger.exception("Attachment orphan reaper cycle failed")
     finally:
-        await redis.delete(LOCK_KEY)
+        await release_lock(redis, LOCK_KEY, token)
 
 
 async def orphan_reaper_loop(settings: Settings) -> None:

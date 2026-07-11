@@ -1,7 +1,12 @@
+import os
 from unittest.mock import patch
 
 import fakeredis.aioredis
 import pytest
+
+# Match local `.env.example` — Settings.environment defaults to production
+# (fail-closed). Tests that construct Settings() without an env file need this.
+os.environ.setdefault("ENVIRONMENT", "development")
 
 
 @pytest.fixture

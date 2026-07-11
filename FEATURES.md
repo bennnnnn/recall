@@ -428,16 +428,17 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 
 ### Pre-deployment TODO (from the holistic review)
 
-Action items still open before the first production deploy. The security/data-integrity
-fixes from the review are shipped; these remain:
+Action items still open before the first production deploy. Correctness follow-ups from the
+Jul 2026 architecture review are mostly shipped (see below); these remain:
 
 - ⚠️ **R2 storage credentials** — the `R2StorageGateway` is wired and tested, but attachments
   run on local fallback until `STORAGE_BACKEND=r2` + `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` /
   `R2_SECRET_ACCESS_KEY` / `R2_BUCKET` secrets are set. (Code done; creds pending.)
-- ⚠️ **Production env secrets** — `validate_production_settings` now enforces
+- ⚠️ **Production env secrets** — `validate_production_settings` enforces
   `OAUTH_TOKEN_ENCRYPTION_KEY`, `OPENROUTER_API_KEY`, `CORS_ORIGINS`,
-  `REVENUECAT_WEBHOOK_AUTH` (plus the existing DB/Redis/Google/JWT/dev-flags). The
-  `OPENROUTER_API_KEY` also makes the `fallback-memory-model` actually resolve.
+  `REVENUECAT_WEBHOOK_AUTH` (plus DB/Redis/Google/JWT/dev-flags). `ENVIRONMENT` now
+  **defaults to `production` (fail-closed)** — local `.env` / `.env.example` must set
+  `ENVIRONMENT=development`.
 - 🔜 **Mobile gate + on-device pass** — `pnpm typecheck && pnpm lint && pnpm test` must run
   locally (deps don't install in the CI/dev-container env). Then an iOS **and** Android
   dev-build pass for: Google Sign-In, HTML/chart preview WebView, push, RevenueCat, the new
@@ -448,14 +449,42 @@ fixes from the review are shipped; these remain:
   (bounded/structured, not row-virtualized). Verify scroll/layout on-device.
 - ✅ **i18n extraction (reminders / share / urgent)** — keys wired in `todoReminders`,
   `homeUrgentTodos`, `share.ts`, and push channel names; translated in all 9 locales.
+- 🔜 **Locale prose translations** — all 9 locales share identical key sets (776 keys), but
+  many non-English values are still English copy (~300 keys). Structural i18n is complete;
+  human translation of remaining prose is deferred.
 - 🔜 **Legal page bodies** — `/legal/privacy` and `/legal/terms` remain English-only
   markdown on the API (nav titles are localized). Locale-aware legal content is deferred.
 - ✅ **DB session scope in `_prepare_chat_turn`** — attachment S3 reads and web-search
   augmentation run outside the DB session; calendar/Gmail still use a short session.
-- ✅ **Background-job DLQ** — failed jobs are copied to `recall:jobs:dlq` before ACK
-  (poison-pill avoidance unchanged).
+- ✅ **Background-job DLQ** — failed jobs (including unknown type / bad JSON) go to
+  `recall:jobs:dlq` before ACK. Stream trim uses pending MINID so approximate maxlen
+  cannot drop unacked entries.
 - ✅ **JWT refresh / logout** — 1h access + refresh rotation; mobile auto-refresh on 401.
 - ✅ **HTTP SSE chat fallback** — `POST /chats/{id}/messages/stream` when WebSocket fails.
+
+### Architecture review follow-ups (Jul 2026)
+
+Shipped after the Phase 1/2 code review:
+
+- ✅ Fail-closed `ENVIRONMENT` default (`production`); tests set `development` via conftest
+- ✅ Job DLQ for unknown type / bad payload; pending-aware stream trim
+- ✅ Remove dead `quota.can_spend`; bulk-delete suggested reminders; parallel attachment byte deletes
+- ✅ `attachment_index` enqueued on the post-turn jobs path (not mid `prepare_chat_turn`)
+- ✅ Token-based Redis locks for push / email / Gmail / orphan-reaper schedulers
+- ✅ WS handshake IP rate limit before `accept()`; core `user_id` FKs `ON DELETE CASCADE`
+- ✅ Alembic `transaction_per_migration` so future `CREATE INDEX CONCURRENTLY` can use
+  `op.get_context().autocommit_block()`
+- ✅ Mobile: in-chat delete syncs drawer + cache; mount chat-load `catch`; memoized contexts;
+  removed unused `showContextSummarized`; bootstrap listener cleanup race; draft discard on
+  background; a11y labels on key icon-only controls
+
+Still open (non-blocking / larger effort):
+
+- 🔜 **Real-SQL repository tests** for hot-path repos (today's suite mocks `AsyncSession`)
+- 🔜 **Component/hook RTL tests** (`@testing-library/react-native`) for WebView sandbox wiring
+- 🔜 **Lazy-mount multi chart/math WebViews** inside a single message bubble
+- 🔜 **Hung-worker heartbeat** — `is_worker_alive` still only checks `task.done()`
+- 🔜 Multi-file HTML preview (deliberately deferred — single self-contained ` ```html ` fence)
 
 ### Review audit follow-ups (PR #129, Jul 2026)
 

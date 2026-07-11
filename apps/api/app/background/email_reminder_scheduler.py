@@ -8,6 +8,7 @@ import logging
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
+from app.core.redis_lock import acquire_lock, release_lock
 from app.services import reminder_emails
 
 logger = logging.getLogger(__name__)
@@ -19,8 +20,8 @@ LOCK_TTL_SECONDS = max(INTERVAL_SECONDS * 10, 300)
 
 async def run_email_reminder_cycle(settings: Settings) -> None:
     redis = get_redis_client()
-    acquired = await redis.set(LOCK_KEY, "1", nx=True, ex=LOCK_TTL_SECONDS)
-    if not acquired:
+    token = await acquire_lock(redis, LOCK_KEY, LOCK_TTL_SECONDS)
+    if not token:
         return
     try:
         async with SessionLocal() as session:
@@ -30,7 +31,7 @@ async def run_email_reminder_cycle(settings: Settings) -> None:
     except Exception:
         logger.exception("Email reminder cycle failed")
     finally:
-        await redis.delete(LOCK_KEY)
+        await release_lock(redis, LOCK_KEY, token)
 
 
 async def email_reminder_loop(settings: Settings) -> None:

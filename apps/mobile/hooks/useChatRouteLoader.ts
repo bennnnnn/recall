@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AppState, type AppStateStatus } from "react-native";
 import type { FlashListRef } from "@shopify/flash-list";
 import { useFocusEffect, useRouter } from "expo-router";
 import type { Ionicons } from "@expo/vector-icons";
@@ -134,6 +135,21 @@ export function useChatRouteLoader({
   }, [chatId]);
 
   useEffect(() => {
+    const onAppState = (state: AppStateStatus) => {
+      if (state !== "background" && state !== "inactive") return;
+      const draftId = draftChatIdRef.current;
+      if (!draftId) return;
+      // Empty pre-created drafts should not survive backgrounding.
+      if (messages.length === 0 && chatId == null) {
+        discardEmptyChat(draftId);
+        clearDraftChat();
+      }
+    };
+    const sub = AppState.addEventListener("change", onAppState);
+    return () => sub.remove();
+  }, [messages.length, chatId, discardEmptyChat, clearDraftChat, draftChatIdRef]);
+
+  useEffect(() => {
     skipNextFocusRef.current = true;
   }, [routeChatId]);
 
@@ -199,6 +215,10 @@ export function useChatRouteLoader({
         void writeCachedChatMessages(openChatId, page.messages, page.has_more);
         if (!chat.title && page.messages.length > 0) {
           pollForTitle(token, openChatId);
+        }
+      } catch {
+        if (!cancelled) {
+          showActionBanner(t("common.error"), "alert-circle-outline");
         }
       } finally {
         if (!cancelled) setChatLoading(false);

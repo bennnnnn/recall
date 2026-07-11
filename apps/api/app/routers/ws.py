@@ -24,6 +24,7 @@ router = APIRouter(tags=["websocket"])
 _WS_MSG_RATE_LIMIT = 30
 _WS_MSG_WINDOW_SECONDS = 60
 _WS_CONNECT_RATE_LIMIT = 30
+_WS_HANDSHAKE_RATE_LIMIT = 60  # unauthenticated connects per IP per minute
 # Drop sockets that connect but never send the auth frame (resource leak).
 _WS_AUTH_TIMEOUT_SECONDS = 10.0
 _CHARGEABLE_WS_TYPES = frozenset({"message", "regenerate", "edit"})
@@ -54,6 +55,17 @@ async def _ws_connect_rate_limit(redis, user_id: UUID) -> bool:
         redis,
         f"rate:ws:connect:{user_id}",
         limit=_WS_CONNECT_RATE_LIMIT,
+        window_seconds=_WS_MSG_WINDOW_SECONDS,
+    )
+
+
+async def _ws_handshake_rate_limit(redis, websocket: WebSocket) -> bool:
+    """Cap unauthenticated connect attempts by client IP before accept()."""
+    host = websocket.client.host if websocket.client else "unknown"
+    return await allow_request(
+        redis,
+        f"rate:ws:handshake:{host}",
+        limit=_WS_HANDSHAKE_RATE_LIMIT,
         window_seconds=_WS_MSG_WINDOW_SECONDS,
     )
 
@@ -217,9 +229,16 @@ async def chat_websocket(
     websocket: WebSocket,
     chat_id: UUID,
 ) -> None:
-    await websocket.accept()
     settings = get_settings()
     redis = get_redis_client()
+    try:
+        if not await _ws_handshake_rate_limit(redis, websocket):
+            await websocket.close(code=1008)
+            return
+    except Exception:
+        logger.debug("WS handshake rate limit check failed; allowing", exc_info=True)
+
+    await websocket.accept()
 
     try:
         auth_message = await asyncio.wait_for(

@@ -29,7 +29,12 @@ export function DrawerFooter({
         <Ionicons name="create-outline" size={18} color={theme.onPrimary} />
         <Text style={s.footerNewChatText}>{t("drawer.new_chat")}</Text>
       </Pressable>
-      <Pressable style={s.settingsBtn} onPress={onSettings}>
+      <Pressable
+        style={s.settingsBtn}
+        onPress={onSettings}
+        accessibilityRole="button"
+        accessibilityLabel={t("settings.title")}
+      >
         <Ionicons name="settings-outline" size={22} color={theme.onPrimary} />
       </Pressable>
     </View>

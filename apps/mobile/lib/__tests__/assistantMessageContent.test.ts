@@ -30,7 +30,6 @@ describe("deriveAssistantMessageContent", () => {
     });
 
     expect(result.showSearchSources).toBe(false);
-    expect(result.showContextSummarized).toBe(false);
     expect(result.markdownStreamMode).toBe(true);
   });
 

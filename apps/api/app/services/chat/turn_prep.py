@@ -94,6 +94,8 @@ class StreamContext:
     verified_math: VerifiedMathBlock | None = None
     timing: TurnTimingTracker | None = None
     lightweight_turn: bool = False
+    # Attachment ids to index after the turn finalizes (post-turn jobs path).
+    indexable_attachment_ids: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -725,6 +727,7 @@ async def prepare_chat_turn(
                 "Quiz letter answer without project_id — not recorded chat_id=%s",
                 chat_id,
             )
+        indexable_attachment_ids: list[str] = []
         if attachment_ids and settings.attachments_enabled:
             from app.repositories import attachments as attachments_repo
             from app.services import attachment_rag as attachment_rag_service
@@ -736,20 +739,12 @@ async def prepare_chat_turn(
                 message_id=user_message.id,
             )
             if settings.attachment_rag_enabled:
-                from app.core import jobs as jobs_mod
-
                 indexable = await attachments_repo.get_by_ids(session, attachment_ids, user.id)
-                for row in indexable:
-                    if attachment_rag_service.is_indexable_attachment(row):
-                        await jobs_mod.enqueue(
-                            redis,
-                            "attachment_index",
-                            {
-                                "attachment_id": str(row.id),
-                                "user_id": str(user.id),
-                                "chat_id": str(chat_id),
-                            },
-                        )
+                indexable_attachment_ids = [
+                    str(row.id)
+                    for row in indexable
+                    if attachment_rag_service.is_indexable_attachment(row)
+                ]
 
         await session.commit()
         if quiz_grade is not None:
@@ -816,4 +811,5 @@ async def prepare_chat_turn(
         timing=timing,
         lightweight_turn=bundle.active_vocab_turn
         or is_lightweight_chat_turn(content, active_vocab_turn=bundle.active_vocab_turn),
+        indexable_attachment_ids=indexable_attachment_ids,
     )

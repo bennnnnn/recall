@@ -67,7 +67,6 @@ export type AssistantMessageContent = {
   markdownContent: string;
   hasMarkdown: boolean;
   showSearchSources: boolean;
-  showContextSummarized: boolean;
   markdownStreamMode: boolean;
   markdownResetKey: string;
   interactiveQuiz: ParsedVocabQuiz | null;
@@ -129,7 +128,6 @@ export function deriveAssistantMessageContent(
     priorUserText,
     storedSearchSources,
     liveSearchSources,
-    contextSummarized,
     messageId,
     isGenerating,
     renderKey,
@@ -208,9 +206,6 @@ export function deriveAssistantMessageContent(
     !showVocabCard &&
     !showCalendarProposals;
 
-  const showContextSummarized =
-    !isUser && !layoutFrozen && (contextSummarized ?? 0) > 0;
-
   const interactiveQuiz =
     !isUser && !layoutFrozen && quizForStrip && isRenderableVocabQuiz(quizForStrip)
       ? quizForStrip
@@ -236,7 +231,6 @@ export function deriveAssistantMessageContent(
     markdownContent,
     hasMarkdown,
     showSearchSources,
-    showContextSummarized,
     markdownStreamMode: layoutFrozen,
     markdownResetKey: `${renderKey ?? messageId}:${markdownContent.length}`,
     interactiveQuiz,

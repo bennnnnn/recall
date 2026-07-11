@@ -5,8 +5,9 @@ import type { Ionicons } from "@expo/vector-icons";
 
 type Router = ReturnType<typeof useRouter>;
 
-import { moveChatArchiveGlobal, patchChatGlobal } from "@/lib/drawer";
+import { moveChatArchiveGlobal, patchChatGlobal, removeChatGlobal } from "@/lib/drawer";
 import { api, type Message } from "@/lib/api";
+import { clearCachedChatMessages } from "@/lib/chatMessageCache";
 import { tap } from "@/lib/haptics";
 import { shareConversation } from "@/lib/share";
 import { sanitizeManualChatTitle } from "@/lib/chatTitle";
@@ -169,7 +170,9 @@ export function useChatActions({
           onPress: async () => {
             if (!chatId || !token) return;
             try {
+              removeChatGlobal(chatId);
               await api.deleteChat(token, chatId);
+              void clearCachedChatMessages(chatId);
               showActionBanner(t("chat.deleted_toast"), "trash-outline");
               setTimeout(() => {
                 if (router.canGoBack()) {
