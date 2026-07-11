@@ -103,4 +103,28 @@ describe("deriveAssistantMessageContent", () => {
     expect(result.searchSources).toHaveLength(1);
     expect(result.showSearchSources).toBe(false);
   });
+
+  it("shows tap chips for markdown A–D even without a vocab_quiz fence", () => {
+    const result = deriveAssistantMessageContent({
+      ...base,
+      content: [
+        "**ephemeral**",
+        "",
+        "What does it mean?",
+        "",
+        "A) lasting forever",
+        "B) very loud",
+        "C) related to water",
+        "D) lasting a short time",
+        "",
+        "Reply with A, B, C, or D.",
+      ].join("\n"),
+    });
+
+    expect(result.interactiveQuiz).not.toBeNull();
+    expect(result.interactiveQuiz?.word.toLowerCase()).toBe("ephemeral");
+    expect(result.interactiveQuiz?.choices).toHaveLength(4);
+    expect(result.markdownContent).not.toMatch(/^A\)/m);
+    expect(result.markdownContent).toContain("ephemeral");
+  });
 });

@@ -120,7 +120,7 @@ export function inferQuizAnswersFromMessages(
   return answers;
 }
 
-const CHOICE_LINE = /^([A-D])[\).:]\s*(.+)$/i;
+const CHOICE_LINE = /^(?:\*\*)?([A-D])[\).:](?:\*\*)?\s*(.+)$/i;
 const VOCAB_QUIZ_FENCE_RE = /```vocab_quiz[^\n]*\n([\s\S]*?)```/i;
 const VOCAB_QUIZ_FENCE_PARTIAL_RE = /```vocab_quiz[\s\S]*$/i;
 const VOCAB_SESSION_JSON_FENCE_RE = /```json\s*\n([\s\S]*?)```/gi;
@@ -479,7 +479,7 @@ export function stripVocabQuizBlock(content: string): string {
 
   const lines = stripped.split("\n");
 
-  if (fromFence && parsed && isCompleteVocabQuiz(parsed)) {
+  if (fromFence && parsed && isRenderableVocabQuiz(parsed)) {
     const kept = stripQuizIntroLines(lines, parsed);
     return kept.join("\n").replace(/\n{3,}/g, "\n\n").trim();
   }
@@ -488,7 +488,7 @@ export function stripVocabQuizBlock(content: string): string {
   if (blocks.length === 0) return stripped.trim();
 
   const block = blocks[blocks.length - 1];
-  if (parsed && isCompleteVocabQuiz(parsed) && parsed.quizType === "trivia") {
+  if (parsed && isRenderableVocabQuiz(parsed) && parsed.quizType === "trivia") {
     const trivia = extractTriviaAboveChoices(lines, block.startLine);
     const stripFrom = trivia?.stripFromLine ?? block.startLine;
     const kept = lines.slice(0, stripFrom);

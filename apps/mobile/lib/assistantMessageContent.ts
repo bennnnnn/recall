@@ -3,14 +3,10 @@ import { parseCalendarProposals, stripCalendarProposalFences } from "@/lib/calen
 import { stripReminderFences } from "@/lib/reminderFence";
 import type { SearchSource } from "@/lib/api";
 import {
-  formatVocabQuizAsMarkdown,
   formatVocabQuizPromptOnly,
   hasVocabQuizFence,
-  isCompleteVocabQuiz,
   isRenderableVocabQuiz,
-  markdownHasQuizChoices,
   parseVocabQuiz,
-  stripQuizMarkdownDuplicates,
   stripVocabQuizBlock,
   stripVocabQuizPrologue,
   stripVocabSessionMetadata,
@@ -98,17 +94,13 @@ function buildMarkdownContent(options: {
       : stripVocabSessionMetadata(content);
 
   if (quizForStrip && isRenderableVocabQuiz(quizForStrip)) {
-    if (isCompleteVocabQuiz(quizForStrip)) {
-      text = stripVocabQuizPrologue(text, quizForStrip);
-      const quizBody = formatVocabQuizPromptOnly(quizForStrip);
-      text = text.trim() ? `${text.trim()}\n\n${quizBody}` : quizBody;
-    } else {
-      text = stripQuizMarkdownDuplicates(text, quizForStrip);
-      if (!markdownHasQuizChoices(text, quizForStrip)) {
-        const quizBody = formatVocabQuizAsMarkdown(quizForStrip);
-        text = text.trim() ? `${text.trim()}\n\n${quizBody}` : quizBody;
-      }
+    // Chips replace A–D — strip list whether it came from a fence or plain markdown.
+    if (!hideQuizFenceInMarkdown) {
+      text = stripVocabQuizBlock(content);
     }
+    text = stripVocabQuizPrologue(text, quizForStrip);
+    const quizBody = formatVocabQuizPromptOnly(quizForStrip);
+    text = text.trim() ? `${text.trim()}\n\n${quizBody}` : quizBody;
   }
 
   if (showLiveClock) text = stripTimeAnswerFences(text);
@@ -143,7 +135,7 @@ export function deriveAssistantMessageContent(
   const actionsReady = showActionSlot && !isGenerating && !layoutFrozen;
 
   const quizForStrip =
-    isUser || !hasContent || !hasVocabQuizFence(content)
+    isUser || !hasContent
       ? null
       : (() => {
           const quiz = parseVocabQuiz(content);
@@ -207,7 +199,7 @@ export function deriveAssistantMessageContent(
     !isUser && !layoutFrozen && (contextSummarized ?? 0) > 0;
 
   const interactiveQuiz =
-    !isUser && !layoutFrozen && quizForStrip && isCompleteVocabQuiz(quizForStrip)
+    !isUser && !layoutFrozen && quizForStrip && isRenderableVocabQuiz(quizForStrip)
       ? quizForStrip
       : null;
 

@@ -1,5 +1,5 @@
 import { Message } from "@/lib/api";
-import { isCompleteVocabQuiz, parseVocabQuiz } from "@/lib/parseVocabQuiz";
+import { isRenderableVocabQuiz, parseVocabQuiz } from "@/lib/parseVocabQuiz";
 
 export const SENDING_LABEL_DELAY_MS = 400;
 
@@ -25,14 +25,14 @@ export function findLastAssistantId(messages: Message[]): string | null {
 }
 
 /**
- * Most recent assistant message with a complete ```vocab_quiz — chips stay on this
- * row even after a wrong-answer hint (which has no fence) becomes the last assistant.
+ * Most recent assistant message with a tappable A–D quiz (fence or plain markdown).
+ * Chips stay on this row even after a wrong-answer hint (no choices) becomes last.
  */
 export function findActiveQuizMessageId(messages: Message[]): string | null {
   for (let i = messages.length - 1; i >= 0; i--) {
     const message = messages[i];
     if (message.role !== "assistant") continue;
-    if (isCompleteVocabQuiz(parseVocabQuiz(message.content))) {
+    if (isRenderableVocabQuiz(parseVocabQuiz(message.content))) {
       return message.id;
     }
   }

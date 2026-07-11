@@ -54,6 +54,22 @@ describe("chatMessageLogic", () => {
     expect(findActiveQuizMessageId(messages)).toBe("q1");
   });
 
+  it("findActiveQuizMessageId accepts markdown A–D without a fence", () => {
+    const markdownQuiz = [
+      "**ephemeral**",
+      "",
+      "What does it mean?",
+      "",
+      "A) lasting forever",
+      "B) very loud",
+      "C) related to water",
+      "D) lasting a short time",
+    ].join("\n");
+    const messages = [{ id: "m1", role: "assistant", content: markdownQuiz }] as Message[];
+
+    expect(findActiveQuizMessageId(messages)).toBe("m1");
+  });
+
   it("findLastLocalUserMessageId returns the latest optimistic user message", () => {
     const messages = [
       { id: "local-1", role: "user", content: "first" },
