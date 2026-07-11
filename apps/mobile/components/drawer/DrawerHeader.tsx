@@ -76,16 +76,15 @@ export function DrawerHeader({
           </View>
         ) : (
           <View style={s.logo}>
-            <View style={s.logoIcon}>
-              <Text style={s.logoStar}>✦</Text>
-            </View>
             <Text style={s.logoText}>{t("app.name")}</Text>
-            <Pressable hitSlop={8} style={s.searchBtn} onPress={onOpenSearch}>
-              <Ionicons name="search-outline" size={20} color={theme.textSecondary} />
-            </Pressable>
-            <Pressable hitSlop={8} style={s.selectBtn} onPress={onEnterSelection}>
-              <Text style={s.selectionHeaderActionText}>{t("drawer.select")}</Text>
-            </Pressable>
+            <View style={s.headerActions}>
+              <Pressable hitSlop={8} style={s.searchBtn} onPress={onOpenSearch}>
+                <Ionicons name="search-outline" size={20} color={theme.textSecondary} />
+              </Pressable>
+              <Pressable hitSlop={8} style={s.selectBtn} onPress={onEnterSelection}>
+                <Text style={s.selectionHeaderActionText}>{t("drawer.select")}</Text>
+              </Pressable>
+            </View>
           </View>
         )}
       </View>
