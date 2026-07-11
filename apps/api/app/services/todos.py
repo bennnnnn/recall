@@ -29,11 +29,11 @@ MAX_TODO_ACTIONS_PER_TURN = 3
 TODO_BLOCKED_FROM_TRANSCRIPT = frozenset({"delete_list"})
 
 TODO_SYNC_FEEDBACK_HEADER = (
-    "Todo sync results (applied after the previous reply — describe accurately):\n"
+    "Reminders & Lists sync results (applied after the previous reply — describe accurately):\n"
 )
 
 TODO_HINT = (
-    "Recall has two todo features — do not confuse them:\n"
+    "Recall has two features — do not confuse them:\n"
     "1) **Reminders** — items WITH a due date/time in the app's Reminders calendar.\n"
     "2) **Lists** — checklist items WITHOUT a due date (shopping lists, etc.).\n\n"
     "When they ask about their calendar, meetings, or external schedule → use **Google Calendar** "
@@ -47,11 +47,11 @@ TODO_HINT = (
     "Status questions — short prose; mention ✓ done vs ○ open. Do not paste huge checkbox dumps "
     "unless they ask for the full list.\n"
     "Proactively nudge overdue or due-soon open reminders only when the conversation is "
-    "about tasks, planning, or productivity — not in general or identity questions.\n"
+    "about reminders, lists, planning, or productivity — not in general or identity questions.\n"
     "When a reminder appears under ### Today, say it is due today — never call it tomorrow.\n"
-    "Creating lists via chat — ask for a list title first, then items. Todo changes from chat "
-    "are applied by a background sync **right after** your reply, so phrase them as things you "
-    'will set up ("I\'ll add eggs to groceries"), not as already done.\n'
+    "Creating lists via chat — ask for a list title first, then items. Reminder and list "
+    "changes from chat are applied by a background sync **right after** your reply, so phrase "
+    'them as things you will set up ("I\'ll add eggs to groceries"), not as already done.\n'
     "Creating reminders via chat — REQUIRED fence (the app only saves from this fence):\n"
     "```reminder\n"
     '{"title":"short title","due_at":"2026-07-19T15:00:00-04:00"}\n'
@@ -70,7 +70,8 @@ TODO_HINT = (
     "Never invent swipe gestures or other UI.\n"
     "Due dates via chat — add/set_due/clear_due; bulk moves (e.g. all due today → tomorrow) sync "
     "automatically after your reply. Parse relative dates using the user's local time in the prompt.\n"
-    "Do not invent list titles or due dates."
+    "Do not invent list titles or due dates. Never call these features todos or tasks — "
+    "only Reminders and Lists."
 )
 
 
@@ -281,7 +282,7 @@ def format_todos_block(items: list[TodoItem], *, user_timezone: str | None = Non
                     f", project:{todo.project_id}" if getattr(todo, "project_id", None) else ""
                 )
                 lines.append(
-                    f"- {mark} {todo.content} at {clock}{rel} ({status}, list: {topic}{project_bit})"
+                    f"- {mark} {todo.content} at {clock}{rel} ({status}, topic: {topic}{project_bit})"
                 )
 
     if list_items:

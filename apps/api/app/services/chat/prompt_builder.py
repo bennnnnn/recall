@@ -319,8 +319,8 @@ async def build_prompt_messages(
             system_parts.append(DAY_LEARNING_SNAPSHOT_HINT)
             if is_day_reflection_question(query_text):
                 system_parts.append(
-                    "This is an end-of-day reflection — keep todos, calendar, and loose ends "
-                    "as the main focus."
+                    "This is an end-of-day reflection — keep reminders, lists, calendar, and "
+                    "loose ends as the main focus."
                 )
         if minimal_personal_context:
             system_parts.append(BROAD_SELF_ANSWER_HINT)

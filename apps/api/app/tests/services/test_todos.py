@@ -720,5 +720,7 @@ async def test_build_todos_system_section_returns_hint_and_block():
             session, user, Settings(), query_text="Show my tasks"
         )
     assert section is not None
-    assert "Recall has two todo features" in section
+    assert "Recall has two features" in section
+    assert "two todo features" not in section
+    assert "Never call these features todos or tasks" in section
     assert "Task" in section

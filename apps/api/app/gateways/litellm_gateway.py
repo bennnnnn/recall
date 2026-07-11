@@ -631,7 +631,7 @@ async def classify_web_search_need(
                 "that change over time, product release info, weather, local venues, "
                 "anything needing up-to-date data from the internet.\n\n"
                 "Search NO for: coding help, writing/editing, math, trivia the model "
-                "knows, personal planning/todos, app settings, translating, summarizing "
+                "knows, personal planning/reminders/lists, app settings, translating, summarizing "
                 "pasted text, opinions, creative writing, general explanations of "
                 "stable concepts.\n\n"
                 "When unsure, prefer false unless the answer likely changed in the last year."
@@ -857,9 +857,9 @@ async def extract_todo_actions(
         {
             "role": "system",
             "content": (
-                "Extract todo list changes requested in this conversation turn. "
+                "Extract Reminders and Lists changes requested in this conversation turn. "
                 f"User timezone: {tz_note}. "
-                "Current todos JSON:\n"
+                "Current Reminders & Lists JSON:\n"
                 f"{snapshot}\n\n"
                 "Return ONLY JSON (no markdown): "
                 '{"actions": [{"action": "add|complete|uncheck|delete|delete_list|set_due|clear_due", '

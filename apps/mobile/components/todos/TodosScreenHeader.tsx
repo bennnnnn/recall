@@ -139,7 +139,7 @@ export function TodosScreenHeader({
               <Text style={s.emptyPrimaryBtnText}>{t("lists.new_group")}</Text>
             </Pressable>
           ) : (
-            <Text style={s.emptyBody}>{t("todos.empty_body")}</Text>
+            <Text style={s.emptyBody}>{t("todos.empty_reminders_body")}</Text>
           )}
         </View>
       ) : null}

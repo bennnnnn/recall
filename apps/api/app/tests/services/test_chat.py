@@ -674,6 +674,7 @@ async def test_build_prompt_minimal_for_who_am_i():
     assert "secret@example.com" not in system
     assert "San Francisco" not in system
     assert "general 'who am I' question" in system
+    assert "Recall has two features" not in system
     assert "Recall has two todo features" not in system
 
 
@@ -772,6 +773,7 @@ async def test_build_prompt_minimal_for_vocab_quiz_answer():
     system = messages[0]["content"]
     assert "Vocabulary (English words)" in system
     assert "vocab_quiz" in system
+    assert "Recall has two features" not in system
     assert "Recall has two todo features" not in system
     assert "Web search results" not in system
     assert "Google Calendar" not in system

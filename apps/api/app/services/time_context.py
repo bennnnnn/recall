@@ -154,7 +154,7 @@ def format_time_context(
         "alone inside the fence, e.g. ```clock\\nAmerica/New_York\\n``` for Washington "
         "DC / US Eastern, or answer in short prose with the local time there. "
         "When they ask where they are, use the location above if set. "
-        "Use this when answering questions about today, deadlines, overdue tasks, "
+        "Use this when answering questions about today, deadlines, overdue reminders, "
         "or how long until something is due."
     )
     return " ".join(parts)
