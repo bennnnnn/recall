@@ -84,6 +84,60 @@ async def find_quiz_candidates(
     return list((await session.execute(stmt)).scalars().all())
 
 
+async def list_quiz_exclusion_contents(
+    session: AsyncSession,
+    user_id: UUID,
+    project_id: UUID,
+    *,
+    include_learning: bool = False,
+    limit: int = 200,
+) -> list[str]:
+    """Contents the quiz model must not re-ask (DB ledger, not prompt hope).
+
+    Always includes mastered. When ``include_learning`` is True (trivia), also
+    includes previously asked/missed questions so paraphrased duplicates are
+    discouraged. Ordered newest-first; capped so the prompt stays bounded.
+    """
+    if limit < 1:
+        return []
+    mastered_clause = or_(
+        ProjectItem.status == "mastered",
+        and_(ProjectItem.mastered.is_(True), ProjectItem.status.is_(None)),
+    )
+    status_clause = (
+        or_(mastered_clause, ProjectItem.status == "learning")
+        if include_learning
+        else mastered_clause
+    )
+    stmt = (
+        select(ProjectItem.content)
+        .where(
+            ProjectItem.user_id == user_id,
+            ProjectItem.project_id == project_id,
+            status_clause,
+            ProjectItem.content.is_not(None),
+            ProjectItem.content != "",
+        )
+        .order_by(
+            ProjectItem.mastered_at.desc().nullslast(),
+            ProjectItem.last_incorrect_at.desc().nullslast(),
+            ProjectItem.created_at.desc(),
+        )
+        .limit(limit)
+    )
+    rows = list((await session.execute(stmt)).scalars().all())
+    out: list[str] = []
+    seen: set[str] = set()
+    for content in rows:
+        text = (content or "").strip()
+        key = text.lower()
+        if not text or key in seen:
+            continue
+        seen.add(key)
+        out.append(text)
+    return out
+
+
 async def get_by_id(
     session: AsyncSession, item_id: UUID, user_id: UUID, project_id: UUID | None = None
 ) -> ProjectItem | None:

@@ -51,6 +51,22 @@ async def test_list_for_user_returns_items(fake_session):
 
 
 @pytest.mark.asyncio
+async def test_list_quiz_exclusion_contents_queries_mastered(fake_session):
+    mock_scalars = MagicMock()
+    mock_scalars.all.return_value = ["Treaty of Versailles", "Colossus of Rhodes"]
+    mock_result = MagicMock()
+    mock_result.scalars.return_value = mock_scalars
+    fake_session.execute.return_value = mock_result
+
+    result = await repo.list_quiz_exclusion_contents(
+        fake_session, uuid4(), uuid4(), include_learning=True, limit=50
+    )
+
+    assert result == ["Treaty of Versailles", "Colossus of Rhodes"]
+    fake_session.execute.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_find_quiz_candidates_queries_project_content(fake_session):
     mock_item = _item(content="Colossus")
     mock_scalars = MagicMock()

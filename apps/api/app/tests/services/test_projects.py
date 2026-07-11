@@ -599,6 +599,11 @@ async def test_load_project_for_prompt_scoped():
             "list_for_user",
             AsyncMock(return_value=[item]),
         ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_quiz_exclusion_contents",
+            AsyncMock(return_value=[]),
+        ),
     ):
         block = await projects_service.load_project_for_prompt(
             session, user_id, project_id, Settings()
@@ -626,6 +631,11 @@ async def test_load_project_for_prompt_chat_mode():
         patch.object(
             projects_service.project_items_repo,
             "list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_quiz_exclusion_contents",
             AsyncMock(return_value=[]),
         ),
     ):
@@ -658,6 +668,11 @@ async def test_load_project_for_prompt_trivia_chat_mode():
             "list_for_user",
             AsyncMock(return_value=[]),
         ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_quiz_exclusion_contents",
+            AsyncMock(return_value=[]),
+        ),
     ):
         block = await projects_service.load_project_for_prompt(
             session, user_id, project_id, Settings(), quiz_mode="chat"
@@ -686,6 +701,11 @@ async def test_load_project_for_prompt_uses_chat_mode_even_when_exam_requested()
         patch.object(
             projects_service.project_items_repo,
             "list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_quiz_exclusion_contents",
             AsyncMock(return_value=[]),
         ),
     ):
@@ -739,6 +759,11 @@ async def test_load_project_quiz_context():
             "list_for_user",
             AsyncMock(return_value=[item]),
         ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_quiz_exclusion_contents",
+            AsyncMock(return_value=[]),
+        ),
     ):
         block = await projects_service.load_project_quiz_context(
             session, user_id, project_id, Settings()
@@ -771,6 +796,11 @@ async def test_load_project_quiz_context_retries_same_word_on_wrong():
             projects_service.project_items_repo,
             "list_for_user",
             AsyncMock(return_value=[item]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_quiz_exclusion_contents",
+            AsyncMock(return_value=[]),
         ),
     ):
         block = await projects_service.load_project_quiz_context(
@@ -1181,6 +1211,11 @@ async def test_sync_projects_from_transcript_returns_none_on_error():
             "list_for_user",
             AsyncMock(return_value=[]),
         ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_quiz_exclusion_contents",
+            AsyncMock(return_value=[]),
+        ),
         patch(
             "app.gateways.litellm_gateway.extract_project_actions",
             AsyncMock(side_effect=RuntimeError("boom")),
@@ -1219,6 +1254,11 @@ async def test_load_project_for_prompt_trivia_hint():
         ),
         patch.object(
             projects_service.project_items_repo,
+            "list_quiz_exclusion_contents",
+            AsyncMock(return_value=["Colossus of Rhodes"]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
             "count_stats",
             AsyncMock(
                 return_value={
@@ -1243,6 +1283,8 @@ async def test_load_project_for_prompt_trivia_hint():
 
     assert "trivia" in block.lower() or "general knowledge" in block.lower()
     assert "Colossus of Rhodes" in block
+    assert "Do NOT ask these again" in block
+    assert "quiz ledger" in block
 
 
 def test_chat_tutor_hints_acknowledge_completed_daily_goal():

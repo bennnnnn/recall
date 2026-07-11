@@ -45,6 +45,30 @@ def test_format_quiz_grading_hint_trivia_uses_answer_not_topic():
     assert "What does X mean?" in hint
 
 
+def test_format_covered_quiz_lines_bans_ledger_and_just_answered():
+    lines = projects_service._format_covered_quiz_lines(
+        ["apple", "banana"],
+        just_answered="cherry",
+    )
+    text = "\n".join(lines)
+    assert "Do NOT ask these again" in text
+    assert "quiz ledger" in text
+    assert "- cherry" in text
+    assert "- apple" in text
+    assert "- banana" in text
+
+
+def test_format_covered_quiz_lines_dedupes_case_and_caps():
+    lines = projects_service._format_covered_quiz_lines(
+        ["Apple", "apple", "Banana"] + [f"word{i}" for i in range(50)],
+        just_answered="APPLE",
+        limit=5,
+    )
+    text = "\n".join(lines)
+    assert text.count("- apple") + text.count("- Apple") + text.count("- APPLE") == 1
+    assert "more ledger items not listed" in text
+
+
 @pytest.mark.asyncio
 async def test_load_trivia_quiz_context_correct_bans_repeat():
     from app.core.config import Settings
@@ -84,6 +108,10 @@ async def test_load_trivia_quiz_context_correct_bans_repeat():
             "app.services.projects.project_items_repo.list_for_user",
             new=AsyncMock(return_value=[covered]),
         ),
+        patch(
+            "app.services.projects.project_items_repo.list_quiz_exclusion_contents",
+            new=AsyncMock(return_value=["Which treaty officially ended World War I?"]),
+        ),
     ):
         block = await projects_service.load_project_quiz_context(
             session,
@@ -102,7 +130,8 @@ async def test_load_trivia_quiz_context_correct_bans_repeat():
 
     assert "CORRECT" in block
     assert "Do NOT repeat" in block
-    assert "Already covered" in block
+    assert "Do NOT ask these again" in block
+    assert "quiz ledger" in block
     assert "Which treaty officially ended World War I?" in block
     assert "WRONG" not in block
     assert "prioritize revisiting" not in block
@@ -450,6 +479,10 @@ async def test_load_trivia_quiz_context_exhausted_moves_on():
         ),
         patch(
             "app.services.projects.project_items_repo.list_for_user",
+            new=AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.projects.project_items_repo.list_quiz_exclusion_contents",
             new=AsyncMock(return_value=[]),
         ),
     ):

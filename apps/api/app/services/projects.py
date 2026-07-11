@@ -371,44 +371,82 @@ def _format_failed_review_lines(items: list[ProjectItem], *, limit: int = 12) ->
     return lines
 
 
+# Hard ban list for quiz prompts — raised so large decks stay out of the model's
+# "invent a new one" path. Soft "don't repeat" alone is not enough.
+_COVERED_QUIZ_LIMIT = 200
+
+
 def _format_covered_quiz_lines(
-    items: list[ProjectItem],
+    contents: list[str],
     *,
     just_answered: str | None = None,
-    limit: int = 25,
+    limit: int = _COVERED_QUIZ_LIMIT,
 ) -> list[str]:
-    """Tell the model which facts/words are done so it does not loop the same question."""
+    """Format a DB-backed exclusion list for the quiz prompt.
+
+    ``contents`` should already be ledger texts (mastered, and for trivia also
+    learning). Soft "don't repeat" in the system prompt is not enough on its own.
+    """
     covered: list[str] = []
     seen: set[str] = set()
-    if just_answered:
-        key = just_answered.strip().lower()
-        if key:
-            covered.append(just_answered.strip())
-            seen.add(key)
-    mastered = [item for item in items if _item_status(item) == "mastered"]
 
-    def _covered_sort_key(item: ProjectItem) -> datetime:
-        for attr in ("mastered_at", "last_reviewed_at", "created_at"):
-            value = getattr(item, attr, None)
-            if isinstance(value, datetime):
-                return value.astimezone(UTC) if value.tzinfo else value.replace(tzinfo=UTC)
-        return datetime.min.replace(tzinfo=UTC)
-
-    mastered.sort(key=_covered_sort_key, reverse=True)
-    for item in mastered:
-        text = (item.content or "").strip()
-        key = text.lower()
-        if not text or key in seen:
-            continue
+    def _add(text: str) -> bool:
+        """Add text; return True when the covered list is full."""
+        cleaned = text.strip()
+        key = cleaned.lower()
+        if not cleaned or key in seen:
+            return len(covered) >= limit
         seen.add(key)
-        covered.append(text)
-        if len(covered) >= limit:
+        covered.append(cleaned)
+        return len(covered) >= limit
+
+    truncated = False
+    if just_answered and _add(just_answered):
+        truncated = True
+    for text in contents:
+        if truncated:
+            break
+        if _add(text):
+            # More ledger rows may remain after this cap.
+            truncated = True
             break
     if not covered:
         return []
-    lines = ["\nAlready covered — do NOT ask these again in this session:"]
+    lines = [
+        "\n**Do NOT ask these again** (saved in the user's quiz ledger — "
+        "exact or paraphrased repeats count as repeats):"
+    ]
     lines.extend(f"- {text}" for text in covered)
+    if truncated and len(contents) >= limit:
+        lines.append(
+            "- …and more ledger items not listed — "
+            "still do not repeat any previously saved word/question."
+        )
     return lines
+
+
+async def _covered_quiz_prompt_lines(
+    session: AsyncSession,
+    user_id: UUID,
+    project_id: UUID,
+    *,
+    include_learning: bool,
+    just_answered: str | None = None,
+    limit: int = _COVERED_QUIZ_LIMIT,
+) -> list[str]:
+    """Load exclusion texts from the DB and format them for the quiz prompt."""
+    contents = await project_items_repo.list_quiz_exclusion_contents(
+        session,
+        user_id,
+        project_id,
+        include_learning=include_learning,
+        limit=limit,
+    )
+    return _format_covered_quiz_lines(
+        contents,
+        just_answered=just_answered,
+        limit=limit,
+    )
 
 
 async def load_project_quiz_context(
@@ -488,7 +526,15 @@ async def load_project_quiz_context(
         else:
             lines.append("Correct answers are saved automatically. Never master on a wrong answer.")
         if just_correct or tries_exhausted or not retry_same:
-            lines.extend(_format_covered_quiz_lines(items, just_answered=answered_label or None))
+            lines.extend(
+                await _covered_quiz_prompt_lines(
+                    session,
+                    user_id,
+                    project_id,
+                    include_learning=True,
+                    just_answered=answered_label or None,
+                )
+            )
         if retry_same or tries_exhausted:
             lines.extend(_format_missed_quiz_lines(items))
         return "\n".join(lines)
@@ -559,7 +605,15 @@ async def load_project_quiz_context(
             "(not one already covered)."
         )
     if just_correct or tries_exhausted or not retry_same:
-        lines.extend(_format_covered_quiz_lines(items, just_answered=answered_label or None))
+        lines.extend(
+            await _covered_quiz_prompt_lines(
+                session,
+                user_id,
+                project_id,
+                include_learning=False,
+                just_answered=answered_label or None,
+            )
+        )
     if retry_same or tries_exhausted:
         lines.extend(_format_missed_quiz_lines(items))
     return "\n".join(lines)
@@ -1066,6 +1120,15 @@ async def load_project_for_prompt(
     if pool_note:
         block = f"{block}{pool_note}"
     if _is_language_project(project) or _is_trivia_project(project):
+        # Session start: inject the DB ledger ban list (not just "don't repeat").
+        covered_lines = await _covered_quiz_prompt_lines(
+            session,
+            user_id,
+            project_id,
+            include_learning=_is_trivia_project(project),
+        )
+        if covered_lines:
+            block = f"{block}{''.join(covered_lines)}"
         failed_lines = _format_failed_review_lines(items)
         if failed_lines:
             block = f"{block}{''.join(failed_lines)}"
