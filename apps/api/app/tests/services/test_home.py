@@ -194,12 +194,12 @@ async def test_build_home_screen_never_overlaps_ops_on_one_session():
         ),
         patch.object(
             home_service,
-            "_load_project_home_content",
+            "load_project_home_content",
             AsyncMock(side_effect=tracked("projects", empty_project_content)),
         ),
         patch.object(
             home_service,
-            "_integration_starters",
+            "integration_starters",
             AsyncMock(side_effect=tracked("integrations", [])),
         ),
     ):
@@ -583,7 +583,7 @@ async def test_build_home_dedupes_project_chat_and_memory():
 def test_time_starters_vary_by_hour():
     user = _user()
     tz = home_service._resolve_home_tz(user, "UTC")
-    with patch.object(home_service, "_local_hour_for_tz", side_effect=[8, 16]):
+    with patch("app.services.home.time_starters.local_hour_for_tz", side_effect=[8, 16]):
         morning = home_service._time_starters(user, tz)
         afternoon = home_service._time_starters(user, tz)
     assert morning[0].text != afternoon[0].text
@@ -594,9 +594,9 @@ def test_time_starters_vary_by_hour():
 def test_time_starters_reflect_starts_at_three_pm():
     user = _user()
     tz = home_service._resolve_home_tz(user, "UTC")
-    with patch.object(home_service, "_local_hour_for_tz", return_value=14):
+    with patch("app.services.home.time_starters.local_hour_for_tz", return_value=14):
         before = home_service._time_starters(user, tz)
-    with patch.object(home_service, "_local_hour_for_tz", return_value=15):
+    with patch("app.services.home.time_starters.local_hour_for_tz", return_value=15):
         after = home_service._time_starters(user, tz)
     assert before[0].text == "What are you working on?"
     assert after[0].text == "How did today go?"
@@ -860,15 +860,13 @@ async def test_integration_starters_when_connected():
     tz = home_service._resolve_home_tz(_user(), "UTC")
 
     with (
-        patch.object(home_service, "_local_hour_for_tz", return_value=8),
-        patch.object(
-            home_service.calendar_service,
-            "is_connected",
+        patch("app.services.home.integration_starters.local_hour_for_tz", return_value=8),
+        patch(
+            "app.services.home.integration_starters.calendar_service.is_connected",
             AsyncMock(return_value=True),
         ),
-        patch.object(
-            home_service.email_service,
-            "is_connected",
+        patch(
+            "app.services.home.integration_starters.email_service.is_connected",
             AsyncMock(return_value=False),
         ),
     ):
@@ -888,15 +886,13 @@ async def test_integration_starters_afternoon_shows_tomorrow_calendar():
     tz = home_service._resolve_home_tz(_user(), "UTC")
 
     with (
-        patch.object(home_service, "_local_hour_for_tz", return_value=14),
-        patch.object(
-            home_service.calendar_service,
-            "is_connected",
+        patch("app.services.home.integration_starters.local_hour_for_tz", return_value=14),
+        patch(
+            "app.services.home.integration_starters.calendar_service.is_connected",
             AsyncMock(return_value=True),
         ),
-        patch.object(
-            home_service.email_service,
-            "is_connected",
+        patch(
+            "app.services.home.integration_starters.email_service.is_connected",
             AsyncMock(return_value=True),
         ),
     ):
@@ -915,30 +911,26 @@ async def test_integration_starters_email_only_in_morning():
     tz = home_service._resolve_home_tz(_user(), "UTC")
 
     with (
-        patch.object(home_service, "_local_hour_for_tz", return_value=9),
-        patch.object(
-            home_service.calendar_service,
-            "is_connected",
+        patch("app.services.home.integration_starters.local_hour_for_tz", return_value=9),
+        patch(
+            "app.services.home.integration_starters.calendar_service.is_connected",
             AsyncMock(return_value=False),
         ),
-        patch.object(
-            home_service.email_service,
-            "is_connected",
+        patch(
+            "app.services.home.integration_starters.email_service.is_connected",
             AsyncMock(return_value=True),
         ),
     ):
         morning = await home_service._integration_starters(session, user_id, settings, tz=tz)
 
     with (
-        patch.object(home_service, "_local_hour_for_tz", return_value=14),
-        patch.object(
-            home_service.calendar_service,
-            "is_connected",
+        patch("app.services.home.integration_starters.local_hour_for_tz", return_value=14),
+        patch(
+            "app.services.home.integration_starters.calendar_service.is_connected",
             AsyncMock(return_value=False),
         ),
-        patch.object(
-            home_service.email_service,
-            "is_connected",
+        patch(
+            "app.services.home.integration_starters.email_service.is_connected",
             AsyncMock(return_value=True),
         ),
     ):
