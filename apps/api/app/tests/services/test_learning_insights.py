@@ -14,6 +14,21 @@ def test_compute_streak_counts_recent_goal_met_days():
     assert learning_insights.compute_streak_days(history) == 3
 
 
+def test_compute_streak_stops_at_a_gap_two_days_back_even_when_today_is_in_progress():
+    """BUG FIX (was silent): a `saw_today` flag that stayed True forever let unmet days
+    past a real gap keep counting once today's (unmet, in-progress) entry was seen.
+    Wed(complete) Thu(skipped) Fri(complete) Sat(complete) Sun=today(not yet met) must
+    report streak=2 (Sat, Fri) — Thu's gap should break the walk, not just Sun's."""
+    history = [
+        {"status": "complete", "goal_met": True},  # Wed
+        {"status": "skipped", "goal_met": False},  # Thu — real gap, two days before today
+        {"status": "complete", "goal_met": True},  # Fri
+        {"status": "complete", "goal_met": True},  # Sat
+        {"status": "today", "goal_met": False},  # Sun — today, still in progress
+    ]
+    assert learning_insights.compute_streak_days(history) == 2
+
+
 def test_pick_learning_nudge_prefers_incomplete_daily_goal():
     class P:
         kind = "language"

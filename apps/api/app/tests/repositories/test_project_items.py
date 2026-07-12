@@ -304,3 +304,64 @@ async def test_update_records_review_on_status_change(fake_session):
     assert item.review_count == 1
     assert item.last_reviewed_at is not None
     fake_session.commit.assert_awaited()
+
+
+def _frozen_datetime_cls(moment: datetime) -> type[datetime]:
+    """A `datetime` subclass whose `.now()` always returns `moment` — lets a test pin
+    "today" inside a module without a real clock-freezing dependency."""
+
+    class _Frozen(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return moment
+
+    return _Frozen
+
+
+@pytest.mark.asyncio
+async def test_apply_quiz_result_remaster_after_demotion_refreshes_mastered_at(
+    fake_session, monkeypatch
+):
+    """BUG FIX (was silent): mastered_at only backfilled when None, so an item mastered
+    on Day 1, demoted by a later miss, then re-mastered on Day 10 kept mastered_at
+    stuck at Day 1 — mastered_today/streaks/daily history all missed the remastery."""
+    day1 = datetime(2026, 1, 1, 9, tzinfo=UTC)
+    demotion_day = day1 + timedelta(days=5)
+    day10 = datetime(2026, 1, 10, 15, tzinfo=UTC)
+
+    item = _item(status="new", created_at=day1)
+    item.quiz_attempts = 0
+    item.quiz_correct = 0
+    item.ease_factor = 2.5
+    item.interval_days = 0
+    item.review_count = 0
+
+    monkeypatch.setattr(repo, "datetime", _frozen_datetime_cls(day1))
+    await repo.apply_quiz_result(fake_session, item, is_correct=True, commit=False)
+    assert item.status == "mastered"
+    assert item.mastered_at == day1
+
+    monkeypatch.setattr(repo, "datetime", _frozen_datetime_cls(demotion_day))
+    await repo.apply_quiz_result(fake_session, item, is_correct=False, commit=False)
+    assert item.status == "learning"
+    assert item.mastered_at == day1  # demotion alone does not clear it (unchanged behavior)
+
+    monkeypatch.setattr(repo, "datetime", _frozen_datetime_cls(day10))
+    await repo.apply_quiz_result(fake_session, item, is_correct=True, commit=False)
+    assert item.status == "mastered"
+    assert item.mastered_at == day10  # <- the fix: moved forward, not stuck at day1
+
+    from app.services import daily_learning
+
+    # Pin "today" to day10's calendar day without swapping out the `datetime` class
+    # (a subclass would break the module's `isinstance(value, datetime)` guards).
+    monkeypatch.setattr(
+        daily_learning,
+        "start_of_today_utc",
+        lambda timezone_name: day10.replace(hour=0, minute=0, second=0, microsecond=0),
+    )
+    mastered_today, missed_today, _pending = daily_learning.count_today_vocab_stats(
+        [item], timezone_name="UTC"
+    )
+    assert mastered_today == 1
+    assert missed_today == 0

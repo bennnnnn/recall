@@ -34,20 +34,20 @@ def days_since_last_study(
 def compute_streak_days(history: list[dict[str, Any]]) -> int:
     """Consecutive goal-met days ending today or the most recent active day."""
     streak = 0
-    saw_today = False
     for day in reversed(history):
         status = day.get("status")
         if status == "inactive":
             continue
         if status == "today":
-            saw_today = True
+            # BUG FIX (was silent): `saw_today` used to stay True forever once set, so
+            # every earlier unmet day after it was excused via `elif saw_today: continue`
+            # instead of breaking — a gap day got skipped rather than ending the streak.
+            # Only "today" itself (still in progress) is excused from breaking it.
             if day.get("goal_met"):
                 streak += 1
             continue
         if day.get("goal_met"):
             streak += 1
-        elif saw_today:
-            continue
         else:
             break
     return streak

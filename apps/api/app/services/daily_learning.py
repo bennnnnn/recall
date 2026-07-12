@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime, timedelta
-from typing import Literal
+from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
 DEFAULT_DAILY_VOCAB_GOAL = 10
@@ -208,7 +208,14 @@ def infer_daily_goal_history(
     *,
     timezone_name: str,
 ) -> list[dict[str, int | str]]:
-    """Best-effort backfill when goal changes were not logged."""
+    """Best-effort backfill when goal changes were not logged.
+
+    KNOWN LIMITATION: this only samples mastered_count per day, so it can
+    fabricate a fictitious earlier lower-goal era from what was really just a
+    day the user happened to stop a bit early. Only used as a fallback when
+    <=1 daily_goal_history entries are stored — the real PATCH-driven path
+    (append_daily_goal_history) is authoritative and doesn't use this.
+    """
     current = resolve_daily_goal(project)
     tz = _timezone(timezone_name)
     created = _as_utc(getattr(project, "created_at", datetime.now(UTC))).astimezone(tz).date()
@@ -225,7 +232,10 @@ def infer_daily_goal_history(
         return [{"effective_from": created.isoformat(), "goal": current}]
 
     days_at_prior = [day for day, count in mastered_by_day.items() if count >= prior]
-    if not days_at_prior:
+    # Require more than one day hitting the prior tier before inferring a goal
+    # change — a single matching day is too weak a signal (see KNOWN LIMITATION
+    # above) and is a common source of a fabricated earlier-goal era.
+    if len(days_at_prior) <= 1:
         return [{"effective_from": created.isoformat(), "goal": current}]
 
     days_between = [day for day, count in mastered_by_day.items() if prior < count < current]
@@ -336,6 +346,27 @@ def _incorrect_local_date(item: object, tz: ZoneInfo) -> date | None:
     return _as_utc(incorrect_at).astimezone(tz).date()
 
 
+def _miss_local_dates(
+    item: object,
+    tz: ZoneInfo,
+    miss_events_by_item: dict[Any, list[datetime]] | None,
+) -> set[date]:
+    """Every local calendar day this (still-open) item was missed on.
+
+    When `miss_events_by_item` is supplied (the event-log-backed path — see
+    QuizMissEvent), this reflects the item's full miss history. Otherwise it
+    falls back to the single last_incorrect_at column, which only remembers
+    the most recent miss.
+    """
+    if miss_events_by_item is not None:
+        item_id = getattr(item, "id", None)
+        events = miss_events_by_item.get(item_id) if item_id is not None else None
+        if events is not None:
+            return {_as_utc(occurred_at).astimezone(tz).date() for occurred_at in events}
+    day = _incorrect_local_date(item, tz)
+    return {day} if day is not None else set()
+
+
 def _item_missed_sort_key(item: object) -> datetime:
     incorrect_at = getattr(item, "last_incorrect_at", None)
     if incorrect_at is not None:
@@ -348,8 +379,17 @@ def count_missed_by_date(
     items: list,
     *,
     timezone_name: str,
+    miss_events_by_item: dict[Any, list[datetime]] | None = None,
 ) -> dict[date, int]:
-    """Open misses per local day (excludes items later mastered)."""
+    """Open misses per local day (excludes items later mastered).
+
+    BUG FIX (was silent): this used to key off the single mutable
+    last_incorrect_at column, so a later miss on the same item silently
+    erased which day an earlier miss was attributed to and a past day's
+    history could change after the fact. Pass `miss_events_by_item` (from
+    QuizMissEvent, an append-only log) to attribute misses to every day they
+    actually happened on; omitted, falls back to the legacy single-column read.
+    """
     try:
         tz = ZoneInfo(timezone_name)
     except Exception:
@@ -361,10 +401,8 @@ def count_missed_by_date(
         )
         if status == "mastered":
             continue
-        day = _incorrect_local_date(item, tz)
-        if day is None:
-            continue
-        counts[day] = counts.get(day, 0) + 1
+        for day in _miss_local_dates(item, tz, miss_events_by_item):
+            counts[day] = counts.get(day, 0) + 1
     return counts
 
 
@@ -373,8 +411,14 @@ def group_missed_items_by_date(
     *,
     timezone_name: str,
     days: int = 14,
+    miss_events_by_item: dict[Any, list[datetime]] | None = None,
 ) -> dict[str, list]:
-    """Still-missed items (not mastered), grouped by local miss date."""
+    """Still-missed items (not mastered), grouped by local miss date.
+
+    See count_missed_by_date's docstring — `miss_events_by_item` (from
+    QuizMissEvent) lets an item show up under every day it was actually
+    missed on instead of only the most recent one.
+    """
     try:
         tz = ZoneInfo(timezone_name)
     except Exception:
@@ -391,13 +435,11 @@ def group_missed_items_by_date(
         )
         if status == "mastered":
             continue
-        day = _incorrect_local_date(item, tz)
-        if day is None:
-            continue
-        key = day.isoformat()
-        if key not in grouped:
-            continue
-        grouped[key].append(item)
+        for day in _miss_local_dates(item, tz, miss_events_by_item):
+            key = day.isoformat()
+            if key not in grouped:
+                continue
+            grouped[key].append(item)
     return {
         day_key: sorted(day_items, key=_item_missed_sort_key, reverse=True)
         for day_key, day_items in grouped.items()
@@ -445,8 +487,14 @@ def build_daily_history(
     active_since: datetime,
     daily_goal_history: list[dict[str, int | str]] | None = None,
     days: int = 14,
+    miss_events_by_item: dict[Any, list[datetime]] | None = None,
 ) -> list[dict[str, object]]:
-    """Per-calendar-day mastery counts for language/trivia projects."""
+    """Per-calendar-day mastery counts for language/trivia projects.
+
+    `miss_events_by_item` (from QuizMissEvent) makes the "missed" side of the
+    history event-log-backed instead of keyed off the single mutable
+    last_incorrect_at column — see count_missed_by_date's docstring.
+    """
     try:
         tz = ZoneInfo(timezone_name)
     except Exception:
@@ -463,7 +511,9 @@ def build_daily_history(
             continue
         counts[day] = counts.get(day, 0) + 1
 
-    missed_counts = count_missed_by_date(items, timezone_name=timezone_name)
+    missed_counts = count_missed_by_date(
+        items, timezone_name=timezone_name, miss_events_by_item=miss_events_by_item
+    )
 
     history_rows: list[dict[str, object]] = []
     span = max(1, min(days, 60))

@@ -263,6 +263,10 @@ def test_get_language_project_detail():
             AsyncMock(return_value=[noun, verb]),
         ),
         patch(
+            "app.services.projects.project_items_repo.list_miss_events_for_items",
+            AsyncMock(return_value={}),
+        ),
+        patch(
             "app.services.projects.project_items_repo.stats_from_items",
             return_value={
                 "total": 2,
@@ -310,6 +314,10 @@ def test_get_project_include_lists():
         patch(
             "app.services.projects.project_items_repo.list_for_user",
             AsyncMock(return_value=[noun, verb]),
+        ),
+        patch(
+            "app.services.projects.project_items_repo.list_miss_events_for_items",
+            AsyncMock(return_value={}),
         ),
         patch(
             "app.services.projects.project_items_repo.stats_from_items",

@@ -1,15 +1,18 @@
-"""Real-Postgres tests for app.repositories.project_items — specifically
-list_recent_for_user's ordering, which a mocked AsyncSession can't exercise
-(the mock returns a canned result no matter what ORDER BY was compiled).
+"""Real-Postgres tests for app.repositories.project_items — list_recent_for_user's
+ordering and apply_quiz_result's atomicity, neither of which a mocked
+AsyncSession can exercise (a mock returns a canned result no matter what
+statement was actually compiled and executed).
 """
 
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import update as sql_update
 
 from app.models.orm import Project, ProjectItem
 from app.repositories import project_items as project_items_repo
+from app.repositories import projects as projects_repo
 from app.repositories import users as users_repo
 
 
@@ -20,6 +23,15 @@ async def _make_user(session):
         name="Test User",
         avatar_url=None,
         google_sub=str(uuid4()),
+    )
+
+
+async def _make_project(session, user_id):
+    return await projects_repo.create(
+        session,
+        user_id=user_id,
+        title="Spanish",
+        kind="language",
     )
 
 
@@ -92,3 +104,83 @@ async def test_list_recent_for_user_scopes_to_project(db_session):
     )
 
     assert [i.content for i in result] == ["a-word"]
+
+
+@pytest.mark.asyncio
+async def test_apply_quiz_result_increment_is_atomic_not_lost(db_session):
+    """BUG FIX (was silent): quiz_attempts/quiz_correct were read into Python,
+    incremented, and written back — a concurrent writer's update landing between
+    the read and the write got silently clobbered (lost update). Simulate that
+    "other request already landed" by bumping the row directly in SQL after
+    `item` is loaded (so the in-memory object is now stale) and confirm
+    apply_quiz_result's own increment builds on the true current row instead of
+    overwriting it with a stale Python-computed value.
+    """
+    user = await _make_user(db_session)
+    project = await _make_project(db_session, user.id)
+    item = await project_items_repo.create(
+        db_session, user_id=user.id, project_id=project.id, content="hola"
+    )
+    assert item.quiz_attempts == 0
+    assert item.quiz_correct == 0
+
+    # A concurrent request's write landing after `item` was loaded but before
+    # ours applies — `item` in memory still reflects the pre-bump counts.
+    # `synchronize_session=False` keeps the ORM from eagerly syncing `item`'s
+    # in-memory attributes to this write, so it stays genuinely stale, the way
+    # a separate request's session would never see this one's update either.
+    await db_session.execute(
+        sql_update(ProjectItem)
+        .where(ProjectItem.id == item.id)
+        .values(quiz_attempts=5, quiz_correct=2)
+        .execution_options(synchronize_session=False)
+    )
+    assert item.quiz_attempts == 0  # still stale in memory — the write bypassed it
+
+    await project_items_repo.apply_quiz_result(db_session, item, is_correct=True, commit=False)
+
+    # Under the old read-modify-write code this would land at 1 (0 + 1),
+    # clobbering the concurrent writer's update to 5. The atomic SQL increment
+    # must build on top of the row's true current value instead.
+    assert item.quiz_attempts == 6
+    assert item.quiz_correct == 3
+
+
+def _frozen_datetime_cls(moment: datetime) -> type[datetime]:
+    class _Frozen(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return moment
+
+    return _Frozen
+
+
+@pytest.mark.asyncio
+async def test_apply_quiz_result_logs_every_miss_event_not_just_the_latest(db_session, monkeypatch):
+    """BUG FIX (was silent): last_incorrect_at is a single mutable column, so a Day-4
+    miss on an item already missed on Day-1 used to silently erase Day-1's record.
+    Two misses on different days must produce two QuizMissEvent rows, and
+    list_miss_events_for_items must return both — not just the latest.
+    """
+    user = await _make_user(db_session)
+    project = await _make_project(db_session, user.id)
+    item = await project_items_repo.create(
+        db_session, user_id=user.id, project_id=project.id, content="hola"
+    )
+
+    day1 = datetime(2026, 1, 1, 9, tzinfo=UTC)
+    day4 = day1 + timedelta(days=3)
+
+    monkeypatch.setattr(project_items_repo, "datetime", _frozen_datetime_cls(day1))
+    await project_items_repo.apply_quiz_result(db_session, item, is_correct=False, commit=False)
+
+    monkeypatch.setattr(project_items_repo, "datetime", _frozen_datetime_cls(day4))
+    await project_items_repo.apply_quiz_result(db_session, item, is_correct=False, commit=False)
+
+    # The mutable column only remembers the latest miss...
+    assert item.last_incorrect_at == day4
+
+    # ...but the event log remembers both.
+    events_by_item = await project_items_repo.list_miss_events_for_items(db_session, [item.id])
+    occurred_at = events_by_item[item.id]
+    assert sorted(occurred_at) == [day1, day4]

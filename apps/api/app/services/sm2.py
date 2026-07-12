@@ -42,8 +42,12 @@ def apply_sm2(
         else:
             interval = max(1, round(interval * ef))
         reps += 1
-        ef = ef + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02))
-        ef = max(1.3, ef)
+
+    # BUG FIX (was silent): the EF update used to live only in the q>=3 branch above,
+    # so canonical SM-2's EF decrease on a failed review (q<3) never applied — EF only
+    # ever moved upward. Apply it for every quality score, per the original algorithm.
+    ef = ef + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02))
+    ef = max(1.3, ef)
 
     return Sm2State(
         ease_factor=round(ef, 4),

@@ -1350,30 +1350,26 @@ def _build_enriched_stats(
 
 
 async def _resolve_daily_goal_history(
-    session: AsyncSession,
     project: Project,
     items: list[ProjectItem],
     *,
     timezone_name: str,
-    persist: bool = False,
 ) -> list[dict[str, int | str]]:
-    """Compute goal history for stats. Persist only when explicitly requested (not on GET)."""
+    """Compute (in-memory only) goal history for stats — read path must not write.
+
+    BUG FIX (dead code): this used to take a `persist: bool = False` parameter meant
+    to cache the inferred backfill onto the project row, but every call site passed
+    persist=False (get_project_detail never opted in), so the persistence branch was
+    unreachable. Removed rather than wired up — caching here would mean writing on a
+    GET, which the caller's own comment says a read path must not do.
+    """
     from app.services import daily_learning
 
-    history = daily_learning.ensure_daily_goal_history(
+    return daily_learning.ensure_daily_goal_history(
         project,
         items,
         timezone_name=timezone_name,
     )
-    if not persist:
-        return history
-    existing = daily_learning.parse_daily_goal_history(project)
-    should_persist = project.daily_goal_history is None or (
-        len(existing) == 1 and history != existing
-    )
-    if should_persist and is_learning_product_kind(project.kind):
-        await projects_repo.update(session, project, daily_goal_history=history)
-    return history
 
 
 async def list_projects_for_user(
@@ -1486,10 +1482,14 @@ async def get_project_detail(
     project_items = await project_items_repo.list_for_user(
         session, user.id, project_id=project_id, limit=5000
     )
-    # Read path must not write — compute history in memory only.
-    goal_history = await _resolve_daily_goal_history(
-        session, item, project_items, timezone_name=tz_name, persist=False
+    # BUG FIX (was silent): day-attribution used to read last_incorrect_at, a single
+    # mutable column, so a later miss on an item silently erased which day an earlier
+    # miss belonged to. Load the append-only miss-event log so past days stay stable.
+    miss_events_by_item = await project_items_repo.list_miss_events_for_items(
+        session, [i.id for i in project_items]
     )
+    # Read path must not write — compute history in memory only.
+    goal_history = await _resolve_daily_goal_history(item, project_items, timezone_name=tz_name)
     history_rows = daily_learning.build_daily_history(
         project_items,
         timezone_name=tz_name,
@@ -1497,6 +1497,7 @@ async def get_project_detail(
         active_since=item.created_at,
         daily_goal_history=goal_history,
         days=14,
+        miss_events_by_item=miss_events_by_item,
     )
     stats = _build_enriched_stats(
         item,
@@ -1518,7 +1519,7 @@ async def get_project_detail(
     daily_missed_by_date = {
         day_key: [ProjectItemOut.model_validate(i) for i in day_items]
         for day_key, day_items in daily_learning.group_missed_items_by_date(
-            project_items, timezone_name=tz_name, days=14
+            project_items, timezone_name=tz_name, days=14, miss_events_by_item=miss_events_by_item
         ).items()
     }
     lists: list[Any] = []

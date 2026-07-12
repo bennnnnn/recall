@@ -3,10 +3,11 @@ from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import and_, delete, func, or_, select
+from sqlalchemy import update as sql_update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.orm import ProjectItem
+from app.models.orm import ProjectItem, QuizMissEvent
 
 DEFAULT_LIST = "General"
 REVIEW_INTERVAL = timedelta(hours=24)  # legacy fallback when due_at is unset
@@ -18,11 +19,17 @@ def _item_status_label(item: ProjectItem) -> str:
     return "mastered" if item.mastered else "new"
 
 
-def _sync_mastered_fields(item: ProjectItem, status: str) -> None:
+def _sync_mastered_fields(
+    item: ProjectItem, status: str, *, prior_status: str, now: datetime | None = None
+) -> None:
     item.status = status
     item.mastered = status == "mastered"
-    if status == "mastered" and item.mastered_at is None:
-        item.mastered_at = datetime.now(UTC)
+    # BUG FIX (was silent): mastered_at was only backfilled when None, so re-mastering
+    # after a miss-triggered demotion left it frozen at the original mastery date —
+    # every stats consumer keyed on mastered_at (streaks, daily history, mastered_today)
+    # missed the later remastery. Stamp it on every transition INTO "mastered".
+    if status == "mastered" and prior_status != "mastered":
+        item.mastered_at = now or datetime.now(UTC)
 
 
 async def list_for_user(
@@ -293,6 +300,29 @@ def stats_from_items(
     return stats
 
 
+async def list_miss_events_for_items(
+    session: AsyncSession,
+    item_ids: list[UUID],
+) -> dict[UUID, list[datetime]]:
+    """All logged miss events for the given items, grouped by item_id.
+
+    Backs the day-attribution fix in daily_learning.count_missed_by_date /
+    group_missed_items_by_date — see QuizMissEvent's docstring.
+    """
+    if not item_ids:
+        return {}
+    stmt = (
+        select(QuizMissEvent.item_id, QuizMissEvent.occurred_at)
+        .where(QuizMissEvent.item_id.in_(item_ids))
+        .order_by(QuizMissEvent.occurred_at.asc())
+    )
+    rows = (await session.execute(stmt)).all()
+    out: dict[UUID, list[datetime]] = {}
+    for item_id, occurred_at in rows:
+        out.setdefault(item_id, []).append(occurred_at)
+    return out
+
+
 async def list_by_activity_date(
     session: AsyncSession,
     user_id: UUID,
@@ -421,13 +451,25 @@ async def apply_quiz_result(
     else:
         new_status = prior_status
 
-    item.quiz_attempts = int(item.quiz_attempts or 0) + 1
+    # BUG FIX (was silent): quiz_attempts/quiz_correct were read in Python, incremented,
+    # then written back — two overlapping requests on the same item (double-tap submit,
+    # client retry) could both read the same count and one increment would be lost.
+    # Increment atomically in SQL instead so concurrent updates can't clobber each other.
+    increments: dict[str, Any] = {"quiz_attempts": ProjectItem.quiz_attempts + 1}
     if is_correct:
-        item.quiz_correct = int(item.quiz_correct or 0) + 1
+        increments["quiz_correct"] = ProjectItem.quiz_correct + 1
     else:
         item.last_incorrect_at = now
+        # BUG FIX (was silent): last_incorrect_at is a single mutable column, so a later
+        # miss on the same item overwrote which day an earlier miss was attributed to,
+        # retroactively changing already-rendered day history. Log every miss as its own
+        # event so day-attribution reads (count_missed_by_date) can't regress.
+        session.add(QuizMissEvent(item_id=item.id, user_id=item.user_id, occurred_at=now))
+    await session.execute(
+        sql_update(ProjectItem).where(ProjectItem.id == item.id).values(**increments)
+    )
 
-    _sync_mastered_fields(item, new_status)
+    _sync_mastered_fields(item, new_status, prior_status=prior_status, now=now)
     from app.services.sm2 import apply_sm2, quality_for_status
 
     quality = quality_for_status(new_status, was_correct=is_correct)
@@ -448,6 +490,9 @@ async def apply_quiz_result(
         await session.refresh(item)
     else:
         await session.flush()
+        # The atomic UPDATE above bypassed the ORM identity map, so pull the true
+        # post-increment counts back before returning `item` to the caller.
+        await session.refresh(item, attribute_names=["quiz_attempts", "quiz_correct"])
     return item
 
 
@@ -461,7 +506,7 @@ async def update(session: AsyncSession, item: ProjectItem, **fields: Any) -> Pro
             setattr(item, key, value)
     if "status" in fields:
         new_status = str(fields["status"])
-        _sync_mastered_fields(item, new_status)
+        _sync_mastered_fields(item, new_status, prior_status=prior_status, now=now)
         if new_status != prior_status:
             from app.services.sm2 import apply_sm2, quality_for_status
 
