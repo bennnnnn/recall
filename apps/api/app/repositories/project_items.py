@@ -3,6 +3,7 @@ from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import and_, delete, func, or_, select
+from sqlalchemy import update as sql_update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -427,11 +428,18 @@ async def apply_quiz_result(
     else:
         new_status = prior_status
 
-    item.quiz_attempts = int(item.quiz_attempts or 0) + 1
+    # BUG FIX (was silent): quiz_attempts/quiz_correct were read in Python, incremented,
+    # then written back — two overlapping requests on the same item (double-tap submit,
+    # client retry) could both read the same count and one increment would be lost.
+    # Increment atomically in SQL instead so concurrent updates can't clobber each other.
+    increments: dict[str, Any] = {"quiz_attempts": ProjectItem.quiz_attempts + 1}
     if is_correct:
-        item.quiz_correct = int(item.quiz_correct or 0) + 1
+        increments["quiz_correct"] = ProjectItem.quiz_correct + 1
     else:
         item.last_incorrect_at = now
+    await session.execute(
+        sql_update(ProjectItem).where(ProjectItem.id == item.id).values(**increments)
+    )
 
     _sync_mastered_fields(item, new_status, prior_status=prior_status, now=now)
     from app.services.sm2 import apply_sm2, quality_for_status
@@ -454,6 +462,9 @@ async def apply_quiz_result(
         await session.refresh(item)
     else:
         await session.flush()
+        # The atomic UPDATE above bypassed the ORM identity map, so pull the true
+        # post-increment counts back before returning `item` to the caller.
+        await session.refresh(item, attribute_names=["quiz_attempts", "quiz_correct"])
     return item
 
 
