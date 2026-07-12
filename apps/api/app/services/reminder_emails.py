@@ -21,6 +21,7 @@ from app.services import transactional_email as tx_email
 from app.services.reminder_timing import (
     MAX_REMINDER_LEAD_MINUTES,
     OVERDUE_MAX_HOURS,
+    reminder_title,
     resolve_reminder_lead_minutes,
     should_notify_todo,
 )
@@ -62,18 +63,37 @@ async def process_todo_reminder_emails(
     for todo, user in rows:
         if todo.due_at is None or not user.email:
             continue
-        lead = resolve_reminder_lead_minutes(getattr(user, "reminder_lead_minutes", None))
-        if not should_notify_todo(todo.due_at, now=now, lead_minutes=lead):
+        # BUG FIX (was cycle-fatal): this loop used to have no per-todo
+        # isolation, unlike its push-notification sibling in
+        # push_notifications.py (see that file's matching comment) — one bad
+        # row raised out of the loop, aborted the whole function, and since
+        # run_email_reminder_cycle calls this before
+        # process_learning_nudge_emails, silently skipped learning-nudge
+        # emails for the cycle too. Isolate and skip just this row.
+        try:
+            lead = resolve_reminder_lead_minutes(getattr(user, "reminder_lead_minutes", None))
+            if not should_notify_todo(todo.due_at, now=now, lead_minutes=lead):
+                continue
+            is_overdue = todo.due_at < now
+            title = reminder_title(is_overdue=is_overdue, locale=getattr(user, "locale", None))
+            ok = await tx_email.send_todo_reminder(
+                settings, user, title=title, content=todo.content
+            )
+            if ok:
+                # BUG FIX (was silent): email_sent_at used to only be
+                # committed once, in a single batch after the whole loop —
+                # a crash or exception partway through left every
+                # already-sent email's email_sent_at unpersisted, so the
+                # next cycle would resend them. Commit immediately after
+                # each successful send instead (a real email cannot be
+                # "un-sent", unlike a push notification).
+                todo.email_sent_at = now
+                await session.commit()
+                sent += 1
+        except Exception:
+            logger.exception("Todo reminder email failed todo_id=%s", todo.id)
             continue
-        is_overdue = todo.due_at < now
-        title = "Overdue reminder" if is_overdue else "Reminder"
-        ok = await tx_email.send_todo_reminder(settings, user, title=title, content=todo.content)
-        if ok:
-            todo.email_sent_at = now
-            sent += 1
 
-    if sent:
-        await session.commit()
     return sent
 
 
