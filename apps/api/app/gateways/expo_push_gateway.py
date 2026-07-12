@@ -128,9 +128,7 @@ async def send_push_messages(messages: list[dict[str, Any]]) -> PushSendResult:
                     if ticket.get("status") == "error":
                         details = ticket.get("details", {})
                         if _error_code(details) == _CREDENTIALS_ERROR:
-                            logger.critical(
-                                "Expo push credentials invalid — check APNs/FCM config"
-                            )
+                            logger.critical("Expo push credentials invalid — check APNs/FCM config")
                             continue
                         err = _invalid_token_from_error(details)
                         if err and token:

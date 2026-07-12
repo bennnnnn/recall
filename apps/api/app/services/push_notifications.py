@@ -301,9 +301,7 @@ async def process_todo_reminders(
                 todos=[todo],
             )
         except Exception:
-            logger.exception(
-                "Todo reminder failed user_id=%s todo_id=%s", todo.user_id, todo.id
-            )
+            logger.exception("Todo reminder failed user_id=%s todo_id=%s", todo.user_id, todo.id)
             continue
 
     return messages

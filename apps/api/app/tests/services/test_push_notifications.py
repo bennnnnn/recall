@@ -392,9 +392,7 @@ async def test_process_learning_nudges_isolates_one_user_failure():
     # was contained and did not blank out the whole cycle.
     assert len(messages) == 2
     processed_user_ids = {msg.message["data"]["project_id"] for msg in messages}
-    good_project_ids = {
-        str(p.id) for p in projects if p.user_id != bad_user_id
-    }
+    good_project_ids = {str(p.id) for p in projects if p.user_id != bad_user_id}
     assert processed_user_ids == good_project_ids
 
 
