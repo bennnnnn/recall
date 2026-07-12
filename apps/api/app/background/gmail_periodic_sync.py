@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from app.core.config import Settings
@@ -20,15 +19,6 @@ LOCK_KEY = "recall:gmail_periodic:lock"
 CHECK_INTERVAL_SECONDS = 900  # scan every 15 min; sync users stale > gmail_sync_interval
 
 
-def _gmail_sync_is_due(last_sync_at: datetime | None, interval: timedelta, now: datetime) -> bool:
-    if last_sync_at is None:
-        return True
-    last = last_sync_at
-    if last.tzinfo is None:
-        last = last.replace(tzinfo=UTC)
-    return now - last >= interval
-
-
 async def run_gmail_periodic_cycle(settings: Settings) -> None:
     if not settings.gmail_enabled:
         return
@@ -39,9 +29,11 @@ async def run_gmail_periodic_cycle(settings: Settings) -> None:
     try:
         async with SessionLocal() as session:
             connections = await gmail_repo.list_all(session)
-        interval = timedelta(seconds=settings.gmail_sync_interval_seconds)
-        now = datetime.now(UTC)
-        due = [conn for conn in connections if _gmail_sync_is_due(conn.last_sync_at, interval, now)]
+        due = [
+            conn
+            for conn in connections
+            if email_service.gmail_sync_is_due(conn.last_sync_at, settings)
+        ]
 
         semaphore = asyncio.Semaphore(max(1, settings.gmail_periodic_sync_concurrency))
 

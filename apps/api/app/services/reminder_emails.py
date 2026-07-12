@@ -9,26 +9,20 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime, timedelta
-from uuid import UUID
 
 from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.models.orm import Project, TodoItem, User
-from app.repositories import project_items as project_items_repo
-from app.repositories import projects as projects_repo
-from app.services import daily_learning, learning_insights
+from app.models.orm import TodoItem, User
+from app.services import learning_nudges
 from app.services import transactional_email as tx_email
 from app.services.reminder_timing import (
     MAX_REMINDER_LEAD_MINUTES,
     OVERDUE_MAX_HOURS,
-    learning_dedupe_key,
     resolve_reminder_lead_minutes,
     should_notify_todo,
-    user_day_key,
-    user_local_hour,
 )
 
 logger = logging.getLogger(__name__)
@@ -96,69 +90,30 @@ async def process_learning_nudge_emails(
     if not users:
         return 0
 
-    candidates: list[tuple[User, str]] = []
-    for user in users:
-        if not user.email:
-            continue
-        if user_local_hour(user) < settings.push_learning_hour:
-            continue
-        day_key = user_day_key(user)
-        redis_key = learning_dedupe_key(LEARNING_EMAIL_REDIS_PREFIX, user.id, day_key)
-        if not await redis.set(redis_key, "1", nx=True, ex=86_400):
-            continue
-        candidates.append((user, redis_key))
-
-    if not candidates:
-        return 0
-
-    user_by_id = {user.id: user for user, _ in candidates}
-    user_ids = list(user_by_id)
-
-    projects = await projects_repo.list_for_users(session, user_ids, include_archived=False)
-    learning_projects = [p for p in projects if p.kind in ("language", "vocabulary", "trivia")]
-    projects_by_user: dict[UUID, list[Project]] = {}
-    for project in learning_projects:
-        projects_by_user.setdefault(project.user_id, []).append(project)
-
-    timezone_by_project = {
-        project.id: user_by_id[project.user_id].timezone
-        for project in learning_projects
-        if project.user_id in user_by_id
-    }
-    stats_by_project = await project_items_repo.count_stats_by_project(
+    picks = await learning_nudges.collect_learning_nudge_picks(
         session,
-        [project.id for project in learning_projects],
-        timezone_by_project=timezone_by_project,
+        redis,
+        users,
+        learning_hour=settings.push_learning_hour,
+        redis_prefix=LEARNING_EMAIL_REDIS_PREFIX,
+        require_email=True,
     )
-    for project in learning_projects:
-        raw = stats_by_project.get(project.id)
-        if raw is None:
-            continue
-        stats_by_project[project.id] = learning_insights.enrich_learning_stats(
-            raw,
-            project=project,
-            items=[],
-            timezone_name=timezone_by_project.get(project.id, "UTC"),
-        )
 
     sent = 0
-    for user, redis_key in candidates:
-        user_projects = projects_by_user.get(user.id, [])
-        best_pick = learning_insights.best_learning_nudge_for_user(
-            user_projects,
-            stats_by_project,
-            daily_goal_for=daily_learning.resolve_daily_goal,
-        )
-        if best_pick is None:
-            await redis.delete(redis_key)
+    for pick in picks:
+        try:
+            ok = await tx_email.send_learning_nudge(settings, pick.user, body=pick.body)
+            if ok:
+                sent += 1
+            else:
+                await redis.delete(pick.redis_key)
+        except Exception:
+            logger.exception("Learning nudge email failed user_id=%s", pick.user.id)
+            try:
+                await redis.delete(pick.redis_key)
+            except Exception:
+                logger.exception("Failed to release learning email lock user_id=%s", pick.user.id)
             continue
-
-        _project, body, _score, _nudge_type, _payload = best_pick
-        ok = await tx_email.send_learning_nudge(settings, user, body=body)
-        if ok:
-            sent += 1
-        else:
-            await redis.delete(redis_key)
 
     return sent
 

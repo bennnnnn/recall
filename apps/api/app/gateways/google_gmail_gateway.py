@@ -11,11 +11,10 @@ from email.utils import parsedate_to_datetime
 from typing import Any
 
 from app.core.config import Settings
-from app.gateways.google_calendar_gateway import GoogleCalendarError, exchange_server_auth_code
+from app.gateways import google_oauth
 from app.gateways.http_client import get_pooled_client
 
 GMAIL_READONLY_SCOPE = "https://www.googleapis.com/auth/gmail.readonly"
-TOKEN_URL = "https://oauth2.googleapis.com/token"
 GMAIL_MESSAGES_URL = "https://gmail.googleapis.com/gmail/v1/users/me/messages"
 DEFAULT_TIMEOUT = 15.0
 
@@ -45,25 +44,10 @@ def is_configured(settings: Settings) -> bool:
 
 
 async def _access_token(settings: Settings, refresh_token: str) -> str:
-    payload = {
-        "client_id": settings.google_client_id,
-        "client_secret": settings.google_client_secret,
-        "refresh_token": refresh_token,
-        "grant_type": "refresh_token",
-    }
     try:
-        client = get_pooled_client(DEFAULT_TIMEOUT)
-        response = await client.post(TOKEN_URL, data=payload)
-        response.raise_for_status()
-        data = response.json()
-    except Exception as exc:
-        logger.exception("Gmail token refresh failed")
+        return await google_oauth.refresh_access_token(settings, refresh_token)
+    except google_oauth.GoogleOAuthError as exc:
         raise GoogleGmailError("Could not refresh Gmail access.") from exc
-
-    token = str(data.get("access_token") or "").strip()
-    if not token:
-        raise GoogleGmailError("Gmail access token missing.")
-    return token
 
 
 def _decode_body(data: str) -> str:
@@ -211,6 +195,6 @@ async def exchange_gmail_auth_code(settings: Settings, code: str) -> dict[str, A
     if not is_configured(settings):
         raise GoogleGmailError("Gmail is not configured on the server.")
     try:
-        return await exchange_server_auth_code(settings, code)
-    except GoogleCalendarError as exc:
-        raise GoogleGmailError(str(exc)) from exc
+        return await google_oauth.exchange_auth_code(settings, code)
+    except google_oauth.GoogleOAuthError as exc:
+        raise GoogleGmailError("Could not connect Gmail.") from exc

@@ -398,29 +398,32 @@ async def test_sync_gmail_processes_messages():
 
 @pytest.mark.asyncio
 async def test_disconnect_gmail_clears_redis_cache():
-    from app.routers.gmail_integrations import disconnect_gmail
     from app.services import email as email_service
+    from app.services import google_integrations as google_integrations_service
 
-    user = MagicMock()
-    user.id = uuid4()
+    user_id = uuid4()
     session = AsyncMock()
     redis = AsyncMock()
     settings = Settings()
 
     with (
         patch(
-            "app.routers.gmail_integrations.google_integrations_service.revoke_on_disconnect",
+            "app.services.google_integrations.revoke_on_disconnect",
             AsyncMock(),
         ),
         patch(
-            "app.routers.gmail_integrations.suggested_repo.delete_for_user",
+            "app.services.google_integrations.suggested_repo.delete_for_user",
             AsyncMock(),
         ),
         patch(
-            "app.routers.gmail_integrations.gmail_repo.delete_for_user",
+            "app.services.google_integrations.gmail_repo.delete_for_user",
+            AsyncMock(),
+        ),
+        patch(
+            "app.services.google_integrations.home_service.invalidate_home_cache",
             AsyncMock(),
         ),
     ):
-        await disconnect_gmail(user=user, session=session, redis=redis, settings=settings)
+        await google_integrations_service.disconnect_gmail(session, redis, settings, user_id)
 
-    redis.delete.assert_awaited_once_with(email_service._cache_key(user.id))
+    redis.delete.assert_awaited_once_with(email_service._cache_key(user_id))

@@ -114,6 +114,13 @@ def _cache_key(user_id: UUID) -> str:
     return f"gmail:recent:{user_id}"
 
 
+async def clear_gmail_cache(redis: Redis, user_id: UUID) -> None:
+    try:
+        await redis.delete(_cache_key(user_id))
+    except Exception:
+        logger.exception("Failed to clear gmail cache user_id=%s", user_id)
+
+
 async def write_gmail_cache(
     redis: Redis,
     user_id: UUID,

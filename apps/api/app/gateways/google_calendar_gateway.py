@@ -13,13 +13,13 @@ from zoneinfo import ZoneInfo
 import httpx
 
 from app.core.config import Settings
+from app.gateways import google_oauth
 from app.gateways.http_client import get_pooled_client
 
 logger = logging.getLogger(__name__)
 
 CALENDAR_READONLY_SCOPE = "https://www.googleapis.com/auth/calendar.readonly"
 CALENDAR_EVENTS_SCOPE = "https://www.googleapis.com/auth/calendar.events"
-TOKEN_URL = "https://oauth2.googleapis.com/token"
 CALENDAR_LIST_URL = "https://www.googleapis.com/calendar/v3/users/me/calendarList"
 CALENDAR_EVENTS_URL = "https://www.googleapis.com/calendar/v3/calendars/{calendar_id}/events"
 DEFAULT_TIMEOUT = 15.0
@@ -58,45 +58,17 @@ def is_configured(settings: Settings) -> bool:
 
 
 async def exchange_server_auth_code(settings: Settings, code: str) -> dict[str, Any]:
-    if not settings.google_client_id.strip() or not settings.google_client_secret.strip():
-        raise GoogleCalendarError("Google OAuth is not configured on the server.")
-
-    payload = {
-        "code": code.strip(),
-        "client_id": settings.google_client_id,
-        "client_secret": settings.google_client_secret,
-        "grant_type": "authorization_code",
-    }
     try:
-        client = get_pooled_client(DEFAULT_TIMEOUT)
-        response = await client.post(TOKEN_URL, data=payload)
-        response.raise_for_status()
-        return response.json()
-    except Exception as exc:
-        logger.exception("Google Calendar auth code exchange failed")
+        return await google_oauth.exchange_auth_code(settings, code)
+    except google_oauth.GoogleOAuthError as exc:
         raise GoogleCalendarError("Could not connect Google Calendar.") from exc
 
 
 async def _access_token(settings: Settings, refresh_token: str) -> str:
-    payload = {
-        "client_id": settings.google_client_id,
-        "client_secret": settings.google_client_secret,
-        "refresh_token": refresh_token,
-        "grant_type": "refresh_token",
-    }
     try:
-        client = get_pooled_client(DEFAULT_TIMEOUT)
-        response = await client.post(TOKEN_URL, data=payload)
-        response.raise_for_status()
-        data = response.json()
-    except Exception as exc:
-        logger.exception("Google Calendar token refresh failed")
+        return await google_oauth.refresh_access_token(settings, refresh_token)
+    except google_oauth.GoogleOAuthError as exc:
         raise GoogleCalendarError("Google Calendar authorization expired.") from exc
-
-    token = str(data.get("access_token") or "").strip()
-    if not token:
-        raise GoogleCalendarError("Google Calendar authorization expired.")
-    return token
 
 
 def _parse_event_time(raw: dict[str, Any], tz_name: str) -> datetime | None:

@@ -25,28 +25,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.gateways import expo_push_gateway, google_calendar_gateway
 from app.models.orm import (
-    Project,
     PushToken,
     SuggestedReminder,
     TodoItem,
     User,
     UserCalendarConnection,
 )
-from app.repositories import project_items as project_items_repo
-from app.repositories import projects as projects_repo
 from app.repositories import push_tokens as push_repo
 from app.services import calendar as calendar_service
 from app.services import calendar_nudges as calendar_nudge_service
-from app.services import daily_learning, learning_insights
+from app.services import learning_nudges
 from app.services.locale import normalize_locale_code
 from app.services.reminder_timing import (
     MAX_REMINDER_LEAD_MINUTES,
     OVERDUE_MAX_HOURS,
-    learning_dedupe_key,
     resolve_reminder_lead_minutes,
     should_notify_todo,
-    user_day_key,
-    user_local_hour,
 )
 
 logger = logging.getLogger(__name__)
@@ -373,10 +367,8 @@ async def process_learning_nudges(
     *,
     now: datetime | None = None,
 ) -> list[OutboundPush]:
-    """Batched: one query each for users/projects/item-stats/tokens instead
-    of one query per user (and one more per project inside that) — this loop
-    runs every minute across every opted-in user, so N+1 here scales badly."""
-    now = now or datetime.now(UTC)
+    """Batched learning nudges via shared candidate collector + token fan-out."""
+    _ = now or datetime.now(UTC)
     result = await session.execute(
         select(User)
         .join(PushToken, PushToken.user_id == User.id)
@@ -387,100 +379,39 @@ async def process_learning_nudges(
     if not users:
         return []
 
-    # Filter to users due for a nudge (and claim today's Redis lock for them)
-    # before doing any further batched fetch, so we don't pull projects/
-    # tokens for users we're not going to message this cycle.
-    candidates: list[tuple[User, str]] = []
-    for user in users:
-        if user_local_hour(user) < settings.push_learning_hour:
-            continue
-        day_key = user_day_key(user)
-        redis_key = learning_dedupe_key(LEARNING_REDIS_PREFIX, user.id, day_key)
-        if not await redis.set(redis_key, "1", nx=True, ex=86_400):
-            continue
-        candidates.append((user, redis_key))
-
-    if not candidates:
+    picks = await learning_nudges.collect_learning_nudge_picks(
+        session,
+        redis,
+        users,
+        learning_hour=settings.push_learning_hour,
+        redis_prefix=LEARNING_REDIS_PREFIX,
+    )
+    if not picks:
         return []
 
-    user_by_id = {user.id: user for user, _ in candidates}
-    user_ids = list(user_by_id)
-
-    projects = await projects_repo.list_for_users(session, user_ids, include_archived=False)
-    learning_projects = [p for p in projects if p.kind in ("language", "vocabulary", "trivia")]
-    projects_by_user: dict[UUID, list[Project]] = {}
-    for project in learning_projects:
-        projects_by_user.setdefault(project.user_id, []).append(project)
-
-    timezone_by_project = {
-        project.id: user_by_id[project.user_id].timezone
-        for project in learning_projects
-        if project.user_id in user_by_id
-    }
-    stats_by_project = await project_items_repo.count_stats_by_project(
-        session,
-        [project.id for project in learning_projects],
-        timezone_by_project=timezone_by_project,
-    )
-    for project in learning_projects:
-        raw = stats_by_project.get(project.id)
-        if raw is None:
-            continue
-        # BUG FIX (was cycle-fatal): isolate per-project stat enrichment so
-        # one project's malformed data (e.g. daily_goal_history) doesn't
-        # blow up nudge computation for every other project/user this cycle.
-        try:
-            stats_by_project[project.id] = learning_insights.enrich_learning_stats(
-                raw,
-                project=project,
-                items=[],
-                timezone_name=timezone_by_project.get(project.id, "UTC"),
-            )
-        except Exception:
-            logger.exception(
-                "Learning stat enrichment failed user_id=%s project_id=%s",
-                project.user_id,
-                project.id,
-            )
-            continue
-
-    tokens = await push_repo.list_for_users(session, user_ids)
+    tokens = await push_repo.list_for_users(session, [pick.user.id for pick in picks])
     tokens_by_user: dict[UUID, list[PushToken]] = {}
     for token in tokens:
         tokens_by_user.setdefault(token.user_id, []).append(token)
 
     messages: list[OutboundPush] = []
-    for user, redis_key in candidates:
-        # BUG FIX (was cycle-fatal): isolate per-user nudge picking so a bad
-        # record for one user doesn't drop learning nudges for every user.
+    for pick in picks:
         try:
-            user_projects = projects_by_user.get(user.id, [])
-            best_pick = learning_insights.best_learning_nudge_for_user(
-                user_projects,
-                stats_by_project,
-                daily_goal_for=daily_learning.resolve_daily_goal,
-            )
-            if best_pick is None:
-                await redis.delete(redis_key)
-                continue
-
-            _project, body, _score, _nudge_type, payload = best_pick
-            user_tokens = tokens_by_user.get(user.id, [])
+            user_tokens = tokens_by_user.get(pick.user.id, [])
             if not user_tokens:
-                await redis.delete(redis_key)
+                await redis.delete(pick.redis_key)
                 continue
-
-            strings = _push_strings(getattr(user, "locale", None))
+            strings = _push_strings(getattr(pick.user, "locale", None))
             _append_outbound(
                 messages,
                 user_tokens,
                 title=strings["time_to_learn"],
-                body=body,
-                data=payload,
-                learning_redis_key=redis_key,
+                body=pick.body,
+                data=pick.payload,
+                learning_redis_key=pick.redis_key,
             )
         except Exception:
-            logger.exception("Learning nudge failed user_id=%s", user.id)
+            logger.exception("Learning nudge failed user_id=%s", pick.user.id)
             continue
 
     return messages

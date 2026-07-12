@@ -131,6 +131,13 @@ def _cache_key(user_id: UUID) -> str:
     return f"calendar:events:{user_id}"
 
 
+async def clear_events_cache(redis: Redis, user_id: UUID) -> None:
+    try:
+        await redis.delete(_cache_key(user_id))
+    except Exception:
+        logger.exception("Failed to clear calendar cache user_id=%s", user_id)
+
+
 async def is_connected(session: AsyncSession, user_id: UUID) -> bool:
     return await calendar_repo.get_for_user(session, user_id) is not None
 

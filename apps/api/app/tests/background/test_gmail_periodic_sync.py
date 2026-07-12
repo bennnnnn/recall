@@ -29,29 +29,6 @@ def _fake_redis() -> AsyncMock:
     return redis
 
 
-class TestGmailSyncIsDue:
-    def test_never_synced_is_due(self):
-        assert gmail_periodic_sync._gmail_sync_is_due(None, timedelta(hours=1), datetime.now(UTC))
-
-    def test_recently_synced_is_not_due(self):
-        now = datetime.now(UTC)
-        assert not gmail_periodic_sync._gmail_sync_is_due(
-            now - timedelta(minutes=1), timedelta(hours=1), now
-        )
-
-    def test_stale_sync_is_due(self):
-        now = datetime.now(UTC)
-        assert gmail_periodic_sync._gmail_sync_is_due(
-            now - timedelta(hours=2), timedelta(hours=1), now
-        )
-
-    def test_handles_naive_datetime(self):
-        """DB rows without tzinfo shouldn't raise when compared to an aware `now`."""
-        now = datetime.now(UTC)
-        naive_stale = (now - timedelta(hours=2)).replace(tzinfo=None)
-        assert gmail_periodic_sync._gmail_sync_is_due(naive_stale, timedelta(hours=1), now)
-
-
 @pytest.mark.asyncio
 async def test_periodic_cycle_syncs_due_users_concurrently_with_isolated_sessions():
     """Each due user gets synced, each with its own session and error isolation."""

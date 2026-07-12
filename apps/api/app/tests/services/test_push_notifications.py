@@ -205,12 +205,12 @@ async def test_process_learning_nudges_language_review():
 
     with (
         patch.object(
-            push_service.projects_repo,
+            push_service.learning_nudges.projects_repo,
             "list_for_users",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            push_service.project_items_repo,
+            push_service.learning_nudges.project_items_repo,
             "count_stats_by_project",
             AsyncMock(
                 return_value={
@@ -284,12 +284,12 @@ async def test_process_learning_nudges_batches_across_users():
 
     with (
         patch.object(
-            push_service.projects_repo,
+            push_service.learning_nudges.projects_repo,
             "list_for_users",
             AsyncMock(return_value=projects),
         ) as list_projects_mock,
         patch.object(
-            push_service.project_items_repo,
+            push_service.learning_nudges.project_items_repo,
             "count_stats_by_project",
             AsyncMock(return_value=stats_by_project),
         ) as count_stats_mock,
@@ -366,12 +366,12 @@ async def test_process_learning_nudges_isolates_one_user_failure():
 
     with (
         patch.object(
-            push_service.projects_repo,
+            push_service.learning_nudges.projects_repo,
             "list_for_users",
             AsyncMock(return_value=projects),
         ),
         patch.object(
-            push_service.project_items_repo,
+            push_service.learning_nudges.project_items_repo,
             "count_stats_by_project",
             AsyncMock(return_value=stats_by_project),
         ),
@@ -381,7 +381,7 @@ async def test_process_learning_nudges_isolates_one_user_failure():
             AsyncMock(return_value=tokens),
         ),
         patch.object(
-            push_service.learning_insights,
+            push_service.learning_nudges.learning_insights,
             "best_learning_nudge_for_user",
             side_effect=fake_best_pick,
         ),
@@ -423,12 +423,12 @@ async def test_process_learning_nudges_idle_user_sends_nothing_and_releases_dedu
 
     with (
         patch.object(
-            push_service.projects_repo,
+            push_service.learning_nudges.projects_repo,
             "list_for_users",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            push_service.project_items_repo,
+            push_service.learning_nudges.project_items_repo,
             "count_stats_by_project",
             AsyncMock(
                 return_value={
@@ -453,8 +453,10 @@ async def test_process_learning_nudges_idle_user_sends_nothing_and_releases_dedu
         messages = await push_service.process_learning_nudges(session, redis, settings)
 
     assert messages == []
-    expected_key = push_service.learning_dedupe_key(
-        push_service.LEARNING_REDIS_PREFIX, user_id, push_service.user_day_key(user)
+    expected_key = push_service.learning_nudges.learning_dedupe_key(
+        push_service.LEARNING_REDIS_PREFIX,
+        user_id,
+        push_service.learning_nudges.user_day_key(user),
     )
     redis.delete.assert_awaited_once_with(expected_key)
 
@@ -487,12 +489,12 @@ async def test_process_learning_nudges_skips_non_learning_projects():
 
     with (
         patch.object(
-            push_service.projects_repo,
+            push_service.learning_nudges.projects_repo,
             "list_for_users",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            push_service.project_items_repo,
+            push_service.learning_nudges.project_items_repo,
             "count_stats_by_project",
             AsyncMock(return_value={}),
         ),

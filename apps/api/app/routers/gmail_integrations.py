@@ -1,17 +1,13 @@
-import logging
 from uuid import UUID
 
-import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import jobs
 from app.core.config import Settings
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_redis, get_settings_dep
-from app.core.secrets import encrypt_refresh_token
-from app.gateways.google_gmail_gateway import GoogleGmailError, exchange_gmail_auth_code
+from app.gateways.google_gmail_gateway import GoogleGmailError
 from app.models.orm import User
 from app.models.schemas import (
     GoogleGmailConnectRequest,
@@ -24,27 +20,8 @@ from app.repositories import gmail_connections as gmail_repo
 from app.repositories import suggested_reminders as suggested_repo
 from app.services import email as email_service
 from app.services import google_integrations as google_integrations_service
-from app.services import home as home_service
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/integrations/google-gmail", tags=["integrations"])
-
-
-async def _fetch_google_email(access_token: str) -> str | None:
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(
-                "https://www.googleapis.com/oauth2/v2/userinfo",
-                headers={"Authorization": f"Bearer {access_token}"},
-            )
-            response.raise_for_status()
-            data = response.json()
-            email = str(data.get("email") or "").strip()
-            return email or None
-    except Exception:
-        logger.exception("Failed to fetch Google account email")
-        return None
 
 
 @router.get("/status", response_model=GoogleGmailStatusOut)
@@ -73,65 +50,14 @@ async def connect_gmail(
     redis: Redis = Depends(get_redis),
 ) -> GoogleGmailStatusOut:
     try:
-        token_data = await exchange_gmail_auth_code(settings, body.server_auth_code)
-    except GoogleGmailError as exc:
+        result = await google_integrations_service.connect_gmail(
+            session, redis, settings, user, body.server_auth_code
+        )
+    except google_integrations_service.GoogleConnectError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-
-    refresh_token_raw = str(token_data.get("refresh_token") or "").strip()
-    access_token = str(token_data.get("access_token") or "").strip()
-    if not refresh_token_raw:
-        existing = await gmail_repo.get_for_user(session, user.id)
-        if existing:
-            # Reuse the already-encrypted stored token.
-            refresh_token = existing.refresh_token
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Google did not return a refresh token. Revoke Recall in your Google account and try again.",
-            )
-    else:
-        # Fresh token from Google — encrypt before it touches the DB.
-        refresh_token = encrypt_refresh_token(settings, refresh_token_raw)
-
-    email = await _fetch_google_email(access_token) if access_token else None
-    if not email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Could not verify the Gmail account. Connect again and grant Gmail read access.",
-        )
-    google_email = email
-    scopes = str(token_data.get("scope") or "")
-    if "gmail.readonly" not in scopes:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Gmail read permission was not granted. Try disconnecting Gmail, "
-            "revoke Recall in your Google account, then connect again.",
-        )
-
-    await gmail_repo.upsert(
-        session,
-        user_id=user.id,
-        google_email=google_email,
-        refresh_token=refresh_token,
-        scopes=scopes or "gmail.readonly",
-    )
-    try:
-        from redis.asyncio import Redis
-
-        redis_client: Redis = redis
-        await redis_client.delete(email_service._cache_key(user.id))
-    except Exception:
-        logger.exception("Failed to clear gmail cache after connect")
-    try:
-        await jobs.enqueue(redis, "gmail_sync", {"user_id": str(user.id)})
-    except Exception:
-        logger.exception("Failed to enqueue gmail sync after connect")
-
-    await home_service.invalidate_home_cache(user.id)
-
     return GoogleGmailStatusOut(
         connected=True,
-        email=google_email,
+        email=result.email,
         configured=True,
         last_sync_at=None,
     )
@@ -144,19 +70,7 @@ async def disconnect_gmail(
     redis: Redis = Depends(get_redis),
     settings: Settings = Depends(get_settings_dep),
 ) -> None:
-    await google_integrations_service.revoke_on_disconnect(
-        session,
-        settings,
-        user.id,
-        disconnect="gmail",
-    )
-    await suggested_repo.delete_for_user(session, user.id)
-    await gmail_repo.delete_for_user(session, user.id)
-    try:
-        await redis.delete(email_service._cache_key(user.id))
-    except Exception:
-        logger.exception("Failed to clear gmail cache after disconnect")
-    await home_service.invalidate_home_cache(user.id)
+    await google_integrations_service.disconnect_gmail(session, redis, settings, user.id)
 
 
 @router.post("/sync")
