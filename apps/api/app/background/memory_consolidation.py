@@ -12,6 +12,7 @@ from app.gateways import litellm_gateway
 from app.repositories import memories as memories_repo
 from app.services.memory import (
     consolidation_rewrite_preserves_facts,
+    embedding_text_hash,
     invalidate_memory_block,
     join_memory_facts,
     normalize_memory_text,
@@ -49,24 +50,33 @@ async def _apply_consolidation_result(
     user_id: UUID,
     rows: list[tuple[str, str, float, UUID | None]],
 ) -> None:
-    upserted_types = {memory_type for memory_type, _, _, _ in rows}
     await memories_repo.upsert_sections(session, user_id=user_id, items=rows)
     from app.gateways import embedding_gateway
 
+    # See migration 0057: compare against the persisted embedding_text_hash
+    # rather than "was this type touched by this consolidation call" so a
+    # prior embed failure is detected and retried on every later pass, not
+    # just the one where the text changed.
     updated = await memories_repo.list_for_user(session, user_id)
     embed_tasks: list[tuple[Any, str]] = []
     for memory in updated:
-        if memory.type in upserted_types:
+        needs_embed = (
+            memory.embedding is None
+            or memory.embedding_json is None
+            or memory.embedding_text_hash != embedding_text_hash(memory.text)
+        )
+        if needs_embed:
             embed_tasks.append((memory, memory.text))
 
     if embed_tasks:
         vectors = await asyncio.gather(
             *(embedding_gateway.embed_text(settings, text) for _, text in embed_tasks)
         )
-        for (memory, _), vec in zip(embed_tasks, vectors, strict=True):
+        for (memory, text), vec in zip(embed_tasks, vectors, strict=True):
             if vec:
                 memory.embedding = vec
                 memory.embedding_json = embedding_gateway.serialize_embedding(vec)
+                memory.embedding_text_hash = embedding_text_hash(text)
     await session.commit()
     await invalidate_memory_block(user_id)
 

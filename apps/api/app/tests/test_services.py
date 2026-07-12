@@ -6,6 +6,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.services.memory import embedding_text_hash
 
 
 class _FakeSessionCM:
@@ -419,6 +420,67 @@ async def test_extract_and_store_reembeds_when_pgvector_missing():
         await extract_and_store_memories(settings, user_id=uuid4(), chat_id=uuid4(), transcript="t")
 
     embed_calls.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_this_pass():
+    """BUG FIX regression: if a prior embed attempt failed right after a text
+    change, the embedding stays paired with the OLD text while the new text
+    is already persisted. A later pass — where the text doesn't change again
+    — must still detect and retry that mismatch via embedding_text_hash,
+    not just when comparing against the immediately-prior snapshot."""
+    from app.background.memory_extraction import extract_and_store_memories
+    from app.models.schemas import MemorySectionItem, MemorySectionUpdateResult
+
+    settings = Settings(memory_min_confidence=0.4)
+    extraction = MemorySectionUpdateResult(
+        sections=[MemorySectionItem(type="preference", summary="likes TypeScript", confidence=0.9)]
+    )
+
+    # Existing + updated both already have the new text (unchanged by this
+    # pass) but the embedding hash was computed from stale text — as would
+    # happen after a previously failed embed_text call.
+    existing = MagicMock()
+    existing.type = "preference"
+    existing.text = "likes TypeScript"
+    existing.embedding_json = "[0.1,0.2]"
+
+    updated = MagicMock()
+    updated.type = "preference"
+    updated.text = "likes TypeScript"
+    updated.embedding = [0.1, 0.2]
+    updated.embedding_json = "[0.1,0.2]"
+    updated.embedding_text_hash = "stale-hash-from-a-failed-embed"
+
+    embed_calls = AsyncMock(return_value=[0.9, 0.8])
+    _, session_locals = _memory_extraction_sessions(count=2)
+
+    with (
+        patch(
+            "app.background.memory_extraction.SessionLocal",
+            side_effect=session_locals,
+        ),
+        patch(
+            "app.background.memory_extraction.users_repo.get_by_id",
+            AsyncMock(return_value=MagicMock(memory_enabled=True)),
+        ),
+        patch(
+            "app.background.memory_extraction.memories_repo.list_for_user",
+            AsyncMock(side_effect=[[existing], [updated]]),
+        ),
+        patch(
+            "app.background.memory_extraction.litellm_gateway.revise_memory_sections",
+            AsyncMock(return_value=extraction),
+        ),
+        patch("app.background.memory_extraction.memories_repo.upsert_sections", AsyncMock()),
+        patch("app.services.memory.invalidate_memory_block", AsyncMock()),
+        patch("app.gateways.embedding_gateway.embed_text", embed_calls),
+        patch("app.gateways.embedding_gateway.serialize_embedding", return_value="[0.9,0.8]"),
+    ):
+        await extract_and_store_memories(settings, user_id=uuid4(), chat_id=uuid4(), transcript="t")
+
+    embed_calls.assert_awaited_once()
+    assert updated.embedding_text_hash == embedding_text_hash("likes TypeScript")
     from app.background.memory_extraction import extract_and_store_memories
 
     session = AsyncMock()

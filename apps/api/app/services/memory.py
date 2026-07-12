@@ -28,6 +28,14 @@ def normalize_memory_text(text: str) -> str:
     return clean
 
 
+def embedding_text_hash(text: str) -> str:
+    """Hash of the exact text an embedding was computed from — stored
+    alongside the vector so a later pass can tell "stale" from "current"
+    without needing the specific prior-snapshot text that triggered this
+    particular embed call. See migration 0057 and its BUG FIX docstring."""
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
 def _split_sentences(text: str) -> list[str]:
     parts = re.split(r"(?<=[.!?])\s+", text.strip())
     return [part.strip() for part in parts if part.strip()]
