@@ -905,15 +905,18 @@ def _find_language_project(
 
 
 def _find_project(projects: list[Project], title: str) -> Project | None:
+    # BUG FIX (was silent): dropped the substring fallback (`needle in title
+    # or title in needle`) — it could resolve a mutating action (delete/set_*
+    # /add target, etc.) against the wrong project by title fragment (e.g.
+    # "En" matching "English" when another project also existed). Exact
+    # normalized-title match only now; the single-project fallback below
+    # stays for when the title is blank/unmatched and there's just one
+    # project it could mean.
     needle = _normalize(title)
-    if not needle:
-        return projects[0] if len(projects) == 1 else None
-    for project in projects:
-        if _normalize(project.title) == needle:
-            return project
-    for project in projects:
-        if needle in _normalize(project.title) or _normalize(project.title) in needle:
-            return project
+    if needle:
+        for project in projects:
+            if _normalize(project.title) == needle:
+                return project
     if len(projects) == 1:
         return projects[0]
     return None
@@ -927,6 +930,14 @@ def _find_item(
     *,
     mastered_only: bool | None = None,
 ) -> ProjectItem | None:
+    # BUG FIX (was silent): dropped the substring fallback (`needle in
+    # content or content in needle`) after an exact-match miss. It let e.g.
+    # "cat" match an existing "category" item — wrongly hitting
+    # delete/master/unmaster/start_learning on the wrong word, and (via this
+    # same function's use as the `add` dedup check) wrongly skipping "add
+    # cat" as a duplicate of "category". Exact normalized match only, for
+    # both target-resolution and dedup use — a fuzzy dedup silently dropping
+    # a legitimately different word is worse than an occasional near-duplicate.
     needle = _normalize(content)
     list_norm = _list_key(list_title)
     candidates = [
@@ -940,9 +951,6 @@ def _find_item(
         candidates = [i for i in items if i.project_id == project_id]
     for item in candidates:
         if _normalize(item.content) == needle:
-            return item
-    for item in candidates:
-        if needle in _normalize(item.content) or _normalize(item.content) in needle:
             return item
     return None
 

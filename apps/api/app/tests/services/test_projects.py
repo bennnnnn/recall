@@ -1134,6 +1134,129 @@ async def test_apply_project_actions_skips_duplicate_add():
 
 
 @pytest.mark.asyncio
+async def test_apply_project_actions_delete_does_not_fuzzy_match_substring():
+    """BUG FIX regression: deck has "category" but not "cat" — a delete for
+    "cat" must no-op, not fall back to substring-matching "category"."""
+    session = AsyncMock()
+    user_id = uuid4()
+    project = _project("English")
+    existing = _item("category", project.id)
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_for_user",
+            AsyncMock(return_value=[existing]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "delete_by_id",
+            AsyncMock(),
+        ) as delete_mock,
+    ):
+        applied = await projects_service.apply_project_actions(
+            session,
+            user_id=user_id,
+            actions=[
+                ProjectActionItem(
+                    action="delete",
+                    project_title="English",
+                    list_title="Travel",
+                    content="cat",
+                ),
+            ],
+        )
+    assert applied == 0
+    delete_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_apply_project_actions_master_does_not_fuzzy_match_substring():
+    """Same false-positive-match bug for `master` — "cat" must not resolve
+    to an existing "category" item."""
+    session = AsyncMock()
+    user_id = uuid4()
+    project = _project("English")
+    existing = _item("category", project.id)
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_for_user",
+            AsyncMock(return_value=[existing]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "update",
+            AsyncMock(),
+        ) as update_mock,
+    ):
+        applied = await projects_service.apply_project_actions(
+            session,
+            user_id=user_id,
+            actions=[
+                ProjectActionItem(
+                    action="master",
+                    project_title="English",
+                    list_title="Travel",
+                    content="cat",
+                ),
+            ],
+        )
+    assert applied == 0
+    update_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_apply_project_actions_add_not_skipped_as_fuzzy_duplicate():
+    """BUG FIX regression: deck has "category" but not "cat" — adding "cat"
+    must NOT be silently skipped as a "duplicate" of "category"."""
+    session = AsyncMock()
+    user_id = uuid4()
+    project = _project("English")
+    existing = _item("category", project.id, list_title="nouns")
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_for_user",
+            AsyncMock(return_value=[existing]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "create",
+            AsyncMock(return_value=_item("cat", project.id, list_title="nouns")),
+        ) as create_mock,
+    ):
+        applied = await projects_service.apply_project_actions(
+            session,
+            user_id=user_id,
+            actions=[
+                ProjectActionItem(
+                    action="add",
+                    project_title="English",
+                    list_title="nouns",
+                    content="cat",
+                ),
+            ],
+        )
+    assert applied == 1
+    create_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_sync_projects_from_transcript_applies_litellm_actions():
     from app.models.schemas import ProjectExtractionResult
 
