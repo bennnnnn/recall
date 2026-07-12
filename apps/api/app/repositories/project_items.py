@@ -46,6 +46,36 @@ async def list_for_user(
     return list((await session.execute(stmt)).scalars().all())
 
 
+async def list_recent_for_user(
+    session: AsyncSession,
+    user_id: UUID,
+    *,
+    project_id: UUID | None = None,
+    project_ids: list[UUID] | None = None,
+    limit: int = 500,
+) -> list[ProjectItem]:
+    """Same filters as list_for_user, ordered by recency only.
+
+    BUG FIX (was silent): list_for_user's (list_title, status, created_at
+    desc) ordering means the LIMIT window for a user with more items than the
+    limit is not guaranteed to include their most-recently-added items —
+    apply_project_actions uses a 500-item snapshot of this repo as its
+    in-memory match/dedup window (_find_item/_find_project), so a stale
+    window hurts dedup/match accuracy for large decks. Kept as a separate
+    function rather than changing list_for_user's default order: other
+    callers (format_projects_block / group_items / group_trivia_items — the
+    deck-browse UI and prompt injection) rely on the existing
+    list_title/status grouping order.
+    """
+    stmt = select(ProjectItem).where(ProjectItem.user_id == user_id)
+    if project_id is not None:
+        stmt = stmt.where(ProjectItem.project_id == project_id)
+    elif project_ids:
+        stmt = stmt.where(ProjectItem.project_id.in_(project_ids))
+    stmt = stmt.order_by(ProjectItem.created_at.desc()).limit(limit)
+    return list((await session.execute(stmt)).scalars().all())
+
+
 def _like_escape(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
@@ -145,6 +175,17 @@ async def get_by_id(
     if project_id is not None:
         stmt = stmt.where(ProjectItem.project_id == project_id)
     return (await session.execute(stmt)).scalar_one_or_none()
+
+
+async def count_for_project(session: AsyncSession, project_id: UUID, user_id: UUID) -> int:
+    """Cheap COUNT(*) for the per-project item cap — avoids loading rows just
+    to size-check (unlike count_stats, which loads up to 5000 rows)."""
+    stmt = (
+        select(func.count())
+        .select_from(ProjectItem)
+        .where(ProjectItem.user_id == user_id, ProjectItem.project_id == project_id)
+    )
+    return int((await session.execute(stmt)).scalar_one())
 
 
 async def count_stats(

@@ -275,6 +275,19 @@ class Project(Base):
     __table_args__ = (
         Index("ix_projects_user_updated", "user_id", "updated_at"),
         Index("ix_projects_user_kind", "user_id", "kind"),
+        # BUG FIX (was silent): "one language + one trivia project per user"
+        # (FEATURES.md) was only checked in-memory in apply_project_actions —
+        # two near-concurrent project-sync jobs (at-least-once job
+        # redelivery, see core/jobs.py) could both pass that check before
+        # either commits. DB-level partial unique index (migration 0055) is
+        # the real guard.
+        Index(
+            "uq_projects_user_kind_active",
+            "user_id",
+            "kind",
+            unique=True,
+            postgresql_where=text("kind IN ('language', 'trivia') AND archived = false"),
+        ),
         CheckConstraint("kind IN ('language', 'trivia', 'general')", name="ck_projects_kind"),
         CheckConstraint(
             "level IN ('level1', 'level2', 'level3', 'level4', 'level5', 'level6')",

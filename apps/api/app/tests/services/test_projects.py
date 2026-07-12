@@ -108,7 +108,7 @@ async def test_apply_project_actions_skips_duplicate_language_project():
         ),
         patch.object(
             projects_service.project_items_repo,
-            "list_for_user",
+            "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
@@ -134,6 +134,51 @@ async def test_apply_project_actions_skips_duplicate_language_project():
 
 
 @pytest.mark.asyncio
+async def test_apply_project_actions_handles_create_project_race():
+    """Simulates two near-concurrent project-sync jobs both passing the
+    in-memory "no existing language project" check before either commits —
+    the DB partial unique index (migration 0055) rejects the second INSERT
+    with IntegrityError. apply_project_actions must roll back and no-op
+    rather than raising into the background job."""
+    from sqlalchemy.exc import IntegrityError
+
+    session = AsyncMock()
+    user_id = uuid4()
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_recent_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            projects_service.projects_repo,
+            "create",
+            AsyncMock(side_effect=IntegrityError("insert", {}, Exception("dup key"))),
+        ) as create_mock,
+    ):
+        applied = await projects_service.apply_project_actions(
+            session,
+            user_id=user_id,
+            actions=[
+                ProjectActionItem(
+                    action="create_project",
+                    project_title="English",
+                    kind="language",
+                ),
+            ],
+        )
+
+    assert applied == 0
+    create_mock.assert_awaited_once()
+    session.rollback.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_apply_project_actions_create_and_add():
     session = AsyncMock()
     user_id = uuid4()
@@ -151,7 +196,7 @@ async def test_apply_project_actions_create_and_add():
         ) as create_mock,
         patch.object(
             projects_service.project_items_repo,
-            "list_for_user",
+            "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
@@ -197,7 +242,7 @@ async def test_apply_project_actions_invalidates_home_cache():
         ),
         patch.object(
             projects_service.project_items_repo,
-            "list_for_user",
+            "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
@@ -235,7 +280,7 @@ async def test_apply_project_actions_master():
         ),
         patch.object(
             projects_service.project_items_repo,
-            "list_for_user",
+            "list_recent_for_user",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
@@ -262,6 +307,9 @@ async def test_apply_project_actions_master():
 
 @pytest.mark.asyncio
 async def test_apply_project_actions_delete_project():
+    """from_transcript=False simulates an explicit user-initiated caller
+    (e.g. DELETE /projects/{id}) — destructive actions must still go through
+    for that caller; only the default (transcript-extracted) path is blocked."""
     session = AsyncMock()
     user_id = uuid4()
     project = _project("Old project")
@@ -273,7 +321,45 @@ async def test_apply_project_actions_delete_project():
         ),
         patch.object(
             projects_service.project_items_repo,
+            "list_recent_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            projects_service.projects_repo,
+            "delete_by_id",
+            AsyncMock(return_value=True),
+        ) as delete_mock,
+    ):
+        applied = await projects_service.apply_project_actions(
+            session,
+            user_id=user_id,
+            actions=[
+                ProjectActionItem(action="delete_project", project_title="Old project"),
+            ],
+            from_transcript=False,
+        )
+    assert applied == 1
+    delete_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_apply_project_actions_blocks_delete_project_by_default():
+    """BUG FIX (was silent): the destructive-action guard used to live only
+    in _apply_project_extraction_result — apply_project_actions itself had
+    no internal guard, so a future caller invoking it directly could bypass
+    the block entirely. from_transcript now defaults to True (safe)."""
+    session = AsyncMock()
+    user_id = uuid4()
+    project = _project("Old project")
+    with (
+        patch.object(
+            projects_service.projects_repo,
             "list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
@@ -289,8 +375,8 @@ async def test_apply_project_actions_delete_project():
                 ProjectActionItem(action="delete_project", project_title="Old project"),
             ],
         )
-    assert applied == 1
-    delete_mock.assert_awaited_once()
+    assert applied == 0
+    delete_mock.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -341,6 +427,10 @@ async def test_sync_projects_from_transcript_adds_words():
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
+        # _load_project_sync_snapshot (LLM-facing snapshot) still uses
+        # list_for_user; apply_project_actions' own dedup/match snapshot
+        # uses list_recent_for_user (fix for the >500-item recency bug) —
+        # both need mocking on this end-to-end path.
         patch.object(
             projects_service.project_items_repo,
             "list_for_user",
@@ -348,9 +438,19 @@ async def test_sync_projects_from_transcript_adds_words():
         ),
         patch.object(
             projects_service.project_items_repo,
+            "list_recent_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
             "create",
             AsyncMock(side_effect=lambda *a, **kw: _item(kw["content"], project.id)),
         ) as create_mock,
+        patch.object(
+            projects_service.project_items_repo,
+            "count_for_project",
+            AsyncMock(return_value=0),
+        ),
         patch.object(mock_llm, "should_mock_llm", return_value=True),
     ):
         result = await sync_projects_from_transcript(
@@ -905,7 +1005,7 @@ async def test_apply_project_actions_skips_master_after_recent_miss():
         ),
         patch.object(
             projects_service.project_items_repo,
-            "list_for_user",
+            "list_recent_for_user",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
@@ -947,7 +1047,7 @@ async def test_apply_project_actions_start_learning_and_unmaster():
         ),
         patch.object(
             projects_service.project_items_repo,
-            "list_for_user",
+            "list_recent_for_user",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
@@ -989,7 +1089,7 @@ async def test_apply_project_actions_start_learning_records_failed_quiz():
         ),
         patch.object(
             projects_service.project_items_repo,
-            "list_for_user",
+            "list_recent_for_user",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
@@ -1017,6 +1117,8 @@ async def test_apply_project_actions_start_learning_records_failed_quiz():
 
 @pytest.mark.asyncio
 async def test_apply_project_actions_delete_list():
+    """from_transcript=False simulates an explicit user-initiated caller —
+    see test_apply_project_actions_delete_project."""
     session = AsyncMock()
     user_id = uuid4()
     project = _project("English")
@@ -1028,7 +1130,45 @@ async def test_apply_project_actions_delete_list():
         ),
         patch.object(
             projects_service.project_items_repo,
+            "list_recent_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "delete_by_list",
+            AsyncMock(return_value=2),
+        ) as delete_mock,
+    ):
+        applied = await projects_service.apply_project_actions(
+            session,
+            user_id=user_id,
+            actions=[
+                ProjectActionItem(
+                    action="delete_list",
+                    project_title="English",
+                    list_title="Travel",
+                ),
+            ],
+            from_transcript=False,
+        )
+    assert applied == 1
+    delete_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_apply_project_actions_blocks_delete_list_by_default():
+    session = AsyncMock()
+    user_id = uuid4()
+    project = _project("English")
+    with (
+        patch.object(
+            projects_service.projects_repo,
             "list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
@@ -1048,8 +1188,8 @@ async def test_apply_project_actions_delete_list():
                 ),
             ],
         )
-    assert applied == 1
-    delete_mock.assert_awaited_once()
+    assert applied == 0
+    delete_mock.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -1065,7 +1205,7 @@ async def test_apply_project_actions_set_level_and_description():
         ),
         patch.object(
             projects_service.project_items_repo,
-            "list_for_user",
+            "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
@@ -1108,7 +1248,7 @@ async def test_apply_project_actions_skips_duplicate_add():
         ),
         patch.object(
             projects_service.project_items_repo,
-            "list_for_user",
+            "list_recent_for_user",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
@@ -1131,6 +1271,294 @@ async def test_apply_project_actions_skips_duplicate_add():
         )
     assert applied == 0
     create_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_apply_project_actions_delete_does_not_fuzzy_match_substring():
+    """BUG FIX regression: deck has "category" but not "cat" — a delete for
+    "cat" must no-op, not fall back to substring-matching "category"."""
+    session = AsyncMock()
+    user_id = uuid4()
+    project = _project("English")
+    existing = _item("category", project.id)
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_recent_for_user",
+            AsyncMock(return_value=[existing]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "delete_by_id",
+            AsyncMock(),
+        ) as delete_mock,
+    ):
+        applied = await projects_service.apply_project_actions(
+            session,
+            user_id=user_id,
+            actions=[
+                ProjectActionItem(
+                    action="delete",
+                    project_title="English",
+                    list_title="Travel",
+                    content="cat",
+                ),
+            ],
+        )
+    assert applied == 0
+    delete_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_apply_project_actions_master_does_not_fuzzy_match_substring():
+    """Same false-positive-match bug for `master` — "cat" must not resolve
+    to an existing "category" item."""
+    session = AsyncMock()
+    user_id = uuid4()
+    project = _project("English")
+    existing = _item("category", project.id)
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_recent_for_user",
+            AsyncMock(return_value=[existing]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "update",
+            AsyncMock(),
+        ) as update_mock,
+    ):
+        applied = await projects_service.apply_project_actions(
+            session,
+            user_id=user_id,
+            actions=[
+                ProjectActionItem(
+                    action="master",
+                    project_title="English",
+                    list_title="Travel",
+                    content="cat",
+                ),
+            ],
+        )
+    assert applied == 0
+    update_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_apply_project_actions_add_not_skipped_as_fuzzy_duplicate():
+    """BUG FIX regression: deck has "category" but not "cat" — adding "cat"
+    must NOT be silently skipped as a "duplicate" of "category"."""
+    session = AsyncMock()
+    user_id = uuid4()
+    project = _project("English")
+    existing = _item("category", project.id, list_title="nouns")
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_recent_for_user",
+            AsyncMock(return_value=[existing]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "create",
+            AsyncMock(return_value=_item("cat", project.id, list_title="nouns")),
+        ) as create_mock,
+        patch.object(
+            projects_service.project_items_repo,
+            "count_for_project",
+            AsyncMock(return_value=0),
+        ),
+    ):
+        applied = await projects_service.apply_project_actions(
+            session,
+            user_id=user_id,
+            actions=[
+                ProjectActionItem(
+                    action="add",
+                    project_title="English",
+                    list_title="nouns",
+                    content="cat",
+                ),
+            ],
+        )
+    assert applied == 1
+    create_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_apply_project_actions_add_skips_at_item_cap():
+    """BUG FIX: `add` was only bounded by the per-turn action cap + content
+    dedup, so a deck could grow unbounded over many turns. Once a project is
+    at MAX_PROJECT_ITEMS_PER_PROJECT, `add` must skip (no-op), not raise."""
+    session = AsyncMock()
+    user_id = uuid4()
+    project = _project("English")
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_recent_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "count_for_project",
+            AsyncMock(return_value=projects_service.MAX_PROJECT_ITEMS_PER_PROJECT),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "create",
+            AsyncMock(),
+        ) as create_mock,
+    ):
+        applied = await projects_service.apply_project_actions(
+            session,
+            user_id=user_id,
+            actions=[
+                ProjectActionItem(
+                    action="add",
+                    project_title="English",
+                    list_title="nouns",
+                    content="new word",
+                ),
+            ],
+        )
+    assert applied == 0
+    create_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_apply_project_extraction_result_blocks_destructive_actions():
+    """PROJECT_BLOCKED_FROM_TRANSCRIPT is what stops the LLM from deleting a
+    whole project/list via chat. Nothing previously exercised
+    _apply_project_extraction_result itself or asserted a delete_project /
+    delete_list action from LLM extraction never reaches the repo layer —
+    this asserts the repo deletes are never called, while a legitimate
+    non-destructive action in the same extraction result still applies."""
+    from app.models.schemas import ProjectExtractionResult
+
+    session = AsyncMock()
+    user_id = uuid4()
+    chat_id = uuid4()
+    project = _project("English")
+    result = ProjectExtractionResult(
+        actions=[
+            ProjectActionItem(action="delete_project", project_title="English"),
+            ProjectActionItem(
+                action="add", project_title="English", list_title="nouns", content="apple"
+            ),
+            ProjectActionItem(action="delete_list", project_title="English", list_title="Travel"),
+        ]
+    )
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_recent_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            projects_service.projects_repo,
+            "delete_by_id",
+            AsyncMock(return_value=True),
+        ) as delete_project_mock,
+        patch.object(
+            projects_service.project_items_repo,
+            "delete_by_list",
+            AsyncMock(return_value=2),
+        ) as delete_list_mock,
+        patch.object(
+            projects_service.project_items_repo,
+            "create",
+            AsyncMock(return_value=_item("apple", project.id, list_title="nouns")),
+        ) as create_mock,
+        patch.object(
+            projects_service.project_items_repo,
+            "count_for_project",
+            AsyncMock(return_value=0),
+        ),
+    ):
+        applied = await projects_service._apply_project_extraction_result(
+            session, user_id=user_id, chat_id=chat_id, result=result
+        )
+
+    assert applied == 1
+    delete_project_mock.assert_not_awaited()
+    delete_list_mock.assert_not_awaited()
+    create_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_apply_project_extraction_result_caps_actions_per_turn():
+    """More than MAX_PROJECT_ACTIONS_PER_TURN actions in one extraction
+    result must only have the cap's worth applied."""
+    from app.models.schemas import ProjectExtractionResult
+
+    session = AsyncMock()
+    user_id = uuid4()
+    chat_id = uuid4()
+    project = _project("English")
+    over_cap = projects_service.MAX_PROJECT_ACTIONS_PER_TURN + 2
+    result = ProjectExtractionResult(
+        actions=[
+            ProjectActionItem(
+                action="add", project_title="English", list_title="nouns", content=f"word{i}"
+            )
+            for i in range(over_cap)
+        ]
+    )
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_recent_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "create",
+            AsyncMock(side_effect=lambda *a, **kw: _item(kw["content"], project.id)),
+        ) as create_mock,
+        patch.object(
+            projects_service.project_items_repo,
+            "count_for_project",
+            AsyncMock(return_value=0),
+        ),
+    ):
+        applied = await projects_service._apply_project_extraction_result(
+            session, user_id=user_id, chat_id=chat_id, result=result
+        )
+
+    assert applied == projects_service.MAX_PROJECT_ACTIONS_PER_TURN
+    assert create_mock.await_count == projects_service.MAX_PROJECT_ACTIONS_PER_TURN
 
 
 @pytest.mark.asyncio
@@ -1164,6 +1592,8 @@ async def test_sync_projects_from_transcript_applies_litellm_actions():
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
+        # apply_project_actions is mocked below, so only
+        # _load_project_sync_snapshot's list_for_user call is exercised here.
         patch.object(
             projects_service.project_items_repo,
             "list_for_user",
@@ -1219,6 +1649,9 @@ async def test_sync_projects_from_transcript_releases_db_before_llm():
     with (
         patch("app.core.db.SessionLocal", side_effect=[load_cm, apply_cm]),
         patch.object(projects_service.projects_repo, "list_for_user", AsyncMock(return_value=[])),
+        # fake_extract always returns None, so apply_project_actions is never
+        # reached — only _load_project_sync_snapshot's list_for_user call is
+        # exercised here.
         patch.object(
             projects_service.project_items_repo,
             "list_for_user",
@@ -1255,6 +1688,9 @@ async def test_sync_projects_from_transcript_returns_none_on_error():
             "list_for_user",
             AsyncMock(return_value=[]),
         ),
+        # extract_project_actions raises below, so apply_project_actions is
+        # never reached — only _load_project_sync_snapshot's list_for_user
+        # call is exercised here.
         patch.object(
             projects_service.project_items_repo,
             "list_for_user",

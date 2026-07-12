@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -35,6 +36,11 @@ MAX_PROJECT_ACTIONS_PER_TURN = 3
 # Whole-project / whole-deck deletes are too destructive to apply from a model's
 # interpretation of chat text — the user must remove those explicitly.
 PROJECT_BLOCKED_FROM_TRANSCRIPT = frozenset({"delete_project", "delete_list"})
+# BUG FIX: `add` was only bounded by MAX_PROJECT_ACTIONS_PER_TURN + content
+# dedup, so a deck could grow unbounded over many turns. No documented
+# product limit on deck size exists (FEATURES.md) — pick a generous but
+# bounded cap.
+MAX_PROJECT_ITEMS_PER_PROJECT = 2000
 
 DEFAULT_LIST = "General"
 
@@ -905,15 +911,18 @@ def _find_language_project(
 
 
 def _find_project(projects: list[Project], title: str) -> Project | None:
+    # BUG FIX (was silent): dropped the substring fallback (`needle in title
+    # or title in needle`) — it could resolve a mutating action (delete/set_*
+    # /add target, etc.) against the wrong project by title fragment (e.g.
+    # "En" matching "English" when another project also existed). Exact
+    # normalized-title match only now; the single-project fallback below
+    # stays for when the title is blank/unmatched and there's just one
+    # project it could mean.
     needle = _normalize(title)
-    if not needle:
-        return projects[0] if len(projects) == 1 else None
-    for project in projects:
-        if _normalize(project.title) == needle:
-            return project
-    for project in projects:
-        if needle in _normalize(project.title) or _normalize(project.title) in needle:
-            return project
+    if needle:
+        for project in projects:
+            if _normalize(project.title) == needle:
+                return project
     if len(projects) == 1:
         return projects[0]
     return None
@@ -927,6 +936,14 @@ def _find_item(
     *,
     mastered_only: bool | None = None,
 ) -> ProjectItem | None:
+    # BUG FIX (was silent): dropped the substring fallback (`needle in
+    # content or content in needle`) after an exact-match miss. It let e.g.
+    # "cat" match an existing "category" item — wrongly hitting
+    # delete/master/unmaster/start_learning on the wrong word, and (via this
+    # same function's use as the `add` dedup check) wrongly skipping "add
+    # cat" as a duplicate of "category". Exact normalized match only, for
+    # both target-resolution and dedup use — a fuzzy dedup silently dropping
+    # a legitimately different word is worse than an occasional near-duplicate.
     needle = _normalize(content)
     list_norm = _list_key(list_title)
     candidates = [
@@ -940,9 +957,6 @@ def _find_item(
         candidates = [i for i in items if i.project_id == project_id]
     for item in candidates:
         if _normalize(item.content) == needle:
-            return item
-    for item in candidates:
-        if needle in _normalize(item.content) or _normalize(item.content) in needle:
             return item
     return None
 
@@ -1533,11 +1547,39 @@ async def apply_project_actions(
     user_id: UUID,
     actions: list[ProjectActionItem],
     chat_id: UUID | None = None,
+    from_transcript: bool = True,
 ) -> int:
+    """Apply LLM-extracted or explicit-user project/item actions.
+
+    ``from_transcript`` defaults to True (safe): whole-project/whole-deck
+    deletes are blocked unless a caller explicitly opts out with
+    ``from_transcript=False`` for a genuine user-initiated action (e.g. a
+    dedicated "delete project" endpoint). Defaulting to the permissive
+    behavior would mean a future caller that forgets this parameter silently
+    inherits the ability to let a model delete data via chat.
+    """
     if not actions:
         return 0
+    if from_transcript:
+        # BUG FIX (was silent): this guard used to live only in
+        # _apply_project_extraction_result, this function's one caller —
+        # nothing stopped a future second caller from invoking
+        # apply_project_actions directly and bypassing it entirely. Enforce
+        # it here instead.
+        for action in actions:
+            if action.action in PROJECT_BLOCKED_FROM_TRANSCRIPT:
+                logger.warning(
+                    "Refused destructive project action %s from transcript for "
+                    "user_id=%s project=%s (requires explicit user action)",
+                    action.action,
+                    user_id,
+                    action.project_title,
+                )
+        actions = [a for a in actions if a.action not in PROJECT_BLOCKED_FROM_TRANSCRIPT]
+        if not actions:
+            return 0
     projects = await projects_repo.list_for_user(session, user_id, limit=200)
-    items = await project_items_repo.list_for_user(session, user_id, limit=500)
+    items = await project_items_repo.list_recent_for_user(session, user_id, limit=500)
     applied = 0
     for action in actions:
         title = action.project_title.strip()
@@ -1546,24 +1588,46 @@ async def apply_project_actions(
         applied_before = applied
         try:
             if action.action == "create_project":
+                # kind is already a bounded Literal on ProjectActionItem
+                # (schemas.py: ProjectKind = "language" | "vocabulary" |
+                # "trivia") validated by Pydantic before this is ever
+                # reached, and normalize_project_kind maps "vocabulary" ->
+                # "language" — so kind is always in LEARNING_PRODUCT_KINDS
+                # here. The old `if kind not in LEARNING_PRODUCT_KINDS:
+                # continue` guard was dead code; removed.
                 kind = normalize_project_kind(action.kind or "language")
-                if kind not in LEARNING_PRODUCT_KINDS:
-                    continue
                 if kind == "language" and _find_language_project(projects, "en"):
                     continue
                 if kind == "trivia" and any(_is_trivia_project(p) for p in projects):
                     continue
                 if _find_project(projects, title):
                     continue
-                project = await projects_repo.create(
-                    session,
-                    user_id=user_id,
-                    title=title,
-                    description=(action.description or "").strip() or None,
-                    kind=kind,
-                    level=action.level or "level1",
-                    target_language="en",
-                )
+                try:
+                    project = await projects_repo.create(
+                        session,
+                        user_id=user_id,
+                        title=title,
+                        description=(action.description or "").strip() or None,
+                        kind=kind,
+                        level=action.level or "level1",
+                        target_language="en",
+                    )
+                except IntegrityError:
+                    # BUG FIX (was silent): the in-memory checks above aren't
+                    # safe against two near-concurrent project-sync jobs for
+                    # the same user both passing before either commits. The
+                    # DB partial unique index (migration 0055) is the real
+                    # guard — a race loses here and should just no-op, not
+                    # raise into the background job or poison the rest of
+                    # this turn's actions with an un-rolled-back session.
+                    await session.rollback()
+                    logger.debug(
+                        "create_project raced with an existing active %s project "
+                        "for user_id=%s; skipping",
+                        kind,
+                        user_id,
+                    )
+                    continue
                 applied += 1
                 projects = await projects_repo.list_for_user(session, user_id, limit=200)
                 if action.content.strip():
@@ -1580,7 +1644,9 @@ async def apply_project_actions(
                         chat_id=chat_id,
                     )
                     applied += 1
-                    items = await project_items_repo.list_for_user(session, user_id, limit=500)
+                    items = await project_items_repo.list_recent_for_user(
+                        session, user_id, limit=500
+                    )
             elif action.action == "delete_project":
                 matched = _find_project(projects, title)
                 if matched:
@@ -1611,6 +1677,17 @@ async def apply_project_actions(
                         continue
                     if _find_item(items, project.id, list_title, content):
                         continue
+                    item_count = await project_items_repo.count_for_project(
+                        session, project.id, user_id
+                    )
+                    if item_count >= MAX_PROJECT_ITEMS_PER_PROJECT:
+                        logger.info(
+                            "Skipping add: project_id=%s at item cap (%d) for user_id=%s",
+                            project.id,
+                            MAX_PROJECT_ITEMS_PER_PROJECT,
+                            user_id,
+                        )
+                        continue
                     await project_items_repo.create(
                         session,
                         user_id=user_id,
@@ -1624,7 +1701,9 @@ async def apply_project_actions(
                         status="new",
                     )
                     applied += 1
-                    items = await project_items_repo.list_for_user(session, user_id, limit=500)
+                    items = await project_items_repo.list_recent_for_user(
+                        session, user_id, limit=500
+                    )
                 elif action.action == "start_learning":
                     # Record a failed/incorrect quiz outcome (open-ended or exhausted).
                     # Stamps last_incorrect_at so failed_today / day lists stay accurate.
@@ -1645,7 +1724,9 @@ async def apply_project_actions(
                             chat_id=chat_id,
                             status="new",
                         )
-                        items = await project_items_repo.list_for_user(session, user_id, limit=500)
+                        items = await project_items_repo.list_recent_for_user(
+                            session, user_id, limit=500
+                        )
                     if item and _item_status(item) != "mastered":
                         if not _failed_quiz_today(item):
                             await project_items_repo.apply_quiz_result(
@@ -1775,27 +1856,17 @@ async def _apply_project_extraction_result(
 ) -> int:
     if not result or not result.actions:
         return 0
-    safe_actions: list[ProjectActionItem] = []
-    for action in result.actions:
-        if action.action in PROJECT_BLOCKED_FROM_TRANSCRIPT:
-            logger.warning(
-                "Refused destructive project action %s from transcript for "
-                "user_id=%s project=%s (requires explicit user action)",
-                action.action,
-                user_id,
-                action.project_title,
-            )
-            continue
-        safe_actions.append(action)
-        if len(safe_actions) >= MAX_PROJECT_ACTIONS_PER_TURN:
-            break
-    if not safe_actions:
-        return 0
+    # Defensive per-turn cap on how many actions an LLM extraction can apply.
+    # The destructive-action block (delete_project/delete_list) now lives in
+    # apply_project_actions itself (from_transcript=True, the default) —
+    # this caller no longer needs to filter those out before calling it.
+    capped_actions = result.actions[:MAX_PROJECT_ACTIONS_PER_TURN]
     applied = await apply_project_actions(
         session,
         user_id=user_id,
-        actions=safe_actions,
+        actions=capped_actions,
         chat_id=chat_id,
+        from_transcript=True,
     )
     if result.actions and applied == 0:
         logger.warning(
