@@ -43,6 +43,7 @@ import { useChatScreenBodyProps } from "@/hooks/useChatScreenBodyProps";
 import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
 import { useTodosOptional } from "@/contexts/TodosContext";
 import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/lib/chatComposerLogic";
+import { invalidateProjectDetail } from "@/lib/projectDetailCache";
 import { useImageGeneration } from "@/hooks/useImageGeneration";
 import { ImageGenPromptSheet } from "@/components/ImageGenPromptSheet";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
@@ -384,7 +385,15 @@ function ChatScreen() {
     suggestions,
     onSelectSuggestion,
     onDismissSuggestion: dismissSuggestion,
-    onQuizAnswer: (letter) => void handleSend(letter),
+    onQuizAnswer: (letter) => {
+      // BUG FIX (was silent): answering a quiz in chat persists new counts server-side,
+      // but nothing invalidated the project detail cache from this flow — returning to
+      // the project screen right after could show a stale pre-answer snapshot for up
+      // to the cache's 20s TTL. Bust it so the next detail fetch is fresh.
+      const quizProjectId = resolveQuizProjectId();
+      if (quizProjectId) invalidateProjectDetail(quizProjectId);
+      void handleSend(letter);
+    },
     imageGenerating: imageGen.generating,
   });
 
