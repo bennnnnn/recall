@@ -45,6 +45,16 @@ def _item_due_today(content: str, *, hour: int = 9, tz_name: str = "UTC"):
     return item
 
 
+def _item_overdue(content: str, *, hours_ago: int = 3, tz_name: str = "UTC"):
+    from zoneinfo import ZoneInfo
+
+    tz = ZoneInfo(tz_name)
+    due_local = datetime.now(tz) - timedelta(hours=hours_ago)
+    item = _item(content, topic="Reminders")
+    item.due_at = due_local.astimezone(UTC)
+    return item
+
+
 def test_transcript_implies_bulk_shift_to_tomorrow():
     assert todos_service._transcript_implies_bulk_shift_to_tomorrow(
         "User: move all my reminders due today to tomorrow\nAssistant: Done."
@@ -476,10 +486,101 @@ def test_transcript_implies_todo_sync_overdue_delete():
     assert todos_service.transcript_implies_todo_sync(
         "User: yes\nAssistant: I deleted Pay rent from your reminders."
     )
+    assert todos_service.transcript_implies_todo_sync(
+        "User: Delete overdue\nAssistant: I've removed the two overdue reminders."
+    )
+    assert todos_service._transcript_implies_delete_overdue(
+        "User: Delete overdue\nAssistant: Done."
+    )
+    assert todos_service._transcript_implies_delete_overdue(
+        "User: yes\nAssistant: I've removed the two overdue reminders: Dd and midnight check."
+    )
     # Unrelated chat must not fire a todo sync LLM call.
     assert not todos_service.transcript_implies_todo_sync(
         "User: how do I delete a file in Python?\nAssistant: Use os.remove."
     )
+    assert not todos_service._transcript_implies_delete_overdue(
+        "User: delete the Walk reminder\nAssistant: I'll delete Walk."
+    )
+
+
+@pytest.mark.asyncio
+async def test_apply_delete_overdue_removes_past_due_only():
+    session = AsyncMock()
+    overdue = _item_overdue("Dd — midnight check", hours_ago=12)
+    future = _item("World Cup", topic="Reminders")
+    future.due_at = datetime.now(UTC) + timedelta(days=7)
+    no_due = _item("Milk")
+    checked = _item_overdue("Done already", hours_ago=5)
+    checked.checked = True
+    with patch.object(
+        todos_service.todos_repo,
+        "delete_by_id",
+        AsyncMock(return_value=True),
+    ) as delete_mock:
+        applied = await todos_service._apply_delete_overdue_open_reminders(
+            session,
+            user_id=uuid4(),
+            items=[overdue, future, no_due, checked],
+            user_timezone="UTC",
+        )
+    assert applied == 1
+    delete_mock.assert_awaited_once()
+    assert delete_mock.await_args.args[1] == overdue.id
+
+
+@pytest.mark.asyncio
+async def test_sync_todos_delete_overdue_after_empty_llm_apply():
+    session = AsyncMock()
+    user_id = uuid4()
+    user = MagicMock()
+    user.timezone = "UTC"
+    items = [_item_overdue("Dd"), _item_overdue("midnight check")]
+    extraction = MagicMock()
+    extraction.actions = []
+
+    with (
+        patch(
+            "app.core.db.SessionLocal",
+            side_effect=_session_local_side_effect(session),
+        ),
+        patch.object(
+            todos_service.users_repo,
+            "get_by_id",
+            AsyncMock(return_value=user),
+        ),
+        patch.object(
+            todos_service.todos_repo,
+            "list_for_user",
+            AsyncMock(return_value=items),
+        ),
+        patch(
+            "app.gateways.litellm_gateway.extract_todo_actions",
+            AsyncMock(return_value=extraction),
+        ),
+        patch.object(
+            todos_service,
+            "apply_todo_actions",
+            AsyncMock(return_value=0),
+        ),
+        patch.object(
+            todos_service,
+            "_apply_delete_overdue_open_reminders",
+            AsyncMock(return_value=2),
+        ) as delete_mock,
+        patch.object(
+            todos_service.home_service,
+            "invalidate_home_cache",
+            AsyncMock(),
+        ),
+    ):
+        await todos_service.sync_todos_from_transcript(
+            Settings(),
+            user_id=user_id,
+            chat_id=uuid4(),
+            transcript=("User: Delete overdue\nAssistant: I've removed the two overdue reminders."),
+        )
+    delete_mock.assert_awaited_once()
 
 
 def test_transcript_implies_todo_sync_reminder_confirm():

@@ -67,7 +67,10 @@ TODO_HINT = (
     "then use the trash icon on the list header in the Lists tab. Never claim a list was deleted "
     "from chat.\n"
     "Deleting items via chat — complete, uncheck, or delete individual items; applied right "
-    "after your reply by the background sync.\n"
+    'after your reply by the background sync. Phrase as future tense ("I\'ll delete …"), '
+    "never claim a delete already happened.\n"
+    'Bulk delete overdue reminders ("delete overdue" / "delete all overdue") is applied '
+    "automatically after your reply — confirm briefly; do not invent which items remain.\n"
     "Deleting in the app (Lists tab) — trash on a row removes one item. To delete a whole list, "
     "check off or delete every item first; then a trash icon appears on the list header. "
     "Never invent swipe gestures or other UI.\n"
@@ -110,8 +113,10 @@ _TODO_SYNC_TRANSCRIPT = re.compile(
     r"\b("
     r"added (?:to|on)|removed from|marked (?:as )?(?:done|complete)|"
     r"new (?:list|reminder|task)|delete(?:d)? (?:the )?list|delete all|"
+    r"delete overdue|removed (?:those |the )?overdue|"
     # Overdue nudge → model says "I'll delete …" (prompted future tense)
-    r"I(?:'ll| will) delete|I deleted|deleting (?:the )?(?:reminder|task|todo)|"
+    r"I(?:'ll| will) delete|I deleted|I(?:'ve| have) (?:removed|deleted)|"
+    r"deleting (?:the )?(?:reminder|task|todo)|"
     r"delete(?:d)? (?:the )?(?:reminder|task|todo|it)|"
     r"delete it|remove(?:d)? (?:the )?(?:reminder|task|todo)|"
     r"set (?:a )?(?:due|reminder)|moved .+ to tomorrow|"
@@ -125,10 +130,20 @@ _TODO_SYNC_TRANSCRIPT = re.compile(
     r")\b",
     re.IGNORECASE,
 )
-# Bare "Delete" / "Yes" after an overdue nudge — current-turn transcript only.
+# "Delete" / "Delete overdue" / "Delete them" — current-turn user line.
 _USER_DELETE_TURN = re.compile(
-    r"(?:^|\n)User:\s*delete\.?!?\s*(?:\n|$)",
+    r"(?:^|\n)User:\s*delete(?:\s+(?:it|them|all|overdue|those|these|my|the)){0,5}"
+    r"(?:\s+reminders?)?\.?!?\s*(?:\n|$)",
     re.IGNORECASE,
+)
+_DELETE_OVERDUE = re.compile(
+    r"("
+    r"\bdelete\b.{0,40}\boverdue\b|"
+    r"\bremove\b.{0,40}\boverdue\b|"
+    r"\bdelete\b.{0,20}\b(all|every|them|those|these)\b.{0,40}\b(overdue|reminders?)\b|"
+    r"\bI(?:'ve| have)?\s+(?:removed|deleted)\b.{0,60}\boverdue\b"
+    r")",
+    re.IGNORECASE | re.DOTALL,
 )
 _AFFIRMATIVE = re.compile(
     r"^(yes|yeah|yep|sure|ok(?:ay)?|do it|confirm(?:ed)?|go ahead|please)\.?!?$",
@@ -396,6 +411,13 @@ def _transcript_implies_bulk_shift_to_tomorrow(transcript: str) -> bool:
     return False
 
 
+def _transcript_implies_delete_overdue(transcript: str) -> bool:
+    text = transcript.strip()
+    if not text:
+        return False
+    return bool(_DELETE_OVERDUE.search(text))
+
+
 def query_implies_todos(query_text: str | None) -> bool:
     text = (query_text or "").strip()
     if not text:
@@ -408,6 +430,8 @@ def transcript_implies_todo_sync(transcript: str) -> bool:
     if not text:
         return False
     if _transcript_implies_bulk_shift_to_tomorrow(text):
+        return True
+    if _transcript_implies_delete_overdue(text):
         return True
     if _USER_DELETE_TURN.search(text):
         return True
@@ -625,6 +649,28 @@ async def _apply_bulk_shift_due_today_to_tomorrow(
     return applied
 
 
+async def _apply_delete_overdue_open_reminders(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    items: list[TodoItem],
+    user_timezone: str | None,
+) -> int:
+    """Delete open dated reminders whose due time is already past (local)."""
+    tz = time_context_service.resolve_timezone(user_timezone)
+    now = datetime.now(tz)
+    applied = 0
+    for item in items:
+        if item.checked or item.due_at is None:
+            continue
+        due_local = _due_local(item.due_at, user_timezone)
+        if due_local >= now:
+            continue
+        await todos_repo.delete_by_id(session, item.id, user_id)
+        applied += 1
+    return applied
+
+
 async def apply_todo_actions(
     session: AsyncSession,
     *,
@@ -704,6 +750,13 @@ async def apply_todo_actions(
                         chat_id,
                     )
                     items = [i for i in items if i.id != item.id]
+                else:
+                    logger.warning(
+                        "Todo delete missed: user_id=%s topic=%s content=%r",
+                        user_id,
+                        topic,
+                        (action.content or "")[:120],
+                    )
             elif action.action == "delete_list":
                 list_items = [
                     i
@@ -864,6 +917,28 @@ async def _apply_todo_extraction_result(
                 user_id,
             )
             await home_service.invalidate_home_cache(user_id)
+    if _transcript_implies_delete_overdue(transcript):
+        items = await todos_repo.list_for_user(session, user_id, limit=500)
+        deleted = await _apply_delete_overdue_open_reminders(
+            session,
+            user_id=user_id,
+            items=items,
+            user_timezone=user_timezone,
+        )
+        if deleted:
+            if feedback is not None:
+                feedback.append(f"Deleted {deleted} overdue reminder(s).")
+            logger.info(
+                "Deleted %d overdue reminder(s) for user_id=%s",
+                deleted,
+                user_id,
+            )
+            await home_service.invalidate_home_cache(user_id)
+        else:
+            logger.warning(
+                "Delete-overdue requested but no overdue open reminders for user_id=%s",
+                user_id,
+            )
 
 
 async def _run_extracted_todo_actions(
