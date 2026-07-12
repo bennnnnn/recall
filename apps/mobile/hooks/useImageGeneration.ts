@@ -59,15 +59,20 @@ export function useImageGeneration({
 }: Options) {
   const [promptOpen, setPromptOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [initialPrompt, setInitialPrompt] = useState<string | null>(null);
 
-  const openPrompt = useCallback(() => {
-    if (!token || streaming || generating) return;
-    if (!isPro) {
-      onOpenUpgrade();
-      return;
-    }
-    setPromptOpen(true);
-  }, [token, streaming, generating, isPro, onOpenUpgrade]);
+  const openPrompt = useCallback(
+    (prefill?: string) => {
+      if (!token || streaming || generating) return;
+      if (!isPro) {
+        onOpenUpgrade();
+        return;
+      }
+      setInitialPrompt(prefill ?? null);
+      setPromptOpen(true);
+    },
+    [token, streaming, generating, isPro, onOpenUpgrade],
+  );
 
   const ensureChatId = useCallback(async (): Promise<string | null> => {
     if (chatId) return chatId;
@@ -182,6 +187,7 @@ export function useImageGeneration({
     promptOpen,
     setPromptOpen,
     generating,
+    initialPrompt,
     openPrompt,
     submitPrompt,
   };

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
@@ -17,16 +17,31 @@ import { Theme, useTheme } from "@/lib/theme";
 type Props = {
   visible: boolean;
   generating: boolean;
+  /** Pre-fill the prompt (e.g. detected from typed chat text) — editable before submit. */
+  initialPrompt?: string | null;
   onClose: () => void;
   onSubmit: (prompt: string) => void;
 };
 
-export function ImageGenPromptSheet({ visible, generating, onClose, onSubmit }: Props) {
+export function ImageGenPromptSheet({
+  visible,
+  generating,
+  initialPrompt,
+  onClose,
+  onSubmit,
+}: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const [prompt, setPrompt] = useState("");
+
+  useEffect(() => {
+    if (visible) setPrompt(initialPrompt?.trim() ?? "");
+    // Only re-seed when the sheet transitions to visible, not on every
+    // initialPrompt change while it's open — the user may be editing it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
 
   const handleClose = () => {
     if (generating) return;

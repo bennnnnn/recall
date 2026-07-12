@@ -71,10 +71,7 @@ type Options = {
   isOffline: boolean;
   resolveQuizProjectId?: () => string | null;
   onBeforeSend?: (text: string) => boolean | void;
-  onOpenImageGen?: () => void;
-  onSubmitImageGen?: (prompt: string) => void;
-  isPro?: boolean;
-  onOpenUpgrade?: () => void;
+  onOpenImageGen?: (prefill?: string) => void;
   imageGenerating?: boolean;
 };
 
@@ -102,9 +99,6 @@ export function useChatSend({
   resolveQuizProjectId,
   onBeforeSend,
   onOpenImageGen,
-  onSubmitImageGen,
-  isPro = false,
-  onOpenUpgrade,
   imageGenerating = false,
 }: Options) {
   const {
@@ -199,14 +193,20 @@ export function useChatSend({
 
       if (!pendingAttachment && !editingMessageId) {
         const imagePrompt = extractImageGenPrompt(text);
-        if (imagePrompt && onSubmitImageGen) {
+        // BUG FIX: this heuristic is a fuzzy match (e.g. "draw me a
+        // comparison between X and Y" or "draw me a picture of the
+        // situation" — figurative, not a literal image request — both
+        // match). It used to submit straight to paid generation with no
+        // confirmation, silently discarding whatever the user actually
+        // typed on a false positive. Now it only opens the same
+        // confirmation sheet the explicit "generate image" button uses,
+        // pre-filled and editable, so a false positive costs a tap to
+        // dismiss instead of a lost message (and, for free users, a
+        // surprise paywall with no trace of what they typed).
+        if (imagePrompt && onOpenImageGen) {
           setInput("");
           Keyboard.dismiss();
-          if (!isPro) {
-            onOpenUpgrade?.();
-            return;
-          }
-          onSubmitImageGen(imagePrompt);
+          onOpenImageGen(imagePrompt);
           return;
         }
       }
@@ -337,9 +337,7 @@ export function useChatSend({
       onStreamBusy,
       isOffline,
       onBeforeSend,
-      onSubmitImageGen,
-      isPro,
-      onOpenUpgrade,
+      onOpenImageGen,
       imageGenerating,
     ],
   );
@@ -364,11 +362,6 @@ export function useChatSend({
   const handleAttachmentSheetSelect = useCallback(
     async (source: AttachmentSource) => {
       if (attachPickInFlightRef.current || !token || attachBusy || streaming) return;
-      if (source === "generate_image") {
-        setAttachSheetOpen(false);
-        onOpenImageGen?.();
-        return;
-      }
       attachPickInFlightRef.current = true;
       setAttachSheetOpen(false);
       await waitForPickerUi();
@@ -404,7 +397,7 @@ export function useChatSend({
         attachPickInFlightRef.current = false;
       }
     },
-    [attachBusy, streaming, t, token, waitForPickerUi, onOpenImageGen],
+    [attachBusy, streaming, t, token, waitForPickerUi],
   );
 
   const handleEditMessage = useCallback(

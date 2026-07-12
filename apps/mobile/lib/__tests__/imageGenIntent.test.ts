@@ -34,4 +34,22 @@ describe("extractImageGenPrompt", () => {
   it("returns null with pending-style long prompts", () => {
     expect(extractImageGenPrompt("a".repeat(501))).toBeNull();
   });
+
+  // This is a fuzzy heuristic and can't perfectly distinguish figurative
+  // language ("draw me a picture" as an idiom for "explain") or ambiguous
+  // requests from a literal image ask. These cases document real false
+  // positives — the caller (useChatSend) must route them through a
+  // confirming dialog rather than submitting straight to paid generation,
+  // so a false positive here costs a tap to dismiss, not a lost message.
+  it("matches figurative 'draw me a picture' as an image request (known false positive)", () => {
+    expect(extractImageGenPrompt("draw me a mental picture of the situation")).toBe(
+      "mental picture of the situation",
+    );
+  });
+
+  it("matches an ambiguous comparison request as an image request (known false positive)", () => {
+    expect(extractImageGenPrompt("draw me a comparison between X and Y")).toBe(
+      "comparison between X and Y",
+    );
+  });
 });
