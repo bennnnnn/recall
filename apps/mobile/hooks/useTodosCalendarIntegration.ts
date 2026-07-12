@@ -46,12 +46,20 @@ export function useTodosCalendarIntegration({
   const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(new Date()));
   const [calendarEvents, setCalendarEvents] = useState<GoogleCalendarEvent[]>([]);
   const [calendarLoadError, setCalendarLoadError] = useState(false);
-  const [calendarLoading, setCalendarLoading] = useState(false);
   const [suggestedReminders, setSuggestedReminders] = useState<SuggestedReminder[]>([]);
   const [suggestionBusyId, setSuggestionBusyId] = useState<string | null>(null);
 
   const highlightRef = useRef(highlight);
   highlightRef.current = highlight;
+
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+  const markSeenRef = useRef(markSeen);
+  markSeenRef.current = markSeen;
+
+  const calendarLoadGen = useRef(0);
 
   const goToDay = useCallback((dayKey: string) => {
     setSelectedDay(dayKey);
@@ -67,49 +75,51 @@ export function useTodosCalendarIntegration({
   }, [highlight, todos, goToDay]);
 
   const loadCalendarEvents = useCallback(async () => {
-    if (!token || focusSection === "list") return;
-    setCalendarLoading(true);
+    const accessToken = tokenRef.current;
+    if (!accessToken || focusSection === "list") return;
+
+    const gen = ++calendarLoadGen.current;
     setCalendarLoadError(false);
     try {
-      const result = await api.listGoogleCalendarEvents(token);
+      const result = await api.listGoogleCalendarEvents(accessToken);
+      if (gen !== calendarLoadGen.current) return;
       setCalendarEvents(result.events);
       setCalendarLoadError(Boolean(result.load_error));
     } catch {
+      if (gen !== calendarLoadGen.current) return;
       setCalendarEvents([]);
       setCalendarLoadError(true);
-    } finally {
-      setCalendarLoading(false);
     }
-  }, [focusSection, token]);
+  }, [focusSection]);
 
   const loadSuggestedReminders = useCallback(async () => {
-    if (!token || focusSection === "list") return;
+    const accessToken = tokenRef.current;
+    if (!accessToken || focusSection === "list") return;
     try {
-      const result = await api.listSuggestedReminders(token);
+      const result = await api.listSuggestedReminders(accessToken);
       setSuggestedReminders(result.reminders);
     } catch {
       setSuggestedReminders([]);
     }
-  }, [focusSection, token]);
+  }, [focusSection]);
 
+  const loadCalendarEventsRef = useRef(loadCalendarEvents);
+  loadCalendarEventsRef.current = loadCalendarEvents;
+  const loadSuggestedRemindersRef = useRef(loadSuggestedReminders);
+  loadSuggestedRemindersRef.current = loadSuggestedReminders;
+
+  // Depend only on focusSection so a mid-screen token refresh does not
+  // re-trigger calendar load and flip the spinner back on.
   useFocusEffect(
     useCallback(() => {
-      void refresh({ silent: true });
-      if (focusSection !== "list") {
-        void markSeen();
+      void refreshRef.current({ silent: true });
+      if (focusSection === "list") return;
+      void markSeenRef.current();
+      if (tokenRef.current) {
+        void loadCalendarEventsRef.current();
+        void loadSuggestedRemindersRef.current();
       }
-      if (token && focusSection !== "list") {
-        void loadCalendarEvents();
-        void loadSuggestedReminders();
-      }
-    }, [
-      focusSection,
-      loadCalendarEvents,
-      loadSuggestedReminders,
-      markSeen,
-      refresh,
-      token,
-    ]),
+    }, [focusSection]),
   );
 
   const overlapNotes = useMemo(() => {
@@ -187,7 +197,6 @@ export function useTodosCalendarIntegration({
     goToDay,
     calendarEvents,
     calendarLoadError,
-    calendarLoading,
     loadCalendarEvents,
     suggestedReminders,
     suggestionBusyId,

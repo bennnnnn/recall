@@ -54,10 +54,6 @@ export function makeTodosStyles(C: Theme) {
     paddingTop: 8,
     paddingBottom: 4,
   },
-  calendarLoading: {
-    alignItems: "center",
-    paddingVertical: 8,
-  },
   sectionHeading: {
     fontSize: 12,
     fontWeight: "700",

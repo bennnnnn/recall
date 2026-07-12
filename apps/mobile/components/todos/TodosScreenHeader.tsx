@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
@@ -34,7 +34,6 @@ type Props = {
   visibleMonth: Date;
   onSelectDay: (dayKey: string) => void;
   onVisibleMonthChange: (month: Date) => void;
-  calendarLoading: boolean;
   calendarLoadError: boolean;
   onRetryCalendar: () => void;
   selectedDaySuggestions: SuggestedReminder[];
@@ -76,7 +75,6 @@ export function TodosScreenHeader({
   visibleMonth,
   onSelectDay,
   onVisibleMonthChange,
-  calendarLoading,
   calendarLoadError,
   onRetryCalendar,
   selectedDaySuggestions,
@@ -155,11 +153,6 @@ export function TodosScreenHeader({
             onSelectDay={onSelectDay}
             onVisibleMonthChange={onVisibleMonthChange}
           />
-          {calendarLoading ? (
-            <View style={s.calendarLoading}>
-              <ActivityIndicator size="small" color={C.primary} />
-            </View>
-          ) : null}
           {calendarLoadError ? (
             <StateView
               variant="error"
