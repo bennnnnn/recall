@@ -18,11 +18,17 @@ def _item_status_label(item: ProjectItem) -> str:
     return "mastered" if item.mastered else "new"
 
 
-def _sync_mastered_fields(item: ProjectItem, status: str) -> None:
+def _sync_mastered_fields(
+    item: ProjectItem, status: str, *, prior_status: str, now: datetime | None = None
+) -> None:
     item.status = status
     item.mastered = status == "mastered"
-    if status == "mastered" and item.mastered_at is None:
-        item.mastered_at = datetime.now(UTC)
+    # BUG FIX (was silent): mastered_at was only backfilled when None, so re-mastering
+    # after a miss-triggered demotion left it frozen at the original mastery date —
+    # every stats consumer keyed on mastered_at (streaks, daily history, mastered_today)
+    # missed the later remastery. Stamp it on every transition INTO "mastered".
+    if status == "mastered" and prior_status != "mastered":
+        item.mastered_at = now or datetime.now(UTC)
 
 
 async def list_for_user(
@@ -427,7 +433,7 @@ async def apply_quiz_result(
     else:
         item.last_incorrect_at = now
 
-    _sync_mastered_fields(item, new_status)
+    _sync_mastered_fields(item, new_status, prior_status=prior_status, now=now)
     from app.services.sm2 import apply_sm2, quality_for_status
 
     quality = quality_for_status(new_status, was_correct=is_correct)
@@ -461,7 +467,7 @@ async def update(session: AsyncSession, item: ProjectItem, **fields: Any) -> Pro
             setattr(item, key, value)
     if "status" in fields:
         new_status = str(fields["status"])
-        _sync_mastered_fields(item, new_status)
+        _sync_mastered_fields(item, new_status, prior_status=prior_status, now=now)
         if new_status != prior_status:
             from app.services.sm2 import apply_sm2, quality_for_status
 
