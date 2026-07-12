@@ -956,6 +956,48 @@ def test_revenuecat_webhook_dedups_replay_by_event_id():
     apply_mock.assert_awaited_once()
 
 
+def test_revenuecat_webhook_failed_processing_does_not_burn_dedup_key():
+    """BUG FIX regression: a transient failure while processing an event must
+    not mark the event id as seen — otherwise RevenueCat's legitimate retry
+    of the same event_id would be silently swallowed by the dedup check,
+    permanently losing the plan sync."""
+    import fakeredis.aioredis
+    import pytest
+
+    from app.core.config import get_settings
+    from app.core.deps import get_redis
+
+    uid = uuid4()
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        environment="development", revenuecat_webhook_auth=""
+    )
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    app.dependency_overrides[get_redis] = lambda: fake_redis
+
+    payload = {
+        "event": {
+            "type": "INITIAL_PURCHASE",
+            "event_id": "evt_retry_1",
+            "app_user_id": str(uid),
+        }
+    }
+
+    with patch(
+        "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+        AsyncMock(side_effect=[RuntimeError("boom"), True]),
+    ) as apply_mock:
+        client = TestClient(app)
+        with pytest.raises(RuntimeError):
+            client.post("/webhooks/revenuecat", json=payload)
+
+        # The event id must not have been marked as seen by the failed attempt.
+        r2 = client.post("/webhooks/revenuecat", json=payload)
+
+    assert r2.status_code == 204
+    assert apply_mock.await_count == 2
+
+
 def test_revenuecat_webhook_requires_auth_in_production():
     import fakeredis.aioredis
 

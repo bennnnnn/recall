@@ -85,6 +85,57 @@ def receipt_indicates_invalid_token(receipt: dict[str, Any]) -> bool:
     return _invalid_token_from_error(details) is not None
 
 
+MAX_MESSAGES_PER_REQUEST = 100
+
+
+async def _send_chunk(
+    client: httpx.AsyncClient,
+    messages: list[dict[str, Any]],
+    offset: int,
+    delivered: list[bool],
+    invalid: list[str],
+    receipt_tickets: list[tuple[str, str]],
+) -> None:
+    chunk = messages[offset : offset + MAX_MESSAGES_PER_REQUEST]
+    try:
+        response = await client.post(
+            EXPO_PUSH_URL,
+            json=chunk,
+            headers={"Accept": "application/json", "Content-Type": "application/json"},
+        )
+        response.raise_for_status()
+    except Exception:
+        logger.exception("Expo push send failed offset=%s count=%s", offset, len(chunk))
+        return
+    try:
+        body = response.json()
+        tickets = body.get("data", [])
+        for i, ticket in enumerate(tickets):
+            idx = offset + i
+            if idx >= len(messages):
+                break
+            if not isinstance(ticket, dict):
+                continue
+            token = str(messages[idx].get("to", "") or "")
+            if ticket.get("status") == "ok":
+                ticket_id = ticket.get("id")
+                if isinstance(ticket_id, str) and ticket_id:
+                    delivered[idx] = True
+                    if token:
+                        receipt_tickets.append((ticket_id, token))
+                continue
+            if ticket.get("status") == "error":
+                details = ticket.get("details", {})
+                if _error_code(details) == _CREDENTIALS_ERROR:
+                    logger.critical("Expo push credentials invalid — check APNs/FCM config")
+                    continue
+                err = _invalid_token_from_error(details)
+                if err and token:
+                    invalid.append(token)
+    except Exception:
+        logger.debug("Expo response parse failed offset=%s", offset, exc_info=True)
+
+
 async def send_push_messages(messages: list[dict[str, Any]]) -> PushSendResult:
     """Send push messages via Expo.
 
@@ -92,52 +143,22 @@ async def send_push_messages(messages: list[dict[str, Any]]) -> PushSendResult:
     message *i* — not when a receipt confirms device delivery. Receipts are polled
     later by ``push_notifications.poll_deferred_push_receipts`` for token pruning only.
 
-    On transport/API failure, nothing is marked delivered so the caller can retry on
-    the next scheduler cycle without duplicate sends for already-accepted tickets.
+    On transport/API failure for a given chunk, that chunk's messages are left
+    unmarked so the caller can retry on the next scheduler cycle without duplicate
+    sends for already-accepted tickets. Expo caps each request at
+    ``MAX_MESSAGES_PER_REQUEST`` messages, so larger batches are split into
+    sequential chunks — a failure in one chunk doesn't affect the others.
     """
     if not messages:
         return PushSendResult(invalid_tokens=[], delivered=[])
 
     invalid: list[str] = []
-    delivered = [False] * len(messages)
+    delivered: list[bool] = [False] * len(messages)
     receipt_tickets: list[tuple[str, str]] = []
-    try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.post(
-                EXPO_PUSH_URL,
-                json=messages,
-                headers={"Accept": "application/json", "Content-Type": "application/json"},
-            )
-            response.raise_for_status()
-            try:
-                body = response.json()
-                tickets = body.get("data", [])
-                for i, ticket in enumerate(tickets):
-                    if i >= len(messages):
-                        break
-                    if not isinstance(ticket, dict):
-                        continue
-                    token = str(messages[i].get("to", "") or "")
-                    if ticket.get("status") == "ok":
-                        ticket_id = ticket.get("id")
-                        if isinstance(ticket_id, str) and ticket_id:
-                            delivered[i] = True
-                            if token:
-                                receipt_tickets.append((ticket_id, token))
-                        continue
-                    if ticket.get("status") == "error":
-                        details = ticket.get("details", {})
-                        if _error_code(details) == _CREDENTIALS_ERROR:
-                            logger.critical("Expo push credentials invalid — check APNs/FCM config")
-                            continue
-                        err = _invalid_token_from_error(details)
-                        if err and token:
-                            invalid.append(token)
-            except Exception:
-                logger.debug("Expo response parse failed", exc_info=True)
-    except Exception:
-        logger.exception("Expo push send failed count=%s", len(messages))
-        return PushSendResult(invalid_tokens=invalid, delivered=delivered)
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        for offset in range(0, len(messages), MAX_MESSAGES_PER_REQUEST):
+            await _send_chunk(client, messages, offset, delivered, invalid, receipt_tickets)
 
     return PushSendResult(
         invalid_tokens=invalid,

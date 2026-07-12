@@ -71,11 +71,16 @@ def _event_id(payload: dict[str, Any]) -> str | None:
     return None
 
 
-async def _already_seen(redis: Redis, event_id: str) -> bool:
-    # SETNX returns 1 if the key was set (first sighting), 0 if it already
-    # existed (replay). True here means "already seen".
-    inserted = await redis.set(f"rcwebhook:{event_id}", "1", ex=_EVENT_ID_TTL, nx=True)
-    return not inserted
+async def _is_duplicate(redis: Redis, event_id: str) -> bool:
+    """Read-only check — does NOT mark the event as seen. Marking happens only
+    after processing actually completes (see `_mark_processed`), so a
+    transient failure mid-processing doesn't burn the event id and silently
+    swallow RevenueCat's legitimate retry of the same event."""
+    return bool(await redis.exists(f"rcwebhook:{event_id}"))
+
+
+async def _mark_processed(redis: Redis, event_id: str) -> None:
+    await redis.set(f"rcwebhook:{event_id}", "1", ex=_EVENT_ID_TTL)
 
 
 def _app_user_id(payload: dict[str, Any]) -> str | None:
@@ -122,25 +127,17 @@ def _expiration(payload: dict[str, Any]) -> str | None:
     return datetime.fromtimestamp(secs, tz=UTC).isoformat()
 
 
-@router.post("/revenuecat", status_code=status.HTTP_204_NO_CONTENT)
-async def revenuecat_webhook(
+async def _dispatch_event(
+    session: AsyncSession,
+    redis: Redis,
+    settings: Settings,
     payload: dict[str, Any],
-    session: AsyncSession = Depends(get_db),
-    settings: Settings = Depends(get_settings),
-    redis: Redis = Depends(get_redis),
-    authorization: str | None = Header(default=None, alias="Authorization"),
-) -> None:
-    _verify_auth(authorization, settings)
-    # Dedup RevenueCat retries: if we've already processed this event id, stop.
-    event_id = _event_id(payload)
-    if event_id and await _already_seen(redis, event_id):
-        logger.info("RevenueCat webhook replay ignored event_id=%s", event_id)
-        return
-    app_user_id = _app_user_id(payload)
-    if not app_user_id:
-        return
-
-    event_type = _event_type(payload)
+    event_type: str,
+    app_user_id: str,
+) -> bool:
+    """Process the event. Returns True if it mutated plan state (and should
+    therefore be deduped against future retries); False for event types we
+    intentionally ignore, which are safe to reprocess if replayed."""
     if event_type == "TRANSFER":
         event = payload.get("event")
         if isinstance(event, dict):
@@ -154,7 +151,7 @@ async def revenuecat_webhook(
                     new_app_user_id=new_id,
                     transferred_from=[oid for oid in from_list if isinstance(oid, str)],
                 )
-        return
+        return True
     if event_type in _PRO_EVENTS:
         applied = await subscription_service.apply_plan_for_app_user_id(
             session,
@@ -170,10 +167,43 @@ async def revenuecat_webhook(
                 product_id=_event_field(payload, "product_id"),
                 expiration=_expiration(payload),
             )
-        return
+        return True
     if event_type in _FREE_EVENTS:
         await subscription_service.apply_plan_for_app_user_id(
             session,
             app_user_id,
             plan="free",
         )
+        return True
+    return False
+
+
+@router.post("/revenuecat", status_code=status.HTTP_204_NO_CONTENT)
+async def revenuecat_webhook(
+    payload: dict[str, Any],
+    session: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    redis: Redis = Depends(get_redis),
+    authorization: str | None = Header(default=None, alias="Authorization"),
+) -> None:
+    _verify_auth(authorization, settings)
+    # Dedup RevenueCat retries: if we've already processed this event id, stop.
+    event_id = _event_id(payload)
+    if event_id and await _is_duplicate(redis, event_id):
+        logger.info("RevenueCat webhook replay ignored event_id=%s", event_id)
+        return
+    app_user_id = _app_user_id(payload)
+    if not app_user_id:
+        return
+
+    event_type = _event_type(payload)
+    processed = await _dispatch_event(session, redis, settings, payload, event_type, app_user_id)
+    # BUG FIX (was a lost-webhook bug): only mark the event as seen once
+    # processing has actually completed. Marking before processing (the old
+    # behavior) meant a transient failure mid-processing (DB blip, network
+    # hiccup) would error this request, RevenueCat would legitimately retry
+    # the same event id, and that retry would be silently swallowed by the
+    # dedup check even though the original attempt never completed —
+    # permanently losing a plan-sync event (e.g. a paying user stuck on free).
+    if processed and event_id:
+        await _mark_processed(redis, event_id)
