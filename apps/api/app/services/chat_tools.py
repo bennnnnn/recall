@@ -47,13 +47,21 @@ async def augment_prompt_with_mcp_tools(
     if settings.math_tools_enabled and math_tools_service.needs_symbolic_math(user_content):
         intent = math_tools_service.extract_math_intent(user_content)
         if intent is not None:
-            verified = math_tools_service._build_verified_block(intent, settings)
+            # BUG FIX (was silent): called the sync _build_verified_block
+            # directly, bypassing the timeout + off-event-loop wrapper every
+            # other chat-path caller uses (see _build_verified_block_async's
+            # own docstring for why that wrapper exists) — a pathological
+            # expression here would stall the whole worker with no timeout.
+            verified = await math_tools_service._build_verified_block_async(intent, settings)
             if verified:
                 blocks.append(verified.text)
             else:
                 if on_status is not None:
                     await on_status("calculating")
-                result = await mcp_registry.invoke(
+                # invoke_validated (not invoke) so this path gets the same
+                # Pydantic bounds-checking (SympyToolInput) as the tool-loop
+                # path where the model calls "sympy" directly.
+                result = await mcp_registry.invoke_validated(
                     "sympy",
                     {
                         "action": intent.operation or "solve",

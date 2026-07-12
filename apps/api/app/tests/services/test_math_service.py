@@ -132,3 +132,50 @@ def test_graph_block_spec_requires_two_points_when_present() -> None:
         GraphBlockSpec(expr="x", points=[[0.0, 0.0]])
     with pytest.raises(ValueError, match="at least two"):
         GraphBlockSpec(expr="x", points=[])
+
+
+# ── security: parse_expr/eval is not a safe sandbox for untrusted input ──────
+#
+# BUG FIX (was a live RCE): parse_expr evaluates its input via Python's
+# eval() internally. Restricting local_dict to declared variable names only
+# stops bare names from resolving to something dangerous — it does nothing
+# to stop attribute access on an already-resolved Symbol object. Any of
+# these payloads walks the Python class hierarchy to reach something like
+# subprocess.Popen and would execute it, reachable from a plain chat message
+# via math_tools.py's keyword-triggered intent extraction (no sanitization)
+# and independently via the sympy MCP tool. This must stay blocked.
+@pytest.mark.parametrize(
+    "payload",
+    [
+        "x.__class__.__bases__[0].__subclasses__()[400]('id', shell=True, stdout=-1).communicate() x",
+        "x.__class__",
+        "x.__class__.__mro__[1]",
+        "(1).__class__.__bases__[0]",
+        "x[0]",
+        "x[0:1]",
+        "getattr(x, '__class__')",
+        'x.__class__.__init__.__globals__["__builtins__"]',
+        "x; import os",
+        "__import__('os').system('id')",
+    ],
+)
+def test_parse_expression_rejects_attribute_and_subscript_gadgets(payload: str) -> None:
+    with pytest.raises(math_service.MathServiceError):
+        math_service._parse_expression(payload, ["x"])
+
+
+@pytest.mark.parametrize(
+    "expr, variables",
+    [
+        ("x**2 + 3*x - 5", ["x"]),
+        ("sin(x) + cos(x)", ["x"]),
+        ("3.14 * x", ["x"]),
+        ("sqrt(x**2 + 1)", ["x"]),
+        ("log(x, 10)", ["x"]),
+        ("x_1 + x_2", ["x_1", "x_2"]),
+        ("2*x + 4", ["x"]),
+    ],
+)
+def test_parse_expression_still_accepts_ordinary_math(expr: str, variables: list[str]) -> None:
+    """The RCE fix must not collateral-damage normal expressions."""
+    math_service._parse_expression(expr, variables)
