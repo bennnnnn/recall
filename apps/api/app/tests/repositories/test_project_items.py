@@ -51,6 +51,20 @@ async def test_list_for_user_returns_items(fake_session):
 
 
 @pytest.mark.asyncio
+async def test_list_recent_for_user_returns_items(fake_session):
+    mock_item = _item()
+    mock_scalars = MagicMock()
+    mock_scalars.all.return_value = [mock_item]
+    mock_result = MagicMock()
+    mock_result.scalars.return_value = mock_scalars
+    fake_session.execute.return_value = mock_result
+
+    result = await repo.list_recent_for_user(fake_session, uuid4(), project_id=uuid4())
+
+    assert result == [mock_item]
+
+
+@pytest.mark.asyncio
 async def test_list_quiz_exclusion_contents_queries_mastered(fake_session):
     mock_scalars = MagicMock()
     mock_scalars.all.return_value = ["Treaty of Versailles", "Colossus of Rhodes"]

@@ -1579,7 +1579,7 @@ async def apply_project_actions(
         if not actions:
             return 0
     projects = await projects_repo.list_for_user(session, user_id, limit=200)
-    items = await project_items_repo.list_for_user(session, user_id, limit=500)
+    items = await project_items_repo.list_recent_for_user(session, user_id, limit=500)
     applied = 0
     for action in actions:
         title = action.project_title.strip()
@@ -1639,7 +1639,9 @@ async def apply_project_actions(
                         chat_id=chat_id,
                     )
                     applied += 1
-                    items = await project_items_repo.list_for_user(session, user_id, limit=500)
+                    items = await project_items_repo.list_recent_for_user(
+                        session, user_id, limit=500
+                    )
             elif action.action == "delete_project":
                 matched = _find_project(projects, title)
                 if matched:
@@ -1694,7 +1696,9 @@ async def apply_project_actions(
                         status="new",
                     )
                     applied += 1
-                    items = await project_items_repo.list_for_user(session, user_id, limit=500)
+                    items = await project_items_repo.list_recent_for_user(
+                        session, user_id, limit=500
+                    )
                 elif action.action == "start_learning":
                     # Record a failed/incorrect quiz outcome (open-ended or exhausted).
                     # Stamps last_incorrect_at so failed_today / day lists stay accurate.
@@ -1715,7 +1719,9 @@ async def apply_project_actions(
                             chat_id=chat_id,
                             status="new",
                         )
-                        items = await project_items_repo.list_for_user(session, user_id, limit=500)
+                        items = await project_items_repo.list_recent_for_user(
+                            session, user_id, limit=500
+                        )
                     if item and _item_status(item) != "mastered":
                         if not _failed_quiz_today(item):
                             await project_items_repo.apply_quiz_result(

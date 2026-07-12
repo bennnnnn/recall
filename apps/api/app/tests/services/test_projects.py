@@ -108,7 +108,7 @@ async def test_apply_project_actions_skips_duplicate_language_project():
         ),
         patch.object(
             projects_service.project_items_repo,
-            "list_for_user",
+            "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
@@ -152,7 +152,7 @@ async def test_apply_project_actions_handles_create_project_race():
         ),
         patch.object(
             projects_service.project_items_repo,
-            "list_for_user",
+            "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
@@ -196,7 +196,7 @@ async def test_apply_project_actions_create_and_add():
         ) as create_mock,
         patch.object(
             projects_service.project_items_repo,
-            "list_for_user",
+            "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
@@ -242,7 +242,7 @@ async def test_apply_project_actions_invalidates_home_cache():
         ),
         patch.object(
             projects_service.project_items_repo,
-            "list_for_user",
+            "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
@@ -280,7 +280,7 @@ async def test_apply_project_actions_master():
         ),
         patch.object(
             projects_service.project_items_repo,
-            "list_for_user",
+            "list_recent_for_user",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
@@ -321,7 +321,7 @@ async def test_apply_project_actions_delete_project():
         ),
         patch.object(
             projects_service.project_items_repo,
-            "list_for_user",
+            "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
@@ -359,7 +359,7 @@ async def test_apply_project_actions_blocks_delete_project_by_default():
         ),
         patch.object(
             projects_service.project_items_repo,
-            "list_for_user",
+            "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
@@ -427,9 +427,18 @@ async def test_sync_projects_from_transcript_adds_words():
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
+        # _load_project_sync_snapshot (LLM-facing snapshot) still uses
+        # list_for_user; apply_project_actions' own dedup/match snapshot
+        # uses list_recent_for_user (fix for the >500-item recency bug) —
+        # both need mocking on this end-to-end path.
         patch.object(
             projects_service.project_items_repo,
             "list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
@@ -996,7 +1005,7 @@ async def test_apply_project_actions_skips_master_after_recent_miss():
         ),
         patch.object(
             projects_service.project_items_repo,
-            "list_for_user",
+            "list_recent_for_user",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
@@ -1038,7 +1047,7 @@ async def test_apply_project_actions_start_learning_and_unmaster():
         ),
         patch.object(
             projects_service.project_items_repo,
-            "list_for_user",
+            "list_recent_for_user",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
@@ -1080,7 +1089,7 @@ async def test_apply_project_actions_start_learning_records_failed_quiz():
         ),
         patch.object(
             projects_service.project_items_repo,
-            "list_for_user",
+            "list_recent_for_user",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
@@ -1121,7 +1130,7 @@ async def test_apply_project_actions_delete_list():
         ),
         patch.object(
             projects_service.project_items_repo,
-            "list_for_user",
+            "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
@@ -1159,7 +1168,7 @@ async def test_apply_project_actions_blocks_delete_list_by_default():
         ),
         patch.object(
             projects_service.project_items_repo,
-            "list_for_user",
+            "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
@@ -1196,7 +1205,7 @@ async def test_apply_project_actions_set_level_and_description():
         ),
         patch.object(
             projects_service.project_items_repo,
-            "list_for_user",
+            "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
@@ -1239,7 +1248,7 @@ async def test_apply_project_actions_skips_duplicate_add():
         ),
         patch.object(
             projects_service.project_items_repo,
-            "list_for_user",
+            "list_recent_for_user",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
@@ -1280,7 +1289,7 @@ async def test_apply_project_actions_delete_does_not_fuzzy_match_substring():
         ),
         patch.object(
             projects_service.project_items_repo,
-            "list_for_user",
+            "list_recent_for_user",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
@@ -1321,7 +1330,7 @@ async def test_apply_project_actions_master_does_not_fuzzy_match_substring():
         ),
         patch.object(
             projects_service.project_items_repo,
-            "list_for_user",
+            "list_recent_for_user",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
@@ -1362,7 +1371,7 @@ async def test_apply_project_actions_add_not_skipped_as_fuzzy_duplicate():
         ),
         patch.object(
             projects_service.project_items_repo,
-            "list_for_user",
+            "list_recent_for_user",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
@@ -1408,7 +1417,7 @@ async def test_apply_project_actions_add_skips_at_item_cap():
         ),
         patch.object(
             projects_service.project_items_repo,
-            "list_for_user",
+            "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
@@ -1469,7 +1478,7 @@ async def test_apply_project_extraction_result_blocks_destructive_actions():
         ),
         patch.object(
             projects_service.project_items_repo,
-            "list_for_user",
+            "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
@@ -1530,7 +1539,7 @@ async def test_apply_project_extraction_result_caps_actions_per_turn():
         ),
         patch.object(
             projects_service.project_items_repo,
-            "list_for_user",
+            "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
@@ -1583,6 +1592,8 @@ async def test_sync_projects_from_transcript_applies_litellm_actions():
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
+        # apply_project_actions is mocked below, so only
+        # _load_project_sync_snapshot's list_for_user call is exercised here.
         patch.object(
             projects_service.project_items_repo,
             "list_for_user",
@@ -1638,6 +1649,9 @@ async def test_sync_projects_from_transcript_releases_db_before_llm():
     with (
         patch("app.core.db.SessionLocal", side_effect=[load_cm, apply_cm]),
         patch.object(projects_service.projects_repo, "list_for_user", AsyncMock(return_value=[])),
+        # fake_extract always returns None, so apply_project_actions is never
+        # reached — only _load_project_sync_snapshot's list_for_user call is
+        # exercised here.
         patch.object(
             projects_service.project_items_repo,
             "list_for_user",
@@ -1674,6 +1688,9 @@ async def test_sync_projects_from_transcript_returns_none_on_error():
             "list_for_user",
             AsyncMock(return_value=[]),
         ),
+        # extract_project_actions raises below, so apply_project_actions is
+        # never reached — only _load_project_sync_snapshot's list_for_user
+        # call is exercised here.
         patch.object(
             projects_service.project_items_repo,
             "list_for_user",
