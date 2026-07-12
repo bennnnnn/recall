@@ -174,19 +174,18 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Pro tier** — higher daily limit when entitled; see [§12 Monetization](#12-monetization).
 
 ## 10. Settings & profile
-- ✅ **Account** — shows name + email.
+- ✅ **Account** — shows name + email; profile picture from Google (initials fallback).
+- ✅ **Structured profile** — name, age, country, and job editable in Settings → Profile;
+  persisted on `users` and injected into the chat system prompt (see [§6](#6-memory-remembering-the-user)).
 - ✅ **Default model** — Flash / Pro.
 - ✅ **Response style** — short / balanced / detailed (changes the assistant's verbosity).
 - ✅ **Memory** — on/off toggle + link to manage saved memories.
 - ✅ **Usage** — today's token meter.
 - ✅ **Sign out.**
-- ✅ **Edit name** — editable in Settings (Account → pencil → save).
 - ✅ **Data export** — exports profile + chats + messages + memories + todos + learning projects
   (with items) as JSON via the native share sheet (`GET /auth/me/export`).
 - ✅ **Account deletion** — permanently deletes the account and all its data (`DELETE /auth/me`),
   then signs out.
-- ✅ **Avatar** — shows the Google profile picture, falling back to the user's initials (no upload
-  by design).
 - ✅ **Language / i18n** — `react-i18next` with English, Spanish, French, Amharic, German, Italian, Portuguese, Russian, and Turkish.
 - ✅ **Dark / light theme** — screens use `useTheme()` with system or manual appearance in
   Preferences. Some older hardcoded English strings remain (see i18n backlog).
@@ -406,24 +405,31 @@ device).
 ---
 
 ## Deferred to upcoming version(s)
-A consolidated list of what's intentionally **not** (or only partially) in this version:
+A consolidated list of what's intentionally **not** (or only partially) in this version.
 
+### Already shipped (keep for audit trail)
 - ✅ **Full MCP / multi-turn tool loop** — LiteLLM `tools=` rounds behind `MCP_TOOL_LOOP_ENABLED`
   (default off). See [§16 MCP & calendar](#16-mcp--calendar-planned).
-- 🔜 **Plugins / arbitrary user MCP servers**
-- ✅ **Attachment RAG** (pgvector chunks over uploaded PDF/docs; chat-history corpus still deferred)
-- 🔜 **Full chat-history semantic RAG** (beyond keyword search + memory embeddings)
-- 🔜 **Code execution** (beyond sandboxed HTML/chart preview)
-- ⚠️ **File / image upload** — attachment substrate partially wired; not full vision/RAG pipeline
-- ⚠️ **Image input/output** — Pro **image output** shipped via composer; vision input for chat
-  attachments exists; full multimodal end-to-end still in progress
-- ✅ **Camera math solver** — attach sheet “Solve math with camera” → photo → vision extracts
-  equation → SymPy verifies → LaTeX/step rendering (reuses attach + vision + math paths).
-- ✅ **Web search** — Tavily primary + DuckDuckGo fallback; injected into chat when heuristics match;
-  sources shown on assistant messages (hidden on vocab quiz cards).
+- ✅ **Attachment RAG** — pgvector chunk + embed over uploaded PDF/docs; top-k into the prompt.
+- ✅ **Camera math solver** — attach sheet “Solve math with camera” → vision → SymPy → LaTeX/steps.
+- ✅ **Web search** — Tavily primary + DuckDuckGo fallback; sources on assistant messages
+  (hidden on vocab quiz cards).
+- ✅ **Structured profile fields** — name / age / country / job (Settings + prompt injection).
+- ✅ **Vision + Pro image gen** — image attachments route to vision models; Pro image generation
+  via composer sheet (daily cap).
+
+### Later / not v1
+- 🔜 **Full chat-history semantic RAG** — embed past chats (beyond keyword `/search` + memory
+  embeddings + attachment RAG). Index in background; retrieve small top-k at turn start so chat
+  stays snappy. Not started.
+- 🔜 **Plugins / arbitrary user MCP servers** — owned server-side tools only today.
+- 🔜 **Code execution** beyond sandboxed HTML/chart preview (by design).
 - 🔜 **Collaborative cursors / shared docs** — real-time co-editing; personal app only today.
-- 🔜 Editing arbitrary (older) messages, user-tunable routing rules,
-  email-only reminders, theming the remaining screens.
+- 🔜 **Web client** — same API; see [Web client](#web-client-planned) below.
+- 🔜 Folders, editing arbitrary older messages, user-tunable routing rules, family plans,
+  response caching / prompt-budget UI, duplex full-voice mode (out of scope).
+- ⚠️ **Production R2 + store polish** — attachment code is done; prod R2 secrets and App Store /
+  Play billing polish still pending (see Pre-deployment TODO).
 
 ### Pre-deployment TODO (from the holistic review)
 
@@ -448,9 +454,9 @@ Jul 2026 architecture review are mostly shipped (see below); these remain:
   (bounded/structured, not row-virtualized). Verify scroll/layout on-device.
 - ✅ **i18n extraction (reminders / share / urgent)** — keys wired in `todoReminders`,
   `homeUrgentTodos`, `share.ts`, and push channel names; translated in all 9 locales.
-- 🔜 **Locale prose translations** — all 9 locales share identical key sets (776 keys), but
-  many non-English values are still English copy (~300 keys). Structural i18n is complete;
-  human translation of remaining prose is deferred.
+- 🔜 **Locale prose translations** — all 9 locales share identical key sets (**787** keys), but
+  many non-English values are still English copy (~340 keys in Spanish as a proxy). Structural
+  i18n is complete; human translation of remaining prose is deferred.
 - 🔜 **Legal page bodies** — `/legal/privacy` and `/legal/terms` remain English-only
   markdown on the API (nav titles are localized). Locale-aware legal content is deferred.
 - ✅ **DB session scope in `_prepare_chat_turn`** — attachment S3 reads and web-search
@@ -463,7 +469,7 @@ Jul 2026 architecture review are mostly shipped (see below); these remain:
 
 ### Architecture review follow-ups (Jul 2026)
 
-Shipped after the Phase 1/2 code review:
+Shipped after the Phase 1/2 code review (and follow-up PRs):
 
 - ✅ Fail-closed `ENVIRONMENT` default (`production`); tests set `development` via conftest
 - ✅ Job DLQ for unknown type / bad payload; pending-aware stream trim
@@ -473,17 +479,22 @@ Shipped after the Phase 1/2 code review:
 - ✅ WS handshake IP rate limit before `accept()`; core `user_id` FKs `ON DELETE CASCADE`
 - ✅ Alembic `transaction_per_migration` so future `CREATE INDEX CONCURRENTLY` can use
   `op.get_context().autocommit_block()`
+- ✅ Enum-like CHECK constraints (`0053`) for memories, projects, users plan/tone, quiz mode, item status
 - ✅ Mobile: in-chat delete syncs drawer + cache; mount chat-load `catch`; memoized contexts;
   removed unused `showContextSummarized`; bootstrap listener cleanup race; draft discard on
   background; a11y labels on key icon-only controls
+- ✅ **Real-SQL repository tests** — `test_*_db.py` for chats / messages / memories / usage
+- ✅ **RTL test infra** — `@testing-library/react-native` + WebView sandbox / mount-queue tests
+  (expand coverage over time; foundation is in)
+- ✅ **Deferred WebView mount queue** — `useDeferredWebViewMount` caps concurrent chart/math/Mermaid
+  WebViews so multi-block messages stay smooth
+- ✅ **Hung-worker heartbeat** — `is_worker_alive` tracks loop heartbeat, not only `task.done()`
 
 Still open (non-blocking / larger effort):
 
-- 🔜 **Real-SQL repository tests** for hot-path repos (today's suite mocks `AsyncSession`)
-- 🔜 **Component/hook RTL tests** (`@testing-library/react-native`) for WebView sandbox wiring
-- 🔜 **Lazy-mount multi chart/math WebViews** inside a single message bubble
-- 🔜 **Hung-worker heartbeat** — `is_worker_alive` still only checks `task.done()`
 - 🔜 Multi-file HTML preview (deliberately deferred — single self-contained ` ```html ` fence)
+- 🔜 Broader RTL coverage beyond the initial WebView / mount-queue suite
+- 🔜 Locale prose + legal page bodies (see Pre-deployment TODO)
 
 ### Review audit follow-ups (PR #129, Jul 2026)
 
@@ -514,8 +525,9 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | PDF inline preview (pdf.js WebView, dev build) | ✅ Shipped |
 | Audio in (Whisper STT → composer) | ✅ Shipped (dev build) |
 | Audio out (read aloud) | ✅ Cloud TTS + device `expo-speech` fallback (dev build) |
-| pgvector RAG over attachment corpora | 🔜 Deferred |
-| Camera math solver UX | 🔜 Deferred |
+| pgvector RAG over attachment corpora | ✅ Shipped (`attachment_rag`; flag on by default) |
+| Camera math solver UX | ✅ Shipped (attach sheet → vision → SymPy) |
+| Full chat-history corpus RAG | 🔜 Deferred |
 | Full duplex voice mode | 🔒 Out of scope |
 
 Notes: multimodal routes through whichever catalog model supports the modality (vision/image-gen
@@ -563,18 +575,21 @@ structured Learning topic type.
 ### Release plan
 | Phase | Scope | Status |
 |-------|--------|--------|
-| MVP (mobile) | Chat + memory + todos + Learning + integrations | ~90% code-complete |
-| Launch readiness | Provisioning, store builds, landing page, OAuth verification, on-device QA | ~70% ops |
-| v1.1 | Web client (same API), tsvector search | Not started (Fly worker process split ✅) |
-| v2 | Full agent/tool loop, RAG over attachments, gamification layer | Not started |
+| MVP (mobile) | Chat + memory + todos + Learning + calendar/Gmail + attachments | ~95% code-complete |
+| Launch readiness | Provisioning, store builds, landing page, OAuth verification, on-device QA, R2 secrets | ~70% ops |
+| v1.1 | Web client (same API), locale prose, legal localization | Not started |
+| Later | Full chat-history RAG, gamification, user MCP plugins, folders / family plans | Not started |
+
+Notes already on `main` (not waiting on v2): Fly api/worker split ✅, attachment RAG ✅,
+flag-gated LiteLLM tool loop ✅, structured profile ✅, drawer FTS search ✅.
 
 ### Learning (not “programming projects”)
 | Shipped | Not done |
 |---------|----------|
-| English vocabulary (`language`) — decks, POS, quiz, tutor, SM-2 | Curated trivia marketplace |
-| General knowledge (`trivia`) — topics, scoped quiz chat | Curated trivia marketplace |
-| Project-scoped chats, home highlight | Link todos to Learning topics |
-| ~~Programming curriculum kind~~ **removed** — use main chat for code help | Certificates, GitHub linking, in-app code runner |
+| English vocabulary (`language`) — decks, quiz, tutor, SM-2 | Curated trivia marketplace |
+| General knowledge (`trivia`) — topics, scoped quiz chat | Certificates, GitHub linking |
+| Project-scoped chats, home highlight, link todos to projects | In-app code runner (out of scope) |
+| ~~Programming curriculum kind~~ **removed** — use main chat for code help | — |
 
 ### Rich rendering (§4 summary)
 | Capability | Status |
@@ -589,10 +604,10 @@ structured Learning topic type.
 | Shipped | Not done |
 |---------|----------|
 | Presigned upload, magic-byte validation, daily image cap | Production R2 until creds set |
-| Vision routing for images | Full pgvector RAG over PDF corpora |
-| PDF text extraction server-side (SymPy-style verify path for docs) | Document OCR for scanned PDFs |
+| Vision routing for images | Document OCR for scanned PDFs |
+| PDF text extract + pgvector attachment RAG | Full chat-history corpus RAG |
 | Camera math solver (vision extract → SymPy → LaTeX) | Virus scan / enterprise DLP |
-| PDF inline preview in message bubble | Virus scan / enterprise DLP |
+| PDF inline preview in message bubble | — |
 
 ### Voice
 | Shipped | Not done |
@@ -626,6 +641,9 @@ structured Learning topic type.
 
 ### Explicitly not v1
 Multi-user teams, collaborative editing, arbitrary code execution (except sandboxed HTML/chart
-preview WebView), web client, gamification (streaks/XP/badges), duplex voice mode, arbitrary
-user MCP servers. Full RAG, SM-2 polish, and the LiteLLM tool loop are planned grade-up
-work — see deferred list above.
+preview WebView), web client, gamification (XP/badges beyond learning streaks), duplex voice
+mode, arbitrary user MCP servers, multi-file HTML preview.
+
+**Planned later (not blocking launch):** full chat-history semantic RAG; locale prose + legal
+bodies; folders / family plans. Attachment RAG and the LiteLLM tool loop are already on `main`
+(tool loop flag-gated, default off) — see deferred list above.
