@@ -286,28 +286,37 @@ async def process_todo_reminders(
     for todo, user in rows:
         if todo.due_at is None:
             continue
-        lead = resolve_reminder_lead_minutes(getattr(user, "reminder_lead_minutes", None))
-        if not should_notify_todo(todo.due_at, now=now, lead_minutes=lead):
+        # BUG FIX (was cycle-fatal): an unhandled exception for one todo/user
+        # used to propagate out of the loop and drop every other user's
+        # reminders for this cycle. Isolate and skip just this row.
+        try:
+            lead = resolve_reminder_lead_minutes(getattr(user, "reminder_lead_minutes", None))
+            if not should_notify_todo(todo.due_at, now=now, lead_minutes=lead):
+                continue
+            tokens = await _tokens_for_user(session, todo.user_id)
+            if not tokens:
+                continue
+            is_overdue = todo.due_at < now
+            strings = _push_strings(getattr(user, "locale", None))
+            title = strings["overdue"] if is_overdue else strings["reminder"]
+            _append_outbound(
+                messages,
+                tokens,
+                title=title,
+                body=todo.content,
+                data={
+                    "type": "todo_reminder",
+                    "screen": "todos",
+                    "todo_id": str(todo.id),
+                    "focus": "reminders",
+                },
+                todos=[todo],
+            )
+        except Exception:
+            logger.exception(
+                "Todo reminder failed user_id=%s todo_id=%s", todo.user_id, todo.id
+            )
             continue
-        tokens = await _tokens_for_user(session, todo.user_id)
-        if not tokens:
-            continue
-        is_overdue = todo.due_at < now
-        strings = _push_strings(getattr(user, "locale", None))
-        title = strings["overdue"] if is_overdue else strings["reminder"]
-        _append_outbound(
-            messages,
-            tokens,
-            title=title,
-            body=todo.content,
-            data={
-                "type": "todo_reminder",
-                "screen": "todos",
-                "todo_id": str(todo.id),
-                "focus": "reminders",
-            },
-            todos=[todo],
-        )
 
     return messages
 
@@ -340,27 +349,33 @@ async def process_email_suggestions(
 
     messages: list[OutboundPush] = []
     for user_id, reminders in by_user.items():
-        tokens = await _tokens_for_user(session, user_id)
-        if not tokens:
+        # BUG FIX (was cycle-fatal): isolate per-user failures so one bad
+        # reminder batch doesn't drop every other user's email suggestions.
+        try:
+            tokens = await _tokens_for_user(session, user_id)
+            if not tokens:
+                continue
+            count = len(reminders)
+            strings = _push_strings(getattr(users[user_id], "locale", None))
+            if count == 1:
+                body = reminders[0].title
+            else:
+                body = strings["email_plural"].format(count=count)
+            _append_outbound(
+                messages,
+                tokens,
+                title=strings["from_inbox"],
+                body=body,
+                data={
+                    "type": "email_suggestion",
+                    "screen": "todos",
+                    "focus": "reminders",
+                },
+                suggestions=reminders,
+            )
+        except Exception:
+            logger.exception("Email suggestion push failed user_id=%s", user_id)
             continue
-        count = len(reminders)
-        strings = _push_strings(getattr(users[user_id], "locale", None))
-        if count == 1:
-            body = reminders[0].title
-        else:
-            body = strings["email_plural"].format(count=count)
-        _append_outbound(
-            messages,
-            tokens,
-            title=strings["from_inbox"],
-            body=body,
-            data={
-                "type": "email_suggestion",
-                "screen": "todos",
-                "focus": "reminders",
-            },
-            suggestions=reminders,
-        )
 
     return messages
 
@@ -425,12 +440,23 @@ async def process_learning_nudges(
         raw = stats_by_project.get(project.id)
         if raw is None:
             continue
-        stats_by_project[project.id] = learning_insights.enrich_learning_stats(
-            raw,
-            project=project,
-            items=[],
-            timezone_name=timezone_by_project.get(project.id, "UTC"),
-        )
+        # BUG FIX (was cycle-fatal): isolate per-project stat enrichment so
+        # one project's malformed data (e.g. daily_goal_history) doesn't
+        # blow up nudge computation for every other project/user this cycle.
+        try:
+            stats_by_project[project.id] = learning_insights.enrich_learning_stats(
+                raw,
+                project=project,
+                items=[],
+                timezone_name=timezone_by_project.get(project.id, "UTC"),
+            )
+        except Exception:
+            logger.exception(
+                "Learning stat enrichment failed user_id=%s project_id=%s",
+                project.user_id,
+                project.id,
+            )
+            continue
 
     tokens = await push_repo.list_for_users(session, user_ids)
     tokens_by_user: dict[UUID, list[PushToken]] = {}
@@ -439,31 +465,37 @@ async def process_learning_nudges(
 
     messages: list[OutboundPush] = []
     for user, redis_key in candidates:
-        user_projects = projects_by_user.get(user.id, [])
-        best_pick = learning_insights.best_learning_nudge_for_user(
-            user_projects,
-            stats_by_project,
-            daily_goal_for=daily_learning.resolve_daily_goal,
-        )
-        if best_pick is None:
-            await redis.delete(redis_key)
-            continue
+        # BUG FIX (was cycle-fatal): isolate per-user nudge picking so a bad
+        # record for one user doesn't drop learning nudges for every user.
+        try:
+            user_projects = projects_by_user.get(user.id, [])
+            best_pick = learning_insights.best_learning_nudge_for_user(
+                user_projects,
+                stats_by_project,
+                daily_goal_for=daily_learning.resolve_daily_goal,
+            )
+            if best_pick is None:
+                await redis.delete(redis_key)
+                continue
 
-        _project, body, _score, _nudge_type, payload = best_pick
-        user_tokens = tokens_by_user.get(user.id, [])
-        if not user_tokens:
-            await redis.delete(redis_key)
-            continue
+            _project, body, _score, _nudge_type, payload = best_pick
+            user_tokens = tokens_by_user.get(user.id, [])
+            if not user_tokens:
+                await redis.delete(redis_key)
+                continue
 
-        strings = _push_strings(getattr(user, "locale", None))
-        _append_outbound(
-            messages,
-            user_tokens,
-            title=strings["time_to_learn"],
-            body=body,
-            data=payload,
-            learning_redis_key=redis_key,
-        )
+            strings = _push_strings(getattr(user, "locale", None))
+            _append_outbound(
+                messages,
+                user_tokens,
+                title=strings["time_to_learn"],
+                body=body,
+                data=payload,
+                learning_redis_key=redis_key,
+            )
+        except Exception:
+            logger.exception("Learning nudge failed user_id=%s", user.id)
+            continue
 
     return messages
 
@@ -496,39 +528,45 @@ async def process_calendar_nudges(
 
     messages: list[OutboundPush] = []
     for user in users:
-        events = await calendar_service.fetch_upcoming_events(session, redis, user, settings)
-        due = calendar_nudge_service.events_needing_nudge(events, now=now, lead_minutes=lead)
-        if not due:
-            continue
-        tokens = await _tokens_for_user(session, user.id)
-        if not tokens:
-            continue
-
-        for event in due:
-            dedupe_key = calendar_nudge_service.calendar_nudge_redis_key(user.id, event.id)
-            ttl = calendar_nudge_service.nudge_ttl_seconds(event, now=now)
-            claimed = await redis.set(dedupe_key, "1", nx=True, ex=ttl)
-            if not claimed:
+        # BUG FIX (was cycle-fatal): isolate per-user failures so one user's
+        # bad calendar data doesn't drop nudges for every other user.
+        try:
+            events = await calendar_service.fetch_upcoming_events(session, redis, user, settings)
+            due = calendar_nudge_service.events_needing_nudge(events, now=now, lead_minutes=lead)
+            if not due:
                 continue
-            title, body = calendar_nudge_service.format_calendar_nudge(
-                event,
-                now=now,
-                locale=getattr(user, "locale", None),
-            )
-            _append_outbound(
-                messages,
-                tokens,
-                title=title,
-                body=body,
-                data={
-                    "type": "calendar_nudge",
-                    "screen": "todos",
-                    "focus": "reminders",
-                    "event_id": event.id,
-                    "event_title": event.title,
-                },
-                dedupe_redis_key=dedupe_key,
-            )
+            tokens = await _tokens_for_user(session, user.id)
+            if not tokens:
+                continue
+
+            for event in due:
+                dedupe_key = calendar_nudge_service.calendar_nudge_redis_key(user.id, event.id)
+                ttl = calendar_nudge_service.nudge_ttl_seconds(event, now=now)
+                claimed = await redis.set(dedupe_key, "1", nx=True, ex=ttl)
+                if not claimed:
+                    continue
+                title, body = calendar_nudge_service.format_calendar_nudge(
+                    event,
+                    now=now,
+                    locale=getattr(user, "locale", None),
+                )
+                _append_outbound(
+                    messages,
+                    tokens,
+                    title=title,
+                    body=body,
+                    data={
+                        "type": "calendar_nudge",
+                        "screen": "todos",
+                        "focus": "reminders",
+                        "event_id": event.id,
+                        "event_title": event.title,
+                    },
+                    dedupe_redis_key=dedupe_key,
+                )
+        except Exception:
+            logger.exception("Calendar nudge failed user_id=%s", user.id)
+            continue
 
     return messages
 
