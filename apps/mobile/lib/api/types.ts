@@ -21,6 +21,9 @@ export type User = {
   location: string | null;
   location_enabled: boolean;
   custom_instructions: string | null;
+  age: number | null;
+  country: string | null;
+  job: string | null;
   created_at: string;
 };
 

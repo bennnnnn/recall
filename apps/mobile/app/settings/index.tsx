@@ -8,7 +8,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -22,11 +21,13 @@ import {
 } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
 import { useModels } from "@/hooks/useModels";
-import { api } from "@/lib/api";
+import { api, type User } from "@/lib/api";
 import { LANGUAGES } from "@/lib/i18n";
 import { usageRemainingPercent } from "@/lib/quota";
 import { getDisplayName, sanitizeDisplayName } from "@/lib/profile";
 import { useTheme } from "@/lib/theme";
+
+type ProfileField = "name" | "age" | "country" | "job";
 
 export default function SettingsScreen() {
   const { token, user, signOut, updateUser } = useAuth();
@@ -39,9 +40,9 @@ export default function SettingsScreen() {
 
   const [usage, setUsage] = useState<Awaited<ReturnType<typeof api.todayUsage>> | null>(null);
   const [connectedCount, setConnectedCount] = useState(0);
-  const [editNameVisible, setEditNameVisible] = useState(false);
   const [upgradeVisible, setUpgradeVisible] = useState(false);
-  const [nameText, setNameText] = useState("");
+  const [editField, setEditField] = useState<ProfileField | null>(null);
+  const [fieldText, setFieldText] = useState("");
 
   const refreshSummary = useCallback(async () => {
     if (!token) return;
@@ -63,17 +64,63 @@ export default function SettingsScreen() {
     }, [refreshSummary]),
   );
 
-  const saveName = async () => {
-    const name = sanitizeDisplayName(nameText);
-    setEditNameVisible(false);
-    if (!name || name === user?.name) {
-      if (nameText.trim() && !name) {
-        Alert.alert(t("common.error"), t("settings.name_invalid"));
+  const openField = (field: ProfileField) => {
+    if (!user) return;
+    const seed =
+      field === "name"
+        ? (user.name ?? "")
+        : field === "age"
+          ? user.age != null
+            ? String(user.age)
+            : ""
+          : field === "country"
+            ? (user.country ?? "")
+            : (user.job ?? "");
+    setFieldText(seed);
+    setEditField(field);
+  };
+
+  const saveField = async () => {
+    const field = editField;
+    setEditField(null);
+    if (!field || !user) return;
+
+    let patch: Partial<User> | null = null;
+    if (field === "name") {
+      const name = sanitizeDisplayName(fieldText);
+      if (!name || name === user.name) {
+        if (fieldText.trim() && !name) {
+          Alert.alert(t("common.error"), t("settings.name_invalid"));
+        }
+        return;
       }
-      return;
+      patch = { name };
+    } else if (field === "age") {
+      const trimmed = fieldText.trim();
+      if (!trimmed) {
+        if (user.age == null) return;
+        patch = { age: null };
+      } else {
+        const age = Number.parseInt(trimmed, 10);
+        if (!Number.isFinite(age) || age < 13 || age > 120) {
+          Alert.alert(t("common.error"), t("settings.age_invalid"));
+          return;
+        }
+        if (age === user.age) return;
+        patch = { age };
+      }
+    } else if (field === "country") {
+      const country = fieldText.trim() || null;
+      if (country === (user.country ?? null)) return;
+      patch = { country };
+    } else {
+      const job = fieldText.trim() || null;
+      if (job === (user.job ?? null)) return;
+      patch = { job };
     }
+
     try {
-      await updateUser({ name });
+      await updateUser(patch);
     } catch {
       Alert.alert(t("common.error"), t("common.error"));
     }
@@ -81,19 +128,40 @@ export default function SettingsScreen() {
 
   if (!token) return <Redirect href="/login" />;
 
-  const remainingPct = usage ? Math.round(usageRemainingPercent(usage)) : null;
   const displayName = getDisplayName(user?.name, t("common.you"));
-  const accountLabel = isPro ? t("settings.account_pro") : t("settings.account_free");
+  const remainingPct = usageRemainingPercent(usage);
+  const accountLabel = isPro ? t("settings.pro") : t("settings.free");
   const selectedLanguage =
-    LANGUAGES.find((lang) => lang.code === user?.locale) ?? LANGUAGES[0];
-  const modelsValue = autoEnabled
-    ? t("settings.model_auto")
-    : t("settings.models_enabled", { count: modelEnabledSet.size });
+    LANGUAGES.find((l) => l.code === (user?.locale ?? "en")) ?? LANGUAGES[0];
   const memoryValue = user?.memory_enabled ? t("settings.on") : t("settings.off");
+  const modelsValue = autoEnabled
+    ? t("settings.auto")
+    : t("settings.models_count", { count: modelEnabledSet.size });
   const integrationsValue =
     connectedCount > 0
-      ? t("settings.integrations_connected", { count: connectedCount })
-      : t("settings.integration_not_connected");
+      ? t("settings.integrations_count", { count: connectedCount })
+      : t("settings.none");
+
+  const fieldTitle =
+    editField === "name"
+      ? t("settings.your_name")
+      : editField === "age"
+        ? t("settings.your_age")
+        : editField === "country"
+          ? t("settings.your_country")
+          : t("settings.your_job");
+  const fieldPlaceholder =
+    editField === "age"
+      ? t("settings.age_placeholder")
+      : editField === "country"
+        ? t("settings.country_placeholder")
+        : editField === "job"
+          ? t("settings.job_placeholder")
+          : undefined;
+  const fieldMaxLength =
+    editField === "name" ? 80 : editField === "country" ? 64 : editField === "job" ? 128 : 3;
+  const fieldKeyboard =
+    editField === "age" ? ("number-pad" as const) : ("default" as const);
 
   return (
     <View style={s.root}>
@@ -116,10 +184,31 @@ export default function SettingsScreen() {
           <SettingsLinkRow
             title={t("settings.name_label")}
             value={displayName}
-            onPress={() => {
-              setNameText(user?.name ?? "");
-              setEditNameVisible(true);
-            }}
+            onPress={() => openField("name")}
+            styles={s}
+            theme={theme}
+          />
+          <View style={s.menuSeparator} />
+          <SettingsLinkRow
+            title={t("settings.age_label")}
+            value={user?.age != null ? String(user.age) : t("settings.not_set")}
+            onPress={() => openField("age")}
+            styles={s}
+            theme={theme}
+          />
+          <View style={s.menuSeparator} />
+          <SettingsLinkRow
+            title={t("settings.country_label")}
+            value={user?.country?.trim() || t("settings.not_set")}
+            onPress={() => openField("country")}
+            styles={s}
+            theme={theme}
+          />
+          <View style={s.menuSeparator} />
+          <SettingsLinkRow
+            title={t("settings.job_label")}
+            value={user?.job?.trim() || t("settings.not_set")}
+            onPress={() => openField("job")}
             styles={s}
             theme={theme}
           />
@@ -224,28 +313,31 @@ export default function SettingsScreen() {
       </ScrollView>
 
       <Modal
-        visible={editNameVisible}
+        visible={editField != null}
         transparent
         animationType="fade"
-        onRequestClose={() => setEditNameVisible(false)}
+        onRequestClose={() => setEditField(null)}
       >
-        <Pressable style={s.mOverlay} onPress={() => setEditNameVisible(false)}>
+        <Pressable style={s.mOverlay} onPress={() => setEditField(null)}>
           <Pressable style={s.mSheet} onPress={(e) => e.stopPropagation()}>
-            <Text style={s.mTitle}>{t("settings.your_name")}</Text>
+            <Text style={s.mTitle}>{fieldTitle}</Text>
             <TextInput
               style={s.mInput}
-              value={nameText}
-              onChangeText={setNameText}
+              value={fieldText}
+              onChangeText={setFieldText}
               autoFocus
               returnKeyType="done"
-              onSubmitEditing={saveName}
-              maxLength={80}
+              onSubmitEditing={() => void saveField()}
+              maxLength={fieldMaxLength}
+              placeholder={fieldPlaceholder}
+              placeholderTextColor={theme.textTertiary}
+              keyboardType={fieldKeyboard}
             />
             <View style={s.mActions}>
-              <Pressable style={s.mCancel} onPress={() => setEditNameVisible(false)}>
+              <Pressable style={s.mCancel} onPress={() => setEditField(null)}>
                 <Text style={s.mCancelText}>{t("settings.cancel")}</Text>
               </Pressable>
-              <Pressable style={s.mSave} onPress={saveName}>
+              <Pressable style={s.mSave} onPress={() => void saveField()}>
                 <Text style={s.mSaveText}>{t("settings.save")}</Text>
               </Pressable>
             </View>

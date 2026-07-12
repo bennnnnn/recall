@@ -46,15 +46,21 @@ StreamReasoningFn = Callable[[str], Awaitable[None]]
 
 
 def format_user_profile_block(user: User, *, location_override: str | None = None) -> str:
-    """Basic identity from Google sign-in — injected into every chat prompt."""
+    """Basic identity — injected into every chat prompt."""
     lines = [
-        "User profile (internal — from Google sign-in; do not quote email or location "
+        "User profile (internal — from their account; do not quote email or location "
         "unless they explicitly ask for those details):"
     ]
     if user.name and user.name.strip():
         lines.append(f"- Name: {user.name.strip()}")
     if user.email and user.email.strip():
         lines.append(f"- Email: {user.email.strip()}")
+    if user.age is not None:
+        lines.append(f"- Age: {user.age}")
+    if user.country and user.country.strip():
+        lines.append(f"- Country: {user.country.strip()}")
+    if user.job and user.job.strip():
+        lines.append(f"- Job: {user.job.strip()}")
     location = location_override or profile_service.user_location_label(user)
     if location:
         lines.append(f"- Location: {location}")

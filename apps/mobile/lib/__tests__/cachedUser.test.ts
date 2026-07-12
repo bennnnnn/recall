@@ -29,6 +29,9 @@ const user: User = {
   location: null,
   location_enabled: false,
   custom_instructions: null,
+  age: null,
+  country: null,
+  job: null,
   created_at: "2026-01-01T00:00:00Z",
 };
 

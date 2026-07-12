@@ -136,8 +136,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   Storage is one consolidated row per type (`profile` / `preference` / …); deleting a single
   fact rewrites that section rather than removing a separate row per bullet.
 - ✅ **Memory toggle** — turn learning on/off in Settings.
-- 🔜 **Structured profile fields** — name/age/country/job as discrete fields (today they're
-  free-text memories).
+- ✅ **Structured profile fields** — name, age, country, and job are discrete account fields
+  (editable in Settings → Profile) and injected into the chat system profile block.
 - ✅ **Attachment RAG** — chunk + embed PDF/doc text into pgvector; retrieve top chunks into
   the system prompt on follow-up turns (capped; invalidated on attachment delete). Chat-history
   corpus RAG still deferred.
@@ -422,8 +422,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 - ✅ **Web search** — Tavily primary + DuckDuckGo fallback; injected into chat when heuristics match;
   sources shown on assistant messages (hidden on vocab quiz cards).
 - 🔜 **Collaborative cursors / shared docs** — real-time co-editing; personal app only today.
-- 🔜 Structured profile fields,
-  editing arbitrary (older) messages, user-tunable routing rules,
+- 🔜 Editing arbitrary (older) messages, user-tunable routing rules,
   email-only reminders, theming the remaining screens.
 
 ### Pre-deployment TODO (from the holistic review)

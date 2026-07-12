@@ -774,5 +774,16 @@
   "upgrade.restore": "Restore purchases",
   "upgrade.restore_empty": "No active subscription found for this account.",
   "upgrade.subscribe": "Go Pro — {{price}}/month",
-  "upgrade.title": "Upgrade to Pro"
+  "upgrade.title": "Upgrade to Pro",
+  "settings.age_label": "Age",
+  "settings.age_placeholder": "e.g. 28",
+  "settings.age_invalid": "Enter an age between 13 and 120.",
+  "settings.your_age": "Your age",
+  "settings.country_label": "Country",
+  "settings.country_placeholder": "e.g. Ethiopia",
+  "settings.your_country": "Your country",
+  "settings.job_label": "Job",
+  "settings.job_placeholder": "e.g. Designer",
+  "settings.your_job": "Your job",
+  "settings.not_set": "Not set"
 }

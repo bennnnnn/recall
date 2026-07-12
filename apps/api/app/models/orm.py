@@ -32,6 +32,10 @@ class User(Base):
             "response_tone IN ('funny', 'professional', 'casual', 'soft')",
             name="ck_users_response_tone",
         ),
+        CheckConstraint(
+            "age IS NULL OR (age >= 13 AND age <= 120)",
+            name="ck_users_age_range",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -58,6 +62,9 @@ class User(Base):
     timezone: Mapped[str] = mapped_column(String(64), default="UTC", server_default="UTC")
     location: Mapped[str | None] = mapped_column(String(128), nullable=True)
     location_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    age: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    country: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    job: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

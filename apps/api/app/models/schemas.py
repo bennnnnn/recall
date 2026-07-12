@@ -35,6 +35,9 @@ class UserOut(BaseModel):
     location: str | None = None
     location_enabled: bool = False
     custom_instructions: str | None = None
+    age: int | None = None
+    country: str | None = None
+    job: str | None = None
     created_at: datetime
 
 
@@ -53,6 +56,9 @@ class UserUpdate(BaseModel):
     location: str | None = Field(default=None, max_length=128)
     location_enabled: bool | None = None
     custom_instructions: str | None = Field(default=None, max_length=1000)
+    age: int | None = Field(default=None, ge=13, le=120)
+    country: str | None = Field(default=None, max_length=64)
+    job: str | None = Field(default=None, max_length=128)
 
     @field_validator("name")
     @classmethod
@@ -99,6 +105,14 @@ class UserUpdate(BaseModel):
     @field_validator("custom_instructions")
     @classmethod
     def validate_custom_instructions(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        text = value.strip()
+        return text or None
+
+    @field_validator("country", "job")
+    @classmethod
+    def validate_optional_profile_text(cls, value: str | None) -> str | None:
         if value is None:
             return None
         text = value.strip()
