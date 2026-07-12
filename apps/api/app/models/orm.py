@@ -190,6 +190,10 @@ class Memory(Base):
     confidence: Mapped[float | None] = mapped_column(Numeric(3, 2))
     embedding_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     embedding: Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)
+    # Hash of the text this embedding was actually computed from — lets
+    # extraction/consolidation detect "embedding is stale relative to text"
+    # reliably across passes, not just within one call. See migration 0057.
+    embedding_text_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
     source_chat_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("chats.id", ondelete="SET NULL")
     )

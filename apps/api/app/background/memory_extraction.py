@@ -11,7 +11,7 @@ from app.gateways import litellm_gateway
 from app.models.orm import Memory
 from app.repositories import memories as memories_repo
 from app.repositories import users as users_repo
-from app.services.memory import normalize_memory_text
+from app.services.memory import embedding_text_hash, normalize_memory_text
 
 logger = logging.getLogger(__name__)
 
@@ -45,19 +45,26 @@ async def _apply_memory_extraction_result(
     *,
     user_id: UUID,
     chat_id: UUID,
-    existing_sections: dict[str, str],
     rows: list[tuple[str, str, float, UUID | None]],
 ) -> None:
     if not rows:
         return
 
-    upserted_types = {memory_type for memory_type, _, _, _ in rows}
     await memories_repo.upsert_sections(session, user_id=user_id, items=rows)
     from app.gateways import embedding_gateway
 
-    # Re-embed any section whose text changed (stale-vector fix) plus any
-    # section that has no embedding yet. Previously only empty embeddings
-    # were (re)generated, so rewrites kept the old vector.
+    # Re-embed any section whose embedding is missing, or whose embedding no
+    # longer matches its current text.
+    #
+    # BUG FIX (was silent): this used to compare memory.text against the
+    # existing_sections snapshot from BEFORE this call to detect "text
+    # changed" — but that only catches a change within THIS call. If
+    # embed_text failed right after a text change (provider hiccup), the new
+    # text got written while the OLD embedding stayed in place, and nothing
+    # detected that mismatch on the NEXT pass unless the text happened to
+    # change again — semantic search silently misranked that memory
+    # indefinitely. Comparing against the persisted embedding_text_hash
+    # instead makes staleness detectable across passes, not just within one.
     updated = await memories_repo.list_for_user(session, user_id)
     embed_tasks: list[tuple[Memory, str]] = []
     for memory in updated:
@@ -67,13 +74,11 @@ async def _apply_memory_extraction_result(
         # Checking only `embedding_json` left rows with pgvector-but-null-JSON
         # re-embedding forever, and rows with JSON-but-null-pgvector skipped
         # entirely (invisible to DB semantic search).
-        needs_embed = memory.embedding is None or memory.embedding_json is None
-        if (
-            not needs_embed
-            and memory.type in upserted_types
-            and memory.text != existing_sections.get(memory.type)
-        ):
-            needs_embed = True
+        needs_embed = (
+            memory.embedding is None
+            or memory.embedding_json is None
+            or memory.embedding_text_hash != embedding_text_hash(memory.text)
+        )
         if needs_embed:
             embed_tasks.append((memory, memory.text))
 
@@ -81,10 +86,11 @@ async def _apply_memory_extraction_result(
         vectors = await asyncio.gather(
             *(embedding_gateway.embed_text(settings, text) for _, text in embed_tasks)
         )
-        for (memory, _), vec in zip(embed_tasks, vectors, strict=True):
+        for (memory, text), vec in zip(embed_tasks, vectors, strict=True):
             if vec:
                 memory.embedding = vec
                 memory.embedding_json = embedding_gateway.serialize_embedding(vec)
+                memory.embedding_text_hash = embedding_text_hash(text)
     await session.commit()
     from app.services import memory as memory_service
 
@@ -135,7 +141,6 @@ async def extract_and_store_memories(
                 settings,
                 user_id=user_id,
                 chat_id=chat_id,
-                existing_sections=snapshot.existing_sections,
                 rows=rows,
             )
     except Exception:

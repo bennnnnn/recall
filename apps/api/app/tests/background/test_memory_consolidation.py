@@ -7,6 +7,7 @@ import pytest
 from app.background.memory_consolidation import consolidate_user_memory_sections
 from app.core.config import Settings
 from app.models.schemas import MemorySectionItem
+from app.services.memory import embedding_text_hash
 
 
 class _FakeSessionCM:
@@ -252,6 +253,7 @@ async def test_consolidate_upserts_without_embedding_when_vector_missing():
         text="Bini (Binalfew) is a software developer with backend and mobile experience",
         embedding=None,
         embedding_json=None,
+        embedding_text_hash=None,
     )
 
     merged = MemorySectionItem(
@@ -305,6 +307,7 @@ async def test_consolidate_stores_embedding_when_vector_present():
         text="Bini (Binalfew) is a software developer with backend and mobile experience",
         embedding=None,
         embedding_json=None,
+        embedding_text_hash=None,
     )
 
     merged = MemorySectionItem(
@@ -350,6 +353,95 @@ async def test_consolidate_stores_embedding_when_vector_present():
     assert changed is True
     assert updated.embedding == vector
     assert updated.embedding_json == "[0.1,0.2,0.3]"
+    assert updated.embedding_text_hash == embedding_text_hash(updated.text)
+
+
+@pytest.mark.asyncio
+async def test_consolidate_reembeds_stale_section_even_if_untouched_this_pass():
+    """BUG FIX regression: a section that consolidation didn't merge this pass
+    (e.g. because a prior embed attempt failed after its own text change) must
+    still be caught by the embedding_text_hash mismatch check, not left stale
+    forever just because this pass's `rows` didn't include it."""
+    user_id = uuid4()
+    profile = AsyncMock()
+    profile.type = "profile"
+    profile.text = "User's name is Bini. User's name is Binalfew. User is a developer."
+    preference = AsyncMock()
+    preference.type = "preference"
+    preference.text = "Prefers concise answers."
+
+    merged = MemorySectionItem(
+        type="profile",
+        summary=(
+            "Bini (Binalfew) is a software developer who builds mobile apps "
+            "and backend services for Recall."
+        ),
+        confidence=0.9,
+    )
+
+    updated_profile = SimpleNamespace(
+        type="profile",
+        text=merged.summary,
+        embedding=[0.1, 0.2, 0.3],
+        embedding_json="[0.1,0.2,0.3]",
+        embedding_text_hash=embedding_text_hash(merged.summary),
+    )
+    # Simulates a section left over with a stale hash from a previous failed
+    # embed attempt — untouched by this consolidation pass's `rows`.
+    updated_preference = SimpleNamespace(
+        type="preference",
+        text=preference.text,
+        embedding=[0.4, 0.5, 0.6],
+        embedding_json="[0.4,0.5,0.6]",
+        embedding_text_hash="stale-hash-from-a-failed-embed",
+    )
+
+    vector = [0.7, 0.8, 0.9]
+
+    _, session_locals = _consolidation_sessions(count=2)
+    with (
+        patch(
+            "app.background.memory_consolidation.SessionLocal",
+            side_effect=session_locals,
+        ),
+        patch(
+            "app.background.memory_consolidation.memories_repo.list_for_user",
+            AsyncMock(
+                side_effect=[
+                    [profile, preference],
+                    [updated_profile, updated_preference],
+                ]
+            ),
+        ),
+        patch(
+            "app.background.memory_consolidation.litellm_gateway.merge_memory_section",
+            AsyncMock(return_value=merged),
+        ),
+        patch(
+            "app.background.memory_consolidation.memories_repo.upsert_sections",
+            AsyncMock(),
+        ),
+        patch(
+            "app.background.memory_consolidation.invalidate_memory_block",
+            AsyncMock(),
+        ),
+        patch(
+            "app.gateways.embedding_gateway.embed_text",
+            AsyncMock(return_value=vector),
+        ),
+        patch(
+            "app.gateways.embedding_gateway.serialize_embedding",
+            return_value="[0.7,0.8,0.9]",
+        ),
+    ):
+        changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
+
+    assert changed is True
+    # The stale preference section got re-embedded even though it wasn't
+    # part of this pass's merge output.
+    assert updated_preference.embedding == vector
+    assert updated_preference.embedding_json == "[0.7,0.8,0.9]"
+    assert updated_preference.embedding_text_hash == embedding_text_hash(preference.text)
 
 
 @pytest.mark.asyncio
