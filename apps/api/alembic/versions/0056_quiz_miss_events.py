@@ -1,7 +1,7 @@
 """Append-only quiz miss event log for accurate day-attribution history
 
-Revision ID: 0055_quiz_miss_events
-Revises: 0054_user_profile_fields
+Revision ID: 0056_quiz_miss_events
+Revises: 0055_project_kind_unique_active
 """
 
 from typing import Sequence, Union
@@ -9,8 +9,8 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "0055_quiz_miss_events"
-down_revision: Union[str, None] = "0054_user_profile_fields"
+revision: str = "0056_quiz_miss_events"
+down_revision: Union[str, None] = "0055_project_kind_unique_active"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
