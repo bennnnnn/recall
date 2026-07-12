@@ -180,8 +180,30 @@ async def list_recent_messages(
             async with sem:
                 return await _fetch_message(ref)
 
-        fetched = await asyncio.gather(*(_bounded(ref) for ref in message_refs[:max_messages]))
-        messages.extend(msg for msg in fetched if msg is not None)
+        # BUG FIX (was a stuck-sync bug): this used to gather without
+        # return_exceptions, so one failing message detail fetch (a
+        # transient API hiccup, rate limit, or malformed payload) aborted
+        # the whole batch and discarded every other successfully-fetched
+        # message. Worse, the exception propagated out of sync_gmail_for_user
+        # before last_sync_at was updated, so the same message would be
+        # re-fetched — and could re-fail — on every subsequent periodic
+        # cycle, silently stalling that user's sync indefinitely. Isolate
+        # per-message failures the same way list_upcoming_events already
+        # does for per-calendar failures.
+        fetched = await asyncio.gather(
+            *(_bounded(ref) for ref in message_refs[:max_messages]),
+            return_exceptions=True,
+        )
+        failed = 0
+        for item in fetched:
+            if isinstance(item, BaseException):
+                failed += 1
+                logger.warning("Skipping Gmail message fetch: %s", item)
+                continue
+            if item is not None:
+                messages.append(item)
+        if failed:
+            logger.info("Gmail message fetch: %s of %s failed", failed, len(fetched))
     except GoogleGmailError:
         raise
     except Exception as exc:
