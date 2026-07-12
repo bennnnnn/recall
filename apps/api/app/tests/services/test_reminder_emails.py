@@ -103,7 +103,7 @@ async def test_process_learning_nudge_emails_sends_when_due():
 
     with (
         patch(
-            "app.services.reminder_emails._user_local_hour",
+            "app.services.reminder_emails.user_local_hour",
             return_value=10,
         ),
         patch(

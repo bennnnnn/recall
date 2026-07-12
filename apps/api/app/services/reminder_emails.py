@@ -20,32 +20,20 @@ from app.models.orm import Project, TodoItem, User
 from app.repositories import project_items as project_items_repo
 from app.repositories import projects as projects_repo
 from app.services import daily_learning, learning_insights
-from app.services import time_context as time_context_service
 from app.services import transactional_email as tx_email
 from app.services.reminder_timing import (
     MAX_REMINDER_LEAD_MINUTES,
     OVERDUE_MAX_HOURS,
+    learning_dedupe_key,
     resolve_reminder_lead_minutes,
     should_notify_todo,
+    user_day_key,
+    user_local_hour,
 )
 
 logger = logging.getLogger(__name__)
 
 LEARNING_EMAIL_REDIS_PREFIX = "recall:email:learning"
-
-
-def _user_local_hour(user: User) -> int:
-    tz = time_context_service.resolve_timezone(user.timezone)
-    return datetime.now(tz).hour
-
-
-def _user_day_key(user: User) -> str:
-    tz = time_context_service.resolve_timezone(user.timezone)
-    return datetime.now(tz).strftime("%Y-%m-%d")
-
-
-def _learning_redis_key(user_id: UUID, day_key: str) -> str:
-    return f"{LEARNING_EMAIL_REDIS_PREFIX}:{user_id}:{day_key}"
 
 
 async def process_todo_reminder_emails(
@@ -112,10 +100,10 @@ async def process_learning_nudge_emails(
     for user in users:
         if not user.email:
             continue
-        if _user_local_hour(user) < settings.push_learning_hour:
+        if user_local_hour(user) < settings.push_learning_hour:
             continue
-        day_key = _user_day_key(user)
-        redis_key = _learning_redis_key(user.id, day_key)
+        day_key = user_day_key(user)
+        redis_key = learning_dedupe_key(LEARNING_EMAIL_REDIS_PREFIX, user.id, day_key)
         if not await redis.set(redis_key, "1", nx=True, ex=86_400):
             continue
         candidates.append((user, redis_key))

@@ -38,13 +38,15 @@ from app.repositories import push_tokens as push_repo
 from app.services import calendar as calendar_service
 from app.services import calendar_nudges as calendar_nudge_service
 from app.services import daily_learning, learning_insights
-from app.services import time_context as time_context_service
 from app.services.locale import normalize_locale_code
 from app.services.reminder_timing import (
     MAX_REMINDER_LEAD_MINUTES,
     OVERDUE_MAX_HOURS,
+    learning_dedupe_key,
     resolve_reminder_lead_minutes,
     should_notify_todo,
+    user_day_key,
+    user_local_hour,
 )
 
 logger = logging.getLogger(__name__)
@@ -127,20 +129,6 @@ _PUSH_STRINGS: dict[str, dict[str, str]] = {
 def _push_strings(locale: str | None) -> dict[str, str]:
     code = normalize_locale_code(locale)
     return _PUSH_STRINGS.get(code, _PUSH_STRINGS["en"])
-
-
-def _user_local_hour(user: User) -> int:
-    tz = time_context_service.resolve_timezone(user.timezone)
-    return datetime.now(tz).hour
-
-
-def _user_day_key(user: User) -> str:
-    tz = time_context_service.resolve_timezone(user.timezone)
-    return datetime.now(tz).strftime("%Y-%m-%d")
-
-
-def _learning_redis_key(user_id: UUID, day_key: str) -> str:
-    return f"{LEARNING_REDIS_PREFIX}:{user_id}:{day_key}"
 
 
 def _receipt_token_key(ticket_id: str) -> str:
@@ -406,10 +394,10 @@ async def process_learning_nudges(
     # tokens for users we're not going to message this cycle.
     candidates: list[tuple[User, str]] = []
     for user in users:
-        if _user_local_hour(user) < settings.push_learning_hour:
+        if user_local_hour(user) < settings.push_learning_hour:
             continue
-        day_key = _user_day_key(user)
-        redis_key = _learning_redis_key(user.id, day_key)
+        day_key = user_day_key(user)
+        redis_key = learning_dedupe_key(LEARNING_REDIS_PREFIX, user.id, day_key)
         if not await redis.set(redis_key, "1", nx=True, ex=86_400):
             continue
         candidates.append((user, redis_key))

@@ -455,7 +455,9 @@ async def test_process_learning_nudges_idle_user_sends_nothing_and_releases_dedu
         messages = await push_service.process_learning_nudges(session, redis, settings)
 
     assert messages == []
-    expected_key = push_service._learning_redis_key(user_id, push_service._user_day_key(user))
+    expected_key = push_service.learning_dedupe_key(
+        push_service.LEARNING_REDIS_PREFIX, user_id, push_service.user_day_key(user)
+    )
     redis.delete.assert_awaited_once_with(expected_key)
 
 
