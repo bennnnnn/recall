@@ -307,6 +307,12 @@ def daily_home_cue(
     today = datetime.now(home_tz).date()
     if last_mastery is not None:
         last_day = last_mastery.astimezone(home_tz).date()
+        # Intentional >=2, not >=1: this branch only runs when nothing was
+        # done today. If the user studied yesterday (last_day == today - 1),
+        # they simply haven't started today's session yet — "not_started_today"
+        # ("You haven't started today's X") is the accurate cue. "missed_yesterday"
+        # ("Pick back up — X waiting") is reserved for a real lapse: yesterday
+        # was also skipped, not just today-not-started-yet.
         if last_day <= today - timedelta(days=2):
             return "missed_yesterday"
     return "not_started_today"

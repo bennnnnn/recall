@@ -178,7 +178,12 @@ def _users_execute_result(users):
 
 
 @pytest.mark.asyncio
-async def test_process_learning_nudges_language_review():
+async def test_process_learning_nudges_stays_silent_once_goal_met_even_with_review_due():
+    """BUG FIX (product decision): once today's goal is met, no further learning
+    nudge should fire — not even a "N due for review" one. pick_learning_nudge
+    used to fall through past the goal-met check into review/new-word nudges;
+    that fallthrough was removed, so a met goal with due_for_review > 0 must
+    now produce zero pushes for this project (was 1 "learning_review" push)."""
     session = AsyncMock()
     redis = AsyncMock()
     settings = Settings(push_learning_hour=0)
@@ -202,6 +207,7 @@ async def test_process_learning_nudges_language_review():
 
     session.execute = AsyncMock(return_value=_users_execute_result([user]))
     redis.set = AsyncMock(return_value=True)
+    redis.delete = AsyncMock(return_value=1)
 
     with (
         patch.object(
@@ -233,9 +239,8 @@ async def test_process_learning_nudges_language_review():
     ):
         messages = await push_service.process_learning_nudges(session, redis, settings)
 
-    assert len(messages) == 1
-    assert "Spanish" in messages[0].message["body"]
-    assert messages[0].message["data"]["type"] == "learning_review"
+    assert messages == []
+    redis.delete.assert_awaited()
 
 
 @pytest.mark.asyncio

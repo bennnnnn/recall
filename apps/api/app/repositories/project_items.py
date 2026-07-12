@@ -364,23 +364,42 @@ async def list_missed_by_activity_date(
     limit: int = 50,
     offset: int = 0,
 ) -> list[ProjectItem]:
-    """Still-open misses (not mastered) whose last_incorrect_at falls on activity_date."""
+    """Still-open misses (not mastered) that were missed on activity_date.
+
+    BUG FIX (was silent): this used to filter on the single mutable
+    last_incorrect_at column, so a later miss on the same item silently
+    erased which day an earlier miss was attributed to and this page could
+    stop showing an item it previously showed — the same underlying bug
+    already fixed for the aggregate stats in
+    daily_learning.count_missed_by_date/group_missed_items_by_date. Now
+    joins against the append-only QuizMissEvent log instead.
+    """
     from app.services.daily_learning import day_bounds_utc
 
     start, end = day_bounds_utc(activity_date, timezone_name)
+    day_misses = (
+        select(
+            QuizMissEvent.item_id,
+            func.max(QuizMissEvent.occurred_at).label("latest_occurred_at"),
+        )
+        .where(
+            QuizMissEvent.user_id == user_id,
+            QuizMissEvent.occurred_at >= start,
+            QuizMissEvent.occurred_at < end,
+        )
+        .group_by(QuizMissEvent.item_id)
+        .subquery()
+    )
     stmt = (
         select(ProjectItem)
+        .join(day_misses, ProjectItem.id == day_misses.c.item_id)
         .where(
             ProjectItem.user_id == user_id,
             ProjectItem.project_id == project_id,
             ProjectItem.mastered.is_(False),
-            and_(
-                ProjectItem.last_incorrect_at >= start,
-                ProjectItem.last_incorrect_at < end,
-            ),
         )
         .order_by(
-            ProjectItem.last_incorrect_at.desc().nullslast(),
+            day_misses.c.latest_occurred_at.desc(),
             ProjectItem.created_at.desc(),
         )
         .offset(max(offset, 0))
