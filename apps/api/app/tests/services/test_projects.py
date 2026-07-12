@@ -307,6 +307,47 @@ async def test_apply_project_actions_master():
 
 @pytest.mark.asyncio
 async def test_apply_project_actions_delete_project():
+    """from_transcript=False simulates an explicit user-initiated caller
+    (e.g. DELETE /projects/{id}) — destructive actions must still go through
+    for that caller; only the default (transcript-extracted) path is blocked."""
+    session = AsyncMock()
+    user_id = uuid4()
+    project = _project("Old project")
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            projects_service.projects_repo,
+            "delete_by_id",
+            AsyncMock(return_value=True),
+        ) as delete_mock,
+    ):
+        applied = await projects_service.apply_project_actions(
+            session,
+            user_id=user_id,
+            actions=[
+                ProjectActionItem(action="delete_project", project_title="Old project"),
+            ],
+            from_transcript=False,
+        )
+    assert applied == 1
+    delete_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_apply_project_actions_blocks_delete_project_by_default():
+    """BUG FIX (was silent): the destructive-action guard used to live only
+    in _apply_project_extraction_result — apply_project_actions itself had
+    no internal guard, so a future caller invoking it directly could bypass
+    the block entirely. from_transcript now defaults to True (safe)."""
     session = AsyncMock()
     user_id = uuid4()
     project = _project("Old project")
@@ -334,8 +375,8 @@ async def test_apply_project_actions_delete_project():
                 ProjectActionItem(action="delete_project", project_title="Old project"),
             ],
         )
-    assert applied == 1
-    delete_mock.assert_awaited_once()
+    assert applied == 0
+    delete_mock.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -1062,6 +1103,46 @@ async def test_apply_project_actions_start_learning_records_failed_quiz():
 
 @pytest.mark.asyncio
 async def test_apply_project_actions_delete_list():
+    """from_transcript=False simulates an explicit user-initiated caller —
+    see test_apply_project_actions_delete_project."""
+    session = AsyncMock()
+    user_id = uuid4()
+    project = _project("English")
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "delete_by_list",
+            AsyncMock(return_value=2),
+        ) as delete_mock,
+    ):
+        applied = await projects_service.apply_project_actions(
+            session,
+            user_id=user_id,
+            actions=[
+                ProjectActionItem(
+                    action="delete_list",
+                    project_title="English",
+                    list_title="Travel",
+                ),
+            ],
+            from_transcript=False,
+        )
+    assert applied == 1
+    delete_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_apply_project_actions_blocks_delete_list_by_default():
     session = AsyncMock()
     user_id = uuid4()
     project = _project("English")
@@ -1093,8 +1174,8 @@ async def test_apply_project_actions_delete_list():
                 ),
             ],
         )
-    assert applied == 1
-    delete_mock.assert_awaited_once()
+    assert applied == 0
+    delete_mock.assert_not_awaited()
 
 
 @pytest.mark.asyncio

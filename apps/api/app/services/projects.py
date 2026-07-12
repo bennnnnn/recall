@@ -1542,9 +1542,37 @@ async def apply_project_actions(
     user_id: UUID,
     actions: list[ProjectActionItem],
     chat_id: UUID | None = None,
+    from_transcript: bool = True,
 ) -> int:
+    """Apply LLM-extracted or explicit-user project/item actions.
+
+    ``from_transcript`` defaults to True (safe): whole-project/whole-deck
+    deletes are blocked unless a caller explicitly opts out with
+    ``from_transcript=False`` for a genuine user-initiated action (e.g. a
+    dedicated "delete project" endpoint). Defaulting to the permissive
+    behavior would mean a future caller that forgets this parameter silently
+    inherits the ability to let a model delete data via chat.
+    """
     if not actions:
         return 0
+    if from_transcript:
+        # BUG FIX (was silent): this guard used to live only in
+        # _apply_project_extraction_result, this function's one caller —
+        # nothing stopped a future second caller from invoking
+        # apply_project_actions directly and bypassing it entirely. Enforce
+        # it here instead.
+        for action in actions:
+            if action.action in PROJECT_BLOCKED_FROM_TRANSCRIPT:
+                logger.warning(
+                    "Refused destructive project action %s from transcript for "
+                    "user_id=%s project=%s (requires explicit user action)",
+                    action.action,
+                    user_id,
+                    action.project_title,
+                )
+        actions = [a for a in actions if a.action not in PROJECT_BLOCKED_FROM_TRANSCRIPT]
+        if not actions:
+            return 0
     projects = await projects_repo.list_for_user(session, user_id, limit=200)
     items = await project_items_repo.list_for_user(session, user_id, limit=500)
     applied = 0
@@ -1801,27 +1829,17 @@ async def _apply_project_extraction_result(
 ) -> int:
     if not result or not result.actions:
         return 0
-    safe_actions: list[ProjectActionItem] = []
-    for action in result.actions:
-        if action.action in PROJECT_BLOCKED_FROM_TRANSCRIPT:
-            logger.warning(
-                "Refused destructive project action %s from transcript for "
-                "user_id=%s project=%s (requires explicit user action)",
-                action.action,
-                user_id,
-                action.project_title,
-            )
-            continue
-        safe_actions.append(action)
-        if len(safe_actions) >= MAX_PROJECT_ACTIONS_PER_TURN:
-            break
-    if not safe_actions:
-        return 0
+    # Defensive per-turn cap on how many actions an LLM extraction can apply.
+    # The destructive-action block (delete_project/delete_list) now lives in
+    # apply_project_actions itself (from_transcript=True, the default) —
+    # this caller no longer needs to filter those out before calling it.
+    capped_actions = result.actions[:MAX_PROJECT_ACTIONS_PER_TURN]
     applied = await apply_project_actions(
         session,
         user_id=user_id,
-        actions=safe_actions,
+        actions=capped_actions,
         chat_id=chat_id,
+        from_transcript=True,
     )
     if result.actions and applied == 0:
         logger.warning(
