@@ -184,3 +184,44 @@ async def test_apply_quiz_result_logs_every_miss_event_not_just_the_latest(db_se
     events_by_item = await project_items_repo.list_miss_events_for_items(db_session, [item.id])
     occurred_at = events_by_item[item.id]
     assert sorted(occurred_at) == [day1, day4]
+
+
+@pytest.mark.asyncio
+async def test_list_missed_by_activity_date_survives_a_later_miss_on_the_same_item(
+    db_session, monkeypatch
+):
+    """BUG FIX (was silent): this day-detail page used to filter on the single
+    mutable last_incorrect_at column, so a Day-4 miss on an item already missed
+    on Day-1 made it silently vanish from Day-1's page. It must now still show
+    up under Day-1 (via the event log) even though the column itself only
+    points at Day-4.
+    """
+    user = await _make_user(db_session)
+    project = await _make_project(db_session, user.id)
+    item = await project_items_repo.create(
+        db_session, user_id=user.id, project_id=project.id, content="hola"
+    )
+
+    day1 = datetime(2026, 1, 1, 9, tzinfo=UTC)
+    day4 = day1 + timedelta(days=3)
+
+    monkeypatch.setattr(project_items_repo, "datetime", _frozen_datetime_cls(day1))
+    await project_items_repo.apply_quiz_result(db_session, item, is_correct=False, commit=False)
+
+    monkeypatch.setattr(project_items_repo, "datetime", _frozen_datetime_cls(day4))
+    await project_items_repo.apply_quiz_result(db_session, item, is_correct=False, commit=False)
+    await db_session.flush()
+
+    day1_page = await project_items_repo.list_missed_by_activity_date(
+        db_session, user.id, project.id, day1.date(), timezone_name="UTC"
+    )
+    day4_page = await project_items_repo.list_missed_by_activity_date(
+        db_session, user.id, project.id, day4.date(), timezone_name="UTC"
+    )
+    day2_page = await project_items_repo.list_missed_by_activity_date(
+        db_session, user.id, project.id, (day1 + timedelta(days=1)).date(), timezone_name="UTC"
+    )
+
+    assert [i.id for i in day1_page] == [item.id]
+    assert [i.id for i in day4_page] == [item.id]
+    assert day2_page == []

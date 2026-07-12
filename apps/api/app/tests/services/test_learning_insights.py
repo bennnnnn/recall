@@ -71,6 +71,28 @@ def test_pick_learning_nudge_returns_none_when_fully_idle():
     assert learning_insights.pick_learning_nudge(P(), stats, daily_goal=10) is None
 
 
+def test_pick_learning_nudge_stays_silent_once_goal_met_even_with_review_or_new_items():
+    """Product decision: goal met means done for the day — pick_learning_nudge
+    used to fall through past the goal-met check into a "N due for review" or
+    "N new words" nudge; that fallthrough is gone, so a met goal must return
+    None regardless of due_for_review/new_count."""
+
+    class P:
+        kind = "language"
+        title = "English"
+        id = uuid4()
+
+    stats = {
+        "total": 20,
+        "mastered_today": 10,
+        "missed_today": 0,
+        "due_for_review": 5,
+        "new_count": 3,
+        "days_inactive": 0,
+    }
+    assert learning_insights.pick_learning_nudge(P(), stats, daily_goal=10) is None
+
+
 def test_suggest_level_change_promotes_high_mastery():
     class P:
         kind = "language"

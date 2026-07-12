@@ -8,6 +8,7 @@ from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from app.models.orm import Project
+from app.services.daily_learning import completed_today_count
 
 LEARNING_PROJECT_KINDS = ("language", "vocabulary", "trivia")
 LEVEL_ORDER = ("level1", "level2", "level3", "level4", "level5", "level6")
@@ -110,12 +111,6 @@ def enrich_learning_stats(
     return stats
 
 
-def _unit_label(kind: str | None, *, plural: bool = True) -> str:
-    if kind == "trivia":
-        return "questions" if plural else "question"
-    return "words" if plural else "word"
-
-
 def pick_learning_nudge(
     project: Project,
     stats: dict[str, Any],
@@ -126,13 +121,9 @@ def pick_learning_nudge(
     if int(stats.get("total") or 0) == 0:
         return None
 
-    kind = project.kind
-    unit = _unit_label(kind)
     mastered_today = int(stats.get("mastered_today") or 0)
     missed_today = int(stats.get("missed_today") or 0)
-    completed_today = mastered_today + missed_today
-    due = int(stats.get("due_for_review") or 0)
-    new_count = int(stats.get("new_count") or 0)
+    completed_today = completed_today_count(mastered_today, missed_today)
     days_inactive = stats.get("days_inactive")
     title = project.title.strip()
 
@@ -158,35 +149,11 @@ def pick_learning_nudge(
             },
         )
 
-    if due > 0:
-        unit = _unit_label(kind, plural=due != 1)
-        body = f'{due} {unit} due for review in "{title}"'
-        score = float(due + 10)
-        return (
-            body,
-            score,
-            "learning_review",
-            {
-                "type": "learning_review",
-                "screen": "project",
-                "project_id": str(project.id),
-            },
-        )
-
-    if new_count > 0:
-        body = f'Keep going with "{title}" — {new_count} new {_unit_label(kind)}'
-        score = float(new_count)
-        return (
-            body,
-            score,
-            "learning_continue",
-            {
-                "type": "learning_continue",
-                "screen": "project",
-                "project_id": str(project.id),
-            },
-        )
-
+    # BUG FIX (was silent): once the daily goal is met, the user is done for
+    # the day — a review/new-word nudge used to still fire on top of that,
+    # which reads as "nag me even after I finished." Goal met now suppresses
+    # every learning nudge for this project until tomorrow, not just the
+    # finish-your-goal one.
     return None
 
 
