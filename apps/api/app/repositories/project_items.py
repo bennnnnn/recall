@@ -147,6 +147,17 @@ async def get_by_id(
     return (await session.execute(stmt)).scalar_one_or_none()
 
 
+async def count_for_project(session: AsyncSession, project_id: UUID, user_id: UUID) -> int:
+    """Cheap COUNT(*) for the per-project item cap — avoids loading rows just
+    to size-check (unlike count_stats, which loads up to 5000 rows)."""
+    stmt = (
+        select(func.count())
+        .select_from(ProjectItem)
+        .where(ProjectItem.user_id == user_id, ProjectItem.project_id == project_id)
+    )
+    return int((await session.execute(stmt)).scalar_one())
+
+
 async def count_stats(
     session: AsyncSession,
     project_id: UUID,

@@ -36,6 +36,11 @@ MAX_PROJECT_ACTIONS_PER_TURN = 3
 # Whole-project / whole-deck deletes are too destructive to apply from a model's
 # interpretation of chat text — the user must remove those explicitly.
 PROJECT_BLOCKED_FROM_TRANSCRIPT = frozenset({"delete_project", "delete_list"})
+# BUG FIX: `add` was only bounded by MAX_PROJECT_ACTIONS_PER_TURN + content
+# dedup, so a deck could grow unbounded over many turns. No documented
+# product limit on deck size exists (FEATURES.md) — pick a generous but
+# bounded cap.
+MAX_PROJECT_ITEMS_PER_PROJECT = 2000
 
 DEFAULT_LIST = "General"
 
@@ -1664,6 +1669,17 @@ async def apply_project_actions(
                     if not content:
                         continue
                     if _find_item(items, project.id, list_title, content):
+                        continue
+                    item_count = await project_items_repo.count_for_project(
+                        session, project.id, user_id
+                    )
+                    if item_count >= MAX_PROJECT_ITEMS_PER_PROJECT:
+                        logger.info(
+                            "Skipping add: project_id=%s at item cap (%d) for user_id=%s",
+                            project.id,
+                            MAX_PROJECT_ITEMS_PER_PROJECT,
+                            user_id,
+                        )
                         continue
                     await project_items_repo.create(
                         session,

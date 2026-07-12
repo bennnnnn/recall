@@ -437,6 +437,11 @@ async def test_sync_projects_from_transcript_adds_words():
             "create",
             AsyncMock(side_effect=lambda *a, **kw: _item(kw["content"], project.id)),
         ) as create_mock,
+        patch.object(
+            projects_service.project_items_repo,
+            "count_for_project",
+            AsyncMock(return_value=0),
+        ),
         patch.object(mock_llm, "should_mock_llm", return_value=True),
     ):
         result = await sync_projects_from_transcript(
@@ -1365,6 +1370,11 @@ async def test_apply_project_actions_add_not_skipped_as_fuzzy_duplicate():
             "create",
             AsyncMock(return_value=_item("cat", project.id, list_title="nouns")),
         ) as create_mock,
+        patch.object(
+            projects_service.project_items_repo,
+            "count_for_project",
+            AsyncMock(return_value=0),
+        ),
     ):
         applied = await projects_service.apply_project_actions(
             session,
@@ -1380,6 +1390,52 @@ async def test_apply_project_actions_add_not_skipped_as_fuzzy_duplicate():
         )
     assert applied == 1
     create_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_apply_project_actions_add_skips_at_item_cap():
+    """BUG FIX: `add` was only bounded by the per-turn action cap + content
+    dedup, so a deck could grow unbounded over many turns. Once a project is
+    at MAX_PROJECT_ITEMS_PER_PROJECT, `add` must skip (no-op), not raise."""
+    session = AsyncMock()
+    user_id = uuid4()
+    project = _project("English")
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "count_for_project",
+            AsyncMock(return_value=projects_service.MAX_PROJECT_ITEMS_PER_PROJECT),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "create",
+            AsyncMock(),
+        ) as create_mock,
+    ):
+        applied = await projects_service.apply_project_actions(
+            session,
+            user_id=user_id,
+            actions=[
+                ProjectActionItem(
+                    action="add",
+                    project_title="English",
+                    list_title="nouns",
+                    content="new word",
+                ),
+            ],
+        )
+    assert applied == 0
+    create_mock.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -1431,6 +1487,11 @@ async def test_apply_project_extraction_result_blocks_destructive_actions():
             "create",
             AsyncMock(return_value=_item("apple", project.id, list_title="nouns")),
         ) as create_mock,
+        patch.object(
+            projects_service.project_items_repo,
+            "count_for_project",
+            AsyncMock(return_value=0),
+        ),
     ):
         applied = await projects_service._apply_project_extraction_result(
             session, user_id=user_id, chat_id=chat_id, result=result
@@ -1477,6 +1538,11 @@ async def test_apply_project_extraction_result_caps_actions_per_turn():
             "create",
             AsyncMock(side_effect=lambda *a, **kw: _item(kw["content"], project.id)),
         ) as create_mock,
+        patch.object(
+            projects_service.project_items_repo,
+            "count_for_project",
+            AsyncMock(return_value=0),
+        ),
     ):
         applied = await projects_service._apply_project_extraction_result(
             session, user_id=user_id, chat_id=chat_id, result=result

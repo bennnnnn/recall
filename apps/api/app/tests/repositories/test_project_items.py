@@ -94,6 +94,18 @@ async def test_get_by_id_returns_item(fake_session):
 
 
 @pytest.mark.asyncio
+async def test_count_for_project_returns_scalar_count(fake_session):
+    mock_result = MagicMock()
+    mock_result.scalar_one.return_value = 42
+    fake_session.execute.return_value = mock_result
+
+    result = await repo.count_for_project(fake_session, uuid4(), uuid4())
+
+    assert result == 42
+    fake_session.execute.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_count_stats_aggregates_statuses(fake_session):
     project_id = uuid4()
     user_id = uuid4()
