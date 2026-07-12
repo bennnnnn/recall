@@ -130,17 +130,17 @@ export default function SettingsScreen() {
 
   const displayName = getDisplayName(user?.name, t("common.you"));
   const remainingPct = usage ? Math.round(usageRemainingPercent(usage)) : null;
-  const accountLabel = isPro ? t("settings.pro") : t("settings.free");
+  const accountLabel = isPro ? t("settings.account_pro") : t("settings.account_free");
   const selectedLanguage =
     LANGUAGES.find((l) => l.code === (user?.locale ?? "en")) ?? LANGUAGES[0];
   const memoryValue = user?.memory_enabled ? t("settings.on") : t("settings.off");
   const modelsValue = autoEnabled
-    ? t("settings.auto")
-    : t("settings.models_count", { count: modelEnabledSet.size });
+    ? t("settings.model_auto")
+    : t("settings.models_enabled", { count: modelEnabledSet.size });
   const integrationsValue =
     connectedCount > 0
-      ? t("settings.integrations_count", { count: connectedCount })
-      : t("settings.none");
+      ? t("settings.integrations_connected", { count: connectedCount })
+      : t("settings.integration_not_connected");
 
   const fieldTitle =
     editField === "name"
