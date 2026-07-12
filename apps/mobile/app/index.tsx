@@ -223,7 +223,7 @@ function ChatScreen() {
   const { isOffline } = useNetwork();
 
   const openUpgradeRef = useRef<(() => void) | null>(null);
-  const openImageGenRef = useRef<(() => void) | null>(null);
+  const openImageGenRef = useRef<((prefill?: string) => void) | null>(null);
 
   const imageGen = useImageGeneration({
     token,
@@ -266,10 +266,7 @@ function ChatScreen() {
     onStreamBusy: handleStreamBusy,
     isOffline,
     resolveQuizProjectId,
-    onOpenImageGen: () => openImageGenRef.current?.(),
-    onSubmitImageGen: (prompt) => void imageGen.submitPrompt(prompt),
-    isPro,
-    onOpenUpgrade: () => openUpgradeRef.current?.(),
+    onOpenImageGen: (prefill) => openImageGenRef.current?.(prefill),
     imageGenerating: imageGen.generating,
   });
 
@@ -460,6 +457,8 @@ function ChatScreen() {
     setEditingMessageId,
     handlePickAttachment,
     handleAttachmentSheetSelect,
+    onOpenImageGen: () => imageGen.openPrompt(),
+    imageGenerating: imageGen.generating,
     stopGeneration,
     isOffline,
     voiceRecording,
@@ -497,6 +496,7 @@ function ChatScreen() {
       <ImageGenPromptSheet
         visible={imageGen.promptOpen}
         generating={imageGen.generating}
+        initialPrompt={imageGen.initialPrompt}
         onClose={() => imageGen.setPromptOpen(false)}
         onSubmit={(prompt) => void imageGen.submitPrompt(prompt)}
       />

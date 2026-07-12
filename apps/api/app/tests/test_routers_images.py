@@ -61,6 +61,45 @@ def test_generate_image_quota_exhausted():
     assert r.status_code == 429
 
 
+def test_generate_image_rejects_oversized_result():
+    """BUG FIX: last-line-of-defense size check in the router, matching the
+    presign + actual-bytes double-check every normal attachment upload gets."""
+    from app.services.attachment_content import MAX_ATTACHMENT_SIZE
+
+    user = _fake_user(plan="pro")
+    chat_id = uuid4()
+    app = _app_with_user(user)
+
+    chat = MagicMock(spec=Chat)
+    chat.id = chat_id
+
+    fake_redis = AsyncMock()
+    fake_redis.incrby = AsyncMock(return_value=1)
+    fake_redis.expire = AsyncMock()
+
+    oversized = b"\x89PNG\r\n\x1a\n" + b"0" * MAX_ATTACHMENT_SIZE
+
+    with (
+        patch("app.routers.images.get_redis_client", return_value=fake_redis),
+        patch("app.routers.images.chats_repo.get_by_id", AsyncMock(return_value=chat)),
+        patch(
+            "app.routers.images.image_generation_service.generate_image",
+            AsyncMock(return_value=(oversized, "image/png")),
+        ),
+    ):
+        client = TestClient(app)
+        r = client.post(
+            "/images/generate",
+            headers={"Authorization": "Bearer tok"},
+            json={"chat_id": str(chat_id), "prompt": "a cat"},
+        )
+
+    assert r.status_code == 502
+    # Reserved once (+1) on entry, refunded once (-1) after the size check rejects it.
+    assert fake_redis.incrby.await_count == 2
+    assert fake_redis.incrby.await_args_list[1].args[1] == -1
+
+
 def test_generate_image_success():
     user = _fake_user(plan="pro")
     chat_id = uuid4()

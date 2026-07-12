@@ -2,16 +2,22 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  ImageSourcePropType,
   Pressable,
   StyleSheet,
   useWindowDimensions,
   View,
 } from "react-native";
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
 import { AttachmentImageViewer } from "@/components/AttachmentImageViewer";
 import { useAuth } from "@/contexts/AuthContext";
 import { getApiUrl } from "@/lib/config";
 import { Theme, useTheme } from "@/lib/theme";
+
+const AnimatedImage = Animated.createAnimatedComponent(Image);
+const REVEAL_DURATION_MS = 280;
+const REVEAL_BLUR_RADIUS = 16;
 
 type Props = {
   attachmentId?: string | null;
@@ -21,11 +27,60 @@ type Props = {
 };
 
 /** ~1/3 screen width, slightly portrait — matches Claude-style chat thumbnails. */
-function useThumbnailSize() {
+export function useThumbnailSize() {
   const { width: screenWidth } = useWindowDimensions();
   const width = Math.round(Math.min(screenWidth * 0.34, 148));
   const height = Math.round(width * 1.28);
   return { width, height };
+}
+
+type RevealingImageProps = {
+  source: ImageSourcePropType;
+  style: ReturnType<typeof makeStyles>["preview"];
+  layerStyle: ReturnType<typeof makeStyles>["layer"];
+  onError: () => void;
+};
+
+/** Owns the blur→sharp reveal animation for one image load. Keyed by URI at
+ * the call site so a different image gets a fresh shared value on mount
+ * instead of an imperative reset. */
+function RevealingImage({ source, style, layerStyle, onError }: RevealingImageProps) {
+  const reveal = useSharedValue(0);
+  const sharpStyle = useAnimatedStyle(() => ({ opacity: reveal.value }));
+  const blurStyle = useAnimatedStyle(() => ({ opacity: 1 - reveal.value }));
+
+  const handleLoad = () => {
+    // Reanimated shared values are designed to be mutated from any JS-thread
+    // callback, including a plain event handler like this one — this isn't
+    // the kind of render-purity violation the immutability rule exists to
+    // catch. The rule doesn't yet recognize SharedValue as an exempt
+    // mutable-ref type (a known gap for Reanimated under React Compiler).
+    // eslint-disable-next-line react-hooks/immutability
+    reveal.value = withTiming(1, {
+      duration: REVEAL_DURATION_MS,
+      easing: Easing.out(Easing.ease),
+    });
+  };
+
+  return (
+    <>
+      {/* Blurred layer fades out as the sharp layer fades in — a soft
+          "develop" reveal rather than a hard pop once decoded. */}
+      <AnimatedImage
+        source={source}
+        style={[style, layerStyle, blurStyle]}
+        resizeMode="cover"
+        blurRadius={REVEAL_BLUR_RADIUS}
+      />
+      <AnimatedImage
+        source={source}
+        style={[style, layerStyle, sharpStyle]}
+        resizeMode="cover"
+        onLoad={handleLoad}
+        onError={onError}
+      />
+    </>
+  );
 }
 
 export function ChatMessageImage({ attachmentId, localUri, path, fileName }: Props) {
@@ -68,7 +123,13 @@ export function ChatMessageImage({ attachmentId, localUri, path, fileName }: Pro
               <ActivityIndicator color={C.textTertiary} />
             </View>
           ) : (
-            <Image source={source} style={s.preview} resizeMode="cover" />
+            <RevealingImage
+              key={remoteUri}
+              source={source}
+              style={s.preview}
+              layerStyle={s.layer}
+              onError={() => setFailed(true)}
+            />
           )}
         </View>
       </Pressable>
@@ -97,6 +158,11 @@ function makeStyles(C: Theme, width: number, height: number) {
     preview: {
       width: "100%",
       height: "100%",
+    },
+    layer: {
+      position: "absolute",
+      top: 0,
+      left: 0,
     },
     fallback: {
       alignItems: "center",

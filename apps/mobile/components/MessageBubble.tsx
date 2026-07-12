@@ -8,6 +8,7 @@ import { PlacesListBlock } from "@/components/PlacesListBlock";
 import { CollapsibleMessageBody } from "@/components/CollapsibleMessageBody";
 import { UserMessageContent } from "@/components/UserMessageContent";
 import { ChatMessageImage } from "@/components/ChatMessageImage";
+import { ImageGenPlaceholder } from "@/components/ImageGenPlaceholder";
 import { SearchSourcesStack } from "@/components/SearchSourcesStack";
 import { CircularClockBlock } from "@/components/rich/CircularClockBlock";
 import { MarkdownContent } from "@/components/MarkdownContent";
@@ -303,10 +304,17 @@ export const MessageBubble = React.memo(function MessageBubble({
             collapsible={false}
           >
             {isStreaming && !hasContent ? (
-              <View style={b.waitingWrap}>
-                <RecallTypingIndicator />
-                {statusLabel ? <Text style={b.statusLabel}>{statusLabel}</Text> : null}
-              </View>
+              streamStatus === "image_gen" ? (
+                <View style={b.imageGenWaitingWrap}>
+                  <ImageGenPlaceholder />
+                  {statusLabel ? <Text style={b.statusLabel}>{statusLabel}</Text> : null}
+                </View>
+              ) : (
+                <View style={b.waitingWrap}>
+                  <RecallTypingIndicator />
+                  {statusLabel ? <Text style={b.statusLabel}>{statusLabel}</Text> : null}
+                </View>
+              )
             ) : null}
             {showImages
               ? images.map((image, index) => (
@@ -418,6 +426,12 @@ function makeStyles(t: Theme) {
       flexDirection: "row",
       alignItems: "center",
       gap: 10,
+      paddingVertical: 4,
+    },
+    imageGenWaitingWrap: {
+      flexDirection: "column",
+      alignItems: "flex-start",
+      gap: 8,
       paddingVertical: 4,
     },
     statusLabel: {

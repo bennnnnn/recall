@@ -71,6 +71,8 @@ export type ChatScreenBodyProps = {
   onCancelEdit: () => void;
   onPickAttachment: () => void;
   onAttachmentSource: (source: AttachmentSource) => void;
+  onOpenImageGen: () => void;
+  imageGenerating: boolean;
   onSend: () => void;
   onStop: () => void;
   isOffline: boolean;
@@ -132,6 +134,8 @@ export function ChatScreenBody({
   onCancelEdit,
   onPickAttachment,
   onAttachmentSource,
+  onOpenImageGen,
+  imageGenerating,
   onSend,
   onStop,
   isOffline,
@@ -224,6 +228,8 @@ export function ChatScreenBody({
         onCloseAttachSheet={onCloseAttachSheet}
         onPickAttachment={onPickAttachment}
         onAttachmentSource={onAttachmentSource}
+        onOpenImageGen={onOpenImageGen}
+        imageGenerating={imageGenerating}
         onSend={onSend}
         onStop={onStop}
         isOffline={isOffline}
