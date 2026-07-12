@@ -13,6 +13,7 @@ from app.services.daily_learning import (
     goal_effective_on_date,
     group_mastered_items_by_date,
     group_missed_items_by_date,
+    infer_daily_goal_history,
     start_of_today_utc,
 )
 
@@ -421,6 +422,42 @@ def test_append_daily_goal_history_records_change_from_today():
         {"effective_from": "2026-07-07", "goal": 5},
         {"effective_from": "2026-07-08", "goal": 10},
     ]
+
+
+def test_infer_daily_goal_history_ignores_single_day_evidence():
+    """A single day matching the prior standard tier's count is too weak a signal to
+    infer a goal-change era — it's a common false positive (the user just stopped a
+    bit early one day), not real history. See infer_daily_goal_history's docstring."""
+    created = datetime(2026, 1, 1, tzinfo=UTC)
+    project = SimpleNamespace(daily_goal=10, kind="language", created_at=created)
+    day_a = datetime(2026, 1, 5, 12, tzinfo=UTC)
+    items = [
+        _item(status="mastered", mastered=True, created_at=created, mastered_at=day_a)
+        for _ in range(5)
+    ]
+
+    history = infer_daily_goal_history(project, items, timezone_name="UTC")
+
+    assert history == [{"effective_from": created.date().isoformat(), "goal": 10}]
+
+
+def test_infer_daily_goal_history_infers_from_multiple_days_of_evidence():
+    created = datetime(2026, 1, 1, tzinfo=UTC)
+    project = SimpleNamespace(daily_goal=10, kind="language", created_at=created)
+    day_a = datetime(2026, 1, 5, 12, tzinfo=UTC)
+    day_b = datetime(2026, 1, 6, 12, tzinfo=UTC)
+    items = [
+        _item(status="mastered", mastered=True, created_at=created, mastered_at=day_a)
+        for _ in range(5)
+    ] + [
+        _item(status="mastered", mastered=True, created_at=created, mastered_at=day_b)
+        for _ in range(5)
+    ]
+
+    history = infer_daily_goal_history(project, items, timezone_name="UTC")
+
+    assert history[0] == {"effective_from": created.date().isoformat(), "goal": 5}
+    assert history[1]["goal"] == 10
 
 
 def test_day_goal_for_history_honors_exact_prior_tier_completion():

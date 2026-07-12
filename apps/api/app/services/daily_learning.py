@@ -208,7 +208,14 @@ def infer_daily_goal_history(
     *,
     timezone_name: str,
 ) -> list[dict[str, int | str]]:
-    """Best-effort backfill when goal changes were not logged."""
+    """Best-effort backfill when goal changes were not logged.
+
+    KNOWN LIMITATION: this only samples mastered_count per day, so it can
+    fabricate a fictitious earlier lower-goal era from what was really just a
+    day the user happened to stop a bit early. Only used as a fallback when
+    <=1 daily_goal_history entries are stored — the real PATCH-driven path
+    (append_daily_goal_history) is authoritative and doesn't use this.
+    """
     current = resolve_daily_goal(project)
     tz = _timezone(timezone_name)
     created = _as_utc(getattr(project, "created_at", datetime.now(UTC))).astimezone(tz).date()
@@ -225,7 +232,10 @@ def infer_daily_goal_history(
         return [{"effective_from": created.isoformat(), "goal": current}]
 
     days_at_prior = [day for day, count in mastered_by_day.items() if count >= prior]
-    if not days_at_prior:
+    # Require more than one day hitting the prior tier before inferring a goal
+    # change — a single matching day is too weak a signal (see KNOWN LIMITATION
+    # above) and is a common source of a fabricated earlier-goal era.
+    if len(days_at_prior) <= 1:
         return [{"effective_from": created.isoformat(), "goal": current}]
 
     days_between = [day for day, count in mastered_by_day.items() if prior < count < current]
