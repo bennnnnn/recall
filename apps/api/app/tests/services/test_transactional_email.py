@@ -61,6 +61,35 @@ def test_build_todo_reminder_includes_content():
     assert "Ada" in html
 
 
+def test_build_todo_reminder_escapes_html_but_not_text():
+    """BUG FIX (was silent): content/title/name used to be interpolated into
+    the html template completely unescaped — a todo titled with an HTML tag
+    would render as live markup in the recipient's email client. The text
+    variant must stay unescaped (plain text doesn't need it)."""
+    user = _user(name="<b>Ada</b>", locale="en")
+    _, html, text = tx_email.build_todo_reminder(
+        user, title="Reminder", content="<script>alert(1)</script>"
+    )
+    assert "<script>" not in html
+    assert "&lt;script&gt;" in html
+    assert "<b>Ada</b>" not in html
+    assert "&lt;b&gt;Ada&lt;/b&gt;" in html
+    # Text variant is unescaped — plain text rendering, not HTML.
+    assert "<script>alert(1)</script>" in text
+
+
+def test_build_todo_reminder_strips_newlines_from_subject():
+    """Defense-in-depth: user content must never reach the Subject line with
+    embedded CR/LF, regardless of whether this specific provider is known to
+    be exploitable via header injection."""
+    user = _user(name="Ada", locale="en")
+    subject, _, _ = tx_email.build_todo_reminder(
+        user, title="Reminder", content="Call mom\r\nBcc: evil@example.com"
+    )
+    assert "\r" not in subject
+    assert "\n" not in subject
+
+
 def test_build_learning_nudge_includes_body():
     user = _user(name="Ada", locale="en")
     subject, html, text = tx_email.build_learning_nudge(
@@ -69,6 +98,18 @@ def test_build_learning_nudge_includes_body():
     assert subject == "Time to learn"
     assert "Spanish" in text
     assert "Ada" in html
+
+
+def test_build_learning_nudge_escapes_html_body():
+    """A learning project title (embedded in the nudge body) is user-entered
+    and must be escaped in the html variant — same bug class as todo_reminder."""
+    user = _user(name="Ada", locale="en")
+    _, html, text = tx_email.build_learning_nudge(
+        user, body='Keep going with "<img src=x onerror=alert(1)>"'
+    )
+    assert "<img" not in html
+    assert "&lt;img" in html
+    assert "<img src=x onerror=alert(1)>" in text
 
 
 def test_build_receipt_includes_event_and_optional_fields():
@@ -94,6 +135,23 @@ def test_build_receipt_without_optional_fields_does_not_render_placeholders():
     assert "RENEWAL" in text
     # No expiration line when not provided.
     assert "Renews:" not in text
+
+
+def test_build_receipt_escapes_html_fields():
+    """event_type/store/product_id come from RevenueCat webhook data — less
+    trusted than direct user input — and must be escaped in the html variant
+    without corrupting the intentional <br/> separators around them."""
+    user = _user(name="Bo", locale="en")
+    _, html, text = tx_email.build_receipt(
+        user,
+        event_type="<script>alert(1)</script>",
+        store="app_store",
+        product_id="recall.pro.monthly",
+    )
+    assert "<script>" not in html
+    assert "&lt;script&gt;" in html
+    assert "<br/>" in html  # the real separator survives escaping the fields around it
+    assert "<script>alert(1)</script>" in text
 
 
 @pytest.mark.asyncio

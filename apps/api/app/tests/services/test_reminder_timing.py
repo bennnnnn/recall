@@ -7,6 +7,7 @@ import pytest
 from app.services.reminder_timing import (
     DEFAULT_REMINDER_LEAD_MINUTES,
     learning_dedupe_key,
+    reminder_title,
     resolve_reminder_lead_minutes,
     should_notify_todo,
     user_day_key,
@@ -50,6 +51,18 @@ def test_user_local_hour_and_day_key_use_user_timezone():
     user.timezone = "UTC"
     assert user_local_hour(user) == datetime.now(UTC).hour
     assert user_day_key(user) == datetime.now(UTC).strftime("%Y-%m-%d")
+
+
+def test_reminder_title_localizes_and_distinguishes_overdue():
+    """Shared by both push and email so they can't drift apart on this — see
+    the BUG FIX comment above _REMINDER_TITLES."""
+    assert reminder_title(is_overdue=False, locale="en") == "Reminder"
+    assert reminder_title(is_overdue=True, locale="en") == "Overdue reminder"
+    assert reminder_title(is_overdue=False, locale="es") == "Recordatorio"
+    assert reminder_title(is_overdue=True, locale="es") == "Recordatorio atrasado"
+    # Unsupported/unset locale falls back to English rather than crashing.
+    assert reminder_title(is_overdue=False, locale=None) == "Reminder"
+    assert reminder_title(is_overdue=False, locale="am") == "Reminder"
 
 
 def test_learning_dedupe_key_scopes_by_prefix_user_and_day():

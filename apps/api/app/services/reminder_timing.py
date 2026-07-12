@@ -7,6 +7,7 @@ from uuid import UUID
 
 from app.models.orm import User
 from app.services import time_context as time_context_service
+from app.services.locale import normalize_locale_code
 
 DEFAULT_REMINDER_LEAD_MINUTES = 10
 MAX_REMINDER_LEAD_MINUTES = 60
@@ -55,3 +56,25 @@ def user_day_key(user: User) -> str:
 
 def learning_dedupe_key(prefix: str, user_id: UUID, day_key: str) -> str:
     return f"{prefix}:{user_id}:{day_key}"
+
+
+# BUG FIX: reminder_emails.py used to hardcode "Reminder"/"Overdue reminder" in
+# English directly, never localizing it, even though push_notifications.py's
+# equivalent (title) was already locale-aware. Shared here — same reasoning as
+# the helpers above — so push and email can't drift on this either.
+_REMINDER_TITLES: dict[str, dict[str, str]] = {
+    "en": {"reminder": "Reminder", "overdue": "Overdue reminder"},
+    "es": {"reminder": "Recordatorio", "overdue": "Recordatorio atrasado"},
+    "fr": {"reminder": "Rappel", "overdue": "Rappel en retard"},
+    "de": {"reminder": "Erinnerung", "overdue": "Überfällige Erinnerung"},
+    "it": {"reminder": "Promemoria", "overdue": "Promemoria in ritardo"},
+    "pt": {"reminder": "Lembrete", "overdue": "Lembrete atrasado"},
+    "ru": {"reminder": "Напоминание", "overdue": "Просроченное напоминание"},
+    "tr": {"reminder": "Hatırlatma", "overdue": "Gecikmiş hatırlatma"},
+}
+
+
+def reminder_title(*, is_overdue: bool, locale: str | None) -> str:
+    code = normalize_locale_code(locale)
+    bundle = _REMINDER_TITLES.get(code, _REMINDER_TITLES["en"])
+    return bundle["overdue"] if is_overdue else bundle["reminder"]

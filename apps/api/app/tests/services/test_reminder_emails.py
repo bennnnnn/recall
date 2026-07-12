@@ -62,6 +62,67 @@ async def test_process_todo_reminder_emails_sends_and_marks():
 
 
 @pytest.mark.asyncio
+async def test_process_todo_reminder_emails_isolates_one_todo_failure():
+    """BUG FIX (was cycle-fatal): one bad row must not prevent other users'
+    todo reminder emails from being sent in the same cycle."""
+    now = datetime.now(UTC)
+    good_user_1 = _user()
+    bad_user = _user()
+    good_user_2 = _user()
+    good_todo_1 = _todo(due_at=now + timedelta(minutes=5), user_id=good_user_1.id)
+    bad_todo = _todo(due_at=now + timedelta(minutes=5), user_id=bad_user.id)
+    good_todo_2 = _todo(due_at=now + timedelta(minutes=5), user_id=good_user_2.id)
+
+    session = AsyncMock()
+    result = MagicMock()
+    result.all.return_value = [
+        (good_todo_1, good_user_1),
+        (bad_todo, bad_user),
+        (good_todo_2, good_user_2),
+    ]
+    session.execute = AsyncMock(return_value=result)
+    session.commit = AsyncMock()
+
+    async def fake_send(settings, user, *, title, content):
+        if user.id == bad_user.id:
+            raise RuntimeError("boom: send failed")
+        return True
+
+    with patch(
+        "app.services.reminder_emails.tx_email.send_todo_reminder",
+        AsyncMock(side_effect=fake_send),
+    ):
+        count = await reminder_emails.process_todo_reminder_emails(session, _settings(), now=now)
+
+    assert count == 2
+    assert good_todo_1.email_sent_at == now
+    assert good_todo_2.email_sent_at == now
+    assert bad_todo.email_sent_at is None
+
+
+@pytest.mark.asyncio
+async def test_process_todo_reminder_emails_localizes_title():
+    now = datetime.now(UTC)
+    user = _user()
+    user.locale = "es"
+    todo = _todo(due_at=now + timedelta(minutes=5), user_id=user.id)
+    session = AsyncMock()
+    result = MagicMock()
+    result.all.return_value = [(todo, user)]
+    session.execute = AsyncMock(return_value=result)
+    session.commit = AsyncMock()
+
+    with patch(
+        "app.services.reminder_emails.tx_email.send_todo_reminder",
+        AsyncMock(return_value=True),
+    ) as send:
+        await reminder_emails.process_todo_reminder_emails(session, _settings(), now=now)
+
+    send.assert_awaited_once()
+    assert send.await_args.kwargs["title"] == "Recordatorio"
+
+
+@pytest.mark.asyncio
 async def test_process_todo_reminder_emails_skips_when_opted_out():
     now = datetime.now(UTC)
     session = AsyncMock()

@@ -39,6 +39,7 @@ from app.services.locale import normalize_locale_code
 from app.services.reminder_timing import (
     MAX_REMINDER_LEAD_MINUTES,
     OVERDUE_MAX_HOURS,
+    reminder_title,
     resolve_reminder_lead_minutes,
     should_notify_todo,
 )
@@ -62,57 +63,41 @@ class OutboundPush:
 
 _PUSH_STRINGS: dict[str, dict[str, str]] = {
     "en": {
-        "reminder": "Reminder",
-        "overdue": "Overdue reminder",
         "from_inbox": "From your inbox",
         "time_to_learn": "Time to learn",
         "email_plural": "{count} reminders from your email — tap to review",
     },
     "es": {
-        "reminder": "Recordatorio",
-        "overdue": "Recordatorio atrasado",
         "from_inbox": "Desde tu bandeja",
         "time_to_learn": "Hora de aprender",
         "email_plural": "{count} recordatorios de tu correo — toca para revisar",
     },
     "fr": {
-        "reminder": "Rappel",
-        "overdue": "Rappel en retard",
         "from_inbox": "Depuis votre boîte",
         "time_to_learn": "Temps d'apprendre",
         "email_plural": "{count} rappels de votre courriel — appuyez pour voir",
     },
     "de": {
-        "reminder": "Erinnerung",
-        "overdue": "Überfällige Erinnerung",
         "from_inbox": "Aus deinem Postfach",
         "time_to_learn": "Zeit zum Lernen",
         "email_plural": "{count} Erinnerungen aus deiner E-Mail — tippen zum Ansehen",
     },
     "it": {
-        "reminder": "Promemoria",
-        "overdue": "Promemoria in ritardo",
         "from_inbox": "Dalla tua casella",
         "time_to_learn": "Ora di imparare",
         "email_plural": "{count} promemoria dalla tua email — tocca per vedere",
     },
     "pt": {
-        "reminder": "Lembrete",
-        "overdue": "Lembrete atrasado",
         "from_inbox": "Da sua caixa de entrada",
         "time_to_learn": "Hora de aprender",
         "email_plural": "{count} lembretes do seu e-mail — toque para ver",
     },
     "ru": {
-        "reminder": "Напоминание",
-        "overdue": "Просроченное напоминание",
         "from_inbox": "Из вашего ящика",
         "time_to_learn": "Время учиться",
         "email_plural": "{count} напоминаний из почты — нажмите для просмотра",
     },
     "tr": {
-        "reminder": "Hatırlatma",
-        "overdue": "Gecikmiş hatırlatma",
         "from_inbox": "Gelen kutunuzdan",
         "time_to_learn": "Öğrenme zamanı",
         "email_plural": "E-postanızdan {count} hatırlatma — görmek için dokunun",
@@ -279,8 +264,7 @@ async def process_todo_reminders(
             if not tokens:
                 continue
             is_overdue = todo.due_at < now
-            strings = _push_strings(getattr(user, "locale", None))
-            title = strings["overdue"] if is_overdue else strings["reminder"]
+            title = reminder_title(is_overdue=is_overdue, locale=getattr(user, "locale", None))
             _append_outbound(
                 messages,
                 tokens,
