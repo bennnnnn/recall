@@ -80,6 +80,14 @@ async def _apply_consolidation_result(
     await session.commit()
     await invalidate_memory_block(user_id)
 
+    # BUG FIX: consolidation rewrites memory text (e.g. merging duplicate
+    # facts) just like extraction does, but only extraction invalidated the
+    # home screen's cached starter chips. A consolidation-only rewrite could
+    # leave a stale memory-derived starter visible for up to home_cache_ttl.
+    from app.services import home as home_service
+
+    await home_service.invalidate_home_cache(user_id)
+
 
 def _accept_merged_summary(
     *,

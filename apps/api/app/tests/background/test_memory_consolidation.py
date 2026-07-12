@@ -105,6 +105,63 @@ async def test_consolidate_merges_messy_sections():
 
 
 @pytest.mark.asyncio
+async def test_consolidate_invalidates_home_cache():
+    """BUG FIX: consolidation rewrites memory text just like extraction does,
+    but only extraction invalidated the home screen's cached starter chips —
+    a consolidation-only rewrite could leave a stale starter visible for up
+    to home_cache_ttl."""
+    user_id = uuid4()
+    memory = AsyncMock()
+    memory.type = "profile"
+    memory.text = "User's name is Bini. User's name is Binalfew. User is a developer."
+
+    merged = MemorySectionItem(
+        type="profile",
+        summary=(
+            "Bini (Binalfew) is a software developer who builds mobile apps "
+            "and backend services for Recall."
+        ),
+        confidence=0.9,
+    )
+
+    _, session_locals = _consolidation_sessions(count=2)
+    with (
+        patch(
+            "app.background.memory_consolidation.SessionLocal",
+            side_effect=session_locals,
+        ),
+        patch(
+            "app.background.memory_consolidation.memories_repo.list_for_user",
+            AsyncMock(return_value=[memory]),
+        ),
+        patch(
+            "app.background.memory_consolidation.litellm_gateway.merge_memory_section",
+            AsyncMock(return_value=merged),
+        ),
+        patch(
+            "app.background.memory_consolidation.memories_repo.upsert_sections",
+            AsyncMock(),
+        ),
+        patch(
+            "app.background.memory_consolidation.invalidate_memory_block",
+            AsyncMock(),
+        ),
+        patch(
+            "app.gateways.embedding_gateway.embed_text",
+            AsyncMock(return_value=[0.1, 0.2, 0.3]),
+        ),
+        patch(
+            "app.services.home.invalidate_home_cache",
+            AsyncMock(),
+        ) as invalidate_home,
+    ):
+        changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
+
+    assert changed is True
+    invalidate_home.assert_awaited_once_with(user_id)
+
+
+@pytest.mark.asyncio
 async def test_consolidate_skips_suspiciously_short_merge():
     user_id = uuid4()
     memory = AsyncMock()
