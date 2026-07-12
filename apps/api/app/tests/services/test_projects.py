@@ -1302,6 +1302,110 @@ async def test_apply_project_actions_add_not_skipped_as_fuzzy_duplicate():
 
 
 @pytest.mark.asyncio
+async def test_apply_project_extraction_result_blocks_destructive_actions():
+    """PROJECT_BLOCKED_FROM_TRANSCRIPT is what stops the LLM from deleting a
+    whole project/list via chat. Nothing previously exercised
+    _apply_project_extraction_result itself or asserted a delete_project /
+    delete_list action from LLM extraction never reaches the repo layer —
+    this asserts the repo deletes are never called, while a legitimate
+    non-destructive action in the same extraction result still applies."""
+    from app.models.schemas import ProjectExtractionResult
+
+    session = AsyncMock()
+    user_id = uuid4()
+    chat_id = uuid4()
+    project = _project("English")
+    result = ProjectExtractionResult(
+        actions=[
+            ProjectActionItem(action="delete_project", project_title="English"),
+            ProjectActionItem(
+                action="add", project_title="English", list_title="nouns", content="apple"
+            ),
+            ProjectActionItem(action="delete_list", project_title="English", list_title="Travel"),
+        ]
+    )
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            projects_service.projects_repo,
+            "delete_by_id",
+            AsyncMock(return_value=True),
+        ) as delete_project_mock,
+        patch.object(
+            projects_service.project_items_repo,
+            "delete_by_list",
+            AsyncMock(return_value=2),
+        ) as delete_list_mock,
+        patch.object(
+            projects_service.project_items_repo,
+            "create",
+            AsyncMock(return_value=_item("apple", project.id, list_title="nouns")),
+        ) as create_mock,
+    ):
+        applied = await projects_service._apply_project_extraction_result(
+            session, user_id=user_id, chat_id=chat_id, result=result
+        )
+
+    assert applied == 1
+    delete_project_mock.assert_not_awaited()
+    delete_list_mock.assert_not_awaited()
+    create_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_apply_project_extraction_result_caps_actions_per_turn():
+    """More than MAX_PROJECT_ACTIONS_PER_TURN actions in one extraction
+    result must only have the cap's worth applied."""
+    from app.models.schemas import ProjectExtractionResult
+
+    session = AsyncMock()
+    user_id = uuid4()
+    chat_id = uuid4()
+    project = _project("English")
+    over_cap = projects_service.MAX_PROJECT_ACTIONS_PER_TURN + 2
+    result = ProjectExtractionResult(
+        actions=[
+            ProjectActionItem(
+                action="add", project_title="English", list_title="nouns", content=f"word{i}"
+            )
+            for i in range(over_cap)
+        ]
+    )
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "create",
+            AsyncMock(side_effect=lambda *a, **kw: _item(kw["content"], project.id)),
+        ) as create_mock,
+    ):
+        applied = await projects_service._apply_project_extraction_result(
+            session, user_id=user_id, chat_id=chat_id, result=result
+        )
+
+    assert applied == projects_service.MAX_PROJECT_ACTIONS_PER_TURN
+    assert create_mock.await_count == projects_service.MAX_PROJECT_ACTIONS_PER_TURN
+
+
+@pytest.mark.asyncio
 async def test_sync_projects_from_transcript_applies_litellm_actions():
     from app.models.schemas import ProjectExtractionResult
 
