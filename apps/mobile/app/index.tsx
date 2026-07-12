@@ -457,8 +457,6 @@ function ChatScreen() {
     setEditingMessageId,
     handlePickAttachment,
     handleAttachmentSheetSelect,
-    onOpenImageGen: () => imageGen.openPrompt(),
-    imageGenerating: imageGen.generating,
     stopGeneration,
     isOffline,
     voiceRecording,

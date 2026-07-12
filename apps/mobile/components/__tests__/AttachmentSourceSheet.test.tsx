@@ -7,7 +7,7 @@ jest.mock("@expo/vector-icons", () => ({
 }));
 
 describe("AttachmentSourceSheet", () => {
-  it("no longer offers image generation — moved to a dedicated composer button", async () => {
+  it("no longer offers image generation (text intent + confirmation sheet only)", async () => {
     const onSelect = jest.fn();
     const { queryByText, getByText } = await render(
       <AttachmentSourceSheet onSelect={onSelect} />,
