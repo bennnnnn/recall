@@ -399,6 +399,67 @@ async def test_process_learning_nudges_isolates_one_user_failure():
 
 
 @pytest.mark.asyncio
+async def test_process_learning_nudges_idle_user_sends_nothing_and_releases_dedupe():
+    """Goal met, nothing due for review, no new items: this is the fully-idle
+    case — no push should be sent, and the per-day Redis dedupe key must be
+    released (not left claimed) so a later cycle can retry if state changes."""
+    session = AsyncMock()
+    redis = AsyncMock()
+    settings = Settings(push_learning_hour=0)
+    user_id = uuid4()
+
+    user = MagicMock()
+    user.id = user_id
+    user.timezone = "UTC"
+    user.push_notifications_enabled = True
+    user.locale = "en"
+
+    project = MagicMock()
+    project.id = uuid4()
+    project.user_id = user_id
+    project.title = "Spanish"
+    project.kind = "language"
+
+    session.execute = AsyncMock(return_value=_users_execute_result([user]))
+    redis.set = AsyncMock(return_value=True)
+
+    with (
+        patch.object(
+            push_service.projects_repo,
+            "list_for_users",
+            AsyncMock(return_value=[project]),
+        ),
+        patch.object(
+            push_service.project_items_repo,
+            "count_stats_by_project",
+            AsyncMock(
+                return_value={
+                    project.id: {
+                        "total": 20,
+                        "due_for_review": 0,
+                        "new_count": 0,
+                        "learning_count": 0,
+                        "mastered_count": 20,
+                        "mastered_today": 10,
+                        "missed_today": 0,
+                    }
+                }
+            ),
+        ),
+        patch.object(
+            push_service.push_repo,
+            "list_for_users",
+            AsyncMock(return_value=[]),
+        ),
+    ):
+        messages = await push_service.process_learning_nudges(session, redis, settings)
+
+    assert messages == []
+    expected_key = push_service._learning_redis_key(user_id, push_service._user_day_key(user))
+    redis.delete.assert_awaited_once_with(expected_key)
+
+
+@pytest.mark.asyncio
 async def test_process_learning_nudges_skips_non_learning_projects():
     session = AsyncMock()
     redis = AsyncMock()
