@@ -55,10 +55,52 @@ def _normalize_expr(text: str) -> str:
     return s
 
 
+# Only characters a real math expression ever needs. Rejects backslashes,
+# quotes, braces, semicolons, and every other punctuation a Python-eval
+# gadget would need to reach beyond a plain arithmetic/algebraic expression.
+_SAFE_EXPR_CHARS = re.compile(r"^[\w\s+\-*/().,=<>!]*$")
+_DECIMAL_NUMBER = re.compile(r"\d+\.\d+|\.\d+|\d+\.")
+
+
+def _reject_unsafe_expr(normalized: str) -> None:
+    """BUG FIX (was a live RCE): parse_expr/sympify evaluate the input via
+    Python's eval() internally. Restricting local_dict to declared variable
+    names (as this module already did) only stops BARE names from resolving
+    to something dangerous via auto_symbol — it does nothing to stop
+    ATTRIBUTE ACCESS on an already-resolved object. A Symbol instance is a
+    real Python object, so "x.__class__.__mro__[1].__subclasses__()[N](...)"
+    is valid Python syntax that walks the class hierarchy to reach e.g.
+    subprocess.Popen and executes arbitrary shell commands — entirely inside
+    SymPy's parse-time eval(), no further .doit()/evaluation needed. This is
+    reachable from a plain chat message (math_tools.py's keyword-triggered
+    intent extraction has no sanitization) and from the sympy MCP tool the
+    model can call directly. SymPy's own docs are explicit that
+    sympify/parse_expr must never see untrusted input un-validated.
+
+    Reject anything that isn't plainly arithmetic/algebraic before it ever
+    reaches parse_expr: no "__" (blocks every dunder-attribute gadget chain),
+    no "." outside a decimal number (blocks attribute access while still
+    allowing "3.14"), no "[" or "]" (blocks subscripting), and a strict
+    character allowlist as a second, independent layer against whatever this
+    doesn't anticipate. Do not loosen this without a real threat-model
+    review — this is the only thing standing between a chat message and
+    eval() in the API process.
+    """
+    if "__" in normalized:
+        raise MathServiceError("Invalid expression")
+    if "[" in normalized or "]" in normalized:
+        raise MathServiceError("Invalid expression")
+    if "." in _DECIMAL_NUMBER.sub("", normalized):
+        raise MathServiceError("Invalid expression")
+    if not _SAFE_EXPR_CHARS.match(normalized):
+        raise MathServiceError("Invalid expression")
+
+
 def _parse_expression(expr: str, variable_names: list[str] | None = None):
     normalized = _normalize_expr(expr)
     if len(normalized) > 512:
         raise MathServiceError("Expression too long")
+    _reject_unsafe_expr(normalized)
     local_dict = dict(_LOCALS)
     if variable_names:
         for name in variable_names:
