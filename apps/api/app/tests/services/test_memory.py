@@ -499,3 +499,110 @@ async def test_delete_memory_fact_re_embeds_updated_text():
     update_embed.assert_awaited_once()
     # The text-only fallback must NOT be used when an embedding is available.
     update_text_only.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_delete_memory_fact_matches_by_content_when_index_is_stale():
+    """BUG FIX (was silent): a background job can rewrite the section between
+    when the client loaded it (computing fact_index from its own copy) and
+    when the user taps delete. If the fact the user saw has since moved to a
+    different index, the content match must find and delete the fact at its
+    CURRENT position, not whatever the stale index now points at."""
+    from app.services.memory import delete_memory_fact
+
+    user_id = uuid4()
+    session = AsyncMock()
+    settings = Settings(mock_llm_enabled=True)
+    # Client saw "Beta" at index 1; server's current text has an extra
+    # sentence prepended, so "Beta" is now at index 2.
+    memory = _memory("fact", "Zeta. Alpha. Beta. Gamma.", 0.9)
+    memory.id = uuid4()
+
+    captured: dict = {}
+
+    async def fake_update_text(session, user_id, memory_id, text):
+        captured["text"] = text
+        return memory
+
+    with (
+        patch("app.repositories.memories.get_by_id", AsyncMock(return_value=memory)),
+        patch("app.gateways.embedding_gateway.embed_text", AsyncMock(return_value=None)),
+        patch(
+            "app.repositories.memories.update_text",
+            AsyncMock(side_effect=fake_update_text),
+        ),
+        patch("app.services.memory.invalidate_memory_block", AsyncMock()),
+    ):
+        ok = await delete_memory_fact(
+            session, settings, user_id, memory.id, 1, expected_text="Beta"
+        )
+
+    assert ok is True
+    # "Beta" (found at its real position, index 2) is gone; "Alpha" (the
+    # stale index 1 pointed at it) survives.
+    assert "Beta" not in captured["text"]
+    assert "Alpha" in captured["text"]
+
+
+@pytest.mark.asyncio
+async def test_delete_memory_fact_refuses_when_expected_text_is_gone():
+    """The fact the client saw was already removed/reworded by a background
+    job — refuse rather than guess and delete something else."""
+    from app.services.memory import delete_memory_fact
+
+    user_id = uuid4()
+    session = AsyncMock()
+    settings = Settings(mock_llm_enabled=True)
+    memory = _memory("fact", "Alpha. Gamma.", 0.9)
+    memory.id = uuid4()
+
+    with (
+        patch("app.repositories.memories.get_by_id", AsyncMock(return_value=memory)),
+        patch("app.repositories.memories.update_text", AsyncMock()) as update_text,
+        patch("app.services.memory.invalidate_memory_block", AsyncMock()) as invalidate,
+    ):
+        ok = await delete_memory_fact(
+            session, settings, user_id, memory.id, 1, expected_text="Beta"
+        )
+
+    assert ok is False
+    update_text.assert_not_awaited()
+    invalidate.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_delete_memory_fact_uses_index_among_duplicate_matches():
+    """Two identical facts exist — the client's index disambiguates which
+    occurrence to remove instead of always taking the first."""
+    from app.services.memory import delete_memory_fact
+
+    user_id = uuid4()
+    session = AsyncMock()
+    settings = Settings(mock_llm_enabled=True)
+    memory = _memory("fact", "Alpha. Alpha. Gamma.", 0.9)
+    memory.id = uuid4()
+
+    captured: dict = {}
+
+    async def fake_update_text(session, user_id, memory_id, text):
+        captured["text"] = text
+        return memory
+
+    with (
+        patch("app.repositories.memories.get_by_id", AsyncMock(return_value=memory)),
+        patch("app.gateways.embedding_gateway.embed_text", AsyncMock(return_value=None)),
+        patch(
+            "app.repositories.memories.update_text",
+            AsyncMock(side_effect=fake_update_text),
+        ),
+        patch("app.services.memory.invalidate_memory_block", AsyncMock()),
+    ):
+        ok = await delete_memory_fact(
+            session, settings, user_id, memory.id, 1, expected_text="Alpha"
+        )
+
+    assert ok is True
+    # One "Alpha" removed, one remains (plus Gamma) — proves it didn't
+    # collapse both matches or pick the wrong one arbitrarily.
+    assert captured["text"].count("Alpha") == 1
+    assert "Gamma" in captured["text"]

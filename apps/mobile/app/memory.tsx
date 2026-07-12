@@ -38,7 +38,7 @@ type MemorySectionCardProps = {
   expanded: boolean;
   onToggle: () => void;
   onDeleteSection: () => void;
-  onDeleteFact: (factIndex: number) => void;
+  onDeleteFact: (factIndex: number, factText: string) => void;
 };
 
 function MemorySectionCard({
@@ -87,7 +87,7 @@ function MemorySectionCard({
               <Text style={s.factText}>{fact}</Text>
               <Pressable
                 hitSlop={8}
-                onPress={() => onDeleteFact(index)}
+                onPress={() => onDeleteFact(index, fact)}
                 accessibilityRole="button"
                 accessibilityLabel={t("memory.delete_fact_a11y")}
               >
@@ -279,7 +279,7 @@ export default function MemoryScreen() {
               ],
             );
           }}
-          onDeleteFact={(factIndex) => {
+          onDeleteFact={(factIndex, factText) => {
             if (!token) return;
             Alert.alert(
               t("memory.delete_fact_title"),
@@ -307,9 +307,14 @@ export default function MemoryScreen() {
                       );
                     }
                     try {
-                      await api.deleteMemoryFact(token, section.id, factIndex);
+                      await api.deleteMemoryFact(token, section.id, factIndex, factText);
                     } catch {
+                      // A 404 here can mean a background job already changed this
+                      // fact (see the server-side content-match fix) — reload from
+                      // the server instead of reverting to our now-stale snapshot,
+                      // so the user sees what's actually there.
                       setMemories(snapshot);
+                      void load({ silent: true });
                       Alert.alert(t("common.error"), t("memory.delete_failed"));
                     }
                   },
