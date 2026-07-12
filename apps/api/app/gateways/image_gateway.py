@@ -10,6 +10,7 @@ import httpx
 
 from app.core.config import Settings
 from app.gateways import safe_fetch
+from app.services.attachment_content import MAX_ATTACHMENT_SIZE
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,18 @@ async def generate_via_openrouter(
                 logger.warning("OpenRouter image generation returned invalid b64_json")
                 return None
             if raw:
+                # BUG FIX: every other attachment path (routers/attachments.py)
+                # enforces MAX_ATTACHMENT_SIZE on both presign and the actual
+                # bytes. Generated images skipped that cap entirely — an
+                # oversized provider response would get written straight to
+                # storage/DB with no guard.
+                if len(raw) > MAX_ATTACHMENT_SIZE:
+                    logger.warning(
+                        "OpenRouter image generation b64_json exceeds size cap model=%s bytes=%s",
+                        model,
+                        len(raw),
+                    )
+                    return None
                 return raw, "image/png"
         url = first.get("url")
         if isinstance(url, str) and url.startswith(("http://", "https://")):
@@ -75,8 +88,18 @@ async def generate_via_openrouter(
             ) as client:
                 img_resp = await safe_fetch.fetch_safely(client, url)
                 img_resp.raise_for_status()
-                content_type = img_resp.headers.get("content-type", "image/png").split(";")[0]
+                content_type = (
+                    img_resp.headers.get("content-type", "image/png").split(";")[0].strip().lower()
+                )
                 if img_resp.content:
+                    if len(img_resp.content) > MAX_ATTACHMENT_SIZE:
+                        logger.warning(
+                            "OpenRouter image generation URL response exceeds size cap "
+                            "model=%s bytes=%s",
+                            model,
+                            len(img_resp.content),
+                        )
+                        return None
                     return img_resp.content, content_type or "image/png"
         logger.warning("OpenRouter image generation response missing image payload model=%s", model)
         return None

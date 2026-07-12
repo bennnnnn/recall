@@ -16,7 +16,12 @@ from app.repositories import messages as messages_repo
 from app.services import image_generation as image_generation_service
 from app.services import plan as plan_service
 from app.services import quota as quota_service
-from app.services.attachment_content import bytes_match_claimed, is_image_content_type
+from app.services.attachment_content import (
+    MAX_ATTACHMENT_SIZE,
+    bytes_match_claimed,
+    is_image_content_type,
+    normalize_content_type,
+)
 from app.services.model_catalog import get as get_model
 
 router = APIRouter(prefix="/images", tags=["images"])
@@ -81,6 +86,17 @@ async def generate_image(
                 detail="Could not generate image",
             )
         image_bytes, content_type = generated
+        content_type = normalize_content_type(content_type)
+        # BUG FIX: last-line-of-defense size check, matching the presign +
+        # actual-bytes double-check every normal attachment upload gets in
+        # routers/attachments.py. The gateway already rejects an oversized
+        # provider response, but this keeps the invariant enforced here too
+        # rather than trusting it was applied upstream.
+        if len(image_bytes) > MAX_ATTACHMENT_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Generated image exceeds the maximum allowed size",
+            )
         if not is_image_content_type(content_type):
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
