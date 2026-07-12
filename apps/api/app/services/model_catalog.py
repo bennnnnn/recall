@@ -111,7 +111,7 @@ CATALOG: tuple[ChatModel, ...] = (
     _or(
         id="glm-4-flash",
         label="GLM-4 Flash",
-        model="z-ai/glm-4.5-flash",
+        model="z-ai/glm-4.7-flash",
         description="Zhipu GLM — fast multilingual model.",
         tier="standard",
         plan_access="free",
@@ -199,7 +199,7 @@ CATALOG: tuple[ChatModel, ...] = (
     _or(
         id="image-gen-model",
         label="Image generation",
-        model="black-forest-labs/flux-schnell",
+        model="black-forest-labs/flux.2-klein-4b",
         provider="openrouter",
         selectable=False,
     ),

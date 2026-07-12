@@ -44,7 +44,7 @@ async def test_generate_image_openrouter_b64_json():
     settings = Settings(
         openrouter_api_key="test-key",
         image_generation_enabled=True,
-        image_generation_model="black-forest-labs/flux-schnell",
+        image_generation_model="black-forest-labs/flux.2-klein-4b",
     )
     import base64
 
@@ -87,7 +87,7 @@ async def test_generate_image_openrouter_url_response_is_fetched_ssrf_safely():
     settings = Settings(
         openrouter_api_key="test-key",
         image_generation_enabled=True,
-        image_generation_model="black-forest-labs/flux-schnell",
+        image_generation_model="black-forest-labs/flux.2-klein-4b",
     )
     payload = {"data": [{"url": "https://cdn.example.com/out.png"}]}
     post_response = MagicMock()
@@ -131,7 +131,7 @@ async def test_generate_image_openrouter_url_response_blocks_private_ip():
     settings = Settings(
         openrouter_api_key="test-key",
         image_generation_enabled=True,
-        image_generation_model="black-forest-labs/flux-schnell",
+        image_generation_model="black-forest-labs/flux.2-klein-4b",
     )
     payload = {"data": [{"url": "http://169.254.169.254/latest/meta-data/"}]}
     post_response = MagicMock()

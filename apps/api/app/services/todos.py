@@ -935,7 +935,8 @@ async def _apply_todo_extraction_result(
             )
             await home_service.invalidate_home_cache(user_id)
         else:
-            logger.warning(
+            # Expected when LLM deletes already cleared overdue items this turn.
+            logger.info(
                 "Delete-overdue requested but no overdue open reminders for user_id=%s",
                 user_id,
             )

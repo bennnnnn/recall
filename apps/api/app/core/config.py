@@ -134,7 +134,7 @@ class Settings(BaseSettings):
     daily_speech_tts_pro: int = 100
 
     image_generation_enabled: bool = True
-    image_generation_model: str = "black-forest-labs/flux-schnell"
+    image_generation_model: str = "black-forest-labs/flux.2-klein-4b"
     daily_image_generations: int = 0
     daily_image_generations_pro: int = 10
 

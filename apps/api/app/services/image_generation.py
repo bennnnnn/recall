@@ -43,7 +43,7 @@ async def generate_image(
     if not settings.openrouter_api_key:
         return None
 
-    model = (settings.image_generation_model or "black-forest-labs/flux-schnell").strip()
+    model = (settings.image_generation_model or "black-forest-labs/flux.2-klein-4b").strip()
     return await image_gateway.generate_via_openrouter(
         settings,
         prompt=cleaned,
