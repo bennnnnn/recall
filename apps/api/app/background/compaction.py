@@ -3,6 +3,8 @@ from uuid import UUID
 
 from app.core.config import Settings
 from app.core.db import SessionLocal
+from app.core.redis import get_redis_client
+from app.core.redis_lock import acquire_lock, release_lock
 from app.gateways import litellm_gateway
 from app.models.orm import Chat
 from app.repositories import messages as messages_repo
@@ -15,6 +17,11 @@ from app.services.context_window import (
 
 logger = logging.getLogger(__name__)
 
+# Generous relative to one summarize_conversation call so a normal run never
+# has its lock expire mid-flight (acquire_lock/release_lock are the same
+# token-based compare-and-delete lock used for the periodic schedulers).
+_COMPRESS_LOCK_TTL_SECONDS = 120
+
 
 async def compress_chat_history(settings: Settings, chat_id: UUID) -> None:
     """Fold messages older than the recent window into a rolling chat summary.
@@ -22,6 +29,20 @@ async def compress_chat_history(settings: Settings, chat_id: UUID) -> None:
     Best-effort and batched: runs when enough messages have aged out, or sooner
     when the token budget is tight on long threads.
     """
+    # BUG FIX (was silent, latent): a "compress" job is enqueued on essentially
+    # every turn (see services/chat/post_turn.py) and this worker currently
+    # runs as a single instance, so this was never exploitable in practice —
+    # but nothing stopped two "compress" jobs for the *same* chat_id being
+    # picked up by two different worker instances concurrently once the
+    # worker is scaled beyond 1 (a documented future step). Both would read
+    # the same chat.summary_message_count, summarize overlapping ranges, and
+    # the last commit would silently clobber the other's work. Lock per-chat
+    # for the duration of one compression pass before scaling workers past 1.
+    redis = get_redis_client()
+    lock_key = f"chatcompress:{chat_id}"
+    token = await acquire_lock(redis, lock_key, _COMPRESS_LOCK_TTL_SECONDS)
+    if token is None:
+        return
     try:
         async with SessionLocal() as session:
             chat = await session.get(Chat, chat_id)
@@ -73,3 +94,5 @@ async def compress_chat_history(settings: Settings, chat_id: UUID) -> None:
             await session.commit()
     except Exception:
         logger.exception("History compression failed for chat_id=%s", chat_id)
+    finally:
+        await release_lock(redis, lock_key, token)

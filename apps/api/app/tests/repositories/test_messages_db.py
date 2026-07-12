@@ -142,3 +142,42 @@ async def test_delete_messages_from_respects_tuple_created_at_id_cutoff(db_sessi
 
     remaining = await messages_repo.list_all(db_session, chat.id)
     assert {m.content for m in remaining} == {"before", "same-time-lower-id"}
+
+
+@pytest.mark.asyncio
+async def test_list_range_is_stable_across_created_at_ties(db_session):
+    """BUG FIX (was silent): list_range previously ordered by created_at alone.
+    Postgres doesn't guarantee any particular sub-order among equal
+    created_at values, so background/compaction.py's offset/limit pagination
+    across successive calls could skip or double-count a row at a page
+    boundary whenever two messages landed in the same millisecond. Insert
+    rows with identical created_at in an order that does NOT match their id
+    order (id order != insertion order) — if the (created_at, id) tiebreak
+    in the query is ever dropped, this is very likely to come back in
+    insertion order instead of id order and fail this assertion.
+    """
+    user = await _make_user(db_session)
+    chat = await chats_repo.create(db_session, user_id=user.id, model="free-chat")
+    same_time = datetime(2026, 1, 1, tzinfo=UTC)
+    insertion_order_ids = [3, 1, 4, 0, 2]
+    messages = [
+        _build_message(
+            chat.id,
+            user.id,
+            created_at=same_time,
+            message_id=uuid.UUID(int=i),
+            content=f"m{i}",
+        )
+        for i in insertion_order_ids
+    ]
+    db_session.add_all(messages)
+    await db_session.flush()
+
+    page1 = await messages_repo.list_range(db_session, chat.id, offset=0, limit=2)
+    page2 = await messages_repo.list_range(db_session, chat.id, offset=2, limit=2)
+    page3 = await messages_repo.list_range(db_session, chat.id, offset=4, limit=2)
+
+    # Every row appears exactly once across consecutive pages, in the query's
+    # (created_at, id) order — ascending id here since created_at ties.
+    all_content = [m.content for m in page1 + page2 + page3]
+    assert all_content == ["m0", "m1", "m2", "m3", "m4"]

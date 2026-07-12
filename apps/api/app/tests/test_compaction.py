@@ -27,6 +27,14 @@ def _msg(content="x"):
     return m
 
 
+def _fake_redis(*, acquired: bool = True) -> AsyncMock:
+    """Matches the redis_lock (SET NX EX + Lua compare-and-delete) contract."""
+    redis = AsyncMock()
+    redis.set = AsyncMock(return_value=acquired)
+    redis.eval = AsyncMock(return_value=1)
+    return redis
+
+
 @pytest.mark.asyncio
 async def test_compress_noop_when_tail_fits_budget():
     session = AsyncMock()
@@ -34,7 +42,9 @@ async def test_compress_noop_when_tail_fits_budget():
     chat.summary_message_count = 0
     session.get = AsyncMock(return_value=chat)
     summarize = AsyncMock()
+    redis = _fake_redis()
     with (
+        patch("app.background.compaction.get_redis_client", return_value=redis),
         patch("app.background.compaction.SessionLocal", lambda: _SessionCM(session)),
         patch("app.background.compaction.messages_repo.count_for_chat", AsyncMock(return_value=10)),
         patch(
@@ -46,6 +56,9 @@ async def test_compress_noop_when_tail_fits_budget():
         # 10 short messages all fit the budget → keep=10, aged_out=0 → nothing to do
         await compaction.compress_chat_history(Settings(), uuid4())
     summarize.assert_not_awaited()
+    # Lock acquired then released even on the no-op path.
+    redis.set.assert_awaited_once()
+    redis.eval.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -56,7 +69,9 @@ async def test_compress_summarizes_when_over_window_cap():
     chat.summary_message_count = 0
     session.get = AsyncMock(return_value=chat)
     recent = [_msg() for _ in range(40)]  # window cap → keep = 40
+    redis = _fake_redis()
     with (
+        patch("app.background.compaction.get_redis_client", return_value=redis),
         patch("app.background.compaction.SessionLocal", lambda: _SessionCM(session)),
         patch("app.background.compaction.messages_repo.count_for_chat", AsyncMock(return_value=60)),
         patch(
@@ -79,6 +94,7 @@ async def test_compress_summarizes_when_over_window_cap():
     assert chat.summary == "SUMMARY"
     assert chat.summary_message_count == 20  # total(60) - keep(40)
     session.commit.assert_awaited()
+    redis.eval.assert_awaited_once()  # lock released after a real run too
 
 
 @pytest.mark.asyncio
@@ -90,7 +106,9 @@ async def test_compress_runs_under_token_pressure_before_full_batch():
     session.get = AsyncMock(return_value=chat)
     recent = [_msg("a" * 400) for _ in range(11)]
     summarize = AsyncMock(return_value="PARTIAL")
+    redis = _fake_redis()
     with (
+        patch("app.background.compaction.get_redis_client", return_value=redis),
         patch("app.background.compaction.SessionLocal", lambda: _SessionCM(session)),
         patch("app.background.compaction.messages_repo.count_for_chat", AsyncMock(return_value=11)),
         patch(
@@ -126,9 +144,29 @@ async def test_compress_runs_under_token_pressure_before_full_batch():
 async def test_compress_missing_chat_is_noop():
     session = AsyncMock()
     session.get = AsyncMock(return_value=None)
+    redis = _fake_redis()
     with (
+        patch("app.background.compaction.get_redis_client", return_value=redis),
         patch("app.background.compaction.SessionLocal", lambda: _SessionCM(session)),
         patch("app.background.compaction.messages_repo.count_for_chat", AsyncMock()) as count,
     ):
         await compaction.compress_chat_history(Settings(), uuid4())
     count.assert_not_awaited()
+    redis.eval.assert_awaited_once()  # still releases the lock it acquired
+
+
+@pytest.mark.asyncio
+async def test_compress_skips_when_another_worker_holds_the_lock():
+    """Concurrent workers processing the same chat_id: the loser no-ops instead
+    of racing the winner on chat.summary/summary_message_count."""
+    session = AsyncMock()
+    redis = _fake_redis(acquired=False)
+    with (
+        patch("app.background.compaction.get_redis_client", return_value=redis),
+        patch("app.background.compaction.SessionLocal", lambda: _SessionCM(session)),
+        patch("app.background.compaction.messages_repo.count_for_chat", AsyncMock()) as count,
+    ):
+        await compaction.compress_chat_history(Settings(), uuid4())
+    count.assert_not_awaited()
+    session.get.assert_not_called()
+    redis.eval.assert_not_awaited()  # never acquired, nothing to release

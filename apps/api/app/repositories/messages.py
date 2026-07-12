@@ -130,13 +130,22 @@ async def list_range(
     offset: int,
     limit: int,
 ) -> list[Message]:
-    """Oldest-first slice of a chat's messages — used by history compression."""
+    """Oldest-first slice of a chat's messages — used by history compression.
+
+    BUG FIX (was silent): ordering by created_at alone is not a stable sort —
+    two messages created in the same millisecond can be returned in either
+    order across calls, so offset/limit pagination could skip or double-count
+    a row at a page boundary. Every other message-ordering query in this repo
+    (delete_messages_from, ids_from_chat_at_or_after) already tuple-orders by
+    (created_at, id) for exactly this reason; this one didn't. Don't drop the
+    id tiebreaker again.
+    """
     if limit <= 0:
         return []
     result = await session.execute(
         select(Message)
         .where(Message.chat_id == chat_id)
-        .order_by(Message.created_at.asc())
+        .order_by(Message.created_at.asc(), Message.id.asc())
         .offset(offset)
         .limit(limit)
     )
