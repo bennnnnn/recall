@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -1563,15 +1564,32 @@ async def apply_project_actions(
                     continue
                 if _find_project(projects, title):
                     continue
-                project = await projects_repo.create(
-                    session,
-                    user_id=user_id,
-                    title=title,
-                    description=(action.description or "").strip() or None,
-                    kind=kind,
-                    level=action.level or "level1",
-                    target_language="en",
-                )
+                try:
+                    project = await projects_repo.create(
+                        session,
+                        user_id=user_id,
+                        title=title,
+                        description=(action.description or "").strip() or None,
+                        kind=kind,
+                        level=action.level or "level1",
+                        target_language="en",
+                    )
+                except IntegrityError:
+                    # BUG FIX (was silent): the in-memory checks above aren't
+                    # safe against two near-concurrent project-sync jobs for
+                    # the same user both passing before either commits. The
+                    # DB partial unique index (migration 0055) is the real
+                    # guard — a race loses here and should just no-op, not
+                    # raise into the background job or poison the rest of
+                    # this turn's actions with an un-rolled-back session.
+                    await session.rollback()
+                    logger.debug(
+                        "create_project raced with an existing active %s project "
+                        "for user_id=%s; skipping",
+                        kind,
+                        user_id,
+                    )
+                    continue
                 applied += 1
                 projects = await projects_repo.list_for_user(session, user_id, limit=200)
                 if action.content.strip():

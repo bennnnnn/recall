@@ -134,6 +134,51 @@ async def test_apply_project_actions_skips_duplicate_language_project():
 
 
 @pytest.mark.asyncio
+async def test_apply_project_actions_handles_create_project_race():
+    """Simulates two near-concurrent project-sync jobs both passing the
+    in-memory "no existing language project" check before either commits —
+    the DB partial unique index (migration 0055) rejects the second INSERT
+    with IntegrityError. apply_project_actions must roll back and no-op
+    rather than raising into the background job."""
+    from sqlalchemy.exc import IntegrityError
+
+    session = AsyncMock()
+    user_id = uuid4()
+    with (
+        patch.object(
+            projects_service.projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            projects_service.project_items_repo,
+            "list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            projects_service.projects_repo,
+            "create",
+            AsyncMock(side_effect=IntegrityError("insert", {}, Exception("dup key"))),
+        ) as create_mock,
+    ):
+        applied = await projects_service.apply_project_actions(
+            session,
+            user_id=user_id,
+            actions=[
+                ProjectActionItem(
+                    action="create_project",
+                    project_title="English",
+                    kind="language",
+                ),
+            ],
+        )
+
+    assert applied == 0
+    create_mock.assert_awaited_once()
+    session.rollback.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_apply_project_actions_create_and_add():
     session = AsyncMock()
     user_id = uuid4()
