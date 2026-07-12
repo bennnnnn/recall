@@ -103,7 +103,7 @@ function PlaceDetailsSheet({
                 ) : null}
               </View>
               <Pressable style={s.openBtn} onPress={openInMaps}>
-                <Ionicons name="map-outline" size={20} color="#fff" />
+                <Ionicons name="map-outline" size={20} color={theme.onPrimary} />
                 <Text style={s.openBtnText}>Open in Maps</Text>
               </Pressable>
             </>

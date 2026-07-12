@@ -31,9 +31,7 @@ export default function Onboarding() {
 
   if (onboarded) return <Redirect href="/login" />;
 
-  const gradientColors = theme.isDark
-    ? (["#1A1530", "#212121", theme.bg] as const)
-    : (["#EDE9FF", "#F7F5FF", theme.bg] as const);
+  const gradientColors = [theme.primaryLight, theme.bg] as const;
 
   const finish = async () => {
     tap();

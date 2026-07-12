@@ -77,7 +77,7 @@ export function CalendarProposalCard({ proposal, disabled }: Props) {
           onPress={() => void onConfirm()}
         >
           {busy ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={theme.onPrimary} />
           ) : (
             <Text style={s.btnText}>{t("calendar.proposal_confirm")}</Text>
           )}

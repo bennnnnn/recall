@@ -19,9 +19,8 @@ type Props = { content: string };
 const PREVIEW_HEIGHT = 350;
 
 /** Build a self-contained HTML page that renders a Vega / Vega-Lite spec via CDN. */
-function buildVegaHtml(spec: string, isDark: boolean): string {
+function buildVegaHtml(spec: string, theme: Theme): string {
   const safeSpec = escapeForInlineJsTemplate(spec);
-  const bg = isDark ? "#212121" : "#ffffff";
   return injectPreviewCsp(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -32,9 +31,9 @@ function buildVegaHtml(spec: string, isDark: boolean): string {
 <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: -apple-system, sans-serif; background: ${bg}; }
+  body { display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: -apple-system, sans-serif; background: ${theme.bg}; }
   #chart { width: 100%; max-width: 100%; padding: 8px; }
-  #error { color: #dc2626; padding: 16px; font-size: 13px; display: none; white-space: pre-wrap; word-break: break-word; }
+  #error { color: ${theme.danger}; padding: 16px; font-size: 13px; display: none; white-space: pre-wrap; word-break: break-word; }
 </style>
 </head>
 <body>
@@ -69,10 +68,7 @@ export function ChartBlock({ content }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [showSource, setShowSource] = useState(false);
 
-  const vegaHtml = useMemo(
-    () => buildVegaHtml(content, theme.isDark),
-    [content, theme.isDark],
-  );
+  const vegaHtml = useMemo(() => buildVegaHtml(content, theme), [content, theme]);
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;
   const canRenderInlineChart = previewWebView?.mode === "rnc";
@@ -184,7 +180,7 @@ export function ChartBlock({ content }: Props) {
         </Pressable>
 
         <Pressable style={s.openBtn} onPress={handleOpenVegaEditor} hitSlop={8}>
-          <Ionicons name="open-outline" size={18} color="#fff" />
+          <Ionicons name="open-outline" size={18} color={theme.onPrimary} />
           <Text style={s.openLabel}>Vega Editor</Text>
         </Pressable>
       </View>

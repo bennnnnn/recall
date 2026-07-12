@@ -18,11 +18,11 @@ export function wrapFullDocument(html: string): string {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 16px; line-height: 1.5; color: #1a1a1a; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 16px; line-height: 1.5; color: #111827; }
   table { border-collapse: collapse; width: 100%; margin: 8px 0; }
-  td, th { border: 1px solid #ddd; padding: 8px; }
-  th { background: #f5f5f5; font-weight: 600; }
-  pre { background: #f5f5f5; padding: 12px; border-radius: 8px; overflow-x: auto; }
+  td, th { border: 1px solid #E5E7EB; padding: 8px; }
+  th { background: #F1F5F9; font-weight: 600; }
+  pre { background: #F1F5F9; padding: 12px; border-radius: 8px; overflow-x: auto; }
   code { font-family: 'SF Mono', monospace; font-size: 14px; }
   img { max-width: 100%; }
 </style>

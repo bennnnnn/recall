@@ -122,9 +122,7 @@ export default function LoginScreen() {
     }
   };
 
-  const gradientColors = theme.isDark
-    ? (["#1A1530", "#212121", theme.bg] as const)
-    : (["#EDE9FF", "#F7F5FF", theme.bg] as const);
+  const gradientColors = [theme.primaryLight, theme.bg] as const;
 
   return (
     <LinearGradient colors={gradientColors} style={s.root}>
@@ -336,7 +334,7 @@ function makeStyles(theme: Theme) {
       paddingHorizontal: 12,
       paddingVertical: 8,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.isDark ? theme.border : "rgba(108, 71, 255, 0.12)",
+      borderColor: theme.isDark ? theme.border : "rgba(37, 99, 235, 0.12)",
     },
     highlightIcon: {
       width: 24,
@@ -364,7 +362,7 @@ function makeStyles(theme: Theme) {
       paddingHorizontal: 14,
       paddingVertical: 12,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.isDark ? "rgba(255,255,255,0.1)" : "rgba(108, 71, 255, 0.12)",
+      borderColor: theme.isDark ? "rgba(255,255,255,0.1)" : "rgba(37, 99, 235, 0.12)",
     },
     devBannerText: {
       flex: 1,
@@ -400,7 +398,7 @@ function makeStyles(theme: Theme) {
       width: "100%",
       borderRadius: 16,
       borderWidth: 1.5,
-      borderColor: theme.isDark ? "rgba(255,255,255,0.12)" : "rgba(108, 71, 255, 0.18)",
+      borderColor: theme.isDark ? "rgba(255,255,255,0.12)" : "rgba(37, 99, 235, 0.18)",
       paddingVertical: 16,
       backgroundColor: theme.isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.55)",
     },
@@ -417,7 +415,7 @@ function makeStyles(theme: Theme) {
       width: "100%",
       borderRadius: 16,
       borderWidth: 1.5,
-      borderColor: theme.isDark ? "rgba(255,255,255,0.12)" : "rgba(108, 71, 255, 0.18)",
+      borderColor: theme.isDark ? "rgba(255,255,255,0.12)" : "rgba(37, 99, 235, 0.18)",
       paddingVertical: 14,
       backgroundColor: theme.isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.45)",
     },
