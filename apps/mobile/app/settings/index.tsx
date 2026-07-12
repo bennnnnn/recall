@@ -129,7 +129,7 @@ export default function SettingsScreen() {
   if (!token) return <Redirect href="/login" />;
 
   const displayName = getDisplayName(user?.name, t("common.you"));
-  const remainingPct = usageRemainingPercent(usage);
+  const remainingPct = usage ? Math.round(usageRemainingPercent(usage)) : null;
   const accountLabel = isPro ? t("settings.pro") : t("settings.free");
   const selectedLanguage =
     LANGUAGES.find((l) => l.code === (user?.locale ?? "en")) ?? LANGUAGES[0];

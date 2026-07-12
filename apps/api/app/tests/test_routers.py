@@ -28,6 +28,9 @@ def _fake_user(**kw) -> User:
     u.location = kw.get("location", None)
     u.location_enabled = kw.get("location_enabled", bool(kw.get("location")))
     u.custom_instructions = kw.get("custom_instructions", None)
+    u.age = kw.get("age", None)
+    u.country = kw.get("country", None)
+    u.job = kw.get("job", None)
     u.created_at = datetime(2024, 1, 1)
     return u
 
