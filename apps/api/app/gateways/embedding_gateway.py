@@ -29,7 +29,9 @@ async def embed_text(settings: Settings, text: str) -> list[float] | None:
         kwargs["api_base"] = route.api_base
 
     try:
-        response = await aembedding(model=route.model, input=[text[:8000]], **kwargs)
+        response = await aembedding(
+            model=route.model, input=[text[: settings.embedding_input_max_chars]], **kwargs
+        )
         data = response.data[0]["embedding"]
         return list(data)
     except Exception:

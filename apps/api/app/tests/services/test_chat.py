@@ -1966,6 +1966,7 @@ async def test_stream_edit_response_yields_tokens():
 
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
+    fake_chat.summary_message_count = 0  # no rolling summary yet on this chat
 
     fake_message = MagicMock()
     fake_message.id = message_id
@@ -2013,6 +2014,113 @@ async def test_stream_edit_response_yields_tokens():
         ]
 
     assert tokens == ["edited"]
+
+
+async def _run_stream_edit_response(
+    *, summary_message_count: int, total_before_edit: int, deleted_message_ids: list
+):
+    """Shared setup for the stale-summary-reset tests below — returns the
+    fake_chat mock so callers can assert on chat.summary/summary_message_count.
+    """
+    from app.services import chat as chat_module
+
+    user_id = uuid4()
+    chat_id = uuid4()
+    message_id = uuid4()
+
+    fake_user = MagicMock()
+    fake_user.id = user_id
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+    fake_chat.summary = "Existing rolling summary text."
+    fake_chat.summary_message_count = summary_message_count
+
+    fake_message = MagicMock()
+    fake_message.id = message_id
+    fake_message.role = "user"
+    fake_message.created_at = MagicMock()
+
+    session = AsyncMock()
+    session.__aenter__ = AsyncMock(return_value=session)
+    session.__aexit__ = AsyncMock(return_value=None)
+
+    async def fake_stream(*args, **kwargs):
+        yield "edited"
+
+    with (
+        patch("app.services.chat.SessionLocal", return_value=session),
+        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.services.chat.messages_repo.get_by_id", AsyncMock(return_value=fake_message)),
+        patch(
+            "app.services.chat.messages_repo.ids_from_chat_at_or_after",
+            AsyncMock(return_value=deleted_message_ids),
+        ),
+        patch(
+            "app.services.chat.messages_repo.count_for_chat",
+            AsyncMock(return_value=total_before_edit),
+        ),
+        patch(
+            "app.services.chat.attachment_lifecycle.purge_attachments_for_messages",
+            AsyncMock(return_value=0),
+        ),
+        patch("app.services.chat.messages_repo.delete_messages_from", AsyncMock()),
+        patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True)),
+        patch(
+            "app.services.chat.quota_service.daily_limit_for_user",
+            MagicMock(return_value=500_000),
+        ),
+        patch("app.services.chat.stream_chat_response", fake_stream),
+    ):
+        async for _ in chat_module.stream_edit_response(
+            AsyncMock(),
+            Settings(max_output_tokens=100),
+            user_id=user_id,
+            chat_id=chat_id,
+            message_id=message_id,
+            new_content="new question",
+        ):
+            pass
+
+    return fake_chat
+
+
+@pytest.mark.asyncio
+async def test_stream_edit_response_resets_stale_summary_when_edit_touches_summarized_prefix():
+    """Regression test for the stale-summary bug: editing a message inside the
+    already-summarized prefix must clear chat.summary/summary_message_count,
+    or a rolling summary describing a deleted conversation branch would keep
+    getting injected into every future prompt with nothing to ever fix it.
+    """
+    # 10 messages total before the edit; the edit deletes the last 8 (from
+    # position 2 onward) — position 2 is inside the summarized prefix (5),
+    # so the summary must be invalidated.
+    fake_chat = await _run_stream_edit_response(
+        summary_message_count=5,
+        total_before_edit=10,
+        deleted_message_ids=[uuid4() for _ in range(8)],
+    )
+    assert fake_chat.summary is None
+    assert fake_chat.summary_message_count == 0
+
+
+@pytest.mark.asyncio
+async def test_stream_edit_response_keeps_summary_when_edit_is_after_summarized_prefix():
+    """Editing a message that's entirely within the recent (never-summarized)
+    window must NOT touch the still-accurate rolling summary."""
+    # 10 messages total; the edit deletes only the last 2 (from position 8
+    # onward) — position 8 is past the summarized prefix (5), so nothing
+    # about the summarized range changed.
+    fake_chat = await _run_stream_edit_response(
+        summary_message_count=5,
+        total_before_edit=10,
+        deleted_message_ids=[uuid4() for _ in range(2)],
+    )
+    assert fake_chat.summary == "Existing rolling summary text."
+    assert fake_chat.summary_message_count == 5
 
 
 @pytest.mark.asyncio
