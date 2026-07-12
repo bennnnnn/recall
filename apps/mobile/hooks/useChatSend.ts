@@ -15,6 +15,7 @@ import {
   buildPendingSendAfterCreate,
   shouldBlockSend,
 } from "@/lib/chatSendLogic";
+import { extractImageGenPrompt } from "@/lib/imageGenIntent";
 import { scheduleIdlePromise } from "@/lib/scheduleIdle";
 import type { ClientGeo } from "@/lib/clientGeo";
 import { resolveClientGeoForQuery } from "@/lib/resolveClientGeoForQuery";
@@ -70,6 +71,10 @@ type Options = {
   isOffline: boolean;
   resolveQuizProjectId?: () => string | null;
   onBeforeSend?: (text: string) => boolean | void;
+  /** Pro-only: run image generation for detected image-intent text (no confirmation sheet). */
+  onSubmitImageGen?: (prompt: string) => void;
+  isPro?: boolean;
+  imageGenerating?: boolean;
 };
 
 export function useChatSend({
@@ -95,6 +100,9 @@ export function useChatSend({
   isOffline,
   resolveQuizProjectId,
   onBeforeSend,
+  onSubmitImageGen,
+  isPro = false,
+  imageGenerating = false,
 }: Options) {
   const {
     draftChatIdRef,
@@ -184,6 +192,19 @@ export function useChatSend({
       }
       tap();
       if (onBeforeSend?.(text) === true) return;
+
+      // Pro: route clear image-gen intent to /images/generate (no sheet, no LLM upsell).
+      // Free users fall through so the model can mention Pro (plan is in the prompt).
+      if (isPro && onSubmitImageGen && !pendingAttachment && !editingMessageId) {
+        const imagePrompt = extractImageGenPrompt(text);
+        if (imagePrompt) {
+          if (imageGenerating) return;
+          setInput("");
+          Keyboard.dismiss();
+          onSubmitImageGen(imagePrompt);
+          return;
+        }
+      }
 
       const authToken = token;
       if (!authToken) return;
@@ -311,6 +332,9 @@ export function useChatSend({
       onStreamBusy,
       isOffline,
       onBeforeSend,
+      onSubmitImageGen,
+      isPro,
+      imageGenerating,
     ],
   );
 

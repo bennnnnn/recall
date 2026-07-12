@@ -44,6 +44,7 @@ import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
 import { useTodosOptional } from "@/contexts/TodosContext";
 import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/lib/chatComposerLogic";
 import { invalidateProjectDetail } from "@/lib/projectDetailCache";
+import { useImageGeneration } from "@/hooks/useImageGeneration";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 
 function ChatScreen() {
@@ -222,6 +223,24 @@ function ChatScreen() {
 
   const openUpgradeRef = useRef<(() => void) | null>(null);
 
+  const imageGen = useImageGeneration({
+    token,
+    chatId,
+    setChatId,
+    setChatTitle,
+    setMessages,
+    draft,
+    router,
+    selectedModel,
+    streaming: streamActive,
+    isPro,
+    isOffline,
+    onOpenUpgrade: () => openUpgradeRef.current?.(),
+    onScrollToLatest: scroll.scrollToLatest,
+    newMessageCountRef: scroll.newMessageCountRef,
+    t,
+  });
+
   const send = useChatSend({
     token,
     chatId,
@@ -244,6 +263,9 @@ function ChatScreen() {
     onStreamBusy: handleStreamBusy,
     isOffline,
     resolveQuizProjectId,
+    isPro,
+    imageGenerating: imageGen.generating,
+    onSubmitImageGen: imageGen.submitPrompt,
   });
 
   const {
@@ -358,6 +380,7 @@ function ChatScreen() {
     suggestions,
     onSelectSuggestion,
     onDismissSuggestion: dismissSuggestion,
+    imageGenerating: imageGen.generating,
     onQuizAnswer: (letter) => {
       // BUG FIX (was silent): answering a quiz in chat persists new counts server-side,
       // but nothing invalidated the project detail cache from this flow — returning to

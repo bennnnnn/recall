@@ -1898,6 +1898,7 @@ def test_format_user_profile_block_includes_fields():
     user = MagicMock()
     user.name = "Ada Lovelace"
     user.email = "ada@example.com"
+    user.plan = "pro"
     user.location = "London"
     user.location_enabled = True
     user.age = 36
@@ -1906,6 +1907,7 @@ def test_format_user_profile_block_includes_fields():
     block = format_user_profile_block(user)
     assert "Ada Lovelace" in block
     assert "ada@example.com" in block
+    assert "Plan: pro" in block
     assert "London" in block
     assert "Age: 36" in block
     assert "Country: United Kingdom" in block
@@ -1916,12 +1918,14 @@ def test_format_user_profile_block_omits_empty_structured_fields():
     user = MagicMock()
     user.name = "Ada"
     user.email = "ada@example.com"
+    user.plan = "free"
     user.location = None
     user.location_enabled = False
     user.age = None
     user.country = "  "
     user.job = None
     block = format_user_profile_block(user)
+    assert "Plan: free" in block
     assert "Age:" not in block
     assert "Country:" not in block
     assert "Job:" not in block
