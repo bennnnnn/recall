@@ -308,6 +308,158 @@ async def test_process_learning_nudges_batches_across_users():
 
 
 @pytest.mark.asyncio
+async def test_process_learning_nudges_isolates_one_user_failure():
+    """A computation failure for one user (e.g. malformed project data) must
+    not prevent other users' learning nudges from being computed and sent."""
+    session = AsyncMock()
+    redis = AsyncMock()
+    settings = Settings(push_learning_hour=0)
+
+    users = []
+    projects = []
+    tokens = []
+    stats_by_project = {}
+    for _ in range(3):
+        uid = uuid4()
+        user = MagicMock()
+        user.id = uid
+        user.timezone = "UTC"
+        user.push_notifications_enabled = True
+        user.locale = "en"
+        users.append(user)
+
+        project = MagicMock()
+        project.id = uuid4()
+        project.user_id = uid
+        project.title = "Spanish"
+        project.kind = "language"
+        projects.append(project)
+        stats_by_project[project.id] = {
+            "total": 3,
+            "due_for_review": 1,
+            "new_count": 0,
+            "learning_count": 2,
+            "mastered_count": 0,
+        }
+
+        token = MagicMock()
+        token.user_id = uid
+        token.expo_push_token = f"ExponentPushToken[{uid}]"
+        tokens.append(token)
+
+    bad_user_id = users[1].id
+
+    def fake_best_pick(user_projects, stats, *, daily_goal_for):
+        if any(p.user_id == bad_user_id for p in user_projects):
+            raise RuntimeError("boom: malformed daily_goal_history")
+        project = user_projects[0]
+        return (
+            project,
+            "Nudge body",
+            10.0,
+            "learning_review",
+            {"type": "learning_review", "screen": "project", "project_id": str(project.id)},
+        )
+
+    session.execute = AsyncMock(return_value=_users_execute_result(users))
+    redis.set = AsyncMock(return_value=True)
+
+    with (
+        patch.object(
+            push_service.projects_repo,
+            "list_for_users",
+            AsyncMock(return_value=projects),
+        ),
+        patch.object(
+            push_service.project_items_repo,
+            "count_stats_by_project",
+            AsyncMock(return_value=stats_by_project),
+        ),
+        patch.object(
+            push_service.push_repo,
+            "list_for_users",
+            AsyncMock(return_value=tokens),
+        ),
+        patch.object(
+            push_service.learning_insights,
+            "best_learning_nudge_for_user",
+            side_effect=fake_best_pick,
+        ),
+    ):
+        messages = await push_service.process_learning_nudges(session, redis, settings)
+
+    # The two healthy users still got their nudge; the bad user's exception
+    # was contained and did not blank out the whole cycle.
+    assert len(messages) == 2
+    processed_user_ids = {msg.message["data"]["project_id"] for msg in messages}
+    good_project_ids = {str(p.id) for p in projects if p.user_id != bad_user_id}
+    assert processed_user_ids == good_project_ids
+
+
+@pytest.mark.asyncio
+async def test_process_learning_nudges_idle_user_sends_nothing_and_releases_dedupe():
+    """Goal met, nothing due for review, no new items: this is the fully-idle
+    case — no push should be sent, and the per-day Redis dedupe key must be
+    released (not left claimed) so a later cycle can retry if state changes."""
+    session = AsyncMock()
+    redis = AsyncMock()
+    settings = Settings(push_learning_hour=0)
+    user_id = uuid4()
+
+    user = MagicMock()
+    user.id = user_id
+    user.timezone = "UTC"
+    user.push_notifications_enabled = True
+    user.locale = "en"
+
+    project = MagicMock()
+    project.id = uuid4()
+    project.user_id = user_id
+    project.title = "Spanish"
+    project.kind = "language"
+
+    session.execute = AsyncMock(return_value=_users_execute_result([user]))
+    redis.set = AsyncMock(return_value=True)
+
+    with (
+        patch.object(
+            push_service.projects_repo,
+            "list_for_users",
+            AsyncMock(return_value=[project]),
+        ),
+        patch.object(
+            push_service.project_items_repo,
+            "count_stats_by_project",
+            AsyncMock(
+                return_value={
+                    project.id: {
+                        "total": 20,
+                        "due_for_review": 0,
+                        "new_count": 0,
+                        "learning_count": 0,
+                        "mastered_count": 20,
+                        "mastered_today": 10,
+                        "missed_today": 0,
+                    }
+                }
+            ),
+        ),
+        patch.object(
+            push_service.push_repo,
+            "list_for_users",
+            AsyncMock(return_value=[]),
+        ),
+    ):
+        messages = await push_service.process_learning_nudges(session, redis, settings)
+
+    assert messages == []
+    expected_key = push_service.learning_dedupe_key(
+        push_service.LEARNING_REDIS_PREFIX, user_id, push_service.user_day_key(user)
+    )
+    redis.delete.assert_awaited_once_with(expected_key)
+
+
+@pytest.mark.asyncio
 async def test_process_learning_nudges_skips_non_learning_projects():
     session = AsyncMock()
     redis = AsyncMock()

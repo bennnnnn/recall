@@ -36,6 +36,26 @@ def test_pick_learning_nudge_prefers_incomplete_daily_goal():
     assert score > 10
 
 
+def test_pick_learning_nudge_returns_none_when_fully_idle():
+    """Goal met, nothing due for review, no new items — there is genuinely
+    nothing to nudge about, so pick_learning_nudge must return None."""
+
+    class P:
+        kind = "language"
+        title = "English"
+        id = uuid4()
+
+    stats = {
+        "total": 20,
+        "mastered_today": 10,
+        "missed_today": 0,
+        "due_for_review": 0,
+        "new_count": 0,
+        "days_inactive": 0,
+    }
+    assert learning_insights.pick_learning_nudge(P(), stats, daily_goal=10) is None
+
+
 def test_suggest_level_change_promotes_high_mastery():
     class P:
         kind = "language"

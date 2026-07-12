@@ -376,8 +376,8 @@ courses, habits, and anything else that needs structure over time.
 - ✅ **Tap-to-answer MCQ** — interactive choice chips on complete `vocab_quiz` messages.
 - ✅ **Review queue** — project detail CTA opens a due-only spaced-repetition chat session.
 - ✅ **Adaptive level hints** — suggests level up/down from mastery ratio + quiz accuracy.
-- ✅ **Streak + inactive days** — home highlight, project hero, and nudges show streak and
-  “inactive for N days” copy.
+- ✅ **Streak + inactive days** — home highlight and project hero show streak; push/email
+  nudges show “inactive for N days” copy (streak count is not included in notification text).
 - ✅ **Goal-aware learning nudges** — push/email prioritize finishing today's daily batch; trivia
   included alongside vocabulary.
 - ✅ **Pronunciation** — play button per word tries `pronunciation_url` when set, then cloud TTS,
