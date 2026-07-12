@@ -1,15 +1,18 @@
 from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
+from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from app.services.daily_learning import (
     append_daily_goal_history,
     build_daily_history,
+    count_missed_by_date,
     count_today_vocab_stats,
     daily_home_cue,
     day_goal_for_history,
     goal_effective_on_date,
     group_mastered_items_by_date,
+    group_missed_items_by_date,
     start_of_today_utc,
 )
 
@@ -255,6 +258,104 @@ def test_build_daily_history_includes_missed_counts():
         days=3,
     )
     assert history[-1]["missed_count"] == 1
+
+
+def test_count_missed_by_date_uses_event_log_when_provided():
+    """BUG FIX (was silent): count_missed_by_date used to key off the single mutable
+    last_incorrect_at column, so a Day-4 miss on an item already missed on Day-1 would
+    silently erase Day-1's miss from history. With the event log supplied, an item
+    missed on both days must show up under both."""
+    day1 = datetime(2026, 1, 1, 12, tzinfo=UTC)
+    day4 = datetime(2026, 1, 4, 12, tzinfo=UTC)
+    item_id = uuid4()
+
+    class Item:
+        id = item_id
+        status = "learning"
+        mastered = False
+        # Only the latest miss survives on the mutable column, mirroring production.
+        last_incorrect_at = day4
+
+    counts = count_missed_by_date(
+        [Item()],
+        timezone_name="UTC",
+        miss_events_by_item={item_id: [day1, day4]},
+    )
+    assert counts[day1.date()] == 1
+    assert counts[day4.date()] == 1
+
+    # Sanity: without the event log, the legacy single-column fallback only ever
+    # sees whichever miss last_incorrect_at currently points to — Day 1 is gone.
+    legacy_counts = count_missed_by_date([Item()], timezone_name="UTC")
+    assert day1.date() not in legacy_counts
+    assert legacy_counts[day4.date()] == 1
+
+
+def test_build_daily_history_keeps_day1_miss_after_later_miss_on_same_item():
+    """Same regression as above, through the build_daily_history entrypoint used by
+    the project detail screen — Day 1's row must still show its miss after the item
+    is missed again on Day 4."""
+    tz = ZoneInfo("UTC")
+    today = datetime.now(tz).date()
+    day1_date = today - timedelta(days=6)
+    day4_date = today - timedelta(days=3)
+    day1 = (
+        datetime.combine(day1_date, datetime.min.time(), tzinfo=tz).replace(hour=12).astimezone(UTC)
+    )
+    day4 = (
+        datetime.combine(day4_date, datetime.min.time(), tzinfo=tz).replace(hour=12).astimezone(UTC)
+    )
+    active_since = datetime.combine(day1_date, datetime.min.time(), tzinfo=tz).astimezone(UTC)
+    item_id = uuid4()
+
+    class Item:
+        id = item_id
+        status = "learning"
+        mastered = False
+        mastered_at = None
+        created_at = active_since
+        last_incorrect_at = day4  # single mutable column now points at the later miss
+
+    history = build_daily_history(
+        [Item()],
+        timezone_name="UTC",
+        daily_goal=5,
+        active_since=active_since,
+        days=7,
+        miss_events_by_item={item_id: [day1, day4]},
+    )
+    by_date = {row["date"]: row for row in history}
+    assert by_date[day1_date.isoformat()]["missed_count"] == 1
+    assert by_date[day4_date.isoformat()]["missed_count"] == 1
+
+
+def test_group_missed_items_by_date_uses_event_log_when_provided():
+    tz = ZoneInfo("UTC")
+    today = datetime.now(tz).date()
+    day1_date = today - timedelta(days=6)
+    day4_date = today - timedelta(days=3)
+    day1 = (
+        datetime.combine(day1_date, datetime.min.time(), tzinfo=tz).replace(hour=12).astimezone(UTC)
+    )
+    day4 = (
+        datetime.combine(day4_date, datetime.min.time(), tzinfo=tz).replace(hour=12).astimezone(UTC)
+    )
+    item_id = uuid4()
+
+    class Item:
+        id = item_id
+        status = "learning"
+        mastered = False
+        last_incorrect_at = day4
+
+    grouped = group_missed_items_by_date(
+        [Item()],
+        timezone_name="UTC",
+        days=10,
+        miss_events_by_item={item_id: [day1, day4]},
+    )
+    assert len(grouped.get(day1_date.isoformat(), [])) == 1
+    assert len(grouped.get(day4_date.isoformat(), [])) == 1
 
 
 def test_goal_effective_on_date_uses_history_segments():

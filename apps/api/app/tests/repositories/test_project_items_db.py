@@ -144,3 +144,43 @@ async def test_apply_quiz_result_increment_is_atomic_not_lost(db_session):
     # must build on top of the row's true current value instead.
     assert item.quiz_attempts == 6
     assert item.quiz_correct == 3
+
+
+def _frozen_datetime_cls(moment: datetime) -> type[datetime]:
+    class _Frozen(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return moment
+
+    return _Frozen
+
+
+@pytest.mark.asyncio
+async def test_apply_quiz_result_logs_every_miss_event_not_just_the_latest(db_session, monkeypatch):
+    """BUG FIX (was silent): last_incorrect_at is a single mutable column, so a Day-4
+    miss on an item already missed on Day-1 used to silently erase Day-1's record.
+    Two misses on different days must produce two QuizMissEvent rows, and
+    list_miss_events_for_items must return both — not just the latest.
+    """
+    user = await _make_user(db_session)
+    project = await _make_project(db_session, user.id)
+    item = await project_items_repo.create(
+        db_session, user_id=user.id, project_id=project.id, content="hola"
+    )
+
+    day1 = datetime(2026, 1, 1, 9, tzinfo=UTC)
+    day4 = day1 + timedelta(days=3)
+
+    monkeypatch.setattr(project_items_repo, "datetime", _frozen_datetime_cls(day1))
+    await project_items_repo.apply_quiz_result(db_session, item, is_correct=False, commit=False)
+
+    monkeypatch.setattr(project_items_repo, "datetime", _frozen_datetime_cls(day4))
+    await project_items_repo.apply_quiz_result(db_session, item, is_correct=False, commit=False)
+
+    # The mutable column only remembers the latest miss...
+    assert item.last_incorrect_at == day4
+
+    # ...but the event log remembers both.
+    events_by_item = await project_items_repo.list_miss_events_for_items(db_session, [item.id])
+    occurred_at = events_by_item[item.id]
+    assert sorted(occurred_at) == [day1, day4]

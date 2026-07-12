@@ -372,6 +372,33 @@ class ProjectItem(Base):
     project: Mapped["Project"] = relationship(back_populates="items")
 
 
+class QuizMissEvent(Base):
+    """Append-only log of wrong-answer events, one row per miss.
+
+    BUG FIX (was silent): day-attribution reads used to key off
+    ProjectItem.last_incorrect_at, a single mutable column — a later miss on the
+    same item silently overwrote which day an earlier miss was attributed to,
+    retroactively changing already-rendered day history. This table lets
+    day-attribution reads (see daily_learning.count_missed_by_date) use the full
+    miss history instead of just the most recent event.
+    """
+
+    __tablename__ = "quiz_miss_events"
+    __table_args__ = (
+        Index("ix_quiz_miss_events_item_occurred", "item_id", "occurred_at"),
+        Index("ix_quiz_miss_events_user", "user_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    item_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("project_items.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class UserCalendarConnection(Base):
     __tablename__ = "user_calendar_connections"
 

@@ -1486,6 +1486,12 @@ async def get_project_detail(
     project_items = await project_items_repo.list_for_user(
         session, user.id, project_id=project_id, limit=5000
     )
+    # BUG FIX (was silent): day-attribution used to read last_incorrect_at, a single
+    # mutable column, so a later miss on an item silently erased which day an earlier
+    # miss belonged to. Load the append-only miss-event log so past days stay stable.
+    miss_events_by_item = await project_items_repo.list_miss_events_for_items(
+        session, [i.id for i in project_items]
+    )
     # Read path must not write — compute history in memory only.
     goal_history = await _resolve_daily_goal_history(
         session, item, project_items, timezone_name=tz_name, persist=False
@@ -1497,6 +1503,7 @@ async def get_project_detail(
         active_since=item.created_at,
         daily_goal_history=goal_history,
         days=14,
+        miss_events_by_item=miss_events_by_item,
     )
     stats = _build_enriched_stats(
         item,
@@ -1518,7 +1525,7 @@ async def get_project_detail(
     daily_missed_by_date = {
         day_key: [ProjectItemOut.model_validate(i) for i in day_items]
         for day_key, day_items in daily_learning.group_missed_items_by_date(
-            project_items, timezone_name=tz_name, days=14
+            project_items, timezone_name=tz_name, days=14, miss_events_by_item=miss_events_by_item
         ).items()
     }
     lists: list[Any] = []

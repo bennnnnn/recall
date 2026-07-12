@@ -7,7 +7,7 @@ from sqlalchemy import update as sql_update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.orm import ProjectItem
+from app.models.orm import ProjectItem, QuizMissEvent
 
 DEFAULT_LIST = "General"
 REVIEW_INTERVAL = timedelta(hours=24)  # legacy fallback when due_at is unset
@@ -300,6 +300,29 @@ def stats_from_items(
     return stats
 
 
+async def list_miss_events_for_items(
+    session: AsyncSession,
+    item_ids: list[UUID],
+) -> dict[UUID, list[datetime]]:
+    """All logged miss events for the given items, grouped by item_id.
+
+    Backs the day-attribution fix in daily_learning.count_missed_by_date /
+    group_missed_items_by_date — see QuizMissEvent's docstring.
+    """
+    if not item_ids:
+        return {}
+    stmt = (
+        select(QuizMissEvent.item_id, QuizMissEvent.occurred_at)
+        .where(QuizMissEvent.item_id.in_(item_ids))
+        .order_by(QuizMissEvent.occurred_at.asc())
+    )
+    rows = (await session.execute(stmt)).all()
+    out: dict[UUID, list[datetime]] = {}
+    for item_id, occurred_at in rows:
+        out.setdefault(item_id, []).append(occurred_at)
+    return out
+
+
 async def list_by_activity_date(
     session: AsyncSession,
     user_id: UUID,
@@ -437,6 +460,11 @@ async def apply_quiz_result(
         increments["quiz_correct"] = ProjectItem.quiz_correct + 1
     else:
         item.last_incorrect_at = now
+        # BUG FIX (was silent): last_incorrect_at is a single mutable column, so a later
+        # miss on the same item overwrote which day an earlier miss was attributed to,
+        # retroactively changing already-rendered day history. Log every miss as its own
+        # event so day-attribution reads (count_missed_by_date) can't regress.
+        session.add(QuizMissEvent(item_id=item.id, user_id=item.user_id, occurred_at=now))
     await session.execute(
         sql_update(ProjectItem).where(ProjectItem.id == item.id).values(**increments)
     )
