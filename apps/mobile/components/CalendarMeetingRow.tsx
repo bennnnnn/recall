@@ -20,7 +20,7 @@ export function CalendarMeetingRow({ event }: Props) {
   return (
     <View style={s.row}>
       <View style={s.iconWrap}>
-        <Ionicons name="calendar" size={18} color="#4285F4" />
+        <Ionicons name="calendar" size={18} color={theme.primary} />
       </View>
       <View style={s.main}>
         <Text style={s.title} numberOfLines={2}>
@@ -51,7 +51,7 @@ function makeStyles(theme: Theme) {
       paddingVertical: 12,
       paddingHorizontal: 14,
       borderRadius: 14,
-      backgroundColor: theme.isDark ? theme.surface : "#F8F9FF",
+      backgroundColor: theme.isDark ? theme.surface : theme.primaryLight,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
       marginBottom: 8,

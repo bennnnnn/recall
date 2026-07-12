@@ -1,10 +1,9 @@
 import { injectPreviewCsp } from "@/lib/previewSandbox";
+import type { Theme } from "@/lib/theme";
 
 /** Sandboxed single-page PDF preview via pdf.js in a WebView. */
-export function buildPdfPreviewHtml(base64: string, isDark: boolean): string {
+export function buildPdfPreviewHtml(base64: string, theme: Theme): string {
   const safeB64 = base64.replace(/\\/g, "\\\\").replace(/`/g, "\\`");
-  const bg = isDark ? "#212121" : "#ffffff";
-  const text = isDark ? "#e5e5e5" : "#171717";
   return injectPreviewCsp(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -13,8 +12,8 @@ export function buildPdfPreviewHtml(base64: string, isDark: boolean): string {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
   * { box-sizing: border-box; }
-  body { margin: 0; padding: 8px; background: ${bg}; color: ${text}; font-family: -apple-system, sans-serif; }
-  #err { color: #dc2626; font-size: 12px; display: none; white-space: pre-wrap; padding: 8px; }
+  body { margin: 0; padding: 8px; background: ${theme.bg}; color: ${theme.text}; font-family: -apple-system, sans-serif; }
+  #err { color: ${theme.danger}; font-size: 12px; display: none; white-space: pre-wrap; padding: 8px; }
   canvas { display: block; margin: 0 auto; max-width: 100%; height: auto; }
 </style>
 </head>

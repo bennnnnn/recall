@@ -3,21 +3,7 @@ import { StyleSheet } from "react-native";
 import { CODE_FONT } from "@/lib/fonts";
 import type { Theme } from "@/lib/theme";
 
-/** ChatGPT-style green verification tick for checked `- [x]` list items. */
-export const VERIFY_CHECK_COLOR = "#10A37F";
-
 export const verifyCheckStyles = StyleSheet.create({
-  badge: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    backgroundColor: VERIFY_CHECK_COLOR,
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: 8,
-    marginTop: 2,
-    flexShrink: 0,
-  },
   verifyRow: {
     flex: 1,
     flexDirection: "row",
@@ -29,6 +15,23 @@ export const verifyCheckStyles = StyleSheet.create({
     flexShrink: 1,
   },
 });
+
+/** Green verification tick badge for checked `- [x]` list items. */
+export function makeVerifyCheckStyles(t: Theme) {
+  return StyleSheet.create({
+    badge: {
+      width: 20,
+      height: 20,
+      borderRadius: 4,
+      backgroundColor: t.success,
+      alignItems: "center",
+      justifyContent: "center",
+      marginLeft: 8,
+      marginTop: 2,
+      flexShrink: 0,
+    },
+  });
+}
 
 export function makeMdMath(_t: Theme) {
   return StyleSheet.create({

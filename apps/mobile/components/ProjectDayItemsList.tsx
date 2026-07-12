@@ -253,7 +253,7 @@ function makeStyles(theme: Theme) {
       backgroundColor: theme.surface,
       borderRadius: 14,
       borderWidth: 1.5,
-      borderColor: theme.isDark ? theme.border : "#FFFFFF",
+      borderColor: theme.isDark ? theme.border : theme.bg,
       padding: 14,
     },
   });

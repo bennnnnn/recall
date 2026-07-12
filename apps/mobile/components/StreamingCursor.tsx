@@ -52,7 +52,7 @@ function makeStyles(t: Theme) {
       width: 2,
       height: 18,
       borderRadius: 1,
-      backgroundColor: t.primary,
+      backgroundColor: t.accent,
     },
   });
 }

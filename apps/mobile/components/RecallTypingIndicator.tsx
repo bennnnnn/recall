@@ -78,7 +78,7 @@ function makeStyles(t: Theme) {
       width: 28,
       height: 28,
       borderRadius: 14,
-      backgroundColor: t.primary,
+      backgroundColor: t.accent,
       alignItems: "center",
       justifyContent: "center",
     },

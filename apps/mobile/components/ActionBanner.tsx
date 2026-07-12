@@ -71,7 +71,7 @@ export function ActionBanner({
 
   if (!message) return null;
 
-  const toastText = theme.isDark ? theme.text : "#FFFFFF";
+  const toastText = theme.isDark ? theme.text : theme.onPrimary;
 
   return (
     <Modal visible transparent animationType="none" onRequestClose={onDismiss}>
@@ -100,8 +100,8 @@ export function ActionBanner({
 }
 
 function makeStyles(theme: Theme) {
-  const toastBg = theme.isDark ? theme.surfaceAlt : "#1C1C1E";
-  const toastText = theme.isDark ? theme.text : "#FFFFFF";
+  const toastBg = theme.isDark ? theme.surfaceAlt : theme.text;
+  const toastText = theme.isDark ? theme.text : theme.onPrimary;
 
   return StyleSheet.create({
     overlay: {

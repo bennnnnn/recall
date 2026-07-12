@@ -1,8 +1,11 @@
 /**
- * App theme — ChatGPT-style light & dark palettes that follow the system
- * color scheme. All live screens consume the palette via `useTheme()`; the
- * legacy static `C` object and its scaffold consumers (Themed/StyledText/
- * EditScreenInfo) have been removed.
+ * App theme — a single standardized palette (Tailwind-derived) shared by
+ * every screen via `useTheme()`. Two brand hues: `primary` (blue) drives
+ * ordinary buttons/links/selection state; `accent` (indigo/purple) is
+ * reserved for AI-in-progress moments (typing/streaming/reasoning
+ * indicators) so those reads as distinctly "the model is working" rather
+ * than a generic interactive color. Do not hardcode hex colors in
+ * components — add a token here instead so every screen stays in sync.
  */
 import { useResolvedColorScheme } from "@/hooks/useResolvedColorScheme";
 
@@ -10,10 +13,15 @@ export type Theme = {
   scheme: "light" | "dark";
   isDark: boolean;
 
-  // Brand
+  // Brand — ordinary buttons, links, selection/active state
   primary: string;
   primaryLight: string;
   primaryDark: string;
+
+  // Brand — AI-in-progress moments only (typing/streaming/reasoning)
+  accent: string;
+  accentLight: string;
+  accentDark: string;
 
   // Surfaces
   bg: string;
@@ -62,40 +70,44 @@ export const lightTheme: Theme = {
   scheme: "light",
   isDark: false,
 
-  primary: "#6C47FF",
-  primaryLight: "#EDE9FF",
-  primaryDark: "#4B2FD4",
+  primary: "#2563EB",
+  primaryLight: "#DBEAFE",
+  primaryDark: "#1D4ED8",
+
+  accent: "#4F46E5",
+  accentLight: "#E0E7FF",
+  accentDark: "#4338CA",
 
   bg: "#FFFFFF",
-  surface: "#F4F4F4",
-  surfaceAlt: "#ECECEC",
-  border: "#E5E5E5",
+  surface: "#FAFAFA",
+  surfaceAlt: "#F1F5F9",
+  border: "#E5E7EB",
 
-  text: "#0D0D0D",
-  textSecondary: "#5D5D5D",
-  textTertiary: "#9B9B9B",
+  text: "#111827",
+  textSecondary: "#6B7280",
+  textTertiary: "#9CA3AF",
 
-  userBubble: "#F4F4F4",
-  userText: "#0D0D0D",
+  userBubble: "#FAFAFA",
+  userText: "#111827",
   assistantBubble: "#FFFFFF",
-  assistantText: "#0D0D0D",
+  assistantText: "#111827",
 
   composerBg: "#FFFFFF",
-  composerBorder: "#E5E5E5",
+  composerBorder: "#E5E7EB",
   inputBg: "#FFFFFF",
 
-  contentSurface: "#F7F7F8",
+  contentSurface: "#F8FAFC",
 
-  danger: "#E5484D",
-  dangerLight: "#FFF0EF",
-  warning: "#FF9F0A",
-  success: "#15803D",
+  danger: "#EF4444",
+  dangerLight: "#FEE2E2",
+  warning: "#F59E0B",
+  success: "#22C55E",
   successLight: "#DCFCE7",
   onPrimary: "#FFFFFF",
 
-  codeBg: "#F7F7F8",
-  codeText: "#1F2328",
-  codeLang: "#6B6B6B",
+  codeBg: "#F8FAFC",
+  codeText: "#111827",
+  codeLang: "#9CA3AF",
 
   scrim: "rgba(0,0,0,0.40)",
 };
@@ -104,9 +116,13 @@ export const darkTheme: Theme = {
   scheme: "dark",
   isDark: true,
 
-  primary: "#7C5CFF",
-  primaryLight: "#2A2440",
-  primaryDark: "#A593FF",
+  primary: "#3B82F6",
+  primaryLight: "#1E2A47",
+  primaryDark: "#60A5FA",
+
+  accent: "#818CF8",
+  accentLight: "#21203D",
+  accentDark: "#A5B4FC",
 
   bg: "#212121",
   surface: "#2F2F2F",
@@ -128,16 +144,16 @@ export const darkTheme: Theme = {
 
   contentSurface: "#2A2A2A",
 
-  danger: "#FF6B60",
+  danger: "#F87171",
   dangerLight: "#3A1F1E",
-  warning: "#FF9F0A",
+  warning: "#FBBF24",
   success: "#4ADE80",
   successLight: "rgba(74, 222, 128, 0.16)",
   onPrimary: "#FFFFFF",
 
   codeBg: "#0D0D0D",
   codeText: "#E6E6E6",
-  codeLang: "#9B9B9B",
+  codeLang: "#8E8E8E",
 
   scrim: "rgba(0,0,0,0.60)",
 };

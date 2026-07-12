@@ -9,23 +9,23 @@ export function escapeHtml(text: string): string {
 }
 
 const PRINT_STYLES = `
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 28px; color: #111; line-height: 1.55; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 28px; color: #111827; line-height: 1.55; }
   h1 { font-size: 24px; margin: 0 0 8px; letter-spacing: -0.3px; }
-  h2 { font-size: 16px; margin: 22px 0 10px; color: #333; border-bottom: 1px solid #e5e5e5; padding-bottom: 6px; }
+  h2 { font-size: 16px; margin: 22px 0 10px; color: #111827; border-bottom: 1px solid #E5E7EB; padding-bottom: 6px; }
   h3 { font-size: 15px; margin: 14px 0 4px; }
   p { font-size: 14px; margin: 0 0 10px; }
-  .meta { font-size: 12px; color: #666; margin: 0 0 18px; }
-  .item { margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid #f0f0f0; }
+  .meta { font-size: 12px; color: #6B7280; margin: 0 0 18px; }
+  .item { margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid #E5E7EB; }
   .item:last-child { border-bottom: none; }
-  .def { font-size: 14px; color: #333; margin: 2px 0; }
-  .example { font-size: 13px; color: #555; font-style: italic; margin: 2px 0; }
-  .status { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.4px; }
+  .def { font-size: 14px; color: #111827; margin: 2px 0; }
+  .example { font-size: 13px; color: #6B7280; font-style: italic; margin: 2px 0; }
+  .status { font-size: 11px; font-weight: 600; color: #9CA3AF; text-transform: uppercase; letter-spacing: 0.4px; }
   ul, ol { margin: 0 0 12px; padding-left: 22px; }
   li { font-size: 14px; margin: 0 0 4px; }
-  pre { background: #f5f5f5; border-radius: 8px; padding: 12px; overflow-x: auto; font-size: 12px; line-height: 1.4; }
+  pre { background: #F1F5F9; border-radius: 8px; padding: 12px; overflow-x: auto; font-size: 12px; line-height: 1.4; }
   code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
-  blockquote { margin: 0 0 12px; padding: 8px 12px; border-left: 3px solid #ccc; color: #444; }
-  .empty { font-size: 14px; color: #777; }
+  blockquote { margin: 0 0 12px; padding: 8px 12px; border-left: 3px solid #E5E7EB; color: #6B7280; }
+  .empty { font-size: 14px; color: #9CA3AF; }
 `;
 
 export function wrapPrintDocument(title: string, bodyHtml: string, meta?: string): string {

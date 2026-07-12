@@ -52,6 +52,7 @@ export function MathFormulaWebView({
         engine,
         textColor: textColor ?? theme.text,
         bgColor: bgColor ?? theme.contentSurface,
+        errorColor: theme.danger,
         compact,
       }),
     [
@@ -62,6 +63,7 @@ export function MathFormulaWebView({
       bgColor,
       theme.text,
       theme.contentSurface,
+      theme.danger,
       compact,
     ],
   );

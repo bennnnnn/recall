@@ -19,7 +19,7 @@ type Props = { content: string };
 function diagramColors(theme: Theme) {
   return {
     diagonal: theme.danger,
-    height: theme.isDark ? "#22d3ee" : "#0891b2",
+    height: theme.accent,
     hypotenuse: theme.danger,
   };
 }

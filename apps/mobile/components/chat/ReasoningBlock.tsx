@@ -56,7 +56,7 @@ function makeStyles(theme: Theme) {
     },
     header: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 },
     title: { fontSize: 12, fontWeight: "700", color: theme.textSecondary, flex: 1 },
-    live: { fontSize: 11, color: theme.primary, fontWeight: "600" },
+    live: { fontSize: 11, color: theme.accent, fontWeight: "600" },
     chevron: { marginLeft: "auto" },
     body: { fontSize: 13, lineHeight: 18, color: theme.textSecondary },
   });

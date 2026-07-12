@@ -76,8 +76,8 @@ export function ChatMessagePdf({
   }, [remoteUri, canRenderInline, compact, token]);
 
   const previewHtml = useMemo(
-    () => (previewBase64 ? buildPdfPreviewHtml(previewBase64, theme.isDark) : null),
-    [previewBase64, theme.isDark],
+    () => (previewBase64 ? buildPdfPreviewHtml(previewBase64, theme) : null),
+    [previewBase64, theme],
   );
   const onShouldStartLoadWithRequest = useStaticOnlyNavigation(previewHtml);
 
@@ -195,7 +195,7 @@ function AttachmentPdfViewer({
     void (async () => {
       try {
         const b64 = await fetchAttachmentBase64(remoteUri, token);
-        if (!cancelled) setHtml(buildPdfPreviewHtml(b64, theme.isDark));
+        if (!cancelled) setHtml(buildPdfPreviewHtml(b64, theme));
       } catch {
         if (!cancelled) setFailed(true);
       } finally {
@@ -205,7 +205,7 @@ function AttachmentPdfViewer({
     return () => {
       cancelled = true;
     };
-  }, [visible, remoteUri, token, theme.isDark]);
+  }, [visible, remoteUri, token, theme]);
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>

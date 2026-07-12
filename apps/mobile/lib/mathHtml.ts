@@ -33,6 +33,7 @@ export type MathHtmlOptions = {
   engine?: MathEngine;
   textColor: string;
   bgColor: string;
+  errorColor?: string;
   compact?: boolean;
 };
 
@@ -43,6 +44,7 @@ export function buildMathWebHtml(latex: string, options: MathHtmlOptions): strin
     const safeLatex = escapeForHtmlTemplate(latex.trim());
     const display = options.displayMode ? "true" : "false";
     const pad = options.compact ? "0" : "12px 14px";
+    const errorColor = options.errorColor ?? "#EF4444";
 
     return injectPreviewCsp(`<!DOCTYPE html>
 <html lang="en">
@@ -61,7 +63,7 @@ export function buildMathWebHtml(latex: string, options: MathHtmlOptions): strin
   }
   #out { display: ${options.displayMode ? "block" : "inline-block"}; max-width: 100%; }
   #out mjx-container { color: ${options.textColor} !important; }
-  #err { display: none; color: #dc2626; font-size: 13px; white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, monospace; }
+  #err { display: none; color: ${errorColor}; font-size: 13px; white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, monospace; }
 </style>
 </head>
 <body>

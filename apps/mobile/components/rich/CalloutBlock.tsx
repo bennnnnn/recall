@@ -21,10 +21,10 @@ function calloutMeta(
   }
 > {
   return {
-    tip: { label: "Tip", color: "#34C759", icon: "bulb-outline" },
+    tip: { label: "Tip", color: t.success, icon: "bulb-outline" },
     note: { label: "Note", color: t.primary, icon: "information-circle-outline" },
-    info: { label: "Info", color: "#007AFF", icon: "information-circle-outline" },
-    warning: { label: "Warning", color: "#FF9500", icon: "warning-outline" },
+    info: { label: "Info", color: t.accent, icon: "information-circle-outline" },
+    warning: { label: "Warning", color: t.warning, icon: "warning-outline" },
     important: {
       label: "Important",
       color: t.danger,

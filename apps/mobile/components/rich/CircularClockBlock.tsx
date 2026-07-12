@@ -107,7 +107,7 @@ function ClockFace({ parts, theme }: { parts: ClockParts; theme: Theme }) {
         strokeWidth={3}
         color={theme.text}
       />
-      <ClockHand angle={second} length={R * 0.82} strokeWidth={2} color="#ef4444" />
+      <ClockHand angle={second} length={R * 0.82} strokeWidth={2} color={theme.danger} />
       <Circle cx={CX} cy={CX} r={5} fill={theme.primary} />
       <Circle cx={CX} cy={CX} r={2.5} fill={theme.surface} />
     </Svg>
