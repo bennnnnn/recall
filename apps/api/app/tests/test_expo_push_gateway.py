@@ -45,6 +45,52 @@ async def test_send_push_messages_prunes_invalid_tokens():
 
 
 @pytest.mark.asyncio
+async def test_send_push_messages_survives_invalid_credentials_but_prunes_dead_device():
+    """InvalidCredentials means our own APNs/FCM config is broken, not that the
+    token is dead — it must not be pruned. DeviceNotRegistered is a real dead
+    token and must still be pruned."""
+    response = MagicMock()
+    response.raise_for_status = MagicMock()
+    response.json.return_value = {
+        "data": [
+            {"status": "error", "details": {"error": "InvalidCredentials"}},
+            {"status": "error", "details": {"error": "DeviceNotRegistered"}},
+        ]
+    }
+    client = AsyncMock()
+    client.post = AsyncMock(return_value=response)
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=None)
+
+    with (
+        patch("app.gateways.expo_push_gateway.httpx.AsyncClient", return_value=client),
+        patch.object(gateway.logger, "critical") as critical_mock,
+    ):
+        result = await gateway.send_push_messages(
+            [
+                {"to": "ExponentPushToken[survives]"},
+                {"to": "ExponentPushToken[dead]"},
+            ]
+        )
+
+    assert "ExponentPushToken[survives]" not in result.invalid_tokens
+    assert result.invalid_tokens == ["ExponentPushToken[dead]"]
+    critical_mock.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_receipt_indicates_invalid_token_ignores_invalid_credentials():
+    with patch.object(gateway.logger, "critical") as critical_mock:
+        assert not gateway.receipt_indicates_invalid_token(
+            {"status": "error", "details": {"error": "InvalidCredentials"}}
+        )
+    critical_mock.assert_called_once()
+    assert gateway.receipt_indicates_invalid_token(
+        {"status": "error", "details": {"error": "DeviceNotRegistered"}}
+    )
+
+
+@pytest.mark.asyncio
 async def test_send_push_messages_marks_delivered_on_ticket_ok():
     response = MagicMock()
     response.raise_for_status = MagicMock()

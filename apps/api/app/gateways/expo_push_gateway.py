@@ -13,7 +13,12 @@ logger = logging.getLogger(__name__)
 EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send"
 EXPO_RECEIPTS_URL = "https://exp.host/--/api/v2/push/getReceipts"
 MAX_RECEIPTS_PER_REQUEST = 100
-_INVALID_TOKEN_ERRORS = frozenset({"DeviceNotRegistered", "InvalidCredentials"})
+# BUG FIX (was fleet-wide token wipe): only DeviceNotRegistered proves this
+# token is dead. InvalidCredentials means our own APNs/FCM push credentials
+# are misconfigured — every send would return it, so treating it like a dead
+# token would mass-delete every user's token on the next cycle.
+_INVALID_TOKEN_ERRORS = frozenset({"DeviceNotRegistered"})
+_CREDENTIALS_ERROR = "InvalidCredentials"
 
 
 @dataclass
@@ -32,6 +37,13 @@ def _invalid_token_from_error(details: object) -> str | None:
     if err not in _INVALID_TOKEN_ERRORS:
         return None
     return err
+
+
+def _error_code(details: object) -> str | None:
+    if not isinstance(details, dict):
+        return None
+    err = details.get("error")
+    return err if isinstance(err, str) else None
 
 
 async def fetch_push_receipts(ticket_ids: list[str]) -> dict[str, dict[str, Any]]:
@@ -66,7 +78,11 @@ async def fetch_push_receipts(ticket_ids: list[str]) -> dict[str, dict[str, Any]
 def receipt_indicates_invalid_token(receipt: dict[str, Any]) -> bool:
     if receipt.get("status") != "error":
         return False
-    return _invalid_token_from_error(receipt.get("details", {})) is not None
+    details = receipt.get("details", {})
+    if _error_code(details) == _CREDENTIALS_ERROR:
+        logger.critical("Expo push credentials invalid (receipt) — check APNs/FCM config")
+        return False
+    return _invalid_token_from_error(details) is not None
 
 
 async def send_push_messages(messages: list[dict[str, Any]]) -> PushSendResult:
@@ -111,6 +127,11 @@ async def send_push_messages(messages: list[dict[str, Any]]) -> PushSendResult:
                         continue
                     if ticket.get("status") == "error":
                         details = ticket.get("details", {})
+                        if _error_code(details) == _CREDENTIALS_ERROR:
+                            logger.critical(
+                                "Expo push credentials invalid — check APNs/FCM config"
+                            )
+                            continue
                         err = _invalid_token_from_error(details)
                         if err and token:
                             invalid.append(token)
