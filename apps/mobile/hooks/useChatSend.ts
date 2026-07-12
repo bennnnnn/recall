@@ -15,7 +15,6 @@ import {
   buildPendingSendAfterCreate,
   shouldBlockSend,
 } from "@/lib/chatSendLogic";
-import { extractImageGenPrompt } from "@/lib/imageGenIntent";
 import { scheduleIdlePromise } from "@/lib/scheduleIdle";
 import type { ClientGeo } from "@/lib/clientGeo";
 import { resolveClientGeoForQuery } from "@/lib/resolveClientGeoForQuery";
@@ -71,8 +70,6 @@ type Options = {
   isOffline: boolean;
   resolveQuizProjectId?: () => string | null;
   onBeforeSend?: (text: string) => boolean | void;
-  onOpenImageGen?: (prefill?: string) => void;
-  imageGenerating?: boolean;
 };
 
 export function useChatSend({
@@ -98,8 +95,6 @@ export function useChatSend({
   isOffline,
   resolveQuizProjectId,
   onBeforeSend,
-  onOpenImageGen,
-  imageGenerating = false,
 }: Options) {
   const {
     draftChatIdRef,
@@ -171,7 +166,6 @@ export function useChatSend({
         onStreamBusy?.();
         return;
       }
-      if (imageGenerating) return;
       if (
         shouldBlockSend({
           text,
@@ -190,26 +184,6 @@ export function useChatSend({
       }
       tap();
       if (onBeforeSend?.(text) === true) return;
-
-      if (!pendingAttachment && !editingMessageId) {
-        const imagePrompt = extractImageGenPrompt(text);
-        // BUG FIX: this heuristic is a fuzzy match (e.g. "draw me a
-        // comparison between X and Y" or "draw me a picture of the
-        // situation" — figurative, not a literal image request — both
-        // match). It used to submit straight to paid generation with no
-        // confirmation, silently discarding whatever the user actually
-        // typed on a false positive. Now it only opens the same
-        // confirmation sheet the explicit "generate image" button uses,
-        // pre-filled and editable, so a false positive costs a tap to
-        // dismiss instead of a lost message (and, for free users, a
-        // surprise paywall with no trace of what they typed).
-        if (imagePrompt && onOpenImageGen) {
-          setInput("");
-          Keyboard.dismiss();
-          onOpenImageGen(imagePrompt);
-          return;
-        }
-      }
 
       const authToken = token;
       if (!authToken) return;
@@ -337,8 +311,6 @@ export function useChatSend({
       onStreamBusy,
       isOffline,
       onBeforeSend,
-      onOpenImageGen,
-      imageGenerating,
     ],
   );
 
