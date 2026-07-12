@@ -434,6 +434,8 @@ async def delete_memory_fact(
     user_id: UUID,
     memory_id: UUID,
     fact_index: int,
+    *,
+    expected_text: str | None = None,
 ) -> bool:
     from app.gateways import embedding_gateway
     from app.repositories import memories as memories_repo
@@ -442,9 +444,31 @@ async def delete_memory_fact(
     if memory is None:
         return False
     facts = split_memory_facts(memory.text)
-    if fact_index < 0 or fact_index >= len(facts):
+    # BUG FIX (was silent): the client computes fact_index from its own local
+    # copy of memory.text, but a background extraction/consolidation job can
+    # rewrite this section between when the client loaded it and when the
+    # user taps delete — the index can then point at a different fact than
+    # the one the user saw, silently deleting the wrong one with no error.
+    # When the caller supplies the fact text it actually showed the user,
+    # prefer locating that exact fact by content; only fall back to the raw
+    # index when no expected_text was given (older clients) or the client's
+    # index still happens to be one of the (possibly duplicate) matches. If
+    # the expected fact isn't present at all anymore, refuse rather than
+    # guess — the client should refresh and let the user retry.
+    target_index = fact_index
+    if expected_text is not None:
+        normalized_expected = normalize_memory_text(expected_text).lower()
+        matches = [
+            i
+            for i, fact in enumerate(facts)
+            if normalize_memory_text(fact).lower() == normalized_expected
+        ]
+        if not matches:
+            return False
+        target_index = fact_index if fact_index in matches else matches[0]
+    if target_index < 0 or target_index >= len(facts):
         return False
-    facts.pop(fact_index)
+    facts.pop(target_index)
     if not facts:
         deleted = await memories_repo.delete_by_id(session, user_id, memory_id)
         if deleted:

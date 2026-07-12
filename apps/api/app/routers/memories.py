@@ -1,7 +1,7 @@
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import jobs
@@ -92,14 +92,19 @@ async def delete_memory(
 async def delete_memory_fact(
     memory_id: UUID,
     fact_index: int,
+    fact_text: str | None = Query(default=None, max_length=2000),
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ) -> None:
     if fact_index < 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid fact index")
+    # fact_text (the fact as the client actually displayed it) lets the
+    # service locate it by content instead of trusting a positional index
+    # that may have gone stale — see the BUG FIX comment in
+    # memory_service.delete_memory_fact.
     deleted = await memory_service.delete_memory_fact(
-        session, settings, user.id, memory_id, fact_index
+        session, settings, user.id, memory_id, fact_index, expected_text=fact_text
     )
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Memory fact not found")
