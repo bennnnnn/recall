@@ -169,9 +169,22 @@ def select_memories_semantic(
     return [memory for _, memory in scored[:type_cap]]
 
 
-def _memory_query_cache_key(user_id: UUID, query_text: str) -> str:
+def _memory_query_cache_key(user_id: UUID, generation: bytes | str | None, query_text: str) -> str:
+    # BUG FIX (was a race): the generation is folded into the key itself,
+    # not just checked-then-compared before a separate write. A write
+    # started under an old generation lands under that generation's own key
+    # namespace, which no reader will ever look up again once the
+    # generation bumps — so a slow write racing a concurrent
+    # invalidate_memory_block() can no longer resurrect stale content
+    # under the current generation, regardless of write/invalidate timing.
     digest = hashlib.sha256(query_text.strip().lower().encode()).hexdigest()[:32]
-    return f"memquery:{user_id}:{digest}"
+    if generation is None:
+        gen_tag = "0"
+    elif isinstance(generation, bytes):
+        gen_tag = generation.decode()
+    else:
+        gen_tag = generation
+    return f"memquery:{user_id}:{gen_tag}:{digest}"
 
 
 def _memory_query_embed_key(user_id: UUID, query_text: str) -> str:
@@ -285,10 +298,14 @@ async def _warm_semantic_memory_cache(
                 return
             memories = await _semantic_memories_from_vec(session, user, settings, query_vec)
             block = format_memory_block(memories)
+            # Optimization only, not a correctness guard (see
+            # _memory_query_cache_key): skip the write outright if we
+            # already know the generation moved on, since it would land
+            # under a now-unreachable key anyway.
             gen_after = await redis.get(_memory_generation_key(user_id))
             if gen_before != gen_after:
                 return
-            query_key = _memory_query_cache_key(user_id, cleaned)
+            query_key = _memory_query_cache_key(user_id, gen_before, cleaned)
             try:
                 await redis.set(
                     query_key,
@@ -315,8 +332,13 @@ async def get_memory_block(
     key = _memory_block_key(user.id)
     if query_text and settings.semantic_memory_enabled:
         q = query_text.strip()
-        query_key = _memory_query_cache_key(user.id, q)
         redis = get_redis_client()
+        try:
+            generation = await redis.get(_memory_generation_key(user.id))
+        except Exception:
+            logger.debug("Memory generation read failed", exc_info=True)
+            generation = None
+        query_key = _memory_query_cache_key(user.id, generation, q)
         try:
             cached = await redis.get(query_key)
             if cached is not None:

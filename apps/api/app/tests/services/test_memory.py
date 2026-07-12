@@ -24,6 +24,17 @@ def _memory(type_: str, text: str, confidence: float | None):
     return m
 
 
+class _FakeSessionCM:
+    def __init__(self, session: AsyncMock) -> None:
+        self._session = session
+
+    async def __aenter__(self) -> AsyncMock:
+        return self._session
+
+    async def __aexit__(self, *args: object) -> None:
+        return None
+
+
 def test_normalize_memory_text_strips_trailing_period():
     assert normalize_memory_text("User's name is Bini.") == "User's name is Bini"
 
@@ -334,13 +345,13 @@ async def test_invalidate_memory_block_clears_block_and_query_cache(fake_redis):
 
     # Both the per-user block key and a per-query key should now exist.
     assert await fake_redis.exists(_memory_block_key(user.id)) == 1
-    assert await fake_redis.exists(_memory_query_cache_key(user.id, "outdoor hobbies")) == 1
+    assert await fake_redis.exists(_memory_query_cache_key(user.id, None, "outdoor hobbies")) == 1
 
     with patch("app.services.memory.get_redis_client", return_value=fake_redis):
         await invalidate_memory_block(user.id)
 
     assert await fake_redis.exists(_memory_block_key(user.id)) == 0
-    assert await fake_redis.exists(_memory_query_cache_key(user.id, "outdoor hobbies")) == 0
+    assert await fake_redis.exists(_memory_query_cache_key(user.id, None, "outdoor hobbies")) == 0
 
 
 @pytest.mark.asyncio
@@ -367,14 +378,83 @@ async def test_invalidate_memory_block_clears_multiple_query_keys(fake_redis):
         await get_memory_block(session, user, settings, query_text="outdoor hobbies")
         await get_memory_block(session, user, settings, query_text="weekend plans")
 
-    assert await fake_redis.exists(_memory_query_cache_key(user.id, "outdoor hobbies")) == 1
-    assert await fake_redis.exists(_memory_query_cache_key(user.id, "weekend plans")) == 1
+    assert await fake_redis.exists(_memory_query_cache_key(user.id, None, "outdoor hobbies")) == 1
+    assert await fake_redis.exists(_memory_query_cache_key(user.id, None, "weekend plans")) == 1
 
     with patch("app.services.memory.get_redis_client", return_value=fake_redis):
         await invalidate_memory_block(user.id)
 
-    assert await fake_redis.exists(_memory_query_cache_key(user.id, "outdoor hobbies")) == 0
-    assert await fake_redis.exists(_memory_query_cache_key(user.id, "weekend plans")) == 0
+    assert await fake_redis.exists(_memory_query_cache_key(user.id, None, "outdoor hobbies")) == 0
+    assert await fake_redis.exists(_memory_query_cache_key(user.id, None, "weekend plans")) == 0
+
+
+@pytest.mark.asyncio
+async def test_warm_semantic_cache_write_racing_invalidation_is_never_served(fake_redis):
+    """BUG FIX regression: _warm_semantic_memory_cache checks the generation,
+    then does a separate write — a concurrent invalidation landing in that
+    gap used to be able to resurrect a stale block under the current
+    generation. The write is now scoped to the generation it was computed
+    under, so even if a write lands after the gap, no later reader can
+    retrieve it."""
+    from app.services.memory import (
+        _memory_generation_key,
+        _warm_semantic_memory_cache,
+        get_memory_block,
+    )
+
+    user_id = uuid4()
+    user = AsyncMock()
+    user.id = user_id
+    user.memory_enabled = True
+    session = AsyncMock()
+    settings = Settings(semantic_memory_enabled=True, memory_query_cache_ttl=120)
+
+    stale_memories = [_memory("fact", "Stale — computed before invalidation", 0.9)]
+    fresh_memories = [_memory("fact", "Fresh — computed after invalidation", 0.9)]
+
+    real_set = fake_redis.set
+    triggered = False
+
+    async def racy_set(key: str, *args: object, **kwargs: object) -> object:
+        # Fire exactly once, on the query-cache write — simulating a
+        # concurrent memory write bumping the generation in the narrow gap
+        # between _warm_semantic_memory_cache's gen_after check (which
+        # already passed by the time .set() is called) and this write
+        # actually landing.
+        nonlocal triggered
+        if not triggered and str(key).startswith("memquery:"):
+            triggered = True
+            await fake_redis.incr(_memory_generation_key(user_id))
+        return await real_set(key, *args, **kwargs)
+
+    fake_redis.set = racy_set
+
+    with (
+        patch("app.services.memory.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.gateways.embedding_gateway.embed_text",
+            AsyncMock(return_value=[0.1, 0.2, 0.3]),
+        ),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
+        patch(
+            "app.services.memory._semantic_memories_from_vec",
+            AsyncMock(return_value=stale_memories),
+        ),
+        patch("app.core.db.SessionLocal", return_value=_FakeSessionCM(session)),
+    ):
+        await _warm_semantic_memory_cache(settings, user_id, "outdoor hobbies")
+
+        with patch(
+            "app.services.memory.load_relevant_memories",
+            AsyncMock(return_value=fresh_memories),
+        ):
+            block = await get_memory_block(session, user, settings, query_text="outdoor hobbies")
+
+    assert "Stale — computed before invalidation" not in block
+    assert "Fresh — computed after invalidation" in block
+    # The stale write did land — just under a generation nothing reads anymore.
+    current_gen = await fake_redis.get(_memory_generation_key(user_id))
+    assert current_gen == "1"
 
 
 @pytest.mark.asyncio
