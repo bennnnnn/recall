@@ -1350,30 +1350,26 @@ def _build_enriched_stats(
 
 
 async def _resolve_daily_goal_history(
-    session: AsyncSession,
     project: Project,
     items: list[ProjectItem],
     *,
     timezone_name: str,
-    persist: bool = False,
 ) -> list[dict[str, int | str]]:
-    """Compute goal history for stats. Persist only when explicitly requested (not on GET)."""
+    """Compute (in-memory only) goal history for stats — read path must not write.
+
+    BUG FIX (dead code): this used to take a `persist: bool = False` parameter meant
+    to cache the inferred backfill onto the project row, but every call site passed
+    persist=False (get_project_detail never opted in), so the persistence branch was
+    unreachable. Removed rather than wired up — caching here would mean writing on a
+    GET, which the caller's own comment says a read path must not do.
+    """
     from app.services import daily_learning
 
-    history = daily_learning.ensure_daily_goal_history(
+    return daily_learning.ensure_daily_goal_history(
         project,
         items,
         timezone_name=timezone_name,
     )
-    if not persist:
-        return history
-    existing = daily_learning.parse_daily_goal_history(project)
-    should_persist = project.daily_goal_history is None or (
-        len(existing) == 1 and history != existing
-    )
-    if should_persist and is_learning_product_kind(project.kind):
-        await projects_repo.update(session, project, daily_goal_history=history)
-    return history
 
 
 async def list_projects_for_user(
@@ -1493,9 +1489,7 @@ async def get_project_detail(
         session, [i.id for i in project_items]
     )
     # Read path must not write — compute history in memory only.
-    goal_history = await _resolve_daily_goal_history(
-        session, item, project_items, timezone_name=tz_name, persist=False
-    )
+    goal_history = await _resolve_daily_goal_history(item, project_items, timezone_name=tz_name)
     history_rows = daily_learning.build_daily_history(
         project_items,
         timezone_name=tz_name,
