@@ -161,6 +161,74 @@ async def test_receipt_indicates_invalid_token():
 
 
 @pytest.mark.asyncio
+async def test_send_push_messages_chunks_over_100_messages():
+    """BUG FIX regression: Expo caps each push request at 100 messages. A
+    single oversized request used to be sent as-is, which Expo would reject
+    outright — silently failing every message in an over-100 batch. Messages
+    must be split into sequential chunks, with ticket results mapped back to
+    the correct absolute index in the input list."""
+    messages = [{"to": f"ExponentPushToken[{i}]"} for i in range(150)]
+
+    async def fake_post(url, json=None, headers=None):
+        response = MagicMock()
+        response.raise_for_status = MagicMock()
+        response.json.return_value = {
+            "data": [{"status": "ok", "id": f"ticket-{msg['to']}"} for msg in json]
+        }
+        return response
+
+    client = AsyncMock()
+    client.post = AsyncMock(side_effect=fake_post)
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=None)
+
+    with patch("app.gateways.expo_push_gateway.httpx.AsyncClient", return_value=client):
+        result = await gateway.send_push_messages(messages)
+
+    assert client.post.call_count == 2
+    first_chunk = client.post.call_args_list[0].kwargs["json"]
+    second_chunk = client.post.call_args_list[1].kwargs["json"]
+    assert len(first_chunk) == 100
+    assert len(second_chunk) == 50
+
+    assert result.delivered == [True] * 150
+    assert len(result.receipt_tickets) == 150
+    assert result.receipt_tickets[0] == ("ticket-ExponentPushToken[0]", "ExponentPushToken[0]")
+    assert result.receipt_tickets[149] == (
+        "ticket-ExponentPushToken[149]",
+        "ExponentPushToken[149]",
+    )
+
+
+@pytest.mark.asyncio
+async def test_send_push_messages_one_chunk_failure_does_not_affect_others():
+    """A transport failure on one chunk must not prevent the other chunk's
+    messages from being marked delivered."""
+    messages = [{"to": f"ExponentPushToken[{i}]"} for i in range(150)]
+
+    async def fake_post(url, json=None, headers=None):
+        if len(json) == 100:
+            raise httpx.HTTPError("boom")
+        response = MagicMock()
+        response.raise_for_status = MagicMock()
+        response.json.return_value = {
+            "data": [{"status": "ok", "id": f"ticket-{msg['to']}"} for msg in json]
+        }
+        return response
+
+    client = AsyncMock()
+    client.post = AsyncMock(side_effect=fake_post)
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=None)
+
+    with patch("app.gateways.expo_push_gateway.httpx.AsyncClient", return_value=client):
+        result = await gateway.send_push_messages(messages)
+
+    assert result.delivered[:100] == [False] * 100
+    assert result.delivered[100:] == [True] * 50
+
+
+@pytest.mark.asyncio
 async def test_send_push_messages_network_error_returns_empty():
     client = AsyncMock()
     client.post = AsyncMock(side_effect=httpx.HTTPError("boom"))
