@@ -1588,9 +1588,14 @@ async def apply_project_actions(
         applied_before = applied
         try:
             if action.action == "create_project":
+                # kind is already a bounded Literal on ProjectActionItem
+                # (schemas.py: ProjectKind = "language" | "vocabulary" |
+                # "trivia") validated by Pydantic before this is ever
+                # reached, and normalize_project_kind maps "vocabulary" ->
+                # "language" — so kind is always in LEARNING_PRODUCT_KINDS
+                # here. The old `if kind not in LEARNING_PRODUCT_KINDS:
+                # continue` guard was dead code; removed.
                 kind = normalize_project_kind(action.kind or "language")
-                if kind not in LEARNING_PRODUCT_KINDS:
-                    continue
                 if kind == "language" and _find_language_project(projects, "en"):
                     continue
                 if kind == "trivia" and any(_is_trivia_project(p) for p in projects):
