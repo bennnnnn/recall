@@ -24,12 +24,20 @@ _CONSOLIDATE_LOCK_TTL = 300
 async def _maybe_enqueue_consolidation(user: User, memories: list) -> None:
     if not user.memory_enabled or not memories:
         return
-    sections = {memory.type: memory.text for memory in memories}
-    if not memory_service.sections_need_consolidation(sections):
-        return
     redis = get_redis_client()
     lock_key = f"memconsolidate:{user.id}"
     try:
+        # BUG FIX (perf): list_memories calls this on every GET /memories —
+        # a plain, frequently-polled read. Checking the lock first avoids
+        # re-running sections_need_consolidation's text scan over every
+        # memory section on each of those reads while a consolidation job
+        # is already queued/in-flight for this user (the common case while
+        # sections stay messy across the whole lock TTL window).
+        if await redis.exists(lock_key):
+            return
+        sections = {memory.type: memory.text for memory in memories}
+        if not memory_service.sections_need_consolidation(sections):
+            return
         acquired = await redis.set(lock_key, "1", ex=_CONSOLIDATE_LOCK_TTL, nx=True)
         if acquired:
             await jobs.enqueue(redis, "memory_consolidate", {"user_id": str(user.id)})

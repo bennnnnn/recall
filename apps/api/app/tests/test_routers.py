@@ -694,6 +694,50 @@ def test_list_memories_empty():
     assert r.json() == []
 
 
+def test_list_memories_skips_consolidation_scan_when_already_locked():
+    """BUG FIX (perf): GET /memories runs on every plain list load. Once a
+    consolidation job is already queued/locked for this user, a repeat load
+    must not re-run sections_need_consolidation's text scan over every
+    memory section — it should short-circuit on the cheap lock check."""
+    import fakeredis.aioredis
+
+    user = _fake_user()
+    app = _app_with_user(user)
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+
+    def _messy_memory() -> MagicMock:
+        m = MagicMock()
+        m.id = uuid4()
+        m.type = "profile"
+        m.text = "User's name is Bini. User's name is Binalfew. User is a developer."
+        m.confidence = 0.9
+        m.created_at = datetime(2024, 1, 1)
+        m.updated_at = datetime(2024, 1, 1)
+        return m
+
+    with (
+        patch("app.routers.memories.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.routers.memories.memories_repo.list_for_user",
+            AsyncMock(side_effect=lambda *a, **kw: [_messy_memory()]),
+        ),
+        patch("app.routers.memories.jobs.enqueue", AsyncMock()) as enqueue_job,
+        patch(
+            "app.routers.memories.memory_service.sections_need_consolidation",
+            wraps=lambda sections: True,
+        ) as scan_mock,
+    ):
+        client = TestClient(app)
+        r1 = client.get("/memories", headers={"Authorization": "Bearer tok"})
+        r2 = client.get("/memories", headers={"Authorization": "Bearer tok"})
+
+    assert r1.status_code == 200
+    assert r2.status_code == 200
+    # Second load found the lock already held and skipped the scan entirely.
+    scan_mock.assert_called_once()
+    enqueue_job.assert_awaited_once()
+
+
 def test_delete_memory_not_found():
     user = _fake_user()
     app = _app_with_user(user)
