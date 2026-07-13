@@ -130,6 +130,22 @@ def test_differentiate_expression() -> None:
     assert "2" in result.latex
 
 
+def test_integrate_expression_marks_closed_form_result_as_solved() -> None:
+    result = math_service.integrate_expression("2*x", "x")
+    assert result.result == "x**2"
+    assert result.solved is True
+
+
+def test_integrate_expression_marks_unevaluated_integral_as_not_solved() -> None:
+    """BUG FIX: integrate_expression can hand back a result that still
+    contains a literal unevaluated Integral(...) instead of raising — that
+    used to be indistinguishable from a real closed-form answer downstream,
+    where it was asserted to the model as "verified, do NOT recompute"."""
+    result = math_service.integrate_expression("x**x", "x")
+    assert result.solved is False
+    assert "Integral" in result.result
+
+
 def test_try_extract_equation() -> None:
     eq = math_service.try_extract_equation_from_text("Solve x^2 + 2 = 6")
     assert eq is not None

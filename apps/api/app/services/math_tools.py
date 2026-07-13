@@ -576,6 +576,14 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
                 out = math_service.integrate_expression(intent.expr, intent.variable)
             else:
                 return None
+            if not out.solved:
+                lines.append(
+                    f"SymPy could not find a closed-form result (got: {out.latex}). "
+                    "Do NOT claim this as a verified answer — tell the user no closed "
+                    "form was found, or explain why the integral is hard, instead of "
+                    "asserting a solution."
+                )
+                return VerifiedMathBlock(text="\n".join(lines))
             lines.append(f"Result: {out.latex}")
             lines.append("Do NOT recompute. Explain in plain language with $...$ for formulas.")
             return VerifiedMathBlock(text="\n".join(lines))

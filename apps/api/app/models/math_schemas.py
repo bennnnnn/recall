@@ -32,6 +32,10 @@ class MathSolveResult(BaseModel):
 class MathExprResult(BaseModel):
     result: str
     latex: str
+    # False when SymPy couldn't find a closed form (integrate_expression can
+    # return a literal unevaluated Integral(...) rather than raising) — the
+    # verified block must not assert an unsolved expression as a fact.
+    solved: bool = True
 
 
 class RectangleGeometryInput(BaseModel):
