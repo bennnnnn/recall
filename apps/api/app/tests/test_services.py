@@ -26,6 +26,24 @@ def _memory_extraction_sessions(*, count: int = 1) -> tuple[AsyncMock, list[_Fak
     return session, [_FakeSessionCM(session) for _ in range(count)]
 
 
+@pytest.fixture(autouse=True)
+def _memory_write_lock_always_free():
+    """extract_and_store_memories now acquires memwrite:{user_id} before its
+    read-modify-write section (guards against a concurrent consolidation
+    pass racing it). These tests exercise extraction logic, not Redis
+    locking, so default the lock to always-acquired;
+    test_extract_and_store_skips_when_write_lock_held overrides this to test
+    the lock-held path specifically."""
+    with (
+        patch(
+            "app.background.memory_extraction.acquire_memory_write_lock",
+            AsyncMock(return_value=True),
+        ),
+        patch("app.background.memory_extraction.release_memory_write_lock", AsyncMock()),
+    ):
+        yield
+
+
 # ── memory service ─────────────────────────────────────────────────────────────
 from app.services.memory import format_memory_block, select_memories_for_prompt
 
@@ -309,6 +327,41 @@ async def test_extract_and_store_skips_when_memory_disabled():
         ),
     ):
         await extract_and_store_memories(settings, user_id=uuid4(), chat_id=uuid4(), transcript="t")
+
+
+@pytest.mark.asyncio
+async def test_extract_and_store_skips_when_write_lock_held():
+    """BUG FIX: without a lock, extraction and a concurrently-running
+    consolidation pass for the same user can both read the same prior
+    section text and whichever commits last silently discards the other's
+    write. When memwrite:{user_id} is already held (by consolidation or
+    another extraction), this run must skip entirely — no LLM call, no DB
+    write — rather than proceed unprotected.
+
+    Uses plain (non-raising) mocks and asserts they were never awaited,
+    rather than side_effect=AssertionError, because extract_and_store_memories
+    swallows all internal exceptions (Golden Rule 4) — a raised AssertionError
+    would just be caught and logged, silently passing even pre-fix."""
+    from app.background.memory_extraction import extract_and_store_memories
+
+    settings = Settings()
+    get_by_id = AsyncMock()
+    revise = AsyncMock()
+    upsert = AsyncMock()
+    with (
+        patch(
+            "app.background.memory_extraction.acquire_memory_write_lock",
+            AsyncMock(return_value=False),
+        ),
+        patch("app.background.memory_extraction.users_repo.get_by_id", get_by_id),
+        patch("app.background.memory_extraction.litellm_gateway.revise_memory_sections", revise),
+        patch("app.background.memory_extraction.memories_repo.upsert_sections", upsert),
+    ):
+        await extract_and_store_memories(settings, user_id=uuid4(), chat_id=uuid4(), transcript="t")
+
+    get_by_id.assert_not_awaited()
+    revise.assert_not_awaited()
+    upsert.assert_not_awaited()
 
 
 @pytest.mark.asyncio

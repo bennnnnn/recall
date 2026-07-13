@@ -27,6 +27,24 @@ def _consolidation_sessions(*, count: int = 1) -> tuple[AsyncMock, list[_FakeSes
     return session, [_FakeSessionCM(session) for _ in range(count)]
 
 
+@pytest.fixture(autouse=True)
+def _memory_write_lock_always_free():
+    """consolidate_user_memory_sections now acquires memwrite:{user_id}
+    before its read-modify-write section (guards against a concurrent
+    extraction pass racing it). These tests exercise consolidation logic,
+    not Redis locking, so default the lock to always-acquired;
+    test_consolidate_skips_when_write_lock_held overrides this to test the
+    lock-held path specifically."""
+    with (
+        patch(
+            "app.background.memory_consolidation.acquire_memory_write_lock",
+            AsyncMock(return_value=True),
+        ),
+        patch("app.background.memory_consolidation.release_memory_write_lock", AsyncMock()),
+    ):
+        yield
+
+
 @pytest.mark.asyncio
 async def test_consolidate_skips_clean_sections():
     user_id = uuid4()
@@ -48,6 +66,37 @@ async def test_consolidate_skips_clean_sections():
         changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
 
     assert changed is False
+
+
+@pytest.mark.asyncio
+async def test_consolidate_skips_when_write_lock_held():
+    """BUG FIX: without a lock, consolidation and a concurrently-running
+    extraction pass for the same user can both read the same prior section
+    text and whichever commits last silently discards the other's write.
+    When memwrite:{user_id} is already held (by extraction or another
+    consolidation), this run must skip entirely — no LLM call, no DB write.
+
+    Uses plain (non-raising) mocks and asserts they were never awaited,
+    rather than side_effect=AssertionError, because
+    consolidate_user_memory_sections swallows all internal exceptions
+    (Golden Rule 4) — a raised AssertionError would just be caught and
+    logged, silently passing even pre-fix."""
+    user_id = uuid4()
+    list_for_user = AsyncMock()
+    merge = AsyncMock()
+    with (
+        patch(
+            "app.background.memory_consolidation.acquire_memory_write_lock",
+            AsyncMock(return_value=False),
+        ),
+        patch("app.background.memory_consolidation.memories_repo.list_for_user", list_for_user),
+        patch("app.background.memory_consolidation.litellm_gateway.merge_memory_section", merge),
+    ):
+        changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
+
+    assert changed is False
+    list_for_user.assert_not_awaited()
+    merge.assert_not_awaited()
 
 
 @pytest.mark.asyncio

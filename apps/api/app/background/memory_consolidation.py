@@ -11,11 +11,13 @@ from app.core.db import SessionLocal
 from app.gateways import litellm_gateway
 from app.repositories import memories as memories_repo
 from app.services.memory import (
+    acquire_memory_write_lock,
     consolidation_rewrite_preserves_facts,
     embedding_text_hash,
     invalidate_memory_block,
     join_memory_facts,
     normalize_memory_text,
+    release_memory_write_lock,
     section_needs_consolidation,
     sections_need_consolidation,
     split_memory_facts,
@@ -120,62 +122,73 @@ async def consolidate_user_memory_sections(
 ) -> bool:
     """Merge duplicate facts per section (merge-not-replace) via the memory model."""
     try:
-        async with SessionLocal() as session:
-            snapshot = await _load_consolidation_snapshot(session, user_id)
-            await session.commit()
-
-        if snapshot is None:
+        # Holds the same memwrite:{user_id} lock extraction uses for its
+        # read-modify-write section — without it, a concurrently-running
+        # extraction pass (or a second consolidation) can read the same prior
+        # section text and whichever commits last silently discards the
+        # other's write.
+        if not await acquire_memory_write_lock(user_id):
+            logger.info("Memory consolidation skipped: write lock held for user_id=%s", user_id)
             return False
+        try:
+            async with SessionLocal() as session:
+                snapshot = await _load_consolidation_snapshot(session, user_id)
+                await session.commit()
 
-        rows: list[tuple[str, str, float, UUID | None]] = []
-        for section_type, prior in snapshot.sections.items():
-            if not section_needs_consolidation(prior):
-                continue
+            if snapshot is None:
+                return False
 
-            # Deterministic pre-pass: drop exact duplicate sentences before LLM.
-            deduped = join_memory_facts(split_memory_facts(prior))
-            draft = deduped if deduped else prior
-            if draft != normalize_memory_text(prior) and not section_needs_consolidation(draft):
+            rows: list[tuple[str, str, float, UUID | None]] = []
+            for section_type, prior in snapshot.sections.items():
+                if not section_needs_consolidation(prior):
+                    continue
+
+                # Deterministic pre-pass: drop exact duplicate sentences before LLM.
+                deduped = join_memory_facts(split_memory_facts(prior))
+                draft = deduped if deduped else prior
+                if draft != normalize_memory_text(prior) and not section_needs_consolidation(draft):
+                    accepted = _accept_merged_summary(
+                        section_type=section_type,
+                        prior=prior,
+                        summary=draft,
+                        confidence=0.95,
+                        min_confidence=settings.memory_min_confidence,
+                        enforce_length_floor=False,
+                    )
+                    if accepted:
+                        rows.append((section_type, accepted, 0.95, None))
+                    continue
+
+                merged = await litellm_gateway.merge_memory_section(
+                    settings,
+                    section_type=section_type,
+                    prior_text=draft,
+                )
+                if merged is None:
+                    continue
                 accepted = _accept_merged_summary(
                     section_type=section_type,
                     prior=prior,
-                    summary=draft,
-                    confidence=0.95,
+                    summary=merged.summary,
+                    confidence=merged.confidence,
                     min_confidence=settings.memory_min_confidence,
-                    enforce_length_floor=False,
                 )
                 if accepted:
-                    rows.append((section_type, accepted, 0.95, None))
-                continue
+                    rows.append((section_type, accepted, merged.confidence, None))
 
-            merged = await litellm_gateway.merge_memory_section(
-                settings,
-                section_type=section_type,
-                prior_text=draft,
-            )
-            if merged is None:
-                continue
-            accepted = _accept_merged_summary(
-                section_type=section_type,
-                prior=prior,
-                summary=merged.summary,
-                confidence=merged.confidence,
-                min_confidence=settings.memory_min_confidence,
-            )
-            if accepted:
-                rows.append((section_type, accepted, merged.confidence, None))
+            if not rows:
+                return False
 
-        if not rows:
-            return False
-
-        async with SessionLocal() as session:
-            await _apply_consolidation_result(
-                session,
-                settings,
-                user_id=user_id,
-                rows=rows,
-            )
-        return True
+            async with SessionLocal() as session:
+                await _apply_consolidation_result(
+                    session,
+                    settings,
+                    user_id=user_id,
+                    rows=rows,
+                )
+            return True
+        finally:
+            await release_memory_write_lock(user_id)
     except Exception:
         logger.exception("Memory consolidation failed for user_id=%s", user_id)
         return False
