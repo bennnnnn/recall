@@ -220,6 +220,11 @@ async def test_load_relevant_memories_skips_max_distance_when_cutoff_disabled():
 
 @pytest.mark.asyncio
 async def test_load_relevant_memories_falls_back_to_in_memory_when_db_empty():
+    """Represents the transitional state where the pgvector column isn't
+    populated yet but the JSON fallback vector is — search_semantic filters
+    on Memory.embedding.isnot(None), so an unpopulated pgvector column is
+    exactly why db_hits comes back empty even though this memory IS
+    semantically embeddable via the JSON path."""
     from app.services.memory import load_relevant_memories
 
     user = AsyncMock()
@@ -231,6 +236,7 @@ async def test_load_relevant_memories_falls_back_to_in_memory_when_db_empty():
     )
 
     in_memory_hit = _memory("fact", "Python programming", 1.0)
+    in_memory_hit.embedding = None
     in_memory_hit.embedding_json = "[1.0, 0.0, 0.0]"
 
     with (
@@ -248,6 +254,41 @@ async def test_load_relevant_memories_falls_back_to_in_memory_when_db_empty():
 
     assert result == [in_memory_hit]
     embed_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_load_relevant_memories_returns_empty_when_vectors_populated_but_no_match():
+    """BUG FIX: an empty db_hits list is ambiguous — it means either "no row
+    has a populated vector yet" or "vectors are populated but none cleared
+    the similarity cutoff" (a genuine no-match). This used to treat both
+    identically and fall back to type-priority selection, injecting an
+    arbitrary "known facts" block even for a query that's actually
+    unrelated. When any memory already has a populated pgvector embedding,
+    an empty db_hits must mean the second case — return [], not a fallback."""
+    from app.services.memory import load_relevant_memories
+
+    user = AsyncMock()
+    user.id = uuid4()
+    user.memory_enabled = True
+    session = AsyncMock()
+    settings = Settings(
+        semantic_memory_enabled=True, memory_min_confidence=0.0, memory_inject_limit=5
+    )
+
+    embedded_memory = _memory("fact", "Python programming", 1.0)
+    embedded_memory.embedding = [1.0, 0.0, 0.0]
+    embedded_memory.embedding_json = "[1.0, 0.0, 0.0]"
+
+    with (
+        patch(
+            "app.repositories.memories.list_for_user",
+            AsyncMock(return_value=[embedded_memory]),
+        ),
+        patch("app.repositories.memories.search_semantic", AsyncMock(return_value=[])),
+    ):
+        result = await load_relevant_memories(session, user, settings, query_vec=[0.0, 1.0, 0.0])
+
+    assert result == []
 
 
 @pytest.mark.asyncio
