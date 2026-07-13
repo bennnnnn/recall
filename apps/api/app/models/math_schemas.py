@@ -27,6 +27,10 @@ class MathSolveResult(BaseModel):
     steps: list[str] = Field(default_factory=list)
     lhs_latex: str = ""
     rhs_latex: str = ""
+    # "none"/"infinite" only apply when solutions_latex is empty — distinguishes
+    # a genuine contradiction (no solution) from a tautology (every value
+    # satisfies the equation), which used to collapse into one ambiguous string.
+    solution_kind: Literal["finite", "none", "infinite"] = "finite"
 
 
 class MathExprResult(BaseModel):

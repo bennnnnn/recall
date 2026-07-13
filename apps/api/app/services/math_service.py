@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import math
 import re
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 from sympy import Eq, Integral, Symbol, diff, integrate, latex, parse_expr, simplify, solve
@@ -173,6 +173,19 @@ def _worked_isolation_steps(lhs: Any, rhs: Any, variable: str) -> list[str]:
     return steps
 
 
+def _classify_no_solution(lhs: Any, rhs: Any) -> Literal["none", "infinite"]:
+    """solve() returning [] is ambiguous: it means either a genuine
+    contradiction (e.g. "0 = 1") or a tautology true for every value (e.g.
+    "x = x", "2x + 4 = 2(x + 2)") — infinitely many solutions. Distinguish
+    by checking whether lhs - rhs simplifies to the identically-zero
+    expression. Anything not provably zero (including indeterminate cases
+    with free symbols outside the solved-for variables) defaults to "none",
+    matching the historical (ambiguous) behavior rather than over-claiming
+    infinite solutions."""
+    diff_expr = simplify(lhs - rhs)
+    return "infinite" if diff_expr.is_zero else "none"
+
+
 def solve_equation(data: EquationInput) -> MathSolveResult:
     equation, lhs, rhs = parse_equation(data)
     syms = [Symbol(v) for v in data.variables]
@@ -196,16 +209,25 @@ def solve_equation(data: EquationInput) -> MathSolveResult:
     # variable forms so the model copies them instead of inventing wrong ones.
     if len(data.variables) == 1:
         steps.extend(_worked_isolation_steps(lhs, rhs, data.variables[0]))
+
+    solution_kind: Literal["finite", "none", "infinite"] = "finite"
     if solutions_latex:
         steps.append(f"Solutions: {', '.join(solutions_latex)}")
     else:
-        steps.append("No solutions found (or infinite solution set).")
+        solution_kind = _classify_no_solution(lhs, rhs)
+        if solution_kind == "infinite":
+            steps.append(
+                "Infinitely many solutions (equation is an identity, true for all values)."
+            )
+        else:
+            steps.append("No solutions found (equation is a contradiction).")
 
     return MathSolveResult(
         solutions_latex=solutions_latex,
         steps=steps,
         lhs_latex=latex(lhs),
         rhs_latex=latex(rhs),
+        solution_kind=solution_kind,
     )
 
 

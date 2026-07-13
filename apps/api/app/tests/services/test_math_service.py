@@ -28,6 +28,45 @@ def test_solve_equation(lhs: str, rhs: str, expected_count: int) -> None:
     assert "x" in result.solutions_latex[0]
 
 
+@pytest.mark.parametrize(
+    "lhs, rhs",
+    [
+        ("x", "x"),
+        ("2*x + 4", "2*(x + 2)"),
+    ],
+)
+def test_solve_equation_identifies_infinite_solutions(lhs: str, rhs: str) -> None:
+    """BUG FIX: a tautology (true for every value of x) used to collapse
+    into the same ambiguous "No solutions found (or infinite solution set)."
+    string as a genuine contradiction."""
+    result = math_service.solve_equation(EquationInput(lhs=lhs, rhs=rhs, variables=["x"]))
+    assert result.solutions_latex == []
+    assert result.solution_kind == "infinite"
+    assert any("infinitely many" in step.lower() for step in result.steps)
+
+
+@pytest.mark.parametrize(
+    "lhs, rhs",
+    [
+        ("x", "x + 1"),
+        ("0", "1"),
+    ],
+)
+def test_solve_equation_identifies_no_solution(lhs: str, rhs: str) -> None:
+    """BUG FIX: a genuine contradiction used to collapse into the same
+    ambiguous "No solutions found (or infinite solution set)." string as a
+    tautology with infinitely many solutions."""
+    result = math_service.solve_equation(EquationInput(lhs=lhs, rhs=rhs, variables=["x"]))
+    assert result.solutions_latex == []
+    assert result.solution_kind == "none"
+    assert any("contradiction" in step.lower() for step in result.steps)
+
+
+def test_solve_equation_finite_solutions_kind() -> None:
+    result = math_service.solve_equation(EquationInput(lhs="2*x + 4", rhs="10", variables=["x"]))
+    assert result.solution_kind == "finite"
+
+
 def test_solve_x_squared_plus_two() -> None:
     result = math_service.solve_equation(EquationInput(lhs="x**2 + 2", rhs="6", variables=["x"]))
     joined = " ".join(result.solutions_latex)
