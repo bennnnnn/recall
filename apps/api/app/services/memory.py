@@ -237,6 +237,17 @@ async def _semantic_memories_from_vec(
     if db_hits:
         return db_hits
     all_memories = await memories_repo.list_for_user(session, user.id)
+    # BUG FIX: an empty db_hits list is ambiguous — search_semantic's own
+    # docstring says it means "no row has a populated vector yet," but it
+    # equally happens when vectors ARE populated and none clear the
+    # memory_min_similarity cutoff (a genuine "nothing relevant" result).
+    # Falling back to type-priority selection in that second case injects an
+    # arbitrary "known facts" block for a query that's actually unrelated,
+    # defeating the point of the semantic gate. Only fall back when no
+    # memory has an embedding at all — the real "vectors not ready yet" case
+    # this fallback exists for.
+    if any(memory.embedding is not None for memory in all_memories):
+        return []
     semantic = select_memories_semantic(all_memories, query_vec, settings)
     if semantic:
         return semantic
