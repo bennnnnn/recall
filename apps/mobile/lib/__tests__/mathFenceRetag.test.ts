@@ -52,6 +52,23 @@ describe("mathFenceRetag", () => {
     expect(looksLikeLatexFence("2^{1} + 5 = 2 + 5 = 7")).toBe(true);
   });
 
+  it("BUG FIX regression: detects a multi-step \\begin{aligned} derivation despite having more than 4 lines", () => {
+    // The line-count safety cap ran before the LATEX_CMD_RE check, so any
+    // \begin{aligned}...\end{aligned} block with more than 4 lines (routine
+    // for a 3+ step derivation) was rejected as "not math" before the
+    // \times/\text{/\begin match ever ran, and fell back to a plain
+    // syntax-highlighted code block instead of rendering as typeset math.
+    const body = [
+      String.raw`\begin{aligned}`,
+      String.raw`A &= \pi \times 4^{2} \\`,
+      String.raw`  &= \pi \times 16 \\`,
+      String.raw`  &= 16\pi \\`,
+      String.raw`  &\approx 50.27\ \text{cm}^{2}`,
+      String.raw`\end{aligned}`,
+    ].join("\n");
+    expect(looksLikeLatexFence(body)).toBe(true);
+  });
+
   it("does not swallow prose between two already-tagged math fences", () => {
     // A closing ``` for the first ```math fence must never be mistaken for
     // the opener of a new bare fence that then swallows everything up to
