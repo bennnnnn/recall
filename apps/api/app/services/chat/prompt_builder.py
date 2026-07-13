@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.gateways.web_search_gateway import WebSearchHit
+from app.models.math_schemas import MathImageExtract
 from app.models.orm import Chat, User
 from app.services import profile as profile_service
 from app.services.chat.prompt_constants import (
@@ -99,6 +100,7 @@ async def _augment_web_and_tools(
     longitude: float | None = None,
     prior_user_messages: list[str] | None = None,
     has_image_attachment: bool = False,
+    image_math_extract: MathImageExtract | None = None,
     on_status: StreamStatusFn | None = None,
     user: User | None = None,
     redis: Redis | None = None,
@@ -152,6 +154,7 @@ async def _augment_web_and_tools(
         user_content,
         settings,
         has_image_attachment=has_image_attachment,
+        image_math_extract=image_math_extract,
     )
     return updated, search_sources, verified_math
 

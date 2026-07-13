@@ -89,6 +89,213 @@ async def test_extract_equation_uses_dedicated_ocr_timeout_not_solve_timeout():
     assert result.rhs == "1"
 
 
+def _fake_response(content: str) -> MagicMock:
+    message = MagicMock()
+    message.content = content
+    response = MagicMock()
+    response.choices = [MagicMock(message=message)]
+    return response
+
+
+def _real_path_settings() -> Settings:
+    return Settings(mock_llm_enabled=False, openrouter_api_key="test-key")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "raw_content",
+    [
+        '{"lhs":"2*x+3","rhs":"7","variables":["x"],"found":true}',
+        # Markdown-fenced with a "json" language tag — real vision models
+        # routinely wrap JSON in a fence despite being asked for raw JSON.
+        '```json\n{"lhs":"2*x+3","rhs":"7","variables":["x"],"found":true}\n```',
+        # Fenced without a language tag.
+        '```\n{"lhs":"2*x+3","rhs":"7","variables":["x"],"found":true}\n```',
+    ],
+)
+async def test_extract_equation_parses_well_formed_json(raw_content: str):
+    with patch(
+        "app.services.math_image_extract.acompletion",
+        AsyncMock(return_value=_fake_response(raw_content)),
+    ):
+        result = await mie.extract_equation_from_image(
+            _real_path_settings(), content_type="image/jpeg", data=b"fake"
+        )
+    assert result is not None
+    assert result.lhs == "2*x+3"
+    assert result.rhs == "7"
+    assert result.variables == ["x"]
+
+
+@pytest.mark.asyncio
+async def test_extract_equation_found_false_returns_none():
+    raw = '{"lhs":"0","rhs":"0","variables":["x"],"found":false}'
+    with patch(
+        "app.services.math_image_extract.acompletion",
+        AsyncMock(return_value=_fake_response(raw)),
+    ):
+        result = await mie.extract_equation_from_image(
+            _real_path_settings(), content_type="image/jpeg", data=b"fake"
+        )
+    assert result is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "raw_content",
+    [
+        "not json at all",
+        '{"lhs": "2*x", "rhs": }',  # malformed JSON
+        "",
+    ],
+)
+async def test_extract_equation_malformed_json_returns_none(raw_content: str):
+    with patch(
+        "app.services.math_image_extract.acompletion",
+        AsyncMock(return_value=_fake_response(raw_content)),
+    ):
+        result = await mie.extract_equation_from_image(
+            _real_path_settings(), content_type="image/jpeg", data=b"fake"
+        )
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_extract_equation_pydantic_validation_failure_returns_none():
+    # Missing the required "lhs"/"rhs" fields entirely.
+    raw = '{"variables":["x"],"found":true}'
+    with patch(
+        "app.services.math_image_extract.acompletion",
+        AsyncMock(return_value=_fake_response(raw)),
+    ):
+        result = await mie.extract_equation_from_image(
+            _real_path_settings(), content_type="image/jpeg", data=b"fake"
+        )
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_extract_equation_real_timeout_returns_none():
+    """Distinct from test_extract_equation_uses_dedicated_ocr_timeout_not_solve_timeout
+    (which proves the RIGHT budget is used) — this proves the timeout
+    actually fires and degrades gracefully when the call genuinely overruns
+    even the dedicated OCR budget."""
+    settings = Settings(
+        math_image_extract_timeout_seconds=0.05,
+        mock_llm_enabled=False,
+        openrouter_api_key="test-key",
+    )
+
+    async def _hangs(**_kwargs):
+        await asyncio.sleep(5)
+        raise AssertionError("should have been cancelled by the timeout")
+
+    with patch("app.services.math_image_extract.acompletion", side_effect=_hangs):
+        result = await mie.extract_equation_from_image(
+            settings, content_type="image/jpeg", data=b"fake"
+        )
+    assert result is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("lhs", "rhs"),
+    [
+        pytest.param("f(x,2)", "7", id="comma"),
+        pytest.param("2×x+3", "7", id="unicode-times"),
+        pytest.param("|x-3|", "5", id="abs-bars"),
+    ],
+)
+async def test_augment_prompt_messages_image_math_extract_survives_ocr_chars(
+    lhs: str, rhs: str
+) -> None:
+    """BUG FIX (Phase B item 6): the vision-extracted equation used to be
+    discarded after stringifying to "lhs = rhs" free text, which was then
+    re-parsed by try_extract_equations_from_text's restricted
+    character-class regex ([0-9a-zA-Z+\\-*/().\\s^**]) — silently mangling
+    or dropping commas, unicode operators, and abs-value bars a real
+    photographed equation can contain. Passing the Pydantic-validated
+    MathImageExtract straight through via the new image_math_extract
+    parameter must produce a MathIntent with the exact extracted lhs/rhs,
+    bypassing that reparse entirely."""
+    from unittest.mock import AsyncMock
+
+    from app.core.config import Settings
+    from app.models.math_schemas import MathIntent
+    from app.services.math_tools import VerifiedMathBlock, augment_prompt_messages
+
+    settings = Settings(math_tools_enabled=True)
+    extract = MathImageExtract(lhs=lhs, rhs=rhs, variables=["x"], found=True)
+    user_content = f"Solve the math problem in this image step by step.\n\nSolve: {lhs} = {rhs}"
+    messages = [
+        {"role": "system", "content": "base"},
+        {"role": "user", "content": user_content},
+    ]
+
+    captured: dict[str, MathIntent] = {}
+
+    async def _fake_build(intent: MathIntent, _settings: Settings) -> VerifiedMathBlock:
+        captured["intent"] = intent
+        return VerifiedMathBlock(text="stub")
+
+    with patch(
+        "app.services.math_tools._build_verified_block_async",
+        AsyncMock(side_effect=_fake_build),
+    ):
+        _, verified = await augment_prompt_messages(
+            messages,
+            user_content,
+            settings,
+            has_image_attachment=True,
+            image_math_extract=extract,
+        )
+
+    assert verified is not None
+    assert captured["intent"].kind == "equation"
+    assert captured["intent"].lhs == lhs
+    assert captured["intent"].rhs == rhs
+
+
+@pytest.mark.asyncio
+async def test_augment_prompt_messages_without_image_math_extract_mangles_ocr_text() -> None:
+    """Characterizes the bug image_math_extract fixes: without it, the same
+    stringified OCR text falls through to the free-text regex path, which
+    corrupts a comma-containing equation (comma isn't in the extraction
+    regex's character class, so it only matches the tail after the comma)."""
+    from unittest.mock import AsyncMock
+
+    from app.core.config import Settings
+    from app.models.math_schemas import MathIntent
+    from app.services.math_tools import VerifiedMathBlock, augment_prompt_messages
+
+    settings = Settings(math_tools_enabled=True)
+    user_content = "Solve the math problem in this image step by step.\n\nSolve: f(x,2) = 7"
+    messages = [
+        {"role": "system", "content": "base"},
+        {"role": "user", "content": user_content},
+    ]
+
+    captured: dict[str, MathIntent] = {}
+
+    async def _fake_build(intent: MathIntent, _settings: Settings) -> VerifiedMathBlock:
+        captured["intent"] = intent
+        return VerifiedMathBlock(text="stub")
+
+    with patch(
+        "app.services.math_tools._build_verified_block_async",
+        AsyncMock(side_effect=_fake_build),
+    ):
+        await augment_prompt_messages(
+            messages,
+            user_content,
+            settings,
+            has_image_attachment=True,
+            image_math_extract=None,
+        )
+
+    assert captured["intent"].lhs != "f(x,2)"
+
+
 @pytest.mark.asyncio
 async def test_extract_equation_failure_logs_at_warning_not_debug(caplog):
     """BUG FIX: failures here used to log at DEBUG, so a real OCR outage

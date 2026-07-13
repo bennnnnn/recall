@@ -12,6 +12,7 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.exceptions import ChatNotFoundError
 from app.gateways.web_search_gateway import WebSearchHit
+from app.models.math_schemas import MathImageExtract
 from app.models.orm import Attachment, Chat, User
 from app.services import day_planning as day_planning_service
 from app.services import profile as profile_service
@@ -260,6 +261,7 @@ async def build_stream_prompt_context(
     client_latitude: float | None,
     client_longitude: float | None,
     has_image_attachment: bool = False,
+    image_math_extract: MathImageExtract | None = None,
     on_status: StreamStatusFn | None = None,
     todo_sync_feedback: str | None = None,
     quiz_mode: str | None = None,
@@ -504,6 +506,7 @@ async def build_stream_prompt_context(
             longitude=geo.client_lng,
             prior_user_messages=prior_user_messages,
             has_image_attachment=has_image_attachment,
+            image_math_extract=image_math_extract,
             on_status=on_status,
             user=user,
             redis=redis,
@@ -555,6 +558,7 @@ async def prepare_chat_turn(
     gateway = None
     has_image_attachment = False
     image_attachments: list[tuple[str, str]] = []
+    image_math_extract: MathImageExtract | None = None
 
     if attachment_ids and settings.attachments_enabled:
         async with SessionLocal() as session:
@@ -645,6 +649,7 @@ async def prepare_chat_turn(
                         settings, content_type=mime, data=image_bytes
                     )
                     if extracted is not None:
+                        image_math_extract = extracted
                         eq = f"{extracted.lhs} = {extracted.rhs}"
                         user_content = f"{user_content}\n\nExtracted equation: {eq}"
                         content = f"{content}\n\nSolve: {eq}"
@@ -762,6 +767,7 @@ async def prepare_chat_turn(
         client_latitude=client_latitude,
         client_longitude=client_longitude,
         has_image_attachment=has_image_attachment,
+        image_math_extract=image_math_extract,
         on_status=on_status,
         quiz_mode=quiz_mode,
         user=user,
