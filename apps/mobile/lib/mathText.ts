@@ -40,6 +40,43 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\\}/g, "}"],
 ];
 
+/** Roman-type function names — render as their bare name (e.g. \log → "log"),
+ * matching mathFenceRetag.ts's LATEX_CMD_RE list. Without this, any command
+ * not in CMD_REPLACEMENTS above falls through to the generic \cmd fallback
+ * and shows the literal backslash (e.g. "\log_2(2)" instead of "log2(2)"). */
+const ROMAN_FUNCTIONS = new Set([
+  "log",
+  "ln",
+  "exp",
+  "lim",
+  "sup",
+  "inf",
+  "sin",
+  "cos",
+  "tan",
+  "sec",
+  "csc",
+  "cot",
+  "arcsin",
+  "arccos",
+  "arctan",
+  "sinh",
+  "cosh",
+  "tanh",
+  "sum",
+  "prod",
+  "int",
+  "det",
+  "gcd",
+  "min",
+  "max",
+  "arg",
+  "deg",
+  "ker",
+  "dim",
+  "hom",
+]);
+
 function readGroup(input: string, start: number): { value: string; next: number } | null {
   if (input[start] !== "{") return null;
   let depth = 0;
@@ -155,7 +192,7 @@ export function parseSimpleLatex(latex: string): MathSegment[] {
       const rest = input.slice(i + 1);
       const cmd = rest.match(/^[a-zA-Z]+/)?.[0];
       if (cmd) {
-        pushText(`\\${cmd}`);
+        pushText(ROMAN_FUNCTIONS.has(cmd.toLowerCase()) ? cmd : `\\${cmd}`);
         i += cmd.length + 1;
         continue;
       }

@@ -17,6 +17,20 @@ describe("parseSimpleLatex", () => {
     const segs = parseSimpleLatex(String.raw`\frac{a}{b}`);
     expect(segs).toEqual([{ type: "frac", num: "a", den: "b" }]);
   });
+
+  it("BUG FIX regression: renders known function names without the leading backslash", () => {
+    // \log_2(2) used to render literally as "\log_2(2)" in the no-WebView
+    // (Expo Go) plain-text fallback since \log wasn't in CMD_REPLACEMENTS.
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\log_2(2)`))).toBe("log_2(2)");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\sin(x) + \cos(x)`))).toBe(
+      "sin(x) + cos(x)",
+    );
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\lim_{x \to 0}`))).toBe("lim_x \\to 0");
+  });
+
+  it("still shows the backslash for a genuinely unknown command", () => {
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\widehat{x}`))).toContain("\\widehat");
+  });
 });
 
 describe("splitMathLines", () => {
