@@ -408,7 +408,7 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
                     variable=intent.variable,
                     x_min=-10,
                     x_max=10,
-                    n=min(settings.math_graph_max_points, 200),
+                    n=settings.math_graph_max_points,
                 )
             )
             graph_spec = GraphBlockSpec(

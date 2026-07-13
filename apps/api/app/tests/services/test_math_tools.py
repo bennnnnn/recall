@@ -120,6 +120,22 @@ async def test_augment_prompt_injects_graph_block() -> None:
 
 
 @pytest.mark.asyncio
+async def test_graph_sample_uses_the_full_configured_point_budget() -> None:
+    """BUG FIX regression: a stray `min(..., 200)` silently capped every
+    graph at 200 points regardless of math_graph_max_points, so the
+    200-300 range of the (default 300) setting was dead code."""
+    settings = Settings(math_tools_enabled=True, math_graph_max_points=300)
+    out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": "Graph y = x^2"}],
+        "Graph y = x^2",
+        settings,
+    )
+    assert verified is not None
+    assert verified.canonical_fence is not None
+    assert len(verified.canonical_fence["points"]) == 300
+
+
+@pytest.mark.asyncio
 async def test_augment_prompt_injects_sympy_block() -> None:
     settings = Settings(math_tools_enabled=True)
     messages = [
