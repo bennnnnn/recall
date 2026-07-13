@@ -29,7 +29,13 @@ function renderFenceInner(key: string, lang: string, content: string) {
   }
   const l = lang.trim().toLowerCase();
   if (looksLikeLatexFence(content) && l !== "python" && l !== "javascript") {
-    return <MathBlock key={key} latex={content} />;
+    // Content-derived key, not the caller-supplied `key` (which
+    // react-native-markdown-display regenerates on every re-parse while
+    // streaming) — the same latex across re-parses must map to the same
+    // key, or MathBlock's WebView-backed renderer unmounts/remounts (a
+    // full WebView reload, visible as a flicker) every ~48ms even though
+    // nothing actually changed.
+    return <MathBlock key={`math:${content}`} latex={content} />;
   }
   if (
     l === "clock" ||

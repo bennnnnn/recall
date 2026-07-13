@@ -73,6 +73,32 @@ describe("renderFence math dispatch", () => {
   });
 });
 
+describe("renderFence math key stability", () => {
+  it("BUG FIX regression: identical latex gets the same React key across re-parses, not the volatile node.key react-native-markdown-display regenerates every parse", () => {
+    // Simulates two independent parses of the same still-growing streaming
+    // reply: react-native-markdown-display assigns a fresh node.key each
+    // time, but MathBlock's WebView-backed renderer must not remount (a
+    // full WebView reload, visible as a flicker) just because the wrapping
+    // node.key changed while the underlying latex stayed identical.
+    const first = renderFence(node("x^2 + 1", "math"));
+    const second = renderFence({
+      key: "a-totally-different-node-key-from-the-next-parse",
+      content: "x^2 + 1",
+      info: "math",
+    });
+
+    expect(first?.key).toBeTruthy();
+    expect(first?.key).toBe(second?.key);
+  });
+
+  it("gives different latex content different keys", () => {
+    const a = renderFence(node("x^2 + 1", "math"));
+    const b = renderFence(node("y^2 + 1", "math"));
+
+    expect(a?.key).not.toBe(b?.key);
+  });
+});
+
 describe("renderFence geometry/graph dispatch", () => {
   it("routes an explicit ```geometry fence to GeometryBlock", async () => {
     const content = JSON.stringify({ type: "square", side: 5, unit: "cm" });
