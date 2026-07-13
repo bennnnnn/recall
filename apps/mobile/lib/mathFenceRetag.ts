@@ -2,7 +2,7 @@
 // would not match the boundary between a command and a subscript
 // (`\log_2`, `\lim_{x\to0}`, `\sum_{i=1}^n` are all extremely common LaTeX).
 const LATEX_CMD_RE =
-  /\\(?:pm|mp|sqrt|frac|text|mathrm|times|cdot|leq|geq|neq|infty|alpha|beta|gamma|delta|epsilon|zeta|eta|theta|iota|kappa|lambda|mu|nu|xi|omicron|pi|rho|sigma|tau|upsilon|phi|chi|psi|omega|begin|left|right|log|ln|exp|lim|sup|inf|sin|cos|tan|sec|csc|cot|arcsin|arccos|arctan|sinh|cosh|tanh|sum|prod|int|det|gcd|min|max|arg|deg|ker|dim|hom|binom|partial|nabla|vec|hat|bar|dot|overline|underline)(?=[^a-zA-Z]|$)/;
+  /\\(?:pm|mp|sqrt|frac|text|mathrm|times|cdot|leq|geq|neq|infty|alpha|beta|gamma|delta|epsilon|zeta|eta|theta|iota|kappa|lambda|mu|nu|xi|omicron|pi|rho|sigma|tau|upsilon|phi|chi|psi|omega|begin|left|right|log|ln|exp|lim|sup|inf|sin|cos|tan|sec|csc|cot|arcsin|arccos|arctan|sinh|cosh|tanh|sum|prod|int|det|gcd|min|max|arg|deg|ker|dim|hom|binom|partial|nabla|vec|hat|bar|dot|overline|underline|Longrightarrow|Rightarrow|longrightarrow|rightarrow|Longleftrightarrow|Leftrightarrow|longleftrightarrow|leftrightarrow|Longleftarrow|Leftarrow|longleftarrow|leftarrow|implies|iff|to|mapsto|longmapsto)(?=[^a-zA-Z]|$)/;
 
 function looksLikeAlgebraLine(line: string): boolean {
   if (!line || line.length > 120) return false;
@@ -21,9 +21,17 @@ function looksLikeAlgebraLine(line: string): boolean {
 
 /** Plain ``` or ```math body that should render as math, not a code block. */
 export function looksLikeMathFenceBody(content: string): boolean {
-  const s = content.trim();
-  if (!s || s.length > 400) return false;
-  if (s.startsWith("{")) return false;
+  const raw = content.trim();
+  if (!raw || raw.length > 400) return false;
+  if (raw.startsWith("{")) return false;
+
+  // A body that's ENTIRELY wrapped in a redundant $...$/$$...$$ (the model
+  // mistaking fence syntax for inline-math syntax) must be classified on
+  // what's underneath the wrap — e.g. "$2^x = 2$" has no recognized LaTeX
+  // command of its own, so without unwrapping first it fails every check
+  // below (the `$` characters also aren't in looksLikeAlgebraLine's allowed
+  // character class) and falls through to a plain code block.
+  const s = stripRedundantDollarWrap(raw);
 
   // An unambiguous LaTeX command (\times, \begin, \text{, ...) is a strong
   // enough signal on its own — it must not be gated by the line-count cap
