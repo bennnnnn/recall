@@ -39,7 +39,8 @@ export default function LoginScreen() {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const [busy, setBusy] = useState(false);
+  const [busyProvider, setBusyProvider] = useState<"apple" | "google" | "dev" | null>(null);
+  const busy = busyProvider !== null;
   const showDevLogin = config.devAuthEnabled && __DEV__;
   const showGoogleLogin =
     !isExpoGo() &&
@@ -72,13 +73,13 @@ export default function LoginScreen() {
   };
 
   const handleApple = async () => {
-    setBusy(true);
+    setBusyProvider("apple");
     try {
       await signInWithApple();
     } catch (e) {
       Alert.alert(t("login.sign_in_failed"), signInErrorMessage(e, "apple"));
     } finally {
-      setBusy(false);
+      setBusyProvider(null);
     }
   };
 
@@ -98,18 +99,18 @@ export default function LoginScreen() {
       Alert.alert(t("login.sign_in_failed"), t("login.error_not_configured"));
       return;
     }
-    setBusy(true);
+    setBusyProvider("google");
     try {
       await signInWithGoogle();
     } catch (e) {
       Alert.alert(t("login.sign_in_failed"), signInErrorMessage(e, "google"));
     } finally {
-      setBusy(false);
+      setBusyProvider(null);
     }
   };
 
   const handleDev = async () => {
-    setBusy(true);
+    setBusyProvider("dev");
     try {
       await signInWithDev();
     } catch (e) {
@@ -118,7 +119,7 @@ export default function LoginScreen() {
         e instanceof Error ? e.message : t("login.error_generic"),
       );
     } finally {
-      setBusy(false);
+      setBusyProvider(null);
     }
   };
 
@@ -158,7 +159,7 @@ export default function LoginScreen() {
                 onPress={handleDev}
                 disabled={busy}
               >
-                {busy ? (
+                {busyProvider === "dev" ? (
                   <ActivityIndicator color={theme.onPrimary} />
                 ) : (
                   <Text style={s.primaryBtnText}>{t("login.dev")}</Text>
@@ -179,7 +180,7 @@ export default function LoginScreen() {
                   onPress={handleApple}
                   disabled={busy}
                 >
-                  {busy ? (
+                  {busyProvider === "apple" ? (
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
                     <>
@@ -195,7 +196,7 @@ export default function LoginScreen() {
                   onPress={handleGoogle}
                   disabled={busy}
                 >
-                  {busy ? (
+                  {busyProvider === "google" ? (
                     <ActivityIndicator color={theme.textSecondary} />
                   ) : (
                     <>
@@ -227,7 +228,7 @@ export default function LoginScreen() {
                   onPress={handleDev}
                   disabled={busy}
                 >
-                  {busy ? (
+                  {busyProvider === "dev" ? (
                     <ActivityIndicator color={theme.onPrimary} />
                   ) : (
                     <Text style={s.primaryBtnText}>{t("login.dev")}</Text>
