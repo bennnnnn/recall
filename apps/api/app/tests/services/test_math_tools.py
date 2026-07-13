@@ -261,6 +261,22 @@ async def test_augment_prompt_injects_graph_block() -> None:
 
 
 @pytest.mark.asyncio
+async def test_augment_prompt_flags_unsolved_integral_instead_of_asserting_it() -> None:
+    """BUG FIX: integrate_expression can hand back a result that still
+    contains a literal unevaluated Integral(...) instead of raising, and this
+    used to be injected as "Result: ... Do NOT recompute" — the exact same
+    verified-confidence phrasing used for a real closed-form answer. The
+    model must be told SymPy found no closed form instead."""
+    settings = Settings(math_tools_enabled=True)
+    messages = [{"role": "user", "content": "integrate x**x"}]
+    out, verified = await math_tools.augment_prompt_messages(messages, "integrate x**x", settings)
+    assert verified is not None
+    assert "Do NOT recompute" not in verified.text
+    assert "no closed form" in verified.text.lower() or "not claim" in verified.text.lower()
+    assert any("no closed form" in m["content"].lower() for m in out if m["role"] == "system")
+
+
+@pytest.mark.asyncio
 async def test_graph_sample_uses_the_full_configured_point_budget() -> None:
     """BUG FIX regression: a stray `min(..., 200)` silently capped every
     graph at 200 points regardless of math_graph_max_points, so the

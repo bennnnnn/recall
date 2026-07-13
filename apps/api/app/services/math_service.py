@@ -8,7 +8,7 @@ import re
 from typing import Any
 
 import numpy as np
-from sympy import Eq, Symbol, diff, integrate, latex, parse_expr, simplify, solve
+from sympy import Eq, Integral, Symbol, diff, integrate, latex, parse_expr, simplify, solve
 from sympy.parsing.sympy_parser import (
     convert_xor,
     implicit_multiplication_application,
@@ -226,7 +226,11 @@ def integrate_expression(expr: str, variable: str = "x") -> MathExprResult:
     sym = Symbol(variable)
     parsed = _parse_expression(expr, [variable])
     result = integrate(parsed, sym)
-    return MathExprResult(result=str(result), latex=latex(result))
+    # integrate() can fail to find a closed form and hand back a result that
+    # still contains an unevaluated Integral(...) rather than raising —
+    # callers must not treat that as a verified, fully-solved answer.
+    solved = not result.has(Integral)
+    return MathExprResult(result=str(result), latex=latex(result), solved=solved)
 
 
 def rectangle_geometry(data: RectangleGeometryInput) -> RectangleGeometryResult:
