@@ -46,6 +46,27 @@ def test_extract_draw_rectangle_defaults() -> None:
     assert intent.height == 4
 
 
+@pytest.mark.parametrize(
+    "text, wants_diagonal, wants_angle, wants_area, wants_perimeter",
+    [
+        ("rectangle area with 4 by 5", False, False, True, False),
+        ("rectangle 8 x 5 cm find diagonal", True, False, False, False),
+        ("rectangle 8 x 5 cm diagonal angle", True, True, False, False),
+        ("rectangle perimeter 4 by 5", False, False, False, True),
+        ("rectangle 4 by 5", False, False, False, False),
+    ],
+)
+def test_extract_rectangle_intent_captures_what_was_asked(
+    text: str, wants_diagonal: bool, wants_angle: bool, wants_area: bool, wants_perimeter: bool
+) -> None:
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.wants_diagonal is wants_diagonal
+    assert intent.wants_angle is wants_angle
+    assert intent.wants_area is wants_area
+    assert intent.wants_perimeter is wants_perimeter
+
+
 def test_extract_square_intent() -> None:
     intent = math_tools.extract_math_intent("Draw a square with side 5 cm")
     assert intent is not None
@@ -104,6 +125,28 @@ async def test_augment_prompt_injects_geometry_block() -> None:
     assert verified is not None
     assert verified.canonical_fence is not None
     assert verified.canonical_fence["type"] == "rectangle"
+
+
+@pytest.mark.asyncio
+async def test_augment_prompt_rectangle_area_query_does_not_force_diagonal_and_angle() -> None:
+    """BUG FIX regression: the rectangle geometry block always set
+    show_diagonal=True, show_angle=True regardless of what was asked, so a
+    plain "rectangle area 4 by 5" query drew an unrequested diagonal plus a
+    diagonal-vs-base angle that visually contradicted the rectangle's own
+    (always 90°) corner. The diagram should only annotate what was asked."""
+    settings = Settings(math_tools_enabled=True)
+    messages = [{"role": "user", "content": "What about rectangle area with 4 by 5"}]
+    out, verified = await math_tools.augment_prompt_messages(
+        messages,
+        "What about rectangle area with 4 by 5",
+        settings,
+    )
+    assert verified is not None
+    assert verified.canonical_fence is not None
+    assert verified.canonical_fence["show_diagonal"] is False
+    assert verified.canonical_fence["show_angle"] is False
+    assert verified.canonical_fence["show_area"] is True
+    assert verified.canonical_fence["show_perimeter"] is False
 
 
 @pytest.mark.asyncio
