@@ -24,7 +24,11 @@ export async function setAppearancePreference(
   preference: AppearancePreference,
 ): Promise<void> {
   cachedPreference = preference;
-  await SecureStore.setItemAsync(KEY, preference);
+  try {
+    await SecureStore.setItemAsync(KEY, preference);
+  } catch {
+    /* Keychain may be unavailable on unsigned simulator builds */
+  }
 }
 
 /** Test helper — reset in-memory cache between cases. */

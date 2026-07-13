@@ -33,7 +33,11 @@ export async function getReminderLeadMinutes(): Promise<ReminderLeadMinutes> {
 
 export async function setReminderLeadMinutes(minutes: ReminderLeadMinutes): Promise<void> {
   cachedLeadMinutes = minutes;
-  await SecureStore.setItemAsync(KEY, String(minutes));
+  try {
+    await SecureStore.setItemAsync(KEY, String(minutes));
+  } catch {
+    /* Keychain may be unavailable on unsigned simulator builds */
+  }
 }
 
 /** Align local scheduling prefs with the server profile (no API call). */
