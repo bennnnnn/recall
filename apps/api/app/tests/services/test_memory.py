@@ -166,7 +166,13 @@ async def test_load_relevant_memories_prefers_db_semantic_search():
 async def test_load_relevant_memories_applies_similarity_cutoff_to_db_path():
     """The DB semantic path must receive max_distance derived from
     memory_min_similarity, so it behaves like the in-memory path (which
-    filters low-similarity matches out)."""
+    filters low-similarity matches out). Also asserts on the returned
+    memories, not just the kwargs passed to search_semantic — when no
+    memory has a populated embedding yet, an empty db_hits list must still
+    fall back to type-priority selection rather than silently discarding
+    every memory (the fix in
+    test_load_relevant_memories_returns_empty_when_vectors_populated_but_no_match
+    only applies once at least one memory IS embedded)."""
     from app.services.memory import load_relevant_memories
 
     user = AsyncMock()
@@ -179,8 +185,15 @@ async def test_load_relevant_memories_applies_similarity_cutoff_to_db_path():
         memory_min_similarity=0.15,
     )
 
+    unembedded = _memory("fact", "Hikes every weekend", 0.9)
+    unembedded.embedding = None
+    unembedded.embedding_json = None
+
     with (
-        patch("app.repositories.memories.list_for_user", AsyncMock(return_value=[])),
+        patch(
+            "app.repositories.memories.list_for_user",
+            AsyncMock(return_value=[unembedded]),
+        ),
         patch(
             "app.repositories.memories.search_semantic",
             AsyncMock(return_value=[]),
@@ -190,11 +203,12 @@ async def test_load_relevant_memories_applies_similarity_cutoff_to_db_path():
             AsyncMock(return_value=[0.1, 0.2, 0.3]),
         ),
     ):
-        await load_relevant_memories(session, user, settings, query_vec=[0.1, 0.2, 0.3])
+        result = await load_relevant_memories(session, user, settings, query_vec=[0.1, 0.2, 0.3])
 
     kwargs = db_search.await_args.kwargs
     # cosine_distance = 1 - cosine_similarity → 1 - 0.15 = 0.85
     assert kwargs["max_distance"] == pytest.approx(0.85)
+    assert result == [unembedded]
 
 
 @pytest.mark.asyncio
