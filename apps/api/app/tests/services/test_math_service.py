@@ -136,11 +136,14 @@ def test_try_extract_equation() -> None:
     assert eq.lhs.replace(" ", "") in {"x**2+2", "x^2+2"} or "2" in eq.lhs
 
 
-def test_graph_block_spec_requires_two_points_when_present() -> None:
+def test_graph_block_spec_allows_a_single_point_but_rejects_empty() -> None:
+    """BUG FIX regression: a single point is a legitimate way to mark one
+    coordinate (e.g. "plot the point (2, 3)"), not just a degenerate
+    function curve — requiring 2+ points made that a validation error,
+    replaced with an "Invalid graph block" fallback instead of rendering."""
     GraphBlockSpec(expr="x", points=[[0.0, 0.0], [1.0, 1.0]])
-    with pytest.raises(ValueError, match="at least two"):
-        GraphBlockSpec(expr="x", points=[[0.0, 0.0]])
-    with pytest.raises(ValueError, match="at least two"):
+    GraphBlockSpec(expr="(2, 3)", points=[[2.0, 3.0]])
+    with pytest.raises(ValueError, match="at least one"):
         GraphBlockSpec(expr="x", points=[])
 
 

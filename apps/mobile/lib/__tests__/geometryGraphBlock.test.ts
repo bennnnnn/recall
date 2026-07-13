@@ -187,6 +187,26 @@ describe("graphBlock", () => {
     expect(graphBounds(points).yMax).toBe(4);
   });
 
+  it("BUG FIX regression: accepts a single point (e.g. marking a specific coordinate)", () => {
+    // Requiring 2+ points made sense for a function curve but not for
+    // "plot the point (2, 3)" — a single point by definition. This used
+    // to fail parsing entirely and fall back to "Could not render".
+    const spec = parseGraphSpec('{"type":"function","expr":"(2, 3)","points":[[2,3]]}');
+    expect(spec?.points).toEqual([[2, 3]]);
+  });
+
+  it("rejects an empty points array", () => {
+    expect(parseGraphSpec('{"type":"function","expr":"x","points":[]}')).toBeNull();
+  });
+
+  it("BUG FIX regression: centers a single point instead of gluing it to the chart edge", () => {
+    // A single point collapses both axes' ranges to zero. Without
+    // symmetric padding (matching the existing yMin===yMax handling),
+    // the point would render flush at the left/bottom edge.
+    const bounds = graphBounds([[2, 3]]);
+    expect(bounds).toEqual({ xMin: 1, xMax: 3, yMin: 2, yMax: 4 });
+  });
+
   it("rejects too many points or long expr", () => {
     const tooMany = Array.from({ length: 301 }, (_, i) => [i, i] as [number, number]);
     expect(

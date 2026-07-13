@@ -101,17 +101,17 @@ function RectangleDiagram({ spec, screenWidth, theme }: { spec: RectangleSpec; s
         // glyph above when no diagonal is drawn). Labeling it "∠" avoids
         // it reading as a contradiction of that right angle.
         <SvgText x={x + 12} y={y + h - 8} fill={theme.textSecondary} fontSize={12}>
-          {`∠ ${labels.angle}`}
+          {`∠\u00A0${labels.angle}`}
         </SvgText>
       ) : null}
       {spec.show_area ? (
         <SvgText x={x + w / 2} y={y + h + 34} fill={theme.textSecondary} fontSize={12} textAnchor="middle">
-          {`Area: ${labels.area}`}
+          {`Area:\u00A0${labels.area}`}
         </SvgText>
       ) : null}
       {spec.show_perimeter ? (
         <SvgText x={x + w / 2} y={y + h + (spec.show_area ? 50 : 34)} fill={theme.textSecondary} fontSize={12} textAnchor="middle">
-          {`Perimeter: ${labels.perimeter}`}
+          {`Perimeter:\u00A0${labels.perimeter}`}
         </SvgText>
       ) : null}
     </Svg>
@@ -265,7 +265,7 @@ function CircleDiagram({ spec, screenWidth, theme }: { spec: CircleSpec; screenW
       ) : null}
       {spec.show_diameter ? (
         <SvgText x={cx} y={cy + r + 34} fill={theme.textSecondary} fontSize={12} textAnchor="middle">
-          {`Diameter: ${labels.diameter}`}
+          {`Diameter:\u00A0${labels.diameter}`}
         </SvgText>
       ) : null}
       {spec.show_area ? (
@@ -276,7 +276,7 @@ function CircleDiagram({ spec, screenWidth, theme }: { spec: CircleSpec; screenW
           fontSize={12}
           textAnchor="middle"
         >
-          {`Area: ${labels.area}`}
+          {`Area:\u00A0${labels.area}`}
         </SvgText>
       ) : null}
       {spec.show_circumference ? (
@@ -287,7 +287,7 @@ function CircleDiagram({ spec, screenWidth, theme }: { spec: CircleSpec; screenW
           fontSize={12}
           textAnchor="middle"
         >
-          {`Circumference: ${labels.circumference}`}
+          {`Circumference:\u00A0${labels.circumference}`}
         </SvgText>
       ) : null}
     </Svg>

@@ -209,9 +209,13 @@ class GraphBlockSpec(BaseModel):
 
     @field_validator("points")
     @classmethod
-    def points_need_at_least_two(cls, value: list[list[float]]) -> list[list[float]]:
-        if len(value) < 2:
-            raise ValueError("graph points need at least two coordinates")
+    def points_need_at_least_one(cls, value: list[list[float]]) -> list[list[float]]:
+        # A function curve needs 2+ points to draw a line, but marking a
+        # single coordinate (e.g. "plot the point (2, 3)") is a single point
+        # by definition — requiring 2+ made that a validation error, replaced
+        # with an "Invalid graph block" fallback instead of rendering.
+        if len(value) < 1:
+            raise ValueError("graph points need at least one coordinate")
         return value
 
 
