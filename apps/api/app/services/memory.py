@@ -436,6 +436,42 @@ async def invalidate_memory_block(user_id: UUID) -> None:
         logger.debug("Memory block cache invalidation failed", exc_info=True)
 
 
+# Generous vs. a typical extraction/consolidation LLM round trip + DB write —
+# this is a crash safety net (in case a worker dies mid-critical-section), not
+# the normal release path (see release_memory_write_lock).
+_MEMORY_WRITE_LOCK_TTL = 60
+
+
+def _memory_write_lock_key(user_id: UUID) -> str:
+    return f"memwrite:{user_id}"
+
+
+async def acquire_memory_write_lock(user_id: UUID) -> bool:
+    """Serializes extraction/consolidation's read-modify-write section for one
+    user — without this, two overlapping jobs (extraction from one chat racing
+    consolidation, or two extractions from two chats) can both read the same
+    prior section text and the later commit silently discards the earlier
+    one's write. Best-effort like the jobs that call it: on a Redis error,
+    fail closed (treat as not acquired) rather than proceed unprotected."""
+    try:
+        redis = get_redis_client()
+        acquired = await redis.set(
+            _memory_write_lock_key(user_id), "1", ex=_MEMORY_WRITE_LOCK_TTL, nx=True
+        )
+        return bool(acquired)
+    except Exception:
+        logger.debug("Memory write lock acquire failed", exc_info=True)
+        return False
+
+
+async def release_memory_write_lock(user_id: UUID) -> None:
+    try:
+        redis = get_redis_client()
+        await redis.delete(_memory_write_lock_key(user_id))
+    except Exception:
+        logger.debug("Memory write lock release failed", exc_info=True)
+
+
 def split_memory_facts(text: str) -> list[str]:
     return _split_sentences(text)
 
