@@ -43,6 +43,49 @@ async def test_sympy_adapter_rejects_rce_payload_via_solve():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "action, expr, variable, expected_result",
+    [
+        ("simplify", "x + x", "x", "2*x"),
+        ("diff", "x**2", "x", "2*x"),
+        ("integrate", "2*x", "x", "x**2"),
+    ],
+)
+async def test_sympy_adapter_dispatches_simplify_diff_integrate(
+    action, expr, variable, expected_result
+):
+    """BUG FIX: tool_schemas.py declared "simplify"/"diff"/"integrate" as
+    valid actions, but invoke() had no branch for them — a model call with
+    one of these actions fell through to the free-text intent-extraction
+    fallback instead of calling the already-implemented math_service
+    functions."""
+    adapter = SympyAdapter(Settings())
+    result = await adapter.invoke({"action": action, "expr": expr, "variable": variable})
+    assert result.content == expected_result
+
+
+@pytest.mark.asyncio
+async def test_sympy_adapter_simplify_times_out_instead_of_blocking():
+    settings = Settings(math_solve_timeout_seconds=0.05)
+    adapter = SympyAdapter(settings)
+
+    def _hang(expr, variable):
+        import time
+
+        time.sleep(1)
+        raise AssertionError("should have been cancelled by the timeout")
+
+    with patch(
+        "app.gateways.mcp.sympy_adapter.math_service.simplify_expression", side_effect=_hang
+    ):
+        result = await asyncio.wait_for(
+            adapter.invoke({"action": "simplify", "expr": "x + x", "variable": "x"}),
+            timeout=5,
+        )
+    assert "timed out" in result.content
+
+
+@pytest.mark.asyncio
 async def test_sympy_adapter_solve_times_out_instead_of_blocking(monkeypatch):
     """BUG FIX (was silent): this adapter used to call math_service directly,
     synchronously, with no timeout — unlike every chat-path caller. A hung
