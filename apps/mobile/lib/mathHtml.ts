@@ -5,8 +5,15 @@ import { injectPreviewCsp, MATH_PREVIEW_CSP } from "@/lib/previewSandbox";
 
 export type MathEngine = "katex" | "mathjax";
 
-const HEAVY_MATH_RE =
-  /\\begin\{(matrix|pmatrix|bmatrix|vmatrix|Vmatrix|Bmatrix|align\*?|aligned|gathered|cases|array|split|multline|eqnarray)\}|\\(?:frac|int|iint|iiint|sum|prod|lim|binom|overset|underset|stackrel|displaystyle|xrightarrow|xleftarrow)(?=[\s_^\\{])|\\sqrt\s*\[/i;
+// Empirically verified against the bundled KaTeX 0.17.0 (katexRender.ts):
+// frac/int/iint/iiint/sum/prod/binom/lim/overset/underset/stackrel/
+// displaystyle/xrightarrow/xleftarrow/sqrt[n]{} and every matrix/aligned/
+// align*/cases/array/gathered/split environment all render correctly under
+// katex.renderToString with throwOnError:true — none of them need MathJax.
+// Only `multline` and `eqnarray` genuinely aren't implemented by KaTeX
+// ("No such environment"). Routing the rest to MathJax was unnecessary
+// MathJax-CDN exposure (the single biggest offline-rendering failure mode).
+const HEAVY_MATH_RE = /\\begin\{(multline|eqnarray)\}/i;
 
 export function isHeavyMath(latex: string): boolean {
   const trimmed = latex.trim();
@@ -64,12 +71,35 @@ export function buildMathWebHtml(latex: string, options: MathHtmlOptions): strin
   #out { display: ${options.displayMode ? "block" : "inline-block"}; max-width: 100%; }
   #out mjx-container { color: ${options.textColor} !important; }
   #err { display: none; color: ${errorColor}; font-size: 13px; white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, monospace; }
+  #fallback { display: none; }
+  #fallback .badge { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: ${options.textColor}; opacity: 0.7; margin-bottom: 4px; }
+  #fallback .latex { font-family: ui-monospace, monospace; font-size: 14px; white-space: pre-wrap; word-break: break-word; }
+  #fallback .hint { font-size: 12px; opacity: 0.6; margin-top: 4px; }
 </style>
 </head>
 <body>
 <div id="out"></div>
 <div id="err"></div>
+<div id="fallback">
+  <div class="badge">MathJax preview</div>
+  <div class="latex" id="fallback-latex"></div>
+  <div class="hint">Rendering failed — showing raw source.</div>
+</div>
 <script>
+  var mathJaxFallbackShown = false;
+  function showMathJaxFallback() {
+    if (mathJaxFallbackShown) return;
+    mathJaxFallbackShown = true;
+    clearTimeout(mathJaxLoadTimeout);
+    document.getElementById("out").style.display = "none";
+    document.getElementById("fallback-latex").textContent = \`${safeLatex}\`;
+    document.getElementById("fallback").style.display = "block";
+    postHeight();
+  }
+  // CDN script has no built-in load signal beyond onerror (which only fires
+  // for a hard network/404 failure, not a hang) — a load-timeout race is the
+  // only way to catch a stalled fetch and avoid a silently blank box offline.
+  var mathJaxLoadTimeout = setTimeout(showMathJaxFallback, 8000);
   window.MathJax = {
     loader: { load: ["[tex]/ams", "[tex]/noerrors", "[tex]/noundefined"] },
     tex: {
@@ -79,6 +109,7 @@ export function buildMathWebHtml(latex: string, options: MathHtmlOptions): strin
     },
     startup: {
       ready() {
+        clearTimeout(mathJaxLoadTimeout);
         MathJax.startup.defaultReady();
         const latex = \`${safeLatex}\`;
         MathJax.tex2chtmlPromise(latex, { display: ${display} })
@@ -101,7 +132,7 @@ export function buildMathWebHtml(latex: string, options: MathHtmlOptions): strin
     }
   }
 </script>
-<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" onerror="showMathJaxFallback()"></script>
 </body>
 </html>`, MATH_PREVIEW_CSP);
   }
