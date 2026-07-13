@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 
 from app.core.config import Settings
@@ -67,6 +69,76 @@ async def test_augment_prompt_system_flags_inconsistent_equations() -> None:
     )
     assert verified is not None
     assert "inconsistent" in verified.text.lower()
+
+
+@pytest.mark.parametrize(
+    "text, expected_expr, expected_var, expected_guess",
+    [
+        (
+            "use newton's method to find the root of x^3 - 2x - 5 = 0 starting at x0 = 2",
+            "x^3 - 2x - 5",
+            "x",
+            2.0,
+        ),
+        ("newton's method for x^2 - 2 = 0 with initial guess of 1", "x^2 - 2", "x", 1.0),
+        ("numerically solve x = cos(x) starting near 1", "(x)-(cos(x))", "x", 1.0),
+        ("find the root of x^3 - 2x - 5 = 0 near x=2", "x^3 - 2x - 5", "x", 2.0),
+    ],
+)
+def test_extract_numerical_method_intent(
+    text: str, expected_expr: str, expected_var: str, expected_guess: float
+) -> None:
+    assert math_tools.needs_symbolic_math(text) is True
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "numerical_method"
+    assert intent.expr == expected_expr
+    assert intent.variable == expected_var
+    assert intent.newton_guess == expected_guess
+
+
+def test_extract_numerical_method_intent_defaults_guess_when_absent() -> None:
+    intent = math_tools.extract_math_intent("use newton's method on x^2 - 2 = 0")
+    assert intent is not None
+    assert intent.kind == "numerical_method"
+    assert intent.newton_guess == 1.0
+
+
+@pytest.mark.asyncio
+async def test_augment_prompt_injects_newton_iteration_table() -> None:
+    settings = Settings(math_tools_enabled=True)
+    text = "use newton's method to find the root of x^3 - 2x - 5 = 0 starting at x0 = 2"
+    out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": text}], text, settings
+    )
+    assert verified is not None
+    assert "n=0" in verified.text
+    assert "Converged" in verified.text
+    assert "2.0945514817" in verified.text or "2.094551482" in verified.text
+    assert any("Converged" in m["content"] for m in out if m["role"] == "system")
+
+
+@pytest.mark.asyncio
+async def test_augment_prompt_newton_reports_non_convergence() -> None:
+    """BUG FIX target: a request that can't converge within the iteration
+    budget must say so explicitly rather than silently omitting a root or
+    (worse) presenting the last iterate as a verified answer."""
+    settings = Settings(math_tools_enabled=True)
+    text = "use newton's method to find the root of x^3 - 2x - 5 = 0 starting at x0 = 2"
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    from app.models.math_schemas import NewtonMethodResult
+
+    with patch(
+        "app.services.math_tools.math_service.newton_method",
+        return_value=NewtonMethodResult(
+            iterations=[], converged=False, root=None, iterations_used=0
+        ),
+    ):
+        block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert "did not converge" in block.text.lower()
+    assert "do not present a root" in block.text.lower()
 
 
 def test_extract_rectangle_intent() -> None:

@@ -58,6 +58,29 @@ class MathSystemSolveResult(BaseModel):
     solution_kind: Literal["finite", "none", "infinite"] = "finite"
 
 
+class NewtonMethodInput(BaseModel):
+    expr: str = Field(min_length=1, max_length=256)
+    variable: str = Field(default="x", min_length=1, max_length=8)
+    initial_guess: float = Field(default=1.0, ge=-1_000_000, le=1_000_000)
+    tolerance: float = Field(default=1e-6, gt=0, le=1)
+    # Capped low: this bounds real per-request iteration work, not something
+    # a user-supplied "solve to N decimal places" should ever need to raise.
+    max_iterations: int = Field(default=50, ge=1, le=200)
+
+
+class NewtonIterationStep(BaseModel):
+    n: int
+    x_n: float
+    f_x_n: float
+
+
+class NewtonMethodResult(BaseModel):
+    iterations: list[NewtonIterationStep] = Field(default_factory=list)
+    converged: bool
+    root: float | None = None
+    iterations_used: int
+
+
 class MathExprResult(BaseModel):
     result: str
     latex: str
@@ -299,6 +322,7 @@ class MathIntent(BaseModel):
         "limit",
         "series",
         "system",
+        "numerical_method",
     ]
     lhs: str | None = None
     rhs: str | None = None
@@ -313,7 +337,9 @@ class MathIntent(BaseModel):
     point_y: float | None = None
     unit: str = "cm"
     operation: (
-        Literal["solve", "simplify", "differentiate", "integrate", "graph", "limit", "series"]
+        Literal[
+            "solve", "simplify", "differentiate", "integrate", "graph", "limit", "series", "newton"
+        ]
         | None
     ) = None
     # Limit/series bounds — strings, not float, since "infinity"/"oo" is a
@@ -326,6 +352,9 @@ class MathIntent(BaseModel):
     # above stay single-equation-only for every other kind.
     system_equations: list[tuple[str, str]] | None = None
     system_variables: list[str] | None = None
+    # Newton's method starting point — `expr` above holds f(x) (already
+    # converted from "lhs = rhs" to "lhs - rhs" if needed).
+    newton_guess: float | None = None
     # Which rectangle quantities the user's own wording actually asked for —
     # lets the rectangle augmentation only annotate the diagram with what was
     # requested instead of always drawing a diagonal + angle.

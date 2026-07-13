@@ -10,6 +10,7 @@ from app.models.math_schemas import (
     EquationInput,
     GraphBlockSpec,
     GraphSampleInput,
+    NewtonMethodInput,
     RectangleGeometryInput,
     SystemOfEquationsInput,
 )
@@ -369,6 +370,74 @@ def test_solve_system_three_by_three() -> None:
     )
     assert result.solution_kind == "finite"
     assert result.solutions == [{"x": "1", "y": "2", "z": "3"}]
+
+
+def test_newton_method_converges_to_known_root() -> None:
+    # x^3 - 2x - 5 = 0 has a well-known real root near 2.0945514815.
+    result = math_service.newton_method(
+        NewtonMethodInput(expr="x**3 - 2*x - 5", variable="x", initial_guess=2.0)
+    )
+    assert result.converged is True
+    assert result.root == pytest.approx(2.0945514815, abs=1e-6)
+    assert result.iterations_used == len(result.iterations)
+    assert result.iterations[0].n == 0
+    assert result.iterations[0].x_n == pytest.approx(2.0)
+
+
+def test_newton_method_records_full_iteration_history() -> None:
+    result = math_service.newton_method(
+        NewtonMethodInput(expr="x**2 - 2", variable="x", initial_guess=1.0)
+    )
+    assert result.converged is True
+    assert result.root == pytest.approx(2**0.5, abs=1e-6)
+    # Every f(x_n) should shrink in magnitude as the iteration converges.
+    abs_f_values = [abs(step.f_x_n) for step in result.iterations]
+    assert abs_f_values == sorted(abs_f_values, reverse=True)
+
+
+def test_newton_method_stops_at_max_iterations_when_not_converged() -> None:
+    """A tiny max_iterations with a tolerance the method can't reach in time
+    must report converged=False rather than silently returning a root."""
+    result = math_service.newton_method(
+        NewtonMethodInput(
+            expr="x**3 - 2*x - 5",
+            variable="x",
+            initial_guess=2.0,
+            tolerance=1e-15,
+            max_iterations=1,
+        )
+    )
+    assert result.converged is False
+    assert result.root is None
+    assert result.iterations_used == 1
+
+
+def test_newton_method_transcendental_equation() -> None:
+    # x = cos(x) — the "Dottie number," ~0.7390851332.
+    result = math_service.newton_method(
+        NewtonMethodInput(expr="(x)-(cos(x))", variable="x", initial_guess=1.0)
+    )
+    assert result.converged is True
+    assert result.root == pytest.approx(0.7390851332, abs=1e-6)
+
+
+@pytest.mark.parametrize(
+    "text, expected_variable",
+    [
+        ("cos(x) = 0", "x"),
+        ("sin(t) = 0", "t"),
+        ("log(n) = 1", "n"),
+    ],
+)
+def test_guess_variables_ignores_function_name_letters(text: str, expected_variable: str) -> None:
+    """BUG FIX (found while testing Newton's method on "x = cos(x)"): a bare
+    per-letter scan treated function-name letters as candidate variables —
+    "cos(x) = 0" guessed 'c' (alphabetically first of c/o/s/x) instead of
+    'x', silently building a verified block that solves for the wrong
+    symbol."""
+    eq = math_service.try_extract_equation_from_text(text)
+    assert eq is not None
+    assert eq.variables[0] == expected_variable
 
 
 def test_graph_block_spec_allows_a_single_point_but_rejects_empty() -> None:

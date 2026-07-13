@@ -39,6 +39,9 @@ from app.models.math_schemas import (
     MathSeriesResult,
     MathSolveResult,
     MathSystemSolveResult,
+    NewtonIterationStep,
+    NewtonMethodInput,
+    NewtonMethodResult,
     RectangleGeometryInput,
     RectangleGeometryResult,
     RightTriangleGeometryInput,
@@ -312,6 +315,49 @@ def solve_system(data: SystemOfEquationsInput) -> MathSystemSolveResult:
             step_lines.append("No solution — the equations are inconsistent.")
 
     return MathSystemSolveResult(solutions=solutions, steps=step_lines, solution_kind=solution_kind)
+
+
+def newton_method(data: NewtonMethodInput) -> NewtonMethodResult:
+    """Manual Newton iteration (not mpmath.findroot) so every step is
+    inspectable and can be shown as verified "worked steps," mirroring
+    _worked_isolation_steps's role for algebraic solves — the model copies
+    the iteration history verbatim instead of inventing its own numbers."""
+    sym = Symbol(data.variable)
+    parsed = _parse_expression(data.expr, [data.variable])
+    derivative = diff(parsed, sym)
+
+    from sympy.utilities.lambdify import lambdify
+
+    f = lambdify(sym, parsed, modules=["math"])
+    fprime = lambdify(sym, derivative, modules=["math"])
+
+    x_n = float(data.initial_guess)
+    iterations: list[NewtonIterationStep] = []
+    converged = False
+    for i in range(data.max_iterations):
+        try:
+            fx = float(f(x_n))
+        except Exception as exc:
+            raise MathServiceError(f"Could not evaluate function at x={x_n}") from exc
+        iterations.append(NewtonIterationStep(n=i, x_n=round(x_n, 10), f_x_n=round(fx, 10)))
+        if abs(fx) < data.tolerance:
+            converged = True
+            break
+        try:
+            fpx = float(fprime(x_n))
+        except Exception as exc:
+            raise MathServiceError(f"Could not evaluate derivative at x={x_n}") from exc
+        if fpx == 0:
+            # Derivative vanished — Newton's method can't continue from here.
+            break
+        x_n = x_n - fx / fpx
+
+    return NewtonMethodResult(
+        iterations=iterations,
+        converged=converged,
+        root=round(x_n, 10) if converged else None,
+        iterations_used=len(iterations),
+    )
 
 
 def simplify_expression(expr: str, variable: str = "x") -> MathExprResult:
@@ -641,14 +687,25 @@ def try_extract_equation_from_text(text: str) -> EquationInput | None:
     if not pairs:
         return None
     lhs, rhs = pairs[0]
-    variables = _guess_variables(lhs + rhs)
+    variables = _guess_variables(f"{lhs} {rhs}")
     try:
         return EquationInput(lhs=lhs, rhs=rhs, variables=variables or ["x"])
     except Exception:
         return None
 
 
+_FUNCTION_NAME_RE = re.compile(
+    r"\b(?:sin|cos|tan|sec|csc|cot|arcsin|arccos|arctan|sinh|cosh|tanh|log|ln|sqrt|exp|min|max|abs)\b",
+    re.IGNORECASE,
+)
+
+
 def _guess_variables(text: str) -> list[str]:
-    found = sorted(set(re.findall(r"[a-zA-Z]", text)))
+    """BUG FIX: a bare per-letter scan treated function-name letters as
+    candidate variables — "cos(x) = 0" guessed 'c' (alphabetically first of
+    c/o/s/x) instead of 'x', silently solving for the wrong symbol. Strip
+    recognized function names before extracting letters."""
+    stripped = _FUNCTION_NAME_RE.sub(" ", text)
+    found = sorted(set(re.findall(r"[a-zA-Z]", stripped)))
     letters = [c for c in found if c not in {"e"}]
     return letters[:4] if letters else ["x"]
