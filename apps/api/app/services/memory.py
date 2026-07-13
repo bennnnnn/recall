@@ -255,11 +255,22 @@ async def load_relevant_memories(
         return []
     from app.repositories import memories as memories_repo
 
-    if query_vec is not None:
-        return await _semantic_memories_from_vec(session, user, settings, query_vec)
+    # BUG FIX: this used to let a DB exception (transient Neon/pgvector
+    # failure) propagate straight out of build_prompt_messages's
+    # asyncio.gather(...), failing the ENTIRE chat turn over a memory lookup
+    # — every Redis call in this file already degrades to a safe default on
+    # failure; retrieval on the chat hot path must do the same rather than
+    # block streaming (the same "never block the chat request path" spirit
+    # as Golden Rule 4's best-effort extraction jobs).
+    try:
+        if query_vec is not None:
+            return await _semantic_memories_from_vec(session, user, settings, query_vec)
 
-    all_memories = await memories_repo.list_for_user(session, user.id)
-    return select_memories_for_prompt(all_memories, settings)
+        all_memories = await memories_repo.list_for_user(session, user.id)
+        return select_memories_for_prompt(all_memories, settings)
+    except Exception:
+        logger.warning("Memory retrieval failed for user_id=%s", user.id, exc_info=True)
+        return []
 
 
 async def _warm_semantic_memory_cache(

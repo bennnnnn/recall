@@ -280,6 +280,63 @@ async def test_load_relevant_memories_priority_fallback_when_no_query():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("query_vec", [None, [0.1, 0.2, 0.3]])
+async def test_load_relevant_memories_returns_empty_on_db_exception(query_vec):
+    """BUG FIX: a transient Neon/pgvector failure here used to propagate out
+    of load_relevant_memories and, via build_prompt_messages's
+    asyncio.gather(...), fail the ENTIRE chat turn over a memory lookup.
+    Must degrade to an empty list instead, same as every Redis call in this
+    file already does on failure."""
+    from app.services.memory import load_relevant_memories
+
+    user = AsyncMock()
+    user.id = uuid4()
+    user.memory_enabled = True
+    session = AsyncMock()
+    settings = Settings(semantic_memory_enabled=True)
+
+    with (
+        patch(
+            "app.repositories.memories.list_for_user",
+            AsyncMock(side_effect=RuntimeError("db unavailable")),
+        ),
+        patch(
+            "app.repositories.memories.search_semantic",
+            AsyncMock(side_effect=RuntimeError("db unavailable")),
+        ),
+    ):
+        result = await load_relevant_memories(session, user, settings, query_vec=query_vec)
+
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_get_memory_block_degrades_to_empty_on_db_exception(fake_redis):
+    """End-to-end through the caching layer prompt_builder.py actually
+    calls: a DB failure inside load_relevant_memories must not propagate out
+    of get_memory_block either, so a simulated chat-turn prompt build still
+    completes instead of raising."""
+    from app.services.memory import get_memory_block
+
+    user = AsyncMock()
+    user.id = uuid4()
+    user.memory_enabled = True
+    session = AsyncMock()
+    settings = Settings(semantic_memory_enabled=False)
+
+    with (
+        patch("app.services.memory.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.repositories.memories.list_for_user",
+            AsyncMock(side_effect=RuntimeError("db unavailable")),
+        ),
+    ):
+        block = await get_memory_block(session, user, settings)
+
+    assert block == ""
+
+
+@pytest.mark.asyncio
 async def test_search_semantic_repo_returns_ranked_rows():
     from app.repositories.memories import search_semantic
 
