@@ -25,11 +25,19 @@ export function looksLikeMathFenceBody(content: string): boolean {
   if (!s || s.length > 400) return false;
   if (s.startsWith("{")) return false;
 
-  const lines = s.split("\n").filter((line) => line.trim());
-  if (lines.length > 4) return false;
-
+  // An unambiguous LaTeX command (\times, \begin, \text{, ...) is a strong
+  // enough signal on its own — it must not be gated by the line-count cap
+  // below, or a multi-step \begin{aligned}...\end{aligned} derivation
+  // (routinely 5+ lines for anything beyond a trivial 2-step solve) gets
+  // rejected before this check even runs and falls back to a plain code
+  // block. The line cap is only a safety net for the much weaker "every
+  // line looks like bare algebra" heuristic further below, which has no
+  // such explicit signal to lean on.
   if (LATEX_CMD_RE.test(s)) return true;
   if (/\\text\{/.test(s)) return true;
+
+  const lines = s.split("\n").filter((line) => line.trim());
+  if (lines.length > 4) return false;
 
   if (lines.every((line) => looksLikeAlgebraLine(line.trim()))) {
     return lines.some((line) => /=/.test(line));
