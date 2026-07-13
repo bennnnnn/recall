@@ -154,6 +154,20 @@ x = 0
     expect(out).toContain("```math");
     expect(out).toContain("**x** = 5");
   });
+
+  it("BUG FIX regression: converts \\[...\\] display math with multiple commands to a clean fence, not a $-corrupted one", () => {
+    // Reported live (screenshots): "x = $\\pm$ $\\sqrt{4}$" rendered in red
+    // inside a ```math fence. normalizeImplicitMath's wrapInlineLatexCommands
+    // used to wrap each bare command inside a \\[...\\] span in $...$ before
+    // this function's own BLOCK_MATH_BRACKET_RE converted the span into a
+    // ```math fence, leaving the fence body with embedded $ characters KaTeX
+    // can't parse as bare LaTeX (rendered in errorColor red instead).
+    const input = "Solve:\n\n\\[ x = \\pm \\sqrt{4} \\]\n\nSo x = 2 or x = -2";
+    const out = preprocessMarkdown(input);
+    expect(out).toContain("```math\nx = \\pm \\sqrt{4}\n```");
+    expect(out).not.toContain("$\\pm$");
+    expect(out).not.toContain("$\\sqrt{4}$");
+  });
 });
 
 describe("normalizeMarkdownTables", () => {
