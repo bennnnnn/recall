@@ -141,6 +141,21 @@ describe("markdownPreprocessStream", () => {
     simulateStreamingAndCrossCheck(content, 4);
   });
 
+  it("BUG FIX regression: excludes an unclosed \\[...\\] block-math delimiter from the stable prefix", () => {
+    // preprocessMarkdown's BLOCK_MATH_BRACKET_RE converts \[...\] to a
+    // ```math fence just like $$...$$ — but the streaming-stability check
+    // only tracked $$, so a still-open \[ used to get folded into the
+    // "stable" prefix and preprocessed before its closing \] arrived,
+    // leaving a raw dangling "\[" visible mid-stream.
+    const input = "Before.\n\n\\[\nx^2 = 4\n";
+    expect(findStableMarkdownPrefixLen(input)).toBe("Before.\n\n".length);
+  });
+
+  it("agrees with the reference implementation for \\[...\\] block math that closes later", () => {
+    const content = "Before.\n\n\\[\n\\pi r^2\n\\]\n\nAfter.\n";
+    simulateStreamingAndCrossCheck(content, 4);
+  });
+
   it("matches the reference implementation's position-0 callout-marker quirk", () => {
     // A callout marker as the very first line of the message lacks a
     // preceding "\n", so the original regex never treats it as an unclosed
