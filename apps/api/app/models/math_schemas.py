@@ -13,6 +13,22 @@ class EquationInput(BaseModel):
     variables: list[str] = Field(default_factory=lambda: ["x"], min_length=1, max_length=4)
 
 
+class SystemOfEquationsInput(BaseModel):
+    # Each entry is one equation's (lhs, rhs) pair — bounded the same as
+    # EquationInput's individual lhs/rhs fields. 2-4 equations: fewer isn't
+    # a system, more isn't realistically something a chat turn hand-solves.
+    equations: list[tuple[str, str]] = Field(min_length=2, max_length=4)
+    variables: list[str] = Field(default_factory=lambda: ["x", "y"], min_length=1, max_length=4)
+
+    @field_validator("equations")
+    @classmethod
+    def equation_sides_bounded(cls, value: list[tuple[str, str]]) -> list[tuple[str, str]]:
+        for lhs, rhs in value:
+            if not lhs.strip() or not rhs.strip() or len(lhs) > 256 or len(rhs) > 256:
+                raise ValueError("invalid equation side")
+        return value
+
+
 class MathImageExtract(BaseModel):
     """Vision-extracted equation from a photo (validated before SymPy)."""
 
@@ -30,6 +46,15 @@ class MathSolveResult(BaseModel):
     # "none"/"infinite" only apply when solutions_latex is empty — distinguishes
     # a genuine contradiction (no solution) from a tautology (every value
     # satisfies the equation), which used to collapse into one ambiguous string.
+    solution_kind: Literal["finite", "none", "infinite"] = "finite"
+
+
+class MathSystemSolveResult(BaseModel):
+    # One dict of {variable: value_latex} per solution set — usually one for
+    # a linear system, but sympy.solve on a nonlinear system can return
+    # several (e.g. two intersection points).
+    solutions: list[dict[str, str]] = Field(default_factory=list)
+    steps: list[str] = Field(default_factory=list)
     solution_kind: Literal["finite", "none", "infinite"] = "finite"
 
 
@@ -273,6 +298,7 @@ class MathIntent(BaseModel):
         "calculus",
         "limit",
         "series",
+        "system",
     ]
     lhs: str | None = None
     rhs: str | None = None
@@ -296,6 +322,10 @@ class MathIntent(BaseModel):
     limit_point: str | None = None
     series_start: str | None = None
     series_end: str | None = None
+    # System of equations — list of (lhs, rhs) pairs; `lhs`/`rhs`/`variable`
+    # above stay single-equation-only for every other kind.
+    system_equations: list[tuple[str, str]] | None = None
+    system_variables: list[str] | None = None
     # Which rectangle quantities the user's own wording actually asked for —
     # lets the rectangle augmentation only annotate the diagram with what was
     # requested instead of always drawing a diagonal + angle.

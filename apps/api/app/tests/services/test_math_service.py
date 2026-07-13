@@ -11,6 +11,7 @@ from app.models.math_schemas import (
     GraphBlockSpec,
     GraphSampleInput,
     RectangleGeometryInput,
+    SystemOfEquationsInput,
 )
 from app.services import math_service
 
@@ -267,7 +268,107 @@ def test_evaluate_series_sum_finite_bounds() -> None:
 def test_try_extract_equation() -> None:
     eq = math_service.try_extract_equation_from_text("Solve x^2 + 2 = 6")
     assert eq is not None
-    assert eq.lhs.replace(" ", "") in {"x**2+2", "x^2+2"} or "2" in eq.lhs
+    assert eq.lhs.replace(" ", "") in {"x**2+2", "x^2+2"}
+
+
+@pytest.mark.parametrize(
+    "text, expected_lhs",
+    [
+        ("Solve x^2 + 2 = 6", "x^2 + 2"),
+        ("solve x^2 + 2 = 6", "x^2 + 2"),
+        ("what is x^2 + 2 = 6", "x^2 + 2"),
+        ("can you solve x^2 + 2 = 6", "x^2 + 2"),
+        ("please solve x^2 + 2 = 6", "x^2 + 2"),
+        ("x^2 + 2 = 6", "x^2 + 2"),
+    ],
+)
+def test_try_extract_equation_strips_leading_trigger_words(text: str, expected_lhs: str) -> None:
+    """BUG FIX (was live): the equation-extraction regex's lhs capture is
+    non-greedy, but re.search still tries the EARLIEST possible match start —
+    so "Solve x^2 + 2 = 6" swept "Solve" into the extracted lhs. That
+    corrupted both the parsed expression (undeclared letters silently became
+    new multiplied symbols via SymPy's auto_symbol) and the guessed variable
+    list, producing a confidently wrong "verified" answer. Confirmed live:
+    'Solve x^2 + 2 = 6' used to solve for a garbage variable and return
+    nonsense like "2.71828182845905 S l o v x^{2} + 2 = 6"."""
+    eq = math_service.try_extract_equation_from_text(text)
+    assert eq is not None
+    assert eq.lhs == expected_lhs
+    assert eq.variables == ["x"]
+    result = math_service.solve_equation(eq)
+    assert result.solutions_latex == ["x = -2", "x = 2"]
+
+
+def test_try_extract_equations_from_text_finds_every_clause() -> None:
+    """BUG FIX (most severe correctness bug found in the audit): this used
+    to be a single re.search, so only the FIRST equation was ever extracted
+    — "solve x+y=5, x-y=1" silently discarded the second clause."""
+    pairs = math_service.try_extract_equations_from_text("solve x+y=5, x-y=1")
+    assert pairs == [("x+y", "5"), ("x-y", "1")]
+
+
+def test_try_extract_equations_from_text_strips_system_prefix() -> None:
+    pairs = math_service.try_extract_equations_from_text(
+        "solve the system of equations x+2y=8, 3x-y=1"
+    )
+    assert pairs == [("x+2y", "8"), ("3x-y", "1")]
+
+
+def test_try_extract_equations_from_text_single_equation_unaffected() -> None:
+    assert math_service.try_extract_equations_from_text("x + 4 = 10") == [("x + 4", "10")]
+
+
+def test_try_extract_equations_from_text_no_equation() -> None:
+    assert math_service.try_extract_equations_from_text("what's the weather") == []
+
+
+def test_solve_system_unique_solution() -> None:
+    result = math_service.solve_system(
+        SystemOfEquationsInput(equations=[("x+y", "5"), ("x-y", "1")], variables=["x", "y"])
+    )
+    assert result.solution_kind == "finite"
+    assert result.solutions == [{"x": "3", "y": "2"}]
+
+
+def test_solve_system_no_solution() -> None:
+    """BUG FIX target: two parallel-line equations (same slope, different
+    intercept) have no solution — must not be silently reported as an empty
+    solution set with no explanation."""
+    result = math_service.solve_system(
+        SystemOfEquationsInput(equations=[("x+y", "5"), ("x+y", "10")], variables=["x", "y"])
+    )
+    assert result.solution_kind == "none"
+    assert result.solutions == []
+
+
+def test_solve_system_infinite_solutions_dependent_equations() -> None:
+    """BUG FIX target: a dependent system (the second equation is just the
+    first scaled by 2) has infinitely many solutions along a line — SymPy
+    returns a non-empty but parametrized solution ({x: 5 - y}) rather than
+    an empty list, which must not be mistaken for a single finite answer."""
+    result = math_service.solve_system(
+        SystemOfEquationsInput(equations=[("x+y", "5"), ("2*x+2*y", "10")], variables=["x", "y"])
+    )
+    assert result.solution_kind == "infinite"
+    assert result.solutions == [{"x": "5 - y"}]
+
+
+def test_solve_system_infinite_solutions_independent_tautologies() -> None:
+    result = math_service.solve_system(
+        SystemOfEquationsInput(equations=[("x", "x"), ("y", "y")], variables=["x", "y"])
+    )
+    assert result.solution_kind == "infinite"
+
+
+def test_solve_system_three_by_three() -> None:
+    result = math_service.solve_system(
+        SystemOfEquationsInput(
+            equations=[("x+y+z", "6"), ("x-y+z", "2"), ("x+y-z", "0")],
+            variables=["x", "y", "z"],
+        )
+    )
+    assert result.solution_kind == "finite"
+    assert result.solutions == [{"x": "1", "y": "2", "z": "3"}]
 
 
 def test_graph_block_spec_allows_a_single_point_but_rejects_empty() -> None:
