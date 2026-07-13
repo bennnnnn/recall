@@ -26,7 +26,7 @@ import { notifySuccess, notifyWarning, tap } from "@/lib/haptics";
 import { SENDING_LABEL_DELAY_MS } from "@/lib/chatMessageLogic";
 import { useAssistantMessageContent } from "@/hooks/useAssistantMessageContent";
 import { useStreamLayoutHold } from "@/hooks/useStreamLayoutHold";
-import { useRotatingStreamStatus } from "@/lib/streamStatusLabel";
+import { shouldShowWaitingIndicator, useRotatingStreamStatus } from "@/lib/streamStatusLabel";
 import { Theme, useTheme } from "@/lib/theme";
 import { speakPlainText, stopSpeaking } from "@/lib/pronunciation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -274,11 +274,8 @@ export const MessageBubble = React.memo(function MessageBubble({
     (holdStreamLayout ? message.reasoning_preview?.trim() : "") ||
     "";
   const showReasoning = !isUser && reasoningText.length > 0;
-  const statusLabel = useRotatingStreamStatus(
-    streamStatus,
-    isStreaming && !hasContent,
-    t,
-  );
+  const showWaitingIndicator = shouldShowWaitingIndicator({ isStreaming, hasContent, showReasoning });
+  const statusLabel = useRotatingStreamStatus(streamStatus, showWaitingIndicator, t);
 
   return (
     <View style={[b.row, isUser ? b.userRow : b.assistantRow, highlighted && b.rowHighlighted]}>
@@ -303,7 +300,7 @@ export const MessageBubble = React.memo(function MessageBubble({
             enabled={!layoutFrozen && hasContent}
             collapsible={false}
           >
-            {isStreaming && !hasContent ? (
+            {showWaitingIndicator ? (
               streamStatus === "image_gen" ? (
                 <View style={b.imageGenWaitingWrap}>
                   <ImageGenPlaceholder />
