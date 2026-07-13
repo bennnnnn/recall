@@ -127,6 +127,27 @@ x = 0
     expect(out).toContain("4. Final result:");
   });
 
+  it("BUG FIX regression: does not unwrap a math fence just because its content starts with a dollar sign", () => {
+    // The price-tier-corruption check matched any body starting with "$",
+    // not just the specific "$)" artifact left on its own line by a botched
+    // ($$) price-tier split. A legitimate ```math fence whose body happens
+    // to start with "$" — e.g. one normalizeImplicitMath had already
+    // dollar-wrapped as a bare-equation line before BLOCK_MATH_BRACKET_RE
+    // promoted it into a fence — used to get incorrectly unwrapped back to
+    // plain inline text.
+    const input = "```math\n$x^2 = 4$\n```";
+    const out = preprocessMarkdown(input);
+    expect(out).toContain("```math");
+    expect(out).toContain("$x^2 = 4$");
+  });
+
+  it("still repairs a genuine bare-$ (no closing paren) price-tier artifact, stripping the leading $", () => {
+    const input = "```math\n$\n1. **Benu** – fusion ($$$)\n```";
+    const out = preprocessMarkdown(input);
+    expect(out).not.toContain("```math");
+    expect(out.trim()).toBe("1. **Benu** – fusion ($$$)");
+  });
+
   it("does not unwrap a math fence just because its content has bold text", () => {
     const input = "```math\n**x** = 5\n```";
     const out = preprocessMarkdown(input);

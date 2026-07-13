@@ -1,3 +1,6 @@
+import { parseGeometrySpec } from "@/lib/geometryBlock";
+import { parseGraphSpec } from "@/lib/graphBlock";
+
 export type CalloutKind = "tip" | "note" | "warning" | "info" | "important";
 
 export type EmailDraft = {
@@ -241,4 +244,19 @@ export function isStandaloneUrl(text: string): string | null {
   const t = text.trim();
   const match = t.match(/^https?:\/\/[^\s]+$/i);
   return match ? match[0] : null;
+}
+
+export type JsonRichFenceKind = "geometry" | "graph" | null;
+
+/**
+ * Detect whether a ```json (or untagged) fence body is actually a
+ * geometry/graph spec, mistagged. The model is instructed to use
+ * ```geometry / ```graph (never ```json) for diagrams but routinely
+ * ignores that — without this, the fence falls through to a plain
+ * syntax-highlighted JSON code block instead of the diagram it describes.
+ */
+export function detectJsonRichFenceKind(content: string): JsonRichFenceKind {
+  if (parseGeometrySpec(content)) return "geometry";
+  if (parseGraphSpec(content)) return "graph";
+  return null;
 }

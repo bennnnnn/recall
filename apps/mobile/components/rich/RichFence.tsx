@@ -19,6 +19,7 @@ import { SocialPostCard } from "@/components/rich/SocialPostCard";
 import { StepList } from "@/components/rich/StepList";
 import { looksLikeLatexFence } from "@/lib/mathFenceRetag";
 import {
+  detectJsonRichFenceKind,
   isMessageLang,
   isStructuredFenceLang,
   parseCalloutKind,
@@ -40,6 +41,14 @@ export function renderRichFence(
   if (!isStructuredFenceLang(l)) {
     if (looksLikeLatexFence(content) && (l === "json" || l === "latex" || l === "tex" || l === "")) {
       return <MathBlock key={key} latex={content} />;
+    }
+    // Same class of instruction-drift as the LaTeX fallback above — the
+    // model routinely emits ```json (or an untagged fence) instead of the
+    // ```geometry / ```graph it's told to use for diagrams.
+    if (l === "json" || l === "") {
+      const kind = detectJsonRichFenceKind(content);
+      if (kind === "geometry") return <GeometryBlock key={key} content={content} />;
+      if (kind === "graph") return <FunctionGraphBlock key={key} content={content} />;
     }
     return null;
   }

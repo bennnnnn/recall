@@ -231,6 +231,15 @@ function shieldPriceTiers(content: string): {
   };
 }
 
+// A price-tier-split artifact is a stray "$)" (or bare "$") *alone on the
+// fence's first line* — not just any body that happens to start with "$".
+// A `?` on `)` without also requiring a following newline/end matched any
+// legitimate math fence whose body starts with "$" too (e.g. a bare
+// equation line normalizeImplicitMath had already wrapped as "$x^2 = 4$"
+// before this ran), incorrectly unwrapping real math back to inline text.
+const PRICE_TIER_ARTIFACT_LINE_RE = /^\$\)?\s*(?:\n|$)/;
+const PRICE_TIER_ARTIFACT_STRIP_RE = /^\$\)?\s*\n?/;
+
 /** Undo mistaken ```math fences that contain markdown lists or price-tier debris. */
 function unwrapCorruptedMathFences(content: string): string {
   return content.replace(/```math\n([\s\S]*?)```/gi, (full, body: string) => {
@@ -238,12 +247,12 @@ function unwrapCorruptedMathFences(content: string): string {
     if (!trimmed) return "";
     if (
       looksLikeMarkdownListProse(trimmed) ||
-      /^\$\)?/.test(trimmed) ||
+      PRICE_TIER_ARTIFACT_LINE_RE.test(trimmed) ||
       /^#{1,6}\s/.test(trimmed) ||
       /^\d+\.\s/.test(trimmed) ||
       /Michelin|restaurant|dining|fare|cuisine/i.test(trimmed)
     ) {
-      return `\n\n${trimmed.replace(/^\$\)\s*\n?/, "")}\n\n`;
+      return `\n\n${trimmed.replace(PRICE_TIER_ARTIFACT_STRIP_RE, "")}\n\n`;
     }
     return full;
   });
@@ -257,7 +266,7 @@ function repairCorruptedPriceTierMarkdown(content: string): string {
   );
   out = out.replace(
     /```(?:math)?\n\s*\$\)?\s*\n([\s\S]*?)```/gi,
-    (_full, body: string) => `\n\n${String(body).replace(/^\$\)\s*\n?/, "")}\n\n`,
+    (_full, body: string) => `\n\n${String(body).replace(PRICE_TIER_ARTIFACT_STRIP_RE, "")}\n\n`,
   );
 
   const lines = out.split("\n");
