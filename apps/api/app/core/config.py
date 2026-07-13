@@ -99,6 +99,11 @@ class Settings(BaseSettings):
     # this bounds how long a single pathological expression can occupy that thread
     # before the chat turn falls back to an unverified reply.
     math_solve_timeout_seconds: float = 5.0
+    # math_image_extract.py's vision-chat call is a network round trip, not
+    # local synchronous SymPy work — reusing math_solve_timeout_seconds's 5s
+    # budget (sized for CPU-bound solve/integrate) cut off OCR calls that
+    # were still legitimately in flight.
+    math_image_extract_timeout_seconds: float = 20.0
 
     # Background LLM resilience: if the primary memory-model provider is down,
     # retry background jobs (memory/todo/project extraction, titles, summaries)

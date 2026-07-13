@@ -6,9 +6,7 @@ import logging
 from collections.abc import Awaitable, Callable
 
 from app.core.config import Settings
-from app.gateways.mcp import registry as mcp_registry
 from app.services import calendar as calendar_service
-from app.services import math_tools as math_tools_service
 
 logger = logging.getLogger(__name__)
 
@@ -44,38 +42,13 @@ async def augment_prompt_with_mcp_tools(
     if has_calendar_write and calendar_service.is_calendar_create_request(user_content):
         blocks.append(calendar_service.CALENDAR_WRITE_HINT)
 
-    if settings.math_tools_enabled and math_tools_service.needs_symbolic_math(user_content):
-        intent = math_tools_service.extract_math_intent(user_content)
-        if intent is not None:
-            # BUG FIX (was silent): called the sync _build_verified_block
-            # directly, bypassing the timeout + off-event-loop wrapper every
-            # other chat-path caller uses (see _build_verified_block_async's
-            # own docstring for why that wrapper exists) — a pathological
-            # expression here would stall the whole worker with no timeout.
-            verified = await math_tools_service._build_verified_block_async(intent, settings)
-            if verified:
-                blocks.append(verified.text)
-            else:
-                if on_status is not None:
-                    await on_status("calculating")
-                # invoke_validated (not invoke) so this path gets the same
-                # Pydantic bounds-checking (SympyToolInput) as the tool-loop
-                # path where the model calls "sympy" directly.
-                result = await mcp_registry.invoke_validated(
-                    "sympy",
-                    {
-                        "action": intent.operation or "solve",
-                        "lhs": intent.lhs,
-                        "rhs": intent.rhs,
-                        "expr": intent.expr,
-                        "text": user_content,
-                    },
-                )
-                if result and result.content.strip():
-                    blocks.append(
-                        "Symbolic math results (from MCP sympy tool — use for your answer):\n"
-                        f"{result.content}"
-                    )
+    # Math intent is NOT handled here. math_tools_service.augment_prompt_messages
+    # is the single owner of math augmentation — it always runs right after this
+    # function returns, in the only production call site (_augment_web_and_tools).
+    # This function used to also build and inject its own verified-math block,
+    # so a math-intent turn got the same "verified, do NOT recompute" block
+    # injected twice whenever mcp_tools_enabled=True and mcp_tool_loop_enabled=
+    # False.
 
     if not blocks:
         return messages
