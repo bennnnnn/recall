@@ -308,8 +308,8 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
             # asking about any particular angle.
             show_area = intent.wants_area
             show_perimeter = intent.wants_perimeter
-            show_diagonal = intent.wants_diagonal or intent.wants_angle or not (
-                show_area or show_perimeter
+            show_diagonal = (
+                intent.wants_diagonal or intent.wants_angle or not (show_area or show_perimeter)
             )
             show_angle = intent.wants_angle
             spec = GeometryBlockSpec(
