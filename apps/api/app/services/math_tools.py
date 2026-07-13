@@ -18,6 +18,7 @@ from app.models.math_schemas import (
     GraphBlockSpec,
     GraphSampleInput,
     MathIntent,
+    NewtonMethodInput,
     RectangleGeometryInput,
     RightTriangleGeometryBlockSpec,
     RightTriangleGeometryInput,
@@ -222,6 +223,37 @@ def _strip_series_prefix(expr: str) -> str:
     return s
 
 
+_NEWTON_TRIGGER = re.compile(
+    r"\bnewton'?s?\s+method\b|\bnumerically\s+(?:solve|approximate)\b"
+    r"|\bfind\s+the\s+root\s+of\b|\bnumerical\s+root\b",
+    re.IGNORECASE,
+)
+
+# Starting point for the iteration — "starting at x0 = 2", "initial guess of
+# 1", "near x=2", "guess 1". Matched and stripped out of the text BEFORE
+# equation extraction runs, so e.g. "x0 = 2" is never mistaken for a second
+# equation clause.
+_NEWTON_GUESS = re.compile(
+    r"(?:with\s+)?(?:starting\s+(?:at|near|with)?\s*|initial\s+guess\s+(?:of\s+)?|near\s+|guess\s+)"
+    r"(?:x0\s*=\s*|x\s*=\s*)?(?P<guess>-?\d+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
+
+# Newton-specific leading phrasing — _strip_leading_filler (math_service.py)
+# only knows the generic "solve"/"what is" triggers, not "newton's method"/
+# "find the root of"/"numerically solve", so those need stripping here
+# before try_extract_equations_from_text runs on the remaining text.
+_NEWTON_PREFIX_RE = re.compile(
+    r"^\s*(?:please\s+)?(?:can\s+you\s+|could\s+you\s+)?(?:use\s+)?"
+    r"newton'?s?\s+method\s+(?:to\s+find\s+the\s+root\s+of\s+|for\s+|on\s+)?"
+    r"|^\s*(?:please\s+)?numerically\s+(?:solve|approximate)\s+"
+    r"|^\s*(?:please\s+)?find\s+the\s+root\s+of\s+",
+    re.IGNORECASE,
+)
+
+_DEFAULT_NEWTON_GUESS = 1.0
+
+
 _TRAILING_FILLER_RE = re.compile(
     r"\s+(?:please|now|thanks?|thank\s+you|for\s+me|to\s+me|real\s+quick|quickly|briefly)\.?\s*$",
     re.IGNORECASE,
@@ -285,6 +317,8 @@ def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> boo
         (_SERIES_TRIGGER.search(cleaned) or re.search(r"\bsum\b", cleaned, re.IGNORECASE))
         and _SERIES_SUM_FROM_TO.search(cleaned)
     ):
+        return True
+    if _NEWTON_TRIGGER.search(cleaned):
         return True
     if re.search(r"\bsolve\b", cleaned, re.IGNORECASE) and _EQUATION_IN_TEXT.search(cleaned):
         return True
@@ -458,6 +492,28 @@ def extract_math_intent(text: str) -> MathIntent | None:
                 operation="series",
             )
 
+    if _NEWTON_TRIGGER.search(cleaned):
+        guess_match = _NEWTON_GUESS.search(cleaned)
+        guess = float(guess_match.group("guess")) if guess_match else _DEFAULT_NEWTON_GUESS
+        text_for_eq = cleaned
+        if guess_match:
+            text_for_eq = text_for_eq[: guess_match.start()] + text_for_eq[guess_match.end() :]
+        text_for_eq = _NEWTON_PREFIX_RE.sub("", text_for_eq).strip()
+        newton_pairs = math_service.try_extract_equations_from_text(text_for_eq)
+        if newton_pairs:
+            lhs, rhs = newton_pairs[0]
+            rhs_is_zero = rhs.strip() in ("0", "0.0")
+            expr = lhs if rhs_is_zero else f"({lhs})-({rhs})"
+            variables = math_service._guess_variables(f"{lhs} {rhs}")
+            var = variables[0] if variables else "x"
+            return MathIntent(
+                kind="numerical_method",
+                expr=expr,
+                variable=var,
+                newton_guess=guess,
+                operation="newton",
+            )
+
     eq_pairs = math_service.try_extract_equations_from_text(cleaned)
     if len(eq_pairs) >= 2:
         # BUG FIX (most severe correctness bug found in the audit): this
@@ -465,7 +521,7 @@ def extract_math_intent(text: str) -> MathIntent | None:
         # only ever looked at the FIRST clause and answered with the same
         # "verified, do NOT recompute" confidence as a fully correct
         # response — silently discarding every other equation in the system.
-        all_text = "".join(lhs + rhs for lhs, rhs in eq_pairs)
+        all_text = " ".join(f"{lhs} {rhs}" for lhs, rhs in eq_pairs)
         variables = math_service._guess_variables(all_text)
         return MathIntent(
             kind="system",
@@ -542,6 +598,34 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
                 "backticks (`` `$...$` `` renders as raw code). Do NOT recompute "
                 "the solutions. Show worked steps by COPYING the verified steps "
                 "above verbatim — do NOT derive intermediate algebra yourself."
+            )
+            return VerifiedMathBlock(text="\n".join(lines))
+
+        if intent.kind == "numerical_method" and intent.expr and intent.newton_guess is not None:
+            newton_input = NewtonMethodInput(
+                expr=intent.expr[: settings.math_max_expr_length],
+                variable=intent.variable,
+                initial_guess=intent.newton_guess,
+            )
+            newton_result = math_service.newton_method(newton_input)
+            lines.append(
+                f"Newton's method for {newton_input.expr} = 0, x0 = {newton_input.initial_guess}:"
+            )
+            for step in newton_result.iterations:
+                lines.append(f"  n={step.n}: x_{step.n} = {step.x_n}, f(x_{step.n}) = {step.f_x_n}")
+            if newton_result.converged:
+                lines.append(
+                    f"Converged after {newton_result.iterations_used} iterations: root ≈ {newton_result.root}"
+                )
+            else:
+                lines.append(
+                    f"Did not converge within {newton_result.iterations_used} iterations "
+                    "(the derivative may have vanished, or more iterations are needed) — "
+                    "do NOT present a root as found."
+                )
+            lines.append(
+                "Do NOT recompute or invent different iteration values. Show the "
+                "worked steps by COPYING the verified iteration table above verbatim."
             )
             return VerifiedMathBlock(text="\n".join(lines))
 
