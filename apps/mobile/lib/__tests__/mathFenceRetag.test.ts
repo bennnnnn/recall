@@ -78,6 +78,28 @@ describe("mathFenceRetag", () => {
     expect(looksLikeLatexFence(String.raw`C = 2\pi r`)).toBe(true);
   });
 
+  it("BUG FIX regression: detects arrow/implication commands (\\Longrightarrow, \\to, etc.)", () => {
+    // Arrow commands showing "this step leads to that step" are routine in
+    // multi-step derivations but were entirely missing from LATEX_CMD_RE.
+    // Without a match here the body fell through to the bare-algebra
+    // fallback, which then rejected it anyway because \; (thin space)
+    // contains a literal ";" — one of that fallback's own code-disqualifier
+    // characters. Falls back to a plain code block instead of typeset math.
+    expect(
+      looksLikeLatexFence(String.raw`2^x + 5 = 7 \;\Longrightarrow\; 2^x = 7 - 5`),
+    ).toBe(true);
+    expect(looksLikeLatexFence(String.raw`x \to 0`)).toBe(true);
+    expect(looksLikeLatexFence(String.raw`p \implies q`)).toBe(true);
+  });
+
+  it("BUG FIX regression: classifies a fence body that's ENTIRELY wrapped in $...$ with no other LaTeX command", () => {
+    // "$2^x = 2$" has no recognized LATEX_CMD_RE keyword of its own, and
+    // the bare-algebra fallback's character class excludes "$" — so without
+    // unwrapping first, this fell through to a plain code block even though
+    // it's unambiguously a redundant inline-math wrap around real algebra.
+    expect(looksLikeLatexFence(String.raw`$2^x = 2$`)).toBe(true);
+  });
+
   describe("stripRedundantDollarWrap", () => {
     it("BUG FIX regression: strips a redundant $...$ wrap from a math fence body", () => {
       // A ```math fence body should be bare LaTeX. When the model wraps it
