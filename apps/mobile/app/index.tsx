@@ -45,7 +45,6 @@ import { useTodosOptional } from "@/contexts/TodosContext";
 import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/lib/chatComposerLogic";
 import { invalidateProjectDetail } from "@/lib/projectDetailCache";
 import { useImageGeneration } from "@/hooks/useImageGeneration";
-import { ImageGenPromptSheet } from "@/components/ImageGenPromptSheet";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 
 function ChatScreen() {
@@ -223,7 +222,6 @@ function ChatScreen() {
   const { isOffline } = useNetwork();
 
   const openUpgradeRef = useRef<(() => void) | null>(null);
-  const openImageGenRef = useRef<((prefill?: string) => void) | null>(null);
 
   const imageGen = useImageGeneration({
     token,
@@ -242,7 +240,6 @@ function ChatScreen() {
     newMessageCountRef: scroll.newMessageCountRef,
     t,
   });
-  openImageGenRef.current = imageGen.openPrompt;
 
   const send = useChatSend({
     token,
@@ -266,8 +263,9 @@ function ChatScreen() {
     onStreamBusy: handleStreamBusy,
     isOffline,
     resolveQuizProjectId,
-    onOpenImageGen: (prefill) => openImageGenRef.current?.(prefill),
+    isPro,
     imageGenerating: imageGen.generating,
+    onSubmitImageGen: imageGen.submitPrompt,
   });
 
   const {
@@ -382,6 +380,7 @@ function ChatScreen() {
     suggestions,
     onSelectSuggestion,
     onDismissSuggestion: dismissSuggestion,
+    imageGenerating: imageGen.generating,
     onQuizAnswer: (letter) => {
       // BUG FIX (was silent): answering a quiz in chat persists new counts server-side,
       // but nothing invalidated the project detail cache from this flow — returning to
@@ -391,7 +390,6 @@ function ChatScreen() {
       if (quizProjectId) invalidateProjectDetail(quizProjectId);
       void handleSend(letter);
     },
-    imageGenerating: imageGen.generating,
   });
 
   const layout = useChatLayoutMetrics({
@@ -457,8 +455,6 @@ function ChatScreen() {
     setEditingMessageId,
     handlePickAttachment,
     handleAttachmentSheetSelect,
-    onOpenImageGen: () => imageGen.openPrompt(),
-    imageGenerating: imageGen.generating,
     stopGeneration,
     isOffline,
     voiceRecording,
@@ -493,13 +489,6 @@ function ChatScreen() {
       />
 
       <ChatScreenBody {...chatScreenBodyProps} />
-      <ImageGenPromptSheet
-        visible={imageGen.promptOpen}
-        generating={imageGen.generating}
-        initialPrompt={imageGen.initialPrompt}
-        onClose={() => imageGen.setPromptOpen(false)}
-        onSubmit={(prompt) => void imageGen.submitPrompt(prompt)}
-      />
     </>
   );
 }

@@ -81,8 +81,6 @@ export type UseChatScreenBodyPropsParams = {
   setEditingMessageId: (value: string | null) => void;
   handlePickAttachment: () => void;
   handleAttachmentSheetSelect: (source: AttachmentSource) => void | Promise<void>;
-  onOpenImageGen: () => void;
-  imageGenerating: boolean;
   stopGeneration: () => void;
   isOffline: boolean;
   voiceRecording: boolean;
@@ -144,8 +142,6 @@ export function useChatScreenBodyProps({
   setEditingMessageId,
   handlePickAttachment,
   handleAttachmentSheetSelect,
-  onOpenImageGen,
-  imageGenerating,
   stopGeneration,
   isOffline,
   voiceRecording,
@@ -254,8 +250,6 @@ export function useChatScreenBodyProps({
       },
       onPickAttachment: handlePickAttachment,
       onAttachmentSource: (source) => void handleAttachmentSheetSelect(source),
-      onOpenImageGen,
-      imageGenerating,
       onSend: () => void handleSend(),
       onStop: stopGeneration,
       isOffline,
@@ -312,8 +306,6 @@ export function useChatScreenBodyProps({
       setEditingMessageId,
       handlePickAttachment,
       handleAttachmentSheetSelect,
-      onOpenImageGen,
-      imageGenerating,
       stopGeneration,
       isOffline,
       voiceRecording,

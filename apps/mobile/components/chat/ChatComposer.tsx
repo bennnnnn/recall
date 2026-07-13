@@ -50,8 +50,6 @@ type Props = {
   onCloseAttachSheet: () => void;
   onPickAttachment: () => void;
   onAttachmentSource: (source: AttachmentSource) => void;
-  onOpenImageGen: () => void;
-  imageGenerating?: boolean;
   onSend: () => void;
   onStop: () => void;
   isOffline: boolean;
@@ -83,8 +81,6 @@ export const ChatComposer = memo(function ChatComposer({
   onCloseAttachSheet,
   onPickAttachment,
   onAttachmentSource,
-  onOpenImageGen,
-  imageGenerating = false,
   onSend,
   onStop,
   isOffline,
@@ -154,15 +150,6 @@ export const ChatComposer = memo(function ChatComposer({
                 accessibilityLabel={t("chat.attach_a11y")}
               >
                 <Ionicons name="attach-outline" size={22} color={theme.primary} />
-              </Pressable>
-              <Pressable
-                style={s.attachBtn}
-                onPress={onOpenImageGen}
-                disabled={attachBusy || streaming || imageGenerating || Boolean(pendingAttachment)}
-                hitSlop={6}
-                accessibilityLabel={t("chat.attach_generate_image")}
-              >
-                <Ionicons name="color-wand-outline" size={22} color={theme.primary} />
               </Pressable>
               {voiceRecording || voiceTranscribing ? (
                 <VoiceComposerWaveform

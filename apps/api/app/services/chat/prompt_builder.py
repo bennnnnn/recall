@@ -55,6 +55,10 @@ def format_user_profile_block(user: User, *, location_override: str | None = Non
         lines.append(f"- Name: {user.name.strip()}")
     if user.email and user.email.strip():
         lines.append(f"- Email: {user.email.strip()}")
+    plan = (getattr(user, "plan", None) or "free").strip().lower()
+    if plan not in {"free", "pro"}:
+        plan = "free"
+    lines.append(f"- Plan: {plan}")
     if user.age is not None:
         lines.append(f"- Age: {user.age}")
     if user.country and user.country.strip():

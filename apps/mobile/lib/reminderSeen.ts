@@ -19,7 +19,11 @@ export async function loadSeenReminderIds(userId: string): Promise<Set<string>> 
 }
 
 export async function saveSeenReminderIds(userId: string, ids: Set<string>): Promise<void> {
-  await SecureStore.setItemAsync(storageKey(userId), JSON.stringify([...ids]));
+  try {
+    await SecureStore.setItemAsync(storageKey(userId), JSON.stringify([...ids]));
+  } catch {
+    /* Keychain may be unavailable on unsigned simulator builds */
+  }
 }
 
 /** Drop seen ids for todos that are gone or completed. */
@@ -36,5 +40,9 @@ export async function markReminderIdsSeen(userId: string, ids: string[]): Promis
 }
 
 export async function clearSeenReminderIds(userId: string): Promise<void> {
-  await SecureStore.deleteItemAsync(storageKey(userId));
+  try {
+    await SecureStore.deleteItemAsync(storageKey(userId));
+  } catch {
+    /* best-effort */
+  }
 }
