@@ -29,13 +29,15 @@ export function parseGraphSpec(raw: string): GraphSpec | null {
     const expr = String(row.expr ?? "").trim();
     if (!expr || expr.length > MAX_GRAPH_EXPR_LENGTH) return null;
     const pointsRaw = row.points;
-    if (!Array.isArray(pointsRaw) || pointsRaw.length < 2 || pointsRaw.length > MAX_GRAPH_POINTS) {
+    if (!Array.isArray(pointsRaw) || pointsRaw.length < 1 || pointsRaw.length > MAX_GRAPH_POINTS) {
       return null;
     }
     const points = pointsRaw
       .map(normalizePoint)
       .filter((p): p is [number, number] => p != null);
-    if (points.length < 2) return null;
+    // A function curve needs 2+ points to draw a line, but marking a single
+    // coordinate ("plot the point (2, 3)") is a single point by definition.
+    if (points.length < 1) return null;
     return {
       type: "function",
       expr,
@@ -66,9 +68,17 @@ export function graphBounds(points: [number, number][]): {
     yMin = Math.min(yMin, y);
     yMax = Math.max(yMax, y);
   }
+  // A single point (or several points sharing an x or y value) collapses
+  // that axis's range to zero — pad it symmetrically so the point renders
+  // centered instead of glued to the chart's edge (mapGraphPoint's `|| 1`
+  // divide-by-zero guard alone would put it flush at the left/bottom).
   if (yMin === yMax) {
     yMin -= 1;
     yMax += 1;
+  }
+  if (xMin === xMax) {
+    xMin -= 1;
+    xMax += 1;
   }
   return { xMin, xMax, yMin, yMax };
 }

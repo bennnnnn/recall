@@ -56,6 +56,15 @@ def test_replaces_invalid_graph_fence_with_empty_points() -> None:
     assert "Invalid graph block" in out
 
 
+def test_validates_single_point_graph_fence() -> None:
+    """BUG FIX regression: marking a single coordinate (e.g. "plot the
+    point (2, 3)") is a legitimate single-point graph, not an error."""
+    content = (
+        '```graph\n{"type":"function","expr":"(2, 3)","title":"Point (2, 3)","points":[[2,3]]}\n```'
+    )
+    assert validate_math_fences(content) == content
+
+
 def _verified(canonical_fence):
     from app.services.math_tools import VerifiedMathBlock
 

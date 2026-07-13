@@ -430,6 +430,12 @@ MATH_SOLVER_HINT = (
     '```graph\n{"type":"function","expr":"x**2","variable":"x","x_min":-5,'
     '"x_max":5,"points":[[-5,25],[-4,16]]}\n```\n'
     "  Include the points array when provided in verified SymPy results.\n"
+    '- To mark one or more specific coordinates (e.g. "plot the point '
+    '(2, 3)") rather than a continuous curve, use the same ```graph fence '
+    "with just those points and a short title:\n"
+    '```graph\n{"type":"function","expr":"(2, 3)","title":"Point (2, 3)",'
+    '"points":[[2,3]]}\n```\n'
+    "  A single point is valid — do NOT pad it with invented extra points.\n"
     "- For display formulas use ```math or inline $...$ — NEVER ```latex, ```tex, or "
     "untagged code blocks for LaTeX.\n"
     "- Do NOT use ```html or freehand SVG for math diagrams — the app draws "
