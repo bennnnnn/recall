@@ -11,6 +11,8 @@ from typing import Any, Literal
 
 from app.core.config import Settings
 from app.models.math_schemas import (
+    CircleGeometryBlockSpec,
+    CircleGeometryInput,
     EquationInput,
     GeometryBlockSpec,
     GraphBlockSpec,
@@ -42,6 +44,11 @@ _DRAW_SQUARE = re.compile(
     re.IGNORECASE,
 )
 
+_DRAW_CIRCLE = re.compile(
+    r"\b(?:draw|show|sketch|visuali[sz]e)\s+(?:a\s+)?circle\b",
+    re.IGNORECASE,
+)
+
 _DEFAULT_RECT = re.compile(
     r"\b(?:draw|show)\s+(?:a\s+)?rectangle\b",
     re.IGNORECASE,
@@ -51,7 +58,8 @@ _MATH_KEYWORDS = re.compile(
     r"\b("
     r"solve|simplify|factor|expand|differentiate|derivative|integrate|integral|"
     r"equation|algebra|quadratic|polynomial|"
-    r"find the angle|diagonal|rectangle|triangle|geometry|"
+    r"find the angle|diagonal|rectangle|triangle|circle|geometry|"
+    r"radius|diameter|circumference|"
     r"graph|plot|function|y\s*=\s*|"
     r"sqrt|square root|pythagor"
     r")\b",
@@ -70,6 +78,18 @@ _RECT_DIMS = re.compile(
 
 _SQUARE_SIDE = re.compile(
     r"\bsquare\b[\s\S]{0,60}?(?:side|edge)\s*(?:=|:)?\s*(?P<s>\d+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
+
+_CIRCLE_RADIUS = re.compile(
+    r"\bcircle\b[\s\S]{0,60}?radius\s*(?:=|:|of)?\s*(?P<r>\d+(?:\.\d+)?)"
+    r"\s*(?:cm|m|mm|in|ft|units?)?",
+    re.IGNORECASE,
+)
+
+_CIRCLE_DIAMETER = re.compile(
+    r"\bcircle\b[\s\S]{0,60}?diameter\s*(?:=|:|of)?\s*(?P<d>\d+(?:\.\d+)?)"
+    r"\s*(?:cm|m|mm|in|ft|units?)?",
     re.IGNORECASE,
 )
 
@@ -132,6 +152,7 @@ def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> boo
         _DRAW_RECTANGLE.search(cleaned)
         or _DRAW_RIGHT_TRIANGLE.search(cleaned)
         or _DRAW_SQUARE.search(cleaned)
+        or _DRAW_CIRCLE.search(cleaned)
     ):
         return True
     if has_image_attachment and _MATH_KEYWORDS.search(cleaned):
@@ -139,6 +160,8 @@ def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> boo
     if _EQUATION_IN_TEXT.search(cleaned) and _MATH_KEYWORDS.search(cleaned):
         return True
     if _RECT_DIMS.search(cleaned):
+        return True
+    if _CIRCLE_RADIUS.search(cleaned) or _CIRCLE_DIAMETER.search(cleaned):
         return True
     if _GRAPH_EXPR.search(cleaned):
         return True
@@ -192,6 +215,32 @@ def extract_math_intent(text: str) -> MathIntent | None:
                 kind="square", side=side, width=side, height=side, unit="cm", operation="solve"
             )
         return MathIntent(kind="square", side=5, width=5, height=5, unit="cm", operation="solve")
+
+    if re.search(r"\bcircle\b", cleaned, re.IGNORECASE):
+        wants_area = bool(re.search(r"\barea\b", cleaned, re.IGNORECASE))
+        wants_circumference = bool(re.search(r"\bcircumference\b", cleaned, re.IGNORECASE))
+        radius_match = _CIRCLE_RADIUS.search(cleaned)
+        if radius_match:
+            return MathIntent(
+                kind="circle",
+                radius=float(radius_match.group("r")),
+                unit="cm",
+                operation="solve",
+                wants_area=wants_area,
+                wants_circumference=wants_circumference,
+            )
+        diameter_match = _CIRCLE_DIAMETER.search(cleaned)
+        if diameter_match:
+            return MathIntent(
+                kind="circle",
+                radius=float(diameter_match.group("d")) / 2,
+                unit="cm",
+                operation="solve",
+                wants_diameter=True,
+                wants_area=wants_area,
+                wants_circumference=wants_circumference,
+            )
+        return MathIntent(kind="circle", radius=5, unit="cm", operation="solve")
 
     if _RIGHT_TRI.search(cleaned):
         rt_dims = _RIGHT_TRI_DIMS.search(cleaned)
@@ -364,6 +413,35 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
                 f"```geometry\n{json.dumps(spec.model_dump(), separators=(',', ':'))}\n```"
             )
             lines.append("Do NOT recompute diagonal, area, or perimeter.")
+            return VerifiedMathBlock(text="\n".join(lines), canonical_fence=spec.model_dump())
+
+        if intent.kind == "circle" and intent.radius:
+            circle_geo = math_service.circle_geometry(
+                CircleGeometryInput(radius=intent.radius, unit=intent.unit)
+            )
+            lines.append(
+                f"Circle: radius={circle_geo.radius:g} {circle_geo.unit} "
+                f"diameter={circle_geo.diameter:g} {circle_geo.unit} "
+                f"area={circle_geo.area:.2f} {circle_geo.unit}² "
+                f"circumference={circle_geo.circumference:.2f} {circle_geo.unit}"
+            )
+            spec = CircleGeometryBlockSpec(
+                type="circle",
+                radius=circle_geo.radius,
+                unit=circle_geo.unit,
+                show_diameter=intent.wants_diameter,
+                show_area=intent.wants_area,
+                show_circumference=intent.wants_circumference,
+                diameter=circle_geo.diameter,
+                area=circle_geo.area,
+                circumference=circle_geo.circumference,
+                labels=circle_geo.labels,
+            )
+            lines.append(
+                "When a diagram helps, emit ONLY this fence (NEVER ```json):\n"
+                f"```geometry\n{json.dumps(spec.model_dump(), separators=(',', ':'))}\n```"
+            )
+            lines.append("Do NOT recompute diameter, area, or circumference.")
             return VerifiedMathBlock(text="\n".join(lines), canonical_fence=spec.model_dump())
 
         if intent.kind == "triangle" and intent.base and intent.height:

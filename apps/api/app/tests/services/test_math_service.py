@@ -100,6 +100,16 @@ def test_right_triangle_geometry() -> None:
     assert "7.21" in result.labels["hypotenuse"]
 
 
+def test_circle_geometry() -> None:
+    from app.models.math_schemas import CircleGeometryInput
+
+    result = math_service.circle_geometry(CircleGeometryInput(radius=4))
+    assert result.diameter == 8.0
+    assert result.area == pytest.approx(math.pi * 16, rel=1e-4)
+    assert result.circumference == pytest.approx(8 * math.pi, rel=1e-4)
+    assert "4" in result.labels["radius"]
+
+
 def test_sample_function_quadratic() -> None:
     result = math_service.sample_function(
         GraphSampleInput(expr="x**2", variable="x", x_min=-2, x_max=2, n=10)

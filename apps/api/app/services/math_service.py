@@ -16,6 +16,8 @@ from sympy.parsing.sympy_parser import (
 )
 
 from app.models.math_schemas import (
+    CircleGeometryInput,
+    CircleGeometryResult,
     EquationInput,
     GraphSampleInput,
     GraphSampleResult,
@@ -312,6 +314,28 @@ def right_triangle_geometry(data: RightTriangleGeometryInput) -> RightTriangleGe
         unit=unit,
         hypotenuse=round(hypotenuse, 4),
         area=round(area, 4),
+        labels=labels,
+    )
+
+
+def circle_geometry(data: CircleGeometryInput) -> CircleGeometryResult:
+    r = data.radius
+    diameter = 2 * r
+    area = math.pi * r * r
+    circumference = 2 * math.pi * r
+    unit = data.unit
+    labels = {
+        "radius": f"{r:g} {unit}",
+        "diameter": f"{diameter:g} {unit}",
+        "area": f"{area:.2f} {unit}²",
+        "circumference": f"{circumference:.2f} {unit}",
+    }
+    return CircleGeometryResult(
+        radius=r,
+        unit=unit,
+        diameter=round(diameter, 4),
+        area=round(area, 4),
+        circumference=round(circumference, 4),
         labels=labels,
     )
 

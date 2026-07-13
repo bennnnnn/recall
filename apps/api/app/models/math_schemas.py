@@ -94,6 +94,20 @@ class RightTriangleGeometryResult(BaseModel):
     labels: dict[str, str] = Field(default_factory=dict)
 
 
+class CircleGeometryInput(BaseModel):
+    radius: float = Field(gt=0, le=1_000_000)
+    unit: str = Field(default="cm", max_length=16)
+
+
+class CircleGeometryResult(BaseModel):
+    radius: float
+    unit: str
+    diameter: float
+    area: float
+    circumference: float
+    labels: dict[str, str] = Field(default_factory=dict)
+
+
 class GraphSampleInput(BaseModel):
     expr: str = Field(min_length=1, max_length=256)
     variable: str = Field(default="x", min_length=1, max_length=8)
@@ -130,6 +144,20 @@ class RightTriangleGeometryBlockSpec(BaseModel):
     show_angle: bool = True
     hypotenuse: float | None = None
     area: float | None = None
+    labels: dict[str, str] = Field(default_factory=dict)
+
+
+class CircleGeometryBlockSpec(BaseModel):
+    type: Literal["circle"] = "circle"
+    radius: float = Field(gt=0, le=1_000_000)
+    unit: str = "cm"
+    show_labels: bool = True
+    show_diameter: bool = False
+    show_area: bool = False
+    show_circumference: bool = False
+    diameter: float | None = None
+    area: float | None = None
+    circumference: float | None = None
     labels: dict[str, str] = Field(default_factory=dict)
 
 
@@ -195,6 +223,7 @@ class MathIntent(BaseModel):
         "square",
         "triangle",
         "right_triangle",
+        "circle",
         "graph",
         "calculus",
     ]
@@ -206,6 +235,7 @@ class MathIntent(BaseModel):
     height: float | None = None
     base: float | None = None
     side: float | None = None
+    radius: float | None = None
     unit: str = "cm"
     operation: Literal["solve", "simplify", "differentiate", "integrate", "graph"] | None = None
     # Which rectangle quantities the user's own wording actually asked for —
@@ -215,3 +245,6 @@ class MathIntent(BaseModel):
     wants_angle: bool = False
     wants_area: bool = False
     wants_perimeter: bool = False
+    # Same idea for circles: only annotate diameter/circumference when asked.
+    wants_diameter: bool = False
+    wants_circumference: bool = False

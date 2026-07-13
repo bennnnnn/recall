@@ -30,6 +30,20 @@ def test_validates_right_triangle_geometry_fence() -> None:
     assert validate_math_fences(content) == content
 
 
+def test_validates_circle_geometry_fence() -> None:
+    """BUG FIX regression: circles were never a recognized geometry kind —
+    the model's own ```geometry {"type":"circle",...} fence (there was no
+    verified-math augmentation to guide it, since the schema/prompt never
+    mentioned circles) got rejected here and replaced with the
+    "[!WARNING] Invalid geometry block" fallback text instead of rendering.
+    """
+    content = (
+        '```geometry\n{"type":"circle","radius":4,"show_diameter":true,'
+        '"show_area":true,"show_circumference":true}\n```'
+    )
+    assert validate_math_fences(content) == content
+
+
 def test_replaces_invalid_geometry_fence() -> None:
     content = "```geometry\n{bad json\n```"
     out = validate_math_fences(content)

@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 from pydantic import ValidationError
 
 from app.models.math_schemas import (
+    CircleGeometryBlockSpec,
     GeometryBlockSpec,
     GraphBlockSpec,
     RightTriangleGeometryBlockSpec,
@@ -45,6 +46,9 @@ def _validate_geometry(raw: str) -> bool:
             return True
         if kind == "right_triangle":
             RightTriangleGeometryBlockSpec.model_validate(data)
+            return True
+        if kind == "circle":
+            CircleGeometryBlockSpec.model_validate(data)
             return True
         return False
     except (json.JSONDecodeError, ValidationError, TypeError):
