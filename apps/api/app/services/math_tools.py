@@ -17,6 +17,7 @@ from app.models.math_schemas import (
     GeometryBlockSpec,
     GraphBlockSpec,
     GraphSampleInput,
+    MathImageExtract,
     MathIntent,
     NewtonMethodInput,
     RectangleGeometryInput,
@@ -930,13 +931,30 @@ async def augment_prompt_messages(
     settings: Settings,
     *,
     has_image_attachment: bool = False,
+    image_math_extract: MathImageExtract | None = None,
 ) -> tuple[list[dict[str, str]], VerifiedMathBlock | None]:
     if not settings.math_tools_enabled:
         return messages, None
     if not needs_symbolic_math(user_content, has_image_attachment=has_image_attachment):
         return messages, None
 
-    intent = extract_math_intent(user_content)
+    if image_math_extract is not None:
+        # OCR already produced a Pydantic-validated equation — use it directly
+        # instead of re-parsing the stringified "lhs = rhs" text back through
+        # try_extract_equations_from_text's restricted character-class regex,
+        # which mangles unicode symbols, commas, and abs-value bars a real
+        # photographed equation can contain. variables always has >=1 entry
+        # (schema default_factory=["x"]), so this is the model's best guess
+        # even when the image genuinely used "x".
+        intent: MathIntent | None = MathIntent(
+            kind="equation",
+            lhs=image_math_extract.lhs,
+            rhs=image_math_extract.rhs,
+            operation="solve",
+            variable=image_math_extract.variables[0],
+        )
+    else:
+        intent = extract_math_intent(user_content)
     if intent is None and has_image_attachment:
         lines = [
             "The user attached an image that may contain a math problem. "
