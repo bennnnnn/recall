@@ -1,6 +1,7 @@
 import {
   looksLikeLatexFence,
   retagMathAndDiagramFences,
+  stripEmbeddedDollarWraps,
   stripRedundantDollarWrap,
 } from "@/lib/mathFenceRetag";
 
@@ -130,6 +131,40 @@ describe("mathFenceRetag", () => {
 
     it("leaves a lone leading or trailing $ untouched (not a matched wrap)", () => {
       expect(stripRedundantDollarWrap("$5 + x")).toBe("$5 + x");
+    });
+  });
+
+  describe("stripEmbeddedDollarWraps", () => {
+    it("BUG FIX regression: unwraps scattered $...$ wraps around individual commands, not just a whole-body wrap", () => {
+      // Reported live (screenshot): "n! = n $\times$ (n-1)!" rendered in red
+      // inside a math fence. The model wrapped only the \times command in
+      // $...$, leaving the rest of the line bare — stripRedundantDollarWrap
+      // only catches a wrap around the ENTIRE body, not this scattered case.
+      expect(stripEmbeddedDollarWraps(String.raw`n! = n $\times$ (n-1)!`)).toBe(
+        String.raw`n! = n \times (n-1)!`,
+      );
+    });
+
+    it("unwraps multiple scattered wraps on the same line", () => {
+      expect(
+        stripEmbeddedDollarWraps(
+          String.raw`(1-1)! = 0! = $\frac{1!}{1}$ = $\frac{1}{1}$ = 1`,
+        ),
+      ).toBe(String.raw`(1-1)! = 0! = \frac{1!}{1} = \frac{1}{1} = 1`);
+    });
+
+    it("unwraps a scattered $$...$$ wrap too", () => {
+      expect(stripEmbeddedDollarWraps(String.raw`a = $$\pi r^2$$ for a circle`)).toBe(
+        String.raw`a = \pi r^2 for a circle`,
+      );
+    });
+
+    it("leaves bare LaTeX with no $ untouched", () => {
+      expect(stripEmbeddedDollarWraps(String.raw`\pi \times 16`)).toBe(String.raw`\pi \times 16`);
+    });
+
+    it("leaves an unmatched lone $ untouched", () => {
+      expect(stripEmbeddedDollarWraps("$5 + x")).toBe("$5 + x");
     });
   });
 

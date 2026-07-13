@@ -4,7 +4,7 @@ import { MathFormulaWebView } from "@/components/rich/MathFormulaWebView";
 import { MathText } from "@/components/rich/MathText";
 import { getPreviewWebView } from "@/lib/webView";
 import { splitMathLines } from "@/lib/mathText";
-import { stripRedundantDollarWrap } from "@/lib/mathFenceRetag";
+import { stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/mathFenceRetag";
 import { Theme, useTheme } from "@/lib/theme";
 
 export function MathInline({ latex }: { latex: string }) {
@@ -15,7 +15,7 @@ export function MathInline({ latex }: { latex: string }) {
 export function MathBlock({ latex }: { latex: string }) {
   const theme = useTheme();
   const s = makeStyles(theme);
-  const trimmed = stripRedundantDollarWrap(latex.trim());
+  const trimmed = stripEmbeddedDollarWraps(stripRedundantDollarWrap(latex.trim()));
   if (!trimmed) return null;
 
   // A fence body with multiple equations (one per line) must render each as

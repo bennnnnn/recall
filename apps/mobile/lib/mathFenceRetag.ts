@@ -70,6 +70,19 @@ export function stripRedundantDollarWrap(s: string): string {
   return s;
 }
 
+/**
+ * The model sometimes wraps only individual sub-expressions in $...$ within
+ * an otherwise-bare fence body — e.g. "n! = n $\times$ (n-1)!" — rather than
+ * the whole body, which stripRedundantDollarWrap's whole-string match above
+ * doesn't catch. Any matched $...$/$$...$$ pair anywhere in a fence body is
+ * invalid (same "bare LaTeX only" contract), so unwrap every one of them,
+ * leaving an unmatched lone "$" (e.g. real currency text) untouched.
+ */
+export function stripEmbeddedDollarWraps(s: string): string {
+  if (!s.includes("$")) return s;
+  return s.replace(/\$\$([^$\n]+?)\$\$|\$([^$\n]+?)\$/g, (_m, double, single) => double ?? single);
+}
+
 /** Model often emits ```latex — detect and reroute at render time. */
 export function looksLikeLatexFence(content: string): boolean {
   return looksLikeMathFenceBody(content);
