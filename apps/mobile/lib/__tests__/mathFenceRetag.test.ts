@@ -37,6 +37,21 @@ describe("mathFenceRetag", () => {
     expect(out).not.toMatch(/```\n\s*x\^2/);
   });
 
+  it("BUG FIX regression: detects log/trig/sum-style LaTeX commands with subscripts", () => {
+    // \b treats `_` as a word char, so a naive trailing \b after the command
+    // name never matches before a subscript — \log_2, \lim_{x\to0}, etc.
+    expect(looksLikeLatexFence(String.raw`x = \log_2(2)`)).toBe(true);
+    expect(looksLikeLatexFence(String.raw`\log_2(2) = 1`)).toBe(true);
+    expect(looksLikeLatexFence(String.raw`\lim_{x \to 0} \sin(x)`)).toBe(true);
+    expect(looksLikeLatexFence(String.raw`\sum_{i=1}^{n} i`)).toBe(true);
+  });
+
+  it("BUG FIX regression: detects brace-grouped exponents/subscripts without a backslash command", () => {
+    // Braces alone used to disqualify a line as "looks like code" — but
+    // `2^{1}` / `a_{n}` are ordinary LaTeX grouping, not code syntax.
+    expect(looksLikeLatexFence("2^{1} + 5 = 2 + 5 = 7")).toBe(true);
+  });
+
   it("does not swallow prose between two already-tagged math fences", () => {
     // A closing ``` for the first ```math fence must never be mistaken for
     // the opener of a new bare fence that then swallows everything up to

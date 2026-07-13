@@ -1,6 +1,11 @@
-import { parseUserMessageContent, isPdfContentType } from "@/lib/messageAttachments";
+import { isAttachmentBoilerplate, parseUserMessageContent, isPdfContentType } from "@/lib/messageAttachments";
+import { MATH_CAMERA_PROMPT } from "@/lib/mathCameraPrompt";
 
 describe("messageAttachments", () => {
+  it("treats the math-camera prompt as boilerplate — must stay in sync with the backend's exact-match trigger", () => {
+    expect(isAttachmentBoilerplate(MATH_CAMERA_PROMPT)).toBe(true);
+  });
+
   it("parses pdf file marker with attachment id", () => {
     const parsed = parseUserMessageContent(
       "Summarize this\n\n[File: /attachments/550e8400-e29b-41d4-a716-446655440000/file]\n[File (application/pdf)]\nPage one text",

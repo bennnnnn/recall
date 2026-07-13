@@ -33,6 +33,21 @@ describe("normalizeImplicitMath", () => {
     expect(out).toBe("- Base = 8 cm\n- Height = 5 cm");
   });
 
+  it("BUG FIX regression: does not swallow a bold-prefixed line into math delimiters", () => {
+    // BARE_EQUATION_RE's char class allows `*` for multiplication, which also
+    // matches markdown's `**bold**` markers — a line like "**Solve** 2^x + 5 = 7"
+    // used to get misread as a bare equation and wrapped whole in `$...$`,
+    // which renders as raw source text (not parsed markdown), showing the
+    // literal `**` asterisks instead of bold.
+    const input = "**Solve** 2^x + 5 = 7";
+    expect(normalizeImplicitMathInProse(input)).toBe(input);
+  });
+
+  it("still wraps a genuine bare equation line with no markdown emphasis", () => {
+    const input = "2^x = 7 - 5 = 2";
+    expect(normalizeImplicitMathInProse(input)).toBe("$2^x = 7 - 5 = 2$");
+  });
+
   it("skips fenced code blocks", () => {
     const { normalizeImplicitMath } = require("@/lib/normalizeImplicitMath");
     const input = "```python\n( x = 1 )\n```\nx2=4";

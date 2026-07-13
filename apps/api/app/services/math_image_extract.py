@@ -22,6 +22,11 @@ _EXTRACT_PROMPT = (
     'If no equation is visible, set found=false and use lhs/rhs of "0".'
 )
 
+# Must stay byte-for-byte identical to MATH_CAMERA_PROMPT in
+# apps/mobile/lib/attachments.ts — this is an exact-match trigger phrase
+# (is_math_camera_prompt below), not user-facing copy, so it doesn't go
+# through i18n. If either side's wording changes without the other, the
+# verified-math augmentation silently stops firing for the camera flow.
 MATH_CAMERA_PROMPT = "Solve the math problem in this image step by step."
 
 

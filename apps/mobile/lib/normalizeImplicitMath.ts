@@ -22,6 +22,12 @@ export function fixImplicitExponents(expr: string): string {
 function isMathLike(inner: string): boolean {
   const s = fixImplicitExponents(inner);
   if (s.length < 2) return false;
+  // BARE_EQUATION_RE's char class allows `*` for multiplication, which also
+  // matches markdown's `**bold**`/`__bold__` markers — without this guard a
+  // prose line like "**Solve** 2^x + 5 = 7" gets misread as a bare equation
+  // and wrapped whole in `$...$`, corrupting the bold markdown (the math
+  // renderer displays raw source text, not parsed markdown emphasis).
+  if (/\*\*|__/.test(s)) return false;
   if (LATEX_CMD.test(s)) return true;
   if (/\^|_[{0-9a-zA-Z]/.test(s)) return true;
   if (/[±√∓≤≥≠]|\\pm/.test(s)) return true;

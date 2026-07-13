@@ -4,6 +4,7 @@ import { getInfoAsync } from "expo-file-system/legacy";
 
 import { api } from "@/lib/api";
 import { getApiUrl } from "@/lib/config";
+import { MATH_CAMERA_PROMPT } from "@/lib/mathCameraPrompt";
 
 export type AttachmentKind = "image" | "file";
 
@@ -111,9 +112,7 @@ export function defaultAttachmentPrompt(pending: PendingAttachment): string {
   return pending.kind === "image" ? "" : "Summarize this file.";
 }
 
-/** Preset caption for the camera math solver entry point. */
-export const MATH_CAMERA_PROMPT =
-  "Solve the math problem in this image step by step.";
+export { MATH_CAMERA_PROMPT };
 
 export function defaultMathCameraPrompt(): string {
   return MATH_CAMERA_PROMPT;

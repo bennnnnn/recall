@@ -175,7 +175,9 @@ class GraphBlockSpec(BaseModel):
     x_min: float = -10.0
     x_max: float = 10.0
     title: str | None = None
-    points: list[list[float]] = Field(default_factory=list)
+    # Matches GraphSampleInput.n's upper bound (le=500) — the model never
+    # legitimately needs more points than the canonical sample it was given.
+    points: list[list[float]] = Field(default_factory=list, max_length=500)
 
     @field_validator("points")
     @classmethod

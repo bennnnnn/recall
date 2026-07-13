@@ -54,6 +54,12 @@ export function findStableMarkdownPrefixLen(content: string): number {
 function hasUnclosedStreamingStructure(text: string): boolean {
   if (countOccurrences(text, "$$") % 2 !== 0) return true;
   if (countFenceMarkers(text) % 2 !== 0) return true;
+  // \[...\] is the other block-math delimiter preprocessMarkdown converts
+  // (BLOCK_MATH_BRACKET_RE, alongside $$...$$) — without tracking it here
+  // too, an unclosed \[ mid-stream gets folded into the "stable" prefix and
+  // preprocessed while still open, leaving a raw dangling "\[" visible until
+  // the closing \] finally arrives.
+  if (countOccurrences(text, "\\[") !== countOccurrences(text, "\\]")) return true;
   if (/\n>\s*\[!(\w+)\][^\n]*\n(?:>\s?.*\n)*$/i.test(text)) return true;
   return false;
 }
@@ -83,6 +89,8 @@ export type StableScanState = {
   fenceOpen: boolean;
   /** Parity of `$$` occurrences seen so far (true = inside block math). */
   dollarOpen: boolean;
+  /** Running count of `\[` minus `\]` seen so far (nonzero = inside \[...\] block math). */
+  bracketDepth: number;
   /** Whether an unclosed `> [!type]` callout chain reaches `scannedLen`. */
   calloutOpen: boolean;
   /** Largest confirmed-stable prefix length found up to `scannedLen`. */
@@ -138,6 +146,7 @@ function scanStableMarkdownPrefix(
 
   let fenceOpen = false;
   let dollarOpen = false;
+  let bracketDepth = 0;
   let calloutOpen = false;
   let stableEnd = 0;
   let pos = 0;
@@ -146,6 +155,7 @@ function scanStableMarkdownPrefix(
     pos = prevState.scannedLen;
     fenceOpen = prevState.fenceOpen;
     dollarOpen = prevState.dollarOpen;
+    bracketDepth = prevState.bracketDepth;
     calloutOpen = prevState.calloutOpen;
     stableEnd = prevState.stableEnd;
   }
@@ -158,6 +168,7 @@ function scanStableMarkdownPrefix(
 
     if (line.startsWith("```")) fenceOpen = !fenceOpen;
     if (countOccurrences(line, "$$") % 2 !== 0) dollarOpen = !dollarOpen;
+    bracketDepth += countOccurrences(line, "\\[") - countOccurrences(line, "\\]");
     // A callout chain continues as long as each new line still starts with
     // ">" (matching the original regex's permissive continuation pattern);
     // otherwise it only (re)starts on a proper `> [!type]` marker line — and
@@ -169,12 +180,12 @@ function scanStableMarkdownPrefix(
       : !isAbsoluteFirstLine && CALLOUT_MARKER_LINE_RE.test(line);
 
     pos = nl + 1;
-    if (!fenceOpen && !dollarOpen && !calloutOpen) {
+    if (!fenceOpen && !dollarOpen && bracketDepth === 0 && !calloutOpen) {
       stableEnd = pos;
     }
   }
 
-  return { scannedLen: end0, fenceOpen, dollarOpen, calloutOpen, stableEnd };
+  return { scannedLen: end0, fenceOpen, dollarOpen, bracketDepth, calloutOpen, stableEnd };
 }
 
 /**

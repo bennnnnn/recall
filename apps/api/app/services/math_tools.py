@@ -96,6 +96,29 @@ _CALC_OP = re.compile(
     re.IGNORECASE,
 )
 
+_TRAILING_FILLER_RE = re.compile(
+    r"\s+(?:please|now|thanks?|thank\s+you|for\s+me|to\s+me|real\s+quick|quickly|briefly)\.?\s*$",
+    re.IGNORECASE,
+)
+
+
+def _strip_trailing_filler(expr: str) -> str:
+    """`_GRAPH_EXPR`/the calculus expr-match are greedy captures of everything
+    after the trigger word, so natural phrasing like "graph x^2 please" or
+    "differentiate x^2 for me" sweeps the trailing words into the
+    "expression" — which then fails to parse and silently disables the
+    verified-math augmentation for phrasing a real user would actually type."""
+    s = expr.strip()
+    # A conjunction essentially never appears inside a math expression
+    # itself — anything from " and "/" then " onward is a new clause of
+    # natural language (e.g. "sin(x) and explain it"), not part of the expr.
+    s = re.split(r"\s+(?:and|then)\s+", s, maxsplit=1, flags=re.IGNORECASE)[0]
+    prev = None
+    while prev != s:
+        prev = s
+        s = _TRAILING_FILLER_RE.sub("", s).strip()
+    return s
+
 
 def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> bool:
     cleaned = text.strip()
@@ -198,7 +221,7 @@ def extract_math_intent(text: str) -> MathIntent | None:
 
     graph = _GRAPH_EXPR.search(cleaned)
     if graph:
-        expr = graph.group("expr").strip().replace("^", "**")
+        expr = _strip_trailing_filler(graph.group("expr")).replace("^", "**")
         return MathIntent(kind="graph", expr=expr, operation="graph")
 
     calc = _CALC_OP.search(cleaned)
@@ -212,7 +235,7 @@ def extract_math_intent(text: str) -> MathIntent | None:
         expr_match = re.search(
             r"(?:simplify|differentiate|derivative|integrate|integral)\s+(.+)$", cleaned, re.I
         )
-        expr = expr_match.group(1).strip() if expr_match else cleaned
+        expr = _strip_trailing_filler(expr_match.group(1)) if expr_match else cleaned
         return MathIntent(kind="calculus", expr=expr, operation=calc_op)
 
     eq = math_service.try_extract_equation_from_text(cleaned)
@@ -385,7 +408,7 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
                     variable=intent.variable,
                     x_min=-10,
                     x_max=10,
-                    n=min(settings.math_graph_max_points, 200),
+                    n=settings.math_graph_max_points,
                 )
             )
             graph_spec = GraphBlockSpec(
