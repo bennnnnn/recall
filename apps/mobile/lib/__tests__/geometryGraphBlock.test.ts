@@ -3,6 +3,7 @@ import {
   computeRightTriangleLabels,
   computeTriangleLabels,
   parseGeometrySpec,
+  rectangleAngleDisplay,
   scaleToFit,
 } from "@/lib/geometryBlock";
 import { graphBounds, graphPolylinePoints, parseGraphSpec } from "@/lib/graphBlock";
@@ -95,6 +96,44 @@ describe("geometryBlock", () => {
   it("rejects dimensions above backend max", () => {
     expect(parseGeometrySpec('{"type":"square","side":2000000}')).toBeNull();
     expect(parseGeometrySpec('{"type":"triangle","base":2000000,"height":5}')).toBeNull();
+  });
+
+  describe("rectangleAngleDisplay", () => {
+    it("BUG FIX regression: never shows the 90° corner bracket alongside the diagonal's (non-90°) angle label", () => {
+      // A rectangle's corners are always 90° — the bracket glyph means
+      // that. The diagonal-vs-base angle is a different, generally
+      // non-90° number, so drawing both at once reads as a contradiction
+      // (a "this is 90°" glyph right next to e.g. "51.3°").
+      const result = rectangleAngleDisplay({
+        type: "rectangle",
+        show_angle: true,
+        show_diagonal: true,
+      });
+      expect(result.showCornerBracket).toBe(false);
+      expect(result.showDiagonalAngleLabel).toBe(true);
+    });
+
+    it("shows the plain corner bracket (no angle number) when angle is requested without a diagonal", () => {
+      const result = rectangleAngleDisplay({
+        type: "rectangle",
+        show_angle: true,
+        show_diagonal: false,
+      });
+      expect(result.showCornerBracket).toBe(true);
+      expect(result.showDiagonalAngleLabel).toBe(false);
+    });
+
+    it("shows neither when nothing was requested", () => {
+      const result = rectangleAngleDisplay({ type: "rectangle" });
+      expect(result.showCornerBracket).toBe(false);
+      expect(result.showDiagonalAngleLabel).toBe(false);
+    });
+
+    it("always shows both corner brackets for a square regardless of angle/diagonal flags", () => {
+      const result = rectangleAngleDisplay({ type: "square" });
+      expect(result.showCornerBracket).toBe(true);
+      expect(result.showDiagonalAngleLabel).toBe(false);
+    });
   });
 });
 

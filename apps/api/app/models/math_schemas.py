@@ -208,3 +208,10 @@ class MathIntent(BaseModel):
     side: float | None = None
     unit: str = "cm"
     operation: Literal["solve", "simplify", "differentiate", "integrate", "graph"] | None = None
+    # Which rectangle quantities the user's own wording actually asked for —
+    # lets the rectangle augmentation only annotate the diagram with what was
+    # requested instead of always drawing a diagonal + angle.
+    wants_diagonal: bool = False
+    wants_angle: bool = False
+    wants_area: bool = False
+    wants_perimeter: bool = False

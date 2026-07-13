@@ -165,6 +165,10 @@ def extract_math_intent(text: str) -> MathIntent | None:
             height=float(rect.group("h")),
             unit=unit,
             operation="solve",
+            wants_diagonal=bool(re.search(r"\bdiagonal\b", cleaned, re.IGNORECASE)),
+            wants_angle=bool(re.search(r"\bangle\b", cleaned, re.IGNORECASE)),
+            wants_area=bool(re.search(r"\barea\b", cleaned, re.IGNORECASE)),
+            wants_perimeter=bool(re.search(r"\bperimeter\b", cleaned, re.IGNORECASE)),
         )
 
     if _DEFAULT_RECT.search(cleaned):
@@ -296,13 +300,27 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
                 f"height={rect_geo.height:g} {rect_geo.unit} "
                 f"diagonal={rect_geo.diagonal:g} angle={rect_geo.angle_deg:g}°"
             )
+            # Only annotate the diagram with what was actually asked for —
+            # e.g. "rectangle area 4 by 5" should draw area, not an
+            # unrequested diagonal + angle. If nothing specific was asked,
+            # default to the diagonal (a reasonable generic illustration)
+            # without the angle number, since a bare "draw a rectangle" isn't
+            # asking about any particular angle.
+            show_area = intent.wants_area
+            show_perimeter = intent.wants_perimeter
+            show_diagonal = intent.wants_diagonal or intent.wants_angle or not (
+                show_area or show_perimeter
+            )
+            show_angle = intent.wants_angle
             spec = GeometryBlockSpec(
                 type="rectangle",
                 width=rect_geo.width,
                 height=rect_geo.height,
                 unit=rect_geo.unit,
-                show_diagonal=True,
-                show_angle=True,
+                show_diagonal=show_diagonal,
+                show_angle=show_angle,
+                show_area=show_area,
+                show_perimeter=show_perimeter,
                 diagonal=rect_geo.diagonal,
                 angle_deg=rect_geo.angle_deg,
                 area=rect_geo.area,

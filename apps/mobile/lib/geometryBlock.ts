@@ -205,6 +205,31 @@ export function computeRightTriangleLabels(spec: RightTriangleSpec): Record<stri
   };
 }
 
+/**
+ * Which angle-related elements a rectangle diagram should render. A
+ * rectangle's own corners are always 90° — the right-angle bracket glyph is
+ * the conventional way to say that. The diagonal-vs-base angle (`angle_deg`
+ * in the spec) is a *different*, generally non-90° quantity, so it must
+ * never be drawn at the same spot as that bracket — labeling it right next
+ * to a glyph that means "90°" reads as a contradiction (e.g. a bracket next
+ * to "51.3°"). Only show the diagonal's angle when a diagonal is actually
+ * being drawn; suppress the bracket in that case since the angle of
+ * interest there isn't the corner's.
+ */
+export function rectangleAngleDisplay(spec: {
+  type: "rectangle" | "square";
+  show_angle?: boolean;
+  show_diagonal?: boolean;
+}): { showCornerBracket: boolean; showDiagonalAngleLabel: boolean } {
+  const isSquare = spec.type === "square";
+  const showAngle = !!spec.show_angle;
+  const showDiagonal = !!spec.show_diagonal;
+  return {
+    showCornerBracket: isSquare || (showAngle && !showDiagonal),
+    showDiagonalAngleLabel: !isSquare && showAngle && showDiagonal,
+  };
+}
+
 export function scaleToFit(
   width: number,
   height: number,

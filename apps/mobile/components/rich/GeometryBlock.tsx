@@ -7,6 +7,7 @@ import {
   computeRightTriangleLabels,
   computeTriangleLabels,
   parseGeometrySpec,
+  rectangleAngleDisplay,
   scaleToFit,
   type RectangleSpec,
   type RightTriangleSpec,
@@ -38,6 +39,7 @@ function RectangleDiagram({ spec, screenWidth, theme }: { spec: RectangleSpec; s
   const svgH = h + offsetY + (spec.show_area || spec.show_perimeter ? 56 : 40);
   const isSquare = spec.type === "square";
   const corner = 12;
+  const { showCornerBracket, showDiagonalAngleLabel } = rectangleAngleDisplay(spec);
 
   return (
     <Svg width={svgW} height={svgH}>
@@ -51,7 +53,7 @@ function RectangleDiagram({ spec, screenWidth, theme }: { spec: RectangleSpec; s
         strokeWidth={2}
         rx={isSquare ? 2 : 4}
       />
-      {isSquare || spec.show_angle ? (
+      {showCornerBracket ? (
         <>
           <Polygon
             points={`${x},${y + h} ${x + corner},${y + h} ${x + corner},${y + h - corner} ${x},${y + h - corner}`}
@@ -91,9 +93,13 @@ function RectangleDiagram({ spec, screenWidth, theme }: { spec: RectangleSpec; s
           {labels.diagonal}
         </SvgText>
       ) : null}
-      {!isSquare && spec.show_angle ? (
+      {showDiagonalAngleLabel ? (
+        // This is the angle the diagonal makes with the base — NOT the
+        // rectangle's own corner angle (always 90°, shown by the bracket
+        // glyph above when no diagonal is drawn). Labeling it "∠" avoids
+        // it reading as a contradiction of that right angle.
         <SvgText x={x + 12} y={y + h - 8} fill={theme.textSecondary} fontSize={12}>
-          {labels.angle}
+          ∠ {labels.angle}
         </SvgText>
       ) : null}
       {spec.show_area ? (
