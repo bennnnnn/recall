@@ -42,6 +42,26 @@ class MathExprResult(BaseModel):
     solved: bool = True
 
 
+class MathLimitResult(BaseModel):
+    result: str
+    latex: str
+    # True for oo/-oo (diverges) or zoo (two-sided limit doesn't exist
+    # because the sides disagree) — lets the verified block render this as
+    # \infty explicitly instead of leaving an opaque symbol name.
+    is_infinite: bool
+
+
+class MathSeriesResult(BaseModel):
+    result: str
+    latex: str
+    is_infinite: bool
+    # None when SymPy can't determine convergence (rare); otherwise a
+    # definite True/False for whether the (typically infinite) series
+    # converges, and separately whether it converges absolutely.
+    is_convergent: bool | None = None
+    is_absolutely_convergent: bool | None = None
+
+
 class RectangleGeometryInput(BaseModel):
     width: float = Field(gt=0, le=1_000_000)
     height: float = Field(gt=0, le=1_000_000)
@@ -251,6 +271,8 @@ class MathIntent(BaseModel):
         "point",
         "graph",
         "calculus",
+        "limit",
+        "series",
     ]
     lhs: str | None = None
     rhs: str | None = None
@@ -264,7 +286,16 @@ class MathIntent(BaseModel):
     point_x: float | None = None
     point_y: float | None = None
     unit: str = "cm"
-    operation: Literal["solve", "simplify", "differentiate", "integrate", "graph"] | None = None
+    operation: (
+        Literal["solve", "simplify", "differentiate", "integrate", "graph", "limit", "series"]
+        | None
+    ) = None
+    # Limit/series bounds — strings, not float, since "infinity"/"oo" is a
+    # valid bound alongside a plain number (see
+    # math_service._parse_infinity_aware_point).
+    limit_point: str | None = None
+    series_start: str | None = None
+    series_end: str | None = None
     # Which rectangle quantities the user's own wording actually asked for —
     # lets the rectangle augmentation only annotate the diagram with what was
     # requested instead of always drawing a diagonal + angle.
