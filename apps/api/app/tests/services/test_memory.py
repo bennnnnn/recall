@@ -15,6 +15,17 @@ from app.services.memory import (
 )
 
 
+def _closing_background_task(coro, **_kwargs) -> MagicMock:
+    """Test double for create_background_task: discards the coroutine
+    without actually running it, but closes it so pytest doesn't warn
+    "coroutine was never awaited" in tests that aren't exercising the
+    background-task behavior itself (see
+    test_get_memory_block_warms_semantic_cache_via_tracked_background_task
+    for that dedicated test)."""
+    coro.close()
+    return MagicMock()
+
+
 def _memory(type_: str, text: str, confidence: float | None):
     m = AsyncMock()
     m.type = type_
@@ -392,6 +403,47 @@ async def test_search_semantic_repo_returns_ranked_rows():
 
 
 @pytest.mark.asyncio
+async def test_get_memory_block_warms_semantic_cache_via_tracked_background_task(fake_redis):
+    """BUG FIX: the semantic-cache warm task used to be scheduled via bare
+    asyncio.create_task, held only by the local `warm_task` variable that
+    goes out of scope the instant get_memory_block returns — per asyncio's
+    own docs, an unreferenced task is eligible for GC before it completes.
+    Must go through create_background_task (a module-level strong-reference
+    set), the same primitive chat/stream.py already uses correctly for its
+    own fire-and-forget tasks."""
+    from app.services.memory import get_memory_block
+
+    user = AsyncMock()
+    user.id = uuid4()
+    user.memory_enabled = True
+    session = AsyncMock()
+    settings = Settings(semantic_memory_enabled=True, memory_query_cache_ttl=120)
+
+    fake_task = MagicMock()
+
+    def _create_task_stub(coro, **_kwargs) -> MagicMock:
+        # Don't actually run the coroutine (this test only cares which
+        # scheduling primitive is used, not the warm-cache logic itself —
+        # see test_warm_semantic_cache_write_racing_invalidation_is_never_served
+        # for that) — close it so pytest doesn't warn "never awaited".
+        coro.close()
+        return fake_task
+
+    create_task_mock = MagicMock(side_effect=_create_task_stub)
+
+    with (
+        patch("app.services.memory.get_redis_client", return_value=fake_redis),
+        patch("app.services.memory.load_relevant_memories", AsyncMock(return_value=[])),
+        patch("app.services.memory.create_background_task", create_task_mock),
+    ):
+        await get_memory_block(session, user, settings, query_text="outdoor hobbies")
+
+    create_task_mock.assert_called_once()
+    assert create_task_mock.call_args.kwargs.get("name") == "warm_semantic_memory_cache"
+    fake_task.add_done_callback.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_get_memory_block_query_cache(fake_redis):
     from app.services.memory import get_memory_block
 
@@ -407,6 +459,7 @@ async def test_get_memory_block_query_cache(fake_redis):
             "app.services.memory.load_relevant_memories",
             AsyncMock(return_value=[_memory("fact", "Likes hiking", 0.9)]),
         ) as load_mock,
+        patch("app.services.memory.create_background_task", side_effect=_closing_background_task),
     ):
         first = await get_memory_block(session, user, settings, query_text="outdoor hobbies")
         second = await get_memory_block(session, user, settings, query_text="outdoor hobbies")
@@ -436,6 +489,11 @@ async def test_invalidate_memory_block_clears_block_and_query_cache(fake_redis):
             "app.services.memory.load_relevant_memories",
             AsyncMock(return_value=[_memory("fact", "Likes hiking", 0.9)]),
         ),
+        # This test doesn't exercise the warm-cache background task itself
+        # (see test_get_memory_block_warms_semantic_cache_via_tracked_background_task
+        # for that) — without this, the real task can outlive this test's
+        # event loop and warn "coroutine was never awaited" on teardown.
+        patch("app.services.memory.create_background_task", side_effect=_closing_background_task),
     ):
         # No query → per-user block cache (memblock); with query → per-query cache (memquery).
         await get_memory_block(session, user, settings)
@@ -472,6 +530,7 @@ async def test_invalidate_memory_block_clears_multiple_query_keys(fake_redis):
             "app.services.memory.load_relevant_memories",
             AsyncMock(return_value=[_memory("fact", "Likes hiking", 0.9)]),
         ),
+        patch("app.services.memory.create_background_task", side_effect=_closing_background_task),
     ):
         await get_memory_block(session, user, settings, query_text="outdoor hobbies")
         await get_memory_block(session, user, settings, query_text="weekend plans")
