@@ -87,6 +87,20 @@ _CIRCLE_RADIUS = re.compile(
     re.IGNORECASE,
 )
 
+# A message that's ENTIRELY a coordinate pair (nothing else) is unambiguous
+# quick-reply shorthand — e.g. answering "what point?" with "(2,3)". Accepts
+# "." as well as "," between the two numbers since that's a common mobile
+# keyboard slip for a comma right next to it, and requiring the whole
+# message to match (not a substring) keeps this from misfiring on prose
+# that merely contains a decimal number in parentheses.
+_BARE_COORD_PAIR = re.compile(r"^\(\s*(?P<x>-?\d+(?:\.\d+)?)\s*[,.]\s*(?P<y>-?\d+(?:\.\d+)?)\s*\)$")
+
+_PLOT_POINT = re.compile(
+    r"\b(?:plot|mark|graph|show)\s+(?:the\s+)?point\s*\(?\s*"
+    r"(?P<x>-?\d+(?:\.\d+)?)\s*,\s*(?P<y>-?\d+(?:\.\d+)?)\s*\)?",
+    re.IGNORECASE,
+)
+
 _CIRCLE_DIAMETER = re.compile(
     r"\bcircle\b[\s\S]{0,60}?diameter\s*(?:=|:|of)?\s*(?P<d>\d+(?:\.\d+)?)"
     r"\s*(?:cm|m|mm|in|ft|units?)?",
@@ -162,6 +176,8 @@ def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> boo
     if _RECT_DIMS.search(cleaned):
         return True
     if _CIRCLE_RADIUS.search(cleaned) or _CIRCLE_DIAMETER.search(cleaned):
+        return True
+    if _BARE_COORD_PAIR.match(cleaned) or _PLOT_POINT.search(cleaned):
         return True
     if _GRAPH_EXPR.search(cleaned):
         return True
@@ -271,6 +287,16 @@ def extract_math_intent(text: str) -> MathIntent | None:
         r"\b(?:area|draw|visuali[sz]e|sketch)\b", cleaned, re.IGNORECASE
     ):
         return MathIntent(kind="triangle", base=8, height=5, unit="cm", operation="solve")
+
+    bare_point = _BARE_COORD_PAIR.match(cleaned)
+    point_match = bare_point or _PLOT_POINT.search(cleaned)
+    if point_match:
+        return MathIntent(
+            kind="point",
+            point_x=float(point_match.group("x")),
+            point_y=float(point_match.group("y")),
+            operation="graph",
+        )
 
     graph = _GRAPH_EXPR.search(cleaned)
     if graph:
@@ -498,6 +524,24 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
             )
             lines.append("Do NOT recompute hypotenuse or area.")
             return VerifiedMathBlock(text="\n".join(lines), canonical_fence=rt_spec.model_dump())
+
+        if intent.kind == "point" and intent.point_x is not None and intent.point_y is not None:
+            px, py = intent.point_x, intent.point_y
+            point_spec = GraphBlockSpec(
+                expr=f"({px:g}, {py:g})",
+                title=f"Point ({px:g}, {py:g})",
+                x_min=px - 5,
+                x_max=px + 5,
+                points=[[px, py]],
+            )
+            lines.append(f"Point: ({px:g}, {py:g})")
+            lines.append(
+                "When a diagram helps, emit ONLY this fence (NEVER ```json). Do NOT "
+                "invent a line, function, or extra points through it — the user asked "
+                "to mark this one coordinate, nothing else:\n"
+                f"```graph\n{json.dumps(point_spec.model_dump(), separators=(',', ':'))}\n```"
+            )
+            return VerifiedMathBlock(text="\n".join(lines), canonical_fence=point_spec.model_dump())
 
         if intent.kind == "graph" and intent.expr:
             sample = math_service.sample_function(
