@@ -2,7 +2,7 @@
 // would not match the boundary between a command and a subscript
 // (`\log_2`, `\lim_{x\to0}`, `\sum_{i=1}^n` are all extremely common LaTeX).
 const LATEX_CMD_RE =
-  /\\(?:pm|mp|sqrt|frac|text|mathrm|times|cdot|leq|geq|neq|infty|alpha|beta|gamma|theta|begin|left|right|log|ln|exp|lim|sup|inf|sin|cos|tan|sec|csc|cot|arcsin|arccos|arctan|sinh|cosh|tanh|sum|prod|int|det|gcd|min|max|arg|deg|ker|dim|hom|binom|partial|nabla|vec|hat|bar|dot|overline|underline)(?=[^a-zA-Z]|$)/;
+  /\\(?:pm|mp|sqrt|frac|text|mathrm|times|cdot|leq|geq|neq|infty|alpha|beta|gamma|delta|epsilon|zeta|eta|theta|iota|kappa|lambda|mu|nu|xi|omicron|pi|rho|sigma|tau|upsilon|phi|chi|psi|omega|begin|left|right|log|ln|exp|lim|sup|inf|sin|cos|tan|sec|csc|cot|arcsin|arccos|arctan|sinh|cosh|tanh|sum|prod|int|det|gcd|min|max|arg|deg|ker|dim|hom|binom|partial|nabla|vec|hat|bar|dot|overline|underline)(?=[^a-zA-Z]|$)/;
 
 function looksLikeAlgebraLine(line: string): boolean {
   if (!line || line.length > 120) return false;
@@ -43,6 +43,23 @@ export function looksLikeMathFenceBody(content: string): boolean {
     return lines.some((line) => /=/.test(line));
   }
   return false;
+}
+
+/**
+ * A ```math fence body must be bare LaTeX — $...$/$$...$$ are markdown-level
+ * inline/display delimiters, not KaTeX syntax, so a model that wraps a fence
+ * body in them anyway produces a literal "$" KaTeX can't parse: with
+ * throwOnError:false it renders the raw source in errorColor instead of
+ * throwing (e.g. "$= \pi \times 16$" showing up in red instead of typeset
+ * math). Strip a redundant whole-string wrap defensively rather than let it
+ * visibly break.
+ */
+export function stripRedundantDollarWrap(s: string): string {
+  const double = s.match(/^\$\$([\s\S]+)\$\$$/);
+  if (double) return double[1].trim();
+  const single = s.match(/^\$([^$\n]+)\$$/);
+  if (single) return single[1].trim();
+  return s;
 }
 
 /** Model often emits ```latex — detect and reroute at render time. */

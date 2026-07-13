@@ -1,6 +1,7 @@
 import {
   looksLikeLatexFence,
   retagMathAndDiagramFences,
+  stripRedundantDollarWrap,
 } from "@/lib/mathFenceRetag";
 
 describe("mathFenceRetag", () => {
@@ -67,6 +68,39 @@ describe("mathFenceRetag", () => {
       String.raw`\end{aligned}`,
     ].join("\n");
     expect(looksLikeLatexFence(body)).toBe(true);
+  });
+
+  it("BUG FIX regression: detects \\pi as a LaTeX command", () => {
+    // \pi was missing from LATEX_CMD_RE entirely — one of the most common
+    // LaTeX commands — so a formula like the circle area general form
+    // fell through to a plain code block instead of typeset math.
+    expect(looksLikeLatexFence(String.raw`A \;=\; \pi \, r^{2}`)).toBe(true);
+    expect(looksLikeLatexFence(String.raw`C = 2\pi r`)).toBe(true);
+  });
+
+  describe("stripRedundantDollarWrap", () => {
+    it("BUG FIX regression: strips a redundant $...$ wrap from a math fence body", () => {
+      // A ```math fence body should be bare LaTeX. When the model wraps it
+      // in $...$ anyway, KaTeX (which doesn't understand $ as syntax) fails
+      // to parse and renders the raw source in errorColor (red) instead of
+      // typeset math — this is what fixes "$= \pi \times 16$" showing up
+      // as literal red text.
+      expect(stripRedundantDollarWrap(String.raw`$= \pi \times 16$`)).toBe(
+        String.raw`= \pi \times 16`,
+      );
+    });
+
+    it("strips a redundant $$...$$ wrap", () => {
+      expect(stripRedundantDollarWrap(String.raw`$$x^2 = 4$$`)).toBe(String.raw`x^2 = 4`);
+    });
+
+    it("leaves bare LaTeX (no wrap) untouched", () => {
+      expect(stripRedundantDollarWrap(String.raw`\pi \times 16`)).toBe(String.raw`\pi \times 16`);
+    });
+
+    it("leaves a lone leading or trailing $ untouched (not a matched wrap)", () => {
+      expect(stripRedundantDollarWrap("$5 + x")).toBe("$5 + x");
+    });
   });
 
   it("does not swallow prose between two already-tagged math fences", () => {
