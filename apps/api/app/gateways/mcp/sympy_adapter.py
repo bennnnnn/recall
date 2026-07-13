@@ -73,6 +73,18 @@ class SympyAdapter:
                 if result is None:
                     return ToolResult(name=self.name, content="Math error: timed out.")
                 return ToolResult(name=self.name, content="\n".join(result.steps))
+            if action in ("simplify", "diff", "integrate"):
+                expr = str(args.get("expr") or "")
+                variable = str(args.get("variable") or "x")
+                fn = {
+                    "simplify": math_service.simplify_expression,
+                    "diff": math_service.differentiate_expression,
+                    "integrate": math_service.integrate_expression,
+                }[action]
+                expr_result = await self._run_off_loop(lambda: fn(expr, variable))
+                if expr_result is None:
+                    return ToolResult(name=self.name, content="Math error: timed out.")
+                return ToolResult(name=self.name, content=expr_result.result)
             if action == "rectangle":
                 rect_input = RectangleGeometryInput(
                     width=float(args["width"]),

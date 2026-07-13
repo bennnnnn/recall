@@ -17,16 +17,62 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\neq/g, "≠"],
   [/\\approx/g, "≈"],
   [/\\infty/g, "∞"],
-  [/\\pi/g, "π"],
-  [/\\theta/g, "θ"],
+  // \sum/\prod/\int are big-operator SYMBOLS (Σ ∏ ∫), not roman-text
+  // function names like \log/\sin — they used to be lumped into
+  // ROMAN_FUNCTIONS below and rendered as the literal words "sum"/"prod"/
+  // "int" instead of the actual glyph.
+  [/\\sum/g, "Σ"],
+  [/\\prod/g, "∏"],
+  [/\\int/g, "∫"],
+  // Lowercase Greek letters — matches mathFenceRetag.ts's LATEX_CMD_RE list.
+  // Only alpha/beta/gamma/theta/pi were handled here; the rest leaked as
+  // raw "\delta"/"\sigma"/etc. backslash text once actually rendered.
   [/\\alpha/g, "α"],
   [/\\beta/g, "β"],
   [/\\gamma/g, "γ"],
+  [/\\delta/g, "δ"],
+  [/\\epsilon/g, "ε"],
+  [/\\zeta/g, "ζ"],
+  [/\\eta/g, "η"],
+  [/\\theta/g, "θ"],
+  [/\\iota/g, "ι"],
+  [/\\kappa/g, "κ"],
+  [/\\lambda/g, "λ"],
+  [/\\mu/g, "μ"],
+  [/\\nu/g, "ν"],
+  [/\\xi/g, "ξ"],
+  [/\\omicron/g, "ο"],
+  [/\\pi/g, "π"],
+  [/\\rho/g, "ρ"],
+  [/\\sigma/g, "σ"],
+  [/\\tau/g, "τ"],
+  [/\\upsilon/g, "υ"],
+  [/\\phi/g, "φ"],
+  [/\\chi/g, "χ"],
+  [/\\psi/g, "ψ"],
+  [/\\omega/g, "ω"],
   [/\\Delta/g, "Δ"],
+  // Arrow/implication commands — matches mathFenceRetag.ts's LATEX_CMD_RE
+  // list. Only the 4 short arrows were handled; the rest (routine in
+  // step-by-step derivations and limit notation \lim_{x \to 0}) leaked as
+  // raw backslash text.
+  [/\\longrightarrow/g, "⟶"],
   [/\\rightarrow/g, "→"],
+  [/\\longleftarrow/g, "⟵"],
   [/\\leftarrow/g, "←"],
+  [/\\Longrightarrow/g, "⟹"],
   [/\\Rightarrow/g, "⇒"],
+  [/\\Longleftarrow/g, "⟸"],
   [/\\Leftarrow/g, "⇐"],
+  [/\\longleftrightarrow/g, "⟷"],
+  [/\\leftrightarrow/g, "↔"],
+  [/\\Longleftrightarrow/g, "⟺"],
+  [/\\Leftrightarrow/g, "⇔"],
+  [/\\implies/g, "⇒"],
+  [/\\iff/g, "⇔"],
+  [/\\to/g, "→"],
+  [/\\longmapsto/g, "⟼"],
+  [/\\mapsto/g, "↦"],
   [/\\quad/g, "  "],
   [/\\,/g, " "],
   [/\\;/g, " "],
@@ -63,9 +109,6 @@ const ROMAN_FUNCTIONS = new Set([
   "sinh",
   "cosh",
   "tanh",
-  "sum",
-  "prod",
-  "int",
   "det",
   "gcd",
   "min",
@@ -102,10 +145,12 @@ function preprocessLatex(latex: string): string {
   s = s.replace(/\\text\{([^}]+)\}/g, "$1");
   s = s.replace(/\\mathrm\{([^}]+)\}/g, "$1");
   s = s.replace(/\\,/g, " ");
-  s = s.replace(/\\left[\(\[\{|\\right[\)\]\}.]/g, (m) => {
-    const ch = m.slice(-1);
-    return ch === "." ? "" : ch;
-  });
+  // Two real alternatives, not one merged character class: the previous
+  // `/\\left[\(\[\{|\\right[\)\]\}.]/` compiled everything after the first
+  // `[` into a single class, so `\right` never matched at all and left a
+  // dangling "\right)" behind (e.g. `\left(\frac{1}{2}\right)`).
+  s = s.replace(/\\left([([{|]|\.)/g, (_m, ch: string) => (ch === "." ? "" : ch));
+  s = s.replace(/\\right([)\]}|]|\.)/g, (_m, ch: string) => (ch === "." ? "" : ch));
   return s;
 }
 
