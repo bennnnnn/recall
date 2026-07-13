@@ -37,7 +37,21 @@ export type RightTriangleSpec = {
   labels?: Record<string, string>;
 };
 
-export type GeometrySpec = RectangleSpec | TriangleSpec | RightTriangleSpec;
+export type CircleSpec = {
+  type: "circle";
+  radius: number;
+  unit?: string;
+  show_labels?: boolean;
+  show_diameter?: boolean;
+  show_area?: boolean;
+  show_circumference?: boolean;
+  diameter?: number;
+  area?: number;
+  circumference?: number;
+  labels?: Record<string, string>;
+};
+
+export type GeometrySpec = RectangleSpec | TriangleSpec | RightTriangleSpec | CircleSpec;
 
 /** Match backend `RectangleGeometryInput` / triangle inputs (`le=1_000_000`). */
 export const MAX_GEOMETRY_DIMENSION = 1_000_000;
@@ -152,12 +166,36 @@ function parseRightTriangle(row: Record<string, unknown>): RightTriangleSpec | n
   return spec;
 }
 
+function parseCircle(row: Record<string, unknown>): CircleSpec | null {
+  if (row.type !== "circle") return null;
+  const radius = readPositive(row, "radius", "r");
+  if (!radius) return null;
+
+  const spec: CircleSpec = { type: "circle", radius };
+  const unit = String(row.unit ?? "cm").trim();
+  if (unit) spec.unit = unit;
+  if (row.show_labels === true) spec.show_labels = true;
+  if (row.show_diameter === true) spec.show_diameter = true;
+  if (row.show_area === true) spec.show_area = true;
+  if (row.show_circumference === true) spec.show_circumference = true;
+  const diameter = Number(row.diameter);
+  if (Number.isFinite(diameter)) spec.diameter = diameter;
+  const area = Number(row.area);
+  if (Number.isFinite(area)) spec.area = area;
+  const circumference = Number(row.circumference);
+  if (Number.isFinite(circumference)) spec.circumference = circumference;
+  spec.labels = readLabels(row);
+  return spec;
+}
+
 export function parseGeometrySpec(raw: string): GeometrySpec | null {
   try {
     const data = JSON.parse(raw.trim()) as unknown;
     if (!data || typeof data !== "object") return null;
     const row = data as Record<string, unknown>;
-    return parseRectangle(row) ?? parseTriangle(row) ?? parseRightTriangle(row);
+    return (
+      parseRectangle(row) ?? parseTriangle(row) ?? parseRightTriangle(row) ?? parseCircle(row)
+    );
   } catch {
     return null;
   }
@@ -202,6 +240,19 @@ export function computeRightTriangleLabels(spec: RightTriangleSpec): Record<stri
     hypotenuse: spec.labels?.hypotenuse ?? `${hypotenuse % 1 === 0 ? hypotenuse : hypotenuse.toFixed(2)} ${unit}`,
     area: spec.labels?.area ?? `${area % 1 === 0 ? area : area.toFixed(1)} ${unit}²`,
     angle: spec.labels?.angle ?? "90°",
+  };
+}
+
+export function computeCircleLabels(spec: CircleSpec): Record<string, string> {
+  const unit = spec.unit ?? "cm";
+  const diameter = spec.diameter ?? spec.radius * 2;
+  const area = spec.area ?? Math.PI * spec.radius * spec.radius;
+  const circumference = spec.circumference ?? 2 * Math.PI * spec.radius;
+  return {
+    radius: spec.labels?.radius ?? `${spec.radius} ${unit}`,
+    diameter: spec.labels?.diameter ?? `${diameter % 1 === 0 ? diameter : diameter.toFixed(2)} ${unit}`,
+    area: spec.labels?.area ?? `${area.toFixed(2)} ${unit}²`,
+    circumference: spec.labels?.circumference ?? `${circumference.toFixed(2)} ${unit}`,
   };
 }
 

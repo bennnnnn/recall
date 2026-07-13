@@ -67,6 +67,28 @@ def test_extract_rectangle_intent_captures_what_was_asked(
     assert intent.wants_perimeter is wants_perimeter
 
 
+def test_extract_circle_radius_intent() -> None:
+    intent = math_tools.extract_math_intent("Draw a circle with radius 4 cm")
+    assert intent is not None
+    assert intent.kind == "circle"
+    assert intent.radius == 4
+
+
+def test_extract_circle_diameter_intent() -> None:
+    intent = math_tools.extract_math_intent("circle diameter 10")
+    assert intent is not None
+    assert intent.kind == "circle"
+    assert intent.radius == 5
+    assert intent.wants_diameter is True
+
+
+def test_extract_circle_intent_defaults_without_dims() -> None:
+    intent = math_tools.extract_math_intent("Draw a circle")
+    assert intent is not None
+    assert intent.kind == "circle"
+    assert intent.radius == 5
+
+
 def test_extract_square_intent() -> None:
     intent = math_tools.extract_math_intent("Draw a square with side 5 cm")
     assert intent is not None
@@ -147,6 +169,30 @@ async def test_augment_prompt_rectangle_area_query_does_not_force_diagonal_and_a
     assert verified.canonical_fence["show_angle"] is False
     assert verified.canonical_fence["show_area"] is True
     assert verified.canonical_fence["show_perimeter"] is False
+
+
+@pytest.mark.asyncio
+async def test_augment_prompt_injects_circle_geometry_block() -> None:
+    """BUG FIX regression: circles were never a supported geometry kind
+    anywhere in the pipeline — the model's own improvised ```geometry
+    {"type":"circle",...} fence had no SymPy-verified values and no schema
+    to validate against. Now a direct "circle radius 4" gets the same
+    verified-computation treatment as every other shape."""
+    settings = Settings(math_tools_enabled=True)
+    messages = [{"role": "user", "content": "circle radius 4 area circumference"}]
+    out, verified = await math_tools.augment_prompt_messages(
+        messages,
+        "circle radius 4 area circumference",
+        settings,
+    )
+    assert len(out) == 2
+    assert "```geometry" in out[0]["content"]
+    assert '"type":"circle"' in out[0]["content"]
+    assert verified is not None
+    assert verified.canonical_fence is not None
+    assert verified.canonical_fence["type"] == "circle"
+    assert verified.canonical_fence["show_area"] is True
+    assert verified.canonical_fence["show_circumference"] is True
 
 
 @pytest.mark.asyncio

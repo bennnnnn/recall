@@ -1,4 +1,5 @@
 import {
+  computeCircleLabels,
   computeRectangleLabels,
   computeRightTriangleLabels,
   computeTriangleLabels,
@@ -96,6 +97,35 @@ describe("geometryBlock", () => {
   it("rejects dimensions above backend max", () => {
     expect(parseGeometrySpec('{"type":"square","side":2000000}')).toBeNull();
     expect(parseGeometrySpec('{"type":"triangle","base":2000000,"height":5}')).toBeNull();
+  });
+
+  it("BUG FIX regression: parses a circle spec (circles were previously unsupported entirely)", () => {
+    // Circles were never a recognized geometry type — a model-emitted
+    // ```geometry {"type":"circle",...} fence failed backend validation
+    // and rendered as a raw "[!WARNING] Invalid geometry block" message
+    // instead of a diagram.
+    const spec = parseGeometrySpec(
+      '{"type":"circle","radius":4,"unit":"cm","show_diameter":true,"show_area":true,"show_circumference":true}',
+    );
+    expect(spec?.type).toBe("circle");
+    if (spec?.type !== "circle") return;
+    expect(spec.radius).toBe(4);
+    expect(spec.show_diameter).toBe(true);
+  });
+
+  it("computes circle labels (radius, diameter, area, circumference)", () => {
+    const spec = parseGeometrySpec('{"type":"circle","radius":4}');
+    expect(spec?.type).toBe("circle");
+    if (spec?.type !== "circle") return;
+    const labels = computeCircleLabels(spec);
+    expect(labels.diameter).toContain("8");
+    expect(labels.area).toContain((Math.PI * 16).toFixed(2));
+    expect(labels.circumference).toContain((8 * Math.PI).toFixed(2));
+  });
+
+  it("rejects a circle with a non-positive or oversized radius", () => {
+    expect(parseGeometrySpec('{"type":"circle","radius":0}')).toBeNull();
+    expect(parseGeometrySpec('{"type":"circle","radius":2000000}')).toBeNull();
   });
 
   describe("rectangleAngleDisplay", () => {

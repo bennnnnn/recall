@@ -412,7 +412,8 @@ RESPONSE_FORMAT_HINT = (
 
 MATH_SOLVER_HINT = (
     "Math diagrams and plots (NOT image generation):\n"
-    "- When the user asks to **draw** a rectangle, square, triangle, or right triangle, emit a ```geometry fence "
+    "- When the user asks to **draw** a rectangle, square, triangle, right triangle, "
+    "or circle, emit a ```geometry fence "
     "(NEVER ```json) so the app renders a labeled SVG:\n"
     'Rectangle: ```geometry\n{"type":"rectangle","width":8,"height":5,"unit":"cm",'
     '"show_diagonal":true,"show_angle":true}\n```\n'
@@ -423,6 +424,8 @@ MATH_SOLVER_HINT = (
     '"show_labels":true}\n```\n'
     'Right triangle: ```geometry\n{"type":"right_triangle","base":6,"height":4,"unit":"cm",'
     '"show_labels":true,"show_hypotenuse":true,"show_angle":true}\n```\n'
+    'Circle: ```geometry\n{"type":"circle","radius":4,"unit":"cm","show_diameter":true,'
+    '"show_area":true,"show_circumference":true}\n```\n'
     "- For function plots y=f(x), emit ONLY ```graph (NEVER ```json):\n"
     '```graph\n{"type":"function","expr":"x**2","variable":"x","x_min":-5,'
     '"x_max":5,"points":[[-5,25],[-4,16]]}\n```\n'
@@ -451,7 +454,8 @@ VISUALIZATION_HINTS = (
     "**Mermaid diagrams** (```mermaid) — Processes, workflows, architecture, relationships, "
     "decision trees. Prefer over bullet lists when showing connections.\n\n"
     "**Charts** (```chart) — Vega-Lite JSON for numeric comparisons and trends.\n\n"
-    "**Geometry** (```geometry) — JSON spec for rectangles/squares with labels, diagonals, area.\n\n"
+    "**Geometry** (```geometry) — JSON spec for rectangles/squares/triangles/circles "
+    "with labels, diagonals, area.\n\n"
     "**Graphs** (```graph) — JSON spec with expr + points for y=f(x) plots.\n\n"
     "**Places** (```places) — JSON array of {name, url, note?, address?, price?} for local "
     "venue recommendations (any nearby place). Use when the user asks for something "

@@ -18,6 +18,11 @@ describe("detectJsonRichFenceKind", () => {
     expect(detectJsonRichFenceKind(json)).toBe("geometry");
   });
 
+  it("recognizes a mistagged ```json circle fence", () => {
+    const json = JSON.stringify({ type: "circle", radius: 4, unit: "cm" });
+    expect(detectJsonRichFenceKind(json)).toBe("geometry");
+  });
+
   it("recognizes a mistagged ```json graph fence", () => {
     const json = JSON.stringify({
       type: "function",
