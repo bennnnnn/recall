@@ -23,6 +23,14 @@ describe("mathFenceRetag", () => {
     expect(looksLikeLatexFence(String.raw`x = \pm \sqrt{4}`)).toBe(true);
   });
 
+  it("BUG FIX regression: \\boxed{...} is detected as latex, not a plain code fence", () => {
+    // \boxed wasn't in LATEX_CMD_RE, so a fence body that's just
+    // "\boxed{28}" (a common LLM final-answer convention, with no "="
+    // sign for looksLikeAlgebraLine to key off) fell through to a plain
+    // code block instead of rendering as math.
+    expect(looksLikeLatexFence(String.raw`\boxed{28}`)).toBe(true);
+  });
+
   it("retags plain fences with algebra or latex to math", () => {
     const input = [
       "Step 1:",

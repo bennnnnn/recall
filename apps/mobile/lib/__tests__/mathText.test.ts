@@ -55,6 +55,13 @@ describe("parseSimpleLatex", () => {
     expect(segmentsToPlain(parseSimpleLatex(String.raw`a \Longrightarrow b`))).toBe("a ⟹ b");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`f: a \mapsto b`))).toBe("f: a ↦ b");
   });
+
+  it("BUG FIX regression: \\boxed{...} unwraps to its inner content, not raw backslash text", () => {
+    // \boxed has no plain-text equivalent (KaTeX/MathJax draw an actual
+    // border) — the no-WebView (Expo Go) fallback used to show the literal
+    // "\boxed{28}" instead of just "28".
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\boxed{28}`))).toBe("28");
+  });
 });
 
 describe("splitMathLines", () => {

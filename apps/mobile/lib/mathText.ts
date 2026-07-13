@@ -144,6 +144,10 @@ function preprocessLatex(latex: string): string {
   s = s.replace(/\\sqrt\s+([0-9a-zA-Z]+)/g, "√$1");
   s = s.replace(/\\text\{([^}]+)\}/g, "$1");
   s = s.replace(/\\mathrm\{([^}]+)\}/g, "$1");
+  // \boxed{...} has no plain-text equivalent (KaTeX/MathJax draw an actual
+  // border) — unwrap to the inner content rather than leave the raw command
+  // visible, matching \text/\mathrm's fallback above.
+  s = s.replace(/\\boxed\{([^}]+)\}/g, "$1");
   s = s.replace(/\\,/g, " ");
   // Two real alternatives, not one merged character class: the previous
   // `/\\left[\(\[\{|\\right[\)\]\}.]/` compiled everything after the first
