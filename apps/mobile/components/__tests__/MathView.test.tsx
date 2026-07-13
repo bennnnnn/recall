@@ -35,4 +35,16 @@ describe("MathBlock", () => {
     expect(getByText("x = 1")).toBeOnTheScreen();
     expect(getByText("y = 2")).toBeOnTheScreen();
   });
+
+  it("BUG FIX regression: strips a scattered $...$ wrap around one command, not just a whole-body wrap", async () => {
+    // Reported live (screenshot): "n! = n $\times$ (n-1)!" rendered in red.
+    // The model wrapped only \times in $...$, leaving the rest of the fence
+    // body bare — stripRedundantDollarWrap only catches a wrap around the
+    // ENTIRE body, so the literal "$" survived into what KaTeX/MathText saw.
+    const { getByText, queryByText } = await render(
+      <MathBlock latex={String.raw`n! = n $\times$ (n-1)!`} />,
+    );
+    expect(getByText("n! = n × (n-1)!")).toBeOnTheScreen();
+    expect(queryByText(String.raw`n! = n $\times$ (n-1)!`)).toBeNull();
+  });
 });
