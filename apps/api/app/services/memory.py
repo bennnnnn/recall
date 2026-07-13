@@ -1,4 +1,3 @@
-import asyncio
 import hashlib
 import logging
 import re
@@ -7,6 +6,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.core.redis import get_redis_client
 from app.models.orm import Memory, User
@@ -390,7 +390,16 @@ async def get_memory_block(
             await redis.set(query_key, block, ex=max(30, settings.memory_query_cache_ttl))
         except Exception:
             logger.debug("Memory query cache write failed", exc_info=True)
-        warm_task = asyncio.create_task(_warm_semantic_memory_cache(settings, user.id, q))
+        # BUG FIX: asyncio.create_task alone only keeps a task alive via the
+        # caller's local reference, which goes out of scope right after this
+        # function returns — per asyncio's own docs, an unreferenced task is
+        # eligible for GC before it completes. create_background_task holds
+        # a strong reference in a module-level set until the task finishes
+        # (same pattern already used correctly in chat/stream.py).
+        warm_task = create_background_task(
+            _warm_semantic_memory_cache(settings, user.id, q),
+            name="warm_semantic_memory_cache",
+        )
         warm_task.add_done_callback(
             lambda t: logger.debug("Semantic memory warm failed", exc_info=t.exception())
             if t.exception()
