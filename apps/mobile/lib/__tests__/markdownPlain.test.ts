@@ -38,6 +38,29 @@ describe("markdownToStructuredPrintHtml", () => {
     expect(html).toContain("<ol>");
     expect(html).toContain("<li>first</li>");
   });
+
+  it("renders math fences with KaTeX instead of raw pre blocks", () => {
+    const html = markdownToStructuredPrintHtml(
+      "Math",
+      "Answer:\n\n```math\nx^2 + 1 = 0\n```\n",
+    );
+    expect(html).toContain("katex");
+    expect(html).toContain("math-block");
+    expect(html).not.toContain("<pre><code class=\"language-math\"");
+  });
+
+  it("renders inline $math$ with KaTeX", () => {
+    const html = markdownToStructuredPrintHtml("Inline", "Solve $x^2=4$ next.");
+    expect(html).toContain("katex");
+    expect(html).toContain("math-inline");
+    expect(html).not.toContain("$x^2=4$");
+  });
+
+  it("converts $$ block math via preprocess before printing", () => {
+    const html = markdownToStructuredPrintHtml("Display", "See\n\n$$\\frac{a}{b}$$\n");
+    expect(html).toContain("katex");
+    expect(html).toContain("math-block");
+  });
 });
 
 function item(partial: Partial<ProjectItem> & Pick<ProjectItem, "id" | "content">): ProjectItem {

@@ -1,5 +1,21 @@
 /** Build print-ready HTML documents for PDF export. */
 
+import katex from "katex";
+
+import { KATEX_MIN_CSS } from "@/lib/katexMinCss";
+import { preprocessMarkdown, splitInlineMath } from "@/lib/markdownPreprocess";
+
+const KATEX_CDN = "https://cdn.jsdelivr.net/npm/katex@0.17.0/dist";
+const PRINT_KATEX_CSS = KATEX_MIN_CSS.replace(/url\(fonts\//g, `url(${KATEX_CDN}/fonts/`);
+
+const MATH_FENCE_LANGS = new Set([
+  "math",
+  "latex",
+  "tex",
+  "katex",
+  "asciimath",
+]);
+
 export function escapeHtml(text: string): string {
   return text
     .replace(/&/g, "&amp;")
@@ -26,7 +42,32 @@ const PRINT_STYLES = `
   code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
   blockquote { margin: 0 0 12px; padding: 8px 12px; border-left: 3px solid #E5E7EB; color: #6B7280; }
   .empty { font-size: 14px; color: #9CA3AF; }
+  .math-block { margin: 12px 0; overflow-x: auto; text-align: center; }
+  .math-inline { display: inline-block; vertical-align: middle; max-width: 100%; }
+  .math-fallback { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; white-space: pre-wrap; }
 `;
+
+/** Render LaTeX to KaTeX HTML for print (same engine as in-chat math). */
+export function renderPrintMathHtml(latex: string, displayMode: boolean): string {
+  const trimmed = latex.trim();
+  if (!trimmed) return "";
+  try {
+    const body = katex.renderToString(trimmed, {
+      throwOnError: false,
+      displayMode,
+      strict: "ignore",
+      output: "html",
+    });
+    const cls = displayMode ? "math-block" : "math-inline";
+    return `<span class="${cls}">${body}</span>`;
+  } catch {
+    return `<code class="math-fallback">${escapeHtml(trimmed)}</code>`;
+  }
+}
+
+function isMathFenceLang(lang: string): boolean {
+  return MATH_FENCE_LANGS.has(lang.trim().toLowerCase());
+}
 
 export function wrapPrintDocument(title: string, bodyHtml: string, meta?: string): string {
   const safeTitle = escapeHtml(title.trim() || "Recall report");
@@ -37,7 +78,8 @@ export function wrapPrintDocument(title: string, bodyHtml: string, meta?: string
 <html>
 <head>
 <meta charset="utf-8"/>
-<style>${PRINT_STYLES}</style>
+<style>${PRINT_KATEX_CSS}
+${PRINT_STYLES}</style>
 </head>
 <body>
   <h1>${safeTitle}</h1>
@@ -49,10 +91,12 @@ export function wrapPrintDocument(title: string, bodyHtml: string, meta?: string
 
 /**
  * Convert markdown into structured print HTML (headings, lists, code, paragraphs).
- * Keeps fence bodies as <pre> so code/math source is still readable in the PDF.
+ * Math fences and $...$ / \\(...\\) inline math use KaTeX — same as the chat UI —
+ * instead of dumping raw LaTeX into <pre>.
  */
 export function markdownToStructuredPrintHtml(title: string, markdown: string): string {
-  const lines = markdown.replace(/\r\n/g, "\n").split("\n");
+  const prepared = preprocessMarkdown(markdown.replace(/\r\n/g, "\n"));
+  const lines = prepared.split("\n");
   const parts: string[] = [];
   let i = 0;
   let paragraph: string[] = [];
@@ -77,9 +121,14 @@ export function markdownToStructuredPrintHtml(title: string, markdown: string): 
         i += 1;
       }
       i += 1; // closing fence
-      const code = escapeHtml(codeLines.join("\n"));
-      const langAttr = lang ? ` class="language-${escapeHtml(lang)}"` : "";
-      parts.push(`<pre><code${langAttr}>${code}</code></pre>`);
+      const body = codeLines.join("\n");
+      if (isMathFenceLang(lang)) {
+        parts.push(renderPrintMathHtml(body, true));
+      } else {
+        const code = escapeHtml(body);
+        const langAttr = lang ? ` class="language-${escapeHtml(lang)}"` : "";
+        parts.push(`<pre><code${langAttr}>${code}</code></pre>`);
+      }
       continue;
     }
 
@@ -143,6 +192,18 @@ export function markdownToStructuredPrintHtml(title: string, markdown: string): 
 }
 
 function inlineMarkdownToHtml(text: string): string {
+  const segments = splitInlineMath(text);
+  return segments
+    .map((part) => {
+      if (part.type === "math") {
+        return renderPrintMathHtml(part.value, false);
+      }
+      return formatInlineText(part.value);
+    })
+    .join("");
+}
+
+function formatInlineText(text: string): string {
   let out = escapeHtml(text);
   out = out.replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1");
   out = out.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
