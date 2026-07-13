@@ -89,6 +89,37 @@ def test_extract_circle_intent_defaults_without_dims() -> None:
     assert intent.radius == 5
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "(2,3)",
+        "(2, 3)",
+        "(2.3)",  # BUG FIX: comma-for-period mobile keyboard slip
+        "(-2, 3)",
+        "plot the point (2, 3)",
+        "mark point 2, 3",
+    ],
+)
+def test_extract_bare_point_intent(text: str) -> None:
+    """BUG FIX regression: a bare coordinate pair (e.g. answering "what
+    point?" with "(2,3)") had no intent detection at all, so the model was
+    left to freely improvise — observed inventing an unrequested line
+    (y=1.5x) that merely happens to pass through the point instead of
+    marking the point itself."""
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "point"
+    assert intent.point_x == pytest.approx(-2.0 if text.startswith("(-2") else 2.0)
+    assert intent.point_y == pytest.approx(3.0)
+
+
+def test_bare_point_does_not_misfire_on_prose_with_a_decimal_in_parens() -> None:
+    """The whole-message match requirement keeps this from misfiring on
+    ordinary prose that happens to contain a parenthesized decimal."""
+    intent = math_tools.extract_math_intent("The result is about (2.3) give or take")
+    assert intent is None or intent.kind != "point"
+
+
 def test_extract_square_intent() -> None:
     intent = math_tools.extract_math_intent("Draw a square with side 5 cm")
     assert intent is not None
@@ -193,6 +224,27 @@ async def test_augment_prompt_injects_circle_geometry_block() -> None:
     assert verified.canonical_fence["type"] == "circle"
     assert verified.canonical_fence["show_area"] is True
     assert verified.canonical_fence["show_circumference"] is True
+
+
+@pytest.mark.asyncio
+async def test_augment_prompt_injects_single_point_graph_block() -> None:
+    """BUG FIX regression: a bare "(2,3)" reply (e.g. answering "what
+    point?") had no augmentation at all, so the model was free to invent
+    an unrequested line through the point instead of just marking it.
+    Now it gets a verified single-point ```graph fence with an explicit
+    instruction not to invent a function through it."""
+    settings = Settings(math_tools_enabled=True)
+    out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": "(2,3)"}],
+        "(2,3)",
+        settings,
+    )
+    assert len(out) == 2
+    assert "```graph" in out[0]["content"]
+    assert "Do NOT" in out[0]["content"]
+    assert verified is not None
+    assert verified.canonical_fence is not None
+    assert verified.canonical_fence["points"] == [[2.0, 3.0]]
 
 
 @pytest.mark.asyncio

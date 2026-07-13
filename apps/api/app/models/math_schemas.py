@@ -228,6 +228,7 @@ class MathIntent(BaseModel):
         "triangle",
         "right_triangle",
         "circle",
+        "point",
         "graph",
         "calculus",
     ]
@@ -240,6 +241,8 @@ class MathIntent(BaseModel):
     base: float | None = None
     side: float | None = None
     radius: float | None = None
+    point_x: float | None = None
+    point_y: float | None = None
     unit: str = "cm"
     operation: Literal["solve", "simplify", "differentiate", "integrate", "graph"] | None = None
     # Which rectangle quantities the user's own wording actually asked for —
