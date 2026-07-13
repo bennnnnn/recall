@@ -33,6 +33,14 @@ export function fixImplicitExponents(expr: string): string {
   return s.replace(/\s+/g, " ").trim();
 }
 
+/** True when a parenthetical looks like English prose, not `(2x-1)` / `(x+3)`. */
+function looksLikeProseParenthetical(s: string): boolean {
+  // Two or more 3+-letter words → "excluded values", "in disguise", etc.
+  // Single short tokens like "sqrt" / variables don't match.
+  const words = s.match(/[A-Za-z]{3,}/g) ?? [];
+  return words.length >= 2;
+}
+
 function isMathLike(inner: string): boolean {
   const s = fixImplicitExponents(inner);
   if (s.length < 2) return false;
@@ -42,6 +50,12 @@ function isMathLike(inner: string): boolean {
   // and wrapped whole in `$...$`, corrupting the bold markdown (the math
   // renderer displays raw source text, not parsed markdown emphasis).
   if (/\*\*|__/.test(s)) return false;
+  // Already-delimited math inside the paren must not be re-wrapped — wrapping
+  // `(excluded values: $x \neq -3, 2$)` as `$excluded…$x…2$$` invents a
+  // trailing `$$` that steals the next display-math opener, leaving equations
+  // as raw LaTeX and prose glued into MathBlock fences.
+  if (s.includes("$")) return false;
+  if (looksLikeProseParenthetical(s)) return false;
   if (LATEX_CMD.test(s)) return true;
   if (/\^|_[{0-9a-zA-Z]/.test(s)) return true;
   if (/[±√∓≤≥≠]|\\pm/.test(s)) return true;

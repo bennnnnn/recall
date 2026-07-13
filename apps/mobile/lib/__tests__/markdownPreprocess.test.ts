@@ -168,6 +168,27 @@ x = 0
     expect(out).not.toContain("$\\pm$");
     expect(out).not.toContain("$\\sqrt{4}$");
   });
+
+  it("BUG FIX regression: prose parentheticals with nested $math$ do not steal the next $$ display block", () => {
+    const input = [
+      "like a hidden quadratic (e.g., in disguise like $x^4$)",
+      "",
+      "### Title",
+      "",
+      "$$",
+      String.raw`\frac{2x - 1}{x + 3} = \frac{x + 4}{x - 2}`,
+      "$$",
+      "",
+      "⚠️ **Wait — this isn’t *technically* quadratic yet**",
+      "- Domain restrictions (excluded values: $x \\neq -3, 2$)",
+    ].join("\n");
+    const out = preprocessMarkdown(input);
+    expect(out).toContain("```math\n\\frac{2x - 1}{x + 3} = \\frac{x + 4}{x - 2}\n```");
+    expect(out).toContain("⚠️ **Wait — this isn’t *technically* quadratic yet**");
+    expect(out).toContain("excluded values: $x \\neq -3, 2$");
+    // Prose must not land inside a math fence
+    expect(out).not.toMatch(/```math\n⚠️/);
+  });
 });
 
 describe("normalizeMarkdownTables", () => {

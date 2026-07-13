@@ -94,6 +94,29 @@ describe("normalizeImplicitMath", () => {
     const out = normalizeImplicitMath(input);
     expect(out).toContain("$$ x = \\pm \\sqrt{4} $$");
   });
+
+  it("BUG FIX regression: does not re-wrap parentheticals that already contain $...$", () => {
+    // Live screenshot: "(excluded values: $x \\neq -3, 2$)" was wrapped as
+    // `$excluded values: $x \\neq -3, 2$$`, inventing a trailing `$$` that
+    // stole the next display-math opener — equations showed as raw LaTeX
+    // and the Wait—prose paragraph was sucked into a MathBlock fence.
+    const input =
+      "- Domain restrictions (excluded values: $x \\neq -3, 2$)\n" +
+      "- Cross-multiplication";
+    expect(normalizeImplicitMathInProse(input)).toBe(input);
+  });
+
+  it("BUG FIX regression: does not wrap English parentheticals that mention math mid-sentence", () => {
+    const input =
+      "a hidden quadratic (e.g., in disguise like $x^4$) ✅";
+    expect(normalizeImplicitMathInProse(input)).toBe(input);
+  });
+
+  it("still wraps a pure algebra parenthetical with an equals", () => {
+    const input = "Solve: ( x^2 = 4 )";
+    const out = normalizeImplicitMathInProse(input);
+    expect(out).toContain("$x^2 = 4$");
+  });
 });
 
 describe("fixImplicitExponents", () => {

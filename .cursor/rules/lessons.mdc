@@ -10,6 +10,7 @@ Format each as **symptom → cause → fix** in 1–3 lines. Newest first. Keep 
 
 ## Lessons
 
+- **Raw LaTeX + smashed prose in math bubbles.** `normalizeImplicitMath` re-wrapped `(excluded values: $x …$)` / `(e.g., … like $x^4$)` as `$…$$`, inventing a trailing `$$` that stole the next display-math opener — equations showed raw and Wait—prose became a MathBlock (italic, no spaces). Fix: skip parens that already contain `$` or look like English prose (2+ letter-words).
 - **SecureStore Keychain “required entitlement isn’t present” on simulator.** Linker-signed/adhoc builds (`TeamIdentifier=not set`, no identities) get `errSecMissingEntitlement` (-34018) on `setItemAsync`. Don’t put non-secrets (list order) in SecureStore — use filesystem; catch SecureStore writes. Proper Keychain needs a local Apple signing identity + `expo run:ios` rebuild.
 - **Quiz wrong-answer UX: hint only, no re-render.** User rejected re-asking the same MCQ
   after a miss. Prompts must not emit a new ```vocab_quiz on wrong; chips stay on the prior
