@@ -130,6 +130,13 @@ class GraphSampleResult(BaseModel):
     x_min: float
     x_max: float
     points: list[list[float]]
+    # points split at likely vertical-asymptote gaps (see
+    # math_service._split_into_segments) so a renderer can draw each as its
+    # own polyline instead of one continuous line straight across a
+    # discontinuity (e.g. tan(x) at pi/2). Kept alongside `points` (not
+    # instead of) for back-compat with fences the model already knows how
+    # to emit with only `points`.
+    segments: list[list[list[float]]] = Field(default_factory=list)
 
 
 class TriangleGeometryBlockSpec(BaseModel):
@@ -214,6 +221,11 @@ class GraphBlockSpec(BaseModel):
     # Matches GraphSampleInput.n's upper bound (le=500) — the model never
     # legitimately needs more points than the canonical sample it was given.
     points: list[list[float]] = Field(default_factory=list, max_length=500)
+    # points split at likely vertical-asymptote gaps — optional and kept
+    # alongside `points` (not instead of) so a fence the model emits with
+    # only `points` (the common case — most functions have no asymptote)
+    # still validates and renders exactly as before.
+    segments: list[list[list[float]]] = Field(default_factory=list, max_length=500)
 
     @field_validator("points")
     @classmethod

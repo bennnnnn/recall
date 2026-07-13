@@ -2,7 +2,12 @@ import { useMemo } from "react";
 import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Svg, { Circle, Line, Polyline, Text as SvgText } from "react-native-svg";
 
-import { graphBounds, graphPolylinePoints, mapGraphPoint, parseGraphSpec } from "@/lib/graphBlock";
+import {
+  graphBounds,
+  graphPolylinePoints,
+  mapGraphPoint,
+  parseGraphSpec,
+} from "@/lib/graphBlock";
 import { CODE_FONT } from "@/lib/fonts";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -29,7 +34,9 @@ export function FunctionGraphBlock({ content }: Props) {
   if (!spec) {
     return (
       <View style={styles.fallback}>
-        <Text style={styles.fallbackText}>Could not render function graph.</Text>
+        <Text style={styles.fallbackText}>
+          Could not render function graph.
+        </Text>
       </View>
     );
   }
@@ -37,10 +44,27 @@ export function FunctionGraphBlock({ content }: Props) {
   const bounds = graphBounds(spec.points);
   // A single point (or points sharing an x) has no line to draw — a
   // Polyline needs 2+ points to render anything visible.
-  const polyline = spec.points.length >= 2 ? graphPolylinePoints(spec.points, chartWidth, CHART_HEIGHT) : null;
+  const polyline =
+    spec.points.length >= 2
+      ? graphPolylinePoints(spec.points, chartWidth, CHART_HEIGHT)
+      : null;
+  // When the backend detected a discontinuity (e.g. a tan(x) vertical
+  // asymptote), render each segment as its own Polyline against the SAME
+  // shared bounds — otherwise a naive single Polyline draws a near-vertical
+  // line straight across the gap. Bounds must come from the full point set
+  // (not per-segment) so all segments stay on one consistent axis scale.
+  const segmentPolylines = spec.segments?.length
+    ? spec.segments
+        .filter((seg) => seg.length >= 2)
+        .map((seg) =>
+          graphPolylinePoints(seg, chartWidth, CHART_HEIGHT, bounds),
+        )
+    : null;
   const markers =
     spec.points.length <= MAX_MARKED_POINTS
-      ? spec.points.map(([x, y]) => mapGraphPoint(x, y, bounds, chartWidth, CHART_HEIGHT))
+      ? spec.points.map(([x, y]) =>
+          mapGraphPoint(x, y, bounds, chartWidth, CHART_HEIGHT),
+        )
       : [];
   const pad = 28;
   const axisColor = theme.border;
@@ -67,7 +91,17 @@ export function FunctionGraphBlock({ content }: Props) {
           stroke={axisColor}
           strokeWidth={1}
         />
-        {polyline ? (
+        {segmentPolylines ? (
+          segmentPolylines.map((pts, i) => (
+            <Polyline
+              key={i}
+              points={pts}
+              fill="none"
+              stroke={theme.primary}
+              strokeWidth={2.5}
+            />
+          ))
+        ) : polyline ? (
           <Polyline
             points={polyline}
             fill="none"
@@ -94,7 +128,12 @@ export function FunctionGraphBlock({ content }: Props) {
         <SvgText x={4} y={xAxisY - 2} fill={theme.textSecondary} fontSize={11}>
           {formatAxisNumber(bounds.yMin)}
         </SvgText>
-        <SvgText x={yAxisX + 2} y={xAxisY + 16} fill={theme.textSecondary} fontSize={11}>
+        <SvgText
+          x={yAxisX + 2}
+          y={xAxisY + 16}
+          fill={theme.textSecondary}
+          fontSize={11}
+        >
           {formatAxisNumber(bounds.xMin)}
         </SvgText>
         <SvgText

@@ -553,14 +553,27 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
                     n=settings.math_graph_max_points,
                 )
             )
+            # Only attach segments when a real gap was detected (>1 segment)
+            # — the overwhelmingly common case has none, and duplicating
+            # every point into a redundant single-segment list would bloat
+            # every graph fence for no benefit.
+            has_discontinuity = len(sample.segments) > 1
             graph_spec = GraphBlockSpec(
                 expr=sample.expr,
                 variable=sample.variable,
                 x_min=sample.x_min,
                 x_max=sample.x_max,
                 points=sample.points,
+                segments=sample.segments if has_discontinuity else [],
             )
             lines.append(f"Function samples for {sample.expr}: {len(sample.points)} points.")
+            if has_discontinuity:
+                lines.append(
+                    f"NOTE: {sample.expr} has a discontinuity in this range (e.g. a vertical "
+                    "asymptote) — the sampled points are split into "
+                    f"{len(sample.segments)} segments; do not describe it as a single "
+                    "continuous curve."
+                )
             lines.append(
                 "When a plot helps, emit ONLY this fence:\n"
                 f"```graph\n{json.dumps(graph_spec.model_dump(), separators=(',', ':'))}\n```"

@@ -159,6 +159,32 @@ def test_sample_function_quadratic() -> None:
     assert zeroish[1] == pytest.approx(0.0, abs=0.5)
 
 
+def test_sample_function_splits_segments_at_a_vertical_asymptote() -> None:
+    """BUG FIX (verified live): tan(x) over the default range drew a
+    near-straight line across the pi/2 asymptote, since naively connecting
+    every finite sample crosses straight through the discontinuity. There
+    are 6 real tan(x) asymptotes in [-10, 10] (at (n + 0.5)*pi), so a
+    correct split produces 7 pieces."""
+    result = math_service.sample_function(
+        GraphSampleInput(expr="tan(x)", variable="x", x_min=-10, x_max=10, n=200)
+    )
+    assert len(result.segments) == 7
+    # Every point must still be accounted for across the segments (nothing
+    # dropped, nothing duplicated).
+    assert sum(len(seg) for seg in result.segments) == len(result.points)
+
+
+@pytest.mark.parametrize("expr", ["x**2", "sin(x)"])
+def test_sample_function_does_not_split_a_smooth_function(expr: str) -> None:
+    """A smooth function (even one that crosses zero, like sin(x)) must not
+    be split — the heuristic only fires on a sign flip where BOTH sides are
+    large in magnitude, which a zero-crossing never is."""
+    result = math_service.sample_function(
+        GraphSampleInput(expr=expr, variable="x", x_min=-10, x_max=10, n=200)
+    )
+    assert len(result.segments) == 1
+
+
 def test_simplify_expression() -> None:
     result = math_service.simplify_expression("x + x", "x")
     assert result.result == "2*x"
