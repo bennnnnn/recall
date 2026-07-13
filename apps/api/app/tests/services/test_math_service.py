@@ -211,6 +211,59 @@ def test_integrate_expression_marks_unevaluated_integral_as_not_solved() -> None
     assert "Integral" in result.result
 
 
+@pytest.mark.parametrize(
+    "expr, point, expected",
+    [
+        ("x**2", "3", "9"),
+        ("sin(x)/x", "0", "1"),
+        ("1/x", "oo", "0"),
+        ("1/x", "infinity", "0"),
+    ],
+)
+def test_compute_limit(expr: str, point: str, expected: str) -> None:
+    result = math_service.compute_limit(expr, "x", point)
+    assert result.result == expected
+    assert result.is_infinite is False
+
+
+def test_compute_limit_marks_a_diverging_limit_as_infinite() -> None:
+    result = math_service.compute_limit("1/x", "x", "0")
+    assert result.is_infinite is True
+    # A two-sided limit at 0 doesn't exist as a finite value (the sides
+    # disagree) — SymPy represents that as complex infinity (zoo), which
+    # must still render as \infty, not an opaque symbol.
+    assert "infty" in result.latex
+
+
+def test_compute_limit_negative_infinity_point() -> None:
+    result = math_service.compute_limit("x", "x", "-infinity")
+    assert result.is_infinite is True
+
+
+def test_evaluate_series_sum_convergent() -> None:
+    result = math_service.evaluate_series_sum("1/n**2", "n", "1", "infinity")
+    assert result.is_convergent is True
+    assert result.is_absolutely_convergent is True
+    assert result.is_infinite is False
+    assert "pi" in result.result.lower()
+
+
+def test_evaluate_series_sum_divergent() -> None:
+    """BUG FIX target: the harmonic series (sum 1/n) diverges — must be
+    flagged as not convergent and as an infinite result, not silently
+    presented as a finite value."""
+    result = math_service.evaluate_series_sum("1/n", "n", "1", "infinity")
+    assert result.is_convergent is False
+    assert result.is_infinite is True
+    assert result.result == "oo"
+
+
+def test_evaluate_series_sum_finite_bounds() -> None:
+    result = math_service.evaluate_series_sum("n", "n", "1", "10")
+    assert result.result == "55"
+    assert result.is_infinite is False
+
+
 def test_try_extract_equation() -> None:
     eq = math_service.try_extract_equation_from_text("Solve x^2 + 2 = 6")
     assert eq is not None

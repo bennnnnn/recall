@@ -8,7 +8,20 @@ import re
 from typing import Any, Literal
 
 import numpy as np
-from sympy import Eq, Integral, Symbol, diff, integrate, latex, parse_expr, simplify, solve
+from sympy import (
+    Eq,
+    Integral,
+    Sum,
+    Symbol,
+    diff,
+    integrate,
+    latex,
+    limit,
+    oo,
+    parse_expr,
+    simplify,
+    solve,
+)
 from sympy.parsing.sympy_parser import (
     convert_xor,
     implicit_multiplication_application,
@@ -22,6 +35,8 @@ from app.models.math_schemas import (
     GraphSampleInput,
     GraphSampleResult,
     MathExprResult,
+    MathLimitResult,
+    MathSeriesResult,
     MathSolveResult,
     RectangleGeometryInput,
     RectangleGeometryResult,
@@ -253,6 +268,70 @@ def integrate_expression(expr: str, variable: str = "x") -> MathExprResult:
     # callers must not treat that as a verified, fully-solved answer.
     solved = not result.has(Integral)
     return MathExprResult(result=str(result), latex=latex(result), solved=solved)
+
+
+_INFINITY_WORDS = {"infinity", "inf", "oo", "infty"}
+
+
+def _parse_infinity_aware_point(raw: str) -> Any:
+    """Limit/series bounds routinely use "infinity"/"inf"/"oo" (with an
+    optional leading "-") instead of a plain number — map those directly to
+    sympy's oo/-oo rather than routing the bare word through
+    _parse_expression, which would reject it as an unrecognized symbol name.
+    Anything else still goes through the same safety-checked expression
+    parser as every other numeric input in this module."""
+    s = raw.strip().lower()
+    negative = s.startswith("-")
+    core = s[1:].strip() if negative else s
+    if core in _INFINITY_WORDS:
+        return -oo if negative else oo
+    return _parse_expression(raw)
+
+
+def compute_limit(expr: str, variable: str, point: str, direction: str = "+-") -> MathLimitResult:
+    sym = Symbol(variable)
+    parsed = _parse_expression(expr, [variable])
+    point_val = _parse_infinity_aware_point(point)
+    try:
+        result = limit(parsed, sym, point_val, dir=direction)
+    except Exception as exc:
+        raise MathServiceError(f"Could not compute limit of: {expr}") from exc
+    # A limit can legitimately evaluate to oo/-oo (diverges) or zoo (the
+    # two-sided limit doesn't exist because the two sides disagree) — render
+    # these explicitly via latex() ("\infty" etc.) rather than leaving an
+    # opaque symbol name for the model to describe incorrectly.
+    return MathLimitResult(
+        result=str(result), latex=latex(result), is_infinite=bool(result.is_infinite)
+    )
+
+
+def evaluate_series_sum(expr: str, variable: str, start: str, end: str) -> MathSeriesResult:
+    sym = Symbol(variable)
+    parsed = _parse_expression(expr, [variable])
+    start_val = _parse_infinity_aware_point(start)
+    end_val = _parse_infinity_aware_point(end)
+    series = Sum(parsed, (sym, start_val, end_val))
+    try:
+        is_convergent = series.is_convergent()
+    except NotImplementedError:
+        is_convergent = None
+    try:
+        is_absolutely_convergent = series.is_absolutely_convergent()
+    except NotImplementedError:
+        is_absolutely_convergent = None
+    try:
+        result = series.doit()
+    except Exception as exc:
+        raise MathServiceError(f"Could not evaluate series: {expr}") from exc
+    return MathSeriesResult(
+        result=str(result),
+        latex=latex(result),
+        is_infinite=bool(result.is_infinite),
+        is_convergent=None if is_convergent is None else bool(is_convergent),
+        is_absolutely_convergent=(
+            None if is_absolutely_convergent is None else bool(is_absolutely_convergent)
+        ),
+    )
 
 
 def rectangle_geometry(data: RectangleGeometryInput) -> RectangleGeometryResult:

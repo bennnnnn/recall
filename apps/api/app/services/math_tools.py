@@ -130,6 +130,97 @@ _CALC_OP = re.compile(
     re.IGNORECASE,
 )
 
+_LIMIT_TRIGGER = re.compile(r"\b(?:limit|lim)\b", re.IGNORECASE)
+
+# "[find/evaluate/what is] [the] [limit of] EXPR as VAR (approaches|-> |to) POINT"
+# — the leading filler words are consumed by optional non-capturing groups so
+# `expr` only ever captures the actual math substring, matching
+# _strip_trailing_filler's job for the trailing side.
+_LIMIT_AS_APPROACHES = re.compile(
+    r"(?:(?:find|evaluate|compute|what\s+is|determine)\s+)?(?:the\s+)?(?:limit\s+of\s+)?"
+    r"(?P<expr>.+?)\s+as\s+(?P<var>[a-zA-Z])\s*"
+    r"(?:approaches|goes\s+to|tends\s+to|->|→|to)\s*"
+    r"(?P<point>-?infinity|-?inf(?:inity)?|-?oo|-?\d+(?:\.\d+)?)\b",
+    re.IGNORECASE,
+)
+
+# Compact form without "as ... approaches": "lim x->0 sin(x)/x", "lim x -> 0 of f(x)".
+_LIMIT_COMPACT = re.compile(
+    r"\blim\b\s+(?P<var>[a-zA-Z])\s*(?:->|→)\s*"
+    r"(?P<point>-?infinity|-?inf|-?oo|-?\d+(?:\.\d+)?)\s+(?:of\s+)?(?P<expr>.+)",
+    re.IGNORECASE,
+)
+
+# OCR/pasted LaTeX: \lim_{x \to 0} f(x) (braces and backslash-to optional).
+_LIMIT_LATEX = re.compile(
+    r"\\lim[_\s]*\{?\s*(?P<var>[a-zA-Z])\s*(?:\\to|->|→)\s*"
+    r"(?P<point>-?\\infty|-?infinity|-?inf|-?oo|-?\d+(?:\.\d+)?)\}?\s*(?P<expr>.+)?",
+    re.IGNORECASE,
+)
+
+_SERIES_TRIGGER = re.compile(r"\b(?:series|converge[snt]?|divergen?[ct]?)\b", re.IGNORECASE)
+
+# "[does the] [series/sum] [of] EXPR from VAR=START to END [converge]"
+_SERIES_SUM_FROM_TO = re.compile(
+    r"(?:sum|series)\s+(?:of\s+)?(?P<expr>.+?)\s+from\s+(?P<var>[a-zA-Z])\s*=\s*"
+    r"(?P<start>-?\d+)\s+to\s+(?P<end>infinity|inf|oo|-?\d+)",
+    re.IGNORECASE,
+)
+
+# OCR/pasted LaTeX: \sum_{n=1}^{\infty} f(n).
+_SERIES_LATEX = re.compile(
+    r"\\sum[_\s]*\{?\s*(?P<var>[a-zA-Z])\s*=\s*(?P<start>-?\d+)\}?\s*"
+    r"\^\{?\s*(?P<end>\\infty|infinity|-?\d+)\}?\s*(?P<expr>.+)?",
+    re.IGNORECASE,
+)
+
+# _SERIES_SUM_FROM_TO's own "sum|series (of)?" prefix only strips ONE
+# leading occurrence — natural phrasing like "does the SERIES sum of EXPR
+# from..." has both words, leaving "sum of EXPR" as the captured expr. Strip
+# any repeated leading series/sum filler the same way _strip_trailing_filler
+# strips trailing filler.
+_SERIES_PREFIX_RE = re.compile(
+    r"^(?:does\s+)?(?:the\s+)?(?:series|sum)\s+(?:of\s+)?", re.IGNORECASE
+)
+
+# Common LaTeX commands/symbols that appear in a pasted or OCR'd limit/series
+# expression — _parse_expression's safe-character allowlist rejects any
+# backslash outright, so these must be normalized to plain SymPy-parseable
+# syntax first. Not exhaustive: an unrecognized command left behind simply
+# fails to parse and the caller gracefully falls back to no verified block,
+# same as any other unparseable expression.
+_LATEX_SYMBOL_SUBS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"\\infty"), "oo"),
+    (re.compile(r"\\pi\b"), "pi"),
+    (re.compile(r"\\cdot"), "*"),
+    (re.compile(r"\\times"), "*"),
+    (re.compile(r"\\div"), "/"),
+    (re.compile(r"\\left"), ""),
+    (re.compile(r"\\right"), ""),
+]
+_LATEX_FUNCTION_RE = re.compile(
+    r"\\(sin|cos|tan|sec|csc|cot|arcsin|arccos|arctan|sinh|cosh|tanh|log|ln|sqrt|exp|min|max)\b",
+    re.IGNORECASE,
+)
+
+
+def _normalize_latex_expr(expr: str) -> str:
+    s = expr
+    for pattern, replacement in _LATEX_SYMBOL_SUBS:
+        s = pattern.sub(replacement, s)
+    s = _LATEX_FUNCTION_RE.sub(lambda m: m.group(1), s)
+    return s
+
+
+def _strip_series_prefix(expr: str) -> str:
+    s = expr.strip()
+    prev = None
+    while prev != s:
+        prev = s
+        s = _SERIES_PREFIX_RE.sub("", s).strip()
+    return s
+
+
 _TRAILING_FILLER_RE = re.compile(
     r"\s+(?:please|now|thanks?|thank\s+you|for\s+me|to\s+me|real\s+quick|quickly|briefly)\.?\s*$",
     re.IGNORECASE,
@@ -182,6 +273,17 @@ def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> boo
     if _GRAPH_EXPR.search(cleaned):
         return True
     if _CALC_OP.search(cleaned):
+        return True
+    if (
+        _LIMIT_LATEX.search(cleaned)
+        or _LIMIT_COMPACT.search(cleaned)
+        or (_LIMIT_TRIGGER.search(cleaned) and _LIMIT_AS_APPROACHES.search(cleaned))
+    ):
+        return True
+    if _SERIES_LATEX.search(cleaned) or (
+        (_SERIES_TRIGGER.search(cleaned) or re.search(r"\bsum\b", cleaned, re.IGNORECASE))
+        and _SERIES_SUM_FROM_TO.search(cleaned)
+    ):
         return True
     if re.search(r"\bsolve\b", cleaned, re.IGNORECASE) and _EQUATION_IN_TEXT.search(cleaned):
         return True
@@ -316,6 +418,44 @@ def extract_math_intent(text: str) -> MathIntent | None:
         )
         expr = _strip_trailing_filler(expr_match.group(1)) if expr_match else cleaned
         return MathIntent(kind="calculus", expr=expr, operation=calc_op)
+
+    limit_match = (
+        _LIMIT_LATEX.search(cleaned)
+        or _LIMIT_COMPACT.search(cleaned)
+        or (_LIMIT_TRIGGER.search(cleaned) and _LIMIT_AS_APPROACHES.search(cleaned))
+    )
+    if limit_match:
+        expr_raw = limit_match.group("expr") or ""
+        expr = _normalize_latex_expr(_strip_trailing_filler(expr_raw)).replace("^", "**")
+        point = limit_match.group("point").lstrip("\\")
+        if expr:
+            return MathIntent(
+                kind="limit",
+                expr=expr,
+                variable=limit_match.group("var"),
+                limit_point=point,
+                operation="limit",
+            )
+
+    series_match = _SERIES_LATEX.search(cleaned) or (
+        (_SERIES_TRIGGER.search(cleaned) or re.search(r"\bsum\b", cleaned, re.IGNORECASE))
+        and _SERIES_SUM_FROM_TO.search(cleaned)
+    )
+    if series_match:
+        expr_raw = series_match.group("expr") or ""
+        expr = _normalize_latex_expr(
+            _strip_series_prefix(_strip_trailing_filler(expr_raw))
+        ).replace("^", "**")
+        end = series_match.group("end").lstrip("\\")
+        if expr:
+            return MathIntent(
+                kind="series",
+                expr=expr,
+                variable=series_match.group("var"),
+                series_start=series_match.group("start"),
+                series_end=end,
+                operation="series",
+            )
 
     eq = math_service.try_extract_equation_from_text(cleaned)
     if eq:
@@ -598,6 +738,46 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
                 )
                 return VerifiedMathBlock(text="\n".join(lines))
             lines.append(f"Result: {out.latex}")
+            lines.append("Do NOT recompute. Explain in plain language with $...$ for formulas.")
+            return VerifiedMathBlock(text="\n".join(lines))
+
+        if intent.kind == "limit" and intent.expr and intent.limit_point is not None:
+            limit_out = math_service.compute_limit(intent.expr, intent.variable, intent.limit_point)
+            lines.append(f"Result: {limit_out.latex}")
+            if limit_out.is_infinite:
+                lines.append(
+                    "This limit is infinite (or does not exist as a finite two-sided "
+                    "value) — render it as \\infty, do not treat it as an ordinary "
+                    "finite number."
+                )
+            lines.append("Do NOT recompute. Explain in plain language with $...$ for formulas.")
+            return VerifiedMathBlock(text="\n".join(lines))
+
+        if (
+            intent.kind == "series"
+            and intent.expr
+            and intent.series_start is not None
+            and intent.series_end is not None
+        ):
+            series_out = math_service.evaluate_series_sum(
+                intent.expr, intent.variable, intent.series_start, intent.series_end
+            )
+            lines.append(f"Result: {series_out.latex}")
+            if series_out.is_convergent is not None:
+                lines.append(
+                    f"Convergent: {series_out.is_convergent}"
+                    + (
+                        f" (absolutely convergent: {series_out.is_absolutely_convergent})"
+                        if series_out.is_absolutely_convergent is not None
+                        else ""
+                    )
+                    + "."
+                )
+            if series_out.is_infinite:
+                lines.append(
+                    "This series diverges to infinity — render it as \\infty, do not "
+                    "treat it as an ordinary finite number."
+                )
             lines.append("Do NOT recompute. Explain in plain language with $...$ for formulas.")
             return VerifiedMathBlock(text="\n".join(lines))
     except math_service.MathServiceError as exc:

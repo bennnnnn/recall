@@ -163,6 +163,115 @@ def test_extract_calculus_intent_strips_trailing_prose(text: str, expected_expr:
     assert intent.expr == expected_expr
 
 
+@pytest.mark.parametrize(
+    "text, expected_expr, expected_var, expected_point",
+    [
+        ("find the limit of x^2 as x approaches 3", "x**2", "x", "3"),
+        ("limit of sin(x)/x as x approaches 0", "sin(x)/x", "x", "0"),
+        ("what is the limit of 1/x as x approaches infinity", "1/x", "x", "infinity"),
+        ("evaluate the limit of (x^2-1)/(x-1) as x -> 1", "(x**2-1)/(x-1)", "x", "1"),
+        ("lim x->0 sin(x)/x", "sin(x)/x", "x", "0"),
+        (r"\lim_{x \to 0} \sin(x)/x", "sin(x)/x", "x", "0"),
+    ],
+)
+def test_extract_limit_intent(
+    text: str, expected_expr: str, expected_var: str, expected_point: str
+) -> None:
+    assert math_tools.needs_symbolic_math(text) is True
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "limit"
+    assert intent.expr == expected_expr
+    assert intent.variable == expected_var
+    assert intent.limit_point == expected_point
+
+
+def test_limit_regex_does_not_misfire_on_unrelated_approaches_prose() -> None:
+    """The word "approaches" alone (without "limit"/"lim") must not trigger
+    symbolic math — e.g. "the deadline as it approaches Friday" is not math."""
+    assert math_tools.needs_symbolic_math("the deadline as it approaches Friday") is False
+
+
+@pytest.mark.parametrize(
+    "text, expected_expr, expected_var, expected_start, expected_end",
+    [
+        (
+            "does the series sum of 1/n^2 from n=1 to infinity converge",
+            "1/n**2",
+            "n",
+            "1",
+            "infinity",
+        ),
+        ("evaluate the sum of 1/2^n from n=0 to infinity", "1/2**n", "n", "0", "infinity"),
+        ("sum of n from n=1 to 10", "n", "n", "1", "10"),
+        (r"\sum_{n=1}^{\infty} 1/n^2", "1/n**2", "n", "1", "infty"),
+    ],
+)
+def test_extract_series_intent(
+    text: str, expected_expr: str, expected_var: str, expected_start: str, expected_end: str
+) -> None:
+    assert math_tools.needs_symbolic_math(text) is True
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "series"
+    assert intent.expr == expected_expr
+    assert intent.variable == expected_var
+    assert intent.series_start == expected_start
+    assert intent.series_end == expected_end
+
+
+@pytest.mark.asyncio
+async def test_augment_prompt_injects_limit_block() -> None:
+    settings = Settings(math_tools_enabled=True)
+    text = "find the limit of x^2 as x approaches 3"
+    out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": text}], text, settings
+    )
+    assert verified is not None
+    assert "Result: 9" in verified.text
+    assert any("Result: 9" in m["content"] for m in out if m["role"] == "system")
+
+
+@pytest.mark.asyncio
+async def test_augment_prompt_flags_diverging_limit_as_infinite() -> None:
+    """BUG FIX target: a limit that diverges (e.g. 1/x as x -> 0) must be
+    flagged as infinite, not presented as an ordinary finite value."""
+    settings = Settings(math_tools_enabled=True)
+    text = "what is the limit of 1/x as x approaches 0"
+    _out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": text}], text, settings
+    )
+    assert verified is not None
+    assert "infinite" in verified.text.lower()
+
+
+@pytest.mark.asyncio
+async def test_augment_prompt_injects_series_block_with_convergence() -> None:
+    settings = Settings(math_tools_enabled=True)
+    text = r"\sum_{n=1}^{\infty} 1/n^2"
+    out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": text}], text, settings
+    )
+    assert verified is not None
+    assert "Convergent: True" in verified.text
+    assert any("Convergent: True" in m["content"] for m in out if m["role"] == "system")
+
+
+@pytest.mark.asyncio
+async def test_augment_prompt_flags_divergent_series() -> None:
+    """BUG FIX target: the harmonic series (sum 1/n) diverges — the model
+    must be told it diverges/is infinite, not shown a plausible finite
+    number it would otherwise be tempted to invent."""
+    settings = Settings(math_tools_enabled=True)
+    text = "does the series sum of 1/n from n=1 to infinity converge"
+    _out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": text}], text, settings
+    )
+    assert verified is not None
+    assert "Convergent: False" in verified.text
+    assert "diverges" in verified.text.lower()
+
+
 @pytest.mark.asyncio
 async def test_augment_prompt_injects_geometry_block() -> None:
     settings = Settings(math_tools_enabled=True)

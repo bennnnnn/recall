@@ -439,7 +439,10 @@ MATH_SOLVER_HINT = (
     "- For display formulas use ```math or inline $...$ — NEVER ```latex, ```tex, or "
     "untagged code blocks for LaTeX.\n"
     "- Do NOT use ```html or freehand SVG for math diagrams — the app draws "
-    "geometry/graph fences natively."
+    "geometry/graph fences natively.\n"
+    "- Limits and infinite series are in scope. When a verified SymPy result is "
+    "provided for one, use its exact result and convergence/divergence status "
+    "(including whether it's infinite) instead of estimating or re-deriving it."
 )
 
 VISUALIZATION_HINTS = (
