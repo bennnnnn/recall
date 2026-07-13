@@ -425,7 +425,7 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
                 f"area={circle_geo.area:.2f} {circle_geo.unit}² "
                 f"circumference={circle_geo.circumference:.2f} {circle_geo.unit}"
             )
-            spec = CircleGeometryBlockSpec(
+            circle_spec = CircleGeometryBlockSpec(
                 type="circle",
                 radius=circle_geo.radius,
                 unit=circle_geo.unit,
@@ -439,10 +439,12 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
             )
             lines.append(
                 "When a diagram helps, emit ONLY this fence (NEVER ```json):\n"
-                f"```geometry\n{json.dumps(spec.model_dump(), separators=(',', ':'))}\n```"
+                f"```geometry\n{json.dumps(circle_spec.model_dump(), separators=(',', ':'))}\n```"
             )
             lines.append("Do NOT recompute diameter, area, or circumference.")
-            return VerifiedMathBlock(text="\n".join(lines), canonical_fence=spec.model_dump())
+            return VerifiedMathBlock(
+                text="\n".join(lines), canonical_fence=circle_spec.model_dump()
+            )
 
         if intent.kind == "triangle" and intent.base and intent.height:
             tri_geo = math_service.triangle_geometry(
