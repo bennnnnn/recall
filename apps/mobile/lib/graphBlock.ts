@@ -6,6 +6,11 @@ export type GraphSpec = {
   x_max?: number;
   title?: string | null;
   points: [number, number][];
+  // points split at a likely discontinuity (e.g. a tan(x) vertical
+  // asymptote) — present only when the backend detected a real gap.
+  // Undefined/empty means "one continuous curve," same as before this
+  // field existed.
+  segments?: [number, number][][];
 };
 
 /** Match backend `GraphSampleInput.n` cap and `GraphBlockSpec.expr` length. */
@@ -29,7 +34,11 @@ export function parseGraphSpec(raw: string): GraphSpec | null {
     const expr = String(row.expr ?? "").trim();
     if (!expr || expr.length > MAX_GRAPH_EXPR_LENGTH) return null;
     const pointsRaw = row.points;
-    if (!Array.isArray(pointsRaw) || pointsRaw.length < 1 || pointsRaw.length > MAX_GRAPH_POINTS) {
+    if (
+      !Array.isArray(pointsRaw) ||
+      pointsRaw.length < 1 ||
+      pointsRaw.length > MAX_GRAPH_POINTS
+    ) {
       return null;
     }
     const points = pointsRaw
@@ -38,6 +47,25 @@ export function parseGraphSpec(raw: string): GraphSpec | null {
     // A function curve needs 2+ points to draw a line, but marking a single
     // coordinate ("plot the point (2, 3)") is a single point by definition.
     if (points.length < 1) return null;
+
+    const segmentsRaw = row.segments;
+    let segments: [number, number][][] | undefined;
+    if (Array.isArray(segmentsRaw) && segmentsRaw.length <= MAX_GRAPH_POINTS) {
+      const parsed = segmentsRaw
+        .map((seg) =>
+          Array.isArray(seg)
+            ? seg
+                .map(normalizePoint)
+                .filter((p): p is [number, number] => p != null)
+            : [],
+        )
+        .filter((seg) => seg.length > 0);
+      // Only meaningful with a real gap (2+ pieces) — a single segment is
+      // just `points` again, so leave segments unset and render the plain
+      // continuous polyline instead.
+      if (parsed.length > 1) segments = parsed;
+    }
+
     return {
       type: "function",
       expr,
@@ -46,6 +74,7 @@ export function parseGraphSpec(raw: string): GraphSpec | null {
       x_max: Number(row.x_max ?? points[points.length - 1][0]),
       title: row.title != null ? String(row.title) : null,
       points,
+      segments,
     };
   } catch {
     return null;
@@ -93,8 +122,12 @@ export function mapGraphPoint(
 ): { px: number; py: number } {
   const innerW = width - pad * 2;
   const innerH = height - pad * 2;
-  const px = pad + ((x - bounds.xMin) / (bounds.xMax - bounds.xMin || 1)) * innerW;
-  const py = pad + innerH - ((y - bounds.yMin) / (bounds.yMax - bounds.yMin || 1)) * innerH;
+  const px =
+    pad + ((x - bounds.xMin) / (bounds.xMax - bounds.xMin || 1)) * innerW;
+  const py =
+    pad +
+    innerH -
+    ((y - bounds.yMin) / (bounds.yMax - bounds.yMin || 1)) * innerH;
   return { px, py };
 }
 
@@ -102,8 +135,11 @@ export function graphPolylinePoints(
   points: [number, number][],
   width: number,
   height: number,
+  // Optional precomputed bounds — required when rendering multiple segments
+  // of the same curve, so every segment maps against the same shared axis
+  // scale instead of each one being (re)bounded to just its own points.
+  bounds: ReturnType<typeof graphBounds> = graphBounds(points),
 ): string {
-  const bounds = graphBounds(points);
   return points
     .map(([x, y]) => {
       const { px, py } = mapGraphPoint(x, y, bounds, width, height);

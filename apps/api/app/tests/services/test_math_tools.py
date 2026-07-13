@@ -261,6 +261,37 @@ async def test_augment_prompt_injects_graph_block() -> None:
 
 
 @pytest.mark.asyncio
+async def test_augment_prompt_attaches_segments_and_warns_on_discontinuous_graph() -> None:
+    """BUG FIX (verified live): tan(x) over the default range drew a
+    near-straight line across the pi/2 asymptote. The canonical fence must
+    carry the split segments, and the model must be told not to describe it
+    as one continuous curve."""
+    settings = Settings(math_tools_enabled=True)
+    out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": "Graph tan(x)"}], "Graph tan(x)", settings
+    )
+    assert verified is not None
+    assert verified.canonical_fence is not None
+    assert len(verified.canonical_fence["segments"]) == 7
+    assert "discontinuity" in verified.text.lower()
+    assert any("discontinuity" in m["content"].lower() for m in out if m["role"] == "system")
+
+
+@pytest.mark.asyncio
+async def test_augment_prompt_omits_segments_for_a_continuous_graph() -> None:
+    """The overwhelmingly common case (no discontinuity) must not carry a
+    redundant segments field duplicating every point."""
+    settings = Settings(math_tools_enabled=True)
+    _out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": "Graph x^2"}], "Graph x^2", settings
+    )
+    assert verified is not None
+    assert verified.canonical_fence is not None
+    assert verified.canonical_fence["segments"] == []
+    assert "discontinuity" not in verified.text.lower()
+
+
+@pytest.mark.asyncio
 async def test_augment_prompt_flags_unsolved_integral_instead_of_asserting_it() -> None:
     """BUG FIX: integrate_expression can hand back a result that still
     contains a literal unevaluated Integral(...) instead of raising, and this

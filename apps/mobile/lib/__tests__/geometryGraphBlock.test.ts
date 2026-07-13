@@ -207,6 +207,94 @@ describe("graphBlock", () => {
     expect(bounds).toEqual({ xMin: 1, xMax: 3, yMin: 2, yMax: 4 });
   });
 
+  it("BUG FIX regression: parses segments split at a discontinuity (e.g. tan(x) asymptote)", () => {
+    const spec = parseGraphSpec(
+      JSON.stringify({
+        type: "function",
+        expr: "tan(x)",
+        points: [
+          [0, 0],
+          [1, 1.5],
+          [2, -2.2],
+        ],
+        segments: [
+          [
+            [0, 0],
+            [1, 1.5],
+          ],
+          [[2, -2.2]],
+        ],
+      }),
+    );
+    expect(spec?.segments).toEqual([
+      [
+        [0, 0],
+        [1, 1.5],
+      ],
+      [[2, -2.2]],
+    ]);
+  });
+
+  it("leaves segments undefined when absent (the common, no-discontinuity case)", () => {
+    const spec = parseGraphSpec('{"type":"function","expr":"x**2","points":[[-2,4],[0,0],[2,4]]}');
+    expect(spec?.segments).toBeUndefined();
+  });
+
+  it("ignores a malformed or single-piece segments field and falls back to plain points rendering", () => {
+    // A single "segment" carries no gap information beyond `points` itself
+    // — treat it the same as absent so the caller renders one continuous
+    // polyline instead of needlessly branching into segment-rendering.
+    const singlePiece = parseGraphSpec(
+      JSON.stringify({
+        type: "function",
+        expr: "x",
+        points: [
+          [0, 0],
+          [1, 1],
+        ],
+        segments: [
+          [
+            [0, 0],
+            [1, 1],
+          ],
+        ],
+      }),
+    );
+    expect(singlePiece?.segments).toBeUndefined();
+
+    const malformed = parseGraphSpec(
+      JSON.stringify({
+        type: "function",
+        expr: "x",
+        points: [
+          [0, 0],
+          [1, 1],
+        ],
+        segments: "not-an-array",
+      }),
+    );
+    expect(malformed?.segments).toBeUndefined();
+  });
+
+  it("BUG FIX regression: graphPolylinePoints maps segment points against shared, precomputed bounds", () => {
+    // Rendering multiple segments of the same curve must use ONE shared
+    // bounds object (computed from every point), not per-segment bounds —
+    // otherwise each segment gets independently rescaled and the pieces no
+    // longer line up on a common axis.
+    const allPoints: [number, number][] = [
+      [0, 0],
+      [10, 100],
+    ];
+    const sharedBounds = graphBounds(allPoints);
+    const segment: [number, number][] = [[0, 0]];
+    const withSharedBounds = graphPolylinePoints(segment, 200, 120, sharedBounds);
+    const withOwnBounds = graphPolylinePoints(segment, 200, 120);
+    // A lone point at the origin maps to different screen coordinates
+    // depending on whether it's scaled against the full [0,100] y-range
+    // (shared bounds) or its own degenerate [-1,1] range (own bounds).
+    expect(withSharedBounds).not.toBe(withOwnBounds);
+  });
+
   it("rejects too many points or long expr", () => {
     const tooMany = Array.from({ length: 301 }, (_, i) => [i, i] as [number, number]);
     expect(
