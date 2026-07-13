@@ -26,8 +26,47 @@ def test_extract_equation_intent() -> None:
     intent = math_tools.extract_math_intent("Solve x^2 + 2 = 6")
     assert intent is not None
     assert intent.kind == "equation"
-    assert intent.lhs is not None
-    assert intent.rhs is not None
+    assert intent.lhs == "x^2 + 2"
+    assert intent.rhs == "6"
+    assert intent.variable == "x"
+
+
+def test_extract_system_intent_for_multiple_equations() -> None:
+    """BUG FIX (most severe correctness bug found in the audit): before this
+    fix, a message with 2+ equations fell through to the single-equation
+    branch, which only ever looked at the first clause."""
+    intent = math_tools.extract_math_intent("solve x+y=5, x-y=1")
+    assert intent is not None
+    assert intent.kind == "system"
+    assert intent.system_equations == [("x+y", "5"), ("x-y", "1")]
+    assert intent.system_variables is not None
+    assert set(intent.system_variables) >= {"x", "y"}
+
+
+@pytest.mark.asyncio
+async def test_augment_prompt_injects_system_solve_block() -> None:
+    settings = Settings(math_tools_enabled=True)
+    text = "solve x+y=5, x-y=1"
+    out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": text}], text, settings
+    )
+    assert verified is not None
+    assert "Equation 1:" in verified.text
+    assert "Equation 2:" in verified.text
+    assert "x = 3" in verified.text
+    assert "y = 2" in verified.text
+    assert any("x = 3" in m["content"] for m in out if m["role"] == "system")
+
+
+@pytest.mark.asyncio
+async def test_augment_prompt_system_flags_inconsistent_equations() -> None:
+    settings = Settings(math_tools_enabled=True)
+    text = "solve x+y=5, x+y=10"
+    _out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": text}], text, settings
+    )
+    assert verified is not None
+    assert "inconsistent" in verified.text.lower()
 
 
 def test_extract_rectangle_intent() -> None:

@@ -22,6 +22,7 @@ from app.models.math_schemas import (
     RightTriangleGeometryBlockSpec,
     RightTriangleGeometryInput,
     SquareGeometryInput,
+    SystemOfEquationsInput,
     TriangleGeometryBlockSpec,
     TriangleGeometryInput,
 )
@@ -457,14 +458,30 @@ def extract_math_intent(text: str) -> MathIntent | None:
                 operation="series",
             )
 
-    eq = math_service.try_extract_equation_from_text(cleaned)
-    if eq:
+    eq_pairs = math_service.try_extract_equations_from_text(cleaned)
+    if len(eq_pairs) >= 2:
+        # BUG FIX (most severe correctness bug found in the audit): this
+        # used to fall through to the single-equation branch below, which
+        # only ever looked at the FIRST clause and answered with the same
+        # "verified, do NOT recompute" confidence as a fully correct
+        # response — silently discarding every other equation in the system.
+        all_text = "".join(lhs + rhs for lhs, rhs in eq_pairs)
+        variables = math_service._guess_variables(all_text)
+        return MathIntent(
+            kind="system",
+            system_equations=eq_pairs[:4],
+            system_variables=variables,
+            operation="solve",
+        )
+    if len(eq_pairs) == 1:
+        lhs, rhs = eq_pairs[0]
+        variables = math_service._guess_variables(lhs + rhs)
         return MathIntent(
             kind="equation",
-            lhs=eq.lhs,
-            rhs=eq.rhs,
+            lhs=lhs,
+            rhs=rhs,
             operation="solve",
-            variable=eq.variables[0] if eq.variables else "x",
+            variable=variables[0] if variables else "x",
         )
 
     return None
@@ -503,6 +520,28 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
                 "worked steps by COPYING the verified steps above verbatim — do "
                 "NOT derive intermediate algebra yourself. Keep any spacing "
                 "(e.g. \\quad) INSIDE the $...$ math delimiters so it renders."
+            )
+            return VerifiedMathBlock(text="\n".join(lines))
+
+        if intent.kind == "system" and intent.system_equations:
+            capped_equations = [
+                (
+                    lhs[: settings.math_max_expr_length],
+                    rhs[: settings.math_max_expr_length],
+                )
+                for lhs, rhs in intent.system_equations
+            ]
+            sys_input = SystemOfEquationsInput(
+                equations=capped_equations,
+                variables=intent.system_variables or ["x", "y"],
+            )
+            sys_result = math_service.solve_system(sys_input)
+            lines.extend(sys_result.steps)
+            lines.append(
+                "Emit each formula as INLINE $...$ math — do NOT wrap math in "
+                "backticks (`` `$...$` `` renders as raw code). Do NOT recompute "
+                "the solutions. Show worked steps by COPYING the verified steps "
+                "above verbatim — do NOT derive intermediate algebra yourself."
             )
             return VerifiedMathBlock(text="\n".join(lines))
 
