@@ -4,6 +4,13 @@ const LATEX_CMD = /\\(?:[a-zA-Z]+|.){1,}/;
 const MATH_IN_PARENS_RE = /\(\s*([^()\n]{1,180}?)\s*\)/g;
 const FENCE_RE = /```[\s\S]*?```/g;
 
+// A LaTeX command (\frac, \sqrt, \boxed, ...) embedded mid-sentence with no
+// $...$ wrap at all — e.g. "simplifying\frac{8!}{6!}?" — is distinct from
+// looksLikeBareEquation's whole-LINE-only heuristic below: there's real
+// prose before/after it, so the whole line can't be wrapped, only the
+// command span itself.
+const INLINE_LATEX_CMD_RE = /\\[a-zA-Z]+/g;
+
 const BARE_EQUATION_RE = /^[0-9a-zA-Z+\-*/^=±√\\_.\s]+$/i;
 
 export function fixImplicitExponents(expr: string): string {
@@ -52,6 +59,53 @@ function wrapMath(expr: string): string {
   return `$${fixImplicitExponents(unwrapParens(expr))}$`;
 }
 
+/** Index just past any {...} groups immediately following `start` (balanced
+ * braces, unlike a naive [^}]+ regex) — e.g. for "\frac{8!}{6!}" starting
+ * right after "\frac", returns the index after the closing "}" of "{6!}". */
+function skipBraceGroups(s: string, start: number): number {
+  let i = start;
+  while (s[i] === "{") {
+    let depth = 0;
+    let j = i;
+    for (; j < s.length; j += 1) {
+      if (s[j] === "{") depth += 1;
+      else if (s[j] === "}") {
+        depth -= 1;
+        if (depth === 0) {
+          j += 1;
+          break;
+        }
+      }
+    }
+    if (depth !== 0) return i; // unbalanced — stop before the broken group
+    i = j;
+  }
+  return i;
+}
+
+/** Wraps a bare LaTeX command (plus its brace groups) in $...$ where it's
+ * embedded mid-sentence with no delimiters at all — e.g.
+ * "simplifying\frac{8!}{6!}?" — distinct from the whole-line-only
+ * looksLikeBareEquation path above, since real prose surrounds it here.
+ * Skipped whenever the line already has a "$" anywhere, so it never
+ * double-wraps something wrapMath already handled earlier in this line. */
+function wrapInlineLatexCommands(line: string): string {
+  if (line.includes("$")) return line;
+  INLINE_LATEX_CMD_RE.lastIndex = 0;
+  let out = "";
+  let last = 0;
+  let match: RegExpExecArray | null;
+  while ((match = INLINE_LATEX_CMD_RE.exec(line)) !== null) {
+    const start = match.index;
+    const end = skipBraceGroups(line, INLINE_LATEX_CMD_RE.lastIndex);
+    out += line.slice(last, start) + `$${line.slice(start, end)}$`;
+    last = end;
+    INLINE_LATEX_CMD_RE.lastIndex = end;
+  }
+  if (last === 0) return line;
+  return out + line.slice(last);
+}
+
 function normalizeMathLine(line: string): string {
   if (/\]\(https?:\/\//.test(line) || /\[places\s*\n/i.test(line)) {
     return line;
@@ -88,6 +142,8 @@ function normalizeMathLine(line: string): string {
     if (!isMathLike(String(inner))) return full;
     return wrapMath(String(inner));
   });
+
+  out = wrapInlineLatexCommands(out);
 
   return out.replace(/^(\s*)\$\-\s*(.+?)\s*\$$/, "$1- $2");
 }

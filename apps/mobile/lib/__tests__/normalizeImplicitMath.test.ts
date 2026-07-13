@@ -43,6 +43,23 @@ describe("normalizeImplicitMath", () => {
     expect(normalizeImplicitMathInProse(input)).toBe(input);
   });
 
+  it("BUG FIX regression: wraps a bare LaTeX command embedded mid-sentence, not just whole-line equations", () => {
+    // Reported live: "...or simplifying\\frac{8!}{6!}? 😄" rendered the raw
+    // backslash command since it has no $...$ wrap at all and isn't a
+    // whole-line equation for looksLikeBareEquation to key off — only the
+    // command span itself (not the surrounding prose) must be wrapped.
+    const input = "Want one with a twist? e.g., 0!, 10!, or simplifying\\frac{8!}{6!}? 😄";
+    const out = normalizeImplicitMathInProse(input);
+    expect(out).toBe(
+      "Want one with a twist? e.g., 0!, 10!, or simplifying$\\frac{8!}{6!}$? 😄",
+    );
+  });
+
+  it("does not double-wrap when the line already has dollar-delimited math", () => {
+    const input = "We have $x = 2$ and also mention \\frac{1}{2} here.";
+    expect(normalizeImplicitMathInProse(input)).toBe(input);
+  });
+
   it("still wraps a genuine bare equation line with no markdown emphasis", () => {
     const input = "2^x = 7 - 5 = 2";
     expect(normalizeImplicitMathInProse(input)).toBe("$2^x = 7 - 5 = 2$");
