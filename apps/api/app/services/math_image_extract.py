@@ -63,7 +63,7 @@ async def extract_equation_from_image(
                 ],
             }
         ]
-        async with asyncio.timeout(settings.math_solve_timeout_seconds):
+        async with asyncio.timeout(settings.math_image_extract_timeout_seconds):
             response = await acompletion(
                 model=route.model,
                 messages=messages,
@@ -82,5 +82,8 @@ async def extract_equation_from_image(
             return None
         return parsed
     except Exception:
-        logger.debug("math image extract failed", exc_info=True)
+        # Was logger.debug — silently swallowed a real OCR outage (bad
+        # vision-model response, network failure, timeout) with no signal
+        # in prod logs at the default level.
+        logger.warning("math image extract failed", exc_info=True)
         return None

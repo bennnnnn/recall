@@ -34,74 +34,23 @@ async def test_mcp_tools_calendar_create_hint():
 
 
 @pytest.mark.asyncio
-async def test_mcp_tools_math_uses_async_verified_block_not_sync():
-    """BUG FIX (was silent): this call site used to invoke the synchronous
-    _build_verified_block directly, bypassing the timeout + off-event-loop
-    wrapper every other chat-path caller uses. Must call the async version."""
+async def test_mcp_tools_does_not_handle_math_itself():
+    """BUG FIX (duplicate verified-block injection): this function used to
+    also build and inject its own verified-math block for math-intent turns.
+    But math_tools_service.augment_prompt_messages — the single owner of math
+    augmentation — always runs right after this function returns in the only
+    production call site (_augment_web_and_tools), so a math-intent turn got
+    the same "verified, do NOT recompute" block injected twice whenever
+    mcp_tools_enabled=True and mcp_tool_loop_enabled=False. This function must
+    not touch math intent at all; see test_augment_web_and_tools_injects_math_block_only_once
+    for the end-to-end no-duplicate assertion."""
     settings = Settings(math_tools_enabled=True, mcp_tools_enabled=True)
     user_text = "differentiate x^2"
     messages = [{"role": "user", "content": user_text}]
 
-    fake_block = MagicMock()
-    fake_block.text = "verified: 2x"
+    result = await chat_tools.augment_prompt_with_mcp_tools(messages, user_text, settings)
 
-    with (
-        patch(
-            "app.services.chat_tools.math_tools_service.needs_symbolic_math",
-            return_value=True,
-        ),
-        patch(
-            "app.services.chat_tools.math_tools_service.extract_math_intent",
-            return_value=MagicMock(operation="diff", lhs="x^2", rhs=None, expr=None),
-        ),
-        patch(
-            "app.services.chat_tools.math_tools_service._build_verified_block_async",
-            AsyncMock(return_value=fake_block),
-        ) as verified_async,
-        patch(
-            "app.services.chat_tools.math_tools_service._build_verified_block",
-        ) as verified_sync,
-    ):
-        result = await chat_tools.augment_prompt_with_mcp_tools(messages, user_text, settings)
-
-    verified_async.assert_awaited_once()
-    verified_sync.assert_not_called()
-    assert any("verified: 2x" in m["content"] for m in result)
-
-
-@pytest.mark.asyncio
-async def test_mcp_tools_math_fallback_uses_validated_invoke():
-    """BUG FIX: this call site used mcp_registry.invoke (no Pydantic bounds
-    checking) instead of invoke_validated, unlike the model-driven tool-loop
-    path calling the same adapter — inconsistent validation for the same
-    entry point."""
-    settings = Settings(math_tools_enabled=True, mcp_tools_enabled=True)
-    user_text = "differentiate x^2"
-    messages = [{"role": "user", "content": user_text}]
-
-    with (
-        patch(
-            "app.services.chat_tools.math_tools_service.needs_symbolic_math",
-            return_value=True,
-        ),
-        patch(
-            "app.services.chat_tools.math_tools_service.extract_math_intent",
-            return_value=MagicMock(operation="diff", lhs="x^2", rhs=None, expr=None),
-        ),
-        patch(
-            "app.services.chat_tools.math_tools_service._build_verified_block_async",
-            AsyncMock(return_value=None),
-        ),
-        patch(
-            "app.services.chat_tools.mcp_registry.invoke_validated",
-            AsyncMock(return_value=None),
-        ) as invoke_validated,
-        patch("app.services.chat_tools.mcp_registry.invoke", AsyncMock()) as invoke_unvalidated,
-    ):
-        await chat_tools.augment_prompt_with_mcp_tools(messages, user_text, settings)
-
-    invoke_validated.assert_awaited_once()
-    invoke_unvalidated.assert_not_awaited()
+    assert result == messages
 
 
 @pytest.mark.asyncio
@@ -141,3 +90,38 @@ async def test_augment_web_and_tools_uses_mcp_when_enabled():
     assert updated == [{"role": "system", "content": "mcp"}]
     assert hits == [web_hit]
     assert verified_math is None
+
+
+@pytest.mark.asyncio
+async def test_augment_web_and_tools_injects_math_block_only_once():
+    """End-to-end regression for the duplicate verified-block injection bug:
+    with mcp_tools_enabled=True and mcp_tool_loop_enabled=False (the exact
+    flag combination that used to trigger it), a math-intent turn must get
+    exactly one verified-math system message, not two."""
+    from app.services.chat import _augment_web_and_tools
+
+    settings = Settings(
+        math_tools_enabled=True,
+        mcp_tools_enabled=True,
+        mcp_tool_loop_enabled=False,
+        web_search_enabled=False,
+    )
+    user_text = "differentiate x^2"
+    messages = [{"role": "system", "content": "base"}, {"role": "user", "content": user_text}]
+
+    fake_block = MagicMock()
+    fake_block.text = "Verified (SymPy): d/dx(x^2) = 2x. Do NOT recompute."
+
+    with patch(
+        "app.services.math_tools._build_verified_block_async",
+        AsyncMock(return_value=fake_block),
+    ):
+        updated, _hits, verified_math = await _augment_web_and_tools(
+            messages,
+            user_text,
+            settings,
+        )
+
+    matches = [m for m in updated if fake_block.text in m.get("content", "")]
+    assert len(matches) == 1
+    assert verified_math is fake_block
