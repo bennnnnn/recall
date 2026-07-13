@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { CollapsibleMessageBody } from "@/components/CollapsibleMessageBody";
 import { ChatMessageImage } from "@/components/ChatMessageImage";
 import { ChatMessagePdf } from "@/components/ChatMessagePdf";
+import { MarkdownContent } from "@/components/MarkdownContent";
 import { Message } from "@/lib/api";
 import {
   guessFileNameFromCaption,
@@ -88,13 +89,9 @@ export function UserMessageContent({ message }: Props) {
               </View>
             ) : null}
             {showCaption ? (
-              <Text style={s.text} selectable>
-                {parsed.caption}
-              </Text>
+              <MarkdownContent content={parsed.caption} />
             ) : plainText ? (
-              <Text style={s.text} selectable>
-                {plainText}
-              </Text>
+              <MarkdownContent content={plainText} />
             ) : null}
           </View>
         </CollapsibleMessageBody>
@@ -134,11 +131,6 @@ function makeStyles(C: Theme) {
     },
     textBubbleBelowImage: {
       alignSelf: "flex-end",
-    },
-    text: {
-      color: C.userText,
-      fontSize: 16,
-      lineHeight: 23,
     },
     fileChip: {
       flexDirection: "row",

@@ -40,7 +40,13 @@ export function renderRichFence(
   const l = lang.trim().toLowerCase();
   if (!isStructuredFenceLang(l)) {
     if (looksLikeLatexFence(content) && (l === "json" || l === "latex" || l === "tex" || l === "")) {
-      return <MathBlock key={key} latex={content} />;
+      // Content-derived key, not the caller-supplied `key` (which
+      // react-native-markdown-display regenerates on every re-parse while
+      // streaming) — the same latex across re-parses must map to the same
+      // key, or MathBlock's WebView-backed renderer unmounts/remounts (a
+      // full WebView reload, visible as a flicker) every ~48ms even though
+      // nothing actually changed.
+      return <MathBlock key={`math:${content}`} latex={content} />;
     }
     // Same class of instruction-drift as the LaTeX fallback above — the
     // model routinely emits ```json (or an untagged fence) instead of the
@@ -74,7 +80,7 @@ export function renderRichFence(
   }
 
   if (l === "math") {
-    return <MathBlock key={key} latex={content} />;
+    return <MathBlock key={`math:${content}`} latex={content} />;
   }
 
   if (l === "geometry") {
