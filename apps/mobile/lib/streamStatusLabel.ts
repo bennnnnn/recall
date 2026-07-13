@@ -30,6 +30,17 @@ export function pickRotatingStreamLabel(labels: string[], tick: number): string 
   return labels[tick % labels.length] ?? labels[0];
 }
 
+/** The generic "thinking" indicator (typing dots / rotating status label) would
+ * just duplicate the "model is working" signal once live reasoning content is
+ * already visible, so it's suppressed while reasoning is showing. */
+export function shouldShowWaitingIndicator(options: {
+  isStreaming: boolean;
+  hasContent: boolean;
+  showReasoning: boolean;
+}): boolean {
+  return options.isStreaming && !options.hasContent && !options.showReasoning;
+}
+
 export function useRotatingStreamStatus(
   phase: string | undefined,
   enabled: boolean,
