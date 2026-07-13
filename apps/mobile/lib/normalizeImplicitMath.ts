@@ -2,7 +2,14 @@
 
 const LATEX_CMD = /\\(?:[a-zA-Z]+|.){1,}/;
 const MATH_IN_PARENS_RE = /\(\s*([^()\n]{1,180}?)\s*\)/g;
-const FENCE_RE = /```[\s\S]*?```/g;
+// Triple-backtick fences AND LaTeX's own already-delimited display-math spans
+// (`$$...$$`, `\[...\]`) — markdownPreprocess.ts's BLOCK_MATH_RE/
+// BLOCK_MATH_BRACKET_RE convert the latter two into ```math fences right
+// after this module runs, and that fence body must stay bare LaTeX (no
+// markdown-level $...$ wrapping) or KaTeX fails to parse it and renders the
+// raw source in red. So these spans get skipped here exactly like a code
+// fence, not touched line-by-line by the heuristics below.
+const PROTECTED_SPAN_RE = /```[\s\S]*?```|\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]/g;
 
 // A LaTeX command (\frac, \sqrt, \boxed, ...) embedded mid-sentence with no
 // $...$ wrap at all — e.g. "simplifying\frac{8!}{6!}?" — is distinct from
@@ -156,7 +163,7 @@ export function normalizeImplicitMath(content: string): string {
   const chunks: string[] = [];
   let last = 0;
   let match: RegExpExecArray | null;
-  while ((match = FENCE_RE.exec(content)) !== null) {
+  while ((match = PROTECTED_SPAN_RE.exec(content)) !== null) {
     if (match.index > last) {
       chunks.push(normalizeImplicitMathInProse(content.slice(last, match.index)));
     }

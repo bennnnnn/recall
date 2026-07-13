@@ -72,6 +72,28 @@ describe("normalizeImplicitMath", () => {
     expect(out).toContain("```python\n( x = 1 )\n```");
     expect(out).toContain("$x^2=4$");
   });
+
+  it("BUG FIX regression: does not wrap LaTeX commands inside a \\[...\\] display-math span in $...$", () => {
+    // Reported live (screenshots): "x = \\pm \\sqrt{4}" inside \\[...\\]
+    // rendered in red. wrapInlineLatexCommands used to treat \\[ ... \\] as
+    // plain prose and wrap each bare command (\\pm, \\sqrt{4}) in $...$
+    // *before* markdownPreprocess.ts's BLOCK_MATH_BRACKET_RE converts the
+    // \\[...\\] span into a ```math fence — leaving embedded, un-stripped $
+    // characters in the fence body that KaTeX can't parse as bare LaTeX.
+    const { normalizeImplicitMath } = require("@/lib/normalizeImplicitMath");
+    const input = "Solve:\n\n\\[ x = \\pm \\sqrt{4} \\]\n\nDone.";
+    const out = normalizeImplicitMath(input);
+    expect(out).toContain("\\[ x = \\pm \\sqrt{4} \\]");
+    expect(out).not.toContain("$\\pm$");
+    expect(out).not.toContain("$\\sqrt{4}$");
+  });
+
+  it("BUG FIX regression: does not touch a $$...$$ display-math span either", () => {
+    const { normalizeImplicitMath } = require("@/lib/normalizeImplicitMath");
+    const input = "Solve:\n\n$$ x = \\pm \\sqrt{4} $$\n\nDone.";
+    const out = normalizeImplicitMath(input);
+    expect(out).toContain("$$ x = \\pm \\sqrt{4} $$");
+  });
 });
 
 describe("fixImplicitExponents", () => {
