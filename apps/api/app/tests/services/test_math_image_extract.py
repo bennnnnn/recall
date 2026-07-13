@@ -6,6 +6,14 @@ from app.services import math_image_extract as mie
 from app.services.math_tools import needs_symbolic_math
 
 
+def test_math_camera_prompt_matches_mobile_constant():
+    """MATH_CAMERA_PROMPT must stay byte-for-byte identical to
+    apps/mobile/lib/mathCameraPrompt.ts's MATH_CAMERA_PROMPT — it's an
+    exact-match trigger phrase, not translated copy, so a drift on either
+    side silently disables the camera-math verified augmentation."""
+    assert mie.MATH_CAMERA_PROMPT == "Solve the math problem in this image step by step."
+
+
 def test_is_math_camera_prompt():
     assert mie.is_math_camera_prompt(mie.MATH_CAMERA_PROMPT)
     assert mie.is_math_camera_prompt(mie.MATH_CAMERA_PROMPT.upper())

@@ -134,6 +134,16 @@ def test_graph_block_spec_requires_two_points_when_present() -> None:
         GraphBlockSpec(expr="x", points=[])
 
 
+def test_graph_block_spec_rejects_more_points_than_the_backend_ever_samples() -> None:
+    """BUG FIX regression: points had no upper bound, unlike every other
+    field in this file — a model reproducing (or fabricating) a ```graph
+    fence could claim an unbounded points array. Matches
+    GraphSampleInput.n's own cap (le=500)."""
+    GraphBlockSpec(expr="x", points=[[float(i), float(i)] for i in range(500)])
+    with pytest.raises(ValueError, match="500"):
+        GraphBlockSpec(expr="x", points=[[float(i), float(i)] for i in range(501)])
+
+
 # ── security: parse_expr/eval is not a safe sandbox for untrusted input ──────
 #
 # BUG FIX (was a live RCE): parse_expr evaluates its input via Python's

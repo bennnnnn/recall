@@ -1,4 +1,5 @@
 import { attachmentIdFromRef } from "@/lib/attachmentRef";
+import { MATH_CAMERA_PROMPT } from "@/lib/mathCameraPrompt";
 
 const IMAGE_MARKER = /^\[Image:\s*(.+?)\s*\]$/;
 const FILE_MARKER = /^\[File:\s*(.+?)\s*\]$/;
@@ -8,7 +9,7 @@ const FILE_ATTACHED_MARKER = /^\[File attached:/;
 const ATTACHMENT_BOILERPLATE = new Set([
   "What's in this image?",
   "Summarize this file.",
-  "Solve the math problem in this image step by step.",
+  MATH_CAMERA_PROMPT,
 ]);
 
 export function isAttachmentBoilerplate(text: string): boolean {

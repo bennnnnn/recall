@@ -53,6 +53,42 @@ def test_extract_square_intent() -> None:
     assert intent.side == 5
 
 
+@pytest.mark.parametrize(
+    "text, expected_expr",
+    [
+        ("graph x^2 please", "x**2"),
+        ("graph x^2 for me", "x**2"),
+        ("plot sin(x) and explain it", "sin(x)"),
+        ("can you graph x^2 now", "x**2"),
+    ],
+)
+def test_extract_graph_intent_strips_trailing_prose(text: str, expected_expr: str) -> None:
+    """BUG FIX regression: the graph-expr capture is greedy, so natural
+    phrasing ('graph x^2 please') used to sweep trailing conversational
+    words into the "expression" — which then failed to parse in SymPy and
+    silently disabled the verified-graph augmentation entirely."""
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "graph"
+    assert intent.expr == expected_expr
+
+
+@pytest.mark.parametrize(
+    "text, expected_expr",
+    [
+        ("differentiate x^2 please", "x^2"),
+        ("integrate x^2 for me", "x^2"),
+        ("simplify x^2 + 2x + x^2 now", "x^2 + 2x + x^2"),
+    ],
+)
+def test_extract_calculus_intent_strips_trailing_prose(text: str, expected_expr: str) -> None:
+    """Same bug as the graph case, for the calculus expr-match capture."""
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "calculus"
+    assert intent.expr == expected_expr
+
+
 @pytest.mark.asyncio
 async def test_augment_prompt_injects_geometry_block() -> None:
     settings = Settings(math_tools_enabled=True)
