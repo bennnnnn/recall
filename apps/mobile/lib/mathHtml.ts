@@ -18,8 +18,13 @@ const HEAVY_MATH_RE = /\\begin\{(multline|eqnarray)\}/i;
 export function isHeavyMath(latex: string): boolean {
   const trimmed = latex.trim();
   if (!trimmed) return false;
-  if (trimmed.length > 96) return true;
-  if (trimmed.includes("\n")) return true;
+  // Length and newlines alone used to also route here — but a multi-step
+  // \begin{aligned}...\end{aligned} derivation is exactly the kind of
+  // content that's long AND multi-line, and per the verification above it
+  // renders correctly under local, bundled KaTeX. Routing it to MathJax's
+  // CDN instead means it never renders at all when that CDN is unreachable
+  // (blank box, only the 8s-per-block fallback as a safety net) — routing
+  // it to KaTeX renders it immediately, fully offline, every time.
   return HEAVY_MATH_RE.test(trimmed);
 }
 
