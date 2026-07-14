@@ -99,6 +99,8 @@ export function FunctionGraphBlock({ content }: Props) {
               fill="none"
               stroke={theme.primary}
               strokeWidth={2.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
             />
           ))
         ) : polyline ? (
@@ -107,6 +109,8 @@ export function FunctionGraphBlock({ content }: Props) {
             fill="none"
             stroke={theme.primary}
             strokeWidth={2.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
           />
         ) : null}
         {markers.map(({ px, py }, i) => (

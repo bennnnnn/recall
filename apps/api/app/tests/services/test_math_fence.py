@@ -1,5 +1,7 @@
 """Tests for math fence validation."""
 
+import json
+
 from app.services.math_fence import validate_math_fences
 
 
@@ -124,3 +126,41 @@ def test_no_canonical_fence_falls_back_to_schema_validation_only() -> None:
     out = validate_math_fences(content, verified=_verified(None))
 
     assert out == content
+
+
+def test_densifies_sparse_continuous_graph_fence() -> None:
+    """BUG FIX: models often list only roots/intercepts in ```graph — a
+    polyline through those looks like a V instead of the real curve."""
+    content = (
+        '```graph\n{"type":"function","expr":"x**4 - 4*x**2 - 12","variable":"x",'
+        '"x_min":-3,"x_max":3,"points":[[-2,0],[0,-12],[2,0]]}\n```'
+    )
+
+    out = validate_math_fences(content)
+    assert "```graph" in out
+    assert "[-2,0],[0,-12],[2,0]" not in out.replace(" ", "")
+    # Dense enough to draw a smooth W, not three straight segments.
+    fence = out.split("```graph")[1].split("```")[0].strip()
+    data = json.loads(fence)
+    assert len(data["points"]) >= 48
+
+
+def test_leaves_point_marker_graph_undensified() -> None:
+    content = (
+        '```graph\n{"type":"function","expr":"(2, 3)","title":"Point (2, 3)","points":[[2,3]]}\n```'
+    )
+    assert validate_math_fences(content) == content
+
+
+def test_leaves_already_dense_graph_formatting_alone() -> None:
+    points = [[float(i) / 10, (float(i) / 10) ** 2] for i in range(-50, 51)]
+    payload = {
+        "type": "function",
+        "expr": "x**2",
+        "variable": "x",
+        "x_min": -5.0,
+        "x_max": 5.0,
+        "points": points,
+    }
+    content = f"```graph\n{json.dumps(payload)}\n```"
+    assert validate_math_fences(content) == content
