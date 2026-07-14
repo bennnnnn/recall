@@ -71,9 +71,18 @@ describe("math WebView HTML", () => {
       expect(pickMathEngine("\\begin{multline} a \\end{multline}")).toBe("mathjax");
     });
 
-    it("still routes long or multi-line expressions to mathjax regardless of command", () => {
-      expect(isHeavyMath("x".repeat(97))).toBe(true);
-      expect(isHeavyMath("x = 1\ny = 2")).toBe(true);
+    it("BUG FIX regression: does not route long or multi-line KaTeX-supported expressions to mathjax", () => {
+      // Reported live: a multi-step derivation (long AND multi-line — the
+      // exact shape of a \begin{aligned} block) rendered as a permanently
+      // blank box. The old length/newline heuristic routed it to MathJax's
+      // CDN despite the verification above confirming local KaTeX renders
+      // it fine — unreachable CDN meant it never rendered at all.
+      expect(isHeavyMath("x".repeat(97))).toBe(false);
+      expect(isHeavyMath("x = 1\ny = 2")).toBe(false);
+      const multiStepAligned =
+        "\\begin{aligned}\nc^2 + c^2 &= 2c^2 \\\\\n3^2 + 3^2 &= 9 + 9 = 18\n\\end{aligned}";
+      expect(isHeavyMath(multiStepAligned)).toBe(false);
+      expect(pickMathEngine(multiStepAligned)).toBe("katex");
     });
   });
 });
