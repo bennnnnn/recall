@@ -42,6 +42,10 @@ function renderFenceInner(key: string, lang: string, content: string) {
     return <WebPreviewCodeBlock key={key} code={content} lang={lang || "html"} />;
   }
   const l = lang.trim().toLowerCase();
+  // Finals before generic math — ```answer / short results get the boxed look.
+  if (isAnswerLang(l) || looksLikeMathAnswer(content)) {
+    return <AnswerBlock key={key} content={content} />;
+  }
   if (
     looksLikeLatexFence(content) &&
     l !== "python" &&
@@ -68,10 +72,6 @@ function renderFenceInner(key: string, lang: string, content: string) {
   }
   const rich = renderRichFence(lang, content, key);
   if (rich) return rich;
-  // Short finals / mis-tagged math equations — gray answer or MathBlock, never Copy.
-  if (isAnswerLang(l) || looksLikeMathAnswer(content)) {
-    return <AnswerBlock key={key} content={content} />;
-  }
   // Math diagram failures must never become a Copy template.
   if (looksLikeMathMeta(content) || isMathDiagramLang(l)) {
     return (

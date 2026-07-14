@@ -44,10 +44,10 @@ describe("copyBlock heuristics", () => {
     expect(looksLikeMathAnswer("120")).toBe(true);
     expect(looksLikeMathAnswer("$x = 3$")).toBe(true);
     expect(looksLikeMathAnswer("\\boxed{120}")).toBe(true);
-    expect(looksLikeMathAnswer("0! = 1")).toBe(true);
+    expect(looksLikeMathAnswer("x = 2")).toBe(true);
+    expect(looksLikeMathAnswer("0! = 1")).toBe(false);
     expect(isAnswerLang("answer")).toBe(true);
     expect(shouldRenderAsCopyBlock("copy", "120")).toBe(false);
-    expect(shouldRenderAsCopyBlock("copy", "0! = 1")).toBe(false);
     expect(shouldRenderAsCopyBlock("answer", "120")).toBe(false);
   });
 });

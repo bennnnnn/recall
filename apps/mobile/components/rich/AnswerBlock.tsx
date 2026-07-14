@@ -1,10 +1,11 @@
 import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-import { MathBlock } from "@/components/rich/MathView";
+import { MathFormulaWebView } from "@/components/rich/MathFormulaWebView";
 import { MathText } from "@/components/rich/MathText";
-import { looksLikeLatexFence } from "@/lib/mathFenceRetag";
+import { stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/mathFenceRetag";
 import { splitInlineMath } from "@/lib/markdownPreprocess";
+import { getPreviewWebView } from "@/lib/webView";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = { content: string };
@@ -13,12 +14,12 @@ function normalizeAnswerContent(raw: string): string {
   const text = raw.trim();
   const boxed = text.match(/^\\boxed\{([\s\S]+)\}$/);
   if (boxed) return boxed[1].trim();
-  return text;
+  return stripEmbeddedDollarWraps(stripRedundantDollarWrap(text));
 }
 
 /**
- * Final-answer / definition card — same gray surface as other math blocks,
- * no Copy affordance. Prefer MathBlock when the body is equation-like.
+ * Classic textbook boxed final answer — thin dark border hugging the equation,
+ * no Copy affordance. (```answer / short numeric finals only.)
  */
 export function AnswerBlock({ content }: Props) {
   const theme = useTheme();
@@ -26,53 +27,68 @@ export function AnswerBlock({ content }: Props) {
   const text = normalizeAnswerContent(content);
   const parts = splitInlineMath(text);
   const hasInlineMath = parts.some((p) => p.type === "math");
-
-  // Equation bodies render like every other display-math fence (gray MathBlock).
-  if (!hasInlineMath && looksLikeLatexFence(text)) {
-    return <MathBlock latex={text} />;
-  }
+  const preview = getPreviewWebView();
+  const useWebMath =
+    !hasInlineMath && preview?.mode === "rnc" && /[\\^_{}=]|[a-zA-Z]\d|\d!/.test(text);
 
   return (
-    <View style={s.wrap} accessibilityRole="text" accessibilityLabel={`Answer: ${text}`}>
-      {hasInlineMath ? (
-        <Text style={s.answer} selectable>
-          {parts.map((part, i) =>
-            part.type === "math" ? (
-              <MathText key={i} latex={part.value} textColor={theme.text} />
-            ) : (
-              <Text key={i} style={s.answer}>
-                {part.value}
-              </Text>
-            ),
-          )}
-        </Text>
-      ) : (
-        <Text style={s.answer} selectable>
-          {text}
-        </Text>
-      )}
+    <View style={s.row} accessibilityRole="text" accessibilityLabel={`Answer: ${text}`}>
+      <View style={s.box}>
+        {useWebMath ? (
+          <MathFormulaWebView
+            latex={text}
+            displayMode
+            compact
+            minHeight={36}
+            textColor={theme.text}
+            bgColor={theme.bg}
+          />
+        ) : hasInlineMath ? (
+          <Text style={s.answer} selectable>
+            {parts.map((part, i) =>
+              part.type === "math" ? (
+                <MathText key={i} latex={part.value} textColor={theme.text} />
+              ) : (
+                <Text key={i} style={s.answer}>
+                  {part.value}
+                </Text>
+              ),
+            )}
+          </Text>
+        ) : (
+          <Text style={s.answer} selectable>
+            <MathText latex={text} textColor={theme.text} />
+          </Text>
+        )}
+      </View>
     </View>
   );
 }
 
 const makeStyles = (t: Theme) =>
   StyleSheet.create({
-    wrap: {
+    row: {
       alignSelf: "stretch",
-      marginVertical: 6,
-      paddingVertical: 12,
-      paddingHorizontal: 14,
-      borderRadius: 10,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: t.border,
-      backgroundColor: t.contentSurface,
+      alignItems: "center",
+      marginVertical: 10,
+    },
+    box: {
+      alignSelf: "center",
+      maxWidth: "100%",
+      paddingVertical: 10,
+      paddingHorizontal: 18,
+      borderWidth: 1.5,
+      borderColor: t.text,
+      backgroundColor: t.bg,
+      // Slight radius keeps soft edges on mobile without looking "cardy".
+      borderRadius: 2,
       alignItems: "center",
       justifyContent: "center",
     },
     answer: {
-      fontSize: 18,
-      lineHeight: 26,
-      fontWeight: "600",
+      fontSize: 20,
+      lineHeight: 28,
+      fontWeight: "500",
       color: t.text,
       textAlign: "center",
     },
