@@ -18,8 +18,8 @@ function normalizeAnswerContent(raw: string): string {
 }
 
 /**
- * Classic textbook boxed final answer — thin dark border hugging the equation,
- * no Copy affordance. (```answer / short numeric finals only.)
+ * Final answer — same gray surface as other math blocks, no Copy affordance.
+ * (```answer / short numeric or simplified-expression finals only.)
  */
 export function AnswerBlock({ content }: Props) {
   const theme = useTheme();
@@ -77,11 +77,10 @@ const makeStyles = (t: Theme) =>
       maxWidth: "100%",
       paddingVertical: 10,
       paddingHorizontal: 18,
-      borderWidth: 1.5,
-      borderColor: t.text,
-      backgroundColor: t.bg,
-      // Slight radius keeps soft edges on mobile without looking "cardy".
-      borderRadius: 2,
+      // Same gray surface + radius as MathFormulaWebView's box — a final
+      // answer is visually just another math block, not a distinct card.
+      backgroundColor: t.contentSurface,
+      borderRadius: 10,
       alignItems: "center",
       justifyContent: "center",
     },

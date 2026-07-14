@@ -50,4 +50,25 @@ describe("copyBlock heuristics", () => {
     expect(shouldRenderAsCopyBlock("copy", "120")).toBe(false);
     expect(shouldRenderAsCopyBlock("answer", "120")).toBe(false);
   });
+
+  it("BUG FIX regression: treats a bare simplified algebraic expression (no =) as a math answer, not Copy", () => {
+    // Reported live (screenshot): a simplified result like "2c^2" has no "="
+    // and isn't a bare number, so it fell through every existing branch of
+    // looksLikeMathAnswer and landed on the generic CodeBlock fallback,
+    // which shows a "Copy" button — a final answer must never show Copy.
+    expect(looksLikeMathAnswer("2c^2")).toBe(true);
+    expect(looksLikeMathAnswer("x^2 - 4")).toBe(true);
+    expect(looksLikeMathAnswer("\\frac{1}{2}")).toBe(true);
+    expect(looksLikeMathAnswer("√2")).toBe(true);
+    expect(shouldRenderAsCopyBlock("copy", "2c^2")).toBe(false);
+    expect(shouldRenderAsCodeBlock("copy", "2c^2")).toBe(false);
+  });
+
+  it("does not misclassify plain prose as a math answer", () => {
+    // MATH_ANSWER_CHARS_RE alone would allow "the answer is" (letters +
+    // spaces) — the digit/operator + two-real-words guards must reject it.
+    expect(looksLikeMathAnswer("the answer")).toBe(false);
+    expect(looksLikeMathAnswer("Great job")).toBe(false);
+    expect(looksLikeMathAnswer("Copy")).toBe(false);
+  });
 });
