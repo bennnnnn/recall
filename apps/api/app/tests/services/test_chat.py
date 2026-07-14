@@ -255,6 +255,18 @@ def test_format_hints_discourage_tables_for_how_tos():
         assert "pipe table" in blob.lower() or "pipe tables" in blob.lower()
 
 
+def test_math_formula_shape_rule_is_unified():
+    """Global hints and math-solver hints must agree: inline $ for steps,
+    ```math only for standalone display — not contradictory guidance."""
+    from app.services.chat.prompt_constants import INTENT_FORMAT_HINT, MATH_SOLVER_HINT
+
+    for blob in (INTENT_FORMAT_HINT, MATH_SOLVER_HINT):
+        assert "inline" in blob.lower()
+        assert "standalone" in blob.lower()
+        # Must not tell the model to put step formulas in ```math fences.
+        assert "NEVER indent a ```math fence inside that list item" not in blob
+
+
 @pytest.mark.asyncio
 async def test_build_prompt_injects_custom_instructions():
     user = MagicMock()

@@ -3,6 +3,10 @@
 When ``mcp_tool_loop_enabled`` is on, run bounded non-streaming tool rounds
 before the user-visible stream. Pre-stream heuristic MCP / web-search
 injection is skipped for those turns (see prompt_builder).
+
+SymPy tool results that carry a ``canonical_fence`` in ``ToolResult.data`` are
+collected so ``validate_math_fences`` can still overwrite/densify geometry and
+graph fences the same way the heuristic math_tools path does.
 """
 
 from __future__ import annotations
@@ -15,6 +19,7 @@ from typing import Any
 from app.core.config import Settings
 from app.gateways import litellm_gateway
 from app.gateways.mcp import registry as mcp_registry
+from app.services.math_tools import VerifiedMathBlock
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +34,14 @@ def _status_for_tool(name: str) -> str:
     return "thinking"
 
 
+def _canonical_from_tool_result(result: Any) -> dict[str, Any] | None:
+    data = getattr(result, "data", None)
+    if not isinstance(data, dict):
+        return None
+    fence = data.get("canonical_fence")
+    return fence if isinstance(fence, dict) else None
+
+
 async def run_tool_rounds(
     *,
     settings: Settings,
@@ -37,17 +50,23 @@ async def run_tool_rounds(
     usage: dict[str, int],
     on_status: StreamStatusFn | None = None,
     should_cancel: Callable[[], bool] | None = None,
-) -> list[dict[str, Any]]:
-    """Mutate a copy of *messages* through up to ``mcp_tool_loop_max_rounds`` tool rounds."""
+) -> tuple[list[dict[str, Any]], VerifiedMathBlock | None]:
+    """Mutate a copy of *messages* through up to ``mcp_tool_loop_max_rounds`` tool rounds.
+
+    Returns ``(messages, verified_math)``. ``verified_math`` is set when any
+    sympy tool call returned a ``canonical_fence`` (last one wins) so post-stream
+    fence validation matches the heuristic math_tools path.
+    """
     if not settings.mcp_tool_loop_enabled:
-        return messages
+        return messages, None
 
     tools = mcp_registry.build_openai_tools()
     if not tools:
-        return messages
+        return messages, None
 
     working: list[dict[str, Any]] = [dict(m) for m in messages]
     max_rounds = max(1, settings.mcp_tool_loop_max_rounds)
+    last_canonical: dict[str, Any] | None = None
 
     for _ in range(max_rounds):
         if should_cancel and should_cancel():
@@ -90,6 +109,9 @@ async def run_tool_rounds(
                 await on_status(_status_for_tool(name))
             result = await mcp_registry.invoke_validated(name, raw_args)
             content = result.content if result else f"Unknown tool: {name}"
+            fence = _canonical_from_tool_result(result) if result else None
+            if fence is not None:
+                last_canonical = fence
             working.append(
                 {
                     "role": "tool",
@@ -98,7 +120,12 @@ async def run_tool_rounds(
                 }
             )
 
-    return working
+    verified = (
+        VerifiedMathBlock(text="", canonical_fence=last_canonical)
+        if last_canonical is not None
+        else None
+    )
+    return working, verified
 
 
 def dump_tool_debug(messages: list[dict[str, Any]]) -> str:

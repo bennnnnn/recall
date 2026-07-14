@@ -88,9 +88,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Image generation (Pro)** — Composer **Generate image** opens a prompt sheet; Pro users get
   daily-limited generations stored as chat attachments. Tap the result to view full-screen and save
   via the system share sheet.
-- ✅ **Math / LaTeX** — inline `$...$` and ` ```math` fences render as native text with
-  superscripts (x², ±, √). Server-side **SymPy** solves equations and samples graphs before the
-  LLM explains (verified numbers injected into the prompt).
+- ✅ **Math / LaTeX** — inline `$...$` renders as native text (superscripts, √, fractions);
+  display ` ```math` uses KaTeX (or MathJax for heavy expressions) in a WebView on a
+  **dev build**, with native/`MathText` fallback in Expo Go. Server-side **SymPy**
+  solves equations and samples graphs before the LLM explains (verified numbers /
+  fences injected into the prompt; post-stream fence correction). See [docs/math.md](./docs/math.md).
 - ✅ **Geometry diagrams** — ` ```geometry` JSON fences render labeled rectangles (diagonal, angle)
   via native SVG (`react-native-svg`; works in Expo Go).
 - ✅ **Function graphs** — ` ```graph` JSON fences plot y=f(x) from server-computed point arrays

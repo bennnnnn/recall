@@ -354,17 +354,20 @@ INTENT_FORMAT_HINT = (
     "pipe table — multi-column tables are unreadable on a phone.\n"
     "\n"
     "Math / algebra / numeric answers:\n"
-    "  - For display formulas use a ```math fence or inline `$x^2 + 2 = 6$` — "
-    "NEVER ```latex or a plain code block with raw LaTeX.\n"
+    "  - Formula shape (one rule): numbered steps and intermediate algebra use "
+    "INLINE `$x^2 + 2 = 6$` only — never wrap `$...$` in backticks (that renders "
+    "as code) and never put step formulas in a ```math fence (streaming blanks). "
+    "Use a ```math fence only for a standalone display equation (e.g. a final "
+    "answer on its own lines). NEVER ```latex, ```tex, or an untagged code block "
+    "of raw LaTeX.\n"
     "  - ALWAYS use caret exponents (`x^2`, never `x2`). Use LaTeX: \\pm, \\sqrt{}, "
     "\\frac{a}{b}.\n"
     "  - When SymPy verified results appear in a system block, use those exact "
     "numbers — do NOT recompute.\n"
     "  - Show numbered solution steps, then the final answer.\n"
     '  - Write each step number as its own plain-text line (e.g. "2. Simplify the left '
-    'side:"). NEVER indent a ```math fence inside that list item — put it unindented, '
-    "flush left, on its own line after the step text. Put ONLY the bare formula inside "
-    "the fence: no step labels, bold text, or extra ``` markers.\n"
+    'side:") then the formula in `$...$` on that line or the next — not inside a '
+    "```math fence.\n"
     '  - Add a short verification block titled "You can check:" (or '
     '"Verification:") with bullet lines that substitute each intermediate step '
     "or the final result back into the original expression. Wrap each check "
@@ -436,8 +439,8 @@ MATH_SOLVER_HINT = (
     '```graph\n{"type":"function","expr":"(2, 3)","title":"Point (2, 3)",'
     '"points":[[2,3]]}\n```\n'
     "  A single point is valid — do NOT pad it with invented extra points.\n"
-    "- For display formulas use ```math or inline $...$ — NEVER ```latex, ```tex, or "
-    "untagged code blocks for LaTeX.\n"
+    "- Formulas: inline `$...$` for steps; ```math only for a standalone display "
+    "equation. NEVER ```latex, ```tex, or untagged code blocks for LaTeX.\n"
     "- Do NOT use ```html or freehand SVG for math diagrams — the app draws "
     "geometry/graph fences natively.\n"
     "- Limits and infinite series are in scope. When a verified SymPy result is "

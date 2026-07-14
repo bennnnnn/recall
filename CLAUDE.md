@@ -10,7 +10,7 @@ A personal mobile AI chat app that remembers the user's preferences, projects, a
 4. **Topic generation and memory extraction are best-effort background jobs.** They must never raise into the chat request path or block streaming.
 5. **No arbitrary code execution — one sandboxed exception.** Code in messages is rendered/highlighted only, with a single exception: **HTML/CSS/JS may be previewed in a sandboxed WebView** (and charts/diagrams rendered from model output). Never execute Python, shell, or any other language, and never run code anywhere except inside the isolated preview WebView (no app token is ever exposed to it). The preview WebView requires a dev build — it does not work in Expo Go.
 6. **All LLM structured outputs are validated with Pydantic** before they touch the DB.
-7. **Symbolic math runs server-side only (SymPy).** The mobile app renders verified results and structured `geometry` / `graph` fences — it never solves equations on-device.
+7. **Symbolic math runs server-side only (SymPy).** The mobile app renders verified results and structured `geometry` / `graph` fences — it never solves equations on-device. Pipeline map: [docs/math.md](./docs/math.md).
 
 ## Service Overview
 

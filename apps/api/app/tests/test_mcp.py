@@ -105,3 +105,27 @@ async def test_sympy_adapter_solve_times_out_instead_of_blocking(monkeypatch):
             timeout=5,
         )
     assert "timed out" in result.content
+
+
+@pytest.mark.asyncio
+async def test_sympy_adapter_rectangle_includes_canonical_fence():
+    adapter = SympyAdapter(Settings())
+    result = await adapter.invoke({"action": "rectangle", "width": 8, "height": 5, "unit": "cm"})
+    assert result.data is not None
+    fence = result.data["canonical_fence"]
+    assert fence["type"] == "rectangle"
+    assert fence["width"] == 8.0
+    assert fence["height"] == 5.0
+    assert "```geometry" in result.content
+
+
+@pytest.mark.asyncio
+async def test_sympy_adapter_graph_includes_canonical_fence():
+    adapter = SympyAdapter(Settings())
+    result = await adapter.invoke({"action": "graph", "expr": "x**2", "x_min": -2, "x_max": 2})
+    assert result.data is not None
+    fence = result.data["canonical_fence"]
+    assert fence["type"] == "function"
+    assert fence["expr"] == "x**2"
+    assert len(fence["points"]) >= 2
+    assert "```graph" in result.content

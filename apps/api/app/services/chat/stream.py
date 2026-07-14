@@ -478,7 +478,7 @@ async def stream_and_finalize(
             ):
                 from app.services import tool_loop as tool_loop_service
 
-                ctx.prompt_messages = await tool_loop_service.run_tool_rounds(
+                ctx.prompt_messages, tool_verified = await tool_loop_service.run_tool_rounds(
                     settings=settings,
                     model_alias=ctx.model,
                     messages=ctx.prompt_messages,
@@ -486,6 +486,12 @@ async def stream_and_finalize(
                     on_status=on_status,
                     should_cancel=should_cancel,
                 )
+                # Heuristic math_tools is skipped when the tool loop is on —
+                # carry sympy canonical fences so validate_math_fences still
+                # overwrites/densifies geometry and graph JSON.
+                if tool_verified is not None:
+                    ctx.verified_math = tool_verified
+
             if on_status is not None and not chat_pkg.model_catalog.is_reasoning_alias(ctx.model):
                 await on_status("composing")
             stream_meta: dict[str, str] = {}

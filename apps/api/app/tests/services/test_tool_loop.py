@@ -26,13 +26,14 @@ def web_search_registered():
 @pytest.mark.asyncio
 async def test_tool_loop_disabled_passthrough():
     messages = [{"role": "user", "content": "hi"}]
-    out = await tool_loop.run_tool_rounds(
+    out, verified = await tool_loop.run_tool_rounds(
         settings=_settings(mcp_tool_loop_enabled=False),
         model_alias="free-chat",
         messages=messages,
         usage={},
     )
     assert out == messages
+    assert verified is None
 
 
 @pytest.mark.asyncio
@@ -68,7 +69,7 @@ async def test_tool_loop_single_web_search_round(web_search_registered):
         patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
         patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
     ):
-        out = await tool_loop.run_tool_rounds(
+        out, verified = await tool_loop.run_tool_rounds(
             settings=_settings(mcp_tool_loop_enabled=True, mcp_tool_loop_max_rounds=3),
             model_alias="free-chat",
             messages=messages,
@@ -81,6 +82,7 @@ async def test_tool_loop_single_web_search_round(web_search_registered):
     assert statuses == ["searching"]
     assert any(m.get("role") == "tool" for m in out)
     assert any(m.get("role") == "assistant" and m.get("tool_calls") for m in out)
+    assert verified is None
 
 
 @pytest.mark.asyncio
@@ -109,6 +111,60 @@ async def test_tool_loop_max_rounds(web_search_registered):
 
     assert complete.await_count == 2
     assert invoke.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_tool_loop_collects_sympy_canonical_fence(web_search_registered):
+    """When sympy returns a diagram fence in ToolResult.data, surface it as
+    VerifiedMathBlock so post-stream validate_math_fences can overwrite."""
+    messages = [{"role": "user", "content": "graph y=x^2"}]
+    fence = {
+        "type": "function",
+        "expr": "x**2",
+        "variable": "x",
+        "x_min": -10.0,
+        "x_max": 10.0,
+        "points": [[-1.0, 1.0], [0.0, 0.0], [1.0, 1.0]],
+        "segments": [],
+    }
+    complete = AsyncMock(
+        side_effect=[
+            {
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": "s1",
+                        "type": "function",
+                        "function": {
+                            "name": "sympy",
+                            "arguments": '{"action": "graph", "expr": "x**2"}',
+                        },
+                    }
+                ],
+            },
+            {"content": "plotted", "tool_calls": []},
+        ]
+    )
+    invoke = AsyncMock(
+        return_value=MagicMock(
+            content="sampled",
+            data={"canonical_fence": fence},
+        )
+    )
+
+    with (
+        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
+        patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
+    ):
+        _out, verified = await tool_loop.run_tool_rounds(
+            settings=_settings(mcp_tool_loop_enabled=True, mcp_tool_loop_max_rounds=3),
+            model_alias="free-chat",
+            messages=messages,
+            usage={},
+        )
+
+    assert verified is not None
+    assert verified.canonical_fence == fence
 
 
 @pytest.mark.asyncio

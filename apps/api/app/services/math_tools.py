@@ -569,14 +569,12 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
             result = math_service.solve_equation(eq)
             lines.extend(result.steps)
             lines.append(
-                "Emit each formula as INLINE $...$ math — do NOT wrap math in "
-                "backticks (`` `$...$` `` renders as raw code) and do NOT use "
-                "```math block fences for step equations (they render late, "
-                "leaving blank gaps during streaming). Inline $...$ renders in "
-                "sync with the step text. Do NOT recompute the solutions. Show "
-                "worked steps by COPYING the verified steps above verbatim — do "
-                "NOT derive intermediate algebra yourself. Keep any spacing "
-                "(e.g. \\quad) INSIDE the $...$ math delimiters so it renders."
+                "Formula shape: INLINE $...$ for every step (never backticks around "
+                "`$...$`; never ```math for step equations — those stream blank). "
+                "A ```math fence is OK only for a standalone final display equation. "
+                "Do NOT recompute the solutions. Show worked steps by COPYING the "
+                "verified steps above verbatim — do NOT derive intermediate algebra "
+                "yourself. Keep any spacing (e.g. \\quad) INSIDE the $...$ delimiters."
             )
             return VerifiedMathBlock(text="\n".join(lines))
 
@@ -595,10 +593,10 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
             sys_result = math_service.solve_system(sys_input)
             lines.extend(sys_result.steps)
             lines.append(
-                "Emit each formula as INLINE $...$ math — do NOT wrap math in "
-                "backticks (`` `$...$` `` renders as raw code). Do NOT recompute "
-                "the solutions. Show worked steps by COPYING the verified steps "
-                "above verbatim — do NOT derive intermediate algebra yourself."
+                "Formula shape: INLINE $...$ for every step (never backticks around "
+                "`$...$`; never ```math for step equations). Do NOT recompute the "
+                "solutions. Show worked steps by COPYING the verified steps above "
+                "verbatim — do NOT derive intermediate algebra yourself."
             )
             return VerifiedMathBlock(text="\n".join(lines))
 
