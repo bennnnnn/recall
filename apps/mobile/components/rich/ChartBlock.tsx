@@ -69,6 +69,7 @@ export function ChartBlock({ content }: Props) {
   const [showSource, setShowSource] = useState(false);
 
   const vegaHtml = useMemo(() => buildVegaHtml(content, theme), [content, theme]);
+  const source = useMemo(() => ({ html: vegaHtml }), [vegaHtml]);
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;
   const canRenderInlineChart = previewWebView?.mode === "rnc";
@@ -105,7 +106,7 @@ export function ChartBlock({ content }: Props) {
           canMount ? (
             <WebView
               originWhitelist={["*"]}
-              source={{ html: vegaHtml }}
+              source={source}
               style={{
                 height: expanded ? PREVIEW_HEIGHT * 2 : PREVIEW_HEIGHT,
               }}

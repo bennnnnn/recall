@@ -1,3 +1,4 @@
+import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { MathFormulaWebView } from "@/components/rich/MathFormulaWebView";
@@ -12,7 +13,7 @@ export function MathInline({ latex }: { latex: string }) {
   return <MathText latex={latex.trim()} textColor={theme.text} />;
 }
 
-export function MathBlock({ latex }: { latex: string }) {
+export const MathBlock = React.memo(function MathBlock({ latex }: { latex: string }) {
   const theme = useTheme();
   const s = makeStyles(theme);
   const trimmed = stripEmbeddedDollarWraps(stripRedundantDollarWrap(latex.trim()));
@@ -25,8 +26,8 @@ export function MathBlock({ latex }: { latex: string }) {
   if (lines.length > 1) {
     return (
       <View style={s.wrap}>
-        {lines.map((line, i) => (
-          <MathBlock key={i} latex={line} />
+        {lines.map((line) => (
+          <MathBlock key={`line:${line}`} latex={line} />
         ))}
       </View>
     );
@@ -54,7 +55,7 @@ export function MathBlock({ latex }: { latex: string }) {
       </Text>
     </View>
   );
-}
+});
 
 const makeStyles = (theme: Theme) =>
   StyleSheet.create({

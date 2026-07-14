@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import {
@@ -12,6 +12,8 @@ import { getPreviewWebView, useStaticOnlyNavigation } from "@/lib/webView";
 import { Theme, useTheme } from "@/lib/theme";
 
 const MAX_HEIGHT = 320;
+/** Ignore sub-pixel / font-settle chatter so the chat list doesn't bounce. */
+const HEIGHT_EPSILON_PX = 4;
 
 type Props = {
   latex: string;
@@ -34,7 +36,25 @@ function parseHeightMessage(raw: string): number | null {
   return null;
 }
 
-export function MathFormulaWebView({
+function estimateInitialHeight(
+  latex: string,
+  displayMode: boolean,
+  compact: boolean,
+  minHeight: number | undefined,
+): number {
+  if (minHeight != null) return minHeight;
+  if (compact) return 28;
+  const lines = Math.max(1, latex.trim().split("\n").length);
+  if (displayMode) {
+    // Fractions / matrices need more vertical room; prefer overestimate so we
+    // grow less often (growth causes list shake; shrink almost never helps).
+    if (/\\frac|\\begin\{|\\sqrt/.test(latex)) return Math.min(MAX_HEIGHT, 72 + lines * 12);
+    return Math.min(MAX_HEIGHT, 52 + lines * 10);
+  }
+  return 32;
+}
+
+export const MathFormulaWebView = React.memo(function MathFormulaWebView({
   latex,
   displayMode = false,
   compact = false,
@@ -67,26 +87,35 @@ export function MathFormulaWebView({
       compact,
     ],
   );
+  // Stable identity — a fresh `{ html }` object every render reloads the
+  // native WebView (full flicker) even when the HTML string is unchanged.
+  const source = useMemo(() => ({ html }), [html]);
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;
   const canRenderInline = previewWebView?.mode === "rnc";
   const { canMount, onLoaded } = useDeferredWebViewMount(Boolean(WebView) && canRenderInline);
   const onShouldStartLoadWithRequest = useStaticOnlyNavigation(html);
-  const defaultHeight = compact ? 28 : displayMode ? 48 : 32;
-  const [height, setHeight] = useState(minHeight ?? defaultHeight);
+  const initialHeight = estimateInitialHeight(latex, displayMode, compact, minHeight);
+  const [height, setHeight] = useState(initialHeight);
+  const heightRef = useRef(initialHeight);
 
   useEffect(() => {
-    setHeight(minHeight ?? defaultHeight);
-  }, [latex, minHeight, defaultHeight]);
+    heightRef.current = initialHeight;
+    setHeight(initialHeight);
+  }, [latex, initialHeight]);
 
   const onMessage = useCallback(
     (event: { nativeEvent: { data: string } }) => {
       const next = parseHeightMessage(event.nativeEvent.data);
-      if (next != null) {
-        setHeight(Math.min(MAX_HEIGHT, Math.max(minHeight ?? defaultHeight, next)));
-      }
+      if (next == null) return;
+      const clamped = Math.min(MAX_HEIGHT, Math.max(minHeight ?? initialHeight, next));
+      // Prefer growing over shrinking/chatter — shrinking after fonts settle
+      // is what makes the whole assistant bubble jump.
+      if (clamped <= heightRef.current + HEIGHT_EPSILON_PX) return;
+      heightRef.current = clamped;
+      setHeight(clamped);
     },
-    [defaultHeight, minHeight],
+    [initialHeight, minHeight],
   );
 
   if (!WebView || !canRenderInline) {
@@ -94,14 +123,24 @@ export function MathFormulaWebView({
   }
 
   if (!canMount) {
-    return <MathLoadingPlaceholder latex={latex} compact={compact} theme={theme} />;
+    // Reserve space — never flash raw LaTeX here (that reads as flicker).
+    return (
+      <View
+        style={[
+          s.wrap,
+          compact ? s.wrapCompact : null,
+          displayMode ? s.wrapBlock : null,
+          { height: initialHeight, backgroundColor: bgColor ?? theme.contentSurface },
+        ]}
+      />
+    );
   }
 
   return (
     <View style={[s.wrap, compact ? s.wrapCompact : null, displayMode ? s.wrapBlock : null]}>
       <WebView
         originWhitelist={["*"]}
-        source={{ html }}
+        source={source}
         style={{ height, backgroundColor: "transparent" }}
         scrollEnabled={false}
         javaScriptEnabled
@@ -114,31 +153,7 @@ export function MathFormulaWebView({
       />
     </View>
   );
-}
-
-/**
- * Shown while a WebView slot is granted (see useDeferredWebViewMount) —
- * distinct from MathLatexFallback because the WebView *is* available here,
- * just deferred a beat, so it must not claim a dev build is required.
- */
-function MathLoadingPlaceholder({
-  latex,
-  compact,
-  theme,
-}: {
-  latex: string;
-  compact?: boolean;
-  theme: Theme;
-}) {
-  const s = makeStyles(theme);
-  return (
-    <View style={[s.fallback, compact ? s.fallbackCompact : null]}>
-      <Text style={s.fallbackText} selectable>
-        {latex.trim()}
-      </Text>
-    </View>
-  );
-}
+});
 
 function MathLatexFallback({
   latex,

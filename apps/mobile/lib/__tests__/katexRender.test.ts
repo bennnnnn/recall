@@ -20,5 +20,9 @@ describe("buildKatexStaticWebHtml", () => {
     expect(html).toContain("<!DOCTYPE html>");
     expect(html).toContain('class="katex"');
     expect(html).toContain("ReactNativeWebView");
+    // Single delayed height settle — not the old 40/250/800 triple (list shake).
+    expect(html).toContain("setTimeout(postHeight, 300)");
+    expect(html).not.toContain("setTimeout(postHeight, 250)");
+    expect(html).not.toContain("setTimeout(postHeight, 800)");
   });
 });

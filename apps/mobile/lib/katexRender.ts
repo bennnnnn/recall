@@ -71,10 +71,12 @@ ${inner}
   }
   if (document.fonts && document.fonts.ready) {
     document.fonts.ready.then(postHeight).catch(postHeight);
+  } else {
+    setTimeout(postHeight, 40);
   }
-  setTimeout(postHeight, 40);
-  setTimeout(postHeight, 250);
-  setTimeout(postHeight, 800);
+  // One late settle for CDN font swap — avoid the old 40/250/800 triple-post
+  // which resized the chat bubble three times and looked like shaking.
+  setTimeout(postHeight, 300);
 })();
 </script>
 </body>

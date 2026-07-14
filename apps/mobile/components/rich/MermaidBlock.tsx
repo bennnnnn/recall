@@ -61,6 +61,7 @@ export function MermaidBlock({ content }: Props) {
   const [showSource, setShowSource] = useState(false);
 
   const mermaidHtml = useMemo(() => buildMermaidHtml(content.trim(), theme), [content, theme]);
+  const source = useMemo(() => ({ html: mermaidHtml }), [mermaidHtml]);
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;
   const canRenderInline = previewWebView?.mode === "rnc";
@@ -99,7 +100,7 @@ export function MermaidBlock({ content }: Props) {
           <View style={s.webWrap}>
             <WebView
               originWhitelist={["*"]}
-              source={{ html: mermaidHtml }}
+              source={source}
               scrollEnabled={false}
               style={s.webview}
               javaScriptEnabled
