@@ -66,4 +66,17 @@ describe("FunctionGraphBlock", () => {
     const { getByText } = await render(<FunctionGraphBlock content="not json" />);
     expect(getByText("Could not render function graph.")).toBeOnTheScreen();
   });
+
+  it("BUG FIX regression: renders a vertical line fence (x = c)", async () => {
+    const content = JSON.stringify({
+      type: "vertical",
+      x: 4,
+      y_min: -5,
+      y_max: 5,
+      title: "x = 4",
+    });
+    const { getByText, toJSON } = await render(<FunctionGraphBlock content={content} />);
+    expect(getByText("x = 4")).toBeOnTheScreen();
+    expect(JSON.stringify(toJSON())).toContain("RNSVGSvgView");
+  });
 });
