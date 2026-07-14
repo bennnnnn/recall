@@ -176,6 +176,24 @@ describe("graphBlock", () => {
     expect(spec?.points.length).toBe(3);
   });
 
+  it("BUG FIX regression: parses type=vertical fences (x = c)", () => {
+    const spec = parseGraphSpec(
+      JSON.stringify({
+        type: "vertical",
+        x: 4,
+        y_min: -5,
+        y_max: 5,
+        title: "x = 4",
+      }),
+    );
+    expect(spec?.type).toBe("vertical");
+    expect(spec?.x).toBe(4);
+    expect(spec?.points).toEqual([
+      [4, -5],
+      [4, 5],
+    ]);
+  });
+
   it("builds polyline points", () => {
     const points: [number, number][] = [
       [-2, 4],

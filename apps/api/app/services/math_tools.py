@@ -128,6 +128,17 @@ _GRAPH_EXPR = re.compile(
     re.IGNORECASE,
 )
 
+# "graph x = 4", "draw the vertical line x=4", "plot x = -2"
+_VERTICAL_LINE = re.compile(
+    r"(?:"
+    r"(?:graph|plot|draw|show|sketch|visuali[sz]e)\s+(?:the\s+)?"
+    r"(?:vertical\s+line\s+)?(?:at\s+)?x\s*=\s*(?P<x>-?\d+(?:\.\d+)?)"
+    r"|"
+    r"vertical\s+line\s+(?:at\s+)?x\s*=\s*(?P<x2>-?\d+(?:\.\d+)?)"
+    r")",
+    re.IGNORECASE,
+)
+
 _CALC_OP = re.compile(
     r"\b(simplify|differentiate|derivative|integrate|integral)\b",
     re.IGNORECASE,
@@ -306,6 +317,8 @@ def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> boo
         return True
     if _GRAPH_EXPR.search(cleaned):
         return True
+    if _VERTICAL_LINE.search(cleaned):
+        return True
     if _CALC_OP.search(cleaned):
         return True
     if (
@@ -436,9 +449,22 @@ def extract_math_intent(text: str) -> MathIntent | None:
             operation="graph",
         )
 
+    vertical = _VERTICAL_LINE.search(cleaned)
+    if vertical:
+        x_raw = vertical.group("x") or vertical.group("x2")
+        return MathIntent(
+            kind="vertical",
+            point_x=float(x_raw),
+            operation="graph",
+        )
+
     graph = _GRAPH_EXPR.search(cleaned)
     if graph:
         expr = _strip_trailing_filler(graph.group("expr")).replace("^", "**")
+        # "graph x = 4" also matches _GRAPH_EXPR loosely — prefer vertical.
+        vert_eq = re.match(r"^x\s*=\s*(-?\d+(?:\.\d+)?)$", expr.strip(), re.IGNORECASE)
+        if vert_eq:
+            return MathIntent(kind="vertical", point_x=float(vert_eq.group(1)), operation="graph")
         return MathIntent(kind="graph", expr=expr, operation="graph")
 
     calc = _CALC_OP.search(cleaned)
@@ -804,6 +830,26 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
                 f"```graph\n{json.dumps(point_spec.model_dump(), separators=(',', ':'))}\n```"
             )
             return VerifiedMathBlock(text="\n".join(lines), canonical_fence=point_spec.model_dump())
+
+        if intent.kind == "vertical" and intent.point_x is not None:
+            vx = float(intent.point_x)
+            y_min, y_max = -10.0, 10.0
+            vert_spec = GraphBlockSpec(
+                type="vertical",
+                x=vx,
+                y_min=y_min,
+                y_max=y_max,
+                expr=f"x = {vx:g}",
+                title=f"x = {vx:g}",
+            )
+            lines.append(f"Vertical line: x = {vx:g} (from y = {y_min:g} to y = {y_max:g})")
+            lines.append(
+                "When a plot helps, emit ONLY this fence ONCE — no 'corrected/final graph "
+                "spec' heading, and do NOT paste points in prose "
+                "(the app renders the fence as an SVG):\n"
+                f"```graph\n{json.dumps(vert_spec.model_dump(), separators=(',', ':'))}\n```"
+            )
+            return VerifiedMathBlock(text="\n".join(lines), canonical_fence=vert_spec.model_dump())
 
         if intent.kind == "graph" and intent.expr:
             sample = math_service.sample_function(

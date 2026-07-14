@@ -49,13 +49,20 @@ def test_validates_circle_geometry_fence() -> None:
 def test_replaces_invalid_geometry_fence() -> None:
     content = "```geometry\n{bad json\n```"
     out = validate_math_fences(content)
-    assert "Invalid geometry block" in out
+    assert "Could not render that diagram" in out
+    assert "Invalid geometry block" not in out
 
 
 def test_replaces_invalid_graph_fence_with_empty_points() -> None:
     content = '```graph\n{"type":"function","expr":"x","points":[]}\n```'
     out = validate_math_fences(content)
-    assert "Invalid graph block" in out
+    assert "Could not render that diagram" in out
+    assert "Invalid graph block" not in out
+
+
+def test_vertical_line_graph_fence_validates() -> None:
+    content = '```graph\n{"type":"vertical","x":4,"y_min":-5,"y_max":5,"title":"x = 4"}\n```'
+    assert validate_math_fences(content) == content
 
 
 def test_validates_single_point_graph_fence() -> None:

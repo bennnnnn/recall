@@ -276,15 +276,20 @@ class GeometryBlockSpec(BaseModel):
 
 
 class GraphBlockSpec(BaseModel):
-    type: Literal["function"] = "function"
+    type: Literal["function", "vertical"] = "function"
     # Same bounds as every other math input model in this file (EquationInput,
     # GraphSampleInput, MathImageExtract) — this one was missing them, an
     # inconsistency worth closing even though this field is currently
     # display-only (math_fence.py never re-parses it through SymPy).
-    expr: str = Field(min_length=1, max_length=256)
+    expr: str = Field(default="", max_length=256)
     variable: str = Field(default="x", min_length=1, max_length=8)
     x_min: float = -10.0
     x_max: float = 10.0
+    # Vertical-line fences (`type: "vertical"`) use `x` + y-range instead of
+    # sampling y=f(x). Kept optional so ordinary function fences remain unchanged.
+    x: float | None = None
+    y_min: float | None = None
+    y_max: float | None = None
     title: str | None = None
     # Matches GraphSampleInput.n's upper bound (le=500) — the model never
     # legitimately needs more points than the canonical sample it was given.
@@ -295,16 +300,32 @@ class GraphBlockSpec(BaseModel):
     # still validates and renders exactly as before.
     segments: list[list[list[float]]] = Field(default_factory=list, max_length=500)
 
-    @field_validator("points")
-    @classmethod
-    def points_need_at_least_one(cls, value: list[list[float]]) -> list[list[float]]:
-        # A function curve needs 2+ points to draw a line, but marking a
-        # single coordinate (e.g. "plot the point (2, 3)") is a single point
-        # by definition — requiring 2+ made that a validation error, replaced
-        # with an "Invalid graph block" fallback instead of rendering.
-        if len(value) < 1:
+    @model_validator(mode="after")
+    def vertical_or_function_shape(self) -> GraphBlockSpec:
+        if self.type == "vertical":
+            if self.x is None:
+                raise ValueError("vertical graph requires x")
+            y_lo = -10.0 if self.y_min is None else float(self.y_min)
+            y_hi = 10.0 if self.y_max is None else float(self.y_max)
+            if y_hi <= y_lo:
+                raise ValueError("vertical graph requires y_max > y_min")
+            self.y_min = y_lo
+            self.y_max = y_hi
+            self.x_min = float(self.x) - 5.0
+            self.x_max = float(self.x) + 5.0
+            if not self.expr.strip():
+                self.expr = f"x = {float(self.x):g}"
+            if not self.title:
+                self.title = self.expr
+            if len(self.points) < 2:
+                self.points = [[float(self.x), y_lo], [float(self.x), y_hi]]
+            self.segments = []
+            return self
+        if not self.expr.strip():
+            raise ValueError("function graph requires expr")
+        if len(self.points) < 1:
             raise ValueError("graph points need at least one coordinate")
-        return value
+        return self
 
 
 class MathIntent(BaseModel):
@@ -318,6 +339,7 @@ class MathIntent(BaseModel):
         "circle",
         "point",
         "graph",
+        "vertical",
         "calculus",
         "limit",
         "series",

@@ -1,9 +1,13 @@
 export type GraphSpec = {
-  type: "function";
+  type: "function" | "vertical";
   expr: string;
   variable?: string;
   x_min?: number;
   x_max?: number;
+  /** Vertical line at this x (when type is "vertical"). */
+  x?: number;
+  y_min?: number;
+  y_max?: number;
   title?: string | null;
   points: [number, number][];
   // points split at a likely discontinuity (e.g. a tan(x) vertical
@@ -40,11 +44,47 @@ export function downsamplePoints(
   return out;
 }
 
+function parseVerticalGraph(row: Record<string, unknown>): GraphSpec | null {
+  const x = Number(row.x);
+  if (!Number.isFinite(x)) return null;
+  const yMin = Number(row.y_min ?? -10);
+  const yMax = Number(row.y_max ?? 10);
+  if (!Number.isFinite(yMin) || !Number.isFinite(yMax) || yMax <= yMin) return null;
+  const expr = String(row.expr ?? `x = ${x}`).trim() || `x = ${x}`;
+  if (expr.length > MAX_GRAPH_EXPR_LENGTH) return null;
+  const pointsRaw = row.points;
+  let points: [number, number][] = [
+    [x, yMin],
+    [x, yMax],
+  ];
+  if (Array.isArray(pointsRaw) && pointsRaw.length >= 2) {
+    const parsed = pointsRaw
+      .map(normalizePoint)
+      .filter((p): p is [number, number] => p != null);
+    if (parsed.length >= 2) points = parsed;
+  }
+  return {
+    type: "vertical",
+    expr,
+    variable: String(row.variable ?? "x"),
+    x,
+    y_min: yMin,
+    y_max: yMax,
+    x_min: Number(row.x_min ?? x - 5),
+    x_max: Number(row.x_max ?? x + 5),
+    title: row.title != null ? String(row.title) : expr,
+    points,
+  };
+}
+
 export function parseGraphSpec(raw: string): GraphSpec | null {
   try {
     const data = JSON.parse(raw.trim()) as unknown;
     if (!data || typeof data !== "object") return null;
     const row = data as Record<string, unknown>;
+    if (row.type === "vertical") {
+      return parseVerticalGraph(row);
+    }
     if (row.type !== "function") return null;
     const expr = String(row.expr ?? "").trim();
     if (!expr || expr.length > MAX_GRAPH_EXPR_LENGTH) return null;

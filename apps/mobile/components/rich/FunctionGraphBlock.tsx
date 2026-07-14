@@ -41,12 +41,23 @@ export function FunctionGraphBlock({ content }: Props) {
     );
   }
 
-  const bounds = graphBounds(spec.points);
+  const title =
+    spec.title ?? (spec.type === "vertical" ? spec.expr : `y = ${spec.expr}`);
+  const bounds =
+    spec.type === "vertical" && spec.x != null
+      ? {
+          xMin: (spec.x_min ?? spec.x - 5),
+          xMax: (spec.x_max ?? spec.x + 5),
+          yMin: spec.y_min ?? Math.min(...spec.points.map((p) => p[1])),
+          yMax: spec.y_max ?? Math.max(...spec.points.map((p) => p[1])),
+        }
+      : graphBounds(spec.points);
   // A single point (or points sharing an x) has no line to draw — a
-  // Polyline needs 2+ points to render anything visible.
+  // Polyline needs 2+ points to render anything visible. Vertical lines
+  // intentionally share an x and still draw between the two endpoints.
   const polyline =
     spec.points.length >= 2
-      ? graphPolylinePoints(spec.points, chartWidth, CHART_HEIGHT)
+      ? graphPolylinePoints(spec.points, chartWidth, CHART_HEIGHT, bounds)
       : null;
   // When the backend detected a discontinuity (e.g. a tan(x) vertical
   // asymptote), render each segment as its own Polyline against the SAME
@@ -73,7 +84,7 @@ export function FunctionGraphBlock({ content }: Props) {
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.title}>{spec.title ?? `y = ${spec.expr}`}</Text>
+      <Text style={styles.title}>{title}</Text>
       <Svg width={chartWidth} height={CHART_HEIGHT}>
         <Line
           x1={yAxisX}

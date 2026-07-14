@@ -52,11 +52,14 @@ export function CodeBlock({
   lang,
   headerExtra,
   footerExtra,
+  showCopy = true,
 }: {
   code: string;
   lang: string;
   headerExtra?: ReactNode;
   footerExtra?: ReactNode;
+  /** Math/diagram fences must not show a Copy affordance. */
+  showCopy?: boolean;
 }) {
   const t = useTheme();
   const s = useMemo(() => makeStyles(t), [t]);
@@ -99,16 +102,18 @@ export function CodeBlock({
         {badge ? <Text style={s.lang}>{badge}</Text> : <View />}
         <View style={s.headerActions}>
           {headerExtra}
-          <Pressable style={s.copyBtn} onPress={onCopy} hitSlop={6}>
-            <Ionicons
-              name={copied ? "checkmark-outline" : "copy-outline"}
-              size={13}
-              color={copied ? t.primary : t.textSecondary}
-            />
-            <Text style={[s.copyText, copied && s.copyTextDone]}>
-              {copied ? " Copied" : " Copy"}
-            </Text>
-          </Pressable>
+          {showCopy ? (
+            <Pressable style={s.copyBtn} onPress={onCopy} hitSlop={6}>
+              <Ionicons
+                name={copied ? "checkmark-outline" : "copy-outline"}
+                size={13}
+                color={copied ? t.primary : t.textSecondary}
+              />
+              <Text style={[s.copyText, copied && s.copyTextDone]}>
+                {copied ? " Copied" : " Copy"}
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
       <View

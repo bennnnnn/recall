@@ -528,7 +528,18 @@ async def test_augment_prompt_flags_unsolved_integral_instead_of_asserting_it() 
 
 
 @pytest.mark.asyncio
-async def test_graph_sample_uses_the_full_configured_point_budget() -> None:
+async def test_vertical_line_graph_builds_canonical_fence() -> None:
+    settings = Settings(math_tools_enabled=True)
+    _out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": "Graph x = 4"}],
+        "Graph x = 4",
+        settings,
+    )
+    assert verified is not None
+    assert verified.canonical_fence is not None
+    assert verified.canonical_fence["type"] == "vertical"
+    assert verified.canonical_fence["x"] == 4.0
+
     """BUG FIX regression: a stray `min(..., 200)` silently capped every
     graph at 200 points regardless of math_graph_max_points, so raising
     the setting above 200 had no effect."""

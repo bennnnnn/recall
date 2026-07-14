@@ -23,6 +23,17 @@ import {
 
 export type FenceNode = { key: string; content: string; info?: string };
 
+function isMathDiagramLang(lang: string): boolean {
+  const l = lang.trim().toLowerCase();
+  return l === "graph" || l === "geometry" || l === "math" || l === "latex" || l === "tex";
+}
+
+function looksLikeMathMeta(content: string): boolean {
+  return /^(Could not render that diagram\.?|Invalid (graph|geometry) block)/i.test(
+    content.trim(),
+  );
+}
+
 function renderFenceInner(key: string, lang: string, content: string) {
   if (shouldUseHtmlPreview(lang, content)) {
     return <WebPreviewCodeBlock key={key} code={content} lang={lang || "html"} />;
@@ -54,6 +65,17 @@ function renderFenceInner(key: string, lang: string, content: string) {
   }
   const rich = renderRichFence(lang, content, key);
   if (rich) return rich;
+  // Math diagram failures must never become a Copy template.
+  if (looksLikeMathMeta(content) || isMathDiagramLang(l)) {
+    return (
+      <CodeBlock
+        key={key}
+        code={content}
+        lang={lang}
+        showCopy={false}
+      />
+    );
+  }
   const copyStyle = renderCopyStyleBlock(lang, content, key);
   if (copyStyle) return copyStyle;
   if (isExplicitCodeLang(lang) || shouldRenderAsCodeBlock(lang, content)) {
@@ -78,6 +100,13 @@ export function renderFence(node: FenceNode) {
     if (__DEV__) {
       console.warn("[MarkdownContent] fence render failed", error);
     }
-    return <CodeBlock key={node.key} code={content} lang={lang} />;
+    return (
+      <CodeBlock
+        key={node.key}
+        code={content}
+        lang={lang}
+        showCopy={!isMathDiagramLang(lang) && !looksLikeMathMeta(content)}
+      />
+    );
   }
 }

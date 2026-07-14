@@ -87,7 +87,12 @@ def _canonical_replacement(raw: str, canonical_fence: dict[str, object] | None) 
 def _is_point_marker(spec: GraphBlockSpec) -> bool:
     """True for coordinate markers / discrete points — never densify those
     into a continuous curve."""
+    if spec.type == "vertical":
+        return True
     if len(spec.points) <= 1:
+        return True
+    if len(spec.points) >= 2 and len({float(p[0]) for p in spec.points}) == 1:
+        # All x's identical — vertical segment, not y=f(x).
         return True
     if spec.expr.strip().startswith("("):
         return True
@@ -114,7 +119,10 @@ def _sample_domain(spec: GraphBlockSpec) -> tuple[float, float]:
 def densify_sparse_graph(spec: GraphBlockSpec) -> GraphBlockSpec:
     """Re-sample a sparse continuous function fence so the client draws a
     smooth curve instead of a few straight segments."""
-    if _is_point_marker(spec) or len(spec.points) >= _MIN_CURVE_POINTS:
+    if spec.type == "vertical" or _is_point_marker(spec) or len(spec.points) >= _MIN_CURVE_POINTS:
+        return spec
+    if "=" in spec.expr and not spec.expr.strip().lower().startswith((spec.variable + "=", "y=")):
+        # Vertical / relation forms like "x = 4" cannot be sampled as y=f(x).
         return spec
     x_min, x_max = _sample_domain(spec)
     settings = get_settings()
@@ -167,7 +175,9 @@ def _replace_fence(
             return match.group(0)
         return f"```graph\n{json.dumps(densified.model_dump(), separators=(',', ':'))}\n```"
     except (json.JSONDecodeError, ValidationError, ValueError, TypeError):
-        return f"\n> [!WARNING] Invalid {label} block — could not render diagram.\n"
+        # Soft prose — never a CopyBlock / code fence. Callouts got routed
+        # into copyable cards for short meta lines; keep math failures quiet.
+        return "\n*Could not render that diagram.*\n"
 
 
 def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = None) -> str:

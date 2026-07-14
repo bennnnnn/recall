@@ -237,6 +237,10 @@ export function looksLikeAssistantMeta(content: string): boolean {
   }
   if (/\bI assumed\b/i.test(sample) && /\blet me know\b/i.test(sample))
     return true;
+  // Math fence validation failures — never a paste-and-send Copy template.
+  if (/^(Could not render that diagram\.?|Invalid (graph|geometry) block)/i.test(sample)) {
+    return true;
+  }
   return false;
 }
 

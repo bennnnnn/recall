@@ -436,6 +436,8 @@ MATH_SOLVER_HINT = (
     "Emit the fence once, then describe the shape in plain language — "
     "NEVER a 'corrected/final graph spec' heading and NEVER dump the raw "
     "JSON or point list outside the fence (the app draws the SVG).\n"
+    "- For a vertical line x=c (NOT a function y=f(x)), use type vertical:\n"
+    '```graph\n{"type":"vertical","x":4,"y_min":-10,"y_max":10,"title":"x = 4"}\n```\n'
     '- To mark one or more specific coordinates (e.g. "plot the point '
     '(2, 3)") rather than a continuous curve, use the same ```graph fence '
     "with just those points and a short title:\n"
