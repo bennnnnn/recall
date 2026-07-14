@@ -164,4 +164,12 @@ describe("renderFence edge cases", () => {
     const { getByLabelText } = await render(<>{renderFence(node("120", "answer"))}</>);
     expect(getByLabelText("Answer: 120")).toBeOnTheScreen();
   });
+
+  it("routes a factorial definition (mis-tagged ```copy) to MathBlock without Copy", async () => {
+    const { getByText, queryByText } = await render(
+      <>{renderFence(node("0! = 1", "copy"))}</>,
+    );
+    expect(getByText(/0!/)).toBeOnTheScreen();
+    expect(queryByText("Copy")).toBeNull();
+  });
 });

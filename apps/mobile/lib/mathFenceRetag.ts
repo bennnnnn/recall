@@ -15,7 +15,13 @@ function looksLikeAlgebraLine(line: string): boolean {
   if (/;|console\.|print\(|=>/.test(line)) return false;
   if (/^[a-zA-Z]\^[\d{]/.test(line)) return true;
   if (/=/.test(line) && /[a-zA-Z]\^/.test(line)) return true;
-  if (/=/.test(line) && /^[\da-zA-Z+\-*/^=(){}\\_\s.,²³√±]+$/.test(line)) return true;
+  // Digits, letters, ops, factorial (!), unicode math (× ÷ → …), LaTeX cmds.
+  if (
+    /=/.test(line) &&
+    /^[\da-zA-Z+\-*/^=(){}\\_!\s.,²³√±×÷·⋅→←↔⇒⇔∞πθ∑∏]+$/.test(line)
+  ) {
+    return true;
+  }
   return false;
 }
 

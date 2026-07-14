@@ -1,7 +1,9 @@
 import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
+import { MathBlock } from "@/components/rich/MathView";
 import { MathText } from "@/components/rich/MathText";
+import { looksLikeLatexFence } from "@/lib/mathFenceRetag";
 import { splitInlineMath } from "@/lib/markdownPreprocess";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -15,23 +17,28 @@ function normalizeAnswerContent(raw: string): string {
 }
 
 /**
- * Highlighted final-answer card for math (and similar) results — a rectangle
- * with no Copy affordance. Copy templates are for paste-and-send drafts only.
+ * Final-answer / definition card — same gray surface as other math blocks,
+ * no Copy affordance. Prefer MathBlock when the body is equation-like.
  */
 export function AnswerBlock({ content }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const text = normalizeAnswerContent(content);
   const parts = splitInlineMath(text);
-  const hasMath = parts.some((p) => p.type === "math");
+  const hasInlineMath = parts.some((p) => p.type === "math");
+
+  // Equation bodies render like every other display-math fence (gray MathBlock).
+  if (!hasInlineMath && looksLikeLatexFence(text)) {
+    return <MathBlock latex={text} />;
+  }
 
   return (
     <View style={s.wrap} accessibilityRole="text" accessibilityLabel={`Answer: ${text}`}>
-      {hasMath ? (
+      {hasInlineMath ? (
         <Text style={s.answer} selectable>
           {parts.map((part, i) =>
             part.type === "math" ? (
-              <MathText key={i} latex={part.value} textColor={theme.primary} />
+              <MathText key={i} latex={part.value} textColor={theme.text} />
             ) : (
               <Text key={i} style={s.answer}>
                 {part.value}
@@ -52,21 +59,21 @@ const makeStyles = (t: Theme) =>
   StyleSheet.create({
     wrap: {
       alignSelf: "stretch",
-      marginVertical: 8,
-      paddingVertical: 16,
-      paddingHorizontal: 18,
-      borderRadius: 12,
-      borderWidth: 1.5,
-      borderColor: t.primary,
-      backgroundColor: t.primaryLight,
+      marginVertical: 6,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      borderRadius: 10,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: t.border,
+      backgroundColor: t.contentSurface,
       alignItems: "center",
       justifyContent: "center",
     },
     answer: {
-      fontSize: 28,
-      lineHeight: 36,
-      fontWeight: "700",
-      color: t.primary,
+      fontSize: 18,
+      lineHeight: 26,
+      fontWeight: "600",
+      color: t.text,
       textAlign: "center",
     },
   });

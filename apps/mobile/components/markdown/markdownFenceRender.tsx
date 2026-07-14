@@ -68,7 +68,7 @@ function renderFenceInner(key: string, lang: string, content: string) {
   }
   const rich = renderRichFence(lang, content, key);
   if (rich) return rich;
-  // Short math finals / ```answer — highlighted box, never Copy.
+  // Short finals / mis-tagged math equations — gray answer or MathBlock, never Copy.
   if (isAnswerLang(l) || looksLikeMathAnswer(content)) {
     return <AnswerBlock key={key} content={content} />;
   }

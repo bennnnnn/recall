@@ -24,6 +24,11 @@ describe("mathFenceRetag", () => {
     expect(looksLikeLatexFence(String.raw`x = \pm \sqrt{4}`)).toBe(true);
   });
 
+  it("detects factorial definitions as math, not code", () => {
+    expect(looksLikeLatexFence("0! = 1")).toBe(true);
+    expect(looksLikeLatexFence("5! = 5 \\times 4 \\times 3 \\times 2 \\times 1")).toBe(true);
+  });
+
   it("BUG FIX regression: \\boxed{...} is detected as latex, not a plain code fence", () => {
     // \boxed wasn't in LATEX_CMD_RE, so a fence body that's just
     // "\boxed{28}" (a common LLM final-answer convention, with no "="

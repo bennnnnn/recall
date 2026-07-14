@@ -263,14 +263,19 @@ export function shouldRenderAsPlainProseFence(
 /** Short numeric / boxed math final answer — show as AnswerBlock, never Copy. */
 export function looksLikeMathAnswer(content: string): boolean {
   const sample = content.trim();
-  if (!sample || sample.length > 80) return false;
-  if (/\n/.test(sample)) return false;
-  // Bare number, optional units / factorial: 120, 5!, -3.5, 1/2
+  if (!sample || sample.length > 160) return false;
+  if (sample.split("\n").filter((l) => l.trim()).length > 2) return false;
+  // Bare number, optional % / factorial: 120, 5!, -3.5
   if (/^[±+\-]?\d+(?:[.,]\d+)?(?:\s*[%])?!?$/.test(sample)) return true;
   if (/^\$[^$\n]+\$$/.test(sample)) return true;
   if (/^\\boxed\{[^}]+\}$/.test(sample)) return true;
-  // Short equation result: x = 3, n = 120
-  if (/^[a-zA-Z]\s*=\s*[±+\-]?\d+(?:[.,]\d+)?$/.test(sample)) return true;
+  // Short equation / factorial definition: 0! = 1, x = 3, n! = n × (n-1)!
+  if (
+    /=/.test(sample) &&
+    /^[\da-zA-Z+\-*/^=(){}\\_!\s.$,²³√±×÷·⋅→←↔⇒⇔∞πθ∑∏]+$/.test(sample)
+  ) {
+    return true;
+  }
   return false;
 }
 
