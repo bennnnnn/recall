@@ -143,8 +143,10 @@ function normalizeMathLine(line: string): string {
     }
   }
 
+  // Any single-letter variable (not just x/y/z — "Let c = 3:", "For n = 5:"
+  // are equally common phrasing the model uses for a substitution check).
   const verifyLabel = out.match(
-    /^(\s*(?:[-*]\s+)?(?:For\s+)?[xyz]\s*=\s*-?\d+\s*:\s*)(.+)$/i,
+    /^(\s*(?:[-*]\s+)?(?:(?:For|Let)\s+)?[a-zA-Z]\s*=\s*-?\d+\s*:\s*)(.+)$/i,
   );
   if (verifyLabel) {
     const expr = verifyLabel[2].replace(/\s*[✓✔✅]\s*$/u, "").trim();

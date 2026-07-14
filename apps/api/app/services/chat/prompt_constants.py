@@ -372,9 +372,12 @@ INTENT_FORMAT_HINT = (
     'side:") then the formula in `$...$` on that line or the next — not inside a '
     "```math fence.\n"
     '  - Add a short verification block titled "You can check:" (or '
-    '"Verification:") with bullet lines that substitute each intermediate step '
-    "or the final result back into the original expression. Wrap each check "
-    "expression in $...$ and end the line with `- [x]` or a trailing ✓.\n"
+    '"Verification:") that substitutes each intermediate step or the final '
+    "result back into the original expression. Give each check its own "
+    'bullet, split across two lines — NEVER crammed onto one: "- For x = 3:" '
+    "alone on the bullet line, then the substituted computation alone on the "
+    'next line (e.g. "  $3^2 + 3^2 = 9 + 9 = 18$"), wrapped in $...$ and '
+    "ending that line with `- [x]` or a trailing ✓.\n"
     "\n"
     "Coding:\n"
     "  - Brief approach sentence, then tagged code fence (```python, etc.), "
