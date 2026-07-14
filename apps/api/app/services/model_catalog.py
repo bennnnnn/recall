@@ -117,6 +117,16 @@ CATALOG: tuple[ChatModel, ...] = (
         plan_access="free",
     ),
     _or(
+        id="glm-5.2",
+        label="GLM 5.2",
+        model="z-ai/glm-5.2",
+        input_price_per_m=0.93,
+        output_price_per_m=2.92,
+        description="Z.ai GLM — strong reasoning and coding (1M context).",
+        tier="smart",
+        quota_multiplier=3.5,
+    ),
+    _or(
         id="qwen-plus",
         label="Qwen Plus",
         model="qwen/qwen-plus",

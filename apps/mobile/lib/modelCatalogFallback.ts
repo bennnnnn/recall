@@ -47,6 +47,17 @@ export const MODEL_CATALOG_FALLBACK: ModelInfo[] = [
     quota_multiplier: 1,
   },
   {
+    id: "glm-5.2",
+    label: "GLM 5.2",
+    tier: "smart",
+    plan_access: "pro",
+    description: "Z.ai GLM — strong reasoning and coding (1M context).",
+    available: true,
+    input_price_per_m: 0.93,
+    output_price_per_m: 2.92,
+    quota_multiplier: 3.5,
+  },
+  {
     id: "qwen-plus",
     label: "Qwen Plus",
     tier: "standard",
