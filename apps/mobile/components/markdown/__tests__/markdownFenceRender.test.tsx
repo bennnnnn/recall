@@ -172,4 +172,24 @@ describe("renderFence edge cases", () => {
     expect(getByText(/0!/)).toBeOnTheScreen();
     expect(queryByText("Copy")).toBeNull();
   });
+
+  it("BUG FIX regression: routes a bare simplified expression with no lang tag or ```copy to AnswerBlock, not Copy", async () => {
+    // Reported live: "2c^2" (a simplified final result, no "=") fell through
+    // every existing looksLikeMathAnswer branch and landed on the generic
+    // CodeBlock fallback, which shows a "Copy" button.
+    const { getByLabelText, queryByText } = await render(
+      <>{renderFence(node("2c^2", "copy"))}</>,
+    );
+    expect(getByLabelText("Answer: 2c^2")).toBeOnTheScreen();
+    expect(queryByText("Copy")).toBeNull();
+  });
+
+  it("BUG FIX regression: an explicit ```math fence is never reinterpreted as an Answer even if its content looks answer-like", async () => {
+    // looksLikeMathAnswer was broadened to catch bare expressions like
+    // "2c^2" — without a lang guard at the call site, that same heuristic
+    // started misrouting explicitly ```math-tagged content (e.g. "x^2 + 1",
+    // a legitimate intermediate step) to AnswerBlock instead of MathBlock.
+    const { getByText } = await render(<>{renderFence(node("x^2 + 1", "math"))}</>);
+    expect(getByText("x² + 1")).toBeOnTheScreen();
+  });
 });

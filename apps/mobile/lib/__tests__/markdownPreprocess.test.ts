@@ -155,6 +155,18 @@ x = 0
     expect(out).toContain("**x** = 5");
   });
 
+  it("BUG FIX regression: keeps a mis-tagged ```copy fence with a bare math-answer body as a real fence, not unwrapped prose", () => {
+    // Reported live: "2c^2" (a simplified final result) sent as ```copy\n2c^2\n```
+    // used to get unwrapped into plain prose text by unwrapNonCodeFences
+    // (which has no concept of "this looks like a math answer") before it
+    // ever reached renderFence's AnswerBlock dispatch — losing the fence
+    // entirely and rendering as a bare paragraph instead of a boxed answer.
+    const input = "```copy\n2c^2\n```";
+    const out = preprocessMarkdown(input);
+    expect(out).toContain("```");
+    expect(out).toContain("2c^2");
+  });
+
   it("BUG FIX regression: converts \\[...\\] display math with multiple commands to a clean fence, not a $-corrupted one", () => {
     // Reported live (screenshots): "x = $\\pm$ $\\sqrt{4}$" rendered in red
     // inside a ```math fence. normalizeImplicitMath's wrapInlineLatexCommands

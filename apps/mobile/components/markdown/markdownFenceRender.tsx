@@ -42,8 +42,12 @@ function renderFenceInner(key: string, lang: string, content: string) {
     return <WebPreviewCodeBlock key={key} code={content} lang={lang || "html"} />;
   }
   const l = lang.trim().toLowerCase();
-  // Finals before generic math — ```answer / short results get the boxed look.
-  if (isAnswerLang(l) || looksLikeMathAnswer(content)) {
+  // Finals before generic math — ```answer / short results get the boxed
+  // look. The content heuristic only applies to untagged/mis-tagged fences
+  // (```copy, no tag) — an explicit ```math/```graph/```geometry tag is the
+  // model's own intent and must never be reinterpreted as a final answer
+  // just because the content also happens to look like a short expression.
+  if (isAnswerLang(l) || (!isMathDiagramLang(l) && looksLikeMathAnswer(content))) {
     return <AnswerBlock key={key} content={content} />;
   }
   if (

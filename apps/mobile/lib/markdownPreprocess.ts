@@ -3,8 +3,10 @@ import { repairBrokenMarkdownLinks } from "@/lib/placesList";
 import { normalizeImplicitMath } from "@/lib/normalizeImplicitMath";
 import { parseQuoteAttribution, isStructuredFenceLang } from "@/lib/richBlocks";
 import {
+  isAnswerLang,
   isExplicitCodeLang,
   looksLikeCode,
+  looksLikeMathAnswer,
   shouldRenderAsPlainProseFence,
 } from "@/lib/copyBlock";
 import { isHtmlFenceLang, parseFenceLang } from "@/lib/codeHighlight";
@@ -169,6 +171,15 @@ function unwrapNonCodeFences(content: string): string {
 
     if (trimmed.startsWith("$$)\n") || trimmed.startsWith("$)\n")) {
       return `\n\n${trimmed.replace(/^\$\)?\s*\n?/, "")}\n\n`;
+    }
+
+    // A final-answer-shaped body (bare number, simplified expression, short
+    // assignment) must stay a real fence so renderFence routes it to
+    // AnswerBlock — shouldRenderAsPlainProseFence below has no concept of
+    // "this looks like a math answer" and would otherwise unwrap it into
+    // plain prose text before it ever reaches that dispatch.
+    if (isAnswerLang(lang) || looksLikeMathAnswer(trimmed)) {
+      return full;
     }
 
     if (isExplicitCodeLang(lang) || looksLikeCode(trimmed)) {

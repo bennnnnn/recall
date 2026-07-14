@@ -260,6 +260,14 @@ export function shouldRenderAsPlainProseFence(
   return false;
 }
 
+// Characters a bare simplified algebraic expression is built from — no
+// English words can survive this class alongside a digit/operator, so it's
+// safe to allow letters here without a prose false-positive.
+const MATH_ANSWER_CHARS_RE = /^[0-9a-zA-Z+\-*/^±√!(){}\\_.,\s]+$/;
+// Two real (3+ letter) words in a row means prose, not a bare expression —
+// "the answer" would otherwise slip through MATH_ANSWER_CHARS_RE above.
+const TWO_WORDS_RE = /\b[a-zA-Z]{3,}\b\s+\b[a-zA-Z]{3,}\b/;
+
 /** Short numeric / boxed math final — AnswerBlock only; not every equation. */
 export function looksLikeMathAnswer(content: string): boolean {
   const sample = content.trim();
@@ -271,6 +279,15 @@ export function looksLikeMathAnswer(content: string): boolean {
   if (/^\\boxed\{[^}]+\}$/.test(sample)) return true;
   // Short scalar assignment final: x = 2, n = 120 (not multi-step / worded).
   if (/^[a-zA-Z]\s*=\s*[±+\-]?\d+(?:[.,]\d+)?$/.test(sample)) return true;
+  // Bare simplified expression, no "=" — a final result like "2c^2",
+  // "x^2 - 4", "\frac{1}{2}", "√2" rather than a full equation/step.
+  if (
+    MATH_ANSWER_CHARS_RE.test(sample) &&
+    /[\d^√±\\]/.test(sample) &&
+    !TWO_WORDS_RE.test(sample)
+  ) {
+    return true;
+  }
   return false;
 }
 
