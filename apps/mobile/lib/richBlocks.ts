@@ -56,6 +56,9 @@ const STRUCTURED_LANGS = new Set([
   "collapse",
   "summary",
   "math",
+  "answer",
+  "result",
+  "final",
   "clock",
   "time",
   // Diagram / chart / visualization fences

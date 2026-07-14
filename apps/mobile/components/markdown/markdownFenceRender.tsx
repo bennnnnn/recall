@@ -1,6 +1,7 @@
 import { CodeBlock } from "@/components/CodeBlock";
 import { WebPreviewCodeBlock } from "@/components/WebPreviewCodeBlock";
 import { CopyBlock } from "@/components/CopyBlock";
+import { AnswerBlock } from "@/components/rich/AnswerBlock";
 import { CircularClockBlock } from "@/components/rich/CircularClockBlock";
 import { MathBlock } from "@/components/rich/MathView";
 import { looksLikeLatexFence } from "@/lib/mathFenceRetag";
@@ -10,7 +11,9 @@ import {
 } from "@/components/rich/RichFence";
 import {
   copyBlockLabel,
+  isAnswerLang,
   isExplicitCodeLang,
+  looksLikeMathAnswer,
   shouldRenderAsCodeBlock,
   shouldRenderAsCopyBlock,
 } from "@/lib/copyBlock";
@@ -65,6 +68,10 @@ function renderFenceInner(key: string, lang: string, content: string) {
   }
   const rich = renderRichFence(lang, content, key);
   if (rich) return rich;
+  // Short math finals / ```answer — highlighted box, never Copy.
+  if (isAnswerLang(l) || looksLikeMathAnswer(content)) {
+    return <AnswerBlock key={key} content={content} />;
+  }
   // Math diagram failures must never become a Copy template.
   if (looksLikeMathMeta(content) || isMathDiagramLang(l)) {
     return (

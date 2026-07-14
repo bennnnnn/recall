@@ -260,6 +260,26 @@ export function shouldRenderAsPlainProseFence(
   return false;
 }
 
+/** Short numeric / boxed math final answer — show as AnswerBlock, never Copy. */
+export function looksLikeMathAnswer(content: string): boolean {
+  const sample = content.trim();
+  if (!sample || sample.length > 80) return false;
+  if (/\n/.test(sample)) return false;
+  // Bare number, optional units / factorial: 120, 5!, -3.5, 1/2
+  if (/^[±+\-]?\d+(?:[.,]\d+)?(?:\s*[%])?!?$/.test(sample)) return true;
+  if (/^\$[^$\n]+\$$/.test(sample)) return true;
+  if (/^\\boxed\{[^}]+\}$/.test(sample)) return true;
+  // Short equation result: x = 3, n = 120
+  if (/^[a-zA-Z]\s*=\s*[±+\-]?\d+(?:[.,]\d+)?$/.test(sample)) return true;
+  return false;
+}
+
+/** Explicit ```answer / ```result fences for a final numeric / math answer. */
+export function isAnswerLang(lang: string): boolean {
+  const l = lang.trim().toLowerCase();
+  return l === "answer" || l === "result" || l === "final";
+}
+
 /** Any non-prose fence language tag (python, js, …) → always a code block. */
 export function isExplicitCodeLang(lang: string): boolean {
   const l = lang.trim().toLowerCase();
@@ -276,7 +296,8 @@ export function isExplicitCodeLang(lang: string): boolean {
     l === "places" ||
     l === "graph" ||
     l === "geometry" ||
-    l === "math"
+    l === "math" ||
+    isAnswerLang(l)
   )
     return false;
   return !isProseLang(l);
@@ -289,6 +310,8 @@ export function shouldRenderAsCopyBlock(
   if (looksLikeCode(content)) return false;
   if (looksLikeAssistantMeta(content)) return false;
   if (looksLikeExplanatoryProse(content)) return false;
+  if (looksLikeMathAnswer(content)) return false;
+  if (isAnswerLang(lang)) return false;
   if (isExplicitCodeLang(lang)) return false;
   const l = lang.trim().toLowerCase();
   if (

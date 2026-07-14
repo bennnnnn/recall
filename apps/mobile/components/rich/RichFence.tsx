@@ -3,6 +3,7 @@ import { ReactNode } from "react";
 import { PlacesListBlock } from "@/components/PlacesListBlock";
 import { CalloutBlock } from "@/components/rich/CalloutBlock";
 import { parsePlacesJson } from "@/lib/placesList";
+import { AnswerBlock } from "@/components/rich/AnswerBlock";
 import { ChartBlock } from "@/components/rich/ChartBlock";
 import { CollapsibleBlock } from "@/components/rich/CollapsibleBlock";
 import { ComparisonBlock } from "@/components/rich/ComparisonBlock";
@@ -18,6 +19,7 @@ import { QuoteBlock } from "@/components/rich/QuoteBlock";
 import { SocialPostCard } from "@/components/rich/SocialPostCard";
 import { StepList } from "@/components/rich/StepList";
 import { looksLikeLatexFence } from "@/lib/mathFenceRetag";
+import { isAnswerLang } from "@/lib/copyBlock";
 import {
   detectJsonRichFenceKind,
   isMessageLang,
@@ -81,6 +83,10 @@ export function renderRichFence(
 
   if (l === "math") {
     return <MathBlock key={`math:${content}`} latex={content} />;
+  }
+
+  if (isAnswerLang(l)) {
+    return <AnswerBlock key={key} content={content} />;
   }
 
   if (l === "geometry") {

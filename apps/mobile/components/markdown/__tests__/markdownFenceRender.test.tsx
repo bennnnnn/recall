@@ -151,4 +151,17 @@ describe("renderFence edge cases", () => {
     const { getByText } = await render(<>{renderFence(node("const x = 1;", "javascript"))}</>);
     expect(getByText("javascript:const x = 1;")).toBeOnTheScreen();
   });
+
+  it("routes a short numeric final (including mis-tagged ```copy) to AnswerBlock, not Copy", async () => {
+    const { getByLabelText, queryByText } = await render(
+      <>{renderFence(node("120", "copy"))}</>,
+    );
+    expect(getByLabelText("Answer: 120")).toBeOnTheScreen();
+    expect(queryByText("Copy")).toBeNull();
+  });
+
+  it("routes an explicit ```answer fence to AnswerBlock", async () => {
+    const { getByLabelText } = await render(<>{renderFence(node("120", "answer"))}</>);
+    expect(getByLabelText("Answer: 120")).toBeOnTheScreen();
+  });
 });
