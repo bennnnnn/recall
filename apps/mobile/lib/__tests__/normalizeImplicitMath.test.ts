@@ -22,6 +22,15 @@ describe("normalizeImplicitMath", () => {
     expect(out).toContain("$2^2+2=4+2=6$");
   });
 
+  it("BUG FIX regression: recognizes verification lines with any single-letter variable and 'Let' phrasing, not just x/y/z + 'For'", () => {
+    // Reported live: "Let c = 3: 3^2 + 3^2 = 18" used variable "c" (not
+    // x/y/z) and "Let" (not "For") — the old regex was hardcoded to
+    // [xyz] + "For " only, so this line never got its math wrapped.
+    const input = "Let c=3: 3^2+3^2=18 ✓";
+    const out = normalizeImplicitMathInProse(input);
+    expect(out).toContain("$3^2+3^2=18$");
+  });
+
   it("leaves normal prose alone", () => {
     const input = "Both solutions check out! (see step 2)";
     expect(normalizeImplicitMathInProse(input)).toBe(input);
