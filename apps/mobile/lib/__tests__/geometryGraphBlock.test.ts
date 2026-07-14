@@ -199,6 +199,17 @@ describe("graphBlock", () => {
     expect(parseGraphSpec('{"type":"function","expr":"x","points":[]}')).toBeNull();
   });
 
+  it("BUG FIX regression: downsamples oversized point dumps instead of rejecting them", () => {
+    const points = Array.from({ length: 600 }, (_, i) => [i / 10, (i / 10) ** 2]);
+    const spec = parseGraphSpec(
+      JSON.stringify({ type: "function", expr: "x**2", points }),
+    );
+    expect(spec).not.toBeNull();
+    expect(spec!.points.length).toBe(500);
+    expect(spec!.points[0]).toEqual([0, 0]);
+    expect(spec!.points[spec!.points.length - 1][0]).toBeCloseTo(59.9, 5);
+  });
+
   it("BUG FIX regression: centers a single point instead of gluing it to the chart edge", () => {
     // A single point collapses both axes' ranges to zero. Without
     // symmetric padding (matching the existing yMin===yMax handling),
@@ -295,13 +306,17 @@ describe("graphBlock", () => {
     expect(withSharedBounds).not.toBe(withOwnBounds);
   });
 
-  it("rejects too many points or long expr", () => {
+  it("downsamples oversized points and rejects overlong expr", () => {
     const tooMany = Array.from({ length: 301 }, (_, i) => [i, i] as [number, number]);
+    const dense = parseGraphSpec(
+      JSON.stringify({ type: "function", expr: "x", points: tooMany }),
+    );
+    expect(dense?.points.length).toBe(301);
+    const huge = Array.from({ length: 600 }, (_, i) => [i, i] as [number, number]);
     expect(
-      parseGraphSpec(
-        JSON.stringify({ type: "function", expr: "x", points: tooMany }),
-      ),
-    ).toBeNull();
+      parseGraphSpec(JSON.stringify({ type: "function", expr: "x", points: huge }))
+        ?.points.length,
+    ).toBe(500);
     expect(
       parseGraphSpec(
         JSON.stringify({

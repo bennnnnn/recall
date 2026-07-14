@@ -13,8 +13,8 @@ export type GraphSpec = {
   segments?: [number, number][][];
 };
 
-/** Match backend `GraphSampleInput.n` cap and `GraphBlockSpec.expr` length. */
-export const MAX_GRAPH_POINTS = 300;
+/** Match backend `GraphBlockSpec.points` max; chat samples default lower. */
+export const MAX_GRAPH_POINTS = 500;
 export const MAX_GRAPH_EXPR_LENGTH = 256;
 
 function normalizePoint(raw: unknown): [number, number] | null {
@@ -23,6 +23,21 @@ function normalizePoint(raw: unknown): [number, number] | null {
   const y = Number(raw[1]);
   if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
   return [x, y];
+}
+
+/** Evenly subsample so oversized backend dumps still draw a smooth curve. */
+export function downsamplePoints(
+  points: [number, number][],
+  maxPoints: number,
+): [number, number][] {
+  if (points.length <= maxPoints || maxPoints < 2) return points;
+  const last = points.length - 1;
+  const out: [number, number][] = [];
+  for (let i = 0; i < maxPoints; i++) {
+    const idx = Math.round((i * last) / (maxPoints - 1));
+    out.push(points[idx]);
+  }
+  return out;
 }
 
 export function parseGraphSpec(raw: string): GraphSpec | null {
@@ -34,16 +49,15 @@ export function parseGraphSpec(raw: string): GraphSpec | null {
     const expr = String(row.expr ?? "").trim();
     if (!expr || expr.length > MAX_GRAPH_EXPR_LENGTH) return null;
     const pointsRaw = row.points;
-    if (
-      !Array.isArray(pointsRaw) ||
-      pointsRaw.length < 1 ||
-      pointsRaw.length > MAX_GRAPH_POINTS
-    ) {
+    if (!Array.isArray(pointsRaw) || pointsRaw.length < 1) {
       return null;
     }
-    const points = pointsRaw
-      .map(normalizePoint)
-      .filter((p): p is [number, number] => p != null);
+    const points = downsamplePoints(
+      pointsRaw
+        .map(normalizePoint)
+        .filter((p): p is [number, number] => p != null),
+      MAX_GRAPH_POINTS,
+    );
     // A function curve needs 2+ points to draw a line, but marking a single
     // coordinate ("plot the point (2, 3)") is a single point by definition.
     if (points.length < 1) return null;
@@ -54,9 +68,12 @@ export function parseGraphSpec(raw: string): GraphSpec | null {
       const parsed = segmentsRaw
         .map((seg) =>
           Array.isArray(seg)
-            ? seg
-                .map(normalizePoint)
-                .filter((p): p is [number, number] => p != null)
+            ? downsamplePoints(
+                seg
+                  .map(normalizePoint)
+                  .filter((p): p is [number, number] => p != null),
+                MAX_GRAPH_POINTS,
+              )
             : [],
         )
         .filter((seg) => seg.length > 0);

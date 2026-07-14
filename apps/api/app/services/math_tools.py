@@ -837,7 +837,9 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
                     "continuous curve."
                 )
             lines.append(
-                "When a plot helps, emit ONLY this fence:\n"
+                "When a plot helps, emit ONLY this fence ONCE — no 'corrected/final graph "
+                "spec' heading, and do NOT paste or re-list the points array in prose "
+                "(the app renders the fence as an SVG):\n"
                 f"```graph\n{json.dumps(graph_spec.model_dump(), separators=(',', ':'))}\n```"
             )
             return VerifiedMathBlock(text="\n".join(lines), canonical_fence=graph_spec.model_dump())

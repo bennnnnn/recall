@@ -432,7 +432,10 @@ MATH_SOLVER_HINT = (
     "- For function plots y=f(x), emit ONLY ```graph (NEVER ```json):\n"
     '```graph\n{"type":"function","expr":"x**2","variable":"x","x_min":-5,'
     '"x_max":5,"points":[[-5,25],[-4,16]]}\n```\n'
-    "  Include the points array when provided in verified SymPy results.\n"
+    "  Include the points array when provided in verified SymPy results. "
+    "Emit the fence once, then describe the shape in plain language — "
+    "NEVER a 'corrected/final graph spec' heading and NEVER dump the raw "
+    "JSON or point list outside the fence (the app draws the SVG).\n"
     '- To mark one or more specific coordinates (e.g. "plot the point '
     '(2, 3)") rather than a continuous curve, use the same ```graph fence '
     "with just those points and a short title:\n"

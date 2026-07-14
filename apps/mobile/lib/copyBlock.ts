@@ -269,7 +269,10 @@ export function isExplicitCodeLang(lang: string): boolean {
     l === "clock" ||
     l === "time" ||
     l === "sources" ||
-    l === "places"
+    l === "places" ||
+    l === "graph" ||
+    l === "geometry" ||
+    l === "math"
   )
     return false;
   return !isProseLang(l);

@@ -530,17 +530,34 @@ async def test_augment_prompt_flags_unsolved_integral_instead_of_asserting_it() 
 @pytest.mark.asyncio
 async def test_graph_sample_uses_the_full_configured_point_budget() -> None:
     """BUG FIX regression: a stray `min(..., 200)` silently capped every
-    graph at 200 points regardless of math_graph_max_points, so the
-    200-300 range of the (default 300) setting was dead code."""
-    settings = Settings(math_tools_enabled=True, math_graph_max_points=300)
-    out, verified = await math_tools.augment_prompt_messages(
+    graph at 200 points regardless of math_graph_max_points, so raising
+    the setting above 200 had no effect."""
+    settings = Settings(math_tools_enabled=True, math_graph_max_points=220)
+    _out, verified = await math_tools.augment_prompt_messages(
         [{"role": "user", "content": "Graph y = x^2"}],
         "Graph y = x^2",
         settings,
     )
     assert verified is not None
     assert verified.canonical_fence is not None
-    assert len(verified.canonical_fence["points"]) == 300
+    assert len(verified.canonical_fence["points"]) == 220
+    assert "corrected/final graph spec" in verified.text.lower()
+
+
+@pytest.mark.asyncio
+async def test_default_graph_sample_stays_compact_for_chat_bubbles() -> None:
+    """Default budget (~96) keeps densified fences SVG-friendly instead of
+    dumping hundreds of points into the message (and FallbackMarkdown)."""
+    settings = Settings(math_tools_enabled=True)
+    _out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": "Graph y = x^4 - 4x^2"}],
+        "Graph y = x^4 - 4x^2",
+        settings,
+    )
+    assert verified is not None
+    assert verified.canonical_fence is not None
+    assert len(verified.canonical_fence["points"]) == settings.math_graph_max_points
+    assert settings.math_graph_max_points <= 120
 
 
 @pytest.mark.asyncio

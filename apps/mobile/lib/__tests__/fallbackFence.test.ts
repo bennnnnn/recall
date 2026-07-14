@@ -28,7 +28,8 @@ describe("classifyFallbackFence", () => {
       lang: "python",
       code: "print('hi')",
     });
-    // Rich structured langs stay as code in the fallback (raw source visible).
+    // Rich structured langs stay as code in the fallback (raw source visible),
+    // except geometry/graph which still draw as SVG (see below).
     expect(classifyFallbackFence("mermaid", "graph TD")).toEqual({
       kind: "code",
       lang: "mermaid",
@@ -38,6 +39,30 @@ describe("classifyFallbackFence", () => {
       kind: "code",
       lang: "chart",
       code: '{"data":[]}',
+    });
+  });
+
+  it("BUG FIX regression: routes ```graph to SVG instead of dumping points as code", () => {
+    const body = JSON.stringify({
+      type: "function",
+      expr: "x**4 - 4*x**2",
+      points: [
+        [-2.5, 14.0625],
+        [0, 0],
+        [2.5, 14.0625],
+      ],
+    });
+    expect(classifyFallbackFence("graph", body)).toEqual({
+      kind: "graph",
+      body,
+    });
+  });
+
+  it("BUG FIX regression: routes ```geometry to SVG in the crash fallback", () => {
+    const body = JSON.stringify({ type: "square", side: 5, unit: "cm" });
+    expect(classifyFallbackFence("geometry", body)).toEqual({
+      kind: "geometry",
+      body,
     });
   });
 

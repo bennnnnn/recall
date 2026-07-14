@@ -94,7 +94,9 @@ class Settings(BaseSettings):
 
     math_tools_enabled: bool = True
     math_max_expr_length: int = 256
-    math_graph_max_points: int = 300
+    # Dense enough for a smooth SVG polyline; larger dumps (300+) blow up
+    # chat bubbles and FallbackMarkdown when the rich renderer dies.
+    math_graph_max_points: int = 96
     # SymPy solve/simplify/integrate run on a worker thread (they're sync, CPU-bound);
     # this bounds how long a single pathological expression can occupy that thread
     # before the chat turn falls back to an unverified reply.

@@ -6,8 +6,8 @@ Server-side SymPy verifies and samples; the mobile app only renders. Do not add 
 
 1. **Heuristic pre-stream** ([`math_tools.py`](../apps/api/app/services/math_tools.py)) — if `needs_symbolic_math`, SymPy runs off the event loop and a verified system block is injected (numbers + optional `canonical_fence` for ` ```geometry` / ` ```graph`).
 2. **LLM stream** — model explains using those values and emits fences.
-3. **Post-stream** ([`math_fence.py`](../apps/api/app/services/math_fence.py)) — replace matching geometry/graph JSON with the canonical fence when present; schema-validate otherwise; densify sparse continuous graphs.
-4. **Mobile** — preprocess delimiters, then render: inline `$...$` → native `MathText`; display ` ```math` → KaTeX/MathJax WebView (dev build); diagrams → SVG.
+3. **Post-stream** ([`math_fence.py`](../apps/api/app/services/math_fence.py)) — replace matching geometry/graph JSON with the canonical fence when present; schema-validate otherwise; densify sparse continuous graphs (default ~96 points — enough for a smooth SVG, small enough that a fallback never dumps a wall of coordinates).
+4. **Mobile** — preprocess delimiters, then render: inline `$...$` → native `MathText`; display ` ```math` → KaTeX/MathJax WebView (dev build); diagrams → SVG. Crash fallback still draws geometry/graph as SVG (not raw JSON).
 
 Camera math is a specialization of step 1: fixed prompt → vision extract → same SymPy equation path.
 

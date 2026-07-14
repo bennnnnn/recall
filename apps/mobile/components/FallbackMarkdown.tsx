@@ -1,12 +1,15 @@
 /**
  * Minimal markdown when the rich renderer fails — still formats headers,
  * tables, bold, and code (no Prism / rich cards). Callout fences render as
- * styled prose instead of raw "callout-tip" code.
+ * styled prose instead of raw "callout-tip" code. Geometry/graph fences keep
+ * their SVG renderers so densified point dumps never become a wall of JSON.
  */
 import { useMemo } from "react";
 import Markdown, { renderRules as defaultRules } from "react-native-markdown-display";
 import { StyleSheet, Text, View } from "react-native";
 
+import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
+import { GeometryBlock } from "@/components/rich/GeometryBlock";
 import { CODE_FONT } from "@/lib/fonts";
 import { markdownItInstance } from "@/lib/markdownIt";
 import { preprocessMarkdown } from "@/lib/markdownPreprocess";
@@ -66,6 +69,12 @@ function renderFallbackFence(
         <Text style={calloutStyles.body}>{classified.body}</Text>
       </View>
     );
+  }
+  if (classified.kind === "geometry") {
+    return <GeometryBlock key={node.key} content={classified.body} />;
+  }
+  if (classified.kind === "graph") {
+    return <FunctionGraphBlock key={node.key} content={classified.body} />;
   }
   if (!classified.code) return null;
   return (

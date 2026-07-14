@@ -28,7 +28,13 @@ function renderFenceInner(key: string, lang: string, content: string) {
     return <WebPreviewCodeBlock key={key} code={content} lang={lang || "html"} />;
   }
   const l = lang.trim().toLowerCase();
-  if (looksLikeLatexFence(content) && l !== "python" && l !== "javascript") {
+  if (
+    looksLikeLatexFence(content) &&
+    l !== "python" &&
+    l !== "javascript" &&
+    l !== "graph" &&
+    l !== "geometry"
+  ) {
     // Content-derived key, not the caller-supplied `key` (which
     // react-native-markdown-display regenerates on every re-parse while
     // streaming) — the same latex across re-parses must map to the same
