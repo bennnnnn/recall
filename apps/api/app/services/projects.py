@@ -1042,45 +1042,20 @@ def _format_vocab_line(item: ProjectItem) -> str:
 
 
 def _stats_for_items(items: list[ProjectItem]) -> dict[str, int]:
-    from datetime import UTC, datetime, timedelta
+    """Prompt-side project stats.
 
-    now = datetime.now(UTC)
-    week_ago = now - timedelta(days=7)
-    due_cutoff = now - timedelta(hours=24)
-    stats = {
-        "total": len(items),
-        "new_count": 0,
-        "learning_count": 0,
-        "mastered_count": 0,
-        "added_this_week": 0,
-        "due_for_review": 0,
-    }
-    for item in items:
-        status = _item_status(item)
-        if status == "mastered":
-            stats["mastered_count"] += 1
-        elif status == "learning":
-            stats["learning_count"] += 1
-        else:
-            stats["new_count"] += 1
-        created = item.created_at
-        if created.tzinfo is None:
-            created = created.replace(tzinfo=UTC)
-        if created >= week_ago:
-            stats["added_this_week"] += 1
-        status = _item_status(item)
-        if status == "new":
-            stats["due_for_review"] += 1
-        elif status == "learning":
-            if item.last_reviewed_at is None:
-                stats["due_for_review"] += 1
-            else:
-                reviewed = item.last_reviewed_at
-                if reviewed.tzinfo is None:
-                    reviewed = reviewed.replace(tzinfo=UTC)
-                if reviewed <= due_cutoff:
-                    stats["due_for_review"] += 1
-    return stats
+    Delegates to ``repositories.project_items.stats_from_items`` so the
+    ``due_for_review`` count the model sees in the prompt matches the count
+    the mobile UI renders from the API response. Previously this function
+    reimplemented the logic with two divergences: it counted ``new`` items
+    as due (the API does not), and it used ``last_reviewed_at`` for learning
+    items where the API uses ``due_at`` if set (falling back to
+    ``last_reviewed_at or created_at``). The mismatch meant the prompt
+    claimed a different review queue than the app showed.
+    """
+    from app.repositories.project_items import stats_from_items
+
+    return stats_from_items(items)
 
 
 def _format_today_session_line(project: Project, stats: dict[str, int]) -> str:
