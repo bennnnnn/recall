@@ -63,6 +63,36 @@ async def test_record_usage_increments(fake_redis):
 
 
 @pytest.mark.asyncio
+async def test_record_usage_caps_overshoot_at_daily_limit(fake_redis):
+    """A turn whose actual > reserved delta must not push the daily counter
+    past the limit — otherwise subsequent reserve_usage checks under-report
+    remaining quota and the user keeps getting turns past the cap."""
+    await fake_redis.set(quota_service._usage_key("u1", quota_service.utc_today()), 99_500)
+    total = await quota_service.record_usage(fake_redis, "u1", 2000, daily_limit=100_000)
+    assert total == 100_000  # clipped, not 101_500
+    assert await quota_service.get_daily_usage(fake_redis, "u1") == 100_000
+
+
+@pytest.mark.asyncio
+async def test_adjust_usage_caps_overshoot(fake_redis):
+    await fake_redis.set(quota_service._usage_key("u1", quota_service.utc_today()), 99_000)
+    # reserved 1000, actual 5000 → delta +4000 would push to 103_000; clip.
+    total = await quota_service.adjust_usage(
+        fake_redis, "u1", reserved=1000, actual=5000, daily_limit=100_000
+    )
+    assert total == 100_000
+
+
+@pytest.mark.asyncio
+async def test_record_usage_without_limit_does_not_cap(fake_redis):
+    """Backward compat: callers that don't pass daily_limit get the raw total
+    (no clipping) — existing callers (e.g. admin tooling) aren't affected."""
+    await fake_redis.set(quota_service._usage_key("u1", quota_service.utc_today()), 99_500)
+    total = await quota_service.record_usage(fake_redis, "u1", 2000)
+    assert total == 101_500
+
+
+@pytest.mark.asyncio
 async def test_reserve_usage_rejects_over_limit(fake_redis, settings):
     from datetime import UTC, datetime
 

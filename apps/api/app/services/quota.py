@@ -194,14 +194,27 @@ async def refund_usage(redis: Redis, user_id: str, amount: int) -> None:
     await _refund_daily(redis, _usage_key(user_id, utc_today()), amount=amount)
 
 
-async def adjust_usage(redis: Redis, user_id: str, reserved: int, actual: int) -> int:
+async def adjust_usage(
+    redis: Redis,
+    user_id: str,
+    reserved: int,
+    actual: int,
+    *,
+    daily_limit: int | None = None,
+) -> int:
     delta = actual - reserved
     if delta == 0:
         return await get_daily_usage(redis, user_id)
-    return await record_usage(redis, user_id, delta)
+    return await record_usage(redis, user_id, delta, daily_limit=daily_limit)
 
 
-async def record_usage(redis: Redis, user_id: str, tokens: int) -> int:
+async def record_usage(
+    redis: Redis,
+    user_id: str,
+    tokens: int,
+    *,
+    daily_limit: int | None = None,
+) -> int:
     key = _usage_key(user_id, utc_today())
     new_total = await redis.incrby(key, tokens)
     if new_total == tokens:
@@ -209,6 +222,14 @@ async def record_usage(redis: Redis, user_id: str, tokens: int) -> int:
     if new_total < 0:
         await _floor_counter(redis, key)
         new_total = 0
+    # Cap overshoot: a single turn whose actual usage exceeds the reserve
+    # estimate can push the daily counter past the limit. Clip at daily_limit
+    # so one turn can't blow the cap (the over-limit tokens are forfeit —
+    # they were genuinely used, but the counter must not exceed the limit
+    # or subsequent reserve_usage checks under-report remaining quota).
+    if daily_limit is not None and new_total > daily_limit:
+        await redis.set(key, daily_limit, ex=_DAILY_TTL)
+        new_total = daily_limit
     return new_total
 
 

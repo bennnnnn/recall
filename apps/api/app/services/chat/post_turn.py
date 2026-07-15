@@ -8,7 +8,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import jobs
-from app.core.config import Settings
+from app.core.config import Settings, get_settings
 from app.core.db import SessionLocal
 from app.services import model_catalog
 from app.services import projects as projects_service
@@ -70,7 +70,17 @@ async def finalize_stream_turn_db(
     usage_output = usage.get("output")
     output_tokens = usage_output if usage_output is not None else estimate_tokens(assistant_text)
     total_tokens = input_tokens + output_tokens
-    weighted_total = math.ceil(total_tokens * model_catalog.quota_multiplier(ctx.model))
+    multiplier = model_catalog.quota_multiplier(ctx.model)
+    weighted_total = math.ceil(total_tokens * multiplier)
+
+    # The daily usage aggregate must store WEIGHTED tokens (the same units
+    # Redis uses), not raw — otherwise `seed_usage_from_db` re-seeds Redis
+    # with a raw total after an eviction and the user silently gets
+    # `multiplier`x more quota for the rest of the day. The per-message row
+    # below keeps raw input/output for per-message display; only the daily
+    # aggregate (used for re-seeding) is weighted.
+    weighted_input = math.ceil(input_tokens * multiplier)
+    weighted_output = math.ceil(output_tokens * multiplier)
 
     persisted_text = assistant_text
 
@@ -106,17 +116,28 @@ async def finalize_stream_turn_db(
                     session,
                     ctx.user_id,
                     utc_today(),
-                    input_tokens=input_tokens,
-                    output_tokens=output_tokens,
+                    # Weighted so the daily aggregate matches Redis units and
+                    # re-seeds correctly after an eviction (see header comment).
+                    input_tokens=weighted_input,
+                    output_tokens=weighted_output,
                 )
             except Exception:
                 logger.exception("Failed to record usage tokens")
 
+        # Cap overshoot at the user's daily limit so one turn's actual >
+        # reserved delta can't push the counter past the cap (which would
+        # make subsequent reserve_usage checks under-report remaining quota).
+        daily_limit = (
+            quota_service.daily_limit_for_user(ctx.user, get_settings())
+            if ctx.user is not None
+            else None
+        )
         await quota_service.adjust_usage(
             redis,
             str(ctx.user_id),
             ctx.reserved_tokens,
             weighted_total,
+            daily_limit=daily_limit,
         )
     except Exception:
         logger.exception("Stream-turn finalize failed; refunding reserved quota")
