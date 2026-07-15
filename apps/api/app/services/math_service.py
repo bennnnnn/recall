@@ -699,13 +699,28 @@ _FUNCTION_NAME_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Multi-letter mathematical constants that must NOT be split into per-letter
+# variable candidates. Without this, "sin(pi*x) = 0" would guess 'i' and 'p'
+# as variables (alphabetically before 'x'), silently solving for the wrong
+# symbol. SymPy recognizes these as constants, so the guesser must too.
+_CONSTANT_NAMES_RE = re.compile(
+    r"\b(?:pi|oo|inf|infinity|nan)\b",
+    re.IGNORECASE,
+)
+
 
 def _guess_variables(text: str) -> list[str]:
     """BUG FIX: a bare per-letter scan treated function-name letters as
-    candidate variables — "cos(x) = 0" guessed 'c' (alphabetically first of
+    candidate variables -- "cos(x) = 0" guessed 'c' (alphabetically first of
     c/o/s/x) instead of 'x', silently solving for the wrong symbol. Strip
-    recognized function names before extracting letters."""
+    recognized function names AND multi-letter constants (pi, oo, ...) before
+    extracting letters, so "sin(pi*x) = 0" guesses 'x' not 'i'/'p'."""
     stripped = _FUNCTION_NAME_RE.sub(" ", text)
+    stripped = _CONSTANT_NAMES_RE.sub(" ", stripped)
     found = sorted(set(re.findall(r"[a-zA-Z]", stripped)))
-    letters = [c for c in found if c not in {"e"}]
+    # Exclude single-letter constants: e (Euler's number), i (imaginary unit
+    # in some contexts, though commonly a variable index -- keep it for now
+    # since 'i' is far more often a loop variable than the imaginary unit in
+    # user input). E (uppercase) is SymPy's Euler number.
+    letters = [c for c in found if c not in {"e", "E"}]
     return letters[:4] if letters else ["x"]

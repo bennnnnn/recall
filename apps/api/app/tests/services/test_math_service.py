@@ -427,6 +427,12 @@ def test_newton_method_transcendental_equation() -> None:
         ("cos(x) = 0", "x"),
         ("sin(t) = 0", "t"),
         ("log(n) = 1", "n"),
+        # pi is a constant, not two variables p/i -- without the fix, the
+        # per-letter scan guessed 'i' (alphabetically before 'x') and solved
+        # for the wrong symbol.
+        ("sin(pi*x) = 0", "x"),
+        ("cos(pi*y) + 1 = 0", "y"),
+        ("e^(pi*x) = 1", "x"),
     ],
 )
 def test_guess_variables_ignores_function_name_letters(text: str, expected_variable: str) -> None:
@@ -434,7 +440,8 @@ def test_guess_variables_ignores_function_name_letters(text: str, expected_varia
     per-letter scan treated function-name letters as candidate variables —
     "cos(x) = 0" guessed 'c' (alphabetically first of c/o/s/x) instead of
     'x', silently building a verified block that solves for the wrong
-    symbol."""
+    symbol. Also verifies pi is recognized as a constant (not split into
+    p/i variables)."""
     eq = math_service.try_extract_equation_from_text(text)
     assert eq is not None
     assert eq.variables[0] == expected_variable
