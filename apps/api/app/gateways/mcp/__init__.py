@@ -10,4 +10,9 @@ from app.gateways.mcp.web_search_adapter import WebSearchAdapter
 def setup_mcp_adapters(settings: Settings) -> None:
     register(WebSearchAdapter(settings))
     register(CalendarAdapter())
-    register(SympyAdapter(settings))
+    # Gate the model-callable SymPy tool on math_tools_enabled — without
+    # this, the model could still reach SymPy via the "sympy" MCP tool even
+    # when the operator disabled math_tools_enabled (which otherwise gates
+    # only the pre-stream augment_prompt_messages path).
+    if settings.math_tools_enabled:
+        register(SympyAdapter(settings))

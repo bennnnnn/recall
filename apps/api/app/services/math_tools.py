@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import re
@@ -1021,16 +1020,26 @@ async def augment_prompt_messages(
 async def _build_verified_block_async(
     intent: MathIntent, settings: Settings
 ) -> VerifiedMathBlock | None:
-    """Run the sync, CPU-bound SymPy work off the event loop with a hard timeout.
+    """Run the sync, CPU-bound SymPy work in a bounded subprocess with a
+    hard timeout + SIGTERM on timeout.
 
     ``_build_verified_block`` calls into SymPy's ``solve``/``integrate``/etc.,
     which are synchronous and can take arbitrarily long on a pathological
-    expression. Without offloading, that would stall every concurrent chat
-    stream on this worker's single event loop.
+    expression. Running them on the shared default ``asyncio.to_thread`` pool
+    would (a) starve unrelated async work and (b) leak the thread on timeout
+    (the await cancels but the thread keeps running). The bounded
+    ``ProcessPoolExecutor`` isolates SymPy to a single subprocess that can be
+    hard-killed on timeout.
     """
+    from app.services.sympy_executor import run_sympy
+
     try:
-        async with asyncio.timeout(settings.math_solve_timeout_seconds):
-            return await asyncio.to_thread(_build_verified_block, intent, settings)
+        return await run_sympy(
+            _build_verified_block,
+            intent,
+            settings,
+            timeout=settings.math_solve_timeout_seconds,
+        )
     except TimeoutError:
         logger.warning(
             "math_tools solve timed out after %ss for kind=%s",
