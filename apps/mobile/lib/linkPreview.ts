@@ -1,4 +1,4 @@
-import { getApiUrl } from "@/lib/config";
+import { requestRaw } from "@/lib/api/client";
 import { getToken } from "@/lib/auth";
 
 export type LinkPreview = {
@@ -14,11 +14,14 @@ export async function fetchLinkPreview(url: string): Promise<LinkPreview> {
   const cached = cache.get(url);
   if (cached) return cached;
 
+  // Route through lib/api's requestRaw so this fetch shares the REST path's
+  // 401→refresh→retry behaviour and the lib/api boundary stays the single
+  // network egress point (no bare fetch(getApiUrl()...) here).
   const token = await getToken();
-  const api = `${getApiUrl()}/link-preview?url=${encodeURIComponent(url)}`;
-  const res = await fetch(api, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
+  const res = await requestRaw(
+    `/link-preview?url=${encodeURIComponent(url)}`,
+    token,
+  );
   if (!res.ok) throw new Error("preview failed");
   const data = (await res.json()) as LinkPreview;
   cache.set(url, data);

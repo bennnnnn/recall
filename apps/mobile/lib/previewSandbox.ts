@@ -56,6 +56,29 @@ export const MATH_PREVIEW_CSP = [
 ].join("; ");
 
 /**
+ * CSP for the PDF preview WebView (pdf.js).
+ *
+ * The PDF preview loads pdf.js + its worker from cdnjs and renders an
+ * inlined base64 PDF. Unlike the user-HTML preview, pdf.js legitimately
+ * needs to fetch from cdnjs (the worker, cmaps, etc.) — the strict
+ * `connect-src 'none'` of PREVIEW_CSP breaks it. We still lock everything
+ * else down: only cdnjs may be reached, no other egress, no forms, no base
+ * hijack. The PDF data itself is inlined (no fetch).
+ */
+export const PDF_PREVIEW_CSP = [
+  "default-src 'none'",
+  "style-src 'unsafe-inline' https:",
+  "script-src 'unsafe-inline' https:",
+  "img-src data: blob: https:",
+  "font-src data: https:",
+  "media-src data: blob: https:",
+  "connect-src https://cdnjs.cloudflare.com",
+  "base-uri 'none'",
+  "form-action 'none'",
+  "sandbox allow-scripts",
+].join("; ");
+
+/**
  * Replace raw-text/CDATA-like regions (script, style, comments, textarea,
  * title) with equal-length whitespace, preserving the string's length so
  * indices found in the result stay valid against the original string.

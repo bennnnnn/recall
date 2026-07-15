@@ -2032,6 +2032,75 @@ async def test_stream_edit_response_yields_tokens():
     assert tokens == ["edited"]
 
 
+@pytest.mark.asyncio
+async def test_stream_edit_response_refunds_quota_when_delete_throws():
+    """If the edit prep (delete/summary-reset) fails AFTER reserving quota,
+    the reservation must be refunded before re-raising — otherwise the user
+    is charged for a turn that never ran."""
+    from app.services import chat as chat_module
+
+    user_id = uuid4()
+    chat_id = uuid4()
+    message_id = uuid4()
+
+    fake_user = MagicMock()
+    fake_user.id = user_id
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+    fake_chat.summary_message_count = 0
+
+    fake_message = MagicMock()
+    fake_message.id = message_id
+    fake_message.role = "user"
+    fake_message.created_at = MagicMock()
+
+    session = AsyncMock()
+    session.__aenter__ = AsyncMock(return_value=session)
+    session.__aexit__ = AsyncMock(return_value=None)
+
+    refund_mock = AsyncMock()
+
+    with (
+        patch("app.services.chat.SessionLocal", return_value=session),
+        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.services.chat.messages_repo.get_by_id", AsyncMock(return_value=fake_message)),
+        patch(
+            "app.services.chat.messages_repo.ids_from_chat_at_or_after",
+            AsyncMock(return_value=[message_id]),
+        ),
+        patch(
+            "app.services.chat.attachment_lifecycle.purge_attachments_for_messages",
+            AsyncMock(return_value=0),
+        ),
+        patch(
+            "app.services.chat.messages_repo.delete_messages_from",
+            AsyncMock(side_effect=RuntimeError("delete failed")),
+        ),
+        patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.chat.quota_service.refund_usage", refund_mock),
+        patch(
+            "app.services.chat.quota_service.daily_limit_for_user",
+            MagicMock(return_value=500_000),
+        ),
+    ):
+        with pytest.raises(RuntimeError, match="delete failed"):
+            async for _ in chat_module.stream_edit_response(
+                AsyncMock(),
+                Settings(max_output_tokens=100),
+                user_id=user_id,
+                chat_id=chat_id,
+                message_id=message_id,
+                new_content="new question",
+            ):
+                pass
+
+    refund_mock.assert_awaited_once()
+
+
 async def _run_stream_edit_response(
     *, summary_message_count: int, total_before_edit: int, deleted_message_ids: list
 ):

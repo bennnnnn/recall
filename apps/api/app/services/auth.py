@@ -13,6 +13,20 @@ from app.repositories import users as users_repo
 from app.services import tokens as tokens_service
 
 
+def _is_verified_truthy(value: object) -> bool:
+    """True only for an explicit, unambiguous "verified" claim.
+
+    Apple ships `email_verified` as the string "true"/"false"; Google ships a
+    bool. A missing claim or any non-affirmative value (incl. the string
+    "false", 0, None) is treated as unverified.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() == "true"
+    return False
+
+
 async def login_with_google(
     session: AsyncSession,
     settings: Settings,
@@ -77,8 +91,13 @@ async def login_with_apple(
     payload = await verify_apple_id_token(id_token, settings)
     apple_sub = payload["sub"]
     email = payload.get("email")
+    # Apple sends `email_verified` as the string "true"/"false" (not a bool),
+    # and omits the claim entirely for relayed tokens. Treat anything that
+    # isn't an explicit, unambiguous "true" as unverified — the same intent
+    # as Google's `not payload.get("email_verified")` but robust to the
+    # string form and to a missing claim (which must not silently pass).
     email_verified = payload.get("email_verified")
-    if email_verified is False:
+    if not _is_verified_truthy(email_verified):
         raise GoogleAuthError("Apple email address is not verified")
 
     user = await users_repo.get_by_apple_sub(session, apple_sub)

@@ -183,3 +183,87 @@ export async function fetchExportText(token: string, allowRefresh = true): Promi
     clearTimeout(timeout);
   }
 }
+
+/**
+ * Authed fetch that returns the raw ``Response`` (for callers that need the
+ * body as a stream, non-JSON, or binary). Mirrors ``request()``'s 401→refresh
+ * →retry behaviour so non-JSON endpoints (SSE, file downloads, link preview)
+ * get the same auto-refresh as REST. The caller controls Content-Type /
+ * Accept / body via ``init``; only Authorization (when ``token`` is non-empty)
+ * is added.
+ *
+ * This is the single network-boundary helper for non-JSON fetches — every
+ * HTTP egress from the mobile app should go through ``request``,
+ * ``requestRaw``, ``requestSse``, or ``fetchExportText`` (all in lib/api),
+ * never a bare ``fetch(getApiUrl()...)``. ``file://`` reads remain the only
+ * exception (expo-file-system, not network).
+ */
+export async function requestRaw(
+  path: string,
+  token: string | null,
+  init?: RequestInit,
+  allowRefresh = true,
+  timeoutMs = 30_000,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const externalSignal = init?.signal ?? null;
+  const onExternalAbort = () => controller.abort();
+  externalSignal?.addEventListener("abort", onExternalAbort);
+
+  try {
+    const callerHeaders = (init?.headers ?? {}) as Record<string, string>;
+    const headers: Record<string, string> = { ...callerHeaders };
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    const response = await fetch(apiUrl(path), {
+      ...init,
+      signal: controller.signal,
+      headers,
+    });
+
+    if (response.status === 401 && allowRefresh && token) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
+        return requestRaw(path, refreshed, init, false);
+      }
+      onUnauthorized?.();
+    }
+    return response;
+  } finally {
+    externalSignal?.removeEventListener("abort", onExternalAbort);
+    clearTimeout(timeout);
+  }
+}
+
+/**
+ * Authed fetch for an SSE chat stream. Returns the raw ``Response`` so the
+ * caller can read ``response.body`` as a stream of events. Handles 401→refresh
+ * →retry so a backgrounded-then-resumed app doesn't fail the stream silently.
+ *
+ * This is the SSE counterpart to ``request()`` — the streaming paths (chat
+ * send / regenerate / edit) must go through it (or the WS equivalent) so the
+ * lib/api boundary stays the single network egress point.
+ */
+export async function requestSse(
+  path: string,
+  token: string,
+  body: Record<string, unknown>,
+  signal?: AbortSignal,
+  allowRefresh = true,
+): Promise<Response> {
+  return requestRaw(
+    path,
+    token,
+    {
+      method: "POST",
+      signal,
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+      },
+      body: JSON.stringify(body),
+    },
+    allowRefresh,
+  );
+}

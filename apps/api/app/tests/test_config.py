@@ -1,7 +1,12 @@
 import pytest
+from cryptography.fernet import Fernet
 
 from app.core.config import Settings, validate_production_settings
 from app.core.rate_limit import allow_request
+
+# A valid Fernet key (32 bytes, urlsafe-base64). validate_production_settings
+# now parses the key at boot, so placeholder strings like "key" no longer pass.
+_VALID_FERNET_KEY = Fernet.generate_key().decode()
 
 
 def test_validate_production_settings_ok():
@@ -16,7 +21,7 @@ def test_validate_production_settings_ok():
             cors_origins="https://app.recall.app",
             openrouter_api_key="sk-or-xxx",
             revenuecat_webhook_auth="whsec-xxx",
-            oauth_token_encryption_key="a-fernet-key",
+            oauth_token_encryption_key=_VALID_FERNET_KEY,
             storage_backend="r2",
             r2_account_id="acct",
             r2_access_key_id="key",
@@ -90,6 +95,31 @@ def test_validate_production_settings_rejects_empty_cors_and_missing_secrets():
         )
 
 
+def test_validate_production_settings_rejects_malformed_fernet_key():
+    # A non-empty but malformed key must fail at boot, not on the first
+    # encrypt at runtime.
+    base = dict(
+        environment="production",
+        dev_auth_enabled=False,
+        mock_llm_enabled=False,
+        jwt_secret="super-secret-key-that-is-at-least-32-chars!!",
+        google_client_id="client-id",
+        google_client_secret="secret",
+        cors_origins="https://app.recall.app",
+        openrouter_api_key="sk-or-xxx",
+        revenuecat_webhook_auth="whsec-xxx",
+        storage_backend="r2",
+        r2_account_id="acct",
+        r2_access_key_id="key",
+        r2_secret_access_key="secret",
+        r2_bucket="recall",
+    )
+    with pytest.raises(RuntimeError, match="not a valid Fernet key"):
+        validate_production_settings(
+            Settings(**base, oauth_token_encryption_key="not-a-real-fernet-key")
+        )
+
+
 def test_validate_production_settings_requires_r2():
     base = dict(
         environment="production",
@@ -101,7 +131,7 @@ def test_validate_production_settings_requires_r2():
         cors_origins="https://app.recall.app",
         openrouter_api_key="sk-or-xxx",
         revenuecat_webhook_auth="whsec-xxx",
-        oauth_token_encryption_key="key",
+        oauth_token_encryption_key=_VALID_FERNET_KEY,
     )
     with pytest.raises(RuntimeError, match="STORAGE_BACKEND"):
         validate_production_settings(Settings(**base, storage_backend="local"))
@@ -131,7 +161,7 @@ def test_validate_production_settings_rejects_mock_llm_and_weak_jwt():
         cors_origins="https://app.recall.app",
         openrouter_api_key="sk-or-xxx",
         revenuecat_webhook_auth="whsec-xxx",
-        oauth_token_encryption_key="key",
+        oauth_token_encryption_key=_VALID_FERNET_KEY,
         storage_backend="r2",
         r2_account_id="acct",
         r2_access_key_id="key",
@@ -161,7 +191,7 @@ def test_validate_production_settings_rejects_missing_core_urls():
         cors_origins="https://app.recall.app",
         openrouter_api_key="sk-or-xxx",
         revenuecat_webhook_auth="whsec-xxx",
-        oauth_token_encryption_key="key",
+        oauth_token_encryption_key=_VALID_FERNET_KEY,
         storage_backend="r2",
         r2_account_id="acct",
         r2_access_key_id="key",
@@ -187,7 +217,7 @@ def test_validate_production_settings_rejects_cors_wildcard():
         google_client_secret="secret",
         openrouter_api_key="sk-or-xxx",
         revenuecat_webhook_auth="whsec-xxx",
-        oauth_token_encryption_key="key",
+        oauth_token_encryption_key=_VALID_FERNET_KEY,
         storage_backend="r2",
         r2_account_id="acct",
         r2_access_key_id="key",
@@ -208,7 +238,7 @@ def test_validate_production_settings_requires_google_client_secret():
         cors_origins="https://app.recall.app",
         openrouter_api_key="sk-or-xxx",
         revenuecat_webhook_auth="whsec-xxx",
-        oauth_token_encryption_key="key",
+        oauth_token_encryption_key=_VALID_FERNET_KEY,
         storage_backend="r2",
         r2_account_id="acct",
         r2_access_key_id="key",

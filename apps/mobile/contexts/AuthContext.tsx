@@ -31,7 +31,7 @@ import {
   setOnboarded,
   setTokenPair,
 } from "@/lib/auth";
-import { clearCachedUser, readCachedUser, writeCachedUser } from "@/lib/cachedUser";
+import { clearCachedUser, mergeCachedUser, readCachedUser, writeCachedUser } from "@/lib/cachedUser";
 import { useBootstrapSync } from "@/hooks/useBootstrapSync";
 import { useTheme } from "@/lib/theme";
 
@@ -93,16 +93,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (cachedUser) {
-      // Paint the app immediately with the last-known user instead of
-      // holding the whole navigator behind this round trip, then validate
-      // in the background. A real 401 is handled by the global
+      // Paint the app immediately with the last-known user display fields
+      // (name, avatar, plan) instead of holding the whole navigator behind
+      // this round trip, then validate in the background. The cached blob
+      // is a PII-stripped subset (see cachedUser.ts); mergeCachedUser fills
+      // the re-fetched fields with safe defaults so the in-memory state
+      // stays typed as a full User. A real 401 is handled by the global
       // onUnauthorized -> signOut() handler (wired below), which already
       // fires from inside api.me() before this catch runs — so a stale or
       // revoked token still signs the user out, just without blocking
       // first paint on the network first. A transient failure (offline,
       // slow cold-start network) just leaves the cached user in place.
       setTokenState(stored);
-      setUser(cachedUser);
+      setUser(mergeCachedUser(cachedUser));
       setLoading(false);
       try {
         const me = await api.me(stored);

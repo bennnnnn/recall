@@ -9,6 +9,11 @@ export const attachmentsApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  unregisterPushToken: (token: string, body: { expo_push_token: string }) =>
+    request<void>("/users/push-token", token, {
+      method: "DELETE",
+      body: JSON.stringify(body),
+    }),
   presignAttachment: (
     token: string,
     body: { content_type: string; size_bytes: number },

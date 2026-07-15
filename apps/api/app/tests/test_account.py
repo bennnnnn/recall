@@ -34,6 +34,9 @@ def test_delete_account_returns_204():
     app = _app_with_user(user)
     order: list[str] = []
 
+    async def purge_sessions(*_a, **_k):
+        order.append("purge_sessions")
+
     async def revoke(*_a, **_k):
         order.append("revoke")
 
@@ -44,6 +47,10 @@ def test_delete_account_returns_204():
         order.append("delete_user")
 
     with (
+        patch(
+            "app.routers.auth.tokens_service.purge_user_sessions",
+            side_effect=purge_sessions,
+        ),
         patch(
             "app.routers.auth.google_integrations_service.revoke_all_google_tokens_for_user",
             side_effect=revoke,
@@ -57,7 +64,10 @@ def test_delete_account_returns_204():
         client = TestClient(app)
         r = client.delete("/auth/me", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 204
-    assert order == ["revoke", "purge", "delete_user"]
+    # Sessions must be purged first — otherwise a logged-in client keeps a
+    # working access token after the row is gone, with only the (now-deleted)
+    # DB user check to stop it.
+    assert order == ["purge_sessions", "revoke", "purge", "delete_user"]
 
 
 def test_export_returns_data():

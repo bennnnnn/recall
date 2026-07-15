@@ -11,7 +11,12 @@ TRIVIA_FENCE = (
     '{"quiz_type":"trivia","word":"History",'
     '"question":"Which wonder stood at Rhodes?",'
     '"correct":"A",'
-    '"choices":[{"letter":"A","text":"Colossus"},{"letter":"B","text":"Pyramid"}]}\n'
+    '"choices":['
+    '{"letter":"A","text":"Colossus"},'
+    '{"letter":"B","text":"Pyramid"},'
+    '{"letter":"C","text":"Lighthouse"},'
+    '{"letter":"D","text":"Mausoleum"}'
+    "]}\n"
     "```"
 )
 
@@ -375,12 +380,52 @@ def test_is_vocab_quiz_answer():
 
 
 def test_parse_vocab_quiz_requires_correct_letter():
+    # Uses 4 choices so it's only rejected for missing `correct`, not for choice count.
     fence = (
         "```vocab_quiz\n"
-        '{"word":"cat","choices":[{"letter":"A","text":"x"},{"letter":"B","text":"y"}]}\n'
+        '{"word":"cat","choices":['
+        '{"letter":"A","text":"x"},{"letter":"B","text":"y"},'
+        '{"letter":"C","text":"z"},{"letter":"D","text":"w"}'
+        "]}\n"
         "```"
     )
     assert vocab_quiz_service.parse_vocab_quiz(fence) is None
+
+
+def test_parse_vocab_quiz_rejects_fewer_than_four_choices():
+    """The mobile parser (parseVocabQuiz.ts) rejects < 4 choices; the backend
+    must match so a 2-3 choice quiz is never accepted server-side only to
+    leave the mobile stuck on an un-answerable card."""
+    two = (
+        "```vocab_quiz\n"
+        '{"word":"cat","correct":"A",'
+        '"choices":[{"letter":"A","text":"x"},{"letter":"B","text":"y"}]}\n'
+        "```"
+    )
+    three = (
+        "```vocab_quiz\n"
+        '{"word":"cat","correct":"A",'
+        '"choices":[{"letter":"A","text":"x"},{"letter":"B","text":"y"},'
+        '{"letter":"C","text":"z"}]}\n'
+        "```"
+    )
+    assert vocab_quiz_service.parse_vocab_quiz(two) is None
+    assert vocab_quiz_service.parse_vocab_quiz(three) is None
+
+
+def test_parse_vocab_quiz_accepts_four_choices():
+    four = (
+        "```vocab_quiz\n"
+        '{"word":"cat","correct":"A",'
+        '"choices":['
+        '{"letter":"A","text":"x"},{"letter":"B","text":"y"},'
+        '{"letter":"C","text":"z"},{"letter":"D","text":"w"}'
+        "]}\n"
+        "```"
+    )
+    quiz = vocab_quiz_service.parse_vocab_quiz(four)
+    assert quiz is not None
+    assert len(quiz.choices) == 4
 
 
 @pytest.mark.asyncio

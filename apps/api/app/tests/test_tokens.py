@@ -141,3 +141,34 @@ async def test_logout_removes_token_from_user_session_set(fake_redis):
     await tokens_service.revoke_refresh_token(fake_redis, refresh)
 
     assert not await fake_redis.sismember(f"refresh_user:{user_id}", refresh)
+
+
+@pytest.mark.asyncio
+async def test_purge_user_sessions_kills_all_refresh_tokens(fake_redis):
+    """Account deletion must revoke every outstanding session, not just rely
+    on the DB user check to stop a logged-in client."""
+    settings = Settings(jwt_secret="x" * 32)
+    user_id = uuid4()
+    _a1, refresh1 = await tokens_service.issue_token_pair(fake_redis, user_id, settings)
+    _a2, refresh2 = await tokens_service.issue_token_pair(fake_redis, user_id, settings)
+
+    await tokens_service.purge_user_sessions(fake_redis, user_id, settings)
+
+    assert await fake_redis.get(f"refresh:{refresh1}") is None
+    assert await fake_redis.get(f"refresh:{refresh2}") is None
+    assert await fake_redis.smembers(f"refresh_user:{user_id}") == set()
+    # Any access token issued before now is treated as revoked.
+    assert await fake_redis.get(f"revoked_since:{user_id}") is not None
+
+
+@pytest.mark.asyncio
+async def test_purge_user_sessions_never_raises_on_redis_failure():
+    """Redis must never block account deletion — a Redis outage during
+    `DELETE /auth/me` must not turn a 204 into a 500."""
+    settings = Settings(jwt_secret="x" * 32)
+    user_id = uuid4()
+    redis = AsyncMock()
+    redis.smembers = AsyncMock(side_effect=RuntimeError("redis down"))
+
+    # Should not raise.
+    await tokens_service.purge_user_sessions(redis, user_id, settings)

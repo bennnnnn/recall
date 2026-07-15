@@ -11,6 +11,7 @@ from app.repositories import chats as chats_repo
 from app.repositories import projects as projects_repo
 from app.repositories import todos as todos_repo
 from app.services import home as home_service
+from app.services.time_context import normalize_due_at
 
 router = APIRouter(prefix="/todos", tags=["todos"])
 
@@ -48,6 +49,11 @@ async def create_todo(
         project = await projects_repo.get_by_id(session, body.project_id, user.id)
         if project is None:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Project not found")
+    # Normalize due_at to UTC using the user's timezone so a naive "9am"
+    # from the client is interpreted in the user's local time, not server time.
+    # Without this, a naive datetime is stored as-is and reminders fire at the
+    # wrong wall-clock hour for any user not on UTC.
+    due_at = normalize_due_at(body.due_at, user.timezone)
     item = await todos_repo.create(
         session,
         user_id=user.id,
@@ -55,7 +61,7 @@ async def create_todo(
         topic=body.topic,
         chat_id=body.chat_id,
         project_id=body.project_id,
-        due_at=body.due_at,
+        due_at=due_at,
     )
     await home_service.invalidate_home_cache(user.id)
     return TodoOut.model_validate(item)
@@ -88,6 +94,9 @@ async def update_todo(
         project = await projects_repo.get_by_id(session, fields["project_id"], user.id)
         if project is None:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Project not found")
+    # Normalize due_at to UTC using the user's timezone (same reason as create).
+    if "due_at" in fields:
+        fields["due_at"] = normalize_due_at(fields["due_at"], user.timezone)
     updated = await todos_repo.update(session, item, **fields)
     await home_service.invalidate_home_cache(user.id)
     return TodoOut.model_validate(updated)

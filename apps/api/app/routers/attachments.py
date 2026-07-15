@@ -53,6 +53,7 @@ async def _reject_unverified_upload(
     attachment_id: UUID,
     content_type: str,
     storage_key: str,
+    declared_size: int | None = None,
 ) -> None:
     error = await ensure_verified_or_purge(
         gateway,
@@ -60,6 +61,7 @@ async def _reject_unverified_upload(
         attachment_id=attachment_id,
         content_type=content_type,
         storage_key=storage_key,
+        declared_size=declared_size,
     )
     if error:
         if is_image_content_type(content_type):
@@ -155,6 +157,17 @@ async def upload_attachment_bytes(
     data = await request.body()
     if not data or len(data) > MAX_SIZE:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid upload size")
+    # Enforce the declared size: the client told us the size at presign time,
+    # and the DB row records it. A mismatch means the upload is not what was
+    # reserved (truncated or extended), and serving it back with the row's
+    # metadata would be wrong.
+    if len(data) != row.size_bytes:
+        if is_image_content_type(row.content_type):
+            await quota_service.refund_image_upload(get_redis_client(), user.id)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded size does not match the declared size",
+        )
     # Verify the actual bytes match the declared content type so a presigned
     # "image/png" can't be used to store a non-image blob that later gets served
     # back with the wrong Content-Type.
@@ -226,6 +239,7 @@ async def confirm_upload(
         attachment_id=attachment_id,
         content_type=row.content_type,
         storage_key=row.storage_key,
+        declared_size=row.size_bytes,
     )
 
 
@@ -247,6 +261,7 @@ async def serve_attachment_file(
         attachment_id=attachment_id,
         content_type=row.content_type,
         storage_key=row.storage_key,
+        declared_size=row.size_bytes,
     )
     if isinstance(gateway, LocalStorageGateway):
         path = gateway.resolve_local_path(row.storage_key)
@@ -259,9 +274,15 @@ async def serve_attachment_file(
         )
     # R2/S3: redirect to a short-lived presigned GET so the client fetches the
     # blob directly from object storage. Keeps the mobile's existing /file call
-    # working for both backends.
+    # working for both backends. nosniff is set on the redirect as
+    # defense-in-depth; the R2 bucket should also be configured to set it on
+    # object responses.
     download_url = await gateway.presign_download(row.storage_key)
-    return RedirectResponse(url=download_url, status_code=status.HTTP_302_FOUND)
+    return RedirectResponse(
+        url=download_url,
+        status_code=status.HTTP_302_FOUND,
+        headers={"X-Content-Type-Options": "nosniff"},
+    )
 
 
 @router.get("/{attachment_id}/url", response_model=AttachmentOut)
@@ -282,6 +303,7 @@ async def download_url(
         attachment_id=attachment_id,
         content_type=row.content_type,
         storage_key=row.storage_key,
+        declared_size=row.size_bytes,
     )
     if isinstance(gateway, LocalStorageGateway):
         url = f"/attachments/{attachment_id}/file"

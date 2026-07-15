@@ -164,7 +164,10 @@ def parse_vocab_quiz(content: str) -> ParsedVocabQuiz | None:
         return None
 
     choices = data.get("choices")
-    if not isinstance(choices, list) or len(choices) < 2:
+    # Require 4 choices to match the mobile parser (parseVocabQuiz.ts rejects
+    # < 4). Without this, the backend would accept a 2-3 choice quiz the mobile
+    # refuses to render, leaving the user stuck on an un-answerable card.
+    if not isinstance(choices, list) or len(choices) < 4:
         return None
 
     correct_raw = str(data.get("correct") or "").upper()

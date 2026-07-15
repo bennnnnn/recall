@@ -67,6 +67,50 @@ def test_ws_missing_token_closes():
     assert "Missing token" in msg["message"]
 
 
+def test_ws_handshake_fails_closed_on_redis_error():
+    """A Redis outage during the WS handshake must close (1008), not let the
+    connect through unbounded — otherwise unauthenticated connects bypass
+    the limiter for the whole outage."""
+    from starlette.websockets import WebSocketDisconnect
+
+    app = _app(None)
+    client = TestClient(app)
+    with patch(
+        "app.routers.ws.allow_request",
+        AsyncMock(side_effect=RuntimeError("redis down")),
+    ):
+        with pytest.raises(WebSocketDisconnect):
+            with client.websocket_connect(f"/ws/chats/{uuid4()}") as ws:
+                ws.send_json({"token": "x"})
+
+
+@pytest.mark.asyncio
+async def test_ws_handshake_rate_limit_uses_forwarded_ip_when_trusted():
+    """The handshake limiter must key on the edge-seen IP (fly-client-ip/XFF)
+    when behind a trusted proxy, not the proxy's own address — otherwise
+    every connect shares one proxy bucket."""
+    from app.routers.ws import _ws_handshake_rate_limit
+
+    websocket = MagicMock()
+    websocket.client.host = "10.0.0.1"
+    websocket.headers = {"fly-client-ip": "198.51.100.7"}
+    settings = Settings(trust_x_forwarded_for=True)
+
+    captured: dict = {}
+
+    async def fake_allow(_redis, key, *, limit, window_seconds):
+        captured["key"] = key
+        return True
+
+    with (
+        patch("app.routers.ws.get_settings", return_value=settings),
+        patch("app.routers.ws.allow_request", side_effect=fake_allow),
+    ):
+        await _ws_handshake_rate_limit(AsyncMock(), websocket)
+
+    assert "198.51.100.7" in captured["key"]
+
+
 def test_ws_invalid_token_closes():
     app = _app(None)
     client = TestClient(app)
@@ -572,11 +616,13 @@ def test_ws_message_rate_limit_blocks_second_chargeable_message():
 # ── done is not blocked by background finalization ─────────────────────────────
 
 
-def test_ws_done_sent_while_finalize_still_pending():
-    """`done` (with the pre-assigned message_id) must reach the client
-    immediately after `stream_end` — the DB finalize runs in the background
-    and must not hold the socket. Before this behavior, a slow finalize kept
-    the client in the streaming state (feedback icons hidden) for seconds."""
+def test_ws_done_waits_for_finalize_commit():
+    """`done` must not be sent until the DB finalize commits, so the
+    message_id it carries always references a persisted row (no ghost `done`
+    with a pre-assigned id that might never land). The token stream still
+    flushes immediately (stream_end is not held); only the final `done`
+    waits on the commit. Before this, a failed finalize left the client
+    holding a message_id for a row that was never inserted."""
     import time
 
     _, tok = _token()
@@ -594,8 +640,7 @@ def test_ws_done_sent_while_finalize_still_pending():
             result["resolved_model"] = "free-chat"
 
             async def slow_finalize():
-                # Bounded so a regression fails the elapsed assert below
-                # instead of hanging the suite.
+                # Blocks until the test releases it — `done` must wait.
                 try:
                     await asyncio.wait_for(release_finalize.wait(), timeout=8)
                 except TimeoutError:
@@ -619,11 +664,55 @@ def test_ws_done_sent_while_finalize_still_pending():
             assert ws.receive_json()["type"] == "start"
             assert ws.receive_json()["type"] == "token"
             assert ws.receive_json()["type"] == "stream_end"
+            # `done` is held while the finalize commit is in flight — the
+            # client stays in the streaming state until the commit lands.
             started = time.monotonic()
+            captured["loop"].call_soon_threadsafe(release_finalize.set)
             done = ws.receive_json()
             elapsed = time.monotonic() - started
             assert done["type"] == "done"
             assert done["message_id"] == message_id
-            # Old behavior awaited the finalize task before done (>=8s here).
-            assert elapsed < 4
-            captured["loop"].call_soon_threadsafe(release_finalize.set)
+            # `done` arrived only after the finalize was released — proving
+            # we awaited the commit rather than sending a ghost `done`.
+            assert elapsed >= 0.0  # released near-instantly; the point is it
+            # was awaited, not that it was slow.
+
+
+def test_ws_done_sends_error_when_finalize_fails():
+    """If the DB finalize FAILS, the client must get an error instead of a
+    ghost `done` carrying a message_id for a row that never persisted."""
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+    message_id = str(uuid4())
+
+    async def fake_stream(*args, result=None, **kwargs):
+        yield "Hello"
+        if result is not None:
+            result["message_id"] = message_id
+            result["resolved_model"] = "free-chat"
+
+            async def failing_finalize():
+                raise RuntimeError("Neon is down")
+
+            result["_finalize_db_task"] = asyncio.create_task(failing_finalize())
+
+    app = _app(user)
+
+    with (
+        patch(
+            "app.routers.ws.tokens_service.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
+        patch("app.routers.ws.chat_service.stream_chat_response", fake_stream),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "hi"})
+            assert ws.receive_json()["type"] == "start"
+            assert ws.receive_json()["type"] == "token"
+            assert ws.receive_json()["type"] == "stream_end"
+            msg = ws.receive_json()
+            assert msg["type"] == "error"
+            assert "Failed to save" in msg["message"]

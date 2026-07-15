@@ -303,3 +303,69 @@ async def test_inject_vision_content_noop_when_no_images_readable():
     await inject_vision_content(prompt_messages, gateway, images)
 
     assert prompt_messages[0]["content"] == "hi"
+
+
+# ── verify_uploaded_bytes: declared size enforcement ──────────────────────
+
+
+@pytest.mark.asyncio
+async def test_verify_uploaded_bytes_rejects_size_mismatch():
+    """When declared_size is set, actual bytes must match exactly — a mismatch
+    means the client lied at presign time (or the upload was truncated/extended)."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.services.attachment_content import verify_uploaded_bytes
+
+    png_bytes = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32  # 40 bytes
+    gateway = MagicMock()
+    gateway.read_bytes = AsyncMock(return_value=png_bytes)
+
+    _, error = await verify_uploaded_bytes(
+        gateway,
+        content_type="image/png",
+        storage_key="user/key",
+        declared_size=128,  # client claimed 128, actual is 40
+    )
+    assert error is not None
+    assert "size" in error.lower()
+
+
+@pytest.mark.asyncio
+async def test_verify_uploaded_bytes_accepts_matching_size():
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.services.attachment_content import verify_uploaded_bytes
+
+    png_bytes = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32  # 40 bytes
+    gateway = MagicMock()
+    gateway.read_bytes = AsyncMock(return_value=png_bytes)
+
+    data, error = await verify_uploaded_bytes(
+        gateway,
+        content_type="image/png",
+        storage_key="user/key",
+        declared_size=len(png_bytes),  # matches
+    )
+    assert error is None
+    assert data == png_bytes
+
+
+@pytest.mark.asyncio
+async def test_verify_uploaded_bytes_skips_size_check_when_declared_size_none():
+    """Backward compat: when declared_size is not provided, the size check is skipped."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.services.attachment_content import verify_uploaded_bytes
+
+    png_bytes = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+    gateway = MagicMock()
+    gateway.read_bytes = AsyncMock(return_value=png_bytes)
+
+    data, error = await verify_uploaded_bytes(
+        gateway,
+        content_type="image/png",
+        storage_key="user/key",
+        declared_size=None,
+    )
+    assert error is None
+    assert data == png_bytes

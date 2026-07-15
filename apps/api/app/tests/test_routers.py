@@ -1298,6 +1298,34 @@ def test_speech_transcribe_disabled():
     assert r.status_code == 404
 
 
+def test_speech_transcribe_rejects_oversized_multipart_content_length():
+    """Multipart uploads with a Content-Length over the limit must be rejected
+    BEFORE the file is read into memory (memory-exhaustion DoS guard)."""
+    import fakeredis.aioredis
+
+    user = _fake_user()
+    client = TestClient(_app_with_user(user))
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    oversized = b"x" * (7_500_001)
+    with (
+        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.routers.speech.speech_service.transcribe_audio",
+            AsyncMock(return_value="should not reach"),
+        ) as transcribe_mock,
+    ):
+        r = client.post(
+            "/speech/transcribe",
+            headers={
+                "Authorization": "Bearer tok",
+                "Content-Length": str(len(oversized)),
+            },
+            files={"file": ("speech.m4a", oversized, "audio/m4a")},
+        )
+    assert r.status_code == 413
+    transcribe_mock.assert_not_awaited()
+
+
 def test_speech_tts_ok():
     import base64
 

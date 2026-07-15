@@ -37,6 +37,7 @@ import { VerifyCheckmark } from "@/components/markdown/VerifyCheckmark";
 import { isGenericSearchUrl } from "@/lib/placesList";
 import { openPlaceLink } from "@/lib/openPlaceLink";
 import { isAllowedImageUri } from "@/lib/imageUriPolicy";
+import { isAllowedLinkUrl } from "@/lib/linkSchemePolicy";
 import { extractBlockquoteMeta, splitInlineMath } from "@/lib/markdownPreprocess";
 import type { Theme } from "@/lib/theme";
 
@@ -140,6 +141,10 @@ function makeSharedRules(
           key={node.key}
           style={styles.link}
           onPress={() => {
+            // Reject javascript:/data:/file:/etc. before handing to the OS link
+            // handler — model-emitted markdown can include arbitrary URLs and
+            // Linking.openURL executes the payload on some platforms.
+            if (!isAllowedLinkUrl(href)) return;
             if (isGenericSearchUrl(href)) {
               void openPlaceLink(href, label);
             } else {

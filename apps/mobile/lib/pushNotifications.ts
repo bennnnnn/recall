@@ -55,9 +55,20 @@ async function resolveExpoPushToken(): Promise<string | null> {
   }
 }
 
-/** Register Expo push token with the backend for remote notifications. */
-export async function registerRemotePushToken(apiToken: string): Promise<void> {
+/** Register Expo push token with the backend for remote notifications.
+ *
+ * Gated on ``pushNotificationsEnabled`` (the user's ``push_notifications_enabled``
+ * pref): when the user has disabled push, we must NOT register the token —
+ * without this gate, the backend would hold a live push token for a user who
+ * opted out and keep sending them notifications. The OS-level permission
+ * prompt is separate (and still required); this gate is the user-level opt-out.
+ */
+export async function registerRemotePushToken(
+  apiToken: string,
+  pushNotificationsEnabled: boolean,
+): Promise<void> {
   if (Platform.OS === "web") return;
+  if (!pushNotificationsEnabled) return;
   const granted = await ensureNotificationPermission();
   if (!granted) return;
 
@@ -79,14 +90,45 @@ export async function registerRemotePushToken(apiToken: string): Promise<void> {
   }
 }
 
-export function attachPushForegroundSync(apiToken: string | null): () => void {
+/** Unregister the Expo push token from the backend.
+ *
+ * Called when the user disables ``push_notifications_enabled`` — without
+ * this, the backend keeps a live push token for a user who opted out and
+ * continues sending them notifications. Best-effort: a network failure here
+ * doesn't block the pref change (the next foreground sync retries).
+ */
+export async function unregisterRemotePushToken(apiToken: string): Promise<void> {
+  if (Platform.OS === "web") return;
+  const expoPushToken = await resolveExpoPushToken();
+  if (!expoPushToken) return;
+  try {
+    await api.unregisterPushToken(apiToken, { expo_push_token: expoPushToken });
+  } catch {
+    /* best-effort */
+  }
+}
+
+export function attachPushForegroundSync(
+  apiToken: string | null,
+  pushNotificationsEnabled: boolean,
+): () => void {
   if (!apiToken) return () => {};
 
-  void registerRemotePushToken(apiToken);
+  // Register when enabled, unregister when disabled — so toggling the pref
+  // actually stops (or starts) backend delivery, not just OS permission.
+  if (pushNotificationsEnabled) {
+    void registerRemotePushToken(apiToken, true);
+  } else {
+    void unregisterRemotePushToken(apiToken);
+  }
 
   const onChange = (state: AppStateStatus) => {
     if (state === "active") {
-      void registerRemotePushToken(apiToken);
+      if (pushNotificationsEnabled) {
+        void registerRemotePushToken(apiToken, true);
+      } else {
+        void unregisterRemotePushToken(apiToken);
+      }
     }
   };
 

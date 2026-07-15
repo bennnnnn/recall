@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from collections.abc import Callable
@@ -54,9 +53,9 @@ class SympyAdapter:
             },
         }
 
-    async def _run_off_loop(self, fn: Callable[[], _T]) -> _T | None:
-        """Run synchronous, CPU-bound SymPy work off the event loop with a
-        hard timeout.
+    async def _run_off_loop(self, fn: Callable[..., _T], *args: Any) -> _T | None:
+        """Run synchronous, CPU-bound SymPy work in the bounded subprocess
+        pool with a hard timeout + SIGTERM on timeout.
 
         BUG FIX (was silent): math_tools.py's chat-path callers already wrap
         every SymPy call this way — its own docstring explains why (solve/
@@ -66,10 +65,14 @@ class SympyAdapter:
         synchronously, with none of that protection — a hung/expensive
         expression reaching it via the model-callable "sympy" tool blocked
         the whole worker with no timeout at all.
+
+        The function and args must be picklable (top-level functions + plain
+        data) so they can cross the subprocess boundary.
         """
+        from app.services.sympy_executor import run_sympy
+
         try:
-            async with asyncio.timeout(self.settings.math_solve_timeout_seconds):
-                return await asyncio.to_thread(fn)
+            return await run_sympy(fn, *args, timeout=self.settings.math_solve_timeout_seconds)
         except TimeoutError:
             logger.warning("sympy MCP tool call timed out")
             return None
@@ -83,7 +86,7 @@ class SympyAdapter:
                     rhs=str(args.get("rhs") or ""),
                     variables=list(args.get("variables") or ["x"]),
                 )
-                result = await self._run_off_loop(lambda: math_service.solve_equation(data))
+                result = await self._run_off_loop(math_service.solve_equation, data)
                 if result is None:
                     return ToolResult(name=self.name, content="Math error: timed out.")
                 return ToolResult(name=self.name, content="\n".join(result.steps))
@@ -95,7 +98,7 @@ class SympyAdapter:
                     "diff": math_service.differentiate_expression,
                     "integrate": math_service.integrate_expression,
                 }[action]
-                expr_result = await self._run_off_loop(lambda: fn(expr, variable))
+                expr_result = await self._run_off_loop(fn, expr, variable)
                 if expr_result is None:
                     return ToolResult(name=self.name, content="Math error: timed out.")
                 return ToolResult(name=self.name, content=expr_result.result)
@@ -105,9 +108,7 @@ class SympyAdapter:
                     height=float(args["height"]),
                     unit=str(args.get("unit") or "cm"),
                 )
-                rect_result = await self._run_off_loop(
-                    lambda: math_service.rectangle_geometry(rect_input)
-                )
+                rect_result = await self._run_off_loop(math_service.rectangle_geometry, rect_input)
                 if rect_result is None:
                     return ToolResult(name=self.name, content="Math error: timed out.")
                 spec = GeometryBlockSpec(
@@ -143,9 +144,7 @@ class SympyAdapter:
                     x_max=float(args.get("x_max") or 10),
                     n=self.settings.math_graph_max_points,
                 )
-                graph_result = await self._run_off_loop(
-                    lambda: math_service.sample_function(graph_input)
-                )
+                graph_result = await self._run_off_loop(math_service.sample_function, graph_input)
                 if graph_result is None:
                     return ToolResult(name=self.name, content="Math error: timed out.")
                 has_discontinuity = len(graph_result.segments) > 1

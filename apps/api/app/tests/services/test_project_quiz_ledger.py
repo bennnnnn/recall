@@ -9,7 +9,12 @@ VOCAB_FENCE = (
     "```vocab_quiz\n"
     '{"word":"apple","question":"What does it mean?",'
     '"correct":"A",'
-    '"choices":[{"letter":"A","text":"fruit"},{"letter":"B","text":"car"}]}\n'
+    '"choices":['
+    '{"letter":"A","text":"fruit"},'
+    '{"letter":"B","text":"car"},'
+    '{"letter":"C","text":"place"},'
+    '{"letter":"D","text":"animal"}'
+    "]}\n"
     "```"
 )
 

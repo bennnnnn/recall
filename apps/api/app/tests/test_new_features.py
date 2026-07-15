@@ -388,6 +388,130 @@ def test_delete_todo_topic_not_found():
     assert r.status_code == 404
 
 
+# ── todos router: due_at normalization ─────────────────────────────────────
+
+
+def test_create_todo_normalizes_naive_due_at_to_user_timezone():
+    """A naive due_at from the client must be interpreted in the user's
+    timezone, not server time. Without normalization, a naive "9am" is
+    stored as 9am UTC and reminders fire at the wrong wall-clock hour for
+    any user not on UTC.
+    """
+    from fastapi.testclient import TestClient
+
+    tid = uuid4()
+    now = datetime.now(UTC)
+    todo_mock = MagicMock()
+    todo_mock.id = tid
+    todo_mock.content = "Test"
+    todo_mock.topic = "General"
+    todo_mock.checked = False
+    todo_mock.due_at = None
+    todo_mock.sort_order = None
+    todo_mock.chat_id = None
+    todo_mock.project_id = None
+    todo_mock.created_at = now
+    todo_mock.updated_at = now
+
+    # User in America/New_York (UTC-5 in EST).
+    user = _fake_user(timezone="America/New_York")
+    app = _app_with_user(user)
+    create_mock = AsyncMock(return_value=todo_mock)
+    with (
+        patch("app.routers.todos.todos_repo.create", create_mock),
+        patch("app.routers.todos.home_service.invalidate_home_cache", AsyncMock()),
+    ):
+        client = TestClient(app)
+        # Naive 9:00 — should be interpreted as 9:00 America/New_York -> 14:00 UTC.
+        r = client.post(
+            "/todos",
+            headers={"Authorization": "Bearer tok"},
+            json={"content": "Test", "due_at": "2025-01-15T09:00:00"},
+        )
+    assert r.status_code == 201
+    # The repo must receive a tz-aware UTC datetime.
+    due_at = create_mock.await_args.kwargs["due_at"]
+    assert due_at is not None
+    assert due_at.tzinfo is not None
+    # 9:00 EST (UTC-5) = 14:00 UTC.
+    assert due_at.hour == 14
+
+
+def test_create_todo_passes_none_due_at_unchanged():
+    """When no due_at is sent, the repo receives None (not a normalized empty value)."""
+    from fastapi.testclient import TestClient
+
+    tid = uuid4()
+    now = datetime.now(UTC)
+    todo_mock = MagicMock()
+    todo_mock.id = tid
+    todo_mock.content = "Test"
+    todo_mock.topic = "General"
+    todo_mock.checked = False
+    todo_mock.due_at = None
+    todo_mock.sort_order = None
+    todo_mock.chat_id = None
+    todo_mock.project_id = None
+    todo_mock.created_at = now
+    todo_mock.updated_at = now
+
+    user = _fake_user(timezone="America/New_York")
+    app = _app_with_user(user)
+    create_mock = AsyncMock(return_value=todo_mock)
+    with (
+        patch("app.routers.todos.todos_repo.create", create_mock),
+        patch("app.routers.todos.home_service.invalidate_home_cache", AsyncMock()),
+    ):
+        client = TestClient(app)
+        r = client.post(
+            "/todos",
+            headers={"Authorization": "Bearer tok"},
+            json={"content": "Test"},
+        )
+    assert r.status_code == 201
+    assert create_mock.await_args.kwargs["due_at"] is None
+
+
+def test_update_todo_normalizes_naive_due_at():
+    """PATCH /todos/{id} must also normalize a naive due_at to the user's timezone."""
+    from fastapi.testclient import TestClient
+
+    tid = uuid4()
+    now = datetime.now(UTC)
+    todo_mock = MagicMock()
+    todo_mock.id = tid
+    todo_mock.content = "Updated"
+    todo_mock.topic = "General"
+    todo_mock.checked = False
+    todo_mock.due_at = None
+    todo_mock.chat_id = None
+    todo_mock.project_id = None
+    todo_mock.created_at = now
+    todo_mock.updated_at = now
+
+    user = _fake_user(timezone="Asia/Tokyo")  # UTC+9
+    app = _app_with_user(user)
+    update_mock = AsyncMock(return_value=todo_mock)
+    with (
+        patch("app.routers.todos.todos_repo.get_by_id", AsyncMock(return_value=todo_mock)),
+        patch("app.routers.todos.todos_repo.update", update_mock),
+        patch("app.routers.todos.home_service.invalidate_home_cache", AsyncMock()),
+    ):
+        client = TestClient(app)
+        # Naive 9:00 — should be interpreted as 9:00 Asia/Tokyo -> 0:00 UTC.
+        r = client.patch(
+            f"/todos/{tid}",
+            headers={"Authorization": "Bearer tok"},
+            json={"due_at": "2025-01-15T09:00:00"},
+        )
+    assert r.status_code == 200
+    due_at = update_mock.await_args.kwargs["due_at"]
+    assert due_at is not None
+    assert due_at.tzinfo is not None
+    # 9:00 JST (UTC+9) = 0:00 UTC.
+    assert due_at.hour == 0
+
+
 # ── projects router ─────────────────────────────────────────────────────────
 
 

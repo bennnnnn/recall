@@ -25,6 +25,22 @@ def test_mcp_registry_setup():
     assert get("calendar") is not None
 
 
+def test_mcp_registry_sympy_absent_when_math_tools_disabled():
+    """PR 5: math_tools_enabled=False must unregister the model-callable
+    "sympy" MCP tool — without this gate, the model could still reach SymPy
+    via the tool even when the operator disabled math_tools_enabled (which
+    otherwise gates only the pre-stream augment_prompt_messages path)."""
+    from app.gateways.mcp.registry import clear
+
+    clear()
+    setup_mcp_adapters(Settings(math_tools_enabled=False))
+    assert get("sympy") is None
+
+    clear()
+    setup_mcp_adapters(Settings(math_tools_enabled=True))
+    assert get("sympy") is not None
+
+
 @pytest.mark.asyncio
 async def test_sympy_adapter_rejects_rce_payload_via_solve():
     """The model can call this tool directly — it must not be a second,
@@ -65,7 +81,13 @@ async def test_sympy_adapter_dispatches_simplify_diff_integrate(
 
 
 @pytest.mark.asyncio
-async def test_sympy_adapter_simplify_times_out_instead_of_blocking():
+async def test_sympy_adapter_simplify_times_out_instead_of_blocking(
+    thread_sympy_executor: None,
+):
+    """Uses the in-process thread executor so the local ``_hang`` closure is
+    callable (closures aren't picklable across a subprocess boundary). The
+    production ProcessPoolSympyExecutor's hard-kill-on-timeout is exercised
+    separately in test_sympy_executor.py."""
     settings = Settings(math_solve_timeout_seconds=0.05)
     adapter = SympyAdapter(settings)
 
@@ -86,10 +108,16 @@ async def test_sympy_adapter_simplify_times_out_instead_of_blocking():
 
 
 @pytest.mark.asyncio
-async def test_sympy_adapter_solve_times_out_instead_of_blocking(monkeypatch):
+async def test_sympy_adapter_solve_times_out_instead_of_blocking(
+    monkeypatch: pytest.MonkeyPatch,
+    thread_sympy_executor: None,
+):
     """BUG FIX (was silent): this adapter used to call math_service directly,
     synchronously, with no timeout — unlike every chat-path caller. A hung
-    expression must now time out instead of blocking the worker forever."""
+    expression must now time out instead of blocking the worker forever.
+
+    Uses the in-process thread executor so the local ``_hang`` closure is
+    callable (closures aren't picklable across a subprocess boundary)."""
     settings = Settings(math_solve_timeout_seconds=0.05)
     adapter = SympyAdapter(settings)
 

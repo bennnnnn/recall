@@ -979,6 +979,68 @@ def test_format_projects_block_empty_items():
     assert "(no words yet)" in block
 
 
+def test_stats_for_items_matches_repository_stats_for_due_for_review():
+    """The prompt-side _stats_for_items must delegate to the repository's
+    stats_from_items so the model sees the same due_for_review count the
+    mobile UI renders. Previously _stats_for_items reimplemented the logic
+    with two divergences (counted `new` items as due; used last_reviewed_at
+    instead of due_at), so the prompt claimed a different review queue."""
+    from datetime import UTC, datetime, timedelta
+
+    from app.repositories.project_items import stats_from_items
+
+    now = datetime.now(UTC)
+    project = _project("English")
+
+    # Mix of items that exercise both divergences:
+    # - a `new` item (prompt used to count as due; API does not)
+    # - a `learning` item with due_at in the past (API counts as due)
+    # - a `learning` item reviewed recently (neither counts as due)
+    # - a `mastered` item (neither counts as due)
+    new_item = _item("apple", project.id)
+    new_item.status = "new"
+    new_item.mastered = False
+    new_item.created_at = now
+    new_item.due_at = None
+    new_item.last_reviewed_at = None
+    new_item.mastered_at = None
+    new_item.last_incorrect_at = None
+
+    learning_due = _item("banana", project.id)
+    learning_due.status = "learning"
+    learning_due.mastered = False
+    learning_due.created_at = now - timedelta(days=3)
+    learning_due.due_at = now - timedelta(hours=1)
+    learning_due.last_reviewed_at = now - timedelta(hours=2)
+    learning_due.mastered_at = None
+    learning_due.last_incorrect_at = None
+
+    learning_recent = _item("cherry", project.id)
+    learning_recent.status = "learning"
+    learning_recent.mastered = False
+    learning_recent.created_at = now - timedelta(days=3)
+    learning_recent.due_at = now + timedelta(hours=12)
+    learning_recent.last_reviewed_at = now - timedelta(minutes=30)
+    learning_recent.mastered_at = None
+    learning_recent.last_incorrect_at = None
+
+    mastered = _item("date", project.id, mastered=True)
+    mastered.status = "mastered"
+    mastered.created_at = now - timedelta(days=10)
+    mastered.due_at = None
+    mastered.last_reviewed_at = now - timedelta(days=5)
+    mastered.mastered_at = now - timedelta(days=5)
+    mastered.last_incorrect_at = None
+
+    items = [new_item, learning_due, learning_recent, mastered]
+    prompt_stats = projects_service._stats_for_items(items)
+    repo_stats = stats_from_items(items)
+
+    assert prompt_stats["due_for_review"] == repo_stats["due_for_review"]
+    # Sanity: the API counts only the learning item with a past due_at.
+    assert repo_stats["due_for_review"] == 1
+
+
 def test_build_language_quiz_prompt_empty_progress():
     project = _project("English")
     stats = projects_service.build_stats([])

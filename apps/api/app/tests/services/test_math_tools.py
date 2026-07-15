@@ -593,8 +593,17 @@ async def test_augment_prompt_injects_sympy_block() -> None:
 
 
 @pytest.mark.asyncio
-async def test_sympy_solve_runs_off_event_loop(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The blocking SymPy call must not run on the event loop thread."""
+async def test_sympy_solve_runs_off_event_loop(
+    monkeypatch: pytest.MonkeyPatch,
+    thread_sympy_executor: None,
+) -> None:
+    """The blocking SymPy call must not run on the event loop thread.
+
+    Uses the in-process thread executor so the spy can record the worker
+    thread (a subprocess can't write back to the test's memory). The
+    production ProcessPoolSympyExecutor is exercised separately in
+    test_sympy_executor.py.
+    """
     import threading
 
     settings = Settings(math_tools_enabled=True)
@@ -620,8 +629,17 @@ async def test_sympy_solve_runs_off_event_loop(monkeypatch: pytest.MonkeyPatch) 
 
 
 @pytest.mark.asyncio
-async def test_augment_prompt_times_out_gracefully(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A hung solve should fall back to no verified block, not hang the caller."""
+async def test_augment_prompt_times_out_gracefully(
+    monkeypatch: pytest.MonkeyPatch,
+    thread_sympy_executor: None,
+) -> None:
+    """A hung solve should fall back to no verified block, not hang the caller.
+
+    Uses the in-process thread executor so the local ``slow_build`` closure is
+    callable (closures aren't picklable across a subprocess boundary). The
+    production ProcessPoolSympyExecutor's hard-kill-on-timeout is exercised
+    separately in test_sympy_executor.py.
+    """
     settings = Settings(math_tools_enabled=True, math_solve_timeout_seconds=0.05)
 
     def slow_build(intent, settings):  # type: ignore[no-untyped-def]

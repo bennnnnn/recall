@@ -133,3 +133,109 @@ async def test_google_oauth_revoke_accepts_success():
 
     assert ok is True
     client.post.assert_awaited_once()
+
+
+# ── connect_calendar: scope verification ──────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_connect_calendar_rejects_missing_calendar_readonly_scope():
+    """connect_calendar must require calendar.readonly in the granted scopes
+    before upsert — mirroring Gmail's check. Without this, a user who grants
+    only (e.g.) gmail.readonly via the calendar flow would be stored as
+    'connected' with no calendar access, and every calendar fetch would 403."""
+    user = MagicMock()
+    user.id = uuid4()
+    user.email = "user@example.com"
+    session = AsyncMock()
+    redis = AsyncMock()
+    settings = Settings()
+
+    token_data = {
+        "refresh_token": "rt-cal",
+        "access_token": "at-cal",
+        "scope": "https://www.googleapis.com/auth/gmail.readonly",  # wrong scope
+    }
+
+    with (
+        patch(
+            "app.services.google_integrations.exchange_server_auth_code",
+            AsyncMock(return_value=token_data),
+        ),
+        patch(
+            "app.services.google_integrations.calendar_repo.get_for_user",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.google_integrations._resolve_stored_refresh_token",
+            return_value="enc-rt",
+        ),
+        patch(
+            "app.services.google_integrations.google_oauth.fetch_google_email",
+            AsyncMock(return_value="user@example.com"),
+        ),
+        patch(
+            "app.services.google_integrations.calendar_repo.upsert",
+            AsyncMock(),
+        ) as upsert_mock,
+    ):
+        with pytest.raises(google_integrations_service.GoogleConnectError, match="Calendar read"):
+            await google_integrations_service.connect_calendar(
+                session, redis, settings, user, "server-auth-code"
+            )
+
+    upsert_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_connect_calendar_accepts_calendar_readonly_scope():
+    """When calendar.readonly IS granted, the connection is upserted."""
+    user = MagicMock()
+    user.id = uuid4()
+    user.email = "user@example.com"
+    session = AsyncMock()
+    redis = AsyncMock()
+    settings = Settings()
+
+    token_data = {
+        "refresh_token": "rt-cal",
+        "access_token": "at-cal",
+        "scope": "https://www.googleapis.com/auth/calendar.readonly",
+    }
+
+    with (
+        patch(
+            "app.services.google_integrations.exchange_server_auth_code",
+            AsyncMock(return_value=token_data),
+        ),
+        patch(
+            "app.services.google_integrations.calendar_repo.get_for_user",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.google_integrations._resolve_stored_refresh_token",
+            return_value="enc-rt",
+        ),
+        patch(
+            "app.services.google_integrations.google_oauth.fetch_google_email",
+            AsyncMock(return_value="user@example.com"),
+        ),
+        patch(
+            "app.services.google_integrations.calendar_repo.upsert",
+            AsyncMock(),
+        ) as upsert_mock,
+        patch(
+            "app.services.google_integrations.calendar_service.clear_events_cache",
+            AsyncMock(),
+        ),
+        patch(
+            "app.services.google_integrations.home_service.invalidate_home_cache",
+            AsyncMock(),
+        ),
+    ):
+        result = await google_integrations_service.connect_calendar(
+            session, redis, settings, user, "server-auth-code"
+        )
+
+    upsert_mock.assert_awaited_once()
+    assert "calendar.readonly" in result.scopes

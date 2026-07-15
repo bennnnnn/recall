@@ -8,6 +8,7 @@ from uuid import UUID
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
+from app.core.client_ip import client_ip_from_websocket
 from app.core.config import get_settings
 from app.core.rate_limit import allow_request
 from app.core.redis import get_redis_client
@@ -27,6 +28,11 @@ _WS_CONNECT_RATE_LIMIT = 30
 _WS_HANDSHAKE_RATE_LIMIT = 60  # unauthenticated connects per IP per minute
 # Drop sockets that connect but never send the auth frame (resource leak).
 _WS_AUTH_TIMEOUT_SECONDS = 10.0
+# How long to hold `done` waiting on the DB commit before falling back to a
+# best-effort `done`. Long enough for a normal Neon round trip + usage write,
+# short enough that a wedged finalize doesn't pin the socket forever. If the
+# commit FAILS (vs. is slow) we send an error instead of a ghost `done`.
+_DONE_COMMIT_WAIT_SECONDS = 10.0
 _CHARGEABLE_WS_TYPES = frozenset({"message", "regenerate", "edit"})
 
 
@@ -36,6 +42,32 @@ async def _safe_send_json(websocket: WebSocket, payload: dict) -> bool:
         await websocket.send_json(payload)
         return True
     except (WebSocketDisconnect, RuntimeError):
+        return False
+
+
+async def _await_finalize_commit(finalize_db_task: asyncio.Task[None] | None) -> bool:
+    """Wait (bounded) for the turn's DB commit before sending `done`.
+
+    Returns True when the commit landed (or is still in-flight but slow, or
+    there was no task to wait on) — in those cases `done` is sent best-effort
+    and the finalize registry still guards the next turn. Returns False only
+    when the finalize task actually FAILED, so the caller sends an error
+    instead of a ghost `done` carrying a message_id for a row that never
+    persisted.
+    """
+    if finalize_db_task is None:
+        return True
+    try:
+        await asyncio.wait_for(finalize_db_task, _DONE_COMMIT_WAIT_SECONDS)
+        return True
+    except TimeoutError:
+        logger.warning(
+            "Finalize commit still running after %ss; sending done best-effort",
+            _DONE_COMMIT_WAIT_SECONDS,
+        )
+        return True
+    except Exception:
+        logger.exception("Finalize commit failed before done")
         return False
 
 
@@ -60,11 +92,17 @@ async def _ws_connect_rate_limit(redis, user_id: UUID) -> bool:
 
 
 async def _ws_handshake_rate_limit(redis, websocket: WebSocket) -> bool:
-    """Cap unauthenticated connect attempts by client IP before accept()."""
-    host = websocket.client.host if websocket.client else "unknown"
+    """Cap unauthenticated connect attempts by client IP before accept().
+
+    Uses the shared `client_ip_from_websocket` resolver so a Fly-proxied
+    handshake is keyed on the edge-seen IP (fly-client-ip / XFF), not the
+    proxy's — otherwise every connect shares one proxy's bucket.
+    """
+    settings = get_settings()
+    ip = client_ip_from_websocket(websocket, settings)
     return await allow_request(
         redis,
-        f"rate:ws:handshake:{host}",
+        f"rate:ws:handshake:{ip}",
         limit=_WS_HANDSHAKE_RATE_LIMIT,
         window_seconds=_WS_MSG_WINDOW_SECONDS,
     )
@@ -121,12 +159,19 @@ async def _stream_over_ws(
         if not await _safe_send_json(websocket, stream_end):
             return
 
-        # DB finalize + job enqueue run as background tasks; `done` already
-        # carries the pre-assigned message_id and turn metadata, so send it
-        # now instead of holding the client on Neon/Redis round trips. The
-        # finalize registry guards the next turn against the pending commit.
-        result.pop("_finalize_db_task", None)
+        # Await the DB commit before sending `done` so the message_id we hand
+        # the client always references a persisted row. The token stream is
+        # already flushed (stream_end above), so only the final `done` event
+        # waits on the commit — streaming latency is unchanged. If the commit
+        # FAILED we send an error instead of a ghost `done` with a fake id.
+        finalize_db_task = result.pop("_finalize_db_task", None)
         result.pop("_finalize_task", None)
+        if not await _await_finalize_commit(finalize_db_task):
+            await _safe_send_json(
+                websocket,
+                {"type": "error", "message": "Failed to save the response. Please retry."},
+            )
+            return
 
         done: dict[str, Any] = {"type": "done"}
         for key in (
@@ -236,7 +281,12 @@ async def chat_websocket(
             await websocket.close(code=1008)
             return
     except Exception:
-        logger.debug("WS handshake rate limit check failed; allowing", exc_info=True)
+        # Fail closed: a Redis outage must not let unauthenticated connects
+        # through unbounded. Close with policy-violation (1008) so the client
+        # backs off and reconnects once the limiter is healthy again.
+        logger.warning("WS handshake rate limit check failed; failing closed", exc_info=True)
+        await websocket.close(code=1008)
+        return
 
     await websocket.accept()
 

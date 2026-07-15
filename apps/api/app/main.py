@@ -82,8 +82,11 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=cors_origins or ["*"],
         allow_credentials=bool(cors_origins),
-        allow_methods=["*"],
-        allow_headers=["*"],
+        # Explicit method/header allowlists — `["*"]` here reflects every
+        # method/header the client might use and lets the browser block the
+        # rest, instead of echoing whatever the client sends.
+        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
     )
     app.add_middleware(RestRateLimitMiddleware)
     app.add_middleware(RequestIdMiddleware)
