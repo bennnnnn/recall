@@ -1,7 +1,10 @@
-import { injectPreviewCsp, PDF_PREVIEW_CSP } from "@/lib/previewSandbox";
+import { injectPreviewCsp, PDF_PREVIEW_CSP, inlineScript } from "@/lib/previewSandbox";
 import type { Theme } from "@/lib/theme";
 
-/** Sandboxed single-page PDF preview via pdf.js in a WebView. */
+import { PDF_MIN_JS } from "@/lib/vendor/pdfMinJs";
+import { PDF_WORKER_MIN_JS } from "@/lib/vendor/pdfWorkerMinJs";
+
+/** Sandboxed single-page PDF preview via vendored pdf.js in a WebView. */
 export function buildPdfPreviewHtml(base64: string, theme: Theme): string {
   const safeB64 = base64.replace(/\\/g, "\\\\").replace(/`/g, "\\`");
   return injectPreviewCsp(`<!DOCTYPE html>
@@ -9,7 +12,8 @@ export function buildPdfPreviewHtml(base64: string, theme: Theme): string {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>${inlineScript(PDF_MIN_JS)}</script>
+<script type="text/pdf-worker" id="pdf-worker-src">${inlineScript(PDF_WORKER_MIN_JS)}</script>
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; padding: 8px; background: ${theme.bg}; color: ${theme.text}; font-family: -apple-system, sans-serif; }
@@ -21,8 +25,13 @@ export function buildPdfPreviewHtml(base64: string, theme: Theme): string {
 <canvas id="page"></canvas>
 <div id="err"></div>
 <script>
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  // pdf.js + worker are vendored inline. The worker source lives in a
+  // non-executable <script type="text/pdf-worker"> tag above; read its text
+  // and spin a Blob URL so pdf.js can spawn the worker with zero network
+  // fetch (CSP worker-src blob: allows the blob worker).
+  var workerText = document.getElementById('pdf-worker-src').textContent;
+  var workerBlob = new Blob([workerText], { type: 'application/javascript' });
+  pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(workerBlob);
   const raw = atob('${safeB64}');
   const bytes = new Uint8Array(raw.length);
   for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);

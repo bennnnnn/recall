@@ -2,11 +2,8 @@
 
 import katex from "katex";
 
-import { KATEX_MIN_CSS } from "@/lib/katexMinCss";
+import { KATEX_CSS } from "@/lib/vendor/katexCss";
 import { preprocessMarkdown, splitInlineMath } from "@/lib/markdownPreprocess";
-
-const KATEX_CDN = "https://cdn.jsdelivr.net/npm/katex@0.17.0/dist";
-const PRINT_KATEX_CSS = KATEX_MIN_CSS.replace(/url\(fonts\//g, `url(${KATEX_CDN}/fonts/`);
 
 const MATH_FENCE_LANGS = new Set([
   "math",
@@ -78,7 +75,7 @@ export function wrapPrintDocument(title: string, bodyHtml: string, meta?: string
 <html>
 <head>
 <meta charset="utf-8"/>
-<style>${PRINT_KATEX_CSS}
+<style>${KATEX_CSS}
 ${PRINT_STYLES}</style>
 </head>
 <body>

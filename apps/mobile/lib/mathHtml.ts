@@ -1,7 +1,8 @@
 /** LaTeX → self-contained HTML for sandboxed WebView math preview. */
 
 import { buildKatexStaticWebHtml } from "@/lib/katexRender";
-import { injectPreviewCsp, MATH_PREVIEW_CSP } from "@/lib/previewSandbox";
+import { injectPreviewCsp, MATH_PREVIEW_CSP, inlineScript } from "@/lib/previewSandbox";
+import { MATHJAX_TEX_SVG_JS } from "@/lib/vendor/mathjaxTexSvgJs";
 
 export type MathEngine = "katex" | "mathjax";
 
@@ -12,7 +13,8 @@ export type MathEngine = "katex" | "mathjax";
 // katex.renderToString with throwOnError:true — none of them need MathJax.
 // Only `multline` and `eqnarray` genuinely aren't implemented by KaTeX
 // ("No such environment"). Routing the rest to MathJax was unnecessary
-// MathJax-CDN exposure (the single biggest offline-rendering failure mode).
+// weight. MathJax (tex-svg, vendored inline) is reserved for those two
+// environments; KaTeX handles everything else with no JS parse cost per block.
 const HEAVY_MATH_RE = /\\begin\{(multline|eqnarray)\}/i;
 
 export function isHeavyMath(latex: string): boolean {
@@ -104,6 +106,8 @@ export function buildMathWebHtml(latex: string, options: MathHtmlOptions): strin
   // CDN script has no built-in load signal beyond onerror (which only fires
   // for a hard network/404 failure, not a hang) — a load-timeout race is the
   // only way to catch a stalled fetch and avoid a silently blank box offline.
+  // (Now that the bundle is inlined, this guards against a pathological init
+  // hang rather than a network stall — kept as a safety net.)
   var mathJaxLoadTimeout = setTimeout(showMathJaxFallback, 8000);
   window.MathJax = {
     loader: { load: ["[tex]/ams", "[tex]/noerrors", "[tex]/noundefined"] },
@@ -117,7 +121,7 @@ export function buildMathWebHtml(latex: string, options: MathHtmlOptions): strin
         clearTimeout(mathJaxLoadTimeout);
         MathJax.startup.defaultReady();
         const latex = \`${safeLatex}\`;
-        MathJax.tex2chtmlPromise(latex, { display: ${display} })
+        MathJax.tex2svgPromise(latex, { display: ${display} })
           .then(function(node) {
             document.getElementById("out").appendChild(node);
             postHeight();
@@ -137,7 +141,7 @@ export function buildMathWebHtml(latex: string, options: MathHtmlOptions): strin
     }
   }
 </script>
-<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" onerror="showMathJaxFallback()"></script>
+<script>${inlineScript(MATHJAX_TEX_SVG_JS)}</script>
 </body>
 </html>`, MATH_PREVIEW_CSP);
   }

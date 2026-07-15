@@ -9,9 +9,10 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { CODE_FONT } from "@/lib/fonts";
-import { injectPreviewCsp } from "@/lib/previewSandbox";
+import { injectPreviewCsp, inlineScript } from "@/lib/previewSandbox";
 import { Theme, useTheme } from "@/lib/theme";
 import { getPreviewWebView, useStaticOnlyNavigation } from "@/lib/webView";
+import { MERMAID_MIN_JS } from "@/lib/vendor/mermaidMinJs";
 
 type Props = { content: string };
 
@@ -30,7 +31,7 @@ function buildMermaidHtml(source: string, theme: Theme): string {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>${inlineScript(MERMAID_MIN_JS)}</script>
 <style>
   body { margin: 0; padding: 8px; font-family: -apple-system, sans-serif; background: ${theme.bg}; }
   #err { color: ${theme.danger}; font-size: 12px; display: none; white-space: pre-wrap; padding: 8px; }
