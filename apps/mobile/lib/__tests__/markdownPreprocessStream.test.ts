@@ -41,6 +41,28 @@ describe("markdownPreprocessStream", () => {
     expect(findStableMarkdownPrefixLen(input)).toBe(input.length);
   });
 
+  it("excludes an unclosed ~~~ fence from the stable prefix", () => {
+    // Markdown treats ~~~ as equivalent to ``` for code fences. The scanner
+    // must toggle fenceOpen for ~~~ openers too, or it would mark the body
+    // of a ~~~ fence as stable and the streaming preprocessor would cut
+    // mid-fence (rendering a half-open fence).
+    const input = "Intro\n\n~~~javascript\nconsole.log('hi')\n";
+    expect(findStableMarkdownPrefixLen(input)).toBe("Intro\n\n".length);
+  });
+
+  it("includes a closed ~~~ fence in the stable prefix", () => {
+    const input = "Intro\n\n~~~javascript\nconsole.log('hi')\n~~~\n\nDone.\n";
+    expect(findStableMarkdownPrefixLen(input)).toBe(input.length);
+  });
+
+  it("treats ``` and ~~~ as interchangeable fence markers", () => {
+    // A fence opened with ``` can be closed with ~~~ and vice versa per
+    // CommonMark; the scanner must not treat a ~~~ line as "outside a fence"
+    // when the fence was opened with ```.
+    const input = "Intro\n\n```python\nprint('hi')\n~~~\n\nDone.\n";
+    expect(findStableMarkdownPrefixLen(input)).toBe(input.length);
+  });
+
   it("reuses cached stable output and leaves the unstable tail raw", () => {
     const stable = "The area is $$\\pi r^2$$ for a circle.\n\n";
     const growing = `${stable}More text in pro`;

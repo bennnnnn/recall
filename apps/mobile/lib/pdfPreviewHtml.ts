@@ -1,4 +1,4 @@
-import { injectPreviewCsp } from "@/lib/previewSandbox";
+import { injectPreviewCsp, PDF_PREVIEW_CSP } from "@/lib/previewSandbox";
 import type { Theme } from "@/lib/theme";
 
 /** Sandboxed single-page PDF preview via pdf.js in a WebView. */
@@ -42,5 +42,5 @@ export function buildPdfPreviewHtml(base64: string, theme: Theme): string {
   });
 </script>
 </body>
-</html>`);
+</html>`, PDF_PREVIEW_CSP);
 }

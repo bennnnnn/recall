@@ -65,8 +65,13 @@ function hasUnclosedStreamingStructure(text: string): boolean {
 }
 
 function countFenceMarkers(text: string): number {
-  const matches = text.match(/^```/gm);
-  return matches?.length ?? 0;
+  // Count both ``` and ~~~ fence markers — markdown treats them as
+  // equivalent fence delimiters, so a ~~~-opened fence must contribute to
+  // the parity check or the reference scan would report an unclosed fence
+  // as "stable" (and vice versa).
+  const backtick = text.match(/^```/gm);
+  const tilde = text.match(/^~~~/gm);
+  return (backtick?.length ?? 0) + (tilde?.length ?? 0);
 }
 
 function countOccurrences(text: string, needle: string): number {
@@ -166,7 +171,11 @@ function scanStableMarkdownPrefix(
     const line = content.slice(pos, nl);
     const isAbsoluteFirstLine = pos === 0;
 
-    if (line.startsWith("```")) fenceOpen = !fenceOpen;
+    // Toggle fence state for both ``` and ~~~ delimiters — markdown treats
+    // them as equivalent fence markers, so a ~~~-opened fence must keep the
+    // scanner from treating its body as stable (otherwise the streaming
+    // preprocessor would cut mid-fence and render a half-open fence).
+    if (line.startsWith("```") || line.startsWith("~~~")) fenceOpen = !fenceOpen;
     if (countOccurrences(line, "$$") % 2 !== 0) dollarOpen = !dollarOpen;
     bracketDepth += countOccurrences(line, "\\[") - countOccurrences(line, "\\]");
     // A callout chain continues as long as each new line still starts with

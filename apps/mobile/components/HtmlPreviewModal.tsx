@@ -25,7 +25,7 @@ import {
   wrapFullDocument,
   writeHtmlPreviewFile,
 } from "@/lib/openHtmlPreview";
-import { injectPreviewCsp } from "@/lib/previewSandbox";
+import { injectPreviewCsp, stripScripts } from "@/lib/previewSandbox";
 import { CODE_FONT } from "@/lib/fonts";
 import { getPreviewWebView, useStaticOnlyNavigation } from "@/lib/webView";
 import i18n from "@/lib/i18n";
@@ -147,7 +147,16 @@ function StaticHtmlPreview({
   theme: Theme;
   styles: ReturnType<typeof makeStyles>;
 }) {
-  const previewHtml = useMemo(() => htmlForInlinePreview(html), [html]);
+  // Expo Go static fallback path: react-native-render-html doesn't execute
+  // <script>, but stripScripts also removes javascript:/vbscript: URLs, inline
+  // event handlers, srcdoc iframes, and meta-refresh — so a model-emitted
+  // payload that would be a zero-click vector in a browser is inert even in
+  // the static view, and the source-text fallback doesn't dump raw <script>
+  // bodies as visible text.
+  const previewHtml = useMemo(
+    () => htmlForInlinePreview(stripScripts(html)),
+    [html],
+  );
   const showRenderHtml = previewHasVisibleText(html);
   const tagStyles = useMemo(() => makeTagStyles(theme), [theme]);
 
