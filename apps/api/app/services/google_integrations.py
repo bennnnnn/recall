@@ -144,7 +144,16 @@ async def connect_calendar(
 
     email = await google_oauth.fetch_google_email(access_token) if access_token else None
     google_email = email or user.email
-    scopes = str(token_data.get("scope") or "calendar.readonly")
+    scopes = str(token_data.get("scope") or "")
+    # Mirror Gmail's scope check: require calendar.readonly before upsert.
+    # Without this, a user who grants only (e.g.) gmail.readonly via the
+    # calendar connect flow would be stored as "connected" with no calendar
+    # access, and every calendar fetch would 403 with no clear reason.
+    if "calendar.readonly" not in scopes:
+        raise GoogleConnectError(
+            "Calendar read permission was not granted. Try disconnecting Calendar, "
+            "revoke Recall in your Google account, then connect again."
+        )
 
     await calendar_repo.upsert(
         session,

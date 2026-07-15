@@ -165,6 +165,11 @@ async def transcribe_speech(
                 ) from exc
             return await _transcribe_bytes(settings, data, payload.filename)
 
+        # Multipart path: check Content-Length BEFORE request.form() parses
+        # the body (form() buffers the whole multipart body into memory/disk).
+        # Without this, a client could send a huge multipart body and the
+        # server would buffer it all before any size check could reject it.
+        _reject_oversized_speech_body(request.headers.get("content-length"), 0)
         form = await request.form()
         upload = form.get("file")
         if upload is None or not hasattr(upload, "read"):
@@ -172,7 +177,14 @@ async def transcribe_speech(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Missing audio file",
             )
+        # Secondary guard: the UploadFile's declared .size (from the multipart
+        # Content-Disposition) may differ from the top-level Content-Length
+        # when there are multiple parts. Check it before reading the bytes.
+        declared_size = getattr(upload, "size", None)
+        if declared_size is not None:
+            _reject_oversized_speech_body(None, int(declared_size))
         data = await upload.read()  # type: ignore[union-attr]
+        _reject_oversized_speech_body(None, len(data))
         filename = getattr(upload, "filename", None) or "speech.m4a"
         return await _transcribe_bytes(settings, data, filename)
     except HTTPException as exc:
