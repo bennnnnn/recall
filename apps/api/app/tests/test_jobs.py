@@ -493,3 +493,42 @@ async def test_report_queue_metrics_noop_without_sentry():
         else:
             sys.modules.pop("sentry_sdk", None)
     assert metrics["dlq_depth"] == jobs._DLQ_ALERT_THRESHOLD
+
+
+# ── periodic reclaim ────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_reclaim_pending_jobs_processes_claimed_entries():
+    """_reclaim_pending_jobs must process entries returned by XAUTOCLAIM,
+    so a crashed worker's stuck entries are picked up by a live peer."""
+    redis = AsyncMock()
+    claimed_entries = [("1-0", {"type": "reclaim-job", "payload": "{}"})]
+    redis.xautoclaim = AsyncMock(return_value=("0-0", claimed_entries, []))
+    redis.xack = AsyncMock()
+
+    seen = []
+
+    async def handler(settings, payload):
+        seen.append(payload)
+
+    jobs.register("reclaim-job", handler)
+
+    with patch("app.core.jobs.get_redis_client", return_value=redis):
+        await jobs._reclaim_pending_jobs(redis, Settings(), "worker-test")
+
+    assert seen == [{}]
+    redis.xautoclaim.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_reclaim_pending_jobs_swallows_xautoclaim_errors():
+    """A Redis error during reclaim must not crash the worker loop."""
+    redis = AsyncMock()
+    redis.xautoclaim = AsyncMock(side_effect=Exception("redis down"))
+
+    with patch("app.core.jobs.get_redis_client", return_value=redis):
+        # Must not raise.
+        await jobs._reclaim_pending_jobs(redis, Settings(), "worker-test")
+
+    redis.xautoclaim.assert_awaited_once()

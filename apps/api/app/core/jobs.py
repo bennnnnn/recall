@@ -367,6 +367,26 @@ def _touch_heartbeat() -> None:
     _last_heartbeat = time.monotonic()
 
 
+async def _reclaim_pending_jobs(redis: Redis, settings: Settings, consumer: str) -> None:
+    """Reclaim entries left pending by a crashed/slow worker via XAUTOCLAIM.
+
+    Called both on startup and periodically from the live worker loop. A
+    crashed worker leaves its in-flight entries in the consumer group's
+    pending list; XAUTOCLAIM transfers them to this consumer once they've
+    been idle for ``_CLAIM_IDLE_MS``. Without periodic reclaim, a mid-run
+    crash would leave jobs stuck until the next worker startup.
+    """
+    try:
+        claimed = await redis.xautoclaim(
+            JOBS_STREAM, JOBS_GROUP, consumer, min_idle_time=_CLAIM_IDLE_MS, count=_BATCH
+        )
+        entries = claimed[1] if len(claimed) > 1 else []
+        if entries:
+            await _process_entries(redis, settings, entries)
+    except Exception:
+        logger.debug("xautoclaim failed", exc_info=True)
+
+
 async def _worker_loop(settings: Settings) -> None:
     redis = get_redis_client()
     consumer = f"worker-{os.getpid()}"
@@ -380,22 +400,25 @@ async def _worker_loop(settings: Settings) -> None:
         return
 
     # Reclaim entries left pending by a previously crashed worker.
-    try:
-        claimed = await redis.xautoclaim(
-            JOBS_STREAM, JOBS_GROUP, consumer, min_idle_time=_CLAIM_IDLE_MS, count=_BATCH
-        )
-        entries = claimed[1] if len(claimed) > 1 else []
-        if entries:
-            await _process_entries(redis, settings, entries)
-    except Exception:
-        logger.debug("xautoclaim failed", exc_info=True)
+    await _reclaim_pending_jobs(redis, settings, consumer)
 
     last_metrics_at = 0.0
+    # Reclaim periodically, not just on startup: without this, a worker that
+    # crashes mid-job while the system is running leaves the entry pending
+    # until the *next* worker startup (could be hours/days). Reclaiming on a
+    # cadence in the live loop means a crashed worker's stuck entries are
+    # picked up by a live peer within ~_CLAIM_IDLE_MS + _RECLAIM_INTERVAL_S.
+    last_reclaim_at = asyncio.get_event_loop().time()
+    _RECLAIM_INTERVAL_S = 30.0
     while True:
         _touch_heartbeat()
-        if asyncio.get_event_loop().time() - last_metrics_at >= _METRICS_INTERVAL_S:
-            last_metrics_at = asyncio.get_event_loop().time()
+        now = asyncio.get_event_loop().time()
+        if now - last_metrics_at >= _METRICS_INTERVAL_S:
+            last_metrics_at = now
             await report_queue_metrics(redis)
+        if now - last_reclaim_at >= _RECLAIM_INTERVAL_S:
+            last_reclaim_at = now
+            await _reclaim_pending_jobs(redis, settings, consumer)
         try:
             resp = cast(
                 list[tuple[str, list[tuple[str, dict[str, Any]]]]],
