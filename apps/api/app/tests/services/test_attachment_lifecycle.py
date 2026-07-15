@@ -207,3 +207,135 @@ async def test_reap_orphan_attachments_no_orphans_is_noop():
     assert deleted == 0
     delete_unlinked.assert_not_awaited()
     gateway.delete_bytes.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_reap_orphan_attachments_refunds_image_upload_quota():
+    """Reaping an image orphan must refund the daily image-upload slot —
+    without this, an abandoned presign (never sent/confirmed) permanently
+    consumes a slot the user can never get back."""
+    settings = Settings()
+    user_id = uuid4()
+    orphan = MagicMock()
+    orphan.id = uuid4()
+    orphan.user_id = user_id
+    orphan.content_type = "image/png"
+    orphan.storage_key = "user/img"
+    gateway = MagicMock()
+    gateway.delete_bytes = AsyncMock()
+    fake_redis = AsyncMock()
+    refund_mock = AsyncMock()
+
+    with (
+        patch(
+            "app.services.attachment_lifecycle.attachments_repo.list_orphans",
+            AsyncMock(return_value=[orphan]),
+        ),
+        patch(
+            "app.services.attachment_lifecycle.attachments_repo.delete_unlinked_returning",
+            AsyncMock(return_value=[orphan.storage_key]),
+        ),
+        patch(
+            "app.services.attachment_lifecycle.get_storage_gateway",
+            return_value=gateway,
+        ),
+        patch(
+            "app.services.attachment_lifecycle.get_redis_client",
+            return_value=fake_redis,
+        ),
+        patch(
+            "app.services.attachment_lifecycle.quota_service.refund_image_upload",
+            refund_mock,
+        ),
+    ):
+        deleted = await attachment_lifecycle.reap_orphan_attachments(settings)
+
+    assert deleted == 1
+    refund_mock.assert_awaited_once_with(fake_redis, user_id)
+
+
+@pytest.mark.asyncio
+async def test_reap_orphan_attachments_does_not_refund_for_non_image():
+    """Non-image orphans (e.g. PDFs) don't consume an image slot, so no refund."""
+    settings = Settings()
+    user_id = uuid4()
+    orphan = MagicMock()
+    orphan.id = uuid4()
+    orphan.user_id = user_id
+    orphan.content_type = "application/pdf"
+    orphan.storage_key = "user/doc"
+    gateway = MagicMock()
+    gateway.delete_bytes = AsyncMock()
+    fake_redis = AsyncMock()
+    refund_mock = AsyncMock()
+
+    with (
+        patch(
+            "app.services.attachment_lifecycle.attachments_repo.list_orphans",
+            AsyncMock(return_value=[orphan]),
+        ),
+        patch(
+            "app.services.attachment_lifecycle.attachments_repo.delete_unlinked_returning",
+            AsyncMock(return_value=[orphan.storage_key]),
+        ),
+        patch(
+            "app.services.attachment_lifecycle.get_storage_gateway",
+            return_value=gateway,
+        ),
+        patch(
+            "app.services.attachment_lifecycle.get_redis_client",
+            return_value=fake_redis,
+        ),
+        patch(
+            "app.services.attachment_lifecycle.quota_service.refund_image_upload",
+            refund_mock,
+        ),
+    ):
+        deleted = await attachment_lifecycle.reap_orphan_attachments(settings)
+
+    assert deleted == 1
+    refund_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_reap_orphan_attachments_skips_refund_when_row_linked_after_list():
+    """If a row gets linked between list and delete, it's NOT reaped and must
+    NOT be refunded — the slot is still in use by the linked message."""
+    settings = Settings()
+    user_id = uuid4()
+    orphan = MagicMock()
+    orphan.id = uuid4()
+    orphan.user_id = user_id
+    orphan.content_type = "image/png"
+    orphan.storage_key = "user/img"
+    gateway = MagicMock()
+    gateway.delete_bytes = AsyncMock()
+    fake_redis = AsyncMock()
+    refund_mock = AsyncMock()
+
+    with (
+        patch(
+            "app.services.attachment_lifecycle.attachments_repo.list_orphans",
+            AsyncMock(return_value=[orphan]),
+        ),
+        patch(
+            "app.services.attachment_lifecycle.attachments_repo.delete_unlinked_returning",
+            AsyncMock(return_value=[]),  # row was linked, nothing removed
+        ),
+        patch(
+            "app.services.attachment_lifecycle.get_storage_gateway",
+            return_value=gateway,
+        ),
+        patch(
+            "app.services.attachment_lifecycle.get_redis_client",
+            return_value=fake_redis,
+        ),
+        patch(
+            "app.services.attachment_lifecycle.quota_service.refund_image_upload",
+            refund_mock,
+        ),
+    ):
+        deleted = await attachment_lifecycle.reap_orphan_attachments(settings)
+
+    assert deleted == 0
+    refund_mock.assert_not_awaited()

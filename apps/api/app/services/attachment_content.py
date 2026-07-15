@@ -217,13 +217,23 @@ async def verify_uploaded_bytes(
     content_type: str,
     storage_key: str,
     max_size: int = MAX_ATTACHMENT_SIZE,
+    declared_size: int | None = None,
 ) -> tuple[bytes | None, str | None]:
-    """Return uploaded bytes when they match the declared type, else an error detail."""
+    """Return uploaded bytes when they match the declared type, else an error detail.
+
+    When *declared_size* is provided, the actual byte count must match exactly
+    — a mismatch means the client lied about the size at presign time (or the
+    upload was truncated/extended), and the stored object is not what the DB
+    row claims. Without this check, a presign for a 1-byte "image/png" could
+    be used to store a 10 MB blob that later gets served back as a PNG.
+    """
     data = await read_attachment_bytes(gateway, storage_key)
     if not data:
         return None, "Upload not found"
     if len(data) > max_size:
         return None, "Invalid upload size"
+    if declared_size is not None and len(data) != declared_size:
+        return None, "Uploaded size does not match the declared size"
     if not bytes_match_claimed(content_type, data):
         return None, "Uploaded bytes do not match the declared content type"
     return data, None
@@ -249,6 +259,7 @@ async def ensure_verified_or_purge(
     attachment_id: UUID,
     content_type: str,
     storage_key: str,
+    declared_size: int | None = None,
 ) -> str | None:
     """Verify R2/S3 bytes match declared type; purge row+object on failure.
 
@@ -263,6 +274,7 @@ async def ensure_verified_or_purge(
         gateway,
         content_type=content_type,
         storage_key=storage_key,
+        declared_size=declared_size,
     )
     if error:
         await purge_invalid_upload(

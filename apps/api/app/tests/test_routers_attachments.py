@@ -316,11 +316,12 @@ def test_confirm_upload_accepts_valid_r2_bytes():
     row.id = attachment_id
     row.content_type = "image/png"
     row.storage_key = "user/key"
-    row.size_bytes = 128
     png_bytes = b"\x89PNG\r\n\x1a\n" + b"x" * 10
+    row.size_bytes = len(png_bytes)  # actual bytes must match declared size
 
     gateway = MagicMock()
     gateway.read_bytes = AsyncMock(return_value=png_bytes)
+    gateway.delete_bytes = AsyncMock()
 
     with (
         patch(
@@ -432,6 +433,7 @@ def test_upload_accepts_bytes_matching_claimed_content_type():
     gateway.write_bytes = AsyncMock()
 
     png_bytes = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+    row.size_bytes = len(png_bytes)  # actual bytes must match declared size
 
     with (
         patch(
@@ -528,6 +530,83 @@ def test_serve_file_local_backend_sets_nosniff_header(tmp_path):
     assert r.headers["x-content-type-options"] == "nosniff"
 
 
+def test_serve_file_r2_redirect_sets_nosniff_header():
+    """R2/S3 redirect responses must carry X-Content-Type-Options: nosniff as
+    defense-in-depth (the local-backend path already sets it on FileResponse)."""
+    user = _fake_user()
+    app = _app_with_user(user)
+    attachment_id = uuid4()
+    row = MagicMock()
+    row.id = attachment_id
+    row.content_type = "image/png"
+    row.storage_key = "user/key"
+    row.size_bytes = 40
+
+    png_bytes = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+    gateway = MagicMock()
+    gateway.read_bytes = AsyncMock(return_value=png_bytes)
+    gateway.delete_bytes = AsyncMock()
+    gateway.presign_download = AsyncMock(return_value="https://r2.example/signed")
+
+    with (
+        patch(
+            "app.routers.attachments.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
+    ):
+        client = TestClient(app)
+        r = client.get(
+            f"/attachments/{attachment_id}/file",
+            headers={"Authorization": "Bearer tok"},
+            follow_redirects=False,
+        )
+
+    assert r.status_code == 302
+    assert r.headers["x-content-type-options"] == "nosniff"
+    assert r.headers["location"] == "https://r2.example/signed"
+
+
+def test_upload_rejects_size_mismatch_with_declared_size():
+    """PUT /upload must reject when actual bytes != row.size_bytes (declared at presign)."""
+    user = _fake_user()
+    app = _app_with_user(user)
+    attachment_id = uuid4()
+    row = MagicMock()
+    row.id = attachment_id
+    row.content_type = "image/png"
+    row.storage_key = f"{user.id}/{attachment_id}"
+    row.size_bytes = 128  # declared 128
+    gateway = MagicMock(spec=LocalStorageGateway)
+    gateway.write_bytes = AsyncMock()
+
+    png_bytes = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32  # actual 40, declared 128
+
+    with (
+        patch(
+            "app.routers.attachments.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
+        patch("app.routers.attachments.get_redis_client", return_value=AsyncMock()),
+        patch(
+            "app.routers.attachments.quota_service.refund_image_upload",
+            AsyncMock(),
+        ) as refund_mock,
+    ):
+        client = TestClient(app)
+        r = client.put(
+            f"/attachments/{attachment_id}/upload",
+            headers={"Authorization": "Bearer tok"},
+            content=png_bytes,
+        )
+
+    assert r.status_code == 400
+    assert "size" in r.json()["detail"].lower()
+    gateway.write_bytes.assert_not_awaited()
+    refund_mock.assert_awaited_once()
+
+
 def test_download_url_rejects_spoofed_r2_bytes():
     user = _fake_user()
     app = _app_with_user(user)
@@ -618,6 +697,7 @@ def test_upload_accepts_docx_bytes_matching_claimed_type():
         archive.writestr("word/document.xml", "<content/>")
         archive.writestr("[Content_Types].xml", "<content/>")
     docx_bytes = docx_buf.getvalue()
+    row.size_bytes = len(docx_bytes)  # actual bytes must match declared size
 
     with (
         patch(

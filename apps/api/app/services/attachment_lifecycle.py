@@ -10,8 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.db import SessionLocal
+from app.core.redis import get_redis_client
 from app.gateways.storage_gateway import get_storage_gateway
 from app.repositories import attachments as attachments_repo
+from app.services import quota as quota_service
+from app.services.attachment_content import is_image_content_type
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +69,11 @@ async def reap_orphan_attachments(settings: Settings) -> int:
     the process crashes mid-loop), the DB rows remain and the next reap retries.
     The old order (rows first, then bytes) left orphaned R2 objects with no DB
     row — unrecoverable, since the reaper discovers orphans via the DB.
+
+    Image uploads that are reaped also get their daily image-upload slot
+    refunded — without this, an abandoned presign (never sent/confirmed)
+    permanently consumes a slot the user can never get back, eventually
+    locking them out of image uploads for the day.
     """
     async with SessionLocal() as session:
         orphans = await attachments_repo.list_orphans(
@@ -80,5 +88,22 @@ async def reap_orphan_attachments(settings: Settings) -> int:
         removed = await attachments_repo.delete_unlinked_returning(
             session, [row.id for row in orphans]
         )
+    # Refund the daily image-upload slot for each reaped image. Map storage_key
+    # -> orphan row so we only refund for rows that were actually removed (a
+    # row linked between list and delete is NOT reaped and keeps its slot).
+    if removed:
+        removed_set = set(removed)
+        redis = get_redis_client()
+        for row in orphans:
+            if row.storage_key in removed_set and is_image_content_type(row.content_type):
+                try:
+                    await quota_service.refund_image_upload(redis, row.user_id)
+                except Exception:
+                    # Best-effort: a Redis hiccup here must not prevent the
+                    # reaper from completing -- the slot is daily-scoped and
+                    # resets at midnight anyway.
+                    logger.debug(
+                        "Image upload refund failed for user %s", row.user_id, exc_info=True
+                    )
     logger.info("Reaped %d orphan attachment(s)", len(removed))
     return len(removed)
