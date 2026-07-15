@@ -1,4 +1,11 @@
-"""Tests for app.services.link_preview with mocked HTTP and SSRF validation."""
+"""Tests for app.services.link_preview with mocked HTTP and SSRF validation.
+
+The fetch path now routes through ``app.gateways.safe_fetch.fetch_safely``;
+the SSRF-safe DNS pinning + per-hop re-validation is exercised in
+``test_safe_fetch.py``. Here we patch ``fetch_safely`` so we can assert the
+service calls it with the right URL + UA and parses its response, without
+re-testing fetch_safely's internals.
+"""
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -13,8 +20,6 @@ _TITLE_HTML = "<html><head><title>Page Title</title></head></html>"
 
 _NO_META_HTML = "<html><head></head><body>Hello</body></html>"
 
-_PIN = ("example.com", "93.184.216.34")
-
 
 def _mock_response(status=200, text="", headers=None):
     m = MagicMock()
@@ -24,19 +29,11 @@ def _mock_response(status=200, text="", headers=None):
     return m
 
 
-def _setup_httpx_mock(mock_client_cls, *responses):
-    """Configure the httpx.AsyncClient mock to return a sequence of responses."""
-    client_instance = AsyncMock()
-    client_instance.__aenter__ = AsyncMock(return_value=client_instance)
-    client_instance.get = AsyncMock(side_effect=responses)
-    mock_client_cls.return_value = client_instance
-    return client_instance
-
-
-def _resolve_patch():
+def _fetch_safely_patch(response):
+    """Patch link_preview.fetch_safely to return *response*."""
     return patch(
-        "app.services.link_preview._resolve_external_host",
-        AsyncMock(return_value=_PIN),
+        "app.services.link_preview.fetch_safely",
+        AsyncMock(return_value=response),
     )
 
 
@@ -46,21 +43,17 @@ async def test_fetch_link_preview_returns_og_tags():
     from app.services.link_preview import fetch_link_preview
 
     resp = _mock_response(text=_OG_HTML)
-    with (
-        _resolve_patch(),
-        patch("app.services.link_preview.httpx.AsyncClient") as mock_client,
-    ):
-        client = _setup_httpx_mock(mock_client, resp)
+    with _fetch_safely_patch(resp) as fetch_mock:
         result = await fetch_link_preview("https://example.com/page")
 
     assert result["title"] == "OG Title"
     assert result["description"] == "OG Description"
     assert result["domain"] == "example.com"
-    client.get.assert_awaited_once()
-    call = client.get.await_args
-    assert call.args[0] == "https://93.184.216.34/page"
-    assert call.kwargs["headers"]["Host"] == "example.com"
-    assert call.kwargs["extensions"] == {"sni_hostname": "example.com"}
+    fetch_mock.assert_awaited_once()
+    # Service must pass the URL through to fetch_safely (SSRF-safe fetch).
+    assert fetch_mock.await_args.args[1] == "https://example.com/page"
+    # And send the link-preview User-Agent.
+    assert fetch_mock.await_args.kwargs["headers"]["User-Agent"].startswith("RecallLinkPreview")
 
 
 @pytest.mark.asyncio
@@ -69,11 +62,7 @@ async def test_fetch_link_preview_fallback_to_title():
     from app.services.link_preview import fetch_link_preview
 
     resp = _mock_response(text=_TITLE_HTML)
-    with (
-        _resolve_patch(),
-        patch("app.services.link_preview.httpx.AsyncClient") as mock_client,
-    ):
-        _setup_httpx_mock(mock_client, resp)
+    with _fetch_safely_patch(resp):
         result = await fetch_link_preview("https://example.com")
 
     assert result["title"] == "Page Title"
@@ -86,11 +75,7 @@ async def test_fetch_link_preview_handles_http_error():
     from app.services.link_preview import fetch_link_preview
 
     resp = _mock_response(status=500, text="Server Error")
-    with (
-        _resolve_patch(),
-        patch("app.services.link_preview.httpx.AsyncClient") as mock_client,
-    ):
-        _setup_httpx_mock(mock_client, resp)
+    with _fetch_safely_patch(resp):
         result = await fetch_link_preview("https://example.com/error")
 
     assert result["title"] is None
@@ -103,11 +88,7 @@ async def test_fetch_link_preview_no_meta():
     from app.services.link_preview import fetch_link_preview
 
     resp = _mock_response(text=_NO_META_HTML)
-    with (
-        _resolve_patch(),
-        patch("app.services.link_preview.httpx.AsyncClient") as mock_client,
-    ):
-        _setup_httpx_mock(mock_client, resp)
+    with _fetch_safely_patch(resp):
         result = await fetch_link_preview("https://example.com/nometa")
 
     assert result["title"] is None
@@ -173,11 +154,12 @@ async def test_validate_external_url_no_hostname():
 
 @pytest.mark.asyncio
 async def test_pin_url_formats_ipv4_and_ipv6():
-    from app.services.link_preview import _pin_url
+    # pin_url lives in safe_fetch now; link_preview delegates to it.
+    from app.gateways.safe_fetch import pin_url
 
-    assert _pin_url("https://example.com/a?b=1", "1.2.3.4") == "https://1.2.3.4/a?b=1"
-    assert _pin_url("https://example.com:8443/a", "1.2.3.4") == "https://1.2.3.4:8443/a"
-    assert _pin_url("https://example.com/a", "2001:db8::1") == "https://[2001:db8::1]/a"
+    assert pin_url("https://example.com/a?b=1", "1.2.3.4") == "https://1.2.3.4/a?b=1"
+    assert pin_url("https://example.com:8443/a", "1.2.3.4") == "https://1.2.3.4:8443/a"
+    assert pin_url("https://example.com/a", "2001:db8::1") == "https://[2001:db8::1]/a"
 
 
 # ── Redirect handling and error path tests ──
@@ -185,17 +167,11 @@ async def test_pin_url_formats_ipv4_and_ipv6():
 
 @pytest.mark.asyncio
 async def test_fetch_link_preview_follows_redirect():
-    """Redirect responses should be followed with re-validation of the target."""
+    """Redirects are handled inside fetch_safely; link_preview just parses the final body."""
     from app.services.link_preview import fetch_link_preview
 
-    redirect_resp = _mock_response(status=301, headers={"Location": "https://example.com/final"})
     final_resp = _mock_response(text=_OG_HTML)
-
-    with (
-        _resolve_patch(),
-        patch("app.services.link_preview.httpx.AsyncClient") as mock_client,
-    ):
-        _setup_httpx_mock(mock_client, redirect_resp, final_resp)
+    with _fetch_safely_patch(final_resp):
         result = await fetch_link_preview("https://example.com/page")
 
     assert result["title"] == "OG Title"
@@ -204,11 +180,11 @@ async def test_fetch_link_preview_follows_redirect():
 
 @pytest.mark.asyncio
 async def test_fetch_link_preview_blocks_internal_address():
-    """When resolve raises ValueError, return nulls gracefully."""
+    """When fetch_safely raises ValueError (blocked internal address), return nulls gracefully."""
     from app.services.link_preview import fetch_link_preview
 
     with patch(
-        "app.services.link_preview._resolve_external_host",
+        "app.services.link_preview.fetch_safely",
         AsyncMock(side_effect=ValueError("Blocked request to internal/private address")),
     ):
         result = await fetch_link_preview("http://169.254.169.254/metadata")
@@ -227,16 +203,15 @@ async def test_fetch_link_preview_uses_redis_cache(fake_redis):
     resp = _mock_response(text=_OG_HTML)
     with (
         patch("app.services.link_preview.get_redis_client", return_value=fake_redis),
-        _resolve_patch(),
-        patch("app.services.link_preview.httpx.AsyncClient") as mock_client,
+        _fetch_safely_patch(resp) as fetch_mock,
     ):
-        _setup_httpx_mock(mock_client, resp)
         first = await fetch_link_preview_cached(settings, "https://example.com/page")
         second = await fetch_link_preview_cached(settings, "https://example.com/page")
 
     assert first["title"] == "OG Title"
     assert second == first
-    assert mock_client.return_value.get.await_count == 1
+    # Second call hits the cache; fetch_safely is only called once.
+    assert fetch_mock.await_count == 1
 
 
 @pytest.mark.asyncio

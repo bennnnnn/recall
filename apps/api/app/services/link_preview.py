@@ -3,15 +3,14 @@ import json
 import logging
 import re
 from html.parser import HTMLParser
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlparse
 
 import httpx
 
 from app.core.config import Settings
 from app.core.redis import get_redis_client
-from app.gateways.safe_fetch import host_header as _host_header
-from app.gateways.safe_fetch import pin_url as _pin_url
-from app.gateways.safe_fetch import resolve_external_host as _resolve_external_host
+from app.gateways.safe_fetch import fetch_safely
+from app.gateways.safe_fetch import validate_external_url as _validate_external_url_async
 
 logger = logging.getLogger(__name__)
 
@@ -41,25 +40,7 @@ class _MetaParser(HTMLParser):
 
 async def _validate_external_url(url: str) -> None:
     """Resolve URL hostname and validate all resulting IPs are external."""
-    await _resolve_external_host(url)
-
-
-async def _get_pinned(
-    client: httpx.AsyncClient,
-    url: str,
-) -> httpx.Response:
-    """GET *url* via a DNS-pinned IP so resolution cannot change mid-request."""
-    parsed = urlparse(url)
-    hostname, ip = await _resolve_external_host(url)
-    pinned = _pin_url(url, ip)
-    headers = {
-        "User-Agent": _USER_AGENT,
-        "Host": _host_header(hostname, parsed.port, parsed.scheme),
-    }
-    extensions: dict[str, str] = {}
-    if parsed.scheme == "https":
-        extensions["sni_hostname"] = hostname
-    return await client.get(pinned, headers=headers, extensions=extensions or None)
+    await _validate_external_url_async(url)
 
 
 async def fetch_link_preview(url: str) -> dict[str, str | None]:
@@ -73,22 +54,18 @@ async def fetch_link_preview(url: str) -> dict[str, str | None]:
             timeout=httpx.Timeout(6.0),
             follow_redirects=False,
         ) as client:
-            resp = await _get_pinned(client, url)
-            # Manual redirect handling with per-hop resolve+pin
-            max_hops = 5
-            hops = 0
-            current_url = url
-            while resp.status_code in (301, 302, 303, 307, 308) and hops < max_hops:
-                redirect_target = resp.headers.get("Location")
-                if not redirect_target:
-                    break
-                current_url = urljoin(current_url, redirect_target)
-                resp = await _get_pinned(client, current_url)
-                hops += 1
+            # SSRF-safe fetch: DNS pinning + per-hop re-validation of every
+            # redirect target. Replaces the hand-rolled _get_pinned + redirect
+            # loop, which duplicated fetch_safely's logic and could drift.
+            resp = await fetch_safely(
+                client,
+                url,
+                headers={"User-Agent": _USER_AGENT},
+            )
             resp.raise_for_status()
             html = resp.text[:120_000]
     except ValueError:
-        # Re-raised from _resolve_external_host — blocked internal address
+        # Re-raised from resolve_external_host -- blocked internal address
         logger.debug("Link preview blocked internal address: %s", url)
         return {"url": url, "title": None, "description": None, "domain": domain}
     except Exception:
