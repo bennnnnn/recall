@@ -156,7 +156,11 @@ async def get_last(session: AsyncSession, chat_id: UUID) -> Message | None:
     result = await session.execute(
         select(Message)
         .where(Message.chat_id == chat_id)
-        .order_by(Message.created_at.desc())
+        # id.desc() tiebreaker: created_at has millisecond resolution and two
+        # turns can share a timestamp (esp. under load / fast edits), which made
+        # the "last" message non-deterministic and broke edit/regenerate/quiz
+        # grading that rely on a single canonical "last" row.
+        .order_by(Message.created_at.desc(), Message.id.desc())
         .limit(1)
     )
     return result.scalar_one_or_none()
@@ -166,7 +170,7 @@ async def get_last_assistant(session: AsyncSession, chat_id: UUID) -> Message | 
     result = await session.execute(
         select(Message)
         .where(Message.chat_id == chat_id, Message.role == "assistant")
-        .order_by(Message.created_at.desc())
+        .order_by(Message.created_at.desc(), Message.id.desc())
         .limit(1)
     )
     return result.scalar_one_or_none()
@@ -191,7 +195,7 @@ async def get_last_quiz_assistant(
     result = await session.execute(
         select(Message)
         .where(Message.chat_id == chat_id, Message.role == "assistant")
-        .order_by(Message.created_at.desc())
+        .order_by(Message.created_at.desc(), Message.id.desc())
         .limit(max(1, lookback))
     )
     open_ended: Message | None = None
@@ -233,7 +237,7 @@ async def get_last_user(session: AsyncSession, chat_id: UUID) -> Message | None:
     result = await session.execute(
         select(Message)
         .where(Message.chat_id == chat_id, Message.role == "user")
-        .order_by(Message.created_at.desc())
+        .order_by(Message.created_at.desc(), Message.id.desc())
         .limit(1)
     )
     return result.scalar_one_or_none()

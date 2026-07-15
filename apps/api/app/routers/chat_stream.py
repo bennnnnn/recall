@@ -27,19 +27,46 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/chats", tags=["chat-stream"])
 
 _DISCONNECT_POLL_SECONDS = 0.5
+# How long to hold `done` waiting on the DB commit before falling back to a
+# best-effort `done`. Matches the WS path; see _await_finalize_commit.
+_DONE_COMMIT_WAIT_SECONDS = 10.0
 
 
 def _sse(payload: dict[str, Any]) -> str:
     return f"data: {json.dumps(payload, separators=(',', ':'))}\n\n"
 
 
-def _detach_finalize_tasks(result: dict[str, Any]) -> None:
-    """DB finalize + job enqueue keep running as background tasks; `done` is
-    sent immediately with the pre-assigned message_id instead of holding the
-    stream open on Neon/Redis round trips. The finalize registry guards the
-    next turn against the still-pending commit."""
-    result.pop("_finalize_db_task", None)
+def _pop_finalize_tasks(result: dict[str, Any]) -> asyncio.Task[None] | None:
+    """Pop the finalize tasks off the result dict, returning the DB-commit task
+    so it can be awaited before `done` is emitted (the message_id must reference
+    a committed row, not a pre-assigned id that might never land)."""
+    finalize_db_task = result.pop("_finalize_db_task", None)
     result.pop("_finalize_task", None)
+    return finalize_db_task
+
+
+async def _await_finalize_commit(finalize_db_task: asyncio.Task[None] | None) -> bool:
+    """Bounded wait for the turn's DB commit before `done`.
+
+    Returns True when the commit landed (or is still in-flight but slow, or
+    there was no task) — `done` is sent best-effort and the finalize registry
+    still guards the next turn. Returns False only when the finalize task
+    actually FAILED, so the caller emits an error instead of a ghost `done`.
+    """
+    if finalize_db_task is None:
+        return True
+    try:
+        await asyncio.wait_for(finalize_db_task, _DONE_COMMIT_WAIT_SECONDS)
+        return True
+    except TimeoutError:
+        logger.warning(
+            "Finalize commit still running after %ss; sending done best-effort",
+            _DONE_COMMIT_WAIT_SECONDS,
+        )
+        return True
+    except Exception:
+        logger.exception("Finalize commit failed before done")
+        return False
 
 
 async def _stream_tokens_sse(
@@ -120,7 +147,10 @@ async def _stream_tokens_sse(
         if result.get("fallback_used"):
             stream_end["fallback_used"] = result["fallback_used"]
         yield _sse(stream_end)
-        _detach_finalize_tasks(result)
+        finalize_db_task = _pop_finalize_tasks(result)
+        if not await _await_finalize_commit(finalize_db_task):
+            yield _sse({"type": "error", "message": "Failed to save the response. Please retry."})
+            return
 
         done: dict[str, Any] = {"type": "done"}
         for key in (

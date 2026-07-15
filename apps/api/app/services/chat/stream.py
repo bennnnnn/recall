@@ -381,43 +381,51 @@ async def stream_edit_response(
             redis, str(user_id), reserved, daily_limit=daily_limit
         ):
             raise QuotaExceededError(quota_exceeded_message(user))
-        message_ids = await chat_pkg.messages_repo.ids_from_chat_at_or_after(
-            session,
-            chat_id,
-            from_created_at=target.created_at,
-            from_message_id=target.id,
-        )
-        # BUG FIX (was silent): history compression (services/chat/post_turn.py
-        # -> background/compaction.py) folds the oldest `summary_message_count`
-        # messages into `chat.summary` and never revisits them. If the edited
-        # message falls inside that already-summarized prefix, deleting
-        # everything from it onward removes messages the cached summary still
-        # narrates — nothing else ever invalidates `chat.summary`, so a stale
-        # summary describing a conversation branch the user edited away would
-        # keep getting injected into every future prompt as ground truth
-        # (prompt_builder.py's "Summary of earlier conversation" block), and
-        # should_run_compression() would never naturally recover it (deleting
-        # messages can only shrink `summarized_count` below the stored
-        # `summary_message_count`, so `pending` goes negative and compression
-        # just keeps no-op'ing). Reset the summary here whenever the edit
-        # touches the summarized prefix — do not remove this without also
-        # fixing the staleness some other way.
-        summarized_count = chat.summary_message_count or 0
-        if summarized_count > 0:
-            total_before_edit = await chat_pkg.messages_repo.count_for_chat(session, chat_id)
-            edited_position = total_before_edit - len(message_ids)
-            if edited_position < summarized_count:
-                chat.summary = None
-                chat.summary_message_count = 0
-        await chat_pkg.attachment_lifecycle.purge_attachments_for_messages(
-            session, settings, message_ids
-        )
-        await chat_pkg.messages_repo.delete_messages_from(
-            session,
-            chat_id,
-            from_created_at=target.created_at,
-            from_message_id=target.id,
-        )
+        try:
+            message_ids = await chat_pkg.messages_repo.ids_from_chat_at_or_after(
+                session,
+                chat_id,
+                from_created_at=target.created_at,
+                from_message_id=target.id,
+            )
+            # BUG FIX (was silent): history compression (services/chat/post_turn.py
+            # -> background/compaction.py) folds the oldest `summary_message_count`
+            # messages into `chat.summary` and never revisits them. If the edited
+            # message falls inside that already-summarized prefix, deleting
+            # everything from it onward removes messages the cached summary still
+            # narrates — nothing else ever invalidates `chat.summary`, so a stale
+            # summary describing a conversation branch the user edited away would
+            # keep getting injected into every future prompt as ground truth
+            # (prompt_builder.py's "Summary of earlier conversation" block), and
+            # should_run_compression() would never naturally recover it (deleting
+            # messages can only shrink `summarized_count` below the stored
+            # `summary_message_count`, so `pending` goes negative and compression
+            # just keeps no-op'ing). Reset the summary here whenever the edit
+            # touches the summarized prefix — do not remove this without also
+            # fixing the staleness some other way.
+            summarized_count = chat.summary_message_count or 0
+            if summarized_count > 0:
+                total_before_edit = await chat_pkg.messages_repo.count_for_chat(session, chat_id)
+                edited_position = total_before_edit - len(message_ids)
+                if edited_position < summarized_count:
+                    chat.summary = None
+                    chat.summary_message_count = 0
+            await chat_pkg.attachment_lifecycle.purge_attachments_for_messages(
+                session, settings, message_ids
+            )
+            await chat_pkg.messages_repo.delete_messages_from(
+                session,
+                chat_id,
+                from_created_at=target.created_at,
+                from_message_id=target.id,
+            )
+        except Exception:
+            # The quota was reserved above; if the delete/summary-reset throws
+            # before delegating to stream_chat_response (which owns its own
+            # refund on failure), the reservation leaks and the user is charged
+            # for a turn that never ran. Refund before re-raising.
+            await chat_pkg.quota_service.refund_usage(redis, str(user_id), reserved)
+            raise
 
     async for token in chat_pkg.stream_chat_response(
         redis,

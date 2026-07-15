@@ -181,3 +181,60 @@ async def test_list_range_is_stable_across_created_at_ties(db_session):
     # (created_at, id) order — ascending id here since created_at ties.
     all_content = [m.content for m in page1 + page2 + page3]
     assert all_content == ["m0", "m1", "m2", "m3", "m4"]
+
+
+async def test_get_last_uses_id_tiebreaker_when_created_at_ties(db_session):
+    """get_last / get_last_assistant / get_last_user must order by
+    (created_at, id) so a shared millisecond doesn't make "last"
+    non-deterministic — edit/regenerate/quiz grading all rely on a single
+    canonical last row."""
+    user = await _make_user(db_session)
+    chat = await chats_repo.create(db_session, user_id=user.id, model="free-chat")
+    same_time = datetime(2026, 1, 1, tzinfo=UTC)
+    # Insert in an order that does NOT match id order, so insertion-order
+    # fallback would pick the wrong row if the id tiebreaker were dropped.
+    rows = [
+        _build_message(
+            chat.id,
+            user.id,
+            created_at=same_time,
+            message_id=uuid.UUID(int=1),
+            role="user",
+            content="u1",
+        ),
+        _build_message(
+            chat.id,
+            user.id,
+            created_at=same_time,
+            message_id=uuid.UUID(int=3),
+            role="assistant",
+            content="a3",
+        ),
+        _build_message(
+            chat.id,
+            user.id,
+            created_at=same_time,
+            message_id=uuid.UUID(int=2),
+            role="user",
+            content="u2",
+        ),
+        _build_message(
+            chat.id,
+            user.id,
+            created_at=same_time,
+            message_id=uuid.UUID(int=4),
+            role="assistant",
+            content="a4",
+        ),
+    ]
+    db_session.add_all(rows)
+    await db_session.flush()
+
+    last = await messages_repo.get_last(db_session, chat.id)
+    last_user = await messages_repo.get_last_user(db_session, chat.id)
+    last_assistant = await messages_repo.get_last_assistant(db_session, chat.id)
+
+    # Highest id wins the tie — deterministic regardless of insertion order.
+    assert last is not None and last.content == "a4"
+    assert last_user is not None and last_user.content == "u2"
+    assert last_assistant is not None and last_assistant.content == "a4"
