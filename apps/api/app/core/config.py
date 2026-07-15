@@ -284,6 +284,20 @@ def validate_production_settings(settings: Settings) -> None:
             '(generate with: python -c "from cryptography.fernet import Fernet; '
             'print(Fernet.generate_key().decode())")'
         )
+    else:
+        # Presence isn't enough — a malformed key only blows up on the first
+        # encrypt/decrypt at runtime. Validate it parses as a real Fernet key
+        # at boot so a bad deploy fails fast instead of mid-request.
+        try:
+            from cryptography.fernet import Fernet
+
+            Fernet(settings.oauth_token_encryption_key.strip().encode())
+        except Exception as exc:  # any Fernet parse failure is fatal at boot
+            errors.append(
+                "OAUTH_TOKEN_ENCRYPTION_KEY is not a valid Fernet key "
+                '(generate with: python -c "from cryptography.fernet import Fernet; '
+                f'print(Fernet.generate_key().decode())"): {exc}'
+            )
     if settings.storage_backend.strip().lower() != "r2":
         errors.append("STORAGE_BACKEND must be r2 in production (local disk is ephemeral on Fly)")
     elif not all(

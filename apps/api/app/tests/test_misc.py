@@ -378,6 +378,103 @@ async def test_login_with_apple_requires_email_on_first_sign_in():
 
 
 @pytest.mark.asyncio
+async def test_login_with_apple_rejects_string_false_email_verified():
+    # Apple ships `email_verified` as the string "false" (not a bool). The old
+    # `is False` check let this through — an unverified identity could create
+    # or link an account.
+    from app.gateways.google_auth import GoogleAuthError
+    from app.services import auth as auth_service
+
+    settings_obj = __import__("app.core.config", fromlist=["Settings"]).Settings(
+        jwt_secret="super-secret-key-that-is-at-least-32-chars!!"
+    )
+    payload = {"sub": "apple-sub-unverified", "email": "u@x.com", "email_verified": "false"}
+
+    with patch(
+        "app.services.auth.verify_apple_id_token",
+        AsyncMock(return_value=payload),
+    ):
+        with pytest.raises(GoogleAuthError, match="not verified"):
+            await auth_service.login_with_apple(AsyncMock(), settings_obj, "id-token", AsyncMock())
+
+
+@pytest.mark.asyncio
+async def test_login_with_apple_rejects_missing_email_verified():
+    # A missing claim must not silently pass as "verified".
+    from app.gateways.google_auth import GoogleAuthError
+    from app.services import auth as auth_service
+
+    settings_obj = __import__("app.core.config", fromlist=["Settings"]).Settings(
+        jwt_secret="super-secret-key-that-is-at-least-32-chars!!"
+    )
+    payload = {"sub": "apple-sub-missing", "email": "m@x.com"}
+
+    with patch(
+        "app.services.auth.verify_apple_id_token",
+        AsyncMock(return_value=payload),
+    ):
+        with pytest.raises(GoogleAuthError, match="not verified"):
+            await auth_service.login_with_apple(AsyncMock(), settings_obj, "id-token", AsyncMock())
+
+
+@pytest.mark.asyncio
+async def test_login_with_apple_accepts_string_true_email_verified():
+    from app.models.schemas import UserOut
+    from app.services import auth as auth_service
+
+    uid = uuid4()
+    fake_user_out = UserOut(
+        id=uid,
+        email="strtrue@test.local",
+        name="Str True",
+        avatar_url=None,
+        default_model="free-chat",
+        response_style="balanced",
+        memory_enabled=True,
+        created_at="2024-01-01T00:00:00",
+    )
+    settings_obj = __import__("app.core.config", fromlist=["Settings"]).Settings(
+        jwt_secret="super-secret-key-that-is-at-least-32-chars!!"
+    )
+    payload = {"sub": "apple-str-true", "email": "strtrue@test.local", "email_verified": "true"}
+
+    with (
+        patch(
+            "app.services.auth.verify_apple_id_token",
+            AsyncMock(return_value=payload),
+        ),
+        patch("app.services.auth.users_repo.get_by_apple_sub", AsyncMock(return_value=None)),
+        patch("app.services.auth.users_repo.get_by_email", AsyncMock(return_value=None)),
+        patch("app.services.auth.users_repo.create", AsyncMock(return_value=MagicMock(id=uid))),
+        patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
+        patch(
+            "app.services.auth.tokens_service.issue_token_pair", AsyncMock(return_value=("a", "r"))
+        ),
+    ):
+        result = await auth_service.login_with_apple(
+            AsyncMock(), settings_obj, "id-token", AsyncMock()
+        )
+    assert result.access_token == "a"
+
+
+@pytest.mark.asyncio
+async def test_verify_google_id_token_rejects_string_false_email_verified():
+    # Google ships a bool, but a string "false" from an intermediary must
+    # not be truthy.
+    from app.gateways.google_auth import GoogleAuthError, _verify_google_id_token_sync
+
+    settings_obj = __import__("app.core.config", fromlist=["Settings"]).Settings(
+        google_client_id="client-id"
+    )
+    with patch(
+        "app.gateways.google_auth.id_token.verify_oauth2_token",
+        return_value={"sub": "g", "email": "g@x.com", "email_verified": "false"},
+    ):
+        with pytest.raises(GoogleAuthError, match="not verified"):
+            _verify_google_id_token_sync("tok", settings_obj)
+
+
+@pytest.mark.asyncio
 async def test_login_dev_raises_when_disabled():
     from app.gateways.google_auth import GoogleAuthError
     from app.services import auth as auth_service

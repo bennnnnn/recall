@@ -96,6 +96,20 @@ async def _revoke_all_refresh_tokens(redis: Redis, user_id: UUID, settings: Sett
     )
 
 
+async def purge_user_sessions(redis: Redis, user_id: UUID, settings: Settings) -> None:
+    """Revoke every refresh token + outstanding access token for a user.
+
+    Used on account deletion — without this, a logged-in client keeps a
+    working access token after `DELETE /auth/me` and can still hit endpoints
+    until the token's own exp (the DB user check is the only remaining gate).
+    Best-effort: Redis failures are logged but never block the delete.
+    """
+    try:
+        await _revoke_all_refresh_tokens(redis, user_id, settings)
+    except Exception:  # never block account deletion on Redis
+        logger.exception("purge_user_sessions failed user_id=%s", user_id)
+
+
 async def refresh_token_pair(
     redis: Redis,
     refresh_token: str,

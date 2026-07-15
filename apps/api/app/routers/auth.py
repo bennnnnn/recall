@@ -233,7 +233,12 @@ async def delete_me(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
+    redis: Redis = Depends(get_redis),
 ) -> None:
+    # Kill every outstanding session before the row goes — otherwise a
+    # logged-in client keeps a working access token until its own exp, with
+    # only the (now-deleted) DB user check to stop it.
+    await tokens_service.purge_user_sessions(redis, user.id, settings)
     await google_integrations_service.revoke_all_google_tokens_for_user(
         session,
         settings,
