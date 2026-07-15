@@ -2,7 +2,7 @@
 
 import { cacheDirectory, writeAsStringAsync, EncodingType } from "expo-file-system/legacy";
 
-import { apiUrl, fetchWithTimeout } from "@/lib/api/client";
+import { requestRaw } from "@/lib/api/client";
 import { canUseVoiceInput } from "@/lib/expoRuntime";
 import { markdownToPlainText } from "@/lib/markdownPlain";
 import { loadExpoAudio } from "@/lib/voiceAudio";
@@ -39,14 +39,18 @@ async function fetchCloudTts(
 ): Promise<{ audio_base64: string; content_type: string } | null> {
   const plain = markdownToPlainText(text).slice(0, 4000);
   if (!plain) return null;
-  const response = await fetchWithTimeout(apiUrl("/speech/tts"), {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
+  // Route through lib/api's requestRaw so this fetch shares the REST path's
+  // 401→refresh→retry behaviour (fetchWithTimeout did not auto-refresh) and
+  // the lib/api boundary stays the single network egress point.
+  const response = await requestRaw(
+    "/speech/tts",
+    token,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: plain, language: language ?? null }),
     },
-    body: JSON.stringify({ text: plain, language: language ?? null }),
-  });
+  );
   if (!response.ok) return null;
   const data = (await response.json()) as {
     audio_base64?: string;

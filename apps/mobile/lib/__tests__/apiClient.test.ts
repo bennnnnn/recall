@@ -14,6 +14,8 @@ import {
   apiUrl,
   fetchWithTimeout,
   request,
+  requestRaw,
+  requestSse,
   setTokenRefreshHandler,
   setUnauthorizedHandler,
 } from "@/lib/api/client";
@@ -163,5 +165,106 @@ describe("api client", () => {
     await expect(
       fetchWithTimeout("http://test.local/auth/login", { method: "POST" }),
     ).rejects.toThrow("Could not reach the Recall server");
+  });
+
+  it("requestRaw returns the raw Response on success and adds Authorization", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: "stream",
+    } as unknown as Response);
+
+    const res = await requestRaw("/link-preview?url=x", "access-token");
+    expect(res.ok).toBe(true);
+    expect(mockFetch).toHaveBeenCalledWith(
+      "http://test.local/link-preview?url=x",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer access-token",
+        }),
+      }),
+    );
+  });
+
+  it("requestRaw omits Authorization when token is null", async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 200 } as unknown as Response);
+    await requestRaw("/link-preview?url=x", null);
+    expect(mockFetch.mock.calls[0][1]?.headers).not.toHaveProperty("Authorization");
+  });
+
+  it("requestRaw refreshes on 401 and retries once with the fresh token", async () => {
+    mockGetRefreshToken.mockResolvedValue("refresh-token");
+    mockSetTokenPair.mockResolvedValue(undefined);
+
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: async () => "expired",
+      } as unknown as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          access_token: "new-access",
+          refresh_token: "new-refresh",
+        }),
+      } as unknown as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        body: "stream",
+      } as unknown as Response);
+
+    const res = await requestRaw("/link-preview?url=x", "stale-token");
+    expect(res.ok).toBe(true);
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+    // Third call (the retry) uses the refreshed token.
+    expect(mockFetch.mock.calls[2][1]?.headers).toMatchObject({
+      Authorization: "Bearer new-access",
+    });
+  });
+
+  it("requestRaw calls onUnauthorized and returns the 401 response when refresh fails", async () => {
+    mockGetRefreshToken.mockResolvedValue("refresh-token");
+
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: async () => "expired",
+      } as unknown as Response)
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: async () => "invalid refresh",
+      } as unknown as Response);
+
+    const onUnauthorized = jest.fn();
+    setUnauthorizedHandler(onUnauthorized);
+
+    const res = await requestRaw("/link-preview?url=x", "stale-token");
+    expect(res.ok).toBe(false);
+    expect(res.status).toBe(401);
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+  });
+
+  it("requestSse sets SSE headers (Accept + Content-Type) and POSTs the body", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: "stream",
+    } as unknown as Response);
+
+    await requestSse("/chats/c1/messages/stream", "tok", { content: "hi" });
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const [, init] = mockFetch.mock.calls[0];
+    expect(init?.method).toBe("POST");
+    expect(init?.headers).toMatchObject({
+      "Content-Type": "application/json",
+      Accept: "text/event-stream",
+      Authorization: "Bearer tok",
+    });
+    expect(init?.body).toBe(JSON.stringify({ content: "hi" }));
   });
 });

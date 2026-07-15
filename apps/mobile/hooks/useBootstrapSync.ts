@@ -50,13 +50,20 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
     let cleanup: (() => void) | undefined;
     void import("@/lib/pushNotifications").then(({ attachPushForegroundSync }) => {
       if (cancelled) return;
-      cleanup = attachPushForegroundSync(token);
+      // Gate push registration on user.push_notifications_enabled — without
+      // this, the backend holds a live push token for a user who opted out
+      // and keeps sending them notifications. When disabled, the sync
+      // unregisters the token instead of registering it.
+      cleanup = attachPushForegroundSync(
+        token,
+        user?.push_notifications_enabled ?? false,
+      );
     });
     return () => {
       cancelled = true;
       cleanup?.();
     };
-  }, [token]);
+  }, [token, user?.push_notifications_enabled]);
 
   useEffect(() => {
     if (user?.reminder_lead_minutes == null) return;

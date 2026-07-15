@@ -25,6 +25,7 @@ import { syncTodoReminders } from "@/lib/todoReminders";
 import {
   ensureNotificationPermission,
   registerRemotePushToken,
+  unregisterRemotePushToken,
 } from "@/lib/pushNotifications";
 import { useTheme } from "@/lib/theme";
 
@@ -69,9 +70,12 @@ export default function NotificationsSettingsScreen() {
     async (v: boolean) => {
       if (!token) return;
       if (!v) {
-        // Disabling: just flip the server flag. Device notifications stop
-        // arriving once the server filters on push_notifications_enabled.
+        // Disabling: flip the server flag AND unregister the Expo push token
+        // from the backend. Without the unregister, the backend keeps a live
+        // push token for a user who opted out and keeps sending them
+        // notifications until the token is overwritten or expires.
         await updateUser({ push_notifications_enabled: false }).catch(() => {});
+        await unregisterRemotePushToken(token);
         return;
       }
       // Enabling: the server flag alone does nothing on-device — we must also
@@ -86,7 +90,7 @@ export default function NotificationsSettingsScreen() {
         return; // leave the toggle off — permission was denied
       }
       try {
-        await registerRemotePushToken(token);
+        await registerRemotePushToken(token, true);
         await updateUser({ push_notifications_enabled: true });
       } catch {
         Alert.alert(t("common.error"), t("settings.push_register_failed"));

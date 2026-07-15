@@ -6,20 +6,23 @@ jest.mock("@/lib/deviceTimezone", () => ({
   getDeviceTimezone: () => "UTC",
 }));
 
+// Mock requestSse (the lib/api boundary helper) so the test verifies chatSse
+// routes through it and handles the Response. The 401→refresh→retry behaviour
+// lives in requestRaw (tested separately), not in chatSse anymore.
 jest.mock("@/lib/api/client", () => ({
-  refreshAccessToken: jest.fn(),
+  requestSse: jest.fn(),
   notifyUnauthorized: jest.fn(),
+  refreshAccessToken: jest.fn(),
 }));
 
 import { isSseAbortError, parseSseChunk, streamChatMessageSse } from "@/lib/chatSse";
-import { notifyUnauthorized, refreshAccessToken } from "@/lib/api/client";
+import { notifyUnauthorized, requestSse } from "@/lib/api/client";
 
 describe("parseSseChunk", () => {
   it("parses complete SSE frames and keeps trailing partial buffer", () => {
     const { events, rest } = parseSseChunk(
       'data: {"type":"token","content":"hi"}\n\ndata: {"type":"stream_end"}\n\ndata: {"type":"tok',
     );
-
     expect(events).toEqual([
       { type: "token", content: "hi" },
       { type: "stream_end" },
@@ -35,136 +38,100 @@ describe("isSseAbortError", () => {
   });
 });
 
-describe("streamChatMessageSse 401 refresh-retry", () => {
-  const refreshMock = refreshAccessToken as jest.MockedFunction<typeof refreshAccessToken>;
-  const unauthorizedMock = notifyUnauthorized as jest.MockedFunction<typeof notifyUnauthorized>;
-  const originalFetch = globalThis.fetch;
+const makeOkStream = (payload: string) =>
+  ({
+    ok: true,
+    status: 200,
+    body: {
+      getReader: () => ({
+        read: jest
+          .fn()
+          .mockResolvedValueOnce({
+            done: false,
+            value: new TextEncoder().encode(payload),
+          })
+          .mockResolvedValueOnce({ done: true, value: undefined }),
+      }),
+    },
+  }) as unknown as Response;
 
-  const makeOkStream = (payload: string) =>
-    ({
-      ok: true,
-      status: 200,
-      body: {
-        getReader: () => ({
-          read: jest
-            .fn()
-            .mockResolvedValueOnce({
-              done: false,
-              value: new TextEncoder().encode(payload),
-            })
-            .mockResolvedValueOnce({ done: true, value: undefined }),
-        }),
-      },
-    }) as unknown as Response;
+describe("streamChatMessageSse routes through lib/api requestSse", () => {
+  const requestSseMock = requestSse as jest.MockedFunction<typeof requestSse>;
+  const unauthorizedMock = notifyUnauthorized as jest.MockedFunction<typeof notifyUnauthorized>;
 
   beforeEach(() => {
-    refreshMock.mockReset();
+    requestSseMock.mockReset();
     unauthorizedMock.mockReset();
   });
 
-  afterEach(() => {
-    globalThis.fetch = originalFetch;
-  });
-
-  it("refreshes the access token and retries once on 401", async () => {
-    refreshMock.mockResolvedValue("fresh-token");
+  it("calls requestSse with the send path, token, and body", async () => {
+    requestSseMock.mockResolvedValueOnce(makeOkStream('data: {"type":"done"}\n\n'));
     const events: unknown[] = [];
-    const fetchMock = jest
-      .fn()
-      .mockResolvedValueOnce({
-        ok: false,
-        status: 401,
-        text: () => Promise.resolve("unauthorized"),
-      } as Response)
-      .mockResolvedValueOnce(makeOkStream('data: {"type":"done"}\n\n'));
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
-
     await streamChatMessageSse({
-      token: "stale-token",
+      token: "tok",
       chatId: "chat-1",
       content: "hi",
       onEvent: (e) => events.push(e),
     });
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe("Bearer stale-token");
-    expect(fetchMock.mock.calls[1][1].headers.Authorization).toBe("Bearer fresh-token");
+    expect(requestSseMock).toHaveBeenCalledTimes(1);
+    const [path, token, body] = requestSseMock.mock.calls[0];
+    expect(path).toBe("/chats/chat-1/messages/stream");
+    expect(token).toBe("tok");
+    expect(body).toMatchObject({ content: "hi", model: null });
     expect(events).toEqual([{ type: "done" }]);
-    expect(unauthorizedMock).not.toHaveBeenCalled();
   });
 
-  it("does not retry when refresh returns null", async () => {
-    refreshMock.mockResolvedValue(null);
-    const fetchMock = jest
-      .fn()
-      .mockResolvedValueOnce({
-        ok: false,
-        status: 401,
-        text: () => Promise.resolve("unauthorized"),
-      } as Response);
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
+  it("throws and calls notifyUnauthorized when response is 401", async () => {
+    requestSseMock.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      text: () => Promise.resolve("unauthorized"),
+    } as Response);
 
     await expect(
       streamChatMessageSse({
-        token: "stale-token",
+        token: "tok",
         chatId: "chat-1",
         content: "hi",
         onEvent: () => {},
       }),
     ).rejects.toThrow();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(unauthorizedMock).toHaveBeenCalledTimes(1);
   });
 
-  it("calls onUnauthorized when retry still returns 401", async () => {
-    refreshMock.mockResolvedValue("fresh-token");
-    const fetchMock = jest
-      .fn()
-      .mockResolvedValueOnce({
-        ok: false,
-        status: 401,
-        text: () => Promise.resolve("unauthorized"),
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: false,
-        status: 401,
-        text: () => Promise.resolve("still unauthorized"),
-      } as Response);
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
+  it("throws on a non-401 failure without calling notifyUnauthorized", async () => {
+    requestSseMock.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      text: () => Promise.resolve("server error"),
+    } as Response);
 
     await expect(
       streamChatMessageSse({
-        token: "stale-token",
+        token: "tok",
         chatId: "chat-1",
         content: "hi",
         onEvent: () => {},
       }),
     ).rejects.toThrow();
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(unauthorizedMock).toHaveBeenCalledTimes(1);
+    expect(unauthorizedMock).not.toHaveBeenCalled();
   });
 
-  it("does not refresh on a non-401 failure", async () => {
-    refreshMock.mockResolvedValue("fresh-token");
-    const fetchMock = jest
-      .fn()
-      .mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-        text: () => Promise.resolve("server error"),
-      } as Response);
-    globalThis.fetch = fetchMock as unknown as typeof fetch;
+  it("throws when the response has no body", async () => {
+    requestSseMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      body: null,
+    } as unknown as Response);
 
     await expect(
       streamChatMessageSse({
-        token: "good-token",
+        token: "tok",
         chatId: "chat-1",
         content: "hi",
         onEvent: () => {},
       }),
     ).rejects.toThrow();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(refreshMock).not.toHaveBeenCalled();
-    expect(unauthorizedMock).not.toHaveBeenCalled();
   });
 });
