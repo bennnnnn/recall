@@ -47,8 +47,17 @@ class RestRateLimitMiddleware(BaseHTTPMiddleware):
             redis = get_redis_client()
             allowed = await allow_request(redis, key, limit=limit, window_seconds=60)
         except Exception:
-            logger.debug("REST rate limit check failed; allowing request", exc_info=True)
-            return await call_next(request)
+            # Fail closed: a Redis outage must not let the rate limiter
+            # silently disappear — that would expose every protected
+            # endpoint to unbounded traffic during the outage. Returning
+            # 429 (with a Retry-After) is the safe default; clients retry
+            # with backoff and the limit re-engages the moment Redis is back.
+            logger.warning("REST rate limit check failed; failing closed", exc_info=True)
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Rate limit unavailable. Please retry shortly."},
+                headers={"Retry-After": "5"},
+            )
 
         if not allowed:
             return JSONResponse(

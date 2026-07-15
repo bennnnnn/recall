@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ipaddress
+from collections.abc import Mapping
 
 from starlette.requests import Request
 
@@ -51,18 +52,49 @@ def _client_from_x_forwarded_for(forwarded: str, settings: Settings) -> str | No
     return None
 
 
-def client_ip(request: Request, settings: Settings) -> str:
-    host = request.client.host if request.client else "unknown"
+def _resolve_client_ip(
+    host: str | None,
+    headers: Mapping[str, str],
+    settings: Settings,
+) -> str:
+    """Shared IP resolution used by both REST and WebSocket rate limiters.
+
+    Accepts the raw peer host + a header mapping so it works for both
+    `starlette.requests.Request` and `fastapi.WebSocket` (whose `.headers`
+    is case-insensitive but otherwise dict-like).
+    """
+    peer = host or "unknown"
     if not settings.trust_x_forwarded_for:
-        return host
-    if not _is_trusted_proxy(host, settings):
-        return host
+        return peer
+    if not _is_trusted_proxy(peer, settings):
+        return peer
 
     # Fly sets this to the edge-seen client IP; prefer it over XFF when present.
-    fly_ip = _parse_ip(request.headers.get("fly-client-ip", ""))
+    fly_ip = _parse_ip(headers.get("fly-client-ip", ""))
     if fly_ip is not None:
         return fly_ip
 
-    forwarded = request.headers.get("x-forwarded-for", "")
+    forwarded = headers.get("x-forwarded-for", "")
     from_xff = _client_from_x_forwarded_for(forwarded, settings) if forwarded.strip() else None
-    return from_xff or host
+    return from_xff or peer
+
+
+def client_ip(request: Request, settings: Settings) -> str:
+    return _resolve_client_ip(
+        request.client.host if request.client else None,
+        request.headers,
+        settings,
+    )
+
+
+def client_ip_from_websocket(websocket, settings: Settings) -> str:
+    """Resolve the client IP for a WebSocket handshake (same trust rules as REST).
+
+    WebSocket handshakes need the same fly-client-ip / XFF handling as REST so
+    a request behind Fly is keyed on the real edge IP, not the proxy's.
+    """
+    return _resolve_client_ip(
+        websocket.client.host if websocket.client else None,
+        websocket.headers,
+        settings,
+    )

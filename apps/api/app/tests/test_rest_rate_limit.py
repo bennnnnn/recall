@@ -65,12 +65,18 @@ def test_middleware_skips_when_limit_disabled():
         assert client.get("/openapi.json").status_code == 200
 
 
-def test_middleware_allows_request_when_redis_check_fails():
+def test_middleware_fails_closed_when_redis_check_fails():
+    # A Redis outage must not let the rate limiter silently disappear — that
+    # would expose every protected endpoint to unbounded traffic. Fail closed
+    # with 429 + Retry-After so clients back off and the limit re-engages.
     broken = AsyncMock()
     broken.incr = AsyncMock(side_effect=RuntimeError("redis down"))
     with patch("app.core.rest_rate_limit.get_redis_client", return_value=broken):
         client = TestClient(create_app())
-        assert client.get("/openapi.json").status_code == 200
+        response = client.get("/openapi.json")
+    assert response.status_code == 429
+    assert response.json()["detail"] == "Rate limit unavailable. Please retry shortly."
+    assert response.headers.get("retry-after") == "5"
 
 
 def test_client_key_falls_back_to_ip_on_invalid_bearer():

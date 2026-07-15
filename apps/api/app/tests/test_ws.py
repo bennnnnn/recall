@@ -67,6 +67,50 @@ def test_ws_missing_token_closes():
     assert "Missing token" in msg["message"]
 
 
+def test_ws_handshake_fails_closed_on_redis_error():
+    """A Redis outage during the WS handshake must close (1008), not let the
+    connect through unbounded — otherwise unauthenticated connects bypass
+    the limiter for the whole outage."""
+    from starlette.websockets import WebSocketDisconnect
+
+    app = _app(None)
+    client = TestClient(app)
+    with patch(
+        "app.routers.ws.allow_request",
+        AsyncMock(side_effect=RuntimeError("redis down")),
+    ):
+        with pytest.raises(WebSocketDisconnect):
+            with client.websocket_connect(f"/ws/chats/{uuid4()}") as ws:
+                ws.send_json({"token": "x"})
+
+
+@pytest.mark.asyncio
+async def test_ws_handshake_rate_limit_uses_forwarded_ip_when_trusted():
+    """The handshake limiter must key on the edge-seen IP (fly-client-ip/XFF)
+    when behind a trusted proxy, not the proxy's own address — otherwise
+    every connect shares one proxy bucket."""
+    from app.routers.ws import _ws_handshake_rate_limit
+
+    websocket = MagicMock()
+    websocket.client.host = "10.0.0.1"
+    websocket.headers = {"fly-client-ip": "198.51.100.7"}
+    settings = Settings(trust_x_forwarded_for=True)
+
+    captured: dict = {}
+
+    async def fake_allow(_redis, key, *, limit, window_seconds):
+        captured["key"] = key
+        return True
+
+    with (
+        patch("app.routers.ws.get_settings", return_value=settings),
+        patch("app.routers.ws.allow_request", side_effect=fake_allow),
+    ):
+        await _ws_handshake_rate_limit(AsyncMock(), websocket)
+
+    assert "198.51.100.7" in captured["key"]
+
+
 def test_ws_invalid_token_closes():
     app = _app(None)
     client = TestClient(app)

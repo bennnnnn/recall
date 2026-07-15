@@ -8,6 +8,7 @@ from uuid import UUID
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
+from app.core.client_ip import client_ip_from_websocket
 from app.core.config import get_settings
 from app.core.rate_limit import allow_request
 from app.core.redis import get_redis_client
@@ -60,11 +61,17 @@ async def _ws_connect_rate_limit(redis, user_id: UUID) -> bool:
 
 
 async def _ws_handshake_rate_limit(redis, websocket: WebSocket) -> bool:
-    """Cap unauthenticated connect attempts by client IP before accept()."""
-    host = websocket.client.host if websocket.client else "unknown"
+    """Cap unauthenticated connect attempts by client IP before accept().
+
+    Uses the shared `client_ip_from_websocket` resolver so a Fly-proxied
+    handshake is keyed on the edge-seen IP (fly-client-ip / XFF), not the
+    proxy's — otherwise every connect shares one proxy's bucket.
+    """
+    settings = get_settings()
+    ip = client_ip_from_websocket(websocket, settings)
     return await allow_request(
         redis,
-        f"rate:ws:handshake:{host}",
+        f"rate:ws:handshake:{ip}",
         limit=_WS_HANDSHAKE_RATE_LIMIT,
         window_seconds=_WS_MSG_WINDOW_SECONDS,
     )
@@ -236,7 +243,12 @@ async def chat_websocket(
             await websocket.close(code=1008)
             return
     except Exception:
-        logger.debug("WS handshake rate limit check failed; allowing", exc_info=True)
+        # Fail closed: a Redis outage must not let unauthenticated connects
+        # through unbounded. Close with policy-violation (1008) so the client
+        # backs off and reconnects once the limiter is healthy again.
+        logger.warning("WS handshake rate limit check failed; failing closed", exc_info=True)
+        await websocket.close(code=1008)
+        return
 
     await websocket.accept()
 
