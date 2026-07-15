@@ -34,13 +34,15 @@ export const PREVIEW_CSP = [
 /**
  * CSP for the math WebView (MathJax path).
  *
- * Unlike the user-HTML preview, the math WebView renders a *trusted* template
- * (our own LaTeX + the MathJax CDN script) — not model-generated HTML/JS. So
- * it can safely allow `connect-src` to the MathJax CDN: MathJax's loader
- * fetches its tex extension packages (ams, noerrors, nundefined) at runtime,
- * which the strict `connect-src 'none'` preview CSP blocks — causing the
- * render to fall back to the error div. Everything else stays as locked-down
- * as the preview CSP.
+ * The math WebView renders a *trusted* template (our own LaTeX + a vendored,
+ * inlined MathJax tex-svg bundle) — not model-generated HTML/JS. MathJax's
+ * tex-svg output renders as inline SVG paths with no runtime font fetches,
+ * and the ams/noerrors/noundefined tex extensions are pre-bundled, so the
+ * loader never needs to reach the network. That lets us keep `connect-src
+ * 'none'` — the same hard egress block as the user-HTML preview CSP. (The
+ * bundle does contain dormant speech-rule-engine CDN URLs, but those only
+ * execute under an a11y config we don't load, and `connect-src 'none'`
+ * blocks them regardless.)
  */
 export const MATH_PREVIEW_CSP = [
   "default-src 'none'",
@@ -49,7 +51,7 @@ export const MATH_PREVIEW_CSP = [
   "img-src data: blob: https:",
   "font-src data: https:",
   "media-src data: blob: https:",
-  "connect-src https://cdn.jsdelivr.net",
+  "connect-src 'none'",
   "base-uri 'none'",
   "form-action 'none'",
   "sandbox allow-scripts",
@@ -58,21 +60,22 @@ export const MATH_PREVIEW_CSP = [
 /**
  * CSP for the PDF preview WebView (pdf.js).
  *
- * The PDF preview loads pdf.js + its worker from cdnjs and renders an
- * inlined base64 PDF. Unlike the user-HTML preview, pdf.js legitimately
- * needs to fetch from cdnjs (the worker, cmaps, etc.) — the strict
- * `connect-src 'none'` of PREVIEW_CSP breaks it. We still lock everything
- * else down: only cdnjs may be reached, no other egress, no forms, no base
- * hijack. The PDF data itself is inlined (no fetch).
+ * pdf.js + its worker are vendored and inlined (the worker is built from a
+ * Blob URL at runtime, hence `worker-src blob:`). The PDF bytes are inlined
+ * as base64 — no fetch. With the worker no longer pulled from cdnjs, the PDF
+ * preview needs zero network egress, so `connect-src 'none'` holds just like
+ * the other sandbox CSPs. (CMap/standard-font fetches are not configured, so
+ * pdf.js never reaches the network for the previews we render.)
  */
 export const PDF_PREVIEW_CSP = [
   "default-src 'none'",
   "style-src 'unsafe-inline' https:",
   "script-src 'unsafe-inline' https:",
+  "worker-src blob:",
   "img-src data: blob: https:",
   "font-src data: https:",
   "media-src data: blob: https:",
-  "connect-src https://cdnjs.cloudflare.com",
+  "connect-src 'none'",
   "base-uri 'none'",
   "form-action 'none'",
   "sandbox allow-scripts",
@@ -138,6 +141,20 @@ export function escapeForInlineJsTemplate(value: string): string {
     .replace(/`/g, "\\`")
     .replace(/\${/g, "\\${")
     .replace(/<\/script>/gi, "<\\/script>");
+}
+
+/**
+ * Make a raw JS source safe to inline inside a <script>...</script> block.
+ *
+ * The HTML parser closes a script element at the first `</script>` (case-
+ * insensitive) it sees — even one nested inside a JS string literal. None of
+ * our vendored bundles currently contain that sequence, but a future upgrade
+ * could introduce it; splitting it as `<\/script>` keeps the JS identical
+ * (the `\/` is just `/` to the JS engine) while hiding it from the HTML
+ * tokenizer. Defense-in-depth for the vendored inline scripts.
+ */
+export function inlineScript(source: string): string {
+  return source.replace(/<\/script>/gi, "<\\/script>");
 }
 
 // Matches whitespace and C0 control characters, built via String.fromCharCode

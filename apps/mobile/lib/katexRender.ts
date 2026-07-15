@@ -1,10 +1,7 @@
 import katex from "katex";
 
-import { KATEX_MIN_CSS } from "@/lib/katexMinCss";
+import { KATEX_CSS } from "@/lib/vendor/katexCss";
 import { injectPreviewCsp } from "@/lib/previewSandbox";
-
-const KATEX_CDN = "https://cdn.jsdelivr.net/npm/katex@0.17.0/dist";
-const KATEX_CSS = KATEX_MIN_CSS.replace(/url\(fonts\//g, `url(${KATEX_CDN}/fonts/`);
 
 export type KatexRenderOptions = {
   displayMode?: boolean;

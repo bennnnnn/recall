@@ -3,7 +3,7 @@ import { buildMathWebHtml, isHeavyMath, pickMathEngine } from "@/lib/mathHtml";
 import { buildKatexStaticWebHtml } from "@/lib/katexRender";
 
 describe("math WebView HTML", () => {
-  it("injects the math CSP (allows MathJax CDN connect) into MathJax HTML", () => {
+  it("injects the math CSP (no network egress — MathJax is vendored inline) into MathJax HTML", () => {
     const html = buildMathWebHtml("\\frac{1}{2}", {
       displayMode: true,
       engine: "mathjax",
@@ -11,11 +11,17 @@ describe("math WebView HTML", () => {
       bgColor: "#fff",
     });
     expect(html).toContain(`content="${MATH_PREVIEW_CSP}"`);
-    // MathJax's loader fetches tex extensions from the CDN at runtime, so the
-    // math CSP must allow connect-src to it (the strict preview CSP blocks it
-    // and the render falls back to the error div).
-    expect(html).toContain("connect-src https://cdn.jsdelivr.net");
-    expect(html).not.toContain("connect-src 'none'");
+    // MathJax (tex-svg) is vendored and inlined; its tex extensions are
+    // pre-bundled and SVG output needs no font fetches, so the math CSP keeps
+    // connect-src 'none' — the same hard egress block as the preview CSP.
+    expect(html).toContain("connect-src 'none'");
+    // No external <script src> pulls MathJax from a CDN anymore (the bundle is
+    // inlined). The bundle does contain dormant speech-rule-engine CDN URLs
+    // as strings, but those never execute under our config and connect-src
+    // 'none' blocks them regardless — so we assert on script srcs, not the
+    // bare host string.
+    expect(html).not.toContain('src="https://cdn.jsdelivr.net');
+    expect(html).not.toContain('src="https://cdnjs.cloudflare.com');
   });
 
   it("injects the strict preview CSP into KaTeX static HTML", () => {
@@ -28,19 +34,25 @@ describe("math WebView HTML", () => {
     expect(html).toContain("connect-src 'none'");
   });
 
-  it("adds an onerror handler and load-timeout fallback to the MathJax CDN script", () => {
-    // BUG FIX: the CDN <script> tag had no onerror/timeout — offline, MathJax
-    // never loads, ready() never fires, and the WebView rendered a silent
-    // blank box with no indication anything went wrong.
+  it("inlines the vendored MathJax bundle (no external script src) and keeps the load-timeout fallback", () => {
+    // The MathJax bundle is inlined as a <script>...</script> block (no
+    // external src) so it renders fully offline. The 8s load-timeout remains
+    // as a safety net against a pathological init hang; the fallback div still
+    // shows raw LaTeX if MathJax fails to produce output.
     const html = buildMathWebHtml("\\frac{1}{2}", {
       displayMode: true,
       engine: "mathjax",
       textColor: "#111",
       bgColor: "#fff",
     });
-    expect(html).toContain('onerror="showMathJaxFallback()"');
+    expect(html).not.toContain('src="https://cdn.jsdelivr.net');
+    expect(html).not.toContain('onerror="showMathJaxFallback()"');
     expect(html).toContain("setTimeout(showMathJaxFallback, 8000)");
     expect(html).toContain("fallback-latex");
+    // The inlined tex-svg bundle defines the webpack module system; spot-check
+    // a known marker so a regression to an empty/CDN bundle is caught.
+    expect(html).toContain("__webpack_modules__");
+    expect(html).toContain("tex2svgPromise");
   });
 
   describe("isHeavyMath / pickMathEngine", () => {

@@ -1,11 +1,14 @@
 import { buildKatexStaticWebHtml, renderKatexHtml } from "@/lib/katexRender";
 
 describe("renderKatexHtml", () => {
-  it("renders algebra with katex markup", () => {
+  it("renders algebra with katex markup and inlines fonts as data URIs (no CDN)", () => {
     const html = renderKatexHtml("x^2 + 2 = 6", { displayMode: true });
     expect(html).toContain('class="katex"');
     expect(html).toContain("x");
-    expect(html).toContain("cdn.jsdelivr.net/npm/katex");
+    // KaTeX fonts are vendored inline as base64 data URIs — no CDN fetch.
+    expect(html).toContain("data:font/woff2;base64,");
+    expect(html).not.toContain("cdn.jsdelivr.net");
+    expect(html).not.toContain("url(fonts/");
   });
 
   it("renders sqrt and pm tokens", () => {

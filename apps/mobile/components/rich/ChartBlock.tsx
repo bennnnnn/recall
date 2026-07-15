@@ -10,15 +10,18 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { CODE_FONT } from "@/lib/fonts";
-import { escapeForInlineJsTemplate, injectPreviewCsp } from "@/lib/previewSandbox";
+import { escapeForInlineJsTemplate, injectPreviewCsp, inlineScript } from "@/lib/previewSandbox";
 import { Theme, useTheme } from "@/lib/theme";
 import { getPreviewWebView, useStaticOnlyNavigation } from "@/lib/webView";
+import { VEGA_MIN_JS } from "@/lib/vendor/vegaMinJs";
+import { VEGA_LITE_MIN_JS } from "@/lib/vendor/vegaLiteMinJs";
+import { VEGA_EMBED_MIN_JS } from "@/lib/vendor/vegaEmbedMinJs";
 
 type Props = { content: string };
 
 const PREVIEW_HEIGHT = 350;
 
-/** Build a self-contained HTML page that renders a Vega / Vega-Lite spec via CDN. */
+/** Build a self-contained HTML page that renders a Vega / Vega-Lite spec via vendored, inlined Vega-Embed. */
 function buildVegaHtml(spec: string, theme: Theme): string {
   const safeSpec = escapeForInlineJsTemplate(spec);
   return injectPreviewCsp(`<!DOCTYPE html>
@@ -26,9 +29,9 @@ function buildVegaHtml(spec: string, theme: Theme): string {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
-<script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
-<script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+<script>${inlineScript(VEGA_MIN_JS)}</script>
+<script>${inlineScript(VEGA_LITE_MIN_JS)}</script>
+<script>${inlineScript(VEGA_EMBED_MIN_JS)}</script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: -apple-system, sans-serif; background: ${theme.bg}; }

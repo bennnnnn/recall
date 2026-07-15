@@ -18,11 +18,13 @@ describe("PREVIEW_CSP", () => {
 });
 
 describe("PDF_PREVIEW_CSP", () => {
-  it("allows connect-src to cdnjs so pdf.js can load its worker/cmaps", () => {
-    // The strict PREVIEW_CSP (connect-src 'none') breaks pdf.js, which
-    // fetches its worker and cmaps from cdnjs at runtime. The PDF CSP
-    // must allow that one origin while keeping every other egress locked.
-    expect(PDF_PREVIEW_CSP).toContain("connect-src https://cdnjs.cloudflare.com");
+  it("allows a blob worker (pdf.js worker is vendored inline) and blocks all network egress", () => {
+    // pdf.js + its worker are vendored and inlined; the worker is built from a
+    // Blob URL at runtime, so the CSP must allow `worker-src blob:` while
+    // keeping `connect-src 'none'` (no network fetch is needed — the PDF bytes
+    // are inlined as base64).
+    expect(PDF_PREVIEW_CSP).toContain("worker-src blob:");
+    expect(PDF_PREVIEW_CSP).toContain("connect-src 'none'");
   });
 
   it("keeps the rest of the policy as locked-down as PREVIEW_CSP", () => {
@@ -33,16 +35,23 @@ describe("PDF_PREVIEW_CSP", () => {
     expect(PDF_PREVIEW_CSP).toContain("sandbox allow-scripts");
   });
 
-  it("does NOT allow connect-src to arbitrary origins (no exfiltration)", () => {
-    // The connect-src must name cdnjs specifically, not be 'https:' (any HTTPS
-    // origin) or '*'. We check the connect-src directive value is exactly the
-    // cdnjs origin, not a broader wildcard.
+  it("does NOT allow connect-src to any origin (no exfiltration, no CDN)", () => {
+    // The connect-src must be 'none' — not 'https:' (any HTTPS origin), not a
+    // CDN host, not '*'. pdf.js no longer fetches anything at runtime.
     const connectSrcMatch = PDF_PREVIEW_CSP.match(/connect-src\s+([^;]+)/);
     expect(connectSrcMatch).not.toBeNull();
     const connectSrcValue = connectSrcMatch![1].trim();
-    expect(connectSrcValue).toBe("https://cdnjs.cloudflare.com");
+    expect(connectSrcValue).toBe("'none'");
     expect(connectSrcValue).not.toBe("https:");
     expect(connectSrcValue).not.toBe("*");
+    expect(connectSrcValue).not.toContain("cdnjs.cloudflare.com");
+  });
+
+  it("allows worker-src only for blob: (not arbitrary origins)", () => {
+    const workerSrcMatch = PDF_PREVIEW_CSP.match(/worker-src\s+([^;]+)/);
+    expect(workerSrcMatch).not.toBeNull();
+    const workerSrcValue = workerSrcMatch![1].trim();
+    expect(workerSrcValue).toBe("blob:");
   });
 });
 
