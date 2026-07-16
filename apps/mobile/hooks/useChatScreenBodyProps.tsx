@@ -28,8 +28,6 @@ export type UseChatScreenBodyPropsParams = {
   theme: Theme;
   token: string;
   drawerOpen: boolean;
-  insetsTop: number;
-  router: Router;
   routeChatId?: string;
   layout: {
     headerInset: number;
@@ -43,29 +41,45 @@ export type UseChatScreenBodyPropsParams = {
     icon?: keyof typeof Ionicons.glyphMap;
   } | null;
   dismissActionBanner: () => void;
-  listRef: RefObject<FlashListRef<Message> | null>;
-  messages: Message[];
-  hasMoreOlder: boolean;
-  loadingOlder: boolean;
-  chatLoading: boolean;
-  renderItem: (info: ListRenderItemInfo<Message>) => ReactElement | null;
-  loadOlderMessages: () => Promise<void>;
-  handleScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
-  handleScrollEnd: () => void;
+  /** Everything needed to render the collapsible ChatHeader (title, nav, menu). */
+  header: {
+    insetsTop: number;
+    router: Router;
+    headerTitleLabel: string | null;
+    titleGenerating: boolean;
+    chatTitle: string | null;
+    showIndicator: boolean;
+    unseenCount: number;
+    startNewChat: (opts?: { force?: boolean }) => void;
+    setMenuVisible: React.Dispatch<React.SetStateAction<boolean>>;
+    menuOverlayOpen: boolean;
+  };
+  /** Message list data + scroll/pagination handlers for ChatMessageList. */
+  list: {
+    listRef: RefObject<FlashListRef<Message> | null>;
+    messages: Message[];
+    hasMoreOlder: boolean;
+    loadingOlder: boolean;
+    chatLoading: boolean;
+    renderItem: (info: ListRenderItemInfo<Message>) => ReactElement | null;
+    loadOlderMessages: () => Promise<void>;
+    handleScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
+    handleScrollEnd: () => void;
+  };
   handleSend: (prompt?: string) => void | Promise<void>;
-  headerTitleLabel: string | null;
-  titleGenerating: boolean;
-  chatTitle: string | null;
-  showIndicator: boolean;
-  unseenCount: number;
-  startNewChat: (opts?: { force?: boolean }) => void;
-  setMenuVisible: React.Dispatch<React.SetStateAction<boolean>>;
-  menuOverlayOpen: boolean;
   showScrollToBottom: boolean;
   scrollAwayCount: number;
   scrollToLatest: () => void;
-  attachSheetOpen: boolean;
-  closeAttachSheet: () => void;
+  /** Attachment picker sheet + upload state. */
+  attachments: {
+    attachSheetOpen: boolean;
+    closeAttachSheet: () => void;
+    attachBusy: boolean;
+    pendingAttachment: PendingAttachment | null;
+    setPendingAttachment: (value: PendingAttachment | null) => void;
+    handlePickAttachment: () => void;
+    handleAttachmentSheetSelect: (source: AttachmentSource) => void | Promise<void>;
+  };
   quotaNudge: QuotaNudge;
   chatError: ResolvedChatError | null;
   isPro: boolean;
@@ -74,20 +88,20 @@ export type UseChatScreenBodyPropsParams = {
   input: string;
   setInput: (value: string) => void;
   streaming: boolean;
-  attachBusy: boolean;
-  pendingAttachment: PendingAttachment | null;
-  setPendingAttachment: (value: PendingAttachment | null) => void;
-  editingMessageId: string | null;
-  setEditingMessageId: (value: string | null) => void;
-  handlePickAttachment: () => void;
-  handleAttachmentSheetSelect: (source: AttachmentSource) => void | Promise<void>;
+  /** Which message (if any) the composer is editing in place. */
+  editing: {
+    editingMessageId: string | null;
+    setEditingMessageId: (value: string | null) => void;
+  };
   stopGeneration: () => void;
   isOffline: boolean;
-  voiceRecording: boolean;
-  voiceTranscribing: boolean;
-  voiceMeterLevel: number;
-  toggleVoiceInput: () => void | Promise<void>;
-  cancelVoiceInput: () => void | Promise<void>;
+  voice: {
+    voiceRecording: boolean;
+    voiceTranscribing: boolean;
+    voiceMeterLevel: number;
+    toggleVoiceInput: () => void | Promise<void>;
+    cancelVoiceInput: () => void | Promise<void>;
+  };
   listFooter?: ReactElement | null;
   hideHomeStarters?: boolean;
 };
@@ -97,36 +111,47 @@ export function useChatScreenBodyProps({
   theme,
   token,
   drawerOpen,
-  insetsTop,
-  router,
   routeChatId,
   layout,
   listBottomPadRef,
   actionBanner,
   dismissActionBanner,
-  listRef,
-  messages,
-  hasMoreOlder,
-  loadingOlder,
-  chatLoading,
-  renderItem,
-  loadOlderMessages,
-  handleScroll,
-  handleScrollEnd,
+  header: {
+    insetsTop,
+    router,
+    headerTitleLabel,
+    titleGenerating,
+    chatTitle,
+    showIndicator,
+    unseenCount,
+    startNewChat,
+    setMenuVisible,
+    menuOverlayOpen,
+  },
+  list: {
+    listRef,
+    messages,
+    hasMoreOlder,
+    loadingOlder,
+    chatLoading,
+    renderItem,
+    loadOlderMessages,
+    handleScroll,
+    handleScrollEnd,
+  },
   handleSend,
-  headerTitleLabel,
-  titleGenerating,
-  chatTitle,
-  showIndicator,
-  unseenCount,
-  startNewChat,
-  setMenuVisible,
-  menuOverlayOpen,
   showScrollToBottom,
   scrollAwayCount,
   scrollToLatest,
-  attachSheetOpen,
-  closeAttachSheet,
+  attachments: {
+    attachSheetOpen,
+    closeAttachSheet,
+    attachBusy,
+    pendingAttachment,
+    setPendingAttachment,
+    handlePickAttachment,
+    handleAttachmentSheetSelect,
+  },
   quotaNudge,
   chatError,
   isPro,
@@ -135,20 +160,16 @@ export function useChatScreenBodyProps({
   input,
   setInput,
   streaming,
-  attachBusy,
-  pendingAttachment,
-  setPendingAttachment,
-  editingMessageId,
-  setEditingMessageId,
-  handlePickAttachment,
-  handleAttachmentSheetSelect,
+  editing: { editingMessageId, setEditingMessageId },
   stopGeneration,
   isOffline,
-  voiceRecording,
-  voiceTranscribing,
-  voiceMeterLevel,
-  toggleVoiceInput,
-  cancelVoiceInput,
+  voice: {
+    voiceRecording,
+    voiceTranscribing,
+    voiceMeterLevel,
+    toggleVoiceInput,
+    cancelVoiceInput,
+  },
   listFooter = null,
   hideHomeStarters = false,
 }: UseChatScreenBodyPropsParams): { bodyProps: ChatScreenBodyProps; openUpgradeSheet: () => void } {

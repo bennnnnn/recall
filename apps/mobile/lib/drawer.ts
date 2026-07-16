@@ -63,6 +63,12 @@ export function deletedIncludesActiveChat(
   return deletedIds.includes(activeChatId);
 }
 
+/** Send the home screen back to a fresh chat if a delete just removed the open one. */
+export function abandonActiveChatIfDeleted(deletedIds: readonly string[]) {
+  if (!deletedIncludesActiveChat(deletedIds)) return;
+  startNewChatGlobal({ force: true });
+}
+
 /** Patch a chat row in the drawer list (e.g. when auto-title arrives). */
 export type ChatListPatch = {
   title?: string | null;

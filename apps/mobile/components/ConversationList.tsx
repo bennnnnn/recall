@@ -11,7 +11,8 @@ import { ChatActionsSheet } from "@/components/ChatActionsSheet";
 import { ChatRenameSheet } from "@/components/ChatRenameSheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDrawer } from "@/contexts/DrawerContext";
-import { useDrawerChatActions } from "@/hooks/useDrawerChatActions";
+import { useChatBulkActions } from "@/hooks/useChatBulkActions";
+import { useChatMenuActions } from "@/hooks/useChatMenuActions";
 import { useDrawerChatList } from "@/hooks/useDrawerChatList";
 import { useDrawerChatSelection } from "@/hooks/useDrawerChatSelection";
 import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
@@ -85,6 +86,7 @@ export function ConversationList(_props: unknown) {
     setRenameText,
     actionBanner,
     dismissActionBanner,
+    showActionBanner,
     closeMenu,
     showRowMenu,
     handleShareChat,
@@ -94,10 +96,8 @@ export function ConversationList(_props: unknown) {
     toggleArchiveChat,
     confirmDeleteChat,
     requestDeleteChat,
-    bulkArchiveChats,
-    bulkDeleteChats,
     closeRename,
-  } = useDrawerChatActions({
+  } = useChatMenuActions({
     token,
     isDrawerOpen: isOpen,
     patchChatInGroups,
@@ -105,7 +105,15 @@ export function ConversationList(_props: unknown) {
     moveChatPinState,
     moveChatArchiveState,
     removeChatFromGroupsById,
+  });
+
+  const { bulkArchiveChats, bulkDeleteChats } = useChatBulkActions({
+    token,
+    insertChatInGroups,
+    moveChatArchiveState,
+    removeChatFromGroupsById,
     reloadChats: () => void load(),
+    showActionBanner,
   });
 
   const {
