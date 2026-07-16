@@ -379,6 +379,9 @@ class MathIntent(BaseModel):
     limit_point: str | None = None
     series_start: str | None = None
     series_end: str | None = None
+    # Definite-integral bounds — strings (infinity-aware, like limit_point).
+    integral_lower: str | None = None
+    integral_upper: str | None = None
     # System of equations — list of (lhs, rhs) pairs; `lhs`/`rhs`/`variable`
     # above stay single-equation-only for every other kind.
     system_equations: list[tuple[str, str]] | None = None

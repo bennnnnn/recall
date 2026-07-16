@@ -400,6 +400,25 @@ def integrate_expression(expr: str, variable: str = "x") -> MathExprResult:
     return MathExprResult(result=str(result), latex=latex(result), solved=solved)
 
 
+def integrate_definite(expr: str, variable: str, lower: str, upper: str) -> MathExprResult:
+    """Definite integral of expr w.r.t. variable from `lower` to `upper`.
+
+    Bounds are infinity-aware ("oo"/"inf"/"infty" → sympy.oo) via the same
+    parser limits/series use. A divergent/improper integral may evaluate to
+    oo/-oo/zoo; that is reported as the result rather than raising.
+    """
+    sym = Symbol(variable)
+    parsed = _parse_expression(expr, [variable])
+    a = _parse_infinity_aware_point(lower)
+    b = _parse_infinity_aware_point(upper)
+    try:
+        result = integrate(parsed, (sym, a, b))
+    except Exception as exc:
+        raise MathServiceError(f"Could not compute definite integral of: {expr}") from exc
+    solved = not result.has(Integral)
+    return MathExprResult(result=str(result), latex=latex(result), solved=solved)
+
+
 _INFINITY_WORDS = {"infinity", "inf", "oo", "infty"}
 
 

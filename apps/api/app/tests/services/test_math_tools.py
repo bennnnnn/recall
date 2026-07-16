@@ -293,6 +293,25 @@ def test_extract_factor_expand_intent(text: str, expected_op: str) -> None:
     assert intent.expr
 
 
+def test_extract_definite_integral_bounds() -> None:
+    """'integrate x^2 from 0 to 1' parses bounds and strips them from expr."""
+    intent = math_tools.extract_math_intent("integrate x^2 from 0 to 1")
+    assert intent is not None
+    assert intent.kind == "calculus"
+    assert intent.operation == "integrate"
+    assert intent.expr == "x^2"
+    assert intent.integral_lower == "0"
+    assert intent.integral_upper == "1"
+
+
+def test_extract_indefinite_integral_has_no_bounds() -> None:
+    intent = math_tools.extract_math_intent("integrate x^2")
+    assert intent is not None
+    assert intent.operation == "integrate"
+    assert intent.integral_lower is None
+    assert intent.integral_upper is None
+
+
 @pytest.mark.parametrize(
     "text, expected_expr, expected_var, expected_point",
     [

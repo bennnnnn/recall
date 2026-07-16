@@ -143,6 +143,13 @@ _CALC_OP = re.compile(
     re.IGNORECASE,
 )
 
+# Definite-integral prose bounds: "integrate x^2 from 0 to 1" / "... of x^2
+# from -inf to inf". Bounds are strings (infinity-aware, like limit points).
+_INTEGRAL_BOUNDS = re.compile(
+    r"\bfrom\s+(?P<lo>-?(?:inf(?:inity)?|oo|infty|-?\d+(?:\.\d+)?)|\S+)\s+to\s+(?P<hi>-?(?:inf(?:inity)?|oo|infty|-?\d+(?:\.\d+)?)|\S+)\s*$",
+    re.IGNORECASE,
+)
+
 _LIMIT_TRIGGER = re.compile(r"\b(?:limit|lim)\b", re.IGNORECASE)
 
 # "[find/evaluate/what is] [the] [limit of] EXPR as VAR (approaches|-> |to) POINT"
@@ -484,7 +491,22 @@ def extract_math_intent(text: str) -> MathIntent | None:
             re.I,
         )
         expr = _strip_trailing_filler(expr_match.group(1)) if expr_match else cleaned
-        return MathIntent(kind="calculus", expr=expr, operation=calc_op)
+        # Definite integral: "integrate x^2 from 0 to 1" → bounds + bare expr.
+        integral_lower: str | None = None
+        integral_upper: str | None = None
+        if calc_op == "integrate":
+            bounds = _INTEGRAL_BOUNDS.search(expr)
+            if bounds:
+                integral_lower = bounds.group("lo").strip()
+                integral_upper = bounds.group("hi").strip()
+                expr = expr[: bounds.start()].strip()
+        return MathIntent(
+            kind="calculus",
+            expr=expr,
+            operation=calc_op,
+            integral_lower=integral_lower,
+            integral_upper=integral_upper,
+        )
 
     limit_match = (
         _LIMIT_LATEX.search(cleaned)
@@ -901,7 +923,15 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
             elif intent.operation == "differentiate":
                 out = math_service.differentiate_expression(intent.expr, intent.variable)
             elif intent.operation == "integrate":
-                out = math_service.integrate_expression(intent.expr, intent.variable)
+                if intent.integral_lower is not None and intent.integral_upper is not None:
+                    out = math_service.integrate_definite(
+                        intent.expr,
+                        intent.variable,
+                        intent.integral_lower,
+                        intent.integral_upper,
+                    )
+                else:
+                    out = math_service.integrate_expression(intent.expr, intent.variable)
             elif intent.operation == "factor":
                 out = math_service.factor_expression(intent.expr, intent.variable)
             elif intent.operation == "expand":

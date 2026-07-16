@@ -203,6 +203,20 @@ def test_expand_expression() -> None:
     assert result.result == "x**2 - 1"
 
 
+def test_integrate_definite_expression() -> None:
+    # ∫₀¹ x² dx = 1/3.
+    result = math_service.integrate_definite("x**2", "x", "0", "1")
+    assert result.solved is True
+    assert result.result == "1/3"
+
+
+def test_integrate_definite_infinity_aware() -> None:
+    # ∫₀^∞ e^(-x) dx = 1 — bound "inf" maps to sympy.oo.
+    result = math_service.integrate_definite("exp(-x)", "x", "0", "inf")
+    assert result.solved is True
+    assert result.result == "1"
+
+
 def test_differentiate_expression() -> None:
     result = math_service.differentiate_expression("x**2", "x")
     assert "2" in result.latex
