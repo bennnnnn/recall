@@ -1,11 +1,9 @@
 import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-import { MathFormulaWebView } from "@/components/rich/MathFormulaWebView";
 import { MathText } from "@/components/rich/MathText";
 import { stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/mathFenceRetag";
 import { splitInlineMath } from "@/lib/markdownPreprocess";
-import { getPreviewWebView } from "@/lib/webView";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = { content: string };
@@ -20,6 +18,13 @@ function normalizeAnswerContent(raw: string): string {
 /**
  * Final answer — same gray surface as other math blocks, no Copy affordance.
  * (```answer / short numeric or simplified-expression finals only.)
+ *
+ * Always renders via native `MathText` (no WebView). A WebView in the
+ * centered gray box had no intrinsic width — `alignSelf: "center"` collapsed
+ * it to a thin vertical sliver (the "thin line" artifact), and its
+ * grow-only/overshooting height reports stretched the box into a tall pill.
+ * `MathText` handles every token a final answer uses (\pm → ±, \text{},
+ * \sqrt{}, \frac, superscripts, Greek) with reliable native layout.
  */
 export function AnswerBlock({ content }: Props) {
   const theme = useTheme();
@@ -27,23 +32,11 @@ export function AnswerBlock({ content }: Props) {
   const text = normalizeAnswerContent(content);
   const parts = splitInlineMath(text);
   const hasInlineMath = parts.some((p) => p.type === "math");
-  const preview = getPreviewWebView();
-  const useWebMath =
-    !hasInlineMath && preview?.mode === "rnc" && /[\\^_{}=]|[a-zA-Z]\d|\d!/.test(text);
 
   return (
     <View style={s.row} accessibilityRole="text" accessibilityLabel={`Answer: ${text}`}>
       <View style={s.box}>
-        {useWebMath ? (
-          <MathFormulaWebView
-            latex={text}
-            displayMode
-            compact
-            minHeight={36}
-            textColor={theme.text}
-            bgColor={theme.bg}
-          />
-        ) : hasInlineMath ? (
+        {hasInlineMath ? (
           <Text style={s.answer} selectable>
             {parts.map((part, i) =>
               part.type === "math" ? (
