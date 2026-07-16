@@ -66,7 +66,11 @@ describe("parseSimpleLatex", () => {
   });
 
   it("still shows the backslash for a genuinely unknown command", () => {
-    expect(segmentsToPlain(parseSimpleLatex(String.raw`\widehat{x}`))).toContain("\\widehat");
+    // \widehat used to be this example — it's now a handled accent command
+    // (see the \overline/\hat/\vec/... regression tests below), so it no
+    // longer demonstrates the raw-fallback path. \varinjlim is obscure
+    // enough that it's unlikely to ever get a dedicated mapping.
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\varinjlim{x}`))).toContain("\\varinjlim");
   });
 
   it("BUG FIX regression: \\left/\\right render as bare delimiters, not literal backslash text", () => {
@@ -98,6 +102,33 @@ describe("parseSimpleLatex", () => {
     // border) — the no-WebView (Expo Go) fallback used to show the literal
     // "\boxed{28}" instead of just "28".
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\boxed{28}`))).toBe("28");
+  });
+
+  it("BUG FIX regression: \\overline{...} draws a real combining overline, not raw backslash text", () => {
+    // Reported live (screenshot): "0.\overline{714285}" (a repeating
+    // decimal) rendered as the literal raw text "0.\overline{714285}" —
+    // \overline had no entry in CMD_REPLACEMENTS or ROMAN_FUNCTIONS, so it
+    // fell through to the generic \cmd fallback, which only consumes the
+    // command NAME and leaves the following "{714285}" group as literal text.
+    const plain = segmentsToPlain(parseSimpleLatex(String.raw`0.\overline{714285}`));
+    expect(plain).not.toContain("\\overline");
+    expect(plain).not.toContain("{");
+    // Every digit carries a combining overline (U+0305), giving one
+    // continuous line across the whole repeating block — not just the
+    // last digit.
+    expect(plain).toBe("0." + "714285".split("").map((c) => `${c}̅`).join(""));
+  });
+
+  it("accent commands (\\hat, \\vec, \\bar, \\dot, \\tilde, \\underline) render via combining marks", () => {
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\hat{x}`))).toBe("x̂");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\vec{v}`))).toBe("v⃗");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\bar{x}`))).toBe("x̄");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\dot{x}`))).toBe("ẋ");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\ddot{x}`))).toBe("ẍ");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\tilde{x}`))).toBe("x̃");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\underline{AB}`))).toBe(
+      "A̲B̲",
+    );
   });
 });
 

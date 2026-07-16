@@ -155,6 +155,39 @@ const ROMAN_FUNCTIONS = new Set([
   "hom",
 ]);
 
+// Accent commands, mapped to the Unicode combining mark that reproduces them
+// in plain text — applied to EVERY character of the group (not just the
+// last) so a multi-character span like "714285" gets a continuous line
+// across it ("7̅1̅4̅2̅8̅5̅"), matching how \overline actually typesets rather
+// than accenting only the final digit. \hat/\vec/\bar/\dot conventionally
+// accent a single symbol, but combining marks compose fine over more.
+// Longest-alias-first so `\widehat`/`\widetilde` aren't cut short by a
+// naive `\hat`/`\tilde` prefix match.
+const ACCENT_COMMANDS: [RegExp, string][] = [
+  [/\\overline\{([^{}]+)\}/g, "̅"], // combining overline
+  [/\\underline\{([^{}]+)\}/g, "̲"], // combining low line
+  [/\\widehat\{([^{}]+)\}/g, "̂"], // combining circumflex accent
+  [/\\hat\{([^{}]+)\}/g, "̂"],
+  [/\\widetilde\{([^{}]+)\}/g, "̃"], // combining tilde
+  [/\\tilde\{([^{}]+)\}/g, "̃"],
+  [/\\vec\{([^{}]+)\}/g, "⃗"], // combining right arrow above
+  [/\\ddot\{([^{}]+)\}/g, "̈"], // combining diaeresis (double dot)
+  [/\\dot\{([^{}]+)\}/g, "̇"], // combining dot above
+  [/\\bar\{([^{}]+)\}/g, "̄"], // combining macron
+];
+
+function applyAccentCommands(latex: string): string {
+  let s = latex;
+  for (const [re, mark] of ACCENT_COMMANDS) {
+    s = s.replace(re, (_m, group: string) =>
+      Array.from(group)
+        .map((ch) => (ch === " " ? ch : `${ch}${mark}`))
+        .join(""),
+    );
+  }
+  return s;
+}
+
 function readGroup(input: string, start: number): { value: string; next: number } | null {
   if (input[start] !== "{") return null;
   let depth = 0;
@@ -190,6 +223,14 @@ function preprocessLatex(latex: string): string {
   // border) — unwrap to the inner content rather than leave the raw command
   // visible, matching \text/\mathrm's fallback above.
   s = s.replace(/\\boxed\{([^}]+)\}/g, "$1");
+  // \overline{714285} etc. (repeating decimals, line segments, vectors, …)
+  // had no entry anywhere in this table — they fell through to the generic
+  // \cmd fallback below, which only consumes the command NAME, leaving the
+  // "{714285}" group behind as literal visible text (e.g. the raw
+  // "0.\overline{714285}" seen in production). Map to the matching Unicode
+  // combining mark instead, same "real glyph over raw command" preference
+  // superscript/subscript already use.
+  s = applyAccentCommands(s);
   s = s.replace(/\\,/g, " ");
   // Two real alternatives, not one merged character class: the previous
   // `/\\left[\(\[\{|\\right[\)\]\}.]/` compiled everything after the first

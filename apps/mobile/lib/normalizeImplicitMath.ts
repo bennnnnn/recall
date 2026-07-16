@@ -2,14 +2,26 @@
 
 const LATEX_CMD = /\\(?:[a-zA-Z]+|.){1,}/;
 const MATH_IN_PARENS_RE = /\(\s*([^()\n]{1,180}?)\s*\)/g;
-// Triple-backtick fences AND LaTeX's own already-delimited display-math spans
-// (`$$...$$`, `\[...\]`) — markdownPreprocess.ts's BLOCK_MATH_RE/
-// BLOCK_MATH_BRACKET_RE convert the latter two into ```math fences right
-// after this module runs, and that fence body must stay bare LaTeX (no
-// markdown-level $...$ wrapping) or KaTeX fails to parse it and renders the
-// raw source in red. So these spans get skipped here exactly like a code
-// fence, not touched line-by-line by the heuristics below.
-const PROTECTED_SPAN_RE = /```[\s\S]*?```|\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]/g;
+// Triple-backtick fences, LaTeX's own already-delimited display-math spans
+// (`$$...$$`, `\[...\]`), AND its inline-math delimiter (`\(...\)`) —
+// markdownPreprocess.ts's BLOCK_MATH_RE/BLOCK_MATH_BRACKET_RE convert the
+// display forms into ```math fences right after this module runs, and
+// splitInlineMath (markdownPreprocess.ts) already recognizes `\(...\)`
+// directly as inline math, same as `$...$`. Without protecting `\(...\)`
+// here, MATH_IN_PARENS_RE below matches the bare `(`/`)` characters INSIDE
+// it (ignoring the leading/trailing backslash as unrelated adjacent text)
+// and re-wraps the captured span — which includes that stray trailing
+// backslash — in its own `$...$`, corrupting a perfectly valid delimiter
+// into e.g. `\$\frac{5}{7}\$`. Any of these spans containing a nested
+// LaTeX command (\left, \right, \approx, ...) fares even worse: the later
+// wrapInlineLatexCommands heuristic then wraps each stranded command in
+// its own separate `$...$`, shattering one expression (e.g.
+// `\left(\frac{5}{7}\right)^2`) into disconnected, individually-broken
+// fragments with `\left`/`\right` missing the delimiter each requires and
+// `^2` left as literal unrendered text outside any math span. So these
+// spans get skipped here exactly like a code fence, not touched line-by-line
+// by the heuristics below.
+const PROTECTED_SPAN_RE = /```[\s\S]*?```|\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)/g;
 
 // A LaTeX command (\frac, \sqrt, \boxed, ...) embedded mid-sentence with no
 // $...$ wrap at all — e.g. "simplifying\frac{8!}{6!}?" — is distinct from
