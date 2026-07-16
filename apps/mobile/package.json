@@ -87,6 +87,11 @@
   "pnpm": {
     "patchedDependencies": {
       "react-native-draggable-flatlist@4.0.3": "patches/react-native-draggable-flatlist@4.0.3.patch"
+    },
+    "overrides": {
+      "markdown-it": "^14.2.0",
+      "linkify-it": "^5.0.2",
+      "uuid": "^11.1.1"
     }
   },
   "private": true
