@@ -32,7 +32,7 @@ type Props = {
   listFooter?: ReactElement | null;
 };
 
-export const ChatMessageList = memo(function ChatMessageList({
+function ChatMessageListComponent({
   listRef,
   messages,
   headerInset,
@@ -55,10 +55,10 @@ export const ChatMessageList = memo(function ChatMessageList({
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const showFooterInEmpty = Boolean(listFooter && messages.length === 0);
-  // Stable content-container style: the previous inline `{ paddingTop, paddingBottom }`
-  // object was fresh every render → FlashList re-laid out on every parent render
-  // (including every composer keystroke). Memoize so it only changes when the
-  // insets actually change.
+// Stable content-container style: the previous inline `{ paddingTop, paddingBottom }`
+// object was fresh every render, so FlashList re-laid out on every parent render
+// (including every composer keystroke). Memoize so it only changes when the
+// insets actually change.
   const contentContainerStyle = useMemo(
     () => [s.listContent, { paddingTop: headerInset, paddingBottom: listBottomPad }],
     [s.listContent, headerInset, listBottomPad],
@@ -128,7 +128,9 @@ export const ChatMessageList = memo(function ChatMessageList({
       {header}
     </View>
   );
-});
+}
+
+export const ChatMessageList = memo(ChatMessageListComponent);
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
