@@ -91,6 +91,21 @@ def test_solve_quadratic_includes_worked_isolation_steps() -> None:
     assert "\\sqrt{4x}" not in steps_text
 
 
+def test_solve_quadratic_with_linear_term_emits_discriminant_steps() -> None:
+    """BUG FIX regression: a general quadratic ax^2 + bx + c = 0 (b != 0) used
+    to get NO worked steps (only the pure-quadratic b=0 case had them), so the
+    model re-derived the discriminant/quadratic-formula algebra and could
+    corrupt it. Now SymPy emits the discriminant + quadratic-formula steps."""
+    result = math_service.solve_equation(
+        EquationInput(lhs="x**2 + 4*x + 1", rhs="0", variables=["x"])
+    )
+    steps_text = "\n".join(result.steps)
+    assert "\\Delta" in steps_text  # discriminant step
+    assert "Quadratic formula" in steps_text
+    # Discriminant of x^2 + 4x + 1 is 16 - 4 = 12.
+    assert "12" in steps_text
+
+
 def test_solve_linear_includes_worked_isolation_steps() -> None:
     result = math_service.solve_equation(EquationInput(lhs="2*x + 4", rhs="10", variables=["x"]))
     steps_text = "\n".join(result.steps)

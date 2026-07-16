@@ -192,6 +192,21 @@ def _worked_isolation_steps(lhs: Any, rhs: Any, variable: str) -> list[str]:
             steps.append(f"Take square root: {variable} = \\pm \\sqrt{{{latex(radicand)}}}")
         return steps
 
+    if degree == 2 and c2 != 0 and c1 != 0:
+        # General quadratic a*x^2 + b*x + c = 0 — emit the discriminant and
+        # the quadratic formula so the model can copy verified steps instead
+        # of re-deriving (and corrupting) the algebra when b != 0.
+        discriminant = simplify(c1**2 - 4 * c2 * c0)
+        steps.append(
+            f"Discriminant: \\Delta = {latex(c1)}^{{2}} - 4({latex(c2)})({latex(c0)}) "
+            f"= {latex(discriminant)}"
+        )
+        steps.append(
+            f"Quadratic formula: {variable} = \\frac{{-{latex(c1)} \\pm "
+            f"\\sqrt{{{latex(discriminant)}}}}}{{2({latex(c2)})}}"
+        )
+        return steps
+
     return steps
 
 
