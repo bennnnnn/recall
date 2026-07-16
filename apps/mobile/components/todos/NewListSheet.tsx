@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { KeyboardAvoidingView, Modal, Platform, Pressable, Text, TextInput, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Pressable, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
+import { AppSheet } from "@/components/AppSheet";
 import { useTheme } from "@/lib/theme";
 import { makeTodosStyles } from "@/components/todos/todosStyles";
 
@@ -18,7 +18,6 @@ export function NewListSheet({
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeTodosStyles(C), [C]);
-  const insets = useSafeAreaInsets();
   const [name, setName] = useState("");
 
   useEffect(() => {
@@ -28,43 +27,42 @@ export function NewListSheet({
   const canSave = name.trim().length > 0;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        style={s.sheetOverlay}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <Pressable style={s.sheetBackdrop} onPress={onClose} />
-        <View style={[s.sheet, { paddingBottom: insets.bottom }]}>
-          <View style={s.sheetHeader}>
-            <Pressable onPress={onClose} hitSlop={8}>
-              <Text style={s.sheetCancel}>{t("common.cancel")}</Text>
-            </Pressable>
-            <Text style={s.sheetTitle}>{t("lists.new_group_title")}</Text>
-            <Pressable
-              onPress={() => canSave && onSave(name.trim())}
-              hitSlop={8}
-              disabled={!canSave}
-            >
-              <Text style={[s.sheetSave, !canSave && s.sheetSaveDisabled]}>
-                {t("todos.save")}
-              </Text>
-            </Pressable>
-          </View>
-          <View style={s.sheetBody}>
-            <Text style={s.formLabel}>{t("lists.group_name_label")}</Text>
-            <TextInput
-              style={s.titleInput}
-              placeholder={t("lists.group_name_placeholder")}
-              placeholderTextColor={C.textTertiary}
-              value={name}
-              onChangeText={setName}
-              autoFocus
-              returnKeyType="done"
-              maxLength={200}
-            />
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+    <AppSheet
+      visible={visible}
+      onClose={onClose}
+      variant="bottom"
+      keyboardAvoiding
+      withHandle={false}
+      contentContainerStyle={[s.sheet, { paddingHorizontal: 0, paddingTop: 0 }]}
+    >
+      <View style={s.sheetHeader}>
+        <Pressable onPress={onClose} hitSlop={8}>
+          <Text style={s.sheetCancel}>{t("common.cancel")}</Text>
+        </Pressable>
+        <Text style={s.sheetTitle}>{t("lists.new_group_title")}</Text>
+        <Pressable
+          onPress={() => canSave && onSave(name.trim())}
+          hitSlop={8}
+          disabled={!canSave}
+        >
+          <Text style={[s.sheetSave, !canSave && s.sheetSaveDisabled]}>
+            {t("todos.save")}
+          </Text>
+        </Pressable>
+      </View>
+      <View style={s.sheetBody}>
+        <Text style={s.formLabel}>{t("lists.group_name_label")}</Text>
+        <TextInput
+          style={s.titleInput}
+          placeholder={t("lists.group_name_placeholder")}
+          placeholderTextColor={C.textTertiary}
+          value={name}
+          onChangeText={setName}
+          autoFocus
+          returnKeyType="done"
+          maxLength={200}
+        />
+      </View>
+    </AppSheet>
   );
 }

@@ -2,18 +2,15 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
+import { AppSheet } from "@/components/AppSheet";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -34,7 +31,6 @@ export function ImageGenPromptSheet({
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const [prompt, setPrompt] = useState("");
 
@@ -59,69 +55,58 @@ export function ImageGenPromptSheet({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
-      <KeyboardAvoidingView
-        style={s.keyboardAvoider}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <Pressable style={s.backdrop} onPress={handleClose}>
-          <Pressable
-            style={[s.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}
-            onPress={(event) => event.stopPropagation()}
-          >
-            <Text style={s.title}>{t("chat.image_gen_title")}</Text>
-            <TextInput
-              style={s.input}
-              value={prompt}
-              onChangeText={setPrompt}
-              placeholder={t("chat.image_gen_placeholder")}
-              placeholderTextColor={theme.textTertiary}
-              multiline
-              maxLength={2000}
-              editable={!generating}
-              autoFocus
-            />
-            <View style={s.actions}>
-              <Pressable
-                style={({ pressed }) => [s.secondaryBtn, pressed && s.btnPressed]}
-                onPress={handleClose}
-                disabled={generating}
-              >
-                <Text style={s.secondaryLabel}>{t("common.cancel")}</Text>
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [
-                  s.primaryBtn,
-                  (!prompt.trim() || generating) && s.primaryBtnDisabled,
-                  pressed && prompt.trim() && !generating && s.btnPressed,
-                ]}
-                onPress={handleSubmit}
-                disabled={!prompt.trim() || generating}
-              >
-                {generating ? (
-                  <ActivityIndicator color={theme.onPrimary} size="small" />
-                ) : (
-                  <Text style={s.primaryLabel}>{t("chat.image_gen_generate")}</Text>
-                )}
-              </Pressable>
-            </View>
-          </Pressable>
+    <AppSheet
+      visible={visible}
+      onClose={handleClose}
+      variant="bottom"
+      animation="fade"
+      keyboardAvoiding
+      withHandle={false}
+      minBottomPadding={16}
+      contentContainerStyle={s.sheet}
+    >
+      <Text style={s.title}>{t("chat.image_gen_title")}</Text>
+      <TextInput
+        style={s.input}
+        value={prompt}
+        onChangeText={setPrompt}
+        placeholder={t("chat.image_gen_placeholder")}
+        placeholderTextColor={theme.textTertiary}
+        multiline
+        maxLength={2000}
+        editable={!generating}
+        autoFocus
+      />
+      <View style={s.actions}>
+        <Pressable
+          style={({ pressed }) => [s.secondaryBtn, pressed && s.btnPressed]}
+          onPress={handleClose}
+          disabled={generating}
+        >
+          <Text style={s.secondaryLabel}>{t("common.cancel")}</Text>
         </Pressable>
-      </KeyboardAvoidingView>
-    </Modal>
+        <Pressable
+          style={({ pressed }) => [
+            s.primaryBtn,
+            (!prompt.trim() || generating) && s.primaryBtnDisabled,
+            pressed && prompt.trim() && !generating && s.btnPressed,
+          ]}
+          onPress={handleSubmit}
+          disabled={!prompt.trim() || generating}
+        >
+          {generating ? (
+            <ActivityIndicator color={theme.onPrimary} size="small" />
+          ) : (
+            <Text style={s.primaryLabel}>{t("chat.image_gen_generate")}</Text>
+          )}
+        </Pressable>
+      </View>
+    </AppSheet>
   );
 }
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    keyboardAvoider: {
-      flex: 1,
-    },
-    backdrop: {
-      flex: 1,
-      backgroundColor: t.scrim,
-      justifyContent: "flex-end",
-    },
     sheet: {
       backgroundColor: t.surface,
       borderTopLeftRadius: 24,
