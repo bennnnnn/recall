@@ -58,6 +58,17 @@ export const MODEL_CATALOG_FALLBACK: ModelInfo[] = [
     quota_multiplier: 3.5,
   },
   {
+    id: "gpt-5.5",
+    label: "GPT 5.5",
+    tier: "smart",
+    plan_access: "pro",
+    description: "OpenAI frontier — top reasoning, coding, and multimodal (1M context).",
+    available: true,
+    input_price_per_m: 5.0,
+    output_price_per_m: 30.0,
+    quota_multiplier: 3.5,
+  },
+  {
     id: "qwen-plus",
     label: "Qwen Plus",
     tier: "standard",

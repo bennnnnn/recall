@@ -21,6 +21,13 @@ def test_selectable_models_count():
     assert glm.tier == "smart"
     assert glm.model == "openrouter/z-ai/glm-5.2"
     assert model_catalog.is_reasoning_alias("glm-5.2") is True
+    gpt = model_catalog.get("gpt-5.5")
+    assert gpt.tier == "smart"
+    assert gpt.model == "openrouter/openai/gpt-5.5"
+    assert gpt.input_price_per_m == 5.00
+    assert gpt.output_price_per_m == 30.00
+    assert model_catalog.is_reasoning_alias("gpt-5.5") is True
+    assert "gpt-5.5" in {m.id for m in model_catalog.selectable_models()}
 
 
 def test_validate_user_alias_allows_auto():

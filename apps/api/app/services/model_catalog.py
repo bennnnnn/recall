@@ -127,6 +127,17 @@ CATALOG: tuple[ChatModel, ...] = (
         quota_multiplier=3.5,
     ),
     _or(
+        id="gpt-5.5",
+        label="GPT 5.5",
+        model="openai/gpt-5.5",
+        provider="openai",
+        input_price_per_m=5.00,
+        output_price_per_m=30.00,
+        description="OpenAI frontier — top reasoning, coding, and multimodal (1M context).",
+        tier="smart",
+        quota_multiplier=3.5,
+    ),
+    _or(
         id="qwen-plus",
         label="Qwen Plus",
         model="qwen/qwen-plus",
