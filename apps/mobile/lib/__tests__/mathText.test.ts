@@ -55,6 +55,26 @@ describe("parseSimpleLatex", () => {
     expect(segmentsToPlain(parseSimpleLatex(String.raw`a \equiv b`))).toContain("≡");
   });
 
+  it("BUG FIX regression: accents render via Unicode combining marks, not raw \\hat/\\vec", () => {
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\hat{x}`))).toBe("x\u0302");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\vec{v}`))).toBe("v\u20D7");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\bar{x}`))).toBe("x\u0304");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\dot{y}`))).toBe("y\u0307");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\overline{AB}`))).toContain("\u0304");
+  });
+
+  it("BUG FIX regression: \\mathbb{R/Z/N/...} renders as double-struck unicode, not raw", () => {
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\mathbb{R}`))).toBe("ℝ");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`x \in \mathbb{Z}`))).toContain("ℤ");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\mathbb{C}`))).toBe("ℂ");
+    // Unknown double-struck letter falls back to itself (no raw \mathbb).
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\mathbb{A}`))).toBe("A");
+  });
+
+  it("BUG FIX regression: \\binom{n}{k} renders as choose notation, not raw", () => {
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\binom{n}{k}`))).toBe("C(n, k)");
+  });
+
   it("BUG FIX regression: renders known function names without the leading backslash", () => {
     // \log_2(2) used to render literally as "\log_2(2)" in the no-WebView
     // (Expo Go) plain-text fallback since \log wasn't in CMD_REPLACEMENTS.

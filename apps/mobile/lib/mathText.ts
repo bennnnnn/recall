@@ -170,6 +170,41 @@ function readGroup(input: string, start: number): { value: string; next: number 
   return null;
 }
 
+// Accents → Unicode combining marks. Applied to the last char of the operand
+// (correct for a single-char operand like \hat{x} → x̂; a reasonable fallback
+// for multi-char). Keeps accents inline in Text — no WebView, no width-collapse.
+const ACCENT_MARK: Record<string, string> = {
+  hat: "\u0302",
+  bar: "\u0304",
+  overline: "\u0304",
+  vec: "\u20D7",
+  dot: "\u0307",
+  ddot: "\u0308",
+  tilde: "\u0303",
+  check: "\u030C",
+  acute: "\u0301",
+  grave: "\u0300",
+  underline: "\u0332",
+  breve: "\u0306",
+};
+
+function applyCombining(inner: string, mark: string): string {
+  if (!inner || !mark) return inner;
+  return inner.slice(0, -1) + inner[inner.length - 1] + mark;
+}
+
+// \mathbb{…} → Unicode double-struck for the common number-system letters;
+// other letters fall back to themselves (no precomposed double-struck glyph).
+const MATHBB: Record<string, string> = {
+  R: "ℝ",
+  Z: "ℤ",
+  N: "ℕ",
+  Q: "ℚ",
+  C: "ℂ",
+  P: "ℙ",
+  H: "ℍ",
+};
+
 function preprocessLatex(latex: string): string {
   let s = latex.trim();
   // \dfrac / \tfrac / \cfrac are display/text-style fractions — KaTeX treats
@@ -190,6 +225,16 @@ function preprocessLatex(latex: string): string {
   // border) — unwrap to the inner content rather than leave the raw command
   // visible, matching \text/\mathrm's fallback above.
   s = s.replace(/\\boxed\{([^}]+)\}/g, "$1");
+  // Accents via Unicode combining marks (\hat{x} → x̂, \vec{x} → x⃗, …).
+  s = s.replace(
+    /\\(hat|bar|overline|vec|dot|ddot|tilde|check|acute|grave|underline|breve)\{([^}]+)\}/g,
+    (_m, cmd: string, inner: string) => applyCombining(inner, ACCENT_MARK[cmd]),
+  );
+  // \mathbb{R} → ℝ, \mathbb{Z} → ℤ, … (common number-system letters).
+  s = s.replace(/\\mathbb\{([^}]+)\}/g, (_m, inner: string) =>
+    [...inner].map((ch) => MATHBB[ch] ?? ch).join(""));
+  // \binom{n}{k} → C(n, k) (readable choose notation; no raw \binom).
+  s = s.replace(/\\binom\{([^}]+)\}\{([^}]+)\}/g, "C($1, $2)");
   s = s.replace(/\\,/g, " ");
   // Two real alternatives, not one merged character class: the previous
   // `/\\left[\(\[\{|\\right[\)\]\}.]/` compiled everything after the first
