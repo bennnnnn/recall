@@ -12,7 +12,13 @@ module.exports = {
     {
       displayName: "lib",
       // Pure-function unit tests on lib/ modules — no rendering, no RN runtime.
-      testMatch: ["**/lib/__tests__/**/*.test.ts"],
+      // Covers lib/__tests__ AND nested ones like lib/vendor/__tests__ (the
+      // vendored-asset integrity checks live there; without the second pattern
+      // they were silently never discovered/run).
+      testMatch: [
+        "**/lib/__tests__/**/*.test.ts",
+        "**/lib/**/__tests__/**/*.test.ts",
+      ],
       preset: "ts-jest",
       testEnvironment: "node",
       moduleNameMapper: {

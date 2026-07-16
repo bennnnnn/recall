@@ -21,7 +21,10 @@ mkdirSync(TMP_DIR, { recursive: true });
 
 const VERSIONS = {
   katex: "0.17.0",
-  mathjax: "3",
+  // Pinned exactly to the committed bundle version (MathJax's internal
+  // version is 3.2.1). A floating "3" would silently pull whatever 3.x
+  // jsDelivr serves on the next vendor regen. Bump deliberately.
+  mathjax: "3.2.1",
   mermaid: "10",
   vega: "5",
   vegaLite: "5",
