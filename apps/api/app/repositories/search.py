@@ -47,7 +47,14 @@ async def search_conversations(
         .order_by(Chat.updated_at.desc())
         .limit(TITLE_MATCH_LIMIT)
     )
-    msg_chat_ids_stmt = select(Message.chat_id.distinct()).where(*msg_where)
+    # Cap the distinct chat-id set so a broad query can't materialize an
+    # unbounded set in Python. The visible result window is already bounded
+    # by `limit + offset`; a cap well above that preserves dedup for the
+    # displayed window without scanning the whole matching message set.
+    _DISTINCT_CHAT_CAP = max(TITLE_MATCH_LIMIT, limit + offset) * 4
+    msg_chat_ids_stmt = (
+        select(Message.chat_id.distinct()).where(*msg_where).limit(_DISTINCT_CHAT_CAP)
+    )
     msg_stmt = (
         select(
             Message.id,

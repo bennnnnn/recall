@@ -79,8 +79,13 @@ async def delete_empty_for_user(session: AsyncSession, user_id: UUID) -> int:
     return result.rowcount
 
 
-async def touch_by_id(session: AsyncSession, chat_id: UUID) -> None:
-    """Update updated_at with a direct UPDATE — avoids a separate SELECT round-trip."""
+async def touch_by_id(session: AsyncSession, chat_id: UUID, *, commit: bool = True) -> None:
+    """Update updated_at with a direct UPDATE — avoids a separate SELECT round-trip.
+
+    `commit=False` lets the caller batch this with other writes into a single
+    commit (e.g. turn finalize does message create + touch + usage add → one
+    commit instead of three Neon round-trips).
+    """
     from datetime import UTC, datetime
 
     from sqlalchemy import update as update_stmt
@@ -88,7 +93,8 @@ async def touch_by_id(session: AsyncSession, chat_id: UUID) -> None:
     await session.execute(
         update_stmt(Chat).where(Chat.id == chat_id).values(updated_at=datetime.now(UTC))
     )
-    await session.commit()
+    if commit:
+        await session.commit()
 
 
 RECENCY_BUCKETS = ("today", "yesterday", "last_7_days", "this_month", "older")
