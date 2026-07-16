@@ -407,10 +407,11 @@ export default function ProjectsScreen() {
           ) : null}
 
           {!error && visibleProjects.length === 0 ? (
-            <View style={s.emptyState}>
-              <Text style={s.emptyTitle}>{t("projects.empty_title")}</Text>
-              <Text style={s.emptyBody}>{t("projects.empty_body")}</Text>
-            </View>
+            <StateView
+              variant="empty"
+              title={t("projects.empty_title")}
+              message={t("projects.empty_body")}
+            />
           ) : null}
 
           {error ? (
@@ -490,15 +491,6 @@ function makeStyles(C: Theme) {
       backgroundColor: C.primaryLight,
     },
     newProjectText: { fontSize: 16, fontWeight: "700", color: C.primary },
-    emptyState: {
-      backgroundColor: C.surface,
-      borderRadius: 16,
-      padding: 20,
-      gap: 8,
-      alignItems: "center",
-    },
-    emptyTitle: { fontSize: 17, fontWeight: "700", color: C.text, textAlign: "center" },
-    emptyBody: { fontSize: 15, lineHeight: 22, color: C.textSecondary, textAlign: "center" },
     modalRoot: { flex: 1, backgroundColor: C.bg },
     modalHeader: {
       flexDirection: "row",
