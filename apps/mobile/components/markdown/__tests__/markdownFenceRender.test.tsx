@@ -224,4 +224,25 @@ describe("renderFence edge cases", () => {
     const { getByText } = await render(<>{renderFence(node("x^2 + 1", "math"))}</>);
     expect(getByText("x² + 1")).toBeOnTheScreen();
   });
+
+  it("BUG FIX regression: a multi-solution final ($x = 2$ or $x = -2$) in a ```copy fence routes to AnswerBlock, not the fallback Copy/Code box", async () => {
+    // Models routinely emit both quadratic roots as the final answer, often
+    // with each term wrapped in $...$ and sometimes mis-tagged ```copy. The
+    // literal `$` chars used to fail every detector and drop it onto the
+    // fallback CodeBlock — raw `$` signs, syntax-highlighted numbers, and a
+    // Copy button. It must render as the AnswerBlock (gray box, no Copy).
+    const { getByLabelText, queryByText } = await render(
+      <>{renderFence(node("$x = 2$ or $x = -2$", "copy"))}</>,
+    );
+    expect(getByLabelText(/Answer:/)).toBeOnTheScreen();
+    expect(queryByText("Copy")).toBeNull();
+  });
+
+  it("BUG FIX regression: an untagged multi-solution final (x = 2 or x = -2, no $ wraps) routes to AnswerBlock", async () => {
+    const { getByLabelText, queryByText } = await render(
+      <>{renderFence(node("x = 2 or x = -2"))}</>,
+    );
+    expect(getByLabelText(/Answer:/)).toBeOnTheScreen();
+    expect(queryByText("Copy")).toBeNull();
+  });
 });

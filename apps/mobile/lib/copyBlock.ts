@@ -1,4 +1,4 @@
-import { looksLikeMathFenceBody } from "@/lib/mathFenceRetag";
+import { looksLikeMathFenceBody, stripEmbeddedDollarWraps } from "@/lib/mathFenceRetag";
 
 const COPY_BLOCK_RE =
   /```(?:copy|text|message|email|sms|reply)\n([\s\S]*?)```/i;
@@ -279,6 +279,22 @@ export function looksLikeMathAnswer(content: string): boolean {
   if (/^\\boxed\{[^}]+\}$/.test(sample)) return true;
   // Short scalar assignment final: x = 2, n = 120 (not multi-step / worded).
   if (/^[a-zA-Z]\s*=\s*[±+\-]?\d+(?:[.,]\d+)?$/.test(sample)) return true;
+  // Multi-value final — both roots of a quadratic, etc. The model routinely
+  // emits "x = 2 or x = -2" (often with each term wrapped in $...$) as the
+  // final answer. Without this it falls through every other detector (the
+  // bare-expression charset below excludes `=`, and the `$` chars fail the
+  // algebra-line charset) and lands on the fallback CodeBlock "copy box"
+  // with raw $ signs and a Copy button — which is not how a final answer
+  // should render. Strip embedded $...$ wraps first, then match 2+ solutions
+  // joined by "or" / "and" / ",".
+  const stripped = stripEmbeddedDollarWraps(sample);
+  if (
+    /^[a-zA-Z]\s*=\s*[±+\-]?\d+(?:[.,]\d+)?(?:\s*(?:or|and|,)\s*[a-zA-Z]\s*=\s*[±+\-]?\d+(?:[.,]\d+)?)+$/.test(
+      stripped,
+    )
+  ) {
+    return true;
+  }
   // Bare simplified expression, no "=" — a final result like "2c^2",
   // "x^2 - 4", "\frac{1}{2}", "√2" rather than a full equation/step.
   if (

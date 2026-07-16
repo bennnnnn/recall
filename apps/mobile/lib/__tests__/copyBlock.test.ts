@@ -64,6 +64,20 @@ describe("copyBlock heuristics", () => {
     expect(shouldRenderAsCodeBlock("copy", "2c^2")).toBe(false);
   });
 
+  it("BUG FIX regression: treats a multi-solution final (both quadratic roots, optionally $-wrapped) as a math answer, not Copy/Code", () => {
+    // Models emit both roots as the final answer, often with each term in
+    // $...$ and sometimes mis-tagged ```copy. The literal `$` chars (and the
+    // `=` + "or") used to fail every detector and drop onto the fallback
+    // CodeBlock — raw `$`, a Copy button, syntax-highlighted numbers. A final
+    // answer must route to AnswerBlock instead.
+    expect(looksLikeMathAnswer("x = 2 or x = -2")).toBe(true);
+    expect(looksLikeMathAnswer("$x = 2$ or $x = -2$")).toBe(true);
+    expect(looksLikeMathAnswer("x = 2 and x = -2")).toBe(true);
+    expect(looksLikeMathAnswer("x = 2, x = -2")).toBe(true);
+    expect(shouldRenderAsCopyBlock("copy", "$x = 2$ or $x = -2$")).toBe(false);
+    expect(shouldRenderAsCodeBlock("copy", "$x = 2$ or $x = -2$")).toBe(false);
+  });
+
   it("does not misclassify plain prose as a math answer", () => {
     // MATH_ANSWER_CHARS_RE alone would allow "the answer is" (letters +
     // spaces) — the digit/operator + two-real-words guards must reject it.
