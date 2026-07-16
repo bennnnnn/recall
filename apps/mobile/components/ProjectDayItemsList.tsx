@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { ProjectItemRow } from "@/components/ProjectItemRow";
 import { LearningContinueCta } from "@/components/projects/LearningContinueCta";
+import { StateView } from "@/components/StateView";
 import { api, type ProjectDailyHistoryDay, type ProjectItem, type VocabStatus } from "@/lib/api";
 import { Theme, useTheme } from "@/lib/theme";
 import { weekdayFullLabel } from "@/lib/weekdayLabels";
@@ -179,7 +180,7 @@ export function ProjectDayItemsList({
         </View>
 
       {loading ? (
-        <ActivityIndicator color={theme.primary} style={s.loader} />
+        <StateView variant="loading" compact />
       ) : items.length === 0 ? (
         <View style={s.emptyBlock}>
           <Text style={s.empty}>{emptyMessage}</Text>
@@ -235,7 +236,6 @@ function makeStyles(theme: Theme) {
       textTransform: "uppercase",
       letterSpacing: 0.6,
     },
-    loader: { paddingVertical: 16 },
     emptyBlock: { gap: 12 },
     itemsBlock: { gap: 16 },
     empty: {
