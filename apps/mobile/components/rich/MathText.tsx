@@ -47,11 +47,14 @@ function renderSegments(
       // ((-4 ± √(...)) / 2) gets a proper long bar instead of the single
       // "─" glyph that used to read as a tiny dot over one digit. Stays a
       // Text node so the fraction still flows inline in prose.
+      // num/den are rendered as nested segments so superscripts/subscripts
+      // (and nested fractions) inside a fraction render correctly —
+      // \frac{x^2}{4} shows x² in the numerator, not literal "x^2".
       return (
         <Text key={key} style={styles.frac}>
-          <Text style={styles.fracNum}>{seg.num}</Text>
+          <Text style={styles.fracNum}>{renderSegments(seg.num, `${key}-n`, styles)}</Text>
           {"\n"}
-          <Text style={styles.fracDen}>{seg.den}</Text>
+          <Text style={styles.fracDen}>{renderSegments(seg.den, `${key}-d`, styles)}</Text>
         </Text>
       );
     }
