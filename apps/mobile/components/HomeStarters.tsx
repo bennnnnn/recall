@@ -13,7 +13,7 @@ import { buildHomeDailyQuizChatPrompt } from "@/lib/projectChat";
 import { describeDueAt } from "@/lib/dueDate";
 import { homeUrgentPrompt, listHomeUrgentTodos, partitionHomeUrgentTodos } from "@/lib/homeUrgentTodos";
 import { learningProgressColors } from "@/lib/homeLearningCard";
-import { Theme, useTheme } from "@/lib/theme";
+import { Theme, useTheme, withAlpha } from "@/lib/theme";
 
 type Props = {
   onSelect: (prompt: string) => void;
@@ -354,7 +354,7 @@ function makeStyles(t: Theme) {
       paddingVertical: 12,
       paddingRight: 36,
       borderWidth: 1,
-      borderColor: t.danger + "40",
+      borderColor: withAlpha(t.danger, 0.25),
     },
     urgentDismiss: {
       position: "absolute",

@@ -4,7 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useTranslation } from "react-i18next";
 
 import { MESSAGE_FOLD_MAX_HEIGHT } from "@/lib/messageFold";
-import { Theme, useTheme } from "@/lib/theme";
+import { Theme, useTheme, withAlpha } from "@/lib/theme";
 
 type Props = {
   children: ReactNode;
@@ -38,7 +38,7 @@ export function CollapsibleMessageBody({
       <View style={folded ? s.clipped : undefined}>{children}</View>
       {folded ? (
         <LinearGradient
-          colors={[`${fadeBase}00`, `${fadeBase}E6`, fadeBase]}
+          colors={[withAlpha(fadeBase, 0), withAlpha(fadeBase, 0.9), fadeBase]}
           style={s.fade}
           pointerEvents="none"
         />

@@ -142,6 +142,38 @@ describe("normalizeImplicitMath", () => {
     const out = normalizeImplicitMathInProse(input);
     expect(out).toContain("$x^2 = 4$");
   });
+
+  it("BUG FIX regression: does not mangle a \\(...\\) inline-math delimiter", () => {
+    // Reported live (screenshot): "\\(\\frac{5}{7} = 0.\\overline{714285}\\)"
+    // rendered as raw "\$\\frac{5}{7}$ = 0.\$\\overline{714285}\$" — MATH_IN_PARENS_RE
+    // matched the bare `(`/`)` characters INSIDE `\(`/`\)` (ignoring the
+    // backslash as unrelated adjacent text) and re-wrapped each captured
+    // span — trailing stray backslash included — in its own `$...$`.
+    // splitInlineMath (markdownPreprocess.ts) already recognizes `\(...\)`
+    // directly as inline math; this heuristic must leave it alone.
+    const { normalizeImplicitMath } = require("@/lib/normalizeImplicitMath");
+    const input = "Decimal form:\n\n\\(\\frac{5}{7} = 0.\\overline{714285}\\) (repeating).";
+    const out = normalizeImplicitMath(input);
+    expect(out).toContain("\\(\\frac{5}{7} = 0.\\overline{714285}\\)");
+    expect(out).not.toContain("\\$");
+  });
+
+  it("BUG FIX regression: does not shred a multi-command \\(...\\) expression into broken fragments", () => {
+    // Reported live: "\\(\\left(\\frac{5}{7}\\right)^2 = \\frac{25}{49}\\)" — once
+    // MATH_IN_PARENS_RE mangled the outer delimiter (see above), the
+    // stranded \\left/\\right/^2 fragments were left as, or individually
+    // re-wrapped into, broken LaTeX: \\left and \\right each lost the
+    // delimiter they require, and "^2" was left as literal unrendered text
+    // outside any math span.
+    const { normalizeImplicitMath } = require("@/lib/normalizeImplicitMath");
+    const input = "Square: \\(\\left(\\frac{5}{7}\\right)^2 = \\frac{25}{49} \\approx 0.5102\\)";
+    const out = normalizeImplicitMath(input);
+    expect(out).toContain(
+      "\\(\\left(\\frac{5}{7}\\right)^2 = \\frac{25}{49} \\approx 0.5102\\)",
+    );
+    expect(out).not.toContain("$\\left$");
+    expect(out).not.toContain("$\\right$");
+  });
 });
 
 describe("fixImplicitExponents", () => {

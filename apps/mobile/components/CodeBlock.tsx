@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { displayLang, groupTokensByLine, parseFenceLang, TOKEN_COLORS } from "@/lib/codeHighlight";
 import type * as CodeTokenizeModule from "@/lib/codeTokenize";
+import { notifySuccess, tap } from "@/lib/haptics";
 import { Theme, useTheme } from "@/lib/theme";
 
 import { CODE_FONT } from "@/lib/fonts";
@@ -91,8 +92,10 @@ export function CodeBlock({
     t.isDark && c === TOKEN_COLORS.plain ? t.codeText : c;
 
   const onCopy = async () => {
+    tap();
     await Clipboard.setStringAsync(code);
     setCopied(true);
+    notifySuccess();
     setTimeout(() => setCopied(false), 1500);
   };
 

@@ -6,7 +6,6 @@ import type { Ionicons } from "@expo/vector-icons";
 
 type Router = ReturnType<typeof useRouter>;
 
-import { insertChatGlobal, patchChatGlobal, setChatTitleGenerating } from "@/lib/drawer";
 import { api, type Message } from "@/lib/api";
 import { readCachedChatMessages, writeCachedChatMessages } from "@/lib/chatMessageCache";
 import { MESSAGE_PAGE_SIZE } from "@/lib/chatConstants";
@@ -14,6 +13,8 @@ import type { QueuedChatLaunch } from "@/lib/chatLaunch";
 import { takeQueuedChatLaunch } from "@/lib/chatLaunch";
 import type { QuizVariant } from "@/lib/quizVariant";
 import type { useDraftChat } from "@/hooks/useDraftChat";
+import { useChatHighlightScroll } from "@/hooks/useChatHighlightScroll";
+import { useChatTitlePolling } from "@/hooks/useChatTitlePolling";
 
 type DraftChat = ReturnType<typeof useDraftChat>;
 
@@ -75,64 +76,24 @@ export function useChatRouteLoader({
   } = draft;
 
   const [chatTitle, setChatTitle] = useState<string | null>(null);
-  const [titleGenerating, setTitleGenerating] = useState(false);
+  const { titleGenerating, pollForTitle, handleFirstReply } = useChatTitlePolling({
+    token,
+    chatId,
+    setChatTitle,
+  });
   const [pinned, setPinned] = useState(false);
   const [archived, setArchived] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
   const [hasMoreOlder, setHasMoreOlder] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
-  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [pendingLaunch, setPendingLaunch] = useState<string | null>(null);
 
   const priorRouteChatIdRef = useRef<string | null>(null);
-  const pendingHighlightRef = useRef<string | null>(null);
-  const highlightLoadInFlightRef = useRef(false);
   const pendingLaunchRef = useRef<string | null>(null);
   const pendingProjectIdRef = useRef<string | null>(null);
   const pendingQuizModeRef = useRef<import("@/lib/quizMode").QuizMode | null>(null);
   const handledLaunchIdRef = useRef<string | null>(null);
   const skipNextFocusRef = useRef(true);
-
-  const pollForTitle = useCallback(async (tid: string, cid: string) => {
-    setTitleGenerating(true);
-    setChatTitleGenerating(cid);
-    try {
-      for (let i = 0; i < 5; i++) {
-        await new Promise((r) => setTimeout(r, 2000));
-        try {
-          const updated = await api.getChat(tid, cid);
-          if (updated.title) {
-            setChatTitle(updated.title);
-            patchChatGlobal(cid, { title: updated.title });
-            return;
-          }
-        } catch {
-          /* ignore */
-        }
-      }
-    } finally {
-      setTitleGenerating(false);
-      setChatTitleGenerating(null);
-    }
-  }, []);
-
-  const handleFirstReply = useCallback(async () => {
-    if (!token || !chatId) return;
-    try {
-      const chat = await api.getChat(token, chatId);
-      insertChatGlobal(chat);
-    } catch {
-      /* drawer insert is best-effort */
-    }
-    await pollForTitle(token, chatId);
-  }, [token, chatId, pollForTitle]);
-
-  useEffect(() => {
-    if (!chatId) {
-      setTitleGenerating(false);
-      setChatTitleGenerating(null);
-    }
-  }, [chatId]);
 
   useEffect(() => {
     const onAppState = (state: AppStateStatus) => {
@@ -292,43 +253,17 @@ export function useChatRouteLoader({
     }
   }, [token, chatId, loadingOlder, hasMoreOlder, messages, setMessages, showActionBanner, t]);
 
-  useEffect(() => {
-    if (typeof routeHighlightMessage === "string" && routeHighlightMessage) {
-      pendingHighlightRef.current = routeHighlightMessage;
-      setHighlightedMessageId(routeHighlightMessage);
-      router.setParams({ highlightMessage: undefined });
-    }
-  }, [routeHighlightMessage, router]);
-
-  const tryScrollToHighlight = useCallback(async () => {
-    const targetId = pendingHighlightRef.current;
-    if (!targetId || messages.length === 0) return;
-    const index = messages.findIndex((m) => m.id === targetId);
-    if (index >= 0) {
-      pendingHighlightRef.current = null;
-      requestAnimationFrame(() => {
-        listRef.current?.scrollToIndex({
-          index,
-          animated: true,
-          viewPosition: 0.5,
-        });
-      });
-      setTimeout(() => setHighlightedMessageId(null), 3500);
-      return;
-    }
-    if (hasMoreOlder && !loadingOlder && !highlightLoadInFlightRef.current && token && chatId) {
-      highlightLoadInFlightRef.current = true;
-      try {
-        await loadOlderMessages();
-      } finally {
-        highlightLoadInFlightRef.current = false;
-      }
-    }
-  }, [messages, hasMoreOlder, loadingOlder, token, chatId, loadOlderMessages, listRef]);
-
-  useEffect(() => {
-    void tryScrollToHighlight();
-  }, [tryScrollToHighlight]);
+  const { highlightedMessageId } = useChatHighlightScroll({
+    routeHighlightMessage,
+    router,
+    messages,
+    hasMoreOlder,
+    loadingOlder,
+    token,
+    chatId,
+    loadOlderMessages,
+    listRef,
+  });
 
   const startNewChat = useCallback(
     (opts?: { force?: boolean }) => {

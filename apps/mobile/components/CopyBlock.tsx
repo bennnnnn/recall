@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { Ionicons } from "@expo/vector-icons";
 
+import { notifySuccess, tap } from "@/lib/haptics";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -16,8 +17,10 @@ export function CopyBlock({ text, label }: Props) {
   const [copied, setCopied] = useState(false);
 
   const onCopy = async () => {
+    tap();
     await Clipboard.setStringAsync(text);
     setCopied(true);
+    notifySuccess();
     setTimeout(() => setCopied(false), 1500);
   };
 

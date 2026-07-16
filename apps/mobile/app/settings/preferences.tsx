@@ -1,5 +1,15 @@
 import { useCallback, useMemo, useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -213,30 +223,35 @@ export default function PreferencesSettingsScreen() {
         theme={theme}
       />
       <Modal visible={instructionsOpen} transparent animationType="fade">
-        <Pressable style={s.mOverlay} onPress={() => setInstructionsOpen(false)}>
-          <Pressable style={s.mSheet} onPress={(e) => e.stopPropagation()}>
-            <Text style={s.mTitle}>{t("settings.custom_instructions")}</Text>
-            <Text style={s.sectionHint}>{t("settings.custom_instructions_hint")}</Text>
-            <TextInput
-              style={[s.mInput, { minHeight: 96, textAlignVertical: "top" }]}
-              value={instructionsText}
-              onChangeText={setInstructionsText}
-              autoFocus
-              multiline
-              maxLength={1000}
-              placeholder={t("settings.custom_instructions_placeholder")}
-              placeholderTextColor={theme.textTertiary}
-            />
-            <View style={s.mActions}>
-              <Pressable style={s.mCancel} onPress={() => setInstructionsOpen(false)}>
-                <Text style={s.mCancelText}>{t("settings.cancel")}</Text>
-              </Pressable>
-              <Pressable style={s.mSave} onPress={() => void saveInstructions()}>
-                <Text style={s.mSaveText}>{t("settings.save")}</Text>
-              </Pressable>
-            </View>
+        <KeyboardAvoidingView
+          style={s.mKeyboardAvoider}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <Pressable style={s.mOverlay} onPress={() => setInstructionsOpen(false)}>
+            <Pressable style={s.mSheet} onPress={(e) => e.stopPropagation()}>
+              <Text style={s.mTitle}>{t("settings.custom_instructions")}</Text>
+              <Text style={s.sectionHint}>{t("settings.custom_instructions_hint")}</Text>
+              <TextInput
+                style={[s.mInput, { minHeight: 96, textAlignVertical: "top" }]}
+                value={instructionsText}
+                onChangeText={setInstructionsText}
+                autoFocus
+                multiline
+                maxLength={1000}
+                placeholder={t("settings.custom_instructions_placeholder")}
+                placeholderTextColor={theme.textTertiary}
+              />
+              <View style={s.mActions}>
+                <Pressable style={s.mCancel} onPress={() => setInstructionsOpen(false)}>
+                  <Text style={s.mCancelText}>{t("settings.cancel")}</Text>
+                </Pressable>
+                <Pressable style={s.mSave} onPress={() => void saveInstructions()}>
+                  <Text style={s.mSaveText}>{t("settings.save")}</Text>
+                </Pressable>
+              </View>
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
     </>
   );

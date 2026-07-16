@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Href, useRouter } from "expo-router";
 import { Pressable } from "react-native";
+import { useTranslation } from "react-i18next";
 
 import { useTheme } from "@/lib/theme";
 
@@ -12,6 +13,7 @@ type Props = {
 export function StackBackButton({ fallback = "/" }: Props) {
   const theme = useTheme();
   const router = useRouter();
+  const { t } = useTranslation();
 
   return (
     <Pressable
@@ -21,6 +23,8 @@ export function StackBackButton({ fallback = "/" }: Props) {
       }}
       hitSlop={8}
       style={{ marginLeft: 4, padding: 4 }}
+      accessibilityRole="button"
+      accessibilityLabel={t("common.back")}
     >
       <Ionicons name="chevron-back" size={24} color={theme.primary} />
     </Pressable>

@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import type { ProjectDailyHistoryDay } from "@/lib/api";
 import { localDateKey } from "@/lib/reminderCalendar";
-import { Theme, useTheme } from "@/lib/theme";
+import { Theme, useTheme, withAlpha } from "@/lib/theme";
 
 const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 
@@ -195,7 +195,7 @@ function makeStyles(t: Theme) {
     },
     dotSelected: { borderWidth: 2, borderColor: t.primary },
     completeDot: { backgroundColor: t.success, borderColor: t.success },
-    partialDot: { backgroundColor: `${t.warning}33`, borderColor: t.warning },
+    partialDot: { backgroundColor: withAlpha(t.warning, 0.2), borderColor: t.warning },
     skippedDot: { backgroundColor: t.bg, borderColor: t.border },
     todayDot: { backgroundColor: t.primaryLight, borderColor: t.primary },
     todayRing: { borderWidth: 2, borderColor: t.primary },

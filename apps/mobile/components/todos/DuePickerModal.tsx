@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Modal, Platform, Pressable, Text, View } from "react-native";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { makeTodosStyles } from "@/components/todos/todosStyles";
@@ -25,6 +26,7 @@ export function DuePickerModal({
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeTodosStyles(C), [C]);
+  const insets = useSafeAreaInsets();
   if (!duePicker) return null;
 
   const overlap = findOverlappingReminder(todos, duePicker.date, {
@@ -44,7 +46,7 @@ export function DuePickerModal({
   return (
     <Modal transparent animationType="slide" visible>
       <Pressable style={s.pickerBackdrop} onPress={onDismiss} />
-      <View style={s.pickerSheet}>
+      <View style={[s.pickerSheet, { paddingBottom: insets.bottom }]}>
         <View style={s.pickerHeader}>
           <Pressable onPress={onDismiss} hitSlop={8}>
             <Text style={s.pickerCancel}>{t("common.cancel")}</Text>

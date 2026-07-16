@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { Text } from "react-native";
+import { RefreshControl, Text } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { useTranslation } from "react-i18next";
 
@@ -32,6 +32,8 @@ type Props = {
   showRemindersEmptyHero: boolean;
   error: boolean;
   listHeader: React.ReactElement;
+  refreshing?: boolean;
+  onRefresh?: () => void;
 };
 
 export function TodosFlashList({
@@ -51,6 +53,8 @@ export function TodosFlashList({
   showRemindersEmptyHero,
   error,
   listHeader,
+  refreshing = false,
+  onRefresh,
 }: Props) {
   const { t } = useTranslation();
   const C = useTheme();
@@ -146,6 +150,11 @@ export function TodosFlashList({
       contentContainerStyle={showRemindersEmptyHero && !error ? s.listEmpty : undefined}
       keyboardShouldPersistTaps="handled"
       ListHeaderComponent={listHeader}
+      refreshControl={
+        onRefresh ? (
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
+        ) : undefined
+      }
     />
   );
 }

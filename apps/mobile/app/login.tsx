@@ -24,7 +24,11 @@ import {
 import { config, isGoogleSignInConfigured, isGoogleWebClientConfigured } from "@/lib/config";
 import { formatGoogleSignInError, isExpoGo } from "@/lib/google-auth";
 import { getLegalPrivacyUrl, getLegalTermsUrl } from "@/lib/legalUrls";
-import { Theme, useTheme } from "@/lib/theme";
+import { Theme, useTheme, withAlpha } from "@/lib/theme";
+
+/** Frosted-glass tint over the hero gradient — deliberately theme-invariant
+ * white, unlike the primary-tinted border below (which DOES follow theme). */
+const GLASS_WHITE = "#FFFFFF";
 
 const APP_ICON = require("@/assets/images/icon.png");
 
@@ -330,12 +334,12 @@ function makeStyles(theme: Theme) {
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
-      backgroundColor: theme.isDark ? theme.surface : "rgba(255,255,255,0.72)",
+      backgroundColor: theme.isDark ? theme.surface : withAlpha(GLASS_WHITE, 0.72),
       borderRadius: 999,
       paddingHorizontal: 12,
       paddingVertical: 8,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.isDark ? theme.border : "rgba(37, 99, 235, 0.12)",
+      borderColor: theme.isDark ? theme.border : withAlpha(theme.primary, 0.12),
     },
     highlightIcon: {
       width: 24,
@@ -358,12 +362,14 @@ function makeStyles(theme: Theme) {
       flexDirection: "row",
       alignItems: "flex-start",
       gap: 10,
-      backgroundColor: theme.isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.5)",
+      backgroundColor: withAlpha(GLASS_WHITE, theme.isDark ? 0.08 : 0.5),
       borderRadius: 14,
       paddingHorizontal: 14,
       paddingVertical: 12,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.isDark ? "rgba(255,255,255,0.1)" : "rgba(37, 99, 235, 0.12)",
+      borderColor: theme.isDark
+        ? withAlpha(GLASS_WHITE, 0.1)
+        : withAlpha(theme.primary, 0.12),
     },
     devBannerText: {
       flex: 1,
@@ -399,9 +405,11 @@ function makeStyles(theme: Theme) {
       width: "100%",
       borderRadius: 16,
       borderWidth: 1.5,
-      borderColor: theme.isDark ? "rgba(255,255,255,0.12)" : "rgba(37, 99, 235, 0.18)",
+      borderColor: theme.isDark
+        ? withAlpha(GLASS_WHITE, 0.12)
+        : withAlpha(theme.primary, 0.18),
       paddingVertical: 16,
-      backgroundColor: theme.isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.55)",
+      backgroundColor: withAlpha(GLASS_WHITE, theme.isDark ? 0.08 : 0.55),
     },
     googleText: { fontSize: 16, fontWeight: "600", color: theme.text },
     orText: {
@@ -416,9 +424,11 @@ function makeStyles(theme: Theme) {
       width: "100%",
       borderRadius: 16,
       borderWidth: 1.5,
-      borderColor: theme.isDark ? "rgba(255,255,255,0.12)" : "rgba(37, 99, 235, 0.18)",
+      borderColor: theme.isDark
+        ? withAlpha(GLASS_WHITE, 0.12)
+        : withAlpha(theme.primary, 0.18),
       paddingVertical: 14,
-      backgroundColor: theme.isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.45)",
+      backgroundColor: withAlpha(GLASS_WHITE, theme.isDark ? 0.06 : 0.45),
     },
     devSecondaryText: { fontSize: 15, fontWeight: "600", color: theme.primary },
     dim: { opacity: 0.55 },

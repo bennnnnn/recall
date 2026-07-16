@@ -1,7 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { Modal, Platform, Pressable, Text, TextInput, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { defaultDueDate } from "@/components/todos/todoHelpers";
@@ -27,6 +36,7 @@ export function AddReminderSheet({
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeTodosStyles(C), [C]);
+  const insets = useSafeAreaInsets();
   const [text, setText] = useState("");
   const [dueDate, setDueDate] = useState(() => defaultDueDate());
   const [showPicker, setShowPicker] = useState(Platform.OS === "ios");
@@ -69,9 +79,12 @@ export function AddReminderSheet({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
-      <View style={s.sheetOverlay}>
+      <KeyboardAvoidingView
+        style={s.sheetOverlay}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
         <Pressable style={s.sheetBackdrop} onPress={handleClose} />
-        <View style={s.sheet}>
+        <View style={[s.sheet, { paddingBottom: insets.bottom }]}>
         <View style={s.sheetHeader}>
           <Pressable onPress={handleClose} hitSlop={8}>
             <Text style={s.sheetCancel}>{t("common.cancel")}</Text>
@@ -137,7 +150,7 @@ export function AddReminderSheet({
           ) : null}
         </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

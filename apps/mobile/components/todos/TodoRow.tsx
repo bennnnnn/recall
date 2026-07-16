@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { makeTodosStyles } from "@/components/todos/todosStyles";
 import type { Todo } from "@/lib/api";
 import { describeDueAt } from "@/lib/dueDate";
+import { notifyWarning } from "@/lib/haptics";
 import { useTheme } from "@/lib/theme";
 
 export function TodoRow({
@@ -43,6 +44,10 @@ export function TodoRow({
       : due?.tone === "today"
         ? s.dueToday
         : s.dueSoon;
+  const handleDelete = () => {
+    notifyWarning();
+    onDelete();
+  };
 
   const row = (
     <View style={[s.todoRow, highlighted && s.todoRowHighlighted]}>
@@ -97,7 +102,13 @@ export function TodoRow({
         </Pressable>
       ) : null}
       {rowVariant === "open" && !todo.checked && onDue ? (
-        <Pressable onPress={onDue} hitSlop={8} style={s.dueBtn}>
+        <Pressable
+          onPress={onDue}
+          hitSlop={8}
+          style={s.dueBtn}
+          accessibilityRole="button"
+          accessibilityLabel={t("todos.due_date_a11y")}
+        >
           <Ionicons
             name={todo.due_at ? "calendar" : "calendar-outline"}
             size={18}
@@ -107,7 +118,7 @@ export function TodoRow({
       ) : null}
       {rowVariant === "done" ? (
         <Pressable
-          onPress={onDelete}
+          onPress={handleDelete}
           hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel={t("common.delete")}
@@ -131,7 +142,7 @@ export function TodoRow({
       renderRightActions={() => (
         <Pressable
           style={s.swipeDeleteAction}
-          onPress={onDelete}
+          onPress={handleDelete}
           accessibilityRole="button"
           accessibilityLabel={t("common.delete")}
         >

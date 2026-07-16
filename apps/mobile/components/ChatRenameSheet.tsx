@@ -1,12 +1,15 @@
 import { useMemo } from "react";
 import {
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { Theme, useTheme } from "@/lib/theme";
@@ -29,31 +32,38 @@ export function ChatRenameSheet({
   const theme = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const insets = useSafeAreaInsets();
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={s.overlay} onPress={onClose}>
-        <Pressable style={s.sheet} onPress={(e) => e.stopPropagation()}>
-          <Text style={s.title}>{t("chat.rename_title")}</Text>
-          <TextInput
-            style={s.input}
-            value={value}
-            onChangeText={onChangeText}
-            autoFocus
-            returnKeyType="done"
-            onSubmitEditing={onSave}
-            maxLength={80}
-          />
-          <View style={s.row}>
-            <Pressable style={s.cancel} onPress={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        style={s.overlay}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <Pressable style={s.backdrop} onPress={onClose} />
+        <View style={[s.sheet, { paddingBottom: insets.bottom }]}>
+          <View style={s.header}>
+            <Pressable onPress={onClose} hitSlop={8}>
               <Text style={s.cancelText}>{t("common.cancel")}</Text>
             </Pressable>
-            <Pressable style={s.save} onPress={onSave}>
+            <Text style={s.title}>{t("chat.rename_title")}</Text>
+            <Pressable onPress={onSave} hitSlop={8}>
               <Text style={s.saveText}>{t("settings.save")}</Text>
             </Pressable>
           </View>
-        </Pressable>
-      </Pressable>
+          <View style={s.body}>
+            <TextInput
+              style={s.input}
+              value={value}
+              onChangeText={onChangeText}
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={onSave}
+              maxLength={80}
+            />
+          </View>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -62,12 +72,30 @@ function makeStyles(C: Theme) {
   return StyleSheet.create({
     overlay: {
       flex: 1,
-      backgroundColor: C.scrim,
-      justifyContent: "center",
-      padding: 24,
+      justifyContent: "flex-end",
     },
-    sheet: { backgroundColor: C.bg, borderRadius: 20, padding: 20, gap: 14 },
+    backdrop: {
+      ...StyleSheet.absoluteFill,
+      backgroundColor: C.scrim,
+    },
+    sheet: {
+      backgroundColor: C.bg,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: C.border,
+    },
     title: { fontSize: 17, fontWeight: "700", color: C.text },
+    cancelText: { fontSize: 16, color: C.textSecondary },
+    saveText: { fontSize: 16, fontWeight: "700", color: C.primary },
+    body: { padding: 16 },
     input: {
       backgroundColor: C.surface,
       borderRadius: 12,
@@ -77,23 +105,5 @@ function makeStyles(C: Theme) {
       borderWidth: 1.5,
       borderColor: C.primary,
     },
-    row: { flexDirection: "row", gap: 10 },
-    cancel: {
-      flex: 1,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: C.border,
-      padding: 12,
-      alignItems: "center",
-    },
-    cancelText: { fontSize: 15, color: C.textSecondary, fontWeight: "600" },
-    save: {
-      flex: 1,
-      borderRadius: 12,
-      backgroundColor: C.primary,
-      padding: 12,
-      alignItems: "center",
-    },
-    saveText: { fontSize: 15, color: C.onPrimary, fontWeight: "700" },
   });
 }

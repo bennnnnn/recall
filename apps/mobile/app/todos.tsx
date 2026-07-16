@@ -50,6 +50,7 @@ export default function TodosScreen() {
   const [reminderSheetOpen, setReminderSheetOpen] = useState(false);
   const [newListOpen, setNewListOpen] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [pullRefreshing, setPullRefreshing] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -202,6 +203,12 @@ export default function TodosScreen() {
         showRemindersEmptyHero={showRemindersEmptyHero}
         error={Boolean(error)}
         listHeader={listHeader}
+        refreshing={pullRefreshing}
+        onRefresh={async () => {
+          setPullRefreshing(true);
+          await refresh({ silent: true, force: true });
+          setPullRefreshing(false);
+        }}
       />
 
       <NewListSheet

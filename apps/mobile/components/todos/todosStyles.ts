@@ -220,7 +220,6 @@ export function makeTodosStyles(C: Theme) {
     backgroundColor: C.primaryLight,
     marginBottom: 16,
   },
-  emptyIcon: { opacity: 0.5, marginBottom: 16 },
   emptyTitle: {
     fontSize: 20,
     fontWeight: "700",
@@ -245,13 +244,5 @@ export function makeTodosStyles(C: Theme) {
     textAlign: "center",
     lineHeight: 20,
   },
-  retryBtn: {
-    marginTop: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 10,
-    backgroundColor: C.primary,
-  },
-  retryText: { fontSize: 14, fontWeight: "600", color: C.onPrimary },
   });
 }

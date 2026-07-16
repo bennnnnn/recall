@@ -1,9 +1,10 @@
 import { useCallback, useMemo } from "react";
-import { Pressable, RefreshControl, Text, View } from "react-native";
+import { Pressable, RefreshControl, Text } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { StateView } from "@/components/StateView";
 import {
   ConversationRow,
   makeConversationRowStyles,
@@ -162,9 +163,7 @@ export function DrawerChatFlashList({
 
   const listEmpty =
     activeChatCount === 0 && !loading && !error ? (
-      <View style={s.inlineEmpty}>
-        <Text style={s.emptyText}>{t("drawer.no_conversations")}</Text>
-      </View>
+      <StateView variant="empty" compact message={t("drawer.no_conversations")} />
     ) : null;
 
   return (
