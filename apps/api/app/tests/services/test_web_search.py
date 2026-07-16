@@ -313,6 +313,41 @@ async def test_augment_prompt_injects_results_before_user():
 
 
 @pytest.mark.asyncio
+async def test_augment_prompt_emits_searching_status_with_query_detail():
+    settings = Settings(mock_llm_enabled=True, tavily_api_key="")
+    messages = [
+        {"role": "user", "content": "search the web for latest AI news"},
+    ]
+    statuses: list[tuple[str, str | None]] = []
+
+    async def on_status(phase: str, detail: str | None = None) -> None:
+        statuses.append((phase, detail))
+
+    with patch(
+        "app.services.web_search.search_cache.web_search_gateway.search_web",
+        AsyncMock(
+            return_value=[
+                WebSearchHit(title="Hit", url="https://x.com", snippet="info"),
+            ]
+        ),
+    ):
+        await augment_prompt_messages(
+            messages,
+            "search the web for latest AI news",
+            settings,
+            on_status=on_status,
+        )
+
+    assert len(statuses) == 1
+    phase, detail = statuses[0]
+    assert phase == "searching"
+    # The first search query rides along so the client can show what
+    # is being looked up.
+    assert detail
+    assert "ai news" in detail.lower()
+
+
+@pytest.mark.asyncio
 async def test_augment_prompt_injects_empty_block_when_no_hits():
     settings = Settings(mock_llm_enabled=False, web_search_fallback_enabled=False)
     messages = [

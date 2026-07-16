@@ -34,6 +34,7 @@ from app.services.chat.prompt_constants import (
     is_comparison_question,
     is_writing_deliverable_request,
 )
+from app.services.chat.stream_status import StreamStatusFn
 from app.services.context_window import select_recent_window
 from app.services.day_planning import is_day_planning_question, is_day_reflection_question
 from app.services.math_tools import VerifiedMathBlock
@@ -42,7 +43,6 @@ from app.services.vocab_quiz import QuizAnswerGrade
 
 logger = logging.getLogger(__name__)
 
-StreamStatusFn = Callable[[str], Awaitable[None]]
 StreamReasoningFn = Callable[[str], Awaitable[None]]
 
 
@@ -176,6 +176,7 @@ async def build_prompt_messages(
     client_timezone: str | None = None,
     prompt_location: str | None = None,
     todo_sync_feedback: str | None = None,
+    on_status: StreamStatusFn | None = None,
 ) -> list[dict[str, str]]:
     import app.services.chat as chat_pkg
 
@@ -198,6 +199,9 @@ async def build_prompt_messages(
     else:
         if chat is None:
             chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user.id)
+
+        if on_status is not None and user.memory_enabled:
+            await on_status("remembering")
 
         # Each of these is an independent read with no dependency on the others'
         # output — give each its own short-lived session (a single AsyncSession

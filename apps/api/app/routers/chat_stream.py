@@ -81,14 +81,14 @@ async def _stream_tokens_sse(
     cancel_event: asyncio.Event,
 ) -> AsyncIterator[str]:
     result: dict[str, Any] = {}
-    event_queue: asyncio.Queue[tuple[str, str] | None] = asyncio.Queue()
+    event_queue: asyncio.Queue[tuple[str, str, str | None] | None] = asyncio.Queue()
     yield _sse({"type": "start"})
 
-    async def on_status(phase: str) -> None:
-        await event_queue.put(("status", phase))
+    async def on_status(phase: str, detail: str | None = None) -> None:
+        await event_queue.put(("status", phase, detail))
 
     async def on_reasoning(chunk: str) -> None:
-        await event_queue.put(("reasoning", chunk))
+        await event_queue.put(("reasoning", chunk, None))
 
     def should_cancel() -> bool:
         return cancel_event.is_set()
@@ -99,7 +99,7 @@ async def _stream_tokens_sse(
             async for token_text in stream:
                 if should_cancel():
                     break
-                await event_queue.put(("token", token_text))
+                await event_queue.put(("token", token_text, None))
         finally:
             await event_queue.put(None)
 
@@ -128,9 +128,12 @@ async def _stream_tokens_sse(
             item = await event_queue.get()
             if item is None:
                 break
-            kind, payload = item
+            kind, payload, extra = item
             if kind == "status":
-                yield _sse({"type": "status", "phase": payload})
+                status_event: dict[str, Any] = {"type": "status", "phase": payload}
+                if extra:
+                    status_event["detail"] = extra
+                yield _sse(status_event)
             elif kind == "reasoning":
                 yield _sse({"type": "reasoning", "content": payload})
             else:

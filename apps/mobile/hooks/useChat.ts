@@ -194,7 +194,13 @@ export function useChat(
         streamingRef.current = true;
         assistantBuffer.current = "";
         reasoningBuffer.current = "";
-        updateStreamingDraft({ content: "" });
+        // Keep the instant local status (set at send time) instead of
+        // blanking the label until the server's first status event.
+        updateStreamingDraft({
+          content: "",
+          status: streamingDraftRef.current?.status,
+          statusDetail: streamingDraftRef.current?.statusDetail,
+        });
         appendStreamingPlaceholder();
       }
 
@@ -203,6 +209,10 @@ export function useChat(
           content: assistantBuffer.current,
           search_sources: streamingDraftRef.current?.search_sources,
           status: payload.phase,
+          statusDetail:
+            typeof payload.detail === "string" && payload.detail
+              ? payload.detail
+              : undefined,
           reasoning: reasoningBuffer.current || undefined,
         });
       }
@@ -213,6 +223,7 @@ export function useChat(
           content: assistantBuffer.current,
           search_sources: streamingDraftRef.current?.search_sources,
           status: streamingDraftRef.current?.status,
+          statusDetail: streamingDraftRef.current?.statusDetail,
           reasoning: reasoningBuffer.current,
         });
       }
@@ -223,6 +234,7 @@ export function useChat(
           content: assistantBuffer.current,
           search_sources: streamingDraftRef.current?.search_sources,
           status: undefined,
+          statusDetail: undefined,
           reasoning: reasoningBuffer.current || undefined,
         });
       }
@@ -572,7 +584,12 @@ export function useChat(
       if (!streamingRef.current) {
         setStreaming(true);
         streamingRef.current = true;
-        updateStreamingDraft({ content: "" });
+        // Instant local status: attachments will be read for sure, everything
+        // else opens with "preparing" until server phases refine it.
+        updateStreamingDraft({
+          content: "",
+          status: options?.attachmentIds?.length ? "reading_files" : "preparing",
+        });
         appendStreamingPlaceholder();
       }
 
@@ -614,7 +631,7 @@ export function useChat(
       streamingRef.current = true;
       assistantBuffer.current = "";
       reasoningBuffer.current = "";
-      updateStreamingDraft({ content: "" });
+      updateStreamingDraft({ content: "", status: "preparing" });
       appendStreamingPlaceholder();
 
       await ensureConnected();

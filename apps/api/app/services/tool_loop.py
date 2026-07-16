@@ -13,17 +13,16 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from typing import Any
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway
 from app.gateways.mcp import registry as mcp_registry
+from app.services.chat.stream_status import StreamStatusFn, clip_status_detail
 from app.services.math_tools import VerifiedMathBlock
 
 logger = logging.getLogger(__name__)
-
-StreamStatusFn = Callable[[str], Awaitable[None]]
 
 
 def _status_for_tool(name: str) -> str:
@@ -40,6 +39,20 @@ def _canonical_from_tool_result(result: Any) -> dict[str, Any] | None:
         return None
     fence = data.get("canonical_fence")
     return fence if isinstance(fence, dict) else None
+
+
+def _status_detail_for_tool(name: str, raw_args: str) -> str | None:
+    """Surface the tool's subject (e.g. the search query) for the status label."""
+    if name != "web_search":
+        return None
+    try:
+        args = json.loads(raw_args)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(args, dict):
+        return None
+    query = args.get("query")
+    return clip_status_detail(query) if isinstance(query, str) else None
 
 
 async def run_tool_rounds(
@@ -106,7 +119,7 @@ async def run_tool_rounds(
             raw_args = fn.get("arguments") or "{}"
             call_id = str(call.get("id") or name)
             if on_status is not None and name:
-                await on_status(_status_for_tool(name))
+                await on_status(_status_for_tool(name), _status_detail_for_tool(name, raw_args))
             result = await mcp_registry.invoke_validated(name, raw_args)
             content = result.content if result else f"Unknown tool: {name}"
             fence = _canonical_from_tool_result(result) if result else None

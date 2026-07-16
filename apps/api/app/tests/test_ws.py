@@ -716,3 +716,43 @@ def test_ws_done_sends_error_when_finalize_fails():
             msg = ws.receive_json()
             assert msg["type"] == "error"
             assert "Failed to save" in msg["message"]
+
+
+def test_ws_status_event_carries_detail():
+    """Status events forward the optional activity detail (e.g. the web-search
+    query) so the client can render a specific label."""
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+
+    async def fake_stream(*args, on_status=None, **kwargs):
+        if on_status is not None:
+            await on_status("searching", "weather in berlin")
+            await on_status("composing")
+        yield "ok"
+
+    app = _app(user)
+
+    with (
+        patch(
+            "app.routers.ws.tokens_service.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
+        patch("app.routers.ws.chat_service.stream_chat_response", fake_stream),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "hi"})
+            assert ws.receive_json()["type"] == "start"
+            searching = ws.receive_json()
+            assert searching == {
+                "type": "status",
+                "phase": "searching",
+                "detail": "weather in berlin",
+            }
+            composing = ws.receive_json()
+            assert composing == {"type": "status", "phase": "composing"}
+            assert ws.receive_json()["type"] == "token"
+            assert ws.receive_json()["type"] == "stream_end"
+            assert ws.receive_json()["type"] == "done"

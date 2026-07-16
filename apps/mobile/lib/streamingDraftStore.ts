@@ -4,6 +4,8 @@ export type StreamingDraft = {
   content: string;
   search_sources?: SearchSource[];
   status?: string;
+  /** Activity context for the status label (e.g. the web-search query). */
+  statusDetail?: string;
   reasoning?: string;
 };
 

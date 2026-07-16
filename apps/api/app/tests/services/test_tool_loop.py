@@ -60,10 +60,10 @@ async def test_tool_loop_single_web_search_round(web_search_registered):
         ]
     )
     invoke = AsyncMock(return_value=MagicMock(content="- Example: https://example.com\n  snippet"))
-    statuses: list[str] = []
+    statuses: list[tuple[str, str | None]] = []
 
-    async def on_status(phase: str) -> None:
-        statuses.append(phase)
+    async def on_status(phase: str, detail: str | None = None) -> None:
+        statuses.append((phase, detail))
 
     with (
         patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
@@ -79,7 +79,8 @@ async def test_tool_loop_single_web_search_round(web_search_registered):
 
     assert complete.await_count == 2
     invoke.assert_awaited_once()
-    assert statuses == ["searching"]
+    # The search query rides along as status detail for the client label.
+    assert statuses == [("searching", "latest news")]
     assert any(m.get("role") == "tool" for m in out)
     assert any(m.get("role") == "assistant" and m.get("tool_calls") for m in out)
     assert verified is None
