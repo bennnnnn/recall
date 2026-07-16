@@ -1,17 +1,8 @@
 import { useMemo } from "react";
-import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
+import { AppSheet } from "@/components/AppSheet";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -32,56 +23,45 @@ export function ChatRenameSheet({
   const theme = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const insets = useSafeAreaInsets();
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        style={s.overlay}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <Pressable style={s.backdrop} onPress={onClose} />
-        <View style={[s.sheet, { paddingBottom: insets.bottom }]}>
-          <View style={s.header}>
-            <Pressable onPress={onClose} hitSlop={8}>
-              <Text style={s.cancelText}>{t("common.cancel")}</Text>
-            </Pressable>
-            <Text style={s.title}>{t("chat.rename_title")}</Text>
-            <Pressable onPress={onSave} hitSlop={8}>
-              <Text style={s.saveText}>{t("settings.save")}</Text>
-            </Pressable>
-          </View>
-          <View style={s.body}>
-            <TextInput
-              style={s.input}
-              value={value}
-              onChangeText={onChangeText}
-              autoFocus
-              returnKeyType="done"
-              onSubmitEditing={onSave}
-              maxLength={80}
-            />
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+    <AppSheet
+      visible={visible}
+      onClose={onClose}
+      variant="bottom"
+      keyboardAvoiding
+      withHandle={false}
+      contentContainerStyle={s.sheet}
+    >
+      <View style={s.header}>
+        <Pressable onPress={onClose} hitSlop={8}>
+          <Text style={s.cancelText}>{t("common.cancel")}</Text>
+        </Pressable>
+        <Text style={s.title}>{t("chat.rename_title")}</Text>
+        <Pressable onPress={onSave} hitSlop={8}>
+          <Text style={s.saveText}>{t("settings.save")}</Text>
+        </Pressable>
+      </View>
+      <View style={s.body}>
+        <TextInput
+          style={s.input}
+          value={value}
+          onChangeText={onChangeText}
+          autoFocus
+          returnKeyType="done"
+          onSubmitEditing={onSave}
+          maxLength={80}
+        />
+      </View>
+    </AppSheet>
   );
 }
 
 function makeStyles(C: Theme) {
   return StyleSheet.create({
-    overlay: {
-      flex: 1,
-      justifyContent: "flex-end",
-    },
-    backdrop: {
-      ...StyleSheet.absoluteFill,
-      backgroundColor: C.scrim,
-    },
     sheet: {
-      backgroundColor: C.bg,
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
+      paddingHorizontal: 0,
+      paddingTop: 0,
     },
     header: {
       flexDirection: "row",

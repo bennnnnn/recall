@@ -146,14 +146,6 @@ export function makeTodosStyles(C: Theme) {
     alignSelf: "flex-start",
   },
   dateChipText: { fontSize: 15, fontWeight: "600", color: C.text },
-  sheetOverlay: {
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  sheetBackdrop: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: C.scrim,
-  },
   sheet: {
     backgroundColor: C.surface,
     borderTopLeftRadius: 20,
@@ -183,15 +175,10 @@ export function makeTodosStyles(C: Theme) {
   },
   groupOptionSelected: { backgroundColor: C.primaryLight, borderRadius: 8 },
   groupOptionText: { fontSize: 15, color: C.text },
-  pickerBackdrop: {
-    flex: 1,
-    backgroundColor: C.scrim,
-  },
   pickerSheet: {
     backgroundColor: C.bg,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    paddingBottom: 24,
   },
   pickerHeader: {
     flexDirection: "row",

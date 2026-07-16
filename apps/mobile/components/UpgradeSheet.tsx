@@ -1,9 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
+import { AppSheet } from "@/components/AppSheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
 import {
@@ -24,7 +24,6 @@ export function UpgradeSheet({ visible, onClose }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = makeStyles(theme);
-  const insets = useSafeAreaInsets();
   const { token, refreshUser } = useAuth();
   const [pkg, setPkg] = useState<ProPurchasePackage | null>(null);
   const [loadingOffer, setLoadingOffer] = useState(false);
@@ -108,53 +107,56 @@ export function UpgradeSheet({ visible, onClose }: Props) {
   const priceLabel = pkg?.priceString ?? t("upgrade.price_fallback");
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={s.backdrop}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View style={[s.sheet, { paddingBottom: Math.max(insets.bottom, 36) }]}>
-          <View style={s.iconWrap}>
-            <Ionicons name="sparkles" size={28} color={theme.primary} />
-          </View>
-          <Text style={s.title}>{t("upgrade.title")}</Text>
-          <Text style={s.body}>{t("upgrade.body")}</Text>
-          <View style={s.featureList}>
-            <FeatureRow icon="flash-outline" text={t("upgrade.feature_models")} theme={theme} />
-            <FeatureRow icon="infinite-outline" text={t("upgrade.feature_limits")} theme={theme} />
-            <FeatureRow icon="options-outline" text={t("upgrade.feature_pick")} theme={theme} />
-          </View>
-          {error ? <Text style={s.error}>{error}</Text> : null}
-          {purchasesReady ? (
-            <>
-              <Pressable
-                style={[s.primaryBtn, (busy || loadingOffer || !pkg) && s.primaryBtnDisabled]}
-                disabled={busy || loadingOffer || !pkg}
-                onPress={() => void onSubscribe()}
-              >
-                {busy || loadingOffer ? (
-                  <ActivityIndicator color={theme.onPrimary} />
-                ) : (
-                  <Text style={s.primaryBtnText}>
-                    {t("upgrade.subscribe", { price: priceLabel })}
-                  </Text>
-                )}
-              </Pressable>
-              <Pressable style={s.secondaryBtn} disabled={busy} onPress={() => void onRestore()}>
-                <Text style={s.secondaryBtnText}>{t("upgrade.restore")}</Text>
-              </Pressable>
-            </>
-          ) : (
-            <Pressable style={s.primaryBtn} onPress={onClose}>
-              <Text style={s.primaryBtnText}>{t("upgrade.coming_soon")}</Text>
-            </Pressable>
-          )}
-          {__DEV__ ? (
-            <Pressable style={s.devBtn} onPress={() => void tryDevUpgrade()}>
-              <Text style={s.devBtnText}>{t("upgrade.dev_enable")}</Text>
-            </Pressable>
-          ) : null}
-        </View>
+    <AppSheet
+      visible={visible}
+      onClose={onClose}
+      variant="bottom"
+      animation="fade"
+      withHandle={false}
+      minBottomPadding={36}
+      contentContainerStyle={s.sheet}
+    >
+      <View style={s.iconWrap}>
+        <Ionicons name="sparkles" size={28} color={theme.primary} />
       </View>
-    </Modal>
+      <Text style={s.title}>{t("upgrade.title")}</Text>
+      <Text style={s.body}>{t("upgrade.body")}</Text>
+      <View style={s.featureList}>
+        <FeatureRow icon="flash-outline" text={t("upgrade.feature_models")} theme={theme} />
+        <FeatureRow icon="infinite-outline" text={t("upgrade.feature_limits")} theme={theme} />
+        <FeatureRow icon="options-outline" text={t("upgrade.feature_pick")} theme={theme} />
+      </View>
+      {error ? <Text style={s.error}>{error}</Text> : null}
+      {purchasesReady ? (
+        <>
+          <Pressable
+            style={[s.primaryBtn, (busy || loadingOffer || !pkg) && s.primaryBtnDisabled]}
+            disabled={busy || loadingOffer || !pkg}
+            onPress={() => void onSubscribe()}
+          >
+            {busy || loadingOffer ? (
+              <ActivityIndicator color={theme.onPrimary} />
+            ) : (
+              <Text style={s.primaryBtnText}>
+                {t("upgrade.subscribe", { price: priceLabel })}
+              </Text>
+            )}
+          </Pressable>
+          <Pressable style={s.secondaryBtn} disabled={busy} onPress={() => void onRestore()}>
+            <Text style={s.secondaryBtnText}>{t("upgrade.restore")}</Text>
+          </Pressable>
+        </>
+      ) : (
+        <Pressable style={s.primaryBtn} onPress={onClose}>
+          <Text style={s.primaryBtnText}>{t("upgrade.coming_soon")}</Text>
+        </Pressable>
+      )}
+      {__DEV__ ? (
+        <Pressable style={s.devBtn} onPress={() => void tryDevUpgrade()}>
+          <Text style={s.devBtnText}>{t("upgrade.dev_enable")}</Text>
+        </Pressable>
+      ) : null}
+    </AppSheet>
   );
 }
 
@@ -177,15 +179,8 @@ function FeatureRow({
 
 const makeStyles = (theme: Theme) =>
   StyleSheet.create({
-    backdrop: {
-      flex: 1,
-      backgroundColor: theme.scrim,
-      justifyContent: "flex-end",
-    },
     sheet: {
       backgroundColor: theme.bg,
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
       paddingHorizontal: 24,
       paddingTop: 28,
       gap: 12,

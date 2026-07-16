@@ -1,15 +1,9 @@
 import { useMemo } from "react";
-import {
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
+import { AppSheet } from "@/components/AppSheet";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -39,99 +33,75 @@ export function ChatActionsSheet({
 }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
   const s = useMemo(() => makeStyles(theme), [theme]);
 
   return (
-    <Modal
+    <AppSheet
       visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
+      onClose={onClose}
+      variant="bottom"
+      withHandle
+      minBottomPadding={12}
+      contentContainerStyle={s.panel}
     >
-      <View style={s.root}>
-        <Pressable style={s.backdrop} onPress={onClose} />
-        <View style={[s.panel, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-          <View style={s.handle} />
-          {title ? (
-            <Text style={s.sheetTitle} numberOfLines={2}>
-              {title}
-            </Text>
-          ) : null}
-          <View style={s.group}>
-            <Pressable style={s.item} onPress={onShare}>
-              <Ionicons name="share-outline" size={20} color={theme.text} />
-              <Text style={s.label}>{t("chat.share")}</Text>
-            </Pressable>
-            <View style={s.divider} />
-            <Pressable style={s.item} onPress={onRename}>
-              <Ionicons name="pencil-outline" size={20} color={theme.text} />
-              <Text style={s.label}>{t("chat.rename")}</Text>
-            </Pressable>
-            <View style={s.divider} />
-            <Pressable style={s.item} onPress={onTogglePin}>
+      {title ? (
+        <Text style={s.sheetTitle} numberOfLines={2}>
+          {title}
+        </Text>
+      ) : null}
+      <View style={s.group}>
+        <Pressable style={s.item} onPress={onShare}>
+          <Ionicons name="share-outline" size={20} color={theme.text} />
+          <Text style={s.label}>{t("chat.share")}</Text>
+        </Pressable>
+        <View style={s.divider} />
+        <Pressable style={s.item} onPress={onRename}>
+          <Ionicons name="pencil-outline" size={20} color={theme.text} />
+          <Text style={s.label}>{t("chat.rename")}</Text>
+        </Pressable>
+        <View style={s.divider} />
+        <Pressable style={s.item} onPress={onTogglePin}>
+          <Ionicons
+            name={pinned ? "bookmark" : "bookmark-outline"}
+            size={20}
+            color={theme.text}
+          />
+          <Text style={s.label}>{pinned ? t("chat.unpin") : t("chat.pin")}</Text>
+        </Pressable>
+        <View style={s.divider} />
+        {onToggleArchive ? (
+          <>
+            <Pressable style={s.item} onPress={onToggleArchive}>
               <Ionicons
-                name={pinned ? "bookmark" : "bookmark-outline"}
+                name={archived ? "arrow-undo-outline" : "archive-outline"}
                 size={20}
                 color={theme.text}
               />
-              <Text style={s.label}>{pinned ? t("chat.unpin") : t("chat.pin")}</Text>
+              <Text style={s.label}>
+                {archived ? t("chat.unarchive") : t("chat.archive")}
+              </Text>
             </Pressable>
             <View style={s.divider} />
-            {onToggleArchive ? (
-              <>
-                <Pressable style={s.item} onPress={onToggleArchive}>
-                  <Ionicons
-                    name={archived ? "arrow-undo-outline" : "archive-outline"}
-                    size={20}
-                    color={theme.text}
-                  />
-                  <Text style={s.label}>
-                    {archived ? t("chat.unarchive") : t("chat.archive")}
-                  </Text>
-                </Pressable>
-                <View style={s.divider} />
-              </>
-            ) : null}
-            <Pressable style={s.item} onPress={onDelete}>
-              <Ionicons name="trash-outline" size={20} color={theme.danger} />
-              <Text style={[s.label, s.labelDanger]}>{t("common.delete")}</Text>
-            </Pressable>
-          </View>
-          <Pressable style={s.cancelBtn} onPress={onClose}>
-            <Text style={s.cancelText}>{t("common.cancel")}</Text>
-          </Pressable>
-        </View>
+          </>
+        ) : null}
+        <Pressable style={s.item} onPress={onDelete}>
+          <Ionicons name="trash-outline" size={20} color={theme.danger} />
+          <Text style={[s.label, s.labelDanger]}>{t("common.delete")}</Text>
+        </Pressable>
       </View>
-    </Modal>
+      <Pressable style={s.cancelBtn} onPress={onClose}>
+        <Text style={s.cancelText}>{t("common.cancel")}</Text>
+      </Pressable>
+    </AppSheet>
   );
 }
 
 function makeStyles(C: Theme) {
   return StyleSheet.create({
-    root: {
-      flex: 1,
-      justifyContent: "flex-end",
-    },
-    backdrop: {
-      ...StyleSheet.absoluteFill,
-      backgroundColor: C.scrim,
-    },
     panel: {
-      backgroundColor: C.bg,
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
       paddingHorizontal: 12,
       paddingTop: 8,
       gap: 10,
-    },
-    handle: {
-      alignSelf: "center",
-      width: 36,
-      height: 4,
-      borderRadius: 2,
-      backgroundColor: C.border,
-      marginBottom: 4,
     },
     sheetTitle: {
       fontSize: 13,

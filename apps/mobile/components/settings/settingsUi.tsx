@@ -430,17 +430,12 @@ export function makeSettingsStyles(t: Theme) {
     },
     dropdownText: { fontSize: 16, fontWeight: "600", color: t.text },
 
-    pickerBackdrop: {
-      flex: 1,
-      backgroundColor: t.scrim,
-      justifyContent: "flex-end",
-    },
     pickerSheet: {
       backgroundColor: t.surface,
       borderTopLeftRadius: 20,
       borderTopRightRadius: 20,
-      padding: 16,
-      paddingBottom: 32,
+      paddingHorizontal: 16,
+      paddingTop: 16,
       gap: 4,
     },
     pickerTitle: {

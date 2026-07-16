@@ -1,6 +1,7 @@
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import { AppSheet } from "@/components/AppSheet";
 import { SettingsStyles } from "@/components/settings/settingsUi";
 import { Theme } from "@/lib/theme";
 
@@ -30,32 +31,35 @@ export function SettingsPickerModal({
   theme,
 }: Props) {
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.pickerBackdrop}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View style={styles.pickerSheet}>
-          <Text style={styles.pickerTitle}>{title}</Text>
-          {options.map((option) => {
-            const active = selectedKey === option.key;
-            return (
-              <Pressable
-                key={option.key}
-                style={[styles.pickerOption, active && styles.pickerOptionActive]}
-                disabled={disabled}
-                onPress={() => {
-                  onClose();
-                  if (!active) onSelect(option.key);
-                }}
-              >
-                <Text style={[styles.pickerOptionText, active && styles.pickerOptionTextActive]}>
-                  {option.label}
-                </Text>
-                {active ? <Ionicons name="checkmark" size={18} color={theme.primary} /> : null}
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-    </Modal>
+    <AppSheet
+      visible={visible}
+      onClose={onClose}
+      variant="bottom"
+      animation="fade"
+      withHandle={false}
+      minBottomPadding={32}
+      contentContainerStyle={styles.pickerSheet}
+    >
+      <Text style={styles.pickerTitle}>{title}</Text>
+      {options.map((option) => {
+        const active = selectedKey === option.key;
+        return (
+          <Pressable
+            key={option.key}
+            style={[styles.pickerOption, active && styles.pickerOptionActive]}
+            disabled={disabled}
+            onPress={() => {
+              onClose();
+              if (!active) onSelect(option.key);
+            }}
+          >
+            <Text style={[styles.pickerOptionText, active && styles.pickerOptionTextActive]}>
+              {option.label}
+            </Text>
+            {active ? <Ionicons name="checkmark" size={18} color={theme.primary} /> : null}
+          </Pressable>
+        );
+      })}
+    </AppSheet>
   );
 }
