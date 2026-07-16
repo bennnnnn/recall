@@ -41,13 +41,20 @@ function renderSegments(
       );
     }
     if (seg.type === "frac") {
+      // The fraction bar is a `borderBottomWidth` on the numerator Text —
+      // it spans the numerator's actual rendered width exactly, regardless
+      // of font, so a wide fraction like the quadratic formula
+      // ((-4 ± √(...)) / 2) gets a proper long bar instead of the single
+      // "─" glyph that used to read as a tiny dot over one digit. Stays a
+      // Text node so the fraction still flows inline in prose.
+      // num/den are rendered as nested segments so superscripts/subscripts
+      // (and nested fractions) inside a fraction render correctly —
+      // \frac{x^2}{4} shows x² in the numerator, not literal "x^2".
       return (
         <Text key={key} style={styles.frac}>
-          <Text style={styles.fracNum}>{seg.num}</Text>
+          <Text style={styles.fracNum}>{renderSegments(seg.num, `${key}-n`, styles)}</Text>
           {"\n"}
-          <Text style={styles.fracBar}>{"─"}</Text>
-          {"\n"}
-          <Text style={styles.fracDen}>{seg.den}</Text>
+          <Text style={styles.fracDen}>{renderSegments(seg.den, `${key}-d`, styles)}</Text>
         </Text>
       );
     }
@@ -101,11 +108,12 @@ const makeStyles = (theme: Theme, textColor?: string) => {
       fontSize: 11,
       lineHeight: 13,
       color,
-    },
-    fracBar: {
-      fontSize: 9,
-      lineHeight: 7,
-      color,
+      // The fraction bar — a hairline border under the numerator spans its
+      // exact rendered width (no char-count heuristic), so wide fractions
+      // get a proper long bar instead of a one-glyph dash.
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderColor: color,
+      paddingBottom: 1,
     },
     fracDen: {
       fontSize: 11,
