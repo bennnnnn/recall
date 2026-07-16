@@ -4,6 +4,7 @@ import { Image, Linking, Platform, Text, View } from "react-native";
 
 import { LinkPreviewCard } from "@/components/LinkPreviewCard";
 import { MathText } from "@/components/rich/MathText";
+import { MathBlock } from "@/components/rich/MathView";
 import {
   MarkdownTable,
   MarkdownTableCell,
@@ -39,6 +40,7 @@ import { openPlaceLink } from "@/lib/openPlaceLink";
 import { isAllowedImageUri } from "@/lib/imageUriPolicy";
 import { isAllowedLinkUrl } from "@/lib/linkSchemePolicy";
 import { extractBlockquoteMeta, splitInlineMath } from "@/lib/markdownPreprocess";
+import { isHeavyInlineMath } from "@/lib/mathFenceRetag";
 import type { Theme } from "@/lib/theme";
 
 type StyleMap = Record<string, object>;
@@ -64,6 +66,41 @@ function renderTextWithMath(
       <Text key={node.key} style={base} selectable>
         {node.content}
       </Text>
+    );
+  }
+
+  // Heavy inline math (a \begin{…} environment: matrix/cases/aligned/…)
+  // can't be laid out by the native MathText path. Route those to a
+  // block-inline KaTeX WebView chip — reusing the display MathBlock path
+  // (alignSelf: stretch → no WebView width-collapse), with the text runs
+  // around the chip kept as selectable Text. Common inline math ($x^2$,
+  // \frac, \sqrt, \mathbb, accents, Greek) contains no \begin{…} and stays
+  // on the fast native inline path below.
+  const hasHeavy = parts.some(
+    (p) => p.type === "math" && isHeavyInlineMath(p.value),
+  );
+  if (hasHeavy) {
+    return (
+      <View key={node.key}>
+        {parts.map((part, i) => {
+          const key = `${node.key}-m-${i}`;
+          if (part.type === "math" && isHeavyInlineMath(part.value)) {
+            return <MathBlock key={key} latex={part.value} />;
+          }
+          if (part.type === "math") {
+            return (
+              <Text key={key} style={base} selectable>
+                <MathText latex={part.value} />
+              </Text>
+            );
+          }
+          return (
+            <Text key={key} style={base} selectable>
+              {part.value}
+            </Text>
+          );
+        })}
+      </View>
     );
   }
 
