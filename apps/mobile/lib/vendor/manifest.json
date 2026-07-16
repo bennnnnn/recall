@@ -2,7 +2,7 @@
   "generatedAt": "2026-07-15T05:20:26.758Z",
   "versions": {
     "katex": "0.17.0",
-    "mathjax": "3",
+    "mathjax": "3.2.1",
     "mermaid": "10",
     "vega": "5",
     "vegaLite": "5",
