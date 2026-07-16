@@ -16,6 +16,7 @@ from app.core.logging import setup_logging
 from app.core.redis import get_redis_client
 from app.core.request_id import RequestIdMiddleware
 from app.core.rest_rate_limit import RestRateLimitMiddleware
+from app.core.security_headers import SecurityHeadersMiddleware
 from app.core.sentry import init_sentry
 from app.gateways.http_client import aclose_pooled_clients
 from app.routers import (
@@ -90,6 +91,13 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(RestRateLimitMiddleware)
     app.add_middleware(RequestIdMiddleware)
+    # Baseline security headers (nosniff / no-frame / no-referrer / HSTS in
+    # production behind TLS). Added last so it wraps the whole stack on the
+    # way out; per-route headers that already set one are not overridden.
+    app.add_middleware(
+        SecurityHeadersMiddleware,
+        enable_hsts=settings.environment == "production",
+    )
 
     app.include_router(health.router)
     app.include_router(legal.router)

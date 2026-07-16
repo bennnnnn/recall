@@ -44,8 +44,10 @@ async def send_email(
         return False
 
     if not is_configured(settings):
-        # Dev / no-provider path: log so the flow is observable without a key.
-        logger.info("MOCK transactional email to=%s subject=%r\n%s", to, subject, text)
+        # Dev / no-provider path: log that the flow ran, but NOT the body —
+        # transactional emails (welcome, receipts, reminders) contain PII and
+        # recipient-specific content that shouldn't sit in INFO logs.
+        logger.info("MOCK transactional email to=%s subject=%r chars=%d", to, subject, len(text))
         return True
 
     payload: dict[str, Any] = {

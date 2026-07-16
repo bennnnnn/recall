@@ -43,7 +43,10 @@ _FREE_EVENTS = frozenset({"CANCELLATION", "EXPIRATION"})
 def _verify_auth(authorization: str | None, settings: Settings) -> None:
     expected = settings.revenuecat_webhook_auth.strip()
     if not expected:
-        if settings.environment == "development":
+        # Never skip auth based on `environment` alone — a dev config on a
+        # public host would let anyone grant themselves Pro. Require an
+        # explicit opt-in (DEV_ALLOW_UNAUTHED_WEBHOOKS) for local testing.
+        if settings.dev_allow_unauthed_webhooks:
             return
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

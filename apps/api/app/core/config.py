@@ -1,6 +1,9 @@
+import logging
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -237,6 +240,17 @@ class Settings(BaseSettings):
     dev_auth_enabled: bool = True
     mock_llm_enabled: bool = True
     environment: str = "production"
+    # Dev auth mints accounts without a provider token. Even when
+    # ENVIRONMENT=development is set on a host, /auth/dev refuses non-loopback
+    # callers unless this is explicitly true — so a dev-config accidentally
+    # deployed to a public host cannot be turned into an account-takeover
+    # endpoint. Set true ONLY for local tunnel testing.
+    dev_auth_allow_remote: bool = False
+    # RevenueCat webhooks require a shared secret. In dev with no secret
+    # configured, the webhook is 503 by default; set this true ONLY when
+    # testing locally so a missing secret never silently accepts webhooks on
+    # a non-production host (environment alone must not skip auth).
+    dev_allow_unauthed_webhooks: bool = False
 
     # Optional Sentry error reporting (leave empty to disable).
     sentry_dsn: str = ""
@@ -245,6 +259,21 @@ class Settings(BaseSettings):
 
 def validate_production_settings(settings: Settings) -> None:
     if settings.environment == "development":
+        # Don't fully fail-closed in dev, but surface dangerous combos so a
+        # dev config accidentally exposed publicly is visible in the logs.
+        # The hard protection is the loopback guard on /auth/dev (see
+        # routers/auth.py) — this warning is defense-in-depth visibility.
+        if settings.dev_auth_enabled and settings.dev_auth_allow_remote:
+            logger.warning(
+                "DEV_AUTH_ALLOW_REMOTE=true with dev auth enabled — /auth/dev "
+                "will mint accounts for non-loopback callers. Never set on a "
+                "shared/hosted host."
+            )
+        if settings.dev_allow_unauthed_webhooks:
+            logger.warning(
+                "DEV_ALLOW_UNAUTHED_WEBHOOKS=true — RevenueCat webhooks will be "
+                "accepted with no shared secret. Local testing only."
+            )
         return
 
     errors: list[str] = []
