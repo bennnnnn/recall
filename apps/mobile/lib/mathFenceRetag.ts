@@ -95,6 +95,18 @@ export function looksLikeLatexFence(content: string): boolean {
 }
 
 /**
+ * True when inline `$...$` math contains a LaTeX environment
+ * (`\begin{matrix}`, `\begin{cases}`, `\begin{aligned}`, `array`, `gathered`,
+ * `split`, `bmatrix`/`pmatrix`/`vmatrix`, …) that the native `MathText`
+ * renderer can't lay out — those need the KaTeX WebView. Everything else
+ * (fractions, `\sqrt`, `\mathbb`, accents, Greek, …) is handled natively and
+ * stays inline; only environments route to the block-inline WebView chip.
+ */
+export function isHeavyInlineMath(latex: string): boolean {
+  return /\\begin\{[\w*]+\}/.test(latex);
+}
+
+/**
  * Rewrite model math fences before markdown parse (latex/plain → math only).
  *
  * Matches every fence (tagged or not) in a single pass, so an already-tagged

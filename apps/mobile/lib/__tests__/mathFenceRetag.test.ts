@@ -1,4 +1,5 @@
 import {
+  isHeavyInlineMath,
   looksLikeLatexFence,
   retagMathAndDiagramFences,
   stripEmbeddedDollarWraps,
@@ -6,6 +7,20 @@ import {
 } from "@/lib/mathFenceRetag";
 
 describe("mathFenceRetag", () => {
+  it("isHeavyInlineMath: only \\begin{…} environments are heavy", () => {
+    // Environments the native MathText path can't lay out → route to WebView.
+    expect(isHeavyInlineMath(String.raw`\begin{matrix}a&b\\c&d\end{matrix}`)).toBe(true);
+    expect(isHeavyInlineMath(String.raw`\begin{cases} x & 1 \\ y & 2 \end{cases}`)).toBe(true);
+    expect(isHeavyInlineMath(String.raw`\begin{aligned} x &= 1 \\ y &= 2 \end{aligned}`)).toBe(true);
+    expect(isHeavyInlineMath(String.raw`\begin{pmatrix}1\\2\end{pmatrix}`)).toBe(true);
+    // Common inline math (no \begin) stays native — NOT heavy.
+    expect(isHeavyInlineMath(String.raw`x^2 + 1`)).toBe(false);
+    expect(isHeavyInlineMath(String.raw`\frac{a}{b}`)).toBe(false);
+    expect(isHeavyInlineMath(String.raw`\sqrt{4}`)).toBe(false);
+    expect(isHeavyInlineMath(String.raw`\mathbb{R}`)).toBe(false);
+    expect(isHeavyInlineMath(String.raw`\hat{x}`)).toBe(false);
+  });
+
   it("retags latex fence to math", () => {
     const input = "```latex\n\\text{Area} = 8 \\times 5\n```";
     const out = retagMathAndDiagramFences(input);
