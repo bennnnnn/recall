@@ -81,6 +81,42 @@ async def test_sympy_adapter_dispatches_simplify_diff_integrate(
 
 
 @pytest.mark.asyncio
+async def test_sympy_adapter_dispatches_parity_actions():
+    """BUG FIX (math audit): the MCP tool surface was smaller than the heuristic
+    path — system/limit/series/newton had no structured action, so the model
+    couldn't call them directly. They now route to the existing verified
+    math_service functions."""
+    adapter = SympyAdapter(Settings())
+
+    limit_res = await adapter.invoke(
+        {"action": "limit", "expr": "sin(x)/x", "variable": "x", "point": "0"}
+    )
+    assert limit_res.content == "1"
+
+    series_res = await adapter.invoke(
+        {"action": "series", "expr": "x", "variable": "x", "start": "1", "end": "10"}
+    )
+    assert series_res.content == "55"
+
+    newton_res = await adapter.invoke(
+        {"action": "newton", "expr": "x**2 - 2", "variable": "x", "guess": 1.0}
+    )
+    assert "converged=True" in newton_res.content
+    assert "1.41" in newton_res.content  # √2 ≈ 1.4142…
+
+    system_res = await adapter.invoke(
+        {
+            "action": "system",
+            "equations": [["x + y", "3"], ["x - y", "1"]],
+            "variables": ["x", "y"],
+        }
+    )
+    # x = 2, y = 1.
+    assert "2" in system_res.content
+    assert "1" in system_res.content
+
+
+@pytest.mark.asyncio
 async def test_sympy_adapter_simplify_times_out_instead_of_blocking(
     thread_sympy_executor: None,
 ):
