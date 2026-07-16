@@ -24,7 +24,11 @@ describe("api connectivity", () => {
   it("checkHealth returns true when /health is ok", async () => {
     mockFetch.mockResolvedValueOnce({ ok: true });
     await expect(checkHealth()).resolves.toBe(true);
-    expect(mockFetch).toHaveBeenCalledWith("http://test.local/health");
+    // Called with the health URL and an AbortSignal (timeout-bounded fetch).
+    expect(mockFetch).toHaveBeenCalledWith(
+      "http://test.local/health",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
   });
 
   it("checkHealth returns false on network error", async () => {
