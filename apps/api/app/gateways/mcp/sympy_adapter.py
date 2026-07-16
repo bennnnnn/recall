@@ -14,7 +14,9 @@ from app.models.math_schemas import (
     GeometryBlockSpec,
     GraphBlockSpec,
     GraphSampleInput,
+    NewtonMethodInput,
     RectangleGeometryInput,
+    SystemOfEquationsInput,
 )
 from app.models.tool_schemas import SympyToolInput
 from app.services import math_service, math_tools
@@ -40,7 +42,8 @@ class SympyAdapter:
 
     def describe(self) -> str:
         return (
-            "Symbolic math: solve equations, simplify, differentiate, integrate, geometry, graphs."
+            "Symbolic math: solve equations / systems, simplify, differentiate, "
+            "integrate, factor, expand, limits, series, Newton's method, geometry, graphs."
         )
 
     def to_openai_tool(self) -> dict[str, Any]:
@@ -102,6 +105,55 @@ class SympyAdapter:
                 if expr_result is None:
                     return ToolResult(name=self.name, content="Math error: timed out.")
                 return ToolResult(name=self.name, content=expr_result.result)
+            if action == "system":
+                equations = [(str(lhs), str(rhs)) for lhs, rhs in (args.get("equations") or [])]
+                system_input = SystemOfEquationsInput(
+                    equations=equations,
+                    variables=list(args.get("variables") or ["x", "y"]),
+                )
+                system_result = await self._run_off_loop(math_service.solve_system, system_input)
+                if system_result is None:
+                    return ToolResult(name=self.name, content="Math error: timed out.")
+                return ToolResult(name=self.name, content="\n".join(system_result.steps))
+            if action == "limit":
+                expr = str(args.get("expr") or "")
+                variable = str(args.get("variable") or "x")
+                point = str(args.get("point") or "0")
+                direction = str(args.get("direction") or "+-")
+                limit_result = await self._run_off_loop(
+                    math_service.compute_limit, expr, variable, point, direction
+                )
+                if limit_result is None:
+                    return ToolResult(name=self.name, content="Math error: timed out.")
+                return ToolResult(name=self.name, content=limit_result.result)
+            if action == "series":
+                expr = str(args.get("expr") or "")
+                variable = str(args.get("variable") or "x")
+                start = str(args.get("start") or "1")
+                end = str(args.get("end") or "oo")
+                series_result = await self._run_off_loop(
+                    math_service.evaluate_series_sum, expr, variable, start, end
+                )
+                if series_result is None:
+                    return ToolResult(name=self.name, content="Math error: timed out.")
+                return ToolResult(name=self.name, content=series_result.result)
+            if action == "newton":
+                newton_input = NewtonMethodInput(
+                    expr=str(args.get("expr") or ""),
+                    variable=str(args.get("variable") or "x"),
+                    initial_guess=float(args.get("guess") or 1.0),
+                )
+                newton_result = await self._run_off_loop(math_service.newton_method, newton_input)
+                if newton_result is None:
+                    return ToolResult(name=self.name, content="Math error: timed out.")
+                return ToolResult(
+                    name=self.name,
+                    content=(
+                        f"Newton's method: root={newton_result.root}, "
+                        f"converged={newton_result.converged}, "
+                        f"iterations={newton_result.iterations_used}"
+                    ),
+                )
             if action == "rectangle":
                 rect_input = RectangleGeometryInput(
                     width=float(args["width"]),

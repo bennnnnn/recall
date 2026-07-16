@@ -313,6 +313,25 @@ def test_extract_indefinite_integral_has_no_bounds() -> None:
 
 
 @pytest.mark.parametrize(
+    "text, expected_cmp",
+    [
+        ("solve x**2 - 1 > 0", ">"),
+        ("solve x \\leq 5", "<="),
+        ("solve 2x + 1 < 7", "<"),
+    ],
+)
+def test_extract_inequality_intent(text: str, expected_cmp: str) -> None:
+    """Inequalities route to a dedicated intent kind with the canonical
+    comparator. Safe from prose false-positives because extract_math_intent
+    is only called when a math keyword already matched."""
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "inequality"
+    assert intent.comparator == expected_cmp
+    assert intent.lhs and intent.rhs
+
+
+@pytest.mark.parametrize(
     "text, expected_expr, expected_var, expected_point",
     [
         ("find the limit of x^2 as x approaches 3", "x**2", "x", "3"),

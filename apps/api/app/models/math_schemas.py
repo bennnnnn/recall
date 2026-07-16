@@ -345,11 +345,15 @@ class MathIntent(BaseModel):
         "series",
         "system",
         "numerical_method",
+        "inequality",
     ]
     lhs: str | None = None
     rhs: str | None = None
     expr: str | None = None
     variable: str = "x"
+    # Inequality comparator (canonical: "<", ">", "<=", ">=") — only set when
+    # kind == "inequality".
+    comparator: str | None = None
     width: float | None = None
     height: float | None = None
     base: float | None = None

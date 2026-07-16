@@ -4,7 +4,7 @@ export type MathSegment =
   | { type: "text"; value: string }
   | { type: "sup"; value: string }
   | { type: "sub"; value: string }
-  | { type: "frac"; num: string; den: string };
+  | { type: "frac"; num: MathSegment[]; den: MathSegment[] };
 
 const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\pm/g, "±"],
@@ -84,6 +84,41 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\_/g, "_"],
   [/\\\{/g, "{"],
   [/\\\}/g, "}"],
+  // Uppercase Greek — only \Delta was handled; the rest (\Gamma, \Theta, …)
+  // leaked as raw "\Gamma" inline. Matches mathFenceRetag's LATEX_CMD_RE list.
+  [/\\Gamma/g, "Γ"],
+  [/\\Theta/g, "Θ"],
+  [/\\Lambda/g, "Λ"],
+  [/\\Sigma/g, "Σ"],
+  [/\\Omega/g, "Ω"],
+  [/\\Pi/g, "Π"],
+  [/\\Phi/g, "Φ"],
+  [/\\Psi/g, "Ψ"],
+  [/\\Xi/g, "Ξ"],
+  [/\\Upsilon/g, "Υ"],
+  // Calculus / set-theory / relation symbols that previously showed raw.
+  [/\\partial/g, "∂"],
+  [/\\nabla/g, "∇"],
+  [/\\in/g, "∈"],
+  [/\\subset/g, "⊂"],
+  [/\\subseteq/g, "⊆"],
+  [/\\supset/g, "⊃"],
+  [/\\equiv/g, "≡"],
+  [/\\propto/g, "∝"],
+  [/\\sim/g, "∼"],
+  [/\\forall/g, "∀"],
+  [/\\exists/g, "∃"],
+  [/\\emptyset/g, "∅"],
+  [/\\angle/g, "∠"],
+  [/\\perp/g, "⊥"],
+  [/\\parallel/g, "∥"],
+  // Vertical / bidirectional arrows (rightward/implies already handled).
+  [/\\uparrow/g, "↑"],
+  [/\\downarrow/g, "↓"],
+  [/\\updownarrow/g, "↕"],
+  [/\\Updownarrow/g, "⇕"],
+  [/\\Uparrow/g, "⇑"],
+  [/\\Downarrow/g, "⇓"],
 ];
 
 /** Roman-type function names — render as their bare name (e.g. \log → "log"),
@@ -137,9 +172,16 @@ function readGroup(input: string, start: number): { value: string; next: number 
 
 function preprocessLatex(latex: string): string {
   let s = latex.trim();
+  // \dfrac / \tfrac / \cfrac are display/text-style fractions — KaTeX treats
+  // them like \frac, so normalize before parsing so parseFrac catches them
+  // (otherwise they leak as raw "\dfrac{a}{b}" inline).
+  s = s.replace(/\\[dct]frac/g, "\\frac");
   for (const [re, rep] of CMD_REPLACEMENTS) {
     s = s.replace(re, rep);
   }
+  // nth-root: \sqrt[n]{x} → √[n](x) (plain but readable). Before the bare
+  // \sqrt{...} rule so the [n] isn't dropped.
+  s = s.replace(/\\sqrt\[([^\]]+)\]\{([^}]+)\}/g, "√[$1]($2)");
   s = s.replace(/\\sqrt\{([^}]+)\}/g, "√($1)");
   s = s.replace(/\\sqrt\s+([0-9a-zA-Z]+)/g, "√$1");
   s = s.replace(/\\text\{([^}]+)\}/g, "$1");
@@ -171,8 +213,11 @@ function parseFrac(input: string, start: number): { seg: MathSegment; next: numb
   return {
     seg: {
       type: "frac",
-      num: parseSimpleLatex(numGroup.value).map(segmentToPlain).join(""),
-      den: parseSimpleLatex(denGroup.value).map(segmentToPlain).join(""),
+      // Keep num/den as parsed segments (not flattened strings) so the
+      // renderer can render superscripts/subscripts/fractions INSIDE a
+      // fraction — \frac{x^2}{4} shows x² in the numerator, not literal "x^2".
+      num: parseSimpleLatex(numGroup.value),
+      den: parseSimpleLatex(denGroup.value),
     },
     next: denGroup.next,
   };
@@ -182,7 +227,7 @@ function segmentToPlain(seg: MathSegment): string {
   if (seg.type === "text") return seg.value;
   if (seg.type === "sup") return `^${seg.value}`;
   if (seg.type === "sub") return `_${seg.value}`;
-  return `${seg.num}/${seg.den}`;
+  return `${segmentsToPlain(seg.num)}/${segmentsToPlain(seg.den)}`;
 }
 
 export function parseSimpleLatex(latex: string): MathSegment[] {
@@ -267,6 +312,13 @@ export function segmentsToPlain(segments: MathSegment[]): string {
  * block instead.
  */
 export function splitMathLines(latex: string): string[] {
+  // A multi-line LaTeX environment (\begin{aligned}…\end{aligned}, cases,
+  // matrix, gather, …) uses newlines BETWEEN its rows and MUST render as one
+  // block — splitting it makes each row a standalone KaTeX parse that errors
+  // or renders garbage. So if the body contains any \begin{…}, don't split.
+  if (/\\begin\{[\w*]+\}/.test(latex)) {
+    return [latex.trim()].filter(Boolean);
+  }
   return latex
     .split("\n")
     .map((line) => line.trim())

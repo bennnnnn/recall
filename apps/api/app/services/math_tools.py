@@ -594,6 +594,22 @@ def extract_math_intent(text: str) -> MathIntent | None:
             variable=variables[0] if variables else "x",
         )
 
+    # Inequality — only reached when a math keyword already matched (this
+    # function is called solely from needs_symbolic_math-gated paths), so bare
+    # < / > here is safe from prose false-positives like "less than 5 minutes".
+    ineq = math_service.try_extract_inequality_from_text(cleaned)
+    if ineq:
+        lhs, rhs, comparator = ineq
+        variables = math_service._guess_variables(lhs + rhs)
+        return MathIntent(
+            kind="inequality",
+            lhs=lhs,
+            rhs=rhs,
+            comparator=comparator,
+            operation="solve",
+            variable=variables[0] if variables else "x",
+        )
+
     return None
 
 
@@ -628,6 +644,22 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
                 "Do NOT recompute the solutions. Show worked steps by COPYING the "
                 "verified steps above verbatim — do NOT derive intermediate algebra "
                 "yourself. Keep any spacing (e.g. \\quad) INSIDE the $...$ delimiters."
+            )
+            return VerifiedMathBlock(text="\n".join(lines))
+
+        if intent.kind == "inequality" and intent.lhs and intent.rhs and intent.comparator:
+            result = math_service.solve_inequality(
+                intent.lhs[: settings.math_max_expr_length],
+                intent.rhs[: settings.math_max_expr_length],
+                intent.variable,
+                intent.comparator,
+            )
+            lines.extend(result.steps)
+            lines.append(
+                "Formula shape: INLINE $...$ for the inequality and its solution "
+                "set (never backticks around `$...$`). Do NOT recompute — copy the "
+                "verified solution above verbatim. Render unions with \\lor "
+                "(e.g. $x < -1 \\lor x > 1$) exactly as given."
             )
             return VerifiedMathBlock(text="\n".join(lines))
 

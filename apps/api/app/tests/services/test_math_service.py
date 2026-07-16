@@ -232,6 +232,30 @@ def test_integrate_definite_infinity_aware() -> None:
     assert result.result == "1"
 
 
+def test_solve_inequality_quadratic_split() -> None:
+    # x^2 - 1 > 0  →  x < -1 or x > 1.
+    result = math_service.solve_inequality("x**2 - 1", "0", "x", ">")
+    sol = "\n".join(result.steps)
+    assert "Inequality" in sol
+    # Solution set must reference the split points (-1 and 1).
+    assert "1" in sol
+
+
+def test_try_extract_inequality_from_text() -> None:
+    assert math_service.try_extract_inequality_from_text("solve x**2 - 1 > 0") == (
+        "x**2 - 1",
+        "0",
+        ">",
+    )
+    # LaTeX \leq and Unicode ≤ canonicalize to "<=".
+    leq = math_service.try_extract_inequality_from_text("solve x \\leq 5")
+    assert leq is not None and leq[2] == "<="
+    le = math_service.try_extract_inequality_from_text("solve x ≤ 5")
+    assert le is not None and le[2] == "<="
+    # \le must NOT match the \le inside \left(...\right).
+    assert math_service.try_extract_inequality_from_text("solve \\left(x + 1\\right) = 0") is None
+
+
 def test_differentiate_expression() -> None:
     result = math_service.differentiate_expression("x**2", "x")
     assert "2" in result.latex

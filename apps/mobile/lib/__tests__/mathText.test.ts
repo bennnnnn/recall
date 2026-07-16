@@ -15,7 +15,44 @@ describe("parseSimpleLatex", () => {
 
   it("parses fractions", () => {
     const segs = parseSimpleLatex(String.raw`\frac{a}{b}`);
-    expect(segs).toEqual([{ type: "frac", num: "a", den: "b" }]);
+    expect(segs).toEqual([
+      { type: "frac", num: [{ type: "text", value: "a" }], den: [{ type: "text", value: "b" }] },
+    ]);
+  });
+
+  it("BUG FIX regression: \\frac numerator/denominator render as nested segments (superscripts inside a fraction)", () => {
+    // \frac{x^2}{4} used to flatten the numerator to the literal string "x^2"
+    // (caret shown), not the superscript x². num/den are now MathSegment[] so
+    // superscripts/subscripts render correctly inside a fraction.
+    const segs = parseSimpleLatex(String.raw`\frac{x^2}{4}`);
+    const frac = segs.find((s) => s.type === "frac");
+    expect(frac).toBeTruthy();
+    if (frac?.type === "frac") {
+      expect(frac.num.some((s) => s.type === "sup" && s.value === "2")).toBe(true);
+      expect(segmentsToPlain(frac.num)).toBe("x^2");
+      expect(segmentsToPlain(frac.den)).toBe("4");
+    }
+  });
+
+  it("BUG FIX regression: normalizes \\dfrac/\\tfrac/\\cfrac to \\frac (no raw \\dfrac inline)", () => {
+    expect(parseSimpleLatex(String.raw`\dfrac{a}{b}`)).toEqual([
+      { type: "frac", num: [{ type: "text", value: "a" }], den: [{ type: "text", value: "b" }] },
+    ]);
+    expect(parseSimpleLatex(String.raw`\tfrac{1}{2}`).some((s) => s.type === "frac")).toBe(true);
+    expect(parseSimpleLatex(String.raw`\cfrac{a}{b}`).some((s) => s.type === "frac")).toBe(true);
+  });
+
+  it("BUG FIX regression: nth-root \\sqrt[n]{x} renders as √[n](x), not raw", () => {
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\sqrt[3]{8}`))).toBe("√[3](8)");
+  });
+
+  it("BUG FIX regression: uppercase Greek + calculus/set symbols render as unicode, not raw backslash", () => {
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\Gamma + \Theta`))).toBe("Γ + Θ");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\Sigma \Omega \Pi`))).toBe("Σ Ω Π");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\partial f / \partial x`))).toContain("∂");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`x \in S`))).toContain("∈");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`A \subset B`))).toContain("⊂");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`a \equiv b`))).toContain("≡");
   });
 
   it("BUG FIX regression: renders known function names without the leading backslash", () => {
@@ -75,5 +112,16 @@ describe("splitMathLines", () => {
 
   it("drops blank lines", () => {
     expect(splitMathLines("x = 2\n\nx = -2\n")).toEqual(["x = 2", "x = -2"]);
+  });
+
+  it("BUG FIX regression: does not split a multi-line \\begin{…} environment", () => {
+    // aligned/cases/matrix use newlines between rows and must render as ONE
+    // block — splitting shattered them into per-row KaTeX parse errors.
+    const aligned = String.raw`\begin{aligned} x^2 &= 4 \\ x &= \pm 2 \end{aligned}`;
+    expect(splitMathLines(aligned)).toEqual([aligned]);
+    const cases = String.raw`\begin{cases} x & 1 \\ y & 2 \end{cases}`;
+    expect(splitMathLines(cases)).toEqual([cases]);
+    // Independent equations (no environment) still split.
+    expect(splitMathLines("x = 1\ny = 2")).toEqual(["x = 1", "y = 2"]);
   });
 });

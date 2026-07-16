@@ -12,7 +12,18 @@ class WebSearchToolInput(BaseModel):
 
 
 class SympyToolInput(BaseModel):
-    action: Literal["solve", "simplify", "diff", "integrate", "rectangle", "graph"] = "solve"
+    action: Literal[
+        "solve",
+        "simplify",
+        "diff",
+        "integrate",
+        "rectangle",
+        "graph",
+        "system",
+        "limit",
+        "series",
+        "newton",
+    ] = "solve"
     # Bounded the same as the equivalent fields on EquationInput/GraphSampleInput
     # (apps/api/app/models/math_schemas.py) — unbounded strings here fed straight
     # into math_service's SymPy parser with no cap of their own.
@@ -27,6 +38,16 @@ class SympyToolInput(BaseModel):
     variable: str = Field(default="x", max_length=8)
     x_min: float = -10
     x_max: float = 10
+    # system: list of (lhs, rhs) pairs (mirrors SystemOfEquationsInput).
+    equations: list[tuple[str, str]] = Field(default_factory=list, max_length=4)
+    # limit: the point the variable approaches (+ direction "+-"/"+"/"-").
+    point: str | None = Field(default=None, max_length=32)
+    direction: str = Field(default="+-", max_length=4)
+    # series: bounds (infinity-aware — "oo"/"inf"/"infty" accepted).
+    start: str | None = Field(default=None, max_length=32)
+    end: str | None = Field(default=None, max_length=32)
+    # newton: initial guess.
+    guess: float | None = Field(default=None, ge=-1_000_000, le=1_000_000)
 
 
 class CalendarConflictsInput(BaseModel):

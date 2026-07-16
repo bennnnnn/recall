@@ -19,9 +19,13 @@ export const MathBlock = React.memo(function MathBlock({ latex }: { latex: strin
   const trimmed = stripEmbeddedDollarWraps(stripRedundantDollarWrap(latex.trim()));
   if (!trimmed) return null;
 
-  // A fence body with multiple equations (one per line) must render each as
-  // its own block — a single render call concatenates every line into one
-  // expression with no separator.
+  // A fence body with multiple independent equations (one per line) must
+  // render each as its own block — a single render call concatenates every
+  // line into one expression with no separator. splitMathLines is
+  // environment-aware: it returns the whole body as one entry when it
+  // contains a \begin{…} (aligned/cases/matrix/…), so multi-line
+  // environments render as a single KaTeX block instead of being shattered
+  // into per-row parse errors.
   const lines = splitMathLines(trimmed);
   if (lines.length > 1) {
     return (

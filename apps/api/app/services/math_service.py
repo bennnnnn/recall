@@ -708,6 +708,17 @@ def _strip_leading_filler(text: str) -> str:
     return s
 
 
+# Verb-only leading filler — used by inequality extraction, where the bare
+# variable IS the lhs and must NOT be stripped (unlike _LEADING_FILLER_RE's
+# `(?:x\s+)?`, which would eat "x " in "solve x \leq 5").
+_LEADING_VERB_RE = re.compile(
+    r"^\s*(?:please\s+)?(?:can\s+you\s+|could\s+you\s+)?"
+    r"(?:solve|find|calculate|compute|evaluate|determine|simplify|what\s+is|what's)\s+"
+    r"(?:for\s+me\s+)?(?:if\s+)?",
+    re.IGNORECASE,
+)
+
+
 def try_extract_equations_from_text(text: str) -> list[tuple[str, str]]:
     """Best-effort extraction of every `lhs=rhs` clause in the text.
 
@@ -742,6 +753,80 @@ def try_extract_equation_from_text(text: str) -> EquationInput | None:
         return EquationInput(lhs=lhs, rhs=rhs, variables=variables or ["x"])
     except Exception:
         return None
+
+
+# Inequality operators → canonical form. \le/\leq/≤/<= all map to "<=" so the
+# solver only has to handle four relations. The negative-lookahead on \le/\ge
+# stops them from matching the \le inside \left (a very common LaTeX delimiter).
+_INEQUALITY_PATTERN = re.compile(
+    r"(?P<lhs>[0-9a-zA-Z+\-*/().\s^**]+?)\s*"
+    r"(?P<op>\\leq(?![a-zA-Z])|\\geq(?![a-zA-Z])|\\le(?![a-zA-Z])|\\ge(?![a-zA-Z])|≤|≥|<|>)\s*"
+    r"(?P<rhs>[0-9a-zA-Z+\-*/().\s^**]+)"
+)
+_INEQ_CANON = {
+    "\\leq": "<=",
+    "\\le": "<=",
+    "≤": "<=",
+    "\\geq": ">=",
+    "\\ge": ">=",
+    "≥": ">=",
+    "<": "<",
+    ">": ">",
+}
+
+
+def try_extract_inequality_from_text(text: str) -> tuple[str, str, str] | None:
+    """Best-effort extraction of a single `lhs OP rhs` inequality (OP ∈
+    <, >, ≤, ≥, \\leq, \\geq, \\le, \\ge). Returns (lhs, rhs, canonical_comparator)
+    or None. NOTE: callers gate this on a math keyword (needs_symbolic_math)
+    having already matched, so prose like "less than 5 minutes" (no keyword)
+    never reaches here — bare < / > is safe in that context."""
+    # Strip ONLY the leading verb, not the variable — _strip_leading_filler's
+    # `(?:x\s+)?` would eat a bare "x " operand (e.g. "solve x \leq 5" → "\leq 5"),
+    # leaving no lhs for the inequality pattern to match.
+    cleaned = _LEADING_VERB_RE.sub("", text, count=1).strip()
+    m = _INEQUALITY_PATTERN.search(cleaned)
+    if not m:
+        return None
+    lhs = m.group("lhs").strip()
+    rhs = m.group("rhs").strip()
+    if not lhs or not rhs or len(lhs) > 120 or len(rhs) > 120:
+        return None
+    return lhs, rhs, _INEQ_CANON.get(m.group("op"), m.group("op"))
+
+
+def solve_inequality(lhs: str, rhs: str, variable: str, comparator: str) -> MathSolveResult:
+    """Solve a single-variable inequality, e.g. `x**2 - 1 > 0` → x < -1 or x > 1.
+
+    `comparator` is the canonical form returned by try_extract_inequality_from_text
+    ("<", ">", "<=", ">="). lhs/rhs go through the same allow-checked parser as
+    every other expression; the relational is built from SymPy Lt/Gt/Le/Ge, so
+    no user string is eval'd.
+    """
+    from sympy import Ge, Gt, Le, Lt, solve_univariate_inequality
+
+    sym = Symbol(variable)
+    left = _parse_expression(lhs, [variable])
+    right = _parse_expression(rhs, [variable])
+    diff_expr = simplify(left - right)
+    rel_cls = {"<": Lt, ">": Gt, "<=": Le, ">=": Ge}.get(comparator)
+    if rel_cls is None:
+        raise MathServiceError(f"Unknown inequality comparator: {comparator}")
+    try:
+        sol = solve_univariate_inequality(rel_cls(diff_expr, 0), sym)
+    except Exception as exc:  # NotImplementedError / non-univariate / etc.
+        raise MathServiceError(f"Could not solve inequality: {lhs} {comparator} {rhs}") from exc
+    sol_latex = latex(sol)
+    cmp_latex = {"<": "<", ">": ">", "<=": "\\leq", ">=": "\\geq"}[comparator]
+    return MathSolveResult(
+        solutions_latex=[sol_latex],
+        steps=[
+            f"Inequality: {latex(left)} {cmp_latex} {latex(right)}",
+            f"Solution: {sol_latex}",
+        ],
+        lhs_latex=latex(left),
+        rhs_latex=latex(right),
+    )
 
 
 _FUNCTION_NAME_RE = re.compile(
