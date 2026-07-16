@@ -113,7 +113,7 @@ function makeStyles(t: Theme) {
       justifyContent: "flex-end",
     },
     sheet: {
-      backgroundColor: t.surface,
+      backgroundColor: t.bg,
       borderTopLeftRadius: 24,
       borderTopRightRadius: 24,
       paddingHorizontal: 20,

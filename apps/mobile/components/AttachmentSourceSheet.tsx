@@ -93,7 +93,7 @@ function makeStyles(C: Theme) {
       elevation: 14,
     },
     panel: {
-      backgroundColor: C.inputBg,
+      backgroundColor: C.bg,
       borderRadius: 18,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: C.composerBorder,
@@ -107,7 +107,7 @@ function makeStyles(C: Theme) {
       gap: 12,
     },
     itemPressed: {
-      backgroundColor: C.surfaceAlt,
+      backgroundColor: C.surface,
     },
     iconWrap: {
       width: 36,
