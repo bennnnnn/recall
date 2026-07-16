@@ -365,6 +365,23 @@ function ChatScreen() {
     [handleSend],
   );
 
+  // Stable quiz-answer handler. An inline arrow here used to be recreated on
+  // every ChatScreen render (including every composer keystroke) → it flowed
+  // into useChatMessageList's sharedRowProps → renderItem → FlashList
+  // re-rendered every row while typing. Memoize so the list stays stable.
+  const onQuizAnswer = useCallback(
+    (letter: string) => {
+      // BUG FIX (was silent): answering a quiz in chat persists new counts server-side,
+      // but nothing invalidated the project detail cache from this flow — returning to
+      // the project screen right after could show a stale pre-answer snapshot for up
+      // to the cache's 20s TTL. Bust it so the next detail fetch is fresh.
+      const quizProjectId = resolveQuizProjectId();
+      if (quizProjectId) invalidateProjectDetail(quizProjectId);
+      void handleSend(letter);
+    },
+    [handleSend, resolveQuizProjectId],
+  );
+
   const { headerTitleLabel, renderItem } = useChatMessageList({
     messages: displayMessages,
     streaming,
@@ -381,15 +398,7 @@ function ChatScreen() {
     onSelectSuggestion,
     onDismissSuggestion: dismissSuggestion,
     imageGenerating: imageGen.generating,
-    onQuizAnswer: (letter) => {
-      // BUG FIX (was silent): answering a quiz in chat persists new counts server-side,
-      // but nothing invalidated the project detail cache from this flow — returning to
-      // the project screen right after could show a stale pre-answer snapshot for up
-      // to the cache's 20s TTL. Bust it so the next detail fetch is fresh.
-      const quizProjectId = resolveQuizProjectId();
-      if (quizProjectId) invalidateProjectDetail(quizProjectId);
-      void handleSend(letter);
-    },
+    onQuizAnswer,
   });
 
   const layout = useChatLayoutMetrics({

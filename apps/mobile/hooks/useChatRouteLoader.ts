@@ -239,12 +239,18 @@ export function useChatRouteLoader({
       }
       if (!token || !openChatId || streaming || chatLoading) return;
 
+      // Cancel in-flight refetch if the screen blurs or deps change (e.g. the
+      // user navigates to a different chat mid-fetch). Without this, a slow
+      // refetch for chat A could land after we've switched to chat B and
+      // overwrite B's messages with A's.
+      let cancelled = false;
       void (async () => {
         try {
           const [chat, page] = await Promise.all([
             api.getChat(token, openChatId),
             api.listMessages(token, openChatId, { limit: MESSAGE_PAGE_SIZE }),
           ]);
+          if (cancelled) return;
           setChatId(chat.id);
           setChatTitle(chat.title);
           setPinned(chat.pinned);
@@ -258,6 +264,9 @@ export function useChatRouteLoader({
           /* keep existing messages on silent refetch failure */
         }
       })();
+      return () => {
+        cancelled = true;
+      };
     }, [token, routeChatId, streaming, chatLoading, setChatId, setMessages]),
   );
 

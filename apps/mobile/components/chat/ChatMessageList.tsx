@@ -1,4 +1,4 @@
-import { ReactElement, RefObject, useMemo } from "react";
+import { memo, ReactElement, RefObject, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { FlashList, FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
 import { useTranslation } from "react-i18next";
@@ -32,7 +32,7 @@ type Props = {
   listFooter?: ReactElement | null;
 };
 
-export function ChatMessageList({
+function ChatMessageListComponent({
   listRef,
   messages,
   headerInset,
@@ -55,6 +55,14 @@ export function ChatMessageList({
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const showFooterInEmpty = Boolean(listFooter && messages.length === 0);
+// Stable content-container style: the previous inline `{ paddingTop, paddingBottom }`
+// object was fresh every render, so FlashList re-laid out on every parent render
+// (including every composer keystroke). Memoize so it only changes when the
+// insets actually change.
+  const contentContainerStyle = useMemo(
+    () => [s.listContent, { paddingTop: headerInset, paddingBottom: listBottomPad }],
+    [s.listContent, headerInset, listBottomPad],
+  );
 
   return (
     <View style={s.messagesArea}>
@@ -77,10 +85,7 @@ export function ChatMessageList({
         onScrollEndDrag={onScrollEnd}
         onMomentumScrollEnd={onScrollEnd}
         scrollEventThrottle={16}
-        contentContainerStyle={[
-          s.listContent,
-          { paddingTop: headerInset, paddingBottom: listBottomPad },
-        ]}
+        contentContainerStyle={contentContainerStyle}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
         ListHeaderComponent={
@@ -124,6 +129,8 @@ export function ChatMessageList({
     </View>
   );
 }
+
+export const ChatMessageList = memo(ChatMessageListComponent);
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
