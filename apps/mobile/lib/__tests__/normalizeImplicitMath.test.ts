@@ -8,6 +8,22 @@ describe("normalizeImplicitMath", () => {
     expect(out).toContain("$x = \\pm \\sqrt{4}$");
   });
 
+  it("BUG FIX regression: never re-wraps parentheticals INSIDE already-delimited $...$ inline math", () => {
+    // Reported live on a quadratic-formula verification: the line
+    //   $(-2 + \sqrt{3})^2 + 4(-2 + \sqrt{3}) + 1 = ... = 0$ ✓
+    // was already wrapped in $...$, but MATH_IN_PARENS_RE re-wrapped each
+    // (-2 + \sqrt{3}) in its own $...$, producing $$ and shattering the $
+    // pairing across the whole message — \sqrt{3} then rendered as raw text
+    // and adjacent "For x = ..." prose got glued into "Forx = ...". The
+    // outer $...$ must be preserved verbatim.
+    const line = "  $(-2 + \\sqrt{3})^2 + 4(-2 + \\sqrt{3}) + 1 = (4 - 4\\sqrt{3} + 3) + (-8 + 4\\sqrt{3}) + 1 = 0$ ✓";
+    const out = normalizeImplicitMathInProse(line);
+    expect(out).toBe(line);
+    // No nested/extra $...$ injected inside the outer span, no $$.
+    expect(out).not.toContain("$$");
+    expect(out.match(/\$/g)?.length).toBe(2);
+  });
+
   it("fixes implicit exponents and wraps bare equations", () => {
     const input = "Equation: x2+2=6\nx2=6-2\nx2=4";
     const out = normalizeImplicitMathInProse(input);

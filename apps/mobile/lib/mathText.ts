@@ -259,18 +259,6 @@ export function segmentsToPlain(segments: MathSegment[]): string {
 }
 
 /**
- * Number of ─ (U+2500) box-drawing units needed for a `\frac` bar to span the
- * wider operand. A single ─ only covers one character — which made wide
- * fractions like the quadratic formula `((-4 ± √(...)) / 2)` render the bar
- * as a tiny "dot" over one digit. ─ tiles seamlessly at the same font size,
- * so repeating it draws a continuous bar. Char-count heuristic that errs
- * slightly wide (a too-long bar is far more readable than a too-short one).
- */
-export function fracBarUnits(num: string, den: string): number {
-  return Math.max(1, Math.ceil(Math.max(num.length, den.length) * 0.75));
-}
-
-/**
  * Split a math fence body into individual display lines. A single
  * `renderToString`/parse call on a multi-line body concatenates every line
  * into one expression with no separator (no `\n` handling in LaTeX or in

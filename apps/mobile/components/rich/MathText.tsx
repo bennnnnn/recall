@@ -3,7 +3,7 @@ import { StyleSheet, Text } from "react-native";
 
 import { CODE_FONT } from "@/lib/fonts";
 import { fixImplicitExponents } from "@/lib/normalizeImplicitMath";
-import { parseSimpleLatex, fracBarUnits, type MathSegment } from "@/lib/mathText";
+import { parseSimpleLatex, type MathSegment } from "@/lib/mathText";
 import { toSubscript, toSuperscript } from "@/lib/unicodeSupSub";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -41,18 +41,15 @@ function renderSegments(
       );
     }
     if (seg.type === "frac") {
-      // The fraction bar must span the wider of numerator/denominator. A
-      // single ─ only covers one character — which is why a wide fraction
-      // like the quadratic formula ((-4 ± √(...)) / 2) showed the bar as a
-      // tiny "dot" over one digit. ─ (U+2500) is a box-drawing char that
-      // tiles seamlessly at the same font size, so repeat it to span the
-      // wider operand (see fracBarUnits).
-      const bar = "─".repeat(fracBarUnits(seg.num, seg.den));
+      // The fraction bar is a `borderBottomWidth` on the numerator Text —
+      // it spans the numerator's actual rendered width exactly, regardless
+      // of font, so a wide fraction like the quadratic formula
+      // ((-4 ± √(...)) / 2) gets a proper long bar instead of the single
+      // "─" glyph that used to read as a tiny dot over one digit. Stays a
+      // Text node so the fraction still flows inline in prose.
       return (
         <Text key={key} style={styles.frac}>
           <Text style={styles.fracNum}>{seg.num}</Text>
-          {"\n"}
-          <Text style={styles.fracBar}>{bar}</Text>
           {"\n"}
           <Text style={styles.fracDen}>{seg.den}</Text>
         </Text>
@@ -108,11 +105,12 @@ const makeStyles = (theme: Theme, textColor?: string) => {
       fontSize: 11,
       lineHeight: 13,
       color,
-    },
-    fracBar: {
-      fontSize: 9,
-      lineHeight: 7,
-      color,
+      // The fraction bar — a hairline border under the numerator spans its
+      // exact rendered width (no char-count heuristic), so wide fractions
+      // get a proper long bar instead of a one-glyph dash.
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderColor: color,
+      paddingBottom: 1,
     },
     fracDen: {
       fontSize: 11,

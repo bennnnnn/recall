@@ -110,6 +110,27 @@ function skipBraceGroups(s: string, start: number): number {
  * looksLikeBareEquation path above, since real prose surrounds it here.
  * Skipped whenever the line already has a "$" anywhere, so it never
  * double-wraps something wrapMath already handled earlier in this line. */
+/** Apply `fn` only to the non-`$...$` segments of a line, leaving already-
+ * delimited inline math spans untouched. Without this, a heuristic like
+ * MATH_IN_PARENS_RE re-wraps parentheticals INSIDE an existing `$...$`
+ * (e.g. `$(-2 + \sqrt{3})^2 + 4(-2 + \sqrt{3}) + ...$`), producing `$$` and
+ * shattering `$` pairing across the whole message — leaving `\sqrt` as raw
+ * text and gluing adjacent prose into the math. */
+function applyOutsideInlineMath(line: string, fn: (s: string) => string): string {
+  const out: string[] = [];
+  let last = 0;
+  const re = /\$[^$\n]+?\$/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(line)) !== null) {
+    if (m.index > last) out.push(fn(line.slice(last, m.index)));
+    out.push(m[0]);
+    last = m.index + m[0].length;
+  }
+  if (last === 0) return fn(line);
+  if (last < line.length) out.push(fn(line.slice(last)));
+  return out.join("");
+}
+
 function wrapInlineLatexCommands(line: string): string {
   if (line.includes("$")) return line;
   INLINE_LATEX_CMD_RE.lastIndex = 0;
@@ -161,10 +182,11 @@ function normalizeMathLine(line: string): string {
     return out.replace(trimmed, wrapMath(trimmed));
   }
 
-  out = out.replace(MATH_IN_PARENS_RE, (full, inner: string) => {
-    if (!isMathLike(String(inner))) return full;
-    return wrapMath(String(inner));
-  });
+  out = applyOutsideInlineMath(out, (seg) =>
+    seg.replace(MATH_IN_PARENS_RE, (full, inner: string) =>
+      isMathLike(String(inner)) ? wrapMath(String(inner)) : full,
+    ),
+  );
 
   out = wrapInlineLatexCommands(out);
 
