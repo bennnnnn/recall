@@ -1,4 +1,4 @@
-import { parseSimpleLatex, segmentsToPlain, splitMathLines } from "@/lib/mathText";
+import { parseSimpleLatex, segmentsToPlain, splitMathLines, fracBarUnits } from "@/lib/mathText";
 
 describe("parseSimpleLatex", () => {
   it("parses superscripts", () => {
@@ -16,6 +16,19 @@ describe("parseSimpleLatex", () => {
   it("parses fractions", () => {
     const segs = parseSimpleLatex(String.raw`\frac{a}{b}`);
     expect(segs).toEqual([{ type: "frac", num: "a", den: "b" }]);
+  });
+
+  it("BUG FIX regression: frac bar spans the wider operand (quadratic formula)", () => {
+    // A single ─ only covered one character, so the quadratic formula's
+    // fraction bar read as a "short dot" over one digit. The bar must scale
+    // with the wider of numerator/denominator.
+    expect(fracBarUnits("a", "b")).toBe(1);
+    expect(fracBarUnits("-4 ± √(16 - 4)", "2")).toBeGreaterThanOrEqual(10);
+    expect(fracBarUnits("1", "2(1)")).toBeGreaterThanOrEqual(2);
+    // Monotonic: wider numerator => longer (or equal) bar.
+    expect(fracBarUnits("-b ± √(b^2 - 4ac)", "2a")).toBeGreaterThan(
+      fracBarUnits("1", "2"),
+    );
   });
 
   it("BUG FIX regression: renders known function names without the leading backslash", () => {

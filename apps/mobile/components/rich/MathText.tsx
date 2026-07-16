@@ -3,7 +3,7 @@ import { StyleSheet, Text } from "react-native";
 
 import { CODE_FONT } from "@/lib/fonts";
 import { fixImplicitExponents } from "@/lib/normalizeImplicitMath";
-import { parseSimpleLatex, type MathSegment } from "@/lib/mathText";
+import { parseSimpleLatex, fracBarUnits, type MathSegment } from "@/lib/mathText";
 import { toSubscript, toSuperscript } from "@/lib/unicodeSupSub";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -41,11 +41,18 @@ function renderSegments(
       );
     }
     if (seg.type === "frac") {
+      // The fraction bar must span the wider of numerator/denominator. A
+      // single ─ only covers one character — which is why a wide fraction
+      // like the quadratic formula ((-4 ± √(...)) / 2) showed the bar as a
+      // tiny "dot" over one digit. ─ (U+2500) is a box-drawing char that
+      // tiles seamlessly at the same font size, so repeat it to span the
+      // wider operand (see fracBarUnits).
+      const bar = "─".repeat(fracBarUnits(seg.num, seg.den));
       return (
         <Text key={key} style={styles.frac}>
           <Text style={styles.fracNum}>{seg.num}</Text>
           {"\n"}
-          <Text style={styles.fracBar}>{"─"}</Text>
+          <Text style={styles.fracBar}>{bar}</Text>
           {"\n"}
           <Text style={styles.fracDen}>{seg.den}</Text>
         </Text>
