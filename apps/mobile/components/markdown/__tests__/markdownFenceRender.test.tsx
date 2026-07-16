@@ -97,6 +97,38 @@ describe("renderFence math key stability", () => {
 
     expect(a?.key).not.toBe(b?.key);
   });
+
+  it("BUG FIX regression: two fences with identical latex get distinct keys via tokenIndex (no duplicate React key warning)", () => {
+    // Reported live: `\pm 2` appeared twice in one reply and React warned
+    // "Encountered two children with the same key, `math:\pm 2`". The
+    // content-derived key must be disambiguated by the fence's stable
+    // tokenIndex so sibling MathBlocks don't collide, while remaining
+    // stable across re-parses for the *same* fence.
+    const first = renderFence({
+      key: "k1",
+      content: "\\pm 2",
+      info: "math",
+      tokenIndex: 5,
+    });
+    const second = renderFence({
+      key: "k2",
+      content: "\\pm 2",
+      info: "math",
+      tokenIndex: 9,
+    });
+
+    expect(first?.key).toBeTruthy();
+    expect(first?.key).not.toBe(second?.key);
+    // The same fence re-parsed (same content + same tokenIndex, fresh
+    // volatile node.key) must keep its key — no MathBlock remount/flicker.
+    const firstReparsed = renderFence({
+      key: "a-fresh-volatile-node-key",
+      content: "\\pm 2",
+      info: "math",
+      tokenIndex: 5,
+    });
+    expect(firstReparsed?.key).toBe(first?.key);
+  });
 });
 
 describe("renderFence geometry/graph dispatch", () => {

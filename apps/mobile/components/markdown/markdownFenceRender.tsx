@@ -24,7 +24,18 @@ import {
   isIanaTimezoneOnly,
 } from "@/lib/timeQuestion";
 
-export type FenceNode = { key: string; content: string; info?: string };
+// `tokenIndex` (and `index`) come from react-native-markdown-display's AST
+// (tokensToAST.js) — unlike `key` (a never-reset getUniqueID counter that
+// changes every re-parse), they are stable across re-parses for an
+// already-emitted fence. Optional because tests/fakes construct FenceNodes
+// directly without them.
+export type FenceNode = {
+  key: string;
+  content: string;
+  info?: string;
+  tokenIndex?: number;
+  index?: number;
+};
 
 function isMathDiagramLang(lang: string): boolean {
   const l = lang.trim().toLowerCase();
@@ -37,7 +48,12 @@ function looksLikeMathMeta(content: string): boolean {
   );
 }
 
-function renderFenceInner(key: string, lang: string, content: string) {
+function renderFenceInner(
+  key: string,
+  lang: string,
+  content: string,
+  tokenIndex?: number,
+) {
   if (shouldUseHtmlPreview(lang, content)) {
     return <WebPreviewCodeBlock key={key} code={content} lang={lang || "html"} />;
   }
@@ -63,7 +79,15 @@ function renderFenceInner(key: string, lang: string, content: string) {
     // key, or MathBlock's WebView-backed renderer unmounts/remounts (a
     // full WebView reload, visible as a flicker) every ~48ms even though
     // nothing actually changed.
-    return <MathBlock key={`math:${content}`} latex={content} />;
+    //
+    // `tokenIndex` disambiguates two *different* fences that happen to
+    // share identical latex (e.g. `\pm 2` appearing twice in one reply):
+    // it's stable across re-parses (deterministic re-tokenization of
+    // already-emitted content) but unique per fence, so sibling MathBlocks
+    // with the same content no longer collide on a duplicate React key.
+    const mathKey =
+      tokenIndex != null ? `math:${content}#${tokenIndex}` : `math:${content}`;
+    return <MathBlock key={mathKey} latex={content} />;
   }
   if (
     l === "clock" ||
@@ -106,7 +130,7 @@ export function renderFence(node: FenceNode) {
   if (!content) return null;
 
   try {
-    return renderFenceInner(node.key, lang, content);
+    return renderFenceInner(node.key, lang, content, node.tokenIndex);
   } catch (error) {
     if (__DEV__) {
       console.warn("[MarkdownContent] fence render failed", error);
