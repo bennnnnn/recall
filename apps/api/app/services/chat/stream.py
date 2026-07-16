@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import math
@@ -614,8 +615,15 @@ async def stream_and_finalize(
                             user_timezone=getattr(user, "timezone", None),
                         )
 
-            assistant_text = chat_pkg.math_fence_service.validate_math_fences(
-                assistant_text, verified=ctx.verified_math
+            # validate_math_fences runs SymPy (densify_sparse_graph →
+            # math_service.sample_function) inline — sync CPU work that would
+            # stall the event loop and every concurrent request on math-heavy
+            # replies. Offload to a worker thread (same pattern as
+            # math_tools.py's sympy_executor.run_sympy).
+            assistant_text = await asyncio.to_thread(
+                chat_pkg.math_fence_service.validate_math_fences,
+                assistant_text,
+                verified=ctx.verified_math,
             )
             from app.services.vocab_quiz import strip_vocab_session_metadata
 

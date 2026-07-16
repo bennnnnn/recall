@@ -96,6 +96,7 @@ async def finalize_stream_turn_db(
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
                 message_id=ctx.assistant_message_id,
+                commit=False,  # batch with touch + usage into one commit below
             )
             if result is not None:
                 # `done` is sent before this task finishes; stream_and_finalize
@@ -109,7 +110,7 @@ async def finalize_stream_turn_db(
                 if ctx.context_summarized:
                     result.setdefault("context_summarized", str(ctx.context_summarized))
 
-            await chat_pkg.chats_repo.touch_by_id(session, ctx.chat_id)
+            await chat_pkg.chats_repo.touch_by_id(session, ctx.chat_id, commit=False)
 
             try:
                 await chat_pkg.usage_repo.add_tokens(
@@ -120,9 +121,16 @@ async def finalize_stream_turn_db(
                     # re-seeds correctly after an eviction (see header comment).
                     input_tokens=weighted_input,
                     output_tokens=weighted_output,
+                    commit=False,
                 )
             except Exception:
                 logger.exception("Failed to record usage tokens")
+
+            # Single commit for message + chat touch + usage (was 3 Neon
+            # round-trips per turn). Refresh the message so its server-side
+            # id/created_at are populated for callers that read them.
+            await session.commit()
+            await session.refresh(assistant_message)
 
         # Cap overshoot at the user's daily limit so one turn's actual >
         # reserved delta can't push the counter past the cap (which would

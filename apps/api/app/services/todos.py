@@ -500,6 +500,20 @@ async def materialize_reminder_fences(
         return assistant_text, 0
 
     created = 0
+    # Load open reminders once (lazily, on the first VALID fence) instead of
+    # per fence — a reply with several ```reminder fences used to re-read up
+    # to 500 rows (and commit) for each. Lazy so an all-invalid reply (the
+    # common error case) still touches the DB zero times, matching prior
+    # behavior. We mutate this list as we create so duplicate fences in the
+    # same reply are still deduped in-memory.
+    existing: list = []
+    existing_loaded = False
+
+    async def _load_existing() -> None:
+        nonlocal existing, existing_loaded
+        if not existing_loaded:
+            existing = await todos_repo.list_for_user(session, user_id, limit=500)
+            existing_loaded = True
 
     async def _create_one(raw: str) -> bool:
         nonlocal created
@@ -519,7 +533,7 @@ async def materialize_reminder_fences(
         if due_at is None:
             return False
         title = draft.title.strip()
-        existing = await todos_repo.list_for_user(session, user_id, limit=500)
+        await _load_existing()
         if any(
             (i.content or "").strip().lower() == title.lower()
             and i.due_at is not None
@@ -527,7 +541,7 @@ async def materialize_reminder_fences(
             for i in existing
         ):
             return True  # already present — still strip fence
-        await todos_repo.create(
+        new_todo = await todos_repo.create(
             session,
             user_id=user_id,
             content=title,
@@ -535,6 +549,7 @@ async def materialize_reminder_fences(
             chat_id=chat_id,
             due_at=due_at,
         )
+        existing.append(new_todo)
         created += 1
         logger.info(
             "Reminder fence applied: user_id=%s chat_id=%s title=%s",

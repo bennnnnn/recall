@@ -18,6 +18,7 @@ async def add_tokens(
     *,
     input_tokens: int,
     output_tokens: int,
+    commit: bool = True,
 ) -> UsageDaily:
     usage = await get_for_date(session, user_id, day)
     if usage is None:
@@ -25,8 +26,11 @@ async def add_tokens(
         session.add(usage)
     usage.input_tokens = (usage.input_tokens or 0) + input_tokens
     usage.output_tokens = (usage.output_tokens or 0) + output_tokens
-    await session.commit()
-    await session.refresh(usage)
+    if commit:
+        await session.commit()
+        await session.refresh(usage)
+    else:
+        await session.flush()
     return usage
 
 
