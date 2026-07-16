@@ -33,6 +33,16 @@ jest.mock("expo-web-browser", () => ({
   openBrowserAsync: jest.fn(),
 }));
 
+// CopyButton (used by MermaidBlock's action row) pulls in expo-haptics, whose
+// native EventEmitter isn't available in this plain jest-preset environment.
+jest.mock("expo-haptics", () => ({
+  impactAsync: jest.fn(),
+  selectionAsync: jest.fn(),
+  notificationAsync: jest.fn(),
+  ImpactFeedbackStyle: { Light: "Light" },
+  NotificationFeedbackType: { Success: "Success", Warning: "Warning" },
+}));
+
 // Icon glyphs aren't relevant to this test and pulling in the real font
 // asset registration is unnecessary risk for a fallback-rendering check.
 jest.mock("@expo/vector-icons", () => ({

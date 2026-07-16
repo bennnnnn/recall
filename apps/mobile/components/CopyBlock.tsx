@@ -1,9 +1,7 @@
-import { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import * as Clipboard from "expo-clipboard";
-import { Ionicons } from "@expo/vector-icons";
+import { useMemo } from "react";
+import { StyleSheet, Text, View } from "react-native";
 
-import { notifySuccess, tap } from "@/lib/haptics";
+import { CopyButton } from "@/components/CopyButton";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -14,30 +12,12 @@ type Props = {
 export function CopyBlock({ text, label }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const [copied, setCopied] = useState(false);
-
-  const onCopy = async () => {
-    tap();
-    await Clipboard.setStringAsync(text);
-    setCopied(true);
-    notifySuccess();
-    setTimeout(() => setCopied(false), 1500);
-  };
 
   return (
     <View style={s.wrap}>
       <View style={[s.header, !label && s.headerCompact]}>
         {label ? <Text style={s.label}>{label}</Text> : null}
-        <Pressable style={s.copyBtn} onPress={onCopy} hitSlop={6}>
-          <Ionicons
-            name={copied ? "checkmark-outline" : "copy-outline"}
-            size={15}
-            color={copied ? theme.primary : theme.textSecondary}
-          />
-          <Text style={[s.copyText, copied && s.copyTextDone]}>
-            {copied ? "Copied" : "Copy"}
-          </Text>
-        </Pressable>
+        <CopyButton text={text} />
       </View>
       <Text style={s.body} selectable>
         {text}
@@ -81,20 +61,6 @@ function makeStyles(t: Theme) {
       fontWeight: "600",
       color: t.textSecondary,
     },
-    copyBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
-      flexShrink: 0,
-      paddingHorizontal: 10,
-      paddingVertical: 5,
-      borderRadius: 8,
-      backgroundColor: t.bg,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: t.border,
-    },
-    copyText: { fontSize: 13, fontWeight: "600", color: t.textSecondary },
-    copyTextDone: { color: t.primary },
     body: {
       flexShrink: 1,
       fontSize: 16,
