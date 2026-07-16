@@ -5,14 +5,26 @@ from sqlalchemy import delete, func, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import defer
 
 from app.models.orm import Memory
 
 
-async def list_for_user(session: AsyncSession, user_id: UUID) -> list[Memory]:
-    result = await session.execute(
-        select(Memory).where(Memory.user_id == user_id).order_by(Memory.type.asc())
-    )
+async def list_for_user(
+    session: AsyncSession,
+    user_id: UUID,
+    *,
+    load_embeddings: bool = True,
+) -> list[Memory]:
+    """List a user's memories. Set ``load_embeddings=False`` on read-only list
+    endpoints (e.g. GET /memories) — the 1536-dim pgvector embedding + its JSON
+    twin are ~12KB per row and dominate the Neon round-trip, but the list view
+    only needs type/text/confidence. Callers that actually use the embedding
+    (memory injection, extraction, consolidation) keep the default."""
+    stmt = select(Memory).where(Memory.user_id == user_id).order_by(Memory.type.asc())
+    if not load_embeddings:
+        stmt = stmt.options(defer(Memory.embedding), defer(Memory.embedding_json))
+    result = await session.execute(stmt)
     return list(result.scalars().all())
 
 

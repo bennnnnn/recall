@@ -50,7 +50,7 @@ async def list_memories(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> list[MemoryOut]:
-    memories = await memories_repo.list_for_user(session, user.id)
+    memories = await memories_repo.list_for_user(session, user.id, load_embeddings=False)
     await _maybe_enqueue_consolidation(user, memories)
     return [MemoryOut.model_validate(m) for m in memories]
 
@@ -60,7 +60,7 @@ async def consolidate_memories(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
-    memories = await memories_repo.list_for_user(session, user.id)
+    memories = await memories_repo.list_for_user(session, user.id, load_embeddings=False)
     sections = {memory.type: memory.text for memory in memories}
     if not memory_service.sections_need_consolidation(sections):
         return {"status": "skipped"}
