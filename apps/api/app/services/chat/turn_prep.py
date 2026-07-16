@@ -625,10 +625,16 @@ async def prepare_chat_turn(
                     image_attachments.append((row.content_type, row.storage_key))
                 attachment_lines.extend(lines)
             if attachment_lines:
+                # Attachment text is user-uploaded external content — a
+                # malicious doc can carry prompt injection. Wrap it as
+                # untrusted (same framing the RAG path uses) so the model
+                # treats it as data, not instructions. The user's typed
+                # message above stays trusted.
+                attached = wrap_untrusted("attached documents", "\n".join(attachment_lines))
                 if user_content.strip():
-                    user_content = f"{user_content}\n\n" + "\n".join(attachment_lines)
+                    user_content = f"{user_content}\n\n{attached}"
                 else:
-                    user_content = "\n".join(attachment_lines)
+                    user_content = attached
 
             # Camera math solver: vision-extract equation so SymPy can verify.
             from app.services import math_image_extract as math_image_extract_service

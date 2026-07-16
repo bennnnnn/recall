@@ -1,3 +1,5 @@
+import ipaddress
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials
@@ -35,6 +37,21 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 _LOGIN_RATE_LIMIT = 30
 _LOGIN_RATE_WINDOW_SECONDS = 60
+# Refresh tokens can be leaked; cap online guessing volume per IP. Separate
+# bucket from login so a burst of refreshes can't lock out fresh logins.
+_REFRESH_RATE_LIMIT = 60
+_REFRESH_RATE_WINDOW_SECONDS = 60
+
+
+def _is_loopback(ip: str) -> bool:
+    """True for IPv4/IPv6 loopback. Dev auth mints accounts without a provider
+    token, so it must only be reachable from the host itself unless explicitly
+    opened to remote callers (DEV_AUTH_ALLOW_REMOTE)."""
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    return addr.is_loopback
 
 
 async def _enforce_login_rate_limit(
@@ -112,6 +129,13 @@ async def dev_login(
     # single client can mint arbitrary accounts or credential-stuff when dev
     # auth is on.
     await _enforce_login_rate_limit(redis, request, settings, provider="dev")
+    # Fail-closed against a dev config accidentally exposed on a public host:
+    # refuse non-loopback callers unless the operator explicitly opted in with
+    # DEV_AUTH_ALLOW_REMOTE. This protects even when ENVIRONMENT=development
+    # (which skips validate_production_settings) is set on an internet-facing
+    # deploy — remote account minting stays impossible by default.
+    if not settings.dev_auth_allow_remote and not _is_loopback(client_ip(request, settings)):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     try:
         return await auth_service.login_dev(
             session,
@@ -132,10 +156,24 @@ async def me(user: User = Depends(get_current_user)) -> UserOut:
 @router.post("/refresh", response_model=AuthResponse)
 async def refresh_session(
     body: RefreshRequest,
+    request: Request,
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(get_redis),
 ) -> AuthResponse:
+    # Rate-limit refresh: a leaked refresh token shouldn't be hammerable
+    # online. Reuse the login throttle pattern with its own per-IP bucket.
+    allowed = await allow_request(
+        redis,
+        f"rate:auth:refresh:{client_ip(request, settings)}",
+        limit=_REFRESH_RATE_LIMIT,
+        window_seconds=_REFRESH_RATE_WINDOW_SECONDS,
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many refresh attempts. Try again shortly.",
+        )
     try:
         access_token, refresh_token, user = await tokens_service.refresh_token_pair(
             redis, body.refresh_token, session, settings

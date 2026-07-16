@@ -321,7 +321,9 @@ def test_dev_login():
     from app.core.deps import get_settings_dep
 
     app.dependency_overrides[get_settings_dep] = lambda: Settings(
-        dev_auth_enabled=True, jwt_secret="test-secret-32-chars-long-enough!!"
+        dev_auth_enabled=True,
+        dev_auth_allow_remote=True,
+        jwt_secret="test-secret-32-chars-long-enough!!",
     )
 
     with (
@@ -365,6 +367,47 @@ def test_dev_login_rate_limited_returns_429():
         r = client.post("/auth/dev", json={"email": "x@x.com", "name": "X"})
     assert r.status_code == 429
     assert "Too many login attempts" in r.json()["detail"]
+
+
+def test_dev_login_refuses_non_loopback_without_allow_remote():
+    """A dev config accidentally exposed on a public host must not mint
+    accounts for remote callers. /auth/dev returns 404 (not 403 — don't leak
+    that the endpoint exists) unless DEV_AUTH_ALLOW_REMOTE is explicitly set.
+    The TestClient's peer is "testclient", which is not loopback."""
+    app = create_app()
+    from app.core.deps import get_settings_dep
+
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
+        dev_auth_enabled=True,
+        dev_auth_allow_remote=False,
+        jwt_secret="test-secret-32-chars-long-enough!!",
+    )
+    with (
+        patch("app.routers.auth.auth_service.login_dev", AsyncMock()) as login_dev,
+        patch("app.routers.auth.allow_request", AsyncMock(return_value=True)),
+    ):
+        client = TestClient(app)
+        r = client.post("/auth/dev", json={"email": "x@x.com", "name": "X"})
+    assert r.status_code == 404
+    # Account minting must never run for a refused remote request.
+    login_dev.assert_not_called()
+
+
+def test_revenuecat_webhook_503_when_no_auth_and_no_dev_opt_in():
+    """Webhook auth must never be skipped based on `environment` alone — a
+    dev config on a public host would let anyone grant themselves Pro. With
+    no shared secret and no explicit DEV_ALLOW_UNAUTHED_WEBHOOKS, return 503."""
+    app = create_app()
+    from app.core.deps import get_settings
+
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        environment="development",
+        revenuecat_webhook_auth="",
+        dev_allow_unauthed_webhooks=False,
+    )
+    client = TestClient(app)
+    r = client.post("/webhooks/revenuecat", json={"event": {"type": "TEST"}})
+    assert r.status_code == 503
 
 
 # ── chats ──────────────────────────────────────────────────────────────────────
@@ -768,7 +811,9 @@ def test_revenuecat_webhook_enqueues_receipt_on_purchase():
     uid = uuid4()
     app = create_app()
     app.dependency_overrides[get_settings] = lambda: Settings(
-        environment="development", revenuecat_webhook_auth=""
+        environment="development",
+        revenuecat_webhook_auth="",
+        dev_allow_unauthed_webhooks=True,
     )
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     app.dependency_overrides[get_redis] = lambda: fake_redis
@@ -811,7 +856,9 @@ def test_revenuecat_webhook_skips_receipt_when_plan_not_applied():
     uid = uuid4()
     app = create_app()
     app.dependency_overrides[get_settings] = lambda: Settings(
-        environment="development", revenuecat_webhook_auth=""
+        environment="development",
+        revenuecat_webhook_auth="",
+        dev_allow_unauthed_webhooks=True,
     )
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     app.dependency_overrides[get_redis] = lambda: fake_redis
@@ -841,7 +888,9 @@ def test_revenuecat_webhook_free_event_does_not_enqueue_receipt():
     uid = uuid4()
     app = create_app()
     app.dependency_overrides[get_settings] = lambda: Settings(
-        environment="development", revenuecat_webhook_auth=""
+        environment="development",
+        revenuecat_webhook_auth="",
+        dev_allow_unauthed_webhooks=True,
     )
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     app.dependency_overrides[get_redis] = lambda: fake_redis
@@ -872,7 +921,9 @@ def test_revenuecat_webhook_billing_issue_does_not_downgrade():
     uid = uuid4()
     app = create_app()
     app.dependency_overrides[get_settings] = lambda: Settings(
-        environment="development", revenuecat_webhook_auth=""
+        environment="development",
+        revenuecat_webhook_auth="",
+        dev_allow_unauthed_webhooks=True,
     )
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     app.dependency_overrides[get_redis] = lambda: fake_redis
@@ -899,7 +950,9 @@ def test_revenuecat_webhook_expiration_still_downgrades():
     uid = uuid4()
     app = create_app()
     app.dependency_overrides[get_settings] = lambda: Settings(
-        environment="development", revenuecat_webhook_auth=""
+        environment="development",
+        revenuecat_webhook_auth="",
+        dev_allow_unauthed_webhooks=True,
     )
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     app.dependency_overrides[get_redis] = lambda: fake_redis
@@ -927,7 +980,9 @@ def test_revenuecat_webhook_dedups_replay_by_event_id():
     uid = uuid4()
     app = create_app()
     app.dependency_overrides[get_settings] = lambda: Settings(
-        environment="development", revenuecat_webhook_auth=""
+        environment="development",
+        revenuecat_webhook_auth="",
+        dev_allow_unauthed_webhooks=True,
     )
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     app.dependency_overrides[get_redis] = lambda: fake_redis
@@ -970,7 +1025,9 @@ def test_revenuecat_webhook_failed_processing_does_not_burn_dedup_key():
     uid = uuid4()
     app = create_app()
     app.dependency_overrides[get_settings] = lambda: Settings(
-        environment="development", revenuecat_webhook_auth=""
+        environment="development",
+        revenuecat_webhook_auth="",
+        dev_allow_unauthed_webhooks=True,
     )
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     app.dependency_overrides[get_redis] = lambda: fake_redis
@@ -1046,7 +1103,9 @@ def test_revenuecat_webhook_transfer_downgrades_old_and_syncs_new():
     new_uid = uuid4()
     app = create_app()
     app.dependency_overrides[get_settings] = lambda: Settings(
-        environment="development", revenuecat_webhook_auth=""
+        environment="development",
+        revenuecat_webhook_auth="",
+        dev_allow_unauthed_webhooks=True,
     )
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     app.dependency_overrides[get_redis] = lambda: fake_redis

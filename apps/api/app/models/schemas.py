@@ -276,7 +276,10 @@ class ModelInfo(BaseModel):
 
 
 class ChatMessageRequest(BaseModel):
-    content: str = ""
+    # Cap matches EditMessageRequest — without it a client can push a
+    # multi-MB body that bloats the prompt, DB row, and memory-extraction
+    # job. 32k chars is well beyond any realistic chat turn.
+    content: str = Field(default="", max_length=32_000)
     model: str | None = None
     attachment_ids: list[UUID] = Field(default_factory=list)
     client_timezone: str | None = Field(default=None, max_length=64)
