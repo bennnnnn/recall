@@ -10,10 +10,10 @@ import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { CODE_FONT } from "@/lib/fonts";
 import { getPreviewWebView, useStaticOnlyNavigation } from "@/lib/webView";
 import { Theme, useTheme } from "@/lib/theme";
-
-const MAX_HEIGHT = 320;
-/** Ignore sub-pixel / font-settle chatter so the chat list doesn't bounce. */
-const HEIGHT_EPSILON_PX = 4;
+import {
+  clampMathWebViewHeight,
+  MAX_HEIGHT,
+} from "@/lib/mathWebViewHeight";
 
 type Props = {
   latex: string;
@@ -106,16 +106,18 @@ export const MathFormulaWebView = React.memo(function MathFormulaWebView({
 
   const onMessage = useCallback(
     (event: { nativeEvent: { data: string } }) => {
-      const next = parseHeightMessage(event.nativeEvent.data);
+      const reported = parseHeightMessage(event.nativeEvent.data);
+      if (reported == null) return;
+      const next = clampMathWebViewHeight(reported, heightRef.current, {
+        compact,
+        minHeight,
+        initialHeight,
+      });
       if (next == null) return;
-      const clamped = Math.min(MAX_HEIGHT, Math.max(minHeight ?? initialHeight, next));
-      // Prefer growing over shrinking/chatter — shrinking after fonts settle
-      // is what makes the whole assistant bubble jump.
-      if (clamped <= heightRef.current + HEIGHT_EPSILON_PX) return;
-      heightRef.current = clamped;
-      setHeight(clamped);
+      heightRef.current = next;
+      setHeight(next);
     },
-    [initialHeight, minHeight],
+    [compact, initialHeight, minHeight],
   );
 
   if (!WebView || !canRenderInline) {
