@@ -1,12 +1,12 @@
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import * as Clipboard from "expo-clipboard";
-import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 
 import { displayLang, groupTokensByLine, parseFenceLang, TOKEN_COLORS } from "@/lib/codeHighlight";
 import type * as CodeTokenizeModule from "@/lib/codeTokenize";
-import { notifySuccess, tap } from "@/lib/haptics";
 import { Theme, useTheme } from "@/lib/theme";
+
+import { CopyButton } from "@/components/CopyButton";
 
 import { CODE_FONT } from "@/lib/fonts";
 const CODE_FONT_SIZE = 13;
@@ -63,8 +63,8 @@ export function CodeBlock({
   showCopy?: boolean;
 }) {
   const t = useTheme();
+  const { t: tr } = useTranslation();
   const s = useMemo(() => makeStyles(t), [t]);
-  const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const fenceLang = parseFenceLang(lang);
   const tokenizer = useCodeTokenizer();
@@ -91,32 +91,13 @@ export function CodeBlock({
   const colorFor = (c: string) =>
     t.isDark && c === TOKEN_COLORS.plain ? t.codeText : c;
 
-  const onCopy = async () => {
-    tap();
-    await Clipboard.setStringAsync(code);
-    setCopied(true);
-    notifySuccess();
-    setTimeout(() => setCopied(false), 1500);
-  };
-
   return (
     <View style={s.wrap}>
       <View style={s.header}>
         {badge ? <Text style={s.lang}>{badge}</Text> : <View />}
         <View style={s.headerActions}>
           {headerExtra}
-          {showCopy ? (
-            <Pressable style={s.copyBtn} onPress={onCopy} hitSlop={6}>
-              <Ionicons
-                name={copied ? "checkmark-outline" : "copy-outline"}
-                size={13}
-                color={copied ? t.primary : t.textSecondary}
-              />
-              <Text style={[s.copyText, copied && s.copyTextDone]}>
-                {copied ? " Copied" : " Copy"}
-              </Text>
-            </Pressable>
-          ) : null}
+          {showCopy ? <CopyButton text={code} /> : null}
         </View>
       </View>
       <View
@@ -147,7 +128,7 @@ export function CodeBlock({
       </View>
       {collapsible && (
         <Pressable style={s.expandBtn} onPress={() => setExpanded((v) => !v)} hitSlop={6}>
-          <Text style={s.expandText}>{expanded ? "Show less" : "Show more"}</Text>
+          <Text style={s.expandText}>{expanded ? tr("common.show_less") : tr("common.show_more")}</Text>
         </Pressable>
       )}
       {footerExtra ? <View style={s.footer}>{footerExtra}</View> : null}
@@ -185,18 +166,6 @@ function makeStyles(t: Theme) {
       textTransform: "lowercase",
     },
     headerActions: { flexDirection: "row", alignItems: "center", gap: 6 },
-    copyBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 8,
-      backgroundColor: t.bg,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: t.border,
-    },
-    copyText: { fontSize: 12, fontWeight: "600", color: t.textSecondary },
-    copyTextDone: { color: t.primary },
     codeBody: { overflow: "hidden", backgroundColor: t.codeBg },
     codeLines: { padding: 12 },
     codeLineRow: { flexDirection: "row", flexWrap: "nowrap", alignItems: "flex-start" },

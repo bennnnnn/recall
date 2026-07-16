@@ -7,6 +7,7 @@ import * as Clipboard from "expo-clipboard";
 import * as WebBrowser from "expo-web-browser";
 import { Ionicons } from "@expo/vector-icons";
 
+import { CopyButton } from "@/components/CopyButton";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { CODE_FONT } from "@/lib/fonts";
 import { injectPreviewCsp, inlineScript } from "@/lib/previewSandbox";
@@ -58,7 +59,6 @@ function buildMermaidHtml(source: string, theme: Theme): string {
 export function MermaidBlock({ content }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const [copied, setCopied] = useState(false);
   const [showSource, setShowSource] = useState(false);
 
   const mermaidHtml = useMemo(() => buildMermaidHtml(content.trim(), theme), [content, theme]);
@@ -68,12 +68,6 @@ export function MermaidBlock({ content }: Props) {
   const canRenderInline = previewWebView?.mode === "rnc";
   const { canMount, onLoaded } = useDeferredWebViewMount(Boolean(WebView) && canRenderInline);
   const onShouldStartLoadWithRequest = useStaticOnlyNavigation(mermaidHtml);
-
-  const handleCopy = useCallback(async () => {
-    await Clipboard.setStringAsync(content);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  }, [content]);
 
   const handleOpenLiveEditor = useCallback(async () => {
     await Clipboard.setStringAsync(content);
@@ -124,16 +118,7 @@ export function MermaidBlock({ content }: Props) {
       )}
 
       <View style={s.actions}>
-        <Pressable style={s.actionBtn} onPress={handleCopy} hitSlop={8}>
-          <Ionicons
-            name={copied ? "checkmark-circle" : "copy-outline"}
-            size={18}
-            color={copied ? theme.primary : theme.textSecondary}
-          />
-          <Text style={[s.actionLabel, copied && s.actionLabelActive]}>
-            {copied ? "Copied" : "Copy"}
-          </Text>
-        </Pressable>
+        <CopyButton text={content} variant="action" />
         <Pressable style={s.openBtn} onPress={handleOpenLiveEditor} hitSlop={8}>
           <Ionicons name="open-outline" size={18} color={theme.onPrimary} />
           <Text style={s.openLabel}>Mermaid Live</Text>
@@ -185,19 +170,6 @@ function makeStyles(t: Theme) {
     previewText: { fontFamily: CODE_FONT, fontSize: 11, lineHeight: 17, color: t.textSecondary },
     fallbackHint: { fontSize: 12, color: t.textTertiary, marginTop: 8 },
     actions: { flexDirection: "row", gap: 10, paddingHorizontal: 14, paddingVertical: 10 },
-    actionBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      paddingVertical: 8,
-      paddingHorizontal: 14,
-      borderRadius: 10,
-      backgroundColor: t.surface,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: t.border,
-    },
-    actionLabel: { fontSize: 14, fontWeight: "600", color: t.textSecondary },
-    actionLabelActive: { color: t.primary },
     openBtn: {
       flex: 1,
       flexDirection: "row",
