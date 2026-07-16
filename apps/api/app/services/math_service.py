@@ -14,6 +14,8 @@ from sympy import (
     Sum,
     Symbol,
     diff,
+    expand,
+    factor,
     integrate,
     latex,
     limit,
@@ -363,6 +365,20 @@ def newton_method(data: NewtonMethodInput) -> NewtonMethodResult:
 def simplify_expression(expr: str, variable: str = "x") -> MathExprResult:
     parsed = _parse_expression(expr, [variable])
     result = simplify(parsed)
+    return MathExprResult(result=str(result), latex=latex(result))
+
+
+def factor_expression(expr: str, variable: str = "x") -> MathExprResult:
+    """Factor a polynomial/expression into a product of irreducible factors."""
+    parsed = _parse_expression(expr, [variable])
+    result = factor(parsed)
+    return MathExprResult(result=str(result), latex=latex(result))
+
+
+def expand_expression(expr: str, variable: str = "x") -> MathExprResult:
+    """Expand a factored expression into a sum of terms."""
+    parsed = _parse_expression(expr, [variable])
+    result = expand(parsed)
     return MathExprResult(result=str(result), latex=latex(result))
 
 

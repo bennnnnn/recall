@@ -192,6 +192,17 @@ def test_simplify_expression() -> None:
     assert result.result == "2*x"
 
 
+def test_factor_expression() -> None:
+    result = math_service.factor_expression("x**2 - 1", "x")
+    # SymPy factors x^2 - 1 into (x - 1)*(x + 1).
+    assert result.result == "(x - 1)*(x + 1)"
+
+
+def test_expand_expression() -> None:
+    result = math_service.expand_expression("(x - 1)*(x + 1)", "x")
+    assert result.result == "x**2 - 1"
+
+
 def test_differentiate_expression() -> None:
     result = math_service.differentiate_expression("x**2", "x")
     assert "2" in result.latex

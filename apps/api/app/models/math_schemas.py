@@ -360,7 +360,16 @@ class MathIntent(BaseModel):
     unit: str = "cm"
     operation: (
         Literal[
-            "solve", "simplify", "differentiate", "integrate", "graph", "limit", "series", "newton"
+            "solve",
+            "simplify",
+            "differentiate",
+            "integrate",
+            "factor",
+            "expand",
+            "graph",
+            "limit",
+            "series",
+            "newton",
         ]
         | None
     ) = None

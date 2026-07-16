@@ -139,7 +139,7 @@ _VERTICAL_LINE = re.compile(
 )
 
 _CALC_OP = re.compile(
-    r"\b(simplify|differentiate|derivative|integrate|integral)\b",
+    r"\b(simplify|differentiate|derivative|integrate|integral|factor|expand)\b",
     re.IGNORECASE,
 )
 
@@ -469,13 +469,19 @@ def extract_math_intent(text: str) -> MathIntent | None:
     calc = _CALC_OP.search(cleaned)
     if calc:
         op_word = calc.group(1).lower()
-        calc_op: Literal["simplify", "differentiate", "integrate"] = (
+        calc_op: Literal["simplify", "differentiate", "integrate", "factor", "expand"] = (
             "differentiate" if op_word in {"differentiate", "derivative"} else "integrate"
         )
         if op_word == "simplify":
             calc_op = "simplify"
+        elif op_word == "factor":
+            calc_op = "factor"
+        elif op_word == "expand":
+            calc_op = "expand"
         expr_match = re.search(
-            r"(?:simplify|differentiate|derivative|integrate|integral)\s+(.+)$", cleaned, re.I
+            r"(?:simplify|differentiate|derivative|integrate|integral|factor|expand)\s+(.+)$",
+            cleaned,
+            re.I,
         )
         expr = _strip_trailing_filler(expr_match.group(1)) if expr_match else cleaned
         return MathIntent(kind="calculus", expr=expr, operation=calc_op)
@@ -896,6 +902,10 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
                 out = math_service.differentiate_expression(intent.expr, intent.variable)
             elif intent.operation == "integrate":
                 out = math_service.integrate_expression(intent.expr, intent.variable)
+            elif intent.operation == "factor":
+                out = math_service.factor_expression(intent.expr, intent.variable)
+            elif intent.operation == "expand":
+                out = math_service.expand_expression(intent.expr, intent.variable)
             else:
                 return None
             if not out.solved:

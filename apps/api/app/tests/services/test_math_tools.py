@@ -275,6 +275,25 @@ def test_extract_calculus_intent_strips_trailing_prose(text: str, expected_expr:
 
 
 @pytest.mark.parametrize(
+    "text, expected_op",
+    [
+        ("factor x^2 - 1", "factor"),
+        ("expand (x-1)(x+1)", "expand"),
+        ("Factor the polynomial x^3 - 1", "factor"),
+    ],
+)
+def test_extract_factor_expand_intent(text: str, expected_op: str) -> None:
+    """BUG FIX regression: factor/expand were in _MATH_KEYWORDS (so they
+    enabled the math path) but had no intent branch — a silent no-op. They
+    now route to a calculus factor/expand operation."""
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "calculus"
+    assert intent.operation == expected_op
+    assert intent.expr
+
+
+@pytest.mark.parametrize(
     "text, expected_expr, expected_var, expected_point",
     [
         ("find the limit of x^2 as x approaches 3", "x**2", "x", "3"),
