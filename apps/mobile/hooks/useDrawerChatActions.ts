@@ -228,6 +228,12 @@ export function useDrawerChatActions({
               for (const chat of chats) {
                 removeChatFromGroupsById(chat.id);
               }
+              // Clear the selection immediately — the chats are already
+              // removed from the list (optimistic update), so holding the
+              // selection count ("37 selected" over an empty list) until the
+              // API resolves is confusing. If the delete fails, the chats
+              // are restored below and the user can re-select.
+              onSuccess?.();
               const results = await Promise.allSettled(
                 chats.map((chat) => api.deleteChat(token, chat.id)),
               );
@@ -241,7 +247,6 @@ export function useDrawerChatActions({
                   t("drawer.bulk_deleted_toast", { count: chats.length }),
                   "trash-outline",
                 );
-                onSuccess?.();
                 return;
               }
               for (const chat of snapshots) {
