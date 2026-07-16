@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,6 +24,7 @@ export function UpgradeSheet({ visible, onClose }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = makeStyles(theme);
+  const insets = useSafeAreaInsets();
   const { token, refreshUser } = useAuth();
   const [pkg, setPkg] = useState<ProPurchasePackage | null>(null);
   const [loadingOffer, setLoadingOffer] = useState(false);
@@ -109,7 +111,7 @@ export function UpgradeSheet({ visible, onClose }: Props) {
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={s.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View style={s.sheet}>
+        <View style={[s.sheet, { paddingBottom: Math.max(insets.bottom, 36) }]}>
           <View style={s.iconWrap}>
             <Ionicons name="sparkles" size={28} color={theme.primary} />
           </View>
@@ -186,7 +188,6 @@ const makeStyles = (theme: Theme) =>
       borderTopRightRadius: 20,
       paddingHorizontal: 24,
       paddingTop: 28,
-      paddingBottom: 36,
       gap: 12,
     },
     iconWrap: {

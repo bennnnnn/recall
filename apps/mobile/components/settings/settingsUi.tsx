@@ -599,6 +599,7 @@ export function makeSettingsStyles(t: Theme) {
       marginLeft: 14,
     },
 
+    mKeyboardAvoider: { flex: 1 },
     mOverlay: { flex: 1, backgroundColor: t.scrim, justifyContent: "center", padding: 24 },
     mSheet: { backgroundColor: t.bg, borderRadius: 20, padding: 20, gap: 14 },
     mTitle: { fontSize: 17, fontWeight: "700", color: t.text },

@@ -1,7 +1,9 @@
 import { useCallback, useMemo, useState } from "react";
 import {
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -318,31 +320,36 @@ export default function SettingsScreen() {
         animationType="fade"
         onRequestClose={() => setEditField(null)}
       >
-        <Pressable style={s.mOverlay} onPress={() => setEditField(null)}>
-          <Pressable style={s.mSheet} onPress={(e) => e.stopPropagation()}>
-            <Text style={s.mTitle}>{fieldTitle}</Text>
-            <TextInput
-              style={s.mInput}
-              value={fieldText}
-              onChangeText={setFieldText}
-              autoFocus
-              returnKeyType="done"
-              onSubmitEditing={() => void saveField()}
-              maxLength={fieldMaxLength}
-              placeholder={fieldPlaceholder}
-              placeholderTextColor={theme.textTertiary}
-              keyboardType={fieldKeyboard}
-            />
-            <View style={s.mActions}>
-              <Pressable style={s.mCancel} onPress={() => setEditField(null)}>
-                <Text style={s.mCancelText}>{t("settings.cancel")}</Text>
-              </Pressable>
-              <Pressable style={s.mSave} onPress={() => void saveField()}>
-                <Text style={s.mSaveText}>{t("settings.save")}</Text>
-              </Pressable>
-            </View>
+        <KeyboardAvoidingView
+          style={s.mKeyboardAvoider}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <Pressable style={s.mOverlay} onPress={() => setEditField(null)}>
+            <Pressable style={s.mSheet} onPress={(e) => e.stopPropagation()}>
+              <Text style={s.mTitle}>{fieldTitle}</Text>
+              <TextInput
+                style={s.mInput}
+                value={fieldText}
+                onChangeText={setFieldText}
+                autoFocus
+                returnKeyType="done"
+                onSubmitEditing={() => void saveField()}
+                maxLength={fieldMaxLength}
+                placeholder={fieldPlaceholder}
+                placeholderTextColor={theme.textTertiary}
+                keyboardType={fieldKeyboard}
+              />
+              <View style={s.mActions}>
+                <Pressable style={s.mCancel} onPress={() => setEditField(null)}>
+                  <Text style={s.mCancelText}>{t("settings.cancel")}</Text>
+                </Pressable>
+                <Pressable style={s.mSave} onPress={() => void saveField()}>
+                  <Text style={s.mSaveText}>{t("settings.save")}</Text>
+                </Pressable>
+              </View>
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
 
       <UpgradeSheet visible={upgradeVisible} onClose={() => setUpgradeVisible(false)} />

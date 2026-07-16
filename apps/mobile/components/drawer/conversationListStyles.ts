@@ -99,12 +99,6 @@ export function makeConversationListStyles(theme: Theme) {
       justifyContent: "center",
     },
     navBadge: { position: "absolute", top: -6, right: -10 },
-    inlineEmpty: {
-      alignItems: "center",
-      justifyContent: "center",
-      paddingVertical: 32,
-      gap: 8,
-    },
     list: { flex: 1 },
     section: { marginTop: 18 },
     sectionTitle: {
@@ -129,14 +123,6 @@ export function makeConversationListStyles(theme: Theme) {
       color: theme.textTertiary,
       marginLeft: "auto",
     },
-    emptyText: { fontSize: 15, color: theme.textSecondary, fontWeight: "500" },
-    retryBtn: {
-      paddingHorizontal: 20,
-      paddingVertical: 8,
-      borderRadius: 10,
-      backgroundColor: theme.primary,
-    },
-    retryText: { fontSize: 14, fontWeight: "600", color: theme.onPrimary },
     footer: {
       position: "absolute",
       bottom: 0,

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Modal, Pressable, Text, TextInput, View } from "react-native";
+import { KeyboardAvoidingView, Modal, Platform, Pressable, Text, TextInput, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { useTheme } from "@/lib/theme";
@@ -17,6 +18,7 @@ export function NewListSheet({
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeTodosStyles(C), [C]);
+  const insets = useSafeAreaInsets();
   const [name, setName] = useState("");
 
   useEffect(() => {
@@ -27,9 +29,12 @@ export function NewListSheet({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={s.sheetOverlay}>
+      <KeyboardAvoidingView
+        style={s.sheetOverlay}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
         <Pressable style={s.sheetBackdrop} onPress={onClose} />
-        <View style={s.sheet}>
+        <View style={[s.sheet, { paddingBottom: insets.bottom }]}>
           <View style={s.sheetHeader}>
             <Pressable onPress={onClose} hitSlop={8}>
               <Text style={s.sheetCancel}>{t("common.cancel")}</Text>
@@ -59,7 +64,7 @@ export function NewListSheet({
             />
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

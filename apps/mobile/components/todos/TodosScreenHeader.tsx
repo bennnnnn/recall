@@ -107,18 +107,12 @@ export function TodosScreenHeader({
   return (
     <>
       {error ? (
-        <View style={s.empty}>
-          <Ionicons
-            name="cloud-offline-outline"
-            size={48}
-            color={C.textTertiary}
-            style={s.emptyIcon}
-          />
-          <Text style={s.emptyTitle}>{t("common.error")}</Text>
-          <Pressable style={s.retryBtn} onPress={onRetry}>
-            <Text style={s.retryText}>{t("common.retry")}</Text>
-          </Pressable>
-        </View>
+        <StateView
+          variant="error"
+          title={t("common.error")}
+          onRetry={onRetry}
+          retryLabel={t("common.retry")}
+        />
       ) : showRemindersEmptyHero ? (
         <View style={s.empty}>
           <View style={s.emptyIconWrap}>

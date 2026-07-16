@@ -1,11 +1,11 @@
 import { useCallback, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,8 +18,10 @@ import { useTranslation } from "react-i18next";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjects } from "@/contexts/ProjectsContext";
+import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { LearningProjectCard } from "@/components/projects/LearningProjectCard";
+import { StepPicker } from "@/components/projects/StepPicker";
 import { api, type LanguageLevel, type Project, type ProjectKind } from "@/lib/api";
 import {
   dailyGoalPickerOptions,
@@ -89,6 +91,7 @@ export default function ProjectsScreen() {
   const [dailyGoal, setDailyGoal] = useState<VocabDailyGoal>(DEFAULT_VOCAB_DAILY_GOAL);
   const [triviaTopics, setTriviaTopics] = useState<TriviaTopicId[]>(["history", "science"]);
   const [creating, setCreating] = useState(false);
+  const [pullRefreshing, setPullRefreshing] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -292,151 +295,85 @@ export default function ProjectsScreen() {
         ) : null}
 
         {createStep === "level" ? (
-          <>
-            <Text style={s.createLabel}>{t("projects.level_label")}</Text>
-            <Text style={s.stepHint}>{t("projects.level_hint")}</Text>
-            <View style={s.subjectList}>
-              {LANGUAGE_LEVELS.map((item) => (
-                <Pressable
-                  key={item}
-                  style={[s.subjectRow, level === item && s.subjectRowActive]}
-                  onPress={() => setLevel(item)}
-                >
-                  <Text style={[s.subjectText, level === item && s.subjectTextActive]}>
-                    {levelLabel(item)}
-                  </Text>
-                  {level === item ? (
-                    <Ionicons name="checkmark" size={18} color={C.primary} />
-                  ) : null}
-                </Pressable>
-              ))}
-            </View>
-            <View style={s.createActions}>
-              <Pressable style={s.secondaryBtn} onPress={() => setCreateStep("subject")}>
-                <Text style={s.secondaryBtnText}>{t("projects.back")}</Text>
-              </Pressable>
-              <Pressable style={s.primaryBtn} onPress={() => setCreateStep("daily")}>
-                <Text style={s.primaryBtnText}>{t("common.continue")}</Text>
-              </Pressable>
-            </View>
-          </>
+          <StepPicker
+            label={t("projects.level_label")}
+            hint={t("projects.level_hint")}
+            options={LANGUAGE_LEVELS.map((item) => ({
+              key: item,
+              value: item,
+              label: levelLabel(item),
+            }))}
+            isSelected={(value) => value === level}
+            onSelect={setLevel}
+            backLabel={t("projects.back")}
+            onBack={() => setCreateStep("subject")}
+            continueLabel={t("common.continue")}
+            onContinue={() => setCreateStep("daily")}
+          />
         ) : null}
 
         {createStep === "topics" ? (
-          <>
-            <Text style={s.createLabel}>{t("projects.trivia.topics_label")}</Text>
-            <Text style={s.stepHint}>{t("projects.trivia.topics_hint")}</Text>
-            <View style={s.subjectList}>
-              {TRIVIA_TOPICS.map((topic) => {
-                const selected = triviaTopics.includes(topic.id);
-                return (
-                  <Pressable
-                    key={topic.id}
-                    style={[s.subjectRow, selected && s.subjectRowActive]}
-                    onPress={() => toggleTriviaTopic(topic.id)}
-                  >
-                    <Text style={[s.subjectText, selected && s.subjectTextActive]}>
-                      {t(topic.labelKey)}
-                    </Text>
-                    {selected ? (
-                      <Ionicons name="checkmark" size={18} color={C.primary} />
-                    ) : null}
-                  </Pressable>
-                );
-              })}
-            </View>
-            <View style={s.createActions}>
-              <Pressable style={s.secondaryBtn} onPress={() => setCreateStep("subject")}>
-                <Text style={s.secondaryBtnText}>{t("projects.back")}</Text>
-              </Pressable>
-              <Pressable style={s.primaryBtn} onPress={() => setCreateStep("trivia_level")}>
-                <Text style={s.primaryBtnText}>{t("common.continue")}</Text>
-              </Pressable>
-            </View>
-          </>
+          <StepPicker
+            label={t("projects.trivia.topics_label")}
+            hint={t("projects.trivia.topics_hint")}
+            options={TRIVIA_TOPICS.map((topic) => ({
+              key: topic.id,
+              value: topic.id,
+              label: t(topic.labelKey),
+            }))}
+            isSelected={(value) => triviaTopics.includes(value)}
+            onSelect={toggleTriviaTopic}
+            backLabel={t("projects.back")}
+            onBack={() => setCreateStep("subject")}
+            continueLabel={t("common.continue")}
+            onContinue={() => setCreateStep("trivia_level")}
+          />
         ) : null}
 
         {createStep === "trivia_level" ? (
-          <>
-            <Text style={s.createLabel}>{t("projects.trivia.difficulty_label")}</Text>
-            <Text style={s.stepHint}>{t("projects.trivia.difficulty_hint")}</Text>
-            <View style={s.subjectList}>
-              {TRIVIA_DIFFICULTY_LEVELS.map((item) => (
-                <Pressable
-                  key={item.level}
-                  style={[s.subjectRow, triviaLevel === item.level && s.subjectRowActive]}
-                  onPress={() => setTriviaLevel(item.level)}
-                >
-                  <Text style={[s.subjectText, triviaLevel === item.level && s.subjectTextActive]}>
-                    {t(item.labelKey)}
-                  </Text>
-                  {triviaLevel === item.level ? (
-                    <Ionicons name="checkmark" size={18} color={C.primary} />
-                  ) : null}
-                </Pressable>
-              ))}
-            </View>
-            <View style={s.createActions}>
-              <Pressable style={s.secondaryBtn} onPress={() => setCreateStep("topics")}>
-                <Text style={s.secondaryBtnText}>{t("projects.back")}</Text>
-              </Pressable>
-              <Pressable style={s.primaryBtn} onPress={() => setCreateStep("daily")}>
-                <Text style={s.primaryBtnText}>{t("common.continue")}</Text>
-              </Pressable>
-            </View>
-          </>
+          <StepPicker
+            label={t("projects.trivia.difficulty_label")}
+            hint={t("projects.trivia.difficulty_hint")}
+            options={TRIVIA_DIFFICULTY_LEVELS.map((item) => ({
+              key: item.level,
+              value: item.level,
+              label: t(item.labelKey),
+            }))}
+            isSelected={(value) => value === triviaLevel}
+            onSelect={setTriviaLevel}
+            backLabel={t("projects.back")}
+            onBack={() => setCreateStep("topics")}
+            continueLabel={t("common.continue")}
+            onContinue={() => setCreateStep("daily")}
+          />
         ) : null}
 
         {createStep === "daily" ? (
-          <>
-            <Text style={s.createLabel}>
-              {kind === "trivia"
-                ? t("projects.trivia.daily_label")
-                : t("projects.daily_goal_label")}
-            </Text>
-            <Text style={s.stepHint}>
-              {kind === "trivia" ? t("projects.trivia.daily_hint") : t("projects.daily_goal_hint")}
-            </Text>
-            <View style={s.subjectList}>
-              {VOCAB_DAILY_GOALS.map((item) => (
-                <Pressable
-                  key={item}
-                  style={[s.subjectRow, dailyGoal === item && s.subjectRowActive]}
-                  onPress={() => setDailyGoal(item)}
-                >
-                  <Text style={[s.subjectText, dailyGoal === item && s.subjectTextActive]}>
-                    {kind === "trivia"
-                      ? t("projects.trivia.daily_questions", { count: item })
-                      : t("projects.daily_goal_words", { count: item })}
-                  </Text>
-                  {dailyGoal === item ? (
-                    <Ionicons name="checkmark" size={18} color={C.primary} />
-                  ) : null}
-                </Pressable>
-              ))}
-            </View>
-            <View style={s.createActions}>
-              <Pressable
-                style={s.secondaryBtn}
-                onPress={() => setCreateStep(kind === "trivia" ? "trivia_level" : "level")}
-              >
-                <Text style={s.secondaryBtnText}>{t("projects.back")}</Text>
-              </Pressable>
-              <Pressable
-                style={[s.primaryBtn, creating && s.primaryBtnDisabled]}
-                disabled={creating}
-                onPress={() =>
-                  void (kind === "trivia" ? handleCreateTrivia() : handleCreateEnglish())
-                }
-              >
-                {creating ? (
-                  <ActivityIndicator color={C.onPrimary} />
-                ) : (
-                  <Text style={s.primaryBtnText}>{t("projects.create")}</Text>
-                )}
-              </Pressable>
-            </View>
-          </>
+          <StepPicker
+            label={
+              kind === "trivia" ? t("projects.trivia.daily_label") : t("projects.daily_goal_label")
+            }
+            hint={
+              kind === "trivia" ? t("projects.trivia.daily_hint") : t("projects.daily_goal_hint")
+            }
+            options={VOCAB_DAILY_GOALS.map((item) => ({
+              key: String(item),
+              value: item,
+              label:
+                kind === "trivia"
+                  ? t("projects.trivia.daily_questions", { count: item })
+                  : t("projects.daily_goal_words", { count: item }),
+            }))}
+            isSelected={(value) => value === dailyGoal}
+            onSelect={setDailyGoal}
+            backLabel={t("projects.back")}
+            onBack={() => setCreateStep(kind === "trivia" ? "trivia_level" : "level")}
+            continueLabel={t("projects.create")}
+            onContinue={() =>
+              void (kind === "trivia" ? handleCreateTrivia() : handleCreateEnglish())
+            }
+            continueBusy={creating}
+          />
         ) : null}
       </>
     );
@@ -445,11 +382,23 @@ export default function ProjectsScreen() {
   return (
     <View style={s.root}>
       {loading && visibleProjects.length === 0 && !error ? (
-        <View style={s.center}>
-          <ActivityIndicator color={C.primary} />
-        </View>
+        <SkeletonList />
       ) : (
-        <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={s.content}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl
+              refreshing={pullRefreshing}
+              onRefresh={async () => {
+                setPullRefreshing(true);
+                await refresh({ silent: true, force: true });
+                setPullRefreshing(false);
+              }}
+              tintColor={C.primary}
+            />
+          }
+        >
           {showAddLearning ? (
             <Pressable style={s.newProjectBtn} onPress={openCreate}>
               <Ionicons name="add-circle-outline" size={22} color={C.primary} />
@@ -530,7 +479,6 @@ export default function ProjectsScreen() {
 function makeStyles(C: Theme) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: C.bg },
-    center: { flex: 1, alignItems: "center", justifyContent: "center" },
     content: { padding: 16, gap: 12, paddingBottom: 32 },
     newProjectBtn: {
       flexDirection: "row",
@@ -612,27 +560,6 @@ function makeStyles(C: Theme) {
       color: C.text,
     },
     inputMultiline: { minHeight: 88, textAlignVertical: "top" },
-    createActions: { flexDirection: "row", gap: 10, marginTop: 8 },
-    secondaryBtn: {
-      flex: 1,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: C.border,
-      paddingVertical: 12,
-      alignItems: "center",
-    },
-    secondaryBtnText: { fontSize: 15, fontWeight: "600", color: C.textSecondary },
-    primaryBtn: {
-      flex: 1,
-      borderRadius: 12,
-      backgroundColor: C.primary,
-      paddingVertical: 12,
-      alignItems: "center",
-      justifyContent: "center",
-      minHeight: 46,
-    },
-    primaryBtnDisabled: { opacity: 0.45 },
-    primaryBtnText: { fontSize: 15, fontWeight: "700", color: C.onPrimary },
     empty: {
       textAlign: "center",
       color: C.textSecondary,

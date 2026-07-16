@@ -16,6 +16,8 @@ import { ProjectDailyStrip } from "@/components/ProjectDailyStrip";
 import { ProjectDayItemsList, type ProjectStudyAction } from "@/components/ProjectDayItemsList";
 import { ProjectProgressHero, type ProjectDaySnapshot } from "@/components/ProjectProgressHero";
 import { ProjectItemRow } from "@/components/ProjectItemRow";
+import { SkeletonList } from "@/components/SkeletonLoader";
+import { StateView } from "@/components/StateView";
 import { LearningContinueCta } from "@/components/projects/LearningContinueCta";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, type ProjectDetail, type VocabStatus } from "@/lib/api";
@@ -192,25 +194,19 @@ export default function ProjectDetailScreen() {
   };
 
   if (loading && !project) {
-    return (
-      <View style={s.center}>
-        <ActivityIndicator color={theme.primary} />
-      </View>
-    );
+    return <SkeletonList />;
   }
 
   if (!project) {
-    return (
-      <View style={s.center}>
-        <Text style={s.empty}>
-          {loadError ? t("projects.load_failed") : t("projects.not_found")}
-        </Text>
-        {loadError ? (
-          <Pressable style={s.retryBtn} onPress={() => void load()}>
-            <Text style={s.retryText}>{t("common.retry")}</Text>
-          </Pressable>
-        ) : null}
-      </View>
+    return loadError ? (
+      <StateView
+        variant="error"
+        title={t("projects.load_failed")}
+        onRetry={() => void load()}
+        retryLabel={t("common.retry")}
+      />
+    ) : (
+      <StateView variant="empty" title={t("projects.not_found")} />
     );
   }
 
@@ -429,18 +425,8 @@ export default function ProjectDetailScreen() {
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bg },
-    center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.bg },
     content: { padding: 16, gap: 16, paddingBottom: 40 },
     studyCtaBeforeList: { marginBottom: 8 },
-    empty: { fontSize: 15, color: theme.textSecondary, textAlign: "center", paddingHorizontal: 24 },
-    retryBtn: {
-      marginTop: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: 999,
-      backgroundColor: theme.primaryLight,
-    },
-    retryText: { fontSize: 14, fontWeight: "600", color: theme.primary },
     hero: { gap: 8 },
     title: { fontSize: 28, fontWeight: "800", color: theme.text, letterSpacing: -0.5 },
     description: { fontSize: 16, lineHeight: 24, color: theme.textSecondary },

@@ -162,3 +162,34 @@ export const darkTheme: Theme = {
 export function useTheme(): Theme {
   return useResolvedColorScheme() === "dark" ? darkTheme : lightTheme;
 }
+
+const HEX_COLOR_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+const RGB_COLOR_RE = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*[\d.]+\s*)?\)$/;
+
+/**
+ * Apply an alpha channel to any theme color — hex or already-rgba(...) alike
+ * — so fades/scrims/tints don't need format-specific handling. Components
+ * used to do this by string-concatenating a hex alpha suffix directly onto a
+ * token (e.g. `` `${theme.bg}FA` ``), which only works when that token
+ * happens to be a 6-digit hex string. It silently produces an invalid color
+ * (and a blank/opaque render) the moment it's applied to a token that is
+ * already `rgba(...)` — which `theme.scrim` and dark mode's `successLight`
+ * already are. `alpha` is 0-1; unrecognized formats are returned unchanged
+ * rather than mangled.
+ */
+export function withAlpha(color: string, alpha: number): string {
+  const clamped = Math.max(0, Math.min(1, alpha));
+  const hex = color.match(HEX_COLOR_RE)?.[1];
+  if (hex) {
+    const full = hex.length === 3 ? hex.split("").map((c) => c + c).join("") : hex;
+    const r = parseInt(full.slice(0, 2), 16);
+    const g = parseInt(full.slice(2, 4), 16);
+    const b = parseInt(full.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${clamped})`;
+  }
+  const rgb = color.match(RGB_COLOR_RE);
+  if (rgb) {
+    return `rgba(${rgb[1]}, ${rgb[2]}, ${rgb[3]}, ${clamped})`;
+  }
+  return color;
+}

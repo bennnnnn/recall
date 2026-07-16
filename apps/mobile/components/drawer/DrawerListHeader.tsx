@@ -1,8 +1,7 @@
-import { Pressable, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
 import { SkeletonList } from "@/components/SkeletonLoader";
+import { StateView } from "@/components/StateView";
 import { DrawerNavLinks } from "@/components/drawer/DrawerNavLinks";
 import { DrawerSearchResults } from "@/components/drawer/DrawerSearchResults";
 import type { ConversationListStyles } from "@/components/drawer/conversationListStyles";
@@ -70,17 +69,13 @@ export function DrawerListHeader({
       {loading && activeChatCount === 0 && !searchOpen ? (
         <SkeletonList count={4} />
       ) : error && activeChatCount === 0 ? (
-        <View style={s.inlineEmpty}>
-          <Ionicons
-            name="cloud-offline-outline"
-            size={36}
-            color={theme.textTertiary}
-          />
-          <Text style={s.emptyText}>{t("drawer.cant_reach")}</Text>
-          <Pressable style={s.retryBtn} onPress={onRetry}>
-            <Text style={s.retryText}>{t("common.retry")}</Text>
-          </Pressable>
-        </View>
+        <StateView
+          variant="error"
+          compact
+          message={t("drawer.cant_reach")}
+          onRetry={onRetry}
+          retryLabel={t("common.retry")}
+        />
       ) : null}
       {searchOpen ? (
         <DrawerSearchResults

@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -58,55 +60,63 @@ export function ImageGenPromptSheet({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
-      <Pressable style={s.backdrop} onPress={handleClose}>
-        <Pressable
-          style={[s.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}
-          onPress={(event) => event.stopPropagation()}
-        >
-          <Text style={s.title}>{t("chat.image_gen_title")}</Text>
-          <TextInput
-            style={s.input}
-            value={prompt}
-            onChangeText={setPrompt}
-            placeholder={t("chat.image_gen_placeholder")}
-            placeholderTextColor={theme.textTertiary}
-            multiline
-            maxLength={2000}
-            editable={!generating}
-            autoFocus
-          />
-          <View style={s.actions}>
-            <Pressable
-              style={({ pressed }) => [s.secondaryBtn, pressed && s.btnPressed]}
-              onPress={handleClose}
-              disabled={generating}
-            >
-              <Text style={s.secondaryLabel}>{t("common.cancel")}</Text>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [
-                s.primaryBtn,
-                (!prompt.trim() || generating) && s.primaryBtnDisabled,
-                pressed && prompt.trim() && !generating && s.btnPressed,
-              ]}
-              onPress={handleSubmit}
-              disabled={!prompt.trim() || generating}
-            >
-              {generating ? (
-                <ActivityIndicator color={theme.onPrimary} size="small" />
-              ) : (
-                <Text style={s.primaryLabel}>{t("chat.image_gen_generate")}</Text>
-              )}
-            </Pressable>
-          </View>
+      <KeyboardAvoidingView
+        style={s.keyboardAvoider}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <Pressable style={s.backdrop} onPress={handleClose}>
+          <Pressable
+            style={[s.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <Text style={s.title}>{t("chat.image_gen_title")}</Text>
+            <TextInput
+              style={s.input}
+              value={prompt}
+              onChangeText={setPrompt}
+              placeholder={t("chat.image_gen_placeholder")}
+              placeholderTextColor={theme.textTertiary}
+              multiline
+              maxLength={2000}
+              editable={!generating}
+              autoFocus
+            />
+            <View style={s.actions}>
+              <Pressable
+                style={({ pressed }) => [s.secondaryBtn, pressed && s.btnPressed]}
+                onPress={handleClose}
+                disabled={generating}
+              >
+                <Text style={s.secondaryLabel}>{t("common.cancel")}</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  s.primaryBtn,
+                  (!prompt.trim() || generating) && s.primaryBtnDisabled,
+                  pressed && prompt.trim() && !generating && s.btnPressed,
+                ]}
+                onPress={handleSubmit}
+                disabled={!prompt.trim() || generating}
+              >
+                {generating ? (
+                  <ActivityIndicator color={theme.onPrimary} size="small" />
+                ) : (
+                  <Text style={s.primaryLabel}>{t("chat.image_gen_generate")}</Text>
+                )}
+              </Pressable>
+            </View>
+          </Pressable>
         </Pressable>
-      </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
+    keyboardAvoider: {
+      flex: 1,
+    },
     backdrop: {
       flex: 1,
       backgroundColor: t.scrim,
