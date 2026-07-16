@@ -14,6 +14,8 @@ from sympy import (
     Sum,
     Symbol,
     diff,
+    expand,
+    factor,
     integrate,
     latex,
     limit,
@@ -188,6 +190,21 @@ def _worked_isolation_steps(lhs: Any, rhs: Any, variable: str) -> list[str]:
             steps.append(f"Take square root: {variable} = \\pm {latex(root)}")
         else:
             steps.append(f"Take square root: {variable} = \\pm \\sqrt{{{latex(radicand)}}}")
+        return steps
+
+    if degree == 2 and c2 != 0 and c1 != 0:
+        # General quadratic a*x^2 + b*x + c = 0 — emit the discriminant and
+        # the quadratic formula so the model can copy verified steps instead
+        # of re-deriving (and corrupting) the algebra when b != 0.
+        discriminant = simplify(c1**2 - 4 * c2 * c0)
+        steps.append(
+            f"Discriminant: \\Delta = {latex(c1)}^{{2}} - 4({latex(c2)})({latex(c0)}) "
+            f"= {latex(discriminant)}"
+        )
+        steps.append(
+            f"Quadratic formula: {variable} = \\frac{{-{latex(c1)} \\pm "
+            f"\\sqrt{{{latex(discriminant)}}}}}{{2({latex(c2)})}}"
+        )
         return steps
 
     return steps
@@ -366,6 +383,20 @@ def simplify_expression(expr: str, variable: str = "x") -> MathExprResult:
     return MathExprResult(result=str(result), latex=latex(result))
 
 
+def factor_expression(expr: str, variable: str = "x") -> MathExprResult:
+    """Factor a polynomial/expression into a product of irreducible factors."""
+    parsed = _parse_expression(expr, [variable])
+    result = factor(parsed)
+    return MathExprResult(result=str(result), latex=latex(result))
+
+
+def expand_expression(expr: str, variable: str = "x") -> MathExprResult:
+    """Expand a factored expression into a sum of terms."""
+    parsed = _parse_expression(expr, [variable])
+    result = expand(parsed)
+    return MathExprResult(result=str(result), latex=latex(result))
+
+
 def differentiate_expression(expr: str, variable: str = "x") -> MathExprResult:
     sym = Symbol(variable)
     parsed = _parse_expression(expr, [variable])
@@ -380,6 +411,25 @@ def integrate_expression(expr: str, variable: str = "x") -> MathExprResult:
     # integrate() can fail to find a closed form and hand back a result that
     # still contains an unevaluated Integral(...) rather than raising —
     # callers must not treat that as a verified, fully-solved answer.
+    solved = not result.has(Integral)
+    return MathExprResult(result=str(result), latex=latex(result), solved=solved)
+
+
+def integrate_definite(expr: str, variable: str, lower: str, upper: str) -> MathExprResult:
+    """Definite integral of expr w.r.t. variable from `lower` to `upper`.
+
+    Bounds are infinity-aware ("oo"/"inf"/"infty" → sympy.oo) via the same
+    parser limits/series use. A divergent/improper integral may evaluate to
+    oo/-oo/zoo; that is reported as the result rather than raising.
+    """
+    sym = Symbol(variable)
+    parsed = _parse_expression(expr, [variable])
+    a = _parse_infinity_aware_point(lower)
+    b = _parse_infinity_aware_point(upper)
+    try:
+        result = integrate(parsed, (sym, a, b))
+    except Exception as exc:
+        raise MathServiceError(f"Could not compute definite integral of: {expr}") from exc
     solved = not result.has(Integral)
     return MathExprResult(result=str(result), latex=latex(result), solved=solved)
 

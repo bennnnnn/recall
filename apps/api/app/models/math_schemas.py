@@ -364,7 +364,16 @@ class MathIntent(BaseModel):
     unit: str = "cm"
     operation: (
         Literal[
-            "solve", "simplify", "differentiate", "integrate", "graph", "limit", "series", "newton"
+            "solve",
+            "simplify",
+            "differentiate",
+            "integrate",
+            "factor",
+            "expand",
+            "graph",
+            "limit",
+            "series",
+            "newton",
         ]
         | None
     ) = None
@@ -374,6 +383,9 @@ class MathIntent(BaseModel):
     limit_point: str | None = None
     series_start: str | None = None
     series_end: str | None = None
+    # Definite-integral bounds — strings (infinity-aware, like limit_point).
+    integral_lower: str | None = None
+    integral_upper: str | None = None
     # System of equations — list of (lhs, rhs) pairs; `lhs`/`rhs`/`variable`
     # above stay single-equation-only for every other kind.
     system_equations: list[tuple[str, str]] | None = None

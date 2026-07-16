@@ -275,6 +275,44 @@ def test_extract_calculus_intent_strips_trailing_prose(text: str, expected_expr:
 
 
 @pytest.mark.parametrize(
+    "text, expected_op",
+    [
+        ("factor x^2 - 1", "factor"),
+        ("expand (x-1)(x+1)", "expand"),
+        ("Factor the polynomial x^3 - 1", "factor"),
+    ],
+)
+def test_extract_factor_expand_intent(text: str, expected_op: str) -> None:
+    """BUG FIX regression: factor/expand were in _MATH_KEYWORDS (so they
+    enabled the math path) but had no intent branch — a silent no-op. They
+    now route to a calculus factor/expand operation."""
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "calculus"
+    assert intent.operation == expected_op
+    assert intent.expr
+
+
+def test_extract_definite_integral_bounds() -> None:
+    """'integrate x^2 from 0 to 1' parses bounds and strips them from expr."""
+    intent = math_tools.extract_math_intent("integrate x^2 from 0 to 1")
+    assert intent is not None
+    assert intent.kind == "calculus"
+    assert intent.operation == "integrate"
+    assert intent.expr == "x^2"
+    assert intent.integral_lower == "0"
+    assert intent.integral_upper == "1"
+
+
+def test_extract_indefinite_integral_has_no_bounds() -> None:
+    intent = math_tools.extract_math_intent("integrate x^2")
+    assert intent is not None
+    assert intent.operation == "integrate"
+    assert intent.integral_lower is None
+    assert intent.integral_upper is None
+
+
+@pytest.mark.parametrize(
     "text, expected_cmp",
     [
         ("solve x**2 - 1 > 0", ">"),
