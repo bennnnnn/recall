@@ -87,6 +87,14 @@ export function useChat(
   const onFirstReplyRef = useRef(options.onFirstReply);
   const onErrorRef = useRef(options.onError);
   const onTodosSyncRef = useRef(options.onTodosSync);
+  // Pending todo-sync follow-up timers (the post-done 2.5s/7s refreshes). Held
+  // here so they can be cancelled on chat switch / unmount — otherwise a slow
+  // timer from chat A fires `onTodosSync` after we've moved to chat B.
+  const todoSyncTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const clearTodoSyncTimers = useCallback(() => {
+    for (const id of todoSyncTimersRef.current) clearTimeout(id);
+    todoSyncTimersRef.current = [];
+  }, []);
   onFirstReplyRef.current = options.onFirstReply;
   onErrorRef.current = options.onError;
   onTodosSyncRef.current = options.onTodosSync;
@@ -151,6 +159,7 @@ export function useChat(
       if (draftRafRef.current != null) {
         cancelAnimationFrame(draftRafRef.current);
       }
+      clearTodoSyncTimers();
       sseAbortRef.current?.abort();
       wsRef.current?.close();
     };
@@ -169,6 +178,7 @@ export function useChat(
     firstReplyRef.current = false;
     regenerateBackupRef.current = null;
     stoppedStreamedIdRef.current = null;
+    clearTodoSyncTimers();
     updateStreamingDraft(null);
     setStreaming(false);
     setFinalizing(false);
@@ -252,8 +262,11 @@ export function useChat(
         if (payload.todos_sync === "1") {
           onTodosSyncRef.current?.();
           // Background list extract can lag; refresh again so Lists/Reminders catch up.
-          setTimeout(() => onTodosSyncRef.current?.(), 2500);
-          setTimeout(() => onTodosSyncRef.current?.(), 7000);
+          // Tracked so they're cancelled on chat switch / unmount (no firing on the
+          // wrong chat after navigating away).
+          clearTodoSyncTimers();
+          todoSyncTimersRef.current.push(setTimeout(() => onTodosSyncRef.current?.(), 2500));
+          todoSyncTimersRef.current.push(setTimeout(() => onTodosSyncRef.current?.(), 7000));
         }
       }
 
