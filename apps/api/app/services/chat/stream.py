@@ -2,7 +2,9 @@ import asyncio
 import json
 import logging
 import math
+import time
 from collections.abc import AsyncIterator, Callable
+from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -472,130 +474,173 @@ async def stream_edit_response(
         yield token
 
 
-async def stream_and_finalize(
+@dataclass
+class _StreamAccum:
+    """Mutable stream state shared across phase helpers."""
+
+    parts: list[str] = field(default_factory=list)
+    was_cancelled: bool = False
+
+
+async def _run_instant_reply_path(
+    ctx: StreamContext,
+    *,
+    should_cancel: Callable[[], bool] | None,
+    accum: _StreamAccum,
+) -> AsyncIterator[str]:
+    """Yield the precomputed instant reply, or mark cancel if the client stopped."""
+    if not (should_cancel and should_cancel()):
+        if ctx.timing is not None:
+            ctx.timing.mark_first_token()
+        # Orchestrator only enters this path when instant_reply is truthy.
+        reply = ctx.instant_reply
+        if reply is None:
+            return
+        accum.parts.append(reply)
+        yield reply
+    else:
+        accum.was_cancelled = True
+
+
+async def _run_tool_loop_path(
+    settings: Settings,
+    ctx: StreamContext,
+    *,
+    usage: dict[str, int],
+    on_status: StreamStatusFn | None,
+    should_cancel: Callable[[], bool] | None,
+) -> None:
+    """Run MCP tool rounds when enabled; may update ``ctx.verified_math``."""
+    if settings.mcp_tool_loop_enabled and not ctx.instant_reply and not ctx.lightweight_turn:
+        from app.services import tool_loop as tool_loop_service
+
+        ctx.prompt_messages, tool_verified = await tool_loop_service.run_tool_rounds(
+            settings=settings,
+            model_alias=ctx.model,
+            messages=ctx.prompt_messages,
+            usage=usage,
+            on_status=on_status,
+            should_cancel=should_cancel,
+        )
+        # Heuristic math_tools is skipped when the tool loop is on —
+        # carry sympy canonical fences so validate_math_fences still
+        # overwrites/densifies geometry and graph JSON.
+        if tool_verified is not None:
+            ctx.verified_math = tool_verified
+
+
+async def _run_llm_token_stream(
     redis: Redis,
     settings: Settings,
     ctx: StreamContext,
     *,
+    usage: dict[str, int],
     should_cancel: Callable[[], bool] | None,
-    result: dict[str, Any] | None = None,
-    on_status: StreamStatusFn | None = None,
-    on_reasoning: StreamReasoningFn | None = None,
+    result: dict[str, Any] | None,
+    on_reasoning: StreamReasoningFn | None,
+    accum: _StreamAccum,
 ) -> AsyncIterator[str]:
+    """Stream provider tokens into ``accum``, record health, resolve fallback model."""
     import app.services.chat as chat_pkg
 
-    usage: dict[str, int] = {}
-    assistant_parts: list[str] = []
-    was_cancelled = False
-
+    stream_meta: dict[str, str] = {}
+    requested_model = ctx.model
+    t0 = time.perf_counter()
+    stream_ok = False
+    llm_stream = chat_pkg.litellm_gateway.stream_chat_completion(
+        settings=settings,
+        model_alias=ctx.model,
+        messages=ctx.prompt_messages,
+        max_tokens=ctx.max_output_tokens,
+        usage=usage,
+        fallback_aliases=ctx.fallback_models,
+        stream_meta=stream_meta,
+        on_reasoning=on_reasoning,
+    )
     try:
-        if ctx.instant_reply:
-            if not (should_cancel and should_cancel()):
-                if ctx.timing is not None:
-                    ctx.timing.mark_first_token()
-                assistant_parts.append(ctx.instant_reply)
-                yield ctx.instant_reply
-            else:
-                was_cancelled = True
-        else:
-            # Pre-stream work (tools/search) is "thinking", not "composing" — composing
-            # only once the visible token stream is about to start.
-            if on_status is not None:
-                await on_status("thinking")
-            if (
-                settings.mcp_tool_loop_enabled
-                and not ctx.instant_reply
-                and not ctx.lightweight_turn
-            ):
-                from app.services import tool_loop as tool_loop_service
-
-                ctx.prompt_messages, tool_verified = await tool_loop_service.run_tool_rounds(
-                    settings=settings,
-                    model_alias=ctx.model,
-                    messages=ctx.prompt_messages,
-                    usage=usage,
-                    on_status=on_status,
-                    should_cancel=should_cancel,
-                )
-                # Heuristic math_tools is skipped when the tool loop is on —
-                # carry sympy canonical fences so validate_math_fences still
-                # overwrites/densifies geometry and graph JSON.
-                if tool_verified is not None:
-                    ctx.verified_math = tool_verified
-
-            if on_status is not None and not chat_pkg.model_catalog.is_reasoning_alias(ctx.model):
-                await on_status("composing")
-            stream_meta: dict[str, str] = {}
-            requested_model = ctx.model
-            import time
-
-            t0 = time.perf_counter()
-            stream_ok = False
-            llm_stream = chat_pkg.litellm_gateway.stream_chat_completion(
-                settings=settings,
-                model_alias=ctx.model,
-                messages=ctx.prompt_messages,
-                max_tokens=ctx.max_output_tokens,
-                usage=usage,
-                fallback_aliases=ctx.fallback_models,
-                stream_meta=stream_meta,
-                on_reasoning=on_reasoning,
-            )
+        async for token in llm_stream:
+            if should_cancel and should_cancel():
+                accum.was_cancelled = True
+                break
+            if ctx.timing is not None and not accum.parts:
+                ctx.timing.mark_first_token()
+            accum.parts.append(token)
+            yield token
+        stream_ok = bool(accum.parts) or accum.was_cancelled
+    finally:
+        close = getattr(llm_stream, "aclose", None)
+        if close is not None:
+            await close()
+        # User-initiated stop is not a provider failure — skip the sample
+        # so cancel storms don't poison model-health / fallback routing.
+        if not accum.was_cancelled:
+            latency_ms = (time.perf_counter() - t0) * 1000
+            resolved_for_health = stream_meta.get("model_alias") or requested_model
             try:
-                async for token in llm_stream:
-                    if should_cancel and should_cancel():
-                        was_cancelled = True
-                        break
-                    if ctx.timing is not None and not assistant_parts:
-                        ctx.timing.mark_first_token()
-                    assistant_parts.append(token)
-                    yield token
-                stream_ok = bool(assistant_parts) or was_cancelled
-            finally:
-                close = getattr(llm_stream, "aclose", None)
-                if close is not None:
-                    await close()
-                # User-initiated stop is not a provider failure — skip the sample
-                # so cancel storms don't poison model-health / fallback routing.
-                if not was_cancelled:
-                    latency_ms = (time.perf_counter() - t0) * 1000
-                    resolved_for_health = stream_meta.get("model_alias") or requested_model
-                    try:
-                        from app.services import model_health as model_health_service
+                from app.services import model_health as model_health_service
 
-                        await model_health_service.record_sample(
-                            redis,
-                            resolved_for_health,
-                            latency_ms=latency_ms,
-                            success=stream_ok,
-                        )
-                    except Exception:
-                        logger.debug("model health sample failed", exc_info=True)
-            resolved = stream_meta.get("model_alias")
-            if resolved:
-                ctx.model = resolved
-            if result is not None:
-                result["requested_model"] = requested_model
-                if resolved and resolved != requested_model:
-                    result["fallback_used"] = "1"
+                await model_health_service.record_sample(
+                    redis,
+                    resolved_for_health,
+                    latency_ms=latency_ms,
+                    success=stream_ok,
+                )
+            except Exception:
+                logger.debug("model health sample failed", exc_info=True)
+    resolved = stream_meta.get("model_alias")
+    if resolved:
+        ctx.model = resolved
+    if result is not None:
+        result["requested_model"] = requested_model
+        if resolved and resolved != requested_model:
+            result["fallback_used"] = "1"
 
-        assistant_text = "".join(assistant_parts).strip()
-        if not assistant_text:
-            # Caller refunds quota / restores regenerate backup on this error.
-            raise ModelUnavailableError(
-                "That model isn't responding right now. Try again — or pick a different model.",
-                failed_alias=ctx.model,
-            )
 
-        # Enrichment (calendar ids, math fences, sources, …) must never block
-        # persistence — the user already saw streamed tokens. On failure, keep
-        # the raw joined text so finalize_stream_turn_db still runs.
-        raw_assistant_text = assistant_text
-        reminder_created = 0
-        try:
-            user = ctx.user
-            if user is not None:
-                async with SessionLocal() as session:
+async def _enrich_final_content(
+    redis: Redis,
+    settings: Settings,
+    ctx: StreamContext,
+    *,
+    assistant_text: str,
+    usage: dict[str, int],
+    result: dict[str, Any] | None,
+    was_cancelled: bool,
+    assistant_parts: list[str],
+    should_cancel: Callable[[], bool] | None,
+) -> str:
+    """Calendar / reminders / math fences / sources / places. Never blocks persistence."""
+    import app.services.chat as chat_pkg
+
+    # Enrichment (calendar ids, math fences, sources, …) must never block
+    # persistence — the user already saw streamed tokens. On failure, keep
+    # the raw joined text so finalize_stream_turn_db still runs.
+    raw_assistant_text = assistant_text
+    reminder_created = 0
+    try:
+        user = ctx.user
+        if user is not None:
+            async with SessionLocal() as session:
+                assistant_text = await chat_pkg.calendar_service.materialize_calendar_proposals(
+                    session,
+                    redis,
+                    user,
+                    settings,
+                    assistant_text,
+                )
+                (
+                    assistant_text,
+                    reminder_created,
+                ) = await chat_pkg.todos_service.materialize_reminder_fences(
+                    session,
+                    user_id=ctx.user_id,
+                    chat_id=ctx.chat_id,
+                    assistant_text=assistant_text,
+                    user_timezone=getattr(user, "timezone", None),
+                )
+        else:
+            async with SessionLocal() as session:
+                user = await chat_pkg.users_repo.get_by_id(session, ctx.user_id)
+                if user is not None:
                     assistant_text = await chat_pkg.calendar_service.materialize_calendar_proposals(
                         session,
                         redis,
@@ -613,138 +658,200 @@ async def stream_and_finalize(
                         assistant_text=assistant_text,
                         user_timezone=getattr(user, "timezone", None),
                     )
-            else:
-                async with SessionLocal() as session:
-                    user = await chat_pkg.users_repo.get_by_id(session, ctx.user_id)
-                    if user is not None:
-                        assistant_text = (
-                            await chat_pkg.calendar_service.materialize_calendar_proposals(
-                                session,
-                                redis,
-                                user,
-                                settings,
-                                assistant_text,
-                            )
-                        )
-                        (
-                            assistant_text,
-                            reminder_created,
-                        ) = await chat_pkg.todos_service.materialize_reminder_fences(
-                            session,
-                            user_id=ctx.user_id,
-                            chat_id=ctx.chat_id,
-                            assistant_text=assistant_text,
-                            user_timezone=getattr(user, "timezone", None),
-                        )
 
-            # validate_math_fences runs SymPy (densify_sparse_graph →
-            # math_service.sample_function) inline — sync CPU work that would
-            # stall the event loop and every concurrent request on math-heavy
-            # replies. Offload to a worker thread (same pattern as
-            # math_tools.py's sympy_executor.run_sympy).
-            assistant_text = await asyncio.to_thread(
-                chat_pkg.math_fence_service.validate_math_fences,
-                assistant_text,
-                verified=ctx.verified_math,
-            )
-            from app.services.vocab_quiz import strip_vocab_session_metadata
+        # validate_math_fences runs SymPy (densify_sparse_graph →
+        # math_service.sample_function) inline — sync CPU work that would
+        # stall the event loop and every concurrent request on math-heavy
+        # replies. Offload to a worker thread (same pattern as
+        # math_tools.py's sympy_executor.run_sympy).
+        assistant_text = await asyncio.to_thread(
+            chat_pkg.math_fence_service.validate_math_fences,
+            assistant_text,
+            verified=ctx.verified_math,
+        )
+        from app.services.vocab_quiz import strip_vocab_session_metadata
 
-            assistant_text = strip_vocab_session_metadata(assistant_text)
+        assistant_text = strip_vocab_session_metadata(assistant_text)
 
-            if ctx.search_sources:
-                assistant_text = chat_pkg.web_search_service.strip_sources_from_text(assistant_text)
-                if result is not None:
-                    result["search_sources"] = json.dumps(
-                        chat_pkg.web_search_service.sources_payload(ctx.search_sources)
-                    )
-                    result["final_content"] = assistant_text
-                sources_fence = chat_pkg.web_search_service.format_sources_fence(ctx.search_sources)
-                if sources_fence and not (should_cancel and should_cancel()):
-                    assistant_text = f"{assistant_text}{sources_fence}".strip()
-
-            if (
-                ctx.local_places
-                and ctx.search_sources
-                and "```places" not in assistant_text.lower()
-            ):
-                assistant_text = chat_pkg.web_search_service.strip_duplicate_venue_list(
-                    assistant_text
+        if ctx.search_sources:
+            assistant_text = chat_pkg.web_search_service.strip_sources_from_text(assistant_text)
+            if result is not None:
+                result["search_sources"] = json.dumps(
+                    chat_pkg.web_search_service.sources_payload(ctx.search_sources)
                 )
-                places_fence = chat_pkg.web_search_service.format_places_fence(ctx.search_sources)
-                if places_fence and not (should_cancel and should_cancel()):
-                    assistant_parts[:] = [assistant_text] if assistant_text.strip() else []
-                    assistant_parts.append(places_fence)
-                    assistant_text = "".join(assistant_parts).strip()
-                    if result is not None:
-                        result["final_content"] = assistant_text
+                result["final_content"] = assistant_text
+            sources_fence = chat_pkg.web_search_service.format_sources_fence(ctx.search_sources)
+            if sources_fence and not (should_cancel and should_cancel()):
+                assistant_text = f"{assistant_text}{sources_fence}".strip()
 
-            if ctx.instant_reply and not usage:
-                usage["output"] = estimate_tokens(assistant_text)
-                usage["input"] = 0
-
-            if result is not None and not ctx.skip_memory_jobs:
-                transcript = f"User: {ctx.user_message_content}\nAssistant: {assistant_text}"
-                if reminder_created > 0 or chat_pkg.todos_service.transcript_implies_todo_sync(
-                    transcript
-                ):
-                    result["todos_sync"] = "1"
-                # Push stripped text so the live bubble matches DB (no raw ```reminder JSON).
-                if reminder_created > 0:
+        if ctx.local_places and ctx.search_sources and "```places" not in assistant_text.lower():
+            assistant_text = chat_pkg.web_search_service.strip_duplicate_venue_list(assistant_text)
+            places_fence = chat_pkg.web_search_service.format_places_fence(ctx.search_sources)
+            if places_fence and not (should_cancel and should_cancel()):
+                assistant_parts[:] = [assistant_text] if assistant_text.strip() else []
+                assistant_parts.append(places_fence)
+                assistant_text = "".join(assistant_parts).strip()
+                if result is not None:
                     result["final_content"] = assistant_text
 
-            if result is not None and was_cancelled and assistant_text:
+        if ctx.instant_reply and not usage:
+            usage["output"] = estimate_tokens(assistant_text)
+            usage["input"] = 0
+
+        if result is not None and not ctx.skip_memory_jobs:
+            transcript = f"User: {ctx.user_message_content}\nAssistant: {assistant_text}"
+            if reminder_created > 0 or chat_pkg.todos_service.transcript_implies_todo_sync(
+                transcript
+            ):
+                result["todos_sync"] = "1"
+            # Push stripped text so the live bubble matches DB (no raw ```reminder JSON).
+            if reminder_created > 0:
                 result["final_content"] = assistant_text
+
+        if result is not None and was_cancelled and assistant_text:
+            result["final_content"] = assistant_text
+    except Exception:
+        logger.exception(
+            "Post-stream enrichment failed; persisting raw assistant text",
+        )
+        assistant_text = raw_assistant_text
+        if result is not None and was_cancelled and assistant_text:
+            result["final_content"] = assistant_text
+
+    return assistant_text
+
+
+def _register_and_enqueue_finalize(
+    redis: Redis,
+    settings: Settings,
+    ctx: StreamContext,
+    *,
+    assistant_text: str,
+    usage: dict[str, int],
+    result: dict[str, Any] | None,
+) -> None:
+    """Assign message id, register pending finalize, enqueue post-turn jobs."""
+    # Give the assistant row its id now so `done` (message_id + metadata)
+    # can be sent the moment the stream ends — the DB commit happens in the
+    # background and anything reading this chat next awaits it via the
+    # finalize registry.
+    if ctx.assistant_message_id is None:
+        ctx.assistant_message_id = uuid4()
+    if result is not None:
+        result["resolved_model"] = ctx.model
+        result["message_id"] = str(ctx.assistant_message_id)
+        if ctx.recalled_count:
+            result["recalled"] = str(ctx.recalled_count)
+        if ctx.memory_hints:
+            result["memory_hints"] = json.dumps(ctx.memory_hints)
+        if ctx.context_summarized:
+            result["context_summarized"] = str(ctx.context_summarized)
+
+    finalize_db_task = create_background_task(
+        finalize_stream_turn_db(redis, ctx, assistant_text, usage, result),
+        name="finalize_stream_turn_db",
+    )
+    register_pending_finalize(ctx.chat_id, finalize_db_task)
+    finalize_db_task.add_done_callback(
+        lambda t: logger.exception("Background DB finalization failed", exc_info=t.exception())
+        if t.exception()
+        else None
+    )
+
+    async def _run_jobs_after_db() -> None:
+        try:
+            await finalize_db_task
+            await enqueue_post_turn_jobs(redis, settings, ctx, assistant_text)
         except Exception:
-            logger.exception(
-                "Post-stream enrichment failed; persisting raw assistant text",
+            logger.exception("Background job enqueue failed")
+
+    jobs_task = create_background_task(_run_jobs_after_db(), name="post_turn_jobs")
+    jobs_task.add_done_callback(
+        lambda t: logger.exception("Background finalization failed", exc_info=t.exception())
+        if t.exception()
+        else None
+    )
+    if result is not None:
+        result["_finalize_task"] = jobs_task
+        result["_finalize_db_task"] = finalize_db_task
+
+
+async def stream_and_finalize(
+    redis: Redis,
+    settings: Settings,
+    ctx: StreamContext,
+    *,
+    should_cancel: Callable[[], bool] | None,
+    result: dict[str, Any] | None = None,
+    on_status: StreamStatusFn | None = None,
+    on_reasoning: StreamReasoningFn | None = None,
+) -> AsyncIterator[str]:
+    import app.services.chat as chat_pkg
+
+    usage: dict[str, int] = {}
+    accum = _StreamAccum()
+
+    try:
+        if ctx.instant_reply:
+            async for token in _run_instant_reply_path(
+                ctx, should_cancel=should_cancel, accum=accum
+            ):
+                yield token
+        else:
+            # Pre-stream work (tools/search) is "thinking", not "composing" — composing
+            # only once the visible token stream is about to start.
+            if on_status is not None:
+                await on_status("thinking")
+            await _run_tool_loop_path(
+                settings,
+                ctx,
+                usage=usage,
+                on_status=on_status,
+                should_cancel=should_cancel,
             )
-            assistant_text = raw_assistant_text
-            if result is not None and was_cancelled and assistant_text:
-                result["final_content"] = assistant_text
 
-        # Give the assistant row its id now so `done` (message_id + metadata)
-        # can be sent the moment the stream ends — the DB commit happens in the
-        # background and anything reading this chat next awaits it via the
-        # finalize registry.
-        if ctx.assistant_message_id is None:
-            ctx.assistant_message_id = uuid4()
-        if result is not None:
-            result["resolved_model"] = ctx.model
-            result["message_id"] = str(ctx.assistant_message_id)
-            if ctx.recalled_count:
-                result["recalled"] = str(ctx.recalled_count)
-            if ctx.memory_hints:
-                result["memory_hints"] = json.dumps(ctx.memory_hints)
-            if ctx.context_summarized:
-                result["context_summarized"] = str(ctx.context_summarized)
+            if on_status is not None and not chat_pkg.model_catalog.is_reasoning_alias(ctx.model):
+                await on_status("composing")
+            async for token in _run_llm_token_stream(
+                redis,
+                settings,
+                ctx,
+                usage=usage,
+                should_cancel=should_cancel,
+                result=result,
+                on_reasoning=on_reasoning,
+                accum=accum,
+            ):
+                yield token
 
-        finalize_db_task = create_background_task(
-            finalize_stream_turn_db(redis, ctx, assistant_text, usage, result),
-            name="finalize_stream_turn_db",
+        assistant_text = "".join(accum.parts).strip()
+        if not assistant_text:
+            # Caller refunds quota / restores regenerate backup on this error.
+            raise ModelUnavailableError(
+                "That model isn't responding right now. Try again — or pick a different model.",
+                failed_alias=ctx.model,
+            )
+
+        assistant_text = await _enrich_final_content(
+            redis,
+            settings,
+            ctx,
+            assistant_text=assistant_text,
+            usage=usage,
+            result=result,
+            was_cancelled=accum.was_cancelled,
+            assistant_parts=accum.parts,
+            should_cancel=should_cancel,
         )
-        register_pending_finalize(ctx.chat_id, finalize_db_task)
-        finalize_db_task.add_done_callback(
-            lambda t: logger.exception("Background DB finalization failed", exc_info=t.exception())
-            if t.exception()
-            else None
-        )
 
-        async def _run_jobs_after_db() -> None:
-            try:
-                await finalize_db_task
-                await enqueue_post_turn_jobs(redis, settings, ctx, assistant_text)
-            except Exception:
-                logger.exception("Background job enqueue failed")
-
-        jobs_task = create_background_task(_run_jobs_after_db(), name="post_turn_jobs")
-        jobs_task.add_done_callback(
-            lambda t: logger.exception("Background finalization failed", exc_info=t.exception())
-            if t.exception()
-            else None
+        _register_and_enqueue_finalize(
+            redis,
+            settings,
+            ctx,
+            assistant_text=assistant_text,
+            usage=usage,
+            result=result,
         )
-        if result is not None:
-            result["_finalize_task"] = jobs_task
-            result["_finalize_db_task"] = finalize_db_task
     finally:
         if ctx.timing is not None:
             ctx.timing.log_summary(
@@ -753,3 +860,14 @@ async def stream_and_finalize(
                 model=ctx.model,
                 lightweight=ctx.lightweight_turn,
             )
+
+
+__all__ = [
+    "reserve_turn_quota",
+    "stream_and_finalize",
+    "stream_chat_response",
+    "stream_edit_response",
+    "stream_regenerate_response",
+    "weighted_reserve_tokens",
+    "wrap_stream_status",
+]
