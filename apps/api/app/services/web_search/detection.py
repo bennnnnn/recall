@@ -24,6 +24,7 @@ from app.services.web_search.patterns import (
     _TEAM_SCORE,
     _WORLD_CUP,
     _YESTERDAY,
+    collapse_ws,
 )
 from app.services.web_search.subject import (
     _prior_searchable_topic,
@@ -38,7 +39,7 @@ def web_search_skip(
 ) -> bool:
     """Hard no — never run web search or the classifier."""
     del prior_user_messages  # reserved for future context-aware skips
-    cleaned = text.strip()
+    cleaned = collapse_ws(text)
     if not cleaned or len(cleaned) < 4:
         return True
     if is_lightweight_chat_turn(cleaned):
@@ -64,7 +65,7 @@ def web_search_fast_yes(
     prior_user_messages: list[str] | None = None,
 ) -> bool:
     """Obvious yes — skip the classifier."""
-    cleaned = text.strip()
+    cleaned = collapse_ws(text)
     if _LOOK_IT_UP.match(cleaned):
         return bool(prior_user_messages)
     if _EXPLICIT_SEARCH.search(cleaned):
@@ -97,7 +98,7 @@ def needs_web_search_heuristic(
     prior_user_messages: list[str] | None = None,
 ) -> bool:
     """Regex fallback for follow-ups and recency when the classifier is off or fails."""
-    cleaned = text.strip()
+    cleaned = collapse_ws(text)
     if _CLARIFICATION.search(cleaned) and prior_user_messages:
         return _prior_searchable_topic(prior_user_messages) is not None
     if prior_user_messages and len(cleaned.split()) <= _SHORT_FOLLOWUP_WORDS:

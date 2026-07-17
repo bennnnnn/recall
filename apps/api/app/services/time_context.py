@@ -6,29 +6,37 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 DEFAULT_TIMEZONE = "UTC"
 
+
+def _collapse_ws(text: str) -> str:
+    """Collapse runs of whitespace so matchers need no ``\\s+`` (avoids ReDoS)."""
+    return " ".join(text.split())
+
+
+# Patterns assume input was passed through ``_collapse_ws`` (single spaces only).
 _TIME_QUESTION = re.compile(
-    r"^\s*(?:"
-    r"what(?:'s| is) the time(?:\s+now)?"
-    r"|what time is it(?:\s+now)?"
-    r"|what time(?:\s+now)?"
+    r"^(?:"
+    r"what(?:'s| is) the time(?: now)?"
+    r"|what time is it(?: now)?"
+    r"|what time(?: now)?"
     r"|tell me the (?:current )?time"
     r"|current time\??"
     r"|do you know the time\??"
-    r"|time(?:\s+please)?\??"
-    r")\s*[.!?]*\s*$",
+    r"|time(?: please)?\??"
+    r")[.!?]*$",
     re.IGNORECASE,
 )
 
-# "What time is it in Tokyo / DC / …" — not the user's local clock.
-_REMOTE_TIME_QUESTION = re.compile(
-    r"^\s*(?:"
-    r"what(?:'s| is) the time(?:\s+now)?\s+in\b.+"
-    r"|what time is it(?:\s+now)?\s+in\b.+"
-    r"|what time(?:\s+now)?\s+in\b.+"
-    r"|current time\s+in\b.+"
-    r"|time(?:\s+please)?\s+in\b.+"
-    r")\s*[.!?]*\s*$",
-    re.IGNORECASE | re.DOTALL,
+# Prefix only — place name is checked without `.+` (CodeQL py/polynomial-redos).
+# Input must be `_collapse_ws`'d first (single spaces, trimmed).
+_REMOTE_TIME_PREFIX = re.compile(
+    r"^(?:"
+    r"what(?:'s| is) the time(?: now)? in "
+    r"|what time is it(?: now)? in "
+    r"|what time(?: now)? in "
+    r"|current time in "
+    r"|time(?: please)? in "
+    r")",
+    re.IGNORECASE,
 )
 
 _SCHEDULED_EVENT = re.compile(
@@ -36,16 +44,20 @@ _SCHEDULED_EVENT = re.compile(
     re.IGNORECASE,
 )
 
+_AGAIN_QUESTION = re.compile(
+    r"^(?:again|one more time|tell me again|refresh|update(?: it)?)[.!?]*$",
+    re.IGNORECASE,
+)
 
 _LOCATION_QUESTION = re.compile(
-    r"^\s*(?:"
-    r"where am i(?:\s+(?:at|right\s+now|right\s+nwo|now|currently))?\??"
-    r"|what(?:'s| is) my (?:current\s+)?location\??"
-    r"|where(?:'s| is) my (?:current\s+)?location\??"
-    r"|where(?:'re| are) we(?:\s+(?:right\s+now|now|currently))?\??"
-    r"|my (?:current\s+)?location\??"
+    r"^(?:"
+    r"where am i(?: (?:at|right now|right nwo|now|currently))?\??"
+    r"|what(?:'s| is) my (?:current )?location\??"
+    r"|where(?:'s| is) my (?:current )?location\??"
+    r"|where(?:'re| are) we(?: (?:right now|now|currently))?\??"
+    r"|my (?:current )?location\??"
     r"|location\??"
-    r")\s*[.!?]*\s*$",
+    r")[.!?]*$",
     re.IGNORECASE,
 )
 
@@ -82,32 +94,35 @@ def format_digital_clock(when: datetime, locale: str | None = None) -> str:
 
 def is_remote_time_question(text: str) -> bool:
     """True when the user asks for the time in another place (not local)."""
-    cleaned = text.strip()
+    cleaned = _collapse_ws(text)
     if not cleaned:
         return False
-    return bool(_REMOTE_TIME_QUESTION.match(cleaned))
+    match = _REMOTE_TIME_PREFIX.match(cleaned)
+    if match is None:
+        return False
+    place = cleaned[match.end() :].rstrip(".!?").strip()
+    return bool(place)
 
 
 def is_time_question(text: str) -> bool:
     """True for the user's *local* current-time question only."""
-    cleaned = text.strip()
+    cleaned = _collapse_ws(text)
     if not cleaned:
         return False
     if is_remote_time_question(cleaned):
         return False
     if _TIME_QUESTION.match(cleaned):
         return _SCHEDULED_EVENT.search(cleaned) is None
-    if re.match(
-        r"^\s*(?:again|one more time|tell me again|refresh|update(?:\s+it)?)\s*[.!?]*\s*$",
-        cleaned,
-        re.IGNORECASE,
-    ):
+    if _AGAIN_QUESTION.match(cleaned):
         return True
     return False
 
 
 def is_location_question(text: str) -> bool:
-    return bool(_LOCATION_QUESTION.match(text.strip()))
+    cleaned = _collapse_ws(text)
+    if not cleaned:
+        return False
+    return bool(_LOCATION_QUESTION.match(cleaned))
 
 
 def format_location_answer(location: str | None, timezone: str | None) -> str:

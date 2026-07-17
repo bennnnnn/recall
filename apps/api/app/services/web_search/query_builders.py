@@ -19,6 +19,7 @@ from app.services.web_search.patterns import (
     _TEAM_SCORE,
     _WORLD_CUP,
     _YESTERDAY,
+    collapse_ws,
 )
 from app.services.web_search.subject import resolve_search_subject
 
@@ -57,8 +58,9 @@ def _world_cup_queries(
 
 
 def _normalize_team_label(raw: str) -> str:
-    label = raw.strip().strip("?.!")
-    label = re.sub(r"\s+(?:game|match|scores?|results?|fixture)s?\s*$", "", label, flags=re.I)
+    label = collapse_ws(raw).strip("?.!")
+    # No ``\s+`` — input is whitespace-collapsed (CodeQL py/polynomial-redos).
+    label = re.sub(r"(?: game| match| scores?| results?| fixture)s?$", "", label, flags=re.I)
     label = re.sub(r"(?:'s|s)$", "", label, flags=re.I)
     return label.strip()
 
@@ -159,7 +161,7 @@ def build_search_queries(
     subject = resolve_search_subject(text, prior_user_messages=prior_user_messages)
     query = _QUERY_PREFIX.sub("", subject.strip())
     cleaned = query.strip(" ?.!")
-    current = text.strip()
+    current = collapse_ws(text)
     yesterday = _yesterday_label(user_timezone)
     yesterday_iso = _yesterday_iso(user_timezone)
     today = _today_label(user_timezone)

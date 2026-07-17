@@ -4,27 +4,34 @@ from __future__ import annotations
 
 import re
 
+
+def collapse_ws(text: str) -> str:
+    """Collapse whitespace so matchers avoid ``\\s+`` (CodeQL polynomial ReDoS)."""
+    return " ".join(text.split())
+
+
 _EXPLICIT_SEARCH = re.compile(
     r"\b("
-    r"search(?:\s+the)?\s+web"
-    r"|look(?:\s+it|\s+that)?\s+up(?:\s+online)?"
-    r"|google(?:\s+for|\s+this|\s+it)?"
-    r"|web\s+search"
-    r"|find(?:\s+me)?\s+(?:online|on\s+the\s+internet)"
+    r"search(?: the)? web"
+    r"|look(?: it| that)? up(?: online)?"
+    r"|google(?: for| this| it)?"
+    r"|web search"
+    r"|find(?: me)? (?:online|on the internet)"
     r")\b",
     re.IGNORECASE,
 )
 
+# Match against ``collapse_ws``-normalized input (single spaces, no leading/trailing).
 _LOOK_IT_UP = re.compile(
-    r"^\s*(?:please\s+)?(?:look(?:\s+it|\s+that)\s+up|search(?:\s+for)?(?:\s+it)?)\s*[.!?]*\s*$",
+    r"^(?:please )?(?:look(?: it| that) up|search(?: for)?(?: it)?)[.!?]*$",
     re.IGNORECASE,
 )
 
 _CLARIFICATION = re.compile(
-    r"^\s*(?:"
-    r"no[,!.]?\s+(?:i\s+meant|the|not)|"
-    r"(?:i\s+meant|not that|the ongoing|the current|that one|this one)|"
-    r"yes[,!.]?\s+(?:that|the)\b"
+    r"^(?:"
+    r"no[,!.]? (?:i meant|the|not)|"
+    r"(?:i meant|not that|the ongoing|the current|that one|this one)|"
+    r"yes[,!.]? (?:that|the)\b"
     r")",
     re.IGNORECASE,
 )

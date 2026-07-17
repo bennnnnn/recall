@@ -11,7 +11,9 @@ import {
 } from "@/lib/copyBlock";
 import { isHtmlFenceLang, parseFenceLang } from "@/lib/codeHighlight";
 
-const CALLOUT_RE = /^>\s*\[!(\w+)\]\s*([^\n]*)\n((?:>\s?.*\n?)*)/gim;
+// Title uses horizontal whitespace only; body lines are `>[^\n]*` (no ReDoS).
+const CALLOUT_RE =
+  /^>[ \t]*\[!(\w+)\][ \t]*([^\n]*)\n((?:>[^\n]*(?:\n|$))*)/gim;
 const BLOCK_MATH_RE = /\$\$([\s\S]+?)\$\$/g;
 const BLOCK_MATH_BRACKET_RE = /\\\[([\s\S]+?)\\\]/g;
 /** Michelin / restaurant price tiers: ($), ($$), ($$$), ($$$$) — not LaTeX. */
@@ -53,7 +55,10 @@ function isDividerLine(line: string): boolean {
 }
 
 function isSeparatorRow(line: string): boolean {
-  return /^\|(\s*:?\s*-+\s*:?\s*\|)+\s*$/.test(line.trim());
+  // Avoid nested `\s*` / `-+\s*` quantifiers (CodeQL js/redos). Collapse
+  // whitespace first, then match a strict pipe + dashes (+ optional colons).
+  const compact = line.trim().replace(/\s+/g, "");
+  return /^\|(:?-+:?\|)+$/.test(compact) && compact.includes("-");
 }
 
 function toStrictPipeRow(line: string): string {
