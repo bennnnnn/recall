@@ -5,6 +5,7 @@ import pytest
 
 from app.services import projects as projects_service
 from app.services import vocab_quiz as vocab_quiz_service
+from app.services.projects import quiz_context as projects_quiz_context
 
 TRIVIA_FENCE = (
     "```vocab_quiz\n"
@@ -51,7 +52,7 @@ def test_format_quiz_grading_hint_trivia_uses_answer_not_topic():
 
 
 def test_format_covered_quiz_lines_bans_ledger_and_just_answered():
-    lines = projects_service._format_covered_quiz_lines(
+    lines = projects_quiz_context._format_covered_quiz_lines(
         ["apple", "banana"],
         just_answered="cherry",
     )
@@ -64,7 +65,7 @@ def test_format_covered_quiz_lines_bans_ledger_and_just_answered():
 
 
 def test_format_covered_quiz_lines_dedupes_case_and_caps():
-    lines = projects_service._format_covered_quiz_lines(
+    lines = projects_quiz_context._format_covered_quiz_lines(
         ["Apple", "apple", "Banana"] + [f"word{i}" for i in range(50)],
         just_answered="APPLE",
         limit=5,
@@ -106,15 +107,15 @@ async def test_load_trivia_quiz_context_correct_bans_repeat():
 
     with (
         patch(
-            "app.services.projects.projects_repo.get_by_id",
+            "app.repositories.projects.get_by_id",
             new=AsyncMock(return_value=project),
         ),
         patch(
-            "app.services.projects.project_items_repo.list_for_user",
+            "app.repositories.project_items.list_for_user",
             new=AsyncMock(return_value=[covered]),
         ),
         patch(
-            "app.services.projects.project_items_repo.list_quiz_exclusion_contents",
+            "app.repositories.project_items.list_quiz_exclusion_contents",
             new=AsyncMock(return_value=["Which treaty officially ended World War I?"]),
         ),
     ):
@@ -179,11 +180,11 @@ async def test_apply_deterministic_marks_tries_exhausted_on_third_wrong():
 
     with (
         patch(
-            "app.services.projects.projects_repo.get_by_id",
+            "app.repositories.projects.get_by_id",
             new=AsyncMock(return_value=project),
         ),
         patch(
-            "app.services.projects.project_items_repo.find_quiz_candidates",
+            "app.repositories.project_items.find_quiz_candidates",
             new=AsyncMock(return_value=[]),
         ),
         patch(
@@ -230,11 +231,11 @@ async def test_apply_deterministic_wrong_before_limit_not_exhausted():
 
     with (
         patch(
-            "app.services.projects.projects_repo.get_by_id",
+            "app.repositories.projects.get_by_id",
             new=AsyncMock(return_value=project),
         ),
         patch(
-            "app.services.projects.project_items_repo.find_quiz_candidates",
+            "app.repositories.project_items.find_quiz_candidates",
             new=AsyncMock(return_value=[]),
         ),
         patch(
@@ -283,11 +284,11 @@ async def test_apply_deterministic_persists_free_text_miss_on_third_try():
 
     with (
         patch(
-            "app.services.projects.projects_repo.get_by_id",
+            "app.repositories.projects.get_by_id",
             new=AsyncMock(return_value=project),
         ),
         patch(
-            "app.services.projects.project_items_repo.find_quiz_candidates",
+            "app.repositories.project_items.find_quiz_candidates",
             new=AsyncMock(return_value=[]),
         ),
         patch(
@@ -354,7 +355,7 @@ def test_format_failed_review_lines_prioritizes_due_misses():
     legacy.last_incorrect_at = datetime.now(UTC) - timedelta(days=2)
     legacy.due_at = None
 
-    lines = projects_service._format_failed_review_lines([fresh, older, newer, legacy])
+    lines = projects_quiz_context._format_failed_review_lines([fresh, older, newer, legacy])
     joined = "\n".join(lines)
     assert "Failed and due for review" in joined
     assert "ephemeral" in joined
@@ -452,7 +453,7 @@ async def test_apply_deterministic_quiz_answer_skips_without_correct():
     )
 
     with patch(
-        "app.services.projects.projects_repo.get_by_id",
+        "app.repositories.projects.get_by_id",
         new=AsyncMock(return_value=project),
     ):
         grade = await projects_service.apply_deterministic_quiz_answer(
@@ -471,7 +472,7 @@ async def test_apply_deterministic_quiz_answer_skips_without_correct():
 async def test_apply_deterministic_quiz_answer_skips_without_project_id():
     session = AsyncMock()
     with patch(
-        "app.services.projects.projects_repo.get_by_id",
+        "app.repositories.projects.get_by_id",
         new=AsyncMock(),
     ) as get_by_id:
         grade = await projects_service.apply_deterministic_quiz_answer(
@@ -519,15 +520,15 @@ async def test_load_trivia_quiz_context_exhausted_moves_on():
 
     with (
         patch(
-            "app.services.projects.projects_repo.get_by_id",
+            "app.repositories.projects.get_by_id",
             new=AsyncMock(return_value=project),
         ),
         patch(
-            "app.services.projects.project_items_repo.list_for_user",
+            "app.repositories.project_items.list_for_user",
             new=AsyncMock(return_value=[]),
         ),
         patch(
-            "app.services.projects.project_items_repo.list_quiz_exclusion_contents",
+            "app.repositories.project_items.list_quiz_exclusion_contents",
             new=AsyncMock(return_value=[]),
         ),
     ):
@@ -579,11 +580,11 @@ async def test_apply_deterministic_quiz_answer_trivia_correct():
 
     with (
         patch(
-            "app.services.projects.projects_repo.get_by_id",
+            "app.repositories.projects.get_by_id",
             new=AsyncMock(return_value=project),
         ),
         patch(
-            "app.services.projects.project_items_repo.find_quiz_candidates",
+            "app.repositories.project_items.find_quiz_candidates",
             new=AsyncMock(return_value=[]),
         ),
         patch(
@@ -636,11 +637,11 @@ async def test_apply_deterministic_quiz_answer_records_wrong_trivia_as_learning(
 
     with (
         patch(
-            "app.services.projects.projects_repo.get_by_id",
+            "app.repositories.projects.get_by_id",
             new=AsyncMock(return_value=project),
         ),
         patch(
-            "app.services.projects.project_items_repo.find_quiz_candidates",
+            "app.repositories.project_items.find_quiz_candidates",
             new=AsyncMock(return_value=[]),
         ),
         patch(
@@ -701,11 +702,11 @@ async def test_apply_deterministic_trivia_backfills_answer_on_existing_item():
 
     with (
         patch(
-            "app.services.projects.projects_repo.get_by_id",
+            "app.repositories.projects.get_by_id",
             new=AsyncMock(return_value=project),
         ),
         patch(
-            "app.services.projects.project_items_repo.find_quiz_candidates",
+            "app.repositories.project_items.find_quiz_candidates",
             new=AsyncMock(return_value=[existing]),
         ),
         patch(
@@ -753,11 +754,11 @@ async def test_load_trivia_quiz_context_retries_question_not_topic():
 
     with (
         patch(
-            "app.services.projects.projects_repo.get_by_id",
+            "app.repositories.projects.get_by_id",
             new=AsyncMock(return_value=project),
         ),
         patch(
-            "app.services.projects.project_items_repo.list_for_user",
+            "app.repositories.project_items.list_for_user",
             new=AsyncMock(return_value=[]),
         ),
     ):

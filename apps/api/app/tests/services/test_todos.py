@@ -6,7 +6,12 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas import TodoActionItem
+from app.repositories import todos as todos_repo
+from app.repositories import users as users_repo
+from app.services import home as home_service
 from app.services import todos as todos_service
+from app.services.todos import actions as todos_actions
+from app.services.todos import classification as todos_classification
 
 
 class _FakeSessionCM:
@@ -56,13 +61,13 @@ def _item_overdue(content: str, *, hours_ago: int = 3, tz_name: str = "UTC"):
 
 
 def test_transcript_implies_bulk_shift_to_tomorrow():
-    assert todos_service._transcript_implies_bulk_shift_to_tomorrow(
+    assert todos_classification._transcript_implies_bulk_shift_to_tomorrow(
         "User: move all my reminders due today to tomorrow\nAssistant: Done."
     )
-    assert todos_service._transcript_implies_bulk_shift_to_tomorrow(
+    assert todos_classification._transcript_implies_bulk_shift_to_tomorrow(
         "User: you only moved one, fix them\nAssistant: Moving the rest now."
     )
-    assert not todos_service._transcript_implies_bulk_shift_to_tomorrow(
+    assert not todos_classification._transcript_implies_bulk_shift_to_tomorrow(
         "User: move Walk to tomorrow\nAssistant: Done."
     )
 
@@ -76,11 +81,11 @@ async def test_apply_bulk_shift_moves_all_due_today():
         _item("Buy milk"),
     ]
     with patch.object(
-        todos_service.todos_repo,
+        todos_repo,
         "update",
         AsyncMock(side_effect=lambda _s, item, **fields: item),
     ) as update_mock:
-        applied = await todos_service._apply_bulk_shift_due_today_to_tomorrow(
+        applied = await todos_actions._apply_bulk_shift_due_today_to_tomorrow(
             session,
             user_id=uuid4(),
             items=items,
@@ -113,12 +118,12 @@ async def test_sync_todos_bulk_shift_after_partial_llm_apply():
             side_effect=_session_local_side_effect(session),
         ),
         patch.object(
-            todos_service.users_repo,
+            users_repo,
             "get_by_id",
             AsyncMock(return_value=user),
         ),
         patch.object(
-            todos_service.todos_repo,
+            todos_repo,
             "list_for_user",
             AsyncMock(return_value=items),
         ),
@@ -132,7 +137,7 @@ async def test_sync_todos_bulk_shift_after_partial_llm_apply():
             AsyncMock(return_value=1),
         ),
         patch.object(
-            todos_service,
+            todos_actions,
             "_apply_bulk_shift_due_today_to_tomorrow",
             AsyncMock(return_value=2),
         ) as bulk_mock,
@@ -175,11 +180,11 @@ async def test_sync_todos_from_transcript_releases_db_before_llm():
     with (
         patch("app.core.db.SessionLocal", side_effect=[load_cm, apply_cm]),
         patch.object(
-            todos_service.users_repo,
+            users_repo,
             "get_by_id",
             AsyncMock(return_value=MagicMock(timezone="UTC")),
         ),
-        patch.object(todos_service.todos_repo, "list_for_user", AsyncMock(return_value=[])),
+        patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
         patch(
             "app.services.todos.extract.extract_todo_actions",
             AsyncMock(side_effect=fake_extract),
@@ -224,15 +229,15 @@ async def test_sync_todos_refuses_delete_list_from_transcript_and_caps_actions()
             "app.core.db.SessionLocal",
             side_effect=_session_local_side_effect(session),
         ),
-        patch.object(todos_service.users_repo, "get_by_id", AsyncMock(return_value=user)),
-        patch.object(todos_service.todos_repo, "list_for_user", AsyncMock(return_value=[])),
+        patch.object(users_repo, "get_by_id", AsyncMock(return_value=user)),
+        patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
         patch(
             "app.services.todos.extract.extract_todo_actions",
             AsyncMock(return_value=extraction),
         ),
         patch.object(todos_service, "apply_todo_actions", AsyncMock(side_effect=fake_apply)),
         patch.object(
-            todos_service,
+            todos_actions,
             "_apply_bulk_shift_due_today_to_tomorrow",
             AsyncMock(return_value=0),
         ),
@@ -294,12 +299,12 @@ async def test_apply_todo_actions_delete_list():
     done_b.checked = True
     with (
         patch.object(
-            todos_service.todos_repo,
+            todos_repo,
             "list_for_user",
             AsyncMock(return_value=[done_a, done_b]),
         ),
         patch.object(
-            todos_service.todos_repo,
+            todos_repo,
             "delete_by_topic",
             AsyncMock(return_value=2),
         ) as delete_mock,
@@ -319,7 +324,7 @@ async def test_apply_todo_actions_delete_list_blocked_when_open():
     items = [_item("Task A", "Work")]
     feedback: list[str] = []
     with patch.object(
-        todos_service.todos_repo,
+        todos_repo,
         "list_for_user",
         AsyncMock(return_value=items),
     ):
@@ -339,12 +344,12 @@ async def test_apply_todo_actions_complete():
     existing = _item("Buy milk", "Groceries")
     with (
         patch.object(
-            todos_service.todos_repo,
+            todos_repo,
             "list_for_user",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
-            todos_service.todos_repo,
+            todos_repo,
             "update",
             AsyncMock(return_value=existing),
         ) as update_mock,
@@ -367,12 +372,12 @@ async def test_apply_todo_actions_set_due():
     due = datetime(2026, 7, 1, 12, 0, tzinfo=UTC)
     with (
         patch.object(
-            todos_service.todos_repo,
+            todos_repo,
             "list_for_user",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
-            todos_service.todos_repo,
+            todos_repo,
             "update",
             AsyncMock(return_value=existing),
         ) as update_mock,
@@ -401,7 +406,7 @@ async def test_load_todos_for_prompt():
     user.id = uuid4()
     user.timezone = "UTC"
     with patch.object(
-        todos_service.todos_repo,
+        todos_repo,
         "list_for_user",
         AsyncMock(return_value=[_item("Task")]),
     ):
@@ -438,7 +443,7 @@ def test_query_implies_todos():
 
 
 def test_fuzzy_match_requires_similarity_not_substring():
-    from app.services.todos import _fuzzy_match
+    from app.services.todos.actions import _fuzzy_match
 
     assert not _fuzzy_match("milk", "buy milk today")
     assert not _fuzzy_match("call mom", "call mom about dinner and groceries")
@@ -489,17 +494,17 @@ def test_transcript_implies_todo_sync_overdue_delete():
     assert todos_service.transcript_implies_todo_sync(
         "User: Delete overdue\nAssistant: I've removed the two overdue reminders."
     )
-    assert todos_service._transcript_implies_delete_overdue(
+    assert todos_classification._transcript_implies_delete_overdue(
         "User: Delete overdue\nAssistant: Done."
     )
-    assert todos_service._transcript_implies_delete_overdue(
+    assert todos_classification._transcript_implies_delete_overdue(
         "User: yes\nAssistant: I've removed the two overdue reminders: Dd and midnight check."
     )
     # Unrelated chat must not fire a todo sync LLM call.
     assert not todos_service.transcript_implies_todo_sync(
         "User: how do I delete a file in Python?\nAssistant: Use os.remove."
     )
-    assert not todos_service._transcript_implies_delete_overdue(
+    assert not todos_classification._transcript_implies_delete_overdue(
         "User: delete the Walk reminder\nAssistant: I'll delete Walk."
     )
 
@@ -514,11 +519,11 @@ async def test_apply_delete_overdue_removes_past_due_only():
     checked = _item_overdue("Done already", hours_ago=5)
     checked.checked = True
     with patch.object(
-        todos_service.todos_repo,
+        todos_repo,
         "delete_by_id",
         AsyncMock(return_value=True),
     ) as delete_mock:
-        applied = await todos_service._apply_delete_overdue_open_reminders(
+        applied = await todos_actions._apply_delete_overdue_open_reminders(
             session,
             user_id=uuid4(),
             items=[overdue, future, no_due, checked],
@@ -545,12 +550,12 @@ async def test_sync_todos_delete_overdue_after_empty_llm_apply():
             side_effect=_session_local_side_effect(session),
         ),
         patch.object(
-            todos_service.users_repo,
+            users_repo,
             "get_by_id",
             AsyncMock(return_value=user),
         ),
         patch.object(
-            todos_service.todos_repo,
+            todos_repo,
             "list_for_user",
             AsyncMock(return_value=items),
         ),
@@ -564,12 +569,12 @@ async def test_sync_todos_delete_overdue_after_empty_llm_apply():
             AsyncMock(return_value=0),
         ),
         patch.object(
-            todos_service,
+            todos_actions,
             "_apply_delete_overdue_open_reminders",
             AsyncMock(return_value=2),
         ) as delete_mock,
         patch.object(
-            todos_service.home_service,
+            home_service,
             "invalidate_home_cache",
             AsyncMock(),
         ),
@@ -606,12 +611,12 @@ async def test_apply_todo_actions_reminder_without_topic():
     due = datetime(2026, 7, 19, 19, 0, tzinfo=UTC)
     with (
         patch.object(
-            todos_service.todos_repo,
+            todos_repo,
             "list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            todos_service.todos_repo,
+            todos_repo,
             "create",
             AsyncMock(),
         ) as create_mock,
@@ -648,17 +653,17 @@ async def test_materialize_reminder_fences_creates_todo():
     )
     with (
         patch.object(
-            todos_service.todos_repo,
+            todos_repo,
             "list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            todos_service.todos_repo,
+            todos_repo,
             "create",
             AsyncMock(),
         ) as create_mock,
         patch.object(
-            todos_service.home_service,
+            home_service,
             "invalidate_home_cache",
             AsyncMock(),
         ) as invalidate_mock,
@@ -688,7 +693,7 @@ async def test_materialize_reminder_fences_creates_todo():
 async def test_materialize_reminder_fences_skips_invalid():
     session = AsyncMock()
     text = 'Hello\n```reminder\n{"title":"x"}\n```\n'
-    with patch.object(todos_service.todos_repo, "create", AsyncMock()) as create_mock:
+    with patch.object(todos_repo, "create", AsyncMock()) as create_mock:
         updated, created = await todos_service.materialize_reminder_fences(
             session,
             user_id=uuid4(),
@@ -732,12 +737,12 @@ async def test_apply_todo_actions_dedupes_add():
     existing = _item("Buy milk", "Groceries")
     with (
         patch.object(
-            todos_service.todos_repo,
+            todos_repo,
             "list_for_user",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
-            todos_service.todos_repo,
+            todos_repo,
             "create",
             AsyncMock(),
         ) as create_mock,
@@ -762,12 +767,12 @@ async def test_apply_todo_actions_wildcard_set_due_today():
     new_due = datetime.now(UTC) + timedelta(days=1)
     with (
         patch.object(
-            todos_service.todos_repo,
+            todos_repo,
             "list_for_user",
             AsyncMock(return_value=[due_today_a, due_today_b, list_item]),
         ),
         patch.object(
-            todos_service.todos_repo,
+            todos_repo,
             "update",
             AsyncMock(side_effect=lambda _s, item, **fields: item),
         ) as update_mock,
@@ -796,7 +801,7 @@ async def test_load_todos_for_prompt_skips_unrelated_query():
     user.id = uuid4()
     user.timezone = "UTC"
     with patch.object(
-        todos_service.todos_repo,
+        todos_repo,
         "list_for_user",
         AsyncMock(return_value=[_item("Task")]),
     ):
@@ -813,7 +818,7 @@ async def test_build_todos_system_section_returns_hint_and_block():
     user.id = uuid4()
     user.timezone = "UTC"
     with patch.object(
-        todos_service.todos_repo,
+        todos_repo,
         "list_for_user",
         AsyncMock(return_value=[_item("Task")]),
     ):

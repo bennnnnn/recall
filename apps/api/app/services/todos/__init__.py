@@ -1,63 +1,23 @@
-"""Reminders & Lists service — thin re-export barrel for the package split.
+"""Reminders & Lists service — public re-export barrel.
 
-Import surfaces preserved for callers and tests:
-``from app.services import todos as todos_service``
-``from app.services.todos import X`` (including private names).
+Callers: ``from app.services import todos as todos_service``.
+Private helpers live in submodules; import those directly when needed.
 """
 
 from __future__ import annotations
 
-from app.repositories import todos as todos_repo
-from app.repositories import users as users_repo
-from app.services import home as home_service
 from app.services.todos.actions import (
-    _ACTION_RELOAD_LIMIT,
-    _TODO_ACTION_HANDLERS,
     MAX_TODO_ACTIONS_PER_TURN,
     REMINDER_TOPIC,
     TODO_BLOCKED_FROM_TRANSCRIPT,
-    _apply_bulk_shift_due_today_to_tomorrow,
-    _apply_delete_overdue_open_reminders,
-    _due_local_date,
-    _find_item,
-    _find_item_any_state,
-    _fuzzy_match,
-    _prepare_todo_action,
-    _shift_due_date_preserving_time,
-    _todo_action_add,
-    _todo_action_clear_due,
-    _todo_action_complete,
-    _todo_action_delete,
-    _todo_action_delete_list,
-    _todo_action_set_due,
-    _todo_action_uncheck,
-    _TodoApplyState,
     apply_todo_actions,
 )
 from app.services.todos.classification import (
-    _AFFIRMATIVE,
-    _ASSISTANT_BLOCK,
-    _BULK_SHIFT_TO_TOMORROW,
-    _DELETE_OVERDUE,
-    _INCOMPLETE_BULK_SHIFT,
-    _REMINDER_OR_TODO_WORD,
-    _TODO_QUERY,
-    _TODO_SYNC_TRANSCRIPT,
-    _USER_DELETE_TURN,
-    _USER_LINE,
-    _transcript_implies_bulk_shift_to_tomorrow,
-    _transcript_implies_delete_overdue,
     query_implies_todos,
     should_pre_sync_todos,
     transcript_implies_todo_sync,
 )
 from app.services.todos.prompt_context import (
-    _due_local,
-    _has_overdue_open_reminders,
-    _normalize,
-    _reminder_day_group,
-    _todo_priority,
-    _topic_key,
     build_todos_system_section,
     format_todos_block,
     load_todos_for_prompt,
@@ -65,21 +25,10 @@ from app.services.todos.prompt_context import (
     should_inject_todos_prompt,
 )
 from app.services.todos.prompt_hint import TODO_HINT
-from app.services.todos.reminder_fences import (
-    _REMINDER_FENCE,
-    _create_one,
-    _load_existing,
-    _ReminderFence,
-    _ReminderFenceCreateState,
-    materialize_reminder_fences,
-)
+from app.services.todos.reminder_fences import materialize_reminder_fences
 from app.services.todos.sync import (
     TODO_SYNC_FEEDBACK_HEADER,
     TODO_SYNC_RECENT_MESSAGES,
-    _apply_todo_extraction_result,
-    _load_todo_sync_snapshot,
-    _run_extracted_todo_actions,
-    _TodoSyncSnapshot,
     build_todo_sync_transcript,
     format_chat_transcript,
     format_todo_sync_feedback,
@@ -94,58 +43,12 @@ __all__ = [
     "TODO_HINT",
     "TODO_SYNC_FEEDBACK_HEADER",
     "TODO_SYNC_RECENT_MESSAGES",
-    "_ACTION_RELOAD_LIMIT",
-    "_AFFIRMATIVE",
-    "_ASSISTANT_BLOCK",
-    "_BULK_SHIFT_TO_TOMORROW",
-    "_DELETE_OVERDUE",
-    "_INCOMPLETE_BULK_SHIFT",
-    "_REMINDER_FENCE",
-    "_REMINDER_OR_TODO_WORD",
-    "_TODO_ACTION_HANDLERS",
-    "_TODO_QUERY",
-    "_TODO_SYNC_TRANSCRIPT",
-    "_USER_DELETE_TURN",
-    "_USER_LINE",
-    "_ReminderFence",
-    "_ReminderFenceCreateState",
-    "_TodoApplyState",
-    "_TodoSyncSnapshot",
-    "_apply_bulk_shift_due_today_to_tomorrow",
-    "_apply_delete_overdue_open_reminders",
-    "_apply_todo_extraction_result",
-    "_create_one",
-    "_due_local",
-    "_due_local_date",
-    "_find_item",
-    "_find_item_any_state",
-    "_fuzzy_match",
-    "_has_overdue_open_reminders",
-    "_load_existing",
-    "_load_todo_sync_snapshot",
-    "_normalize",
-    "_prepare_todo_action",
-    "_reminder_day_group",
-    "_run_extracted_todo_actions",
-    "_shift_due_date_preserving_time",
-    "_todo_action_add",
-    "_todo_action_clear_due",
-    "_todo_action_complete",
-    "_todo_action_delete",
-    "_todo_action_delete_list",
-    "_todo_action_set_due",
-    "_todo_action_uncheck",
-    "_todo_priority",
-    "_topic_key",
-    "_transcript_implies_bulk_shift_to_tomorrow",
-    "_transcript_implies_delete_overdue",
     "apply_todo_actions",
     "build_todo_sync_transcript",
     "build_todos_system_section",
     "format_chat_transcript",
     "format_todo_sync_feedback",
     "format_todos_block",
-    "home_service",
     "load_todos_for_prompt",
     "materialize_reminder_fences",
     "query_implies_todos",
@@ -154,7 +57,5 @@ __all__ = [
     "should_pre_sync_todos",
     "sync_todos_before_reply",
     "sync_todos_from_transcript",
-    "todos_repo",
     "transcript_implies_todo_sync",
-    "users_repo",
 ]

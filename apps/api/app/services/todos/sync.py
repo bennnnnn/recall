@@ -106,12 +106,12 @@ async def _apply_todo_extraction_result(
     user_timezone: str | None,
     feedback: list[str] | None = None,
 ) -> None:
-    # Resolve via package so tests can patch todos_service.apply_todo_actions
-    # and the bulk helpers on the package surface.
-    from app.services.todos import (
+    # Resolve apply via package so tests can patch todos_service.apply_todo_actions.
+    # Bulk helpers are private — import (and patch) from actions.
+    from app.services.todos import apply_todo_actions
+    from app.services.todos.actions import (
         _apply_bulk_shift_due_today_to_tomorrow,
         _apply_delete_overdue_open_reminders,
-        apply_todo_actions,
     )
 
     if result and result.actions:
