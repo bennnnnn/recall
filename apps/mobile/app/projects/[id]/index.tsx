@@ -252,18 +252,21 @@ export default function ProjectDetailScreen() {
         ? t("projects.list.continue_questions", { count: remainingToday })
         : t("projects.list.continue_words", { count: remainingToday });
 
-  const handleItemStatusChange = async (itemId: string, status: VocabStatus) => {
-    if (!token || typeof id !== "string") return;
-    setConceptBusyId(itemId);
-    try {
-      await api.updateProjectItem(token, id, itemId, { status });
-      await load({ silent: true, force: true });
-    } catch {
-      Alert.alert(t("common.error"), t("projects.status_update_failed"));
-    } finally {
-      setConceptBusyId(null);
-    }
-  };
+  const handleItemStatusChange = useCallback(
+    async (itemId: string, status: VocabStatus) => {
+      if (!token || typeof id !== "string") return;
+      setConceptBusyId(itemId);
+      try {
+        await api.updateProjectItem(token, id, itemId, { status });
+        await load({ silent: true, force: true });
+      } catch {
+        Alert.alert(t("common.error"), t("projects.status_update_failed"));
+      } finally {
+        setConceptBusyId(null);
+      }
+    },
+    [token, id, load, t],
+  );
 
   const startReviewSession = () => {
     const variant = isTrivia ? "trivia" : isLang ? "vocab" : undefined;
@@ -399,7 +402,7 @@ export default function ProjectDetailScreen() {
                     item={item}
                     showSpeech={false}
                     busy={conceptBusyId === item.id}
-                    onStatusChange={(status) => handleItemStatusChange(item.id, status)}
+                    onStatusChange={handleItemStatusChange}
                   />
                 ))}
               </View>

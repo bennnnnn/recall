@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
@@ -10,7 +10,21 @@ import { describeDueAt } from "@/lib/dueDate";
 import { notifyWarning } from "@/lib/haptics";
 import { useTheme } from "@/lib/theme";
 
-export function TodoRow({
+type Props = {
+  todo: Todo;
+  variant?: "open" | "done";
+  busy?: boolean;
+  highlighted?: boolean;
+  projectTitle?: string | null;
+  /** Stable parent callbacks (take the todo) — avoid per-row closures that defeat memo. */
+  onToggle: (todo: Todo) => void;
+  onDue?: (todo: Todo) => void;
+  onLinkProject?: (todo: Todo) => void;
+  onDelete: (todo: Todo) => void;
+  overlapWith?: string;
+};
+
+export const TodoRow = memo(function TodoRow({
   todo,
   variant,
   busy,
@@ -21,18 +35,7 @@ export function TodoRow({
   onLinkProject,
   onDelete,
   overlapWith,
-}: {
-  todo: Todo;
-  variant?: "open" | "done";
-  busy?: boolean;
-  highlighted?: boolean;
-  projectTitle?: string | null;
-  onToggle: () => void;
-  onDue?: () => void;
-  onLinkProject?: () => void;
-  onDelete: () => void;
-  overlapWith?: string;
-}) {
+}: Props) {
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeTodosStyles(C), [C]);
@@ -46,13 +49,13 @@ export function TodoRow({
         : s.dueSoon;
   const handleDelete = () => {
     notifyWarning();
-    onDelete();
+    onDelete(todo);
   };
 
   const row = (
     <View style={[s.todoRow, highlighted && s.todoRowHighlighted]}>
       <Pressable
-        onPress={onToggle}
+        onPress={() => onToggle(todo)}
         hitSlop={10}
         style={s.checkbox}
         disabled={busy}
@@ -89,7 +92,7 @@ export function TodoRow({
       </View>
       {rowVariant === "open" && !todo.checked && onLinkProject ? (
         <Pressable
-          onPress={onLinkProject}
+          onPress={() => onLinkProject(todo)}
           hitSlop={8}
           style={s.dueBtn}
           accessibilityLabel={t("todos.link_project")}
@@ -103,7 +106,7 @@ export function TodoRow({
       ) : null}
       {rowVariant === "open" && !todo.checked && onDue ? (
         <Pressable
-          onPress={onDue}
+          onPress={() => onDue(todo)}
           hitSlop={8}
           style={s.dueBtn}
           accessibilityRole="button"
@@ -154,4 +157,4 @@ export function TodoRow({
       {row}
     </Swipeable>
   );
-}
+});

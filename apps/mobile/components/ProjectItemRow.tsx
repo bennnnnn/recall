@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
@@ -12,7 +12,8 @@ type Props = {
   item: ProjectItem;
   busy?: boolean;
   showSpeech?: boolean;
-  onStatusChange?: (status: VocabStatus) => void | Promise<void>;
+  /** Stable parent callback — takes item id so rows stay memo-friendly. */
+  onStatusChange?: (itemId: string, status: VocabStatus) => void | Promise<void>;
   onSpeechUnavailable?: () => void;
 };
 
@@ -28,7 +29,7 @@ function statusColor(item: ProjectItem, theme: Theme): string {
   return theme.textTertiary;
 }
 
-export function ProjectItemRow({
+export const ProjectItemRow = memo(function ProjectItemRow({
   item,
   busy = false,
   showSpeech = true,
@@ -46,15 +47,15 @@ export function ProjectItemRow({
     Alert.alert(item.content, t("projects.status_menu_hint"), [
       {
         text: t("projects.status_new"),
-        onPress: () => void onStatusChange("new"),
+        onPress: () => void onStatusChange(item.id, "new"),
       },
       {
         text: t("projects.status_missed"),
-        onPress: () => void onStatusChange("learning"),
+        onPress: () => void onStatusChange(item.id, "learning"),
       },
       {
         text: t("projects.status_mastered"),
-        onPress: () => void onStatusChange("mastered"),
+        onPress: () => void onStatusChange(item.id, "mastered"),
       },
       { text: t("common.cancel"), style: "cancel" },
     ]);
@@ -130,7 +131,7 @@ export function ProjectItemRow({
       </View>
     </View>
   );
-}
+});
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({

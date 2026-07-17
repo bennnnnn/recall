@@ -100,30 +100,28 @@ export function TodosFlashList({
       if (item.done) {
         return (
           <TodoRow
-            key={todo.id}
             todo={todo}
             variant="done"
             busy={togglingId === todo.id}
             projectTitle={projectTitle}
-            onToggle={() => onToggle(todo)}
-            onDue={isReminder(todo) ? () => onDue(todo) : undefined}
-            onDelete={() => onDeleteItem(todo)}
+            onToggle={onToggle}
+            onDue={isReminder(todo) ? onDue : undefined}
+            onDelete={onDeleteItem}
           />
         );
       }
       return (
         <TodoRow
-          key={todo.id}
           todo={todo}
           variant="open"
           highlighted={highlight === todo.id}
           overlapWith={overlapNotes.get(todo.id)}
           busy={togglingId === todo.id}
           projectTitle={projectTitle}
-          onToggle={() => onToggle(todo)}
-          onDue={() => onDue(todo)}
-          onLinkProject={onLinkProject ? () => onLinkProject(todo) : undefined}
-          onDelete={() => onDeleteItem(todo)}
+          onToggle={onToggle}
+          onDue={onDue}
+          onLinkProject={onLinkProject}
+          onDelete={onDeleteItem}
         />
       );
     },

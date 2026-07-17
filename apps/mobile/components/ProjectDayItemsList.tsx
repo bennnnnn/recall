@@ -166,7 +166,7 @@ export function ProjectDayItemsList({
                   item={item}
                   showSpeech={!isTrivia}
                   busy={busyId === item.id}
-                  onStatusChange={(status) => handleStatusChange(item.id, status)}
+                  onStatusChange={handleStatusChange}
                 />
               </View>
             ))}
@@ -201,7 +201,7 @@ export function ProjectDayItemsList({
                   item={item}
                   showSpeech={!isTrivia}
                   busy={busyId === item.id}
-                  onStatusChange={(status) => handleStatusChange(item.id, status)}
+                  onStatusChange={handleStatusChange}
                 />
               </View>
             ))}

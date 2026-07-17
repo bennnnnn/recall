@@ -1,7 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Animated, {
-  Easing,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -9,6 +8,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
+import { Motion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
 
 /** Pulsing Recall mark while waiting for the first token (ChatGPT-style).
@@ -22,19 +22,30 @@ export function RecallTypingIndicator() {
   const rotate = useSharedValue(0);
 
   useEffect(() => {
-    const ease = Easing.inOut(Easing.ease);
     scale.value = withRepeat(
       withSequence(
-        withTiming(1.06, { duration: 700, easing: ease }),
-        withTiming(0.92, { duration: 700, easing: ease }),
+        withTiming(1.06, {
+          duration: Motion.duration.soft,
+          easing: Motion.easing.inOut,
+        }),
+        withTiming(0.92, {
+          duration: Motion.duration.soft,
+          easing: Motion.easing.inOut,
+        }),
       ),
       -1,
       false,
     );
     opacity.value = withRepeat(
       withSequence(
-        withTiming(1, { duration: 700, easing: ease }),
-        withTiming(0.5, { duration: 700, easing: ease }),
+        withTiming(1, {
+          duration: Motion.duration.soft,
+          easing: Motion.easing.inOut,
+        }),
+        withTiming(0.5, {
+          duration: Motion.duration.soft,
+          easing: Motion.easing.inOut,
+        }),
       ),
       -1,
       false,
@@ -43,8 +54,14 @@ export function RecallTypingIndicator() {
     // extremes (looks like it's "thinking back and forth", not a uniform spin).
     rotate.value = withRepeat(
       withSequence(
-        withTiming(22, { duration: 650, easing: Easing.inOut(Easing.sin) }),
-        withTiming(-22, { duration: 650, easing: Easing.inOut(Easing.sin) }),
+        withTiming(22, {
+          duration: Motion.duration.sway,
+          easing: Motion.easing.sway,
+        }),
+        withTiming(-22, {
+          duration: Motion.duration.sway,
+          easing: Motion.easing.sway,
+        }),
       ),
       -1,
       false,
