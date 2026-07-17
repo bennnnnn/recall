@@ -19,6 +19,8 @@ type Props = {
   onTogglePin: () => void;
   onToggleArchive?: () => void;
   onDelete: () => void;
+  /** Drawer only — enter multi-select with this chat checked. */
+  onSelectChats?: () => void;
   /**
    * `sheet` — bottom action sheet (drawer).
    * `menu` — top-right dropdown under the chat header ⋮; no Modal so the
@@ -38,6 +40,7 @@ export function ChatActionsSheet({
   onTogglePin,
   onToggleArchive,
   onDelete,
+  onSelectChats,
   placement = "sheet",
 }: Props) {
   const theme = useTheme();
@@ -90,6 +93,12 @@ export function ChatActionsSheet({
             archived ? t("chat.unarchive") : t("chat.archive"),
             onToggleArchive,
           )}
+          {!isMenu ? <View style={s.divider} /> : null}
+        </>
+      ) : null}
+      {onSelectChats ? (
+        <>
+          {row("checkbox-outline", t("drawer.select"), onSelectChats)}
           {!isMenu ? <View style={s.divider} /> : null}
         </>
       ) : null}
