@@ -61,6 +61,7 @@ async def _load_project_sync_snapshot(
     items = await project_items_repo.list_for_user(
         session, user_id, limit=settings.project_item_inject_limit
     )
+    titles_by_id = {p.id: p.title for p in projects}
     return _ProjectSyncSnapshot(
         snapshot={
             "projects": [
@@ -76,9 +77,7 @@ async def _load_project_sync_snapshot(
             ],
             "items": [
                 {
-                    "project_title": next(
-                        (pr.title for pr in projects if pr.id == i.project_id), ""
-                    ),
+                    "project_title": titles_by_id.get(i.project_id, ""),
                     "list_title": i.list_title,
                     "content": i.content,
                     "definition": i.definition,

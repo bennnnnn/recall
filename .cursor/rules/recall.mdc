@@ -20,7 +20,7 @@ Read `CLAUDE.md` at repo root for full architecture.
 
 `routers/` → `services/` → `gateways/` + `repositories/`. No business logic in routers.
 
-New chat-loop code belongs in `apps/api/app/services/chat.py`.
+New chat-loop code belongs in `apps/api/app/services/chat/`.
 
 ## Mobile
 
