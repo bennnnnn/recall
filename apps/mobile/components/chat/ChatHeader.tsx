@@ -23,7 +23,7 @@ type Props = {
   chatTitle: string | null;
   showIndicator: boolean;
   unseenCount: number;
-  /** False on the empty home screen (no turns yet). Keep — do not always show ⋮ / new-chat. */
+  /** False on the empty home screen (no turns yet). Hides new-chat + ⋮. */
   hasMessages: boolean;
   onOpenDrawer: () => void;
   onOpenReminders: () => void;
@@ -118,7 +118,7 @@ export const ChatHeader = memo(function ChatHeader({
               </View>
             </Pressable>
           ) : null}
-          {/* Home (hasMessages=false): only drawer (+ optional bell). Chat actions live in drawer. */}
+          {/* Home (no turns): drawer only. New-chat + ⋮ only once there are messages. */}
           {hasMessages ? (
             <View style={s.actionGroup}>
               <Pressable
@@ -131,9 +131,8 @@ export const ChatHeader = memo(function ChatHeader({
                 accessibilityRole="button"
                 accessibilityLabel={t("chat.new_chat")}
               >
-                <Ionicons name="create-outline" size={22} color={theme.text} />
+                <Ionicons name="chatbubble-outline" size={22} color={theme.text} />
               </Pressable>
-              <View style={s.actionGroupDivider} />
               <Pressable
                 style={({ pressed }) => [
                   s.actionGroupBtn,
@@ -209,11 +208,6 @@ function makeStyles(theme: Theme) {
       justifyContent: "center",
     },
     actionGroupBtnPressed: { backgroundColor: theme.surfaceAlt },
-    actionGroupDivider: {
-      width: StyleSheet.hairlineWidth,
-      height: 18,
-      backgroundColor: theme.border,
-    },
     headerCenter: {
       flex: 1,
       alignItems: "center",

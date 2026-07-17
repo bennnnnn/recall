@@ -197,7 +197,9 @@ export function useChatScreenBodyProps({
           chatTitle={chatTitle}
           showIndicator={showIndicator}
           unseenCount={unseenCount}
-          hasMessages={messages.length > 0}
+          // Prefer routeChatId so actions don't flash off if messages briefly
+          // clear during a chat load/refetch; home (no route, no turns) stays clean.
+          hasMessages={messages.length > 0 || Boolean(routeChatId)}
           onOpenDrawer={openDrawer}
           onOpenReminders={() =>
             router.push({ pathname: "/todos", params: { focus: "reminders" } })
@@ -217,6 +219,7 @@ export function useChatScreenBodyProps({
       showIndicator,
       unseenCount,
       messages.length,
+      routeChatId,
       startNewChat,
       setMenuVisible,
       router,
