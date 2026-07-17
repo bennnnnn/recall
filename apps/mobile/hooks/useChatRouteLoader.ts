@@ -8,6 +8,7 @@ type Router = ReturnType<typeof useRouter>;
 
 import { api, type Message } from "@/lib/api";
 import { readCachedChatMessages, writeCachedChatMessages } from "@/lib/chatMessageCache";
+import { mergeLocalAttachmentUris } from "@/lib/chatMessageMerge";
 import { MESSAGE_PAGE_SIZE } from "@/lib/chatConstants";
 import type { QueuedChatLaunch } from "@/lib/chatLaunch";
 import { takeQueuedChatLaunch } from "@/lib/chatLaunch";
@@ -156,7 +157,7 @@ export function useChatRouteLoader({
         if (cancelled) return;
         if (cached) {
           setChatId(openChatId);
-          setMessages(cached.messages);
+          setMessages((prev) => mergeLocalAttachmentUris(prev, cached.messages));
           setHasMoreOlder(cached.has_more);
           setChatLoading(false);
         }
@@ -171,7 +172,7 @@ export function useChatRouteLoader({
         setArchived(Boolean(chat.archived));
         draftProjectIdRef.current = chat.project_id ?? draftProjectIdRef.current;
         setQuizVariant(resolveQuizVariant(chat.project_id));
-        setMessages(page.messages);
+        setMessages((prev) => mergeLocalAttachmentUris(prev, page.messages));
         setHasMoreOlder(page.has_more);
         void writeCachedChatMessages(openChatId, page.messages, page.has_more);
         if (!chat.title && page.messages.length > 0) {
@@ -218,7 +219,7 @@ export function useChatRouteLoader({
           setArchived(Boolean(chat.archived));
           draftProjectIdRef.current = chat.project_id ?? draftProjectIdRef.current;
           setQuizVariant(resolveQuizVariant(chat.project_id));
-          setMessages(page.messages);
+          setMessages((prev) => mergeLocalAttachmentUris(prev, page.messages));
           setHasMoreOlder(page.has_more);
           void writeCachedChatMessages(openChatId, page.messages, page.has_more);
         } catch {

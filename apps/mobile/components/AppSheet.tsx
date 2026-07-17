@@ -58,7 +58,9 @@ export function AppSheet({
         variant === "bottom" && s.panelBottom,
         variant === "center" && s.panelCenter,
         variant === "bottom" && {
-          paddingBottom: Math.max(insets.bottom, minBottomPadding),
+          // Always add the safe-area inset (Android nav bar) on top of any
+          // caller minimum — Math.max alone left File clipped when inset was 0.
+          paddingBottom: insets.bottom + Math.max(minBottomPadding, 8),
         },
         contentContainerStyle,
       ]}

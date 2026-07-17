@@ -110,6 +110,32 @@ export function ChatMessageImage({ attachmentId, localUri, path, fileName }: Pro
       ? { uri: remoteUri, headers: { Authorization: `Bearer ${token}` } }
       : { uri: remoteUri };
 
+  // Local file:// previews are already sharp — skip the blur "develop" reveal
+  // (and avoid a spinner if the remote auth fetch later fails).
+  if (localUri) {
+    return (
+      <>
+        <Pressable
+          onPress={() => setViewerOpen(true)}
+          accessibilityLabel="View image"
+          accessibilityRole="button"
+        >
+          <View style={s.wrap}>
+            <Image source={{ uri: localUri }} style={s.preview} resizeMode="cover" />
+          </View>
+        </Pressable>
+        <AttachmentImageViewer
+          visible={viewerOpen}
+          onClose={() => setViewerOpen(false)}
+          attachmentId={attachmentId}
+          localUri={localUri}
+          path={path}
+          fileName={fileName}
+        />
+      </>
+    );
+  }
+
   return (
     <>
       <Pressable

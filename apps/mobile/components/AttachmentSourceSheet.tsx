@@ -58,11 +58,11 @@ export function AttachmentSourceSheet({ visible, onClose, onSelect }: Props) {
       onClose={onClose}
       variant="bottom"
       withHandle
-      minBottomPadding={12}
+      minBottomPadding={24}
       contentContainerStyle={s.panel}
     >
       <SheetRow
-        icon="calculator-outline"
+        icon="scan-outline"
         label={t("chat.attach_solve_math_camera")}
         onPress={() => pick("solve_math_camera")}
         theme={theme}

@@ -627,17 +627,17 @@ async def prepare_chat_turn(
                     has_image_attachment = True
                     image_attachments.append((row.content_type, row.storage_key))
                 attachment_lines.extend(lines)
+            # Persist plain attachment markers for the chat UI. Do NOT wrap
+            # with wrap_untrusted here — that preamble is prompt-injection
+            # framing for the model and must never appear as a user bubble.
+            # File excerpts still land in history as data; wrap_untrusted is
+            # applied when assembling LLM context elsewhere (RAG / search).
             if attachment_lines:
-                # Attachment text is user-uploaded external content — a
-                # malicious doc can carry prompt injection. Wrap it as
-                # untrusted (same framing the RAG path uses) so the model
-                # treats it as data, not instructions. The user's typed
-                # message above stays trusted.
-                attached = wrap_untrusted("attached documents", "\n".join(attachment_lines))
+                plain = "\n".join(attachment_lines)
                 if user_content.strip():
-                    user_content = f"{user_content}\n\n{attached}"
+                    user_content = f"{user_content}\n\n{plain}"
                 else:
-                    user_content = attached
+                    user_content = plain
 
             # Camera math solver: vision-extract equation so SymPy can verify.
             from app.services import math_image_extract as math_image_extract_service
@@ -660,7 +660,8 @@ async def prepare_chat_turn(
                     if extracted is not None:
                         image_math_extract = extracted
                         eq = f"{extracted.lhs} = {extracted.rhs}"
-                        user_content = f"{user_content}\n\nExtracted equation: {eq}"
+                        # Prompt/stream path sees Solve:; stored bubble keeps
+                        # the image marker + original caption only.
                         content = f"{content}\n\nSolve: {eq}"
 
     async with SessionLocal() as session:

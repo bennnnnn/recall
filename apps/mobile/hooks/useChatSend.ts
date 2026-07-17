@@ -209,8 +209,14 @@ export function useChatSend({
       const authToken = token;
       if (!authToken) return;
 
-      let attachmentIds: string[] | undefined;
       const attached = pendingAttachment;
+      // Leave the composer immediately — upload happens before the network
+      // send, but the user should see the bubble, not a spinning preview.
+      setInput("");
+      setPendingAttachment(null);
+      Keyboard.dismiss();
+
+      let attachmentIds: string[] | undefined;
       if (attached) {
         setAttachBusy(true);
         try {
@@ -222,13 +228,13 @@ export function useChatSend({
             error instanceof Error ? error.message : t("common.error"),
           );
           setAttachBusy(false);
+          setInput(text);
+          setPendingAttachment(attached);
           return;
         }
         setAttachBusy(false);
-        setPendingAttachment(null);
       }
 
-      setInput("");
       newMessageCountRef.current += 1;
 
       let clientGeo: ClientGeo | null = null;
@@ -241,6 +247,7 @@ export function useChatSend({
       );
       if (!geoResult.ok) {
         setInput(text);
+        setPendingAttachment(attached);
         return;
       }
       clientGeo = geoResult.clientGeo;
@@ -290,6 +297,7 @@ export function useChatSend({
           setPendingOutboundId(null);
           setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
           setInput(text);
+          setPendingAttachment(attached);
         } finally {
           creatingRef.current = false;
         }
@@ -350,7 +358,9 @@ export function useChatSend({
   const handlePickAttachment = useCallback(() => {
     if (!token || attachBusy || streaming) return;
     Keyboard.dismiss();
-    setAttachSheetOpen(true);
+    // Let the keyboard finish dismissing before presenting the Modal so the
+    // first tap isn't swallowed on Android.
+    requestAnimationFrame(() => setAttachSheetOpen(true));
   }, [token, attachBusy, streaming]);
 
   const waitForPickerUi = useCallback(() => scheduleIdlePromise(), []);
@@ -369,11 +379,13 @@ export function useChatSend({
 
       try {
         const picked =
-          source === "camera" || source === "solve_math_camera"
-            ? await pickFromCamera()
-            : source === "photo"
-              ? await pickFromPhotoLibrary()
-              : await pickDocument();
+          source === "solve_math_camera"
+            ? await pickFromCamera({ allowsEditing: true })
+            : source === "camera"
+              ? await pickFromCamera()
+              : source === "photo"
+                ? await pickFromPhotoLibrary()
+                : await pickDocument();
         if (picked) {
           setPendingAttachment(picked);
           if (source === "solve_math_camera") {
