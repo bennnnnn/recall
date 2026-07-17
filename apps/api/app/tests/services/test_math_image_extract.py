@@ -175,6 +175,23 @@ async def test_extract_equation_pydantic_validation_failure_returns_none():
 
 
 @pytest.mark.asyncio
+async def test_extract_equation_unwraps_single_element_list():
+    """Models sometimes return [{...}] instead of {...}; accept that shape."""
+    raw = '[{"lhs":"x^2","rhs":"5","variables":["x"],"found":true}]'
+    with patch(
+        "app.services.math_image_extract.acompletion",
+        AsyncMock(return_value=_fake_response(raw)),
+    ):
+        result = await mie.extract_equation_from_image(
+            _real_path_settings(), content_type="image/jpeg", data=b"fake"
+        )
+    assert result is not None
+    assert result.lhs == "x^2"
+    assert result.rhs == "5"
+    assert result.found is True
+
+
+@pytest.mark.asyncio
 async def test_extract_equation_real_timeout_returns_none():
     """Distinct from test_extract_equation_uses_dedicated_ocr_timeout_not_solve_timeout
     (which proves the RIGHT budget is used) — this proves the timeout
