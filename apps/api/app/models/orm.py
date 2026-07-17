@@ -292,7 +292,7 @@ class Project(Base):
             unique=True,
             postgresql_where=text("kind IN ('language', 'trivia') AND archived = false"),
         ),
-        CheckConstraint("kind IN ('language', 'trivia', 'general')", name="ck_projects_kind"),
+        CheckConstraint("kind IN ('language', 'trivia')", name="ck_projects_kind"),
         CheckConstraint(
             "level IN ('level1', 'level2', 'level3', 'level4', 'level5', 'level6')",
             name="ck_projects_level",
@@ -305,7 +305,7 @@ class Project(Base):
     )
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    kind: Mapped[str] = mapped_column(String(50), default="general")
+    kind: Mapped[str] = mapped_column(String(50), default="language")
     target_language: Mapped[str] = mapped_column(String(10), default="en", server_default="en")
     native_language: Mapped[str | None] = mapped_column(String(10), nullable=True)
     level: Mapped[str] = mapped_column(String(20), default="level1", server_default="level1")

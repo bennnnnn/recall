@@ -102,10 +102,12 @@ async def test_archiving_frees_up_the_kind_for_a_new_active_project(db_session):
 
 
 @pytest.mark.asyncio
-async def test_general_kind_projects_are_not_limited_to_one(db_session):
-    """The index only scopes kind IN ('language', 'trivia') — 'general' kind
-    projects (legacy, hidden-not-deleted per FEATURES.md) are unaffected."""
+async def test_legacy_project_kinds_rejected_by_check_constraint(db_session):
+    """Only language + trivia remain — programming/general rows are deleted
+    by migration 0058 and blocked by ck_projects_kind."""
     user = await _make_user(db_session)
-    await projects_repo.create(db_session, user_id=user.id, title="Notes 1", kind="general")
-    # Must not raise.
-    await projects_repo.create(db_session, user_id=user.id, title="Notes 2", kind="general")
+    with pytest.raises(IntegrityError):
+        await projects_repo.create(
+            db_session, user_id=user.id, title="TypeScript · Programming", kind="general"
+        )
+    await db_session.rollback()

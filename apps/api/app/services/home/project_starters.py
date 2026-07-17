@@ -139,16 +139,9 @@ def project_starters(project: Project, stats: ProjectStats) -> list[HomeStarter]
                 f"I need {remaining} more today (daily goal: {daily_goal}). "
                 "Ask the next multiple-choice ```vocab_quiz — prioritize failed/learning first."
             )
-    elif stats.total == 0:
-        prompt = (
-            f'Help me start my "{title}" project ({project.kind}).{goal} '
-            "I have not begun yet — suggest a simple first step."
-        )
     else:
-        prompt = (
-            f'Help me with my "{title}" project ({project.kind}).{goal} '
-            f"{progress} What should I focus on next?"
-        )
+        # Legacy kinds (programming / general / …) are not product surfaces.
+        return []
 
     return [
         HomeStarter(
@@ -322,24 +315,6 @@ async def load_project_home_content(
                 return ProjectHomeContent(starters, subtitle, highlight, completed_daily)
         return ProjectHomeContent([], None, None, completed_daily)
 
-    primary = projects[0]
-    stats_by_primary = await project_items_repo.count_stats_by_project(
-        session,
-        [primary.id],
-        timezone_by_project={primary.id: tz_name},
-    )
-    stats = ProjectStats.model_validate(stats_by_primary.get(primary.id, {}))
-    highlight = project_highlight(primary, stats, home_tz=home_tz)
-    completed_daily = []
-    if highlight is None and is_daily_home_project(primary):
-        daily_goal = daily_learning.resolve_daily_goal(primary)
-        if completed_today(stats) >= daily_goal:
-            completed_daily = [(primary.title.strip(), daily_home_kind(primary))]
-    starters = project_starters(primary, stats)
-    subtitle = project_subtitle(
-        primary,
-        stats,
-        seed=seed,
-        has_highlight=highlight is not None,
-    )
-    return ProjectHomeContent(starters, subtitle, highlight, completed_daily)
+    # No English/trivia daily cue — do not fall back to legacy project kinds
+    # (old programming topics used to show up as "Continue TypeScript · …").
+    return ProjectHomeContent([], None, None, [])

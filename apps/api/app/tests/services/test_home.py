@@ -620,15 +620,16 @@ async def test_build_home_batches_daily_project_stats():
 
 
 @pytest.mark.asyncio
-async def test_build_home_dedupes_project_chat_and_memory():
+async def test_build_home_ignores_legacy_non_daily_projects():
+    """Legacy programming/general projects must not become FOR YOU chips."""
     session = AsyncMock()
     user = _user()
-    project = _general_project()
+    project = _general_project(title="TypeScript · Programming")
     chat = MagicMock()
-    chat.title = "General knowledge quiz"
+    chat.title = "TypeScript chapter 1"
     memory = MagicMock()
     memory.type = "project"
-    memory.text = "User is actively engaged in General knowledge"
+    memory.text = "User is learning TypeScript"
 
     with _home_patches(
         list_projects=[project],
@@ -646,10 +647,9 @@ async def test_build_home_dedupes_project_chat_and_memory():
         screen = await home_service.build_home_screen(session, user, Settings())
 
     starter_texts = {s.text for s in screen.starters}
-    assert "Start General knowledge" in starter_texts
-    assert "Continue General knowledge" not in starter_texts
-    assert "Pick up where we left off" not in starter_texts
-    assert "Keep building" not in starter_texts
+    assert "Start TypeScript · Programming" not in starter_texts
+    assert "Continue TypeScript · Programming" not in starter_texts
+    assert not any("TypeScript" in t for t in starter_texts)
 
 
 def test_time_starters_vary_by_hour():
@@ -841,12 +841,10 @@ def test_project_starters_language_empty_when_daily_goal_met():
     assert home_service._project_starters(project, stats) == []
 
 
-def test_project_starters_general_not_started():
-    project = _general_project()
+def test_project_starters_legacy_kind_returns_empty():
+    project = _general_project(title="TypeScript · Programming")
     stats = ProjectStats()
-    starters = home_service._project_starters(project, stats)
-    assert starters[0].text == "Start General knowledge"
-    assert "not begun" in starters[0].prompt.lower()
+    assert home_service._project_starters(project, stats) == []
 
 
 @pytest.mark.asyncio
