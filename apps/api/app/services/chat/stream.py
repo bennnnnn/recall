@@ -24,12 +24,12 @@ from app.services.chat.post_turn import (
     seed_usage_from_db,
 )
 from app.services.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
-from app.services.chat.prompt_constants import is_lightweight_chat_turn
 from app.services.chat.turn_prep import (
     RegenerateBackup,
     StreamContext,
     build_stream_prompt_context,
     count_image_attachments,
+    stream_context_from_bundle,
     vision_reserve_tokens,
 )
 from app.services.chat.turn_timing import TurnTimingTracker
@@ -87,6 +87,40 @@ def weighted_reserve_tokens(
     return math.ceil(base * model_catalog.quota_multiplier(model))
 
 
+async def reserve_turn_quota(
+    redis: Redis,
+    *,
+    user: User,
+    content: str,
+    model: str,
+    settings: Settings,
+    daily_limit: int | None = None,
+    max_output: int | None = None,
+    vision_extra: int = 0,
+    seed: bool = True,
+) -> int:
+    """Seed usage (optional) then reserve weighted tokens; raise on quota exceed."""
+    import app.services.chat as chat_pkg
+
+    if seed:
+        async with SessionLocal() as session:
+            await seed_usage_from_db(redis, session, user.id)
+    if daily_limit is None:
+        daily_limit = chat_pkg.quota_service.daily_limit_for_user(user, settings)
+    reserved = weighted_reserve_tokens(
+        content=content,
+        model=model,
+        settings=settings,
+        max_output=max_output,
+        vision_extra=vision_extra,
+    )
+    if not await chat_pkg.quota_service.reserve_usage(
+        redis, str(user.id), reserved, daily_limit=daily_limit
+    ):
+        raise QuotaExceededError(quota_exceeded_message(user))
+    return reserved
+
+
 async def stream_chat_response(
     redis: Redis,
     settings: Settings,
@@ -138,16 +172,16 @@ async def stream_chat_response(
             async with SessionLocal() as session:
                 image_count = await count_image_attachments(session, user_id, attachment_ids)
             vision_extra = vision_reserve_tokens(settings, image_count)
-        reserved = weighted_reserve_tokens(
+        reserved = await reserve_turn_quota(
+            redis,
+            user=user,
             content=content,
             model=model,
             settings=settings,
+            daily_limit=daily_limit,
             vision_extra=vision_extra,
+            seed=False,
         )
-        if not await chat_pkg.quota_service.reserve_usage(
-            redis, str(user_id), reserved, daily_limit=daily_limit
-        ):
-            raise QuotaExceededError(quota_exceeded_message(user))
 
     try:
         ctx = await chat_pkg._prepare_chat_turn(
@@ -268,47 +302,31 @@ async def stream_regenerate_response(
         timing=timing,
     )
 
-    async with SessionLocal() as session:
-        reserved = weighted_reserve_tokens(
-            content=user_message_content,
-            model=model,
-            settings=settings,
-            max_output=bundle.max_out,
-        )
-        daily_limit = chat_pkg.quota_service.daily_limit_for_user(user, settings)
-        await seed_usage_from_db(redis, session, user_id)
-        if not await chat_pkg.quota_service.reserve_usage(
-            redis, str(user_id), reserved, daily_limit=daily_limit
-        ):
-            raise QuotaExceededError(quota_exceeded_message(user))
+    reserved = await reserve_turn_quota(
+        redis,
+        user=user,
+        content=user_message_content,
+        model=model,
+        settings=settings,
+        max_output=bundle.max_out,
+        seed=True,
+    )
 
-    ctx = StreamContext(
+    # Preserve regenerate semantics (run_title off, skip_memory_jobs = minimal_quiz).
+    ctx = stream_context_from_bundle(
+        bundle,
         user_id=user_id,
         chat_id=chat_id,
         model=model,
-        prompt_messages=bundle.prompt_messages,
-        run_title=False,
         user_message_content=user_message_content,
         reserved_tokens=reserved,
-        max_output_tokens=bundle.max_out,
         user=user,
-        recalled_count=int(bundle.meta.get("recalled") or 0),
-        memory_hints=list(bundle.meta.get("memory_hints") or []),
-        context_summarized=int(bundle.meta.get("context_summarized") or 0),
-        instant_reply=bundle.instant_reply,
-        search_sources=bundle.search_sources,
-        local_places=bundle.local_places,
-        skip_memory_jobs=bundle.minimal_quiz,
         prior_count=prior_count,
         chat_project_id=chat_project_id,
-        regenerate_backup=regenerate_backup,
-        fallback_models=bundle.fallback_models,
-        verified_math=bundle.verified_math,
         timing=timing,
-        lightweight_turn=bundle.active_vocab_turn
-        or is_lightweight_chat_turn(
-            user_message_content, active_vocab_turn=bundle.active_vocab_turn
-        ),
+        run_title=False,
+        skip_memory_jobs=bundle.minimal_quiz,
+        regenerate_backup=regenerate_backup,
     )
 
     try:
@@ -372,16 +390,20 @@ async def stream_edit_response(
         target = await chat_pkg.messages_repo.get_by_id(session, message_id, chat_id)
         if target is None or target.role != "user":
             raise ChatNotFoundError("Only user messages can be edited.")
-        daily_limit = chat_pkg.quota_service.daily_limit_for_user(user, settings)
         model = chat_pkg.plan_service.resolve_user_model_override(
             user, model_alias, content, settings
         )
-        reserved = weighted_reserve_tokens(content=content, model=model, settings=settings)
+        # Seed inside this session so the subsequent delete work shares the
+        # same connection; reservation itself is Redis-only.
         await seed_usage_from_db(redis, session, user_id)
-        if not await chat_pkg.quota_service.reserve_usage(
-            redis, str(user_id), reserved, daily_limit=daily_limit
-        ):
-            raise QuotaExceededError(quota_exceeded_message(user))
+        reserved = await reserve_turn_quota(
+            redis,
+            user=user,
+            content=content,
+            model=model,
+            settings=settings,
+            seed=False,
+        )
         try:
             message_ids = await chat_pkg.messages_repo.ids_from_chat_at_or_after(
                 session,

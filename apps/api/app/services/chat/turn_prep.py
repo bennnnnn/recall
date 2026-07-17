@@ -116,6 +116,66 @@ class TurnPromptBundle:
     verified_math: VerifiedMathBlock | None = None
 
 
+def stream_context_from_bundle(
+    bundle: TurnPromptBundle,
+    *,
+    user_id: UUID,
+    chat_id: UUID,
+    model: str,
+    user_message_content: str,
+    reserved_tokens: int,
+    user: User,
+    prior_count: int,
+    chat_project_id: UUID | None,
+    timing: TurnTimingTracker | None = None,
+    run_title: bool | None = None,
+    skip_memory_jobs: bool | None = None,
+    regenerate_backup: RegenerateBackup | None = None,
+    indexable_attachment_ids: list[str] | None = None,
+    is_letter_answer: bool = False,
+) -> StreamContext:
+    """Map a TurnPromptBundle into StreamContext; overrides preserve call-site semantics."""
+    if run_title is None:
+        run_title = prior_count == 0
+    if skip_memory_jobs is None:
+        # Graded MCQ answers are already persisted — skip background sync.
+        # Open-ended vocab answers still need project sync to record mastery.
+        # If a letter answer failed to grade (missing fence / no project), keep
+        # jobs so project sync can still record progress.
+        skip_memory_jobs = bundle.minimal_quiz and not (
+            is_letter_answer and bundle.quiz_grade is None
+        )
+    return StreamContext(
+        user_id=user_id,
+        chat_id=chat_id,
+        model=model,
+        prompt_messages=bundle.prompt_messages,
+        run_title=run_title,
+        user_message_content=user_message_content,
+        reserved_tokens=reserved_tokens,
+        max_output_tokens=bundle.max_out,
+        user=user,
+        recalled_count=int(bundle.meta.get("recalled") or 0),
+        memory_hints=list(bundle.meta.get("memory_hints") or []),
+        context_summarized=int(bundle.meta.get("context_summarized") or 0),
+        instant_reply=bundle.instant_reply,
+        search_sources=bundle.search_sources,
+        local_places=bundle.local_places,
+        skip_memory_jobs=skip_memory_jobs,
+        prior_count=prior_count,
+        chat_project_id=chat_project_id,
+        regenerate_backup=regenerate_backup,
+        fallback_models=bundle.fallback_models,
+        verified_math=bundle.verified_math,
+        timing=timing,
+        lightweight_turn=bundle.active_vocab_turn
+        or is_lightweight_chat_turn(
+            user_message_content, active_vocab_turn=bundle.active_vocab_turn
+        ),
+        indexable_attachment_ids=list(indexable_attachment_ids or []),
+    )
+
+
 def resolve_client_geo(
     user: User,
     content: str,
@@ -828,35 +888,18 @@ async def prepare_chat_turn(
             caption=content,
         )
 
-    return StreamContext(
+    # Vision may have mutated prompt_messages in place on the bundle.
+    return stream_context_from_bundle(
+        bundle,
         user_id=user_id,
         chat_id=chat_id,
         model=model,
-        prompt_messages=prompt_messages,
-        run_title=prior_count == 0,
         user_message_content=content,
         reserved_tokens=reserved_tokens,
-        max_output_tokens=bundle.max_out,
         user=user,
-        recalled_count=int(bundle.meta.get("recalled") or 0),
-        memory_hints=list(bundle.meta.get("memory_hints") or []),
-        context_summarized=int(bundle.meta.get("context_summarized") or 0),
-        instant_reply=bundle.instant_reply,
-        search_sources=bundle.search_sources,
-        local_places=bundle.local_places,
-        # Graded MCQ answers are already persisted — skip background sync.
-        # Open-ended vocab answers still need project sync to record mastery.
-        # If a letter answer failed to grade (missing fence / no project), keep
-        # jobs so project sync can still record progress.
-        skip_memory_jobs=(
-            bundle.minimal_quiz and not (is_letter_answer and bundle.quiz_grade is None)
-        ),
         prior_count=prior_count,
         chat_project_id=chat_project_id,
-        fallback_models=bundle.fallback_models,
-        verified_math=bundle.verified_math,
         timing=timing,
-        lightweight_turn=bundle.active_vocab_turn
-        or is_lightweight_chat_turn(content, active_vocab_turn=bundle.active_vocab_turn),
+        is_letter_answer=is_letter_answer,
         indexable_attachment_ids=indexable_attachment_ids,
     )
