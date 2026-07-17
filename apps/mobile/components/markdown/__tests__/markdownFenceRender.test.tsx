@@ -55,7 +55,7 @@ jest.mock("@/components/CodeBlock", () => {
 });
 
 function node(content: string, info?: string): FenceNode {
-  return { key: "k", content, info };
+  return { key: "k", content, sourceInfo: info };
 }
 
 describe("renderFence math dispatch", () => {
@@ -84,7 +84,7 @@ describe("renderFence math key stability", () => {
     const second = renderFence({
       key: "a-totally-different-node-key-from-the-next-parse",
       content: "x^2 + 1",
-      info: "math",
+      sourceInfo: "math",
     });
 
     expect(first?.key).toBeTruthy();
@@ -107,13 +107,13 @@ describe("renderFence math key stability", () => {
     const first = renderFence({
       key: "k1",
       content: "\\pm 2",
-      info: "math",
+      sourceInfo: "math",
       tokenIndex: 5,
     });
     const second = renderFence({
       key: "k2",
       content: "\\pm 2",
-      info: "math",
+      sourceInfo: "math",
       tokenIndex: 9,
     });
 
@@ -124,7 +124,7 @@ describe("renderFence math key stability", () => {
     const firstReparsed = renderFence({
       key: "a-fresh-volatile-node-key",
       content: "\\pm 2",
-      info: "math",
+      sourceInfo: "math",
       tokenIndex: 5,
     });
     expect(firstReparsed?.key).toBe(first?.key);
@@ -241,6 +241,29 @@ describe("renderFence edge cases", () => {
   it("BUG FIX regression: an untagged multi-solution final (x = 2 or x = -2, no $ wraps) routes to AnswerBlock", async () => {
     const { getByLabelText, queryByText } = await render(
       <>{renderFence(node("x = 2 or x = -2"))}</>,
+    );
+    expect(getByLabelText(/Answer:/)).toBeOnTheScreen();
+    expect(queryByText("Copy")).toBeNull();
+  });
+
+  it("BUG FIX regression: an explicit ```answer fence routes to AnswerBlock via node.sourceInfo even when the content doesn't match any content-shape heuristic (trailing unit)", async () => {
+    // Reported live: react-native-markdown-display's AST exposes the fence
+    // language as `sourceInfo` (tokensToAST.js), not `info`. renderFence used
+    // to read `node.info`, which is always undefined — every explicit fence
+    // tag was silently dropped and routing fell back entirely to
+    // looksLikeMathAnswer's content-shape heuristic, which doesn't recognize
+    // a value followed by a trailing unit ("cm") as answer-shaped. Confirmed
+    // via a live console.log of the real node shape from react-native-markdown-display.
+    const { getByLabelText, queryByText } = await render(
+      <>{renderFence(node("$c \\approx 7.21$ cm", "answer"))}</>,
+    );
+    expect(getByLabelText(/Answer:/)).toBeOnTheScreen();
+    expect(queryByText("Copy")).toBeNull();
+  });
+
+  it("BUG FIX regression: an explicit ```answer fence with a leading currency sign ($30, no closing $) routes to AnswerBlock", async () => {
+    const { getByLabelText, queryByText } = await render(
+      <>{renderFence(node("$30", "answer"))}</>,
     );
     expect(getByLabelText(/Answer:/)).toBeOnTheScreen();
     expect(queryByText("Copy")).toBeNull();

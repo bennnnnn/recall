@@ -1,5 +1,7 @@
 import { normalizeBoldInlineMath, normalizeMarkdownTables, isPipeTable, preprocessMarkdown, splitInlineMath } from "@/lib/markdownPreprocess";
 import { repairBrokenMarkdownLinks } from "@/lib/placesList";
+import { markdownItInstance } from "@/lib/markdownIt";
+import { PROTECTED_ESCAPE_MARKER, parseSimpleLatex, segmentsToPlain } from "@/lib/mathText";
 
 const RESTAURANT_LIST = `Here are some top-rated restaurants in San Francisco that might tickle your taste buds 🍽️:
 
@@ -200,6 +202,45 @@ x = 0
     expect(out).toContain("excluded values: $x \\neq -3, 2$");
     // Prose must not land inside a math fence
     expect(out).not.toMatch(/```math\n⚠️/);
+  });
+
+  it("BUG FIX regression: protects punctuation-led LaTeX commands (\\, \\; \\!) inside inline math from markdown-it's own CommonMark backslash-escape, which otherwise silently drops the backslash and leaves a stray comma/semicolon/exclamation mark mid-formula", () => {
+    // Reported live: markdown-it's built-in escape rule treats "\" + any
+    // ASCII punctuation char as an escape and drops the backslash *before*
+    // splitInlineMath/MathText ever see the text — confirmed by parsing the
+    // real markdownItInstance directly. "\," (an invisible thin space) used
+    // to render as a bare, visible "," sitting where the space belongs.
+    const input = "Body: $\\int x^2\\,dx = C$ end.";
+    const prepared = preprocessMarkdown(input);
+
+    // The backslash before the comma must survive as the protected marker,
+    // not vanish, and no bare "x^2,dx" (the corrupted shape) should appear.
+    expect(prepared).toContain(PROTECTED_ESCAPE_MARKER);
+    expect(prepared).not.toContain("x^2,dx");
+
+    // Round-trip through the app's real markdown-it instance, exactly as
+    // the render path does, then decode via mathText.ts (as MathText does)
+    // and confirm the final rendered text has a real space, not a comma.
+    const tokens = markdownItInstance.parse(prepared, {});
+    const inline = tokens.find((t) => t.type === "inline");
+    const textToken = inline?.children?.find((c) => c.type === "text");
+    expect(textToken?.content).toContain(PROTECTED_ESCAPE_MARKER);
+    const mathSpan = textToken!.content.match(/\$([^$]+)\$/)![1];
+    const finalText = segmentsToPlain(parseSimpleLatex(mathSpan));
+    expect(finalText).toBe("∫ x^2 dx = C");
+  });
+
+  it("does not protect letter-led LaTeX commands (\\int, \\frac, \\sqrt) — unaffected by CommonMark's escape rule, which only fires on punctuation", () => {
+    const input = "Body: $\\int \\frac{1}{2}\\,dx$ end.";
+    const prepared = preprocessMarkdown(input);
+    expect(prepared).toContain("\\int");
+    expect(prepared).toContain("\\frac");
+  });
+
+  it("does not touch backslash-punctuation outside a math span", () => {
+    const input = "Note: a\\, b (not math) and $x\\,y$ (math)";
+    const prepared = preprocessMarkdown(input);
+    expect(prepared).toContain("a\\, b");
   });
 });
 

@@ -1,4 +1,4 @@
-import { parseSimpleLatex, segmentsToPlain, splitMathLines } from "@/lib/mathText";
+import { PROTECTED_ESCAPE_MARKER, parseSimpleLatex, segmentsToPlain, splitMathLines } from "@/lib/mathText";
 
 describe("parseSimpleLatex", () => {
   it("parses superscripts", () => {
@@ -129,6 +129,20 @@ describe("parseSimpleLatex", () => {
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\underline{AB}`))).toBe(
       "A̲B̲",
     );
+  });
+
+  it("BUG FIX regression: decodes markdownPreprocess.ts's PROTECTED_ESCAPE_MARKER back to a literal backslash before any command table runs", () => {
+    // markdownPreprocess.ts substitutes this marker in place of a backslash
+    // immediately before punctuation-led commands inside $...$ math, to
+    // survive markdown-it's own CommonMark backslash-escape rule. Simulate
+    // that substituted text arriving here exactly as it does after a real
+    // parse, and confirm \, \; \! resolve to their intended spacing once
+    // decoded — not the marker itself, and not the bare punctuation the
+    // escape rule would otherwise have left behind.
+    const m = PROTECTED_ESCAPE_MARKER;
+    expect(segmentsToPlain(parseSimpleLatex(`x^2${m},dx`))).toBe("x^2 dx");
+    expect(segmentsToPlain(parseSimpleLatex(`a${m};b`))).toBe("a b");
+    expect(segmentsToPlain(parseSimpleLatex(`5${m}!`))).toBe("5");
   });
 });
 
