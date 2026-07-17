@@ -5,13 +5,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { type AnimatedStyle } from "react-native-reanimated";
 
 import { ActionBanner } from "@/components/ActionBanner";
+import { AttachmentSourceSheet } from "@/components/AttachmentSourceSheet";
 import { ChatComposer } from "@/components/chat/ChatComposer";
 import { ChatInlineError } from "@/components/chat/ChatInlineError";
 import { ChatMessageList } from "@/components/chat/ChatMessageList";
 import { ChatQuotaNudge } from "@/components/chat/ChatQuotaNudge";
 import type { ChatScreenStyles } from "@/components/chat/chatScreenStyles";
 import { ChatScrollFab } from "@/components/chat/ChatScrollFab";
-import { ComposerPickerBackdrop } from "@/components/chat/ComposerPickerBackdrop";
 import { UpgradeSheet } from "@/components/UpgradeSheet";
 import { StreamingDraftProvider } from "@/contexts/StreamingDraftContext";
 import { useTranslation } from "react-i18next";
@@ -184,11 +184,6 @@ export function ChatScreenBody({
         onPress={onScrollToLatest}
       />
 
-      <ComposerPickerBackdrop
-        visible={attachSheetOpen && !drawerOpen}
-        onClose={onCloseAttachSheet}
-      />
-
       {quotaNudgeVisible && !chatError ? (
         <ChatQuotaNudge
           styles={s}
@@ -220,10 +215,8 @@ export function ChatScreenBody({
         onRemoveAttachment={onRemoveAttachment}
         editingMessageId={editingMessageId}
         onCancelEdit={onCancelEdit}
-        attachSheetOpen={attachSheetOpen}
         onCloseAttachSheet={onCloseAttachSheet}
         onPickAttachment={onPickAttachment}
-        onAttachmentSource={onAttachmentSource}
         onSend={onSend}
         onStop={onStop}
         isOffline={isOffline}
@@ -232,6 +225,12 @@ export function ChatScreenBody({
         voiceMeterLevel={voiceMeterLevel}
         onVoicePress={onVoicePress}
         onVoiceCancel={onVoiceCancel}
+      />
+
+      <AttachmentSourceSheet
+        visible={attachSheetOpen && !drawerOpen}
+        onClose={onCloseAttachSheet}
+        onSelect={onAttachmentSource}
       />
 
       <UpgradeSheet visible={upgradeVisible} onClose={onCloseUpgrade} />
