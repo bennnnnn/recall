@@ -12,6 +12,8 @@ from sqlalchemy import update as sql_update
 
 from app.models.orm import Project, ProjectItem
 from app.repositories import project_items as project_items_repo
+from app.services.projects import quiz_grading
+from app.services.projects import items as project_items_service
 from app.repositories import projects as projects_repo
 from app.repositories import users as users_repo
 
@@ -137,7 +139,7 @@ async def test_apply_quiz_result_increment_is_atomic_not_lost(db_session):
     )
     assert item.quiz_attempts == 0  # still stale in memory — the write bypassed it
 
-    await project_items_repo.apply_quiz_result(db_session, item, is_correct=True, commit=False)
+    await quiz_grading.apply_quiz_result(db_session, item, is_correct=True, commit=False)
 
     # Under the old read-modify-write code this would land at 1 (0 + 1),
     # clobbering the concurrent writer's update to 5. The atomic SQL increment
@@ -171,11 +173,11 @@ async def test_apply_quiz_result_logs_every_miss_event_not_just_the_latest(db_se
     day1 = datetime(2026, 1, 1, 9, tzinfo=UTC)
     day4 = day1 + timedelta(days=3)
 
-    monkeypatch.setattr(project_items_repo, "datetime", _frozen_datetime_cls(day1))
-    await project_items_repo.apply_quiz_result(db_session, item, is_correct=False, commit=False)
+    monkeypatch.setattr(quiz_grading, "datetime", _frozen_datetime_cls(day1))
+    await quiz_grading.apply_quiz_result(db_session, item, is_correct=False, commit=False)
 
-    monkeypatch.setattr(project_items_repo, "datetime", _frozen_datetime_cls(day4))
-    await project_items_repo.apply_quiz_result(db_session, item, is_correct=False, commit=False)
+    monkeypatch.setattr(quiz_grading, "datetime", _frozen_datetime_cls(day4))
+    await quiz_grading.apply_quiz_result(db_session, item, is_correct=False, commit=False)
 
     # The mutable column only remembers the latest miss...
     assert item.last_incorrect_at == day4
@@ -205,20 +207,20 @@ async def test_list_missed_by_activity_date_survives_a_later_miss_on_the_same_it
     day1 = datetime(2026, 1, 1, 9, tzinfo=UTC)
     day4 = day1 + timedelta(days=3)
 
-    monkeypatch.setattr(project_items_repo, "datetime", _frozen_datetime_cls(day1))
-    await project_items_repo.apply_quiz_result(db_session, item, is_correct=False, commit=False)
+    monkeypatch.setattr(quiz_grading, "datetime", _frozen_datetime_cls(day1))
+    await quiz_grading.apply_quiz_result(db_session, item, is_correct=False, commit=False)
 
-    monkeypatch.setattr(project_items_repo, "datetime", _frozen_datetime_cls(day4))
-    await project_items_repo.apply_quiz_result(db_session, item, is_correct=False, commit=False)
+    monkeypatch.setattr(quiz_grading, "datetime", _frozen_datetime_cls(day4))
+    await quiz_grading.apply_quiz_result(db_session, item, is_correct=False, commit=False)
     await db_session.flush()
 
-    day1_page = await project_items_repo.list_missed_by_activity_date(
+    day1_page = await project_items_service.list_missed_by_activity_date(
         db_session, user.id, project.id, day1.date(), timezone_name="UTC"
     )
-    day4_page = await project_items_repo.list_missed_by_activity_date(
+    day4_page = await project_items_service.list_missed_by_activity_date(
         db_session, user.id, project.id, day4.date(), timezone_name="UTC"
     )
-    day2_page = await project_items_repo.list_missed_by_activity_date(
+    day2_page = await project_items_service.list_missed_by_activity_date(
         db_session, user.id, project.id, (day1 + timedelta(days=1)).date(), timezone_name="UTC"
     )
 

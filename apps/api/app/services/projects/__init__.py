@@ -115,6 +115,12 @@ from app.services.projects.quiz_grading import (
     _persist_quiz_outcome,
     _recently_missed_quiz,
     apply_deterministic_quiz_answer,
+    apply_quiz_result,
+)
+from app.services.projects.stats import (
+    count_stats,
+    count_stats_by_project,
+    stats_from_items,
 )
 from app.services.projects.sync import (
     _PROJECT_SYNC_TRANSCRIPT,
@@ -210,8 +216,11 @@ __all__ = [
     "_trivia_tutor_hint",
     "apply_deterministic_quiz_answer",
     "apply_project_actions",
+    "apply_quiz_result",
     "build_language_quiz_prompt",
     "build_stats",
+    "count_stats",
+    "count_stats_by_project",
     "create_learning_project",
     "format_projects_block",
     "get_project_detail",
@@ -227,6 +236,7 @@ __all__ = [
     "normalize_project_kind",
     "project_items_repo",
     "projects_repo",
+    "stats_from_items",
     "sync_projects_from_transcript",
     "transcript_implies_project_sync",
 ]

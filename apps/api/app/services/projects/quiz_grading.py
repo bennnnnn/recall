@@ -18,7 +18,57 @@ from app.services.projects.common import (
     _is_language_project,
     _is_trivia_project,
 )
+from app.services.projects.items import create_item
+from app.services.sm2 import apply_sm2, quality_for_status
 from app.services.vocab_quiz import QuizAnswerGrade
+
+
+def _item_status_label(item: ProjectItem) -> str:
+    if item.status:
+        return item.status
+    return "mastered" if item.mastered else "new"
+
+
+async def apply_quiz_result(
+    session: AsyncSession,
+    item: ProjectItem,
+    *,
+    is_correct: bool,
+    commit: bool = True,
+) -> ProjectItem:
+    """Derive status + SM-2 schedule, then persist via the repository."""
+    now = datetime.now(UTC)
+    prior_status = _item_status_label(item)
+    if is_correct:
+        new_status = "mastered"
+    elif prior_status == "mastered":
+        new_status = "learning"
+    elif prior_status == "new":
+        new_status = "learning"
+    else:
+        new_status = prior_status
+
+    quality = quality_for_status(new_status, was_correct=is_correct)
+    state = apply_sm2(
+        quality=quality,
+        ease_factor=float(getattr(item, "ease_factor", 2.5) or 2.5),
+        interval_days=int(getattr(item, "interval_days", 0) or 0),
+        review_count=int(item.review_count or 0),
+        now=now,
+    )
+    return await project_items_repo.apply_quiz_result(
+        session,
+        item,
+        is_correct=is_correct,
+        new_status=new_status,
+        prior_status=prior_status,
+        now=now,
+        ease_factor=state.ease_factor,
+        interval_days=state.interval_days,
+        review_count=state.review_count,
+        due_at=state.due_at,
+        commit=commit,
+    )
 
 
 def _recently_missed_quiz(item: ProjectItem, *, within_seconds: int = 86_400) -> bool:
@@ -58,7 +108,7 @@ async def _persist_quiz_outcome(
     answer = (definition or "").strip() or None
     item = existing
     if item is None:
-        item = await project_items_repo.create(
+        item = await create_item(
             session,
             user_id=user_id,
             project_id=project_id,
@@ -72,7 +122,7 @@ async def _persist_quiz_outcome(
     elif answer and not (item.definition or "").strip():
         # Backfill answer on older trivia rows that only stored the question.
         item.definition = answer
-    await project_items_repo.apply_quiz_result(session, item, is_correct=is_correct, commit=False)
+    await apply_quiz_result(session, item, is_correct=is_correct, commit=False)
 
 
 async def apply_deterministic_quiz_answer(

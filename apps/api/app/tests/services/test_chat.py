@@ -76,11 +76,11 @@ def _quiz_message_repo_patches():
     """New quiz helpers hit the DB; unit tests must stub them off AsyncMock sessions."""
     return (
         patch(
-            "app.services.chat.messages_repo.get_last_quiz_assistant",
+            "app.services.chat.quiz_messages.get_last_quiz_assistant",
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.services.chat.messages_repo.count_quiz_letter_answers_since",
+            "app.services.chat.quiz_messages.count_quiz_letter_answers_since",
             AsyncMock(return_value=0),
         ),
     )
@@ -868,7 +868,7 @@ async def test_should_minimal_quiz_context_after_vocab_quiz_fence():
     )
 
     with patch(
-        "app.services.chat.messages_repo.get_last_quiz_assistant",
+        "app.services.chat.quiz_messages.get_last_quiz_assistant",
         AsyncMock(return_value=quiz_msg),
     ):
         assert await _should_minimal_quiz_context(session, chat_id, "B") is True
@@ -883,7 +883,7 @@ async def test_should_minimal_quiz_context_false_without_prior_quiz():
     session = AsyncMock()
 
     with patch(
-        "app.services.chat.messages_repo.get_last_quiz_assistant",
+        "app.services.chat.quiz_messages.get_last_quiz_assistant",
         AsyncMock(return_value=None),
     ):
         assert await _should_minimal_quiz_context(session, chat_id, "A") is False

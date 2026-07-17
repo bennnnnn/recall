@@ -11,9 +11,9 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Project, User
-from app.repositories import project_items as project_items_repo
 from app.repositories import projects as projects_repo
 from app.services import daily_learning, learning_insights
+from app.services.projects import stats as project_stats
 from app.services.reminder_timing import learning_dedupe_key, user_day_key, user_local_hour
 
 logger = logging.getLogger(__name__)
@@ -74,7 +74,7 @@ async def load_learning_stats_for_candidates(
         for project in learning_projects
         if project.user_id in user_by_id
     }
-    stats_by_project = await project_items_repo.count_stats_by_project(
+    stats_by_project = await project_stats.count_stats_by_project(
         session,
         [project.id for project in learning_projects],
         timezone_by_project=timezone_by_project,
