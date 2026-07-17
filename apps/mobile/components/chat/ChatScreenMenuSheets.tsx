@@ -43,6 +43,7 @@ export function ChatScreenMenuSheets({
         title={chatTitle}
         pinned={pinned}
         archived={archived}
+        placement="menu"
         onClose={onCloseMenu}
         onShare={onShare}
         onRename={onRename}
