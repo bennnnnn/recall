@@ -18,6 +18,12 @@ from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.schemas import ChatMessageRequest, EditMessageRequest
 from app.services import chat as chat_service
 from app.services import tokens as tokens_service
+from app.services.chat.stream_events import (
+    await_finalize_commit,
+    build_done_payload,
+    error_payload_for_exception,
+    pop_finalize_tasks,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["websocket"])
@@ -28,11 +34,6 @@ _WS_CONNECT_RATE_LIMIT = 30
 _WS_HANDSHAKE_RATE_LIMIT = 60  # unauthenticated connects per IP per minute
 # Drop sockets that connect but never send the auth frame (resource leak).
 _WS_AUTH_TIMEOUT_SECONDS = 10.0
-# How long to hold `done` waiting on the DB commit before falling back to a
-# best-effort `done`. Long enough for a normal Neon round trip + usage write,
-# short enough that a wedged finalize doesn't pin the socket forever. If the
-# commit FAILS (vs. is slow) we send an error instead of a ghost `done`.
-_DONE_COMMIT_WAIT_SECONDS = 10.0
 _CHARGEABLE_WS_TYPES = frozenset({"message", "regenerate", "edit"})
 
 
@@ -42,32 +43,6 @@ async def _safe_send_json(websocket: WebSocket, payload: dict) -> bool:
         await websocket.send_json(payload)
         return True
     except (WebSocketDisconnect, RuntimeError):
-        return False
-
-
-async def _await_finalize_commit(finalize_db_task: asyncio.Task[None] | None) -> bool:
-    """Wait (bounded) for the turn's DB commit before sending `done`.
-
-    Returns True when the commit landed (or is still in-flight but slow, or
-    there was no task to wait on) — in those cases `done` is sent best-effort
-    and the finalize registry still guards the next turn. Returns False only
-    when the finalize task actually FAILED, so the caller sends an error
-    instead of a ghost `done` carrying a message_id for a row that never
-    persisted.
-    """
-    if finalize_db_task is None:
-        return True
-    try:
-        await asyncio.wait_for(finalize_db_task, _DONE_COMMIT_WAIT_SECONDS)
-        return True
-    except TimeoutError:
-        logger.warning(
-            "Finalize commit still running after %ss; sending done best-effort",
-            _DONE_COMMIT_WAIT_SECONDS,
-        )
-        return True
-    except Exception:
-        logger.exception("Finalize commit failed before done")
         return False
 
 
@@ -122,32 +97,10 @@ async def _stream_over_ws(
                 if not await _safe_send_json(websocket, {"type": "token", "content": token_text}):
                     cancel_event.set()
                     break
-        except QuotaExceededError as exc:
-            await _safe_send_json(
-                websocket,
-                {"type": "error", "code": "quota_exceeded", "message": exc.message},
-            )
-            return
-        except ChatServiceError as exc:
-            await _safe_send_json(websocket, {"type": "error", "message": exc.message})
-            return
-        except ModelUnavailableError as exc:
-            await _safe_send_json(
-                websocket,
-                {
-                    "type": "error",
-                    "code": exc.code,
-                    "message": exc.message,
-                    "failed_model": exc.failed_alias,
-                },
-            )
-            return
-        except Exception:
-            logger.exception("Chat stream failed")
-            await _safe_send_json(
-                websocket,
-                {"type": "error", "message": "Something went wrong. Try again."},
-            )
+        except Exception as exc:
+            if not isinstance(exc, QuotaExceededError | ChatServiceError | ModelUnavailableError):
+                logger.exception("Chat stream failed")
+            await _safe_send_json(websocket, error_payload_for_exception(exc))
             return
 
         stream_end: dict[str, Any] = {"type": "stream_end"}
@@ -164,31 +117,15 @@ async def _stream_over_ws(
         # already flushed (stream_end above), so only the final `done` event
         # waits on the commit — streaming latency is unchanged. If the commit
         # FAILED we send an error instead of a ghost `done` with a fake id.
-        finalize_db_task = result.pop("_finalize_db_task", None)
-        result.pop("_finalize_task", None)
-        if not await _await_finalize_commit(finalize_db_task):
+        finalize_db_task = pop_finalize_tasks(result)
+        if not await await_finalize_commit(finalize_db_task):
             await _safe_send_json(
                 websocket,
                 {"type": "error", "message": "Failed to save the response. Please retry."},
             )
             return
 
-        done: dict[str, Any] = {"type": "done"}
-        for key in (
-            "message_id",
-            "recalled",
-            "memory_hints",
-            "context_summarized",
-            "todos_sync",
-            "search_sources",
-            "final_content",
-            "resolved_model",
-            "fallback_used",
-        ):
-            value = result.get(key)
-            if value:
-                done[key] = value
-        await _safe_send_json(websocket, done)
+        await _safe_send_json(websocket, build_done_payload(result))
 
     producer = asyncio.create_task(run_stream())
     try:
