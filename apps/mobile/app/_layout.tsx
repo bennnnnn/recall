@@ -5,6 +5,8 @@ import { StatusBar } from "expo-status-bar";
 import { useFonts, SpaceMono_400Regular } from "@expo-google-fonts/space-mono";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useMemo } from "react";
+import { StyleSheet } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useTranslation } from "react-i18next";
 
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -105,24 +107,30 @@ export default function RootLayout() {
   }
 
   return (
-    <AppearanceProvider>
-      <AuthProvider>
-        <ModelsProvider>
-          <TodosProvider>
-            <ProjectsProvider>
-              <HomeProvider>
-                <NetworkProvider>
-                  <PushNotificationBootstrap />
-                  <RootNavigator />
-                </NetworkProvider>
-              </HomeProvider>
-            </ProjectsProvider>
-          </TodosProvider>
-        </ModelsProvider>
-      </AuthProvider>
-    </AppearanceProvider>
+    <GestureHandlerRootView style={styles.root}>
+      <AppearanceProvider>
+        <AuthProvider>
+          <ModelsProvider>
+            <TodosProvider>
+              <ProjectsProvider>
+                <HomeProvider>
+                  <NetworkProvider>
+                    <PushNotificationBootstrap />
+                    <RootNavigator />
+                  </NetworkProvider>
+                </HomeProvider>
+              </ProjectsProvider>
+            </TodosProvider>
+          </ModelsProvider>
+        </AuthProvider>
+      </AppearanceProvider>
+    </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+});
 
 // ErrorBoundary is re-exported for expo-router to use automatically when
 // errors occur in child routes (it catches crashes in screens).
