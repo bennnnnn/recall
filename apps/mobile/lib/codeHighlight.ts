@@ -23,6 +23,41 @@ export const TOKEN_COLORS = {
   tag: "#059669",
 } as const;
 
+/**
+ * Dark-mode syntax colors. The light palette's saturated mid-tones read on a
+ * light panel, but on `codeBg` (#0D0D0D) the near-black `plain` vanishes and
+ * the rest feel too dim — so each token is shifted to a brighter Tailwind
+ * variant here. `colorFor()` in CodeBlock swaps a tokenized light color for
+ * its dark counterpart when `theme.isDark`.
+ */
+export const DARK_TOKEN_COLORS = {
+  plain: "#E6E6E6",
+  comment: "#9CA3AF",
+  string: "#34D399",
+  number: "#60A5FA",
+  keyword: "#F87171",
+  function: "#A78BFA",
+  className: "#22D3EE",
+  operator: "#94A3B8",
+  builtin: "#FB923C",
+  variable: "#FACC15",
+  tag: "#34D399",
+} as const;
+
+const LIGHT_TO_DARK_TOKEN: Record<string, string> = Object.fromEntries(
+  Object.entries(TOKEN_COLORS).map(([key, hex]) => [hex, DARK_TOKEN_COLORS[key as keyof typeof TOKEN_COLORS]]),
+);
+
+/**
+ * Resolve a tokenized color (a light TOKEN_COLORS hex) for the current scheme.
+ * Falls back to the input color for unrecognized values (e.g. already-dark or
+ * custom colors), so it never mangles a color it didn't assign.
+ */
+export function resolveTokenColor(color: string, isDark: boolean): string {
+  if (!isDark) return color;
+  return LIGHT_TO_DARK_TOKEN[color] ?? color;
+}
+
 export const LANG_TO_PRISM: Record<string, string> = {
   javascript: "javascript",
   js: "javascript",

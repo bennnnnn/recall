@@ -3,7 +3,7 @@ import { Animated, Modal, Pressable, StyleSheet, Text, View } from "react-native
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Theme, useTheme } from "@/lib/theme";
+import { Theme, useTheme, withAlpha } from "@/lib/theme";
 
 type Props = {
   message: string | null;
@@ -127,7 +127,7 @@ function makeStyles(theme: Theme) {
       maxWidth: 340,
       borderWidth: theme.isDark ? StyleSheet.hairlineWidth : 0,
       borderColor: theme.border,
-      boxShadow: "0 8 24 0 rgba(0, 0, 0, 0.45)",
+      boxShadow: `0 8 24 0 ${withAlpha(theme.scrim, 0.45)}`,
       elevation: 16,
     },
     text: {

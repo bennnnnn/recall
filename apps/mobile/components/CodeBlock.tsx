@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { Ionicons } from "@expo/vector-icons";
 
-import { displayLang, groupTokensByLine, parseFenceLang, TOKEN_COLORS } from "@/lib/codeHighlight";
+import { displayLang, groupTokensByLine, parseFenceLang, resolveTokenColor, TOKEN_COLORS } from "@/lib/codeHighlight";
 import type * as CodeTokenizeModule from "@/lib/codeTokenize";
 import { notifySuccess, tap } from "@/lib/haptics";
 import { Theme, useTheme } from "@/lib/theme";
@@ -88,8 +88,7 @@ export function CodeBlock({
 
   // Syntax colors are saturated mid-tones that read on either background, but
   // the near-black "plain" color is invisible on a dark panel — remap it.
-  const colorFor = (c: string) =>
-    t.isDark && c === TOKEN_COLORS.plain ? t.codeText : c;
+  const colorFor = (c: string) => resolveTokenColor(c, t.isDark);
 
   const onCopy = async () => {
     tap();
