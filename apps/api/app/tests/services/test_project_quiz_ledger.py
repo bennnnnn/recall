@@ -50,11 +50,11 @@ async def test_apply_deterministic_quiz_answer_records_wrong_vocab_as_learning()
 
     with (
         patch(
-            "app.services.projects.projects_repo.get_by_id",
+            "app.repositories.projects.get_by_id",
             new=AsyncMock(return_value=project),
         ),
         patch(
-            "app.services.projects.project_items_repo.find_quiz_candidates",
+            "app.repositories.project_items.find_quiz_candidates",
             new=AsyncMock(return_value=[existing]),
         ),
         patch(

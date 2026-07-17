@@ -405,8 +405,9 @@ async def apply_project_actions(
         )
 
     async def _invalidate_home() -> None:
-        # Resolve via package so tests can patch projects_service._invalidate_home_for_user.
-        from app.services.projects import _invalidate_home_for_user
+        # Resolve via common so tests can patch
+        # app.services.projects.common._invalidate_home_for_user.
+        from app.services.projects.common import _invalidate_home_for_user
 
         await _invalidate_home_for_user(user_id)
 
