@@ -16,8 +16,9 @@ from app.models.math_schemas import MathImageExtract
 logger = logging.getLogger(__name__)
 
 _EXTRACT_PROMPT = (
-    "Extract the primary math equation from this image as JSON with keys "
-    "lhs, rhs, variables (array of variable names), and found (boolean). "
+    "Extract the primary math equation from this image as a single JSON object "
+    "(not an array) with keys lhs, rhs, variables (array of variable names), "
+    "and found (boolean). "
     'Example: {"lhs":"2*x+3","rhs":"7","variables":["x"],"found":true}. '
     'If no equation is visible, set found=false and use lhs/rhs of "0".'
 )
@@ -77,6 +78,11 @@ async def extract_equation_from_image(
             if raw.startswith("json"):
                 raw = raw[4:]
         data_obj = json.loads(raw.strip())
+        # Vision models sometimes wrap the object in a one-element array.
+        if isinstance(data_obj, list):
+            if len(data_obj) != 1 or not isinstance(data_obj[0], dict):
+                return None
+            data_obj = data_obj[0]
         parsed = MathImageExtract.model_validate(data_obj)
         if not parsed.found:
             return None
