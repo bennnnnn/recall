@@ -5,7 +5,7 @@ import { Redirect, useLocalSearchParams, useNavigation } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useTranslation } from "react-i18next";
 
-import { HeaderAddButton } from "@/components/HeaderAddButton";
+import { AddFab } from "@/components/AddFab";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { AddReminderSheet } from "@/components/todos/AddReminderSheet";
 import { DuePickerModal } from "@/components/todos/DuePickerModal";
@@ -120,16 +120,9 @@ export default function TodosScreen() {
           : t("todos.title");
     navigation.setOptions({
       title,
-      headerRight: showList
-        ? () => (
-            <HeaderAddButton
-              onPress={() => setNewListOpen(true)}
-              accessibilityLabel={t("lists.new_group_a11y")}
-            />
-          )
-        : undefined,
+      headerRight: undefined,
     });
-  }, [focusSection, navigation, showList, t]);
+  }, [focusSection, navigation, t]);
 
   if (!token) return <Redirect href="/login" />;
 
@@ -220,6 +213,13 @@ export default function TodosScreen() {
           setPullRefreshing(false);
         }}
       />
+
+      {showList ? (
+        <AddFab
+          onPress={() => setNewListOpen(true)}
+          accessibilityLabel={t("lists.new_group_a11y")}
+        />
+      ) : null}
 
       <NewListSheet
         visible={newListOpen}

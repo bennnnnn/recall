@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -13,13 +13,13 @@ import {
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
-import { Redirect, useFocusEffect, useNavigation, useRouter } from "expo-router";
+import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjects } from "@/contexts/ProjectsContext";
-import { HeaderAddButton } from "@/components/HeaderAddButton";
+import { AddFab } from "@/components/AddFab";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { LearningProjectCard } from "@/components/projects/LearningProjectCard";
@@ -78,7 +78,6 @@ export default function ProjectsScreen() {
   const s = useMemo(() => makeStyles(C), [C]);
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const navigation = useNavigation();
   const { projects, loading, error, refresh, setProjects } = useProjects();
   const visibleProjects = projects;
   const showAddLearning = useMemo(
@@ -126,19 +125,6 @@ export default function ProjectsScreen() {
     resetCreate();
     setCreateStep("subject");
   }, [resetCreate]);
-
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerRight: showAddLearning
-        ? () => (
-            <HeaderAddButton
-              onPress={openCreate}
-              accessibilityLabel={t("projects.add_learning_a11y")}
-            />
-          )
-        : undefined,
-    });
-  }, [navigation, openCreate, showAddLearning, t]);
 
   if (!token) return <Redirect href="/login" />;
 
@@ -459,6 +445,13 @@ export default function ProjectsScreen() {
         />
       )}
 
+      {showAddLearning ? (
+        <AddFab
+          onPress={openCreate}
+          accessibilityLabel={t("projects.add_learning_a11y")}
+        />
+      ) : null}
+
       <Modal
         visible={createStep !== null}
         animationType="slide"
@@ -497,7 +490,7 @@ export default function ProjectsScreen() {
 function makeStyles(C: Theme) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: C.bg },
-    content: { padding: 16, paddingBottom: 32 },
+    content: { padding: 16, paddingBottom: 96 },
     listGap: { height: 12 },
     modalRoot: { flex: 1, backgroundColor: C.bg },
     modalHeader: {

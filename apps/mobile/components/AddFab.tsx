@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -8,20 +9,20 @@ type Props = {
   accessibilityLabel: string;
 };
 
-/** Compact header + control — primaryLight chip matching former “Add …” bars. */
-export function HeaderAddButton({ onPress, accessibilityLabel }: Props) {
+/** Bottom-right + FAB for Add learning / New list. */
+export function AddFab({ onPress, accessibilityLabel }: Props) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const s = makeStyles(theme);
 
   return (
     <Pressable
       onPress={onPress}
-      hitSlop={6}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      style={s.btn}
+      style={[s.btn, { bottom: Math.max(insets.bottom, 12) + 8, right: 16 + insets.right }]}
     >
-      <Ionicons name="add" size={24} color={theme.primary} />
+      <Ionicons name="add" size={28} color={theme.primary} />
     </Pressable>
   );
 }
@@ -29,10 +30,11 @@ export function HeaderAddButton({ onPress, accessibilityLabel }: Props) {
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     btn: {
-      marginRight: 4,
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+      position: "absolute",
+      zIndex: 20,
+      width: 56,
+      height: 56,
+      borderRadius: 28,
       backgroundColor: theme.primaryLight,
       alignItems: "center",
       justifyContent: "center",
