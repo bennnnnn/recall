@@ -24,7 +24,8 @@ When the user says **remove**, leave it removed. Do **not** bring these back in 
 
 ## 3. No project filter chips on Lists / Todos
 - Do **not** show a horizontal chip row to filter todos by Learning project on the Lists screen.
-- Linking a todo to a project (folder on a row) may remain; the top filter bar must not return.
+- Do **not** show a folder / “Link to project” control on reminder or list rows — Learning
+  classes are not project destinations for todos. The top filter bar must not return either.
 
 ## 4. No model-fallback / context-summarized chips on assistant messages
 - Do **not** show `chat.model_fallback`, “switched to …”, or “N earlier messages summarized”
