@@ -23,7 +23,7 @@ type Props = {
   chatTitle: string | null;
   showIndicator: boolean;
   unseenCount: number;
-  /** False on the empty home screen (no turns yet). Overflow menu (⋮) only. */
+  /** False on the empty home screen (no turns yet). Hides new-chat + ⋮. */
   hasMessages: boolean;
   onOpenDrawer: () => void;
   onOpenReminders: () => void;
@@ -118,22 +118,21 @@ export const ChatHeader = memo(function ChatHeader({
               </View>
             </Pressable>
           ) : null}
-          {/* New chat stays mounted on home + chat so it doesn't flash away when
-              messages clear; ⋮ only when there is something to act on. */}
-          <View style={s.actionGroup}>
-            <Pressable
-              style={({ pressed }) => [
-                s.actionGroupBtn,
-                pressed && s.actionGroupBtnPressed,
-              ]}
-              onPress={onNewChat}
-              hitSlop={4}
-              accessibilityRole="button"
-              accessibilityLabel={t("chat.new_chat")}
-            >
-              <Ionicons name="chatbubble-outline" size={22} color={theme.text} />
-            </Pressable>
-            {hasMessages ? (
+          {/* Home (no turns): drawer only. New-chat + ⋮ only once there are messages. */}
+          {hasMessages ? (
+            <View style={s.actionGroup}>
+              <Pressable
+                style={({ pressed }) => [
+                  s.actionGroupBtn,
+                  pressed && s.actionGroupBtnPressed,
+                ]}
+                onPress={onNewChat}
+                hitSlop={4}
+                accessibilityRole="button"
+                accessibilityLabel={t("chat.new_chat")}
+              >
+                <Ionicons name="chatbubble-outline" size={22} color={theme.text} />
+              </Pressable>
               <Pressable
                 style={({ pressed }) => [
                   s.actionGroupBtn,
@@ -146,8 +145,8 @@ export const ChatHeader = memo(function ChatHeader({
               >
                 <Ionicons name="ellipsis-vertical" size={22} color={theme.text} />
               </Pressable>
-            ) : null}
-          </View>
+            </View>
+          ) : null}
         </View>
       </View>
     </View>
