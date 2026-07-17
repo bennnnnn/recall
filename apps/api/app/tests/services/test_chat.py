@@ -63,7 +63,10 @@ class _FakeSessionCM:
 def _offline_session_patches():
     return (
         patch("app.services.chat.stream.SessionLocal", _FakeSessionCM),
-        patch("app.services.chat.turn_prep.SessionLocal", _FakeSessionCM),
+        patch("app.services.chat.turn_prep.attachments.SessionLocal", _FakeSessionCM),
+        patch("app.services.chat.turn_prep.context.SessionLocal", _FakeSessionCM),
+        patch("app.services.chat.turn_prep.integrations.SessionLocal", _FakeSessionCM),
+        patch("app.services.chat.turn_prep.prepare.SessionLocal", _FakeSessionCM),
         patch("app.services.chat.post_turn.SessionLocal", _FakeSessionCM),
         patch("app.services.chat.SessionLocal", _FakeSessionCM),
     )
