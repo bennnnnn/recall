@@ -23,9 +23,10 @@ export function useDrawerChatSelection({ isDrawerOpen, listedChats }: Params) {
     }
   }, [isDrawerOpen]);
 
-  const enterSelectionMode = useCallback(() => {
+  /** Enter multi-select; optionally pre-check `initialChatId` (from long-press → Select). */
+  const enterSelectionMode = useCallback((initialChatId?: string) => {
     setSelectionMode(true);
-    setSelectedIds(clearChatSelection());
+    setSelectedIds(initialChatId ? new Set([initialChatId]) : clearChatSelection());
   }, []);
 
   const exitSelectionMode = useCallback(() => {
