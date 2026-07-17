@@ -11,6 +11,7 @@ from app.core.db import SessionLocal
 from app.exceptions import ChatNotFoundError
 from app.models.math_schemas import MathImageExtract
 from app.models.orm import Attachment, User
+from app.repositories import users as users_repo
 from app.services.chat.stream_status import StreamStatusFn
 
 
@@ -52,8 +53,6 @@ async def _process_attachments(
     on_status: StreamStatusFn | None,
 ) -> _AttachmentProcessResult:
     """Verify/format attachments and optionally vision-extract a camera math equation."""
-    import app.services.chat as chat_pkg
-
     user_content = content
     gateway = None
     has_image_attachment = False
@@ -73,7 +72,7 @@ async def _process_attachments(
 
     async with SessionLocal() as session:
         if user is None:
-            user = await chat_pkg.users_repo.get_by_id(session, user_id)
+            user = await users_repo.get_by_id(session, user_id)
             if user is None:
                 raise ChatNotFoundError("User not found.")
         from app.repositories import attachments as attachments_repo

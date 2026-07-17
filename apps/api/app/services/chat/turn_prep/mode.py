@@ -7,8 +7,11 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Chat
+from app.services import calendar as calendar_service
 from app.services import day_planning as day_planning_service
+from app.services import email as email_service
 from app.services import projects as projects_service
+from app.services import time_context as time_context_service
 from app.services.chat.prompt_constants import (
     is_broad_self_question,
     is_lightweight_chat_turn,
@@ -143,18 +146,16 @@ async def _resolve_instant_reply(
     user_id: UUID,
 ) -> str | None:
     """Time/location/calendar/email short-circuits that skip the LLM."""
-    import app.services.chat as chat_pkg
-
-    if chat_pkg.time_context_service.is_time_question(content):
-        return chat_pkg.time_context_service.format_time_answer(local_tz, user_locale)
-    if chat_pkg.time_context_service.is_location_question(content):
-        return chat_pkg.time_context_service.format_location_answer(geo.user_location, local_tz)
-    if chat_pkg.calendar_service.is_external_calendar_question(content):
-        if not await chat_pkg.calendar_service.is_connected(session, user_id):
-            return chat_pkg.calendar_service.format_not_connected_answer()
+    if time_context_service.is_time_question(content):
+        return time_context_service.format_time_answer(local_tz, user_locale)
+    if time_context_service.is_location_question(content):
+        return time_context_service.format_location_answer(geo.user_location, local_tz)
+    if calendar_service.is_external_calendar_question(content):
+        if not await calendar_service.is_connected(session, user_id):
+            return calendar_service.format_not_connected_answer()
         return None
-    if chat_pkg.email_service.is_external_email_question(content):
-        if not await chat_pkg.email_service.is_connected(session, user_id):
-            return chat_pkg.email_service.format_not_connected_answer()
+    if email_service.is_external_email_question(content):
+        if not await email_service.is_connected(session, user_id):
+            return email_service.format_not_connected_answer()
         return None
     return None
