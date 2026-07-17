@@ -7,19 +7,9 @@ from collections.abc import Awaitable, Callable
 
 from app.core.config import Settings
 from app.services import calendar as calendar_service
+from app.services.prompt_inject import inject_before_last_user
 
 logger = logging.getLogger(__name__)
-
-
-def _inject_before_last_user(messages: list[dict[str, str]], block: str) -> list[dict[str, str]]:
-    augmented = list(messages)
-    insert_at = len(augmented)
-    for index in range(len(augmented) - 1, -1, -1):
-        if augmented[index].get("role") == "user":
-            insert_at = index
-            break
-    augmented.insert(insert_at, {"role": "system", "content": block})
-    return augmented
 
 
 async def augment_prompt_with_mcp_tools(
@@ -53,4 +43,4 @@ async def augment_prompt_with_mcp_tools(
     if not blocks:
         return messages
 
-    return _inject_before_last_user(messages, "\n\n".join(blocks))
+    return inject_before_last_user(messages, "\n\n".join(blocks))

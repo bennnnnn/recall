@@ -4,11 +4,8 @@ from __future__ import annotations
 
 import re
 
-
-def collapse_ws(text: str) -> str:
-    """Collapse whitespace so matchers avoid ``\\s+`` (CodeQL polynomial ReDoS)."""
-    return " ".join(text.split())
-
+# Re-export for detection/subject/query_builders (stable import path).
+from app.services.text_normalize import collapse_ws as collapse_ws
 
 _EXPLICIT_SEARCH = re.compile(
     r"\b("
