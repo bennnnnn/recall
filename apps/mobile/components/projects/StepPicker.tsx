@@ -1,7 +1,8 @@
 import { useMemo } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import { Button } from "@/components/Button";
 import { Theme, useTheme } from "@/lib/theme";
 
 export type StepPickerOption<T> = {
@@ -70,20 +71,13 @@ export function StepPicker<T>({
         })}
       </View>
       <View style={s.actions}>
-        <Pressable style={s.secondaryBtn} onPress={onBack}>
-          <Text style={s.secondaryBtnText}>{backLabel}</Text>
-        </Pressable>
-        <Pressable
-          style={[s.primaryBtn, continueBusy && s.primaryBtnDisabled]}
-          disabled={continueBusy}
+        <Button title={backLabel} onPress={onBack} variant="outline" style={s.actionBtn} />
+        <Button
+          title={continueLabel}
           onPress={onContinue}
-        >
-          {continueBusy ? (
-            <ActivityIndicator color={theme.onPrimary} />
-          ) : (
-            <Text style={s.primaryBtnText}>{continueLabel}</Text>
-          )}
-        </Pressable>
+          loading={continueBusy}
+          style={s.actionBtn}
+        />
       </View>
     </>
   );
@@ -109,25 +103,6 @@ function makeStyles(theme: Theme) {
     rowText: { fontSize: 16, fontWeight: "600", color: theme.text },
     rowTextActive: { color: theme.primaryDark },
     actions: { flexDirection: "row", gap: 10, marginTop: 8 },
-    secondaryBtn: {
-      flex: 1,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: theme.border,
-      paddingVertical: 12,
-      alignItems: "center",
-    },
-    secondaryBtnText: { fontSize: 15, fontWeight: "600", color: theme.textSecondary },
-    primaryBtn: {
-      flex: 1,
-      borderRadius: 12,
-      backgroundColor: theme.primary,
-      paddingVertical: 12,
-      alignItems: "center",
-      justifyContent: "center",
-      minHeight: 46,
-    },
-    primaryBtnDisabled: { opacity: 0.45 },
-    primaryBtnText: { fontSize: 15, fontWeight: "700", color: theme.onPrimary },
+    actionBtn: { flex: 1 },
   });
 }

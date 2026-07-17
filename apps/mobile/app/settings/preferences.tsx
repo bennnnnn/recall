@@ -14,6 +14,7 @@ import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
+import { Button } from "@/components/Button";
 import { SettingsPickerModal } from "@/components/settings/SettingsPickerModal";
 import {
   makeSettingsStyles,
@@ -242,12 +243,17 @@ export default function PreferencesSettingsScreen() {
                 placeholderTextColor={theme.textTertiary}
               />
               <View style={s.mActions}>
-                <Pressable style={s.mCancel} onPress={() => setInstructionsOpen(false)}>
-                  <Text style={s.mCancelText}>{t("settings.cancel")}</Text>
-                </Pressable>
-                <Pressable style={s.mSave} onPress={() => void saveInstructions()}>
-                  <Text style={s.mSaveText}>{t("settings.save")}</Text>
-                </Pressable>
+                <Button
+                  title={t("settings.cancel")}
+                  onPress={() => setInstructionsOpen(false)}
+                  variant="outline"
+                  style={s.mActionBtn}
+                />
+                <Button
+                  title={t("settings.save")}
+                  onPress={() => void saveInstructions()}
+                  style={s.mActionBtn}
+                />
               </View>
             </Pressable>
           </Pressable>

@@ -1,7 +1,8 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { Button } from "@/components/Button";
 import { Theme, useTheme } from "@/lib/theme";
 import { tap } from "@/lib/haptics";
 
@@ -53,15 +54,14 @@ export function StateView({
       {title ? <Text style={s.title}>{title}</Text> : null}
       {message ? <Text style={s.message}>{message}</Text> : null}
       {onRetry ? (
-        <Pressable
-          style={s.retryBtn}
+        <Button
+          title={resolvedRetryLabel ?? t("common.retry")}
           onPress={() => {
             tap();
             onRetry();
           }}
-        >
-          <Text style={s.retryText}>{resolvedRetryLabel}</Text>
-        </Pressable>
+          style={s.retryBtn}
+        />
       ) : null}
     </View>
   );
@@ -92,11 +92,8 @@ function makeStyles(theme: Theme, compact: boolean) {
     },
     retryBtn: {
       marginTop: 8,
-      paddingHorizontal: 20,
-      paddingVertical: 10,
-      borderRadius: 10,
-      backgroundColor: theme.primary,
+      alignSelf: "center",
+      paddingHorizontal: 24,
     },
-    retryText: { fontSize: 14, fontWeight: "600", color: theme.onPrimary },
   });
 }

@@ -16,6 +16,7 @@ import { Redirect } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { Button } from "@/components/Button";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   formatAppleSignInError,
@@ -158,17 +159,13 @@ export default function LoginScreen() {
                 <Ionicons name="information-circle-outline" size={18} color={theme.primary} />
                 <Text style={s.devBannerText}>{t("login.dev_expo_hint")}</Text>
               </View>
-              <Pressable
-                style={[s.primaryBtn, busy && s.dim]}
+              <Button
+                title={t("login.dev")}
                 onPress={handleDev}
+                loading={busyProvider === "dev"}
                 disabled={busy}
-              >
-                {busyProvider === "dev" ? (
-                  <ActivityIndicator color={theme.onPrimary} />
-                ) : (
-                  <Text style={s.primaryBtnText}>{t("login.dev")}</Text>
-                )}
-              </Pressable>
+                style={s.primaryBtn}
+              />
             </>
           ) : (
             <>
@@ -227,17 +224,13 @@ export default function LoginScreen() {
                   </Pressable>
                 </>
               ) : showDevLogin && !showGoogleLogin && !showAppleLogin ? (
-                <Pressable
-                  style={[s.primaryBtn, busy && s.dim]}
+                <Button
+                  title={t("login.dev")}
                   onPress={handleDev}
+                  loading={busyProvider === "dev"}
                   disabled={busy}
-                >
-                  {busyProvider === "dev" ? (
-                    <ActivityIndicator color={theme.onPrimary} />
-                  ) : (
-                    <Text style={s.primaryBtnText}>{t("login.dev")}</Text>
-                  )}
-                </Pressable>
+                  style={s.primaryBtn}
+                />
               ) : showDevLogin && expoGoIos ? (
                 <>
                   <Text style={s.orText}>{t("login.or_dev")}</Text>
@@ -378,14 +371,9 @@ function makeStyles(theme: Theme) {
       color: theme.textSecondary,
     },
     primaryBtn: {
-      alignItems: "center",
-      justifyContent: "center",
+      alignSelf: "stretch",
       width: "100%",
-      borderRadius: 16,
-      paddingVertical: 16,
-      backgroundColor: theme.primary,
     },
-    primaryBtnText: { fontSize: 16, fontWeight: "700", color: theme.onPrimary },
     appleBtn: {
       flexDirection: "row",
       alignItems: "center",

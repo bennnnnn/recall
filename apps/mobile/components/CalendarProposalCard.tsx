@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { Button } from "@/components/Button";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
 import {
@@ -71,17 +72,13 @@ export function CalendarProposalCard({ proposal, disabled }: Props) {
           <Text style={s.doneText}>{t("calendar.proposal_added")}</Text>
         </View>
       ) : (
-        <Pressable
-          style={[s.btn, (busy || disabled) && s.btnDisabled]}
-          disabled={busy || disabled}
+        <Button
+          title={t("calendar.proposal_confirm")}
           onPress={() => void onConfirm()}
-        >
-          {busy ? (
-            <ActivityIndicator color={theme.onPrimary} />
-          ) : (
-            <Text style={s.btnText}>{t("calendar.proposal_confirm")}</Text>
-          )}
-        </Pressable>
+          loading={busy}
+          disabled={disabled}
+          style={s.btn}
+        />
       )}
     </View>
   );
@@ -105,15 +102,7 @@ const makeStyles = (theme: Theme) =>
     error: { fontSize: 13, color: theme.danger },
     btn: {
       marginTop: 4,
-      backgroundColor: theme.primary,
-      borderRadius: 12,
-      paddingVertical: 12,
-      alignItems: "center",
-      minHeight: 44,
-      justifyContent: "center",
     },
-    btnDisabled: { opacity: 0.6 },
-    btnText: { color: theme.onPrimary, fontSize: 15, fontWeight: "700" },
     doneRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
     doneText: { fontSize: 14, fontWeight: "600", color: theme.primary },
   });

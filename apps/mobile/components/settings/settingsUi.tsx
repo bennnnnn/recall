@@ -608,16 +608,6 @@ export function makeSettingsStyles(t: Theme) {
       borderColor: t.primary,
     },
     mActions: { flexDirection: "row", gap: 10 },
-    mCancel: {
-      flex: 1,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: t.border,
-      padding: 12,
-      alignItems: "center",
-    },
-    mCancelText: { fontSize: 15, color: t.textSecondary, fontWeight: "600" },
-    mSave: { flex: 1, borderRadius: 12, backgroundColor: t.primary, padding: 12, alignItems: "center" },
-    mSaveText: { fontSize: 15, color: t.onPrimary, fontWeight: "700" },
+    mActionBtn: { flex: 1 },
   });
 }
