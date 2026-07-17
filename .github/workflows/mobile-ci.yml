@@ -10,6 +10,9 @@ on:
       - "apps/mobile/**"
       - ".github/workflows/mobile-ci.yml"
 
+permissions:
+  contents: read
+
 defaults:
   run:
     working-directory: apps/mobile

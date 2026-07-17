@@ -15,7 +15,6 @@ from app.services.web_search.patterns import (
     _NEWS,
     _ONGOING,
     _PERSONAL_PLANNING,
-    _RECENCY,
     _SHORT_FOLLOWUP_WORDS,
     _SKIP,
     _SPORTS,
@@ -25,6 +24,7 @@ from app.services.web_search.patterns import (
     _WORLD_CUP,
     _YESTERDAY,
     collapse_ws,
+    has_recency,
 )
 from app.services.web_search.subject import (
     _prior_searchable_topic,
@@ -104,9 +104,9 @@ def needs_web_search_heuristic(
     if prior_user_messages and len(cleaned.split()) <= _SHORT_FOLLOWUP_WORDS:
         if _prior_searchable_topic(prior_user_messages) is not None:
             return True
-    if _RECENCY.search(cleaned) and "?" in cleaned:
+    if has_recency(cleaned) and "?" in cleaned:
         return True
-    if _RECENCY.search(cleaned) and len(cleaned.split()) >= 6:
+    if has_recency(cleaned) and len(cleaned.split()) >= 6:
         return True
     return False
 

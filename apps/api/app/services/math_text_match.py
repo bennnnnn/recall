@@ -11,15 +11,34 @@ from dataclasses import dataclass
 
 _MAX = 1000
 _NUM = re.compile(r"-?\d+(?:\.\d+)?")
-_DIM_PAIR = re.compile(
-    r"(?P<a>\d+(?:\.\d+)?)(?:\u00d7|x|\*|by)(?P<b>\d+(?:\.\d+)?)(?:(?P<unit>cm|m|mm|in|ft|units?))?",
-    re.IGNORECASE,
-)
 _BARE_COORD = re.compile(r"^\((?P<x>-?\d+(?:\.\d+)?),(?P<y>-?\d+(?:\.\d+)?)\)$")
 _CALC_OP = re.compile(
     r"\b(simplify|differentiate|derivative|integrate|integral|factor|expand)\b",
     re.IGNORECASE,
 )
+_DIM_SEPS = ("\u00d7", "by", "x", "*")
+_DIM_UNITS = ("units", "unit", "cm", "mm", "ft", "in", "m")
+
+
+def _parse_unsigned_number(s: str, start: int = 0) -> tuple[float, int] | None:
+    """Parse ``digits`` or ``digits.digits`` at ``start``; return (value, end)."""
+    n = len(s)
+    i = start
+    if i >= n or not s[i].isdigit():
+        return None
+    while i < n and s[i].isdigit():
+        i += 1
+    if i < n and s[i] == ".":
+        j = i + 1
+        if j >= n or not s[j].isdigit():
+            return None
+        while j < n and s[j].isdigit():
+            j += 1
+        i = j
+    try:
+        return float(s[start:i]), i
+    except ValueError:
+        return None
 
 
 def collapse_ws(text: str) -> str:
@@ -88,7 +107,7 @@ def has_equation(text: str) -> bool:
 
 
 def first_dim_pair(text: str) -> tuple[float, float, str] | None:
-    # Collapse "8 x 5 cm" → "8x5cm" so the digit regex stays linear (no ` ?` pumps).
+    # Collapse "8 x 5 cm" → "8x5cm" so separators are adjacent (no space pumps).
     compact = (
         text.replace(" \u00d7 ", "\u00d7")
         .replace(" x ", "x")
@@ -96,13 +115,35 @@ def first_dim_pair(text: str) -> tuple[float, float, str] | None:
         .replace(" by ", "by")
         .replace(" ", "")
     )
-    m = _DIM_PAIR.search(compact)
-    if not m:
-        return None
-    unit = (m.group("unit") or "cm").lower()
-    if unit.startswith("unit"):
-        unit = "units"
-    return float(m.group("a")), float(m.group("b")), unit
+    lower = compact.lower()
+    n = len(compact)
+    i = 0
+    while i < n:
+        a_hit = _parse_unsigned_number(compact, i)
+        if a_hit is None:
+            i += 1
+            continue
+        a, j = a_hit
+        sep_len = 0
+        for sep in _DIM_SEPS:
+            if lower.startswith(sep, j):
+                sep_len = len(sep)
+                break
+        if not sep_len:
+            i += 1
+            continue
+        b_hit = _parse_unsigned_number(compact, j + sep_len)
+        if b_hit is None:
+            i += 1
+            continue
+        b, k = b_hit
+        unit = "cm"
+        for cand in _DIM_UNITS:
+            if lower.startswith(cand, k):
+                unit = "units" if cand.startswith("unit") else cand
+                break
+        return a, b, unit
+    return None
 
 
 def number_after(text: str, label: str) -> float | None:
@@ -196,11 +237,75 @@ def calc_op(text: str) -> str | None:
     return m.group(1).lower() if m else None
 
 
+def _match_limit_point(s: str) -> tuple[str, int] | None:
+    """Match infinity / oo / number at start of ``s``; return (token, end)."""
+    low = s.lower()
+    for tok in ("-infinity", "infinity", "-inf", "inf", "-oo", "oo"):
+        if low.startswith(tok):
+            return s[: len(tok)], len(tok)
+    start = 1 if s.startswith("-") else 0
+    hit = _parse_unsigned_number(s, start)
+    if hit is None or (start == 1 and hit[1] == 1):
+        return None
+    return s[: hit[1]], hit[1]
+
+
+def _parse_signed_int_token(s: str) -> tuple[str, int] | None:
+    start = 1 if s.startswith("-") else 0
+    if start >= len(s) or not s[start].isdigit():
+        return None
+    i = start
+    while i < len(s) and s[i].isdigit():
+        i += 1
+    return s[:i], i
+
+
 @dataclass(frozen=True)
 class LimitHit:
     expr: str
     var: str
     point: str
+
+
+def _parse_latex_limit(text: str) -> LimitHit | None:
+    """Parse ``\\lim_{x \\to 0} expr`` without optional-space regex pumps."""
+    idx = text.find("\\lim")
+    if idx == -1:
+        return None
+    rest = text[idx + 4 :]
+    while rest.startswith("_") or rest.startswith(" "):
+        rest = rest[1:]
+    if rest.startswith("{"):
+        rest = rest[1:]
+    rest = rest.lstrip(" ")
+    if not rest or not rest[0].isalpha():
+        return None
+    var = rest[0]
+    rest = rest[1:].lstrip(" ")
+    arrow = None
+    for candidate in ("\\to", "->", "→"):
+        if rest.startswith(candidate):
+            arrow = candidate
+            break
+    if arrow is None:
+        return None
+    rest = rest[len(arrow) :].lstrip(" ")
+    point_hit = _match_limit_point(rest)
+    if point_hit is not None:
+        point, plen = point_hit
+    elif rest.lower().startswith("-\\infty"):
+        point, plen = "-\\infty", 7
+    elif rest.lower().startswith("\\infty"):
+        point, plen = "\\infty", 6
+    else:
+        return None
+    rest = rest[plen:].lstrip(" ")
+    if rest.startswith("}"):
+        rest = rest[1:].lstrip(" ")
+    expr = rest.strip()
+    if not expr:
+        return None
+    return LimitHit(expr=expr, var=var, point=point)
 
 
 def parse_limit(text: str) -> LimitHit | None:
@@ -222,16 +327,11 @@ def parse_limit(text: str) -> LimitHit | None:
                 break
         else:
             return None
-        # point token
-        point_m = re.match(
-            r"(-?infinity|-?inf|-?oo|-?\d+(?:\.\d+)?)",
-            rest_l,
-            re.IGNORECASE,
-        )
-        if not point_m:
+        point_hit = _match_limit_point(rest_l)
+        if not point_hit:
             return None
-        point = point_m.group(1)
-        expr = rest_l[point_m.end() :].strip()
+        point, pend = point_hit
+        expr = rest_l[pend:].strip()
         if expr.lower().startswith("of "):
             expr = expr[3:].strip()
         if expr:
@@ -257,32 +357,23 @@ def parse_limit(text: str) -> LimitHit | None:
             return None
         var = after[0]
         rest = after[1:].lstrip().lower()
-        point = None
         for cue in ("approaches ", "goes to ", "tends to ", "->", "→", "to "):
             if rest.startswith(cue):
                 rest = rest[len(cue) :].lstrip()
                 break
         else:
             return None
-        point_m = re.match(
-            r"(-?infinity|-?inf(?:inity)?|-?oo|-?\d+(?:\.\d+)?)",
-            rest,
-            re.IGNORECASE,
-        )
-        if not point_m or not before:
+        # prose uses "infinity" / "inf" / number (allow longer "infinity" spelling)
+        point_hit = _match_limit_point(rest)
+        if point_hit is None:
+            for tok in ("-infinity", "infinity"):
+                if rest.startswith(tok):
+                    point_hit = (tok, len(tok))
+                    break
+        if not point_hit or not before:
             return None
-        return LimitHit(expr=before, var=var, point=point_m.group(1))
-    # LaTeX \lim_{x \to 0}
-    if "\\lim" in text:
-        m = re.search(
-            r"\\lim[_ ]*\{? ?([a-zA-Z]) ?(?:\\to|->|→) ?"
-            r"(-?\\infty|-?infinity|-?inf|-?oo|-?\d+(?:\.\d+)?)\}? ?(.*)$",
-            text,
-            re.IGNORECASE,
-        )
-        if m and (m.group(3) or "").strip():
-            return LimitHit(expr=m.group(3).strip(), var=m.group(1), point=m.group(2))
-    return None
+        return LimitHit(expr=before, var=var, point=point_hit[0])
+    return _parse_latex_limit(text)
 
 
 @dataclass(frozen=True)
@@ -291,6 +382,59 @@ class SeriesHit:
     var: str
     start: str
     end: str
+
+
+def _parse_latex_series(text: str) -> SeriesHit | None:
+    """Parse ``\\sum_{n=1}^{\\infty} expr`` without optional-space regex pumps."""
+    idx = text.find("\\sum")
+    if idx == -1:
+        return None
+    rest = text[idx + 4 :]
+    while rest.startswith("_") or rest.startswith(" "):
+        rest = rest[1:]
+    if rest.startswith("{"):
+        rest = rest[1:]
+    rest = rest.lstrip(" ")
+    if not rest or not rest[0].isalpha():
+        return None
+    var = rest[0]
+    rest = rest[1:].lstrip(" ")
+    if not rest.startswith("="):
+        return None
+    rest = rest[1:].lstrip(" ")
+    start_hit = _parse_signed_int_token(rest)
+    if start_hit is None:
+        return None
+    start, send = start_hit
+    rest = rest[send:].lstrip(" ")
+    if rest.startswith("}"):
+        rest = rest[1:].lstrip(" ")
+    if not rest.startswith("^"):
+        return None
+    rest = rest[1:].lstrip(" ")
+    if rest.startswith("{"):
+        rest = rest[1:]
+    rest = rest.lstrip(" ")
+    end_tok: str | None = None
+    low = rest.lower()
+    for tok in ("\\infty", "infinity"):
+        if low.startswith(tok):
+            end_tok = rest[: len(tok)]
+            rest = rest[len(tok) :]
+            break
+    if end_tok is None:
+        end_hit = _parse_signed_int_token(rest)
+        if end_hit is None:
+            return None
+        end_tok, eend = end_hit
+        rest = rest[eend:]
+    rest = rest.lstrip(" ")
+    if rest.startswith("}"):
+        rest = rest[1:].lstrip(" ")
+    expr = rest.strip()
+    if not expr:
+        return None
+    return SeriesHit(expr=expr, var=var, start=start, end=end_tok)
 
 
 def parse_series(text: str) -> SeriesHit | None:
@@ -311,28 +455,35 @@ def parse_series(text: str) -> SeriesHit | None:
         expr = rest[:from_idx].strip()
         tail = rest[from_idx + 6 :].strip()
         parts = tail.replace(" ", "")
-        m = re.match(
-            r"([a-zA-Z])=(-?\d+)to(infinity|inf|oo|-?\d+)",
-            parts,
-            re.IGNORECASE,
-        )
-        if m and expr:
-            return SeriesHit(expr=expr, var=m.group(1), start=m.group(2), end=m.group(3))
-    if "\\sum" in text:
-        m = re.search(
-            r"\\sum[_ ]*\{? ?([a-zA-Z]) ?= ?(-?\d+)\}? ?"
-            r"\^\{? ?(\\infty|infinity|-?\d+)\}? ?(.*)$",
-            text,
-            re.IGNORECASE,
-        )
-        if m and (m.group(4) or "").strip():
-            return SeriesHit(
-                expr=m.group(4).strip(),
-                var=m.group(1),
-                start=m.group(2),
-                end=m.group(3),
-            )
-    return None
+        # var=START to END — linear scan on compacted digits
+        if not parts or not parts[0].isalpha():
+            continue
+        var = parts[0]
+        if len(parts) < 2 or parts[1] != "=":
+            continue
+        after_eq = parts[2:]
+        start_hit = _parse_signed_int_token(after_eq)
+        if start_hit is None:
+            continue
+        start, send = start_hit
+        after_start = after_eq[send:]
+        if not after_start.lower().startswith("to"):
+            continue
+        after_to = after_start[2:]
+        end_tok: str | None = None
+        low_end = after_to.lower()
+        for tok in ("infinity", "inf", "oo"):
+            if low_end.startswith(tok):
+                end_tok = after_to[: len(tok)]
+                break
+        if end_tok is None:
+            end_hit = _parse_signed_int_token(after_to)
+            if end_hit is None:
+                continue
+            end_tok = end_hit[0]
+        if expr:
+            return SeriesHit(expr=expr, var=var, start=start, end=end_tok)
+    return _parse_latex_series(text)
 
 
 def integral_bounds(expr: str) -> tuple[str, str, str] | None:

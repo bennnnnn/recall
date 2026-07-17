@@ -12,6 +12,9 @@ on:
         type: boolean
         default: false
 
+permissions:
+  contents: read
+
 jobs:
   deploy-api:
     if: ${{ inputs.deploy_api }}
