@@ -1,6 +1,8 @@
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
+from typing import Any
 from uuid import UUID
 
 from redis.asyncio import Redis
@@ -159,6 +161,282 @@ async def _augment_web_and_tools(
     return updated, search_sources, verified_math
 
 
+@dataclass
+class _PromptContextBlocks:
+    memory_block: str
+    todos_section: str | None
+    projects_block: str
+    recent_all: list[Any]
+    attachment_rag_block: str
+    chat: Chat | None
+
+
+async def _load_context_blocks(
+    session: AsyncSession,
+    user: User,
+    chat_id: UUID,
+    settings: Settings,
+    *,
+    chat: Chat | None,
+    query_text: str | None,
+    recent_limit: int,
+    is_day_plan: bool,
+    slim_context: bool,
+    client_timezone: str | None,
+    out: dict[str, object] | None,
+    on_status: StreamStatusFn | None,
+) -> _PromptContextBlocks:
+    """Load memory/todos/projects/RAG + recent messages for the system prompt."""
+    import app.services.chat as chat_pkg
+
+    if slim_context:
+        recent_all = await chat_pkg.messages_repo.list_recent(session, chat_id, limit=recent_limit)
+        if out is not None:
+            out["recalled"] = 0
+            out["memory_hints"] = []
+        return _PromptContextBlocks(
+            memory_block="",
+            todos_section=None,
+            projects_block="",
+            recent_all=recent_all,
+            attachment_rag_block="",
+            chat=chat,
+        )
+
+    if chat is None:
+        chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user.id)
+
+    if on_status is not None and user.memory_enabled:
+        await on_status("remembering")
+
+    # Each of these is an independent read with no dependency on the others'
+    # output — give each its own short-lived session (a single AsyncSession
+    # cannot safely run concurrent operations) and gather them, instead of
+    # awaiting four DB round-trips back-to-back before the LLM call starts.
+    async def _memory_block() -> str:
+        async with SessionLocal() as s:
+            return await chat_pkg.memory_service.get_memory_block(
+                s, user, settings, query_text=query_text
+            )
+
+    async def _todos_section() -> str | None:
+        async with SessionLocal() as s:
+            return await chat_pkg.todos_service.build_todos_system_section(
+                s,
+                user,
+                settings,
+                client_timezone=client_timezone,
+                query_text=query_text,
+            )
+
+    async def _projects_block() -> str:
+        async with SessionLocal() as s:
+            if is_day_plan:
+                return await chat_pkg.projects_service.load_daily_learning_summary_for_prompt(
+                    s,
+                    user,
+                    settings,
+                    client_timezone=client_timezone,
+                )
+            if chat and chat.project_id:
+                return await chat_pkg.projects_service.load_project_for_prompt(
+                    s,
+                    user.id,
+                    chat.project_id,
+                    settings,
+                    quiz_mode=getattr(chat, "quiz_mode", None),
+                    client_timezone=client_timezone,
+                )
+            return await chat_pkg.projects_service.load_projects_for_prompt(s, user.id, settings)
+
+    async def _attachment_rag_block() -> str:
+        if not settings.attachment_rag_enabled or not query_text:
+            return ""
+        from app.services import attachment_rag as attachment_rag_service
+
+        async with SessionLocal() as s:
+            return await attachment_rag_service.retrieve_for_prompt(
+                s,
+                settings,
+                user_id=user.id,
+                chat_id=chat_id,
+                query=query_text,
+            )
+
+    (
+        memory_block,
+        todos_section,
+        projects_block,
+        recent_all,
+        attachment_rag_block,
+    ) = await asyncio.gather(
+        _memory_block(),
+        _todos_section(),
+        _projects_block(),
+        chat_pkg.messages_repo.list_recent(session, chat_id, limit=recent_limit),
+        _attachment_rag_block(),
+    )
+    if out is not None:
+        labels = set(chat_pkg.memory_service.SECTION_LABELS.values())
+        hints = [
+            line[3:].strip()
+            for line in memory_block.split("\n")
+            if line.startswith("## ") and line[3:].strip() in labels
+        ]
+        out["recalled"] = len(hints)
+        out["memory_hints"] = hints[:3]
+    return _PromptContextBlocks(
+        memory_block=memory_block,
+        todos_section=todos_section,
+        projects_block=projects_block,
+        recent_all=recent_all,
+        attachment_rag_block=attachment_rag_block,
+        chat=chat,
+    )
+
+
+async def _quiz_hints(
+    session: AsyncSession,
+    user: User,
+    chat_id: UUID,
+    settings: Settings,
+    *,
+    chat: Chat | None,
+    quiz_grade: QuizAnswerGrade | None,
+    minimal_quiz_context: bool,
+    minimal_vocab_answer_context: bool,
+) -> tuple[list[str], Chat | None]:
+    """Quiz grading + minimal quiz/vocab answer system hints (and project quiz context)."""
+    import app.services.chat as chat_pkg
+
+    parts: list[str] = []
+    if quiz_grade is not None:
+        parts.append(
+            format_quiz_grading_hint(
+                is_correct=quiz_grade.is_correct,
+                user_letter=quiz_grade.user_letter,
+                correct_letter=quiz_grade.correct_letter,
+                word=quiz_grade.word,
+                quiz_type=quiz_grade.quiz_type,
+                question=quiz_grade.question,
+                attempt=quiz_grade.attempt,
+                tries_exhausted=quiz_grade.tries_exhausted,
+            )
+        )
+    if minimal_quiz_context:
+        parts.extend([QUIZ_ANSWER_HINT, PRIVACY_HINT])
+        if chat is None:
+            chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user.id)
+        if chat and chat.project_id:
+            quiz_ctx = await chat_pkg.projects_service.load_project_quiz_context(
+                session, user.id, chat.project_id, settings, quiz_grade=quiz_grade
+            )
+            if quiz_ctx:
+                parts.append(quiz_ctx)
+    elif minimal_vocab_answer_context:
+        parts.extend([VOCAB_CHAT_ANSWER_HINT, PRIVACY_HINT])
+        if chat is None:
+            chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user.id)
+        if chat and chat.project_id:
+            quiz_ctx = await chat_pkg.projects_service.load_project_quiz_context(
+                session, user.id, chat.project_id, settings, quiz_grade=quiz_grade
+            )
+            if quiz_ctx:
+                parts.append(quiz_ctx)
+    return parts, chat
+
+
+def _style_format_hints(
+    *,
+    query_text: str | None,
+    style: str,
+    is_day_plan: bool,
+    minimal_personal_context: bool,
+) -> list[str]:
+    """Clarification / day-planning / response-format hints for non-quiz turns."""
+    parts: list[str] = [CLARIFICATION_HINT, PRIVACY_HINT]
+    if query_text and is_day_planning_question(query_text):
+        parts.append(DAY_PLANNING_ANSWER_HINT)
+        parts.append(DAY_LEARNING_SNAPSHOT_HINT)
+        if is_day_reflection_question(query_text):
+            parts.append(
+                "This is an end-of-day reflection — keep reminders, lists, calendar, and "
+                "loose ends as the main focus."
+            )
+    if minimal_personal_context:
+        parts.append(BROAD_SELF_ANSWER_HINT)
+    if style == "short":
+        parts.append(SHORT_RESPONSE_FORMAT_HINT)
+    elif not is_day_plan:
+        parts.extend(
+            [INTENT_FORMAT_HINT, MATH_SOLVER_HINT, RESPONSE_FORMAT_HINT, VISUALIZATION_HINTS]
+        )
+    else:
+        parts.append(RESPONSE_FORMAT_HINT)
+    # Turn-specific: overrides soft format map (and short-mode "no tables") for X vs Y.
+    if query_text and is_comparison_question(query_text):
+        parts.append(COMPARISON_FORMAT_HINT)
+    parts.append(COPY_DELIVERABLE_HINT)
+    if query_text and is_writing_deliverable_request(query_text):
+        parts.append(EMAIL_DRAFT_HINT)
+    return parts
+
+
+def _integration_hints(
+    *,
+    settings: Settings,
+    query_text: str | None,
+    local_tz: str,
+    user_locale: str | None,
+    location_for_context: str | None,
+    prompt_location: str | None,
+    memory_block: str,
+    attachment_rag_block: str,
+    todos_section: str | None,
+    todo_sync_feedback: str | None,
+    is_day_plan: bool,
+    projects_block: str,
+    summary: str | None,
+) -> list[str]:
+    """Time / web / calendar / gmail / memory / todos / projects / summary hints."""
+    import app.services.chat as chat_pkg
+
+    parts: list[str] = [
+        chat_pkg.time_context_service.format_time_context(
+            local_tz, user_locale, location_for_context
+        )
+    ]
+    if settings.web_search_enabled:
+        parts.append(chat_pkg.web_search_service.WEB_SEARCH_HINT)
+        if query_text and chat_pkg.web_search_service.is_ambiguous_local_places_query(query_text):
+            parts.append(chat_pkg.web_search_service.AMBIGUOUS_NEARBY_HINT)
+        elif query_text and chat_pkg.web_search_service.is_places_list_query(query_text):
+            parts.append(chat_pkg.web_search_service.LOCAL_PLACES_FORMAT_HINT)
+        elif query_text and chat_pkg.web_search_service.is_distance_query(query_text):
+            parts.append(chat_pkg.web_search_service.GEO_DISTANCE_HINT)
+        if prompt_location and query_text and chat_pkg.web_search_service.is_geo_query(query_text):
+            parts.append(chat_pkg.web_search_service.GEO_ACTIVE_LOCATION_HINT)
+    if settings.google_calendar_enabled:
+        parts.append(chat_pkg.calendar_service.CALENDAR_HINT)
+    if settings.gmail_enabled:
+        parts.append(chat_pkg.email_service.GMAIL_HINT)
+    if memory_block:
+        parts.append(wrap_untrusted("memory", memory_block))
+    if attachment_rag_block:
+        parts.append(attachment_rag_block)
+    if todos_section:
+        parts.append(todos_section)
+    if todo_sync_feedback:
+        parts.append(todo_sync_feedback)
+    if not is_day_plan:
+        parts.append(chat_pkg.projects_service.PROJECT_HINT)
+    if projects_block:
+        parts.append(projects_block)
+    if summary:
+        parts.append(f"Summary of earlier conversation:\n{summary}")
+    return parts
+
+
 async def build_prompt_messages(
     session: AsyncSession,
     user: User,
@@ -186,103 +464,24 @@ async def build_prompt_messages(
         else settings.recent_message_window
     )
     is_day_plan = bool(query_text and is_day_planning_question(query_text))
-    todos_section: str | None = None
     slim_context = minimal_personal_context or minimal_quiz_context or minimal_vocab_answer_context
-    if slim_context:
-        recent_all = await chat_pkg.messages_repo.list_recent(session, chat_id, limit=recent_limit)
-        memory_block = ""
-        projects_block = ""
-        attachment_rag_block = ""
-        if out is not None:
-            out["recalled"] = 0
-            out["memory_hints"] = []
-    else:
-        if chat is None:
-            chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user.id)
-
-        if on_status is not None and user.memory_enabled:
-            await on_status("remembering")
-
-        # Each of these is an independent read with no dependency on the others'
-        # output — give each its own short-lived session (a single AsyncSession
-        # cannot safely run concurrent operations) and gather them, instead of
-        # awaiting four DB round-trips back-to-back before the LLM call starts.
-        async def _memory_block() -> str:
-            async with SessionLocal() as s:
-                return await chat_pkg.memory_service.get_memory_block(
-                    s, user, settings, query_text=query_text
-                )
-
-        async def _todos_section() -> str | None:
-            async with SessionLocal() as s:
-                return await chat_pkg.todos_service.build_todos_system_section(
-                    s,
-                    user,
-                    settings,
-                    client_timezone=client_timezone,
-                    query_text=query_text,
-                )
-
-        async def _projects_block() -> str:
-            async with SessionLocal() as s:
-                if is_day_plan:
-                    return await chat_pkg.projects_service.load_daily_learning_summary_for_prompt(
-                        s,
-                        user,
-                        settings,
-                        client_timezone=client_timezone,
-                    )
-                if chat and chat.project_id:
-                    return await chat_pkg.projects_service.load_project_for_prompt(
-                        s,
-                        user.id,
-                        chat.project_id,
-                        settings,
-                        quiz_mode=getattr(chat, "quiz_mode", None),
-                        client_timezone=client_timezone,
-                    )
-                return await chat_pkg.projects_service.load_projects_for_prompt(
-                    s, user.id, settings
-                )
-
-        async def _attachment_rag_block() -> str:
-            if not settings.attachment_rag_enabled or not query_text:
-                return ""
-            from app.services import attachment_rag as attachment_rag_service
-
-            async with SessionLocal() as s:
-                return await attachment_rag_service.retrieve_for_prompt(
-                    s,
-                    settings,
-                    user_id=user.id,
-                    chat_id=chat_id,
-                    query=query_text,
-                )
-
-        (
-            memory_block,
-            todos_section,
-            projects_block,
-            recent_all,
-            attachment_rag_block,
-        ) = await asyncio.gather(
-            _memory_block(),
-            _todos_section(),
-            _projects_block(),
-            chat_pkg.messages_repo.list_recent(session, chat_id, limit=recent_limit),
-            _attachment_rag_block(),
-        )
-        if out is not None:
-            labels = set(chat_pkg.memory_service.SECTION_LABELS.values())
-            hints = [
-                line[3:].strip()
-                for line in memory_block.split("\n")
-                if line.startswith("## ") and line[3:].strip() in labels
-            ]
-            out["recalled"] = len(hints)
-            out["memory_hints"] = hints[:3]
-    keep = select_recent_window(recent_all, settings.context_token_budget, recent_limit)
-    recent = recent_all[-keep:] if keep else []
+    blocks = await _load_context_blocks(
+        session,
+        user,
+        chat_id,
+        settings,
+        chat=chat,
+        query_text=query_text,
+        recent_limit=recent_limit,
+        is_day_plan=is_day_plan,
+        slim_context=slim_context,
+        client_timezone=client_timezone,
+        out=out,
+        on_status=on_status,
+    )
+    chat = blocks.chat
+    keep = select_recent_window(blocks.recent_all, settings.context_token_budget, recent_limit)
+    recent = blocks.recent_all[-keep:] if keep else []
     if out is not None and chat and chat.summary and (chat.summary_message_count or 0) > 0:
         out["context_summarized"] = chat.summary_message_count
     local_tz = chat_pkg.time_context_service.effective_timezone(user.timezone, client_timezone)
@@ -296,65 +495,27 @@ async def build_prompt_messages(
         else format_user_profile_block(user, location_override=prompt_location),
         STYLE_HINTS[style],
     ]
-    if quiz_grade is not None:
-        system_parts.append(
-            format_quiz_grading_hint(
-                is_correct=quiz_grade.is_correct,
-                user_letter=quiz_grade.user_letter,
-                correct_letter=quiz_grade.correct_letter,
-                word=quiz_grade.word,
-                quiz_type=quiz_grade.quiz_type,
-                question=quiz_grade.question,
-                attempt=quiz_grade.attempt,
-                tries_exhausted=quiz_grade.tries_exhausted,
+    # Grade hint (if any) then quiz/vocab path — same order as the prior inline assembly.
+    quiz_parts, chat = await _quiz_hints(
+        session,
+        user,
+        chat_id,
+        settings,
+        chat=chat,
+        quiz_grade=quiz_grade,
+        minimal_quiz_context=minimal_quiz_context,
+        minimal_vocab_answer_context=minimal_vocab_answer_context,
+    )
+    system_parts.extend(quiz_parts)
+    if not minimal_quiz_context and not minimal_vocab_answer_context:
+        system_parts.extend(
+            _style_format_hints(
+                query_text=query_text,
+                style=style,
+                is_day_plan=is_day_plan,
+                minimal_personal_context=minimal_personal_context,
             )
         )
-    if minimal_quiz_context:
-        system_parts.extend([QUIZ_ANSWER_HINT, PRIVACY_HINT])
-        if chat is None:
-            chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user.id)
-        if chat and chat.project_id:
-            quiz_ctx = await chat_pkg.projects_service.load_project_quiz_context(
-                session, user.id, chat.project_id, settings, quiz_grade=quiz_grade
-            )
-            if quiz_ctx:
-                system_parts.append(quiz_ctx)
-    elif minimal_vocab_answer_context:
-        system_parts.extend([VOCAB_CHAT_ANSWER_HINT, PRIVACY_HINT])
-        if chat is None:
-            chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user.id)
-        if chat and chat.project_id:
-            quiz_ctx = await chat_pkg.projects_service.load_project_quiz_context(
-                session, user.id, chat.project_id, settings, quiz_grade=quiz_grade
-            )
-            if quiz_ctx:
-                system_parts.append(quiz_ctx)
-    else:
-        system_parts.extend([CLARIFICATION_HINT, PRIVACY_HINT])
-        if query_text and is_day_planning_question(query_text):
-            system_parts.append(DAY_PLANNING_ANSWER_HINT)
-            system_parts.append(DAY_LEARNING_SNAPSHOT_HINT)
-            if is_day_reflection_question(query_text):
-                system_parts.append(
-                    "This is an end-of-day reflection — keep reminders, lists, calendar, and "
-                    "loose ends as the main focus."
-                )
-        if minimal_personal_context:
-            system_parts.append(BROAD_SELF_ANSWER_HINT)
-        if style == "short":
-            system_parts.append(SHORT_RESPONSE_FORMAT_HINT)
-        elif not is_day_plan:
-            system_parts.extend(
-                [INTENT_FORMAT_HINT, MATH_SOLVER_HINT, RESPONSE_FORMAT_HINT, VISUALIZATION_HINTS]
-            )
-        else:
-            system_parts.append(RESPONSE_FORMAT_HINT)
-        # Turn-specific: overrides soft format map (and short-mode "no tables") for X vs Y.
-        if query_text and is_comparison_question(query_text):
-            system_parts.append(COMPARISON_FORMAT_HINT)
-        system_parts.append(COPY_DELIVERABLE_HINT)
-        if query_text and is_writing_deliverable_request(query_text):
-            system_parts.append(EMAIL_DRAFT_HINT)
     system_parts.append(
         chat_pkg.response_tone_service.tone_hint(getattr(user, "response_tone", None))
     )
@@ -370,45 +531,23 @@ async def build_prompt_messages(
         and not minimal_vocab_answer_context
         and not minimal_personal_context
     ):
-        system_parts.append(
-            chat_pkg.time_context_service.format_time_context(
-                local_tz, user.locale, location_for_context
+        system_parts.extend(
+            _integration_hints(
+                settings=settings,
+                query_text=query_text,
+                local_tz=local_tz,
+                user_locale=user.locale,
+                location_for_context=location_for_context,
+                prompt_location=prompt_location,
+                memory_block=blocks.memory_block,
+                attachment_rag_block=blocks.attachment_rag_block,
+                todos_section=blocks.todos_section,
+                todo_sync_feedback=todo_sync_feedback,
+                is_day_plan=is_day_plan,
+                projects_block=blocks.projects_block,
+                summary=summary,
             )
         )
-        if settings.web_search_enabled:
-            system_parts.append(chat_pkg.web_search_service.WEB_SEARCH_HINT)
-            if query_text and chat_pkg.web_search_service.is_ambiguous_local_places_query(
-                query_text
-            ):
-                system_parts.append(chat_pkg.web_search_service.AMBIGUOUS_NEARBY_HINT)
-            elif query_text and chat_pkg.web_search_service.is_places_list_query(query_text):
-                system_parts.append(chat_pkg.web_search_service.LOCAL_PLACES_FORMAT_HINT)
-            elif query_text and chat_pkg.web_search_service.is_distance_query(query_text):
-                system_parts.append(chat_pkg.web_search_service.GEO_DISTANCE_HINT)
-            if (
-                prompt_location
-                and query_text
-                and chat_pkg.web_search_service.is_geo_query(query_text)
-            ):
-                system_parts.append(chat_pkg.web_search_service.GEO_ACTIVE_LOCATION_HINT)
-        if settings.google_calendar_enabled:
-            system_parts.append(chat_pkg.calendar_service.CALENDAR_HINT)
-        if settings.gmail_enabled:
-            system_parts.append(chat_pkg.email_service.GMAIL_HINT)
-        if memory_block:
-            system_parts.append(wrap_untrusted("memory", memory_block))
-        if attachment_rag_block:
-            system_parts.append(attachment_rag_block)
-        if todos_section:
-            system_parts.append(todos_section)
-        if todo_sync_feedback:
-            system_parts.append(todo_sync_feedback)
-        if not is_day_plan:
-            system_parts.append(chat_pkg.projects_service.PROJECT_HINT)
-        if projects_block:
-            system_parts.append(projects_block)
-        if summary:
-            system_parts.append(f"Summary of earlier conversation:\n{summary}")
 
     messages: list[dict[str, str]] = [{"role": "system", "content": "\n\n".join(system_parts)}]
     for msg in recent:
