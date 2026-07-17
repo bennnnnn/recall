@@ -1,15 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import {
-  BottomSheetBackdrop,
-  BottomSheetModal,
-  BottomSheetView,
-  type BottomSheetBackdropProps,
-} from "@gorhom/bottom-sheet";
 import { useTranslation } from "react-i18next";
 
-import { selection, tap } from "@/lib/haptics";
+import { AppSheet } from "@/components/AppSheet";
+import { selection } from "@/lib/haptics";
 import { Theme, useTheme } from "@/lib/theme";
 
 export type AttachmentSource = "camera" | "photo" | "file" | "solve_math_camera";
@@ -46,108 +41,67 @@ function SheetRow({ icon, label, onPress, theme, styles, showDivider }: RowProps
   );
 }
 
-/**
- * Attach / solve-math source picker as a Gorhom BottomSheetModal.
- * Pan-dismiss + backdrop on the UI thread (Reanimated), Maps-style.
- */
+/** Attach / math-scan source picker. */
 export function AttachmentSourceSheet({ visible, onClose, onSelect }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const ref = useRef<BottomSheetModal>(null);
 
-  useEffect(() => {
-    if (visible) {
-      tap();
-      ref.current?.present();
-    } else {
-      ref.current?.dismiss();
-    }
-  }, [visible]);
-
-  const renderBackdrop = useCallback(
-    (props: BottomSheetBackdropProps) => (
-      <BottomSheetBackdrop
-        {...props}
-        disappearsOnIndex={-1}
-        appearsOnIndex={0}
-        opacity={theme.isDark ? 0.55 : 0.4}
-        pressBehavior="close"
-      />
-    ),
-    [theme.isDark],
-  );
-
-  const pick = useCallback(
-    (source: AttachmentSource) => {
-      selection();
-      onSelect(source);
-    },
-    [onSelect],
-  );
+  const pick = (source: AttachmentSource) => {
+    selection();
+    onSelect(source);
+  };
 
   return (
-    <BottomSheetModal
-      ref={ref}
-      enableDynamicSizing
-      enablePanDownToClose
-      onDismiss={onClose}
-      backdropComponent={renderBackdrop}
-      backgroundStyle={s.sheetBg}
-      handleIndicatorStyle={s.handle}
-      accessibilityLabel={t("chat.attach_a11y")}
+    <AppSheet
+      visible={visible}
+      onClose={onClose}
+      variant="bottom"
+      withHandle
+      floating
+      minBottomPadding={12}
+      contentContainerStyle={s.panel}
     >
-      <BottomSheetView style={s.content}>
-        <SheetRow
-          icon="calculator-outline"
-          label={t("chat.attach_solve_math_camera")}
-          onPress={() => pick("solve_math_camera")}
-          theme={theme}
-          styles={s}
-        />
-        <SheetRow
-          icon="camera-outline"
-          label={t("chat.attach_camera")}
-          onPress={() => pick("camera")}
-          theme={theme}
-          styles={s}
-          showDivider
-        />
-        <SheetRow
-          icon="images-outline"
-          label={t("chat.attach_photo")}
-          onPress={() => pick("photo")}
-          theme={theme}
-          styles={s}
-          showDivider
-        />
-        <SheetRow
-          icon="document-outline"
-          label={t("chat.attach_file")}
-          onPress={() => pick("file")}
-          theme={theme}
-          styles={s}
-          showDivider
-        />
-      </BottomSheetView>
-    </BottomSheetModal>
+      <SheetRow
+        icon="scan-outline"
+        label={t("chat.attach_solve_math_camera")}
+        onPress={() => pick("solve_math_camera")}
+        theme={theme}
+        styles={s}
+      />
+      <SheetRow
+        icon="camera-outline"
+        label={t("chat.attach_camera")}
+        onPress={() => pick("camera")}
+        theme={theme}
+        styles={s}
+        showDivider
+      />
+      <SheetRow
+        icon="images-outline"
+        label={t("chat.attach_photo")}
+        onPress={() => pick("photo")}
+        theme={theme}
+        styles={s}
+        showDivider
+      />
+      <SheetRow
+        icon="document-outline"
+        label={t("chat.attach_file")}
+        onPress={() => pick("file")}
+        theme={theme}
+        styles={s}
+        showDivider
+      />
+    </AppSheet>
   );
 }
 
 function makeStyles(C: Theme) {
   return StyleSheet.create({
-    sheetBg: {
+    panel: {
       backgroundColor: C.inputBg,
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
-    },
-    handle: {
-      backgroundColor: C.border,
-      width: 36,
-    },
-    content: {
-      paddingBottom: 12,
-      paddingHorizontal: 4,
+      // Radii / float margins come from AppSheet `floating`.
     },
     item: {
       flexDirection: "row",

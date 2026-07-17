@@ -198,7 +198,7 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context():
         patch(
             "app.services.chat.messages_repo.create",
             AsyncMock(return_value=user_message),
-        ),
+        ) as create_mock,
         patch(
             "app.repositories.attachments.link_to_message",
             AsyncMock(),
@@ -221,3 +221,7 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context():
 
     extract_mock.assert_awaited_once()
     assert captured["image_math_extract"] == extracted
+    saved = create_mock.await_args.kwargs["content"]
+    assert "BEGIN UNTRUSTED" not in saved
+    assert "[image attached]" in saved
+    assert "Extracted equation" not in saved

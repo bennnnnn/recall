@@ -79,6 +79,9 @@ export type UseChatScreenBodyPropsParams = {
     setPendingAttachment: (value: PendingAttachment | null) => void;
     handlePickAttachment: () => void;
     handleAttachmentSheetSelect: (source: AttachmentSource) => void | Promise<void>;
+    mathScannerOpen: boolean;
+    closeMathScanner: () => void;
+    handleMathScanCaptured: (pending: PendingAttachment) => void;
   };
   quotaNudge: QuotaNudge;
   chatError: ResolvedChatError | null;
@@ -151,6 +154,9 @@ export function useChatScreenBodyProps({
     setPendingAttachment,
     handlePickAttachment,
     handleAttachmentSheetSelect,
+    mathScannerOpen,
+    closeMathScanner,
+    handleMathScanCaptured,
   },
   quotaNudge,
   chatError,
@@ -271,6 +277,9 @@ export function useChatScreenBodyProps({
       },
       onPickAttachment: handlePickAttachment,
       onAttachmentSource: (source) => void handleAttachmentSheetSelect(source),
+      mathScannerOpen,
+      onCloseMathScanner: closeMathScanner,
+      onMathScanCaptured: handleMathScanCaptured,
       onSend: () => void handleSend(),
       onStop: stopGeneration,
       isOffline,
@@ -327,6 +336,9 @@ export function useChatScreenBodyProps({
       setEditingMessageId,
       handlePickAttachment,
       handleAttachmentSheetSelect,
+      mathScannerOpen,
+      closeMathScanner,
+      handleMathScanCaptured,
       stopGeneration,
       isOffline,
       voiceRecording,

@@ -69,6 +69,14 @@
         }
       ],
       [
+        "expo-camera",
+        {
+          "cameraPermission": "Recall uses the camera to scan math problems from your notes or worksheets.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      [
         "expo-audio",
         {
           "microphonePermission": "Recall uses the microphone so you can dictate messages."

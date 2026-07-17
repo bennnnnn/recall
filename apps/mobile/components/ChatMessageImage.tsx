@@ -24,6 +24,12 @@ type Props = {
   localUri?: string | null;
   path?: string | null;
   fileName?: string;
+  /**
+   * Soft blur→sharp "develop" reveal. Default on for generated/assistant
+   * images; user attach previews should pass false so a post-reply refetch
+   * doesn't flash gray/blur again.
+   */
+  animatedReveal?: boolean;
 };
 
 /** ~1/3 screen width, slightly portrait — matches Claude-style chat thumbnails. */
@@ -83,7 +89,13 @@ function RevealingImage({ source, style, layerStyle, onError }: RevealingImagePr
   );
 }
 
-export function ChatMessageImage({ attachmentId, localUri, path, fileName }: Props) {
+export function ChatMessageImage({
+  attachmentId,
+  localUri,
+  path,
+  fileName,
+  animatedReveal = true,
+}: Props) {
   const { token } = useAuth();
   const C = useTheme();
   const { width, height } = useThumbnailSize();
@@ -110,6 +122,10 @@ export function ChatMessageImage({ attachmentId, localUri, path, fileName }: Pro
       ? { uri: remoteUri, headers: { Authorization: `Bearer ${token}` } }
       : { uri: remoteUri };
 
+  // Local file:// previews (and user attach thumbs) stay sharp — no blur
+  // "develop" reveal that restarts when a silent refetch swaps the URI.
+  const usePlainPreview = Boolean(localUri) || !animatedReveal;
+
   return (
     <>
       <Pressable
@@ -122,6 +138,13 @@ export function ChatMessageImage({ attachmentId, localUri, path, fileName }: Pro
             <View style={[s.preview, s.fallback]}>
               <ActivityIndicator color={C.textTertiary} />
             </View>
+          ) : usePlainPreview ? (
+            <Image
+              source={localUri ? { uri: localUri } : source}
+              style={s.preview}
+              resizeMode="cover"
+              onError={() => setFailed(true)}
+            />
           ) : (
             <RevealingImage
               key={remoteUri}

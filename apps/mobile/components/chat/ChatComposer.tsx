@@ -136,7 +136,7 @@ export const ChatComposer = memo(function ChatComposer({
                 style={s.attachBtn}
                 onPress={onPickAttachment}
                 disabled={attachBusy || streaming}
-                hitSlop={6}
+                hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
                 accessibilityRole="button"
                 accessibilityLabel={t("chat.attach_a11y")}
               >

@@ -117,6 +117,7 @@ export function useChatSend({
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
   const [attachBusy, setAttachBusy] = useState(false);
   const [attachSheetOpen, setAttachSheetOpen] = useState(false);
+  const [mathScannerOpen, setMathScannerOpen] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [pendingOutboundId, setPendingOutboundId] = useState<string | null>(null);
   const [pendingSend, setPendingSend] = useState<{
@@ -209,8 +210,14 @@ export function useChatSend({
       const authToken = token;
       if (!authToken) return;
 
-      let attachmentIds: string[] | undefined;
       const attached = pendingAttachment;
+      // Leave the composer immediately — upload happens before the network
+      // send, but the user should see the bubble, not a spinning preview.
+      setInput("");
+      setPendingAttachment(null);
+      Keyboard.dismiss();
+
+      let attachmentIds: string[] | undefined;
       if (attached) {
         setAttachBusy(true);
         try {
@@ -222,13 +229,13 @@ export function useChatSend({
             error instanceof Error ? error.message : t("common.error"),
           );
           setAttachBusy(false);
+          setInput(text);
+          setPendingAttachment(attached);
           return;
         }
         setAttachBusy(false);
-        setPendingAttachment(null);
       }
 
-      setInput("");
       newMessageCountRef.current += 1;
 
       let clientGeo: ClientGeo | null = null;
@@ -241,6 +248,7 @@ export function useChatSend({
       );
       if (!geoResult.ok) {
         setInput(text);
+        setPendingAttachment(attached);
         return;
       }
       clientGeo = geoResult.clientGeo;
@@ -290,6 +298,7 @@ export function useChatSend({
           setPendingOutboundId(null);
           setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
           setInput(text);
+          setPendingAttachment(attached);
         } finally {
           creatingRef.current = false;
         }
@@ -350,7 +359,9 @@ export function useChatSend({
   const handlePickAttachment = useCallback(() => {
     if (!token || attachBusy || streaming) return;
     Keyboard.dismiss();
-    setAttachSheetOpen(true);
+    // Let the keyboard finish dismissing before presenting the Modal so the
+    // first tap isn't swallowed on Android.
+    requestAnimationFrame(() => setAttachSheetOpen(true));
   }, [token, attachBusy, streaming]);
 
   const waitForPickerUi = useCallback(() => scheduleIdlePromise(), []);
@@ -368,17 +379,18 @@ export function useChatSend({
       }
 
       try {
+        if (source === "solve_math_camera") {
+          setMathScannerOpen(true);
+          return;
+        }
         const picked =
-          source === "camera" || source === "solve_math_camera"
+          source === "camera"
             ? await pickFromCamera()
             : source === "photo"
               ? await pickFromPhotoLibrary()
               : await pickDocument();
         if (picked) {
           setPendingAttachment(picked);
-          if (source === "solve_math_camera") {
-            setInput(defaultMathCameraPrompt());
-          }
         }
       } catch (error) {
         if (error instanceof HeicUnsupportedError) {
@@ -395,6 +407,12 @@ export function useChatSend({
     },
     [attachBusy, streaming, t, token, waitForPickerUi],
   );
+
+  const handleMathScanCaptured = useCallback((pending: PendingAttachment) => {
+    setPendingAttachment(pending);
+    setInput(defaultMathCameraPrompt());
+    setMathScannerOpen(false);
+  }, []);
 
   const handleEditMessage = useCallback(
     (message: Message) => {
@@ -415,11 +433,14 @@ export function useChatSend({
     attachBusy,
     attachSheetOpen,
     setAttachSheetOpen,
+    mathScannerOpen,
+    setMathScannerOpen,
     editingMessageId,
     setEditingMessageId,
     handleSend,
     handlePickAttachment,
     handleAttachmentSheetSelect,
+    handleMathScanCaptured,
     handleEditMessage,
     creatingRef,
     pendingOutboundId,
