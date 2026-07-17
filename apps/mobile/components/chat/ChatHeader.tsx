@@ -23,7 +23,7 @@ type Props = {
   chatTitle: string | null;
   showIndicator: boolean;
   unseenCount: number;
-  /** False on the empty home screen (no turns yet). Keep — do not always show ⋮ / new-chat. */
+  /** False on the empty home screen (no turns yet). Overflow menu (⋮) only. */
   hasMessages: boolean;
   onOpenDrawer: () => void;
   onOpenReminders: () => void;
@@ -118,21 +118,22 @@ export const ChatHeader = memo(function ChatHeader({
               </View>
             </Pressable>
           ) : null}
-          {/* Home (hasMessages=false): only drawer (+ optional bell). Chat actions live in drawer. */}
-          {hasMessages ? (
-            <View style={s.actionGroup}>
-              <Pressable
-                style={({ pressed }) => [
-                  s.actionGroupBtn,
-                  pressed && s.actionGroupBtnPressed,
-                ]}
-                onPress={onNewChat}
-                hitSlop={4}
-                accessibilityRole="button"
-                accessibilityLabel={t("chat.new_chat")}
-              >
-                <Ionicons name="chatbubble-outline" size={22} color={theme.text} />
-              </Pressable>
+          {/* New chat stays mounted on home + chat so it doesn't flash away when
+              messages clear; ⋮ only when there is something to act on. */}
+          <View style={s.actionGroup}>
+            <Pressable
+              style={({ pressed }) => [
+                s.actionGroupBtn,
+                pressed && s.actionGroupBtnPressed,
+              ]}
+              onPress={onNewChat}
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel={t("chat.new_chat")}
+            >
+              <Ionicons name="chatbubble-outline" size={22} color={theme.text} />
+            </Pressable>
+            {hasMessages ? (
               <Pressable
                 style={({ pressed }) => [
                   s.actionGroupBtn,
@@ -145,8 +146,8 @@ export const ChatHeader = memo(function ChatHeader({
               >
                 <Ionicons name="ellipsis-vertical" size={22} color={theme.text} />
               </Pressable>
-            </View>
-          ) : null}
+            ) : null}
+          </View>
         </View>
       </View>
     </View>
