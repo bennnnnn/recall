@@ -23,6 +23,8 @@ from app.services import daily_learning
 from app.services import home as home_service
 from app.services import projects as projects_service
 from app.services import time_context as time_context_service
+from app.services.projects import items as project_items_service
+from app.services.projects.items import update_item
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -127,7 +129,7 @@ async def list_daily_items(
         ) from exc
     tz_name = _project_timezone(user, client_timezone)
     if bucket == "missed":
-        items = await project_items_repo.list_missed_by_activity_date(
+        items = await project_items_service.list_missed_by_activity_date(
             session,
             user.id,
             project_id,
@@ -137,7 +139,7 @@ async def list_daily_items(
             offset=offset,
         )
     else:
-        items = await project_items_repo.list_by_activity_date(
+        items = await project_items_service.list_by_activity_date(
             session,
             user.id,
             project_id,
@@ -166,7 +168,7 @@ async def update_project_item(
     item = await project_items_repo.get_by_id(session, item_id, user.id, project_id)
     if not item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
-    updated = await project_items_repo.update(session, item, **patch)
+    updated = await update_item(session, item, **patch)
     await home_service.invalidate_home_cache(user.id)
     return ProjectItemOut.model_validate(updated)
 

@@ -52,10 +52,10 @@ async def _should_minimal_quiz_context(
     content: str,
 ) -> bool:
     """Letter/choice-text answers after an in-chat ```vocab_quiz use the quiz prompt path."""
-    import app.services.chat as chat_pkg
     from app.services import vocab_quiz as vocab_quiz_service
+    from app.services.chat.quiz_messages import get_last_quiz_assistant
 
-    prior = await chat_pkg.messages_repo.get_last_quiz_assistant(session, chat_id)
+    prior = await get_last_quiz_assistant(session, chat_id)
     if prior is None:
         return False
     quiz = vocab_quiz_service.parse_vocab_quiz(prior.content)
@@ -84,7 +84,6 @@ async def _classify_turn_mode(
     Fetches the last quiz assistant once (same session) instead of the prior
     double lookup via ``_should_minimal_quiz_context`` + vocab-turn block.
     """
-    import app.services.chat as chat_pkg
     from app.services import vocab_quiz as vocab_quiz_service
 
     minimal_personal = is_broad_self_question(content)
@@ -94,7 +93,9 @@ async def _classify_turn_mode(
     day_planning = day_planning_service.is_day_planning_question(content)
     day_reflection = day_planning_service.is_day_reflection_question(content)
 
-    quiz_assistant = await chat_pkg.messages_repo.get_last_quiz_assistant(session, chat.id)
+    from app.services.chat.quiz_messages import get_last_quiz_assistant
+
+    quiz_assistant = await get_last_quiz_assistant(session, chat.id)
     parsed_quiz = None
     quiz_choices: tuple[tuple[str, str], ...] | None = None
     if quiz_assistant is not None:

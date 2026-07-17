@@ -33,14 +33,17 @@ async def _grade_quiz_answer(
     content: str,
 ) -> tuple[bool, QuizAnswerGrade | None]:
     """Deterministically grade a letter/choice quiz answer when a project is linked."""
-    import app.services.chat as chat_pkg
 
     is_letter_answer = False
     quiz_grade: QuizAnswerGrade | None = None
     if chat_project_id is not None:
         from app.services import vocab_quiz as vocab_quiz_service
+        from app.services.chat.quiz_messages import (
+            count_quiz_letter_answers_since,
+            get_last_quiz_assistant,
+        )
 
-        prior_assistant = await chat_pkg.messages_repo.get_last_quiz_assistant(session, chat_id)
+        prior_assistant = await get_last_quiz_assistant(session, chat_id)
         quiz_choices: tuple[tuple[str, str], ...] | None = None
         if prior_assistant is not None:
             parsed = vocab_quiz_service.parse_vocab_quiz(prior_assistant.content)
@@ -49,7 +52,7 @@ async def _grade_quiz_answer(
         is_letter_answer = vocab_quiz_service.is_vocab_quiz_answer(content, choices=quiz_choices)
         if is_letter_answer and prior_assistant is not None:
             try:
-                attempt = await chat_pkg.messages_repo.count_quiz_letter_answers_since(
+                attempt = await count_quiz_letter_answers_since(
                     session,
                     chat_id,
                     after=prior_assistant.created_at,

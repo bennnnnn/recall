@@ -132,17 +132,11 @@ def _home_patches(**overrides):
         ),
         patch.object(
             home_service.project_items_repo,
-            "count_stats_by_project",
-            AsyncMock(side_effect=_count_stats_by_project),
-        ),
-        patch.object(
-            home_service.project_items_repo,
             "list_for_projects",
             AsyncMock(return_value=[]),
         ),
-        patch.object(
-            home_service.project_items_repo,
-            "stats_from_items",
+        patch(
+            "app.services.projects.stats.stats_from_items",
             MagicMock(return_value=stats_payload),
         ),
         patch.object(
@@ -594,9 +588,8 @@ async def test_build_home_batches_daily_project_stats():
             "list_for_projects",
             AsyncMock(return_value=[]),
         ) as items_mock,
-        patch.object(
-            home_service.project_items_repo,
-            "stats_from_items",
+        patch(
+            "app.services.projects.stats.stats_from_items",
             MagicMock(
                 return_value={
                     "total": 3,

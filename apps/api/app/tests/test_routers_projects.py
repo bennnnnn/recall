@@ -77,7 +77,7 @@ def test_list_projects():
             AsyncMock(return_value=[project]),
         ),
         patch(
-            "app.services.projects.project_items_repo.count_stats_by_project",
+            "app.services.projects.stats.count_stats_by_project",
             AsyncMock(return_value={project.id: {"mastered_count": 3, "mastered_today": 1}}),
         ),
     ):
@@ -267,7 +267,7 @@ def test_get_language_project_detail():
             AsyncMock(return_value={}),
         ),
         patch(
-            "app.services.projects.project_items_repo.stats_from_items",
+            "app.services.projects.stats.stats_from_items",
             return_value={
                 "total": 2,
                 "mastered_count": 1,
@@ -320,7 +320,7 @@ def test_get_project_include_lists():
             AsyncMock(return_value={}),
         ),
         patch(
-            "app.services.projects.project_items_repo.stats_from_items",
+            "app.services.projects.stats.stats_from_items",
             return_value={
                 "total": 2,
                 "mastered_count": 1,
@@ -359,7 +359,7 @@ def test_list_daily_items():
             AsyncMock(return_value=project),
         ),
         patch(
-            "app.routers.projects.project_items_repo.list_by_activity_date",
+            "app.routers.projects.project_items_service.list_by_activity_date",
             AsyncMock(return_value=[item]),
         ),
     ):
@@ -389,7 +389,7 @@ def test_list_daily_items_missed_bucket():
             AsyncMock(return_value=project),
         ),
         patch(
-            "app.routers.projects.project_items_repo.list_missed_by_activity_date",
+            "app.routers.projects.project_items_service.list_missed_by_activity_date",
             AsyncMock(return_value=[item]),
         ) as missed_mock,
     ):
@@ -524,7 +524,7 @@ def test_update_project_item_status():
             AsyncMock(return_value=item),
         ),
         patch(
-            "app.routers.projects.project_items_repo.update",
+            "app.routers.projects.update_item",
             AsyncMock(return_value=item),
         ) as update_mock,
         patch("app.routers.projects.home_service.invalidate_home_cache", AsyncMock()),

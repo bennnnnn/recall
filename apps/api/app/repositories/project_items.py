@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any, cast
 from uuid import UUID
 
@@ -10,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.orm import ProjectItem, QuizMissEvent
 
 DEFAULT_LIST = "General"
-REVIEW_INTERVAL = timedelta(hours=24)  # legacy fallback when due_at is unset
 
 
 def _item_status_label(item: ProjectItem) -> str:
@@ -195,17 +194,6 @@ async def count_for_project(session: AsyncSession, project_id: UUID, user_id: UU
     return int((await session.execute(stmt)).scalar_one())
 
 
-async def count_stats(
-    session: AsyncSession,
-    project_id: UUID,
-    user_id: UUID,
-    *,
-    timezone_name: str = "UTC",
-) -> dict[str, int]:
-    items = await list_for_user(session, user_id, project_id=project_id, limit=5000)
-    return stats_from_items(items, timezone_name=timezone_name)
-
-
 async def list_for_projects(
     session: AsyncSession,
     project_ids: list[UUID],
@@ -219,85 +207,6 @@ async def list_for_projects(
         return []
     stmt = select(ProjectItem).where(ProjectItem.project_id.in_(project_ids)).limit(limit)
     return list((await session.execute(stmt)).scalars().all())
-
-
-async def count_stats_by_project(
-    session: AsyncSession,
-    project_ids: list[UUID],
-    *,
-    timezone_by_project: dict[UUID, str] | None = None,
-) -> dict[UUID, dict[str, int]]:
-    """Batched count_stats — one query for every project's items instead of
-    one query per project, grouped back out per project_id in Python."""
-    if not project_ids:
-        return {}
-    items = await list_for_projects(session, project_ids)
-    by_project: dict[UUID, list[ProjectItem]] = {pid: [] for pid in project_ids}
-    for item in items:
-        by_project.setdefault(item.project_id, []).append(item)
-    tz_by_project = timezone_by_project or {}
-    return {
-        pid: stats_from_items(pid_items, timezone_name=tz_by_project.get(pid, "UTC"))
-        for pid, pid_items in by_project.items()
-    }
-
-
-def stats_from_items(
-    items: list[ProjectItem],
-    *,
-    timezone_name: str = "UTC",
-) -> dict[str, int]:
-    now = datetime.now(UTC)
-    week_ago = now - timedelta(days=7)
-    due_cutoff = now - REVIEW_INTERVAL
-    stats: dict[str, Any] = {
-        "total": len(items),
-        "new_count": 0,
-        "learning_count": 0,
-        "mastered_count": 0,
-        "added_this_week": 0,
-        "due_for_review": 0,
-        "mastered_today": 0,
-        "missed_today": 0,
-        "pending_today": 0,
-        "last_mastery_at": None,
-    }
-    for item in items:
-        status = item.status or ("mastered" if item.mastered else "new")
-        if status == "mastered":
-            stats["mastered_count"] += 1
-        elif status == "learning":
-            stats["learning_count"] += 1
-        else:
-            stats["new_count"] += 1
-        created = item.created_at
-        if created.tzinfo is None:
-            created = created.replace(tzinfo=UTC)
-        if created >= week_ago:
-            stats["added_this_week"] += 1
-        if status == "learning":
-            due_at = item.due_at
-            if due_at is None:
-                last = item.last_reviewed_at or item.created_at
-                if last and last.tzinfo is None:
-                    last = last.replace(tzinfo=UTC)
-                if last and last <= due_cutoff:
-                    stats["due_for_review"] += 1
-            elif due_at.tzinfo is None:
-                if due_at.replace(tzinfo=UTC) <= now:
-                    stats["due_for_review"] += 1
-            elif due_at <= now:
-                stats["due_for_review"] += 1
-    from app.services.daily_learning import count_today_vocab_stats, last_mastery_at
-
-    mastered_today, missed_today, pending_today = count_today_vocab_stats(
-        items, timezone_name=timezone_name
-    )
-    stats["mastered_today"] = mastered_today
-    stats["missed_today"] = missed_today
-    stats["pending_today"] = pending_today
-    stats["last_mastery_at"] = last_mastery_at(items)
-    return stats
 
 
 async def list_miss_events_for_items(
@@ -327,15 +236,12 @@ async def list_by_activity_date(
     session: AsyncSession,
     user_id: UUID,
     project_id: UUID,
-    activity_date: date,
     *,
-    timezone_name: str = "UTC",
+    start: datetime,
+    end: datetime,
     limit: int = 50,
     offset: int = 0,
 ) -> list[ProjectItem]:
-    from app.services.daily_learning import day_bounds_utc
-
-    start, end = day_bounds_utc(activity_date, timezone_name)
     stmt = (
         select(ProjectItem)
         .where(
@@ -358,13 +264,13 @@ async def list_missed_by_activity_date(
     session: AsyncSession,
     user_id: UUID,
     project_id: UUID,
-    activity_date: date,
     *,
-    timezone_name: str = "UTC",
+    start: datetime,
+    end: datetime,
     limit: int = 50,
     offset: int = 0,
 ) -> list[ProjectItem]:
-    """Still-open misses (not mastered) that were missed on activity_date.
+    """Still-open misses (not mastered) with a QuizMissEvent in [start, end).
 
     BUG FIX (was silent): this used to filter on the single mutable
     last_incorrect_at column, so a later miss on the same item silently
@@ -374,9 +280,6 @@ async def list_missed_by_activity_date(
     daily_learning.count_missed_by_date/group_missed_items_by_date. Now
     joins against the append-only QuizMissEvent log instead.
     """
-    from app.services.daily_learning import day_bounds_utc
-
-    start, end = day_bounds_utc(activity_date, timezone_name)
     day_misses = (
         select(
             QuizMissEvent.item_id,
@@ -420,15 +323,11 @@ async def create(
     example_sentence: str | None = None,
     chat_id: UUID | None = None,
     status: str = "new",
+    pronunciation_url: str | None = None,
     commit: bool = True,
 ) -> ProjectItem:
     normalized_list = list_title.strip() or DEFAULT_LIST
     example = (example_sentence or note or "").strip() or None
-    pronunciation: str | None = None
-    if content.strip():
-        from app.gateways.pronunciation_lookup import lookup_pronunciation_url
-
-        pronunciation = await lookup_pronunciation_url(content)
     item = ProjectItem(
         user_id=user_id,
         project_id=project_id,
@@ -440,7 +339,7 @@ async def create(
         chat_id=chat_id,
         status=status,
         mastered=status == "mastered",
-        pronunciation_url=pronunciation,
+        pronunciation_url=pronunciation_url,
     )
     session.add(item)
     if commit:
@@ -456,20 +355,16 @@ async def apply_quiz_result(
     item: ProjectItem,
     *,
     is_correct: bool,
+    new_status: str,
+    prior_status: str,
+    now: datetime,
+    ease_factor: float,
+    interval_days: int,
+    review_count: int,
+    due_at: datetime,
     commit: bool = True,
 ) -> ProjectItem:
-    """Record a quiz attempt, update status, and refresh SM-2 scheduling."""
-    now = datetime.now(UTC)
-    prior_status = _item_status_label(item)
-    if is_correct:
-        new_status = "mastered"
-    elif prior_status == "mastered":
-        new_status = "learning"
-    elif prior_status == "new":
-        new_status = "learning"
-    else:
-        new_status = prior_status
-
+    """Persist a quiz attempt + scheduling fields already computed by the service."""
     # BUG FIX (was silent): quiz_attempts/quiz_correct were read in Python, incremented,
     # then written back — two overlapping requests on the same item (double-tap submit,
     # client retry) could both read the same count and one increment would be lost.
@@ -489,21 +384,11 @@ async def apply_quiz_result(
     )
 
     _sync_mastered_fields(item, new_status, prior_status=prior_status, now=now)
-    from app.services.sm2 import apply_sm2, quality_for_status
-
-    quality = quality_for_status(new_status, was_correct=is_correct)
-    state = apply_sm2(
-        quality=quality,
-        ease_factor=float(getattr(item, "ease_factor", 2.5) or 2.5),
-        interval_days=int(getattr(item, "interval_days", 0) or 0),
-        review_count=int(item.review_count or 0),
-        now=now,
-    )
     item.last_reviewed_at = now
-    item.review_count = state.review_count
-    item.ease_factor = state.ease_factor
-    item.interval_days = state.interval_days
-    item.due_at = state.due_at
+    item.review_count = review_count
+    item.ease_factor = ease_factor
+    item.interval_days = interval_days
+    item.due_at = due_at
     if commit:
         await session.commit()
         await session.refresh(item)
@@ -516,6 +401,7 @@ async def apply_quiz_result(
 
 
 async def update(session: AsyncSession, item: ProjectItem, **fields: Any) -> ProjectItem:
+    """Dumb field write. SM-2 scheduling belongs in services.projects.items.update_item."""
     now = datetime.now(UTC)
     prior_status = _item_status_label(item)
     for key, value in fields.items():
@@ -524,28 +410,7 @@ async def update(session: AsyncSession, item: ProjectItem, **fields: Any) -> Pro
                 value = value.strip() or DEFAULT_LIST
             setattr(item, key, value)
     if "status" in fields:
-        new_status = str(fields["status"])
-        _sync_mastered_fields(item, new_status, prior_status=prior_status, now=now)
-        if new_status != prior_status:
-            from app.services.sm2 import apply_sm2, quality_for_status
-
-            was_correct = fields.get("was_correct")
-            quality = quality_for_status(
-                new_status,
-                was_correct=was_correct if isinstance(was_correct, bool) else None,
-            )
-            state = apply_sm2(
-                quality=quality,
-                ease_factor=float(getattr(item, "ease_factor", 2.5) or 2.5),
-                interval_days=int(getattr(item, "interval_days", 0) or 0),
-                review_count=int(item.review_count or 0),
-                now=now,
-            )
-            item.last_reviewed_at = now
-            item.review_count = state.review_count
-            item.ease_factor = state.ease_factor
-            item.interval_days = state.interval_days
-            item.due_at = state.due_at
+        _sync_mastered_fields(item, str(fields["status"]), prior_status=prior_status, now=now)
     await session.commit()
     await session.refresh(item)
     return item

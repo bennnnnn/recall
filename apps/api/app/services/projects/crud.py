@@ -11,6 +11,7 @@ from app.models.orm import Project, ProjectItem, User
 from app.models.schemas import ProjectItemOut, ProjectListGroup, ProjectStats
 from app.repositories import project_items as project_items_repo
 from app.repositories import projects as projects_repo
+from app.services.projects import stats as project_stats
 from app.services.projects.common import (
     DEFAULT_LIST,
     LEARNING_PRODUCT_KINDS,
@@ -57,7 +58,7 @@ def _build_enriched_stats(
 ) -> ProjectStats:
     from app.services import daily_learning, learning_insights
 
-    raw = project_items_repo.stats_from_items(items, timezone_name=timezone_name)
+    raw = project_stats.stats_from_items(items, timezone_name=timezone_name)
     if daily_history is None:
         daily_history = daily_learning.build_daily_history(
             items,
@@ -114,7 +115,7 @@ async def list_projects_for_user(
     stats_by_project: dict[UUID, ProjectStats] = {}
     if learning_ids:
         tz_name = time_context_service.effective_timezone(user.timezone, client_timezone)
-        raw_stats = await project_items_repo.count_stats_by_project(
+        raw_stats = await project_stats.count_stats_by_project(
             session,
             learning_ids,
             timezone_by_project={pid: tz_name for pid in learning_ids},

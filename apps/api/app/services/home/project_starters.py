@@ -14,6 +14,7 @@ from app.repositories import project_items as project_items_repo
 from app.repositories import projects as projects_repo
 from app.services import daily_learning, learning_insights
 from app.services.home.util import CompletedDaily, ProjectHomeContent
+from app.services.projects import stats as project_stats
 
 
 def is_language_project(project: Project) -> bool:
@@ -270,7 +271,7 @@ async def load_project_home_content(
         for row in all_items:
             items_by_project.setdefault(row.project_id, []).append(row)
         stats_by_project = {
-            pid: project_items_repo.stats_from_items(
+            pid: project_stats.stats_from_items(
                 items_by_project.get(pid, []),
                 timezone_name=tz_name,
             )

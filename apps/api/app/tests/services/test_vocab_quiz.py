@@ -187,11 +187,11 @@ async def test_apply_deterministic_marks_tries_exhausted_on_third_wrong():
             new=AsyncMock(return_value=[]),
         ),
         patch(
-            "app.services.projects.project_items_repo.create",
+            "app.services.projects.quiz_grading.create_item",
             new=AsyncMock(),
         ),
         patch(
-            "app.services.projects.project_items_repo.apply_quiz_result",
+            "app.services.projects.quiz_grading.apply_quiz_result",
             new=AsyncMock(),
         ),
     ):
@@ -238,11 +238,11 @@ async def test_apply_deterministic_wrong_before_limit_not_exhausted():
             new=AsyncMock(return_value=[]),
         ),
         patch(
-            "app.services.projects.project_items_repo.create",
+            "app.services.projects.quiz_grading.create_item",
             new=AsyncMock(),
         ),
         patch(
-            "app.services.projects.project_items_repo.apply_quiz_result",
+            "app.services.projects.quiz_grading.apply_quiz_result",
             new=apply_result,
         ),
     ):
@@ -291,11 +291,11 @@ async def test_apply_deterministic_persists_free_text_miss_on_third_try():
             new=AsyncMock(return_value=[]),
         ),
         patch(
-            "app.services.projects.project_items_repo.create",
+            "app.services.projects.quiz_grading.create_item",
             new=create_item,
         ),
         patch(
-            "app.services.projects.project_items_repo.apply_quiz_result",
+            "app.services.projects.quiz_grading.apply_quiz_result",
             new=apply_result,
         ),
     ):
@@ -587,11 +587,11 @@ async def test_apply_deterministic_quiz_answer_trivia_correct():
             new=AsyncMock(return_value=[]),
         ),
         patch(
-            "app.services.projects.project_items_repo.create",
+            "app.services.projects.quiz_grading.create_item",
             new=AsyncMock(),
         ) as create_mock,
         patch(
-            "app.services.projects.project_items_repo.apply_quiz_result",
+            "app.services.projects.quiz_grading.apply_quiz_result",
             new=AsyncMock(),
         ) as apply_mock,
     ):
@@ -644,11 +644,11 @@ async def test_apply_deterministic_quiz_answer_records_wrong_trivia_as_learning(
             new=AsyncMock(return_value=[]),
         ),
         patch(
-            "app.services.projects.project_items_repo.create",
+            "app.services.projects.quiz_grading.create_item",
             new=AsyncMock(),
         ) as create_mock,
         patch(
-            "app.services.projects.project_items_repo.apply_quiz_result",
+            "app.services.projects.quiz_grading.apply_quiz_result",
             new=AsyncMock(),
         ) as apply_mock,
     ):
@@ -709,11 +709,11 @@ async def test_apply_deterministic_trivia_backfills_answer_on_existing_item():
             new=AsyncMock(return_value=[existing]),
         ),
         patch(
-            "app.services.projects.project_items_repo.create",
+            "app.services.projects.quiz_grading.create_item",
             new=AsyncMock(),
         ) as create_mock,
         patch(
-            "app.services.projects.project_items_repo.apply_quiz_result",
+            "app.services.projects.quiz_grading.apply_quiz_result",
             new=AsyncMock(),
         ),
     ):

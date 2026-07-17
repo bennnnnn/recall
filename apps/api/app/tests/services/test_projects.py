@@ -76,9 +76,8 @@ def _patch_count_stats_by_project(stats: dict):
     async def _mock(_session, project_ids, *, timezone_by_project=None):
         return {pid: stats for pid in project_ids}
 
-    return patch.object(
-        projects_service.project_items_repo,
-        "count_stats_by_project",
+    return patch(
+        "app.services.projects.stats.count_stats_by_project",
         AsyncMock(side_effect=_mock),
     )
 
@@ -663,9 +662,8 @@ async def test_load_daily_learning_summary_batches_stats():
             "list_for_user",
             AsyncMock(return_value=[english, trivia, general]),
         ),
-        patch.object(
-            projects_service.project_items_repo,
-            "count_stats_by_project",
+        patch(
+            "app.services.projects.stats.count_stats_by_project",
             AsyncMock(side_effect=_mock),
         ) as stats_mock,
     ):
@@ -987,7 +985,7 @@ def test_stats_for_items_matches_repository_stats_for_due_for_review():
     instead of due_at), so the prompt claimed a different review queue."""
     from datetime import UTC, datetime, timedelta
 
-    from app.repositories.project_items import stats_from_items
+    from app.services.projects.stats import stats_from_items
 
     now = datetime.now(UTC)
     project = _project("English")
@@ -1154,9 +1152,8 @@ async def test_apply_project_actions_start_learning_records_failed_quiz():
             "list_recent_for_user",
             AsyncMock(return_value=[existing]),
         ),
-        patch.object(
-            projects_service.project_items_repo,
-            "apply_quiz_result",
+        patch(
+            "app.services.projects.quiz_grading.apply_quiz_result",
             AsyncMock(return_value=existing),
         ) as apply_result,
     ):
@@ -1804,9 +1801,8 @@ async def test_load_project_for_prompt_trivia_hint():
             "list_quiz_exclusion_contents",
             AsyncMock(return_value=["Colossus of Rhodes"]),
         ),
-        patch.object(
-            projects_service.project_items_repo,
-            "count_stats",
+        patch(
+            "app.services.projects.stats.count_stats",
             AsyncMock(
                 return_value={
                     "total": 1,

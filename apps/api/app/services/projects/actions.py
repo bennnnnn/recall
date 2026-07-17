@@ -114,7 +114,9 @@ async def _project_action_create_project(
     state.projects = await projects_repo.list_for_user(state.session, state.user_id, limit=200)
     if action.content.strip():
         list_title = action.list_title.strip() or DEFAULT_LIST
-        await project_items_repo.create(
+        from app.services.projects.items import create_item
+
+        await create_item(
             state.session,
             user_id=state.user_id,
             project_id=project.id,
@@ -185,7 +187,9 @@ async def _project_action_add(state: _ProjectApplyState, action: ProjectActionIt
             state.user_id,
         )
         return 0
-    await project_items_repo.create(
+    from app.services.projects.items import create_item
+
+    await create_item(
         state.session,
         user_id=state.user_id,
         project_id=project.id,
@@ -218,7 +222,9 @@ async def _project_action_start_learning(
         item = _find_item_by_content(state.items, project.id, action.content)
     content = action.content.strip()
     if not item and content:
-        item = await project_items_repo.create(
+        from app.services.projects.items import create_item
+
+        item = await create_item(
             state.session,
             user_id=state.user_id,
             project_id=project.id,
@@ -235,12 +241,14 @@ async def _project_action_start_learning(
         )
     if item and _item_status(item) != "mastered":
         if not _failed_quiz_today(item):
-            await project_items_repo.apply_quiz_result(
-                state.session, item, is_correct=False, commit=False
-            )
+            from app.services.projects.quiz_grading import apply_quiz_result
+
+            await apply_quiz_result(state.session, item, is_correct=False, commit=False)
             return 1
         if _item_status(item) == "new":
-            await project_items_repo.update(state.session, item, status="learning")
+            from app.services.projects.items import update_item
+
+            await update_item(state.session, item, status="learning")
             return 1
     return 0
 
@@ -262,7 +270,9 @@ async def _project_action_master(state: _ProjectApplyState, action: ProjectActio
                 action.content,
             )
             return 0
-        await project_items_repo.update(state.session, item, status="mastered")
+        from app.services.projects.items import update_item
+
+        await update_item(state.session, item, status="mastered")
         return 1
     return 0
 
@@ -275,7 +285,9 @@ async def _project_action_unmaster(state: _ProjectApplyState, action: ProjectAct
     list_title = _resolve_list_title(project, action)
     item = _find_item(state.items, project.id, list_title, action.content, mastered_only=True)
     if item and _item_status(item) == "mastered":
-        await project_items_repo.update(state.session, item, status="learning")
+        from app.services.projects.items import update_item
+
+        await update_item(state.session, item, status="learning")
         return 1
     return 0
 

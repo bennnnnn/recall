@@ -10,6 +10,7 @@ from app.core.config import Settings
 from app.models.orm import Project, ProjectItem, User
 from app.repositories import project_items as project_items_repo
 from app.repositories import projects as projects_repo
+from app.services.projects import stats as project_stats
 from app.services.projects.common import (
     DEFAULT_LIST,
     _is_language_project,
@@ -115,9 +116,7 @@ def _stats_for_items(items: list[ProjectItem]) -> dict[str, int]:
     ``last_reviewed_at or created_at``). The mismatch meant the prompt
     claimed a different review queue than the app showed.
     """
-    from app.repositories.project_items import stats_from_items
-
-    return stats_from_items(items)
+    return project_stats.stats_from_items(items)
 
 
 def _format_today_session_line(project: Project, stats: dict[str, int]) -> str:
@@ -217,7 +216,7 @@ async def load_project_for_prompt(
             user.timezone if user else None,
             client_timezone,
         )
-        stats = await project_items_repo.count_stats(
+        stats = await project_stats.count_stats(
             session,
             project_id,
             user_id,
@@ -299,7 +298,7 @@ async def load_daily_learning_summary_for_prompt(
     ]
     if not learning_projects:
         return ""
-    stats_by_project = await project_items_repo.count_stats_by_project(
+    stats_by_project = await project_stats.count_stats_by_project(
         session,
         [project.id for project in learning_projects],
         timezone_by_project={project.id: tz_name for project in learning_projects},

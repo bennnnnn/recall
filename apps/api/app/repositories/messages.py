@@ -176,47 +176,29 @@ async def get_last_assistant(session: AsyncSession, chat_id: UUID) -> Message | 
     return result.scalar_one_or_none()
 
 
-async def get_last_quiz_assistant(
+async def list_recent_assistants(
     session: AsyncSession,
     chat_id: UUID,
     *,
-    lookback: int = 12,
-) -> Message | None:
-    """Most recent assistant message that is still an active learning/quiz prompt.
-
-    Prefers a gradeable ```vocab_quiz fence (for MCQ chips). Falls back to
-    open-ended vocab prompts (vocab_card / sentence / define) so those turns
-    still get the vocab answer grading path. After a wrong MCQ the model may
-    reply hint-only; the previous fence remains the one to grade against.
-    """
-    from app.services.projects import looks_like_vocab_question
-    from app.services.vocab_quiz import parse_vocab_quiz
-
+    limit: int = 12,
+) -> list[Message]:
+    """Newest-first assistant messages (service applies quiz filtering)."""
     result = await session.execute(
         select(Message)
         .where(Message.chat_id == chat_id, Message.role == "assistant")
         .order_by(Message.created_at.desc(), Message.id.desc())
-        .limit(max(1, lookback))
+        .limit(max(1, limit))
     )
-    open_ended: Message | None = None
-    for message in result.scalars().all():
-        if parse_vocab_quiz(message.content) is not None:
-            return message
-        if open_ended is None and looks_like_vocab_question(message.content):
-            open_ended = message
-    return open_ended
+    return list(result.scalars().all())
 
 
-async def count_quiz_letter_answers_since(
+async def list_user_messages_since(
     session: AsyncSession,
     chat_id: UUID,
     *,
     after: datetime,
-    choices: tuple[tuple[str, str], ...] | None = None,
-) -> int:
-    """How many A-D (or matching choice-text) answers the user sent after the open quiz."""
-    from app.services.vocab_quiz import quiz_answer_letter
-
+) -> list[Message]:
+    """User messages after ``after``, oldest-first."""
     result = await session.execute(
         select(Message)
         .where(
@@ -226,11 +208,7 @@ async def count_quiz_letter_answers_since(
         )
         .order_by(Message.created_at.asc())
     )
-    return sum(
-        1
-        for message in result.scalars().all()
-        if quiz_answer_letter(message.content, choices=choices)
-    )
+    return list(result.scalars().all())
 
 
 async def get_last_user(session: AsyncSession, chat_id: UUID) -> Message | None:

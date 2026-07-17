@@ -58,7 +58,7 @@ async def test_apply_deterministic_quiz_answer_records_wrong_vocab_as_learning()
             new=AsyncMock(return_value=[existing]),
         ),
         patch(
-            "app.services.projects.project_items_repo.apply_quiz_result",
+            "app.services.projects.quiz_grading.apply_quiz_result",
             new=AsyncMock(return_value=existing),
         ) as apply_mock,
     ):
