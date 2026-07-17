@@ -92,7 +92,7 @@ export function ChartBlock({ content }: Props) {
     <View style={s.wrap}>
       <View style={s.header}>
         <View style={s.headerLeft}>
-          <Text style={s.headerIcon}>📈</Text>
+          <Ionicons name="bar-chart-outline" size={16} color={theme.primary} />
           <Text style={s.headerLabel}>{t("rich.chart")}</Text>
         </View>
         <Text style={s.lineCount}>
@@ -200,7 +200,6 @@ function makeStyles(t: Theme) {
       borderBottomColor: t.border,
     },
     headerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
-    headerIcon: { fontSize: 16 },
     headerLabel: { fontSize: 14, fontWeight: "700", color: t.text },
     lineCount: { fontSize: 12, color: t.textTertiary },
     previewBox: {

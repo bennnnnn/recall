@@ -58,7 +58,9 @@ export function buildMathWebHtml(latex: string, options: MathHtmlOptions): strin
     const safeLatex = escapeForHtmlTemplate(latex.trim());
     const display = options.displayMode ? "true" : "false";
     const pad = options.compact ? "0" : "12px 14px";
-    const errorColor = options.errorColor ?? "#EF4444";
+    // Prefer theme.danger from callers; keep a mode-agnostic CSS red as last resort
+    // (not lightTheme.danger — that reads wrong on dark HTML backgrounds).
+    const errorColor = options.errorColor ?? "currentColor";
 
     return injectPreviewCsp(`<!DOCTYPE html>
 <html lang="en">

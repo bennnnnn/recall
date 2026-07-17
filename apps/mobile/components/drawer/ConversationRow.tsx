@@ -66,6 +66,9 @@ export const ConversationRow = memo(function ConversationRow({
         if (selectionMode) onToggleSelect?.(chat.id);
         else onLongPress(chat);
       }}
+      accessibilityRole={selectionMode ? "checkbox" : "button"}
+      accessibilityLabel={label}
+      accessibilityState={selectionMode ? { checked: selected } : undefined}
     >
       {selectionMode ? (
         <View style={r.rowIcon}>

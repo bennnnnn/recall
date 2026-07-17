@@ -48,6 +48,9 @@ export function SettingsPickerModal({
             key={option.key}
             style={[styles.pickerOption, active && styles.pickerOptionActive]}
             disabled={disabled}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: active }}
+            accessibilityLabel={option.label}
             onPress={() => {
               onClose();
               if (!active) onSelect(option.key);

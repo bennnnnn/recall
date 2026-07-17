@@ -1,5 +1,5 @@
 import { Pressable, Text, View } from "react-native";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
 import type { Theme } from "@/lib/theme";
@@ -25,8 +25,13 @@ export function DrawerFooter({
 
   return (
     <View style={[s.footer, { paddingBottom }]} pointerEvents="box-none">
-      <Pressable style={s.footerNewChat} onPress={onNewChat}>
-        <MaterialCommunityIcons name="pen" size={18} color={theme.onPrimary} />
+      <Pressable
+        style={s.footerNewChat}
+        onPress={onNewChat}
+        accessibilityRole="button"
+        accessibilityLabel={t("drawer.new_chat")}
+      >
+        <Ionicons name="pencil-outline" size={18} color={theme.onPrimary} />
         <Text style={s.footerNewChatText}>{t("drawer.new_chat")}</Text>
       </Pressable>
       <Pressable

@@ -144,7 +144,7 @@ function makeStyles(C: Theme) {
   return StyleSheet.create({
     backdrop: {
       flex: 1,
-      backgroundColor: C.isDark ? "#1A1A1A" : "#525252",
+      backgroundColor: C.scrim,
     },
     scrim: {
       width: "100%",

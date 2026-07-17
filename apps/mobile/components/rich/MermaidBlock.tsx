@@ -80,7 +80,7 @@ export function MermaidBlock({ content }: Props) {
     <View style={s.wrap}>
       <View style={s.header}>
         <View style={s.headerLeft}>
-          <Text style={s.headerIcon}>📊</Text>
+          <Ionicons name="git-network-outline" size={16} color={theme.primary} />
           <Text style={s.headerLabel}>{t("rich.mermaid_diagram")}</Text>
         </View>
         <Pressable onPress={() => setShowSource((v) => !v)} hitSlop={8}>
@@ -151,7 +151,6 @@ function makeStyles(t: Theme) {
       borderBottomColor: t.border,
     },
     headerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
-    headerIcon: { fontSize: 16 },
     headerLabel: { fontSize: 14, fontWeight: "700", color: t.text },
     toggleSource: { fontSize: 13, fontWeight: "600", color: t.primary },
     webWrap: { height: PREVIEW_HEIGHT, backgroundColor: t.bg },
