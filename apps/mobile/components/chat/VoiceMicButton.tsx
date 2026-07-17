@@ -1,6 +1,13 @@
-import { useEffect, useRef } from "react";
-import { Animated, Easing, Pressable, StyleSheet, View } from "react-native";
+import { useEffect } from "react";
+import { Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 
 import { Motion } from "@/lib/motion";
@@ -16,42 +23,33 @@ type Props = {
 export function VoiceMicButton({ recording, transcribing, disabled, onPress }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
-  const pulse = useRef(new Animated.Value(0)).current;
+  const pulse = useSharedValue(0);
 
   useEffect(() => {
     if (!recording) {
-      pulse.stopAnimation();
-      pulse.setValue(0);
+      pulse.value = 0;
       return;
     }
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, {
-          toValue: 1,
+    pulse.value = withRepeat(
+      withSequence(
+        withTiming(1, {
           duration: Motion.duration.soft,
-          easing: Easing.out(Easing.ease),
-          useNativeDriver: true,
+          easing: Motion.easing.out,
         }),
-        Animated.timing(pulse, {
-          toValue: 0,
+        withTiming(0, {
           duration: Motion.duration.soft,
-          easing: Easing.in(Easing.ease),
-          useNativeDriver: true,
+          easing: Motion.easing.in,
         }),
-      ]),
+      ),
+      -1,
+      false,
     );
-    loop.start();
-    return () => loop.stop();
   }, [recording, pulse]);
 
-  const ringScale = pulse.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 1.45],
-  });
-  const ringOpacity = pulse.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.55, 0],
-  });
+  const ringStyle = useAnimatedStyle(() => ({
+    opacity: 0.55 * (1 - pulse.value),
+    transform: [{ scale: 1 + pulse.value * 0.45 }],
+  }));
 
   return (
     <Pressable
@@ -67,14 +65,7 @@ export function VoiceMicButton({ recording, transcribing, disabled, onPress }: P
         {recording ? (
           <Animated.View
             pointerEvents="none"
-            style={[
-              styles.ring,
-              {
-                borderColor: theme.primary,
-                opacity: ringOpacity,
-                transform: [{ scale: ringScale }],
-              },
-            ]}
+            style={[styles.ring, { borderColor: theme.primary }, ringStyle]}
           />
         ) : null}
         <View
