@@ -677,46 +677,84 @@ def sample_function(data: GraphSampleInput) -> GraphSampleResult:
     )
 
 
-_EQUATION_PATTERN = re.compile(
-    r"(?P<lhs>[0-9a-zA-Z+\-*/().\s^**]+?)\s*=\s*(?P<rhs>[0-9a-zA-Z+\-*/().\s^**]+)"
+_EQUATION_SIDE_CHARS = frozenset(
+    "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+-*/().^ "
 )
 
-# BUG FIX: _EQUATION_PATTERN's lhs capture is non-greedy, but re.search still
-# tries the EARLIEST possible match start — so natural phrasing like "Solve
-# x^2 + 2 = 6" or "what is x^2 + 2 = 6" swept the trigger words into the
-# extracted lhs. That corrupted BOTH the parsed expression (undeclared
-# letters silently become new multiplied symbols via SymPy's auto_symbol,
-# e.g. "Solve x^2" parses as S*o*l*v*e*x^2 with e resolving to Euler's
-# number) and the guessed variable list — producing a confidently wrong
-# answer presented as "verified, do NOT recompute." Strip common leading
-# trigger phrases before the extraction regex ever runs.
-_LEADING_FILLER_RE = re.compile(
-    r"^\s*(?:please\s+)?(?:can\s+you\s+|could\s+you\s+)?"
-    r"(?:solve|find|calculate|compute|evaluate|determine|simplify|what\s+is|what's)\s+"
-    r"(?:the\s+system\s+of\s+equations\s+|the\s+system\s+|the\s+equations\s+)?"
-    r"(?:for\s+me\s+)?(?:x\s+)?(?:if\s+)?",
-    re.IGNORECASE,
+_FILLER_VERBS = (
+    "solve",
+    "find",
+    "calculate",
+    "compute",
+    "evaluate",
+    "determine",
+    "simplify",
+    "what is",
+    "what's",
+)
+_SYSTEM_PREFIXES = (
+    "the system of equations ",
+    "the system ",
+    "the equations ",
 )
 
 
-def _strip_leading_filler(text: str) -> str:
+def _is_equation_side(s: str) -> bool:
+    stripped = s.strip()
+    if not stripped or len(stripped) > 120:
+        return False
+    return all(c in _EQUATION_SIDE_CHARS for c in stripped)
+
+
+def _strip_leading_prefixes(text: str, *, strip_bare_x: bool) -> str:
+    """Strip leading solve/find/... filler without ``\\s+`` regex pumps."""
     s = text.strip()
-    prev = None
-    while prev != s:
+    while True:
         prev = s
-        s = _LEADING_FILLER_RE.sub("", s).strip()
+        low = s.lower()
+        if low.startswith("please "):
+            s = s[7:].lstrip()
+            low = s.lower()
+        for polite in ("can you ", "could you "):
+            if low.startswith(polite):
+                s = s[len(polite) :].lstrip()
+                low = s.lower()
+                break
+        stripped_verb = False
+        for verb in _FILLER_VERBS:
+            if low.startswith(verb + " "):
+                s = s[len(verb) + 1 :].lstrip()
+                low = s.lower()
+                stripped_verb = True
+                break
+        if not stripped_verb:
+            return s
+        if strip_bare_x:
+            for sys in _SYSTEM_PREFIXES:
+                if low.startswith(sys):
+                    s = s[len(sys) :].lstrip()
+                    low = s.lower()
+                    break
+        if low.startswith("for me "):
+            s = s[7:].lstrip()
+            low = s.lower()
+        if strip_bare_x and low.startswith("x "):
+            s = s[2:].lstrip()
+            low = s.lower()
+        if low.startswith("if "):
+            s = s[3:].lstrip()
+        if s == prev:
+            return s
     return s
 
 
-# Verb-only leading filler — used by inequality extraction, where the bare
-# variable IS the lhs and must NOT be stripped (unlike _LEADING_FILLER_RE's
-# `(?:x\s+)?`, which would eat "x " in "solve x \leq 5").
-_LEADING_VERB_RE = re.compile(
-    r"^\s*(?:please\s+)?(?:can\s+you\s+|could\s+you\s+)?"
-    r"(?:solve|find|calculate|compute|evaluate|determine|simplify|what\s+is|what's)\s+"
-    r"(?:for\s+me\s+)?(?:if\s+)?",
-    re.IGNORECASE,
-)
+def _strip_leading_filler(text: str) -> str:
+    return _strip_leading_prefixes(text, strip_bare_x=True)
+
+
+def _strip_leading_verb(text: str) -> str:
+    """Verb-only filler — keep bare ``x`` as a possible inequality lhs."""
+    return _strip_leading_prefixes(text, strip_bare_x=False)
 
 
 def try_extract_equations_from_text(text: str) -> list[tuple[str, str]]:
@@ -726,17 +764,30 @@ def try_extract_equations_from_text(text: str) -> list[tuple[str, str]]:
     audit): this used to be a single re.search, so "solve x+y=5, x-y=1"
     silently extracted only the first clause and answered with the same
     "verified, do NOT recompute" confidence as a fully correct response.
-    re.finditer here returns every clause; callers decide whether 1 match
-    means a single equation or 2+ means a system.
+    Walking every ``=`` here returns every clause; callers decide whether 1
+    match means a single equation or 2+ means a system.
     """
     cleaned = _strip_leading_filler(text)
     pairs: list[tuple[str, str]] = []
-    for match in _EQUATION_PATTERN.finditer(cleaned):
-        lhs = match.group("lhs").strip()
-        rhs = match.group("rhs").strip()
-        if not lhs or not rhs or len(lhs) > 120 or len(rhs) > 120:
+    start = 0
+    while start < len(cleaned):
+        eq = cleaned.find("=", start)
+        if eq == -1:
+            break
+        if eq + 1 < len(cleaned) and cleaned[eq + 1] == "=":
+            start = eq + 2
             continue
-        pairs.append((lhs, rhs))
+        left = eq
+        while left > 0 and cleaned[left - 1] in _EQUATION_SIDE_CHARS:
+            left -= 1
+        right = eq + 1
+        while right < len(cleaned) and cleaned[right] in _EQUATION_SIDE_CHARS:
+            right += 1
+        lhs = cleaned[left:eq].strip()
+        rhs = cleaned[eq + 1 : right].strip()
+        if _is_equation_side(lhs) and _is_equation_side(rhs):
+            pairs.append((lhs, rhs))
+        start = right if right > eq + 1 else eq + 1
     return pairs
 
 
@@ -755,24 +806,18 @@ def try_extract_equation_from_text(text: str) -> EquationInput | None:
         return None
 
 
-# Inequality operators → canonical form. \le/\leq/≤/<= all map to "<=" so the
-# solver only has to handle four relations. The negative-lookahead on \le/\ge
-# stops them from matching the \le inside \left (a very common LaTeX delimiter).
-_INEQUALITY_PATTERN = re.compile(
-    r"(?P<lhs>[0-9a-zA-Z+\-*/().\s^**]+?)\s*"
-    r"(?P<op>\\leq(?![a-zA-Z])|\\geq(?![a-zA-Z])|\\le(?![a-zA-Z])|\\ge(?![a-zA-Z])|≤|≥|<|>)\s*"
-    r"(?P<rhs>[0-9a-zA-Z+\-*/().\s^**]+)"
+# Inequality operators → canonical form. Longer LaTeX forms first so \\leq
+# wins over \\le. \\le/\\ge must not match the prefix inside \\left / \\geq.
+_INEQ_OPS: tuple[tuple[str, str], ...] = (
+    ("\\leq", "<="),
+    ("\\geq", ">="),
+    ("\\le", "<="),
+    ("\\ge", ">="),
+    ("≤", "<="),
+    ("≥", ">="),
+    ("<", "<"),
+    (">", ">"),
 )
-_INEQ_CANON = {
-    "\\leq": "<=",
-    "\\le": "<=",
-    "≤": "<=",
-    "\\geq": ">=",
-    "\\ge": ">=",
-    "≥": ">=",
-    "<": "<",
-    ">": ">",
-}
 
 
 def try_extract_inequality_from_text(text: str) -> tuple[str, str, str] | None:
@@ -781,18 +826,34 @@ def try_extract_inequality_from_text(text: str) -> tuple[str, str, str] | None:
     or None. NOTE: callers gate this on a math keyword (needs_symbolic_math)
     having already matched, so prose like "less than 5 minutes" (no keyword)
     never reaches here — bare < / > is safe in that context."""
-    # Strip ONLY the leading verb, not the variable — _strip_leading_filler's
-    # `(?:x\s+)?` would eat a bare "x " operand (e.g. "solve x \leq 5" → "\leq 5"),
-    # leaving no lhs for the inequality pattern to match.
-    cleaned = _LEADING_VERB_RE.sub("", text, count=1).strip()
-    m = _INEQUALITY_PATTERN.search(cleaned)
-    if not m:
+    cleaned = _strip_leading_verb(text)
+    best: tuple[int, str, str, str] | None = None  # (index, lhs, rhs, canon)
+    for op, canon in _INEQ_OPS:
+        idx = 0
+        while True:
+            i = cleaned.find(op, idx)
+            if i == -1:
+                break
+            after = i + len(op)
+            if op in ("\\le", "\\ge") and after < len(cleaned) and cleaned[after].isalpha():
+                idx = i + 1
+                continue
+            left = i
+            while left > 0 and cleaned[left - 1] in _EQUATION_SIDE_CHARS:
+                left -= 1
+            right = after
+            while right < len(cleaned) and cleaned[right] in _EQUATION_SIDE_CHARS:
+                right += 1
+            lhs = cleaned[left:i].strip()
+            rhs = cleaned[after:right].strip()
+            if _is_equation_side(lhs) and _is_equation_side(rhs):
+                if best is None or i < best[0]:
+                    best = (i, lhs, rhs, canon)
+                break
+            idx = i + 1
+    if best is None:
         return None
-    lhs = m.group("lhs").strip()
-    rhs = m.group("rhs").strip()
-    if not lhs or not rhs or len(lhs) > 120 or len(rhs) > 120:
-        return None
-    return lhs, rhs, _INEQ_CANON.get(m.group("op"), m.group("op"))
+    return best[1], best[2], best[3]
 
 
 def solve_inequality(lhs: str, rhs: str, variable: str, comparator: str) -> MathSolveResult:

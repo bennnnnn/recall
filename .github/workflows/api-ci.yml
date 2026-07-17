@@ -10,6 +10,9 @@ on:
       - "apps/api/**"
       - ".github/workflows/api-ci.yml"
 
+permissions:
+  contents: read
+
 defaults:
   run:
     working-directory: apps/api
@@ -84,6 +87,9 @@ jobs:
   # keeps it fast when only app code changed (the deps layer is cached).
   docker-build:
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      actions: write
     steps:
       - uses: actions/checkout@v6
 

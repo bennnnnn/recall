@@ -6,7 +6,6 @@ import asyncio
 import base64
 import io
 import logging
-import re
 import zipfile
 from typing import Any
 from uuid import UUID
@@ -338,11 +337,13 @@ async def format_attachment_lines(
     return [file_ref, f"[File attached: {content_type}, {size_bytes} bytes]"], False
 
 
-_IMAGE_MARKER = re.compile(r"^\[Image:\s*.+\]\s*$", re.MULTILINE)
+def _is_image_marker_line(line: str) -> bool:
+    s = line.strip()
+    return s.startswith("[Image:") and s.endswith("]") and len(s) > len("[Image:]")
 
 
 def _strip_image_markers(text: str) -> str:
-    lines = [line for line in text.splitlines() if not _IMAGE_MARKER.match(line.strip())]
+    lines = [line for line in text.splitlines() if not _is_image_marker_line(line)]
     return "\n".join(lines).strip()
 
 

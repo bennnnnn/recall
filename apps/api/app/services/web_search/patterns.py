@@ -45,17 +45,72 @@ _WORLD_CUP = re.compile(r"\b(world\s+cup|fifa|wc\s*2026|2026\s+world\s+cup)\b", 
 
 _SHORT_FOLLOWUP_WORDS = 12
 
-_RECENCY = re.compile(
-    r"\b("
-    r"latest|breaking|today(?:'s)?|current(?:ly)?|recent(?:ly)?|right\s+now"
-    r"|this\s+week|this\s+month|as\s+of|news|headline"
-    r"|stock\s+price|share\s+price|market\s+cap"
-    r"|who\s+won|what\s+happened|score(?:s)?"
-    r"|release\s+date|when\s+did\s+.+\s+(?:happen|release|launch)"
-    r"|is\s+.+\s+(?:still|currently)\s+alive"
-    r")\b",
-    re.IGNORECASE,
+_RECENCY_PHRASES = (
+    "latest",
+    "breaking",
+    "today",
+    "today's",
+    "current",
+    "currently",
+    "recent",
+    "recently",
+    "right now",
+    "this week",
+    "this month",
+    "as of",
+    "news",
+    "headline",
+    "stock price",
+    "share price",
+    "market cap",
+    "who won",
+    "what happened",
+    "score",
+    "scores",
+    "release date",
 )
+
+
+def has_recency(text: str) -> bool:
+    """True when ``text`` (already ``collapse_ws``-normalized) looks time-sensitive.
+
+    Uses substring / index scans — the old ``.+`` alternatives in a single
+    regex were CodeQL polynomial-ReDoS sinks on user chat text.
+    """
+    low = text.lower()
+
+    def _bounded(phrase: str) -> bool:
+        start = 0
+        while True:
+            i = low.find(phrase, start)
+            if i == -1:
+                return False
+            before_ok = i == 0 or not low[i - 1].isalnum()
+            after = i + len(phrase)
+            after_ok = after >= len(low) or not low[after].isalnum()
+            if before_ok and after_ok:
+                return True
+            start = i + 1
+
+    if any(_bounded(p) for p in _RECENCY_PHRASES):
+        return True
+    idx = low.find("when did ")
+    if idx != -1:
+        rest = low[idx + 9 :]
+        if any(k in rest for k in (" happen", " release", " launch")):
+            return True
+    idx = 0
+    while True:
+        i = low.find("is ", idx)
+        if i == -1:
+            break
+        if i == 0 or not low[i - 1].isalnum():
+            rest = low[i + 3 :]
+            if "still alive" in rest or "currently alive" in rest:
+                return True
+        idx = i + 1
+    return False
+
 
 _NEWS = re.compile(
     r"\b("
