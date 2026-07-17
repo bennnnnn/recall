@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.core.config import Settings
-from app.services.chat import _augment_web_and_tools
+from app.services.chat.prompt_builder import _augment_web_and_tools
 
 
 @pytest.mark.asyncio
@@ -19,7 +19,7 @@ async def test_augment_web_and_tools_injects_math_for_solve() -> None:
     ]
 
     with patch(
-        "app.services.chat.web_search_service.augment_prompt_messages",
+        "app.services.web_search.augment_prompt_messages",
         AsyncMock(return_value=(messages, [])),
     ):
         updated, hits, verified_math = await _augment_web_and_tools(

@@ -13,9 +13,15 @@ from app.exceptions import ChatNotFoundError
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.math_schemas import MathImageExtract
 from app.models.orm import Chat, User
+from app.repositories import chats as chats_repo
+from app.repositories import users as users_repo
+from app.services import calendar as calendar_service
+from app.services import email as email_service
+from app.services import plan as plan_service
 from app.services import profile as profile_service
 from app.services import time_context as time_context_service
 from app.services import web_search as web_search_service
+from app.services.chat.prompt_builder import _augment_web_and_tools, build_prompt_messages
 from app.services.chat.prompt_constants import (
     is_lightweight_chat_turn,
     max_output_tokens_for_style,
@@ -231,8 +237,6 @@ async def build_stream_prompt_context(
     quiz_grade: QuizAnswerGrade | None = None,
 ) -> TurnPromptBundle:
     """Shared prompt assembly for new turns and regenerate."""
-    import app.services.chat as chat_pkg
-
     meta: dict[str, Any] = {}
     prompt_messages: list[dict[str, str]]
     instant_reply: str | None = None
@@ -246,11 +250,11 @@ async def build_stream_prompt_context(
 
     async with SessionLocal() as session:
         if user is None:
-            user = await chat_pkg.users_repo.get_by_id(session, user_id)
+            user = await users_repo.get_by_id(session, user_id)
             if user is None:
                 raise ChatNotFoundError("User not found.")
         if chat is None:
-            chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user_id)
+            chat = await chats_repo.get_by_id(session, chat_id, user_id)
             if chat is None:
                 raise ChatNotFoundError("Chat not found.")
 
@@ -265,12 +269,12 @@ async def build_stream_prompt_context(
             client_latitude=client_latitude,
             client_longitude=client_longitude,
         )
-        local_tz = chat_pkg.time_context_service.effective_timezone(user.timezone, client_timezone)
+        local_tz = time_context_service.effective_timezone(user.timezone, client_timezone)
 
         if on_status is not None:
             await on_status("preparing")
 
-        prompt_messages = await chat_pkg.build_prompt_messages(
+        prompt_messages = await build_prompt_messages(
             session,
             user,
             chat.id,
@@ -305,10 +309,8 @@ async def build_stream_prompt_context(
             minimal_quiz=mode.minimal_quiz,
             day_planning=mode.day_planning,
             ambiguous_nearby=geo.ambiguous_nearby,
-            is_external_calendar_question=chat_pkg.calendar_service.is_external_calendar_question(
-                content
-            ),
-            is_external_email_question=chat_pkg.email_service.is_external_email_question(content),
+            is_external_calendar_question=calendar_service.is_external_calendar_question(content),
+            is_external_email_question=email_service.is_external_email_question(content),
         ):
             prior_user_messages, has_calendar_write = await asyncio.gather(
                 _load_prior_user_messages(chat.id),
@@ -320,7 +322,7 @@ async def build_stream_prompt_context(
             if mode.minimal_quiz
             else max_output_tokens_for_style(user.response_style, settings)
         )
-        fallback_models = chat_pkg.plan_service.chat_fallback_models(user, settings, model)
+        fallback_models = plan_service.chat_fallback_models(user, settings, model)
 
         await session.commit()
 
@@ -363,12 +365,10 @@ async def build_stream_prompt_context(
         minimal_quiz=mode.minimal_quiz,
         day_planning=mode.day_planning,
         ambiguous_nearby=geo.ambiguous_nearby,
-        is_external_calendar_question=chat_pkg.calendar_service.is_external_calendar_question(
-            content
-        ),
-        is_external_email_question=chat_pkg.email_service.is_external_email_question(content),
+        is_external_calendar_question=calendar_service.is_external_calendar_question(content),
+        is_external_email_question=email_service.is_external_email_question(content),
     ):
-        prompt_messages, search_sources, verified_math = await chat_pkg._augment_web_and_tools(
+        prompt_messages, search_sources, verified_math = await _augment_web_and_tools(
             prompt_messages,
             content,
             settings,

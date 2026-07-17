@@ -9,6 +9,9 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.models.orm import User
+from app.repositories import messages as messages_repo
+from app.services import calendar as calendar_service
+from app.services import email as email_service
 from app.services.chat.stream_status import StreamStatusFn
 from app.services.prompt_safety import wrap_untrusted
 
@@ -37,10 +40,8 @@ async def _load_calendar_prompt_block(
     *,
     cache_only: bool,
 ) -> str | None:
-    import app.services.chat as chat_pkg
-
     async with SessionLocal() as session:
-        return await chat_pkg.calendar_service.load_calendar_for_prompt(
+        return await calendar_service.load_calendar_for_prompt(
             session,
             redis,
             user,
@@ -54,10 +55,8 @@ async def _load_gmail_prompt_block(
     redis: Redis,
     settings: Settings,
 ) -> str | None:
-    import app.services.chat as chat_pkg
-
     async with SessionLocal() as session:
-        return await chat_pkg.email_service.load_gmail_for_prompt(session, redis, user, settings)
+        return await email_service.load_gmail_for_prompt(session, redis, user, settings)
 
 
 async def _load_gmail_context_block(
@@ -65,24 +64,18 @@ async def _load_gmail_context_block(
     redis: Redis,
     settings: Settings,
 ) -> tuple[str, list[Any], list[Any], str | None] | None:
-    import app.services.chat as chat_pkg
-
     async with SessionLocal() as session:
-        return await chat_pkg.email_service.load_gmail_context(session, redis, user, settings)
+        return await email_service.load_gmail_context(session, redis, user, settings)
 
 
 async def _load_prior_user_messages(chat_id: UUID) -> list[str]:
-    import app.services.chat as chat_pkg
-
     async with SessionLocal() as session:
-        return await chat_pkg.messages_repo.recent_user_contents(session, chat_id)
+        return await messages_repo.recent_user_contents(session, chat_id)
 
 
 async def _load_has_calendar_write(user_id: UUID) -> bool:
-    import app.services.chat as chat_pkg
-
     async with SessionLocal() as session:
-        return await chat_pkg.calendar_service.has_write_access(session, user_id)
+        return await calendar_service.has_write_access(session, user_id)
 
 
 async def _load_gmail_context_if_needed(
@@ -95,14 +88,12 @@ async def _load_gmail_context_if_needed(
     on_status: StreamStatusFn | None,
 ) -> tuple[str, list[Any], list[Any], str | None] | None:
     """Prefetch inbox context for external email asks (even if injection is later skipped)."""
-    import app.services.chat as chat_pkg
-
     if instant_reply is not None:
         return None
-    if not chat_pkg.email_service.is_external_email_question(content):
+    if not email_service.is_external_email_question(content):
         return None
     async with SessionLocal() as session:
-        connected = await chat_pkg.email_service.is_connected(session, user.id)
+        connected = await email_service.is_connected(session, user.id)
     if not connected:
         return None
     if on_status is not None:
@@ -127,14 +118,12 @@ async def _inject_integration_blocks(
     on_status: StreamStatusFn | None,
 ) -> list[dict[str, str]]:
     """Load calendar/gmail blocks (best-effort) and append to the system message."""
-    import app.services.chat as chat_pkg
-
     if instant_reply is not None or minimal_personal or minimal_quiz or lightweight:
         return prompt_messages
 
     integration_blocks: list[str] = []
-    load_calendar = chat_pkg.calendar_service.should_inject_calendar_block(content)
-    load_gmail = chat_pkg.email_service.should_inject_gmail_block(content)
+    load_calendar = calendar_service.should_inject_calendar_block(content)
+    load_gmail = email_service.should_inject_gmail_block(content)
     calendar_block: str | None = None
     gmail_block: str | None = None
 
@@ -158,7 +147,7 @@ async def _inject_integration_blocks(
         )
     if gmail_context is not None:
         google_email, messages, pending_suggestions, fetch_error = gmail_context
-        gmail_block = chat_pkg.email_service.format_gmail_block(
+        gmail_block = email_service.format_gmail_block(
             google_email=google_email,
             messages=messages,
             pending_suggestions=pending_suggestions,
@@ -189,14 +178,14 @@ async def _inject_integration_blocks(
         integration_blocks.append(wrap_untrusted("calendar", calendar_block))
     if gmail_block:
         integration_blocks.append(wrap_untrusted("gmail", gmail_block))
-        if chat_pkg.email_service.is_external_email_question(content):
-            integration_blocks.append(chat_pkg.email_service.GMAIL_INBOX_ANSWER_HINT)
+        if email_service.is_external_email_question(content):
+            integration_blocks.append(email_service.GMAIL_INBOX_ANSWER_HINT)
     if (
         not settings.mcp_tools_enabled
-        and chat_pkg.calendar_service.is_calendar_create_request(content)
+        and calendar_service.is_calendar_create_request(content)
         and has_calendar_write
     ):
-        integration_blocks.append(chat_pkg.calendar_service.CALENDAR_WRITE_HINT)
+        integration_blocks.append(calendar_service.CALENDAR_WRITE_HINT)
     if integration_blocks:
         prompt_messages[0] = {
             "role": "system",

@@ -55,7 +55,7 @@ async def test_mcp_tools_does_not_handle_math_itself():
 
 @pytest.mark.asyncio
 async def test_augment_web_and_tools_uses_mcp_when_enabled():
-    from app.services.chat import _augment_web_and_tools
+    from app.services.chat.prompt_builder import _augment_web_and_tools
 
     settings = Settings(mcp_tools_enabled=True, web_search_enabled=True)
     messages = [{"role": "system", "content": "base"}, {"role": "user", "content": "latest news?"}]
@@ -66,15 +66,15 @@ async def test_augment_web_and_tools_uses_mcp_when_enabled():
 
     with (
         patch(
-            "app.services.chat.chat_tools_service.augment_prompt_with_mcp_tools",
+            "app.services.chat_tools.augment_prompt_with_mcp_tools",
             AsyncMock(return_value=[{"role": "system", "content": "mcp"}]),
         ) as mcp_mock,
         patch(
-            "app.services.chat.web_search_service.augment_prompt_messages",
+            "app.services.web_search.augment_prompt_messages",
             AsyncMock(return_value=([{"role": "system", "content": "web"}], [web_hit])),
         ) as web_mock,
         patch(
-            "app.services.chat.math_tools_service.augment_prompt_messages",
+            "app.services.math_tools.augment_prompt_messages",
             AsyncMock(return_value=([{"role": "system", "content": "mcp"}], None)),
         ) as math_mock,
     ):
@@ -98,7 +98,7 @@ async def test_augment_web_and_tools_injects_math_block_only_once():
     with mcp_tools_enabled=True and mcp_tool_loop_enabled=False (the exact
     flag combination that used to trigger it), a math-intent turn must get
     exactly one verified-math system message, not two."""
-    from app.services.chat import _augment_web_and_tools
+    from app.services.chat.prompt_builder import _augment_web_and_tools
 
     settings = Settings(
         math_tools_enabled=True,

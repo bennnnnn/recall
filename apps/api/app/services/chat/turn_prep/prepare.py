@@ -8,6 +8,10 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.exceptions import ChatNotFoundError
 from app.models.orm import User
+from app.repositories import chats as chats_repo
+from app.repositories import messages as messages_repo
+from app.repositories import users as users_repo
+from app.services import plan as plan_service
 from app.services import projects as projects_service
 from app.services import web_search as web_search_service
 from app.services.chat.stream_status import StreamStatusFn
@@ -105,8 +109,6 @@ async def prepare_chat_turn(
     user: User | None = None,
     timing: TurnTimingTracker | None = None,
 ) -> StreamContext:
-    import app.services.chat as chat_pkg
-
     attachments = await _process_attachments(
         user_id=user_id,
         user=user,
@@ -126,25 +128,23 @@ async def prepare_chat_turn(
 
     async with SessionLocal() as session:
         if user is None:
-            user = await chat_pkg.users_repo.get_by_id(session, user_id)
+            user = await users_repo.get_by_id(session, user_id)
             if user is None:
                 raise ChatNotFoundError("User not found.")
 
-        chat = await chat_pkg.chats_repo.get_by_id(session, chat_id, user_id)
+        chat = await chats_repo.get_by_id(session, chat_id, user_id)
         if chat is None:
             raise ChatNotFoundError("Chat not found.")
 
-        model = chat_pkg.plan_service.resolve_user_model_override(
-            user, model_alias, content, settings
-        )
+        model = plan_service.resolve_user_model_override(user, model_alias, content, settings)
         if attachment_ids and settings.attachments_enabled and has_image_attachment:
             model = "vision-chat"
 
-        prior_count = await chat_pkg.messages_repo.count_for_chat(session, chat_id)
+        prior_count = await messages_repo.count_for_chat(session, chat_id)
         chat_project_id = chat.project_id
         quiz_mode = getattr(chat, "quiz_mode", None)
 
-        user_message = await chat_pkg.messages_repo.create(
+        user_message = await messages_repo.create(
             session,
             chat_id=chat_id,
             user_id=user.id,

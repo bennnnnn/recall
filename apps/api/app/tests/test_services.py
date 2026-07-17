@@ -736,9 +736,9 @@ async def test_stream_chat_response_quota_exceeded():
     fake_user = MagicMock()
     fake_user.response_style = "balanced"
     with (
-        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.services.chat.SessionLocal", lambda: _FakeSessionCM()),
-        patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=False)),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.services.chat.stream.SessionLocal", lambda: _FakeSessionCM()),
+        patch("app.services.quota.reserve_usage", AsyncMock(return_value=False)),
     ):
         with pytest.raises(QuotaExceededError):
             async for _t in chat_service.stream_chat_response(

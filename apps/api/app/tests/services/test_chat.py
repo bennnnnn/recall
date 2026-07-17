@@ -5,17 +5,19 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.services.chat import (
+from app.services.chat.prompt_builder import (
     build_prompt_messages,
-    estimate_tokens,
     format_user_name_only_block,
     format_user_profile_block,
+)
+from app.services.chat.prompt_constants import (
     is_broad_self_question,
     is_lightweight_chat_turn,
     is_writing_deliverable_request,
     max_output_tokens_for_style,
 )
 from app.services.chat.turn_prep import resolve_client_geo
+from app.services.context_window import estimate_tokens
 
 
 def test_resolve_client_geo_ignores_client_when_location_disabled():
@@ -63,12 +65,12 @@ class _FakeSessionCM:
 def _offline_session_patches():
     return (
         patch("app.services.chat.stream.SessionLocal", _FakeSessionCM),
+        patch("app.services.chat.prompt_builder.SessionLocal", _FakeSessionCM),
         patch("app.services.chat.turn_prep.attachments.SessionLocal", _FakeSessionCM),
         patch("app.services.chat.turn_prep.context.SessionLocal", _FakeSessionCM),
         patch("app.services.chat.turn_prep.integrations.SessionLocal", _FakeSessionCM),
         patch("app.services.chat.turn_prep.prepare.SessionLocal", _FakeSessionCM),
         patch("app.services.chat.post_turn.SessionLocal", _FakeSessionCM),
-        patch("app.services.chat.SessionLocal", _FakeSessionCM),
     )
 
 
@@ -93,21 +95,21 @@ def stream_offline_io():
         for patcher in _offline_session_patches():
             stack.enter_context(patcher)
         stack.enter_context(patch("app.services.chat.post_turn.seed_usage_from_db", AsyncMock()))
-        stack.enter_context(patch("app.services.chat.quota_service.refund_usage", AsyncMock()))
+        stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
         stack.enter_context(
-            patch("app.services.chat.messages_repo.list_recent", AsyncMock(return_value=[]))
+            patch("app.repositories.messages.list_recent", AsyncMock(return_value=[]))
         )
         for patcher in _quiz_message_repo_patches():
             stack.enter_context(patcher)
         stack.enter_context(
             patch(
-                "app.services.chat.web_search_service.is_vocab_quiz_answer",
+                "app.services.web_search.is_vocab_quiz_answer",
                 MagicMock(return_value=False),
             )
         )
         stack.enter_context(
             patch(
-                "app.services.chat.calendar_service.has_write_access",
+                "app.services.calendar.has_write_access",
                 AsyncMock(return_value=False),
             )
         )
@@ -146,21 +148,21 @@ async def test_build_prompt_includes_email_draft_hint_for_email_request():
     session = AsyncMock()
 
     with (
-        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=None)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
         patch(
-            "app.services.chat.memory_service.get_memory_block",
+            "app.services.memory.get_memory_block",
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.chat.todos_service.build_todos_system_section",
+            "app.services.todos.build_todos_system_section",
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.chat.projects_service.load_projects_for_prompt",
+            "app.services.projects.load_projects_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.chat.messages_repo.list_recent",
+            "app.repositories.messages.list_recent",
             AsyncMock(return_value=[]),
         ),
     ):
@@ -193,21 +195,21 @@ async def test_build_prompt_includes_comparison_table_hint():
     session = AsyncMock()
 
     with (
-        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=None)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
         patch(
-            "app.services.chat.memory_service.get_memory_block",
+            "app.services.memory.get_memory_block",
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.chat.todos_service.build_todos_system_section",
+            "app.services.todos.build_todos_system_section",
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.chat.projects_service.load_projects_for_prompt",
+            "app.services.projects.load_projects_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.chat.messages_repo.list_recent",
+            "app.repositories.messages.list_recent",
             AsyncMock(return_value=[]),
         ),
     ):
@@ -286,21 +288,21 @@ async def test_build_prompt_injects_custom_instructions():
     session = AsyncMock()
 
     with (
-        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=None)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
         patch(
-            "app.services.chat.memory_service.get_memory_block",
+            "app.services.memory.get_memory_block",
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.chat.todos_service.build_todos_system_section",
+            "app.services.todos.build_todos_system_section",
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.chat.projects_service.load_projects_for_prompt",
+            "app.services.projects.load_projects_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.chat.messages_repo.list_recent",
+            "app.repositories.messages.list_recent",
             AsyncMock(return_value=[]),
         ),
     ):
@@ -333,21 +335,21 @@ async def test_build_prompt_reuses_passed_chat_without_db_fetch():
     get_by_id = AsyncMock()
 
     with (
-        patch("app.services.chat.chats_repo.get_by_id", get_by_id),
+        patch("app.repositories.chats.get_by_id", get_by_id),
         patch(
-            "app.services.chat.memory_service.get_memory_block",
+            "app.services.memory.get_memory_block",
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.chat.todos_service.build_todos_system_section",
+            "app.services.todos.build_todos_system_section",
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.chat.projects_service.load_projects_for_prompt",
+            "app.services.projects.load_projects_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.chat.messages_repo.list_recent",
+            "app.repositories.messages.list_recent",
             AsyncMock(return_value=[]),
         ),
     ):
@@ -378,21 +380,21 @@ async def test_build_prompt_omits_custom_instructions_block_when_empty():
     session = AsyncMock()
 
     with (
-        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=None)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
         patch(
-            "app.services.chat.memory_service.get_memory_block",
+            "app.services.memory.get_memory_block",
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.chat.todos_service.build_todos_system_section",
+            "app.services.todos.build_todos_system_section",
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.chat.projects_service.load_projects_for_prompt",
+            "app.services.projects.load_projects_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.chat.messages_repo.list_recent",
+            "app.repositories.messages.list_recent",
             AsyncMock(return_value=[]),
         ),
     ):
@@ -418,27 +420,27 @@ async def test_build_prompt_includes_memory_and_style():
 
     with (
         patch(
-            "app.services.chat.memory_service.load_relevant_memories",
+            "app.services.memory.load_relevant_memories",
             AsyncMock(return_value=[AsyncMock(type="preference", text="likes Python")]),
         ),
         patch(
-            "app.services.chat.messages_repo.list_recent",
+            "app.repositories.messages.list_recent",
             return_value=[AsyncMock(role="user", content="Hi")],
         ),
         patch(
-            "app.services.chat.memory_service.format_memory_block",
+            "app.services.memory.format_memory_block",
             return_value="Known facts:\n- [preference] likes Python",
         ),
         patch(
-            "app.services.chat.todos_service.build_todos_system_section",
+            "app.services.todos.build_todos_system_section",
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.services.chat.projects_service.load_projects_for_prompt",
+            "app.services.projects.load_projects_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.chat.chats_repo.get_by_id",
+            "app.repositories.chats.get_by_id",
             AsyncMock(return_value=None),
         ),
     ):
@@ -479,24 +481,24 @@ async def test_build_prompt_recalled_count_counts_section_headers():
 
     with (
         patch(
-            "app.services.chat.memory_service.load_relevant_memories",
+            "app.services.memory.load_relevant_memories",
             AsyncMock(return_value=[AsyncMock(type="profile", text="Lives in Addis")]),
         ),
-        patch("app.services.chat.messages_repo.list_recent", return_value=[]),
+        patch("app.repositories.messages.list_recent", return_value=[]),
         patch(
-            "app.services.chat.memory_service.format_memory_block",
+            "app.services.memory.format_memory_block",
             return_value=block,
         ),
         patch(
-            "app.services.chat.todos_service.build_todos_system_section",
+            "app.services.todos.build_todos_system_section",
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.services.chat.projects_service.load_projects_for_prompt",
+            "app.services.projects.load_projects_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.chat.chats_repo.get_by_id",
+            "app.repositories.chats.get_by_id",
             AsyncMock(return_value=None),
         ),
     ):
@@ -523,24 +525,24 @@ async def test_build_prompt_recalled_count_zero_when_no_memory():
 
     with (
         patch(
-            "app.services.chat.memory_service.load_relevant_memories",
+            "app.services.memory.load_relevant_memories",
             AsyncMock(return_value=[]),
         ),
-        patch("app.services.chat.messages_repo.list_recent", return_value=[]),
+        patch("app.repositories.messages.list_recent", return_value=[]),
         patch(
-            "app.services.chat.memory_service.format_memory_block",
+            "app.services.memory.format_memory_block",
             return_value="",
         ),
         patch(
-            "app.services.chat.todos_service.build_todos_system_section",
+            "app.services.todos.build_todos_system_section",
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.services.chat.projects_service.load_projects_for_prompt",
+            "app.services.projects.load_projects_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.chat.chats_repo.get_by_id",
+            "app.repositories.chats.get_by_id",
             AsyncMock(return_value=None),
         ),
     ):
@@ -566,24 +568,24 @@ async def test_build_prompt_includes_response_tone():
 
     with (
         patch(
-            "app.services.chat.memory_service.load_relevant_memories",
+            "app.services.memory.load_relevant_memories",
             AsyncMock(return_value=[]),
         ),
-        patch("app.services.chat.messages_repo.list_recent", return_value=[]),
+        patch("app.repositories.messages.list_recent", return_value=[]),
         patch(
-            "app.services.chat.memory_service.format_memory_block",
+            "app.services.memory.format_memory_block",
             return_value="",
         ),
         patch(
-            "app.services.chat.todos_service.build_todos_system_section",
+            "app.services.todos.build_todos_system_section",
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.services.chat.projects_service.load_projects_for_prompt",
+            "app.services.projects.load_projects_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.chat.chats_repo.get_by_id",
+            "app.repositories.chats.get_by_id",
             AsyncMock(return_value=None),
         ),
     ):
@@ -611,24 +613,24 @@ async def test_build_prompt_includes_locale_hint_for_amharic():
 
     with (
         patch(
-            "app.services.chat.memory_service.load_relevant_memories",
+            "app.services.memory.load_relevant_memories",
             AsyncMock(return_value=[]),
         ),
-        patch("app.services.chat.messages_repo.list_recent", return_value=[]),
+        patch("app.repositories.messages.list_recent", return_value=[]),
         patch(
-            "app.services.chat.memory_service.format_memory_block",
+            "app.services.memory.format_memory_block",
             return_value="",
         ),
         patch(
-            "app.services.chat.todos_service.build_todos_system_section",
+            "app.services.todos.build_todos_system_section",
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.services.chat.projects_service.load_projects_for_prompt",
+            "app.services.projects.load_projects_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.chat.chats_repo.get_by_id",
+            "app.repositories.chats.get_by_id",
             AsyncMock(return_value=None),
         ),
     ):
@@ -690,7 +692,7 @@ async def test_build_prompt_minimal_for_who_am_i():
 
     session = AsyncMock()
 
-    with patch("app.services.chat.messages_repo.list_recent", return_value=[]):
+    with patch("app.repositories.messages.list_recent", return_value=[]):
         messages = await build_prompt_messages(
             session,
             user,
@@ -731,25 +733,25 @@ async def test_build_prompt_day_planning_injects_daily_learning():
     )
 
     with (
-        patch("app.services.chat.messages_repo.list_recent", return_value=[]),
+        patch("app.repositories.messages.list_recent", return_value=[]),
         patch(
-            "app.services.chat.memory_service.get_memory_block",
+            "app.services.memory.get_memory_block",
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.chat.todos_service.build_todos_system_section",
+            "app.services.todos.build_todos_system_section",
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.services.chat.projects_service.load_daily_learning_summary_for_prompt",
+            "app.services.projects.load_daily_learning_summary_for_prompt",
             AsyncMock(return_value=learning_block),
         ) as daily_mock,
         patch(
-            "app.services.chat.projects_service.load_projects_for_prompt",
+            "app.services.projects.load_projects_for_prompt",
             AsyncMock(return_value="SHOULD NOT USE"),
         ),
         patch(
-            "app.services.chat.chats_repo.get_by_id",
+            "app.repositories.chats.get_by_id",
             AsyncMock(return_value=None),
         ),
     ):
@@ -786,9 +788,9 @@ async def test_build_prompt_minimal_for_vocab_quiz_answer():
     session = AsyncMock()
 
     with (
-        patch("app.services.chat.messages_repo.list_recent", return_value=[]),
+        patch("app.repositories.messages.list_recent", return_value=[]),
         patch(
-            "app.services.chat.chats_repo.get_by_id",
+            "app.repositories.chats.get_by_id",
             AsyncMock(return_value=None),
         ),
     ):
@@ -832,13 +834,13 @@ async def test_build_prompt_minimal_quiz_includes_project_context():
     session = AsyncMock()
 
     with (
-        patch("app.services.chat.messages_repo.list_recent", return_value=[]),
+        patch("app.repositories.messages.list_recent", return_value=[]),
         patch(
-            "app.services.chat.chats_repo.get_by_id",
+            "app.repositories.chats.get_by_id",
             AsyncMock(return_value=chat),
         ),
         patch(
-            "app.services.chat.projects_service.load_project_quiz_context",
+            "app.services.projects.load_project_quiz_context",
             AsyncMock(return_value="Active vocabulary quiz — project: English"),
         ) as quiz_ctx_mock,
     ):
@@ -906,28 +908,28 @@ async def test_build_prompt_passes_client_timezone():
 
     with (
         patch(
-            "app.services.chat.memory_service.load_relevant_memories",
+            "app.services.memory.load_relevant_memories",
             AsyncMock(return_value=[]),
         ),
-        patch("app.services.chat.messages_repo.list_recent", return_value=[]),
+        patch("app.repositories.messages.list_recent", return_value=[]),
         patch(
-            "app.services.chat.memory_service.format_memory_block",
+            "app.services.memory.format_memory_block",
             return_value="",
         ),
         patch(
-            "app.services.chat.todos_service.build_todos_system_section",
+            "app.services.todos.build_todos_system_section",
             load_todos,
         ),
         patch(
-            "app.services.chat.projects_service.load_projects_for_prompt",
+            "app.services.projects.load_projects_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.services.chat.chats_repo.get_by_id",
+            "app.repositories.chats.get_by_id",
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.services.chat.time_context_service.format_time_context",
+            "app.services.time_context.format_time_context",
             return_value="LOCAL_TIME_BLOCK",
         ) as format_time,
     ):
@@ -995,32 +997,32 @@ async def test_stream_does_not_duplicate_user_message(stream_offline_io):
     fake_chat.project_id = None
 
     with (
-        patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True)),
-        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.services.chat.messages_repo.count_for_chat", AsyncMock(return_value=1)),
-        patch("app.services.chat.messages_repo.create", AsyncMock()),
-        patch("app.services.chat.build_prompt_messages", mock_build),
-        patch("app.services.chat.calendar_service.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=1)),
+        patch("app.repositories.messages.create", AsyncMock()),
+        patch("app.services.chat.turn_prep.context.build_prompt_messages", mock_build),
+        patch("app.services.calendar.is_connected", AsyncMock(return_value=False)),
         patch(
-            "app.services.chat.calendar_service.load_calendar_for_prompt",
+            "app.services.calendar.load_calendar_for_prompt",
             AsyncMock(return_value=None),
         ),
-        patch("app.services.chat.email_service.is_connected", AsyncMock(return_value=False)),
-        patch("app.services.chat.email_service.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.services.email.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
         patch(
-            "app.services.chat.email_service.load_gmail_for_prompt", AsyncMock(return_value=None)
+            "app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)
         ),
-        patch("app.services.chat.messages_repo.recent_user_contents", AsyncMock(return_value=[])),
+        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
-            "app.services.chat.web_search_service.augment_prompt_messages",
+            "app.services.web_search.augment_prompt_messages",
             AsyncMock(side_effect=lambda msgs, *_a, **_k: (msgs, [])),
         ),
-        patch("app.services.chat.litellm_gateway.stream_chat_completion", fake_stream),
-        patch("app.services.chat.quota_service.adjust_usage", AsyncMock()),
-        patch("app.services.chat.usage_repo.add_tokens", AsyncMock()),
-        patch("app.services.chat.chats_repo.touch_by_id", AsyncMock()),
-        patch("app.services.chat.jobs.enqueue", AsyncMock()),
+        patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
+        patch("app.services.quota.adjust_usage", AsyncMock()),
+        patch("app.repositories.usage.add_tokens", AsyncMock()),
+        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch("app.core.jobs.enqueue", AsyncMock()),
     ):
         collected = []
         async for tok in chat_module.stream_chat_response(
@@ -1054,35 +1056,35 @@ async def test_memory_extraction_runs_on_later_turn(stream_offline_io):
     fake_chat.project_id = None
 
     with (
-        patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True)),
-        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.services.chat.messages_repo.count_for_chat", AsyncMock(return_value=3)),
-        patch("app.services.chat.messages_repo.create", AsyncMock()),
+        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
+        patch("app.repositories.messages.create", AsyncMock()),
         patch(
-            "app.services.chat.build_prompt_messages",
+            "app.services.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.services.chat.calendar_service.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.calendar.is_connected", AsyncMock(return_value=False)),
         patch(
-            "app.services.chat.calendar_service.load_calendar_for_prompt",
+            "app.services.calendar.load_calendar_for_prompt",
             AsyncMock(return_value=None),
         ),
-        patch("app.services.chat.email_service.is_connected", AsyncMock(return_value=False)),
-        patch("app.services.chat.email_service.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.services.email.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
         patch(
-            "app.services.chat.email_service.load_gmail_for_prompt", AsyncMock(return_value=None)
+            "app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)
         ),
-        patch("app.services.chat.messages_repo.recent_user_contents", AsyncMock(return_value=[])),
+        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
-            "app.services.chat.web_search_service.augment_prompt_messages",
+            "app.services.web_search.augment_prompt_messages",
             AsyncMock(side_effect=lambda msgs, *_a, **_k: (msgs, [])),
         ),
-        patch("app.services.chat.litellm_gateway.stream_chat_completion", fake_stream),
-        patch("app.services.chat.quota_service.adjust_usage", AsyncMock()),
-        patch("app.services.chat.usage_repo.add_tokens", AsyncMock()),
-        patch("app.services.chat.chats_repo.touch_by_id", AsyncMock()),
-        patch("app.services.chat.jobs.enqueue", AsyncMock()) as enqueue_job,
+        patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
+        patch("app.services.quota.adjust_usage", AsyncMock()),
+        patch("app.repositories.usage.add_tokens", AsyncMock()),
+        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch("app.core.jobs.enqueue", AsyncMock()) as enqueue_job,
     ):
         result: dict[str, str] = {}
         async for _ in chat_module.stream_chat_response(
@@ -1128,35 +1130,35 @@ async def test_memory_extraction_skipped_when_memory_disabled(stream_offline_io)
     fake_chat.project_id = None
 
     with (
-        patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True)),
-        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.services.chat.messages_repo.count_for_chat", AsyncMock(return_value=3)),
-        patch("app.services.chat.messages_repo.create", AsyncMock()),
+        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
+        patch("app.repositories.messages.create", AsyncMock()),
         patch(
-            "app.services.chat.build_prompt_messages",
+            "app.services.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.services.chat.calendar_service.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.calendar.is_connected", AsyncMock(return_value=False)),
         patch(
-            "app.services.chat.calendar_service.load_calendar_for_prompt",
+            "app.services.calendar.load_calendar_for_prompt",
             AsyncMock(return_value=None),
         ),
-        patch("app.services.chat.email_service.is_connected", AsyncMock(return_value=False)),
-        patch("app.services.chat.email_service.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.services.email.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
         patch(
-            "app.services.chat.email_service.load_gmail_for_prompt", AsyncMock(return_value=None)
+            "app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)
         ),
-        patch("app.services.chat.messages_repo.recent_user_contents", AsyncMock(return_value=[])),
+        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
-            "app.services.chat.web_search_service.augment_prompt_messages",
+            "app.services.web_search.augment_prompt_messages",
             AsyncMock(side_effect=lambda msgs, *_a, **_k: (msgs, [])),
         ),
-        patch("app.services.chat.litellm_gateway.stream_chat_completion", fake_stream),
-        patch("app.services.chat.quota_service.adjust_usage", AsyncMock()),
-        patch("app.services.chat.usage_repo.add_tokens", AsyncMock()),
-        patch("app.services.chat.chats_repo.touch_by_id", AsyncMock()),
-        patch("app.services.chat.jobs.enqueue", AsyncMock()) as enqueue_job,
+        patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
+        patch("app.services.quota.adjust_usage", AsyncMock()),
+        patch("app.repositories.usage.add_tokens", AsyncMock()),
+        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch("app.core.jobs.enqueue", AsyncMock()) as enqueue_job,
     ):
         result: dict[str, str] = {}
         async for _ in chat_module.stream_chat_response(
@@ -1194,35 +1196,35 @@ async def test_memory_extraction_skipped_between_batch_turns(stream_offline_io):
     fake_chat.project_id = None
 
     with (
-        patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True)),
-        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.services.chat.messages_repo.count_for_chat", AsyncMock(return_value=2)),
-        patch("app.services.chat.messages_repo.create", AsyncMock()),
+        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2)),
+        patch("app.repositories.messages.create", AsyncMock()),
         patch(
-            "app.services.chat.build_prompt_messages",
+            "app.services.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.services.chat.calendar_service.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.calendar.is_connected", AsyncMock(return_value=False)),
         patch(
-            "app.services.chat.calendar_service.load_calendar_for_prompt",
+            "app.services.calendar.load_calendar_for_prompt",
             AsyncMock(return_value=None),
         ),
-        patch("app.services.chat.email_service.is_connected", AsyncMock(return_value=False)),
-        patch("app.services.chat.email_service.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.services.email.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
         patch(
-            "app.services.chat.email_service.load_gmail_for_prompt", AsyncMock(return_value=None)
+            "app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)
         ),
-        patch("app.services.chat.messages_repo.recent_user_contents", AsyncMock(return_value=[])),
+        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
-            "app.services.chat.web_search_service.augment_prompt_messages",
+            "app.services.web_search.augment_prompt_messages",
             AsyncMock(side_effect=lambda msgs, *_a, **_k: (msgs, [])),
         ),
-        patch("app.services.chat.litellm_gateway.stream_chat_completion", fake_stream),
-        patch("app.services.chat.quota_service.adjust_usage", AsyncMock()),
-        patch("app.services.chat.usage_repo.add_tokens", AsyncMock()),
-        patch("app.services.chat.chats_repo.touch_by_id", AsyncMock()),
-        patch("app.services.chat.jobs.enqueue", AsyncMock()) as enqueue_job,
+        patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
+        patch("app.services.quota.adjust_usage", AsyncMock()),
+        patch("app.repositories.usage.add_tokens", AsyncMock()),
+        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch("app.core.jobs.enqueue", AsyncMock()) as enqueue_job,
     ):
         result: dict[str, str] = {}
         async for _ in chat_module.stream_chat_response(
@@ -1261,42 +1263,42 @@ async def test_stream_skips_pre_reply_todo_llm_sync(stream_offline_io):
     fake_chat.project_id = None
 
     with (
-        patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True)),
-        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.services.chat.messages_repo.count_for_chat", AsyncMock(return_value=1)),
-        patch("app.services.chat.messages_repo.create", AsyncMock()),
+        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=1)),
+        patch("app.repositories.messages.create", AsyncMock()),
         patch(
-            "app.services.chat.build_prompt_messages",
+            "app.services.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.services.chat.calendar_service.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.calendar.is_connected", AsyncMock(return_value=False)),
         patch(
-            "app.services.chat.calendar_service.load_calendar_for_prompt",
+            "app.services.calendar.load_calendar_for_prompt",
             AsyncMock(return_value=None),
         ),
-        patch("app.services.chat.email_service.is_connected", AsyncMock(return_value=False)),
-        patch("app.services.chat.email_service.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.services.email.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
         patch(
-            "app.services.chat.email_service.load_gmail_for_prompt", AsyncMock(return_value=None)
+            "app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)
         ),
-        patch("app.services.chat.messages_repo.recent_user_contents", AsyncMock(return_value=[])),
+        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
-            "app.services.chat.todos_service.should_pre_sync_todos",
+            "app.services.todos.should_pre_sync_todos",
             MagicMock(return_value=True),
         ),
         patch(
-            "app.services.chat.todos_service.sync_todos_before_reply",
+            "app.services.todos.sync_todos_before_reply",
             AsyncMock(),
         ) as pre_sync,
         patch(
-            "app.services.chat.web_search_service.augment_prompt_messages",
+            "app.services.web_search.augment_prompt_messages",
             AsyncMock(side_effect=lambda msgs, *_a, **_k: (msgs, [])),
         ),
-        patch("app.services.chat.litellm_gateway.stream_chat_completion", fake_stream),
-        patch("app.services.chat.quota_service.adjust_usage", AsyncMock()),
-        patch("app.services.chat.usage_repo.add_tokens", AsyncMock()),
-        patch("app.services.chat.chats_repo.touch_by_id", AsyncMock()),
+        patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
+        patch("app.services.quota.adjust_usage", AsyncMock()),
+        patch("app.repositories.usage.add_tokens", AsyncMock()),
+        patch("app.repositories.chats.touch_by_id", AsyncMock()),
     ):
         async for _ in chat_module.stream_chat_response(
             AsyncMock(),
@@ -1328,35 +1330,35 @@ async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offli
     fake_chat.project_id = None
 
     with (
-        patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True)),
-        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.services.chat.messages_repo.count_for_chat", AsyncMock(return_value=3)),
-        patch("app.services.chat.messages_repo.create", AsyncMock()),
+        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
+        patch("app.repositories.messages.create", AsyncMock()),
         patch(
-            "app.services.chat.build_prompt_messages",
+            "app.services.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.services.chat.calendar_service.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.calendar.is_connected", AsyncMock(return_value=False)),
         patch(
-            "app.services.chat.calendar_service.load_calendar_for_prompt",
+            "app.services.calendar.load_calendar_for_prompt",
             AsyncMock(return_value=None),
         ),
-        patch("app.services.chat.email_service.is_connected", AsyncMock(return_value=False)),
-        patch("app.services.chat.email_service.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.services.email.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
         patch(
-            "app.services.chat.email_service.load_gmail_for_prompt", AsyncMock(return_value=None)
+            "app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)
         ),
-        patch("app.services.chat.messages_repo.recent_user_contents", AsyncMock(return_value=[])),
+        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
-            "app.services.chat.web_search_service.augment_prompt_messages",
+            "app.services.web_search.augment_prompt_messages",
             AsyncMock(side_effect=lambda msgs, *_a, **_k: (msgs, [])),
         ),
-        patch("app.services.chat.litellm_gateway.stream_chat_completion", fake_stream),
-        patch("app.services.chat.quota_service.adjust_usage", AsyncMock()),
-        patch("app.services.chat.usage_repo.add_tokens", AsyncMock()),
-        patch("app.services.chat.chats_repo.touch_by_id", AsyncMock()),
-        patch("app.services.chat.jobs.enqueue", AsyncMock()) as enqueue_job,
+        patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
+        patch("app.services.quota.adjust_usage", AsyncMock()),
+        patch("app.repositories.usage.add_tokens", AsyncMock()),
+        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch("app.core.jobs.enqueue", AsyncMock()) as enqueue_job,
     ):
         result: dict[str, str] = {}
         async for _ in chat_module.stream_chat_response(
@@ -1404,35 +1406,35 @@ async def test_stream_sets_final_content_on_cancel(stream_offline_io):
         return cancel_after["n"] > 1  # let the first token through, then cancel
 
     with (
-        patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True)),
-        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.services.chat.messages_repo.count_for_chat", AsyncMock(return_value=3)),
-        patch("app.services.chat.messages_repo.create", AsyncMock()),
+        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
+        patch("app.repositories.messages.create", AsyncMock()),
         patch(
-            "app.services.chat.build_prompt_messages",
+            "app.services.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.services.chat.calendar_service.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.calendar.is_connected", AsyncMock(return_value=False)),
         patch(
-            "app.services.chat.calendar_service.load_calendar_for_prompt",
+            "app.services.calendar.load_calendar_for_prompt",
             AsyncMock(return_value=None),
         ),
-        patch("app.services.chat.email_service.is_connected", AsyncMock(return_value=False)),
-        patch("app.services.chat.email_service.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.services.email.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
         patch(
-            "app.services.chat.email_service.load_gmail_for_prompt", AsyncMock(return_value=None)
+            "app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)
         ),
-        patch("app.services.chat.messages_repo.recent_user_contents", AsyncMock(return_value=[])),
+        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
-            "app.services.chat.web_search_service.augment_prompt_messages",
+            "app.services.web_search.augment_prompt_messages",
             AsyncMock(side_effect=lambda msgs, *_a, **_k: (msgs, [])),
         ),
-        patch("app.services.chat.litellm_gateway.stream_chat_completion", fake_stream),
-        patch("app.services.chat.quota_service.adjust_usage", AsyncMock()),
-        patch("app.services.chat.usage_repo.add_tokens", AsyncMock()),
-        patch("app.services.chat.chats_repo.touch_by_id", AsyncMock()),
-        patch("app.services.chat.jobs.enqueue", AsyncMock()),
+        patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
+        patch("app.services.quota.adjust_usage", AsyncMock()),
+        patch("app.repositories.usage.add_tokens", AsyncMock()),
+        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch("app.core.jobs.enqueue", AsyncMock()),
     ):
         result: dict[str, object] = {}
         yielded: list[str] = []
@@ -1490,18 +1492,18 @@ async def test_cancelled_stream_skips_model_health_sample(stream_offline_io):
     result: dict[str, object] = {}
     with ExitStack() as stack:
         stack.enter_context(
-            patch("app.services.chat.litellm_gateway.stream_chat_completion", fake_stream)
+            patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
         )
         stack.enter_context(patch("app.services.model_health.record_sample", record))
         stack.enter_context(patch("app.services.chat.stream.finalize_stream_turn_db", AsyncMock()))
         stack.enter_context(
             patch(
-                "app.services.chat.calendar_service.materialize_calendar_proposals",
+                "app.services.calendar.materialize_calendar_proposals",
                 AsyncMock(side_effect=lambda *_a, **_k: _a[-1]),
             )
         )
         stack.enter_context(
-            patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=None))
+            patch("app.repositories.users.get_by_id", AsyncMock(return_value=None))
         )
         async for _ in stream_and_finalize(
             AsyncMock(),
@@ -1559,35 +1561,35 @@ async def test_stream_closes_llm_stream_on_cancel(stream_offline_io):
         return cancel_after["n"] > 1
 
     with (
-        patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True)),
-        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.services.chat.messages_repo.count_for_chat", AsyncMock(return_value=3)),
-        patch("app.services.chat.messages_repo.create", AsyncMock()),
+        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
+        patch("app.repositories.messages.create", AsyncMock()),
         patch(
-            "app.services.chat.build_prompt_messages",
+            "app.services.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.services.chat.calendar_service.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.calendar.is_connected", AsyncMock(return_value=False)),
         patch(
-            "app.services.chat.calendar_service.load_calendar_for_prompt",
+            "app.services.calendar.load_calendar_for_prompt",
             AsyncMock(return_value=None),
         ),
-        patch("app.services.chat.email_service.is_connected", AsyncMock(return_value=False)),
-        patch("app.services.chat.email_service.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.services.email.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
         patch(
-            "app.services.chat.email_service.load_gmail_for_prompt", AsyncMock(return_value=None)
+            "app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)
         ),
-        patch("app.services.chat.messages_repo.recent_user_contents", AsyncMock(return_value=[])),
+        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
-            "app.services.chat.web_search_service.augment_prompt_messages",
+            "app.services.web_search.augment_prompt_messages",
             AsyncMock(side_effect=lambda msgs, *_a, **_k: (msgs, [])),
         ),
-        patch("app.services.chat.litellm_gateway.stream_chat_completion", tracked),
-        patch("app.services.chat.quota_service.adjust_usage", AsyncMock()),
-        patch("app.services.chat.usage_repo.add_tokens", AsyncMock()),
-        patch("app.services.chat.chats_repo.touch_by_id", AsyncMock()),
-        patch("app.services.chat.jobs.enqueue", AsyncMock()),
+        patch("app.gateways.litellm_gateway.stream_chat_completion", tracked),
+        patch("app.services.quota.adjust_usage", AsyncMock()),
+        patch("app.repositories.usage.add_tokens", AsyncMock()),
+        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch("app.core.jobs.enqueue", AsyncMock()),
     ):
         async for _ in chat_module.stream_chat_response(
             AsyncMock(),
@@ -1622,32 +1624,32 @@ async def test_stream_places_query_without_location_prompts_to_enable(stream_off
     augment = AsyncMock(return_value=([{"role": "system", "content": "sys"}], []))
 
     with (
-        patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True)),
-        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.services.chat.messages_repo.count_for_chat", AsyncMock(return_value=0)),
-        patch("app.services.chat.messages_repo.create", AsyncMock()),
+        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=0)),
+        patch("app.repositories.messages.create", AsyncMock()),
         patch(
-            "app.services.chat.build_prompt_messages",
+            "app.services.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.services.chat.calendar_service.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.calendar.is_connected", AsyncMock(return_value=False)),
         patch(
-            "app.services.chat.calendar_service.load_calendar_for_prompt",
+            "app.services.calendar.load_calendar_for_prompt",
             AsyncMock(return_value=None),
         ),
-        patch("app.services.chat.email_service.is_connected", AsyncMock(return_value=False)),
-        patch("app.services.chat.email_service.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.services.email.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
         patch(
-            "app.services.chat.email_service.load_gmail_for_prompt", AsyncMock(return_value=None)
+            "app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)
         ),
-        patch("app.services.chat.messages_repo.recent_user_contents", AsyncMock(return_value=[])),
-        patch("app.services.chat.web_search_service.augment_prompt_messages", augment),
-        patch("app.services.chat.litellm_gateway.stream_chat_completion", AsyncMock()),
-        patch("app.services.chat.quota_service.adjust_usage", AsyncMock()),
-        patch("app.services.chat.usage_repo.add_tokens", AsyncMock()),
-        patch("app.services.chat.chats_repo.touch_by_id", AsyncMock()),
-        patch("app.services.chat.jobs.enqueue", AsyncMock()),
+        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
+        patch("app.services.web_search.augment_prompt_messages", augment),
+        patch("app.gateways.litellm_gateway.stream_chat_completion", AsyncMock()),
+        patch("app.services.quota.adjust_usage", AsyncMock()),
+        patch("app.repositories.usage.add_tokens", AsyncMock()),
+        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch("app.core.jobs.enqueue", AsyncMock()),
     ):
         yielded: list[str] = []
         async for tok in chat_module.stream_chat_response(
@@ -1687,33 +1689,33 @@ async def test_stream_places_query_uses_client_location_without_profile(stream_o
         yield "answer"
 
     with (
-        patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True)),
-        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.services.chat.users_repo.update", AsyncMock(return_value=fake_user)),
-        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.services.chat.messages_repo.count_for_chat", AsyncMock(return_value=0)),
-        patch("app.services.chat.messages_repo.create", AsyncMock()),
+        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.repositories.users.update", AsyncMock(return_value=fake_user)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=0)),
+        patch("app.repositories.messages.create", AsyncMock()),
         patch(
-            "app.services.chat.build_prompt_messages",
+            "app.services.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.services.chat.calendar_service.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.calendar.is_connected", AsyncMock(return_value=False)),
         patch(
-            "app.services.chat.calendar_service.load_calendar_for_prompt",
+            "app.services.calendar.load_calendar_for_prompt",
             AsyncMock(return_value=None),
         ),
-        patch("app.services.chat.email_service.is_connected", AsyncMock(return_value=False)),
-        patch("app.services.chat.email_service.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.services.email.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
         patch(
-            "app.services.chat.email_service.load_gmail_for_prompt", AsyncMock(return_value=None)
+            "app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)
         ),
-        patch("app.services.chat.messages_repo.recent_user_contents", AsyncMock(return_value=[])),
-        patch("app.services.chat.web_search_service.augment_prompt_messages", augment),
-        patch("app.services.chat.litellm_gateway.stream_chat_completion", fake_stream),
-        patch("app.services.chat.quota_service.adjust_usage", AsyncMock()),
-        patch("app.services.chat.usage_repo.add_tokens", AsyncMock()),
-        patch("app.services.chat.chats_repo.touch_by_id", AsyncMock()),
-        patch("app.services.chat.jobs.enqueue", AsyncMock()),
+        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
+        patch("app.services.web_search.augment_prompt_messages", augment),
+        patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
+        patch("app.services.quota.adjust_usage", AsyncMock()),
+        patch("app.repositories.usage.add_tokens", AsyncMock()),
+        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch("app.core.jobs.enqueue", AsyncMock()),
     ):
         yielded: list[str] = []
         async for tok in chat_module.stream_chat_response(
@@ -1755,71 +1757,71 @@ async def test_stream_persists_raw_text_when_enrichment_fails(stream_offline_io)
 
     with ExitStack() as stack:
         stack.enter_context(
-            patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True))
+            patch("app.services.quota.reserve_usage", AsyncMock(return_value=True))
         )
         stack.enter_context(
-            patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user))
+            patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user))
         )
         stack.enter_context(
-            patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat))
+            patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat))
         )
         stack.enter_context(
-            patch("app.services.chat.messages_repo.count_for_chat", AsyncMock(return_value=3))
+            patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3))
         )
-        stack.enter_context(patch("app.services.chat.messages_repo.create", AsyncMock()))
+        stack.enter_context(patch("app.repositories.messages.create", AsyncMock()))
         stack.enter_context(
             patch(
-                "app.services.chat.build_prompt_messages",
+                "app.services.chat.turn_prep.context.build_prompt_messages",
                 AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
             )
         )
         stack.enter_context(
-            patch("app.services.chat.calendar_service.is_connected", AsyncMock(return_value=False))
+            patch("app.services.calendar.is_connected", AsyncMock(return_value=False))
         )
         stack.enter_context(
             patch(
-                "app.services.chat.calendar_service.load_calendar_for_prompt",
+                "app.services.calendar.load_calendar_for_prompt",
                 AsyncMock(return_value=None),
             )
         )
         stack.enter_context(
             patch(
-                "app.services.chat.calendar_service.materialize_calendar_proposals",
+                "app.services.calendar.materialize_calendar_proposals",
                 AsyncMock(side_effect=RuntimeError("calendar boom")),
             )
         )
         stack.enter_context(
-            patch("app.services.chat.email_service.is_connected", AsyncMock(return_value=False))
+            patch("app.services.email.is_connected", AsyncMock(return_value=False))
         )
         stack.enter_context(
             patch(
-                "app.services.chat.email_service.load_gmail_context", AsyncMock(return_value=None)
+                "app.services.email.load_gmail_context", AsyncMock(return_value=None)
             )
         )
         stack.enter_context(
             patch(
-                "app.services.chat.email_service.load_gmail_for_prompt",
+                "app.services.email.load_gmail_for_prompt",
                 AsyncMock(return_value=None),
             )
         )
         stack.enter_context(
             patch(
-                "app.services.chat.messages_repo.recent_user_contents", AsyncMock(return_value=[])
+                "app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])
             )
         )
         stack.enter_context(
             patch(
-                "app.services.chat.web_search_service.augment_prompt_messages",
+                "app.services.web_search.augment_prompt_messages",
                 AsyncMock(side_effect=lambda msgs, *_a, **_k: (msgs, [])),
             )
         )
         stack.enter_context(
-            patch("app.services.chat.litellm_gateway.stream_chat_completion", fake_stream)
+            patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
         )
-        stack.enter_context(patch("app.services.chat.quota_service.adjust_usage", AsyncMock()))
-        stack.enter_context(patch("app.services.chat.usage_repo.add_tokens", AsyncMock()))
-        stack.enter_context(patch("app.services.chat.chats_repo.touch_by_id", AsyncMock()))
-        stack.enter_context(patch("app.services.chat.jobs.enqueue", AsyncMock()))
+        stack.enter_context(patch("app.services.quota.adjust_usage", AsyncMock()))
+        stack.enter_context(patch("app.repositories.usage.add_tokens", AsyncMock()))
+        stack.enter_context(patch("app.repositories.chats.touch_by_id", AsyncMock()))
+        stack.enter_context(patch("app.core.jobs.enqueue", AsyncMock()))
         stack.enter_context(patch("app.services.chat.stream.finalize_stream_turn_db", finalize))
 
         result: dict[str, object] = {}
@@ -1862,35 +1864,35 @@ async def test_stream_no_final_content_on_normal_completion(stream_offline_io):
     fake_chat.summary = None
 
     with (
-        patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True)),
-        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.services.chat.messages_repo.count_for_chat", AsyncMock(return_value=3)),
-        patch("app.services.chat.messages_repo.create", AsyncMock()),
+        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
+        patch("app.repositories.messages.create", AsyncMock()),
         patch(
-            "app.services.chat.build_prompt_messages",
+            "app.services.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.services.chat.calendar_service.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.calendar.is_connected", AsyncMock(return_value=False)),
         patch(
-            "app.services.chat.calendar_service.load_calendar_for_prompt",
+            "app.services.calendar.load_calendar_for_prompt",
             AsyncMock(return_value=None),
         ),
-        patch("app.services.chat.email_service.is_connected", AsyncMock(return_value=False)),
-        patch("app.services.chat.email_service.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.services.email.is_connected", AsyncMock(return_value=False)),
+        patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
         patch(
-            "app.services.chat.email_service.load_gmail_for_prompt", AsyncMock(return_value=None)
+            "app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)
         ),
-        patch("app.services.chat.messages_repo.recent_user_contents", AsyncMock(return_value=[])),
+        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
-            "app.services.chat.web_search_service.augment_prompt_messages",
+            "app.services.web_search.augment_prompt_messages",
             AsyncMock(side_effect=lambda msgs, *_a, **_k: (msgs, [])),
         ),
-        patch("app.services.chat.litellm_gateway.stream_chat_completion", fake_stream),
-        patch("app.services.chat.quota_service.adjust_usage", AsyncMock()),
-        patch("app.services.chat.usage_repo.add_tokens", AsyncMock()),
-        patch("app.services.chat.chats_repo.touch_by_id", AsyncMock()),
-        patch("app.services.chat.jobs.enqueue", AsyncMock()),
+        patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
+        patch("app.services.quota.adjust_usage", AsyncMock()),
+        patch("app.repositories.usage.add_tokens", AsyncMock()),
+        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch("app.core.jobs.enqueue", AsyncMock()),
     ):
         result: dict[str, object] = {}
         async for _ in chat_module.stream_chat_response(
@@ -2000,25 +2002,25 @@ async def test_stream_edit_response_yields_tokens():
         yield "edited"
 
     with (
-        patch("app.services.chat.SessionLocal", return_value=session),
-        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.services.chat.messages_repo.get_by_id", AsyncMock(return_value=fake_message)),
+        patch("app.services.chat.stream.SessionLocal", return_value=session),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.repositories.messages.get_by_id", AsyncMock(return_value=fake_message)),
         patch(
-            "app.services.chat.messages_repo.ids_from_chat_at_or_after",
+            "app.repositories.messages.ids_from_chat_at_or_after",
             AsyncMock(return_value=[message_id]),
         ),
         patch(
-            "app.services.chat.attachment_lifecycle.purge_attachments_for_messages",
+            "app.services.attachment_lifecycle.purge_attachments_for_messages",
             AsyncMock(return_value=0),
         ),
-        patch("app.services.chat.messages_repo.delete_messages_from", AsyncMock()),
-        patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.repositories.messages.delete_messages_from", AsyncMock()),
+        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
         patch(
-            "app.services.chat.quota_service.daily_limit_for_user",
+            "app.services.quota.daily_limit_for_user",
             MagicMock(return_value=500_000),
         ),
-        patch("app.services.chat.stream_chat_response", fake_stream),
+        patch("app.services.chat.stream.stream_chat_response", fake_stream),
     ):
         tokens = [
             tok
@@ -2067,26 +2069,26 @@ async def test_stream_edit_response_refunds_quota_when_delete_throws():
     refund_mock = AsyncMock()
 
     with (
-        patch("app.services.chat.SessionLocal", return_value=session),
-        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.services.chat.messages_repo.get_by_id", AsyncMock(return_value=fake_message)),
+        patch("app.services.chat.stream.SessionLocal", return_value=session),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.repositories.messages.get_by_id", AsyncMock(return_value=fake_message)),
         patch(
-            "app.services.chat.messages_repo.ids_from_chat_at_or_after",
+            "app.repositories.messages.ids_from_chat_at_or_after",
             AsyncMock(return_value=[message_id]),
         ),
         patch(
-            "app.services.chat.attachment_lifecycle.purge_attachments_for_messages",
+            "app.services.attachment_lifecycle.purge_attachments_for_messages",
             AsyncMock(return_value=0),
         ),
         patch(
-            "app.services.chat.messages_repo.delete_messages_from",
+            "app.repositories.messages.delete_messages_from",
             AsyncMock(side_effect=RuntimeError("delete failed")),
         ),
-        patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True)),
-        patch("app.services.chat.quota_service.refund_usage", refund_mock),
+        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.quota.refund_usage", refund_mock),
         patch(
-            "app.services.chat.quota_service.daily_limit_for_user",
+            "app.services.quota.daily_limit_for_user",
             MagicMock(return_value=500_000),
         ),
     ):
@@ -2139,29 +2141,29 @@ async def _run_stream_edit_response(
         yield "edited"
 
     with (
-        patch("app.services.chat.SessionLocal", return_value=session),
-        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat)),
-        patch("app.services.chat.messages_repo.get_by_id", AsyncMock(return_value=fake_message)),
+        patch("app.services.chat.stream.SessionLocal", return_value=session),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.repositories.messages.get_by_id", AsyncMock(return_value=fake_message)),
         patch(
-            "app.services.chat.messages_repo.ids_from_chat_at_or_after",
+            "app.repositories.messages.ids_from_chat_at_or_after",
             AsyncMock(return_value=deleted_message_ids),
         ),
         patch(
-            "app.services.chat.messages_repo.count_for_chat",
+            "app.repositories.messages.count_for_chat",
             AsyncMock(return_value=total_before_edit),
         ),
         patch(
-            "app.services.chat.attachment_lifecycle.purge_attachments_for_messages",
+            "app.services.attachment_lifecycle.purge_attachments_for_messages",
             AsyncMock(return_value=0),
         ),
-        patch("app.services.chat.messages_repo.delete_messages_from", AsyncMock()),
-        patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.repositories.messages.delete_messages_from", AsyncMock()),
+        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
         patch(
-            "app.services.chat.quota_service.daily_limit_for_user",
+            "app.services.quota.daily_limit_for_user",
             MagicMock(return_value=500_000),
         ),
-        patch("app.services.chat.stream_chat_response", fake_stream),
+        patch("app.services.chat.stream.stream_chat_response", fake_stream),
     ):
         async for _ in chat_module.stream_edit_response(
             AsyncMock(),
@@ -2248,74 +2250,74 @@ async def test_regenerate_restores_assistant_when_stream_empty():
         for patcher in _quiz_message_repo_patches():
             stack.enter_context(patcher)
         stack.enter_context(
-            patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user))
+            patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user))
         )
         stack.enter_context(
-            patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat))
+            patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat))
         )
         stack.enter_context(
-            patch("app.services.chat.messages_repo.get_last", AsyncMock(return_value=fake_last))
+            patch("app.repositories.messages.get_last", AsyncMock(return_value=fake_last))
         )
         stack.enter_context(
             patch(
-                "app.services.chat.messages_repo.get_last_user",
+                "app.repositories.messages.get_last_user",
                 AsyncMock(return_value=fake_last_user),
             )
         )
         stack.enter_context(
-            patch("app.services.chat.messages_repo.count_for_chat", AsyncMock(return_value=2))
+            patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2))
         )
         stack.enter_context(
             patch(
-                "app.services.chat.build_prompt_messages",
+                "app.services.chat.turn_prep.context.build_prompt_messages",
                 AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
             )
         )
         stack.enter_context(
             patch(
-                "app.services.chat.web_search_service.is_vocab_quiz_answer",
+                "app.services.web_search.is_vocab_quiz_answer",
                 MagicMock(return_value=False),
             )
         )
         stack.enter_context(
             patch(
-                "app.services.chat.web_search_service.is_places_list_query",
+                "app.services.web_search.is_places_list_query",
                 MagicMock(return_value=False),
             )
         )
         stack.enter_context(
             patch(
-                "app.services.chat.calendar_service.has_write_access",
+                "app.services.calendar.has_write_access",
                 AsyncMock(return_value=False),
             )
         )
         stack.enter_context(
             patch(
-                "app.services.chat.messages_repo.recent_user_contents",
+                "app.repositories.messages.recent_user_contents",
                 AsyncMock(return_value=[]),
             )
         )
         stack.enter_context(
             patch(
-                "app.services.chat._augment_web_and_tools",
+                "app.services.chat.turn_prep.context._augment_web_and_tools",
                 AsyncMock(return_value=([{"role": "system", "content": "sys"}], [], None)),
             )
         )
         stack.enter_context(
-            patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True))
+            patch("app.services.quota.reserve_usage", AsyncMock(return_value=True))
         )
-        stack.enter_context(patch("app.services.chat.quota_service.refund_usage", AsyncMock()))
+        stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
         stack.enter_context(
             patch(
-                "app.services.chat.attachment_lifecycle.purge_attachments_for_messages",
+                "app.services.attachment_lifecycle.purge_attachments_for_messages",
                 AsyncMock(),
             )
         )
-        stack.enter_context(patch("app.services.chat.messages_repo.delete_message", AsyncMock()))
+        stack.enter_context(patch("app.repositories.messages.delete_message", AsyncMock()))
         stack.enter_context(
-            patch("app.services.chat.litellm_gateway.stream_chat_completion", empty_stream)
+            patch("app.gateways.litellm_gateway.stream_chat_completion", empty_stream)
         )
-        stack.enter_context(patch("app.services.chat._restore_regenerate_backup", restore))
+        stack.enter_context(patch("app.services.chat.stream.restore_regenerate_backup", restore))
         from app.gateways.litellm_gateway import ModelUnavailableError
 
         with pytest.raises(ModelUnavailableError, match="isn't responding"):
@@ -2400,22 +2402,22 @@ async def test_regenerate_deletes_assistant_before_building_prompt():
         for patcher in _quiz_message_repo_patches():
             stack.enter_context(patcher)
         stack.enter_context(
-            patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user))
+            patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user))
         )
         stack.enter_context(
-            patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat))
+            patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat))
         )
         stack.enter_context(
-            patch("app.services.chat.messages_repo.get_last", AsyncMock(return_value=fake_last))
+            patch("app.repositories.messages.get_last", AsyncMock(return_value=fake_last))
         )
         stack.enter_context(
             patch(
-                "app.services.chat.messages_repo.get_last_user",
+                "app.repositories.messages.get_last_user",
                 AsyncMock(return_value=fake_last_user),
             )
         )
         stack.enter_context(
-            patch("app.services.chat.messages_repo.count_for_chat", AsyncMock(return_value=2))
+            patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2))
         )
         stack.enter_context(
             patch(
@@ -2424,25 +2426,25 @@ async def test_regenerate_deletes_assistant_before_building_prompt():
             )
         )
         stack.enter_context(
-            patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True))
+            patch("app.services.quota.reserve_usage", AsyncMock(return_value=True))
         )
-        stack.enter_context(patch("app.services.chat.quota_service.refund_usage", AsyncMock()))
+        stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
         stack.enter_context(
             patch(
-                "app.services.chat.attachment_lifecycle.purge_attachments_for_messages",
+                "app.services.attachment_lifecycle.purge_attachments_for_messages",
                 AsyncMock(),
             )
         )
         stack.enter_context(
             patch(
-                "app.services.chat.messages_repo.delete_message",
+                "app.repositories.messages.delete_message",
                 side_effect=track_delete,
             )
         )
         stack.enter_context(
-            patch("app.services.chat.litellm_gateway.stream_chat_completion", empty_stream)
+            patch("app.gateways.litellm_gateway.stream_chat_completion", empty_stream)
         )
-        stack.enter_context(patch("app.services.chat._restore_regenerate_backup", AsyncMock()))
+        stack.enter_context(patch("app.services.chat.stream.restore_regenerate_backup", AsyncMock()))
         from app.gateways.litellm_gateway import ModelUnavailableError
 
         with pytest.raises(ModelUnavailableError):
@@ -2493,63 +2495,63 @@ async def test_regenerate_passes_client_geo_to_web_search():
         for patcher in _quiz_message_repo_patches():
             stack.enter_context(patcher)
         stack.enter_context(
-            patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=fake_user))
+            patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user))
         )
         stack.enter_context(
-            patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=fake_chat))
+            patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat))
         )
         stack.enter_context(
-            patch("app.services.chat.messages_repo.get_last", AsyncMock(return_value=fake_last))
+            patch("app.repositories.messages.get_last", AsyncMock(return_value=fake_last))
         )
         stack.enter_context(
             patch(
-                "app.services.chat.messages_repo.get_last_user",
+                "app.repositories.messages.get_last_user",
                 AsyncMock(return_value=fake_last_user),
             )
         )
         stack.enter_context(
-            patch("app.services.chat.messages_repo.count_for_chat", AsyncMock(return_value=2))
+            patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2))
         )
         stack.enter_context(
             patch(
-                "app.services.chat.build_prompt_messages",
+                "app.services.chat.turn_prep.context.build_prompt_messages",
                 AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
             )
         )
         stack.enter_context(
             patch(
-                "app.services.chat.web_search_service.is_vocab_quiz_answer",
+                "app.services.web_search.is_vocab_quiz_answer",
                 MagicMock(return_value=False),
             )
         )
         stack.enter_context(
             patch(
-                "app.services.chat.calendar_service.has_write_access",
+                "app.services.calendar.has_write_access",
                 AsyncMock(return_value=False),
             )
         )
         stack.enter_context(
             patch(
-                "app.services.chat.messages_repo.recent_user_contents",
+                "app.repositories.messages.recent_user_contents",
                 AsyncMock(return_value=[]),
             )
         )
-        stack.enter_context(patch("app.services.chat._augment_web_and_tools", augment))
+        stack.enter_context(patch("app.services.chat.turn_prep.context._augment_web_and_tools", augment))
         stack.enter_context(
-            patch("app.services.chat.quota_service.reserve_usage", AsyncMock(return_value=True))
+            patch("app.services.quota.reserve_usage", AsyncMock(return_value=True))
         )
-        stack.enter_context(patch("app.services.chat.quota_service.refund_usage", AsyncMock()))
+        stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
         stack.enter_context(
             patch(
-                "app.services.chat.attachment_lifecycle.purge_attachments_for_messages",
+                "app.services.attachment_lifecycle.purge_attachments_for_messages",
                 AsyncMock(),
             )
         )
-        stack.enter_context(patch("app.services.chat.messages_repo.delete_message", AsyncMock()))
+        stack.enter_context(patch("app.repositories.messages.delete_message", AsyncMock()))
         stack.enter_context(
-            patch("app.services.chat.litellm_gateway.stream_chat_completion", empty_stream)
+            patch("app.gateways.litellm_gateway.stream_chat_completion", empty_stream)
         )
-        stack.enter_context(patch("app.services.chat._restore_regenerate_backup", AsyncMock()))
+        stack.enter_context(patch("app.services.chat.stream.restore_regenerate_backup", AsyncMock()))
         from app.gateways.litellm_gateway import ModelUnavailableError
 
         with pytest.raises(ModelUnavailableError):
@@ -2603,10 +2605,10 @@ async def test_instant_reply_usage_uses_input_output_keys(stream_offline_io):
     with (
         patch("app.services.chat.stream.finalize_stream_turn_db", side_effect=capture_finalize),
         patch(
-            "app.services.chat.calendar_service.materialize_calendar_proposals",
+            "app.services.calendar.materialize_calendar_proposals",
             AsyncMock(side_effect=lambda *_a, **_k: _a[-1] if _a else "It's 3:00 PM."),
         ),
-        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=None)),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)),
     ):
         tokens: list[str] = []
         async for tok in stream_and_finalize(
