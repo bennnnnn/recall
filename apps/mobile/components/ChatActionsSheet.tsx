@@ -45,19 +45,8 @@ export function ChatActionsSheet({
   const insets = useSafeAreaInsets();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const isMenu = placement === "menu";
-  // Menu: filled / social glyphs read bolder; sheet keeps lighter outlines.
-  const iconSize = isMenu ? 22 : 20;
-  const shareIcon = isMenu ? "share-social" : "share-outline";
-  const renameIcon = isMenu ? "pencil" : "pencil-outline";
-  const pinIcon = pinned ? "pin" : "pin-outline";
-  const archiveIcon = archived
-    ? isMenu
-      ? "arrow-undo"
-      : "arrow-undo-outline"
-    : isMenu
-      ? "archive"
-      : "archive-outline";
-  const trashIcon = isMenu ? "trash" : "trash-outline";
+  // Menu matches ChatGPT-style bold outlines; sheet keeps smaller outlines.
+  const iconSize = isMenu ? 24 : 20;
 
   const row = (
     icon: keyof typeof Ionicons.glyphMap,
@@ -65,35 +54,55 @@ export function ChatActionsSheet({
     onPress: () => void,
     danger = false,
   ) => (
-    <Pressable style={s.item} onPress={onPress}>
+    <Pressable
+      style={({ pressed }) => [s.item, isMenu && pressed && s.itemPressed]}
+      onPress={onPress}
+    >
       <Ionicons
         name={icon}
         size={iconSize}
         color={danger ? theme.danger : theme.text}
       />
-      <Text style={[s.label, danger && s.labelDanger]}>{label}</Text>
+      <Text style={[isMenu ? s.menuLabel : s.label, danger && s.labelDanger]}>
+        {label}
+      </Text>
     </Pressable>
   );
 
-  const actionRows = (
+  // ChatGPT order: Share → Pin → … → Archive → Delete. Keep Rename (ours).
+  const actionRows = isMenu ? (
     <>
-      {row(shareIcon, t("chat.share"), onShare)}
-      {!isMenu ? <View style={s.divider} /> : null}
-      {row(renameIcon, t("chat.rename"), onRename)}
-      {!isMenu ? <View style={s.divider} /> : null}
-      {row(pinIcon, pinned ? t("chat.unpin") : t("chat.pin"), onTogglePin)}
-      {!isMenu ? <View style={s.divider} /> : null}
+      {row("share-social-outline", t("chat.share"), onShare)}
+      {row(pinned ? "pin" : "pin-outline", pinned ? t("chat.unpin") : t("chat.pin"), onTogglePin)}
+      {row("pencil-outline", t("chat.rename"), onRename)}
+      {onToggleArchive
+        ? row(
+            archived ? "arrow-undo-outline" : "archive-outline",
+            archived ? t("chat.unarchive") : t("chat.archive"),
+            onToggleArchive,
+          )
+        : null}
+      {row("trash-outline", t("common.delete"), onDelete, true)}
+    </>
+  ) : (
+    <>
+      {row("share-outline", t("chat.share"), onShare)}
+      <View style={s.divider} />
+      {row("pencil-outline", t("chat.rename"), onRename)}
+      <View style={s.divider} />
+      {row(pinned ? "pin" : "pin-outline", pinned ? t("chat.unpin") : t("chat.pin"), onTogglePin)}
+      <View style={s.divider} />
       {onToggleArchive ? (
         <>
           {row(
-            archiveIcon,
+            archived ? "arrow-undo-outline" : "archive-outline",
             archived ? t("chat.unarchive") : t("chat.archive"),
             onToggleArchive,
           )}
-          {!isMenu ? <View style={s.divider} /> : null}
+          <View style={s.divider} />
         </>
       ) : null}
-      {row(trashIcon, t("common.delete"), onDelete, true)}
+      {row("trash-outline", t("common.delete"), onDelete, true)}
     </>
   );
 
@@ -117,9 +126,9 @@ export function ChatActionsSheet({
           style={[
             s.menuPanelShadow,
             {
-              top: insets.top + CHAT_HEADER_BAR_HEIGHT + 4,
-              right: 10,
-              left: 56,
+              top: insets.top + CHAT_HEADER_BAR_HEIGHT + 6,
+              right: 12,
+              left: 44,
             },
           ]}
         >
@@ -129,7 +138,7 @@ export function ChatActionsSheet({
                 {title}
               </Text>
             ) : null}
-            {actionRows}
+            <View style={s.menuRows}>{actionRows}</View>
           </View>
         </View>
       </View>
@@ -185,40 +194,53 @@ function makeStyles(C: Theme) {
     },
     menuBackdrop: {
       ...StyleSheet.absoluteFill,
-      backgroundColor: C.scrim,
+      // Light dim so the chat stays readable under the card (ChatGPT-style).
+      backgroundColor: C.isDark ? "rgba(0,0,0,0.45)" : "rgba(0,0,0,0.18)",
     },
     menuPanelShadow: {
       position: "absolute",
-      borderRadius: 14,
-      // Shadow must live on a view without overflow:hidden or iOS clips it.
+      borderRadius: 24,
       backgroundColor: C.bg,
       shadowColor: "#000",
-      shadowOpacity: C.isDark ? 0.55 : 0.28,
-      shadowRadius: 20,
-      shadowOffset: { width: 0, height: 10 },
-      elevation: 20,
+      shadowOpacity: C.isDark ? 0.5 : 0.22,
+      shadowRadius: 28,
+      shadowOffset: { width: 0, height: 12 },
+      elevation: 22,
     },
     menuPanel: {
-      borderRadius: 14,
+      borderRadius: 24,
       backgroundColor: C.bg,
       overflow: "hidden",
+      paddingBottom: 8,
     },
     menuTitle: {
-      fontSize: 13,
-      fontWeight: "600",
-      color: C.textSecondary,
-      paddingHorizontal: 18,
-      paddingTop: 14,
+      fontSize: 15,
+      fontWeight: "500",
+      color: C.textTertiary,
+      paddingHorizontal: 20,
+      paddingTop: 18,
+      paddingBottom: 10,
+    },
+    menuRows: {
       paddingBottom: 6,
     },
     item: {
       flexDirection: "row",
       alignItems: "center",
-      paddingHorizontal: 18,
-      paddingVertical: 15,
-      gap: 14,
+      paddingHorizontal: 20,
+      paddingVertical: 14,
+      gap: 16,
+    },
+    itemPressed: {
+      backgroundColor: C.surfaceAlt,
     },
     label: { fontSize: 16, color: C.text, fontWeight: "400", flex: 1 },
+    menuLabel: {
+      fontSize: 17,
+      color: C.text,
+      fontWeight: "500",
+      flex: 1,
+    },
     labelDanger: { color: C.danger },
     divider: {
       height: StyleSheet.hairlineWidth,
