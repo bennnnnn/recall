@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import type { ResolvedChatError } from "@/lib/chatErrorMessage";
-import { Theme, useTheme } from "@/lib/theme";
+import { Theme, useTheme, withAlpha } from "@/lib/theme";
 
 type Props = {
   error: ResolvedChatError | null;
@@ -73,7 +73,7 @@ function makeStyles(theme: Theme) {
       paddingLeft: 12,
       paddingRight: 8,
       paddingVertical: 10,
-      boxShadow: "0 4 16 0 rgba(0, 0, 0, 0.12)",
+      boxShadow: `0 4 16 0 ${withAlpha(theme.scrim, 0.12)}`,
       elevation: 8,
       zIndex: 20,
     },

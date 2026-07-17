@@ -2,7 +2,7 @@ import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { displayLang, groupTokensByLine, parseFenceLang, TOKEN_COLORS } from "@/lib/codeHighlight";
+import { displayLang, groupTokensByLine, parseFenceLang, resolveTokenColor, TOKEN_COLORS } from "@/lib/codeHighlight";
 import type * as CodeTokenizeModule from "@/lib/codeTokenize";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -88,8 +88,7 @@ export function CodeBlock({
 
   // Syntax colors are saturated mid-tones that read on either background, but
   // the near-black "plain" color is invisible on a dark panel — remap it.
-  const colorFor = (c: string) =>
-    t.isDark && c === TOKEN_COLORS.plain ? t.codeText : c;
+  const colorFor = (c: string) => resolveTokenColor(c, t.isDark);
 
   return (
     <View style={s.wrap}>

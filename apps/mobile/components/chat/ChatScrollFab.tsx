@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
-import { Theme, useTheme } from "@/lib/theme";
+import { Theme, useTheme, withAlpha } from "@/lib/theme";
 import { formatScrollAwayBadge } from "@/lib/chatScrollLogic";
 
 type Props = {
@@ -61,7 +61,7 @@ const makeS = (C: Theme) =>
       borderColor: C.border,
       alignItems: "center",
       justifyContent: "center",
-      boxShadow: "0 2 10 0 rgba(0, 0, 0, 0.18)",
+      boxShadow: `0 2 10 0 ${withAlpha(C.scrim, 0.18)}`,
       elevation: 8,
     },
     badge: {

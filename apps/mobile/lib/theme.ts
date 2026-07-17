@@ -64,6 +64,13 @@ export type Theme = {
 
   // Overlays
   scrim: string;
+
+  // Brand identity colors (constant across schemes — logos never invert)
+  brand: {
+    twitter: string;
+    linkedin: string;
+    gmail: string;
+  };
 };
 
 export const lightTheme: Theme = {
@@ -110,6 +117,8 @@ export const lightTheme: Theme = {
   codeLang: "#9CA3AF",
 
   scrim: "rgba(0,0,0,0.40)",
+
+  brand: { twitter: "#1DA1F2", linkedin: "#0A66C2", gmail: "#EA4335" },
 };
 
 export const darkTheme: Theme = {
@@ -156,6 +165,8 @@ export const darkTheme: Theme = {
   codeLang: "#8E8E8E",
 
   scrim: "rgba(0,0,0,0.60)",
+
+  brand: { twitter: "#1DA1F2", linkedin: "#0A66C2", gmail: "#EA4335" },
 };
 
 /** Active palette for the current color scheme (system or user override). */

@@ -133,7 +133,7 @@ export function EmailCard({ draft }: Props) {
             accessibilityLabel={t("chat.email_card_gmail")}
             disabled={gmailOpening || editing}
           >
-            <Ionicons name="mail-outline" size={16} color="#EA4335" />
+            <Ionicons name="mail-outline" size={16} color={theme.brand.gmail} />
             <Text style={s.gmailBtnText}>Gmail</Text>
           </Pressable>
         </View>

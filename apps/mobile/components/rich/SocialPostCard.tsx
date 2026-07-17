@@ -15,11 +15,11 @@ function platformMeta(
   { label: string; icon: keyof typeof Ionicons.glyphMap; color: string }
 > {
   return {
-    twitter: { label: "Post draft · X", icon: "logo-twitter", color: "#1DA1F2" },
+    twitter: { label: "Post draft · X", icon: "logo-twitter", color: t.brand.twitter },
     linkedin: {
       label: "Post draft · LinkedIn",
       icon: "logo-linkedin",
-      color: "#0A66C2",
+      color: t.brand.linkedin,
     },
     generic: {
       label: "Social post draft",

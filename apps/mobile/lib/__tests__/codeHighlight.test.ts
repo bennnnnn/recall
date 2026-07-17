@@ -5,7 +5,9 @@ import {
   looksLikeHtmlPage,
   normalizeLang,
   parseFenceLang,
+  resolveTokenColor,
   shouldUseHtmlPreview,
+  TOKEN_COLORS,
 } from "@/lib/codeHighlight";
 
 describe("parseFenceLang", () => {
@@ -82,5 +84,31 @@ describe("groupTokensByLine", () => {
 
   it("returns a single empty line for empty input", () => {
     expect(groupTokensByLine([])).toEqual([[]]);
+  });
+});
+
+describe("resolveTokenColor", () => {
+  it("returns the color unchanged in light mode", () => {
+    expect(resolveTokenColor(TOKEN_COLORS.keyword, false)).toBe(TOKEN_COLORS.keyword);
+  });
+
+  it("remaps every light token color to its dark counterpart in dark mode", () => {
+    for (const [key, light] of Object.entries(TOKEN_COLORS)) {
+      const dark = resolveTokenColor(light, true);
+      expect(dark).not.toBe(light);
+      expect(dark).toMatch(/^#[0-9a-fA-F]{6}$/);
+      // Every key must resolve (no light color should fall through unchanged).
+      expect(dark).not.toBe(light);
+      void key;
+    }
+  });
+
+  it("falls back to the input color for unrecognized values", () => {
+    expect(resolveTokenColor("#abcdef", true)).toBe("#abcdef");
+    expect(resolveTokenColor("#abcdef", false)).toBe("#abcdef");
+  });
+
+  it("remaps the near-black plain token so code is visible on a dark panel", () => {
+    expect(resolveTokenColor(TOKEN_COLORS.plain, true)).toBe("#E6E6E6");
   });
 });
