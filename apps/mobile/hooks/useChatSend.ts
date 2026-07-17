@@ -26,7 +26,6 @@ import {
   pickFromPhotoLibrary,
   uploadChatAttachment,
   messageTextForSend,
-  defaultMathCameraPrompt,
   type PendingAttachment,
 } from "@/lib/attachments";
 
@@ -379,18 +378,13 @@ export function useChatSend({
 
       try {
         const picked =
-          source === "solve_math_camera"
-            ? await pickFromCamera({ allowsEditing: true })
-            : source === "camera"
-              ? await pickFromCamera()
-              : source === "photo"
-                ? await pickFromPhotoLibrary()
-                : await pickDocument();
+          source === "camera"
+            ? await pickFromCamera()
+            : source === "photo"
+              ? await pickFromPhotoLibrary()
+              : await pickDocument();
         if (picked) {
           setPendingAttachment(picked);
-          if (source === "solve_math_camera") {
-            setInput(defaultMathCameraPrompt());
-          }
         }
       } catch (error) {
         if (error instanceof HeicUnsupportedError) {

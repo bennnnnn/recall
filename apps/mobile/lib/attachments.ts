@@ -153,9 +153,7 @@ export async function pickFromPhotoLibrary(): Promise<PendingAttachment | null> 
   });
 }
 
-export async function pickFromCamera(
-  options?: { allowsEditing?: boolean },
-): Promise<PendingAttachment | null> {
+export async function pickFromCamera(): Promise<PendingAttachment | null> {
   return withNativePicker(async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
@@ -165,8 +163,7 @@ export async function pickFromCamera(
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ["images"],
       quality: 0.85,
-      // Math scan: crop UI so the user can frame just the equation.
-      allowsEditing: options?.allowsEditing ?? false,
+      allowsEditing: false,
     });
 
     if (result.canceled || !result.assets[0]) return null;

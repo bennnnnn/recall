@@ -16,13 +16,14 @@ jest.mock("react-native-safe-area-context", () => ({
 }));
 
 describe("AttachmentSourceSheet", () => {
-  it("no longer offers image generation (text intent + confirmation sheet only)", async () => {
+  it("offers camera, photo, and file — not a fake second math camera", async () => {
     const onSelect = jest.fn();
     const { queryByText, getByText } = await render(
       <AttachmentSourceSheet visible onClose={jest.fn()} onSelect={onSelect} />,
     );
 
     expect(queryByText("chat.attach_generate_image")).toBeNull();
+    expect(queryByText("chat.attach_solve_math_camera")).toBeNull();
 
     await fireEvent.press(getByText("chat.attach_camera"));
     expect(onSelect).toHaveBeenCalledWith("camera");
