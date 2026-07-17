@@ -201,11 +201,13 @@ export function ConversationList(_props: unknown) {
     bulkDeleteChats(selectedChats, exitSelectionMode);
   }, [bulkDeleteChats, selectedChats, exitSelectionMode]);
 
-  const handleEnterSelection = useCallback(() => {
+  const handleSelectFromMenu = useCallback(() => {
     tap();
+    const chatId = menuChat?.id;
+    closeMenu();
     closeSearch();
-    enterSelectionMode();
-  }, [closeSearch, enterSelectionMode]);
+    if (chatId) enterSelectionMode(chatId);
+  }, [menuChat?.id, closeMenu, closeSearch, enterSelectionMode]);
 
   const topInset = insets.top + 8 + TOP_CHROME;
   const bottomInset = insets.bottom + 8 + FOOTER_CHROME;
@@ -272,6 +274,7 @@ export function ConversationList(_props: unknown) {
           tap();
           confirmDeleteChat();
         }}
+        onSelectChats={handleSelectFromMenu}
       />
       <ChatRenameSheet
         visible={renameVisible}
@@ -332,7 +335,6 @@ export function ConversationList(_props: unknown) {
         onCloseSearch={closeSearch}
         selectionMode={selectionMode}
         selectedCount={selectedCount}
-        onEnterSelection={handleEnterSelection}
         onExitSelection={exitSelectionMode}
         onSelectAll={selectAllListed}
       />

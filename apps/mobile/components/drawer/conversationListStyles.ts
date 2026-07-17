@@ -48,7 +48,6 @@ export function makeConversationListStyles(theme: Theme) {
       gap: 4,
     },
     searchBtn: { padding: 4 },
-    selectBtn: { padding: 4 },
     selectionHeader: {
       flexDirection: "row",
       alignItems: "center",

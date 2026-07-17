@@ -18,7 +18,6 @@ type Props = {
   onCloseSearch: () => void;
   selectionMode?: boolean;
   selectedCount?: number;
-  onEnterSelection?: () => void;
   onExitSelection?: () => void;
   onSelectAll?: () => void;
 };
@@ -35,7 +34,6 @@ export function DrawerHeader({
   onCloseSearch,
   selectionMode = false,
   selectedCount = 0,
-  onEnterSelection,
   onExitSelection,
   onSelectAll,
 }: Props) {
@@ -86,9 +84,6 @@ export function DrawerHeader({
                 accessibilityLabel={t("search.placeholder")}
               >
                 <Ionicons name="search-outline" size={20} color={theme.textSecondary} />
-              </Pressable>
-              <Pressable hitSlop={8} style={s.selectBtn} onPress={onEnterSelection}>
-                <Text style={s.selectionHeaderActionText}>{t("drawer.select")}</Text>
               </Pressable>
             </View>
           </View>
