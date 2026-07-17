@@ -418,7 +418,7 @@ def extract_math_intent(text: str) -> MathIntent | None:
             lhs, rhs = newton_pairs[0]
             rhs_is_zero = rhs.strip() in ("0", "0.0")
             expr = lhs if rhs_is_zero else f"({lhs})-({rhs})"
-            variables = math_service._guess_variables(f"{lhs} {rhs}")
+            variables = math_service.guess_variables(f"{lhs} {rhs}")
             var = variables[0] if variables else "x"
             return MathIntent(
                 kind="numerical_method",
@@ -436,7 +436,7 @@ def extract_math_intent(text: str) -> MathIntent | None:
         # "verified, do NOT recompute" confidence as a fully correct
         # response — silently discarding every other equation in the system.
         all_text = " ".join(f"{lhs} {rhs}" for lhs, rhs in eq_pairs)
-        variables = math_service._guess_variables(all_text)
+        variables = math_service.guess_variables(all_text)
         return MathIntent(
             kind="system",
             system_equations=eq_pairs[:4],
@@ -445,7 +445,7 @@ def extract_math_intent(text: str) -> MathIntent | None:
         )
     if len(eq_pairs) == 1:
         lhs, rhs = eq_pairs[0]
-        variables = math_service._guess_variables(lhs + rhs)
+        variables = math_service.guess_variables(lhs + rhs)
         return MathIntent(
             kind="equation",
             lhs=lhs,
@@ -460,7 +460,7 @@ def extract_math_intent(text: str) -> MathIntent | None:
     ineq = math_service.try_extract_inequality_from_text(cleaned)
     if ineq:
         lhs, rhs, comparator = ineq
-        variables = math_service._guess_variables(lhs + rhs)
+        variables = math_service.guess_variables(lhs + rhs)
         return MathIntent(
             kind="inequality",
             lhs=lhs,

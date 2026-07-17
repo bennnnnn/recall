@@ -23,6 +23,8 @@ from app.services.vocab_quiz import QuizAnswerGrade
 
 logger = logging.getLogger(__name__)
 
+_ACTION_RELOAD_LIMIT = 500
+
 
 async def _invalidate_home_for_user(user_id: UUID) -> None:
     """Home cards depend on project stats — bust cache after learning mutations."""
@@ -1555,7 +1557,7 @@ async def apply_project_actions(
         if not actions:
             return 0
     projects = await projects_repo.list_for_user(session, user_id, limit=200)
-    items = await project_items_repo.list_recent_for_user(session, user_id, limit=500)
+    items = await project_items_repo.list_recent_for_user(session, user_id, limit=_ACTION_RELOAD_LIMIT)
     applied = 0
     for action in actions:
         title = action.project_title.strip()
@@ -1621,7 +1623,7 @@ async def apply_project_actions(
                     )
                     applied += 1
                     items = await project_items_repo.list_recent_for_user(
-                        session, user_id, limit=500
+                        session, user_id, limit=_ACTION_RELOAD_LIMIT
                     )
             elif action.action == "delete_project":
                 matched = _find_project(projects, title)
@@ -1678,7 +1680,7 @@ async def apply_project_actions(
                     )
                     applied += 1
                     items = await project_items_repo.list_recent_for_user(
-                        session, user_id, limit=500
+                        session, user_id, limit=_ACTION_RELOAD_LIMIT
                     )
                 elif action.action == "start_learning":
                     # Record a failed/incorrect quiz outcome (open-ended or exhausted).
@@ -1701,7 +1703,7 @@ async def apply_project_actions(
                             status="new",
                         )
                         items = await project_items_repo.list_recent_for_user(
-                            session, user_id, limit=500
+                            session, user_id, limit=_ACTION_RELOAD_LIMIT
                         )
                     if item and _item_status(item) != "mastered":
                         if not _failed_quiz_today(item):
