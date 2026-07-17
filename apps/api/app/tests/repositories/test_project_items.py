@@ -243,3 +243,25 @@ async def test_update_item_records_review_on_status_change(fake_session):
     assert item.review_count == 1
     assert item.last_reviewed_at is not None
     fake_session.commit.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_update_item_learning_registers_miss_for_failed_count(fake_session):
+    """Manual Needs review / Failed must stamp a miss so missed_today is not stuck at 0."""
+    from app.models.orm import QuizMissEvent
+    from app.services.projects.items import update_item
+
+    item = _item(status="mastered")
+    item.mastered = True
+    item.review_count = 2
+    item.last_incorrect_at = None
+    item.ease_factor = 2.5
+    item.interval_days = 6
+
+    await update_item(fake_session, item, status="learning")
+
+    assert item.status == "learning"
+    assert item.mastered is False
+    assert item.last_incorrect_at is not None
+    added = [call.args[0] for call in fake_session.add.call_args_list]
+    assert any(isinstance(obj, QuizMissEvent) for obj in added)
