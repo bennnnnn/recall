@@ -173,7 +173,7 @@ async def test_build_home_screen_never_overlaps_ops_on_one_session():
 
         return impl
 
-    empty_project_content = home_service.ProjectHomeContent([], None, None, [])
+    empty_project_content = home_service.ProjectHomeContent([], None, None, [], False)
     memories_mock = AsyncMock(side_effect=tracked("memories", []))
     chats_mock = AsyncMock(side_effect=tracked("chats", []))
     with (
@@ -708,6 +708,31 @@ def test_memory_starter_profile_english_learning():
     starter = home_service._memory_starter(memory)
     assert starter is not None
     assert starter.text == "Practice English"
+
+
+@pytest.mark.asyncio
+async def test_build_home_hides_practice_english_without_language_project():
+    """Stale English memories must not show Practice English after class delete."""
+    session = AsyncMock()
+    user = _user()
+    memory = MagicMock()
+    memory.type = "focus"
+    memory.text = "User is learning English vocabulary"
+    suggestion = MagicMock()
+    suggestion.id = uuid4()
+    suggestion.text = "Practice English vocabulary for 10 minutes"
+
+    with _home_patches(
+        load_relevant_memories=[memory],
+        list_active_suggestions=[suggestion],
+        list_projects=[],
+    ):
+        screen = await home_service.build_home_screen(session, user, Settings())
+
+    starter_texts = {s.text for s in screen.starters}
+    assert "Practice English" not in starter_texts
+    assert not any("English" in s.text for s in screen.starters)
+    assert not any("vocabulary" in (s.prompt or "").lower() for s in screen.starters)
 
 
 def test_chat_starter_uses_friendly_label():

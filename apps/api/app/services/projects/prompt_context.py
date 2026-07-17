@@ -297,7 +297,14 @@ async def load_daily_learning_summary_for_prompt(
         if _is_language_project(project) or _is_trivia_project(project)
     ]
     if not learning_projects:
-        return ""
+        # Explicit empty state so the model does not invent 0/N quiz stats from
+        # leftover memories after the user deleted their class.
+        return (
+            "Today's learning progress (local calendar day, authoritative):\n"
+            "- No active vocabulary or general-knowledge class.\n"
+            "Do not mention quiz progress, invent 0/N stats, or urge practice for a "
+            "deleted or missing class — even if older memories mention English learning."
+        )
     stats_by_project = await project_stats.count_stats_by_project(
         session,
         [project.id for project in learning_projects],
@@ -326,5 +333,9 @@ async def load_daily_learning_summary_for_prompt(
             f"({mastered_today} correct, {missed_today} failed; {status})"
         )
     if not lines:
-        return ""
+        return (
+            "Today's learning progress (local calendar day, authoritative):\n"
+            "- All active daily vocabulary/general-knowledge goals are complete for today.\n"
+            "Do not invent incomplete quiz stats."
+        )
     return "Today's learning progress (local calendar day, authoritative):\n" + "\n".join(lines)

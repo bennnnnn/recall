@@ -27,9 +27,16 @@ def memory_display_text(text: str) -> str:
     return cleaned or clean
 
 
-def pick_home_memory(memories: list[Memory]) -> Memory | None:
+def pick_home_memory(
+    memories: list[Memory],
+    *,
+    has_language_project: bool = True,
+) -> Memory | None:
     for memory in memories:
         if looks_internal(memory.text):
+            continue
+        # Stale English memories must not surface after the vocab class is deleted.
+        if looks_like_language_learning(memory.text) and not has_language_project:
             continue
         if memory.type in _HOME_MEMORY_TYPES:
             return memory
@@ -174,8 +181,11 @@ def memory_starter_if_distinct(
     *,
     skip_overlapping: list[str],
     completed_daily: list[CompletedDaily] | None = None,
+    has_language_project: bool = True,
 ) -> HomeStarter | None:
     if completed_daily and memory_blocked_by_completed_daily(memory, completed_daily):
+        return None
+    if looks_like_language_learning(memory.text) and not has_language_project:
         return None
     starter = memory_starter(memory)
     if not starter:

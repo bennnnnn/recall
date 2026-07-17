@@ -573,7 +573,30 @@ async def test_load_daily_learning_summary_skips_completed_goal():
             session, user, Settings()
         )
 
-    assert block == ""
+    assert "Today's learning progress" in block
+    assert "complete for today" in block
+    assert "0/5" not in block
+
+
+@pytest.mark.asyncio
+async def test_load_daily_learning_summary_no_active_class():
+    """Deleted vocab class must not leave room for invented 0/N quiz stats."""
+    session = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    user.timezone = "America/Los_Angeles"
+
+    with patch.object(
+        projects_repo,
+        "list_for_user",
+        AsyncMock(return_value=[]),
+    ):
+        block = await projects_service.load_daily_learning_summary_for_prompt(
+            session, user, Settings()
+        )
+
+    assert "No active vocabulary or general-knowledge class" in block
+    assert "Do not mention quiz progress" in block
 
 
 @pytest.mark.asyncio
