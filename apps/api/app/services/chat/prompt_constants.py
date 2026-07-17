@@ -67,12 +67,13 @@ DAY_PLANNING_ANSWER_HINT = (
 DAY_LEARNING_SNAPSHOT_HINT = (
     "When 'Today's learning progress' is in context, those lines are authoritative for the "
     "user's local calendar day. Never reuse yesterday's scores from memory or chat history.\n"
-    "Name each track explicitly as **vocabulary quiz** or **general knowledge quiz** — never "
-    "the generic word 'quiz' alone.\n"
+    "Only mention tracks that appear in that block (e.g. vocabulary quiz OR general knowledge "
+    "quiz) — never invent the other kind if it is not listed.\n"
     "If today's learning progress lists an incomplete goal, mention it briefly (e.g. "
-    "'You haven't started today's vocabulary quiz — 0/5 words'). "
-    "If it says there is **no active class**, do not invent quiz stats or urge practice. "
-    "If it says goals are complete, do not invent incomplete progress."
+    "'You haven't started today's general knowledge quiz — 0/5'). "
+    "If it says there is **no active learning class**, do not mention quizzes at all. "
+    "If a listed goal is complete, you may note that track only — do not invent incomplete "
+    "progress or extra classes."
 )
 
 
