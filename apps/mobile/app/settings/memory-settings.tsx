@@ -11,7 +11,10 @@ import {
   SettingsSwitchRow,
 } from "@/components/settings/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
-import { api } from "@/lib/api";
+import {
+  fetchMemories,
+  prefetchMemories,
+} from "@/lib/memoryListCache";
 import { useTheme } from "@/lib/theme";
 
 export default function MemorySettingsScreen() {
@@ -25,12 +28,8 @@ export default function MemorySettingsScreen() {
 
   const loadMemories = useCallback(async () => {
     if (!token) return;
-    try {
-      const memories = await api.listMemories(token);
-      setMemCount(memories.length);
-    } catch {
-      /* keep last count */
-    }
+    const memories = await fetchMemories(token);
+    if (memories) setMemCount(memories.length);
   }, [token]);
 
   useEffect(() => {
@@ -62,7 +61,10 @@ export default function MemorySettingsScreen() {
               ? t("settings.memory_count", { count: memCount })
               : undefined
           }
-          onPress={() => router.push("/memory")}
+          onPress={() => {
+            if (token) prefetchMemories(token);
+            router.push("/memory");
+          }}
           styles={s}
           theme={theme}
         />

@@ -196,6 +196,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         /* best-effort */
       }
       try {
+        const { invalidateMemoriesCache } = await import("@/lib/memoryListCache");
+        invalidateMemoriesCache();
+      } catch {
+        /* best-effort */
+      }
+      try {
         await clearCachedUser();
       } catch {
         /* best-effort */
