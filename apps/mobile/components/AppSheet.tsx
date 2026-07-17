@@ -146,8 +146,7 @@ export function AppSheet({
         style={[
           s.overlay,
           variant === "center" && s.overlayCenter,
-          keyboardAvoiding &&
-            keyboardHeight > 0 && { paddingBottom: keyboardHeight },
+          keyboardAvoiding && { paddingBottom: keyboardHeight },
         ]}
         testID={keyboardAvoiding ? "app-sheet-keyboard-host" : undefined}
       >
