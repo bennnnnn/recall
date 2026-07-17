@@ -73,4 +73,15 @@ describe("AppSheet", () => {
 
     expect(queryByTestId("app-sheet-handle")).toBeNull();
   });
+
+  it("renders floating sheets with a handle still visible", async () => {
+    const { getByText, queryByTestId } = await render(
+      <AppSheet visible onClose={jest.fn()} floating>
+        <Text>floating body</Text>
+      </AppSheet>,
+    );
+
+    expect(getByText("floating body")).toBeOnTheScreen();
+    expect(queryByTestId("app-sheet-handle")).not.toBeNull();
+  });
 });

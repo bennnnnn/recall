@@ -58,7 +58,8 @@ export function AttachmentSourceSheet({ visible, onClose, onSelect }: Props) {
       onClose={onClose}
       variant="bottom"
       withHandle
-      minBottomPadding={24}
+      floating
+      minBottomPadding={12}
       contentContainerStyle={s.panel}
     >
       <SheetRow
@@ -100,9 +101,7 @@ function makeStyles(C: Theme) {
   return StyleSheet.create({
     panel: {
       backgroundColor: C.inputBg,
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
-      paddingBottom: 4,
+      // Radii / float margins come from AppSheet `floating`.
     },
     item: {
       flexDirection: "row",

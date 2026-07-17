@@ -27,6 +27,11 @@ type Props = {
   backdropDismiss?: boolean;
   /** Extra bottom padding on top of the safe-area inset (e.g. 12 for action sheets). */
   minBottomPadding?: number;
+  /**
+   * Float above the bottom edge with side/bottom margins (not edge-to-edge).
+   * Safe-area clearance is applied as margin so the last row stays visible.
+   */
+  floating?: boolean;
   /** Style override for the panel (background, radius, padding). */
   contentContainerStyle?: StyleProp<ViewStyle>;
   children: ReactNode;
@@ -41,6 +46,7 @@ export function AppSheet({
   withHandle,
   backdropDismiss = true,
   minBottomPadding = 0,
+  floating = false,
   contentContainerStyle,
   children,
 }: Props) {
@@ -57,11 +63,19 @@ export function AppSheet({
         s.panel,
         variant === "bottom" && s.panelBottom,
         variant === "center" && s.panelCenter,
-        variant === "bottom" && {
-          // Always add the safe-area inset (Android nav bar) on top of any
-          // caller minimum — Math.max alone left File clipped when inset was 0.
-          paddingBottom: insets.bottom + Math.max(minBottomPadding, 8),
-        },
+        variant === "bottom" &&
+          (floating
+            ? {
+                marginHorizontal: 16,
+                marginBottom: Math.max(insets.bottom, 8) + 12,
+                paddingBottom: Math.max(minBottomPadding, 12),
+                borderRadius: 20,
+              }
+            : {
+                // Always add the safe-area inset (Android nav bar) on top of any
+                // caller minimum — Math.max alone left File clipped when inset was 0.
+                paddingBottom: insets.bottom + Math.max(minBottomPadding, 8),
+              }),
         contentContainerStyle,
       ]}
     >
