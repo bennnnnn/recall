@@ -49,8 +49,11 @@ def test_generate_image_quota_exhausted():
     fake_redis.expire = AsyncMock()
 
     with (
-        patch("app.routers.images.get_redis_client", return_value=fake_redis),
-        patch("app.routers.images.chats_repo.get_by_id", AsyncMock(return_value=MagicMock())),
+        patch("app.services.image_generation.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.services.image_generation.chats_repo.get_by_id",
+            AsyncMock(return_value=MagicMock()),
+        ),
     ):
         client = TestClient(app)
         r = client.post(
@@ -62,7 +65,7 @@ def test_generate_image_quota_exhausted():
 
 
 def test_generate_image_rejects_oversized_result():
-    """BUG FIX: last-line-of-defense size check in the router, matching the
+    """BUG FIX: last-line-of-defense size check, matching the
     presign + actual-bytes double-check every normal attachment upload gets."""
     from app.services.attachment_content import MAX_ATTACHMENT_SIZE
 
@@ -80,10 +83,13 @@ def test_generate_image_rejects_oversized_result():
     oversized = b"\x89PNG\r\n\x1a\n" + b"0" * MAX_ATTACHMENT_SIZE
 
     with (
-        patch("app.routers.images.get_redis_client", return_value=fake_redis),
-        patch("app.routers.images.chats_repo.get_by_id", AsyncMock(return_value=chat)),
+        patch("app.services.image_generation.get_redis_client", return_value=fake_redis),
         patch(
-            "app.routers.images.image_generation_service.generate_image",
+            "app.services.image_generation.chats_repo.get_by_id",
+            AsyncMock(return_value=chat),
+        ),
+        patch(
+            "app.services.image_generation.generate_image",
             AsyncMock(return_value=(oversized, "image/png")),
         ),
     ):
@@ -151,20 +157,26 @@ def test_generate_image_success():
     app.dependency_overrides[get_db] = _get_db
 
     with (
-        patch("app.routers.images.get_redis_client", return_value=fake_redis),
-        patch("app.routers.images.chats_repo.get_by_id", AsyncMock(return_value=chat)),
+        patch("app.services.image_generation.get_redis_client", return_value=fake_redis),
         patch(
-            "app.routers.images.image_generation_service.generate_image",
+            "app.services.image_generation.chats_repo.get_by_id",
+            AsyncMock(return_value=chat),
+        ),
+        patch(
+            "app.services.image_generation.generate_image",
             AsyncMock(return_value=(b"\x89PNG\r\n", "image/png")),
         ),
-        patch("app.routers.images.get_storage_gateway", return_value=gateway),
-        patch("app.routers.images.attachments_repo.create_pending", AsyncMock()),
+        patch("app.services.image_generation.get_storage_gateway", return_value=gateway),
+        patch("app.services.image_generation.attachments_repo.create_pending", AsyncMock()),
         patch(
-            "app.routers.images.messages_repo.create",
+            "app.services.image_generation.messages_repo.create",
             AsyncMock(side_effect=[user_msg, assistant_msg]),
         ),
-        patch("app.routers.images.attachments_repo.link_to_message", AsyncMock(return_value=1)),
-        patch("app.routers.images.bytes_match_claimed", return_value=True),
+        patch(
+            "app.services.image_generation.attachments_repo.link_to_message",
+            AsyncMock(return_value=1),
+        ),
+        patch("app.services.image_generation.bytes_match_claimed", return_value=True),
     ):
         client = TestClient(app)
         r = client.post(
