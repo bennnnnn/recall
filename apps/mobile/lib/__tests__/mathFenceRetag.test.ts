@@ -121,6 +121,18 @@ describe("mathFenceRetag", () => {
     expect(looksLikeLatexFence(String.raw`p \implies q`)).toBe(true);
   });
 
+  it("BUG FIX regression: spacing-only arithmetic (\\;) is math, not a Copy code box", () => {
+    // Live chicken-word-problem screenshot: the model put
+    // `20 \;- \; 10 \;=\; 10` in an untagged ``` fence. LATEX_CMD_RE has no
+    // named command, and the `;` inside `\;` made looksLikeAlgebraLine treat
+    // it as code — so the UI showed a Copy box of raw LaTeX.
+    expect(looksLikeLatexFence(String.raw`20 \;- \; 10 \;=\; 10`)).toBe(true);
+    expect(looksLikeLatexFence(String.raw`10 \;+\; 10 \;=\; 20`)).toBe(true);
+    const input = ["```", String.raw`20 \;- \; 10 \;=\; 10`, "```"].join("\n");
+    expect(retagMathAndDiagramFences(input)).toContain("```math");
+    expect(retagMathAndDiagramFences(input)).not.toMatch(/^```\n20/m);
+  });
+
   it("BUG FIX regression: classifies a fence body that's ENTIRELY wrapped in $...$ with no other LaTeX command", () => {
     // "$2^x = 2$" has no recognized LATEX_CMD_RE keyword of its own, and
     // the bare-algebra fallback's character class excludes "$" — so without
