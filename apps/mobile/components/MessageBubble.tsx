@@ -134,6 +134,8 @@ function AssistantActions({
         onPress={handleCopy}
         hitSlop={8}
         disabled={!content.trim()}
+        accessibilityRole="button"
+        accessibilityLabel={t("common.copy")}
       >
         <Ionicons
           name={copied ? "checkmark-outline" : "copy-outline"}
@@ -146,6 +148,7 @@ function AssistantActions({
         onPress={() => void handleSpeak()}
         hitSlop={8}
         disabled={!content.trim()}
+        accessibilityRole="button"
         accessibilityLabel={t("chat.read_aloud_a11y")}
       >
         <Ionicons
@@ -159,6 +162,7 @@ function AssistantActions({
         onPress={() => void handleExportPdf()}
         hitSlop={8}
         disabled={!content.trim() || exporting}
+        accessibilityRole="button"
         accessibilityLabel={t("chat.export_pdf_a11y")}
       >
         <Ionicons
@@ -167,14 +171,26 @@ function AssistantActions({
           color={theme.textSecondary}
         />
       </Pressable>
-      <Pressable style={a.btn} onPress={() => rate("up")} hitSlop={8}>
+      <Pressable
+        style={a.btn}
+        onPress={() => rate("up")}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel={t("chat.thumbs_up_a11y")}
+      >
         <Ionicons
           name={feedback === "up" ? "thumbs-up" : "thumbs-up-outline"}
           size={19}
           color={feedback === "up" ? theme.primary : theme.textSecondary}
         />
       </Pressable>
-      <Pressable style={a.btn} onPress={() => rate("down")} hitSlop={8}>
+      <Pressable
+        style={a.btn}
+        onPress={() => rate("down")}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel={t("chat.thumbs_down_a11y")}
+      >
         <Ionicons
           name={feedback === "down" ? "thumbs-down" : "thumbs-down-outline"}
           size={19}
@@ -189,6 +205,8 @@ function AssistantActions({
             onRegenerate();
           }}
           hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={t("chat.regenerate_a11y")}
         >
           <Ionicons name="refresh-outline" size={19} color={theme.textSecondary} />
         </Pressable>
@@ -293,7 +311,13 @@ export const MessageBubble = React.memo(function MessageBubble({
             <Text style={b.sendingLabel}>{t("chat.sending")}</Text>
           ) : null}
           {canEdit && onEdit && !message.id.startsWith("local-") ? (
-            <Pressable style={b.editBtn} onPress={() => onEdit(message)} hitSlop={8}>
+            <Pressable
+              style={b.editBtn}
+              onPress={() => onEdit(message)}
+              hitSlop={14}
+              accessibilityRole="button"
+              accessibilityLabel={t("chat.edit_message_a11y")}
+            >
               <Ionicons name="pencil-outline" size={16} color={theme.textTertiary} />
             </Pressable>
           ) : null}

@@ -57,6 +57,8 @@ export function VoiceMicButton({ recording, transcribing, disabled, onPress }: P
       style={[styles.hit, disabled && styles.dim]}
       onPress={onPress}
       disabled={disabled || transcribing}
+      hitSlop={6}
+      accessibilityRole="button"
       accessibilityLabel={t("chat.voice_a11y")}
       accessibilityHint={recording ? t("chat.voice_stop_hint") : t("chat.voice_start_hint")}
     >
@@ -95,25 +97,25 @@ export function VoiceMicButton({ recording, transcribing, disabled, onPress }: P
 }
 
 const styles = StyleSheet.create({
-  hit: { width: 34, height: 34, alignItems: "center", justifyContent: "center" },
+  hit: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   dim: { opacity: 0.55 },
   slot: {
-    width: 34,
-    height: 34,
+    width: 40,
+    height: 40,
     alignItems: "center",
     justifyContent: "center",
   },
   ring: {
     position: "absolute",
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 2,
   },
   btn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: StyleSheet.hairlineWidth,

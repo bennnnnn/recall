@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { displayLang, groupTokensByLine, parseFenceLang, resolveTokenColor, TOKEN_COLORS } from "@/lib/codeHighlight";
 import type * as CodeTokenizeModule from "@/lib/codeTokenize";
@@ -126,7 +126,13 @@ export function CodeBlock({
         </ScrollView>
       </View>
       {collapsible && (
-        <Pressable style={s.expandBtn} onPress={() => setExpanded((v) => !v)} hitSlop={6}>
+        <Pressable
+          style={s.expandBtn}
+          onPress={() => setExpanded((v) => !v)}
+          hitSlop={6}
+          accessibilityRole="button"
+          accessibilityLabel={expanded ? tr("common.show_less") : tr("common.show_more")}
+        >
           <Text style={s.expandText}>{expanded ? tr("common.show_less") : tr("common.show_more")}</Text>
         </Pressable>
       )}

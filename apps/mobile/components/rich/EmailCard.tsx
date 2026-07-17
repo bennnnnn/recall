@@ -103,6 +103,7 @@ export function EmailCard({ draft }: Props) {
             style={[s.iconBtn, editing && s.iconBtnActive]}
             onPress={toggleEditing}
             hitSlop={6}
+            accessibilityRole="button"
             accessibilityLabel={
               editing ? t("chat.email_card_done") : t("chat.email_card_edit")
             }
@@ -117,6 +118,7 @@ export function EmailCard({ draft }: Props) {
             style={s.iconBtn}
             onPress={() => void onCopy()}
             hitSlop={6}
+            accessibilityRole="button"
             accessibilityLabel={t("chat.email_card_copy")}
             disabled={editing}
           >
@@ -130,6 +132,7 @@ export function EmailCard({ draft }: Props) {
             style={[s.gmailBtn, gmailOpening && s.gmailBtnBusy]}
             onPress={() => void onGmail()}
             hitSlop={6}
+            accessibilityRole="button"
             accessibilityLabel={t("chat.email_card_gmail")}
             disabled={gmailOpening || editing}
           >

@@ -76,7 +76,12 @@ function MemorySectionCard({
             />
           ) : null}
         </Pressable>
-        <Pressable hitSlop={8} onPress={onDeleteSection} accessibilityRole="button">
+        <Pressable
+          hitSlop={14}
+          onPress={onDeleteSection}
+          accessibilityRole="button"
+          accessibilityLabel={t("memory.delete_section_a11y")}
+        >
           <Ionicons name="trash-outline" size={16} color={theme.textTertiary} />
         </Pressable>
       </View>

@@ -14,7 +14,13 @@ export function CollapsibleBlock({ title, body }: Props) {
 
   return (
     <View style={s.wrap}>
-      <Pressable style={s.header} onPress={() => setOpen((v) => !v)}>
+      <Pressable
+        style={s.header}
+        onPress={() => setOpen((v) => !v)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={title}
+      >
         <Ionicons
           name={open ? "chevron-down" : "chevron-forward"}
           size={16}

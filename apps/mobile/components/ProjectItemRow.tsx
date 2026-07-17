@@ -84,7 +84,7 @@ export function ProjectItemRow({
           </Text>
           {showSpeech ? (
             <Pressable
-              hitSlop={8}
+              hitSlop={14}
               onPress={async () => {
                 const result = await speakWord(item.content, {
                   language: "en-US",
@@ -95,6 +95,8 @@ export function ProjectItemRow({
                   onSpeechUnavailable?.();
                 }
               }}
+              accessibilityRole="button"
+              accessibilityLabel={t("chat.read_aloud_a11y")}
             >
               <Ionicons name="volume-medium-outline" size={18} color={theme.primary} />
             </Pressable>
@@ -104,7 +106,13 @@ export function ProjectItemRow({
         {item.example_sentence ? (
           <Text style={s.note}>"{item.example_sentence}"</Text>
         ) : null}
-        <Pressable disabled={!onStatusChange || busy} onPress={openStatusMenu}>
+        <Pressable
+          disabled={!onStatusChange || busy}
+          onPress={openStatusMenu}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={t("projects.status_menu_a11y", { word: item.content })}
+        >
           <View style={[s.statusChip, mastered && s.statusChipMastered]}>
             <Text style={[s.statusChipText, mastered && s.statusChipTextMastered]}>
               {item.status === "learning"
