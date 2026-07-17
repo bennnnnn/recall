@@ -8,27 +8,20 @@ import { displayChatTitle } from "@/lib/chatTitle";
 import { Theme, useTheme } from "@/lib/theme";
 import type { SearchResult } from "@/lib/api";
 
-type Props = {
+type ChromeProps = {
   hasSearchQuery: boolean;
   searchLoading: boolean;
   searchError: boolean;
-  searchResults: SearchResult[];
-  hasMore?: boolean;
-  loadingMore?: boolean;
-  onLoadMore?: () => void;
-  onOpenChat: (chatId: string, messageId?: string | null) => void;
+  resultCount: number;
 };
 
-export function DrawerSearchResults({
+/** Section title + non-row states for drawer search (rows live in FlashList data). */
+export function DrawerSearchResultsChrome({
   hasSearchQuery,
   searchLoading,
   searchError,
-  searchResults,
-  hasMore,
-  loadingMore,
-  onLoadMore,
-  onOpenChat,
-}: Props) {
+  resultCount,
+}: ChromeProps) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = makeStyles(theme);
@@ -42,64 +35,83 @@ export function DrawerSearchResults({
         <SkeletonList count={3} />
       ) : searchError ? (
         <StateView variant="error" compact message={t("common.error")} />
-      ) : searchResults.length === 0 ? (
+      ) : resultCount === 0 ? (
         <StateView variant="empty" compact message={t("search.no_results")} />
-      ) : (
-        <>
-          {searchResults.map((result) => (
-            <Pressable
-              key={
-                result.message_id ? result.message_id : `title-${result.chat_id}`
-              }
-              style={s.searchResult}
-              onPress={() => onOpenChat(result.chat_id, result.message_id)}
-            >
-              <View style={s.searchResultHeader}>
-                <Ionicons
-                  name={
-                    result.match_type === "title"
-                      ? "chatbubble-outline"
-                      : result.role === "user"
-                        ? "person-outline"
-                        : "sparkles-outline"
-                  }
-                  size={14}
-                  color={
-                    result.match_type === "title" ? theme.primary : theme.textSecondary
-                  }
-                />
-                <Text style={s.searchResultTitle} numberOfLines={1}>
-                  {displayChatTitle(result.chat_title, {}, t)}
-                </Text>
-                {result.match_type === "title" ? (
-                  <Text style={s.searchResultBadge}>{t("search.topic_match")}</Text>
-                ) : null}
-              </View>
-              <Text style={s.searchResultSnippet} numberOfLines={2}>
-                {result.content}
-              </Text>
-            </Pressable>
-          ))}
-          {hasMore ? (
-            <Pressable
-              style={s.loadMore}
-              onPress={onLoadMore}
-              disabled={loadingMore}
-              accessibilityRole="button"
-              accessibilityLabel={t("search.load_more")}
-            >
-              {loadingMore ? (
-                <ActivityIndicator size="small" color={theme.primary} />
-              ) : (
-                <Text style={s.loadMoreText}>{t("search.load_more")}</Text>
-              )}
-            </Pressable>
-          ) : null}
-        </>
-      )}
+      ) : null}
     </View>
   );
 }
+
+type RowProps = {
+  result: SearchResult;
+  onOpenChat: (chatId: string, messageId?: string | null) => void;
+};
+
+export function DrawerSearchResultRow({ result, onOpenChat }: RowProps) {
+  const { t } = useTranslation();
+  const theme = useTheme();
+  const s = makeStyles(theme);
+
+  return (
+    <Pressable
+      style={s.searchResult}
+      onPress={() => onOpenChat(result.chat_id, result.message_id)}
+    >
+      <View style={s.searchResultHeader}>
+        <Ionicons
+          name={
+            result.match_type === "title"
+              ? "chatbubble-outline"
+              : result.role === "user"
+                ? "person-outline"
+                : "sparkles-outline"
+          }
+          size={14}
+          color={result.match_type === "title" ? theme.primary : theme.textSecondary}
+        />
+        <Text style={s.searchResultTitle} numberOfLines={1}>
+          {displayChatTitle(result.chat_title, {}, t)}
+        </Text>
+        {result.match_type === "title" ? (
+          <Text style={s.searchResultBadge}>{t("search.topic_match")}</Text>
+        ) : null}
+      </View>
+      <Text style={s.searchResultSnippet} numberOfLines={2}>
+        {result.content}
+      </Text>
+    </Pressable>
+  );
+}
+
+type LoadMoreProps = {
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
+};
+
+export function DrawerSearchLoadMore({ loadingMore, onLoadMore }: LoadMoreProps) {
+  const { t } = useTranslation();
+  const theme = useTheme();
+  const s = makeStyles(theme);
+
+  return (
+    <Pressable
+      style={s.loadMore}
+      onPress={onLoadMore}
+      disabled={loadingMore}
+      accessibilityRole="button"
+      accessibilityLabel={t("search.load_more")}
+    >
+      {loadingMore ? (
+        <ActivityIndicator size="small" color={theme.primary} />
+      ) : (
+        <Text style={s.loadMoreText}>{t("search.load_more")}</Text>
+      )}
+    </Pressable>
+  );
+}
+
+/** @deprecated Use DrawerSearchResultsChrome — kept as alias for imports. */
+export const DrawerSearchResults = DrawerSearchResultsChrome;
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
@@ -120,7 +132,6 @@ function makeStyles(theme: Theme) {
       paddingHorizontal: 14,
       paddingVertical: 12,
     },
-    searchStatus: { paddingVertical: 16, alignItems: "center" },
     searchResult: {
       paddingHorizontal: 14,
       paddingVertical: 12,
