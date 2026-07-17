@@ -10,6 +10,32 @@ Format each as **symptom → cause → fix** in 1–3 lines. Newest first. Keep 
 
 ## Lessons
 
+- **Model toggles snap on→off (or off→on) for a moment.** Controlled `Switch` was bound only to
+  `user.enabled_models` via context, so the native flip snapped back until Auth caught up; racing
+  bootstrap `updateMe({timezone|location}).then(setUser)` also replaced the whole user with a
+  stale `enabled_models`. Fix: local draft prefs on Settings→Models; `updateUser` generation guard;
+  bootstrap merges only the fields it patched (`useBootstrapSync`).
+- **Memory screen sits on skeletons every open.** Settings→Memory already called `GET /memories`
+  for the count, then `/memory` fetched again with empty state. Fix: shared `memoryListCache`
+  (20s freshness + inflight dedupe); prefetch on Settings→Memory tap; paint from cache on mount;
+  invalidate on logout. Do not show a full-screen skeleton when cache is warm.
+- **Header chat-bubble “comes then goes” — and user does NOT want it on empty home.** Gating the
+  new-chat control on `messages.length` alone flickers if the list briefly clears during load;
+  always-showing on home was rejected (“why do I need it when I don’t have messages”). Fix: show
+  new-chat + ⋮ only when `messages.length > 0 || routeChatId` (active chat); keep empty home clean.
+  Product: bubble replaces compose pencil; no divider between bubble and ⋮ (#362).
+- **iOS Simulator soft keyboard won’t appear.** Host “Connect Hardware Keyboard” hides it.
+  `defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false` (device prefs too)
+  + relaunch Simulator; user may still need ⌘K. Cursor/osascript cannot send Simulator keystrokes
+  without Mac Accessibility permission.
+- **TTS `/speech/tts` → 502, model missing.** OpenRouter 400: `openai/gpt-4o-mini-tts does not
+  exist`. API stays up; fix the configured TTS model alias/mapping in speech gateway — not a
+  crash. Don’t treat TTS Tracebacks as “API is down.”
+- **WebSocket ASGI Traceback on navigate.** `WebSocketDisconnect(1000)` while waiting for auth
+  JSON in `chat_websocket` = client closed during reconnect; noisy, not a fatal API failure.
+- **Attach sheet / header icon polish (shipped).** Attach rows use plain outline icons like
+  ChatActionsSheet (no blue chips) (#361). Integrations connect: one spinner only — drop body
+  duplicate when header already shows busy (#360).
 - **Image goes blurry/gray after the assistant replies.** Focus refetch after `streaming→false` replaces `local-*` ids with server UUIDs; id-only `mergeLocalAttachmentUris` dropped `local_image_uri` and restarted blur reveal. Also match orphaned local URIs onto incoming user attachment messages; user thumbs use `animatedReveal={false}`.
 - **Attachment send showed `[BEGIN UNTRUSTED…]` + blurry spinner.** `wrap_untrusted` was persisted into the user message; focus refetch then dropped `local_image_uri` so ChatMessageImage remounted on a remote auth URL. Persist plain `[Image:]`/`[File:]` only; merge local URIs on refetch; skip blur reveal for `file://`.
 - **CodeQL poly-ReDoS not cleared by `collapse_ws` / length caps.** CodeQL ignores those as sanitizers; rewrite sinks to linear scans (`find` / digit parse). See `.cursor/skills/security-alert-pitfalls/SKILL.md`.
