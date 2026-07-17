@@ -55,10 +55,11 @@ export function UserMessageContent({ message }: Props) {
           attachmentId={image.attachmentId}
           path={image.path}
           localUri={index === 0 ? message.local_image_uri : null}
+          animatedReveal={false}
         />
       ))}
       {!parsed.images.length && message.local_image_uri ? (
-        <ChatMessageImage localUri={message.local_image_uri} />
+        <ChatMessageImage localUri={message.local_image_uri} animatedReveal={false} />
       ) : null}
 
       {showPdf ? (

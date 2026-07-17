@@ -10,6 +10,7 @@ Format each as **symptom → cause → fix** in 1–3 lines. Newest first. Keep 
 
 ## Lessons
 
+- **Image goes blurry/gray after the assistant replies.** Focus refetch after `streaming→false` replaces `local-*` ids with server UUIDs; id-only `mergeLocalAttachmentUris` dropped `local_image_uri` and restarted blur reveal. Also match orphaned local URIs onto incoming user attachment messages; user thumbs use `animatedReveal={false}`.
 - **Attachment send showed `[BEGIN UNTRUSTED…]` + blurry spinner.** `wrap_untrusted` was persisted into the user message; focus refetch then dropped `local_image_uri` so ChatMessageImage remounted on a remote auth URL. Persist plain `[Image:]`/`[File:]` only; merge local URIs on refetch; skip blur reveal for `file://`.
 - **CodeQL poly-ReDoS not cleared by `collapse_ws` / length caps.** CodeQL ignores those as sanitizers; rewrite sinks to linear scans (`find` / digit parse). See `.cursor/skills/security-alert-pitfalls/SKILL.md`.
 - **Dependabot on transitive npm (markdown-it@10, uuid@7).** Direct pins don't help — use `pnpm.overrides` + regenerate lock with `npx pnpm@9.15.9 install`. See security-alert-pitfalls skill.
