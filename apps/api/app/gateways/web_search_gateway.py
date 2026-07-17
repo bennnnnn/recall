@@ -127,7 +127,9 @@ async def _search_tavily(settings: Settings, query: str, max_results: int) -> li
         response.raise_for_status()
         data = response.json()
     except Exception:
-        logger.exception("Tavily web search failed for query=%r", query[:120])
+        # Do not log the query — it can contain private user content (CodeQL
+        # py/clear-text-logging-sensitive-data).
+        logger.exception("Tavily web search failed")
         return []
 
     hits: list[WebSearchHit] = []

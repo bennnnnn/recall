@@ -56,6 +56,8 @@ describe("placesList", () => {
     expect(url).toContain("google.com/maps/search");
     expect(url).toContain("123%20Market%20St");
     expect(isGenericSearchUrl("https://www.yelp.com/search?q=x")).toBe(true);
+    expect(isGenericSearchUrl("https://www.google.com/search?q=x")).toBe(true);
+    expect(isGenericSearchUrl("https://evilgoogle.com/search?q=x")).toBe(false);
   });
 
   it("preserves direct venue URLs", () => {

@@ -6,20 +6,39 @@ export function htmlForInlinePreview(html: string): string {
   let inner = trimmed;
 
   if (/^\s*<!DOCTYPE/i.test(trimmed) || /^\s*<html/i.test(trimmed)) {
-    const bodyMatch = trimmed.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    const bodyMatch = trimmed.match(/<body[^>]*>([\s\S]*?)<\/body[^>]*>/i);
     if (bodyMatch?.[1]) {
       inner = bodyMatch[1].trim();
     } else {
       inner = trimmed
         .replace(/<!DOCTYPE[^>]*>/gi, "")
         .replace(/<\/?html[^>]*>/gi, "")
-        .replace(/<head[\s\S]*?<\/head>/gi, "")
+        .replace(/(?:<head\b[^>]*>[\s\S]*?<\/head[^>]*>)+/gi, "")
         .replace(/<\/?body[^>]*>/gi, "")
         .trim();
+      // Loop head strip until stable (nested / overlapping shapes).
+      let prev = "";
+      for (let i = 0; i < 8 && inner !== prev; i++) {
+        prev = inner;
+        inner = inner.replace(/<head\b[^>]*>[\s\S]*?<\/head[^>]*>/gi, "").trim();
+      }
     }
   }
 
-  const visibleText = inner.replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<[^>]+>/g, "").trim();
+  // Strip inert style/script blocks until stable — a single pass can leave
+  // residual tags (CodeQL js/incomplete-multi-character-sanitization).
+  let cleaned = inner;
+  let prev = "";
+  for (let i = 0; i < 16 && cleaned !== prev; i++) {
+    prev = cleaned;
+    cleaned = cleaned
+      .replace(/<style\b[^>]*>[\s\S]*?<\/style[^>]*>/gi, "")
+      .replace(/<script\b[^>]*>[\s\S]*?<\/script[^>]*>/gi, "")
+      .replace(/<script\b[^>]*\/>/gi, "");
+  }
+  inner = cleaned;
+
+  const visibleText = inner.replace(/<[^>]+>/g, "").trim();
   if (!visibleText && !/<img\b/i.test(inner)) {
     const escaped = trimmed
       .replace(/&/g, "&amp;")
@@ -33,5 +52,11 @@ export function htmlForInlinePreview(html: string): string {
 
 export function previewHasVisibleText(html: string): boolean {
   const inner = htmlForInlinePreview(html);
-  return /\p{L}|\p{N}/u.test(inner.replace(/<[^>]+>/g, ""));
+  let textOnly = inner;
+  let prev = "";
+  for (let i = 0; i < 8 && textOnly !== prev; i++) {
+    prev = textOnly;
+    textOnly = textOnly.replace(/<[^>]+>/g, "");
+  }
+  return /\p{L}|\p{N}/u.test(textOnly);
 }

@@ -60,7 +60,22 @@ function hasUnclosedStreamingStructure(text: string): boolean {
   // preprocessed while still open, leaving a raw dangling "\[" visible until
   // the closing \] finally arrives.
   if (countOccurrences(text, "\\[") !== countOccurrences(text, "\\]")) return true;
-  if (/\n>\s*\[!(\w+)\][^\n]*\n(?:>\s?.*\n)*$/i.test(text)) return true;
+  if (endsWithOpenCallout(text)) return true;
+  return false;
+}
+
+/** True when `text` ends inside an open GFM callout (line-scan, no ReDoS). */
+function endsWithOpenCallout(text: string): boolean {
+  const lines = text.split("\n");
+  // A trailing `\n` leaves an empty final segment — skip it.
+  let i = lines.length - 1;
+  if (i >= 0 && lines[i] === "") i -= 1;
+  // Walk back over trailing quote-continuation lines to a `> [!type]` marker.
+  // Marker must not be the absolute first line of the message (needs a prior `\n`).
+  while (i >= 0 && /^>\s?/.test(lines[i])) {
+    if (i > 0 && /^>\s*\[!\w+\]/i.test(lines[i])) return true;
+    i -= 1;
+  }
   return false;
 }
 

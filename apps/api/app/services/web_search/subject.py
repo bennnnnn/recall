@@ -9,6 +9,7 @@ from app.services.web_search.patterns import (
     _SHORT_FOLLOWUP_WORDS,
     _SPORTS,
     _WORLD_CUP,
+    collapse_ws,
 )
 
 
@@ -26,7 +27,7 @@ def _prior_searchable_topic(prior_user_messages: list[str] | None) -> str | None
     if not prior_user_messages:
         return None
     for msg in reversed(prior_user_messages):
-        cleaned = msg.strip()
+        cleaned = collapse_ws(msg)
         if not cleaned or _LOOK_IT_UP.match(cleaned):
             continue
         if (
@@ -44,11 +45,12 @@ def resolve_search_subject(
     *,
     prior_user_messages: list[str] | None = None,
 ) -> str:
-    cleaned = user_content.strip()
+    cleaned = collapse_ws(user_content)
     if _LOOK_IT_UP.match(cleaned) and prior_user_messages:
         for msg in reversed(prior_user_messages):
-            if msg.strip() and not _LOOK_IT_UP.match(msg.strip()):
-                return msg.strip()
+            prior = collapse_ws(msg)
+            if prior and not _LOOK_IT_UP.match(prior):
+                return prior
     if prior_user_messages and (
         len(cleaned.split()) <= _SHORT_FOLLOWUP_WORDS or _CLARIFICATION.search(cleaned)
     ):

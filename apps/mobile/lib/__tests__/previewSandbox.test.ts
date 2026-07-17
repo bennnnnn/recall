@@ -211,4 +211,18 @@ describe("stripScripts", () => {
     expect(out).toContain('src="https://example.com/x.png"');
     expect(out).toContain('src="data:image/png;base64,AAAA"');
   });
+
+  it("strips data:text/html URLs while keeping data:image", () => {
+    const out = stripScripts(
+      '<a href="data:text/html,<script>alert(1)</script>">x</a><img src="data:image/png;base64,AAAA">',
+    );
+    expect(out.toLowerCase()).not.toContain("data:text/html");
+    expect(out).toContain('src="data:image/png;base64,AAAA"');
+  });
+
+  it("strips script end tags with junk before >", () => {
+    const out = stripScripts("<script>alert(1)</script\t\n bar><p>ok</p>");
+    expect(out.toLowerCase()).not.toContain("alert");
+    expect(out).toContain("<p>ok</p>");
+  });
 });

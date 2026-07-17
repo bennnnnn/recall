@@ -164,7 +164,13 @@ export function isGenericSearchUrl(url: string): boolean {
     const host = u.hostname.replace(/^www\./, "").toLowerCase();
     const path = u.pathname.toLowerCase();
     if (host === "yelp.com" && path.startsWith("/search")) return true;
-    if (host.endsWith("google.com") && path.includes("/search")) return true;
+    // Require an exact google.com host or a real subdomain (not evilgoogle.com).
+    if (
+      (host === "google.com" || host.endsWith(".google.com")) &&
+      path.includes("/search")
+    ) {
+      return true;
+    }
     if (host === "bing.com" && path.includes("/search")) return true;
     if (host === "duckduckgo.com") return true;
     return false;
