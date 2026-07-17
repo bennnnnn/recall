@@ -32,9 +32,7 @@ function SheetRow({ icon, label, onPress, theme, styles, showDivider }: RowProps
         style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}
         onPress={onPress}
       >
-        <View style={styles.iconWrap}>
-          <Ionicons name={icon} size={20} color={theme.primary} />
-        </View>
+        <Ionicons name={icon} size={20} color={theme.text} />
         <Text style={styles.label}>{label}</Text>
       </Pressable>
     </>
@@ -106,31 +104,23 @@ function makeStyles(C: Theme) {
     item: {
       flexDirection: "row",
       alignItems: "center",
-      paddingHorizontal: 14,
-      paddingVertical: 13,
-      gap: 12,
+      paddingHorizontal: 18,
+      paddingVertical: 16,
+      gap: 14,
     },
     itemPressed: {
       backgroundColor: C.surfaceAlt,
     },
-    iconWrap: {
-      width: 36,
-      height: 36,
-      borderRadius: 10,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: C.primaryLight,
-    },
     label: {
-      fontSize: 16,
+      fontSize: 17,
       color: C.text,
-      fontWeight: "600",
+      fontWeight: "400",
       flex: 1,
     },
     divider: {
       height: StyleSheet.hairlineWidth,
       backgroundColor: C.border,
-      marginLeft: 62,
+      marginLeft: 52,
     },
   });
 }
