@@ -584,7 +584,7 @@ def test_search_returns_results():
         }
     ]
     with patch(
-        "app.routers.search.search_repo.search_conversations",
+        "app.routers.search.search_service.search_conversations",
         AsyncMock(return_value=(fake_results, 1)),
     ):
         client = TestClient(app)
@@ -605,7 +605,7 @@ def test_search_returns_empty():
     user = _fake_user()
     app = _app_with_user(user)
     with patch(
-        "app.routers.search.search_repo.search_conversations",
+        "app.routers.search.search_service.search_conversations",
         AsyncMock(return_value=([], 0)),
     ):
         client = TestClient(app)
@@ -658,7 +658,7 @@ def test_search_respects_limit():
         for _ in range(5)
     ]
     with patch(
-        "app.routers.search.search_repo.search_conversations",
+        "app.routers.search.search_service.search_conversations",
         AsyncMock(return_value=(fake_results, 42)),  # total=42, but only 5 returned
     ):
         client = TestClient(app)
