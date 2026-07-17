@@ -181,6 +181,7 @@ export function ChatScreenBody({
           header={listHeader}
           hideHomeStarters={hideHomeStarters}
           listFooter={listFooter}
+          streamActive={streaming}
         />
       </StreamingDraftProvider>
 
