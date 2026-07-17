@@ -8,6 +8,7 @@ from app.core.config import Settings
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import User
 from app.services.chat.stream_status import StreamStatusFn, clip_status_detail
+from app.services.prompt_inject import inject_before_last_user
 from app.services.prompt_safety import wrap_untrusted
 from app.services.web_search.detection import (
     classify_web_search,
@@ -28,17 +29,6 @@ from app.services.web_search.query_builders import (
 )
 from app.services.web_search.search_cache import _run_search
 from app.services.web_search.subject import _prior_user_messages, resolve_search_subject
-
-
-def _inject_before_last_user(messages: list[dict[str, str]], block: str) -> list[dict[str, str]]:
-    augmented = list(messages)
-    insert_at = len(augmented)
-    for index in range(len(augmented) - 1, -1, -1):
-        if augmented[index].get("role") == "user":
-            insert_at = index
-            break
-    augmented.insert(insert_at, {"role": "system", "content": block})
-    return augmented
 
 
 async def augment_prompt_messages(
@@ -118,4 +108,4 @@ async def augment_prompt_messages(
         block = wrap_untrusted("web search", block)
     else:
         block = format_search_empty_block(tried, local_places=local_places)
-    return _inject_before_last_user(messages, block), hits
+    return inject_before_last_user(messages, block), hits

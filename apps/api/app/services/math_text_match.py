@@ -9,6 +9,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from app.services.text_normalize import collapse_ws
+
 _MAX = 1000
 _NUM = re.compile(r"-?\d+(?:\.\d+)?")
 _BARE_COORD = re.compile(r"^\((?P<x>-?\d+(?:\.\d+)?),(?P<y>-?\d+(?:\.\d+)?)\)$")
@@ -39,10 +41,6 @@ def _parse_unsigned_number(s: str, start: int = 0) -> tuple[float, int] | None:
         return float(s[start:i]), i
     except ValueError:
         return None
-
-
-def collapse_ws(text: str) -> str:
-    return " ".join(text.split())
 
 
 def prepare(text: str) -> str | None:

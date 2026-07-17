@@ -29,6 +29,8 @@ from app.models.math_schemas import (
     TriangleGeometryInput,
 )
 from app.services import math_service
+from app.services.prompt_inject import inject_before_last_user
+from app.services.text_normalize import collapse_ws
 
 logger = logging.getLogger(__name__)
 
@@ -36,11 +38,6 @@ logger = logging.getLogger(__name__)
 # Cap before any poly-time regex. CodeQL only treats a const length compare as a
 # ReDoS sanitizer — collapsing whitespace alone is not enough.
 _MAX_MATH_INPUT = 1000
-
-
-def _collapse_ws(text: str) -> str:
-    """Collapse runs of whitespace so matchers need no ``\\s+`` (avoids ReDoS)."""
-    return " ".join(text.split())
 
 
 # Common LaTeX commands/symbols that appear in a pasted or OCR'd limit/series
@@ -73,7 +70,7 @@ def _normalize_latex_expr(expr: str) -> str:
 
 
 def _strip_series_prefix(expr: str) -> str:
-    s = _collapse_ws(expr)
+    s = collapse_ws(expr)
     if len(s) > _MAX_MATH_INPUT:
         return s[:_MAX_MATH_INPUT]
     prev = None
@@ -150,7 +147,7 @@ def _strip_trailing_filler(expr: str) -> str:
     "differentiate x^2 for me" sweeps the trailing words into the
     "expression" — which then fails to parse and silently disables the
     verified-math augmentation for phrasing a real user would actually type."""
-    s = _collapse_ws(expr)
+    s = collapse_ws(expr)
     # Const length compare must sit in this function for CodeQL's ReDoS barrier.
     if len(s) > _MAX_MATH_INPUT:
         return s[:_MAX_MATH_INPUT]
@@ -1094,17 +1091,6 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
         return None
 
 
-def _inject_before_last_user(messages: list[dict[str, str]], block: str) -> list[dict[str, str]]:
-    augmented = list(messages)
-    insert_at = len(augmented)
-    for index in range(len(augmented) - 1, -1, -1):
-        if augmented[index].get("role") == "user":
-            insert_at = index
-            break
-    augmented.insert(insert_at, {"role": "system", "content": block})
-    return augmented
-
-
 async def augment_prompt_messages(
     messages: list[dict[str, str]],
     user_content: str,
@@ -1141,7 +1127,7 @@ async def augment_prompt_messages(
             "Extract the equation as lhs/rhs if possible, then explain using verified reasoning. "
             "Use $...$ for formulas and ```geometry / ```graph JSON fences for diagrams."
         ]
-        return _inject_before_last_user(messages, "\n".join(lines)), None
+        return inject_before_last_user(messages, "\n".join(lines)), None
 
     if intent is None:
         return messages, None
@@ -1149,7 +1135,7 @@ async def augment_prompt_messages(
     verified = await _build_verified_block_async(intent, settings)
     if not verified:
         return messages, None
-    return _inject_before_last_user(messages, verified.text), verified
+    return inject_before_last_user(messages, verified.text), verified
 
 
 async def _build_verified_block_async(

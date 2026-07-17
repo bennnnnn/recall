@@ -4,15 +4,12 @@ import re
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from app.services.text_normalize import collapse_ws
+
 DEFAULT_TIMEZONE = "UTC"
 
 
-def _collapse_ws(text: str) -> str:
-    """Collapse runs of whitespace so matchers need no ``\\s+`` (avoids ReDoS)."""
-    return " ".join(text.split())
-
-
-# Patterns assume input was passed through ``_collapse_ws`` (single spaces only).
+# Patterns assume input was passed through ``collapse_ws`` (single spaces only).
 _TIME_QUESTION = re.compile(
     r"^(?:"
     r"what(?:'s| is) the time(?: now)?"
@@ -27,7 +24,7 @@ _TIME_QUESTION = re.compile(
 )
 
 # Prefix only — place name is checked without `.+` (CodeQL py/polynomial-redos).
-# Input must be `_collapse_ws`'d first (single spaces, trimmed).
+# Input must be `collapse_ws`'d first (single spaces, trimmed).
 _REMOTE_TIME_PREFIX = re.compile(
     r"^(?:"
     r"what(?:'s| is) the time(?: now)? in "
@@ -94,7 +91,7 @@ def format_digital_clock(when: datetime, locale: str | None = None) -> str:
 
 def is_remote_time_question(text: str) -> bool:
     """True when the user asks for the time in another place (not local)."""
-    cleaned = _collapse_ws(text)
+    cleaned = collapse_ws(text)
     if not cleaned:
         return False
     match = _REMOTE_TIME_PREFIX.match(cleaned)
@@ -106,7 +103,7 @@ def is_remote_time_question(text: str) -> bool:
 
 def is_time_question(text: str) -> bool:
     """True for the user's *local* current-time question only."""
-    cleaned = _collapse_ws(text)
+    cleaned = collapse_ws(text)
     if not cleaned:
         return False
     if is_remote_time_question(cleaned):
@@ -119,7 +116,7 @@ def is_time_question(text: str) -> bool:
 
 
 def is_location_question(text: str) -> bool:
-    cleaned = _collapse_ws(text)
+    cleaned = collapse_ws(text)
     if not cleaned:
         return False
     return bool(_LOCATION_QUESTION.match(cleaned))

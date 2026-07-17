@@ -3,6 +3,7 @@ import re
 from app.core.config import Settings
 from app.services import projects as projects_service
 from app.services import time_context as time_context_service
+from app.services.text_normalize import collapse_ws
 
 CLARIFICATION_HINT = (
     "When you lack information needed to complete a task correctly, ask concise clarifying "
@@ -74,12 +75,7 @@ DAY_LEARNING_SNAPSHOT_HINT = (
 )
 
 
-def _collapse_ws(text: str) -> str:
-    """Collapse runs of whitespace so matchers need no ``\\s+`` (avoids ReDoS)."""
-    return " ".join(text.split())
-
-
-# Patterns assume input was passed through ``_collapse_ws`` (single spaces only).
+# Patterns assume input was passed through ``collapse_ws`` (single spaces only).
 _BROAD_SELF_QUESTION = re.compile(
     r"^(?:"
     r"who am i\??"
@@ -101,7 +97,7 @@ BROAD_SELF_ANSWER_HINT = (
 
 def is_broad_self_question(text: str) -> bool:
     """Broad identity questions — name only, no personal context dump."""
-    cleaned = _collapse_ws(text)
+    cleaned = collapse_ws(text)
     if not cleaned or time_context_service.is_location_question(cleaned):
         return False
     return bool(_BROAD_SELF_QUESTION.match(cleaned))
@@ -124,7 +120,7 @@ def is_lightweight_chat_turn(text: str, *, active_vocab_turn: bool = False) -> b
     """Short social turns that should skip integrations and web search."""
     if active_vocab_turn:
         return False
-    cleaned = _collapse_ws(text)
+    cleaned = collapse_ws(text)
     if not cleaned:
         return True
     if len(cleaned) <= 2 and cleaned.isalpha():
