@@ -188,10 +188,10 @@ export function TodosScreenHeader({
                       ? projectTitleById.get(todo.project_id) ?? null
                       : null
                   }
-                  onToggle={() => onToggle(todo)}
-                  onDue={() => onDue(todo)}
-                  onLinkProject={onLinkProject ? () => onLinkProject(todo) : undefined}
-                  onDelete={() => onDeleteItem(todo)}
+                  onToggle={onToggle}
+                  onDue={onDue}
+                  onLinkProject={onLinkProject}
+                  onDelete={onDeleteItem}
                 />
               ))}
             </>

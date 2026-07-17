@@ -3,6 +3,7 @@ import { Animated, Easing, Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { Motion } from "@/lib/motion";
 import { useTheme } from "@/lib/theme";
 
 type Props = {
@@ -27,13 +28,13 @@ export function VoiceMicButton({ recording, transcribing, disabled, onPress }: P
       Animated.sequence([
         Animated.timing(pulse, {
           toValue: 1,
-          duration: 700,
+          duration: Motion.duration.soft,
           easing: Easing.out(Easing.ease),
           useNativeDriver: true,
         }),
         Animated.timing(pulse, {
           toValue: 0,
-          duration: 700,
+          duration: Motion.duration.soft,
           easing: Easing.in(Easing.ease),
           useNativeDriver: true,
         }),

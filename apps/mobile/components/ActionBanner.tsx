@@ -3,6 +3,7 @@ import { Animated, Modal, Pressable, StyleSheet, Text, View } from "react-native
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { Motion } from "@/lib/motion";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
 
 type Props = {
@@ -35,7 +36,7 @@ export function ActionBanner({
     Animated.parallel([
       Animated.timing(opacity, {
         toValue: 1,
-        duration: 200,
+        duration: Motion.duration.snappy,
         useNativeDriver: true,
       }),
       Animated.spring(translateY, {
@@ -51,12 +52,12 @@ export function ActionBanner({
       Animated.parallel([
         Animated.timing(opacity, {
           toValue: 0,
-          duration: 200,
+          duration: Motion.duration.snappy,
           useNativeDriver: true,
         }),
         Animated.timing(translateY, {
           toValue: 16,
-          duration: 200,
+          duration: Motion.duration.snappy,
           useNativeDriver: true,
         }),
       ]).start(({ finished }) => {

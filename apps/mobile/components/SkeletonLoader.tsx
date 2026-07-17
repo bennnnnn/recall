@@ -1,7 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { StyleSheet, View, type ViewStyle } from "react-native";
 import Animated, {
-  Easing,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -9,6 +8,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
+import { Motion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
 
 type SkeletonBlockProps = {
@@ -29,11 +29,16 @@ export function SkeletonBlock({
   const opacity = useSharedValue(0.5);
 
   useEffect(() => {
-    const ease = Easing.inOut(Easing.ease);
     opacity.value = withRepeat(
       withSequence(
-        withTiming(1, { duration: 600, easing: ease }),
-        withTiming(0.5, { duration: 600, easing: ease }),
+        withTiming(1, {
+          duration: Motion.duration.breathe,
+          easing: Motion.easing.inOut,
+        }),
+        withTiming(0.5, {
+          duration: Motion.duration.breathe,
+          easing: Motion.easing.inOut,
+        }),
       ),
       -1,
       false,

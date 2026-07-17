@@ -2,7 +2,6 @@ import { useEffect, useMemo } from "react";
 import { StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, {
-  Easing,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -11,6 +10,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { useThumbnailSize } from "@/components/ChatMessageImage";
+import { Motion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
 
 /** Pulsing placeholder shown while an image is being generated — the
@@ -24,11 +24,16 @@ export function ImageGenPlaceholder() {
   const opacity = useSharedValue(0.55);
 
   useEffect(() => {
-    const ease = Easing.inOut(Easing.ease);
     opacity.value = withRepeat(
       withSequence(
-        withTiming(1, { duration: 700, easing: ease }),
-        withTiming(0.55, { duration: 700, easing: ease }),
+        withTiming(1, {
+          duration: Motion.duration.soft,
+          easing: Motion.easing.inOut,
+        }),
+        withTiming(0.55, {
+          duration: Motion.duration.soft,
+          easing: Motion.easing.inOut,
+        }),
       ),
       -1,
       false,
