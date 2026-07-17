@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, useLocalSearchParams, useNavigation } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useTranslation } from "react-i18next";
 
+import { HeaderAddButton } from "@/components/HeaderAddButton";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { AddReminderSheet } from "@/components/todos/AddReminderSheet";
 import { DuePickerModal } from "@/components/todos/DuePickerModal";
@@ -110,15 +111,25 @@ export default function TodosScreen() {
     isRemindersPage,
   });
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const title =
       focusSection === "list"
-        ? ""
+        ? t("drawer.lists")
         : focusSection === "reminders"
           ? t("todos.section_reminders")
           : t("todos.title");
-    navigation.setOptions({ title });
-  }, [focusSection, navigation, t]);
+    navigation.setOptions({
+      title,
+      headerRight: showList
+        ? () => (
+            <HeaderAddButton
+              onPress={() => setNewListOpen(true)}
+              accessibilityLabel={t("lists.new_group_a11y")}
+            />
+          )
+        : undefined,
+    });
+  }, [focusSection, navigation, showList, t]);
 
   if (!token) return <Redirect href="/login" />;
 
@@ -159,7 +170,6 @@ export default function TodosScreen() {
       onLinkProject={(todo) => actions.handleLinkProject(todo, projects)}
       projectTitleById={projectTitleById}
       onDeleteItem={actions.handleDeleteItem}
-      onNewList={() => setNewListOpen(true)}
       listGroups={listGroups}
       focusTopic={focusTopic}
       onReorderGroups={(topics) => void actions.handleReorderGroups(topics)}

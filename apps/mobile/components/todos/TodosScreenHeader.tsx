@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
@@ -51,7 +51,6 @@ type Props = {
   onLinkProject?: (todo: Todo) => void;
   projectTitleById?: Map<string, string>;
   onDeleteItem: (todo: Todo) => void;
-  onNewList: () => void;
   listGroups: ListGroup[];
   focusTopic?: string;
   onReorderGroups: (topics: string[]) => void;
@@ -92,7 +91,6 @@ export function TodosScreenHeader({
   onLinkProject,
   projectTitleById,
   onDeleteItem,
-  onNewList,
   listGroups,
   focusTopic,
   onReorderGroups,
@@ -125,14 +123,11 @@ export function TodosScreenHeader({
           <Text style={s.emptyTitle}>
             {focusSection === "list" ? t("lists.empty_title") : t("todos.empty_title")}
           </Text>
-          {focusSection === "list" ? (
-            <Pressable style={s.emptyPrimaryBtn} onPress={onNewList}>
-              <Ionicons name="add-circle-outline" size={20} color={C.primary} />
-              <Text style={s.emptyPrimaryBtnText}>{t("lists.new_group")}</Text>
-            </Pressable>
-          ) : (
-            <Text style={s.emptyBody}>{t("todos.empty_reminders_body")}</Text>
-          )}
+          <Text style={s.emptyBody}>
+            {focusSection === "list"
+              ? t("lists.empty_body")
+              : t("todos.empty_reminders_body")}
+          </Text>
         </View>
       ) : null}
 
@@ -208,30 +203,20 @@ export function TodosScreenHeader({
         <Text style={s.sectionEmpty}>{t("todos.reminders_empty")}</Text>
       ) : null}
 
-      {showList ? (
-        <>
-          {!(showRemindersEmptyHero && focusSection === "list") ? (
-            <Pressable style={s.newListLink} onPress={onNewList}>
-              <Ionicons name="add-circle-outline" size={20} color={C.primary} />
-              <Text style={s.newListLinkText}>{t("lists.new_group")}</Text>
-            </Pressable>
-          ) : null}
-          {listGroups.length > 0 ? (
-            <ListGroupsView
-              groups={listGroups}
-              initialExpandedTopic={focusTopic}
-              togglingId={togglingId}
-              projectTitleById={projectTitleById}
-              onReorderGroups={onReorderGroups}
-              onReorderItems={onReorderItems}
-              onToggle={onToggle}
-              onAddItem={onAddListItem}
-              onDeleteItem={onDeleteItem}
-              onLinkProject={onLinkProject}
-              onDeleteList={onDeleteList}
-            />
-          ) : null}
-        </>
+      {showList && listGroups.length > 0 ? (
+        <ListGroupsView
+          groups={listGroups}
+          initialExpandedTopic={focusTopic}
+          togglingId={togglingId}
+          projectTitleById={projectTitleById}
+          onReorderGroups={onReorderGroups}
+          onReorderItems={onReorderItems}
+          onToggle={onToggle}
+          onAddItem={onAddListItem}
+          onDeleteItem={onDeleteItem}
+          onLinkProject={onLinkProject}
+          onDeleteList={onDeleteList}
+        />
       ) : null}
     </>
   );
