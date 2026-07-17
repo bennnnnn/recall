@@ -696,7 +696,6 @@ async def revise_memory_sections(
     if mock_llm.should_mock_llm(settings):
         return await mock_llm.mock_memory_sections(transcript, existing_sections or {})
 
-
     existing = existing_sections or {}
     existing_block = json.dumps(existing, ensure_ascii=False) if existing else "{}"
 
@@ -751,7 +750,6 @@ async def merge_memory_section(
     if mock_llm.should_mock_llm(settings):
         return await mock_llm.mock_merge_memory_section(section_type, clean)
 
-
     messages = [
         {
             "role": "system",
@@ -799,7 +797,6 @@ async def rewrite_memory_sections(
     if mock_llm.should_mock_llm(settings):
         return await mock_llm.mock_rewrite_memory_sections(sections)
 
-
     messages = [
         {
             "role": "system",
@@ -845,7 +842,6 @@ async def extract_todo_actions(
 ) -> TodoExtractionResult | None:
     if mock_llm.should_mock_llm(settings):
         return await mock_llm.mock_todo_actions(transcript, current_todos)
-
 
     snapshot = json.dumps(current_todos, ensure_ascii=False)
     tz_note = user_timezone or "UTC"
