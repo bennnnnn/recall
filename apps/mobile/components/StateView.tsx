@@ -3,8 +3,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/Button";
-import { Theme, useTheme } from "@/lib/theme";
 import { tap } from "@/lib/haptics";
+import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -85,8 +86,7 @@ function makeStyles(theme: Theme, compact: boolean) {
       textAlign: "center",
     },
     message: {
-      fontSize: 15,
-      lineHeight: 22,
+      ...Type.secondary,
       color: theme.textSecondary,
       textAlign: "center",
     },
