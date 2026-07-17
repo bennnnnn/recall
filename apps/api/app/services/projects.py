@@ -19,6 +19,7 @@ from app.models.schemas import (
 )
 from app.repositories import project_items as project_items_repo
 from app.repositories import projects as projects_repo
+from app.services.action_dispatch import ActionHandler, apply_action_batch
 from app.services.vocab_quiz import QuizAnswerGrade
 
 logger = logging.getLogger(__name__)
@@ -1519,6 +1520,284 @@ async def get_project_detail(
     }
 
 
+@dataclass
+class _ProjectApplyState:
+    session: AsyncSession
+    user_id: UUID
+    chat_id: UUID | None
+    projects: list[Project]
+    items: list[ProjectItem]
+
+
+def _prepare_project_action(action: ProjectActionItem) -> ProjectActionItem | None:
+    title = action.project_title.strip()
+    if not title:
+        return None
+    if title != action.project_title:
+        return action.model_copy(update={"project_title": title})
+    return action
+
+
+async def _project_action_create_project(
+    state: _ProjectApplyState, action: ProjectActionItem
+) -> int:
+    # kind is already a bounded Literal on ProjectActionItem
+    # (schemas.py: ProjectKind = "language" | "vocabulary" |
+    # "trivia") validated by Pydantic before this is ever
+    # reached, and normalize_project_kind maps "vocabulary" ->
+    # "language" — so kind is always in LEARNING_PRODUCT_KINDS
+    # here. The old `if kind not in LEARNING_PRODUCT_KINDS:
+    # continue` guard was dead code; removed.
+    title = action.project_title
+    kind = normalize_project_kind(action.kind or "language")
+    if kind == "language" and _find_language_project(state.projects, "en"):
+        return 0
+    if kind == "trivia" and any(_is_trivia_project(p) for p in state.projects):
+        return 0
+    if _find_project(state.projects, title):
+        return 0
+    try:
+        project = await projects_repo.create(
+            state.session,
+            user_id=state.user_id,
+            title=title,
+            description=(action.description or "").strip() or None,
+            kind=kind,
+            level=action.level or "level1",
+            target_language="en",
+        )
+    except IntegrityError:
+        # BUG FIX (was silent): the in-memory checks above aren't
+        # safe against two near-concurrent project-sync jobs for
+        # the same user both passing before either commits. The
+        # DB partial unique index (migration 0055) is the real
+        # guard — a race loses here and should just no-op, not
+        # raise into the background job or poison the rest of
+        # this turn's actions with an un-rolled-back session.
+        await state.session.rollback()
+        logger.debug(
+            "create_project raced with an existing active %s project for user_id=%s; skipping",
+            kind,
+            state.user_id,
+        )
+        return 0
+    applied = 1
+    state.projects = await projects_repo.list_for_user(state.session, state.user_id, limit=200)
+    if action.content.strip():
+        list_title = action.list_title.strip() or DEFAULT_LIST
+        await project_items_repo.create(
+            state.session,
+            user_id=state.user_id,
+            project_id=project.id,
+            content=action.content,
+            list_title=list_title,
+            note=action.note,
+            definition=action.definition,
+            example_sentence=action.example_sentence or action.note,
+            chat_id=state.chat_id,
+        )
+        applied += 1
+        state.items = await project_items_repo.list_recent_for_user(
+            state.session, state.user_id, limit=_ACTION_RELOAD_LIMIT
+        )
+    return applied
+
+
+async def _project_action_delete_project(
+    state: _ProjectApplyState, action: ProjectActionItem
+) -> int:
+    matched = _find_project(state.projects, action.project_title)
+    if not matched:
+        return 0
+    await projects_repo.delete_by_id(state.session, matched.id, state.user_id)
+    state.projects = [p for p in state.projects if p.id != matched.id]
+    state.items = [i for i in state.items if i.project_id != matched.id]
+    return 1
+
+
+async def _project_action_set_description(
+    state: _ProjectApplyState, action: ProjectActionItem
+) -> int:
+    matched = _find_project(state.projects, action.project_title)
+    if not matched:
+        return 0
+    desc = (action.description or "").strip() or None
+    await projects_repo.update(state.session, matched, description=desc)
+    return 1
+
+
+async def _project_action_set_level(state: _ProjectApplyState, action: ProjectActionItem) -> int:
+    matched = _find_project(state.projects, action.project_title)
+    if not matched or not action.level:
+        return 0
+    await projects_repo.update(state.session, matched, level=action.level)
+    return 1
+
+
+async def _project_action_add(state: _ProjectApplyState, action: ProjectActionItem) -> int:
+    matched = _find_project(state.projects, action.project_title)
+    if not matched:
+        return 0
+    project = matched
+    list_title = _resolve_list_title(project, action)
+    content = action.content.strip()
+    if not content:
+        return 0
+    if _find_item(state.items, project.id, list_title, content):
+        return 0
+    item_count = await project_items_repo.count_for_project(
+        state.session, project.id, state.user_id
+    )
+    if item_count >= MAX_PROJECT_ITEMS_PER_PROJECT:
+        logger.info(
+            "Skipping add: project_id=%s at item cap (%d) for user_id=%s",
+            project.id,
+            MAX_PROJECT_ITEMS_PER_PROJECT,
+            state.user_id,
+        )
+        return 0
+    await project_items_repo.create(
+        state.session,
+        user_id=state.user_id,
+        project_id=project.id,
+        content=content,
+        list_title=list_title,
+        note=action.note,
+        definition=action.definition,
+        example_sentence=action.example_sentence or action.note,
+        chat_id=state.chat_id,
+        status="new",
+    )
+    state.items = await project_items_repo.list_recent_for_user(
+        state.session, state.user_id, limit=_ACTION_RELOAD_LIMIT
+    )
+    return 1
+
+
+async def _project_action_start_learning(
+    state: _ProjectApplyState, action: ProjectActionItem
+) -> int:
+    # Record a failed/incorrect quiz outcome (open-ended or exhausted).
+    # Stamps last_incorrect_at so failed_today / day lists stay accurate.
+    matched = _find_project(state.projects, action.project_title)
+    if not matched:
+        return 0
+    project = matched
+    list_title = _resolve_list_title(project, action)
+    item = _find_item(state.items, project.id, list_title, action.content)
+    if not item:
+        item = _find_item_by_content(state.items, project.id, action.content)
+    content = action.content.strip()
+    if not item and content:
+        item = await project_items_repo.create(
+            state.session,
+            user_id=state.user_id,
+            project_id=project.id,
+            content=content,
+            list_title=list_title,
+            note=action.note,
+            definition=action.definition,
+            example_sentence=action.example_sentence or action.note,
+            chat_id=state.chat_id,
+            status="new",
+        )
+        state.items = await project_items_repo.list_recent_for_user(
+            state.session, state.user_id, limit=_ACTION_RELOAD_LIMIT
+        )
+    if item and _item_status(item) != "mastered":
+        if not _failed_quiz_today(item):
+            await project_items_repo.apply_quiz_result(
+                state.session, item, is_correct=False, commit=False
+            )
+            return 1
+        if _item_status(item) == "new":
+            await project_items_repo.update(state.session, item, status="learning")
+            return 1
+    return 0
+
+
+async def _project_action_master(state: _ProjectApplyState, action: ProjectActionItem) -> int:
+    matched = _find_project(state.projects, action.project_title)
+    if not matched:
+        return 0
+    project = matched
+    list_title = _resolve_list_title(project, action)
+    item = _find_item(state.items, project.id, list_title, action.content, mastered_only=False)
+    if not item:
+        item = _find_item_by_content(state.items, project.id, action.content)
+    if item and _item_status(item) != "mastered":
+        if _recently_missed_quiz(item):
+            logger.info(
+                "Skipping master for recently missed quiz item user_id=%s word=%s",
+                state.user_id,
+                action.content,
+            )
+            return 0
+        await project_items_repo.update(state.session, item, status="mastered")
+        return 1
+    return 0
+
+
+async def _project_action_unmaster(state: _ProjectApplyState, action: ProjectActionItem) -> int:
+    matched = _find_project(state.projects, action.project_title)
+    if not matched:
+        return 0
+    project = matched
+    list_title = _resolve_list_title(project, action)
+    item = _find_item(state.items, project.id, list_title, action.content, mastered_only=True)
+    if item and _item_status(item) == "mastered":
+        await project_items_repo.update(state.session, item, status="learning")
+        return 1
+    return 0
+
+
+async def _project_action_delete(state: _ProjectApplyState, action: ProjectActionItem) -> int:
+    matched = _find_project(state.projects, action.project_title)
+    if not matched:
+        return 0
+    project = matched
+    list_title = _resolve_list_title(project, action)
+    item = _find_item(state.items, project.id, list_title, action.content)
+    if not item:
+        return 0
+    await project_items_repo.delete_by_id(state.session, item.id, state.user_id)
+    state.items = [i for i in state.items if i.id != item.id]
+    return 1
+
+
+async def _project_action_delete_list(state: _ProjectApplyState, action: ProjectActionItem) -> int:
+    matched = _find_project(state.projects, action.project_title)
+    if not matched:
+        return 0
+    project = matched
+    list_title = _resolve_list_title(project, action)
+    removed = await project_items_repo.delete_by_list(
+        state.session, state.user_id, project.id, list_title
+    )
+    if not removed:
+        return 0
+    state.items = [
+        i
+        for i in state.items
+        if not (i.project_id == project.id and _list_key(i.list_title) == _list_key(list_title))
+    ]
+    return 1
+
+
+_PROJECT_ACTION_HANDLERS: dict[str, ActionHandler[_ProjectApplyState, ProjectActionItem]] = {
+    "create_project": _project_action_create_project,
+    "delete_project": _project_action_delete_project,
+    "set_description": _project_action_set_description,
+    "set_level": _project_action_set_level,
+    "add": _project_action_add,
+    "start_learning": _project_action_start_learning,
+    "master": _project_action_master,
+    "unmaster": _project_action_unmaster,
+    "delete": _project_action_delete,
+    "delete_list": _project_action_delete_list,
+}
+
+
 async def apply_project_actions(
     session: AsyncSession,
     *,
@@ -1557,225 +1836,43 @@ async def apply_project_actions(
         if not actions:
             return 0
     projects = await projects_repo.list_for_user(session, user_id, limit=200)
-    items = await project_items_repo.list_recent_for_user(session, user_id, limit=_ACTION_RELOAD_LIMIT)
-    applied = 0
-    for action in actions:
-        title = action.project_title.strip()
-        if not title:
-            continue
-        applied_before = applied
-        try:
-            if action.action == "create_project":
-                # kind is already a bounded Literal on ProjectActionItem
-                # (schemas.py: ProjectKind = "language" | "vocabulary" |
-                # "trivia") validated by Pydantic before this is ever
-                # reached, and normalize_project_kind maps "vocabulary" ->
-                # "language" — so kind is always in LEARNING_PRODUCT_KINDS
-                # here. The old `if kind not in LEARNING_PRODUCT_KINDS:
-                # continue` guard was dead code; removed.
-                kind = normalize_project_kind(action.kind or "language")
-                if kind == "language" and _find_language_project(projects, "en"):
-                    continue
-                if kind == "trivia" and any(_is_trivia_project(p) for p in projects):
-                    continue
-                if _find_project(projects, title):
-                    continue
-                try:
-                    project = await projects_repo.create(
-                        session,
-                        user_id=user_id,
-                        title=title,
-                        description=(action.description or "").strip() or None,
-                        kind=kind,
-                        level=action.level or "level1",
-                        target_language="en",
-                    )
-                except IntegrityError:
-                    # BUG FIX (was silent): the in-memory checks above aren't
-                    # safe against two near-concurrent project-sync jobs for
-                    # the same user both passing before either commits. The
-                    # DB partial unique index (migration 0055) is the real
-                    # guard — a race loses here and should just no-op, not
-                    # raise into the background job or poison the rest of
-                    # this turn's actions with an un-rolled-back session.
-                    await session.rollback()
-                    logger.debug(
-                        "create_project raced with an existing active %s project "
-                        "for user_id=%s; skipping",
-                        kind,
-                        user_id,
-                    )
-                    continue
-                applied += 1
-                projects = await projects_repo.list_for_user(session, user_id, limit=200)
-                if action.content.strip():
-                    list_title = action.list_title.strip() or DEFAULT_LIST
-                    await project_items_repo.create(
-                        session,
-                        user_id=user_id,
-                        project_id=project.id,
-                        content=action.content,
-                        list_title=list_title,
-                        note=action.note,
-                        definition=action.definition,
-                        example_sentence=action.example_sentence or action.note,
-                        chat_id=chat_id,
-                    )
-                    applied += 1
-                    items = await project_items_repo.list_recent_for_user(
-                        session, user_id, limit=_ACTION_RELOAD_LIMIT
-                    )
-            elif action.action == "delete_project":
-                matched = _find_project(projects, title)
-                if matched:
-                    await projects_repo.delete_by_id(session, matched.id, user_id)
-                    applied += 1
-                    projects = [p for p in projects if p.id != matched.id]
-                    items = [i for i in items if i.project_id != matched.id]
-            elif action.action == "set_description":
-                matched = _find_project(projects, title)
-                if matched:
-                    desc = (action.description or "").strip() or None
-                    await projects_repo.update(session, matched, description=desc)
-                    applied += 1
-            elif action.action == "set_level":
-                matched = _find_project(projects, title)
-                if matched and action.level:
-                    await projects_repo.update(session, matched, level=action.level)
-                    applied += 1
-            else:
-                matched = _find_project(projects, title)
-                if not matched:
-                    continue
-                project = matched
-                list_title = _resolve_list_title(project, action)
-                if action.action == "add":
-                    content = action.content.strip()
-                    if not content:
-                        continue
-                    if _find_item(items, project.id, list_title, content):
-                        continue
-                    item_count = await project_items_repo.count_for_project(
-                        session, project.id, user_id
-                    )
-                    if item_count >= MAX_PROJECT_ITEMS_PER_PROJECT:
-                        logger.info(
-                            "Skipping add: project_id=%s at item cap (%d) for user_id=%s",
-                            project.id,
-                            MAX_PROJECT_ITEMS_PER_PROJECT,
-                            user_id,
-                        )
-                        continue
-                    await project_items_repo.create(
-                        session,
-                        user_id=user_id,
-                        project_id=project.id,
-                        content=content,
-                        list_title=list_title,
-                        note=action.note,
-                        definition=action.definition,
-                        example_sentence=action.example_sentence or action.note,
-                        chat_id=chat_id,
-                        status="new",
-                    )
-                    applied += 1
-                    items = await project_items_repo.list_recent_for_user(
-                        session, user_id, limit=_ACTION_RELOAD_LIMIT
-                    )
-                elif action.action == "start_learning":
-                    # Record a failed/incorrect quiz outcome (open-ended or exhausted).
-                    # Stamps last_incorrect_at so failed_today / day lists stay accurate.
-                    item = _find_item(items, project.id, list_title, action.content)
-                    if not item:
-                        item = _find_item_by_content(items, project.id, action.content)
-                    content = action.content.strip()
-                    if not item and content:
-                        item = await project_items_repo.create(
-                            session,
-                            user_id=user_id,
-                            project_id=project.id,
-                            content=content,
-                            list_title=list_title,
-                            note=action.note,
-                            definition=action.definition,
-                            example_sentence=action.example_sentence or action.note,
-                            chat_id=chat_id,
-                            status="new",
-                        )
-                        items = await project_items_repo.list_recent_for_user(
-                            session, user_id, limit=_ACTION_RELOAD_LIMIT
-                        )
-                    if item and _item_status(item) != "mastered":
-                        if not _failed_quiz_today(item):
-                            await project_items_repo.apply_quiz_result(
-                                session, item, is_correct=False, commit=False
-                            )
-                            applied += 1
-                        elif _item_status(item) == "new":
-                            await project_items_repo.update(session, item, status="learning")
-                            applied += 1
-                elif action.action == "master":
-                    item = _find_item(
-                        items, project.id, list_title, action.content, mastered_only=False
-                    )
-                    if not item:
-                        item = _find_item_by_content(items, project.id, action.content)
-                    if item and _item_status(item) != "mastered":
-                        if _recently_missed_quiz(item):
-                            logger.info(
-                                "Skipping master for recently missed quiz item user_id=%s word=%s",
-                                user_id,
-                                action.content,
-                            )
-                            continue
-                        await project_items_repo.update(session, item, status="mastered")
-                        applied += 1
-                elif action.action == "unmaster":
-                    item = _find_item(
-                        items, project.id, list_title, action.content, mastered_only=True
-                    )
-                    if item and _item_status(item) == "mastered":
-                        await project_items_repo.update(session, item, status="learning")
-                        applied += 1
-                elif action.action == "delete":
-                    item = _find_item(items, project.id, list_title, action.content)
-                    if item:
-                        await project_items_repo.delete_by_id(session, item.id, user_id)
-                        applied += 1
-                        items = [i for i in items if i.id != item.id]
-                elif action.action == "delete_list":
-                    removed = await project_items_repo.delete_by_list(
-                        session, user_id, project.id, list_title
-                    )
-                    if removed:
-                        applied += 1
-                        items = [
-                            i
-                            for i in items
-                            if not (
-                                i.project_id == project.id
-                                and _list_key(i.list_title) == _list_key(list_title)
-                            )
-                        ]
-        except Exception:
-            logger.exception(
-                "Failed project action %s for user_id=%s project=%s",
-                action.action,
-                user_id,
-                title,
-            )
-            continue
-        if applied > applied_before:
-            logger.info(
-                "Project action applied: user_id=%s action=%s project=%s chat_id=%s",
-                user_id,
-                action.action,
-                title,
-                chat_id,
-            )
-    if applied > 0:
-        await _invalidate_home_for_user(user_id)
-    return applied
+    items = await project_items_repo.list_recent_for_user(
+        session, user_id, limit=_ACTION_RELOAD_LIMIT
+    )
+    state = _ProjectApplyState(
+        session=session,
+        user_id=user_id,
+        chat_id=chat_id,
+        projects=projects,
+        items=items,
+    )
+
+    def _on_error(action: ProjectActionItem) -> None:
+        logger.exception(
+            "Failed project action %s for user_id=%s project=%s",
+            action.action,
+            user_id,
+            action.project_title,
+        )
+
+    def _log_summary(applied: int) -> None:
+        logger.info(
+            "Applied %d project action(s) for user_id=%s chat_id=%s",
+            applied,
+            user_id,
+            chat_id,
+        )
+
+    return await apply_action_batch(
+        actions=actions,
+        state=state,
+        handlers=_PROJECT_ACTION_HANDLERS,
+        action_name=lambda a: a.action,
+        prepare=_prepare_project_action,
+        on_error=_on_error,
+        log_summary=_log_summary,
+        invalidate_home=lambda: _invalidate_home_for_user(user_id),
+    )
 
 
 @dataclass(frozen=True)

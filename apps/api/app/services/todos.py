@@ -17,6 +17,7 @@ from app.repositories.todos import DEFAULT_TOPIC
 from app.services import day_planning as day_planning_service
 from app.services import home as home_service
 from app.services import time_context as time_context_service
+from app.services.action_dispatch import ActionHandler, apply_action_batch
 
 logger = logging.getLogger(__name__)
 
@@ -688,6 +689,144 @@ async def _apply_delete_overdue_open_reminders(
     return applied
 
 
+@dataclass
+class _TodoApplyState:
+    session: AsyncSession
+    user_id: UUID
+    chat_id: UUID | None
+    user_timezone: str | None
+    feedback: list[str] | None
+    items: list[TodoItem]
+
+
+def _prepare_todo_action(action: TodoActionItem) -> TodoActionItem | None:
+    topic = action.topic.strip()
+    if not topic:
+        # Dated reminders don't need a list title — land in Reminders via due_at.
+        if action.action == "add" and action.due_at is not None:
+            return action.model_copy(update={"topic": REMINDER_TOPIC})
+        return None
+    if topic != action.topic:
+        return action.model_copy(update={"topic": topic})
+    return action
+
+
+async def _todo_action_add(state: _TodoApplyState, action: TodoActionItem) -> int:
+    content = action.content.strip()
+    if not content:
+        return 0
+    topic = action.topic
+    if _find_item_any_state(state.items, topic, content):
+        return 0
+    due_at = time_context_service.normalize_due_at(action.due_at, state.user_timezone)
+    await todos_repo.create(
+        state.session,
+        user_id=state.user_id,
+        content=content,
+        topic=topic,
+        chat_id=state.chat_id,
+        due_at=due_at,
+    )
+    state.items = await todos_repo.list_for_user(
+        state.session, state.user_id, limit=_ACTION_RELOAD_LIMIT
+    )
+    return 1
+
+
+async def _todo_action_complete(state: _TodoApplyState, action: TodoActionItem) -> int:
+    item = _find_item(state.items, action.topic, action.content)
+    if item and not item.checked:
+        await todos_repo.update(state.session, item, checked=True)
+        return 1
+    return 0
+
+
+async def _todo_action_uncheck(state: _TodoApplyState, action: TodoActionItem) -> int:
+    item = _find_item_any_state(state.items, action.topic, action.content)
+    if item and item.checked:
+        await todos_repo.update(state.session, item, checked=False)
+        return 1
+    return 0
+
+
+async def _todo_action_delete(state: _TodoApplyState, action: TodoActionItem) -> int:
+    item = _find_item_any_state(state.items, action.topic, action.content)
+    if item:
+        await todos_repo.delete_by_id(state.session, item.id, state.user_id)
+        state.items = [i for i in state.items if i.id != item.id]
+        return 1
+    logger.warning(
+        "Todo delete missed: user_id=%s topic=%s content=%r",
+        state.user_id,
+        action.topic,
+        (action.content or "")[:120],
+    )
+    return 0
+
+
+async def _todo_action_delete_list(state: _TodoApplyState, action: TodoActionItem) -> int:
+    topic = action.topic
+    list_items = [
+        i for i in state.items if _topic_key(i.topic) == _topic_key(topic) and i.due_at is None
+    ]
+    open_count = sum(1 for i in list_items if not i.checked)
+    if open_count > 0:
+        if state.feedback is not None:
+            state.feedback.append(
+                f'Blocked delete list "{topic}": {open_count} item(s) still open.'
+            )
+        return 0
+    removed = await todos_repo.delete_by_topic(state.session, state.user_id, topic)
+    if removed:
+        if state.feedback is not None:
+            state.feedback.append(f'Deleted list "{topic}" ({removed} item(s)).')
+        state.items = [i for i in state.items if _topic_key(i.topic) != _topic_key(topic)]
+        return 1
+    if state.feedback is not None:
+        state.feedback.append(f'List "{topic}" not found or already empty.')
+    return 0
+
+
+async def _todo_action_set_due(state: _TodoApplyState, action: TodoActionItem) -> int:
+    due_at = time_context_service.normalize_due_at(action.due_at, state.user_timezone)
+    if action.content.strip() == "*":
+        tz = time_context_service.resolve_timezone(state.user_timezone)
+        today = datetime.now(tz).date()
+        applied = 0
+        for open_item in state.items:
+            if open_item.checked or open_item.due_at is None:
+                continue
+            if _due_local_date(open_item, state.user_timezone) != today:
+                continue
+            await todos_repo.update(state.session, open_item, due_at=due_at)
+            applied += 1
+        return applied
+    item = _find_item_any_state(state.items, action.topic, action.content)
+    if item:
+        await todos_repo.update(state.session, item, due_at=due_at)
+        return 1
+    return 0
+
+
+async def _todo_action_clear_due(state: _TodoApplyState, action: TodoActionItem) -> int:
+    item = _find_item_any_state(state.items, action.topic, action.content)
+    if item and item.due_at is not None:
+        await todos_repo.update(state.session, item, due_at=None)
+        return 1
+    return 0
+
+
+_TODO_ACTION_HANDLERS: dict[str, ActionHandler[_TodoApplyState, TodoActionItem]] = {
+    "add": _todo_action_add,
+    "complete": _todo_action_complete,
+    "uncheck": _todo_action_uncheck,
+    "delete": _todo_action_delete,
+    "delete_list": _todo_action_delete_list,
+    "set_due": _todo_action_set_due,
+    "clear_due": _todo_action_clear_due,
+}
+
+
 async def apply_todo_actions(
     session: AsyncSession,
     *,
@@ -700,157 +839,41 @@ async def apply_todo_actions(
     if not actions:
         return 0
     items = await todos_repo.list_for_user(session, user_id, limit=_ACTION_RELOAD_LIMIT)
-    applied = 0
-    for action in actions:
-        topic = action.topic.strip()
-        if not topic:
-            # Dated reminders don't need a list title — land in Reminders via due_at.
-            if action.action == "add" and action.due_at is not None:
-                topic = REMINDER_TOPIC
-            else:
-                continue
-        try:
-            if action.action == "add":
-                content = action.content.strip()
-                if not content:
-                    continue
-                if _find_item_any_state(items, topic, content):
-                    continue
-                due_at = time_context_service.normalize_due_at(action.due_at, user_timezone)
-                await todos_repo.create(
-                    session,
-                    user_id=user_id,
-                    content=content,
-                    topic=topic,
-                    chat_id=chat_id,
-                    due_at=due_at,
-                )
-                applied += 1
-                logger.info(
-                    "Todo action applied: user_id=%s action=add topic=%s chat_id=%s",
-                    user_id,
-                    topic,
-                    chat_id,
-                )
-                items = await todos_repo.list_for_user(session, user_id, limit=_ACTION_RELOAD_LIMIT)
-            elif action.action == "complete":
-                item = _find_item(items, topic, action.content)
-                if item and not item.checked:
-                    await todos_repo.update(session, item, checked=True)
-                    applied += 1
-                    logger.info(
-                        "Todo action applied: user_id=%s action=complete topic=%s chat_id=%s",
-                        user_id,
-                        topic,
-                        chat_id,
-                    )
-            elif action.action == "uncheck":
-                item = _find_item_any_state(items, topic, action.content)
-                if item and item.checked:
-                    await todos_repo.update(session, item, checked=False)
-                    applied += 1
-                    logger.info(
-                        "Todo action applied: user_id=%s action=uncheck topic=%s chat_id=%s",
-                        user_id,
-                        topic,
-                        chat_id,
-                    )
-            elif action.action == "delete":
-                item = _find_item_any_state(items, topic, action.content)
-                if item:
-                    await todos_repo.delete_by_id(session, item.id, user_id)
-                    applied += 1
-                    logger.info(
-                        "Todo action applied: user_id=%s action=delete topic=%s chat_id=%s",
-                        user_id,
-                        topic,
-                        chat_id,
-                    )
-                    items = [i for i in items if i.id != item.id]
-                else:
-                    logger.warning(
-                        "Todo delete missed: user_id=%s topic=%s content=%r",
-                        user_id,
-                        topic,
-                        (action.content or "")[:120],
-                    )
-            elif action.action == "delete_list":
-                list_items = [
-                    i
-                    for i in items
-                    if _topic_key(i.topic) == _topic_key(topic) and i.due_at is None
-                ]
-                open_count = sum(1 for i in list_items if not i.checked)
-                if open_count > 0:
-                    if feedback is not None:
-                        feedback.append(
-                            f'Blocked delete list "{topic}": {open_count} item(s) still open.'
-                        )
-                    continue
-                removed = await todos_repo.delete_by_topic(session, user_id, topic)
-                if removed:
-                    applied += 1
-                    if feedback is not None:
-                        feedback.append(f'Deleted list "{topic}" ({removed} item(s)).')
-                    logger.info(
-                        "Todo action applied: user_id=%s action=delete_list topic=%s chat_id=%s",
-                        user_id,
-                        topic,
-                        chat_id,
-                    )
-                    items = [i for i in items if _topic_key(i.topic) != _topic_key(topic)]
-                elif feedback is not None:
-                    feedback.append(f'List "{topic}" not found or already empty.')
-            elif action.action == "set_due":
-                due_at = time_context_service.normalize_due_at(action.due_at, user_timezone)
-                if action.content.strip() == "*":
-                    tz = time_context_service.resolve_timezone(user_timezone)
-                    today = datetime.now(tz).date()
-                    for item in items:
-                        if item.checked or item.due_at is None:
-                            continue
-                        if _due_local_date(item, user_timezone) != today:
-                            continue
-                        await todos_repo.update(session, item, due_at=due_at)
-                        applied += 1
-                        logger.info(
-                            "Todo action applied: user_id=%s action=set_due(*) topic=%s chat_id=%s",
-                            user_id,
-                            topic,
-                            chat_id,
-                        )
-                else:
-                    item = _find_item_any_state(items, topic, action.content)
-                    if item:
-                        await todos_repo.update(session, item, due_at=due_at)
-                        applied += 1
-                        logger.info(
-                            "Todo action applied: user_id=%s action=set_due topic=%s chat_id=%s",
-                            user_id,
-                            topic,
-                            chat_id,
-                        )
-            elif action.action == "clear_due":
-                item = _find_item_any_state(items, topic, action.content)
-                if item and item.due_at is not None:
-                    await todos_repo.update(session, item, due_at=None)
-                    applied += 1
-                    logger.info(
-                        "Todo action applied: user_id=%s action=clear_due topic=%s chat_id=%s",
-                        user_id,
-                        topic,
-                        chat_id,
-                    )
-        except Exception:
-            logger.exception(
-                "Failed todo action %s for user_id=%s topic=%s",
-                action.action,
-                user_id,
-                topic,
-            )
-    if applied > 0:
-        await home_service.invalidate_home_cache(user_id)
-    return applied
+    state = _TodoApplyState(
+        session=session,
+        user_id=user_id,
+        chat_id=chat_id,
+        user_timezone=user_timezone,
+        feedback=feedback,
+        items=items,
+    )
+
+    def _on_error(action: TodoActionItem) -> None:
+        logger.exception(
+            "Failed todo action %s for user_id=%s topic=%s",
+            action.action,
+            user_id,
+            action.topic,
+        )
+
+    def _log_summary(applied: int) -> None:
+        logger.info(
+            "Applied %d todo action(s) for user_id=%s chat_id=%s",
+            applied,
+            user_id,
+            chat_id,
+        )
+
+    return await apply_action_batch(
+        actions=actions,
+        state=state,
+        handlers=_TODO_ACTION_HANDLERS,
+        action_name=lambda a: a.action,
+        prepare=_prepare_todo_action,
+        on_error=_on_error,
+        log_summary=_log_summary,
+        invalidate_home=lambda: home_service.invalidate_home_cache(user_id),
+    )
 
 
 @dataclass(frozen=True)
