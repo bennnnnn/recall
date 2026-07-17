@@ -123,7 +123,7 @@ async def test_sync_todos_bulk_shift_after_partial_llm_apply():
             AsyncMock(return_value=items),
         ),
         patch(
-            "app.gateways.litellm_gateway.extract_todo_actions",
+            "app.services.todos.extract.extract_todo_actions",
             AsyncMock(return_value=extraction),
         ),
         patch.object(
@@ -181,7 +181,7 @@ async def test_sync_todos_from_transcript_releases_db_before_llm():
         ),
         patch.object(todos_service.todos_repo, "list_for_user", AsyncMock(return_value=[])),
         patch(
-            "app.gateways.litellm_gateway.extract_todo_actions",
+            "app.services.todos.extract.extract_todo_actions",
             AsyncMock(side_effect=fake_extract),
         ),
     ):
@@ -227,7 +227,7 @@ async def test_sync_todos_refuses_delete_list_from_transcript_and_caps_actions()
         patch.object(todos_service.users_repo, "get_by_id", AsyncMock(return_value=user)),
         patch.object(todos_service.todos_repo, "list_for_user", AsyncMock(return_value=[])),
         patch(
-            "app.gateways.litellm_gateway.extract_todo_actions",
+            "app.services.todos.extract.extract_todo_actions",
             AsyncMock(return_value=extraction),
         ),
         patch.object(todos_service, "apply_todo_actions", AsyncMock(side_effect=fake_apply)),
@@ -555,7 +555,7 @@ async def test_sync_todos_delete_overdue_after_empty_llm_apply():
             AsyncMock(return_value=items),
         ),
         patch(
-            "app.gateways.litellm_gateway.extract_todo_actions",
+            "app.services.todos.extract.extract_todo_actions",
             AsyncMock(return_value=extraction),
         ),
         patch.object(

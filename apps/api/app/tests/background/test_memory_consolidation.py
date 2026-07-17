@@ -90,7 +90,7 @@ async def test_consolidate_skips_when_write_lock_held():
             AsyncMock(return_value=False),
         ),
         patch("app.background.memory_consolidation.memories_repo.list_for_user", list_for_user),
-        patch("app.background.memory_consolidation.litellm_gateway.merge_memory_section", merge),
+        patch("app.background.memory_consolidation.memory_llm.merge_memory_section", merge),
     ):
         changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
 
@@ -126,7 +126,7 @@ async def test_consolidate_merges_messy_sections():
             AsyncMock(return_value=[memory]),
         ),
         patch(
-            "app.background.memory_consolidation.litellm_gateway.merge_memory_section",
+            "app.background.memory_consolidation.memory_llm.merge_memory_section",
             AsyncMock(return_value=merged),
         ),
         patch(
@@ -177,7 +177,7 @@ async def test_consolidate_skips_suspiciously_short_merge():
             AsyncMock(return_value=[memory]),
         ),
         patch(
-            "app.background.memory_consolidation.litellm_gateway.merge_memory_section",
+            "app.background.memory_consolidation.memory_llm.merge_memory_section",
             AsyncMock(return_value=merged),
         ),
         patch(
@@ -222,7 +222,7 @@ async def test_consolidate_applies_only_sections_that_need_merge():
             AsyncMock(return_value=[profile, preference]),
         ),
         patch(
-            "app.background.memory_consolidation.litellm_gateway.merge_memory_section",
+            "app.background.memory_consolidation.memory_llm.merge_memory_section",
             AsyncMock(return_value=merged),
         ) as merge,
         patch(
@@ -276,7 +276,7 @@ async def test_consolidate_skips_merge_that_drops_fact_anchors():
             AsyncMock(return_value=[memory]),
         ),
         patch(
-            "app.background.memory_consolidation.litellm_gateway.merge_memory_section",
+            "app.background.memory_consolidation.memory_llm.merge_memory_section",
             AsyncMock(return_value=merged),
         ),
         patch(
@@ -322,7 +322,7 @@ async def test_consolidate_upserts_without_embedding_when_vector_missing():
             AsyncMock(side_effect=[[memory], [updated]]),
         ),
         patch(
-            "app.background.memory_consolidation.litellm_gateway.merge_memory_section",
+            "app.background.memory_consolidation.memory_llm.merge_memory_section",
             AsyncMock(return_value=merged),
         ),
         patch(
@@ -377,7 +377,7 @@ async def test_consolidate_stores_embedding_when_vector_present():
             AsyncMock(side_effect=[[memory], [updated]]),
         ),
         patch(
-            "app.background.memory_consolidation.litellm_gateway.merge_memory_section",
+            "app.background.memory_consolidation.memory_llm.merge_memory_section",
             AsyncMock(return_value=merged),
         ),
         patch(
@@ -463,7 +463,7 @@ async def test_consolidate_reembeds_stale_section_even_if_untouched_this_pass():
             ),
         ),
         patch(
-            "app.background.memory_consolidation.litellm_gateway.merge_memory_section",
+            "app.background.memory_consolidation.memory_llm.merge_memory_section",
             AsyncMock(return_value=merged),
         ),
         patch(
@@ -534,7 +534,7 @@ async def test_consolidate_releases_db_before_llm():
             AsyncMock(return_value=[memory]),
         ),
         patch(
-            "app.background.memory_consolidation.litellm_gateway.merge_memory_section",
+            "app.background.memory_consolidation.memory_llm.merge_memory_section",
             AsyncMock(side_effect=fake_merge),
         ),
     ):
@@ -564,7 +564,7 @@ async def test_consolidate_deterministic_dedupe_skips_llm():
             AsyncMock(return_value=[memory]),
         ),
         patch(
-            "app.background.memory_consolidation.litellm_gateway.merge_memory_section",
+            "app.background.memory_consolidation.memory_llm.merge_memory_section",
             AsyncMock(),
         ) as merge,
         patch(

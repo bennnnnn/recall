@@ -190,14 +190,14 @@ async def _run_extracted_todo_actions(
     feedback: list[str] | None = None,
 ) -> TodoExtractionResult | None:
     from app.core.db import SessionLocal
-    from app.gateways import litellm_gateway
+    from app.services.todos.extract import extract_todo_actions
 
     async with SessionLocal() as session:
         loaded = await _load_todo_sync_snapshot(session, user_id, settings)
         await session.commit()
 
     try:
-        result = await litellm_gateway.extract_todo_actions(
+        result = await extract_todo_actions(
             settings,
             transcript,
             loaded.snapshot,

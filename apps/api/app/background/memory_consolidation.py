@@ -8,8 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.db import SessionLocal
-from app.gateways import litellm_gateway
 from app.repositories import memories as memories_repo
+from app.services import memory_llm
 from app.services.memory import (
     acquire_memory_write_lock,
     consolidation_rewrite_preserves_facts,
@@ -159,7 +159,7 @@ async def consolidate_user_memory_sections(
                         rows.append((section_type, accepted, 0.95, None))
                     continue
 
-                merged = await litellm_gateway.merge_memory_section(
+                merged = await memory_llm.merge_memory_section(
                     settings,
                     section_type=section_type,
                     prior_text=draft,

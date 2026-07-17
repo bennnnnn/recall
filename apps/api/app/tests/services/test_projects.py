@@ -1659,7 +1659,7 @@ async def test_sync_projects_from_transcript_applies_litellm_actions():
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.gateways.litellm_gateway.extract_project_actions",
+            "app.services.projects.extract.extract_project_actions",
             AsyncMock(return_value=extraction),
         ),
         patch.object(
@@ -1717,7 +1717,7 @@ async def test_sync_projects_from_transcript_releases_db_before_llm():
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.gateways.litellm_gateway.extract_project_actions",
+            "app.services.projects.extract.extract_project_actions",
             AsyncMock(side_effect=fake_extract),
         ),
     ):
@@ -1761,7 +1761,7 @@ async def test_sync_projects_from_transcript_returns_none_on_error():
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.gateways.litellm_gateway.extract_project_actions",
+            "app.services.projects.extract.extract_project_actions",
             AsyncMock(side_effect=RuntimeError("boom")),
         ),
     ):

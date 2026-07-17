@@ -807,7 +807,7 @@ async def test_should_web_search_fast_path_skips_classifier():
         web_search_classifier_enabled=True,
     )
     with patch(
-        "app.gateways.litellm_gateway.classify_web_search_need",
+        "app.services.web_search.classify.classify_web_search_need",
         AsyncMock(),
     ) as classify:
         assert await should_web_search("search the web for AI news", settings) is True
@@ -824,7 +824,7 @@ async def test_should_web_search_classifier_disabled_uses_heuristic():
 async def test_should_web_search_falls_back_when_classifier_fails():
     settings = Settings(mock_llm_enabled=False, web_search_classifier_enabled=True)
     with patch(
-        "app.gateways.litellm_gateway.classify_web_search_need",
+        "app.services.web_search.classify.classify_web_search_need",
         AsyncMock(return_value=None),
     ):
         assert await should_web_search("What is the latest price of Bitcoin?", settings) is True

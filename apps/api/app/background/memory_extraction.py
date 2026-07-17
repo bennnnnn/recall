@@ -7,10 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.db import SessionLocal
-from app.gateways import litellm_gateway
 from app.models.orm import Memory
 from app.repositories import memories as memories_repo
 from app.repositories import users as users_repo
+from app.services import memory_llm
 from app.services.memory import (
     acquire_memory_write_lock,
     embedding_text_hash,
@@ -128,7 +128,7 @@ async def extract_and_store_memories(
             if not snapshot.memory_enabled:
                 return
 
-            result = await litellm_gateway.revise_memory_sections(
+            result = await memory_llm.revise_memory_sections(
                 settings,
                 transcript,
                 existing_sections=snapshot.existing_sections,
