@@ -254,9 +254,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setOnboardedState(true);
   }, []);
 
+  const updateUserGenRef = useRef(0);
+
   const updateUser = useCallback(
     async (patch: Partial<User>) => {
       if (!token) return;
+      const gen = ++updateUserGenRef.current;
       let snapshot: User | null = null;
       setUser((current) => {
         snapshot = current;
@@ -264,9 +267,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       try {
         const updated = await api.updateMe(token, patch);
+        // Ignore stale responses when a newer patch already left the station —
+        // otherwise a slow toggle can briefly snap back to an older value.
+        if (gen !== updateUserGenRef.current) return;
         setUser(updated);
         void writeCachedUser(updated);
       } catch {
+        if (gen !== updateUserGenRef.current) return;
         setUser(snapshot);
         throw new Error("update failed");
       }
