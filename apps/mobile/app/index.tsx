@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   useWindowDimensions,
+  View,
 } from "react-native";
 import { registerNewChat, setActiveChatIdGlobal } from "@/lib/drawer";
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
@@ -495,7 +496,9 @@ function ChatScreen() {
   if (!token) return <Redirect href="/login" />;
 
   return (
-    <>
+    <View style={{ flex: 1 }}>
+      <ChatScreenBody {...chatScreenBodyProps} />
+
       <ChatScreenMenuSheets
         menuVisible={menuVisible}
         chatTitle={chatTitle}
@@ -513,9 +516,7 @@ function ChatScreen() {
         onCloseRename={() => setRenameVisible(false)}
         onConfirmRename={() => void confirmRename()}
       />
-
-      <ChatScreenBody {...chatScreenBodyProps} />
-    </>
+    </View>
   );
 }
 

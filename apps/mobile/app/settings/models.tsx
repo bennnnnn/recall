@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ScrollView, Switch, Text, View } from "react-native";
 import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -14,6 +14,19 @@ import { useAuth } from "@/contexts/AuthContext";
 import { buildModelPreferences, useModels } from "@/hooks/useModels";
 import { useTheme } from "@/lib/theme";
 
+function sameIdSet(a: Set<string>, b: Set<string>): boolean {
+  if (a.size !== b.size) return false;
+  for (const id of a) {
+    if (!b.has(id)) return false;
+  }
+  return true;
+}
+
+type DraftPrefs = {
+  auto: boolean;
+  models: Set<string>;
+};
+
 export default function ModelsSettingsScreen() {
   const { token, user, updateUser } = useAuth();
   const { t } = useTranslation();
@@ -27,17 +40,36 @@ export default function ModelsSettingsScreen() {
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
   const [upgradeVisible, setUpgradeVisible] = useState(false);
+  // Local draft so the Switch doesn't snap back while Auth/Models context
+  // catches up (and so a racing /auth/me echo can't flash the old value).
+  const [draft, setDraft] = useState<DraftPrefs | null>(null);
+
+  const effectiveAuto = draft?.auto ?? autoEnabled;
+  const effectiveModels = draft?.models ?? modelEnabledSet;
+
+  useEffect(() => {
+    if (!draft) return;
+    if (draft.auto === autoEnabled && sameIdSet(draft.models, modelEnabledSet)) {
+      setDraft(null);
+    }
+  }, [autoEnabled, modelEnabledSet, draft]);
 
   if (!token) return <Redirect href="/login" />;
 
   const patchPreferences = (auto: boolean, modelIds: Set<string>) => {
     if (!auto && modelIds.size === 0) return;
-    void updateUser({ enabled_models: buildModelPreferences(auto, modelIds) }).catch(() => {});
+    const nextModels = new Set(modelIds);
+    setDraft({ auto, models: nextModels });
+    void updateUser({ enabled_models: buildModelPreferences(auto, nextModels) }).catch(
+      () => {
+        setDraft(null);
+      },
+    );
   };
 
   const toggleAuto = (enabled: boolean) => {
-    if (!enabled && modelEnabledSet.size === 0) return;
-    patchPreferences(enabled, modelEnabledSet);
+    if (!enabled && effectiveModels.size === 0) return;
+    patchPreferences(enabled, effectiveModels);
   };
 
   const toggleModel = (modelId: string, enabled: boolean) => {
@@ -48,11 +80,11 @@ export default function ModelsSettingsScreen() {
       if (enabled) setUpgradeVisible(true);
       return;
     }
-    const next = new Set(modelEnabledSet);
+    const next = new Set(effectiveModels);
     if (enabled) next.add(modelId);
     else next.delete(modelId);
-    if (next.size === 0 && !autoEnabled) return;
-    patchPreferences(autoEnabled, next);
+    if (next.size === 0 && !effectiveAuto) return;
+    patchPreferences(effectiveAuto, next);
   };
 
   return (
@@ -64,8 +96,8 @@ export default function ModelsSettingsScreen() {
         <SettingsGroup styles={s}>
           <SettingsSwitchRow
             title={t("settings.model_auto")}
-            value={autoEnabled}
-            disabled={autoEnabled && modelEnabledSet.size === 0}
+            value={effectiveAuto}
+            disabled={effectiveAuto && effectiveModels.size === 0}
             onValueChange={toggleAuto}
             styles={s}
             theme={theme}
@@ -75,8 +107,8 @@ export default function ModelsSettingsScreen() {
         <SettingsGroup label={t("settings.model")} styles={s}>
           {models.map((option, index) => {
             const proLocked = !isPro && option.plan_access === "pro";
-            const enabled = modelEnabledSet.has(option.id) && !proLocked;
-            const isLastModel = enabled && modelEnabledSet.size <= 1 && !autoEnabled;
+            const enabled = effectiveModels.has(option.id) && !proLocked;
+            const isLastModel = enabled && effectiveModels.size <= 1 && !effectiveAuto;
             const switchDisabled =
               isLastModel || (!enabled && !option.available && !proLocked);
 

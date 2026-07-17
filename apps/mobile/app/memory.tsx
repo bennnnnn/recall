@@ -17,6 +17,11 @@ import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, Memory } from "@/lib/api";
+import {
+  fetchMemories,
+  getCachedMemories,
+  setMemoriesCache,
+} from "@/lib/memoryListCache";
 import { splitMemoryFacts } from "@/lib/memoryFacts";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -144,12 +149,14 @@ export default function MemoryScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const [loading, setLoading] = useState(true);
-  const [memories, setMemories] = useState<Memory[]>([]);
+  // Settings already warms this cache — paint instantly instead of skeleton.
+  const cachedOnMount = getCachedMemories();
+  const [loading, setLoading] = useState(() => !cachedOnMount);
+  const [memories, setMemories] = useState<Memory[]>(() => cachedOnMount ?? []);
   const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
-  const hasLoadedRef = useRef(false);
+  const hasLoadedRef = useRef(Boolean(cachedOnMount));
 
   const toggleSection = useCallback((type: string) => {
     setExpandedTypes((prev) => {
@@ -160,31 +167,36 @@ export default function MemoryScreen() {
     });
   }, []);
 
-  const load = useCallback(async (opts?: { silent?: boolean }) => {
+  const applyMemories = useCallback((next: Memory[]) => {
+    setMemories(next);
+    setMemoriesCache(next);
+  }, []);
+
+  const load = useCallback(async (opts?: { silent?: boolean; force?: boolean }) => {
     if (!token) {
       setLoading(false);
       return;
     }
-    const firstLoad = !hasLoadedRef.current;
-    if (!opts?.silent && firstLoad) {
-      setLoading(true);
-    }
+    const showSkeleton =
+      !opts?.silent && !hasLoadedRef.current && !getCachedMemories()?.length;
+    if (showSkeleton) setLoading(true);
     setError(false);
-    try {
-      setMemories(await api.listMemories(token));
-    } catch {
+    const data = await fetchMemories(token, { force: opts?.force });
+    if (data) {
+      setMemories(data);
+    } else if (!getCachedMemories()?.length) {
       setError(true);
-    } finally {
-      hasLoadedRef.current = true;
-      if (!opts?.silent && firstLoad) {
-        setLoading(false);
-      }
     }
+    hasLoadedRef.current = true;
+    if (showSkeleton) setLoading(false);
   }, [token]);
 
   useFocusEffect(
     useCallback(() => {
-      void load({ silent: hasLoadedRef.current });
+      void load({
+        silent: hasLoadedRef.current || Boolean(getCachedMemories()),
+        force: false,
+      });
     }, [load]),
   );
 
@@ -237,7 +249,7 @@ export default function MemoryScreen() {
           refreshing={refreshing}
           onRefresh={async () => {
             setRefreshing(true);
-            await load({ silent: true });
+            await load({ silent: true, force: true });
             setRefreshing(false);
           }}
         />
@@ -265,9 +277,7 @@ export default function MemoryScreen() {
                   style: "destructive",
                   onPress: async () => {
                     const snapshot = memories;
-                    setMemories((prev) =>
-                      prev.filter((item) => item.type !== section.type),
-                    );
+                    applyMemories(memories.filter((item) => item.type !== section.type));
                     setExpandedTypes((prev) => {
                       const next = new Set(prev);
                       next.delete(section.type);
@@ -276,7 +286,7 @@ export default function MemoryScreen() {
                     try {
                       await api.deleteMemorySection(token, section.type);
                     } catch {
-                      setMemories(snapshot);
+                      applyMemories(snapshot);
                       Alert.alert(t("common.error"), t("memory.delete_failed"));
                     }
                   },
@@ -299,14 +309,12 @@ export default function MemoryScreen() {
                     const facts = splitMemoryFacts(section.text);
                     facts.splice(factIndex, 1);
                     if (facts.length === 0) {
-                      setMemories((prev) =>
-                        prev.filter((item) => item.id !== section.id),
-                      );
+                      applyMemories(memories.filter((item) => item.id !== section.id));
                     } else {
                       const nextText =
                         facts.join(". ") + (facts.at(-1)?.endsWith(".") ? "" : ".");
-                      setMemories((prev) =>
-                        prev.map((item) =>
+                      applyMemories(
+                        memories.map((item) =>
                           item.id === section.id ? { ...item, text: nextText } : item,
                         ),
                       );
@@ -318,8 +326,8 @@ export default function MemoryScreen() {
                       // fact (see the server-side content-match fix) — reload from
                       // the server instead of reverting to our now-stale snapshot,
                       // so the user sees what's actually there.
-                      setMemories(snapshot);
-                      void load({ silent: true });
+                      applyMemories(snapshot);
+                      void load({ silent: true, force: true });
                       Alert.alert(t("common.error"), t("memory.delete_failed"));
                     }
                   },

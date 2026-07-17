@@ -15,7 +15,18 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
     void import("@/lib/deviceTimezone").then(({ getDeviceTimezone }) => {
       const deviceTz = getDeviceTimezone();
       if (user.timezone !== deviceTz) {
-        void api.updateMe(token, { timezone: deviceTz }).then(setUser).catch(() => {});
+        void api
+          .updateMe(token, { timezone: deviceTz })
+          .then((updated) => {
+            // Only apply the fields this call changed — a full User replace
+            // can race with an optimistic models/prefs patch and flash old toggles.
+            setUser((current) =>
+              current
+                ? { ...current, timezone: updated.timezone }
+                : updated,
+            );
+          })
+          .catch(() => {});
       }
     });
   }, [token, user?.id, user?.timezone, setUser]);
@@ -25,7 +36,16 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
     void import("@/lib/deviceLocation").then(async ({ getDeviceLocationLabel }) => {
       const label = await getDeviceLocationLabel();
       if (label && user.location !== label) {
-        void api.updateMe(token, { location: label }).then(setUser).catch(() => {});
+        void api
+          .updateMe(token, { location: label })
+          .then((updated) => {
+            setUser((current) =>
+              current
+                ? { ...current, location: updated.location }
+                : updated,
+            );
+          })
+          .catch(() => {});
       }
     });
   }, [token, user?.id, user?.location, user?.location_enabled, setUser]);
