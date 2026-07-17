@@ -2,24 +2,8 @@
 
 from __future__ import annotations
 
-# ISO 639-1 codes supported by the mobile app (see apps/mobile/lib/i18n/languages.ts).
-LOCALE_NAMES: dict[str, str] = {
-    "en": "English",
-    "es": "Spanish",
-    "fr": "French",
-    "de": "German",
-    "it": "Italian",
-    "pt": "Portuguese",
-    "ru": "Russian",
-    "tr": "Turkish",
-    "am": "Amharic",
-}
-
-
-def normalize_locale_code(locale: str | None) -> str:
-    if not locale:
-        return "en"
-    return locale.split("-")[0].lower()
+from app.core.validation import LOCALE_NAMES as LOCALE_NAMES
+from app.core.validation import normalize_locale_code as normalize_locale_code
 
 
 def locale_display_name(locale: str | None) -> str:
