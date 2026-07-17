@@ -9,7 +9,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.gateways.pronunciation_lookup import lookup_pronunciation_url
-from app.models.orm import ProjectItem
+from app.models.orm import ProjectItem, QuizMissEvent
 from app.repositories import project_items as project_items_repo
 from app.repositories.project_items import DEFAULT_LIST
 from app.services.daily_learning import day_bounds_utc
@@ -57,6 +57,14 @@ async def update_item(session: AsyncSession, item: ProjectItem, **fields: Any) -
         new_status = str(fields["status"])
         if new_status != prior_status:
             was_correct = fields.pop("was_correct", None)
+            # UI "Needs review" / Failed maps to status=learning. That must count as a
+            # miss for today's Failed metric and day history — quiz grading already
+            # stamps last_incorrect_at + QuizMissEvent, but manual status updates did not.
+            if new_status == "learning":
+                if not isinstance(was_correct, bool):
+                    was_correct = False
+                fields["last_incorrect_at"] = now
+                session.add(QuizMissEvent(item_id=item.id, user_id=item.user_id, occurred_at=now))
             quality = quality_for_status(
                 new_status,
                 was_correct=was_correct if isinstance(was_correct, bool) else None,
