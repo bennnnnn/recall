@@ -103,18 +103,21 @@ export function ChatActionsSheet({
           accessibilityLabel={t("common.cancel")}
           testID="chat-actions-menu-backdrop"
         />
+        {/* Outer wrapper keeps the shadow; inner clips rounded corners. */}
         <View
           style={[
-            s.menuPanel,
+            s.menuPanelShadow,
             { top: insets.top + CHAT_HEADER_BAR_HEIGHT + 4, right: 10 },
           ]}
         >
-          {title ? (
-            <Text style={s.menuTitle} numberOfLines={1}>
-              {title}
-            </Text>
-          ) : null}
-          {actionRows}
+          <View style={s.menuPanel}>
+            {title ? (
+              <Text style={s.menuTitle} numberOfLines={1}>
+                {title}
+              </Text>
+            ) : null}
+            {actionRows}
+          </View>
         </View>
       </View>
     );
@@ -169,22 +172,29 @@ function makeStyles(C: Theme) {
     },
     menuBackdrop: {
       ...StyleSheet.absoluteFill,
-      backgroundColor: "transparent",
+      // Dim the chat so the menu reads as a floating card (transparent made it
+      // disappear into bg/surface which are nearly the same white).
+      backgroundColor: C.scrim,
     },
-    menuPanel: {
+    menuPanelShadow: {
       position: "absolute",
       minWidth: 220,
       maxWidth: 280,
       borderRadius: 14,
-      backgroundColor: C.surface,
+      // Shadow must live on a view without overflow:hidden or iOS clips it.
+      backgroundColor: C.bg,
+      shadowColor: "#000",
+      shadowOpacity: C.isDark ? 0.55 : 0.28,
+      shadowRadius: 20,
+      shadowOffset: { width: 0, height: 10 },
+      elevation: 20,
+    },
+    menuPanel: {
+      borderRadius: 14,
+      backgroundColor: C.bg,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: C.border,
       overflow: "hidden",
-      shadowColor: "#000",
-      shadowOpacity: 0.18,
-      shadowRadius: 16,
-      shadowOffset: { width: 0, height: 8 },
-      elevation: 12,
     },
     menuTitle: {
       fontSize: 12,
