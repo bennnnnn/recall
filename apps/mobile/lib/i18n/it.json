@@ -27,7 +27,7 @@
   "chat.attach_generate_image": "Generate image",
   "chat.attach_photo": "Libreria foto",
   "chat.attach_solve_math_camera": "Scansiona matematica",
-  "chat.math_scan_hint": "Allinea l’equazione nel riquadro",
+  "chat.math_scan_hint": "Pizzica per ridimensionare · allinea l’equazione",
   "chat.math_scan_permission": "Serve l’accesso alla fotocamera per scansionare i problemi di matematica.",
   "chat.math_scan_allow_camera": "Consenti fotocamera",
   "chat.math_scan_capture_a11y": "Acquisisci equazione",

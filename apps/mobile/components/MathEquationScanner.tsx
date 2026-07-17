@@ -11,14 +11,18 @@ import {
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as ImageManipulator from "expo-image-manipulator";
 import { Ionicons } from "@expo/vector-icons";
+import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
+import { runOnJS } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import type { PendingAttachment } from "@/lib/attachments";
 import { Theme, useTheme } from "@/lib/theme";
 
-/** Fraction of the preview height used as the equation scan band. */
-const BAND_HEIGHT_RATIO = 0.22;
+/** Default fraction of preview height used as the equation scan band. */
+const DEFAULT_BAND_HEIGHT_RATIO = 0.22;
+const MIN_BAND_HEIGHT_RATIO = 0.1;
+const MAX_BAND_HEIGHT_RATIO = 0.7;
 
 type Props = {
   visible: boolean;
@@ -26,9 +30,13 @@ type Props = {
   onCaptured: (pending: PendingAttachment) => void;
 };
 
+function clampBandRatio(ratio: number): number {
+  return Math.min(MAX_BAND_HEIGHT_RATIO, Math.max(MIN_BAND_HEIGHT_RATIO, ratio));
+}
+
 /**
  * In-app equation scanner: live camera with a horizontal crop guide.
- * Captures only the band (not the whole frame) so OCR sees the equation.
+ * Pinch to resize the band; capture crops only that strip for OCR.
  */
 export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
   const { t } = useTranslation();
@@ -40,9 +48,33 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
   const cameraRef = useRef<CameraView>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [bandHeightRatio, setBandHeightRatio] = useState(DEFAULT_BAND_HEIGHT_RATIO);
+  const bandRatioRef = useRef(bandHeightRatio);
+  bandRatioRef.current = bandHeightRatio;
+  const pinchBaseRef = useRef(bandHeightRatio);
 
-  const bandHeight = Math.round(windowHeight * BAND_HEIGHT_RATIO);
+  const bandHeight = Math.round(windowHeight * bandHeightRatio);
   const bandTop = Math.round((windowHeight - bandHeight) / 2);
+
+  const applyPinchScale = useCallback((scale: number) => {
+    setBandHeightRatio(clampBandRatio(pinchBaseRef.current * scale));
+  }, []);
+
+  const beginPinch = useCallback(() => {
+    pinchBaseRef.current = bandRatioRef.current;
+  }, []);
+
+  const pinchGesture = useMemo(
+    () =>
+      Gesture.Pinch()
+        .onBegin(() => {
+          runOnJS(beginPinch)();
+        })
+        .onUpdate((e) => {
+          runOnJS(applyPinchScale)(e.scale);
+        }),
+    [applyPinchScale, beginPinch],
+  );
 
   const capture = useCallback(async () => {
     if (!cameraRef.current || busy) return;
@@ -124,16 +156,18 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
   ) : (
     <>
       <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" mode="picture" />
-      <View style={s.overlay} pointerEvents="none">
-        <View style={[s.mask, { height: bandTop }]} />
-        <View style={[s.band, { height: bandHeight }]}>
-          <View style={s.bandCornerTL} />
-          <View style={s.bandCornerTR} />
-          <View style={s.bandCornerBL} />
-          <View style={s.bandCornerBR} />
+      <GestureDetector gesture={pinchGesture}>
+        <View style={s.overlay} collapsable={false}>
+          <View style={[s.mask, { height: bandTop }]} />
+          <View style={[s.band, { height: bandHeight }]}>
+            <View style={s.bandCornerTL} />
+            <View style={s.bandCornerTR} />
+            <View style={s.bandCornerBL} />
+            <View style={s.bandCornerBR} />
+          </View>
+          <View style={[s.mask, { flex: 1 }]} />
         </View>
-        <View style={[s.mask, { flex: 1 }]} />
-      </View>
+      </GestureDetector>
       <Text style={[s.hint, { top: insets.top + 56 }]}>{t("chat.math_scan_hint")}</Text>
       {error ? <Text style={s.error}>{error}</Text> : null}
       <View style={[s.controls, { paddingBottom: Math.max(insets.bottom, 16) + 12 }]}>
@@ -156,7 +190,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={s.root}>
+      <GestureHandlerRootView style={s.root}>
         <Pressable
           style={[s.close, { top: insets.top + 8 }]}
           onPress={onClose}
@@ -167,7 +201,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
           <Ionicons name="close" size={28} color="#fff" />
         </Pressable>
         {body}
-      </View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }

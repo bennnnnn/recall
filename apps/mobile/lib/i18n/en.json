@@ -27,7 +27,7 @@
   "chat.attach_generate_image": "Generate image",
   "chat.attach_photo": "Photo Library",
   "chat.attach_solve_math_camera": "Scan math",
-  "chat.math_scan_hint": "Line up the equation inside the frame",
+  "chat.math_scan_hint": "Pinch to resize · line up the equation",
   "chat.math_scan_permission": "Camera access is needed to scan math problems.",
   "chat.math_scan_allow_camera": "Allow camera",
   "chat.math_scan_capture_a11y": "Capture equation",
