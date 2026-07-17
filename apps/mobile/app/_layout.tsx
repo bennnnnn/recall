@@ -7,7 +7,6 @@ import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useMemo } from "react";
 import { StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { useTranslation } from "react-i18next";
 
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -109,24 +108,22 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={styles.root}>
-      <BottomSheetModalProvider>
-        <AppearanceProvider>
-          <AuthProvider>
-            <ModelsProvider>
-              <TodosProvider>
-                <ProjectsProvider>
-                  <HomeProvider>
-                    <NetworkProvider>
-                      <PushNotificationBootstrap />
-                      <RootNavigator />
-                    </NetworkProvider>
-                  </HomeProvider>
-                </ProjectsProvider>
-              </TodosProvider>
-            </ModelsProvider>
-          </AuthProvider>
-        </AppearanceProvider>
-      </BottomSheetModalProvider>
+      <AppearanceProvider>
+        <AuthProvider>
+          <ModelsProvider>
+            <TodosProvider>
+              <ProjectsProvider>
+                <HomeProvider>
+                  <NetworkProvider>
+                    <PushNotificationBootstrap />
+                    <RootNavigator />
+                  </NetworkProvider>
+                </HomeProvider>
+              </ProjectsProvider>
+            </TodosProvider>
+          </ModelsProvider>
+        </AuthProvider>
+      </AppearanceProvider>
     </GestureHandlerRootView>
   );
 }
