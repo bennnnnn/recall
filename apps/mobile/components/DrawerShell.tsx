@@ -3,77 +3,93 @@
  * left. Open via the header button, Android back, or an interactive swipe
  * from the left edge; close via scrim tap, back, or swipe left.
  */
+/* eslint-disable react-hooks/immutability -- Reanimated shared values are mutated on the UI thread by design */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import {
-  Animated,
-  BackHandler,
-  PanResponder,
-  Pressable,
-  StyleSheet,
-  useWindowDimensions,
-  View,
-} from "react-native";
+import { BackHandler, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 
 import { ConversationList } from "@/components/ConversationList";
 import { DrawerProvider } from "@/contexts/DrawerContext";
 import { registerDrawer } from "@/lib/drawer";
 import { tap } from "@/lib/haptics";
+import { Motion } from "@/lib/motion";
 import { useTheme } from "@/lib/theme";
 
 /** Left-edge hit slop for swipe-to-open (pt). */
 const EDGE_WIDTH = 28;
 /** Fraction of drawer width that counts as "open enough" to finish open. */
 const OPEN_PROGRESS = 0.35;
-/** Horizontal velocity (px/ms-ish from PanResponder) to fling open/closed. */
-const FLING_VX = 0.45;
+/** Horizontal velocity (px/s from RNGH) to fling open/closed. */
+const FLING_VX = 800;
+
+const SPRING = { damping: 28, stiffness: 280 } as const;
 
 export function DrawerShell({ children }: { children: ReactNode }) {
   const { width } = useWindowDimensions();
   const theme = useTheme();
   const drawerWidth = width * 0.82;
-  const drawerWidthRef = useRef(drawerWidth);
-  drawerWidthRef.current = drawerWidth;
 
-  const translateX = useRef(new Animated.Value(-drawerWidth)).current;
-  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const translateX = useSharedValue(-drawerWidth);
+  const overlayOpacity = useSharedValue(0);
+  const dragStartX = useSharedValue(-drawerWidth);
+  const widthSV = useSharedValue(drawerWidth);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  /** Keep the edge strip interactive through an in-progress open drag. */
+  const [edgeArmed, setEdgeArmed] = useState(true);
   const drawerOpenRef = useRef(false);
   drawerOpenRef.current = drawerOpen;
 
-  const dragStartX = useRef(-drawerWidth);
-
-  // Keep the closed position in sync when the window width changes.
   useEffect(() => {
+    widthSV.value = drawerWidth;
     if (!drawerOpenRef.current) {
-      translateX.setValue(-drawerWidth);
+      translateX.value = -drawerWidth;
     }
-  }, [drawerWidth, translateX]);
+  }, [drawerWidth, translateX, widthSV]);
 
-  const animateTo = useCallback(
+  const disarmEdge = useCallback(() => {
+    setEdgeArmed(false);
+  }, []);
+
+  const settleTo = useCallback(
     (open: boolean, withHaptic: boolean) => {
-      if (withHaptic && open) tap();
+      const w = widthSV.value;
       setDrawerOpen(open);
       drawerOpenRef.current = open;
-      const w = drawerWidthRef.current;
-      Animated.parallel([
-        Animated.spring(translateX, {
-          toValue: open ? 0 : -w,
-          useNativeDriver: true,
-          friction: 20,
-          tension: 200,
-        }),
-        Animated.timing(overlayOpacity, {
-          toValue: open ? 1 : 0,
-          duration: open ? 200 : 150,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      if (withHaptic && open) tap();
+      if (!open) setEdgeArmed(true);
+      translateX.value = withSpring(open ? 0 : -w, SPRING, (finished) => {
+        if (finished && open) {
+          runOnJS(disarmEdge)();
+        }
+      });
+      overlayOpacity.value = withTiming(open ? 1 : 0, {
+        duration: open ? Motion.duration.snappy : 150,
+      });
     },
-    [overlayOpacity, translateX],
+    [disarmEdge, overlayOpacity, translateX, widthSV],
   );
 
-  const open = useCallback(() => animateTo(true, true), [animateTo]);
-  const close = useCallback(() => animateTo(false, false), [animateTo]);
+  const settleToRef = useRef(settleTo);
+  settleToRef.current = settleTo;
+
+  const settleFromGesture = useCallback((openNext: boolean, withHaptic: boolean) => {
+    settleToRef.current(openNext, withHaptic);
+  }, []);
+
+  const markOpen = useCallback(() => {
+    setDrawerOpen(true);
+    drawerOpenRef.current = true;
+  }, []);
+
+  const open = useCallback(() => settleToRef.current(true, true), []);
+  const close = useCallback(() => settleToRef.current(false, false), []);
 
   useEffect(() => {
     registerDrawer(open, close);
@@ -81,63 +97,85 @@ export function DrawerShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (!drawerOpen) return false;
+      if (!drawerOpenRef.current) return false;
       close();
       return true;
     });
     return () => sub.remove();
-  }, [drawerOpen, close]);
+  }, [close]);
 
-  const panResponder = useMemo(
+  const openFromEdge = useMemo(
     () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (_e, g) => {
-          if (Math.abs(g.dx) < 10) return false;
-          if (Math.abs(g.dy) >= Math.abs(g.dx)) return false;
-          if (!drawerOpenRef.current) {
-            // Swipe right from the left edge only.
-            return g.x0 <= EDGE_WIDTH && g.dx > 0;
-          }
-          // Swipe left on the dimmed scrim only — not on the drawer, so row
-          // Swipeable actions (archive/delete) keep working.
-          return g.x0 >= drawerWidthRef.current && g.dx < 0;
-        },
-        onPanResponderGrant: () => {
-          translateX.stopAnimation((value) => {
-            dragStartX.current = value;
-          });
-          overlayOpacity.stopAnimation();
-          // Reveal chrome / allow list load as soon as the gesture claims.
-          if (!drawerOpenRef.current) {
-            setDrawerOpen(true);
-            drawerOpenRef.current = true;
-          }
-        },
-        onPanResponderMove: (_e, g) => {
-          const w = drawerWidthRef.current;
-          const next = Math.max(-w, Math.min(0, dragStartX.current + g.dx));
-          translateX.setValue(next);
-          overlayOpacity.setValue(1 + next / w);
-        },
-        onPanResponderRelease: (_e, g) => {
-          const w = drawerWidthRef.current;
-          const next = Math.max(-w, Math.min(0, dragStartX.current + g.dx));
+      Gesture.Pan()
+        .activeOffsetX(10)
+        .failOffsetY([-12, 12])
+        .onStart(() => {
+          dragStartX.value = translateX.value;
+          runOnJS(markOpen)();
+        })
+        .onUpdate((e) => {
+          const w = widthSV.value;
+          const next = Math.max(-w, Math.min(0, dragStartX.value + e.translationX));
+          translateX.value = next;
+          overlayOpacity.value = 1 + next / w;
+        })
+        .onEnd((e) => {
+          const w = widthSV.value;
+          const next = Math.max(-w, Math.min(0, dragStartX.value + e.translationX));
           const progress = 1 + next / w;
-          const flingOpen = g.vx > FLING_VX;
-          const flingClose = g.vx < -FLING_VX;
+          const flingOpen = e.velocityX > FLING_VX;
+          const flingClose = e.velocityX < -FLING_VX;
           const shouldOpen = flingOpen || (!flingClose && progress >= OPEN_PROGRESS);
-          animateTo(shouldOpen, shouldOpen && progress < 1);
-        },
-        onPanResponderTerminate: () => {
-          const w = drawerWidthRef.current;
-          translateX.stopAnimation((value) => {
-            const progress = 1 + value / w;
-            animateTo(progress >= OPEN_PROGRESS, false);
-          });
-        },
-      }),
-    [animateTo, overlayOpacity, translateX],
+          runOnJS(settleFromGesture)(shouldOpen, shouldOpen && progress < 1);
+        })
+        .onFinalize((_e, success) => {
+          if (!success) {
+            const progress = 1 + translateX.value / widthSV.value;
+            runOnJS(settleFromGesture)(progress >= OPEN_PROGRESS, false);
+          }
+        }),
+    [dragStartX, markOpen, overlayOpacity, settleFromGesture, translateX, widthSV],
   );
+
+  const closeFromScrim = useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetX(-10)
+        .failOffsetY([-12, 12])
+        .onStart(() => {
+          dragStartX.value = translateX.value;
+        })
+        .onUpdate((e) => {
+          const w = widthSV.value;
+          const next = Math.max(-w, Math.min(0, dragStartX.value + e.translationX));
+          translateX.value = next;
+          overlayOpacity.value = 1 + next / w;
+        })
+        .onEnd((e) => {
+          const w = widthSV.value;
+          const next = Math.max(-w, Math.min(0, dragStartX.value + e.translationX));
+          const progress = 1 + next / w;
+          const flingOpen = e.velocityX > FLING_VX;
+          const flingClose = e.velocityX < -FLING_VX;
+          const shouldOpen = flingOpen || (!flingClose && progress >= OPEN_PROGRESS);
+          runOnJS(settleFromGesture)(shouldOpen, false);
+        })
+        .onFinalize((_e, success) => {
+          if (!success) {
+            const progress = 1 + translateX.value / widthSV.value;
+            runOnJS(settleFromGesture)(progress >= OPEN_PROGRESS, false);
+          }
+        }),
+    [dragStartX, overlayOpacity, settleFromGesture, translateX, widthSV],
+  );
+
+  const drawerStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+
+  const overlayStyle = useAnimatedStyle(() => ({
+    opacity: overlayOpacity.value,
+  }));
 
   const fakeNav = { openDrawer: open, closeDrawer: close } as any;
   const fakeProps = { navigation: fakeNav } as any;
@@ -148,7 +186,7 @@ export function DrawerShell({ children }: { children: ReactNode }) {
 
   return (
     <DrawerProvider value={drawerValue}>
-      <View style={s.root} {...panResponder.panHandlers}>
+      <View style={s.root}>
         <View style={s.rootInner}>
           <View
             style={[
@@ -163,34 +201,45 @@ export function DrawerShell({ children }: { children: ReactNode }) {
           <Animated.View
             style={[
               s.overlay,
-              { opacity: overlayOpacity, backgroundColor: theme.scrim },
+              { backgroundColor: theme.scrim },
+              overlayStyle,
               { pointerEvents: "none" },
             ]}
           />
 
-          <Animated.View
-            style={[
-              s.tapClose,
-              { opacity: overlayOpacity },
-              { pointerEvents: drawerOpen ? "auto" : "none" },
-            ]}
-          >
-            <Pressable style={StyleSheet.absoluteFill} onPress={close} />
-          </Animated.View>
+          <GestureDetector gesture={closeFromScrim}>
+            <Animated.View
+              style={[
+                s.tapClose,
+                overlayStyle,
+                { pointerEvents: drawerOpen ? "auto" : "none" },
+              ]}
+            >
+              <Pressable style={StyleSheet.absoluteFill} onPress={close} />
+            </Animated.View>
+          </GestureDetector>
 
           <Animated.View
             style={[
               s.drawer,
               {
                 width: drawerWidth,
-                transform: [{ translateX }],
                 backgroundColor: theme.bg,
                 pointerEvents: drawerOpen ? "auto" : "none",
               },
+              drawerStyle,
             ]}
           >
             <ConversationList {...fakeProps} />
           </Animated.View>
+
+          <GestureDetector gesture={openFromEdge}>
+            <View
+              style={s.edgeHit}
+              collapsable={false}
+              pointerEvents={edgeArmed ? "auto" : "none"}
+            />
+          </GestureDetector>
         </View>
       </View>
     </DrawerProvider>
@@ -219,5 +268,13 @@ const s = StyleSheet.create({
     elevation: 24,
     zIndex: 200,
     overflow: "hidden",
+  },
+  edgeHit: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: EDGE_WIDTH,
+    zIndex: 210,
   },
 });
