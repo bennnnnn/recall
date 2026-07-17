@@ -4,21 +4,30 @@
 const LATEX_CMD_RE =
   /\\(?:pm|mp|sqrt|frac|text|mathrm|boxed|times|cdot|leq|geq|neq|infty|alpha|beta|gamma|delta|epsilon|zeta|eta|theta|iota|kappa|lambda|mu|nu|xi|omicron|pi|rho|sigma|tau|upsilon|phi|chi|psi|omega|begin|left|right|log|ln|exp|lim|sup|inf|sin|cos|tan|sec|csc|cot|arcsin|arccos|arctan|sinh|cosh|tanh|sum|prod|int|det|gcd|min|max|arg|deg|ker|dim|hom|binom|partial|nabla|vec|hat|bar|dot|overline|underline|Longrightarrow|Rightarrow|longrightarrow|rightarrow|Longleftrightarrow|Leftrightarrow|longleftrightarrow|leftrightarrow|Longleftarrow|Leftarrow|longleftarrow|leftarrow|implies|iff|to|mapsto|longmapsto)(?=[^a-zA-Z]|$)/;
 
+/** LaTeX spacing (`\;` `\,` `\:` `\!` `\quad`) — not a C `;` statement. */
+const LATEX_SPACING_RE = /\\[;,:!]|\\(?:quad|qquad)(?=[^a-zA-Z]|$)/;
+
+/** Normalize spacing cmds so algebra heuristics don't see literal `;`. */
+function stripLatexSpacing(s: string): string {
+  return s.replace(LATEX_SPACING_RE, " ");
+}
+
 function looksLikeAlgebraLine(line: string): boolean {
   if (!line || line.length > 120) return false;
   if (/^(def |class |import |function |const |let |var |if |for |while )/i.test(line)) {
     return false;
   }
-  // `;`/console./print(/=> are real code tells; braces alone are not — LaTeX
-  // uses `{}` constantly for grouping (`2^{1}`, `a_{n}`), and a genuine code
-  // fence from the model is virtually always explicitly tagged anyway.
-  if (/;|console\.|print\(|=>/.test(line)) return false;
+  // `;`/console./print(/=> are real code tells — but `\;` is LaTeX thin space,
+  // so strip spacing commands before treating `;` as a statement terminator.
+  const forCodeCheck = stripLatexSpacing(line);
+  if (/;|console\.|print\(|=>/.test(forCodeCheck)) return false;
   if (/^[a-zA-Z]\^[\d{]/.test(line)) return true;
   if (/=/.test(line) && /[a-zA-Z]\^/.test(line)) return true;
   // Digits, letters, ops, factorial (!), unicode math (× ÷ → …), LaTeX cmds.
+  // Allow `;` only as part of already-stripped spacing (check normalized form).
   if (
     /=/.test(line) &&
-    /^[\da-zA-Z+\-*/^=(){}\\_!\s.,²³√±×÷·⋅→←↔⇒⇔∞πθ∑∏]+$/.test(line)
+    /^[\da-zA-Z+\-*/^=(){}\\_!\s.,²³√±×÷·⋅→←↔⇒⇔∞πθ∑∏]+$/.test(forCodeCheck)
   ) {
     return true;
   }
@@ -49,6 +58,10 @@ export function looksLikeMathFenceBody(content: string): boolean {
   // such explicit signal to lean on.
   if (LATEX_CMD_RE.test(s)) return true;
   if (/\\text\{/.test(s)) return true;
+  // Spacing-only arithmetic (e.g. `20 \;-\; 10 \;=\; 10`) has no named
+  // command from LATEX_CMD_RE — without this, the `;` inside `\;` made the
+  // algebra heuristic reject it as "code" and the Copy box showed raw LaTeX.
+  if (LATEX_SPACING_RE.test(s) && /=/.test(s) && /[\d]/.test(s)) return true;
 
   const lines = s.split("\n").filter((line) => line.trim());
   if (lines.length > 4) return false;
