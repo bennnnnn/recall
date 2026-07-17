@@ -11,6 +11,15 @@ jest.mock("react-native-webview", () => {
 jest.mock("@expo/dom-webview", () => {
   throw new Error("@expo/dom-webview native module is not linked (test)");
 });
+jest.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string, opts?: { engine?: string }) => {
+      if (key === "rich.math_preview" && opts?.engine) return `${opts.engine} preview`;
+      if (key === "rich.math_dev_build") return "Use a dev build for rendered math.";
+      return key;
+    },
+  }),
+}));
 
 describe("MathFormulaWebView", () => {
   it("renders the KaTeX-badged static fallback when no preview WebView is available", async () => {

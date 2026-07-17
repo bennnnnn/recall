@@ -134,7 +134,7 @@ export function EmailCard({ draft }: Props) {
             disabled={gmailOpening || editing}
           >
             <Ionicons name="mail-outline" size={16} color={theme.brand.gmail} />
-            <Text style={s.gmailBtnText}>Gmail</Text>
+            <Text style={s.gmailBtnText}>{t("rich.gmail")}</Text>
           </Pressable>
         </View>
       </View>

@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { downloadChatAttachment } from "@/lib/downloadChatAttachment";
@@ -36,6 +37,7 @@ export function AttachmentImageViewer({
   fileName = "image.jpg",
 }: Props) {
   const C = useTheme();
+  const { t } = useTranslation();
   const s = useMemo(() => makeStyles(C), [C]);
   const { token } = useAuth();
   const insets = useSafeAreaInsets();
@@ -72,8 +74,8 @@ export function AttachmentImageViewer({
       });
     } catch (error) {
       Alert.alert(
-        "Download failed",
-        error instanceof Error ? error.message : "Could not save this image.",
+        t("common.download_failed"),
+        error instanceof Error ? error.message : t("common.download_image_error"),
       );
     } finally {
       setDownloading(false);
@@ -91,7 +93,7 @@ export function AttachmentImageViewer({
         <Pressable
           style={[s.scrim, { height: Math.max(insets.top + 10, 28) }]}
           onPress={onClose}
-          accessibilityLabel="Close"
+          accessibilityLabel={t("preview.close")}
         />
 
         <View style={[s.sheet, { paddingBottom: insets.bottom }]}>
@@ -100,7 +102,7 @@ export function AttachmentImageViewer({
               style={s.iconBtn}
               onPress={onClose}
               hitSlop={12}
-              accessibilityLabel="Close"
+              accessibilityLabel={t("preview.close")}
             >
               <Ionicons name="close" size={28} color={C.text} />
             </Pressable>
@@ -110,7 +112,7 @@ export function AttachmentImageViewer({
               onPress={handleDownload}
               disabled={!remoteUri || downloading}
               hitSlop={12}
-              accessibilityLabel="Download"
+              accessibilityLabel={t("common.download")}
             >
               {downloading ? (
                 <ActivityIndicator color={C.text} size="small" />

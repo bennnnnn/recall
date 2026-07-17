@@ -1,18 +1,21 @@
 import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 
 import { CardShell } from "@/components/rich/CardShell";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = { text: string; label?: string };
 
-export function MessagePreview({ text, label = "Message draft" }: Props) {
+export function MessagePreview({ text, label }: Props) {
   const theme = useTheme();
+  const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const resolvedLabel = label ?? t("rich.message_draft");
 
   return (
     <CardShell
-      label={label}
+      label={resolvedLabel}
       copyText={text}
       icon="chatbubble-outline"
       accentColor={theme.primary}
@@ -23,7 +26,7 @@ export function MessagePreview({ text, label = "Message draft" }: Props) {
             {text}
           </Text>
         </View>
-        <Text style={s.hint}>Preview</Text>
+        <Text style={s.hint}>{t("rich.preview")}</Text>
       </View>
     </CardShell>
   );

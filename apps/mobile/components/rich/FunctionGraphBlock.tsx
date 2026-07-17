@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import Svg, { Circle, Line, Polyline, Text as SvgText } from "react-native-svg";
 
 import {
@@ -26,6 +27,7 @@ function formatAxisNumber(n: number): string {
 
 export function FunctionGraphBlock({ content }: Props) {
   const theme = useTheme();
+  const { t } = useTranslation();
   const { width: screenWidth } = useWindowDimensions();
   const spec = useMemo(() => parseGraphSpec(content), [content]);
   const styles = useMemo(() => makeStyles(theme), [theme]);
@@ -35,7 +37,7 @@ export function FunctionGraphBlock({ content }: Props) {
     return (
       <View style={styles.fallback}>
         <Text style={styles.fallbackText}>
-          Could not render function graph.
+          {t("rich.graph_error")}
         </Text>
       </View>
     );

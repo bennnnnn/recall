@@ -57,8 +57,6 @@ describe("MermaidBlock", () => {
     const { getByText } = await render(<MermaidBlock content={content} />);
 
     expect(getByText(content)).toBeOnTheScreen();
-    expect(
-      getByText("Build the app to preview diagrams inline."),
-    ).toBeOnTheScreen();
+    expect(getByText("rich.mermaid_dev_build")).toBeOnTheScreen();
   });
 });

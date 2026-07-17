@@ -3,6 +3,7 @@
  * inline via WebView + Vega-Embed so the user sees the actual chart, not raw JSON.
  */
 import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import * as WebBrowser from "expo-web-browser";
@@ -67,6 +68,7 @@ function buildVegaHtml(spec: string, theme: Theme): string {
 
 export function ChartBlock({ content }: Props) {
   const theme = useTheme();
+  const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const [expanded, setExpanded] = useState(false);
   const [showSource, setShowSource] = useState(false);
@@ -91,10 +93,10 @@ export function ChartBlock({ content }: Props) {
       <View style={s.header}>
         <View style={s.headerLeft}>
           <Text style={s.headerIcon}>📈</Text>
-          <Text style={s.headerLabel}>Chart</Text>
+          <Text style={s.headerLabel}>{t("rich.chart")}</Text>
         </View>
         <Text style={s.lineCount}>
-          {content.trim().split("\n").length} lines
+          {t("rich.lines_count", { count: content.trim().split("\n").length })}
         </Text>
       </View>
 
@@ -121,7 +123,7 @@ export function ChartBlock({ content }: Props) {
         ) : (
           <View style={s.previewPlaceholder}>
             <Text style={s.previewPlaceholderText}>
-              Chart preview requires a dev build
+              {t("rich.chart_dev_build")}
             </Text>
           </View>
         )}
@@ -149,7 +151,7 @@ export function ChartBlock({ content }: Props) {
             color={showSource ? theme.primary : theme.textSecondary}
           />
           <Text style={[s.actionLabel, showSource && s.actionLabelActive]}>
-            Source
+            {t("rich.source")}
           </Text>
         </Pressable>
 
@@ -164,13 +166,13 @@ export function ChartBlock({ content }: Props) {
             color={theme.textSecondary}
           />
           <Text style={s.actionLabel}>
-            {expanded ? "Collapse" : "Expand"}
+            {expanded ? t("rich.collapse") : t("rich.expand")}
           </Text>
         </Pressable>
 
         <Pressable style={s.openBtn} onPress={handleOpenVegaEditor} hitSlop={8}>
           <Ionicons name="open-outline" size={18} color={theme.onPrimary} />
-          <Text style={s.openLabel}>Vega Editor</Text>
+          <Text style={s.openLabel}>{t("rich.vega_editor")}</Text>
         </Pressable>
       </View>
     </View>

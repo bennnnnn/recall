@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 
 import { MathText } from "@/components/rich/MathText";
 import { stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/mathFenceRetag";
@@ -28,13 +29,14 @@ function normalizeAnswerContent(raw: string): string {
  */
 export function AnswerBlock({ content }: Props) {
   const theme = useTheme();
+  const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const text = normalizeAnswerContent(content);
   const parts = splitInlineMath(text);
   const hasInlineMath = parts.some((p) => p.type === "math");
 
   return (
-    <View style={s.row} accessibilityRole="text" accessibilityLabel={`Answer: ${text}`}>
+    <View style={s.row} accessibilityRole="text" accessibilityLabel={t("rich.answer_a11y", { text })}>
       <View style={s.box}>
         {hasInlineMath ? (
           <Text style={s.answer} selectable>

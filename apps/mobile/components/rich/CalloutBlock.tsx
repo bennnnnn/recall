@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { StyleSheet } from "react-native";
+import { useTranslation } from "react-i18next";
 
 import { CardShell } from "@/components/rich/CardShell";
 import { RichBodyText } from "@/components/rich/RichBodyText";
@@ -7,7 +8,8 @@ import { CalloutKind } from "@/lib/richBlocks";
 import { Theme, useTheme } from "@/lib/theme";
 
 function calloutMeta(
-  t: Theme,
+  theme: Theme,
+  t: (key: string) => string,
 ): Record<
   CalloutKind,
   {
@@ -21,13 +23,13 @@ function calloutMeta(
   }
 > {
   return {
-    tip: { label: "Tip", color: t.success, icon: "bulb-outline" },
-    note: { label: "Note", color: t.primary, icon: "information-circle-outline" },
-    info: { label: "Info", color: t.accent, icon: "information-circle-outline" },
-    warning: { label: "Warning", color: t.warning, icon: "warning-outline" },
+    tip: { label: t("rich.callout_tip"), color: theme.success, icon: "bulb-outline" },
+    note: { label: t("rich.callout_note"), color: theme.primary, icon: "information-circle-outline" },
+    info: { label: t("rich.callout_info"), color: theme.accent, icon: "information-circle-outline" },
+    warning: { label: t("rich.callout_warning"), color: theme.warning, icon: "warning-outline" },
     important: {
-      label: "Important",
-      color: t.danger,
+      label: t("rich.callout_important"),
+      color: theme.danger,
       icon: "alert-circle-outline",
     },
   };
@@ -37,8 +39,9 @@ type Props = { kind: CalloutKind; content: string };
 
 export function CalloutBlock({ kind, content }: Props) {
   const theme = useTheme();
+  const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const meta = calloutMeta(theme)[kind] ?? calloutMeta(theme).note;
+  const meta = calloutMeta(theme, t)[kind] ?? calloutMeta(theme, t).note;
   const lines = content.split("\n");
   const firstLine = lines[0]?.trim() || "";
   const hasBody = lines.length > 1 && lines.slice(1).join("\n").trim();
