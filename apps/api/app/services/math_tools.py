@@ -32,12 +32,18 @@ from app.services import math_service
 logger = logging.getLogger(__name__)
 
 
+# Cap before any poly-time regex. CodeQL only treats a const length compare as a
+# ReDoS sanitizer — collapsing whitespace alone is not enough.
+_MAX_MATH_INPUT = 1000
+
+
 def _collapse_ws(text: str) -> str:
     """Collapse runs of whitespace so matchers need no ``\\s+`` (avoids ReDoS)."""
     return " ".join(text.split())
 
 
-# Patterns assume input was passed through ``_collapse_ws`` (single spaces only).
+# Patterns assume input was ``_collapse_ws``'d and length-checked
+# (``len(...) <= _MAX_MATH_INPUT``) in the same function as the regex sink.
 _DRAW_RECTANGLE = re.compile(
     r"\b(?:draw|show|sketch|visuali[sz]e) (?:a )?rectangle\b",
     re.IGNORECASE,
@@ -244,6 +250,8 @@ def _normalize_latex_expr(expr: str) -> str:
 
 def _strip_series_prefix(expr: str) -> str:
     s = _collapse_ws(expr)
+    if len(s) > _MAX_MATH_INPUT:
+        return s[:_MAX_MATH_INPUT]
     prev = None
     while prev != s:
         prev = s
@@ -281,25 +289,55 @@ _NEWTON_PREFIX_RE = re.compile(
 
 _DEFAULT_NEWTON_GUESS = 1.0
 
-
-_TRAILING_FILLER_RE = re.compile(
-    r" (?:please|now|thanks?|thank you|for me|to me|real quick|quickly|briefly)\.?$",
-    re.IGNORECASE,
-)
-
-_AND_THEN_SPLIT = re.compile(r" (?:and|then) ", re.IGNORECASE)
-
 _SQUARE_EQUAL_SIDES = re.compile(
     r"(?P<s>\d+(?:\.\d+)?) ?(?:×|x|\*| by ) ?(?P=s) ?(?:cm|m|mm|in|ft)?",
     re.IGNORECASE,
 )
 
-_CALC_EXPR_TAIL = re.compile(
-    r"(?:simplify|differentiate|derivative|integrate|integral|factor|expand) (.+)$",
-    re.IGNORECASE,
+_VERTICAL_EQ = re.compile(r"^x ?= ?(-?\d+(?:\.\d+)?)$", re.IGNORECASE)
+
+_TRAILING_FILLER_SUFFIXES = (
+    " please",
+    " please.",
+    " now",
+    " now.",
+    " thank",
+    " thanks",
+    " thanks.",
+    " thank you",
+    " thank you.",
+    " for me",
+    " for me.",
+    " to me",
+    " to me.",
+    " real quick",
+    " real quick.",
+    " quickly",
+    " quickly.",
+    " briefly",
+    " briefly.",
 )
 
-_VERTICAL_EQ = re.compile(r"^x ?= ?(-?\d+(?:\.\d+)?)$", re.IGNORECASE)
+_CALC_VERBS = (
+    "simplify",
+    "differentiate",
+    "derivative",
+    "integrate",
+    "integral",
+    "factor",
+    "expand",
+)
+
+
+def _split_and_then(s: str) -> str:
+    """Keep text before the first `` and `` / `` then `` clause (no regex)."""
+    lower = s.lower()
+    cut: int | None = None
+    for token in (" and ", " then "):
+        idx = lower.find(token)
+        if idx != -1 and (cut is None or idx < cut):
+            cut = idx
+    return s[:cut] if cut is not None else s
 
 
 def _strip_trailing_filler(expr: str) -> str:
@@ -309,19 +347,45 @@ def _strip_trailing_filler(expr: str) -> str:
     "expression" — which then fails to parse and silently disables the
     verified-math augmentation for phrasing a real user would actually type."""
     s = _collapse_ws(expr)
+    # Const length compare must sit in this function for CodeQL's ReDoS barrier.
+    if len(s) > _MAX_MATH_INPUT:
+        return s[:_MAX_MATH_INPUT]
     # A conjunction essentially never appears inside a math expression
     # itself — anything from " and "/" then " onward is a new clause of
     # natural language (e.g. "sin(x) and explain it"), not part of the expr.
-    s = _AND_THEN_SPLIT.split(s, maxsplit=1)[0]
+    s = _split_and_then(s)
     prev = None
     while prev != s:
         prev = s
-        s = _TRAILING_FILLER_RE.sub("", s).strip()
+        lower = s.lower()
+        for suffix in _TRAILING_FILLER_SUFFIXES:
+            if lower.endswith(suffix):
+                s = s[: -len(suffix)].rstrip()
+                break
     return s
+
+
+def _calc_expr_tail(cleaned: str) -> str | None:
+    """Text after the first calculus verb (index scan — avoids poly regex)."""
+    lower = cleaned.lower()
+    best_at: int | None = None
+    best_end = 0
+    for verb in _CALC_VERBS:
+        needle = f"{verb} "
+        idx = lower.find(needle)
+        if idx != -1 and (best_at is None or idx < best_at):
+            best_at = idx
+            best_end = idx + len(needle)
+    if best_at is None:
+        return None
+    return cleaned[best_end:]
 
 
 def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> bool:
     cleaned = _collapse_ws(text)
+    # Const length compare — CodeQL py/polynomial-redos sanitizer.
+    if len(cleaned) > _MAX_MATH_INPUT:
+        return False
     if not cleaned and not has_image_attachment:
         return False
     from app.services.math_image_extract import is_math_camera_prompt
@@ -371,6 +435,9 @@ def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> boo
 
 def extract_math_intent(text: str) -> MathIntent | None:
     cleaned = _collapse_ws(text)
+    # Const length compare — CodeQL py/polynomial-redos sanitizer.
+    if len(cleaned) > _MAX_MATH_INPUT:
+        return None
     if not cleaned:
         return None
 
@@ -505,12 +572,12 @@ def extract_math_intent(text: str) -> MathIntent | None:
             calc_op = "factor"
         elif op_word == "expand":
             calc_op = "expand"
-        expr_match = _CALC_EXPR_TAIL.search(cleaned)
-        expr = _strip_trailing_filler(expr_match.group(1)) if expr_match else cleaned
+        tail = _calc_expr_tail(cleaned)
+        expr = _strip_trailing_filler(tail) if tail is not None else cleaned
         # Definite integral: "integrate x^2 from 0 to 1" → bounds + bare expr.
         integral_lower: str | None = None
         integral_upper: str | None = None
-        if calc_op == "integrate":
+        if calc_op == "integrate" and len(expr) <= _MAX_MATH_INPUT:
             bounds = _INTEGRAL_BOUNDS.search(expr)
             if bounds:
                 integral_lower = bounds.group("lo").strip()
