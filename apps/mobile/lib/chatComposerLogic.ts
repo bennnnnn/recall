@@ -103,7 +103,10 @@ export function resolveSelectedModelLabel(
 }
 
 export function isComposerMenuOverlayOpen(attachSheetOpen: boolean): boolean {
-  return attachSheetOpen;
+  // Attach picker is a true modal sheet now (own backdrop). Do not mute the
+  // chat header — that used to lock the drawer when the sheet failed to paint.
+  void attachSheetOpen;
+  return false;
 }
 
 /** Mic when empty; send when there is text/attachment. Never both (except stop while streaming). */

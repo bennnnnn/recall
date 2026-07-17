@@ -118,9 +118,9 @@ describe("chatComposerLogic", () => {
     ).toBe("Free");
   });
 
-  it("isComposerMenuOverlayOpen reflects attach sheet", () => {
+  it("isComposerMenuOverlayOpen is false for modal attach sheet", () => {
     expect(isComposerMenuOverlayOpen(false)).toBe(false);
-    expect(isComposerMenuOverlayOpen(true)).toBe(true);
+    expect(isComposerMenuOverlayOpen(true)).toBe(false);
   });
 
   it("composerShowsMic and composerShowsSend are mutually exclusive for typed text", () => {
