@@ -58,8 +58,9 @@ async def test_prepare_chat_turn_refunds_image_quota_when_r2_bytes_invalid():
             return None
 
     with (
-        patch("app.services.chat.turn_prep.SessionLocal", return_value=SessionCM()),
-        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=user)),
+        patch("app.services.chat.turn_prep.attachments.SessionLocal", return_value=SessionCM()),
+        patch("app.services.chat.turn_prep.prepare.SessionLocal", return_value=SessionCM()),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
         patch(
             "app.repositories.attachments.get_by_ids",
             AsyncMock(return_value=[row]),
@@ -160,9 +161,10 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context():
         )
 
     with (
-        patch("app.services.chat.turn_prep.SessionLocal", return_value=SessionCM()),
-        patch("app.services.chat.users_repo.get_by_id", AsyncMock(return_value=user)),
-        patch("app.services.chat.chats_repo.get_by_id", AsyncMock(return_value=chat)),
+        patch("app.services.chat.turn_prep.attachments.SessionLocal", return_value=SessionCM()),
+        patch("app.services.chat.turn_prep.prepare.SessionLocal", return_value=SessionCM()),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=chat)),
         patch(
             "app.repositories.attachments.get_by_ids",
             AsyncMock(return_value=[row]),
@@ -188,15 +190,15 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context():
             AsyncMock(return_value=extracted),
         ) as extract_mock,
         patch(
-            "app.services.chat.plan_service.resolve_user_model_override",
+            "app.services.plan.resolve_user_model_override",
             return_value="smart-chat",
         ),
         patch(
-            "app.services.chat.messages_repo.count_for_chat",
+            "app.repositories.messages.count_for_chat",
             AsyncMock(return_value=0),
         ),
         patch(
-            "app.services.chat.messages_repo.create",
+            "app.repositories.messages.create",
             AsyncMock(return_value=user_message),
         ) as create_mock,
         patch(
@@ -204,7 +206,7 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context():
             AsyncMock(),
         ),
         patch(
-            "app.services.chat.turn_prep.build_stream_prompt_context",
+            "app.services.chat.turn_prep.prepare.build_stream_prompt_context",
             AsyncMock(side_effect=_fake_build_stream_prompt_context),
         ),
     ):

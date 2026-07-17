@@ -59,7 +59,7 @@ app/
   tests/
 ```
 
-**The chat loop** (where new chat code belongs → `services/chat.py`):
+**The chat loop** (where new chat code belongs → `services/chat/`):
 
 1. Verify session → 2. Check daily quota (Redis) → 3. Load memory + recent window (Neon) → 4. Stream via LiteLLM → 5. Persist messages → 6. Background topic (first turn only) → 7. Background memory extraction → 8. Update usage.
 

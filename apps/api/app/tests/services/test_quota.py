@@ -149,7 +149,7 @@ async def test_seed_usage_from_db_skips_db_when_redis_key_warm(fake_redis):
     session = AsyncMock()
     user_id = uuid4()
     await fake_redis.set(f"usage:{user_id}:{quota_service.utc_today().isoformat()}", 500)
-    with patch("app.services.chat.usage_repo.get_total_for_date", AsyncMock()) as get_total:
+    with patch("app.repositories.usage.get_total_for_date", AsyncMock()) as get_total:
         await seed_usage_from_db(fake_redis, session, user_id)
         get_total.assert_not_awaited()
 

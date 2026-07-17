@@ -14,6 +14,7 @@ from app.repositories import project_items as project_items_repo
 from app.repositories import projects as projects_repo
 from app.services import daily_learning, learning_insights
 from app.services.home.util import CompletedDaily, ProjectHomeContent
+from app.services.projects import stats as project_stats
 
 
 def is_language_project(project: Project) -> bool:
@@ -253,8 +254,9 @@ async def load_project_home_content(
     home_tz: ZoneInfo,
 ) -> ProjectHomeContent:
     projects = await projects_repo.list_for_user(session, user_id, limit=20)
+    has_language = any(is_language_project(p) for p in projects)
     if not projects:
-        return ProjectHomeContent([], None, None, [])
+        return ProjectHomeContent([], None, None, [], False)
 
     daily_projects = sorted(
         [p for p in projects if is_daily_home_project(p)],
@@ -270,7 +272,7 @@ async def load_project_home_content(
         for row in all_items:
             items_by_project.setdefault(row.project_id, []).append(row)
         stats_by_project = {
-            pid: project_items_repo.stats_from_items(
+            pid: project_stats.stats_from_items(
                 items_by_project.get(pid, []),
                 timezone_name=tz_name,
             )
@@ -312,9 +314,11 @@ async def load_project_home_content(
                     seed=seed,
                     has_highlight=True,
                 )
-                return ProjectHomeContent(starters, subtitle, highlight, completed_daily)
-        return ProjectHomeContent([], None, None, completed_daily)
+                return ProjectHomeContent(
+                    starters, subtitle, highlight, completed_daily, has_language
+                )
+        return ProjectHomeContent([], None, None, completed_daily, has_language)
 
     # No English/trivia daily cue — do not fall back to legacy project kinds
     # (old programming topics used to show up as "Continue TypeScript · …").
-    return ProjectHomeContent([], None, None, [])
+    return ProjectHomeContent([], None, None, [], has_language)

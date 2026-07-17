@@ -51,7 +51,7 @@ async def test_compress_noop_when_tail_fits_budget():
             "app.background.compaction.messages_repo.list_recent",
             AsyncMock(return_value=[_msg() for _ in range(10)]),
         ),
-        patch("app.background.compaction.litellm_gateway.summarize_conversation", summarize),
+        patch("app.background.compaction.summarize_conversation", summarize),
     ):
         # 10 short messages all fit the budget → keep=10, aged_out=0 → nothing to do
         await compaction.compress_chat_history(Settings(), uuid4())
@@ -83,7 +83,7 @@ async def test_compress_summarizes_when_over_window_cap():
             AsyncMock(return_value=[_msg("a"), _msg("b")]),
         ),
         patch(
-            "app.background.compaction.litellm_gateway.summarize_conversation",
+            "app.background.compaction.summarize_conversation",
             AsyncMock(return_value="SUMMARY"),
         ),
     ):
@@ -120,7 +120,7 @@ async def test_compress_runs_under_token_pressure_before_full_batch():
             AsyncMock(return_value=[_msg("old")] * 5),
         ) as list_range,
         patch(
-            "app.background.compaction.litellm_gateway.summarize_conversation",
+            "app.background.compaction.summarize_conversation",
             summarize,
         ),
     ):

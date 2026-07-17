@@ -48,6 +48,7 @@ from app.services.home.util import (
     ProjectHomeContent,
     day_seed,
     looks_internal,
+    looks_like_language_learning,
     resolve_home_tz,
     rotate_list,
     short_phrase,
@@ -168,7 +169,10 @@ async def build_home_screen(
             )
         )
 
-    home_memory: Memory | None = pick_home_memory(memories)
+    has_language_project = project_content.has_language_project
+    home_memory: Memory | None = pick_home_memory(
+        memories, has_language_project=has_language_project
+    )
     project_chips = project_content.starters
     project_subtitle = project_content.subtitle
     project_highlight = project_content.highlight
@@ -221,12 +225,16 @@ async def build_home_screen(
                 home_memory,
                 skip_overlapping=anchors,
                 completed_daily=completed_daily,
+                has_language_project=has_language_project,
             )
         )
 
     for item in suggestion_items:
         text = item.text.strip()
         if not text or looks_internal(text):
+            continue
+        # Don't nudge English practice from stale LLM suggestions after class delete.
+        if looks_like_language_learning(text) and not has_language_project:
             continue
         add(
             HomeStarter(

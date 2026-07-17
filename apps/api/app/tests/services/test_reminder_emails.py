@@ -172,7 +172,7 @@ async def test_process_learning_nudge_emails_sends_when_due():
             AsyncMock(return_value=[project]),
         ),
         patch(
-            "app.services.learning_nudges.project_items_repo.count_stats_by_project",
+            "app.services.projects.stats.count_stats_by_project",
             AsyncMock(
                 return_value={
                     project.id: {

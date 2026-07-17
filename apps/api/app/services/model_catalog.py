@@ -263,11 +263,9 @@ MODEL_MODES = frozenset({"auto"})
 
 
 def validate_user_alias(alias: str, *, allow_auto: bool = False) -> None:
-    if allow_auto and alias == "auto":
-        return
-    if alias in _BY_ID:
-        return
-    raise ValueError(f"Unknown model alias: {alias}")
+    from app.core.validation import validate_user_alias as _validate
+
+    _validate(alias, allow_auto=allow_auto)
 
 
 def price_sort_key(model: ChatModel) -> tuple[float, float, str]:

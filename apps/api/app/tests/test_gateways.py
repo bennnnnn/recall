@@ -8,6 +8,7 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway
+from app.services import chat_titles
 from app.gateways.google_auth import (
     GoogleAuthError,
     create_access_token,
@@ -277,7 +278,7 @@ async def test_generate_title_retries_fallback_on_outage():
         return _fake_completion("My Cool Chat")
 
     with patch.object(litellm_gateway, "acompletion", AsyncMock(side_effect=fake_acompletion)):
-        title = await litellm_gateway.generate_title(settings, "hello", "hi there")
+        title = await chat_titles.generate_title(settings, "hello", "hi there")
     assert title == "My Cool Chat"
     assert len(calls) == 2
     result = await mock_memory_sections(

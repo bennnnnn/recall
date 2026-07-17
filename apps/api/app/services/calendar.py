@@ -40,7 +40,9 @@ CALENDAR_HINT = (
     "use it for external meetings and events. In-app **Reminders** (due-dated todos) are separate — "
     "mention both when relevant. "
     "For day-planning questions (how's my day, plan my day, what to prioritize), lead with today's "
-    "calendar when a block is present. "
+    "calendar when a connected events block is present. "
+    "If the block says Google Calendar is **not connected**, say that — do not claim the calendar "
+    "is empty, clear, or a clean slate. "
     "When they ask to check their calendar and no Google Calendar block is present, tell them "
     "it is not connected and they can connect it in Settings → Google Calendar."
 )
@@ -124,6 +126,16 @@ def format_not_connected_answer() -> str:
         "Once connected, I can show your upcoming schedule and, with the right permission, "
         "create new events for you (you'll confirm each one before it's added).\n\n"
         "Want me to help with something else in the meantime?"
+    )
+
+
+def format_not_connected_calendar_block() -> str:
+    """Prompt block when calendar feature is on but the user has no connection."""
+    return (
+        "Google Calendar: not connected.\n"
+        "Do not say the calendar is empty, clear, or a clean slate. "
+        "State that Google Calendar is not connected; they can connect it in "
+        "Settings → Google Calendar if they want meetings surfaced."
     )
 
 
@@ -318,7 +330,9 @@ async def load_calendar_for_prompt(
     if not google_calendar_gateway.is_configured(settings):
         return None
     if not await is_connected(session, user.id):
-        return None
+        # Inject an explicit not-connected status so day-planning (and similar)
+        # cannot narrate a misleading "empty / clean slate" calendar.
+        return format_not_connected_calendar_block()
     cached = await _load_cached_events(redis, user.id)
     if cached is not None:
         return format_calendar_block(cached, user.timezone, settings.calendar_prompt_days)

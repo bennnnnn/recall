@@ -6,7 +6,11 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas import ProjectActionItem
+from app.repositories import project_items as project_items_repo
+from app.repositories import projects as projects_repo
 from app.services import projects as projects_service
+from app.services.projects import prompt_context as projects_prompt_context
+from app.services.projects import sync as projects_sync
 
 
 class _FakeSessionCM:
@@ -76,9 +80,8 @@ def _patch_count_stats_by_project(stats: dict):
     async def _mock(_session, project_ids, *, timezone_by_project=None):
         return {pid: stats for pid in project_ids}
 
-    return patch.object(
-        projects_service.project_items_repo,
-        "count_stats_by_project",
+    return patch(
+        "app.services.projects.stats.count_stats_by_project",
         AsyncMock(side_effect=_mock),
     )
 
@@ -102,17 +105,17 @@ async def test_apply_project_actions_skips_duplicate_language_project():
     existing = _project("English")
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "create",
             AsyncMock(),
         ) as create_mock,
@@ -146,17 +149,17 @@ async def test_apply_project_actions_handles_create_project_race():
     user_id = uuid4()
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "create",
             AsyncMock(side_effect=IntegrityError("insert", {}, Exception("dup key"))),
         ) as create_mock,
@@ -185,22 +188,22 @@ async def test_apply_project_actions_create_and_add():
     project = _project("Spanish")
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(side_effect=[[], [project]]),
         ),
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "create",
             AsyncMock(return_value=project),
         ) as create_mock,
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "create",
             AsyncMock(return_value=_item("hola", project.id)),
         ) as add_mock,
@@ -231,23 +234,22 @@ async def test_apply_project_actions_invalidates_home_cache():
     project = _project("Spanish")
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(side_effect=[[], [project]]),
         ),
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "create",
             AsyncMock(return_value=project),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
-        patch.object(
-            projects_service,
-            "_invalidate_home_for_user",
+        patch(
+            "app.services.projects.common._invalidate_home_for_user",
             AsyncMock(),
         ) as invalidate_mock,
     ):
@@ -274,17 +276,17 @@ async def test_apply_project_actions_master():
     existing = _item("apple", project.id)
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_recent_for_user",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "update",
             AsyncMock(return_value=existing),
         ) as update_mock,
@@ -315,17 +317,17 @@ async def test_apply_project_actions_delete_project():
     project = _project("Old project")
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "delete_by_id",
             AsyncMock(return_value=True),
         ) as delete_mock,
@@ -353,17 +355,17 @@ async def test_apply_project_actions_blocks_delete_project_by_default():
     project = _project("Old project")
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "delete_by_id",
             AsyncMock(return_value=True),
         ) as delete_mock,
@@ -385,12 +387,12 @@ async def test_load_projects_for_prompt():
     project = _project("English")
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_for_user",
             AsyncMock(return_value=[_item("run", project.id)]),
         ),
@@ -423,7 +425,7 @@ async def test_sync_projects_from_transcript_adds_words():
             side_effect=_session_local_side_effect(session),
         ),
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
@@ -432,22 +434,22 @@ async def test_sync_projects_from_transcript_adds_words():
         # uses list_recent_for_user (fix for the >500-item recency bug) —
         # both need mocking on this end-to-end path.
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "create",
             AsyncMock(side_effect=lambda *a, **kw: _item(kw["content"], project.id)),
         ) as create_mock,
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "count_for_project",
             AsyncMock(return_value=0),
         ),
@@ -489,7 +491,7 @@ async def test_load_daily_learning_summary_for_prompt():
 
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
@@ -523,7 +525,7 @@ async def test_load_daily_learning_summary_not_started_today():
 
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
@@ -555,7 +557,7 @@ async def test_load_daily_learning_summary_skips_completed_goal():
 
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
@@ -571,7 +573,69 @@ async def test_load_daily_learning_summary_skips_completed_goal():
             session, user, Settings()
         )
 
-    assert block == ""
+    assert "Today's learning progress" in block
+    assert "vocabulary quiz" in block
+    assert "daily goal complete" in block
+    assert "0/5" not in block
+    assert "Do not mention general knowledge quiz" in block
+    assert "general knowledge quiz):" not in block.lower()
+
+
+@pytest.mark.asyncio
+async def test_load_daily_learning_summary_complete_trivia_omits_vocabulary():
+    """Trivia-only users must not get a combined vocabulary+GK 'complete' line."""
+    session = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    user.timezone = "America/Los_Angeles"
+    project = _project("General knowledge")
+    project.kind = "trivia"
+    project.daily_goal = 5
+
+    with (
+        patch.object(
+            projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        _patch_count_stats_by_project(
+            {
+                "total": 20,
+                "mastered_today": 5,
+                "pending_today": 0,
+            }
+        ),
+    ):
+        block = await projects_service.load_daily_learning_summary_for_prompt(
+            session, user, Settings()
+        )
+
+    assert "general knowledge quiz" in block
+    assert "daily goal complete" in block
+    assert "Do not mention vocabulary quiz" in block
+    # No vocabulary track line — only the absent-track ban may say the word.
+    assert "vocabulary quiz):" not in block.lower()
+
+
+@pytest.mark.asyncio
+async def test_load_daily_learning_summary_no_active_class():
+    """Deleted vocab class must not leave room for invented 0/N quiz stats."""
+    session = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    user.timezone = "America/Los_Angeles"
+
+    with patch.object(
+        projects_repo,
+        "list_for_user",
+        AsyncMock(return_value=[]),
+    ):
+        block = await projects_service.load_daily_learning_summary_for_prompt(
+            session, user, Settings()
+        )
+
+    assert "No active learning class" in block
+    assert "Do not mention vocabulary quiz" in block
 
 
 @pytest.mark.asyncio
@@ -586,7 +650,7 @@ async def test_load_daily_learning_summary_trivia_label():
 
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
@@ -617,7 +681,7 @@ async def test_load_daily_learning_summary_trivia_incomplete():
 
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
@@ -659,13 +723,12 @@ async def test_load_daily_learning_summary_batches_stats():
 
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(return_value=[english, trivia, general]),
         ),
-        patch.object(
-            projects_service.project_items_repo,
-            "count_stats_by_project",
+        patch(
+            "app.services.projects.stats.count_stats_by_project",
             AsyncMock(side_effect=_mock),
         ) as stats_mock,
     ):
@@ -690,17 +753,17 @@ async def test_load_project_for_prompt_scoped():
 
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "get_by_id",
             AsyncMock(return_value=project),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_for_user",
             AsyncMock(return_value=[item]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_quiz_exclusion_contents",
             AsyncMock(return_value=[]),
         ),
@@ -724,17 +787,17 @@ async def test_load_project_for_prompt_chat_mode():
 
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "get_by_id",
             AsyncMock(return_value=project),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_quiz_exclusion_contents",
             AsyncMock(return_value=[]),
         ),
@@ -760,17 +823,17 @@ async def test_load_project_for_prompt_trivia_chat_mode():
 
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "get_by_id",
             AsyncMock(return_value=project),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_quiz_exclusion_contents",
             AsyncMock(return_value=[]),
         ),
@@ -795,17 +858,17 @@ async def test_load_project_for_prompt_uses_chat_mode_even_when_exam_requested()
 
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "get_by_id",
             AsyncMock(return_value=project),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_quiz_exclusion_contents",
             AsyncMock(return_value=[]),
         ),
@@ -856,17 +919,17 @@ async def test_load_project_quiz_context():
 
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "get_by_id",
             AsyncMock(return_value=project),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_for_user",
             AsyncMock(return_value=[item]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_quiz_exclusion_contents",
             AsyncMock(return_value=[]),
         ),
@@ -894,17 +957,17 @@ async def test_load_project_quiz_context_retries_same_word_on_wrong():
 
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "get_by_id",
             AsyncMock(return_value=project),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_for_user",
             AsyncMock(return_value=[item]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_quiz_exclusion_contents",
             AsyncMock(return_value=[]),
         ),
@@ -987,7 +1050,7 @@ def test_stats_for_items_matches_repository_stats_for_due_for_review():
     instead of due_at), so the prompt claimed a different review queue."""
     from datetime import UTC, datetime, timedelta
 
-    from app.repositories.project_items import stats_from_items
+    from app.services.projects.stats import stats_from_items
 
     now = datetime.now(UTC)
     project = _project("English")
@@ -1033,7 +1096,7 @@ def test_stats_for_items_matches_repository_stats_for_due_for_review():
     mastered.last_incorrect_at = None
 
     items = [new_item, learning_due, learning_recent, mastered]
-    prompt_stats = projects_service._stats_for_items(items)
+    prompt_stats = projects_prompt_context._stats_for_items(items)
     repo_stats = stats_from_items(items)
 
     assert prompt_stats["due_for_review"] == repo_stats["due_for_review"]
@@ -1061,17 +1124,17 @@ async def test_apply_project_actions_skips_master_after_recent_miss():
 
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_recent_for_user",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "update",
             AsyncMock(return_value=existing),
         ) as update_mock,
@@ -1103,17 +1166,17 @@ async def test_apply_project_actions_start_learning_and_unmaster():
 
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_recent_for_user",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "update",
             AsyncMock(return_value=existing),
         ) as update_mock,
@@ -1145,18 +1208,17 @@ async def test_apply_project_actions_start_learning_records_failed_quiz():
 
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_recent_for_user",
             AsyncMock(return_value=[existing]),
         ),
-        patch.object(
-            projects_service.project_items_repo,
-            "apply_quiz_result",
+        patch(
+            "app.services.projects.quiz_grading.apply_quiz_result",
             AsyncMock(return_value=existing),
         ) as apply_result,
     ):
@@ -1186,17 +1248,17 @@ async def test_apply_project_actions_delete_list():
     project = _project("English")
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "delete_by_list",
             AsyncMock(return_value=2),
         ) as delete_mock,
@@ -1224,17 +1286,17 @@ async def test_apply_project_actions_blocks_delete_list_by_default():
     project = _project("English")
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "delete_by_list",
             AsyncMock(return_value=2),
         ) as delete_mock,
@@ -1261,17 +1323,17 @@ async def test_apply_project_actions_set_level_and_description():
     project = _project("English")
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "update",
             AsyncMock(return_value=project),
         ) as update_mock,
@@ -1304,17 +1366,17 @@ async def test_apply_project_actions_skips_duplicate_add():
     existing = _item("apple", project.id)
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_recent_for_user",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "create",
             AsyncMock(),
         ) as create_mock,
@@ -1345,17 +1407,17 @@ async def test_apply_project_actions_delete_does_not_fuzzy_match_substring():
     existing = _item("category", project.id)
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_recent_for_user",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "delete_by_id",
             AsyncMock(),
         ) as delete_mock,
@@ -1386,17 +1448,17 @@ async def test_apply_project_actions_master_does_not_fuzzy_match_substring():
     existing = _item("category", project.id)
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_recent_for_user",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "update",
             AsyncMock(),
         ) as update_mock,
@@ -1427,22 +1489,22 @@ async def test_apply_project_actions_add_not_skipped_as_fuzzy_duplicate():
     existing = _item("category", project.id, list_title="nouns")
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_recent_for_user",
             AsyncMock(return_value=[existing]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "create",
             AsyncMock(return_value=_item("cat", project.id, list_title="nouns")),
         ) as create_mock,
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "count_for_project",
             AsyncMock(return_value=0),
         ),
@@ -1473,22 +1535,22 @@ async def test_apply_project_actions_add_skips_at_item_cap():
     project = _project("English")
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "count_for_project",
             AsyncMock(return_value=projects_service.MAX_PROJECT_ITEMS_PER_PROJECT),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "create",
             AsyncMock(),
         ) as create_mock,
@@ -1534,37 +1596,37 @@ async def test_apply_project_extraction_result_blocks_destructive_actions():
     )
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "delete_by_id",
             AsyncMock(return_value=True),
         ) as delete_project_mock,
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "delete_by_list",
             AsyncMock(return_value=2),
         ) as delete_list_mock,
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "create",
             AsyncMock(return_value=_item("apple", project.id, list_title="nouns")),
         ) as create_mock,
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "count_for_project",
             AsyncMock(return_value=0),
         ),
     ):
-        applied = await projects_service._apply_project_extraction_result(
+        applied = await projects_sync._apply_project_extraction_result(
             session, user_id=user_id, chat_id=chat_id, result=result
         )
 
@@ -1595,27 +1657,27 @@ async def test_apply_project_extraction_result_caps_actions_per_turn():
     )
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_recent_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "create",
             AsyncMock(side_effect=lambda *a, **kw: _item(kw["content"], project.id)),
         ) as create_mock,
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "count_for_project",
             AsyncMock(return_value=0),
         ),
     ):
-        applied = await projects_service._apply_project_extraction_result(
+        applied = await projects_sync._apply_project_extraction_result(
             session, user_id=user_id, chat_id=chat_id, result=result
         )
 
@@ -1650,19 +1712,19 @@ async def test_sync_projects_from_transcript_applies_litellm_actions():
             side_effect=_session_local_side_effect(session),
         ),
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(return_value=[project]),
         ),
         # apply_project_actions is mocked below, so only
         # _load_project_sync_snapshot's list_for_user call is exercised here.
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.gateways.litellm_gateway.extract_project_actions",
+            "app.services.projects.extract.extract_project_actions",
             AsyncMock(return_value=extraction),
         ),
         patch.object(
@@ -1710,17 +1772,17 @@ async def test_sync_projects_from_transcript_releases_db_before_llm():
 
     with (
         patch("app.core.db.SessionLocal", side_effect=[load_cm, apply_cm]),
-        patch.object(projects_service.projects_repo, "list_for_user", AsyncMock(return_value=[])),
+        patch.object(projects_repo, "list_for_user", AsyncMock(return_value=[])),
         # fake_extract always returns None, so apply_project_actions is never
         # reached — only _load_project_sync_snapshot's list_for_user call is
         # exercised here.
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.gateways.litellm_gateway.extract_project_actions",
+            "app.services.projects.extract.extract_project_actions",
             AsyncMock(side_effect=fake_extract),
         ),
     ):
@@ -1746,7 +1808,7 @@ async def test_sync_projects_from_transcript_returns_none_on_error():
             side_effect=_session_local_side_effect(session),
         ),
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "list_for_user",
             AsyncMock(return_value=[]),
         ),
@@ -1754,17 +1816,17 @@ async def test_sync_projects_from_transcript_returns_none_on_error():
         # never reached — only _load_project_sync_snapshot's list_for_user
         # call is exercised here.
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_quiz_exclusion_contents",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.gateways.litellm_gateway.extract_project_actions",
+            "app.services.projects.extract.extract_project_actions",
             AsyncMock(side_effect=RuntimeError("boom")),
         ),
     ):
@@ -1790,23 +1852,22 @@ async def test_load_project_for_prompt_trivia_hint():
 
     with (
         patch.object(
-            projects_service.projects_repo,
+            projects_repo,
             "get_by_id",
             AsyncMock(return_value=project),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_for_user",
             AsyncMock(return_value=[item]),
         ),
         patch.object(
-            projects_service.project_items_repo,
+            project_items_repo,
             "list_quiz_exclusion_contents",
             AsyncMock(return_value=["Colossus of Rhodes"]),
         ),
-        patch.object(
-            projects_service.project_items_repo,
-            "count_stats",
+        patch(
+            "app.services.projects.stats.count_stats",
             AsyncMock(
                 return_value={
                     "total": 1,

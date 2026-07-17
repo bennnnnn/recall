@@ -73,11 +73,11 @@ def test_list_projects():
 
     with (
         patch(
-            "app.services.projects.projects_repo.list_for_user",
+            "app.repositories.projects.list_for_user",
             AsyncMock(return_value=[project]),
         ),
         patch(
-            "app.services.projects.project_items_repo.count_stats_by_project",
+            "app.services.projects.stats.count_stats_by_project",
             AsyncMock(return_value={project.id: {"mastered_count": 3, "mastered_today": 1}}),
         ),
     ):
@@ -96,11 +96,11 @@ def test_create_project_maps_vocabulary_to_language():
 
     with (
         patch(
-            "app.services.projects.projects_repo.create",
+            "app.repositories.projects.create",
             AsyncMock(return_value=project),
         ) as create_mock,
         patch(
-            "app.services.projects.projects_repo.find_language_by_target",
+            "app.repositories.projects.find_language_by_target",
             AsyncMock(return_value=None),
         ),
     ):
@@ -122,11 +122,11 @@ def test_create_language_project_rejects_duplicate():
 
     with (
         patch(
-            "app.services.projects.projects_repo.find_language_by_target",
+            "app.repositories.projects.find_language_by_target",
             AsyncMock(return_value=existing),
         ),
         patch(
-            "app.services.projects.projects_repo.create",
+            "app.repositories.projects.create",
             AsyncMock(),
         ) as create_mock,
     ):
@@ -185,11 +185,11 @@ def test_create_trivia_project_rejects_duplicate():
 
     with (
         patch(
-            "app.services.projects.projects_repo.find_trivia_project",
+            "app.repositories.projects.find_trivia_project",
             AsyncMock(return_value=existing),
         ),
         patch(
-            "app.services.projects.projects_repo.create",
+            "app.repositories.projects.create",
             AsyncMock(),
         ) as create_mock,
     ):
@@ -217,7 +217,7 @@ def test_get_unsupported_legacy_project_not_found():
     project_id = project.id
 
     with patch(
-        "app.services.projects.projects_repo.get_by_id",
+        "app.repositories.projects.get_by_id",
         AsyncMock(return_value=project),
     ):
         client = TestClient(app)
@@ -231,7 +231,7 @@ def test_get_project_not_found():
     app = _app_with_user(user)
 
     with patch(
-        "app.services.projects.projects_repo.get_by_id",
+        "app.repositories.projects.get_by_id",
         AsyncMock(return_value=None),
     ):
         client = TestClient(app)
@@ -255,19 +255,19 @@ def test_get_language_project_detail():
 
     with (
         patch(
-            "app.services.projects.projects_repo.get_by_id",
+            "app.repositories.projects.get_by_id",
             AsyncMock(return_value=project),
         ),
         patch(
-            "app.services.projects.project_items_repo.list_for_user",
+            "app.repositories.project_items.list_for_user",
             AsyncMock(return_value=[noun, verb]),
         ),
         patch(
-            "app.services.projects.project_items_repo.list_miss_events_for_items",
+            "app.repositories.project_items.list_miss_events_for_items",
             AsyncMock(return_value={}),
         ),
         patch(
-            "app.services.projects.project_items_repo.stats_from_items",
+            "app.services.projects.stats.stats_from_items",
             return_value={
                 "total": 2,
                 "mastered_count": 1,
@@ -308,19 +308,19 @@ def test_get_project_include_lists():
 
     with (
         patch(
-            "app.services.projects.projects_repo.get_by_id",
+            "app.repositories.projects.get_by_id",
             AsyncMock(return_value=project),
         ),
         patch(
-            "app.services.projects.project_items_repo.list_for_user",
+            "app.repositories.project_items.list_for_user",
             AsyncMock(return_value=[noun, verb]),
         ),
         patch(
-            "app.services.projects.project_items_repo.list_miss_events_for_items",
+            "app.repositories.project_items.list_miss_events_for_items",
             AsyncMock(return_value={}),
         ),
         patch(
-            "app.services.projects.project_items_repo.stats_from_items",
+            "app.services.projects.stats.stats_from_items",
             return_value={
                 "total": 2,
                 "mastered_count": 1,
@@ -359,7 +359,7 @@ def test_list_daily_items():
             AsyncMock(return_value=project),
         ),
         patch(
-            "app.routers.projects.project_items_repo.list_by_activity_date",
+            "app.routers.projects.project_items_service.list_by_activity_date",
             AsyncMock(return_value=[item]),
         ),
     ):
@@ -389,7 +389,7 @@ def test_list_daily_items_missed_bucket():
             AsyncMock(return_value=project),
         ),
         patch(
-            "app.routers.projects.project_items_repo.list_missed_by_activity_date",
+            "app.routers.projects.project_items_service.list_missed_by_activity_date",
             AsyncMock(return_value=[item]),
         ) as missed_mock,
     ):
@@ -524,7 +524,7 @@ def test_update_project_item_status():
             AsyncMock(return_value=item),
         ),
         patch(
-            "app.routers.projects.project_items_repo.update",
+            "app.routers.projects.update_item",
             AsyncMock(return_value=item),
         ) as update_mock,
         patch("app.routers.projects.home_service.invalidate_home_cache", AsyncMock()),

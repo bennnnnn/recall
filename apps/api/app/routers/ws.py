@@ -18,6 +18,12 @@ from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.schemas import ChatMessageRequest, EditMessageRequest
 from app.services import chat as chat_service
 from app.services import tokens as tokens_service
+from app.services.chat.stream_events import (
+    await_finalize_commit,
+    build_done_payload,
+    error_payload_for_exception,
+    pop_finalize_tasks,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["websocket"])
@@ -28,11 +34,6 @@ _WS_CONNECT_RATE_LIMIT = 30
 _WS_HANDSHAKE_RATE_LIMIT = 60  # unauthenticated connects per IP per minute
 # Drop sockets that connect but never send the auth frame (resource leak).
 _WS_AUTH_TIMEOUT_SECONDS = 10.0
-# How long to hold `done` waiting on the DB commit before falling back to a
-# best-effort `done`. Long enough for a normal Neon round trip + usage write,
-# short enough that a wedged finalize doesn't pin the socket forever. If the
-# commit FAILS (vs. is slow) we send an error instead of a ghost `done`.
-_DONE_COMMIT_WAIT_SECONDS = 10.0
 _CHARGEABLE_WS_TYPES = frozenset({"message", "regenerate", "edit"})
 
 
@@ -42,32 +43,6 @@ async def _safe_send_json(websocket: WebSocket, payload: dict) -> bool:
         await websocket.send_json(payload)
         return True
     except (WebSocketDisconnect, RuntimeError):
-        return False
-
-
-async def _await_finalize_commit(finalize_db_task: asyncio.Task[None] | None) -> bool:
-    """Wait (bounded) for the turn's DB commit before sending `done`.
-
-    Returns True when the commit landed (or is still in-flight but slow, or
-    there was no task to wait on) — in those cases `done` is sent best-effort
-    and the finalize registry still guards the next turn. Returns False only
-    when the finalize task actually FAILED, so the caller sends an error
-    instead of a ghost `done` carrying a message_id for a row that never
-    persisted.
-    """
-    if finalize_db_task is None:
-        return True
-    try:
-        await asyncio.wait_for(finalize_db_task, _DONE_COMMIT_WAIT_SECONDS)
-        return True
-    except TimeoutError:
-        logger.warning(
-            "Finalize commit still running after %ss; sending done best-effort",
-            _DONE_COMMIT_WAIT_SECONDS,
-        )
-        return True
-    except Exception:
-        logger.exception("Finalize commit failed before done")
         return False
 
 
@@ -122,32 +97,10 @@ async def _stream_over_ws(
                 if not await _safe_send_json(websocket, {"type": "token", "content": token_text}):
                     cancel_event.set()
                     break
-        except QuotaExceededError as exc:
-            await _safe_send_json(
-                websocket,
-                {"type": "error", "code": "quota_exceeded", "message": exc.message},
-            )
-            return
-        except ChatServiceError as exc:
-            await _safe_send_json(websocket, {"type": "error", "message": exc.message})
-            return
-        except ModelUnavailableError as exc:
-            await _safe_send_json(
-                websocket,
-                {
-                    "type": "error",
-                    "code": exc.code,
-                    "message": exc.message,
-                    "failed_model": exc.failed_alias,
-                },
-            )
-            return
-        except Exception:
-            logger.exception("Chat stream failed")
-            await _safe_send_json(
-                websocket,
-                {"type": "error", "message": "Something went wrong. Try again."},
-            )
+        except Exception as exc:
+            if not isinstance(exc, QuotaExceededError | ChatServiceError | ModelUnavailableError):
+                logger.exception("Chat stream failed")
+            await _safe_send_json(websocket, error_payload_for_exception(exc))
             return
 
         stream_end: dict[str, Any] = {"type": "stream_end"}
@@ -164,31 +117,15 @@ async def _stream_over_ws(
         # already flushed (stream_end above), so only the final `done` event
         # waits on the commit — streaming latency is unchanged. If the commit
         # FAILED we send an error instead of a ghost `done` with a fake id.
-        finalize_db_task = result.pop("_finalize_db_task", None)
-        result.pop("_finalize_task", None)
-        if not await _await_finalize_commit(finalize_db_task):
+        finalize_db_task = pop_finalize_tasks(result)
+        if not await await_finalize_commit(finalize_db_task):
             await _safe_send_json(
                 websocket,
                 {"type": "error", "message": "Failed to save the response. Please retry."},
             )
             return
 
-        done: dict[str, Any] = {"type": "done"}
-        for key in (
-            "message_id",
-            "recalled",
-            "memory_hints",
-            "context_summarized",
-            "todos_sync",
-            "search_sources",
-            "final_content",
-            "resolved_model",
-            "fallback_used",
-        ):
-            value = result.get(key)
-            if value:
-                done[key] = value
-        await _safe_send_json(websocket, done)
+        await _safe_send_json(websocket, build_done_payload(result))
 
     producer = asyncio.create_task(run_stream())
     try:
@@ -269,6 +206,201 @@ async def _run_chat_stream(
         )
 
 
+def _status_emitters(websocket: WebSocket) -> tuple[Any, Any]:
+    """Shared status/reasoning WS emitters for chargeable chat actions."""
+
+    async def emit_status(phase: str, detail: str | None = None) -> None:
+        payload = {"type": "status", "phase": phase}
+        if detail:
+            payload["detail"] = detail
+        await _safe_send_json(websocket, payload)
+
+    async def emit_reasoning(chunk: str) -> None:
+        await _safe_send_json(websocket, {"type": "reasoning", "content": chunk})
+
+    return emit_status, emit_reasoning
+
+
+async def _handle_regenerate(
+    websocket: WebSocket,
+    *,
+    redis: Any,
+    settings: Any,
+    user_id: UUID,
+    chat_id: UUID,
+    payload: dict[str, Any],
+    client_timezone: str | None,
+    cancel_event: asyncio.Event,
+    emit_status: Any,
+    emit_reasoning: Any,
+) -> None:
+    try:
+        request = ChatMessageRequest.model_validate(payload)
+    except ValidationError:
+        await websocket.send_json(
+            {"type": "error", "message": "Invalid regenerate request"},
+        )
+        return
+
+    regen_model = request.model
+    regen_loc = request.client_location
+    regen_lat = request.client_latitude
+    regen_lng = request.client_longitude
+
+    def _regen_stream(
+        result,
+        model=regen_model,
+        tz=client_timezone,
+        loc=regen_loc,
+        lat=regen_lat,
+        lng=regen_lng,
+    ):
+        return chat_service.stream_regenerate_response(
+            redis,
+            settings,
+            user_id=user_id,
+            chat_id=chat_id,
+            model_alias=model,
+            should_cancel=cancel_event.is_set,
+            result=result,
+            client_timezone=tz,
+            client_location=loc,
+            client_latitude=lat,
+            client_longitude=lng,
+            on_status=emit_status,
+            on_reasoning=emit_reasoning,
+        )
+
+    await _run_chat_stream(
+        websocket,
+        cancel_event=cancel_event,
+        stream_factory=_regen_stream,
+    )
+
+
+async def _handle_edit(
+    websocket: WebSocket,
+    *,
+    redis: Any,
+    settings: Any,
+    user_id: UUID,
+    chat_id: UUID,
+    payload: dict[str, Any],
+    client_timezone: str | None,
+    cancel_event: asyncio.Event,
+    emit_status: Any,
+    emit_reasoning: Any,
+) -> None:
+    try:
+        edit_request = EditMessageRequest.model_validate(payload)
+    except ValidationError:
+        await websocket.send_json(
+            {"type": "error", "message": "Invalid edit request"},
+        )
+        return
+
+    edit_model = edit_request.model
+    edit_loc = edit_request.client_location
+    edit_lat = edit_request.client_latitude
+    edit_lng = edit_request.client_longitude
+
+    def _edit_stream(
+        result,
+        mid=edit_request.message_id,
+        text=edit_request.content,
+        model=edit_model,
+        tz=client_timezone,
+        loc=edit_loc,
+        lat=edit_lat,
+        lng=edit_lng,
+    ):
+        return chat_service.stream_edit_response(
+            redis,
+            settings,
+            user_id=user_id,
+            chat_id=chat_id,
+            message_id=mid,
+            new_content=text,
+            model_alias=model,
+            should_cancel=cancel_event.is_set,
+            result=result,
+            client_timezone=tz,
+            client_location=loc,
+            client_latitude=lat,
+            client_longitude=lng,
+            on_status=emit_status,
+            on_reasoning=emit_reasoning,
+        )
+
+    await _run_chat_stream(
+        websocket,
+        cancel_event=cancel_event,
+        stream_factory=_edit_stream,
+    )
+
+
+async def _handle_message(
+    websocket: WebSocket,
+    *,
+    redis: Any,
+    settings: Any,
+    user_id: UUID,
+    chat_id: UUID,
+    payload: dict[str, Any],
+    client_timezone: str | None,
+    cancel_event: asyncio.Event,
+    emit_status: Any,
+    emit_reasoning: Any,
+) -> None:
+    content = payload.get("content", "").strip()
+
+    try:
+        request = ChatMessageRequest.model_validate(payload)
+    except ValidationError:
+        await websocket.send_json({"type": "error", "message": "Invalid message"})
+        return
+
+    if not content and not request.attachment_ids:
+        return
+
+    message_content = content
+    message_model = request.model
+
+    def _message_stream(
+        result,
+        text=message_content,
+        model=message_model,
+        aids=request.attachment_ids,
+        tz=client_timezone,
+        loc=request.client_location,
+        lat=request.client_latitude,
+        lng=request.client_longitude,
+    ):
+        return chat_service.stream_chat_response(
+            redis,
+            settings,
+            user_id=user_id,
+            chat_id=chat_id,
+            content=text,
+            model_alias=model,
+            attachment_ids=aids,
+            should_cancel=cancel_event.is_set,
+            result=result,
+            client_timezone=tz,
+            client_location=loc,
+            client_latitude=lat,
+            client_longitude=lng,
+            on_status=emit_status,
+            on_reasoning=emit_reasoning,
+        )
+
+    await _run_chat_stream(
+        websocket,
+        cancel_event=cancel_event,
+        stream_factory=_message_stream,
+    )
+
+
 @router.websocket("/ws/chats/{chat_id}")
 async def chat_websocket(
     websocket: WebSocket,
@@ -323,6 +455,7 @@ async def chat_websocket(
         return
 
     cancel_event = asyncio.Event()
+    emit_status, emit_reasoning = _status_emitters(websocket)
 
     try:
         while True:
@@ -345,175 +478,49 @@ async def chat_websocket(
                 continue
 
             if msg_type == "regenerate":
-                try:
-                    request = ChatMessageRequest.model_validate(payload)
-                except ValidationError:
-                    await websocket.send_json(
-                        {"type": "error", "message": "Invalid regenerate request"},
-                    )
-                    continue
-
-                regen_model = request.model
-                regen_loc = request.client_location
-                regen_lat = request.client_latitude
-                regen_lng = request.client_longitude
-
-                async def emit_status(phase: str, detail: str | None = None) -> None:
-                    payload = {"type": "status", "phase": phase}
-                    if detail:
-                        payload["detail"] = detail
-                    await _safe_send_json(websocket, payload)
-
-                async def emit_reasoning(chunk: str) -> None:
-                    await _safe_send_json(websocket, {"type": "reasoning", "content": chunk})
-
-                def _regen_stream(
-                    result,
-                    model=regen_model,
-                    tz=client_timezone,
-                    loc=regen_loc,
-                    lat=regen_lat,
-                    lng=regen_lng,
-                ):
-                    return chat_service.stream_regenerate_response(
-                        redis,
-                        settings,
-                        user_id=user_id,
-                        chat_id=chat_id,
-                        model_alias=model,
-                        should_cancel=cancel_event.is_set,
-                        result=result,
-                        client_timezone=tz,
-                        client_location=loc,
-                        client_latitude=lat,
-                        client_longitude=lng,
-                        on_status=emit_status,
-                        on_reasoning=emit_reasoning,
-                    )
-
-                await _run_chat_stream(
+                await _handle_regenerate(
                     websocket,
+                    redis=redis,
+                    settings=settings,
+                    user_id=user_id,
+                    chat_id=chat_id,
+                    payload=payload,
+                    client_timezone=client_timezone,
                     cancel_event=cancel_event,
-                    stream_factory=_regen_stream,
+                    emit_status=emit_status,
+                    emit_reasoning=emit_reasoning,
                 )
                 continue
 
             if msg_type == "edit":
-                try:
-                    edit_request = EditMessageRequest.model_validate(payload)
-                except ValidationError:
-                    await websocket.send_json(
-                        {"type": "error", "message": "Invalid edit request"},
-                    )
-                    continue
-
-                edit_model = edit_request.model
-                edit_loc = edit_request.client_location
-                edit_lat = edit_request.client_latitude
-                edit_lng = edit_request.client_longitude
-
-                async def emit_status(phase: str, detail: str | None = None) -> None:
-                    payload = {"type": "status", "phase": phase}
-                    if detail:
-                        payload["detail"] = detail
-                    await _safe_send_json(websocket, payload)
-
-                async def emit_reasoning(chunk: str) -> None:
-                    await _safe_send_json(websocket, {"type": "reasoning", "content": chunk})
-
-                def _edit_stream(
-                    result,
-                    mid=edit_request.message_id,
-                    text=edit_request.content,
-                    model=edit_model,
-                    tz=client_timezone,
-                    loc=edit_loc,
-                    lat=edit_lat,
-                    lng=edit_lng,
-                ):
-                    return chat_service.stream_edit_response(
-                        redis,
-                        settings,
-                        user_id=user_id,
-                        chat_id=chat_id,
-                        message_id=mid,
-                        new_content=text,
-                        model_alias=model,
-                        should_cancel=cancel_event.is_set,
-                        result=result,
-                        client_timezone=tz,
-                        client_location=loc,
-                        client_latitude=lat,
-                        client_longitude=lng,
-                        on_status=emit_status,
-                        on_reasoning=emit_reasoning,
-                    )
-
-                await _run_chat_stream(
+                await _handle_edit(
                     websocket,
+                    redis=redis,
+                    settings=settings,
+                    user_id=user_id,
+                    chat_id=chat_id,
+                    payload=payload,
+                    client_timezone=client_timezone,
                     cancel_event=cancel_event,
-                    stream_factory=_edit_stream,
+                    emit_status=emit_status,
+                    emit_reasoning=emit_reasoning,
                 )
                 continue
 
             if msg_type != "message":
                 continue
 
-            content = payload.get("content", "").strip()
-
-            try:
-                request = ChatMessageRequest.model_validate(payload)
-            except ValidationError:
-                await websocket.send_json({"type": "error", "message": "Invalid message"})
-                continue
-
-            if not content and not request.attachment_ids:
-                continue
-
-            message_content = content
-            message_model = request.model
-
-            async def emit_status(phase: str, detail: str | None = None) -> None:
-                payload = {"type": "status", "phase": phase}
-                if detail:
-                    payload["detail"] = detail
-                await _safe_send_json(websocket, payload)
-
-            async def emit_reasoning(chunk: str) -> None:
-                await _safe_send_json(websocket, {"type": "reasoning", "content": chunk})
-
-            def _message_stream(
-                result,
-                text=message_content,
-                model=message_model,
-                aids=request.attachment_ids,
-                tz=client_timezone,
-                loc=request.client_location,
-                lat=request.client_latitude,
-                lng=request.client_longitude,
-            ):
-                return chat_service.stream_chat_response(
-                    redis,
-                    settings,
-                    user_id=user_id,
-                    chat_id=chat_id,
-                    content=text,
-                    model_alias=model,
-                    attachment_ids=aids,
-                    should_cancel=cancel_event.is_set,
-                    result=result,
-                    client_timezone=tz,
-                    client_location=loc,
-                    client_latitude=lat,
-                    client_longitude=lng,
-                    on_status=emit_status,
-                    on_reasoning=emit_reasoning,
-                )
-
-            await _run_chat_stream(
+            await _handle_message(
                 websocket,
+                redis=redis,
+                settings=settings,
+                user_id=user_id,
+                chat_id=chat_id,
+                payload=payload,
+                client_timezone=client_timezone,
                 cancel_event=cancel_event,
-                stream_factory=_message_stream,
+                emit_status=emit_status,
+                emit_reasoning=emit_reasoning,
             )
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected chat_id=%s", chat_id)

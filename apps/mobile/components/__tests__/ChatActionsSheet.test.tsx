@@ -34,7 +34,7 @@ describe("ChatActionsSheet", () => {
     jest.clearAllMocks();
   });
 
-  it("renders a top-right menu overlay without a bottom-sheet handle", async () => {
+  it("renders a floating menu overlay without a bottom-sheet handle", async () => {
     const { getByTestId, queryByTestId, getByText } = await render(
       <ChatActionsSheet {...baseProps} placement="menu" />,
     );
@@ -52,5 +52,21 @@ describe("ChatActionsSheet", () => {
 
     await fireEvent.press(getByTestId("chat-actions-menu-backdrop"));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows Select when onSelectChats is provided", async () => {
+    const onSelectChats = jest.fn();
+    const { getByText } = await render(
+      <ChatActionsSheet {...baseProps} onSelectChats={onSelectChats} />,
+    );
+
+    expect(getByText("drawer.select")).toBeTruthy();
+    await fireEvent.press(getByText("drawer.select"));
+    expect(onSelectChats).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides Select when onSelectChats is omitted", async () => {
+    const { queryByText } = await render(<ChatActionsSheet {...baseProps} placement="menu" />);
+    expect(queryByText("drawer.select")).toBeNull();
   });
 });

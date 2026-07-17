@@ -137,7 +137,7 @@ def test_router_delete_chat_204():
     user.id = uuid4()
     app = _app_with_user(user)
 
-    with patch("app.routers.chats.chats_repo.delete_by_id", AsyncMock(return_value=True)):
+    with patch("app.services.chats.chats_repo.delete_by_id", AsyncMock(return_value=True)):
         client = TestClient(app)
         r = client.delete(f"/chats/{uuid4()}", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 204
@@ -150,7 +150,7 @@ def test_router_delete_chat_404():
     user.id = uuid4()
     app = _app_with_user(user)
 
-    with patch("app.routers.chats.chats_repo.delete_by_id", AsyncMock(return_value=False)):
+    with patch("app.services.chats.chats_repo.delete_by_id", AsyncMock(return_value=False)):
         client = TestClient(app)
         r = client.delete(f"/chats/{uuid4()}", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 404
@@ -182,20 +182,20 @@ async def test_count_for_chat_uses_scalar():
 
 
 def test_estimate_tokens_empty():
-    from app.services.chat import estimate_tokens
+    from app.services.context_window import estimate_tokens
 
     assert estimate_tokens("") == 1
 
 
 def test_estimate_tokens_short():
-    from app.services.chat import estimate_tokens
+    from app.services.context_window import estimate_tokens
 
     # "hello" → len=5 // 4 = 1, max(1,1)=1
     assert estimate_tokens("hello") == 1
 
 
 def test_estimate_tokens_long():
-    from app.services.chat import estimate_tokens
+    from app.services.context_window import estimate_tokens
 
     text = "a" * 400
     assert estimate_tokens(text) == 111

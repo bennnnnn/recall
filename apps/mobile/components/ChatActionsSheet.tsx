@@ -1,11 +1,10 @@
-import { useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { AppSheet } from "@/components/AppSheet";
-import { CHAT_HEADER_BAR_HEIGHT } from "@/lib/chatComposerLogic";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -19,10 +18,11 @@ type Props = {
   onTogglePin: () => void;
   onToggleArchive?: () => void;
   onDelete: () => void;
+  /** Drawer only — enter multi-select with this chat checked. */
+  onSelectChats?: () => void;
   /**
-   * `sheet` — bottom action sheet (drawer).
-   * `menu` — top-right dropdown under the chat header ⋮; no Modal so the
-   * keyboard can stay open.
+   * `sheet` — bottom action sheet.
+   * `menu` — floating overflow card (chat ⋮ + drawer long-press).
    */
   placement?: "sheet" | "menu";
 };
@@ -38,6 +38,7 @@ export function ChatActionsSheet({
   onTogglePin,
   onToggleArchive,
   onDelete,
+  onSelectChats,
   placement = "sheet",
 }: Props) {
   const theme = useTheme();
@@ -45,6 +46,27 @@ export function ChatActionsSheet({
   const insets = useSafeAreaInsets();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const isMenu = placement === "menu";
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    if (!isMenu || !visible) {
+      setKeyboardHeight(0);
+      return;
+    }
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardHeight(Math.max(0, e.endCoordinates.height));
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
+    const metrics = Keyboard.metrics();
+    if (metrics?.height) setKeyboardHeight(metrics.height);
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [isMenu, visible]);
+
   // Menu: filled / social glyphs read bolder; sheet keeps lighter outlines.
   const iconSize = isMenu ? 22 : 20;
   const shareIcon = isMenu ? "share-social" : "share-outline";
@@ -93,12 +115,20 @@ export function ChatActionsSheet({
           {!isMenu ? <View style={s.divider} /> : null}
         </>
       ) : null}
+      {onSelectChats ? (
+        <>
+          {row("checkbox-outline", t("drawer.select"), onSelectChats)}
+          {!isMenu ? <View style={s.divider} /> : null}
+        </>
+      ) : null}
       {row(trashIcon, t("common.delete"), onDelete, true)}
     </>
   );
 
   if (isMenu) {
     if (!visible) return null;
+    const bottom =
+      (keyboardHeight > 0 ? keyboardHeight : Math.max(insets.bottom, 8)) + 12;
     return (
       <View
         style={s.menuRoot}
@@ -117,7 +147,7 @@ export function ChatActionsSheet({
           style={[
             s.menuPanelShadow,
             {
-              top: insets.top + CHAT_HEADER_BAR_HEIGHT + 4,
+              bottom,
               right: 10,
               left: 56,
             },

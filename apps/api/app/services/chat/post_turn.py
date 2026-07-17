@@ -10,6 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import jobs
 from app.core.config import Settings, get_settings
 from app.core.db import SessionLocal
+from app.repositories import chats as chats_repo
+from app.repositories import messages as messages_repo
+from app.repositories import usage as usage_repo
 from app.services import model_catalog
 from app.services import projects as projects_service
 from app.services import quota as quota_service
@@ -23,12 +26,10 @@ logger = logging.getLogger(__name__)
 
 async def seed_usage_from_db(redis: Redis, session: AsyncSession, user_id: UUID) -> None:
     """Best-effort: re-seed the Redis daily usage counter from the DB total."""
-    import app.services.chat as chat_pkg
-
     try:
         if await quota_service.has_daily_usage_key(redis, str(user_id)):
             return
-        db_total = await chat_pkg.usage_repo.get_total_for_date(session, user_id, utc_today())
+        db_total = await usage_repo.get_total_for_date(session, user_id, utc_today())
         await quota_service.seed_usage_if_missing(redis, str(user_id), db_total)
     except Exception:
         logger.debug("Usage DB-seed skipped (best-effort)", exc_info=True)
@@ -39,10 +40,8 @@ async def restore_regenerate_backup(
     chat_id: UUID,
     backup: RegenerateBackup,
 ) -> None:
-    import app.services.chat as chat_pkg
-
     async with SessionLocal() as session:
-        await chat_pkg.messages_repo.create(
+        await messages_repo.create(
             session,
             chat_id=chat_id,
             user_id=user_id,
@@ -59,8 +58,6 @@ async def finalize_stream_turn_db(
     usage: dict[str, int],
     result: dict[str, object] | None,
 ) -> None:
-    import app.services.chat as chat_pkg
-
     usage_input = usage.get("input")
     input_tokens = (
         usage_input
@@ -86,7 +83,7 @@ async def finalize_stream_turn_db(
 
     try:
         async with SessionLocal() as session:
-            assistant_message = await chat_pkg.messages_repo.create(
+            assistant_message = await messages_repo.create(
                 session,
                 chat_id=ctx.chat_id,
                 user_id=ctx.user_id,
@@ -110,10 +107,10 @@ async def finalize_stream_turn_db(
                 if ctx.context_summarized:
                     result.setdefault("context_summarized", str(ctx.context_summarized))
 
-            await chat_pkg.chats_repo.touch_by_id(session, ctx.chat_id, commit=False)
+            await chats_repo.touch_by_id(session, ctx.chat_id, commit=False)
 
             try:
-                await chat_pkg.usage_repo.add_tokens(
+                await usage_repo.add_tokens(
                     session,
                     ctx.user_id,
                     utc_today(),

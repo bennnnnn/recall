@@ -120,76 +120,11 @@ async def test_count_for_project_returns_scalar_count(fake_session):
 
 
 @pytest.mark.asyncio
-async def test_count_stats_aggregates_statuses(fake_session):
-    project_id = uuid4()
-    user_id = uuid4()
-    now = datetime.now(UTC)
-    items = [
-        _item(status="new", created_at=now),
-        _item(status="learning", created_at=now - timedelta(days=8)),
-        _item(status="mastered", mastered=True, created_at=now),
-        _item(status="learning", last_reviewed_at=now - timedelta(hours=30)),
-    ]
-    fake_session.execute.return_value = MagicMock(
-        scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=items)))
-    )
-
-    stats = await repo.count_stats(fake_session, project_id, user_id)
-
-    assert stats["total"] == 4
-    assert stats["new_count"] == 1
-    assert stats["learning_count"] == 2
-    assert stats["mastered_count"] == 1
-    assert stats["added_this_week"] == 3
-    assert stats["due_for_review"] >= 2
-
-
-@pytest.mark.asyncio
 async def test_list_for_projects_returns_empty_without_querying(fake_session):
     result = await repo.list_for_projects(fake_session, [])
 
     assert result == []
     fake_session.execute.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_count_stats_by_project_groups_items_per_project(fake_session):
-    project_a = uuid4()
-    project_b = uuid4()
-    now = datetime.now(UTC)
-
-    item_a = _item(status="new", created_at=now)
-    item_a.project_id = project_a
-    item_b1 = _item(status="mastered", mastered=True, created_at=now)
-    item_b1.project_id = project_b
-    item_b2 = _item(status="learning", created_at=now)
-    item_b2.project_id = project_b
-
-    fake_session.execute.return_value = MagicMock(
-        scalars=MagicMock(
-            return_value=MagicMock(all=MagicMock(return_value=[item_a, item_b1, item_b2]))
-        )
-    )
-
-    stats = await repo.count_stats_by_project(fake_session, [project_a, project_b])
-
-    assert fake_session.execute.await_count == 1
-    assert stats[project_a]["total"] == 1
-    assert stats[project_a]["new_count"] == 1
-    assert stats[project_b]["total"] == 2
-    assert stats[project_b]["mastered_count"] == 1
-
-
-@pytest.mark.asyncio
-async def test_count_stats_by_project_includes_projects_with_no_items(fake_session):
-    project_id = uuid4()
-    fake_session.execute.return_value = MagicMock(
-        scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[])))
-    )
-
-    stats = await repo.count_stats_by_project(fake_session, [project_id])
-
-    assert stats[project_id]["total"] == 0
 
 
 @pytest.mark.asyncio
@@ -201,14 +136,14 @@ async def test_list_by_activity_date_queries_mastered_window(fake_session):
     mock_result.scalars.return_value = mock_scalars
     fake_session.execute.return_value = mock_result
 
-    from datetime import date
-
+    start = datetime(2026, 7, 1, tzinfo=UTC)
+    end = start + timedelta(days=1)
     page = await repo.list_by_activity_date(
         fake_session,
         uuid4(),
         uuid4(),
-        date(2026, 7, 1),
-        timezone_name="UTC",
+        start=start,
+        end=end,
         limit=25,
         offset=0,
     )
@@ -226,14 +161,14 @@ async def test_list_missed_by_activity_date_queries_incorrect_window(fake_sessio
     mock_result.scalars.return_value = mock_scalars
     fake_session.execute.return_value = mock_result
 
-    from datetime import date
-
+    start = datetime(2026, 7, 1, tzinfo=UTC)
+    end = start + timedelta(days=1)
     page = await repo.list_missed_by_activity_date(
         fake_session,
         uuid4(),
         uuid4(),
-        date(2026, 7, 1),
-        timezone_name="UTC",
+        start=start,
+        end=end,
         limit=25,
         offset=0,
     )
@@ -291,13 +226,17 @@ async def test_delete_by_list_empty_title_returns_zero(fake_session):
 
 
 @pytest.mark.asyncio
-async def test_update_records_review_on_status_change(fake_session):
+async def test_update_item_records_review_on_status_change(fake_session):
+    from app.services.projects.items import update_item
+
     item = _item(status="new")
     item.review_count = 0
     item.last_reviewed_at = None
     item.mastered = False
+    item.ease_factor = 2.5
+    item.interval_days = 0
 
-    await repo.update(fake_session, item, status="mastered")
+    await update_item(fake_session, item, status="mastered")
 
     assert item.status == "mastered"
     assert item.mastered is True
@@ -306,62 +245,23 @@ async def test_update_records_review_on_status_change(fake_session):
     fake_session.commit.assert_awaited()
 
 
-def _frozen_datetime_cls(moment: datetime) -> type[datetime]:
-    """A `datetime` subclass whose `.now()` always returns `moment` — lets a test pin
-    "today" inside a module without a real clock-freezing dependency."""
-
-    class _Frozen(datetime):
-        @classmethod
-        def now(cls, tz=None):
-            return moment
-
-    return _Frozen
-
-
 @pytest.mark.asyncio
-async def test_apply_quiz_result_remaster_after_demotion_refreshes_mastered_at(
-    fake_session, monkeypatch
-):
-    """BUG FIX (was silent): mastered_at only backfilled when None, so an item mastered
-    on Day 1, demoted by a later miss, then re-mastered on Day 10 kept mastered_at
-    stuck at Day 1 — mastered_today/streaks/daily history all missed the remastery."""
-    day1 = datetime(2026, 1, 1, 9, tzinfo=UTC)
-    demotion_day = day1 + timedelta(days=5)
-    day10 = datetime(2026, 1, 10, 15, tzinfo=UTC)
+async def test_update_item_learning_registers_miss_for_failed_count(fake_session):
+    """Manual Needs review / Failed must stamp a miss so missed_today is not stuck at 0."""
+    from app.models.orm import QuizMissEvent
+    from app.services.projects.items import update_item
 
-    item = _item(status="new", created_at=day1)
-    item.quiz_attempts = 0
-    item.quiz_correct = 0
+    item = _item(status="mastered")
+    item.mastered = True
+    item.review_count = 2
+    item.last_incorrect_at = None
     item.ease_factor = 2.5
-    item.interval_days = 0
-    item.review_count = 0
+    item.interval_days = 6
 
-    monkeypatch.setattr(repo, "datetime", _frozen_datetime_cls(day1))
-    await repo.apply_quiz_result(fake_session, item, is_correct=True, commit=False)
-    assert item.status == "mastered"
-    assert item.mastered_at == day1
+    await update_item(fake_session, item, status="learning")
 
-    monkeypatch.setattr(repo, "datetime", _frozen_datetime_cls(demotion_day))
-    await repo.apply_quiz_result(fake_session, item, is_correct=False, commit=False)
     assert item.status == "learning"
-    assert item.mastered_at == day1  # demotion alone does not clear it (unchanged behavior)
-
-    monkeypatch.setattr(repo, "datetime", _frozen_datetime_cls(day10))
-    await repo.apply_quiz_result(fake_session, item, is_correct=True, commit=False)
-    assert item.status == "mastered"
-    assert item.mastered_at == day10  # <- the fix: moved forward, not stuck at day1
-
-    from app.services import daily_learning
-
-    # Pin "today" to day10's calendar day without swapping out the `datetime` class
-    # (a subclass would break the module's `isinstance(value, datetime)` guards).
-    monkeypatch.setattr(
-        daily_learning,
-        "start_of_today_utc",
-        lambda timezone_name: day10.replace(hour=0, minute=0, second=0, microsecond=0),
-    )
-    mastered_today, missed_today, _pending = daily_learning.count_today_vocab_stats(
-        [item], timezone_name="UTC"
-    )
-    assert mastered_today == 1
-    assert missed_today == 0
+    assert item.mastered is False
+    assert item.last_incorrect_at is not None
+    added = [call.args[0] for call in fake_session.add.call_args_list]
+    assert any(isinstance(obj, QuizMissEvent) for obj in added)
