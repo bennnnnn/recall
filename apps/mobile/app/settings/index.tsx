@@ -27,6 +27,7 @@ import { api, type User } from "@/lib/api";
 import { LANGUAGES } from "@/lib/i18n";
 import { usageRemainingPercent } from "@/lib/quota";
 import { getDisplayName, sanitizeDisplayName } from "@/lib/profile";
+import { prefetchMemories } from "@/lib/memoryListCache";
 import { useTheme } from "@/lib/theme";
 
 type ProfileField = "name" | "age" | "country" | "job";
@@ -265,7 +266,10 @@ export default function SettingsScreen() {
           <SettingsLinkRow
             title={t("settings.memory")}
             value={memoryValue}
-            onPress={() => router.push("/settings/memory-settings")}
+            onPress={() => {
+              if (token) prefetchMemories(token);
+              router.push("/settings/memory-settings");
+            }}
             styles={s}
             theme={theme}
           />
