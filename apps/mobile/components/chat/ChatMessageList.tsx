@@ -30,6 +30,8 @@ type Props = {
   header?: ReactElement | null;
   hideHomeStarters?: boolean;
   listFooter?: ReactElement | null;
+  /** When true, disable FlashList autoscroll — useChatScroll owns bottom-pinning. */
+  streamActive?: boolean;
 };
 
 function ChatMessageListComponent({
@@ -50,18 +52,37 @@ function ChatMessageListComponent({
   header,
   hideHomeStarters = false,
   listFooter = null,
+  streamActive = false,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const showFooterInEmpty = Boolean(listFooter && messages.length === 0);
-// Stable content-container style: the previous inline `{ paddingTop, paddingBottom }`
-// object was fresh every render, so FlashList re-laid out on every parent render
-// (including every composer keystroke). Memoize so it only changes when the
-// insets actually change.
+  // Stable content-container style: the previous inline `{ paddingTop, paddingBottom }`
+  // object was fresh every render, so FlashList re-laid out on every parent render
+  // (including every composer keystroke). Memoize so it only changes when the
+  // insets actually change.
   const contentContainerStyle = useMemo(
     () => [s.listContent, { paddingTop: headerInset, paddingBottom: listBottomPad }],
     [s.listContent, headerInset, listBottomPad],
+  );
+  // Two bottom-pin writers (FlashList autoscroll + JS scrollToEnd) fought at
+  // LLM burst boundaries → jitter. While streaming, disable native autoscroll
+  // (threshold < 0) and let useChatScroll own pinning exclusively.
+  const maintainVisibleContentPosition = useMemo(
+    () =>
+      streamActive
+        ? {
+            disabled: false,
+            autoscrollToBottomThreshold: -1,
+            startRenderingFromBottom: true,
+          }
+        : {
+            disabled: false,
+            autoscrollToBottomThreshold: 0.25,
+            startRenderingFromBottom: true,
+          },
+    [streamActive],
   );
 
   return (
@@ -71,13 +92,7 @@ function ChatMessageListComponent({
         data={messages}
         style={s.list}
         drawDistance={280}
-        maintainVisibleContentPosition={{
-          disabled: false,
-          // Generous threshold so bottom-pinning keeps following the stream
-          // even when a large block (code fence, table) lands in one frame.
-          autoscrollToBottomThreshold: 0.25,
-          startRenderingFromBottom: true,
-        }}
+        maintainVisibleContentPosition={maintainVisibleContentPosition}
         keyExtractor={messageListKey}
         getItemType={messageListItemType}
         renderItem={renderItem}

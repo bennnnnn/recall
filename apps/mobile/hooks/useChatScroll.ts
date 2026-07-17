@@ -13,9 +13,10 @@ import { STREAM_LAYOUT_SETTLE_MS } from "@/lib/messageListLayout";
 import { clearScheduledTimeout, scheduleTimeout } from "@/lib/scheduleTimeout";
 import { tap } from "@/lib/haptics";
 
-const STREAMING_SCROLL_DEBOUNCE_MS = 120;
-/** Ignore sub-pixel-ish drift — FlashList's own bottom-pinning owns that range. */
-const STREAMING_SCROLL_SLACK_PX = 16;
+/** While streaming, JS owns bottom-pinning (FlashList autoscroll is off). */
+const STREAMING_SCROLL_DEBOUNCE_MS = 64;
+/** Skip catch-up when already within a few pixels of the bottom. */
+const STREAMING_SCROLL_SLACK_PX = 8;
 
 type Options = {
   chatId: string | null;
@@ -135,15 +136,14 @@ export function useChatScroll({
   const scheduleStreamingScroll = useCallback(() => {
     scheduleTimeout(streamingScrollTimerRef, STREAMING_SCROLL_DEBOUNCE_MS, () => {
       if (atBottomRef.current) {
-        // FlashList's maintainVisibleContentPosition already pins to the
-        // bottom as streamed content grows. Only issue a manual catch-up
-        // when it visibly lost the bottom (e.g. a large block mounted at
-        // once) — a second scroll writer on its own timer causes jitter.
+        // During streaming, FlashList autoscroll is disabled (see ChatMessageList)
+        // so this is the sole bottom-pin writer. Use animated catch-up — hard
+        // snaps at LLM burst boundaries read as up/down jitter.
         const metrics = measureScrollMetrics();
         if (metrics && metrics.distanceFromBottom <= STREAMING_SCROLL_SLACK_PX) {
           return;
         }
-        listRef.current?.scrollToEnd({ animated: false });
+        listRef.current?.scrollToEnd({ animated: true });
       } else {
         requestAnimationFrame(() => syncScrollPosition());
       }
