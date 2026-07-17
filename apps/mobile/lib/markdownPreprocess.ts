@@ -10,6 +10,7 @@ import {
   shouldRenderAsPlainProseFence,
 } from "@/lib/copyBlock";
 import { isHtmlFenceLang, parseFenceLang } from "@/lib/codeHighlight";
+import { PROTECTED_ESCAPE_MARKER } from "@/lib/mathText";
 
 // Title uses horizontal whitespace only; body lines are `>[^\n]*` (no ReDoS).
 const CALLOUT_RE =
@@ -313,6 +314,36 @@ function normalizeVerificationBullets(content: string): string {
     .join("\n");
 }
 
+// A backslash immediately followed by an ASCII punctuation character —
+// CommonMark's own escapable set (matches markdown-it's rules_inline/escape.mjs).
+const MATH_ESCAPE_BACKSLASH_RE = /\\(?=[!"#$%&'()*+,\-./:;<=>?@[\]^_`{|}~])/g;
+
+/**
+ * Protect punctuation-led LaTeX commands (`\,` `\;` `\!` `\%` `\_` `\{` `\}` …)
+ * inside `$...$` / `\(...\)` math from markdown-it's own CommonMark
+ * backslash-escape rule, which runs during inline tokenization and silently
+ * drops the backslash before splitInlineMath/MathText ever see the text —
+ * e.g. `\,` (an invisible thin space) survives preprocessMarkdown intact but
+ * renders as a bare, visible "," once markdown-it has tokenized it. Letter-led
+ * commands (`\int`, `\frac`, `\sqrt`, …) are unaffected — letters aren't in
+ * CommonMark's escapable set — so this only needs to touch the backslash
+ * itself, and only inside math spans (fenced ```math bodies are already
+ * exempt: markdown-it's fence rule never applies inline escaping to them).
+ * mathText.ts's preprocessLatex decodes the marker back to "\" as its first
+ * step, before any command table runs.
+ */
+function protectMathEscapes(content: string): string {
+  return content.replace(
+    /\$([^$\n]+?)\$|\\\(([\s\S]+?)\\\)/g,
+    (full: string, dollarBody: string | undefined, parenBody: string | undefined) => {
+      if (dollarBody !== undefined) {
+        return `$${dollarBody.replace(MATH_ESCAPE_BACKSLASH_RE, PROTECTED_ESCAPE_MARKER)}$`;
+      }
+      return `\\(${(parenBody ?? "").replace(MATH_ESCAPE_BACKSLASH_RE, PROTECTED_ESCAPE_MARKER)}\\)`;
+    },
+  );
+}
+
 /** GitHub callouts, block math, and HTML details → fenced blocks the app understands. */
 export function preprocessMarkdown(content: string): string {
   let out = repairBrokenMarkdownLinks(content);
@@ -372,6 +403,8 @@ export function preprocessMarkdown(content: string): string {
   out = retagMathAndDiagramFences(out);
 
   out = unwrapNonCodeFences(out);
+
+  out = protectMathEscapes(out);
 
   return out;
 }

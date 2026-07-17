@@ -6,6 +6,21 @@ export type MathSegment =
   | { type: "sub"; value: string }
   | { type: "frac"; num: MathSegment[]; den: MathSegment[] };
 
+/**
+ * Placeholder for a backslash inside `$...$` / `\(...\)` math that
+ * markdownPreprocess.ts substitutes in *before* the content reaches
+ * markdown-it. CommonMark's own backslash-escape rule fires on "\" followed
+ * by any ASCII punctuation character and silently drops the backslash
+ * (e.g. "\," becomes a bare "," — a stray comma sitting where an invisible
+ * thin-space belongs; "\!" becomes a bare "!" mid-formula) before this
+ * module's CMD_REPLACEMENTS table below ever sees the command. A Private
+ * Use Area character isn't ASCII punctuation, so markdown-it's escape rule
+ * (and its typographer/smartquotes rules) leave it alone; preprocessLatex
+ * decodes it back to a literal backslash as its first step, before any
+ * command table runs.
+ */
+export const PROTECTED_ESCAPE_MARKER = String.fromCharCode(0xe000);
+
 const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\pm/g, "±"],
   [/\\mp/g, "∓"],
@@ -205,6 +220,11 @@ function readGroup(input: string, start: number): { value: string; next: number 
 
 function preprocessLatex(latex: string): string {
   let s = latex.trim();
+  // Undo markdownPreprocess.ts's PROTECTED_ESCAPE_MARKER substitution first,
+  // before any command table below runs — see the marker's own doc comment.
+  if (s.includes(PROTECTED_ESCAPE_MARKER)) {
+    s = s.split(PROTECTED_ESCAPE_MARKER).join("\\");
+  }
   // \dfrac / \tfrac / \cfrac are display/text-style fractions — KaTeX treats
   // them like \frac, so normalize before parsing so parseFrac catches them
   // (otherwise they leak as raw "\dfrac{a}{b}" inline).

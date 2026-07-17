@@ -3,7 +3,7 @@ import { StyleSheet, Text } from "react-native";
 
 import { CODE_FONT } from "@/lib/fonts";
 import { fixImplicitExponents } from "@/lib/normalizeImplicitMath";
-import { parseSimpleLatex, type MathSegment } from "@/lib/mathText";
+import { parseSimpleLatex, segmentsToPlain, type MathSegment } from "@/lib/mathText";
 import { toSubscript, toSuperscript } from "@/lib/unicodeSupSub";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -11,6 +11,13 @@ type Props = {
   latex: string;
   textColor?: string;
 };
+
+/** A single atomic token ("11", "-4", "2a") needs no disambiguating
+ * parens when dropped into a single-line "num⁄den"; anything with an
+ * internal operator, a space, or more than one segment does. */
+function isAtomicToken(plain: string): boolean {
+  return /^[±+\-]?[a-zA-Z0-9]+$/.test(plain);
+}
 
 function renderSegments(
   segments: MathSegment[],
@@ -41,20 +48,47 @@ function renderSegments(
       );
     }
     if (seg.type === "frac") {
-      // The fraction bar is a `borderBottomWidth` on the numerator Text —
-      // it spans the numerator's actual rendered width exactly, regardless
-      // of font, so a wide fraction like the quadratic formula
-      // ((-4 ± √(...)) / 2) gets a proper long bar instead of the single
-      // "─" glyph that used to read as a tiny dot over one digit. Stays a
-      // Text node so the fraction still flows inline in prose.
-      // num/den are rendered as nested segments so superscripts/subscripts
-      // (and nested fractions) inside a fraction render correctly —
-      // \frac{x^2}{4} shows x² in the numerator, not literal "x^2".
+      // Deliberately single-line — never stack numerator/denominator across
+      // two rows with an embedded "\n". React Native's Text layout doesn't
+      // grow the *surrounding* paragraph's line height to fit a taller
+      // nested multi-line run, so a stacked fraction only looks right when
+      // it's the sole content of its own block (MathBlock's display-math
+      // case); inline among sibling prose/other fractions (numbered steps,
+      // "you can check" bullets, a plain "3/4 + 1/6") the stack overlapped
+      // the text immediately above and below it.
+      const numPlain = segmentsToPlain(seg.num);
+      const denPlain = segmentsToPlain(seg.den);
+      const numUni = toSuperscript(numPlain);
+      const denUni = toSubscript(denPlain);
+      if (numUni && denUni) {
+        return (
+          <Text key={key}>
+            {numUni}
+            <Text style={styles.fracSlash}>⁄</Text>
+            {denUni}
+          </Text>
+        );
+      }
+      // Numerator/denominator too complex for Unicode super/subscript
+      // digits (nested fractions, roots, multi-term expressions, …) — fall
+      // back to plain-size text on one line, parenthesizing anything that
+      // isn't a single atomic token so "a+b/c+d" can't be misread as
+      // "a + (b/c) + d".
+      const numNode = isAtomicToken(numPlain) ? (
+        renderSegments(seg.num, `${key}-n`, styles)
+      ) : (
+        <>({renderSegments(seg.num, `${key}-n`, styles)})</>
+      );
+      const denNode = isAtomicToken(denPlain) ? (
+        renderSegments(seg.den, `${key}-d`, styles)
+      ) : (
+        <>({renderSegments(seg.den, `${key}-d`, styles)})</>
+      );
       return (
-        <Text key={key} style={styles.frac}>
-          <Text style={styles.fracNum}>{renderSegments(seg.num, `${key}-n`, styles)}</Text>
-          {"\n"}
-          <Text style={styles.fracDen}>{renderSegments(seg.den, `${key}-d`, styles)}</Text>
+        <Text key={key}>
+          {numNode}
+          <Text style={styles.fracSlash}>/</Text>
+          {denNode}
         </Text>
       );
     }
@@ -99,26 +133,11 @@ const makeStyles = (theme: Theme, textColor?: string) => {
       lineHeight: 18,
       color,
     },
-    frac: {
-      textAlign: "center",
-      lineHeight: 13,
-      paddingHorizontal: 1,
-    },
-    fracNum: {
-      fontSize: 11,
-      lineHeight: 13,
+    // Single-line fraction slash — never a two-row stack (see the "frac"
+    // case in renderSegments above for why).
+    fracSlash: {
       color,
-      // The fraction bar — a hairline border under the numerator spans its
-      // exact rendered width (no char-count heuristic), so wide fractions
-      // get a proper long bar instead of a one-glyph dash.
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderColor: color,
-      paddingBottom: 1,
-    },
-    fracDen: {
-      fontSize: 11,
-      lineHeight: 13,
-      color,
+      marginHorizontal: 1,
     },
   });
 };

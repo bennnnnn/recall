@@ -32,7 +32,12 @@ import {
 export type FenceNode = {
   key: string;
   content: string;
-  info?: string;
+  // react-native-markdown-display's AST (tokensToAST.js) exposes the fence's
+  // language tag as `sourceInfo`, not `info` — reading `.info` here silently
+  // returned undefined for every fence, dropping the model's explicit
+  // ```answer / ```math / ```geometry / code-language tags before any of the
+  // lang-based routing below ever saw them.
+  sourceInfo?: string;
   tokenIndex?: number;
   index?: number;
 };
@@ -125,7 +130,7 @@ function renderFenceInner(
 }
 
 export function renderFence(node: FenceNode) {
-  const lang = parseFenceLang(node.info?.trim() || "");
+  const lang = parseFenceLang(node.sourceInfo?.trim() || "");
   const content = node.content.replace(/\n$/, "").trim();
   if (!content) return null;
 

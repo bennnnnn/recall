@@ -16,7 +16,9 @@ import { preprocessMarkdown } from "@/lib/markdownPreprocess";
 import { classifyFallbackFence } from "@/lib/fallbackFence";
 import { Theme, useTheme } from "@/lib/theme";
 
-type FenceNode = { key: string; content: string; info?: string };
+// react-native-markdown-display's AST exposes the fence's language tag as
+// `sourceInfo`, not `info` — see markdownFenceRender.tsx's FenceNode.
+type FenceNode = { key: string; content: string; sourceInfo?: string };
 
 type Props = { content: string };
 
@@ -59,7 +61,7 @@ function renderFallbackFence(
   fenceStyles: ReturnType<typeof makeFenceStyles>,
   calloutStyles: ReturnType<typeof makeCalloutStyles>,
 ) {
-  const classified = classifyFallbackFence(node.info, node.content);
+  const classified = classifyFallbackFence(node.sourceInfo, node.content);
   if (classified.kind === "callout") {
     if (!classified.body) return null;
     const label = CALLOUT_LABELS[classified.calloutKind] ?? "Note";
