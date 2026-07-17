@@ -574,8 +574,47 @@ async def test_load_daily_learning_summary_skips_completed_goal():
         )
 
     assert "Today's learning progress" in block
-    assert "complete for today" in block
+    assert "vocabulary quiz" in block
+    assert "daily goal complete" in block
     assert "0/5" not in block
+    assert "Do not mention general knowledge quiz" in block
+    assert "general knowledge quiz):" not in block.lower()
+
+
+@pytest.mark.asyncio
+async def test_load_daily_learning_summary_complete_trivia_omits_vocabulary():
+    """Trivia-only users must not get a combined vocabulary+GK 'complete' line."""
+    session = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    user.timezone = "America/Los_Angeles"
+    project = _project("General knowledge")
+    project.kind = "trivia"
+    project.daily_goal = 5
+
+    with (
+        patch.object(
+            projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[project]),
+        ),
+        _patch_count_stats_by_project(
+            {
+                "total": 20,
+                "mastered_today": 5,
+                "pending_today": 0,
+            }
+        ),
+    ):
+        block = await projects_service.load_daily_learning_summary_for_prompt(
+            session, user, Settings()
+        )
+
+    assert "general knowledge quiz" in block
+    assert "daily goal complete" in block
+    assert "Do not mention vocabulary quiz" in block
+    # No vocabulary track line — only the absent-track ban may say the word.
+    assert "vocabulary quiz):" not in block.lower()
 
 
 @pytest.mark.asyncio
@@ -595,8 +634,8 @@ async def test_load_daily_learning_summary_no_active_class():
             session, user, Settings()
         )
 
-    assert "No active vocabulary or general-knowledge class" in block
-    assert "Do not mention quiz progress" in block
+    assert "No active learning class" in block
+    assert "Do not mention vocabulary quiz" in block
 
 
 @pytest.mark.asyncio

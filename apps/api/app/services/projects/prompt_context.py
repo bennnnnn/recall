@@ -301,16 +301,19 @@ async def load_daily_learning_summary_for_prompt(
         # leftover memories after the user deleted their class.
         return (
             "Today's learning progress (local calendar day, authoritative):\n"
-            "- No active vocabulary or general-knowledge class.\n"
-            "Do not mention quiz progress, invent 0/N stats, or urge practice for a "
-            "deleted or missing class — even if older memories mention English learning."
+            "- No active learning class.\n"
+            "Do not mention vocabulary quiz, general knowledge quiz, invent 0/N stats, "
+            "or urge practice — even if older memories mention English learning."
         )
     stats_by_project = await project_stats.count_stats_by_project(
         session,
         [project.id for project in learning_projects],
         timezone_by_project={project.id: tz_name for project in learning_projects},
     )
-    lines: list[str] = []
+    incomplete_lines: list[str] = []
+    complete_lines: list[str] = []
+    has_language = any(_is_language_project(p) for p in learning_projects)
+    has_trivia = any(_is_trivia_project(p) for p in learning_projects)
     for project in learning_projects:
         stats = stats_by_project.get(project.id, {})
         total = int(stats.get("total") or 0)
@@ -318,9 +321,13 @@ async def load_daily_learning_summary_for_prompt(
         mastered_today = int(stats.get("mastered_today") or 0)
         missed_today = int(stats.get("missed_today") or 0)
         completed_today = mastered_today + missed_today
+        quiz_label, _unit = _daily_learning_quiz_label(project)
         if completed_today >= daily_goal:
+            complete_lines.append(
+                f"- {project.title} ({quiz_label}): {completed_today}/{daily_goal} done "
+                "— daily goal complete"
+            )
             continue
-        quiz_label, unit = _daily_learning_quiz_label(project)
         remaining = max(0, daily_goal - completed_today)
         if total == 0:
             status = f"not started — {remaining} left for today's {quiz_label}"
@@ -328,14 +335,22 @@ async def load_daily_learning_summary_for_prompt(
             status = f"not started — {remaining} left for today's {quiz_label}"
         else:
             status = f"{remaining} left for today's {quiz_label}"
-        lines.append(
+        incomplete_lines.append(
             f"- {project.title} ({quiz_label}): {completed_today}/{daily_goal} done "
             f"({mastered_today} correct, {missed_today} failed; {status})"
         )
-    if not lines:
-        return (
-            "Today's learning progress (local calendar day, authoritative):\n"
-            "- All active daily vocabulary/general-knowledge goals are complete for today.\n"
-            "Do not invent incomplete quiz stats."
-        )
-    return "Today's learning progress (local calendar day, authoritative):\n" + "\n".join(lines)
+    absent: list[str] = []
+    if not has_language:
+        absent.append("vocabulary quiz")
+    if not has_trivia:
+        absent.append("general knowledge quiz")
+    absent_rule = (
+        f"Do not mention {' or '.join(absent)} — the user has no such class."
+        if absent
+        else "Only mention learning tracks listed above."
+    )
+    track_rule = f"Only mention learning tracks listed above. {absent_rule}"
+    header = "Today's learning progress (local calendar day, authoritative):"
+    if incomplete_lines:
+        return f"{header}\n" + "\n".join(incomplete_lines) + f"\n{track_rule}"
+    return f"{header}\n" + "\n".join(complete_lines) + f"\n{track_rule}"
