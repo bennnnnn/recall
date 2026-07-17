@@ -1,9 +1,11 @@
-import { ReactNode, useMemo } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import {
-  KeyboardAvoidingView,
+  Dimensions,
+  Keyboard,
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   View,
   type StyleProp,
@@ -19,7 +21,12 @@ type Props = {
   /** "bottom" anchors to the bottom edge (slide); "center" floats mid-screen (fade). */
   variant?: "bottom" | "center";
   animation?: "slide" | "fade" | "none";
-  /** Wrap content in a KeyboardAvoidingView (for sheets with text inputs). */
+  /**
+   * Lift the sheet above the OS keyboard. Uses Keyboard events (not
+   * KeyboardAvoidingView) so Android Modals work — activity `resize` does not
+   * apply inside RN Modal windows. Tall sheets (e.g. add reminder + date)
+   * also get a max-height + scroll so the input is not pushed off-screen.
+   */
   keyboardAvoiding?: boolean;
   /** Render the grabber handle at the top of a bottom sheet. */
   withHandle?: boolean;
@@ -47,9 +54,48 @@ export function AppSheet({
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    if (!keyboardAvoiding || !visible) {
+      setKeyboardHeight(0);
+      return;
+    }
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardHeight(Math.max(0, e.endCoordinates.height));
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [keyboardAvoiding, visible]);
 
   const resolvedAnimation = animation ?? (variant === "center" ? "fade" : "slide");
   const showHandle = withHandle ?? variant === "bottom";
+  const keyboardOpen = keyboardAvoiding && keyboardHeight > 0;
+  const windowHeight = Dimensions.get("window").height;
+  // Leave a little air under the status area so a tall reminder sheet can scroll
+  // instead of shoving the text field under the notch / off the top.
+  const panelMaxHeight =
+    keyboardAvoiding && variant === "bottom"
+      ? Math.max(200, windowHeight - keyboardHeight - Math.max(insets.top, 12))
+      : undefined;
+
+  const body = keyboardAvoiding ? (
+    <ScrollView
+      keyboardShouldPersistTaps="handled"
+      bounces={false}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={s.scrollContent}
+    >
+      {children}
+    </ScrollView>
+  ) : (
+    children
+  );
 
   const content = (
     <View
@@ -58,13 +104,18 @@ export function AppSheet({
         variant === "bottom" && s.panelBottom,
         variant === "center" && s.panelCenter,
         variant === "bottom" && {
-          paddingBottom: Math.max(insets.bottom, minBottomPadding),
+          // Home indicator is covered while the keyboard is up — drop safe-area pad.
+          paddingBottom: keyboardOpen
+            ? Math.max(minBottomPadding, 8)
+            : Math.max(insets.bottom, minBottomPadding),
         },
         contentContainerStyle,
+        // After style overrides so tall sheets (reminder + date) still clamp.
+        panelMaxHeight != null && { maxHeight: panelMaxHeight },
       ]}
     >
       {showHandle ? <View style={s.handle} testID="app-sheet-handle" /> : null}
-      {children}
+      {body}
     </View>
   );
 
@@ -75,9 +126,13 @@ export function AppSheet({
       animationType={resolvedAnimation}
       onRequestClose={backdropDismiss ? onClose : undefined}
     >
-      <KeyboardAvoidingView
-        style={[s.overlay, variant === "center" && s.overlayCenter]}
-        behavior={keyboardAvoiding && Platform.OS === "ios" ? "padding" : undefined}
+      <View
+        style={[
+          s.overlay,
+          variant === "center" && s.overlayCenter,
+          keyboardAvoiding && variant === "bottom" && { paddingBottom: keyboardHeight },
+        ]}
+        testID={keyboardAvoiding ? "app-sheet-keyboard-host" : undefined}
       >
         <Pressable
           style={s.backdrop}
@@ -87,7 +142,7 @@ export function AppSheet({
           testID="app-sheet-backdrop"
         />
         {content}
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
@@ -129,6 +184,9 @@ function makeStyles(t: Theme) {
       backgroundColor: t.border,
       marginTop: 8,
       marginBottom: 4,
+    },
+    scrollContent: {
+      flexGrow: 0,
     },
   });
 }
