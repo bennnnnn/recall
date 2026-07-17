@@ -1,5 +1,6 @@
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 
 import { Theme, useTheme } from "@/lib/theme";
 import type { PendingAttachment } from "@/lib/attachments";
@@ -12,6 +13,7 @@ type Props = {
 
 export function ComposerAttachmentPreview({ attachment, uploading, onRemove }: Props) {
   const C = useTheme();
+  const { t } = useTranslation();
   const s = makeStyles(C);
 
   if (attachment.kind === "image") {
@@ -26,8 +28,9 @@ export function ComposerAttachmentPreview({ attachment, uploading, onRemove }: P
         <Pressable
           style={s.removeBtn}
           onPress={onRemove}
-          hitSlop={8}
-          accessibilityLabel="Remove attachment"
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel={t("chat.remove_attachment_a11y")}
           disabled={uploading}
         >
           <Ionicons name="close" size={14} color={C.text} />
@@ -47,7 +50,12 @@ export function ComposerAttachmentPreview({ attachment, uploading, onRemove }: P
       {uploading ? (
         <ActivityIndicator size="small" color={C.primary} />
       ) : (
-        <Pressable onPress={onRemove} hitSlop={8} accessibilityLabel="Remove attachment">
+        <Pressable
+          onPress={onRemove}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel={t("chat.remove_attachment_a11y")}
+        >
           <Ionicons name="close-circle" size={18} color={C.textTertiary} />
         </Pressable>
       )}

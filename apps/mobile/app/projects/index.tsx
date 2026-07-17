@@ -461,7 +461,13 @@ export default function ProjectsScreen() {
           behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
           <View style={s.modalHeader}>
-            <Pressable style={s.modalClose} onPress={resetCreate} hitSlop={8}>
+            <Pressable
+              style={s.modalClose}
+              onPress={resetCreate}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={t("common.close")}
+            >
               <Ionicons name="close" size={26} color={C.textSecondary} />
             </Pressable>
             <Text style={s.modalHeaderTitle}>{t("projects.add_learning")}</Text>

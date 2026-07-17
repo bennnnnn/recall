@@ -30,6 +30,8 @@ export function WebPreviewCodeBlock({ code, lang = "html" }: Props) {
             style={[s.iconBtn, modalOpen && s.iconBtnActive]}
             onPress={() => setModalOpen(true)}
             activeOpacity={0.6}
+            hitSlop={4}
+            accessibilityRole="button"
             accessibilityLabel={t("preview.preview_html")}
           >
             <Ionicons
@@ -45,6 +47,8 @@ export function WebPreviewCodeBlock({ code, lang = "html" }: Props) {
               style={s.iconBtn}
               onPress={() => setModalOpen(true)}
               activeOpacity={0.6}
+              hitSlop={4}
+              accessibilityRole="button"
               accessibilityLabel={t("preview.preview_html")}
             >
               <Ionicons name="play-outline" size={18} color={theme.textSecondary} />
@@ -53,6 +57,8 @@ export function WebPreviewCodeBlock({ code, lang = "html" }: Props) {
               style={s.iconBtn}
               onPress={() => void openHtmlInBrowser(code)}
               activeOpacity={0.6}
+              hitSlop={4}
+              accessibilityRole="button"
               accessibilityLabel={t("preview.open_in_browser")}
             >
               <Ionicons name="open-outline" size={18} color={theme.textSecondary} />
@@ -76,8 +82,8 @@ function makeStyles(t: Theme) {
       gap: 4,
     },
     iconBtn: {
-      width: 36,
-      height: 36,
+      width: 44,
+      height: 44,
       borderRadius: 8,
       alignItems: "center",
       justifyContent: "center",

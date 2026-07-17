@@ -147,6 +147,7 @@ export const ChatComposer = memo(function ChatComposer({
                 onPress={onPickAttachment}
                 disabled={attachBusy || streaming}
                 hitSlop={6}
+                accessibilityRole="button"
                 accessibilityLabel={t("chat.attach_a11y")}
               >
                 <Ionicons name="attach-outline" size={22} color={theme.primary} />
@@ -171,7 +172,13 @@ export const ChatComposer = memo(function ChatComposer({
               )}
               <View style={s.sendBtnSlot}>
                 {streaming ? (
-                  <Pressable style={s.sendBtn} onPress={onStop}>
+                  <Pressable
+                    style={s.sendBtn}
+                    onPress={onStop}
+                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel={t("chat.stop_a11y")}
+                  >
                     <Text style={s.sendIcon}>■</Text>
                   </Pressable>
                 ) : (
@@ -181,6 +188,7 @@ export const ChatComposer = memo(function ChatComposer({
                         style={s.voiceCancelBtn}
                         onPress={onVoiceCancel}
                         hitSlop={6}
+                        accessibilityRole="button"
                         accessibilityLabel={t("chat.voice_cancel_a11y")}
                         accessibilityHint={t("chat.voice_cancel_hint")}
                       >
@@ -203,6 +211,7 @@ export const ChatComposer = memo(function ChatComposer({
                       <Pressable
                         style={[s.sendBtn, isOffline && s.sendBtnDisabled]}
                         onPress={onSend}
+                        hitSlop={6}
                         accessibilityRole="button"
                         accessibilityLabel={t("chat.send_a11y")}
                         accessibilityHint={isOffline ? t("chat.offline_body") : undefined}
@@ -284,9 +293,9 @@ function makeStyles(theme: Theme) {
       minHeight: 22,
     },
     sendBtn: {
-      width: 34,
-      height: 34,
-      borderRadius: 17,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
       backgroundColor: theme.primary,
       alignItems: "center",
       justifyContent: "center",
@@ -296,12 +305,12 @@ function makeStyles(theme: Theme) {
       alignItems: "center",
       justifyContent: "flex-end",
       gap: 6,
-      minHeight: 35,
+      minHeight: 40,
     },
     voiceCancelBtn: {
-      width: 34,
-      height: 34,
-      borderRadius: 17,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
       alignItems: "center",
       justifyContent: "center",
       borderWidth: StyleSheet.hairlineWidth,

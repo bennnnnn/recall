@@ -39,7 +39,13 @@ export function TriviaTopicsPickerModal({
     >
       <View style={[s.root, { paddingTop: insets.top }]}>
         <View style={s.header}>
-          <Pressable style={s.headerSide} onPress={onClose} hitSlop={8}>
+          <Pressable
+            style={s.headerSide}
+            onPress={onClose}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={t("common.close")}
+          >
             <Ionicons name="close" size={26} color={theme.textSecondary} />
           </Pressable>
           <Text style={s.headerTitle}>{t("projects.trivia.topics_picker_title")}</Text>

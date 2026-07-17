@@ -78,6 +78,8 @@ export const ChatHeader = memo(function ChatHeader({
           ]}
           onPress={onOpenDrawer}
           hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel={t("chat.open_drawer_a11y")}
         >
           <HamburgerIcon size={22} color={theme.text} />
         </Pressable>
