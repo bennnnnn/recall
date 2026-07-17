@@ -35,7 +35,7 @@ describe("ChatActionsSheet", () => {
     jest.clearAllMocks();
   });
 
-  it("renders a top-right menu overlay without a bottom-sheet handle", async () => {
+  it("renders the shared overflow menu for placement=menu", async () => {
     const { getByTestId, queryByTestId, getByText } = await render(
       <ChatActionsSheet {...baseProps} placement="menu" />,
     );
@@ -43,6 +43,7 @@ describe("ChatActionsSheet", () => {
     expect(getByTestId("chat-actions-menu")).toBeTruthy();
     expect(queryByTestId("app-sheet-handle")).toBeNull();
     expect(getByText("chat.share")).toBeTruthy();
+    expect(getByText("chat.pin")).toBeTruthy();
   });
 
   it("dismisses the menu when the transparent backdrop is pressed", async () => {
