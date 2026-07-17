@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -13,12 +13,13 @@ import {
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
-import { Redirect, useFocusEffect, useRouter } from "expo-router";
+import { Redirect, useFocusEffect, useNavigation, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjects } from "@/contexts/ProjectsContext";
+import { HeaderAddButton } from "@/components/HeaderAddButton";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { LearningProjectCard } from "@/components/projects/LearningProjectCard";
@@ -77,6 +78,7 @@ export default function ProjectsScreen() {
   const s = useMemo(() => makeStyles(C), [C]);
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const navigation = useNavigation();
   const { projects, loading, error, refresh, setProjects } = useProjects();
   const visibleProjects = projects;
   const showAddLearning = useMemo(
@@ -110,9 +112,7 @@ export default function ProjectsScreen() {
     }, [token, visibleProjects]),
   );
 
-  if (!token) return <Redirect href="/login" />;
-
-  const resetCreate = () => {
+  const resetCreate = useCallback(() => {
     setCreateStep(null);
     setKind(null);
     setLevel("level1");
@@ -120,12 +120,27 @@ export default function ProjectsScreen() {
     setDailyGoal(DEFAULT_VOCAB_DAILY_GOAL);
     setTriviaTopics(["history", "science"]);
     setCreating(false);
-  };
+  }, []);
 
-  const openCreate = () => {
+  const openCreate = useCallback(() => {
     resetCreate();
     setCreateStep("subject");
-  };
+  }, [resetCreate]);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: showAddLearning
+        ? () => (
+            <HeaderAddButton
+              onPress={openCreate}
+              accessibilityLabel={t("projects.add_learning_a11y")}
+            />
+          )
+        : undefined,
+    });
+  }, [navigation, openCreate, showAddLearning, t]);
+
+  if (!token) return <Redirect href="/login" />;
 
   const startStudyForProject = (project: Project) => {
     const isTrivia = isTriviaProject(project.kind);
@@ -403,12 +418,6 @@ export default function ProjectsScreen() {
           }
           ListHeaderComponent={
             <>
-              {showAddLearning ? (
-                <Pressable style={s.newProjectBtn} onPress={openCreate}>
-                  <Ionicons name="add-circle-outline" size={22} color={C.primary} />
-                  <Text style={s.newProjectText}>{t("projects.add_learning")}</Text>
-                </Pressable>
-              ) : null}
               {!error && visibleProjects.length === 0 ? (
                 <StateView
                   variant="empty"
@@ -490,17 +499,6 @@ function makeStyles(C: Theme) {
     root: { flex: 1, backgroundColor: C.bg },
     content: { padding: 16, paddingBottom: 32 },
     listGap: { height: 12 },
-    newProjectBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 10,
-      paddingVertical: 14,
-      paddingHorizontal: 14,
-      borderRadius: 14,
-      backgroundColor: C.primaryLight,
-      marginBottom: 12,
-    },
-    newProjectText: { fontSize: 16, fontWeight: "700", color: C.primary },
     modalRoot: { flex: 1, backgroundColor: C.bg },
     modalHeader: {
       flexDirection: "row",
