@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -58,9 +58,7 @@ export default function IntegrationsSettingsScreen() {
             </Pressable>
           ) : null}
           <View style={s.integrationActions}>
-            {calendarBusy ? (
-              <ActivityIndicator color={theme.primary} />
-            ) : calendarStatus?.connected ? (
+            {calendarBusy ? null : calendarStatus?.connected ? (
               <Pressable style={s.linkBtn} onPress={disconnectCalendar} hitSlop={8}>
                 <Text style={s.linkBtnDanger}>{t("settings.calendar_disconnect")}</Text>
               </Pressable>
@@ -97,9 +95,7 @@ export default function IntegrationsSettingsScreen() {
             </Text>
           ) : null}
           <View style={s.integrationActions}>
-            {gmailBusy ? (
-              <ActivityIndicator color={theme.primary} />
-            ) : gmailStatus?.connected ? (
+            {gmailBusy ? null : gmailStatus?.connected ? (
               <View style={s.rowActions}>
                 <Pressable style={s.linkBtn} onPress={() => void syncGmail()} hitSlop={8}>
                   <Text style={s.linkBtnText}>{t("settings.gmail_sync")}</Text>
