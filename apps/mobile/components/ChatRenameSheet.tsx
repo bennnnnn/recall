@@ -28,7 +28,8 @@ export function ChatRenameSheet({
     <AppSheet
       visible={visible}
       onClose={onClose}
-      variant="bottom"
+      variant="center"
+      animation="fade"
       keyboardAvoiding
       withHandle={false}
       contentContainerStyle={s.sheet}
@@ -62,6 +63,10 @@ function makeStyles(C: Theme) {
     sheet: {
       paddingHorizontal: 0,
       paddingTop: 0,
+      borderRadius: 16,
+      width: "100%",
+      maxWidth: 400,
+      overflow: "hidden",
     },
     header: {
       flexDirection: "row",
