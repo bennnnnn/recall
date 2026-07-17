@@ -11,7 +11,6 @@ import Animated, { type AnimatedStyle } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
-import { AttachmentSourceSheet, type AttachmentSource } from "@/components/AttachmentSourceSheet";
 import { VoiceComposerWaveform } from "@/components/chat/VoiceComposerWaveform";
 import { VoiceMicButton } from "@/components/chat/VoiceMicButton";
 import { ComposerAttachmentPreview } from "@/components/ComposerAttachmentPreview";
@@ -46,10 +45,8 @@ type Props = {
   onRemoveAttachment: () => void;
   editingMessageId: string | null;
   onCancelEdit: () => void;
-  attachSheetOpen: boolean;
   onCloseAttachSheet: () => void;
   onPickAttachment: () => void;
-  onAttachmentSource: (source: AttachmentSource) => void;
   onSend: () => void;
   onStop: () => void;
   isOffline: boolean;
@@ -77,10 +74,8 @@ export const ChatComposer = memo(function ChatComposer({
   onRemoveAttachment,
   editingMessageId,
   onCancelEdit,
-  attachSheetOpen,
   onCloseAttachSheet,
   onPickAttachment,
-  onAttachmentSource,
   onSend,
   onStop,
   isOffline,
@@ -125,11 +120,6 @@ export const ChatComposer = memo(function ChatComposer({
             <Pressable onPress={onCancelEdit}>
               <Text style={s.editBannerCancel}>{t("common.cancel")}</Text>
             </Pressable>
-          </View>
-        ) : null}
-        {attachSheetOpen ? (
-          <View style={s.attachMenuFloat} pointerEvents="box-none">
-            <AttachmentSourceSheet onSelect={onAttachmentSource} />
           </View>
         ) : null}
         <View style={s.composer}>
@@ -260,14 +250,6 @@ function makeStyles(theme: Theme) {
     },
     editBannerText: { fontSize: 13, fontWeight: "600", color: theme.primary },
     editBannerCancel: { fontSize: 13, fontWeight: "600", color: theme.textSecondary },
-    attachMenuFloat: {
-      position: "absolute",
-      left: 0,
-      right: 14,
-      bottom: "100%",
-      marginBottom: 6,
-      zIndex: 2,
-    },
     composer: { paddingVertical: 6 },
     inputWrap: {
       backgroundColor: theme.surface,

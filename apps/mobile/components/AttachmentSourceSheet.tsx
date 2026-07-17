@@ -1,13 +1,22 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import {
+  BottomSheetBackdrop,
+  BottomSheetModal,
+  BottomSheetView,
+  type BottomSheetBackdropProps,
+} from "@gorhom/bottom-sheet";
 import { useTranslation } from "react-i18next";
 
+import { selection, tap } from "@/lib/haptics";
 import { Theme, useTheme } from "@/lib/theme";
 
 export type AttachmentSource = "camera" | "photo" | "file" | "solve_math_camera";
 
 type Props = {
+  visible: boolean;
+  onClose: () => void;
   onSelect: (source: AttachmentSource) => void;
 };
 
@@ -37,25 +46,69 @@ function SheetRow({ icon, label, onPress, theme, styles, showDivider }: RowProps
   );
 }
 
-export function AttachmentSourceSheet({ onSelect }: Props) {
+/**
+ * Attach / solve-math source picker as a Gorhom BottomSheetModal.
+ * Pan-dismiss + backdrop on the UI thread (Reanimated), Maps-style.
+ */
+export function AttachmentSourceSheet({ visible, onClose, onSelect }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const ref = useRef<BottomSheetModal>(null);
+
+  useEffect(() => {
+    if (visible) {
+      tap();
+      ref.current?.present();
+    } else {
+      ref.current?.dismiss();
+    }
+  }, [visible]);
+
+  const renderBackdrop = useCallback(
+    (props: BottomSheetBackdropProps) => (
+      <BottomSheetBackdrop
+        {...props}
+        disappearsOnIndex={-1}
+        appearsOnIndex={0}
+        opacity={theme.isDark ? 0.55 : 0.4}
+        pressBehavior="close"
+      />
+    ),
+    [theme.isDark],
+  );
+
+  const pick = useCallback(
+    (source: AttachmentSource) => {
+      selection();
+      onSelect(source);
+    },
+    [onSelect],
+  );
 
   return (
-    <View style={s.shadowWrap}>
-      <View style={s.panel}>
+    <BottomSheetModal
+      ref={ref}
+      enableDynamicSizing
+      enablePanDownToClose
+      onDismiss={onClose}
+      backdropComponent={renderBackdrop}
+      backgroundStyle={s.sheetBg}
+      handleIndicatorStyle={s.handle}
+      accessibilityLabel={t("chat.attach_a11y")}
+    >
+      <BottomSheetView style={s.content}>
         <SheetRow
           icon="calculator-outline"
           label={t("chat.attach_solve_math_camera")}
-          onPress={() => onSelect("solve_math_camera")}
+          onPress={() => pick("solve_math_camera")}
           theme={theme}
           styles={s}
         />
         <SheetRow
           icon="camera-outline"
           label={t("chat.attach_camera")}
-          onPress={() => onSelect("camera")}
+          onPress={() => pick("camera")}
           theme={theme}
           styles={s}
           showDivider
@@ -63,7 +116,7 @@ export function AttachmentSourceSheet({ onSelect }: Props) {
         <SheetRow
           icon="images-outline"
           label={t("chat.attach_photo")}
-          onPress={() => onSelect("photo")}
+          onPress={() => pick("photo")}
           theme={theme}
           styles={s}
           showDivider
@@ -71,33 +124,30 @@ export function AttachmentSourceSheet({ onSelect }: Props) {
         <SheetRow
           icon="document-outline"
           label={t("chat.attach_file")}
-          onPress={() => onSelect("file")}
+          onPress={() => pick("file")}
           theme={theme}
           styles={s}
           showDivider
         />
-      </View>
-    </View>
+      </BottomSheetView>
+    </BottomSheetModal>
   );
 }
 
 function makeStyles(C: Theme) {
   return StyleSheet.create({
-    shadowWrap: {
-      marginBottom: 0,
-      borderRadius: 18,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: C.isDark ? 0.45 : 0.16,
-      shadowRadius: 16,
-      elevation: 14,
-    },
-    panel: {
+    sheetBg: {
       backgroundColor: C.inputBg,
-      borderRadius: 18,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: C.composerBorder,
-      overflow: "hidden",
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+    },
+    handle: {
+      backgroundColor: C.border,
+      width: 36,
+    },
+    content: {
+      paddingBottom: 12,
+      paddingHorizontal: 4,
     },
     item: {
       flexDirection: "row",

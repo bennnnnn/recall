@@ -4,7 +4,8 @@
 const RN_TRANSFORM_ALLOWLIST =
   "(?:(?:jest-)?react-native|@react-native(?:-community)?|@react-native-google-signin|" +
   "@react-native-masked-view|expo(?:nent)?|@expo(?:nent)?|@expo-google-fonts|" +
-  "react-navigation|@react-navigation|@sentry|native-base|react-native-svg)";
+  "react-navigation|@react-navigation|@sentry|native-base|react-native-svg|" +
+  "@gorhom)";
 
 /** @type {import('jest').Config} */
 module.exports = {
