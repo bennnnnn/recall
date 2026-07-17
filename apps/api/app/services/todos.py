@@ -20,6 +20,8 @@ from app.services import time_context as time_context_service
 
 logger = logging.getLogger(__name__)
 
+_ACTION_RELOAD_LIMIT = 500
+
 # Defensive caps for LLM-inferred mutations applied from a chat transcript.
 # The model extracts actions from arbitrary user text; these limits prevent a
 # misparse from wiping large amounts of data in one turn.
@@ -512,7 +514,7 @@ async def materialize_reminder_fences(
     async def _load_existing() -> None:
         nonlocal existing, existing_loaded
         if not existing_loaded:
-            existing = await todos_repo.list_for_user(session, user_id, limit=500)
+            existing = await todos_repo.list_for_user(session, user_id, limit=_ACTION_RELOAD_LIMIT)
             existing_loaded = True
 
     async def _create_one(raw: str) -> bool:
@@ -697,7 +699,7 @@ async def apply_todo_actions(
 ) -> int:
     if not actions:
         return 0
-    items = await todos_repo.list_for_user(session, user_id, limit=500)
+    items = await todos_repo.list_for_user(session, user_id, limit=_ACTION_RELOAD_LIMIT)
     applied = 0
     for action in actions:
         topic = action.topic.strip()
@@ -730,7 +732,7 @@ async def apply_todo_actions(
                     topic,
                     chat_id,
                 )
-                items = await todos_repo.list_for_user(session, user_id, limit=500)
+                items = await todos_repo.list_for_user(session, user_id, limit=_ACTION_RELOAD_LIMIT)
             elif action.action == "complete":
                 item = _find_item(items, topic, action.content)
                 if item and not item.checked:
@@ -916,7 +918,7 @@ async def _apply_todo_extraction_result(
                 feedback=feedback,
             )
     if _transcript_implies_bulk_shift_to_tomorrow(transcript):
-        items = await todos_repo.list_for_user(session, user_id, limit=500)
+        items = await todos_repo.list_for_user(session, user_id, limit=_ACTION_RELOAD_LIMIT)
         bulk_applied = await _apply_bulk_shift_due_today_to_tomorrow(
             session,
             user_id=user_id,
@@ -933,7 +935,7 @@ async def _apply_todo_extraction_result(
             )
             await home_service.invalidate_home_cache(user_id)
     if _transcript_implies_delete_overdue(transcript):
-        items = await todos_repo.list_for_user(session, user_id, limit=500)
+        items = await todos_repo.list_for_user(session, user_id, limit=_ACTION_RELOAD_LIMIT)
         deleted = await _apply_delete_overdue_open_reminders(
             session,
             user_id=user_id,

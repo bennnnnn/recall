@@ -799,7 +799,7 @@ def try_extract_equation_from_text(text: str) -> EquationInput | None:
     if not pairs:
         return None
     lhs, rhs = pairs[0]
-    variables = _guess_variables(f"{lhs} {rhs}")
+    variables = guess_variables(f"{lhs} {rhs}")
     try:
         return EquationInput(lhs=lhs, rhs=rhs, variables=variables or ["x"])
     except Exception:
@@ -905,7 +905,7 @@ _CONSTANT_NAMES_RE = re.compile(
 )
 
 
-def _guess_variables(text: str) -> list[str]:
+def guess_variables(text: str) -> list[str]:
     """BUG FIX: a bare per-letter scan treated function-name letters as
     candidate variables -- "cos(x) = 0" guessed 'c' (alphabetically first of
     c/o/s/x) instead of 'x', silently solving for the wrong symbol. Strip
