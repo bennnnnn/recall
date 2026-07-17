@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useRef } from "react";
-import { Animated, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Motion } from "@/lib/motion";
@@ -24,51 +31,35 @@ export function ActionBanner({
   const insets = useSafeAreaInsets();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(24)).current;
+  const opacity = useSharedValue(0);
+  const translateY = useSharedValue(24);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!message) return;
 
-    opacity.setValue(0);
-    translateY.setValue(24);
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: Motion.duration.snappy,
-        useNativeDriver: true,
-      }),
-      Animated.spring(translateY, {
-        toValue: 0,
-        useNativeDriver: true,
-        friction: 9,
-        tension: 120,
-      }),
-    ]).start();
+    opacity.value = 0;
+    translateY.value = 24;
+    opacity.value = withTiming(1, { duration: Motion.duration.snappy });
+    translateY.value = withSpring(0, { damping: 14, stiffness: 140 });
 
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(opacity, {
-          toValue: 0,
-          duration: Motion.duration.snappy,
-          useNativeDriver: true,
-        }),
-        Animated.timing(translateY, {
-          toValue: 16,
-          duration: Motion.duration.snappy,
-          useNativeDriver: true,
-        }),
-      ]).start(({ finished }) => {
-        if (finished) onDismiss();
+      opacity.value = withTiming(0, { duration: Motion.duration.snappy }, (finished) => {
+        if (finished) runOnJS(onDismiss)();
       });
+      translateY.value = withTiming(16, { duration: Motion.duration.snappy });
     }, SHOW_MS);
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [message, onDismiss, opacity, translateY]);
+
+  const bannerStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }],
+  }));
 
   if (!message) return null;
 
@@ -82,9 +73,8 @@ export function ActionBanner({
             s.wrap,
             {
               bottom: insets.bottom + bottomOffset,
-              opacity,
-              transform: [{ translateY }],
             },
+            bannerStyle,
           ]}
           pointerEvents="box-none"
         >
