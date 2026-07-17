@@ -42,183 +42,6 @@ def _collapse_ws(text: str) -> str:
     return " ".join(text.split())
 
 
-# Patterns assume input was ``_collapse_ws``'d and length-checked
-# (``len(...) <= _MAX_MATH_INPUT``) in the same function as the regex sink.
-_DRAW_RECTANGLE = re.compile(
-    r"\b(?:draw|show|sketch|visuali[sz]e) (?:a )?rectangle\b",
-    re.IGNORECASE,
-)
-
-_DRAW_RIGHT_TRIANGLE = re.compile(
-    r"\b(?:draw|show|sketch|visuali[sz]e) (?:the )?right triangle\b",
-    re.IGNORECASE,
-)
-
-_DRAW_SQUARE = re.compile(
-    r"\b(?:draw|show|sketch|visuali[sz]e) (?:a )?square\b",
-    re.IGNORECASE,
-)
-
-_DRAW_CIRCLE = re.compile(
-    r"\b(?:draw|show|sketch|visuali[sz]e) (?:a )?circle\b",
-    re.IGNORECASE,
-)
-
-_DEFAULT_RECT = re.compile(
-    r"\b(?:draw|show) (?:a )?rectangle\b",
-    re.IGNORECASE,
-)
-
-_MATH_KEYWORDS = re.compile(
-    r"\b("
-    r"solve|simplify|factor|expand|differentiate|derivative|integrate|integral|"
-    r"equation|algebra|quadratic|polynomial|"
-    r"find the angle|diagonal|rectangle|triangle|circle|geometry|"
-    r"radius|diameter|circumference|"
-    r"graph|plot|function|y ?= ?|"
-    r"sqrt|square root|pythagor"
-    r")\b",
-    re.IGNORECASE,
-)
-
-_EQUATION_IN_TEXT = re.compile(
-    r"([0-9a-zA-Z+\-*/(). ^]+?) ?= ?([0-9a-zA-Z+\-*/(). ^]+)",
-)
-
-_RECT_DIMS = re.compile(
-    r"(?:rectangle|rect)? ?(?:is|of|with)? ?"
-    r"(?P<w>\d+(?:\.\d+)?) ?(?:×|x|\*| by ) ?(?P<h>\d+(?:\.\d+)?) ?"
-    r"(?P<unit>cm|m|mm|in|ft|units?)?",
-    re.IGNORECASE,
-)
-
-_SQUARE_SIDE = re.compile(
-    r"\bsquare\b.{0,60}?(?:side|edge) ?(?:=|:)? ?(?P<s>\d+(?:\.\d+)?)",
-    re.IGNORECASE,
-)
-
-_CIRCLE_RADIUS = re.compile(
-    r"\bcircle\b.{0,60}?radius ?(?:=|:|of)? ?(?P<r>\d+(?:\.\d+)?)"
-    r" ?(?:cm|m|mm|in|ft|units?)?",
-    re.IGNORECASE,
-)
-
-# A message that's ENTIRELY a coordinate pair (nothing else) is unambiguous
-# quick-reply shorthand — e.g. answering "what point?" with "(2,3)". Accepts
-# "." as well as "," between the two numbers since that's a common mobile
-# keyboard slip for a comma right next to it, and requiring the whole
-# message to match (not a substring) keeps this from misfiring on prose
-# that merely contains a decimal number in parentheses.
-_BARE_COORD_PAIR = re.compile(r"^\( ?(?P<x>-?\d+(?:\.\d+)?) ?[,.] ?(?P<y>-?\d+(?:\.\d+)?) ?\)$")
-
-_PLOT_POINT = re.compile(
-    r"\b(?:plot|mark|graph|show) (?:the )?point \(? ?"
-    r"(?P<x>-?\d+(?:\.\d+)?) ?, ?(?P<y>-?\d+(?:\.\d+)?) ?\)?",
-    re.IGNORECASE,
-)
-
-_CIRCLE_DIAMETER = re.compile(
-    r"\bcircle\b.{0,60}?diameter ?(?:=|:|of)? ?(?P<d>\d+(?:\.\d+)?)"
-    r" ?(?:cm|m|mm|in|ft|units?)?",
-    re.IGNORECASE,
-)
-
-_TRI_BASE_HEIGHT = re.compile(
-    r"base ?= ?(?P<base>\d+(?:\.\d+)?) ?(?:cm|m|mm|in|ft)?"
-    r".{0,80}?height ?= ?(?P<height>\d+(?:\.\d+)?)",
-    re.IGNORECASE,
-)
-
-_RIGHT_TRI = re.compile(r"\bright triangle\b", re.IGNORECASE)
-
-_RIGHT_TRI_DIMS = re.compile(
-    r"(?P<base>\d+(?:\.\d+)?) ?(?:×|x|\*| by ) ?(?P<height>\d+(?:\.\d+)?) ?"
-    r"(?P<unit>cm|m|mm|in|ft|units?)?",
-    re.IGNORECASE,
-)
-
-_GRAPH_EXPR = re.compile(
-    r"\b(?:graph|plot) (?:y ?= ?)?(?P<expr>[0-9a-zA-Z+\-*/(). ^]+)",
-    re.IGNORECASE,
-)
-
-# "graph x = 4", "draw the vertical line x=4", "plot x = -2"
-_VERTICAL_LINE = re.compile(
-    r"(?:"
-    r"(?:graph|plot|draw|show|sketch|visuali[sz]e) (?:the )?"
-    r"(?:vertical line )?(?:at )?x ?= ?(?P<x>-?\d+(?:\.\d+)?)"
-    r"|"
-    r"vertical line (?:at )?x ?= ?(?P<x2>-?\d+(?:\.\d+)?)"
-    r")",
-    re.IGNORECASE,
-)
-
-_CALC_OP = re.compile(
-    r"\b(simplify|differentiate|derivative|integrate|integral|factor|expand)\b",
-    re.IGNORECASE,
-)
-
-# Definite-integral prose bounds: "integrate x^2 from 0 to 1" / "... of x^2
-# from -inf to inf". Bounds are strings (infinity-aware, like limit points).
-_INTEGRAL_BOUNDS = re.compile(
-    r"\bfrom (?P<lo>-?(?:inf(?:inity)?|oo|infty|-?\d+(?:\.\d+)?)|\S+) "
-    r"to (?P<hi>-?(?:inf(?:inity)?|oo|infty|-?\d+(?:\.\d+)?)|\S+)$",
-    re.IGNORECASE,
-)
-
-_LIMIT_TRIGGER = re.compile(r"\b(?:limit|lim)\b", re.IGNORECASE)
-
-# "[find/evaluate/what is] [the] [limit of] EXPR as VAR (approaches|-> |to) POINT"
-# — the leading filler words are consumed by optional non-capturing groups so
-# `expr` only ever captures the actual math substring, matching
-# _strip_trailing_filler's job for the trailing side.
-_LIMIT_AS_APPROACHES = re.compile(
-    r"(?:(?:find|evaluate|compute|what is|determine) )?(?:the )?(?:limit of )?"
-    r"(?P<expr>[0-9a-zA-Z+\-*/(). ^\\]+?) as (?P<var>[a-zA-Z]) ?"
-    r"(?:approaches|goes to|tends to|->|→|to) ?"
-    r"(?P<point>-?infinity|-?inf(?:inity)?|-?oo|-?\d+(?:\.\d+)?)\b",
-    re.IGNORECASE,
-)
-
-# Compact form without "as ... approaches": "lim x->0 sin(x)/x", "lim x -> 0 of f(x)".
-_LIMIT_COMPACT = re.compile(
-    r"\blim\b (?P<var>[a-zA-Z]) ?(?:->|→) ?"
-    r"(?P<point>-?infinity|-?inf|-?oo|-?\d+(?:\.\d+)?) (?:of )?(?P<expr>[0-9a-zA-Z+\-*/(). ^\\]+)",
-    re.IGNORECASE,
-)
-
-# OCR/pasted LaTeX: \lim_{x \to 0} f(x) (braces and backslash-to optional).
-_LIMIT_LATEX = re.compile(
-    r"\\lim[_ ]*\{? ?(?P<var>[a-zA-Z]) ?(?:\\to|->|→) ?"
-    r"(?P<point>-?\\infty|-?infinity|-?inf|-?oo|-?\d+(?:\.\d+)?)\}? ?"
-    r"(?P<expr>[0-9a-zA-Z+\-*/(). ^\\]+)?",
-    re.IGNORECASE,
-)
-
-_SERIES_TRIGGER = re.compile(r"\b(?:series|converge[snt]?|divergen?[ct]?)\b", re.IGNORECASE)
-
-# "[does the] [series/sum] [of] EXPR from VAR=START to END [converge]"
-_SERIES_SUM_FROM_TO = re.compile(
-    r"(?:sum|series) (?:of )?(?P<expr>[0-9a-zA-Z+\-*/(). ^\\]+?) from (?P<var>[a-zA-Z]) ?= ?"
-    r"(?P<start>-?\d+) to (?P<end>infinity|inf|oo|-?\d+)",
-    re.IGNORECASE,
-)
-
-# OCR/pasted LaTeX: \sum_{n=1}^{\infty} f(n).
-_SERIES_LATEX = re.compile(
-    r"\\sum[_ ]*\{? ?(?P<var>[a-zA-Z]) ?= ?(?P<start>-?\d+)\}? ?"
-    r"\^\{? ?(?P<end>\\infty|infinity|-?\d+)\}? ?"
-    r"(?P<expr>[0-9a-zA-Z+\-*/(). ^\\]+)?",
-    re.IGNORECASE,
-)
-
-# _SERIES_SUM_FROM_TO's own "sum|series (of)?" prefix only strips ONE
-# leading occurrence — natural phrasing like "does the SERIES sum of EXPR
-# from..." has both words, leaving "sum of EXPR" as the captured expr. Strip
-# any repeated leading series/sum filler the same way _strip_trailing_filler
-# strips trailing filler.
-_SERIES_PREFIX_RE = re.compile(r"^(?:does )?(?:the )?(?:series|sum) (?:of )?", re.IGNORECASE)
-
 # Common LaTeX commands/symbols that appear in a pasted or OCR'd limit/series
 # expression — _parse_expression's safe-character allowlist rejects any
 # backslash outright, so these must be normalized to plain SymPy-parseable
@@ -255,46 +78,26 @@ def _strip_series_prefix(expr: str) -> str:
     prev = None
     while prev != s:
         prev = s
-        s = _SERIES_PREFIX_RE.sub("", s).strip()
+        lower = s.lower()
+        for prefix in (
+            "does the series ",
+            "does the sum ",
+            "the series ",
+            "the sum ",
+            "series ",
+            "sum ",
+            "of ",
+        ):
+            if lower.startswith(prefix):
+                s = s[len(prefix) :].strip()
+                break
+        else:
+            break
     return s
 
 
-_NEWTON_TRIGGER = re.compile(
-    r"\bnewton'?s? method\b|\bnumerically (?:solve|approximate)\b"
-    r"|\bfind the root of\b|\bnumerical root\b",
-    re.IGNORECASE,
-)
-
-# Starting point for the iteration — "starting at x0 = 2", "initial guess of
-# 1", "near x=2", "guess 1". Matched and stripped out of the text BEFORE
-# equation extraction runs, so e.g. "x0 = 2" is never mistaken for a second
-# equation clause.
-_NEWTON_GUESS = re.compile(
-    r"(?:with )?(?:starting (?:at|near|with)? ?|initial guess (?:of )?|near |guess )"
-    r"(?:x0 ?= ?|x ?= ?)?(?P<guess>-?\d+(?:\.\d+)?)",
-    re.IGNORECASE,
-)
-
-# Newton-specific leading phrasing — _strip_leading_filler (math_service.py)
-# only knows the generic "solve"/"what is" triggers, not "newton's method"/
-# "find the root of"/"numerically solve", so those need stripping here
-# before try_extract_equations_from_text runs on the remaining text.
-_NEWTON_PREFIX_RE = re.compile(
-    r"^(?:please )?(?:can you |could you )?(?:use )?"
-    r"newton'?s? method (?:to find the root of |for |on )?"
-    r"|^(?:please )?numerically (?:solve|approximate) "
-    r"|^(?:please )?find the root of ",
-    re.IGNORECASE,
-)
-
 _DEFAULT_NEWTON_GUESS = 1.0
-
-_SQUARE_EQUAL_SIDES = re.compile(
-    r"(?P<s>\d+(?:\.\d+)?) ?(?:×|x|\*| by ) ?(?P=s) ?(?:cm|m|mm|in|ft)?",
-    re.IGNORECASE,
-)
-
-_VERTICAL_EQ = re.compile(r"^x ?= ?(-?\d+(?:\.\d+)?)$", re.IGNORECASE)
+_NEWTON_NUM = re.compile(r"-?\d+(?:\.\d+)?")
 
 _TRAILING_FILLER_SUFFIXES = (
     " please",
@@ -382,118 +185,66 @@ def _calc_expr_tail(cleaned: str) -> str | None:
 
 
 def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> bool:
-    cleaned = _collapse_ws(text)
-    # Const length compare — CodeQL py/polynomial-redos sanitizer.
-    if len(cleaned) > _MAX_MATH_INPUT:
-        return False
-    if not cleaned and not has_image_attachment:
-        return False
-    from app.services.math_image_extract import is_math_camera_prompt
+    from app.services import math_text_match
 
-    if has_image_attachment and is_math_camera_prompt(cleaned):
-        return True
-    if (
-        _DRAW_RECTANGLE.search(cleaned)
-        or _DRAW_RIGHT_TRIANGLE.search(cleaned)
-        or _DRAW_SQUARE.search(cleaned)
-        or _DRAW_CIRCLE.search(cleaned)
-    ):
-        return True
-    if has_image_attachment and _MATH_KEYWORDS.search(cleaned):
-        return True
-    if _EQUATION_IN_TEXT.search(cleaned) and _MATH_KEYWORDS.search(cleaned):
-        return True
-    if _RECT_DIMS.search(cleaned):
-        return True
-    if _CIRCLE_RADIUS.search(cleaned) or _CIRCLE_DIAMETER.search(cleaned):
-        return True
-    if _BARE_COORD_PAIR.match(cleaned) or _PLOT_POINT.search(cleaned):
-        return True
-    if _GRAPH_EXPR.search(cleaned):
-        return True
-    if _VERTICAL_LINE.search(cleaned):
-        return True
-    if _CALC_OP.search(cleaned):
-        return True
-    if (
-        _LIMIT_LATEX.search(cleaned)
-        or _LIMIT_COMPACT.search(cleaned)
-        or (_LIMIT_TRIGGER.search(cleaned) and _LIMIT_AS_APPROACHES.search(cleaned))
-    ):
-        return True
-    if _SERIES_LATEX.search(cleaned) or (
-        (_SERIES_TRIGGER.search(cleaned) or re.search(r"\bsum\b", cleaned, re.IGNORECASE))
-        and _SERIES_SUM_FROM_TO.search(cleaned)
-    ):
-        return True
-    if _NEWTON_TRIGGER.search(cleaned):
-        return True
-    if re.search(r"\bsolve\b", cleaned, re.IGNORECASE) and _EQUATION_IN_TEXT.search(cleaned):
-        return True
-    return bool(_MATH_KEYWORDS.search(cleaned) and _EQUATION_IN_TEXT.search(cleaned))
+    return math_text_match.needs_symbolic(text, has_image_attachment=has_image_attachment)
 
 
 def extract_math_intent(text: str) -> MathIntent | None:
-    cleaned = _collapse_ws(text)
-    # Const length compare — CodeQL py/polynomial-redos sanitizer.
-    if len(cleaned) > _MAX_MATH_INPUT:
-        return None
+    from app.services import math_text_match as mtm
+
+    cleaned = mtm.prepare(text)
     if not cleaned:
         return None
+    lower = cleaned.lower()
 
-    rect = _RECT_DIMS.search(cleaned)
-    if rect:
-        unit = (rect.group("unit") or "cm").lower()
-        if unit.startswith("unit"):
-            unit = "units"
+    dims = mtm.first_dim_pair(cleaned)
+    padded = f" {lower} "
+    if dims is not None and ("rectangle" in lower or " rect " in padded or "diagonal" in lower):
+        width, height, unit = dims
         return MathIntent(
             kind="rectangle",
-            width=float(rect.group("w")),
-            height=float(rect.group("h")),
+            width=width,
+            height=height,
             unit=unit,
             operation="solve",
-            wants_diagonal="diagonal" in cleaned.lower(),
-            wants_angle=bool(re.search(r"\bangle\b", cleaned, re.IGNORECASE)),
-            wants_area=bool(re.search(r"\barea\b", cleaned, re.IGNORECASE)),
-            wants_perimeter=bool(re.search(r"\bperimeter\b", cleaned, re.IGNORECASE)),
+            wants_diagonal=" diagonal" in padded or padded.startswith("diagonal "),
+            wants_angle=" angle" in padded or "angles" in lower,
+            wants_area=" area" in padded or padded.startswith("area "),
+            wants_perimeter=" perimeter" in padded or padded.startswith("perimeter "),
         )
 
-    if _DEFAULT_RECT.search(cleaned):
+    if mtm.has_draw_shape(lower, "rectangle"):
         return MathIntent(kind="rectangle", width=6, height=4, unit="cm", operation="solve")
 
-    if re.search(r"\bsquare\b", cleaned, re.IGNORECASE):
-        side_match = _SQUARE_SIDE.search(cleaned)
-        if side_match:
-            side = float(side_match.group("s"))
-            return MathIntent(
-                kind="square", side=side, width=side, height=side, unit="cm", operation="solve"
-            )
-        equal = _SQUARE_EQUAL_SIDES.search(cleaned)
-        if equal:
-            side = float(equal.group("s"))
+    if "square" in lower:
+        side = mtm.number_after(cleaned, "side") or mtm.number_after(cleaned, "edge")
+        if side is None and dims is not None and dims[0] == dims[1]:
+            side = dims[0]
+        if side is not None:
             return MathIntent(
                 kind="square", side=side, width=side, height=side, unit="cm", operation="solve"
             )
         return MathIntent(kind="square", side=5, width=5, height=5, unit="cm", operation="solve")
 
-    if re.search(r"\bcircle\b", cleaned, re.IGNORECASE):
-        wants_area = bool(re.search(r"\barea\b", cleaned, re.IGNORECASE))
-        wants_circumference = bool(re.search(r"\bcircumference\b", cleaned, re.IGNORECASE))
-        radius_match = _CIRCLE_RADIUS.search(cleaned)
-        if radius_match:
+    if "circle" in lower:
+        wants_area = "area" in lower
+        wants_circumference = "circumference" in lower
+        radius = mtm.number_after(cleaned, "radius")
+        if radius is not None:
             return MathIntent(
                 kind="circle",
-                radius=float(radius_match.group("r")),
+                radius=radius,
                 unit="cm",
                 operation="solve",
                 wants_area=wants_area,
                 wants_circumference=wants_circumference,
             )
-        diameter_match = _CIRCLE_DIAMETER.search(cleaned)
-        if diameter_match:
+        diameter = mtm.number_after(cleaned, "diameter")
+        if diameter is not None:
             return MathIntent(
                 kind="circle",
-                radius=float(diameter_match.group("d")) / 2,
+                radius=diameter / 2,
                 unit="cm",
                 operation="solve",
                 wants_diameter=True,
@@ -502,67 +253,65 @@ def extract_math_intent(text: str) -> MathIntent | None:
             )
         return MathIntent(kind="circle", radius=5, unit="cm", operation="solve")
 
-    if _RIGHT_TRI.search(cleaned):
-        rt_dims = _RIGHT_TRI_DIMS.search(cleaned)
-        if rt_dims:
-            unit = (rt_dims.group("unit") or "cm").lower()
-            if unit.startswith("unit"):
-                unit = "units"
+    if "right triangle" in lower:
+        if dims is not None:
+            base, height, unit = dims
             return MathIntent(
                 kind="right_triangle",
-                base=float(rt_dims.group("base")),
-                height=float(rt_dims.group("height")),
+                base=base,
+                height=height,
                 unit=unit,
                 operation="solve",
             )
         return MathIntent(kind="right_triangle", base=6, height=4, unit="cm", operation="solve")
 
-    tri = _TRI_BASE_HEIGHT.search(cleaned)
-    if tri:
+    base_n = mtm.number_after(cleaned, "base")
+    height_n = mtm.number_after(cleaned, "height")
+    if base_n is not None and height_n is not None and "triangle" in lower:
         return MathIntent(
             kind="triangle",
-            base=float(tri.group("base")),
-            height=float(tri.group("height")),
+            base=base_n,
+            height=height_n,
             unit="cm",
             operation="solve",
         )
 
-    if re.search(r"\btriangle\b", cleaned, re.IGNORECASE) and re.search(
-        r"\b(?:area|draw|visuali[sz]e|sketch)\b", cleaned, re.IGNORECASE
-    ):
+    if "triangle" in lower and any(k in lower for k in ("area", "draw", "visuali", "sketch")):
         return MathIntent(kind="triangle", base=8, height=5, unit="cm", operation="solve")
 
-    bare_point = _BARE_COORD_PAIR.match(cleaned)
-    point_match = bare_point or _PLOT_POINT.search(cleaned)
-    if point_match:
+    point = mtm.bare_coord(cleaned) or mtm.plot_point(cleaned)
+    if point is not None:
         return MathIntent(
             kind="point",
-            point_x=float(point_match.group("x")),
-            point_y=float(point_match.group("y")),
+            point_x=point[0],
+            point_y=point[1],
             operation="graph",
         )
 
-    vertical = _VERTICAL_LINE.search(cleaned)
-    if vertical:
-        x_raw = vertical.group("x") or vertical.group("x2")
-        return MathIntent(
-            kind="vertical",
-            point_x=float(x_raw),
-            operation="graph",
-        )
+    vert_x = mtm.vertical_line_x(cleaned)
+    if vert_x is not None:
+        return MathIntent(kind="vertical", point_x=vert_x, operation="graph")
 
-    graph = _GRAPH_EXPR.search(cleaned)
-    if graph:
-        expr = _strip_trailing_filler(graph.group("expr")).replace("^", "**")
-        # "graph x = 4" also matches _GRAPH_EXPR loosely — prefer vertical.
-        vert_eq = _VERTICAL_EQ.match(expr)
-        if vert_eq:
-            return MathIntent(kind="vertical", point_x=float(vert_eq.group(1)), operation="graph")
+    g_expr = mtm.graph_expr(cleaned)
+    if g_expr is not None:
+        expr = _strip_trailing_filler(g_expr).replace("^", "**").replace(" ", "")
+        # Prefer vertical for "graph x=4"
+        if expr.lower().startswith("x="):
+            num = mtm.number_after(expr, "x=")
+            if num is None:
+                compact = expr.lower().replace(" ", "")
+                if compact.startswith("x="):
+                    try:
+                        num = float(compact[2:])
+                    except ValueError:
+                        num = None
+            if num is not None:
+                return MathIntent(kind="vertical", point_x=num, operation="graph")
+        expr = _strip_trailing_filler(g_expr).replace("^", "**")
         return MathIntent(kind="graph", expr=expr, operation="graph")
 
-    calc = _CALC_OP.search(cleaned)
-    if calc:
-        op_word = calc.group(1).lower()
+    op_word = mtm.calc_op(cleaned)
+    if op_word is not None:
         calc_op: Literal["simplify", "differentiate", "integrate", "factor", "expand"] = (
             "differentiate" if op_word in {"differentiate", "derivative"} else "integrate"
         )
@@ -574,15 +323,12 @@ def extract_math_intent(text: str) -> MathIntent | None:
             calc_op = "expand"
         tail = _calc_expr_tail(cleaned)
         expr = _strip_trailing_filler(tail) if tail is not None else cleaned
-        # Definite integral: "integrate x^2 from 0 to 1" → bounds + bare expr.
         integral_lower: str | None = None
         integral_upper: str | None = None
-        if calc_op == "integrate" and len(expr) <= _MAX_MATH_INPUT:
-            bounds = _INTEGRAL_BOUNDS.search(expr)
-            if bounds:
-                integral_lower = bounds.group("lo").strip()
-                integral_upper = bounds.group("hi").strip()
-                expr = expr[: bounds.start()].strip()
+        if calc_op == "integrate":
+            bounds = mtm.integral_bounds(expr)
+            if bounds is not None:
+                expr, integral_lower, integral_upper = bounds
         return MathIntent(
             kind="calculus",
             expr=expr,
@@ -591,51 +337,82 @@ def extract_math_intent(text: str) -> MathIntent | None:
             integral_upper=integral_upper,
         )
 
-    limit_match = (
-        _LIMIT_LATEX.search(cleaned)
-        or _LIMIT_COMPACT.search(cleaned)
-        or (_LIMIT_TRIGGER.search(cleaned) and _LIMIT_AS_APPROACHES.search(cleaned))
-    )
-    if limit_match:
-        expr_raw = limit_match.group("expr") or ""
-        expr = _normalize_latex_expr(_strip_trailing_filler(expr_raw)).replace("^", "**")
-        point = limit_match.group("point").lstrip("\\")
+    limit_hit = mtm.parse_limit(cleaned)
+    if limit_hit is not None:
+        expr = _normalize_latex_expr(_strip_trailing_filler(limit_hit.expr)).replace("^", "**")
+        limit_point = limit_hit.point.lstrip("\\")
         if expr:
             return MathIntent(
                 kind="limit",
                 expr=expr,
-                variable=limit_match.group("var"),
-                limit_point=point,
+                variable=limit_hit.var,
+                limit_point=limit_point,
                 operation="limit",
             )
 
-    series_match = _SERIES_LATEX.search(cleaned) or (
-        (_SERIES_TRIGGER.search(cleaned) or re.search(r"\bsum\b", cleaned, re.IGNORECASE))
-        and _SERIES_SUM_FROM_TO.search(cleaned)
-    )
-    if series_match:
-        expr_raw = series_match.group("expr") or ""
+    series_hit = mtm.parse_series(cleaned)
+    if series_hit is not None:
         expr = _normalize_latex_expr(
-            _strip_series_prefix(_strip_trailing_filler(expr_raw))
+            _strip_series_prefix(_strip_trailing_filler(series_hit.expr))
         ).replace("^", "**")
-        end = series_match.group("end").lstrip("\\")
+        end = series_hit.end.lstrip("\\")
         if expr:
             return MathIntent(
                 kind="series",
                 expr=expr,
-                variable=series_match.group("var"),
-                series_start=series_match.group("start"),
+                variable=series_hit.var,
+                series_start=series_hit.start,
                 series_end=end,
                 operation="series",
             )
 
-    if _NEWTON_TRIGGER.search(cleaned):
-        guess_match = _NEWTON_GUESS.search(cleaned)
-        guess = float(guess_match.group("guess")) if guess_match else _DEFAULT_NEWTON_GUESS
+    if "newton" in lower or "numerically" in lower or "root of" in lower:
+        guess = _DEFAULT_NEWTON_GUESS
         text_for_eq = cleaned
-        if guess_match:
-            text_for_eq = text_for_eq[: guess_match.start()] + text_for_eq[guess_match.end() :]
-        text_for_eq = _NEWTON_PREFIX_RE.sub("", text_for_eq).strip()
+        for label in (
+            "starting at x0 =",
+            "starting at x=",
+            "starting at",
+            "starting near",
+            "initial guess of",
+            "initial guess",
+            "near x=",
+            "near",
+            "guess",
+            "x0 =",
+        ):
+            idx = lower.find(label)
+            if idx == -1:
+                continue
+            m = _NEWTON_NUM.search(cleaned, idx + len(label))
+            if m:
+                guess = float(m.group(0))
+                # Guess clauses are almost always trailing — drop from the cue onward.
+                text_for_eq = cleaned[:idx].rstrip()
+                if text_for_eq.lower().endswith(" with"):
+                    text_for_eq = text_for_eq[: -len(" with")].rstrip()
+                break
+        # Strip newton lead-in without poly regex — phrase prefixes only.
+        for prefix in (
+            "please use newton's method to find the root of ",
+            "please use newton's method for ",
+            "please use newton's method on ",
+            "use newton's method to find the root of ",
+            "use newton's method for ",
+            "use newton's method on ",
+            "newton's method for ",
+            "newton's method on ",
+            "newton's method to find the root of ",
+            "please numerically solve ",
+            "please numerically approximate ",
+            "numerically solve ",
+            "numerically approximate ",
+            "please find the root of ",
+            "find the root of ",
+        ):
+            if text_for_eq.lower().startswith(prefix):
+                text_for_eq = text_for_eq[len(prefix) :].strip()
+                break
         newton_pairs = math_service.try_extract_equations_from_text(text_for_eq)
         if newton_pairs:
             lhs, rhs = newton_pairs[0]
@@ -647,7 +424,7 @@ def extract_math_intent(text: str) -> MathIntent | None:
                 kind="numerical_method",
                 expr=expr,
                 variable=var,
-                newton_guess=guess,
+                newton_guess=float(guess),
                 operation="newton",
             )
 
