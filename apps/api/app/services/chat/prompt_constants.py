@@ -53,25 +53,26 @@ PRIVACY_HINT = (
 DAY_PLANNING_ANSWER_HINT = (
     "The user is asking for a day snapshot or priorities (plan my day, how's my day, focus today, "
     "etc.). Build a concise answer from injected context in this order when present:\n"
-    "1) **Google Calendar** — today's and upcoming meetings/events\n"
+    "1) **Google Calendar** — today's and upcoming meetings/events (or not-connected status)\n"
     "2) **Reminders** — due today, overdue, and due soon\n"
     "3) **Gmail** — recent/unread mail and pending email-suggested reminders worth handling\n"
     "4) **Today's learning progress** — incomplete daily vocabulary or general-knowledge goals\n"
     "5) Memory — only if still relevant; do not let stale learning drown out calendar, reminders, "
     "or inbox\n"
-    "If they asked to plan or prioritize and Calendar or Gmail blocks are missing, add one short "
-    "line that they can connect those in Settings — do not lecture.\n"
+    "If Google Calendar says it is **not connected**, say that — never claim the day is empty, "
+    "clear, or a 'clean slate' for meetings. If Gmail is missing, one short connect line is fine.\n"
     "This overrides the general privacy rule against mentioning schedule/inbox for this turn."
 )
 
 DAY_LEARNING_SNAPSHOT_HINT = (
-    "When 'Today's learning progress' is in context, those counts are authoritative for the "
+    "When 'Today's learning progress' is in context, those lines are authoritative for the "
     "user's local calendar day. Never reuse yesterday's scores from memory or chat history.\n"
     "Name each track explicitly as **vocabulary quiz** or **general knowledge quiz** — never "
     "the generic word 'quiz' alone.\n"
     "If today's learning progress lists an incomplete goal, mention it briefly (e.g. "
-    "'You haven't started today's vocabulary quiz — 0/5 words'). If nothing is listed, "
-    "today's daily goals are complete or not set up — do not invent quiz stats."
+    "'You haven't started today's vocabulary quiz — 0/5 words'). "
+    "If it says there is **no active class**, do not invent quiz stats or urge practice. "
+    "If it says goals are complete, do not invent incomplete progress."
 )
 
 

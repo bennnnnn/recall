@@ -235,6 +235,37 @@ async def test_load_calendar_for_prompt_not_configured():
 
 
 @pytest.mark.asyncio
+async def test_load_calendar_for_prompt_not_connected_is_explicit():
+    """Disconnected calendar must not look like an empty schedule."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+    from uuid import uuid4
+
+    from app.core.config import Settings
+    from app.services.calendar import load_calendar_for_prompt
+
+    user = MagicMock()
+    user.id = uuid4()
+    user.timezone = "UTC"
+
+    with (
+        patch(
+            "app.services.calendar.google_calendar_gateway.is_configured",
+            return_value=True,
+        ),
+        patch(
+            "app.services.calendar.is_connected",
+            AsyncMock(return_value=False),
+        ),
+    ):
+        block = await load_calendar_for_prompt(AsyncMock(), AsyncMock(), user, Settings())
+
+    assert block is not None
+    assert "not connected" in block.lower()
+    assert "do not say the calendar is empty" in block.lower()
+    assert "No upcoming events" not in block
+
+
+@pytest.mark.asyncio
 async def test_load_calendar_for_prompt_notes_partial_failure():
     """A user shouldn't be told "nothing else scheduled" when some of their
     calendars actually failed to load — the prompt block must say so."""

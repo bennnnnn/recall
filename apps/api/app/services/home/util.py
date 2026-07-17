@@ -48,6 +48,9 @@ class ProjectHomeContent(NamedTuple):
     subtitle: str | None
     highlight: HomeProjectHighlight | None
     completed_daily: list[CompletedDaily]
+    # True when the user still has a language/vocabulary project — used to suppress
+    # stale "Practice English" chips after the class was deleted (memories linger).
+    has_language_project: bool
 
 
 def resolve_home_tz(user: User, client_timezone: str | None = None) -> ZoneInfo:

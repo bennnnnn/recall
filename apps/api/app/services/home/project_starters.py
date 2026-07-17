@@ -254,8 +254,9 @@ async def load_project_home_content(
     home_tz: ZoneInfo,
 ) -> ProjectHomeContent:
     projects = await projects_repo.list_for_user(session, user_id, limit=20)
+    has_language = any(is_language_project(p) for p in projects)
     if not projects:
-        return ProjectHomeContent([], None, None, [])
+        return ProjectHomeContent([], None, None, [], False)
 
     daily_projects = sorted(
         [p for p in projects if is_daily_home_project(p)],
@@ -313,9 +314,11 @@ async def load_project_home_content(
                     seed=seed,
                     has_highlight=True,
                 )
-                return ProjectHomeContent(starters, subtitle, highlight, completed_daily)
-        return ProjectHomeContent([], None, None, completed_daily)
+                return ProjectHomeContent(
+                    starters, subtitle, highlight, completed_daily, has_language
+                )
+        return ProjectHomeContent([], None, None, completed_daily, has_language)
 
     # No English/trivia daily cue — do not fall back to legacy project kinds
     # (old programming topics used to show up as "Continue TypeScript · …").
-    return ProjectHomeContent([], None, None, [])
+    return ProjectHomeContent([], None, None, [], has_language)
