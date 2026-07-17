@@ -5,7 +5,7 @@ from app.core.db import get_db
 from app.core.deps import get_current_user
 from app.models.orm import User
 from app.models.schemas import SearchResultItem, SearchResults
-from app.repositories import search as search_repo
+from app.services import search as search_service
 
 router = APIRouter(prefix="/search", tags=["search"])
 
@@ -18,7 +18,7 @@ async def search(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> SearchResults:
-    results, total = await search_repo.search_conversations(
+    results, total = await search_service.search_conversations(
         session, user.id, query=q, limit=limit, offset=offset
     )
     return SearchResults(
