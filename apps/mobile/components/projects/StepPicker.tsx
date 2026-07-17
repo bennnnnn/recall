@@ -58,6 +58,9 @@ export function StepPicker<T>({
             <Pressable
               key={option.key}
               style={[s.row, selected && s.rowActive]}
+              accessibilityRole="radio"
+              accessibilityState={{ selected }}
+              accessibilityLabel={option.label}
               onPress={() => onSelect(option.value)}
             >
               <Text style={[s.rowText, selected && s.rowTextActive]}>{option.label}</Text>

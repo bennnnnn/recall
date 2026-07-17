@@ -48,6 +48,8 @@ export function CollapsibleMessageBody({
         onPress={() => setExpanded((value) => !value)}
         hitSlop={8}
         accessibilityRole="button"
+        accessibilityState={{ expanded }}
+        accessibilityLabel={expanded ? t("common.show_less") : t("common.show_more")}
       >
         <Text style={s.toggleText}>
           {expanded ? t("common.show_less") : t("common.show_more")}
