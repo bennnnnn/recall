@@ -44,51 +44,60 @@ export function ChatActionsSheet({
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const isMenu = placement === "menu";
+  // Menu: filled / social glyphs read bolder; sheet keeps lighter outlines.
+  const iconSize = isMenu ? 22 : 20;
+  const shareIcon = isMenu ? "share-social" : "share-outline";
+  const renameIcon = isMenu ? "pencil" : "pencil-outline";
+  const pinIcon = pinned ? "pin" : "pin-outline";
+  const archiveIcon = archived
+    ? isMenu
+      ? "arrow-undo"
+      : "arrow-undo-outline"
+    : isMenu
+      ? "archive"
+      : "archive-outline";
+  const trashIcon = isMenu ? "trash" : "trash-outline";
+
+  const row = (
+    icon: keyof typeof Ionicons.glyphMap,
+    label: string,
+    onPress: () => void,
+    danger = false,
+  ) => (
+    <Pressable style={s.item} onPress={onPress}>
+      <Ionicons
+        name={icon}
+        size={iconSize}
+        color={danger ? theme.danger : theme.text}
+      />
+      <Text style={[s.label, danger && s.labelDanger]}>{label}</Text>
+    </Pressable>
+  );
 
   const actionRows = (
     <>
-      <Pressable style={s.item} onPress={onShare}>
-        <Ionicons name="share-outline" size={20} color={theme.text} />
-        <Text style={s.label}>{t("chat.share")}</Text>
-      </Pressable>
-      <View style={s.divider} />
-      <Pressable style={s.item} onPress={onRename}>
-        <Ionicons name="pencil-outline" size={20} color={theme.text} />
-        <Text style={s.label}>{t("chat.rename")}</Text>
-      </Pressable>
-      <View style={s.divider} />
-      <Pressable style={s.item} onPress={onTogglePin}>
-        <Ionicons
-          name={pinned ? "bookmark" : "bookmark-outline"}
-          size={20}
-          color={theme.text}
-        />
-        <Text style={s.label}>{pinned ? t("chat.unpin") : t("chat.pin")}</Text>
-      </Pressable>
-      <View style={s.divider} />
+      {row(shareIcon, t("chat.share"), onShare)}
+      {!isMenu ? <View style={s.divider} /> : null}
+      {row(renameIcon, t("chat.rename"), onRename)}
+      {!isMenu ? <View style={s.divider} /> : null}
+      {row(pinIcon, pinned ? t("chat.unpin") : t("chat.pin"), onTogglePin)}
+      {!isMenu ? <View style={s.divider} /> : null}
       {onToggleArchive ? (
         <>
-          <Pressable style={s.item} onPress={onToggleArchive}>
-            <Ionicons
-              name={archived ? "arrow-undo-outline" : "archive-outline"}
-              size={20}
-              color={theme.text}
-            />
-            <Text style={s.label}>
-              {archived ? t("chat.unarchive") : t("chat.archive")}
-            </Text>
-          </Pressable>
-          <View style={s.divider} />
+          {row(
+            archiveIcon,
+            archived ? t("chat.unarchive") : t("chat.archive"),
+            onToggleArchive,
+          )}
+          {!isMenu ? <View style={s.divider} /> : null}
         </>
       ) : null}
-      <Pressable style={s.item} onPress={onDelete}>
-        <Ionicons name="trash-outline" size={20} color={theme.danger} />
-        <Text style={[s.label, s.labelDanger]}>{t("common.delete")}</Text>
-      </Pressable>
+      {row(trashIcon, t("common.delete"), onDelete, true)}
     </>
   );
 
-  if (placement === "menu") {
+  if (isMenu) {
     if (!visible) return null;
     return (
       <View
@@ -107,7 +116,11 @@ export function ChatActionsSheet({
         <View
           style={[
             s.menuPanelShadow,
-            { top: insets.top + CHAT_HEADER_BAR_HEIGHT + 4, right: 10 },
+            {
+              top: insets.top + CHAT_HEADER_BAR_HEIGHT + 4,
+              right: 10,
+              left: 56,
+            },
           ]}
         >
           <View style={s.menuPanel}>
@@ -172,14 +185,10 @@ function makeStyles(C: Theme) {
     },
     menuBackdrop: {
       ...StyleSheet.absoluteFill,
-      // Dim the chat so the menu reads as a floating card (transparent made it
-      // disappear into bg/surface which are nearly the same white).
       backgroundColor: C.scrim,
     },
     menuPanelShadow: {
       position: "absolute",
-      minWidth: 220,
-      maxWidth: 280,
       borderRadius: 14,
       // Shadow must live on a view without overflow:hidden or iOS clips it.
       backgroundColor: C.bg,
@@ -192,23 +201,21 @@ function makeStyles(C: Theme) {
     menuPanel: {
       borderRadius: 14,
       backgroundColor: C.bg,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: C.border,
       overflow: "hidden",
     },
     menuTitle: {
-      fontSize: 12,
+      fontSize: 13,
       fontWeight: "600",
       color: C.textSecondary,
-      paddingHorizontal: 16,
-      paddingTop: 12,
-      paddingBottom: 4,
+      paddingHorizontal: 18,
+      paddingTop: 14,
+      paddingBottom: 6,
     },
     item: {
       flexDirection: "row",
       alignItems: "center",
       paddingHorizontal: 18,
-      paddingVertical: 14,
+      paddingVertical: 15,
       gap: 14,
     },
     label: { fontSize: 16, color: C.text, fontWeight: "400", flex: 1 },
