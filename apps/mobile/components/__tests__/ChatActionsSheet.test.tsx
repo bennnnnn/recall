@@ -4,6 +4,7 @@ import { ChatActionsSheet } from "@/components/ChatActionsSheet";
 
 jest.mock("@expo/vector-icons", () => ({
   Ionicons: "Ionicons",
+  MaterialCommunityIcons: "MaterialCommunityIcons",
 }));
 
 jest.mock("react-native-safe-area-context", () => ({
