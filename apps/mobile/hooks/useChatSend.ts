@@ -26,6 +26,7 @@ import {
   pickFromPhotoLibrary,
   uploadChatAttachment,
   messageTextForSend,
+  defaultMathCameraPrompt,
   type PendingAttachment,
 } from "@/lib/attachments";
 
@@ -116,6 +117,7 @@ export function useChatSend({
   const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
   const [attachBusy, setAttachBusy] = useState(false);
   const [attachSheetOpen, setAttachSheetOpen] = useState(false);
+  const [mathScannerOpen, setMathScannerOpen] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [pendingOutboundId, setPendingOutboundId] = useState<string | null>(null);
   const [pendingSend, setPendingSend] = useState<{
@@ -377,6 +379,10 @@ export function useChatSend({
       }
 
       try {
+        if (source === "solve_math_camera") {
+          setMathScannerOpen(true);
+          return;
+        }
         const picked =
           source === "camera"
             ? await pickFromCamera()
@@ -402,6 +408,12 @@ export function useChatSend({
     [attachBusy, streaming, t, token, waitForPickerUi],
   );
 
+  const handleMathScanCaptured = useCallback((pending: PendingAttachment) => {
+    setPendingAttachment(pending);
+    setInput(defaultMathCameraPrompt());
+    setMathScannerOpen(false);
+  }, []);
+
   const handleEditMessage = useCallback(
     (message: Message) => {
       if (streaming) return;
@@ -421,11 +433,14 @@ export function useChatSend({
     attachBusy,
     attachSheetOpen,
     setAttachSheetOpen,
+    mathScannerOpen,
+    setMathScannerOpen,
     editingMessageId,
     setEditingMessageId,
     handleSend,
     handlePickAttachment,
     handleAttachmentSheetSelect,
+    handleMathScanCaptured,
     handleEditMessage,
     creatingRef,
     pendingOutboundId,

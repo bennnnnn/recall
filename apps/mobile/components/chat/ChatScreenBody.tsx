@@ -6,6 +6,7 @@ import { type AnimatedStyle } from "react-native-reanimated";
 
 import { ActionBanner } from "@/components/ActionBanner";
 import { AttachmentSourceSheet } from "@/components/AttachmentSourceSheet";
+import { MathEquationScanner } from "@/components/MathEquationScanner";
 import { ChatComposer } from "@/components/chat/ChatComposer";
 import { ChatInlineError } from "@/components/chat/ChatInlineError";
 import { ChatMessageList } from "@/components/chat/ChatMessageList";
@@ -71,6 +72,9 @@ export type ChatScreenBodyProps = {
   onCancelEdit: () => void;
   onPickAttachment: () => void;
   onAttachmentSource: (source: AttachmentSource) => void;
+  mathScannerOpen: boolean;
+  onCloseMathScanner: () => void;
+  onMathScanCaptured: (pending: PendingAttachment) => void;
   onSend: () => void;
   onStop: () => void;
   isOffline: boolean;
@@ -132,6 +136,9 @@ export function ChatScreenBody({
   onCancelEdit,
   onPickAttachment,
   onAttachmentSource,
+  mathScannerOpen,
+  onCloseMathScanner,
+  onMathScanCaptured,
   onSend,
   onStop,
   isOffline,
@@ -231,6 +238,12 @@ export function ChatScreenBody({
         visible={attachSheetOpen && !drawerOpen}
         onClose={onCloseAttachSheet}
         onSelect={onAttachmentSource}
+      />
+
+      <MathEquationScanner
+        visible={mathScannerOpen && !drawerOpen}
+        onClose={onCloseMathScanner}
+        onCaptured={onMathScanCaptured}
       />
 
       <UpgradeSheet visible={upgradeVisible} onClose={onCloseUpgrade} />

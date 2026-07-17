@@ -281,7 +281,10 @@ function ChatScreen() {
     handleSend,
     handlePickAttachment,
     handleAttachmentSheetSelect,
+    handleMathScanCaptured,
     handleEditMessage,
+    mathScannerOpen,
+    setMathScannerOpen,
     pendingOutboundId,
   } = send;
 
@@ -304,6 +307,10 @@ function ChatScreen() {
   const closeAttachSheet = useCallback(() => {
     setAttachSheetOpen(false);
   }, []);
+
+  const closeMathScanner = useCallback(() => {
+    setMathScannerOpen(false);
+  }, [setMathScannerOpen]);
 
   setInputRef.current = setInput;
 
@@ -459,6 +466,9 @@ function ChatScreen() {
       setPendingAttachment,
       handlePickAttachment,
       handleAttachmentSheetSelect,
+      mathScannerOpen,
+      closeMathScanner,
+      handleMathScanCaptured,
     },
     quotaNudge,
     chatError,

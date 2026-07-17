@@ -7,7 +7,7 @@ import { AppSheet } from "@/components/AppSheet";
 import { selection } from "@/lib/haptics";
 import { Theme, useTheme } from "@/lib/theme";
 
-export type AttachmentSource = "camera" | "photo" | "file";
+export type AttachmentSource = "camera" | "photo" | "file" | "solve_math_camera";
 
 type Props = {
   visible: boolean;
@@ -41,7 +41,7 @@ function SheetRow({ icon, label, onPress, theme, styles, showDivider }: RowProps
   );
 }
 
-/** Attach source picker (AppSheet — reliable over the chat drawer). */
+/** Attach / math-scan source picker. */
 export function AttachmentSourceSheet({ visible, onClose, onSelect }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
@@ -62,11 +62,19 @@ export function AttachmentSourceSheet({ visible, onClose, onSelect }: Props) {
       contentContainerStyle={s.panel}
     >
       <SheetRow
+        icon="scan-outline"
+        label={t("chat.attach_solve_math_camera")}
+        onPress={() => pick("solve_math_camera")}
+        theme={theme}
+        styles={s}
+      />
+      <SheetRow
         icon="camera-outline"
         label={t("chat.attach_camera")}
         onPress={() => pick("camera")}
         theme={theme}
         styles={s}
+        showDivider
       />
       <SheetRow
         icon="images-outline"
