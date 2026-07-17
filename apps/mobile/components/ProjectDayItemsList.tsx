@@ -7,6 +7,7 @@ import { LearningContinueCta } from "@/components/projects/LearningContinueCta";
 import { StateView } from "@/components/StateView";
 import { api, type ProjectDailyHistoryDay, type ProjectItem, type VocabStatus } from "@/lib/api";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 import { weekdayFullLabel } from "@/lib/weekdayLabels";
 
 const PAGE_SIZE = 25;
@@ -230,7 +231,7 @@ function makeStyles(theme: Theme) {
     },
     header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
     label: {
-      fontSize: 13,
+      ...Type.caption,
       fontWeight: "700",
       color: theme.textTertiary,
       textTransform: "uppercase",
@@ -239,8 +240,7 @@ function makeStyles(theme: Theme) {
     emptyBlock: { gap: 12 },
     itemsBlock: { gap: 16 },
     empty: {
-      fontSize: 14,
-      lineHeight: 20,
+      ...Type.secondary,
       color: theme.textSecondary,
       backgroundColor: theme.surface,
       borderRadius: 14,

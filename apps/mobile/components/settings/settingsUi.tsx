@@ -10,6 +10,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 
 import { Theme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 export type SettingsStyles = ReturnType<typeof makeSettingsStyles>;
 
@@ -385,7 +386,7 @@ export function makeSettingsStyles(t: Theme) {
 
     section: { marginTop: 20 },
     sectionLabel: {
-      fontSize: 12,
+      ...Type.caption,
       fontWeight: "700",
       color: t.textTertiary,
       textTransform: "uppercase",
@@ -393,7 +394,13 @@ export function makeSettingsStyles(t: Theme) {
       marginLeft: 4,
       marginBottom: 8,
     },
-    sectionHint: { fontSize: 13, color: t.textSecondary, marginLeft: 4, marginBottom: 8 },
+    sectionHint: {
+      ...Type.caption,
+      fontWeight: "400",
+      color: t.textSecondary,
+      marginLeft: 4,
+      marginBottom: 8,
+    },
     group: {
       backgroundColor: t.surface,
       borderRadius: 16,
@@ -486,7 +493,12 @@ export function makeSettingsStyles(t: Theme) {
     rowBody: { flex: 1 },
     rowTitle: { fontSize: 15, fontWeight: "600", color: t.text },
     menuRowTitle: { flex: 1 },
-    meta: { fontSize: 13, color: t.textTertiary, marginTop: 1 },
+    meta: {
+      ...Type.caption,
+      fontWeight: "400",
+      color: t.textTertiary,
+      marginTop: 1,
+    },
     linkBtn: { paddingHorizontal: 4, paddingVertical: 6 },
     rowActions: { alignItems: "flex-end", gap: 2 },
     linkBtnText: { fontSize: 15, fontWeight: "600", color: t.primary },

@@ -15,6 +15,7 @@ import {
   restorePurchases,
 } from "@/lib/purchases";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type Props = {
   visible: boolean;
@@ -168,7 +169,7 @@ function FeatureRow({
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
       <Ionicons name={icon} size={18} color={theme.primary} />
-      <Text style={{ flex: 1, fontSize: 15, color: theme.textSecondary, lineHeight: 21 }}>{text}</Text>
+      <Text style={{ flex: 1, ...Type.secondary, color: theme.textSecondary }}>{text}</Text>
     </View>
   );
 }
@@ -197,10 +198,9 @@ const makeStyles = (theme: Theme) =>
       textAlign: "center",
     },
     body: {
-      fontSize: 15,
+      ...Type.secondary,
       color: theme.textSecondary,
       textAlign: "center",
-      lineHeight: 22,
     },
     featureList: { gap: 10, marginVertical: 8 },
     error: {
