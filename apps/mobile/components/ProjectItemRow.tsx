@@ -4,7 +4,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
 import type { ProjectItem, VocabStatus } from "@/lib/api";
-import { statusLabel } from "@/lib/languageLevels";
 import { speakWord } from "@/lib/pronunciation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Theme, useTheme } from "@/lib/theme";
@@ -119,7 +118,9 @@ export function ProjectItemRow({
                 ? item.last_incorrect_at
                   ? t("projects.status_missed")
                   : t("projects.status_learning")
-                : statusLabel(item.status)}
+                : item.status === "mastered" || item.mastered
+                  ? t("projects.status_mastered")
+                  : t("projects.status_new")}
             </Text>
             {onStatusChange ? (
               <Ionicons name="chevron-down" size={12} color={theme.textTertiary} />

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, useLocalSearchParams, useNavigation } from "expo-router";
@@ -19,7 +19,6 @@ import { useTodosDerivedState } from "@/hooks/useTodosDerivedState";
 import { useTodosListGroups } from "@/hooks/useTodosListGroups";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTodos } from "@/contexts/TodosContext";
-import { api, type Project } from "@/lib/api";
 import { ensureNotificationPermission } from "@/lib/todoReminders";
 import { useTheme } from "@/lib/theme";
 
@@ -50,31 +49,7 @@ export default function TodosScreen() {
   } = useTodos();
   const [reminderSheetOpen, setReminderSheetOpen] = useState(false);
   const [newListOpen, setNewListOpen] = useState(false);
-  const [projects, setProjects] = useState<Project[]>([]);
   const [pullRefreshing, setPullRefreshing] = useState(false);
-
-  useEffect(() => {
-    if (!token) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const list = await api.listProjects(token);
-        if (!cancelled) {
-          setProjects(list.filter((project) => !project.archived));
-        }
-      } catch {
-        if (!cancelled) setProjects([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [token]);
-
-  const projectTitleById = useMemo(
-    () => new Map(projects.map((project) => [project.id, project.title])),
-    [projects],
-  );
 
   const { groupOrder, persistGroupOrder, listGroups, hasNamedGroups } = useTodosListGroups(
     user?.id,
@@ -160,8 +135,6 @@ export default function TodosScreen() {
       togglingId={actions.togglingId}
       onToggle={(todo) => void actions.handleToggle(todo)}
       onDue={actions.openDuePicker}
-      onLinkProject={(todo) => actions.handleLinkProject(todo, projects)}
-      projectTitleById={projectTitleById}
       onDeleteItem={actions.handleDeleteItem}
       listGroups={listGroups}
       focusTopic={focusTopic}
@@ -207,8 +180,6 @@ export default function TodosScreen() {
         overlapNotes={calendar.overlapNotes}
         onToggle={actions.handleToggle}
         onDue={actions.openDuePicker}
-        onLinkProject={(todo) => actions.handleLinkProject(todo, projects)}
-        projectTitleById={projectTitleById}
         onDeleteItem={actions.handleDeleteItem}
         showRemindersEmptyHero={showRemindersEmptyHero}
         error={Boolean(error)}
