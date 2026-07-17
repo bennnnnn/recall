@@ -1,16 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Keyboard,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Keyboard, StyleSheet, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { AppSheet } from "@/components/AppSheet";
+import { Button } from "@/components/Button";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -78,28 +71,19 @@ export function ImageGenPromptSheet({
         autoFocus
       />
       <View style={s.actions}>
-        <Pressable
-          style={({ pressed }) => [s.secondaryBtn, pressed && s.btnPressed]}
+        <Button
+          title={t("common.cancel")}
           onPress={handleClose}
+          variant="ghost"
           disabled={generating}
-        >
-          <Text style={s.secondaryLabel}>{t("common.cancel")}</Text>
-        </Pressable>
-        <Pressable
-          style={({ pressed }) => [
-            s.primaryBtn,
-            (!prompt.trim() || generating) && s.primaryBtnDisabled,
-            pressed && prompt.trim() && !generating && s.btnPressed,
-          ]}
+        />
+        <Button
+          title={t("chat.image_gen_generate")}
           onPress={handleSubmit}
-          disabled={!prompt.trim() || generating}
-        >
-          {generating ? (
-            <ActivityIndicator color={theme.onPrimary} size="small" />
-          ) : (
-            <Text style={s.primaryLabel}>{t("chat.image_gen_generate")}</Text>
-          )}
-        </Pressable>
+          loading={generating}
+          disabled={!prompt.trim()}
+          style={s.primaryBtn}
+        />
       </View>
     </AppSheet>
   );
@@ -136,36 +120,12 @@ function makeStyles(t: Theme) {
     actions: {
       flexDirection: "row",
       justifyContent: "flex-end",
+      alignItems: "center",
       gap: 10,
       marginTop: 4,
     },
-    secondaryBtn: {
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      borderRadius: 12,
-    },
-    secondaryLabel: {
-      fontSize: 16,
-      color: t.textSecondary,
-    },
     primaryBtn: {
       minWidth: 120,
-      alignItems: "center",
-      paddingHorizontal: 18,
-      paddingVertical: 12,
-      borderRadius: 12,
-      backgroundColor: t.primary,
-    },
-    primaryBtnDisabled: {
-      opacity: 0.5,
-    },
-    primaryLabel: {
-      fontSize: 16,
-      fontWeight: "600",
-      color: t.onPrimary,
-    },
-    btnPressed: {
-      opacity: 0.85,
     },
   });
 }

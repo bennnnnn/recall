@@ -1,9 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { AppSheet } from "@/components/AppSheet";
+import { Button } from "@/components/Button";
 import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
 import {
@@ -129,27 +130,22 @@ export function UpgradeSheet({ visible, onClose }: Props) {
       {error ? <Text style={s.error}>{error}</Text> : null}
       {purchasesReady ? (
         <>
-          <Pressable
-            style={[s.primaryBtn, (busy || loadingOffer || !pkg) && s.primaryBtnDisabled]}
-            disabled={busy || loadingOffer || !pkg}
+          <Button
+            title={t("upgrade.subscribe", { price: priceLabel })}
             onPress={() => void onSubscribe()}
-          >
-            {busy || loadingOffer ? (
-              <ActivityIndicator color={theme.onPrimary} />
-            ) : (
-              <Text style={s.primaryBtnText}>
-                {t("upgrade.subscribe", { price: priceLabel })}
-              </Text>
-            )}
-          </Pressable>
-          <Pressable style={s.secondaryBtn} disabled={busy} onPress={() => void onRestore()}>
-            <Text style={s.secondaryBtnText}>{t("upgrade.restore")}</Text>
-          </Pressable>
+            loading={busy || loadingOffer}
+            disabled={!pkg}
+            style={s.primaryBtn}
+          />
+          <Button
+            title={t("upgrade.restore")}
+            onPress={() => void onRestore()}
+            variant="ghost"
+            disabled={busy}
+          />
         </>
       ) : (
-        <Pressable style={s.primaryBtn} onPress={onClose}>
-          <Text style={s.primaryBtnText}>{t("upgrade.coming_soon")}</Text>
-        </Pressable>
+        <Button title={t("upgrade.coming_soon")} onPress={onClose} style={s.primaryBtn} />
       )}
       {__DEV__ ? (
         <Pressable style={s.devBtn} onPress={() => void tryDevUpgrade()}>
@@ -213,21 +209,8 @@ const makeStyles = (theme: Theme) =>
       textAlign: "center",
     },
     primaryBtn: {
-      backgroundColor: theme.primary,
-      borderRadius: 14,
-      paddingVertical: 14,
-      alignItems: "center",
       marginTop: 4,
-      minHeight: 48,
-      justifyContent: "center",
     },
-    primaryBtnDisabled: { opacity: 0.6 },
-    primaryBtnText: { color: theme.onPrimary, fontSize: 16, fontWeight: "700" },
-    secondaryBtn: {
-      alignItems: "center",
-      paddingVertical: 10,
-    },
-    secondaryBtnText: { color: theme.primary, fontSize: 15, fontWeight: "600" },
     devBtn: {
       alignItems: "center",
       paddingVertical: 10,

@@ -1,10 +1,11 @@
 import { useMemo } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Redirect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
+import { Button } from "@/components/Button";
 import { useAuth } from "@/contexts/AuthContext";
 import { tap } from "@/lib/haptics";
 import { Theme, useTheme } from "@/lib/theme";
@@ -63,9 +64,7 @@ export default function Onboarding() {
         ))}
       </View>
 
-      <Pressable style={s.cta} onPress={finish}>
-        <Text style={s.ctaText}>{t("onboarding.get_started")}</Text>
-      </Pressable>
+      <Button title={t("onboarding.get_started")} onPress={() => void finish()} style={s.cta} />
     </LinearGradient>
   );
 }
@@ -119,11 +118,7 @@ function makeStyles(theme: Theme) {
     },
     featureBody: { fontSize: 14, color: theme.textSecondary, lineHeight: 20 },
     cta: {
-      backgroundColor: theme.primary,
-      borderRadius: 16,
-      paddingVertical: 16,
-      alignItems: "center",
+      alignSelf: "stretch",
     },
-    ctaText: { fontSize: 16, fontWeight: "700", color: theme.onPrimary },
   });
 }

@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { AvatarUsageRing } from "@/components/AvatarUsageRing";
+import { Button } from "@/components/Button";
 import { UpgradeSheet } from "@/components/UpgradeSheet";
 import {
   makeSettingsStyles,
@@ -344,12 +345,17 @@ export default function SettingsScreen() {
                 keyboardType={fieldKeyboard}
               />
               <View style={s.mActions}>
-                <Pressable style={s.mCancel} onPress={() => setEditField(null)}>
-                  <Text style={s.mCancelText}>{t("settings.cancel")}</Text>
-                </Pressable>
-                <Pressable style={s.mSave} onPress={() => void saveField()}>
-                  <Text style={s.mSaveText}>{t("settings.save")}</Text>
-                </Pressable>
+                <Button
+                  title={t("settings.cancel")}
+                  onPress={() => setEditField(null)}
+                  variant="outline"
+                  style={s.mActionBtn}
+                />
+                <Button
+                  title={t("settings.save")}
+                  onPress={() => void saveField()}
+                  style={s.mActionBtn}
+                />
               </View>
             </Pressable>
           </Pressable>
