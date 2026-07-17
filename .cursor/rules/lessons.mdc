@@ -12,6 +12,7 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **RNSVG “Codegen didn't run” flood.** Metro `resolveRequest` used Node `require.resolve('react-native-svg')` → `lib/commonjs`, skipping package.json `"react-native": "src/"`. Fabric babel codegen never ran. Dedupe via Metro's resolver with a pinned `originModulePath` instead.
 - **Model toggles snap back mid-flip.** Controlled Switch waited on Auth context; racing
   bootstrap `updateMe({timezone|location}).then(setUser)` replaced the whole user with
   stale `enabled_models`. Fix: local draft prefs; `updateUser` generation guard; bootstrap

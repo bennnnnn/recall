@@ -1,17 +1,26 @@
-const { getDefaultConfig } = require('expo/metro-config');
+const path = require("path");
+const { getDefaultConfig } = require("expo/metro-config");
 
 /** @type {import('expo/metro-config').MetroConfig} */
 const config = getDefaultConfig(__dirname);
 
+/**
+ * Pin react-native-svg to a single physical copy (pnpm can otherwise hand
+ * Metro two and Android double-registers RNSVGCircle). Resolve via Metro so
+ * the package.json "react-native" field (`src/`) is used — Node's
+ * require.resolve picks lib/commonjs and skips Fabric codegen.
+ */
 const dedupedModules = new Set(["react-native-svg"]);
+const appPackageJson = path.join(__dirname, "package.json");
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   const root = moduleName.split("/")[0];
   if (dedupedModules.has(root)) {
-    return {
-      type: "sourceFile",
-      filePath: require.resolve(moduleName),
-    };
+    return context.resolveRequest(
+      { ...context, originModulePath: appPackageJson },
+      moduleName,
+      platform,
+    );
   }
   return context.resolveRequest(context, moduleName, platform);
 };
