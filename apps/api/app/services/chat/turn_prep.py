@@ -230,6 +230,34 @@ async def _load_has_calendar_write(user_id: UUID) -> bool:
         return await chat_pkg.calendar_service.has_write_access(session, user_id)
 
 
+def _should_augment_web_and_tools(
+    *,
+    instant_reply: str | None,
+    lightweight: bool,
+    minimal_personal: bool,
+    minimal_quiz: bool,
+    day_planning: bool,
+    ambiguous_nearby: bool,
+    is_external_calendar_question: bool,
+    is_external_email_question: bool,
+) -> bool:
+    """Shared gate for routing-context prefetch and web/tools augmentation.
+
+    Evaluated at both call sites (not cached) so mid-turn ``instant_reply``
+    updates still suppress augmentation the same way as before.
+    """
+    return (
+        instant_reply is None
+        and not lightweight
+        and not minimal_personal
+        and not minimal_quiz
+        and not day_planning
+        and not ambiguous_nearby
+        and not is_external_calendar_question
+        and not is_external_email_question
+    )
+
+
 async def _should_minimal_quiz_context(
     session: AsyncSession,
     chat_id: UUID,
@@ -373,17 +401,18 @@ async def build_stream_prompt_context(
             if not await chat_pkg.email_service.is_connected(session, user.id):
                 instant_reply = chat_pkg.email_service.format_not_connected_answer()
 
-        need_routing_context = (
-            instant_reply is None
-            and not lightweight
-            and not minimal_personal
-            and not minimal_quiz
-            and not day_planning
-            and not geo.ambiguous_nearby
-            and not chat_pkg.calendar_service.is_external_calendar_question(content)
-            and not chat_pkg.email_service.is_external_email_question(content)
-        )
-        if need_routing_context:
+        if _should_augment_web_and_tools(
+            instant_reply=instant_reply,
+            lightweight=lightweight,
+            minimal_personal=minimal_personal,
+            minimal_quiz=minimal_quiz,
+            day_planning=day_planning,
+            ambiguous_nearby=geo.ambiguous_nearby,
+            is_external_calendar_question=chat_pkg.calendar_service.is_external_calendar_question(
+                content
+            ),
+            is_external_email_question=chat_pkg.email_service.is_external_email_question(content),
+        ):
             prior_user_messages, has_calendar_write = await asyncio.gather(
                 _load_prior_user_messages(chat.id),
                 _load_has_calendar_write(user.id),
@@ -486,15 +515,17 @@ async def build_stream_prompt_context(
 
     search_sources: list[WebSearchHit] = []
     verified_math: VerifiedMathBlock | None = None
-    if (
-        instant_reply is None
-        and not lightweight
-        and not minimal_personal
-        and not minimal_quiz
-        and not day_planning
-        and not geo.ambiguous_nearby
-        and not chat_pkg.calendar_service.is_external_calendar_question(content)
-        and not chat_pkg.email_service.is_external_email_question(content)
+    if _should_augment_web_and_tools(
+        instant_reply=instant_reply,
+        lightweight=lightweight,
+        minimal_personal=minimal_personal,
+        minimal_quiz=minimal_quiz,
+        day_planning=day_planning,
+        ambiguous_nearby=geo.ambiguous_nearby,
+        is_external_calendar_question=chat_pkg.calendar_service.is_external_calendar_question(
+            content
+        ),
+        is_external_email_question=chat_pkg.email_service.is_external_email_question(content),
     ):
         prompt_messages, search_sources, verified_math = await chat_pkg._augment_web_and_tools(
             prompt_messages,
