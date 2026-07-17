@@ -34,7 +34,7 @@ describe("ChatActionsSheet", () => {
     jest.clearAllMocks();
   });
 
-  it("renders a top-right menu overlay without a bottom-sheet handle", async () => {
+  it("renders a floating menu overlay without a bottom-sheet handle", async () => {
     const { getByTestId, queryByTestId, getByText } = await render(
       <ChatActionsSheet {...baseProps} placement="menu" />,
     );
