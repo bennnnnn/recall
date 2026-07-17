@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Platform, Pressable, Text, TextInput, View } from "react-native";
+import { Keyboard, Platform, Pressable, Text, TextInput, View } from "react-native";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
@@ -114,9 +114,13 @@ export function AddReminderSheet({
           <Pressable
             style={s.dateChip}
             onPress={() => {
-              if (Platform.OS === "android") setShowPicker(true);
-              else setShowPicker(true);
+              // Native Android calendar sits above our Modal; dismiss the
+              // soft keyboard first so the sheet isn't trapped underneath.
+              Keyboard.dismiss();
+              setShowPicker(true);
             }}
+            accessibilityRole="button"
+            accessibilityLabel={t("todos.due_date_required")}
           >
             <Ionicons name="calendar" size={18} color={C.primary} />
             <Text style={s.dateChipText}>

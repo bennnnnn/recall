@@ -1,13 +1,17 @@
-import { fireEvent, render } from "@testing-library/react-native";
-import { Text } from "react-native";
+import { act, fireEvent, render } from "@testing-library/react-native";
+import { Keyboard, Platform, Text, type EmitterSubscription, type KeyboardEvent } from "react-native";
 
 import { AppSheet } from "@/components/AppSheet";
 
 jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+  useSafeAreaInsets: () => ({ top: 0, bottom: 34, left: 0, right: 0 }),
 }));
 
 describe("AppSheet", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it("renders its children when visible", async () => {
     const { getByText } = await render(
       <AppSheet visible onClose={jest.fn()}>
@@ -83,5 +87,59 @@ describe("AppSheet", () => {
 
     expect(getByText("floating body")).toBeOnTheScreen();
     expect(queryByTestId("app-sheet-handle")).not.toBeNull();
+  });
+
+  it("BUG FIX regression: lifts the bottom sheet above the keyboard (Android Modal)", async () => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    let showHandler: ((e: KeyboardEvent) => void) | undefined;
+    jest.spyOn(Keyboard, "addListener").mockImplementation((event, handler) => {
+      if (event === showEvent) {
+        showHandler = handler as (e: KeyboardEvent) => void;
+      }
+      return { remove: jest.fn() } as EmitterSubscription;
+    });
+
+    const { getByTestId } = await render(
+      <AppSheet visible onClose={jest.fn()} keyboardAvoiding>
+        <Text>new list</Text>
+      </AppSheet>,
+    );
+
+    expect(getByTestId("app-sheet-keyboard-host")).toHaveStyle({ paddingBottom: 0 });
+
+    await act(async () => {
+      showHandler?.({
+        endCoordinates: { height: 320, screenX: 0, screenY: 0, width: 0 },
+      } as KeyboardEvent);
+    });
+
+    expect(getByTestId("app-sheet-keyboard-host")).toHaveStyle({ paddingBottom: 320 });
+  });
+
+  it("BUG FIX regression: clamps tall keyboard sheets so content can scroll", async () => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    let showHandler: ((e: KeyboardEvent) => void) | undefined;
+    jest.spyOn(Keyboard, "addListener").mockImplementation((event, handler) => {
+      if (event === showEvent) {
+        showHandler = handler as (e: KeyboardEvent) => void;
+      }
+      return { remove: jest.fn() } as EmitterSubscription;
+    });
+
+    const { getByText, getByTestId } = await render(
+      <AppSheet visible onClose={jest.fn()} keyboardAvoiding>
+        <Text>reminder body</Text>
+      </AppSheet>,
+    );
+
+    await act(async () => {
+      showHandler?.({
+        endCoordinates: { height: 400, screenX: 0, screenY: 0, width: 0 },
+      } as KeyboardEvent);
+    });
+
+    expect(getByText("reminder body")).toBeOnTheScreen();
+    // Host still lifts by the keyboard height (reminder / calendar sheet).
+    expect(getByTestId("app-sheet-keyboard-host")).toHaveStyle({ paddingBottom: 400 });
   });
 });

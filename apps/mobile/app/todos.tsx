@@ -9,7 +9,7 @@ import { AddFab } from "@/components/AddFab";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { AddReminderSheet } from "@/components/todos/AddReminderSheet";
 import { DuePickerModal } from "@/components/todos/DuePickerModal";
-import { NewListSheet } from "@/components/todos/NewListSheet";
+import { NewListComposer } from "@/components/todos/NewListComposer";
 import { TodosFlashList } from "@/components/todos/TodosFlashList";
 import { TodosScreenHeader } from "@/components/todos/TodosScreenHeader";
 import { makeTodosStyles } from "@/components/todos/todosStyles";
@@ -189,6 +189,13 @@ export default function TodosScreen() {
         </View>
       ) : null}
 
+      {showList && newListOpen ? (
+        <NewListComposer
+          onCancel={() => setNewListOpen(false)}
+          onSave={(name) => void actions.handleCreateList(name, () => setNewListOpen(false))}
+        />
+      ) : null}
+
       <TodosFlashList
         showReminders={showReminders}
         isRemindersPage={isRemindersPage}
@@ -214,18 +221,12 @@ export default function TodosScreen() {
         }}
       />
 
-      {showList ? (
+      {showList && !newListOpen ? (
         <AddFab
           onPress={() => setNewListOpen(true)}
           accessibilityLabel={t("lists.new_group_a11y")}
         />
       ) : null}
-
-      <NewListSheet
-        visible={newListOpen}
-        onClose={() => setNewListOpen(false)}
-        onSave={(name) => void actions.handleCreateList(name, () => setNewListOpen(false))}
-      />
 
       <AddReminderSheet
         visible={reminderSheetOpen}
