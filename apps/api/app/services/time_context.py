@@ -26,16 +26,17 @@ _TIME_QUESTION = re.compile(
     re.IGNORECASE,
 )
 
-# "What time is it in Tokyo / DC / …" — not the user's local clock.
-_REMOTE_TIME_QUESTION = re.compile(
+# Prefix only — place name is checked without `.+` (CodeQL py/polynomial-redos).
+# Input must be `_collapse_ws`'d first (single spaces, trimmed).
+_REMOTE_TIME_PREFIX = re.compile(
     r"^(?:"
-    r"what(?:'s| is) the time(?: now)? in\b.+"
-    r"|what time is it(?: now)? in\b.+"
-    r"|what time(?: now)? in\b.+"
-    r"|current time in\b.+"
-    r"|time(?: please)? in\b.+"
-    r")[.!?]*$",
-    re.IGNORECASE | re.DOTALL,
+    r"what(?:'s| is) the time(?: now)? in "
+    r"|what time is it(?: now)? in "
+    r"|what time(?: now)? in "
+    r"|current time in "
+    r"|time(?: please)? in "
+    r")",
+    re.IGNORECASE,
 )
 
 _SCHEDULED_EVENT = re.compile(
@@ -96,7 +97,11 @@ def is_remote_time_question(text: str) -> bool:
     cleaned = _collapse_ws(text)
     if not cleaned:
         return False
-    return bool(_REMOTE_TIME_QUESTION.match(cleaned))
+    match = _REMOTE_TIME_PREFIX.match(cleaned)
+    if match is None:
+        return False
+    place = cleaned[match.end() :].rstrip(".!?").strip()
+    return bool(place)
 
 
 def is_time_question(text: str) -> bool:

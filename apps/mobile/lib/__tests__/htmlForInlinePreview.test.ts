@@ -1,6 +1,17 @@
 import { htmlForInlinePreview } from "@/lib/htmlForInlinePreview";
 import { stripScripts } from "@/lib/previewSandbox";
 
+describe("htmlForInlinePreview", () => {
+  it("strips nested/residual script and style openers", () => {
+    const html =
+      "<body><scr<script>alert(1)</script>ipt>x</script><style>b{}</style><p>ok</p></body>";
+    const out = htmlForInlinePreview(html);
+    expect(out.toLowerCase()).not.toContain("<script");
+    expect(out.toLowerCase()).not.toContain("<style");
+    expect(out).toContain("ok");
+  });
+});
+
 describe("htmlForInlinePreview + stripScripts (Expo Go static fallback)", () => {
   it("strips <script> blocks before the static renderer sees them", () => {
     // The Expo Go static fallback path runs stripScripts(html) before
