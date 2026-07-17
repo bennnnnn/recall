@@ -4,8 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.core.validation import normalize_chat_title, validate_user_alias
 from app.models.schemas.common import MessageFeedback, MessageRole, QuizMode
-from app.services import model_catalog
 
 
 class ChatCreate(BaseModel):
@@ -16,7 +16,7 @@ class ChatCreate(BaseModel):
     @field_validator("model")
     @classmethod
     def validate_model(cls, value: str) -> str:
-        model_catalog.validate_user_alias(value, allow_auto=True)
+        validate_user_alias(value, allow_auto=True)
         return value
 
 
@@ -51,8 +51,6 @@ class ChatOut(BaseModel):
 
     @model_validator(mode="after")
     def sanitize_title(self) -> Self:
-        from app.services.chat_titles import normalize_chat_title
-
         self.title = normalize_chat_title(self.title)
         return self
 
@@ -100,7 +98,7 @@ class ChatMessageRequest(BaseModel):
     def validate_model(cls, value: str | None) -> str | None:
         if value is None:
             return None
-        model_catalog.validate_user_alias(value, allow_auto=True)
+        validate_user_alias(value, allow_auto=True)
         return value
 
 
@@ -118,7 +116,7 @@ class EditMessageRequest(BaseModel):
     def validate_model(cls, value: str | None) -> str | None:
         if value is None:
             return None
-        model_catalog.validate_user_alias(value, allow_auto=True)
+        validate_user_alias(value, allow_auto=True)
         return value
 
 

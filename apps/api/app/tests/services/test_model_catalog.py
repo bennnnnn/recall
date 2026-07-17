@@ -30,6 +30,12 @@ def test_selectable_models_count():
     assert "gpt-5.5" in {m.id for m in model_catalog.selectable_models()}
 
 
+def test_known_model_aliases_match_catalog():
+    from app.core.validation import KNOWN_MODEL_ALIASES
+
+    assert KNOWN_MODEL_ALIASES == model_catalog.known_ids()
+
+
 def test_validate_user_alias_allows_auto():
     model_catalog.validate_user_alias("auto", allow_auto=True)
 

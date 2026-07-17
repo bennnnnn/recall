@@ -3,8 +3,13 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.core.validation import (
+    LOCALE_NAMES,
+    normalize_display_name,
+    normalize_locale_code,
+    validate_user_alias,
+)
 from app.models.schemas.common import ResponseStyle, ResponseTone
-from app.services import model_catalog
 
 
 class UserOut(BaseModel):
@@ -58,8 +63,6 @@ class UserUpdate(BaseModel):
     def validate_name(cls, value: str | None) -> str | None:
         if value is None:
             return None
-        from app.services.profile import normalize_display_name
-
         normalized = normalize_display_name(value)
         if not normalized:
             raise ValueError("Name must be 1\u201380 characters.")
@@ -70,7 +73,7 @@ class UserUpdate(BaseModel):
     def validate_default_model(cls, value: str | None) -> str | None:
         if value is None:
             return None
-        model_catalog.validate_user_alias(value, allow_auto=True)
+        validate_user_alias(value, allow_auto=True)
         return value
 
     @field_validator("enabled_models")
@@ -83,7 +86,7 @@ class UserUpdate(BaseModel):
         for entry in value:
             if entry == "auto":
                 continue
-            model_catalog.validate_user_alias(entry)
+            validate_user_alias(entry)
         return value
 
     @field_validator("reminder_lead_minutes")
@@ -120,8 +123,6 @@ class UserUpdate(BaseModel):
         # custom_instructions blank-clears behavior.
         if not value.strip():
             return None
-        from app.services.locale import LOCALE_NAMES, normalize_locale_code
-
         code = normalize_locale_code(value)
         if code not in LOCALE_NAMES:
             supported = ", ".join(sorted(LOCALE_NAMES))
