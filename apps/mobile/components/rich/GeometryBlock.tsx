@@ -15,6 +15,7 @@ import {
   type RightTriangleSpec,
   type TriangleSpec,
 } from "@/lib/geometryBlock";
+import i18n from "@/lib/i18n";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = { content: string };
@@ -106,12 +107,12 @@ function RectangleDiagram({ spec, screenWidth, theme }: { spec: RectangleSpec; s
       ) : null}
       {spec.show_area ? (
         <SvgText x={x + w / 2} y={y + h + 34} fill={theme.textSecondary} fontSize={12} textAnchor="middle">
-          {`Area:\u00A0${labels.area}`}
+          {`${i18n.t("rich.area")}\u00A0${labels.area}`}
         </SvgText>
       ) : null}
       {spec.show_perimeter ? (
         <SvgText x={x + w / 2} y={y + h + (spec.show_area ? 50 : 34)} fill={theme.textSecondary} fontSize={12} textAnchor="middle">
-          {`Perimeter:\u00A0${labels.perimeter}`}
+          {`${i18n.t("rich.perimeter")}\u00A0${labels.perimeter}`}
         </SvgText>
       ) : null}
     </Svg>
@@ -265,7 +266,7 @@ function CircleDiagram({ spec, screenWidth, theme }: { spec: CircleSpec; screenW
       ) : null}
       {spec.show_diameter ? (
         <SvgText x={cx} y={cy + r + 34} fill={theme.textSecondary} fontSize={12} textAnchor="middle">
-          {`Diameter:\u00A0${labels.diameter}`}
+          {`${i18n.t("rich.diameter")}\u00A0${labels.diameter}`}
         </SvgText>
       ) : null}
       {spec.show_area ? (
@@ -276,7 +277,7 @@ function CircleDiagram({ spec, screenWidth, theme }: { spec: CircleSpec; screenW
           fontSize={12}
           textAnchor="middle"
         >
-          {`Area:\u00A0${labels.area}`}
+          {`${i18n.t("rich.area")}\u00A0${labels.area}`}
         </SvgText>
       ) : null}
       {spec.show_circumference ? (
@@ -287,7 +288,7 @@ function CircleDiagram({ spec, screenWidth, theme }: { spec: CircleSpec; screenW
           fontSize={12}
           textAnchor="middle"
         >
-          {`Circumference:\u00A0${labels.circumference}`}
+          {`${i18n.t("rich.circumference")}\u00A0${labels.circumference}`}
         </SvgText>
       ) : null}
     </Svg>
@@ -303,7 +304,7 @@ export function GeometryBlock({ content }: Props) {
   if (!spec) {
     return (
       <View style={styles.fallback}>
-        <Text style={styles.fallbackText}>Could not render geometry diagram.</Text>
+        <Text style={styles.fallbackText}>{i18n.t("rich.geometry_error")}</Text>
       </View>
     );
   }

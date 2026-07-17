@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 
 import { CodeBlock } from "@/components/CodeBlock";
@@ -15,6 +16,7 @@ type Props = {
 /** HTML fence: syntax-highlighted code + preview modal + bottom actions. */
 export function WebPreviewCodeBlock({ code, lang = "html" }: Props) {
   const theme = useTheme();
+  const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -28,7 +30,7 @@ export function WebPreviewCodeBlock({ code, lang = "html" }: Props) {
             style={[s.iconBtn, modalOpen && s.iconBtnActive]}
             onPress={() => setModalOpen(true)}
             activeOpacity={0.6}
-            accessibilityLabel="Preview HTML"
+            accessibilityLabel={t("preview.preview_html")}
           >
             <Ionicons
               name="play-outline"
@@ -43,7 +45,7 @@ export function WebPreviewCodeBlock({ code, lang = "html" }: Props) {
               style={s.iconBtn}
               onPress={() => setModalOpen(true)}
               activeOpacity={0.6}
-              accessibilityLabel="Preview HTML"
+              accessibilityLabel={t("preview.preview_html")}
             >
               <Ionicons name="play-outline" size={18} color={theme.textSecondary} />
             </TouchableOpacity>
@@ -51,7 +53,7 @@ export function WebPreviewCodeBlock({ code, lang = "html" }: Props) {
               style={s.iconBtn}
               onPress={() => void openHtmlInBrowser(code)}
               activeOpacity={0.6}
-              accessibilityLabel="Open in browser"
+              accessibilityLabel={t("preview.open_in_browser")}
             >
               <Ionicons name="open-outline" size={18} color={theme.textSecondary} />
             </TouchableOpacity>

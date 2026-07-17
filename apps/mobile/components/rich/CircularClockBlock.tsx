@@ -8,6 +8,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import Svg, { Circle, Line } from "react-native-svg";
+import { useTranslation } from "react-i18next";
 
 import { useAuthOptional } from "@/contexts/AuthContext";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
@@ -117,6 +118,7 @@ function ClockFace({ parts, theme }: { parts: ClockParts; theme: Theme }) {
 /** Live circular analog clock — ```clock fence with IANA timezone. */
 export function CircularClockBlock({ content }: Props) {
   const theme = useTheme();
+  const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const auth = useAuthOptional();
   const timeZone = useMemo(
@@ -169,7 +171,7 @@ export function CircularClockBlock({ content }: Props) {
     <View
       style={s.wrap}
       accessibilityRole="text"
-      accessibilityLabel={`Current time ${parts.timeLabel}, ${parts.dateLabel}`}
+      accessibilityLabel={t("rich.current_time_a11y", { time: parts.timeLabel, date: parts.dateLabel })}
     >
       <View style={s.clockStage}>
         <Animated.View style={[s.ring, ringStyle, pulseStyle]} />

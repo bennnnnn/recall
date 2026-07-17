@@ -2,6 +2,7 @@
  * Mermaid diagram — inline SVG render via WebView (dev build), with source fallback.
  */
 import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import * as WebBrowser from "expo-web-browser";
@@ -58,6 +59,7 @@ function buildMermaidHtml(source: string, theme: Theme): string {
 
 export function MermaidBlock({ content }: Props) {
   const theme = useTheme();
+  const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const [showSource, setShowSource] = useState(false);
 
@@ -79,10 +81,10 @@ export function MermaidBlock({ content }: Props) {
       <View style={s.header}>
         <View style={s.headerLeft}>
           <Text style={s.headerIcon}>📊</Text>
-          <Text style={s.headerLabel}>Mermaid Diagram</Text>
+          <Text style={s.headerLabel}>{t("rich.mermaid_diagram")}</Text>
         </View>
         <Pressable onPress={() => setShowSource((v) => !v)} hitSlop={8}>
-          <Text style={s.toggleSource}>{showSource ? "Diagram" : "Source"}</Text>
+          <Text style={s.toggleSource}>{showSource ? t("rich.diagram") : t("rich.source")}</Text>
         </Pressable>
       </View>
 
@@ -113,7 +115,7 @@ export function MermaidBlock({ content }: Props) {
           <Text style={s.previewText} numberOfLines={6}>
             {content.trim()}
           </Text>
-          <Text style={s.fallbackHint}>Build the app to preview diagrams inline.</Text>
+          <Text style={s.fallbackHint}>{t("rich.mermaid_dev_build")}</Text>
         </View>
       )}
 
@@ -121,7 +123,7 @@ export function MermaidBlock({ content }: Props) {
         <CopyButton text={content} variant="action" />
         <Pressable style={s.openBtn} onPress={handleOpenLiveEditor} hitSlop={8}>
           <Ionicons name="open-outline" size={18} color={theme.onPrimary} />
-          <Text style={s.openLabel}>Mermaid Live</Text>
+          <Text style={s.openLabel}>{t("rich.mermaid_live")}</Text>
         </Pressable>
       </View>
     </View>

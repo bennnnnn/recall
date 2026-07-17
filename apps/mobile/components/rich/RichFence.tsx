@@ -1,5 +1,7 @@
 import { ReactNode } from "react";
 
+import i18n from "@/lib/i18n";
+
 import { PlacesListBlock } from "@/components/PlacesListBlock";
 import { CalloutBlock } from "@/components/rich/CalloutBlock";
 import { parsePlacesJson } from "@/lib/placesList";
@@ -163,7 +165,7 @@ export function renderCopyStyleBlock(
       <MessagePreview
         key={key}
         text={content}
-        label={l === "reply" ? "Reply draft" : "Message draft"}
+        label={l === "reply" ? i18n.t("rich.reply_draft") : i18n.t("rich.message_draft")}
       />
     );
   }

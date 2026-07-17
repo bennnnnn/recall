@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 
 import { CardShell } from "@/components/rich/CardShell";
 import { SocialPlatform } from "@/lib/richBlocks";
@@ -9,30 +10,32 @@ import { Theme, useTheme } from "@/lib/theme";
 type Props = { text: string; platform: SocialPlatform };
 
 function platformMeta(
-  t: Theme,
+  theme: Theme,
+  t: (key: string) => string,
 ): Record<
   SocialPlatform,
   { label: string; icon: keyof typeof Ionicons.glyphMap; color: string }
 > {
   return {
-    twitter: { label: "Post draft · X", icon: "logo-twitter", color: t.brand.twitter },
+    twitter: { label: t("rich.post_draft_x"), icon: "logo-twitter", color: theme.brand.twitter },
     linkedin: {
-      label: "Post draft · LinkedIn",
+      label: t("rich.post_draft_linkedin"),
       icon: "logo-linkedin",
-      color: t.brand.linkedin,
+      color: theme.brand.linkedin,
     },
     generic: {
-      label: "Social post draft",
+      label: t("rich.social_post_draft"),
       icon: "megaphone-outline",
-      color: t.primary,
+      color: theme.primary,
     },
   };
 }
 
 export function SocialPostCard({ text, platform }: Props) {
   const theme = useTheme();
+  const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const meta = platformMeta(theme)[platform];
+  const meta = platformMeta(theme, t)[platform];
 
   return (
     <CardShell
@@ -46,7 +49,7 @@ export function SocialPostCard({ text, platform }: Props) {
           <Ionicons name="person" size={16} color={theme.textSecondary} />
         </View>
         <View style={s.content}>
-          <Text style={s.name}>You</Text>
+          <Text style={s.name}>{t("common.you")}</Text>
           <Text style={s.post} selectable>
             {text}
           </Text>

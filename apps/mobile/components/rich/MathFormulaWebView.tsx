@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 
 import {
   buildMathWebHtml,
@@ -168,17 +169,19 @@ function MathLatexFallback({
   compact?: boolean;
   theme: Theme;
 }) {
+  const { t } = useTranslation();
   const s = makeStyles(theme);
+  const engineName = engine === "mathjax" ? "MathJax" : "KaTeX";
   return (
     <View style={[s.fallback, compact ? s.fallbackCompact : null]}>
       {!compact ? (
-        <Text style={s.fallbackBadge}>{engine === "mathjax" ? "MathJax" : "KaTeX"} preview</Text>
+        <Text style={s.fallbackBadge}>{t("rich.math_preview", { engine: engineName })}</Text>
       ) : null}
       <Text style={s.fallbackText} selectable>
         {latex.trim()}
       </Text>
       {!compact ? (
-        <Text style={s.fallbackHint}>Use a dev build for rendered math.</Text>
+        <Text style={s.fallbackHint}>{t("rich.math_dev_build")}</Text>
       ) : null}
     </View>
   );

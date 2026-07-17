@@ -64,7 +64,7 @@ describe("FunctionGraphBlock", () => {
 
   it("renders the fallback message for unparseable content", async () => {
     const { getByText } = await render(<FunctionGraphBlock content="not json" />);
-    expect(getByText("Could not render function graph.")).toBeOnTheScreen();
+    expect(getByText("rich.graph_error")).toBeOnTheScreen();
   });
 
   it("BUG FIX regression: renders a vertical line fence (x = c)", async () => {
