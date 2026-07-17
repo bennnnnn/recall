@@ -5,9 +5,9 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
 from app.core.redis_lock import acquire_lock, release_lock
-from app.gateways import litellm_gateway
 from app.models.orm import Chat
 from app.repositories import messages as messages_repo
+from app.services.chat.summarize import summarize_conversation
 from app.services.context_window import (
     cap_summary,
     compute_history_split,
@@ -83,7 +83,7 @@ async def compress_chat_history(settings: Settings, chat_id: UUID) -> None:
                 }
                 for m in slice_msgs
             ]
-            new_summary = await litellm_gateway.summarize_conversation(
+            new_summary = await summarize_conversation(
                 settings, chat.summary, transcript
             )
             if not new_summary:

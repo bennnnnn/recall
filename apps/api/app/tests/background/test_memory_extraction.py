@@ -83,7 +83,7 @@ async def test_extract_and_store_all_sections_below_confidence_skips_upsert():
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.background.memory_extraction.litellm_gateway.revise_memory_sections",
+            "app.background.memory_extraction.memory_llm.revise_memory_sections",
             AsyncMock(return_value=extraction),
         ),
         patch("app.background.memory_extraction.memories_repo.upsert_sections", upsert),
@@ -120,7 +120,7 @@ async def test_extract_and_store_drops_section_with_empty_summary_after_normaliz
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.background.memory_extraction.litellm_gateway.revise_memory_sections",
+            "app.background.memory_extraction.memory_llm.revise_memory_sections",
             AsyncMock(return_value=extraction),
         ),
         patch("app.background.memory_extraction.memories_repo.upsert_sections", upsert),
@@ -168,7 +168,7 @@ async def test_extract_and_store_stores_embedding_for_new_memory():
             AsyncMock(side_effect=[[], [updated]]),
         ),
         patch(
-            "app.background.memory_extraction.litellm_gateway.revise_memory_sections",
+            "app.background.memory_extraction.memory_llm.revise_memory_sections",
             AsyncMock(return_value=extraction),
         ),
         patch("app.background.memory_extraction.memories_repo.upsert_sections", AsyncMock()),
@@ -251,7 +251,7 @@ async def test_extraction_and_consolidation_do_not_race_the_same_user(fake_redis
             AsyncMock(return_value=[shared_memory]),
         ),
         patch(
-            "app.background.memory_extraction.litellm_gateway.revise_memory_sections",
+            "app.background.memory_extraction.memory_llm.revise_memory_sections",
             AsyncMock(side_effect=_slow_revise),
         ),
         patch("app.repositories.memories.upsert_sections", upsert),

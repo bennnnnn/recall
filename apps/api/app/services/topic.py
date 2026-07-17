@@ -6,9 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.db import SessionLocal
-from app.gateways import litellm_gateway
 from app.models.orm import Chat
 from app.repositories import chats as chats_repo
+from app.services import chat_titles
 from app.services.chat_titles import normalize_chat_title
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ async def generate_chat_title(
         return
     try:
         title = await asyncio.wait_for(
-            litellm_gateway.generate_title(settings, user_message, assistant_message),
+            chat_titles.generate_title(settings, user_message, assistant_message),
             timeout=15.0,
         )
         title = normalize_chat_title(title)

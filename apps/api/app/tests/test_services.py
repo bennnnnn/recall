@@ -6,6 +6,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.services import chat_titles, memory_llm
 from app.services.memory import embedding_text_hash
 
 
@@ -164,7 +165,7 @@ async def test_generate_title_mock():
     from app.gateways import litellm_gateway
 
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
-    title = await litellm_gateway.generate_title(settings, "Hello", "Hi there")
+    title = await chat_titles.generate_title(settings, "Hello", "Hi there")
     assert title is not None
     assert isinstance(title, str)
 
@@ -174,7 +175,7 @@ async def test_revise_memory_sections_mock():
     from app.gateways import litellm_gateway
 
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
-    result = await litellm_gateway.revise_memory_sections(
+    result = await memory_llm.revise_memory_sections(
         settings, "User likes Python", existing_sections={}
     )
     assert result is None or hasattr(result, "sections")
@@ -221,7 +222,7 @@ async def test_extract_and_store_no_result():
             AsyncMock(return_value=MagicMock(memory_enabled=True)),
         ),
         patch(
-            "app.background.memory_extraction.litellm_gateway.revise_memory_sections",
+            "app.background.memory_extraction.memory_llm.revise_memory_sections",
             AsyncMock(return_value=None),
         ),
         patch(
@@ -263,7 +264,7 @@ async def test_extract_and_store_filters_confidence():
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.background.memory_extraction.litellm_gateway.revise_memory_sections",
+            "app.background.memory_extraction.memory_llm.revise_memory_sections",
             AsyncMock(return_value=extraction),
         ),
         patch("app.background.memory_extraction.memories_repo.upsert_sections", upsert),
@@ -294,7 +295,7 @@ async def test_extract_and_store_swallows_exception():
             AsyncMock(return_value=MagicMock(memory_enabled=True)),
         ),
         patch(
-            "app.background.memory_extraction.litellm_gateway.revise_memory_sections",
+            "app.background.memory_extraction.memory_llm.revise_memory_sections",
             AsyncMock(side_effect=RuntimeError("boom")),
         ),
         patch(
@@ -322,7 +323,7 @@ async def test_extract_and_store_skips_when_memory_disabled():
             AsyncMock(return_value=MagicMock(memory_enabled=False)),
         ),
         patch(
-            "app.background.memory_extraction.litellm_gateway.revise_memory_sections",
+            "app.background.memory_extraction.memory_llm.revise_memory_sections",
             AsyncMock(side_effect=AssertionError("should not be called")),
         ),
     ):
@@ -354,7 +355,7 @@ async def test_extract_and_store_skips_when_write_lock_held():
             AsyncMock(return_value=False),
         ),
         patch("app.background.memory_extraction.users_repo.get_by_id", get_by_id),
-        patch("app.background.memory_extraction.litellm_gateway.revise_memory_sections", revise),
+        patch("app.background.memory_extraction.memory_llm.revise_memory_sections", revise),
         patch("app.background.memory_extraction.memories_repo.upsert_sections", upsert),
     ):
         await extract_and_store_memories(settings, user_id=uuid4(), chat_id=uuid4(), transcript="t")
@@ -405,7 +406,7 @@ async def test_extract_and_store_reembeds_when_text_changed():
             AsyncMock(side_effect=[[existing], [updated]]),
         ),
         patch(
-            "app.background.memory_extraction.litellm_gateway.revise_memory_sections",
+            "app.background.memory_extraction.memory_llm.revise_memory_sections",
             AsyncMock(return_value=extraction),
         ),
         patch("app.background.memory_extraction.memories_repo.upsert_sections", AsyncMock()),
@@ -462,7 +463,7 @@ async def test_extract_and_store_reembeds_when_pgvector_missing():
             AsyncMock(side_effect=[[existing], [updated]]),
         ),
         patch(
-            "app.background.memory_extraction.litellm_gateway.revise_memory_sections",
+            "app.background.memory_extraction.memory_llm.revise_memory_sections",
             AsyncMock(return_value=extraction),
         ),
         patch("app.background.memory_extraction.memories_repo.upsert_sections", AsyncMock()),
@@ -522,7 +523,7 @@ async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_th
             AsyncMock(side_effect=[[existing], [updated]]),
         ),
         patch(
-            "app.background.memory_extraction.litellm_gateway.revise_memory_sections",
+            "app.background.memory_extraction.memory_llm.revise_memory_sections",
             AsyncMock(return_value=extraction),
         ),
         patch("app.background.memory_extraction.memories_repo.upsert_sections", AsyncMock()),
@@ -570,7 +571,7 @@ async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_th
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.background.memory_extraction.litellm_gateway.revise_memory_sections",
+            "app.background.memory_extraction.memory_llm.revise_memory_sections",
             AsyncMock(side_effect=fake_revise),
         ),
     ):
@@ -595,7 +596,7 @@ async def test_topic_service_skips_when_title_none():
     mock_set = AsyncMock()
     with (
         patch(
-            "app.services.topic.litellm_gateway.generate_title",
+            "app.services.topic.chat_titles.generate_title",
             AsyncMock(return_value=None),
         ),
         patch("app.services.topic.chats_repo.set_title", mock_set),
@@ -619,7 +620,7 @@ async def test_topic_service_saves_when_title_returned():
     with (
         patch("app.services.topic.SessionLocal", side_effect=[_FakeSessionCM(session)]),
         patch(
-            "app.services.topic.litellm_gateway.generate_title",
+            "app.services.topic.chat_titles.generate_title",
             AsyncMock(return_value="Cool chat title"),
         ),
         patch("app.services.topic.chats_repo.set_title", mock_set),
@@ -635,7 +636,7 @@ async def test_topic_service_rejects_boring_title():
     mock_set = AsyncMock()
     with (
         patch(
-            "app.services.topic.litellm_gateway.generate_title",
+            "app.services.topic.chat_titles.generate_title",
             AsyncMock(return_value="New chat"),
         ),
         patch("app.services.topic.chats_repo.set_title", mock_set),
@@ -649,7 +650,7 @@ async def test_topic_service_skips_empty_messages():
     from app.services import topic as topic_service
 
     with patch(
-        "app.services.topic.litellm_gateway.generate_title",
+        "app.services.topic.chat_titles.generate_title",
         AsyncMock(return_value="Valid title here"),
     ) as mock_gen:
         await topic_service.generate_chat_title(Settings(), uuid4(), "  ", "hello")
@@ -671,7 +672,7 @@ async def test_topic_service_skips_when_chat_already_titled():
     with (
         patch("app.services.topic.SessionLocal", side_effect=[_FakeSessionCM(session)]),
         patch(
-            "app.services.topic.litellm_gateway.generate_title",
+            "app.services.topic.chat_titles.generate_title",
             AsyncMock(return_value="Fresh title"),
         ) as mock_gen,
         patch("app.services.topic.chats_repo.set_title", mock_set),
@@ -711,7 +712,7 @@ async def test_topic_generate_chat_title_releases_db_before_llm():
     with (
         patch("app.services.topic.SessionLocal", side_effect=[apply_cm]),
         patch(
-            "app.services.topic.litellm_gateway.generate_title",
+            "app.services.topic.chat_titles.generate_title",
             AsyncMock(side_effect=fake_generate),
         ),
         patch("app.services.topic.chats_repo.set_title", AsyncMock()),

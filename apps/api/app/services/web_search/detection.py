@@ -133,9 +133,9 @@ async def classify_web_search(
     """LLM gate for ambiguous turns; None when classifier disabled or call fails."""
     if not settings.web_search_classifier_enabled:
         return None
-    from app.gateways import litellm_gateway
+    from app.services.web_search.classify import classify_web_search_need
 
-    return await litellm_gateway.classify_web_search_need(
+    return await classify_web_search_need(
         settings,
         text,
         prior_user_messages=prior_user_messages,

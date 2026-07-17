@@ -132,14 +132,14 @@ async def _run_extracted_project_actions(
     transcript: str,
 ) -> ProjectExtractionResult | None:
     from app.core.db import SessionLocal
-    from app.gateways import litellm_gateway
+    from app.services.projects.extract import extract_project_actions
 
     async with SessionLocal() as session:
         loaded = await _load_project_sync_snapshot(session, user_id, settings)
         await session.commit()
 
     try:
-        result = await litellm_gateway.extract_project_actions(
+        result = await extract_project_actions(
             settings,
             transcript,
             loaded.snapshot,
