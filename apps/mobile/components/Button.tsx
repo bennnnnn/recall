@@ -8,6 +8,7 @@ import {
   type ViewStyle,
 } from "react-native";
 
+import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Variant = "primary" | "outline" | "ghost";
@@ -80,8 +81,8 @@ function makeStyles(theme: Theme) {
     base: {
       minHeight: 48,
       borderRadius: 12,
-      paddingHorizontal: 18,
-      paddingVertical: 12,
+      paddingHorizontal: Space.md,
+      paddingVertical: Space.sm,
       alignItems: "center",
       justifyContent: "center",
     },
@@ -96,7 +97,7 @@ function makeStyles(theme: Theme) {
     ghost: {
       backgroundColor: "transparent",
       minHeight: undefined,
-      paddingVertical: 10,
+      paddingVertical: Space.xs,
     },
     disabled: {
       opacity: 0.55,

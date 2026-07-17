@@ -213,6 +213,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **iOS haptics** — `expo-haptics` on real devices (graceful no-op on Android / Expo Go).
 - ✅ **Screen transitions** — shared stack presets: iOS-native push + back gestures on nested
   stacks, fade for auth/onboarding, fade-from-bottom for drawer utility screens (memory, todos).
+- ✅ **Shared Button / type / space / motion tokens** — primary CTAs via `components/Button`;
+  `lib/type.ts`, `lib/space.ts`, `lib/motion.ts` for high-traffic roles (incremental migration).
+- 🔜 Full typography/spacing ownership across every screen; compact chip/pill controls stay
+  specialized (not the shared Button).
 
 ## 12. Monetization
 - ✅ **Pro subscription (RevenueCat)** — mobile purchase flow via lazy-loaded `react-native-purchases`

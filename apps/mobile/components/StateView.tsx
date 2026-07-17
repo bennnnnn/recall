@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/Button";
 import { tap } from "@/lib/haptics";
+import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
@@ -74,11 +75,11 @@ function makeStyles(theme: Theme, compact: boolean) {
       flex: compact ? undefined : 1,
       alignItems: "center",
       justifyContent: "center",
-      paddingVertical: compact ? 24 : 40,
-      paddingHorizontal: 24,
-      gap: 8,
+      paddingVertical: compact ? Space.lg : Space.xl + Space.xs,
+      paddingHorizontal: Space.lg,
+      gap: Space.xs,
     },
-    icon: { marginBottom: 4 },
+    icon: { marginBottom: Space.xxs },
     title: {
       fontSize: 17,
       fontWeight: "700",
@@ -91,9 +92,9 @@ function makeStyles(theme: Theme, compact: boolean) {
       textAlign: "center",
     },
     retryBtn: {
-      marginTop: 8,
+      marginTop: Space.xs,
       alignSelf: "center",
-      paddingHorizontal: 24,
+      paddingHorizontal: Space.lg,
     },
   });
 }
