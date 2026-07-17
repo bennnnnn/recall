@@ -23,8 +23,6 @@ type Props = {
    * `menu` — shared floating overflow card (chat ⋮ + drawer long-press).
    */
   placement?: "sheet" | "menu";
-  /** Top chrome height under the status bar when `placement="menu"`. */
-  headerBarHeight?: number;
 };
 
 type IonName = ComponentProps<typeof Ionicons>["name"];
@@ -41,7 +39,6 @@ export function ChatActionsSheet({
   onToggleArchive,
   onDelete,
   placement = "sheet",
-  headerBarHeight,
 }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
@@ -54,7 +51,6 @@ export function ChatActionsSheet({
         title={title}
         pinned={pinned}
         archived={archived}
-        headerBarHeight={headerBarHeight}
         onClose={onClose}
         onShare={onShare}
         onRename={onRename}

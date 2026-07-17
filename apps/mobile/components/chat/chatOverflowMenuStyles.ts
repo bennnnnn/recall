@@ -63,9 +63,10 @@ export function makeChatOverflowMenuStyles(C: Theme) {
 
 export type ChatOverflowMenuStyles = ReturnType<typeof makeChatOverflowMenuStyles>;
 
-/** Default insets for the floating card under the top chrome. */
+/** Horizontal + bottom insets — card sits in the thumb zone. */
 export const CHAT_OVERFLOW_MENU_INSET = {
   right: 12,
   left: 44,
-  belowHeader: 6,
+  /** Gap above the home indicator / keyboard. */
+  aboveBottom: 12,
 } as const;

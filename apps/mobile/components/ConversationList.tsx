@@ -252,7 +252,6 @@ export function ConversationList(_props: unknown) {
         pinned={menuChat?.pinned ?? false}
         archived={menuChat?.archived ?? false}
         placement="menu"
-        headerBarHeight={TOP_CHROME}
         onClose={closeMenu}
         onShare={() => {
           tap();
