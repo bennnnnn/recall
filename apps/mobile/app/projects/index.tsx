@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { FlashList } from "@shopify/flash-list";
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -24,7 +25,6 @@ import { LearningProjectCard } from "@/components/projects/LearningProjectCard";
 import { StepPicker } from "@/components/projects/StepPicker";
 import { api, type LanguageLevel, type Project, type ProjectKind } from "@/lib/api";
 import {
-  dailyGoalPickerOptions,
   DEFAULT_VOCAB_DAILY_GOAL,
   formatDailyGoalShort,
   resolveDailyGoal,
@@ -384,9 +384,12 @@ export default function ProjectsScreen() {
       {loading && visibleProjects.length === 0 && !error ? (
         <SkeletonList />
       ) : (
-        <ScrollView
+        <FlashList
+          data={error ? [] : visibleProjects}
+          keyExtractor={(project) => project.id}
           contentContainerStyle={s.content}
           keyboardShouldPersistTaps="handled"
+          ItemSeparatorComponent={() => <View style={s.listGap} />}
           refreshControl={
             <RefreshControl
               refreshing={pullRefreshing}
@@ -398,54 +401,53 @@ export default function ProjectsScreen() {
               tintColor={C.primary}
             />
           }
-        >
-          {showAddLearning ? (
-            <Pressable style={s.newProjectBtn} onPress={openCreate}>
-              <Ionicons name="add-circle-outline" size={22} color={C.primary} />
-              <Text style={s.newProjectText}>{t("projects.add_learning")}</Text>
-            </Pressable>
-          ) : null}
-
-          {!error && visibleProjects.length === 0 ? (
-            <StateView
-              variant="empty"
-              title={t("projects.empty_title")}
-              message={t("projects.empty_body")}
-            />
-          ) : null}
-
-          {error ? (
-            <StateView
-              variant="error"
-              title={t("common.error")}
-              onRetry={() => void refresh()}
-              retryLabel={t("common.retry")}
-            />
-          ) : (
-            visibleProjects.map((project) => {
-              const isTrivia = isTriviaProject(project.kind);
-              const levelValue = isTrivia
-                ? triviaDifficultyLabel(project.level, t)
-                : levelLabel(project.level);
-              const dailyValue = formatDailyGoalShort(resolveDailyGoal(project.daily_goal));
-              const topicIds = parseTriviaTopics(project.description);
-              const topicsChip = isTrivia ? formatTriviaTopicsChip(topicIds, t) : undefined;
-              return (
-                <LearningProjectCard
-                  key={project.id}
-                  project={project}
-                  icon={kindIcon(project.kind)}
-                  levelLabel={levelValue}
-                  dailyLabel={dailyValue}
-                  topicsChip={topicsChip}
-                  onOpen={() => router.push(`/projects/${project.id}`)}
-                  onStudy={() => startStudyForProject(project)}
-                  onReview={() => startReviewForProject(project)}
+          ListHeaderComponent={
+            <>
+              {showAddLearning ? (
+                <Pressable style={s.newProjectBtn} onPress={openCreate}>
+                  <Ionicons name="add-circle-outline" size={22} color={C.primary} />
+                  <Text style={s.newProjectText}>{t("projects.add_learning")}</Text>
+                </Pressable>
+              ) : null}
+              {!error && visibleProjects.length === 0 ? (
+                <StateView
+                  variant="empty"
+                  title={t("projects.empty_title")}
+                  message={t("projects.empty_body")}
                 />
-              );
-            })
-          )}
-        </ScrollView>
+              ) : null}
+              {error ? (
+                <StateView
+                  variant="error"
+                  title={t("common.error")}
+                  onRetry={() => void refresh()}
+                  retryLabel={t("common.retry")}
+                />
+              ) : null}
+            </>
+          }
+          renderItem={({ item: project }) => {
+            const isTrivia = isTriviaProject(project.kind);
+            const levelValue = isTrivia
+              ? triviaDifficultyLabel(project.level, t)
+              : levelLabel(project.level);
+            const dailyValue = formatDailyGoalShort(resolveDailyGoal(project.daily_goal));
+            const topicIds = parseTriviaTopics(project.description);
+            const topicsChip = isTrivia ? formatTriviaTopicsChip(topicIds, t) : undefined;
+            return (
+              <LearningProjectCard
+                project={project}
+                icon={kindIcon(project.kind)}
+                levelLabel={levelValue}
+                dailyLabel={dailyValue}
+                topicsChip={topicsChip}
+                onOpen={() => router.push(`/projects/${project.id}`)}
+                onStudy={() => startStudyForProject(project)}
+                onReview={() => startReviewForProject(project)}
+              />
+            );
+          }}
+        />
       )}
 
       <Modal
@@ -480,7 +482,8 @@ export default function ProjectsScreen() {
 function makeStyles(C: Theme) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: C.bg },
-    content: { padding: 16, gap: 12, paddingBottom: 32 },
+    content: { padding: 16, paddingBottom: 32 },
+    listGap: { height: 12 },
     newProjectBtn: {
       flexDirection: "row",
       alignItems: "center",
@@ -489,6 +492,7 @@ function makeStyles(C: Theme) {
       paddingHorizontal: 14,
       borderRadius: 14,
       backgroundColor: C.primaryLight,
+      marginBottom: 12,
     },
     newProjectText: { fontSize: 16, fontWeight: "700", color: C.primary },
     modalRoot: { flex: 1, backgroundColor: C.bg },

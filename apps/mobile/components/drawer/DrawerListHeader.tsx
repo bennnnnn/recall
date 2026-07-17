@@ -3,9 +3,8 @@ import { useTranslation } from "react-i18next";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { DrawerNavLinks } from "@/components/drawer/DrawerNavLinks";
-import { DrawerSearchResults } from "@/components/drawer/DrawerSearchResults";
+import { DrawerSearchResultsChrome } from "@/components/drawer/DrawerSearchResults";
 import type { ConversationListStyles } from "@/components/drawer/conversationListStyles";
-import type { SearchResult } from "@/lib/api";
 import type { Theme } from "@/lib/theme";
 
 type Props = {
@@ -24,11 +23,7 @@ type Props = {
   hasSearchQuery: boolean;
   searchLoading: boolean;
   searchError: boolean;
-  searchResults: SearchResult[];
-  hasMore?: boolean;
-  loadingMore?: boolean;
-  onLoadMore?: () => void;
-  onOpenChat: (chatId: string, messageId?: string | null) => void;
+  searchResultCount: number;
 };
 
 export function DrawerListHeader({
@@ -47,11 +42,7 @@ export function DrawerListHeader({
   hasSearchQuery,
   searchLoading,
   searchError,
-  searchResults,
-  hasMore,
-  loadingMore,
-  onLoadMore,
-  onOpenChat,
+  searchResultCount,
 }: Props) {
   const { t } = useTranslation();
 
@@ -78,15 +69,11 @@ export function DrawerListHeader({
         />
       ) : null}
       {searchOpen ? (
-        <DrawerSearchResults
+        <DrawerSearchResultsChrome
           hasSearchQuery={hasSearchQuery}
           searchLoading={searchLoading}
           searchError={searchError}
-          searchResults={searchResults}
-          hasMore={hasMore}
-          loadingMore={loadingMore}
-          onLoadMore={onLoadMore}
-          onOpenChat={onOpenChat}
+          resultCount={searchResultCount}
         />
       ) : null}
     </>

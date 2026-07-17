@@ -231,11 +231,7 @@ export function ConversationList(_props: unknown) {
       hasSearchQuery={hasSearchQuery}
       searchLoading={searchLoading}
       searchError={searchError}
-      searchResults={searchResults}
-      hasMore={hasMore}
-      loadingMore={loadingMore}
-      onLoadMore={loadMore}
-      onOpenChat={openChat}
+      searchResultCount={searchResults.length}
     />
   );
 
@@ -292,7 +288,7 @@ export function ConversationList(_props: unknown) {
         isSectionCollapsed={isSectionCollapsed}
         toggleSectionCollapsed={toggleSectionCollapsed}
         highlightedIds={highlightedIds}
-        onOpenChat={(id) => openChat(id)}
+        onOpenChat={openChat}
         onShowRowMenu={onShowRowMenu}
         onDeleteChat={onDeleteChat}
         selectionMode={selectionMode}
@@ -303,6 +299,11 @@ export function ConversationList(_props: unknown) {
         contentPaddingBottom={bottomInset}
         refreshing={refreshing}
         onRefresh={handleRefresh}
+        searchOpen={searchOpen}
+        searchResults={searchResults}
+        searchHasMore={hasMore}
+        searchLoadingMore={loadingMore}
+        onSearchLoadMore={loadMore}
       />
 
       <LinearGradient

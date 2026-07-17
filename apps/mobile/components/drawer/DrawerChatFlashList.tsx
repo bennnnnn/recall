@@ -9,6 +9,10 @@ import {
   ConversationRow,
   makeConversationRowStyles,
 } from "@/components/drawer/ConversationRow";
+import {
+  DrawerSearchLoadMore,
+  DrawerSearchResultRow,
+} from "@/components/drawer/DrawerSearchResults";
 import { makeConversationListStyles } from "@/components/drawer/conversationListStyles";
 import {
   ARCHIVED_CHAT_SECTION,
@@ -19,7 +23,7 @@ import {
   type ChatListSectionKey,
 } from "@/lib/chatListSections";
 import { isChatTitleGenerating } from "@/lib/drawer";
-import { Chat, ChatList } from "@/lib/api";
+import { Chat, ChatList, type SearchResult } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
 
 export type DrawerChatListItem =
@@ -30,7 +34,9 @@ export type DrawerChatListItem =
       count: number;
       collapsible: boolean;
     }
-  | { type: "row"; key: string; chat: Chat };
+  | { type: "row"; key: string; chat: Chat }
+  | { type: "searchRow"; key: string; result: SearchResult }
+  | { type: "searchLoadMore"; key: "search-load-more" };
 
 type Props = {
   groups: ChatList;
@@ -40,7 +46,7 @@ type Props = {
   isSectionCollapsed: (key: ChatListSectionKey) => boolean;
   toggleSectionCollapsed: (key: ChatListSectionKey) => void;
   highlightedIds?: Set<string>;
-  onOpenChat: (id: string) => void;
+  onOpenChat: (id: string, messageId?: string | null) => void;
   onShowRowMenu: (chat: Chat) => void;
   onDeleteChat: (chat: Chat) => void;
   selectionMode?: boolean;
@@ -51,6 +57,11 @@ type Props = {
   contentPaddingBottom: number;
   refreshing: boolean;
   onRefresh: () => void;
+  searchOpen?: boolean;
+  searchResults?: SearchResult[];
+  searchHasMore?: boolean;
+  searchLoadingMore?: boolean;
+  onSearchLoadMore?: () => void;
 };
 
 export function DrawerChatFlashList({
@@ -72,6 +83,11 @@ export function DrawerChatFlashList({
   contentPaddingBottom,
   refreshing,
   onRefresh,
+  searchOpen = false,
+  searchResults = [],
+  searchHasMore = false,
+  searchLoadingMore = false,
+  onSearchLoadMore,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -79,8 +95,22 @@ export function DrawerChatFlashList({
   const rowStyles = useMemo(() => makeConversationRowStyles(theme), [theme]);
 
   const chatListData = useMemo<DrawerChatListItem[]>(() => {
-    if (activeChatCount === 0 && groups.archived.length === 0) return [];
     const items: DrawerChatListItem[] = [];
+
+    if (searchOpen && searchResults.length > 0) {
+      for (const result of searchResults) {
+        const key = result.message_id
+          ? `search-${result.message_id}`
+          : `search-title-${result.chat_id}`;
+        items.push({ type: "searchRow", key, result });
+      }
+      if (searchHasMore) {
+        items.push({ type: "searchLoadMore", key: "search-load-more" });
+      }
+    }
+
+    if (activeChatCount === 0 && groups.archived.length === 0) return items;
+
     const sections: { key: ChatListSectionKey; chats: Chat[] }[] = [
       { key: PINNED_CHAT_SECTION, chats: groups.pinned },
       ...CHAT_DATE_SECTIONS.map((key) => ({ key, chats: groups[key] })),
@@ -102,10 +132,31 @@ export function DrawerChatFlashList({
       }
     }
     return items;
-  }, [activeChatCount, groups, isSectionCollapsed, t]);
+  }, [
+    activeChatCount,
+    groups,
+    isSectionCollapsed,
+    searchHasMore,
+    searchOpen,
+    searchResults,
+    t,
+  ]);
 
   const renderChatItem = useCallback(
     ({ item }: { item: DrawerChatListItem }) => {
+      if (item.type === "searchRow") {
+        return (
+          <DrawerSearchResultRow result={item.result} onOpenChat={onOpenChat} />
+        );
+      }
+      if (item.type === "searchLoadMore") {
+        return (
+          <DrawerSearchLoadMore
+            loadingMore={searchLoadingMore}
+            onLoadMore={onSearchLoadMore}
+          />
+        );
+      }
       if (item.type === "sectionHeader") {
         if (!item.collapsible) {
           return (
@@ -136,7 +187,7 @@ export function DrawerChatFlashList({
           rowStyles={rowStyles}
           highlighted={highlightedIds?.has(item.chat.id) ?? false}
           titleGenerating={isChatTitleGenerating(item.chat.id)}
-          onOpen={onOpenChat}
+          onOpen={(id) => onOpenChat(id)}
           onLongPress={onShowRowMenu}
           onDelete={selectionMode ? undefined : onDeleteChat}
           selectionMode={selectionMode}
@@ -158,11 +209,13 @@ export function DrawerChatFlashList({
       selectionMode,
       selectedIds,
       onToggleSelect,
+      searchLoadingMore,
+      onSearchLoadMore,
     ],
   );
 
   const listEmpty =
-    activeChatCount === 0 && !loading && !error ? (
+    !searchOpen && activeChatCount === 0 && !loading && !error ? (
       <StateView variant="empty" compact message={t("drawer.no_conversations")} />
     ) : null;
 
@@ -171,7 +224,9 @@ export function DrawerChatFlashList({
       style={s.list}
       data={chatListData}
       renderItem={renderChatItem}
-      keyExtractor={(item) => item.key}
+      keyExtractor={(item) =>
+        item.type === "sectionHeader" ? `section-${item.key}` : item.key
+      }
       getItemType={(item) => item.type}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{

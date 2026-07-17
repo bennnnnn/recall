@@ -21,6 +21,8 @@ from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.orm import User
 from app.models.schemas import ChatMessageRequest, EditMessageRequest
 from app.services import chat as chat_service
+from app.services.chat.prompt_builder import StreamReasoningFn
+from app.services.chat.stream_status import StreamStatusFn
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +76,7 @@ async def _stream_tokens_sse(
     chat_id: UUID,
     settings: Settings,
     stream_factory: Callable[
-        [dict[str, Any], Callable[[str], Any], Callable[[str], Any]],
+        [dict[str, Any], StreamStatusFn, StreamReasoningFn],
         AsyncIterator[str],
     ],
     request: Request,
