@@ -429,7 +429,7 @@ def test_create_chat():
     chat.updated_at = datetime(2024, 1, 1)
 
     app = _app_with_user(user)
-    with patch("app.routers.chats.chats_repo.create", AsyncMock(return_value=chat)):
+    with patch("app.services.chats.chats_repo.create", AsyncMock(return_value=chat)):
         client = TestClient(app)
         r = client.post(
             "/chats", headers={"Authorization": "Bearer tok"}, json={"model": "free-chat"}
@@ -457,7 +457,7 @@ def test_create_chat_with_other_users_project_id_rejected():
     # project_id that doesn't belong to the user → projects_repo.get_by_id
     # returns None → router must 400 instead of linking to a foreign project.
     pid = uuid4()
-    with patch("app.routers.chats.projects_repo.get_by_id", AsyncMock(return_value=None)):
+    with patch("app.services.chats.projects_repo.get_by_id", AsyncMock(return_value=None)):
         client = TestClient(app)
         r = client.post(
             "/chats",
@@ -489,8 +489,8 @@ def test_create_chat_with_owned_project_id_accepted():
     project.id = pid
     project.user_id = user.id
     with (
-        patch("app.routers.chats.projects_repo.get_by_id", AsyncMock(return_value=project)),
-        patch("app.routers.chats.chats_repo.create", AsyncMock(return_value=chat)),
+        patch("app.services.chats.projects_repo.get_by_id", AsyncMock(return_value=project)),
+        patch("app.services.chats.chats_repo.create", AsyncMock(return_value=chat)),
     ):
         client = TestClient(app)
         r = client.post(
@@ -507,13 +507,13 @@ def test_list_chats():
     empty_list: list = []
 
     with (
-        patch("app.routers.chats.chats_repo.list_for_user", AsyncMock(return_value=empty_list)),
+        patch("app.services.chats.chats_repo.list_for_user", AsyncMock(return_value=empty_list)),
         patch(
-            "app.routers.chats.chats_repo.list_archived_for_user",
+            "app.services.chats.chats_repo.list_archived_for_user",
             AsyncMock(return_value=empty_list),
         ),
         patch(
-            "app.routers.chats.chats_repo.group_by_recency",
+            "app.services.chats.chats_repo.group_by_recency",
             return_value={
                 "today": [],
                 "yesterday": [],
@@ -564,15 +564,15 @@ def test_list_chats_never_overlaps_ops_on_one_session():
 
     with (
         patch(
-            "app.routers.chats.chats_repo.list_for_user",
+            "app.services.chats.chats_repo.list_for_user",
             AsyncMock(side_effect=tracked("active", [])),
         ),
         patch(
-            "app.routers.chats.chats_repo.list_archived_for_user",
+            "app.services.chats.chats_repo.list_archived_for_user",
             AsyncMock(side_effect=tracked("archived", [])),
         ),
         patch(
-            "app.routers.chats.chats_repo.group_by_recency",
+            "app.services.chats.chats_repo.group_by_recency",
             return_value={
                 "today": [],
                 "yesterday": [],
@@ -592,7 +592,7 @@ def test_list_chats_never_overlaps_ops_on_one_session():
 def test_get_chat_not_found():
     user = _fake_user()
     app = _app_with_user(user)
-    with patch("app.routers.chats.chats_repo.get_by_id", AsyncMock(return_value=None)):
+    with patch("app.services.chats.chats_repo.get_by_id", AsyncMock(return_value=None)):
         client = TestClient(app)
         r = client.get(f"/chats/{uuid4()}", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 404
@@ -639,12 +639,12 @@ def test_list_messages_enqueues_topic_backfill():
     asst_msg.created_at = datetime(2024, 1, 1)
 
     with (
-        patch("app.routers.chats.chats_repo.get_by_id", AsyncMock(return_value=chat)),
+        patch("app.services.chats.chats_repo.get_by_id", AsyncMock(return_value=chat)),
         patch(
-            "app.routers.chats.messages_repo.list_page",
+            "app.services.chats.messages_repo.list_page",
             AsyncMock(return_value=([user_msg, asst_msg], False)),
         ),
-        patch("app.routers.chats.jobs.enqueue", AsyncMock()) as enqueue_job,
+        patch("app.services.chats.jobs.enqueue", AsyncMock()) as enqueue_job,
     ):
         client = TestClient(app)
         r = client.get(f"/chats/{chat_id}/messages", headers={"Authorization": "Bearer tok"})
@@ -666,7 +666,7 @@ def test_rename_chat_rejects_blank_title():
     chat = MagicMock()
     chat.id = chat_id
 
-    with patch("app.routers.chats.chats_repo.get_by_id", AsyncMock(return_value=chat)):
+    with patch("app.services.chats.chats_repo.get_by_id", AsyncMock(return_value=chat)):
         client = TestClient(app)
         r = client.patch(
             f"/chats/{chat_id}",
@@ -686,7 +686,7 @@ def test_today_usage():
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     app.dependency_overrides[get_redis] = lambda: fake_redis
 
-    with patch("app.routers.chats.usage_repo.get_for_date", AsyncMock(return_value=None)):
+    with patch("app.services.chats.usage_repo.get_for_date", AsyncMock(return_value=None)):
         client = TestClient(app)
         r = client.get("/chats/usage/today", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 200
@@ -712,7 +712,7 @@ def test_today_usage_falls_back_to_db_total_when_redis_flushed():
     db_usage.input_tokens = 8_000
     db_usage.output_tokens = 4_000
 
-    with patch("app.routers.chats.usage_repo.get_for_date", AsyncMock(return_value=db_usage)):
+    with patch("app.services.chats.usage_repo.get_for_date", AsyncMock(return_value=db_usage)):
         client = TestClient(app)
         r = client.get("/chats/usage/today", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 200

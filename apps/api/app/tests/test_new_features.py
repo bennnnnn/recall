@@ -21,7 +21,7 @@ def test_list_todos_empty():
 
     user = _fake_user()
     app = _app_with_user(user)
-    with patch("app.routers.todos.todos_repo.list_for_user", AsyncMock(return_value=[])):
+    with patch("app.services.todos.crud.todos_repo.list_for_user", AsyncMock(return_value=[])):
         client = TestClient(app)
         r = client.get("/todos", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 200
@@ -46,7 +46,7 @@ def test_list_todos_returns_items():
 
     user = _fake_user()
     app = _app_with_user(user)
-    with patch("app.routers.todos.todos_repo.list_for_user", AsyncMock(return_value=[todo_mock])):
+    with patch("app.services.todos.crud.todos_repo.list_for_user", AsyncMock(return_value=[todo_mock])):
         client = TestClient(app)
         r = client.get("/todos", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 200
@@ -76,8 +76,8 @@ def test_create_todo():
     app = _app_with_user(user)
     invalidate_mock = AsyncMock()
     with (
-        patch("app.routers.todos.todos_repo.create", AsyncMock(return_value=todo_mock)),
-        patch("app.routers.todos.home_service.invalidate_home_cache", invalidate_mock),
+        patch("app.services.todos.crud.todos_repo.create", AsyncMock(return_value=todo_mock)),
+        patch("app.services.todos.crud.home_service.invalidate_home_cache", invalidate_mock),
     ):
         client = TestClient(app)
         r = client.post(
@@ -117,8 +117,8 @@ def test_create_todo_with_chat_id():
     chat_mock.id = cid
     chat_mock.user_id = user.id
     with (
-        patch("app.routers.todos.todos_repo.create", AsyncMock(return_value=todo_mock)),
-        patch("app.routers.todos.chats_repo.get_by_id", AsyncMock(return_value=chat_mock)),
+        patch("app.services.todos.crud.todos_repo.create", AsyncMock(return_value=todo_mock)),
+        patch("app.services.todos.crud.chats_repo.get_by_id", AsyncMock(return_value=chat_mock)),
     ):
         client = TestClient(app)
         r = client.post(
@@ -152,7 +152,7 @@ def test_create_todo_with_other_users_chat_id_rejected():
     # chats_repo.get_by_id returns None → the chat doesn't belong to this user
     # (or doesn't exist). The cross-user FK guard must reject with 400 rather
     # than silently linking the todo to a foreign chat.
-    with patch("app.routers.todos.chats_repo.get_by_id", AsyncMock(return_value=None)):
+    with patch("app.services.todos.crud.chats_repo.get_by_id", AsyncMock(return_value=None)):
         client = TestClient(app)
         r = client.post(
             "/todos",
@@ -168,7 +168,7 @@ def test_create_todo_with_unowned_chat_id_404s():
 
     user = _fake_user()
     app = _app_with_user(user)
-    with patch("app.routers.todos.chats_repo.get_by_id", AsyncMock(return_value=None)):
+    with patch("app.services.todos.crud.chats_repo.get_by_id", AsyncMock(return_value=None)):
         client = TestClient(app)
         r = client.post(
             "/todos",
@@ -203,9 +203,9 @@ def test_create_todo_with_project_id():
     project_mock.user_id = user.id
     create_mock = AsyncMock(return_value=todo_mock)
     with (
-        patch("app.routers.todos.todos_repo.create", create_mock),
-        patch("app.routers.todos.projects_repo.get_by_id", AsyncMock(return_value=project_mock)),
-        patch("app.routers.todos.home_service.invalidate_home_cache", AsyncMock()),
+        patch("app.services.todos.crud.todos_repo.create", create_mock),
+        patch("app.services.todos.crud.projects_repo.get_by_id", AsyncMock(return_value=project_mock)),
+        patch("app.services.todos.crud.home_service.invalidate_home_cache", AsyncMock()),
     ):
         client = TestClient(app)
         r = client.post(
@@ -224,7 +224,7 @@ def test_create_todo_with_other_users_project_id_rejected():
     pid = uuid4()
     user = _fake_user()
     app = _app_with_user(user)
-    with patch("app.routers.todos.projects_repo.get_by_id", AsyncMock(return_value=None)):
+    with patch("app.services.todos.crud.projects_repo.get_by_id", AsyncMock(return_value=None)):
         client = TestClient(app)
         r = client.post(
             "/todos",
@@ -254,8 +254,8 @@ def test_update_todo():
     user = _fake_user()
     app = _app_with_user(user)
     with (
-        patch("app.routers.todos.todos_repo.get_by_id", AsyncMock(return_value=todo_mock)),
-        patch("app.routers.todos.todos_repo.update", AsyncMock(return_value=todo_mock)),
+        patch("app.services.todos.crud.todos_repo.get_by_id", AsyncMock(return_value=todo_mock)),
+        patch("app.services.todos.crud.todos_repo.update", AsyncMock(return_value=todo_mock)),
     ):
         client = TestClient(app)
         r = client.patch(
@@ -291,10 +291,10 @@ def test_update_todo_project_id():
     project_mock.id = pid
     update_mock = AsyncMock(return_value=todo_mock)
     with (
-        patch("app.routers.todos.todos_repo.get_by_id", AsyncMock(return_value=todo_mock)),
-        patch("app.routers.todos.todos_repo.update", update_mock),
-        patch("app.routers.todos.projects_repo.get_by_id", AsyncMock(return_value=project_mock)),
-        patch("app.routers.todos.home_service.invalidate_home_cache", AsyncMock()),
+        patch("app.services.todos.crud.todos_repo.get_by_id", AsyncMock(return_value=todo_mock)),
+        patch("app.services.todos.crud.todos_repo.update", update_mock),
+        patch("app.services.todos.crud.projects_repo.get_by_id", AsyncMock(return_value=project_mock)),
+        patch("app.services.todos.crud.home_service.invalidate_home_cache", AsyncMock()),
     ):
         client = TestClient(app)
         r = client.patch(
@@ -312,7 +312,7 @@ def test_update_todo_not_found():
 
     user = _fake_user()
     app = _app_with_user(user)
-    with patch("app.routers.todos.todos_repo.get_by_id", AsyncMock(return_value=None)):
+    with patch("app.services.todos.crud.todos_repo.get_by_id", AsyncMock(return_value=None)):
         client = TestClient(app)
         r = client.patch(
             f"/todos/{uuid4()}",
@@ -327,7 +327,7 @@ def test_delete_todo():
 
     user = _fake_user()
     app = _app_with_user(user)
-    with patch("app.routers.todos.todos_repo.delete_by_id", AsyncMock(return_value=True)):
+    with patch("app.services.todos.crud.todos_repo.delete_by_id", AsyncMock(return_value=True)):
         client = TestClient(app)
         r = client.delete(
             f"/todos/{uuid4()}",
@@ -341,7 +341,7 @@ def test_delete_todo_not_found():
 
     user = _fake_user()
     app = _app_with_user(user)
-    with patch("app.routers.todos.todos_repo.delete_by_id", AsyncMock(return_value=False)):
+    with patch("app.services.todos.crud.todos_repo.delete_by_id", AsyncMock(return_value=False)):
         client = TestClient(app)
         r = client.delete(
             f"/todos/{uuid4()}",
@@ -359,9 +359,9 @@ def test_delete_todo_topic_batches_list_delete():
     app = _app_with_user(user)
     with (
         patch(
-            "app.routers.todos.todos_repo.delete_by_topic", AsyncMock(return_value=5)
+            "app.services.todos.crud.todos_repo.delete_by_topic", AsyncMock(return_value=5)
         ) as delete_by_topic,
-        patch("app.routers.todos.home_service.invalidate_home_cache", AsyncMock()),
+        patch("app.services.todos.crud.home_service.invalidate_home_cache", AsyncMock()),
     ):
         client = TestClient(app)
         r = client.delete(
@@ -379,7 +379,7 @@ def test_delete_todo_topic_not_found():
 
     user = _fake_user()
     app = _app_with_user(user)
-    with patch("app.routers.todos.todos_repo.delete_by_topic", AsyncMock(return_value=0)):
+    with patch("app.services.todos.crud.todos_repo.delete_by_topic", AsyncMock(return_value=0)):
         client = TestClient(app)
         r = client.delete(
             "/todos/topic/Nope",
@@ -418,8 +418,8 @@ def test_create_todo_normalizes_naive_due_at_to_user_timezone():
     app = _app_with_user(user)
     create_mock = AsyncMock(return_value=todo_mock)
     with (
-        patch("app.routers.todos.todos_repo.create", create_mock),
-        patch("app.routers.todos.home_service.invalidate_home_cache", AsyncMock()),
+        patch("app.services.todos.crud.todos_repo.create", create_mock),
+        patch("app.services.todos.crud.home_service.invalidate_home_cache", AsyncMock()),
     ):
         client = TestClient(app)
         # Naive 9:00 — should be interpreted as 9:00 America/New_York -> 14:00 UTC.
@@ -459,8 +459,8 @@ def test_create_todo_passes_none_due_at_unchanged():
     app = _app_with_user(user)
     create_mock = AsyncMock(return_value=todo_mock)
     with (
-        patch("app.routers.todos.todos_repo.create", create_mock),
-        patch("app.routers.todos.home_service.invalidate_home_cache", AsyncMock()),
+        patch("app.services.todos.crud.todos_repo.create", create_mock),
+        patch("app.services.todos.crud.home_service.invalidate_home_cache", AsyncMock()),
     ):
         client = TestClient(app)
         r = client.post(
@@ -493,9 +493,9 @@ def test_update_todo_normalizes_naive_due_at():
     app = _app_with_user(user)
     update_mock = AsyncMock(return_value=todo_mock)
     with (
-        patch("app.routers.todos.todos_repo.get_by_id", AsyncMock(return_value=todo_mock)),
-        patch("app.routers.todos.todos_repo.update", update_mock),
-        patch("app.routers.todos.home_service.invalidate_home_cache", AsyncMock()),
+        patch("app.services.todos.crud.todos_repo.get_by_id", AsyncMock(return_value=todo_mock)),
+        patch("app.services.todos.crud.todos_repo.update", update_mock),
+        patch("app.services.todos.crud.home_service.invalidate_home_cache", AsyncMock()),
     ):
         client = TestClient(app)
         # Naive 9:00 — should be interpreted as 9:00 Asia/Tokyo -> 0:00 UTC.
