@@ -6,6 +6,7 @@ import { ProjectItemRow } from "@/components/ProjectItemRow";
 import { LearningContinueCta } from "@/components/projects/LearningContinueCta";
 import { StateView } from "@/components/StateView";
 import { api, type ProjectDailyHistoryDay, type ProjectItem, type VocabStatus } from "@/lib/api";
+import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { weekdayFullLabel } from "@/lib/weekdayLabels";
@@ -224,12 +225,17 @@ export function ProjectDayItemsList({
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     wrap: {
-      gap: 16,
+      gap: Space.md,
     },
     section: {
-      gap: 10,
+      gap: Space.xs,
     },
-    header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: Space.xs,
+    },
     label: {
       ...Type.caption,
       fontWeight: "700",
@@ -237,24 +243,24 @@ function makeStyles(theme: Theme) {
       textTransform: "uppercase",
       letterSpacing: 0.6,
     },
-    emptyBlock: { gap: 12 },
-    itemsBlock: { gap: 16 },
+    emptyBlock: { gap: Space.sm },
+    itemsBlock: { gap: Space.md },
     empty: {
       ...Type.secondary,
       color: theme.textSecondary,
       backgroundColor: theme.surface,
       borderRadius: 14,
-      padding: 16,
+      padding: Space.md,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
     },
-    items: { gap: 16 },
+    items: { gap: Space.md },
     itemCard: {
       backgroundColor: theme.surface,
       borderRadius: 14,
       borderWidth: 1.5,
       borderColor: theme.isDark ? theme.border : theme.bg,
-      padding: 14,
+      padding: Space.sm,
     },
   });
 }

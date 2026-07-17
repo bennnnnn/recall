@@ -14,6 +14,7 @@ import {
   purchaseProPackage,
   restorePurchases,
 } from "@/lib/purchases";
+import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
@@ -167,7 +168,7 @@ function FeatureRow({
   theme: Theme;
 }) {
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: Space.xs }}>
       <Ionicons name={icon} size={18} color={theme.primary} />
       <Text style={{ flex: 1, ...Type.secondary, color: theme.textSecondary }}>{text}</Text>
     </View>
@@ -178,9 +179,9 @@ const makeStyles = (theme: Theme) =>
   StyleSheet.create({
     sheet: {
       backgroundColor: theme.bg,
-      paddingHorizontal: 24,
-      paddingTop: 28,
-      gap: 12,
+      paddingHorizontal: Space.lg,
+      paddingTop: Space.lg,
+      gap: Space.sm,
     },
     iconWrap: {
       width: 52,
@@ -202,18 +203,18 @@ const makeStyles = (theme: Theme) =>
       color: theme.textSecondary,
       textAlign: "center",
     },
-    featureList: { gap: 10, marginVertical: 8 },
+    featureList: { gap: Space.xs, marginVertical: Space.xs },
     error: {
       color: theme.danger,
       fontSize: 14,
       textAlign: "center",
     },
     primaryBtn: {
-      marginTop: 4,
+      marginTop: Space.xxs,
     },
     devBtn: {
       alignItems: "center",
-      paddingVertical: 10,
+      paddingVertical: Space.xs,
     },
     devBtnText: { color: theme.textTertiary, fontSize: 13 },
   });

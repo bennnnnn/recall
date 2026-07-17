@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import { Space } from "@/lib/space";
 import { Theme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
@@ -384,30 +385,30 @@ export function makeSettingsStyles(t: Theme) {
     },
     accountPro: { color: t.warning },
 
-    section: { marginTop: 20 },
+    section: { marginTop: Space.lg },
     sectionLabel: {
       ...Type.caption,
       fontWeight: "700",
       color: t.textTertiary,
       textTransform: "uppercase",
       letterSpacing: 0.6,
-      marginLeft: 4,
-      marginBottom: 8,
+      marginLeft: Space.xxs,
+      marginBottom: Space.xs,
     },
     sectionHint: {
       ...Type.caption,
       fontWeight: "400",
       color: t.textSecondary,
-      marginLeft: 4,
-      marginBottom: 8,
+      marginLeft: Space.xxs,
+      marginBottom: Space.xs,
     },
     group: {
       backgroundColor: t.surface,
-      borderRadius: 16,
+      borderRadius: Space.md,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
-      padding: 14,
-      gap: 10,
+      padding: Space.sm,
+      gap: Space.xs,
     },
 
     subLabel: { fontSize: 13, color: t.textSecondary, marginTop: 6 },
@@ -619,7 +620,7 @@ export function makeSettingsStyles(t: Theme) {
       borderWidth: 1.5,
       borderColor: t.primary,
     },
-    mActions: { flexDirection: "row", gap: 10 },
+    mActions: { flexDirection: "row", gap: Space.xs },
     mActionBtn: { flex: 1 },
   });
 }
