@@ -99,7 +99,7 @@ async def create(
     user_id: UUID,
     title: str,
     description: str | None = None,
-    kind: str = "general",
+    kind: str = "language",
     target_language: str = "en",
     native_language: str | None = None,
     level: str = "level1",
