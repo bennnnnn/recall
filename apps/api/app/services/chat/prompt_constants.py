@@ -73,14 +73,21 @@ DAY_LEARNING_SNAPSHOT_HINT = (
     "today's daily goals are complete or not set up — do not invent quiz stats."
 )
 
+
+def _collapse_ws(text: str) -> str:
+    """Collapse runs of whitespace so matchers need no ``\\s+`` (avoids ReDoS)."""
+    return " ".join(text.split())
+
+
+# Patterns assume input was passed through ``_collapse_ws`` (single spaces only).
 _BROAD_SELF_QUESTION = re.compile(
-    r"^\s*(?:"
+    r"^(?:"
     r"who am i\??"
     r"|tell me about me\??"
     r"|what do you know about me\??"
     r"|describe me\??"
     r"|what(?:'re| are) i like\??"
-    r")\s*[.!?]*\s*$",
+    r")[.!?]*$",
     re.IGNORECASE,
 )
 
@@ -94,7 +101,7 @@ BROAD_SELF_ANSWER_HINT = (
 
 def is_broad_self_question(text: str) -> bool:
     """Broad identity questions — name only, no personal context dump."""
-    cleaned = text.strip()
+    cleaned = _collapse_ws(text)
     if not cleaned or time_context_service.is_location_question(cleaned):
         return False
     return bool(_BROAD_SELF_QUESTION.match(cleaned))
@@ -103,12 +110,12 @@ def is_broad_self_question(text: str) -> bool:
 _LIGHTWEIGHT_TURN = re.compile(
     r"^(?:"
     r"hi|hello|hey|hiya|yo|sup"
-    r"|thanks|thank\s+you|thx|ty"
+    r"|thanks|thank you|thx|ty"
     r"|ok|okay|k|cool|nice|great|perfect|awesome"
-    r"|got\s+it|sounds\s+good|makes\s+sense|understood"
-    r"|yes|no|yep|nope|sure|bye|goodbye|cya|see\s+ya"
+    r"|got it|sounds good|makes sense|understood"
+    r"|yes|no|yep|nope|sure|bye|goodbye|cya|see ya"
     r"|lol|lmao|haha|hehe"
-    r")(?:[!?.…,\s]+(?:thanks|thank\s+you|thx))?[!?.…\s]*$",
+    r")(?:[!?.…, ]+(?:thanks|thank you|thx))?[!?.… ]*$",
     re.IGNORECASE,
 )
 
@@ -117,7 +124,7 @@ def is_lightweight_chat_turn(text: str, *, active_vocab_turn: bool = False) -> b
     """Short social turns that should skip integrations and web search."""
     if active_vocab_turn:
         return False
-    cleaned = text.strip()
+    cleaned = _collapse_ws(text)
     if not cleaned:
         return True
     if len(cleaned) <= 2 and cleaned.isalpha():

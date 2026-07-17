@@ -31,28 +31,35 @@ from app.services import math_service
 
 logger = logging.getLogger(__name__)
 
+
+def _collapse_ws(text: str) -> str:
+    """Collapse runs of whitespace so matchers need no ``\\s+`` (avoids ReDoS)."""
+    return " ".join(text.split())
+
+
+# Patterns assume input was passed through ``_collapse_ws`` (single spaces only).
 _DRAW_RECTANGLE = re.compile(
-    r"\b(?:draw|show|sketch|visuali[sz]e)\s+(?:a\s+)?rectangle\b",
+    r"\b(?:draw|show|sketch|visuali[sz]e) (?:a )?rectangle\b",
     re.IGNORECASE,
 )
 
 _DRAW_RIGHT_TRIANGLE = re.compile(
-    r"\b(?:draw|show|sketch|visuali[sz]e)\s+(?:the\s+)?right\s+triangle\b",
+    r"\b(?:draw|show|sketch|visuali[sz]e) (?:the )?right triangle\b",
     re.IGNORECASE,
 )
 
 _DRAW_SQUARE = re.compile(
-    r"\b(?:draw|show|sketch|visuali[sz]e)\s+(?:a\s+)?square\b",
+    r"\b(?:draw|show|sketch|visuali[sz]e) (?:a )?square\b",
     re.IGNORECASE,
 )
 
 _DRAW_CIRCLE = re.compile(
-    r"\b(?:draw|show|sketch|visuali[sz]e)\s+(?:a\s+)?circle\b",
+    r"\b(?:draw|show|sketch|visuali[sz]e) (?:a )?circle\b",
     re.IGNORECASE,
 )
 
 _DEFAULT_RECT = re.compile(
-    r"\b(?:draw|show)\s+(?:a\s+)?rectangle\b",
+    r"\b(?:draw|show) (?:a )?rectangle\b",
     re.IGNORECASE,
 )
 
@@ -62,30 +69,31 @@ _MATH_KEYWORDS = re.compile(
     r"equation|algebra|quadratic|polynomial|"
     r"find the angle|diagonal|rectangle|triangle|circle|geometry|"
     r"radius|diameter|circumference|"
-    r"graph|plot|function|y\s*=\s*|"
+    r"graph|plot|function|y ?= ?|"
     r"sqrt|square root|pythagor"
     r")\b",
     re.IGNORECASE,
 )
 
 _EQUATION_IN_TEXT = re.compile(
-    r"([0-9a-zA-Z+\-*/().\s^]+?)\s*=\s*([0-9a-zA-Z+\-*/().\s^]+)",
+    r"([0-9a-zA-Z+\-*/(). ^]+?) ?= ?([0-9a-zA-Z+\-*/(). ^]+)",
 )
 
 _RECT_DIMS = re.compile(
-    r"(?:rectangle|rect)?\s*(?:is|of|with)?\s*"
-    r"(?P<w>\d+(?:\.\d+)?)\s*(?:×|x|\*|\sby\s)\s*(?P<h>\d+(?:\.\d+)?)\s*(?P<unit>cm|m|mm|in|ft|units?)?",
+    r"(?:rectangle|rect)? ?(?:is|of|with)? ?"
+    r"(?P<w>\d+(?:\.\d+)?) ?(?:×|x|\*| by ) ?(?P<h>\d+(?:\.\d+)?) ?"
+    r"(?P<unit>cm|m|mm|in|ft|units?)?",
     re.IGNORECASE,
 )
 
 _SQUARE_SIDE = re.compile(
-    r"\bsquare\b[\s\S]{0,60}?(?:side|edge)\s*(?:=|:)?\s*(?P<s>\d+(?:\.\d+)?)",
+    r"\bsquare\b.{0,60}?(?:side|edge) ?(?:=|:)? ?(?P<s>\d+(?:\.\d+)?)",
     re.IGNORECASE,
 )
 
 _CIRCLE_RADIUS = re.compile(
-    r"\bcircle\b[\s\S]{0,60}?radius\s*(?:=|:|of)?\s*(?P<r>\d+(?:\.\d+)?)"
-    r"\s*(?:cm|m|mm|in|ft|units?)?",
+    r"\bcircle\b.{0,60}?radius ?(?:=|:|of)? ?(?P<r>\d+(?:\.\d+)?)"
+    r" ?(?:cm|m|mm|in|ft|units?)?",
     re.IGNORECASE,
 )
 
@@ -95,45 +103,46 @@ _CIRCLE_RADIUS = re.compile(
 # keyboard slip for a comma right next to it, and requiring the whole
 # message to match (not a substring) keeps this from misfiring on prose
 # that merely contains a decimal number in parentheses.
-_BARE_COORD_PAIR = re.compile(r"^\(\s*(?P<x>-?\d+(?:\.\d+)?)\s*[,.]\s*(?P<y>-?\d+(?:\.\d+)?)\s*\)$")
+_BARE_COORD_PAIR = re.compile(r"^\( ?(?P<x>-?\d+(?:\.\d+)?) ?[,.] ?(?P<y>-?\d+(?:\.\d+)?) ?\)$")
 
 _PLOT_POINT = re.compile(
-    r"\b(?:plot|mark|graph|show)\s+(?:the\s+)?point\s*\(?\s*"
-    r"(?P<x>-?\d+(?:\.\d+)?)\s*,\s*(?P<y>-?\d+(?:\.\d+)?)\s*\)?",
+    r"\b(?:plot|mark|graph|show) (?:the )?point \(? ?"
+    r"(?P<x>-?\d+(?:\.\d+)?) ?, ?(?P<y>-?\d+(?:\.\d+)?) ?\)?",
     re.IGNORECASE,
 )
 
 _CIRCLE_DIAMETER = re.compile(
-    r"\bcircle\b[\s\S]{0,60}?diameter\s*(?:=|:|of)?\s*(?P<d>\d+(?:\.\d+)?)"
-    r"\s*(?:cm|m|mm|in|ft|units?)?",
+    r"\bcircle\b.{0,60}?diameter ?(?:=|:|of)? ?(?P<d>\d+(?:\.\d+)?)"
+    r" ?(?:cm|m|mm|in|ft|units?)?",
     re.IGNORECASE,
 )
 
 _TRI_BASE_HEIGHT = re.compile(
-    r"base\s*=\s*(?P<base>\d+(?:\.\d+)?)\s*(?:cm|m|mm|in|ft)?"
-    r"[\s\S]{0,80}?height\s*=\s*(?P<height>\d+(?:\.\d+)?)",
+    r"base ?= ?(?P<base>\d+(?:\.\d+)?) ?(?:cm|m|mm|in|ft)?"
+    r".{0,80}?height ?= ?(?P<height>\d+(?:\.\d+)?)",
     re.IGNORECASE,
 )
 
-_RIGHT_TRI = re.compile(r"\bright\s+triangle\b", re.IGNORECASE)
+_RIGHT_TRI = re.compile(r"\bright triangle\b", re.IGNORECASE)
 
 _RIGHT_TRI_DIMS = re.compile(
-    r"(?P<base>\d+(?:\.\d+)?)\s*(?:×|x|\*|\sby\s)\s*(?P<height>\d+(?:\.\d+)?)\s*(?P<unit>cm|m|mm|in|ft|units?)?",
+    r"(?P<base>\d+(?:\.\d+)?) ?(?:×|x|\*| by ) ?(?P<height>\d+(?:\.\d+)?) ?"
+    r"(?P<unit>cm|m|mm|in|ft|units?)?",
     re.IGNORECASE,
 )
 
 _GRAPH_EXPR = re.compile(
-    r"\b(?:graph|plot)\s+(?:y\s*=\s*)?(?P<expr>[0-9a-zA-Z+\-*/().\s^]+)",
+    r"\b(?:graph|plot) (?:y ?= ?)?(?P<expr>[0-9a-zA-Z+\-*/(). ^]+)",
     re.IGNORECASE,
 )
 
 # "graph x = 4", "draw the vertical line x=4", "plot x = -2"
 _VERTICAL_LINE = re.compile(
     r"(?:"
-    r"(?:graph|plot|draw|show|sketch|visuali[sz]e)\s+(?:the\s+)?"
-    r"(?:vertical\s+line\s+)?(?:at\s+)?x\s*=\s*(?P<x>-?\d+(?:\.\d+)?)"
+    r"(?:graph|plot|draw|show|sketch|visuali[sz]e) (?:the )?"
+    r"(?:vertical line )?(?:at )?x ?= ?(?P<x>-?\d+(?:\.\d+)?)"
     r"|"
-    r"vertical\s+line\s+(?:at\s+)?x\s*=\s*(?P<x2>-?\d+(?:\.\d+)?)"
+    r"vertical line (?:at )?x ?= ?(?P<x2>-?\d+(?:\.\d+)?)"
     r")",
     re.IGNORECASE,
 )
@@ -146,7 +155,8 @@ _CALC_OP = re.compile(
 # Definite-integral prose bounds: "integrate x^2 from 0 to 1" / "... of x^2
 # from -inf to inf". Bounds are strings (infinity-aware, like limit points).
 _INTEGRAL_BOUNDS = re.compile(
-    r"\bfrom\s+(?P<lo>-?(?:inf(?:inity)?|oo|infty|-?\d+(?:\.\d+)?)|\S+)\s+to\s+(?P<hi>-?(?:inf(?:inity)?|oo|infty|-?\d+(?:\.\d+)?)|\S+)\s*$",
+    r"\bfrom (?P<lo>-?(?:inf(?:inity)?|oo|infty|-?\d+(?:\.\d+)?)|\S+) "
+    r"to (?P<hi>-?(?:inf(?:inity)?|oo|infty|-?\d+(?:\.\d+)?)|\S+)$",
     re.IGNORECASE,
 )
 
@@ -157,24 +167,25 @@ _LIMIT_TRIGGER = re.compile(r"\b(?:limit|lim)\b", re.IGNORECASE)
 # `expr` only ever captures the actual math substring, matching
 # _strip_trailing_filler's job for the trailing side.
 _LIMIT_AS_APPROACHES = re.compile(
-    r"(?:(?:find|evaluate|compute|what\s+is|determine)\s+)?(?:the\s+)?(?:limit\s+of\s+)?"
-    r"(?P<expr>.+?)\s+as\s+(?P<var>[a-zA-Z])\s*"
-    r"(?:approaches|goes\s+to|tends\s+to|->|→|to)\s*"
+    r"(?:(?:find|evaluate|compute|what is|determine) )?(?:the )?(?:limit of )?"
+    r"(?P<expr>[0-9a-zA-Z+\-*/(). ^\\]+?) as (?P<var>[a-zA-Z]) ?"
+    r"(?:approaches|goes to|tends to|->|→|to) ?"
     r"(?P<point>-?infinity|-?inf(?:inity)?|-?oo|-?\d+(?:\.\d+)?)\b",
     re.IGNORECASE,
 )
 
 # Compact form without "as ... approaches": "lim x->0 sin(x)/x", "lim x -> 0 of f(x)".
 _LIMIT_COMPACT = re.compile(
-    r"\blim\b\s+(?P<var>[a-zA-Z])\s*(?:->|→)\s*"
-    r"(?P<point>-?infinity|-?inf|-?oo|-?\d+(?:\.\d+)?)\s+(?:of\s+)?(?P<expr>.+)",
+    r"\blim\b (?P<var>[a-zA-Z]) ?(?:->|→) ?"
+    r"(?P<point>-?infinity|-?inf|-?oo|-?\d+(?:\.\d+)?) (?:of )?(?P<expr>[0-9a-zA-Z+\-*/(). ^\\]+)",
     re.IGNORECASE,
 )
 
 # OCR/pasted LaTeX: \lim_{x \to 0} f(x) (braces and backslash-to optional).
 _LIMIT_LATEX = re.compile(
-    r"\\lim[_\s]*\{?\s*(?P<var>[a-zA-Z])\s*(?:\\to|->|→)\s*"
-    r"(?P<point>-?\\infty|-?infinity|-?inf|-?oo|-?\d+(?:\.\d+)?)\}?\s*(?P<expr>.+)?",
+    r"\\lim[_ ]*\{? ?(?P<var>[a-zA-Z]) ?(?:\\to|->|→) ?"
+    r"(?P<point>-?\\infty|-?infinity|-?inf|-?oo|-?\d+(?:\.\d+)?)\}? ?"
+    r"(?P<expr>[0-9a-zA-Z+\-*/(). ^\\]+)?",
     re.IGNORECASE,
 )
 
@@ -182,15 +193,16 @@ _SERIES_TRIGGER = re.compile(r"\b(?:series|converge[snt]?|divergen?[ct]?)\b", re
 
 # "[does the] [series/sum] [of] EXPR from VAR=START to END [converge]"
 _SERIES_SUM_FROM_TO = re.compile(
-    r"(?:sum|series)\s+(?:of\s+)?(?P<expr>.+?)\s+from\s+(?P<var>[a-zA-Z])\s*=\s*"
-    r"(?P<start>-?\d+)\s+to\s+(?P<end>infinity|inf|oo|-?\d+)",
+    r"(?:sum|series) (?:of )?(?P<expr>[0-9a-zA-Z+\-*/(). ^\\]+?) from (?P<var>[a-zA-Z]) ?= ?"
+    r"(?P<start>-?\d+) to (?P<end>infinity|inf|oo|-?\d+)",
     re.IGNORECASE,
 )
 
 # OCR/pasted LaTeX: \sum_{n=1}^{\infty} f(n).
 _SERIES_LATEX = re.compile(
-    r"\\sum[_\s]*\{?\s*(?P<var>[a-zA-Z])\s*=\s*(?P<start>-?\d+)\}?\s*"
-    r"\^\{?\s*(?P<end>\\infty|infinity|-?\d+)\}?\s*(?P<expr>.+)?",
+    r"\\sum[_ ]*\{? ?(?P<var>[a-zA-Z]) ?= ?(?P<start>-?\d+)\}? ?"
+    r"\^\{? ?(?P<end>\\infty|infinity|-?\d+)\}? ?"
+    r"(?P<expr>[0-9a-zA-Z+\-*/(). ^\\]+)?",
     re.IGNORECASE,
 )
 
@@ -199,9 +211,7 @@ _SERIES_LATEX = re.compile(
 # from..." has both words, leaving "sum of EXPR" as the captured expr. Strip
 # any repeated leading series/sum filler the same way _strip_trailing_filler
 # strips trailing filler.
-_SERIES_PREFIX_RE = re.compile(
-    r"^(?:does\s+)?(?:the\s+)?(?:series|sum)\s+(?:of\s+)?", re.IGNORECASE
-)
+_SERIES_PREFIX_RE = re.compile(r"^(?:does )?(?:the )?(?:series|sum) (?:of )?", re.IGNORECASE)
 
 # Common LaTeX commands/symbols that appear in a pasted or OCR'd limit/series
 # expression — _parse_expression's safe-character allowlist rejects any
@@ -233,7 +243,7 @@ def _normalize_latex_expr(expr: str) -> str:
 
 
 def _strip_series_prefix(expr: str) -> str:
-    s = expr.strip()
+    s = _collapse_ws(expr)
     prev = None
     while prev != s:
         prev = s
@@ -242,8 +252,8 @@ def _strip_series_prefix(expr: str) -> str:
 
 
 _NEWTON_TRIGGER = re.compile(
-    r"\bnewton'?s?\s+method\b|\bnumerically\s+(?:solve|approximate)\b"
-    r"|\bfind\s+the\s+root\s+of\b|\bnumerical\s+root\b",
+    r"\bnewton'?s? method\b|\bnumerically (?:solve|approximate)\b"
+    r"|\bfind the root of\b|\bnumerical root\b",
     re.IGNORECASE,
 )
 
@@ -252,8 +262,8 @@ _NEWTON_TRIGGER = re.compile(
 # equation extraction runs, so e.g. "x0 = 2" is never mistaken for a second
 # equation clause.
 _NEWTON_GUESS = re.compile(
-    r"(?:with\s+)?(?:starting\s+(?:at|near|with)?\s*|initial\s+guess\s+(?:of\s+)?|near\s+|guess\s+)"
-    r"(?:x0\s*=\s*|x\s*=\s*)?(?P<guess>-?\d+(?:\.\d+)?)",
+    r"(?:with )?(?:starting (?:at|near|with)? ?|initial guess (?:of )?|near |guess )"
+    r"(?:x0 ?= ?|x ?= ?)?(?P<guess>-?\d+(?:\.\d+)?)",
     re.IGNORECASE,
 )
 
@@ -262,10 +272,10 @@ _NEWTON_GUESS = re.compile(
 # "find the root of"/"numerically solve", so those need stripping here
 # before try_extract_equations_from_text runs on the remaining text.
 _NEWTON_PREFIX_RE = re.compile(
-    r"^\s*(?:please\s+)?(?:can\s+you\s+|could\s+you\s+)?(?:use\s+)?"
-    r"newton'?s?\s+method\s+(?:to\s+find\s+the\s+root\s+of\s+|for\s+|on\s+)?"
-    r"|^\s*(?:please\s+)?numerically\s+(?:solve|approximate)\s+"
-    r"|^\s*(?:please\s+)?find\s+the\s+root\s+of\s+",
+    r"^(?:please )?(?:can you |could you )?(?:use )?"
+    r"newton'?s? method (?:to find the root of |for |on )?"
+    r"|^(?:please )?numerically (?:solve|approximate) "
+    r"|^(?:please )?find the root of ",
     re.IGNORECASE,
 )
 
@@ -273,9 +283,23 @@ _DEFAULT_NEWTON_GUESS = 1.0
 
 
 _TRAILING_FILLER_RE = re.compile(
-    r"\s+(?:please|now|thanks?|thank\s+you|for\s+me|to\s+me|real\s+quick|quickly|briefly)\.?\s*$",
+    r" (?:please|now|thanks?|thank you|for me|to me|real quick|quickly|briefly)\.?$",
     re.IGNORECASE,
 )
+
+_AND_THEN_SPLIT = re.compile(r" (?:and|then) ", re.IGNORECASE)
+
+_SQUARE_EQUAL_SIDES = re.compile(
+    r"(?P<s>\d+(?:\.\d+)?) ?(?:×|x|\*| by ) ?(?P=s) ?(?:cm|m|mm|in|ft)?",
+    re.IGNORECASE,
+)
+
+_CALC_EXPR_TAIL = re.compile(
+    r"(?:simplify|differentiate|derivative|integrate|integral|factor|expand) (.+)$",
+    re.IGNORECASE,
+)
+
+_VERTICAL_EQ = re.compile(r"^x ?= ?(-?\d+(?:\.\d+)?)$", re.IGNORECASE)
 
 
 def _strip_trailing_filler(expr: str) -> str:
@@ -284,11 +308,11 @@ def _strip_trailing_filler(expr: str) -> str:
     "differentiate x^2 for me" sweeps the trailing words into the
     "expression" — which then fails to parse and silently disables the
     verified-math augmentation for phrasing a real user would actually type."""
-    s = expr.strip()
+    s = _collapse_ws(expr)
     # A conjunction essentially never appears inside a math expression
     # itself — anything from " and "/" then " onward is a new clause of
     # natural language (e.g. "sin(x) and explain it"), not part of the expr.
-    s = re.split(r"\s+(?:and|then)\s+", s, maxsplit=1, flags=re.IGNORECASE)[0]
+    s = _AND_THEN_SPLIT.split(s, maxsplit=1)[0]
     prev = None
     while prev != s:
         prev = s
@@ -297,7 +321,7 @@ def _strip_trailing_filler(expr: str) -> str:
 
 
 def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> bool:
-    cleaned = text.strip()
+    cleaned = _collapse_ws(text)
     if not cleaned and not has_image_attachment:
         return False
     from app.services.math_image_extract import is_math_camera_prompt
@@ -346,7 +370,7 @@ def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> boo
 
 
 def extract_math_intent(text: str) -> MathIntent | None:
-    cleaned = text.strip()
+    cleaned = _collapse_ws(text)
     if not cleaned:
         return None
 
@@ -361,7 +385,7 @@ def extract_math_intent(text: str) -> MathIntent | None:
             height=float(rect.group("h")),
             unit=unit,
             operation="solve",
-            wants_diagonal=bool(re.search(r"\bdiagonal\b", cleaned, re.IGNORECASE)),
+            wants_diagonal="diagonal" in cleaned.lower(),
             wants_angle=bool(re.search(r"\bangle\b", cleaned, re.IGNORECASE)),
             wants_area=bool(re.search(r"\barea\b", cleaned, re.IGNORECASE)),
             wants_perimeter=bool(re.search(r"\bperimeter\b", cleaned, re.IGNORECASE)),
@@ -377,11 +401,7 @@ def extract_math_intent(text: str) -> MathIntent | None:
             return MathIntent(
                 kind="square", side=side, width=side, height=side, unit="cm", operation="solve"
             )
-        equal = re.search(
-            r"(?P<s>\d+(?:\.\d+)?)\s*(?:×|x|\*|\sby\s)\s*(?P=s)\s*(?:cm|m|mm|in|ft)?",
-            cleaned,
-            re.IGNORECASE,
-        )
+        equal = _SQUARE_EQUAL_SIDES.search(cleaned)
         if equal:
             side = float(equal.group("s"))
             return MathIntent(
@@ -468,7 +488,7 @@ def extract_math_intent(text: str) -> MathIntent | None:
     if graph:
         expr = _strip_trailing_filler(graph.group("expr")).replace("^", "**")
         # "graph x = 4" also matches _GRAPH_EXPR loosely — prefer vertical.
-        vert_eq = re.match(r"^x\s*=\s*(-?\d+(?:\.\d+)?)$", expr.strip(), re.IGNORECASE)
+        vert_eq = _VERTICAL_EQ.match(expr)
         if vert_eq:
             return MathIntent(kind="vertical", point_x=float(vert_eq.group(1)), operation="graph")
         return MathIntent(kind="graph", expr=expr, operation="graph")
@@ -485,11 +505,7 @@ def extract_math_intent(text: str) -> MathIntent | None:
             calc_op = "factor"
         elif op_word == "expand":
             calc_op = "expand"
-        expr_match = re.search(
-            r"(?:simplify|differentiate|derivative|integrate|integral|factor|expand)\s+(.+)$",
-            cleaned,
-            re.I,
-        )
+        expr_match = _CALC_EXPR_TAIL.search(cleaned)
         expr = _strip_trailing_filler(expr_match.group(1)) if expr_match else cleaned
         # Definite integral: "integrate x^2 from 0 to 1" → bounds + bare expr.
         integral_lower: str | None = None
