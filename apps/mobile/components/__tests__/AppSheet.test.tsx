@@ -104,4 +104,31 @@ describe("AppSheet", () => {
 
     expect(getByTestId("app-sheet-keyboard-host")).toHaveStyle({ paddingBottom: 320 });
   });
+
+  it("BUG FIX regression: clamps tall keyboard sheets so content can scroll", async () => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    let showHandler: ((e: KeyboardEvent) => void) | undefined;
+    jest.spyOn(Keyboard, "addListener").mockImplementation((event, handler) => {
+      if (event === showEvent) {
+        showHandler = handler as (e: KeyboardEvent) => void;
+      }
+      return { remove: jest.fn() } as EmitterSubscription;
+    });
+
+    const { getByText, getByTestId } = await render(
+      <AppSheet visible onClose={jest.fn()} keyboardAvoiding>
+        <Text>reminder body</Text>
+      </AppSheet>,
+    );
+
+    await act(async () => {
+      showHandler?.({
+        endCoordinates: { height: 400, screenX: 0, screenY: 0, width: 0 },
+      } as KeyboardEvent);
+    });
+
+    expect(getByText("reminder body")).toBeOnTheScreen();
+    // Host still lifts by the keyboard height (reminder / calendar sheet).
+    expect(getByTestId("app-sheet-keyboard-host")).toHaveStyle({ paddingBottom: 400 });
+  });
 });

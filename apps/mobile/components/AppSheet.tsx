@@ -1,9 +1,11 @@
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import {
+  Dimensions,
   Keyboard,
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   View,
   type StyleProp,
@@ -22,7 +24,8 @@ type Props = {
   /**
    * Lift the sheet above the OS keyboard. Uses Keyboard events (not
    * KeyboardAvoidingView) so Android Modals work — activity `resize` does not
-   * apply inside RN Modal windows.
+   * apply inside RN Modal windows. Tall sheets (e.g. add reminder + date)
+   * also get a max-height + scroll so the input is not pushed off-screen.
    */
   keyboardAvoiding?: boolean;
   /** Render the grabber handle at the top of a bottom sheet. */
@@ -73,6 +76,26 @@ export function AppSheet({
   const resolvedAnimation = animation ?? (variant === "center" ? "fade" : "slide");
   const showHandle = withHandle ?? variant === "bottom";
   const keyboardOpen = keyboardAvoiding && keyboardHeight > 0;
+  const windowHeight = Dimensions.get("window").height;
+  // Leave a little air under the status area so a tall reminder sheet can scroll
+  // instead of shoving the text field under the notch / off the top.
+  const panelMaxHeight =
+    keyboardAvoiding && variant === "bottom"
+      ? Math.max(200, windowHeight - keyboardHeight - Math.max(insets.top, 12))
+      : undefined;
+
+  const body = keyboardAvoiding ? (
+    <ScrollView
+      keyboardShouldPersistTaps="handled"
+      bounces={false}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={s.scrollContent}
+    >
+      {children}
+    </ScrollView>
+  ) : (
+    children
+  );
 
   const content = (
     <View
@@ -87,10 +110,12 @@ export function AppSheet({
             : Math.max(insets.bottom, minBottomPadding),
         },
         contentContainerStyle,
+        // After style overrides so tall sheets (reminder + date) still clamp.
+        panelMaxHeight != null && { maxHeight: panelMaxHeight },
       ]}
     >
       {showHandle ? <View style={s.handle} testID="app-sheet-handle" /> : null}
-      {children}
+      {body}
     </View>
   );
 
@@ -159,6 +184,9 @@ function makeStyles(t: Theme) {
       backgroundColor: t.border,
       marginTop: 8,
       marginBottom: 4,
+    },
+    scrollContent: {
+      flexGrow: 0,
     },
   });
 }
