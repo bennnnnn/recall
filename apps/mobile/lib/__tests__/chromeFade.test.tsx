@@ -1,5 +1,5 @@
 import { bottomChromeFadeColors, topChromeFadeColors } from "@/lib/chromeFade";
-import { darkTheme, lightTheme } from "@/lib/theme";
+import { darkTheme, lightTheme, withAlpha } from "@/lib/theme";
 
 describe("chromeFade", () => {
   it("BUG FIX regression: every stop is a valid rgba()/solid color for both themes", () => {
@@ -17,12 +17,12 @@ describe("chromeFade", () => {
   it("top fade starts solid and ends fully transparent", () => {
     const stops = topChromeFadeColors(lightTheme);
     expect(stops[0]).toBe(lightTheme.bg);
-    expect(stops[stops.length - 1]).toBe("rgba(255, 255, 255, 0)");
+    expect(stops[stops.length - 1]).toBe(withAlpha(lightTheme.bg, 0));
   });
 
   it("bottom fade starts fully transparent and ends solid", () => {
     const stops = bottomChromeFadeColors(darkTheme);
-    expect(stops[0]).toBe("rgba(33, 33, 33, 0)");
+    expect(stops[0]).toBe(withAlpha(darkTheme.bg, 0));
     expect(stops[stops.length - 1]).toBe(darkTheme.bg);
   });
 

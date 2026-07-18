@@ -20,6 +20,8 @@ import {
   composerShowsMic,
   composerShowsSend,
 } from "@/lib/chatComposerLogic";
+import { Radius } from "@/lib/radius";
+import { shadowRaised } from "@/lib/shadow";
 import { Theme, useTheme } from "@/lib/theme";
 
 export const COMPOSER_HEIGHT = 88;
@@ -228,12 +230,12 @@ function makeStyles(theme: Theme) {
       left: 0,
       right: 0,
       zIndex: 110,
-      backgroundColor: theme.bg,
+      backgroundColor: theme.composerBg,
       paddingHorizontal: 12,
       paddingTop: 2,
     },
     composerDocked: {
-      backgroundColor: theme.bg,
+      backgroundColor: theme.composerBg,
       paddingHorizontal: 12,
       paddingTop: 2,
     },
@@ -246,18 +248,21 @@ function makeStyles(theme: Theme) {
       marginBottom: 6,
       paddingHorizontal: 12,
       paddingVertical: 8,
-      borderRadius: 12,
+      borderRadius: Radius.md,
       backgroundColor: theme.primaryLight,
     },
     editBannerText: { fontSize: 13, fontWeight: "600", color: theme.primary },
     editBannerCancel: { fontSize: 13, fontWeight: "600", color: theme.textSecondary },
     composer: { paddingVertical: 6 },
     inputWrap: {
-      backgroundColor: theme.surface,
+      backgroundColor: theme.inputBg,
       borderRadius: 20,
       paddingHorizontal: 12,
       paddingTop: 8,
       paddingBottom: 8,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.composerBorder,
+      ...shadowRaised(theme),
     },
     inputRowMain: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
     attachBtn: {
