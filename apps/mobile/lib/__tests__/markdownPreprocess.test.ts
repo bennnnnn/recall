@@ -242,6 +242,42 @@ x = 0
     const prepared = preprocessMarkdown(input);
     expect(prepared).toContain("a\\, b");
   });
+
+  it("BUG FIX regression: converts \\(...\\) inline math to $...$ so markdown-it cannot strip the delimiters into raw (\\frac{...})", () => {
+    // Reported live: model emits `\(\frac{m}{m}\)`; CommonMark escapes `\(` / `\)`
+    // to bare parentheses during inline tokenization, so splitInlineMath never
+    // sees a math span and the UI shows literal `(\frac{m}{m})`.
+    const input =
+      "1. Divide both sides by \\(\\frac{m}{m}\\):\n" +
+      "Cancel \\(\\frac{m}{m}\\) (since \\(m \\neq 0\\)) to get \\(1 = 2m\\).\n" +
+      "\\(m = \\frac{1}{2}\\)";
+    const prepared = preprocessMarkdown(input);
+    expect(prepared).toContain("$\\frac{m}{m}$");
+    expect(prepared).toContain("$m \\neq 0$");
+    expect(prepared).toContain("$m = \\frac{1}{2}$");
+    expect(prepared).not.toContain("\\(");
+    expect(prepared).not.toContain("\\)");
+
+    const tokens = markdownItInstance.parse(prepared, {});
+    const textContents: string[] = [];
+    type WalkToken = { type: string; content?: string; children?: WalkToken[] | null };
+    const walk = (ts: WalkToken[]) => {
+      for (const t of ts) {
+        if (t.type === "text" && t.content) textContents.push(t.content);
+        if (t.children) walk(t.children);
+      }
+    };
+    walk(tokens as unknown as WalkToken[]);
+
+    const allText = textContents.join("\n");
+    const mathParts = textContents.flatMap((c) =>
+      splitInlineMath(c).filter((p) => p.type === "math"),
+    );
+    expect(mathParts.length).toBeGreaterThanOrEqual(3);
+    expect(mathParts.some((p) => p.value.includes("\\frac{m}{m}"))).toBe(true);
+    // Must not surface the post-escape raw shape with bare parens + \frac.
+    expect(allText).not.toMatch(/\(\\frac\{m\}\{m\}\)/);
+  });
 });
 
 describe("normalizeMarkdownTables", () => {

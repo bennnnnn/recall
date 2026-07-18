@@ -331,15 +331,22 @@ const MATH_ESCAPE_BACKSLASH_RE = /\\(?=[!"#$%&'()*+,\-./:;<=>?@[\]^_`{|}~])/g;
  * exempt: markdown-it's fence rule never applies inline escaping to them).
  * mathText.ts's preprocessLatex decodes the marker back to "\" as its first
  * step, before any command table runs.
+ *
+ * Also converts `\(...\)` → `$...$`. CommonMark treats `\(` / `\)` as escaped
+ * punctuation and strips those backslashes during inline tokenization, so
+ * leaving `\(...\)` in the preprocessed string makes splitInlineMath miss the
+ * span entirely and the UI shows raw `(\frac{...})`. `$` is not escapable that
+ * way, and splitInlineMath already handles `$...$`.
  */
 function protectMathEscapes(content: string): string {
   return content.replace(
     /\$([^$\n]+?)\$|\\\(([\s\S]+?)\\\)/g,
-    (full: string, dollarBody: string | undefined, parenBody: string | undefined) => {
-      if (dollarBody !== undefined) {
-        return `$${dollarBody.replace(MATH_ESCAPE_BACKSLASH_RE, PROTECTED_ESCAPE_MARKER)}$`;
-      }
-      return `\\(${(parenBody ?? "").replace(MATH_ESCAPE_BACKSLASH_RE, PROTECTED_ESCAPE_MARKER)}\\)`;
+    (_full: string, dollarBody: string | undefined, parenBody: string | undefined) => {
+      const body = (dollarBody ?? parenBody ?? "").replace(
+        MATH_ESCAPE_BACKSLASH_RE,
+        PROTECTED_ESCAPE_MARKER,
+      );
+      return `$${body}$`;
     },
   );
 }

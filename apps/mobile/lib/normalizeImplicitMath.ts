@@ -54,9 +54,14 @@ export function fixImplicitExponents(expr: string): string {
 
 /** True when a parenthetical looks like English prose, not `(2x-1)` / `(x+3)`. */
 function looksLikeProseParenthetical(s: string): boolean {
+  // Strip LaTeX command names first — otherwise `\neq` / `\frac` / `\div`
+  // contribute letter-runs ("neq", "frac") that look like English words and
+  // block wrapping of real math like `(since m \neq 0)` or nested-frac
+  // parentheticals that contain several `\frac`s.
+  const withoutCmds = s.replace(/\\[a-zA-Z]+/g, " ");
   // Two or more 3+-letter words → "excluded values", "in disguise", etc.
   // Single short tokens like "sqrt" / variables don't match.
-  const words = s.match(/[A-Za-z]{3,}/g) ?? [];
+  const words = withoutCmds.match(/[A-Za-z]{3,}/g) ?? [];
   return words.length >= 2;
 }
 
@@ -123,12 +128,6 @@ function skipBraceGroups(s: string, start: number): number {
   return i;
 }
 
-/** Wraps a bare LaTeX command (plus its brace groups) in $...$ where it's
- * embedded mid-sentence with no delimiters at all — e.g.
- * "simplifying\frac{8!}{6!}?" — distinct from the whole-line-only
- * looksLikeBareEquation path above, since real prose surrounds it here.
- * Skipped whenever the line already has a "$" anywhere, so it never
- * double-wraps something wrapMath already handled earlier in this line. */
 /** Apply `fn` only to the non-`$...$` segments of a line, leaving already-
  * delimited inline math spans untouched. Without this, a heuristic like
  * MATH_IN_PARENS_RE re-wraps parentheticals INSIDE an existing `$...$`
@@ -150,21 +149,30 @@ function applyOutsideInlineMath(line: string, fn: (s: string) => string): string
   return out.join("");
 }
 
-function wrapInlineLatexCommands(line: string): string {
-  if (line.includes("$")) return line;
+/** Wrap a bare LaTeX command (plus its brace groups) in $...$ — e.g.
+ * "simplifying\frac{8!}{6!}?" — distinct from the whole-line-only
+ * looksLikeBareEquation path, since real prose surrounds it here. */
+function wrapInlineLatexCommandsInSegment(seg: string): string {
   INLINE_LATEX_CMD_RE.lastIndex = 0;
   let out = "";
   let last = 0;
   let match: RegExpExecArray | null;
-  while ((match = INLINE_LATEX_CMD_RE.exec(line)) !== null) {
+  while ((match = INLINE_LATEX_CMD_RE.exec(seg)) !== null) {
     const start = match.index;
-    const end = skipBraceGroups(line, INLINE_LATEX_CMD_RE.lastIndex);
-    out += line.slice(last, start) + `$${line.slice(start, end)}$`;
+    const end = skipBraceGroups(seg, INLINE_LATEX_CMD_RE.lastIndex);
+    out += seg.slice(last, start) + `$${seg.slice(start, end)}$`;
     last = end;
     INLINE_LATEX_CMD_RE.lastIndex = end;
   }
-  if (last === 0) return line;
-  return out + line.slice(last);
+  if (last === 0) return seg;
+  return out + seg.slice(last);
+}
+
+/** Wrap bare LaTeX commands only outside existing `$...$` spans — so a mixed
+ * line like `Cancel $\frac{m}{m}$ (since m \neq 0)` still wraps the leftover
+ * `\neq` instead of bailing because the line already contains `$`. */
+function wrapInlineLatexCommands(line: string): string {
+  return applyOutsideInlineMath(line, wrapInlineLatexCommandsInSegment);
 }
 
 function normalizeMathLine(line: string): string {
