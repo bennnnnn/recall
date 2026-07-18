@@ -6,6 +6,7 @@ import { getStreamingDraftContentLength, subscribeStreamingDraft } from "@/lib/s
 import type { Message } from "@/lib/api";
 import {
   getScrollThresholds,
+  nextStreamingScrollDelay,
   resolveScrollAtBottom,
   shouldSchedulePostStreamScroll,
 } from "@/lib/chatScrollLogic";
@@ -13,8 +14,16 @@ import { STREAM_LAYOUT_SETTLE_MS } from "@/lib/messageListLayout";
 import { clearScheduledTimeout, scheduleTimeout } from "@/lib/scheduleTimeout";
 import { tap } from "@/lib/haptics";
 
-/** While streaming, JS owns bottom-pinning (FlashList autoscroll is off). */
-const STREAMING_SCROLL_DEBOUNCE_MS = 64;
+/**
+ * While streaming, JS owns bottom-pinning (FlashList autoscroll is off).
+ * This is a throttle interval, not a debounce: `scheduleTimeout` clears and
+ * restarts on every call, so a plain debounce here would never fire while
+ * draft updates keep arriving faster than this interval (normal for a fast
+ * provider) — the view would sit frozen through the stream and only catch
+ * up once generation paused. `scheduleStreamingScroll` re-derives the
+ * remaining wait from elapsed time so it still fires on a steady cadence.
+ */
+const STREAMING_SCROLL_THROTTLE_MS = 64;
 /** Skip catch-up when already within a few pixels of the bottom. */
 const STREAMING_SCROLL_SLACK_PX = 8;
 
@@ -43,6 +52,7 @@ export function useChatScroll({
   const scrollOffsetRef = useRef(0);
   const viewportHeightRef = useRef(0);
   const streamingScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const streamingScrollLastRunRef = useRef(0);
   const streamEndScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const keyboardScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevStreamActiveRef = useRef(false);
@@ -133,22 +143,35 @@ export function useChatScroll({
     listRef.current?.scrollToEnd({ animated });
   }, []);
 
-  const scheduleStreamingScroll = useCallback(() => {
-    scheduleTimeout(streamingScrollTimerRef, STREAMING_SCROLL_DEBOUNCE_MS, () => {
-      if (atBottomRef.current) {
-        // During streaming, FlashList autoscroll is disabled (see ChatMessageList)
-        // so this is the sole bottom-pin writer. Use animated catch-up — hard
-        // snaps at LLM burst boundaries read as up/down jitter.
-        const metrics = measureScrollMetrics();
-        if (metrics && metrics.distanceFromBottom <= STREAMING_SCROLL_SLACK_PX) {
-          return;
-        }
-        listRef.current?.scrollToEnd({ animated: true });
-      } else {
-        requestAnimationFrame(() => syncScrollPosition());
+  const runStreamingScrollCatchUp = useCallback(() => {
+    streamingScrollLastRunRef.current = Date.now();
+    if (atBottomRef.current) {
+      // During streaming, FlashList autoscroll is disabled (see ChatMessageList)
+      // so this is the sole bottom-pin writer. Use animated catch-up — hard
+      // snaps at LLM burst boundaries read as up/down jitter.
+      const metrics = measureScrollMetrics();
+      if (metrics && metrics.distanceFromBottom <= STREAMING_SCROLL_SLACK_PX) {
+        return;
       }
-    });
+      listRef.current?.scrollToEnd({ animated: true });
+    } else {
+      requestAnimationFrame(() => syncScrollPosition());
+    }
   }, [measureScrollMetrics, syncScrollPosition]);
+
+  const scheduleStreamingScroll = useCallback(() => {
+    const elapsed = Date.now() - streamingScrollLastRunRef.current;
+    const delay = nextStreamingScrollDelay(elapsed, STREAMING_SCROLL_THROTTLE_MS);
+    if (delay <= 0) {
+      clearScheduledTimeout(streamingScrollTimerRef);
+      runStreamingScrollCatchUp();
+      return;
+    }
+    // Trailing call for the tail of a burst — rescheduled on every call, but
+    // `delay` shrinks toward 0 as elapsed time grows, so the target fire time
+    // converges instead of being pushed out on every new update.
+    scheduleTimeout(streamingScrollTimerRef, delay, runStreamingScrollCatchUp);
+  }, [runStreamingScrollCatchUp]);
 
   const schedulePostStreamScroll = useCallback(() => {
     scheduleTimeout(streamEndScrollTimerRef, STREAM_LAYOUT_SETTLE_MS, () => {
@@ -205,6 +228,7 @@ export function useChatScroll({
     setShowScrollToBottom(false);
     setScrollAwayCount(0);
     atBottomRef.current = true;
+    streamingScrollLastRunRef.current = 0;
   }, [chatId]);
 
   useEffect(() => {

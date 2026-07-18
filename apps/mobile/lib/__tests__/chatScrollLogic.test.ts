@@ -1,6 +1,7 @@
 import {
   formatScrollAwayBadge,
   getScrollThresholds,
+  nextStreamingScrollDelay,
   resolveScrollAtBottom,
   shouldSchedulePostStreamScroll,
 } from "@/lib/chatScrollLogic";
@@ -69,5 +70,19 @@ describe("chatScrollLogic", () => {
     expect(shouldSchedulePostStreamScroll(false, false, true)).toBe(false);
     expect(shouldSchedulePostStreamScroll(true, true, true)).toBe(false);
     expect(shouldSchedulePostStreamScroll(true, false, false)).toBe(false);
+  });
+
+  it("nextStreamingScrollDelay converges toward 0 instead of resetting on sustained calls", () => {
+    // A plain debounce recomputed from "now" on every call would return the
+    // full 64ms every time draft updates keep arriving — never firing. This
+    // must instead shrink as elapsed time grows, so a fast, steady stream
+    // still gets a periodic catch-up rather than freezing until it pauses.
+    expect(nextStreamingScrollDelay(0, 64)).toBe(64);
+    expect(nextStreamingScrollDelay(30, 64)).toBe(34);
+    expect(nextStreamingScrollDelay(60, 64)).toBe(4);
+    expect(nextStreamingScrollDelay(64, 64)).toBe(0);
+    // Already overdue (e.g. first call after a long pause, or a stale ref) —
+    // never returns a negative delay.
+    expect(nextStreamingScrollDelay(200, 64)).toBe(0);
   });
 });
