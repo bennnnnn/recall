@@ -32,6 +32,7 @@ import { DrawerFooter } from "@/components/drawer/DrawerFooter";
 import { DrawerHeader } from "@/components/drawer/DrawerHeader";
 import { DrawerSelectionBar } from "@/components/drawer/DrawerSelectionBar";
 import {
+  DRAWER_NAV_CHROME,
   FADE_EXTRA,
   FOOTER_CHROME,
   makeConversationListStyles,
@@ -209,7 +210,9 @@ export function ConversationList(_props: unknown) {
     if (chatId) enterSelectionMode(chatId);
   }, [menuChat?.id, closeMenu, closeSearch, enterSelectionMode]);
 
-  const topInset = insets.top + 8 + TOP_CHROME;
+  // Logo row + nav links are fixed chrome; list content starts below both so the
+  // top fade can soften scrolling chats without washing out Learning/Lists/Reminders.
+  const topInset = insets.top + 8 + TOP_CHROME + DRAWER_NAV_CHROME;
   const bottomInset = insets.bottom + 8 + FOOTER_CHROME;
   const topFadeHeight = topInset + FADE_EXTRA;
   const bottomFadeHeight = bottomInset + FADE_EXTRA;
@@ -218,13 +221,6 @@ export function ConversationList(_props: unknown) {
 
   const listHeader = (
     <DrawerListHeader
-      styles={s}
-      theme={theme}
-      showIndicator={showIndicator}
-      unseenCount={unseenCount}
-      onProjects={openProjects}
-      onLists={openLists}
-      onReminders={openReminders}
       loading={loading}
       error={error}
       activeChatCount={allChats.length}
@@ -338,6 +334,11 @@ export function ConversationList(_props: unknown) {
         selectedCount={selectedCount}
         onExitSelection={exitSelectionMode}
         onSelectAll={selectAllListed}
+        showIndicator={showIndicator}
+        unseenCount={unseenCount}
+        onProjects={openProjects}
+        onLists={openLists}
+        onReminders={openReminders}
       />
 
       {selectionMode ? (
