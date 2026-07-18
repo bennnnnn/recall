@@ -160,11 +160,27 @@ async def _process_attachments(
 
     # Camera math solver: vision-extract equation so SymPy can verify.
     from app.services import math_image_extract as math_image_extract_service
+    from app.services import math_text_match
 
+    # BUG FIX: this used to require the sent text to be BYTE-FOR-BYTE
+    # identical to the preset camera caption — the composer pre-fills that
+    # caption into an editable text box, so any user edit (add a word, fix
+    # a typo, autocorrect touching punctuation) silently dropped the OCR
+    # step with no error shown; the photo still sent, just unverified.
+    # An edited caption from someone who chose "Solve math with camera"
+    # overwhelmingly still reads as a math ask ("solve this", "find x", a
+    # stray leftover word) — reuse the same has_math_keyword signal
+    # needs_symbolic_math already trusts for the image-attachment case, so
+    # OCR fires whenever the caption still looks like a math request, not
+    # only on an exact match. A caption with no math keyword at all (or the
+    # default blank caption every plain image attachment sends) is left
+    # alone — this must not fire a vision call on every unrelated photo.
+    caption = content.strip()
+    looks_like_math_caption = bool(caption) and math_text_match.has_math_keyword(caption.lower())
     if (
         has_image_attachment
         and image_attachments
-        and math_image_extract_service.is_math_camera_prompt(content)
+        and (math_image_extract_service.is_math_camera_prompt(content) or looks_like_math_caption)
     ):
         if on_status is not None:
             await on_status("calculating")

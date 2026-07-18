@@ -41,6 +41,7 @@ from app.services.chat.prompt_constants import (
     QUIZ_ANSWER_HINT,
     QUIZ_RECENT_MESSAGE_LIMIT,
     RESPONSE_FORMAT_HINT,
+    SHORT_MATH_SAFETY_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     STYLE_HINTS,
     VISUALIZATION_HINTS,
@@ -372,6 +373,7 @@ def _style_format_hints(
         parts.append(BROAD_SELF_ANSWER_HINT)
     if style == "short":
         parts.append(SHORT_RESPONSE_FORMAT_HINT)
+        parts.append(SHORT_MATH_SAFETY_HINT)
     elif not is_day_plan:
         parts.extend(
             [INTENT_FORMAT_HINT, MATH_SOLVER_HINT, RESPONSE_FORMAT_HINT, VISUALIZATION_HINTS]
