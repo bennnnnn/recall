@@ -8,8 +8,19 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from typing import Literal
 
 from app.services.text_normalize import collapse_ws
+
+# Mirror MathIntent's Literal fields in app.models.math_schemas — kept as
+# type aliases here (not imported from there) to avoid a schema<->matcher
+# import cycle; math_tools.py assigns these straight into MathIntent, so a
+# drift between the two would fail mypy immediately, same as any other
+# Literal mismatch.
+StatsOp = Literal["mean", "median", "mode", "variance", "stdev"]
+CombinatoricsOp = Literal["factorial", "combinations", "permutations"]
+NumberTheoryOp = Literal["gcd", "lcm", "factorize", "is_prime", "mod"]
+MatrixOp = Literal["determinant", "inverse"]
 
 _MAX = 1000
 _NUM = re.compile(r"-?\d+(?:\.\d+)?")
@@ -599,7 +610,7 @@ def integral_bounds(expr: str) -> tuple[str, str, str] | None:
 # before a later, coincidental bare "deviation" would matter (it never
 # appears alone in this list, but the ordering convention matches
 # _INEQ_OPS/_SYSTEM_PREFIXES elsewhere in this module).
-_STATS_WORDS: tuple[tuple[str, str], ...] = (
+_STATS_WORDS: tuple[tuple[str, StatsOp], ...] = (
     ("standard deviation", "stdev"),
     ("std dev", "stdev"),
     ("stdev", "stdev"),
@@ -611,12 +622,12 @@ _STATS_WORDS: tuple[tuple[str, str], ...] = (
 )
 
 
-def stats_signal(text: str) -> tuple[str, list[float]] | None:
+def stats_signal(text: str) -> tuple[StatsOp, list[float]] | None:
     """ "mean/median/mode/standard deviation/variance of <numbers>" — requires
     BOTH the keyword AND 2+ numbers after it, so plain prose ("what do you
     mean by X") without any data list never matches."""
     lower = text.lower()
-    best: tuple[int, str] | None = None
+    best: tuple[int, StatsOp] | None = None
     for phrase, op in _STATS_WORDS:
         idx = lower.find(phrase)
         if idx != -1 and (best is None or idx < best[0]):
@@ -707,7 +718,7 @@ def _ncr_npr_signal(text: str, word: str | None, letter: str) -> tuple[int, int]
     return None
 
 
-def combinatorics_signal(text: str) -> tuple[str, int, int | None] | None:
+def combinatorics_signal(text: str) -> tuple[CombinatoricsOp, int, int | None] | None:
     """Factorial / combinations ("choose", "C(n,k)", "nCk") / permutations
     ("P(n,k)", "nPk"). Returns (op, n, k) — k is None for factorial."""
     n = _factorial_signal(text)
@@ -722,7 +733,7 @@ def combinatorics_signal(text: str) -> tuple[str, int, int | None] | None:
     return None
 
 
-_GCD_LCM_WORDS: tuple[tuple[str, str], ...] = (
+_GCD_LCM_WORDS: tuple[tuple[str, NumberTheoryOp], ...] = (
     ("greatest common divisor", "gcd"),
     ("greatest common factor", "gcd"),
     ("gcd", "gcd"),
@@ -732,7 +743,7 @@ _GCD_LCM_WORDS: tuple[tuple[str, str], ...] = (
 _FACTORIZE_PREFIXES = ("prime factorization of ", "prime factors of ", "factorize ")
 
 
-def number_theory_signal(text: str) -> tuple[str, int, int | None] | None:
+def number_theory_signal(text: str) -> tuple[NumberTheoryOp, int, int | None] | None:
     """gcd/lcm of two ints, prime factorization / primality of one int, or
     "<a> mod <b>". Returns (op, a, b) — b is None for factorize/is_prime."""
     lower = text.lower()
@@ -763,11 +774,12 @@ def number_theory_signal(text: str) -> tuple[str, int, int | None] | None:
     return None
 
 
-def matrix_signal(text: str) -> tuple[str, list[list[float]]] | None:
+def matrix_signal(text: str) -> tuple[MatrixOp, list[list[float]]] | None:
     """ "determinant of [[1,2],[3,4]]" / "inverse of [[2,0],[1,3]]" -> (op,
     rows). Only explicit [[...],[...]] bracket notation is recognized — a
     best-effort structural match, not general NL parsing."""
     lower = text.lower()
+    op: MatrixOp
     if "determinant" in lower or "det(" in lower.replace(" ", ""):
         op = "determinant"
     elif "inverse" in lower:
