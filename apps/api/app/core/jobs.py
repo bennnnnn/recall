@@ -347,17 +347,18 @@ async def _move_to_dlq(
         _capture_sentry_exception("dlq_write_failed")
 
 
-async def _process_entries(redis: Redis, settings: Settings, entries: list) -> None:
+async def _process_entries(
+    redis: Redis, settings: Settings, entries: list[tuple[str, dict[str, Any]]]
+) -> None:
     for entry_id, fields in entries:
-        cast_fields = cast(dict[str, Any], fields)
         try:
             for attempt in range(1, _MAX_ATTEMPTS + 1):
                 try:
-                    await _dispatch(settings, cast_fields)
+                    await _dispatch(settings, fields)
                     break
                 except JobDiscardError as exc:
                     logger.warning("Discarding job id=%s: %s", entry_id, exc)
-                    await _move_to_dlq(redis, entry_id, cast_fields, str(exc))
+                    await _move_to_dlq(redis, entry_id, fields, str(exc))
                     break
                 except Exception:
                     if attempt < _MAX_ATTEMPTS:
@@ -372,9 +373,7 @@ async def _process_entries(redis: Redis, settings: Settings, entries: list) -> N
                         logger.exception(
                             "Job failed after %s attempts id=%s", _MAX_ATTEMPTS, entry_id
                         )
-                        await _move_to_dlq(
-                            redis, entry_id, cast_fields, traceback.format_exc(limit=8)
-                        )
+                        await _move_to_dlq(redis, entry_id, fields, traceback.format_exc(limit=8))
         finally:
             # Best-effort jobs: ack regardless so a poison entry can't loop forever.
             # Retry already happened above; the DLQ preserves the failed payload.
@@ -470,7 +469,7 @@ async def _worker_loop(settings: Settings) -> None:
             _touch_heartbeat()
 
 
-_worker_task: asyncio.Task | None = None
+_worker_task: asyncio.Task[None] | None = None
 _last_heartbeat: float = 0.0
 
 
@@ -580,7 +579,7 @@ async def list_dlq(redis: Redis, *, count: int = 50) -> list[dict[str, Any]]:
     if not resp:
         return out
     for entry in resp:
-        entry_id, fields = entry  # type: ignore[misc]
+        entry_id, fields = entry
         f = cast(dict[str, Any], fields)
         out.append(
             {

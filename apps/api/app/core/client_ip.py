@@ -6,6 +6,7 @@ import ipaddress
 from collections.abc import Mapping
 
 from starlette.requests import Request
+from starlette.websockets import WebSocket
 
 from app.core.config import Settings
 
@@ -87,7 +88,7 @@ def client_ip(request: Request, settings: Settings) -> str:
     )
 
 
-def client_ip_from_websocket(websocket, settings: Settings) -> str:
+def client_ip_from_websocket(websocket: WebSocket, settings: Settings) -> str:
     """Resolve the client IP for a WebSocket handshake (same trust rules as REST).
 
     WebSocket handshakes need the same fly-client-ip / XFF handling as REST so

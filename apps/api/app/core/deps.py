@@ -48,5 +48,5 @@ async def get_current_user(
     return user
 
 
-def get_redis():
+def get_redis() -> Redis:
     return get_redis_client()
