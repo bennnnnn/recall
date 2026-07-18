@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
-import { boxShadowElevated } from "@/lib/shadow";
+import { shadowElevated } from "@/lib/shadow";
 import { Theme, useTheme } from "@/lib/theme";
 import { formatScrollAwayBadge } from "@/lib/chatScrollLogic";
 
@@ -62,7 +62,7 @@ const makeS = (C: Theme) =>
       borderColor: C.border,
       alignItems: "center",
       justifyContent: "center",
-      ...boxShadowElevated(C, "fab"),
+      ...shadowElevated(C, "fab"),
     },
     badge: {
       position: "absolute",
