@@ -26,6 +26,9 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\mp/g, "∓"],
   [/\\times/g, "×"],
   [/\\cdot/g, "·"],
+  // Function composition (f ∘ g) — without this, "$ (f \circ g)(2) $" leaks
+  // the literal backslash command in MathText / compact answer pills.
+  [/\\circ(?![a-zA-Z])/g, "∘"],
   [/\\div/g, "÷"],
   [/\\leq/g, "≤"],
   [/\\geq/g, "≥"],
