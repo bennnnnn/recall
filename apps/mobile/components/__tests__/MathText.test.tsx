@@ -39,7 +39,18 @@ describe("MathText", () => {
       <MathText latex={"\\frac{-b + \\sqrt{2}}{2a}"} />,
     );
     // "2a" is a single atomic token (no operator) so it stays bare; the
-    // numerator has an internal "+" so it's wrapped to avoid ambiguity.
-    expect(getByText("(-b + √(2))/2a")).toBeOnTheScreen();
+    // numerator has an internal "+" so it's wrapped to avoid ambiguity. The
+    // sqrt's own radicand sits under a combining overline, not in parens.
+    expect(getByText("(-b + √2̅)/2a")).toBeOnTheScreen();
+  });
+
+  it("BUG FIX regression: \\pm immediately followed by a digit does not become a false superscript", async () => {
+    // Reported live: a step-by-step solve rendered "x = \pm\sqrt{4}" then
+    // simplified to "x = \pm2" (no space) — the implicit-exponent heuristic
+    // used to mistake the command's trailing letter for a bare variable and
+    // rewrite it to "\pm^2", displaying "±²" ("plus or minus squared")
+    // instead of "± 2".
+    const { getByText } = await render(<MathText latex={String.raw`x = \pm2`} />);
+    expect(getByText("x = ±2")).toBeOnTheScreen();
   });
 });

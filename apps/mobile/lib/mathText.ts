@@ -194,14 +194,19 @@ const ACCENT_COMMANDS: [RegExp, string][] = [
   [/\\bar\{([^{}]+)\}/g, "̄"], // combining macron
 ];
 
+/** Combining mark applied per-character (see ACCENT_COMMANDS above for why
+ * per-character, not just the last). Shared with the \sqrt rendering below —
+ * a radical's bar has to span its whole radicand the same way \overline's does. */
+function markEachChar(text: string, mark: string): string {
+  return Array.from(text)
+    .map((ch) => (ch === " " ? ch : `${ch}${mark}`))
+    .join("");
+}
+
 function applyAccentCommands(latex: string): string {
   let s = latex;
   for (const [re, mark] of ACCENT_COMMANDS) {
-    s = s.replace(re, (_m, group: string) =>
-      Array.from(group)
-        .map((ch) => (ch === " " ? ch : `${ch}${mark}`))
-        .join(""),
-    );
+    s = s.replace(re, (_m, group: string) => markEachChar(group, mark));
   }
   return s;
 }
@@ -298,11 +303,20 @@ function preprocessLatex(latex: string): string {
   for (const [re, rep] of CMD_REPLACEMENTS) {
     s = s.replace(re, rep);
   }
-  // nth-root: \sqrt[n]{x} → √[n](x) (plain but readable). Before the bare
-  // \sqrt{...} rule so the [n] isn't dropped.
-  s = s.replace(/\\sqrt\[([^\]]+)\]\{([^}]+)\}/g, "√[$1]($2)");
-  s = s.replace(/\\sqrt\{([^}]+)\}/g, "√($1)");
-  s = s.replace(/\\sqrt\s+([0-9a-zA-Z]+)/g, "√$1");
+  // \sqrt{x} → a radical followed by the radicand under a combining overline
+  // ("√4̅"), not "√(x)" — a lone tick-mark next to parens reads more like a
+  // checkmark stuck beside a phone number than a root sign, and the bar
+  // (same combining mark \overline uses above) is what actually signals "this
+  // is under the root" the way real math notation draws it — no parens
+  // needed since the bar itself delimits the radicand. nth-root's degree
+  // still needs its own bracket (nothing to tuck it into in plain text); the
+  // \sqrt[n]{x} rule runs first so the [n] isn't swallowed by the bare rule.
+  s = s.replace(
+    /\\sqrt\[([^\]]+)\]\{([^}]+)\}/g,
+    (_m, degree: string, body: string) => `√[${degree}]${markEachChar(body, "̅")}`,
+  );
+  s = s.replace(/\\sqrt\{([^}]+)\}/g, (_m, body: string) => `√${markEachChar(body, "̅")}`);
+  s = s.replace(/\\sqrt\s+([0-9a-zA-Z]+)/g, (_m, body: string) => `√${markEachChar(body, "̅")}`);
   s = s.replace(/\\text\{([^}]+)\}/g, "$1");
   s = s.replace(/\\mathrm\{([^}]+)\}/g, "$1");
   // \boxed{...} has no plain-text equivalent (KaTeX/MathJax draw an actual
