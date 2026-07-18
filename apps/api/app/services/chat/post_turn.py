@@ -13,7 +13,7 @@ from app.core.db import SessionLocal
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.repositories import usage as usage_repo
-from app.services import model_catalog
+from app.services import attachment_lifecycle, model_catalog
 from app.services import projects as projects_service
 from app.services import quota as quota_service
 from app.services import todos as todos_service
@@ -40,6 +40,10 @@ async def restore_regenerate_backup(
     chat_id: UUID,
     backup: RegenerateBackup,
 ) -> None:
+    # New path: prior assistant was never deleted (omit-from-prompt). Nothing
+    # to restore. Legacy path (message_id is None): recreate the row.
+    if backup.message_id is not None:
+        return
     async with SessionLocal() as session:
         await messages_repo.create(
             session,
@@ -83,6 +87,18 @@ async def finalize_stream_turn_db(
 
     try:
         async with SessionLocal() as session:
+            # Replace the prior assistant atomically with the new reply so a
+            # crash cannot leave zero assistant messages after regenerate.
+            if ctx.regenerate_backup is not None and ctx.regenerate_backup.message_id is not None:
+                old = await messages_repo.get_by_id(
+                    session, ctx.regenerate_backup.message_id, ctx.chat_id
+                )
+                if old is not None:
+                    await attachment_lifecycle.purge_attachments_for_messages(
+                        session, get_settings(), [old.id]
+                    )
+                    await session.delete(old)
+
             assistant_message = await messages_repo.create(
                 session,
                 chat_id=ctx.chat_id,

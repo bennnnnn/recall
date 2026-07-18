@@ -24,15 +24,29 @@ PRIVATE_IP_ERR = "Blocked request to internal/private address"
 _REDIRECT_STATUS_CODES = (301, 302, 303, 307, 308)
 
 
+# Carrier-grade NAT (RFC 6598) — not marked private by ipaddress.is_private.
+_CGNAT = ipaddress.ip_network("100.64.0.0/10")
+
+
 def is_blocked_ip(addr: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-    return (
+    if (
         addr.is_private
         or addr.is_loopback
         or addr.is_link_local
         or addr.is_unspecified
         or addr.is_multicast
         or addr.is_reserved
-    )
+    ):
+        return True
+    # Non-global covers CGNAT (100.64/10) and other non-routable ranges that
+    # ``is_private`` alone misses on some Python versions.
+    try:
+        if not addr.is_global:
+            return True
+    except Exception:
+        if isinstance(addr, ipaddress.IPv4Address) and addr in _CGNAT:
+            return True
+    return False
 
 
 def format_netloc(ip: str, port: int | None) -> str:

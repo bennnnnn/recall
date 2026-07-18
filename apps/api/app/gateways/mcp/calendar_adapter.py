@@ -18,6 +18,8 @@ def _parse_calendar_events(raw_events: object) -> list[CalendarEvent]:
         if isinstance(raw, CalendarEvent):
             parsed.append(raw)
             continue
+        if hasattr(raw, "model_dump"):
+            raw = raw.model_dump()
         if not isinstance(raw, dict):
             continue
         start_raw = raw.get("start")
@@ -37,7 +39,7 @@ def _parse_calendar_events(raw_events: object) -> list[CalendarEvent]:
         parsed.append(
             CalendarEvent(
                 id=str(raw.get("id") or ""),
-                title=str(raw.get("title") or "Event"),
+                title=str(raw.get("title") or raw.get("summary") or "Event"),
                 start=start,
                 end=end,
                 location=str(raw.get("location") or "") or None,

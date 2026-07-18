@@ -12,7 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import jobs
 from app.core.config import Settings
-from app.core.secrets import decrypt_refresh_token, encrypt_refresh_token
+from app.core.secrets import (
+    OAuthTokenDecryptError,
+    decrypt_refresh_token,
+    encrypt_refresh_token,
+)
 from app.gateways import google_oauth, google_oauth_revoke
 from app.gateways.google_calendar_gateway import GoogleCalendarError, exchange_server_auth_code
 from app.gateways.google_gmail_gateway import GoogleGmailError, exchange_gmail_auth_code
@@ -48,7 +52,10 @@ class GmailConnectResult:
 
 
 def _decrypt_token(settings: Settings, stored: str) -> str:
-    return decrypt_refresh_token(settings, stored).strip()
+    try:
+        return decrypt_refresh_token(settings, stored).strip()
+    except OAuthTokenDecryptError as exc:
+        raise GoogleConnectError(str(exc)) from exc
 
 
 def _resolve_stored_refresh_token(

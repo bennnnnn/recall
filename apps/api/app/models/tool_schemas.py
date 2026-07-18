@@ -50,7 +50,16 @@ class SympyToolInput(BaseModel):
     guess: float | None = Field(default=None, ge=-1_000_000, le=1_000_000)
 
 
+class CalendarConflictEvent(BaseModel):
+    """Bounded calendar event stub for conflict checks (model-supplied)."""
+
+    start: str | None = Field(default=None, max_length=64)
+    end: str | None = Field(default=None, max_length=64)
+    title: str | None = Field(default=None, max_length=200)
+    summary: str | None = Field(default=None, max_length=200)
+
+
 class CalendarConflictsInput(BaseModel):
     action: Literal["conflicts"] = "conflicts"
     due_at: str = Field(min_length=1, max_length=64)
-    events: list[dict] = Field(default_factory=list)
+    events: list[CalendarConflictEvent] = Field(default_factory=list, max_length=50)

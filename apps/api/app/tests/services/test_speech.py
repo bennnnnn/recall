@@ -57,7 +57,7 @@ async def test_transcribe_openrouter_json_api():
     client.__aenter__ = AsyncMock(return_value=client)
     client.__aexit__ = AsyncMock(return_value=None)
 
-    with patch("app.gateways.speech_gateway.httpx.AsyncClient", return_value=client):
+    with patch("app.gateways.speech_gateway.get_pooled_client", return_value=client):
         text = await transcribe_audio(settings, b"audio-bytes", filename="speech.m4a")
 
     assert text == "hello there"

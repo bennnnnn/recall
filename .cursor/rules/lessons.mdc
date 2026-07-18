@@ -54,9 +54,9 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 - **iOS Simulator soft keyboard missing.** Host Connect Hardware Keyboard hides it.
   `defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false` (+ device
   prefs) and relaunch; ⌘K if needed. osascript cannot toggle Simulator without Accessibility.
-- **TTS 502 ≠ API down.** OpenRouter 400: `openai/gpt-4o-mini-tts does not exist` → speech
-  gateway Traceback + `/speech/tts` 502 while the rest of the API stays healthy. Fix the TTS
-  model mapping; don’t restart the API for this.
+- **TTS 502 ≠ API down.** OpenRouter 400: bare `openai/gpt-4o-mini-tts` does not exist —
+  use dated slug `openai/gpt-4o-mini-tts-2025-12-15`. `/speech/tts` 502 while the rest of
+  the API stays healthy is a model-id bug, not an API outage.
 - **WS ASGI Traceback on navigate.** `WebSocketDisconnect(1000)` while `chat_websocket` waits
   for auth JSON = client closed mid-reconnect; noisy, not a fatal server failure.
 - **Image goes blurry/gray after the assistant replies.** Focus refetch after `streaming→false` replaces `local-*` ids with server UUIDs; id-only `mergeLocalAttachmentUris` dropped `local_image_uri` and restarted blur reveal. Also match orphaned local URIs onto incoming user attachment messages; user thumbs use `animatedReveal={false}`.

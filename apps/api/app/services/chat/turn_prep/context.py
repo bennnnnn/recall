@@ -48,6 +48,9 @@ from app.services.vocab_quiz import QuizAnswerGrade
 class RegenerateBackup:
     content: str
     model: str | None
+    # When set, the prior assistant row stays in the DB until finalize
+    # succeeds (omit from the prompt instead of delete-before-stream).
+    message_id: UUID | None = None
 
 
 @dataclass
@@ -235,6 +238,7 @@ async def build_stream_prompt_context(
     chat: Chat | None = None,
     timing: TurnTimingTracker | None = None,
     quiz_grade: QuizAnswerGrade | None = None,
+    omit_message_ids: set[UUID] | None = None,
 ) -> TurnPromptBundle:
     """Shared prompt assembly for new turns and regenerate."""
     meta: dict[str, Any] = {}
@@ -291,6 +295,7 @@ async def build_stream_prompt_context(
             prompt_location=geo.user_location if geo.geo_query and geo.has_geo_fix else None,
             todo_sync_feedback=todo_sync_feedback,
             on_status=on_status,
+            omit_message_ids=omit_message_ids,
         )
 
         instant_reply = await _resolve_instant_reply(

@@ -54,7 +54,7 @@ from app.services.chat.stream_status import StreamStatusFn
 from app.services.context_window import select_recent_window
 from app.services.day_planning import is_day_planning_question, is_day_reflection_question
 from app.services.math_tools import VerifiedMathBlock
-from app.services.prompt_safety import wrap_untrusted
+from app.services.prompt_safety import wrap_persisted_attachment_excerpts, wrap_untrusted
 from app.services.vocab_quiz import QuizAnswerGrade
 
 logger = logging.getLogger(__name__)
@@ -436,7 +436,9 @@ def _integration_hints(
     if projects_block:
         parts.append(projects_block)
     if summary:
-        parts.append(f"Summary of earlier conversation:\n{summary}")
+        parts.append(
+            wrap_untrusted("conversation summary", f"Summary of earlier conversation:\n{summary}")
+        )
     return parts
 
 
@@ -458,6 +460,7 @@ async def build_prompt_messages(
     prompt_location: str | None = None,
     todo_sync_feedback: str | None = None,
     on_status: StreamStatusFn | None = None,
+    omit_message_ids: set[UUID] | None = None,
 ) -> list[dict[str, str]]:
     recent_limit = (
         QUIZ_RECENT_MESSAGE_LIMIT
@@ -481,8 +484,11 @@ async def build_prompt_messages(
         on_status=on_status,
     )
     chat = blocks.chat
-    keep = select_recent_window(blocks.recent_all, settings.context_token_budget, recent_limit)
-    recent = blocks.recent_all[-keep:] if keep else []
+    recent_source = blocks.recent_all
+    if omit_message_ids:
+        recent_source = [m for m in recent_source if m.id not in omit_message_ids]
+    keep = select_recent_window(recent_source, settings.context_token_budget, recent_limit)
+    recent = recent_source[-keep:] if keep else []
     if out is not None and chat and chat.summary and (chat.summary_message_count or 0) > 0:
         out["context_summarized"] = chat.summary_message_count
     local_tz = time_context_service.effective_timezone(user.timezone, client_timezone)
@@ -521,7 +527,14 @@ async def build_prompt_messages(
     ci = getattr(user, "custom_instructions", None)
     custom_instructions = ci.strip() if isinstance(ci, str) and ci.strip() else ""
     if custom_instructions:
-        system_parts.append(f"User's personal instructions:\n{custom_instructions}")
+        # User-authored; still untrusted relative to system policy (injection).
+        bounded = custom_instructions[:2000]
+        system_parts.append(
+            wrap_untrusted(
+                "user personal instructions",
+                f"User's personal instructions:\n{bounded}",
+            )
+        )
     locale_hint = locale_service.locale_system_hint(user.locale)
     if locale_hint:
         system_parts.append(locale_hint)
@@ -550,5 +563,8 @@ async def build_prompt_messages(
 
     messages: list[dict[str, str]] = [{"role": "system", "content": "\n\n".join(system_parts)}]
     for msg in recent:
-        messages.append({"role": msg.role, "content": msg.content})
+        content = msg.content
+        if msg.role == "user":
+            content = wrap_persisted_attachment_excerpts(content)
+        messages.append({"role": msg.role, "content": content})
     return messages

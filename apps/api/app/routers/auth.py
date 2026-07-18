@@ -1,5 +1,3 @@
-import ipaddress
-
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials
@@ -10,7 +8,8 @@ from app.core.client_ip import client_ip
 from app.core.config import Settings
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_redis, get_settings_dep, security
-from app.core.rate_limit import allow_request
+from app.core.dev_guards import is_loopback_ip, require_dev_privilege_access
+from app.core.rate_limit import allow_request_fail_closed
 from app.gateways.google_auth import GoogleAuthError
 from app.models.orm import User
 from app.models.schemas import (
@@ -43,17 +42,6 @@ _REFRESH_RATE_LIMIT = 60
 _REFRESH_RATE_WINDOW_SECONDS = 60
 
 
-def _is_loopback(ip: str) -> bool:
-    """True for IPv4/IPv6 loopback. Dev auth mints accounts without a provider
-    token, so it must only be reachable from the host itself unless explicitly
-    opened to remote callers (DEV_AUTH_ALLOW_REMOTE)."""
-    try:
-        addr = ipaddress.ip_address(ip)
-    except ValueError:
-        return False
-    return addr.is_loopback
-
-
 async def _enforce_login_rate_limit(
     redis: Redis,
     request: Request,
@@ -64,9 +52,10 @@ async def _enforce_login_rate_limit(
     """Per-provider login throttle; raises 429 when the bucket is exhausted.
 
     Per-IP, not global: a global bucket lets a credential-stuffer trip the
-    limit and lock real users out of signing in.
+    limit and lock real users out of signing in. Redis errors fail closed
+    (deny) so an outage cannot remove the throttle.
     """
-    allowed = await allow_request(
+    allowed = await allow_request_fail_closed(
         redis,
         f"rate:auth:{provider}:{client_ip(request, settings)}",
         limit=_LOGIN_RATE_LIMIT,
@@ -134,7 +123,7 @@ async def dev_login(
     # DEV_AUTH_ALLOW_REMOTE. This protects even when ENVIRONMENT=development
     # (which skips validate_production_settings) is set on an internet-facing
     # deploy — remote account minting stays impossible by default.
-    if not settings.dev_auth_allow_remote and not _is_loopback(client_ip(request, settings)):
+    if not settings.dev_auth_allow_remote and not is_loopback_ip(client_ip(request, settings)):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     try:
         return await auth_service.login_dev(
@@ -163,7 +152,7 @@ async def refresh_session(
 ) -> AuthResponse:
     # Rate-limit refresh: a leaked refresh token shouldn't be hammerable
     # online. Reuse the login throttle pattern with its own per-IP bucket.
-    allowed = await allow_request(
+    allowed = await allow_request_fail_closed(
         redis,
         f"rate:auth:refresh:{client_ip(request, settings)}",
         limit=_REFRESH_RATE_LIMIT,
@@ -229,13 +218,13 @@ async def update_me(
 
 @router.post("/me/pro-dev", response_model=UserOut)
 async def dev_upgrade_pro(
+    request: Request,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ) -> UserOut:
     """Dev-only helper to simulate a Pro subscription."""
-    if not settings.dev_auth_enabled:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Dev upgrade disabled")
+    require_dev_privilege_access(request, settings, user)
     updated = await users_repo.update(session, user, plan="pro")
     return UserOut.model_validate(updated)
 

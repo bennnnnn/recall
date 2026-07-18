@@ -30,6 +30,12 @@ async def test_resolve_external_host_blocks_private_range():
 
 
 @pytest.mark.asyncio
+async def test_resolve_external_host_blocks_cgnat():
+    with pytest.raises(ValueError, match=safe_fetch.PRIVATE_IP_ERR):
+        await safe_fetch.resolve_external_host("http://100.64.1.1/admin")
+
+
+@pytest.mark.asyncio
 async def test_resolve_external_host_blocks_link_local():
     """169.254.x.x (AWS/GCP metadata) should be blocked."""
     with pytest.raises(ValueError, match="Blocked request"):

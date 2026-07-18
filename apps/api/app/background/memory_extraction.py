@@ -111,7 +111,10 @@ async def extract_and_store_memories(
     user_id: UUID,
     chat_id: UUID,
     transcript: str,
-) -> None:
+) -> str | None:
+    """Run memory extraction. Returns ``\"skipped_lock\"`` when the write lock
+    is busy so the job handler can re-enqueue with backoff; otherwise None.
+    """
     try:
         # Holds memwrite:{user_id} for the whole read-modify-write section —
         # without it, a concurrently-running consolidation pass (or a second
@@ -119,14 +122,14 @@ async def extract_and_store_memories(
         # and whichever commits last silently discards the other's write.
         if not await acquire_memory_write_lock(user_id):
             logger.info("Memory extraction skipped: write lock held for user_id=%s", user_id)
-            return
+            return "skipped_lock"
         try:
             async with SessionLocal() as session:
                 snapshot = await _load_memory_extraction_snapshot(session, user_id)
                 await session.commit()
 
             if not snapshot.memory_enabled:
-                return
+                return None
 
             result = await memory_llm.revise_memory_sections(
                 settings,
@@ -134,7 +137,7 @@ async def extract_and_store_memories(
                 existing_sections=snapshot.existing_sections,
             )
             if not result or not result.sections:
-                return
+                return None
 
             rows: list[tuple[str, str, float, UUID | None]] = []
             for section in result.sections:
@@ -146,7 +149,7 @@ async def extract_and_store_memories(
                 rows.append((section.type, summary, section.confidence, chat_id))
 
             if not rows:
-                return
+                return None
 
             async with SessionLocal() as session:
                 await _apply_memory_extraction_result(
@@ -158,5 +161,7 @@ async def extract_and_store_memories(
                 )
         finally:
             await release_memory_write_lock(user_id)
+        return None
     except Exception:
         logger.exception("Memory extraction failed for user_id=%s", user_id)
+        return None

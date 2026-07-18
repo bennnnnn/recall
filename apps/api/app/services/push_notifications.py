@@ -249,6 +249,11 @@ async def process_todo_reminders(
     if not rows:
         return []
 
+    tokens = await push_repo.list_for_users(session, list({todo.user_id for todo, _ in rows}))
+    tokens_by_user: dict[UUID, list[PushToken]] = {}
+    for token in tokens:
+        tokens_by_user.setdefault(token.user_id, []).append(token)
+
     messages: list[OutboundPush] = []
     for todo, user in rows:
         if todo.due_at is None:
@@ -260,14 +265,14 @@ async def process_todo_reminders(
             lead = resolve_reminder_lead_minutes(getattr(user, "reminder_lead_minutes", None))
             if not should_notify_todo(todo.due_at, now=now, lead_minutes=lead):
                 continue
-            tokens = await _tokens_for_user(session, todo.user_id)
-            if not tokens:
+            user_tokens = tokens_by_user.get(todo.user_id, [])
+            if not user_tokens:
                 continue
             is_overdue = todo.due_at < now
             title = reminder_title(is_overdue=is_overdue, locale=getattr(user, "locale", None))
             _append_outbound(
                 messages,
-                tokens,
+                user_tokens,
                 title=title,
                 body=todo.content,
                 data={
@@ -311,13 +316,18 @@ async def process_email_suggestions(
         by_user.setdefault(row.user_id, []).append(row)
         users[row.user_id] = user
 
+    tokens = await push_repo.list_for_users(session, list(by_user.keys()))
+    tokens_by_user: dict[UUID, list[PushToken]] = {}
+    for token in tokens:
+        tokens_by_user.setdefault(token.user_id, []).append(token)
+
     messages: list[OutboundPush] = []
     for user_id, reminders in by_user.items():
         # BUG FIX (was cycle-fatal): isolate per-user failures so one bad
         # reminder batch doesn't drop every other user's email suggestions.
         try:
-            tokens = await _tokens_for_user(session, user_id)
-            if not tokens:
+            user_tokens = tokens_by_user.get(user_id, [])
+            if not user_tokens:
                 continue
             count = len(reminders)
             strings = _push_strings(getattr(users[user_id], "locale", None))
@@ -327,7 +337,7 @@ async def process_email_suggestions(
                 body = strings["email_plural"].format(count=count)
             _append_outbound(
                 messages,
-                tokens,
+                user_tokens,
                 title=strings["from_inbox"],
                 body=body,
                 data={
@@ -427,6 +437,11 @@ async def process_calendar_nudges(
     if not users:
         return []
 
+    tokens = await push_repo.list_for_users(session, [user.id for user in users])
+    tokens_by_user: dict[UUID, list[PushToken]] = {}
+    for token in tokens:
+        tokens_by_user.setdefault(token.user_id, []).append(token)
+
     messages: list[OutboundPush] = []
     for user in users:
         # BUG FIX (was cycle-fatal): isolate per-user failures so one user's
@@ -436,8 +451,8 @@ async def process_calendar_nudges(
             due = calendar_nudge_service.events_needing_nudge(events, now=now, lead_minutes=lead)
             if not due:
                 continue
-            tokens = await _tokens_for_user(session, user.id)
-            if not tokens:
+            user_tokens = tokens_by_user.get(user.id, [])
+            if not user_tokens:
                 continue
 
             for event in due:
@@ -453,7 +468,7 @@ async def process_calendar_nudges(
                 )
                 _append_outbound(
                     messages,
-                    tokens,
+                    user_tokens,
                     title=title,
                     body=body,
                     data={
@@ -517,13 +532,20 @@ async def _finalize_push_deliveries(
         await session.commit()
 
 
-async def run_push_cycle(session: AsyncSession, redis: Redis, settings: Settings) -> int:
+async def collect_push_outbound(
+    session: AsyncSession,
+    redis: Redis,
+    settings: Settings,
+    *,
+    now: datetime | None = None,
+) -> list[OutboundPush]:
+    """Build outbound push payloads. Caller should release the DB session before Expo I/O."""
     if not settings.push_enabled:
-        return 0
+        return []
 
     await poll_deferred_push_receipts(session, redis)
 
-    now = datetime.now(UTC)
+    now = now or datetime.now(UTC)
 
     # Local (expo-notifications) reminders handle todo due-at alerts; server
     # todo push is disabled by default to avoid double notifications.
@@ -534,30 +556,53 @@ async def run_push_cycle(session: AsyncSession, redis: Redis, settings: Settings
     email_msgs = await process_email_suggestions(session, now=now)
     learning_msgs = await process_learning_nudges(session, redis, settings, now=now)
     calendar_msgs = await process_calendar_nudges(session, redis, settings, now=now)
+    return todo_msgs + email_msgs + learning_msgs + calendar_msgs
 
-    outbound = todo_msgs + email_msgs + learning_msgs + calendar_msgs
+
+async def dispatch_expo(
+    outbound: list[OutboundPush],
+    settings: Settings,
+) -> tuple[list[bool], list[str], list[tuple[str, str]]]:
+    """Send via Expo (or mock). Returns (delivered, invalid_tokens, receipt_tickets)."""
     if not outbound:
-        return 0
-
+        return [], [], []
     if settings.mock_llm_enabled and settings.environment == "development":
         logger.debug("Skipping expo push in dev mock mode count=%s", len(outbound))
-        delivered = [True] * len(outbound)
-    else:
-        result = await expo_push_gateway.send_push_messages(
-            [item.message for item in outbound],
-        )
-        delivered = result.delivered
-        if len(delivered) != len(outbound):
-            delivered = [False] * len(outbound)
-        if result.invalid_tokens:
-            for token in result.invalid_tokens:
-                try:
-                    await push_repo.delete_by_token(session, token)
-                    logger.info("Pruned invalid push token=%s", token[:20])
-                except Exception:
-                    logger.debug("Failed to prune push token", exc_info=True)
-        if result.receipt_tickets:
-            await enqueue_push_receipts(redis, result.receipt_tickets)
+        return [True] * len(outbound), [], []
 
-    await _finalize_push_deliveries(session, redis, outbound, delivered, now=now)
+    result = await expo_push_gateway.send_push_messages([item.message for item in outbound])
+    delivered = result.delivered
+    if len(delivered) != len(outbound):
+        delivered = [False] * len(outbound)
+    return delivered, list(result.invalid_tokens or []), list(result.receipt_tickets or [])
+
+
+async def finalize_push_deliveries(
+    session: AsyncSession,
+    redis: Redis,
+    outbound: list[OutboundPush],
+    delivered: list[bool],
+    *,
+    now: datetime | None = None,
+) -> None:
+    await _finalize_push_deliveries(
+        session, redis, outbound, delivered, now=now or datetime.now(UTC)
+    )
+
+
+async def run_push_cycle(session: AsyncSession, redis: Redis, settings: Settings) -> int:
+    """Single-session helper for tests; production uses collect → dispatch → finalize."""
+    outbound = await collect_push_outbound(session, redis, settings)
+    if not outbound:
+        return 0
+    delivered, invalid_tokens, receipt_tickets = await dispatch_expo(outbound, settings)
+    for token in invalid_tokens:
+        try:
+            await push_repo.delete_by_token(session, token)
+            logger.info("Pruned invalid push token=%s", token[:20])
+        except Exception:
+            logger.debug("Failed to prune push token", exc_info=True)
+    if receipt_tickets:
+        await enqueue_push_receipts(redis, receipt_tickets)
+    await finalize_push_deliveries(session, redis, outbound, delivered)
     return len(outbound)

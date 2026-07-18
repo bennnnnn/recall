@@ -26,13 +26,14 @@ async def test_process_todo_reminders_due_soon():
     user.reminder_lead_minutes = 10
 
     token = MagicMock()
+    token.user_id = user_id
     token.expo_push_token = "ExponentPushToken[abc]"
 
     session.execute = AsyncMock(return_value=MagicMock(all=MagicMock(return_value=[(todo, user)])))
 
     with patch.object(
         push_service.push_repo,
-        "list_for_user",
+        "list_for_users",
         AsyncMock(return_value=[token]),
     ):
         messages = await push_service.process_todo_reminders(session, now=now)
@@ -66,7 +67,7 @@ async def test_process_todo_reminders_respects_user_lead():
 
     with patch.object(
         push_service.push_repo,
-        "list_for_user",
+        "list_for_users",
         AsyncMock(return_value=[]),
     ):
         messages = await push_service.process_todo_reminders(session, now=now)
@@ -99,6 +100,7 @@ async def test_process_email_suggestions_batches_per_user():
     user = MagicMock()
     user.push_notifications_enabled = True
     token = MagicMock()
+    token.user_id = user_id
     token.expo_push_token = "ExponentPushToken[abc]"
 
     session.execute = AsyncMock(
@@ -107,7 +109,7 @@ async def test_process_email_suggestions_batches_per_user():
 
     with patch.object(
         push_service.push_repo,
-        "list_for_user",
+        "list_for_users",
         AsyncMock(return_value=[token]),
     ):
         messages = await push_service.process_email_suggestions(session, now=now)
@@ -900,6 +902,7 @@ async def test_process_calendar_nudges_sends_once_per_event():
     user.timezone = "UTC"
 
     token = MagicMock()
+    token.user_id = user_id
     token.expo_push_token = "ExponentPushToken[cal]"
 
     event = CalendarEvent(
@@ -925,7 +928,7 @@ async def test_process_calendar_nudges_sends_once_per_event():
         ),
         patch.object(
             push_service.push_repo,
-            "list_for_user",
+            "list_for_users",
             AsyncMock(return_value=[token]),
         ),
         patch.object(

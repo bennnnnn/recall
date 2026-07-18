@@ -175,12 +175,42 @@ async def _handle_topic(settings: Settings, payload: dict[str, Any]) -> None:
     )
 
 
+_MEMORY_LOCK_MAX_RETRIES = 3
+
+
 async def _handle_memory(settings: Settings, payload: dict[str, Any]) -> None:
-    await memory_extraction.extract_and_store_memories(
+    outcome = await memory_extraction.extract_and_store_memories(
         settings,
         user_id=UUID(payload["user_id"]),
         chat_id=UUID(payload["chat_id"]),
         transcript=payload["transcript"],
+    )
+    if outcome != "skipped_lock":
+        return
+    # Write lock busy (consolidation or sibling extraction). Re-enqueue a
+    # bounded number of times so the turn's memory isn't silently dropped.
+    try:
+        retries = int(payload.get("lock_retries") or 0)
+    except (TypeError, ValueError):
+        retries = 0
+    if retries >= _MEMORY_LOCK_MAX_RETRIES:
+        logger.warning(
+            "Memory extraction dropped after lock retries user_id=%s chat_id=%s",
+            payload.get("user_id"),
+            payload.get("chat_id"),
+        )
+        return
+    from app.core.redis import get_redis_client
+
+    await enqueue(
+        get_redis_client(),
+        "memory",
+        {
+            "user_id": payload["user_id"],
+            "chat_id": payload["chat_id"],
+            "transcript": payload["transcript"],
+            "lock_retries": retries + 1,
+        },
     )
 
 

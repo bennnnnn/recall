@@ -140,7 +140,8 @@ class Settings(BaseSettings):
     # Cloud TTS (read-aloud). Product alias conceptually `tts-model`; provider
     # mapping stays in speech.py (same pattern as Whisper).
     speech_tts_enabled: bool = True
-    speech_tts_model: str = "openai/gpt-4o-mini-tts"
+    # OpenRouter requires the dated snapshot slug; bare gpt-4o-mini-tts 404s.
+    speech_tts_model: str = "openai/gpt-4o-mini-tts-2025-12-15"
     speech_tts_voice: str = "alloy"
     daily_speech_tts: int = 20
     daily_speech_tts_pro: int = 100
