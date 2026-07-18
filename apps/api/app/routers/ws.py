@@ -12,7 +12,7 @@ from app.core.client_ip import client_ip_from_websocket
 from app.core.config import get_settings
 from app.core.rate_limit import allow_request
 from app.core.redis import get_redis_client
-from app.exceptions import ChatServiceError, QuotaExceededError
+from app.exceptions import ChatServiceError, QuotaExceededError, RedisUnavailableError
 from app.gateways.google_auth import GoogleAuthError
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.schemas import ChatMessageRequest, EditMessageRequest
@@ -185,6 +185,11 @@ async def _run_chat_stream(
         await _safe_send_json(
             websocket,
             {"type": "error", "code": "quota_exceeded", "message": exc.message},
+        )
+    except RedisUnavailableError as exc:
+        await _safe_send_json(
+            websocket,
+            {"type": "error", "code": "unavailable", "message": exc.message},
         )
     except ChatServiceError as exc:
         await _safe_send_json(websocket, {"type": "error", "message": exc.message})
@@ -440,6 +445,14 @@ async def chat_websocket(
     except TimeoutError:
         await _safe_send_json(websocket, {"type": "error", "message": "Auth timeout"})
         await websocket.close()
+        return
+    except RedisUnavailableError as exc:
+        await _safe_send_json(
+            websocket,
+            {"type": "error", "code": "unavailable", "message": exc.message},
+        )
+        # 1013 Try Again Later — client should back off, not treat as auth failure.
+        await websocket.close(code=1013)
         return
     except (GoogleAuthError, json.JSONDecodeError, KeyError):
         await websocket.send_json({"type": "error", "message": "Unauthorized"})

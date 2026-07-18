@@ -10,7 +10,7 @@ import asyncio
 import logging
 from typing import Any
 
-from app.exceptions import ChatServiceError, QuotaExceededError
+from app.exceptions import ChatServiceError, QuotaExceededError, RedisUnavailableError
 from app.gateways.litellm_gateway import ModelUnavailableError
 
 logger = logging.getLogger(__name__)
@@ -81,6 +81,8 @@ def error_payload_for_exception(exc: BaseException) -> dict[str, Any]:
     """Map stream exceptions to the shared error event shape."""
     if isinstance(exc, QuotaExceededError):
         return {"type": "error", "code": "quota_exceeded", "message": exc.message}
+    if isinstance(exc, RedisUnavailableError):
+        return {"type": "error", "code": "unavailable", "message": exc.message}
     if isinstance(exc, ChatServiceError):
         return {"type": "error", "message": exc.message}
     if isinstance(exc, ModelUnavailableError):

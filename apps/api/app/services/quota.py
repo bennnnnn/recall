@@ -1,10 +1,15 @@
+import logging
 from datetime import UTC, date, datetime
 from uuid import UUID
 
 from redis.asyncio import Redis
+from redis.exceptions import RedisError
 
 from app.core.config import Settings
+from app.exceptions import RedisUnavailableError
 from app.models.orm import User
+
+logger = logging.getLogger(__name__)
 
 # Shown when the daily quota is exhausted — avoid internal "token" wording.
 QUOTA_EXCEEDED_MESSAGE_FREE = (
@@ -175,17 +180,25 @@ async def reserve_usage(
     *,
     daily_limit: int,
 ) -> bool:
-    """Atomically reserve tokens before generation. Refunds if over limit."""
+    """Atomically reserve tokens before generation. Refunds if over limit.
+
+    Redis outages fail closed (``RedisUnavailableError``) — never skip the
+    reserve and allow unbounded generation.
+    """
     if requested <= 0:
         return True
     key = _usage_key(user_id, utc_today())
-    new_total = await redis.incrby(key, requested)
-    if new_total == requested:
-        await redis.expire(key, _DAILY_TTL)
-    if new_total > daily_limit:
-        await redis.incrby(key, -requested)
-        return False
-    return True
+    try:
+        new_total = await redis.incrby(key, requested)
+        if new_total == requested:
+            await redis.expire(key, _DAILY_TTL)
+        if new_total > daily_limit:
+            await redis.incrby(key, -requested)
+            return False
+        return True
+    except RedisError as exc:
+        logger.warning("Quota reserve failed; Redis unavailable user_id=%s", user_id, exc_info=True)
+        raise RedisUnavailableError() from exc
 
 
 async def refund_usage(redis: Redis, user_id: str, amount: int) -> None:
