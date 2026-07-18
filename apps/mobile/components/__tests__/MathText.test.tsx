@@ -29,9 +29,11 @@ describe("MathText", () => {
     // whenever the fraction wasn't the only thing on its line (reported
     // live: "3/4 = 9/12 and 1/6 = 2/12" read as a jumbled column of
     // numbers). Simple digit fractions now render on one line as raised/
-    // lowered Unicode digits either side of a fraction slash.
+    // lowered Unicode digits either side of a straight horizontal bar (not
+    // the diagonal Unicode fraction slash — a real fraction's dividing line
+    // is horizontal, not a division-sign-style slash).
     const { getByText } = await render(<MathText latex={"\\frac{11}{12}"} />);
-    expect(getByText("¹¹⁄₁₂")).toBeOnTheScreen();
+    expect(getByText("¹¹─₁₂")).toBeOnTheScreen();
   });
 
   it("renders a complex fraction (non-digit numerator) on one line, parenthesized", async () => {
