@@ -69,4 +69,20 @@ describe("ChatActionsSheet", () => {
     const { queryByText } = await render(<ChatActionsSheet {...baseProps} placement="menu" />);
     expect(queryByText("drawer.select")).toBeNull();
   });
+
+  it("shows Models when onOpenModels is provided", async () => {
+    const onOpenModels = jest.fn();
+    const { getByText } = await render(
+      <ChatActionsSheet {...baseProps} placement="menu" onOpenModels={onOpenModels} />,
+    );
+
+    expect(getByText("settings.model")).toBeTruthy();
+    await fireEvent.press(getByText("settings.model"));
+    expect(onOpenModels).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides Models when onOpenModels is omitted", async () => {
+    const { queryByText } = await render(<ChatActionsSheet {...baseProps} placement="menu" />);
+    expect(queryByText("settings.model")).toBeNull();
+  });
 });

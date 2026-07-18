@@ -18,6 +18,8 @@ type Props = {
   onTogglePin: () => void;
   onToggleArchive?: () => void;
   onDelete: () => void;
+  /** Open Settings → Models (chat ⋮ menu). */
+  onOpenModels?: () => void;
   /** Drawer only — enter multi-select with this chat checked. */
   onSelectChats?: () => void;
   /**
@@ -38,6 +40,7 @@ export function ChatActionsSheet({
   onTogglePin,
   onToggleArchive,
   onDelete,
+  onOpenModels,
   onSelectChats,
   placement = "sheet",
 }: Props) {
@@ -80,6 +83,7 @@ export function ChatActionsSheet({
       ? "archive"
       : "archive-outline";
   const trashIcon = isMenu ? "trash" : "trash-outline";
+  const modelsIcon = isMenu ? "hardware-chip" : "hardware-chip-outline";
 
   const row = (
     icon: keyof typeof Ionicons.glyphMap,
@@ -118,6 +122,12 @@ export function ChatActionsSheet({
       {onSelectChats ? (
         <>
           {row("checkbox-outline", t("drawer.select"), onSelectChats)}
+          {!isMenu ? <View style={s.divider} /> : null}
+        </>
+      ) : null}
+      {onOpenModels ? (
+        <>
+          {row(modelsIcon, t("settings.model"), onOpenModels)}
           {!isMenu ? <View style={s.divider} /> : null}
         </>
       ) : null}

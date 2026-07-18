@@ -45,6 +45,7 @@ import { useReminderBadgeCount } from "@/hooks/useReminderBadgeCount";
 import { useTodosOptional } from "@/contexts/TodosContext";
 import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/lib/chatComposerLogic";
 import { invalidateProjectDetail } from "@/lib/projectDetailCache";
+import { ImageGenPromptSheet } from "@/components/ImageGenPromptSheet";
 import { useImageGeneration } from "@/hooks/useImageGeneration";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 
@@ -266,7 +267,7 @@ function ChatScreen() {
     resolveQuizProjectId,
     isPro,
     imageGenerating: imageGen.generating,
-    onSubmitImageGen: imageGen.submitPrompt,
+    onOpenImageGen: imageGen.openPrompt,
   });
 
   const {
@@ -510,11 +511,23 @@ function ChatScreen() {
         onTogglePin={onTogglePinFromMenu}
         onToggleArchive={onToggleArchiveFromMenu}
         onDelete={onDeleteFromMenu}
+        onOpenModels={() => {
+          setMenuVisible(false);
+          router.push("/settings/models");
+        }}
         renameVisible={renameVisible}
         renameText={renameText}
         onRenameTextChange={setRenameText}
         onCloseRename={() => setRenameVisible(false)}
         onConfirmRename={() => void confirmRename()}
+      />
+
+      <ImageGenPromptSheet
+        visible={imageGen.promptOpen}
+        generating={imageGen.generating}
+        initialPrompt={imageGen.initialPrompt}
+        onClose={() => imageGen.setPromptOpen(false)}
+        onSubmit={(prompt) => void imageGen.submitPrompt(prompt)}
       />
     </View>
   );

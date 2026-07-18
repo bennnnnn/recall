@@ -71,8 +71,8 @@ type Options = {
   isOffline: boolean;
   resolveQuizProjectId?: () => string | null;
   onBeforeSend?: (text: string) => boolean | void;
-  /** Pro-only: run image generation for detected image-intent text (no confirmation sheet). */
-  onSubmitImageGen?: (prompt: string) => void;
+  /** Pro-only: open the image-gen confirmation sheet for detected image-intent text. */
+  onOpenImageGen?: (prompt: string) => void;
   isPro?: boolean;
   imageGenerating?: boolean;
 };
@@ -100,7 +100,7 @@ export function useChatSend({
   isOffline,
   resolveQuizProjectId,
   onBeforeSend,
-  onSubmitImageGen,
+  onOpenImageGen,
   isPro = false,
   imageGenerating = false,
 }: Options) {
@@ -194,15 +194,15 @@ export function useChatSend({
       tap();
       if (onBeforeSend?.(text) === true) return;
 
-      // Pro: route clear image-gen intent to /images/generate (no sheet, no LLM upsell).
+      // Pro: route clear image-gen intent to the confirmation sheet (no LLM upsell).
       // Free users fall through so the model can mention Pro (plan is in the prompt).
-      if (isPro && onSubmitImageGen && !pendingAttachment && !editingMessageId) {
+      if (isPro && onOpenImageGen && !pendingAttachment && !editingMessageId) {
         const imagePrompt = extractImageGenPrompt(text);
         if (imagePrompt) {
           if (imageGenerating) return;
           setInput("");
           Keyboard.dismiss();
-          onSubmitImageGen(imagePrompt);
+          onOpenImageGen(imagePrompt);
           return;
         }
       }
@@ -341,7 +341,7 @@ export function useChatSend({
       onStreamBusy,
       isOffline,
       onBeforeSend,
-      onSubmitImageGen,
+      onOpenImageGen,
       isPro,
       imageGenerating,
     ],
