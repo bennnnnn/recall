@@ -72,9 +72,9 @@ def test_presign_upload_success():
     fake_redis.expire = AsyncMock()
 
     with (
-        patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
-        patch("app.routers.attachments.attachments_repo.create_pending", AsyncMock()),
-        patch("app.routers.attachments.get_redis_client", return_value=fake_redis),
+        patch("app.services.attachment_upload.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachment_upload.attachments_repo.create_pending", AsyncMock()),
+        patch("app.services.attachment_upload.get_redis_client", return_value=fake_redis),
     ):
         client = TestClient(app)
         r = client.post(
@@ -96,10 +96,10 @@ def test_presign_upload_returns_503_when_storage_unconfigured():
 
     with (
         patch(
-            "app.routers.attachments.get_storage_gateway",
+            "app.services.attachment_upload.get_storage_gateway",
             return_value=UnconfiguredStorageGateway(),
         ),
-        patch("app.routers.attachments.get_redis_client", return_value=fake_redis),
+        patch("app.services.attachment_upload.get_redis_client", return_value=fake_redis),
     ):
         client = TestClient(app)
         r = client.post(
@@ -123,10 +123,10 @@ def test_presign_upload_refunds_image_quota_when_presign_fails():
     refund_mock = AsyncMock()
 
     with (
-        patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
-        patch("app.routers.attachments.get_redis_client", return_value=fake_redis),
+        patch("app.services.attachment_upload.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachment_upload.get_redis_client", return_value=fake_redis),
         patch(
-            "app.routers.attachments.quota_service.refund_image_upload",
+            "app.services.attachment_upload.quota_service.refund_image_upload",
             refund_mock,
         ),
     ):
@@ -161,14 +161,14 @@ def test_presign_upload_refunds_image_quota_when_create_pending_fails():
     refund_mock = AsyncMock()
 
     with (
-        patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachment_upload.get_storage_gateway", return_value=gateway),
         patch(
-            "app.routers.attachments.attachments_repo.create_pending",
+            "app.services.attachment_upload.attachments_repo.create_pending",
             AsyncMock(side_effect=RuntimeError("db error")),
         ),
-        patch("app.routers.attachments.get_redis_client", return_value=fake_redis),
+        patch("app.services.attachment_upload.get_redis_client", return_value=fake_redis),
         patch(
-            "app.routers.attachments.quota_service.refund_image_upload",
+            "app.services.attachment_upload.quota_service.refund_image_upload",
             refund_mock,
         ),
     ):
@@ -201,14 +201,14 @@ def test_presign_upload_does_not_refund_for_non_image():
     refund_mock = AsyncMock()
 
     with (
-        patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachment_upload.get_storage_gateway", return_value=gateway),
         patch(
-            "app.routers.attachments.attachments_repo.create_pending",
+            "app.services.attachment_upload.attachments_repo.create_pending",
             AsyncMock(side_effect=RuntimeError("db error")),
         ),
-        patch("app.routers.attachments.get_redis_client", return_value=fake_redis),
+        patch("app.services.attachment_upload.get_redis_client", return_value=fake_redis),
         patch(
-            "app.routers.attachments.quota_service.refund_image_upload",
+            "app.services.attachment_upload.quota_service.refund_image_upload",
             refund_mock,
         ),
     ):
@@ -375,7 +375,7 @@ def test_presign_upload_rejects_image_over_daily_limit():
     fake_redis.incrby = _incrby_over_limit
     fake_redis.expire = AsyncMock()
 
-    with patch("app.routers.attachments.get_redis_client", return_value=fake_redis):
+    with patch("app.services.attachment_upload.get_redis_client", return_value=fake_redis):
         client = TestClient(app)
         r = client.post(
             "/attachments/presign",

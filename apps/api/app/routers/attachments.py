@@ -8,24 +8,18 @@ from app.core.config import Settings
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_settings_dep
 from app.core.redis import get_redis_client
-from app.gateways.storage_gateway import (
-    LocalStorageGateway,
-    UnconfiguredStorageGateway,
-    get_storage_gateway,
-)
+from app.gateways.storage_gateway import LocalStorageGateway, get_storage_gateway
 from app.models.orm import User
 from app.models.schemas import AttachmentOut, AttachmentPresignIn, AttachmentPresignOut
 from app.repositories import attachments as attachments_repo
 from app.services import quota as quota_service
 from app.services.attachment_content import (
-    IMAGE_CONTENT_TYPES,
     MAX_ATTACHMENT_SIZE,
     bytes_match_claimed,
     ensure_verified_or_purge,
-    is_allowed_content_type,
     is_image_content_type,
-    normalize_content_type,
 )
+from app.services.attachment_upload import AttachmentUploadError, create_presigned_upload
 
 router = APIRouter(prefix="/attachments", tags=["attachments"])
 
@@ -80,62 +74,16 @@ async def presign_upload(
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ) -> AttachmentPresignOut:
-    if not is_allowed_content_type(body.content_type):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported content type"
-        )
-    if body.size_bytes <= 0 or body.size_bytes > MAX_SIZE:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid file size")
-
-    content_type = normalize_content_type(body.content_type)
-
-    gateway = get_storage_gateway(settings)
-    if isinstance(gateway, UnconfiguredStorageGateway):
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Attachment storage is not configured",
-        )
-
-    redis = get_redis_client()
-    image_reserved = False
-    if content_type in IMAGE_CONTENT_TYPES:
-        image_limit = quota_service.image_upload_limit_for_user(user, settings)
-        if not await quota_service.reserve_image_upload(redis, user.id, limit=image_limit):
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=quota_service.image_limit_exceeded_message(user),
-            )
-        image_reserved = True
-
     try:
-        presigned = await gateway.presign_upload(
-            user_id=str(user.id),
-            content_type=content_type,
-            size_bytes=body.size_bytes,
-        )
-        from uuid import UUID as UUIDType
-
-        attachment_id = UUIDType(presigned.attachment_id)
-        await attachments_repo.create_pending(
+        return await create_presigned_upload(
             session,
-            attachment_id=attachment_id,
-            user_id=user.id,
-            storage_key=presigned.storage_key,
-            content_type=content_type,
+            settings,
+            user=user,
+            content_type=body.content_type,
             size_bytes=body.size_bytes,
         )
-    except Exception:
-        if image_reserved:
-            await quota_service.refund_image_upload(redis, user.id)
-        raise
-
-    return AttachmentPresignOut(
-        attachment_id=attachment_id,
-        upload_url=presigned.upload_url,
-        storage_key=presigned.storage_key,
-        headers=presigned.headers,
-        api_upload=presigned.api_upload,
-    )
+    except AttachmentUploadError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
 
 @router.put(
