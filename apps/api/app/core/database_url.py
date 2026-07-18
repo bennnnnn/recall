@@ -1,3 +1,4 @@
+from typing import Any
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 # asyncpg rejects libpq-style query params passed as connect() kwargs
@@ -15,7 +16,9 @@ def prefer_neon_pooler_hostname(host: str) -> str:
     return ".".join(labels)
 
 
-def prepare_asyncpg_url(url: str, *, prefer_neon_pooler: bool = False) -> tuple[str, dict]:
+def prepare_asyncpg_url(
+    url: str, *, prefer_neon_pooler: bool = False
+) -> tuple[str, dict[str, Any]]:
     """Return (clean_url, connect_args) for SQLAlchemy + asyncpg."""
     parsed = urlparse(url)
     hostname = parsed.hostname or ""

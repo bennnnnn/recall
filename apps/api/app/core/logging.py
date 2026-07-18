@@ -50,10 +50,10 @@ class _RequestIdFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         rid = request_id_context.get()
         if rid:
-            record.request_id = rid  # type: ignore[attr-defined]
-            self._style._fmt = self._REQ_FMT  # type: ignore[attr-defined]
+            record.request_id = rid
+            self._style._fmt = self._REQ_FMT
         else:
-            self._style._fmt = self._BASE_FMT  # type: ignore[attr-defined]
+            self._style._fmt = self._BASE_FMT
         return super().format(record)
 
 
