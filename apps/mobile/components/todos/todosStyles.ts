@@ -1,5 +1,6 @@
 import { StyleSheet } from "react-native";
 
+import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import type { Theme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -28,7 +29,7 @@ export function makeTodosStyles(C: Theme) {
       justifyContent: "center",
       gap: Space.xxs,
       backgroundColor: C.primaryLight,
-      borderRadius: 14,
+      borderRadius: Radius.lg,
       paddingVertical: Space.md,
       paddingHorizontal: Space.xs,
     },
@@ -115,7 +116,7 @@ export function makeTodosStyles(C: Theme) {
       gap: Space.xxs,
       marginTop: Space.sm,
       padding: Space.sm,
-      borderRadius: 10,
+      borderRadius: Radius.sm,
       backgroundColor: C.dangerLight,
     },
     overlapNoteText: { flex: 1, ...Type.caption, fontWeight: "400", lineHeight: 18, color: C.danger },
@@ -133,7 +134,7 @@ export function makeTodosStyles(C: Theme) {
       fontWeight: "600",
       color: C.text,
       backgroundColor: C.surface,
-      borderRadius: 12,
+      borderRadius: Radius.md,
       paddingHorizontal: Space.md,
       paddingVertical: Space.sm,
       borderWidth: 1,
@@ -144,7 +145,7 @@ export function makeTodosStyles(C: Theme) {
       alignItems: "center",
       gap: Space.xs,
       backgroundColor: C.primaryLight,
-      borderRadius: 10,
+      borderRadius: Radius.sm,
       paddingHorizontal: Space.sm,
       paddingVertical: Space.sm,
       alignSelf: "flex-start",
@@ -152,8 +153,8 @@ export function makeTodosStyles(C: Theme) {
     dateChipText: { ...Type.secondary, fontWeight: "600", color: C.text },
     sheet: {
       backgroundColor: C.surface,
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
+      borderTopLeftRadius: Radius.sheet,
+      borderTopRightRadius: Radius.sheet,
     },
     sheetHeader: {
       flexDirection: "row",
@@ -177,12 +178,12 @@ export function makeTodosStyles(C: Theme) {
       paddingVertical: Space.xs,
       paddingHorizontal: Space.xxs,
     },
-    groupOptionSelected: { backgroundColor: C.primaryLight, borderRadius: Space.xs },
+    groupOptionSelected: { backgroundColor: C.primaryLight, borderRadius: Radius.xs },
     groupOptionText: { ...Type.secondary, color: C.text },
     pickerSheet: {
       backgroundColor: C.bg,
-      borderTopLeftRadius: Space.md,
-      borderTopRightRadius: Space.md,
+      borderTopLeftRadius: Radius.xl,
+      borderTopRightRadius: Radius.xl,
     },
     pickerHeader: {
       flexDirection: "row",
@@ -225,7 +226,7 @@ export function makeTodosStyles(C: Theme) {
       marginTop: Space.md,
       paddingVertical: Space.sm,
       paddingHorizontal: 18,
-      borderRadius: 14,
+      borderRadius: Radius.lg,
       backgroundColor: C.primaryLight,
     },
     emptyPrimaryBtnText: { ...Type.body, fontWeight: "700", color: C.primary },

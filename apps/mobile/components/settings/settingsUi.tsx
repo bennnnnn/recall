@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -404,7 +405,7 @@ export function makeSettingsStyles(t: Theme) {
     },
     group: {
       backgroundColor: t.surface,
-      borderRadius: Space.md,
+      borderRadius: Radius.xl,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
       padding: Space.sm,
@@ -414,7 +415,7 @@ export function makeSettingsStyles(t: Theme) {
     subLabel: { fontSize: 13, color: t.textSecondary, marginTop: 6 },
     chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     chip: {
-      borderRadius: 999,
+      borderRadius: Radius.full,
       borderWidth: 1,
       borderColor: t.border,
       paddingHorizontal: 14,
@@ -430,7 +431,7 @@ export function makeSettingsStyles(t: Theme) {
       alignItems: "center",
       justifyContent: "space-between",
       backgroundColor: t.bg,
-      borderRadius: 12,
+      borderRadius: Radius.md,
       borderWidth: 1,
       borderColor: t.border,
       paddingHorizontal: 12,
@@ -460,7 +461,7 @@ export function makeSettingsStyles(t: Theme) {
       gap: 12,
       paddingVertical: 14,
       paddingHorizontal: 8,
-      borderRadius: 12,
+      borderRadius: Radius.md,
     },
     pickerOptionActive: { backgroundColor: t.primaryLight },
     pickerOptionMain: { flex: 1, gap: 2 },
@@ -595,7 +596,7 @@ export function makeSettingsStyles(t: Theme) {
     },
     footerGroup: {
       backgroundColor: t.surface,
-      borderRadius: 16,
+      borderRadius: Radius.xl,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
       overflow: "hidden",
@@ -609,11 +610,11 @@ export function makeSettingsStyles(t: Theme) {
 
     mKeyboardAvoider: { flex: 1 },
     mOverlay: { flex: 1, backgroundColor: t.scrim, justifyContent: "center", padding: 24 },
-    mSheet: { backgroundColor: t.bg, borderRadius: 20, padding: 20, gap: 14 },
+    mSheet: { backgroundColor: t.bg, borderRadius: Radius.sheet, padding: 20, gap: 14 },
     mTitle: { fontSize: 17, fontWeight: "700", color: t.text },
     mInput: {
       backgroundColor: t.surface,
-      borderRadius: 12,
+      borderRadius: Radius.md,
       padding: 12,
       fontSize: 16,
       color: t.text,
