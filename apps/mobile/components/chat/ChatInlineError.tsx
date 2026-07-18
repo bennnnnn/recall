@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import type { ResolvedChatError } from "@/lib/chatErrorMessage";
 import { Radius } from "@/lib/radius";
-import { boxShadowElevated } from "@/lib/shadow";
+import { shadowElevated } from "@/lib/shadow";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -75,7 +75,7 @@ function makeStyles(theme: Theme) {
       paddingLeft: 12,
       paddingRight: 8,
       paddingVertical: 10,
-      ...boxShadowElevated(theme, "banner"),
+      ...shadowElevated(theme, "banner"),
       zIndex: 20,
     },
     body: { flex: 1, flexDirection: "row", alignItems: "flex-start", gap: 8 },

@@ -1,10 +1,14 @@
 /**
  * Theme-aware elevation. Prefer these over ad-hoc `#000` + fixed opacity
  * (which reads muddy on dark surfaces).
+ *
+ * Uses classic shadow* props only — no import of `withAlpha` from theme
+ * (that created a Metro init cycle where ActionBanner crashed with
+ * "Property 'withAlpha' doesn't exist").
  */
 import type { ViewStyle } from "react-native";
 
-import { withAlpha, type Theme } from "@/lib/theme";
+import type { Theme } from "@/lib/theme";
 
 /** Soft raised surface — quota nudge, light cards. */
 export function shadowRaised(theme: Theme): ViewStyle {
@@ -28,30 +32,33 @@ export function shadowOverlay(theme: Theme): ViewStyle {
   };
 }
 
-type BoxShadowLevel = "fab" | "toast" | "banner";
+type ElevatedLevel = "fab" | "toast" | "banner";
 
-/**
- * CSS-style `boxShadow` for surfaces already on that path (FAB, toast).
- * Uses `theme.scrim` so dark mode stays readable.
- */
-export function boxShadowElevated(
-  theme: Theme,
-  level: BoxShadowLevel,
-): Pick<ViewStyle, "boxShadow" | "elevation"> {
+/** Stronger float — FAB, toast banner, inline error. */
+export function shadowElevated(theme: Theme, level: ElevatedLevel): ViewStyle {
   if (level === "fab") {
     return {
-      boxShadow: `0 2 10 0 ${withAlpha(theme.scrim, theme.isDark ? 0.35 : 0.18)}`,
+      shadowColor: "#000",
+      shadowOpacity: theme.isDark ? 0.35 : 0.18,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 2 },
       elevation: 8,
     };
   }
   if (level === "banner") {
     return {
-      boxShadow: `0 4 16 0 ${withAlpha(theme.scrim, theme.isDark ? 0.28 : 0.12)}`,
+      shadowColor: "#000",
+      shadowOpacity: theme.isDark ? 0.28 : 0.12,
+      shadowRadius: 16,
+      shadowOffset: { width: 0, height: 4 },
       elevation: 8,
     };
   }
   return {
-    boxShadow: `0 8 24 0 ${withAlpha(theme.scrim, theme.isDark ? 0.55 : 0.45)}`,
+    shadowColor: "#000",
+    shadowOpacity: theme.isDark ? 0.55 : 0.45,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 8 },
     elevation: 16,
   };
 }

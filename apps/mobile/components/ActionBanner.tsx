@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Motion } from "@/lib/motion";
 import { Radius } from "@/lib/radius";
-import { boxShadowElevated } from "@/lib/shadow";
+import { shadowElevated } from "@/lib/shadow";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -120,7 +120,7 @@ function makeStyles(theme: Theme) {
       maxWidth: 340,
       borderWidth: theme.isDark ? StyleSheet.hairlineWidth : 0,
       borderColor: theme.border,
-      ...boxShadowElevated(theme, "toast"),
+      ...shadowElevated(theme, "toast"),
     },
     text: {
       flexShrink: 1,
