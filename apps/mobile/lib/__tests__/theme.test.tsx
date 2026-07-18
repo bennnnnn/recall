@@ -1,10 +1,12 @@
 import { darkTheme, lightTheme, withAlpha } from "@/lib/theme";
 
 describe("surface hierarchy", () => {
-  it("keeps the canvas a step below raised white/surface so chrome can float", () => {
-    expect(lightTheme.bg).not.toBe(lightTheme.surface);
+  it("matches screenshot: off-white page, pure-white chrome, cool-gray bubbles", () => {
+    expect(lightTheme.bg).toBe("#FAFAFA");
+    expect(lightTheme.surface).toBe("#FFFFFF");
+    expect(lightTheme.inputBg).toBe("#FFFFFF");
+    expect(lightTheme.userBubble).toBe("#F1F4F9");
     expect(lightTheme.bg).toBe(lightTheme.composerBg);
-    expect(lightTheme.inputBg).toBe(lightTheme.surface);
     expect(darkTheme.bg).not.toBe(darkTheme.surface);
     expect(darkTheme.inputBg).toBe(darkTheme.surface);
   });

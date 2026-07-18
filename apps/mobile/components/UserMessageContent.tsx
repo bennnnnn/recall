@@ -129,8 +129,6 @@ function makeStyles(C: Theme) {
       borderRadius: 22,
       paddingHorizontal: 16,
       paddingVertical: 10,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: C.border,
     },
     textBubbleBelowImage: {
       alignSelf: "flex-end",

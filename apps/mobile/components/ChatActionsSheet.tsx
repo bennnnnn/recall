@@ -233,12 +233,12 @@ function makeStyles(C: Theme) {
       position: "absolute",
       borderRadius: Radius.lg,
       // Shadow must live on a view without overflow:hidden or iOS clips it.
-      backgroundColor: C.bg,
+      backgroundColor: C.surface,
       ...shadowOverlay(C),
     },
     menuPanel: {
       borderRadius: Radius.lg,
-      backgroundColor: C.bg,
+      backgroundColor: C.surface,
       overflow: "hidden",
     },
     menuTitle: {

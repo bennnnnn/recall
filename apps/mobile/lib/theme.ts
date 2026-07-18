@@ -85,26 +85,26 @@ export const lightTheme: Theme = {
   accentLight: "#E0E7FF",
   accentDark: "#4338CA",
 
-  // Canvas sits a step below white so composer / cards can float (depth).
-  bg: "#F4F4F5",
+  // From chat screenshot: off-white page, pure-white chrome, cool-gray bubbles.
+  bg: "#FAFAFA",
   surface: "#FFFFFF",
-  surfaceAlt: "#E4E4E7",
-  border: "#E4E4E7",
+  surfaceAlt: "#F1F4F9",
+  border: "#E8E8ED",
 
   text: "#111827",
   textSecondary: "#6B7280",
   textTertiary: "#9CA3AF",
 
-  userBubble: "#FFFFFF",
+  userBubble: "#F1F4F9",
   userText: "#111827",
   assistantBubble: "#FFFFFF",
   assistantText: "#111827",
 
-  composerBg: "#F4F4F5",
-  composerBorder: "#E4E4E7",
+  composerBg: "#FAFAFA",
+  composerBorder: "#E8E8ED",
   inputBg: "#FFFFFF",
 
-  contentSurface: "#FFFFFF",
+  contentSurface: "#F1F4F9",
 
   danger: "#EF4444",
   dangerLight: "#FEE2E2",
