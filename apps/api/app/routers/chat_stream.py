@@ -16,7 +16,7 @@ from fastapi.responses import StreamingResponse
 from app.core.config import Settings, get_settings
 from app.core.deps import get_current_user
 from app.core.redis import get_redis_client
-from app.exceptions import ChatServiceError, QuotaExceededError
+from app.exceptions import ChatServiceError, QuotaExceededError, RedisUnavailableError
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.orm import User
 from app.models.schemas import ChatMessageRequest, EditMessageRequest
@@ -129,7 +129,10 @@ async def _stream_tokens_sse(
 
         yield _sse(build_done_payload(result))
     except Exception as exc:
-        if not isinstance(exc, QuotaExceededError | ChatServiceError | ModelUnavailableError):
+        if not isinstance(
+            exc,
+            QuotaExceededError | RedisUnavailableError | ChatServiceError | ModelUnavailableError,
+        ):
             logger.exception("SSE chat stream failed chat_id=%s", chat_id)
         yield _sse(error_payload_for_exception(exc))
     finally:

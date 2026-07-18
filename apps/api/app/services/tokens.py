@@ -19,10 +19,12 @@ from uuid import UUID
 
 import jwt
 from redis.asyncio import Redis
+from redis.exceptions import RedisError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.access_tokens import create_access_token
 from app.core.config import Settings
+from app.exceptions import RedisUnavailableError
 from app.gateways.google_auth import GoogleAuthError
 from app.models.schemas import UserOut
 from app.repositories import users as users_repo
@@ -186,9 +188,17 @@ async def verify_access_token(redis: Redis, token: str, settings: Settings) -> U
     except (jwt.PyJWTError, ValueError, KeyError) as exc:
         raise GoogleAuthError("Invalid access token") from exc
     jti = payload.get("jti")
-    if jti and await is_access_revoked(redis, str(jti)):
-        raise GoogleAuthError("Token revoked")
-    user_id = UUID(payload["sub"])
-    if await _is_access_revoked_since(redis, user_id, payload.get("iat")):
-        raise GoogleAuthError("Token revoked")
+    try:
+        if jti and await is_access_revoked(redis, str(jti)):
+            raise GoogleAuthError("Token revoked")
+        user_id = UUID(payload["sub"])
+        if await _is_access_revoked_since(redis, user_id, payload.get("iat")):
+            raise GoogleAuthError("Token revoked")
+    except GoogleAuthError:
+        raise
+    except RedisError as exc:
+        # Fail closed: without Redis we cannot check jti / revoked_since.
+        # Surface as 503 (not 401) so clients retry instead of forcing re-login.
+        logger.warning("Access token revocation check failed; Redis unavailable", exc_info=True)
+        raise RedisUnavailableError() from exc
     return user_id
