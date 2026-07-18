@@ -535,7 +535,8 @@ async def test_apply_delete_overdue_removes_past_due_only():
 
 
 @pytest.mark.asyncio
-async def test_sync_todos_delete_overdue_after_empty_llm_apply():
+async def test_sync_todos_does_not_bulk_wipe_overdue_after_empty_llm_apply():
+    """Transcript sync must not mass-delete overdue items via heuristic wipe."""
     session = AsyncMock()
     user_id = uuid4()
     user = MagicMock()
@@ -585,7 +586,7 @@ async def test_sync_todos_delete_overdue_after_empty_llm_apply():
             chat_id=uuid4(),
             transcript=("User: Delete overdue\nAssistant: I've removed the two overdue reminders."),
         )
-    delete_mock.assert_awaited_once()
+    delete_mock.assert_not_awaited()
 
 
 def test_transcript_implies_todo_sync_reminder_confirm():
