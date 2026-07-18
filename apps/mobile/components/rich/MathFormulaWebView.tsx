@@ -6,6 +6,7 @@ import {
   buildMathWebHtml,
   pickMathEngine,
   type MathEngine,
+  type MathHtmlOptions,
 } from "@/lib/mathHtml";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { CODE_FONT } from "@/lib/fonts";
@@ -28,6 +29,10 @@ type Props = {
   textColor?: string;
   bgColor?: string;
 };
+
+function katexHtml(latex: string, options: MathHtmlOptions): string {
+  return buildMathWebHtml(latex, { ...options, engine: "katex" });
+}
 
 function parseHeightMessage(raw: string): number | null {
   try {
@@ -70,18 +75,16 @@ export const MathFormulaWebView = React.memo(function MathFormulaWebView({
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const engine = useMemo(() => pickMathEngine(latex), [latex]);
-  const html = useMemo(
-    () =>
-      buildMathWebHtml(latex, {
-        displayMode,
-        engine,
-        textColor: textColor ?? theme.text,
-        bgColor: bgColor ?? theme.contentSurface,
-        errorColor: theme.danger,
-        compact,
-      }),
+  const htmlOptions = useMemo(
+    (): MathHtmlOptions => ({
+      displayMode,
+      engine,
+      textColor: textColor ?? theme.text,
+      bgColor: bgColor ?? theme.contentSurface,
+      errorColor: theme.danger,
+      compact,
+    }),
     [
-      latex,
       displayMode,
       engine,
       textColor,
@@ -92,14 +95,44 @@ export const MathFormulaWebView = React.memo(function MathFormulaWebView({
       compact,
     ],
   );
-  // Stable identity — a fresh `{ html }` object every render reloads the
-  // native WebView (full flicker) even when the HTML string is unchanged.
-  const source = useMemo(() => ({ html }), [html]);
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;
   const canRenderInline = previewWebView?.mode === "rnc";
-  const { canMount, onLoaded } = useDeferredWebViewMount(Boolean(WebView) && canRenderInline);
-  const onShouldStartLoadWithRequest = useStaticOnlyNavigation(html);
+  const canUseWebView = Boolean(WebView) && canRenderInline;
+
+  // KaTeX is sync (common path). MathJax lives in an async Metro chunk so the
+  // ~2MB vendor is not evaluated on every chat that touches MathFormulaWebView.
+  const [html, setHtml] = useState<string | null>(() =>
+    engine === "katex" ? katexHtml(latex, htmlOptions) : null,
+  );
+
+  useEffect(() => {
+    if (engine === "katex") {
+      setHtml(katexHtml(latex, htmlOptions));
+      return;
+    }
+    // Static fallback (Expo Go / tests) only needs the engine badge — skip
+    // pulling the MathJax chunk when we cannot mount a WebView anyway.
+    if (!canUseWebView) {
+      setHtml(null);
+      return;
+    }
+    let cancelled = false;
+    setHtml(null);
+    void import("@/lib/mathHtmlMathjax").then(({ buildMathjaxWebHtml }) => {
+      if (cancelled) return;
+      setHtml(buildMathjaxWebHtml(latex, htmlOptions));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [engine, latex, htmlOptions, canUseWebView]);
+
+  // Stable identity — a fresh `{ html }` object every render reloads the
+  // native WebView (full flicker) even when the HTML string is unchanged.
+  const source = useMemo(() => (html != null ? { html } : { html: "" }), [html]);
+  const { canMount, onLoaded } = useDeferredWebViewMount(canUseWebView);
+  const onShouldStartLoadWithRequest = useStaticOnlyNavigation(html ?? "");
   const initialHeight = estimateInitialHeight(latex, displayMode, compact, minHeight);
   const [height, setHeight] = useState(initialHeight);
   const heightRef = useRef(initialHeight);
@@ -125,12 +158,13 @@ export const MathFormulaWebView = React.memo(function MathFormulaWebView({
     [compact, initialHeight, minHeight],
   );
 
-  if (!WebView || !canRenderInline) {
+  if (!canUseWebView || !WebView) {
     return <MathLatexFallback latex={latex} engine={engine} compact={compact} theme={theme} />;
   }
 
-  if (!canMount) {
+  if (!canMount || html == null) {
     // Reserve space — never flash raw LaTeX here (that reads as flicker).
+    // Also covers the brief MathJax async-chunk load.
     return (
       <View
         style={[
