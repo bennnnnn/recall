@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Raw `(\frac{...})` inline math on screen.** Model `\(...\)` survived preprocess, then
+  CommonMark escaped `\(`/`\)` to bare parens before `splitInlineMath` — MathText never
+  ran. Also `looksLikeProseParenthetical` counted `\neq`/`\frac` letter-runs as English.
+  Fix (#450): convert `\(...\)` → `$...$` in `protectMathEscapes`; strip `\\[a-zA-Z]+`
+  before the prose-word count; wrap bare cmds outside existing `$` spans.
 - **Chat “falls then snaps back” when stream ends.** Two bugs stacked: (1) intentional
   `STREAM_LAYOUT_SETTLE_MS` (280ms) hold before revealing full markdown/feedback/sources;
   (2) FlashList native autoscroll re-armed the instant streaming ended — same moment the
