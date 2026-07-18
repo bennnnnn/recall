@@ -61,10 +61,14 @@ function renderSegments(
       const numUni = toSuperscript(numPlain);
       const denUni = toSubscript(denPlain);
       if (numUni && denUni) {
+        // A straight horizontal bar between the raised numerator and lowered
+        // denominator, not the diagonal Unicode fraction slash ("⁄") — a
+        // real fraction's dividing line is horizontal, and a diagonal slash
+        // there reads as a division sign, not a written fraction.
         return (
           <Text key={key}>
             {numUni}
-            <Text style={styles.fracSlash}>⁄</Text>
+            <Text style={styles.fracBar}>─</Text>
             {denUni}
           </Text>
         );
@@ -142,6 +146,13 @@ const makeStyles = (theme: Theme, textColor?: string) => {
     // Single-line fraction slash — never a two-row stack (see the "frac"
     // case in renderSegments above for why).
     fracSlash: {
+      color,
+      marginHorizontal: 1,
+    },
+    // Straight horizontal bar between a raised numerator and lowered
+    // denominator (the simple-digit fraction case) — see the "frac" case in
+    // renderSegments above for why it's not the diagonal fraction slash.
+    fracBar: {
       color,
       marginHorizontal: 1,
     },
