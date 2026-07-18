@@ -6,7 +6,6 @@ import { PlacesListBlock } from "@/components/PlacesListBlock";
 import { CalloutBlock } from "@/components/rich/CalloutBlock";
 import { parsePlacesJson } from "@/lib/placesList";
 import { AnswerBlock } from "@/components/rich/AnswerBlock";
-import { ChartBlock } from "@/components/rich/ChartBlock";
 import { CollapsibleBlock } from "@/components/rich/CollapsibleBlock";
 import { ComparisonBlock } from "@/components/rich/ComparisonBlock";
 import { CircularClockBlock } from "@/components/rich/CircularClockBlock";
@@ -14,8 +13,8 @@ import { EmailCard } from "@/components/rich/EmailCard";
 import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
 import { GeometryBlock } from "@/components/rich/GeometryBlock";
 import { KeyValueBlock } from "@/components/rich/KeyValueBlock";
+import { LazyChartBlock, LazyMermaidBlock } from "@/components/rich/LazyHeavyRich";
 import { MathBlock } from "@/components/rich/MathView";
-import { MermaidBlock } from "@/components/rich/MermaidBlock";
 import { MessagePreview } from "@/components/rich/MessagePreview";
 import { QuoteBlock } from "@/components/rich/QuoteBlock";
 import { SocialPostCard } from "@/components/rich/SocialPostCard";
@@ -137,14 +136,14 @@ export function renderRichFence(
     return <StepList key={key} steps={parseSteps(content)} />;
   }
 
-  // Mermaid / graph diagrams
+  // Mermaid / graph diagrams (async-split vendors — see LazyHeavyRich)
   if (l === "mermaid") {
-    return <MermaidBlock key={key} content={content} />;
+    return <LazyMermaidBlock key={key} content={content} />;
   }
 
-  // Chart / data visualization (vega-lite, chart.js, plot)
+  // Chart / data visualization (vega-lite — async-split vendors)
   if (l === "chart" || l === "vega" || l === "vega-lite" || l === "plot") {
-    return <ChartBlock key={key} content={content} />;
+    return <LazyChartBlock key={key} content={content} />;
   }
 
   return null;

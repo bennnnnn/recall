@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Chat cold start pulled Mermaid/Vega/MathJax.** Static imports from `RichFence` /
+  `mathHtml` evaluated ~6MB of inlined vendors on every markdown message graph load.
+  Fix: `React.lazy` Chart/Mermaid via `LazyHeavyRich`; MathJax in `mathHtmlMathjax`
+  loaded only for multline/eqnarray when a WebView can mount.
 - **Drawer menu needs many taps after Reanimated migrate.** Opaque left-edge hit strip
   (`zIndex` 210) sat on the hamburger; failed pan `onFinalize` also raced `settle(false)`
   against `open()`. Fix: `manualActivation` (claim only after horizontal move) + settle

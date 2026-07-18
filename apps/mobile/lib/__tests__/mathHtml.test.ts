@@ -1,10 +1,11 @@
 import { PREVIEW_CSP, MATH_PREVIEW_CSP } from "@/lib/previewSandbox";
 import { buildMathWebHtml, isHeavyMath, pickMathEngine } from "@/lib/mathHtml";
+import { buildMathjaxWebHtml } from "@/lib/mathHtmlMathjax";
 import { buildKatexStaticWebHtml } from "@/lib/katexRender";
 
 describe("math WebView HTML", () => {
   it("injects the math CSP (no network egress — MathJax is vendored inline) into MathJax HTML", () => {
-    const html = buildMathWebHtml("\\frac{1}{2}", {
+    const html = buildMathjaxWebHtml("\\frac{1}{2}", {
       displayMode: true,
       engine: "mathjax",
       textColor: "#111",
@@ -34,12 +35,30 @@ describe("math WebView HTML", () => {
     expect(html).toContain("connect-src 'none'");
   });
 
+  it("buildMathWebHtml stays on the KaTeX path (MathJax is a separate async chunk)", () => {
+    const html = buildMathWebHtml("\\frac{1}{2}", {
+      displayMode: true,
+      textColor: "#111",
+      bgColor: "#fff",
+    });
+    expect(html).not.toContain("__webpack_modules__");
+    expect(html).not.toContain("tex2svgPromise");
+    expect(() =>
+      buildMathWebHtml("\\frac{1}{2}", {
+        displayMode: true,
+        engine: "mathjax",
+        textColor: "#111",
+        bgColor: "#fff",
+      }),
+    ).toThrow(/mathHtmlMathjax/);
+  });
+
   it("inlines the vendored MathJax bundle (no external script src) and keeps the load-timeout fallback", () => {
     // The MathJax bundle is inlined as a <script>...</script> block (no
     // external src) so it renders fully offline. The 8s load-timeout remains
     // as a safety net against a pathological init hang; the fallback div still
     // shows raw LaTeX if MathJax fails to produce output.
-    const html = buildMathWebHtml("\\frac{1}{2}", {
+    const html = buildMathjaxWebHtml("\\frac{1}{2}", {
       displayMode: true,
       engine: "mathjax",
       textColor: "#111",
