@@ -53,4 +53,14 @@ describe("MathText", () => {
     const { getByText } = await render(<MathText latex={String.raw`x = \pm2`} />);
     expect(getByText("x = ±2")).toBeOnTheScreen();
   });
+
+  it("BUG FIX regression: a fraction inside \\sqrt{} renders the fraction, not raw \\frac text", async () => {
+    // Reported live: "m = \pm\sqrt{\frac{M}{2}}" showed literal, unrendered
+    // "\frac{M}{2}" text inside the root instead of a fraction.
+    const { getByText, queryByText } = await render(
+      <MathText latex={String.raw`m = \pm\sqrt{\frac{M}{2}}`} />,
+    );
+    expect(getByText("m = ±√M̅/̅2̅")).toBeOnTheScreen();
+    expect(queryByText(/\\frac/)).toBeNull();
+  });
 });
