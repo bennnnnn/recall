@@ -31,6 +31,8 @@
   "chat.feedback_failed": "Feedback konnte nicht gespeichert werden.",
   "chat.heic_unsupported_body": "Dieses Fotoformat wird nicht unterstützt. Bitte als JPEG speichern oder ein anderes Foto wählen.",
   "chat.heic_unsupported_title": "HEIC wird nicht unterstützt",
+  "chat.home.starter_what_can_you": "Was kannst du?",
+  "chat.home.starter_what_can_you_prompt": "Wobei kannst du mir helfen? Nenn ein paar konkrete Beispiele.",
   "chat.math_scan_hint": "Zum Ändern der Größe kneifen · Gleichung ausrichten",
   "chat.math_scan_permission": "Kamerazugriff wird zum Scannen von Matheaufgaben benötigt.",
   "chat.math_scan_allow_camera": "Kamera erlauben",

@@ -31,6 +31,8 @@
   "chat.feedback_failed": "No se pudo guardar tu valoración.",
   "chat.heic_unsupported_body": "Este formato de foto no es compatible. Convierte a JPEG o elige otra foto.",
   "chat.heic_unsupported_title": "HEIC no compatible",
+  "chat.home.starter_what_can_you": "¿Qué puedes hacer?",
+  "chat.home.starter_what_can_you_prompt": "¿En qué puedes ayudarme? Dame algunos ejemplos concretos.",
   "chat.math_scan_hint": "Pellizca para redimensionar · alinea la ecuación",
   "chat.math_scan_permission": "Se necesita acceso a la cámara para escanear problemas de matemáticas.",
   "chat.math_scan_allow_camera": "Permitir cámara",

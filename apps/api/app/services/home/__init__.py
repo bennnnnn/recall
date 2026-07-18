@@ -42,7 +42,7 @@ from app.services.home.project_starters import (
     load_project_home_content as _load_project_home_content_impl,
 )
 from app.services.home.project_starters import project_starters
-from app.services.home.time_starters import greeting, time_starters
+from app.services.home.time_starters import greeting, time_starters, welcome_starters
 from app.services.home.util import (
     MAX_STARTERS,
     ProjectHomeContent,
@@ -192,9 +192,23 @@ async def build_home_screen(
         seen_prompts.add(key)
         starters.append(starter)
 
-    time_pool = time_starters(user, home_tz)
-    if time_pool:
-        add(rotate_list(time_pool, seed)[0])
+    # No chats / learning / memory / urgents / calendar yet → don't ask
+    # "how did today go?" as if we already know the user.
+    is_cold_home = (
+        project_highlight is None
+        and not project_chips
+        and not recent_titles
+        and home_memory is None
+        and not urgent_todos
+        and not integration_chips
+    )
+    if is_cold_home:
+        for item in welcome_starters():
+            add(item)
+    else:
+        time_pool = time_starters(user, home_tz)
+        if time_pool:
+            add(rotate_list(time_pool, seed)[0])
 
     for item in integration_chips:
         add(item)

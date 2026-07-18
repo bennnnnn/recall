@@ -31,6 +31,8 @@
   "chat.feedback_failed": "Не удалось сохранить отзыв.",
   "chat.heic_unsupported_body": "Этот формат фото не поддерживается. Конвертируйте в JPEG или выберите другое фото.",
   "chat.heic_unsupported_title": "HEIC не поддерживается",
+  "chat.home.starter_what_can_you": "Что ты умеешь?",
+  "chat.home.starter_what_can_you_prompt": "Чем ты можешь помочь? Приведи несколько конкретных примеров.",
   "chat.math_scan_hint": "Сведите пальцы, чтобы изменить размер · выровняйте уравнение",
   "chat.math_scan_permission": "Для сканирования задач нужна камера.",
   "chat.math_scan_allow_camera": "Разрешить камеру",

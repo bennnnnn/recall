@@ -667,6 +667,44 @@ def test_time_starters_reflect_starts_at_three_pm():
     assert after[0].text == "How did today go?"
 
 
+@pytest.mark.asyncio
+async def test_build_home_cold_user_gets_welcome_not_day_reflect():
+    """Brand-new account: no chats/projects/memory/urgents → welcome chips only."""
+    session = AsyncMock()
+    user = _user()
+
+    with (
+        _home_patches(),
+        patch("app.services.home.time_starters.local_hour_for_tz", return_value=20),
+    ):
+        screen = await home_service.build_home_screen(session, user, Settings())
+
+    texts = {s.text for s in screen.starters}
+    assert "Help me think" in texts
+    assert "What can you do?" in texts
+    assert "How did today go?" not in texts
+    assert "Anything left tonight?" not in texts
+    assert "Plan my day" not in texts
+    assert all(s.kind != "time" for s in screen.starters)
+
+
+@pytest.mark.asyncio
+async def test_build_home_with_chat_history_keeps_time_starters():
+    session = AsyncMock()
+    user = _user()
+    chat = MagicMock()
+    chat.title = "Yesterday's notes"
+
+    with (
+        _home_patches(list_for_user_chats=[chat]),
+        patch("app.services.home.time_starters.local_hour_for_tz", return_value=20),
+    ):
+        screen = await home_service.build_home_screen(session, user, Settings())
+
+    assert any(s.kind == "time" for s in screen.starters)
+    assert any(s.text in {"How did today go?", "Anything left tonight?"} for s in screen.starters)
+
+
 def test_client_timezone_overrides_profile():
     user = _user(timezone="UTC")
     tz = home_service._resolve_home_tz(user, "America/New_York")

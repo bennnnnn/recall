@@ -1,10 +1,6 @@
 import i18n from "@/lib/i18n";
 import { api, type HomeScreen, type HomeStarter } from "@/lib/api";
 
-const MORNING_START = 5;
-const CALENDAR_TODAY_END = 12;
-const REFLECT_START = 15;
-
 function looksInternal(text: string): boolean {
   const clean = text.trim();
   if (!clean) return true;
@@ -21,6 +17,22 @@ export function localGreeting(now: Date = new Date()): string {
   return i18n.t("chat.home.greeting_night");
 }
 
+/** First paint / empty-account chips — no assumed day history. */
+export function welcomeStarters(): HomeStarter[] {
+  return [
+    {
+      text: i18n.t("chat.home.starter_help_think"),
+      prompt: i18n.t("chat.home.starter_help_think_prompt"),
+      kind: "general",
+    },
+    {
+      text: i18n.t("chat.home.starter_what_can_you"),
+      prompt: i18n.t("chat.home.starter_what_can_you_prompt"),
+      kind: "general",
+    },
+  ];
+}
+
 /** Sync placeholder so post-login home never paints a bare spinner. */
 export function instantHomePlaceholder(now: Date = new Date()): HomeScreen {
   return {
@@ -28,50 +40,12 @@ export function instantHomePlaceholder(now: Date = new Date()): HomeScreen {
     subtitle: null,
     project_highlight: null,
     urgent_todos: [],
-    starters: timeStartersFor(now),
+    starters: welcomeStarters(),
   };
 }
 
-function timeStartersFor(now: Date): HomeStarter[] {
-  const hour = now.getHours();
-  if (hour >= MORNING_START && hour < CALENDAR_TODAY_END) {
-    return [
-      {
-        text: i18n.t("chat.home.starter_plan_day"),
-        prompt: i18n.t("chat.home.starter_plan_day_prompt"),
-        kind: "time",
-      },
-    ];
-  }
-  if (hour >= CALENDAR_TODAY_END && hour < REFLECT_START) {
-    return [
-      {
-        text: i18n.t("chat.home.starter_working_on"),
-        prompt: i18n.t("chat.home.starter_working_on_prompt"),
-        kind: "time",
-      },
-    ];
-  }
-  if (hour >= REFLECT_START && hour < 22) {
-    return [
-      {
-        text: i18n.t("chat.home.starter_reflect"),
-        prompt: i18n.t("chat.home.starter_reflect_prompt"),
-        kind: "time",
-      },
-    ];
-  }
-  return [
-    {
-      text: i18n.t("chat.home.starter_quick_thought"),
-      prompt: i18n.t("chat.home.starter_quick_thought_prompt"),
-      kind: "time",
-    },
-  ];
-}
-
 export async function loadHomeFallback(token: string): Promise<HomeScreen> {
-  const starters: HomeStarter[] = [...timeStartersFor(new Date())];
+  const starters: HomeStarter[] = [...welcomeStarters()];
 
   const suggestions = await api.listSuggestions(token).catch(() => []);
   for (const item of suggestions) {

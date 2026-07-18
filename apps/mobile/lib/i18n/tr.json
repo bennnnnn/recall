@@ -31,6 +31,8 @@
   "chat.feedback_failed": "Geri bildiriminiz kaydedilemedi.",
   "chat.heic_unsupported_body": "Bu fotoğraf biçimi desteklenmiyor. JPEG'e dönüştürün veya başka bir fotoğraf seçin.",
   "chat.heic_unsupported_title": "HEIC desteklenmiyor",
+  "chat.home.starter_what_can_you": "Ne yapabilirsin?",
+  "chat.home.starter_what_can_you_prompt": "Bana nasıl yardımcı olabilirsin? Birkaç somut örnek ver.",
   "chat.math_scan_hint": "Boyut için sıkıştırın · denklemi hizalayın",
   "chat.math_scan_permission": "Matematik taramak için kamera erişimi gerekir.",
   "chat.math_scan_allow_camera": "Kameraya izin ver",
