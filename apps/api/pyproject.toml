@@ -28,7 +28,7 @@ dependencies = [
     "sympy>=1.13.0,<1.15",
     "numpy>=2.0.0,<2.6",
     "cryptography>=44.0.0,<50",
-    "boto3>=1.35.0,<1.44",
+    "boto3>=1.43.51,<1.44",
     "sentry-sdk[fastapi]>=2.64.0,<2.65",
 ]
 
