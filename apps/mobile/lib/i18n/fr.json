@@ -419,7 +419,7 @@
   "projects.delete_title": "Supprimer {{title}} ?",
   "projects.detail": "Apprentissage",
   "projects.detail.day_progress": "{{day}}: {{done}} of {{goal}}",
-  "projects.empty_body": "Appuyez sur + pour ajouter du vocabulaire anglais ou des connaissances générales.",
+  "projects.empty_body": "Ajoutez du vocabulaire anglais ou des connaissances générales pour commencer.",
   "projects.empty_title": "Rien à apprendre pour l’instant",
   "projects.encourage": "Continuez — essayez d'ajouter {{count}} mots de plus à votre niveau !",
   "projects.english_topics.grammar": "Grammar",

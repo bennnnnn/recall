@@ -409,6 +409,8 @@ export default function ProjectsScreen() {
                   variant="empty"
                   title={t("projects.empty_title")}
                   message={t("projects.empty_body")}
+                  onRetry={showAddLearning ? openCreate : undefined}
+                  retryLabel={t("projects.add_learning")}
                 />
               ) : null}
               {error ? (

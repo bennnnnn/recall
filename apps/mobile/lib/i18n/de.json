@@ -419,7 +419,7 @@
   "projects.delete_title": "{{title}} löschen?",
   "projects.detail": "Lernen",
   "projects.detail.day_progress": "{{day}}: {{done}} of {{goal}}",
-  "projects.empty_body": "Tippe auf +, um Englisch-Vokabeln oder Allgemeinwissen hinzuzufügen.",
+  "projects.empty_body": "Füge Englisch-Vokabeln oder Allgemeinwissen hinzu, um zu starten.",
   "projects.empty_title": "Noch kein Lernen",
   "projects.encourage": "Weiter so — füge {{count}} weitere Wörter auf deinem Niveau hinzu!",
   "projects.english_topics.grammar": "Grammar",

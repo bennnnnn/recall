@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Redirect, useFocusEffect } from "expo-router";
+import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -147,6 +147,7 @@ export default function MemoryScreen() {
   const { token } = useAuth();
   const { t } = useTranslation();
   const theme = useTheme();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const s = useMemo(() => makeStyles(theme), [theme]);
   // Settings already warms this cache — paint instantly instead of skeleton.
@@ -235,6 +236,8 @@ export default function MemoryScreen() {
           icon="sparkles-outline"
           title={t("memory.empty_title")}
           message={t("memory.empty_body")}
+          onRetry={() => router.replace("/")}
+          retryLabel={t("chat.new_chat")}
         />
       </View>
     );

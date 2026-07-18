@@ -419,7 +419,7 @@
   "projects.delete_title": "{{title}} silinsin mi?",
   "projects.detail": "Öğrenme",
   "projects.detail.day_progress": "{{day}}: {{done}} of {{goal}}",
-  "projects.empty_body": "İngilizce kelime veya genel kültür eklemek için + öğesine dokunun.",
+  "projects.empty_body": "Başlamak için İngilizce kelime veya genel kültür ekleyin.",
   "projects.empty_title": "Henüz öğrenme yok",
   "projects.encourage": "Devam et — seviyende {{count}} kelime daha eklemeyi dene!",
   "projects.english_topics.grammar": "Grammar",

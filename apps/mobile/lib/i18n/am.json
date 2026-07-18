@@ -419,7 +419,7 @@
   "projects.delete_title": "{{title}}ን ሰርዝ?",
   "projects.detail": "መማር",
   "projects.detail.day_progress": "{{day}}: {{done}} of {{goal}}",
-  "projects.empty_body": "እንግሊዝኛ ቃላት ወይም አጠቃላይ እውቀት ለመጨመር + ን ይንኩ።",
+  "projects.empty_body": "ለመጀመር እንግሊዝኛ ቃላት ወይም አጠቃላይ እውቀት ያክሉ።",
   "projects.empty_title": "ገና ትምህርት የለም",
   "projects.encourage": "ቀጥል — በደረጃህ {{count}} ተጨማሪ ቃላትን ለመጨመር ሞክር!",
   "projects.english_topics.grammar": "Grammar",
