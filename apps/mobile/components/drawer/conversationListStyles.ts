@@ -1,10 +1,12 @@
 import { StyleSheet } from "react-native";
 
+import { Space } from "@/lib/space";
 import type { Theme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 export const TOP_CHROME = 58;
 /** Fixed Learning / Lists / Reminders block under the logo row. */
-export const DRAWER_NAV_CHROME = 150;
+export const DRAWER_NAV_CHROME = 160;
 export const FOOTER_CHROME = 54;
 export const FADE_EXTRA = 40;
 export const CHAT_LIST_STALE_MS = 20_000;
@@ -12,7 +14,12 @@ export const CHAT_LIST_STALE_MS = 20_000;
 export function makeConversationListStyles(theme: Theme) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.bg, overflow: "visible" },
-    center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8 },
+    center: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+      gap: Space.xs,
+    },
     topFade: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 50 },
     bottomFade: {
       position: "absolute",
@@ -30,14 +37,14 @@ export function makeConversationListStyles(theme: Theme) {
       // Solid so Learning/Lists/Reminders sit above the scroll fade (not washed out).
       backgroundColor: theme.bg,
     },
-    header: { paddingHorizontal: 16, paddingBottom: 10 },
+    header: { paddingHorizontal: Space.md, paddingBottom: Space.sm },
     drawerNav: {
-      paddingBottom: 14,
-      marginBottom: 4,
+      paddingBottom: Space.md,
+      marginBottom: Space.xxs,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: theme.border,
     },
-    logo: { flexDirection: "row", alignItems: "center", gap: 8 },
+    logo: { flexDirection: "row", alignItems: "center", gap: Space.xs },
     logoText: {
       fontSize: 20,
       fontWeight: "800",
@@ -48,52 +55,68 @@ export function makeConversationListStyles(theme: Theme) {
       marginLeft: "auto",
       flexDirection: "row",
       alignItems: "center",
-      gap: 4,
+      gap: Space.xxs,
     },
-    searchBtn: { padding: 4 },
+    searchBtn: { padding: Space.xxs },
     selectionHeader: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 8,
+      gap: Space.xs,
     },
     selectionHeaderTitle: {
       flex: 1,
       textAlign: "center",
-      fontSize: 16,
+      ...Type.body,
       fontWeight: "700",
       color: theme.text,
     },
-    selectionHeaderAction: { paddingHorizontal: 4, paddingVertical: 2 },
-    selectionHeaderActionText: { fontSize: 15, fontWeight: "600", color: theme.primary },
+    selectionHeaderAction: {
+      paddingHorizontal: Space.xxs,
+      paddingVertical: 2,
+    },
+    selectionHeaderActionText: {
+      ...Type.secondary,
+      fontWeight: "600",
+      color: theme.primary,
+    },
     searchBar: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 8,
+      gap: Space.xs,
       backgroundColor: theme.surface,
       borderRadius: 12,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
+      paddingHorizontal: Space.sm,
+      paddingVertical: Space.xs,
     },
     searchInput: {
       flex: 1,
-      fontSize: 16,
+      ...Type.body,
       color: theme.text,
       paddingVertical: 0,
       minHeight: 22,
     },
-    searchCancel: { paddingLeft: 4 },
-    searchCancelText: { fontSize: 15, fontWeight: "600", color: theme.primary },
+    searchCancel: { paddingLeft: Space.xxs },
+    searchCancelText: {
+      ...Type.secondary,
+      fontWeight: "600",
+      color: theme.primary,
+    },
     todosLink: {
       flexDirection: "row",
       alignItems: "center",
-      marginHorizontal: 14,
-      marginBottom: 4,
-      paddingHorizontal: 14,
-      paddingVertical: 10,
-      gap: 10,
+      marginHorizontal: Space.md,
+      marginBottom: Space.xxs,
+      paddingHorizontal: Space.md,
+      paddingVertical: Space.sm,
+      gap: Space.sm,
     },
     // Same primary ink for Learning / Lists / Reminders (and chat rows below).
-    todosLinkText: { flex: 1, fontSize: 15, fontWeight: "600", color: theme.text },
+    todosLinkText: {
+      flex: 1,
+      ...Type.secondary,
+      fontWeight: "600",
+      color: theme.text,
+    },
     todosChevron: { marginLeft: "auto" },
     navIconWrap: {
       width: 22,
@@ -105,21 +128,22 @@ export function makeConversationListStyles(theme: Theme) {
     list: { flex: 1 },
     section: { marginTop: 18 },
     sectionTitle: {
+      ...Type.caption,
       fontSize: 11,
       fontWeight: "700",
       color: theme.textTertiary,
       textTransform: "uppercase",
       letterSpacing: 0.8,
-      paddingHorizontal: 14,
+      paddingHorizontal: Space.md,
       marginBottom: 2,
     },
     sectionHeader: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 8,
+      gap: Space.xs,
       marginTop: 18,
-      paddingHorizontal: 14,
-      paddingVertical: 4,
+      paddingHorizontal: Space.md,
+      paddingVertical: Space.xxs,
     },
     sectionCount: {
       fontSize: 12,
@@ -134,23 +158,23 @@ export function makeConversationListStyles(theme: Theme) {
       zIndex: 100,
       flexDirection: "row",
       alignItems: "center",
-      paddingHorizontal: 14,
-      paddingTop: 12,
+      paddingHorizontal: Space.md,
+      paddingTop: Space.sm,
       backgroundColor: "transparent",
     },
     footerNewChat: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 8,
-      paddingVertical: 8,
-      paddingHorizontal: 10,
+      gap: Space.xs,
+      paddingVertical: Space.xs,
+      paddingHorizontal: Space.sm,
       borderRadius: 10,
       backgroundColor: theme.primary,
     },
-    footerNewChatText: { fontSize: 14, fontWeight: "600", color: theme.onPrimary },
+    footerNewChatText: { ...Type.label, color: theme.onPrimary },
     settingsBtn: {
       marginLeft: "auto",
-      padding: 8,
+      padding: Space.xs,
       borderRadius: 10,
       backgroundColor: theme.primary,
     },
@@ -163,8 +187,8 @@ export function makeConversationListStyles(theme: Theme) {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-evenly",
-      paddingHorizontal: 14,
-      paddingTop: 12,
+      paddingHorizontal: Space.md,
+      paddingTop: Space.sm,
       backgroundColor: theme.bg,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: theme.border,
@@ -172,15 +196,15 @@ export function makeConversationListStyles(theme: Theme) {
     selectionAction: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 6,
-      paddingVertical: 8,
-      paddingHorizontal: 12,
+      gap: Space.xxs,
+      paddingVertical: Space.xs,
+      paddingHorizontal: Space.sm,
     },
     selectionActionDisabled: {
       opacity: 0.45,
     },
     selectionActionText: {
-      fontSize: 15,
+      ...Type.secondary,
       fontWeight: "600",
       color: theme.primary,
     },
