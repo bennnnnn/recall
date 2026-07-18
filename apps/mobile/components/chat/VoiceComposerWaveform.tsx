@@ -11,6 +11,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
 
+import { motionMs, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
 
 const BAR_COUNT = 36;
@@ -57,6 +58,7 @@ type Props = {
 export function VoiceComposerWaveform({ recording, transcribing, meterLevel }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
+  const reduceMotion = useReduceMotion();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const meter = useSharedValue(0.12);
   const phase = useSharedValue(0);
@@ -65,31 +67,41 @@ export function VoiceComposerWaveform({ recording, transcribing, meterLevel }: P
   const prevRecording = useRef(recording);
 
   useEffect(() => {
-    meter.value = withTiming(meterLevel, { duration: 70 });
-  }, [meterLevel, meter]);
+    meter.value = withTiming(meterLevel, { duration: motionMs(70, reduceMotion) });
+  }, [meterLevel, meter, reduceMotion]);
 
   useEffect(() => {
+    if (reduceMotion) {
+      phase.value = 0.5;
+      return;
+    }
     phase.value = withRepeat(
       withTiming(1, { duration: 1400, easing: Easing.linear }),
       -1,
       false,
     );
-  }, [phase]);
+  }, [phase, reduceMotion]);
 
   useEffect(() => {
-    processing.value = withTiming(transcribing ? 1 : 0, { duration: 320 });
-  }, [transcribing, processing]);
+    processing.value = withTiming(transcribing ? 1 : 0, {
+      duration: motionMs(320, reduceMotion),
+    });
+  }, [transcribing, processing, reduceMotion]);
 
   useEffect(() => {
     if (prevRecording.current && !recording) {
       stopPulse.value = 0;
-      stopPulse.value = withSequence(
-        withTiming(1, { duration: 160, easing: Easing.out(Easing.cubic) }),
-        withTiming(0, { duration: 280, easing: Easing.inOut(Easing.cubic) }),
-      );
+      if (reduceMotion) {
+        stopPulse.value = 0;
+      } else {
+        stopPulse.value = withSequence(
+          withTiming(1, { duration: 160, easing: Easing.out(Easing.cubic) }),
+          withTiming(0, { duration: 280, easing: Easing.inOut(Easing.cubic) }),
+        );
+      }
     }
     prevRecording.current = recording;
-  }, [recording, stopPulse]);
+  }, [recording, stopPulse, reduceMotion]);
 
   const indices = useMemo(() => Array.from({ length: BAR_COUNT }, (_, i) => i), []);
   const label = transcribing ? t("chat.voice_transcribing") : t("chat.voice_listening");

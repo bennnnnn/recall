@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
 import { DrawerNavLinks } from "@/components/drawer/DrawerNavLinks";
+import { tap } from "@/lib/haptics";
 import type { Theme } from "@/lib/theme";
 
 import type { ConversationListStyles } from "./conversationListStyles";
@@ -67,19 +68,46 @@ export function DrawerHeader({
               autoCorrect={false}
               clearButtonMode="while-editing"
             />
-            <Pressable hitSlop={8} onPress={onCloseSearch} style={s.searchCancel}>
+            <Pressable
+              hitSlop={8}
+              onPress={() => {
+                tap();
+                onCloseSearch();
+              }}
+              style={s.searchCancel}
+              accessibilityRole="button"
+              accessibilityLabel={t("common.cancel")}
+            >
               <Text style={s.searchCancelText}>{t("common.cancel")}</Text>
             </Pressable>
           </View>
         ) : selectionMode ? (
           <View style={s.selectionHeader}>
-            <Pressable hitSlop={8} onPress={onExitSelection} style={s.selectionHeaderAction}>
+            <Pressable
+              hitSlop={8}
+              onPress={() => {
+                tap();
+                onExitSelection?.();
+              }}
+              style={s.selectionHeaderAction}
+              accessibilityRole="button"
+              accessibilityLabel={t("common.cancel")}
+            >
               <Text style={s.selectionHeaderActionText}>{t("common.cancel")}</Text>
             </Pressable>
             <Text style={s.selectionHeaderTitle}>
               {t("drawer.selected_count", { count: selectedCount })}
             </Text>
-            <Pressable hitSlop={8} onPress={onSelectAll} style={s.selectionHeaderAction}>
+            <Pressable
+              hitSlop={8}
+              onPress={() => {
+                tap();
+                onSelectAll?.();
+              }}
+              style={s.selectionHeaderAction}
+              accessibilityRole="button"
+              accessibilityLabel={t("drawer.select_all")}
+            >
               <Text style={s.selectionHeaderActionText}>{t("drawer.select_all")}</Text>
             </Pressable>
           </View>
@@ -90,9 +118,12 @@ export function DrawerHeader({
               <Pressable
                 hitSlop={8}
                 style={s.searchBtn}
-                onPress={onOpenSearch}
+                onPress={() => {
+                  tap();
+                  onOpenSearch();
+                }}
                 accessibilityRole="button"
-                accessibilityLabel={t("search.placeholder")}
+                accessibilityLabel={t("search.open_accessibility")}
               >
                 <Ionicons name="search-outline" size={20} color={theme.textSecondary} />
               </Pressable>

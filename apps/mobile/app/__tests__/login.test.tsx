@@ -9,6 +9,12 @@ import { render, fireEvent } from "@testing-library/react-native";
 
 import LoginScreen from "@/app/login";
 
+jest.mock("@/lib/haptics", () => ({
+  tap: jest.fn(),
+  selection: jest.fn(),
+  notifySuccess: jest.fn(),
+  notifyWarning: jest.fn(),
+}));
 jest.mock("expo-router", () => ({
   Redirect: () => null,
 }));

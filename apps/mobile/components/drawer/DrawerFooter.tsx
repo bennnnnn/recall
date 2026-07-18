@@ -2,6 +2,7 @@ import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { tap } from "@/lib/haptics";
 import type { Theme } from "@/lib/theme";
 
 import type { ConversationListStyles } from "./conversationListStyles";
@@ -27,7 +28,10 @@ export function DrawerFooter({
     <View style={[s.footer, { paddingBottom }]} pointerEvents="box-none">
       <Pressable
         style={s.footerNewChat}
-        onPress={onNewChat}
+        onPress={() => {
+          tap();
+          onNewChat();
+        }}
         accessibilityRole="button"
         accessibilityLabel={t("drawer.new_chat")}
       >
@@ -36,7 +40,10 @@ export function DrawerFooter({
       </Pressable>
       <Pressable
         style={s.settingsBtn}
-        onPress={onSettings}
+        onPress={() => {
+          tap();
+          onSettings();
+        }}
         accessibilityRole="button"
         accessibilityLabel={t("settings.title")}
       >

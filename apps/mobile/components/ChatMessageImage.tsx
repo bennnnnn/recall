@@ -13,6 +13,7 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "
 import { AttachmentImageViewer } from "@/components/AttachmentImageViewer";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { getApiUrl } from "@/lib/config";
+import { motionMs, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
 
 const AnimatedImage = Animated.createAnimatedComponent(Image);
@@ -45,13 +46,20 @@ type RevealingImageProps = {
   style: ReturnType<typeof makeStyles>["preview"];
   layerStyle: ReturnType<typeof makeStyles>["layer"];
   onError: () => void;
+  reduceMotion: boolean;
 };
 
 /** Owns the blur→sharp reveal animation for one image load. Keyed by URI at
  * the call site so a different image gets a fresh shared value on mount
  * instead of an imperative reset. */
-function RevealingImage({ source, style, layerStyle, onError }: RevealingImageProps) {
-  const reveal = useSharedValue(0);
+function RevealingImage({
+  source,
+  style,
+  layerStyle,
+  onError,
+  reduceMotion,
+}: RevealingImageProps) {
+  const reveal = useSharedValue(reduceMotion ? 1 : 0);
   const sharpStyle = useAnimatedStyle(() => ({ opacity: reveal.value }));
   const blurStyle = useAnimatedStyle(() => ({ opacity: 1 - reveal.value }));
 
@@ -63,10 +71,21 @@ function RevealingImage({ source, style, layerStyle, onError }: RevealingImagePr
     // mutable-ref type (a known gap for Reanimated under React Compiler).
     // eslint-disable-next-line react-hooks/immutability
     reveal.value = withTiming(1, {
-      duration: REVEAL_DURATION_MS,
+      duration: motionMs(REVEAL_DURATION_MS, reduceMotion),
       easing: Easing.out(Easing.ease),
     });
   };
+
+  if (reduceMotion) {
+    return (
+      <AnimatedImage
+        source={source}
+        style={[style, layerStyle]}
+        resizeMode="cover"
+        onError={onError}
+      />
+    );
+  }
 
   return (
     <>
@@ -98,6 +117,7 @@ export function ChatMessageImage({
 }: Props) {
   const token = useAuthToken();
   const C = useTheme();
+  const reduceMotion = useReduceMotion();
   const { width, height } = useThumbnailSize();
   const s = useMemo(() => makeStyles(C, width, height), [C, width, height]);
   const [failed, setFailed] = useState(false);
@@ -152,6 +172,7 @@ export function ChatMessageImage({
               style={s.preview}
               layerStyle={s.layer}
               onError={() => setFailed(true)}
+              reduceMotion={reduceMotion}
             />
           )}
         </View>

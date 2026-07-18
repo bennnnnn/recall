@@ -24,6 +24,7 @@ import {
 } from "@/lib/apple-auth";
 import { config, isGoogleSignInConfigured, isGoogleWebClientConfigured } from "@/lib/config";
 import { formatGoogleSignInError, isExpoGo } from "@/lib/google-auth";
+import { tap } from "@/lib/haptics";
 import { getLegalPrivacyUrl, getLegalTermsUrl } from "@/lib/legalUrls";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
 
@@ -79,6 +80,7 @@ export default function LoginScreen() {
   };
 
   const handleApple = async () => {
+    tap();
     setBusyProvider("apple");
     try {
       await signInWithApple();
@@ -90,6 +92,7 @@ export default function LoginScreen() {
   };
 
   const handleGoogle = async () => {
+    tap();
     if (isExpoGo()) {
       Alert.alert(
         t("login.google_unavailable_title"),
@@ -116,6 +119,7 @@ export default function LoginScreen() {
   };
 
   const handleDev = async () => {
+    tap();
     setBusyProvider("dev");
     try {
       await signInWithDev();
@@ -181,6 +185,9 @@ export default function LoginScreen() {
                   style={[s.appleBtn, busy && s.dim]}
                   onPress={handleApple}
                   disabled={busy}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("login.apple")}
+                  accessibilityState={{ disabled: busy, busy: busyProvider === "apple" }}
                 >
                   {busyProvider === "apple" ? (
                     <ActivityIndicator color="#FFFFFF" />
@@ -197,6 +204,9 @@ export default function LoginScreen() {
                   style={[s.googleBtn, busy && s.dim]}
                   onPress={handleGoogle}
                   disabled={busy}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("login.google")}
+                  accessibilityState={{ disabled: busy, busy: busyProvider === "google" }}
                 >
                   {busyProvider === "google" ? (
                     <ActivityIndicator color={theme.textSecondary} />
@@ -220,6 +230,9 @@ export default function LoginScreen() {
                     style={[s.devSecondaryBtn, busy && s.dim]}
                     onPress={handleDev}
                     disabled={busy}
+                    accessibilityRole="button"
+                    accessibilityLabel={t("login.dev")}
+                    accessibilityState={{ disabled: busy, busy: busyProvider === "dev" }}
                   >
                     <Text style={s.devSecondaryText}>{t("login.dev")}</Text>
                   </Pressable>
@@ -239,6 +252,9 @@ export default function LoginScreen() {
                     style={[s.devSecondaryBtn, busy && s.dim]}
                     onPress={handleDev}
                     disabled={busy}
+                    accessibilityRole="button"
+                    accessibilityLabel={t("login.dev")}
+                    accessibilityState={{ disabled: busy, busy: busyProvider === "dev" }}
                   >
                     <Text style={s.devSecondaryText}>{t("login.dev")}</Text>
                   </Pressable>
@@ -248,11 +264,19 @@ export default function LoginScreen() {
           )}
 
           <View style={s.links}>
-            <Pressable onPress={() => void Linking.openURL(getLegalTermsUrl())}>
+            <Pressable
+              onPress={() => void Linking.openURL(getLegalTermsUrl())}
+              accessibilityRole="link"
+              accessibilityLabel={t("login.terms")}
+            >
               <Text style={[s.link, s.linkPressable]}>{t("login.terms")}</Text>
             </Pressable>
             <Text style={s.dot}>·</Text>
-            <Pressable onPress={() => void Linking.openURL(getLegalPrivacyUrl())}>
+            <Pressable
+              onPress={() => void Linking.openURL(getLegalPrivacyUrl())}
+              accessibilityRole="link"
+              accessibilityLabel={t("login.privacy")}
+            >
               <Text style={[s.link, s.linkPressable]}>{t("login.privacy")}</Text>
             </Pressable>
           </View>
