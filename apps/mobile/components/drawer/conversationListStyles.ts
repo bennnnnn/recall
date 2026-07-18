@@ -89,9 +89,8 @@ export function makeConversationListStyles(theme: Theme) {
       paddingVertical: 10,
       gap: 10,
     },
-    // Match chat row title color/weight so Learning / Lists / Reminders read
-    // the same as each other and the history list below.
-    todosLinkText: { flex: 1, fontSize: 14, fontWeight: "500", color: theme.text },
+    // Same primary ink for Learning / Lists / Reminders (and chat rows below).
+    todosLinkText: { flex: 1, fontSize: 15, fontWeight: "600", color: theme.text },
     todosChevron: { marginLeft: "auto" },
     navIconWrap: {
       width: 22,

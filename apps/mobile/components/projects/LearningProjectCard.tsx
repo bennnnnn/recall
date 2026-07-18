@@ -199,7 +199,8 @@ function makeStyles(theme: Theme) {
     headerSubtitle: {
       fontSize: 13,
       fontWeight: "500",
-      color: theme.textSecondary,
+      // Same primary ink as Lists / Reminders body text — not muted gray.
+      color: theme.text,
       lineHeight: 18,
     },
     progressBlock: {
@@ -215,7 +216,7 @@ function makeStyles(theme: Theme) {
     progressLabel: {
       fontSize: 13,
       fontWeight: "600",
-      color: theme.primary,
+      color: theme.text,
     },
     progressLabelComplete: {
       color: theme.success,
@@ -255,7 +256,7 @@ function makeStyles(theme: Theme) {
     chipText: {
       fontSize: 12,
       fontWeight: "600",
-      color: theme.textSecondary,
+      color: theme.text,
     },
   });
 }
