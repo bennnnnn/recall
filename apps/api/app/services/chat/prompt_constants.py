@@ -518,6 +518,22 @@ SHORT_RESPONSE_FORMAT_HINT = (
     "No pipe tables. No ```html / ```mermaid / ```chart unless the user explicitly requested a visual."
 )
 
+# BUG FIX: _soft_hints only appended MATH_SOLVER_HINT / the math rules inside
+# INTENT_FORMAT_HINT when style != "short" — so a user on Short response
+# style got ZERO guardrails against raw ```latex/```tex/```copy fences or an
+# untagged code fence for math, and no instruction to use ```answer for the
+# final result. Math answers are rarely one line; brevity should not mean
+# losing the rules that keep math output from rendering as raw LaTeX. Kept
+# deliberately compact (unlike the full MATH_SOLVER_HINT) so it doesn't blow
+# past Short mode's own 400-token output budget.
+SHORT_MATH_SAFETY_HINT = (
+    "Math in SHORT mode: inline `$...$` for formulas (never backticks around `$...$`); "
+    "a ```math fence only for a standalone display equation. Put the final numeric/short "
+    "result in a ```answer fence. NEVER ```latex, ```tex, ```copy, or an untagged ``` code "
+    "fence for arithmetic or LaTeX. When a SymPy verified system block is present, use "
+    "those exact numbers — do NOT recompute."
+)
+
 STYLE_OUTPUT_TOKEN_CAP = {
     "short": 400,
     "balanced": 1200,

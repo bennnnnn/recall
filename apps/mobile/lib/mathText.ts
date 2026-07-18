@@ -221,6 +221,61 @@ function readGroup(input: string, start: number): { value: string; next: number 
   return null;
 }
 
+// Bracket glyphs for the matrix-family environments — "" (matrix) draws no
+// bracket at all, matching how KaTeX renders each variant.
+const ENV_BRACKETS: Record<string, [string, string]> = {
+  matrix: ["", ""],
+  pmatrix: ["(", ")"],
+  bmatrix: ["[", "]"],
+  vmatrix: ["|", "|"],
+  Vmatrix: ["‖", "‖"],
+};
+
+const ENV_RE = /\\begin\{(cases|matrix|pmatrix|bmatrix|vmatrix|Vmatrix|array|aligned|align\*?)\}([\s\S]*?)\\end\{\1\}/g;
+
+/** Split a LaTeX environment body into rows ("\\" is the row separator) and
+ * cells within a row ("&" is the column/alignment separator), trimming each. */
+function splitEnvRows(body: string): string[][] {
+  return body
+    .split("\\\\")
+    .map((row) => row.trim())
+    .filter(Boolean)
+    .map((row) => row.split("&").map((cell) => cell.trim()));
+}
+
+/**
+ * BUG FIX: `\begin{cases}`/`\begin{matrix}`/… have no entry anywhere in this
+ * module — MathBlock deliberately renders the whole environment through this
+ * native parser (not KaTeX) whenever the preview WebView is unavailable
+ * (Expo Go / no dev build), so a piecewise function or a system written as a
+ * matrix rendered as literal "\begin{cases}2x+y=5\\x-y=1\end{cases}" raw
+ * text instead of a readable block. Expand each environment into plain,
+ * readable text BEFORE any other substitution runs, so the raw "\\"/"&"
+ * structural separators are still intact to split on — everything inside a
+ * cell (\frac, Greek letters, …) is left untouched here and still gets
+ * processed normally by the rest of preprocessLatex afterward.
+ */
+function expandLatexEnvironments(latex: string): string {
+  return latex.replace(ENV_RE, (_match, env: string, body: string) => {
+    const rows = splitEnvRows(body);
+    if (!rows.length) return "";
+    if (env === "cases") {
+      // Piecewise: "expr & condition" per row → "expr if condition".
+      return rows
+        .map(([expr, cond]) => (cond ? `${expr} if ${cond}` : (expr ?? "")))
+        .join("; ");
+    }
+    if (env === "aligned" || env === "array" || env.startsWith("align")) {
+      // Alignment columns carry no visible meaning outside KaTeX's layout —
+      // just join the cells with a space and each row with a separator.
+      return rows.map((cells) => cells.join(" ")).join(";  ");
+    }
+    const [open, close] = ENV_BRACKETS[env] ?? ["[", "]"];
+    const matrixRows = rows.map((cells) => cells.join(", "));
+    return `${open}${matrixRows.join("; ")}${close}`;
+  });
+}
+
 function preprocessLatex(latex: string): string {
   let s = latex.trim();
   // Undo markdownPreprocess.ts's PROTECTED_ESCAPE_MARKER substitution first,
@@ -228,6 +283,14 @@ function preprocessLatex(latex: string): string {
   if (s.includes(PROTECTED_ESCAPE_MARKER)) {
     s = s.split(PROTECTED_ESCAPE_MARKER).join("\\");
   }
+  // Must run before every other substitution — it depends on the raw "\\"
+  // row separator and "&" column separator, which later rules (e.g. the
+  // \\, → " " spacing rule) would otherwise destroy.
+  s = expandLatexEnvironments(s);
+  // \binom{n}{k} (and \dbinom/\tbinom, display/text variants) has no visual
+  // stacked-column equivalent in plain text — render as the unambiguous
+  // "C(n,k)" combinations notation instead of leaking the raw command.
+  s = s.replace(/\\[dt]?binom\{([^{}]+)\}\{([^{}]+)\}/g, "C($1,$2)");
   // \dfrac / \tfrac / \cfrac are display/text-style fractions — KaTeX treats
   // them like \frac, so normalize before parsing so parseFrac catches them
   // (otherwise they leak as raw "\dfrac{a}{b}" inline).

@@ -145,6 +145,43 @@ describe("parseSimpleLatex", () => {
     expect(segmentsToPlain(parseSimpleLatex(`a${m};b`))).toBe("a b");
     expect(segmentsToPlain(parseSimpleLatex(`5${m}!`))).toBe("5");
   });
+
+  it("BUG FIX regression: \\binom{n}{k} renders as C(n,k), not raw backslash text", () => {
+    // \binom has no stacked-column equivalent in plain text and had no
+    // entry anywhere in this module — it fell through to the generic \cmd
+    // fallback, leaving "\binom{5}{2}" visible verbatim in the no-WebView
+    // (Expo Go) fallback.
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\binom{5}{2}`))).toBe("C(5,2)");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\dbinom{n}{k} = 1`))).toBe("C(n,k) = 1");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\tbinom{n}{k}`))).toBe("C(n,k)");
+  });
+
+  it("BUG FIX regression: \\begin{cases}/matrix environments render as readable text, not raw commands", () => {
+    // MathBlock renders the WHOLE environment through this native parser
+    // whenever the preview WebView is unavailable (Expo Go / no dev
+    // build) — \begin{...}/\end{...} had no entry anywhere in this module,
+    // so a piecewise function or matrix leaked its literal LaTeX source
+    // ("\begin{cases}2x+y=5\\x-y=1\end{cases}") instead of rendering.
+    expect(
+      segmentsToPlain(parseSimpleLatex(String.raw`\begin{cases} 2x+y=5 \\ x-y=1 \end{cases}`)),
+    ).toBe("2x+y=5; x-y=1");
+    expect(
+      segmentsToPlain(
+        parseSimpleLatex(String.raw`\begin{cases} x^2 & x \geq 0 \\ -x^2 & x < 0 \end{cases}`),
+      ),
+    ).toBe("x^2 if x ≥ 0; -x^2 if x < 0");
+    expect(
+      segmentsToPlain(parseSimpleLatex(String.raw`\begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix}`)),
+    ).toBe("(1, 2; 3, 4)");
+    expect(
+      segmentsToPlain(parseSimpleLatex(String.raw`\begin{bmatrix} a & b \\ c & d \end{bmatrix}`)),
+    ).toBe("[a, b; c, d]");
+    expect(
+      segmentsToPlain(
+        parseSimpleLatex(String.raw`\begin{aligned} 2x + y &= 5 \\ x - y &= 1 \end{aligned}`),
+      ),
+    ).toBe("2x + y = 5;  x - y = 1");
+  });
 });
 
 describe("splitMathLines", () => {
