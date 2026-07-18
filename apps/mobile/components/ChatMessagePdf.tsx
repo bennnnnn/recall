@@ -11,7 +11,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuthToken } from "@/contexts/AuthContext";
 import { resolveAttachmentUri } from "@/lib/attachmentUri";
 import { downloadChatAttachment } from "@/lib/downloadChatAttachment";
 import { fetchAttachmentBase64 } from "@/lib/fetchAttachmentBytes";
@@ -40,7 +40,7 @@ export function ChatMessagePdf({
 }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme, compact), [theme, compact]);
-  const { token } = useAuth();
+  const token = useAuthToken();
   const [viewerOpen, setViewerOpen] = useState(false);
   const [previewBase64, setPreviewBase64] = useState<string | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
@@ -173,7 +173,7 @@ function AttachmentPdfViewer({
   const theme = useTheme();
   const s = useMemo(() => makeViewerStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
-  const { token } = useAuth();
+  const token = useAuthToken();
   const [html, setHtml] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);

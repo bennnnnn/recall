@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuthToken } from "@/contexts/AuthContext";
 import { downloadChatAttachment } from "@/lib/downloadChatAttachment";
 import { getApiUrl } from "@/lib/config";
 import { Theme, useTheme } from "@/lib/theme";
@@ -39,7 +39,7 @@ export function AttachmentImageViewer({
   const C = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(C), [C]);
-  const { token } = useAuth();
+  const token = useAuthToken();
   const insets = useSafeAreaInsets();
   const [failed, setFailed] = useState(false);
   const [downloading, setDownloading] = useState(false);

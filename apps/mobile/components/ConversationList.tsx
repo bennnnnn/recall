@@ -9,7 +9,7 @@ import { useTheme } from "@/lib/theme";
 import { ActionBanner } from "@/components/ActionBanner";
 import { ChatActionsSheet } from "@/components/ChatActionsSheet";
 import { ChatRenameSheet } from "@/components/ChatRenameSheet";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuthToken } from "@/contexts/AuthContext";
 import { useDrawer } from "@/contexts/DrawerContext";
 import { useChatBulkActions } from "@/hooks/useChatBulkActions";
 import { useChatMenuActions } from "@/hooks/useChatMenuActions";
@@ -40,7 +40,7 @@ import {
 } from "@/components/drawer/conversationListStyles";
 
 export function ConversationList(_props: unknown) {
-  const { token } = useAuth();
+  const token = useAuthToken();
   const { isOpen } = useDrawer();
   const theme = useTheme();
   const s = useMemo(() => makeConversationListStyles(theme), [theme]);

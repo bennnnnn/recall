@@ -29,7 +29,7 @@ import { useStreamLayoutHold } from "@/hooks/useStreamLayoutHold";
 import { shouldShowWaitingIndicator, useRotatingStreamStatus } from "@/lib/streamStatusLabel";
 import { Theme, useTheme } from "@/lib/theme";
 import { speakPlainText, stopSpeaking } from "@/lib/pronunciation";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuthToken } from "@/contexts/AuthContext";
 import { useTranslation } from "react-i18next";
 
 type Props = {
@@ -75,7 +75,7 @@ function AssistantActions({
   hidden?: boolean;
 }) {
   const { t } = useTranslation();
-  const { token } = useAuth();
+  const token = useAuthToken();
   const [copied, setCopied] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [exporting, setExporting] = useState(false);

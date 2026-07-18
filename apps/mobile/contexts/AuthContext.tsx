@@ -52,6 +52,10 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+/** Token-only bag so chat list cells don't re-render on every user/quota patch. */
+type AuthTokenBag = { token: string | null };
+const AuthTokenContext = createContext<AuthTokenBag | null>(null);
+
 function AuthLoadingShell() {
   const theme = useTheme();
   const s = useMemo(
@@ -322,10 +326,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ],
   );
 
+  const tokenBag = useMemo(() => ({ token }), [token]);
+
   return (
-    <AuthContext.Provider value={value}>
-      {loading ? <AuthLoadingShell /> : children}
-    </AuthContext.Provider>
+    <AuthTokenContext.Provider value={tokenBag}>
+      <AuthContext.Provider value={value}>
+        {loading ? <AuthLoadingShell /> : children}
+      </AuthContext.Provider>
+    </AuthTokenContext.Provider>
   );
 }
 
@@ -335,6 +343,15 @@ export function useAuth() {
     throw new Error("useAuth must be used within AuthProvider");
   }
   return ctx;
+}
+
+/** Prefer this in FlashList / message rows that only need the bearer token. */
+export function useAuthToken(): string | null {
+  const bag = useContext(AuthTokenContext);
+  if (!bag) {
+    throw new Error("useAuthToken must be used within AuthProvider");
+  }
+  return bag.token;
 }
 
 export function useAuthOptional() {

@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import type { ProjectItem, VocabStatus } from "@/lib/api";
 import { speakWord } from "@/lib/pronunciation";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuthToken } from "@/contexts/AuthContext";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -38,7 +38,7 @@ export const ProjectItemRow = memo(function ProjectItemRow({
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
-  const { token } = useAuth();
+  const token = useAuthToken();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const mastered = item.status === "mastered" || item.mastered;
 
