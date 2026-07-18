@@ -30,6 +30,22 @@ def greeting(user: User, tz: ZoneInfo) -> str:
     return phrase
 
 
+def welcome_starters() -> list[HomeStarter]:
+    """First-session / empty-account chips — no assumed day history."""
+    return [
+        HomeStarter(
+            text="Help me think",
+            prompt="I want to talk something through — ask me a good opening question.",
+            kind="general",
+        ),
+        HomeStarter(
+            text="What can you do?",
+            prompt="What can you help me with? Give a few concrete examples.",
+            kind="general",
+        ),
+    ]
+
+
 def time_starters(user: User, tz: ZoneInfo) -> list[HomeStarter]:
     hour = local_hour_for_tz(tz)
     if MORNING_START_HOUR <= hour < CALENDAR_TODAY_END_HOUR:

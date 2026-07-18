@@ -31,6 +31,8 @@
   "chat.feedback_failed": "Impossible d'enregistrer votre avis.",
   "chat.heic_unsupported_body": "Ce format de photo n'est pas pris en charge. Convertissez en JPEG ou choisissez une autre photo.",
   "chat.heic_unsupported_title": "HEIC non pris en charge",
+  "chat.home.starter_what_can_you": "Que peux-tu faire ?",
+  "chat.home.starter_what_can_you_prompt": "En quoi peux-tu m'aider ? Donne quelques exemples concrets.",
   "chat.math_scan_hint": "Pincez pour redimensionner · alignez l’équation",
   "chat.math_scan_permission": "L’accès à la caméra est nécessaire pour scanner des maths.",
   "chat.math_scan_allow_camera": "Autoriser la caméra",

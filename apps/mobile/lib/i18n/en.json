@@ -31,6 +31,8 @@
   "chat.feedback_failed": "Could not save your feedback.",
   "chat.heic_unsupported_body": "This photo format isn’t supported. Try converting to JPEG or pick a different photo.",
   "chat.heic_unsupported_title": "HEIC not supported",
+  "chat.home.starter_what_can_you": "What can you do?",
+  "chat.home.starter_what_can_you_prompt": "What can you help me with? Give a few concrete examples.",
   "chat.math_scan_hint": "Pinch to resize · line up the equation",
   "chat.math_scan_permission": "Camera access is needed to scan math problems.",
   "chat.math_scan_allow_camera": "Allow camera",
