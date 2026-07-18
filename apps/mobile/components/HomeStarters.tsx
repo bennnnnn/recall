@@ -170,6 +170,7 @@ function UrgentTodoSection({
 export function HomeStarters({ onSelect }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
+  const router = useRouter();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { token, user } = useAuth();
   const { screen, loading } = useHome();
@@ -232,6 +233,12 @@ export function HomeStarters({ onSelect }: Props) {
     .filter((starter) => starter.kind !== "todo")
     .filter((starter) => !dismissedStarterKeys.has(starter.id ?? starter.prompt));
 
+  const hasUrgent =
+    urgentGroups.overdue.length > 0 || urgentGroups.dueSoon.length > 0;
+  // No learning card yet (and nothing urgent stealing attention): surface the
+  // three product pillars so first sessions aren't greeting + generic chips only.
+  const showActivation = !screen.project_highlight && !hasUrgent;
+
   return (
     <View style={s.wrap}>
       <Text style={s.greeting}>{screen.greeting}</Text>
@@ -283,6 +290,41 @@ export function HomeStarters({ onSelect }: Props) {
                 </Text>
               </Pressable>
             ))}
+          </View>
+        </View>
+      ) : null}
+
+      {showActivation ? (
+        <View style={s.startersBlock}>
+          <Text style={s.sectionLabel}>{t("onboarding.get_started")}</Text>
+          <View style={s.chipRow}>
+            <Pressable
+              style={s.chip}
+              onPress={() => router.push("/projects")}
+              accessibilityRole="button"
+              accessibilityLabel={t("drawer.projects")}
+            >
+              <Ionicons name="school-outline" size={14} color={theme.primary} />
+              <Text style={s.chipText}>{t("drawer.projects")}</Text>
+            </Pressable>
+            <Pressable
+              style={s.chip}
+              onPress={() => router.push({ pathname: "/todos", params: { focus: "reminders" } })}
+              accessibilityRole="button"
+              accessibilityLabel={t("drawer.reminders")}
+            >
+              <Ionicons name="alarm-outline" size={14} color={theme.primary} />
+              <Text style={s.chipText}>{t("drawer.reminders")}</Text>
+            </Pressable>
+            <Pressable
+              style={s.chip}
+              onPress={() => router.push("/memory")}
+              accessibilityRole="button"
+              accessibilityLabel={t("memory.title")}
+            >
+              <Ionicons name="sparkles-outline" size={14} color={theme.primary} />
+              <Text style={s.chipText}>{t("memory.title")}</Text>
+            </Pressable>
           </View>
         </View>
       ) : null}
