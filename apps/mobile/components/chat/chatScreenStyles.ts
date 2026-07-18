@@ -1,6 +1,8 @@
 import { StyleSheet } from "react-native";
 
+import { Space } from "@/lib/space";
 import type { Theme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 export function makeChatScreenStyles(C: Theme) {
   return StyleSheet.create({
@@ -14,15 +16,15 @@ export function makeChatScreenStyles(C: Theme) {
     container: { flex: 1, backgroundColor: C.bg },
     quotaNudge: {
       position: "absolute",
-      left: 8,
-      right: 8,
+      left: Space.xs,
+      right: Space.xs,
       flexDirection: "row",
       alignItems: "center",
       backgroundColor: C.surface,
       borderRadius: 12,
-      paddingHorizontal: 10,
-      paddingVertical: 8,
-      gap: 8,
+      paddingHorizontal: Space.sm,
+      paddingVertical: Space.xs,
+      gap: Space.xs,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: C.border,
       shadowColor: "#000",
@@ -31,18 +33,33 @@ export function makeChatScreenStyles(C: Theme) {
       shadowOffset: { width: 0, height: 2 },
       elevation: 2,
     },
-    quotaNudgeBody: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
+    quotaNudgeBody: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: Space.xs,
+    },
     quotaNudgeIcon: { flexShrink: 0 },
-    quotaNudgeText: { flex: 1, fontSize: 13, color: C.text, lineHeight: 18 },
+    quotaNudgeText: {
+      flex: 1,
+      ...Type.caption,
+      fontWeight: "400",
+      color: C.text,
+      lineHeight: 18,
+    },
     quotaNudgeCta: {
       backgroundColor: C.primary,
-      borderRadius: 8,
-      paddingHorizontal: 10,
-      paddingVertical: 6,
+      borderRadius: Space.xs,
+      paddingHorizontal: Space.sm,
+      paddingVertical: Space.xxs,
       flexShrink: 0,
     },
-    quotaNudgeCtaText: { color: C.onPrimary, fontSize: 13, fontWeight: "700" },
-    quotaNudgeClose: { padding: 4, flexShrink: 0 },
+    quotaNudgeCtaText: {
+      ...Type.caption,
+      fontWeight: "700",
+      color: C.onPrimary,
+    },
+    quotaNudgeClose: { padding: Space.xxs, flexShrink: 0 },
   });
 }
 
