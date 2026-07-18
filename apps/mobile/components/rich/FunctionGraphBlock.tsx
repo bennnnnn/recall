@@ -43,6 +43,7 @@ export function FunctionGraphBlock({ content }: Props) {
     );
   }
 
+  const hasCurve2 = spec.type === "function" && !!spec.expr2 && !!spec.points2?.length;
   const title =
     spec.title ?? (spec.type === "vertical" ? spec.expr : `y = ${spec.expr}`);
   const bounds =
@@ -53,7 +54,7 @@ export function FunctionGraphBlock({ content }: Props) {
           yMin: spec.y_min ?? Math.min(...spec.points.map((p) => p[1])),
           yMax: spec.y_max ?? Math.max(...spec.points.map((p) => p[1])),
         }
-      : graphBounds(spec.points);
+      : graphBounds(spec.points, hasCurve2 ? spec.points2 : undefined);
   // A single point (or points sharing an x) has no line to draw — a
   // Polyline needs 2+ points to render anything visible. Vertical lines
   // intentionally share an x and still draw between the two endpoints.
@@ -73,20 +74,48 @@ export function FunctionGraphBlock({ content }: Props) {
           graphPolylinePoints(seg, chartWidth, CHART_HEIGHT, bounds),
         )
     : null;
+  const points2 = hasCurve2 ? spec.points2! : [];
+  const polyline2 =
+    hasCurve2 && points2.length >= 2
+      ? graphPolylinePoints(points2, chartWidth, CHART_HEIGHT, bounds)
+      : null;
+  const segmentPolylines2 =
+    hasCurve2 && spec.segments2?.length
+      ? spec.segments2
+          .filter((seg) => seg.length >= 2)
+          .map((seg) => graphPolylinePoints(seg, chartWidth, CHART_HEIGHT, bounds))
+      : null;
   const markers =
     spec.points.length <= MAX_MARKED_POINTS
       ? spec.points.map(([x, y]) =>
           mapGraphPoint(x, y, bounds, chartWidth, CHART_HEIGHT),
         )
       : [];
+  const markers2 =
+    hasCurve2 && points2.length <= MAX_MARKED_POINTS
+      ? points2.map(([x, y]) => mapGraphPoint(x, y, bounds, chartWidth, CHART_HEIGHT))
+      : [];
   const pad = 28;
   const axisColor = theme.border;
   const xAxisY = CHART_HEIGHT - pad;
   const yAxisX = pad;
+  const curveColor2 = theme.accent;
 
   return (
     <View style={styles.wrap}>
       <Text style={styles.title}>{title}</Text>
+      {hasCurve2 ? (
+        <View style={styles.legendRow}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: theme.primary }]} />
+            <Text style={styles.legendText}>{spec.label ?? `y = ${spec.expr}`}</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: curveColor2 }]} />
+            <Text style={styles.legendText}>{spec.label2 ?? `y = ${spec.expr2}`}</Text>
+          </View>
+        </View>
+      ) : null}
       <Svg width={chartWidth} height={CHART_HEIGHT}>
         <Line
           x1={yAxisX}
@@ -126,8 +155,33 @@ export function FunctionGraphBlock({ content }: Props) {
             strokeLinejoin="round"
           />
         ) : null}
+        {segmentPolylines2 ? (
+          segmentPolylines2.map((pts, i) => (
+            <Polyline
+              key={`c2-${i}`}
+              points={pts}
+              fill="none"
+              stroke={curveColor2}
+              strokeWidth={2.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          ))
+        ) : polyline2 ? (
+          <Polyline
+            points={polyline2}
+            fill="none"
+            stroke={curveColor2}
+            strokeWidth={2.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ) : null}
         {markers.map(({ px, py }, i) => (
           <Circle key={i} cx={px} cy={py} r={4} fill={theme.primary} />
+        ))}
+        {markers2.map(({ px, py }, i) => (
+          <Circle key={`c2-${i}`} cx={px} cy={py} r={4} fill={curveColor2} />
         ))}
         <SvgText
           x={chartWidth - pad}
@@ -179,6 +233,26 @@ const makeStyles = (theme: Theme) =>
       color: theme.text,
       marginBottom: 6,
       textAlign: "center",
+    },
+    legendRow: {
+      flexDirection: "row",
+      gap: 16,
+      marginBottom: 8,
+    },
+    legendItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    legendDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    legendText: {
+      fontFamily: CODE_FONT,
+      fontSize: 12,
+      color: theme.textSecondary,
     },
     fallback: {
       marginVertical: 8,

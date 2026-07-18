@@ -13,20 +13,32 @@ from app.core.config import Settings
 from app.models.math_schemas import (
     CircleGeometryBlockSpec,
     CircleGeometryInput,
+    CombinatoricsInput,
     EquationInput,
     GeometryBlockSpec,
     GraphBlockSpec,
     GraphSampleInput,
     MathImageExtract,
     MathIntent,
+    MatrixInput,
     NewtonMethodInput,
+    NumberTheoryInput,
+    ParallelogramGeometryBlockSpec,
+    ParallelogramInput,
     RectangleGeometryInput,
     RightTriangleGeometryBlockSpec,
     RightTriangleGeometryInput,
+    SectorGeometryBlockSpec,
+    SectorInput,
     SquareGeometryInput,
+    StatisticsInput,
     SystemOfEquationsInput,
+    TrapezoidGeometryBlockSpec,
+    TrapezoidInput,
     TriangleGeometryBlockSpec,
     TriangleGeometryInput,
+    TriangleSidesGeometryBlockSpec,
+    TriangleSidesInput,
 )
 from app.services import math_service
 from app.services.prompt_inject import inject_before_last_user
@@ -336,6 +348,78 @@ def _extract_right_triangle_intent(cleaned: str) -> MathIntent | None:
     return MathIntent(kind="right_triangle", base=6, height=4, unit="cm", operation="solve")
 
 
+def _extract_triangle_sides_intent(cleaned: str) -> MathIntent | None:
+    """Checked BEFORE the generic base+height triangle extractor below — a
+    "triangle with sides 3, 4, 5" mention must not fall into that extractor's
+    broad "triangle" + "area"/"draw"/... fallback and get the wrong (default
+    base=8, height=5) shape instead of the SSS one actually named."""
+    from app.services import math_text_match as mtm
+
+    sides = mtm.triangle_sides_signal(cleaned)
+    if sides is None:
+        return None
+    a, b, c = sides
+    return MathIntent(
+        kind="triangle_sides", tri_a=a, tri_b=b, tri_c=c, unit="cm", operation="solve"
+    )
+
+
+def _extract_trapezoid_intent(cleaned: str) -> MathIntent | None:
+    from app.services import math_text_match as mtm
+
+    lower = cleaned.lower()
+    if "trapezoid" not in lower and "trapezium" not in lower:
+        return None
+    top = mtm.number_after(cleaned, "top")
+    bottom = mtm.number_after(cleaned, "bottom")
+    height = mtm.number_after(cleaned, "height")
+    return MathIntent(
+        kind="trapezoid",
+        trapezoid_top=top if top is not None else 4,
+        trapezoid_bottom=bottom if bottom is not None else 8,
+        height=height if height is not None else 5,
+        unit="cm",
+        operation="solve",
+    )
+
+
+def _extract_parallelogram_intent(cleaned: str) -> MathIntent | None:
+    from app.services import math_text_match as mtm
+
+    if "parallelogram" not in cleaned.lower():
+        return None
+    base = mtm.number_after(cleaned, "base")
+    height = mtm.number_after(cleaned, "height")
+    side = mtm.number_after(cleaned, "side")
+    return MathIntent(
+        kind="parallelogram",
+        base=base if base is not None else 8,
+        height=height if height is not None else 4,
+        side=side if side is not None else 5,
+        unit="cm",
+        operation="solve",
+    )
+
+
+def _extract_sector_intent(cleaned: str) -> MathIntent | None:
+    from app.services import math_text_match as mtm
+
+    lower = cleaned.lower()
+    if "sector" not in lower and "pie slice" not in lower:
+        return None
+    if "sector" in lower and not any(k in lower for k in ("circle", "radius", "pie", "arc")):
+        return None
+    radius = mtm.number_after(cleaned, "radius")
+    angle = mtm.number_after(cleaned, "angle")
+    return MathIntent(
+        kind="sector",
+        radius=radius if radius is not None else 5,
+        sector_angle_deg=angle if angle is not None else 90,
+        unit="cm",
+        operation="solve",
+    )
+
+
 def _extract_triangle_intent(cleaned: str) -> MathIntent | None:
     from app.services import math_text_match as mtm
 
@@ -377,6 +461,24 @@ def _extract_vertical_intent(cleaned: str) -> MathIntent | None:
     if vert_x is None:
         return None
     return MathIntent(kind="vertical", point_x=vert_x, operation="graph")
+
+
+def _extract_graph_pair_intent(cleaned: str) -> MathIntent | None:
+    """Checked BEFORE the single-expression graph extractor below — "graph
+    y=x^2 and y=2x" must not fall into graph_expr's single-capture, which
+    would grab "x^2 and y=2x" as one unparseable expr and silently produce
+    no augmentation for a very ordinary "compare these two functions" ask."""
+    from app.services import math_text_match as mtm
+
+    pair = mtm.graph_expr_pair(cleaned)
+    if pair is None:
+        return None
+    first, second = pair
+    expr1 = _strip_trailing_filler(first).replace("^", "**")
+    expr2 = _strip_trailing_filler(second).replace("^", "**")
+    if not expr1 or not expr2:
+        return None
+    return MathIntent(kind="graph_pair", expr=expr1, expr2=expr2, operation="graph")
 
 
 def _extract_graph_intent(cleaned: str) -> MathIntent | None:
@@ -498,6 +600,48 @@ def _extract_numerical_method_intent(cleaned: str) -> MathIntent | None:
     )
 
 
+def _extract_statistics_intent(cleaned: str) -> MathIntent | None:
+    from app.services import math_text_match as mtm
+
+    signal = mtm.stats_signal(cleaned)
+    if signal is None:
+        return None
+    op, numbers = signal
+    return MathIntent(kind="statistics", stats_op=op, stats_numbers=numbers, operation="solve")
+
+
+def _extract_combinatorics_intent(cleaned: str) -> MathIntent | None:
+    from app.services import math_text_match as mtm
+
+    signal = mtm.combinatorics_signal(cleaned)
+    if signal is None:
+        return None
+    op, n, k = signal
+    return MathIntent(kind="combinatorics", combo_op=op, combo_n=n, combo_k=k, operation="solve")
+
+
+def _extract_number_theory_intent(cleaned: str) -> MathIntent | None:
+    from app.services import math_text_match as mtm
+
+    signal = mtm.number_theory_signal(cleaned)
+    if signal is None:
+        return None
+    op, a, b = signal
+    return MathIntent(
+        kind="number_theory", numtheory_op=op, numtheory_a=a, numtheory_b=b, operation="solve"
+    )
+
+
+def _extract_matrix_intent(cleaned: str) -> MathIntent | None:
+    from app.services import math_text_match as mtm
+
+    signal = mtm.matrix_signal(cleaned)
+    if signal is None:
+        return None
+    op, rows = signal
+    return MathIntent(kind="matrix", matrix_op=op, matrix_rows=rows, operation="solve")
+
+
 def _extract_system_intent(cleaned: str) -> MathIntent | None:
     eq_pairs = math_service.try_extract_equations_from_text(cleaned)
     if len(eq_pairs) < 2:
@@ -554,16 +698,28 @@ def _extract_inequality_intent(cleaned: str) -> MathIntent | None:
 _INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | None]] = (
     _extract_rectangle_intent,
     _extract_square_intent,
+    # Sector before the generic circle extractor: a sector mention almost
+    # always also says "circle" ("sector of a circle with radius 5"), which
+    # would otherwise satisfy the plain circle extractor first and steal it.
+    _extract_sector_intent,
     _extract_circle_intent,
+    _extract_trapezoid_intent,
+    _extract_parallelogram_intent,
     _extract_right_triangle_intent,
+    _extract_triangle_sides_intent,
     _extract_triangle_intent,
     _extract_point_intent,
     _extract_vertical_intent,
+    _extract_graph_pair_intent,
     _extract_graph_intent,
     _extract_calculus_intent,
     _extract_limit_intent,
     _extract_series_intent,
     _extract_numerical_method_intent,
+    _extract_statistics_intent,
+    _extract_combinatorics_intent,
+    _extract_number_theory_intent,
+    _extract_matrix_intent,
     _extract_system_intent,
     _extract_equation_intent,
     _extract_inequality_intent,
@@ -877,6 +1033,140 @@ def _verified_block_right_triangle(
     return VerifiedMathBlock(text="\n".join(lines), canonical_fence=rt_spec.model_dump())
 
 
+def _verified_block_triangle_sides(
+    intent: MathIntent, settings: Settings, lines: list[str]
+) -> VerifiedMathBlock | None:
+    if not (intent.tri_a and intent.tri_b and intent.tri_c):
+        return None
+    tri_geo = math_service.triangle_sides_geometry(
+        TriangleSidesInput(a=intent.tri_a, b=intent.tri_b, c=intent.tri_c, unit=intent.unit)
+    )
+    lines.append(
+        f"Triangle: a={tri_geo.a:g} {tri_geo.unit} b={tri_geo.b:g} {tri_geo.unit} "
+        f"c={tri_geo.c:g} {tri_geo.unit} area={tri_geo.area:g} {tri_geo.unit}² "
+        f"perimeter={tri_geo.perimeter:g} {tri_geo.unit} "
+        f"angles={tri_geo.angle_a_deg:g}°/{tri_geo.angle_b_deg:g}°/{tri_geo.angle_c_deg:g}°"
+    )
+    tri_spec = TriangleSidesGeometryBlockSpec(
+        type="triangle_sides",
+        a=tri_geo.a,
+        b=tri_geo.b,
+        c=tri_geo.c,
+        unit=tri_geo.unit,
+        show_labels=True,
+        area=tri_geo.area,
+        labels=tri_geo.labels,
+    )
+    lines.append(
+        "When a diagram helps, emit ONLY this fence (NEVER ```json):\n"
+        f"{_fence('geometry', tri_spec)}"
+    )
+    lines.append(
+        "Do NOT recompute area, perimeter, or angles — this is Heron's formula + the law of cosines."
+    )
+    return VerifiedMathBlock(text="\n".join(lines), canonical_fence=tri_spec.model_dump())
+
+
+def _verified_block_trapezoid(
+    intent: MathIntent, settings: Settings, lines: list[str]
+) -> VerifiedMathBlock | None:
+    if not (intent.trapezoid_top and intent.trapezoid_bottom and intent.height):
+        return None
+    trap_geo = math_service.trapezoid_geometry(
+        TrapezoidInput(
+            top=intent.trapezoid_top,
+            bottom=intent.trapezoid_bottom,
+            height=intent.height,
+            unit=intent.unit,
+        )
+    )
+    lines.append(
+        f"Trapezoid: top={trap_geo.top:g} {trap_geo.unit} bottom={trap_geo.bottom:g} {trap_geo.unit} "
+        f"height={trap_geo.height:g} {trap_geo.unit} area={trap_geo.area:g} {trap_geo.unit}²"
+    )
+    trap_spec = TrapezoidGeometryBlockSpec(
+        type="trapezoid",
+        top=trap_geo.top,
+        bottom=trap_geo.bottom,
+        height=trap_geo.height,
+        unit=trap_geo.unit,
+        show_labels=True,
+        area=trap_geo.area,
+        labels=trap_geo.labels,
+    )
+    lines.append(
+        "When a diagram helps, emit ONLY this fence (NEVER ```json):\n"
+        f"{_fence('geometry', trap_spec)}"
+    )
+    lines.append("Do NOT recompute area — area = (top + bottom) / 2 \\times height.")
+    return VerifiedMathBlock(text="\n".join(lines), canonical_fence=trap_spec.model_dump())
+
+
+def _verified_block_parallelogram(
+    intent: MathIntent, settings: Settings, lines: list[str]
+) -> VerifiedMathBlock | None:
+    if not (intent.base and intent.height and intent.side):
+        return None
+    para_geo = math_service.parallelogram_geometry(
+        ParallelogramInput(
+            base=intent.base, height=intent.height, side=intent.side, unit=intent.unit
+        )
+    )
+    lines.append(
+        f"Parallelogram: base={para_geo.base:g} {para_geo.unit} height={para_geo.height:g} "
+        f"{para_geo.unit} side={para_geo.side:g} {para_geo.unit} area={para_geo.area:g} "
+        f"{para_geo.unit}² perimeter={para_geo.perimeter:g} {para_geo.unit}"
+    )
+    para_spec = ParallelogramGeometryBlockSpec(
+        type="parallelogram",
+        base=para_geo.base,
+        height=para_geo.height,
+        side=para_geo.side,
+        unit=para_geo.unit,
+        show_labels=True,
+        area=para_geo.area,
+        perimeter=para_geo.perimeter,
+        labels=para_geo.labels,
+    )
+    lines.append(
+        "When a diagram helps, emit ONLY this fence (NEVER ```json):\n"
+        f"{_fence('geometry', para_spec)}"
+    )
+    lines.append("Do NOT recompute area or perimeter.")
+    return VerifiedMathBlock(text="\n".join(lines), canonical_fence=para_spec.model_dump())
+
+
+def _verified_block_sector(
+    intent: MathIntent, settings: Settings, lines: list[str]
+) -> VerifiedMathBlock | None:
+    if not (intent.radius and intent.sector_angle_deg):
+        return None
+    sector_geo = math_service.sector_geometry(
+        SectorInput(radius=intent.radius, angle_deg=intent.sector_angle_deg, unit=intent.unit)
+    )
+    lines.append(
+        f"Circle sector: radius={sector_geo.radius:g} {sector_geo.unit} "
+        f"angle={sector_geo.angle_deg:g}° arc_length={sector_geo.arc_length:.2f} {sector_geo.unit} "
+        f"area={sector_geo.area:.2f} {sector_geo.unit}²"
+    )
+    sector_spec = SectorGeometryBlockSpec(
+        type="sector",
+        radius=sector_geo.radius,
+        angle_deg=sector_geo.angle_deg,
+        unit=sector_geo.unit,
+        show_labels=True,
+        arc_length=sector_geo.arc_length,
+        area=sector_geo.area,
+        labels=sector_geo.labels,
+    )
+    lines.append(
+        "When a diagram helps, emit ONLY this fence (NEVER ```json):\n"
+        f"{_fence('geometry', sector_spec)}"
+    )
+    lines.append("Do NOT recompute arc length or area.")
+    return VerifiedMathBlock(text="\n".join(lines), canonical_fence=sector_spec.model_dump())
+
+
 def _verified_block_point(
     intent: MathIntent, settings: Settings, lines: list[str]
 ) -> VerifiedMathBlock | None:
@@ -969,6 +1259,58 @@ def _verified_block_graph(
     return VerifiedMathBlock(text="\n".join(lines), canonical_fence=graph_spec.model_dump())
 
 
+def _verified_block_graph_pair(
+    intent: MathIntent, settings: Settings, lines: list[str]
+) -> VerifiedMathBlock | None:
+    if not (intent.expr and intent.expr2):
+        return None
+    sample1 = math_service.sample_function(
+        GraphSampleInput(
+            expr=intent.expr[: settings.math_max_expr_length],
+            variable=intent.variable,
+            x_min=-10,
+            x_max=10,
+            n=settings.math_graph_max_points,
+        )
+    )
+    sample2 = math_service.sample_function(
+        GraphSampleInput(
+            expr=intent.expr2[: settings.math_max_expr_length],
+            variable=intent.variable,
+            x_min=-10,
+            x_max=10,
+            n=settings.math_graph_max_points,
+        )
+    )
+    has_disc1 = len(sample1.segments) > 1
+    has_disc2 = len(sample2.segments) > 1
+    graph_spec = GraphBlockSpec(
+        expr=sample1.expr,
+        variable=sample1.variable,
+        x_min=sample1.x_min,
+        x_max=sample1.x_max,
+        points=sample1.points,
+        segments=sample1.segments if has_disc1 else [],
+        expr2=sample2.expr,
+        variable2=sample2.variable,
+        points2=sample2.points,
+        segments2=sample2.segments if has_disc2 else [],
+        label=f"y = {sample1.expr}",
+        label2=f"y = {sample2.expr}",
+    )
+    lines.append(
+        f"Function samples for y={sample1.expr} ({len(sample1.points)} points) and "
+        f"y={sample2.expr} ({len(sample2.points)} points), same x-range for direct comparison."
+    )
+    lines.append(
+        "When a plot helps, emit ONLY this fence ONCE — no 'corrected/final graph "
+        "spec' heading, and do NOT paste or re-list either points array in prose "
+        "(the app renders both curves as one SVG, color-coded with a legend):\n"
+        f"{_fence('graph', graph_spec)}"
+    )
+    return VerifiedMathBlock(text="\n".join(lines), canonical_fence=graph_spec.model_dump())
+
+
 def _verified_block_calculus(
     intent: MathIntent, settings: Settings, lines: list[str]
 ) -> VerifiedMathBlock | None:
@@ -1052,6 +1394,70 @@ def _verified_block_series(
     return VerifiedMathBlock(text="\n".join(lines))
 
 
+def _verified_block_statistics(
+    intent: MathIntent, settings: Settings, lines: list[str]
+) -> VerifiedMathBlock | None:
+    if not intent.stats_numbers or len(intent.stats_numbers) < 2:
+        return None
+    result = math_service.compute_statistics(StatisticsInput(numbers=intent.stats_numbers))
+    lines.append(f"Data ({result.count} values): {', '.join(f'{v:g}' for v in result.numbers)}")
+    sample_stdev = (
+        f"{result.stdev_sample:g}" if result.stdev_sample is not None else "n/a (needs 2+ values)"
+    )
+    lines.append(
+        f"mean={result.mean:g} median={result.median:g} mode={result.labels.get('mode', 'none')} "
+        f"range={result.range:g} population variance={result.variance_population:g} "
+        f"population stdev={result.stdev_population:g} sample stdev={sample_stdev}"
+    )
+    lines.append(
+        "Do NOT recompute any of these values — use the verified numbers above. Show "
+        "the relevant formula (e.g. mean = sum / count) with these exact numbers substituted in."
+    )
+    return VerifiedMathBlock(text="\n".join(lines))
+
+
+def _verified_block_combinatorics(
+    intent: MathIntent, settings: Settings, lines: list[str]
+) -> VerifiedMathBlock | None:
+    if intent.combo_op is None or intent.combo_n is None:
+        return None
+    if intent.combo_op != "factorial" and intent.combo_k is None:
+        return None
+    result = math_service.compute_combinatorics(
+        CombinatoricsInput(operation=intent.combo_op, n=intent.combo_n, k=intent.combo_k)
+    )
+    lines.extend(result.steps)
+    lines.append(f"Result: {result.result}")
+    lines.append("Do NOT recompute — use this exact verified result.")
+    return VerifiedMathBlock(text="\n".join(lines))
+
+
+def _verified_block_number_theory(
+    intent: MathIntent, settings: Settings, lines: list[str]
+) -> VerifiedMathBlock | None:
+    if intent.numtheory_op is None or intent.numtheory_a is None:
+        return None
+    result = math_service.compute_number_theory(
+        NumberTheoryInput(operation=intent.numtheory_op, a=intent.numtheory_a, b=intent.numtheory_b)
+    )
+    lines.extend(result.steps)
+    lines.append("Do NOT recompute — use this exact verified result.")
+    return VerifiedMathBlock(text="\n".join(lines))
+
+
+def _verified_block_matrix(
+    intent: MathIntent, settings: Settings, lines: list[str]
+) -> VerifiedMathBlock | None:
+    if intent.matrix_op is None or not intent.matrix_rows:
+        return None
+    result = math_service.compute_matrix(
+        MatrixInput(operation=intent.matrix_op, rows=intent.matrix_rows)
+    )
+    lines.extend(result.steps)
+    lines.append("Do NOT recompute — use this exact verified result.")
+    return VerifiedMathBlock(text="\n".join(lines))
+
+
 _BlockBuilder = Callable[[MathIntent, Settings, list[str]], VerifiedMathBlock | None]
 
 _BLOCK_BUILDERS: dict[str, _BlockBuilder] = {
@@ -1064,12 +1470,21 @@ _BLOCK_BUILDERS: dict[str, _BlockBuilder] = {
     "circle": _verified_block_circle,
     "triangle": _verified_block_triangle,
     "right_triangle": _verified_block_right_triangle,
+    "triangle_sides": _verified_block_triangle_sides,
+    "trapezoid": _verified_block_trapezoid,
+    "parallelogram": _verified_block_parallelogram,
+    "sector": _verified_block_sector,
     "point": _verified_block_point,
     "vertical": _verified_block_vertical,
     "graph": _verified_block_graph,
+    "graph_pair": _verified_block_graph_pair,
     "calculus": _verified_block_calculus,
     "limit": _verified_block_limit,
     "series": _verified_block_series,
+    "statistics": _verified_block_statistics,
+    "combinatorics": _verified_block_combinatorics,
+    "number_theory": _verified_block_number_theory,
+    "matrix": _verified_block_matrix,
 }
 
 
@@ -1112,13 +1527,36 @@ async def augment_prompt_messages(
         # photographed equation can contain. variables always has >=1 entry
         # (schema default_factory=["x"]), so this is the model's best guess
         # even when the image genuinely used "x".
-        intent: MathIntent | None = MathIntent(
-            kind="equation",
-            lhs=image_math_extract.lhs,
-            rhs=image_math_extract.rhs,
-            operation="solve",
-            variable=image_math_extract.variables[0],
-        )
+        #
+        # kind branches beyond the single-equation case (system/inequality)
+        # so a photographed system or inequality gets the same SymPy-verified
+        # path a single equation already did — previously ANY photo with more
+        # than one equation (or a bare inequality) silently fell back to
+        # unverified free-text, regardless of how well the OCR itself worked.
+        if image_math_extract.kind == "system" and image_math_extract.equations:
+            intent: MathIntent | None = MathIntent(
+                kind="system",
+                system_equations=image_math_extract.equations[:4],
+                system_variables=image_math_extract.variables,
+                operation="solve",
+            )
+        elif image_math_extract.kind == "inequality" and image_math_extract.comparator:
+            intent = MathIntent(
+                kind="inequality",
+                lhs=image_math_extract.lhs,
+                rhs=image_math_extract.rhs,
+                comparator=image_math_extract.comparator,
+                operation="solve",
+                variable=image_math_extract.variables[0],
+            )
+        else:
+            intent = MathIntent(
+                kind="equation",
+                lhs=image_math_extract.lhs,
+                rhs=image_math_extract.rhs,
+                operation="solve",
+                variable=image_math_extract.variables[0],
+            )
     else:
         intent = extract_math_intent(user_content)
     if intent is None and has_image_attachment:

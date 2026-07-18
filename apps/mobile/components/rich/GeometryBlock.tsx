@@ -1,18 +1,27 @@
 import { useMemo } from "react";
 import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
-import Svg, { Circle, Line, Polygon, Rect, Text as SvgText } from "react-native-svg";
+import Svg, { Circle, Line, Path, Polygon, Rect, Text as SvgText } from "react-native-svg";
 
 import {
   computeCircleLabels,
+  computeParallelogramLabels,
   computeRectangleLabels,
   computeRightTriangleLabels,
+  computeSectorLabels,
+  computeTrapezoidLabels,
   computeTriangleLabels,
+  computeTriangleSidesLabels,
   parseGeometrySpec,
   rectangleAngleDisplay,
   scaleToFit,
+  triangleSidesVertices,
   type CircleSpec,
+  type ParallelogramSpec,
   type RectangleSpec,
   type RightTriangleSpec,
+  type SectorSpec,
+  type TrapezoidSpec,
+  type TriangleSidesSpec,
   type TriangleSpec,
 } from "@/lib/geometryBlock";
 import i18n from "@/lib/i18n";
@@ -295,6 +304,239 @@ function CircleDiagram({ spec, screenWidth, theme }: { spec: CircleSpec; screenW
   );
 }
 
+function TriangleSidesDiagram({
+  spec,
+  screenWidth,
+  theme,
+}: {
+  spec: TriangleSidesSpec;
+  screenWidth: number;
+  theme: Theme;
+}) {
+  const labels = computeTriangleSidesLabels(spec);
+  const raw = triangleSidesVertices(spec.a, spec.b, spec.c);
+  const maxX = Math.max(raw.x0, raw.x1, raw.x2);
+  const maxY = Math.max(raw.y0, raw.y1, raw.y2, 1);
+  const inner = Math.max(screenWidth - 48 - 80, 120);
+  const scale = inner / Math.max(maxX, maxY, 1);
+  const offsetX = 40;
+  const offsetY = 28;
+  // SVG y grows downward \u2014 flip so the apex draws above the base.
+  const toSvg = (x: number, y: number) => ({
+    x: offsetX + x * scale,
+    y: offsetY + (maxY - y) * scale,
+  });
+  const p0 = toSvg(raw.x0, raw.y0);
+  const p1 = toSvg(raw.x1, raw.y1);
+  const p2 = toSvg(raw.x2, raw.y2);
+  const svgW = maxX * scale + offsetX * 2;
+  const svgH = maxY * scale + offsetY + 36;
+  const showLabels = spec.show_labels !== false;
+
+  return (
+    <Svg width={svgW} height={svgH}>
+      <Polygon
+        points={`${p0.x},${p0.y} ${p1.x},${p1.y} ${p2.x},${p2.y}`}
+        fill={theme.contentSurface}
+        stroke={theme.primary}
+        strokeWidth={2}
+      />
+      {showLabels ? (
+        <>
+          <SvgText x={(p0.x + p1.x) / 2} y={p0.y + 18} fill={theme.text} fontSize={13} fontWeight="600" textAnchor="middle">
+            {labels.a}
+          </SvgText>
+          <SvgText x={(p1.x + p2.x) / 2 + 8} y={(p1.y + p2.y) / 2} fill={theme.text} fontSize={13} fontWeight="600">
+            {labels.b}
+          </SvgText>
+          <SvgText x={(p2.x + p0.x) / 2 - 8} y={(p2.y + p0.y) / 2} fill={theme.text} fontSize={13} fontWeight="600" textAnchor="end">
+            {labels.c}
+          </SvgText>
+          <SvgText x={(p0.x + p1.x + p2.x) / 3} y={Math.max(p0.y, p1.y) + 34} fill={theme.textSecondary} fontSize={12} textAnchor="middle">
+            {`${i18n.t("rich.area")}\u00A0${labels.area}`}
+          </SvgText>
+        </>
+      ) : null}
+    </Svg>
+  );
+}
+
+function TrapezoidDiagram({
+  spec,
+  screenWidth,
+  theme,
+}: {
+  spec: TrapezoidSpec;
+  screenWidth: number;
+  theme: Theme;
+}) {
+  const labels = computeTrapezoidLabels(spec);
+  const inner = Math.max(screenWidth - 48 - 80, 120);
+  const scale = inner / Math.max(spec.top, spec.bottom, spec.height, 1);
+  const topW = spec.top * scale;
+  const bottomW = spec.bottom * scale;
+  const h = spec.height * scale;
+  const offsetX = 40;
+  const offsetY = 28;
+  const bx0 = offsetX;
+  const bx1 = offsetX + bottomW;
+  const by = offsetY + h;
+  const tx0 = offsetX + (bottomW - topW) / 2;
+  const tx1 = tx0 + topW;
+  const ty = offsetY;
+  const svgW = bottomW + offsetX * 2;
+  const svgH = h + offsetY + 40;
+  const showLabels = spec.show_labels !== false;
+
+  return (
+    <Svg width={svgW} height={svgH}>
+      <Polygon
+        points={`${tx0},${ty} ${tx1},${ty} ${bx1},${by} ${bx0},${by}`}
+        fill={theme.contentSurface}
+        stroke={theme.primary}
+        strokeWidth={2}
+      />
+      <Line x1={tx0} y1={ty} x2={tx0} y2={by} stroke={theme.accent} strokeWidth={2} strokeDasharray="5,4" />
+      {showLabels ? (
+        <>
+          <SvgText x={(tx0 + tx1) / 2} y={ty - 8} fill={theme.text} fontSize={13} fontWeight="600" textAnchor="middle">
+            {labels.top}
+          </SvgText>
+          <SvgText x={(bx0 + bx1) / 2} y={by + 18} fill={theme.text} fontSize={13} fontWeight="600" textAnchor="middle">
+            {labels.bottom}
+          </SvgText>
+          <SvgText x={tx0 - 8} y={(ty + by) / 2} fill={theme.accent} fontSize={12} fontWeight="600" textAnchor="end">
+            {labels.height}
+          </SvgText>
+          <SvgText x={(bx0 + bx1) / 2} y={by + 34} fill={theme.textSecondary} fontSize={12} textAnchor="middle">
+            {`${i18n.t("rich.area")}\u00A0${labels.area}`}
+          </SvgText>
+        </>
+      ) : null}
+    </Svg>
+  );
+}
+
+function ParallelogramDiagram({
+  spec,
+  screenWidth,
+  theme,
+}: {
+  spec: ParallelogramSpec;
+  screenWidth: number;
+  theme: Theme;
+}) {
+  const labels = computeParallelogramLabels(spec);
+  const inner = Math.max(screenWidth - 48 - 80, 120);
+  const scale = inner / Math.max(spec.base, spec.side, 1);
+  const b = spec.base * scale;
+  const h = spec.height * scale;
+  const s = spec.side * scale;
+  // Horizontal shear of the top edge \u2014 the slant side is the hypotenuse of
+  // the right triangle formed by the height and this shear.
+  const shear = Math.sqrt(Math.max(0, s * s - h * h));
+  const offsetX = 40 + shear;
+  const offsetY = 28;
+  const bx0 = offsetX;
+  const bx1 = offsetX + b;
+  const by = offsetY + h;
+  const tx0 = offsetX - shear;
+  const tx1 = tx0 + b;
+  const ty = offsetY;
+  const svgW = b + shear + offsetX + 40;
+  const svgH = h + offsetY + 40;
+  const showLabels = spec.show_labels !== false;
+
+  return (
+    <Svg width={svgW} height={svgH}>
+      <Polygon
+        points={`${tx0},${ty} ${tx1},${ty} ${bx1},${by} ${bx0},${by}`}
+        fill={theme.contentSurface}
+        stroke={theme.primary}
+        strokeWidth={2}
+      />
+      <Line x1={tx0} y1={ty} x2={tx0} y2={by} stroke={theme.accent} strokeWidth={2} strokeDasharray="5,4" />
+      {showLabels ? (
+        <>
+          <SvgText x={(bx0 + bx1) / 2} y={by + 18} fill={theme.text} fontSize={13} fontWeight="600" textAnchor="middle">
+            {labels.base}
+          </SvgText>
+          <SvgText x={tx0 - 8} y={(ty + by) / 2} fill={theme.accent} fontSize={12} fontWeight="600" textAnchor="end">
+            {labels.height}
+          </SvgText>
+          <SvgText x={(tx0 + bx0) / 2 + 6} y={(ty + by) / 2 - 10} fill={theme.text} fontSize={12} fontWeight="600">
+            {labels.side}
+          </SvgText>
+          <SvgText x={(bx0 + bx1) / 2} y={by + 34} fill={theme.textSecondary} fontSize={12} textAnchor="middle">
+            {`${i18n.t("rich.area")}\u00A0${labels.area}`}
+          </SvgText>
+        </>
+      ) : null}
+    </Svg>
+  );
+}
+
+function SectorDiagram({
+  spec,
+  screenWidth,
+  theme,
+}: {
+  spec: SectorSpec;
+  screenWidth: number;
+  theme: Theme;
+}) {
+  const labels = computeSectorLabels(spec);
+  const layout = scaleToFit(spec.radius * 2, spec.radius * 2, screenWidth - 48);
+  const r = layout.w / 2;
+  const offsetX = 40;
+  const offsetY = 36;
+  const cx = offsetX + r;
+  const cy = offsetY + r;
+  // Sweep clockwise from straight up (12 o'clock) by angle_deg.
+  const startRad = (-90 * Math.PI) / 180;
+  const endRad = ((-90 + spec.angle_deg) * Math.PI) / 180;
+  const x1 = cx + r * Math.cos(startRad);
+  const y1 = cy + r * Math.sin(startRad);
+  const x2 = cx + r * Math.cos(endRad);
+  const y2 = cy + r * Math.sin(endRad);
+  const largeArc = spec.angle_deg > 180 ? 1 : 0;
+  const path = `M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${largeArc} 1 ${x2},${y2} Z`;
+  const midRad = (startRad + endRad) / 2;
+  const labelR = r * 0.55;
+  const svgW = r * 2 + offsetX * 2;
+  const svgH = r * 2 + offsetY * 2 + 40;
+  const showLabels = spec.show_labels !== false;
+
+  return (
+    <Svg width={svgW} height={svgH}>
+      <Path d={path} fill={theme.contentSurface} stroke={theme.primary} strokeWidth={2} />
+      {showLabels ? (
+        <>
+          <SvgText
+            x={cx + labelR * Math.cos(midRad)}
+            y={cy + labelR * Math.sin(midRad)}
+            fill={theme.text}
+            fontSize={12}
+            fontWeight="600"
+            textAnchor="middle"
+          >
+            {labels.angle}
+          </SvgText>
+          <SvgText x={(cx + x1) / 2 - 6} y={(cy + y1) / 2} fill={theme.accent} fontSize={12} fontWeight="600" textAnchor="end">
+            {labels.radius}
+          </SvgText>
+          <SvgText x={cx} y={cy + r + 34} fill={theme.textSecondary} fontSize={12} textAnchor="middle">
+            {`${i18n.t("rich.area")}\u00A0${labels.area}`}
+          </SvgText>
+          <SvgText x={cx} y={cy + r + 50} fill={theme.textSecondary} fontSize={12} textAnchor="middle">
+            {`${i18n.t("rich.arc_length")}\u00A0${labels.arc_length}`}
+          </SvgText>
+        </>
+      ) : null}
+    </Svg>
+  );
+}
+
 export function GeometryBlock({ content }: Props) {
   const theme = useTheme();
   const { width: screenWidth } = useWindowDimensions();
@@ -315,6 +557,14 @@ export function GeometryBlock({ content }: Props) {
         <RightTriangleDiagram spec={spec} screenWidth={screenWidth} theme={theme} />
       ) : spec.type === "triangle" ? (
         <TriangleDiagram spec={spec} screenWidth={screenWidth} theme={theme} />
+      ) : spec.type === "triangle_sides" ? (
+        <TriangleSidesDiagram spec={spec} screenWidth={screenWidth} theme={theme} />
+      ) : spec.type === "trapezoid" ? (
+        <TrapezoidDiagram spec={spec} screenWidth={screenWidth} theme={theme} />
+      ) : spec.type === "parallelogram" ? (
+        <ParallelogramDiagram spec={spec} screenWidth={screenWidth} theme={theme} />
+      ) : spec.type === "sector" ? (
+        <SectorDiagram spec={spec} screenWidth={screenWidth} theme={theme} />
       ) : spec.type === "circle" ? (
         <CircleDiagram spec={spec} screenWidth={screenWidth} theme={theme} />
       ) : (

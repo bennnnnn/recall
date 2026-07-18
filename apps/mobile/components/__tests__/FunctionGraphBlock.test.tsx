@@ -79,4 +79,44 @@ describe("FunctionGraphBlock", () => {
     expect(getByText("x = 4")).toBeOnTheScreen();
     expect(JSON.stringify(toJSON())).toContain("RNSVGSvgView");
   });
+
+  it("renders two curves with a legend when expr2/points2 are present", async () => {
+    const content = JSON.stringify({
+      type: "function",
+      expr: "x**2",
+      points: [
+        [-2, 4],
+        [0, 0],
+        [2, 4],
+      ],
+      expr2: "2*x",
+      points2: [
+        [-2, -4],
+        [2, 4],
+      ],
+      label: "y = x^2",
+      label2: "y = 2x",
+    });
+    const { getByText, toJSON } = await render(<FunctionGraphBlock content={content} />);
+
+    expect(getByText("y = x^2")).toBeOnTheScreen();
+    expect(getByText("y = 2x")).toBeOnTheScreen();
+    // Polyline renders as RNSVGPath in this native mock (see the segmented
+    // discontinuity test above) — one per curve.
+    const pathCount = (JSON.stringify(toJSON()).match(/"RNSVGPath"/g) ?? []).length;
+    expect(pathCount).toBe(2);
+  });
+
+  it("renders a single curve (no legend) when expr2 is absent", async () => {
+    const content = JSON.stringify({
+      type: "function",
+      expr: "x**2",
+      points: [
+        [0, 0],
+        [1, 1],
+      ],
+    });
+    const { queryByText } = await render(<FunctionGraphBlock content={content} />);
+    expect(queryByText(/y = 2x/)).toBeNull();
+  });
 });

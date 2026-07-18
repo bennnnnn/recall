@@ -15,6 +15,14 @@ export type GraphSpec = {
   // Undefined/empty means "one continuous curve," same as before this
   // field existed.
   segments?: [number, number][][];
+  // Optional second curve for a direct comparison plot ("graph y=x^2 and
+  // y=2x on the same axes") — undefined means "single-curve graph," same
+  // as every fence before this field existed.
+  expr2?: string;
+  points2?: [number, number][];
+  segments2?: [number, number][][];
+  label?: string;
+  label2?: string;
 };
 
 /** Match backend `GraphBlockSpec.points` max; chat samples default lower. */
@@ -77,6 +85,25 @@ function parseVerticalGraph(row: Record<string, unknown>): GraphSpec | null {
   };
 }
 
+function parsePoints(raw: unknown): [number, number][] {
+  if (!Array.isArray(raw)) return [];
+  return downsamplePoints(
+    raw.map(normalizePoint).filter((p): p is [number, number] => p != null),
+    MAX_GRAPH_POINTS,
+  );
+}
+
+function parseSegments(raw: unknown): [number, number][][] | undefined {
+  if (!Array.isArray(raw) || raw.length > MAX_GRAPH_POINTS) return undefined;
+  const parsed = raw
+    .map((seg) => (Array.isArray(seg) ? parsePoints(seg) : []))
+    .filter((seg) => seg.length > 0);
+  // Only meaningful with a real gap (2+ pieces) — a single segment is just
+  // `points` again, so leave segments unset and render the plain continuous
+  // polyline instead.
+  return parsed.length > 1 ? parsed : undefined;
+}
+
 export function parseGraphSpec(raw: string): GraphSpec | null {
   try {
     const data = JSON.parse(raw.trim()) as unknown;
@@ -88,40 +115,18 @@ export function parseGraphSpec(raw: string): GraphSpec | null {
     if (row.type !== "function") return null;
     const expr = String(row.expr ?? "").trim();
     if (!expr || expr.length > MAX_GRAPH_EXPR_LENGTH) return null;
-    const pointsRaw = row.points;
-    if (!Array.isArray(pointsRaw) || pointsRaw.length < 1) {
-      return null;
-    }
-    const points = downsamplePoints(
-      pointsRaw
-        .map(normalizePoint)
-        .filter((p): p is [number, number] => p != null),
-      MAX_GRAPH_POINTS,
-    );
+    const points = parsePoints(row.points);
     // A function curve needs 2+ points to draw a line, but marking a single
     // coordinate ("plot the point (2, 3)") is a single point by definition.
     if (points.length < 1) return null;
 
-    const segmentsRaw = row.segments;
-    let segments: [number, number][][] | undefined;
-    if (Array.isArray(segmentsRaw) && segmentsRaw.length <= MAX_GRAPH_POINTS) {
-      const parsed = segmentsRaw
-        .map((seg) =>
-          Array.isArray(seg)
-            ? downsamplePoints(
-                seg
-                  .map(normalizePoint)
-                  .filter((p): p is [number, number] => p != null),
-                MAX_GRAPH_POINTS,
-              )
-            : [],
-        )
-        .filter((seg) => seg.length > 0);
-      // Only meaningful with a real gap (2+ pieces) — a single segment is
-      // just `points` again, so leave segments unset and render the plain
-      // continuous polyline instead.
-      if (parsed.length > 1) segments = parsed;
-    }
+    const segments = parseSegments(row.segments);
+
+    // Optional second curve — undefined/incomplete means "single-curve
+    // graph," same as every fence before this field existed.
+    const expr2Raw = row.expr2 != null ? String(row.expr2).trim() : "";
+    const points2 = expr2Raw ? parsePoints(row.points2) : [];
+    const hasCurve2 = Boolean(expr2Raw) && expr2Raw.length <= MAX_GRAPH_EXPR_LENGTH && points2.length >= 1;
 
     return {
       type: "function",
@@ -132,13 +137,24 @@ export function parseGraphSpec(raw: string): GraphSpec | null {
       title: row.title != null ? String(row.title) : null,
       points,
       segments,
+      expr2: hasCurve2 ? expr2Raw : undefined,
+      points2: hasCurve2 ? points2 : undefined,
+      segments2: hasCurve2 ? parseSegments(row.segments2) : undefined,
+      label: row.label != null ? String(row.label) : undefined,
+      label2: hasCurve2 && row.label2 != null ? String(row.label2) : undefined,
     };
   } catch {
     return null;
   }
 }
 
-export function graphBounds(points: [number, number][]): {
+export function graphBounds(
+  points: [number, number][],
+  // Second curve's points, when present — folded into the same min/max so
+  // both curves share one consistent axis scale instead of each being
+  // (re)bounded to just its own range.
+  extraPoints?: [number, number][],
+): {
   xMin: number;
   xMax: number;
   yMin: number;
@@ -149,6 +165,12 @@ export function graphBounds(points: [number, number][]): {
   let yMin = points[0][1];
   let yMax = points[0][1];
   for (const [x, y] of points) {
+    xMin = Math.min(xMin, x);
+    xMax = Math.max(xMax, x);
+    yMin = Math.min(yMin, y);
+    yMax = Math.max(yMax, y);
+  }
+  for (const [x, y] of extraPoints ?? []) {
     xMin = Math.min(xMin, x);
     xMax = Math.max(xMax, x);
     yMin = Math.min(yMin, y);

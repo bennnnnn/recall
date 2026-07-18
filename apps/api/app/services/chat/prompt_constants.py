@@ -428,19 +428,27 @@ RESPONSE_FORMAT_HINT = (
 MATH_SOLVER_HINT = (
     "Math diagrams and plots (NOT image generation):\n"
     "- When the user asks to **draw** a rectangle, square, triangle, right triangle, "
-    "or circle, emit a ```geometry fence "
+    "circle, trapezoid, parallelogram, or circle sector, emit a ```geometry fence "
     "(NEVER ```json) so the app renders a labeled SVG:\n"
     'Rectangle: ```geometry\n{"type":"rectangle","width":8,"height":5,"unit":"cm",'
     '"show_diagonal":true,"show_angle":true}\n```\n'
     'Square: ```geometry\n{"type":"square","side":5,"unit":"cm","show_diagonal":true,'
     '"show_area":true}\n```\n'
     'Also accepted: `"type":"rect"`, or width/height via length/breadth/w/h fields.\n'
-    'Triangle: ```geometry\n{"type":"triangle","base":8,"height":5,"unit":"cm",'
+    'Triangle (base+height): ```geometry\n{"type":"triangle","base":8,"height":5,"unit":"cm",'
     '"show_labels":true}\n```\n'
+    'Triangle by three side lengths (SSS): ```geometry\n{"type":"triangle_sides","a":3,'
+    '"b":4,"c":5,"unit":"cm","show_labels":true}\n```\n'
     'Right triangle: ```geometry\n{"type":"right_triangle","base":6,"height":4,"unit":"cm",'
     '"show_labels":true,"show_hypotenuse":true,"show_angle":true}\n```\n'
     'Circle: ```geometry\n{"type":"circle","radius":4,"unit":"cm","show_diameter":true,'
     '"show_area":true,"show_circumference":true}\n```\n'
+    'Trapezoid: ```geometry\n{"type":"trapezoid","top":4,"bottom":8,"height":5,"unit":"cm",'
+    '"show_labels":true}\n```\n'
+    'Parallelogram: ```geometry\n{"type":"parallelogram","base":8,"height":4,"side":5,'
+    '"unit":"cm","show_labels":true}\n```\n'
+    'Circle sector: ```geometry\n{"type":"sector","radius":5,"angle_deg":90,"unit":"cm",'
+    '"show_labels":true}\n```\n'
     "- For function plots y=f(x), emit ONLY ```graph (NEVER ```json):\n"
     '```graph\n{"type":"function","expr":"x**2","variable":"x","x_min":-5,'
     '"x_max":5,"points":[[-5,25],[-4,16]]}\n```\n'
@@ -448,6 +456,12 @@ MATH_SOLVER_HINT = (
     "Emit the fence once, then describe the shape in plain language — "
     "NEVER a 'corrected/final graph spec' heading and NEVER dump the raw "
     "JSON or point list outside the fence (the app draws the SVG).\n"
+    '- To compare two functions on the SAME axes (e.g. "graph y=x^2 and '
+    'y=2x"), add expr2/points2 (and optionally variable2/label/label2) to '
+    "the SAME ```graph fence instead of emitting two separate fences:\n"
+    '```graph\n{"type":"function","expr":"x**2","points":[[-5,25],[-4,16]],'
+    '"expr2":"2*x","points2":[[-5,-10],[5,10]],"label":"y = x^2",'
+    '"label2":"y = 2x"}\n```\n'
     "- For a vertical line x=c (NOT a function y=f(x)), use type vertical:\n"
     '```graph\n{"type":"vertical","x":4,"y_min":-10,"y_max":10,"title":"x = 4"}\n```\n'
     '- To mark one or more specific coordinates (e.g. "plot the point '
@@ -463,7 +477,12 @@ MATH_SOLVER_HINT = (
     "geometry/graph fences natively.\n"
     "- Limits and infinite series are in scope. When a verified SymPy result is "
     "provided for one, use its exact result and convergence/divergence status "
-    "(including whether it's infinite) instead of estimating or re-deriving it."
+    "(including whether it's infinite) instead of estimating or re-deriving it.\n"
+    "- Statistics (mean/median/mode/variance/stdev of a data list), combinatorics "
+    "(factorial, combinations/nCr, permutations/nPr), number theory (gcd, lcm, prime "
+    "factorization, primality, mod), and small-matrix determinant/inverse are also in "
+    "scope. When a verified system block provides these, use its exact numbers instead "
+    "of recomputing."
 )
 
 VISUALIZATION_HINTS = (

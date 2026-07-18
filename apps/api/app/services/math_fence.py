@@ -29,8 +29,12 @@ from app.models.math_schemas import (
     GeometryBlockSpec,
     GraphBlockSpec,
     GraphSampleInput,
+    ParallelogramGeometryBlockSpec,
     RightTriangleGeometryBlockSpec,
+    SectorGeometryBlockSpec,
+    TrapezoidGeometryBlockSpec,
     TriangleGeometryBlockSpec,
+    TriangleSidesGeometryBlockSpec,
 )
 from app.services import math_service
 from app.services.math_service import MathServiceError
@@ -63,6 +67,18 @@ def _validate_geometry(raw: str) -> bool:
             return True
         if kind == "circle":
             CircleGeometryBlockSpec.model_validate(data)
+            return True
+        if kind == "triangle_sides":
+            TriangleSidesGeometryBlockSpec.model_validate(data)
+            return True
+        if kind == "trapezoid":
+            TrapezoidGeometryBlockSpec.model_validate(data)
+            return True
+        if kind == "parallelogram":
+            ParallelogramGeometryBlockSpec.model_validate(data)
+            return True
+        if kind == "sector":
+            SectorGeometryBlockSpec.model_validate(data)
             return True
         return False
     except (json.JSONDecodeError, ValidationError, TypeError):
@@ -150,6 +166,15 @@ def densify_sparse_graph(spec: GraphBlockSpec) -> GraphBlockSpec:
         title=spec.title,
         points=sample.points,
         segments=sample.segments if has_discontinuity else [],
+        # Preserve the second curve untouched — rebuilding this spec from
+        # scratch used to silently drop expr2/points2/etc. whenever the
+        # FIRST curve needed densifying, breaking a two-curve comparison plot.
+        expr2=spec.expr2,
+        variable2=spec.variable2,
+        points2=spec.points2,
+        segments2=spec.segments2,
+        label=spec.label,
+        label2=spec.label2,
     )
 
 

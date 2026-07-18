@@ -51,7 +51,60 @@ export type CircleSpec = {
   labels?: Record<string, string>;
 };
 
-export type GeometrySpec = RectangleSpec | TriangleSpec | RightTriangleSpec | CircleSpec;
+export type TriangleSidesSpec = {
+  type: "triangle_sides";
+  a: number;
+  b: number;
+  c: number;
+  unit?: string;
+  show_labels?: boolean;
+  area?: number;
+  labels?: Record<string, string>;
+};
+
+export type TrapezoidSpec = {
+  type: "trapezoid";
+  top: number;
+  bottom: number;
+  height: number;
+  unit?: string;
+  show_labels?: boolean;
+  area?: number;
+  labels?: Record<string, string>;
+};
+
+export type ParallelogramSpec = {
+  type: "parallelogram";
+  base: number;
+  height: number;
+  side: number;
+  unit?: string;
+  show_labels?: boolean;
+  area?: number;
+  perimeter?: number;
+  labels?: Record<string, string>;
+};
+
+export type SectorSpec = {
+  type: "sector";
+  radius: number;
+  angle_deg: number;
+  unit?: string;
+  show_labels?: boolean;
+  arc_length?: number;
+  area?: number;
+  labels?: Record<string, string>;
+};
+
+export type GeometrySpec =
+  | RectangleSpec
+  | TriangleSpec
+  | RightTriangleSpec
+  | CircleSpec
+  | TriangleSidesSpec
+  | TrapezoidSpec
+  | ParallelogramSpec
+  | SectorSpec;
 
 /** Match backend `RectangleGeometryInput` / triangle inputs (`le=1_000_000`). */
 export const MAX_GEOMETRY_DIMENSION = 1_000_000;
@@ -188,13 +241,92 @@ function parseCircle(row: Record<string, unknown>): CircleSpec | null {
   return spec;
 }
 
+function parseTriangleSides(row: Record<string, unknown>): TriangleSidesSpec | null {
+  if (row.type !== "triangle_sides") return null;
+  const a = readPositive(row, "a");
+  const b = readPositive(row, "b");
+  const c = readPositive(row, "c");
+  if (!a || !b || !c) return null;
+  if (a + b <= c || a + c <= b || b + c <= a) return null;
+  const spec: TriangleSidesSpec = { type: "triangle_sides", a, b, c };
+  const unit = String(row.unit ?? "cm").trim();
+  if (unit) spec.unit = unit;
+  if (row.show_labels === true) spec.show_labels = true;
+  const area = Number(row.area);
+  if (Number.isFinite(area)) spec.area = area;
+  spec.labels = readLabels(row);
+  return spec;
+}
+
+function parseTrapezoid(row: Record<string, unknown>): TrapezoidSpec | null {
+  if (row.type !== "trapezoid") return null;
+  const top = readPositive(row, "top");
+  const bottom = readPositive(row, "bottom");
+  const height = readPositive(row, "height");
+  if (!top || !bottom || !height) return null;
+  const spec: TrapezoidSpec = { type: "trapezoid", top, bottom, height };
+  const unit = String(row.unit ?? "cm").trim();
+  if (unit) spec.unit = unit;
+  if (row.show_labels === true) spec.show_labels = true;
+  const area = Number(row.area);
+  if (Number.isFinite(area)) spec.area = area;
+  spec.labels = readLabels(row);
+  return spec;
+}
+
+function parseParallelogram(row: Record<string, unknown>): ParallelogramSpec | null {
+  if (row.type !== "parallelogram") return null;
+  const base = readPositive(row, "base");
+  const height = readPositive(row, "height");
+  const side = readPositive(row, "side");
+  if (!base || !height || !side) return null;
+  // The slant side is the hypotenuse of the right triangle formed by the
+  // height, so it can never be shorter — guards the shear-offset math in
+  // ParallelogramDiagram (sqrt of a negative number) against a malformed fence.
+  if (side < height) return null;
+  const spec: ParallelogramSpec = { type: "parallelogram", base, height, side };
+  const unit = String(row.unit ?? "cm").trim();
+  if (unit) spec.unit = unit;
+  if (row.show_labels === true) spec.show_labels = true;
+  const area = Number(row.area);
+  if (Number.isFinite(area)) spec.area = area;
+  const perimeter = Number(row.perimeter);
+  if (Number.isFinite(perimeter)) spec.perimeter = perimeter;
+  spec.labels = readLabels(row);
+  return spec;
+}
+
+function parseSector(row: Record<string, unknown>): SectorSpec | null {
+  if (row.type !== "sector") return null;
+  const radius = readPositive(row, "radius", "r");
+  const angleRaw = Number(row.angle_deg);
+  if (!radius || !Number.isFinite(angleRaw) || angleRaw <= 0 || angleRaw > 360) return null;
+  const spec: SectorSpec = { type: "sector", radius, angle_deg: angleRaw };
+  const unit = String(row.unit ?? "cm").trim();
+  if (unit) spec.unit = unit;
+  if (row.show_labels === true) spec.show_labels = true;
+  const arcLength = Number(row.arc_length);
+  if (Number.isFinite(arcLength)) spec.arc_length = arcLength;
+  const area = Number(row.area);
+  if (Number.isFinite(area)) spec.area = area;
+  spec.labels = readLabels(row);
+  return spec;
+}
+
 export function parseGeometrySpec(raw: string): GeometrySpec | null {
   try {
     const data = JSON.parse(raw.trim()) as unknown;
     if (!data || typeof data !== "object") return null;
     const row = data as Record<string, unknown>;
     return (
-      parseRectangle(row) ?? parseTriangle(row) ?? parseRightTriangle(row) ?? parseCircle(row)
+      parseRectangle(row) ??
+      parseTriangle(row) ??
+      parseRightTriangle(row) ??
+      parseCircle(row) ??
+      parseTriangleSides(row) ??
+      parseTrapezoid(row) ??
+      parseParallelogram(row) ??
+      parseSector(row)
     );
   } catch {
     return null;
@@ -253,6 +385,68 @@ export function computeCircleLabels(spec: CircleSpec): Record<string, string> {
     diameter: spec.labels?.diameter ?? `${diameter % 1 === 0 ? diameter : diameter.toFixed(2)} ${unit}`,
     area: spec.labels?.area ?? `${area.toFixed(2)} ${unit}²`,
     circumference: spec.labels?.circumference ?? `${circumference.toFixed(2)} ${unit}`,
+  };
+}
+
+export function computeTriangleSidesLabels(spec: TriangleSidesSpec): Record<string, string> {
+  const unit = spec.unit ?? "cm";
+  const s = (spec.a + spec.b + spec.c) / 2;
+  const area = spec.area ?? Math.sqrt(s * (s - spec.a) * (s - spec.b) * (s - spec.c));
+  return {
+    a: spec.labels?.a ?? `${spec.a} ${unit}`,
+    b: spec.labels?.b ?? `${spec.b} ${unit}`,
+    c: spec.labels?.c ?? `${spec.c} ${unit}`,
+    area: spec.labels?.area ?? `${area % 1 === 0 ? area : area.toFixed(2)} ${unit}²`,
+  };
+}
+
+/** Vertices for a triangle drawn from its three side lengths — side `a` laid
+ * flat on the x-axis, the third vertex placed via the law of cosines. Callers
+ * scale/translate the returned unit-ish coordinates to fit the SVG canvas. */
+export function triangleSidesVertices(
+  a: number,
+  b: number,
+  c: number,
+): { x0: number; y0: number; x1: number; y1: number; x2: number; y2: number } {
+  const cx = (b * b + a * a - c * c) / (2 * a);
+  const cy = Math.sqrt(Math.max(0, b * b - cx * cx));
+  return { x0: 0, y0: 0, x1: a, y1: 0, x2: cx, y2: cy };
+}
+
+export function computeTrapezoidLabels(spec: TrapezoidSpec): Record<string, string> {
+  const unit = spec.unit ?? "cm";
+  const area = spec.area ?? ((spec.top + spec.bottom) / 2) * spec.height;
+  return {
+    top: spec.labels?.top ?? `${spec.top} ${unit}`,
+    bottom: spec.labels?.bottom ?? `${spec.bottom} ${unit}`,
+    height: spec.labels?.height ?? `${spec.height} ${unit}`,
+    area: spec.labels?.area ?? `${area % 1 === 0 ? area : area.toFixed(1)} ${unit}²`,
+  };
+}
+
+export function computeParallelogramLabels(spec: ParallelogramSpec): Record<string, string> {
+  const unit = spec.unit ?? "cm";
+  const area = spec.area ?? spec.base * spec.height;
+  const perimeter = spec.perimeter ?? 2 * (spec.base + spec.side);
+  return {
+    base: spec.labels?.base ?? `${spec.base} ${unit}`,
+    height: spec.labels?.height ?? `${spec.height} ${unit}`,
+    side: spec.labels?.side ?? `${spec.side} ${unit}`,
+    area: spec.labels?.area ?? `${area % 1 === 0 ? area : area.toFixed(1)} ${unit}²`,
+    perimeter: spec.labels?.perimeter ?? `${perimeter % 1 === 0 ? perimeter : perimeter.toFixed(1)} ${unit}`,
+  };
+}
+
+export function computeSectorLabels(spec: SectorSpec): Record<string, string> {
+  const unit = spec.unit ?? "cm";
+  const rad = (spec.angle_deg * Math.PI) / 180;
+  const arcLength = spec.arc_length ?? spec.radius * rad;
+  const area = spec.area ?? 0.5 * spec.radius * spec.radius * rad;
+  return {
+    radius: spec.labels?.radius ?? `${spec.radius} ${unit}`,
+    angle: spec.labels?.angle ?? `${spec.angle_deg}°`,
+    arc_length: spec.labels?.arc_length ?? `${arcLength.toFixed(2)} ${unit}`,
+    area: spec.labels?.area ?? `${area.toFixed(2)} ${unit}²`,
   };
 }
 

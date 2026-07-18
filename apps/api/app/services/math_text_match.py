@@ -8,8 +8,19 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from typing import Literal
 
 from app.services.text_normalize import collapse_ws
+
+# Mirror MathIntent's Literal fields in app.models.math_schemas — kept as
+# type aliases here (not imported from there) to avoid a schema<->matcher
+# import cycle; math_tools.py assigns these straight into MathIntent, so a
+# drift between the two would fail mypy immediately, same as any other
+# Literal mismatch.
+StatsOp = Literal["mean", "median", "mode", "variance", "stdev"]
+CombinatoricsOp = Literal["factorial", "combinations", "permutations"]
+NumberTheoryOp = Literal["gcd", "lcm", "factorize", "is_prime", "mod"]
+MatrixOp = Literal["determinant", "inverse"]
 
 _MAX = 1000
 _NUM = re.compile(r"-?\d+(?:\.\d+)?")
@@ -212,6 +223,99 @@ def graph_expr(text: str) -> str | None:
         elif expr.lower().startswith("y ="):
             expr = expr[3:].lstrip()
         return expr or None
+    return None
+
+
+_GRAPH_PAIR_PREFIXES = ("graph ", "plot ", "compare ")
+_GRAPH_PAIR_TRAILING_FILLER = (
+    " on the same graph",
+    " on the same plot",
+    " on the same axes",
+    " on one graph",
+    " together",
+)
+_EXPR_CANDIDATE_CHARS = frozenset(
+    "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+-*/().^= ."
+)
+# "plot sin(x) and explain it" must NOT be read as a second function named
+# "explain it" — an explicit denylist (matching this module's existing
+# preference for phrase tables over fuzzy heuristics) catches ordinary
+# trailing prose that first_dim_pair-style character scanning can't.
+_PROSE_WORDS = frozenset(
+    (
+        "explain",
+        "it",
+        "please",
+        "why",
+        "how",
+        "what",
+        "tell",
+        "describe",
+        "me",
+        "this",
+        "that",
+        "show",
+        "draw",
+        "the",
+        "a",
+        "an",
+        "is",
+        "are",
+        "these",
+        "functions",
+        "function",
+        "curve",
+        "curves",
+        "then",
+    )
+)
+
+
+def _strip_leading_y_equals(expr: str) -> str:
+    lower = expr.lower()
+    if lower.startswith("y="):
+        return expr[2:].lstrip()
+    if lower.startswith("y ="):
+        return expr[3:].lstrip()
+    return expr
+
+
+def _looks_like_expr_candidate(s: str) -> bool:
+    stripped = s.strip()
+    if not stripped or len(stripped) > 120:
+        return False
+    if not all(c in _EXPR_CANDIDATE_CHARS for c in stripped):
+        return False
+    return not any(w in _PROSE_WORDS for w in stripped.lower().split())
+
+
+def graph_expr_pair(text: str) -> tuple[str, str] | None:
+    """ "graph EXPR1 and EXPR2 [on the same graph]" -> (EXPR1, EXPR2). Only
+    matches when exactly one " and " splits the post-trigger text into two
+    non-empty, expression-shaped candidates — checked BEFORE the single-
+    expression graph_expr so a two-function ask doesn't get garbled into one
+    unparseable expr, but a plain "plot sin(x) and explain it" still falls
+    through to the single-expression path instead of treating "explain it"
+    as a second function."""
+    lower = text.lower()
+    for prefix in _GRAPH_PAIR_PREFIXES:
+        idx = lower.find(prefix)
+        if idx == -1:
+            continue
+        rest = text[idx + len(prefix) :].strip()
+        and_idx = rest.lower().find(" and ")
+        if and_idx == -1:
+            continue
+        first = _strip_leading_y_equals(rest[:and_idx].strip())
+        second = rest[and_idx + len(" and ") :].strip()
+        second_lower = second.lower()
+        for suffix in _GRAPH_PAIR_TRAILING_FILLER:
+            if second_lower.endswith(suffix):
+                second = second[: -len(suffix)].strip()
+                break
+        second = _strip_leading_y_equals(second)
+        if _looks_like_expr_candidate(first) and _looks_like_expr_candidate(second):
+            return first, second
     return None
 
 
@@ -502,6 +606,230 @@ def integral_bounds(expr: str) -> tuple[str, str, str] | None:
     return None
 
 
+# Longest/most-specific phrase first so e.g. "standard deviation" is found
+# before a later, coincidental bare "deviation" would matter (it never
+# appears alone in this list, but the ordering convention matches
+# _INEQ_OPS/_SYSTEM_PREFIXES elsewhere in this module).
+_STATS_WORDS: tuple[tuple[str, StatsOp], ...] = (
+    ("standard deviation", "stdev"),
+    ("std dev", "stdev"),
+    ("stdev", "stdev"),
+    ("variance", "variance"),
+    ("median", "median"),
+    ("mode", "mode"),
+    ("average", "mean"),
+    ("mean", "mean"),
+)
+
+
+def stats_signal(text: str) -> tuple[StatsOp, list[float]] | None:
+    """ "mean/median/mode/standard deviation/variance of <numbers>" — requires
+    BOTH the keyword AND 2+ numbers after it, so plain prose ("what do you
+    mean by X") without any data list never matches."""
+    lower = text.lower()
+    best: tuple[int, StatsOp] | None = None
+    for phrase, op in _STATS_WORDS:
+        idx = lower.find(phrase)
+        if idx != -1 and (best is None or idx < best[0]):
+            best = (idx, op)
+    if best is None:
+        return None
+    idx, op = best
+    numbers = [float(m.group(0)) for m in _NUM.finditer(text, idx)]
+    if len(numbers) < 2:
+        return None
+    return op, numbers[:200]
+
+
+def _digits_immediately_before(text: str, idx: int) -> int | None:
+    j = idx
+    while j > 0 and text[j - 1].isdigit():
+        j -= 1
+    return int(text[j:idx]) if j < idx else None
+
+
+def _digits_immediately_after(text: str, idx: int) -> tuple[int, int] | None:
+    """(value, index just past the digit run) starting exactly at idx."""
+    j = idx
+    n = len(text)
+    while j < n and text[j].isdigit():
+        j += 1
+    return (int(text[idx:j]), j) if j > idx else None
+
+
+def _factorial_signal(text: str) -> int | None:
+    """ "5!" / "5 factorial" / "factorial of 5" -> 5."""
+    lower = text.lower()
+    idx = lower.find("factorial of ")
+    if idx != -1:
+        after = _digits_immediately_after(text, idx + len("factorial of "))
+        if after is not None:
+            return after[0]
+    idx = lower.find(" factorial")
+    if idx != -1:
+        n = _digits_immediately_before(text, idx)
+        if n is not None:
+            return n
+    bang = text.find("!")
+    if bang > 0:
+        n = _digits_immediately_before(text, bang)
+        if n is not None:
+            return n
+    return None
+
+
+def _paren_pair(text: str, open_idx: int) -> tuple[int, int] | None:
+    """Parse "(<int>,<int>)" starting at text[open_idx] == '('."""
+    close = text.find(")", open_idx)
+    if close == -1:
+        return None
+    parts = text[open_idx + 1 : close].split(",")
+    if len(parts) != 2:
+        return None
+    a_raw, b_raw = parts[0].strip(), parts[1].strip()
+    if not a_raw.isdigit() or not b_raw.isdigit():
+        return None
+    return int(a_raw), int(b_raw)
+
+
+def _ncr_npr_signal(text: str, word: str | None, letter: str) -> tuple[int, int] | None:
+    """ "<n> <word> <k>" (e.g. "5 choose 2"), "<letter>(<n>,<k>)" (e.g.
+    "C(5,2)"), or "<n><letter><k>" compact (e.g. "5C2")."""
+    lower = text.lower()
+    if word is not None:
+        needle = f" {word} "
+        idx = lower.find(needle)
+        if idx != -1:
+            n = _digits_immediately_before(text, idx)
+            after = _digits_immediately_after(text, idx + len(needle))
+            if n is not None and after is not None:
+                return n, after[0]
+    for i, ch in enumerate(text):
+        if ch.upper() != letter:
+            continue
+        if i + 1 < len(text) and text[i + 1] == "(":
+            pair = _paren_pair(text, i + 1)
+            if pair is not None:
+                return pair
+        n = _digits_immediately_before(text, i)
+        after = _digits_immediately_after(text, i + 1)
+        if n is not None and after is not None:
+            return n, after[0]
+    return None
+
+
+def combinatorics_signal(text: str) -> tuple[CombinatoricsOp, int, int | None] | None:
+    """Factorial / combinations ("choose", "C(n,k)", "nCk") / permutations
+    ("P(n,k)", "nPk"). Returns (op, n, k) — k is None for factorial."""
+    n = _factorial_signal(text)
+    if n is not None:
+        return "factorial", n, None
+    combo = _ncr_npr_signal(text, "choose", "C")
+    if combo is not None:
+        return "combinations", combo[0], combo[1]
+    perm = _ncr_npr_signal(text, None, "P")
+    if perm is not None:
+        return "permutations", perm[0], perm[1]
+    return None
+
+
+_GCD_LCM_WORDS: tuple[tuple[str, NumberTheoryOp], ...] = (
+    ("greatest common divisor", "gcd"),
+    ("greatest common factor", "gcd"),
+    ("gcd", "gcd"),
+    ("least common multiple", "lcm"),
+    ("lcm", "lcm"),
+)
+_FACTORIZE_PREFIXES = ("prime factorization of ", "prime factors of ", "factorize ")
+
+
+def number_theory_signal(text: str) -> tuple[NumberTheoryOp, int, int | None] | None:
+    """gcd/lcm of two ints, prime factorization / primality of one int, or
+    "<a> mod <b>". Returns (op, a, b) — b is None for factorize/is_prime."""
+    lower = text.lower()
+    for word, op in _GCD_LCM_WORDS:
+        idx = lower.find(word)
+        if idx != -1:
+            nums = [float(m.group(0)) for m in _NUM.finditer(text, idx + len(word))]
+            if len(nums) >= 2:
+                return op, int(nums[0]), int(nums[1])
+    for prefix in _FACTORIZE_PREFIXES:
+        idx = lower.find(prefix)
+        if idx != -1:
+            after = _digits_immediately_after(text, idx + len(prefix))
+            if after is not None:
+                return "factorize", after[0], None
+    idx = lower.find("is ")
+    while idx != -1:
+        after = _digits_immediately_after(text, idx + len("is "))
+        if after is not None and lower[after[1] :].lstrip().startswith("prime"):
+            return "is_prime", after[0], None
+        idx = lower.find("is ", idx + 1)
+    idx = lower.find(" mod ")
+    if idx != -1:
+        a = _digits_immediately_before(text, idx)
+        after = _digits_immediately_after(text, idx + len(" mod "))
+        if a is not None and after is not None:
+            return "mod", a, after[0]
+    return None
+
+
+def matrix_signal(text: str) -> tuple[MatrixOp, list[list[float]]] | None:
+    """ "determinant of [[1,2],[3,4]]" / "inverse of [[2,0],[1,3]]" -> (op,
+    rows). Only explicit [[...],[...]] bracket notation is recognized — a
+    best-effort structural match, not general NL parsing."""
+    lower = text.lower()
+    op: MatrixOp
+    if "determinant" in lower or "det(" in lower.replace(" ", ""):
+        op = "determinant"
+    elif "inverse" in lower:
+        op = "inverse"
+    else:
+        return None
+    start = text.find("[[")
+    if start == -1:
+        return None
+    end = text.find("]]", start)
+    if end == -1:
+        return None
+    body = text[start : end + 2].strip("[]")
+    rows: list[list[float]] = []
+    for row_text in body.split("],["):
+        cells = [c.strip() for c in row_text.strip("[]").split(",") if c.strip()]
+        if not cells:
+            return None
+        try:
+            rows.append([float(c) for c in cells])
+        except ValueError:
+            return None
+    if len(rows) < 2 or len(rows) > 4 or any(len(r) != len(rows) for r in rows):
+        return None
+    return op, rows
+
+
+_TRIANGLE_SIDES_PREFIXES = ("sides ", "side lengths ", "sides of ", "side lengths of ")
+
+
+def triangle_sides_signal(text: str) -> tuple[float, float, float] | None:
+    """ "triangle with sides 3, 4, 5" -> (3, 4, 5). Requires the word
+    "triangle" AND a "sides" cue immediately before 3 numbers, so a bare
+    "triangle" (handled by the existing base+height extractor) never matches."""
+    lower = text.lower()
+    if "triangle" not in lower:
+        return None
+    for prefix in _TRIANGLE_SIDES_PREFIXES:
+        idx = lower.find(prefix)
+        if idx == -1:
+            continue
+        nums = [m.group(0) for m in _NUM.finditer(text, idx + len(prefix))]
+        if len(nums) >= 3:
+            try:
+                return float(nums[0]), float(nums[1]), float(nums[2])
+            except ValueError:
+                return None
+    return None
+
+
 def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     cleaned = prepare(text)
     if cleaned is None:
@@ -518,7 +846,19 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
         or has_draw_shape(lower, "right triangle")
         or has_draw_shape(lower, "square")
         or has_draw_shape(lower, "circle")
+        or has_draw_shape(lower, "trapezoid")
+        or has_draw_shape(lower, "parallelogram")
     ):
+        return True
+    if "trapezoid" in lower or "trapezium" in lower:
+        return True
+    if "parallelogram" in lower:
+        return True
+    # "sector" alone is an ordinary English word ("the tech sector") far
+    # more often than a circle sector — require a geometry-context word too.
+    if "sector" in lower and any(k in lower for k in ("circle", "radius", "pie", "arc")):
+        return True
+    if triangle_sides_signal(cleaned) is not None:
         return True
     if has_image_attachment and has_math_keyword(lower):
         return True
@@ -545,5 +885,13 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     if "newton" in lower or "numerically" in lower or "root of" in lower:
         return True
     if "solve" in lower and has_equation(cleaned):
+        return True
+    if stats_signal(cleaned) is not None:
+        return True
+    if combinatorics_signal(cleaned) is not None:
+        return True
+    if number_theory_signal(cleaned) is not None:
+        return True
+    if matrix_signal(cleaned) is not None:
         return True
     return has_math_keyword(lower) and has_equation(cleaned)
