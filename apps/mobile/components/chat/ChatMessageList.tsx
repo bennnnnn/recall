@@ -1,4 +1,4 @@
-import { memo, ReactElement, RefObject, useMemo } from "react";
+import { memo, ReactElement, RefObject, useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import { FlashList, FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
 import { useTranslation } from "react-i18next";
@@ -7,6 +7,7 @@ import { HomeStarters } from "@/components/HomeStarters";
 import { SkeletonChatBubbles } from "@/components/SkeletonLoader";
 import { Message } from "@/lib/api";
 import {
+  beginStreamLayoutHold,
   messageListItemType,
   messageListKey,
 } from "@/lib/messageListLayout";
@@ -69,9 +70,29 @@ function ChatMessageListComponent({
   // Two bottom-pin writers (FlashList autoscroll + JS scrollToEnd) fought at
   // LLM burst boundaries → jitter. While streaming, disable native autoscroll
   // (threshold < 0) and let useChatScroll own pinning exclusively.
+  //
+  // That same fight reappears right as a stream ends: useChatScroll's own
+  // post-stream scrollToEnd is deliberately deferred by STREAM_LAYOUT_SETTLE_MS
+  // (matching MessageBubble's layout hold, which reveals full markdown +
+  // feedback icons over that same window and grows the row's height). If
+  // native autoscroll re-armed the instant `streamActive` flips false, it
+  // would fire off the pre-growth height, then the deferred scrollToEnd (or
+  // FlashList's own growth-triggered autoscroll) corrects again a moment
+  // later — a visible "falls, then snaps back". Keep native autoscroll
+  // suppressed through that settle window too, so the single deferred
+  // scrollToEnd is the sole writer for this transition as well.
+  const [autoscrollSuppressed, setAutoscrollSuppressed] = useState(streamActive);
+  useEffect(() => {
+    if (streamActive) {
+      setAutoscrollSuppressed(true);
+      return;
+    }
+    return beginStreamLayoutHold(setAutoscrollSuppressed);
+  }, [streamActive]);
+
   const maintainVisibleContentPosition = useMemo(
     () =>
-      streamActive
+      autoscrollSuppressed
         ? {
             disabled: false,
             autoscrollToBottomThreshold: -1,
@@ -82,7 +103,7 @@ function ChatMessageListComponent({
             autoscrollToBottomThreshold: 0.25,
             startRenderingFromBottom: true,
           },
-    [streamActive],
+    [autoscrollSuppressed],
   );
 
   return (
