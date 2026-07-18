@@ -80,9 +80,40 @@ describe("normalizeImplicitMath", () => {
     );
   });
 
-  it("does not double-wrap when the line already has dollar-delimited math", () => {
+  it("does not re-wrap inside existing $...$ but still wraps bare commands outside them", () => {
+    // A line that already has one `$...$` used to bail out of command wrapping
+    // entirely, leaving a leftover `\neq` / `\frac` raw on the same line
+    // (e.g. after Cancel $\frac{m}{m}$ (since m \neq 0)). Only non-$ segments
+    // should get wrapped.
     const input = "We have $x = 2$ and also mention \\frac{1}{2} here.";
-    expect(normalizeImplicitMathInProse(input)).toBe(input);
+    expect(normalizeImplicitMathInProse(input)).toBe(
+      "We have $x = 2$ and also mention $\\frac{1}{2}$ here.",
+    );
+  });
+
+  it("BUG FIX regression: wraps (since m \\neq 0) — LaTeX cmd letters are not English prose", () => {
+    // "neq" inside `\neq` used to count as a 3-letter word alongside "since",
+    // so looksLikeProseParenthetical rejected the whole paren and left `\neq`
+    // raw on screen.
+    const input = "Cancel (\\frac{m}{m}) (since m \\neq 0) to get (1 = 2m).";
+    const out = normalizeImplicitMathInProse(input);
+    expect(out).toContain("$\\frac{m}{m}$");
+    // Whole parenthetical wraps (including the leading "since") so `\neq`
+    // lands inside `$...$` and renders — not left as raw backslash text.
+    expect(out).toContain("$since m \\neq 0$");
+    expect(out).toContain("$1 = 2m$");
+    expect(out).not.toMatch(/\(since m \\neq 0\)/);
+  });
+
+  it("BUG FIX regression: wraps a nested-frac parenthetical as one math span", () => {
+    // Multiple `\frac` letter-runs used to trip the prose heuristic so the
+    // outer `(...)` never wrapped and wrapInlineLatexCommands shredded it.
+    const input =
+      "(\\frac{\\frac{1}{2}}{\\frac{1}{2}} = \\frac{1}{2} \\div \\frac{1}{2} = 1)";
+    const out = normalizeImplicitMathInProse(input);
+    expect(out).toBe(
+      "$\\frac{\\frac{1}{2}}{\\frac{1}{2}} = \\frac{1}{2} \\div \\frac{1}{2} = 1$",
+    );
   });
 
   it("still wraps a genuine bare equation line with no markdown emphasis", () => {
