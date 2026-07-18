@@ -18,7 +18,11 @@ import {
   registerChatRemover,
   subscribeChatTitleGenerating,
 } from "@/lib/drawer";
-import { emptyChatList, insertChatIntoGroups } from "@/lib/drawerChatList";
+import {
+  drawerChatFetchMode,
+  emptyChatList,
+  insertChatIntoGroups,
+} from "@/lib/drawerChatList";
 import { api, Chat, ChatList } from "@/lib/api";
 import { scheduleIdleTask } from "@/lib/scheduleIdle";
 
@@ -28,7 +32,9 @@ type Params = {
 };
 
 export function useDrawerChatList({ token, isDrawerOpen }: Params) {
-  const [loading, setLoading] = useState(true);
+  // Idle until the drawer opens — ConversationList mounts with the chat
+  // screen, so an eager true would spin before the user ever opens history.
+  const [loading, setLoading] = useState(false);
   const [groups, setGroups] = useState<ChatList>(emptyChatList);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
@@ -42,6 +48,7 @@ export function useDrawerChatList({ token, isDrawerOpen }: Params) {
   const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const lastFetchedRef = useRef(0);
+  const hasLoadedOnceRef = useRef(false);
   const [, setTitlePendingTick] = useState(0);
 
   const allChats = useMemo(() => activeChatsFromGroups(groups), [groups]);
@@ -83,6 +90,7 @@ export function useDrawerChatList({ token, isDrawerOpen }: Params) {
           archived: chatGroups.archived ?? [],
         });
         lastFetchedRef.current = Date.now();
+        hasLoadedOnceRef.current = true;
       } catch {
         if (!background) setError(true);
       } finally {
@@ -105,15 +113,20 @@ export function useDrawerChatList({ token, isDrawerOpen }: Params) {
   }, [token, load]);
 
   useEffect(() => {
-    load(false);
-  }, [load]);
-
-  useEffect(() => {
-    if (!isDrawerOpen) return;
-    const stale =
-      Date.now() - lastFetchedRef.current > CHAT_LIST_STALE_MS ||
-      allChats.length === 0;
-    if (!stale) return;
+    const mode = drawerChatFetchMode({
+      isDrawerOpen,
+      hasToken: Boolean(token),
+      hasLoadedOnce: hasLoadedOnceRef.current,
+      lastFetchedAt: lastFetchedRef.current,
+      chatCount: allChats.length,
+      now: Date.now(),
+      staleMs: CHAT_LIST_STALE_MS,
+    });
+    if (mode === "skip") return;
+    if (mode === "full") {
+      void load(false);
+      return;
+    }
 
     let cancelled = false;
     const cancelIdle = scheduleIdleTask(() => {
@@ -123,7 +136,7 @@ export function useDrawerChatList({ token, isDrawerOpen }: Params) {
       cancelled = true;
       cancelIdle();
     };
-  }, [isDrawerOpen, load, allChats.length]);
+  }, [isDrawerOpen, token, load, allChats.length]);
 
   const patchChatInGroups = useCallback((chatId: string, patch: Partial<Chat>) => {
     setGroups((prev) => patchChatListGroups(prev, chatId, patch));
