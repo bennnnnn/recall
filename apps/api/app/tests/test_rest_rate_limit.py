@@ -11,7 +11,7 @@ from app.main import create_app
 
 def test_client_key_uses_user_from_bearer():
     settings = Settings(jwt_secret="super-secret-key-that-is-at-least-32-chars!!")
-    from app.gateways.google_auth import create_access_token
+    from app.core.access_tokens import create_access_token
 
     user_id = uuid4()
     token = create_access_token(user_id, settings)

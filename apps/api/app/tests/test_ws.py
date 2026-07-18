@@ -7,9 +7,9 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.access_tokens import create_access_token
 from app.core.config import Settings
 from app.exceptions import ChatNotFoundError, QuotaExceededError
-from app.gateways.google_auth import create_access_token
 from app.main import create_app
 from app.services.quota import QUOTA_EXCEEDED_MESSAGE
 

@@ -75,6 +75,9 @@ export function isWebViewAvailable(): boolean {
   return getPreviewWebView() != null;
 }
 
+/** Inline `source={{ html }}` previews — navigation guard + CSP do the real work. */
+export const STATIC_HTML_ORIGIN_WHITELIST: string[] = ["about:blank"];
+
 /**
  * React wiring for {@link createStaticOnlyNavigationGuard}: pass the HTML
  * string (or other value identifying "new content") as `sourceKey` so a

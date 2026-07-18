@@ -13,7 +13,11 @@ import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { CODE_FONT } from "@/lib/fonts";
 import { injectPreviewCsp, inlineScript } from "@/lib/previewSandbox";
 import { Theme, useTheme } from "@/lib/theme";
-import { getPreviewWebView, useStaticOnlyNavigation } from "@/lib/webView";
+import {
+  getPreviewWebView,
+  STATIC_HTML_ORIGIN_WHITELIST,
+  useStaticOnlyNavigation,
+} from "@/lib/webView";
 import { MERMAID_MIN_JS } from "@/lib/vendor/mermaidMinJs";
 
 type Props = { content: string };
@@ -96,7 +100,7 @@ export function MermaidBlock({ content }: Props) {
         canMount ? (
           <View style={s.webWrap}>
             <WebView
-              originWhitelist={["*"]}
+              originWhitelist={STATIC_HTML_ORIGIN_WHITELIST}
               source={source}
               scrollEnabled={false}
               style={s.webview}

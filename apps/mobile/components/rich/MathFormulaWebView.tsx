@@ -9,7 +9,11 @@ import {
 } from "@/lib/mathHtml";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { CODE_FONT } from "@/lib/fonts";
-import { getPreviewWebView, useStaticOnlyNavigation } from "@/lib/webView";
+import {
+  getPreviewWebView,
+  STATIC_HTML_ORIGIN_WHITELIST,
+  useStaticOnlyNavigation,
+} from "@/lib/webView";
 import { Theme, useTheme } from "@/lib/theme";
 import {
   clampMathWebViewHeight,
@@ -142,7 +146,7 @@ export const MathFormulaWebView = React.memo(function MathFormulaWebView({
   return (
     <View style={[s.wrap, compact ? s.wrapCompact : null, displayMode ? s.wrapBlock : null]}>
       <WebView
-        originWhitelist={["*"]}
+        originWhitelist={STATIC_HTML_ORIGIN_WHITELIST}
         source={source}
         style={{ height, backgroundColor: "transparent" }}
         scrollEnabled={false}

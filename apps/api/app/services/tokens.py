@@ -21,8 +21,9 @@ import jwt
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.access_tokens import create_access_token
 from app.core.config import Settings
-from app.gateways.google_auth import GoogleAuthError, create_access_token
+from app.gateways.google_auth import GoogleAuthError
 from app.models.schemas import UserOut
 from app.repositories import users as users_repo
 

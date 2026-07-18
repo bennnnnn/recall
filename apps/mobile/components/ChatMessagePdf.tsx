@@ -17,7 +17,11 @@ import { downloadChatAttachment } from "@/lib/downloadChatAttachment";
 import { fetchAttachmentBase64 } from "@/lib/fetchAttachmentBytes";
 import { buildPdfPreviewHtml } from "@/lib/pdfPreviewHtml";
 import { Theme, useTheme } from "@/lib/theme";
-import { getPreviewWebView, useStaticOnlyNavigation } from "@/lib/webView";
+import {
+  getPreviewWebView,
+  STATIC_HTML_ORIGIN_WHITELIST,
+  useStaticOnlyNavigation,
+} from "@/lib/webView";
 
 type Props = {
   attachmentId?: string | null;
@@ -118,7 +122,7 @@ export function ChatMessagePdf({
       {!compact && canRenderInline && WebView && previewHtml ? (
         <Pressable style={s.previewWrap} onPress={() => setViewerOpen(true)}>
           <WebView
-            originWhitelist={["*"]}
+            originWhitelist={STATIC_HTML_ORIGIN_WHITELIST}
             source={{ html: previewHtml }}
             scrollEnabled={false}
             style={s.previewWeb}
@@ -228,7 +232,7 @@ function AttachmentPdfViewer({
             <Text style={s.error}>Could not preview this PDF.</Text>
           ) : (
             <WebView
-              originWhitelist={["*"]}
+              originWhitelist={STATIC_HTML_ORIGIN_WHITELIST}
               source={{ html }}
               style={s.webview}
               javaScriptEnabled
