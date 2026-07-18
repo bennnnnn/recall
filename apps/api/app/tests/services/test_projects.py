@@ -640,6 +640,19 @@ async def test_load_daily_learning_summary_no_active_class():
 
 @pytest.mark.asyncio
 async def test_load_daily_learning_summary_trivia_label():
+    """A trivia project uses the 'general knowledge quiz' label (not
+    'vocabulary quiz'), and — like every other already-met-goal case in this
+    file (see test_load_daily_learning_summary_skips_completed_goal and
+    test_load_daily_learning_summary_complete_trivia_omits_vocabulary) —
+    still returns a non-empty summary line rather than going silent.
+
+    BUG FIX (stale assertion): this used to assert `block == ""` for an
+    already-met-goal trivia project, contradicting the two sibling tests
+    above that cover the identical scenario and correctly expect a
+    "daily goal complete" line — `load_daily_learning_summary_for_prompt`
+    has never gone silent in that case; it always renders either the
+    incomplete-lines or the complete-lines summary.
+    """
     session = AsyncMock()
     user = MagicMock()
     user.id = uuid4()
@@ -666,7 +679,12 @@ async def test_load_daily_learning_summary_trivia_label():
             session, user, Settings()
         )
 
-    assert block == ""
+    assert "World History" in block
+    assert "general knowledge quiz" in block
+    assert "daily goal complete" in block
+    assert "8/5" in block
+    assert "vocabulary quiz):" not in block.lower()
+    assert "Do not mention vocabulary quiz" in block
 
 
 @pytest.mark.asyncio
