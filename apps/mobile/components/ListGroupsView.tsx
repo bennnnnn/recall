@@ -382,18 +382,18 @@ function makeStyles(C: Theme) {
       gap: 8,
       minWidth: 0,
     },
+    // Named list titles are primary labels (same role as Learning card titles /
+    // reminder body text) — not muted section captions.
     sectionTitle: {
       flex: 1,
-      fontSize: 12,
+      fontSize: 16,
       fontWeight: "700",
-      color: C.textTertiary,
-      textTransform: "uppercase",
-      letterSpacing: 0.6,
+      color: C.text,
     },
     sectionCount: {
       fontSize: 13,
       fontWeight: "500",
-      color: C.textTertiary,
+      color: C.textSecondary,
       fontVariant: ["tabular-nums"],
     },
     groupBody: {

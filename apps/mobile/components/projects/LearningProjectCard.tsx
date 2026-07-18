@@ -192,7 +192,7 @@ function makeStyles(theme: Theme) {
       gap: 2,
     },
     headerTitle: {
-      fontSize: 17,
+      fontSize: 16,
       fontWeight: "700",
       color: theme.text,
     },
