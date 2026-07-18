@@ -1,8 +1,9 @@
 import asyncio
 from datetime import UTC, datetime
+from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import SessionLocal
@@ -11,14 +12,14 @@ from app.models.orm import Chat, Message
 TITLE_MATCH_LIMIT = 50
 
 
-def _trgm_match(column, query: str):
+def _trgm_match(column: Any, query: str) -> ColumnElement[bool]:
     """pg_trgm `%` operator — uses GIN trigram indexes on title/content."""
-    return column.op("%")(query)
+    return cast(ColumnElement[bool], column.op("%")(query))
 
 
 async def search_conversations(
     session: AsyncSession, user_id: UUID, query: str, limit: int = 20, offset: int = 0
-) -> tuple[list[dict], int]:
+) -> tuple[list[dict[str, Any]], int]:
     """Search chat titles and message bodies, merged by recency."""
     q = query.strip()
     if not q:
@@ -80,7 +81,7 @@ async def search_conversations(
             result = await s.execute(title_stmt)
             return list(result.scalars().all())
 
-    async def _message_chat_ids() -> set:
+    async def _message_chat_ids() -> set[UUID]:
         async with SessionLocal() as s:
             result = await s.scalars(msg_chat_ids_stmt)
             return set(result.all())
@@ -93,7 +94,7 @@ async def search_conversations(
     title_only = [chat for chat in title_chats if chat.id not in message_chat_ids_set]
     total = message_total + len(title_only)
 
-    results: list[dict] = []
+    results: list[dict[str, Any]] = []
     for row in msg_rows:
         results.append(
             {
