@@ -419,7 +419,7 @@
   "projects.delete_title": "Удалить «{{title}}»?",
   "projects.detail": "Обучение",
   "projects.detail.day_progress": "{{day}}: {{done}} of {{goal}}",
-  "projects.empty_body": "Нажмите +, чтобы добавить английский словарь или общие знания.",
+  "projects.empty_body": "Добавьте английский словарь или общие знания, чтобы начать.",
   "projects.empty_title": "Пока нет обучения",
   "projects.encourage": "Продолжайте — попробуйте добавить ещё {{count}} слов на вашем уровне!",
   "projects.english_topics.grammar": "Grammar",
