@@ -11,7 +11,7 @@ import {
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
 import { AttachmentImageViewer } from "@/components/AttachmentImageViewer";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuthToken } from "@/contexts/AuthContext";
 import { getApiUrl } from "@/lib/config";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -96,7 +96,7 @@ export function ChatMessageImage({
   fileName,
   animatedReveal = true,
 }: Props) {
-  const { token } = useAuth();
+  const token = useAuthToken();
   const C = useTheme();
   const { width, height } = useThumbnailSize();
   const s = useMemo(() => makeStyles(C, width, height), [C, width, height]);
