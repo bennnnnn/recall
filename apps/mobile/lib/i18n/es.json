@@ -46,6 +46,7 @@
   "chat.delete_failed": "No se pudo eliminar este chat.",
   "chat.deleted_toast": "Chat eliminado",
   "chat.edit_message_a11y": "Editar mensaje",
+  "chat.user_message_actions_hint": "Mantén pulsado para copiar y editar",
   "chat.edit_no_attachments": "Por ahora, las ediciones son solo de texto.",
   "chat.editing_message": "Editando mensaje — envía para volver a ejecutar desde aquí",
   "chat.email_card_body_placeholder": "Email body",

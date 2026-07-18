@@ -46,6 +46,7 @@
   "chat.delete_failed": "Bu sohbet silinemedi.",
   "chat.deleted_toast": "Sohbet silindi",
   "chat.edit_message_a11y": "Mesajı düzenle",
+  "chat.user_message_actions_hint": "Kopyalamak ve düzenlemek için basılı tutun",
   "chat.edit_no_attachments": "Düzenlemeler şimdilik yalnızca metin.",
   "chat.editing_message": "Mesaj düzenleniyor — buradan yeniden çalıştırmak için gönder",
   "chat.email_card_body_placeholder": "Email body",

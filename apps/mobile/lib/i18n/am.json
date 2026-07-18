@@ -46,6 +46,7 @@
   "chat.delete_failed": "ይህን ውይይት መሰረዝ አልተቻለም።",
   "chat.deleted_toast": "ውይይት ተሰርዟል",
   "chat.edit_message_a11y": "መልእክት አርትዕ",
+  "chat.user_message_actions_hint": "ለመቅዳት እና ለማርትዕ ረጅም ይጫኑ",
   "chat.edit_no_attachments": "አርትዖቶች ለጊዜው ጽሑፍ ብቻ ናቸው።",
   "chat.editing_message": "መልእክት በመስተካከል ላይ — ከዚህ በኋላ እንደገና ለመስራት ላክ",
   "chat.email_card_body_placeholder": "Email body",

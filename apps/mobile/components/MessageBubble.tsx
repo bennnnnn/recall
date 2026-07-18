@@ -22,10 +22,11 @@ import { Message } from "@/lib/api";
 import { extractPrimaryCopyText } from "@/lib/copyBlock";
 import { exportMessageAsPdf } from "@/lib/exportMessagePdf";
 import { isShareCancelled } from "@/lib/exportPdf";
-import { notifySuccess, notifyWarning, tap } from "@/lib/haptics";
+import { notifySuccess, notifyWarning, selection, tap } from "@/lib/haptics";
 import { SENDING_LABEL_DELAY_MS } from "@/lib/chatMessageLogic";
 import { useAssistantMessageContent } from "@/hooks/useAssistantMessageContent";
 import { useStreamLayoutHold } from "@/hooks/useStreamLayoutHold";
+import { parseUserMessageContent } from "@/lib/messageAttachments";
 import { shouldShowWaitingIndicator, useRotatingStreamStatus } from "@/lib/streamStatusLabel";
 import { Theme, useTheme } from "@/lib/theme";
 import { speakPlainText, stopSpeaking } from "@/lib/pronunciation";
@@ -55,6 +56,66 @@ type Props = {
 
 async function copyText(text: string) {
   await Clipboard.setStringAsync(text);
+}
+
+function userMessageCopyText(content: string): string {
+  const caption = parseUserMessageContent(content).caption.trim();
+  return caption || content.trim();
+}
+
+function UserActions({
+  content,
+  onEdit,
+  theme,
+}: {
+  content: string;
+  onEdit?: () => void;
+  theme: Theme;
+}) {
+  const { t } = useTranslation();
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    if (!content.trim()) return;
+    tap();
+    await copyText(content);
+    setCopied(true);
+    notifySuccess();
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  return (
+    <View style={a.userRow}>
+      <Pressable
+        style={a.btn}
+        onPress={() => void handleCopy()}
+        hitSlop={8}
+        disabled={!content.trim()}
+        accessibilityRole="button"
+        accessibilityLabel={t("common.copy")}
+      >
+        <Ionicons
+          name={copied ? "checkmark-outline" : "copy-outline"}
+          size={19}
+          color={copied ? theme.primary : theme.textSecondary}
+        />
+      </Pressable>
+      {onEdit ? (
+        <Pressable
+          style={a.btn}
+          onPress={() => {
+            tap();
+            onEdit();
+          }}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={t("chat.edit_message_a11y")}
+        >
+          <Ionicons name="pencil-outline" size={19} color={theme.textSecondary} />
+        </Pressable>
+      ) : null}
+    </View>
+  );
 }
 
 function AssistantActions({
@@ -238,6 +299,7 @@ export const MessageBubble = React.memo(function MessageBubble({
   const { t } = useTranslation();
   const b = useMemo(() => makeStyles(theme), [theme]);
   const [showSendingLabel, setShowSendingLabel] = useState(false);
+  const [showUserActions, setShowUserActions] = useState(false);
   const isUser = message.role === "user";
   const holdStreamLayout = useStreamLayoutHold({
     isGenerating,
@@ -246,6 +308,9 @@ export const MessageBubble = React.memo(function MessageBubble({
   });
   const isStreaming = isGenerating;
   const layoutFrozen = isStreaming || holdStreamLayout;
+  const userCopyText = isUser ? userMessageCopyText(message.content) : "";
+  const canShowEdit = Boolean(canEdit && onEdit && !message.id.startsWith("local-"));
+  const canRevealUserActions = isUser && (userCopyText.length > 0 || canShowEdit);
 
   useEffect(() => {
     if (!isSending) {
@@ -255,6 +320,10 @@ export const MessageBubble = React.memo(function MessageBubble({
     const timer = setTimeout(() => setShowSendingLabel(true), SENDING_LABEL_DELAY_MS);
     return () => clearTimeout(timer);
   }, [isSending]);
+
+  useEffect(() => {
+    setShowUserActions(false);
+  }, [message.id, canShowEdit]);
 
   const assistant = useAssistantMessageContent({
     message,
@@ -306,20 +375,38 @@ export const MessageBubble = React.memo(function MessageBubble({
     <View style={[b.row, isUser ? b.userRow : b.assistantRow, highlighted && b.rowHighlighted]}>
       {isUser ? (
         <View style={b.userColumn}>
-          <UserMessageContent message={message} />
+          <Pressable
+            onLongPress={() => {
+              if (!canRevealUserActions) return;
+              selection();
+              setShowUserActions(true);
+            }}
+            onPress={() => {
+              if (showUserActions) setShowUserActions(false);
+            }}
+            delayLongPress={350}
+            accessibilityHint={
+              canRevealUserActions ? t("chat.user_message_actions_hint") : undefined
+            }
+          >
+            <UserMessageContent message={message} />
+          </Pressable>
           {showSendingLabel ? (
             <Text style={b.sendingLabel}>{t("chat.sending")}</Text>
           ) : null}
-          {canEdit && onEdit && !message.id.startsWith("local-") ? (
-            <Pressable
-              style={b.editBtn}
-              onPress={() => onEdit(message)}
-              hitSlop={14}
-              accessibilityRole="button"
-              accessibilityLabel={t("chat.edit_message_a11y")}
-            >
-              <Ionicons name="pencil-outline" size={16} color={theme.textTertiary} />
-            </Pressable>
+          {showUserActions ? (
+            <UserActions
+              content={userCopyText}
+              onEdit={
+                canShowEdit
+                  ? () => {
+                      setShowUserActions(false);
+                      onEdit?.(message);
+                    }
+                  : undefined
+              }
+              theme={theme}
+            />
           ) : null}
         </View>
       ) : (
@@ -415,6 +502,14 @@ const a = StyleSheet.create({
     marginTop: 4,
     marginLeft: 2,
   },
+  userRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 2,
+    marginTop: 4,
+    marginRight: 2,
+  },
   rowHidden: {
     opacity: 0,
   },
@@ -443,7 +538,6 @@ function makeStyles(t: Theme) {
       fontSize: 13,
       color: t.textTertiary,
     },
-    editBtn: { marginTop: 2, marginRight: 4, padding: 4 },
     assistantRow: { alignItems: "stretch" },
     assistantBubble: {
       maxWidth: "100%",

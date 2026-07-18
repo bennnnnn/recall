@@ -46,6 +46,7 @@
   "chat.delete_failed": "Chat konnte nicht gelöscht werden.",
   "chat.deleted_toast": "Chat gelöscht",
   "chat.edit_message_a11y": "Nachricht bearbeiten",
+  "chat.user_message_actions_hint": "Gedrückt halten zum Kopieren und Bearbeiten",
   "chat.edit_no_attachments": "Bearbeitungen sind vorerst nur Text.",
   "chat.editing_message": "Nachricht bearbeiten — senden, um ab hier neu auszuführen",
   "chat.email_card_body_placeholder": "Email body",

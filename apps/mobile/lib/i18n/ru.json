@@ -46,6 +46,7 @@
   "chat.delete_failed": "Не удалось удалить этот чат.",
   "chat.deleted_toast": "Чат удалён",
   "chat.edit_message_a11y": "Редактировать сообщение",
+  "chat.user_message_actions_hint": "Удерживайте, чтобы скопировать или изменить",
   "chat.edit_no_attachments": "Редактирование пока только текста.",
   "chat.editing_message": "Редактирование сообщения — отправьте, чтобы перезапустить отсюда",
   "chat.email_card_body_placeholder": "Email body",
