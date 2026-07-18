@@ -4,6 +4,7 @@ import { StyleSheet, Text } from "react-native";
 import { CODE_FONT } from "@/lib/fonts";
 import { fixImplicitExponents } from "@/lib/normalizeImplicitMath";
 import { parseSimpleLatex, segmentsToPlain, type MathSegment } from "@/lib/mathText";
+import { unicodeFractionGlyph } from "@/lib/unicodeFraction";
 import { toSubscript, toSuperscript } from "@/lib/unicodeSupSub";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -51,33 +52,20 @@ function renderSegments(
       // Deliberately single-line — never stack numerator/denominator across
       // two rows with an embedded "\n". React Native's Text layout doesn't
       // grow the *surrounding* paragraph's line height to fit a taller
-      // nested multi-line run, so a stacked fraction only looks right when
-      // it's the sole content of its own block (MathBlock's display-math
-      // case); inline among sibling prose/other fractions (numbered steps,
-      // "you can check" bullets, a plain "3/4 + 1/6") the stack overlapped
-      // the text immediately above and below it.
+      // nested multi-line run, so the stack overlapped adjacent prose
+      // whenever the fraction wasn't alone on its line.
+      //
+      // Unicode guidance (precomposed vulgar + FRACTION SLASH U+2044):
+      // prefer ½, else ¹¹⁄₁₂ — never a box-drawing bar between raised/
+      // lowered chars ("¹─₂"), which does not read as a fraction.
       const numPlain = segmentsToPlain(seg.num);
       const denPlain = segmentsToPlain(seg.den);
-      const numUni = toSuperscript(numPlain);
-      const denUni = toSubscript(denPlain);
-      if (numUni && denUni) {
-        // A straight horizontal bar between the raised numerator and lowered
-        // denominator, not the diagonal Unicode fraction slash ("⁄") — a
-        // real fraction's dividing line is horizontal, and a diagonal slash
-        // there reads as a division sign, not a written fraction.
-        return (
-          <Text key={key}>
-            {numUni}
-            <Text style={styles.fracBar}>─</Text>
-            {denUni}
-          </Text>
-        );
+      const glyph = unicodeFractionGlyph(numPlain, denPlain);
+      if (glyph) {
+        return <Text key={key}>{glyph}</Text>;
       }
-      // Numerator/denominator too complex for Unicode super/subscript
-      // digits (nested fractions, roots, multi-term expressions, …) — fall
-      // back to plain-size text on one line, parenthesizing anything that
-      // isn't a single atomic token so "a+b/c+d" can't be misread as
-      // "a + (b/c) + d".
+      // Letters / nested / multi-term — plain solidus at normal size
+      // (readable "m/m", not superscript-m + bar + subscript-m).
       const numNode = isAtomicToken(numPlain) ? (
         renderSegments(seg.num, `${key}-n`, styles)
       ) : (
@@ -143,16 +131,9 @@ const makeStyles = (theme: Theme, textColor?: string) => {
       lineHeight: 18,
       color,
     },
-    // Single-line fraction slash — never a two-row stack (see the "frac"
-    // case in renderSegments above for why).
+    // Single-line solidus for letter/complex fractions — never a two-row
+    // stack (see the "frac" case in renderSegments above for why).
     fracSlash: {
-      color,
-      marginHorizontal: 1,
-    },
-    // Straight horizontal bar between a raised numerator and lowered
-    // denominator (the simple-digit fraction case) — see the "frac" case in
-    // renderSegments above for why it's not the diagonal fraction slash.
-    fracBar: {
       color,
       marginHorizontal: 1,
     },

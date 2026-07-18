@@ -12,6 +12,9 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Inline fractions looked like `¹─₂` / `ᵐ─ₘ`.** MathText used Unicode super/sub plus a
+  box-drawing bar (─) — not a fraction. Unicode’s approach: precomposed vulgar (½) or
+  superscript + FRACTION SLASH (U+2044) + subscript (¹¹⁄₁₂); letter fracs use plain `m/m`.
 - **Raw `(\frac{...})` inline math on screen.** Model `\(...\)` survived preprocess, then
   CommonMark escaped `\(`/`\)` to bare parens before `splitInlineMath` — MathText never
   ran. Also `looksLikeProseParenthetical` counted `\neq`/`\frac` letter-runs as English.

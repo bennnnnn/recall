@@ -21,19 +21,24 @@ describe("MathText", () => {
     expect(toJSON()).toBeNull();
   });
 
-  it("renders a simple numeric fraction as raised/lowered Unicode digits, single line", async () => {
-    // BUG FIX regression: the old renderer stacked numerator/denominator
-    // across two rows via a "\n" inside a nested Text — React Native
-    // doesn't grow the *surrounding* paragraph's line height for that, so
-    // the stack visually overlapped whatever text came before/after it
-    // whenever the fraction wasn't the only thing on its line (reported
-    // live: "3/4 = 9/12 and 1/6 = 2/12" read as a jumbled column of
-    // numbers). Simple digit fractions now render on one line as raised/
-    // lowered Unicode digits either side of a straight horizontal bar (not
-    // the diagonal Unicode fraction slash — a real fraction's dividing line
-    // is horizontal, not a division-sign-style slash).
+  it("renders 1/2 as the precomposed vulgar fraction glyph", async () => {
+    // Reported live: "¹─₂" (super + box-drawing bar + sub) does not read as
+    // a fraction. Unicode's answer for common values is a single vulgar
+    // glyph (½); for other digit pairs, superscript + FRACTION SLASH +
+    // subscript (¹¹⁄₁₂).
+    const { getByText } = await render(<MathText latex={"\\frac{1}{2}"} />);
+    expect(getByText("½")).toBeOnTheScreen();
+  });
+
+  it("renders other simple digit fractions with Unicode fraction slash, single line", async () => {
     const { getByText } = await render(<MathText latex={"\\frac{11}{12}"} />);
-    expect(getByText("¹¹─₁₂")).toBeOnTheScreen();
+    expect(getByText("¹¹⁄₁₂")).toBeOnTheScreen();
+  });
+
+  it("renders letter fractions as plain solidus, not raised/lowered letters", async () => {
+    // `\frac{m}{m}` used to become ᵐ─ₘ via the super/sub+bar path — unreadable.
+    const { getByText } = await render(<MathText latex={"\\frac{m}{m}"} />);
+    expect(getByText("m/m")).toBeOnTheScreen();
   });
 
   it("renders a complex fraction (non-digit numerator) on one line, parenthesized", async () => {
