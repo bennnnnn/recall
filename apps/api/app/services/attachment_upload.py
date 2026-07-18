@@ -17,6 +17,7 @@ from app.services.attachment_content import (
     IMAGE_CONTENT_TYPES,
     MAX_ATTACHMENT_SIZE,
     is_allowed_content_type,
+    is_image_content_type,
     normalize_content_type,
 )
 
@@ -91,3 +92,27 @@ async def create_presigned_upload(
         headers=presigned.headers,
         api_upload=presigned.api_upload,
     )
+
+
+async def cancel_pending_upload(
+    session: AsyncSession,
+    settings: Settings,
+    *,
+    user: User,
+    attachment_id: UUID,
+) -> None:
+    """Delete a pending upload's bytes/row and refund the image quota slot if any."""
+    row = await attachments_repo.get_by_id(session, attachment_id, user.id)
+    if row is None:
+        raise AttachmentUploadError("Not found", status_code=404)
+    if row.message_id is not None:
+        raise AttachmentUploadError(
+            "Attachment is already linked to a message",
+            status_code=409,
+        )
+
+    gateway = get_storage_gateway(settings)
+    await gateway.delete_bytes(row.storage_key)
+    await attachments_repo.delete_rows(session, [attachment_id])
+    if is_image_content_type(row.content_type):
+        await quota_service.refund_image_upload(get_redis_client(), user.id)

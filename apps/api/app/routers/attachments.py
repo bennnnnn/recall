@@ -20,6 +20,9 @@ from app.services.attachment_content import (
     is_image_content_type,
 )
 from app.services.attachment_upload import AttachmentUploadError, create_presigned_upload
+from app.services.attachment_upload import (
+    cancel_pending_upload as cancel_pending_upload_service,
+)
 
 router = APIRouter(prefix="/attachments", tags=["attachments"])
 
@@ -143,20 +146,15 @@ async def cancel_pending_upload(
     settings: Settings = Depends(get_settings_dep),
 ) -> None:
     """Cancel a pending upload and refund the daily image slot if one was reserved."""
-    row = await attachments_repo.get_by_id(session, attachment_id, user.id)
-    if row is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-    if row.message_id is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Attachment is already linked to a message",
+    try:
+        await cancel_pending_upload_service(
+            session,
+            settings,
+            user=user,
+            attachment_id=attachment_id,
         )
-
-    gateway = get_storage_gateway(settings)
-    await gateway.delete_bytes(row.storage_key)
-    await attachments_repo.delete_rows(session, [attachment_id])
-    if is_image_content_type(row.content_type):
-        await quota_service.refund_image_upload(get_redis_client(), user.id)
+    except AttachmentUploadError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
 
 @router.post(

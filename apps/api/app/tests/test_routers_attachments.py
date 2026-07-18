@@ -240,17 +240,17 @@ def test_cancel_pending_upload_refunds_image_quota():
 
     with (
         patch(
-            "app.routers.attachments.attachments_repo.get_by_id",
+            "app.services.attachment_upload.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
         patch(
-            "app.routers.attachments.attachments_repo.delete_rows",
+            "app.services.attachment_upload.attachments_repo.delete_rows",
             AsyncMock(return_value=1),
         ),
-        patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
-        patch("app.routers.attachments.get_redis_client", return_value=fake_redis),
+        patch("app.services.attachment_upload.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachment_upload.get_redis_client", return_value=fake_redis),
         patch(
-            "app.routers.attachments.quota_service.refund_image_upload",
+            "app.services.attachment_upload.quota_service.refund_image_upload",
             refund_mock,
         ),
     ):
@@ -777,16 +777,19 @@ def test_cancel_still_allowed_when_attachments_disabled():
 
     with (
         patch(
-            "app.routers.attachments.attachments_repo.get_by_id",
+            "app.services.attachment_upload.attachments_repo.get_by_id",
             AsyncMock(return_value=row),
         ),
         patch(
-            "app.routers.attachments.attachments_repo.delete_rows",
+            "app.services.attachment_upload.attachments_repo.delete_rows",
             AsyncMock(return_value=1),
         ),
-        patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
-        patch("app.routers.attachments.get_redis_client", return_value=AsyncMock()),
-        patch("app.routers.attachments.quota_service.refund_image_upload", AsyncMock()),
+        patch("app.services.attachment_upload.get_storage_gateway", return_value=gateway),
+        patch("app.services.attachment_upload.get_redis_client", return_value=AsyncMock()),
+        patch(
+            "app.services.attachment_upload.quota_service.refund_image_upload",
+            AsyncMock(),
+        ),
     ):
         client = TestClient(app)
         r = client.delete(
