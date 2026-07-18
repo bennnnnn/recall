@@ -205,6 +205,7 @@ export const ChatComposer = memo(function ChatComposer({
                         accessibilityRole="button"
                         accessibilityLabel={t("chat.send_a11y")}
                         accessibilityHint={isOffline ? t("chat.offline_body") : undefined}
+                        accessibilityState={{ disabled: isOffline }}
                       >
                         <Text style={[s.sendIcon, isOffline && s.sendIconDisabled]}>↑</Text>
                       </Pressable>

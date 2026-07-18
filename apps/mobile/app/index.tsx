@@ -225,6 +225,10 @@ function ChatScreen() {
 
   const openUpgradeRef = useRef<(() => void) | null>(null);
 
+  const notifyOfflineBlocked = useCallback(() => {
+    showActionBannerRef.current(t("chat.offline_body"), "cloud-offline-outline");
+  }, [t]);
+
   const imageGen = useImageGeneration({
     token,
     chatId,
@@ -238,6 +242,7 @@ function ChatScreen() {
     isPro,
     isOffline,
     onOpenUpgrade: () => openUpgradeRef.current?.(),
+    onOfflineBlocked: notifyOfflineBlocked,
     onScrollToLatest: scroll.scrollToLatest,
     newMessageCountRef: scroll.newMessageCountRef,
     t,
@@ -263,6 +268,7 @@ function ChatScreen() {
     updateUser,
     t,
     onStreamBusy: handleStreamBusy,
+    onOfflineBlocked: notifyOfflineBlocked,
     isOffline,
     resolveQuizProjectId,
     isPro,

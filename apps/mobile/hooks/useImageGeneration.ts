@@ -4,10 +4,12 @@ import { useRouter } from "expo-router";
 
 import { api } from "@/lib/api";
 import { parseApiErrorDetail, resolveChatError } from "@/lib/chatErrorMessage";
+import { notifyWarning } from "@/lib/haptics";
 import {
   IMAGE_GEN_PENDING_ASSISTANT_ID,
   imageGenUserMessageContent,
 } from "@/lib/imageGenIntent";
+import { notifyOfflineSendBlocked } from "@/lib/offlineSendFeedback";
 
 type DraftChat = {
   prepareDraftChat: (
@@ -35,6 +37,7 @@ type Options = {
   isPro: boolean;
   isOffline: boolean;
   onOpenUpgrade: () => void;
+  onOfflineBlocked?: () => void;
   onScrollToLatest: () => void;
   newMessageCountRef: React.MutableRefObject<number>;
   t: (key: string) => string;
@@ -53,6 +56,7 @@ export function useImageGeneration({
   isPro,
   isOffline,
   onOpenUpgrade,
+  onOfflineBlocked,
   onScrollToLatest,
   newMessageCountRef,
   t,
@@ -96,7 +100,10 @@ export function useImageGeneration({
     async (prompt: string) => {
       if (!token || generating || streaming) return;
       if (isOffline) {
-        Alert.alert(t("chat.offline_title"), t("chat.offline_body"));
+        notifyOfflineSendBlocked({
+          warn: notifyWarning,
+          showToast: onOfflineBlocked,
+        });
         return;
       }
       setGenerating(true);
@@ -173,6 +180,7 @@ export function useImageGeneration({
       generating,
       streaming,
       isOffline,
+      onOfflineBlocked,
       ensureChatId,
       setMessages,
       newMessageCountRef,
