@@ -23,7 +23,7 @@ export type Theme = {
   accentLight: string;
   accentDark: string;
 
-  // Surfaces
+  // Surfaces — `bg` is the canvas wash; `surface` / `inputBg` are raised planes
   bg: string;
   surface: string;
   surfaceAlt: string;
@@ -85,25 +85,26 @@ export const lightTheme: Theme = {
   accentLight: "#E0E7FF",
   accentDark: "#4338CA",
 
-  bg: "#FFFFFF",
-  surface: "#FAFAFA",
-  surfaceAlt: "#F1F5F9",
-  border: "#E5E7EB",
+  // Canvas sits a step below white so composer / cards can float (depth).
+  bg: "#F4F4F5",
+  surface: "#FFFFFF",
+  surfaceAlt: "#E4E4E7",
+  border: "#E4E4E7",
 
   text: "#111827",
   textSecondary: "#6B7280",
   textTertiary: "#9CA3AF",
 
-  userBubble: "#FAFAFA",
+  userBubble: "#FFFFFF",
   userText: "#111827",
   assistantBubble: "#FFFFFF",
   assistantText: "#111827",
 
-  composerBg: "#FFFFFF",
-  composerBorder: "#E5E7EB",
+  composerBg: "#F4F4F5",
+  composerBorder: "#E4E4E7",
   inputBg: "#FFFFFF",
 
-  contentSurface: "#F8FAFC",
+  contentSurface: "#FFFFFF",
 
   danger: "#EF4444",
   dangerLight: "#FEE2E2",
@@ -133,25 +134,26 @@ export const darkTheme: Theme = {
   accentLight: "#21203D",
   accentDark: "#A5B4FC",
 
-  bg: "#212121",
-  surface: "#2F2F2F",
-  surfaceAlt: "#3A3A3A",
-  border: "#3A3A3A",
+  // Deeper canvas, raised surface — same hierarchy as light, inverted.
+  bg: "#1C1C1E",
+  surface: "#2C2C2E",
+  surfaceAlt: "#3A3A3C",
+  border: "#3A3A3C",
 
   text: "#ECECEC",
   textSecondary: "#B4B4B4",
   textTertiary: "#8E8E8E",
 
-  userBubble: "#2F2F2F",
+  userBubble: "#2C2C2E",
   userText: "#ECECEC",
-  assistantBubble: "#212121",
+  assistantBubble: "#1C1C1E",
   assistantText: "#ECECEC",
 
-  composerBg: "#2F2F2F",
-  composerBorder: "#3A3A3A",
-  inputBg: "#2F2F2F",
+  composerBg: "#1C1C1E",
+  composerBorder: "#3A3A3C",
+  inputBg: "#2C2C2E",
 
-  contentSurface: "#2A2A2A",
+  contentSurface: "#2C2C2E",
 
   danger: "#F87171",
   dangerLight: "#3A1F1E",

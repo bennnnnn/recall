@@ -1,5 +1,15 @@
 import { darkTheme, lightTheme, withAlpha } from "@/lib/theme";
 
+describe("surface hierarchy", () => {
+  it("keeps the canvas a step below raised white/surface so chrome can float", () => {
+    expect(lightTheme.bg).not.toBe(lightTheme.surface);
+    expect(lightTheme.bg).toBe(lightTheme.composerBg);
+    expect(lightTheme.inputBg).toBe(lightTheme.surface);
+    expect(darkTheme.bg).not.toBe(darkTheme.surface);
+    expect(darkTheme.inputBg).toBe(darkTheme.surface);
+  });
+});
+
 describe("withAlpha", () => {
   it("converts a 6-digit hex color to rgba with the given alpha", () => {
     expect(withAlpha("#2563EB", 0.5)).toBe("rgba(37, 99, 235, 0.5)");
