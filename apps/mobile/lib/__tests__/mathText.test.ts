@@ -10,7 +10,9 @@ describe("parseSimpleLatex", () => {
   it("handles pm and sqrt", () => {
     const segs = parseSimpleLatex(String.raw`x = \pm \sqrt{4}`);
     expect(segmentsToPlain(segs)).toContain("±");
-    expect(segmentsToPlain(segs)).toContain("√(4)");
+    // Radicand sits under a combining overline ("4̅"), not in parens — no
+    // parens needed since the bar itself delimits what's under the root.
+    expect(segmentsToPlain(segs)).toContain("√4̅");
   });
 
   it("parses fractions", () => {
@@ -42,8 +44,8 @@ describe("parseSimpleLatex", () => {
     expect(parseSimpleLatex(String.raw`\cfrac{a}{b}`).some((s) => s.type === "frac")).toBe(true);
   });
 
-  it("BUG FIX regression: nth-root \\sqrt[n]{x} renders as √[n](x), not raw", () => {
-    expect(segmentsToPlain(parseSimpleLatex(String.raw`\sqrt[3]{8}`))).toBe("√[3](8)");
+  it("BUG FIX regression: nth-root \\sqrt[n]{x} renders as √[n] with an overlined radicand, not raw", () => {
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\sqrt[3]{8}`))).toBe("√[3]8̅");
   });
 
   it("BUG FIX regression: uppercase Greek + calculus/set symbols render as unicode, not raw backslash", () => {

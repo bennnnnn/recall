@@ -180,4 +180,18 @@ describe("fixImplicitExponents", () => {
   it("converts x2 to x^2", () => {
     expect(fixImplicitExponents("x2+2=6")).toBe("x^2+2=6");
   });
+
+  it("BUG FIX regression: does not turn a command's trailing letter+digit into a false exponent", () => {
+    // Reported live: "x = \pm\sqrt{4}" simplifies to "x = \pm2" (model
+    // omits the space before the digit). The bare-variable exponent rule
+    // matched "m2" (the tail of "\pm" + the digit) the same as it would
+    // match "x2", rewriting it to "\pm^2" — which renders as "±²" ("plus or
+    // minus SQUARED") instead of "± 2", silently changing the answer.
+    expect(fixImplicitExponents("x = \\pm2")).toBe("x = \\pm2");
+    expect(fixImplicitExponents("x = \\pm 2")).toBe("x = \\pm 2");
+    // A real bare-variable exponent right after a command must still convert.
+    expect(fixImplicitExponents("x = \\pm x2")).toBe("x = \\pm x^2");
+    // Unaffected: genuine implicit exponents with no preceding command.
+    expect(fixImplicitExponents("x2 = 4")).toBe("x^2 = 4");
+  });
 });

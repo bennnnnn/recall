@@ -36,7 +36,14 @@ export function fixImplicitExponents(expr: string): string {
   let s = expr.trim();
   if (!s) return s;
 
-  s = s.replace(/([a-zA-Z])([0-9]+)(?=[+\-=)\]|,\s]|$)/g, "$1^$2");
+  // BUG FIX: the letter this rule looks at must be a bare variable (OCR's
+  // "x2" for "x²"), not the tail of a backslash command name — without the
+  // lookbehind, "\pm2" (a command with no space before its argument, e.g.
+  // "x = \pm2") matched on "m2" and became "\pm^2", which later renders as
+  // "±" with a superscript 2 ("±²") instead of "± 2" — silently changing
+  // what the answer says. Same risk for any command ending in a letter
+  // immediately followed by digits ("\log2", "\sin2", ...).
+  s = s.replace(/(?<!\\[a-zA-Z]*)([a-zA-Z])([0-9]+)(?=[+\-=)\]|,\s]|$)/g, "$1^$2");
   s = s.replace(/^(\d)(\d)(?=[+\-*/=])/, "$1^$2");
   s = s.replace(/(\s)(\d)(\d)(?=[+\-*/=])/g, "$1$2^$3");
   if (s.includes("±") && !s.includes("\\pm")) {
