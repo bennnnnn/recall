@@ -86,9 +86,7 @@ async def delete_memory_section(
     try:
         deleted = await memory_service.delete_memory_section(session, user.id, memory_type)
     except memory_service.MemoryWriteLockBusyError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=_LOCK_BUSY_DETAIL
-        ) from exc
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_LOCK_BUSY_DETAIL) from exc
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Memory not found")
 
@@ -102,9 +100,7 @@ async def delete_memory(
     try:
         deleted = await memory_service.delete_memory(session, user.id, memory_id)
     except memory_service.MemoryWriteLockBusyError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=_LOCK_BUSY_DETAIL
-        ) from exc
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_LOCK_BUSY_DETAIL) from exc
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Memory not found")
 
@@ -129,8 +125,6 @@ async def delete_memory_fact(
             session, settings, user.id, memory_id, fact_index, expected_text=fact_text
         )
     except memory_service.MemoryWriteLockBusyError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=_LOCK_BUSY_DETAIL
-        ) from exc
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_LOCK_BUSY_DETAIL) from exc
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Memory fact not found")

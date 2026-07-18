@@ -83,9 +83,7 @@ async def compress_chat_history(settings: Settings, chat_id: UUID) -> None:
                 }
                 for m in slice_msgs
             ]
-            new_summary = await summarize_conversation(
-                settings, chat.summary, transcript
-            )
+            new_summary = await summarize_conversation(settings, chat.summary, transcript)
             if not new_summary:
                 return
 

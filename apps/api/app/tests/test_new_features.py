@@ -46,7 +46,9 @@ def test_list_todos_returns_items():
 
     user = _fake_user()
     app = _app_with_user(user)
-    with patch("app.services.todos.crud.todos_repo.list_for_user", AsyncMock(return_value=[todo_mock])):
+    with patch(
+        "app.services.todos.crud.todos_repo.list_for_user", AsyncMock(return_value=[todo_mock])
+    ):
         client = TestClient(app)
         r = client.get("/todos", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 200
@@ -204,7 +206,9 @@ def test_create_todo_with_project_id():
     create_mock = AsyncMock(return_value=todo_mock)
     with (
         patch("app.services.todos.crud.todos_repo.create", create_mock),
-        patch("app.services.todos.crud.projects_repo.get_by_id", AsyncMock(return_value=project_mock)),
+        patch(
+            "app.services.todos.crud.projects_repo.get_by_id", AsyncMock(return_value=project_mock)
+        ),
         patch("app.services.todos.crud.home_service.invalidate_home_cache", AsyncMock()),
     ):
         client = TestClient(app)
@@ -293,7 +297,9 @@ def test_update_todo_project_id():
     with (
         patch("app.services.todos.crud.todos_repo.get_by_id", AsyncMock(return_value=todo_mock)),
         patch("app.services.todos.crud.todos_repo.update", update_mock),
-        patch("app.services.todos.crud.projects_repo.get_by_id", AsyncMock(return_value=project_mock)),
+        patch(
+            "app.services.todos.crud.projects_repo.get_by_id", AsyncMock(return_value=project_mock)
+        ),
         patch("app.services.todos.crud.home_service.invalidate_home_cache", AsyncMock()),
     ):
         client = TestClient(app)
