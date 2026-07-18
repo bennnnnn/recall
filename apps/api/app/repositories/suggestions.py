@@ -54,7 +54,7 @@ async def dismiss(session: AsyncSession, suggestion_id: UUID, user_id: UUID) -> 
     return True
 
 
-async def create_many(session: AsyncSession, user_id: UUID, items: list[dict]) -> None:
+async def create_many(session: AsyncSession, user_id: UUID, items: list[dict[str, Any]]) -> None:
     expires = datetime.now(UTC) + timedelta(days=7)
     for item in items:
         s = Suggestion(

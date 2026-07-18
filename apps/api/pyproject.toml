@@ -86,11 +86,22 @@ strict = false
 ignore_missing_imports = true
 files = ["app"]
 
-# Incremental strict: core first (config/db/redis/deps/jobs). Expand package
-# by package; do not flip global `strict` — in mypy <2.x, `strict = true` in
-# overrides leaks globally. Use the expanded --strict flags per module instead.
+# Incremental strict: expand package by package. Do not flip global `strict` —
+# in mypy <2.x, `strict = true` in overrides leaks globally. Use expanded
+# --strict flags per module instead.
 [[tool.mypy.overrides]]
-module = ["app.core", "app.core.*"]
+module = [
+    "app.core",
+    "app.core.*",
+    "app.exceptions",
+    "app.models.schemas",
+    "app.models.schemas.*",
+    "app.repositories",
+    "app.repositories.*",
+    "app.services.attachment_content",
+    "app.services.attachment_upload",
+    "app.services.quota",
+]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
 check_untyped_defs = true

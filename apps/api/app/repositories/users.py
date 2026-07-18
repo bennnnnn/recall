@@ -1,3 +1,4 @@
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import delete, select
@@ -64,7 +65,7 @@ async def create(
     return user
 
 
-async def update(session: AsyncSession, user: User, **fields) -> User:
+async def update(session: AsyncSession, user: User, **fields: Any) -> User:
     """Apply *fields* onto *user*.
 
     Keys present in *fields* are written as-is, including explicit ``None``
