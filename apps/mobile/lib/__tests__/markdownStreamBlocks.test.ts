@@ -108,4 +108,54 @@ describe("advanceStreamBlocks", () => {
   it("starts from a clean state helper", () => {
     expect(emptyStreamBlocksState()).toEqual({ chunks: [], settledText: "" });
   });
+
+  it(
+    "BUG FIX regression: cuts a chunk right after a short closed ```math " +
+      "fence instead of waiting for MIN_SETTLED_CHUNK_CHARS",
+    () => {
+      // Mirrors a real step-by-step math reply: each step's fence body is
+      // tiny (well under 320 chars), so under the old size-only threshold
+      // this whole segment stayed in the re-parsed-every-flush pending
+      // region — remounting the fence's KaTeX WebView on every flush — for
+      // as long as it took later steps to push the total past 320 chars.
+      const step =
+        "1. Subtract 2 from both sides:\n\n```math\nx^2 + 2 - 2 = 6 - 2\n```\n\nSimplify: x^2 = 4\n\n";
+      expect(step.length).toBeLessThan(MIN_SETTLED_CHUNK_CHARS);
+      const prepared = `${step}2. Take the square root:`;
+      const state = advanceStreamBlocks(null, prepared, prepared.length);
+
+      expect(state.chunks.length).toBeGreaterThanOrEqual(1);
+      expect(state.chunks[0]).toContain("```math");
+      expect(state.settledText.length).toBeLessThan(prepared.length);
+    },
+  );
+
+  it("still requires a closed fence, not just any short blank-separated text, to cut early", () => {
+    // Plain prose with no rich block keeps the existing size-based batching
+    // — only a fence/math block should bypass MIN_SETTLED_CHUNK_CHARS.
+    const prepared = "Short.\n\nAlso short.\n\ntail";
+    expect(prepared.length).toBeLessThan(MIN_SETTLED_CHUNK_CHARS);
+    const state = advanceStreamBlocks(null, prepared, prepared.length);
+
+    expect(state.chunks).toHaveLength(0);
+  });
+
+  it("cuts eagerly after a short closed $$ display-math block too", () => {
+    const prepared = "Here:\n\n$$x^2 = 4$$\n\nDone.\n\ntail";
+    expect(prepared.length).toBeLessThan(MIN_SETTLED_CHUNK_CHARS);
+    const state = advanceStreamBlocks(null, prepared, prepared.length);
+
+    expect(state.chunks.length).toBeGreaterThanOrEqual(1);
+    expect(state.chunks[0]).toContain("$$x^2 = 4$$");
+  });
+
+  it("never cuts inside an open fence/math even with the eager rich-block path", () => {
+    const prepared = "```math\nx = 1\n\ny = 2\n```\n\ntail";
+    const state = advanceStreamBlocks(null, prepared, prepared.length);
+
+    for (const chunk of state.chunks) {
+      const fenceMarkers = chunk.match(/^```/gm)?.length ?? 0;
+      expect(fenceMarkers % 2).toBe(0);
+    }
+  });
 });
