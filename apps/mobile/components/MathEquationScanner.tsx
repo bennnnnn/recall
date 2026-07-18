@@ -17,12 +17,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import type { PendingAttachment } from "@/lib/attachments";
+import {
+  clampScanRegion,
+  defaultScanRegion,
+  regionToImageCrop,
+  scaleScanRegion,
+  translateScanRegion,
+  type ScanRegion,
+} from "@/lib/mathScannerRegion";
 import { Theme, useTheme } from "@/lib/theme";
-
-/** Default fraction of preview height used as the equation scan band. */
-const DEFAULT_BAND_HEIGHT_RATIO = 0.22;
-const MIN_BAND_HEIGHT_RATIO = 0.1;
-const MAX_BAND_HEIGHT_RATIO = 0.7;
 
 type Props = {
   visible: boolean;
@@ -30,39 +33,45 @@ type Props = {
   onCaptured: (pending: PendingAttachment) => void;
 };
 
-function clampBandRatio(ratio: number): number {
-  return Math.min(MAX_BAND_HEIGHT_RATIO, Math.max(MIN_BAND_HEIGHT_RATIO, ratio));
-}
-
 /**
- * In-app equation scanner: live camera with a horizontal crop guide.
- * Pinch to resize the band; capture crops only that strip for OCR.
+ * In-app equation scanner: live camera with a free-form rectangular crop
+ * guide. Drag to move it, pinch to resize it — capture crops only that
+ * rectangle for OCR. A rectangle (not a fixed full-width band) fits a word
+ * problem, a multi-line system, or a small diagram, not just one typed
+ * equation line.
  */
 export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { height: windowHeight } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [bandHeightRatio, setBandHeightRatio] = useState(DEFAULT_BAND_HEIGHT_RATIO);
-  const bandRatioRef = useRef(bandHeightRatio);
-  bandRatioRef.current = bandHeightRatio;
-  const pinchBaseRef = useRef(bandHeightRatio);
-
-  const bandHeight = Math.round(windowHeight * bandHeightRatio);
-  const bandTop = Math.round((windowHeight - bandHeight) / 2);
-
-  const applyPinchScale = useCallback((scale: number) => {
-    setBandHeightRatio(clampBandRatio(pinchBaseRef.current * scale));
-  }, []);
+  const [region, setRegion] = useState<ScanRegion>(defaultScanRegion());
+  const regionRef = useRef(region);
+  regionRef.current = region;
+  const pinchBaseRef = useRef(region);
+  const panBaseRef = useRef(region);
 
   const beginPinch = useCallback(() => {
-    pinchBaseRef.current = bandRatioRef.current;
+    pinchBaseRef.current = regionRef.current;
   }, []);
+  const applyPinchScale = useCallback((scale: number) => {
+    setRegion(scaleScanRegion(pinchBaseRef.current, scale));
+  }, []);
+
+  const beginPan = useCallback(() => {
+    panBaseRef.current = regionRef.current;
+  }, []);
+  const applyPanDelta = useCallback(
+    (dxRatio: number, dyRatio: number) => {
+      setRegion(translateScanRegion(panBaseRef.current, dxRatio, dyRatio));
+    },
+    [],
+  );
 
   const pinchGesture = useMemo(
     () =>
@@ -75,6 +84,30 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
         }),
     [applyPinchScale, beginPinch],
   );
+
+  const panGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .onBegin(() => {
+          runOnJS(beginPan)();
+        })
+        .onUpdate((e) => {
+          runOnJS(applyPanDelta)(e.translationX / windowWidth, e.translationY / windowHeight);
+        }),
+    [applyPanDelta, beginPan, windowWidth, windowHeight],
+  );
+
+  const regionGesture = useMemo(
+    () => Gesture.Simultaneous(panGesture, pinchGesture),
+    [panGesture, pinchGesture],
+  );
+
+  const regionLeft = Math.round(region.x * windowWidth);
+  const regionTop = Math.round(region.y * windowHeight);
+  const regionWidth = Math.round(region.width * windowWidth);
+  const regionHeight = Math.round(region.height * windowHeight);
+  const regionRight = regionLeft + regionWidth;
+  const regionBottom = regionTop + regionHeight;
 
   const capture = useCallback(async () => {
     if (!cameraRef.current || busy) return;
@@ -104,25 +137,13 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
         return;
       }
 
-      // CameraView uses cover-style fill; map the on-screen band into image
-      // coordinates assuming the preview covers the full window height.
-      const originY = Math.max(0, Math.round((bandTop / windowHeight) * imageHeight));
-      const cropHeight = Math.min(
-        imageHeight - originY,
-        Math.round((bandHeight / windowHeight) * imageHeight),
-      );
+      // CameraView uses cover-style fill; regionToImageCrop maps the
+      // on-screen rectangle into image pixel coordinates assuming the
+      // preview covers the full window edge-to-edge.
+      const crop = regionToImageCrop(regionRef.current, imageWidth, imageHeight);
       const result = await ImageManipulator.manipulateAsync(
         photo.uri,
-        [
-          {
-            crop: {
-              originX: 0,
-              originY,
-              width: imageWidth,
-              height: Math.max(1, cropHeight),
-            },
-          },
-        ],
+        [{ crop }],
         { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG },
       );
 
@@ -138,7 +159,11 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
     } finally {
       setBusy(false);
     }
-  }, [bandHeight, bandTop, busy, onCaptured, onClose, t, windowHeight]);
+  }, [busy, onCaptured, onClose, t]);
+
+  const resetRegion = useCallback(() => {
+    setRegion(clampScanRegion(defaultScanRegion()));
+  }, []);
 
   if (!visible) return null;
 
@@ -156,20 +181,48 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
   ) : (
     <>
       <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" mode="picture" />
-      <GestureDetector gesture={pinchGesture}>
-        <View style={s.overlay} collapsable={false}>
-          <View style={[s.mask, { height: bandTop }]} />
-          <View style={[s.band, { height: bandHeight }]}>
-            <View style={s.bandCornerTL} />
-            <View style={s.bandCornerTR} />
-            <View style={s.bandCornerBL} />
-            <View style={s.bandCornerBR} />
-          </View>
-          <View style={[s.mask, { flex: 1 }]} />
+      {/* 4-piece frame mask around the clear region — top/bottom span the
+          full width, left/right only span the region's own row. */}
+      <View style={s.maskLayer} pointerEvents="none">
+        <View style={[s.mask, { top: 0, left: 0, right: 0, height: regionTop }]} />
+        <View
+          style={[s.mask, { top: regionBottom, left: 0, right: 0, bottom: 0 }]}
+        />
+        <View
+          style={[s.mask, { top: regionTop, left: 0, width: regionLeft, height: regionHeight }]}
+        />
+        <View
+          style={[
+            s.mask,
+            { top: regionTop, left: regionRight, right: 0, height: regionHeight },
+          ]}
+        />
+      </View>
+      <GestureDetector gesture={regionGesture}>
+        <View
+          style={[
+            s.region,
+            { left: regionLeft, top: regionTop, width: regionWidth, height: regionHeight },
+          ]}
+          collapsable={false}
+        >
+          <View style={s.cornerTL} />
+          <View style={s.cornerTR} />
+          <View style={s.cornerBL} />
+          <View style={s.cornerBR} />
         </View>
       </GestureDetector>
       <Text style={[s.hint, { top: insets.top + 56 }]}>{t("chat.math_scan_hint")}</Text>
       {error ? <Text style={s.error}>{error}</Text> : null}
+      <Pressable
+        style={[s.resetBtn, { top: insets.top + 8 }]}
+        onPress={resetRegion}
+        hitSlop={10}
+        accessibilityRole="button"
+        accessibilityLabel={t("chat.math_scan_reset_a11y")}
+      >
+        <Ionicons name="scan-outline" size={20} color="#fff" />
+      </Pressable>
       <View style={[s.controls, { paddingBottom: Math.max(insets.bottom, 16) + 12 }]}>
         <Pressable
           style={s.shutter}
@@ -229,25 +282,34 @@ function makeStyles(theme: Theme) {
       justifyContent: "center",
       backgroundColor: "rgba(0,0,0,0.45)",
     },
-    overlay: {
+    resetBtn: {
+      position: "absolute",
+      right: 16,
+      zIndex: 20,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "rgba(0,0,0,0.45)",
+    },
+    maskLayer: {
       ...StyleSheet.absoluteFill,
-      justifyContent: "flex-start",
     },
     mask: {
+      position: "absolute",
       backgroundColor: "rgba(0,0,0,0.55)",
-      width: "100%",
     },
-    band: {
-      width: "100%",
+    region: {
+      position: "absolute",
       borderColor: "rgba(255,255,255,0.85)",
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderWidth: StyleSheet.hairlineWidth,
       backgroundColor: "transparent",
     },
-    bandCornerTL: { ...corner, top: 0, left: 16, borderTopWidth: 3, borderLeftWidth: 3 },
-    bandCornerTR: { ...corner, top: 0, right: 16, borderTopWidth: 3, borderRightWidth: 3 },
-    bandCornerBL: { ...corner, bottom: 0, left: 16, borderBottomWidth: 3, borderLeftWidth: 3 },
-    bandCornerBR: { ...corner, bottom: 0, right: 16, borderBottomWidth: 3, borderRightWidth: 3 },
+    cornerTL: { ...corner, top: -2, left: -2, borderTopWidth: 3, borderLeftWidth: 3 },
+    cornerTR: { ...corner, top: -2, right: -2, borderTopWidth: 3, borderRightWidth: 3 },
+    cornerBL: { ...corner, bottom: -2, left: -2, borderBottomWidth: 3, borderLeftWidth: 3 },
+    cornerBR: { ...corner, bottom: -2, right: -2, borderBottomWidth: 3, borderRightWidth: 3 },
     hint: {
       position: "absolute",
       alignSelf: "center",

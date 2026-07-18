@@ -16,10 +16,22 @@ from app.models.math_schemas import MathImageExtract
 logger = logging.getLogger(__name__)
 
 _EXTRACT_PROMPT = (
-    "Extract the primary math equation from this image as a single JSON object "
-    "(not an array) with keys lhs, rhs, variables (array of variable names), "
+    "Extract the primary math problem from this image as a single JSON object "
+    "(not an array) with keys: "
+    'kind ("equation", "system", or "inequality"), '
+    "lhs, rhs (the first or only equation/inequality side — always fill these, "
+    "even for a system), "
+    "variables (array of variable names), "
+    'equations (ONLY when kind is "system": array of [lhs, rhs] pairs for EVERY '
+    "equation in the system, including the first), "
+    'comparator (ONLY when kind is "inequality": one of "<", ">", "<=", ">="), '
     "and found (boolean). "
-    'Example: {"lhs":"2*x+3","rhs":"7","variables":["x"],"found":true}. '
+    'Single equation: {"kind":"equation","lhs":"2*x+3","rhs":"7","variables":["x"],'
+    '"found":true}. '
+    'System of equations: {"kind":"system","lhs":"x+y","rhs":"5",'
+    '"equations":[["x+y","5"],["x-y","1"]],"variables":["x","y"],"found":true}. '
+    'Inequality: {"kind":"inequality","lhs":"x**2-1","rhs":"0","comparator":">",'
+    '"variables":["x"],"found":true}. '
     'If no equation is visible, set found=false and use lhs/rhs of "0".'
 )
 

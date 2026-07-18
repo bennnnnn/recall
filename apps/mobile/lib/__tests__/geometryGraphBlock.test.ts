@@ -348,4 +348,63 @@ describe("graphBlock", () => {
       ),
     ).toBeNull();
   });
+
+  it("parses a second curve (expr2/points2/label2) for a comparison plot", () => {
+    const spec = parseGraphSpec(
+      JSON.stringify({
+        type: "function",
+        expr: "x**2",
+        points: [
+          [-2, 4],
+          [0, 0],
+          [2, 4],
+        ],
+        expr2: "2*x",
+        points2: [
+          [-2, -4],
+          [2, 4],
+        ],
+        label: "y = x^2",
+        label2: "y = 2x",
+      }),
+    );
+    expect(spec?.expr2).toBe("2*x");
+    expect(spec?.points2).toEqual([
+      [-2, -4],
+      [2, 4],
+    ]);
+    expect(spec?.label).toBe("y = x^2");
+    expect(spec?.label2).toBe("y = 2x");
+  });
+
+  it("treats an incomplete second curve (expr2 with no points2) as single-curve", () => {
+    const spec = parseGraphSpec(
+      JSON.stringify({
+        type: "function",
+        expr: "x**2",
+        points: [
+          [0, 0],
+          [1, 1],
+        ],
+        expr2: "2*x",
+      }),
+    );
+    expect(spec?.expr2).toBeUndefined();
+    expect(spec?.points2).toBeUndefined();
+  });
+
+  it("graphBounds folds a second point set into the same shared min/max", () => {
+    const bounds = graphBounds(
+      [
+        [-2, 4],
+        [2, 4],
+      ],
+      [
+        [-2, -4],
+        [2, 4],
+      ],
+    );
+    expect(bounds.yMin).toBe(-4);
+    expect(bounds.yMax).toBe(4);
+  });
 });
