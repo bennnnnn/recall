@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.core.config import Settings
 from app.core.deps import get_current_user, get_settings_dep
-from app.core.rate_limit import allow_request
+from app.core.rate_limit import allow_request_fail_closed
 from app.core.redis import get_redis_client
 from app.models.orm import User
 from app.models.schemas import (
@@ -73,7 +73,7 @@ async def synthesize_speech(
     redis = get_redis_client()
     rate_limit = settings.speech_rate_limit_per_minute
     if rate_limit > 0:
-        allowed = await allow_request(
+        allowed = await allow_request_fail_closed(
             redis,
             f"speech_tts_rl:{user.id}",
             limit=rate_limit,
@@ -130,7 +130,7 @@ async def transcribe_speech(
     redis = get_redis_client()
     rate_limit = settings.speech_rate_limit_per_minute
     if rate_limit > 0:
-        allowed = await allow_request(
+        allowed = await allow_request_fail_closed(
             redis,
             f"speech_rl:{user.id}",
             limit=rate_limit,

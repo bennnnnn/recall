@@ -6,9 +6,8 @@ import base64
 import logging
 from pathlib import Path
 
-import httpx
-
 from app.core.config import Settings
+from app.gateways.http_client import get_pooled_client
 
 logger = logging.getLogger(__name__)
 
@@ -50,26 +49,26 @@ async def transcribe_via_openrouter(
         },
     }
     try:
-        async with httpx.AsyncClient(timeout=_TRANSCRIBE_TIMEOUT) as client:
-            response = await client.post(
-                _OPENROUTER_TRANSCRIBE_URL,
-                headers={
-                    "Authorization": f"Bearer {settings.openrouter_api_key}",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
+        client = get_pooled_client(_TRANSCRIBE_TIMEOUT)
+        response = await client.post(
+            _OPENROUTER_TRANSCRIBE_URL,
+            headers={
+                "Authorization": f"Bearer {settings.openrouter_api_key}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+        )
+        if response.status_code >= 400:
+            logger.warning(
+                "OpenRouter transcription failed model=%s format=%s size=%s status=%s body=%s",
+                model,
+                audio_format,
+                len(audio_bytes),
+                response.status_code,
+                response.text[:500],
             )
-            if response.status_code >= 400:
-                logger.warning(
-                    "OpenRouter transcription failed model=%s format=%s size=%s status=%s body=%s",
-                    model,
-                    audio_format,
-                    len(audio_bytes),
-                    response.status_code,
-                    response.text[:500],
-                )
-            response.raise_for_status()
-            data = response.json()
+        response.raise_for_status()
+        data = response.json()
         text = str(data.get("text") or "").strip()
         if not text:
             logger.warning(
@@ -106,24 +105,24 @@ async def synthesize_via_openrouter(
     if language:
         payload["language"] = language
     try:
-        async with httpx.AsyncClient(timeout=_TTS_TIMEOUT) as client:
-            response = await client.post(
-                _OPENROUTER_SPEECH_URL,
-                headers={
-                    "Authorization": f"Bearer {settings.openrouter_api_key}",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
+        client = get_pooled_client(_TTS_TIMEOUT)
+        response = await client.post(
+            _OPENROUTER_SPEECH_URL,
+            headers={
+                "Authorization": f"Bearer {settings.openrouter_api_key}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+        )
+        if response.status_code >= 400:
+            logger.warning(
+                "OpenRouter TTS failed model=%s status=%s body=%s",
+                model,
+                response.status_code,
+                response.text[:500],
             )
-            if response.status_code >= 400:
-                logger.warning(
-                    "OpenRouter TTS failed model=%s status=%s body=%s",
-                    model,
-                    response.status_code,
-                    response.text[:500],
-                )
-            response.raise_for_status()
-            audio = response.content
+        response.raise_for_status()
+        audio = response.content
         if not audio:
             logger.warning("OpenRouter TTS returned empty audio model=%s", model)
             return None

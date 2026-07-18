@@ -26,8 +26,31 @@ async def run_push_cycle(settings: Settings) -> None:
     if not token:
         return
     try:
+        # Collect outbound under a short-lived DB session, then release before
+        # Expo HTTP so Neon pool connections aren't held across network I/O.
         async with SessionLocal() as session:
-            count = await push_notifications.run_push_cycle(session, redis, settings)
+            outbound = await push_notifications.collect_push_outbound(session, redis, settings)
+            if not outbound:
+                return
+
+        delivered, invalid_tokens, receipt_tickets = await push_notifications.dispatch_expo(
+            outbound, settings
+        )
+
+        async with SessionLocal() as session:
+            if invalid_tokens:
+                for expo_token in invalid_tokens:
+                    try:
+                        from app.repositories import push_tokens as push_repo
+
+                        await push_repo.delete_by_token(session, expo_token)
+                        logger.info("Pruned invalid push token=%s", expo_token[:20])
+                    except Exception:
+                        logger.debug("Failed to prune push token", exc_info=True)
+            if receipt_tickets:
+                await push_notifications.enqueue_push_receipts(redis, receipt_tickets)
+            await push_notifications.finalize_push_deliveries(session, redis, outbound, delivered)
+            count = len(outbound)
             if count:
                 logger.info("Push cycle sent count=%s", count)
     except Exception:

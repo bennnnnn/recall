@@ -5,10 +5,9 @@ A database leak must not expose reusable tokens, so they're encrypted with
 Fernet (authenticated symmetric encryption) keyed off ``OAUTH_TOKEN_ENCRYPTION_KEY``.
 
 Backward compatibility: existing rows written before encryption was added hold
-plaintext tokens. ``decrypt_refresh_token`` treats a value that fails to
-decrypt as plaintext and returns it as-is, so the app keeps working through the
-migration. The next write re-encrypts it, so tokens converge to encrypted form
-as users reconnect.
+plaintext Google tokens (``g/…`` / ``1//…``). Those still decrypt as passthrough.
+Ciphertext that fails under the current key (rotation mismatch) fails closed —
+we never treat Fernet garbage as a Google refresh token.
 """
 
 from __future__ import annotations
@@ -22,6 +21,12 @@ from app.core.config import Settings
 logger = logging.getLogger(__name__)
 
 _PLAINTEXT_PREFIXES = ("g/", "1//")  # Google refresh tokens start with these
+# Fernet tokens are urlsafe-base64 and typically start with this version byte.
+_FERNET_PREFIX = "gAAAA"
+
+
+class OAuthTokenDecryptError(ValueError):
+    """Stored ciphertext cannot be decrypted with the configured key."""
 
 
 def _fernet(settings: Settings) -> Fernet | None:
@@ -46,9 +51,9 @@ def encrypt_refresh_token(settings: Settings, token: str) -> str:
 def decrypt_refresh_token(settings: Settings, stored: str) -> str:
     """Decrypt a stored refresh token for use with Google APIs.
 
-    Tolerates plaintext (pre-migration) values: if ``stored`` isn't a valid
-    Fernet token, return it unchanged. This makes the rollout non-breaking —
-    existing connections keep working and get re-encrypted on the next write.
+    Legacy plaintext Google tokens (known prefixes) pass through. Ciphertext
+    that fails ``InvalidToken`` raises ``OAuthTokenDecryptError`` so a rotated
+    key cannot silently feed Fernet bytes to Google.
     """
     if not stored:
         return stored
@@ -61,7 +66,11 @@ def decrypt_refresh_token(settings: Settings, stored: str) -> str:
         return stored
     try:
         return f.decrypt(stored.encode()).decode()
-    except InvalidToken:
-        # Not encrypted (legacy row) or encrypted under a rotated key we no
-        # longer hold — treat as plaintext so the connection still works.
+    except InvalidToken as exc:
+        if stored.startswith(_FERNET_PREFIX):
+            logger.error("OAuth refresh token decrypt failed (key rotation?)")
+            raise OAuthTokenDecryptError(
+                "Cannot decrypt OAuth refresh token; reconnect the integration."
+            ) from exc
+        # Non-Fernet, non-Google-prefix legacy row — tolerate as plaintext.
         return stored

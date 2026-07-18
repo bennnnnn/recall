@@ -14,7 +14,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.core.secrets import decrypt_refresh_token
+from app.core.secrets import OAuthTokenDecryptError, decrypt_refresh_token
 from app.gateways import google_calendar_gateway
 from app.gateways.google_calendar_gateway import CalendarEvent, GoogleCalendarError
 from app.models.orm import User
@@ -303,14 +303,15 @@ async def _fetch_upcoming_events(
         return CalendarListResult(events=cached)
 
     try:
+        refresh = decrypt_refresh_token(settings, connection.refresh_token)
         result = await google_calendar_gateway.list_upcoming_events(
             settings,
-            refresh_token=decrypt_refresh_token(settings, connection.refresh_token),
+            refresh_token=refresh,
             calendar_id=connection.calendar_id,
             timezone=user.timezone,
             days=settings.calendar_fetch_days,
         )
-    except GoogleCalendarError:
+    except (GoogleCalendarError, OAuthTokenDecryptError):
         if report_errors:
             return CalendarListResult(events=[], load_error="fetch_failed")
         return CalendarListResult(events=[])
@@ -417,9 +418,13 @@ async def confirm_create_event(
     try:
         start = datetime_from_iso(proposal["start"])
         end = datetime_from_iso(proposal["end"])
+        try:
+            refresh = decrypt_refresh_token(settings, connection.refresh_token)
+        except OAuthTokenDecryptError as exc:
+            raise GoogleCalendarError(str(exc)) from exc
         event = await google_calendar_gateway.create_event(
             settings,
-            refresh_token=decrypt_refresh_token(settings, connection.refresh_token),
+            refresh_token=refresh,
             calendar_id=connection.calendar_id or "primary",
             title=proposal.get("title") or "Event",
             start=start,

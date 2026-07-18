@@ -1,4 +1,3 @@
-import asyncio
 import json
 import logging
 import math
@@ -255,6 +254,7 @@ async def stream_regenerate_response(
     user_message_content: str
     chat_project_id: UUID | None
     prior_count: int
+    omit_message_ids: set[UUID] | None = None
 
     async with SessionLocal() as session:
         user = await users_repo.get_by_id(session, user_id)
@@ -281,10 +281,14 @@ async def stream_regenerate_response(
         prior_count = await messages_repo.count_for_chat(session, chat_id)
 
         if last.role == "assistant":
-            regenerate_backup = RegenerateBackup(content=last.content, model=last.model)
-            await attachment_lifecycle.purge_attachments_for_messages(session, settings, [last.id])
-            await messages_repo.delete_message(session, last)
-            await session.commit()
+            # Keep the row until finalize succeeds so a mid-stream crash cannot
+            # lose the prior reply. Omit it from the regenerate prompt instead.
+            regenerate_backup = RegenerateBackup(
+                content=last.content,
+                model=last.model,
+                message_id=last.id,
+            )
+            omit_message_ids = {last.id}
 
     bundle = await build_stream_prompt_context(
         user_id,
@@ -301,6 +305,7 @@ async def stream_regenerate_response(
         user=user,
         chat=chat,
         timing=timing,
+        omit_message_ids=omit_message_ids,
     )
 
     reserved = await reserve_turn_quota(
@@ -651,15 +656,22 @@ async def _enrich_final_content(
                     )
 
         # validate_math_fences runs SymPy (densify_sparse_graph →
-        # math_service.sample_function) inline — sync CPU work that would
-        # stall the event loop and every concurrent request on math-heavy
-        # replies. Offload to a worker thread (same pattern as
-        # math_tools.py's sympy_executor.run_sympy).
-        assistant_text = await asyncio.to_thread(
-            math_fence_service.validate_math_fences,
-            assistant_text,
-            verified=ctx.verified_math,
-        )
+        # math_service.sample_function). Use the bounded process pool so a
+        # pathological fence cannot starve the shared default thread pool
+        # (pre-stream solve already uses run_sympy the same way).
+        from app.services.sympy_executor import run_sympy
+
+        try:
+            assistant_text = await run_sympy(
+                math_fence_service.validate_math_fences_worker,
+                assistant_text,
+                ctx.verified_math,
+                timeout=settings.math_solve_timeout_seconds,
+            )
+        except TimeoutError:
+            logger.warning("validate_math_fences timed out; keeping raw assistant text")
+        except Exception:
+            logger.exception("validate_math_fences failed; keeping raw assistant text")
         from app.services.vocab_quiz import strip_vocab_session_metadata
 
         assistant_text = strip_vocab_session_metadata(assistant_text)

@@ -61,7 +61,7 @@ async def synthesize_speech(
     if not settings.openrouter_api_key:
         return None
 
-    model = (settings.speech_tts_model or "openai/gpt-4o-mini-tts").strip()
+    model = (settings.speech_tts_model or "openai/gpt-4o-mini-tts-2025-12-15").strip()
     voice = (settings.speech_tts_voice or "alloy").strip()
     return await speech_gateway.synthesize_via_openrouter(
         settings,

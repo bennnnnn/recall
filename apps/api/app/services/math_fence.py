@@ -209,3 +209,8 @@ def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = N
     canonical_fence = verified.canonical_fence if verified is not None else None
     content = _GEOMETRY_FENCE.sub(lambda m: _replace_fence(m, "geometry", canonical_fence), content)
     return _GRAPH_FENCE.sub(lambda m: _replace_fence(m, "graph", canonical_fence), content)
+
+
+def validate_math_fences_worker(content: str, verified: VerifiedMathBlock | None = None) -> str:
+    """Picklable entry for ``sympy_executor.run_sympy`` (positional args only)."""
+    return validate_math_fences(content, verified=verified)

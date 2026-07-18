@@ -12,7 +12,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.core.secrets import decrypt_refresh_token
+from app.core.secrets import OAuthTokenDecryptError, decrypt_refresh_token
 from app.gateways import google_gmail_gateway as gmail_gateway
 from app.gateways import litellm_gateway
 from app.gateways.google_gmail_gateway import GmailMessage
@@ -216,14 +216,15 @@ async def load_gmail_context(
 
     if not cache_hit:
         try:
+            refresh = decrypt_refresh_token(settings, conn.refresh_token)
             messages = await gmail_gateway.list_recent_messages(
                 settings,
-                decrypt_refresh_token(settings, conn.refresh_token),
+                refresh,
                 days=settings.gmail_fetch_days,
                 max_messages=min(settings.gmail_max_messages, 15),
             )
             await write_gmail_cache(redis, user.id, messages, settings)
-        except gmail_gateway.GoogleGmailError as exc:
+        except (gmail_gateway.GoogleGmailError, OAuthTokenDecryptError) as exc:
             fetch_error = str(exc)
             messages = []
 
@@ -382,12 +383,16 @@ async def sync_gmail_for_user(
         return 0, 0
 
     try:
+        refresh = decrypt_refresh_token(settings, conn.refresh_token)
         messages = await gmail_gateway.list_recent_messages(
             settings,
-            decrypt_refresh_token(settings, conn.refresh_token),
+            refresh,
             days=settings.gmail_fetch_days,
             max_messages=settings.gmail_max_messages,
         )
+    except OAuthTokenDecryptError:
+        logger.exception("Gmail token decrypt failed for user_id=%s", user_id)
+        raise
     except gmail_gateway.GoogleGmailError:
         logger.exception("Gmail fetch failed for user_id=%s", user_id)
         raise

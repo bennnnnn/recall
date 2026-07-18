@@ -2302,12 +2302,12 @@ async def test_regenerate_restores_assistant_when_stream_empty():
 
 
 @pytest.mark.asyncio
-async def test_regenerate_deletes_assistant_before_building_prompt():
-    """The prior assistant reply must be deleted before prompt context is built."""
+async def test_regenerate_omits_assistant_from_prompt_without_pre_delete():
+    """Prior assistant stays in DB until finalize; prompt build must omit it."""
     from app.services import chat as chat_module
     from app.services.chat.turn_prep import ClientGeoContext, TurnPromptBundle
 
-    order: list[str] = []
+    captured: dict[str, object] = {}
 
     fake_user = MagicMock()
     fake_user.id = MagicMock()
@@ -2328,11 +2328,8 @@ async def test_regenerate_deletes_assistant_before_building_prompt():
     fake_last_user = MagicMock()
     fake_last_user.content = "question"
 
-    async def track_delete(*_args, **_kwargs):
-        order.append("delete")
-
-    async def track_build(*_args, **_kwargs):
-        order.append("build")
+    async def track_build(*_args, **kwargs):
+        captured["omit"] = kwargs.get("omit_message_ids")
         return TurnPromptBundle(
             prompt_messages=[{"role": "system", "content": "sys"}],
             meta={},
@@ -2361,6 +2358,8 @@ async def test_regenerate_deletes_assistant_before_building_prompt():
     async def empty_stream(**kwargs):
         if False:
             yield ""
+
+    delete_mock = AsyncMock()
 
     with ExitStack() as stack:
         for patcher in _offline_session_patches():
@@ -2402,7 +2401,7 @@ async def test_regenerate_deletes_assistant_before_building_prompt():
         stack.enter_context(
             patch(
                 "app.repositories.messages.delete_message",
-                side_effect=track_delete,
+                delete_mock,
             )
         )
         stack.enter_context(
@@ -2422,7 +2421,8 @@ async def test_regenerate_deletes_assistant_before_building_prompt():
             ):
                 pass
 
-    assert order.index("delete") < order.index("build")
+    assert captured["omit"] == {fake_last.id}
+    delete_mock.assert_not_awaited()
 
 
 @pytest.mark.asyncio

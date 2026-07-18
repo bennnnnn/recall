@@ -50,8 +50,17 @@ class LocalStorageGateway:
     """Dev/test storage — files under STORAGE_LOCAL_PATH."""
 
     def __init__(self, base_path: Path) -> None:
-        self.base_path = base_path
+        self.base_path = base_path.resolve()
         self.base_path.mkdir(parents=True, exist_ok=True)
+
+    def _path_under_base(self, storage_key: str) -> Path:
+        """Resolve ``storage_key`` and reject path escape (``..`` / absolute)."""
+        if not storage_key or storage_key.startswith("/") or ".." in Path(storage_key).parts:
+            raise ValueError("Invalid storage key")
+        path = (self.base_path / storage_key).resolve()
+        if not path.is_relative_to(self.base_path):
+            raise ValueError("Invalid storage key")
+        return path
 
     async def presign_upload(
         self, *, user_id: str, content_type: str, size_bytes: int
@@ -67,7 +76,7 @@ class LocalStorageGateway:
         )
 
     async def presign_download(self, storage_key: str) -> str:
-        return f"file://{self.base_path / storage_key}"
+        return f"file://{self._path_under_base(storage_key)}"
 
     async def write_bytes(self, storage_key: str, data: bytes) -> None:
         path = self.local_path(storage_key)
@@ -78,18 +87,24 @@ class LocalStorageGateway:
         return path.read_bytes() if path is not None else None
 
     async def delete_bytes(self, storage_key: str) -> None:
-        path = self.base_path / storage_key
+        try:
+            path = self._path_under_base(storage_key)
+        except ValueError:
+            return
         try:
             path.unlink(missing_ok=True)
         except IsADirectoryError:
             pass
 
     def resolve_local_path(self, storage_key: str) -> Path | None:
-        path = self.base_path / storage_key
+        try:
+            path = self._path_under_base(storage_key)
+        except ValueError:
+            return None
         return path if path.is_file() else None
 
     def local_path(self, storage_key: str) -> Path:
-        path = self.base_path / storage_key
+        path = self._path_under_base(storage_key)
         path.parent.mkdir(parents=True, exist_ok=True)
         return path
 

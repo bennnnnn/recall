@@ -1,12 +1,13 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_redis, get_settings_dep
+from app.core.dev_guards import require_dev_privilege_access
 from app.models.orm import User
 from app.models.schemas import (
     ArchiveUpdate,
@@ -123,11 +124,13 @@ async def today_usage(
 
 @router.post("/usage/today/reset", response_model=UsageOut)
 async def reset_today_usage(
+    request: Request,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
     settings: Settings = Depends(get_settings_dep),
 ) -> UsageOut:
+    require_dev_privilege_access(request, settings, user)
     try:
         return await chats_service.reset_today_usage(session, redis, settings, user)
     except chats_service.ChatsError as exc:

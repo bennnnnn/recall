@@ -117,7 +117,8 @@ async def refresh_token_pair(
     session: AsyncSession,
     settings: Settings,
 ) -> tuple[str, str, UserOut]:
-    user_id_raw = await redis.get(_refresh_key(refresh_token))
+    # Atomic claim: GETDEL so two concurrent refreshes cannot both mint pairs.
+    user_id_raw = await redis.getdel(_refresh_key(refresh_token))
     if user_id_raw is None:
         tombstoned = await redis.get(_tombstone_key(refresh_token))
         if tombstoned is not None:
@@ -132,12 +133,10 @@ async def refresh_token_pair(
 
     user = await users_repo.get_by_id(session, user_id)
     if user is None:
-        await redis.delete(_refresh_key(refresh_token))
         raise GoogleAuthError("User not found")
 
-    # Rotate: retire this token (tombstoned so a later reuse is detectable)
-    # and drop it from the user's live set before issuing the replacement.
-    await redis.delete(_refresh_key(refresh_token))
+    # Retire this token (tombstoned so a later reuse is detectable) and drop
+    # it from the user's live set before issuing the replacement.
     await redis.set(_tombstone_key(refresh_token), str(user_id), ex=_REUSE_DETECTION_WINDOW_SECONDS)
     await redis.srem(_user_refresh_set_key(user_id), refresh_token)
     access_token, new_refresh = await issue_token_pair(redis, user_id, settings)
