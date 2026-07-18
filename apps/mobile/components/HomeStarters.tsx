@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -11,6 +11,7 @@ import { api, type HomeUrgentTodo, type HomeProjectHighlight, type HomeStarter }
 import { queueChatLaunch } from "@/lib/chatLaunch";
 import { buildHomeDailyQuizChatPrompt } from "@/lib/projectChat";
 import { describeDueAt } from "@/lib/dueDate";
+import { instantHomePlaceholder } from "@/lib/homeFallback";
 import { homeUrgentPrompt, listHomeUrgentTodos, partitionHomeUrgentTodos } from "@/lib/homeUrgentTodos";
 import { learningProgressColors } from "@/lib/homeLearningCard";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
@@ -173,7 +174,7 @@ export function HomeStarters({ onSelect }: Props) {
   const router = useRouter();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { token, user } = useAuth();
-  const { screen, loading } = useHome();
+  const { screen } = useHome();
   const {
     todos,
     loading: todosLoading,
@@ -185,6 +186,8 @@ export function HomeStarters({ onSelect }: Props) {
     () => new Set(),
   );
   const leadMinutes = user?.reminder_lead_minutes ?? undefined;
+  // Never block first paint on /home — local greeting + starters, then hydrate.
+  const display = screen ?? instantHomePlaceholder();
 
   const dismissStarter = async (starter: HomeStarter) => {
     const key = starter.id ?? starter.prompt;
@@ -213,23 +216,7 @@ export function HomeStarters({ onSelect }: Props) {
 
   const urgentGroups = useMemo(() => partitionHomeUrgentTodos(urgentTodos), [urgentTodos]);
 
-  if (loading && !screen) {
-    return (
-      <View style={s.loadingWrap}>
-        <ActivityIndicator color={theme.primary} />
-      </View>
-    );
-  }
-
-  if (!screen) {
-    return (
-      <View style={s.loadingWrap}>
-        <Text style={s.greeting}>{t("chat.empty_title")}</Text>
-      </View>
-    );
-  }
-
-  const chips = screen.starters
+  const chips = display.starters
     .filter((starter) => starter.kind !== "todo")
     .filter((starter) => !dismissedStarterKeys.has(starter.id ?? starter.prompt));
 
@@ -237,14 +224,14 @@ export function HomeStarters({ onSelect }: Props) {
     urgentGroups.overdue.length > 0 || urgentGroups.dueSoon.length > 0;
   // No learning card yet (and nothing urgent stealing attention): surface the
   // three product pillars so first sessions aren't greeting + generic chips only.
-  const showActivation = !screen.project_highlight && !hasUrgent;
+  const showActivation = !display.project_highlight && !hasUrgent;
 
   return (
     <View style={s.wrap}>
-      <Text style={s.greeting}>{screen.greeting}</Text>
+      <Text style={s.greeting}>{display.greeting}</Text>
 
-      {screen.project_highlight ? (
-        <ProjectHighlightCard highlight={screen.project_highlight} styles={s} theme={theme} />
+      {display.project_highlight ? (
+        <ProjectHighlightCard highlight={display.project_highlight} styles={s} theme={theme} />
       ) : null}
 
       {urgentGroups.overdue.length > 0 ? (
@@ -335,7 +322,6 @@ export function HomeStarters({ onSelect }: Props) {
 function makeStyles(t: Theme) {
   return StyleSheet.create({
     wrap: { width: "100%", paddingHorizontal: 20, gap: 12 },
-    loadingWrap: { paddingVertical: 24, alignItems: "center" },
     greeting: {
       fontSize: 26,
       fontWeight: "800",

@@ -15,7 +15,7 @@ import { useAuthOptional } from "@/contexts/AuthContext";
 import { api, type HomeScreen } from "@/lib/api";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { CONTEXT_REFRESH_STALE_MS } from "@/lib/contextRefresh";
-import { loadHomeFallback } from "@/lib/homeFallback";
+import { instantHomePlaceholder, loadHomeFallback } from "@/lib/homeFallback";
 
 type HomeContextValue = {
   screen: HomeScreen | null;
@@ -93,9 +93,14 @@ export function HomeProvider({ children }: { children: ReactNode }) {
     if (!token) {
       setScreen(null);
       setLoading(false);
+      lastFetchedRef.current = 0;
       return;
     }
-    void refresh();
+    // Paint greeting + starters immediately — first sign-in must not sit on a
+    // blank ActivityIndicator while /home is in flight.
+    setScreen(instantHomePlaceholder());
+    lastFetchedRef.current = 0;
+    void refresh({ force: true });
   }, [refresh, token]);
 
   // Refetch greeting when profile name changes (e.g. dev login as bini).
