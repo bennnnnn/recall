@@ -1,10 +1,9 @@
 import { useMemo, type ReactNode } from "react";
-import { StyleSheet, Text } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import { CODE_FONT } from "@/lib/fonts";
 import { fixImplicitExponents } from "@/lib/normalizeImplicitMath";
 import { parseSimpleLatex, segmentsToPlain, type MathSegment } from "@/lib/mathText";
-import { unicodeFractionGlyph } from "@/lib/unicodeFraction";
 import { toSubscript, toSuperscript } from "@/lib/unicodeSupSub";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -13,82 +12,98 @@ type Props = {
   textColor?: string;
 };
 
+type Styles = ReturnType<typeof makeStyles>;
+
 /** A single atomic token ("11", "-4", "2a") needs no disambiguating
- * parens when dropped into a single-line "num⁄den"; anything with an
- * internal operator, a space, or more than one segment does. */
+ * parens in a stacked numerator/denominator; multi-term sides get parens. */
 function isAtomicToken(plain: string): boolean {
   return /^[±+\-]?[a-zA-Z0-9]+$/.test(plain);
+}
+
+function hasFracSegment(segments: MathSegment[]): boolean {
+  for (const seg of segments) {
+    if (seg.type === "frac") return true;
+    if (seg.type === "sqrt" && hasFracSegment(seg.body)) return true;
+  }
+  return false;
+}
+
+function renderFracSide(
+  segments: MathSegment[],
+  keyPrefix: string,
+  styles: Styles,
+  paren: boolean,
+): ReactNode {
+  // Nested fraction → recurse with a View row. Everything else (text, sqrt,
+  // scripts) flattens to one compact Text so we never put a bare string
+  // under a View (RN invariant) and numerator/denominator stay fraction-sized.
+  if (segments.some((s) => s.type === "frac")) {
+    return (
+      <View style={styles.fracSideRow}>
+        {paren ? <Text style={styles.fracPart}>(</Text> : null}
+        {renderSegments(segments, keyPrefix, styles, true)}
+        {paren ? <Text style={styles.fracPart}>)</Text> : null}
+      </View>
+    );
+  }
+  const plain = segmentsToPlain(segments);
+  return (
+    <Text style={styles.fracPart}>
+      {paren ? `(${plain})` : plain}
+    </Text>
+  );
 }
 
 function renderSegments(
   segments: MathSegment[],
   keyPrefix: string,
-  styles: ReturnType<typeof makeStyles>,
+  styles: Styles,
+  inView = false,
 ): ReactNode[] {
   return segments.map((seg, i) => {
     const key = `${keyPrefix}-${i}`;
     if (seg.type === "sup") {
-      // Prefer a real Unicode superscript (renders raised in plain text, no
-      // KaTeX WebView needed). Fall back to styled smaller Text when a char
-      // has no Unicode superscript — better than nothing.
       const uni = toSuperscript(seg.value);
-      if (uni) return <Text key={key}>{uni}</Text>;
+      const node = uni ?? seg.value;
       return (
-        <Text key={key} style={styles.sup}>
-          {seg.value}
+        <Text key={key} style={uni ? undefined : styles.sup}>
+          {node}
         </Text>
       );
     }
     if (seg.type === "sub") {
       const uni = toSubscript(seg.value);
-      if (uni) return <Text key={key}>{uni}</Text>;
+      const node = uni ?? seg.value;
       return (
-        <Text key={key} style={styles.sub}>
-          {seg.value}
+        <Text key={key} style={uni ? undefined : styles.sub}>
+          {node}
         </Text>
       );
     }
     if (seg.type === "frac") {
-      // Deliberately single-line — never stack numerator/denominator across
-      // two rows with an embedded "\n". React Native's Text layout doesn't
-      // grow the *surrounding* paragraph's line height to fit a taller
-      // nested multi-line run, so the stack overlapped adjacent prose
-      // whenever the fraction wasn't alone on its line.
-      //
-      // Unicode guidance (precomposed vulgar + FRACTION SLASH U+2044):
-      // prefer ½, else ¹¹⁄₁₂ — never a box-drawing bar between raised/
-      // lowered chars ("¹─₂"), which does not read as a fraction.
+      // True stacked fraction with a vinculum (horizontal bar): numerator
+      // above, bar, denominator below — nested View inside the outer Text
+      // so it still flows inline. Line height is bumped when any frac is
+      // present so the stack doesn't clip neighboring prose.
       const numPlain = segmentsToPlain(seg.num);
       const denPlain = segmentsToPlain(seg.den);
-      const glyph = unicodeFractionGlyph(numPlain, denPlain);
-      if (glyph) {
-        return <Text key={key}>{glyph}</Text>;
-      }
-      // Letters / nested / multi-term — plain solidus at normal size
-      // (readable "m/m", not superscript-m + bar + subscript-m).
-      const numNode = isAtomicToken(numPlain) ? (
-        renderSegments(seg.num, `${key}-n`, styles)
-      ) : (
-        <>({renderSegments(seg.num, `${key}-n`, styles)})</>
-      );
-      const denNode = isAtomicToken(denPlain) ? (
-        renderSegments(seg.den, `${key}-d`, styles)
-      ) : (
-        <>({renderSegments(seg.den, `${key}-d`, styles)})</>
-      );
       return (
-        <Text key={key}>
-          {numNode}
-          <Text style={styles.fracSlash}>/</Text>
-          {denNode}
-        </Text>
+        <View key={key} style={styles.fracStack} testID="math-frac">
+          {renderFracSide(seg.num, `${key}-n`, styles, !isAtomicToken(numPlain))}
+          <View style={styles.vinculum} testID="math-vinculum" />
+          {renderFracSide(seg.den, `${key}-d`, styles, !isAtomicToken(denPlain))}
+        </View>
       );
     }
     if (seg.type === "sqrt") {
-      // segmentsToPlain([seg]) routes through mathText.ts's own sqrt
-      // formatting (radical + combining overline over the flattened body) —
-      // reused here rather than duplicating that logic.
       return <Text key={key}>{segmentsToPlain([seg])}</Text>;
+    }
+    if (inView) {
+      return (
+        <Text key={key} style={styles.fracPart}>
+          {seg.value}
+        </Text>
+      );
     }
     return seg.value;
   });
@@ -102,11 +117,12 @@ export function MathText({ latex, textColor }: Props) {
     () => parseSimpleLatex(fixImplicitExponents(latex.trim())),
     [latex],
   );
+  const tall = useMemo(() => hasFracSegment(segments), [segments]);
 
   if (!latex.trim()) return null;
 
   return (
-    <Text style={styles.base}>
+    <Text style={[styles.base, tall && styles.baseWithFrac]}>
       {renderSegments(segments, "m", styles)}
     </Text>
   );
@@ -121,21 +137,46 @@ const makeStyles = (theme: Theme, textColor?: string) => {
       lineHeight: 24,
       color,
     },
+    // Room for a stacked fraction (~11 + bar + 11) on the text line.
+    baseWithFrac: {
+      lineHeight: 34,
+    },
     sup: {
       fontSize: 11,
-      lineHeight: 18,
+      lineHeight: 14,
       color,
     },
     sub: {
       fontSize: 11,
-      lineHeight: 18,
+      lineHeight: 14,
       color,
     },
-    // Single-line solidus for letter/complex fractions — never a two-row
-    // stack (see the "frac" case in renderSegments above for why).
-    fracSlash: {
+    fracStack: {
+      alignItems: "center",
+      justifyContent: "center",
+      marginHorizontal: 3,
+      // Nudge so the vinculum sits near the text midline of the surrounding
+      // 16px run rather than sitting on the baseline.
+      transform: [{ translateY: 2 }],
+    },
+    fracSideRow: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    fracPart: {
+      fontFamily: CODE_FONT,
+      fontSize: 11,
+      lineHeight: 13,
       color,
-      marginHorizontal: 1,
+      textAlign: "center",
+    },
+    // Vinculum — the straight horizontal fraction bar.
+    vinculum: {
+      alignSelf: "stretch",
+      minWidth: 10,
+      height: StyleSheet.hairlineWidth * 2,
+      marginVertical: 1,
+      backgroundColor: color,
     },
   });
 };
