@@ -14,7 +14,11 @@ import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { CODE_FONT } from "@/lib/fonts";
 import { escapeForInlineJsTemplate, injectPreviewCsp, inlineScript } from "@/lib/previewSandbox";
 import { Theme, useTheme } from "@/lib/theme";
-import { getPreviewWebView, useStaticOnlyNavigation } from "@/lib/webView";
+import {
+  getPreviewWebView,
+  STATIC_HTML_ORIGIN_WHITELIST,
+  useStaticOnlyNavigation,
+} from "@/lib/webView";
 import { VEGA_MIN_JS } from "@/lib/vendor/vegaMinJs";
 import { VEGA_LITE_MIN_JS } from "@/lib/vendor/vegaLiteMinJs";
 import { VEGA_EMBED_MIN_JS } from "@/lib/vendor/vegaEmbedMinJs";
@@ -104,7 +108,7 @@ export function ChartBlock({ content }: Props) {
         {WebView && canRenderInlineChart ? (
           canMount ? (
             <WebView
-              originWhitelist={["*"]}
+              originWhitelist={STATIC_HTML_ORIGIN_WHITELIST}
               source={source}
               style={{
                 height: expanded ? PREVIEW_HEIGHT * 2 : PREVIEW_HEIGHT,

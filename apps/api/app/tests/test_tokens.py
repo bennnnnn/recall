@@ -5,8 +5,9 @@ from uuid import uuid4
 
 import pytest
 
+from app.core.access_tokens import create_access_token
 from app.core.config import Settings
-from app.gateways.google_auth import GoogleAuthError, create_access_token
+from app.gateways.google_auth import GoogleAuthError
 from app.services import tokens as tokens_service
 
 

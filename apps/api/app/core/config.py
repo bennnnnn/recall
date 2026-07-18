@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     apple_client_id: str = "com.recall.app"
 
     jwt_secret: str = "dev-secret-change-me"
+    # 60m is intentional: jti + revoked_since cover logout/reuse; lower freely
+    # via env without schema changes if you want a shorter window.
     jwt_expire_minutes: int = 60
     jwt_refresh_expire_days: int = 30
 
@@ -291,9 +293,9 @@ def validate_production_settings(settings: Settings) -> None:
         errors.append("GOOGLE_CLIENT_ID is required in production")
     if not settings.google_client_secret.strip():
         errors.append("GOOGLE_CLIENT_SECRET is required in production (Calendar/Gmail OAuth)")
-    # CORS must be explicit in production — an empty CORS_ORIGINS makes the API
-    # accept any origin (main.py falls back to ["*"]), which contradicts the
-    # "locked-down CORS" claim and is unsafe once a web client exists.
+    # CORS must be explicit in production — empty CORS_ORIGINS makes
+    # cors_allow_origins() fall back to ["*"], which is unsafe once a web
+    # client exists. Keep the fallback and this guard in the same module.
     if not settings.cors_origins.strip():
         errors.append("CORS_ORIGINS must be set to an explicit origin list in production")
     elif any(origin.strip() == "*" for origin in settings.cors_origins.split(",")):
@@ -344,6 +346,16 @@ def validate_production_settings(settings: Settings) -> None:
 
     if errors:
         raise RuntimeError("Invalid production configuration: " + "; ".join(errors))
+
+
+def cors_allow_origins(settings: Settings) -> list[str]:
+    """Origins for CORSMiddleware.
+
+    Empty ``CORS_ORIGINS`` falls back to ``["*"]`` for local dev. Production
+    forbids empty and wildcard via :func:`validate_production_settings`.
+    """
+    origins = [origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()]
+    return origins or ["*"]
 
 
 @lru_cache

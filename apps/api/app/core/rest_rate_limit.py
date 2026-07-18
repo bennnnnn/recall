@@ -8,11 +8,11 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from app.core.access_tokens import AccessTokenError, decode_access_token
 from app.core.client_ip import client_ip
 from app.core.config import Settings, get_settings
 from app.core.rate_limit import allow_request
 from app.core.redis import get_redis_client
-from app.gateways.google_auth import GoogleAuthError, decode_access_token
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ def _client_key(request: Request, settings: Settings) -> str:
         try:
             user_id = decode_access_token(token, settings)
             return f"user:{user_id}"
-        except GoogleAuthError:
+        except AccessTokenError:
             pass
     return f"ip:{client_ip(request, settings)}"
 

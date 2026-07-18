@@ -6,13 +6,14 @@ from uuid import uuid4
 
 import pytest
 
-from app.core.config import Settings
-from app.gateways import litellm_gateway
-from app.gateways.google_auth import (
-    GoogleAuthError,
+from app.core.access_tokens import (
+    AccessTokenError,
     create_access_token,
     decode_access_token,
 )
+from app.core.config import Settings
+from app.gateways import litellm_gateway
+from app.gateways.google_auth import GoogleAuthError
 from app.gateways.mock_llm import (
     mock_memory_sections,
     mock_stream,
@@ -426,7 +427,7 @@ def test_extract_quiz_word_and_answer():
     assert _extract_quiz_answer(transcript) == "B"
 
 
-# ── google_auth JWT ─────────────────────────────────────────────────────────────
+# ── access JWT ──────────────────────────────────────────────────────────────────
 
 
 def test_create_and_decode_token():
@@ -439,7 +440,7 @@ def test_create_and_decode_token():
 
 def test_decode_invalid_token_raises():
     settings = Settings(jwt_secret="super-secret-key-that-is-at-least-32-chars!!")
-    with pytest.raises(GoogleAuthError):
+    with pytest.raises(AccessTokenError):
         decode_access_token("not-a-jwt", settings)
 
 
@@ -448,7 +449,7 @@ def test_decode_wrong_secret_raises():
     s1 = Settings(jwt_secret="super-secret-key-that-is-at-least-32-chars!!")
     s2 = Settings(jwt_secret="different-secret-key-that-is-at-least-32ch!!")
     token = create_access_token(uid, s1)
-    with pytest.raises(GoogleAuthError):
+    with pytest.raises(AccessTokenError):
         decode_access_token(token, s2)
 
 

@@ -10,7 +10,7 @@ from app.background import (
     push_scheduler,
 )
 from app.core import jobs
-from app.core.config import get_settings, validate_production_settings
+from app.core.config import cors_allow_origins, get_settings, validate_production_settings
 from app.core.db import engine, warmup_db_pool
 from app.core.logging import setup_logging
 from app.core.redis import get_redis_client
@@ -78,11 +78,13 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title="Recall API", version="0.1.0", lifespan=lifespan)
 
-    cors_origins = [origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()]
+    cors_origins = cors_allow_origins(settings)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=cors_origins or ["*"],
-        allow_credentials=bool(cors_origins),
+        allow_origins=cors_origins,
+        # Credentials cannot be used with wildcard origins; only enable when
+        # an explicit allow-list is configured (prod requires that).
+        allow_credentials=cors_origins != ["*"],
         # Explicit method/header allowlists — `["*"]` here reflects every
         # method/header the client might use and lets the browser block the
         # rest, instead of echoing whatever the client sends.

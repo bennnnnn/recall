@@ -27,7 +27,11 @@ import {
 } from "@/lib/openHtmlPreview";
 import { injectPreviewCsp, stripScripts } from "@/lib/previewSandbox";
 import { CODE_FONT } from "@/lib/fonts";
-import { getPreviewWebView, useStaticOnlyNavigation } from "@/lib/webView";
+import {
+  getPreviewWebView,
+  STATIC_HTML_ORIGIN_WHITELIST,
+  useStaticOnlyNavigation,
+} from "@/lib/webView";
 import i18n from "@/lib/i18n";
 
 type Props = {
@@ -125,7 +129,7 @@ function LiveWebPreview({
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         {...(isRnc
           ? {
-              originWhitelist: ["*"],
+              originWhitelist: STATIC_HTML_ORIGIN_WHITELIST,
               javaScriptEnabled: true,
               domStorageEnabled: false,
               allowsInlineMediaPlayback: true,
