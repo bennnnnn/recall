@@ -4,7 +4,8 @@ export type MathSegment =
   | { type: "text"; value: string }
   | { type: "sup"; value: string }
   | { type: "sub"; value: string }
-  | { type: "frac"; num: MathSegment[]; den: MathSegment[] };
+  | { type: "frac"; num: MathSegment[]; den: MathSegment[] }
+  | { type: "sqrt"; body: MathSegment[]; degree?: string };
 
 /**
  * Placeholder for a backslash inside `$...$` / `\(...\)` math that
@@ -303,20 +304,11 @@ function preprocessLatex(latex: string): string {
   for (const [re, rep] of CMD_REPLACEMENTS) {
     s = s.replace(re, rep);
   }
-  // \sqrt{x} → a radical followed by the radicand under a combining overline
-  // ("√4̅"), not "√(x)" — a lone tick-mark next to parens reads more like a
-  // checkmark stuck beside a phone number than a root sign, and the bar
-  // (same combining mark \overline uses above) is what actually signals "this
-  // is under the root" the way real math notation draws it — no parens
-  // needed since the bar itself delimits the radicand. nth-root's degree
-  // still needs its own bracket (nothing to tuck it into in plain text); the
-  // \sqrt[n]{x} rule runs first so the [n] isn't swallowed by the bare rule.
-  s = s.replace(
-    /\\sqrt\[([^\]]+)\]\{([^}]+)\}/g,
-    (_m, degree: string, body: string) => `√[${degree}]${markEachChar(body, "̅")}`,
-  );
-  s = s.replace(/\\sqrt\{([^}]+)\}/g, (_m, body: string) => `√${markEachChar(body, "̅")}`);
-  s = s.replace(/\\sqrt\s+([0-9a-zA-Z]+)/g, (_m, body: string) => `√${markEachChar(body, "̅")}`);
+  // \sqrt{...} is handled by parseSqrt below (in the character-by-character
+  // parser, not here) — a flat regex over `[^}]+` can't track nested braces,
+  // so `\sqrt{\frac{M}{2}}` broke on the FIRST `}` (the one closing \frac's
+  // own `{M}`), leaking the rest of the radicand as raw text. readGroup
+  // already solves this correctly for \frac's num/den; \sqrt reuses it.
   s = s.replace(/\\text\{([^}]+)\}/g, "$1");
   s = s.replace(/\\mathrm\{([^}]+)\}/g, "$1");
   // \boxed{...} has no plain-text equivalent (KaTeX/MathJax draw an actual
@@ -364,10 +356,46 @@ function parseFrac(input: string, start: number): { seg: MathSegment; next: numb
   };
 }
 
+/**
+ * \sqrt{x} / \sqrt[n]{x} — mirrors parseFrac: readGroup tracks brace depth,
+ * so a radicand containing its own braces (\sqrt{\frac{M}{2}}) parses
+ * correctly instead of a flat `[^}]+` regex stopping at the FIRST `}`.
+ */
+function parseSqrt(input: string, start: number): { seg: MathSegment; next: number } | null {
+  if (!input.startsWith("\\sqrt", start)) return null;
+  let i = start + 5;
+  let degree: string | undefined;
+  if (input[i] === "[") {
+    const close = input.indexOf("]", i);
+    if (close === -1) return null;
+    degree = input.slice(i + 1, close);
+    i = close + 1;
+  }
+  while (input[i] === " ") i += 1;
+  const group = readGroup(input, i);
+  if (group) {
+    return { seg: { type: "sqrt", body: parseSimpleLatex(group.value), degree }, next: group.next };
+  }
+  // \sqrt without braces (\sqrt4, \sqrt 4) — bare single-token radicand.
+  const bare = input.slice(i).match(/^[0-9a-zA-Z]+/)?.[0];
+  if (bare) {
+    return { seg: { type: "sqrt", body: [{ type: "text", value: bare }], degree }, next: i + bare.length };
+  }
+  return null;
+}
+
 function segmentToPlain(seg: MathSegment): string {
   if (seg.type === "text") return seg.value;
   if (seg.type === "sup") return `^${seg.value}`;
   if (seg.type === "sub") return `_${seg.value}`;
+  if (seg.type === "sqrt") {
+    // Radicand under a combining overline ("4̅"), not "(4)" in parens — the
+    // bar itself delimits what's under the root, closer to how it's drawn
+    // on paper. Nested content (a fraction, superscript, …) is flattened
+    // to plain text first since there's no way to draw it under a bar too.
+    const body = markEachChar(segmentsToPlain(seg.body), "̅");
+    return seg.degree ? `√[${seg.degree}]${body}` : `√${body}`;
+  }
   return `${segmentsToPlain(seg.num)}/${segmentsToPlain(seg.den)}`;
 }
 
@@ -388,6 +416,13 @@ export function parseSimpleLatex(latex: string): MathSegment[] {
     if (frac) {
       out.push(frac.seg);
       i = frac.next;
+      continue;
+    }
+
+    const sqrt = parseSqrt(input, i);
+    if (sqrt) {
+      out.push(sqrt.seg);
+      i = sqrt.next;
       continue;
     }
 

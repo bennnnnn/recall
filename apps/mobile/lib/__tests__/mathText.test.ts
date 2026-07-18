@@ -48,6 +48,28 @@ describe("parseSimpleLatex", () => {
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\sqrt[3]{8}`))).toBe("√[3]8̅");
   });
 
+  it("BUG FIX regression: \\sqrt{\\frac{...}{...}} renders the fraction, does not leak raw \\frac text", () => {
+    // Reported live: "m = \pm\sqrt{\frac{M}{2}}" rendered the fraction as
+    // literal, unrendered "\frac{M}{2}" text inside the root. Cause: the
+    // \sqrt substitution used to be a flat `[^}]+` regex, which can't track
+    // nested braces — it stopped at the FIRST "}" (the one closing \frac's
+    // own "{M}"), corrupting the match instead of capturing the whole
+    // radicand. \sqrt is now parsed like \frac (readGroup, brace-depth
+    // aware), so a fraction inside a root parses and renders correctly.
+    const segs = parseSimpleLatex(String.raw`m = \pm\sqrt{\frac{M}{2}}`);
+    const plain = segmentsToPlain(segs);
+    expect(plain).not.toContain("\\frac");
+    expect(plain).not.toContain("{");
+    expect(plain).not.toContain("}");
+    expect(plain).toBe("m = ±√M̅/̅2̅");
+
+    const sqrtSeg = segs.find((s) => s.type === "sqrt");
+    expect(sqrtSeg).toBeTruthy();
+    if (sqrtSeg?.type === "sqrt") {
+      expect(sqrtSeg.body.some((s) => s.type === "frac")).toBe(true);
+    }
+  });
+
   it("BUG FIX regression: uppercase Greek + calculus/set symbols render as unicode, not raw backslash", () => {
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\Gamma + \Theta`))).toBe("Γ + Θ");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\Sigma \Omega \Pi`))).toBe("Σ Ω Π");

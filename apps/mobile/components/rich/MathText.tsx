@@ -92,6 +92,12 @@ function renderSegments(
         </Text>
       );
     }
+    if (seg.type === "sqrt") {
+      // segmentsToPlain([seg]) routes through mathText.ts's own sqrt
+      // formatting (radical + combining overline over the flattened body) —
+      // reused here rather than duplicating that logic.
+      return <Text key={key}>{segmentsToPlain([seg])}</Text>;
+    }
     return seg.value;
   });
 }
