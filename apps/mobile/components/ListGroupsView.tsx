@@ -14,9 +14,11 @@ import DraggableFlatList, {
 import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import { useTranslation } from "react-i18next";
 
-import { Theme, useTheme } from "@/lib/theme";
+import { Button } from "@/components/Button";
+import { Radius } from "@/lib/radius";
 import type { Todo } from "@/lib/api";
 import type { ListGroup } from "@/lib/listGroups";
+import { Theme, useTheme } from "@/lib/theme";
 
 const CHECKBOX_SIZE = 22;
 
@@ -170,8 +172,8 @@ export function ListGroupsView({
                       maxLength={500}
                     />
                   </View>
-                  <Pressable
-                    style={[s.addButton, !draft.trim() && s.addButtonDisabled]}
+                  <Button
+                    title={t("common.add")}
                     onPress={() => {
                       const text = draft.trim();
                       if (!text) return;
@@ -179,11 +181,8 @@ export function ListGroupsView({
                       setDraftByTopic((prev) => ({ ...prev, [group.topic]: "" }));
                     }}
                     disabled={!draft.trim()}
-                    accessibilityRole="button"
-                    accessibilityState={{ disabled: !draft.trim() }}
-                  >
-                    <Text style={s.addButtonText}>{t("common.add")}</Text>
-                  </Pressable>
+                    style={s.addButton}
+                  />
                 </View>
 
                 {group.done.length > 0 ? (
@@ -458,7 +457,7 @@ function makeStyles(C: Theme) {
       flex: 1,
       borderWidth: hairline,
       borderColor: C.border,
-      borderRadius: 10,
+      borderRadius: Radius.sm,
       paddingHorizontal: 12,
       paddingVertical: 8,
       backgroundColor: C.bg,
@@ -470,18 +469,9 @@ function makeStyles(C: Theme) {
       paddingVertical: 0,
     },
     addButton: {
+      minHeight: 40,
       paddingHorizontal: 16,
-      paddingVertical: 10,
-      borderRadius: 10,
-      backgroundColor: C.primary,
-    },
-    addButtonDisabled: {
-      opacity: 0.4,
-    },
-    addButtonText: {
-      fontSize: 15,
-      fontWeight: "700",
-      color: C.onPrimary,
+      paddingVertical: 8,
     },
     doneSection: {
       borderTopWidth: hairline,

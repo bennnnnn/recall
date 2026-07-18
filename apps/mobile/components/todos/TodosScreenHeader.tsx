@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
 import { CalendarMeetingRow } from "@/components/CalendarMeetingRow";
@@ -26,6 +25,7 @@ type Props = {
   showReminders: boolean;
   showList: boolean;
   showRemindersEmptyHero: boolean;
+  onEmptyAction: () => void;
   isRemindersPage: boolean;
   openReminders: Todo[];
   calendarEvents: GoogleCalendarEvent[];
@@ -66,6 +66,7 @@ export function TodosScreenHeader({
   showReminders,
   showList,
   showRemindersEmptyHero,
+  onEmptyAction,
   isRemindersPage,
   openReminders,
   calendarEvents,
@@ -112,23 +113,20 @@ export function TodosScreenHeader({
           retryLabel={t("common.retry")}
         />
       ) : showRemindersEmptyHero ? (
-        <View style={s.empty}>
-          <View style={s.emptyIconWrap}>
-            <Ionicons
-              name={focusSection === "list" ? "list-outline" : "checkbox-outline"}
-              size={28}
-              color={C.primary}
-            />
-          </View>
-          <Text style={s.emptyTitle}>
-            {focusSection === "list" ? t("lists.empty_title") : t("todos.empty_title")}
-          </Text>
-          <Text style={s.emptyBody}>
-            {focusSection === "list"
+        <StateView
+          variant="empty"
+          icon={focusSection === "list" ? "list-outline" : "notifications-outline"}
+          title={focusSection === "list" ? t("lists.empty_title") : t("todos.empty_title")}
+          message={
+            focusSection === "list"
               ? t("lists.empty_body")
-              : t("todos.empty_reminders_body")}
-          </Text>
-        </View>
+              : t("todos.empty_reminders_body")
+          }
+          onRetry={onEmptyAction}
+          retryLabel={
+            focusSection === "list" ? t("lists.new_group") : t("todos.add_reminder")
+          }
+        />
       ) : null}
 
       {showReminders && isRemindersPage ? (
