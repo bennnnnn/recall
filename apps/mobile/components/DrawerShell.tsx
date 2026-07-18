@@ -2,6 +2,10 @@
  * Custom slide drawer. Chat stays mounted; the sidebar slides in from the
  * left. Open via the header button, Android back, or an interactive swipe
  * from the left edge; close via scrim tap, back, or swipe left.
+ *
+ * Edge open uses Gesture.Pan with manualActivation (same claim rules as the
+ * old PanResponder) so taps on the header menu button are not stolen by an
+ * opaque left-edge hit strip.
  */
 /* eslint-disable react-hooks/immutability -- Reanimated shared values are mutated on the UI thread by design */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -40,9 +44,11 @@ export function DrawerShell({ children }: { children: ReactNode }) {
   const overlayOpacity = useSharedValue(0);
   const dragStartX = useSharedValue(-drawerWidth);
   const widthSV = useSharedValue(drawerWidth);
+  const isOpenSV = useSharedValue(0);
+  const touchStartX = useSharedValue(0);
+  const touchStartY = useSharedValue(0);
+  const didActivate = useSharedValue(0);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  /** Keep the edge strip interactive through an in-progress open drag. */
-  const [edgeArmed, setEdgeArmed] = useState(true);
   const drawerOpenRef = useRef(false);
   drawerOpenRef.current = drawerOpen;
 
@@ -53,27 +59,23 @@ export function DrawerShell({ children }: { children: ReactNode }) {
     }
   }, [drawerWidth, translateX, widthSV]);
 
-  const disarmEdge = useCallback(() => {
-    setEdgeArmed(false);
-  }, []);
+  useEffect(() => {
+    isOpenSV.value = drawerOpen ? 1 : 0;
+  }, [drawerOpen, isOpenSV]);
 
   const settleTo = useCallback(
     (open: boolean, withHaptic: boolean) => {
       const w = widthSV.value;
       setDrawerOpen(open);
       drawerOpenRef.current = open;
+      isOpenSV.value = open ? 1 : 0;
       if (withHaptic && open) tap();
-      if (!open) setEdgeArmed(true);
-      translateX.value = withSpring(open ? 0 : -w, SPRING, (finished) => {
-        if (finished && open) {
-          runOnJS(disarmEdge)();
-        }
-      });
+      translateX.value = withSpring(open ? 0 : -w, SPRING);
       overlayOpacity.value = withTiming(open ? 1 : 0, {
         duration: open ? Motion.duration.snappy : 150,
       });
     },
-    [disarmEdge, overlayOpacity, translateX, widthSV],
+    [isOpenSV, overlayOpacity, translateX, widthSV],
   );
 
   const settleToRef = useRef(settleTo);
@@ -86,7 +88,8 @@ export function DrawerShell({ children }: { children: ReactNode }) {
   const markOpen = useCallback(() => {
     setDrawerOpen(true);
     drawerOpenRef.current = true;
-  }, []);
+    isOpenSV.value = 1;
+  }, [isOpenSV]);
 
   const open = useCallback(() => settleToRef.current(true, true), []);
   const close = useCallback(() => settleToRef.current(false, false), []);
@@ -104,14 +107,50 @@ export function DrawerShell({ children }: { children: ReactNode }) {
     return () => sub.remove();
   }, [close]);
 
-  const openFromEdge = useMemo(
+  const pan = useMemo(
     () =>
       Gesture.Pan()
-        .activeOffsetX(10)
-        .failOffsetY([-12, 12])
+        .manualActivation(true)
+        .onBegin((e) => {
+          touchStartX.value = e.x;
+          touchStartY.value = e.y;
+          didActivate.value = 0;
+        })
+        .onTouchesMove((e, manager) => {
+          const t = e.changedTouches[0];
+          if (!t) return;
+          const dx = t.x - touchStartX.value;
+          const dy = t.y - touchStartY.value;
+          // Wait for a clear move before claiming (lets header taps through).
+          if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+          if (Math.abs(dy) >= Math.abs(dx)) {
+            manager.fail();
+            return;
+          }
+          const w = widthSV.value;
+          const openNow = isOpenSV.value > 0.5;
+          if (!openNow) {
+            if (touchStartX.value <= EDGE_WIDTH && dx > 0) {
+              manager.activate();
+            } else {
+              manager.fail();
+            }
+            return;
+          }
+          // Open: only claim horizontal swipes that start on the scrim, not the drawer
+          // (so ConversationRow Swipeable keeps working).
+          if (touchStartX.value >= w && dx < 0) {
+            manager.activate();
+          } else {
+            manager.fail();
+          }
+        })
         .onStart(() => {
+          didActivate.value = 1;
           dragStartX.value = translateX.value;
-          runOnJS(markOpen)();
+          if (isOpenSV.value < 0.5) {
+            runOnJS(markOpen)();
+          }
         })
         .onUpdate((e) => {
           const w = widthSV.value;
@@ -129,44 +168,26 @@ export function DrawerShell({ children }: { children: ReactNode }) {
           runOnJS(settleFromGesture)(shouldOpen, shouldOpen && progress < 1);
         })
         .onFinalize((_e, success) => {
-          if (!success) {
+          // Only settle cancelled *active* drags — never after a failed claim,
+          // or a header menu tap would race settle(false) against open().
+          if (!success && didActivate.value) {
             const progress = 1 + translateX.value / widthSV.value;
             runOnJS(settleFromGesture)(progress >= OPEN_PROGRESS, false);
           }
+          didActivate.value = 0;
         }),
-    [dragStartX, markOpen, overlayOpacity, settleFromGesture, translateX, widthSV],
-  );
-
-  const closeFromScrim = useMemo(
-    () =>
-      Gesture.Pan()
-        .activeOffsetX(-10)
-        .failOffsetY([-12, 12])
-        .onStart(() => {
-          dragStartX.value = translateX.value;
-        })
-        .onUpdate((e) => {
-          const w = widthSV.value;
-          const next = Math.max(-w, Math.min(0, dragStartX.value + e.translationX));
-          translateX.value = next;
-          overlayOpacity.value = 1 + next / w;
-        })
-        .onEnd((e) => {
-          const w = widthSV.value;
-          const next = Math.max(-w, Math.min(0, dragStartX.value + e.translationX));
-          const progress = 1 + next / w;
-          const flingOpen = e.velocityX > FLING_VX;
-          const flingClose = e.velocityX < -FLING_VX;
-          const shouldOpen = flingOpen || (!flingClose && progress >= OPEN_PROGRESS);
-          runOnJS(settleFromGesture)(shouldOpen, false);
-        })
-        .onFinalize((_e, success) => {
-          if (!success) {
-            const progress = 1 + translateX.value / widthSV.value;
-            runOnJS(settleFromGesture)(progress >= OPEN_PROGRESS, false);
-          }
-        }),
-    [dragStartX, overlayOpacity, settleFromGesture, translateX, widthSV],
+    [
+      didActivate,
+      dragStartX,
+      isOpenSV,
+      markOpen,
+      overlayOpacity,
+      settleFromGesture,
+      touchStartX,
+      touchStartY,
+      translateX,
+      widthSV,
+    ],
   );
 
   const drawerStyle = useAnimatedStyle(() => ({
@@ -186,28 +207,28 @@ export function DrawerShell({ children }: { children: ReactNode }) {
 
   return (
     <DrawerProvider value={drawerValue}>
-      <View style={s.root}>
-        <View style={s.rootInner}>
-          <View
-            style={[
-              s.content,
-              drawerOpen && s.contentBehind,
-              { pointerEvents: drawerOpen ? "none" : "auto" },
-            ]}
-          >
-            {children}
-          </View>
+      <GestureDetector gesture={pan}>
+        <View style={s.root}>
+          <View style={s.rootInner}>
+            <View
+              style={[
+                s.content,
+                drawerOpen && s.contentBehind,
+                { pointerEvents: drawerOpen ? "none" : "auto" },
+              ]}
+            >
+              {children}
+            </View>
 
-          <Animated.View
-            style={[
-              s.overlay,
-              { backgroundColor: theme.scrim },
-              overlayStyle,
-              { pointerEvents: "none" },
-            ]}
-          />
+            <Animated.View
+              style={[
+                s.overlay,
+                { backgroundColor: theme.scrim },
+                overlayStyle,
+                { pointerEvents: "none" },
+              ]}
+            />
 
-          <GestureDetector gesture={closeFromScrim}>
             <Animated.View
               style={[
                 s.tapClose,
@@ -217,31 +238,23 @@ export function DrawerShell({ children }: { children: ReactNode }) {
             >
               <Pressable style={StyleSheet.absoluteFill} onPress={close} />
             </Animated.View>
-          </GestureDetector>
 
-          <Animated.View
-            style={[
-              s.drawer,
-              {
-                width: drawerWidth,
-                backgroundColor: theme.bg,
-                pointerEvents: drawerOpen ? "auto" : "none",
-              },
-              drawerStyle,
-            ]}
-          >
-            <ConversationList {...fakeProps} />
-          </Animated.View>
-
-          <GestureDetector gesture={openFromEdge}>
-            <View
-              style={s.edgeHit}
-              collapsable={false}
-              pointerEvents={edgeArmed ? "auto" : "none"}
-            />
-          </GestureDetector>
+            <Animated.View
+              style={[
+                s.drawer,
+                {
+                  width: drawerWidth,
+                  backgroundColor: theme.bg,
+                  pointerEvents: drawerOpen ? "auto" : "none",
+                },
+                drawerStyle,
+              ]}
+            >
+              <ConversationList {...fakeProps} />
+            </Animated.View>
+          </View>
         </View>
-      </View>
+      </GestureDetector>
     </DrawerProvider>
   );
 }
@@ -268,13 +281,5 @@ const s = StyleSheet.create({
     elevation: 24,
     zIndex: 200,
     overflow: "hidden",
-  },
-  edgeHit: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    left: 0,
-    width: EDGE_WIDTH,
-    zIndex: 210,
   },
 });
