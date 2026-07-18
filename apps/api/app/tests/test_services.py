@@ -166,7 +166,6 @@ async def test_complete_structured_mock_returns_none():
 
 @pytest.mark.asyncio
 async def test_generate_title_mock():
-    from app.gateways import litellm_gateway
 
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
     title = await chat_titles.generate_title(settings, "Hello", "Hi there")
@@ -176,7 +175,6 @@ async def test_generate_title_mock():
 
 @pytest.mark.asyncio
 async def test_revise_memory_sections_mock():
-    from app.gateways import litellm_gateway
 
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
     result = await memory_llm.revise_memory_sections(

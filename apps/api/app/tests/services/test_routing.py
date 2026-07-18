@@ -1,5 +1,7 @@
 """Tests for app.services.routing — pure functions, no I/O needed."""
 
+import time
+
 import pytest
 
 from app.services.routing import resolve_alias, route_chat_model
@@ -41,6 +43,33 @@ from app.services.routing import resolve_alias, route_chat_model
 )
 def test_route_chat_model(content: str, expected: str) -> None:
     assert route_chat_model(content) == expected
+
+
+def test_code_fence_detection_is_linear_time_not_quadratic():
+    """SECURITY FIX (CodeQL: polynomial regex on uncontrolled data). The
+    first version's fence pattern used `\\s*` for leading whitespace, which
+    overlaps with what `(?:^|\\n)` already matches — a message that's mostly
+    newlines with no closing fence let the engine retry the same run of
+    `\\n`s from every line-start position, going quadratic in input length.
+    A user-controlled chat message hitting this path is exactly "uncontrolled
+    data" — a large adversarial input here must stay fast, not blow up.
+
+    Exercises the compiled pattern directly (not through route_chat_model)
+    since route_chat_model short-circuits on the separate long-message
+    length check well before an adversarial 200k-char input would ever
+    reach the fence regex.
+    """
+    from app.services.routing import _CODE_FENCE
+
+    # No closing fence anywhere — the worst case for a backtracking engine
+    # that overlaps whitespace-skipping with the newline it already matched.
+    adversarial = "\n" * 200_000
+    started = time.perf_counter()
+    _CODE_FENCE.search(adversarial)
+    elapsed = time.perf_counter() - started
+    # Generous ceiling for a slow CI runner; a quadratic implementation on
+    # 200k newlines would take many seconds to minutes, not under a second.
+    assert elapsed < 2.0
 
 
 def test_is_reasoning_alias() -> None:
