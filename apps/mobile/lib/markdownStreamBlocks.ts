@@ -91,6 +91,19 @@ export function advanceStreamBlocks(
   let prevLineSafe = false;
   let inBlankRun = false;
   let didCut = false;
+  // BUG FIX: a closed rich block (fenced code, ```math, or $$ display math)
+  // sitting in the pending segment used to wait for MIN_SETTLED_CHUNK_CHARS
+  // like plain prose before it got cut into its own once-mounted chunk. A
+  // short step-by-step math reply (each step's fence is well under 320
+  // chars) could hold several ALREADY-CLOSED math blocks in that pending
+  // segment for many streaming flushes in a row — and since the pending
+  // segment re-parses from scratch on every flush (react-native-markdown-
+  // display re-keys its whole output per parse, per this file's own header
+  // comment), every KaTeX WebView inside it unmounted and remounted on every
+  // flush: a real, repeated blank-then-repaint flicker, not settled prose's
+  // merely-wasted re-parse cost. A rich block forces an eager cut at the
+  // next safe boundary regardless of size, so it only ever renders once.
+  let hasRichBlockSinceChunkStart = false;
 
   let i = chunkStart;
   while (i < boundedSafeLen) {
@@ -103,6 +116,7 @@ export function advanceStreamBlocks(
       fenceOpen = !fenceOpen;
       prevLineSafe = !fenceOpen;
       inBlankRun = false;
+      hasRichBlockSinceChunkStart = true;
       i = lineEnd;
       continue;
     }
@@ -112,15 +126,34 @@ export function advanceStreamBlocks(
       continue;
     }
 
-    if (countDoubleDollar(line) % 2 === 1) {
+    const dollarCount = countDoubleDollar(line);
+    if (dollarCount % 2 === 1) {
       mathOpen = !mathOpen;
       prevLineSafe = !mathOpen;
       inBlankRun = false;
+      hasRichBlockSinceChunkStart = true;
       i = lineEnd;
       continue;
     }
     if (mathOpen) {
       inBlankRun = false;
+      i = lineEnd;
+      continue;
+    }
+    if (dollarCount > 0) {
+      // Even, nonzero count while not already inside an open block: one or
+      // more complete, self-contained "$$...$$" spans on a single line (no
+      // mathOpen state change) — an odd-count line above already covers the
+      // multi-line open/close case; this covers the single-line one. Defer
+      // to the next safe boundary like the fence/odd-count branches above
+      // (instead of falling through to the cut-check below) so the cut
+      // lands after this line, not at its start — the cut-check uses `i`
+      // as the current line's start, so evaluating it on this same line
+      // would slice the chunk right before the $$ content it's meant to
+      // include.
+      prevLineSafe = true;
+      inBlankRun = false;
+      hasRichBlockSinceChunkStart = true;
       i = lineEnd;
       continue;
     }
@@ -136,13 +169,14 @@ export function advanceStreamBlocks(
       inBlankRun &&
       prevLineSafe &&
       !gluey &&
-      i - chunkStart >= MIN_SETTLED_CHUNK_CHARS
+      (i - chunkStart >= MIN_SETTLED_CHUNK_CHARS || hasRichBlockSinceChunkStart)
     ) {
       const chunk = prepared.slice(chunkStart, i);
       chunks.push(chunk);
       settledText += chunk;
       chunkStart = i;
       didCut = true;
+      hasRichBlockSinceChunkStart = false;
     }
     inBlankRun = false;
     prevLineSafe = !gluey;
