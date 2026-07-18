@@ -19,10 +19,17 @@ const CODE_LINE_HEIGHT = 20;
 // gets the module synchronously on initial render.
 let cachedTokenizer: typeof CodeTokenizeModule | null = null;
 
-function useCodeTokenizer(): typeof CodeTokenizeModule | null {
-  const [tokenizer, setTokenizer] = useState(cachedTokenizer);
+function useCodeTokenizer(enabled: boolean): typeof CodeTokenizeModule | null {
+  const [tokenizer, setTokenizer] = useState(enabled ? cachedTokenizer : null);
   useEffect(() => {
-    if (cachedTokenizer) return;
+    if (!enabled) {
+      setTokenizer(null);
+      return;
+    }
+    if (cachedTokenizer) {
+      setTokenizer(cachedTokenizer);
+      return;
+    }
     let cancelled = false;
     void import("@/lib/codeTokenize").then((mod) => {
       cachedTokenizer = mod;
@@ -31,7 +38,7 @@ function useCodeTokenizer(): typeof CodeTokenizeModule | null {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [enabled]);
   return tokenizer;
 }
 
@@ -54,6 +61,8 @@ export function CodeBlock({
   headerExtra,
   footerExtra,
   showCopy = true,
+  /** Open-fence stream: plain monospace, no Prism / copy / collapse. */
+  streaming = false,
 }: {
   code: string;
   lang: string;
@@ -61,30 +70,37 @@ export function CodeBlock({
   footerExtra?: ReactNode;
   /** Math/diagram fences must not show a Copy affordance. */
   showCopy?: boolean;
+  streaming?: boolean;
 }) {
   const t = useTheme();
   const { t: tr } = useTranslation();
   const s = useMemo(() => makeStyles(t), [t]);
   const [expanded, setExpanded] = useState(false);
   const fenceLang = parseFenceLang(lang);
-  const tokenizer = useCodeTokenizer();
+  const tokenizer = useCodeTokenizer(!streaming);
   const highlightLang = useMemo(
-    () => (tokenizer ? tokenizer.resolveHighlightLang(fenceLang, code) : fenceLang),
-    [tokenizer, fenceLang, code],
+    () =>
+      !streaming && tokenizer
+        ? tokenizer.resolveHighlightLang(fenceLang, code)
+        : fenceLang,
+    [streaming, tokenizer, fenceLang, code],
   );
   const tokens = useMemo(() => {
-    if (!tokenizer) return [{ text: code, color: TOKEN_COLORS.plain }];
+    // While the fence is still open, skip Prism — retokenizing a growing
+    // body every ~48ms is the jank the open-fence stream path avoids.
+    if (streaming || !tokenizer) return [{ text: code, color: TOKEN_COLORS.plain }];
     try {
       return tokenizer.tokenize(code, fenceLang);
     } catch {
       return [{ text: code, color: TOKEN_COLORS.plain }];
     }
-  }, [tokenizer, code, fenceLang]);
+  }, [streaming, tokenizer, code, fenceLang]);
   const lines = useMemo(() => groupTokensByLine(tokens), [tokens]);
   const lineCount = code.split("\n").length;
-  const collapsible = lineCount >= CODE_COLLAPSE_MIN_LINES;
+  const collapsible = !streaming && lineCount >= CODE_COLLAPSE_MIN_LINES;
   const collapsed = collapsible && !expanded;
   const badge = displayLang(fenceLang || highlightLang);
+  const copyEnabled = showCopy && !streaming;
 
   // Syntax colors are saturated mid-tones that read on either background, but
   // the near-black "plain" color is invisible on a dark panel — remap it.
@@ -96,7 +112,7 @@ export function CodeBlock({
         {badge ? <Text style={s.lang}>{badge}</Text> : <View />}
         <View style={s.headerActions}>
           {headerExtra}
-          {showCopy ? <CopyButton text={code} /> : null}
+          {copyEnabled ? <CopyButton text={code} /> : null}
         </View>
       </View>
       <View

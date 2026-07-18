@@ -1,7 +1,9 @@
 /** Markdown renderer — v2 (no nested Markdown / plainFence), theme-aware. */
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { StyleSheet, Text } from "react-native";
 import Markdown from "react-native-markdown-display";
 
+import { CodeBlock } from "@/components/CodeBlock";
 import { makeRenderRules } from "@/components/markdown/markdownRenderRules";
 import { markdownItInstance } from "@/lib/markdownIt";
 import { preprocessMarkdown } from "@/lib/markdownPreprocess";
@@ -13,11 +15,13 @@ import {
   advanceStreamBlocks,
   type StreamBlocksState,
 } from "@/lib/markdownStreamBlocks";
+import { classifyOpenStreamTail } from "@/lib/streamingOpenFence";
 import {
   nextStreamUiFlushDelay,
   STREAM_UI_INTERVAL_MS,
 } from "@/lib/streamUiTiming";
-import { useTheme } from "@/lib/theme";
+import { CODE_FONT } from "@/lib/fonts";
+import { Theme, useTheme } from "@/lib/theme";
 
 type Props = { content: string; streaming?: boolean };
 
@@ -41,6 +45,21 @@ const MarkdownStreamChunk = React.memo(function MarkdownStreamChunk({
     <Markdown style={mdStyles} rules={rules as never} markdownit={markdownItInstance}>
       {content}
     </Markdown>
+  );
+});
+
+/** Open $$ / \[ body — plain text until the closer arrives (no KaTeX WebView). */
+const StreamingMathPreview = React.memo(function StreamingMathPreview({
+  body,
+}: {
+  body: string;
+}) {
+  const theme = useTheme();
+  const s = useMemo(() => makeMathPreviewStyles(theme), [theme]);
+  return (
+    <Text style={s.body} selectable>
+      {body.length > 0 ? body : " "}
+    </Text>
   );
 });
 
@@ -100,10 +119,16 @@ export function MarkdownContent({ content, streaming = false }: Props) {
   if (streaming) {
     // Settling only happens inside the prepared-stable prefix, whose
     // preprocessing is final; the raw remainder stays in the live tail.
-    const safeLen = streamPreprocessRef.current?.preparedStable.length ?? 0;
+    const cache = streamPreprocessRef.current;
+    const safeLen = cache?.preparedStable.length ?? 0;
     const blocks = advanceStreamBlocks(streamBlocksRef.current, prepared, safeLen);
     streamBlocksRef.current = blocks;
-    const tail = prepared.slice(blocks.settledText.length);
+    const settledEnd = blocks.settledText.length;
+    // Closed-but-not-yet-chunked prefix still goes through markdown-it (small).
+    const unsettledStable = prepared.slice(settledEnd, safeLen);
+    const liveRaw = prepared.slice(safeLen);
+    const openRegion = classifyOpenStreamTail(liveRaw, cache?.scanState);
+
     return (
       <>
         {blocks.chunks.map((chunk, index) => (
@@ -114,9 +139,18 @@ export function MarkdownContent({ content, streaming = false }: Props) {
             mdStyles={mdStyles}
           />
         ))}
-        {tail ? (
+        {unsettledStable ? (
           <Markdown style={mdStyles} rules={rules as never} markdownit={markdownItInstance}>
-            {tail}
+            {unsettledStable}
+          </Markdown>
+        ) : null}
+        {openRegion.kind === "fence" ? (
+          <CodeBlock code={openRegion.body} lang={openRegion.lang} streaming />
+        ) : openRegion.kind === "math" ? (
+          <StreamingMathPreview body={openRegion.body} />
+        ) : openRegion.text ? (
+          <Markdown style={mdStyles} rules={rules as never} markdownit={markdownItInstance}>
+            {openRegion.text}
           </Markdown>
         ) : null}
       </>
@@ -134,3 +168,14 @@ export function MarkdownContent({ content, streaming = false }: Props) {
   );
 }
 
+function makeMathPreviewStyles(theme: Theme) {
+  return StyleSheet.create({
+    body: {
+      fontFamily: CODE_FONT,
+      fontSize: 15,
+      lineHeight: 22,
+      color: theme.text,
+      marginVertical: 4,
+    },
+  });
+}
