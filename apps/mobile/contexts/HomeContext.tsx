@@ -15,7 +15,8 @@ import { useAuthOptional } from "@/contexts/AuthContext";
 import { api, type HomeScreen } from "@/lib/api";
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { CONTEXT_REFRESH_STALE_MS } from "@/lib/contextRefresh";
-import { instantHomePlaceholder, loadHomeFallback } from "@/lib/homeFallback";
+import { loadHomeFallback } from "@/lib/homeFallback";
+import { instantHomePlaceholder } from "@/lib/homeWelcome";
 
 type HomeContextValue = {
   screen: HomeScreen | null;

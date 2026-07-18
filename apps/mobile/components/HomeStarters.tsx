@@ -11,7 +11,7 @@ import { api, type HomeUrgentTodo, type HomeProjectHighlight, type HomeStarter }
 import { queueChatLaunch } from "@/lib/chatLaunch";
 import { buildHomeDailyQuizChatPrompt } from "@/lib/projectChat";
 import { describeDueAt } from "@/lib/dueDate";
-import { instantHomePlaceholder } from "@/lib/homeFallback";
+import { instantHomePlaceholder } from "@/lib/homeWelcome";
 import { homeUrgentPrompt, listHomeUrgentTodos, partitionHomeUrgentTodos } from "@/lib/homeUrgentTodos";
 import { learningProgressColors } from "@/lib/homeLearningCard";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
