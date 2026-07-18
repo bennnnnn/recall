@@ -2,6 +2,7 @@ import { Pressable, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { DrawerNavLinks } from "@/components/drawer/DrawerNavLinks";
 import type { Theme } from "@/lib/theme";
 
 import type { ConversationListStyles } from "./conversationListStyles";
@@ -20,6 +21,11 @@ type Props = {
   selectedCount?: number;
   onExitSelection?: () => void;
   onSelectAll?: () => void;
+  showIndicator: boolean;
+  unseenCount: number;
+  onProjects: () => void;
+  onLists: () => void;
+  onReminders: () => void;
 };
 
 export function DrawerHeader({
@@ -36,6 +42,11 @@ export function DrawerHeader({
   selectedCount = 0,
   onExitSelection,
   onSelectAll,
+  showIndicator,
+  unseenCount,
+  onProjects,
+  onLists,
+  onReminders,
 }: Props) {
   const { t } = useTranslation();
 
@@ -89,6 +100,16 @@ export function DrawerHeader({
           </View>
         )}
       </View>
+      {/* Fixed above the scroll fade so Learning/Lists/Reminders aren't washed out. */}
+      <DrawerNavLinks
+        styles={s}
+        theme={theme}
+        showIndicator={showIndicator}
+        unseenCount={unseenCount}
+        onProjects={onProjects}
+        onLists={onLists}
+        onReminders={onReminders}
+      />
     </View>
   );
 }

@@ -3,6 +3,8 @@ import { StyleSheet } from "react-native";
 import type { Theme } from "@/lib/theme";
 
 export const TOP_CHROME = 58;
+/** Fixed Learning / Lists / Reminders block under the logo row. */
+export const DRAWER_NAV_CHROME = 150;
 export const FOOTER_CHROME = 54;
 export const FADE_EXTRA = 40;
 export const CHAT_LIST_STALE_MS = 20_000;
@@ -25,7 +27,8 @@ export function makeConversationListStyles(theme: Theme) {
       left: 0,
       right: 0,
       zIndex: 100,
-      backgroundColor: "transparent",
+      // Solid so Learning/Lists/Reminders sit above the scroll fade (not washed out).
+      backgroundColor: theme.bg,
     },
     header: { paddingHorizontal: 16, paddingBottom: 10 },
     drawerNav: {
