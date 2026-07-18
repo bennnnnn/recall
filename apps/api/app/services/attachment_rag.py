@@ -24,6 +24,13 @@ _EMBED_CONCURRENCY = 8
 
 
 def chunk_text(text: str, *, chunk_chars: int = 900, overlap: int = 120) -> list[str]:
+    # Guard against a misconfigured overlap >= chunk_chars: `start` would
+    # never advance past the previous chunk's start, spinning forever on a
+    # long document (pure CPU loop in the background indexing worker, no
+    # await to time out on). Shipped defaults (900/120) are safe; this is a
+    # footgun guard for a bad config value, not a correctness fix for today.
+    if overlap >= chunk_chars:
+        overlap = max(0, chunk_chars - 1)
     cleaned = " ".join(text.split())
     if not cleaned:
         return []
@@ -131,14 +138,24 @@ async def retrieve_for_prompt(
     if settings.attachment_rag_min_similarity > 0:
         max_distance = 1.0 - settings.attachment_rag_min_similarity
 
-    rows = await chunks_repo.search_semantic(
-        session,
-        user_id,
-        query_vec,
-        chat_id=chat_id,
-        limit=settings.attachment_rag_chunk_limit,
-        max_distance=max_distance if len(query_vec) == chunks_repo.EMBEDDING_DIM else None,
-    )
+    # BUG FIX (was silent): a DB/pgvector-level error here (unlike an
+    # embedding-gateway failure, already handled above via the empty-vector
+    # check) had no catch anywhere in this call chain, so it propagated all
+    # the way up and failed the whole chat turn instead of just proceeding
+    # without attachment context — RAG is best-effort background context,
+    # same as memory/todos/projects, and must degrade the same way.
+    try:
+        rows = await chunks_repo.search_semantic(
+            session,
+            user_id,
+            query_vec,
+            chat_id=chat_id,
+            limit=settings.attachment_rag_chunk_limit,
+            max_distance=max_distance if len(query_vec) == chunks_repo.EMBEDDING_DIM else None,
+        )
+    except Exception:
+        logger.warning("Attachment RAG retrieval failed for chat_id=%s", chat_id, exc_info=True)
+        return ""
 
     if len(query_vec) != chunks_repo.EMBEDDING_DIM and rows:
         scored: list[tuple[float, AttachmentChunk]] = []

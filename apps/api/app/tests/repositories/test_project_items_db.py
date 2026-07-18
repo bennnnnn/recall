@@ -12,10 +12,10 @@ from sqlalchemy import update as sql_update
 
 from app.models.orm import Project, ProjectItem
 from app.repositories import project_items as project_items_repo
-from app.services.projects import quiz_grading
-from app.services.projects import items as project_items_service
 from app.repositories import projects as projects_repo
 from app.repositories import users as users_repo
+from app.services.projects import items as project_items_service
+from app.services.projects import quiz_grading
 
 
 async def _make_user(session):

@@ -268,9 +268,21 @@ def validate_user_alias(alias: str, *, allow_auto: bool = False) -> None:
     _validate(alias, allow_auto=allow_auto)
 
 
+# BUG FIX: a flat 999.0 for every model missing catalog pricing made
+# unpriced fast/standard-tier entries (e.g. glm-4-flash, qwen-plus — likely
+# cheap, just not backfilled yet) sort as if they were the single most
+# expensive option in the pool, behind even priced smart-tier models. Fall
+# back to a per-tier estimate instead so an unpriced model lands among
+# plausible peers by cost tier; "max" keeps the old worst-case sentinel
+# since that tier is genuinely the priciest by design.
+_TIER_PRICE_FALLBACK = {"fast": 0.5, "standard": 1.5, "smart": 5.0, "max": 999.0}
+_DEFAULT_PRICE_FALLBACK = 999.0
+
+
 def price_sort_key(model: ChatModel) -> tuple[float, float, str]:
-    input_price = model.input_price_per_m if model.input_price_per_m is not None else 999.0
-    output_price = model.output_price_per_m if model.output_price_per_m is not None else 999.0
+    fallback = _TIER_PRICE_FALLBACK.get(model.tier, _DEFAULT_PRICE_FALLBACK)
+    input_price = model.input_price_per_m if model.input_price_per_m is not None else fallback
+    output_price = model.output_price_per_m if model.output_price_per_m is not None else fallback
     return (input_price, output_price, model.id)
 
 

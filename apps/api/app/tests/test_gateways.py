@@ -8,7 +8,6 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway
-from app.services import chat_titles
 from app.gateways.google_auth import (
     GoogleAuthError,
     create_access_token,
@@ -21,6 +20,7 @@ from app.gateways.mock_llm import (
     should_mock_llm,
 )
 from app.models.schemas import TodoExtractionResult
+from app.services import chat_titles
 
 # ── mock_llm ───────────────────────────────────────────────────────────────────
 

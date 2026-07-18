@@ -36,6 +36,45 @@ def test_known_model_aliases_match_catalog():
     assert KNOWN_MODEL_ALIASES == model_catalog.known_ids()
 
 
+def _model(tier: str, *, input_price=None, output_price=None, id_="test-model"):
+    return model_catalog.ChatModel(
+        id=id_,
+        label="Test",
+        provider="openrouter",
+        model="openrouter/test/test",
+        api_key_field="openrouter_api_key",
+        input_price_per_m=input_price,
+        output_price_per_m=output_price,
+        tier=tier,
+    )
+
+
+def test_price_sort_key_unpriced_fast_tier_beats_priced_smart_tier():
+    """BUG FIX: an unpriced fast/standard-tier model used to get the same
+    999.0 sentinel as an unpriced max-tier model, so it sorted as if it were
+    the single most expensive option in the pool — behind even a real,
+    known-expensive smart-tier price. A cheap-tier model with no catalog
+    price yet should still rank ahead of an expensive priced one."""
+    unpriced_fast = _model("fast", id_="unpriced-fast")
+    priced_smart = _model("smart", input_price=50.0, output_price=100.0, id_="priced-smart")
+
+    ranked = sorted([priced_smart, unpriced_fast], key=model_catalog.price_sort_key)
+
+    assert [m.id for m in ranked] == ["unpriced-fast", "priced-smart"]
+
+
+def test_price_sort_key_unpriced_max_tier_still_sorts_last():
+    """Unlike fast/standard, an unpriced "max" tier model keeps the old
+    worst-case sentinel — that tier is genuinely the priciest by design, so
+    treating it as expensive-until-proven-otherwise is correct, not a bug."""
+    unpriced_max = _model("max", id_="unpriced-max")
+    priced_fast = _model("fast", input_price=0.1, output_price=0.2, id_="priced-fast")
+
+    ranked = sorted([unpriced_max, priced_fast], key=model_catalog.price_sort_key)
+
+    assert [m.id for m in ranked] == ["priced-fast", "unpriced-max"]
+
+
 def test_validate_user_alias_allows_auto():
     model_catalog.validate_user_alias("auto", allow_auto=True)
 

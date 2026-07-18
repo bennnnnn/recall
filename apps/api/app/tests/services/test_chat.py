@@ -1010,9 +1010,7 @@ async def test_stream_does_not_duplicate_user_message(stream_offline_io):
         ),
         patch("app.services.email.is_connected", AsyncMock(return_value=False)),
         patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
-        patch(
-            "app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)
-        ),
+        patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.services.web_search.augment_prompt_messages",
@@ -1072,9 +1070,7 @@ async def test_memory_extraction_runs_on_later_turn(stream_offline_io):
         ),
         patch("app.services.email.is_connected", AsyncMock(return_value=False)),
         patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
-        patch(
-            "app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)
-        ),
+        patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.services.web_search.augment_prompt_messages",
@@ -1146,9 +1142,7 @@ async def test_memory_extraction_skipped_when_memory_disabled(stream_offline_io)
         ),
         patch("app.services.email.is_connected", AsyncMock(return_value=False)),
         patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
-        patch(
-            "app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)
-        ),
+        patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.services.web_search.augment_prompt_messages",
@@ -1212,9 +1206,7 @@ async def test_memory_extraction_skipped_between_batch_turns(stream_offline_io):
         ),
         patch("app.services.email.is_connected", AsyncMock(return_value=False)),
         patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
-        patch(
-            "app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)
-        ),
+        patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.services.web_search.augment_prompt_messages",
@@ -1279,9 +1271,7 @@ async def test_stream_skips_pre_reply_todo_llm_sync(stream_offline_io):
         ),
         patch("app.services.email.is_connected", AsyncMock(return_value=False)),
         patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
-        patch(
-            "app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)
-        ),
+        patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.services.todos.should_pre_sync_todos",
@@ -1346,9 +1336,7 @@ async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offli
         ),
         patch("app.services.email.is_connected", AsyncMock(return_value=False)),
         patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
-        patch(
-            "app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)
-        ),
+        patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.services.web_search.augment_prompt_messages",
@@ -1422,9 +1410,7 @@ async def test_stream_sets_final_content_on_cancel(stream_offline_io):
         ),
         patch("app.services.email.is_connected", AsyncMock(return_value=False)),
         patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
-        patch(
-            "app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)
-        ),
+        patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.services.web_search.augment_prompt_messages",
@@ -1502,9 +1488,7 @@ async def test_cancelled_stream_skips_model_health_sample(stream_offline_io):
                 AsyncMock(side_effect=lambda *_a, **_k: _a[-1]),
             )
         )
-        stack.enter_context(
-            patch("app.repositories.users.get_by_id", AsyncMock(return_value=None))
-        )
+        stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
         async for _ in stream_and_finalize(
             AsyncMock(),
             Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
@@ -1577,9 +1561,7 @@ async def test_stream_closes_llm_stream_on_cancel(stream_offline_io):
         ),
         patch("app.services.email.is_connected", AsyncMock(return_value=False)),
         patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
-        patch(
-            "app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)
-        ),
+        patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.services.web_search.augment_prompt_messages",
@@ -1640,9 +1622,7 @@ async def test_stream_places_query_without_location_prompts_to_enable(stream_off
         ),
         patch("app.services.email.is_connected", AsyncMock(return_value=False)),
         patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
-        patch(
-            "app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)
-        ),
+        patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch("app.services.web_search.augment_prompt_messages", augment),
         patch("app.gateways.litellm_gateway.stream_chat_completion", AsyncMock()),
@@ -1706,9 +1686,7 @@ async def test_stream_places_query_uses_client_location_without_profile(stream_o
         ),
         patch("app.services.email.is_connected", AsyncMock(return_value=False)),
         patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
-        patch(
-            "app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)
-        ),
+        patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch("app.services.web_search.augment_prompt_messages", augment),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
@@ -1756,9 +1734,7 @@ async def test_stream_persists_raw_text_when_enrichment_fails(stream_offline_io)
     finalize = AsyncMock()
 
     with ExitStack() as stack:
-        stack.enter_context(
-            patch("app.services.quota.reserve_usage", AsyncMock(return_value=True))
-        )
+        stack.enter_context(patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)))
         stack.enter_context(
             patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user))
         )
@@ -1790,13 +1766,9 @@ async def test_stream_persists_raw_text_when_enrichment_fails(stream_offline_io)
                 AsyncMock(side_effect=RuntimeError("calendar boom")),
             )
         )
+        stack.enter_context(patch("app.services.email.is_connected", AsyncMock(return_value=False)))
         stack.enter_context(
-            patch("app.services.email.is_connected", AsyncMock(return_value=False))
-        )
-        stack.enter_context(
-            patch(
-                "app.services.email.load_gmail_context", AsyncMock(return_value=None)
-            )
+            patch("app.services.email.load_gmail_context", AsyncMock(return_value=None))
         )
         stack.enter_context(
             patch(
@@ -1805,9 +1777,7 @@ async def test_stream_persists_raw_text_when_enrichment_fails(stream_offline_io)
             )
         )
         stack.enter_context(
-            patch(
-                "app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])
-            )
+            patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[]))
         )
         stack.enter_context(
             patch(
@@ -1880,9 +1850,7 @@ async def test_stream_no_final_content_on_normal_completion(stream_offline_io):
         ),
         patch("app.services.email.is_connected", AsyncMock(return_value=False)),
         patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
-        patch(
-            "app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)
-        ),
+        patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.services.web_search.augment_prompt_messages",
@@ -2303,9 +2271,7 @@ async def test_regenerate_restores_assistant_when_stream_empty():
                 AsyncMock(return_value=([{"role": "system", "content": "sys"}], [], None)),
             )
         )
-        stack.enter_context(
-            patch("app.services.quota.reserve_usage", AsyncMock(return_value=True))
-        )
+        stack.enter_context(patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)))
         stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
         stack.enter_context(
             patch(
@@ -2425,9 +2391,7 @@ async def test_regenerate_deletes_assistant_before_building_prompt():
                 side_effect=track_build,
             )
         )
-        stack.enter_context(
-            patch("app.services.quota.reserve_usage", AsyncMock(return_value=True))
-        )
+        stack.enter_context(patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)))
         stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
         stack.enter_context(
             patch(
@@ -2444,7 +2408,9 @@ async def test_regenerate_deletes_assistant_before_building_prompt():
         stack.enter_context(
             patch("app.gateways.litellm_gateway.stream_chat_completion", empty_stream)
         )
-        stack.enter_context(patch("app.services.chat.stream.restore_regenerate_backup", AsyncMock()))
+        stack.enter_context(
+            patch("app.services.chat.stream.restore_regenerate_backup", AsyncMock())
+        )
         from app.gateways.litellm_gateway import ModelUnavailableError
 
         with pytest.raises(ModelUnavailableError):
@@ -2536,10 +2502,10 @@ async def test_regenerate_passes_client_geo_to_web_search():
                 AsyncMock(return_value=[]),
             )
         )
-        stack.enter_context(patch("app.services.chat.turn_prep.context._augment_web_and_tools", augment))
         stack.enter_context(
-            patch("app.services.quota.reserve_usage", AsyncMock(return_value=True))
+            patch("app.services.chat.turn_prep.context._augment_web_and_tools", augment)
         )
+        stack.enter_context(patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)))
         stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
         stack.enter_context(
             patch(
@@ -2551,7 +2517,9 @@ async def test_regenerate_passes_client_geo_to_web_search():
         stack.enter_context(
             patch("app.gateways.litellm_gateway.stream_chat_completion", empty_stream)
         )
-        stack.enter_context(patch("app.services.chat.stream.restore_regenerate_backup", AsyncMock()))
+        stack.enter_context(
+            patch("app.services.chat.stream.restore_regenerate_backup", AsyncMock())
+        )
         from app.gateways.litellm_gateway import ModelUnavailableError
 
         with pytest.raises(ModelUnavailableError):

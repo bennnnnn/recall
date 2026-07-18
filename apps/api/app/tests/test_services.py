@@ -96,7 +96,11 @@ async def test_delete_memory_delegates():
     from app.services import memory as memory_service
 
     delete_by_id = AsyncMock(return_value=True)
-    with patch.object(memories_repo, "delete_by_id", delete_by_id):
+    with (
+        patch.object(memories_repo, "delete_by_id", delete_by_id),
+        patch.object(memory_service, "acquire_memory_write_lock", AsyncMock(return_value=True)),
+        patch.object(memory_service, "release_memory_write_lock", AsyncMock()),
+    ):
         result = await memory_service.delete_memory(AsyncMock(), uuid4(), uuid4())
     assert result is True
     delete_by_id.assert_awaited_once()
@@ -162,8 +166,6 @@ async def test_complete_structured_mock_returns_none():
 
 @pytest.mark.asyncio
 async def test_generate_title_mock():
-    from app.gateways import litellm_gateway
-
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
     title = await chat_titles.generate_title(settings, "Hello", "Hi there")
     assert title is not None
@@ -172,8 +174,6 @@ async def test_generate_title_mock():
 
 @pytest.mark.asyncio
 async def test_revise_memory_sections_mock():
-    from app.gateways import litellm_gateway
-
     settings = Settings(mock_llm_enabled=True, openrouter_api_key="")
     result = await memory_llm.revise_memory_sections(
         settings, "User likes Python", existing_sections={}

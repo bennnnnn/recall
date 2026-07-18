@@ -799,6 +799,23 @@ def test_delete_memory_ok():
     assert r.status_code == 204
 
 
+def test_delete_memory_write_lock_busy_returns_409_not_404():
+    """A background extraction/consolidation pass holds the memory write
+    lock — the router must surface this as a distinct, retryable 409, not
+    the same 404 it uses for "no such memory"."""
+    from app.services import memory as memory_service
+
+    user = _fake_user()
+    app = _app_with_user(user)
+    with patch(
+        "app.routers.memories.memory_service.delete_memory",
+        AsyncMock(side_effect=memory_service.MemoryWriteLockBusyError(user.id)),
+    ):
+        client = TestClient(app)
+        r = client.delete(f"/memories/{uuid4()}", headers={"Authorization": "Bearer tok"})
+    assert r.status_code == 409
+
+
 # ── webhooks / transactional email ────────────────────────────────────────────
 
 

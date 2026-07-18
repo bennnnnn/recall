@@ -95,6 +95,22 @@ def test_consolidation_rewrite_preserves_facts_rejects_dropped_anchor():
     assert consolidation_rewrite_preserves_facts(prior, summary) is False
 
 
+def test_consolidation_rewrite_preserves_facts_rejects_exactly_20_percent_drop():
+    """BUG FIX (off-by-one): "drop >= 20% of anchors" must reject at exactly
+    the 20%-dropped / 80%-preserved boundary, not just past it. 5 anchors,
+    1 dropped = exactly 80% preserved."""
+    prior = "Alice likes Boston, Chicago, Denver, and Everett."
+    summary_drops_one = "Alice likes Boston, Chicago, and Denver."
+    assert extract_consolidation_anchors(prior) == frozenset(
+        {"alice", "boston", "chicago", "denver", "everett"}
+    )
+    assert consolidation_rewrite_preserves_facts(prior, summary_drops_one) is False
+    # Sanity check the gate isn't just always-False now: preserving all 5
+    # (dropping none) still passes.
+    summary_keeps_all = "Alice loves Boston, Chicago, Denver, and Everett."
+    assert consolidation_rewrite_preserves_facts(prior, summary_keeps_all) is True
+
+
 def test_select_memories_filters_low_confidence():
     settings = Settings(memory_min_confidence=0.5, memory_inject_limit=10)
     memories = [
@@ -696,11 +712,21 @@ async def test_delete_memory_fact_removes_one_sentence():
             "app.services.memory.invalidate_memory_block",
             AsyncMock(),
         ) as invalidate,
+        patch(
+            "app.services.memory.acquire_memory_write_lock",
+            AsyncMock(return_value=True),
+        ) as acquire_lock,
+        patch(
+            "app.services.memory.release_memory_write_lock",
+            AsyncMock(),
+        ) as release_lock,
     ):
         ok = await delete_memory_fact(session, settings, user_id, memory.id, 1)
 
     assert ok is True
     invalidate.assert_awaited_once()
+    acquire_lock.assert_awaited_once_with(user_id)
+    release_lock.assert_awaited_once_with(user_id)
 
 
 @pytest.mark.asyncio
@@ -739,6 +765,14 @@ async def test_delete_memory_fact_re_embeds_updated_text():
         ) as update_text_only,
         patch(
             "app.services.memory.invalidate_memory_block",
+            AsyncMock(),
+        ),
+        patch(
+            "app.services.memory.acquire_memory_write_lock",
+            AsyncMock(return_value=True),
+        ),
+        patch(
+            "app.services.memory.release_memory_write_lock",
             AsyncMock(),
         ),
     ):
@@ -783,6 +817,11 @@ async def test_delete_memory_fact_matches_by_content_when_index_is_stale():
             AsyncMock(side_effect=fake_update_text),
         ),
         patch("app.services.memory.invalidate_memory_block", AsyncMock()),
+        patch(
+            "app.services.memory.acquire_memory_write_lock",
+            AsyncMock(return_value=True),
+        ),
+        patch("app.services.memory.release_memory_write_lock", AsyncMock()),
     ):
         ok = await delete_memory_fact(
             session, settings, user_id, memory.id, 1, expected_text="Beta"
@@ -811,6 +850,11 @@ async def test_delete_memory_fact_refuses_when_expected_text_is_gone():
         patch("app.repositories.memories.get_by_id", AsyncMock(return_value=memory)),
         patch("app.repositories.memories.update_text", AsyncMock()) as update_text,
         patch("app.services.memory.invalidate_memory_block", AsyncMock()) as invalidate,
+        patch(
+            "app.services.memory.acquire_memory_write_lock",
+            AsyncMock(return_value=True),
+        ),
+        patch("app.services.memory.release_memory_write_lock", AsyncMock()) as release_lock,
     ):
         ok = await delete_memory_fact(
             session, settings, user_id, memory.id, 1, expected_text="Beta"
@@ -819,6 +863,10 @@ async def test_delete_memory_fact_refuses_when_expected_text_is_gone():
     assert ok is False
     update_text.assert_not_awaited()
     invalidate.assert_not_awaited()
+    # The lock must still be released on the early "refuse" path, not just
+    # the success path — otherwise a refused delete would strand the lock
+    # for the rest of its TTL.
+    release_lock.assert_awaited_once_with(user_id)
 
 
 @pytest.mark.asyncio
@@ -847,6 +895,11 @@ async def test_delete_memory_fact_uses_index_among_duplicate_matches():
             AsyncMock(side_effect=fake_update_text),
         ),
         patch("app.services.memory.invalidate_memory_block", AsyncMock()),
+        patch(
+            "app.services.memory.acquire_memory_write_lock",
+            AsyncMock(return_value=True),
+        ),
+        patch("app.services.memory.release_memory_write_lock", AsyncMock()),
     ):
         ok = await delete_memory_fact(
             session, settings, user_id, memory.id, 1, expected_text="Alpha"
@@ -857,3 +910,79 @@ async def test_delete_memory_fact_uses_index_among_duplicate_matches():
     # collapse both matches or pick the wrong one arbitrarily.
     assert captured["text"].count("Alpha") == 1
     assert "Gamma" in captured["text"]
+
+
+@pytest.mark.asyncio
+async def test_delete_memory_fact_raises_when_write_lock_stays_busy():
+    """A background extraction/consolidation pass is actively rewriting this
+    user's memories — the delete must not silently no-op or race it; it
+    should surface a distinct busy error the router can turn into a 409
+    ("try again"), not a misleading 404."""
+    from app.services.memory import MemoryWriteLockBusyError, delete_memory_fact
+
+    user_id = uuid4()
+    session = AsyncMock()
+    settings = Settings(mock_llm_enabled=True)
+
+    with (
+        patch(
+            "app.services.memory.acquire_memory_write_lock",
+            AsyncMock(return_value=False),
+        ) as acquire_lock,
+        patch("app.services.memory.release_memory_write_lock", AsyncMock()) as release_lock,
+        patch("app.repositories.memories.get_by_id", AsyncMock()) as get_by_id,
+        patch("asyncio.sleep", AsyncMock()),
+    ):
+        with pytest.raises(MemoryWriteLockBusyError):
+            await delete_memory_fact(session, settings, user_id, uuid4(), 0)
+
+    # Retried a bounded number of times, never touched the row, and never
+    # released a lock it never held.
+    assert acquire_lock.await_count == 4
+    get_by_id.assert_not_awaited()
+    release_lock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_delete_memory_releases_lock_even_when_delete_fails():
+    """delete_memory / delete_memory_section share the same lock-then-finally
+    shape as delete_memory_fact — verify the simpler two also acquire and
+    always release, including when the row is already gone."""
+    from app.services.memory import delete_memory, delete_memory_section
+
+    user_id = uuid4()
+    session = AsyncMock()
+
+    with (
+        patch(
+            "app.services.memory.acquire_memory_write_lock",
+            AsyncMock(return_value=True),
+        ) as acquire_lock,
+        patch("app.services.memory.release_memory_write_lock", AsyncMock()) as release_lock,
+        patch("app.repositories.memories.delete_by_id", AsyncMock(return_value=False)),
+        patch("app.services.memory.invalidate_memory_block", AsyncMock()) as invalidate,
+    ):
+        ok = await delete_memory(session, user_id, uuid4())
+
+    assert ok is False
+    invalidate.assert_not_awaited()
+    acquire_lock.assert_awaited_once_with(user_id)
+    release_lock.assert_awaited_once_with(user_id)
+
+    acquire_lock.reset_mock()
+    release_lock.reset_mock()
+    with (
+        patch(
+            "app.services.memory.acquire_memory_write_lock",
+            AsyncMock(return_value=True),
+        ) as acquire_lock,
+        patch("app.services.memory.release_memory_write_lock", AsyncMock()) as release_lock,
+        patch("app.repositories.memories.delete_by_type", AsyncMock(return_value=0)),
+        patch("app.services.memory.invalidate_memory_block", AsyncMock()) as invalidate,
+    ):
+        ok = await delete_memory_section(session, user_id, "fact")
+
+    assert ok is False
+    invalidate.assert_not_awaited()
+    acquire_lock.assert_awaited_once_with(user_id)
+    release_lock.assert_awaited_once_with(user_id)

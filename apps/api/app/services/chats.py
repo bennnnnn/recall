@@ -106,9 +106,7 @@ async def pin_chat(session: AsyncSession, user: User, chat_id: UUID, *, pinned: 
     return await chats_repo.set_pinned(session, chat, pinned)
 
 
-async def archive_chat(
-    session: AsyncSession, user: User, chat_id: UUID, *, archived: bool
-) -> Chat:
+async def archive_chat(session: AsyncSession, user: User, chat_id: UUID, *, archived: bool) -> Chat:
     chat = await get_chat(session, user, chat_id)
     return await chats_repo.set_archived(session, chat, archived)
 

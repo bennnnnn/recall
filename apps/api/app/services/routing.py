@@ -35,7 +35,21 @@ _SMART_TRIGGERS = (
 )
 
 _LONG_MESSAGE_CHARS = 800
-_CODE_FENCE_LANG = re.compile(r"```(?:python|javascript|typescript|rust|go|java|c\+\+|sql)\b", re.I)
+# BUG FIX: this used to only match a fixed language allowlist
+# (python/javascript/typescript/rust/go/java/c++/sql), so a bare ``` ```` ```
+# fence with no language tag, or any other language (bash, shell, C, Kotlin,
+# Swift, HTML, CSS, Ruby, PHP, ...), never escalated to the smart tier —
+# real pasted code silently stayed on the cheap model. Match any fence
+# opener (optionally followed by any language token) instead of an allowlist.
+#
+# SECURITY FIX (CodeQL: polynomial regex on uncontrolled data): the first
+# version of this used `\s*` for the leading whitespace, which overlaps with
+# what `(?:^|\n)` already matches on — a message that's mostly newlines with
+# no closing fence (e.g. thousands of blank lines) let the engine retry the
+# same run of `\n`s from every line-start position, going quadratic. `[ \t]*`
+# can't consume `\n`, so each line's whitespace run is only ever scanned
+# once — linear in input length regardless of how many blank lines it has.
+_CODE_FENCE = re.compile(r"(?:^|\n)[ \t]*```")
 
 
 def route_chat_model(content: str) -> str:
@@ -45,7 +59,7 @@ def route_chat_model(content: str) -> str:
     fast = model_catalog.auto_fast_alias()
     if len(content) >= _LONG_MESSAGE_CHARS:
         return smart
-    if _CODE_FENCE_LANG.search(content):
+    if _CODE_FENCE.search(content):
         return smart
     if any(trigger in text for trigger in _SMART_TRIGGERS):
         return smart
