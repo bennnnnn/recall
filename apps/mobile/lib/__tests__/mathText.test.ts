@@ -53,6 +53,7 @@ describe("parseSimpleLatex", () => {
     expect(segmentsToPlain(parseSimpleLatex(String.raw`x \in S`))).toContain("∈");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`A \subset B`))).toContain("⊂");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`a \equiv b`))).toContain("≡");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`(f \circ g)(2)`))).toBe("(f ∘ g)(2)");
   });
 
   it("BUG FIX regression: renders known function names without the leading backslash", () => {
