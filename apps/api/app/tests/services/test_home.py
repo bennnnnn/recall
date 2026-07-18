@@ -84,6 +84,9 @@ def _home_patches(**overrides):
         "list_active_suggestions": [],
         "load_relevant_memories": [],
         "list_projects": [],
+        # Unpatched calendar/gmail AsyncMocks look "connected" and emit chips,
+        # which incorrectly marks a cold account as warm.
+        "integration_starters": [],
         "count_project_stats": {
             "total": 0,
             "new_count": 0,
@@ -143,6 +146,11 @@ def _home_patches(**overrides):
             home_service.project_items_repo,
             "list_for_user",
             AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            home_service,
+            "integration_starters",
+            AsyncMock(return_value=defaults["integration_starters"]),
         ),
     ):
         yield
