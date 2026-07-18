@@ -1,6 +1,28 @@
 import type { Chat, ChatList } from "@/lib/api";
 import { activeChatsFromGroups, emptyChatList } from "@/lib/chatListSections";
 
+export type DrawerChatFetchMode = "skip" | "full" | "background";
+
+/**
+ * When to hit listChats for the drawer. Cold chat must not fetch while the
+ * drawer is closed — ConversationList stays mounted under DrawerShell.
+ */
+export function drawerChatFetchMode(opts: {
+  isDrawerOpen: boolean;
+  hasToken: boolean;
+  hasLoadedOnce: boolean;
+  lastFetchedAt: number;
+  chatCount: number;
+  now: number;
+  staleMs: number;
+}): DrawerChatFetchMode {
+  if (!opts.isDrawerOpen || !opts.hasToken) return "skip";
+  if (!opts.hasLoadedOnce || opts.lastFetchedAt === 0) return "full";
+  const stale =
+    opts.now - opts.lastFetchedAt > opts.staleMs || opts.chatCount === 0;
+  return stale ? "background" : "skip";
+}
+
 /** Insert a chat into drawer groups if it is not already listed. */
 export function insertChatIntoGroups(groups: ChatList, chat: Chat): ChatList {
   const listed = activeChatsFromGroups(groups).concat(groups.archived);

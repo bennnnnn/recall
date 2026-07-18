@@ -1,4 +1,4 @@
-import { insertChatIntoGroups } from "@/lib/drawerChatList";
+import { drawerChatFetchMode, insertChatIntoGroups } from "@/lib/drawerChatList";
 import { removeChatFromGroups } from "@/lib/chatListSections";
 import type { Chat, ChatList } from "@/lib/api";
 
@@ -23,6 +23,48 @@ function chat(id: string, overrides: Partial<Chat> = {}): Chat {
     ...overrides,
   };
 }
+
+describe("drawerChatFetchMode", () => {
+  const base = {
+    isDrawerOpen: true,
+    hasToken: true,
+    hasLoadedOnce: false,
+    lastFetchedAt: 0,
+    chatCount: 0,
+    now: 100_000,
+    staleMs: 20_000,
+  };
+
+  it("skips while the drawer is closed (cold chat must not listChats)", () => {
+    expect(drawerChatFetchMode({ ...base, isDrawerOpen: false })).toBe("skip");
+  });
+
+  it("full-fetches on first open", () => {
+    expect(drawerChatFetchMode(base)).toBe("full");
+  });
+
+  it("background-refreshes when open and stale", () => {
+    expect(
+      drawerChatFetchMode({
+        ...base,
+        hasLoadedOnce: true,
+        lastFetchedAt: 50_000,
+        chatCount: 3,
+      }),
+    ).toBe("background");
+  });
+
+  it("skips when open and fresh", () => {
+    expect(
+      drawerChatFetchMode({
+        ...base,
+        hasLoadedOnce: true,
+        lastFetchedAt: 90_000,
+        chatCount: 3,
+      }),
+    ).toBe("skip");
+  });
+});
 
 describe("insertChatIntoGroups", () => {
   it("adds a new chat to today", () => {
