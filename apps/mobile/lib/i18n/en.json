@@ -46,6 +46,7 @@
   "chat.delete_failed": "Could not delete this chat.",
   "chat.deleted_toast": "Chat deleted",
   "chat.edit_message_a11y": "Edit message",
+  "chat.user_message_actions_hint": "Long press for copy and edit",
   "chat.edit_no_attachments": "Edits are text-only for now.",
   "chat.editing_message": "Editing message — send to re-run from here",
   "chat.email_card_body_placeholder": "Email body",
