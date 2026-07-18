@@ -1,5 +1,7 @@
 import { StyleSheet } from "react-native";
 
+import { Radius } from "@/lib/radius";
+import { shadowRaised } from "@/lib/shadow";
 import { Space } from "@/lib/space";
 import type { Theme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -21,17 +23,13 @@ export function makeChatScreenStyles(C: Theme) {
       flexDirection: "row",
       alignItems: "center",
       backgroundColor: C.surface,
-      borderRadius: 12,
+      borderRadius: Radius.md,
       paddingHorizontal: Space.sm,
       paddingVertical: Space.xs,
       gap: Space.xs,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: C.border,
-      shadowColor: "#000",
-      shadowOpacity: 0.08,
-      shadowRadius: 6,
-      shadowOffset: { width: 0, height: 2 },
-      elevation: 2,
+      ...shadowRaised(C),
     },
     quotaNudgeBody: {
       flex: 1,
@@ -49,7 +47,7 @@ export function makeChatScreenStyles(C: Theme) {
     },
     quotaNudgeCta: {
       backgroundColor: C.primary,
-      borderRadius: Space.xs,
+      borderRadius: Radius.xs,
       paddingHorizontal: Space.sm,
       paddingVertical: Space.xxs,
       flexShrink: 0,

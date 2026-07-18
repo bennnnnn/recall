@@ -5,6 +5,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { AppSheet } from "@/components/AppSheet";
+import { Radius } from "@/lib/radius";
+import { shadowOverlay } from "@/lib/shadow";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -215,7 +217,7 @@ function makeStyles(C: Theme) {
     },
     group: {
       backgroundColor: C.surface,
-      borderRadius: 14,
+      borderRadius: Radius.lg,
       overflow: "hidden",
     },
     menuRoot: {
@@ -229,17 +231,13 @@ function makeStyles(C: Theme) {
     },
     menuPanelShadow: {
       position: "absolute",
-      borderRadius: 14,
+      borderRadius: Radius.lg,
       // Shadow must live on a view without overflow:hidden or iOS clips it.
       backgroundColor: C.bg,
-      shadowColor: "#000",
-      shadowOpacity: C.isDark ? 0.55 : 0.28,
-      shadowRadius: 20,
-      shadowOffset: { width: 0, height: 10 },
-      elevation: 20,
+      ...shadowOverlay(C),
     },
     menuPanel: {
-      borderRadius: 14,
+      borderRadius: Radius.lg,
       backgroundColor: C.bg,
       overflow: "hidden",
     },
@@ -267,7 +265,7 @@ function makeStyles(C: Theme) {
     },
     cancelBtn: {
       backgroundColor: C.surface,
-      borderRadius: 14,
+      borderRadius: Radius.lg,
       paddingVertical: 16,
       alignItems: "center",
     },

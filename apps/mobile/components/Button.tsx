@@ -8,6 +8,7 @@ import {
   type ViewStyle,
 } from "react-native";
 
+import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -25,7 +26,7 @@ type Props = {
 };
 
 /**
- * Shared primary CTA. Defaults: radius 12, minHeight 48, 16/700.
+ * Shared primary CTA. Defaults: Radius.md, minHeight 48, 16/700.
  * Leave specialized controls alone (send circle, pills, branded auth, soft LearningContinueCta).
  */
 export function Button({
@@ -80,7 +81,7 @@ function makeStyles(theme: Theme) {
   return StyleSheet.create({
     base: {
       minHeight: 48,
-      borderRadius: 12,
+      borderRadius: Radius.md,
       paddingHorizontal: Space.md,
       paddingVertical: Space.sm,
       alignItems: "center",

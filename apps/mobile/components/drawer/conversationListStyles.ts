@@ -1,5 +1,6 @@
 import { StyleSheet } from "react-native";
 
+import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import type { Theme } from "@/lib/theme";
 import { Type } from "@/lib/type";
@@ -84,7 +85,7 @@ export function makeConversationListStyles(theme: Theme) {
       alignItems: "center",
       gap: Space.xs,
       backgroundColor: theme.surface,
-      borderRadius: 12,
+      borderRadius: Radius.md,
       paddingHorizontal: Space.sm,
       paddingVertical: Space.xs,
     },
@@ -168,14 +169,14 @@ export function makeConversationListStyles(theme: Theme) {
       gap: Space.xs,
       paddingVertical: Space.xs,
       paddingHorizontal: Space.sm,
-      borderRadius: 10,
+      borderRadius: Radius.sm,
       backgroundColor: theme.primary,
     },
     footerNewChatText: { ...Type.label, color: theme.onPrimary },
     settingsBtn: {
       marginLeft: "auto",
       padding: Space.xs,
-      borderRadius: 10,
+      borderRadius: Radius.sm,
       backgroundColor: theme.primary,
     },
     selectionBar: {

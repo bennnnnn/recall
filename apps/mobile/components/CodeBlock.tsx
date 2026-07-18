@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { displayLang, groupTokensByLine, parseFenceLang, resolveTokenColor, TOKEN_COLORS } from "@/lib/codeHighlight";
 import type * as CodeTokenizeModule from "@/lib/codeTokenize";
+import { Radius } from "@/lib/radius";
 import { Theme, useTheme } from "@/lib/theme";
 
 import { CopyButton } from "@/components/CopyButton";
@@ -164,7 +165,7 @@ function makeStyles(t: Theme) {
       width: "100%",
       maxWidth: "100%",
       backgroundColor: t.codeBg,
-      borderRadius: 12,
+      borderRadius: Radius.md,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
       overflow: "hidden",

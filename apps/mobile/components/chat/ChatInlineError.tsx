@@ -2,7 +2,9 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import type { ResolvedChatError } from "@/lib/chatErrorMessage";
-import { Theme, useTheme, withAlpha } from "@/lib/theme";
+import { Radius } from "@/lib/radius";
+import { boxShadowElevated } from "@/lib/shadow";
+import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
   error: ResolvedChatError | null;
@@ -67,14 +69,13 @@ function makeStyles(theme: Theme) {
       alignItems: "center",
       gap: 8,
       backgroundColor: theme.surface,
-      borderRadius: 14,
+      borderRadius: Radius.lg,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.warning,
       paddingLeft: 12,
       paddingRight: 8,
       paddingVertical: 10,
-      boxShadow: `0 4 16 0 ${withAlpha(theme.scrim, 0.12)}`,
-      elevation: 8,
+      ...boxShadowElevated(theme, "banner"),
       zIndex: 20,
     },
     body: { flex: 1, flexDirection: "row", alignItems: "flex-start", gap: 8 },
@@ -82,7 +83,7 @@ function makeStyles(theme: Theme) {
     text: { flex: 1, fontSize: 13, lineHeight: 18, color: theme.text },
     cta: {
       backgroundColor: theme.primary,
-      borderRadius: 999,
+      borderRadius: Radius.full,
       paddingHorizontal: 10,
       paddingVertical: 6,
       flexShrink: 0,

@@ -11,7 +11,9 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Motion } from "@/lib/motion";
-import { Theme, useTheme, withAlpha } from "@/lib/theme";
+import { Radius } from "@/lib/radius";
+import { boxShadowElevated } from "@/lib/shadow";
+import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
   message: string | null;
@@ -112,14 +114,13 @@ function makeStyles(theme: Theme) {
       alignItems: "center",
       gap: 10,
       backgroundColor: toastBg,
-      borderRadius: 999,
+      borderRadius: Radius.full,
       paddingHorizontal: 20,
       paddingVertical: 14,
       maxWidth: 340,
       borderWidth: theme.isDark ? StyleSheet.hairlineWidth : 0,
       borderColor: theme.border,
-      boxShadow: `0 8 24 0 ${withAlpha(theme.scrim, 0.45)}`,
-      elevation: 16,
+      ...boxShadowElevated(theme, "toast"),
     },
     text: {
       flexShrink: 1,
