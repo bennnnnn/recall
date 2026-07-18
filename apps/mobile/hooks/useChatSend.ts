@@ -134,6 +134,12 @@ export function useChatSend({
   } | null>(null);
 
   const attachPickInFlightRef = useRef(false);
+  // Read composer text via ref so handleSend (and quiz/starter wrappers that
+  // depend on it) stay identity-stable across keystrokes. Otherwise every
+  // character rebuilds onQuizAnswer → sharedRowProps → renderItem and defeats
+  // FlashList / ChatMessageList memo while typing.
+  const inputRef = useRef(input);
+  inputRef.current = input;
 
   useEffect(() => {
     if (chatId && pendingSend) {
@@ -166,7 +172,7 @@ export function useChatSend({
 
   const handleSend = useCallback(
     async (overrideText?: string) => {
-      const text = (overrideText ?? input).trim();
+      const text = (overrideText ?? inputRef.current).trim();
       if (isOffline) {
         Alert.alert(t("chat.offline_title"), t("chat.offline_body"));
         return;
@@ -316,7 +322,6 @@ export function useChatSend({
       });
     },
     [
-      input,
       pendingAttachment,
       streaming,
       token,
@@ -344,6 +349,8 @@ export function useChatSend({
       onOpenImageGen,
       isPro,
       imageGenerating,
+      setChatId,
+      setChatTitle,
     ],
   );
 

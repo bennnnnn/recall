@@ -185,6 +185,45 @@ export function useChatScreenBodyProps({
   const { headerInset, composerClearance, listBottomPad, emptyHeight } = layout;
   listBottomPadRef.current = listBottomPad;
 
+  // Keep list-facing callbacks identity-stable. bodyProps still rebuilds on
+  // every keystroke (composer `input`), but ChatMessageList is memo'd — fresh
+  // inline arrows here used to defeat that memo and re-render the whole list.
+  const onLoadOlder = useCallback(() => {
+    void loadOlderMessages();
+  }, [loadOlderMessages]);
+  const onSelectStarter = useCallback(
+    (prompt: string) => {
+      void handleSend(prompt);
+    },
+    [handleSend],
+  );
+  const onSend = useCallback(() => {
+    void handleSend();
+  }, [handleSend]);
+  const onQuotaUpgrade = useCallback(() => {
+    quotaNudge.dismiss();
+    setUpgradeVisible(true);
+  }, [quotaNudge]);
+  const onUpgrade = useCallback(() => setUpgradeVisible(true), []);
+  const onRemoveAttachment = useCallback(() => setPendingAttachment(null), [setPendingAttachment]);
+  const onCancelEdit = useCallback(() => {
+    setEditingMessageId(null);
+    setInput("");
+  }, [setEditingMessageId, setInput]);
+  const onAttachmentSource = useCallback(
+    (source: AttachmentSource) => {
+      void handleAttachmentSheetSelect(source);
+    },
+    [handleAttachmentSheetSelect],
+  );
+  const onVoicePress = useCallback(() => {
+    void toggleVoiceInput();
+  }, [toggleVoiceInput]);
+  const onVoiceCancel = useCallback(() => {
+    void cancelVoiceInput();
+  }, [cancelVoiceInput]);
+  const onCloseUpgrade = useCallback(() => setUpgradeVisible(false), []);
+
   const listHeader = useMemo(
     () =>
       !drawerOpen ? (
@@ -245,10 +284,10 @@ export function useChatScreenBodyProps({
       routeChatId,
       emptyHeight,
       renderItem,
-      onLoadOlder: () => void loadOlderMessages(),
+      onLoadOlder,
       onScroll: handleScroll,
       onScrollEnd: handleScrollEnd,
-      onSelectStarter: (prompt) => void handleSend(prompt),
+      onSelectStarter,
       listHeader,
       showScrollToBottom,
       scrollAwayCount,
@@ -257,14 +296,11 @@ export function useChatScreenBodyProps({
       onCloseAttachSheet: closeAttachSheet,
       quotaNudgeVisible: quotaNudge.show,
       quotaUsedPct: quotaNudge.usedPct,
-      onQuotaUpgrade: () => {
-        quotaNudge.dismiss();
-        setUpgradeVisible(true);
-      },
+      onQuotaUpgrade,
       onQuotaDismiss: quotaNudge.dismiss,
       chatError,
       isPro,
-      onUpgrade: () => setUpgradeVisible(true),
+      onUpgrade,
       onDismissChatError: dismissChatError,
       composerAnimatedStyle,
       input,
@@ -272,27 +308,24 @@ export function useChatScreenBodyProps({
       streaming,
       attachBusy,
       pendingAttachment,
-      onRemoveAttachment: () => setPendingAttachment(null),
+      onRemoveAttachment,
       editingMessageId,
-      onCancelEdit: () => {
-        setEditingMessageId(null);
-        setInput("");
-      },
+      onCancelEdit,
       onPickAttachment: handlePickAttachment,
-      onAttachmentSource: (source) => void handleAttachmentSheetSelect(source),
+      onAttachmentSource,
       mathScannerOpen,
       onCloseMathScanner: closeMathScanner,
       onMathScanCaptured: handleMathScanCaptured,
-      onSend: () => void handleSend(),
+      onSend,
       onStop: stopGeneration,
       isOffline,
       voiceRecording,
       voiceTranscribing,
       voiceMeterLevel,
-      onVoicePress: () => void toggleVoiceInput(),
-      onVoiceCancel: () => void cancelVoiceInput(),
+      onVoicePress,
+      onVoiceCancel,
       upgradeVisible,
-      onCloseUpgrade: () => setUpgradeVisible(false),
+      onCloseUpgrade,
       listFooter,
       hideHomeStarters,
     }),
@@ -314,10 +347,10 @@ export function useChatScreenBodyProps({
       routeChatId,
       emptyHeight,
       renderItem,
-      loadOlderMessages,
+      onLoadOlder,
       handleScroll,
       handleScrollEnd,
-      handleSend,
+      onSelectStarter,
       listHeader,
       showScrollToBottom,
       scrollAwayCount,
@@ -325,8 +358,10 @@ export function useChatScreenBodyProps({
       attachSheetOpen,
       closeAttachSheet,
       quotaNudge,
+      onQuotaUpgrade,
       chatError,
       isPro,
+      onUpgrade,
       dismissChatError,
       composerAnimatedStyle,
       input,
@@ -334,22 +369,24 @@ export function useChatScreenBodyProps({
       streaming,
       attachBusy,
       pendingAttachment,
-      setPendingAttachment,
+      onRemoveAttachment,
       editingMessageId,
-      setEditingMessageId,
+      onCancelEdit,
       handlePickAttachment,
-      handleAttachmentSheetSelect,
+      onAttachmentSource,
       mathScannerOpen,
       closeMathScanner,
       handleMathScanCaptured,
+      onSend,
       stopGeneration,
       isOffline,
       voiceRecording,
       voiceTranscribing,
       voiceMeterLevel,
-      toggleVoiceInput,
-      cancelVoiceInput,
+      onVoicePress,
+      onVoiceCancel,
       upgradeVisible,
+      onCloseUpgrade,
       listFooter,
       hideHomeStarters,
     ],
