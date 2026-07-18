@@ -405,13 +405,7 @@ export default function ProjectsScreen() {
           ListHeaderComponent={
             <>
               {!error && visibleProjects.length === 0 ? (
-                <StateView
-                  variant="empty"
-                  title={t("projects.empty_title")}
-                  message={t("projects.empty_body")}
-                  onRetry={showAddLearning ? openCreate : undefined}
-                  retryLabel={t("projects.add_learning")}
-                />
+                <StateView variant="empty" title={t("projects.empty_title")} />
               ) : null}
               {error ? (
                 <StateView
