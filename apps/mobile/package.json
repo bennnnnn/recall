@@ -15,7 +15,7 @@
     "expo": "~56.0.14",
     "expo-apple-authentication": "~56.0.4",
     "expo-audio": "~56.0.12",
-    "expo-auth-session": "^56.0.14",
+    "expo-auth-session": "^57.0.4",
     "expo-camera": "~56.0.8",
     "expo-clipboard": "^56.0.4",
     "expo-constants": "~56.0.20",
