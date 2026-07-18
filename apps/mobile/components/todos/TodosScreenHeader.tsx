@@ -25,7 +25,6 @@ type Props = {
   showReminders: boolean;
   showList: boolean;
   showRemindersEmptyHero: boolean;
-  onEmptyAction: () => void;
   isRemindersPage: boolean;
   openReminders: Todo[];
   calendarEvents: GoogleCalendarEvent[];
@@ -66,7 +65,6 @@ export function TodosScreenHeader({
   showReminders,
   showList,
   showRemindersEmptyHero,
-  onEmptyAction,
   isRemindersPage,
   openReminders,
   calendarEvents,
@@ -117,15 +115,6 @@ export function TodosScreenHeader({
           variant="empty"
           icon={focusSection === "list" ? "list-outline" : "notifications-outline"}
           title={focusSection === "list" ? t("lists.empty_title") : t("todos.empty_title")}
-          message={
-            focusSection === "list"
-              ? t("lists.empty_body")
-              : t("todos.empty_reminders_body")
-          }
-          onRetry={onEmptyAction}
-          retryLabel={
-            focusSection === "list" ? t("lists.new_group") : t("todos.add_reminder")
-          }
         />
       ) : null}
 

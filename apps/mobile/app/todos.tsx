@@ -118,9 +118,6 @@ export default function TodosScreen() {
       showReminders={showReminders}
       showList={showList}
       showRemindersEmptyHero={showRemindersEmptyHero}
-      onEmptyAction={
-        focusSection === "list" ? () => setNewListOpen(true) : openReminderSheet
-      }
       isRemindersPage={isRemindersPage}
       openReminders={openReminders}
       calendarEvents={calendar.calendarEvents}

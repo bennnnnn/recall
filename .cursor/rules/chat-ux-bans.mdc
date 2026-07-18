@@ -33,4 +33,9 @@ When the user says **remove**, leave it removed. Do **not** bring these back in 
 - Backend may still send `fallback_used` / `context_summarized` for logging; the **mobile UI
   must not surface them**.
 
+## 5. No empty-state body / primary CTA when a FAB already adds
+- Learning and Lists empty states: **icon + title only** (e.g. “No learning yet” / “No lists yet”).
+- Do **not** add body copy or an “Add …” `Button` that duplicates the bottom (+) FAB.
+- Reminders empty may stay title-only too (top-bar Add covers create).
+
 If a plan or FEATURES item asks for these, **push back and skip** — they are explicitly rejected.
