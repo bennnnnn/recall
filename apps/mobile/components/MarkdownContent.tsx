@@ -13,6 +13,10 @@ import {
   advanceStreamBlocks,
   type StreamBlocksState,
 } from "@/lib/markdownStreamBlocks";
+import {
+  nextStreamUiFlushDelay,
+  STREAM_UI_INTERVAL_MS,
+} from "@/lib/streamUiTiming";
 import { useTheme } from "@/lib/theme";
 
 type Props = { content: string; streaming?: boolean };
@@ -63,17 +67,17 @@ export function MarkdownContent({ content, streaming = false }: Props) {
       setThrottled(content);
       return;
     }
-    const now = Date.now();
-    const elapsed = now - lastFlushRef.current;
-    if (elapsed >= STREAM_PARSE_INTERVAL_MS) {
-      lastFlushRef.current = now;
+    const elapsed = Date.now() - lastFlushRef.current;
+    const wait = nextStreamUiFlushDelay(elapsed, STREAM_UI_INTERVAL_MS);
+    if (wait === 0) {
+      lastFlushRef.current = Date.now();
       setThrottled(content);
       return;
     }
     const id = setTimeout(() => {
       lastFlushRef.current = Date.now();
       setThrottled(content);
-    }, STREAM_PARSE_INTERVAL_MS - elapsed);
+    }, wait);
     return () => clearTimeout(id);
   }, [content, streaming]);
   const renderContent = streaming ? throttled : content;
@@ -130,7 +134,3 @@ export function MarkdownContent({ content, streaming = false }: Props) {
   );
 }
 
-// Re-parse the live tail at most this often while streaming (ms). Settled
-// chunks are memoized, so this only bounds tail tokenization — 48ms (~20fps)
-// reads as continuous text without measurable parse cost.
-const STREAM_PARSE_INTERVAL_MS = 48;
