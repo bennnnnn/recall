@@ -1,10 +1,10 @@
 import i18n from "@/lib/i18n";
+import { loadHomeFallback } from "@/lib/homeFallback";
 import {
   instantHomePlaceholder,
-  loadHomeFallback,
   localGreeting,
   welcomeStarters,
-} from "@/lib/homeFallback";
+} from "@/lib/homeWelcome";
 
 jest.mock("@/lib/api", () => ({
   api: {
