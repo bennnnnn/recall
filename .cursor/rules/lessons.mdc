@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Streaming math boxes flicker (blank → repaint).** Pending stream tail re-parsed
+  every flush; `react-native-markdown-display` re-keys the tree so KaTeX WebViews in that
+  tail remount. Short closed ` ```math ` / `$$` blocks sat under the 320-char settle
+  threshold for many flushes. Fix (#443): `advanceStreamBlocks` eagerly cuts at the next
+  safe blank line once a fence/`$$` has closed — don’t wait on char volume.
 - **Chat cold start pulled Mermaid/Vega/MathJax.** Static imports from `RichFence` /
   `mathHtml` evaluated ~6MB of inlined vendors on every markdown message graph load.
   Fix: `React.lazy` Chart/Mermaid via `LazyHeavyRich`; MathJax in `mathHtmlMathjax`
