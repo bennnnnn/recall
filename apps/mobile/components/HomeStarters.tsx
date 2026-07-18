@@ -170,6 +170,7 @@ function UrgentTodoSection({
 export function HomeStarters({ onSelect }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
+  const router = useRouter();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { token, user } = useAuth();
   const { screen, loading } = useHome();
@@ -228,7 +229,6 @@ export function HomeStarters({ onSelect }: Props) {
     );
   }
 
-  const router = useRouter();
   const chips = screen.starters
     .filter((starter) => starter.kind !== "todo")
     .filter((starter) => !dismissedStarterKeys.has(starter.id ?? starter.prompt));
