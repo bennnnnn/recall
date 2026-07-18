@@ -44,3 +44,15 @@ export function shouldSchedulePostStreamScroll(
 ): boolean {
   return wasStreamActive && !streamActive && atBottom;
 }
+
+/**
+ * Throttle (not debounce) delay for the streaming catch-up scroll. A plain
+ * debounce — reset on every call — would never fire while draft updates keep
+ * arriving faster than `throttleMs` (normal for a fast provider), freezing
+ * the view mid-stream until generation paused. Recomputing the remaining
+ * wait from elapsed time on every call instead makes it converge toward 0
+ * (and then fire) rather than being pushed out indefinitely.
+ */
+export function nextStreamingScrollDelay(elapsedMs: number, throttleMs: number): number {
+  return Math.max(0, throttleMs - elapsedMs);
+}
