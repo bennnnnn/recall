@@ -8,7 +8,8 @@ import type { AttachmentSource } from "@/components/AttachmentSourceSheet";
 import type { useDraftChat } from "@/hooks/useDraftChat";
 import type { useChatScroll } from "@/hooks/useChatScroll";
 import type { Message } from "@/lib/api";
-import { tap } from "@/lib/haptics";
+import { notifyWarning, tap } from "@/lib/haptics";
+import { notifyOfflineSendBlocked } from "@/lib/offlineSendFeedback";
 import { parseUserMessageContent } from "@/lib/messageAttachments";
 import {
   buildOptimisticUserMessage,
@@ -68,6 +69,8 @@ type Options = {
   updateUser: (patch: Partial<import("@/lib/api").User>) => Promise<void>;
   t: (key: string) => string;
   onStreamBusy?: () => void;
+  /** Soft offline cue (toast) — prefer over a blocking Alert; draft stays in the composer. */
+  onOfflineBlocked?: () => void;
   isOffline: boolean;
   resolveQuizProjectId?: () => string | null;
   onBeforeSend?: (text: string) => boolean | void;
@@ -97,6 +100,7 @@ export function useChatSend({
   updateUser,
   t,
   onStreamBusy,
+  onOfflineBlocked,
   isOffline,
   resolveQuizProjectId,
   onBeforeSend,
@@ -174,7 +178,12 @@ export function useChatSend({
     async (overrideText?: string) => {
       const text = (overrideText ?? inputRef.current).trim();
       if (isOffline) {
-        Alert.alert(t("chat.offline_title"), t("chat.offline_body"));
+        // Keep the draft; banner + dimmed send already signal offline. A modal
+        // Alert feels unfinished without a send queue — use a soft toast instead.
+        notifyOfflineSendBlocked({
+          warn: notifyWarning,
+          showToast: onOfflineBlocked,
+        });
         return;
       }
       if (streaming && (text || pendingAttachment)) {
@@ -344,6 +353,7 @@ export function useChatSend({
       updateUser,
       t,
       onStreamBusy,
+      onOfflineBlocked,
       isOffline,
       onBeforeSend,
       onOpenImageGen,
