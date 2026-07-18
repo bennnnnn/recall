@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
 import { ReminderBadge } from "@/components/ReminderBadge";
+import { tap } from "@/lib/haptics";
 import type { Theme } from "@/lib/theme";
 
 import type { ConversationListStyles } from "./conversationListStyles";
@@ -30,7 +31,15 @@ export function DrawerNavLinks({
 
   return (
     <View style={s.drawerNav}>
-      <Pressable style={s.todosLink} onPress={onProjects} accessibilityRole="button">
+      <Pressable
+        style={s.todosLink}
+        onPress={() => {
+          tap();
+          onProjects();
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={t("drawer.projects")}
+      >
         <Ionicons name="school-outline" size={18} color={theme.text} />
         <Text style={s.todosLinkText}>{t("drawer.projects")}</Text>
         <Ionicons
@@ -41,7 +50,15 @@ export function DrawerNavLinks({
         />
       </Pressable>
 
-      <Pressable style={s.todosLink} onPress={onLists} accessibilityRole="button">
+      <Pressable
+        style={s.todosLink}
+        onPress={() => {
+          tap();
+          onLists();
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={t("drawer.lists")}
+      >
         <Ionicons name="list-outline" size={18} color={theme.text} />
         <Text style={s.todosLinkText}>{t("drawer.lists")}</Text>
         <Ionicons
@@ -52,7 +69,19 @@ export function DrawerNavLinks({
         />
       </Pressable>
 
-      <Pressable style={s.todosLink} onPress={onReminders} accessibilityRole="button">
+      <Pressable
+        style={s.todosLink}
+        onPress={() => {
+          tap();
+          onReminders();
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={
+          showIndicator
+            ? t("reminders.badge_accessibility", { count: unseenCount })
+            : t("drawer.reminders")
+        }
+      >
         <View style={s.navIconWrap}>
           <Ionicons
             name={showIndicator ? "notifications" : "notifications-outline"}

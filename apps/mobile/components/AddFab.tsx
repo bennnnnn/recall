@@ -2,6 +2,7 @@ import { Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { tap } from "@/lib/haptics";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -17,7 +18,10 @@ export function AddFab({ onPress, accessibilityLabel }: Props) {
 
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        tap();
+        onPress();
+      }}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       style={[s.btn, { bottom: Math.max(insets.bottom, 12) + 8, right: 16 + insets.right }]}

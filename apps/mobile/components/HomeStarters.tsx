@@ -14,6 +14,7 @@ import { describeDueAt } from "@/lib/dueDate";
 import { instantHomePlaceholder } from "@/lib/homeWelcome";
 import { homeUrgentPrompt, listHomeUrgentTodos, partitionHomeUrgentTodos } from "@/lib/homeUrgentTodos";
 import { learningProgressColors } from "@/lib/homeLearningCard";
+import { selection, tap } from "@/lib/haptics";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
 
 type Props = {
@@ -80,7 +81,10 @@ function ProjectHighlightCard({
   return (
     <Pressable
       style={[s.projectCard, { backgroundColor: colors.background }]}
-      onPress={startDailyQuiz}
+      onPress={() => {
+        tap();
+        startDailyQuiz();
+      }}
       accessibilityRole="button"
       accessibilityLabel={label}
     >
@@ -131,7 +135,12 @@ function UrgentTodoSection({
           <View key={todo.id} style={s.urgentCardWrap}>
             <Pressable
               style={[s.urgentCard, overdue && s.urgentCardOverdue]}
-              onPress={() => onSelect(homeUrgentPrompt(todo, t))}
+              onPress={() => {
+                tap();
+                onSelect(homeUrgentPrompt(todo, t));
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={todo.content}
             >
               <Ionicons
                 name={overdue ? "alert-circle-outline" : "alarm-outline"}
@@ -153,7 +162,10 @@ function UrgentTodoSection({
             {onDismiss ? (
               <Pressable
                 style={s.urgentDismiss}
-                onPress={() => onDismiss(todo.id)}
+                onPress={() => {
+                  tap();
+                  onDismiss(todo.id);
+                }}
                 hitSlop={8}
                 accessibilityRole="button"
                 accessibilityLabel={t("chat.home.dismiss_reminder")}
@@ -258,8 +270,16 @@ export function HomeStarters({ onSelect }: Props) {
               <Pressable
                 key={`${starter.kind}-${index}-${starter.text}`}
                 style={s.chip}
-                onPress={() => onSelect(starter.prompt)}
-                onLongPress={() => void dismissStarter(starter)}
+                onPress={() => {
+                  tap();
+                  onSelect(starter.prompt);
+                }}
+                onLongPress={() => {
+                  selection();
+                  void dismissStarter(starter);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={starter.text}
                 accessibilityHint={t("chat.home.dismiss_suggestion")}
               >
                 <Ionicons

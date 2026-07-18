@@ -19,6 +19,7 @@ import { useTodosDerivedState } from "@/hooks/useTodosDerivedState";
 import { useTodosListGroups } from "@/hooks/useTodosListGroups";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTodos } from "@/contexts/TodosContext";
+import { tap } from "@/lib/haptics";
 import { ensureNotificationPermission } from "@/lib/todoReminders";
 import { useTheme } from "@/lib/theme";
 
@@ -106,6 +107,7 @@ export default function TodosScreen() {
   }
 
   const openReminderSheet = () => {
+    tap();
     void ensureNotificationPermission();
     setReminderSheetOpen(true);
   };
