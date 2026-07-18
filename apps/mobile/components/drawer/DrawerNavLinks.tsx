@@ -31,7 +31,7 @@ export function DrawerNavLinks({
   return (
     <View style={s.drawerNav}>
       <Pressable style={s.todosLink} onPress={onProjects} accessibilityRole="button">
-        <Ionicons name="school-outline" size={18} color={theme.text} />
+        <Ionicons name="school-outline" size={18} color={theme.textSecondary} />
         <Text style={s.todosLinkText}>{t("drawer.projects")}</Text>
         <Ionicons
           name="chevron-forward"
@@ -42,7 +42,7 @@ export function DrawerNavLinks({
       </Pressable>
 
       <Pressable style={s.todosLink} onPress={onLists} accessibilityRole="button">
-        <Ionicons name="list-outline" size={18} color={theme.text} />
+        <Ionicons name="list-outline" size={18} color={theme.textSecondary} />
         <Text style={s.todosLinkText}>{t("drawer.lists")}</Text>
         <Ionicons
           name="chevron-forward"
@@ -57,7 +57,7 @@ export function DrawerNavLinks({
           <Ionicons
             name={showIndicator ? "notifications" : "notifications-outline"}
             size={18}
-            color={theme.text}
+            color={theme.textSecondary}
           />
           {showIndicator ? (
             <ReminderBadge count={unseenCount} style={s.navBadge} />
