@@ -130,7 +130,11 @@ async def _apply_delete_overdue_open_reminders(
     items: list[TodoItem],
     user_timezone: str | None,
 ) -> int:
-    """Delete open dated reminders whose due time is already past (local)."""
+    """Delete open dated reminders whose due time is already past (local).
+
+    Not wired into transcript sync — that path must use capped per-item
+    ``delete`` actions only (unbounded regex wipe was too risky).
+    """
     tz = time_context_service.resolve_timezone(user_timezone)
     now = datetime.now(tz)
     applied = 0

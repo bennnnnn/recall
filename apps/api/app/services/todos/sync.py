@@ -20,10 +20,7 @@ from app.services.todos.actions import (
     MAX_TODO_ACTIONS_PER_TURN,
     TODO_BLOCKED_FROM_TRANSCRIPT,
 )
-from app.services.todos.classification import (
-    _transcript_implies_bulk_shift_to_tomorrow,
-    _transcript_implies_delete_overdue,
-)
+from app.services.todos.classification import _transcript_implies_bulk_shift_to_tomorrow
 
 logger = logging.getLogger(__name__)
 
@@ -109,10 +106,7 @@ async def _apply_todo_extraction_result(
     # Resolve apply via package so tests can patch todos_service.apply_todo_actions.
     # Bulk helpers are private — import (and patch) from actions.
     from app.services.todos import apply_todo_actions
-    from app.services.todos.actions import (
-        _apply_bulk_shift_due_today_to_tomorrow,
-        _apply_delete_overdue_open_reminders,
-    )
+    from app.services.todos.actions import _apply_bulk_shift_due_today_to_tomorrow
 
     if result and result.actions:
         safe_actions: list[TodoActionItem] = []
@@ -155,29 +149,9 @@ async def _apply_todo_extraction_result(
                 user_id,
             )
             await home_service.invalidate_home_cache(user_id)
-    if _transcript_implies_delete_overdue(transcript):
-        items = await todos_repo.list_for_user(session, user_id, limit=_ACTION_RELOAD_LIMIT)
-        deleted = await _apply_delete_overdue_open_reminders(
-            session,
-            user_id=user_id,
-            items=items,
-            user_timezone=user_timezone,
-        )
-        if deleted:
-            if feedback is not None:
-                feedback.append(f"Deleted {deleted} overdue reminder(s).")
-            logger.info(
-                "Deleted %d overdue reminder(s) for user_id=%s",
-                deleted,
-                user_id,
-            )
-            await home_service.invalidate_home_cache(user_id)
-        else:
-            # Expected when LLM deletes already cleared overdue items this turn.
-            logger.info(
-                "Delete-overdue requested but no overdue open reminders for user_id=%s",
-                user_id,
-            )
+    # Deliberately no bulk overdue wipe here. Regex-triggered mass deletes had
+    # unbounded blast radius; "delete overdue" must land as explicit LLM
+    # `delete` actions (capped) instead of `_apply_delete_overdue_open_reminders`.
 
 
 async def _run_extracted_todo_actions(
