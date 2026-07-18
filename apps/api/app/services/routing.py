@@ -35,7 +35,13 @@ _SMART_TRIGGERS = (
 )
 
 _LONG_MESSAGE_CHARS = 800
-_CODE_FENCE_LANG = re.compile(r"```(?:python|javascript|typescript|rust|go|java|c\+\+|sql)\b", re.I)
+# BUG FIX: this used to only match a fixed language allowlist
+# (python/javascript/typescript/rust/go/java/c++/sql), so a bare ``` ```` ```
+# fence with no language tag, or any other language (bash, shell, C, Kotlin,
+# Swift, HTML, CSS, Ruby, PHP, ...), never escalated to the smart tier —
+# real pasted code silently stayed on the cheap model. Match any fence
+# opener (optionally followed by any language token) instead of an allowlist.
+_CODE_FENCE = re.compile(r"(?:^|\n)\s*```")
 
 
 def route_chat_model(content: str) -> str:
@@ -45,7 +51,7 @@ def route_chat_model(content: str) -> str:
     fast = model_catalog.auto_fast_alias()
     if len(content) >= _LONG_MESSAGE_CHARS:
         return smart
-    if _CODE_FENCE_LANG.search(content):
+    if _CODE_FENCE.search(content):
         return smart
     if any(trigger in text for trigger in _SMART_TRIGGERS):
         return smart

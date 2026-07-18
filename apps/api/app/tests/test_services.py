@@ -96,7 +96,11 @@ async def test_delete_memory_delegates():
     from app.services import memory as memory_service
 
     delete_by_id = AsyncMock(return_value=True)
-    with patch.object(memories_repo, "delete_by_id", delete_by_id):
+    with (
+        patch.object(memories_repo, "delete_by_id", delete_by_id),
+        patch.object(memory_service, "acquire_memory_write_lock", AsyncMock(return_value=True)),
+        patch.object(memory_service, "release_memory_write_lock", AsyncMock()),
+    ):
         result = await memory_service.delete_memory(AsyncMock(), uuid4(), uuid4())
     assert result is True
     delete_by_id.assert_awaited_once()

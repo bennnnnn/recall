@@ -29,9 +29,14 @@ from app.services.routing import resolve_alias, route_chat_model
         # Long message (>=800 chars → smart-chat)
         ("a" * 801, "smart-chat"),
         ("a" * 799, "free-chat"),
-        # Tagged code fence → smart-chat; bare fence → free-chat
+        # Any code fence → smart-chat, regardless of language tag (or lack of
+        # one). BUG FIX: this used to only match a fixed language allowlist,
+        # so a bare fence or an unlisted language (bash, shell, C, HTML, ...)
+        # silently stayed on free-chat even with real pasted code.
         ("check this:\n```python\nprint(1)\n```", "smart-chat"),
-        ("check this out:\n```\nprint(1)\n```", "free-chat"),
+        ("check this out:\n```\nprint(1)\n```", "smart-chat"),
+        ("run this:\n```bash\necho hi\n```", "smart-chat"),
+        ("what's wrong here:\n```html\n<div></div>\n```", "smart-chat"),
     ],
 )
 def test_route_chat_model(content: str, expected: str) -> None:

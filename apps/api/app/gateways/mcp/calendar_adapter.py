@@ -72,10 +72,18 @@ class CalendarAdapter:
             due_at = args.get("due_at")
             if not due_at:
                 return ToolResult(name=self.name, content="Missing due_at.")
-            conflicts = calendar_service.find_conflicting_events(
-                events,
-                calendar_service.datetime_from_iso(str(due_at)),
-            )
+            # BUG FIX (was uncaught): due_at is model-supplied and only
+            # Pydantic-constrained to "a 1-64 char string", not ISO format —
+            # a plausible-but-malformed value (e.g. "tomorrow afternoon")
+            # raised straight out of this adapter with nothing upstream
+            # catching it, taking down the whole chat turn. The sibling
+            # helper _parse_calendar_events already guards the identical
+            # call for list entries; do the same here.
+            try:
+                due_at_parsed = calendar_service.datetime_from_iso(str(due_at))
+            except (TypeError, ValueError):
+                return ToolResult(name=self.name, content=f"Invalid due_at: {due_at!r}")
+            conflicts = calendar_service.find_conflicting_events(events, due_at_parsed)
             if not conflicts:
                 return ToolResult(name=self.name, content="No conflicts.")
             lines = [f"- {e.title} at {e.start.isoformat()}" for e in conflicts]

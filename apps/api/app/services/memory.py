@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import logging
 import re
@@ -109,13 +110,20 @@ def consolidation_rewrite_preserves_facts(
     *,
     min_preserved_ratio: float = 0.8,
 ) -> bool:
-    """True when enough prior anchors appear in the rewritten summary."""
+    """True when enough prior anchors appear in the rewritten summary.
+
+    BUG FIX (off-by-one): the safety gate is meant to reject a merge that
+    drops >= 20% of anchors (the default `min_preserved_ratio=0.8`). A `>=`
+    comparison here accepted a merge that preserved exactly 80% — i.e.
+    dropped exactly 20% — when the spec says that boundary should be
+    rejected too. Strict `>` closes it.
+    """
     anchors = extract_consolidation_anchors(prior)
     if len(anchors) < 2:
         return True
     haystack = summary.lower()
     preserved = sum(1 for anchor in anchors if anchor in haystack)
-    return preserved / len(anchors) >= min_preserved_ratio
+    return preserved / len(anchors) > min_preserved_ratio
 
 
 def _confidence_value(memory: Memory) -> float:
@@ -503,6 +511,38 @@ async def release_memory_write_lock(user_id: UUID) -> None:
         logger.debug("Memory write lock release failed", exc_info=True)
 
 
+class MemoryWriteLockBusyError(Exception):
+    """A user-initiated memory delete couldn't get the write lock after
+    retrying — extraction/consolidation is actively mid-rewrite for this
+    user right now. Callers should surface this as "try again shortly"
+    rather than a plain failure."""
+
+    def __init__(self, user_id: UUID) -> None:
+        super().__init__(f"Memory write lock busy for user_id={user_id}")
+        self.user_id = user_id
+
+
+# Background jobs just skip a run when the lock is held (best-effort, next
+# scheduled pass will catch up). A user tapping delete shouldn't silently
+# no-op for the same reason — without this, a delete racing a same-second
+# extraction/consolidation read-modify-write could have its result silently
+# overwritten by the other side's stale-snapshot commit. Retry briefly first
+# (typical hold time is one LLM round trip + a DB write, well under a
+# second), then surface MemoryWriteLockBusyError so the caller can ask the
+# user to retry instead of guessing.
+_DELETE_LOCK_RETRY_ATTEMPTS = 4
+_DELETE_LOCK_RETRY_DELAY_SECONDS = 0.15
+
+
+async def _acquire_memory_write_lock_or_raise(user_id: UUID) -> None:
+    for attempt in range(_DELETE_LOCK_RETRY_ATTEMPTS):
+        if await acquire_memory_write_lock(user_id):
+            return
+        if attempt < _DELETE_LOCK_RETRY_ATTEMPTS - 1:
+            await asyncio.sleep(_DELETE_LOCK_RETRY_DELAY_SECONDS)
+    raise MemoryWriteLockBusyError(user_id)
+
+
 def split_memory_facts(text: str) -> list[str]:
     return _split_sentences(text)
 
@@ -537,79 +577,96 @@ async def delete_memory_fact(
     from app.gateways import embedding_gateway
     from app.repositories import memories as memories_repo
 
-    memory = await memories_repo.get_by_id(session, user_id, memory_id)
-    if memory is None:
-        return False
-    facts = split_memory_facts(memory.text)
-    # BUG FIX (was silent): the client computes fact_index from its own local
-    # copy of memory.text, but a background extraction/consolidation job can
-    # rewrite this section between when the client loaded it and when the
-    # user taps delete — the index can then point at a different fact than
-    # the one the user saw, silently deleting the wrong one with no error.
-    # When the caller supplies the fact text it actually showed the user,
-    # prefer locating that exact fact by content; only fall back to the raw
-    # index when no expected_text was given (older clients) or the client's
-    # index still happens to be one of the (possibly duplicate) matches. If
-    # the expected fact isn't present at all anymore, refuse rather than
-    # guess — the client should refresh and let the user retry.
-    target_index = fact_index
-    if expected_text is not None:
-        normalized_expected = normalize_memory_text(expected_text).lower()
-        matches = [
-            i
-            for i, fact in enumerate(facts)
-            if normalize_memory_text(fact).lower() == normalized_expected
-        ]
-        if not matches:
-            return False
-        target_index = fact_index if fact_index in matches else matches[0]
-    if target_index < 0 or target_index >= len(facts):
-        return False
-    facts.pop(target_index)
-    if not facts:
-        deleted = await memories_repo.delete_by_id(session, user_id, memory_id)
-        if deleted:
-            await invalidate_memory_block(user_id)
-        return deleted
-    new_text = join_memory_facts(facts)
-    # Re-embed so semantic recall doesn't rank on the stale pre-delete vector.
-    # In dev/mock mode (no embedding key) embed_text returns None and we fall
-    # back to a text-only update so the feature still works.
+    # Same lock extraction/consolidation use for their read-modify-write
+    # section — without it, one of those jobs reading this row's prior text
+    # concurrently with this delete can commit a merge computed from the
+    # stale pre-delete text afterward, silently resurrecting what the user
+    # just removed.
+    await _acquire_memory_write_lock_or_raise(user_id)
     try:
-        new_vec = await embedding_gateway.embed_text(settings, new_text)
-    except Exception:
-        logger.debug("Memory re-embed on fact delete failed", exc_info=True)
-        new_vec = None
-    if new_vec is not None:
-        updated = await memories_repo.update_text_and_embedding(
-            session,
-            user_id,
-            memory_id,
-            new_text,
-            new_vec,
-            embedding_gateway.serialize_embedding(new_vec),
-        )
-    else:
-        updated = await memories_repo.update_text(session, user_id, memory_id, new_text)
-    if updated is not None:
-        await invalidate_memory_block(user_id)
-        return True
-    return False
+        memory = await memories_repo.get_by_id(session, user_id, memory_id)
+        if memory is None:
+            return False
+        facts = split_memory_facts(memory.text)
+        # BUG FIX (was silent): the client computes fact_index from its own local
+        # copy of memory.text, but a background extraction/consolidation job can
+        # rewrite this section between when the client loaded it and when the
+        # user taps delete — the index can then point at a different fact than
+        # the one the user saw, silently deleting the wrong one with no error.
+        # When the caller supplies the fact text it actually showed the user,
+        # prefer locating that exact fact by content; only fall back to the raw
+        # index when no expected_text was given (older clients) or the client's
+        # index still happens to be one of the (possibly duplicate) matches. If
+        # the expected fact isn't present at all anymore, refuse rather than
+        # guess — the client should refresh and let the user retry.
+        target_index = fact_index
+        if expected_text is not None:
+            normalized_expected = normalize_memory_text(expected_text).lower()
+            matches = [
+                i
+                for i, fact in enumerate(facts)
+                if normalize_memory_text(fact).lower() == normalized_expected
+            ]
+            if not matches:
+                return False
+            target_index = fact_index if fact_index in matches else matches[0]
+        if target_index < 0 or target_index >= len(facts):
+            return False
+        facts.pop(target_index)
+        if not facts:
+            deleted = await memories_repo.delete_by_id(session, user_id, memory_id)
+            if deleted:
+                await invalidate_memory_block(user_id)
+            return deleted
+        new_text = join_memory_facts(facts)
+        # Re-embed so semantic recall doesn't rank on the stale pre-delete vector.
+        # In dev/mock mode (no embedding key) embed_text returns None and we fall
+        # back to a text-only update so the feature still works.
+        try:
+            new_vec = await embedding_gateway.embed_text(settings, new_text)
+        except Exception:
+            logger.debug("Memory re-embed on fact delete failed", exc_info=True)
+            new_vec = None
+        if new_vec is not None:
+            updated = await memories_repo.update_text_and_embedding(
+                session,
+                user_id,
+                memory_id,
+                new_text,
+                new_vec,
+                embedding_gateway.serialize_embedding(new_vec),
+            )
+        else:
+            updated = await memories_repo.update_text(session, user_id, memory_id, new_text)
+        if updated is not None:
+            await invalidate_memory_block(user_id)
+            return True
+        return False
+    finally:
+        await release_memory_write_lock(user_id)
 
 
 async def delete_memory(session: AsyncSession, user_id: UUID, memory_id: UUID) -> bool:
     from app.repositories import memories as memories_repo
 
-    deleted = await memories_repo.delete_by_id(session, user_id, memory_id)
-    if deleted:
-        await invalidate_memory_block(user_id)
-    return deleted
+    await _acquire_memory_write_lock_or_raise(user_id)
+    try:
+        deleted = await memories_repo.delete_by_id(session, user_id, memory_id)
+        if deleted:
+            await invalidate_memory_block(user_id)
+        return deleted
+    finally:
+        await release_memory_write_lock(user_id)
 
 
 async def delete_memory_section(session: AsyncSession, user_id: UUID, memory_type: str) -> bool:
     from app.repositories import memories as memories_repo
 
-    removed = await memories_repo.delete_by_type(session, user_id, memory_type)
-    if removed:
-        await invalidate_memory_block(user_id)
-    return removed > 0
+    await _acquire_memory_write_lock_or_raise(user_id)
+    try:
+        removed = await memories_repo.delete_by_type(session, user_id, memory_type)
+        if removed:
+            await invalidate_memory_block(user_id)
+        return removed > 0
+    finally:
+        await release_memory_write_lock(user_id)
