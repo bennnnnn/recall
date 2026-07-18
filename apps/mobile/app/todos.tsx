@@ -1,11 +1,11 @@
 import { useLayoutEffect, useMemo, useState } from "react";
-import { Pressable, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { View } from "react-native";
 import { Redirect, useLocalSearchParams, useNavigation } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useTranslation } from "react-i18next";
 
 import { AddFab } from "@/components/AddFab";
+import { Button } from "@/components/Button";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { AddReminderSheet } from "@/components/todos/AddReminderSheet";
 import { DuePickerModal } from "@/components/todos/DuePickerModal";
@@ -105,6 +105,11 @@ export default function TodosScreen() {
     return <SkeletonList />;
   }
 
+  const openReminderSheet = () => {
+    void ensureNotificationPermission();
+    setReminderSheetOpen(true);
+  };
+
   const listHeader = (
     <TodosScreenHeader
       error={Boolean(error)}
@@ -113,6 +118,9 @@ export default function TodosScreen() {
       showReminders={showReminders}
       showList={showList}
       showRemindersEmptyHero={showRemindersEmptyHero}
+      onEmptyAction={
+        focusSection === "list" ? () => setNewListOpen(true) : openReminderSheet
+      }
       isRemindersPage={isRemindersPage}
       openReminders={openReminders}
       calendarEvents={calendar.calendarEvents}
@@ -149,16 +157,11 @@ export default function TodosScreen() {
     <GestureHandlerRootView style={s.root}>
       {showReminders ? (
         <View style={s.topBar}>
-          <Pressable
-            style={[s.topBtn, s.topBtnSolo]}
-            onPress={() => {
-              void ensureNotificationPermission();
-              setReminderSheetOpen(true);
-            }}
-          >
-            <Ionicons name="notifications-outline" size={20} color={C.primary} />
-            <Text style={s.topBtnText}>{t("todos.add_reminder")}</Text>
-          </Pressable>
+          <Button
+            title={t("todos.add_reminder")}
+            onPress={openReminderSheet}
+            style={s.topBtn}
+          />
         </View>
       ) : null}
 

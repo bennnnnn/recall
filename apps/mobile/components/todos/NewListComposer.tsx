@@ -2,7 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
+import { Button } from "@/components/Button";
+import { Radius } from "@/lib/radius";
+import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type Props = {
   onCancel: () => void;
@@ -56,16 +60,12 @@ export function NewListComposer({ onCancel, onSave }: Props) {
             accessibilityLabel={t("lists.group_name_label")}
           />
         </View>
-        <Pressable
-          style={[s.addButton, !canSave && s.addButtonDisabled]}
+        <Button
+          title={t("common.add")}
           onPress={submit}
           disabled={!canSave}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: !canSave }}
-          accessibilityLabel={t("common.add")}
-        >
-          <Text style={s.addButtonText}>{t("common.add")}</Text>
-        </Pressable>
+          style={s.addButton}
+        />
       </View>
     </View>
   );
@@ -78,60 +78,51 @@ function makeStyles(C: Theme) {
       borderBottomWidth: hairline,
       borderBottomColor: C.border,
       backgroundColor: C.bg,
-      paddingBottom: 4,
+      paddingBottom: Space.xxs,
     },
     header: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      paddingHorizontal: 16,
-      paddingTop: 12,
-      paddingBottom: 4,
+      paddingHorizontal: Space.md,
+      paddingTop: Space.sm,
+      paddingBottom: Space.xxs,
     },
     title: {
-      fontSize: 15,
+      ...Type.secondary,
       fontWeight: "700",
       color: C.text,
     },
     cancel: {
-      fontSize: 15,
+      ...Type.secondary,
       color: C.textSecondary,
     },
     row: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 8,
-      paddingHorizontal: 16,
-      paddingVertical: 10,
+      gap: Space.xs,
+      paddingHorizontal: Space.md,
+      paddingVertical: Space.sm,
     },
     inputWrap: {
       flex: 1,
       borderWidth: hairline,
       borderColor: C.border,
-      borderRadius: 10,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
+      borderRadius: Radius.sm,
+      paddingHorizontal: Space.sm,
+      paddingVertical: Space.xs,
       backgroundColor: C.bg,
     },
     input: {
-      fontSize: 16,
+      ...Type.body,
       lineHeight: 22,
       color: C.text,
       paddingVertical: 0,
     },
     addButton: {
-      paddingHorizontal: 16,
-      paddingVertical: 10,
-      borderRadius: 10,
-      backgroundColor: C.primary,
-    },
-    addButtonDisabled: {
-      opacity: 0.4,
-    },
-    addButtonText: {
-      fontSize: 15,
-      fontWeight: "700",
-      color: C.onPrimary,
+      minHeight: 40,
+      paddingHorizontal: Space.md,
+      paddingVertical: Space.xs,
     },
   });
 }
