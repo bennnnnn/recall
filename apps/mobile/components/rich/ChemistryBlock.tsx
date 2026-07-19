@@ -2,9 +2,9 @@
  * Chemistry structure — SMILES rendered via vendored SmilesDrawer in a
  * sandboxed WebView (same offline/CSP pattern as Mermaid).
  */
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { CopyButton } from "@/components/CopyButton";
@@ -22,7 +22,9 @@ import {
 
 type Props = { content: string };
 
-const PREVIEW_HEIGHT = 240;
+const PREVIEW_HEIGHT = 160;
+const DRAW_WIDTH = 240;
+const DRAW_HEIGHT = 140;
 
 function escapeJsString(value: string): string {
   return value
@@ -58,7 +60,11 @@ function buildChemistryHtml(smiles: string, theme: Theme): string {
     "    fail('Chemistry renderer unavailable.');\n" +
     "    return;\n" +
     "  }\n" +
-    "  var drawer = new SmilesDrawer.SvgDrawer({ width: 280, height: 220 });\n" +
+    "  var drawer = new SmilesDrawer.SvgDrawer({ width: " +
+    DRAW_WIDTH +
+    ", height: " +
+    DRAW_HEIGHT +
+    " });\n" +
     "  SmilesDrawer.parse(smiles, function(tree) {\n" +
     "    try { drawer.draw(tree, root, '" +
     themeName +
@@ -69,15 +75,21 @@ function buildChemistryHtml(smiles: string, theme: Theme): string {
   return injectPreviewCsp(
     "<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"UTF-8\">" +
       '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
-      "<style>body{margin:0;padding:8px;background:" +
+      "<style>body{margin:0;padding:4px;background:" +
       theme.bg +
-      ";display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:220px}" +
+      ";display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:" +
+      DRAW_HEIGHT +
+      "px}" +
       "svg{max-width:100%;height:auto;display:block}" +
       "#err{color:" +
       theme.danger +
       ";font-size:12px;display:none;white-space:pre-wrap;padding:8px;text-align:center}</style>" +
       "</head><body>" +
-      '<svg id="molecule" xmlns="http://www.w3.org/2000/svg" width="280" height="220"></svg><div id="err"></div>' +
+      '<svg id="molecule" xmlns="http://www.w3.org/2000/svg" width="' +
+      DRAW_WIDTH +
+      '" height="' +
+      DRAW_HEIGHT +
+      '"></svg><div id="err"></div>' +
       "<script>" +
       inlineScript(loader + run) +
       "</script></body></html>",
@@ -88,7 +100,6 @@ export function ChemistryBlock({ content }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const [showSource, setShowSource] = useState(false);
 
   const parsed = useMemo(() => parseChemistryFence(content), [content]);
   const smiles = parsed?.smiles ?? "";
@@ -98,7 +109,7 @@ export function ChemistryBlock({ content }: Props) {
     () => (smiles ? buildChemistryHtml(smiles, theme) : ""),
     [smiles, theme],
   );
-  const source = useMemo(() => ({ html }), [html]);
+  const webSource = useMemo(() => ({ html }), [html]);
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;
   const canRenderInline = previewWebView?.mode === "rnc" && Boolean(smiles);
@@ -128,9 +139,6 @@ export function ChemistryBlock({ content }: Props) {
           <Ionicons name="flask-outline" size={16} color={theme.primary} />
           <Text style={s.headerLabel}>{t("rich.chemistry_structure")}</Text>
         </View>
-        <Pressable onPress={() => setShowSource((v) => !v)} hitSlop={8}>
-          <Text style={s.toggleSource}>{showSource ? t("rich.diagram") : t("rich.source")}</Text>
-        </Pressable>
       </View>
 
       {caption ? (
@@ -139,16 +147,12 @@ export function ChemistryBlock({ content }: Props) {
         </View>
       ) : null}
 
-      {showSource ? (
-        <View style={s.previewBox}>
-          <Text style={s.previewText}>{smiles}</Text>
-        </View>
-      ) : canRenderInline && WebView ? (
+      {canRenderInline && WebView ? (
         canMount ? (
           <View style={s.webWrap}>
             <WebView
               originWhitelist={STATIC_HTML_ORIGIN_WHITELIST}
-              source={source}
+              source={webSource}
               scrollEnabled={false}
               style={s.webview}
               javaScriptEnabled
@@ -197,11 +201,10 @@ function makeStyles(t: Theme) {
     },
     headerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
     headerLabel: { fontSize: 14, fontWeight: "700", color: t.text },
-    toggleSource: { fontSize: 13, fontWeight: "600", color: t.primary },
     captionBox: {
       paddingHorizontal: 14,
-      paddingTop: 10,
-      paddingBottom: 2,
+      paddingTop: 8,
+      paddingBottom: 0,
       backgroundColor: t.bg,
     },
     captionText: { fontSize: 13, fontWeight: "600", color: t.textSecondary },
