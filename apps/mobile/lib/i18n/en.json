@@ -862,5 +862,9 @@
   "upgrade.restore_empty": "No active subscription found for this account.",
   "upgrade.subscribe": "Go Pro — {{price}}/month",
   "upgrade.title": "Upgrade to Pro",
-  "chat.status.image_gen_2": "Almost ready…"
+  "chat.status.image_gen_2": "Almost ready…",
+  "common.saved": "Saved",
+  "common.saved_to_photos": "Image saved to your photos.",
+  "common.share_failed": "Share failed",
+  "common.share_image_error": "Could not share this image."
 }

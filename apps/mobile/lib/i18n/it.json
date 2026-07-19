@@ -862,5 +862,9 @@
   "upgrade.restore_empty": "Nessun abbonamento attivo per questo account.",
   "upgrade.subscribe": "Passa a Pro — {{price}}/mese",
   "upgrade.title": "Passa a Pro",
-  "chat.status.image_gen_2": "Quasi pronto…"
+  "chat.status.image_gen_2": "Quasi pronto…",
+  "common.saved": "Salvato",
+  "common.saved_to_photos": "Immagine salvata nelle foto.",
+  "common.share_failed": "Condivisione non riuscita",
+  "common.share_image_error": "Impossibile condividere questa immagine."
 }

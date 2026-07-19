@@ -862,5 +862,9 @@
   "upgrade.restore_empty": "Активная подписка для этого аккаунта не найдена.",
   "upgrade.subscribe": "Pro — {{price}}/мес",
   "upgrade.title": "Перейти на Pro",
-  "chat.status.image_gen_2": "Почти готово…"
+  "chat.status.image_gen_2": "Почти готово…",
+  "common.saved": "Сохранено",
+  "common.saved_to_photos": "Изображение сохранено в Фото.",
+  "common.share_failed": "Не удалось поделиться",
+  "common.share_image_error": "Не удалось поделиться этим изображением."
 }

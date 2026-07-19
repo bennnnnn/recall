@@ -862,5 +862,9 @@
   "upgrade.restore_empty": "Nenhuma assinatura ativa encontrada para esta conta.",
   "upgrade.subscribe": "Assinar Pro — {{price}}/mês",
   "upgrade.title": "Assinar o Pro",
-  "chat.status.image_gen_2": "Quase pronto…"
+  "chat.status.image_gen_2": "Quase pronto…",
+  "common.saved": "Salvo",
+  "common.saved_to_photos": "Imagem salva nas suas fotos.",
+  "common.share_failed": "Falha ao compartilhar",
+  "common.share_image_error": "Não foi possível compartilhar esta imagem."
 }
