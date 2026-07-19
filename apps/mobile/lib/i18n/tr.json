@@ -172,8 +172,8 @@
   "chat.status.composing_1": "Yanıt bir araya getiriliyor…",
   "chat.status.composing_2": "Yazıyor…",
   "chat.status.composing_3": "Yanıt yazılıyor…",
-  "chat.status.image_gen": "Görsel oluşturuluyor…",
-  "chat.status.image_gen_1": "Bu bir dakika sürebilir…",
+  "chat.status.image_gen": "Görsel oluşturuluyor",
+  "chat.status.image_gen_1": "Detaylar işleniyor…",
   "chat.status.loading_calendar": "Takvimin kontrol ediliyor…",
   "chat.status.loading_calendar_1": "Programın yükleniyor…",
   "chat.status.preparing": "Hazırlanıyor…",
@@ -861,5 +861,6 @@
   "upgrade.restore": "Satın alımları geri yükle",
   "upgrade.restore_empty": "Bu hesap için aktif abonelik bulunamadı.",
   "upgrade.subscribe": "Pro'ya geç — {{price}}/ay",
-  "upgrade.title": "Pro'ya yükselt"
+  "upgrade.title": "Pro'ya yükselt",
+  "chat.status.image_gen_2": "Neredeyse hazır…"
 }

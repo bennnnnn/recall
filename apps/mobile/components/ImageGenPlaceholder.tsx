@@ -1,6 +1,6 @@
-import { useEffect, useMemo } from "react";
-import { StyleSheet, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { useEffect, useId, useMemo } from "react";
+import { StyleSheet, Text, View } from "react-native";
+import Svg, { Circle, Defs, Pattern, Rect } from "react-native-svg";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -8,29 +8,43 @@ import Animated, {
   withSequence,
   withTiming,
 } from "react-native-reanimated";
+import { useTranslation } from "react-i18next";
 
 import { useThumbnailSize } from "@/components/ChatMessageImage";
-import { Motion } from "@/lib/motion";
-import { Theme, useTheme } from "@/lib/theme";
+import { Motion, useReduceMotion } from "@/lib/motion";
+import { Theme, useTheme, withAlpha } from "@/lib/theme";
 
-/** Pulsing placeholder shown while an image is being generated — the
- * "background" stage of the background > blur > image reveal. Sized to
- * match ChatMessageImage's thumbnail exactly so there's no layout jump
- * when the real image swaps in. */
-export function ImageGenPlaceholder() {
+type Props = {
+  /** Rotating status line (e.g. "Creating image"). */
+  statusText?: string | null;
+};
+
+/**
+ * ChatGPT-style image-gen waiting card: soft dotted surface + live status
+ * text. Sized to the message image thumbnail so the real image swaps in
+ * without a layout jump.
+ */
+export function ImageGenPlaceholder({ statusText }: Props) {
+  const { t } = useTranslation();
   const C = useTheme();
+  const reduceMotion = useReduceMotion();
   const { width, height } = useThumbnailSize();
   const s = useMemo(() => makeStyles(C, width, height), [C, width, height]);
-  const opacity = useSharedValue(0.55);
+  const patternId = useId().replace(/:/g, "");
+  const labelOpacity = useSharedValue(1);
 
   useEffect(() => {
-    opacity.value = withRepeat(
+    if (reduceMotion) {
+      labelOpacity.value = 1;
+      return;
+    }
+    labelOpacity.value = withRepeat(
       withSequence(
-        withTiming(1, {
+        withTiming(0.45, {
           duration: Motion.duration.soft,
           easing: Motion.easing.inOut,
         }),
-        withTiming(0.55, {
+        withTiming(1, {
           duration: Motion.duration.soft,
           easing: Motion.easing.inOut,
         }),
@@ -38,14 +52,24 @@ export function ImageGenPlaceholder() {
       -1,
       false,
     );
-  }, [opacity]);
+  }, [labelOpacity, reduceMotion]);
 
-  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  const labelStyle = useAnimatedStyle(() => ({ opacity: labelOpacity.value }));
+  const label = statusText?.trim() || t("chat.status.image_gen");
 
   return (
-    <View style={s.wrap}>
-      <Animated.View style={[s.fill, animatedStyle]}>
-        <Ionicons name="image-outline" size={28} color={C.textTertiary} />
+    <View style={s.wrap} accessibilityRole="text" accessibilityLabel={label}>
+      <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
+        <Defs>
+          <Pattern id={patternId} width={14} height={14} patternUnits="userSpaceOnUse">
+            <Circle cx={2} cy={2} r={1.1} fill={withAlpha(C.textTertiary, 0.35)} />
+          </Pattern>
+        </Defs>
+        <Rect width="100%" height="100%" fill={C.surfaceAlt} />
+        <Rect width="100%" height="100%" fill={`url(#${patternId})`} />
+      </Svg>
+      <Animated.View style={[s.labelWrap, labelStyle]}>
+        <Text style={s.label}>{label}</Text>
       </Animated.View>
     </View>
   );
@@ -60,11 +84,16 @@ function makeStyles(C: Theme, width: number, height: number) {
       overflow: "hidden",
       backgroundColor: C.surfaceAlt,
     },
-    fill: {
-      width: "100%",
-      height: "100%",
-      alignItems: "center",
-      justifyContent: "center",
+    labelWrap: {
+      position: "absolute",
+      top: 16,
+      left: 16,
+      right: 16,
+    },
+    label: {
+      fontSize: 15,
+      fontWeight: "500",
+      color: C.textSecondary,
     },
   });
 }

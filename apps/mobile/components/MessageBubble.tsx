@@ -421,8 +421,7 @@ export const MessageBubble = React.memo(function MessageBubble({
             {showWaitingIndicator ? (
               streamStatus === "image_gen" ? (
                 <View style={b.imageGenWaitingWrap}>
-                  <ImageGenPlaceholder />
-                  {statusLabel ? <Text style={b.statusLabel}>{statusLabel}</Text> : null}
+                  <ImageGenPlaceholder statusText={statusLabel} />
                 </View>
               ) : (
                 <View style={b.waitingWrap}>

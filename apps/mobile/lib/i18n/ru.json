@@ -172,8 +172,8 @@
   "chat.status.composing_1": "Собираю ответ…",
   "chat.status.composing_2": "Пишу…",
   "chat.status.composing_3": "Печатаю ответ…",
-  "chat.status.image_gen": "Создаю изображение…",
-  "chat.status.image_gen_1": "Это может занять до минуты…",
+  "chat.status.image_gen": "Создаю изображение",
+  "chat.status.image_gen_1": "Прорисовываю детали…",
   "chat.status.loading_calendar": "Проверяю календарь…",
   "chat.status.loading_calendar_1": "Загружаю расписание…",
   "chat.status.preparing": "Подготовка…",
@@ -861,5 +861,6 @@
   "upgrade.restore": "Восстановить покупки",
   "upgrade.restore_empty": "Активная подписка для этого аккаунта не найдена.",
   "upgrade.subscribe": "Pro — {{price}}/мес",
-  "upgrade.title": "Перейти на Pro"
+  "upgrade.title": "Перейти на Pro",
+  "chat.status.image_gen_2": "Почти готово…"
 }
