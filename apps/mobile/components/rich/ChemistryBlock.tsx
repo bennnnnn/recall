@@ -39,27 +39,30 @@ function buildChemistryHtml(smiles: string, theme: Theme): string {
   // cannot break this file. Bundle returns require(); entry id is 1.
   const loader =
     "var __sdReq = " + SMILES_DRAWER_MIN_JS + "\nvar SmilesDrawer = __sdReq(1);\n";
+  // SmilesDrawer.Drawer.draw(..., infoOnly) incorrectly forwards infoOnly as
+  // SvgDrawer weights (weights.every throws). Use SvgDrawer on an <svg> target
+  // and omit weights/infoOnly so defaults apply.
   const run =
     "(function() {\n" +
     "  var smiles = `" +
     safeSmiles +
     "`;\n" +
     "  var err = document.getElementById('err');\n" +
-    "  var canvas = document.getElementById('molecule');\n" +
+    "  var root = document.getElementById('molecule');\n" +
     "  function fail(msg) {\n" +
-    "    canvas.style.display = 'none';\n" +
+    "    root.style.display = 'none';\n" +
     "    err.textContent = msg;\n" +
     "    err.style.display = 'block';\n" +
     "  }\n" +
-    "  if (!SmilesDrawer || typeof SmilesDrawer.parse !== 'function') {\n" +
+    "  if (!SmilesDrawer || typeof SmilesDrawer.SvgDrawer !== 'function' || typeof SmilesDrawer.parse !== 'function') {\n" +
     "    fail('Chemistry renderer unavailable.');\n" +
     "    return;\n" +
     "  }\n" +
-    "  var drawer = new SmilesDrawer.Drawer({ width: 280, height: 220, compactDrawing: true });\n" +
+    "  var drawer = new SmilesDrawer.SvgDrawer({ width: 280, height: 220 });\n" +
     "  SmilesDrawer.parse(smiles, function(tree) {\n" +
-    "    try { drawer.draw(tree, 'molecule', '" +
+    "    try { drawer.draw(tree, root, '" +
     themeName +
-    "', false); }\n" +
+    "'); }\n" +
     "    catch (e) { fail('Could not render that structure.'); }\n" +
     "  }, function() { fail('Could not render that structure.'); });\n" +
     "})();\n";
@@ -69,12 +72,12 @@ function buildChemistryHtml(smiles: string, theme: Theme): string {
       "<style>body{margin:0;padding:8px;background:" +
       theme.bg +
       ";display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:220px}" +
-      "canvas{max-width:100%;height:auto}" +
+      "svg{max-width:100%;height:auto;display:block}" +
       "#err{color:" +
       theme.danger +
       ";font-size:12px;display:none;white-space:pre-wrap;padding:8px;text-align:center}</style>" +
       "</head><body>" +
-      '<canvas id="molecule" width="280" height="220"></canvas><div id="err"></div>' +
+      '<svg id="molecule" xmlns="http://www.w3.org/2000/svg" width="280" height="220"></svg><div id="err"></div>' +
       "<script>" +
       inlineScript(loader + run) +
       "</script></body></html>",

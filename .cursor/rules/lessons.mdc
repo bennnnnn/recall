@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Chemistry SMILES WebView: “Could not render that structure.”** Cause: smiles-drawer
+  2.1.7 `Drawer.draw(..., infoOnly)` forwards `infoOnly` as `SvgDrawer`’s `weights`, so
+  `false.every` throws (caught as parse/draw failure). Fix: use `SvgDrawer` on an `<svg>`
+  and call `draw(tree, el, theme)` with no 4th arg.
 - **Image-gen sheet came back after “composer only”.** Cause: attach row was removed but
   `useChatSend` still opened `ImageGenPromptSheet` on intent. Fix: delete the sheet + call
   `submitPrompt` on send. Rule: replace UX → delete old path (chat-ux-bans).
