@@ -862,5 +862,9 @@
   "upgrade.restore_empty": "ለዚህ መለያ aktiv subscription አልተገኘም።",
   "upgrade.subscribe": "Pro ይሁኑ — {{price}}/ወር",
   "upgrade.title": "ወደ Pro ይሂዱ",
-  "chat.status.image_gen_2": "Almost ready…"
+  "chat.status.image_gen_2": "Almost ready…",
+  "common.saved": "Saved",
+  "common.saved_to_photos": "Image saved to your photos.",
+  "common.share_failed": "Share failed",
+  "common.share_image_error": "Could not share this image."
 }

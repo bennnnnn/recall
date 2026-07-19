@@ -862,5 +862,9 @@
   "upgrade.restore_empty": "Bu hesap için aktif abonelik bulunamadı.",
   "upgrade.subscribe": "Pro'ya geç — {{price}}/ay",
   "upgrade.title": "Pro'ya yükselt",
-  "chat.status.image_gen_2": "Neredeyse hazır…"
+  "chat.status.image_gen_2": "Neredeyse hazır…",
+  "common.saved": "Kaydedildi",
+  "common.saved_to_photos": "Görsel fotoğraflarınıza kaydedildi.",
+  "common.share_failed": "Paylaşım başarısız",
+  "common.share_image_error": "Bu görsel paylaşılamadı."
 }

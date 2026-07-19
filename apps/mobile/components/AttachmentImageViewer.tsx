@@ -13,7 +13,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
 import { useAuthToken } from "@/contexts/AuthContext";
-import { downloadChatAttachment } from "@/lib/downloadChatAttachment";
+import {
+  ensureLocalAttachmentFile,
+  getCachedAttachmentFile,
+  saveChatAttachmentToLibrary,
+  shareChatAttachment,
+} from "@/lib/downloadChatAttachment";
 import { getApiUrl } from "@/lib/config";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -24,6 +29,8 @@ type Props = {
   localUri?: string | null;
   path?: string | null;
   fileName?: string;
+  /** Already-resolved display URI from the chat thumbnail (instant open). */
+  previewUri?: string | null;
 };
 
 const SHEET_RADIUS = 26;
@@ -35,6 +42,7 @@ export function AttachmentImageViewer({
   localUri,
   path,
   fileName = "image.jpg",
+  previewUri = null,
 }: Props) {
   const C = useTheme();
   const { t } = useTranslation();
@@ -42,7 +50,8 @@ export function AttachmentImageViewer({
   const token = useAuthToken();
   const insets = useSafeAreaInsets();
   const [failed, setFailed] = useState(false);
-  const [downloading, setDownloading] = useState(false);
+  const [busy, setBusy] = useState<"download" | "share" | null>(null);
+  const [cachedUri, setCachedUri] = useState<string | null>(null);
 
   const remoteUri = useMemo(() => {
     if (localUri) return localUri;
@@ -52,33 +61,95 @@ export function AttachmentImageViewer({
     return null;
   }, [attachmentId, localUri, path]);
 
-  useEffect(() => {
-    if (visible) setFailed(false);
-  }, [visible, remoteUri]);
+  // Prefer local file / in-memory cache / thumbnail URI so the large view
+  // paints immediately instead of waiting on a second authenticated fetch.
+  const displayUri =
+    cachedUri ||
+    (remoteUri ? getCachedAttachmentFile(remoteUri) : null) ||
+    localUri ||
+    previewUri ||
+    remoteUri;
 
-  const source =
-    token && attachmentId && !localUri && remoteUri
-      ? { uri: remoteUri, headers: { Authorization: `Bearer ${token}` } }
-      : remoteUri
-        ? { uri: remoteUri }
-        : null;
+  useEffect(() => {
+    if (!visible) return;
+    setFailed(false);
+    if (!remoteUri) return;
+
+    const existing = getCachedAttachmentFile(remoteUri) || localUri;
+    if (existing) {
+      setCachedUri(existing);
+      return;
+    }
+
+    let cancelled = false;
+    void ensureLocalAttachmentFile({
+      uri: remoteUri,
+      token,
+      fileName,
+    })
+      .then((uri) => {
+        if (!cancelled) setCachedUri(uri);
+      })
+      .catch(() => {
+        // Keep showing previewUri / remote; download/share will surface errors.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, remoteUri, localUri, token, fileName]);
+
+  const source = useMemo(() => {
+    if (!displayUri) return null;
+    if (
+      token &&
+      attachmentId &&
+      !localUri &&
+      !cachedUri &&
+      displayUri.startsWith("http")
+    ) {
+      return { uri: displayUri, headers: { Authorization: `Bearer ${token}` } };
+    }
+    return { uri: displayUri };
+  }, [displayUri, token, attachmentId, localUri, cachedUri]);
 
   const handleDownload = async () => {
-    if (!remoteUri || downloading) return;
-    setDownloading(true);
+    if (!remoteUri || busy) return;
+    setBusy("download");
     try {
-      await downloadChatAttachment({
+      const result = await saveChatAttachmentToLibrary({
         uri: remoteUri,
         token,
         fileName,
       });
+      if (result === "saved") {
+        Alert.alert(t("common.saved"), t("common.saved_to_photos"));
+      }
     } catch (error) {
       Alert.alert(
         t("common.download_failed"),
         error instanceof Error ? error.message : t("common.download_image_error"),
       );
     } finally {
-      setDownloading(false);
+      setBusy(null);
+    }
+  };
+
+  const handleShare = async () => {
+    if (!remoteUri || busy) return;
+    setBusy("share");
+    try {
+      await shareChatAttachment({
+        uri: remoteUri,
+        token,
+        fileName,
+      });
+    } catch (error) {
+      Alert.alert(
+        t("common.share_failed"),
+        error instanceof Error ? error.message : t("common.share_image_error"),
+      );
+    } finally {
+      setBusy(null);
     }
   };
 
@@ -107,19 +178,34 @@ export function AttachmentImageViewer({
               <Ionicons name="close" size={28} color={C.text} />
             </Pressable>
 
-            <Pressable
-              style={[s.iconBtn, downloading && s.iconBtnDisabled]}
-              onPress={handleDownload}
-              disabled={!remoteUri || downloading}
-              hitSlop={12}
-              accessibilityLabel={t("common.download")}
-            >
-              {downloading ? (
-                <ActivityIndicator color={C.text} size="small" />
-              ) : (
-                <Ionicons name="download-outline" size={24} color={C.text} />
-              )}
-            </Pressable>
+            <View style={s.headerActions}>
+              <Pressable
+                style={[s.iconBtn, busy === "share" && s.iconBtnDisabled]}
+                onPress={() => void handleShare()}
+                disabled={!remoteUri || busy != null}
+                hitSlop={12}
+                accessibilityLabel={t("preview.share")}
+              >
+                {busy === "share" ? (
+                  <ActivityIndicator color={C.text} size="small" />
+                ) : (
+                  <Ionicons name="share-outline" size={24} color={C.text} />
+                )}
+              </Pressable>
+              <Pressable
+                style={[s.iconBtn, busy === "download" && s.iconBtnDisabled]}
+                onPress={() => void handleDownload()}
+                disabled={!remoteUri || busy != null}
+                hitSlop={12}
+                accessibilityLabel={t("common.download")}
+              >
+                {busy === "download" ? (
+                  <ActivityIndicator color={C.text} size="small" />
+                ) : (
+                  <Ionicons name="download-outline" size={24} color={C.text} />
+                )}
+              </Pressable>
+            </View>
           </View>
 
           <View style={s.stage}>
@@ -163,6 +249,10 @@ function makeStyles(C: Theme) {
       paddingHorizontal: 12,
       paddingTop: 8,
       paddingBottom: 4,
+    },
+    headerActions: {
+      flexDirection: "row",
+      alignItems: "center",
     },
     iconBtn: {
       width: 44,

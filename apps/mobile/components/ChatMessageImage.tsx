@@ -13,6 +13,7 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "
 import { AttachmentImageViewer } from "@/components/AttachmentImageViewer";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { getApiUrl } from "@/lib/config";
+import { ensureLocalAttachmentFile } from "@/lib/downloadChatAttachment";
 import { motionMs, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -135,6 +136,23 @@ export function ChatMessageImage({
     setFailed(false);
   }, [remoteUri]);
 
+  // Warm a local file:// copy so fullscreen opens instantly and download/share
+  // don't hit createDownloadResumable (auth URLs fail there).
+  useEffect(() => {
+    if (!remoteUri || localUri?.startsWith("file://")) return;
+    let cancelled = false;
+    void ensureLocalAttachmentFile({
+      uri: remoteUri,
+      token,
+      fileName: fileName ?? "image.jpg",
+    }).catch(() => {
+      if (cancelled) return;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [remoteUri, localUri, token, fileName]);
+
   if (!remoteUri) return null;
 
   const source =
@@ -185,6 +203,7 @@ export function ChatMessageImage({
         localUri={localUri}
         path={path}
         fileName={fileName}
+        previewUri={remoteUri}
       />
     </>
   );
