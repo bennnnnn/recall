@@ -10,7 +10,6 @@ export const TOP_CHROME = 58;
 export const DRAWER_NAV_CHROME = 160;
 export const FOOTER_CHROME = 54;
 export const FADE_EXTRA = 40;
-export const CHAT_LIST_STALE_MS = 20_000;
 
 export function makeConversationListStyles(theme: Theme) {
   return StyleSheet.create({

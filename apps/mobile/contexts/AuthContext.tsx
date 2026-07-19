@@ -206,6 +206,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         /* best-effort */
       }
       try {
+        const { invalidateChatListCache } = await import("@/lib/chatListCache");
+        invalidateChatListCache();
+      } catch {
+        /* best-effort */
+      }
+      try {
         await clearCachedUser();
       } catch {
         /* best-effort */

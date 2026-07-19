@@ -35,7 +35,7 @@ describe("drawerChatFetchMode", () => {
     staleMs: 20_000,
   };
 
-  it("skips while the drawer is closed (cold chat must not listChats)", () => {
+  it("skips spinner path while the drawer is closed (idle warm is separate)", () => {
     expect(drawerChatFetchMode({ ...base, isDrawerOpen: false })).toBe("skip");
   });
 
