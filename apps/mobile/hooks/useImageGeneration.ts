@@ -43,6 +43,7 @@ type Options = {
   t: (key: string) => string;
 };
 
+/** Pro image generation from composer text — no confirmation sheet. */
 export function useImageGeneration({
   token,
   chatId,
@@ -61,22 +62,7 @@ export function useImageGeneration({
   newMessageCountRef,
   t,
 }: Options) {
-  const [promptOpen, setPromptOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [initialPrompt, setInitialPrompt] = useState<string | null>(null);
-
-  const openPrompt = useCallback(
-    (prefill?: string) => {
-      if (!token || streaming || generating) return;
-      if (!isPro) {
-        onOpenUpgrade();
-        return;
-      }
-      setInitialPrompt(prefill ?? null);
-      setPromptOpen(true);
-    },
-    [token, streaming, generating, isPro, onOpenUpgrade],
-  );
 
   const ensureChatId = useCallback(async (): Promise<string | null> => {
     if (chatId) return chatId;
@@ -99,6 +85,10 @@ export function useImageGeneration({
   const submitPrompt = useCallback(
     async (prompt: string) => {
       if (!token || generating || streaming) return;
+      if (!isPro) {
+        onOpenUpgrade();
+        return;
+      }
       if (isOffline) {
         notifyOfflineSendBlocked({
           warn: notifyWarning,
@@ -155,7 +145,6 @@ export function useImageGeneration({
           );
           return [...without, result.user_message, result.assistant_message];
         });
-        setPromptOpen(false);
         onScrollToLatest();
       } catch (error) {
         clearOptimistic();
@@ -179,24 +168,20 @@ export function useImageGeneration({
       token,
       generating,
       streaming,
+      isPro,
       isOffline,
       onOfflineBlocked,
       ensureChatId,
       setMessages,
       newMessageCountRef,
       onScrollToLatest,
-      isPro,
       onOpenUpgrade,
       t,
     ],
   );
 
   return {
-    promptOpen,
-    setPromptOpen,
     generating,
-    initialPrompt,
-    openPrompt,
     submitPrompt,
   };
 }

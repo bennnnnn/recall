@@ -38,4 +38,9 @@ When the user says **remove**, leave it removed. Do **not** bring these back in 
 - Do **not** add body copy or an “Add …” `Button` that duplicates the bottom (+) FAB.
 - Reminders empty may stay title-only too (top-bar Add covers create).
 
+## 6. No image-generation confirmation sheet
+- Image gen is **composer only**: user types the request and hits send; Pro generates immediately.
+- Do **not** reintroduce `ImageGenPromptSheet`, attach-menu “Generate image”, or any second prompt
+  modal that intercepts send. Intent detection may still call `/images/generate` — without a sheet.
+
 If a plan or FEATURES item asks for these, **push back and skip** — they are explicitly rejected.

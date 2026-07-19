@@ -1,6 +1,6 @@
 /**
- * Detect when the user wants image generation from plain composer text
- * (ChatGPT-style) instead of the attach-menu flow.
+ * Detect when the user wants image generation from plain composer text.
+ * Matched intents generate immediately on send — no confirmation sheet.
  */
 
 export const IMAGE_GEN_PENDING_ASSISTANT_ID = "image-gen-pending";
