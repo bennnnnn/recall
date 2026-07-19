@@ -160,8 +160,8 @@ importers:
         specifier: ^4.0.3
         version: 4.0.3(patch_hash=kzciuiljx42k6srlrfjhl7bf34)(lxwtwuj7e4ewedlk5xzx3jsuvq)
       react-native-drawer-layout:
-        specifier: ^4.2.5
-        version: 4.2.5(pkd4g5fn4gvi7doi5hs4hnz3fi)
+        specifier: ^4.2.8
+        version: 4.2.8(pkd4g5fn4gvi7doi5hs4hnz3fi)
       react-native-gesture-handler:
         specifier: ~2.32.0
         version: 2.32.0(react-native@0.86.0(@babel/core@7.29.7)(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
@@ -4356,8 +4356,8 @@ packages:
       react-native-gesture-handler: '>=2.0.0'
       react-native-reanimated: '>=2.8.0'
 
-  react-native-drawer-layout@4.2.5:
-    resolution: {integrity: sha512-Yl82uLkXjXuq7222hWGIDsq5A6R/bsCeCEgdIxQUxAEHf00oRdDnRByLx3Fsij3qwtmYNPGrHV1NH8G8hbCbLQ==}
+  react-native-drawer-layout@4.2.8:
+    resolution: {integrity: sha512-IswXoXEaQAnzUGo7tJyMPHP0qyUc/7zufpG+kpiStYegHpKQBBnlQoRdXkL1HbCa2o1ROWDhCSJ8XS0V4LNcjQ==}
     peerDependencies:
       react: '>= 18.2.0'
       react-native: '*'
@@ -8614,7 +8614,7 @@ snapshots:
       react-fast-compare: 3.2.2
       react-is: 19.2.7
       react-native: 0.86.0(@babel/core@7.29.7)(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3)
-      react-native-drawer-layout: 4.2.5(pkd4g5fn4gvi7doi5hs4hnz3fi)
+      react-native-drawer-layout: 4.2.8(pkd4g5fn4gvi7doi5hs4hnz3fi)
       react-native-safe-area-context: 5.7.0(react-native@0.86.0(@babel/core@7.29.7)(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
       react-native-screens: 4.25.2(react-native@0.86.0(@babel/core@7.29.7)(@react-native/jest-preset@0.86.0(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.7))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
       server-only: 0.0.1
@@ -10309,7 +10309,7 @@ snapshots:
       - '@babel/core'
       - supports-color
 
-  react-native-drawer-layout@4.2.5(pkd4g5fn4gvi7doi5hs4hnz3fi):
+  react-native-drawer-layout@4.2.8(pkd4g5fn4gvi7doi5hs4hnz3fi):
     dependencies:
       color: 4.2.3
       react: 19.2.3
