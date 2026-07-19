@@ -179,6 +179,10 @@ describe("renderFence edge cases", () => {
     expect(renderFence(node("   \n  "))).toBeNull();
   });
 
+  it("hides invented ```image prompt fences (not a real rich block)", () => {
+    expect(renderFence(node('{"prompt":"a cute cat"}', "image"))).toBeNull();
+  });
+
   it("falls back to CodeBlock for a plain code fence with an explicit language", async () => {
     const { getByText } = await render(<>{renderFence(node("const x = 1;", "javascript"))}</>);
     expect(getByText("javascript:const x = 1;")).toBeOnTheScreen();
