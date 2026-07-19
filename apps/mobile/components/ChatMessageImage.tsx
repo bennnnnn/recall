@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   Image,
   ImageSourcePropType,
   Pressable,
@@ -8,6 +7,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
 import { AttachmentImageViewer } from "@/components/AttachmentImageViewer";
@@ -173,8 +173,10 @@ export function ChatMessageImage({
       >
         <View style={s.wrap}>
           {failed ? (
-            <View style={[s.preview, s.fallback]}>
-              <ActivityIndicator color={C.textTertiary} />
+            // Static broken-image mark — never a spinner (that read as
+            // "still generating" when the attachment 404'd).
+            <View style={[s.preview, s.fallback]} accessibilityLabel="Image unavailable">
+              <Ionicons name="image-outline" size={28} color={C.textTertiary} />
             </View>
           ) : usePlainPreview ? (
             <Image

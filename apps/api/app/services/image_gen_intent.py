@@ -80,6 +80,9 @@ def _short_create_subject(trimmed: str) -> str | None:
     subject = match.group(1).strip()
     if len(subject.split()) > 8:
         return None
+    # "make it blue" is a revision follow-up, not "create a picture of it blue".
+    if re.match(r"^(?:it|them|this|that)\b", subject, flags=re.I):
+        return None
     if _NON_IMAGE_SUBJECT.search(subject) or _NON_IMAGE_DRAW.search(subject):
         return None
     return _clean_prompt(subject)
