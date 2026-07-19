@@ -85,9 +85,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   numbers, keywords); heuristic fallback for unknown langs.
 - ✅ **Tables** — styled (header shading, borders, cell padding).
 - ✅ **Inline images** — Markdown `![alt](url)` images render (contained, rounded).
-- ✅ **Image generation (Pro)** — Composer **Generate image** opens a prompt sheet; Pro users get
-  daily-limited generations stored as chat attachments. Tap the result to view full-screen and save
-  via the system share sheet.
+- ✅ **Image generation (Pro)** — Type an image request in the composer and send (e.g. "draw me a
+  cat"); Pro users get daily-limited generations stored as chat attachments. No separate prompt
+  sheet. Tap the result to view full-screen and save via the system share sheet.
 - ✅ **Math / LaTeX** — inline `$...$` renders as native text (superscripts, √, fractions);
   display ` ```math` uses KaTeX (or MathJax for heavy expressions) in a WebView on a
   **dev build**, with native/`MathText` fallback in Expo Go. Server-side **SymPy**
@@ -526,7 +526,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 |------------|--------|
 | Presigned upload + confirm + orphan reaper | ✅ Shipped (local default; R2 when `STORAGE_BACKEND=r2` + secrets) |
 | Image upload → vision-chat routing (Gemini via OpenRouter) | ✅ Shipped |
-| Pro image generation (composer sheet, daily cap) | ✅ Shipped |
+| Pro image generation (composer send, daily cap) | ✅ Shipped |
 | PDF / doc upload + server text extract into prompt | ✅ Shipped (no OCR for scanned PDFs) |
 | PDF inline preview (pdf.js WebView, dev build) | ✅ Shipped |
 | Audio in (Whisper STT → composer) | ✅ Shipped (dev build) |

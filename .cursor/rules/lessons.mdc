@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Image-gen confirmation sheet keeps coming back.** User rejected the separate
+  “Generate image” modal — composer text + send only. Intercept in `useChatSend` must call
+  `submitPrompt` directly, not open a sheet. See chat-ux-bans §6; do not reintroduce
+  `ImageGenPromptSheet`.
 - **Inline fractions need a real vinculum stack, not `¹─₂` / `½` / `m/m`.** Fake
   single-line hacks don’t look like school fractions. MathText stacks num / hairline
   bar / den as a nested `View` inside `Text`, and bumps `lineHeight` when a `\frac`
