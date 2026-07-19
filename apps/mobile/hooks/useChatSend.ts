@@ -74,9 +74,8 @@ type Options = {
   isOffline: boolean;
   resolveQuizProjectId?: () => string | null;
   onBeforeSend?: (text: string) => boolean | void;
-  /** Pro-only: run image generation for detected image-intent text (no confirmation sheet). */
+  /** Run image generation for detected image-intent text (no confirmation sheet). */
   onGenerateImage?: (prompt: string) => void;
-  isPro?: boolean;
   imageGenerating?: boolean;
 };
 
@@ -105,7 +104,6 @@ export function useChatSend({
   resolveQuizProjectId,
   onBeforeSend,
   onGenerateImage,
-  isPro = false,
   imageGenerating = false,
 }: Options) {
   const {
@@ -209,9 +207,11 @@ export function useChatSend({
       tap();
       if (onBeforeSend?.(text) === true) return;
 
-      // Pro: clear image-gen intent → generate from the composer (no second prompt UI).
-      // Free users fall through so the model can mention Pro (plan is in the prompt).
-      if (isPro && onGenerateImage && !pendingAttachment && !editingMessageId) {
+      // Image-gen intent → /images/generate from the composer (no sheet, no LLM stub).
+      // Do not gate on client isPro — plan can be stale while the API still knows Pro;
+      // submitPrompt / the API open upgrade or generate. Never let the model invent
+      // "the app will attach an image shortly" without calling generate.
+      if (onGenerateImage && !pendingAttachment && !editingMessageId) {
         const imagePrompt = extractImageGenPrompt(text);
         if (imagePrompt) {
           if (imageGenerating) return;
@@ -357,7 +357,6 @@ export function useChatSend({
       isOffline,
       onBeforeSend,
       onGenerateImage,
-      isPro,
       imageGenerating,
       setChatId,
       setChatTitle,
