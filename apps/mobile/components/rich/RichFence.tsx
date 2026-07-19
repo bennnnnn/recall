@@ -13,7 +13,11 @@ import { EmailCard } from "@/components/rich/EmailCard";
 import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
 import { GeometryBlock } from "@/components/rich/GeometryBlock";
 import { KeyValueBlock } from "@/components/rich/KeyValueBlock";
-import { LazyChartBlock, LazyMermaidBlock } from "@/components/rich/LazyHeavyRich";
+import {
+  LazyChartBlock,
+  LazyChemistryBlock,
+  LazyMermaidBlock,
+} from "@/components/rich/LazyHeavyRich";
 import { MathBlock } from "@/components/rich/MathView";
 import { MessagePreview } from "@/components/rich/MessagePreview";
 import { QuoteBlock } from "@/components/rich/QuoteBlock";
@@ -139,6 +143,11 @@ export function renderRichFence(
   // Mermaid / graph diagrams (async-split vendors — see LazyHeavyRich)
   if (l === "mermaid") {
     return <LazyMermaidBlock key={key} content={content} />;
+  }
+
+  // Chemistry structures (SMILES — async-split SmilesDrawer)
+  if (l === "smiles" || l === "chemistry") {
+    return <LazyChemistryBlock key={key} content={content} />;
   }
 
   // Chart / data visualization (vega-lite — async-split vendors)

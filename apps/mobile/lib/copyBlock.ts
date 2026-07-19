@@ -329,6 +329,8 @@ export function isExplicitCodeLang(lang: string): boolean {
     l === "places" ||
     l === "graph" ||
     l === "geometry" ||
+    l === "smiles" ||
+    l === "chemistry" ||
     l === "math" ||
     isAnswerLang(l)
   )

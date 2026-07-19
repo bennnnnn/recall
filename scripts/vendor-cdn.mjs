@@ -30,6 +30,7 @@ const VERSIONS = {
   vegaLite: "5",
   vegaEmbed: "6",
   pdfjs: "3.11.174",
+  smilesDrawer: "2.1.7",
 };
 
 async function download(url, dest) {
@@ -94,6 +95,19 @@ async function main() {
   const pdfWorkerBuf = await download(`${pdfBase}/pdf.worker.min.js`, join(TMP_DIR, "pdf.worker.min.js"));
   writeStringTs("pdfWorkerMinJs", pdfWorkerBuf.toString("utf8"), `pdf.js ${VERSIONS.pdfjs} worker (loaded via Blob URL at runtime).`);
 
+  // 6. SmilesDrawer (chemistry) — browserify bundle; WebView loads via require(1) shim.
+  const smilesUrl =
+    `https://cdn.jsdelivr.net/npm/smiles-drawer@${VERSIONS.smilesDrawer}/dist/smiles-drawer.min.js`;
+  const smilesBuf = await download(smilesUrl, join(TMP_DIR, "smiles-drawer.min.js"));
+  const smilesJs = smilesBuf
+    .toString("utf8")
+    .replace(/\n?\/\/# sourceMappingURL=.*$/m, "");
+  writeStringTs(
+    "smilesDrawerMinJs",
+    smilesJs,
+    `smiles-drawer ${VERSIONS.smilesDrawer} min (browserify — load via require(1) shim).`,
+  );
+
   // Manifest for traceability
   const allJs = [
     ["mathjaxTexSvgJs", mathjaxBuf.toString("utf8")],
@@ -103,6 +117,7 @@ async function main() {
     ["vegaEmbedMinJs", vegaEmbedBuf.toString("utf8")],
     ["pdfMinJs", pdfMainBuf.toString("utf8")],
     ["pdfWorkerMinJs", pdfWorkerBuf.toString("utf8")],
+    ["smilesDrawerMinJs", smilesJs],
   ];
   for (const [name, src] of allJs) {
     if (/<\/script>/i.test(src)) {
@@ -125,6 +140,7 @@ async function main() {
       vegaEmbedMinJs: sha(vegaEmbedBuf),
       pdfMinJs: sha(pdfMainBuf),
       pdfWorkerMinJs: sha(pdfWorkerBuf),
+      smilesDrawerMinJs: sha(smilesJs),
     },
   };
   writeFileSync(join(VENDOR_DIR, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");

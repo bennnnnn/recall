@@ -1,7 +1,7 @@
 /**
- * Async-split Mermaid (~3.4MB) and Vega (~0.85MB) off the chat import graph.
- * RichFence used to static-import both; any markdown message pulled the vendors
- * even when the turn never used a diagram/chart fence.
+ * Async-split Mermaid (~3.4MB), Vega (~0.85MB), and SmilesDrawer (~0.25MB)
+ * off the chat import graph. RichFence used to static-import heavy vendors;
+ * any markdown message pulled them even when unused.
  */
 import React, { Suspense } from "react";
 import { ActivityIndicator, View } from "react-native";
@@ -12,6 +12,10 @@ const MermaidBlockLazy = React.lazy(() =>
 
 const ChartBlockLazy = React.lazy(() =>
   import("@/components/rich/ChartBlock").then((m) => ({ default: m.ChartBlock })),
+);
+
+const ChemistryBlockLazy = React.lazy(() =>
+  import("@/components/rich/ChemistryBlock").then((m) => ({ default: m.ChemistryBlock })),
 );
 
 function RichLoadPlaceholder({ height }: { height: number }) {
@@ -34,6 +38,14 @@ export function LazyChartBlock({ content }: { content: string }) {
   return (
     <Suspense fallback={<RichLoadPlaceholder height={350} />}>
       <ChartBlockLazy content={content} />
+    </Suspense>
+  );
+}
+
+export function LazyChemistryBlock({ content }: { content: string }) {
+  return (
+    <Suspense fallback={<RichLoadPlaceholder height={240} />}>
+      <ChemistryBlockLazy content={content} />
     </Suspense>
   );
 }
