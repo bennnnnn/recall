@@ -65,6 +65,18 @@ function buildChemistryHtml(smiles: string, theme: Theme): string {
     ", height: " +
     DRAW_HEIGHT +
     " });\n" +
+    // Skeletal formulas hide chain carbons (CO2 looks like O=O). Mark every C
+    // explicit after the graph is built so labels stay readable for learning.
+    "  var _processGraph = drawer.preprocessor.processGraph.bind(drawer.preprocessor);\n" +
+    "  drawer.preprocessor.processGraph = function() {\n" +
+    "    _processGraph();\n" +
+    "    var verts = drawer.preprocessor.graph.vertices;\n" +
+    "    for (var i = 0; i < verts.length; i++) {\n" +
+    "      if (verts[i].value && verts[i].value.element === 'C') {\n" +
+    "        verts[i].value.drawExplicit = true;\n" +
+    "      }\n" +
+    "    }\n" +
+    "  };\n" +
     "  SmilesDrawer.parse(smiles, function(tree) {\n" +
     "    try { drawer.draw(tree, root, '" +
     themeName +

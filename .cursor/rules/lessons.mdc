@@ -12,6 +12,9 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **CO₂ diagram looked like O₂.** Cause: smiles-drawer skeletal mode hides chain carbons
+  (`O=C=O` → only “O=O” labels). Fix: after `processGraph`, set `drawExplicit` on every C
+  before `drawVertices`.
 - **Chemistry SMILES WebView: “Could not render that structure.”** Cause: smiles-drawer
   2.1.7 `Drawer.draw(..., infoOnly)` forwards `infoOnly` as `SvgDrawer`’s `weights`, so
   `false.every` throws (caught as parse/draw failure). Fix: use `SvgDrawer` on an `<svg>`
