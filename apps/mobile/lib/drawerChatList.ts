@@ -1,11 +1,17 @@
 import type { Chat, ChatList } from "@/lib/api";
 import { activeChatsFromGroups, emptyChatList } from "@/lib/chatListSections";
 
+/** How long a GET /chats response stays fresh for drawer paint / prefetch. */
+export const CHAT_LIST_STALE_MS = 20_000;
+
 export type DrawerChatFetchMode = "skip" | "full" | "background";
 
 /**
- * When to hit listChats for the drawer. Cold chat must not fetch while the
- * drawer is closed — ConversationList stays mounted under DrawerShell.
+ * When the open drawer should run a spinner (`full`) or silent refresh
+ * (`background`) listChats. Closed-drawer idle warm lives in
+ * useDrawerChatList (via chatListCache) — this helper stays spinner-gated so
+ * ConversationList mounting under DrawerShell never flips `loading` while
+ * closed.
  */
 export function drawerChatFetchMode(opts: {
   isDrawerOpen: boolean;

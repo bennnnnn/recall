@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { CHAT_LIST_STALE_MS } from "@/components/drawer/conversationListStyles";
 import {
   activeChatsFromGroups,
   ARCHIVED_CHAT_SECTION,
@@ -12,6 +11,13 @@ import {
   type ChatListSectionKey,
 } from "@/lib/chatListSections";
 import {
+  fetchChatList,
+  getCachedChatList,
+  getChatListFetchedAt,
+  isChatListFresh,
+  setChatListCache,
+} from "@/lib/chatListCache";
+import {
   registerChatArchiveMover,
   registerChatInserter,
   registerChatPatcher,
@@ -19,17 +25,30 @@ import {
   subscribeChatTitleGenerating,
 } from "@/lib/drawer";
 import {
+  CHAT_LIST_STALE_MS,
   drawerChatFetchMode,
   emptyChatList,
   insertChatIntoGroups,
 } from "@/lib/drawerChatList";
-import { api, Chat, ChatList } from "@/lib/api";
+import { Chat, ChatList } from "@/lib/api";
 import { scheduleIdleTask } from "@/lib/scheduleIdle";
 
 type Params = {
   token: string | null;
   isDrawerOpen: boolean;
 };
+
+function applyChatList(
+  data: ChatList,
+  setGroups: (groups: ChatList) => void,
+  lastFetchedRef: { current: number },
+  hasLoadedOnceRef: { current: boolean },
+  fetchedAt?: number,
+) {
+  setGroups(data);
+  lastFetchedRef.current = fetchedAt ?? getChatListFetchedAt() ?? Date.now();
+  hasLoadedOnceRef.current = true;
+}
 
 export function useDrawerChatList({ token, isDrawerOpen }: Params) {
   // Idle until the drawer opens — ConversationList mounts with the chat
@@ -68,10 +87,24 @@ export function useDrawerChatList({ token, isDrawerOpen }: Params) {
     }));
   }, []);
 
+  const hydrateFromCache = useCallback(() => {
+    const cached = getCachedChatList();
+    const fetchedAt = getChatListFetchedAt();
+    if (!cached || fetchedAt == null) return false;
+    if (hasLoadedOnceRef.current && fetchedAt <= lastFetchedRef.current) {
+      return true;
+    }
+    applyChatList(cached, setGroups, lastFetchedRef, hasLoadedOnceRef, fetchedAt);
+    return true;
+  }, []);
+
   const load = useCallback(
-    async (background = false) => {
+    async (background = false, force = false) => {
       if (!token) {
         setLoading(false);
+        return;
+      }
+      if (!background && !force && isChatListFresh() && hydrateFromCache()) {
         return;
       }
       if (!background) {
@@ -79,18 +112,15 @@ export function useDrawerChatList({ token, isDrawerOpen }: Params) {
       }
       setError(false);
       try {
-        const chatGroups = await api.listChats(token);
-        setGroups({
-          pinned: chatGroups.pinned,
-          today: chatGroups.today,
-          yesterday: chatGroups.yesterday,
-          last_7_days: chatGroups.last_7_days,
-          this_month: chatGroups.this_month,
-          older: chatGroups.older,
-          archived: chatGroups.archived ?? [],
+        // Blocking paths force a network read; background respects TTL/inflight.
+        const chatGroups = await fetchChatList(token, {
+          force: force || !background,
         });
-        lastFetchedRef.current = Date.now();
-        hasLoadedOnceRef.current = true;
+        if (!chatGroups) {
+          if (!background) setError(true);
+          return;
+        }
+        applyChatList(chatGroups, setGroups, lastFetchedRef, hasLoadedOnceRef);
       } catch {
         if (!background) setError(true);
       } finally {
@@ -99,20 +129,45 @@ export function useDrawerChatList({ token, isDrawerOpen }: Params) {
         }
       }
     },
-    [token],
+    [token, hydrateFromCache],
   );
 
   const handleRefresh = useCallback(async () => {
     if (!token) return;
     setRefreshing(true);
     try {
-      await load(false);
+      await load(false, true);
     } finally {
       setRefreshing(false);
     }
   }, [token, load]);
 
+  // Idle-warm GET /chats while the drawer is closed so first open has titles.
   useEffect(() => {
+    if (!token || isDrawerOpen) return;
+
+    hydrateFromCache();
+
+    let cancelled = false;
+    const cancelIdle = scheduleIdleTask(() => {
+      if (cancelled) return;
+      void (async () => {
+        const data = await fetchChatList(token);
+        if (cancelled || !data) return;
+        applyChatList(data, setGroups, lastFetchedRef, hasLoadedOnceRef);
+      })();
+    });
+    return () => {
+      cancelled = true;
+      cancelIdle();
+    };
+  }, [token, isDrawerOpen, hydrateFromCache]);
+
+  useEffect(() => {
+    // Prefetch may have filled the module cache; sync into hook state before
+    // deciding whether a spinner full-fetch is needed.
+    hydrateFromCache();
+
     const mode = drawerChatFetchMode({
       isDrawerOpen,
       hasToken: Boolean(token),
@@ -136,14 +191,22 @@ export function useDrawerChatList({ token, isDrawerOpen }: Params) {
       cancelled = true;
       cancelIdle();
     };
-  }, [isDrawerOpen, token, load, allChats.length]);
+  }, [isDrawerOpen, token, load, allChats.length, hydrateFromCache]);
 
   const patchChatInGroups = useCallback((chatId: string, patch: Partial<Chat>) => {
-    setGroups((prev) => patchChatListGroups(prev, chatId, patch));
+    setGroups((prev) => {
+      const next = patchChatListGroups(prev, chatId, patch);
+      setChatListCache(next);
+      return next;
+    });
   }, []);
 
   const insertChatInGroups = useCallback((chat: Chat) => {
-    setGroups((prev) => insertChatIntoGroups(prev, chat));
+    setGroups((prev) => {
+      const next = insertChatIntoGroups(prev, chat);
+      setChatListCache(next);
+      return next;
+    });
   }, []);
 
   useEffect(() => {
@@ -157,7 +220,11 @@ export function useDrawerChatList({ token, isDrawerOpen }: Params) {
   }, [insertChatInGroups]);
 
   const removeChatFromGroupsById = useCallback((chatId: string) => {
-    setGroups((prev) => removeChatFromGroups(prev, chatId));
+    setGroups((prev) => {
+      const next = removeChatFromGroups(prev, chatId);
+      setChatListCache(next);
+      return next;
+    });
   }, []);
 
   useEffect(() => {
@@ -177,10 +244,11 @@ export function useDrawerChatList({ token, isDrawerOpen }: Params) {
       if (!chat) return prev;
       const updated = { ...chat, pinned };
       const rest = removeChatFromGroups(prev, chatId);
-      if (pinned) {
-        return { ...rest, pinned: [updated, ...rest.pinned] };
-      }
-      return { ...rest, today: [updated, ...rest.today] };
+      const next = pinned
+        ? { ...rest, pinned: [updated, ...rest.pinned] }
+        : { ...rest, today: [updated, ...rest.today] };
+      setChatListCache(next);
+      return next;
     });
   }, []);
 
@@ -192,7 +260,9 @@ export function useDrawerChatList({ token, isDrawerOpen }: Params) {
       if (!chat) return prev;
       const updated = { ...chat, archived };
       const rest = removeChatFromGroups(prev, chatId);
-      return insertChatIntoGroups(rest, updated);
+      const next = insertChatIntoGroups(rest, updated);
+      setChatListCache(next);
+      return next;
     });
   }, []);
 
