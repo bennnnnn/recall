@@ -5,6 +5,12 @@ describe("extractImageGenPrompt", () => {
     expect(extractImageGenPrompt("Create a cat pic")).toBe("cat");
   });
 
+  it("extracts from Create cat / create a cat without image noun", () => {
+    expect(extractImageGenPrompt("Create cat")).toBe("cat");
+    expect(extractImageGenPrompt("create a cat")).toBe("cat");
+    expect(extractImageGenPrompt("draw a dog")).toBe("dog");
+  });
+
   it("extracts from generate image of sunset", () => {
     expect(extractImageGenPrompt("generate image of sunset over mountains")).toBe(
       "sunset over mountains",
@@ -23,6 +29,12 @@ describe("extractImageGenPrompt", () => {
     expect(extractImageGenPrompt("explain quantum entanglement")).toBeNull();
   });
 
+  it("returns null for create-a-todo style app actions", () => {
+    expect(extractImageGenPrompt("create a todo")).toBeNull();
+    expect(extractImageGenPrompt("make a list")).toBeNull();
+    expect(extractImageGenPrompt("create a reminder")).toBeNull();
+  });
+
   it("returns null when attachment context is code-related", () => {
     expect(extractImageGenPrompt("create an image compression script")).toBeNull();
   });
@@ -35,12 +47,8 @@ describe("extractImageGenPrompt", () => {
     expect(extractImageGenPrompt("a".repeat(501))).toBeNull();
   });
 
-  // This is a fuzzy heuristic and can't perfectly distinguish figurative
-  // language ("draw me a picture" as an idiom for "explain") or ambiguous
-  // requests from a literal image ask. These cases document real false
-  // positives — the caller (useChatSend) must route them through a
-  // confirming dialog rather than submitting straight to paid generation,
-  // so a false positive here costs a tap to dismiss, not a lost message.
+  // Fuzzy heuristic — figurative "draw me a picture" can false-positive.
+  // Caller routes Pro matches straight to generation (no confirm sheet).
   it("matches figurative 'draw me a picture' as an image request (known false positive)", () => {
     expect(extractImageGenPrompt("draw me a mental picture of the situation")).toBe(
       "mental picture of the situation",

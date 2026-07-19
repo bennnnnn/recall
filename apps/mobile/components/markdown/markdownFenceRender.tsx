@@ -53,12 +53,21 @@ function looksLikeMathMeta(content: string): boolean {
   );
 }
 
+function isFakeImageGenFence(lang: string): boolean {
+  const l = lang.trim().toLowerCase();
+  return l === "image" || l === "img" || l === "image-gen" || l === "imagen";
+}
+
 function renderFenceInner(
   key: string,
   lang: string,
   content: string,
   tokenIndex?: number,
 ) {
+  // Models sometimes invent ```image {"prompt":"..."} — not a real rich fence;
+  // hide it so it never shows as a Copy code box.
+  if (isFakeImageGenFence(lang)) return null;
+
   if (shouldUseHtmlPreview(lang, content)) {
     return <WebPreviewCodeBlock key={key} code={content} lang={lang || "html"} />;
   }
