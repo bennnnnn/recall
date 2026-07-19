@@ -172,8 +172,8 @@
   "chat.status.composing_1": "Putting it together…",
   "chat.status.composing_2": "Writing…",
   "chat.status.composing_3": "Typing it out…",
-  "chat.status.image_gen": "Generating image…",
-  "chat.status.image_gen_1": "This can take up to a minute…",
+  "chat.status.image_gen": "Creating image",
+  "chat.status.image_gen_1": "Painting the details…",
   "chat.status.loading_calendar": "Checking your calendar…",
   "chat.status.loading_calendar_1": "Loading your schedule…",
   "chat.status.preparing": "Getting ready…",
@@ -861,5 +861,6 @@
   "upgrade.restore": "Restore purchases",
   "upgrade.restore_empty": "No active subscription found for this account.",
   "upgrade.subscribe": "Go Pro — {{price}}/month",
-  "upgrade.title": "Upgrade to Pro"
+  "upgrade.title": "Upgrade to Pro",
+  "chat.status.image_gen_2": "Almost ready…"
 }

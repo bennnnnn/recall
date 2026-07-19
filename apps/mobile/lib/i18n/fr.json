@@ -172,8 +172,8 @@
   "chat.status.composing_1": "Je assemble la réponse…",
   "chat.status.composing_2": "Écriture…",
   "chat.status.composing_3": "Rédaction en cours…",
-  "chat.status.image_gen": "Génération de l'image…",
-  "chat.status.image_gen_1": "Cela peut prendre jusqu'à une minute…",
+  "chat.status.image_gen": "Création de l'image",
+  "chat.status.image_gen_1": "Ajout des détails…",
   "chat.status.loading_calendar": "Consultation de votre calendrier…",
   "chat.status.loading_calendar_1": "Chargement de votre agenda…",
   "chat.status.preparing": "Préparation…",
@@ -861,5 +861,6 @@
   "upgrade.restore": "Restaurer les achats",
   "upgrade.restore_empty": "Aucun abonnement actif trouvé pour ce compte.",
   "upgrade.subscribe": "Passer à Pro — {{price}}/mois",
-  "upgrade.title": "Passer à Pro"
+  "upgrade.title": "Passer à Pro",
+  "chat.status.image_gen_2": "Presque prêt…"
 }

@@ -172,8 +172,8 @@
   "chat.status.composing_1": "Putting it together…",
   "chat.status.composing_2": "Writing…",
   "chat.status.composing_3": "Typing it out…",
-  "chat.status.image_gen": "Generating image…",
-  "chat.status.image_gen_1": "This can take up to a minute…",
+  "chat.status.image_gen": "Creating image",
+  "chat.status.image_gen_1": "Painting the details…",
   "chat.status.loading_calendar": "Checking your calendar…",
   "chat.status.loading_calendar_1": "Loading your schedule…",
   "chat.status.preparing": "Getting ready…",
@@ -861,5 +861,6 @@
   "upgrade.restore": "ግዢዎችን ይመልሱ",
   "upgrade.restore_empty": "ለዚህ መለያ aktiv subscription አልተገኘም።",
   "upgrade.subscribe": "Pro ይሁኑ — {{price}}/ወር",
-  "upgrade.title": "ወደ Pro ይሂዱ"
+  "upgrade.title": "ወደ Pro ይሂዱ",
+  "chat.status.image_gen_2": "Almost ready…"
 }

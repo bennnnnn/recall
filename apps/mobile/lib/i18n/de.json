@@ -172,8 +172,8 @@
   "chat.status.composing_1": "Antwort wird zusammengestellt…",
   "chat.status.composing_2": "Schreibe…",
   "chat.status.composing_3": "Antwort wird getippt…",
-  "chat.status.image_gen": "Bild wird erstellt…",
-  "chat.status.image_gen_1": "Das kann bis zu einer Minute dauern…",
+  "chat.status.image_gen": "Bild wird erstellt",
+  "chat.status.image_gen_1": "Details werden gemalt…",
   "chat.status.loading_calendar": "Kalender wird geprüft…",
   "chat.status.loading_calendar_1": "Terminplan wird geladen…",
   "chat.status.preparing": "Wird vorbereitet…",
@@ -861,5 +861,6 @@
   "upgrade.restore": "Käufe wiederherstellen",
   "upgrade.restore_empty": "Kein aktives Abo für dieses Konto gefunden.",
   "upgrade.subscribe": "Pro werden — {{price}}/Monat",
-  "upgrade.title": "Upgrade auf Pro"
+  "upgrade.title": "Upgrade auf Pro",
+  "chat.status.image_gen_2": "Gleich fertig…"
 }
