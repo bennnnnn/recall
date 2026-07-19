@@ -259,6 +259,7 @@ function ChatScreen() {
     sendMessage,
     editMessage,
     setMessages,
+    messages,
     selectedModel,
     pendingLaunch,
     setPendingLaunch,

@@ -3,10 +3,92 @@
  * Matched intents generate immediately on send — no confirmation sheet.
  */
 
+import { parseMessageImages } from "@/lib/messageAttachments";
+
 export const IMAGE_GEN_PENDING_ASSISTANT_ID = "image-gen-pending";
+export const IMAGE_GEN_USER_PREFIX = "Generate image: ";
 
 export function imageGenUserMessageContent(prompt: string): string {
-  return `Generate image: ${prompt}`;
+  return `${IMAGE_GEN_USER_PREFIX}${prompt}`;
+}
+
+/** Subject from a prior "Generate image: …" user bubble, if any. */
+export function subjectFromImageGenUserMessage(content: string): string | null {
+  const trimmed = content.trim();
+  if (!trimmed.toLowerCase().startsWith(IMAGE_GEN_USER_PREFIX.toLowerCase())) {
+    return null;
+  }
+  return cleanPrompt(trimmed.slice(IMAGE_GEN_USER_PREFIX.length));
+}
+
+/** True when the assistant bubble is only an `[Image: …]` marker (no prose). */
+export function isImageOnlyAssistantContent(content: string): boolean {
+  const { images, textWithoutImages } = parseMessageImages(content);
+  return images.length > 0 && textWithoutImages.trim().length === 0;
+}
+
+const REVISION_LEAD_IN =
+  /^(?:please\s+)?(?:make it|make them|change (?:it|them)(?:\s+to)?|now|again|instead|try)\s+/i;
+
+const NON_REVISION =
+  /^(?:ok|okay|thanks|thank you|yes|no|sure|cool|nice|lol|great|got it|perfect)$/i;
+
+/**
+ * Short follow-up after an image-only reply ("White", "make it blue") → new
+ * generate prompt. Returns null when this is normal chat.
+ */
+export function extractImageRevisionPrompt(
+  text: string,
+  opts: {
+    lastAssistantIsImageOnly: boolean;
+    previousSubject: string | null;
+  },
+): string | null {
+  if (!opts.lastAssistantIsImageOnly || !opts.previousSubject) return null;
+  const trimmed = text.trim();
+  if (!trimmed || trimmed.length > 120) return null;
+
+  let revision = trimmed;
+  const lead = trimmed.match(REVISION_LEAD_IN);
+  if (lead) {
+    revision = trimmed.slice(lead[0].length).trim();
+  }
+  if (!revision || revision.split(/\s+/).length > 8) return null;
+  if (NON_IMAGE_SUBJECT.test(revision) || NON_REVISION.test(revision)) return null;
+  const cleaned = cleanPrompt(revision);
+  if (!cleaned) return null;
+  return `${opts.previousSubject}, ${cleaned}`;
+}
+
+/** Walk newest→oldest for image-gen context used by revision intercept. */
+export function imageGenRevisionContext(
+  messages: ReadonlyArray<{ id: string; role: string; content: string }>,
+): { lastAssistantIsImageOnly: boolean; previousSubject: string | null } {
+  let lastAssistantIsImageOnly = false;
+  let previousSubject: string | null = null;
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const row = messages[i];
+    if (
+      row.id === "streaming" ||
+      row.id === IMAGE_GEN_PENDING_ASSISTANT_ID ||
+      row.id.startsWith("local-")
+    ) {
+      continue;
+    }
+    if (!lastAssistantIsImageOnly && row.role === "assistant") {
+      lastAssistantIsImageOnly = isImageOnlyAssistantContent(row.content);
+      if (!lastAssistantIsImageOnly) {
+        // Latest assistant isn't an image — don't treat follow-ups as revisions.
+        break;
+      }
+      continue;
+    }
+    if (lastAssistantIsImageOnly && row.role === "user") {
+      previousSubject = subjectFromImageGenUserMessage(row.content);
+      break;
+    }
+  }
+  return { lastAssistantIsImageOnly, previousSubject };
 }
 
 const IMAGE_NOUN =
@@ -129,6 +211,8 @@ function extractShortCreateSubject(trimmed: string): string | null {
   if (!match?.[1]) return null;
   const subject = match[1].trim();
   if (subject.split(/\s+/).length > 8) return null;
+  // "make it blue" is an image *revision*, not "create a picture of it blue".
+  if (/^(?:it|them|this|that)\b/i.test(subject)) return null;
   if (NON_IMAGE_SUBJECT.test(subject) || NON_IMAGE_DRAW.test(subject)) return null;
   return cleanPrompt(subject);
 }

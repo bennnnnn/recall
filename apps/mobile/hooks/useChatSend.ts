@@ -16,7 +16,11 @@ import {
   buildPendingSendAfterCreate,
   shouldBlockSend,
 } from "@/lib/chatSendLogic";
-import { extractImageGenPrompt } from "@/lib/imageGenIntent";
+import {
+  extractImageGenPrompt,
+  extractImageRevisionPrompt,
+  imageGenRevisionContext,
+} from "@/lib/imageGenIntent";
 import { scheduleIdlePromise } from "@/lib/scheduleIdle";
 import type { ClientGeo } from "@/lib/clientGeo";
 import { resolveClientGeoForQuery } from "@/lib/resolveClientGeoForQuery";
@@ -61,6 +65,8 @@ type Options = {
   sendMessage: SendMessageFn;
   editMessage: (id: string, text: string, model: string, clientGeo?: ClientGeo | null) => void;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+  /** Current transcript — used to treat short follow-ups after image replies as revisions. */
+  messages: Message[];
   selectedModel: string;
   pendingLaunch: string | null;
   setPendingLaunch: React.Dispatch<React.SetStateAction<string | null>>;
@@ -91,6 +97,7 @@ export function useChatSend({
   sendMessage,
   editMessage,
   setMessages,
+  messages,
   selectedModel,
   pendingLaunch,
   setPendingLaunch,
@@ -212,7 +219,9 @@ export function useChatSend({
       // submitPrompt / the API open upgrade or generate. Never let the model invent
       // "the app will attach an image shortly" without calling generate.
       if (onGenerateImage && !pendingAttachment && !editingMessageId) {
-        const imagePrompt = extractImageGenPrompt(text);
+        const imagePrompt =
+          extractImageGenPrompt(text) ??
+          extractImageRevisionPrompt(text, imageGenRevisionContext(messages));
         if (imagePrompt) {
           if (imageGenerating) return;
           setInput("");
@@ -358,6 +367,7 @@ export function useChatSend({
       onBeforeSend,
       onGenerateImage,
       imageGenerating,
+      messages,
       setChatId,
       setChatTitle,
     ],

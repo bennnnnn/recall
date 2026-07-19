@@ -31,6 +31,7 @@ def test_extract_image_gen_prompt_matches(text: str, expected: str) -> None:
         "create a reminder",
         "create an image compression script",
         "draw a conclusion from this",
+        "make it blue",  # revision follow-up, not "create a picture of it blue"
         "a" * 501,
     ],
 )

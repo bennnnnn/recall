@@ -1,4 +1,10 @@
-import { extractImageGenPrompt } from "@/lib/imageGenIntent";
+import {
+  extractImageGenPrompt,
+  extractImageRevisionPrompt,
+  imageGenRevisionContext,
+  isImageOnlyAssistantContent,
+  subjectFromImageGenUserMessage,
+} from "@/lib/imageGenIntent";
 
 describe("extractImageGenPrompt", () => {
   it("extracts from create a cat pic", () => {
@@ -59,5 +65,69 @@ describe("extractImageGenPrompt", () => {
     expect(extractImageGenPrompt("draw me a comparison between X and Y")).toBe(
       "comparison between X and Y",
     );
+  });
+});
+
+describe("image revision follow-ups", () => {
+  it("reads the subject from a Generate image user bubble", () => {
+    expect(subjectFromImageGenUserMessage("Generate image: black cat")).toBe("black cat");
+  });
+
+  it("detects image-only assistant content", () => {
+    expect(
+      isImageOnlyAssistantContent("[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]"),
+    ).toBe(true);
+    expect(
+      isImageOnlyAssistantContent(
+        "Here you go\n[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]",
+      ),
+    ).toBe(false);
+  });
+
+  it("builds a revision prompt after an image-only reply", () => {
+    expect(
+      extractImageRevisionPrompt("White", {
+        lastAssistantIsImageOnly: true,
+        previousSubject: "black cat",
+      }),
+    ).toBe("black cat, White");
+    expect(
+      extractImageRevisionPrompt("make it blue", {
+        lastAssistantIsImageOnly: true,
+        previousSubject: "black cat",
+      }),
+    ).toBe("black cat, blue");
+  });
+
+  it("does not treat thanks / normal chat as a revision", () => {
+    expect(
+      extractImageRevisionPrompt("thanks", {
+        lastAssistantIsImageOnly: true,
+        previousSubject: "black cat",
+      }),
+    ).toBeNull();
+    expect(
+      extractImageRevisionPrompt("White", {
+        lastAssistantIsImageOnly: false,
+        previousSubject: "black cat",
+      }),
+    ).toBeNull();
+  });
+
+  it("imageGenRevisionContext finds the prior subject", () => {
+    expect(
+      imageGenRevisionContext([
+        {
+          id: "u1",
+          role: "user",
+          content: "Generate image: black cat",
+        },
+        {
+          id: "a1",
+          role: "assistant",
+          content: "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]",
+        },
+      ]),
+    ).toEqual({ lastAssistantIsImageOnly: true, previousSubject: "black cat" });
   });
 });
