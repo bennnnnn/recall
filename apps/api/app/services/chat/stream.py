@@ -12,7 +12,7 @@ from redis.asyncio import Redis
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.core.db import SessionLocal
-from app.exceptions import ChatNotFoundError, QuotaExceededError
+from app.exceptions import ChatNotFoundError, ChatServiceError, QuotaExceededError
 from app.gateways import litellm_gateway
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.orm import User
@@ -21,6 +21,7 @@ from app.repositories import messages as messages_repo
 from app.repositories import users as users_repo
 from app.services import attachment_lifecycle, model_catalog
 from app.services import calendar as calendar_service
+from app.services import image_generation as image_generation_service
 from app.services import math_fence as math_fence_service
 from app.services import plan as plan_service
 from app.services import quota as quota_service
@@ -48,6 +49,7 @@ from app.services.chat.turn_prep import (
 )
 from app.services.chat.turn_timing import TurnTimingTracker
 from app.services.context_window import estimate_tokens
+from app.services.image_gen_intent import extract_image_gen_prompt
 from app.services.quota import quota_exceeded_message
 
 logger = logging.getLogger(__name__)
@@ -129,6 +131,61 @@ async def reserve_turn_quota(
     return reserved
 
 
+async def _try_image_gen_for_turn(
+    settings: Settings,
+    *,
+    user: User,
+    chat_id: UUID,
+    content: str,
+    result: dict[str, Any] | None,
+    create_user_message: bool,
+    replace_assistant_id: UUID | None = None,
+) -> bool:
+    """If content is Pro image-gen intent, generate and fill ``result``.
+
+    Returns True when the turn was handled (caller must not run the LLM).
+    Free users / non-image text return False so the chat model can reply.
+    """
+    if not plan_service.is_pro(user):
+        return False
+    image_prompt = extract_image_gen_prompt(content)
+    if not image_prompt:
+        return False
+    try:
+        async with SessionLocal() as session:
+            if replace_assistant_id is not None:
+                last = await messages_repo.get_last(session, chat_id)
+                if (
+                    last is not None
+                    and last.id == replace_assistant_id
+                    and last.role == "assistant"
+                ):
+                    await messages_repo.delete_message(session, last)
+                    await session.commit()
+            _user_msg, asst_msg = await image_generation_service.generate_for_chat(
+                session,
+                settings,
+                user=user,
+                chat_id=chat_id,
+                prompt=image_prompt,
+                user_message_content=content.strip() if create_user_message else None,
+                create_user_message=create_user_message,
+            )
+    except image_generation_service.ImageGenerationError as exc:
+        if exc.status_code == 429:
+            raise QuotaExceededError(exc.detail) from exc
+        if exc.status_code in (403, 404):
+            # Not available / not Pro — let the chat model explain.
+            return False
+        raise ChatServiceError(exc.detail) from exc
+
+    if result is not None:
+        result["message_id"] = str(asst_msg.id)
+        result["final_content"] = asst_msg.content
+        result["resolved_model"] = asst_msg.model or "image-gen-model"
+    return True
+
+
 async def stream_chat_response(
     redis: Redis,
     settings: Settings,
@@ -167,6 +224,18 @@ async def stream_chat_response(
             await seed_usage_from_db(redis, session, user_id)
         daily_limit = quota_service.daily_limit_for_user(user, settings)
         model = plan_service.resolve_user_model_override(user, model_alias, content, settings)
+
+    # Safety net: Pro image intent must never become an LLM stub that promises
+    # an attachment. Client also intercepts; this covers regenerate + missed JS.
+    if not attachment_ids and await _try_image_gen_for_turn(
+        settings,
+        user=user,
+        chat_id=chat_id,
+        content=content,
+        result=result,
+        create_user_message=True,
+    ):
+        return
 
     if pre_reserved is not None:
         reserved = pre_reserved
@@ -289,6 +358,19 @@ async def stream_regenerate_response(
                 message_id=last.id,
             )
             omit_message_ids = {last.id}
+
+    if await _try_image_gen_for_turn(
+        settings,
+        user=user,
+        chat_id=chat_id,
+        content=user_message_content,
+        result=result,
+        create_user_message=False,
+        replace_assistant_id=(
+            regenerate_backup.message_id if regenerate_backup is not None else None
+        ),
+    ):
+        return
 
     bundle = await build_stream_prompt_context(
         user_id,

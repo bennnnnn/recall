@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Alert } from "react-native";
 import { useRouter } from "expo-router";
 
@@ -63,6 +63,14 @@ export function useImageGeneration({
   t,
 }: Options) {
   const [generating, setGenerating] = useState(false);
+  // Refs so submitPrompt never no-ops on a stale streaming/generating closure
+  // from a prior Fast Refresh or a turn that just finished.
+  const generatingRef = useRef(false);
+  const streamingRef = useRef(streaming);
+  const tokenRef = useRef(token);
+  generatingRef.current = generating;
+  streamingRef.current = streaming;
+  tokenRef.current = token;
 
   const ensureChatId = useCallback(async (): Promise<string | null> => {
     if (chatId) return chatId;
@@ -84,7 +92,13 @@ export function useImageGeneration({
 
   const submitPrompt = useCallback(
     async (prompt: string) => {
-      if (!token || generating || streaming) return;
+      const authToken = tokenRef.current;
+      if (!authToken) return;
+      if (generatingRef.current) return;
+      if (streamingRef.current) {
+        Alert.alert(t("chat.error_title"), t("chat.busy"));
+        return;
+      }
       // Don't trust client isPro alone — try the API; 403/Pro errors open upgrade.
       if (isOffline) {
         notifyOfflineSendBlocked({
@@ -93,6 +107,7 @@ export function useImageGeneration({
         });
         return;
       }
+      generatingRef.current = true;
       setGenerating(true);
       const optimisticUserId = `local-img-${Date.now()}`;
       const createdAt = new Date().toISOString();
@@ -132,7 +147,7 @@ export function useImageGeneration({
           Alert.alert(t("chat.error_title"), t("chat.error_generic"));
           return;
         }
-        const result = await api.generateImage(token, {
+        const result = await api.generateImage(authToken, {
           chat_id: activeChatId,
           prompt,
         });
@@ -158,13 +173,11 @@ export function useImageGeneration({
         }
         Alert.alert(t("chat.error_title"), resolved.message);
       } finally {
+        generatingRef.current = false;
         setGenerating(false);
       }
     },
     [
-      token,
-      generating,
-      streaming,
       isPro,
       isOffline,
       onOfflineBlocked,

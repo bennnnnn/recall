@@ -89,11 +89,18 @@ async def generate_for_chat(
     chat_id: UUID,
     prompt: str,
     aspect_ratio: str | None = None,
+    user_message_content: str | None = None,
+    create_user_message: bool = True,
 ) -> tuple[Message, Message]:
     """Plan/quota/storage/persist path for POST /images/generate.
 
     Returns (user_message, assistant_message). Raises ImageGenerationError on
     expected failures; unexpected exceptions are re-raised after quota refund.
+
+    ``user_message_content`` overrides the default ``Generate image: …`` user
+    bubble (e.g. keep the composer's original \"Create cat\"). Set
+    ``create_user_message=False`` when regenerating — only a new assistant row
+    is written.
     """
     if not settings.image_generation_enabled:
         raise ImageGenerationError("Not available", status_code=404)
@@ -164,13 +171,22 @@ async def generate_for_chat(
         )
         await gateway.write_bytes(presigned.storage_key, image_bytes)
 
-        user_message = await messages_repo.create(
-            session,
-            chat_id=chat_id,
-            user_id=user.id,
-            role="user",
-            content=f"{_USER_MESSAGE_PREFIX}{cleaned}",
-        )
+        if create_user_message:
+            bubble = (user_message_content or f"{_USER_MESSAGE_PREFIX}{cleaned}").strip()
+            if not bubble:
+                bubble = f"{_USER_MESSAGE_PREFIX}{cleaned}"
+            user_message = await messages_repo.create(
+                session,
+                chat_id=chat_id,
+                user_id=user.id,
+                role="user",
+                content=bubble,
+            )
+        else:
+            existing = await messages_repo.get_last_user(session, chat_id)
+            if existing is None:
+                raise ImageGenerationError("No user message to attach image to", status_code=404)
+            user_message = existing
         image_marker = f"[Image: /attachments/{attachment_id}/file]"
         assistant_message = await messages_repo.create(
             session,
