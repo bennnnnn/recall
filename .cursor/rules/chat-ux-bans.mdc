@@ -5,8 +5,10 @@ alwaysApply: true
 
 # Chat UX bans (do not reintroduce)
 
-When the user says **remove**, leave it removed. Do **not** bring these back in later PRs,
-“polish”, FEATURES grade-ups, or “parity” work.
+When the user says **remove** or we **replace** a UX, **delete the old path** — component,
+wire-up, intercept, attach-menu row, i18n for that UI. Do not leave a second entry point that
+can pop the old thing back. Do **not** reintroduce removed UX in later PRs, “polish”,
+FEATURES grade-ups, or “parity” work.
 
 ## 1. No “Recalled N memories” chip
 - Do **not** show a recalled / “✨ Recalled N memories” (or similar) chip on assistant messages.
