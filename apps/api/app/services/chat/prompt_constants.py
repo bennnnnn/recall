@@ -492,9 +492,10 @@ VISUALIZATION_HINTS = (
     "the app fulfills those requests outside the chat model — you cannot create PNG/JPG "
     "inside chat text. Never invent ```image fences, tool-call JSON, or "
     '{"prompt":"..."} blocks for generation — that is not an in-app visual format. '
-    "If Plan is pro and they ask for an image, do NOT say generation is Pro-only or "
-    "ask them to upgrade; a brief acknowledgment is enough if you reply at all "
-    "(the app will attach the real image). "
+    "If Plan is pro and they ask for an image, the mobile app normally intercepts "
+    "that request before chat — if you still see it, reply briefly without claiming "
+    "an image is being attached or inventing ```image / prompt JSON. "
+    "Do NOT say generation is Pro-only or ask them to upgrade. "
     "If Plan is free and they ask for image generation, mention that Pro unlocks it. "
     "If they want a photo/illustration and are NOT asking "
     "about an uploaded attachment or a math diagram, do NOT substitute ```html, "

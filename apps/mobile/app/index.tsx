@@ -270,7 +270,6 @@ function ChatScreen() {
     onOfflineBlocked: notifyOfflineBlocked,
     isOffline,
     resolveQuizProjectId,
-    isPro,
     imageGenerating: imageGen.generating,
     onGenerateImage: (prompt) => {
       void imageGen.submitPrompt(prompt);

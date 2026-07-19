@@ -85,10 +85,7 @@ export function useImageGeneration({
   const submitPrompt = useCallback(
     async (prompt: string) => {
       if (!token || generating || streaming) return;
-      if (!isPro) {
-        onOpenUpgrade();
-        return;
-      }
+      // Don't trust client isPro alone — try the API; 403/Pro errors open upgrade.
       if (isOffline) {
         notifyOfflineSendBlocked({
           warn: notifyWarning,
