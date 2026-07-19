@@ -126,6 +126,7 @@ function AssistantActions({
   onRegenerate,
   theme,
   hidden = false,
+  thumbsOnly = false,
 }: {
   messageId: string;
   content: string;
@@ -134,6 +135,8 @@ function AssistantActions({
   onRegenerate?: () => void;
   theme: Theme;
   hidden?: boolean;
+  /** Image-only replies: thumbs only (no copy / speak / PDF / regenerate). */
+  thumbsOnly?: boolean;
 }) {
   const { t } = useTranslation();
   const token = useAuthToken();
@@ -190,48 +193,52 @@ function AssistantActions({
 
   return (
     <View style={[a.row, hidden && a.rowHidden]} pointerEvents={hidden ? "none" : "auto"}>
-      <Pressable
-        style={a.btn}
-        onPress={handleCopy}
-        hitSlop={8}
-        disabled={!content.trim()}
-        accessibilityRole="button"
-        accessibilityLabel={t("common.copy")}
-      >
-        <Ionicons
-          name={copied ? "checkmark-outline" : "copy-outline"}
-          size={19}
-          color={copied ? theme.primary : theme.textSecondary}
-        />
-      </Pressable>
-      <Pressable
-        style={a.btn}
-        onPress={() => void handleSpeak()}
-        hitSlop={8}
-        disabled={!content.trim()}
-        accessibilityRole="button"
-        accessibilityLabel={t("chat.read_aloud_a11y")}
-      >
-        <Ionicons
-          name={speaking ? "volume-high" : "volume-high-outline"}
-          size={19}
-          color={speaking ? theme.primary : theme.textSecondary}
-        />
-      </Pressable>
-      <Pressable
-        style={a.btn}
-        onPress={() => void handleExportPdf()}
-        hitSlop={8}
-        disabled={!content.trim() || exporting}
-        accessibilityRole="button"
-        accessibilityLabel={t("chat.export_pdf_a11y")}
-      >
-        <Ionicons
-          name={exporting ? "hourglass-outline" : "document-text-outline"}
-          size={19}
-          color={theme.textSecondary}
-        />
-      </Pressable>
+      {!thumbsOnly ? (
+        <>
+          <Pressable
+            style={a.btn}
+            onPress={handleCopy}
+            hitSlop={8}
+            disabled={!content.trim()}
+            accessibilityRole="button"
+            accessibilityLabel={t("common.copy")}
+          >
+            <Ionicons
+              name={copied ? "checkmark-outline" : "copy-outline"}
+              size={19}
+              color={copied ? theme.primary : theme.textSecondary}
+            />
+          </Pressable>
+          <Pressable
+            style={a.btn}
+            onPress={() => void handleSpeak()}
+            hitSlop={8}
+            disabled={!content.trim()}
+            accessibilityRole="button"
+            accessibilityLabel={t("chat.read_aloud_a11y")}
+          >
+            <Ionicons
+              name={speaking ? "volume-high" : "volume-high-outline"}
+              size={19}
+              color={speaking ? theme.primary : theme.textSecondary}
+            />
+          </Pressable>
+          <Pressable
+            style={a.btn}
+            onPress={() => void handleExportPdf()}
+            hitSlop={8}
+            disabled={!content.trim() || exporting}
+            accessibilityRole="button"
+            accessibilityLabel={t("chat.export_pdf_a11y")}
+          >
+            <Ionicons
+              name={exporting ? "hourglass-outline" : "document-text-outline"}
+              size={19}
+              color={theme.textSecondary}
+            />
+          </Pressable>
+        </>
+      ) : null}
       <Pressable
         style={a.btn}
         onPress={() => rate("up")}
@@ -258,7 +265,7 @@ function AssistantActions({
           color={feedback === "down" ? theme.primary : theme.textSecondary}
         />
       </Pressable>
-      {onRegenerate && (
+      {!thumbsOnly && onRegenerate ? (
         <Pressable
           style={a.btn}
           onPress={() => {
@@ -271,7 +278,7 @@ function AssistantActions({
         >
           <Ionicons name="refresh-outline" size={19} color={theme.textSecondary} />
         </Pressable>
-      )}
+      ) : null}
     </View>
   );
 }
@@ -370,6 +377,15 @@ export const MessageBubble = React.memo(function MessageBubble({
     t,
     streamStatusDetail,
   );
+  // Generated image with no prose — copy/speak/PDF/regenerate are noise.
+  const imageOnlyActions =
+    showImages &&
+    !hasMarkdown &&
+    !showVocabCard &&
+    !showLiveClock &&
+    !showCalendarProposals &&
+    !showPlaces &&
+    !interactiveQuiz;
 
   return (
     <View style={[b.row, isUser ? b.userRow : b.assistantRow, highlighted && b.rowHighlighted]}>
@@ -486,6 +502,7 @@ export const MessageBubble = React.memo(function MessageBubble({
             onRegenerate={isLastAssistant ? onRegenerate : undefined}
             theme={theme}
             hidden={!actionsReady}
+            thumbsOnly={imageOnlyActions}
           />
         </View>
       ) : null}
