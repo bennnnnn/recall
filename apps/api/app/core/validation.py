@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 # Keep in sync with app.services.model_catalog.CATALOG ids (asserted in tests).
 KNOWN_MODEL_ALIASES: frozenset[str] = frozenset(
     {
@@ -65,10 +67,32 @@ def normalize_locale_code(locale: str | None) -> str:
     return locale.split("-")[0].lower()
 
 
+# Straight + curly quotes models often wrap titles with.
+_TITLE_QUOTES = "\"'" + "\u201c\u201d\u2018\u2019"
+# Trailing sentence punctuation that can sit outside the closing quote.
+_TITLE_TRAIL_PUNCT = ".!?,;:"
+# One-shot unwrap: leading quotes, or trailing quotes + optional punct.
+_TITLE_WRAP_RE = re.compile(
+    rf"^[{re.escape(_TITLE_QUOTES)}]+|[{re.escape(_TITLE_QUOTES)}]+[{re.escape(_TITLE_TRAIL_PUNCT)}]*$"
+)
+
+
+def unwrap_chat_title(raw: str) -> str:
+    """Strip wrapping quotes/punct until stable (fixes '"My Trip Plan".')."""
+    title = raw.strip()
+    while True:
+        prev = title
+        title = _TITLE_WRAP_RE.sub("", title).strip()
+        title = title.rstrip(_TITLE_TRAIL_PUNCT).strip()
+        title = title.strip(_TITLE_QUOTES).strip()
+        if title == prev:
+            return title
+
+
 def normalize_chat_title(raw: str | None) -> str | None:
     if not raw:
         return None
-    title = raw.strip().strip('"').strip("'")
+    title = unwrap_chat_title(raw)
     if not title:
         return None
     if title.lower() in BORING_CHAT_TITLES:
