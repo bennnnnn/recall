@@ -16,7 +16,7 @@ from app.services.quota import QUOTA_EXCEEDED_MESSAGE
 
 @pytest.fixture(autouse=True)
 def _ws_rate_limit():
-    with patch("app.routers.ws.allow_request", AsyncMock(return_value=True)):
+    with patch("app.routers.ws.allow_request_fail_closed", AsyncMock(return_value=True)):
         yield
 
 
@@ -76,8 +76,8 @@ def test_ws_handshake_fails_closed_on_redis_error():
     app = _app(None)
     client = TestClient(app)
     with patch(
-        "app.routers.ws.allow_request",
-        AsyncMock(side_effect=RuntimeError("redis down")),
+        "app.routers.ws.allow_request_fail_closed",
+        AsyncMock(return_value=False),
     ):
         with pytest.raises(WebSocketDisconnect):
             with client.websocket_connect(f"/ws/chats/{uuid4()}") as ws:
@@ -104,7 +104,7 @@ async def test_ws_handshake_rate_limit_uses_forwarded_ip_when_trusted():
 
     with (
         patch("app.routers.ws.get_settings", return_value=settings),
-        patch("app.routers.ws.allow_request", side_effect=fake_allow),
+        patch("app.routers.ws.allow_request_fail_closed", side_effect=fake_allow),
     ):
         await _ws_handshake_rate_limit(AsyncMock(), websocket)
 
@@ -133,6 +133,76 @@ def test_ws_auth_timeout_closes():
             msg = ws.receive_json()
     assert msg["type"] == "error"
     assert "timeout" in msg["message"].lower()
+
+
+def test_ws_non_dict_frame_does_not_crash():
+    """JSON arrays/non-objects must error cleanly, not AttributeError the loop."""
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+    app = _app(user)
+
+    with patch(
+        "app.routers.ws.tokens_service.verify_access_token",
+        AsyncMock(return_value=user.id),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json(["not", "an", "object"])
+            err = ws.receive_json()
+            assert err["type"] == "error"
+            assert "Invalid" in err["message"]
+            # Socket stays open for a valid follow-up.
+            ws.send_json({"type": "cancel"})
+
+
+def test_ws_null_content_does_not_crash():
+    """content: null used to AttributeError on .strip() before validation."""
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+    app = _app(user)
+
+    with patch(
+        "app.routers.ws.tokens_service.verify_access_token",
+        AsyncMock(return_value=user.id),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": None})
+            err = ws.receive_json()
+            assert err["type"] == "error"
+            assert "Invalid" in err["message"]
+
+
+def test_ws_connect_rate_limit_fails_closed_on_redis_error():
+    """Per-user connect limiter must deny when Redis is down (fail closed)."""
+    _, tok = _token()
+    user = _fake_user()
+    app = _app(user)
+
+    async def allow_side_effect(_redis, key, *, limit, window_seconds):
+        if str(key).startswith("rate:ws:handshake:"):
+            return True
+        if str(key).startswith("rate:ws:connect:"):
+            return False
+        return True
+
+    with (
+        patch("app.routers.ws.allow_request_fail_closed", side_effect=allow_side_effect),
+        patch(
+            "app.routers.ws.tokens_service.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{uuid4()}") as ws:
+            ws.send_json({"token": tok})
+            err = ws.receive_json()
+            assert err["type"] == "error"
+            assert "Too many requests" in err["message"]
 
 
 # ── normal message flow ────────────────────────────────────────────────────────
@@ -590,7 +660,7 @@ def test_ws_message_rate_limit_blocks_second_chargeable_message():
         yield "ok"
 
     with (
-        patch("app.routers.ws.allow_request", side_effect=allow_side_effect),
+        patch("app.routers.ws.allow_request_fail_closed", side_effect=allow_side_effect),
         patch(
             "app.routers.ws.tokens_service.verify_access_token",
             AsyncMock(return_value=user.id),

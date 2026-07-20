@@ -10,7 +10,7 @@ from pydantic import ValidationError
 
 from app.core.client_ip import client_ip_from_websocket
 from app.core.config import get_settings
-from app.core.rate_limit import allow_request
+from app.core.rate_limit import allow_request_fail_closed
 from app.core.redis import get_redis_client
 from app.exceptions import ChatServiceError, QuotaExceededError, RedisUnavailableError
 from app.gateways.google_auth import GoogleAuthError
@@ -48,7 +48,7 @@ async def _safe_send_json(websocket: WebSocket, payload: dict) -> bool:
 
 async def _ws_rate_limit(redis, user_id: UUID) -> bool:
     """Per-message throttle for chat actions on an open WebSocket."""
-    return await allow_request(
+    return await allow_request_fail_closed(
         redis,
         f"rate:ws:msg:{user_id}",
         limit=_WS_MSG_RATE_LIMIT,
@@ -58,7 +58,7 @@ async def _ws_rate_limit(redis, user_id: UUID) -> bool:
 
 async def _ws_connect_rate_limit(redis, user_id: UUID) -> bool:
     """Limit new WebSocket handshakes per user (separate from per-message limits)."""
-    return await allow_request(
+    return await allow_request_fail_closed(
         redis,
         f"rate:ws:connect:{user_id}",
         limit=_WS_CONNECT_RATE_LIMIT,
@@ -75,7 +75,7 @@ async def _ws_handshake_rate_limit(redis, websocket: WebSocket) -> bool:
     """
     settings = get_settings()
     ip = client_ip_from_websocket(websocket, settings)
-    return await allow_request(
+    return await allow_request_fail_closed(
         redis,
         f"rate:ws:handshake:{ip}",
         limit=_WS_HANDSHAKE_RATE_LIMIT,
@@ -371,14 +371,14 @@ async def _handle_message(
     emit_status: Any,
     emit_reasoning: Any,
 ) -> None:
-    content = payload.get("content", "").strip()
-
     try:
         request = ChatMessageRequest.model_validate(payload)
     except ValidationError:
         await websocket.send_json({"type": "error", "message": "Invalid message"})
         return
 
+    # Strip only after Pydantic validation — payload content may be null/non-str.
+    content = request.content.strip()
     if not content and not request.attachment_ids:
         return
 
@@ -427,15 +427,8 @@ async def chat_websocket(
 ) -> None:
     settings = get_settings()
     redis = get_redis_client()
-    try:
-        if not await _ws_handshake_rate_limit(redis, websocket):
-            await websocket.close(code=1008)
-            return
-    except Exception:
-        # Fail closed: a Redis outage must not let unauthenticated connects
-        # through unbounded. Close with policy-violation (1008) so the client
-        # backs off and reconnects once the limiter is healthy again.
-        logger.warning("WS handshake rate limit check failed; failing closed", exc_info=True)
+    # Fail closed via allow_request_fail_closed — Redis outage denies connect.
+    if not await _ws_handshake_rate_limit(redis, websocket):
         await websocket.close(code=1008)
         return
 
@@ -446,6 +439,10 @@ async def chat_websocket(
             websocket.receive_json(),
             timeout=_WS_AUTH_TIMEOUT_SECONDS,
         )
+        if not isinstance(auth_message, dict):
+            await websocket.send_json({"type": "error", "message": "Unauthorized"})
+            await websocket.close()
+            return
         token = auth_message.get("token")
         if not token:
             await websocket.send_json({"type": "error", "message": "Missing token"})
@@ -468,8 +465,8 @@ async def chat_websocket(
         # 1013 Try Again Later — client should back off, not treat as auth failure.
         await websocket.close(code=1013)
         return
-    except (GoogleAuthError, json.JSONDecodeError, KeyError):
-        await websocket.send_json({"type": "error", "message": "Unauthorized"})
+    except (GoogleAuthError, json.JSONDecodeError, KeyError, TypeError, AttributeError):
+        await _safe_send_json(websocket, {"type": "error", "message": "Unauthorized"})
         await websocket.close()
         return
 
@@ -488,8 +485,13 @@ async def chat_websocket(
         while True:
             try:
                 payload = await websocket.receive_json()
-            except json.JSONDecodeError:
-                await websocket.send_json({"type": "error", "message": "Invalid JSON"})
+            except (json.JSONDecodeError, KeyError, TypeError):
+                # Bad JSON, binary frames (no "text"), or other non-text payloads.
+                await _safe_send_json(websocket, {"type": "error", "message": "Invalid JSON"})
+                continue
+
+            if not isinstance(payload, dict):
+                await _safe_send_json(websocket, {"type": "error", "message": "Invalid message"})
                 continue
 
             msg_type = payload.get("type")
