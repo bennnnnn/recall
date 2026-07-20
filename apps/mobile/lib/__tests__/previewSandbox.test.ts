@@ -15,6 +15,21 @@ describe("PREVIEW_CSP", () => {
     expect(PREVIEW_CSP).toContain("base-uri 'none'");
     expect(PREVIEW_CSP).toContain("sandbox allow-scripts");
   });
+
+  it("blocks https on img/font/media (passive GET exfiltration)", () => {
+    // connect-src 'none' alone is not enough: <img src="https://attacker/…">
+    // still fires a GET when the DOM parses. Mermaid/Charts inherit this CSP.
+    const imgSrc = PREVIEW_CSP.match(/img-src\s+([^;]+)/)?.[1].trim();
+    const fontSrc = PREVIEW_CSP.match(/font-src\s+([^;]+)/)?.[1].trim();
+    const mediaSrc = PREVIEW_CSP.match(/media-src\s+([^;]+)/)?.[1].trim();
+    expect(imgSrc).toBe("data: blob:");
+    expect(fontSrc).toBe("data:");
+    expect(mediaSrc).toBe("data: blob:");
+    for (const value of [imgSrc, fontSrc, mediaSrc]) {
+      expect(value).not.toContain("https:");
+      expect(value).not.toContain("*");
+    }
+  });
 });
 
 describe("PDF_PREVIEW_CSP", () => {
