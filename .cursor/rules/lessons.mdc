@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Login “Rate limit unavailable” / auth 429 with API healthy.** Cause: Upstash free tier
+  hit max-requests; REST limiter fails closed on any Redis error, and token issue needs Redis
+  too. Fix: point local `REDIS_URL` at Homebrew Redis (`redis://127.0.0.1:6379`); keep Upstash
+  for prod. Expo `react` must stay on SDK pin (`19.2.3` for Expo 57) — Dependabot patch bumps
+  break Hermes boot with `property is not writable`.
 - **CO₂ diagram looked like O₂.** Cause: smiles-drawer skeletal mode hides chain carbons
   (`O=C=O` → only “O=O” labels). Fix: after `processGraph`, set `drawExplicit` on every C
   before `drawVertices`.
