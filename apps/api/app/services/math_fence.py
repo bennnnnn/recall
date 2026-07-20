@@ -1,12 +1,12 @@
-"""Validate geometry/graph fences in assistant output.
+"""Validate geometry/graph/answer fences in assistant output.
 
 Schema validity alone doesn't mean the *numbers* are right — the model is
 only asked (in the system prompt) to copy the SymPy-computed fence
 verbatim, not structurally forced to. When the turn actually computed a
 canonical fence (``VerifiedMathBlock.canonical_fence``), a same-kind fence
-in the model's output is replaced with the canonical JSON outright, so a
-drifted or hallucinated number never reaches the user even inside an
-otherwise schema-valid block.
+in the model's output is replaced with the canonical JSON (or answer
+body) outright, so a drifted or hallucinated number never reaches the
+user even inside an otherwise schema-valid block.
 
 When there is no canonical sample, the model still often emits a continuous
 `` ```graph `` fence with only a few key points (roots / intercepts). Drawing
@@ -44,6 +44,7 @@ if TYPE_CHECKING:
 
 _GEOMETRY_FENCE = re.compile(r"```geometry\s*\n([\s\S]*?)```", re.IGNORECASE)
 _GRAPH_FENCE = re.compile(r"```graph\s*\n([\s\S]*?)```", re.IGNORECASE)
+_ANSWER_FENCE = re.compile(r"```(?:answer|result|final)\s*\n([\s\S]*?)```", re.IGNORECASE)
 
 # Below this count a continuous y=f(x) fence is treated as "sparse key points"
 # the model listed for prose, not a renderable curve sample.
@@ -205,8 +206,22 @@ def _replace_fence(
         return "\n*Could not render that diagram.*\n"
 
 
+def _replace_answer_fence(
+    match: re.Match[str],
+    canonical_fence: dict[str, object] | None,
+) -> str:
+    """Rewrite ```answer bodies from SymPy when this turn computed one."""
+    if canonical_fence is None or canonical_fence.get("type") != "answer":
+        return match.group(0)
+    content = canonical_fence.get("content")
+    if not isinstance(content, str) or not content.strip():
+        return match.group(0)
+    return f"```answer\n{content.strip()}\n```"
+
+
 def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = None) -> str:
     canonical_fence = verified.canonical_fence if verified is not None else None
+    content = _ANSWER_FENCE.sub(lambda m: _replace_answer_fence(m, canonical_fence), content)
     content = _GEOMETRY_FENCE.sub(lambda m: _replace_fence(m, "geometry", canonical_fence), content)
     return _GRAPH_FENCE.sub(lambda m: _replace_fence(m, "graph", canonical_fence), content)
 

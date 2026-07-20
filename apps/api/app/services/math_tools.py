@@ -754,6 +754,33 @@ def _fence(kind: str, spec: Any) -> str:
     return f"```{kind}\n{json.dumps(spec.model_dump(), separators=(',', ':'))}\n```"
 
 
+def _answer_canonical(content: str) -> dict[str, str]:
+    return {"type": "answer", "content": content}
+
+
+def _format_equation_answer(
+    solutions_latex: list[str],
+    solution_kind: str,
+) -> str:
+    if solutions_latex:
+        return ", ".join(solutions_latex)
+    if solution_kind == "infinite":
+        return r"\text{all real numbers}"
+    return r"\text{no solution}"
+
+
+def _format_system_answer(
+    solutions: list[dict[str, str]],
+    solution_kind: str,
+) -> str:
+    if solutions:
+        sets = [", ".join(f"{k} = {v}" for k, v in sol.items()) for sol in solutions]
+        return "; ".join(sets)
+    if solution_kind == "infinite":
+        return r"\text{infinitely many solutions}"
+    return r"\text{no solution}"
+
+
 def _verified_block_equation(
     intent: MathIntent, settings: Settings, lines: list[str]
 ) -> VerifiedMathBlock | None:
@@ -766,15 +793,21 @@ def _verified_block_equation(
     )
     result = math_service.solve_equation(eq)
     lines.extend(result.steps)
+    answer = _format_equation_answer(result.solutions_latex, result.solution_kind)
     lines.append(
         "Formula shape: INLINE $...$ for every step (never backticks around "
         "`$...$`; never ```math for step equations — those stream blank). "
         "A ```math fence is OK only for a standalone final display equation. "
         "Do NOT recompute the solutions. Show worked steps by COPYING the "
         "verified steps above verbatim — do NOT derive intermediate algebra "
-        "yourself. Keep any spacing (e.g. \\quad) INSIDE the $...$ delimiters."
+        "yourself. Keep any spacing (e.g. \\quad) INSIDE the $...$ delimiters. "
+        "End with this final-answer fence (copy verbatim):\n"
+        f"```answer\n{answer}\n```"
     )
-    return VerifiedMathBlock(text="\n".join(lines))
+    return VerifiedMathBlock(
+        text="\n".join(lines),
+        canonical_fence=_answer_canonical(answer),
+    )
 
 
 def _verified_block_inequality(
@@ -789,13 +822,19 @@ def _verified_block_inequality(
         intent.comparator,
     )
     lines.extend(result.steps)
+    answer = _format_equation_answer(result.solutions_latex, result.solution_kind)
     lines.append(
         "Formula shape: INLINE $...$ for the inequality and its solution "
         "set (never backticks around `$...$`). Do NOT recompute — copy the "
         "verified solution above verbatim. Render unions with \\lor "
-        "(e.g. $x < -1 \\lor x > 1$) exactly as given."
+        "(e.g. $x < -1 \\lor x > 1$) exactly as given. "
+        "End with this final-answer fence (copy verbatim):\n"
+        f"```answer\n{answer}\n```"
     )
-    return VerifiedMathBlock(text="\n".join(lines))
+    return VerifiedMathBlock(
+        text="\n".join(lines),
+        canonical_fence=_answer_canonical(answer),
+    )
 
 
 def _verified_block_system(
@@ -816,13 +855,19 @@ def _verified_block_system(
     )
     sys_result = math_service.solve_system(sys_input)
     lines.extend(sys_result.steps)
+    answer = _format_system_answer(sys_result.solutions, sys_result.solution_kind)
     lines.append(
         "Formula shape: INLINE $...$ for every step (never backticks around "
         "`$...$`; never ```math for step equations). Do NOT recompute the "
         "solutions. Show worked steps by COPYING the verified steps above "
-        "verbatim — do NOT derive intermediate algebra yourself."
+        "verbatim — do NOT derive intermediate algebra yourself. "
+        "End with this final-answer fence (copy verbatim):\n"
+        f"```answer\n{answer}\n```"
     )
-    return VerifiedMathBlock(text="\n".join(lines))
+    return VerifiedMathBlock(
+        text="\n".join(lines),
+        canonical_fence=_answer_canonical(answer),
+    )
 
 
 def _verified_block_numerical_method(

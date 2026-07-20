@@ -126,12 +126,31 @@ def test_leaves_fence_alone_when_kind_differs_from_canonical() -> None:
 
 
 def test_no_canonical_fence_falls_back_to_schema_validation_only() -> None:
-    """Equation/calculus turns have no canonical fence (verified.canonical_fence
-    is None) — a well-formed fence elsewhere in the response is untouched."""
+    """Turns without a canonical fence leave well-formed fences untouched."""
     content = '```geometry\n{"type":"rectangle","width":8,"height":5}\n```'
 
     out = validate_math_fences(content, verified=_verified(None))
 
+    assert out == content
+
+
+def test_rewrites_answer_fence_from_canonical() -> None:
+    content = "Worked steps…\n```answer\nx = 99\n```"
+    out = validate_math_fences(
+        content,
+        verified=_verified({"type": "answer", "content": "x = \\pm 2"}),
+    )
+    assert "```answer\nx = \\pm 2\n```" in out
+    assert "x = 99" not in out
+
+
+def test_leaves_answer_fence_when_canonical_is_geometry() -> None:
+    """Wrong-kind canonical must not clobber an ```answer body."""
+    content = "```answer\nx = 2\n```"
+    out = validate_math_fences(
+        content,
+        verified=_verified({"type": "rectangle", "width": 8, "height": 5}),
+    )
     assert out == content
 
 
