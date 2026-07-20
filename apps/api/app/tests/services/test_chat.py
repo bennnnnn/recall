@@ -1505,6 +1505,105 @@ async def test_cancelled_stream_skips_model_health_sample(stream_offline_io):
 
 
 @pytest.mark.asyncio
+async def test_hard_cancel_with_partial_reply_finalizes(stream_offline_io):
+    """WS/SSE CancelledError after tokens must persist like soft stop (no full refund)."""
+    import asyncio
+    from uuid import uuid4
+
+    from app.services.chat.stream import stream_and_finalize
+    from app.services.chat.turn_prep import StreamContext
+
+    async def fake_stream(**_kwargs):
+        yield "partial "
+        raise asyncio.CancelledError()
+
+    finalize = AsyncMock()
+    ctx = StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=[{"role": "user", "content": "hi"}],
+        run_title=False,
+        user_message_content="hi",
+        reserved_tokens=100,
+        max_output_tokens=50,
+        skip_memory_jobs=True,
+    )
+    result: dict[str, object] = {}
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
+        )
+        stack.enter_context(patch("app.services.chat.stream.finalize_stream_turn_db", finalize))
+        stack.enter_context(
+            patch(
+                "app.services.calendar.materialize_calendar_proposals",
+                AsyncMock(side_effect=lambda *_a, **_k: _a[-1]),
+            )
+        )
+        stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
+        tokens: list[str] = []
+        async for tok in stream_and_finalize(
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            ctx,
+            should_cancel=None,
+            result=result,
+        ):
+            tokens.append(tok)
+        finalize_db = result.get("_finalize_db_task")
+        if finalize_db is not None:
+            await finalize_db
+
+    assert tokens == ["partial "]
+    assert result.get("final_content") == "partial"
+    finalize.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_hard_cancel_with_empty_reply_reraises(stream_offline_io):
+    """CancelledError before any token must propagate so the caller refunds."""
+    import asyncio
+    from uuid import uuid4
+
+    from app.services.chat.stream import stream_and_finalize
+    from app.services.chat.turn_prep import StreamContext
+
+    async def fake_stream(**_kwargs):
+        raise asyncio.CancelledError()
+        yield  # pragma: no cover — async generator
+
+    ctx = StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=[{"role": "user", "content": "hi"}],
+        run_title=False,
+        user_message_content="hi",
+        reserved_tokens=100,
+        max_output_tokens=50,
+        skip_memory_jobs=True,
+    )
+
+    with (
+        patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
+        patch("app.services.chat.stream.finalize_stream_turn_db", AsyncMock()) as finalize,
+        pytest.raises(asyncio.CancelledError),
+    ):
+        async for _ in stream_and_finalize(
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            ctx,
+            should_cancel=None,
+            result={},
+        ):
+            pass
+
+    finalize.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_stream_closes_llm_stream_on_cancel(stream_offline_io):
     """Stop generation must aclose the provider stream so upstream tokens stop accruing."""
     from app.services import chat as chat_module
