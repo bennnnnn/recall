@@ -1,3 +1,4 @@
+import { retagMoleculeMathToSmiles } from "@/lib/chemistryFence";
 import { retagMathAndDiagramFences } from "@/lib/mathFenceRetag";
 import { repairBrokenMarkdownLinks } from "@/lib/placesList";
 import { normalizeImplicitMath } from "@/lib/normalizeImplicitMath";
@@ -407,6 +408,8 @@ export function preprocessMarkdown(content: string): string {
     (_m: string, body: string) => `\n\n\`\`\`vega-lite\n${body.trim()}\n\`\`\`\n\n`,
   );
 
+  // Molecule formulas before math retag — otherwise bare `O=O` becomes ```math.
+  out = retagMoleculeMathToSmiles(out);
   out = retagMathAndDiagramFences(out);
 
   out = unwrapNonCodeFences(out);
