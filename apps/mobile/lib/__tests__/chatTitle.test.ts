@@ -24,8 +24,13 @@ describe("chatTitle", () => {
 
   it("sanitizeManualChatTitle strips quotes and enforces length", () => {
     expect(sanitizeManualChatTitle('  "My chat"  ')).toBe("My chat");
+    expect(sanitizeManualChatTitle('"My Trip Plan".')).toBe("My Trip Plan");
     expect(sanitizeManualChatTitle("New chat")).toBe("New chat");
     expect(sanitizeManualChatTitle("   ")).toBeNull();
     expect(sanitizeManualChatTitle("x".repeat(81))).toBeNull();
+  });
+
+  it("displayChatTitle unwraps dirty stored titles", () => {
+    expect(displayChatTitle('"My Trip Plan".', {}, t)).toBe("My Trip Plan");
   });
 });

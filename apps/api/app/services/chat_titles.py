@@ -3,12 +3,13 @@
 from app.core.config import Settings
 from app.core.validation import BORING_CHAT_TITLES as BORING_CHAT_TITLES
 from app.core.validation import normalize_chat_title as normalize_chat_title
+from app.core.validation import unwrap_chat_title
 from app.gateways import litellm_gateway, mock_llm
 
 
 def sanitize_manual_chat_title(raw: str) -> str | None:
     """User-chosen title — allow boring labels; trim quotes and enforce length."""
-    title = raw.strip().strip('"').strip("'").strip()
+    title = unwrap_chat_title(raw)
     if not title or len(title) > 80:
         return None
     return title
@@ -42,4 +43,4 @@ async def generate_title(
     )
     if raw is None:
         return None
-    return normalize_chat_title(raw.strip().strip('"').strip("'"))
+    return normalize_chat_title(raw)

@@ -145,6 +145,11 @@ class SearchResultItem(BaseModel):
     role: str
     created_at: datetime
 
+    @model_validator(mode="after")
+    def sanitize_chat_title(self) -> Self:
+        self.chat_title = normalize_chat_title(self.chat_title)
+        return self
+
 
 class SearchResults(BaseModel):
     results: list[SearchResultItem] = Field(default_factory=list)
