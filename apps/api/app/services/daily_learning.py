@@ -431,9 +431,10 @@ def group_missed_items_by_date(
         tz = ZoneInfo("UTC")
     today = datetime.now(tz).date()
     span = max(1, min(days, 60))
-    valid_dates = {
+    # List (not set) so JSON day-key order is stable oldest→newest.
+    valid_dates = [
         (today - timedelta(days=offset)).isoformat() for offset in range(span - 1, -1, -1)
-    }
+    ]
     grouped: dict[str, list] = {day_key: [] for day_key in valid_dates}
     for item in items:
         status = getattr(item, "status", None) or (
@@ -466,9 +467,9 @@ def group_mastered_items_by_date(
         tz = ZoneInfo("UTC")
     today = datetime.now(tz).date()
     span = max(1, min(days, 60))
-    valid_dates = {
+    valid_dates = [
         (today - timedelta(days=offset)).isoformat() for offset in range(span - 1, -1, -1)
-    }
+    ]
     grouped: dict[str, list] = {day_key: [] for day_key in valid_dates}
     for item in items:
         day = _mastered_local_date(item, tz)

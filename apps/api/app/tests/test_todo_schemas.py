@@ -1,8 +1,11 @@
-"""TodoCreate / TodoUpdate field bounds (create/reorder parity)."""
+"""Schema field bounds (create/reorder / chat request hygiene)."""
+
+from uuid import uuid4
 
 import pytest
 from pydantic import ValidationError
 
+from app.models.schemas.chats import ChatMessageRequest
 from app.models.schemas.todos import TodoUpdate
 
 
@@ -20,3 +23,8 @@ def test_todo_update_accepts_bounded_fields():
     body = TodoUpdate(content="ok", sort_order=0)
     assert body.content == "ok"
     assert body.sort_order == 0
+
+
+def test_chat_message_rejects_too_many_attachment_ids():
+    with pytest.raises(ValidationError):
+        ChatMessageRequest(content="hi", attachment_ids=[uuid4() for _ in range(11)])

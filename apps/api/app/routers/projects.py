@@ -113,8 +113,8 @@ async def list_daily_items(
     ),
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0, le=10_000),
 ) -> list[ProjectItemOut]:
     project = await projects_repo.get_by_id(session, project_id, user.id)
     if project is None or not projects_service.is_learning_product_kind(project.kind):
