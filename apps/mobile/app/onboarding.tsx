@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Redirect, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/Button";
@@ -33,6 +34,7 @@ export default function Onboarding() {
   const router = useRouter();
   const theme = useTheme();
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const s = useMemo(() => makeStyles(theme), [theme]);
 
   if (onboarded) return <Redirect href="/login" />;
@@ -46,7 +48,16 @@ export default function Onboarding() {
   };
 
   return (
-    <LinearGradient colors={gradientColors} style={s.root}>
+    <LinearGradient
+      colors={gradientColors}
+      style={[
+        s.root,
+        {
+          paddingTop: Math.max(insets.top, 24),
+          paddingBottom: Math.max(insets.bottom, 24),
+        },
+      ]}
+    >
       <View style={s.hero}>
         <View style={s.badge}>
           <Text style={s.badgeStar}>✦</Text>
@@ -78,7 +89,7 @@ function makeStyles(theme: Theme) {
   return StyleSheet.create({
     root: {
       flex: 1,
-      padding: 24,
+      paddingHorizontal: 24,
       justifyContent: "center",
     },
     hero: { alignItems: "center", marginBottom: 40 },

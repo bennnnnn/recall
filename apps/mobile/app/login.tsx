@@ -71,6 +71,7 @@ export default function LoginScreen() {
   const signInErrorMessage = (error: unknown, provider: "google" | "apple") => {
     const key =
       provider === "google" ? formatGoogleSignInError(error) : formatAppleSignInError(error);
+    if (key === "cancelled") return null;
     if (key === "bundle_load_failed") return t("login.error_bundle");
     if (key === "native_module_missing") return t("login.error_native_module");
     if (key === "not_configured") return t("login.error_not_configured");
@@ -85,7 +86,8 @@ export default function LoginScreen() {
     try {
       await signInWithApple();
     } catch (e) {
-      Alert.alert(t("login.sign_in_failed"), signInErrorMessage(e, "apple"));
+      const message = signInErrorMessage(e, "apple");
+      if (message) Alert.alert(t("login.sign_in_failed"), message);
     } finally {
       setBusyProvider(null);
     }
@@ -112,7 +114,8 @@ export default function LoginScreen() {
     try {
       await signInWithGoogle();
     } catch (e) {
-      Alert.alert(t("login.sign_in_failed"), signInErrorMessage(e, "google"));
+      const message = signInErrorMessage(e, "google");
+      if (message) Alert.alert(t("login.sign_in_failed"), message);
     } finally {
       setBusyProvider(null);
     }
