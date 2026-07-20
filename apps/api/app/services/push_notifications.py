@@ -19,7 +19,7 @@ from typing import Any
 from uuid import UUID
 
 from redis.asyncio import Redis
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -48,6 +48,9 @@ logger = logging.getLogger(__name__)
 
 LEARNING_REDIS_PREFIX = "recall:push:learning"
 RECEIPT_PENDING_ZSET = "recall:push:receipts:pending"
+# Cap pending email-suggestion scan so one cycle cannot load the whole table.
+# Token-less users are excluded via EXISTS so rows do not recycle forever.
+EMAIL_SUGGESTION_PUSH_LIMIT = 200
 RECEIPT_MIN_AGE_SECONDS = 15 * 60
 RECEIPT_MAX_AGE_SECONDS = 24 * 60 * 60
 
@@ -296,6 +299,7 @@ async def process_email_suggestions(
     now: datetime | None = None,
 ) -> list[OutboundPush]:
     _ = now
+    has_token = exists(select(PushToken.id).where(PushToken.user_id == SuggestedReminder.user_id))
     result = await session.execute(
         select(SuggestedReminder, User)
         .join(User, User.id == SuggestedReminder.user_id)
@@ -303,8 +307,10 @@ async def process_email_suggestions(
             SuggestedReminder.status == "pending",
             SuggestedReminder.notification_sent_at.is_(None),
             User.push_notifications_enabled.is_(True),
+            has_token,
         )
         .order_by(SuggestedReminder.user_id, SuggestedReminder.created_at.desc())
+        .limit(EMAIL_SUGGESTION_PUSH_LIMIT)
     )
     rows = list(result.all())
     if not rows:
@@ -328,6 +334,7 @@ async def process_email_suggestions(
         try:
             user_tokens = tokens_by_user.get(user_id, [])
             if not user_tokens:
+                # EXISTS filtered candidates; skip if tokens vanished mid-cycle.
                 continue
             count = len(reminders)
             strings = _push_strings(getattr(users[user_id], "locale", None))

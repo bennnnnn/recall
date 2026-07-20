@@ -53,6 +53,10 @@ async def test_retrieve_for_prompt_degrades_on_db_error_instead_of_raising():
 
     with (
         patch(
+            "app.services.attachment_rag.chunks_repo.has_chunks_for_chat",
+            AsyncMock(return_value=True),
+        ),
+        patch(
             "app.services.attachment_rag.embedding_gateway.embed_text",
             AsyncMock(return_value=[0.1] * 1536),
         ),
@@ -71,3 +75,30 @@ async def test_retrieve_for_prompt_degrades_on_db_error_instead_of_raising():
         )
 
     assert block == ""
+
+
+@pytest.mark.asyncio
+async def test_retrieve_for_prompt_skips_embed_when_no_chunks():
+    settings = Settings(mock_llm_enabled=True)
+    embed_mock = AsyncMock(return_value=[0.1] * 1536)
+
+    with (
+        patch(
+            "app.services.attachment_rag.chunks_repo.has_chunks_for_chat",
+            AsyncMock(return_value=False),
+        ),
+        patch(
+            "app.services.attachment_rag.embedding_gateway.embed_text",
+            embed_mock,
+        ),
+    ):
+        block = await retrieve_for_prompt(
+            session=AsyncMock(),
+            settings=settings,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            query="what does the attached PDF say?",
+        )
+
+    assert block == ""
+    embed_mock.assert_not_awaited()

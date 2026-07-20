@@ -50,6 +50,23 @@ async def get_by_message_id(
     return result.scalar_one_or_none()
 
 
+async def existing_message_ids(
+    session: AsyncSession,
+    user_id: UUID,
+    message_ids: list[str],
+) -> set[str]:
+    """Return which of ``message_ids`` already have a suggested-reminder row."""
+    if not message_ids:
+        return set()
+    result = await session.execute(
+        select(SuggestedReminder.gmail_message_id).where(
+            SuggestedReminder.user_id == user_id,
+            SuggestedReminder.gmail_message_id.in_(message_ids),
+        )
+    )
+    return {row[0] for row in result.all() if row[0]}
+
+
 async def create(
     session: AsyncSession,
     *,

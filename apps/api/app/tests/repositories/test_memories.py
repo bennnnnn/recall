@@ -101,3 +101,19 @@ async def test_list_for_user_returns_memories(fake_session):
     fake_session.execute.return_value = mock_result
     result = await memories_repo.list_for_user(fake_session, user_id)
     assert result == []
+
+
+@pytest.mark.asyncio
+async def test_has_any_embedding_true_when_row_exists(fake_session):
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = uuid4()
+    fake_session.execute.return_value = mock_result
+    assert await memories_repo.has_any_embedding(fake_session, uuid4()) is True
+
+
+@pytest.mark.asyncio
+async def test_has_any_embedding_false_when_empty(fake_session):
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = None
+    fake_session.execute.return_value = mock_result
+    assert await memories_repo.has_any_embedding(fake_session, uuid4()) is False

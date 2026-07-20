@@ -29,6 +29,13 @@ async def test_suggested_reminders_crud(fake_session):
     assert await repo.get_by_id(fake_session, reminder_id, user_id) is row
     assert await repo.get_by_message_id(fake_session, user_id, "g1") is row
 
+    fake_session.execute.return_value = MagicMock(all=MagicMock(return_value=[("g1",), ("g2",)]))
+    assert await repo.existing_message_ids(fake_session, user_id, ["g1", "g2", "g3"]) == {
+        "g1",
+        "g2",
+    }
+    assert await repo.existing_message_ids(fake_session, user_id, []) == set()
+
     created = await repo.create(
         fake_session,
         user_id=user_id,

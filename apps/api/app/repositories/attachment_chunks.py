@@ -28,6 +28,24 @@ async def delete_for_attachment_ids(session: AsyncSession, attachment_ids: list[
     return int(result.rowcount or 0)
 
 
+async def has_chunks_for_chat(
+    session: AsyncSession,
+    user_id: UUID,
+    chat_id: UUID,
+) -> bool:
+    """True if this chat has at least one chunk with a retrieval embedding."""
+    result = await session.execute(
+        select(AttachmentChunk.id)
+        .where(
+            AttachmentChunk.user_id == user_id,
+            AttachmentChunk.chat_id == chat_id,
+            AttachmentChunk.embedding.isnot(None),
+        )
+        .limit(1)
+    )
+    return result.scalar_one_or_none() is not None
+
+
 async def replace_chunks(
     session: AsyncSession,
     *,

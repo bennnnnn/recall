@@ -375,8 +375,8 @@ async def test_sync_gmail_processes_messages():
             AsyncMock(return_value=[message]),
         ),
         patch(
-            "app.services.email.suggested_repo.get_by_message_id",
-            AsyncMock(side_effect=[None, None, created_row]),
+            "app.services.email.suggested_repo.existing_message_ids",
+            AsyncMock(return_value=set()),
         ),
         patch(
             "app.services.email.suggested_repo.create",

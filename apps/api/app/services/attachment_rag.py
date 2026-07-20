@@ -130,6 +130,14 @@ async def retrieve_for_prompt(
     if not query:
         return ""
 
+    # Skip paid embed when this chat has no indexed chunks yet.
+    try:
+        if not await chunks_repo.has_chunks_for_chat(session, user_id, chat_id):
+            return ""
+    except Exception:
+        logger.warning("Attachment RAG chunk probe failed for chat_id=%s", chat_id, exc_info=True)
+        return ""
+
     query_vec = await embedding_gateway.embed_text(settings, query)
     if not query_vec:
         return ""
