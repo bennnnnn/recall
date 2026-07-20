@@ -235,6 +235,10 @@ async def stream_chat_response(
         result=result,
         create_user_message=True,
     ):
+        # Edit path reserves before delegating here; refund that reservation
+        # since image-gen does not consume chat-token quota.
+        if pre_reserved is not None:
+            await quota_service.refund_usage(redis, str(user_id), pre_reserved)
         return
 
     if pre_reserved is not None:
@@ -274,7 +278,8 @@ async def stream_chat_response(
             user=user,
             timing=timing,
         )
-    except Exception:
+    except BaseException:
+        # CancelledError (ASGI/WS cancel) is BaseException on 3.12 — must refund.
         await quota_service.refund_usage(redis, str(user_id), reserved)
         raise
 
@@ -289,7 +294,7 @@ async def stream_chat_response(
             on_reasoning=on_reasoning,
         ):
             yield token
-    except Exception:
+    except BaseException:
         await _refund_after_stream_error(redis, user_id, chat_id, reserved)
         raise
 
@@ -428,7 +433,7 @@ async def stream_regenerate_response(
             on_reasoning=on_reasoning,
         ):
             yield token
-    except Exception:
+    except BaseException:
         await _refund_after_stream_error(
             redis,
             user_id,

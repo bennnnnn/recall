@@ -20,6 +20,17 @@ def test_estimate_tokens():
     assert estimate_tokens("a" * 400) == 111
 
 
+def test_estimate_tokens_vision_content_list():
+    """Finalize fallback must not crash when vision turns use list content."""
+    parts = [
+        {"type": "text", "text": "what is in this image?"},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,abc"}},
+    ]
+    assert estimate_tokens(parts) >= 85
+    assert estimate_tokens([{"type": "image_url", "image_url": {"url": "x"}}]) == 85
+    assert estimate_tokens([]) == 1
+
+
 def test_estimate_tokens_code_heavier():
     plain = "a" * 400
     code = "```python\n" + ("x = 1\n" * 40) + "```"

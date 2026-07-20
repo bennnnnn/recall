@@ -2,6 +2,7 @@ from datetime import date
 from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import UsageDaily
@@ -20,17 +21,30 @@ async def add_tokens(
     output_tokens: int,
     commit: bool = True,
 ) -> UsageDaily:
-    usage = await get_for_date(session, user_id, day)
-    if usage is None:
-        usage = UsageDaily(user_id=user_id, date=day, input_tokens=0, output_tokens=0)
-        session.add(usage)
-    usage.input_tokens = (usage.input_tokens or 0) + input_tokens
-    usage.output_tokens = (usage.output_tokens or 0) + output_tokens
+    """Atomically increment daily usage (safe under concurrent finalizes)."""
+    stmt = pg_insert(UsageDaily).values(
+        user_id=user_id,
+        date=day,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+    )
+    stmt = stmt.on_conflict_do_update(
+        index_elements=[UsageDaily.user_id, UsageDaily.date],
+        set_={
+            "input_tokens": UsageDaily.input_tokens + stmt.excluded.input_tokens,
+            "output_tokens": UsageDaily.output_tokens + stmt.excluded.output_tokens,
+        },
+    )
+    await session.execute(stmt)
     if commit:
         await session.commit()
-        await session.refresh(usage)
     else:
         await session.flush()
+    usage = await get_for_date(session, user_id, day)
+    if usage is None:  # pragma: no cover — upsert always leaves a row
+        raise RuntimeError("usage_daily upsert did not produce a row")
+    if commit:
+        await session.refresh(usage)
     return usage
 
 

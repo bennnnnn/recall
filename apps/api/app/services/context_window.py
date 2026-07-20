@@ -26,8 +26,29 @@ SUMMARY_SYSTEM_PROMPT = (
 )
 
 
-def estimate_tokens(text: str) -> int:
-    """Rough token count — blends word/char heuristics; code blocks count denser."""
+# Flat estimate for a vision ``image_url`` part when provider usage is missing.
+_VISION_IMAGE_PART_TOKENS = 85
+
+
+def estimate_tokens(text: str | list[Any]) -> int:
+    """Rough token count — blends word/char heuristics; code blocks count denser.
+
+    Accepts OpenAI-style multimodal ``content`` lists (vision turns) so finalize
+    fallbacks do not crash when provider usage is absent.
+    """
+    if isinstance(text, list):
+        total = 0
+        for part in text:
+            if isinstance(part, str):
+                total += estimate_tokens(part)
+            elif isinstance(part, dict):
+                part_type = part.get("type")
+                if part_type == "text" and isinstance(part.get("text"), str):
+                    total += estimate_tokens(part["text"])
+                elif part_type == "image_url":
+                    total += _VISION_IMAGE_PART_TOKENS
+        return max(1, total)
+
     stripped = text.strip()
     if not stripped:
         return 1
