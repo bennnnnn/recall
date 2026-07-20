@@ -7,7 +7,9 @@
  *  - default-src 'none': deny everything by default
  *  - script-src 'unsafe-inline' https: / style-src 'unsafe-inline' https: inline
  *    code runs (the preview's purpose); https external scripts/styles load
- *  - img/font/media: data/blob/https only (passive rendering)
+ *  - img/font/media: data/blob only — NO https:. An <img src="https://…"> (or
+ *    font/media URL) is a working GET exfil channel that bypasses connect-src
+ *    'none'; model HTML with user memory in context must not beacon out.
  *  - connect-src 'none': JS cannot fetch/XHR/WebSocket anywhere (no exfiltration)
  *  - base-uri 'none' / form-action 'none': no <base> hijack, no form submits
  *
@@ -22,9 +24,9 @@ export const PREVIEW_CSP = [
   "default-src 'none'",
   "style-src 'unsafe-inline' https:",
   "script-src 'unsafe-inline' https:",
-  "img-src data: blob: https:",
-  "font-src data: https:",
-  "media-src data: blob: https:",
+  "img-src data: blob:",
+  "font-src data:",
+  "media-src data: blob:",
   "connect-src 'none'",
   "base-uri 'none'",
   "form-action 'none'",
