@@ -103,6 +103,24 @@ async def test_timeout_returns_quickly():
 
 
 @pytest.mark.asyncio
+async def test_cancel_kills_worker():
+    """CancelledError must hard-kill the pool (same as timeout), not orphan."""
+    executor = ProcessPoolSympyExecutor(max_workers=1)
+    set_sympy_executor(executor)
+    try:
+        first_pid = await run_sympy(_echo_pid, timeout=10)
+        task = asyncio.create_task(run_sympy(_sleep_forever, None, timeout=30))
+        await asyncio.sleep(0.3)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        second_pid = await run_sympy(_echo_pid, timeout=10)
+        assert second_pid != first_pid
+    finally:
+        executor.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_concurrent_call_queued_behind_single_worker():
     """max_workers=1 means a second call queues behind the first. This
     verifies the bound — SymPy can't run N concurrent solves and exhaust the

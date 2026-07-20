@@ -122,7 +122,10 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
             self._kill_pool()
             raise
         except BaseException:
+            # Request/WS cancel must kill the subprocess too — future.cancel()
+            # alone leaves the SymPy worker running (CPU leak on the single slot).
             future.cancel()
+            self._kill_pool()
             raise
 
     def shutdown(self) -> None:

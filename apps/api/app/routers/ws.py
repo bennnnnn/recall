@@ -444,7 +444,7 @@ async def chat_websocket(
             await websocket.close()
             return
         token = auth_message.get("token")
-        if not token:
+        if not isinstance(token, str) or not token.strip():
             await websocket.send_json({"type": "error", "message": "Missing token"})
             await websocket.close()
             return
@@ -500,11 +500,28 @@ async def chat_websocket(
                 cancel_event.set()
                 continue
 
-            if msg_type in _CHARGEABLE_WS_TYPES and not await _ws_rate_limit(redis, user_id):
-                await websocket.send_json(
-                    {"type": "error", "message": "Too many requests. Try again shortly."},
-                )
-                continue
+            if msg_type in _CHARGEABLE_WS_TYPES:
+                # Re-check access on every chargeable frame so logout / account
+                # delete / refresh-reuse revoke (purge_user_sessions) actually
+                # closes open sockets — handshake-only verify would leave them live.
+                try:
+                    await tokens_service.verify_access_token(redis, token, settings)
+                except RedisUnavailableError as exc:
+                    await _safe_send_json(
+                        websocket,
+                        {"type": "error", "code": "unavailable", "message": exc.message},
+                    )
+                    await websocket.close(code=1013)
+                    return
+                except GoogleAuthError:
+                    await _safe_send_json(websocket, {"type": "error", "message": "Unauthorized"})
+                    await websocket.close(code=1008)
+                    return
+                if not await _ws_rate_limit(redis, user_id):
+                    await websocket.send_json(
+                        {"type": "error", "message": "Too many requests. Try again shortly."},
+                    )
+                    continue
 
             if msg_type == "regenerate":
                 await _handle_regenerate(
