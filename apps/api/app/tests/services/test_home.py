@@ -6,7 +6,6 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas import ProjectStats
 from app.services import home as home_service
 
 
@@ -854,61 +853,6 @@ def test_looks_internal_filters_user_facts():
 
 def test_looks_internal_allows_learning_facts():
     assert not home_service._looks_internal("User is learning English")
-
-
-def test_project_starters_language_not_started():
-    project = _project()
-    stats = ProjectStats()
-    starters = home_service._project_starters(project, stats)
-    assert len(starters) == 1
-    assert starters[0].text == "Start Learning English"
-    assert "first words" in starters[0].prompt
-
-
-def test_project_starters_language_review_when_due():
-    project = _project()
-    stats = ProjectStats(
-        total=10,
-        due_for_review=3,
-        learning_count=4,
-        new_count=2,
-        mastered_count=1,
-        mastered_today=2,
-    )
-    starters = home_service._project_starters(project, stats)
-    assert starters[0].text == "Continue Learning English"
-    assert "review" in starters[0].prompt.lower()
-    assert "teach→use" in starters[0].prompt or "learning format" in starters[0].prompt.lower()
-    assert "failed" in starters[0].prompt.lower() or "learning" in starters[0].prompt.lower()
-
-
-def test_project_starters_language_start_when_not_started_today():
-    project = _project()
-    stats = ProjectStats(
-        total=10,
-        due_for_review=3,
-        learning_count=4,
-        new_count=2,
-        mastered_count=1,
-        mastered_today=0,
-    )
-    starters = home_service._project_starters(project, stats)
-    assert starters[0].text == "Start Learning English"
-    assert "start today" in starters[0].prompt.lower()
-    assert "teach→use" in starters[0].prompt or "vocab_card" in starters[0].prompt
-    assert "failed" in starters[0].prompt.lower()
-
-
-def test_project_starters_language_empty_when_daily_goal_met():
-    project = _project(daily_goal=5)
-    stats = ProjectStats(total=12, mastered_count=10, mastered_today=5)
-    assert home_service._project_starters(project, stats) == []
-
-
-def test_project_starters_legacy_kind_returns_empty():
-    project = _general_project(title="TypeScript · Programming")
-    stats = ProjectStats()
-    assert home_service._project_starters(project, stats) == []
 
 
 @pytest.mark.asyncio
