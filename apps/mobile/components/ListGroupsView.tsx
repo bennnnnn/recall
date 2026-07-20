@@ -127,6 +127,7 @@ export function ListGroupsView({
                     data={group.open}
                     keyExtractor={(todo) => todo.id}
                     scrollEnabled={false}
+                    keyboardShouldPersistTaps="handled"
                     onDragEnd={({ data }) => onReorderItems(group.topic, data)}
                     renderItem={({ item: todo, drag: dragItem, isActive: itemActive }) => (
                       <ScaleDecorator>
@@ -240,6 +241,7 @@ export function ListGroupsView({
       data={listData}
       keyExtractor={(group) => group.topic}
       scrollEnabled={false}
+      keyboardShouldPersistTaps="handled"
       onDragEnd={({ data }) => onReorderGroups(data.map((group) => group.topic))}
       renderItem={renderGroup}
       contentContainerStyle={s.container}
@@ -361,7 +363,8 @@ function makeStyles(C: Theme) {
   const hairline = StyleSheet.hairlineWidth;
   return StyleSheet.create({
     container: {
-      paddingBottom: 24,
+      // Clear the shared AddFab (56 + margin) so the last inline Add row stays tappable.
+      paddingBottom: 96,
       backgroundColor: C.bg,
     },
     groupWrap: {

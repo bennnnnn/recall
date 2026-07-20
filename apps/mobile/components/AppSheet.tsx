@@ -1,9 +1,7 @@
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { ReactNode, useMemo } from "react";
 import {
   Dimensions,
-  Keyboard,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,6 +11,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useKeyboardHeight } from "@/hooks/useKeyboardHeight";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -60,24 +59,7 @@ export function AppSheet({
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-
-  useEffect(() => {
-    if (!keyboardAvoiding || !visible) {
-      setKeyboardHeight(0);
-      return;
-    }
-    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const showSub = Keyboard.addListener(showEvent, (e) => {
-      setKeyboardHeight(Math.max(0, e.endCoordinates.height));
-    });
-    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, [keyboardAvoiding, visible]);
+  const keyboardHeight = useKeyboardHeight(keyboardAvoiding && visible);
 
   const resolvedAnimation = animation ?? (variant === "center" ? "fade" : "slide");
   const showHandle = withHandle ?? variant === "bottom";
