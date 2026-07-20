@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 
 import type { ResolvedChatError } from "@/lib/chatErrorMessage";
 import { Radius } from "@/lib/radius";
@@ -21,6 +22,7 @@ export function ChatInlineError({
   onDismiss,
   bottom,
 }: Props) {
+  const { t } = useTranslation();
   const theme = useTheme();
   const s = makeStyles(theme);
 
@@ -51,7 +53,7 @@ export function ChatInlineError({
         hitSlop={8}
         style={s.close}
         accessibilityRole="button"
-        accessibilityLabel="Dismiss error"
+        accessibilityLabel={t("chat.error_dismiss_a11y")}
       >
         <Ionicons name="close" size={16} color={theme.textTertiary} />
       </Pressable>

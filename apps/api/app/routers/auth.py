@@ -200,10 +200,20 @@ async def logout(
     redis: Redis = Depends(get_redis),
 ) -> None:
     try:
-        await tokens_service.revoke_access_token(redis, credentials.credentials, settings)
-        await tokens_service.revoke_refresh_token(redis, body.refresh_token)
+        if body.refresh_token:
+            await tokens_service.revoke_access_token(redis, credentials.credentials, settings)
+            await tokens_service.revoke_refresh_token(redis, body.refresh_token)
+        else:
+            # Client lost refresh — resolve user before revoke, then kill all sessions.
+            user_id = await tokens_service.verify_access_token(
+                redis, credentials.credentials, settings
+            )
+            await tokens_service.revoke_access_token(redis, credentials.credentials, settings)
+            await tokens_service.purge_user_sessions(redis, user_id, settings)
     except RedisUnavailableError as exc:
         raise redis_unavailable_http_exception(exc) from exc
+    except GoogleAuthError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
 
 @router.patch("/me", response_model=UserOut)

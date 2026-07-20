@@ -6,6 +6,8 @@ Matching is linear token scans — no ``\\s+`` / ``.+`` regex on user chat text
 
 from __future__ import annotations
 
+from typing import Any
+
 _USER_MESSAGE_PREFIX = "Generate image: "
 
 _VERBS_IMAGE = frozenset(
@@ -341,3 +343,132 @@ def extract_image_gen_prompt(text: str) -> str | None:
             return matched
 
     return None
+
+
+_NON_REVISION = frozenset(
+    {
+        "ok",
+        "okay",
+        "thanks",
+        "thank you",
+        "yes",
+        "no",
+        "sure",
+        "cool",
+        "nice",
+        "lol",
+        "great",
+        "got it",
+        "perfect",
+    }
+)
+
+
+def subject_from_image_gen_user_message(content: str) -> str | None:
+    """Subject from a prior ``Generate image: …`` user bubble, if any."""
+    trimmed = content.strip()
+    if not trimmed.lower().startswith(_USER_MESSAGE_PREFIX.lower()):
+        return None
+    return _clean_prompt(trimmed[len(_USER_MESSAGE_PREFIX) :])
+
+
+def is_image_only_assistant_content(content: str) -> bool:
+    """True when the assistant bubble is only an ``[Image: …]`` marker."""
+    has_image = False
+    for line in content.splitlines():
+        s = line.strip()
+        if not s:
+            continue
+        if s.startswith("[Image:") and s.endswith("]") and len(s) > len("[Image:]"):
+            has_image = True
+            continue
+        return False
+    return has_image
+
+
+def _strip_revision_lead_in(tokens: list[str]) -> list[str]:
+    """Drop ``make it`` / ``change them to`` / ``now`` style lead-ins (linear)."""
+    i = 0
+    n = len(tokens)
+    if i < n and tokens[i].lower() == "please":
+        i += 1
+    if (
+        i + 1 < n
+        and tokens[i].lower() == "make"
+        and tokens[i + 1].lower()
+        in {
+            "it",
+            "them",
+        }
+    ):
+        return tokens[i + 2 :]
+    if (
+        i + 1 < n
+        and tokens[i].lower() == "change"
+        and tokens[i + 1].lower()
+        in {
+            "it",
+            "them",
+        }
+    ):
+        j = i + 2
+        if j < n and tokens[j].lower() == "to":
+            j += 1
+        return tokens[j:]
+    if i < n and tokens[i].lower() in {"now", "again", "instead", "try"}:
+        return tokens[i + 1 :]
+    return tokens[i:]
+
+
+def extract_image_revision_prompt(
+    text: str,
+    *,
+    last_assistant_is_image_only: bool,
+    previous_subject: str | None,
+) -> str | None:
+    """Short follow-up after an image-only reply → new generate prompt."""
+    if not last_assistant_is_image_only or not previous_subject:
+        return None
+    trimmed = text.strip()
+    if not trimmed or len(trimmed) > 120:
+        return None
+
+    tokens = _strip_revision_lead_in(_tokens(trimmed))
+    if not tokens or len(tokens) > 8:
+        return None
+    revision = _join_subject(tokens)
+    if not revision:
+        return None
+    if revision.lower() in _NON_REVISION:
+        return None
+    if _has_non_image_subject(revision):
+        return None
+    cleaned = _clean_prompt(revision)
+    if not cleaned:
+        return None
+    return f"{previous_subject}, {cleaned}"
+
+
+def image_gen_revision_context(
+    messages: list[Any],
+) -> tuple[bool, str | None]:
+    """Walk newest→oldest for image-gen context used by revision intercept."""
+    last_assistant_is_image_only = False
+    previous_subject: str | None = None
+    for row in reversed(messages):
+        role = getattr(row, "role", None)
+        content = getattr(row, "content", None)
+        if role is None and isinstance(row, dict):
+            role = row.get("role")
+            content = row.get("content")
+        if not isinstance(content, str):
+            content = ""
+        if not last_assistant_is_image_only and role == "assistant":
+            last_assistant_is_image_only = is_image_only_assistant_content(content)
+            if not last_assistant_is_image_only:
+                break
+            continue
+        if last_assistant_is_image_only and role == "user":
+            previous_subject = subject_from_image_gen_user_message(content)
+            break
+    return last_assistant_is_image_only, previous_subject

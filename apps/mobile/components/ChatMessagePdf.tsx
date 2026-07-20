@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuthToken } from "@/contexts/AuthContext";
@@ -38,6 +39,7 @@ export function ChatMessagePdf({
   fileName = "document.pdf",
   compact = false,
 }: Props) {
+  const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme, compact), [theme, compact]);
   const token = useAuthToken();
@@ -91,11 +93,11 @@ export function ChatMessagePdf({
       await downloadChatAttachment({ uri: remoteUri, token, fileName });
     } catch (error) {
       Alert.alert(
-        "Download failed",
-        error instanceof Error ? error.message : "Could not export this PDF.",
+        t("common.download_failed"),
+        error instanceof Error ? error.message : t("chat.pdf_export_failed"),
       );
     }
-  }, [remoteUri, token, fileName]);
+  }, [remoteUri, token, fileName, t]);
 
   if (!remoteUri) return null;
 
@@ -104,7 +106,7 @@ export function ChatMessagePdf({
       <Pressable
         style={s.card}
         onPress={() => setViewerOpen(true)}
-        accessibilityLabel={`Open PDF ${fileName}`}
+        accessibilityLabel={t("chat.pdf_open_a11y", { fileName })}
         accessibilityRole="button"
       >
         <View style={s.iconWrap}>
@@ -135,7 +137,7 @@ export function ChatMessagePdf({
           <ActivityIndicator color={theme.primary} />
         </View>
       ) : !compact && previewFailed ? (
-        <Text style={s.fallbackHint}>Tap to open PDF preview.</Text>
+        <Text style={s.fallbackHint}>{t("chat.pdf_preview_hint")}</Text>
       ) : null}
 
       <AttachmentPdfViewer
@@ -170,6 +172,7 @@ function AttachmentPdfViewer({
   fileName,
   onShare,
 }: ViewerProps) {
+  const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeViewerStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
@@ -215,13 +218,13 @@ function AttachmentPdfViewer({
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={[s.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={s.toolbar}>
-          <Pressable onPress={onClose} hitSlop={8} accessibilityLabel="Close PDF">
+          <Pressable onPress={onClose} hitSlop={8} accessibilityLabel={t("chat.pdf_close_a11y")}>
             <Ionicons name="close" size={24} color={theme.text} />
           </Pressable>
           <Text style={s.title} numberOfLines={1}>
             {fileName}
           </Text>
-          <Pressable onPress={onShare} hitSlop={8} accessibilityLabel="Share PDF">
+          <Pressable onPress={onShare} hitSlop={8} accessibilityLabel={t("chat.pdf_share_a11y")}>
             <Ionicons name="share-outline" size={22} color={theme.primary} />
           </Pressable>
         </View>
@@ -229,7 +232,7 @@ function AttachmentPdfViewer({
           {loading ? (
             <ActivityIndicator color={theme.primary} size="large" />
           ) : failed || !WebView || !html ? (
-            <Text style={s.error}>Could not preview this PDF.</Text>
+            <Text style={s.error}>{t("chat.pdf_preview_failed")}</Text>
           ) : (
             <WebView
               originWhitelist={STATIC_HTML_ORIGIN_WHITELIST}

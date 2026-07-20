@@ -688,8 +688,19 @@ export function useChat(
 
       const rollbackEdit = () => {
         setSendingMessageId(null);
+        setStreaming(false);
+        streamingRef.current = false;
+        updateStreamingDraft(null);
         setMessages(snapshot);
       };
+
+      // Show typing immediately (parity with send/regenerate) — don't wait for server.
+      setStreaming(true);
+      streamingRef.current = true;
+      assistantBuffer.current = "";
+      reasoningBuffer.current = "";
+      updateStreamingDraft({ content: "", status: "preparing" });
+      appendStreamingPlaceholder();
 
       await ensureConnected();
       if (preferSseRef.current || wsRef.current?.readyState !== WebSocket.OPEN) {
@@ -713,8 +724,6 @@ export function useChat(
         return;
       }
 
-      assistantBuffer.current = "";
-      reasoningBuffer.current = "";
       wsRef.current.send(
         JSON.stringify({
           type: "edit",
@@ -725,7 +734,16 @@ export function useChat(
         }),
       );
     },
-    [token, chatId, ensureConnected, beginSseStream, handleChatPayload, reportError],
+    [
+      token,
+      chatId,
+      ensureConnected,
+      beginSseStream,
+      handleChatPayload,
+      reportError,
+      appendStreamingPlaceholder,
+      updateStreamingDraft,
+    ],
   );
 
   const stopGeneration = useCallback(() => {

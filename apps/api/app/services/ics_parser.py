@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 _PROP_RE = re.compile(r"^([^:;]+)(?:;([^:]*))?:(.*)$", re.IGNORECASE)
+_UTC_ZONE = ZoneInfo("UTC")
 
 
 @dataclass(frozen=True)
@@ -58,7 +59,23 @@ def _parse_property(line: str) -> tuple[str, dict[str, str], str] | None:
     return name, params, value
 
 
-def _parse_ics_datetime(value: str, params: dict[str, str]) -> datetime | None:
+def _resolve_default_tz(default_tz: str | ZoneInfo | None) -> ZoneInfo:
+    if isinstance(default_tz, ZoneInfo):
+        return default_tz
+    if isinstance(default_tz, str) and default_tz.strip():
+        try:
+            return ZoneInfo(default_tz.strip())
+        except ZoneInfoNotFoundError:
+            pass
+    return _UTC_ZONE
+
+
+def _parse_ics_datetime(
+    value: str,
+    params: dict[str, str],
+    *,
+    default_tz: ZoneInfo = _UTC_ZONE,
+) -> datetime | None:
     raw = value.strip()
     if not raw:
         return None
@@ -71,7 +88,7 @@ def _parse_ics_datetime(value: str, params: dict[str, str]) -> datetime | None:
             dt = datetime.strptime(raw[:8], "%Y%m%d")
             if tzid:
                 return dt.replace(tzinfo=ZoneInfo(tzid))
-            return dt.replace(tzinfo=UTC)
+            return dt.replace(tzinfo=default_tz)
 
         if raw.endswith("Z"):
             return datetime.strptime(raw, "%Y%m%dT%H%M%SZ").replace(tzinfo=UTC)
@@ -87,7 +104,8 @@ def _parse_ics_datetime(value: str, params: dict[str, str]) -> datetime | None:
 
         if tzid:
             return dt.replace(tzinfo=ZoneInfo(tzid))
-        return dt.replace(tzinfo=UTC)
+        # Floating local time — interpret in the user's timezone.
+        return dt.replace(tzinfo=default_tz)
     except (ValueError, ZoneInfoNotFoundError):
         return None
 
@@ -107,7 +125,11 @@ def _split_vevent_blocks(unfolded: str) -> list[list[str]]:
     return blocks
 
 
-def _parse_vevent(lines: list[str]) -> ParsedIcsInvite | None:
+def _parse_vevent(
+    lines: list[str],
+    *,
+    default_tz: ZoneInfo = _UTC_ZONE,
+) -> ParsedIcsInvite | None:
     summary: str | None = None
     due_at: datetime | None = None
     location: str | None = None
@@ -124,7 +146,7 @@ def _parse_vevent(lines: list[str]) -> ParsedIcsInvite | None:
         elif name == "SUMMARY" and summary is None:
             summary = _unescape_ics_text(value) or None
         elif name == "DTSTART" and due_at is None:
-            due_at = _parse_ics_datetime(value, params)
+            due_at = _parse_ics_datetime(value, params, default_tz=default_tz)
         elif name == "LOCATION" and location is None:
             location = _unescape_ics_text(value) or None
         elif name == "DESCRIPTION" and description is None:
@@ -142,15 +164,20 @@ def _parse_vevent(lines: list[str]) -> ParsedIcsInvite | None:
     )
 
 
-def parse_ics_invite(ics_content: str) -> ParsedIcsInvite | None:
+def parse_ics_invite(
+    ics_content: str,
+    *,
+    default_tz: str | ZoneInfo | None = None,
+) -> ParsedIcsInvite | None:
     """Parse the first actionable VEVENT from calendar invite text."""
     if not ics_content.strip():
         return None
+    zone = _resolve_default_tz(default_tz)
     unfolded = _unfold_ics(ics_content)
     blocks = _split_vevent_blocks(unfolded)
     if blocks:
         for block in blocks:
-            invite = _parse_vevent(block)
+            invite = _parse_vevent(block, default_tz=zone)
             if invite is not None:
                 return invite
         return None
@@ -158,12 +185,16 @@ def parse_ics_invite(ics_content: str) -> ParsedIcsInvite | None:
     loose_lines = [line for line in unfolded.split("\n") if line.strip()]
     if not loose_lines:
         return None
-    return _parse_vevent(loose_lines)
+    return _parse_vevent(loose_lines, default_tz=zone)
 
 
-def parse_ics_event(ics_content: str) -> tuple[str | None, datetime | None]:
+def parse_ics_event(
+    ics_content: str,
+    *,
+    default_tz: str | ZoneInfo | None = None,
+) -> tuple[str | None, datetime | None]:
     """Backward-compatible title + start time tuple."""
-    invite = parse_ics_invite(ics_content)
+    invite = parse_ics_invite(ics_content, default_tz=default_tz)
     if invite is None:
         return None, None
     return invite.title, invite.due_at

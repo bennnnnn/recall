@@ -371,6 +371,31 @@ async def get_memory_block(
             logger.debug("Memory query cache read failed", exc_info=True)
 
         query_vec = await _get_cached_query_embedding(user.id, q)
+        if query_vec is None:
+            # Live embed with a short timeout so the current turn can still
+            # use semantic recall; on timeout/fail keep type-priority + warm.
+            from app.gateways import embedding_gateway
+
+            try:
+                query_vec = await asyncio.wait_for(
+                    embedding_gateway.embed_text(settings, q),
+                    timeout=2.0,
+                )
+            except (TimeoutError, Exception):
+                logger.debug("Live semantic embed failed/timed out", exc_info=True)
+                query_vec = None
+            if query_vec:
+                embed_key = _memory_query_embed_key(user.id, q)
+                ttl = max(60, settings.memory_query_embed_cache_ttl)
+                try:
+                    await redis.set(
+                        embed_key,
+                        embedding_gateway.serialize_embedding(query_vec),
+                        ex=ttl,
+                    )
+                except Exception:
+                    logger.debug("Memory query embed cache write failed", exc_info=True)
+
         if query_vec is not None:
             memories = await load_relevant_memories(
                 session,

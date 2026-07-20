@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.repositories import memories as memories_repo
+from app.repositories import users as users_repo
 from app.services import memory_llm
 from app.services.memory import (
     acquire_memory_write_lock,
@@ -35,6 +36,11 @@ async def _load_consolidation_snapshot(
     session: AsyncSession,
     user_id: UUID,
 ) -> _ConsolidationSnapshot | None:
+    # Mirror memory_extraction: skip when the user is gone or has memory off.
+    user = await users_repo.get_by_id(session, user_id)
+    if user is None or not getattr(user, "memory_enabled", True):
+        return None
+
     existing = await memories_repo.list_for_user(session, user_id)
     if not existing:
         return None
