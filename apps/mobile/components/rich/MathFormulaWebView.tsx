@@ -1,5 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import {
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -131,21 +139,31 @@ export const MathFormulaWebView = React.memo(function MathFormulaWebView({
   // Stable identity — a fresh `{ html }` object every render reloads the
   // native WebView (full flicker) even when the HTML string is unchanged.
   const source = useMemo(() => (html != null ? { html } : { html: "" }), [html]);
+  const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const { canMount, onLoaded } = useDeferredWebViewMount(canUseWebView);
   const onShouldStartLoadWithRequest = useStaticOnlyNavigation(html ?? "");
   const initialHeight = estimateInitialHeight(latex, displayMode, compact, minHeight);
   const [height, setHeight] = useState(initialHeight);
   const heightRef = useRef(initialHeight);
+  const [canExpand, setCanExpand] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     heightRef.current = initialHeight;
     setHeight(initialHeight);
+    setCanExpand(false);
+    setExpanded(false);
   }, [latex, initialHeight]);
 
   const onMessage = useCallback(
     (event: { nativeEvent: { data: string } }) => {
       const reported = parseHeightMessage(event.nativeEvent.data);
       if (reported == null) return;
+      // Tall worked steps are capped inline; offer fullscreen when truncated.
+      if (!compact && reported > MAX_HEIGHT) {
+        setCanExpand(true);
+      }
       const next = clampMathWebViewHeight(reported, heightRef.current, {
         compact,
         minHeight,
@@ -192,6 +210,58 @@ export const MathFormulaWebView = React.memo(function MathFormulaWebView({
         onLoadEnd={onLoaded}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
       />
+      {canExpand ? (
+        <Pressable
+          style={s.expandBtn}
+          onPress={() => setExpanded(true)}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={t("rich.expand")}
+        >
+          <Ionicons name="expand-outline" size={16} color={theme.textSecondary} />
+          <Text style={s.expandLabel}>{t("rich.expand")}</Text>
+        </Pressable>
+      ) : null}
+      <Modal
+        visible={expanded}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setExpanded(false)}
+      >
+        <View
+          style={[
+            s.modalRoot,
+            {
+              paddingTop: insets.top,
+              paddingBottom: insets.bottom,
+              backgroundColor: bgColor ?? theme.contentSurface,
+            },
+          ]}
+        >
+          <View style={s.modalToolbar}>
+            <Pressable
+              onPress={() => setExpanded(false)}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={t("preview.close")}
+              style={s.modalClose}
+            >
+              <Ionicons name="close" size={24} color={theme.text} />
+            </Pressable>
+          </View>
+          <WebView
+            originWhitelist={STATIC_HTML_ORIGIN_WHITELIST}
+            source={source}
+            style={s.modalWebView}
+            scrollEnabled
+            javaScriptEnabled
+            domStorageEnabled
+            showsHorizontalScrollIndicator={false}
+            showsVerticalScrollIndicator
+            onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+          />
+        </View>
+      </Modal>
     </View>
   );
 });
@@ -241,6 +311,35 @@ const makeStyles = (theme: Theme) =>
     wrapBlock: {
       borderRadius: 10,
       alignSelf: "stretch",
+    },
+    expandBtn: {
+      flexDirection: "row",
+      alignItems: "center",
+      alignSelf: "flex-end",
+      gap: 4,
+      paddingTop: 6,
+      paddingHorizontal: 4,
+    },
+    expandLabel: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: theme.textSecondary,
+    },
+    modalRoot: {
+      flex: 1,
+    },
+    modalToolbar: {
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+    },
+    modalClose: {
+      padding: 4,
+    },
+    modalWebView: {
+      flex: 1,
+      backgroundColor: "transparent",
     },
     fallback: {
       backgroundColor: theme.contentSurface,
