@@ -41,7 +41,6 @@ from app.services.home.memory_starters import (
 from app.services.home.project_starters import (
     load_project_home_content as _load_project_home_content_impl,
 )
-from app.services.home.project_starters import project_starters
 from app.services.home.time_starters import greeting, time_starters, welcome_starters
 from app.services.home.util import (
     MAX_STARTERS,
@@ -72,7 +71,6 @@ _chat_starter = chat_starter
 _texts_overlap = texts_overlap
 _urgent_subtitle = urgent_subtitle
 _looks_internal = looks_internal
-_project_starters = project_starters
 _integration_starters = integration_starters
 _load_project_home_content = load_project_home_content
 
@@ -118,7 +116,7 @@ async def build_home_screen(
             return [c.title or "" for c in recent]
 
     async def load_project_content() -> ProjectHomeContent:
-        return await load_project_home_content(session, user.id, seed=seed, home_tz=home_tz)
+        return await load_project_home_content(session, user.id, home_tz=home_tz)
 
     async def load_integrations() -> list[HomeStarter]:
         async with SessionLocal() as s:

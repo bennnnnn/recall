@@ -8,7 +8,6 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.gateways.pronunciation_lookup import lookup_pronunciation_url
 from app.models.orm import ProjectItem, QuizMissEvent
 from app.repositories import project_items as project_items_repo
 from app.repositories.project_items import DEFAULT_LIST
@@ -30,9 +29,8 @@ async def create_item(
     status: str = "new",
     commit: bool = True,
 ) -> ProjectItem:
-    pronunciation: str | None = None
-    if content.strip():
-        pronunciation = await lookup_pronunciation_url(content)
+    # Do not call dictionaryapi on the quiz/turn-prep hot path — that HTTP round
+    # trip blocked grading. Persist without pronunciation; fill async later if needed.
     return await project_items_repo.create(
         session,
         user_id=user_id,
@@ -44,7 +42,7 @@ async def create_item(
         example_sentence=example_sentence,
         chat_id=chat_id,
         status=status,
-        pronunciation_url=pronunciation,
+        pronunciation_url=None,
         commit=commit,
     )
 
