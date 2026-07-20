@@ -621,6 +621,38 @@ async def test_stream_chat_completion_retries_fallback_alias():
 
 
 @pytest.mark.asyncio
+async def test_stream_chat_completion_no_fallback_after_tokens_started():
+    """Mid-stream ModelUnavailableError must not concatenate partial + fallback."""
+    from app.gateways.litellm_gateway import ModelUnavailableError
+
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
+    calls: list[str] = []
+
+    async def fake_stream_once(**kwargs):
+        alias = kwargs["model_alias"]
+        calls.append(alias)
+        if alias == "smart-chat":
+            yield "partial"
+            raise ModelUnavailableError("down mid-stream", failed_alias=alias)
+        yield "fallback-full"
+
+    with patch.object(litellm_gateway, "_stream_chat_once", fake_stream_once):
+        tokens: list[str] = []
+        with pytest.raises(ModelUnavailableError):
+            async for t in litellm_gateway.stream_chat_completion(
+                settings=settings,
+                model_alias="smart-chat",
+                messages=[{"role": "user", "content": "hi"}],
+                max_tokens=10,
+                fallback_aliases=["free-chat"],
+            ):
+                tokens.append(t)
+
+    assert tokens == ["partial"]
+    assert calls == ["smart-chat"]
+
+
+@pytest.mark.asyncio
 async def test_stream_chat_completion_retries_when_primary_yields_no_tokens():
     settings = Settings(mock_llm_enabled=False, openrouter_api_key="sk-or-test")
     calls: list[str] = []

@@ -14,14 +14,6 @@ _BULK_SHIFT_TO_TOMORROW = re.compile(
     r")",
     re.IGNORECASE | re.DOTALL,
 )
-_INCOMPLETE_BULK_SHIFT = re.compile(
-    r"\b("
-    r"only (?:moved |did )?one|not all|didn'?t move them all|didn'?t work|"
-    r"missed (?:some|a few|one)|move the rest|do the rest|try again|"
-    r"still (?:due|show) today|you missed|fix (?:it|them)"
-    r")\b",
-    re.IGNORECASE,
-)
 _TODO_QUERY = re.compile(
     r"\b("
     r"todo|todos|task|tasks|reminder|reminders|list|lists|checklist|"
@@ -78,14 +70,11 @@ _REMINDER_OR_TODO_WORD = re.compile(r"\b(reminders?|todos?|tasks?|lists?)\b", re
 
 
 def _transcript_implies_bulk_shift_to_tomorrow(transcript: str) -> bool:
+    """True only for an explicit bulk reschedule (not vague 'fix it' complaints)."""
     text = transcript.strip()
     if not text:
         return False
-    if _BULK_SHIFT_TO_TOMORROW.search(text):
-        return True
-    if _INCOMPLETE_BULK_SHIFT.search(text):
-        return True
-    return False
+    return bool(_BULK_SHIFT_TO_TOMORROW.search(text))
 
 
 def _transcript_implies_delete_overdue(transcript: str) -> bool:

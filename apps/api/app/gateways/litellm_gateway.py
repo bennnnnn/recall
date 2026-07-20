@@ -311,12 +311,12 @@ async def stream_chat_completion(
     last_error: ModelUnavailableError | None = None
 
     for index, alias in enumerate(aliases):
+        # Buffer until the first non-whitespace token so whitespace-only
+        # "success" streams (common flaky provider quirk) still fall through
+        # to the next alias instead of locking in an empty reply.
+        pending: list[str] = []
+        started = False
         try:
-            # Buffer until the first non-whitespace token so whitespace-only
-            # "success" streams (common flaky provider quirk) still fall through
-            # to the next alias instead of locking in an empty reply.
-            pending: list[str] = []
-            started = False
             async for token in _stream_chat_once(
                 settings=settings,
                 model_alias=alias,
@@ -352,6 +352,10 @@ async def stream_chat_completion(
             )
         except ModelUnavailableError as exc:
             last_error = exc
+            # Mid-stream failure: client already has partial tokens — falling
+            # back would concatenate partial + full into one persisted reply.
+            if started:
+                raise
             if index < len(aliases) - 1:
                 logger.warning(
                     "Chat stream %s unavailable; retrying with fallback %s",

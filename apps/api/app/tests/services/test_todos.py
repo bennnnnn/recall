@@ -64,8 +64,12 @@ def test_transcript_implies_bulk_shift_to_tomorrow():
     assert todos_classification._transcript_implies_bulk_shift_to_tomorrow(
         "User: move all my reminders due today to tomorrow\nAssistant: Done."
     )
-    assert todos_classification._transcript_implies_bulk_shift_to_tomorrow(
+    # Vague complaints must not silently bulk-move every reminder due today.
+    assert not todos_classification._transcript_implies_bulk_shift_to_tomorrow(
         "User: you only moved one, fix them\nAssistant: Moving the rest now."
+    )
+    assert not todos_classification._transcript_implies_bulk_shift_to_tomorrow(
+        "User: the reminder didn't work — try again\nAssistant: Ok."
     )
     assert not todos_classification._transcript_implies_bulk_shift_to_tomorrow(
         "User: move Walk to tomorrow\nAssistant: Done."

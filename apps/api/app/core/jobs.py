@@ -351,8 +351,12 @@ async def _process_entries(
     redis: Redis, settings: Settings, entries: list[tuple[str, dict[str, Any]]]
 ) -> None:
     for entry_id, fields in entries:
+        # Per-entry (and per-attempt) so a long LLM timeout / gmail batch cannot
+        # trip the 120s stale health check while this worker is still healthy.
+        _touch_heartbeat()
         try:
             for attempt in range(1, _MAX_ATTEMPTS + 1):
+                _touch_heartbeat()
                 try:
                     await _dispatch(settings, fields)
                     break
