@@ -644,9 +644,11 @@ async def test_augment_prompt_injects_sympy_block() -> None:
     assert out[1]["role"] == "system"
     assert "SymPy" in out[1]["content"]
     assert "Solutions" in out[1]["content"]
-    # Equation answers are plain-text/LaTeX, not a geometry/graph fence.
+    # Equation answers get a ```answer canonical fence for post-stream rewrite.
     assert verified is not None
-    assert verified.canonical_fence is None
+    assert verified.canonical_fence is not None
+    assert verified.canonical_fence["type"] == "answer"
+    assert "x" in verified.canonical_fence["content"]
 
 
 @pytest.mark.asyncio
