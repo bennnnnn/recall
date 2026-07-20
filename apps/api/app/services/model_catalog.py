@@ -233,7 +233,19 @@ _AUTO_SMART = "smart-chat"
 
 
 def get(model_id: str) -> ChatModel:
-    return _BY_ID.get(model_id, _DEFAULT)
+    """Resolve a known product alias. Unknown ids raise — never silent fallback.
+
+    Callers that intentionally want the default should use ``default_model()``
+    or validate via ``known_ids()`` / ``validate_user_alias`` first.
+    """
+    try:
+        return _BY_ID[model_id]
+    except KeyError as exc:
+        raise KeyError(f"Unknown model alias: {model_id!r}") from exc
+
+
+def default_model() -> ChatModel:
+    return _DEFAULT
 
 
 def known_ids() -> frozenset[str]:

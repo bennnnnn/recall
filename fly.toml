@@ -14,9 +14,14 @@ primary_region = "iad" # change to your region; Neon DB is in us-east-2
 [env]
   PROCESS_ROLE = "api"
 
+# Run migrations once per deploy (not on every app machine boot).
+[deploy]
+  release_command = "/opt/venv/bin/alembic upgrade head"
+
 [processes]
-  app = "sh -c 'uv run alembic upgrade head && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-access-log'"
-  worker = "sh -c 'PROCESS_ROLE=worker uv run python -m app.worker_main'"
+  # `exec` so uvicorn/worker is PID 1 and receives SIGTERM cleanly.
+  app = "sh -c 'exec /opt/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-access-log'"
+  worker = "sh -c 'PROCESS_ROLE=worker exec /opt/venv/bin/python -m app.worker_main'"
 
 [http_service]
   internal_port = 8000

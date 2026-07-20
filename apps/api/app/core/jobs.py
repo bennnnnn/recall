@@ -34,7 +34,7 @@ from app.background import (
 )
 from app.core.config import Settings
 from app.core.db import SessionLocal
-from app.core.redis import get_redis_client
+from app.core.redis import get_jobs_redis_client, get_redis_client
 from app.services import transactional_email as transactional_email_service
 
 logger = logging.getLogger(__name__)
@@ -201,7 +201,6 @@ async def _handle_memory(settings: Settings, payload: dict[str, Any]) -> None:
             payload.get("chat_id"),
         )
         return
-    from app.core.redis import get_redis_client
 
     await enqueue(
         get_redis_client(),
@@ -428,7 +427,8 @@ def _consumer_name() -> str:
 
 
 async def _worker_loop(settings: Settings) -> None:
-    redis = get_redis_client()
+    # Longer socket_timeout than request-path Redis — XREADGROUP blocks 5s.
+    redis = get_jobs_redis_client()
     consumer = _consumer_name()
 
     _touch_heartbeat()
