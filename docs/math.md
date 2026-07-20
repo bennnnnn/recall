@@ -4,10 +4,10 @@ Server-side SymPy verifies and samples; the mobile app only renders. Do not add 
 
 ## Default product path (`MCP_TOOL_LOOP_ENABLED=false`)
 
-1. **Heuristic pre-stream** ([`math_tools.py`](../apps/api/app/services/math_tools.py)) — if `needs_symbolic_math`, SymPy runs off the event loop and a verified system block is injected (numbers + optional `canonical_fence` for ` ```geometry` / ` ```graph`).
+1. **Heuristic pre-stream** ([`math_tools.py`](../apps/api/app/services/math_tools.py)) — if `needs_symbolic_math`, SymPy runs off the event loop and a verified system block is injected (numbers + optional `canonical_fence` for ` ```geometry` / ` ```graph` / ` ```answer `).
 2. **LLM stream** — model explains using those values and emits fences.
-3. **Post-stream** ([`math_fence.py`](../apps/api/app/services/math_fence.py)) — replace matching geometry/graph JSON with the canonical fence when present; schema-validate otherwise; densify sparse continuous graphs (default ~96 points — enough for a smooth SVG, small enough that a fallback never dumps a wall of coordinates).
-4. **Mobile** — preprocess delimiters, then render: inline `$...$` → native `MathText`; display ` ```math` → KaTeX/MathJax WebView (dev build); diagrams → SVG. Crash fallback still draws geometry/graph as SVG (not raw JSON).
+3. **Post-stream** ([`math_fence.py`](../apps/api/app/services/math_fence.py)) — replace matching geometry/graph/`answer` fences with the canonical fence when present; schema-validate otherwise; densify sparse continuous graphs (default ~96 points — enough for a smooth SVG, small enough that a fallback never dumps a wall of coordinates).
+4. **Mobile** — preprocess delimiters, then render: inline `$...$` → native `MathText`; display ` ```math` → KaTeX/MathJax WebView (dev build; tall blocks offer Expand → fullscreen scroll); diagrams → SVG. Crash fallback still draws geometry/graph as SVG (not raw JSON).
 
 Camera math is a specialization of step 1: fixed prompt → vision extract → same SymPy equation path.
 
@@ -20,6 +20,8 @@ Heuristic pre-solve and web-search injection are skipped. The model may call the
 - **Steps / intermediates:** inline `$...$` only (no backticks around `$`, no ` ```math` inside numbered steps).
 - **Standalone display:** ` ```math` OK for a final equation on its own lines.
 - **Diagrams:** ` ```geometry` / ` ```graph` JSON only — never freehand HTML/SVG/```json for math diagrams.
+- **Final algebra answer:** ` ```answer ` with the SymPy solution (post-stream rewrite when a
+  canonical answer fence was computed).
 
 ## Key files
 
