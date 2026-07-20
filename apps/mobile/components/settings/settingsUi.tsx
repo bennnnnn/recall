@@ -47,7 +47,11 @@ export function SettingsLinkRow({
   theme: Theme;
 }) {
   return (
-    <Pressable style={styles.menuRow} onPress={onPress}>
+    <Pressable
+      style={({ pressed }) => [styles.menuRow, pressed && styles.rowPressed]}
+      onPress={onPress}
+      accessibilityRole="button"
+    >
       <Text style={[styles.rowTitle, styles.menuRowTitle]}>{title}</Text>
       <View style={styles.linkTrailing}>
         {value ? (
@@ -176,6 +180,8 @@ export function IntegrationPanel({
   styles,
   theme,
   showDivider = true,
+  /** When false, body is always visible (no accordion chrome). */
+  collapsible = true,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
@@ -187,28 +193,43 @@ export function IntegrationPanel({
   styles: SettingsStyles;
   theme: Theme;
   showDivider?: boolean;
+  collapsible?: boolean;
 }) {
+  const showBody = !collapsible || expanded;
+  const header = (
+    <>
+      <Ionicons name={icon} size={19} color={theme.primary} />
+      <View style={styles.rowBody}>
+        <Text style={styles.rowTitle}>{title}</Text>
+        <Text style={styles.meta} numberOfLines={1}>
+          {summary}
+        </Text>
+      </View>
+      {busy ? (
+        <ActivityIndicator color={theme.primary} />
+      ) : collapsible ? (
+        <Ionicons
+          name={expanded ? "chevron-up" : "chevron-down"}
+          size={18}
+          color={theme.textTertiary}
+        />
+      ) : null}
+    </>
+  );
   return (
     <View style={showDivider ? styles.integrationPanel : styles.integrationPanelFirst}>
-      <Pressable style={styles.integrationHeader} onPress={onToggle}>
-        <Ionicons name={icon} size={19} color={theme.primary} />
-        <View style={styles.rowBody}>
-          <Text style={styles.rowTitle}>{title}</Text>
-          <Text style={styles.meta} numberOfLines={1}>
-            {summary}
-          </Text>
-        </View>
-        {busy ? (
-          <ActivityIndicator color={theme.primary} />
-        ) : (
-          <Ionicons
-            name={expanded ? "chevron-up" : "chevron-down"}
-            size={18}
-            color={theme.textTertiary}
-          />
-        )}
-      </Pressable>
-      {expanded ? <View style={styles.integrationBody}>{children}</View> : null}
+      {collapsible ? (
+        <Pressable
+          style={({ pressed }) => [styles.integrationHeader, pressed && styles.rowPressed]}
+          onPress={onToggle}
+          accessibilityRole="button"
+        >
+          {header}
+        </Pressable>
+      ) : (
+        <View style={styles.integrationHeader}>{header}</View>
+      )}
+      {showBody ? <View style={styles.integrationBody}>{children}</View> : null}
     </View>
   );
 }
@@ -325,7 +346,14 @@ export function NavRow({
   theme: Theme;
 }) {
   return (
-    <Pressable style={compact ? styles.menuRow : styles.row} onPress={onPress}>
+    <Pressable
+      style={({ pressed }) => [
+        compact ? styles.menuRow : styles.row,
+        pressed && styles.rowPressed,
+      ]}
+      onPress={onPress}
+      accessibilityRole="button"
+    >
       <Ionicons name={icon} size={19} color={danger ? theme.danger : theme.primary} />
       <View style={styles.rowBody}>
         <Text style={[styles.rowTitle, danger && { color: theme.danger }]}>{title}</Text>
@@ -366,6 +394,8 @@ export function makeSettingsStyles(t: Theme) {
       fontWeight: "700",
       color: t.textSecondary,
     },
+
+    rowPressed: { opacity: 0.55 },
 
     profileHeader: {
       alignItems: "center",

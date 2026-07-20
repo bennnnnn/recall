@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,8 +15,6 @@ export default function IntegrationsSettingsScreen() {
   const theme = useTheme();
   const s = useMemo(() => makeSettingsStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
-  const [calendarExpanded, setCalendarExpanded] = useState(true);
-  const [gmailExpanded, setGmailExpanded] = useState(true);
   const {
     calendarStatus,
     calendarBusy,
@@ -41,14 +39,15 @@ export default function IntegrationsSettingsScreen() {
           icon="calendar-outline"
           title={t("settings.calendar_title")}
           showDivider={false}
+          collapsible={false}
+          expanded
+          onToggle={() => undefined}
           summary={
             calendarStatus?.connected && calendarStatus.email
               ? t("settings.calendar_connected", { email: calendarStatus.email })
               : t("settings.integration_not_connected")
           }
-          expanded={calendarExpanded}
           busy={calendarBusy}
-          onToggle={() => setCalendarExpanded((open) => !open)}
           styles={s}
           theme={theme}
         >
@@ -76,14 +75,15 @@ export default function IntegrationsSettingsScreen() {
           icon="mail-outline"
           title={t("settings.gmail_title")}
           showDivider={false}
+          collapsible={false}
+          expanded
+          onToggle={() => undefined}
           summary={
             gmailStatus?.connected && gmailStatus.email
               ? t("settings.gmail_connected", { email: gmailStatus.email })
               : t("settings.integration_not_connected")
           }
-          expanded={gmailExpanded}
           busy={gmailBusy}
-          onToggle={() => setGmailExpanded((open) => !open)}
           styles={s}
           theme={theme}
         >

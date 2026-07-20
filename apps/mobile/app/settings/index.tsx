@@ -1,22 +1,12 @@
 import { useCallback, useMemo, useState } from "react";
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { AvatarUsageRing } from "@/components/AvatarUsageRing";
-import { Button } from "@/components/Button";
 import { UpgradeSheet } from "@/components/UpgradeSheet";
+import { SettingsFieldSheet } from "@/components/settings/SettingsFieldSheet";
 import {
   makeSettingsStyles,
   SettingsGroup,
@@ -319,48 +309,17 @@ export default function SettingsScreen() {
         </Pressable>
       </ScrollView>
 
-      <Modal
+      <SettingsFieldSheet
         visible={editField != null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setEditField(null)}
-      >
-        <KeyboardAvoidingView
-          style={s.mKeyboardAvoider}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
-          <Pressable style={s.mOverlay} onPress={() => setEditField(null)}>
-            <Pressable style={s.mSheet} onPress={(e) => e.stopPropagation()}>
-              <Text style={s.mTitle}>{fieldTitle}</Text>
-              <TextInput
-                style={s.mInput}
-                value={fieldText}
-                onChangeText={setFieldText}
-                autoFocus
-                returnKeyType="done"
-                onSubmitEditing={() => void saveField()}
-                maxLength={fieldMaxLength}
-                placeholder={fieldPlaceholder}
-                placeholderTextColor={theme.textTertiary}
-                keyboardType={fieldKeyboard}
-              />
-              <View style={s.mActions}>
-                <Button
-                  title={t("settings.cancel")}
-                  onPress={() => setEditField(null)}
-                  variant="outline"
-                  style={s.mActionBtn}
-                />
-                <Button
-                  title={t("settings.save")}
-                  onPress={() => void saveField()}
-                  style={s.mActionBtn}
-                />
-              </View>
-            </Pressable>
-          </Pressable>
-        </KeyboardAvoidingView>
-      </Modal>
+        title={fieldTitle}
+        value={fieldText}
+        onChangeText={setFieldText}
+        onClose={() => setEditField(null)}
+        onSave={() => void saveField()}
+        maxLength={fieldMaxLength}
+        placeholder={fieldPlaceholder}
+        keyboardType={fieldKeyboard}
+      />
 
       <UpgradeSheet visible={upgradeVisible} onClose={() => setUpgradeVisible(false)} />
     </View>
