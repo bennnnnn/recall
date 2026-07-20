@@ -261,9 +261,18 @@ def format_calendar_block(
 
 
 def _events_within_days(events: list[CalendarEvent], days: int) -> list[CalendarEvent]:
+    """Upcoming (or still-in-progress) events with start in the next ``days``."""
     now = datetime.now(UTC)
     cutoff = now + timedelta(days=max(1, days))
-    return [event for event in events if event.start <= cutoff]
+    upcoming: list[CalendarEvent] = []
+    for event in events:
+        if event.start > cutoff:
+            continue
+        ends = event.end or event.start
+        if ends < now:
+            continue
+        upcoming.append(event)
+    return upcoming
 
 
 async def fetch_upcoming_events(

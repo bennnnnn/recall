@@ -191,6 +191,8 @@ def test_group_mastered_items_by_date():
     grouped = group_mastered_items_by_date(items, timezone_name="UTC", days=14)
     assert len(grouped[yesterday.isoformat()]) == 1
     assert len(grouped[today.isoformat()]) == 1
+    # Day keys must be oldest→newest (stable JSON order; not set-iteration).
+    assert list(grouped.keys()) == [yesterday.isoformat(), today.isoformat()]
 
 
 def test_build_daily_history_complete_partial_and_skipped():

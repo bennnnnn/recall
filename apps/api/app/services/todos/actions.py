@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from difflib import SequenceMatcher
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,23 +32,14 @@ TODO_BLOCKED_FROM_TRANSCRIPT = frozenset({"delete_list"})
 REMINDER_TOPIC = "Reminders"
 
 
-def _fuzzy_match(needle: str, haystack: str) -> bool:
-    if needle == haystack:
-        return True
-    if len(needle) < 6 or len(haystack) < 6:
-        return False
-    return SequenceMatcher(None, needle, haystack).ratio() >= 0.92
-
-
 def _find_item(items: list[TodoItem], topic: str, content: str) -> TodoItem | None:
+    # Exact normalized match only — fuzzy (0.92) was removed to match projects:
+    # near-miss complete/delete must not hit the wrong todo.
     needle = _normalize(content)
     topic_norm = _topic_key(topic)
     candidates = [i for i in items if _topic_key(i.topic) == topic_norm and not i.checked]
     for item in candidates:
         if _normalize(item.content) == needle:
-            return item
-    for item in candidates:
-        if _fuzzy_match(needle, _normalize(item.content)):
             return item
     return None
 
@@ -60,9 +50,6 @@ def _find_item_any_state(items: list[TodoItem], topic: str, content: str) -> Tod
     candidates = [i for i in items if _topic_key(i.topic) == topic_norm]
     for item in candidates:
         if _normalize(item.content) == needle:
-            return item
-    for item in candidates:
-        if _fuzzy_match(needle, _normalize(item.content)):
             return item
     return None
 

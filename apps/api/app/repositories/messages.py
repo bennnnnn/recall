@@ -52,7 +52,7 @@ async def list_recent(
     result = await session.execute(
         select(Message)
         .where(Message.chat_id == chat_id)
-        .order_by(Message.created_at.desc())
+        .order_by(Message.created_at.desc(), Message.id.desc())
         .limit(limit)
     )
     messages = list(result.scalars().all())
@@ -197,8 +197,9 @@ async def list_user_messages_since(
     chat_id: UUID,
     *,
     after: datetime,
+    limit: int = 100,
 ) -> list[Message]:
-    """User messages after ``after``, oldest-first."""
+    """User messages after ``after``, oldest-first (bounded for quiz lookback)."""
     result = await session.execute(
         select(Message)
         .where(
@@ -206,7 +207,8 @@ async def list_user_messages_since(
             Message.role == "user",
             Message.created_at > after,
         )
-        .order_by(Message.created_at.asc())
+        .order_by(Message.created_at.asc(), Message.id.asc())
+        .limit(max(1, limit))
     )
     return list(result.scalars().all())
 

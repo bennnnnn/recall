@@ -1,5 +1,5 @@
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
@@ -55,13 +55,14 @@ def test_should_inject_calendar_block(text, expected):
 
 
 def test_format_calendar_block_lists_events():
+    start = datetime.now(UTC) + timedelta(days=1)
     block = format_calendar_block(
         [
             CalendarEvent(
                 id="evt-1",
                 title="Team sync",
-                start=datetime(2026, 6, 28, 14, 0, tzinfo=UTC),
-                end=datetime(2026, 6, 28, 15, 0, tzinfo=UTC),
+                start=start,
+                end=start + timedelta(hours=1),
                 location="Zoom",
             )
         ],
@@ -69,6 +70,28 @@ def test_format_calendar_block_lists_events():
     )
     assert "Team sync" in block
     assert "Zoom" in block
+
+
+def test_format_calendar_block_skips_past_events():
+    from app.services.calendar import _events_within_days
+
+    past_start = datetime.now(UTC) - timedelta(days=2)
+    past = CalendarEvent(
+        id="past",
+        title="Yesterday",
+        start=past_start,
+        end=past_start + timedelta(hours=1),
+        location=None,
+    )
+    future_start = datetime.now(UTC) + timedelta(days=1)
+    future = CalendarEvent(
+        id="future",
+        title="Tomorrow",
+        start=future_start,
+        end=future_start + timedelta(hours=1),
+        location=None,
+    )
+    assert [e.id for e in _events_within_days([past, future], 14)] == ["future"]
 
 
 def test_format_calendar_block_uses_custom_window():

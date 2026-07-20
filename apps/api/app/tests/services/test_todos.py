@@ -446,12 +446,14 @@ def test_query_implies_todos():
     assert not todos_service.query_implies_todos("Explain quantum physics")
 
 
-def test_fuzzy_match_requires_similarity_not_substring():
-    from app.services.todos.actions import _fuzzy_match
+def test_find_item_requires_exact_normalized_match():
+    """Destructive todo actions must not fuzzy-match near-miss titles."""
+    from app.services.todos.actions import _find_item
 
-    assert not _fuzzy_match("milk", "buy milk today")
-    assert not _fuzzy_match("call mom", "call mom about dinner and groceries")
-    assert _fuzzy_match("buy organic milk", "buy organic milke")
+    target = _item("buy organic milk", topic="Groceries")
+    near = _item("buy organic milke", topic="Groceries")
+    assert _find_item([target, near], "Groceries", "buy organic milk") is target
+    assert _find_item([near], "Groceries", "buy organic milk") is None
 
 
 def test_todo_hint_does_not_promise_pre_reply_application():

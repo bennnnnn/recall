@@ -87,7 +87,8 @@ class ChatMessageRequest(BaseModel):
     # job. 32k chars is well beyond any realistic chat turn.
     content: str = Field(default="", max_length=32_000)
     model: str | None = None
-    attachment_ids: list[UUID] = Field(default_factory=list)
+    # Cap per turn — unbounded lists let a client force huge DB/RAG work.
+    attachment_ids: list[UUID] = Field(default_factory=list, max_length=10)
     client_timezone: str | None = Field(default=None, max_length=64)
     client_location: str | None = Field(default=None, max_length=200)
     client_latitude: float | None = Field(default=None, ge=-90, le=90)

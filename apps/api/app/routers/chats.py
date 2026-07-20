@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -53,7 +53,11 @@ async def create_chat(
 async def list_chats(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
-    limit: int = chats_service.DEFAULT_CHAT_LIST_LIMIT,
+    limit: int = Query(
+        default=chats_service.DEFAULT_CHAT_LIST_LIMIT,
+        ge=1,
+        le=chats_service.DEFAULT_CHAT_LIST_LIMIT,
+    ),
 ) -> ChatListOut:
     return await chats_service.list_chats_grouped(session, user, limit=limit)
 
@@ -156,7 +160,7 @@ async def list_messages(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
-    limit: int = 40,
+    limit: int = Query(default=40, ge=1, le=200),
     before: UUID | None = None,
 ) -> MessagePageOut:
     try:
