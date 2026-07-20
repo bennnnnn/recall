@@ -43,8 +43,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   topic (vocab words or trivia facts) as PDF from the project screen.
   (chat `⋯` menu + drawer long-press); no backend needed.
 - ✅ **Manage from the drawer** — long-press any chat for **Pin/Unpin · Share · Archive · Delete**.
-- ⚠️ **Archive** — chats can be archived from the drawer (long-press); archived chats show in a
-  separate section and are excluded from the main list. In-chat `⋯` archive is pending.
+- ✅ **Archive** — drawer long-press and in-chat `⋯` menu; archived chats show in a separate
+  section and are excluded from the main list.
 - ✅ **Multi-select** — drawer **Select** mode: tap rows to choose, then bulk **Archive** or
   **Delete** (with confirm).
 - 🔜 Folders.
@@ -55,7 +55,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 ## 3. Messaging behaviour
 - ✅ **Streaming** — token-by-token over WebSocket; the reply appears as it's generated.
 - ✅ **Stop generation** — cancel mid-stream (send button becomes a stop button); the partial reply
-  is kept.
+  is kept. Hard WS/SSE disconnect with tokens already streamed also finalizes (same as soft stop).
 - ✅ **Regenerate** — re-run the last assistant reply.
 - ✅ **Message folding** — long **user** messages collapse past ~320px with a fade +
   **Show more / Show less** (disabled while a reply is still streaming). Assistant replies do
@@ -90,11 +90,12 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   sheet. Tap the result to view full-screen and save via the system share sheet.
 - ✅ **Math / LaTeX** — inline `$...$` renders as native text (superscripts, √, fractions);
   display ` ```math` uses KaTeX (or MathJax for heavy expressions) in a WebView on a
-  **dev build**, with native/`MathText` fallback in Expo Go. Server-side **SymPy**
-  solves equations and samples graphs before the LLM explains (verified numbers /
-  fences injected into the prompt; post-stream fence correction). See [docs/math.md](./docs/math.md).
-- ✅ **Geometry diagrams** — ` ```geometry` JSON fences render labeled rectangles (diagonal, angle)
-  via native SVG (`react-native-svg`; works in Expo Go).
+  **dev build**, with native/`MathText` fallback in Expo Go. Tall WebViews offer **Expand** →
+  fullscreen scroll. Server-side **SymPy** solves equations and samples graphs before the LLM
+  explains (verified numbers / fences injected into the prompt; post-stream correction for
+  geometry, graph, and algebra ` ```answer `). See [docs/math.md](./docs/math.md).
+- ✅ **Geometry diagrams** — ` ```geometry` JSON fences render labeled shapes (rectangle, circle,
+  triangle, trapezoid, sector, …) via native SVG (`react-native-svg`; works in Expo Go).
 - ✅ **Function graphs** — ` ```graph` JSON fences plot y=f(x) from server-computed point arrays
   via native SVG.
 - ✅ **Charts** — `chart` / `vega` / `vega-lite` fences render inline via a sandboxed WebView
@@ -221,7 +222,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 ## 12. Monetization
 - ✅ **Pro subscription (RevenueCat)** — mobile purchase flow via lazy-loaded `react-native-purchases`
   (dev/production builds only; skipped in Expo Go). Restore purchases supported.
-- ✅ **Backend entitlement** — RevenueCat webhook + `POST /auth/me/sync-subscription`; `users.plan`
+- ✅ **Backend entitlement** — RevenueCat webhook (Redis `SET NX` claim before process; done-marker
+  after success) + `POST /auth/me/sync-subscription`; `users.plan`
   drives quota limits and model access.
 - ✅ **Upgrade sheet** — locked Pro models open an upgrade sheet with subscribe/restore when RevenueCat
   is configured.
@@ -247,6 +249,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Dedicated worker process** — Fly `app` (`PROCESS_ROLE=api`) + `worker` (`python -m
   app.worker_main`); local/dev default `process_role=all` keeps a single process. Scale with
   `fly scale count app=1 worker=1`. Multi-instance worker fleets remain a later ops concern.
+- ✅ **Sentry** — optional DSN init on API + mobile (no-op when unset).
 - 🔜 Sentry/observability polish, structured request logging.
 
 ## 14. Todos & suggestions
@@ -395,8 +398,8 @@ courses, habits, and anything else that needs structure over time.
 ### Phase 3 — Cross-linking
 - ✅ **`project_id` on chats** — conversations started from a project carry `project_id`; prompt
   injection scopes to that one project (+ tutor hints) instead of all projects.
-- ✅ **Link todos to projects** — optional `project_id` on todo items (API create/update,
-  prompt annotation, mobile link + project filter).
+- ⚠️ **Link todos to projects** — optional `project_id` on todo items (API create/update +
+  prompt annotation). Mobile link/filter UI is not wired (Lists project-filter chips banned).
 - ✅ **Home starters** — active project highlight on home; tap opens project or starts scoped chat.
 
 ### Phase 4 — More project types
@@ -422,11 +425,21 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   (hidden on vocab quiz cards).
 - ✅ **Structured profile fields** — name / age / country / job (Settings + prompt injection).
 - ✅ **Vision + Pro image gen** — image attachments route to vision models; Pro image generation
-  via composer sheet (daily cap).
+  from the composer on send (daily cap; no separate prompt sheet).
+- ✅ **Per-chat Redis prepare lock** — `chatprep:{chat_id}` around prepare + stream; concurrent
+  turns get `ChatBusyError` / `code: "busy"` (#536).
+- ✅ **Math WebView expand / fullscreen** — tall KaTeX/MathJax blocks offer Expand → full-screen
+  modal (`MathFormulaWebView`; #537).
+- ✅ **Algebra `canonical_fence` / ` ```answer ` rewrite** — SymPy attaches canonical answer
+  fences; post-stream `validate_math_fences` rewrites drifted finals (#538).
+- ✅ **Persist assistant reply on hard WS/SSE disconnect** — mid-stream `CancelledError` with
+  tokens finalizes like soft stop (#539).
+- ✅ **RevenueCat webhook atomic claim** — Redis `SET NX` claim before processing; done-marker
+  after success (#535).
 
 ### Later / not v1
-- 🔜 **Full locale translation** — key-set parity is enforced; ~340 strings still English in
-  non-en locales (hardcoded UI strings from Claude review wave 3 are now keyed).
+- 🔜 **Full locale translation** — key-set parity is enforced (**882** keys); ~350 strings still
+  English in non-en locales (Claude review wave 3 strings are keyed; prose translation deferred).
 - 🔜 **Full chat-history semantic RAG** — embed past chats (beyond keyword `/search` + memory
   embeddings + attachment RAG). Index in background; retrieve small top-k at turn start so chat
   stays snappy. Not started.
@@ -462,8 +475,8 @@ Jul 2026 architecture review are mostly shipped (see below); these remain:
   (bounded/structured, not row-virtualized). Verify scroll/layout on-device.
 - ✅ **i18n extraction (reminders / share / urgent)** — keys wired in `todoReminders`,
   `homeUrgentTodos`, `share.ts`, and push channel names; translated in all 9 locales.
-- 🔜 **Locale prose translations** — all 9 locales share identical key sets (**787** keys), but
-  many non-English values are still English copy (~340 keys in Spanish as a proxy). Structural
+- 🔜 **Locale prose translations** — all 9 locales share identical key sets (**882** keys), but
+  many non-English values are still English copy (~350 keys in Spanish as a proxy). Structural
   i18n is complete; human translation of remaining prose is deferred.
 - 🔜 **Legal page bodies** — `/legal/privacy` and `/legal/terms` remain English-only
   markdown on the API (nav titles are localized). Locale-aware legal content is deferred.
@@ -497,6 +510,9 @@ Shipped after the Phase 1/2 code review (and follow-up PRs):
 - ✅ **Deferred WebView mount queue** — `useDeferredWebViewMount` caps concurrent chart/math/Mermaid
   WebViews so multi-block messages stay smooth
 - ✅ **Hung-worker heartbeat** — `is_worker_alive` tracks loop heartbeat, not only `task.done()`
+- ✅ **Claude review waves (#533–#539)** — product/reliability fixes + deferred items: chatprep
+  lock, math expand, algebra answer fences, hard-disconnect persist, RevenueCat SET NX
+  (see [Already shipped](#already-shipped-keep-for-audit-trail))
 
 Still open (non-blocking / larger effort):
 
