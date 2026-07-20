@@ -1,11 +1,9 @@
 import { useLayoutEffect, useMemo, useState } from "react";
-import { View } from "react-native";
 import { Redirect, useLocalSearchParams, useNavigation } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useTranslation } from "react-i18next";
 
 import { AddFab } from "@/components/AddFab";
-import { Button } from "@/components/Button";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { AddReminderSheet } from "@/components/todos/AddReminderSheet";
 import { DuePickerModal } from "@/components/todos/DuePickerModal";
@@ -19,7 +17,6 @@ import { useTodosDerivedState } from "@/hooks/useTodosDerivedState";
 import { useTodosListGroups } from "@/hooks/useTodosListGroups";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTodos } from "@/contexts/TodosContext";
-import { tap } from "@/lib/haptics";
 import { ensureNotificationPermission } from "@/lib/todoReminders";
 import { useTheme } from "@/lib/theme";
 
@@ -107,7 +104,6 @@ export default function TodosScreen() {
   }
 
   const openReminderSheet = () => {
-    tap();
     void ensureNotificationPermission();
     setReminderSheetOpen(true);
   };
@@ -154,16 +150,6 @@ export default function TodosScreen() {
 
   return (
     <GestureHandlerRootView style={s.root}>
-      {showReminders ? (
-        <View style={s.topBar}>
-          <Button
-            title={t("todos.add_reminder")}
-            onPress={openReminderSheet}
-            style={s.topBtn}
-          />
-        </View>
-      ) : null}
-
       {showList && newListOpen ? (
         <NewListComposer
           onCancel={() => setNewListOpen(false)}
@@ -194,7 +180,13 @@ export default function TodosScreen() {
         }}
       />
 
-      {showList && !newListOpen ? (
+      {isRemindersPage ? (
+        <AddFab
+          onPress={openReminderSheet}
+          accessibilityLabel={t("todos.add_reminder")}
+        />
+      ) : null}
+      {showList && !newListOpen && !isRemindersPage ? (
         <AddFab
           onPress={() => setNewListOpen(true)}
           accessibilityLabel={t("lists.new_group_a11y")}

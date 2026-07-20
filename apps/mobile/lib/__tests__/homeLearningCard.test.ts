@@ -48,43 +48,44 @@ describe("homeLearningCard", () => {
     expect(mixHexColors("#000000", "#FFFFFF", 0.5)).toBe("#808080");
   });
 
-  it("homeLearningCardColors shifts toward danger as urgency rises", () => {
+  it("homeLearningCardColors stays on brand primary (no danger shift)", () => {
     const calm = homeLearningCardColors({
       urgency: 0,
       surface: "#F4F4F4",
-      primaryLight: "#EDE9FF",
+      primaryLight: "#E5F2FF",
       dangerLight: "#FEE2E2",
-      primary: "#6C47FF",
+      primary: "#007AFF",
       danger: "#DC2626",
       success: false,
     });
     const hot = homeLearningCardColors({
       urgency: 1,
       surface: "#F4F4F4",
-      primaryLight: "#EDE9FF",
+      primaryLight: "#E5F2FF",
       dangerLight: "#FEE2E2",
-      primary: "#6C47FF",
+      primary: "#007AFF",
       danger: "#DC2626",
       success: false,
     });
-    expect(calm.background.toLowerCase()).toBe("#ede9ff");
-    expect(hot.background.toLowerCase()).toBe("#fee2e2");
-    expect(hot.fill.toLowerCase()).not.toBe(calm.fill.toLowerCase());
-    expect(hot.accent.toLowerCase()).toBe(hot.fill.toLowerCase());
+    expect(calm.background.toLowerCase()).toBe("#e5f2ff");
+    expect(hot.background.toLowerCase()).toBe("#e5f2ff");
+    expect(hot.fill.toLowerCase()).toBe(calm.fill.toLowerCase());
+    expect(hot.accent.toLowerCase()).toBe("#007aff");
   });
 
-  it("learningProgressColors matches urgency helpers for CTAs", () => {
+  it("learningProgressColors stays brand primary even when behind at night", () => {
     const colors = learningProgressColors({
       completedToday: 0,
       dailyGoal: 10,
       hour: 20,
       surface: "#F4F4F4",
-      primaryLight: "#EDE9FF",
+      primaryLight: "#E5F2FF",
       dangerLight: "#FEE2E2",
-      primary: "#6C47FF",
+      primary: "#007AFF",
       danger: "#DC2626",
     });
-    expect(colors.background.toLowerCase()).not.toBe("#ede9ff");
+    expect(colors.background.toLowerCase()).toBe("#e5f2ff");
+    expect(colors.accent.toLowerCase()).toBe("#007aff");
     expect(colors.accent.toLowerCase()).toBe(colors.fill.toLowerCase());
   });
 });

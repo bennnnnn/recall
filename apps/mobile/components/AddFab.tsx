@@ -10,7 +10,7 @@ type Props = {
   accessibilityLabel: string;
 };
 
-/** Bottom-right + FAB for Add learning / New list. */
+/** Bottom-right + FAB for Add learning / New list / Add reminder. */
 export function AddFab({ onPress, accessibilityLabel }: Props) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();

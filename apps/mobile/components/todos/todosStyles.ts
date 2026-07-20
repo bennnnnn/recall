@@ -14,15 +14,6 @@ export function makeTodosStyles(C: Theme) {
       justifyContent: "center",
       backgroundColor: C.bg,
     },
-    topBar: {
-      flexDirection: "row",
-      gap: Space.sm,
-      paddingHorizontal: Space.md,
-      paddingVertical: Space.sm,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: C.border,
-    },
-    topBtn: { flex: 1 },
     dayHeading: {
       ...Type.body,
       fontWeight: "700",
