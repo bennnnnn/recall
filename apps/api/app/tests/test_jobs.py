@@ -252,8 +252,10 @@ async def test_process_entries_dispatches_and_acks():
 
     jobs.register("proc-job", handler)
     entries = [("1-0", {"type": "proc-job", "payload": json.dumps({"k": 1})})]
+    jobs._last_heartbeat = 0.0
     await jobs._process_entries(redis, Settings(), entries)
     assert seen == [{"k": 1}]
+    assert jobs._last_heartbeat > 0.0
     redis.xack.assert_awaited_once()
     redis.xadd.assert_not_called()
 

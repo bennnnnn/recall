@@ -44,21 +44,26 @@ def pop_finalize_tasks(result: dict[str, Any]) -> asyncio.Task[None] | None:
 async def await_finalize_commit(finalize_db_task: asyncio.Task[None] | None) -> bool:
     """Wait (bounded) for the turn's DB commit before sending ``done``.
 
-    Returns True when the commit landed (or is still in-flight but slow, or
-    there was no task to wait on) — in those cases ``done`` is sent best-effort
-    and the finalize registry still guards the next turn. Returns False only
-    when the finalize task actually FAILED, so the caller sends an error
-    instead of a ghost ``done`` carrying a message_id for a row that never
-    persisted.
+    Returns True when the commit landed, there was no task, or the wait timed
+    out while the commit is still running under ``asyncio.shield`` (``done`` is
+    then sent best-effort; the finalize registry still guards the next turn).
+    Returns False only when the finalize task actually FAILED, so the caller
+    sends an error instead of a ghost ``done`` carrying a message_id for a row
+    that never persisted.
+
+    The wait must use ``shield``: bare ``wait_for`` cancels the finalize task
+    on timeout, which rolls back the assistant insert and strands reserved
+    quota while the client still receives ``done``.
     """
     if finalize_db_task is None:
         return True
     try:
-        await asyncio.wait_for(finalize_db_task, DONE_COMMIT_WAIT_SECONDS)
+        await asyncio.wait_for(asyncio.shield(finalize_db_task), DONE_COMMIT_WAIT_SECONDS)
         return True
     except TimeoutError:
         logger.warning(
-            "Finalize commit still running after %ss; sending done best-effort",
+            "Finalize commit still running after %ss; sending done best-effort "
+            "(commit continues under shield)",
             DONE_COMMIT_WAIT_SECONDS,
         )
         return True
