@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { StyleSheet, Text } from "react-native";
+import { useEffect, useMemo } from "react";
+import { Keyboard, StyleSheet, Text } from "react-native";
 import type { ComponentProps } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -52,6 +52,10 @@ export function ChatActionsSheet({
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const panelStyle = useMemo(() => makeActionSheetPanelStyle(theme), [theme]);
+
+  useEffect(() => {
+    if (visible) Keyboard.dismiss();
+  }, [visible]);
 
   const actions = useMemo(() => {
     const rows: Action[] = [
@@ -117,6 +121,7 @@ export function ChatActionsSheet({
       variant="bottom"
       withHandle
       floating
+      keyboardAvoiding
       minBottomPadding={12}
       contentContainerStyle={panelStyle}
     >
