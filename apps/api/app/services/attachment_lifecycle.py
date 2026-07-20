@@ -88,22 +88,26 @@ async def reap_orphan_attachments(settings: Settings) -> int:
         removed = await attachments_repo.delete_unlinked_returning(
             session, [row.id for row in orphans]
         )
-    # Refund the daily image-upload slot for each reaped image. Map storage_key
-    # -> orphan row so we only refund for rows that were actually removed (a
-    # row linked between list and delete is NOT reaped and keeps its slot).
+    # Refund the daily image slot for each reaped image. Uploads refund imgup;
+    # generated images refund imggen. Map storage_key -> orphan row so we only
+    # refund for rows that were actually removed (a row linked between list and
+    # delete is NOT reaped and keeps its slot).
     if removed:
         removed_set = set(removed)
         redis = get_redis_client()
         for row in orphans:
             if row.storage_key in removed_set and is_image_content_type(row.content_type):
                 try:
-                    await quota_service.refund_image_upload(redis, row.user_id)
+                    if getattr(row, "source", "upload") == "generated":
+                        await quota_service.refund_image_generation(redis, row.user_id)
+                    else:
+                        await quota_service.refund_image_upload(redis, row.user_id)
                 except Exception:
                     # Best-effort: a Redis hiccup here must not prevent the
                     # reaper from completing -- the slot is daily-scoped and
                     # resets at midnight anyway.
                     logger.debug(
-                        "Image upload refund failed for user %s", row.user_id, exc_info=True
+                        "Image quota refund failed for user %s", row.user_id, exc_info=True
                     )
     logger.info("Reaped %d orphan attachment(s)", len(removed))
     return len(removed)

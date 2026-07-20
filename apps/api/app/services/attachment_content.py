@@ -59,6 +59,28 @@ _UNVERIFIABLE_TYPES: frozenset[str] = frozenset()
 
 
 _DOCX_MARKER_ENTRY = "word/document.xml"
+_MAX_DOCX_TOTAL_UNCOMPRESSED = 32 * 1024 * 1024
+
+
+def _docx_zip_bomb(data: bytes) -> bool:
+    """True when any ZIP entry or the total uncompressed size looks like a bomb.
+
+    Per-entry cap matches ``MAX_ATTACHMENT_SIZE``; total uncompressed across
+    all entries is capped at 32 MiB so a small compressed upload can't expand
+    into gigabytes during DOCX parse.
+    """
+    try:
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            total = 0
+            for info in archive.infolist():
+                if info.file_size > MAX_ATTACHMENT_SIZE:
+                    return True
+                total += info.file_size
+                if total > _MAX_DOCX_TOTAL_UNCOMPRESSED:
+                    return True
+        return False
+    except (zipfile.BadZipFile, OSError, EOFError, NotImplementedError):
+        return False
 
 
 def _is_docx_zip(data: bytes) -> bool:
@@ -73,9 +95,11 @@ def _is_docx_zip(data: bytes) -> bool:
 
     Runs on untrusted, potentially adversarial or truncated bytes: any
     failure to open the buffer as a well-formed ZIP is treated as "not a
-    DOCX" rather than raised.
+    DOCX" rather than raised. Zip bombs are also rejected.
     """
     try:
+        if _docx_zip_bomb(data):
+            return False
         with zipfile.ZipFile(io.BytesIO(data)) as archive:
             return _DOCX_MARKER_ENTRY in archive.namelist()
     except (zipfile.BadZipFile, OSError, EOFError, NotImplementedError) as exc:
@@ -169,6 +193,8 @@ def extract_text_from_bytes(content_type: str, data: bytes) -> str | None:
 
     if content_type == _DOCX_CONTENT_TYPE:
         try:
+            if _docx_zip_bomb(data):
+                return None
             from docx import Document
 
             document = Document(io.BytesIO(data))

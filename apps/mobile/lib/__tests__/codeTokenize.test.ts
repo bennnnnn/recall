@@ -1,4 +1,13 @@
-import { guessLang, looksLikeC, looksLikeJava, resolveHighlightLang, tokenize } from "@/lib/codeTokenize";
+import { TOKEN_COLORS } from "@/lib/codeHighlight";
+import {
+  guessLang,
+  highlightPlainChunk,
+  looksLikeC,
+  looksLikeJava,
+  MAX_PLAIN_HIGHLIGHT_CHARS,
+  resolveHighlightLang,
+  tokenize,
+} from "@/lib/codeTokenize";
 
 describe("resolveHighlightLang", () => {
   it("trusts an explicit, known fence language", () => {
@@ -55,5 +64,23 @@ describe("tokenize", () => {
   it("falls back to plain text for a language with no grammar", () => {
     const tokens = tokenize("whatever content", "totally-unknown-lang-xyz");
     expect(tokens.map((t) => t.text).join("")).toBe("whatever content");
+  });
+});
+
+describe("highlightPlainChunk", () => {
+  it("returns a single plain token when input exceeds the cap", () => {
+    const text = `${"x".repeat(MAX_PLAIN_HIGHLIGHT_CHARS + 1)} const y = 1;`;
+    const tokens = highlightPlainChunk(text, "javascript");
+    expect(tokens).toEqual([{ text, color: TOKEN_COLORS.plain }]);
+  });
+
+  it("still highlights keywords on medium-sized input under the cap", () => {
+    const text = `// note\n${"x ".repeat(200)}const answer = 42;`;
+    expect(text.length).toBeLessThanOrEqual(MAX_PLAIN_HIGHLIGHT_CHARS);
+    const tokens = highlightPlainChunk(text, "javascript");
+    expect(tokens.some((t) => t.text === "const" && t.color === TOKEN_COLORS.keyword)).toBe(
+      true,
+    );
+    expect(tokens.some((t) => t.text === "42" && t.color === TOKEN_COLORS.number)).toBe(true);
   });
 });

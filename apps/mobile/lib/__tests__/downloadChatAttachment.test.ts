@@ -1,6 +1,9 @@
 jest.mock("expo-file-system/legacy", () => ({
   cacheDirectory: "file:///cache/",
-  downloadAsync: jest.fn(async (_uri: string, dest: string) => ({ uri: dest })),
+  downloadAsync: jest.fn(async (_uri: string, dest: string) => ({
+    uri: dest,
+    status: 200,
+  })),
 }));
 
 jest.mock("expo-media-library", () => ({
@@ -48,6 +51,21 @@ describe("downloadChatAttachment", () => {
     // Second call hits memory cache — no second download.
     await ensureLocalAttachmentFile({ uri, token: "tok", fileName: "cat.jpg" });
     expect(downloadAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects when downloadAsync returns a non-2xx status", async () => {
+    jest.mocked(downloadAsync).mockResolvedValueOnce({
+      uri: "file:///cache/missing.jpg",
+      status: 404,
+    } as Awaited<ReturnType<typeof downloadAsync>>);
+
+    await expect(
+      ensureLocalAttachmentFile({
+        uri: "http://127.0.0.1:8000/attachments/missing/file",
+        token: "tok",
+        fileName: "missing.jpg",
+      }),
+    ).rejects.toThrow("Download failed.");
   });
 
   it("saves to the photo library when permission is granted", async () => {

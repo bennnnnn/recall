@@ -17,6 +17,7 @@ async def create_pending(
     storage_key: str,
     content_type: str,
     size_bytes: int,
+    source: str = "upload",
 ) -> Attachment:
     row = Attachment(
         id=attachment_id,
@@ -24,6 +25,7 @@ async def create_pending(
         storage_key=storage_key,
         content_type=content_type,
         size_bytes=size_bytes,
+        source=source,
     )
     session.add(row)
     await session.commit()

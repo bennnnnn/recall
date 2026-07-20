@@ -168,6 +168,7 @@ async def generate_for_chat(
             storage_key=presigned.storage_key,
             content_type=content_type,
             size_bytes=len(image_bytes),
+            source="generated",
         )
         await gateway.write_bytes(presigned.storage_key, image_bytes)
 
