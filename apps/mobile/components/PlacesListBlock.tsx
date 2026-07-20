@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { openPlaceLink } from "@/lib/openPlaceLink";
@@ -12,6 +13,7 @@ type Props = {
 };
 
 export function PlacesListBlock({ places }: Props) {
+  const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const [selected, setSelected] = useState<PlaceItem | null>(null);
@@ -28,7 +30,7 @@ export function PlacesListBlock({ places }: Props) {
               <Pressable
                 onPress={() => setSelected(place)}
                 accessibilityRole="button"
-                accessibilityLabel={`${place.name}, show details`}
+                accessibilityLabel={t("places.show_details_a11y", { name: place.name })}
               >
                 <Text style={s.name} numberOfLines={2}>
                   {place.name}
@@ -67,6 +69,7 @@ function PlaceDetailsSheet({
   place: PlaceItem | null;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const s = useMemo(() => makeSheetStyles(theme), [theme]);
@@ -104,7 +107,7 @@ function PlaceDetailsSheet({
               </View>
               <Pressable style={s.openBtn} onPress={openInMaps}>
                 <Ionicons name="map-outline" size={20} color={theme.onPrimary} />
-                <Text style={s.openBtnText}>Open in Maps</Text>
+                <Text style={s.openBtnText}>{t("places.open_in_maps")}</Text>
               </Pressable>
             </>
           ) : null}

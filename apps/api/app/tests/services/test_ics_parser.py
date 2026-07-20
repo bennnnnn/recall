@@ -39,10 +39,22 @@ SUMMARY:Conference day
 DTSTART;VALUE=DATE:20260715
 END:VEVENT
 END:VCALENDAR"""
-    invite = parse_ics_invite(ics)
+    invite = parse_ics_invite(ics, default_tz="America/Los_Angeles")
     assert invite is not None
     assert invite.title == "Conference day"
-    assert invite.due_at == datetime(2026, 7, 15, tzinfo=UTC)
+    assert invite.due_at == datetime(2026, 7, 15, tzinfo=ZoneInfo("America/Los_Angeles"))
+
+
+def test_parse_ics_invite_floating_datetime_uses_default_tz():
+    ics = """BEGIN:VCALENDAR
+BEGIN:VEVENT
+SUMMARY:Local standup
+DTSTART:20260715T090000
+END:VEVENT
+END:VCALENDAR"""
+    invite = parse_ics_invite(ics, default_tz="America/New_York")
+    assert invite is not None
+    assert invite.due_at == datetime(2026, 7, 15, 9, 0, tzinfo=ZoneInfo("America/New_York"))
 
 
 def test_parse_ics_invite_skips_cancelled_event():

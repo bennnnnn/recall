@@ -49,7 +49,11 @@ from app.services.chat.turn_prep import (
 )
 from app.services.chat.turn_timing import TurnTimingTracker
 from app.services.context_window import estimate_tokens
-from app.services.image_gen_intent import extract_image_gen_prompt
+from app.services.image_gen_intent import (
+    extract_image_gen_prompt,
+    extract_image_revision_prompt,
+    image_gen_revision_context,
+)
 from app.services.quota import quota_exceeded_message
 
 logger = logging.getLogger(__name__)
@@ -149,6 +153,16 @@ async def _try_image_gen_for_turn(
     if not plan_service.is_pro(user):
         return False
     image_prompt = extract_image_gen_prompt(content)
+    if not image_prompt:
+        # Short follow-ups ("White", "make it blue") after an image-only reply.
+        async with SessionLocal() as session:
+            recent = await messages_repo.list_recent(session, chat_id, limit=20)
+        last_image_only, previous_subject = image_gen_revision_context(recent)
+        image_prompt = extract_image_revision_prompt(
+            content,
+            last_assistant_is_image_only=last_image_only,
+            previous_subject=previous_subject,
+        )
     if not image_prompt:
         return False
     try:

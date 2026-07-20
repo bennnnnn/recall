@@ -60,6 +60,9 @@ async def consolidate_memories(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> dict[str, str]:
+    if not user.memory_enabled:
+        return {"status": "skipped"}
+
     memories = await memories_repo.list_for_user(session, user.id)
     sections = {memory.type: memory.text for memory in memories}
     if not memory_service.sections_need_consolidation(sections):

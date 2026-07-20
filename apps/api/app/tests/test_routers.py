@@ -793,6 +793,18 @@ def test_list_memories_empty():
     assert r.json() == []
 
 
+def test_consolidate_memories_skipped_when_memory_disabled():
+    user = _fake_user()
+    user.memory_enabled = False
+    app = _app_with_user(user)
+    with patch("app.routers.memories.memories_repo.list_for_user", AsyncMock()) as list_mock:
+        client = TestClient(app)
+        r = client.post("/memories/consolidate", headers={"Authorization": "Bearer tok"})
+    assert r.status_code == 202
+    assert r.json() == {"status": "skipped"}
+    list_mock.assert_not_awaited()
+
+
 def test_list_memories_skips_consolidation_scan_when_already_locked():
     """BUG FIX (perf): GET /memories runs on every plain list load. Once a
     consolidation job is already queued/locked for this user, a repeat load

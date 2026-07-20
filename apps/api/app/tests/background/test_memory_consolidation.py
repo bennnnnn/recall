@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -41,6 +41,10 @@ def _memory_write_lock_always_free():
             AsyncMock(return_value=True),
         ),
         patch("app.background.memory_consolidation.release_memory_write_lock", AsyncMock()),
+        patch(
+            "app.background.memory_consolidation.users_repo.get_by_id",
+            AsyncMock(return_value=MagicMock(memory_enabled=True)),
+        ),
     ):
         yield
 
@@ -66,6 +70,32 @@ async def test_consolidate_skips_clean_sections():
         changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
 
     assert changed is False
+
+
+@pytest.mark.asyncio
+async def test_consolidate_skips_when_memory_disabled():
+    """When memory_enabled is off, consolidation must no-op (no LLM / no write)."""
+    user_id = uuid4()
+    list_for_user = AsyncMock()
+    merge = AsyncMock()
+    _, session_locals = _consolidation_sessions()
+    with (
+        patch(
+            "app.background.memory_consolidation.SessionLocal",
+            side_effect=session_locals,
+        ),
+        patch(
+            "app.background.memory_consolidation.users_repo.get_by_id",
+            AsyncMock(return_value=MagicMock(memory_enabled=False)),
+        ),
+        patch("app.background.memory_consolidation.memories_repo.list_for_user", list_for_user),
+        patch("app.background.memory_consolidation.memory_llm.merge_memory_section", merge),
+    ):
+        changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
+
+    assert changed is False
+    list_for_user.assert_not_awaited()
+    merge.assert_not_awaited()
 
 
 @pytest.mark.asyncio

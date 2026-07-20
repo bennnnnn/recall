@@ -2,7 +2,12 @@
 
 import pytest
 
-from app.services.image_gen_intent import extract_image_gen_prompt
+from app.services.image_gen_intent import (
+    extract_image_gen_prompt,
+    extract_image_revision_prompt,
+    image_gen_revision_context,
+    is_image_only_assistant_content,
+)
 
 
 @pytest.mark.parametrize(
@@ -37,3 +42,59 @@ def test_extract_image_gen_prompt_matches(text: str, expected: str) -> None:
 )
 def test_extract_image_gen_prompt_rejects(text: str) -> None:
     assert extract_image_gen_prompt(text) is None
+
+
+def test_extract_image_revision_prompt_white_case() -> None:
+    """Mirror mobile: short color follow-up after image-only reply."""
+    assert (
+        extract_image_revision_prompt(
+            "White",
+            last_assistant_is_image_only=True,
+            previous_subject="black cat",
+        )
+        == "black cat, White"
+    )
+    assert (
+        extract_image_revision_prompt(
+            "make it blue",
+            last_assistant_is_image_only=True,
+            previous_subject="black cat",
+        )
+        == "black cat, blue"
+    )
+
+
+def test_extract_image_revision_prompt_rejects_thanks_and_non_image() -> None:
+    assert (
+        extract_image_revision_prompt(
+            "thanks",
+            last_assistant_is_image_only=True,
+            previous_subject="black cat",
+        )
+        is None
+    )
+    assert (
+        extract_image_revision_prompt(
+            "White",
+            last_assistant_is_image_only=False,
+            previous_subject="black cat",
+        )
+        is None
+    )
+
+
+def test_image_gen_revision_context_finds_prior_subject() -> None:
+    assert is_image_only_assistant_content(
+        "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]"
+    )
+    last_only, subject = image_gen_revision_context(
+        [
+            {"role": "user", "content": "Generate image: black cat"},
+            {
+                "role": "assistant",
+                "content": "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]",
+            },
+        ]
+    )
+    assert last_only is True
+    assert subject == "black cat"

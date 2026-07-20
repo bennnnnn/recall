@@ -476,12 +476,48 @@ async def test_get_memory_block_warms_semantic_cache_via_tracked_background_task
         patch("app.services.memory.get_redis_client", return_value=fake_redis),
         patch("app.services.memory.load_relevant_memories", AsyncMock(return_value=[])),
         patch("app.services.memory.create_background_task", create_task_mock),
+        # Live embed fails → fall through to type-priority + background warm.
+        patch(
+            "app.gateways.embedding_gateway.embed_text",
+            AsyncMock(return_value=None),
+        ),
     ):
         await get_memory_block(session, user, settings, query_text="outdoor hobbies")
 
     create_task_mock.assert_called_once()
     assert create_task_mock.call_args.kwargs.get("name") == "warm_semantic_memory_cache"
     fake_task.add_done_callback.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_get_memory_block_live_embed_on_cache_miss(fake_redis):
+    """On embed-cache miss, try a short live embed before type-priority fallback."""
+    from app.services.memory import get_memory_block
+
+    user = AsyncMock()
+    user.id = uuid4()
+    user.memory_enabled = True
+    session = AsyncMock()
+    settings = Settings(semantic_memory_enabled=True, memory_query_cache_ttl=120)
+    query_vec = [0.1, 0.2, 0.3]
+
+    with (
+        patch("app.services.memory.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.gateways.embedding_gateway.embed_text",
+            AsyncMock(return_value=query_vec),
+        ) as embed_mock,
+        patch(
+            "app.services.memory.load_relevant_memories",
+            AsyncMock(return_value=[_memory("fact", "Likes hiking", 0.9)]),
+        ) as load_mock,
+        patch("app.services.memory.create_background_task", side_effect=_closing_background_task),
+    ):
+        block = await get_memory_block(session, user, settings, query_text="outdoor hobbies")
+
+    assert "Likes hiking" in block
+    embed_mock.assert_awaited_once()
+    assert load_mock.await_args.kwargs.get("query_vec") == query_vec
 
 
 @pytest.mark.asyncio

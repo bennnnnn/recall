@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 
 import { AttachmentImageViewer } from "@/components/AttachmentImageViewer";
@@ -116,6 +117,7 @@ export function ChatMessageImage({
   fileName,
   animatedReveal = true,
 }: Props) {
+  const { t } = useTranslation();
   const token = useAuthToken();
   const C = useTheme();
   const reduceMotion = useReduceMotion();
@@ -168,14 +170,17 @@ export function ChatMessageImage({
     <>
       <Pressable
         onPress={() => setViewerOpen(true)}
-        accessibilityLabel="View image"
+        accessibilityLabel={t("chat.image_view_a11y")}
         accessibilityRole="button"
       >
         <View style={s.wrap}>
           {failed ? (
             // Static broken-image mark — never a spinner (that read as
             // "still generating" when the attachment 404'd).
-            <View style={[s.preview, s.fallback]} accessibilityLabel="Image unavailable">
+            <View
+              style={[s.preview, s.fallback]}
+              accessibilityLabel={t("chat.image_unavailable_a11y")}
+            >
               <Ionicons name="image-outline" size={28} color={C.textTertiary} />
             </View>
           ) : usePlainPreview ? (

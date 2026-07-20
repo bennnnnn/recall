@@ -22,7 +22,7 @@ import {
   getCachedMemories,
   setMemoriesCache,
 } from "@/lib/memoryListCache";
-import { splitMemoryFacts } from "@/lib/memoryFacts";
+import { joinMemoryFacts, splitMemoryFacts } from "@/lib/memoryFacts";
 import { Theme, useTheme } from "@/lib/theme";
 
 const TYPE_ORDER = ["profile", "preference", "project", "fact", "focus"];
@@ -314,8 +314,7 @@ export default function MemoryScreen() {
                     if (facts.length === 0) {
                       applyMemories(memories.filter((item) => item.id !== section.id));
                     } else {
-                      const nextText =
-                        facts.join(". ") + (facts.at(-1)?.endsWith(".") ? "" : ".");
+                      const nextText = joinMemoryFacts(facts);
                       applyMemories(
                         memories.map((item) =>
                           item.id === section.id ? { ...item, text: nextText } : item,

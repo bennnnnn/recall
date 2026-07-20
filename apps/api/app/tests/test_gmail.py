@@ -361,6 +361,9 @@ async def test_sync_gmail_processes_messages():
     )
     created_row = MagicMock()
 
+    user = MagicMock()
+    user.timezone = "America/Los_Angeles"
+
     with (
         patch(
             "app.services.email.gmail_gateway.is_configured",
@@ -373,6 +376,10 @@ async def test_sync_gmail_processes_messages():
         patch(
             "app.services.email.gmail_gateway.list_recent_messages",
             AsyncMock(return_value=[message]),
+        ),
+        patch(
+            "app.services.email.users_repo.get_by_id",
+            AsyncMock(return_value=user),
         ),
         patch(
             "app.services.email.suggested_repo.existing_message_ids",

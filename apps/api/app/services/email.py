@@ -20,6 +20,7 @@ from app.models.orm import User
 from app.repositories import gmail_connections as gmail_repo
 from app.repositories import suggested_reminders as suggested_repo
 from app.repositories import todos as todos_repo
+from app.repositories import users as users_repo
 from app.services import day_planning as day_planning_service
 from app.services import email_triage as email_triage_service
 from app.services import home as home_service
@@ -261,10 +262,14 @@ class SuggestedReminderExtractionResult(BaseModel):
     reminders: list[SuggestedReminderItem] = Field(default_factory=list)
 
 
-def _parse_from_ics(message: GmailMessage) -> SuggestedReminderItem | None:
+def _parse_from_ics(
+    message: GmailMessage,
+    *,
+    default_tz: str | None = None,
+) -> SuggestedReminderItem | None:
     if not message.ics_content:
         return None
-    invite = parse_ics_invite(message.ics_content)
+    invite = parse_ics_invite(message.ics_content, default_tz=default_tz)
     if invite is None:
         return None
     title = invite.title or message.subject or "Calendar event"
@@ -321,13 +326,15 @@ async def _process_message(
     settings: Settings,
     user_id: UUID,
     message: GmailMessage,
+    *,
+    default_tz: str | None = None,
 ) -> bool:
     """Extract a reminder from one Gmail message. Returns True if a row was created.
 
     Caller is expected to skip message IDs already known via a batched existence
     lookup — this path does not re-query per message.
     """
-    extracted = _parse_from_ics(message)
+    extracted = _parse_from_ics(message, default_tz=default_tz)
     if extracted is None:
         extracted = await _extract_with_llm(settings, message)
     if extracted is None:
@@ -402,6 +409,9 @@ async def sync_gmail_for_user(
     if redis is not None:
         await write_gmail_cache(redis, user_id, messages, settings)
 
+    user = await users_repo.get_by_id(session, user_id)
+    default_tz = user.timezone if user is not None else None
+
     known_ids = await suggested_repo.existing_message_ids(
         session, user_id, [m.id for m in messages]
     )
@@ -410,7 +420,7 @@ async def sync_gmail_for_user(
         if message.id in known_ids:
             continue
         try:
-            if await _process_message(session, settings, user_id, message):
+            if await _process_message(session, settings, user_id, message, default_tz=default_tz):
                 created += 1
                 known_ids.add(message.id)
         except Exception:
