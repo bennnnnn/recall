@@ -16,6 +16,14 @@ async def list_for_user(session: AsyncSession, user_id: UUID) -> list[Memory]:
     return list(result.scalars().all())
 
 
+async def has_any_embedding(session: AsyncSession, user_id: UUID) -> bool:
+    """True if the user has at least one memory with a populated pgvector embedding."""
+    result = await session.execute(
+        select(Memory.id).where(Memory.user_id == user_id, Memory.embedding.isnot(None)).limit(1)
+    )
+    return result.scalar_one_or_none() is not None
+
+
 async def list_range(
     session: AsyncSession,
     user_id: UUID,

@@ -308,6 +308,62 @@ async def test_apply_project_actions_master():
 
 
 @pytest.mark.asyncio
+async def test_apply_project_actions_loads_items_scoped_per_project():
+    """Dedup window must be per-project — a busy deck must not push another
+    project's items out of a shared global top-N snapshot."""
+    session = AsyncMock()
+    user_id = uuid4()
+    project_a = _project("Busy deck")
+    project_b = _project("Quiet deck")
+    list_recent = AsyncMock(
+        side_effect=lambda *_a, **kw: (
+            [_item(f"flood-{i}", project_a.id) for i in range(3)]
+            if kw.get("project_id") == project_a.id
+            else [_item("keep-me", project_b.id)]
+        )
+    )
+    with (
+        patch.object(
+            projects_repo,
+            "list_for_user",
+            AsyncMock(return_value=[project_a, project_b]),
+        ),
+        patch.object(project_items_repo, "list_recent_for_user", list_recent),
+        patch.object(
+            project_items_repo,
+            "count_for_project",
+            AsyncMock(return_value=0),
+        ),
+        patch.object(
+            project_items_repo,
+            "create",
+            AsyncMock(return_value=_item("keep-me", project_b.id)),
+        ) as create_mock,
+    ):
+        applied = await projects_service.apply_project_actions(
+            session,
+            user_id=user_id,
+            actions=[
+                ProjectActionItem(
+                    action="add",
+                    project_title="Quiet deck",
+                    list_title="Travel",
+                    content="keep-me",
+                ),
+            ],
+        )
+
+    assert applied == 0  # duplicate within project B's scoped window
+    create_mock.assert_not_awaited()
+    assert list_recent.await_count >= 2
+    project_ids = {
+        call.kwargs.get("project_id") for call in list_recent.await_args_list if call.kwargs
+    }
+    assert project_a.id in project_ids
+    assert project_b.id in project_ids
+
+
+@pytest.mark.asyncio
 async def test_apply_project_actions_delete_project():
     """from_transcript=False simulates an explicit user-initiated caller
     (e.g. DELETE /projects/{id}) — destructive actions must still go through

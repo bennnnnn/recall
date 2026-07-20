@@ -58,6 +58,18 @@ class _ProjectApplyState:
     items: list[ProjectItem]
 
 
+async def _reload_items_for_project(state: _ProjectApplyState, project_id: UUID) -> None:
+    """Refresh the in-memory dedup window for one project (not a global top-N)."""
+    fresh = await project_items_repo.list_recent_for_user(
+        state.session,
+        state.user_id,
+        project_id=project_id,
+        limit=_ACTION_RELOAD_LIMIT,
+    )
+    others = [item for item in state.items if item.project_id != project_id]
+    state.items = others + fresh
+
+
 def _prepare_project_action(action: ProjectActionItem) -> ProjectActionItem | None:
     title = action.project_title.strip()
     if not title:
@@ -128,9 +140,7 @@ async def _project_action_create_project(
             chat_id=state.chat_id,
         )
         applied += 1
-        state.items = await project_items_repo.list_recent_for_user(
-            state.session, state.user_id, limit=_ACTION_RELOAD_LIMIT
-        )
+        await _reload_items_for_project(state, project.id)
     return applied
 
 
@@ -201,9 +211,7 @@ async def _project_action_add(state: _ProjectApplyState, action: ProjectActionIt
         chat_id=state.chat_id,
         status="new",
     )
-    state.items = await project_items_repo.list_recent_for_user(
-        state.session, state.user_id, limit=_ACTION_RELOAD_LIMIT
-    )
+    await _reload_items_for_project(state, project.id)
     return 1
 
 
@@ -236,9 +244,7 @@ async def _project_action_start_learning(
             chat_id=state.chat_id,
             status="new",
         )
-        state.items = await project_items_repo.list_recent_for_user(
-            state.session, state.user_id, limit=_ACTION_RELOAD_LIMIT
-        )
+        await _reload_items_for_project(state, project.id)
     if item and _item_status(item) != "mastered":
         if not _failed_quiz_today(item):
             from app.services.projects.quiz_grading import apply_quiz_result
@@ -377,9 +383,18 @@ async def apply_project_actions(
         if not actions:
             return 0
     projects = await projects_repo.list_for_user(session, user_id, limit=200)
-    items = await project_items_repo.list_recent_for_user(
-        session, user_id, limit=_ACTION_RELOAD_LIMIT
-    )
+    # Per-project recent window so a busy deck cannot push another project's
+    # items out of the in-memory dedup snapshot.
+    items: list[ProjectItem] = []
+    for project in projects:
+        items.extend(
+            await project_items_repo.list_recent_for_user(
+                session,
+                user_id,
+                project_id=project.id,
+                limit=_ACTION_RELOAD_LIMIT,
+            )
+        )
     state = _ProjectApplyState(
         session=session,
         user_id=user_id,

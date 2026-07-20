@@ -118,6 +118,10 @@ async def test_process_email_suggestions_batches_per_user():
     assert "2 reminders" in messages[0].message["body"]
     assert messages[0].message["data"]["type"] == "email_suggestion"
     session.commit.assert_not_awaited()
+    assert push_service.EMAIL_SUGGESTION_PUSH_LIMIT == 200
+    # Cap is applied on the select (token-less users excluded via EXISTS).
+    stmt = session.execute.await_args.args[0]
+    assert stmt._limit_clause is not None
 
 
 @pytest.mark.asyncio

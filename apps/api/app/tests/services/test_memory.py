@@ -207,6 +207,10 @@ async def test_load_relevant_memories_applies_similarity_cutoff_to_db_path():
 
     with (
         patch(
+            "app.repositories.memories.has_any_embedding",
+            AsyncMock(return_value=False),
+        ),
+        patch(
             "app.repositories.memories.list_for_user",
             AsyncMock(return_value=[unembedded]),
         ),
@@ -244,6 +248,10 @@ async def test_load_relevant_memories_skips_max_distance_when_cutoff_disabled():
     )
 
     with (
+        patch(
+            "app.repositories.memories.has_any_embedding",
+            AsyncMock(return_value=False),
+        ),
         patch("app.repositories.memories.list_for_user", AsyncMock(return_value=[])),
         patch(
             "app.repositories.memories.search_semantic",
@@ -282,6 +290,10 @@ async def test_load_relevant_memories_falls_back_to_in_memory_when_db_empty():
 
     with (
         patch(
+            "app.repositories.memories.has_any_embedding",
+            AsyncMock(return_value=False),
+        ),
+        patch(
             "app.repositories.memories.list_for_user",
             AsyncMock(return_value=[in_memory_hit]),
         ),
@@ -316,20 +328,19 @@ async def test_load_relevant_memories_returns_empty_when_vectors_populated_but_n
         semantic_memory_enabled=True, memory_min_confidence=0.0, memory_inject_limit=5
     )
 
-    embedded_memory = _memory("fact", "Python programming", 1.0)
-    embedded_memory.embedding = [1.0, 0.0, 0.0]
-    embedded_memory.embedding_json = "[1.0, 0.0, 0.0]"
-
+    list_mock = AsyncMock(return_value=[])
     with (
         patch(
-            "app.repositories.memories.list_for_user",
-            AsyncMock(return_value=[embedded_memory]),
+            "app.repositories.memories.has_any_embedding",
+            AsyncMock(return_value=True),
         ),
+        patch("app.repositories.memories.list_for_user", list_mock),
         patch("app.repositories.memories.search_semantic", AsyncMock(return_value=[])),
     ):
         result = await load_relevant_memories(session, user, settings, query_vec=[0.0, 1.0, 0.0])
 
     assert result == []
+    list_mock.assert_not_awaited()
 
 
 @pytest.mark.asyncio

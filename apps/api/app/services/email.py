@@ -321,16 +321,17 @@ async def _process_message(
     settings: Settings,
     user_id: UUID,
     message: GmailMessage,
-) -> None:
-    existing = await suggested_repo.get_by_message_id(session, user_id, message.id)
-    if existing is not None:
-        return
+) -> bool:
+    """Extract a reminder from one Gmail message. Returns True if a row was created.
 
+    Caller is expected to skip message IDs already known via a batched existence
+    lookup — this path does not re-query per message.
+    """
     extracted = _parse_from_ics(message)
     if extracted is None:
         extracted = await _extract_with_llm(settings, message)
     if extracted is None:
-        return
+        return False
 
     due_at = extracted.due_at
     if due_at is not None and due_at.tzinfo is None:
@@ -346,6 +347,7 @@ async def _process_message(
         confidence=extracted.confidence,
         source_snippet=message.snippet[:500] if message.snippet else None,
     )
+    return True
 
 
 def gmail_sync_is_due(
@@ -400,16 +402,17 @@ async def sync_gmail_for_user(
     if redis is not None:
         await write_gmail_cache(redis, user_id, messages, settings)
 
+    known_ids = await suggested_repo.existing_message_ids(
+        session, user_id, [m.id for m in messages]
+    )
     created = 0
     for message in messages:
-        before = await suggested_repo.get_by_message_id(session, user_id, message.id)
-        if before is not None:
+        if message.id in known_ids:
             continue
         try:
-            await _process_message(session, settings, user_id, message)
-            after = await suggested_repo.get_by_message_id(session, user_id, message.id)
-            if after is not None:
+            if await _process_message(session, settings, user_id, message):
                 created += 1
+                known_ids.add(message.id)
         except Exception:
             logger.exception("Failed to process gmail message id=%s", message.id)
 
