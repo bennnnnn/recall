@@ -37,6 +37,16 @@ def test_user_update_rejects_blank_name():
         UserUpdate(name="   ")
 
 
+def test_user_update_accepts_iana_timezone():
+    update = UserUpdate(timezone="America/New_York")
+    assert update.timezone == "America/New_York"
+
+
+def test_user_update_rejects_invalid_timezone():
+    with pytest.raises(ValueError):
+        UserUpdate(timezone="Not/A/Zone")
+
+
 def test_user_location_label_requires_enabled():
     class U:
         location_enabled = False

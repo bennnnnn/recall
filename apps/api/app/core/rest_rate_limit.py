@@ -63,5 +63,6 @@ class RestRateLimitMiddleware(BaseHTTPMiddleware):
             return JSONResponse(
                 status_code=429,
                 content={"detail": "Too many requests. Please slow down."},
+                headers={"Retry-After": "60"},
             )
         return await call_next(request)

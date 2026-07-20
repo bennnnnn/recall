@@ -8,13 +8,24 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import quote
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import httpx
 
 from app.core.config import Settings
 from app.gateways import google_oauth
 from app.gateways.http_client import get_pooled_client
+
+
+def _safe_zoneinfo(tz_name: str | None) -> ZoneInfo:
+    """IANA ZoneInfo with UTC fallback — never raise on bad profile timezones."""
+    try:
+        if not isinstance(tz_name, str):
+            return ZoneInfo("UTC")
+        return ZoneInfo(tz_name.strip() or "UTC")
+    except (ZoneInfoNotFoundError, ValueError):
+        return ZoneInfo("UTC")
+
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +85,7 @@ async def _access_token(settings: Settings, refresh_token: str) -> str:
 def _parse_event_time(raw: dict[str, Any], tz_name: str) -> datetime | None:
     if not isinstance(raw, dict):
         return None
-    tz = ZoneInfo(tz_name or "UTC")
+    tz = _safe_zoneinfo(tz_name)
     if raw.get("dateTime"):
         value = str(raw["dateTime"])
         try:
@@ -279,13 +290,15 @@ async def create_event(
         "Authorization": f"Bearer {access}",
         "Content-Type": "application/json",
     }
+    tz = _safe_zoneinfo(timezone)
+    tz_name = tz.key
     body: dict[str, Any] = {
         "summary": title.strip() or "Event",
         "start": {
-            "dateTime": start.astimezone(ZoneInfo(timezone)).isoformat(),
-            "timeZone": timezone,
+            "dateTime": start.astimezone(tz).isoformat(),
+            "timeZone": tz_name,
         },
-        "end": {"dateTime": end.astimezone(ZoneInfo(timezone)).isoformat(), "timeZone": timezone},
+        "end": {"dateTime": end.astimezone(tz).isoformat(), "timeZone": tz_name},
     }
     if location:
         body["location"] = location

@@ -89,6 +89,11 @@ def create_app() -> FastAPI:
     )
 
     cors_origins = cors_allow_origins(settings)
+    # Middleware is outermost-last: rate-limit must sit *inside* CORS so a 429
+    # still gets Access-Control-* headers (browsers otherwise report a network
+    # error). Security headers wrap the whole stack last.
+    app.add_middleware(RestRateLimitMiddleware)
+    app.add_middleware(RequestIdMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=cors_origins,
@@ -101,8 +106,6 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
     )
-    app.add_middleware(RestRateLimitMiddleware)
-    app.add_middleware(RequestIdMiddleware)
     # Baseline security headers (nosniff / no-frame / no-referrer / HSTS in
     # production behind TLS). Added last so it wraps the whole stack on the
     # way out; per-route headers that already set one are not overridden.

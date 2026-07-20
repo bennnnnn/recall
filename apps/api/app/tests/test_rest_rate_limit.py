@@ -49,14 +49,27 @@ def test_middleware_skips_health_when_rate_limited():
 
 
 def test_middleware_returns_429_when_over_limit():
+    settings = Settings(
+        cors_origins="http://localhost:8081",
+        rest_rate_limit_per_minute=60,
+        jwt_secret="test-secret-32-chars-long-enough!!",
+    )
     with (
+        patch("app.main.get_settings", return_value=settings),
+        patch("app.core.rest_rate_limit.get_settings", return_value=settings),
         patch("app.core.rest_rate_limit.get_redis_client", return_value=AsyncMock()),
         patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=False)),
     ):
         client = TestClient(create_app())
-        response = client.get("/openapi.json")
+        response = client.get(
+            "/openapi.json",
+            headers={"Origin": "http://localhost:8081"},
+        )
     assert response.status_code == 429
     assert response.json()["detail"] == "Too many requests. Please slow down."
+    assert response.headers.get("retry-after") == "60"
+    # CORS must wrap rate-limit so browsers see a real 429, not a network error.
+    assert response.headers.get("access-control-allow-origin") == "http://localhost:8081"
 
 
 def test_middleware_skips_when_limit_disabled():

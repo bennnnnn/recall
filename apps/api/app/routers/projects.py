@@ -1,6 +1,5 @@
 from datetime import date, datetime
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -195,7 +194,7 @@ async def update_project(
     new_goal = patch.get("daily_goal")
     if isinstance(new_goal, int) and new_goal != item.daily_goal:
         tz_name = _project_timezone(user, client_timezone)
-        tz = ZoneInfo(tz_name)
+        tz = time_context_service.resolve_timezone(tz_name)
         today = datetime.now(tz).date()
         existing = daily_learning.parse_daily_goal_history(item)
         patch["daily_goal_history"] = daily_learning.append_daily_goal_history(

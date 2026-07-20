@@ -24,6 +24,16 @@ def _patch_session():
     return patch("app.core.jobs.SessionLocal", lambda: _FakeSessionCM())
 
 
+def test_consumer_name_includes_hostname_and_pid():
+    import os
+
+    name = jobs._consumer_name()
+    assert name.startswith("worker-")
+    assert str(os.getpid()) in name
+    # Hostname segment keeps multi-container PID-1 workers distinct.
+    assert name.count("-") >= 2
+
+
 # ── enqueue ──────────────────────────────────────────────────────────────────
 
 

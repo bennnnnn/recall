@@ -4,6 +4,7 @@ from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings
@@ -393,6 +394,32 @@ def test_dev_login_refuses_non_loopback_without_allow_remote():
     login_dev.assert_not_called()
 
 
+def test_dev_login_ignores_spoofed_loopback_forwarded_ip():
+    """Fly-Client-IP / XFF must not bypass the peer loopback guard."""
+    app = create_app()
+    from app.core.deps import get_settings_dep
+
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
+        dev_auth_enabled=True,
+        dev_auth_allow_remote=False,
+        trust_x_forwarded_for=True,
+        trusted_proxy_cidrs="0.0.0.0/0",
+        jwt_secret="test-secret-32-chars-long-enough!!",
+    )
+    with (
+        patch("app.routers.auth.auth_service.login_dev", AsyncMock()) as login_dev,
+        patch("app.routers.auth.allow_request_fail_closed", AsyncMock(return_value=True)),
+    ):
+        client = TestClient(app)
+        r = client.post(
+            "/auth/dev",
+            json={"email": "x@x.com", "name": "X"},
+            headers={"Fly-Client-IP": "127.0.0.1", "X-Forwarded-For": "127.0.0.1"},
+        )
+    assert r.status_code == 404
+    login_dev.assert_not_called()
+
+
 def test_revenuecat_webhook_503_when_no_auth_and_no_dev_opt_in():
     """Webhook auth must never be skipped based on `environment` alone — a
     dev config on a public host would let anyone grant themselves Pro. With
@@ -408,6 +435,35 @@ def test_revenuecat_webhook_503_when_no_auth_and_no_dev_opt_in():
     client = TestClient(app)
     r = client.post("/webhooks/revenuecat", json={"event": {"type": "TEST"}})
     assert r.status_code == 503
+
+
+def test_revenuecat_webhook_rejects_oversized_body():
+    from fastapi import HTTPException
+
+    from app.routers import webhooks as webhooks_mod
+
+    with pytest.raises(HTTPException) as exc:
+        webhooks_mod._reject_oversized_webhook_body(str(200_000), 0)
+    assert exc.value.status_code == 413
+
+    app = create_app()
+    from app.core.deps import get_settings
+
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        environment="development",
+        revenuecat_webhook_auth="whsec-secret",
+        dev_allow_unauthed_webhooks=False,
+    )
+    client = TestClient(app)
+    r = client.post(
+        "/webhooks/revenuecat",
+        content=b"x" * (65 * 1024),
+        headers={
+            "Authorization": "whsec-secret",
+            "Content-Type": "application/json",
+        },
+    )
+    assert r.status_code == 413
 
 
 # ── chats ──────────────────────────────────────────────────────────────────────

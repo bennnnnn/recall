@@ -61,21 +61,26 @@ _LOCATION_QUESTION = re.compile(
 
 def resolve_timezone(tz: str | None) -> ZoneInfo:
     try:
-        return ZoneInfo((tz or DEFAULT_TIMEZONE).strip() or DEFAULT_TIMEZONE)
-    except ZoneInfoNotFoundError:
+        if not isinstance(tz, str):
+            return ZoneInfo(DEFAULT_TIMEZONE)
+        return ZoneInfo(tz.strip() or DEFAULT_TIMEZONE)
+    except (ZoneInfoNotFoundError, ValueError):
+        # ValueError: non-normalized keys (and some mock strings in tests).
         return ZoneInfo(DEFAULT_TIMEZONE)
 
 
 def effective_timezone(profile_tz: str | None, client_tz: str | None = None) -> str:
-    """Prefer device timezone from the client; fall back to stored profile."""
-    if client_tz and client_tz.strip():
+    """Prefer device timezone from the client; fall back to stored profile.
+
+    Invalid IANA names (client or profile) fall back via :func:`resolve_timezone`
+    so callers never receive a string that later crashes ``ZoneInfo(...)``.
+    """
+    if isinstance(client_tz, str) and client_tz.strip():
         try:
-            ZoneInfo(client_tz.strip())
-            return client_tz.strip()
-        except ZoneInfoNotFoundError:
+            return ZoneInfo(client_tz.strip()).key
+        except (ZoneInfoNotFoundError, ValueError):
             pass
-    cleaned = (profile_tz or DEFAULT_TIMEZONE).strip()
-    return cleaned or DEFAULT_TIMEZONE
+    return resolve_timezone(profile_tz).key
 
 
 def prefers_12h_clock(locale: str | None) -> bool:
