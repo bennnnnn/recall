@@ -59,10 +59,14 @@ export type LearningProgressColors = {
   background: string;
   fill: string;
   track: string;
-  /** Text, chevron, outline border — same urgency curve as the fill. */
+  /** Text, chevron, outline border — brand primary (no danger urgency tint). */
   accent: string;
 };
 
+/**
+ * Brand-stable Learning tints. Urgency used to shift toward danger/pink; that
+ * fought the chat-app blue hierarchy, so home + Continue CTAs stay on primary.
+ */
 export function homeLearningCardColors(options: {
   urgency: number;
   surface: string;
@@ -72,25 +76,19 @@ export function homeLearningCardColors(options: {
   danger: string;
   success: boolean;
 }): LearningProgressColors {
-  if (options.success) {
-    return {
-      background: options.primaryLight,
-      fill: options.primary,
-      track: options.surface,
-      accent: options.primary,
-    };
-  }
-  const u = Math.min(1, Math.max(0, options.urgency));
-  const accent = mixHexColors(options.primary, options.danger, u * 0.85);
+  void options.urgency;
+  void options.dangerLight;
+  void options.danger;
+  void options.success;
   return {
-    background: mixHexColors(options.primaryLight, options.dangerLight, u),
-    fill: accent,
-    track: mixHexColors(options.surface, options.dangerLight, u * 0.4),
-    accent,
+    background: options.primaryLight,
+    fill: options.primary,
+    track: options.surface,
+    accent: options.primary,
   };
 }
 
-/** Resolve tint from today's progress + local hour (shared by home + CTAs). */
+/** Resolve tint for home + Continue CTAs (brand primary; urgency ignored). */
 export function learningProgressColors(options: {
   completedToday: number;
   dailyGoal: number;
