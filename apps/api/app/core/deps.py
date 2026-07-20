@@ -17,6 +17,15 @@ security = HTTPBearer()
 _REDIS_RETRY_AFTER = "5"
 
 
+def redis_unavailable_http_exception(exc: RedisUnavailableError) -> HTTPException:
+    """Map Redis outage to 503 + Retry-After (shared by deps + auth routes)."""
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail=exc.message,
+        headers={"Retry-After": _REDIS_RETRY_AFTER},
+    )
+
+
 async def get_settings_dep() -> Settings:
     return get_settings()
 
@@ -34,11 +43,7 @@ async def get_current_user(
     try:
         user_id = await tokens_service.verify_access_token(redis, credentials.credentials, settings)
     except RedisUnavailableError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=exc.message,
-            headers={"Retry-After": _REDIS_RETRY_AFTER},
-        ) from exc
+        raise redis_unavailable_http_exception(exc) from exc
     except GoogleAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 

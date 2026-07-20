@@ -7,9 +7,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.client_ip import client_ip
 from app.core.config import Settings
 from app.core.db import get_db
-from app.core.deps import get_current_user, get_redis, get_settings_dep, security
+from app.core.deps import (
+    get_current_user,
+    get_redis,
+    get_settings_dep,
+    redis_unavailable_http_exception,
+    security,
+)
 from app.core.dev_guards import is_loopback_ip, require_dev_privilege_access
 from app.core.rate_limit import allow_request_fail_closed
+from app.exceptions import RedisUnavailableError
 from app.gateways.google_auth import GoogleAuthError
 from app.models.orm import User
 from app.models.schemas import (
@@ -170,6 +177,8 @@ async def refresh_session(
         access_token, refresh_token, user = await tokens_service.refresh_token_pair(
             redis, body.refresh_token, session, settings
         )
+    except RedisUnavailableError as exc:
+        raise redis_unavailable_http_exception(exc) from exc
     except GoogleAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     return AuthResponse(
@@ -186,8 +195,11 @@ async def logout(
     settings: Settings = Depends(get_settings_dep),
     redis: Redis = Depends(get_redis),
 ) -> None:
-    await tokens_service.revoke_access_token(redis, credentials.credentials, settings)
-    await tokens_service.revoke_refresh_token(redis, body.refresh_token)
+    try:
+        await tokens_service.revoke_access_token(redis, credentials.credentials, settings)
+        await tokens_service.revoke_refresh_token(redis, body.refresh_token)
+    except RedisUnavailableError as exc:
+        raise redis_unavailable_http_exception(exc) from exc
 
 
 @router.patch("/me", response_model=UserOut)
