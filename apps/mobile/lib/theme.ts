@@ -1,11 +1,12 @@
 /**
- * App theme — a single standardized palette (Tailwind-derived) shared by
- * every screen via `useTheme()`. Two brand hues: `primary` (blue) drives
- * ordinary buttons/links/selection state; `accent` (indigo/purple) is
- * reserved for AI-in-progress moments (typing/streaming/reasoning
- * indicators) so those reads as distinctly "the model is working" rather
- * than a generic interactive color. Do not hardcode hex colors in
- * components — add a token here instead so every screen stays in sync.
+ * App theme — one palette via `useTheme()`. Strategy mirrors successful chat
+ * apps (iMessage / WhatsApp chrome + modern AI products):
+ *  - `primary` — one vivid action blue for buttons, links, send, selection
+ *  - `accent` — teal reserved for AI-in-progress (typing/streaming/reasoning)
+ *    so it never competes with interactive blue
+ *  - Soft blue `userBubble` — branded without forcing white-on-blue markdown
+ *  - Neutral canvas/surfaces — hierarchy without color noise
+ * Do not hardcode hex in components — add a token here instead.
  */
 import { useResolvedColorScheme } from "@/hooks/useResolvedColorScheme";
 
@@ -77,45 +78,48 @@ export const lightTheme: Theme = {
   scheme: "light",
   isDark: false,
 
-  primary: "#2563EB",
-  primaryLight: "#DBEAFE",
-  primaryDark: "#1D4ED8",
+  // iOS system blue family — unmistakable interactive color
+  primary: "#007AFF",
+  primaryLight: "#E5F2FF",
+  primaryDark: "#0056CC",
 
-  accent: "#4F46E5",
-  accentLight: "#E0E7FF",
-  accentDark: "#4338CA",
+  // Teal — clearly not blue; reserved for "model is working"
+  accent: "#0D9488",
+  accentLight: "#CCFBF1",
+  accentDark: "#0F766E",
 
-  // From chat screenshot: off-white page, pure-white chrome, cool-gray bubbles.
-  bg: "#FAFAFA",
+  // iOS grouped-background hierarchy
+  bg: "#F2F2F7",
   surface: "#FFFFFF",
-  surfaceAlt: "#F1F4F9",
-  border: "#E8E8ED",
+  surfaceAlt: "#E5E5EA",
+  border: "#D1D1D6",
 
-  text: "#111827",
-  textSecondary: "#6B7280",
-  textTertiary: "#9CA3AF",
+  text: "#1C1C1E",
+  textSecondary: "#636366",
+  textTertiary: "#8E8E93",
 
-  userBubble: "#F1F4F9",
-  userText: "#111827",
+  // Soft brand wash — stands out vs gray assistant without white-on-blue markdown
+  userBubble: "#D6EBFF",
+  userText: "#1C1C1E",
   assistantBubble: "#FFFFFF",
-  assistantText: "#111827",
+  assistantText: "#1C1C1E",
 
-  composerBg: "#FAFAFA",
-  composerBorder: "#E8E8ED",
+  composerBg: "#F2F2F7",
+  composerBorder: "#D1D1D6",
   inputBg: "#FFFFFF",
 
-  contentSurface: "#F1F4F9",
+  contentSurface: "#EFEFF4",
 
-  danger: "#EF4444",
-  dangerLight: "#FEE2E2",
-  warning: "#F59E0B",
-  success: "#22C55E",
-  successLight: "#DCFCE7",
+  danger: "#FF3B30",
+  dangerLight: "#FFE5E3",
+  warning: "#FF9F0A",
+  success: "#34C759",
+  successLight: "#D8F5E1",
   onPrimary: "#FFFFFF",
 
-  codeBg: "#F8FAFC",
-  codeText: "#111827",
-  codeLang: "#9CA3AF",
+  codeBg: "#F2F2F7",
+  codeText: "#1C1C1E",
+  codeLang: "#8E8E93",
 
   scrim: "rgba(0,0,0,0.40)",
 
@@ -126,45 +130,44 @@ export const darkTheme: Theme = {
   scheme: "dark",
   isDark: true,
 
-  primary: "#3B82F6",
-  primaryLight: "#1E2A47",
-  primaryDark: "#60A5FA",
+  primary: "#0A84FF",
+  primaryLight: "#0A2540",
+  primaryDark: "#64B5FF",
 
-  accent: "#818CF8",
-  accentLight: "#21203D",
-  accentDark: "#A5B4FC",
+  accent: "#2DD4BF",
+  accentLight: "#0F2F2C",
+  accentDark: "#5EEAD4",
 
-  // Deeper canvas, raised surface — same hierarchy as light, inverted.
-  bg: "#1C1C1E",
-  surface: "#2C2C2E",
-  surfaceAlt: "#3A3A3C",
-  border: "#3A3A3C",
+  bg: "#000000",
+  surface: "#1C1C1E",
+  surfaceAlt: "#2C2C2E",
+  border: "#38383A",
 
-  text: "#ECECEC",
-  textSecondary: "#B4B4B4",
-  textTertiary: "#8E8E8E",
+  text: "#F5F5F7",
+  textSecondary: "#A1A1A6",
+  textTertiary: "#8E8E93",
 
-  userBubble: "#2C2C2E",
-  userText: "#ECECEC",
+  userBubble: "#0A335C",
+  userText: "#F5F5F7",
   assistantBubble: "#1C1C1E",
-  assistantText: "#ECECEC",
+  assistantText: "#F5F5F7",
 
-  composerBg: "#1C1C1E",
-  composerBorder: "#3A3A3C",
-  inputBg: "#2C2C2E",
+  composerBg: "#000000",
+  composerBorder: "#38383A",
+  inputBg: "#1C1C1E",
 
-  contentSurface: "#2C2C2E",
+  contentSurface: "#1C1C1E",
 
-  danger: "#F87171",
-  dangerLight: "#3A1F1E",
-  warning: "#FBBF24",
-  success: "#4ADE80",
-  successLight: "rgba(74, 222, 128, 0.16)",
+  danger: "#FF453A",
+  dangerLight: "#3B1513",
+  warning: "#FFD60A",
+  success: "#30D158",
+  successLight: "rgba(48, 209, 88, 0.18)",
   onPrimary: "#FFFFFF",
 
   codeBg: "#0D0D0D",
   codeText: "#E6E6E6",
-  codeLang: "#8E8E8E",
+  codeLang: "#8E8E93",
 
   scrim: "rgba(0,0,0,0.60)",
 
