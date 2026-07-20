@@ -10,6 +10,10 @@ async def allow_request(redis: Redis, key: str, *, limit: int, window_seconds: i
 
     INCR and EXPIRE run in one pipeline so a crash between them cannot leave a
     counter key with no TTL (permanent rate-limit for that bucket).
+
+    Requires Redis ≥ 7 for ``EXPIRE … NX`` (set TTL only when missing). Upstash
+    and current Fly Redis satisfy this; without NX every hit would refresh the
+    window and weaken the limit.
     """
     async with redis.pipeline(transaction=True) as pipe:
         pipe.incr(key)

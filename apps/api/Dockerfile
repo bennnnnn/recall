@@ -41,7 +41,7 @@ USER appuser
 
 EXPOSE 8000
 
-# Migrate on every deploy, then start. The migration is idempotent (alembic
-# upgrade head is a no-op when already at head). If migrate fails, the app
-# doesn't start — better than serving against a stale schema.
-CMD ["sh", "-c", "uv run alembic upgrade head && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-access-log"]
+# Local/docker-run: migrate then exec uvicorn as PID 1 (SIGTERM-friendly).
+# On Fly, migrations run once via `release_command` (see fly.toml) so multiple
+# app machines do not race `alembic upgrade head` on boot.
+CMD ["sh", "-c", "/opt/venv/bin/alembic upgrade head && exec /opt/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-access-log"]

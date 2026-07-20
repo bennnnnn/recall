@@ -36,6 +36,15 @@ def test_known_model_aliases_match_catalog():
     assert KNOWN_MODEL_ALIASES == model_catalog.known_ids()
 
 
+def test_get_unknown_alias_raises():
+    with pytest.raises(KeyError, match="Unknown model alias"):
+        model_catalog.get("not-a-real-model")
+
+
+def test_default_model_is_free_chat():
+    assert model_catalog.default_model().id == "free-chat"
+
+
 def _model(tier: str, *, input_price=None, output_price=None, id_="test-model"):
     return model_catalog.ChatModel(
         id=id_,

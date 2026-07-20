@@ -7,6 +7,11 @@ Product surface is English vocabulary + general knowledge (trivia) only.
 Legacy kinds (programming, math, general, …) were remapped to ``general`` in
 0053 and still surfaced on the home screen via the projects[0] fallback.
 Delete those rows (items cascade; chats/todos SET NULL) and tighten the CHECK.
+
+CAUTION: upgrade() irreversibly DELETEs projects whose kind is not
+language/trivia. Downgrade cannot restore those rows. Confirm a DB backup
+(or that prod has no needed legacy projects) before deploying this revision
+to any environment that still has legacy kinds.
 """
 
 from typing import Sequence, Union

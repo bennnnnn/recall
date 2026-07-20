@@ -362,7 +362,7 @@ async def test_worker_loop_processes_then_cancels():
 
     jobs.register("wl-job", handler)
 
-    with patch("app.core.jobs.get_redis_client", return_value=redis):
+    with patch("app.core.jobs.get_jobs_redis_client", return_value=redis):
         with pytest.raises(asyncio.CancelledError):
             await jobs._worker_loop(Settings())
 
