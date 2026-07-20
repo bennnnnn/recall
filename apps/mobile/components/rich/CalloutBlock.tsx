@@ -25,7 +25,7 @@ function calloutMeta(
   return {
     tip: { label: t("rich.callout_tip"), color: theme.success, icon: "bulb-outline" },
     note: { label: t("rich.callout_note"), color: theme.primary, icon: "information-circle-outline" },
-    info: { label: t("rich.callout_info"), color: theme.accent, icon: "information-circle-outline" },
+    info: { label: t("rich.callout_info"), color: theme.primary, icon: "information-circle-outline" },
     warning: { label: t("rich.callout_warning"), color: theme.warning, icon: "warning-outline" },
     important: {
       label: t("rich.callout_important"),

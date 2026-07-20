@@ -13,7 +13,7 @@ export const TOKEN_COLORS = {
   plain: "#2D2D2D",
   comment: "#8B8B8B",
   string: "#059669",
-  number: "#2563EB",
+  number: "#007AFF",
   keyword: "#DC2626",
   function: "#7C3AED",
   className: "#0891B2",

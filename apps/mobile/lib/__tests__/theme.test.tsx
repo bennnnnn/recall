@@ -1,14 +1,17 @@
 import { darkTheme, lightTheme, withAlpha } from "@/lib/theme";
 
 describe("surface hierarchy", () => {
-  it("matches screenshot: off-white page, pure-white chrome, cool-gray bubbles", () => {
-    expect(lightTheme.bg).toBe("#FAFAFA");
+  it("keeps chat-app hierarchy: grouped canvas, white chrome, branded user bubble", () => {
+    expect(lightTheme.bg).toBe("#F2F2F7");
     expect(lightTheme.surface).toBe("#FFFFFF");
     expect(lightTheme.inputBg).toBe("#FFFFFF");
-    expect(lightTheme.userBubble).toBe("#F1F4F9");
+    expect(lightTheme.userBubble).toBe("#D6EBFF");
+    expect(lightTheme.primary).toBe("#007AFF");
+    expect(lightTheme.accent).toBe("#0D9488");
     expect(lightTheme.bg).toBe(lightTheme.composerBg);
     expect(darkTheme.bg).not.toBe(darkTheme.surface);
     expect(darkTheme.inputBg).toBe(darkTheme.surface);
+    expect(darkTheme.userBubble).not.toBe(darkTheme.assistantBubble);
   });
 });
 
