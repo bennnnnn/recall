@@ -103,3 +103,36 @@ async def test_lifespan_api_role_skips_workers():
 
     start_worker.assert_not_awaited()
     start_push.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_lifespan_rejects_unknown_process_role():
+    app = create_app()
+
+    mock_engine = MagicMock()
+    mock_engine.dispose = AsyncMock()
+    mock_redis = AsyncMock()
+    mock_redis.aclose = AsyncMock()
+
+    mock_settings = MagicMock()
+    mock_settings.process_role = "scheduler"
+    mock_settings.cors_origins = "*"
+    mock_settings.sentry_dsn = ""
+
+    with (
+        patch("app.main.setup_logging"),
+        patch("app.main.validate_production_settings"),
+        patch("app.main.init_sentry"),
+        patch("app.gateways.mcp.setup_mcp_adapters"),
+        patch("app.main.get_settings", return_value=mock_settings),
+        patch("app.main.jobs.start_worker", AsyncMock()) as start_worker,
+        patch("app.main.warmup_db_pool", AsyncMock()),
+        patch("app.main.aclose_pooled_clients", AsyncMock()),
+        patch("app.main.engine", mock_engine),
+        patch("app.main.get_redis_client", return_value=mock_redis),
+    ):
+        with pytest.raises(RuntimeError, match="Invalid PROCESS_ROLE"):
+            async with lifespan(app):
+                pass
+
+    start_worker.assert_not_awaited()

@@ -44,6 +44,8 @@ from app.routers import (
     ws,
 )
 
+_VALID_PROCESS_ROLES = frozenset({"all", "api", "worker"})
+
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -56,6 +58,11 @@ async def lifespan(_: FastAPI):
     setup_mcp_adapters(settings)
     await warmup_db_pool()
     role = settings.process_role.strip().lower()
+    if role not in _VALID_PROCESS_ROLES:
+        raise RuntimeError(
+            f"Invalid PROCESS_ROLE={settings.process_role!r}; "
+            f"expected one of {sorted(_VALID_PROCESS_ROLES)}"
+        )
     if role in ("all", "worker"):
         await jobs.start_worker(settings)
         await push_scheduler.start_push_scheduler(settings)

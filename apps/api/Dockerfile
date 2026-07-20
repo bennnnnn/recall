@@ -33,6 +33,12 @@ COPY alembic.ini ./
 COPY alembic ./alembic
 COPY app ./app
 
+# Run as non-root. Own the app tree + venv so alembic/uv can read/execute;
+# /tmp stays world-writable for any scratch files.
+RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin appuser \
+    && chown -R appuser:appuser /app /opt/venv
+USER appuser
+
 EXPOSE 8000
 
 # Migrate on every deploy, then start. The migration is idempotent (alembic
