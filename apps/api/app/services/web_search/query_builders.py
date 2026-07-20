@@ -18,7 +18,6 @@ from app.services.web_search.patterns import (
     _TEAM_POSSESSIVE_SCORE,
     _TEAM_SCORE,
     _WORLD_CUP,
-    _YESTERDAY,
     collapse_ws,
 )
 from app.services.web_search.subject import resolve_search_subject
@@ -57,12 +56,26 @@ def _world_cup_queries(
     ]
 
 
+_TEMPORAL_TEAM_WORDS = frozenset({"yesterday", "today", "tomorrow", "tonight", "week", "weekend"})
+_TEAM_FILLER = frozenset({"show", "me", "the", "a", "an", "my", "our"})
+
+
 def _normalize_team_label(raw: str) -> str:
     label = collapse_ws(raw).strip("?.!")
     # No ``\s+`` — input is whitespace-collapsed (CodeQL py/polynomial-redos).
     label = re.sub(r"(?: game| match| scores?| results?| fixture)s?$", "", label, flags=re.I)
     label = re.sub(r"(?:'s|s)$", "", label, flags=re.I)
     return label.strip()
+
+
+def _is_plausible_team_label(label: str) -> bool:
+    """Reject temporal phrases mis-parsed as teams (\"yesterdays game\")."""
+    tokens = [t for t in label.lower().split() if t not in _TEAM_FILLER]
+    if not tokens:
+        return False
+    if tokens[0] in _TEMPORAL_TEAM_WORDS:
+        return False
+    return True
 
 
 def _extract_team_subject(cleaned: str) -> str | None:
@@ -75,9 +88,12 @@ def _extract_team_subject(cleaned: str) -> str | None:
         match = re.match(pattern, cleaned, flags=re.I)
         if match:
             team = _normalize_team_label(match.group("team"))
-            if team and len(team.split()) <= 6:
+            if team and len(team.split()) <= 6 and _is_plausible_team_label(team):
                 return team
-    return _normalize_team_label(cleaned) or None
+    fallback = _normalize_team_label(cleaned) or None
+    if fallback and _is_plausible_team_label(fallback):
+        return fallback
+    return None
 
 
 def _team_score_queries(team: str) -> list[str]:
@@ -180,13 +196,8 @@ def build_search_queries(
             today_iso=today_iso,
         )
 
-    if _YESTERDAY.search(cleaned) and _SPORTS.search(cleaned):
-        return _world_cup_queries(
-            today=today,
-            yesterday=yesterday,
-            yesterday_iso=yesterday_iso,
-            today_iso=today_iso,
-        )
+    # Generic "yesterday + sports" must NOT force World Cup — that stole team
+    # queries like "did the Lakers win yesterday". WC only via _WORLD_CUP above.
 
     team = _extract_team_subject(cleaned)
     if team and _is_team_specific_sports_query(cleaned):
