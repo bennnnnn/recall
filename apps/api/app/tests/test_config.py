@@ -31,6 +31,25 @@ def test_validate_production_settings_ok():
     )
 
 
+def test_default_trusted_proxy_cidrs_include_fly_6pn():
+    assert "fdaa::/16" in Settings().trusted_proxy_cidrs
+
+
+def test_warns_when_trusted_proxy_cidrs_ipv4_only(caplog):
+    import logging
+
+    from app.core.config import _warn_proxy_trust_misconfig
+
+    with caplog.at_level(logging.WARNING):
+        _warn_proxy_trust_misconfig(
+            Settings(
+                trust_x_forwarded_for=True,
+                trusted_proxy_cidrs="10.0.0.0/8,127.0.0.1/32",
+            )
+        )
+    assert any("fdaa::/16" in r.message for r in caplog.records)
+
+
 def test_validate_production_settings_rejects_dev_flags():
     with pytest.raises(RuntimeError, match="DEV_AUTH_ENABLED"):
         validate_production_settings(

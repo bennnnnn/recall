@@ -205,7 +205,8 @@ class Settings(BaseSettings):
     # Only trust X-Forwarded-For when deployed behind a known reverse proxy (Fly, etc.).
     trust_x_forwarded_for: bool = False
     # Peer CIDRs allowed to append X-Forwarded-For (private/LB ranges by default).
-    trusted_proxy_cidrs: str = "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1/32"
+    # Include Fly 6PN (fdaa::/16) so IPv6 mesh peers are trusted when XFF is on.
+    trusted_proxy_cidrs: str = "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1/32,fdaa::/16"
     # Comma-separated user UUIDs allowed to access /admin/* when dev_auth is on.
     admin_user_ids: str = ""
     # Minimum cosine similarity for semantic memory injection (0 = disabled).
@@ -260,6 +261,40 @@ class Settings(BaseSettings):
     sentry_traces_sample_rate: float = 0.1
 
 
+def _trusted_proxy_cidrs_ipv4_only(cidrs: str) -> bool:
+    """True when every non-empty CIDR parses as IPv4 (Fly 6PN would be ignored)."""
+    import ipaddress
+
+    parsed: list[bool] = []
+    for raw in cidrs.split(","):
+        piece = raw.strip()
+        if not piece:
+            continue
+        try:
+            net = ipaddress.ip_network(piece, strict=False)
+        except ValueError:
+            continue
+        parsed.append(isinstance(net, ipaddress.IPv4Network))
+    return bool(parsed) and all(parsed)
+
+
+def _warn_proxy_trust_misconfig(settings: Settings) -> None:
+    if not settings.trust_x_forwarded_for:
+        return
+    if not settings.trusted_proxy_cidrs.strip():
+        logger.warning(
+            "TRUST_X_FORWARDED_FOR=true but TRUSTED_PROXY_CIDRS is empty — "
+            "client IPs will not use XFF / Fly-Client-IP."
+        )
+        return
+    if _trusted_proxy_cidrs_ipv4_only(settings.trusted_proxy_cidrs):
+        logger.warning(
+            "TRUST_X_FORWARDED_FOR=true with IPv4-only TRUSTED_PROXY_CIDRS — "
+            "Fly 6PN peers (fdaa::/16) will not be trusted; per-IP rate limits "
+            "may collapse. Add fdaa::/16 (included in the default)."
+        )
+
+
 def validate_production_settings(settings: Settings) -> None:
     if settings.environment == "development":
         # Don't fully fail-closed in dev, but surface dangerous combos so a
@@ -277,7 +312,10 @@ def validate_production_settings(settings: Settings) -> None:
                 "DEV_ALLOW_UNAUTHED_WEBHOOKS=true — RevenueCat webhooks will be "
                 "accepted with no shared secret. Local testing only."
             )
+        _warn_proxy_trust_misconfig(settings)
         return
+
+    _warn_proxy_trust_misconfig(settings)
 
     errors: list[str] = []
     if settings.dev_auth_enabled:

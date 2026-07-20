@@ -124,6 +124,11 @@ async def refresh_token_pair(
     if user_id_raw is None:
         tombstoned = await redis.get(_tombstone_key(refresh_token))
         if tombstoned is not None:
+            # Reuse = presenting a token that was already rotated out (GETDEL
+            # miss + tombstone hit). Legitimate clients never do this after a
+            # successful refresh; treat as theft and revoke all refresh
+            # sessions for that user (no grace window — intentional).
+            # Unknown tokens (no tombstone) fail closed without revocation.
             stolen_user_id = UUID(_redis_str(tombstoned))
             logger.warning(
                 "Refresh token reuse detected for user_id=%s — revoking all sessions",

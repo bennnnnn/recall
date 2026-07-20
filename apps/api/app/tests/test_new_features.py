@@ -819,6 +819,10 @@ async def test_generate_suggestions_creates_items():
             AsyncMock(return_value=0),
         ),
         patch(
+            "app.background.suggestion_generation.suggestions_repo.list_active",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
             "app.background.suggestion_generation.chats_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
@@ -842,6 +846,71 @@ async def test_generate_suggestions_creates_items():
     call_args = create_many.call_args
     assert call_args.args[1] == uid
     assert len(call_args.args[2]) == 2
+
+
+@pytest.mark.asyncio
+async def test_generate_suggestions_rechecks_cap_after_llm():
+    """Concurrent jobs can fill the cap during the LLM wait — don't over-insert."""
+    from app.background.suggestion_generation import (
+        MAX_ACTIVE_SUGGESTIONS,
+        generate_suggestions,
+    )
+
+    uid = uuid4()
+    user_mock = MagicMock()
+    user_mock.id = uid
+    user_mock.memory_enabled = True
+    fake_items = [
+        SuggestionItem(text="Suggestion A", category="general"),
+        SuggestionItem(text="Suggestion B", category="general"),
+        SuggestionItem(text="Suggestion C", category="general"),
+    ]
+    settings = Settings()
+    _, session_locals = _suggestion_sessions(count=2)
+    # Pre-LLM: room for 3; post-LLM: already at cap.
+    count_active = AsyncMock(side_effect=[MAX_ACTIVE_SUGGESTIONS - 3, MAX_ACTIVE_SUGGESTIONS])
+
+    with (
+        patch(
+            "app.background.suggestion_generation.SessionLocal",
+            side_effect=session_locals,
+        ),
+        patch(
+            "app.background.suggestion_generation.users_repo.get_by_id",
+            AsyncMock(return_value=user_mock),
+        ),
+        patch(
+            "app.background.suggestion_generation.suggestions_repo.delete_expired",
+            AsyncMock(return_value=0),
+        ),
+        patch(
+            "app.background.suggestion_generation.suggestions_repo.count_active",
+            count_active,
+        ),
+        patch(
+            "app.background.suggestion_generation.suggestions_repo.list_active",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.background.suggestion_generation.chats_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.background.suggestion_generation.memory_service.get_memory_block",
+            AsyncMock(return_value=""),
+        ),
+        patch(
+            "app.background.suggestion_generation.litellm_gateway.complete_structured",
+            AsyncMock(return_value=SuggestionGenerationResult(items=fake_items)),
+        ),
+        patch(
+            "app.background.suggestion_generation.suggestions_repo.create_many",
+            AsyncMock(),
+        ) as create_many,
+    ):
+        await generate_suggestions(settings, uid)
+
+    create_many.assert_not_awaited()
 
 
 @pytest.mark.asyncio
