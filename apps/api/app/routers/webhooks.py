@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import hmac
+import json
 import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +21,9 @@ from app.services import subscription as subscription_service
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
+
+# Cap before body parse — endpoint is rate-limit-exempt and auth runs in-handler.
+_MAX_WEBHOOK_BODY_BYTES = 64 * 1024
 
 # RevenueCat retries webhooks; dedup event ids for ~24h so a replay doesn't
 # reprocess (and, via the receipt path, re-email) the same event.
@@ -181,15 +185,50 @@ async def _dispatch_event(
     return False
 
 
+def _reject_oversized_webhook_body(content_length: str | None, body_len: int) -> None:
+    if content_length is not None:
+        try:
+            if int(content_length) > _MAX_WEBHOOK_BODY_BYTES:
+                raise HTTPException(
+                    status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                    detail="Webhook payload too large",
+                )
+        except ValueError:
+            pass
+    if body_len > _MAX_WEBHOOK_BODY_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail="Webhook payload too large",
+        )
+
+
 @router.post("/revenuecat", status_code=status.HTTP_204_NO_CONTENT)
 async def revenuecat_webhook(
-    payload: dict[str, Any],
+    request: Request,
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings),
     redis: Redis = Depends(get_redis),
-    authorization: str | None = Header(default=None, alias="Authorization"),
 ) -> None:
-    _verify_auth(authorization, settings)
+    # Auth + size before JSON parse — unauthenticated body work is a DoS vector
+    # (this path is exempt from the global REST rate limiter).
+    _verify_auth(request.headers.get("Authorization"), settings)
+    _reject_oversized_webhook_body(request.headers.get("content-length"), 0)
+    body = await request.body()
+    _reject_oversized_webhook_body(None, len(body))
+    try:
+        parsed: Any = json.loads(body)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid JSON",
+        ) from exc
+    if not isinstance(parsed, dict):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid JSON",
+        )
+    payload: dict[str, Any] = parsed
+
     # Dedup RevenueCat retries: if we've already processed this event id, stop.
     event_id = _event_id(payload)
     if event_id and await _is_duplicate(redis, event_id):

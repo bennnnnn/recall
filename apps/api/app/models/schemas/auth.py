@@ -1,5 +1,6 @@
 from datetime import datetime
 from uuid import UUID
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -128,6 +129,19 @@ class UserUpdate(BaseModel):
             supported = ", ".join(sorted(LOCALE_NAMES))
             raise ValueError(f"Unsupported locale code. Supported: {supported}.")
         return code
+
+    @field_validator("timezone")
+    @classmethod
+    def validate_timezone(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = value.strip()
+        if not cleaned:
+            return None
+        try:
+            return ZoneInfo(cleaned).key
+        except ZoneInfoNotFoundError as exc:
+            raise ValueError("Invalid IANA timezone name.") from exc
 
 
 class GoogleAuthRequest(BaseModel):

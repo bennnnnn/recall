@@ -65,6 +65,7 @@ async def _enforce_login_rate_limit(
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many login attempts. Try again shortly.",
+            headers={"Retry-After": str(_LOGIN_RATE_WINDOW_SECONDS)},
         )
 
 
@@ -120,10 +121,11 @@ async def dev_login(
     await _enforce_login_rate_limit(redis, request, settings, provider="dev")
     # Fail-closed against a dev config accidentally exposed on a public host:
     # refuse non-loopback callers unless the operator explicitly opted in with
-    # DEV_AUTH_ALLOW_REMOTE. This protects even when ENVIRONMENT=development
-    # (which skips validate_production_settings) is set on an internet-facing
-    # deploy — remote account minting stays impossible by default.
-    if not settings.dev_auth_allow_remote and not is_loopback_ip(client_ip(request, settings)):
+    # DEV_AUTH_ALLOW_REMOTE. Use the raw TCP peer — not client_ip() — so a
+    # spoofed Fly-Client-IP / X-Forwarded-For of 127.0.0.1 cannot bypass the
+    # guard behind a pass-through proxy.
+    peer = request.client.host if request.client is not None else ""
+    if not settings.dev_auth_allow_remote and not is_loopback_ip(peer):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     try:
         return await auth_service.login_dev(
@@ -162,6 +164,7 @@ async def refresh_session(
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many refresh attempts. Try again shortly.",
+            headers={"Retry-After": str(_REFRESH_RATE_WINDOW_SECONDS)},
         )
     try:
         access_token, refresh_token, user = await tokens_service.refresh_token_pair(

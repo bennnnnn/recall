@@ -126,3 +126,8 @@ def test_effective_timezone_falls_back_to_profile():
 
 def test_effective_timezone_invalid_client_uses_profile():
     assert effective_timezone("America/Chicago", "Not/A/Zone") == "America/Chicago"
+
+
+def test_effective_timezone_invalid_profile_falls_back_to_utc():
+    assert effective_timezone("Not/A/Zone", None) == "UTC"
+    assert effective_timezone("Not/A/Zone", "Also/Bogus") == "UTC"

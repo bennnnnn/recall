@@ -11,6 +11,7 @@ import asyncio
 import json
 import logging
 import os
+import socket
 import time
 import traceback
 from collections.abc import Awaitable, Callable
@@ -420,9 +421,15 @@ async def _reclaim_pending_jobs(redis: Redis, settings: Settings, consumer: str)
         logger.debug("xautoclaim failed", exc_info=True)
 
 
+def _consumer_name() -> str:
+    """Unique per container — Docker replicas all see PID 1 without hostname."""
+    host = (socket.gethostname() or "host").replace(" ", "-")[:64]
+    return f"worker-{host}-{os.getpid()}"
+
+
 async def _worker_loop(settings: Settings) -> None:
     redis = get_redis_client()
-    consumer = f"worker-{os.getpid()}"
+    consumer = _consumer_name()
 
     _touch_heartbeat()
 
