@@ -95,7 +95,8 @@ function makeStyles(t: Theme) {
       width: 28,
       height: 28,
       borderRadius: 14,
-      backgroundColor: t.accent,
+      // Brand primary — accent is teal and made the R read as a green badge.
+      backgroundColor: t.primary,
       alignItems: "center",
       justifyContent: "center",
     },
