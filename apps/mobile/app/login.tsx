@@ -185,7 +185,11 @@ export default function LoginScreen() {
               ) : null}
               {showAppleLogin ? (
                 <Pressable
-                  style={[s.appleBtn, busy && s.dim]}
+                  style={({ pressed }) => [
+                    s.appleBtn,
+                    busyProvider !== null && busyProvider !== "apple" && s.dim,
+                    pressed && busyProvider === null && s.pressed,
+                  ]}
                   onPress={handleApple}
                   disabled={busy}
                   accessibilityRole="button"
@@ -204,7 +208,11 @@ export default function LoginScreen() {
               ) : null}
               {showGoogleLogin ? (
                 <Pressable
-                  style={[s.googleBtn, busy && s.dim]}
+                  style={({ pressed }) => [
+                    s.googleBtn,
+                    busyProvider !== null && busyProvider !== "google" && s.dim,
+                    pressed && busyProvider === null && s.pressed,
+                  ]}
                   onPress={handleGoogle}
                   disabled={busy}
                   accessibilityRole="button"
@@ -230,7 +238,11 @@ export default function LoginScreen() {
                 <>
                   <Text style={s.orText}>{t("login.or_dev")}</Text>
                   <Pressable
-                    style={[s.devSecondaryBtn, busy && s.dim]}
+                    style={({ pressed }) => [
+                      s.devSecondaryBtn,
+                      busyProvider !== null && busyProvider !== "dev" && s.dim,
+                      pressed && busyProvider === null && s.pressed,
+                    ]}
                     onPress={handleDev}
                     disabled={busy}
                     accessibilityRole="button"
@@ -252,7 +264,11 @@ export default function LoginScreen() {
                 <>
                   <Text style={s.orText}>{t("login.or_dev")}</Text>
                   <Pressable
-                    style={[s.devSecondaryBtn, busy && s.dim]}
+                    style={({ pressed }) => [
+                      s.devSecondaryBtn,
+                      busyProvider !== null && busyProvider !== "dev" && s.dim,
+                      pressed && busyProvider === null && s.pressed,
+                    ]}
                     onPress={handleDev}
                     disabled={busy}
                     accessibilityRole="button"
@@ -448,6 +464,7 @@ function makeStyles(theme: Theme) {
     },
     devSecondaryText: { fontSize: 15, fontWeight: "600", color: theme.primary },
     dim: { opacity: 0.55 },
+    pressed: { opacity: 0.85 },
     links: {
       flexDirection: "row",
       alignItems: "center",
