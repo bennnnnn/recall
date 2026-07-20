@@ -342,21 +342,22 @@ function flattenPrismTokens(
 }
 
 const LANGUAGE_KEYWORDS: Record<string, RegExp> = {
-  c: /\b(?:if|else|for|while|do|switch|case|default|break|continue|return|goto|sizeof|typedef|struct|enum|union|const|static|extern|volatile|register|inline|restrict|void|int|char|long|short|float|double|signed|unsigned|bool|true|false|NULL|include|define|undef|ifdef|ifndef|elif|endif|pragma)\b/,
-  cpp: /\b(?:if|else|for|while|do|switch|case|default|break|continue|return|class|struct|enum|union|namespace|template|typename|public|private|protected|virtual|override|const|static|constexpr|noexcept|new|delete|nullptr|using|try|catch|throw|this|true|false|include|define|std)\b/,
+  // `g` required so lastIndex advances in highlightPlainChunk.
+  c: /\b(?:if|else|for|while|do|switch|case|default|break|continue|return|goto|sizeof|typedef|struct|enum|union|const|static|extern|volatile|register|inline|restrict|void|int|char|long|short|float|double|signed|unsigned|bool|true|false|NULL|include|define|undef|ifdef|ifndef|elif|endif|pragma)\b/g,
+  cpp: /\b(?:if|else|for|while|do|switch|case|default|break|continue|return|class|struct|enum|union|namespace|template|typename|public|private|protected|virtual|override|const|static|constexpr|noexcept|new|delete|nullptr|using|try|catch|throw|this|true|false|include|define|std)\b/g,
   csharp:
-    /\b(?:class|interface|enum|struct|namespace|using|public|private|protected|internal|static|readonly|void|int|long|double|float|bool|string|var|if|else|for|foreach|while|do|switch|case|default|return|try|catch|finally|throw|new|this|base|true|false|null|async|await|get|set|value|record|override|virtual|abstract|sealed|partial|const|typeof|is|as|in|out|ref|params|where)\b/,
+    /\b(?:class|interface|enum|struct|namespace|using|public|private|protected|internal|static|readonly|void|int|long|double|float|bool|string|var|if|else|for|foreach|while|do|switch|case|default|return|try|catch|finally|throw|new|this|base|true|false|null|async|await|get|set|value|record|override|virtual|abstract|sealed|partial|const|typeof|is|as|in|out|ref|params|where)\b/g,
   python:
-    /\b(?:def|class|import|from|return|if|elif|else|for|while|try|except|finally|with|as|yield|lambda|pass|break|continue|raise|True|False|None|and|or|not|in|is|async|await|global|nonlocal|del|assert|match|case)\b/,
+    /\b(?:def|class|import|from|return|if|elif|else|for|while|try|except|finally|with|as|yield|lambda|pass|break|continue|raise|True|False|None|and|or|not|in|is|async|await|global|nonlocal|del|assert|match|case)\b/g,
   javascript:
-    /\b(?:const|let|var|function|class|import|export|from|return|if|else|for|while|do|try|catch|finally|throw|async|await|new|typeof|instanceof|of|in|true|false|null|undefined|this|super|extends|static|get|set|default|switch|case|break|continue|void|delete|yield|interface|type|enum|implements|readonly|declare|namespace|module)\b/,
+    /\b(?:const|let|var|function|class|import|export|from|return|if|else|for|while|do|try|catch|finally|throw|async|await|new|typeof|instanceof|of|in|true|false|null|undefined|this|super|extends|static|get|set|default|switch|case|break|continue|void|delete|yield|interface|type|enum|implements|readonly|declare|namespace|module)\b/g,
   typescript:
-    /\b(?:const|let|var|function|class|import|export|from|return|if|else|for|while|do|try|catch|finally|throw|async|await|new|typeof|instanceof|of|in|true|false|null|undefined|this|super|extends|static|get|set|default|switch|case|break|continue|void|delete|yield|interface|type|enum|implements|readonly|declare|namespace|module|keyof|never|unknown|any|string|number|boolean)\b/,
-  rust: /\b(?:fn|let|mut|const|if|else|match|for|while|loop|return|struct|enum|impl|trait|pub|use|mod|self|Self|true|false|Some|None|Ok|Err|async|await|move|where|type|dyn|ref|static|unsafe|extern|crate|super|in|as|break|continue|macro)\b/,
-  go: /\b(?:func|var|const|type|struct|interface|map|chan|if|else|for|range|switch|case|default|return|go|defer|package|import|true|false|nil|break|continue|fallthrough|select|goto)\b/,
-  java: /\b(?:class|interface|enum|extends|implements|import|package|public|private|protected|static|final|void|int|long|double|float|boolean|char|byte|short|if|else|for|while|do|switch|case|default|return|try|catch|finally|throw|new|this|super|true|false|null|break|continue|instanceof|synchronized|volatile|transient|native|assert|yield|record|sealed|permits|var)\b/,
-  sql: /\b(?:SELECT|FROM|WHERE|JOIN|LEFT|RIGHT|INNER|OUTER|ON|GROUP|BY|ORDER|HAVING|LIMIT|OFFSET|INSERT|INTO|VALUES|UPDATE|SET|DELETE|CREATE|TABLE|INDEX|DROP|ALTER|ADD|NOT|NULL|AND|OR|AS|DISTINCT|COUNT|SUM|AVG|MAX|MIN|LIKE|IN|IS|BETWEEN|EXISTS|CASE|WHEN|THEN|ELSE|END|UNION|ALL|PRIMARY|KEY|FOREIGN|REFERENCES|TRUE|FALSE)\b/i,
-  bash: /\b(?:if|then|else|elif|fi|for|while|do|done|case|esac|function|return|in|export|local|readonly|declare|unset|exit|echo|cd|pwd|source|true|false)\b/,
+    /\b(?:const|let|var|function|class|import|export|from|return|if|else|for|while|do|try|catch|finally|throw|async|await|new|typeof|instanceof|of|in|true|false|null|undefined|this|super|extends|static|get|set|default|switch|case|break|continue|void|delete|yield|interface|type|enum|implements|readonly|declare|namespace|module|keyof|never|unknown|any|string|number|boolean)\b/g,
+  rust: /\b(?:fn|let|mut|const|if|else|match|for|while|loop|return|struct|enum|impl|trait|pub|use|mod|self|Self|true|false|Some|None|Ok|Err|async|await|move|where|type|dyn|ref|static|unsafe|extern|crate|super|in|as|break|continue|macro)\b/g,
+  go: /\b(?:func|var|const|type|struct|interface|map|chan|if|else|for|range|switch|case|default|return|go|defer|package|import|true|false|nil|break|continue|fallthrough|select|goto)\b/g,
+  java: /\b(?:class|interface|enum|extends|implements|import|package|public|private|protected|static|final|void|int|long|double|float|boolean|char|byte|short|if|else|for|while|do|switch|case|default|return|try|catch|finally|throw|new|this|super|true|false|null|break|continue|instanceof|synchronized|volatile|transient|native|assert|yield|record|sealed|permits|var)\b/g,
+  sql: /\b(?:SELECT|FROM|WHERE|JOIN|LEFT|RIGHT|INNER|OUTER|ON|GROUP|BY|ORDER|HAVING|LIMIT|OFFSET|INSERT|INTO|VALUES|UPDATE|SET|DELETE|CREATE|TABLE|INDEX|DROP|ALTER|ADD|NOT|NULL|AND|OR|AS|DISTINCT|COUNT|SUM|AVG|MAX|MIN|LIKE|IN|IS|BETWEEN|EXISTS|CASE|WHEN|THEN|ELSE|END|UNION|ALL|PRIMARY|KEY|FOREIGN|REFERENCES|TRUE|FALSE)\b/gi,
+  bash: /\b(?:if|then|else|elif|fi|for|while|do|done|case|esac|function|return|in|export|local|readonly|declare|unset|exit|echo|cd|pwd|source|true|false)\b/g,
 };
 
 function commentRulesFor(
@@ -400,12 +401,18 @@ function commentRulesFor(
   return rules;
 }
 
+/** Cap for second-pass regex enrichment — oversized plain chunks stay plain. */
+export const MAX_PLAIN_HIGHLIGHT_CHARS = 32768;
+
 /** Second pass: color keywords, numbers, calls, etc. that Prism left as plain text. */
-function highlightPlainChunk(
+export function highlightPlainChunk(
   text: string,
   grammarKey: string,
 ): HighlightToken[] {
   if (!text) return [];
+  if (text.length > MAX_PLAIN_HIGHLIGHT_CHARS) {
+    return [{ text, color: TOKEN_COLORS.plain }];
+  }
 
   const kwKey = grammarKeyForEnrich(grammarKey);
   const keywordRe = LANGUAGE_KEYWORDS[kwKey];
@@ -428,28 +435,24 @@ function highlightPlainChunk(
   while (i < text.length) {
     let best: { start: number; end: number; color: string } | null = null;
     for (const rule of rules) {
-      rule.re.lastIndex = 0;
-      let match: RegExpExecArray | null;
-      while ((match = rule.re.exec(text)) !== null) {
-        if (match.index < i) continue;
-        if (match.index === i) {
-          best = {
-            start: match.index,
-            end: match.index + match[0].length,
-            color: rule.color,
-          };
-          break;
-        }
-        if (!best || match.index < best.start) {
-          best = {
-            start: match.index,
-            end: match.index + match[0].length,
-            color: rule.color,
-          };
-        }
+      rule.re.lastIndex = i;
+      const match = rule.re.exec(text);
+      if (!match || match.index < i) continue;
+      if (match.index === i) {
+        best = {
+          start: match.index,
+          end: match.index + match[0].length,
+          color: rule.color,
+        };
         break;
       }
-      if (best?.start === i) break;
+      if (!best || match.index < best.start) {
+        best = {
+          start: match.index,
+          end: match.index + match[0].length,
+          color: rule.color,
+        };
+      }
     }
 
     if (!best || best.start > i) {

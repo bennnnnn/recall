@@ -56,6 +56,12 @@ export async function ensureLocalAttachmentFile(options: {
 
   const result = await downloadAsync(uri, dest, { headers });
   if (!result?.uri) throw new Error("Download failed.");
+  if (
+    typeof result.status === "number" &&
+    (result.status < 200 || result.status >= 300)
+  ) {
+    throw new Error("Download failed.");
+  }
   localFileCache.set(uri, result.uri);
   return result.uri;
 }

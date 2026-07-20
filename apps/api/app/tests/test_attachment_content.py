@@ -82,6 +82,28 @@ def test_bytes_match_claimed_handles_corrupt_zip_gracefully():
     assert bytes_match_claimed(_DOCX_CONTENT_TYPE, corrupt_zip_bytes) is False
 
 
+def test_docx_zip_bomb_rejected():
+    """An entry larger than MAX_ATTACHMENT_SIZE is treated as a zip bomb —
+    not a DOCX match, and text extraction returns None without parsing."""
+    from app.services.attachment_content import (
+        MAX_ATTACHMENT_SIZE,
+        _docx_zip_bomb,
+        bytes_match_claimed,
+        extract_text_from_bytes,
+    )
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        # Highly compressible payload that expands past the per-entry cap.
+        archive.writestr("word/document.xml", b"0" * (MAX_ATTACHMENT_SIZE + 1))
+        archive.writestr("[Content_Types].xml", b"<Types/>")
+    bomb_bytes = buf.getvalue()
+
+    assert _docx_zip_bomb(bomb_bytes) is True
+    assert bytes_match_claimed(_DOCX_CONTENT_TYPE, bomb_bytes) is False
+    assert extract_text_from_bytes(_DOCX_CONTENT_TYPE, bomb_bytes) is None
+
+
 def test_bytes_match_claimed_rejects_spoofed_image():
     from app.services.attachment_content import bytes_match_claimed
 

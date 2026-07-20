@@ -211,7 +211,7 @@ async def test_reap_orphan_attachments_no_orphans_is_noop():
 
 @pytest.mark.asyncio
 async def test_reap_orphan_attachments_refunds_image_upload_quota():
-    """Reaping an image orphan must refund the daily image-upload slot —
+    """Reaping an uploaded image orphan must refund the daily image-upload slot —
     without this, an abandoned presign (never sent/confirmed) permanently
     consumes a slot the user can never get back."""
     settings = Settings()
@@ -221,10 +221,12 @@ async def test_reap_orphan_attachments_refunds_image_upload_quota():
     orphan.user_id = user_id
     orphan.content_type = "image/png"
     orphan.storage_key = "user/img"
+    orphan.source = "upload"
     gateway = MagicMock()
     gateway.delete_bytes = AsyncMock()
     fake_redis = AsyncMock()
-    refund_mock = AsyncMock()
+    refund_upload = AsyncMock()
+    refund_gen = AsyncMock()
 
     with (
         patch(
@@ -245,13 +247,68 @@ async def test_reap_orphan_attachments_refunds_image_upload_quota():
         ),
         patch(
             "app.services.attachment_lifecycle.quota_service.refund_image_upload",
-            refund_mock,
+            refund_upload,
+        ),
+        patch(
+            "app.services.attachment_lifecycle.quota_service.refund_image_generation",
+            refund_gen,
         ),
     ):
         deleted = await attachment_lifecycle.reap_orphan_attachments(settings)
 
     assert deleted == 1
-    refund_mock.assert_awaited_once_with(fake_redis, user_id)
+    refund_upload.assert_awaited_once_with(fake_redis, user_id)
+    refund_gen.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_reap_orphan_attachments_refunds_image_generation_quota():
+    """Reaping a generated-image orphan must refund imggen, not imgup."""
+    settings = Settings()
+    user_id = uuid4()
+    orphan = MagicMock()
+    orphan.id = uuid4()
+    orphan.user_id = user_id
+    orphan.content_type = "image/png"
+    orphan.storage_key = "user/gen-img"
+    orphan.source = "generated"
+    gateway = MagicMock()
+    gateway.delete_bytes = AsyncMock()
+    fake_redis = AsyncMock()
+    refund_upload = AsyncMock()
+    refund_gen = AsyncMock()
+
+    with (
+        patch(
+            "app.services.attachment_lifecycle.attachments_repo.list_orphans",
+            AsyncMock(return_value=[orphan]),
+        ),
+        patch(
+            "app.services.attachment_lifecycle.attachments_repo.delete_unlinked_returning",
+            AsyncMock(return_value=[orphan.storage_key]),
+        ),
+        patch(
+            "app.services.attachment_lifecycle.get_storage_gateway",
+            return_value=gateway,
+        ),
+        patch(
+            "app.services.attachment_lifecycle.get_redis_client",
+            return_value=fake_redis,
+        ),
+        patch(
+            "app.services.attachment_lifecycle.quota_service.refund_image_upload",
+            refund_upload,
+        ),
+        patch(
+            "app.services.attachment_lifecycle.quota_service.refund_image_generation",
+            refund_gen,
+        ),
+    ):
+        deleted = await attachment_lifecycle.reap_orphan_attachments(settings)
+
+    assert deleted == 1
+    refund_gen.assert_awaited_once_with(fake_redis, user_id)
+    refund_upload.assert_not_awaited()
 
 
 @pytest.mark.asyncio

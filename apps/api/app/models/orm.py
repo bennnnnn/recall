@@ -496,7 +496,10 @@ class PushToken(Base):
 
 class Attachment(Base):
     __tablename__ = "attachments"
-    __table_args__ = (Index("ix_attachments_user", "user_id"),)
+    __table_args__ = (
+        Index("ix_attachments_user", "user_id"),
+        CheckConstraint("source IN ('upload', 'generated')", name="ck_attachments_source"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
@@ -508,6 +511,9 @@ class Attachment(Base):
     storage_key: Mapped[str] = mapped_column(String(512), nullable=False)
     content_type: Mapped[str] = mapped_column(String(128), nullable=False)
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    source: Mapped[str] = mapped_column(
+        String(16), nullable=False, server_default="upload", default="upload"
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

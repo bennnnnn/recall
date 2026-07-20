@@ -414,6 +414,7 @@ async def sync_gmail_for_user(
                 created += 1
                 known_ids.add(message.id)
         except Exception:
+            await session.rollback()
             logger.exception("Failed to process gmail message id=%s", message.id)
 
     await gmail_repo.update_last_sync(session, user_id)

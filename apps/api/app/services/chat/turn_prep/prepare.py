@@ -79,6 +79,7 @@ async def _grade_quiz_answer(
                         chat_id,
                     )
             except Exception:
+                await session.rollback()
                 logger.exception(
                     "Failed to record quiz answer for user_id=%s chat_id=%s",
                     user.id,
