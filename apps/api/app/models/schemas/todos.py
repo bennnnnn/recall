@@ -29,11 +29,11 @@ class TodoCreate(BaseModel):
 
 
 class TodoUpdate(BaseModel):
-    content: str | None = None
+    content: str | None = Field(default=None, min_length=1, max_length=1000)
     topic: str | None = Field(default=None, min_length=1, max_length=200)
     checked: bool | None = None
     due_at: datetime | None = None
-    sort_order: int | None = None
+    sort_order: int | None = Field(default=None, ge=0)
     project_id: UUID | None = None
 
 

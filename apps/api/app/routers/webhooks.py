@@ -129,9 +129,10 @@ def _expiration(payload: dict[str, Any]) -> str | None:
         return None
     try:
         secs = int(raw) / 1000.0
-    except (TypeError, ValueError):
+        return datetime.fromtimestamp(secs, tz=UTC).isoformat()
+    except (TypeError, ValueError, OverflowError, OSError):
+        # Huge / negative ms must not 500 the webhook (RevenueCat retry storm).
         return None
-    return datetime.fromtimestamp(secs, tz=UTC).isoformat()
 
 
 async def _dispatch_event(

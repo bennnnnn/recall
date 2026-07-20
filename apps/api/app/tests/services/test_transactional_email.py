@@ -183,12 +183,45 @@ async def test_send_purchase_receipt_dispatches_via_gateway():
 
 
 @pytest.mark.asyncio
-async def test_gateway_mock_path_logs_when_no_key():
+async def test_gateway_mock_path_logs_when_no_key(caplog):
     settings = Settings()  # no resend_api_key by default
     assert email_gateway.is_configured(settings) is False
-    # Should not raise and should return True (mocked send).
-    ok = await email_gateway.send_email(settings, to="x@y.com", subject="s", html="<p/>", text="t")
+    with caplog.at_level("INFO", logger="app.gateways.email_gateway"):
+        ok = await email_gateway.send_email(
+            settings, to="alice@example.com", subject="s", html="<p/>", text="t"
+        )
     assert ok is True
+    joined = " ".join(caplog.messages)
+    assert "alice@example.com" not in joined
+    assert "*@example.com" in joined
+
+
+@pytest.mark.asyncio
+async def test_gateway_failure_log_omits_full_recipient(monkeypatch, caplog):
+    settings = Settings(resend_api_key="rk_test")
+
+    class FakeClient:
+        def __init__(self, *a, **kw):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def post(self, *a, **kw):
+            raise RuntimeError("network down")
+
+    monkeypatch.setattr("app.gateways.email_gateway.httpx.AsyncClient", FakeClient)
+    with caplog.at_level("ERROR", logger="app.gateways.email_gateway"):
+        ok = await email_gateway.send_email(
+            settings, to="bob@secret.example", subject="Hi", html="<p/>", text="t"
+        )
+    assert ok is False
+    joined = " ".join(caplog.messages)
+    assert "bob@secret.example" not in joined
+    assert "*@secret.example" in joined
 
 
 @pytest.mark.asyncio
