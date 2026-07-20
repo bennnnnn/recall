@@ -97,6 +97,10 @@ async def _stream_over_ws(
                 if not await _safe_send_json(websocket, {"type": "token", "content": token_text}):
                     cancel_event.set()
                     break
+        except asyncio.CancelledError:
+            # Task cancel interrupts an in-flight LiteLLM wait; still fall
+            # through to stream_end/done so the client gets a clean stop.
+            cancel_event.set()
         except Exception as exc:
             if not isinstance(exc, QuotaExceededError | ChatServiceError | ModelUnavailableError):
                 logger.exception("Chat stream failed")
@@ -140,9 +144,14 @@ async def _stream_over_ws(
                     msg = receiver.result()
                 except WebSocketDisconnect:
                     cancel_event.set()
+                    if not producer.done():
+                        producer.cancel()
                     break
                 if msg.get("type") == "cancel":
                     cancel_event.set()
+                    # Interrupt in-flight LiteLLM wait, not only between tokens.
+                    if not producer.done():
+                        producer.cancel()
                 elif msg.get("type") != "ping":
                     await _safe_send_json(
                         websocket,
@@ -158,7 +167,12 @@ async def _stream_over_ws(
                     await receiver
                 except asyncio.CancelledError:
                     pass
-        await producer
+        if cancel_event.is_set() and not producer.done():
+            producer.cancel()
+        try:
+            await producer
+        except asyncio.CancelledError:
+            pass
     except WebSocketDisconnect:
         cancel_event.set()
         if not producer.done():

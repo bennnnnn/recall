@@ -126,6 +126,7 @@ async def prepare_chat_turn(
     image_attachments = attachments.image_attachments
     image_math_extract = attachments.image_math_extract
     gateway = attachments.gateway
+    attachment_bytes_by_key = attachments.bytes_by_key
 
     async with SessionLocal() as session:
         if user is None:
@@ -215,6 +216,7 @@ async def prepare_chat_turn(
             gateway,
             image_attachments,
             caption=content,
+            bytes_by_key=attachment_bytes_by_key,
         )
 
     # Vision may have mutated prompt_messages in place on the bundle.

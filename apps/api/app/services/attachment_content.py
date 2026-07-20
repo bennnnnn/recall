@@ -294,13 +294,19 @@ async def format_attachment_lines(
     storage_key: str,
     size_bytes: int,
     settings: Settings,
+    data: bytes | None = None,
 ) -> tuple[list[str], bool]:
-    """Return prompt lines and whether the attachment is an image."""
+    """Return prompt lines and whether the attachment is an image.
+
+    When *data* is provided (e.g. bytes already loaded by turn-prep verify),
+    skip a second storage download for text extraction.
+    """
     if is_image_content_type(content_type):
         # API path the mobile app can fetch with auth (stored in message content).
         return [f"[Image: /attachments/{attachment_id}/file]"], True
 
-    data = await read_attachment_bytes(gateway, storage_key)
+    if data is None:
+        data = await read_attachment_bytes(gateway, storage_key)
     file_ref = f"[File: /attachments/{attachment_id}/file]"
     if data:
         excerpt = await extract_text_from_bytes_async(content_type, data, settings)
@@ -353,14 +359,23 @@ async def inject_vision_content(
     images: list[tuple[str, str]],
     *,
     caption: str = "",
+    bytes_by_key: dict[str, bytes] | None = None,
 ) -> None:
-    """Replace the last user turn with multimodal content for vision models."""
+    """Replace the last user turn with multimodal content for vision models.
+
+    Prefer *bytes_by_key* (turn-prep verify cache) over re-downloading.
+    """
     parts: list[dict[str, Any]] = []
     text = _strip_image_markers(caption).strip() or "What's in this image?"
     parts.append({"type": "text", "text": text})
 
+    async def _bytes_for(storage_key: str) -> bytes | None:
+        if bytes_by_key is not None and storage_key in bytes_by_key:
+            return bytes_by_key[storage_key]
+        return await read_attachment_bytes(gateway, storage_key)
+
     image_bytes = await asyncio.gather(
-        *(read_attachment_bytes(gateway, storage_key) for _content_type, storage_key in images)
+        *(_bytes_for(storage_key) for _content_type, storage_key in images)
     )
     for (content_type, _storage_key), data in zip(images, image_bytes, strict=True):
         if not data:

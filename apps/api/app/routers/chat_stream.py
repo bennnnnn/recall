@@ -75,17 +75,26 @@ async def _stream_tokens_sse(
         finally:
             await event_queue.put(None)
 
+    producer: asyncio.Task[None] | None = None
+
     async def watch_disconnect() -> None:
         """SSE is one-way, so a client's only way to stop generation is
         closing the connection — without this, a closed tab left the LLM
         call running to completion with tokens streamed to nobody, still
         burning quota and provider cost. `cancel_event` is also passed as
         `should_cancel` into the actual chat_service stream call, so setting
-        it here stops generation at the source, not just this relay."""
+        it here stops generation at the source, not just this relay.
+
+        Cancel the producer task immediately — checking should_cancel only
+        between tokens leaves an idle LiteLLM wait (up to stream timeout)
+        running after disconnect.
+        """
         try:
             while not cancel_event.is_set():
                 if await request.is_disconnected():
                     cancel_event.set()
+                    if producer is not None and not producer.done():
+                        producer.cancel()
                     await event_queue.put(None)
                     return
                 await asyncio.sleep(_DISCONNECT_POLL_SECONDS)
@@ -111,7 +120,17 @@ async def _stream_tokens_sse(
             else:
                 yield _sse({"type": "token", "content": payload})
 
-        await producer
+        if cancel_event.is_set():
+            if not producer.done():
+                producer.cancel()
+            with suppress(asyncio.CancelledError):
+                await producer
+            return
+
+        with suppress(asyncio.CancelledError):
+            await producer
+        if producer.cancelled():
+            return
         if (exc := producer.exception()) is not None:
             raise exc
 

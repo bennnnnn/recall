@@ -94,6 +94,50 @@ async def test_stream_tokens_sse_stops_on_client_disconnect(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_stream_tokens_sse_cancels_hung_producer_on_disconnect(monkeypatch):
+    """Disconnect must cancel the producer while it is blocked waiting on the
+    first LiteLLM chunk — not only between yielded tokens."""
+    import app.routers.chat_stream as chat_stream
+
+    monkeypatch.setattr(chat_stream, "_DISCONNECT_POLL_SECONDS", 0.01)
+
+    cancel_event = asyncio.Event()
+    request = AsyncMock()
+    request.is_disconnected = AsyncMock(side_effect=[False, True])
+
+    started = asyncio.Event()
+    cancelled = asyncio.Event()
+
+    async def stream_factory(result, on_status, on_reasoning):
+        started.set()
+        try:
+            await asyncio.sleep(60)
+        except asyncio.CancelledError:
+            cancelled.set()
+            raise
+        if False:  # pragma: no cover — keep this an async generator
+            yield "x"
+
+    async def _consume() -> list[str]:
+        return [
+            chunk
+            async for chunk in chat_stream._stream_tokens_sse(
+                chat_id=uuid4(),
+                settings=Settings(),
+                stream_factory=stream_factory,
+                request=request,
+                cancel_event=cancel_event,
+            )
+        ]
+
+    chunks = await asyncio.wait_for(_consume(), timeout=2.0)
+    assert cancel_event.is_set()
+    assert started.is_set()
+    assert cancelled.is_set()
+    assert any('"type":"start"' in c for c in chunks)
+
+
+@pytest.mark.asyncio
 async def test_stream_message_sse_passes_cancel_event_as_should_cancel():
     """The same cancel_event driving disconnect detection must reach the
     actual chat_service call, or a disconnect stops relaying tokens without
