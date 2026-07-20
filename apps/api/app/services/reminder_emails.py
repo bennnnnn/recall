@@ -104,7 +104,7 @@ async def process_learning_nudge_emails(
     *,
     now: datetime | None = None,
 ) -> int:
-    _ = now
+    effective_now = now or datetime.now(UTC)
     result = await session.execute(select(User).where(User.email_reminders_enabled.is_(True)))
     users = list(result.scalars().all())
     if not users:
@@ -117,6 +117,7 @@ async def process_learning_nudge_emails(
         learning_hour=settings.push_learning_hour,
         redis_prefix=LEARNING_EMAIL_REDIS_PREFIX,
         require_email=True,
+        now=effective_now,
     )
 
     sent = 0

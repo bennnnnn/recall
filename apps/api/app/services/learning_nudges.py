@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -37,15 +38,16 @@ async def claim_learning_candidates(
     learning_hour: int,
     redis_prefix: str,
     require_email: bool = False,
+    now: datetime | None = None,
 ) -> list[tuple[User, str]]:
     """Claim today's Redis lock for users due for a learning nudge."""
     candidates: list[tuple[User, str]] = []
     for user in users:
         if require_email and not user.email:
             continue
-        if user_local_hour(user) < learning_hour:
+        if user_local_hour(user, now=now) < learning_hour:
             continue
-        day_key = user_day_key(user)
+        day_key = user_day_key(user, now=now)
         redis_key = learning_dedupe_key(redis_prefix, user.id, day_key)
         if not await redis.set(redis_key, "1", nx=True, ex=86_400):
             continue
@@ -110,6 +112,7 @@ async def collect_learning_nudge_picks(
     learning_hour: int,
     redis_prefix: str,
     require_email: bool = False,
+    now: datetime | None = None,
 ) -> list[LearningNudgePick]:
     """Claim candidates, load stats, and return best nudge picks per user.
 
@@ -121,6 +124,7 @@ async def collect_learning_nudge_picks(
         learning_hour=learning_hour,
         redis_prefix=redis_prefix,
         require_email=require_email,
+        now=now,
     )
     if not candidates:
         return []

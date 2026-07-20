@@ -334,6 +334,73 @@ async def test_load_calendar_for_prompt_notes_partial_failure():
 
 
 @pytest.mark.asyncio
+async def test_confirm_create_claims_proposal_before_google():
+    """Proposal must be getdel'd before Google create so Redis failure after
+    create cannot leave a retryable proposal (duplicate event)."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from app.core.config import Settings
+    from app.gateways.google_calendar_gateway import CalendarEvent
+    from app.services.calendar import confirm_create_event
+
+    user = MagicMock()
+    user.id = uuid4()
+    user.timezone = "UTC"
+    conn = MagicMock()
+    conn.scopes = "https://www.googleapis.com/auth/calendar.events"
+    conn.refresh_token = "enc"
+    conn.calendar_id = "primary"
+    redis = AsyncMock()
+    redis.set = AsyncMock(return_value=True)
+    redis.getdel = AsyncMock(
+        return_value=(
+            '{"title":"Sync","start":"2026-07-20T09:00:00+00:00","end":"2026-07-20T10:00:00+00:00"}'
+        )
+    )
+    redis.delete = AsyncMock()
+    created = CalendarEvent(
+        id="g1",
+        title="Sync",
+        start=datetime(2026, 7, 20, 9, 0, tzinfo=UTC),
+        end=datetime(2026, 7, 20, 10, 0, tzinfo=UTC),
+    )
+    create = AsyncMock(return_value=created)
+
+    with (
+        patch(
+            "app.services.calendar.calendar_repo.get_for_user",
+            AsyncMock(return_value=conn),
+        ),
+        patch(
+            "app.services.calendar.load_event_proposal",
+            AsyncMock(
+                return_value={
+                    "title": "Sync",
+                    "start": "2026-07-20T09:00:00+00:00",
+                    "end": "2026-07-20T10:00:00+00:00",
+                }
+            ),
+        ),
+        patch(
+            "app.services.calendar.decrypt_refresh_token",
+            return_value="rt",
+        ),
+        patch(
+            "app.services.calendar.google_calendar_gateway.create_event",
+            create,
+        ),
+    ):
+        event = await confirm_create_event(AsyncMock(), redis, user, Settings(), "prop-1")
+
+    assert event.id == "g1"
+    redis.getdel.assert_awaited()
+    assert redis.getdel.await_args.args[0].endswith("prop-1")
+    create.assert_awaited_once()
+    # getdel must happen before Google create (call order).
+    assert redis.getdel.await_count == 1
+
+
+@pytest.mark.asyncio
 async def test_store_and_load_event_proposal(fake_redis):
     from uuid import uuid4
 

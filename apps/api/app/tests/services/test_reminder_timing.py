@@ -53,6 +53,14 @@ def test_user_local_hour_and_day_key_use_user_timezone():
     assert user_day_key(user) == datetime.now(UTC).strftime("%Y-%m-%d")
 
 
+def test_user_local_hour_and_day_key_honor_injected_now():
+    user = MagicMock()
+    user.timezone = "UTC"
+    frozen = datetime(2026, 1, 2, 7, 30, tzinfo=UTC)
+    assert user_local_hour(user, now=frozen) == 7
+    assert user_day_key(user, now=frozen) == "2026-01-02"
+
+
 def test_reminder_title_localizes_and_distinguishes_overdue():
     """Shared by both push and email so they can't drift apart on this — see
     the BUG FIX comment above _REMINDER_TITLES."""

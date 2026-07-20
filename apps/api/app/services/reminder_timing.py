@@ -44,14 +44,16 @@ def should_notify_todo(
 # BUG FIX (nit): user_local_hour/user_day_key/learning_dedupe_key were
 # copy-pasted between push_notifications.py and reminder_emails.py with only
 # the Redis key prefix differing. Shared here so the two can't drift apart.
-def user_local_hour(user: User) -> int:
+def user_local_hour(user: User, *, now: datetime | None = None) -> int:
     tz = time_context_service.resolve_timezone(user.timezone)
-    return datetime.now(tz).hour
+    instant = now.astimezone(tz) if now is not None else datetime.now(tz)
+    return instant.hour
 
 
-def user_day_key(user: User) -> str:
+def user_day_key(user: User, *, now: datetime | None = None) -> str:
     tz = time_context_service.resolve_timezone(user.timezone)
-    return datetime.now(tz).strftime("%Y-%m-%d")
+    instant = now.astimezone(tz) if now is not None else datetime.now(tz)
+    return instant.strftime("%Y-%m-%d")
 
 
 def learning_dedupe_key(prefix: str, user_id: UUID, day_key: str) -> str:
