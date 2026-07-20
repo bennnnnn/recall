@@ -431,6 +431,12 @@ async def confirm_create_event(
         raise GoogleCalendarError("Event creation already in progress.")
 
     try:
+        # Claim the proposal BEFORE Google create. If Redis cleanup after a
+        # successful create fails, a retry must not find the proposal again
+        # and mint a duplicate calendar event.
+        claimed = await redis.getdel(_proposal_key(user.id, proposal_id))
+        if claimed is None:
+            raise GoogleCalendarError("Proposal expired or not found.")
         start = datetime_from_iso(proposal["start"])
         end = datetime_from_iso(proposal["end"])
         try:
@@ -448,11 +454,23 @@ async def confirm_create_event(
             location=proposal.get("location") or None,
             description=proposal.get("description") or None,
         )
-        await redis.delete(_cache_key(user.id))
-        await redis.delete(_proposal_key(user.id, proposal_id))
+        try:
+            await redis.delete(_cache_key(user.id))
+        except Exception:
+            logger.exception(
+                "Calendar cache invalidate failed after create user_id=%s",
+                user.id,
+            )
         return event
     finally:
-        await redis.delete(lock_key)
+        try:
+            await redis.delete(lock_key)
+        except Exception:
+            logger.exception(
+                "Calendar confirm lock release failed user_id=%s proposal_id=%s",
+                user.id,
+                proposal_id,
+            )
 
 
 async def materialize_calendar_proposals(

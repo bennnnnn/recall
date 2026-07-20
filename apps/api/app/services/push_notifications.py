@@ -298,7 +298,8 @@ async def process_email_suggestions(
     *,
     now: datetime | None = None,
 ) -> list[OutboundPush]:
-    _ = now
+    # Inbox suggestions are not hour-gated; accept `now` for dispatcher parity.
+    _ = now or datetime.now(UTC)
     has_token = exists(select(PushToken.id).where(PushToken.user_id == SuggestedReminder.user_id))
     result = await session.execute(
         select(SuggestedReminder, User)
@@ -369,7 +370,7 @@ async def process_learning_nudges(
     now: datetime | None = None,
 ) -> list[OutboundPush]:
     """Batched learning nudges via shared candidate collector + token fan-out."""
-    _ = now or datetime.now(UTC)
+    effective_now = now or datetime.now(UTC)
     result = await session.execute(
         select(User)
         .join(PushToken, PushToken.user_id == User.id)
@@ -386,6 +387,7 @@ async def process_learning_nudges(
         users,
         learning_hour=settings.push_learning_hour,
         redis_prefix=LEARNING_REDIS_PREFIX,
+        now=effective_now,
     )
     if not picks:
         return []
