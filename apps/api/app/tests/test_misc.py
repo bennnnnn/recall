@@ -146,6 +146,24 @@ async def test_login_with_google_existing_user():
 
 
 @pytest.mark.asyncio
+async def test_login_with_google_rejects_missing_email_on_new_user():
+    from app.gateways.google_auth import GoogleAuthError
+    from app.services import auth as auth_service
+
+    settings_obj = __import__("app.core.config", fromlist=["Settings"]).Settings(
+        jwt_secret="super-secret-key-that-is-at-least-32-chars!!"
+    )
+    payload = {"sub": "google-sub-no-email", "email": ""}
+
+    with (
+        patch("app.services.auth.verify_google_id_token", AsyncMock(return_value=payload)),
+        patch("app.services.auth.users_repo.get_by_google_sub", AsyncMock(return_value=None)),
+    ):
+        with pytest.raises(GoogleAuthError, match="did not share an email"):
+            await auth_service.login_with_google(AsyncMock(), settings_obj, "id-token", AsyncMock())
+
+
+@pytest.mark.asyncio
 async def test_login_with_google_links_existing_account_by_email():
     """Google signup after an Apple signup with the same email must link the
     accounts (set google_sub on the existing user) instead of creating a

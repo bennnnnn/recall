@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials
@@ -38,6 +40,8 @@ from app.services import memory as memory_service
 from app.services import plan as plan_service
 from app.services import subscription as subscription_service
 from app.services import tokens as tokens_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -281,11 +285,21 @@ async def delete_me(
     # logged-in client keeps a working access token until its own exp, with
     # only the (now-deleted) DB user check to stop it.
     await tokens_service.purge_user_sessions(redis, user.id, settings)
-    await google_integrations_service.revoke_all_google_tokens_for_user(
-        session,
-        settings,
-        user.id,
-    )
+    try:
+        await google_integrations_service.revoke_all_google_tokens_for_user(
+            session,
+            settings,
+            user.id,
+        )
+    except google_integrations_service.GoogleConnectError:
+        # Decrypt/key-rotation failures must not block account deletion after
+        # sessions are already purged — sibling disconnect endpoints return
+        # 400; here we best-effort revoke and continue wiping the account.
+        logger.warning(
+            "Google token revoke failed during account delete; continuing wipe user_id=%s",
+            user.id,
+            exc_info=True,
+        )
     # Storage bytes before DB rows — delete_user only clears attachment rows.
     await attachment_lifecycle.purge_attachments_for_user(session, settings, user.id)
     await users_repo.delete_user(session, user.id)

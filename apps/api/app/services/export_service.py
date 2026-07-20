@@ -134,7 +134,12 @@ async def _iter_export_json(session: AsyncSession, user: User) -> AsyncIterator[
     yield f'"user":{json.dumps(_user_payload(user))},'
     yield '"chats":['
 
-    chats = await chats_repo.list_for_user(session, user.id, limit=EXPORT_MAX_CHATS)
+    chats = await chats_repo.list_for_user(
+        session,
+        user.id,
+        limit=EXPORT_MAX_CHATS,
+        include_archived=True,
+    )
     for chat_index, chat in enumerate(chats):
         if chat_index:
             yield ","
