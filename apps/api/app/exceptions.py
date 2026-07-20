@@ -12,6 +12,19 @@ class ChatNotFoundError(ChatServiceError):
     pass
 
 
+class ChatBusyError(ChatServiceError):
+    """Another turn is already preparing/streaming on this chat.
+
+    Transports map this to ``code: "busy"`` (same as same-socket rejection).
+    """
+
+    def __init__(
+        self,
+        message: str = "Still generating — wait or cancel first.",
+    ) -> None:
+        super().__init__(message)
+
+
 class AttachmentValidationError(ChatServiceError):
     pass
 

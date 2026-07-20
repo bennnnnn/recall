@@ -427,8 +427,6 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 ### Later / not v1
 - 🔜 **Persist assistant reply across hard WS/SSE disconnect** — today disconnect cancels +
   refunds quota; no finalize-on-disconnect recovery for a mid-stream answer.
-- 🔜 **Per-chat distributed prepare lock** — same-socket busy rejection exists; two concurrent
-  connections can still race `prepare_chat_turn`.
 - 🔜 **Algebra `canonical_fence` rewrite** — geometry/graph fences are validated post-stream;
   common algebra blocks still rely on the model copying SymPy verbatim.
 - 🔜 **Math WebView expand / fullscreen** — tall worked steps stay capped at 320px with no scroll.

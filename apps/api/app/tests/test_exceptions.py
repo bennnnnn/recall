@@ -1,4 +1,9 @@
-from app.exceptions import ChatNotFoundError, ChatServiceError, QuotaExceededError
+from app.exceptions import (
+    ChatBusyError,
+    ChatNotFoundError,
+    ChatServiceError,
+    QuotaExceededError,
+)
 
 
 def test_chat_service_errors_carry_message():
@@ -7,3 +12,5 @@ def test_chat_service_errors_carry_message():
     assert str(err) == "boom"
     assert isinstance(QuotaExceededError("q"), ChatServiceError)
     assert isinstance(ChatNotFoundError("missing"), ChatServiceError)
+    assert isinstance(ChatBusyError(), ChatServiceError)
+    assert ChatBusyError().message.startswith("Still generating")
