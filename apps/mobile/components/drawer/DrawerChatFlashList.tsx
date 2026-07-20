@@ -46,6 +46,8 @@ type Props = {
   isSectionCollapsed: (key: ChatListSectionKey) => boolean;
   toggleSectionCollapsed: (key: ChatListSectionKey) => void;
   highlightedIds?: Set<string>;
+  /** Chat currently open on the home screen (drawer active indicator). */
+  activeChatId?: string | null;
   onOpenChat: (id: string, messageId?: string | null) => void;
   onShowRowMenu: (chat: Chat) => void;
   onDeleteChat: (chat: Chat) => void;
@@ -72,6 +74,7 @@ export function DrawerChatFlashList({
   isSectionCollapsed,
   toggleSectionCollapsed,
   highlightedIds,
+  activeChatId = null,
   onOpenChat,
   onShowRowMenu,
   onDeleteChat,
@@ -186,6 +189,7 @@ export function DrawerChatFlashList({
           chat={item.chat}
           rowStyles={rowStyles}
           highlighted={highlightedIds?.has(item.chat.id) ?? false}
+          active={activeChatId != null && item.chat.id === activeChatId}
           titleGenerating={isChatTitleGenerating(item.chat.id)}
           onOpen={(id) => onOpenChat(id)}
           onLongPress={onShowRowMenu}
@@ -200,6 +204,7 @@ export function DrawerChatFlashList({
       s,
       rowStyles,
       highlightedIds,
+      activeChatId,
       isSectionCollapsed,
       toggleSectionCollapsed,
       theme,
