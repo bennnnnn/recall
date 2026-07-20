@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
-import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useMemo } from "react";
+import { StyleSheet, Text } from "react-native";
+import type { ComponentProps } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ActionSheetRow, makeActionSheetPanelStyle } from "@/components/ActionSheetRow";
 import { AppSheet } from "@/components/AppSheet";
-import { Radius } from "@/lib/radius";
-import { shadowOverlay } from "@/lib/shadow";
 import { Theme, useTheme } from "@/lib/theme";
+
+type IconName = ComponentProps<typeof ActionSheetRow>["icon"];
 
 type Props = {
   visible: boolean;
@@ -24,11 +24,14 @@ type Props = {
   onOpenModels?: () => void;
   /** Drawer only — enter multi-select with this chat checked. */
   onSelectChats?: () => void;
-  /**
-   * `sheet` — bottom action sheet.
-   * `menu` — floating overflow card (chat ⋮ + drawer long-press).
-   */
-  placement?: "sheet" | "menu";
+};
+
+type Action = {
+  key: string;
+  icon: IconName;
+  label: string;
+  onPress: () => void;
+  danger?: boolean;
 };
 
 export function ChatActionsSheet({
@@ -44,139 +47,68 @@ export function ChatActionsSheet({
   onDelete,
   onOpenModels,
   onSelectChats,
-  placement = "sheet",
 }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const isMenu = placement === "menu";
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const panelStyle = useMemo(() => makeActionSheetPanelStyle(theme), [theme]);
 
-  useEffect(() => {
-    if (!isMenu || !visible) {
-      setKeyboardHeight(0);
-      return;
+  const actions = useMemo(() => {
+    const rows: Action[] = [
+      { key: "share", icon: "share-outline", label: t("chat.share"), onPress: onShare },
+      { key: "rename", icon: "pencil-outline", label: t("chat.rename"), onPress: onRename },
+      {
+        key: "pin",
+        icon: pinned ? "pin" : "pin-outline",
+        label: pinned ? t("chat.unpin") : t("chat.pin"),
+        onPress: onTogglePin,
+      },
+    ];
+    if (onToggleArchive) {
+      rows.push({
+        key: "archive",
+        icon: archived ? "arrow-undo-outline" : "archive-outline",
+        label: archived ? t("chat.unarchive") : t("chat.archive"),
+        onPress: onToggleArchive,
+      });
     }
-    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const showSub = Keyboard.addListener(showEvent, (e) => {
-      setKeyboardHeight(Math.max(0, e.endCoordinates.height));
+    if (onSelectChats) {
+      rows.push({
+        key: "select",
+        icon: "checkbox-outline",
+        label: t("drawer.select"),
+        onPress: onSelectChats,
+      });
+    }
+    if (onOpenModels) {
+      // options-outline matches outline weight better than hardware-chip.
+      rows.push({
+        key: "models",
+        icon: "options-outline",
+        label: t("settings.model"),
+        onPress: onOpenModels,
+      });
+    }
+    rows.push({
+      key: "delete",
+      icon: "trash-outline",
+      label: t("common.delete"),
+      onPress: onDelete,
+      danger: true,
     });
-    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
-    const metrics = Keyboard.metrics();
-    if (metrics?.height) setKeyboardHeight(metrics.height);
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, [isMenu, visible]);
-
-  // Menu: filled / social glyphs read bolder; sheet keeps lighter outlines.
-  const iconSize = isMenu ? 22 : 20;
-  const shareIcon = isMenu ? "share-social" : "share-outline";
-  const renameIcon = isMenu ? "pencil" : "pencil-outline";
-  const pinIcon = pinned ? "pin" : "pin-outline";
-  const archiveIcon = archived
-    ? isMenu
-      ? "arrow-undo"
-      : "arrow-undo-outline"
-    : isMenu
-      ? "archive"
-      : "archive-outline";
-  const trashIcon = isMenu ? "trash" : "trash-outline";
-  const modelsIcon = isMenu ? "hardware-chip" : "hardware-chip-outline";
-
-  const row = (
-    icon: keyof typeof Ionicons.glyphMap,
-    label: string,
-    onPress: () => void,
-    danger = false,
-  ) => (
-    <Pressable style={s.item} onPress={onPress}>
-      <Ionicons
-        name={icon}
-        size={iconSize}
-        color={danger ? theme.danger : theme.text}
-      />
-      <Text style={[s.label, danger && s.labelDanger]}>{label}</Text>
-    </Pressable>
-  );
-
-  const actionRows = (
-    <>
-      {row(shareIcon, t("chat.share"), onShare)}
-      {!isMenu ? <View style={s.divider} /> : null}
-      {row(renameIcon, t("chat.rename"), onRename)}
-      {!isMenu ? <View style={s.divider} /> : null}
-      {row(pinIcon, pinned ? t("chat.unpin") : t("chat.pin"), onTogglePin)}
-      {!isMenu ? <View style={s.divider} /> : null}
-      {onToggleArchive ? (
-        <>
-          {row(
-            archiveIcon,
-            archived ? t("chat.unarchive") : t("chat.archive"),
-            onToggleArchive,
-          )}
-          {!isMenu ? <View style={s.divider} /> : null}
-        </>
-      ) : null}
-      {onSelectChats ? (
-        <>
-          {row("checkbox-outline", t("drawer.select"), onSelectChats)}
-          {!isMenu ? <View style={s.divider} /> : null}
-        </>
-      ) : null}
-      {onOpenModels ? (
-        <>
-          {row(modelsIcon, t("settings.model"), onOpenModels)}
-          {!isMenu ? <View style={s.divider} /> : null}
-        </>
-      ) : null}
-      {row(trashIcon, t("common.delete"), onDelete, true)}
-    </>
-  );
-
-  if (isMenu) {
-    if (!visible) return null;
-    const bottom =
-      (keyboardHeight > 0 ? keyboardHeight : Math.max(insets.bottom, 8)) + 12;
-    return (
-      <View
-        style={s.menuRoot}
-        pointerEvents="box-none"
-        testID="chat-actions-menu"
-      >
-        <Pressable
-          style={s.menuBackdrop}
-          onPress={onClose}
-          accessibilityRole="button"
-          accessibilityLabel={t("common.cancel")}
-          testID="chat-actions-menu-backdrop"
-        />
-        {/* Outer wrapper keeps the shadow; inner clips rounded corners. */}
-        <View
-          style={[
-            s.menuPanelShadow,
-            {
-              bottom,
-              right: 10,
-              left: 56,
-            },
-          ]}
-        >
-          <View style={s.menuPanel}>
-            {title ? (
-              <Text style={s.menuTitle} numberOfLines={1}>
-                {title}
-              </Text>
-            ) : null}
-            {actionRows}
-          </View>
-        </View>
-      </View>
-    );
-  }
+    return rows;
+  }, [
+    archived,
+    onDelete,
+    onOpenModels,
+    onRename,
+    onSelectChats,
+    onShare,
+    onToggleArchive,
+    onTogglePin,
+    pinned,
+    t,
+  ]);
 
   return (
     <AppSheet
@@ -184,91 +116,40 @@ export function ChatActionsSheet({
       onClose={onClose}
       variant="bottom"
       withHandle
+      floating
       minBottomPadding={12}
-      contentContainerStyle={s.panel}
+      contentContainerStyle={panelStyle}
     >
       {title ? (
-        <Text style={s.sheetTitle} numberOfLines={2}>
+        <Text style={s.title} numberOfLines={2}>
           {title}
         </Text>
       ) : null}
-      <View style={s.group}>{actionRows}</View>
-      <Pressable style={s.cancelBtn} onPress={onClose}>
-        <Text style={s.cancelText}>{t("common.cancel")}</Text>
-      </Pressable>
+      {actions.map((action, index) => (
+        <ActionSheetRow
+          key={action.key}
+          icon={action.icon}
+          label={action.label}
+          onPress={action.onPress}
+          theme={theme}
+          showDivider={index > 0}
+          danger={action.danger}
+        />
+      ))}
     </AppSheet>
   );
 }
 
 function makeStyles(C: Theme) {
   return StyleSheet.create({
-    panel: {
-      paddingHorizontal: 12,
-      paddingTop: 8,
-      gap: 10,
-    },
-    sheetTitle: {
+    title: {
       fontSize: 13,
       fontWeight: "600",
       color: C.textSecondary,
       textAlign: "center",
       paddingHorizontal: 16,
-      marginBottom: 2,
+      paddingTop: 4,
+      paddingBottom: 4,
     },
-    group: {
-      backgroundColor: C.surface,
-      borderRadius: Radius.lg,
-      overflow: "hidden",
-    },
-    menuRoot: {
-      ...StyleSheet.absoluteFill,
-      zIndex: 400,
-      elevation: 24,
-    },
-    menuBackdrop: {
-      ...StyleSheet.absoluteFill,
-      backgroundColor: C.scrim,
-    },
-    menuPanelShadow: {
-      position: "absolute",
-      borderRadius: Radius.lg,
-      // Shadow must live on a view without overflow:hidden or iOS clips it.
-      backgroundColor: C.surface,
-      ...shadowOverlay(C),
-    },
-    menuPanel: {
-      borderRadius: Radius.lg,
-      backgroundColor: C.surface,
-      overflow: "hidden",
-    },
-    menuTitle: {
-      fontSize: 13,
-      fontWeight: "600",
-      color: C.textSecondary,
-      paddingHorizontal: 18,
-      paddingTop: 14,
-      paddingBottom: 6,
-    },
-    item: {
-      flexDirection: "row",
-      alignItems: "center",
-      paddingHorizontal: 18,
-      paddingVertical: 15,
-      gap: 14,
-    },
-    label: { fontSize: 16, color: C.text, fontWeight: "400", flex: 1 },
-    labelDanger: { color: C.danger },
-    divider: {
-      height: StyleSheet.hairlineWidth,
-      backgroundColor: C.border,
-      marginLeft: 52,
-    },
-    cancelBtn: {
-      backgroundColor: C.surface,
-      borderRadius: Radius.lg,
-      paddingVertical: 16,
-      alignItems: "center",
-    },
-    cancelText: { fontSize: 17, fontWeight: "600", color: C.primary },
   });
 }

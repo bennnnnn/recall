@@ -1,11 +1,10 @@
 import { useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
+import { ActionSheetRow, makeActionSheetPanelStyle } from "@/components/ActionSheetRow";
 import { AppSheet } from "@/components/AppSheet";
 import { selection } from "@/lib/haptics";
-import { Theme, useTheme } from "@/lib/theme";
+import { useTheme } from "@/lib/theme";
 
 export type AttachmentSource = "camera" | "photo" | "file" | "solve_math_camera";
 
@@ -15,35 +14,11 @@ type Props = {
   onSelect: (source: AttachmentSource) => void;
 };
 
-type RowProps = {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  onPress: () => void;
-  theme: Theme;
-  styles: ReturnType<typeof makeStyles>;
-  showDivider?: boolean;
-};
-
-function SheetRow({ icon, label, onPress, theme, styles, showDivider }: RowProps) {
-  return (
-    <>
-      {showDivider ? <View style={styles.divider} /> : null}
-      <Pressable
-        style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}
-        onPress={onPress}
-      >
-        <Ionicons name={icon} size={20} color={theme.text} />
-        <Text style={styles.label}>{label}</Text>
-      </Pressable>
-    </>
-  );
-}
-
-/** Attach / math-scan source picker. */
+/** Attach / math-scan source picker — same floating AppSheet chrome as chat actions. */
 export function AttachmentSourceSheet({ visible, onClose, onSelect }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
-  const s = useMemo(() => makeStyles(theme), [theme]);
+  const panelStyle = useMemo(() => makeActionSheetPanelStyle(theme), [theme]);
 
   const pick = (source: AttachmentSource) => {
     selection();
@@ -58,69 +33,35 @@ export function AttachmentSourceSheet({ visible, onClose, onSelect }: Props) {
       withHandle
       floating
       minBottomPadding={12}
-      contentContainerStyle={s.panel}
+      contentContainerStyle={panelStyle}
     >
-      <SheetRow
+      <ActionSheetRow
         icon="scan-outline"
         label={t("chat.attach_solve_math_camera")}
         onPress={() => pick("solve_math_camera")}
         theme={theme}
-        styles={s}
       />
-      <SheetRow
+      <ActionSheetRow
         icon="camera-outline"
         label={t("chat.attach_camera")}
         onPress={() => pick("camera")}
         theme={theme}
-        styles={s}
         showDivider
       />
-      <SheetRow
+      <ActionSheetRow
         icon="images-outline"
         label={t("chat.attach_photo")}
         onPress={() => pick("photo")}
         theme={theme}
-        styles={s}
         showDivider
       />
-      <SheetRow
+      <ActionSheetRow
         icon="document-outline"
         label={t("chat.attach_file")}
         onPress={() => pick("file")}
         theme={theme}
-        styles={s}
         showDivider
       />
     </AppSheet>
   );
-}
-
-function makeStyles(C: Theme) {
-  return StyleSheet.create({
-    panel: {
-      backgroundColor: C.inputBg,
-      // Radii / float margins come from AppSheet `floating`.
-    },
-    item: {
-      flexDirection: "row",
-      alignItems: "center",
-      paddingHorizontal: 18,
-      paddingVertical: 16,
-      gap: 14,
-    },
-    itemPressed: {
-      backgroundColor: C.surfaceAlt,
-    },
-    label: {
-      fontSize: 17,
-      color: C.text,
-      fontWeight: "400",
-      flex: 1,
-    },
-    divider: {
-      height: StyleSheet.hairlineWidth,
-      backgroundColor: C.border,
-      marginLeft: 52,
-    },
-  });
 }
