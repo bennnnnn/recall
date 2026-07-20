@@ -13,7 +13,9 @@ export type ConversationRowStyles = {
   rowIcon: ViewStyle;
   title: TextStyle;
   titlePending: TextStyle;
+  titleActive: TextStyle;
   rowHighlighted: ViewStyle;
+  rowActive: ViewStyle;
   rowSelected: ViewStyle;
   swipeContainer: ViewStyle;
   swipeDeleteAction: ViewStyle;
@@ -35,6 +37,8 @@ type Props = {
   selected?: boolean;
   onToggleSelect?: (chatId: string) => void;
   highlighted?: boolean;
+  /** Currently open chat on the home screen. */
+  active?: boolean;
   titleGenerating?: boolean;
   rowStyles: ConversationRowStyles;
 };
@@ -48,6 +52,7 @@ export const ConversationRow = memo(function ConversationRow({
   selected = false,
   onToggleSelect,
   highlighted = false,
+  active = false,
   titleGenerating = false,
   rowStyles: r,
 }: Props) {
@@ -57,7 +62,12 @@ export const ConversationRow = memo(function ConversationRow({
 
   const row = (
     <Pressable
-      style={[r.row, highlighted && r.rowHighlighted, selected && r.rowSelected]}
+      style={[
+        r.row,
+        highlighted && r.rowHighlighted,
+        active && !selectionMode && r.rowActive,
+        selected && r.rowSelected,
+      ]}
       onPress={() => {
         if (selectionMode) onToggleSelect?.(chat.id);
         else onOpen(chat.id);
@@ -68,7 +78,9 @@ export const ConversationRow = memo(function ConversationRow({
       }}
       accessibilityRole={selectionMode ? "checkbox" : "button"}
       accessibilityLabel={label}
-      accessibilityState={selectionMode ? { checked: selected } : undefined}
+      accessibilityState={
+        selectionMode ? { checked: selected } : { selected: active }
+      }
     >
       {selectionMode ? (
         <View style={r.rowIcon}>
@@ -84,7 +96,11 @@ export const ConversationRow = memo(function ConversationRow({
         </View>
       ) : null}
       <Text
-        style={[r.title, titleGenerating && !chat.title && r.titlePending]}
+        style={[
+          r.title,
+          titleGenerating && !chat.title && r.titlePending,
+          active && !selectionMode && r.titleActive,
+        ]}
         numberOfLines={1}
       >
         {label}
@@ -129,7 +145,14 @@ export function makeConversationRowStyles(theme: Theme): ConversationRowStyles {
     rowIcon: { flexShrink: 0 },
     title: { flex: 1, fontSize: 14, fontWeight: "500", color: theme.text },
     titlePending: { color: theme.textTertiary, fontStyle: "italic" },
+    titleActive: { fontWeight: "700", color: theme.primary },
     rowHighlighted: {
+      backgroundColor: theme.primaryLight,
+      borderRadius: 10,
+      marginHorizontal: 6,
+      paddingHorizontal: 8,
+    },
+    rowActive: {
       backgroundColor: theme.primaryLight,
       borderRadius: 10,
       marginHorizontal: 6,

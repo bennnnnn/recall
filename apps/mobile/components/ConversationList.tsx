@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { LinearGradient } from "expo-linear-gradient";
-import { closeDrawer, startNewChatGlobal } from "@/lib/drawer";
+import { closeDrawer, getActiveChatIdGlobal, startNewChatGlobal } from "@/lib/drawer";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -218,6 +218,8 @@ export function ConversationList(_props: unknown) {
   const bottomFadeHeight = bottomInset + FADE_EXTRA;
 
   const highlightedIds = searchOpen ? matchingChatIds : undefined;
+  // Snapshot when the drawer opens — isOpen flip re-renders this list.
+  const activeChatId = isOpen ? getActiveChatIdGlobal() : null;
 
   const listHeader = (
     <DrawerListHeader
@@ -287,6 +289,7 @@ export function ConversationList(_props: unknown) {
         isSectionCollapsed={isSectionCollapsed}
         toggleSectionCollapsed={toggleSectionCollapsed}
         highlightedIds={highlightedIds}
+        activeChatId={activeChatId}
         onOpenChat={openChat}
         onShowRowMenu={onShowRowMenu}
         onDeleteChat={onDeleteChat}
