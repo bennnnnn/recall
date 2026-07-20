@@ -55,7 +55,7 @@ export function formatAppleSignInError(error: unknown): string {
     return "native_module_missing";
   }
   if (/cancel/i.test(message)) {
-    return "Sign-in cancelled";
+    return "cancelled";
   }
   return message || "generic";
 }

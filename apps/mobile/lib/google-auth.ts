@@ -62,6 +62,9 @@ export function formatGoogleSignInError(error: unknown): string {
   if (/DEVELOPER_ERROR|12500|10:/i.test(message)) {
     return "android_oauth_setup";
   }
+  if (/cancel/i.test(message)) {
+    return "cancelled";
+  }
   return message || "generic";
 }
 

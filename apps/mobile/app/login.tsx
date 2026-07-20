@@ -71,6 +71,7 @@ export default function LoginScreen() {
   const signInErrorMessage = (error: unknown, provider: "google" | "apple") => {
     const key =
       provider === "google" ? formatGoogleSignInError(error) : formatAppleSignInError(error);
+    if (key === "cancelled") return null;
     if (key === "bundle_load_failed") return t("login.error_bundle");
     if (key === "native_module_missing") return t("login.error_native_module");
     if (key === "not_configured") return t("login.error_not_configured");
@@ -85,7 +86,8 @@ export default function LoginScreen() {
     try {
       await signInWithApple();
     } catch (e) {
-      Alert.alert(t("login.sign_in_failed"), signInErrorMessage(e, "apple"));
+      const message = signInErrorMessage(e, "apple");
+      if (message) Alert.alert(t("login.sign_in_failed"), message);
     } finally {
       setBusyProvider(null);
     }
@@ -112,7 +114,8 @@ export default function LoginScreen() {
     try {
       await signInWithGoogle();
     } catch (e) {
-      Alert.alert(t("login.sign_in_failed"), signInErrorMessage(e, "google"));
+      const message = signInErrorMessage(e, "google");
+      if (message) Alert.alert(t("login.sign_in_failed"), message);
     } finally {
       setBusyProvider(null);
     }
@@ -182,7 +185,11 @@ export default function LoginScreen() {
               ) : null}
               {showAppleLogin ? (
                 <Pressable
-                  style={[s.appleBtn, busy && s.dim]}
+                  style={({ pressed }) => [
+                    s.appleBtn,
+                    busyProvider !== null && busyProvider !== "apple" && s.dim,
+                    pressed && busyProvider === null && s.pressed,
+                  ]}
                   onPress={handleApple}
                   disabled={busy}
                   accessibilityRole="button"
@@ -201,7 +208,11 @@ export default function LoginScreen() {
               ) : null}
               {showGoogleLogin ? (
                 <Pressable
-                  style={[s.googleBtn, busy && s.dim]}
+                  style={({ pressed }) => [
+                    s.googleBtn,
+                    busyProvider !== null && busyProvider !== "google" && s.dim,
+                    pressed && busyProvider === null && s.pressed,
+                  ]}
                   onPress={handleGoogle}
                   disabled={busy}
                   accessibilityRole="button"
@@ -227,7 +238,11 @@ export default function LoginScreen() {
                 <>
                   <Text style={s.orText}>{t("login.or_dev")}</Text>
                   <Pressable
-                    style={[s.devSecondaryBtn, busy && s.dim]}
+                    style={({ pressed }) => [
+                      s.devSecondaryBtn,
+                      busyProvider !== null && busyProvider !== "dev" && s.dim,
+                      pressed && busyProvider === null && s.pressed,
+                    ]}
                     onPress={handleDev}
                     disabled={busy}
                     accessibilityRole="button"
@@ -249,7 +264,11 @@ export default function LoginScreen() {
                 <>
                   <Text style={s.orText}>{t("login.or_dev")}</Text>
                   <Pressable
-                    style={[s.devSecondaryBtn, busy && s.dim]}
+                    style={({ pressed }) => [
+                      s.devSecondaryBtn,
+                      busyProvider !== null && busyProvider !== "dev" && s.dim,
+                      pressed && busyProvider === null && s.pressed,
+                    ]}
                     onPress={handleDev}
                     disabled={busy}
                     accessibilityRole="button"
@@ -445,6 +464,7 @@ function makeStyles(theme: Theme) {
     },
     devSecondaryText: { fontSize: 15, fontWeight: "600", color: theme.primary },
     dim: { opacity: 0.55 },
+    pressed: { opacity: 0.85 },
     links: {
       flexDirection: "row",
       alignItems: "center",
