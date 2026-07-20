@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet } from "react-native";
+import { Platform, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -26,7 +26,7 @@ export function AddFab({ onPress, accessibilityLabel }: Props) {
       accessibilityLabel={accessibilityLabel}
       style={[s.btn, { bottom: Math.max(insets.bottom, 12) + 8, right: 16 + insets.right }]}
     >
-      <Ionicons name="add" size={28} color={theme.primary} />
+      <Ionicons name="add" size={28} color={theme.onPrimary} />
     </Pressable>
   );
 }
@@ -39,9 +39,18 @@ function makeStyles(theme: Theme) {
       width: 56,
       height: 56,
       borderRadius: 28,
-      backgroundColor: theme.primaryLight,
+      backgroundColor: theme.primary,
       alignItems: "center",
       justifyContent: "center",
+      ...Platform.select({
+        ios: {
+          shadowColor: theme.primary,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: theme.isDark ? 0.35 : 0.28,
+          shadowRadius: 8,
+        },
+        android: { elevation: 6 },
+      }),
     },
   });
 }
