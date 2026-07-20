@@ -25,19 +25,33 @@ _JWT_RE = re.compile(r"eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]*")
 _REDACTED = "[REDACTED]"
 
 
+def _redact_pii(text: str) -> str:
+    redacted = _JWT_RE.sub(_REDACTED, text)
+    redacted = _BEARER_RE.sub(_REDACTED, redacted)
+    return _EMAIL_RE.sub(_REDACTED, redacted)
+
+
 class _PIIRedactFilter(logging.Filter):
-    """Redact emails and bearer/JWT tokens from log records in-place."""
+    """Redact emails and bearer/JWT tokens from log records in-place.
+
+    Also redacts ``exc_text`` — Formatters append traceback text after the
+    filter runs on ``msg``, so SQL/httpx exception params would otherwise
+    leak emails/tokens past this filter.
+    """
 
     def filter(self, record: logging.LogRecord) -> bool:
         msg = record.getMessage()
-        redacted = _JWT_RE.sub(_REDACTED, msg)
-        redacted = _BEARER_RE.sub(_REDACTED, redacted)
-        redacted = _EMAIL_RE.sub(_REDACTED, redacted)
+        redacted = _redact_pii(msg)
         if redacted != msg:
             # Replace the formatted message so handlers that re-format see
             # the redacted version too.
             record.msg = redacted
             record.args = ()
+        if record.exc_text:
+            record.exc_text = _redact_pii(record.exc_text)
+        elif record.exc_info:
+            # Pre-format so redaction applies before the Formatter caches it.
+            record.exc_text = _redact_pii(logging.Formatter().formatException(record.exc_info))
         return True
 
 

@@ -86,6 +86,47 @@ def test_pii_redact_filter_redacts_jwt_tokens():
     assert "[REDACTED]" in rec.getMessage()
 
 
+def test_pii_redact_filter_redacts_exc_text_emails():
+    """Emails in formatted exception text must be redacted (not only msg)."""
+    rec = logging.LogRecord(
+        name="t",
+        level=logging.ERROR,
+        pathname=__file__,
+        lineno=1,
+        msg="db failed",
+        args=(),
+        exc_info=None,
+    )
+    rec.exc_text = "IntegrityError: duplicate key for alice@example.com"
+    _PIIRedactFilter().filter(rec)
+    assert rec.exc_text is not None
+    assert "alice@example.com" not in rec.exc_text
+    assert "[REDACTED]" in rec.exc_text
+
+
+def test_pii_redact_filter_redacts_exc_info_traceback():
+    """When only exc_info is set, pre-format and redact before Formatter caches it."""
+    try:
+        raise ValueError("failed for bob@example.com")
+    except ValueError:
+        import sys
+
+        exc_info = sys.exc_info()
+    rec = logging.LogRecord(
+        name="t",
+        level=logging.ERROR,
+        pathname=__file__,
+        lineno=1,
+        msg="boom",
+        args=(),
+        exc_info=exc_info,
+    )
+    _PIIRedactFilter().filter(rec)
+    assert rec.exc_text is not None
+    assert "bob@example.com" not in rec.exc_text
+    assert "[REDACTED]" in rec.exc_text
+
+
 def test_request_id_formatter_includes_request_id_when_set():
     """When request_id_context is set, the formatter must include it in the line."""
     rec = logging.LogRecord(

@@ -119,34 +119,42 @@ async def refresh_token_pair(
     session: AsyncSession,
     settings: Settings,
 ) -> tuple[str, str, UserOut]:
-    # Atomic claim: GETDEL so two concurrent refreshes cannot both mint pairs.
-    user_id_raw = await redis.getdel(_refresh_key(refresh_token))
-    if user_id_raw is None:
-        tombstoned = await redis.get(_tombstone_key(refresh_token))
-        if tombstoned is not None:
-            # Reuse = presenting a token that was already rotated out (GETDEL
-            # miss + tombstone hit). Legitimate clients never do this after a
-            # successful refresh; treat as theft and revoke all refresh
-            # sessions for that user (no grace window — intentional).
-            # Unknown tokens (no tombstone) fail closed without revocation.
-            stolen_user_id = UUID(_redis_str(tombstoned))
-            logger.warning(
-                "Refresh token reuse detected for user_id=%s — revoking all sessions",
-                stolen_user_id,
-            )
-            await _revoke_all_refresh_tokens(redis, stolen_user_id, settings)
-        raise GoogleAuthError("Invalid refresh token")
-    user_id = UUID(_redis_str(user_id_raw))
+    try:
+        # Atomic claim: GETDEL so two concurrent refreshes cannot both mint pairs.
+        user_id_raw = await redis.getdel(_refresh_key(refresh_token))
+        if user_id_raw is None:
+            tombstoned = await redis.get(_tombstone_key(refresh_token))
+            if tombstoned is not None:
+                # Reuse = presenting a token that was already rotated out (GETDEL
+                # miss + tombstone hit). Legitimate clients never do this after a
+                # successful refresh; treat as theft and revoke all refresh
+                # sessions for that user (no grace window — intentional).
+                # Unknown tokens (no tombstone) fail closed without revocation.
+                stolen_user_id = UUID(_redis_str(tombstoned))
+                logger.warning(
+                    "Refresh token reuse detected for user_id=%s — revoking all sessions",
+                    stolen_user_id,
+                )
+                await _revoke_all_refresh_tokens(redis, stolen_user_id, settings)
+            raise GoogleAuthError("Invalid refresh token")
+        user_id = UUID(_redis_str(user_id_raw))
 
-    user = await users_repo.get_by_id(session, user_id)
-    if user is None:
-        raise GoogleAuthError("User not found")
+        user = await users_repo.get_by_id(session, user_id)
+        if user is None:
+            raise GoogleAuthError("User not found")
 
-    # Retire this token (tombstoned so a later reuse is detectable) and drop
-    # it from the user's live set before issuing the replacement.
-    await redis.set(_tombstone_key(refresh_token), str(user_id), ex=_REUSE_DETECTION_WINDOW_SECONDS)
-    await redis.srem(_user_refresh_set_key(user_id), refresh_token)
-    access_token, new_refresh = await issue_token_pair(redis, user_id, settings)
+        # Retire this token (tombstoned so a later reuse is detectable) and drop
+        # it from the user's live set before issuing the replacement.
+        await redis.set(
+            _tombstone_key(refresh_token), str(user_id), ex=_REUSE_DETECTION_WINDOW_SECONDS
+        )
+        await redis.srem(_user_refresh_set_key(user_id), refresh_token)
+        access_token, new_refresh = await issue_token_pair(redis, user_id, settings)
+    except GoogleAuthError:
+        raise
+    except RedisError as exc:
+        logger.warning("Refresh token Redis op failed; Redis unavailable", exc_info=True)
+        raise RedisUnavailableError() from exc
     return access_token, new_refresh, UserOut.model_validate(user)
 
 
@@ -160,17 +168,25 @@ async def revoke_access_token(redis: Redis, access_token: str, settings: Setting
     if not jti or not exp:
         return
     ttl = max(1, int(exp - datetime.now(UTC).timestamp()))
-    await redis.set(_revoked_key(str(jti)), "1", ex=ttl)
+    try:
+        await redis.set(_revoked_key(str(jti)), "1", ex=ttl)
+    except RedisError as exc:
+        logger.warning("Access token revoke failed; Redis unavailable", exc_info=True)
+        raise RedisUnavailableError() from exc
 
 
 async def revoke_refresh_token(redis: Redis, refresh_token: str | None) -> None:
     if not refresh_token:
         return
-    user_id_raw = await redis.get(_refresh_key(refresh_token))
-    await redis.delete(_refresh_key(refresh_token))
-    if user_id_raw is not None:
-        user_id = UUID(_redis_str(user_id_raw))
-        await redis.srem(_user_refresh_set_key(user_id), refresh_token)
+    try:
+        user_id_raw = await redis.get(_refresh_key(refresh_token))
+        await redis.delete(_refresh_key(refresh_token))
+        if user_id_raw is not None:
+            user_id = UUID(_redis_str(user_id_raw))
+            await redis.srem(_user_refresh_set_key(user_id), refresh_token)
+    except RedisError as exc:
+        logger.warning("Refresh token revoke failed; Redis unavailable", exc_info=True)
+        raise RedisUnavailableError() from exc
 
 
 async def is_access_revoked(redis: Redis, jti: str) -> bool:
