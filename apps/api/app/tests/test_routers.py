@@ -1044,6 +1044,52 @@ def test_revenuecat_webhook_expiration_still_downgrades():
     assert apply_plan.await_args.kwargs["plan"] == "free"
 
 
+def test_expiration_overflow_ms_returns_none():
+    """Huge expiration_at_ms must not raise (webhook 500 / retry storm)."""
+    from app.routers.webhooks import _expiration
+
+    assert _expiration({"event": {"expiration_at_ms": 10**20}}) is None
+    assert _expiration({"event": {"expiration_at_ms": -(10**20)}}) is None
+
+
+def test_revenuecat_webhook_huge_expiration_still_succeeds():
+    import fakeredis.aioredis
+
+    from app.core.config import get_settings
+    from app.core.deps import get_redis
+
+    uid = uuid4()
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        environment="development",
+        revenuecat_webhook_auth="",
+        dev_allow_unauthed_webhooks=True,
+    )
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    app.dependency_overrides[get_redis] = lambda: fake_redis
+
+    payload = {
+        "event": {
+            "type": "INITIAL_PURCHASE",
+            "app_user_id": str(uid),
+            "expiration_at_ms": 10**20,
+        }
+    }
+
+    with (
+        patch(
+            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            AsyncMock(return_value=True),
+        ),
+        patch("app.routers.webhooks.enqueue_purchase_receipt", AsyncMock()) as enq,
+    ):
+        client = TestClient(app)
+        r = client.post("/webhooks/revenuecat", json=payload)
+
+    assert r.status_code == 204
+    assert enq.await_args.kwargs.get("expiration") is None
+
+
 def test_revenuecat_webhook_dedups_replay_by_event_id():
     import fakeredis.aioredis
 

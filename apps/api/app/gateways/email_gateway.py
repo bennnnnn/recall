@@ -24,6 +24,14 @@ def is_configured(settings: Settings) -> bool:
     return bool(settings.resend_api_key.strip())
 
 
+def _recipient_log_label(to: str) -> str:
+    """Domain-only label for logs — never the full mailbox address."""
+    at = to.rfind("@")
+    if at >= 0 and at + 1 < len(to):
+        return f"*@{to[at + 1 :]}"
+    return "(invalid-recipient)"
+
+
 async def send_email(
     settings: Settings,
     *,
@@ -36,8 +44,9 @@ async def send_email(
 
     Never raises — callers (background jobs) rely on this not propagating.
     """
+    to_label = _recipient_log_label(to)
     if not settings.email_enabled:
-        logger.debug("Transactional email disabled; skipping to=%s subject=%r", to, subject)
+        logger.debug("Transactional email disabled; skipping to=%s subject=%r", to_label, subject)
         return False
     if not to.strip():
         logger.warning("Transactional email skipped: empty recipient")
@@ -47,7 +56,12 @@ async def send_email(
         # Dev / no-provider path: log that the flow ran, but NOT the body —
         # transactional emails (welcome, receipts, reminders) contain PII and
         # recipient-specific content that shouldn't sit in INFO logs.
-        logger.info("MOCK transactional email to=%s subject=%r chars=%d", to, subject, len(text))
+        logger.info(
+            "MOCK transactional email to=%s subject=%r chars=%d",
+            to_label,
+            subject,
+            len(text),
+        )
         return True
 
     payload: dict[str, Any] = {
@@ -70,5 +84,5 @@ async def send_email(
             response.raise_for_status()
         return True
     except Exception:
-        logger.exception("Transactional email send failed to=%s subject=%r", to, subject)
+        logger.exception("Transactional email send failed to=%s subject=%r", to_label, subject)
         return False
