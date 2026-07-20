@@ -11,6 +11,15 @@ jest.mock("react-native-webview", () => {
 jest.mock("@expo/dom-webview", () => {
   throw new Error("@expo/dom-webview native module is not linked (test)");
 });
+// MathFormulaWebView (expand/fullscreen) pulls Ionicons + safe-area; mock
+// before the suite imports that path through MathView.
+jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
+jest.mock("react-native-safe-area-context", () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
+jest.mock("react-i18next", () => ({
+  useTranslation: () => ({ t: (key: string) => key }),
+}));
 
 describe("MathInline", () => {
   it("renders trimmed latex as inline MathText", async () => {
