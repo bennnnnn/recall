@@ -145,7 +145,8 @@ export function makeConversationRowStyles(theme: Theme): ConversationRowStyles {
     rowIcon: { flexShrink: 0 },
     title: { flex: 1, fontSize: 14, fontWeight: "500", color: theme.text },
     titlePending: { color: theme.textTertiary, fontStyle: "italic" },
-    titleActive: { fontWeight: "700", color: theme.primary },
+    // Wash already signals active — keep ink on theme.text, just bolder.
+    titleActive: { fontWeight: "700" },
     rowHighlighted: {
       backgroundColor: theme.primaryLight,
       borderRadius: 10,
