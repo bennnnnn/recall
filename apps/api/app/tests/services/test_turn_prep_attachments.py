@@ -367,3 +367,68 @@ async def test_prepare_chat_turn_ocr_skipped_for_unrelated_caption():
     should not spend a vision call on an equation that likely isn't there."""
     extract_mock = await _run_prepare_chat_turn_with_caption("here's a photo of my dog")
     extract_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_process_attachments_reuses_verified_bytes_for_format():
+    """R2 verify downloads once; format must not re-read the same object."""
+    from app.services.chat.turn_prep.attachments import _process_attachments
+
+    user_id = uuid4()
+    attachment_id = uuid4()
+    user = MagicMock()
+    user.id = user_id
+    row = MagicMock()
+    row.id = attachment_id
+    row.content_type = "text/plain"
+    row.storage_key = "user/doc.txt"
+    row.size_bytes = 5
+    payload = b"hello"
+
+    settings = Settings(attachments_enabled=True)
+    redis = AsyncMock()
+    session = AsyncMock()
+    gateway = MagicMock()  # not LocalStorageGateway → R2 verify path
+
+    class SessionCM:
+        async def __aenter__(self):
+            return session
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+    format_mock = AsyncMock(return_value=(["[File: x]"], False))
+    with (
+        patch("app.services.chat.turn_prep.attachments.SessionLocal", return_value=SessionCM()),
+        patch("app.repositories.attachments.get_by_ids", AsyncMock(return_value=[row])),
+        patch(
+            "app.gateways.storage_gateway.get_storage_gateway",
+            return_value=gateway,
+        ),
+        patch(
+            "app.services.attachment_content.verify_uploaded_bytes",
+            AsyncMock(return_value=(payload, None)),
+        ) as verify_mock,
+        patch(
+            "app.services.attachment_content.format_attachment_lines",
+            format_mock,
+        ),
+        patch(
+            "app.services.attachment_content.read_attachment_bytes",
+            AsyncMock(return_value=b"should-not-read"),
+        ) as read_mock,
+    ):
+        result = await _process_attachments(
+            user_id=user_id,
+            user=user,
+            content="hi",
+            attachment_ids=[attachment_id],
+            settings=settings,
+            redis=redis,
+            on_status=None,
+        )
+
+    verify_mock.assert_awaited_once()
+    assert format_mock.await_args.kwargs["data"] == payload
+    assert result.bytes_by_key[row.storage_key] == payload
+    read_mock.assert_not_awaited()

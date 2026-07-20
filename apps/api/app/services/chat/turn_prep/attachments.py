@@ -40,6 +40,8 @@ class _AttachmentProcessResult:
     image_attachments: list[tuple[str, str]]
     image_math_extract: MathImageExtract | None
     gateway: Any | None
+    # storage_key → bytes loaded once during verify (or first read this turn)
+    bytes_by_key: dict[str, bytes]
 
 
 async def _process_attachments(
@@ -68,6 +70,7 @@ async def _process_attachments(
             image_attachments=[],
             image_math_extract=None,
             gateway=None,
+            bytes_by_key={},
         )
 
     async with SessionLocal() as session:
@@ -96,6 +99,7 @@ async def _process_attachments(
             image_attachments=[],
             image_math_extract=None,
             gateway=None,
+            bytes_by_key={},
         )
 
     from app.gateways.storage_gateway import LocalStorageGateway, get_storage_gateway
@@ -105,14 +109,17 @@ async def _process_attachments(
         await on_status("reading_files")
 
     gateway = get_storage_gateway(settings)
+    # One download per storage_key this turn — reuse for format / OCR / vision.
+    bytes_by_key: dict[str, bytes] = {}
     if not isinstance(gateway, LocalStorageGateway):
         from app.exceptions import AttachmentValidationError
 
         for row in attachment_rows:
-            _, error = await attachment_content_service.verify_uploaded_bytes(
+            data, error = await attachment_content_service.verify_uploaded_bytes(
                 gateway,
                 content_type=row.content_type,
                 storage_key=row.storage_key,
+                declared_size=row.size_bytes,
             )
             if error:
                 if attachment_content_service.is_image_content_type(row.content_type):
@@ -127,6 +134,8 @@ async def _process_attachments(
                         storage_key=row.storage_key,
                     )
                 raise AttachmentValidationError(error)
+            if data:
+                bytes_by_key[row.storage_key] = data
     attachment_lines: list[str] = []
     formatted = await asyncio.gather(
         *(
@@ -137,6 +146,7 @@ async def _process_attachments(
                 storage_key=row.storage_key,
                 size_bytes=row.size_bytes,
                 settings=settings,
+                data=bytes_by_key.get(row.storage_key),
             )
             for row in attachment_rows
         )
@@ -185,7 +195,13 @@ async def _process_attachments(
         if on_status is not None:
             await on_status("calculating")
         mime, storage_key = image_attachments[0]
-        image_bytes = await attachment_content_service.read_attachment_bytes(gateway, storage_key)
+        image_bytes = bytes_by_key.get(storage_key)
+        if image_bytes is None:
+            image_bytes = await attachment_content_service.read_attachment_bytes(
+                gateway, storage_key
+            )
+            if image_bytes:
+                bytes_by_key[storage_key] = image_bytes
         if image_bytes:
             extracted = await math_image_extract_service.extract_equation_from_image(
                 settings, content_type=mime, data=image_bytes
@@ -205,4 +221,5 @@ async def _process_attachments(
         image_attachments=image_attachments,
         image_math_extract=image_math_extract,
         gateway=gateway,
+        bytes_by_key=bytes_by_key,
     )

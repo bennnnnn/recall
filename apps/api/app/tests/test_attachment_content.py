@@ -189,6 +189,29 @@ async def test_format_attachment_lines_includes_file_ref():
 
 
 @pytest.mark.asyncio
+async def test_format_attachment_lines_reuses_preloaded_data():
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.services.attachment_content import format_attachment_lines
+
+    gateway = MagicMock()
+    gateway.read_bytes = AsyncMock(return_value=b"should-not-read")
+
+    lines, is_image = await format_attachment_lines(
+        gateway,
+        attachment_id="550e8400-e29b-41d4-a716-446655440000",
+        content_type="text/plain",
+        storage_key="key",
+        size_bytes=5,
+        settings=Settings(),
+        data=b"hello",
+    )
+    assert is_image is False
+    assert "hello" in lines[1]
+    gateway.read_bytes.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_format_attachment_lines_gives_honest_error_for_unsupported_type():
     """Legacy .doc passes every validation check but has no parser — the
     user should be told that plainly, not shown a misleading byte-count
@@ -238,6 +261,29 @@ async def test_format_attachment_lines_scanned_pdf_empty_text():
     assert is_image is False
     assert "scanned" in lines[1].lower() or "OCR" in lines[1]
     assert "bytes]" not in lines[1]
+
+
+@pytest.mark.asyncio
+async def test_inject_vision_content_uses_bytes_by_key_cache():
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.services.attachment_content import inject_vision_content
+
+    gateway = MagicMock()
+    gateway.read_bytes = AsyncMock(return_value=b"should-not-read")
+    prompt_messages = [{"role": "user", "content": "look"}]
+    images = [("image/png", "key-a")]
+
+    await inject_vision_content(
+        prompt_messages,
+        gateway,
+        images,
+        caption="look",
+        bytes_by_key={"key-a": b"\x89PNG\r\n\x1a\n" + b"\x00" * 8},
+    )
+    gateway.read_bytes.assert_not_awaited()
+    content = prompt_messages[0]["content"]
+    assert any(part.get("type") == "image_url" for part in content)
 
 
 @pytest.mark.asyncio
