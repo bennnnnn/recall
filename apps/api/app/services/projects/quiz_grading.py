@@ -133,9 +133,6 @@ async def apply_deterministic_quiz_answer(
     project_id: UUID | None,
     assistant_content: str,
     user_answer: str,
-    topic_hint: str | None = None,
-    question_hint: str | None = None,
-    is_correct_hint: bool | None = None,
     attempt: int = 1,
 ) -> QuizAnswerGrade | None:
     """Persist quiz results without waiting on background LLM project sync."""
@@ -144,19 +141,7 @@ async def apply_deterministic_quiz_answer(
     quiz = vocab_quiz_service.parse_vocab_quiz(assistant_content)
     choices = quiz.choices if quiz is not None else ()
     letter = vocab_quiz_service.quiz_answer_letter(user_answer, choices=choices)
-    if letter is None:
-        return None
-
-    if quiz is None and topic_hint and question_hint:
-        from app.services.vocab_quiz import ParsedVocabQuiz
-
-        quiz = ParsedVocabQuiz(
-            word=topic_hint.strip(),
-            question=question_hint.strip(),
-            correct=None,
-            quiz_type="trivia",
-        )
-    if quiz is None:
+    if letter is None or quiz is None:
         return None
 
     # Only score in project-linked chats — never guess trivia/vocab project from user id.
@@ -168,14 +153,10 @@ async def apply_deterministic_quiz_answer(
         return None
 
     is_trivia = _is_trivia_project(project) or quiz.quiz_type == "trivia"
-    is_correct: bool | None = None
-    if quiz.correct:
-        is_correct = letter == quiz.correct.upper()
-    elif is_correct_hint is not None:
-        is_correct = is_correct_hint
-    if is_correct is None:
+    if not quiz.correct:
         return None
-    correct_letter = (quiz.correct or "").upper()
+    is_correct = letter == quiz.correct.upper()
+    correct_letter = quiz.correct.upper()
     if not re.fullmatch(r"[A-D]", correct_letter):
         return None
 

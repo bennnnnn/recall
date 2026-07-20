@@ -152,6 +152,10 @@ class TestMathTextMatchSignals:
     def test_combinatorics_signal(self, text, expected):
         assert math_text_match.combinatorics_signal(text) == expected
 
+    def test_combinatorics_signal_rejects_excitement_bang(self):
+        assert math_text_match.combinatorics_signal("I have 5!") is None
+        assert math_text_match.combinatorics_signal("Wow 10!!!") is None
+
     @pytest.mark.parametrize(
         "text,expected",
         [

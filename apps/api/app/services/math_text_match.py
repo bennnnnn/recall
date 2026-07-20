@@ -657,8 +657,14 @@ def _digits_immediately_after(text: str, idx: int) -> tuple[int, int] | None:
     return (int(text[idx:j]), j) if j > idx else None
 
 
+_BARE_FACTORIAL_BANG = re.compile(r"^\s*(\d+)\s*!\s*[.?!]*\s*$")
+
+
 def _factorial_signal(text: str) -> int | None:
-    """ "5!" / "5 factorial" / "factorial of 5" -> 5."""
+    """Bare "5!" / "5 factorial" / "factorial of 5" -> 5.
+
+    Mid-sentence excitement ("I have 5!") must not count as factorial.
+    """
     lower = text.lower()
     idx = lower.find("factorial of ")
     if idx != -1:
@@ -670,11 +676,9 @@ def _factorial_signal(text: str) -> int | None:
         n = _digits_immediately_before(text, idx)
         if n is not None:
             return n
-    bang = text.find("!")
-    if bang > 0:
-        n = _digits_immediately_before(text, bang)
-        if n is not None:
-            return n
+    bare = _BARE_FACTORIAL_BANG.fullmatch(text)
+    if bare is not None:
+        return int(bare.group(1))
     return None
 
 

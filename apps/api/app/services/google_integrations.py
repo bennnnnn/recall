@@ -17,7 +17,12 @@ from app.core.secrets import (
     decrypt_refresh_token,
     encrypt_refresh_token,
 )
-from app.gateways import google_oauth, google_oauth_revoke
+from app.gateways import (
+    google_calendar_gateway,
+    google_gmail_gateway,
+    google_oauth,
+    google_oauth_revoke,
+)
 from app.gateways.google_calendar_gateway import GoogleCalendarError, exchange_server_auth_code
 from app.gateways.google_gmail_gateway import GoogleGmailError, exchange_gmail_auth_code
 from app.models.orm import User
@@ -152,11 +157,13 @@ async def connect_calendar(
     email = await google_oauth.fetch_google_email(access_token) if access_token else None
     google_email = email or user.email
     scopes = str(token_data.get("scope") or "")
-    # Mirror Gmail's scope check: require calendar.readonly before upsert.
-    # Without this, a user who grants only (e.g.) gmail.readonly via the
-    # calendar connect flow would be stored as "connected" with no calendar
-    # access, and every calendar fetch would 403 with no clear reason.
-    if "calendar.readonly" not in scopes:
+    # Exact OAuth tokens only — substring "calendar.readonly" is not enough
+    # (and must not confuse calendar.events.readonly with write events).
+    scope_tokens = {token for token in scopes.split() if token}
+    if (
+        google_calendar_gateway.CALENDAR_READONLY_SCOPE not in scope_tokens
+        and google_calendar_gateway.CALENDAR_EVENTS_SCOPE not in scope_tokens
+    ):
         raise GoogleConnectError(
             "Calendar read permission was not granted. Try disconnecting Calendar, "
             "revoke Recall in your Google account, then connect again."
@@ -213,7 +220,8 @@ async def connect_gmail(
             "Could not verify the Gmail account. Connect again and grant Gmail read access."
         )
     scopes = str(token_data.get("scope") or "")
-    if "gmail.readonly" not in scopes:
+    scope_tokens = {token for token in scopes.split() if token}
+    if google_gmail_gateway.GMAIL_READONLY_SCOPE not in scope_tokens:
         raise GoogleConnectError(
             "Gmail read permission was not granted. Try disconnecting Gmail, "
             "revoke Recall in your Google account, then connect again."

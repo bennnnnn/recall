@@ -191,7 +191,7 @@ def test_build_search_query_clarification_world_cup():
     queries = build_search_queries(
         "No, the ongoing one.",
         user_timezone="UTC",
-        prior_user_messages=["Show me yesterdays game"],
+        prior_user_messages=["Show me World Cup scores"],
     )
     assert queries[0].startswith("FIFA World Cup 2026")
     assert "2026" in queries[0]
@@ -217,9 +217,15 @@ def test_build_search_query_strips_prefix():
 
 def test_build_search_query_yesterday_sports():
     queries = build_search_queries("Show me yesterdays game", user_timezone="UTC")
-    assert any("World Cup" in q for q in queries)
-    # Sports queries include yesterday/today as formatted dates (not the word "yesterday").
-    assert any("2026-" in q or " 2026" in q for q in queries)
+    # Generic yesterday+sports must not hijack into World Cup.
+    assert not any("World Cup" in q for q in queries)
+    assert any("scores" in q.lower() or "result" in q.lower() for q in queries)
+
+
+def test_build_search_query_team_yesterday_not_world_cup():
+    queries = build_search_queries("did the Lakers win yesterday", user_timezone="UTC")
+    assert not any("World Cup" in q for q in queries)
+    assert any("Lakers" in q for q in queries)
 
 
 def test_build_search_query_news_defaults():

@@ -9,8 +9,14 @@ from app.services.calendar import find_conflicting_events, has_write_scope
 
 
 def test_has_write_scope():
-    assert has_write_scope("https://www.googleapis.com/auth/calendar.events")
-    assert not has_write_scope("https://www.googleapis.com/auth/calendar.readonly")
+    write = "https://www.googleapis.com/auth/calendar.events"
+    readonly = "https://www.googleapis.com/auth/calendar.readonly"
+    events_readonly = "https://www.googleapis.com/auth/calendar.events.readonly"
+    assert has_write_scope(write)
+    assert has_write_scope(f"{readonly} {write}")
+    assert not has_write_scope(readonly)
+    # Substring trap: events.readonly must not grant write.
+    assert not has_write_scope(events_readonly)
 
 
 def test_find_conflicting_events():

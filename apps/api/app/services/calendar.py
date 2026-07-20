@@ -360,8 +360,14 @@ async def list_events_for_api(
     return await _fetch_upcoming_events(session, redis, user, settings, report_errors=True)
 
 
+def _oauth_scope_tokens(scopes: str) -> set[str]:
+    return {token for token in scopes.split() if token}
+
+
 def has_write_scope(scopes: str) -> bool:
-    return google_calendar_gateway.CALENDAR_EVENTS_SCOPE in scopes or "calendar.events" in scopes
+    """True only for the write events scope — not calendar.events.readonly."""
+    tokens = _oauth_scope_tokens(scopes)
+    return google_calendar_gateway.CALENDAR_EVENTS_SCOPE in tokens
 
 
 def _proposal_key(user_id: UUID, proposal_id: str) -> str:

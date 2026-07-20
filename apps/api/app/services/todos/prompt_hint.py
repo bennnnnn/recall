@@ -39,8 +39,9 @@ TODO_HINT = (
     "Deleting items via chat — complete, uncheck, or delete individual items; applied right "
     'after your reply by the background sync. Phrase as future tense ("I\'ll delete …"), '
     "never claim a delete already happened.\n"
-    'Bulk delete overdue reminders ("delete overdue" / "delete all overdue") is applied '
-    "automatically after your reply — confirm briefly; do not invent which items remain.\n"
+    'Bulk delete overdue reminders ("delete overdue" / "delete all overdue") — emit one '
+    "delete per overdue item; background sync applies those actions after your reply. "
+    "Phrase as future tense; do not invent which items remain.\n"
     "Deleting in the app (Lists tab) — trash on a row removes one item. To delete a whole list, "
     "check off or delete every item first; then a trash icon appears on the list header. "
     "Never invent swipe gestures or other UI.\n"
