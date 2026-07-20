@@ -10,7 +10,12 @@ import asyncio
 import logging
 from typing import Any
 
-from app.exceptions import ChatServiceError, QuotaExceededError, RedisUnavailableError
+from app.exceptions import (
+    ChatBusyError,
+    ChatServiceError,
+    QuotaExceededError,
+    RedisUnavailableError,
+)
 from app.gateways.litellm_gateway import ModelUnavailableError
 
 logger = logging.getLogger(__name__)
@@ -88,6 +93,8 @@ def error_payload_for_exception(exc: BaseException) -> dict[str, Any]:
         return {"type": "error", "code": "quota_exceeded", "message": exc.message}
     if isinstance(exc, RedisUnavailableError):
         return {"type": "error", "code": "unavailable", "message": exc.message}
+    if isinstance(exc, ChatBusyError):
+        return {"type": "error", "code": "busy", "message": exc.message}
     if isinstance(exc, ChatServiceError):
         return {"type": "error", "message": exc.message}
     if isinstance(exc, ModelUnavailableError):

@@ -12,7 +12,12 @@ from app.core.client_ip import client_ip_from_websocket
 from app.core.config import get_settings
 from app.core.rate_limit import allow_request_fail_closed
 from app.core.redis import get_redis_client
-from app.exceptions import ChatServiceError, QuotaExceededError, RedisUnavailableError
+from app.exceptions import (
+    ChatBusyError,
+    ChatServiceError,
+    QuotaExceededError,
+    RedisUnavailableError,
+)
 from app.gateways.google_auth import GoogleAuthError
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.schemas import ChatMessageRequest, EditMessageRequest
@@ -155,11 +160,7 @@ async def _stream_over_ws(
                 elif msg.get("type") != "ping":
                     await _safe_send_json(
                         websocket,
-                        {
-                            "type": "error",
-                            "code": "busy",
-                            "message": "Still generating — wait or cancel first.",
-                        },
+                        error_payload_for_exception(ChatBusyError()),
                     )
             else:
                 receiver.cancel()
@@ -206,7 +207,7 @@ async def _run_chat_stream(
             {"type": "error", "code": "unavailable", "message": exc.message},
         )
     except ChatServiceError as exc:
-        await _safe_send_json(websocket, {"type": "error", "message": exc.message})
+        await _safe_send_json(websocket, error_payload_for_exception(exc))
     except ModelUnavailableError as exc:
         await _safe_send_json(
             websocket,

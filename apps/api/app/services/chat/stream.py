@@ -12,7 +12,13 @@ from redis.asyncio import Redis
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.core.db import SessionLocal
-from app.exceptions import ChatNotFoundError, ChatServiceError, QuotaExceededError
+from app.core.redis_lock import acquire_lock, release_lock
+from app.exceptions import (
+    ChatBusyError,
+    ChatNotFoundError,
+    ChatServiceError,
+    QuotaExceededError,
+)
 from app.gateways import litellm_gateway
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.orm import User
@@ -57,6 +63,19 @@ from app.services.image_gen_intent import (
 from app.services.quota import quota_exceeded_message
 
 logger = logging.getLogger(__name__)
+
+# Same token-based Redis lock as compaction; covers prepare + stream so two
+# concurrent connections cannot race prepare_chat_turn on one chat.
+_CHATPREP_LOCK_TTL_SECONDS = 120
+
+
+async def _acquire_chatprep_lock(redis: Redis, chat_id: UUID) -> tuple[str, str]:
+    """Acquire per-chat prepare lock; raise ChatBusyError if already held."""
+    lock_key = f"chatprep:{chat_id}"
+    token = await acquire_lock(redis, lock_key, _CHATPREP_LOCK_TTL_SECONDS)
+    if token is None:
+        raise ChatBusyError()
+    return lock_key, token
 
 
 def wrap_stream_status(
@@ -225,92 +244,96 @@ async def stream_chat_response(
     timing.mark_phase("turn_start")
     status = wrap_stream_status(timing, on_status)
 
-    # The previous turn's DB commit may still be in flight (done is sent
-    # before it lands) — wait so this turn's prompt sees that reply.
-    await wait_for_pending_finalize(chat_id)
-
-    async with SessionLocal() as session:
-        if user is None:
-            user = await users_repo.get_by_id(session, user_id)
-            if user is None:
-                raise ChatNotFoundError("User not found.")
-        if not skip_usage_seed:
-            await seed_usage_from_db(redis, session, user_id)
-        daily_limit = quota_service.daily_limit_for_user(user, settings)
-        model = plan_service.resolve_user_model_override(user, model_alias, content, settings)
-
-    # Safety net: Pro image intent must never become an LLM stub that promises
-    # an attachment. Client also intercepts; this covers regenerate + missed JS.
-    if not attachment_ids and await _try_image_gen_for_turn(
-        settings,
-        user=user,
-        chat_id=chat_id,
-        content=content,
-        result=result,
-        create_user_message=True,
-    ):
-        # Edit path reserves before delegating here; refund that reservation
-        # since image-gen does not consume chat-token quota.
-        if pre_reserved is not None:
-            await quota_service.refund_usage(redis, str(user_id), pre_reserved)
-        return
-
-    if pre_reserved is not None:
-        reserved = pre_reserved
-    else:
-        vision_extra = 0
-        if attachment_ids:
-            async with SessionLocal() as session:
-                image_count = await count_image_attachments(session, user_id, attachment_ids)
-            vision_extra = vision_reserve_tokens(settings, image_count)
-        reserved = await reserve_turn_quota(
-            redis,
-            user=user,
-            content=content,
-            model=model,
-            settings=settings,
-            daily_limit=daily_limit,
-            vision_extra=vision_extra,
-            seed=False,
-        )
-
+    lock_key, lock_token = await _acquire_chatprep_lock(redis, chat_id)
     try:
-        ctx = await prepare_chat_turn(
-            user_id=user_id,
+        # The previous turn's DB commit may still be in flight (done is sent
+        # before it lands) — wait so this turn's prompt sees that reply.
+        await wait_for_pending_finalize(chat_id)
+
+        async with SessionLocal() as session:
+            if user is None:
+                user = await users_repo.get_by_id(session, user_id)
+                if user is None:
+                    raise ChatNotFoundError("User not found.")
+            if not skip_usage_seed:
+                await seed_usage_from_db(redis, session, user_id)
+            daily_limit = quota_service.daily_limit_for_user(user, settings)
+            model = plan_service.resolve_user_model_override(user, model_alias, content, settings)
+
+        # Safety net: Pro image intent must never become an LLM stub that promises
+        # an attachment. Client also intercepts; this covers regenerate + missed JS.
+        if not attachment_ids and await _try_image_gen_for_turn(
+            settings,
+            user=user,
             chat_id=chat_id,
             content=content,
-            model_alias=model_alias,
-            settings=settings,
-            redis=redis,
-            reserved_tokens=reserved,
-            attachment_ids=attachment_ids or [],
-            client_timezone=client_timezone,
-            client_location=client_location,
-            client_latitude=client_latitude,
-            client_longitude=client_longitude,
-            on_status=status,
-            user=user,
-            timing=timing,
-        )
-    except BaseException:
-        # CancelledError (ASGI/WS cancel) is BaseException on 3.12 — must refund.
-        await quota_service.refund_usage(redis, str(user_id), reserved)
-        raise
-
-    try:
-        async for token in stream_and_finalize(
-            redis,
-            settings,
-            ctx,
-            should_cancel=should_cancel,
             result=result,
-            on_status=status,
-            on_reasoning=on_reasoning,
+            create_user_message=True,
         ):
-            yield token
-    except BaseException:
-        await _refund_after_stream_error(redis, user_id, chat_id, reserved)
-        raise
+            # Edit path reserves before delegating here; refund that reservation
+            # since image-gen does not consume chat-token quota.
+            if pre_reserved is not None:
+                await quota_service.refund_usage(redis, str(user_id), pre_reserved)
+            return
+
+        if pre_reserved is not None:
+            reserved = pre_reserved
+        else:
+            vision_extra = 0
+            if attachment_ids:
+                async with SessionLocal() as session:
+                    image_count = await count_image_attachments(session, user_id, attachment_ids)
+                vision_extra = vision_reserve_tokens(settings, image_count)
+            reserved = await reserve_turn_quota(
+                redis,
+                user=user,
+                content=content,
+                model=model,
+                settings=settings,
+                daily_limit=daily_limit,
+                vision_extra=vision_extra,
+                seed=False,
+            )
+
+        try:
+            ctx = await prepare_chat_turn(
+                user_id=user_id,
+                chat_id=chat_id,
+                content=content,
+                model_alias=model_alias,
+                settings=settings,
+                redis=redis,
+                reserved_tokens=reserved,
+                attachment_ids=attachment_ids or [],
+                client_timezone=client_timezone,
+                client_location=client_location,
+                client_latitude=client_latitude,
+                client_longitude=client_longitude,
+                on_status=status,
+                user=user,
+                timing=timing,
+            )
+        except BaseException:
+            # CancelledError (ASGI/WS cancel) is BaseException on 3.12 — must refund.
+            await quota_service.refund_usage(redis, str(user_id), reserved)
+            raise
+
+        try:
+            async for token in stream_and_finalize(
+                redis,
+                settings,
+                ctx,
+                should_cancel=should_cancel,
+                result=result,
+                on_status=status,
+                on_reasoning=on_reasoning,
+            ):
+                yield token
+        except BaseException:
+            await _refund_after_stream_error(redis, user_id, chat_id, reserved)
+            raise
+    finally:
+        await release_lock(redis, lock_key, lock_token)
 
 
 async def stream_regenerate_response(
@@ -333,129 +356,133 @@ async def stream_regenerate_response(
     timing.mark_phase("turn_start")
     status = wrap_stream_status(timing, on_status)
 
-    # The reply being regenerated may not be committed yet — wait so we
-    # delete/replace the real row instead of racing the background insert.
-    await wait_for_pending_finalize(chat_id)
-
-    regenerate_backup: RegenerateBackup | None = None
-    model: str
-    user_message_content: str
-    chat_project_id: UUID | None
-    prior_count: int
-    omit_message_ids: set[UUID] | None = None
-
-    async with SessionLocal() as session:
-        user = await users_repo.get_by_id(session, user_id)
-        if user is None:
-            raise ChatNotFoundError("User not found.")
-
-        chat = await chats_repo.get_by_id(session, chat_id, user_id)
-        if chat is None:
-            raise ChatNotFoundError("Chat not found.")
-
-        last = await messages_repo.get_last(session, chat_id)
-        if last is None:
-            raise ChatNotFoundError("No messages to regenerate.")
-
-        last_user = await messages_repo.get_last_user(session, chat_id)
-        if last_user is None:
-            raise ChatNotFoundError("No user message to regenerate from.")
-
-        model = plan_service.resolve_user_model_override(
-            user, model_alias, last_user.content, settings
-        )
-        user_message_content = last_user.content
-        chat_project_id = chat.project_id
-        prior_count = await messages_repo.count_for_chat(session, chat_id)
-
-        if last.role == "assistant":
-            # Keep the row until finalize succeeds so a mid-stream crash cannot
-            # lose the prior reply. Omit it from the regenerate prompt instead.
-            regenerate_backup = RegenerateBackup(
-                content=last.content,
-                model=last.model,
-                message_id=last.id,
-            )
-            omit_message_ids = {last.id}
-
-    if await _try_image_gen_for_turn(
-        settings,
-        user=user,
-        chat_id=chat_id,
-        content=user_message_content,
-        result=result,
-        create_user_message=False,
-        replace_assistant_id=(
-            regenerate_backup.message_id if regenerate_backup is not None else None
-        ),
-    ):
-        return
-
-    bundle = await build_stream_prompt_context(
-        user_id,
-        chat_id,
-        user_message_content,
-        model,
-        settings,
-        redis,
-        client_timezone=client_timezone,
-        client_location=client_location,
-        client_latitude=client_latitude,
-        client_longitude=client_longitude,
-        on_status=status,
-        user=user,
-        chat=chat,
-        timing=timing,
-        omit_message_ids=omit_message_ids,
-    )
-
-    reserved = await reserve_turn_quota(
-        redis,
-        user=user,
-        content=user_message_content,
-        model=model,
-        settings=settings,
-        max_output=bundle.max_out,
-        seed=True,
-    )
-
-    # Preserve regenerate semantics (run_title off, skip_memory_jobs = minimal_quiz).
-    ctx = stream_context_from_bundle(
-        bundle,
-        user_id=user_id,
-        chat_id=chat_id,
-        model=model,
-        user_message_content=user_message_content,
-        reserved_tokens=reserved,
-        user=user,
-        prior_count=prior_count,
-        chat_project_id=chat_project_id,
-        timing=timing,
-        run_title=False,
-        skip_memory_jobs=bundle.minimal_quiz,
-        regenerate_backup=regenerate_backup,
-    )
-
+    lock_key, lock_token = await _acquire_chatprep_lock(redis, chat_id)
     try:
-        async for token in stream_and_finalize(
-            redis,
+        # The reply being regenerated may not be committed yet — wait so we
+        # delete/replace the real row instead of racing the background insert.
+        await wait_for_pending_finalize(chat_id)
+
+        regenerate_backup: RegenerateBackup | None = None
+        model: str
+        user_message_content: str
+        chat_project_id: UUID | None
+        prior_count: int
+        omit_message_ids: set[UUID] | None = None
+
+        async with SessionLocal() as session:
+            user = await users_repo.get_by_id(session, user_id)
+            if user is None:
+                raise ChatNotFoundError("User not found.")
+
+            chat = await chats_repo.get_by_id(session, chat_id, user_id)
+            if chat is None:
+                raise ChatNotFoundError("Chat not found.")
+
+            last = await messages_repo.get_last(session, chat_id)
+            if last is None:
+                raise ChatNotFoundError("No messages to regenerate.")
+
+            last_user = await messages_repo.get_last_user(session, chat_id)
+            if last_user is None:
+                raise ChatNotFoundError("No user message to regenerate from.")
+
+            model = plan_service.resolve_user_model_override(
+                user, model_alias, last_user.content, settings
+            )
+            user_message_content = last_user.content
+            chat_project_id = chat.project_id
+            prior_count = await messages_repo.count_for_chat(session, chat_id)
+
+            if last.role == "assistant":
+                # Keep the row until finalize succeeds so a mid-stream crash cannot
+                # lose the prior reply. Omit it from the regenerate prompt instead.
+                regenerate_backup = RegenerateBackup(
+                    content=last.content,
+                    model=last.model,
+                    message_id=last.id,
+                )
+                omit_message_ids = {last.id}
+
+        if await _try_image_gen_for_turn(
             settings,
-            ctx,
-            should_cancel=should_cancel,
+            user=user,
+            chat_id=chat_id,
+            content=user_message_content,
             result=result,
-            on_status=status,
-            on_reasoning=on_reasoning,
+            create_user_message=False,
+            replace_assistant_id=(
+                regenerate_backup.message_id if regenerate_backup is not None else None
+            ),
         ):
-            yield token
-    except BaseException:
-        await _refund_after_stream_error(
-            redis,
+            return
+
+        bundle = await build_stream_prompt_context(
             user_id,
             chat_id,
-            reserved,
+            user_message_content,
+            model,
+            settings,
+            redis,
+            client_timezone=client_timezone,
+            client_location=client_location,
+            client_latitude=client_latitude,
+            client_longitude=client_longitude,
+            on_status=status,
+            user=user,
+            chat=chat,
+            timing=timing,
+            omit_message_ids=omit_message_ids,
+        )
+
+        reserved = await reserve_turn_quota(
+            redis,
+            user=user,
+            content=user_message_content,
+            model=model,
+            settings=settings,
+            max_output=bundle.max_out,
+            seed=True,
+        )
+
+        # Preserve regenerate semantics (run_title off, skip_memory_jobs = minimal_quiz).
+        ctx = stream_context_from_bundle(
+            bundle,
+            user_id=user_id,
+            chat_id=chat_id,
+            model=model,
+            user_message_content=user_message_content,
+            reserved_tokens=reserved,
+            user=user,
+            prior_count=prior_count,
+            chat_project_id=chat_project_id,
+            timing=timing,
+            run_title=False,
+            skip_memory_jobs=bundle.minimal_quiz,
             regenerate_backup=regenerate_backup,
         )
-        raise
+
+        try:
+            async for token in stream_and_finalize(
+                redis,
+                settings,
+                ctx,
+                should_cancel=should_cancel,
+                result=result,
+                on_status=status,
+                on_reasoning=on_reasoning,
+            ):
+                yield token
+        except BaseException:
+            await _refund_after_stream_error(
+                redis,
+                user_id,
+                chat_id,
+                reserved,
+                regenerate_backup=regenerate_backup,
+            )
+            raise
+    finally:
+        await release_lock(redis, lock_key, lock_token)
 
 
 async def stream_edit_response(
