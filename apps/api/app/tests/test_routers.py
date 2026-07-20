@@ -1142,6 +1142,58 @@ def test_revenuecat_webhook_dedups_replay_by_event_id():
     apply_mock.assert_awaited_once()
 
 
+def test_revenuecat_webhook_concurrent_claim_only_processes_once():
+    """SET NX claim: two deliveries that both pass the done-marker check must
+    not both dispatch — only the lock winner processes."""
+    import fakeredis.aioredis
+
+    from app.core.config import get_settings
+    from app.core.deps import get_redis
+    from app.routers import webhooks as webhooks_mod
+
+    uid = uuid4()
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        environment="development",
+        revenuecat_webhook_auth="",
+        dev_allow_unauthed_webhooks=True,
+    )
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    app.dependency_overrides[get_redis] = lambda: fake_redis
+
+    payload = {
+        "event": {
+            "type": "INITIAL_PURCHASE",
+            "event_id": "evt_race",
+            "app_user_id": str(uid),
+        }
+    }
+
+    # First request claims; second sees lock held (simulate by pre-claiming).
+    claim_results = iter([True, False])
+
+    async def claim_side_effect(_redis, _event_id):
+        return next(claim_results)
+
+    with (
+        patch.object(webhooks_mod, "_try_claim", side_effect=claim_side_effect),
+        patch.object(webhooks_mod, "_already_processed", AsyncMock(return_value=False)),
+        patch(
+            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            AsyncMock(return_value=True),
+        ) as apply_mock,
+        patch("app.routers.webhooks.enqueue_purchase_receipt", AsyncMock()) as enq,
+    ):
+        client = TestClient(app)
+        r1 = client.post("/webhooks/revenuecat", json=payload)
+        r2 = client.post("/webhooks/revenuecat", json=payload)
+
+    assert r1.status_code == 204
+    assert r2.status_code == 204
+    apply_mock.assert_awaited_once()
+    enq.assert_awaited_once()
+
+
 def test_revenuecat_webhook_failed_processing_does_not_burn_dedup_key():
     """BUG FIX regression: a transient failure while processing an event must
     not mark the event id as seen — otherwise RevenueCat's legitimate retry

@@ -28,6 +28,9 @@ _MAX_WEBHOOK_BODY_BYTES = 64 * 1024
 # RevenueCat retries webhooks; dedup event ids for ~24h so a replay doesn't
 # reprocess (and, via the receipt path, re-email) the same event.
 _EVENT_ID_TTL = 60 * 60 * 24
+# Short lock while a delivery is in flight — two concurrent deliveries of the
+# same event_id must not both pass a check-then-act exists() race.
+_EVENT_CLAIM_TTL = 120
 
 _PRO_EVENTS = frozenset(
     {
@@ -42,6 +45,31 @@ _PRO_EVENTS = frozenset(
 # BILLING_ISSUE is intentionally omitted: payment failed but the subscriber may
 # still be in a grace/retry window. Downgrade only on EXPIRATION (or cancel).
 _FREE_EVENTS = frozenset({"CANCELLATION", "EXPIRATION"})
+
+
+def _done_key(event_id: str) -> str:
+    return f"rcwebhook:{event_id}"
+
+
+def _lock_key(event_id: str) -> str:
+    return f"rcwebhook:lock:{event_id}"
+
+
+async def _already_processed(redis: Redis, event_id: str) -> bool:
+    return bool(await redis.exists(_done_key(event_id)))
+
+
+async def _try_claim(redis: Redis, event_id: str) -> bool:
+    """Atomically claim this event for in-flight processing."""
+    return bool(await redis.set(_lock_key(event_id), "1", nx=True, ex=_EVENT_CLAIM_TTL))
+
+
+async def _mark_processed(redis: Redis, event_id: str) -> None:
+    await redis.set(_done_key(event_id), "1", ex=_EVENT_ID_TTL)
+
+
+async def _release_claim(redis: Redis, event_id: str) -> None:
+    await redis.delete(_lock_key(event_id))
 
 
 def _verify_auth(authorization: str | None, settings: Settings) -> None:
@@ -76,18 +104,6 @@ def _event_id(payload: dict[str, Any]) -> str | None:
         if isinstance(value, str) and value.strip():
             return value.strip()
     return None
-
-
-async def _is_duplicate(redis: Redis, event_id: str) -> bool:
-    """Read-only check — does NOT mark the event as seen. Marking happens only
-    after processing actually completes (see `_mark_processed`), so a
-    transient failure mid-processing doesn't burn the event id and silently
-    swallow RevenueCat's legitimate retry of the same event."""
-    return bool(await redis.exists(f"rcwebhook:{event_id}"))
-
-
-async def _mark_processed(redis: Redis, event_id: str) -> None:
-    await redis.set(f"rcwebhook:{event_id}", "1", ex=_EVENT_ID_TTL)
 
 
 def _app_user_id(payload: dict[str, Any]) -> str | None:
@@ -230,23 +246,33 @@ async def revenuecat_webhook(
         )
     payload: dict[str, Any] = parsed
 
-    # Dedup RevenueCat retries: if we've already processed this event id, stop.
+    # Dedup: done-marker (24h) + short NX lock so concurrent deliveries of the
+    # same event_id cannot both process (duplicate receipt emails). Mark only
+    # after success so a mid-processing failure still allows RevenueCat retry.
     event_id = _event_id(payload)
-    if event_id and await _is_duplicate(redis, event_id):
-        logger.info("RevenueCat webhook replay ignored event_id=%s", event_id)
-        return
+    claimed = False
+    if event_id:
+        if await _already_processed(redis, event_id):
+            logger.info("RevenueCat webhook replay ignored event_id=%s", event_id)
+            return
+        claimed = await _try_claim(redis, event_id)
+        if not claimed:
+            logger.info("RevenueCat webhook in-flight ignored event_id=%s", event_id)
+            return
+
     app_user_id = _app_user_id(payload)
     if not app_user_id:
+        if claimed and event_id:
+            await _release_claim(redis, event_id)
         return
 
     event_type = _event_type(payload)
-    processed = await _dispatch_event(session, redis, settings, payload, event_type, app_user_id)
-    # BUG FIX (was a lost-webhook bug): only mark the event as seen once
-    # processing has actually completed. Marking before processing (the old
-    # behavior) meant a transient failure mid-processing (DB blip, network
-    # hiccup) would error this request, RevenueCat would legitimately retry
-    # the same event id, and that retry would be silently swallowed by the
-    # dedup check even though the original attempt never completed —
-    # permanently losing a plan-sync event (e.g. a paying user stuck on free).
-    if processed and event_id:
-        await _mark_processed(redis, event_id)
+    try:
+        processed = await _dispatch_event(
+            session, redis, settings, payload, event_type, app_user_id
+        )
+        if processed and event_id:
+            await _mark_processed(redis, event_id)
+    finally:
+        if claimed and event_id:
+            await _release_claim(redis, event_id)
