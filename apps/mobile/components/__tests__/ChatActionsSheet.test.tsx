@@ -34,23 +34,21 @@ describe("ChatActionsSheet", () => {
     jest.clearAllMocks();
   });
 
-  it("renders a floating menu overlay without a bottom-sheet handle", async () => {
-    const { getByTestId, queryByTestId, getByText } = await render(
-      <ChatActionsSheet {...baseProps} placement="menu" />,
-    );
+  it("renders the floating AppSheet with a handle", async () => {
+    const { getByTestId, getByText } = await render(<ChatActionsSheet {...baseProps} />);
 
-    expect(getByTestId("chat-actions-menu")).toBeTruthy();
-    expect(queryByTestId("app-sheet-handle")).toBeNull();
+    expect(getByTestId("app-sheet-handle")).toBeTruthy();
     expect(getByText("chat.share")).toBeTruthy();
+    expect(getByText("Trip ideas")).toBeTruthy();
   });
 
-  it("dismisses the menu when the transparent backdrop is pressed", async () => {
+  it("dismisses when the backdrop is pressed", async () => {
     const onClose = jest.fn();
     const { getByTestId } = await render(
-      <ChatActionsSheet {...baseProps} placement="menu" onClose={onClose} />,
+      <ChatActionsSheet {...baseProps} onClose={onClose} />,
     );
 
-    await fireEvent.press(getByTestId("chat-actions-menu-backdrop"));
+    await fireEvent.press(getByTestId("app-sheet-backdrop"));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -66,14 +64,14 @@ describe("ChatActionsSheet", () => {
   });
 
   it("hides Select when onSelectChats is omitted", async () => {
-    const { queryByText } = await render(<ChatActionsSheet {...baseProps} placement="menu" />);
+    const { queryByText } = await render(<ChatActionsSheet {...baseProps} />);
     expect(queryByText("drawer.select")).toBeNull();
   });
 
   it("shows Models when onOpenModels is provided", async () => {
     const onOpenModels = jest.fn();
     const { getByText } = await render(
-      <ChatActionsSheet {...baseProps} placement="menu" onOpenModels={onOpenModels} />,
+      <ChatActionsSheet {...baseProps} onOpenModels={onOpenModels} />,
     );
 
     expect(getByText("settings.model")).toBeTruthy();
@@ -82,7 +80,7 @@ describe("ChatActionsSheet", () => {
   });
 
   it("hides Models when onOpenModels is omitted", async () => {
-    const { queryByText } = await render(<ChatActionsSheet {...baseProps} placement="menu" />);
+    const { queryByText } = await render(<ChatActionsSheet {...baseProps} />);
     expect(queryByText("settings.model")).toBeNull();
   });
 });

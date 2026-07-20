@@ -249,7 +249,6 @@ export function ConversationList(_props: unknown) {
         title={menuChat?.title ?? null}
         pinned={menuChat?.pinned ?? false}
         archived={menuChat?.archived ?? false}
-        placement="menu"
         onClose={closeMenu}
         onShare={() => {
           tap();
