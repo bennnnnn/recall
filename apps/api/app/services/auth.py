@@ -35,7 +35,7 @@ async def login_with_google(
 ) -> AuthResponse:
     payload = await verify_google_id_token(id_token, settings)
     google_sub = payload["sub"]
-    email = payload.get("email", "")
+    email = (payload.get("email") or "").strip()
     name = payload.get("name")
     avatar_url = payload.get("picture")
 
@@ -52,6 +52,11 @@ async def login_with_google(
             is_new_user = False
 
     if user is None:
+        if not email:
+            raise GoogleAuthError(
+                "Google did not share an email. Check that the Google account "
+                "has a verified email, or use Apple Sign-In."
+            )
         user = await users_repo.create(
             session,
             google_sub=google_sub,

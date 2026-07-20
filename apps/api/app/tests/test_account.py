@@ -70,6 +70,47 @@ def test_delete_account_returns_204():
     assert order == ["purge_sessions", "revoke", "purge", "delete_user"]
 
 
+def test_delete_account_continues_when_google_revoke_fails():
+    from app.services.google_integrations import GoogleConnectError
+
+    user = _fake_user()
+    app = _app_with_user(user)
+    order: list[str] = []
+
+    async def purge_sessions(*_a, **_k):
+        order.append("purge_sessions")
+
+    async def revoke(*_a, **_k):
+        order.append("revoke")
+        raise GoogleConnectError("bad key")
+
+    async def purge(*_a, **_k):
+        order.append("purge")
+
+    async def delete_user(*_a, **_k):
+        order.append("delete_user")
+
+    with (
+        patch(
+            "app.routers.auth.tokens_service.purge_user_sessions",
+            side_effect=purge_sessions,
+        ),
+        patch(
+            "app.routers.auth.google_integrations_service.revoke_all_google_tokens_for_user",
+            side_effect=revoke,
+        ),
+        patch(
+            "app.routers.auth.attachment_lifecycle.purge_attachments_for_user",
+            side_effect=purge,
+        ),
+        patch("app.routers.auth.users_repo.delete_user", side_effect=delete_user),
+    ):
+        client = TestClient(app)
+        r = client.delete("/auth/me", headers={"Authorization": "Bearer tok"})
+    assert r.status_code == 204
+    assert order == ["purge_sessions", "revoke", "purge", "delete_user"]
+
+
 def test_export_returns_data():
     user = _fake_user()
     app = _app_with_user(user)
@@ -207,6 +248,55 @@ async def test_build_export_structure():
     )
     assert data["export_limits"]["max_todos"] == export_service.EXPORT_MAX_TODOS
     assert data["export_limits"]["max_projects"] == export_service.EXPORT_MAX_PROJECTS
+
+
+@pytest.mark.asyncio
+async def test_build_export_includes_archived_chats():
+    from app.services import export_service
+
+    session = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    user.email = "e@x"
+    user.name = "n"
+    user.created_at = datetime(2024, 1, 1)
+
+    archived = MagicMock()
+    archived.id = uuid4()
+    archived.title = "Old"
+    archived.model = "free-chat"
+    archived.pinned = False
+    archived.created_at = datetime(2024, 1, 1)
+    archived.updated_at = datetime(2024, 1, 1)
+
+    list_chats = AsyncMock(return_value=[archived])
+    with (
+        patch(
+            "app.services.export_service.chats_repo.list_for_user",
+            list_chats,
+        ),
+        patch(
+            "app.services.export_service.messages_repo.list_range",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.export_service.memories_repo.list_range",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.export_service.todos_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.export_service.projects_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+    ):
+        data = await export_service.build_export(session, user)
+
+    assert len(data["chats"]) == 1
+    assert data["chats"][0]["title"] == "Old"
+    assert list_chats.await_args.kwargs.get("include_archived") is True
 
 
 @pytest.mark.asyncio
