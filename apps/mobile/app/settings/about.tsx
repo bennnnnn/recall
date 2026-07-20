@@ -30,6 +30,7 @@ export default function AboutScreen() {
             styles={s}
             theme={theme}
           />
+          <View style={s.menuSeparator} />
           <NavRow
             icon="document-text-outline"
             title={t("terms.title")}

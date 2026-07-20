@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { Alert, ScrollView, View } from "react-native";
 import { Redirect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -25,6 +25,7 @@ export default function MemorySettingsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [memCount, setMemCount] = useState(0);
+  const [saving, setSaving] = useState(false);
 
   const loadMemories = useCallback(async () => {
     if (!token) return;
@@ -47,8 +48,14 @@ export default function MemorySettingsScreen() {
         <SettingsSwitchRow
           title={t("settings.memory")}
           value={user?.memory_enabled ?? true}
+          disabled={saving}
           onValueChange={(v) => {
-            void updateUser({ memory_enabled: v }).catch(() => {});
+            setSaving(true);
+            void updateUser({ memory_enabled: v })
+              .catch(() => {
+                Alert.alert(t("common.error"), t("common.error"));
+              })
+              .finally(() => setSaving(false));
           }}
           styles={s}
           theme={theme}

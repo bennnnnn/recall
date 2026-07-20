@@ -1,20 +1,10 @@
 import { useCallback, useMemo, useState } from "react";
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Alert, ScrollView, View } from "react-native";
 import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
-import { Button } from "@/components/Button";
+import { SettingsFieldSheet } from "@/components/settings/SettingsFieldSheet";
 import { SettingsPickerModal } from "@/components/settings/SettingsPickerModal";
 import {
   makeSettingsStyles,
@@ -59,11 +49,13 @@ export default function PreferencesSettingsScreen() {
       setSaving(true);
       try {
         await updateUser(fields);
+      } catch {
+        Alert.alert(t("common.error"), t("common.error"));
       } finally {
         setSaving(false);
       }
     },
-    [updateUser],
+    [t, updateUser],
   );
 
   const handleLocationToggle = async (enabled: boolean) => {
@@ -162,7 +154,11 @@ export default function PreferencesSettingsScreen() {
           <View style={s.menuSeparator} />
           <SettingsLinkRow
             title={t("settings.custom_instructions")}
-            value={user?.custom_instructions || t("settings.custom_instructions_none")}
+            value={
+              user?.custom_instructions?.trim()
+                ? t("settings.on")
+                : t("settings.custom_instructions_none")
+            }
             onPress={openInstructions}
             styles={s}
             theme={theme}
@@ -223,42 +219,18 @@ export default function PreferencesSettingsScreen() {
         styles={s}
         theme={theme}
       />
-      <Modal visible={instructionsOpen} transparent animationType="fade">
-        <KeyboardAvoidingView
-          style={s.mKeyboardAvoider}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
-          <Pressable style={s.mOverlay} onPress={() => setInstructionsOpen(false)}>
-            <Pressable style={s.mSheet} onPress={(e) => e.stopPropagation()}>
-              <Text style={s.mTitle}>{t("settings.custom_instructions")}</Text>
-              <Text style={s.sectionHint}>{t("settings.custom_instructions_hint")}</Text>
-              <TextInput
-                style={[s.mInput, { minHeight: 96, textAlignVertical: "top" }]}
-                value={instructionsText}
-                onChangeText={setInstructionsText}
-                autoFocus
-                multiline
-                maxLength={1000}
-                placeholder={t("settings.custom_instructions_placeholder")}
-                placeholderTextColor={theme.textTertiary}
-              />
-              <View style={s.mActions}>
-                <Button
-                  title={t("settings.cancel")}
-                  onPress={() => setInstructionsOpen(false)}
-                  variant="outline"
-                  style={s.mActionBtn}
-                />
-                <Button
-                  title={t("settings.save")}
-                  onPress={() => void saveInstructions()}
-                  style={s.mActionBtn}
-                />
-              </View>
-            </Pressable>
-          </Pressable>
-        </KeyboardAvoidingView>
-      </Modal>
+      <SettingsFieldSheet
+        visible={instructionsOpen}
+        title={t("settings.custom_instructions")}
+        hint={t("settings.custom_instructions_hint")}
+        value={instructionsText}
+        onChangeText={setInstructionsText}
+        onClose={() => setInstructionsOpen(false)}
+        onSave={() => void saveInstructions()}
+        multiline
+        maxLength={1000}
+        placeholder={t("settings.custom_instructions_placeholder")}
+      />
     </>
   );
 }
