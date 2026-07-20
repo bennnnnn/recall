@@ -826,3 +826,24 @@ def test_ws_status_event_carries_detail():
             assert ws.receive_json()["type"] == "token"
             assert ws.receive_json()["type"] == "stream_end"
             assert ws.receive_json()["type"] == "done"
+
+
+def test_ws_rechecks_token_on_chargeable_message():
+    """After purge/revoke, the next chargeable frame must close the socket."""
+    from app.gateways.google_auth import GoogleAuthError
+
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+    app = _app(user)
+    verify = AsyncMock(side_effect=[user.id, GoogleAuthError("Token revoked")])
+
+    with patch("app.routers.ws.tokens_service.verify_access_token", verify):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "still here?"})
+            err = ws.receive_json()
+            assert err["type"] == "error"
+            assert err["message"] == "Unauthorized"
+            assert verify.await_count == 2
