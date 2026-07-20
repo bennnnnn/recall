@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import math
@@ -919,37 +920,50 @@ async def stream_and_finalize(
     accum = _StreamAccum()
 
     try:
-        if ctx.instant_reply:
-            async for token in _run_instant_reply_path(
-                ctx, should_cancel=should_cancel, accum=accum
-            ):
-                yield token
-        else:
-            # Pre-stream work (tools/search) is "thinking", not "composing" — composing
-            # only once the visible token stream is about to start.
-            if on_status is not None:
-                await on_status("thinking")
-            await _run_tool_loop_path(
-                settings,
-                ctx,
-                usage=usage,
-                on_status=on_status,
-                should_cancel=should_cancel,
-            )
+        try:
+            if ctx.instant_reply:
+                async for token in _run_instant_reply_path(
+                    ctx, should_cancel=should_cancel, accum=accum
+                ):
+                    yield token
+            else:
+                # Pre-stream work (tools/search) is "thinking", not "composing" —
+                # composing only once the visible token stream is about to start.
+                if on_status is not None:
+                    await on_status("thinking")
+                await _run_tool_loop_path(
+                    settings,
+                    ctx,
+                    usage=usage,
+                    on_status=on_status,
+                    should_cancel=should_cancel,
+                )
 
-            if on_status is not None and not model_catalog.is_reasoning_alias(ctx.model):
-                await on_status("composing")
-            async for token in _run_llm_token_stream(
-                redis,
-                settings,
-                ctx,
-                usage=usage,
-                should_cancel=should_cancel,
-                result=result,
-                on_reasoning=on_reasoning,
-                accum=accum,
-            ):
-                yield token
+                if on_status is not None and not model_catalog.is_reasoning_alias(ctx.model):
+                    await on_status("composing")
+                async for token in _run_llm_token_stream(
+                    redis,
+                    settings,
+                    ctx,
+                    usage=usage,
+                    should_cancel=should_cancel,
+                    result=result,
+                    on_reasoning=on_reasoning,
+                    accum=accum,
+                ):
+                    yield token
+        except asyncio.CancelledError:
+            # Hard WS/SSE disconnect cancels the producer task. If we already
+            # streamed tokens, persist them like a soft stop; otherwise re-raise
+            # so the caller refunds the full reservation.
+            if not accum.parts:
+                raise
+            accum.was_cancelled = True
+            logger.info(
+                "Hard cancel with partial reply; finalizing chat_id=%s parts=%d",
+                ctx.chat_id,
+                len(accum.parts),
+            )
 
         assistant_text = "".join(accum.parts).strip()
         if not assistant_text:

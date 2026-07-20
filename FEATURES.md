@@ -425,8 +425,6 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   via composer sheet (daily cap).
 
 ### Later / not v1
-- 🔜 **Persist assistant reply across hard WS/SSE disconnect** — today disconnect cancels +
-  refunds quota; no finalize-on-disconnect recovery for a mid-stream answer.
 - 🔜 **Full locale translation** — key-set parity is enforced; ~340 strings still English in
   non-en locales (hardcoded UI strings from Claude review wave 3 are now keyed).
 - 🔜 **Full chat-history semantic RAG** — embed past chats (beyond keyword `/search` + memory
