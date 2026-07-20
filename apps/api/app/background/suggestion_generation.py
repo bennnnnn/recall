@@ -82,10 +82,35 @@ async def _apply_suggestion_result(
 ) -> None:
     if not items:
         return
+    # Re-check cap in this session — the pre-LLM count can be stale when two
+    # every-10th-message jobs overlap during the model call.
+    await suggestions_repo.delete_expired(session)
+    active_count = await suggestions_repo.count_active(session, user_id)
+    room = MAX_ACTIVE_SUGGESTIONS - active_count
+    if room <= 0:
+        logger.debug(
+            "Skipping suggestion insert for %s: already at cap %d",
+            user_id,
+            MAX_ACTIVE_SUGGESTIONS,
+        )
+        return
+    existing = await suggestions_repo.list_active(session, user_id)
+    existing_texts = {s.text.strip().lower() for s in existing if s.text}
+    trimmed: list[SuggestionItem] = []
+    for item in items:
+        key = item.text.strip().lower()
+        if not key or key in existing_texts:
+            continue
+        existing_texts.add(key)
+        trimmed.append(item)
+        if len(trimmed) >= room:
+            break
+    if not trimmed:
+        return
     await suggestions_repo.create_many(
         session,
         user_id,
-        [{"text": item.text, "category": item.category, "source": "model"} for item in items],
+        [{"text": item.text, "category": item.category, "source": "model"} for item in trimmed],
     )
     await session.commit()
 
