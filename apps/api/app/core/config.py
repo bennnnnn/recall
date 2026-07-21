@@ -130,6 +130,9 @@ class Settings(BaseSettings):
 
     # Process role for production split: all (dev), api (HTTP only), worker (jobs only).
     process_role: str = "all"
+    # Max in-flight jobs per worker process when draining a Redis Stream batch.
+    # Keeps LLM handlers from head-of-line-blocking compress/topic/todo jobs.
+    jobs_worker_concurrency: int = 8
     # Port the worker process exposes a tiny /health/ready endpoint on, so Fly
     # can health-check + auto-restart a stuck worker (the worker otherwise has
     # no HTTP). 0 disables the worker health server (e.g. process_role=all dev).

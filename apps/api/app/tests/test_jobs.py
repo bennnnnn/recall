@@ -312,6 +312,59 @@ async def test_process_entries_retries_then_succeeds_without_dlq():
     redis.xack.assert_awaited_once()
 
 
+@pytest.mark.asyncio
+async def test_process_entries_runs_batch_concurrently():
+    """A batch of slow jobs must overlap — not drain strictly sequentially."""
+    redis = AsyncMock()
+    started: list[int] = []
+    release = asyncio.Event()
+
+    async def handler(_settings, payload):
+        started.append(int(payload["i"]))
+        await release.wait()
+
+    jobs.register("parallel-job", handler)
+    entries = [
+        (f"{i}-0", {"type": "parallel-job", "payload": json.dumps({"i": i})}) for i in range(5)
+    ]
+    task = asyncio.create_task(
+        jobs._process_entries(redis, Settings(jobs_worker_concurrency=8), entries)
+    )
+    for _ in range(100):
+        if len(started) == 5:
+            break
+        await asyncio.sleep(0.01)
+    assert sorted(started) == [0, 1, 2, 3, 4]
+    release.set()
+    await task
+    assert redis.xack.await_count == 5
+
+
+@pytest.mark.asyncio
+async def test_process_entries_parallel_drain_faster_than_serial():
+    """Drain-time smoke: 4x150ms jobs with concurrency 4 finish near one slot."""
+    redis = AsyncMock()
+
+    async def handler(_settings, _payload):
+        await asyncio.sleep(0.15)
+
+    jobs.register("slow-job", handler)
+    entries = [(f"{i}-0", {"type": "slow-job", "payload": "{}"}) for i in range(4)]
+
+    t0 = time.perf_counter()
+    await jobs._process_entries(redis, Settings(jobs_worker_concurrency=4), entries)
+    parallel_s = time.perf_counter() - t0
+
+    t1 = time.perf_counter()
+    await jobs._process_entries(redis, Settings(jobs_worker_concurrency=1), entries)
+    serial_s = time.perf_counter() - t1
+
+    # Parallel should be closer to one sleep than four; leave headroom for CI.
+    assert parallel_s < 0.45
+    assert serial_s > 0.50
+    assert parallel_s < serial_s * 0.7
+
+
 # ── DLQ inspection / replay ───────────────────────────────────────────────────
 
 
