@@ -240,6 +240,7 @@ async def stream_chat_response(
     on_reasoning: StreamReasoningFn | None = None,
     user: User | None = None,
     skip_usage_seed: bool = False,
+    held_chatprep_lock: tuple[str, str] | None = None,
 ) -> AsyncIterator[str]:
     timing = TurnTimingTracker()
     timing.mark_phase("turn_start")
@@ -249,10 +250,14 @@ async def stream_chat_response(
     # (and owns prepare/stream refunds), any early raise must refund
     # `pre_reserved` or the daily quota leaks.
     took_reservation_ownership = False
+    owns_lock = held_chatprep_lock is None
     lock_key: str | None = None
     lock_token: str | None = None
     try:
-        lock_key, lock_token = await _acquire_chatprep_lock(redis, chat_id)
+        if held_chatprep_lock is not None:
+            lock_key, lock_token = held_chatprep_lock
+        else:
+            lock_key, lock_token = await _acquire_chatprep_lock(redis, chat_id)
         try:
             # The previous turn's DB commit may still be in flight (done is sent
             # before it lands) — wait so this turn's prompt sees that reply.
@@ -346,7 +351,8 @@ async def stream_chat_response(
                 await _refund_after_stream_error(redis, user_id, chat_id, reserved)
                 raise
         finally:
-            if lock_key is not None and lock_token is not None:
+            # Edit holds the lock across delete + stream; caller releases.
+            if owns_lock and lock_key is not None and lock_token is not None:
                 await release_lock(redis, lock_key, lock_token)
     except BaseException:
         if pre_reserved is not None and not took_reservation_ownership:
@@ -526,98 +532,106 @@ async def stream_edit_response(
     if not content:
         raise ChatNotFoundError("Message cannot be empty.")
 
-    # Turns after the edited message are deleted below — make sure the
-    # previous turn's background insert has landed so it gets deleted too.
-    await wait_for_pending_finalize(chat_id)
+    # Hold the per-chat lock across destructive delete + re-stream so a
+    # concurrent turn on another device cannot finalize an orphan reply to a
+    # user message this edit is about to remove.
+    lock_key, lock_token = await _acquire_chatprep_lock(redis, chat_id)
+    try:
+        # Turns after the edited message are deleted below — make sure the
+        # previous turn's background insert has landed so it gets deleted too.
+        await wait_for_pending_finalize(chat_id)
 
-    async with SessionLocal() as session:
-        user = await users_repo.get_by_id(session, user_id)
-        if user is None:
-            raise ChatNotFoundError("User not found.")
-        chat = await chats_repo.get_by_id(session, chat_id, user_id)
-        if chat is None:
-            raise ChatNotFoundError("Chat not found.")
-        target = await messages_repo.get_by_id(session, message_id, chat_id)
-        if target is None or target.role != "user":
-            raise ChatNotFoundError("Only user messages can be edited.")
-        model = plan_service.resolve_user_model_override(user, model_alias, content, settings)
-        # Seed inside this session so the subsequent delete work shares the
-        # same connection; reservation itself is Redis-only.
-        await seed_usage_from_db(redis, session, user_id)
-        reserved = await reserve_turn_quota(
+        async with SessionLocal() as session:
+            user = await users_repo.get_by_id(session, user_id)
+            if user is None:
+                raise ChatNotFoundError("User not found.")
+            chat = await chats_repo.get_by_id(session, chat_id, user_id)
+            if chat is None:
+                raise ChatNotFoundError("Chat not found.")
+            target = await messages_repo.get_by_id(session, message_id, chat_id)
+            if target is None or target.role != "user":
+                raise ChatNotFoundError("Only user messages can be edited.")
+            model = plan_service.resolve_user_model_override(user, model_alias, content, settings)
+            # Seed inside this session so the subsequent delete work shares the
+            # same connection; reservation itself is Redis-only.
+            await seed_usage_from_db(redis, session, user_id)
+            reserved = await reserve_turn_quota(
+                redis,
+                user=user,
+                content=content,
+                model=model,
+                settings=settings,
+                seed=False,
+            )
+            try:
+                message_ids = await messages_repo.ids_from_chat_at_or_after(
+                    session,
+                    chat_id,
+                    from_created_at=target.created_at,
+                    from_message_id=target.id,
+                )
+                # BUG FIX (was silent): history compression (services/chat/post_turn.py
+                # -> background/compaction.py) folds the oldest `summary_message_count`
+                # messages into `chat.summary` and never revisits them. If the edited
+                # message falls inside that already-summarized prefix, deleting
+                # everything from it onward removes messages the cached summary still
+                # narrates — nothing else ever invalidates `chat.summary`, so a stale
+                # summary describing a conversation branch the user edited away would
+                # keep getting injected into every future prompt as ground truth
+                # (prompt_builder.py's "Summary of earlier conversation" block), and
+                # should_run_compression() would never naturally recover it (deleting
+                # messages can only shrink `summarized_count` below the stored
+                # `summary_message_count`, so `pending` goes negative and compression
+                # just keeps no-op'ing). Reset the summary here whenever the edit
+                # touches the summarized prefix — do not remove this without also
+                # fixing the staleness some other way.
+                summarized_count = chat.summary_message_count or 0
+                if summarized_count > 0:
+                    total_before_edit = await messages_repo.count_for_chat(session, chat_id)
+                    edited_position = total_before_edit - len(message_ids)
+                    if edited_position < summarized_count:
+                        chat.summary = None
+                        chat.summary_message_count = 0
+                await attachment_lifecycle.purge_attachments_for_messages(
+                    session, settings, message_ids
+                )
+                await messages_repo.delete_messages_from(
+                    session,
+                    chat_id,
+                    from_created_at=target.created_at,
+                    from_message_id=target.id,
+                )
+            except Exception:
+                # The quota was reserved above; if the delete/summary-reset throws
+                # before delegating to stream_chat_response (which owns its own
+                # refund on failure), the reservation leaks and the user is charged
+                # for a turn that never ran. Refund before re-raising.
+                await quota_service.refund_usage(redis, str(user_id), reserved)
+                raise
+
+        async for token in stream_chat_response(
             redis,
-            user=user,
+            settings,
+            user_id=user_id,
+            chat_id=chat_id,
             content=content,
-            model=model,
-            settings=settings,
-            seed=False,
-        )
-        try:
-            message_ids = await messages_repo.ids_from_chat_at_or_after(
-                session,
-                chat_id,
-                from_created_at=target.created_at,
-                from_message_id=target.id,
-            )
-            # BUG FIX (was silent): history compression (services/chat/post_turn.py
-            # -> background/compaction.py) folds the oldest `summary_message_count`
-            # messages into `chat.summary` and never revisits them. If the edited
-            # message falls inside that already-summarized prefix, deleting
-            # everything from it onward removes messages the cached summary still
-            # narrates — nothing else ever invalidates `chat.summary`, so a stale
-            # summary describing a conversation branch the user edited away would
-            # keep getting injected into every future prompt as ground truth
-            # (prompt_builder.py's "Summary of earlier conversation" block), and
-            # should_run_compression() would never naturally recover it (deleting
-            # messages can only shrink `summarized_count` below the stored
-            # `summary_message_count`, so `pending` goes negative and compression
-            # just keeps no-op'ing). Reset the summary here whenever the edit
-            # touches the summarized prefix — do not remove this without also
-            # fixing the staleness some other way.
-            summarized_count = chat.summary_message_count or 0
-            if summarized_count > 0:
-                total_before_edit = await messages_repo.count_for_chat(session, chat_id)
-                edited_position = total_before_edit - len(message_ids)
-                if edited_position < summarized_count:
-                    chat.summary = None
-                    chat.summary_message_count = 0
-            await attachment_lifecycle.purge_attachments_for_messages(
-                session, settings, message_ids
-            )
-            await messages_repo.delete_messages_from(
-                session,
-                chat_id,
-                from_created_at=target.created_at,
-                from_message_id=target.id,
-            )
-        except Exception:
-            # The quota was reserved above; if the delete/summary-reset throws
-            # before delegating to stream_chat_response (which owns its own
-            # refund on failure), the reservation leaks and the user is charged
-            # for a turn that never ran. Refund before re-raising.
-            await quota_service.refund_usage(redis, str(user_id), reserved)
-            raise
-
-    async for token in stream_chat_response(
-        redis,
-        settings,
-        user_id=user_id,
-        chat_id=chat_id,
-        content=content,
-        model_alias=model_alias,
-        should_cancel=should_cancel,
-        result=result,
-        client_timezone=client_timezone,
-        client_location=client_location,
-        client_latitude=client_latitude,
-        client_longitude=client_longitude,
-        pre_reserved=reserved,
-        on_status=on_status,
-        on_reasoning=on_reasoning,
-        user=user,
-        skip_usage_seed=True,
-    ):
-        yield token
+            model_alias=model_alias,
+            should_cancel=should_cancel,
+            result=result,
+            client_timezone=client_timezone,
+            client_location=client_location,
+            client_latitude=client_latitude,
+            client_longitude=client_longitude,
+            pre_reserved=reserved,
+            on_status=on_status,
+            on_reasoning=on_reasoning,
+            user=user,
+            skip_usage_seed=True,
+            held_chatprep_lock=(lock_key, lock_token),
+        ):
+            yield token
+    finally:
+        await release_lock(redis, lock_key, lock_token)
 
 
 @dataclass
