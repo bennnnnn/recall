@@ -1,7 +1,9 @@
-"""Token-based Redis locks for periodic schedulers.
+"""Token-based Redis locks for periodic schedulers and turn serialization.
 
-``SET key token NX EX`` + Lua compare-and-delete so a slow cycle that outlives
-its TTL cannot delete a lock owned by a later instance.
+``SET key token NX EX`` + compare-and-delete / compare-and-expire so a slow
+holder that outlives its TTL cannot delete or refresh a lock owned by a
+later instance. Prefers Lua (atomic); falls back to GET+compare for clients
+that lack ``EVAL`` (e.g. some fakeredis setups in tests).
 """
 
 from __future__ import annotations
@@ -10,10 +12,18 @@ import secrets
 from typing import Final
 
 from redis.asyncio import Redis
+from redis.exceptions import ResponseError
 
 _RELEASE_LUA: Final[str] = """
 if redis.call('get', KEYS[1]) == ARGV[1] then
   return redis.call('del', KEYS[1])
+end
+return 0
+"""
+
+_REFRESH_LUA: Final[str] = """
+if redis.call('get', KEYS[1]) == ARGV[1] then
+  return redis.call('expire', KEYS[1], tonumber(ARGV[2]))
 end
 return 0
 """
@@ -26,4 +36,20 @@ async def acquire_lock(redis: Redis, key: str, ttl_seconds: int) -> str | None:
 
 
 async def release_lock(redis: Redis, key: str, token: str) -> None:
-    await redis.eval(_RELEASE_LUA, 1, key, token)
+    try:
+        await redis.eval(_RELEASE_LUA, 1, key, token)
+    except ResponseError:
+        if await redis.get(key) == token:
+            await redis.delete(key)
+
+
+async def refresh_lock(redis: Redis, key: str, token: str, ttl_seconds: int) -> bool:
+    """Extend TTL only when ``token`` still owns the key."""
+    try:
+        result = await redis.eval(_REFRESH_LUA, 1, key, token, str(ttl_seconds))
+        return bool(result)
+    except ResponseError:
+        if await redis.get(key) == token:
+            await redis.expire(key, ttl_seconds)
+            return True
+        return False

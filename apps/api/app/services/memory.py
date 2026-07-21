@@ -494,38 +494,44 @@ async def invalidate_memory_block(user_id: UUID) -> None:
         logger.debug("Memory block cache invalidation failed", exc_info=True)
 
 
-# Generous vs. a typical extraction/consolidation LLM round trip + DB write —
-# this is a crash safety net (in case a worker dies mid-critical-section), not
-# the normal release path (see release_memory_write_lock).
-_MEMORY_WRITE_LOCK_TTL = 60
+# Covers revise + optional fallback retry (each up to ~60s) with headroom.
+# Crash safety net only — normal release uses token compare-and-delete.
+_MEMORY_WRITE_LOCK_TTL = 150
 
 
 def _memory_write_lock_key(user_id: UUID) -> str:
     return f"memwrite:{user_id}"
 
 
-async def acquire_memory_write_lock(user_id: UUID) -> bool:
+async def acquire_memory_write_lock(user_id: UUID) -> str | None:
     """Serializes extraction/consolidation's read-modify-write section for one
     user — without this, two overlapping jobs (extraction from one chat racing
     consolidation, or two extractions from two chats) can both read the same
     prior section text and the later commit silently discards the earlier
     one's write. Best-effort like the jobs that call it: on a Redis error,
-    fail closed (treat as not acquired) rather than proceed unprotected."""
+    fail closed (treat as not acquired) rather than proceed unprotected.
+
+    Returns the lock token on success (pass to ``release_memory_write_lock``).
+    """
+    from app.core.redis_lock import acquire_lock
+
     try:
         redis = get_redis_client()
-        acquired = await redis.set(
-            _memory_write_lock_key(user_id), "1", ex=_MEMORY_WRITE_LOCK_TTL, nx=True
-        )
-        return bool(acquired)
+        return await acquire_lock(redis, _memory_write_lock_key(user_id), _MEMORY_WRITE_LOCK_TTL)
     except Exception:
         logger.debug("Memory write lock acquire failed", exc_info=True)
-        return False
+        return None
 
 
-async def release_memory_write_lock(user_id: UUID) -> None:
+async def release_memory_write_lock(user_id: UUID, token: str | None) -> None:
+    """Release only if ``token`` still owns the key (stale holders cannot DEL)."""
+    if not token:
+        return
+    from app.core.redis_lock import release_lock
+
     try:
         redis = get_redis_client()
-        await redis.delete(_memory_write_lock_key(user_id))
+        await release_lock(redis, _memory_write_lock_key(user_id), token)
     except Exception:
         logger.debug("Memory write lock release failed", exc_info=True)
 
@@ -553,10 +559,11 @@ _DELETE_LOCK_RETRY_ATTEMPTS = 4
 _DELETE_LOCK_RETRY_DELAY_SECONDS = 0.15
 
 
-async def _acquire_memory_write_lock_or_raise(user_id: UUID) -> None:
+async def _acquire_memory_write_lock_or_raise(user_id: UUID) -> str:
     for attempt in range(_DELETE_LOCK_RETRY_ATTEMPTS):
-        if await acquire_memory_write_lock(user_id):
-            return
+        token = await acquire_memory_write_lock(user_id)
+        if token:
+            return token
         if attempt < _DELETE_LOCK_RETRY_ATTEMPTS - 1:
             await asyncio.sleep(_DELETE_LOCK_RETRY_DELAY_SECONDS)
     raise MemoryWriteLockBusyError(user_id)
@@ -601,7 +608,7 @@ async def delete_memory_fact(
     # concurrently with this delete can commit a merge computed from the
     # stale pre-delete text afterward, silently resurrecting what the user
     # just removed.
-    await _acquire_memory_write_lock_or_raise(user_id)
+    lock_token = await _acquire_memory_write_lock_or_raise(user_id)
     try:
         memory = await memories_repo.get_by_id(session, user_id, memory_id)
         if memory is None:
@@ -662,30 +669,30 @@ async def delete_memory_fact(
             return True
         return False
     finally:
-        await release_memory_write_lock(user_id)
+        await release_memory_write_lock(user_id, lock_token)
 
 
 async def delete_memory(session: AsyncSession, user_id: UUID, memory_id: UUID) -> bool:
     from app.repositories import memories as memories_repo
 
-    await _acquire_memory_write_lock_or_raise(user_id)
+    lock_token = await _acquire_memory_write_lock_or_raise(user_id)
     try:
         deleted = await memories_repo.delete_by_id(session, user_id, memory_id)
         if deleted:
             await invalidate_memory_block(user_id)
         return deleted
     finally:
-        await release_memory_write_lock(user_id)
+        await release_memory_write_lock(user_id, lock_token)
 
 
 async def delete_memory_section(session: AsyncSession, user_id: UUID, memory_type: str) -> bool:
     from app.repositories import memories as memories_repo
 
-    await _acquire_memory_write_lock_or_raise(user_id)
+    lock_token = await _acquire_memory_write_lock_or_raise(user_id)
     try:
         removed = await memories_repo.delete_by_type(session, user_id, memory_type)
         if removed:
             await invalidate_memory_block(user_id)
         return removed > 0
     finally:
-        await release_memory_write_lock(user_id)
+        await release_memory_write_lock(user_id, lock_token)

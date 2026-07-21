@@ -133,7 +133,8 @@ async def consolidate_user_memory_sections(
         # extraction pass (or a second consolidation) can read the same prior
         # section text and whichever commits last silently discards the
         # other's write.
-        if not await acquire_memory_write_lock(user_id):
+        lock_token = await acquire_memory_write_lock(user_id)
+        if not lock_token:
             logger.info("Memory consolidation skipped: write lock held for user_id=%s", user_id)
             return False
         try:
@@ -194,7 +195,7 @@ async def consolidate_user_memory_sections(
                 )
             return True
         finally:
-            await release_memory_write_lock(user_id)
+            await release_memory_write_lock(user_id, lock_token)
     except Exception:
         logger.exception("Memory consolidation failed for user_id=%s", user_id)
         return False
