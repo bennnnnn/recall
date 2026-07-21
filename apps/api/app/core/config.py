@@ -179,7 +179,8 @@ class Settings(BaseSettings):
     memory_cache_ttl: int = 300
     memory_query_cache_ttl: int = 120
     # Run memory extraction every N completed assistant turns (always runs on turn 1).
-    memory_extract_every_n_turns: int = 3
+    # Default 1 = every turn — sparse extraction missed durable facts between batches.
+    memory_extract_every_n_turns: int = 1
     memory_query_embed_cache_ttl: int = 3600
     # Provider embedding-input char cap (embedding_gateway.embed_text). Was a
     # bare `text[:8000]` inline in the gateway; every other tunable in this
