@@ -35,6 +35,7 @@ from app.services import quota as quota_service
 from app.services import todos as todos_service
 from app.services import web_search as web_search_service
 from app.services.chat.finalize_registry import (
+    mark_pending_finalize,
     register_pending_finalize,
     wait_for_pending_finalize,
 )
@@ -282,7 +283,7 @@ async def stream_chat_response(
         try:
             # The previous turn's DB commit may still be in flight (done is sent
             # before it lands) — wait so this turn's prompt sees that reply.
-            await wait_for_pending_finalize(chat_id)
+            await wait_for_pending_finalize(chat_id, redis)
 
             async with SessionLocal() as session:
                 if user is None:
@@ -412,7 +413,7 @@ async def stream_regenerate_response(
     try:
         # The reply being regenerated may not be committed yet — wait so we
         # delete/replace the real row instead of racing the background insert.
-        await wait_for_pending_finalize(chat_id)
+        await wait_for_pending_finalize(chat_id, redis)
 
         regenerate_backup: RegenerateBackup | None = None
         model: str
@@ -572,7 +573,7 @@ async def stream_edit_response(
     try:
         # Turns after the edited message are deleted below — make sure the
         # previous turn's background insert has landed so it gets deleted too.
-        await wait_for_pending_finalize(chat_id)
+        await wait_for_pending_finalize(chat_id, redis)
 
         async with SessionLocal() as session:
             user = await users_repo.get_by_id(session, user_id)
@@ -916,7 +917,7 @@ async def _enrich_final_content(
     return assistant_text
 
 
-def _register_and_enqueue_finalize(
+async def _register_and_enqueue_finalize(
     redis: Redis,
     settings: Settings,
     ctx: StreamContext,
@@ -942,6 +943,8 @@ def _register_and_enqueue_finalize(
         if ctx.context_summarized:
             result["context_summarized"] = str(ctx.context_summarized)
 
+    # Marker before task so other API machines can poll while finalize runs.
+    await mark_pending_finalize(redis, ctx.chat_id)
     finalize_db_task = create_background_task(
         finalize_stream_turn_db(redis, ctx, assistant_text, usage, result),
         name="finalize_stream_turn_db",
@@ -1050,7 +1053,7 @@ async def stream_and_finalize(
             should_cancel=should_cancel,
         )
 
-        _register_and_enqueue_finalize(
+        await _register_and_enqueue_finalize(
             redis,
             settings,
             ctx,
