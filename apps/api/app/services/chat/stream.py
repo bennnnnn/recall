@@ -245,96 +245,113 @@ async def stream_chat_response(
     timing.mark_phase("turn_start")
     status = wrap_stream_status(timing, on_status)
 
-    lock_key, lock_token = await _acquire_chatprep_lock(redis, chat_id)
+    # Edit reserves before delegating here. Until this path assigns `reserved`
+    # (and owns prepare/stream refunds), any early raise must refund
+    # `pre_reserved` or the daily quota leaks.
+    took_reservation_ownership = False
+    lock_key: str | None = None
+    lock_token: str | None = None
     try:
-        # The previous turn's DB commit may still be in flight (done is sent
-        # before it lands) — wait so this turn's prompt sees that reply.
-        await wait_for_pending_finalize(chat_id)
-
-        async with SessionLocal() as session:
-            if user is None:
-                user = await users_repo.get_by_id(session, user_id)
-                if user is None:
-                    raise ChatNotFoundError("User not found.")
-            if not skip_usage_seed:
-                await seed_usage_from_db(redis, session, user_id)
-            daily_limit = quota_service.daily_limit_for_user(user, settings)
-            model = plan_service.resolve_user_model_override(user, model_alias, content, settings)
-
-        # Safety net: Pro image intent must never become an LLM stub that promises
-        # an attachment. Client also intercepts; this covers regenerate + missed JS.
-        if not attachment_ids and await _try_image_gen_for_turn(
-            settings,
-            user=user,
-            chat_id=chat_id,
-            content=content,
-            result=result,
-            create_user_message=True,
-        ):
-            # Edit path reserves before delegating here; refund that reservation
-            # since image-gen does not consume chat-token quota.
-            if pre_reserved is not None:
-                await quota_service.refund_usage(redis, str(user_id), pre_reserved)
-            return
-
-        if pre_reserved is not None:
-            reserved = pre_reserved
-        else:
-            vision_extra = 0
-            if attachment_ids:
-                async with SessionLocal() as session:
-                    image_count = await count_image_attachments(session, user_id, attachment_ids)
-                vision_extra = vision_reserve_tokens(settings, image_count)
-            reserved = await reserve_turn_quota(
-                redis,
-                user=user,
-                content=content,
-                model=model,
-                settings=settings,
-                daily_limit=daily_limit,
-                vision_extra=vision_extra,
-                seed=False,
-            )
-
+        lock_key, lock_token = await _acquire_chatprep_lock(redis, chat_id)
         try:
-            ctx = await prepare_chat_turn(
-                user_id=user_id,
+            # The previous turn's DB commit may still be in flight (done is sent
+            # before it lands) — wait so this turn's prompt sees that reply.
+            await wait_for_pending_finalize(chat_id)
+
+            async with SessionLocal() as session:
+                if user is None:
+                    user = await users_repo.get_by_id(session, user_id)
+                    if user is None:
+                        raise ChatNotFoundError("User not found.")
+                if not skip_usage_seed:
+                    await seed_usage_from_db(redis, session, user_id)
+                daily_limit = quota_service.daily_limit_for_user(user, settings)
+                model = plan_service.resolve_user_model_override(
+                    user, model_alias, content, settings
+                )
+
+            # Safety net: Pro image intent must never become an LLM stub that promises
+            # an attachment. Client also intercepts; this covers regenerate + missed JS.
+            if not attachment_ids and await _try_image_gen_for_turn(
+                settings,
+                user=user,
                 chat_id=chat_id,
                 content=content,
-                model_alias=model_alias,
-                settings=settings,
-                redis=redis,
-                reserved_tokens=reserved,
-                attachment_ids=attachment_ids or [],
-                client_timezone=client_timezone,
-                client_location=client_location,
-                client_latitude=client_latitude,
-                client_longitude=client_longitude,
-                on_status=status,
-                user=user,
-                timing=timing,
-            )
-        except BaseException:
-            # CancelledError (ASGI/WS cancel) is BaseException on 3.12 — must refund.
-            await quota_service.refund_usage(redis, str(user_id), reserved)
-            raise
-
-        try:
-            async for token in stream_and_finalize(
-                redis,
-                settings,
-                ctx,
-                should_cancel=should_cancel,
                 result=result,
-                on_status=status,
-                on_reasoning=on_reasoning,
+                create_user_message=True,
             ):
-                yield token
-        except BaseException:
-            await _refund_after_stream_error(redis, user_id, chat_id, reserved)
-            raise
-    finally:
-        await release_lock(redis, lock_key, lock_token)
+                # Edit path reserves before delegating here; refund that reservation
+                # since image-gen does not consume chat-token quota.
+                if pre_reserved is not None:
+                    await quota_service.refund_usage(redis, str(user_id), pre_reserved)
+                return
+
+            if pre_reserved is not None:
+                reserved = pre_reserved
+            else:
+                vision_extra = 0
+                if attachment_ids:
+                    async with SessionLocal() as session:
+                        image_count = await count_image_attachments(
+                            session, user_id, attachment_ids
+                        )
+                    vision_extra = vision_reserve_tokens(settings, image_count)
+                reserved = await reserve_turn_quota(
+                    redis,
+                    user=user,
+                    content=content,
+                    model=model,
+                    settings=settings,
+                    daily_limit=daily_limit,
+                    vision_extra=vision_extra,
+                    seed=False,
+                )
+            took_reservation_ownership = True
+
+            try:
+                ctx = await prepare_chat_turn(
+                    user_id=user_id,
+                    chat_id=chat_id,
+                    content=content,
+                    model_alias=model_alias,
+                    settings=settings,
+                    redis=redis,
+                    reserved_tokens=reserved,
+                    attachment_ids=attachment_ids or [],
+                    client_timezone=client_timezone,
+                    client_location=client_location,
+                    client_latitude=client_latitude,
+                    client_longitude=client_longitude,
+                    on_status=status,
+                    user=user,
+                    timing=timing,
+                )
+            except BaseException:
+                # CancelledError (ASGI/WS cancel) is BaseException on 3.12 — must refund.
+                await quota_service.refund_usage(redis, str(user_id), reserved)
+                raise
+
+            try:
+                async for token in stream_and_finalize(
+                    redis,
+                    settings,
+                    ctx,
+                    should_cancel=should_cancel,
+                    result=result,
+                    on_status=status,
+                    on_reasoning=on_reasoning,
+                ):
+                    yield token
+            except BaseException:
+                await _refund_after_stream_error(redis, user_id, chat_id, reserved)
+                raise
+        finally:
+            if lock_key is not None and lock_token is not None:
+                await release_lock(redis, lock_key, lock_token)
+    except BaseException:
+        if pre_reserved is not None and not took_reservation_ownership:
+            await quota_service.refund_usage(redis, str(user_id), pre_reserved)
+        raise
 
 
 async def stream_regenerate_response(
