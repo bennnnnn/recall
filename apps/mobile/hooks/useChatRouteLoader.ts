@@ -7,6 +7,7 @@ import type { Ionicons } from "@expo/vector-icons";
 type Router = ReturnType<typeof useRouter>;
 
 import { api, type Message } from "@/lib/api";
+import { shouldRefetchChatOnForeground } from "@/lib/chatForegroundRefetch";
 import { readCachedChatMessages, writeCachedChatMessages } from "@/lib/chatMessageCache";
 import { mergeLocalAttachmentUris } from "@/lib/chatMessageMerge";
 import { MESSAGE_PAGE_SIZE } from "@/lib/chatConstants";
@@ -95,21 +96,85 @@ export function useChatRouteLoader({
   const pendingQuizModeRef = useRef<import("@/lib/quizMode").QuizMode | null>(null);
   const handledLaunchIdRef = useRef<string | null>(null);
   const skipNextFocusRef = useRef(true);
+  // AppState closures must read the latest streaming/loading flags — deps alone
+  // would leave a stale "still streaming" view after ws.onclose commits a partial.
+  const streamingRef = useRef(streaming);
+  const chatLoadingRef = useRef(chatLoading);
+  streamingRef.current = streaming;
+  chatLoadingRef.current = chatLoading;
+
+  const silentRefetchChat = useCallback(
+    async (openChatId: string, cancelled: () => boolean) => {
+      if (!token) return;
+      try {
+        const [chat, page] = await Promise.all([
+          api.getChat(token, openChatId),
+          api.listMessages(token, openChatId, { limit: MESSAGE_PAGE_SIZE }),
+        ]);
+        if (cancelled()) return;
+        setChatId(chat.id);
+        setChatTitle(chat.title);
+        setPinned(chat.pinned);
+        setArchived(Boolean(chat.archived));
+        draftProjectIdRef.current = chat.project_id ?? draftProjectIdRef.current;
+        setQuizVariant(resolveQuizVariant(chat.project_id));
+        setMessages((prev) => mergeLocalAttachmentUris(prev, page.messages));
+        setHasMoreOlder(page.has_more);
+        void writeCachedChatMessages(openChatId, page.messages, page.has_more);
+      } catch {
+        /* keep existing messages on silent refetch failure */
+      }
+    },
+    [token, setChatId, setMessages, draftProjectIdRef, setQuizVariant, resolveQuizVariant],
+  );
 
   useEffect(() => {
+    let cancelled = false;
     const onAppState = (state: AppStateStatus) => {
-      if (state !== "background" && state !== "inactive") return;
-      const draftId = draftChatIdRef.current;
-      if (!draftId) return;
-      // Empty pre-created drafts should not survive backgrounding.
-      if (messages.length === 0 && chatId == null) {
-        discardEmptyChat(draftId);
-        clearDraftChat();
+      if (state === "background" || state === "inactive") {
+        const draftId = draftChatIdRef.current;
+        if (!draftId) return;
+        // Empty pre-created drafts should not survive backgrounding.
+        if (messages.length === 0 && chatId == null) {
+          discardEmptyChat(draftId);
+          clearDraftChat();
+        }
+        return;
       }
+      // Backgrounding mid-stream kills the socket; onclose commits a truncated
+      // bubble. When we return to foreground with streaming finished, pull the
+      // server's full reply without requiring the user to leave the chat.
+      const openChatId =
+        (typeof routeChatId === "string" ? routeChatId : null) ?? chatId;
+      if (
+        !openChatId ||
+        !shouldRefetchChatOnForeground({
+          appState: state,
+          token,
+          chatId: openChatId,
+          streaming: streamingRef.current,
+          chatLoading: chatLoadingRef.current,
+        })
+      ) {
+        return;
+      }
+      void silentRefetchChat(openChatId, () => cancelled);
     };
     const sub = AppState.addEventListener("change", onAppState);
-    return () => sub.remove();
-  }, [messages.length, chatId, discardEmptyChat, clearDraftChat, draftChatIdRef]);
+    return () => {
+      cancelled = true;
+      sub.remove();
+    };
+  }, [
+    messages.length,
+    chatId,
+    routeChatId,
+    token,
+    discardEmptyChat,
+    clearDraftChat,
+    draftChatIdRef,
+    silentRefetchChat,
+  ]);
 
   useEffect(() => {
     skipNextFocusRef.current = true;
@@ -206,30 +271,11 @@ export function useChatRouteLoader({
       // refetch for chat A could land after we've switched to chat B and
       // overwrite B's messages with A's.
       let cancelled = false;
-      void (async () => {
-        try {
-          const [chat, page] = await Promise.all([
-            api.getChat(token, openChatId),
-            api.listMessages(token, openChatId, { limit: MESSAGE_PAGE_SIZE }),
-          ]);
-          if (cancelled) return;
-          setChatId(chat.id);
-          setChatTitle(chat.title);
-          setPinned(chat.pinned);
-          setArchived(Boolean(chat.archived));
-          draftProjectIdRef.current = chat.project_id ?? draftProjectIdRef.current;
-          setQuizVariant(resolveQuizVariant(chat.project_id));
-          setMessages((prev) => mergeLocalAttachmentUris(prev, page.messages));
-          setHasMoreOlder(page.has_more);
-          void writeCachedChatMessages(openChatId, page.messages, page.has_more);
-        } catch {
-          /* keep existing messages on silent refetch failure */
-        }
-      })();
+      void silentRefetchChat(openChatId, () => cancelled);
       return () => {
         cancelled = true;
       };
-    }, [token, routeChatId, streaming, chatLoading, setChatId, setMessages]),
+    }, [token, routeChatId, streaming, chatLoading, silentRefetchChat]),
   );
 
   const loadOlderMessages = useCallback(async () => {
