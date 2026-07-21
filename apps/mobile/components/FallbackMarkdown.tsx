@@ -7,6 +7,7 @@
 import { useMemo } from "react";
 import Markdown, { renderRules as defaultRules } from "react-native-markdown-display";
 import { StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 
 import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
 import { GeometryBlock } from "@/components/rich/GeometryBlock";
@@ -22,15 +23,16 @@ type FenceNode = { key: string; content: string; sourceInfo?: string };
 
 type Props = { content: string };
 
-const CALLOUT_LABELS: Record<string, string> = {
-  tip: "Tip",
-  note: "Note",
-  warning: "Warning",
-  info: "Info",
-  important: "Important",
+const CALLOUT_I18N_KEYS: Record<string, string> = {
+  tip: "rich.callout_tip",
+  note: "rich.callout_note",
+  warning: "rich.callout_warning",
+  info: "rich.callout_info",
+  important: "rich.callout_important",
 };
 
 export function FallbackMarkdown({ content }: Props) {
+  const { t } = useTranslation();
   const theme = useTheme();
   const mdStyles = useMemo(() => makeMdStyles(theme), [theme]);
   const fenceStyles = useMemo(() => makeFenceStyles(theme), [theme]);
@@ -38,10 +40,12 @@ export function FallbackMarkdown({ content }: Props) {
   const rules = useMemo(
     () => ({
       ...defaultRules,
-      fence: (node: FenceNode) => renderFallbackFence(node, fenceStyles, calloutStyles),
-      code_block: (node: FenceNode) => renderFallbackFence(node, fenceStyles, calloutStyles),
+      fence: (node: FenceNode) =>
+        renderFallbackFence(node, fenceStyles, calloutStyles, t),
+      code_block: (node: FenceNode) =>
+        renderFallbackFence(node, fenceStyles, calloutStyles, t),
     }),
-    [fenceStyles, calloutStyles],
+    [fenceStyles, calloutStyles, t],
   );
   const prepared = useMemo(() => preprocessMarkdown(content), [content]);
 
@@ -60,11 +64,13 @@ function renderFallbackFence(
   node: FenceNode,
   fenceStyles: ReturnType<typeof makeFenceStyles>,
   calloutStyles: ReturnType<typeof makeCalloutStyles>,
+  t: (key: string) => string,
 ) {
   const classified = classifyFallbackFence(node.sourceInfo, node.content);
   if (classified.kind === "callout") {
     if (!classified.body) return null;
-    const label = CALLOUT_LABELS[classified.calloutKind] ?? "Note";
+    const i18nKey = CALLOUT_I18N_KEYS[classified.calloutKind] ?? "rich.callout_note";
+    const label = t(i18nKey);
     return (
       <View key={node.key} style={calloutStyles.wrap}>
         <Text style={calloutStyles.label}>{label}</Text>

@@ -73,7 +73,7 @@ async def test_cors_allow_methods_explicit():
     allow_methods = response.headers.get("access-control-allow-methods", "")
     # Must NOT be a wildcard.
     assert "*" not in allow_methods
-    for method in ("GET", "POST", "PATCH", "DELETE", "OPTIONS"):
+    for method in ("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"):
         assert method in allow_methods
 
 

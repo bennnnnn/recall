@@ -46,6 +46,7 @@ from app.services.chat.post_turn import (
     seed_usage_from_db,
 )
 from app.services.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
+from app.services.chat.prompt_constants import max_output_tokens_for_style
 from app.services.chat.turn_prep import (
     RegenerateBackup,
     StreamContext,
@@ -470,33 +471,38 @@ async def stream_regenerate_response(
         ):
             return
 
-        bundle = await build_stream_prompt_context(
-            user_id,
-            chat_id,
-            user_message_content,
-            model,
-            settings,
-            redis,
-            client_timezone=client_timezone,
-            client_location=client_location,
-            client_latitude=client_latitude,
-            client_longitude=client_longitude,
-            on_status=status,
-            user=user,
-            chat=chat,
-            timing=timing,
-            omit_message_ids=omit_message_ids,
-        )
-
+        # Reserve before prompt prep (classifier / web-search) — same invariant
+        # as message/edit paths. Style-based estimate; finalize reconciles usage.
         reserved = await reserve_turn_quota(
             redis,
             user=user,
             content=user_message_content,
             model=model,
             settings=settings,
-            max_output=bundle.max_out,
+            max_output=max_output_tokens_for_style(user.response_style, settings),
             seed=True,
         )
+        try:
+            bundle = await build_stream_prompt_context(
+                user_id,
+                chat_id,
+                user_message_content,
+                model,
+                settings,
+                redis,
+                client_timezone=client_timezone,
+                client_location=client_location,
+                client_latitude=client_latitude,
+                client_longitude=client_longitude,
+                on_status=status,
+                user=user,
+                chat=chat,
+                timing=timing,
+                omit_message_ids=omit_message_ids,
+            )
+        except BaseException:
+            await quota_service.refund_usage(redis, str(user_id), reserved)
+            raise
 
         # Preserve regenerate semantics (run_title off, skip_memory_jobs = minimal_quiz).
         ctx = stream_context_from_bundle(

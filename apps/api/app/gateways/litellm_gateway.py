@@ -241,6 +241,7 @@ async def complete_with_tools(
     model_alias: str,
     messages: list[dict[str, Any]],
     tools: list[dict[str, Any]],
+    max_tokens: int,
     usage: dict[str, int] | None = None,
     timeout_seconds: float = 30.0,
 ) -> dict[str, Any]:
@@ -261,6 +262,7 @@ async def complete_with_tools(
                 messages=messages,
                 tools=tools,
                 tool_choice="auto",
+                max_tokens=max_tokens,
                 stream=False,
                 **kwargs,
             )

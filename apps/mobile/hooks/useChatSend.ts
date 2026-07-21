@@ -328,7 +328,6 @@ export function useChatSend({
         }
         return;
       }
-      newMessageCountRef.current += 1;
       sendMessage(messageTextForSend(text, attached), {
         attachmentIds,
         localImageUri: attached?.kind === "image" ? attached.localUri : null,

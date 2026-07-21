@@ -33,6 +33,21 @@ async def fetch_subscriber(secret_key: str, app_user_id: str) -> dict[str, Any] 
             return payload if isinstance(payload, dict) else None
     except Exception:
         logger.exception("RevenueCat subscriber fetch failed user=%s", app_user_id)
+        try:
+            import sentry_sdk
+
+            sentry_sdk.add_breadcrumb(
+                category="billing.revenuecat",
+                message="subscriber fetch failed",
+                level="error",
+                data={"app_user_id": app_user_id},
+            )
+            sentry_sdk.capture_message(
+                "RevenueCat subscriber fetch failed",
+                level="warning",
+            )
+        except Exception:
+            logger.debug("RevenueCat fetch metric report failed", exc_info=True)
         return None
 
 

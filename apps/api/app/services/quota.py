@@ -12,26 +12,29 @@ from app.models.orm import User
 logger = logging.getLogger(__name__)
 
 # Shown when the daily quota is exhausted — avoid internal "token" wording.
+# Counters reset at midnight UTC (not the user's local timezone).
 QUOTA_EXCEEDED_MESSAGE_FREE = (
-    "You've used up today's free limit. Go Pro for more — or come back tomorrow."
+    "You've used up today's free limit. Go Pro for more — or try again after midnight UTC."
 )
-QUOTA_EXCEEDED_MESSAGE_PRO = "You've reached today's limit. Come back tomorrow."
+QUOTA_EXCEEDED_MESSAGE_PRO = "You've reached today's limit. Try again after midnight UTC."
 
 # Backward-compatible alias for tests and imports.
 QUOTA_EXCEEDED_MESSAGE = QUOTA_EXCEEDED_MESSAGE_FREE
 
 IMAGE_LIMIT_EXCEEDED_MESSAGE_FREE = (
-    "You've reached today's image upload limit (5). Go Pro for more — or come back tomorrow."
+    "You've reached today's image upload limit (5). "
+    "Go Pro for more — or try again after midnight UTC."
 )
 IMAGE_LIMIT_EXCEEDED_MESSAGE_PRO = (
-    "You've reached today's image upload limit (30). Come back tomorrow."
+    "You've reached today's image upload limit (30). Try again after midnight UTC."
 )
 
 SPEECH_LIMIT_EXCEEDED_MESSAGE_FREE = (
-    "You've reached today's voice transcription limit. Go Pro for more — or come back tomorrow."
+    "You've reached today's voice transcription limit. "
+    "Go Pro for more — or try again after midnight UTC."
 )
 SPEECH_LIMIT_EXCEEDED_MESSAGE_PRO = (
-    "You've reached today's voice transcription limit. Come back tomorrow."
+    "You've reached today's voice transcription limit. Try again after midnight UTC."
 )
 SPEECH_RATE_LIMIT_MESSAGE = "Too many voice requests. Please wait a moment and try again."
 SPEECH_TTS_RATE_LIMIT_MESSAGE = "Too many read-aloud requests. Please wait a moment and try again."
@@ -40,7 +43,7 @@ IMAGE_GENERATION_LIMIT_EXCEEDED_MESSAGE_FREE = (
     "Image generation is a Pro feature. Upgrade to generate images."
 )
 IMAGE_GENERATION_LIMIT_EXCEEDED_MESSAGE_PRO = (
-    "You've reached today's image generation limit. Come back tomorrow."
+    "You've reached today's image generation limit. Try again after midnight UTC."
 )
 
 

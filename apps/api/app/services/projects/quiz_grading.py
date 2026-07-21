@@ -155,10 +155,19 @@ async def apply_deterministic_quiz_answer(
     is_trivia = _is_trivia_project(project) or quiz.quiz_type == "trivia"
     if not quiz.correct:
         return None
-    is_correct = letter == quiz.correct.upper()
     correct_letter = quiz.correct.upper()
     if not re.fullmatch(r"[A-D]", correct_letter):
         return None
+    verified = await vocab_quiz_service.verified_correct_letter(quiz)
+    if verified is not None:
+        correct_letter = verified
+    is_correct = letter == correct_letter
+    correct_text = quiz.correct_text
+    if verified is not None:
+        for choice_letter, choice_text in quiz.choices:
+            if choice_letter.upper() == correct_letter:
+                correct_text = choice_text
+                break
 
     try_number = max(1, attempt)
     tries_exhausted = (not is_correct) and (
@@ -187,14 +196,14 @@ async def apply_deterministic_quiz_answer(
                 content=question,
                 list_title=list_title,
                 is_correct=is_correct,
-                definition=(quiz.correct_text or "").strip() or None,
+                definition=(correct_text or "").strip() or None,
             )
         return vocab_quiz_service.QuizAnswerGrade(
             is_correct=is_correct,
             user_letter=letter,
             correct_letter=correct_letter,
             # Feedback label = correct choice text (not the topic like "History").
-            word=(quiz.correct_text or question)[:80],
+            word=(correct_text or question)[:80],
             quiz_type="trivia",
             question=question,
             attempt=try_number,
