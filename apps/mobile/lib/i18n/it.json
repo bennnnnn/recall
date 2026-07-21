@@ -880,5 +880,10 @@
   "common.saved": "Salvato",
   "common.saved_to_photos": "Immagine salvata nelle foto.",
   "common.share_failed": "Condivisione non riuscita",
-  "common.share_image_error": "Impossibile condividere questa immagine."
+  "common.share_image_error": "Impossibile condividere questa immagine.",
+  "common.save": "Salva",
+  "memory.edit_section_a11y": "Modifica questa sezione di memoria",
+  "memory.edit_title": "Modifica memoria",
+  "memory.edit_hint": "Correggi ciò che è sbagliato: Recall lo userà d’ora in poi.",
+  "memory.edit_failed": "Impossibile salvare la memoria. Riprova."
 }

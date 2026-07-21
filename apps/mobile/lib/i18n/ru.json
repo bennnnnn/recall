@@ -880,5 +880,10 @@
   "common.saved": "Сохранено",
   "common.saved_to_photos": "Изображение сохранено в Фото.",
   "common.share_failed": "Не удалось поделиться",
-  "common.share_image_error": "Не удалось поделиться этим изображением."
+  "common.share_image_error": "Не удалось поделиться этим изображением.",
+  "common.save": "Сохранить",
+  "memory.edit_section_a11y": "Редактировать этот раздел памяти",
+  "memory.edit_title": "Редактировать память",
+  "memory.edit_hint": "Исправьте ошибки — Recall будет использовать это дальше.",
+  "memory.edit_failed": "Не удалось сохранить память. Попробуйте снова."
 }

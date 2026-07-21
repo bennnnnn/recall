@@ -880,5 +880,10 @@
   "common.saved": "Gespeichert",
   "common.saved_to_photos": "Bild in deinen Fotos gespeichert.",
   "common.share_failed": "Teilen fehlgeschlagen",
-  "common.share_image_error": "Dieses Bild konnte nicht geteilt werden."
+  "common.share_image_error": "Dieses Bild konnte nicht geteilt werden.",
+  "common.save": "Speichern",
+  "memory.edit_section_a11y": "Diesen Speicherabschnitt bearbeiten",
+  "memory.edit_title": "Erinnerung bearbeiten",
+  "memory.edit_hint": "Korrigiere Fehler — Recall nutzt das künftig.",
+  "memory.edit_failed": "Erinnerung konnte nicht gespeichert werden. Bitte erneut versuchen."
 }

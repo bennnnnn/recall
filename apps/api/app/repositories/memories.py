@@ -179,6 +179,8 @@ async def update_text_and_embedding(
     text: str,
     embedding: list[float],
     embedding_json: str,
+    *,
+    embedding_text_hash: str | None = None,
 ) -> Memory | None:
     """Update text and its embedding together so semantic recall doesn't rank
     on a stale vector after a fact delete/edit."""
@@ -188,6 +190,8 @@ async def update_text_and_embedding(
     memory.text = text.strip()
     memory.embedding = embedding
     memory.embedding_json = embedding_json
+    if embedding_text_hash is not None:
+        memory.embedding_text_hash = embedding_text_hash
     await session.commit()
     await session.refresh(memory)
     return memory

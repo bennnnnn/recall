@@ -17,6 +17,10 @@ class MemoryOut(BaseModel):
     updated_at: datetime
 
 
+class MemoryUpdate(BaseModel):
+    text: str = Field(min_length=1, max_length=4000)
+
+
 class MemorySectionItem(BaseModel):
     type: MemoryType
     summary: str = Field(min_length=3, max_length=4000)

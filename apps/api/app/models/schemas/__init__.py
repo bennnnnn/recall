@@ -76,6 +76,7 @@ from app.models.schemas.memory import (
     MemoryOut,
     MemorySectionItem,
     MemorySectionUpdateResult,
+    MemoryUpdate,
 )
 from app.models.schemas.projects import (
     DailyHistoryStatus,
@@ -144,6 +145,7 @@ __all__ = [
     "MemorySectionItem",
     "MemorySectionUpdateResult",
     "MemoryType",
+    "MemoryUpdate",
     "MessageFeedback",
     "MessageOut",
     "MessagePageOut",

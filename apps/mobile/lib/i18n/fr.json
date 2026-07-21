@@ -880,5 +880,10 @@
   "common.saved": "Enregistré",
   "common.saved_to_photos": "Image enregistrée dans vos photos.",
   "common.share_failed": "Échec du partage",
-  "common.share_image_error": "Impossible de partager cette image."
+  "common.share_image_error": "Impossible de partager cette image.",
+  "common.save": "Enregistrer",
+  "memory.edit_section_a11y": "Modifier cette section de mémoire",
+  "memory.edit_title": "Modifier la mémoire",
+  "memory.edit_hint": "Corrigez ce qui est faux — Recall l’utilisera désormais.",
+  "memory.edit_failed": "Impossible d’enregistrer la mémoire. Réessayez."
 }

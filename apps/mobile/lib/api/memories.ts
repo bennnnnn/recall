@@ -3,6 +3,11 @@ import type { Memory } from "@/lib/api/types";
 
 export const memoriesApi = {
   listMemories: (token: string) => request<Memory[]>("/memories", token),
+  updateMemory: (token: string, memoryId: string, text: string) =>
+    request<Memory>(`/memories/${memoryId}`, token, {
+      method: "PATCH",
+      body: JSON.stringify({ text }),
+    }),
   deleteMemorySection: (token: string, type: string) =>
     request<void>(`/memories/type/${type}`, token, { method: "DELETE" }),
   // BUG FIX (was silent): factIndex alone can go stale — a background

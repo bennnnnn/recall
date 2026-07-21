@@ -10,7 +10,7 @@ from app.core.db import get_db
 from app.core.deps import get_current_user, get_settings_dep
 from app.core.redis import get_redis_client
 from app.models.orm import User
-from app.models.schemas import MemoryOut, MemoryType
+from app.models.schemas import MemoryOut, MemoryType, MemoryUpdate
 from app.repositories import memories as memories_repo
 from app.services import memory as memory_service
 
@@ -92,6 +92,30 @@ async def delete_memory_section(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_LOCK_BUSY_DETAIL) from exc
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Memory not found")
+
+
+@router.patch("/{memory_id}", response_model=MemoryOut)
+async def update_memory(
+    memory_id: UUID,
+    body: MemoryUpdate,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings_dep),
+) -> MemoryOut:
+    try:
+        updated = await memory_service.update_memory(
+            session, settings, user.id, memory_id, body.text
+        )
+    except memory_service.MemoryWriteLockBusyError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_LOCK_BUSY_DETAIL) from exc
+    except memory_service.MemoryEmptyTextError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Memory text cannot be empty",
+        ) from exc
+    if updated is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Memory not found")
+    return MemoryOut.model_validate(updated)
 
 
 @router.delete("/{memory_id}", status_code=status.HTTP_204_NO_CONTENT)

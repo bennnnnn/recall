@@ -880,5 +880,10 @@
   "common.saved": "Kaydedildi",
   "common.saved_to_photos": "Görsel fotoğraflarınıza kaydedildi.",
   "common.share_failed": "Paylaşım başarısız",
-  "common.share_image_error": "Bu görsel paylaşılamadı."
+  "common.share_image_error": "Bu görsel paylaşılamadı.",
+  "common.save": "Kaydet",
+  "memory.edit_section_a11y": "Bu bellek bölümünü düzenle",
+  "memory.edit_title": "Belleği düzenle",
+  "memory.edit_hint": "Yanlış olanı düzelt — Recall bundan sonra bunu kullanacak.",
+  "memory.edit_failed": "Bellek kaydedilemedi. Tekrar deneyin."
 }

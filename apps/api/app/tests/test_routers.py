@@ -858,6 +858,45 @@ def test_delete_memory_not_found():
     assert r.status_code == 404
 
 
+def test_update_memory_ok():
+    user = _fake_user()
+    app = _app_with_user(user)
+    memory_id = uuid4()
+    updated = MagicMock()
+    updated.id = memory_id
+    updated.type = "fact"
+    updated.text = "As of 2026-07-20: Likes hiking"
+    updated.confidence = 0.9
+    updated.created_at = datetime(2026, 1, 1)
+    updated.updated_at = datetime(2026, 7, 20)
+    with patch(
+        "app.routers.memories.memory_service.update_memory",
+        AsyncMock(return_value=updated),
+    ) as update:
+        client = TestClient(app)
+        r = client.patch(
+            f"/memories/{memory_id}",
+            headers={"Authorization": "Bearer tok"},
+            json={"text": "Likes hiking"},
+        )
+    assert r.status_code == 200
+    assert r.json()["text"] == "As of 2026-07-20: Likes hiking"
+    update.assert_awaited_once()
+
+
+def test_update_memory_not_found():
+    user = _fake_user()
+    app = _app_with_user(user)
+    with patch("app.routers.memories.memory_service.update_memory", AsyncMock(return_value=None)):
+        client = TestClient(app)
+        r = client.patch(
+            f"/memories/{uuid4()}",
+            headers={"Authorization": "Bearer tok"},
+            json={"text": "Likes hiking"},
+        )
+    assert r.status_code == 404
+
+
 def test_delete_memory_ok():
     user = _fake_user()
     app = _app_with_user(user)
