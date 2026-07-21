@@ -447,9 +447,9 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   token when a different user registers it (device account switch). A stolen token string could
   silence the prior owner. Harden with proof-of-possession / device attestation, or accept the
   tradeoff and document; ticketed from Wave 4 security smalls (not implemented in that PR).
-- 🔜 **Message id time-ordering (uuid7)** — `messages.id` is random uuid4 while list order uses
-  `(created_at, id)`. Same-timestamp collisions can reorder siblings arbitrarily. Migrate new
-  ids to uuid7 (or equivalent time-sortable ids); out of scope for the Wave 3 WS robustness PR.
+- ✅ **Message id time-ordering (uuid7)** — new `messages.id` values use UUID v7
+  (`app.core.ids.uuid7`) so `(created_at, id)` cursors stay time-stable; existing
+  uuid4 rows are unchanged.
 - 🔜 **Full locale translation** — key-set parity is enforced (**882** keys); ~350 strings still
   English in non-en locales (Claude review wave 3 strings are keyed; prose translation deferred).
 - 🔜 **Full chat-history semantic RAG** — embed past chats (beyond keyword `/search` + memory

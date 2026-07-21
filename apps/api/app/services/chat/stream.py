@@ -6,13 +6,14 @@ import time
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from redis.asyncio import Redis
 
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.core.db import SessionLocal
+from app.core.ids import uuid7
 from app.core.redis_lock import acquire_lock, refresh_lock, release_lock
 from app.exceptions import (
     ChatBusyError,
@@ -939,7 +940,7 @@ async def _register_and_enqueue_finalize(
     # background and anything reading this chat next awaits it via the
     # finalize registry.
     if ctx.assistant_message_id is None:
-        ctx.assistant_message_id = uuid4()
+        ctx.assistant_message_id = uuid7()
     if result is not None:
         result["resolved_model"] = ctx.model
         result["message_id"] = str(ctx.assistant_message_id)
