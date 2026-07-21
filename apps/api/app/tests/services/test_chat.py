@@ -1085,7 +1085,7 @@ async def test_memory_extraction_runs_on_later_turn(stream_offline_io):
         result: dict[str, str] = {}
         async for _ in chat_module.stream_chat_response(
             AsyncMock(),
-            Settings(max_output_tokens=100, memory_extract_every_n_turns=1),
+            Settings(max_output_tokens=100),
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="second turn info",
@@ -1096,7 +1096,7 @@ async def test_memory_extraction_runs_on_later_turn(stream_offline_io):
         if finalize is not None:
             await finalize
 
-    # Memory is enqueued every turn when memory_extract_every_n_turns=1.
+    # Default memory_extract_every_n_turns=1 enqueues memory on every turn.
     job_types = [call.args[1] for call in enqueue_job.call_args_list]
     assert job_types.count("memory") == 1
     assert "topic" not in job_types
@@ -1157,7 +1157,7 @@ async def test_memory_extraction_skipped_when_memory_disabled(stream_offline_io)
         result: dict[str, str] = {}
         async for _ in chat_module.stream_chat_response(
             AsyncMock(),
-            Settings(max_output_tokens=100, memory_extract_every_n_turns=1),
+            Settings(max_output_tokens=100),
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="second turn info",
@@ -1173,7 +1173,8 @@ async def test_memory_extraction_skipped_when_memory_disabled(stream_offline_io)
 
 
 @pytest.mark.asyncio
-async def test_memory_extraction_skipped_between_batch_turns(stream_offline_io):
+async def test_memory_extraction_throttled_when_every_n_gt_1(stream_offline_io):
+    """Ops can still raise memory_extract_every_n_turns to skip intermediate turns."""
     from app.services import chat as chat_module
 
     async def fake_stream(**kwargs):
