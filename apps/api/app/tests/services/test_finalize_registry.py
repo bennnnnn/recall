@@ -100,3 +100,30 @@ async def test_newer_registration_replaces_older():
     await first_task
     await asyncio.sleep(0)
     assert finalize_registry.pending_finalize_count() == baseline
+
+
+@pytest.mark.asyncio
+async def test_redis_marker_blocks_cross_process_wait(fake_redis):
+    """Without a local task, waiters poll Redis until the marker clears."""
+    chat_id = uuid4()
+    order: list[str] = []
+
+    await finalize_registry.mark_pending_finalize(fake_redis, chat_id)
+
+    async def next_turn():
+        await finalize_registry.wait_for_pending_finalize(chat_id, fake_redis)
+        order.append("next-turn")
+
+    waiter = asyncio.create_task(next_turn())
+    await asyncio.sleep(0.05)
+    assert order == []
+
+    await finalize_registry.clear_pending_finalize(fake_redis, chat_id)
+    await waiter
+    assert order == ["next-turn"]
+
+
+@pytest.mark.asyncio
+async def test_redis_marker_absent_is_immediate(fake_redis):
+    chat_id = uuid4()
+    await finalize_registry.wait_for_pending_finalize(chat_id, fake_redis)

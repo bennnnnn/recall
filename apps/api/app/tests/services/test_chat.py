@@ -2388,11 +2388,13 @@ async def test_regenerate_restores_assistant_when_stream_empty():
             patch(
                 "app.services.attachment_lifecycle.detach_attachments_for_messages",
                 AsyncMock(return_value=[]),
-            ),
+            )
+        )
+        stack.enter_context(
             patch(
                 "app.services.attachment_lifecycle.delete_storage_keys",
                 AsyncMock(),
-            ),
+            )
         )
         stack.enter_context(patch("app.repositories.messages.delete_message", AsyncMock()))
         stack.enter_context(
@@ -2511,11 +2513,13 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete():
             patch(
                 "app.services.attachment_lifecycle.detach_attachments_for_messages",
                 AsyncMock(return_value=[]),
-            ),
+            )
+        )
+        stack.enter_context(
             patch(
                 "app.services.attachment_lifecycle.delete_storage_keys",
                 AsyncMock(),
-            ),
+            )
         )
         stack.enter_context(
             patch(
@@ -2630,11 +2634,13 @@ async def test_regenerate_passes_client_geo_to_web_search():
             patch(
                 "app.services.attachment_lifecycle.detach_attachments_for_messages",
                 AsyncMock(return_value=[]),
-            ),
+            )
+        )
+        stack.enter_context(
             patch(
                 "app.services.attachment_lifecycle.delete_storage_keys",
                 AsyncMock(),
-            ),
+            )
         )
         stack.enter_context(patch("app.repositories.messages.delete_message", AsyncMock()))
         stack.enter_context(

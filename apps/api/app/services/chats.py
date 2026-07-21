@@ -163,7 +163,7 @@ async def list_messages_page(
     before: UUID | None = None,
 ) -> MessagePageOut:
     chat = await get_chat(session, user, chat_id)
-    await finalize_registry.wait_for_pending_finalize(chat_id)
+    await finalize_registry.wait_for_pending_finalize(chat_id, redis)
     msgs, has_more = await messages_repo.list_page(session, chat_id, limit=limit, before_id=before)
 
     if not chat.title and not before and msgs:
@@ -191,6 +191,7 @@ async def list_messages_page(
 
 async def set_message_feedback(
     session: AsyncSession,
+    redis: Redis,
     user: User,
     chat_id: UUID,
     message_id: UUID,
@@ -199,7 +200,7 @@ async def set_message_feedback(
     await get_chat(session, user, chat_id)
     message = await messages_repo.set_feedback(session, message_id, chat_id, feedback)
     if message is None:
-        await finalize_registry.wait_for_pending_finalize(chat_id)
+        await finalize_registry.wait_for_pending_finalize(chat_id, redis)
         message = await messages_repo.set_feedback(session, message_id, chat_id, feedback)
     if message is None:
         raise ChatsError("Message not found", status_code=404)

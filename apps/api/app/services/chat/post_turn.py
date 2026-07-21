@@ -17,6 +17,7 @@ from app.services import attachment_lifecycle, model_catalog
 from app.services import projects as projects_service
 from app.services import quota as quota_service
 from app.services import todos as todos_service
+from app.services.chat.finalize_registry import clear_pending_finalize
 from app.services.chat.turn_prep import RegenerateBackup, StreamContext
 from app.services.context_window import estimate_tokens
 from app.services.quota import utc_today
@@ -178,6 +179,7 @@ async def finalize_stream_turn_db(
             logger.exception("refund_usage failed after finalize error")
         raise
     finally:
+        await clear_pending_finalize(redis, ctx.chat_id)
         if pending_storage_keys:
             await attachment_lifecycle.delete_storage_keys(settings, pending_storage_keys)
 

@@ -10,6 +10,7 @@ from app.background import (
     push_scheduler,
 )
 from app.core import jobs
+from app.core.background_tasks import drain_background_tasks
 from app.core.config import cors_allow_origins, get_settings, validate_production_settings
 from app.core.db import engine, warmup_db_pool
 from app.core.logging import setup_logging
@@ -70,6 +71,9 @@ async def lifespan(_: FastAPI):
         await gmail_periodic_sync.start_gmail_periodic_scheduler(settings)
         await attachment_orphan_reaper.start_orphan_reaper(settings)
     yield
+    # Let in-flight finalize / fire-and-forget work finish before tearing down
+    # Redis and the DB pool (API machines run finalize; workers run jobs).
+    await drain_background_tasks(timeout_seconds=10.0)
     if role in ("all", "worker"):
         await jobs.stop_worker()
         await push_scheduler.stop_push_scheduler()
