@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import logging
 import re
+from datetime import UTC, date, datetime
 from typing import cast
 from uuid import UUID
 
@@ -27,10 +28,42 @@ _ALWAYS_INJECT_TYPES = frozenset({"profile", "preference"})
 # Topic-sensitive sections — only inject when cosine similarity clears the bar.
 _SIMILARITY_GATED_TYPES = frozenset({"project", "fact", "focus"})
 
+_AS_OF_PREFIX_RE = re.compile(r"^As of \d{4}-\d{2}-\d{2}:\s*", re.IGNORECASE)
+# Surfaces (home chips / suggestion prompts) must never echo these topics.
+_SENSITIVE_MEMORY_RE = re.compile(
+    r"\b("
+    r"allerg(?:y|ies|ic)|diagnos(?:is|ed)|cancer|depress(?:ion|ed)|anxi(?:ety|ous)|"
+    r"therapist|psychiatr|medication|prescri(?:be|ption)|pregnant|hiv\b|diabetes|"
+    r"lawsuit|attorney|\blawyer\b|divorc(?:e|ing)|"
+    r"salary|mortgage|credit\s*card|bank\s*account|\bdebt\b|"
+    r"boyfriend|girlfriend|husband|wife|spouse|affair|\bdating\b"
+    r")\b",
+    re.IGNORECASE,
+)
+
 
 def normalize_memory_text(text: str) -> str:
     clean = re.sub(r"\s+", " ", text.strip()).rstrip(".")
     return clean
+
+
+def strip_memory_as_of(text: str) -> str:
+    """Remove a leading ``As of YYYY-MM-DD:`` stamp if present."""
+    return _AS_OF_PREFIX_RE.sub("", text.strip()).strip()
+
+
+def stamp_memory_as_of(text: str, *, as_of: date | None = None) -> str:
+    """Prefix section text with today's (or provided) as-of date for freshness."""
+    body = strip_memory_as_of(text)
+    if not body:
+        return body
+    day = as_of or datetime.now(UTC).date()
+    return f"As of {day.isoformat()}: {body}"
+
+
+def is_sensitive_memory_text(text: str) -> bool:
+    """True when text looks like health/legal/finance/relationship content."""
+    return bool(_SENSITIVE_MEMORY_RE.search(strip_memory_as_of(text)))
 
 
 def embedding_text_hash(text: str) -> str:
@@ -461,7 +494,8 @@ async def _warm_semantic_memory_cache(
             if gen_before != gen_after:
                 return
             scope = "p" if omit_project_memory else "g"
-            query_key = f"{_memory_query_cache_key(user_id, gen_before, cleaned)}:{scope}"
+            # Match get_memory_block's :{scope}:{sens} layout (warm is chat-path).
+            query_key = f"{_memory_query_cache_key(user_id, gen_before, cleaned)}:{scope}:a"
             try:
                 await redis.set(
                     query_key,
@@ -474,6 +508,16 @@ async def _warm_semantic_memory_cache(
         logger.debug("Background semantic memory warm failed", exc_info=True)
 
 
+def _filter_surface_memories(
+    memories: list[Memory],
+    *,
+    exclude_sensitive: bool,
+) -> list[Memory]:
+    if not exclude_sensitive:
+        return memories
+    return [memory for memory in memories if not is_sensitive_memory_text(memory.text)]
+
+
 async def get_memory_block(
     session: AsyncSession,
     user: User,
@@ -481,6 +525,7 @@ async def get_memory_block(
     *,
     query_text: str | None = None,
     chat_project_id: UUID | None = None,
+    exclude_sensitive: bool = False,
 ) -> str:
     """Formatted memory block for the prompt, cached in Redis per user."""
     if not user.memory_enabled:
@@ -497,10 +542,10 @@ async def get_memory_block(
         except Exception:
             logger.debug("Memory generation read failed", exc_info=True)
             generation = None
-        # Fold project-chat scoping into the cache key so a Learning-project
-        # turn never reuses a general-chat block that still has project memory.
+        # Fold project-chat / sensitive-surface scoping into the cache key.
         scope = "p" if omit_project_memory else "g"
-        query_key = f"{_memory_query_cache_key(user.id, generation, q)}:{scope}"
+        sens = "x" if exclude_sensitive else "a"
+        query_key = f"{_memory_query_cache_key(user.id, generation, q)}:{scope}:{sens}"
         try:
             cached = await redis.get(query_key)
             if cached is not None:
@@ -542,6 +587,7 @@ async def get_memory_block(
                 query_vec=query_vec,
                 omit_project_memory=omit_project_memory,
             )
+            memories = _filter_surface_memories(memories, exclude_sensitive=exclude_sensitive)
             block = format_memory_block(memories, max_chars=max_chars)
             try:
                 await redis.set(query_key, block, ex=max(30, settings.memory_query_cache_ttl))
@@ -556,6 +602,7 @@ async def get_memory_block(
             settings,
             omit_project_memory=omit_project_memory,
         )
+        memories = _filter_surface_memories(memories, exclude_sensitive=exclude_sensitive)
         block = format_memory_block(memories, max_chars=max_chars)
         try:
             await redis.set(query_key, block, ex=max(30, settings.memory_query_cache_ttl))
@@ -584,7 +631,12 @@ async def get_memory_block(
         return block
 
     redis = get_redis_client()
-    cache_key = f"{key}:p" if omit_project_memory else key
+    parts = [key]
+    if omit_project_memory:
+        parts.append("p")
+    if exclude_sensitive:
+        parts.append("x")
+    cache_key = ":".join(parts)
     try:
         cached = await redis.get(cache_key)
         if cached is not None:
@@ -598,6 +650,7 @@ async def get_memory_block(
         settings,
         omit_project_memory=omit_project_memory,
     )
+    memories = _filter_surface_memories(memories, exclude_sensitive=exclude_sensitive)
     block = format_memory_block(memories, max_chars=max_chars)
     try:
         await redis.set(cache_key, block, ex=settings.memory_cache_ttl)
@@ -625,7 +678,12 @@ async def invalidate_memory_block(user_id: UUID) -> None:
         redis = get_redis_client()
         await redis.incr(_memory_generation_key(user_id))
         block_key = _memory_block_key(user_id)
-        await redis.delete(block_key, f"{block_key}:p")
+        await redis.delete(
+            block_key,
+            f"{block_key}:p",
+            f"{block_key}:x",
+            f"{block_key}:p:x",
+        )
         # Clear memquery:{user_id}:* entries (semantic recall is query-conditioned
         # and can be stale after an extraction/rewrite/delete).
         prefix = _memory_query_key_prefix(user_id)

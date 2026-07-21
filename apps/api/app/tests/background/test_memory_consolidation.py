@@ -174,13 +174,15 @@ async def test_consolidate_merges_messy_sections():
     ):
         changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
 
-    expected = (
+    expected_body = (
         "Bini (Binalfew) is a software developer who builds mobile apps "
         "and backend services for Recall"
     )
     assert changed is True
     upsert.assert_awaited_once()
-    assert upsert.call_args.kwargs["items"][0][1] == expected
+    written = upsert.call_args.kwargs["items"][0][1]
+    assert written.startswith("As of ")
+    assert written.endswith(expected_body)
 
 
 @pytest.mark.asyncio
@@ -614,4 +616,6 @@ async def test_consolidate_deterministic_dedupe_skips_llm():
 
     assert changed is True
     merge.assert_not_awaited()
-    assert upsert.call_args.kwargs["items"][0][1] == "Prefers concise answers"
+    written = upsert.call_args.kwargs["items"][0][1]
+    assert written.startswith("As of ")
+    assert written.endswith("Prefers concise answers")

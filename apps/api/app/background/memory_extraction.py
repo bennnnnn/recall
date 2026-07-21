@@ -16,6 +16,7 @@ from app.services.memory import (
     acquire_memory_write_lock,
     embedding_text_hash,
     release_memory_write_lock,
+    stamp_memory_as_of,
 )
 
 logger = logging.getLogger(__name__)
@@ -152,7 +153,9 @@ async def extract_and_store_memories(
                 )
                 if accepted is None:
                     continue
-                rows.append((section.type, accepted, section.confidence, chat_id))
+                rows.append(
+                    (section.type, stamp_memory_as_of(accepted), section.confidence, chat_id)
+                )
 
             if not rows:
                 return None

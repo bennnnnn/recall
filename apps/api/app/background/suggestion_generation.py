@@ -60,7 +60,9 @@ async def _load_suggestion_snapshot(
         return None
 
     recent = await chats_repo.list_for_user(session, user_id, limit=5)
-    memory_block = await memory_service.get_memory_block(session, user, settings)
+    memory_block = await memory_service.get_memory_block(
+        session, user, settings, exclude_sensitive=True
+    )
 
     recent_summary = "\n".join(
         f"- {c.title or 'New chat'} (updated {c.updated_at.strftime('%b %d')})" for c in recent

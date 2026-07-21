@@ -134,7 +134,8 @@ async def test_extract_and_store_drops_section_with_empty_summary_after_normaliz
     upsert.assert_awaited_once()
     items = upsert.call_args.kwargs["items"]
     assert len(items) == 1
-    assert items[0][1] == "Uses Vim daily"
+    assert items[0][1].startswith("As of ")
+    assert items[0][1].endswith("Uses Vim daily")
 
 
 @pytest.mark.asyncio
@@ -217,6 +218,7 @@ async def test_extract_accepts_rewrite_that_preserves_anchors_and_adds_fact():
     items = upsert.call_args.kwargs["items"]
     assert len(items) == 1
     assert items[0][0] == "profile"
+    assert items[0][1].startswith("As of ")
     assert "Bini" in items[0][1]
     assert "Hooh" in items[0][1]
     assert "Recall" in items[0][1]

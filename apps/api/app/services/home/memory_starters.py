@@ -19,10 +19,11 @@ from app.services.home.util import (
     short_phrase,
     texts_overlap,
 )
+from app.services.memory import is_sensitive_memory_text, strip_memory_as_of
 
 
 def memory_display_text(text: str) -> str:
-    clean = text.strip().rstrip(".")
+    clean = strip_memory_as_of(text).rstrip(".")
     cleaned = _USER_PREFIX.sub("", clean).strip()
     return cleaned or clean
 
@@ -34,6 +35,8 @@ def pick_home_memory(
 ) -> Memory | None:
     for memory in memories:
         if looks_internal(memory.text):
+            continue
+        if is_sensitive_memory_text(memory.text):
             continue
         # Stale English memories must not surface after the vocab class is deleted.
         if looks_like_language_learning(memory.text) and not has_language_project:
@@ -61,7 +64,7 @@ def memory_chip_label(memory: Memory, display: str) -> str:
 
 def memory_starter(memory: Memory) -> HomeStarter | None:
     text = memory.text.strip()
-    if not text or looks_internal(text):
+    if not text or looks_internal(text) or is_sensitive_memory_text(text):
         return None
     display = memory_display_text(text)
     label = memory_chip_label(memory, display)

@@ -8,11 +8,14 @@ from app.services.memory import (
     accept_memory_section_rewrite,
     consolidation_rewrite_preserves_facts,
     extract_consolidation_anchors,
+    is_sensitive_memory_text,
     normalize_memory_text,
     section_needs_consolidation,
     sections_need_consolidation,
     select_memories_for_prompt,
     select_memories_semantic,
+    stamp_memory_as_of,
+    strip_memory_as_of,
 )
 
 
@@ -49,6 +52,22 @@ class _FakeSessionCM:
 
 def test_normalize_memory_text_strips_trailing_period():
     assert normalize_memory_text("User's name is Bini.") == "User's name is Bini"
+
+
+def test_stamp_memory_as_of_prefixes_and_replaces():
+    from datetime import date
+
+    stamped = stamp_memory_as_of("Name is Sam", as_of=date(2026, 7, 20))
+    assert stamped == "As of 2026-07-20: Name is Sam"
+    restamped = stamp_memory_as_of(stamped, as_of=date(2026, 8, 1))
+    assert restamped == "As of 2026-08-01: Name is Sam"
+    assert strip_memory_as_of(restamped) == "Name is Sam"
+
+
+def test_is_sensitive_memory_text_flags_health_and_finance():
+    assert is_sensitive_memory_text("Has a peanut allergy") is True
+    assert is_sensitive_memory_text("As of 2026-07-20: Paying off credit card debt") is True
+    assert is_sensitive_memory_text("Likes Italian cooking") is False
 
 
 def test_section_needs_consolidation_detects_repetition():
@@ -654,7 +673,7 @@ async def test_invalidate_memory_block_clears_block_and_query_cache(fake_redis):
         await get_memory_block(session, user, settings, query_text="outdoor hobbies")
 
     # Both the per-user block key and a per-query key should now exist.
-    query_key = f"{_memory_query_cache_key(user.id, None, 'outdoor hobbies')}:g"
+    query_key = f"{_memory_query_cache_key(user.id, None, 'outdoor hobbies')}:g:a"
     assert await fake_redis.exists(_memory_block_key(user.id)) == 1
     assert await fake_redis.exists(query_key) == 1
 
@@ -690,8 +709,8 @@ async def test_invalidate_memory_block_clears_multiple_query_keys(fake_redis):
         await get_memory_block(session, user, settings, query_text="outdoor hobbies")
         await get_memory_block(session, user, settings, query_text="weekend plans")
 
-    outdoor = f"{_memory_query_cache_key(user.id, None, 'outdoor hobbies')}:g"
-    weekend = f"{_memory_query_cache_key(user.id, None, 'weekend plans')}:g"
+    outdoor = f"{_memory_query_cache_key(user.id, None, 'outdoor hobbies')}:g:a"
+    weekend = f"{_memory_query_cache_key(user.id, None, 'weekend plans')}:g:a"
     assert await fake_redis.exists(outdoor) == 1
     assert await fake_redis.exists(weekend) == 1
 
