@@ -1,10 +1,19 @@
-from unittest.mock import AsyncMock, patch
+from contextlib import asynccontextmanager
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
 
 from app.core.config import Settings
 from app.services.attachment_rag import chunk_text, retrieve_for_prompt
+
+
+def _session_cm():
+    @asynccontextmanager
+    async def _cm(*_args, **_kwargs):
+        yield MagicMock()
+
+    return _cm
 
 
 def test_chunk_text_empty():
@@ -52,6 +61,7 @@ async def test_retrieve_for_prompt_degrades_on_db_error_instead_of_raising():
     chat_id = uuid4()
 
     with (
+        patch("app.services.attachment_rag.SessionLocal", _session_cm()),
         patch(
             "app.services.attachment_rag.chunks_repo.has_chunks_for_chat",
             AsyncMock(return_value=True),
@@ -67,7 +77,6 @@ async def test_retrieve_for_prompt_degrades_on_db_error_instead_of_raising():
         patch("app.services.attachment_rag.chunks_repo.EMBEDDING_DIM", 1536),
     ):
         block = await retrieve_for_prompt(
-            session=AsyncMock(),
             settings=settings,
             user_id=user_id,
             chat_id=chat_id,
@@ -83,6 +92,7 @@ async def test_retrieve_for_prompt_skips_embed_when_no_chunks():
     embed_mock = AsyncMock(return_value=[0.1] * 1536)
 
     with (
+        patch("app.services.attachment_rag.SessionLocal", _session_cm()),
         patch(
             "app.services.attachment_rag.chunks_repo.has_chunks_for_chat",
             AsyncMock(return_value=False),
@@ -93,7 +103,6 @@ async def test_retrieve_for_prompt_skips_embed_when_no_chunks():
         ),
     ):
         block = await retrieve_for_prompt(
-            session=AsyncMock(),
             settings=settings,
             user_id=uuid4(),
             chat_id=uuid4(),
@@ -102,3 +111,38 @@ async def test_retrieve_for_prompt_skips_embed_when_no_chunks():
 
     assert block == ""
     embed_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_retrieve_for_prompt_times_out_hung_embed():
+    settings = Settings(mock_llm_enabled=True)
+
+    async def _hang(_settings, _text):
+        import asyncio
+
+        await asyncio.sleep(10)
+        return [0.1] * 1536
+
+    with (
+        patch("app.services.attachment_rag.SessionLocal", _session_cm()),
+        patch(
+            "app.services.attachment_rag.chunks_repo.has_chunks_for_chat",
+            AsyncMock(return_value=True),
+        ),
+        patch(
+            "app.services.attachment_rag.embedding_gateway.embed_text",
+            _hang,
+        ),
+        patch(
+            "app.services.attachment_rag._RAG_EMBED_TIMEOUT_SECONDS",
+            0.05,
+        ),
+    ):
+        block = await retrieve_for_prompt(
+            settings=settings,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            query="what does the attached PDF say?",
+        )
+
+    assert block == ""

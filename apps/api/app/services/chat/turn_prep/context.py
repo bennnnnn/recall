@@ -252,6 +252,7 @@ async def build_stream_prompt_context(
     fallback_models: list[str]
     mode: _TurnMode
 
+    # Phase 1: ownership + turn mode (short-lived session).
     async with SessionLocal() as session:
         if user is None:
             user = await users_repo.get_by_id(session, user_id)
@@ -275,29 +276,31 @@ async def build_stream_prompt_context(
         )
         local_tz = time_context_service.effective_timezone(user.timezone, client_timezone)
 
-        if on_status is not None:
-            await on_status("preparing")
+    # No outer session during prompt gather (RAG/memory embeds use short-lived
+    # sessions inside build_prompt_messages).
+    if on_status is not None:
+        await on_status("preparing")
 
-        prompt_messages = await build_prompt_messages(
-            session,
-            user,
-            chat.id,
-            settings,
-            summary=chat_summary,
-            chat=chat,
-            out=meta,
-            query_text=content,
-            minimal_personal_context=mode.minimal_personal,
-            minimal_quiz_context=mode.minimal_quiz,
-            minimal_vocab_answer_context=mode.minimal_vocab_answer,
-            quiz_grade=quiz_grade,
-            client_timezone=client_timezone,
-            prompt_location=geo.user_location if geo.geo_query and geo.has_geo_fix else None,
-            todo_sync_feedback=todo_sync_feedback,
-            on_status=on_status,
-            omit_message_ids=omit_message_ids,
-        )
+    prompt_messages = await build_prompt_messages(
+        user,
+        chat.id,
+        settings,
+        summary=chat_summary,
+        chat=chat,
+        out=meta,
+        query_text=content,
+        minimal_personal_context=mode.minimal_personal,
+        minimal_quiz_context=mode.minimal_quiz,
+        minimal_vocab_answer_context=mode.minimal_vocab_answer,
+        quiz_grade=quiz_grade,
+        client_timezone=client_timezone,
+        prompt_location=geo.user_location if geo.geo_query and geo.has_geo_fix else None,
+        todo_sync_feedback=todo_sync_feedback,
+        on_status=on_status,
+        omit_message_ids=omit_message_ids,
+    )
 
+    async with SessionLocal() as session:
         instant_reply = await _resolve_instant_reply(
             session,
             content,

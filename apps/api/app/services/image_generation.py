@@ -6,9 +6,8 @@ import logging
 from typing import Literal
 from uuid import UUID
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.core.config import Settings
+from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
 from app.gateways import image_gateway, mock_llm
 from app.gateways.storage_gateway import UnconfiguredStorageGateway, get_storage_gateway
@@ -82,7 +81,6 @@ async def generate_image(
 
 
 async def generate_for_chat(
-    session: AsyncSession,
     settings: Settings,
     *,
     user: User,
@@ -101,6 +99,9 @@ async def generate_for_chat(
     bubble (e.g. keep the composer's original \"Create cat\"). Set
     ``create_user_message=False`` when regenerating — only a new assistant row
     is written.
+
+    DB sessions open only around ownership checks and persistence — the image
+    provider HTTP call runs with no pool checkout held.
     """
     if not settings.image_generation_enabled:
         raise ImageGenerationError("Not available", status_code=404)
@@ -109,9 +110,10 @@ async def generate_for_chat(
     if not plan_service.is_pro(user):
         raise ImageGenerationError("Image generation requires Pro", status_code=403)
 
-    chat = await chats_repo.get_by_id(session, chat_id, user.id)
-    if chat is None:
-        raise ImageGenerationError("Chat not found", status_code=404)
+    async with SessionLocal() as session:
+        chat = await chats_repo.get_by_id(session, chat_id, user.id)
+        if chat is None:
+            raise ImageGenerationError("Chat not found", status_code=404)
 
     gateway = get_storage_gateway(settings)
     if isinstance(gateway, UnconfiguredStorageGateway):
@@ -131,6 +133,7 @@ async def generate_for_chat(
         raise ImageGenerationError("Prompt is required", status_code=400)
 
     try:
+        # Provider HTTP — no DB session held.
         generated = await generate_image(
             settings,
             prompt=cleaned,
@@ -161,50 +164,54 @@ async def generate_for_chat(
             size_bytes=len(image_bytes),
         )
         attachment_id = UUID(presigned.attachment_id)
-        await attachments_repo.create_pending(
-            session,
-            attachment_id=attachment_id,
-            user_id=user.id,
-            storage_key=presigned.storage_key,
-            content_type=content_type,
-            size_bytes=len(image_bytes),
-            source="generated",
-        )
         await gateway.write_bytes(presigned.storage_key, image_bytes)
 
-        if create_user_message:
-            bubble = (user_message_content or f"{_USER_MESSAGE_PREFIX}{cleaned}").strip()
-            if not bubble:
-                bubble = f"{_USER_MESSAGE_PREFIX}{cleaned}"
-            user_message = await messages_repo.create(
+        async with SessionLocal() as session:
+            await attachments_repo.create_pending(
+                session,
+                attachment_id=attachment_id,
+                user_id=user.id,
+                storage_key=presigned.storage_key,
+                content_type=content_type,
+                size_bytes=len(image_bytes),
+                source="generated",
+            )
+
+            if create_user_message:
+                bubble = (user_message_content or f"{_USER_MESSAGE_PREFIX}{cleaned}").strip()
+                if not bubble:
+                    bubble = f"{_USER_MESSAGE_PREFIX}{cleaned}"
+                user_message = await messages_repo.create(
+                    session,
+                    chat_id=chat_id,
+                    user_id=user.id,
+                    role="user",
+                    content=bubble,
+                )
+            else:
+                existing = await messages_repo.get_last_user(session, chat_id)
+                if existing is None:
+                    raise ImageGenerationError(
+                        "No user message to attach image to", status_code=404
+                    )
+                user_message = existing
+            image_marker = f"[Image: /attachments/{attachment_id}/file]"
+            assistant_message = await messages_repo.create(
                 session,
                 chat_id=chat_id,
                 user_id=user.id,
-                role="user",
-                content=bubble,
+                role="assistant",
+                content=image_marker,
+                model=get_model(_IMAGE_MODEL_ALIAS).id,
             )
-        else:
-            existing = await messages_repo.get_last_user(session, chat_id)
-            if existing is None:
-                raise ImageGenerationError("No user message to attach image to", status_code=404)
-            user_message = existing
-        image_marker = f"[Image: /attachments/{attachment_id}/file]"
-        assistant_message = await messages_repo.create(
-            session,
-            chat_id=chat_id,
-            user_id=user.id,
-            role="assistant",
-            content=image_marker,
-            model=get_model(_IMAGE_MODEL_ALIAS).id,
-        )
-        linked = await attachments_repo.link_to_message(
-            session,
-            user_id=user.id,
-            attachment_ids=[attachment_id],
-            message_id=assistant_message.id,
-        )
-        if linked != 1:
-            raise ImageGenerationError("Could not link generated image", status_code=500)
+            linked = await attachments_repo.link_to_message(
+                session,
+                user_id=user.id,
+                attachment_ids=[attachment_id],
+                message_id=assistant_message.id,
+            )
+            if linked != 1:
+                raise ImageGenerationError("Could not link generated image", status_code=500)
     except ImageGenerationError as exc:
         if exc.status_code not in (403, 429):
             await quota_service.refund_image_generation(redis, user.id)

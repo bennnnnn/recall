@@ -492,11 +492,15 @@ async def _complete_structured_once[T: BaseModel](
     messages: list[dict[str, str]],
     schema: type[T],
     max_tokens: int,
+    timeout_seconds: float | None = None,
 ) -> T | None:
     """One structured attempt. Raises on provider outage; returns None on bad output."""
     route = resolve_route(model_alias)
     kwargs = _litellm_kwargs(settings, route)  # ModelUnavailableError if no key
-    async with asyncio.timeout(settings.background_llm_timeout_seconds):
+    timeout = (
+        settings.background_llm_timeout_seconds if timeout_seconds is None else timeout_seconds
+    )
+    async with asyncio.timeout(timeout):
         response = await acompletion(  # provider/network errors propagate for retry
             model=route.model,
             messages=messages,
@@ -559,11 +563,13 @@ async def complete_structured[T: BaseModel](
     messages: list[dict[str, str]],
     schema: type[T],
     max_tokens: int = 256,
+    timeout_seconds: float | None = None,
+    allow_fallback: bool = True,
 ) -> T | None:
     if mock_llm.should_mock_llm(settings):
         return None
 
-    fallback = _fallback_alias(settings, model_alias)
+    fallback = _fallback_alias(settings, model_alias) if allow_fallback else None
     try:
         result = await _complete_structured_once(
             settings=settings,
@@ -571,6 +577,7 @@ async def complete_structured[T: BaseModel](
             messages=messages,
             schema=schema,
             max_tokens=max_tokens,
+            timeout_seconds=timeout_seconds,
         )
         if result is not None:
             return result
@@ -589,6 +596,7 @@ async def complete_structured[T: BaseModel](
                 messages=messages,
                 schema=schema,
                 max_tokens=max_tokens,
+                timeout_seconds=timeout_seconds,
             )
         except Exception:
             logger.exception("Background LLM fallback %s also failed", fallback)

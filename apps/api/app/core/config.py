@@ -119,6 +119,8 @@ class Settings(BaseSettings):
 
     web_search_enabled: bool = True
     web_search_classifier_enabled: bool = True
+    # Foreground TTFT path — keep this short; no model-fallback retry on timeout.
+    web_search_classifier_timeout_seconds: float = 4.0
     web_search_fallback_enabled: bool = True
     web_search_max_results: int = 5
     web_search_cache_ttl: int = 300

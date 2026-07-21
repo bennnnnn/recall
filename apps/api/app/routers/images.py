@@ -1,8 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.core.db import get_db
 from app.core.deps import get_current_user, get_settings_dep
 from app.models.orm import User
 from app.models.schemas import ImageGenerateIn, ImageGenerateOut, MessageOut
@@ -15,12 +13,10 @@ router = APIRouter(prefix="/images", tags=["images"])
 async def generate_image(
     body: ImageGenerateIn,
     user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
 ) -> ImageGenerateOut:
     try:
         user_message, assistant_message = await image_generation_service.generate_for_chat(
-            session,
             settings,
             user=user,
             chat_id=body.chat_id,
