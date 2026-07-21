@@ -118,13 +118,38 @@ async def validate_external_url(url: str) -> None:
     await resolve_external_host(url)
 
 
+async def read_stream_capped(response: httpx.Response, max_body_bytes: int) -> bytes:
+    """Read at most *max_body_bytes* from a streaming response body."""
+    if max_body_bytes <= 0:
+        return b""
+    chunks: list[bytes] = []
+    total = 0
+    async for chunk in response.aiter_bytes():
+        if not chunk:
+            continue
+        remaining = max_body_bytes - total
+        if remaining <= 0:
+            break
+        if len(chunk) > remaining:
+            chunks.append(chunk[:remaining])
+            break
+        chunks.append(chunk)
+        total += len(chunk)
+    return b"".join(chunks)
+
+
 async def get_pinned(
     client: httpx.AsyncClient,
     url: str,
     *,
     headers: dict[str, str] | None = None,
+    max_body_bytes: int | None = None,
 ) -> httpx.Response:
-    """GET *url* via a DNS-pinned IP so resolution cannot change mid-request."""
+    """GET *url* via a DNS-pinned IP so resolution cannot change mid-request.
+
+    When *max_body_bytes* is set, the body is streamed and truncated so a huge
+    upstream cannot force the API to buffer gigabytes into memory.
+    """
     parsed = urlparse(url)
     hostname, ip = await resolve_external_host(url)
     pinned = pin_url(url, ip)
@@ -133,7 +158,30 @@ async def get_pinned(
     extensions: dict[str, str] = {}
     if parsed.scheme == "https":
         extensions["sni_hostname"] = hostname
-    return await client.get(pinned, headers=request_headers, extensions=extensions or None)
+    if max_body_bytes is None:
+        return await client.get(pinned, headers=request_headers, extensions=extensions or None)
+
+    async with client.stream(
+        "GET",
+        pinned,
+        headers=request_headers,
+        extensions=extensions or None,
+    ) as response:
+        if response.status_code in _REDIRECT_STATUS_CODES:
+            # Redirect bodies are unused — close without buffering.
+            return httpx.Response(
+                status_code=response.status_code,
+                headers=response.headers,
+                content=b"",
+                request=response.request,
+            )
+        body = await read_stream_capped(response, max_body_bytes)
+        return httpx.Response(
+            status_code=response.status_code,
+            headers=response.headers,
+            content=body,
+            request=response.request,
+        )
 
 
 async def fetch_safely(
@@ -142,6 +190,7 @@ async def fetch_safely(
     *,
     headers: dict[str, str] | None = None,
     max_redirects: int = 5,
+    max_body_bytes: int | None = None,
 ) -> httpx.Response:
     """GET *url* with SSRF-safe DNS pinning, re-validating on every redirect hop.
 
@@ -150,15 +199,18 @@ async def fetch_safely(
     and re-validated before connecting (closing the window a malicious/
     misbehaving upstream could otherwise use to redirect to an internal
     address after the initial hostname passed validation).
+
+    Pass *max_body_bytes* for untrusted bodies (link preview) so a large
+    response cannot exhaust worker memory.
     """
     current_url = url
-    resp = await get_pinned(client, current_url, headers=headers)
+    resp = await get_pinned(client, current_url, headers=headers, max_body_bytes=max_body_bytes)
     hops = 0
     while resp.status_code in _REDIRECT_STATUS_CODES and hops < max_redirects:
         redirect_target = resp.headers.get("Location")
         if not redirect_target:
             break
         current_url = urljoin(current_url, redirect_target)
-        resp = await get_pinned(client, current_url, headers=headers)
+        resp = await get_pinned(client, current_url, headers=headers, max_body_bytes=max_body_bytes)
         hops += 1
     return resp

@@ -54,6 +54,8 @@ async def test_fetch_link_preview_returns_og_tags():
     assert fetch_mock.await_args.args[1] == "https://example.com/page"
     # And send the link-preview User-Agent.
     assert fetch_mock.await_args.kwargs["headers"]["User-Agent"].startswith("RecallLinkPreview")
+    # Cap the streamed body so a multi-GB upstream cannot OOM the worker.
+    assert fetch_mock.await_args.kwargs["max_body_bytes"] == 128 * 1024
 
 
 @pytest.mark.asyncio

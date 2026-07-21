@@ -21,6 +21,11 @@ _OG_TAG_RE = re.compile(
 _TITLE_RE = re.compile(r"<title[^>]*>([^<]+)</title>", re.IGNORECASE)
 
 _USER_AGENT = "RecallLinkPreview/1.0"
+# Cap bytes streamed from the upstream — OG/meta tags live near the top; a
+# multi-GB body must not be buffered into API memory (rate limit alone is not
+# enough — each request can still be huge within the timeout).
+_LINK_PREVIEW_MAX_BODY_BYTES = 128 * 1024
+_LINK_PREVIEW_MAX_HTML_CHARS = 120_000
 
 
 class _MetaParser(HTMLParser):
@@ -61,9 +66,10 @@ async def fetch_link_preview(url: str) -> dict[str, str | None]:
                 client,
                 url,
                 headers={"User-Agent": _USER_AGENT},
+                max_body_bytes=_LINK_PREVIEW_MAX_BODY_BYTES,
             )
             resp.raise_for_status()
-            html = resp.text[:120_000]
+            html = resp.text[:_LINK_PREVIEW_MAX_HTML_CHARS]
     except ValueError:
         # Re-raised from resolve_external_host -- blocked internal address
         logger.debug("Link preview blocked internal address: %s", url)

@@ -136,3 +136,54 @@ async def test_fetch_safely_blocks_redirect_to_private_ip():
             await safe_fetch.fetch_safely(client, "https://example.com/start")
 
     assert client.get.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_read_stream_capped_stops_after_max_bytes():
+    class _Stream:
+        def __init__(self) -> None:
+            self.chunks = [b"abcd", b"efgh", b"ijkl"]
+
+        def aiter_bytes(self):
+            async def _gen():
+                for chunk in self.chunks:
+                    yield chunk
+
+            return _gen()
+
+    body = await safe_fetch.read_stream_capped(_Stream(), max_body_bytes=6)
+    assert body == b"abcdef"
+    assert len(body) == 6
+
+
+@pytest.mark.asyncio
+async def test_get_pinned_streams_when_max_body_bytes_set():
+    resolve_mock = AsyncMock(return_value=("example.com", "93.184.216.34"))
+    stream_resp = MagicMock()
+    stream_resp.status_code = 200
+    stream_resp.headers = {"content-type": "text/html"}
+    stream_resp.request = MagicMock()
+
+    async def aiter_bytes():
+        yield b"x" * 100
+        yield b"y" * 100
+
+    stream_resp.aiter_bytes = aiter_bytes
+
+    class _StreamCtx:
+        async def __aenter__(self):
+            return stream_resp
+
+        async def __aexit__(self, *args):
+            return None
+
+    client = MagicMock()
+    client.stream = MagicMock(return_value=_StreamCtx())
+    client.get = AsyncMock()
+
+    with patch("app.gateways.safe_fetch.resolve_external_host", resolve_mock):
+        resp = await safe_fetch.get_pinned(client, "https://example.com/huge", max_body_bytes=50)
+
+    client.get.assert_not_awaited()
+    assert len(resp.content) == 50
+    assert resp.content == b"x" * 50
