@@ -152,6 +152,10 @@ async def _stream_over_ws(
                     if not producer.done():
                         producer.cancel()
                     break
+                # Non-dict JSON (array/primitive) must not AttributeError the
+                # dispatch loop while the producer is still streaming.
+                if not isinstance(msg, dict):
+                    continue
                 if msg.get("type") == "cancel":
                     cancel_event.set()
                     # Interrupt in-flight LiteLLM wait, not only between tokens.

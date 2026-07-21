@@ -13,6 +13,7 @@ import {
   publishStreamingDraft,
   type StreamingDraft,
 } from "@/lib/streamingDraftStore";
+import { applyOptimisticEdit, shouldRestoreEditOnError } from "@/lib/chatEditLogic";
 import {
   popLastAssistantMessage,
   restoreAssistantMessage,
@@ -53,6 +54,8 @@ export function useChat(
   const finalizingRef = useRef(false);
   /** Prior assistant reply kept until regenerate succeeds or is rolled back. */
   const regenerateBackupRef = useRef<Message | null>(null);
+  /** Full thread snapshot taken before an optimistic edit truncates the list. */
+  const editBackupRef = useRef<Message[] | null>(null);
   /**
    * When the user stops generation, the streaming bubble is committed locally
    * as `streamed-<ts>`. We track that id so the server's late `done` event
@@ -128,6 +131,19 @@ export function useChat(
     }
   }, [clearStreamingBubble]);
 
+  const restoreEditBackup = useCallback(() => {
+    const snapshot = editBackupRef.current;
+    editBackupRef.current = null;
+    setSendingMessageId(null);
+    setStreaming(false);
+    setFinalizing(false);
+    streamingRef.current = false;
+    updateStreamingDraft(null);
+    if (snapshot) {
+      setMessages(snapshot);
+    }
+  }, [updateStreamingDraft]);
+
   const appendStreamingPlaceholder = useCallback(() => {
     setMessages((prev) => {
       if (prev.some((m) => m.id === "streaming")) return prev;
@@ -177,6 +193,7 @@ export function useChat(
     reasoningBuffer.current = "";
     firstReplyRef.current = false;
     regenerateBackupRef.current = null;
+    editBackupRef.current = null;
     stoppedStreamedIdRef.current = null;
     clearTodoSyncTimers();
     updateStreamingDraft(null);
@@ -252,6 +269,7 @@ export function useChat(
 
       if (payload.type === "done") {
         regenerateBackupRef.current = null;
+        editBackupRef.current = null;
         const stoppedId = stoppedStreamedIdRef.current;
         stoppedStreamedIdRef.current = null;
         setStreaming(false);
@@ -292,7 +310,11 @@ export function useChat(
         const partial = (draft?.content ?? assistantBuffer.current).trim();
         assistantBuffer.current = "";
         reasoningBuffer.current = "";
-        if (regenerateBackupRef.current) {
+        if (shouldRestoreEditOnError(editBackupRef.current != null)) {
+          // WS edit failures must restore the pre-edit thread — the optimistic
+          // truncate already dropped later turns locally.
+          restoreEditBackup();
+        } else if (regenerateBackupRef.current) {
           restoreRegenerateBackup();
         } else if (partial) {
           // Keep what the user already saw (same idea as stop / disconnect).
@@ -325,6 +347,7 @@ export function useChat(
     [
       appendStreamingPlaceholder,
       clearStreamingBubble,
+      restoreEditBackup,
       restoreRegenerateBackup,
       reportError,
       updateStreamingDraft,
@@ -396,11 +419,19 @@ export function useChat(
           finalizingRef.current = false;
           const hadContent = assistantBuffer.current.trim().length > 0;
           const draft = streamingDraftRef.current;
+          const failedEditBackup = editBackupRef.current;
+          editBackupRef.current = null;
           const failedRegenerateBackup = regenerateBackupRef.current;
           regenerateBackupRef.current = null;
           assistantBuffer.current = "";
           reasoningBuffer.current = "";
           updateStreamingDraft(null);
+          setSendingMessageId(null);
+          if (failedEditBackup && !hadContent) {
+            setMessages(failedEditBackup);
+            reportError("Connection lost before the reply arrived. Try again.");
+            return;
+          }
           setMessages((prev) => {
             const streamingMsg = prev.find((m) => m.id === "streaming");
             if (!streamingMsg) return prev;
@@ -667,32 +698,19 @@ export function useChat(
     ) => {
       if (!token || !chatId || !content.trim()) return;
 
-      let snapshot: Message[] = [];
       const localId = `local-edit-${Date.now()}`;
       setMessages((prev) => {
-        snapshot = prev;
-        const index = prev.findIndex((m) => m.id === messageId);
-        if (index < 0) return prev;
-        return [
-          ...prev.slice(0, index),
-          {
-            id: localId,
-            role: "user" as const,
-            content: content.trim(),
-            model: null,
-            created_at: new Date().toISOString(),
-          },
-        ];
+        const { snapshot, messages: next } = applyOptimisticEdit(
+          prev,
+          messageId,
+          content,
+          localId,
+        );
+        if (next === prev) return prev;
+        editBackupRef.current = snapshot;
+        return next;
       });
       setSendingMessageId(localId);
-
-      const rollbackEdit = () => {
-        setSendingMessageId(null);
-        setStreaming(false);
-        streamingRef.current = false;
-        updateStreamingDraft(null);
-        setMessages(snapshot);
-      };
 
       // Show typing immediately (parity with send/regenerate) — don't wait for server.
       setStreaming(true);
@@ -718,7 +736,7 @@ export function useChat(
           });
         } catch (err) {
           if (isSseAbortError(err)) return;
-          rollbackEdit();
+          restoreEditBackup();
           reportError("Couldn't reach the server. Check your connection and try again.");
         }
         return;
@@ -742,6 +760,7 @@ export function useChat(
       handleChatPayload,
       reportError,
       appendStreamingPlaceholder,
+      restoreEditBackup,
       updateStreamingDraft,
     ],
   );
@@ -759,8 +778,9 @@ export function useChat(
     updateStreamingDraft(null);
     // After a stop the partial reply is the source of truth (the backend
     // already deleted any prior assistant on regenerate and persists this
-    // partial). Drop the backup so a later `error` can't wrongly restore it.
+    // partial). Drop backups so a later `error` can't wrongly restore them.
     regenerateBackupRef.current = null;
+    editBackupRef.current = null;
     const stoppedId = `streamed-${Date.now()}`;
     setMessages((prev) => {
       const streamingMsg = prev.find((m) => m.id === "streaming");

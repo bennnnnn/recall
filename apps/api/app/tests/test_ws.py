@@ -463,6 +463,46 @@ def test_ws_mid_stream_cancel():
             assert done["type"] == "done"
 
 
+def test_ws_mid_stream_non_dict_frame_is_ignored():
+    """A JSON array mid-stream must not error or interrupt the producer."""
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+
+    async def slow_stream(*args, should_cancel=None, **kwargs):
+        for word in ["one", "two", "three"]:
+            if should_cancel and should_cancel():
+                return
+            yield word
+            await asyncio.sleep(0.05)
+
+    app = _app(user)
+
+    with (
+        patch(
+            "app.routers.ws.tokens_service.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
+        patch("app.routers.ws.chat_service.stream_chat_response", slow_stream),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "hi"})
+            assert ws.receive_json()["type"] == "start"
+            assert ws.receive_json()["type"] == "token"
+            ws.send_json([])  # non-dict — ignored, stream continues
+            types = []
+            while True:
+                msg = ws.receive_json()
+                types.append(msg["type"])
+                assert msg["type"] != "error"
+                if msg["type"] == "done":
+                    break
+            assert "token" in types
+            assert "stream_end" in types
+
+
 # ── validation / service errors ────────────────────────────────────────────────
 
 
