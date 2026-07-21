@@ -13,7 +13,7 @@ from redis.asyncio import Redis
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.core.db import SessionLocal
-from app.core.redis_lock import acquire_lock, release_lock
+from app.core.redis_lock import acquire_lock, refresh_lock, release_lock
 from app.exceptions import (
     ChatBusyError,
     ChatNotFoundError,
@@ -68,6 +68,9 @@ logger = logging.getLogger(__name__)
 # Same token-based Redis lock as compaction; covers prepare + stream so two
 # concurrent connections cannot race prepare_chat_turn on one chat.
 _CHATPREP_LOCK_TTL_SECONDS = 120
+# Refresh well under TTL so a slow provider turn cannot let a second request
+# acquire the same chat mid-stream.
+_CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS = 30.0
 
 
 async def _acquire_chatprep_lock(redis: Redis, chat_id: UUID) -> tuple[str, str]:
@@ -77,6 +80,24 @@ async def _acquire_chatprep_lock(redis: Redis, chat_id: UUID) -> tuple[str, str]
     if token is None:
         raise ChatBusyError()
     return lock_key, token
+
+
+async def _yield_with_chatprep_refresh(
+    redis: Redis,
+    lock_key: str,
+    lock_token: str,
+    tokens: AsyncIterator[str],
+) -> AsyncIterator[str]:
+    last_refresh = 0.0
+    async for token in tokens:
+        now = time.monotonic()
+        if now - last_refresh >= _CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS:
+            try:
+                await refresh_lock(redis, lock_key, lock_token, _CHATPREP_LOCK_TTL_SECONDS)
+            except Exception:
+                logger.debug("chatprep lock refresh failed", exc_info=True)
+            last_refresh = now
+        yield token
 
 
 def wrap_stream_status(
@@ -337,14 +358,21 @@ async def stream_chat_response(
                 raise
 
             try:
-                async for token in stream_and_finalize(
+                if lock_key is None or lock_token is None:
+                    raise ChatServiceError("Chat prepare lock missing.")
+                async for token in _yield_with_chatprep_refresh(
                     redis,
-                    settings,
-                    ctx,
-                    should_cancel=should_cancel,
-                    result=result,
-                    on_status=status,
-                    on_reasoning=on_reasoning,
+                    lock_key,
+                    lock_token,
+                    stream_and_finalize(
+                        redis,
+                        settings,
+                        ctx,
+                        should_cancel=should_cancel,
+                        result=result,
+                        on_status=status,
+                        on_reasoning=on_reasoning,
+                    ),
                 ):
                     yield token
             except BaseException:
@@ -486,14 +514,19 @@ async def stream_regenerate_response(
         )
 
         try:
-            async for token in stream_and_finalize(
+            async for token in _yield_with_chatprep_refresh(
                 redis,
-                settings,
-                ctx,
-                should_cancel=should_cancel,
-                result=result,
-                on_status=status,
-                on_reasoning=on_reasoning,
+                lock_key,
+                lock_token,
+                stream_and_finalize(
+                    redis,
+                    settings,
+                    ctx,
+                    should_cancel=should_cancel,
+                    result=result,
+                    on_status=status,
+                    on_reasoning=on_reasoning,
+                ),
             ):
                 yield token
         except BaseException:

@@ -120,7 +120,8 @@ async def extract_and_store_memories(
         # without it, a concurrently-running consolidation pass (or a second
         # extraction from another chat) can read the same prior section text
         # and whichever commits last silently discards the other's write.
-        if not await acquire_memory_write_lock(user_id):
+        lock_token = await acquire_memory_write_lock(user_id)
+        if not lock_token:
             logger.info("Memory extraction skipped: write lock held for user_id=%s", user_id)
             return "skipped_lock"
         try:
@@ -160,7 +161,7 @@ async def extract_and_store_memories(
                     rows=rows,
                 )
         finally:
-            await release_memory_write_lock(user_id)
+            await release_memory_write_lock(user_id, lock_token)
         return None
     except Exception:
         logger.exception("Memory extraction failed for user_id=%s", user_id)

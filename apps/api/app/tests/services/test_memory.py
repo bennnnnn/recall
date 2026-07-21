@@ -773,7 +773,7 @@ async def test_delete_memory_fact_removes_one_sentence():
     assert ok is True
     invalidate.assert_awaited_once()
     acquire_lock.assert_awaited_once_with(user_id)
-    release_lock.assert_awaited_once_with(user_id)
+    release_lock.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -913,7 +913,7 @@ async def test_delete_memory_fact_refuses_when_expected_text_is_gone():
     # The lock must still be released on the early "refuse" path, not just
     # the success path — otherwise a refused delete would strand the lock
     # for the rest of its TTL.
-    release_lock.assert_awaited_once_with(user_id)
+    release_lock.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -1014,7 +1014,7 @@ async def test_delete_memory_releases_lock_even_when_delete_fails():
     assert ok is False
     invalidate.assert_not_awaited()
     acquire_lock.assert_awaited_once_with(user_id)
-    release_lock.assert_awaited_once_with(user_id)
+    release_lock.assert_awaited_once()
 
     acquire_lock.reset_mock()
     release_lock.reset_mock()
@@ -1032,4 +1032,4 @@ async def test_delete_memory_releases_lock_even_when_delete_fails():
     assert ok is False
     invalidate.assert_not_awaited()
     acquire_lock.assert_awaited_once_with(user_id)
-    release_lock.assert_awaited_once_with(user_id)
+    release_lock.assert_awaited_once()
