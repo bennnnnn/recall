@@ -34,6 +34,7 @@ async def test_stream_chat_acquire_fail_skips_prepare_and_raises_busy():
     prepare = AsyncMock()
     wait = AsyncMock()
     release = AsyncMock()
+    refund = AsyncMock()
 
     with (
         patch(
@@ -43,6 +44,7 @@ async def test_stream_chat_acquire_fail_skips_prepare_and_raises_busy():
         patch("app.services.chat.stream.release_lock", release),
         patch("app.services.chat.stream.wait_for_pending_finalize", wait),
         patch("app.services.chat.stream.prepare_chat_turn", prepare),
+        patch("app.services.chat.stream.quota_service.refund_usage", refund),
     ):
         with pytest.raises(ChatBusyError):
             async for _ in stream_module.stream_chat_response(
@@ -64,6 +66,8 @@ async def test_stream_chat_acquire_fail_skips_prepare_and_raises_busy():
     wait.assert_not_awaited()
     prepare.assert_not_awaited()
     release.assert_not_awaited()
+    # Edit path reserved before delegate — busy must not leak that quota.
+    refund.assert_awaited_once_with(redis, str(user.id), 100)
 
 
 @pytest.mark.asyncio
