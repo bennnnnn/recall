@@ -625,8 +625,8 @@ async def stream_edit_response(
                     if edited_position < summarized_count:
                         chat.summary = None
                         chat.summary_message_count = 0
-                await attachment_lifecycle.purge_attachments_for_messages(
-                    session, settings, message_ids
+                storage_keys = await attachment_lifecycle.detach_attachments_for_messages(
+                    session, message_ids, commit=False
                 )
                 await messages_repo.delete_messages_from(
                     session,
@@ -634,6 +634,7 @@ async def stream_edit_response(
                     from_created_at=target.created_at,
                     from_message_id=target.id,
                 )
+                await attachment_lifecycle.delete_storage_keys(settings, storage_keys)
             except Exception:
                 # The quota was reserved above; if the delete/summary-reset throws
                 # before delegating to stream_chat_response (which owns its own

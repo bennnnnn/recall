@@ -84,6 +84,8 @@ async def finalize_stream_turn_db(
     weighted_output = math.ceil(output_tokens * multiplier)
 
     persisted_text = assistant_text
+    settings = get_settings()
+    pending_storage_keys: list[str] = []
 
     try:
         async with SessionLocal() as session:
@@ -94,8 +96,13 @@ async def finalize_stream_turn_db(
                     session, ctx.regenerate_backup.message_id, ctx.chat_id
                 )
                 if old is not None:
-                    await attachment_lifecycle.purge_attachments_for_messages(
-                        session, get_settings(), [old.id]
+                    # Detach rows in this transaction; delete bytes only after
+                    # commit so a failed finalize cannot orphan storage keys
+                    # that still have DB rows (or vice versa).
+                    pending_storage_keys = (
+                        await attachment_lifecycle.detach_attachments_for_messages(
+                            session, [old.id], commit=False
+                        )
                     )
                     await session.delete(old)
 
@@ -148,22 +155,31 @@ async def finalize_stream_turn_db(
         # Cap overshoot at the user's daily limit so one turn's actual >
         # reserved delta can't push the counter past the cap (which would
         # make subsequent reserve_usage checks under-report remaining quota).
+        # Runs AFTER a successful commit — failure here must not refund the
+        # full reservation (the reply already persisted).
         daily_limit = (
-            quota_service.daily_limit_for_user(ctx.user, get_settings())
-            if ctx.user is not None
-            else None
+            quota_service.daily_limit_for_user(ctx.user, settings) if ctx.user is not None else None
         )
-        await quota_service.adjust_usage(
-            redis,
-            str(ctx.user_id),
-            ctx.reserved_tokens,
-            weighted_total,
-            daily_limit=daily_limit,
-        )
+        try:
+            await quota_service.adjust_usage(
+                redis,
+                str(ctx.user_id),
+                ctx.reserved_tokens,
+                weighted_total,
+                daily_limit=daily_limit,
+            )
+        except Exception:
+            logger.exception("adjust_usage failed after successful finalize commit; not refunding")
     except Exception:
         logger.exception("Stream-turn finalize failed; refunding reserved quota")
-        await quota_service.refund_usage(redis, str(ctx.user_id), ctx.reserved_tokens)
+        try:
+            await quota_service.refund_usage(redis, str(ctx.user_id), ctx.reserved_tokens)
+        except Exception:
+            logger.exception("refund_usage failed after finalize error")
         raise
+    finally:
+        if pending_storage_keys:
+            await attachment_lifecycle.delete_storage_keys(settings, pending_storage_keys)
 
 
 async def enqueue_post_turn_jobs(

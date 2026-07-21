@@ -19,6 +19,16 @@ async def test_purge_attachments_for_messages_deletes_bytes_and_rows():
     session = AsyncMock()
     gateway = MagicMock()
     gateway.delete_bytes = AsyncMock()
+    order: list[str] = []
+
+    async def delete_rows(_session, ids, *, commit=True):
+        order.append("rows")
+        return 1
+
+    async def delete_bytes(key: str) -> None:
+        order.append(f"bytes:{key}")
+
+    gateway.delete_bytes = delete_bytes
 
     with (
         patch(
@@ -27,7 +37,11 @@ async def test_purge_attachments_for_messages_deletes_bytes_and_rows():
         ),
         patch(
             "app.services.attachment_lifecycle.attachments_repo.delete_rows",
-            AsyncMock(return_value=1),
+            side_effect=delete_rows,
+        ),
+        patch(
+            "app.repositories.attachment_chunks.delete_for_attachment_ids",
+            AsyncMock(),
         ),
         patch(
             "app.services.attachment_lifecycle.get_storage_gateway",
@@ -39,7 +53,7 @@ async def test_purge_attachments_for_messages_deletes_bytes_and_rows():
         )
 
     assert deleted == 1
-    gateway.delete_bytes.assert_awaited_once_with("user/file")
+    assert order == ["rows", "bytes:user/file"]
 
 
 @pytest.mark.asyncio

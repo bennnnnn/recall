@@ -15,7 +15,12 @@ from app.models.orm import AttachmentChunk
 EMBEDDING_DIM = 1536
 
 
-async def delete_for_attachment_ids(session: AsyncSession, attachment_ids: list[UUID]) -> int:
+async def delete_for_attachment_ids(
+    session: AsyncSession,
+    attachment_ids: list[UUID],
+    *,
+    commit: bool = True,
+) -> int:
     if not attachment_ids:
         return 0
     result = cast(
@@ -24,7 +29,8 @@ async def delete_for_attachment_ids(session: AsyncSession, attachment_ids: list[
             delete(AttachmentChunk).where(AttachmentChunk.attachment_id.in_(attachment_ids))
         ),
     )
-    await session.commit()
+    if commit:
+        await session.commit()
     return int(result.rowcount or 0)
 
 
