@@ -120,6 +120,53 @@ async def test_purge_attachments_for_user_noop_when_empty():
 
 
 @pytest.mark.asyncio
+async def test_purge_attachments_for_user_continues_when_one_delete_fails():
+    """One R2 failure must not abort account wipe — remaining keys + DB rows still go."""
+    settings = Settings()
+    user_id = uuid4()
+    ok = MagicMock()
+    ok.id = uuid4()
+    ok.storage_key = "user/ok"
+    bad = MagicMock()
+    bad.id = uuid4()
+    bad.storage_key = "user/bad"
+    session = AsyncMock()
+    deleted_keys: list[str] = []
+
+    async def delete_bytes(key: str) -> None:
+        if key == "user/bad":
+            raise RuntimeError("r2 down")
+        deleted_keys.append(key)
+
+    gateway = MagicMock()
+    gateway.delete_bytes = delete_bytes
+
+    with (
+        patch(
+            "app.services.attachment_lifecycle.attachments_repo.list_for_user",
+            AsyncMock(return_value=[ok, bad]),
+        ),
+        patch(
+            "app.services.attachment_lifecycle.attachments_repo.delete_rows",
+            AsyncMock(return_value=2),
+        ) as delete_rows,
+        patch(
+            "app.repositories.attachment_chunks.delete_for_attachment_ids",
+            AsyncMock(),
+        ),
+        patch(
+            "app.services.attachment_lifecycle.get_storage_gateway",
+            return_value=gateway,
+        ),
+    ):
+        deleted = await attachment_lifecycle.purge_attachments_for_user(session, settings, user_id)
+
+    assert deleted == 2
+    assert deleted_keys == ["user/ok"]
+    delete_rows.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_reap_orphan_attachments_skips_rows_linked_after_list():
     """Storage bytes are deleted BEFORE the DB unlink check (storage-first), so
     even if a row gets linked between list and delete, its bytes were already

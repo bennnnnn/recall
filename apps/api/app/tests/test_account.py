@@ -111,6 +111,58 @@ def test_delete_account_continues_when_google_revoke_fails():
     assert order == ["purge_sessions", "revoke", "purge", "delete_user"]
 
 
+def test_delete_account_returns_204_when_one_storage_delete_fails():
+    """R2 outage on one object must not leave the account wipe unfinished."""
+    user = _fake_user()
+    app = _app_with_user(user)
+    ok = MagicMock()
+    ok.id = uuid4()
+    ok.storage_key = "user/ok"
+    bad = MagicMock()
+    bad.id = uuid4()
+    bad.storage_key = "user/bad"
+
+    async def delete_bytes(key: str) -> None:
+        if key == "user/bad":
+            raise RuntimeError("r2 down")
+
+    gateway = MagicMock()
+    gateway.delete_bytes = delete_bytes
+
+    with (
+        patch(
+            "app.routers.auth.tokens_service.purge_user_sessions",
+            AsyncMock(),
+        ),
+        patch(
+            "app.routers.auth.google_integrations_service.revoke_all_google_tokens_for_user",
+            AsyncMock(),
+        ),
+        patch(
+            "app.services.attachment_lifecycle.attachments_repo.list_for_user",
+            AsyncMock(return_value=[ok, bad]),
+        ),
+        patch(
+            "app.services.attachment_lifecycle.attachments_repo.delete_rows",
+            AsyncMock(return_value=2),
+        ),
+        patch(
+            "app.repositories.attachment_chunks.delete_for_attachment_ids",
+            AsyncMock(),
+        ),
+        patch(
+            "app.services.attachment_lifecycle.get_storage_gateway",
+            return_value=gateway,
+        ),
+        patch("app.routers.auth.users_repo.delete_user", AsyncMock()) as delete_user,
+    ):
+        client = TestClient(app)
+        r = client.delete("/auth/me", headers={"Authorization": "Bearer tok"})
+
+    assert r.status_code == 204
+    delete_user.assert_awaited_once()
+
+
 def test_export_returns_data():
     user = _fake_user()
     app = _app_with_user(user)
@@ -231,6 +283,10 @@ async def test_build_export_structure():
             "app.services.export_service.project_items_repo.list_for_projects",
             AsyncMock(return_value=[item]),
         ),
+        patch(
+            "app.services.export_service.attachments_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
     ):
         data = await export_service.build_export(session, user)
 
@@ -241,6 +297,7 @@ async def test_build_export_structure():
     assert data["todos"][0]["content"] == "buy milk"
     assert data["projects"][0]["title"] == "Spanish"
     assert data["projects"][0]["items"][0]["content"] == "hola"
+    assert data["attachments"] == []
     assert data["export_limits"]["max_chats"] == export_service.EXPORT_MAX_CHATS
     assert (
         data["export_limits"]["max_messages_per_chat"]
@@ -248,6 +305,7 @@ async def test_build_export_structure():
     )
     assert data["export_limits"]["max_todos"] == export_service.EXPORT_MAX_TODOS
     assert data["export_limits"]["max_projects"] == export_service.EXPORT_MAX_PROJECTS
+    assert data["export_limits"]["max_attachments"] == export_service.EXPORT_MAX_ATTACHMENTS
 
 
 @pytest.mark.asyncio
@@ -289,6 +347,10 @@ async def test_build_export_includes_archived_chats():
         ),
         patch(
             "app.services.export_service.projects_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.export_service.attachments_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
     ):
@@ -357,6 +419,10 @@ async def test_build_export_pages_messages_per_chat():
             "app.services.export_service.projects_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
+        patch(
+            "app.services.export_service.attachments_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
     ):
         data = await export_service.build_export(session, user)
 
@@ -403,7 +469,77 @@ async def test_build_export_pages_memories():
             "app.services.export_service.projects_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
+        patch(
+            "app.services.export_service.attachments_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
     ):
         data = await export_service.build_export(session, user)
 
     assert [memory["text"] for memory in data["memories"]] == ["a", "b", "c"]
+
+
+@pytest.mark.asyncio
+async def test_build_export_includes_attachment_with_presigned_url():
+    from app.services import export_service
+
+    session = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    user.email = "e@x"
+    user.name = "n"
+    user.created_at = datetime(2024, 1, 1)
+
+    attachment_id = uuid4()
+    message_id = uuid4()
+    attachment = MagicMock()
+    attachment.id = attachment_id
+    attachment.message_id = message_id
+    attachment.storage_key = f"{user.id}/{attachment_id}"
+    attachment.content_type = "image/png"
+    attachment.size_bytes = 1234
+    attachment.source = "upload"
+    attachment.created_at = datetime(2024, 1, 2)
+
+    gateway = MagicMock()
+    gateway.presign_download = AsyncMock(return_value="https://r2.example/signed-image")
+    settings = Settings(r2_presign_expiry_seconds=600)
+
+    with (
+        patch(
+            "app.services.export_service.chats_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.export_service.memories_repo.list_range",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.export_service.todos_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.export_service.projects_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.export_service.attachments_repo.list_for_user",
+            AsyncMock(return_value=[attachment]),
+        ),
+        patch(
+            "app.services.export_service.get_storage_gateway",
+            return_value=gateway,
+        ),
+    ):
+        data = await export_service.build_export(session, user, settings)
+
+    assert len(data["attachments"]) == 1
+    exported = data["attachments"][0]
+    assert exported["id"] == str(attachment_id)
+    assert exported["message_id"] == str(message_id)
+    assert exported["content_type"] == "image/png"
+    assert exported["size_bytes"] == 1234
+    assert exported["source"] == "upload"
+    assert exported["download_url"] == "https://r2.example/signed-image"
+    assert exported["download_url_expires_in_seconds"] == 600
+    gateway.presign_download.assert_awaited_once_with(attachment.storage_key)
