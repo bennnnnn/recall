@@ -19,6 +19,7 @@ async def add_tokens(
     *,
     input_tokens: int,
     output_tokens: int,
+    est_cost_usd: float = 0.0,
     commit: bool = True,
 ) -> UsageDaily:
     """Atomically increment daily usage (safe under concurrent finalizes)."""
@@ -27,12 +28,14 @@ async def add_tokens(
         date=day,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
+        est_cost_usd=est_cost_usd,
     )
     stmt = stmt.on_conflict_do_update(
         index_elements=[UsageDaily.user_id, UsageDaily.date],
         set_={
             "input_tokens": UsageDaily.input_tokens + stmt.excluded.input_tokens,
             "output_tokens": UsageDaily.output_tokens + stmt.excluded.output_tokens,
+            "est_cost_usd": UsageDaily.est_cost_usd + stmt.excluded.est_cost_usd,
         },
     )
     await session.execute(stmt)

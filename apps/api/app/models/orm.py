@@ -217,6 +217,11 @@ class UsageDaily(Base):
     date: Mapped[date] = mapped_column(Date, primary_key=True)
     input_tokens: Mapped[int] = mapped_column(Integer, default=0)
     output_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    # Estimated provider spend (USD) from catalog prices * raw tokens — not
+    # quota-weighted. Accumulated per day for cost dashboards / abuse checks.
+    est_cost_usd: Mapped[float] = mapped_column(
+        Numeric(14, 6), nullable=False, server_default="0", default=0
+    )
 
 
 class TodoItem(Base):

@@ -142,6 +142,52 @@ API_URL=https://your-api.fly.dev ./scripts/verify-production.sh --live
 
 ---
 
+## Cost telemetry dashboard queries
+
+Each finalized chat turn logs `turn_cost … est_cost_usd=…` and accumulates
+`usage_daily.est_cost_usd` from catalog prices × **raw** input/output tokens
+(not quota-weighted). Apply migration `0061_usage_daily_est_cost_usd` before
+relying on the column.
+
+**Spend for one user in the current UTC month:**
+
+```sql
+SELECT
+  user_id,
+  SUM(est_cost_usd) AS est_cost_usd,
+  SUM(input_tokens + output_tokens) AS weighted_tokens
+FROM usage_daily
+WHERE user_id = :user_id
+  AND date >= date_trunc('month', timezone('UTC', now()))::date
+GROUP BY user_id;
+```
+
+**Top spenders yesterday (UTC):**
+
+```sql
+SELECT user_id, est_cost_usd, input_tokens, output_tokens
+FROM usage_daily
+WHERE date = (timezone('UTC', now())::date - 1)
+ORDER BY est_cost_usd DESC
+LIMIT 50;
+```
+
+**Daily platform spend (last 14 days):**
+
+```sql
+SELECT date, SUM(est_cost_usd) AS est_cost_usd
+FROM usage_daily
+WHERE date >= (timezone('UTC', now())::date - 14)
+GROUP BY date
+ORDER BY date;
+```
+
+Note: `input_tokens` / `output_tokens` on `usage_daily` are **quota-weighted**;
+`est_cost_usd` is independent of the quota multiplier. Compare log lines
+(`turn_cost`) to catalog prices when validating the 3.5× R1 weight.
+
+---
+
 ## Launch blockers (from FEATURES.md)
 
 1. Cost guards (speech, Tavily, R1 weight) — done in code

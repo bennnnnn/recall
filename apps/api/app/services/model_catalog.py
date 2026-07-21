@@ -271,6 +271,28 @@ def quota_multiplier(model_id: str) -> float:
     return get(model_id).quota_multiplier
 
 
+def estimate_cost_usd(
+    model_id: str,
+    *,
+    input_tokens: int,
+    output_tokens: int,
+) -> float | None:
+    """Estimated provider spend in USD from catalog prices and raw token counts.
+
+    Returns ``None`` when the alias is unknown or both prices are unset (so
+    callers can log "unknown" rather than silently recording 0).
+    """
+    try:
+        model = get(model_id)
+    except KeyError:
+        return None
+    if model.input_price_per_m is None and model.output_price_per_m is None:
+        return None
+    input_price = model.input_price_per_m or 0.0
+    output_price = model.output_price_per_m or 0.0
+    return (input_tokens / 1_000_000.0) * input_price + (output_tokens / 1_000_000.0) * output_price
+
+
 MODEL_MODES = frozenset({"auto"})
 
 

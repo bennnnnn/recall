@@ -36,6 +36,32 @@ def test_known_model_aliases_match_catalog():
     assert KNOWN_MODEL_ALIASES == model_catalog.known_ids()
 
 
+def test_estimate_cost_usd_for_known_model():
+    # free-chat: $0.14 / 1M in, $0.28 / 1M out
+    cost = model_catalog.estimate_cost_usd(
+        "free-chat",
+        input_tokens=1_000_000,
+        output_tokens=1_000_000,
+    )
+    assert cost == pytest.approx(0.14 + 0.28)
+
+    # smart-chat: $0.70 / 1M in, $2.50 / 1M out — 1k/2k tokens
+    cost_small = model_catalog.estimate_cost_usd(
+        "smart-chat",
+        input_tokens=1_000,
+        output_tokens=2_000,
+    )
+    assert cost_small == pytest.approx((1000 / 1_000_000) * 0.70 + (2000 / 1_000_000) * 2.50)
+
+
+def test_estimate_cost_usd_unknown_or_unpriced():
+    assert (
+        model_catalog.estimate_cost_usd("no-such-model", input_tokens=10, output_tokens=10) is None
+    )
+    # minimax-m2 has no catalog prices today
+    assert model_catalog.estimate_cost_usd("minimax-m2", input_tokens=10, output_tokens=10) is None
+
+
 def test_get_unknown_alias_raises():
     with pytest.raises(KeyError, match="Unknown model alias"):
         model_catalog.get("not-a-real-model")
