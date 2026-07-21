@@ -443,6 +443,9 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   after success (#535).
 
 ### Later / not v1
+- 🔜 **Message id time-ordering (uuid7)** — `messages.id` is random uuid4 while list order uses
+  `(created_at, id)`. Same-timestamp collisions can reorder siblings arbitrarily. Migrate new
+  ids to uuid7 (or equivalent time-sortable ids); out of scope for the Wave 3 WS robustness PR.
 - 🔜 **Full locale translation** — key-set parity is enforced (**882** keys); ~350 strings still
   English in non-en locales (Claude review wave 3 strings are keyed; prose translation deferred).
 - 🔜 **Full chat-history semantic RAG** — embed past chats (beyond keyword `/search` + memory
