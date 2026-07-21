@@ -44,7 +44,14 @@ async def test_add_tokens_uses_on_conflict_upsert(fake_session):
     mock_usage.output_tokens = 200
     fake_session.get.return_value = mock_usage
 
-    result = await add_tokens(fake_session, user_id, today, input_tokens=100, output_tokens=200)
+    result = await add_tokens(
+        fake_session,
+        user_id,
+        today,
+        input_tokens=100,
+        output_tokens=200,
+        est_cost_usd=0.0125,
+    )
 
     fake_session.execute.assert_awaited_once()
     fake_session.add.assert_not_called()

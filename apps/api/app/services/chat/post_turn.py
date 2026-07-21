@@ -88,6 +88,34 @@ async def finalize_stream_turn_db(
     weighted_input = math.ceil(input_tokens * multiplier)
     weighted_output = math.ceil(output_tokens * multiplier)
 
+    # Dollar cost uses RAW tokens * catalog prices (not quota-weighted).
+    est_cost = model_catalog.estimate_cost_usd(
+        ctx.model,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+    )
+    if est_cost is not None:
+        logger.info(
+            "turn_cost user_id=%s model=%s input_tokens=%s output_tokens=%s "
+            "est_cost_usd=%.6f quota_multiplier=%s",
+            ctx.user_id,
+            ctx.model,
+            input_tokens,
+            output_tokens,
+            est_cost,
+            multiplier,
+        )
+    else:
+        logger.info(
+            "turn_cost user_id=%s model=%s input_tokens=%s output_tokens=%s "
+            "est_cost_usd=unknown quota_multiplier=%s",
+            ctx.user_id,
+            ctx.model,
+            input_tokens,
+            output_tokens,
+            multiplier,
+        )
+
     persisted_text = assistant_text
     settings = get_settings()
     pending_storage_keys: list[str] = []
@@ -146,6 +174,8 @@ async def finalize_stream_turn_db(
                     # re-seeds correctly after an eviction (see header comment).
                     input_tokens=weighted_input,
                     output_tokens=weighted_output,
+                    # Cost is raw-token based; 0 when catalog prices are missing.
+                    est_cost_usd=est_cost if est_cost is not None else 0.0,
                     commit=False,
                 )
             except Exception:
