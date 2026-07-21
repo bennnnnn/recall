@@ -46,6 +46,25 @@ def test_require_dev_privilege_remote_hidden_without_allow():
     assert exc.value.status_code == 404
 
 
+def test_require_dev_privilege_ignores_spoofed_forwarded_loopback():
+    """Spoofed Fly-Client-IP / XFF must not unlock Pro/quota helpers."""
+    settings = Settings(
+        dev_auth_enabled=True,
+        dev_auth_allow_remote=False,
+        trust_x_forwarded_for=True,
+        trusted_proxy_cidrs="0.0.0.0/0",
+        environment="development",
+    )
+    req = _request("8.8.8.8")
+    req.headers = {
+        "fly-client-ip": "127.0.0.1",
+        "x-forwarded-for": "127.0.0.1",
+    }
+    with pytest.raises(HTTPException) as exc:
+        require_dev_privilege_access(req, settings, _user())
+    assert exc.value.status_code == 404
+
+
 def test_require_dev_privilege_remote_requires_admin_allowlist():
     settings = Settings(
         dev_auth_enabled=True,

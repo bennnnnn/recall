@@ -11,7 +11,6 @@ import ipaddress
 
 from fastapi import HTTPException, Request, status
 
-from app.core.client_ip import client_ip
 from app.core.config import Settings
 from app.models.orm import User
 
@@ -44,7 +43,10 @@ def require_dev_privilege_access(
     ``POST /auth/dev``).
     """
     require_dev_auth_enabled(settings)
-    peer = client_ip(request, settings)
+    # Use the raw TCP peer — not client_ip() — so a spoofed Fly-Client-IP /
+    # X-Forwarded-For of 127.0.0.1 cannot bypass the loopback guard behind a
+    # pass-through proxy (same rule as POST /auth/dev).
+    peer = request.client.host if request.client is not None else ""
     if is_loopback_ip(peer):
         return
     if not settings.dev_auth_allow_remote:
