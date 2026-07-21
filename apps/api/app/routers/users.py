@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
 from app.core.deps import get_current_user
+from app.exceptions import PushTokenBindError
 from app.models.orm import User
 from app.models.schemas import PushTokenIn
 from app.repositories import push_tokens as push_repo
@@ -16,13 +17,19 @@ async def register_push_token(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> None:
-    await push_repo.upsert(
-        session,
-        user_id=user.id,
-        expo_push_token=body.expo_push_token,
-        platform=body.platform,
-        device_id=body.device_id,
-    )
+    try:
+        await push_repo.upsert(
+            session,
+            user_id=user.id,
+            expo_push_token=body.expo_push_token,
+            platform=body.platform,
+            device_id=body.device_id,
+        )
+    except PushTokenBindError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=exc.message,
+        ) from exc
 
 
 @router.delete("/push-token", status_code=status.HTTP_204_NO_CONTENT)

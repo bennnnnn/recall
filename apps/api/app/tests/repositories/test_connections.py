@@ -71,6 +71,8 @@ async def test_push_tokens_upsert_and_delete(fake_session):
     user_id = uuid4()
     token = "ExponentPushToken[abc]"
     existing = MagicMock()
+    existing.user_id = user_id
+    existing.device_id = None
     fake_session.execute.return_value = MagicMock(
         scalar_one_or_none=MagicMock(return_value=existing)
     )
@@ -80,6 +82,7 @@ async def test_push_tokens_upsert_and_delete(fake_session):
         user_id=user_id,
         expo_push_token=token,
         platform="ios",
+        device_id="device-1",
     )
     assert updated.user_id == user_id
     fake_session.commit.assert_awaited()

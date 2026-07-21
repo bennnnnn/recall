@@ -1,3 +1,4 @@
+import logging
 from typing import Any, cast
 from uuid import UUID
 
@@ -5,7 +6,40 @@ from sqlalchemy import delete, select
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.exceptions import PushTokenBindError
 from app.models.orm import PushToken
+
+logger = logging.getLogger(__name__)
+
+
+def _normalize_device_id(device_id: str | None) -> str | None:
+    if device_id is None:
+        return None
+    cleaned = device_id.strip()
+    return cleaned or None
+
+
+def _report_rebind(*, prior_user_id: UUID, new_user_id: UUID) -> None:
+    """Best-effort visibility when a token moves between accounts."""
+    logger.warning(
+        "push token rebound prior_user=%s new_user=%s",
+        prior_user_id,
+        new_user_id,
+    )
+    try:
+        import sentry_sdk
+
+        sentry_sdk.add_breadcrumb(
+            category="push.token",
+            message="push token rebound across users",
+            level="warning",
+            data={
+                "prior_user_id": str(prior_user_id),
+                "new_user_id": str(new_user_id),
+            },
+        )
+    except Exception:
+        logger.debug("push rebind metric report failed", exc_info=True)
 
 
 async def upsert(
@@ -16,6 +50,7 @@ async def upsert(
     platform: str,
     device_id: str | None = None,
 ) -> PushToken:
+    incoming_device = _normalize_device_id(device_id)
     result = await session.execute(
         select(PushToken).where(PushToken.expo_push_token == expo_push_token)
     )
@@ -25,34 +60,41 @@ async def upsert(
             user_id=user_id,
             expo_push_token=expo_push_token,
             platform=platform,
-            device_id=device_id,
+            device_id=incoming_device,
         )
         session.add(row)
     elif row.user_id == user_id:
         # Same user re-registering — refresh platform/device metadata.
         row.platform = platform
-        row.device_id = device_id
+        if incoming_device is not None:
+            row.device_id = incoming_device
     else:
-        # The token is currently bound to a different account. This is the
-        # device-transferred-accounts case (sign out, sign in as someone else on
-        # the same device). Drop the stale binding and create a fresh row for the
-        # current user so the previous owner stops receiving this device's
-        # pushes. Reassigning in place would also work, but a clean row avoids
-        # carrying over the previous user's platform/device metadata.
+        # Device account switch: only allow when the caller proves possession of
+        # the same install (device_id). A stolen Expo token string alone must
+        # not silence the prior owner. Full attestation remains deferred.
+        if incoming_device is None:
+            raise PushTokenBindError(
+                "device_id is required to move a push token to another account."
+            )
+        prior_device = _normalize_device_id(row.device_id)
+        if prior_device is not None and prior_device != incoming_device:
+            raise PushTokenBindError("Push token is bound to a different device.")
+        prior_user_id = row.user_id
         await session.delete(row)
         await session.flush()
         row = PushToken(
             user_id=user_id,
             expo_push_token=expo_push_token,
             platform=platform,
-            device_id=device_id,
+            device_id=incoming_device,
         )
         session.add(row)
-    if device_id:
+        _report_rebind(prior_user_id=prior_user_id, new_user_id=user_id)
+    if incoming_device:
         await delete_stale_tokens_for_device(
             session,
             user_id=user_id,
-            device_id=device_id,
+            device_id=incoming_device,
             keep_expo_push_token=expo_push_token,
         )
     await session.commit()

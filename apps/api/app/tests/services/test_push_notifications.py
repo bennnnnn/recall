@@ -873,6 +873,8 @@ async def test_upsert_prunes_stale_tokens_for_device():
     session = AsyncMock()
     user_id = uuid4()
     existing = MagicMock()
+    existing.user_id = user_id
+    existing.device_id = "device-1"
     session.execute.return_value = MagicMock(scalar_one_or_none=MagicMock(return_value=existing))
 
     await repo.upsert(
@@ -884,6 +886,72 @@ async def test_upsert_prunes_stale_tokens_for_device():
     )
 
     assert session.execute.await_count == 2
+    session.commit.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_upsert_rejects_cross_user_rebind_without_device_id():
+    from app.exceptions import PushTokenBindError
+    from app.repositories import push_tokens as repo
+
+    session = AsyncMock()
+    prior = MagicMock()
+    prior.user_id = uuid4()
+    prior.device_id = "device-a"
+    session.execute.return_value = MagicMock(scalar_one_or_none=MagicMock(return_value=prior))
+
+    with pytest.raises(PushTokenBindError, match="device_id is required"):
+        await repo.upsert(
+            session,
+            user_id=uuid4(),
+            expo_push_token="ExponentPushToken[stolen]",
+            platform="ios",
+            device_id=None,
+        )
+
+
+@pytest.mark.asyncio
+async def test_upsert_rejects_cross_user_rebind_with_mismatched_device():
+    from app.exceptions import PushTokenBindError
+    from app.repositories import push_tokens as repo
+
+    session = AsyncMock()
+    prior = MagicMock()
+    prior.user_id = uuid4()
+    prior.device_id = "device-a"
+    session.execute.return_value = MagicMock(scalar_one_or_none=MagicMock(return_value=prior))
+
+    with pytest.raises(PushTokenBindError, match="different device"):
+        await repo.upsert(
+            session,
+            user_id=uuid4(),
+            expo_push_token="ExponentPushToken[stolen]",
+            platform="ios",
+            device_id="device-b",
+        )
+
+
+@pytest.mark.asyncio
+async def test_upsert_allows_cross_user_rebind_with_matching_device():
+    from app.repositories import push_tokens as repo
+
+    session = AsyncMock()
+    prior_user = uuid4()
+    new_user = uuid4()
+    prior = MagicMock()
+    prior.user_id = prior_user
+    prior.device_id = "device-a"
+    session.execute.return_value = MagicMock(scalar_one_or_none=MagicMock(return_value=prior))
+
+    row = await repo.upsert(
+        session,
+        user_id=new_user,
+        expo_push_token="ExponentPushToken[shared]",
+        platform="ios",
+        device_id="device-a",
+    )
+    assert row.user_id == new_user
+    session.delete.assert_awaited_with(prior)
     session.commit.assert_awaited()
 
 
