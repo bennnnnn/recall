@@ -19,24 +19,54 @@ from app.services.attachment_content import is_image_content_type
 logger = logging.getLogger(__name__)
 
 
+async def detach_attachments_for_messages(
+    session: AsyncSession,
+    message_ids: list[UUID],
+    *,
+    commit: bool = True,
+) -> list[str]:
+    """Remove attachment DB rows/chunks; return storage keys for deferred byte delete.
+
+    Callers that need transactional safety with a parent commit should pass
+    ``commit=False``, commit the parent session, then ``delete_storage_keys``.
+    """
+    if not message_ids:
+        return []
+    rows = await attachments_repo.list_for_message_ids(session, message_ids)
+    if not rows:
+        return []
+    attachment_ids = [row.id for row in rows]
+    storage_keys = [row.storage_key for row in rows if row.storage_key]
+    from app.repositories import attachment_chunks as chunks_repo
+
+    await chunks_repo.delete_for_attachment_ids(session, attachment_ids, commit=False)
+    await attachments_repo.delete_rows(session, attachment_ids, commit=commit)
+    return storage_keys
+
+
+async def delete_storage_keys(settings: Settings, storage_keys: list[str]) -> None:
+    """Best-effort byte delete after the DB commit that removed the rows."""
+    if not storage_keys:
+        return
+    gateway = get_storage_gateway(settings)
+    results = await asyncio.gather(
+        *(gateway.delete_bytes(key) for key in storage_keys),
+        return_exceptions=True,
+    )
+    for key, result in zip(storage_keys, results, strict=False):
+        if isinstance(result, Exception):
+            logger.warning("Failed to delete attachment bytes key=%s", key, exc_info=result)
+
+
 async def purge_attachments_for_messages(
     session: AsyncSession,
     settings: Settings,
     message_ids: list[UUID],
 ) -> int:
-    """Delete stored bytes and DB rows for attachments linked to ``message_ids``."""
-    if not message_ids:
-        return 0
-    rows = await attachments_repo.list_for_message_ids(session, message_ids)
-    if not rows:
-        return 0
-    attachment_ids = [row.id for row in rows]
-    from app.repositories import attachment_chunks as chunks_repo
-
-    await chunks_repo.delete_for_attachment_ids(session, attachment_ids)
-    gateway = get_storage_gateway(settings)
-    await asyncio.gather(*(gateway.delete_bytes(row.storage_key) for row in rows))
-    return await attachments_repo.delete_rows(session, attachment_ids)
+    """Detach DB rows then delete stored bytes for attachments on ``message_ids``."""
+    storage_keys = await detach_attachments_for_messages(session, message_ids, commit=True)
+    await delete_storage_keys(settings, storage_keys)
+    return len(storage_keys)
 
 
 async def purge_attachments_for_user(

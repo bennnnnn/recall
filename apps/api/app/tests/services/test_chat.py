@@ -2078,8 +2078,12 @@ async def test_stream_edit_response_yields_tokens():
             AsyncMock(return_value=[message_id]),
         ),
         patch(
-            "app.services.attachment_lifecycle.purge_attachments_for_messages",
-            AsyncMock(return_value=0),
+            "app.services.attachment_lifecycle.detach_attachments_for_messages",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.attachment_lifecycle.delete_storage_keys",
+            AsyncMock(),
         ),
         patch("app.repositories.messages.delete_messages_from", AsyncMock()),
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
@@ -2145,8 +2149,12 @@ async def test_stream_edit_response_refunds_quota_when_delete_throws():
             AsyncMock(return_value=[message_id]),
         ),
         patch(
-            "app.services.attachment_lifecycle.purge_attachments_for_messages",
-            AsyncMock(return_value=0),
+            "app.services.attachment_lifecycle.detach_attachments_for_messages",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.attachment_lifecycle.delete_storage_keys",
+            AsyncMock(),
         ),
         patch(
             "app.repositories.messages.delete_messages_from",
@@ -2221,8 +2229,12 @@ async def _run_stream_edit_response(
             AsyncMock(return_value=total_before_edit),
         ),
         patch(
-            "app.services.attachment_lifecycle.purge_attachments_for_messages",
-            AsyncMock(return_value=0),
+            "app.services.attachment_lifecycle.detach_attachments_for_messages",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.attachment_lifecycle.delete_storage_keys",
+            AsyncMock(),
         ),
         patch("app.repositories.messages.delete_messages_from", AsyncMock()),
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
@@ -2374,9 +2386,13 @@ async def test_regenerate_restores_assistant_when_stream_empty():
         stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
         stack.enter_context(
             patch(
-                "app.services.attachment_lifecycle.purge_attachments_for_messages",
+                "app.services.attachment_lifecycle.detach_attachments_for_messages",
+                AsyncMock(return_value=[]),
+            ),
+            patch(
+                "app.services.attachment_lifecycle.delete_storage_keys",
                 AsyncMock(),
-            )
+            ),
         )
         stack.enter_context(patch("app.repositories.messages.delete_message", AsyncMock()))
         stack.enter_context(
@@ -2493,9 +2509,13 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete():
         stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
         stack.enter_context(
             patch(
-                "app.services.attachment_lifecycle.purge_attachments_for_messages",
+                "app.services.attachment_lifecycle.detach_attachments_for_messages",
+                AsyncMock(return_value=[]),
+            ),
+            patch(
+                "app.services.attachment_lifecycle.delete_storage_keys",
                 AsyncMock(),
-            )
+            ),
         )
         stack.enter_context(
             patch(
@@ -2608,9 +2628,13 @@ async def test_regenerate_passes_client_geo_to_web_search():
         stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
         stack.enter_context(
             patch(
-                "app.services.attachment_lifecycle.purge_attachments_for_messages",
+                "app.services.attachment_lifecycle.detach_attachments_for_messages",
+                AsyncMock(return_value=[]),
+            ),
+            patch(
+                "app.services.attachment_lifecycle.delete_storage_keys",
                 AsyncMock(),
-            )
+            ),
         )
         stack.enter_context(patch("app.repositories.messages.delete_message", AsyncMock()))
         stack.enter_context(

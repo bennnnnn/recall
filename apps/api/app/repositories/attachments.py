@@ -124,7 +124,12 @@ async def list_orphans(session: AsyncSession, *, older_than_hours: int) -> list[
     return list(result.scalars().all())
 
 
-async def delete_rows(session: AsyncSession, ids: list[UUID]) -> int:
+async def delete_rows(
+    session: AsyncSession,
+    ids: list[UUID],
+    *,
+    commit: bool = True,
+) -> int:
     """Delete attachment rows by id (the reaper deletes bytes first, then this)."""
     if not ids:
         return 0
@@ -134,7 +139,8 @@ async def delete_rows(session: AsyncSession, ids: list[UUID]) -> int:
         CursorResult[Any],
         await session.execute(sql_delete(Attachment).where(Attachment.id.in_(ids))),
     )
-    await session.commit()
+    if commit:
+        await session.commit()
     return result.rowcount or 0
 
 

@@ -337,7 +337,11 @@ async def test_stream_edit_holds_chatprep_lock_across_delete_and_stream():
             AsyncMock(return_value=[message_id]),
         ),
         patch(
-            "app.services.chat.stream.attachment_lifecycle.purge_attachments_for_messages",
+            "app.services.chat.stream.attachment_lifecycle.detach_attachments_for_messages",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.chat.stream.attachment_lifecycle.delete_storage_keys",
             AsyncMock(),
         ),
         patch(
