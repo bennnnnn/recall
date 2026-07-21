@@ -145,8 +145,8 @@ def test_accept_memory_section_rewrite_keeps_expanding_rewrite():
 def test_select_memories_filters_low_confidence():
     settings = Settings(memory_min_confidence=0.5, memory_inject_limit=10)
     memories = [
-        _memory("fact", "Likes Python", 0.9),
-        _memory("focus", "Debugging API", 0.3),
+        _memory("preference", "Likes Python", 0.9),
+        _memory("preference", "Debugging API", 0.3),
     ]
     selected = select_memories_for_prompt(memories, settings)
     assert len(selected) == 1
@@ -167,13 +167,59 @@ def test_select_memories_respects_limit_and_priority():
 
 
 def test_select_memories_semantic_ranks_by_similarity():
-    settings = Settings(memory_min_confidence=0.0, memory_inject_limit=2)
+    settings = Settings(
+        memory_min_confidence=0.0, memory_inject_limit=2, memory_min_similarity=0.15
+    )
     python = _memory("fact", "Python programming", 1.0)
     python.embedding_json = "[1.0, 0.0, 0.0]"
     cooking = _memory("fact", "Cooking recipes", 1.0)
     cooking.embedding_json = "[0.0, 1.0, 0.0]"
     selected = select_memories_semantic([python, cooking], [0.95, 0.05, 0.0], settings)
     assert selected[0].text == "Python programming"
+
+
+def test_select_memories_semantic_keeps_profile_drops_off_topic_fact():
+    """Cooking query must not pull in an unrelated sensitive fact."""
+    settings = Settings(
+        memory_min_confidence=0.0, memory_inject_limit=5, memory_min_similarity=0.35
+    )
+    profile = _memory("profile", "Name is Sam", 1.0)
+    health = _memory("fact", "Has a peanut allergy and sees Dr. Chen weekly", 1.0)
+    health.embedding_json = "[0.0, 1.0, 0.0]"  # orthogonal to cooking query
+    cooking = _memory("fact", "Loves Italian cooking and pasta", 1.0)
+    cooking.embedding_json = "[1.0, 0.0, 0.0]"
+    selected = select_memories_semantic(
+        [profile, health, cooking],
+        [1.0, 0.0, 0.0],
+        settings,
+    )
+    texts = [m.text for m in selected]
+    assert "Name is Sam" in texts
+    assert "Loves Italian cooking and pasta" in texts
+    assert "peanut allergy" not in " ".join(texts)
+
+
+def test_format_memory_block_respects_char_budget():
+    from app.services.memory import format_memory_block
+
+    long_pref = _memory("preference", "x" * 2000, 1.0)
+    block = format_memory_block([long_pref], max_chars=200)
+    assert len(block) <= 200
+    assert block.endswith("…")
+
+
+def test_select_memories_omits_project_section_for_project_chats():
+    settings = Settings(memory_min_confidence=0.0, memory_inject_limit=5, memory_min_similarity=0.0)
+    profile = _memory("profile", "Name is Sam", 1.0)
+    project = _memory("project", "Building a rocket hobby app", 1.0)
+    project.embedding_json = "[1.0, 0.0, 0.0]"
+    selected = select_memories_semantic(
+        [profile, project],
+        [1.0, 0.0, 0.0],
+        settings,
+        omit_project_memory=True,
+    )
+    assert [m.type for m in selected] == ["profile"]
 
 
 @pytest.mark.asyncio
@@ -217,9 +263,7 @@ async def test_load_relevant_memories_applies_similarity_cutoff_to_db_path():
     memories, not just the kwargs passed to search_semantic — when no
     memory has a populated embedding yet, an empty db_hits list must still
     fall back to type-priority selection rather than silently discarding
-    every memory (the fix in
-    test_load_relevant_memories_returns_empty_when_vectors_populated_but_no_match
-    only applies once at least one memory IS embedded)."""
+    every gated memory (always-inject types still return)."""
     from app.services.memory import load_relevant_memories
 
     user = AsyncMock()
@@ -232,9 +276,12 @@ async def test_load_relevant_memories_applies_similarity_cutoff_to_db_path():
         memory_min_similarity=0.15,
     )
 
-    unembedded = _memory("fact", "Hikes every weekend", 0.9)
-    unembedded.embedding = None
-    unembedded.embedding_json = None
+    unembedded_profile = _memory("profile", "Name is Sam", 0.9)
+    unembedded_profile.embedding = None
+    unembedded_profile.embedding_json = None
+    unembedded_fact = _memory("fact", "Hikes every weekend", 0.9)
+    unembedded_fact.embedding = None
+    unembedded_fact.embedding_json = None
 
     with (
         patch(
@@ -243,7 +290,7 @@ async def test_load_relevant_memories_applies_similarity_cutoff_to_db_path():
         ),
         patch(
             "app.repositories.memories.list_for_user",
-            AsyncMock(return_value=[unembedded]),
+            AsyncMock(return_value=[unembedded_profile, unembedded_fact]),
         ),
         patch(
             "app.repositories.memories.search_semantic",
@@ -259,7 +306,8 @@ async def test_load_relevant_memories_applies_similarity_cutoff_to_db_path():
     kwargs = db_search.await_args.kwargs
     # cosine_distance = 1 - cosine_similarity → 1 - 0.15 = 0.85
     assert kwargs["max_distance"] == pytest.approx(0.85)
-    assert result == [unembedded]
+    # Without embeddings, only always-inject types survive the fallback.
+    assert result == [unembedded_profile]
 
 
 @pytest.mark.asyncio
@@ -341,14 +389,10 @@ async def test_load_relevant_memories_falls_back_to_in_memory_when_db_empty():
 
 
 @pytest.mark.asyncio
-async def test_load_relevant_memories_returns_empty_when_vectors_populated_but_no_match():
-    """BUG FIX: an empty db_hits list is ambiguous — it means either "no row
-    has a populated vector yet" or "vectors are populated but none cleared
-    the similarity cutoff" (a genuine no-match). This used to treat both
-    identically and fall back to type-priority selection, injecting an
-    arbitrary "known facts" block even for a query that's actually
-    unrelated. When any memory already has a populated pgvector embedding,
-    an empty db_hits must mean the second case — return [], not a fallback."""
+async def test_load_relevant_memories_keeps_profile_when_vectors_populated_but_no_match():
+    """Empty db_hits with populated vectors means no gated section cleared the
+    similarity bar — do not fall back to dumping facts, but still inject
+    profile/preference."""
     from app.services.memory import load_relevant_memories
 
     user = AsyncMock()
@@ -359,7 +403,9 @@ async def test_load_relevant_memories_returns_empty_when_vectors_populated_but_n
         semantic_memory_enabled=True, memory_min_confidence=0.0, memory_inject_limit=5
     )
 
-    list_mock = AsyncMock(return_value=[])
+    profile = _memory("profile", "Name is Sam", 0.9)
+    fact = _memory("fact", "Off-topic allergy detail", 0.9)
+    list_mock = AsyncMock(return_value=[profile, fact])
     with (
         patch(
             "app.repositories.memories.has_any_embedding",
@@ -370,8 +416,8 @@ async def test_load_relevant_memories_returns_empty_when_vectors_populated_but_n
     ):
         result = await load_relevant_memories(session, user, settings, query_vec=[0.0, 1.0, 0.0])
 
-    assert result == []
-    list_mock.assert_not_awaited()
+    assert result == [profile]
+    list_mock.assert_awaited()
 
 
 @pytest.mark.asyncio
@@ -398,8 +444,8 @@ async def test_load_relevant_memories_priority_fallback_when_no_query():
     ):
         result = await load_relevant_memories(session, user, settings, query_text=None)
 
-    # No query → priority selection (profile first), DB search never called.
-    assert result[0].type == "profile"
+    # No query → always-inject types only; DB search never called.
+    assert [m.type for m in result] == ["profile"]
     db_search.assert_not_awaited()
 
 
@@ -608,14 +654,15 @@ async def test_invalidate_memory_block_clears_block_and_query_cache(fake_redis):
         await get_memory_block(session, user, settings, query_text="outdoor hobbies")
 
     # Both the per-user block key and a per-query key should now exist.
+    query_key = f"{_memory_query_cache_key(user.id, None, 'outdoor hobbies')}:g"
     assert await fake_redis.exists(_memory_block_key(user.id)) == 1
-    assert await fake_redis.exists(_memory_query_cache_key(user.id, None, "outdoor hobbies")) == 1
+    assert await fake_redis.exists(query_key) == 1
 
     with patch("app.services.memory.get_redis_client", return_value=fake_redis):
         await invalidate_memory_block(user.id)
 
     assert await fake_redis.exists(_memory_block_key(user.id)) == 0
-    assert await fake_redis.exists(_memory_query_cache_key(user.id, None, "outdoor hobbies")) == 0
+    assert await fake_redis.exists(query_key) == 0
 
 
 @pytest.mark.asyncio
@@ -643,14 +690,16 @@ async def test_invalidate_memory_block_clears_multiple_query_keys(fake_redis):
         await get_memory_block(session, user, settings, query_text="outdoor hobbies")
         await get_memory_block(session, user, settings, query_text="weekend plans")
 
-    assert await fake_redis.exists(_memory_query_cache_key(user.id, None, "outdoor hobbies")) == 1
-    assert await fake_redis.exists(_memory_query_cache_key(user.id, None, "weekend plans")) == 1
+    outdoor = f"{_memory_query_cache_key(user.id, None, 'outdoor hobbies')}:g"
+    weekend = f"{_memory_query_cache_key(user.id, None, 'weekend plans')}:g"
+    assert await fake_redis.exists(outdoor) == 1
+    assert await fake_redis.exists(weekend) == 1
 
     with patch("app.services.memory.get_redis_client", return_value=fake_redis):
         await invalidate_memory_block(user.id)
 
-    assert await fake_redis.exists(_memory_query_cache_key(user.id, None, "outdoor hobbies")) == 0
-    assert await fake_redis.exists(_memory_query_cache_key(user.id, None, "weekend plans")) == 0
+    assert await fake_redis.exists(outdoor) == 0
+    assert await fake_redis.exists(weekend) == 0
 
 
 @pytest.mark.asyncio

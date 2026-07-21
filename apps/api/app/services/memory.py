@@ -22,6 +22,10 @@ SECTION_LABELS = {
     "fact": "Facts",
     "focus": "Focus",
 }
+# Always useful identity/style context — never gated by query similarity.
+_ALWAYS_INJECT_TYPES = frozenset({"profile", "preference"})
+# Topic-sensitive sections — only inject when cosine similarity clears the bar.
+_SIMILARITY_GATED_TYPES = frozenset({"project", "fact", "focus"})
 
 
 def normalize_memory_text(text: str) -> str:
@@ -170,18 +174,30 @@ def _confidence_value(memory: Memory) -> float:
     return float(memory.confidence)
 
 
-def select_memories_for_prompt(memories: list[Memory], settings: Settings) -> list[Memory]:
+def _eligible_memory(memory: Memory, settings: Settings) -> bool:
+    return _confidence_value(memory) >= settings.memory_min_confidence and bool(memory.text.strip())
+
+
+def select_memories_for_prompt(
+    memories: list[Memory],
+    settings: Settings,
+    *,
+    omit_project_memory: bool = False,
+) -> list[Memory]:
+    """Non-semantic fallback: profile/preference only (no off-topic dump)."""
     filtered = [
         memory
         for memory in memories
-        if _confidence_value(memory) >= settings.memory_min_confidence and memory.text.strip()
+        if _eligible_memory(memory, settings) and memory.type in _ALWAYS_INJECT_TYPES
     ]
+    if omit_project_memory:
+        filtered = [memory for memory in filtered if memory.type != "project"]
     filtered.sort(key=lambda m: (TYPE_PRIORITY.get(m.type, 99), -_confidence_value(m)))
     type_cap = min(settings.memory_inject_limit, len(TYPE_PRIORITY))
     return filtered[:type_cap]
 
 
-def format_memory_block(memories: list) -> str:
+def format_memory_block(memories: list, *, max_chars: int = 0) -> str:
     if not memories:
         return ""
     ordered = sorted(memories, key=lambda m: TYPE_PRIORITY.get(m.type, 99))
@@ -189,30 +205,66 @@ def format_memory_block(memories: list) -> str:
     for memory in ordered:
         label = SECTION_LABELS.get(memory.type, memory.type.title())
         lines.append(f"\n## {label}\n{memory.text.strip()}")
-    return "\n".join(lines)
+    block = "\n".join(lines)
+    if max_chars > 0 and len(block) > max_chars:
+        cut = max(1, max_chars - 1)
+        return f"{block[:cut].rstrip()}…"
+    return block
 
 
 def select_memories_semantic(
     memories: list[Memory],
     query_embedding: list[float],
     settings: Settings,
+    *,
+    omit_project_memory: bool = False,
 ) -> list[Memory]:
+    """profile/preference always; fact/focus/project only above similarity."""
     from app.gateways.embedding_gateway import cosine_similarity, parse_embedding
 
+    always: list[Memory] = []
     scored: list[tuple[float, Memory]] = []
     for memory in memories:
-        if _confidence_value(memory) < settings.memory_min_confidence or not memory.text.strip():
+        if not _eligible_memory(memory, settings):
+            continue
+        if omit_project_memory and memory.type == "project":
+            continue
+        if memory.type in _ALWAYS_INJECT_TYPES:
+            always.append(memory)
+            continue
+        if memory.type not in _SIMILARITY_GATED_TYPES:
             continue
         vec = parse_embedding(getattr(memory, "embedding_json", None))
         if vec is None:
             continue
-        scored.append((cosine_similarity(query_embedding, vec), memory))
+        score = cosine_similarity(query_embedding, vec)
+        min_sim = settings.memory_min_similarity
+        if min_sim > 0 and score < min_sim:
+            continue
+        scored.append((score, memory))
     scored.sort(key=lambda pair: pair[0], reverse=True)
-    min_sim = settings.memory_min_similarity
-    if min_sim > 0:
-        scored = [(score, memory) for score, memory in scored if score >= min_sim]
+    always.sort(key=lambda m: (TYPE_PRIORITY.get(m.type, 99), -_confidence_value(m)))
+    gated = [memory for _, memory in scored]
+    merged = always + gated
     type_cap = min(settings.memory_inject_limit, len(TYPE_PRIORITY))
-    return [memory for _, memory in scored[:type_cap]]
+    return merged[:type_cap]
+
+
+def _merge_always_and_gated(
+    always: list[Memory],
+    gated: list[Memory],
+    settings: Settings,
+) -> list[Memory]:
+    seen: set[str] = set()
+    merged: list[Memory] = []
+    for memory in always + gated:
+        if memory.type in seen:
+            continue
+        seen.add(memory.type)
+        merged.append(memory)
+    merged.sort(key=lambda m: (TYPE_PRIORITY.get(m.type, 99), -_confidence_value(m)))
+    type_cap = min(settings.memory_inject_limit, len(TYPE_PRIORITY))
+    return merged[:type_cap]
 
 
 def _memory_query_cache_key(user_id: UUID, generation: bytes | str | None, query_text: str) -> str:
@@ -262,6 +314,8 @@ async def _semantic_memories_from_vec(
     user: User,
     settings: Settings,
     query_vec: list[float],
+    *,
+    omit_project_memory: bool = False,
 ) -> list[Memory]:
     from app.repositories import memories as memories_repo
 
@@ -272,6 +326,13 @@ async def _semantic_memories_from_vec(
     if settings.memory_min_similarity > 0:
         max_distance = 1.0 - settings.memory_min_similarity
 
+    all_memories = await memories_repo.list_for_user(session, user.id)
+    always = [
+        memory
+        for memory in all_memories
+        if _eligible_memory(memory, settings) and memory.type in _ALWAYS_INJECT_TYPES
+    ]
+
     db_hits = await memories_repo.search_semantic(
         session,
         user.id,
@@ -281,17 +342,32 @@ async def _semantic_memories_from_vec(
         max_distance=max_distance,
     )
     if db_hits:
-        return db_hits
+        gated = [
+            memory
+            for memory in db_hits
+            if memory.type in _SIMILARITY_GATED_TYPES
+            and not (omit_project_memory and memory.type == "project")
+        ]
+        return _merge_always_and_gated(always, gated, settings)
+
     # Empty db_hits is ambiguous: no vectors yet vs. vectors but no match.
     # Cheap EXISTS/LIMIT-1 probe — do not load every memory just to check.
     if await memories_repo.has_any_embedding(session, user.id):
-        return []
-    # Vectors not ready yet — fall back to JSON / type-priority selection.
-    all_memories = await memories_repo.list_for_user(session, user.id)
-    semantic = select_memories_semantic(all_memories, query_vec, settings)
+        # Vectors exist but nothing cleared the bar — still inject profile/preference.
+        return _merge_always_and_gated(always, [], settings)
+
+    # Vectors not ready yet — fall back to JSON similarity / always-inject.
+    semantic = select_memories_semantic(
+        all_memories,
+        query_vec,
+        settings,
+        omit_project_memory=omit_project_memory,
+    )
     if semantic:
         return semantic
-    return select_memories_for_prompt(all_memories, settings)
+    return select_memories_for_prompt(
+        all_memories, settings, omit_project_memory=omit_project_memory
+    )
 
 
 async def load_relevant_memories(
@@ -301,6 +377,7 @@ async def load_relevant_memories(
     *,
     query_text: str | None = None,
     query_vec: list[float] | None = None,
+    omit_project_memory: bool = False,
 ) -> list:
     if not user.memory_enabled:
         return []
@@ -315,10 +392,18 @@ async def load_relevant_memories(
     # as Golden Rule 4's best-effort extraction jobs).
     try:
         if query_vec is not None:
-            return await _semantic_memories_from_vec(session, user, settings, query_vec)
+            return await _semantic_memories_from_vec(
+                session,
+                user,
+                settings,
+                query_vec,
+                omit_project_memory=omit_project_memory,
+            )
 
         all_memories = await memories_repo.list_for_user(session, user.id)
-        return select_memories_for_prompt(all_memories, settings)
+        return select_memories_for_prompt(
+            all_memories, settings, omit_project_memory=omit_project_memory
+        )
     except Exception:
         logger.warning("Memory retrieval failed for user_id=%s", user.id, exc_info=True)
         return []
@@ -328,6 +413,8 @@ async def _warm_semantic_memory_cache(
     settings: Settings,
     user_id: UUID,
     query_text: str,
+    *,
+    omit_project_memory: bool = False,
 ) -> None:
     """Best-effort: embed query + cache semantic block for the next turn."""
     from app.core.db import SessionLocal
@@ -358,8 +445,14 @@ async def _warm_semantic_memory_cache(
             user = await users_repo.get_by_id(session, user_id)
             if user is None or not user.memory_enabled:
                 return
-            memories = await _semantic_memories_from_vec(session, user, settings, query_vec)
-            block = format_memory_block(memories)
+            memories = await _semantic_memories_from_vec(
+                session,
+                user,
+                settings,
+                query_vec,
+                omit_project_memory=omit_project_memory,
+            )
+            block = format_memory_block(memories, max_chars=settings.memory_inject_max_chars)
             # Optimization only, not a correctness guard (see
             # _memory_query_cache_key): skip the write outright if we
             # already know the generation moved on, since it would land
@@ -367,7 +460,8 @@ async def _warm_semantic_memory_cache(
             gen_after = await redis.get(_memory_generation_key(user_id))
             if gen_before != gen_after:
                 return
-            query_key = _memory_query_cache_key(user_id, gen_before, cleaned)
+            scope = "p" if omit_project_memory else "g"
+            query_key = f"{_memory_query_cache_key(user_id, gen_before, cleaned)}:{scope}"
             try:
                 await redis.set(
                     query_key,
@@ -386,11 +480,14 @@ async def get_memory_block(
     settings: Settings,
     *,
     query_text: str | None = None,
+    chat_project_id: UUID | None = None,
 ) -> str:
     """Formatted memory block for the prompt, cached in Redis per user."""
     if not user.memory_enabled:
         return ""
 
+    omit_project_memory = chat_project_id is not None
+    max_chars = settings.memory_inject_max_chars
     key = _memory_block_key(user.id)
     if query_text and settings.semantic_memory_enabled:
         q = query_text.strip()
@@ -400,7 +497,10 @@ async def get_memory_block(
         except Exception:
             logger.debug("Memory generation read failed", exc_info=True)
             generation = None
-        query_key = _memory_query_cache_key(user.id, generation, q)
+        # Fold project-chat scoping into the cache key so a Learning-project
+        # turn never reuses a general-chat block that still has project memory.
+        scope = "p" if omit_project_memory else "g"
+        query_key = f"{_memory_query_cache_key(user.id, generation, q)}:{scope}"
         try:
             cached = await redis.get(query_key)
             if cached is not None:
@@ -440,17 +540,23 @@ async def get_memory_block(
                 user,
                 settings,
                 query_vec=query_vec,
+                omit_project_memory=omit_project_memory,
             )
-            block = format_memory_block(memories)
+            block = format_memory_block(memories, max_chars=max_chars)
             try:
                 await redis.set(query_key, block, ex=max(30, settings.memory_query_cache_ttl))
             except Exception:
                 logger.debug("Memory query cache write failed", exc_info=True)
             return block
 
-        # Cache miss — type-priority memories now; warm semantic cache in background.
-        memories = await load_relevant_memories(session, user, settings)
-        block = format_memory_block(memories)
+        # Cache miss — always-inject types now; warm semantic cache in background.
+        memories = await load_relevant_memories(
+            session,
+            user,
+            settings,
+            omit_project_memory=omit_project_memory,
+        )
+        block = format_memory_block(memories, max_chars=max_chars)
         try:
             await redis.set(query_key, block, ex=max(30, settings.memory_query_cache_ttl))
         except Exception:
@@ -462,7 +568,12 @@ async def get_memory_block(
         # a strong reference in a module-level set until the task finishes
         # (same pattern already used correctly in chat/stream.py).
         warm_task = create_background_task(
-            _warm_semantic_memory_cache(settings, user.id, q),
+            _warm_semantic_memory_cache(
+                settings,
+                user.id,
+                q,
+                omit_project_memory=omit_project_memory,
+            ),
             name="warm_semantic_memory_cache",
         )
         warm_task.add_done_callback(
@@ -473,17 +584,23 @@ async def get_memory_block(
         return block
 
     redis = get_redis_client()
+    cache_key = f"{key}:p" if omit_project_memory else key
     try:
-        cached = await redis.get(key)
+        cached = await redis.get(cache_key)
         if cached is not None:
             return cast(str, cached)
     except Exception:
         logger.debug("Memory block cache read failed", exc_info=True)
 
-    memories = await load_relevant_memories(session, user, settings)
-    block = format_memory_block(memories)
+    memories = await load_relevant_memories(
+        session,
+        user,
+        settings,
+        omit_project_memory=omit_project_memory,
+    )
+    block = format_memory_block(memories, max_chars=max_chars)
     try:
-        await redis.set(key, block, ex=settings.memory_cache_ttl)
+        await redis.set(cache_key, block, ex=settings.memory_cache_ttl)
     except Exception:
         logger.debug("Memory block cache write failed", exc_info=True)
     return block
@@ -507,7 +624,8 @@ async def invalidate_memory_block(user_id: UUID) -> None:
     try:
         redis = get_redis_client()
         await redis.incr(_memory_generation_key(user_id))
-        await redis.delete(_memory_block_key(user_id))
+        block_key = _memory_block_key(user_id)
+        await redis.delete(block_key, f"{block_key}:p")
         # Clear memquery:{user_id}:* entries (semantic recall is query-conditioned
         # and can be stale after an extraction/rewrite/delete).
         prefix = _memory_query_key_prefix(user_id)

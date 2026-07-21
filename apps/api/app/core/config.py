@@ -176,6 +176,8 @@ class Settings(BaseSettings):
     recent_message_window: int = 20  # hard cap on verbatim messages
     memory_min_confidence: float = 0.4
     memory_inject_limit: int = 15
+    # Hard cap on formatted memory block chars injected into the system prompt.
+    memory_inject_max_chars: int = 1500
     memory_cache_ttl: int = 300
     memory_query_cache_ttl: int = 120
     # Run memory extraction every N completed assistant turns (always runs on turn 1).
@@ -210,8 +212,9 @@ class Settings(BaseSettings):
     trusted_proxy_cidrs: str = "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1/32,fdaa::/16"
     # Comma-separated user UUIDs allowed to access /admin/* when dev_auth is on.
     admin_user_ids: str = ""
-    # Minimum cosine similarity for semantic memory injection (0 = disabled).
-    memory_min_similarity: float = 0.15
+    # Minimum cosine similarity for fact/focus/project injection (0 = disabled).
+    # profile/preference always inject; 0.35 keeps off-topic sections out.
+    memory_min_similarity: float = 0.35
 
     # Abort hung provider streams after this many seconds with no new chunk
     # (idle timeout). A long healthy reply can exceed this wall-clock total —
