@@ -43,8 +43,9 @@ _PRO_EVENTS = frozenset(
     }
 )
 # BILLING_ISSUE is intentionally omitted: payment failed but the subscriber may
-# still be in a grace/retry window. Downgrade only on EXPIRATION (or cancel).
-_FREE_EVENTS = frozenset({"CANCELLATION", "EXPIRATION"})
+# still be in a grace/retry window. CANCELLATION means auto-renew off — the
+# entitlement stays active until period end, so it is not in this set.
+_FREE_EVENTS = frozenset({"EXPIRATION"})
 
 
 def _done_key(event_id: str) -> str:
@@ -157,8 +158,7 @@ def _event_field(payload: dict[str, Any], key: str) -> str | None:
     return None
 
 
-def _expiration(payload: dict[str, Any]) -> str | None:
-    """RevenueCat sends `expiration_at_ms` (epoch ms) for subscriptions."""
+def _expiration_ms(payload: dict[str, Any]) -> int | None:
     event = payload.get("event")
     if not isinstance(event, dict):
         return None
@@ -166,11 +166,37 @@ def _expiration(payload: dict[str, Any]) -> str | None:
     if raw is None:
         return None
     try:
-        secs = int(raw) / 1000.0
-        return datetime.fromtimestamp(secs, tz=UTC).isoformat()
-    except (TypeError, ValueError, OverflowError, OSError):
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _expiration(payload: dict[str, Any]) -> str | None:
+    """RevenueCat sends `expiration_at_ms` (epoch ms) for subscriptions."""
+    ms = _expiration_ms(payload)
+    if ms is None:
+        return None
+    try:
+        return datetime.fromtimestamp(ms / 1000.0, tz=UTC).isoformat()
+    except (OverflowError, OSError, ValueError):
         # Huge / negative ms must not 500 the webhook (RevenueCat retry storm).
         return None
+
+
+def _cancellation_should_downgrade(payload: dict[str, Any]) -> bool:
+    """Downgrade on cancel only when paid-through time is already past.
+
+    Future ``expiration_at_ms`` means the subscriber keeps Pro until
+    EXPIRATION. Missing/unparseable expiry is treated conservatively as a
+    refund-style cancel (downgrade now).
+    """
+    ms = _expiration_ms(payload)
+    if ms is None:
+        return True
+    try:
+        return datetime.fromtimestamp(ms / 1000.0, tz=UTC) <= datetime.now(tz=UTC)
+    except (OverflowError, OSError, ValueError):
+        return True
 
 
 async def _dispatch_event(
@@ -213,6 +239,19 @@ async def _dispatch_event(
                 product_id=_event_field(payload, "product_id"),
                 expiration=_expiration(payload),
             )
+        return True
+    if event_type == "CANCELLATION":
+        if not _cancellation_should_downgrade(payload):
+            logger.info(
+                "RevenueCat CANCELLATION ignored until period end app_user_id=%s",
+                app_user_id,
+            )
+            return False
+        await subscription_service.apply_plan_for_app_user_id(
+            session,
+            app_user_id,
+            plan="free",
+        )
         return True
     if event_type in _FREE_EVENTS:
         await subscription_service.apply_plan_for_app_user_id(

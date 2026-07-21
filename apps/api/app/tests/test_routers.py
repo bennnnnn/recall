@@ -980,7 +980,7 @@ def test_revenuecat_webhook_free_event_does_not_enqueue_receipt():
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     app.dependency_overrides[get_redis] = lambda: fake_redis
 
-    payload = {"event": {"type": "CANCELLATION", "app_user_id": str(uid)}}
+    payload = {"event": {"type": "EXPIRATION", "app_user_id": str(uid)}}
 
     with (
         patch(
@@ -994,6 +994,79 @@ def test_revenuecat_webhook_free_event_does_not_enqueue_receipt():
 
     assert r.status_code == 204
     enq.assert_not_awaited()
+
+
+def test_revenuecat_webhook_cancellation_with_future_expiry_keeps_pro():
+    """CANCELLATION = auto-renew off; paid-through time must not be stripped."""
+    import fakeredis.aioredis
+
+    from app.core.config import get_settings
+    from app.core.deps import get_redis
+
+    uid = uuid4()
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        environment="development",
+        revenuecat_webhook_auth="",
+        dev_allow_unauthed_webhooks=True,
+    )
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    app.dependency_overrides[get_redis] = lambda: fake_redis
+
+    # Far-future paid-through timestamp (year 2099).
+    payload = {
+        "event": {
+            "type": "CANCELLATION",
+            "app_user_id": str(uid),
+            "expiration_at_ms": 4099689600000,
+        }
+    }
+
+    with patch(
+        "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+        AsyncMock(return_value=True),
+    ) as apply_plan:
+        client = TestClient(app)
+        r = client.post("/webhooks/revenuecat", json=payload)
+
+    assert r.status_code == 204
+    apply_plan.assert_not_awaited()
+
+
+def test_revenuecat_webhook_cancellation_with_past_expiry_downgrades():
+    import fakeredis.aioredis
+
+    from app.core.config import get_settings
+    from app.core.deps import get_redis
+
+    uid = uuid4()
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        environment="development",
+        revenuecat_webhook_auth="",
+        dev_allow_unauthed_webhooks=True,
+    )
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    app.dependency_overrides[get_redis] = lambda: fake_redis
+
+    payload = {
+        "event": {
+            "type": "CANCELLATION",
+            "app_user_id": str(uid),
+            "expiration_at_ms": 1,
+        }
+    }
+
+    with patch(
+        "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+        AsyncMock(return_value=True),
+    ) as apply_plan:
+        client = TestClient(app)
+        r = client.post("/webhooks/revenuecat", json=payload)
+
+    assert r.status_code == 204
+    apply_plan.assert_awaited_once()
+    assert apply_plan.await_args.kwargs["plan"] == "free"
 
 
 def test_revenuecat_webhook_billing_issue_does_not_downgrade():
