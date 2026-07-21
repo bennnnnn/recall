@@ -67,9 +67,10 @@ _MAX_ATTEMPTS = 3
 _RETRY_BACKOFF_S = 2.0
 # How stale the worker-loop heartbeat can get before is_worker_alive() reports
 # the worker as dead even though its task hasn't crashed. Generous on purpose:
-# comfortably longer than one full retry-backoff cycle in _process_entries
+# comfortably longer than one full retry-backoff cycle in _process_one_entry
 # (up to roughly _MAX_ATTEMPTS * _RETRY_BACKOFF_S * _MAX_ATTEMPTS seconds) plus
-# handler time, so a normal slow batch never false-positives as "stuck".
+# a slow handler; heartbeat is touched per attempt so a concurrent batch of
+# LLM jobs does not false-positive as "stuck".
 _HEARTBEAT_STALE_THRESHOLD_S = 120.0
 
 JobHandler = Callable[[Settings, dict[str, Any]], Awaitable[None]]
@@ -347,44 +348,74 @@ async def _move_to_dlq(
         _capture_sentry_exception("dlq_write_failed")
 
 
+async def _process_one_entry(
+    redis: Redis,
+    settings: Settings,
+    entry_id: str,
+    fields: dict[str, Any],
+) -> None:
+    """Dispatch + retry + ack a single stream entry (safe to run concurrently)."""
+    # Per-entry (and per-attempt) so a long LLM timeout / gmail batch cannot
+    # trip the 120s stale health check while this worker is still healthy.
+    _touch_heartbeat()
+    try:
+        for attempt in range(1, _MAX_ATTEMPTS + 1):
+            _touch_heartbeat()
+            try:
+                await _dispatch(settings, fields)
+                break
+            except JobDiscardError as exc:
+                logger.warning("Discarding job id=%s: %s", entry_id, exc)
+                await _move_to_dlq(redis, entry_id, fields, str(exc))
+                break
+            except Exception:
+                if attempt < _MAX_ATTEMPTS:
+                    logger.warning(
+                        "Job failed attempt=%s/%s id=%s; retrying",
+                        attempt,
+                        _MAX_ATTEMPTS,
+                        entry_id,
+                    )
+                    await asyncio.sleep(_RETRY_BACKOFF_S * attempt)
+                else:
+                    logger.exception("Job failed after %s attempts id=%s", _MAX_ATTEMPTS, entry_id)
+                    await _move_to_dlq(redis, entry_id, fields, traceback.format_exc(limit=8))
+    finally:
+        # Best-effort jobs: ack regardless so a poison entry can't loop forever.
+        # Retry already happened above; the DLQ preserves the failed payload.
+        try:
+            await redis.xack(JOBS_STREAM, JOBS_GROUP, entry_id)
+        except Exception:
+            logger.debug("xack failed id=%s", entry_id, exc_info=True)
+
+
 async def _process_entries(
     redis: Redis, settings: Settings, entries: list[tuple[str, dict[str, Any]]]
 ) -> None:
-    for entry_id, fields in entries:
-        # Per-entry (and per-attempt) so a long LLM timeout / gmail batch cannot
-        # trip the 120s stale health check while this worker is still healthy.
+    """Process a stream batch with bounded concurrency.
+
+    LLM jobs (memory/todos/…) can take tens of seconds; awaiting them
+    sequentially head-of-line-blocks fast jobs (compress/topic). A semaphore
+    lets up to ``settings.jobs_worker_concurrency`` entries run at once while
+    still capping provider/DB load per worker process.
+    """
+    if not entries:
+        return
+    concurrency = max(1, int(settings.jobs_worker_concurrency))
+    if concurrency == 1 or len(entries) == 1:
+        for entry_id, fields in entries:
+            await _process_one_entry(redis, settings, entry_id, fields)
         _touch_heartbeat()
-        try:
-            for attempt in range(1, _MAX_ATTEMPTS + 1):
-                _touch_heartbeat()
-                try:
-                    await _dispatch(settings, fields)
-                    break
-                except JobDiscardError as exc:
-                    logger.warning("Discarding job id=%s: %s", entry_id, exc)
-                    await _move_to_dlq(redis, entry_id, fields, str(exc))
-                    break
-                except Exception:
-                    if attempt < _MAX_ATTEMPTS:
-                        logger.warning(
-                            "Job failed attempt=%s/%s id=%s; retrying",
-                            attempt,
-                            _MAX_ATTEMPTS,
-                            entry_id,
-                        )
-                        await asyncio.sleep(_RETRY_BACKOFF_S * attempt)
-                    else:
-                        logger.exception(
-                            "Job failed after %s attempts id=%s", _MAX_ATTEMPTS, entry_id
-                        )
-                        await _move_to_dlq(redis, entry_id, fields, traceback.format_exc(limit=8))
-        finally:
-            # Best-effort jobs: ack regardless so a poison entry can't loop forever.
-            # Retry already happened above; the DLQ preserves the failed payload.
-            try:
-                await redis.xack(JOBS_STREAM, JOBS_GROUP, entry_id)
-            except Exception:
-                logger.debug("xack failed id=%s", entry_id, exc_info=True)
+        return
+
+    sem = asyncio.Semaphore(concurrency)
+
+    async def _run(entry_id: str, fields: dict[str, Any]) -> None:
+        async with sem:
+            await _process_one_entry(redis, settings, entry_id, fields)
+
+    await asyncio.gather(*(_run(entry_id, fields) for entry_id, fields in entries))
+    _touch_heartbeat()
 
 
 async def _ensure_group(redis: Redis) -> None:
