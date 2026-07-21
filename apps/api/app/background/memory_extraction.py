@@ -12,9 +12,9 @@ from app.repositories import memories as memories_repo
 from app.repositories import users as users_repo
 from app.services import memory_llm
 from app.services.memory import (
+    accept_memory_section_rewrite,
     acquire_memory_write_lock,
     embedding_text_hash,
-    normalize_memory_text,
     release_memory_write_lock,
 )
 
@@ -142,12 +142,17 @@ async def extract_and_store_memories(
 
             rows: list[tuple[str, str, float, UUID | None]] = []
             for section in result.sections:
-                if section.confidence < settings.memory_min_confidence:
+                prior = snapshot.existing_sections.get(section.type, "")
+                accepted = accept_memory_section_rewrite(
+                    section_type=section.type,
+                    prior=prior,
+                    summary=section.summary,
+                    confidence=section.confidence,
+                    min_confidence=settings.memory_min_confidence,
+                )
+                if accepted is None:
                     continue
-                summary = normalize_memory_text(section.summary)
-                if not summary:
-                    continue
-                rows.append((section.type, summary, section.confidence, chat_id))
+                rows.append((section.type, accepted, section.confidence, chat_id))
 
             if not rows:
                 return None
