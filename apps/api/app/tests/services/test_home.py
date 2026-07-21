@@ -736,6 +736,24 @@ def test_memory_starter_skips_profile_name_facts():
     assert home_service._memory_starter(memory) is None
 
 
+def test_memory_starter_skips_sensitive_health_facts():
+    memory = MagicMock()
+    memory.type = "focus"
+    memory.text = "Has a peanut allergy and sees a therapist weekly"
+    assert home_service._memory_starter(memory) is None
+
+
+def test_pick_home_memory_skips_sensitive_sections():
+    allergy = MagicMock()
+    allergy.type = "focus"
+    allergy.text = "Diagnosed with anxiety last year"
+    project = MagicMock()
+    project.type = "project"
+    project.text = "Building a recipe app"
+    picked = home_service.pick_home_memory([allergy, project])
+    assert picked is project
+
+
 def test_memory_starter_english_learning_uses_specific_label():
     memory = MagicMock()
     memory.type = "focus"

@@ -275,7 +275,8 @@ async def test_extract_and_store_filters_confidence():
     upsert.assert_awaited_once()
     items = upsert.call_args.kwargs["items"]
     assert len(items) == 1
-    assert items[0][1] == "Uses Vim daily"
+    assert items[0][1].startswith("As of ")
+    assert items[0][1].endswith("Uses Vim daily")
 
 
 @pytest.mark.asyncio

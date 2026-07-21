@@ -22,6 +22,7 @@ from app.services.memory import (
     section_needs_consolidation,
     sections_need_consolidation,
     split_memory_facts,
+    stamp_memory_as_of,
 )
 
 logger = logging.getLogger(__name__)
@@ -131,7 +132,7 @@ async def consolidate_user_memory_sections(
                         enforce_length_floor=False,
                     )
                     if accepted and accepted != normalize_memory_text(prior):
-                        rows.append((section_type, accepted, 0.95, None))
+                        rows.append((section_type, stamp_memory_as_of(accepted), 0.95, None))
                     continue
 
                 merged = await memory_llm.merge_memory_section(
@@ -149,7 +150,14 @@ async def consolidate_user_memory_sections(
                     min_confidence=settings.memory_min_confidence,
                 )
                 if accepted and accepted != normalize_memory_text(prior):
-                    rows.append((section_type, accepted, merged.confidence, None))
+                    rows.append(
+                        (
+                            section_type,
+                            stamp_memory_as_of(accepted),
+                            merged.confidence,
+                            None,
+                        )
+                    )
 
             if not rows:
                 return False

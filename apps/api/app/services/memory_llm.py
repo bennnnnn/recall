@@ -39,6 +39,8 @@ async def revise_memory_sections(
                 "- Return ONLY sections that changed or are new this turn.\n"
                 "- Each summary is ONE merged paragraph — never a bullet list.\n"
                 "- Rewrite the full section when updating; merge duplicates; drop stale facts.\n"
+                "- On conflicting facts (e.g. moved cities), keep the newest statement and "
+                "drop the older one.\n"
                 "- Skip small talk. Return empty sections array if nothing changed."
             ),
         },
@@ -83,7 +85,9 @@ async def merge_memory_section(
                 "Rules:\n"
                 "- Preserve EVERY distinct fact from the draft — do not drop names, orgs, "
                 "emails, numbers, or preferences.\n"
-                "- Deduplicate near-duplicate sentences; merge contradictions sensibly.\n"
+                "- Deduplicate near-duplicate sentences.\n"
+                "- On contradictions, prefer the newest / most recently dated statement "
+                "and drop the older one.\n"
                 "- Output ONE paragraph (not a bullet list).\n"
                 "- Do not invent facts not supported by the draft.\n"
                 f"- The section type must remain `{section_type}`."
