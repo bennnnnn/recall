@@ -131,7 +131,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Typed memories** — `profile` · `preference` · `project` · `fact` · `focus` (captures things
   like interests, what they're working on, name, job, country when mentioned).
 - ✅ **Quality controls** — confidence threshold, de-duplication, priority ordering, capped count.
-- ✅ **Prompt injection** — relevant memories are added to the system prompt.
+- ✅ **Prompt injection** — profile/preference always; fact/focus/project only when
+  similarity clears `memory_min_similarity` (default 0.35), with a char budget.
 - ✅ **Semantic recall** — when `semantic_memory_enabled` (default on), the user's latest message
   is embedded and the top matching memories are selected (cosine similarity on stored embeddings;
   falls back to priority ordering when embeddings are missing).

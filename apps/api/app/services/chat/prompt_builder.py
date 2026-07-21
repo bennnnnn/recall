@@ -225,7 +225,13 @@ async def _load_context_blocks(
     # awaiting four DB round-trips back-to-back before the LLM call starts.
     async def _memory_block() -> str:
         async with SessionLocal() as s:
-            return await memory_service.get_memory_block(s, user, settings, query_text=query_text)
+            return await memory_service.get_memory_block(
+                s,
+                user,
+                settings,
+                query_text=query_text,
+                chat_project_id=chat.project_id if chat is not None else None,
+            )
 
     async def _todos_section() -> str | None:
         async with SessionLocal() as s:

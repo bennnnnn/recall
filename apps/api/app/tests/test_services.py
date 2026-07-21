@@ -76,9 +76,8 @@ def test_select_memories_priority_order():
         _mem("preference", "Night owl"),
     ]
     result = select_memories_for_prompt(mems, settings)
-    assert result[0].type == "profile"
-    assert result[1].type == "preference"
-    assert result[2].type == "fact"
+    # Non-semantic fallback keeps identity/style only — facts need similarity.
+    assert [m.type for m in result] == ["profile", "preference"]
 
 
 @pytest.mark.asyncio
