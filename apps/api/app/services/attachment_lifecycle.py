@@ -83,8 +83,11 @@ async def purge_attachments_for_user(
     rows = await attachments_repo.list_for_user(session, user_id)
     if not rows:
         return 0
-    gateway = get_storage_gateway(settings)
-    await asyncio.gather(*(gateway.delete_bytes(row.storage_key) for row in rows))
+    # Per-object best-effort: one R2 failure must not abort GDPR account wipe.
+    # Failed keys may leave storage orphans; the orphan reaper / bucket lifecycle
+    # covers those — failing the whole delete would leave the user logged out
+    # with their account still intact.
+    await delete_storage_keys(settings, [row.storage_key for row in rows if row.storage_key])
     attachment_ids = [row.id for row in rows]
     from app.repositories import attachment_chunks as chunks_repo
 

@@ -104,9 +104,21 @@ async def list_for_message_ids(session: AsyncSession, message_ids: list[UUID]) -
     return list(result.scalars().all())
 
 
-async def list_for_user(session: AsyncSession, user_id: UUID) -> list[Attachment]:
-    """All attachments owned by ``user_id`` (linked and pending) — account delete."""
-    result = await session.execute(select(Attachment).where(Attachment.user_id == user_id))
+async def list_for_user(
+    session: AsyncSession,
+    user_id: UUID,
+    *,
+    limit: int | None = None,
+) -> list[Attachment]:
+    """Attachments owned by ``user_id`` (linked and pending) — account delete / export."""
+    stmt = (
+        select(Attachment)
+        .where(Attachment.user_id == user_id)
+        .order_by(Attachment.created_at.asc(), Attachment.id.asc())
+    )
+    if limit is not None:
+        stmt = stmt.limit(limit)
+    result = await session.execute(stmt)
     return list(result.scalars().all())
 
 
