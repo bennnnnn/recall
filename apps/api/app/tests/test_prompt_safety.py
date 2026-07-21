@@ -24,6 +24,15 @@ def test_wrap_untrusted_neutralizes_forged_fence_lines():
     assert out.endswith("[END UNTRUSTED CONTENT — email]")
 
 
+def test_wrap_untrusted_first_party_keeps_fence_rewrites_preamble():
+    out = wrap_untrusted("memory", "## Profile\nLikes Python", first_party=True)
+    assert out.startswith("[BEGIN UNTRUSTED CONTENT — memory]")
+    assert out.endswith("[END UNTRUSTED CONTENT — memory]")
+    assert "user-saved notes about themselves" in out
+    assert "external sources" not in out
+    assert "Likes Python" in out
+
+
 def test_wrap_persisted_attachment_excerpts_leaves_plain_text():
     assert wrap_persisted_attachment_excerpts("just a question") == "just a question"
 

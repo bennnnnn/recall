@@ -36,6 +36,8 @@ async def revise_memory_sections(
                 "- fact: stable misc facts\n"
                 "- focus: current priorities\n\n"
                 "Rules:\n"
+                "- Extract only facts explicitly stated or confirmed by the User line; "
+                "never from assistant inferences, suggestions, or restatements.\n"
                 "- Return ONLY sections that changed or are new this turn.\n"
                 "- Each summary is ONE merged paragraph — never a bullet list.\n"
                 "- Rewrite the full section when updating; merge duplicates; drop stale facts.\n"

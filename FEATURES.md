@@ -128,6 +128,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 ## 6. Memory (remembering the user)
 - ✅ **Automatic extraction** — durable facts are extracted in the background **every turn**
   by default (`memory_extract_every_n_turns=1`; raise the setting to throttle).
+- ✅ **Extraction hygiene** — only user-stated/confirmed facts; transcript capped ~4k
+  (head+tail); memory wrapped as first-party notes (fence kept); account email injected
+  only for email/draft/inbox intents.
 - ✅ **Typed memories** — `profile` · `preference` · `project` · `fact` · `focus` (captures things
   like interests, what they're working on, name, job, country when mentioned).
 - ✅ **Quality controls** — confidence threshold, de-duplication, priority ordering, capped count.

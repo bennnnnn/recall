@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
@@ -61,8 +62,37 @@ logger = logging.getLogger(__name__)
 
 StreamReasoningFn = Callable[[str], Awaitable[None]]
 
+# Account email is PII — only inject when the turn clearly needs it.
+_PROFILE_EMAIL_ASK = re.compile(
+    r"\b("
+    r"what(?:'s| is) my (?:e-?mail|email address)|"
+    r"remind me (?:of |what )?my (?:e-?mail|email)|"
+    r"(?:tell|show|give) me my (?:e-?mail|email address)"
+    r")\b",
+    re.IGNORECASE,
+)
 
-def format_user_profile_block(user: User, *, location_override: str | None = None) -> str:
+
+def should_include_profile_email(query_text: str | None) -> bool:
+    """True when the turn needs the account email (ask / draft / inbox / tools)."""
+    cleaned = (query_text or "").strip()
+    if not cleaned:
+        return False
+    if _PROFILE_EMAIL_ASK.search(cleaned):
+        return True
+    if is_writing_deliverable_request(cleaned):
+        return True
+    if email_service.should_inject_gmail_block(cleaned):
+        return True
+    return False
+
+
+def format_user_profile_block(
+    user: User,
+    *,
+    location_override: str | None = None,
+    include_email: bool = False,
+) -> str:
     """Basic identity — injected into every chat prompt."""
     lines = [
         "User profile (internal — from their account; do not quote email or location "
@@ -70,7 +100,7 @@ def format_user_profile_block(user: User, *, location_override: str | None = Non
     ]
     if user.name and user.name.strip():
         lines.append(f"- Name: {user.name.strip()}")
-    if user.email and user.email.strip():
+    if include_email and user.email and user.email.strip():
         lines.append(f"- Email: {user.email.strip()}")
     plan = (getattr(user, "plan", None) or "free").strip().lower()
     if plan not in {"free", "pro"}:
@@ -430,7 +460,7 @@ def _integration_hints(
     if settings.gmail_enabled:
         parts.append(email_service.GMAIL_HINT)
     if memory_block:
-        parts.append(wrap_untrusted("memory", memory_block))
+        parts.append(wrap_untrusted("memory", memory_block, first_party=True))
     if attachment_rag_block:
         parts.append(attachment_rag_block)
     if todos_section:
@@ -505,7 +535,11 @@ async def build_prompt_messages(
         "You are Recall, a helpful personal AI assistant.",
         format_user_name_only_block(user)
         if slim_context
-        else format_user_profile_block(user, location_override=prompt_location),
+        else format_user_profile_block(
+            user,
+            location_override=prompt_location,
+            include_email=should_include_profile_email(query_text),
+        ),
         STYLE_HINTS[style],
     ]
     # Grade hint (if any) then quiz/vocab path — same order as the prior inline assembly.
