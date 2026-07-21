@@ -3,6 +3,7 @@ from datetime import date, datetime
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     Date,
@@ -46,6 +47,8 @@ class User(Base):
     avatar_url: Mapped[str | None] = mapped_column(String)
     default_model: Mapped[str] = mapped_column(String, default="auto")
     plan: Mapped[str] = mapped_column(String, default="free", server_default="free")
+    # Last processed RevenueCat webhook event_timestamp_ms — ignore older events.
+    rc_last_event_at_ms: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     enabled_models: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
     response_style: Mapped[str] = mapped_column(String, default="balanced")
     response_tone: Mapped[str] = mapped_column(String, default="funny", server_default="funny")

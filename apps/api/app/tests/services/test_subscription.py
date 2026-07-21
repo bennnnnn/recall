@@ -81,6 +81,61 @@ async def test_apply_plan_for_app_user_id():
 
 
 @pytest.mark.asyncio
+async def test_is_stale_rc_event_when_older_than_watermark():
+    user_id = uuid4()
+    user = MagicMock()
+    user.rc_last_event_at_ms = 200
+    session = AsyncMock()
+
+    with patch(
+        "app.services.subscription.users_repo.get_by_id",
+        AsyncMock(return_value=user),
+    ):
+        assert await subscription_service.is_stale_rc_event(session, str(user_id), 100) is True
+        assert await subscription_service.is_stale_rc_event(session, str(user_id), 200) is False
+        assert await subscription_service.is_stale_rc_event(session, str(user_id), 250) is False
+
+
+@pytest.mark.asyncio
+async def test_is_stale_rc_event_false_when_no_watermark():
+    user_id = uuid4()
+    user = MagicMock()
+    user.rc_last_event_at_ms = None
+    session = AsyncMock()
+
+    with patch(
+        "app.services.subscription.users_repo.get_by_id",
+        AsyncMock(return_value=user),
+    ):
+        assert await subscription_service.is_stale_rc_event(session, str(user_id), 100) is False
+
+
+@pytest.mark.asyncio
+async def test_advance_rc_event_watermark_moves_forward_only():
+    user_id = uuid4()
+    user = MagicMock()
+    user.rc_last_event_at_ms = 200
+    session = AsyncMock()
+
+    with patch(
+        "app.services.subscription.users_repo.get_by_id",
+        AsyncMock(return_value=user),
+    ):
+        with patch(
+            "app.services.subscription.users_repo.update",
+            AsyncMock(return_value=user),
+        ) as update:
+            await subscription_service.advance_rc_event_watermark(session, str(user_id), 150)
+            update.assert_not_awaited()
+
+            await subscription_service.advance_rc_event_watermark(session, str(user_id), 200)
+            update.assert_not_awaited()
+
+            await subscription_service.advance_rc_event_watermark(session, str(user_id), 250)
+            update.assert_awaited_once_with(session, user, rc_last_event_at_ms=250)
+
+
+@pytest.mark.asyncio
 async def test_handle_revenuecat_transfer_downgrades_old_and_syncs_new():
     old_id = uuid4()
     new_id = uuid4()

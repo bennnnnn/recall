@@ -46,6 +46,9 @@ _PRO_EVENTS = frozenset(
 # still be in a grace/retry window. CANCELLATION means auto-renew off — the
 # entitlement stays active until period end, so it is not in this set.
 _FREE_EVENTS = frozenset({"EXPIRATION"})
+# Events that mutate (or intentionally preserve) plan state — watermarked so
+# a late-arriving older event cannot overwrite a newer decision.
+_ORDERED_EVENTS = _PRO_EVENTS | _FREE_EVENTS | frozenset({"CANCELLATION", "TRANSFER"})
 
 
 def _done_key(event_id: str) -> str:
@@ -171,6 +174,20 @@ def _expiration_ms(payload: dict[str, Any]) -> int | None:
         return None
 
 
+def _event_timestamp_ms(payload: dict[str, Any]) -> int | None:
+    """RevenueCat ``event.event_timestamp_ms`` (epoch ms when the event occurred)."""
+    event = payload.get("event")
+    if not isinstance(event, dict):
+        return None
+    raw = event.get("event_timestamp_ms")
+    if raw is None:
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
 def _expiration(payload: dict[str, Any]) -> str | None:
     """RevenueCat sends `expiration_at_ms` (epoch ms) for subscriptions."""
     ms = _expiration_ms(payload)
@@ -246,7 +263,9 @@ async def _dispatch_event(
                 "RevenueCat CANCELLATION ignored until period end app_user_id=%s",
                 app_user_id,
             )
-            return False
+            # Handled (keep Pro) — ACK/dedup and advance watermark so a late
+            # older EXPIRATION cannot slip in behind this decision.
+            return True
         await subscription_service.apply_plan_for_app_user_id(
             session,
             app_user_id,
@@ -335,10 +354,38 @@ async def revenuecat_webhook(
         return
 
     event_type = _event_type(payload)
+    event_ts = _event_timestamp_ms(payload)
     try:
+        if (
+            event_ts is not None
+            and event_type in _ORDERED_EVENTS
+            and await subscription_service.is_stale_rc_event(session, app_user_id, event_ts)
+        ):
+            logger.info(
+                "RevenueCat stale event ignored type=%s app_user_id=%s event_ts=%s",
+                event_type,
+                app_user_id,
+                event_ts,
+            )
+            if event_id:
+                await _mark_processed(redis, event_id)
+            return
+
         processed = await _dispatch_event(
             session, redis, settings, payload, event_type, app_user_id
         )
+        if processed and event_ts is not None and event_type in _ORDERED_EVENTS:
+            await subscription_service.advance_rc_event_watermark(session, app_user_id, event_ts)
+            if event_type == "TRANSFER":
+                event = payload.get("event")
+                if isinstance(event, dict):
+                    old_ids = event.get("transferred_from") or []
+                    if isinstance(old_ids, list):
+                        for oid in old_ids:
+                            if isinstance(oid, str) and oid.strip():
+                                await subscription_service.advance_rc_event_watermark(
+                                    session, oid.strip(), event_ts
+                                )
         if processed and event_id:
             await _mark_processed(redis, event_id)
     finally:

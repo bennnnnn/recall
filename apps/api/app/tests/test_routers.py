@@ -1168,6 +1168,123 @@ def test_revenuecat_webhook_expiration_still_downgrades():
     assert apply_plan.await_args.kwargs["plan"] == "free"
 
 
+def test_revenuecat_webhook_ignores_stale_expiration_after_purchase():
+    """INITIAL_PURCHASE then older EXPIRATION must not downgrade (plan stays pro)."""
+    import fakeredis.aioredis
+
+    from app.core.config import get_settings
+    from app.core.deps import get_redis
+
+    uid = uuid4()
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        environment="development",
+        revenuecat_webhook_auth="",
+        dev_allow_unauthed_webhooks=True,
+        email_enabled=False,
+    )
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    app.dependency_overrides[get_redis] = lambda: fake_redis
+
+    purchase = {
+        "event": {
+            "type": "INITIAL_PURCHASE",
+            "id": "evt-purchase",
+            "app_user_id": str(uid),
+            "event_timestamp_ms": 2000,
+        }
+    }
+    stale_expiration = {
+        "event": {
+            "type": "EXPIRATION",
+            "id": "evt-expire",
+            "app_user_id": str(uid),
+            "event_timestamp_ms": 1000,
+        }
+    }
+
+    with (
+        patch(
+            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            AsyncMock(return_value=True),
+        ) as apply_plan,
+        patch(
+            "app.routers.webhooks.subscription_service.is_stale_rc_event",
+            AsyncMock(side_effect=[False, True]),
+        ),
+        patch(
+            "app.routers.webhooks.subscription_service.advance_rc_event_watermark",
+            AsyncMock(),
+        ) as advance,
+    ):
+        client = TestClient(app)
+        assert client.post("/webhooks/revenuecat", json=purchase).status_code == 204
+        assert client.post("/webhooks/revenuecat", json=stale_expiration).status_code == 204
+
+    assert apply_plan.await_count == 1
+    assert apply_plan.await_args.kwargs["plan"] == "pro"
+    advance.assert_awaited_once()
+    assert advance.await_args.args[2] == 2000
+
+
+def test_revenuecat_webhook_newer_expiration_still_applies_after_purchase():
+    import fakeredis.aioredis
+
+    from app.core.config import get_settings
+    from app.core.deps import get_redis
+
+    uid = uuid4()
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        environment="development",
+        revenuecat_webhook_auth="",
+        dev_allow_unauthed_webhooks=True,
+        email_enabled=False,
+    )
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    app.dependency_overrides[get_redis] = lambda: fake_redis
+
+    purchase = {
+        "event": {
+            "type": "INITIAL_PURCHASE",
+            "id": "evt-purchase-2",
+            "app_user_id": str(uid),
+            "event_timestamp_ms": 1000,
+        }
+    }
+    expiration = {
+        "event": {
+            "type": "EXPIRATION",
+            "id": "evt-expire-2",
+            "app_user_id": str(uid),
+            "event_timestamp_ms": 2000,
+        }
+    }
+
+    with (
+        patch(
+            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            AsyncMock(return_value=True),
+        ) as apply_plan,
+        patch(
+            "app.routers.webhooks.subscription_service.is_stale_rc_event",
+            AsyncMock(return_value=False),
+        ),
+        patch(
+            "app.routers.webhooks.subscription_service.advance_rc_event_watermark",
+            AsyncMock(),
+        ) as advance,
+    ):
+        client = TestClient(app)
+        assert client.post("/webhooks/revenuecat", json=purchase).status_code == 204
+        assert client.post("/webhooks/revenuecat", json=expiration).status_code == 204
+
+    assert apply_plan.await_count == 2
+    assert apply_plan.await_args_list[0].kwargs["plan"] == "pro"
+    assert apply_plan.await_args_list[1].kwargs["plan"] == "free"
+    assert [c.args[2] for c in advance.await_args_list] == [1000, 2000]
+
+
 def test_expiration_overflow_ms_returns_none():
     """Huge expiration_at_ms must not raise (webhook 500 / retry storm)."""
     from app.routers.webhooks import _expiration

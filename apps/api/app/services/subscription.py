@@ -15,6 +15,40 @@ from app.repositories import users as users_repo
 logger = logging.getLogger(__name__)
 
 
+async def is_stale_rc_event(
+    session: AsyncSession,
+    app_user_id: str,
+    event_timestamp_ms: int,
+) -> bool:
+    """True when *event_timestamp_ms* is older than the user's last RC event."""
+    try:
+        user_id = UUID(app_user_id)
+    except ValueError:
+        return False
+    user = await users_repo.get_by_id(session, user_id)
+    if user is None or user.rc_last_event_at_ms is None:
+        return False
+    return event_timestamp_ms < user.rc_last_event_at_ms
+
+
+async def advance_rc_event_watermark(
+    session: AsyncSession,
+    app_user_id: str,
+    event_timestamp_ms: int,
+) -> None:
+    """Move the per-user RC event watermark forward (never backward)."""
+    try:
+        user_id = UUID(app_user_id)
+    except ValueError:
+        return
+    user = await users_repo.get_by_id(session, user_id)
+    if user is None:
+        return
+    if user.rc_last_event_at_ms is not None and event_timestamp_ms <= user.rc_last_event_at_ms:
+        return
+    await users_repo.update(session, user, rc_last_event_at_ms=event_timestamp_ms)
+
+
 def _plan_from_revenuecat_payload(payload: dict, settings: Settings) -> str:
     active = revenuecat_gateway.entitlement_active(
         payload,
