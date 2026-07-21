@@ -761,6 +761,10 @@ class MemoryWriteLockBusyError(Exception):
         self.user_id = user_id
 
 
+class MemoryEmptyTextError(Exception):
+    """Edited memory text normalized to empty."""
+
+
 # Background jobs just skip a run when the lock is held (best-effort, next
 # scheduled pass will catch up). A user tapping delete shouldn't silently
 # no-op for the same reason — without this, a delete racing a same-second
@@ -882,6 +886,51 @@ async def delete_memory_fact(
             await invalidate_memory_block(user_id)
             return True
         return False
+    finally:
+        await release_memory_write_lock(user_id, lock_token)
+
+
+async def update_memory(
+    session: AsyncSession,
+    settings: Settings,
+    user_id: UUID,
+    memory_id: UUID,
+    text: str,
+) -> Memory | None:
+    """Replace a memory section's text, re-embed, and invalidate caches."""
+    from app.gateways import embedding_gateway
+    from app.repositories import memories as memories_repo
+
+    clean = normalize_memory_text(text)
+    if not clean:
+        raise MemoryEmptyTextError()
+    stamped = stamp_memory_as_of(clean)
+
+    lock_token = await _acquire_memory_write_lock_or_raise(user_id)
+    try:
+        memory = await memories_repo.get_by_id(session, user_id, memory_id)
+        if memory is None:
+            return None
+        try:
+            new_vec = await embedding_gateway.embed_text(settings, stamped)
+        except Exception:
+            logger.debug("Memory re-embed on edit failed", exc_info=True)
+            new_vec = None
+        if new_vec is not None:
+            updated = await memories_repo.update_text_and_embedding(
+                session,
+                user_id,
+                memory_id,
+                stamped,
+                new_vec,
+                embedding_gateway.serialize_embedding(new_vec),
+                embedding_text_hash=embedding_text_hash(stamped),
+            )
+        else:
+            updated = await memories_repo.update_text(session, user_id, memory_id, stamped)
+        if updated is not None:
+            await invalidate_memory_block(user_id)
+        return updated
     finally:
         await release_memory_write_lock(user_id, lock_token)
 

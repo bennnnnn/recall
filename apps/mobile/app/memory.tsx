@@ -1,11 +1,13 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -13,6 +15,7 @@ import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
+import { AppSheet } from "@/components/AppSheet";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { useAuth } from "@/contexts/AuthContext";
@@ -42,6 +45,7 @@ type MemorySectionCardProps = {
   section: Memory;
   expanded: boolean;
   onToggle: () => void;
+  onEditSection: () => void;
   onDeleteSection: () => void;
   onDeleteFact: (factIndex: number, factText: string) => void;
 };
@@ -50,6 +54,7 @@ function MemorySectionCard({
   section,
   expanded,
   onToggle,
+  onEditSection,
   onDeleteSection,
   onDeleteFact,
   styles: s,
@@ -81,14 +86,24 @@ function MemorySectionCard({
             />
           ) : null}
         </Pressable>
-        <Pressable
-          hitSlop={14}
-          onPress={onDeleteSection}
-          accessibilityRole="button"
-          accessibilityLabel={t("memory.delete_section_a11y")}
-        >
-          <Ionicons name="trash-outline" size={16} color={theme.textTertiary} />
-        </Pressable>
+        <View style={s.groupHeaderActions}>
+          <Pressable
+            hitSlop={14}
+            onPress={onEditSection}
+            accessibilityRole="button"
+            accessibilityLabel={t("memory.edit_section_a11y")}
+          >
+            <Ionicons name="create-outline" size={16} color={theme.textTertiary} />
+          </Pressable>
+          <Pressable
+            hitSlop={14}
+            onPress={onDeleteSection}
+            accessibilityRole="button"
+            accessibilityLabel={t("memory.delete_section_a11y")}
+          >
+            <Ionicons name="trash-outline" size={16} color={theme.textTertiary} />
+          </Pressable>
+        </View>
       </View>
       <View style={s.card}>
         {showFacts ? (
@@ -157,6 +172,9 @@ export default function MemoryScreen() {
   const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
+  const [editing, setEditing] = useState<Memory | null>(null);
+  const [draftText, setDraftText] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
   const hasLoadedRef = useRef(Boolean(cachedOnMount));
 
   const toggleSection = useCallback((type: string) => {
@@ -209,6 +227,39 @@ export default function MemoryScreen() {
     return TYPE_ORDER.map((type) => byType.get(type)).filter(Boolean) as Memory[];
   }, [memories]);
 
+  const closeEdit = useCallback(() => {
+    if (savingEdit) return;
+    setEditing(null);
+    setDraftText("");
+  }, [savingEdit]);
+
+  const saveEdit = useCallback(async () => {
+    if (!token || !editing) return;
+    const nextText = draftText.trim();
+    if (!nextText) {
+      Alert.alert(t("common.error"), t("memory.edit_failed"));
+      return;
+    }
+    const snapshot = memories;
+    const editingId = editing.id;
+    setSavingEdit(true);
+    applyMemories(
+      memories.map((item) => (item.id === editingId ? { ...item, text: nextText } : item)),
+    );
+    try {
+      const updated = await api.updateMemory(token, editingId, nextText);
+      // Prefer server text (includes as-of stamp) over optimistic draft.
+      applyMemories(snapshot.map((item) => (item.id === updated.id ? updated : item)));
+      setEditing(null);
+      setDraftText("");
+    } catch {
+      applyMemories(snapshot);
+      Alert.alert(t("common.error"), t("memory.edit_failed"));
+    } finally {
+      setSavingEdit(false);
+    }
+  }, [token, editing, draftText, memories, applyMemories, t]);
+
   if (!token) return <Redirect href="/login" />;
 
   if (loading && memories.length === 0) {
@@ -244,102 +295,144 @@ export default function MemoryScreen() {
   }
 
   return (
-    <ScrollView
-      style={s.root}
-      contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 24 }]}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={async () => {
-            setRefreshing(true);
-            await load({ silent: true, force: true });
-            setRefreshing(false);
-          }}
-        />
-      }
-    >
-      <Text style={s.heading}>{t("memory.heading")}</Text>
-      <Text style={s.subheading}>{t("memory.section_hint")}</Text>
-      {sections.map((section) => (
-        <MemorySectionCard
-          key={section.type}
-          section={section}
-          expanded={expandedTypes.has(section.type)}
-          onToggle={() => toggleSection(section.type)}
-          styles={s}
-          theme={theme}
-          onDeleteSection={() => {
-            if (!token) return;
-            Alert.alert(
-              t("memory.delete_confirm_title"),
-              t("memory.delete_confirm_body"),
-              [
-                { text: t("common.cancel"), style: "cancel" },
-                {
-                  text: t("common.delete"),
-                  style: "destructive",
-                  onPress: async () => {
-                    const snapshot = memories;
-                    applyMemories(memories.filter((item) => item.type !== section.type));
-                    setExpandedTypes((prev) => {
-                      const next = new Set(prev);
-                      next.delete(section.type);
-                      return next;
-                    });
-                    try {
-                      await api.deleteMemorySection(token, section.type);
-                    } catch {
-                      applyMemories(snapshot);
-                      Alert.alert(t("common.error"), t("memory.delete_failed"));
-                    }
+    <>
+      <ScrollView
+        style={s.root}
+        contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 24 }]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={async () => {
+              setRefreshing(true);
+              await load({ silent: true, force: true });
+              setRefreshing(false);
+            }}
+          />
+        }
+      >
+        <Text style={s.heading}>{t("memory.heading")}</Text>
+        <Text style={s.subheading}>{t("memory.section_hint")}</Text>
+        {sections.map((section) => (
+          <MemorySectionCard
+            key={section.type}
+            section={section}
+            expanded={expandedTypes.has(section.type)}
+            onToggle={() => toggleSection(section.type)}
+            styles={s}
+            theme={theme}
+            onEditSection={() => {
+              setEditing(section);
+              setDraftText(section.text);
+            }}
+            onDeleteSection={() => {
+              if (!token) return;
+              Alert.alert(
+                t("memory.delete_confirm_title"),
+                t("memory.delete_confirm_body"),
+                [
+                  { text: t("common.cancel"), style: "cancel" },
+                  {
+                    text: t("common.delete"),
+                    style: "destructive",
+                    onPress: async () => {
+                      const snapshot = memories;
+                      applyMemories(memories.filter((item) => item.type !== section.type));
+                      setExpandedTypes((prev) => {
+                        const next = new Set(prev);
+                        next.delete(section.type);
+                        return next;
+                      });
+                      try {
+                        await api.deleteMemorySection(token, section.type);
+                      } catch {
+                        applyMemories(snapshot);
+                        Alert.alert(t("common.error"), t("memory.delete_failed"));
+                      }
+                    },
                   },
-                },
-              ],
-            );
-          }}
-          onDeleteFact={(factIndex, factText) => {
-            if (!token) return;
-            Alert.alert(
-              t("memory.delete_fact_title"),
-              t("memory.delete_fact_body"),
-              [
-                { text: t("common.cancel"), style: "cancel" },
-                {
-                  text: t("common.delete"),
-                  style: "destructive",
-                  onPress: async () => {
-                    const snapshot = memories;
-                    const facts = splitMemoryFacts(section.text);
-                    facts.splice(factIndex, 1);
-                    if (facts.length === 0) {
-                      applyMemories(memories.filter((item) => item.id !== section.id));
-                    } else {
-                      const nextText = joinMemoryFacts(facts);
-                      applyMemories(
-                        memories.map((item) =>
-                          item.id === section.id ? { ...item, text: nextText } : item,
-                        ),
-                      );
-                    }
-                    try {
-                      await api.deleteMemoryFact(token, section.id, factIndex, factText);
-                    } catch {
-                      // A 404 here can mean a background job already changed this
-                      // fact (see the server-side content-match fix) — reload from
-                      // the server instead of reverting to our now-stale snapshot,
-                      // so the user sees what's actually there.
-                      applyMemories(snapshot);
-                      void load({ silent: true, force: true });
-                      Alert.alert(t("common.error"), t("memory.delete_failed"));
-                    }
+                ],
+              );
+            }}
+            onDeleteFact={(factIndex, factText) => {
+              if (!token) return;
+              Alert.alert(
+                t("memory.delete_fact_title"),
+                t("memory.delete_fact_body"),
+                [
+                  { text: t("common.cancel"), style: "cancel" },
+                  {
+                    text: t("common.delete"),
+                    style: "destructive",
+                    onPress: async () => {
+                      const snapshot = memories;
+                      const facts = splitMemoryFacts(section.text);
+                      facts.splice(factIndex, 1);
+                      if (facts.length === 0) {
+                        applyMemories(memories.filter((item) => item.id !== section.id));
+                      } else {
+                        const nextText = joinMemoryFacts(facts);
+                        applyMemories(
+                          memories.map((item) =>
+                            item.id === section.id ? { ...item, text: nextText } : item,
+                          ),
+                        );
+                      }
+                      try {
+                        await api.deleteMemoryFact(token, section.id, factIndex, factText);
+                      } catch {
+                        // A 404 here can mean a background job already changed this
+                        // fact (see the server-side content-match fix) — reload from
+                        // the server instead of reverting to our now-stale snapshot,
+                        // so the user sees what's actually there.
+                        applyMemories(snapshot);
+                        void load({ silent: true, force: true });
+                        Alert.alert(t("common.error"), t("memory.delete_failed"));
+                      }
+                    },
                   },
-                },
-              ],
-            );
-          }}
+                ],
+              );
+            }}
+          />
+        ))}
+      </ScrollView>
+
+      <AppSheet
+        visible={editing != null}
+        onClose={closeEdit}
+        variant="bottom"
+        keyboardAvoiding
+        backdropDismiss={!savingEdit}
+      >
+        <Text style={s.editTitle}>{t("memory.edit_title")}</Text>
+        <Text style={s.editHint}>{t("memory.edit_hint")}</Text>
+        <TextInput
+          style={s.editInput}
+          value={draftText}
+          onChangeText={setDraftText}
+          multiline
+          editable={!savingEdit}
+          autoFocus
+          textAlignVertical="top"
         />
-      ))}
-    </ScrollView>
+        <View style={s.editActions}>
+          <Pressable style={s.editCancel} onPress={closeEdit} disabled={savingEdit}>
+            <Text style={s.editCancelText}>{t("common.cancel")}</Text>
+          </Pressable>
+          <Pressable
+            style={[s.editSave, savingEdit && s.editSaveDisabled]}
+            onPress={() => void saveEdit()}
+            disabled={savingEdit}
+          >
+            {savingEdit ? (
+              <ActivityIndicator color={theme.onPrimary} />
+            ) : (
+              <Text style={s.editSaveText}>{t("common.save")}</Text>
+            )}
+          </Pressable>
+        </View>
+      </AppSheet>
+    </>
   );
 }
 
@@ -375,6 +468,11 @@ function makeStyles(theme: Theme) {
     justifyContent: "space-between",
     gap: 8,
   },
+  groupHeaderActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
   groupTitle: {
     fontSize: 13,
     fontWeight: "700",
@@ -402,5 +500,59 @@ function makeStyles(theme: Theme) {
     marginTop: 8,
   },
   conf: { fontSize: 12, color: theme.textTertiary, marginTop: 8 },
+  editTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: theme.text,
+    marginBottom: 6,
+  },
+  editHint: {
+    fontSize: 14,
+    color: theme.textSecondary,
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  editInput: {
+    minHeight: 140,
+    maxHeight: 240,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.border,
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 15,
+    color: theme.text,
+    backgroundColor: theme.bg,
+    marginBottom: 16,
+  },
+  editActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 10,
+  },
+  editCancel: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  editCancelText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: theme.textSecondary,
+  },
+  editSave: {
+    minWidth: 96,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: theme.primary,
+  },
+  editSaveDisabled: { opacity: 0.7 },
+  editSaveText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: theme.onPrimary,
+  },
   });
 }

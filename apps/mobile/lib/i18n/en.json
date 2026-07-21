@@ -880,5 +880,10 @@
   "common.saved": "Saved",
   "common.saved_to_photos": "Image saved to your photos.",
   "common.share_failed": "Share failed",
-  "common.share_image_error": "Could not share this image."
+  "common.share_image_error": "Could not share this image.",
+  "common.save": "Save",
+  "memory.edit_section_a11y": "Edit this memory section",
+  "memory.edit_title": "Edit memory",
+  "memory.edit_hint": "Fix anything that’s wrong — Recall will use this going forward.",
+  "memory.edit_failed": "Could not save memory. Try again."
 }

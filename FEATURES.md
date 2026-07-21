@@ -136,9 +136,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Semantic recall** — when `semantic_memory_enabled` (default on), the user's latest message
   is embedded and the top matching memories are selected (cosine similarity on stored embeddings;
   falls back to priority ordering when embeddings are missing).
-- ✅ **Memory screen** — view memories grouped by type, with confidence, and **delete** them.
-  Storage is one consolidated row per type (`profile` / `preference` / …); deleting a single
-  fact rewrites that section rather than removing a separate row per bullet.
+- ✅ **Memory screen** — view memories grouped by type, with confidence, and **edit / delete**
+  them. Storage is one consolidated row per type (`profile` / `preference` / …); deleting a
+  single fact rewrites that section rather than removing a separate row per bullet.
+  `PATCH /memories/{id}` updates text, re-embeds, and invalidates caches.
 - ✅ **Memory toggle** — turn learning on/off in Settings.
 - ✅ **Structured profile fields** — name, age, country, and job are discrete account fields
   (editable in Settings → Profile) and injected into the chat system profile block.

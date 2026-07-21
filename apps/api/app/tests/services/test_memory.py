@@ -832,6 +832,59 @@ def test_split_and_join_memory_facts():
 
 
 @pytest.mark.asyncio
+async def test_update_memory_rewrites_text_and_reembeds():
+    from app.services.memory import update_memory
+
+    user_id = uuid4()
+    session = AsyncMock()
+    settings = Settings(mock_llm_enabled=True)
+    memory = _memory("fact", "Old fact about hiking", 0.9)
+    memory.id = uuid4()
+    vector = [0.1, 0.2, 0.3]
+
+    async def fake_update_text_and_embedding(
+        session, user_id, memory_id, text, embedding, embedding_json, *, embedding_text_hash=None
+    ):
+        memory.text = text
+        memory.embedding = embedding
+        memory.embedding_json = embedding_json
+        memory.embedding_text_hash = embedding_text_hash
+        return memory
+
+    with (
+        patch(
+            "app.repositories.memories.get_by_id",
+            AsyncMock(return_value=memory),
+        ),
+        patch(
+            "app.gateways.embedding_gateway.embed_text",
+            AsyncMock(return_value=vector),
+        ),
+        patch(
+            "app.gateways.embedding_gateway.serialize_embedding",
+            return_value="[0.1,0.2,0.3]",
+        ),
+        patch(
+            "app.repositories.memories.update_text_and_embedding",
+            AsyncMock(side_effect=fake_update_text_and_embedding),
+        ) as update_embed,
+        patch("app.services.memory.invalidate_memory_block", AsyncMock()) as invalidate,
+        patch(
+            "app.services.memory.acquire_memory_write_lock",
+            AsyncMock(return_value=True),
+        ),
+        patch("app.services.memory.release_memory_write_lock", AsyncMock()),
+    ):
+        updated = await update_memory(session, settings, user_id, memory.id, "Likes hiking trails")
+
+    assert updated is not None
+    assert updated.text.startswith("As of ")
+    assert "Likes hiking trails" in updated.text
+    update_embed.assert_awaited_once()
+    invalidate.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_delete_memory_fact_removes_one_sentence():
     from app.services.memory import delete_memory_fact
 
