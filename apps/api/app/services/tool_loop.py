@@ -90,6 +90,7 @@ async def run_tool_rounds(
                 model_alias=model_alias,
                 messages=working,
                 tools=tools,
+                max_tokens=settings.max_output_tokens,
                 usage=usage,
                 timeout_seconds=settings.mcp_tool_loop_timeout_seconds,
             )

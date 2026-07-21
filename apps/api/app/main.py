@@ -114,7 +114,7 @@ def create_app() -> FastAPI:
         # Explicit method/header allowlists — `["*"]` here reflects every
         # method/header the client might use and lets the browser block the
         # rest, instead of echoing whatever the client sends.
-        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
     )
     # Baseline security headers (nosniff / no-frame / no-referrer / HSTS in

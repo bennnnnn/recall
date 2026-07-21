@@ -16,7 +16,10 @@ from app.services.quota import QUOTA_EXCEEDED_MESSAGE
 
 @pytest.fixture(autouse=True)
 def _ws_rate_limit():
-    with patch("app.routers.ws.allow_request_fail_closed", AsyncMock(return_value=True)):
+    with (
+        patch("app.routers.ws.allow_request_fail_closed", AsyncMock(return_value=True)),
+        patch("app.core.chat_rate_limit.allow_chat_message", AsyncMock(return_value=True)),
+    ):
         yield
 
 
@@ -690,17 +693,18 @@ def test_ws_message_rate_limit_blocks_second_chargeable_message():
     app = _app(user)
     msg_calls = {"count": 0}
 
-    async def allow_side_effect(_redis, key, *, limit, window_seconds):
-        if str(key).startswith("rate:ws:msg:"):
-            msg_calls["count"] += 1
-            return msg_calls["count"] <= 1
-        return True
+    async def allow_chat_side_effect(_redis, user_id):
+        msg_calls["count"] += 1
+        return msg_calls["count"] <= 1
 
     async def fake_stream(*args, **kwargs):
         yield "ok"
 
     with (
-        patch("app.routers.ws.allow_request_fail_closed", side_effect=allow_side_effect),
+        patch(
+            "app.core.chat_rate_limit.allow_chat_message",
+            side_effect=allow_chat_side_effect,
+        ),
         patch(
             "app.routers.ws.tokens_service.verify_access_token",
             AsyncMock(return_value=user.id),

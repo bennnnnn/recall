@@ -33,7 +33,6 @@ from app.services.chat.stream_events import (
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["websocket"])
 
-_WS_MSG_RATE_LIMIT = 30
 _WS_MSG_WINDOW_SECONDS = 60
 _WS_CONNECT_RATE_LIMIT = 30
 _WS_HANDSHAKE_RATE_LIMIT = 60  # unauthenticated connects per IP per minute
@@ -53,12 +52,9 @@ async def _safe_send_json(websocket: WebSocket, payload: dict) -> bool:
 
 async def _ws_rate_limit(redis, user_id: UUID) -> bool:
     """Per-message throttle for chat actions on an open WebSocket."""
-    return await allow_request_fail_closed(
-        redis,
-        f"rate:ws:msg:{user_id}",
-        limit=_WS_MSG_RATE_LIMIT,
-        window_seconds=_WS_MSG_WINDOW_SECONDS,
-    )
+    from app.core.chat_rate_limit import allow_chat_message
+
+    return await allow_chat_message(redis, user_id)
 
 
 async def _ws_connect_rate_limit(redis, user_id: UUID) -> bool:

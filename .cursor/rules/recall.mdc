@@ -10,7 +10,7 @@ Read `CLAUDE.md` at repo root for full architecture.
 ## Golden rules
 
 1. Never put provider API keys in the mobile app — backend `.env` only.
-2. Use model aliases in app code: `free-chat`, `smart-chat`, `title-model`, `memory-model`. Provider mapping only in `apps/api/app/gateways/litellm_gateway.py`.
+2. Use model aliases in app code: `free-chat`, `smart-chat`, `title-model`, `memory-model`. Alias → provider mapping lives in `apps/api/app/services/model_catalog.py` (LiteLLM calls via `gateways/litellm_gateway.py`).
 3. Never send full chat history to the model — memory + recent window (~10–20 messages) only.
 4. Topic generation and memory extraction are best-effort background jobs — must never block streaming.
 5. No arbitrary code execution — render/highlight code only. The sole exception: HTML/CSS/JS preview in a sandboxed WebView (and chart/diagram rendering). Never run Python/shell/etc., and never run code outside that isolated WebView. The preview WebView needs a dev build (not Expo Go).

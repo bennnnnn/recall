@@ -198,3 +198,44 @@ def parse_vocab_quiz(content: str) -> ParsedVocabQuiz | None:
         correct_text=correct_text,
         choices=tuple(choice_pairs),
     )
+
+
+async def verified_correct_letter(quiz: ParsedVocabQuiz) -> str | None:
+    """Cheap second-pass check of the quiz answer key.
+
+    Returns a letter A-D when verification succeeds; ``None`` keeps the
+    LLM-asserted ``quiz.correct`` (mock LLM and failures also return None).
+    """
+    if not quiz.choices:
+        return None
+    from app.core.config import get_settings
+    from app.gateways import litellm_gateway
+
+    stem = (quiz.question or quiz.word or "").strip()
+    if not stem:
+        return None
+    choice_lines = "\n".join(f"{letter}. {text}" for letter, text in quiz.choices)
+    prompt = (
+        "Which choice letter is the correct answer? "
+        "Reply with only one letter: A, B, C, or D.\n\n"
+        f"Question: {stem}\n{choice_lines}"
+    )
+    try:
+        raw = await litellm_gateway.complete_text(
+            settings=get_settings(),
+            model_alias="title-model",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=4,
+        )
+    except Exception:
+        return None
+    if not raw:
+        return None
+    match = re.search(r"[A-D]", raw.upper())
+    if match is None:
+        return None
+    letter = match.group(0)
+    present = {choice_letter.upper() for choice_letter, _ in quiz.choices}
+    if letter not in present:
+        return None
+    return letter

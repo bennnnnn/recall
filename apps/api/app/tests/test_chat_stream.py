@@ -26,6 +26,10 @@ def test_stream_message_sse_returns_event_stream():
     with (
         patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
         patch(
+            "app.routers.chat_stream.allow_chat_message",
+            AsyncMock(return_value=True),
+        ),
+        patch(
             "app.routers.chat_stream._stream_tokens_sse",
             side_effect=_fake_sse_stream,
         ),
@@ -157,7 +161,13 @@ async def test_stream_message_sse_passes_cancel_event_as_should_cancel():
         return
         yield  # pragma: no cover - makes this an async generator
 
-    with patch("app.routers.chat_stream.chat_service.stream_chat_response", fake_stream):
+    with (
+        patch(
+            "app.routers.chat_stream.allow_chat_message",
+            AsyncMock(return_value=True),
+        ),
+        patch("app.routers.chat_stream.chat_service.stream_chat_response", fake_stream),
+    ):
         response = await stream_message_sse(
             chat_id=uuid4(),
             body=ChatMessageRequest(content="hi"),

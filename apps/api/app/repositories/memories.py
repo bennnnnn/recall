@@ -120,7 +120,8 @@ async def upsert_sections(
         set_={
             "text": stmt.excluded.text,
             "confidence": stmt.excluded.confidence,
-            "source_chat_id": stmt.excluded.source_chat_id,
+            # Consolidation passes source_chat_id=None — keep prior provenance.
+            "source_chat_id": func.coalesce(stmt.excluded.source_chat_id, Memory.source_chat_id),
             "updated_at": func.now(),
         },
     )

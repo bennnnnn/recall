@@ -10,9 +10,10 @@ from contextlib import suppress
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 
+from app.core.chat_rate_limit import allow_chat_message
 from app.core.config import Settings, get_settings
 from app.core.deps import get_current_user
 from app.core.redis import get_redis_client
@@ -187,6 +188,12 @@ async def stream_message_sse(
     settings: Settings = Depends(get_settings),
 ) -> StreamingResponse:
     redis = get_redis_client()
+    if not await allow_chat_message(redis, user.id):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many chat requests. Try again shortly.",
+            headers={"Retry-After": "60"},
+        )
     cancel_event = asyncio.Event()
 
     async def generate() -> AsyncIterator[str]:
@@ -230,6 +237,12 @@ async def stream_regenerate_sse(
     settings: Settings = Depends(get_settings),
 ) -> StreamingResponse:
     redis = get_redis_client()
+    if not await allow_chat_message(redis, user.id):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many chat requests. Try again shortly.",
+            headers={"Retry-After": "60"},
+        )
     cancel_event = asyncio.Event()
 
     async def generate() -> AsyncIterator[str]:
@@ -270,6 +283,12 @@ async def stream_edit_sse(
     settings: Settings = Depends(get_settings),
 ) -> StreamingResponse:
     redis = get_redis_client()
+    if not await allow_chat_message(redis, user.id):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many chat requests. Try again shortly.",
+            headers={"Retry-After": "60"},
+        )
     cancel_event = asyncio.Event()
 
     async def generate() -> AsyncIterator[str]:

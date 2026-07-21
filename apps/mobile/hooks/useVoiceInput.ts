@@ -131,6 +131,11 @@ export function useVoiceInput({ token, onTranscript, t }: Options) {
     return () => {
       meterUnsubRef.current?.();
       meterUnsubRef.current = null;
+      const active = recordingRef.current;
+      recordingRef.current = null;
+      if (active) {
+        void active.stop().catch(() => undefined);
+      }
     };
   }, []);
 
