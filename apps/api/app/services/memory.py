@@ -126,6 +126,44 @@ def consolidation_rewrite_preserves_facts(
     return preserved / len(anchors) > min_preserved_ratio
 
 
+def accept_memory_section_rewrite(
+    *,
+    section_type: str,
+    prior: str,
+    summary: str,
+    confidence: float,
+    min_confidence: float,
+    enforce_length_floor: bool = True,
+) -> str | None:
+    """Validate a whole-section rewrite before upsert (extraction + consolidation).
+
+    Rejects low confidence, empty text, catastrophic shortening, and rewrites
+    that drop too many prior fact anchors — so a flaky LLM pass cannot silently
+    erase stable facts (name, employer, allergy, …).
+    """
+    if confidence < min_confidence:
+        return None
+    clean = normalize_memory_text(summary)
+    if not clean:
+        return None
+    # Exact-sentence dedupe can shrink well below 50%; only LLM merges use the floor.
+    if enforce_length_floor and prior and len(clean) < len(prior) * 0.5:
+        logger.warning(
+            "Skipping memory rewrite for %s: new text much shorter than existing",
+            section_type,
+        )
+        return None
+    if prior and not consolidation_rewrite_preserves_facts(prior, clean):
+        logger.warning(
+            "Skipping memory rewrite for %s: rewrite dropped prior fact anchors",
+            section_type,
+        )
+        return None
+    # Identical text is still "accepted" so extraction can re-embed stale rows;
+    # callers that only want real changes should compare against prior.
+    return clean
+
+
 def _confidence_value(memory: Memory) -> float:
     if memory.confidence is None:
         return 1.0

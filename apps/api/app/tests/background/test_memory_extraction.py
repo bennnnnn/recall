@@ -138,6 +138,91 @@ async def test_extract_and_store_drops_section_with_empty_summary_after_normaliz
 
 
 @pytest.mark.asyncio
+async def test_extract_rejects_rewrite_that_drops_prior_anchors():
+    """Whole-section extraction must not upsert a rewrite that drops stable
+    fact anchors — same preservation gate consolidation already uses."""
+    settings = Settings(memory_min_confidence=0.4)
+    prior = "User's name is Bini. User works at Hooh. User is a developer."
+    extraction = MemorySectionUpdateResult(
+        sections=[
+            MemorySectionItem(
+                type="profile",
+                summary="Bini is a software developer building mobile apps.",
+                confidence=0.95,
+            )
+        ]
+    )
+    upsert = AsyncMock()
+    existing = [SimpleNamespace(type="profile", text=prior)]
+    _, session_locals = _extraction_sessions()
+
+    with (
+        patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
+        patch(
+            "app.background.memory_extraction.users_repo.get_by_id",
+            AsyncMock(return_value=MagicMock(memory_enabled=True)),
+        ),
+        patch(
+            "app.background.memory_extraction.memories_repo.list_for_user",
+            AsyncMock(return_value=existing),
+        ),
+        patch(
+            "app.background.memory_extraction.memory_llm.revise_memory_sections",
+            AsyncMock(return_value=extraction),
+        ),
+        patch("app.background.memory_extraction.memories_repo.upsert_sections", upsert),
+    ):
+        await extract_and_store_memories(
+            settings, user_id=uuid4(), chat_id=uuid4(), transcript="I build apps"
+        )
+
+    upsert.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_extract_accepts_rewrite_that_preserves_anchors_and_adds_fact():
+    settings = Settings(memory_min_confidence=0.4)
+    prior = "User's name is Bini. User works at Hooh. User is a developer."
+    rewritten = "Bini is a developer at Hooh building Recall."
+    extraction = MemorySectionUpdateResult(
+        sections=[MemorySectionItem(type="profile", summary=rewritten, confidence=0.95)]
+    )
+    upsert = AsyncMock()
+    existing = [SimpleNamespace(type="profile", text=prior)]
+    _, session_locals = _extraction_sessions(count=2)
+
+    with (
+        patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
+        patch(
+            "app.background.memory_extraction.users_repo.get_by_id",
+            AsyncMock(return_value=MagicMock(memory_enabled=True)),
+        ),
+        patch(
+            "app.background.memory_extraction.memories_repo.list_for_user",
+            AsyncMock(side_effect=[existing, []]),
+        ),
+        patch(
+            "app.background.memory_extraction.memory_llm.revise_memory_sections",
+            AsyncMock(return_value=extraction),
+        ),
+        patch("app.background.memory_extraction.memories_repo.upsert_sections", upsert),
+        patch("app.services.memory.invalidate_memory_block", AsyncMock()),
+        patch("app.services.home.invalidate_home_cache", AsyncMock()),
+    ):
+        await extract_and_store_memories(
+            settings, user_id=uuid4(), chat_id=uuid4(), transcript="I am building Recall"
+        )
+
+    upsert.assert_awaited_once()
+    items = upsert.call_args.kwargs["items"]
+    assert len(items) == 1
+    assert items[0][0] == "profile"
+    assert "Bini" in items[0][1]
+    assert "Hooh" in items[0][1]
+    assert "Recall" in items[0][1]
+
+
+@pytest.mark.asyncio
 async def test_extract_and_store_stores_embedding_for_new_memory():
     """Full round trip: a newly-extracted section gets both the pgvector
     column and the JSON fallback populated, with a hash matching its text —

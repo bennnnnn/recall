@@ -5,6 +5,7 @@ import pytest
 
 from app.core.config import Settings
 from app.services.memory import (
+    accept_memory_section_rewrite,
     consolidation_rewrite_preserves_facts,
     extract_consolidation_anchors,
     normalize_memory_text,
@@ -109,6 +110,36 @@ def test_consolidation_rewrite_preserves_facts_rejects_exactly_20_percent_drop()
     # (dropping none) still passes.
     summary_keeps_all = "Alice loves Boston, Chicago, Denver, and Everett."
     assert consolidation_rewrite_preserves_facts(prior, summary_keeps_all) is True
+
+
+def test_accept_memory_section_rewrite_rejects_dropped_anchors():
+    prior = "User's name is Bini. User works at Hooh. User is a developer."
+    bad = "Bini is a software developer building mobile apps."
+    assert (
+        accept_memory_section_rewrite(
+            section_type="profile",
+            prior=prior,
+            summary=bad,
+            confidence=0.9,
+            min_confidence=0.4,
+        )
+        is None
+    )
+
+
+def test_accept_memory_section_rewrite_keeps_expanding_rewrite():
+    prior = "User's name is Bini. User works at Hooh. User is a developer."
+    good = "Bini is a developer at Hooh building Recall."
+    assert (
+        accept_memory_section_rewrite(
+            section_type="profile",
+            prior=prior,
+            summary=good,
+            confidence=0.9,
+            min_confidence=0.4,
+        )
+        == "Bini is a developer at Hooh building Recall"
+    )
 
 
 def test_select_memories_filters_low_confidence():

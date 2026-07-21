@@ -12,8 +12,8 @@ from app.repositories import memories as memories_repo
 from app.repositories import users as users_repo
 from app.services import memory_llm
 from app.services.memory import (
+    accept_memory_section_rewrite,
     acquire_memory_write_lock,
-    consolidation_rewrite_preserves_facts,
     embedding_text_hash,
     invalidate_memory_block,
     join_memory_facts,
@@ -89,38 +89,6 @@ async def _apply_consolidation_result(
     await invalidate_memory_block(user_id)
 
 
-def _accept_merged_summary(
-    *,
-    section_type: str,
-    prior: str,
-    summary: str,
-    confidence: float,
-    min_confidence: float,
-    enforce_length_floor: bool = True,
-) -> str | None:
-    if confidence < min_confidence:
-        return None
-    clean = normalize_memory_text(summary)
-    if not clean:
-        return None
-    # Exact-sentence dedupe can shrink well below 50%; only LLM merges use the floor.
-    if enforce_length_floor and prior and len(clean) < len(prior) * 0.5:
-        logger.warning(
-            "Skipping consolidation for %s: new text much shorter than existing",
-            section_type,
-        )
-        return None
-    if prior and not consolidation_rewrite_preserves_facts(prior, clean):
-        logger.warning(
-            "Skipping consolidation for %s: merge dropped prior fact anchors",
-            section_type,
-        )
-        return None
-    if clean == normalize_memory_text(prior):
-        return None
-    return clean
-
-
 async def consolidate_user_memory_sections(
     settings: Settings,
     *,
@@ -154,7 +122,7 @@ async def consolidate_user_memory_sections(
                 deduped = join_memory_facts(split_memory_facts(prior))
                 draft = deduped if deduped else prior
                 if draft != normalize_memory_text(prior) and not section_needs_consolidation(draft):
-                    accepted = _accept_merged_summary(
+                    accepted = accept_memory_section_rewrite(
                         section_type=section_type,
                         prior=prior,
                         summary=draft,
@@ -162,7 +130,7 @@ async def consolidate_user_memory_sections(
                         min_confidence=settings.memory_min_confidence,
                         enforce_length_floor=False,
                     )
-                    if accepted:
+                    if accepted and accepted != normalize_memory_text(prior):
                         rows.append((section_type, accepted, 0.95, None))
                     continue
 
@@ -173,14 +141,14 @@ async def consolidate_user_memory_sections(
                 )
                 if merged is None:
                     continue
-                accepted = _accept_merged_summary(
+                accepted = accept_memory_section_rewrite(
                     section_type=section_type,
                     prior=prior,
                     summary=merged.summary,
                     confidence=merged.confidence,
                     min_confidence=settings.memory_min_confidence,
                 )
-                if accepted:
+                if accepted and accepted != normalize_memory_text(prior):
                     rows.append((section_type, accepted, merged.confidence, None))
 
             if not rows:
