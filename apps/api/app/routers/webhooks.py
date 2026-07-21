@@ -126,6 +126,28 @@ def _event_type(payload: dict[str, Any]) -> str:
     return ""
 
 
+def _event_environment(payload: dict[str, Any]) -> str | None:
+    """RevenueCat sends ``event.environment`` as PRODUCTION or SANDBOX."""
+    event = payload.get("event")
+    if isinstance(event, dict):
+        value = event.get("environment")
+        if isinstance(value, str) and value.strip():
+            return value.strip().upper()
+    return None
+
+
+def _ignore_sandbox_event(payload: dict[str, Any], settings: Settings) -> bool:
+    """Sandbox purchases must not grant Pro on a production API host.
+
+    Local/dev still processes SANDBOX so storekit testing can exercise the
+    webhook path. Production (and any non-development environment) ACK with
+    204 and skip plan mutation.
+    """
+    if _event_environment(payload) != "SANDBOX":
+        return False
+    return settings.environment.strip().lower() != "development"
+
+
 def _event_field(payload: dict[str, Any], key: str) -> str | None:
     event = payload.get("event")
     if isinstance(event, dict):
@@ -245,6 +267,13 @@ async def revenuecat_webhook(
             detail="Invalid JSON",
         )
     payload: dict[str, Any] = parsed
+
+    if _ignore_sandbox_event(payload, settings):
+        logger.info(
+            "RevenueCat sandbox webhook ignored in %s environment",
+            settings.environment,
+        )
+        return
 
     # Dedup: done-marker (24h) + short NX lock so concurrent deliveries of the
     # same event_id cannot both process (duplicate receipt emails). Mark only
