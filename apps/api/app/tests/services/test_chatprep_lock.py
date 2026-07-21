@@ -285,3 +285,81 @@ def test_chat_busy_error_maps_to_busy_code():
         "code": "busy",
         "message": "Still generating — wait or cancel first.",
     }
+
+
+@pytest.mark.asyncio
+async def test_stream_edit_holds_chatprep_lock_across_delete_and_stream():
+    """Edit must acquire before destructive delete and not double-acquire."""
+    user = _user()
+    redis = AsyncMock()
+    chat_id = uuid4()
+    message_id = uuid4()
+    release = AsyncMock()
+    held: dict[str, object] = {}
+
+    async def fake_stream(*_a, **kwargs):
+        held["lock"] = kwargs.get("held_chatprep_lock")
+        yield "edited"
+
+    target = MagicMock()
+    target.id = message_id
+    target.role = "user"
+    target.created_at = MagicMock()
+
+    chat = MagicMock()
+    chat.summary_message_count = 0
+
+    with (
+        patch(
+            "app.services.chat.stream.acquire_lock",
+            AsyncMock(return_value="edit-tok"),
+        ) as acquire,
+        patch("app.services.chat.stream.release_lock", release),
+        patch("app.services.chat.stream.wait_for_pending_finalize", AsyncMock()),
+        patch("app.services.chat.stream.SessionLocal", _FakeSessionCM),
+        patch("app.services.chat.stream.users_repo.get_by_id", AsyncMock(return_value=user)),
+        patch("app.services.chat.stream.chats_repo.get_by_id", AsyncMock(return_value=chat)),
+        patch(
+            "app.services.chat.stream.messages_repo.get_by_id",
+            AsyncMock(return_value=target),
+        ),
+        patch(
+            "app.services.chat.stream.plan_service.resolve_user_model_override",
+            return_value="free-chat",
+        ),
+        patch("app.services.chat.stream.seed_usage_from_db", AsyncMock()),
+        patch(
+            "app.services.chat.stream.reserve_turn_quota",
+            AsyncMock(return_value=80),
+        ),
+        patch(
+            "app.services.chat.stream.messages_repo.ids_from_chat_at_or_after",
+            AsyncMock(return_value=[message_id]),
+        ),
+        patch(
+            "app.services.chat.stream.attachment_lifecycle.purge_attachments_for_messages",
+            AsyncMock(),
+        ),
+        patch(
+            "app.services.chat.stream.messages_repo.delete_messages_from",
+            AsyncMock(),
+        ) as delete_from,
+        patch("app.services.chat.stream.stream_chat_response", fake_stream),
+    ):
+        tokens = [
+            t
+            async for t in stream_module.stream_edit_response(
+                redis,
+                Settings(),
+                user_id=user.id,
+                chat_id=chat_id,
+                message_id=message_id,
+                new_content="revised",
+            )
+        ]
+
+    assert tokens == ["edited"]
+    acquire.assert_awaited_once_with(redis, f"chatprep:{chat_id}", 120)
+    delete_from.assert_awaited_once()
+    assert held["lock"] == (f"chatprep:{chat_id}", "edit-tok")
+    release.assert_awaited_once_with(redis, f"chatprep:{chat_id}", "edit-tok")
