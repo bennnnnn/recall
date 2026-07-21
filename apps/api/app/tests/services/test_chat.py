@@ -9,6 +9,7 @@ from app.services.chat.prompt_builder import (
     build_prompt_messages,
     format_user_name_only_block,
     format_user_profile_block,
+    should_include_profile_email,
 )
 from app.services.chat.prompt_constants import (
     is_broad_self_question,
@@ -448,7 +449,9 @@ async def test_build_prompt_includes_memory_and_style():
 
     assert messages[0]["role"] == "system"
     assert "Biniyam Mecuriaw" in messages[0]["content"]
-    assert "bmecuriaw@gmail.com" in messages[0]["content"]
+    # Account email is gated to email/tool intents — omitted on a plain "Hi".
+    assert "bmecuriaw@gmail.com" not in messages[0]["content"]
+    assert "user-saved notes about themselves" in messages[0]["content"]
     assert "short" in messages[0]["content"].lower()
     assert "1-3 sentences" in messages[0]["content"].lower()
     assert "**HTML UI**" not in messages[0]["content"]
@@ -1989,7 +1992,7 @@ def test_format_user_profile_block_includes_fields():
     user.age = 36
     user.country = "United Kingdom"
     user.job = "Mathematician"
-    block = format_user_profile_block(user)
+    block = format_user_profile_block(user, include_email=True)
     assert "Ada Lovelace" in block
     assert "ada@example.com" in block
     assert "Plan: pro" in block
@@ -1997,6 +2000,36 @@ def test_format_user_profile_block_includes_fields():
     assert "Age: 36" in block
     assert "Country: United Kingdom" in block
     assert "Job: Mathematician" in block
+
+
+def test_format_user_profile_block_omits_email_by_default():
+    user = MagicMock()
+    user.name = "Ada"
+    user.email = "ada@example.com"
+    user.plan = "free"
+    user.location = None
+    user.location_enabled = False
+    user.age = None
+    user.country = None
+    user.job = None
+    block = format_user_profile_block(user)
+    assert "ada@example.com" not in block
+    assert "Email:" not in block
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        (None, False),
+        ("", False),
+        ("Hi there", False),
+        ("What's my email?", True),
+        ("draft an email to my boss", True),
+        ("check my inbox", True),
+    ],
+)
+def test_should_include_profile_email(text, expected):
+    assert should_include_profile_email(text) is expected
 
 
 def test_format_user_profile_block_omits_empty_structured_fields():

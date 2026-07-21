@@ -21,8 +21,12 @@ from app.services.chat.finalize_registry import clear_pending_finalize
 from app.services.chat.turn_prep import RegenerateBackup, StreamContext
 from app.services.context_window import estimate_tokens
 from app.services.quota import utc_today
+from app.services.text_normalize import cap_text_head_tail
 
 logger = logging.getLogger(__name__)
+
+# Memory extraction only needs recent head+tail; keep the job payload bounded.
+_MEMORY_TRANSCRIPT_MAX_CHARS = 4000
 
 
 async def seed_usage_from_db(redis: Redis, session: AsyncSession, user_id: UUID) -> None:
@@ -209,7 +213,7 @@ async def enqueue_post_turn_jobs(
                 {
                     "user_id": str(ctx.user_id),
                     "chat_id": str(ctx.chat_id),
-                    "transcript": transcript,
+                    "transcript": cap_text_head_tail(transcript, _MEMORY_TRANSCRIPT_MAX_CHARS),
                 },
             ),
         )

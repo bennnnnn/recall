@@ -181,6 +181,30 @@ async def test_revise_memory_sections_mock():
 
 
 @pytest.mark.asyncio
+async def test_revise_memory_sections_prompt_user_stated_only():
+    settings = Settings(mock_llm_enabled=False, openrouter_api_key="test-key")
+    captured: dict[str, object] = {}
+
+    async def _capture(**kwargs):
+        captured["messages"] = kwargs["messages"]
+        return None
+
+    with patch(
+        "app.services.memory_llm.litellm_gateway.complete_structured",
+        _capture,
+    ):
+        await memory_llm.revise_memory_sections(
+            settings,
+            "User: I work at Acme\nAssistant: Congrats on the new role!",
+            existing_sections={},
+        )
+
+    system = captured["messages"][0]["content"]  # type: ignore[index]
+    assert "explicitly stated or confirmed by the User line" in system
+    assert "never from assistant inferences" in system
+
+
+@pytest.mark.asyncio
 async def test_stream_chat_completion_handles_exception():
     from app.gateways import litellm_gateway
     from app.gateways.litellm_gateway import ModelUnavailableError
