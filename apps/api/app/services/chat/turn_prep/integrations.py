@@ -98,7 +98,10 @@ async def _load_gmail_context_if_needed(
         return None
     if on_status is not None:
         await on_status("checking_inbox")
-    return await _load_gmail_context_block(user, redis, settings)
+    return await _timed_integration_load(
+        "gmail_prefetch",
+        _load_gmail_context_block(user, redis, settings),
+    )
 
 
 async def _inject_integration_blocks(

@@ -871,3 +871,31 @@ async def test_complete_structured_times_out_hung_provider():
     assert len(calls) == 2
     assert calls[0].endswith("deepseek-chat")
     assert calls[1].endswith("qwen-plus")
+
+
+@pytest.mark.asyncio
+async def test_complete_structured_no_fallback_when_disabled():
+    settings = Settings(
+        mock_llm_enabled=False,
+        openrouter_api_key="sk-or-test",
+        background_llm_timeout_seconds=1,
+        web_search_classifier_timeout_seconds=0.05,
+    )
+    calls: list[str] = []
+
+    async def fake_acompletion(**kwargs):
+        calls.append(kwargs["model"])
+        await asyncio.sleep(1)
+        return _fake_completion("{}")
+
+    with patch.object(litellm_gateway, "acompletion", AsyncMock(side_effect=fake_acompletion)):
+        result = await litellm_gateway.complete_structured(
+            settings=settings,
+            model_alias="memory-model",
+            messages=[{"role": "user", "content": "x"}],
+            schema=TodoExtractionResult,
+            timeout_seconds=settings.web_search_classifier_timeout_seconds,
+            allow_fallback=False,
+        )
+    assert result is None
+    assert len(calls) == 1

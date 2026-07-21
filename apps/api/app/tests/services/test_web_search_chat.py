@@ -17,8 +17,6 @@ async def test_build_prompt_includes_web_search_hint():
     user.location = None
     user.response_tone = "funny"
 
-    session = AsyncMock()
-
     with (
         patch(
             "app.services.memory.get_memory_block",
@@ -38,6 +36,6 @@ async def test_build_prompt_includes_web_search_hint():
             AsyncMock(return_value=None),
         ),
     ):
-        messages = await build_prompt_messages(session, user, uuid4(), Settings())
+        messages = await build_prompt_messages(user, uuid4(), Settings())
 
     assert "Web search results" in messages[0]["content"]

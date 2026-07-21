@@ -146,8 +146,6 @@ async def test_build_prompt_includes_email_draft_hint_for_email_request():
     user.locale = "en"
     user.timezone = None
 
-    session = AsyncMock()
-
     with (
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
         patch(
@@ -168,7 +166,6 @@ async def test_build_prompt_includes_email_draft_hint_for_email_request():
         ),
     ):
         messages = await build_prompt_messages(
-            session,
             user,
             uuid4(),
             Settings(attachment_rag_enabled=False),
@@ -193,8 +190,6 @@ async def test_build_prompt_includes_comparison_table_hint():
     user.locale = "en"
     user.timezone = None
 
-    session = AsyncMock()
-
     with (
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
         patch(
@@ -215,7 +210,6 @@ async def test_build_prompt_includes_comparison_table_hint():
         ),
     ):
         messages = await build_prompt_messages(
-            session,
             user,
             uuid4(),
             Settings(attachment_rag_enabled=False),
@@ -286,8 +280,6 @@ async def test_build_prompt_injects_custom_instructions():
     user.timezone = None
     user.custom_instructions = "Always answer in bullet points and cite sources."
 
-    session = AsyncMock()
-
     with (
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
         patch(
@@ -307,7 +299,7 @@ async def test_build_prompt_injects_custom_instructions():
             AsyncMock(return_value=[]),
         ),
     ):
-        messages = await build_prompt_messages(session, user, uuid4(), Settings())
+        messages = await build_prompt_messages(user, uuid4(), Settings())
 
     system = messages[0]["content"]
     assert "User's personal instructions:" in system
@@ -332,7 +324,6 @@ async def test_build_prompt_reuses_passed_chat_without_db_fetch():
     passed_chat.summary = None
     passed_chat.summary_message_count = 0
 
-    session = AsyncMock()
     get_by_id = AsyncMock()
 
     with (
@@ -355,7 +346,6 @@ async def test_build_prompt_reuses_passed_chat_without_db_fetch():
         ),
     ):
         await build_prompt_messages(
-            session,
             user,
             uuid4(),
             Settings(),
@@ -378,8 +368,6 @@ async def test_build_prompt_omits_custom_instructions_block_when_empty():
     user.timezone = None
     user.custom_instructions = None
 
-    session = AsyncMock()
-
     with (
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
         patch(
@@ -399,7 +387,7 @@ async def test_build_prompt_omits_custom_instructions_block_when_empty():
             AsyncMock(return_value=[]),
         ),
     ):
-        messages = await build_prompt_messages(session, user, uuid4(), Settings())
+        messages = await build_prompt_messages(user, uuid4(), Settings())
 
     system = messages[0]["content"]
     assert "User's personal instructions:" not in system
@@ -416,8 +404,6 @@ async def test_build_prompt_includes_memory_and_style():
     user.locale = "en"
     user.timezone = "UTC"
     user.response_tone = "funny"
-
-    session = AsyncMock()
 
     with (
         patch(
@@ -445,7 +431,7 @@ async def test_build_prompt_includes_memory_and_style():
             AsyncMock(return_value=None),
         ),
     ):
-        messages = await build_prompt_messages(session, user, uuid4(), Settings())
+        messages = await build_prompt_messages(user, uuid4(), Settings())
 
     assert messages[0]["role"] == "system"
     assert "Biniyam Mecuriaw" in messages[0]["content"]
@@ -474,7 +460,6 @@ async def test_build_prompt_recalled_count_counts_section_headers():
     user.locale = "en"
     user.timezone = "UTC"
 
-    session = AsyncMock()
     out: dict[str, object] = {}
 
     # Real format: one `## {Label}` header per injected section.
@@ -505,7 +490,7 @@ async def test_build_prompt_recalled_count_counts_section_headers():
             AsyncMock(return_value=None),
         ),
     ):
-        await build_prompt_messages(session, user, uuid4(), Settings(), out=out)
+        await build_prompt_messages(user, uuid4(), Settings(), out=out)
 
     assert out["recalled"] == 2
     assert out["memory_hints"] == ["Profile", "Preferences"]
@@ -523,7 +508,6 @@ async def test_build_prompt_recalled_count_zero_when_no_memory():
     user.locale = "en"
     user.timezone = "UTC"
 
-    session = AsyncMock()
     out: dict[str, object] = {}
 
     with (
@@ -549,7 +533,7 @@ async def test_build_prompt_recalled_count_zero_when_no_memory():
             AsyncMock(return_value=None),
         ),
     ):
-        await build_prompt_messages(session, user, uuid4(), Settings(), out=out)
+        await build_prompt_messages(user, uuid4(), Settings(), out=out)
 
     assert out["recalled"] == 0
     assert out["memory_hints"] == []
@@ -566,8 +550,6 @@ async def test_build_prompt_includes_response_tone():
     user.memory_enabled = False
     user.locale = "en"
     user.timezone = "UTC"
-
-    session = AsyncMock()
 
     with (
         patch(
@@ -592,7 +574,7 @@ async def test_build_prompt_includes_response_tone():
             AsyncMock(return_value=None),
         ),
     ):
-        messages = await build_prompt_messages(session, user, uuid4(), Settings())
+        messages = await build_prompt_messages(user, uuid4(), Settings())
 
     assert "Tone: PROFESSIONAL" in messages[0]["content"]
     assert "Privacy:" in messages[0]["content"]
@@ -612,8 +594,6 @@ async def test_build_prompt_includes_locale_hint_for_amharic():
     user.locale = "am"
     user.timezone = "UTC"
 
-    session = AsyncMock()
-
     with (
         patch(
             "app.services.memory.load_relevant_memories",
@@ -637,7 +617,7 @@ async def test_build_prompt_includes_locale_hint_for_amharic():
             AsyncMock(return_value=None),
         ),
     ):
-        messages = await build_prompt_messages(session, user, uuid4(), Settings())
+        messages = await build_prompt_messages(user, uuid4(), Settings())
 
     system = messages[0]["content"]
     assert "Amharic" in system
@@ -693,11 +673,8 @@ async def test_build_prompt_minimal_for_who_am_i():
     user.locale = "en"
     user.timezone = "UTC"
 
-    session = AsyncMock()
-
     with patch("app.repositories.messages.list_recent", return_value=[]):
         messages = await build_prompt_messages(
-            session,
             user,
             AsyncMock(),
             Settings(),
@@ -728,7 +705,6 @@ async def test_build_prompt_day_planning_injects_daily_learning():
     user.timezone = "America/Los_Angeles"
     user.custom_instructions = None
 
-    session = AsyncMock()
     learning_block = (
         "Today's learning progress (local calendar day, authoritative):\n"
         "- English · Beginner (vocabulary quiz): 0/5 words mastered today "
@@ -759,7 +735,6 @@ async def test_build_prompt_day_planning_injects_daily_learning():
         ),
     ):
         messages = await build_prompt_messages(
-            session,
             user,
             uuid4(),
             Settings(attachment_rag_enabled=False),
@@ -788,8 +763,6 @@ async def test_build_prompt_minimal_for_vocab_quiz_answer():
     user.locale = "en"
     user.timezone = "UTC"
 
-    session = AsyncMock()
-
     with (
         patch("app.repositories.messages.list_recent", return_value=[]),
         patch(
@@ -798,7 +771,6 @@ async def test_build_prompt_minimal_for_vocab_quiz_answer():
         ),
     ):
         messages = await build_prompt_messages(
-            session,
             user,
             uuid4(),
             Settings(),
@@ -834,7 +806,6 @@ async def test_build_prompt_minimal_quiz_includes_project_context():
     project_id = uuid4()
     chat = MagicMock()
     chat.project_id = project_id
-    session = AsyncMock()
 
     with (
         patch("app.repositories.messages.list_recent", return_value=[]),
@@ -848,7 +819,6 @@ async def test_build_prompt_minimal_quiz_includes_project_context():
         ) as quiz_ctx_mock,
     ):
         messages = await build_prompt_messages(
-            session,
             user,
             chat_id,
             Settings(),
@@ -906,7 +876,6 @@ async def test_build_prompt_passes_client_timezone():
     user.locale = "en"
     user.timezone = "UTC"
 
-    session = AsyncMock()
     load_todos = AsyncMock(return_value=None)
 
     with (
@@ -937,7 +906,6 @@ async def test_build_prompt_passes_client_timezone():
         ) as format_time,
     ):
         await build_prompt_messages(
-            session,
             user,
             uuid4(),
             Settings(),

@@ -61,4 +61,6 @@ async def classify_web_search_need(
         messages=messages,
         schema=WebSearchClassification,
         max_tokens=64,
+        timeout_seconds=settings.web_search_classifier_timeout_seconds,
+        allow_fallback=False,
     )

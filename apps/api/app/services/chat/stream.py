@@ -208,8 +208,8 @@ async def _try_image_gen_for_turn(
     if not image_prompt:
         return False
     try:
-        async with SessionLocal() as session:
-            if replace_assistant_id is not None:
+        if replace_assistant_id is not None:
+            async with SessionLocal() as session:
                 last = await messages_repo.get_last(session, chat_id)
                 if (
                     last is not None
@@ -218,15 +218,16 @@ async def _try_image_gen_for_turn(
                 ):
                     await messages_repo.delete_message(session, last)
                     await session.commit()
-            _user_msg, asst_msg = await image_generation_service.generate_for_chat(
-                session,
-                settings,
-                user=user,
-                chat_id=chat_id,
-                prompt=image_prompt,
-                user_message_content=content.strip() if create_user_message else None,
-                create_user_message=create_user_message,
-            )
+        # generate_for_chat opens its own short-lived sessions around DB work
+        # and keeps none open during the provider HTTP call.
+        _user_msg, asst_msg = await image_generation_service.generate_for_chat(
+            settings,
+            user=user,
+            chat_id=chat_id,
+            prompt=image_prompt,
+            user_message_content=content.strip() if create_user_message else None,
+            create_user_message=create_user_message,
+        )
     except image_generation_service.ImageGenerationError as exc:
         if exc.status_code == 429:
             raise QuotaExceededError(exc.detail) from exc

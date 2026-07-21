@@ -7,7 +7,6 @@ from typing import Any
 from uuid import UUID
 
 from redis.asyncio import Redis
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.db import SessionLocal
@@ -214,7 +213,6 @@ class _PromptContextBlocks:
 
 
 async def _load_context_blocks(
-    session: AsyncSession,
     user: User,
     chat_id: UUID,
     settings: Settings,
@@ -228,9 +226,14 @@ async def _load_context_blocks(
     out: dict[str, object] | None,
     on_status: StreamStatusFn | None,
 ) -> _PromptContextBlocks:
-    """Load memory/todos/projects/RAG + recent messages for the system prompt."""
+    """Load memory/todos/projects/RAG + recent messages for the system prompt.
+
+    Each gather branch opens a short-lived session so external HTTP (RAG/memory
+    embed) cannot pin a caller's connection across the concurrent load.
+    """
     if slim_context:
-        recent_all = await messages_repo.list_recent(session, chat_id, limit=recent_limit)
+        async with SessionLocal() as s:
+            recent_all = await messages_repo.list_recent(s, chat_id, limit=recent_limit)
         if out is not None:
             out["recalled"] = 0
             out["memory_hints"] = []
@@ -244,7 +247,8 @@ async def _load_context_blocks(
         )
 
     if chat is None:
-        chat = await chats_repo.get_by_id(session, chat_id, user.id)
+        async with SessionLocal() as s:
+            chat = await chats_repo.get_by_id(s, chat_id, user.id)
 
     if on_status is not None and user.memory_enabled:
         await on_status("remembering")
@@ -298,14 +302,18 @@ async def _load_context_blocks(
             return ""
         from app.services import attachment_rag as attachment_rag_service
 
+        return await attachment_rag_service.retrieve_for_prompt(
+            settings,
+            user_id=user.id,
+            chat_id=chat_id,
+            query=query_text,
+        )
+
+    async def _recent_messages() -> list[Any]:
+        # Own session so the caller's connection is not pinned across the gather
+        # (RAG embed / memory embed can take seconds).
         async with SessionLocal() as s:
-            return await attachment_rag_service.retrieve_for_prompt(
-                s,
-                settings,
-                user_id=user.id,
-                chat_id=chat_id,
-                query=query_text,
-            )
+            return await messages_repo.list_recent(s, chat_id, limit=recent_limit)
 
     (
         memory_block,
@@ -317,7 +325,7 @@ async def _load_context_blocks(
         _memory_block(),
         _todos_section(),
         _projects_block(),
-        messages_repo.list_recent(session, chat_id, limit=recent_limit),
+        _recent_messages(),
         _attachment_rag_block(),
     )
     if out is not None:
@@ -340,7 +348,6 @@ async def _load_context_blocks(
 
 
 async def _quiz_hints(
-    session: AsyncSession,
     user: User,
     chat_id: UUID,
     settings: Settings,
@@ -365,26 +372,26 @@ async def _quiz_hints(
                 tries_exhausted=quiz_grade.tries_exhausted,
             )
         )
+    needs_project_ctx = (minimal_quiz_context or minimal_vocab_answer_context) and (
+        chat is None or chat.project_id is not None
+    )
     if minimal_quiz_context:
         parts.extend([QUIZ_ANSWER_HINT, PRIVACY_HINT])
-        if chat is None:
-            chat = await chats_repo.get_by_id(session, chat_id, user.id)
-        if chat and chat.project_id:
-            quiz_ctx = await projects_service.load_project_quiz_context(
-                session, user.id, chat.project_id, settings, quiz_grade=quiz_grade
-            )
-            if quiz_ctx:
-                parts.append(quiz_ctx)
     elif minimal_vocab_answer_context:
         parts.extend([VOCAB_CHAT_ANSWER_HINT, PRIVACY_HINT])
-        if chat is None:
-            chat = await chats_repo.get_by_id(session, chat_id, user.id)
-        if chat and chat.project_id:
-            quiz_ctx = await projects_service.load_project_quiz_context(
-                session, user.id, chat.project_id, settings, quiz_grade=quiz_grade
-            )
-            if quiz_ctx:
-                parts.append(quiz_ctx)
+    else:
+        return parts, chat
+
+    if needs_project_ctx:
+        async with SessionLocal() as session:
+            if chat is None:
+                chat = await chats_repo.get_by_id(session, chat_id, user.id)
+            if chat and chat.project_id:
+                quiz_ctx = await projects_service.load_project_quiz_context(
+                    session, user.id, chat.project_id, settings, quiz_grade=quiz_grade
+                )
+                if quiz_ctx:
+                    parts.append(quiz_ctx)
     return parts, chat
 
 
@@ -479,7 +486,6 @@ def _integration_hints(
 
 
 async def build_prompt_messages(
-    session: AsyncSession,
     user: User,
     chat_id: UUID,
     settings: Settings,
@@ -498,6 +504,11 @@ async def build_prompt_messages(
     on_status: StreamStatusFn | None = None,
     omit_message_ids: set[UUID] | None = None,
 ) -> list[dict[str, str]]:
+    """Assemble system + recent messages for a chat turn.
+
+    Context loading uses short-lived sessions so embeds cannot pin a caller
+    connection across the concurrent gather.
+    """
     recent_limit = (
         QUIZ_RECENT_MESSAGE_LIMIT
         if minimal_quiz_context or minimal_vocab_answer_context
@@ -506,7 +517,6 @@ async def build_prompt_messages(
     is_day_plan = bool(query_text and is_day_planning_question(query_text))
     slim_context = minimal_personal_context or minimal_quiz_context or minimal_vocab_answer_context
     blocks = await _load_context_blocks(
-        session,
         user,
         chat_id,
         settings,
@@ -544,7 +554,6 @@ async def build_prompt_messages(
     ]
     # Grade hint (if any) then quiz/vocab path — same order as the prior inline assembly.
     quiz_parts, chat = await _quiz_hints(
-        session,
         user,
         chat_id,
         settings,

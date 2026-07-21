@@ -9,6 +9,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.core.db import SessionLocal
 from app.gateways import embedding_gateway
 from app.gateways.storage_gateway import get_storage_gateway
 from app.models.orm import Attachment, AttachmentChunk
@@ -21,6 +22,8 @@ logger = logging.getLogger(__name__)
 
 # Cap concurrent embedding calls so a large PDF doesn't stampede the provider.
 _EMBED_CONCURRENCY = 8
+# Foreground TTFT path — match memory's live-embed budget.
+_RAG_EMBED_TIMEOUT_SECONDS = 2.0
 
 
 def chunk_text(text: str, *, chunk_chars: int = 900, overlap: int = 120) -> list[str]:
@@ -116,14 +119,18 @@ async def index_attachment(
 
 
 async def retrieve_for_prompt(
-    session: AsyncSession,
     settings: Settings,
     *,
     user_id: UUID,
     chat_id: UUID,
     query: str,
 ) -> str:
-    """Return a system-prompt block of top attachment chunks for this chat, or empty."""
+    """Return a system-prompt block of top attachment chunks for this chat, or empty.
+
+    Opens short-lived DB sessions around probe/search only — the embedding HTTP
+    call runs with no pool checkout held, so a hung provider cannot stall TTFT
+    via connection exhaustion.
+    """
     if not settings.attachment_rag_enabled:
         return ""
     query = query.strip()
@@ -132,13 +139,24 @@ async def retrieve_for_prompt(
 
     # Skip paid embed when this chat has no indexed chunks yet.
     try:
-        if not await chunks_repo.has_chunks_for_chat(session, user_id, chat_id):
-            return ""
+        async with SessionLocal() as probe_session:
+            if not await chunks_repo.has_chunks_for_chat(probe_session, user_id, chat_id):
+                return ""
     except Exception:
         logger.warning("Attachment RAG chunk probe failed for chat_id=%s", chat_id, exc_info=True)
         return ""
 
-    query_vec = await embedding_gateway.embed_text(settings, query)
+    try:
+        query_vec = await asyncio.wait_for(
+            embedding_gateway.embed_text(settings, query),
+            timeout=_RAG_EMBED_TIMEOUT_SECONDS,
+        )
+    except TimeoutError:
+        logger.warning("Attachment RAG embed timed out for chat_id=%s", chat_id)
+        return ""
+    except Exception:
+        logger.warning("Attachment RAG embed failed for chat_id=%s", chat_id, exc_info=True)
+        return ""
     if not query_vec:
         return ""
 
@@ -153,14 +171,15 @@ async def retrieve_for_prompt(
     # without attachment context — RAG is best-effort background context,
     # same as memory/todos/projects, and must degrade the same way.
     try:
-        rows = await chunks_repo.search_semantic(
-            session,
-            user_id,
-            query_vec,
-            chat_id=chat_id,
-            limit=settings.attachment_rag_chunk_limit,
-            max_distance=max_distance if len(query_vec) == chunks_repo.EMBEDDING_DIM else None,
-        )
+        async with SessionLocal() as search_session:
+            rows = await chunks_repo.search_semantic(
+                search_session,
+                user_id,
+                query_vec,
+                chat_id=chat_id,
+                limit=settings.attachment_rag_chunk_limit,
+                max_distance=max_distance if len(query_vec) == chunks_repo.EMBEDDING_DIM else None,
+            )
     except Exception:
         logger.warning("Attachment RAG retrieval failed for chat_id=%s", chat_id, exc_info=True)
         return ""
