@@ -1276,6 +1276,90 @@ def test_revenuecat_webhook_requires_auth_in_production():
     apply_mock.assert_awaited_once()
 
 
+def test_revenuecat_webhook_ignores_sandbox_in_production():
+    """Sandbox INITIAL_PURCHASE must not grant Pro on a production host."""
+    import fakeredis.aioredis
+
+    from app.core.config import get_settings
+    from app.core.deps import get_redis
+
+    uid = uuid4()
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        environment="production",
+        revenuecat_webhook_auth="whsec-secret",
+    )
+    app.dependency_overrides[get_redis] = lambda: fakeredis.aioredis.FakeRedis(
+        decode_responses=True
+    )
+
+    payload = {
+        "event": {
+            "type": "INITIAL_PURCHASE",
+            "app_user_id": str(uid),
+            "environment": "SANDBOX",
+        }
+    }
+
+    with (
+        patch(
+            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            AsyncMock(return_value=True),
+        ) as apply_mock,
+        patch("app.routers.webhooks.enqueue_purchase_receipt", AsyncMock()) as enq,
+    ):
+        client = TestClient(app)
+        r = client.post(
+            "/webhooks/revenuecat",
+            json=payload,
+            headers={"Authorization": "Bearer whsec-secret"},
+        )
+
+    assert r.status_code == 204
+    apply_mock.assert_not_awaited()
+    enq.assert_not_awaited()
+
+
+def test_revenuecat_webhook_processes_sandbox_in_development():
+    """Local StoreKit testing still needs the webhook path to mutate plan."""
+    import fakeredis.aioredis
+
+    from app.core.config import get_settings
+    from app.core.deps import get_redis
+
+    uid = uuid4()
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        environment="development",
+        revenuecat_webhook_auth="",
+        dev_allow_unauthed_webhooks=True,
+    )
+    app.dependency_overrides[get_redis] = lambda: fakeredis.aioredis.FakeRedis(
+        decode_responses=True
+    )
+
+    payload = {
+        "event": {
+            "type": "INITIAL_PURCHASE",
+            "app_user_id": str(uid),
+            "environment": "SANDBOX",
+        }
+    }
+
+    with (
+        patch(
+            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            AsyncMock(return_value=True),
+        ) as apply_mock,
+        patch("app.routers.webhooks.enqueue_purchase_receipt", AsyncMock()),
+    ):
+        client = TestClient(app)
+        r = client.post("/webhooks/revenuecat", json=payload)
+
+    assert r.status_code == 204
+    apply_mock.assert_awaited_once()
+
+
 def test_revenuecat_webhook_transfer_downgrades_old_and_syncs_new():
     import fakeredis.aioredis
 
