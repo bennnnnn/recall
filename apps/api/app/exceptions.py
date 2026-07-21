@@ -42,3 +42,11 @@ class RedisUnavailableError(Exception):
     ) -> None:
         self.message = message
         super().__init__(message)
+
+
+class PushTokenBindError(Exception):
+    """Cross-user push-token rebind rejected (missing or mismatched device_id)."""
+
+    def __init__(self, message: str) -> None:
+        self.message = message
+        super().__init__(message)

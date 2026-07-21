@@ -5,9 +5,13 @@ jest.mock("@/lib/api", () => ({
   },
 }));
 
+jest.mock("@/lib/installationId", () => ({
+  getInstallationId: jest.fn().mockResolvedValue("dev-1"),
+}));
+
 jest.mock("expo-constants", () => ({
   __esModule: true,
-  default: { installationId: "dev-1", expoConfig: { extra: { eas: { projectId: "p1" } } } },
+  default: { expoConfig: { extra: { eas: { projectId: "p1" } } } },
 }));
 
 jest.mock("expo-notifications", () => ({
@@ -33,7 +37,9 @@ import {
 } from "@/lib/pushNotifications";
 
 const registerMock = api.registerPushToken as jest.MockedFunction<typeof api.registerPushToken>;
-const unregisterMock = api.unregisterPushToken as jest.MockedFunction<typeof api.unregisterPushToken>;
+const unregisterMock = api.unregisterPushToken as jest.MockedFunction<
+  typeof api.unregisterPushToken
+>;
 
 describe("push gating on user.push_notifications_enabled", () => {
   beforeEach(() => {
@@ -47,7 +53,10 @@ describe("push gating on user.push_notifications_enabled", () => {
     expect(registerMock).toHaveBeenCalledTimes(1);
     expect(registerMock).toHaveBeenCalledWith(
       "tok",
-      expect.objectContaining({ expo_push_token: "ExponentPushToken[abc]" }),
+      expect.objectContaining({
+        expo_push_token: "ExponentPushToken[abc]",
+        device_id: "dev-1",
+      }),
     );
   });
 

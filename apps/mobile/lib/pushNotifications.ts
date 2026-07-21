@@ -4,6 +4,7 @@ import { AppState, type AppStateStatus, Platform } from "react-native";
 
 import { api } from "@/lib/api";
 import i18n from "@/lib/i18n";
+import { getInstallationId } from "@/lib/installationId";
 
 type AppRouter = {
   push: (href: unknown) => void;
@@ -76,14 +77,11 @@ export async function registerRemotePushToken(
   if (!expoPushToken) return;
 
   try {
-    const deviceId =
-      typeof Constants.installationId === "string" && Constants.installationId.trim()
-        ? Constants.installationId.trim()
-        : undefined;
+    const deviceId = await getInstallationId();
     await api.registerPushToken(apiToken, {
       expo_push_token: expoPushToken,
       platform: Platform.OS,
-      device_id: deviceId,
+      device_id: deviceId ?? undefined,
     });
   } catch {
     /* best-effort */

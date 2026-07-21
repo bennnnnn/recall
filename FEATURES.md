@@ -443,10 +443,11 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   after success (#535).
 
 ### Later / not v1
-- 🔜 **Push-token re-bind hardening** — `push_tokens.upsert` intentionally reassigns an Expo
-  token when a different user registers it (device account switch). A stolen token string could
-  silence the prior owner. Harden with proof-of-possession / device attestation, or accept the
-  tradeoff and document; ticketed from Wave 4 security smalls (not implemented in that PR).
+- ✅ **Push-token re-bind hardening** — cross-user Expo token moves require a matching
+  install `device_id` (stable id persisted on device; Expo removed `installationId`).
+  Mismatched device → 403; successful rebinds log + Sentry breadcrumb. Residual risk:
+  attacker with both the Expo token and the install id can still rebind; full device
+  attestation remains deferred.
 - ✅ **Message id time-ordering (uuid7)** — new `messages.id` values use UUID v7
   (`app.core.ids.uuid7`) so `(created_at, id)` cursors stay time-stable; existing
   uuid4 rows are unchanged.
