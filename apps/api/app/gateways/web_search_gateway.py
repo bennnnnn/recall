@@ -14,6 +14,9 @@ logger = logging.getLogger(__name__)
 
 TAVILY_SEARCH_URL = "https://api.tavily.com/search"
 DEFAULT_TIMEOUT_SECONDS = 12.0
+# Bound the DuckDuckGo to_thread fallback — a stalled DDG socket must not hang
+# TTFT or pin a shared thread-pool worker indefinitely.
+_DDG_TIMEOUT_SECONDS = 8.0
 
 
 @dataclass(frozen=True)
@@ -87,7 +90,12 @@ def _search_duckduckgo_sync(query: str, max_results: int) -> list[WebSearchHit]:
                 hits.append(hit)
 
     try:
-        with DDGS() as ddgs:
+        try:
+            ddgs_cm = DDGS(timeout=int(_DDG_TIMEOUT_SECONDS))
+        except TypeError:
+            # Older ddgs builds reject timeout= — still bounded by wait_for below.
+            ddgs_cm = DDGS()
+        with ddgs_cm as ddgs:
             if _is_newsish_query(query):
                 try:
                     _fetch(list(ddgs.news(query, max_results=max_results)))
@@ -109,7 +117,16 @@ def _search_duckduckgo_sync(query: str, max_results: int) -> list[WebSearchHit]:
 
 
 async def _search_duckduckgo(query: str, max_results: int) -> list[WebSearchHit]:
-    return await asyncio.to_thread(_search_duckduckgo_sync, query, max_results)
+    try:
+        return await asyncio.wait_for(
+            asyncio.to_thread(_search_duckduckgo_sync, query, max_results),
+            timeout=_DDG_TIMEOUT_SECONDS,
+        )
+    except Exception:
+        # Timeout or provider error: empty hits so the turn streams without
+        # search rather than hanging on the fallback path.
+        logger.warning("DuckDuckGo fallback timed out/failed for query=%r", query[:120])
+        return []
 
 
 async def _search_tavily(settings: Settings, query: str, max_results: int) -> list[WebSearchHit]:

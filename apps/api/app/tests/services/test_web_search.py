@@ -600,6 +600,25 @@ async def test_search_web_returns_empty_when_all_providers_fail():
 
 
 @pytest.mark.asyncio
+async def test_search_duckduckgo_timeout_returns_empty():
+    """Stalled DDG must not hang the turn — wait_for returns []."""
+    import asyncio
+
+    from app.gateways import web_search_gateway as gw
+
+    async def never_finishes(*_args: object, **_kwargs: object) -> list[WebSearchHit]:
+        await asyncio.sleep(3600)
+        return []
+
+    with (
+        patch.object(gw, "_DDG_TIMEOUT_SECONDS", 0.05),
+        patch.object(gw.asyncio, "to_thread", side_effect=never_finishes),
+    ):
+        hits = await gw._search_duckduckgo("slow query", max_results=3)
+    assert hits == []
+
+
+@pytest.mark.asyncio
 async def test_search_with_cache_reuses_redis(fake_redis):
     from app.services.web_search.search_cache import _search_with_cache
 
