@@ -189,6 +189,26 @@ Note: `input_tokens` / `output_tokens` on `usage_daily` are **quota-weighted**;
 
 ---
 
+## Owner actions (you — not code)
+
+These cannot be finished in a PR. Track them in the app under Lists → **Launch**
+(created for the local Dev User), or follow [`docs/PRODUCTION.md`](./docs/PRODUCTION.md).
+
+1. Install `flyctl` + `fly auth login`
+2. Confirm Neon `DATABASE_URL` + migrations at head (`0061_usage_daily_est_cost_usd`)
+3. Confirm Upstash `REDIS_URL` (`rediss://`) from the Fly region
+4. Cloudflare R2 bucket + Fly secrets: `STORAGE_BACKEND=r2` + `R2_*`
+5. Remaining Fly secrets (JWT, OpenRouter, Google, CORS, OAuth encryption key, RevenueCat,
+   `ENVIRONMENT=production`, `DEV_AUTH_ENABLED=false`, `MOCK_LLM_ENABLED=false`)
+6. `fly scale count app=1 worker=1` → `fly deploy` → `GET /health/ready`
+7. EAS production builds (iOS + Android) with `EXPO_PUBLIC_API_URL=https://<api>`
+8. On-device QA — [`docs/QA_MATRIX.md`](./docs/QA_MATRIX.md)
+9. Google OAuth consent published + Gmail production verification
+10. Landing page + support URL + privacy/terms for store listings
+11. Optional: `SENTRY_DSN` on API + mobile EAS secrets
+
+---
+
 ## Launch blockers (from FEATURES.md)
 
 1. Cost guards (speech, Tavily, R1 weight) — done in code
