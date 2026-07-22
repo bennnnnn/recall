@@ -1112,8 +1112,8 @@ async def test_stream_does_not_duplicate_user_message(stream_offline_io):
         patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
-            "app.services.web_search.augment_prompt_messages",
-            AsyncMock(side_effect=lambda msgs, *_a, **_k: (msgs, [])),
+            "app.services.web_search.build_search_augmentation",
+            AsyncMock(return_value=(None, [])),
         ),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
@@ -1172,8 +1172,8 @@ async def test_memory_extraction_runs_on_later_turn(stream_offline_io):
         patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
-            "app.services.web_search.augment_prompt_messages",
-            AsyncMock(side_effect=lambda msgs, *_a, **_k: (msgs, [])),
+            "app.services.web_search.build_search_augmentation",
+            AsyncMock(return_value=(None, [])),
         ),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
@@ -1244,8 +1244,8 @@ async def test_memory_extraction_skipped_when_memory_disabled(stream_offline_io)
         patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
-            "app.services.web_search.augment_prompt_messages",
-            AsyncMock(side_effect=lambda msgs, *_a, **_k: (msgs, [])),
+            "app.services.web_search.build_search_augmentation",
+            AsyncMock(return_value=(None, [])),
         ),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
@@ -1309,8 +1309,8 @@ async def test_memory_extraction_throttled_when_every_n_gt_1(stream_offline_io):
         patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
-            "app.services.web_search.augment_prompt_messages",
-            AsyncMock(side_effect=lambda msgs, *_a, **_k: (msgs, [])),
+            "app.services.web_search.build_search_augmentation",
+            AsyncMock(return_value=(None, [])),
         ),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
@@ -1382,8 +1382,8 @@ async def test_stream_skips_pre_reply_todo_llm_sync(stream_offline_io):
             AsyncMock(),
         ) as pre_sync,
         patch(
-            "app.services.web_search.augment_prompt_messages",
-            AsyncMock(side_effect=lambda msgs, *_a, **_k: (msgs, [])),
+            "app.services.web_search.build_search_augmentation",
+            AsyncMock(return_value=(None, [])),
         ),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
@@ -1439,8 +1439,8 @@ async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offli
         patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
-            "app.services.web_search.augment_prompt_messages",
-            AsyncMock(side_effect=lambda msgs, *_a, **_k: (msgs, [])),
+            "app.services.web_search.build_search_augmentation",
+            AsyncMock(return_value=(None, [])),
         ),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
@@ -1513,8 +1513,8 @@ async def test_stream_sets_final_content_on_cancel(stream_offline_io):
         patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
-            "app.services.web_search.augment_prompt_messages",
-            AsyncMock(side_effect=lambda msgs, *_a, **_k: (msgs, [])),
+            "app.services.web_search.build_search_augmentation",
+            AsyncMock(return_value=(None, [])),
         ),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
@@ -1763,8 +1763,8 @@ async def test_stream_closes_llm_stream_on_cancel(stream_offline_io):
         patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
-            "app.services.web_search.augment_prompt_messages",
-            AsyncMock(side_effect=lambda msgs, *_a, **_k: (msgs, [])),
+            "app.services.web_search.build_search_augmentation",
+            AsyncMock(return_value=(None, [])),
         ),
         patch("app.gateways.litellm_gateway.stream_chat_completion", tracked),
         patch("app.services.quota.adjust_usage", AsyncMock()),
@@ -1802,7 +1802,7 @@ async def test_stream_places_query_without_location_prompts_to_enable(stream_off
     fake_chat.model = "free-chat"
     fake_chat.summary = None
 
-    augment = AsyncMock(return_value=([{"role": "system", "content": "sys"}], []))
+    augment = AsyncMock(return_value=(None, []))
 
     with (
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
@@ -1823,7 +1823,7 @@ async def test_stream_places_query_without_location_prompts_to_enable(stream_off
         patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
         patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
-        patch("app.services.web_search.augment_prompt_messages", augment),
+        patch("app.services.web_search.build_search_augmentation", augment),
         patch("app.gateways.litellm_gateway.stream_chat_completion", AsyncMock()),
         patch("app.services.quota.adjust_usage", AsyncMock()),
         patch("app.repositories.usage.add_tokens", AsyncMock()),
@@ -1862,7 +1862,7 @@ async def test_stream_places_query_uses_client_location_without_profile(stream_o
     fake_chat.model = "free-chat"
     fake_chat.summary = None
 
-    augment = AsyncMock(return_value=([{"role": "system", "content": "sys"}], []))
+    augment = AsyncMock(return_value=(None, []))
 
     async def fake_stream(**kwargs):
         yield "answer"
@@ -1887,7 +1887,7 @@ async def test_stream_places_query_uses_client_location_without_profile(stream_o
         patch("app.services.email.load_gmail_context", AsyncMock(return_value=None)),
         patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
-        patch("app.services.web_search.augment_prompt_messages", augment),
+        patch("app.services.web_search.build_search_augmentation", augment),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
         patch("app.repositories.usage.add_tokens", AsyncMock()),
@@ -1980,8 +1980,8 @@ async def test_stream_persists_raw_text_when_enrichment_fails(stream_offline_io)
         )
         stack.enter_context(
             patch(
-                "app.services.web_search.augment_prompt_messages",
-                AsyncMock(side_effect=lambda msgs, *_a, **_k: (msgs, [])),
+                "app.services.web_search.build_search_augmentation",
+                AsyncMock(return_value=(None, [])),
             )
         )
         stack.enter_context(
@@ -2052,8 +2052,8 @@ async def test_stream_no_final_content_on_normal_completion(stream_offline_io):
         patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
-            "app.services.web_search.augment_prompt_messages",
-            AsyncMock(side_effect=lambda msgs, *_a, **_k: (msgs, [])),
+            "app.services.web_search.build_search_augmentation",
+            AsyncMock(return_value=(None, [])),
         ),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
         patch("app.services.quota.adjust_usage", AsyncMock()),
