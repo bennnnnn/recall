@@ -19,29 +19,18 @@ fi
 
 fail=0
 
-echo "==> Migration head is 0036"
-HEAD_FILE="$ROOT/apps/api/alembic/versions/0036_builtin_template_title_unique.py"
-if [[ ! -f "$HEAD_FILE" ]]; then
-  echo "    FAIL: expected $HEAD_FILE"
-  fail=1
-else
-  if ! rg -q 'revision: str = "0036"' "$HEAD_FILE"; then
-    echo "    FAIL: 0036 revision id mismatch"
-    fail=1
-  else
-    echo "    OK"
-  fi
-fi
-
-echo "==> Alembic reports head 0036 (needs DATABASE_URL in apps/api/.env)"
+echo "==> Alembic has a single head"
 if command -v uv >/dev/null 2>&1; then
-  if (
-    cd "$ROOT/apps/api" &&
-      uv run alembic heads 2>/dev/null | rg -q '0036'
-  ); then
-    echo "    OK"
+  HEADS_OUT="$(
+    cd "$ROOT/apps/api" && uv run alembic heads 2>/dev/null || true
+  )"
+  HEAD_COUNT="$(printf '%s\n' "$HEADS_OUT" | rg -c '\(head\)' || true)"
+  if [[ "${HEAD_COUNT:-0}" == "1" ]]; then
+    echo "    OK: $(printf '%s\n' "$HEADS_OUT" | head -1)"
   else
-    echo "    WARN: could not confirm alembic head (set DATABASE_URL and run ./scripts/dev.sh migrate)"
+    echo "    FAIL: expected exactly one alembic head, got:"
+    printf '%s\n' "${HEADS_OUT:-<empty>}" | sed 's/^/      /'
+    fail=1
   fi
 else
   echo "    WARN: uv not found — skipped"
@@ -59,15 +48,23 @@ REQUIRED_KEYS=(
   CORS_ORIGINS
   OAUTH_TOKEN_ENCRYPTION_KEY
   REVENUECAT_WEBHOOK_AUTH
+  STORAGE_BACKEND
+  R2_ACCOUNT_ID
+  R2_ACCESS_KEY_ID
+  R2_SECRET_ACCESS_KEY
+  R2_BUCKET
 )
+env_fail=0
 for key in "${REQUIRED_KEYS[@]}"; do
   if ! rg -q "^${key}=" "$ROOT/apps/api/.env.example"; then
     echo "    FAIL: missing $key in apps/api/.env.example"
-    fail=1
+    env_fail=1
   fi
 done
-if [[ "$fail" -eq 0 ]]; then
+if [[ "$env_fail" -eq 0 ]]; then
   echo "    OK"
+else
+  fail=1
 fi
 
 if [[ "$LIVE" -eq 1 ]]; then
