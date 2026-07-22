@@ -49,11 +49,16 @@ export function renderPrintMathHtml(latex: string, displayMode: boolean): string
   const trimmed = latex.trim();
   if (!trimmed) return "";
   try {
+    if (trimmed.length > 4000) {
+      return `<code class="math-fallback">${escapeHtml(trimmed.slice(0, 200))}…</code>`;
+    }
     const body = katex.renderToString(trimmed, {
       throwOnError: false,
       displayMode,
       strict: "ignore",
       output: "html",
+      maxSize: 20,
+      maxExpand: 500,
     });
     const cls = displayMode ? "math-block" : "math-inline";
     return `<span class="${cls}">${body}</span>`;

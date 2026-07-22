@@ -22,6 +22,9 @@ export type MathSegment =
  */
 export const PROTECTED_ESCAPE_MARKER = String.fromCharCode(0xe000);
 
+/** Cap nested \\frac / \\sqrt recursion on pathological model latex. */
+const MAX_MATH_NEST_DEPTH = 12;
+
 const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\pm/g, "±"],
   [/\\mp/g, "∓"],
@@ -333,7 +336,11 @@ function preprocessLatex(latex: string): string {
   return s;
 }
 
-function parseFrac(input: string, start: number): { seg: MathSegment; next: number } | null {
+function parseFrac(
+  input: string,
+  start: number,
+  depth: number,
+): { seg: MathSegment; next: number } | null {
   if (!input.startsWith("\\frac", start)) return null;
   let i = start + 5;
   while (input[i] === " ") i += 1;
@@ -349,8 +356,8 @@ function parseFrac(input: string, start: number): { seg: MathSegment; next: numb
       // Keep num/den as parsed segments (not flattened strings) so the
       // renderer can render superscripts/subscripts/fractions INSIDE a
       // fraction — \frac{x^2}{4} shows x² in the numerator, not literal "x^2".
-      num: parseSimpleLatex(numGroup.value),
-      den: parseSimpleLatex(denGroup.value),
+      num: parseSimpleLatex(numGroup.value, depth + 1),
+      den: parseSimpleLatex(denGroup.value, depth + 1),
     },
     next: denGroup.next,
   };
@@ -361,7 +368,11 @@ function parseFrac(input: string, start: number): { seg: MathSegment; next: numb
  * so a radicand containing its own braces (\sqrt{\frac{M}{2}}) parses
  * correctly instead of a flat `[^}]+` regex stopping at the FIRST `}`.
  */
-function parseSqrt(input: string, start: number): { seg: MathSegment; next: number } | null {
+function parseSqrt(
+  input: string,
+  start: number,
+  depth: number,
+): { seg: MathSegment; next: number } | null {
   if (!input.startsWith("\\sqrt", start)) return null;
   let i = start + 5;
   let degree: string | undefined;
@@ -374,7 +385,10 @@ function parseSqrt(input: string, start: number): { seg: MathSegment; next: numb
   while (input[i] === " ") i += 1;
   const group = readGroup(input, i);
   if (group) {
-    return { seg: { type: "sqrt", body: parseSimpleLatex(group.value), degree }, next: group.next };
+    return {
+      seg: { type: "sqrt", body: parseSimpleLatex(group.value, depth + 1), degree },
+      next: group.next,
+    };
   }
   // \sqrt without braces (\sqrt4, \sqrt 4) — bare single-token radicand.
   const bare = input.slice(i).match(/^[0-9a-zA-Z]+/)?.[0];
@@ -399,7 +413,10 @@ function segmentToPlain(seg: MathSegment): string {
   return `${segmentsToPlain(seg.num)}/${segmentsToPlain(seg.den)}`;
 }
 
-export function parseSimpleLatex(latex: string): MathSegment[] {
+export function parseSimpleLatex(latex: string, depth = 0): MathSegment[] {
+  if (depth > MAX_MATH_NEST_DEPTH) {
+    return [{ type: "text", value: latex }];
+  }
   const input = preprocessLatex(latex);
   const out: MathSegment[] = [];
   let i = 0;
@@ -412,14 +429,14 @@ export function parseSimpleLatex(latex: string): MathSegment[] {
   };
 
   while (i < input.length) {
-    const frac = parseFrac(input, i);
+    const frac = parseFrac(input, i, depth);
     if (frac) {
       out.push(frac.seg);
       i = frac.next;
       continue;
     }
 
-    const sqrt = parseSqrt(input, i);
+    const sqrt = parseSqrt(input, i, depth);
     if (sqrt) {
       out.push(sqrt.seg);
       i = sqrt.next;
@@ -433,7 +450,10 @@ export function parseSimpleLatex(latex: string): MathSegment[] {
       if (input[i] === "{") {
         const group = readGroup(input, i);
         if (group) {
-          out.push({ type: "sup", value: parseSimpleLatex(group.value).map(segmentToPlain).join("") });
+          out.push({
+            type: "sup",
+            value: parseSimpleLatex(group.value, depth + 1).map(segmentToPlain).join(""),
+          });
           i = group.next;
           continue;
         }
@@ -448,7 +468,10 @@ export function parseSimpleLatex(latex: string): MathSegment[] {
       if (input[i] === "{") {
         const group = readGroup(input, i);
         if (group) {
-          out.push({ type: "sub", value: parseSimpleLatex(group.value).map(segmentToPlain).join("") });
+          out.push({
+            type: "sub",
+            value: parseSimpleLatex(group.value, depth + 1).map(segmentToPlain).join(""),
+          });
           i = group.next;
           continue;
         }

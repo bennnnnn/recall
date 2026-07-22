@@ -82,3 +82,35 @@ async def test_list_recent_messages_all_succeed():
         messages = await gw.list_recent_messages(settings, "refresh-token")
 
     assert {m.id for m in messages} == {"a", "b", "c"}
+
+
+def test_walk_parts_reads_multipart_text_and_ics():
+    import base64
+
+    plain = base64.urlsafe_b64encode(b"hello plain").decode().rstrip("=")
+    ics = base64.urlsafe_b64encode(b"BEGIN:VCALENDAR").decode().rstrip("=")
+    payload = {
+        "mimeType": "multipart/mixed",
+        "parts": [
+            {"mimeType": "text/plain", "body": {"data": plain}},
+            {
+                "mimeType": "application/octet-stream",
+                "filename": "invite.ics",
+                "body": {"data": ics},
+            },
+        ],
+    }
+    text, ics_body = gw._walk_parts(payload)
+    assert text == "hello plain"
+    assert ics_body == "BEGIN:VCALENDAR"
+
+
+def test_walk_parts_caps_deep_mime_nesting():
+    """Deeply nested multipart must not recurse until stack overflow."""
+    node: dict = {"mimeType": "text/plain", "body": {"data": "aGVsbG8="}}
+    for _ in range(80):
+        node = {"mimeType": "multipart/mixed", "parts": [node]}
+    text, ics_body = gw._walk_parts(node)
+    # Depth cap means we may not reach the leaf — must still return safely.
+    assert ics_body is None
+    assert isinstance(text, str)

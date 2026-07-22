@@ -305,6 +305,37 @@ Bob | 88`;
     expect(out).not.toMatch(/^---$/m);
     expect(out).toContain("| one | two |");
   });
+
+  it("treats spaced divider chars as divider lines (linear check)", () => {
+    const input = `| Col A | Col B |
+- - - - -
+| one | two |`;
+    const out = normalizeMarkdownTables(input);
+    expect(out).not.toMatch(/^- - - - -$/m);
+    expect(out).toContain("| one | two |");
+  });
+});
+
+describe("vega retag (linear)", () => {
+  it("retags json fences that contain a Vega schema", () => {
+    const body = `{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "data": { "values": [{"a": 1}] },
+  "mark": "bar"
+}`;
+    const out = preprocessMarkdown("```json\n" + body + "\n```");
+    expect(out).toContain("```vega-lite");
+    expect(out).toContain("vega.github.io/schema");
+  });
+
+  it("wraps bare Vega JSON blocks", () => {
+    const body = `{
+"$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+"mark": "point"
+}`;
+    const out = preprocessMarkdown("Chart:\n\n" + body + "\n\nDone.");
+    expect(out).toContain("```vega-lite");
+  });
 });
 
 describe("isPipeTable", () => {

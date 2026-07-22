@@ -6,15 +6,15 @@ import re
 
 from app.services.web_search.patterns import (
     _AMBIGUOUS_NEARBY_SUBJECT,
-    _BEST_NEAR,
-    _DISTANCE_BETWEEN,
     _DISTANCE_INTENT,
     _FROM_USER,
     _IMPLICIT_LOCAL,
     _NEARBY_INTENT,
-    _NON_GEOGRAPHIC_NEAREST,
     _PROXIMITY_PHRASES,
     _QUALIFIED_NEARBY,
+    best_near_phrase,
+    distance_between_phrase,
+    non_geographic_nearest,
 )
 
 
@@ -30,13 +30,13 @@ def is_proximity_query(text: str) -> bool:
     cleaned = text.strip()
     if not cleaned:
         return False
-    if _NON_GEOGRAPHIC_NEAREST.search(cleaned):
+    if non_geographic_nearest(cleaned):
         return False
     if _NEARBY_INTENT.search(cleaned):
         return True
     if _IMPLICIT_LOCAL.search(cleaned):
         return True
-    return bool(_BEST_NEAR.search(cleaned) and "?" in cleaned)
+    return bool(best_near_phrase(cleaned) and "?" in cleaned)
 
 
 def is_distance_query(text: str) -> bool:
@@ -44,7 +44,7 @@ def is_distance_query(text: str) -> bool:
     cleaned = text.strip()
     if not cleaned or not _DISTANCE_INTENT.search(cleaned):
         return False
-    if _DISTANCE_BETWEEN.search(cleaned) and not _FROM_USER.search(cleaned):
+    if distance_between_phrase(cleaned) and not _FROM_USER.search(cleaned):
         return False
     return True
 
