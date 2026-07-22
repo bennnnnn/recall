@@ -318,6 +318,7 @@ async def test_enqueue_welcome_email_xadds_to_jobs_stream():
 
     payload = json.loads(fields["payload"])
     assert fields["type"] == "transactional_email"
+    assert fields["dedupe_key"] == f"welcome:{uid}"
     assert payload == {"kind": "welcome", "user_id": str(uid)}
 
 
@@ -346,6 +347,7 @@ async def test_enqueue_purchase_receipt_payload_shape():
     assert payload["event_type"] == "RENEWAL"
     assert payload["store"] == "app_store"
     assert payload["user_id"] == str(uid)
+    assert fields["dedupe_key"] == f"receipt:{uid}:RENEWAL:recall.pro.monthly"
 
 
 @pytest.mark.asyncio

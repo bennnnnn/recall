@@ -225,8 +225,15 @@ async def enqueue_post_turn_jobs(
     assistant_text: str,
 ) -> None:
     transcript = f"User: {ctx.user_message_content}\nAssistant: {assistant_text}"
-    job_specs: list[tuple[str, dict[str, str]]] = []
+    # (job_type, payload, dedupe_key|None) — dedupe prevents at-least-once
+    # redelivery from double-applying side effects (duplicate todos, etc.).
+    job_specs: list[tuple[str, dict[str, str], str | None]] = []
     turn_number = (ctx.prior_count + 2) // 2
+    turn_key = (
+        str(ctx.assistant_message_id)
+        if ctx.assistant_message_id is not None
+        else f"prior{ctx.prior_count}"
+    )
     should_extract_memory = turn_number == 1 or (
         settings.memory_extract_every_n_turns > 0
         and turn_number % settings.memory_extract_every_n_turns == 0
@@ -237,6 +244,8 @@ async def enqueue_post_turn_jobs(
         and ctx.user is not None
         and ctx.user.memory_enabled
     ):
+        # No dedupe: lock-busy path re-enqueues the same logical turn; a done
+        # key would drop those retries.
         job_specs.append(
             (
                 "memory",
@@ -245,6 +254,7 @@ async def enqueue_post_turn_jobs(
                     "chat_id": str(ctx.chat_id),
                     "transcript": cap_text_head_tail(transcript, _MEMORY_TRANSCRIPT_MAX_CHARS),
                 },
+                None,
             ),
         )
     if not ctx.skip_memory_jobs and todos_service.transcript_implies_todo_sync(transcript):
@@ -267,6 +277,7 @@ async def enqueue_post_turn_jobs(
                     "chat_id": str(ctx.chat_id),
                     "transcript": todo_transcript,
                 },
+                f"todosync:{ctx.chat_id}:{turn_key}",
             ),
         )
     if not ctx.skip_memory_jobs and projects_service.transcript_implies_project_sync(
@@ -281,6 +292,7 @@ async def enqueue_post_turn_jobs(
                     "chat_id": str(ctx.chat_id),
                     "transcript": transcript,
                 },
+                f"projectsync:{ctx.chat_id}:{turn_key}",
             ),
         )
     if ctx.run_title:
@@ -292,12 +304,13 @@ async def enqueue_post_turn_jobs(
                     "user_message": ctx.user_message_content,
                     "assistant_message": assistant_text,
                 },
+                f"topic:{ctx.chat_id}",
             ),
         )
     if settings.history_compression_enabled:
-        job_specs.append(("compress", {"chat_id": str(ctx.chat_id)}))
+        job_specs.append(("compress", {"chat_id": str(ctx.chat_id)}, None))
     if ctx.prior_count % 10 == 0:
-        job_specs.append(("suggestions", {"user_id": str(ctx.user_id)}))
+        job_specs.append(("suggestions", {"user_id": str(ctx.user_id)}, None))
     for attachment_id in ctx.indexable_attachment_ids:
         job_specs.append(
             (
@@ -307,7 +320,13 @@ async def enqueue_post_turn_jobs(
                     "user_id": str(ctx.user_id),
                     "chat_id": str(ctx.chat_id),
                 },
+                f"attachment_index:{attachment_id}",
             ),
         )
 
-    await asyncio.gather(*(jobs.enqueue(redis, name, payload) for name, payload in job_specs))
+    await asyncio.gather(
+        *(
+            jobs.enqueue(redis, name, payload, dedupe_key=dedupe_key)
+            for name, payload, dedupe_key in job_specs
+        )
+    )
