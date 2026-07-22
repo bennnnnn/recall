@@ -442,6 +442,8 @@ def test_select_todos_for_prompt_prioritizes_overdue():
 def test_query_implies_todos():
     assert todos_service.query_implies_todos("What's on my todo list?")
     assert todos_service.query_implies_todos("Add milk to my grocery list")
+    assert todos_service.query_implies_todos("mark laundry done")
+    assert todos_service.query_implies_todos("move dentist to tomorrow")
     assert not todos_service.query_implies_todos("Who am I?")
     assert not todos_service.query_implies_todos("Explain quantum physics")
 

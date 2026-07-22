@@ -193,23 +193,84 @@ _NEARBY_INTENT = re.compile(
     re.IGNORECASE,
 )
 
-# "Nearest" used for abstract/math/social things — not a maps search.
-_NON_GEOGRAPHIC_NEAREST = re.compile(
-    r"\b(?:nearest|closest)\b.+\b("
-    r"number|numbers|integer|prime|multiple|"
-    r"match|deadline|"
-    r"star|planet|galaxy|sun|moon|"
-    r"approach|analogy|synonym|equivalent|"
-    r"friend|relative|cousin|neighbor|neighbour|"
-    r"guess|approximation|solution|competitor|rival"
-    r")\b",
-    re.IGNORECASE,
+# Abstract "nearest X" subjects — not a maps search. Matched with bounded
+# index scans (not ``nearest.+word``) to avoid poly-ReDoS on chat text.
+_NON_GEOGRAPHIC_NEAREST_WORDS = (
+    "number",
+    "numbers",
+    "integer",
+    "prime",
+    "multiple",
+    "match",
+    "deadline",
+    "star",
+    "planet",
+    "galaxy",
+    "sun",
+    "moon",
+    "approach",
+    "analogy",
+    "synonym",
+    "equivalent",
+    "friend",
+    "relative",
+    "cousin",
+    "neighbor",
+    "neighbour",
+    "guess",
+    "approximation",
+    "solution",
+    "competitor",
+    "rival",
 )
+_GEO_PHRASE_GAP = 120
 
-_BEST_NEAR = re.compile(
-    r"\bbest\b.+\b(?:in|near|around|by)\b",
-    re.IGNORECASE,
-)
+
+def _find_word(haystack: str, word: str, start: int = 0) -> int:
+    """Index of a whole-word match of ``word`` in lowercase ``haystack``, or -1."""
+    n = len(word)
+    i = start
+    while True:
+        i = haystack.find(word, i)
+        if i == -1:
+            return -1
+        before_ok = i == 0 or not haystack[i - 1].isalnum()
+        after = i + n
+        after_ok = after >= len(haystack) or not haystack[after].isalnum()
+        if before_ok and after_ok:
+            return i
+        i = after
+
+
+def non_geographic_nearest(text: str) -> bool:
+    """True for 'nearest prime' / 'closest friend' — not venue search."""
+    low = text.lower()
+    for anchor in ("nearest", "closest"):
+        start = 0
+        while True:
+            i = _find_word(low, anchor, start)
+            if i == -1:
+                break
+            rest = low[i + len(anchor) : i + len(anchor) + _GEO_PHRASE_GAP]
+            if any(_find_word(rest, w) != -1 for w in _NON_GEOGRAPHIC_NEAREST_WORDS):
+                return True
+            start = i + 1
+    return False
+
+
+def best_near_phrase(text: str) -> bool:
+    """True for 'best … in/near/around/by …' without ``best.+near`` ReDoS."""
+    low = text.lower()
+    start = 0
+    while True:
+        i = _find_word(low, "best", start)
+        if i == -1:
+            return False
+        rest = low[i + 4 : i + 4 + _GEO_PHRASE_GAP]
+        if any(_find_word(rest, w) != -1 for w in ("in", "near", "around", "by")):
+            return True
+        start = i + 1
+
 
 # Implicit nearby intent without saying "near me" (e.g. "where should I eat tonight?").
 _IMPLICIT_LOCAL = re.compile(
@@ -270,7 +331,16 @@ _FROM_USER = re.compile(
     re.IGNORECASE,
 )
 
-_DISTANCE_BETWEEN = re.compile(r"\bdistance\b.+\bbetween\b", re.IGNORECASE)
+
+def distance_between_phrase(text: str) -> bool:
+    """True for 'distance … between …' (city A–B), not distance-from-me."""
+    low = text.lower()
+    i = _find_word(low, "distance")
+    if i == -1:
+        return False
+    rest = low[i + 8 : i + 8 + _GEO_PHRASE_GAP]
+    return _find_word(rest, "between") != -1
+
 
 _QUERY_PREFIX = re.compile(
     r"^\s*(?:"

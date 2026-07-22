@@ -107,6 +107,17 @@ describe("parseSimpleLatex", () => {
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\left\{x\right\}`))).toBe("{x}");
   });
 
+  it("caps nested frac/sqrt depth instead of blowing the call stack", () => {
+    let nested = "x";
+    for (let i = 0; i < 40; i += 1) {
+      nested = String.raw`\frac{${nested}}{1}`;
+    }
+    const segs = parseSimpleLatex(nested);
+    expect(segs.length).toBeGreaterThan(0);
+    // Deep overflow flattens to text rather than recursing forever.
+    expect(JSON.stringify(segs).length).toBeLessThan(50_000);
+  });
+
   it("BUG FIX regression: \\sum/\\prod/\\int render as unicode glyphs, not the literal words", () => {
     // These were misfiled into ROMAN_FUNCTIONS and rendered as "sum(...)"/
     // "prod(...)"/"int(...)" instead of the actual big-operator symbols.

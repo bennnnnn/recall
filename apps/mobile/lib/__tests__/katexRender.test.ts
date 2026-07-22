@@ -15,6 +15,13 @@ describe("renderKatexHtml", () => {
     const html = renderKatexHtml(String.raw`x = \pm \sqrt{4}`, { displayMode: false });
     expect(html).toContain('class="katex"');
   });
+
+  it("falls back for oversized latex instead of hanging", () => {
+    const huge = "x".repeat(5000);
+    const html = renderKatexHtml(huge, { displayMode: true });
+    expect(html).toContain("<code>");
+    expect(html).not.toContain('class="katex"');
+  });
 });
 
 describe("buildKatexStaticWebHtml", () => {

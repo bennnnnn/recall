@@ -3,6 +3,11 @@ import katex from "katex";
 import { KATEX_CSS } from "@/lib/vendor/katexCss";
 import { injectPreviewCsp } from "@/lib/previewSandbox";
 
+/** Cap pathological model latex before KaTeX can hang the JS thread. */
+const MAX_KATEX_CHARS = 4000;
+const KATEX_MAX_SIZE = 20;
+const KATEX_MAX_EXPAND = 500;
+
 export type KatexRenderOptions = {
   displayMode?: boolean;
   textColor?: string;
@@ -16,12 +21,18 @@ export function renderKatexHtml(latex: string, options: KatexRenderOptions = {})
 
   let body = "";
   try {
-    body = katex.renderToString(trimmed, {
-      throwOnError: false,
-      displayMode: options.displayMode ?? false,
-      strict: "ignore",
-      output: "html",
-    });
+    if (trimmed.length > MAX_KATEX_CHARS) {
+      body = `<code>${escapeHtml(trimmed.slice(0, 200))}…</code>`;
+    } else {
+      body = katex.renderToString(trimmed, {
+        throwOnError: false,
+        displayMode: options.displayMode ?? false,
+        strict: "ignore",
+        output: "html",
+        maxSize: KATEX_MAX_SIZE,
+        maxExpand: KATEX_MAX_EXPAND,
+      });
+    }
   } catch {
     body = `<code>${escapeHtml(trimmed)}</code>`;
   }

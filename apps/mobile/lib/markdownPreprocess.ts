@@ -49,11 +49,9 @@ function isTableRow(line: string): boolean {
 
 /** Lines the model uses instead of proper table rows: ---, ___, ===, etc. */
 function isDividerLine(line: string): boolean {
-  const t = line.trim();
-  if (!t) return false;
-  if (/^[-–—_=*~]{3,}$/.test(t)) return true;
-  if (/^(\s*[-–—_=*~]\s*){3,}$/.test(t)) return true;
-  return false;
+  // Collapse whitespace first — avoid nested `(\s*[-–—_=*~]\s*){3,}` (js/redos).
+  const compact = line.trim().replace(/\s+/g, "");
+  return compact.length >= 3 && /^[-–—_=*~]+$/.test(compact);
 }
 
 function isSeparatorRow(line: string): boolean {
@@ -353,6 +351,130 @@ function protectMathEscapes(content: string): string {
 }
 
 /** GitHub callouts, block math, and HTML details → fenced blocks the app understands. */
+const VEGA_FENCE_LANGS = new Set(["", "json", "vega", "vega-lite", "chart", "plot"]);
+const VEGA_SCHEMA_MARKER = '"$schema"';
+const VEGA_SCHEMA_HOST = "vega.github.io/schema/";
+
+function fenceBodyLooksLikeVega(body: string): boolean {
+  return (
+    body.includes(VEGA_SCHEMA_MARKER) &&
+    body.includes(VEGA_SCHEMA_HOST) &&
+    body.includes("{") &&
+    body.includes("}")
+  );
+}
+
+/** Retag ```json/vega… fences that hold Vega specs — linear fence walk, no nested regex. */
+function retagVegaFences(src: string): string {
+  let out = "";
+  let i = 0;
+  while (i < src.length) {
+    const open = src.indexOf("```", i);
+    if (open === -1) {
+      out += src.slice(i);
+      break;
+    }
+    out += src.slice(i, open);
+    const afterOpen = open + 3;
+    const nl = src.indexOf("\n", afterOpen);
+    if (nl === -1) {
+      out += src.slice(open);
+      break;
+    }
+    const lang = src.slice(afterOpen, nl).trim().toLowerCase();
+    const close = src.indexOf("```", nl + 1);
+    if (close === -1) {
+      out += src.slice(open);
+      break;
+    }
+    const body = src.slice(nl + 1, close);
+    if (VEGA_FENCE_LANGS.has(lang) && fenceBodyLooksLikeVega(body) && lang !== "vega-lite") {
+      out += "```vega-lite\n" + body.trim() + "\n```";
+    } else {
+      out += src.slice(open, close + 3);
+    }
+    i = close + 3;
+  }
+  return out;
+}
+
+/**
+ * Wrap bare Vega-Lite JSON objects (not already fenced) so ChartBlock can render them.
+ * Scans for `{` + `"$schema"` + vega host, then walks braces — no `[\s\S]*?` pump.
+ */
+function wrapBareVegaJson(src: string): string {
+  let out = "";
+  let i = 0;
+  while (i < src.length) {
+    const start = src.indexOf("{", i);
+    if (start === -1) {
+      out += src.slice(i);
+      break;
+    }
+    const atBoundary = start === 0 || (start >= 2 && src.slice(start - 2, start) === "\n\n");
+    if (!atBoundary) {
+      out += src.slice(i, start + 1);
+      i = start + 1;
+      continue;
+    }
+    // Inside an open ``` fence? leave alone (retagVegaFences already handled).
+    let fenceMarks = 0;
+    for (let f = src.indexOf("```"); f !== -1 && f < start; f = src.indexOf("```", f + 3)) {
+      fenceMarks += 1;
+    }
+    if (fenceMarks % 2 === 1) {
+      out += src.slice(i, start + 1);
+      i = start + 1;
+      continue;
+    }
+    let k = start + 1;
+    while (k < src.length && (src[k] === " " || src[k] === "\t" || src[k] === "\n" || src[k] === "\r")) {
+      k += 1;
+    }
+    if (!src.startsWith(VEGA_SCHEMA_MARKER, k)) {
+      out += src.slice(i, start + 1);
+      i = start + 1;
+      continue;
+    }
+    const hostAt = src.indexOf(VEGA_SCHEMA_HOST, k);
+    if (hostAt === -1 || hostAt - k > 120) {
+      out += src.slice(i, start + 1);
+      i = start + 1;
+      continue;
+    }
+    let depth = 0;
+    let end = -1;
+    const scanLimit = Math.min(src.length, start + 100_000);
+    for (let j = start; j < scanLimit; j += 1) {
+      const ch = src[j];
+      if (ch === "{") depth += 1;
+      else if (ch === "}") {
+        depth -= 1;
+        if (depth === 0) {
+          end = j;
+          break;
+        }
+      }
+    }
+    // Prior regex required a newline immediately before the closing `}`.
+    if (end === -1 || end === 0 || src[end - 1] !== "\n") {
+      out += src.slice(i, start + 1);
+      i = start + 1;
+      continue;
+    }
+    const body = src.slice(start, end + 1);
+    if (!fenceBodyLooksLikeVega(body)) {
+      out += src.slice(i, start + 1);
+      i = start + 1;
+      continue;
+    }
+    out += src.slice(i, start);
+    out += `\n\n\`\`\`vega-lite\n${body.trim()}\n\`\`\`\n\n`;
+    i = end + 1;
+  }
+  return out;
+}
+
 export function preprocessMarkdown(content: string): string {
   let out = repairBrokenMarkdownLinks(content);
   out = repairCorruptedPriceTierMarkdown(out);
@@ -396,17 +518,9 @@ export function preprocessMarkdown(content: string): string {
 
   out = normalizeMarkdownTables(out);
 
-  // Re-tag fences that contain Vega / Vega-Lite specs so ChartBlock renders them.
-  out = out.replace(
-    /```(?:json|vega|vega-lite|chart|plot)?\s*\n(\s*\{[\s\S]*?"\$schema"\s*:\s*"https?:\/\/vega\.github\.io\/schema\/(?:vega-lite|vega)\/[\s\S]*?\}\s*)```/gi,
-    (_m, body: string) => `\`\`\`vega-lite\n${body.trim()}\n\`\`\``,
-  );
-
-  // Wrap bare Vega-Lite JSON blocks (not in fences) so they render as charts.
-  out = out.replace(
-    /(?:^|\n\n)(\{\s*"\$schema"\s*:\s*"https?:\/\/vega\.github\.io\/schema\/(?:vega-lite|vega)\/v\d+\.json"[\s\S]*?\n\})/g,
-    (_m: string, body: string) => `\n\n\`\`\`vega-lite\n${body.trim()}\n\`\`\`\n\n`,
-  );
+  // Re-tag Vega fences / bare JSON with linear scans (no nested [\s\S]*? ReDoS).
+  out = retagVegaFences(out);
+  out = wrapBareVegaJson(out);
 
   // Molecule formulas before math retag — otherwise bare `O=O` becomes ```math.
   out = retagMoleculeMathToSmiles(out);

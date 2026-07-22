@@ -66,30 +66,41 @@ def _extract_header(headers: list[dict[str, str]], name: str) -> str:
     return ""
 
 
+# Crafted MIME trees can nest forever; walk iteratively with hard caps.
+_MAX_MIME_DEPTH = 32
+_MAX_MIME_PARTS = 200
+
+
 def _walk_parts(payload: dict[str, Any]) -> tuple[str, str | None]:
     """Return (plain text body, ics attachment content if any)."""
-    mime = str(payload.get("mimeType") or "")
-    body_data = payload.get("body") or {}
-    data = body_data.get("data")
     text = ""
     ics: str | None = None
+    stack: list[tuple[dict[str, Any], int]] = [(payload, 0)]
+    seen = 0
 
-    if mime == "text/plain" and data:
-        text = _decode_body(str(data))
-    elif mime == "text/calendar" and data:
-        ics = _decode_body(str(data))
-    elif mime.startswith("multipart/"):
-        for part in payload.get("parts") or []:
-            part_text, part_ics = _walk_parts(part)
-            if part_text and not text:
-                text = part_text
-            if part_ics and not ics:
-                ics = part_ics
-            filename = str(part.get("filename") or "").lower()
-            if filename.endswith(".ics"):
-                part_body = part.get("body") or {}
-                if part_body.get("data"):
-                    ics = _decode_body(str(part_body["data"]))
+    while stack:
+        node, depth = stack.pop()
+        seen += 1
+        if seen > _MAX_MIME_PARTS:
+            break
+
+        mime = str(node.get("mimeType") or "")
+        body_data = node.get("body") or {}
+        data = body_data.get("data")
+        filename = str(node.get("filename") or "").lower()
+
+        if mime == "text/plain" and data and not text:
+            text = _decode_body(str(data))
+        elif mime == "text/calendar" and data and not ics:
+            ics = _decode_body(str(data))
+        elif filename.endswith(".ics") and data and not ics:
+            ics = _decode_body(str(data))
+
+        if mime.startswith("multipart/") and depth < _MAX_MIME_DEPTH:
+            children = node.get("parts") or []
+            for child in reversed(children):
+                if isinstance(child, dict):
+                    stack.append((child, depth + 1))
 
     return text, ics
 
