@@ -61,6 +61,12 @@ async def test_apply_deterministic_quiz_answer_records_wrong_vocab_as_learning()
             "app.services.projects.quiz_grading.apply_quiz_result",
             new=AsyncMock(return_value=existing),
         ) as apply_mock,
+        # Keep the fence's correct=A — verified_correct_letter can call the
+        # (mock) LLM and rewrite the key under full-suite settings pollution.
+        patch(
+            "app.services.vocab_quiz.verified_correct_letter",
+            new=AsyncMock(return_value=None),
+        ),
     ):
         grade = await projects_service.apply_deterministic_quiz_answer(
             session,
