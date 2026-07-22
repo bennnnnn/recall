@@ -119,7 +119,11 @@ _LIGHTWEIGHT_TURN = re.compile(
 
 
 def is_lightweight_chat_turn(text: str, *, active_vocab_turn: bool = False) -> bool:
-    """Short social turns that should skip integrations, memory, and web search."""
+    """Ultra-brief social turns (hi / thanks / ok) — short reply style only.
+
+    Memory / status theater is gated separately by ``needs_rich_context`` so we
+    do not grow this allowlist for every casual phrase ("how is ur day", etc.).
+    """
     if active_vocab_turn:
         return False
     cleaned = collapse_ws(text)
@@ -130,6 +134,55 @@ def is_lightweight_chat_turn(text: str, *, active_vocab_turn: bool = False) -> b
     if len(cleaned) <= 24 and _LIGHTWEIGHT_TURN.match(cleaned):
         return True
     return False
+
+
+# Opt-in cues for loading memory / todos / projects / "remembering…" status.
+# Default is fast (no personal context) — do not grow a greeting allowlist.
+_PERSONAL_CONTEXT_CUE = re.compile(
+    r"(?:"
+    r"\b(?:"
+    r"remember|recall|you (?:know|remember)|what do you know|"
+    r"don'?t forget|keep in mind|"
+    r"we (?:talked|discussed|decided)|last time|"
+    r"earlier (?:you|we)|from (?:my|our) (?:last|previous)"
+    r")\b|"
+    r"\b(?:about me|tell me about (?:me|myself))\b|"
+    r"\bmy\s+(?:"
+    r"name|email|preference|preferences|diet|routine|schedule|"
+    r"calendar|wife|husband|kids?|dog|cat|job|work|boss|team|"
+    r"project|projects|todo|todos|list|lists|reminder|reminders|"
+    r"allerg(?:y|ies)|favorite|usual|memory|memories"
+    r")\b"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def needs_rich_context(
+    text: str,
+    *,
+    active_vocab_turn: bool = False,
+    day_planning: bool = False,
+    day_reflection: bool = False,
+) -> bool:
+    """True when this turn should load personal context (memory/todos/projects).
+
+    Systemic default: casual chat is slim. Opt in via personal/retrieval cues,
+    day-planning, or vocab turns — not via an ever-growing greeting list.
+    Callers may OR in calendar/email/todo classifiers from ``turn_prep.mode``.
+    """
+    if active_vocab_turn or day_planning or day_reflection:
+        return True
+    if is_lightweight_chat_turn(text, active_vocab_turn=active_vocab_turn):
+        return False
+    cleaned = collapse_ws(text)
+    if not cleaned:
+        return False
+    if is_broad_self_question(cleaned):
+        return True
+    if is_writing_deliverable_request(cleaned):
+        return True
+    return bool(_PERSONAL_CONTEXT_CUE.search(cleaned))
 
 
 LIGHTWEIGHT_REPLY_HINT = (

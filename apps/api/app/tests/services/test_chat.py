@@ -16,6 +16,7 @@ from app.services.chat.prompt_constants import (
     is_lightweight_chat_turn,
     is_writing_deliverable_request,
     max_output_tokens_for_style,
+    needs_rich_context,
 )
 from app.services.chat.turn_prep import resolve_client_geo
 from app.services.context_window import estimate_tokens
@@ -660,6 +661,24 @@ def test_is_lightweight_skipped_during_vocab_answer():
     assert is_lightweight_chat_turn("ok", active_vocab_turn=True) is False
 
 
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("How is ur day", False),
+        ("how's your day going", False),
+        ("tell me a joke", False),
+        ("explain photosynthesis", False),
+        ("hi", False),
+        ("what do you remember about my diet", True),
+        ("what's my name", True),
+        ("draft an email to my wife", True),
+        ("don't forget my preference for tea", True),
+    ],
+)
+def test_needs_rich_context(text, expected):
+    assert needs_rich_context(text) is expected
+
+
 @pytest.mark.asyncio
 async def test_build_prompt_minimal_for_who_am_i():
     user = MagicMock()
@@ -727,6 +746,7 @@ async def test_build_prompt_lightweight_hi_skips_memory_and_integrations():
             Settings(attachment_rag_enabled=False, web_search_enabled=True),
             query_text="hi",
             lightweight=True,
+            rich_context=False,
             on_status=capture_status,
         )
 
@@ -743,6 +763,59 @@ async def test_build_prompt_lightweight_hi_skips_memory_and_integrations():
     assert "Checking your calendar" not in system
     assert "Gmail" not in system
     assert "web_search" not in system.lower()
+
+
+@pytest.mark.asyncio
+async def test_build_prompt_casual_chitchat_skips_memory_without_phrase_list():
+    """Casual chat opts out of rich context systemically — not via greeting allowlist."""
+    user = MagicMock()
+    user.name = "Dev User"
+    user.email = "dev@example.com"
+    user.location = "San Francisco, CA"
+    user.location_enabled = True
+    user.response_style = "balanced"
+    user.response_tone = "funny"
+    user.memory_enabled = True
+    user.locale = "en"
+    user.timezone = "UTC"
+    user.custom_instructions = "Always mention my cat Fluffy."
+
+    statuses: list[str] = []
+
+    async def capture_status(phase: str, detail: str | None = None) -> None:
+        statuses.append(phase)
+
+    with (
+        patch("app.repositories.messages.list_recent", return_value=[]) as recent_mock,
+        patch(
+            "app.services.memory.get_memory_block",
+            AsyncMock(return_value="MEMORY SHOULD NOT LOAD"),
+        ) as memory_mock,
+        patch(
+            "app.services.todos.build_todos_system_section",
+            AsyncMock(return_value="TODOS SHOULD NOT LOAD"),
+        ) as todos_mock,
+    ):
+        messages = await build_prompt_messages(
+            user,
+            uuid4(),
+            Settings(attachment_rag_enabled=False, web_search_enabled=True),
+            query_text="How is ur day",
+            lightweight=False,
+            rich_context=False,
+            on_status=capture_status,
+        )
+
+    recent_mock.assert_awaited()
+    memory_mock.assert_not_awaited()
+    todos_mock.assert_not_awaited()
+    assert statuses == []
+    system = messages[0]["content"]
+    assert "Dev" in system
+    assert "short social turn" not in system
+    assert "MEMORY SHOULD NOT LOAD" not in system
+    assert "TODOS SHOULD NOT LOAD" not in system
+    assert "Fluffy" not in system
 
 
 @pytest.mark.asyncio
@@ -2515,6 +2588,8 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete():
             minimal_quiz=False,
             minimal_vocab_answer=False,
             active_vocab_turn=False,
+            lightweight=False,
+            rich_context=True,
             quiz_grade=None,
             geo=ClientGeoContext(
                 user_location=None,
