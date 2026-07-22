@@ -37,9 +37,9 @@ async def test_mcp_tools_calendar_create_hint():
 async def test_mcp_tools_does_not_handle_math_itself():
     """BUG FIX (duplicate verified-block injection): this function used to
     also build and inject its own verified-math block for math-intent turns.
-    But math_tools_service.augment_prompt_messages — the single owner of math
-    augmentation — always runs right after this function returns in the only
-    production call site (_augment_web_and_tools), so a math-intent turn got
+    But math_tools_service.build_math_augmentation — the single owner of math
+    augmentation — is gathered/injected in the only production call site
+    (_augment_web_and_tools), so a math-intent turn got
     the same "verified, do NOT recompute" block injected twice whenever
     mcp_tools_enabled=True and mcp_tool_loop_enabled=False. This function must
     not touch math intent at all; see test_augment_web_and_tools_injects_math_block_only_once
