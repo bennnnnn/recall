@@ -16,9 +16,13 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
+from redis.asyncio import Redis
+
 from app.core.config import Settings
 from app.gateways import litellm_gateway
 from app.gateways.mcp import registry as mcp_registry
+from app.gateways.mcp.web_search_adapter import bind_search_quota_context
+from app.models.orm import User
 from app.services.chat.stream_status import StreamStatusFn, clip_status_detail
 from app.services.math_tools import VerifiedMathBlock
 
@@ -63,12 +67,17 @@ async def run_tool_rounds(
     usage: dict[str, int],
     on_status: StreamStatusFn | None = None,
     should_cancel: Callable[[], bool] | None = None,
+    user: User | None = None,
+    redis: Redis | None = None,
 ) -> tuple[list[dict[str, Any]], VerifiedMathBlock | None]:
     """Mutate a copy of *messages* through up to ``mcp_tool_loop_max_rounds`` tool rounds.
 
     Returns ``(messages, verified_math)``. ``verified_math`` is set when any
     sympy tool call returned a ``canonical_fence`` (last one wins) so post-stream
     fence validation matches the heuristic math_tools path.
+
+    ``user`` / ``redis`` bind Tavily quota + search cache for ``web_search`` tool
+    calls so the model-initiated path cannot bypass the per-user daily cap.
     """
     if not settings.mcp_tool_loop_enabled:
         return messages, None
@@ -77,6 +86,28 @@ async def run_tool_rounds(
     if not tools:
         return messages, None
 
+    with bind_search_quota_context(user=user, redis=redis):
+        return await _run_tool_rounds_bound(
+            settings=settings,
+            model_alias=model_alias,
+            messages=messages,
+            usage=usage,
+            tools=tools,
+            on_status=on_status,
+            should_cancel=should_cancel,
+        )
+
+
+async def _run_tool_rounds_bound(
+    *,
+    settings: Settings,
+    model_alias: str,
+    messages: list[dict[str, Any]],
+    usage: dict[str, int],
+    tools: list[dict[str, Any]],
+    on_status: StreamStatusFn | None,
+    should_cancel: Callable[[], bool] | None,
+) -> tuple[list[dict[str, Any]], VerifiedMathBlock | None]:
     working: list[dict[str, Any]] = [dict(m) for m in messages]
     max_rounds = max(1, settings.mcp_tool_loop_max_rounds)
     last_canonical: dict[str, Any] | None = None

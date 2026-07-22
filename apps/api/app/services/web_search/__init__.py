@@ -34,6 +34,7 @@ from app.services.web_search.geo_intent import (
     is_vocab_quiz_answer,
 )
 from app.services.web_search.query_builders import build_search_queries, build_search_query
+from app.services.web_search.search_cache import run_cached_search
 from app.services.web_search.subject import resolve_search_subject
 
 __all__ = [
@@ -62,6 +63,7 @@ __all__ = [
     "needs_web_search_heuristic",
     "places_payload_from_hits",
     "resolve_search_subject",
+    "run_cached_search",
     "should_web_search",
     "sources_payload",
     "strip_duplicate_venue_list",

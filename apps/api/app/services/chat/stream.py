@@ -706,6 +706,7 @@ async def _run_instant_reply_path(
 
 
 async def _run_tool_loop_path(
+    redis: Redis,
     settings: Settings,
     ctx: StreamContext,
     *,
@@ -724,6 +725,8 @@ async def _run_tool_loop_path(
             usage=usage,
             on_status=on_status,
             should_cancel=should_cancel,
+            user=ctx.user,
+            redis=redis,
         )
         # Heuristic math_tools is skipped when the tool loop is on —
         # carry sympy canonical fences so validate_math_fences still
@@ -1010,6 +1013,7 @@ async def stream_and_finalize(
                 if on_status is not None and not quiet_status:
                     await on_status("thinking")
                 await _run_tool_loop_path(
+                    redis,
                     settings,
                     ctx,
                     usage=usage,

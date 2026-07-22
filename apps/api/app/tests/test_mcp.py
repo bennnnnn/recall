@@ -1,7 +1,8 @@
 """MCP adapter tests."""
 
 import asyncio
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
 import pytest
 
@@ -17,6 +18,50 @@ async def test_web_search_adapter_missing_query():
     adapter = WebSearchAdapter(Settings())
     result = await adapter.invoke({})
     assert "Missing query" in result.content
+
+
+@pytest.mark.asyncio
+async def test_web_search_adapter_uses_cached_search_with_quota_context(fake_redis):
+    """Model-initiated web_search must go through search_cache (Tavily quota)."""
+    from app.gateways.mcp.web_search_adapter import bind_search_quota_context
+    from app.gateways.web_search_gateway import WebSearchHit
+
+    user = MagicMock()
+    user.id = uuid4()
+    adapter = WebSearchAdapter(Settings(web_search_enabled=True, mock_llm_enabled=True))
+    hit = WebSearchHit(title="T", url="https://example.com", snippet="s")
+
+    with (
+        patch(
+            "app.gateways.mcp.web_search_adapter.run_cached_search",
+            AsyncMock(return_value=([hit], ["q"])),
+        ) as cached,
+        bind_search_quota_context(user=user, redis=fake_redis),
+    ):
+        result = await adapter.invoke({"query": "latest news"})
+
+    cached.assert_awaited_once()
+    assert cached.await_args.args[1] == ["latest news"]
+    assert cached.await_args.kwargs["user"] is user
+    assert cached.await_args.kwargs["redis"] is fake_redis
+    assert "https://example.com" in result.content
+    assert "No results" not in result.content
+
+
+@pytest.mark.asyncio
+async def test_web_search_adapter_does_not_call_gateway_directly():
+    """Regression: adapter must not bypass quota via web_search_gateway.search_web."""
+    adapter = WebSearchAdapter(Settings(web_search_enabled=True, mock_llm_enabled=True))
+    with (
+        patch(
+            "app.gateways.mcp.web_search_adapter.run_cached_search",
+            AsyncMock(return_value=([], ["q"])),
+        ),
+        patch("app.gateways.web_search_gateway.search_web", AsyncMock()) as direct,
+    ):
+        result = await adapter.invoke({"query": "anything"})
+    direct.assert_not_awaited()
+    assert result.content == "No results."
 
 
 def test_mcp_registry_setup():

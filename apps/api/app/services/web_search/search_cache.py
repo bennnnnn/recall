@@ -60,6 +60,21 @@ class _TurnTavilyBudget:
             return self._skip_tavily
 
 
+async def run_cached_search(
+    settings: Settings,
+    queries: list[str],
+    *,
+    user: User | None = None,
+    redis: Redis | None = None,
+) -> tuple[list[WebSearchHit], list[str]]:
+    """Public cached + quota-aware search (heuristic augment and MCP tool loop).
+
+    Applies the per-user daily Tavily reservation and Redis result cache so
+    model-initiated ``web_search`` calls cannot bypass the heuristic path's cap.
+    """
+    return await _run_search(settings, queries, user=user, redis=redis)
+
+
 async def _run_search(
     settings: Settings,
     queries: list[str],
