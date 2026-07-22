@@ -32,9 +32,9 @@ async def augment_prompt_with_mcp_tools(
     if has_calendar_write and calendar_service.is_calendar_create_request(user_content):
         blocks.append(calendar_service.CALENDAR_WRITE_HINT)
 
-    # Math intent is NOT handled here. math_tools_service.augment_prompt_messages
-    # is the single owner of math augmentation — it always runs right after this
-    # function returns, in the only production call site (_augment_web_and_tools).
+    # Math intent is NOT handled here. math_tools_service.build_math_augmentation
+    # is the single owner of math augmentation — _augment_web_and_tools gathers
+    # it with web search, then injects the math block after this MCP pass.
     # This function used to also build and inject its own verified-math block,
     # so a math-intent turn got the same "verified, do NOT recompute" block
     # injected twice whenever mcp_tools_enabled=True and mcp_tool_loop_enabled=

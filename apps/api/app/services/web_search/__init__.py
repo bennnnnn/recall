@@ -1,6 +1,6 @@
 """Live web search routing, query building, and prompt injection."""
 
-from app.services.web_search.augment import augment_prompt_messages
+from app.services.web_search.augment import augment_prompt_messages, build_search_augmentation
 from app.services.web_search.detection import (
     needs_web_search,
     needs_web_search_heuristic,
@@ -43,6 +43,7 @@ __all__ = [
     "LOCAL_PLACES_FORMAT_HINT",
     "WEB_SEARCH_HINT",
     "augment_prompt_messages",
+    "build_search_augmentation",
     "build_search_queries",
     "build_search_query",
     "format_location_not_set_answer",

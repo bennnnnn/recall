@@ -55,6 +55,7 @@ from app.services.chat.stream_status import StreamStatusFn
 from app.services.context_window import select_recent_window
 from app.services.day_planning import is_day_planning_question, is_day_reflection_question
 from app.services.math_tools import VerifiedMathBlock
+from app.services.prompt_inject import inject_before_last_user
 from app.services.prompt_safety import wrap_persisted_attachment_excerpts, wrap_untrusted
 from app.services.vocab_quiz import QuizAnswerGrade
 
@@ -152,25 +153,51 @@ async def _augment_web_and_tools(
     redis: Redis | None = None,
     has_calendar_write: bool = False,
 ) -> tuple[list[dict[str, str]], list[WebSearchHit], VerifiedMathBlock | None]:
-    """Web search always uses the full direct path; MCP handles calendar/sympy only."""
+    """Web search always uses the full direct path; MCP handles calendar hints.
+
+    Web search (network) and SymPy (subprocess) are independent — gather both
+    against the same base messages, then inject blocks in the historical order
+    web → MCP calendar → math so prompt shape stays stable.
+    """
     # Model-initiated tool loop owns web_search + sympy when enabled — skip
     # heuristic pre-fetch so we don't double-search / double-solve.
     if settings.mcp_tool_loop_enabled:
         return prompt_messages, [], None
 
-    updated, search_sources = await web_search_service.augment_prompt_messages(
-        prompt_messages,
-        user_content,
-        settings,
-        user_timezone=user_timezone,
-        user_location=user_location,
-        latitude=latitude,
-        longitude=longitude,
-        prior_user_messages=prior_user_messages,
-        on_status=on_status,
-        user=user,
-        redis=redis,
+    if (
+        settings.math_tools_enabled
+        and math_tools_service.needs_symbolic_math(
+            user_content, has_image_attachment=has_image_attachment
+        )
+        and on_status is not None
+    ):
+        await on_status("calculating")
+
+    (web_block, search_sources), (math_block, verified_math) = await asyncio.gather(
+        web_search_service.build_search_augmentation(
+            user_content,
+            settings,
+            messages=prompt_messages,
+            user_timezone=user_timezone,
+            user_location=user_location,
+            latitude=latitude,
+            longitude=longitude,
+            prior_user_messages=prior_user_messages,
+            on_status=on_status,
+            user=user,
+            redis=redis,
+        ),
+        math_tools_service.build_math_augmentation(
+            user_content,
+            settings,
+            has_image_attachment=has_image_attachment,
+            image_math_extract=image_math_extract,
+        ),
     )
+
+    updated = prompt_messages
+    if web_block:
+        updated = inject_before_last_user(updated, web_block)
 
     if settings.mcp_tools_enabled:
         updated = await chat_tools_service.augment_prompt_with_mcp_tools(
@@ -184,22 +211,8 @@ async def _augment_web_and_tools(
             has_calendar_write=has_calendar_write,
         )
 
-    if (
-        settings.math_tools_enabled
-        and math_tools_service.needs_symbolic_math(
-            user_content, has_image_attachment=has_image_attachment
-        )
-        and on_status is not None
-    ):
-        await on_status("calculating")
-
-    updated, verified_math = await math_tools_service.augment_prompt_messages(
-        updated,
-        user_content,
-        settings,
-        has_image_attachment=has_image_attachment,
-        image_math_extract=image_math_extract,
-    )
+    if math_block:
+        updated = inject_before_last_user(updated, math_block)
     return updated, search_sources, verified_math
 
 

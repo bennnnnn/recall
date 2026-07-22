@@ -1551,18 +1551,22 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
         return None
 
 
-async def augment_prompt_messages(
-    messages: list[dict[str, str]],
+async def build_math_augmentation(
     user_content: str,
     settings: Settings,
     *,
     has_image_attachment: bool = False,
     image_math_extract: MathImageExtract | None = None,
-) -> tuple[list[dict[str, str]], VerifiedMathBlock | None]:
+) -> tuple[str | None, VerifiedMathBlock | None]:
+    """Compute the verified-math system block (or None) without mutating messages.
+
+    Safe to run concurrently with web-search augmentation on the same base
+    prompt — the caller injects returned blocks after gather.
+    """
     if not settings.math_tools_enabled:
-        return messages, None
+        return None, None
     if not needs_symbolic_math(user_content, has_image_attachment=has_image_attachment):
-        return messages, None
+        return None, None
 
     if image_math_extract is not None:
         # OCR already produced a Pydantic-validated equation — use it directly
@@ -1610,15 +1614,34 @@ async def augment_prompt_messages(
             "Extract the equation as lhs/rhs if possible, then explain using verified reasoning. "
             "Use $...$ for formulas and ```geometry / ```graph JSON fences for diagrams."
         ]
-        return inject_before_last_user(messages, "\n".join(lines)), None
+        return "\n".join(lines), None
 
     if intent is None:
-        return messages, None
+        return None, None
 
     verified = await _build_verified_block_async(intent, settings)
     if not verified:
+        return None, None
+    return verified.text, verified
+
+
+async def augment_prompt_messages(
+    messages: list[dict[str, str]],
+    user_content: str,
+    settings: Settings,
+    *,
+    has_image_attachment: bool = False,
+    image_math_extract: MathImageExtract | None = None,
+) -> tuple[list[dict[str, str]], VerifiedMathBlock | None]:
+    block, verified = await build_math_augmentation(
+        user_content,
+        settings,
+        has_image_attachment=has_image_attachment,
+        image_math_extract=image_math_extract,
+    )
+    if block is None:
         return messages, None
-    return inject_before_last_user(messages, verified.text), verified
+    return inject_before_last_user(messages, block), verified
 
 
 async def _build_verified_block_async(
