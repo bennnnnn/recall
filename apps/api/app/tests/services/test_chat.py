@@ -691,6 +691,61 @@ async def test_build_prompt_minimal_for_who_am_i():
 
 
 @pytest.mark.asyncio
+async def test_build_prompt_lightweight_hi_skips_memory_and_integrations():
+    """A plain greeting must not pay for memory embed / calendar / web hints."""
+    user = MagicMock()
+    user.name = "Dev User"
+    user.email = "dev@example.com"
+    user.location = "San Francisco, CA"
+    user.location_enabled = True
+    user.response_style = "detailed"
+    user.response_tone = "funny"
+    user.memory_enabled = True
+    user.locale = "en"
+    user.timezone = "UTC"
+    user.custom_instructions = "Always mention my cat Fluffy."
+
+    statuses: list[str] = []
+
+    async def capture_status(phase: str, detail: str | None = None) -> None:
+        statuses.append(phase)
+
+    with (
+        patch("app.repositories.messages.list_recent", return_value=[]) as recent_mock,
+        patch(
+            "app.services.memory.get_memory_block",
+            AsyncMock(return_value="MEMORY SHOULD NOT LOAD"),
+        ) as memory_mock,
+        patch(
+            "app.services.todos.build_todos_system_section",
+            AsyncMock(return_value="TODOS SHOULD NOT LOAD"),
+        ) as todos_mock,
+    ):
+        messages = await build_prompt_messages(
+            user,
+            uuid4(),
+            Settings(attachment_rag_enabled=False, web_search_enabled=True),
+            query_text="hi",
+            lightweight=True,
+            on_status=capture_status,
+        )
+
+    recent_mock.assert_awaited()
+    memory_mock.assert_not_awaited()
+    todos_mock.assert_not_awaited()
+    assert statuses == []
+    system = messages[0]["content"]
+    assert "Dev" in system
+    assert "short social turn" in system
+    assert "MEMORY SHOULD NOT LOAD" not in system
+    assert "TODOS SHOULD NOT LOAD" not in system
+    assert "Fluffy" not in system
+    assert "Checking your calendar" not in system
+    assert "Gmail" not in system
+    assert "web_search" not in system.lower()
+
+
+@pytest.mark.asyncio
 async def test_build_prompt_day_planning_injects_daily_learning():
     user = MagicMock()
     user.id = uuid4()
