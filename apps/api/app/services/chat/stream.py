@@ -1005,7 +1005,9 @@ async def stream_and_finalize(
             else:
                 # Pre-stream work (tools/search) is "thinking", not "composing" —
                 # composing only once the visible token stream is about to start.
-                if on_status is not None:
+                # Lightweight greetings skip both — no tools, and the label parade
+                # made "hi" feel slower than it is.
+                if on_status is not None and not ctx.lightweight_turn:
                     await on_status("thinking")
                 await _run_tool_loop_path(
                     settings,
@@ -1015,7 +1017,11 @@ async def stream_and_finalize(
                     should_cancel=should_cancel,
                 )
 
-                if on_status is not None and not model_catalog.is_reasoning_alias(ctx.model):
+                if (
+                    on_status is not None
+                    and not ctx.lightweight_turn
+                    and not model_catalog.is_reasoning_alias(ctx.model)
+                ):
                     await on_status("composing")
                 async for token in _run_llm_token_stream(
                     redis,

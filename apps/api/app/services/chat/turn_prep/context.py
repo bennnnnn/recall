@@ -277,8 +277,9 @@ async def build_stream_prompt_context(
         local_tz = time_context_service.effective_timezone(user.timezone, client_timezone)
 
     # No outer session during prompt gather (RAG/memory embeds use short-lived
-    # sessions inside build_prompt_messages).
-    if on_status is not None:
+    # sessions inside build_prompt_messages). Skip status theater on greetings —
+    # "Recalling what I know…" on a plain "hi" feels slow and is wasted work.
+    if on_status is not None and not mode.lightweight:
         await on_status("preparing")
 
     prompt_messages = await build_prompt_messages(
@@ -292,6 +293,7 @@ async def build_stream_prompt_context(
         minimal_personal_context=mode.minimal_personal,
         minimal_quiz_context=mode.minimal_quiz,
         minimal_vocab_answer_context=mode.minimal_vocab_answer,
+        lightweight=mode.lightweight,
         quiz_grade=quiz_grade,
         client_timezone=client_timezone,
         prompt_location=geo.user_location if geo.geo_query and geo.has_geo_fix else None,
@@ -327,7 +329,7 @@ async def build_stream_prompt_context(
 
         max_out = (
             max_output_tokens_for_style("short", settings)
-            if mode.minimal_quiz
+            if mode.minimal_quiz or mode.lightweight
             else max_output_tokens_for_style(user.response_style, settings)
         )
         fallback_models = plan_service.chat_fallback_models(user, settings, model)

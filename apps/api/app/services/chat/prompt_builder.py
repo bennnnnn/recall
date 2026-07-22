@@ -36,6 +36,7 @@ from app.services.chat.prompt_constants import (
     DAY_PLANNING_ANSWER_HINT,
     EMAIL_DRAFT_HINT,
     INTENT_FORMAT_HINT,
+    LIGHTWEIGHT_REPLY_HINT,
     MATH_SOLVER_HINT,
     PRIVACY_HINT,
     QUIZ_ANSWER_HINT,
@@ -497,6 +498,7 @@ async def build_prompt_messages(
     minimal_personal_context: bool = False,
     minimal_quiz_context: bool = False,
     minimal_vocab_answer_context: bool = False,
+    lightweight: bool = False,
     quiz_grade: QuizAnswerGrade | None = None,
     client_timezone: str | None = None,
     prompt_location: str | None = None,
@@ -514,8 +516,15 @@ async def build_prompt_messages(
         if minimal_quiz_context or minimal_vocab_answer_context
         else settings.recent_message_window
     )
+    # Lightweight greetings must not pay for memory embed / todos / projects —
+    # that path is why a plain "hi" felt slower than ChatGPT.
     is_day_plan = bool(query_text and is_day_planning_question(query_text))
-    slim_context = minimal_personal_context or minimal_quiz_context or minimal_vocab_answer_context
+    slim_context = (
+        minimal_personal_context
+        or minimal_quiz_context
+        or minimal_vocab_answer_context
+        or lightweight
+    )
     blocks = await _load_context_blocks(
         user,
         chat_id,
@@ -550,7 +559,7 @@ async def build_prompt_messages(
             location_override=prompt_location,
             include_email=should_include_profile_email(query_text),
         ),
-        STYLE_HINTS[style],
+        STYLE_HINTS["short"] if lightweight else STYLE_HINTS[style],
     ]
     # Grade hint (if any) then quiz/vocab path — same order as the prior inline assembly.
     quiz_parts, chat = await _quiz_hints(
@@ -563,7 +572,10 @@ async def build_prompt_messages(
         minimal_vocab_answer_context=minimal_vocab_answer_context,
     )
     system_parts.extend(quiz_parts)
-    if not minimal_quiz_context and not minimal_vocab_answer_context:
+    if lightweight:
+        system_parts.append(LIGHTWEIGHT_REPLY_HINT)
+        system_parts.append(SHORT_RESPONSE_FORMAT_HINT)
+    elif not minimal_quiz_context and not minimal_vocab_answer_context:
         system_parts.extend(
             _style_format_hints(
                 query_text=query_text,
@@ -573,22 +585,24 @@ async def build_prompt_messages(
             )
         )
     system_parts.append(response_tone_service.tone_hint(getattr(user, "response_tone", None)))
-    ci = getattr(user, "custom_instructions", None)
-    custom_instructions = ci.strip() if isinstance(ci, str) and ci.strip() else ""
-    if custom_instructions:
-        # User-authored; still untrusted relative to system policy (injection).
-        bounded = custom_instructions[:2000]
-        system_parts.append(
-            wrap_untrusted(
-                "user personal instructions",
-                f"User's personal instructions:\n{bounded}",
+    if not lightweight:
+        ci = getattr(user, "custom_instructions", None)
+        custom_instructions = ci.strip() if isinstance(ci, str) and ci.strip() else ""
+        if custom_instructions:
+            # User-authored; still untrusted relative to system policy (injection).
+            bounded = custom_instructions[:2000]
+            system_parts.append(
+                wrap_untrusted(
+                    "user personal instructions",
+                    f"User's personal instructions:\n{bounded}",
+                )
             )
-        )
     locale_hint = locale_service.locale_system_hint(user.locale)
     if locale_hint:
         system_parts.append(locale_hint)
     if (
-        not minimal_quiz_context
+        not lightweight
+        and not minimal_quiz_context
         and not minimal_vocab_answer_context
         and not minimal_personal_context
     ):

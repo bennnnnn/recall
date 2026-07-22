@@ -119,7 +119,7 @@ _LIGHTWEIGHT_TURN = re.compile(
 
 
 def is_lightweight_chat_turn(text: str, *, active_vocab_turn: bool = False) -> bool:
-    """Short social turns that should skip integrations and web search."""
+    """Short social turns that should skip integrations, memory, and web search."""
     if active_vocab_turn:
         return False
     cleaned = collapse_ws(text)
@@ -131,6 +131,11 @@ def is_lightweight_chat_turn(text: str, *, active_vocab_turn: bool = False) -> b
         return True
     return False
 
+
+LIGHTWEIGHT_REPLY_HINT = (
+    "This is a short social turn (greeting / ack). Reply in one brief sentence. "
+    "Do not dig into memory, lists, calendar, or projects unless the user asked."
+)
 
 _WRITING_DELIVERABLE = re.compile(
     r"\b("
