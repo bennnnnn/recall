@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 from uuid import UUID
 
@@ -92,6 +92,8 @@ class StreamContext:
     verified_math: VerifiedMathBlock | None = None
     timing: TurnTimingTracker | None = None
     lightweight_turn: bool = False
+    # False = casual chat; skip preparing/remembering/thinking/composing theater.
+    rich_context_turn: bool = True
     # Attachment ids to index after the turn finalizes (post-turn jobs path).
     indexable_attachment_ids: list[str] = field(default_factory=list)
 
@@ -108,6 +110,8 @@ class TurnPromptBundle:
     minimal_quiz: bool
     minimal_vocab_answer: bool
     active_vocab_turn: bool
+    lightweight: bool
+    rich_context: bool
     quiz_grade: QuizAnswerGrade | None
     geo: ClientGeoContext
     local_tz: str
@@ -166,10 +170,12 @@ def stream_context_from_bundle(
         fallback_models=bundle.fallback_models,
         verified_math=bundle.verified_math,
         timing=timing,
-        lightweight_turn=bundle.active_vocab_turn
+        lightweight_turn=bundle.lightweight
+        or bundle.active_vocab_turn
         or is_lightweight_chat_turn(
             user_message_content, active_vocab_turn=bundle.active_vocab_turn
         ),
+        rich_context_turn=bundle.rich_context,
         indexable_attachment_ids=list(indexable_attachment_ids or []),
     )
 
@@ -239,6 +245,7 @@ async def build_stream_prompt_context(
     timing: TurnTimingTracker | None = None,
     quiz_grade: QuizAnswerGrade | None = None,
     omit_message_ids: set[UUID] | None = None,
+    force_rich_context: bool = False,
 ) -> TurnPromptBundle:
     """Shared prompt assembly for new turns and regenerate."""
     meta: dict[str, Any] = {}
@@ -264,6 +271,8 @@ async def build_stream_prompt_context(
                 raise ChatNotFoundError("Chat not found.")
 
         mode = await _classify_turn_mode(session, chat, content)
+        if force_rich_context and not mode.rich_context:
+            mode = replace(mode, rich_context=True)
 
         user_locale = user.locale
         chat_summary = chat.summary
@@ -277,9 +286,9 @@ async def build_stream_prompt_context(
         local_tz = time_context_service.effective_timezone(user.timezone, client_timezone)
 
     # No outer session during prompt gather (RAG/memory embeds use short-lived
-    # sessions inside build_prompt_messages). Skip status theater on greetings —
-    # "Recalling what I know…" on a plain "hi" feels slow and is wasted work.
-    if on_status is not None and not mode.lightweight:
+    # sessions inside build_prompt_messages). Status theater only when the turn
+    # actually loads personal/tool context — not every casual chat line.
+    if on_status is not None and mode.rich_context and not mode.lightweight:
         await on_status("preparing")
 
     prompt_messages = await build_prompt_messages(
@@ -294,6 +303,7 @@ async def build_stream_prompt_context(
         minimal_quiz_context=mode.minimal_quiz,
         minimal_vocab_answer_context=mode.minimal_vocab_answer,
         lightweight=mode.lightweight,
+        rich_context=mode.rich_context,
         quiz_grade=quiz_grade,
         client_timezone=client_timezone,
         prompt_location=geo.user_location if geo.geo_query and geo.has_geo_fix else None,
@@ -409,6 +419,8 @@ async def build_stream_prompt_context(
         minimal_quiz=mode.minimal_quiz,
         minimal_vocab_answer=mode.minimal_vocab_answer,
         active_vocab_turn=mode.active_vocab_turn,
+        lightweight=mode.lightweight,
+        rich_context=mode.rich_context,
         quiz_grade=quiz_grade,
         geo=geo,
         local_tz=local_tz,

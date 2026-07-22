@@ -156,6 +156,8 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context():
             minimal_quiz=False,
             minimal_vocab_answer=False,
             active_vocab_turn=False,
+            lightweight=False,
+            rich_context=True,
             quiz_grade=None,
             verified_math=None,
         )
@@ -281,6 +283,8 @@ async def _run_prepare_chat_turn_with_caption(caption: str) -> AsyncMock:
             minimal_quiz=False,
             minimal_vocab_answer=False,
             active_vocab_turn=False,
+            lightweight=False,
+            rich_context=True,
             quiz_grade=None,
             verified_math=None,
         )

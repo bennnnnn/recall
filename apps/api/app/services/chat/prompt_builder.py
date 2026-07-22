@@ -499,6 +499,7 @@ async def build_prompt_messages(
     minimal_quiz_context: bool = False,
     minimal_vocab_answer_context: bool = False,
     lightweight: bool = False,
+    rich_context: bool = True,
     quiz_grade: QuizAnswerGrade | None = None,
     client_timezone: str | None = None,
     prompt_location: str | None = None,
@@ -516,14 +517,15 @@ async def build_prompt_messages(
         if minimal_quiz_context or minimal_vocab_answer_context
         else settings.recent_message_window
     )
-    # Lightweight greetings must not pay for memory embed / todos / projects —
-    # that path is why a plain "hi" felt slower than ChatGPT.
+    # Opt-in rich context: casual chat skips memory embed / todos / projects.
+    # ``lightweight`` is only the ultra-brief social reply style (hi/thanks).
     is_day_plan = bool(query_text and is_day_planning_question(query_text))
     slim_context = (
         minimal_personal_context
         or minimal_quiz_context
         or minimal_vocab_answer_context
         or lightweight
+        or not rich_context
     )
     blocks = await _load_context_blocks(
         user,
@@ -585,7 +587,7 @@ async def build_prompt_messages(
             )
         )
     system_parts.append(response_tone_service.tone_hint(getattr(user, "response_tone", None)))
-    if not lightweight:
+    if not slim_context:
         ci = getattr(user, "custom_instructions", None)
         custom_instructions = ci.strip() if isinstance(ci, str) and ci.strip() else ""
         if custom_instructions:
@@ -600,12 +602,7 @@ async def build_prompt_messages(
     locale_hint = locale_service.locale_system_hint(user.locale)
     if locale_hint:
         system_parts.append(locale_hint)
-    if (
-        not lightweight
-        and not minimal_quiz_context
-        and not minimal_vocab_answer_context
-        and not minimal_personal_context
-    ):
+    if not slim_context:
         system_parts.extend(
             _integration_hints(
                 settings=settings,

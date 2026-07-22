@@ -1005,9 +1005,9 @@ async def stream_and_finalize(
             else:
                 # Pre-stream work (tools/search) is "thinking", not "composing" —
                 # composing only once the visible token stream is about to start.
-                # Lightweight greetings skip both — no tools, and the label parade
-                # made "hi" feel slower than it is.
-                if on_status is not None and not ctx.lightweight_turn:
+                # Casual / non-rich turns skip status theater (same as greetings).
+                quiet_status = ctx.lightweight_turn or not ctx.rich_context_turn
+                if on_status is not None and not quiet_status:
                     await on_status("thinking")
                 await _run_tool_loop_path(
                     settings,
@@ -1019,7 +1019,7 @@ async def stream_and_finalize(
 
                 if (
                     on_status is not None
-                    and not ctx.lightweight_turn
+                    and not quiet_status
                     and not model_catalog.is_reasoning_alias(ctx.model)
                 ):
                     await on_status("composing")

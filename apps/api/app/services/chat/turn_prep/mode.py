@@ -15,6 +15,7 @@ from app.services import time_context as time_context_service
 from app.services.chat.prompt_constants import (
     is_broad_self_question,
     is_lightweight_chat_turn,
+    needs_rich_context,
 )
 
 if TYPE_CHECKING:
@@ -69,6 +70,7 @@ async def _should_minimal_quiz_context(
 @dataclass
 class _TurnMode:
     lightweight: bool
+    rich_context: bool
     minimal_personal: bool
     minimal_quiz: bool
     minimal_vocab_answer: bool
@@ -77,12 +79,42 @@ class _TurnMode:
     day_reflection: bool
 
 
+def _turn_needs_rich_context(
+    content: str,
+    *,
+    active_vocab_turn: bool,
+    day_planning: bool,
+    day_reflection: bool,
+) -> bool:
+    """Opt-in personal/tool context — default casual chat stays slim."""
+    from app.services import todos as todos_service
+
+    if needs_rich_context(
+        content,
+        active_vocab_turn=active_vocab_turn,
+        day_planning=day_planning,
+        day_reflection=day_reflection,
+    ):
+        return True
+    if calendar_service.is_external_calendar_question(content):
+        return True
+    if email_service.is_external_email_question(content):
+        return True
+    if todos_service.query_implies_todos(content):
+        return True
+    # Do not pass chat.project_id — that helper treats any linked project as
+    # "always sync", which would force memory theater on casual chitchat.
+    if projects_service.transcript_implies_project_sync(content):
+        return True
+    return False
+
+
 async def _classify_turn_mode(
     session: AsyncSession,
     chat: Chat,
     content: str,
 ) -> _TurnMode:
-    """Classify quiz/vocab/lightweight/day-planning modes for a turn.
+    """Classify quiz/vocab/lightweight/rich-context/day-planning modes for a turn.
 
     Fetches the last quiz assistant once (same session) instead of the prior
     double lookup via ``_should_minimal_quiz_context`` + vocab-turn block.
@@ -125,8 +157,15 @@ async def _classify_turn_mode(
                 minimal_vocab_answer = True
 
     lightweight = is_lightweight_chat_turn(content, active_vocab_turn=active_vocab_turn)
+    rich_context = _turn_needs_rich_context(
+        content,
+        active_vocab_turn=active_vocab_turn,
+        day_planning=day_planning,
+        day_reflection=day_reflection,
+    )
     return _TurnMode(
         lightweight=lightweight,
+        rich_context=rich_context,
         minimal_personal=minimal_personal,
         minimal_quiz=minimal_quiz,
         minimal_vocab_answer=minimal_vocab_answer,

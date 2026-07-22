@@ -206,6 +206,7 @@ async def prepare_chat_turn(
         chat=chat,
         timing=timing,
         quiz_grade=quiz_grade,
+        force_rich_context=bool(attachment_ids),
     )
 
     prompt_messages = bundle.prompt_messages
