@@ -258,8 +258,11 @@ async def _load_context_blocks(
     # output — give each its own short-lived session (a single AsyncSession
     # cannot safely run concurrent operations) and gather them, instead of
     # awaiting four DB round-trips back-to-back before the LLM call starts.
+    # Cap concurrent DB checkouts so one turn cannot saturate the pool.
+    db_slots = asyncio.Semaphore(max(1, settings.context_db_concurrency))
+
     async def _memory_block() -> str:
-        async with SessionLocal() as s:
+        async with db_slots, SessionLocal() as s:
             return await memory_service.get_memory_block(
                 s,
                 user,
@@ -269,7 +272,7 @@ async def _load_context_blocks(
             )
 
     async def _todos_section() -> str | None:
-        async with SessionLocal() as s:
+        async with db_slots, SessionLocal() as s:
             return await todos_service.build_todos_system_section(
                 s,
                 user,
@@ -279,7 +282,7 @@ async def _load_context_blocks(
             )
 
     async def _projects_block() -> str:
-        async with SessionLocal() as s:
+        async with db_slots, SessionLocal() as s:
             if is_day_plan:
                 return await projects_service.load_daily_learning_summary_for_prompt(
                     s,
@@ -299,6 +302,7 @@ async def _load_context_blocks(
             return await projects_service.load_projects_for_prompt(s, user.id, settings)
 
     async def _attachment_rag_block() -> str:
+        # HTTP/embed-bound — do not hold a DB pool slot.
         if not settings.attachment_rag_enabled or not query_text:
             return ""
         from app.services import attachment_rag as attachment_rag_service
@@ -313,7 +317,7 @@ async def _load_context_blocks(
     async def _recent_messages() -> list[Any]:
         # Own session so the caller's connection is not pinned across the gather
         # (RAG embed / memory embed can take seconds).
-        async with SessionLocal() as s:
+        async with db_slots, SessionLocal() as s:
             return await messages_repo.list_recent(s, chat_id, limit=recent_limit)
 
     (

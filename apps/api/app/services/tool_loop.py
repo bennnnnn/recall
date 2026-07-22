@@ -134,12 +134,35 @@ async def run_tool_rounds(
                 }
             )
 
+    # A cancel can land after the assistant's tool_calls are recorded but before
+    # every tool result is appended. Providers reject a message list where a
+    # tool_calls turn isn't fully answered, so truncate back to the last valid
+    # (fully-answered) prefix before handing off to the visible stream.
+    cut = _first_unanswered_assistant_idx(working)
+    if cut is not None:
+        logger.info("Tool loop cancelled mid-round; trimming unanswered tool_calls turn")
+        working = working[:cut]
+
     verified = (
         VerifiedMathBlock(text="", canonical_fence=last_canonical)
         if last_canonical is not None
         else None
     )
     return working, verified
+
+
+def _first_unanswered_assistant_idx(msgs: list[dict[str, Any]]) -> int | None:
+    """Index of the newest assistant tool_calls turn missing a tool reply, else None."""
+    for i in range(len(msgs) - 1, -1, -1):
+        m = msgs[i]
+        if m.get("role") != "assistant" or not m.get("tool_calls"):
+            continue
+        answered = {t.get("tool_call_id") for t in msgs[i + 1 :] if t.get("role") == "tool"}
+        needed = {str(c.get("id") or "") for c in m["tool_calls"]}
+        needed.discard("")
+        if not needed.issubset(answered):
+            return i
+    return None
 
 
 def dump_tool_debug(messages: list[dict[str, Any]]) -> str:

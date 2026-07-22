@@ -22,8 +22,11 @@ engine = create_async_engine(
     echo=False,
     connect_args=_connect_args,
     pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=10,
+    pool_size=settings.db_pool_size,
+    max_overflow=settings.db_max_overflow,
+    # Fail fast under burst instead of the 30s default — a stalled checkout
+    # should surface as a fast error/retry, not a 30s TTFT hang.
+    pool_timeout=settings.db_pool_timeout_seconds,
     pool_recycle=pool_recycle_seconds_for_url(_db_url),
 )
 SessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)

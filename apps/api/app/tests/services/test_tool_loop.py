@@ -169,6 +169,72 @@ async def test_tool_loop_collects_sympy_canonical_fence(web_search_registered):
 
 
 @pytest.mark.asyncio
+async def test_tool_loop_cancel_mid_round_trims_unanswered_tool_calls(web_search_registered):
+    """Stop after assistant tool_calls but before tool results → trim that turn."""
+    messages = [{"role": "user", "content": "search news"}]
+    complete = AsyncMock(
+        return_value={
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "c1",
+                    "type": "function",
+                    "function": {"name": "web_search", "arguments": '{"query": "news"}'},
+                },
+                {
+                    "id": "c2",
+                    "type": "function",
+                    "function": {"name": "web_search", "arguments": '{"query": "more"}'},
+                },
+            ],
+        }
+    )
+    # Round-start cancel check must pass; cancel on the first tool iteration
+    # so the assistant tool_calls turn is recorded with zero tool replies.
+    cancel_calls = {"n": 0}
+
+    def should_cancel() -> bool:
+        cancel_calls["n"] += 1
+        return cancel_calls["n"] > 1
+
+    invoke = AsyncMock(return_value=MagicMock(content="ok"))
+
+    with (
+        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
+        patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
+    ):
+        out, _verified = await tool_loop.run_tool_rounds(
+            settings=_settings(mcp_tool_loop_enabled=True, mcp_tool_loop_max_rounds=3),
+            model_alias="free-chat",
+            messages=messages,
+            usage={},
+            should_cancel=should_cancel,
+        )
+
+    complete.assert_awaited_once()
+    invoke.assert_not_awaited()
+    assert out == messages
+    assert not any(m.get("role") == "assistant" and m.get("tool_calls") for m in out)
+
+
+def test_first_unanswered_assistant_idx_detects_partial_tools():
+    msgs = [
+        {"role": "user", "content": "hi"},
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {"id": "a", "function": {"name": "web_search"}},
+                {"id": "b", "function": {"name": "web_search"}},
+            ],
+        },
+        {"role": "tool", "tool_call_id": "a", "content": "ok"},
+    ]
+    assert tool_loop._first_unanswered_assistant_idx(msgs) == 1
+    msgs.append({"role": "tool", "tool_call_id": "b", "content": "ok"})
+    assert tool_loop._first_unanswered_assistant_idx(msgs) is None
+
+
+@pytest.mark.asyncio
 async def test_invoke_validated_rejects_bad_json(web_search_registered):
     result = await mcp_registry.invoke_validated("web_search", "{not-json")
     assert result is not None

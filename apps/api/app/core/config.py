@@ -179,6 +179,17 @@ class Settings(BaseSettings):
     daily_token_limit_pro: int = 500_000
     max_output_tokens: int = 1200
     recent_message_window: int = 20  # hard cap on verbatim messages
+
+    # Per-instance DB pool. Keep (db_pool_size + db_max_overflow) * INSTANCE_COUNT
+    # under the Neon pooler connection ceiling. The chat hot path opens several
+    # short-lived sessions per turn (context gather), so undersizing stalls TTFT
+    # on SQLAlchemy's default 30s pool_timeout.
+    db_pool_size: int = 20
+    db_max_overflow: int = 10
+    db_pool_timeout_seconds: float = 5.0
+    # Cap concurrent DB checkouts inside the context gather so one turn cannot
+    # grab all five pool slots at once.
+    context_db_concurrency: int = 3
     memory_min_confidence: float = 0.4
     memory_inject_limit: int = 15
     # Hard cap on formatted memory block chars injected into the system prompt.
