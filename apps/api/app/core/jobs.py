@@ -47,6 +47,11 @@ _DLQ_MAXLEN = 5_000
 _BLOCK_MS = 5_000
 _BATCH = 10
 _CLAIM_IDLE_MS = 60_000
+# Idempotency: SET NX before dispatch so reclaim/duplicate enqueue cannot
+# double-apply side effects (duplicate todos, welcome emails, …). Released on
+# permanent failure so a later re-enqueue can retry; success keeps the key.
+_JOB_DONE_PREFIX = "jobdone:"
+_JOB_DONE_TTL_SECONDS = 86_400
 
 
 class JobDiscardError(Exception):
@@ -96,18 +101,33 @@ def register(job_type: str, handler: JobHandler) -> None:
     _HANDLERS[job_type] = handler
 
 
-async def enqueue(redis: Redis, job_type: str, payload: dict[str, Any]) -> None:
+def job_done_key(dedupe_key: str) -> str:
+    return f"{_JOB_DONE_PREFIX}{dedupe_key}"
+
+
+async def enqueue(
+    redis: Redis,
+    job_type: str,
+    payload: dict[str, Any],
+    *,
+    dedupe_key: str | None = None,
+) -> None:
     """Persist a job. Best-effort — a failure here never breaks the chat path.
 
     A failed enqueue is logged AND reported to Sentry (when initialized) so
     silent job loss is observable — otherwise titles/memory/compression can
     quietly stop running with no signal.
+
+    ``dedupe_key``, when set, is stored on the stream entry so the worker can
+    skip redelivery / duplicate enqueue after a successful (or in-flight)
+    run of the same logical job.
     """
     try:
-        await redis.xadd(
-            JOBS_STREAM,
-            {"type": job_type, "payload": json.dumps(payload)},
-        )
+        fields: dict[str, str] = {"type": job_type, "payload": json.dumps(payload)}
+        if dedupe_key:
+            fields["dedupe_key"] = dedupe_key
+        # redis-py stubs type xadd fields as an invariant EncodedT dict; cast.
+        await redis.xadd(JOBS_STREAM, cast(Any, fields))
         await _trim_jobs_stream(redis)
     except Exception:
         logger.exception("Failed to enqueue job type=%s", job_type)
@@ -139,7 +159,12 @@ async def _trim_jobs_stream(redis: Redis) -> None:
 
 
 async def enqueue_welcome_email(redis: Redis, user_id: UUID) -> None:
-    await enqueue(redis, "transactional_email", {"kind": "welcome", "user_id": str(user_id)})
+    await enqueue(
+        redis,
+        "transactional_email",
+        {"kind": "welcome", "user_id": str(user_id)},
+        dedupe_key=f"welcome:{user_id}",
+    )
 
 
 async def enqueue_purchase_receipt(
@@ -151,17 +176,19 @@ async def enqueue_purchase_receipt(
     product_id: str | None = None,
     expiration: str | None = None,
 ) -> None:
+    uid = str(user_id)
     await enqueue(
         redis,
         "transactional_email",
         {
             "kind": "receipt",
-            "user_id": str(user_id),
+            "user_id": uid,
             "event_type": event_type,
             "store": store,
             "product_id": product_id,
             "expiration": expiration,
         },
+        dedupe_key=f"receipt:{uid}:{event_type}:{product_id or ''}",
     )
 
 
@@ -331,21 +358,52 @@ async def _move_to_dlq(
 ) -> None:
     """Persist failed jobs for inspection/replay without blocking the worker."""
     try:
+        dlq_fields: dict[str, str] = {
+            "original_id": entry_id,
+            "type": str(fields.get("type", "")),
+            "payload": str(fields.get("payload", "{}")),
+            "error": error[:2000],
+            "failed_at": datetime.now(UTC).isoformat(),
+        }
+        dedupe_key = fields.get("dedupe_key")
+        if dedupe_key:
+            dlq_fields["dedupe_key"] = str(dedupe_key)
         await redis.xadd(
             JOBS_DLQ_STREAM,
-            {
-                "original_id": entry_id,
-                "type": fields.get("type", ""),
-                "payload": fields.get("payload", "{}"),
-                "error": error[:2000],
-                "failed_at": datetime.now(UTC).isoformat(),
-            },
+            cast(Any, dlq_fields),
             maxlen=_DLQ_MAXLEN,
             approximate=True,
         )
     except Exception:
         logger.debug("Failed to write job to DLQ id=%s", entry_id, exc_info=True)
         _capture_sentry_exception("dlq_write_failed")
+
+
+async def _claim_dedupe(redis: Redis, dedupe_key: str | None) -> bool:
+    """Return True if this worker should run the job (or there is no dedupe)."""
+    if not dedupe_key:
+        return True
+    try:
+        claimed = await redis.set(
+            job_done_key(dedupe_key),
+            "1",
+            ex=_JOB_DONE_TTL_SECONDS,
+            nx=True,
+        )
+    except Exception:
+        # Fail open: never drop work because Redis SET blipped.
+        logger.debug("job dedupe claim failed key=%s", dedupe_key, exc_info=True)
+        return True
+    return bool(claimed)
+
+
+async def _release_dedupe(redis: Redis, dedupe_key: str | None) -> None:
+    if not dedupe_key:
+        return
+    try:
+        await redis.delete(job_done_key(dedupe_key))
+    except Exception:
+        logger.debug("job dedupe release failed key=%s", dedupe_key, exc_info=True)
 
 
 async def _process_one_entry(
@@ -358,7 +416,19 @@ async def _process_one_entry(
     # Per-entry (and per-attempt) so a long LLM timeout / gmail batch cannot
     # trip the 120s stale health check while this worker is still healthy.
     _touch_heartbeat()
+    dedupe_key = fields.get("dedupe_key") or None
+    if isinstance(dedupe_key, str):
+        dedupe_key = dedupe_key.strip() or None
+    else:
+        dedupe_key = None
     try:
+        if not await _claim_dedupe(redis, dedupe_key):
+            logger.info(
+                "Skipping already-processed job id=%s dedupe_key=%s",
+                entry_id,
+                dedupe_key,
+            )
+            return
         for attempt in range(1, _MAX_ATTEMPTS + 1):
             _touch_heartbeat()
             try:
@@ -366,6 +436,7 @@ async def _process_one_entry(
                 break
             except JobDiscardError as exc:
                 logger.warning("Discarding job id=%s: %s", entry_id, exc)
+                await _release_dedupe(redis, dedupe_key)
                 await _move_to_dlq(redis, entry_id, fields, str(exc))
                 break
             except Exception:
@@ -379,6 +450,8 @@ async def _process_one_entry(
                     await asyncio.sleep(_RETRY_BACKOFF_S * attempt)
                 else:
                     logger.exception("Job failed after %s attempts id=%s", _MAX_ATTEMPTS, entry_id)
+                    # Release so a future re-enqueue / DLQ replay can retry.
+                    await _release_dedupe(redis, dedupe_key)
                     await _move_to_dlq(redis, entry_id, fields, traceback.format_exc(limit=8))
     finally:
         # Best-effort jobs: ack regardless so a poison entry can't loop forever.
@@ -631,6 +704,7 @@ async def list_dlq(redis: Redis, *, count: int = 50) -> list[dict[str, Any]]:
                 "payload": f.get("payload", "{}"),
                 "error": f.get("error", ""),
                 "failed_at": f.get("failed_at", ""),
+                "dedupe_key": f.get("dedupe_key", ""),
             }
         )
     return out
@@ -649,9 +723,16 @@ async def replay_dlq(redis: Redis, *, count: int = 50, delete: bool = True) -> i
         if not job_type:
             continue
         try:
+            fields: dict[str, str] = {
+                "type": job_type,
+                "payload": str(entry.get("payload", "{}")),
+            }
+            dedupe_key = entry.get("dedupe_key") or ""
+            if dedupe_key:
+                fields["dedupe_key"] = str(dedupe_key)
             await redis.xadd(
                 JOBS_STREAM,
-                {"type": job_type, "payload": entry.get("payload", "{}")},
+                cast(Any, fields),
                 maxlen=_MAXLEN,
                 approximate=True,
             )

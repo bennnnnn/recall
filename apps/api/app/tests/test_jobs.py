@@ -597,3 +597,60 @@ async def test_reclaim_pending_jobs_swallows_xautoclaim_errors():
         await jobs._reclaim_pending_jobs(redis, Settings(), "worker-test")
 
     redis.xautoclaim.assert_awaited_once()
+
+
+# ── job idempotency (dedupe_key) ─────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_enqueue_stores_dedupe_key(fake_redis):
+    await jobs.enqueue(fake_redis, "memory", {"a": 1}, dedupe_key="mem:1")
+    _id, fields = (await fake_redis.xrange(jobs.JOBS_STREAM))[0]
+    assert fields["dedupe_key"] == "mem:1"
+
+
+@pytest.mark.asyncio
+async def test_process_entries_skips_duplicate_dedupe_key(fake_redis):
+    """Redelivery / duplicate enqueue with the same dedupe_key must not re-run."""
+    calls = {"n": 0}
+
+    async def handler(_settings, _payload):
+        calls["n"] += 1
+
+    jobs.register("dedupe-job", handler)
+    await jobs._ensure_group(fake_redis)
+    fields = {
+        "type": "dedupe-job",
+        "payload": "{}",
+        "dedupe_key": "todosync:chat:msg1",
+    }
+    entry_a = await fake_redis.xadd(jobs.JOBS_STREAM, fields)
+    entry_b = await fake_redis.xadd(jobs.JOBS_STREAM, fields)
+    await jobs._process_entries(
+        fake_redis,
+        Settings(),
+        [(entry_a, fields), (entry_b, dict(fields))],
+    )
+    assert calls["n"] == 1
+    assert await fake_redis.get(jobs.job_done_key("todosync:chat:msg1")) == "1"
+
+
+@pytest.mark.asyncio
+async def test_process_entries_releases_dedupe_after_permanent_failure(fake_redis):
+    """A exhausted retry must clear the claim so DLQ replay can run again."""
+
+    async def handler(_settings, _payload):
+        raise RuntimeError("boom")
+
+    jobs.register("dedupe-fail-job", handler)
+    await jobs._ensure_group(fake_redis)
+    fields = {
+        "type": "dedupe-fail-job",
+        "payload": "{}",
+        "dedupe_key": "welcome:user-1",
+    }
+    entry_id = await fake_redis.xadd(jobs.JOBS_STREAM, fields)
+    with patch("app.core.jobs.asyncio.sleep", AsyncMock()):
+        await jobs._process_entries(fake_redis, Settings(), [(entry_id, fields)])
+    assert await fake_redis.get(jobs.job_done_key("welcome:user-1")) is None
+    assert await fake_redis.xlen(jobs.JOBS_DLQ_STREAM) == 1
