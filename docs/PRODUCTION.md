@@ -10,11 +10,12 @@ Step-by-step guide to provision production infrastructure. Pair with [`README.md
 - [ ] Enable `vector` extension: `CREATE EXTENSION IF NOT EXISTS vector;`
 - [ ] Set `DATABASE_URL` as `postgresql+asyncpg://...?sslmode=require`
 - [ ] Run migrations: `cd apps/api && uv run alembic upgrade head`
-- [ ] Confirm head revision **0036** (`0036_builtin_template_title_unique`)
+- [ ] Confirm head matches `uv run alembic heads` (currently
+  `0061_usage_daily_est_cost_usd`)
 
 ```bash
 cd apps/api && uv run alembic current
-# Expected: 0036 (head)
+# Expected: 0061_usage_daily_est_cost_usd (head)
 ```
 
 ---

@@ -60,8 +60,10 @@ fi
 
 echo ""
 echo "=== Manual steps remaining ==="
-echo "  • Set Fly secrets (see docs/PRODUCTION.md §4)"
-echo "  • Provision R2 and set STORAGE_BACKEND=r2"
+echo "  • Install flyctl and authenticate: https://fly.io/docs/hands-on/install-flyctl/"
+echo "  • Set Fly secrets (see docs/PRODUCTION.md §4) — app name: recall-api"
+echo "  • fly scale count app=1 worker=1 && fly deploy"
+echo "  • Provision R2 and set STORAGE_BACKEND=r2 (+ R2_* secrets)"
 echo "  • EAS production builds + store submission"
 echo "  • Complete docs/QA_MATRIX.md on physical devices"
 echo "  • Google OAuth verification for Gmail"
