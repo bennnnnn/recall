@@ -63,19 +63,25 @@ async def test_augment_web_and_tools_uses_mcp_when_enabled():
     web_hit.title = "News"
     web_hit.url = "https://news.example"
     web_hit.snippet = "story"
+    after_mcp = [
+        {"role": "system", "content": "base"},
+        {"role": "system", "content": "web"},
+        {"role": "system", "content": "mcp"},
+        {"role": "user", "content": "latest news?"},
+    ]
 
     with (
         patch(
             "app.services.chat_tools.augment_prompt_with_mcp_tools",
-            AsyncMock(return_value=[{"role": "system", "content": "mcp"}]),
+            AsyncMock(return_value=after_mcp),
         ) as mcp_mock,
         patch(
-            "app.services.web_search.augment_prompt_messages",
-            AsyncMock(return_value=([{"role": "system", "content": "web"}], [web_hit])),
+            "app.services.web_search.build_search_augmentation",
+            AsyncMock(return_value=("web", [web_hit])),
         ) as web_mock,
         patch(
-            "app.services.math_tools.augment_prompt_messages",
-            AsyncMock(return_value=([{"role": "system", "content": "mcp"}], None)),
+            "app.services.math_tools.build_math_augmentation",
+            AsyncMock(return_value=(None, None)),
         ) as math_mock,
     ):
         updated, hits, verified_math = await _augment_web_and_tools(
@@ -87,9 +93,51 @@ async def test_augment_web_and_tools_uses_mcp_when_enabled():
     web_mock.assert_awaited_once()
     mcp_mock.assert_awaited_once()
     math_mock.assert_awaited_once()
-    assert updated == [{"role": "system", "content": "mcp"}]
+    assert updated == after_mcp
     assert hits == [web_hit]
     assert verified_math is None
+
+
+@pytest.mark.asyncio
+async def test_augment_web_and_tools_runs_web_and_math_concurrently():
+    """Web search and SymPy must overlap — TTFT pays max(search, math), not sum."""
+    import asyncio
+
+    from app.services.chat.prompt_builder import _augment_web_and_tools
+
+    settings = Settings(
+        mcp_tools_enabled=False,
+        web_search_enabled=True,
+        math_tools_enabled=True,
+    )
+    messages = [{"role": "system", "content": "base"}, {"role": "user", "content": "q"}]
+    started = asyncio.Event()
+    released = asyncio.Event()
+    overlap = {"web_saw_math_waiting": False}
+
+    async def slow_web(*_a, **_k):
+        started.set()
+        await released.wait()
+        return "web-block", []
+
+    async def slow_math(*_a, **_k):
+        await started.wait()
+        overlap["web_saw_math_waiting"] = not released.is_set()
+        released.set()
+        return "math-block", None
+
+    with (
+        patch("app.services.web_search.build_search_augmentation", side_effect=slow_web),
+        patch("app.services.math_tools.build_math_augmentation", side_effect=slow_math),
+    ):
+        updated, _hits, _verified = await _augment_web_and_tools(messages, "q", settings)
+
+    assert overlap["web_saw_math_waiting"]
+    assert [m["content"] for m in updated if m["role"] == "system"] == [
+        "base",
+        "web-block",
+        "math-block",
+    ]
 
 
 @pytest.mark.asyncio

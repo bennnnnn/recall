@@ -19,8 +19,8 @@ async def test_augment_web_and_tools_injects_math_for_solve() -> None:
     ]
 
     with patch(
-        "app.services.web_search.augment_prompt_messages",
-        AsyncMock(return_value=(messages, [])),
+        "app.services.web_search.build_search_augmentation",
+        AsyncMock(return_value=(None, [])),
     ):
         updated, hits, verified_math = await _augment_web_and_tools(
             messages,

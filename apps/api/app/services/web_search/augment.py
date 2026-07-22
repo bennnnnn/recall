@@ -31,11 +31,11 @@ from app.services.web_search.search_cache import _run_search
 from app.services.web_search.subject import _prior_user_messages, resolve_search_subject
 
 
-async def augment_prompt_messages(
-    messages: list[dict[str, str]],
+async def build_search_augmentation(
     user_content: str,
     settings: Settings,
     *,
+    messages: list[dict[str, str]] | None = None,
     user_timezone: str | None = None,
     user_location: str | None = None,
     latitude: float | None = None,
@@ -44,10 +44,17 @@ async def augment_prompt_messages(
     on_status: StreamStatusFn | None = None,
     user: User | None = None,
     redis: Redis | None = None,
-) -> tuple[list[dict[str, str]], list[WebSearchHit]]:
-    prior_user = prior_user_messages or _prior_user_messages(messages, user_content)
+) -> tuple[str | None, list[WebSearchHit]]:
+    """Compute the web-search system block (or None) without mutating messages.
+
+    Safe to run concurrently with other augment builders that share the same
+    base prompt — the caller injects returned blocks after gather.
+    """
+    prior_user = prior_user_messages
+    if prior_user is None:
+        prior_user = _prior_user_messages(messages or [], user_content)
     if web_search_skip(user_content, prior_user_messages=prior_user):
-        return messages, []
+        return None, []
 
     if web_search_fast_yes(user_content, prior_user_messages=prior_user):
         needs_search = True
@@ -60,17 +67,17 @@ async def augment_prompt_messages(
         )
         if classification is not None:
             if not classification.needs_search:
-                return messages, []
+                return None, []
             needs_search = True
             classifier_query = (classification.query or "").strip() or None
         elif not needs_web_search_heuristic(user_content, prior_user_messages=prior_user):
-            return messages, []
+            return None, []
         else:
             needs_search = True
             classifier_query = None
 
     if not needs_search:
-        return messages, []
+        return None, []
 
     subject = resolve_search_subject(user_content, prior_user_messages=prior_user)
     if classifier_query:
@@ -108,4 +115,36 @@ async def augment_prompt_messages(
         block = wrap_untrusted("web search", block)
     else:
         block = format_search_empty_block(tried, local_places=local_places)
+    return block, hits
+
+
+async def augment_prompt_messages(
+    messages: list[dict[str, str]],
+    user_content: str,
+    settings: Settings,
+    *,
+    user_timezone: str | None = None,
+    user_location: str | None = None,
+    latitude: float | None = None,
+    longitude: float | None = None,
+    prior_user_messages: list[str] | None = None,
+    on_status: StreamStatusFn | None = None,
+    user: User | None = None,
+    redis: Redis | None = None,
+) -> tuple[list[dict[str, str]], list[WebSearchHit]]:
+    block, hits = await build_search_augmentation(
+        user_content,
+        settings,
+        messages=messages,
+        user_timezone=user_timezone,
+        user_location=user_location,
+        latitude=latitude,
+        longitude=longitude,
+        prior_user_messages=prior_user_messages,
+        on_status=on_status,
+        user=user,
+        redis=redis,
+    )
+    if block is None:
+        return messages, []
     return inject_before_last_user(messages, block), hits
