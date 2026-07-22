@@ -467,6 +467,10 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 
 ### Pre-deployment TODO (from the holistic review)
 
+**Owner ops (you):** infra + store steps live in Lists → **Launch** (local Dev User) and
+[`docs/PRODUCTION.md` § Owner actions](./docs/PRODUCTION.md#owner-actions-you--not-code).
+Code cannot finish these.
+
 Action items still open before the first production deploy. Correctness follow-ups from the
 Jul 2026 architecture review are mostly shipped (see below); these remain:
 
