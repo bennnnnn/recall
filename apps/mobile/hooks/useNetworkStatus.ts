@@ -1,62 +1,64 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppState, type AppStateStatus } from "react-native";
 import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
 
-import { checkHealth } from "@/lib/api/connectivity";
 import { isNetworkOffline } from "@/lib/networkStatus";
+import { resolveIsOffline } from "@/lib/networkProbe";
 
 const OFFLINE_POLL_MS = 1_500;
 
 export function useNetworkStatus(): { isOffline: boolean } {
   const [isOffline, setIsOffline] = useState(false);
+  // Bump to ignore in-flight probes after unmount or a newer event.
+  const probeGen = useRef(0);
 
   useEffect(() => {
-    const apply = (state: NetInfoState) => {
-      setIsOffline(isNetworkOffline(state));
+    const runProbe = () => {
+      const gen = ++probeGen.current;
+      void resolveIsOffline().then((offline) => {
+        if (gen !== probeGen.current) return;
+        setIsOffline(offline);
+      });
     };
 
-    const refresh = () => {
-      void NetInfo.refresh().then(apply);
+    const onNetInfo = (state: NetInfoState) => {
+      // Online from NetInfo is trustworthy — clear immediately (no fetch).
+      if (!isNetworkOffline(state)) {
+        probeGen.current += 1;
+        setIsOffline(false);
+        return;
+      }
+      // Offline from NetInfo is often stale after reconnect (iOS/simulator).
+      // Never flip the banner on from a raw event — confirm via probe.
+      runProbe();
     };
 
-    void NetInfo.fetch().then(apply);
-    const unsubscribe = NetInfo.addEventListener(apply);
+    void NetInfo.fetch().then(onNetInfo);
+    const unsubscribe = NetInfo.addEventListener(onNetInfo);
 
     const onAppState = (next: AppStateStatus) => {
-      if (next === "active") refresh();
+      if (next === "active") runProbe();
     };
     const appSub = AppState.addEventListener("change", onAppState);
 
     return () => {
+      probeGen.current += 1;
       unsubscribe();
       appSub.remove();
     };
   }, []);
 
-  // Simulator often misses reconnect events AND leaves NetInfo's
-  // isConnected/isInternetReachable stale after reconnect — re-check while the
-  // banner is visible, and confirm with a real /health ping so the banner
-  // clears the moment the API is actually reachable again (not whenever NetInfo
-  // gets around to updating).
+  // While the banner is up, keep probing so a reconnect clears it even when
+  // NetInfo never emits an "online" event.
   useEffect(() => {
     if (!isOffline) return;
     let cancelled = false;
-    const refresh = async () => {
-      // Cheap OS-level check first — catches a real reconnect without a fetch.
-      const state = await NetInfo.refresh();
-      if (cancelled) return;
-      if (!isNetworkOffline(state)) {
-        setIsOffline(false);
-        return;
-      }
-      // NetInfo still says offline (often stale in the simulator) — confirm
-      // with an actual /health request. If the API is reachable, we're online.
-      if (await checkHealth()) {
-        if (!cancelled) setIsOffline(false);
-      }
+    const tick = async () => {
+      const offline = await resolveIsOffline();
+      if (!cancelled) setIsOffline(offline);
     };
-    void refresh();
-    const id = setInterval(() => void refresh(), OFFLINE_POLL_MS);
+    void tick();
+    const id = setInterval(() => void tick(), OFFLINE_POLL_MS);
     return () => {
       cancelled = true;
       clearInterval(id);
