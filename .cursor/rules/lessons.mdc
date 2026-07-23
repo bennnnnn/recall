@@ -12,6 +12,12 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **“No internet” banner stuck after Wi‑Fi returns.** Cause: NetInfo
+  `isConnected`/`isInternetReachable` stay stale offline after reconnect, and
+  the listener re-applied offline after `/health` cleared; if the API host was
+  also unreachable the banner never cleared. Fix: never trust raw NetInfo
+  offline — `resolveIsOffline()` requires NetInfo + health + public
+  generate_204 all fail; online NetInfo still clears immediately.
 - **Login “Rate limit unavailable” / auth 429 with API healthy.** Cause: Upstash free tier
   hit max-requests; REST limiter fails closed on any Redis error, and token issue needs Redis
   too. Fix: point local `REDIS_URL` at Homebrew Redis (`redis://127.0.0.1:6379`); keep Upstash
