@@ -30,11 +30,7 @@ import {
 } from "@/lib/openHtmlPreview";
 import { injectPreviewCsp, stripScripts } from "@/lib/previewSandbox";
 import { CODE_FONT } from "@/lib/fonts";
-import {
-  getPreviewWebView,
-  STATIC_HTML_ORIGIN_WHITELIST,
-  useStaticOnlyNavigation,
-} from "@/lib/webView";
+import { getPreviewWebView } from "@/lib/webView";
 
 class PreviewRenderBoundary extends Component<
   { children: ReactNode; fallback: ReactNode; resetKey: string },
@@ -124,11 +120,14 @@ function LiveWebPreview({
 
   // CSP sandbox: connect-src none, inline scripts only. Interactive HTML runs
   // only in this WebView — share/browser paths strip scripts.
+  // No onShouldStartLoadWithRequest here: the probe that painted PREVIEW_OK
+  // had no nav guard; re-adding it blanked real documents again (WKWebView
+  // bootstrap / subresource loads). Phishing is limited by CSP + whitelist +
+  // setSupportMultipleWindows={false}.
   const fullHtml = useMemo(
     () => injectPreviewCsp(wrapFullDocument(html)),
     [html],
   );
-  const onShouldStartLoadWithRequest = useStaticOnlyNavigation(fullHtml);
 
   useEffect(() => {
     setLoadError(null);
@@ -150,13 +149,13 @@ function LiveWebPreview({
         source={{ html: fullHtml }}
         style={s.webview}
         scrollEnabled
-        originWhitelist={STATIC_HTML_ORIGIN_WHITELIST}
+        // Match the proven PREVIEW_OK probe path (`*`); CSP still blocks egress.
+        originWhitelist={["*"]}
         javaScriptEnabled
         domStorageEnabled={false}
         allowsInlineMediaPlayback
         setSupportMultipleWindows={false}
         nestedScrollEnabled
-        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         onError={(e: { nativeEvent?: { description?: string } }) => {
           setLoadError(
             e.nativeEvent?.description ?? "Preview failed to load.",
