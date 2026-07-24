@@ -7,6 +7,9 @@ injection is skipped for those turns (see prompt_builder).
 SymPy tool results that carry a ``canonical_fence`` in ``ToolResult.data`` are
 collected so ``validate_math_fences`` can still overwrite/densify geometry and
 graph fences the same way the heuristic math_tools path does.
+
+``generate_image`` is terminal: on success the stream skips the visible LLM
+pass and uses the already-persisted ``[Image: …]`` assistant row.
 """
 
 from __future__ import annotations
@@ -14,19 +17,32 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
+from uuid import UUID
 
 from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway
 from app.gateways.mcp import registry as mcp_registry
+from app.gateways.mcp.image_gen_adapter import bind_image_gen_context
 from app.gateways.mcp.web_search_adapter import bind_search_quota_context
 from app.models.orm import User
+from app.services import plan as plan_service
 from app.services.chat.stream_status import StreamStatusFn, clip_status_detail
 from app.services.math_tools import VerifiedMathBlock
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class TerminalImageResult:
+    """Successful model-initiated image gen — stream must not create another row."""
+
+    message_id: str
+    final_content: str
+    resolved_model: str
 
 
 def _status_for_tool(name: str) -> str:
@@ -34,6 +50,8 @@ def _status_for_tool(name: str) -> str:
         return "searching"
     if name == "sympy":
         return "calculating"
+    if name == "generate_image":
+        return "image_gen"
     return "thinking"
 
 
@@ -45,9 +63,32 @@ def _canonical_from_tool_result(result: Any) -> dict[str, Any] | None:
     return fence if isinstance(fence, dict) else None
 
 
+def _terminal_image_from_tool_result(result: Any) -> TerminalImageResult | None:
+    data = getattr(result, "data", None)
+    if not isinstance(data, dict) or not data.get("terminal"):
+        return None
+    marker = data.get("image_marker")
+    message_id = data.get("assistant_message_id")
+    if not isinstance(marker, str) or not marker.startswith("[Image:"):
+        return None
+    if not isinstance(message_id, str) or not message_id.strip():
+        return None
+    model = data.get("resolved_model")
+    resolved = model if isinstance(model, str) and model.strip() else "image-gen-model"
+    return TerminalImageResult(
+        message_id=message_id.strip(),
+        final_content=marker.strip(),
+        resolved_model=resolved,
+    )
+
+
 def _status_detail_for_tool(name: str, raw_args: str) -> str | None:
     """Surface the tool's subject (e.g. the search query) for the status label."""
-    if name != "web_search":
+    if name == "web_search":
+        key = "query"
+    elif name == "generate_image":
+        key = "prompt"
+    else:
         return None
     try:
         args = json.loads(raw_args)
@@ -55,8 +96,16 @@ def _status_detail_for_tool(name: str, raw_args: str) -> str | None:
         return None
     if not isinstance(args, dict):
         return None
-    query = args.get("query")
-    return clip_status_detail(query) if isinstance(query, str) else None
+    value = args.get(key)
+    return clip_status_detail(value) if isinstance(value, str) else None
+
+
+def _tools_for_user(settings: Settings, user: User | None) -> list[dict[str, Any]]:
+    """OpenAI tool payloads; omit image gen for free users / when disabled."""
+    tools = mcp_registry.build_openai_tools()
+    if settings.image_generation_enabled and user is not None and plan_service.is_pro(user):
+        return tools
+    return [t for t in tools if (t.get("function") or {}).get("name") != "generate_image"]
 
 
 async def run_tool_rounds(
@@ -69,24 +118,23 @@ async def run_tool_rounds(
     should_cancel: Callable[[], bool] | None = None,
     user: User | None = None,
     redis: Redis | None = None,
-) -> tuple[list[dict[str, Any]], VerifiedMathBlock | None]:
+    chat_id: UUID | None = None,
+) -> tuple[list[dict[str, Any]], VerifiedMathBlock | None, TerminalImageResult | None]:
     """Mutate a copy of *messages* through up to ``mcp_tool_loop_max_rounds`` tool rounds.
 
-    Returns ``(messages, verified_math)``. ``verified_math`` is set when any
-    sympy tool call returned a ``canonical_fence`` (last one wins) so post-stream
-    fence validation matches the heuristic math_tools path.
-
-    ``user`` / ``redis`` bind Tavily quota + search cache for ``web_search`` tool
-    calls so the model-initiated path cannot bypass the per-user daily cap.
+    Returns ``(messages, verified_math, terminal_image)``.
     """
     if not settings.mcp_tool_loop_enabled:
-        return messages, None
+        return messages, None, None
 
-    tools = mcp_registry.build_openai_tools()
+    tools = _tools_for_user(settings, user)
     if not tools:
-        return messages, None
+        return messages, None, None
 
-    with bind_search_quota_context(user=user, redis=redis):
+    with (
+        bind_search_quota_context(user=user, redis=redis),
+        bind_image_gen_context(user=user, redis=redis, chat_id=chat_id),
+    ):
         return await _run_tool_rounds_bound(
             settings=settings,
             model_alias=model_alias,
@@ -107,10 +155,11 @@ async def _run_tool_rounds_bound(
     tools: list[dict[str, Any]],
     on_status: StreamStatusFn | None,
     should_cancel: Callable[[], bool] | None,
-) -> tuple[list[dict[str, Any]], VerifiedMathBlock | None]:
+) -> tuple[list[dict[str, Any]], VerifiedMathBlock | None, TerminalImageResult | None]:
     working: list[dict[str, Any]] = [dict(m) for m in messages]
     max_rounds = max(1, settings.mcp_tool_loop_max_rounds)
     last_canonical: dict[str, Any] | None = None
+    terminal_image: TerminalImageResult | None = None
 
     for _ in range(max_rounds):
         if should_cancel and should_cancel():
@@ -157,6 +206,9 @@ async def _run_tool_rounds_bound(
             fence = _canonical_from_tool_result(result) if result else None
             if fence is not None:
                 last_canonical = fence
+            image = _terminal_image_from_tool_result(result) if result else None
+            if image is not None:
+                terminal_image = image
             working.append(
                 {
                     "role": "tool",
@@ -164,6 +216,11 @@ async def _run_tool_rounds_bound(
                     "content": content,
                 }
             )
+
+        # Image gen already persisted the assistant row — stop before another
+        # completion round invents prose around the marker.
+        if terminal_image is not None:
+            break
 
     # A cancel can land after the assistant's tool_calls are recorded but before
     # every tool result is appended. Providers reject a message list where a
@@ -179,7 +236,7 @@ async def _run_tool_rounds_bound(
         if last_canonical is not None
         else None
     )
-    return working, verified
+    return working, verified, terminal_image
 
 
 def _first_unanswered_assistant_idx(msgs: list[dict[str, Any]]) -> int | None:

@@ -441,7 +441,7 @@ export const MessageBubble = React.memo(function MessageBubble({
                 </View>
               ) : (
                 <View style={b.waitingWrap}>
-                  <RecallTypingIndicator />
+                  <RecallTypingIndicator phase={streamStatus} />
                   {statusLabel ? <Text style={b.statusLabel}>{statusLabel}</Text> : null}
                 </View>
               )

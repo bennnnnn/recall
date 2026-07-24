@@ -96,6 +96,11 @@ class StreamContext:
     rich_context_turn: bool = True
     # Attachment ids to index after the turn finalizes (post-turn jobs path).
     indexable_attachment_ids: list[str] = field(default_factory=list)
+    # Set when the tool loop's generate_image persisted the assistant row —
+    # stream_and_finalize skips the LLM + second insert.
+    terminal_image_message_id: str | None = None
+    terminal_image_content: str | None = None
+    terminal_image_model: str | None = None
 
 
 @dataclass

@@ -72,9 +72,9 @@ const makeStyles = (t: Theme) =>
       maxWidth: "100%",
       paddingVertical: 10,
       paddingHorizontal: 18,
-      // Same gray surface + radius as MathFormulaWebView's box — a final
-      // answer is visually just another math block, not a distinct card.
-      backgroundColor: t.contentSurface,
+      // One step stronger than contentSurface so finals read on the chat
+      // canvas / assistant bubble without introducing a new hue.
+      backgroundColor: t.surfaceAlt,
       borderRadius: 10,
       alignItems: "center",
       justifyContent: "center",
