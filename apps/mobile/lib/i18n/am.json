@@ -353,6 +353,7 @@
   "onboarding.welcome": "እንኳን ወደ ሪኮል መጡ",
   "preview.close": "Close",
   "preview.code_tab": "Code",
+  "preview.empty_sandbox": "እስካሁን በዚህ ቅድመ እይታ የሚታይ ነገር የለም። ገጹ አሁንም ባዶ የሚመስል ከሆነ ያጋሩ የሚለውን ይሞክሩ።",
   "preview.expo_go_banner": "ይህ ገጽ JavaScript ይጠቀማል — ለቀጥታ ቅድመ እይታ በዴቭ ቢልድ አሂድ ይቀይሩ፣ ወይም በ Safari ለመክፈት ያጋሩ።",
   "preview.load_error": "ይህ ገጽ መጫን አልተቻለም። በምትኩ በ Safari ለመክፈት ያጋሩ የሚለውን ይሞክሩ።",
   "preview.loading": "Loading preview…",

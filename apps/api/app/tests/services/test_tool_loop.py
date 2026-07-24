@@ -334,9 +334,7 @@ async def test_tools_for_user_omits_image_gen_for_free():
     mcp_registry.register(ImageGenAdapter(_settings(image_generation_enabled=True)))
     try:
         with patch("app.services.tool_loop.plan_service.is_pro", return_value=False):
-            tools = tool_loop._tools_for_user(
-                _settings(image_generation_enabled=True), MagicMock()
-            )
+            tools = tool_loop._tools_for_user(_settings(image_generation_enabled=True), MagicMock())
         names = [(t.get("function") or {}).get("name") for t in tools]
         assert "generate_image" not in names
     finally:

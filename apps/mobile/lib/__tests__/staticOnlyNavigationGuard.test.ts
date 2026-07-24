@@ -1,21 +1,35 @@
 import {
+  createHtmlRunNavigationGuard,
   createStaticOnlyNavigationGuard,
   isExternalHttpUrl,
   isPreviewFrameworkUrl,
+  isPreviewInlineDocumentUrl,
+  PREVIEW_INLINE_BASE_URL,
 } from "@/lib/staticOnlyNavigationGuard";
 
 describe("isPreviewFrameworkUrl", () => {
-  it("allows blank / data / file loads", () => {
+  it("allows blank / data / file / applewebdata loads", () => {
     expect(isPreviewFrameworkUrl("")).toBe(true);
     expect(isPreviewFrameworkUrl("about:blank")).toBe(true);
     expect(isPreviewFrameworkUrl("about:srcdoc")).toBe(true);
     expect(isPreviewFrameworkUrl("data:text/html,hi")).toBe(true);
     expect(isPreviewFrameworkUrl("file:///tmp/preview.html")).toBe(true);
+    expect(isPreviewFrameworkUrl("applewebdata://uuid/doc")).toBe(true);
   });
 
   it("does not treat https as framework", () => {
     expect(isPreviewFrameworkUrl("https://localhost/")).toBe(false);
     expect(isPreviewFrameworkUrl("https://evil.example")).toBe(false);
+  });
+});
+
+describe("isPreviewInlineDocumentUrl", () => {
+  it("allows the RNC inline HTML baseUrl only on localhost", () => {
+    expect(isPreviewInlineDocumentUrl(PREVIEW_INLINE_BASE_URL)).toBe(true);
+    expect(isPreviewInlineDocumentUrl("https://localhost")).toBe(true);
+    expect(isPreviewInlineDocumentUrl("http://127.0.0.1/")).toBe(true);
+    expect(isPreviewInlineDocumentUrl("https://evil.example/")).toBe(false);
+    expect(isPreviewInlineDocumentUrl("about:blank")).toBe(false);
   });
 });
 
@@ -35,7 +49,14 @@ describe("createStaticOnlyNavigationGuard", () => {
     expect(guard.shouldAllow("data:text/html,%3Ch1%3Ehi%3C%2Fh1%3E")).toBe(true);
   });
 
-  it("always denies http(s) navigations (phishing)", () => {
+  it("allows the inline document baseUrl (otherwise Run tab is blank)", () => {
+    const guard = createStaticOnlyNavigationGuard();
+    expect(guard.shouldAllow(PREVIEW_INLINE_BASE_URL)).toBe(true);
+    expect(guard.shouldAllow("https://localhost/")).toBe(true);
+    expect(guard.shouldAllow("https://localhost/?v=1")).toBe(true);
+  });
+
+  it("denies open-web http(s) navigations (phishing)", () => {
     const guard = createStaticOnlyNavigationGuard();
     guard.shouldAllow("about:blank");
     expect(guard.shouldAllow("https://evil.example/phish")).toBe(false);
@@ -62,5 +83,27 @@ describe("createStaticOnlyNavigationGuard", () => {
     expect(guardA.shouldAllow("blob:a")).toBe(true);
     expect(guardA.shouldAllow("blob:b")).toBe(false);
     expect(guardB.shouldAllow("blob:a")).toBe(true);
+  });
+});
+
+describe("createHtmlRunNavigationGuard", () => {
+  it("always allows loads (stay-on-document is in-page, not native)", () => {
+    const guard = createHtmlRunNavigationGuard();
+    expect(
+      guard.shouldAllow({
+        url: "https://cdn.example/app.js",
+        isTopFrame: true,
+        navigationType: "other",
+      }),
+    ).toBe(true);
+    expect(
+      guard.shouldAllow({
+        url: "https://evil.example/phish",
+        isTopFrame: true,
+        navigationType: "click",
+      }),
+    ).toBe(true);
+    expect(guard.shouldAllow({ url: PREVIEW_INLINE_BASE_URL })).toBe(true);
+    expect(guard.shouldAllow({ url: "about:blank" })).toBe(true);
   });
 });

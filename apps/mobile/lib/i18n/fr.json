@@ -353,6 +353,7 @@
   "onboarding.welcome": "Bienvenue sur Recall",
   "preview.close": "Close",
   "preview.code_tab": "Code",
+  "preview.empty_sandbox": "Rien n'est encore visible dans cet aperçu. Essayez Partager si la page semble toujours vide.",
   "preview.expo_go_banner": "Cette page utilise JavaScript — passez à Exécuter avec un build de développement pour l'aperçu en direct, ou Partager pour ouvrir dans Safari.",
   "preview.load_error": "Impossible de charger cette page. Essayez Partager pour l'ouvrir dans Safari.",
   "preview.loading": "Loading preview…",

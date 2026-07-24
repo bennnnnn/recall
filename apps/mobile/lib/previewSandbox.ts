@@ -20,7 +20,8 @@
  * `sandbox allow-scripts` for environments that honor it; do not treat it as
  * a guarantee of iframe-style isolation.
  */
-export const PREVIEW_CSP = [
+/** Egress-locked CSP without the meta `sandbox` token (charts/math/PDF). */
+export const PREVIEW_CSP_INLINE = [
   "default-src 'none'",
   "style-src 'unsafe-inline'",
   "script-src 'unsafe-inline'",
@@ -30,8 +31,84 @@ export const PREVIEW_CSP = [
   "connect-src 'none'",
   "base-uri 'none'",
   "form-action 'none'",
-  "sandbox allow-scripts",
 ].join("; ");
+
+/**
+ * Default preview CSP for trusted inlined bundles (charts/math/PDF).
+ * Includes a meta `sandbox` token for environments that honor it.
+ */
+export const PREVIEW_CSP = `${PREVIEW_CSP_INLINE}; sandbox allow-scripts`;
+
+/**
+ * HTML Run tab — still isolated from the app (no shared cookies / tokens),
+ * but allows http(s) subresources so CDN CSS/JS demos actually paint.
+ * Leave-document navigations are blocked in-page (see HTML_RUN_STAY_JS) and
+ * via form-action 'none'; the native nav guard always allows loads.
+ */
+export const PREVIEW_CSP_LIVE = [
+  "default-src 'none'",
+  "style-src 'unsafe-inline' https: http:",
+  "script-src 'unsafe-inline' https: http:",
+  "img-src data: blob: https: http:",
+  "font-src data: https: http:",
+  "media-src data: blob: https: http:",
+  "connect-src https: http:",
+  "frame-src https: http:",
+  "worker-src blob: https: http:",
+  "base-uri 'none'",
+  "form-action 'none'",
+].join("; ");
+
+/**
+ * Inlined into the HTML Run document (not via RN injectedJavaScript*).
+ * Blocks <a> / form navigations that would leave the preview. Hash /
+ * javascript: links still work for in-page demos.
+ */
+export const HTML_RUN_STAY_JS = `(function () {
+  function stay(e) {
+    try {
+      var t = e.target;
+      if (e.type === "submit") {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      while (t && t.tagName !== "A") t = t.parentElement;
+      if (!t || !t.getAttribute) return;
+      var href = t.getAttribute("href") || "";
+      if (!href || href.charAt(0) === "#" || href.indexOf("javascript:") === 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+    } catch (err) {}
+  }
+  document.addEventListener("click", stay, true);
+  document.addEventListener("submit", stay, true);
+})();`;
+
+/** Full document for the HTML Run WebView: wrap + live CSP + stay-on-page trap. */
+export function prepareHtmlRunDocument(html: string): string {
+  const withCsp = injectPreviewCsp(html, PREVIEW_CSP_LIVE);
+  const stayTag = `<script>${HTML_RUN_STAY_JS}</script>`;
+  const headClose = /<\/head>/i.exec(withCsp);
+  if (headClose && headClose.index != null) {
+    return (
+      withCsp.slice(0, headClose.index) + stayTag + withCsp.slice(headClose.index)
+    );
+  }
+  return withCsp.replace(
+    /(<meta http-equiv="Content-Security-Policy"[^>]*>)/i,
+    `$1${stayTag}`,
+  );
+}
+
+/** True if the markup references http(s) assets. */
+export function htmlDependsOnNetwork(html: string): boolean {
+  return (
+    /(?:src|href)\s*=\s*["']https?:\/\//i.test(html) ||
+    /@import\s+["']https?:\/\//i.test(html) ||
+    /url\(\s*["']?https?:\/\//i.test(html)
+  );
+}
 
 /**
  * CSP for the math WebView (MathJax path).

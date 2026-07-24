@@ -12,6 +12,12 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **HTML Run tab solid blank (toolbar ok).** Often not the WebView: HMR left a
+  missing symbol (`htmlDependsOnNetwork` / `isWebViewAvailable`); error boundary
+  fell back to script-stripped static HTML → white. Also: nav-guard/CSP/onLayout
+  stack. Fix: show the real error (no silent static fallback); Run path =
+  chart-like `source={{ html }}` only + `prepareHtmlRunDocument` (live CSP +
+  in-document stay script); clear Metro cache after preview edits.
 - **“No internet” banner stuck after Wi‑Fi returns.** Cause: NetInfo
   `isConnected`/`isInternetReachable` stay stale offline after reconnect, and
   the listener re-applied offline after `/health` cleared; if the API host was
