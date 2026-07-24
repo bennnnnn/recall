@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Component, useEffect, useMemo, useState, type ErrorInfo, type ReactNode } from "react";
 import {
   Modal,
   Pressable,
@@ -26,7 +26,28 @@ import {
 } from "@/lib/openHtmlPreview";
 import { injectPreviewCsp, stripScripts } from "@/lib/previewSandbox";
 import { CODE_FONT } from "@/lib/fonts";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import { getPreviewWebView, useStaticOnlyNavigation } from "@/lib/webView";
+
+class PreviewRenderBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo): void {
+    console.warn("HtmlPreviewModal render failed", error, info.componentStack);
+  }
+
+  render(): ReactNode {
+    if (this.state.failed) return this.props.fallback;
+    return this.props.children;
+  }
+}
 
 type Props = {
   visible: boolean;
@@ -82,7 +103,16 @@ function LiveWebPreview({
   html: string;
   styles: ReturnType<typeof makeStyles>;
 }) {
-  const fullHtml = useMemo(() => injectPreviewCsp(wrapFullDocument(html)), [html]);
+  // Drop CSP `sandbox` in meta — some WKWebView builds treat it harshly and
+  // paint an empty document; connect-src/script-src still lock down egress.
+  const fullHtml = useMemo(
+    () =>
+      injectPreviewCsp(wrapFullDocument(html)).replace(
+        /sandbox allow-scripts;?\s*/gi,
+        "",
+      ),
+    [html],
+  );
   const previewWebView = useMemo(() => getPreviewWebView(), []);
   const onShouldStartLoadWithRequest = useStaticOnlyNavigation(fullHtml);
 
@@ -196,11 +226,13 @@ export function HtmlPreviewModal({ visible, html, onClose }: Props) {
   const contentWidth = Math.max(width - 32, 280);
   const [tab, setTab] = useState<PreviewTab>("run");
   const interactive = useMemo(() => looksLikeInteractiveHtml(html), [html]);
-  // Only the native RNC WebView gets LiveWebPreview. Expo Go ships
-  // `@expo/dom-webview`, which we used to prefer — but its file:// preview
-  // often renders a blank white view. Static HTML still shows the page.
+  // Live WebView only in a bare/dev-client native binary. Expo Go
+  // (`storeClient`) and store builds without RNC stay on static HTML — the
+  // WebView path was painting a blank Run tab for this user.
   const canUseNativeWebView = useMemo(
-    () => getPreviewWebView()?.mode === "rnc",
+    () =>
+      Constants.executionEnvironment === ExecutionEnvironment.Bare &&
+      getPreviewWebView()?.mode === "rnc",
     [],
   );
 
@@ -234,15 +266,33 @@ export function HtmlPreviewModal({ visible, html, onClose }: Props) {
             >
               <CodeBlock code={html} lang="html" />
             </ScrollView>
-          ) : canUseNativeWebView ? (
-            <LiveWebPreview html={html} styles={s} />
           ) : (
-            <StaticHtmlPreview
-              html={html}
-              contentWidth={contentWidth}
-              theme={theme}
-              styles={s}
-            />
+            <PreviewRenderBoundary
+              fallback={
+                <ScrollView
+                  style={s.scroll}
+                  contentContainerStyle={s.scrollContent}
+                >
+                  <Text style={s.base}>
+                    {t("preview.expo_go_banner")}
+                  </Text>
+                  <Text style={s.sourceText} selectable>
+                    {html.trim().slice(0, 4000)}
+                  </Text>
+                </ScrollView>
+              }
+            >
+              {canUseNativeWebView ? (
+                <LiveWebPreview html={html} styles={s} />
+              ) : (
+                <StaticHtmlPreview
+                  html={html}
+                  contentWidth={contentWidth}
+                  theme={theme}
+                  styles={s}
+                />
+              )}
+            </PreviewRenderBoundary>
           )}
         </View>
 
