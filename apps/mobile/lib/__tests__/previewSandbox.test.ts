@@ -2,6 +2,7 @@ import {
   PDF_PREVIEW_CSP,
   PREVIEW_CSP,
   PREVIEW_CSP_INLINE,
+  PREVIEW_CSP_LIVE,
   escapeForInlineJsTemplate,
   htmlDependsOnNetwork,
   injectPreviewCsp,
@@ -23,6 +24,13 @@ describe("PREVIEW_CSP", () => {
     expect(PREVIEW_CSP_INLINE).toContain("connect-src 'none'");
     expect(PREVIEW_CSP_INLINE).not.toContain("sandbox");
     expect(PREVIEW_CSP.startsWith(PREVIEW_CSP_INLINE)).toBe(true);
+  });
+
+  it("PREVIEW_CSP_LIVE allows https subresources for HTML Run demos", () => {
+    expect(PREVIEW_CSP_LIVE).toContain("script-src 'unsafe-inline' https: http:");
+    expect(PREVIEW_CSP_LIVE).toContain("style-src 'unsafe-inline' https: http:");
+    expect(PREVIEW_CSP_LIVE).toContain("connect-src https: http:");
+    expect(PREVIEW_CSP_LIVE).not.toContain("sandbox");
   });
 });
 

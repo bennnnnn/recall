@@ -3,12 +3,17 @@ import { NativeModules, TurboModuleRegistry } from "react-native";
 import type { ComponentType } from "react";
 
 import {
+  createHtmlRunNavigationGuard,
   createStaticOnlyNavigationGuard,
   PREVIEW_INLINE_BASE_URL,
   type StaticOnlyNavigationGuard,
 } from "@/lib/staticOnlyNavigationGuard";
 
-export { createStaticOnlyNavigationGuard, PREVIEW_INLINE_BASE_URL };
+export {
+  createHtmlRunNavigationGuard,
+  createStaticOnlyNavigationGuard,
+  PREVIEW_INLINE_BASE_URL,
+};
 export type { StaticOnlyNavigationGuard };
 
 export type PreviewWebViewMode = "rnc" | "expo-dom";
@@ -98,6 +103,20 @@ export function navigationRequestUrl(request: unknown): string {
   return "";
 }
 
+/** Top-frame flag from RN WebView request (defaults true when unknown). */
+export function navigationRequestIsTopFrame(request: unknown): boolean {
+  if (request == null || typeof request !== "object") return true;
+  const rec = request as {
+    isTopFrame?: unknown;
+    nativeEvent?: { isTopFrame?: unknown };
+  };
+  if (typeof rec.isTopFrame === "boolean") return rec.isTopFrame;
+  if (typeof rec.nativeEvent?.isTopFrame === "boolean") {
+    return rec.nativeEvent.isTopFrame;
+  }
+  return true;
+}
+
 /**
  * React wiring for {@link createStaticOnlyNavigationGuard}: pass the HTML
  * string (or other value identifying "new content") as `sourceKey` so a
@@ -117,7 +136,35 @@ export function useStaticOnlyNavigation(
   }, [sourceKey, guard]);
 
   return useCallback(
-    (request?: unknown) => guard.shouldAllow(navigationRequestUrl(request)),
+    (request?: unknown) =>
+      guard.shouldAllow(
+        navigationRequestUrl(request),
+        navigationRequestIsTopFrame(request),
+      ),
+    [guard],
+  );
+}
+
+/** HTML Run tab: CDN subresources OK; block top-level open-web navigations. */
+export function useHtmlRunNavigation(
+  sourceKey: unknown,
+): (request?: unknown) => boolean {
+  const guardRef = useRef<StaticOnlyNavigationGuard | null>(null);
+  if (guardRef.current == null) {
+    guardRef.current = createHtmlRunNavigationGuard();
+  }
+  const guard = guardRef.current;
+
+  useEffect(() => {
+    guard.reset();
+  }, [sourceKey, guard]);
+
+  return useCallback(
+    (request?: unknown) =>
+      guard.shouldAllow(
+        navigationRequestUrl(request),
+        navigationRequestIsTopFrame(request),
+      ),
     [guard],
   );
 }

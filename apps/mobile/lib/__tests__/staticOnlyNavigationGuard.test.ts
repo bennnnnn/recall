@@ -1,4 +1,5 @@
 import {
+  createHtmlRunNavigationGuard,
   createStaticOnlyNavigationGuard,
   isExternalHttpUrl,
   isPreviewFrameworkUrl,
@@ -82,5 +83,15 @@ describe("createStaticOnlyNavigationGuard", () => {
     expect(guardA.shouldAllow("blob:a")).toBe(true);
     expect(guardA.shouldAllow("blob:b")).toBe(false);
     expect(guardB.shouldAllow("blob:a")).toBe(true);
+  });
+});
+
+describe("createHtmlRunNavigationGuard", () => {
+  it("allows CDN subresource http(s) but blocks top-level open-web nav", () => {
+    const guard = createHtmlRunNavigationGuard();
+    expect(guard.shouldAllow("https://cdn.example/app.js", false)).toBe(true);
+    expect(guard.shouldAllow("https://evil.example/phish", true)).toBe(false);
+    expect(guard.shouldAllow(PREVIEW_INLINE_BASE_URL, true)).toBe(true);
+    expect(guard.shouldAllow("about:blank", true)).toBe(true);
   });
 });

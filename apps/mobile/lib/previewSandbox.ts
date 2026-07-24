@@ -20,7 +20,7 @@
  * `sandbox allow-scripts` for environments that honor it; do not treat it as
  * a guarantee of iframe-style isolation.
  */
-/** Egress-locked CSP without the meta `sandbox` token (see PREVIEW_CSP). */
+/** Egress-locked CSP without the meta `sandbox` token (charts/math/PDF). */
 export const PREVIEW_CSP_INLINE = [
   "default-src 'none'",
   "style-src 'unsafe-inline'",
@@ -34,14 +34,32 @@ export const PREVIEW_CSP_INLINE = [
 ].join("; ");
 
 /**
- * Default preview CSP. Includes a meta `sandbox` token for environments that
- * honor it; HTML Run uses {@link PREVIEW_CSP_INLINE} instead — some WKWebView
- * builds blank complex documents when meta sandbox is present, while egress
- * locks alone match the product sandbox.
+ * Default preview CSP for trusted inlined bundles (charts/math/PDF).
+ * Includes a meta `sandbox` token for environments that honor it.
  */
 export const PREVIEW_CSP = `${PREVIEW_CSP_INLINE}; sandbox allow-scripts`;
 
-/** True if the markup references http(s) assets the Run CSP will block. */
+/**
+ * HTML Run tab — still isolated from the app (no shared cookies / tokens),
+ * but allows http(s) subresources so CDN CSS/JS demos actually paint.
+ * Top-level navigations away from the document are blocked in the WebView
+ * nav guard, not here.
+ */
+export const PREVIEW_CSP_LIVE = [
+  "default-src 'none'",
+  "style-src 'unsafe-inline' https: http:",
+  "script-src 'unsafe-inline' https: http:",
+  "img-src data: blob: https: http:",
+  "font-src data: https: http:",
+  "media-src data: blob: https: http:",
+  "connect-src https: http:",
+  "frame-src https: http:",
+  "worker-src blob: https: http:",
+  "base-uri 'none'",
+  "form-action https: http:",
+].join("; ");
+
+/** True if the markup references http(s) assets. */
 export function htmlDependsOnNetwork(html: string): boolean {
   return (
     /(?:src|href)\s*=\s*["']https?:\/\//i.test(html) ||

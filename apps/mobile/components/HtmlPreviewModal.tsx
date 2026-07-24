@@ -2,6 +2,7 @@ import {
   Component,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ErrorInfo,
   type ReactNode,
@@ -28,14 +29,9 @@ import {
   shareHtmlPreview,
   wrapFullDocument,
 } from "@/lib/openHtmlPreview";
-import {
-  htmlDependsOnNetwork,
-  injectPreviewCsp,
-  PREVIEW_CSP_INLINE,
-  stripScripts,
-} from "@/lib/previewSandbox";
+import { injectPreviewCsp, PREVIEW_CSP_LIVE, stripScripts } from "@/lib/previewSandbox";
 import { CODE_FONT } from "@/lib/fonts";
-import { getPreviewWebView } from "@/lib/webView";
+import { getPreviewWebView, useHtmlRunNavigation } from "@/lib/webView";
 
 const VISIBILITY_PROBE_JS = `
 (function () {
@@ -141,20 +137,24 @@ function LiveWebPreview({
   const { t } = useTranslation();
   const [loadError, setLoadError] = useState<string | null>(null);
   const [emptyPaint, setEmptyPaint] = useState(false);
+  const webRef = useRef<{ injectJavaScript?: (js: string) => void } | null>(null);
+  const probeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const previewWebView = useMemo(() => getPreviewWebView(), []);
-  const needsNetwork = useMemo(() => htmlDependsOnNetwork(html), [html]);
 
-  // Egress-locked CSP (inline scripts/styles only). Omit meta `sandbox` —
-  // PREVIEW_OK proved paint works; complex model HTML was blanking with it.
-  // No nav guard (same reason). Share/browser still strips scripts.
+  // Allow CDN CSS/JS so real demos paint. Still isolated from app tokens;
+  // top-level navigations off-document are blocked by useHtmlRunNavigation.
   const fullHtml = useMemo(
-    () => injectPreviewCsp(wrapFullDocument(html), PREVIEW_CSP_INLINE),
+    () => injectPreviewCsp(wrapFullDocument(html), PREVIEW_CSP_LIVE),
     [html],
   );
+  const onShouldStartLoadWithRequest = useHtmlRunNavigation(fullHtml);
 
   useEffect(() => {
     setLoadError(null);
     setEmptyPaint(false);
+    return () => {
+      if (probeTimer.current) clearTimeout(probeTimer.current);
+    };
   }, [html]);
 
   const WebView = previewWebView?.mode === "rnc" ? previewWebView.Component : null;
@@ -168,11 +168,6 @@ function LiveWebPreview({
 
   return (
     <View style={s.webviewContainer} collapsable={false}>
-      {needsNetwork ? (
-        <View style={s.networkBanner} pointerEvents="none">
-          <Text style={s.networkBannerText}>{t("preview.network_banner")}</Text>
-        </View>
-      ) : null}
       {emptyPaint || loadError ? (
         <View style={s.emptyOverlay} pointerEvents="none">
           <Text style={s.emptyOverlayText}>
@@ -181,16 +176,27 @@ function LiveWebPreview({
         </View>
       ) : null}
       <WebView
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ref={(r: any) => {
+          webRef.current = r;
+        }}
         source={{ html: fullHtml }}
         style={s.webview}
         scrollEnabled
         originWhitelist={["*"]}
         javaScriptEnabled
-        domStorageEnabled={false}
+        domStorageEnabled
         allowsInlineMediaPlayback
         setSupportMultipleWindows={false}
         nestedScrollEnabled
-        injectedJavaScript={VISIBILITY_PROBE_JS}
+        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+        onLoadEnd={() => {
+          // CDN scripts finish after first paint — re-check shortly.
+          if (probeTimer.current) clearTimeout(probeTimer.current);
+          probeTimer.current = setTimeout(() => {
+            webRef.current?.injectJavaScript?.(VISIBILITY_PROBE_JS);
+          }, 1200);
+        }}
         onMessage={(e: { nativeEvent?: { data?: string } }) => {
           try {
             const raw = e.nativeEvent?.data;
@@ -203,8 +209,7 @@ function LiveWebPreview({
             if (msg.type !== "preview-visibility") return;
             const textLen = msg.textLen ?? 0;
             const kids = msg.kids ?? 0;
-            // CDN-driven pages often leave an empty shell (kids>0, no text).
-            setEmptyPaint(textLen < 2 && (kids < 1 || needsNetwork));
+            setEmptyPaint(textLen < 2 && kids < 1);
           } catch {
             /* ignore malformed */
           }
@@ -435,25 +440,10 @@ const makeStyles = (theme: Theme) =>
       left: 0,
       backgroundColor: "#FFFFFF",
     },
-    networkBanner: {
-      position: "absolute",
-      zIndex: 3,
-      top: 0,
-      left: 0,
-      right: 0,
-      paddingHorizontal: 14,
-      paddingVertical: 10,
-      backgroundColor: theme.primaryLight,
-    },
-    networkBannerText: {
-      fontSize: 13,
-      lineHeight: 18,
-      color: theme.text,
-    },
     emptyOverlay: {
       position: "absolute",
       zIndex: 2,
-      top: 56,
+      top: 16,
       left: 16,
       right: 16,
       padding: 14,

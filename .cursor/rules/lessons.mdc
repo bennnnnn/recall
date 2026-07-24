@@ -13,10 +13,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 ## Lessons
 
 - **HTML Run tab solid blank (toolbar ok, no JS error).** Causes stacked:
-  (1) HMR crashes swallowed by error boundary; (2) `onLayout` height gate never
-  mounting WebView in Modal; (3) `onShouldStartLoadWithRequest` blanking real
-  docs after a `PREVIEW_OK` probe proved paint works. Fix: absolute-fill RNC
-  mount, no Run-tab nav guard, CSP + `originWhitelist *`, `mode===rnc`.
+  (1) HMR crashes swallowed by error boundary; (2) `onLayout` height gate;
+  (3) nav guard eating bootstrap; (4) egress-only CSP blocking CDN demos.
+  Fix: absolute-fill RNC mount, `PREVIEW_CSP_LIVE` (https subresources),
+  HTML-run guard allows non-top-frame http(s) but blocks top-level phishing.
 - **“No internet” banner stuck after Wi‑Fi returns.** Cause: NetInfo
   `isConnected`/`isInternetReachable` stay stale offline after reconnect, and
   the listener re-applied offline after `/health` cleared; if the API host was

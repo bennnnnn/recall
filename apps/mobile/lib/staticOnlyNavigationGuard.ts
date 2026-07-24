@@ -2,9 +2,10 @@ export type StaticOnlyNavigationGuard = {
   /**
    * Call from `onShouldStartLoadWithRequest`. Pass the request URL when
    * available — framework loads (`about:blank`, `data:`, `file:`) are always
-   * allowed; `http(s):` navigations are always denied (phishing).
+   * allowed; top-level `http(s):` navigations are denied (phishing) unless
+   * a specialized guard (HTML Run) allows subresource loads.
    */
-  shouldAllow: (url?: string) => boolean;
+  shouldAllow: (url?: string, isTopFrame?: boolean) => boolean;
   /** Call when the WebView's source content legitimately changes. */
   reset: () => void;
 };
@@ -78,6 +79,26 @@ export function createStaticOnlyNavigationGuard(): StaticOnlyNavigationGuard {
     },
     reset: () => {
       allowedUnknownOnce = false;
+    },
+  };
+}
+
+/**
+ * HTML Run tab: allow CDN/subresource http(s) loads; deny top-level navigations
+ * to the open web (phishing chrome). Framework + localhost document origins
+ * always allowed.
+ */
+export function createHtmlRunNavigationGuard(): StaticOnlyNavigationGuard {
+  return {
+    shouldAllow: (url = "", isTopFrame = true) => {
+      if (isPreviewFrameworkUrl(url)) return true;
+      if (isPreviewInlineDocumentUrl(url)) return true;
+      if (!isTopFrame) return true;
+      if (isExternalHttpUrl(url)) return false;
+      return true;
+    },
+    reset: () => {
+      /* no one-shot state */
     },
   };
 }
