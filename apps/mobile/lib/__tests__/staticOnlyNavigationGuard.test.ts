@@ -87,11 +87,23 @@ describe("createStaticOnlyNavigationGuard", () => {
 });
 
 describe("createHtmlRunNavigationGuard", () => {
-  it("allows CDN subresource http(s) but blocks top-level open-web nav", () => {
+  it("allows CDN loads; only blocks click/form navigations to the open web", () => {
     const guard = createHtmlRunNavigationGuard();
-    expect(guard.shouldAllow("https://cdn.example/app.js", false)).toBe(true);
-    expect(guard.shouldAllow("https://evil.example/phish", true)).toBe(false);
-    expect(guard.shouldAllow(PREVIEW_INLINE_BASE_URL, true)).toBe(true);
-    expect(guard.shouldAllow("about:blank", true)).toBe(true);
+    expect(
+      guard.shouldAllow({
+        url: "https://cdn.example/app.js",
+        isTopFrame: true,
+        navigationType: "other",
+      }),
+    ).toBe(true);
+    expect(
+      guard.shouldAllow({
+        url: "https://evil.example/phish",
+        isTopFrame: true,
+        navigationType: "click",
+      }),
+    ).toBe(false);
+    expect(guard.shouldAllow({ url: PREVIEW_INLINE_BASE_URL })).toBe(true);
+    expect(guard.shouldAllow({ url: "about:blank" })).toBe(true);
   });
 });

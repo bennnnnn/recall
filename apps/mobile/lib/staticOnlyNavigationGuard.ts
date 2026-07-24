@@ -1,14 +1,27 @@
+export type NavigationGuardRequest = {
+  url?: string;
+  isTopFrame?: boolean;
+  /** iOS: click | formsubmit | backforward | reload | formresubmit | other */
+  navigationType?: string;
+};
+
 export type StaticOnlyNavigationGuard = {
   /**
-   * Call from `onShouldStartLoadWithRequest`. Pass the request URL when
-   * available — framework loads (`about:blank`, `data:`, `file:`) are always
-   * allowed; top-level `http(s):` navigations are denied (phishing) unless
-   * a specialized guard (HTML Run) allows subresource loads.
+   * Call from `onShouldStartLoadWithRequest`.
+   * Charts/math: deny all open-web http(s).
+   * HTML Run: allow CDN loads; deny only user-driven top-level navigations.
    */
-  shouldAllow: (url?: string, isTopFrame?: boolean) => boolean;
+  shouldAllow: (request?: NavigationGuardRequest | string) => boolean;
   /** Call when the WebView's source content legitimately changes. */
   reset: () => void;
 };
+
+function normalizeGuardRequest(
+  request?: NavigationGuardRequest | string,
+): NavigationGuardRequest {
+  if (typeof request === "string") return { url: request, isTopFrame: true };
+  return request ?? {};
+}
 
 /**
  * react-native-webview's historical `baseUrl` for inline HTML on iOS.
@@ -67,7 +80,8 @@ export function isExternalHttpUrl(url: string): boolean {
 export function createStaticOnlyNavigationGuard(): StaticOnlyNavigationGuard {
   let allowedUnknownOnce = false;
   return {
-    shouldAllow: (url = "") => {
+    shouldAllow: (request) => {
+      const { url = "" } = normalizeGuardRequest(request);
       if (isPreviewFrameworkUrl(url)) return true;
       if (isPreviewInlineDocumentUrl(url)) return true;
       if (isExternalHttpUrl(url)) return false;
@@ -84,17 +98,22 @@ export function createStaticOnlyNavigationGuard(): StaticOnlyNavigationGuard {
 }
 
 /**
- * HTML Run tab: allow CDN/subresource http(s) loads; deny top-level navigations
- * to the open web (phishing chrome). Framework + localhost document origins
- * always allowed.
+ * HTML Run tab: allow http(s) for document + CDN loads. iOS often reports CDN
+ * script/style fetches as top-frame, so an isTopFrame deny blanks the page.
+ * Only block explicit user navigations (click / form submit) to the open web.
  */
 export function createHtmlRunNavigationGuard(): StaticOnlyNavigationGuard {
   return {
-    shouldAllow: (url = "", isTopFrame = true) => {
+    shouldAllow: (request) => {
+      const {
+        url = "",
+        navigationType = "other",
+      } = normalizeGuardRequest(request);
       if (isPreviewFrameworkUrl(url)) return true;
       if (isPreviewInlineDocumentUrl(url)) return true;
-      if (!isTopFrame) return true;
-      if (isExternalHttpUrl(url)) return false;
+      const userNav =
+        navigationType === "click" || navigationType === "formsubmit";
+      if (userNav && isExternalHttpUrl(url)) return false;
       return true;
     },
     reset: () => {

@@ -117,6 +117,27 @@ export function navigationRequestIsTopFrame(request: unknown): boolean {
   return true;
 }
 
+export function navigationRequestType(request: unknown): string {
+  if (request == null || typeof request !== "object") return "other";
+  const rec = request as {
+    navigationType?: unknown;
+    nativeEvent?: { navigationType?: unknown };
+  };
+  if (typeof rec.navigationType === "string") return rec.navigationType;
+  if (typeof rec.nativeEvent?.navigationType === "string") {
+    return rec.nativeEvent.navigationType;
+  }
+  return "other";
+}
+
+function guardRequestFromEvent(request?: unknown) {
+  return {
+    url: navigationRequestUrl(request),
+    isTopFrame: navigationRequestIsTopFrame(request),
+    navigationType: navigationRequestType(request),
+  };
+}
+
 /**
  * React wiring for {@link createStaticOnlyNavigationGuard}: pass the HTML
  * string (or other value identifying "new content") as `sourceKey` so a
@@ -136,16 +157,12 @@ export function useStaticOnlyNavigation(
   }, [sourceKey, guard]);
 
   return useCallback(
-    (request?: unknown) =>
-      guard.shouldAllow(
-        navigationRequestUrl(request),
-        navigationRequestIsTopFrame(request),
-      ),
+    (request?: unknown) => guard.shouldAllow(guardRequestFromEvent(request)),
     [guard],
   );
 }
 
-/** HTML Run tab: CDN subresources OK; block top-level open-web navigations. */
+/** HTML Run tab: allow CDN loads; block click/form navigations off-document. */
 export function useHtmlRunNavigation(
   sourceKey: unknown,
 ): (request?: unknown) => boolean {
@@ -160,11 +177,7 @@ export function useHtmlRunNavigation(
   }, [sourceKey, guard]);
 
   return useCallback(
-    (request?: unknown) =>
-      guard.shouldAllow(
-        navigationRequestUrl(request),
-        navigationRequestIsTopFrame(request),
-      ),
+    (request?: unknown) => guard.shouldAllow(guardRequestFromEvent(request)),
     [guard],
   );
 }

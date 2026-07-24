@@ -2,7 +2,6 @@ import {
   Component,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ErrorInfo,
   type ReactNode,
@@ -32,24 +31,6 @@ import {
 import { injectPreviewCsp, PREVIEW_CSP_LIVE, stripScripts } from "@/lib/previewSandbox";
 import { CODE_FONT } from "@/lib/fonts";
 import { getPreviewWebView, useHtmlRunNavigation } from "@/lib/webView";
-
-const VISIBILITY_PROBE_JS = `
-(function () {
-  try {
-    var body = document.body;
-    var text = (body && body.innerText ? body.innerText : "").replace(/\\s+/g, " ").trim();
-    var kids = body ? body.children.length : 0;
-    window.ReactNativeWebView.postMessage(
-      JSON.stringify({ type: "preview-visibility", textLen: text.length, kids: kids })
-    );
-  } catch (e) {
-    window.ReactNativeWebView.postMessage(
-      JSON.stringify({ type: "preview-visibility", textLen: 0, kids: 0 })
-    );
-  }
-})();
-true;
-`;
 
 class PreviewRenderBoundary extends Component<
   { children: ReactNode; fallback: ReactNode; resetKey: string },
@@ -136,13 +117,11 @@ function LiveWebPreview({
 }) {
   const { t } = useTranslation();
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [emptyPaint, setEmptyPaint] = useState(false);
-  const webRef = useRef<{ injectJavaScript?: (js: string) => void } | null>(null);
-  const probeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const previewWebView = useMemo(() => getPreviewWebView(), []);
 
-  // Allow CDN CSS/JS so real demos paint. Still isolated from app tokens;
-  // top-level navigations off-document are blocked by useHtmlRunNavigation.
+  // Allow CDN CSS/JS so real demos paint. App tokens stay isolated; only
+  // click/form top-level navigations off-document are blocked (iOS often
+  // mis-labels CDN fetches as top-frame, so an isTopFrame deny blanks pages).
   const fullHtml = useMemo(
     () => injectPreviewCsp(wrapFullDocument(html), PREVIEW_CSP_LIVE),
     [html],
@@ -151,10 +130,6 @@ function LiveWebPreview({
 
   useEffect(() => {
     setLoadError(null);
-    setEmptyPaint(false);
-    return () => {
-      if (probeTimer.current) clearTimeout(probeTimer.current);
-    };
   }, [html]);
 
   const WebView = previewWebView?.mode === "rnc" ? previewWebView.Component : null;
@@ -168,18 +143,12 @@ function LiveWebPreview({
 
   return (
     <View style={s.webviewContainer} collapsable={false}>
-      {emptyPaint || loadError ? (
+      {loadError ? (
         <View style={s.emptyOverlay} pointerEvents="none">
-          <Text style={s.emptyOverlayText}>
-            {loadError ?? t("preview.empty_sandbox")}
-          </Text>
+          <Text style={s.emptyOverlayText}>{loadError}</Text>
         </View>
       ) : null}
       <WebView
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ref={(r: any) => {
-          webRef.current = r;
-        }}
         source={{ html: fullHtml }}
         style={s.webview}
         scrollEnabled
@@ -190,37 +159,13 @@ function LiveWebPreview({
         setSupportMultipleWindows={false}
         nestedScrollEnabled
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-        onLoadEnd={() => {
-          // CDN scripts finish after first paint — re-check shortly.
-          if (probeTimer.current) clearTimeout(probeTimer.current);
-          probeTimer.current = setTimeout(() => {
-            webRef.current?.injectJavaScript?.(VISIBILITY_PROBE_JS);
-          }, 1200);
-        }}
-        onMessage={(e: { nativeEvent?: { data?: string } }) => {
-          try {
-            const raw = e.nativeEvent?.data;
-            if (!raw) return;
-            const msg = JSON.parse(raw) as {
-              type?: string;
-              textLen?: number;
-              kids?: number;
-            };
-            if (msg.type !== "preview-visibility") return;
-            const textLen = msg.textLen ?? 0;
-            const kids = msg.kids ?? 0;
-            setEmptyPaint(textLen < 2 && kids < 1);
-          } catch {
-            /* ignore malformed */
-          }
-        }}
         onError={(e: { nativeEvent?: { description?: string } }) => {
           setLoadError(
-            e.nativeEvent?.description ?? "Preview failed to load.",
+            e.nativeEvent?.description ?? t("preview.empty_sandbox"),
           );
         }}
         onHttpError={() => {
-          setLoadError("Preview failed to load (HTTP error).");
+          setLoadError(t("preview.empty_sandbox"));
         }}
       />
     </View>
