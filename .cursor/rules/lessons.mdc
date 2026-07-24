@@ -12,6 +12,12 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **HTML Run tab solid blank (toolbar ok, no JS error).** Cause: gated
+  `<WebView>` on `onLayout` height > 0 inside a full-screen Modal — layout can
+  stay 0 / never mount, leaving an empty white/gray container. Earlier blanks
+  were HMR crashes (`isExpoGo` / `useStaticOnlyNavigation`) swallowed by the
+  preview error boundary, or `#415` whitelist/`about:blank` one-shot nav guard.
+  Fix: always mount RNC WebView with absolute fill; keep CSP; require `mode===rnc`.
 - **“No internet” banner stuck after Wi‑Fi returns.** Cause: NetInfo
   `isConnected`/`isInternetReachable` stay stale offline after reconnect, and
   the listener re-applied offline after `/health` cleared; if the API host was

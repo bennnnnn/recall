@@ -4,10 +4,11 @@ import type { ComponentType } from "react";
 
 import {
   createStaticOnlyNavigationGuard,
+  PREVIEW_INLINE_BASE_URL,
   type StaticOnlyNavigationGuard,
 } from "@/lib/staticOnlyNavigationGuard";
 
-export { createStaticOnlyNavigationGuard };
+export { createStaticOnlyNavigationGuard, PREVIEW_INLINE_BASE_URL };
 export type { StaticOnlyNavigationGuard };
 
 export type PreviewWebViewMode = "rnc" | "expo-dom";
@@ -76,11 +77,17 @@ export function isWebViewAvailable(): boolean {
 }
 
 /**
- * Inline `source={{ html }}` previews — must match the WebView `baseUrl`
- * (use `about:blank`, not `https://localhost/`). Navigation guard + CSP do
- * the real work for post-load navigations.
+ * Inline `source={{ html }}` previews. Include the historical RNC `baseUrl`
+ * (`https://localhost/`) plus `about:blank`; the nav guard still blocks real
+ * open-web navigations after load.
  */
-export const STATIC_HTML_ORIGIN_WHITELIST: string[] = ["about:blank"];
+export const STATIC_HTML_ORIGIN_WHITELIST: string[] = [
+  "about:blank",
+  "http://localhost*",
+  "https://localhost*",
+  "http://127.0.0.1*",
+  "https://127.0.0.1*",
+];
 
 /** Pull URL from RN WebView's nativeEvent (or a plain `{ url }` test stub). */
 export function navigationRequestUrl(request: unknown): string {
