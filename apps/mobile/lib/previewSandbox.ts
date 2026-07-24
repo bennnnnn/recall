@@ -60,12 +60,11 @@ export const PREVIEW_CSP_LIVE = [
 ].join("; ");
 
 /**
- * Injected before content loads on the HTML Run tab. Blocks <a> / form
- * navigations that would leave the preview document. Hash / javascript:
- * links still work for in-page demos.
+ * Inlined into the HTML Run document (not via RN injectedJavaScript*).
+ * Blocks <a> / form navigations that would leave the preview. Hash /
+ * javascript: links still work for in-page demos.
  */
-export const HTML_RUN_STAY_JS = `
-(function () {
+export const HTML_RUN_STAY_JS = `(function () {
   function stay(e) {
     try {
       var t = e.target;
@@ -84,9 +83,23 @@ export const HTML_RUN_STAY_JS = `
   }
   document.addEventListener("click", stay, true);
   document.addEventListener("submit", stay, true);
-})();
-true;
-`;
+})();`;
+
+/** Full document for the HTML Run WebView: wrap + live CSP + stay-on-page trap. */
+export function prepareHtmlRunDocument(html: string): string {
+  const withCsp = injectPreviewCsp(html, PREVIEW_CSP_LIVE);
+  const stayTag = `<script>${HTML_RUN_STAY_JS}</script>`;
+  const headClose = /<\/head>/i.exec(withCsp);
+  if (headClose && headClose.index != null) {
+    return (
+      withCsp.slice(0, headClose.index) + stayTag + withCsp.slice(headClose.index)
+    );
+  }
+  return withCsp.replace(
+    /(<meta http-equiv="Content-Security-Policy"[^>]*>)/i,
+    `$1${stayTag}`,
+  );
+}
 
 /** True if the markup references http(s) assets. */
 export function htmlDependsOnNetwork(html: string): boolean {

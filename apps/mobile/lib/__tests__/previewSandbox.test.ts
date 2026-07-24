@@ -6,6 +6,7 @@ import {
   escapeForInlineJsTemplate,
   htmlDependsOnNetwork,
   injectPreviewCsp,
+  prepareHtmlRunDocument,
   stripScripts,
 } from "@/lib/previewSandbox";
 
@@ -32,6 +33,18 @@ describe("PREVIEW_CSP", () => {
     expect(PREVIEW_CSP_LIVE).toContain("connect-src https: http:");
     expect(PREVIEW_CSP_LIVE).toContain("form-action 'none'");
     expect(PREVIEW_CSP_LIVE).not.toContain("sandbox");
+  });
+});
+
+describe("prepareHtmlRunDocument", () => {
+  it("injects live CSP and stay-on-page script", () => {
+    const out = prepareHtmlRunDocument(
+      "<!DOCTYPE html><html><head></head><body><h1>Hi</h1></body></html>",
+    );
+    expect(out).toContain("Content-Security-Policy");
+    expect(out).toContain("connect-src https: http:");
+    expect(out).toContain("addEventListener(\"click\"");
+    expect(out).toContain("<h1>Hi</h1>");
   });
 });
 

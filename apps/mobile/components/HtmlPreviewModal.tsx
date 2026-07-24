@@ -29,28 +29,25 @@ import {
   wrapFullDocument,
 } from "@/lib/openHtmlPreview";
 import {
-  HTML_RUN_STAY_JS,
-  injectPreviewCsp,
-  PREVIEW_CSP_LIVE,
+  prepareHtmlRunDocument,
   stripScripts,
 } from "@/lib/previewSandbox";
 import { CODE_FONT } from "@/lib/fonts";
-import { PREVIEW_INLINE_BASE_URL } from "@/lib/staticOnlyNavigationGuard";
-import { getPreviewWebView, useHtmlRunNavigation } from "@/lib/webView";
+import { getPreviewWebView } from "@/lib/webView";
 
 class PreviewRenderBoundary extends Component<
-  { children: ReactNode; fallback: ReactNode; resetKey: string },
-  { failed: boolean }
+  { children: ReactNode; resetKey: string },
+  { error: string | null }
 > {
-  state = { failed: false };
+  state: { error: string | null } = { error: null };
 
-  static getDerivedStateFromError(): { failed: boolean } {
-    return { failed: true };
+  static getDerivedStateFromError(error: Error): { error: string } {
+    return { error: error.message || "Preview failed to render" };
   }
 
   componentDidUpdate(prevProps: { resetKey: string }): void {
-    if (prevProps.resetKey !== this.props.resetKey && this.state.failed) {
-      this.setState({ failed: false });
+    if (prevProps.resetKey !== this.props.resetKey && this.state.error) {
+      this.setState({ error: null });
     }
   }
 
@@ -59,7 +56,15 @@ class PreviewRenderBoundary extends Component<
   }
 
   render(): ReactNode {
-    if (this.state.failed) return this.props.fallback;
+    if (this.state.error) {
+      return (
+        <View style={{ padding: 16 }}>
+          <Text style={{ color: "#B91C1C", fontSize: 14, lineHeight: 20 }}>
+            {this.state.error}
+          </Text>
+        </View>
+      );
+    }
     return this.props.children;
   }
 }
@@ -109,10 +114,9 @@ function makeTagStyles(theme: Theme) {
 /**
  * Sandboxed HTML Run tab (RNC WebView only).
  *
- * Do not gate the WebView on `onLayout` height — if layout reports 0 or is
- * delayed inside a full-screen Modal, the WebView never mounts and the Run
- * tab stays a blank surface. Use absolute fill instead (charts use an
- * explicit height for the same reason).
+ * Keep this path as close as charts: `source={{ html }}`, no baseUrl, no
+ * onShouldStartLoadWithRequest. CDN is allowed by PREVIEW_CSP_LIVE; leave-page
+ * is blocked by an in-document script + form-action 'none'.
  */
 function LiveWebPreview({
   html,
@@ -124,13 +128,11 @@ function LiveWebPreview({
   const [loadError, setLoadError] = useState<string | null>(null);
   const previewWebView = useMemo(() => getPreviewWebView(), []);
 
-  // Allow CDN CSS/JS so real demos paint. Leave-document is blocked in-page
-  // (HTML_RUN_STAY_JS + CSP form-action), not via the native nav guard.
   const fullHtml = useMemo(
-    () => injectPreviewCsp(wrapFullDocument(html), PREVIEW_CSP_LIVE),
+    () => prepareHtmlRunDocument(wrapFullDocument(html)),
     [html],
   );
-  const onShouldStartLoadWithRequest = useHtmlRunNavigation(fullHtml);
+  const source = useMemo(() => ({ html: fullHtml }), [fullHtml]);
 
   useEffect(() => {
     setLoadError(null);
@@ -153,17 +155,16 @@ function LiveWebPreview({
         </View>
       ) : null}
       <WebView
-        source={{ html: fullHtml, baseUrl: PREVIEW_INLINE_BASE_URL }}
+        source={source}
         style={s.webview}
         scrollEnabled
         originWhitelist={["*"]}
         javaScriptEnabled
         domStorageEnabled
         allowsInlineMediaPlayback
+        mixedContentMode="always"
         setSupportMultipleWindows={false}
         nestedScrollEnabled
-        injectedJavaScriptBeforeContentLoaded={HTML_RUN_STAY_JS}
-        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         onError={(e: { nativeEvent?: { description?: string } }) => {
           const detail = e.nativeEvent?.description?.trim();
           if (detail) setLoadError(detail);
@@ -284,29 +285,17 @@ export function HtmlPreviewModal({ visible, html, onClose }: Props) {
             >
               <CodeBlock code={html} lang="html" />
             </ScrollView>
-          ) : (
-            <PreviewRenderBoundary
-              resetKey={html}
-              fallback={
-                <StaticHtmlPreview
-                  html={html}
-                  contentWidth={contentWidth}
-                  theme={theme}
-                  styles={s}
-                />
-              }
-            >
-              {canUseNativeWebView ? (
-                <LiveWebPreview html={html} styles={s} />
-              ) : (
-                <StaticHtmlPreview
-                  html={html}
-                  contentWidth={contentWidth}
-                  theme={theme}
-                  styles={s}
-                />
-              )}
+          ) : canUseNativeWebView ? (
+            <PreviewRenderBoundary resetKey={html}>
+              <LiveWebPreview html={html} styles={s} />
             </PreviewRenderBoundary>
+          ) : (
+            <StaticHtmlPreview
+              html={html}
+              contentWidth={contentWidth}
+              theme={theme}
+              styles={s}
+            />
           )}
         </View>
 
@@ -400,15 +389,6 @@ const makeStyles = (theme: Theme) =>
       fontSize: 14,
       lineHeight: 20,
       color: theme.text,
-    },
-    errorText: {
-      position: "absolute",
-      zIndex: 2,
-      top: 12,
-      left: 16,
-      right: 16,
-      color: theme.danger,
-      fontSize: 14,
     },
     scroll: { flex: 1 },
     scrollContent: { paddingHorizontal: 16, paddingVertical: 16, paddingBottom: 16 },
