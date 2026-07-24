@@ -106,8 +106,11 @@ function LiveWebPreview({
   if (!WebView) return null;
 
   const isRnc = previewWebView.mode === "rnc";
+  // Must match STATIC_HTML_ORIGIN_WHITELIST (`about:blank`). Using
+  // `https://localhost/` after the whitelist was tightened made WKWebView
+  // refuse the document load and iOS hand the URL to Safari ("can't connect").
   const source = isRnc
-    ? { html: fullHtml, baseUrl: "https://localhost/" }
+    ? { html: fullHtml, baseUrl: "about:blank" }
     : previewUri
       ? { uri: previewUri }
       : null;

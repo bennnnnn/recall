@@ -75,7 +75,11 @@ export function isWebViewAvailable(): boolean {
   return getPreviewWebView() != null;
 }
 
-/** Inline `source={{ html }}` previews — navigation guard + CSP do the real work. */
+/**
+ * Inline `source={{ html }}` previews — must match the WebView `baseUrl`
+ * (use `about:blank`, not `https://localhost/`). Navigation guard + CSP do
+ * the real work for post-load navigations.
+ */
 export const STATIC_HTML_ORIGIN_WHITELIST: string[] = ["about:blank"];
 
 /**
