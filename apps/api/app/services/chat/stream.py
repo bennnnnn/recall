@@ -718,18 +718,20 @@ async def _run_tool_loop_path(
     if settings.mcp_tool_loop_enabled and not ctx.instant_reply and not ctx.lightweight_turn:
         from app.services import tool_loop as tool_loop_service
 
-        ctx.prompt_messages, tool_verified, terminal_image = (
-            await tool_loop_service.run_tool_rounds(
-                settings=settings,
-                model_alias=ctx.model,
-                messages=ctx.prompt_messages,
-                usage=usage,
-                on_status=on_status,
-                should_cancel=should_cancel,
-                user=ctx.user,
-                redis=redis,
-                chat_id=ctx.chat_id,
-            )
+        (
+            ctx.prompt_messages,
+            tool_verified,
+            terminal_image,
+        ) = await tool_loop_service.run_tool_rounds(
+            settings=settings,
+            model_alias=ctx.model,
+            messages=ctx.prompt_messages,
+            usage=usage,
+            on_status=on_status,
+            should_cancel=should_cancel,
+            user=ctx.user,
+            redis=redis,
+            chat_id=ctx.chat_id,
         )
         # Heuristic math_tools is skipped when the tool loop is on —
         # carry sympy canonical fences so validate_math_fences still
@@ -1034,13 +1036,9 @@ async def stream_and_finalize(
                     if result is not None:
                         result["message_id"] = ctx.terminal_image_message_id
                         result["final_content"] = ctx.terminal_image_content
-                        result["resolved_model"] = (
-                            ctx.terminal_image_model or "image-gen-model"
-                        )
+                        result["resolved_model"] = ctx.terminal_image_model or "image-gen-model"
                     # Image gen has its own daily cap; refund the chat-token hold.
-                    await quota_service.refund_usage(
-                        redis, str(ctx.user_id), ctx.reserved_tokens
-                    )
+                    await quota_service.refund_usage(redis, str(ctx.user_id), ctx.reserved_tokens)
                     return
 
                 if (
