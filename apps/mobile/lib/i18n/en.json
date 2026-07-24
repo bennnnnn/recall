@@ -355,6 +355,7 @@
   "preview.code_tab": "Code",
   "preview.empty_sandbox": "Nothing visible in this preview yet. Try Share if the page still looks empty.",
   "preview.expo_go_banner": "This page uses JavaScript — switch to Run with a dev build for live preview, or Share to open in Safari.",
+  "preview.load_error": "This page couldn't be loaded. Try Share to open it in Safari instead.",
   "preview.loading": "Loading preview…",
   "preview.open_in_browser": "Open in browser",
   "preview.preview_html": "Preview HTML",
