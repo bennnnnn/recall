@@ -20,7 +20,8 @@
  * `sandbox allow-scripts` for environments that honor it; do not treat it as
  * a guarantee of iframe-style isolation.
  */
-export const PREVIEW_CSP = [
+/** Egress-locked CSP without the meta `sandbox` token (see PREVIEW_CSP). */
+export const PREVIEW_CSP_INLINE = [
   "default-src 'none'",
   "style-src 'unsafe-inline'",
   "script-src 'unsafe-inline'",
@@ -30,8 +31,24 @@ export const PREVIEW_CSP = [
   "connect-src 'none'",
   "base-uri 'none'",
   "form-action 'none'",
-  "sandbox allow-scripts",
 ].join("; ");
+
+/**
+ * Default preview CSP. Includes a meta `sandbox` token for environments that
+ * honor it; HTML Run uses {@link PREVIEW_CSP_INLINE} instead — some WKWebView
+ * builds blank complex documents when meta sandbox is present, while egress
+ * locks alone match the product sandbox.
+ */
+export const PREVIEW_CSP = `${PREVIEW_CSP_INLINE}; sandbox allow-scripts`;
+
+/** True if the markup references http(s) assets the Run CSP will block. */
+export function htmlDependsOnNetwork(html: string): boolean {
+  return (
+    /(?:src|href)\s*=\s*["']https?:\/\//i.test(html) ||
+    /@import\s+["']https?:\/\//i.test(html) ||
+    /url\(\s*["']?https?:\/\//i.test(html)
+  );
+}
 
 /**
  * CSP for the math WebView (MathJax path).

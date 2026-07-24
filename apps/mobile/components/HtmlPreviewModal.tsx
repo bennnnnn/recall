@@ -28,9 +28,32 @@ import {
   shareHtmlPreview,
   wrapFullDocument,
 } from "@/lib/openHtmlPreview";
-import { injectPreviewCsp, stripScripts } from "@/lib/previewSandbox";
+import {
+  htmlDependsOnNetwork,
+  injectPreviewCsp,
+  PREVIEW_CSP_INLINE,
+  stripScripts,
+} from "@/lib/previewSandbox";
 import { CODE_FONT } from "@/lib/fonts";
 import { getPreviewWebView } from "@/lib/webView";
+
+const VISIBILITY_PROBE_JS = `
+(function () {
+  try {
+    var body = document.body;
+    var text = (body && body.innerText ? body.innerText : "").replace(/\\s+/g, " ").trim();
+    var kids = body ? body.children.length : 0;
+    window.ReactNativeWebView.postMessage(
+      JSON.stringify({ type: "preview-visibility", textLen: text.length, kids: kids })
+    );
+  } catch (e) {
+    window.ReactNativeWebView.postMessage(
+      JSON.stringify({ type: "preview-visibility", textLen: 0, kids: 0 })
+    );
+  }
+})();
+true;
+`;
 
 class PreviewRenderBoundary extends Component<
   { children: ReactNode; fallback: ReactNode; resetKey: string },
@@ -115,22 +138,23 @@ function LiveWebPreview({
   html: string;
   styles: ReturnType<typeof makeStyles>;
 }) {
+  const { t } = useTranslation();
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [emptyPaint, setEmptyPaint] = useState(false);
   const previewWebView = useMemo(() => getPreviewWebView(), []);
+  const needsNetwork = useMemo(() => htmlDependsOnNetwork(html), [html]);
 
-  // CSP sandbox: connect-src none, inline scripts only. Interactive HTML runs
-  // only in this WebView — share/browser paths strip scripts.
-  // No onShouldStartLoadWithRequest here: the probe that painted PREVIEW_OK
-  // had no nav guard; re-adding it blanked real documents again (WKWebView
-  // bootstrap / subresource loads). Phishing is limited by CSP + whitelist +
-  // setSupportMultipleWindows={false}.
+  // Egress-locked CSP (inline scripts/styles only). Omit meta `sandbox` —
+  // PREVIEW_OK proved paint works; complex model HTML was blanking with it.
+  // No nav guard (same reason). Share/browser still strips scripts.
   const fullHtml = useMemo(
-    () => injectPreviewCsp(wrapFullDocument(html)),
+    () => injectPreviewCsp(wrapFullDocument(html), PREVIEW_CSP_INLINE),
     [html],
   );
 
   useEffect(() => {
     setLoadError(null);
+    setEmptyPaint(false);
   }, [html]);
 
   const WebView = previewWebView?.mode === "rnc" ? previewWebView.Component : null;
@@ -144,18 +168,47 @@ function LiveWebPreview({
 
   return (
     <View style={s.webviewContainer} collapsable={false}>
-      {loadError ? <Text style={s.errorText}>{loadError}</Text> : null}
+      {needsNetwork ? (
+        <View style={s.networkBanner} pointerEvents="none">
+          <Text style={s.networkBannerText}>{t("preview.network_banner")}</Text>
+        </View>
+      ) : null}
+      {emptyPaint || loadError ? (
+        <View style={s.emptyOverlay} pointerEvents="none">
+          <Text style={s.emptyOverlayText}>
+            {loadError ?? t("preview.empty_sandbox")}
+          </Text>
+        </View>
+      ) : null}
       <WebView
         source={{ html: fullHtml }}
         style={s.webview}
         scrollEnabled
-        // Match the proven PREVIEW_OK probe path (`*`); CSP still blocks egress.
         originWhitelist={["*"]}
         javaScriptEnabled
         domStorageEnabled={false}
         allowsInlineMediaPlayback
         setSupportMultipleWindows={false}
         nestedScrollEnabled
+        injectedJavaScript={VISIBILITY_PROBE_JS}
+        onMessage={(e: { nativeEvent?: { data?: string } }) => {
+          try {
+            const raw = e.nativeEvent?.data;
+            if (!raw) return;
+            const msg = JSON.parse(raw) as {
+              type?: string;
+              textLen?: number;
+              kids?: number;
+            };
+            if (msg.type !== "preview-visibility") return;
+            const textLen = msg.textLen ?? 0;
+            const kids = msg.kids ?? 0;
+            // CDN-driven pages often leave an empty shell (kids>0, no text).
+            setEmptyPaint(textLen < 2 && (kids < 1 || needsNetwork));
+          } catch {
+            /* ignore malformed */
+          }
+        }}
         onError={(e: { nativeEvent?: { description?: string } }) => {
           setLoadError(
             e.nativeEvent?.description ?? "Preview failed to load.",
@@ -381,6 +434,36 @@ const makeStyles = (theme: Theme) =>
       bottom: 0,
       left: 0,
       backgroundColor: "#FFFFFF",
+    },
+    networkBanner: {
+      position: "absolute",
+      zIndex: 3,
+      top: 0,
+      left: 0,
+      right: 0,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      backgroundColor: theme.primaryLight,
+    },
+    networkBannerText: {
+      fontSize: 13,
+      lineHeight: 18,
+      color: theme.text,
+    },
+    emptyOverlay: {
+      position: "absolute",
+      zIndex: 2,
+      top: 56,
+      left: 16,
+      right: 16,
+      padding: 14,
+      borderRadius: 10,
+      backgroundColor: theme.surfaceAlt,
+    },
+    emptyOverlayText: {
+      fontSize: 14,
+      lineHeight: 20,
+      color: theme.text,
     },
     errorText: {
       position: "absolute",
