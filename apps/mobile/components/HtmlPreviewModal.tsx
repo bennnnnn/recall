@@ -15,10 +15,7 @@ import { useTranslation } from "react-i18next";
 
 import { CodeBlock } from "@/components/CodeBlock";
 import { Theme, useTheme } from "@/lib/theme";
-import {
-  htmlForInlinePreview,
-  previewHasVisibleText,
-} from "@/lib/htmlForInlinePreview";
+import { htmlForInlinePreview } from "@/lib/htmlForInlinePreview";
 import {
   looksLikeInteractiveHtml,
   shareHtmlPreview,
@@ -26,7 +23,6 @@ import {
 } from "@/lib/openHtmlPreview";
 import { injectPreviewCsp, stripScripts } from "@/lib/previewSandbox";
 import { CODE_FONT } from "@/lib/fonts";
-import Constants, { ExecutionEnvironment } from "expo-constants";
 import { getPreviewWebView, useStaticOnlyNavigation } from "@/lib/webView";
 
 class PreviewRenderBoundary extends Component<
@@ -92,9 +88,9 @@ function makeTagStyles(theme: Theme) {
 }
 
 /**
- * Native react-native-webview path (dev build). Expo Go's `@expo/dom-webview`
- * file:// path often paints a blank view — callers should use StaticHtmlPreview
- * there instead.
+ * react-native-webview path (Expo Go + dev builds). Prefer this over the
+ * static renderer so CSS/layout actually paint. Skip `@expo/dom-webview`
+ * (file:// often blank).
  */
 function LiveWebPreview({
   html,
@@ -126,13 +122,14 @@ function LiveWebPreview({
         style={s.webview}
         scrollEnabled
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-        // Guard blocks http(s); wildcard lets the inline document load. Tight
-        // about:blank-only whitelist left this view blank on some iOS builds.
+        // Guard blocks http(s); wildcard lets the inline document load.
         originWhitelist={["*", "about:blank"]}
         javaScriptEnabled
         domStorageEnabled={false}
         allowsInlineMediaPlayback
         setSupportMultipleWindows={false}
+        // Avoid nested-scroll / zero-height quirks inside the full-screen modal.
+        nestedScrollEnabled
       />
     </View>
   );
@@ -159,27 +156,21 @@ function StaticHtmlPreview({
     () => htmlForInlinePreview(stripScripts(html)),
     [html],
   );
-  const showRenderHtml = previewHasVisibleText(html);
   const tagStyles = useMemo(() => makeTagStyles(theme), [theme]);
 
+  // Always RenderHtml — never dump raw source/CSS into the Run tab.
   return (
     <ScrollView
       style={s.scroll}
       contentContainerStyle={s.scrollContent}
       showsVerticalScrollIndicator
     >
-      {showRenderHtml ? (
-        <RenderHtml
-          contentWidth={contentWidth}
-          source={{ html: previewHtml }}
-          baseStyle={s.base}
-          tagsStyles={tagStyles}
-        />
-      ) : (
-        <Text style={s.sourceText} selectable>
-          {html.trim()}
-        </Text>
-      )}
+      <RenderHtml
+        contentWidth={contentWidth}
+        source={{ html: previewHtml }}
+        baseStyle={s.base}
+        tagsStyles={tagStyles}
+      />
     </ScrollView>
   );
 }
@@ -226,13 +217,10 @@ export function HtmlPreviewModal({ visible, html, onClose }: Props) {
   const contentWidth = Math.max(width - 32, 280);
   const [tab, setTab] = useState<PreviewTab>("run");
   const interactive = useMemo(() => looksLikeInteractiveHtml(html), [html]);
-  // Live WebView only in a bare/dev-client native binary. Expo Go
-  // (`storeClient`) and store builds without RNC stay on static HTML — the
-  // WebView path was painting a blank Run tab for this user.
+  // Expo Go includes RNC WebView — use it so CSS pages actually render.
+  // Only fall back to static when RNC is unavailable (dom-webview alone).
   const canUseNativeWebView = useMemo(
-    () =>
-      Constants.executionEnvironment === ExecutionEnvironment.Bare &&
-      getPreviewWebView()?.mode === "rnc",
+    () => getPreviewWebView()?.mode === "rnc",
     [],
   );
 
@@ -273,12 +261,7 @@ export function HtmlPreviewModal({ visible, html, onClose }: Props) {
                   style={s.scroll}
                   contentContainerStyle={s.scrollContent}
                 >
-                  <Text style={s.base}>
-                    {t("preview.expo_go_banner")}
-                  </Text>
-                  <Text style={s.sourceText} selectable>
-                    {html.trim().slice(0, 4000)}
-                  </Text>
+                  <Text style={s.base}>{t("preview.expo_go_banner")}</Text>
                 </ScrollView>
               }
             >
