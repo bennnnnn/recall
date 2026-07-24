@@ -105,10 +105,10 @@ function extractBodyInner(html: string): string | null {
   return html.slice(bodyGt + 1).trim();
 }
 
-/** Strip document shell and return markup react-native-render-html can display. */
-export function htmlForInlinePreview(html: string): string {
+/** Strip the document shell (doctype/html/head/body) and remove style/script blocks. */
+function extractVisibleInner(html: string): string {
   const trimmed = html.trim();
-  if (!trimmed) return "<p><strong>(empty)</strong></p>";
+  if (!trimmed) return "";
 
   let inner = trimmed;
   const lowerTrimmed = trimmed.toLowerCase();
@@ -132,9 +132,25 @@ export function htmlForInlinePreview(html: string): string {
 
   inner = removeTagBlocks(inner, "style");
   inner = removeTagBlocks(inner, "script");
+  return inner;
+}
 
-  const visibleText = textWithoutTags(inner).trim();
-  if (!visibleText && !hasImgTag(inner)) {
+/**
+ * A lone decorative glyph (icon font ligature, emoji bullet) left over after
+ * stripping <style>/<script> should NOT count as "this page has content" —
+ * that reads as a render, not the blank/near-blank page it actually is. Require
+ * at least one real letter/digit, matching what `previewHasVisibleText` checks.
+ */
+function hasMeaningfulVisibleText(inner: string): boolean {
+  return /\p{L}|\p{N}/u.test(textWithoutTags(inner));
+}
+
+/** Strip document shell and return markup react-native-render-html can display. */
+export function htmlForInlinePreview(html: string): string {
+  if (!html.trim()) return "<p><strong>(empty)</strong></p>";
+
+  const inner = extractVisibleInner(html);
+  if (!hasMeaningfulVisibleText(inner) && !hasImgTag(inner)) {
     // Never dump raw CSS/HTML source into the Run tab — that reads as a bug.
     return (
       "<p><strong>This page needs a live browser preview.</strong></p>" +
@@ -147,6 +163,6 @@ export function htmlForInlinePreview(html: string): string {
 }
 
 export function previewHasVisibleText(html: string): boolean {
-  const inner = htmlForInlinePreview(html);
-  return /\p{L}|\p{N}/u.test(textWithoutTags(inner));
+  const inner = extractVisibleInner(html);
+  return hasMeaningfulVisibleText(inner) || hasImgTag(inner);
 }
