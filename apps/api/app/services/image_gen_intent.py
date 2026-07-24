@@ -14,9 +14,6 @@ _VERBS_IMAGE = frozenset(
     {"create", "generate", "make", "design", "render", "produce"},
 )
 _VERBS_DRAW = frozenset({"draw", "paint", "illustrate"})
-_VERBS_CREATE_OR_DRAW = frozenset(
-    {"create", "generate", "make", "draw", "paint", "illustrate"},
-)
 _IMAGE_NOUNS = frozenset(
     {
         "image",
@@ -141,6 +138,26 @@ _NON_IMAGE_WORDS = frozenset(
         "strings",
         "comparison",
         "comparisons",
+        # Learning / chat asks — "make your own example" is not a picture.
+        "example",
+        "examples",
+        "problem",
+        "problems",
+        "equation",
+        "equations",
+        "question",
+        "questions",
+        "exercise",
+        "exercises",
+        "homework",
+        "solution",
+        "solutions",
+        "proof",
+        "proofs",
+        "worksheet",
+        "worksheets",
+        "assignment",
+        "assignments",
     },
 )
 
@@ -262,16 +279,25 @@ def _match_draw_me(tokens: list[str]) -> str | None:
     if i >= len(tokens):
         return None
     subject = _join_subject(tokens[i:])
-    if _has_non_image_draw(subject):
+    if _has_non_image_subject(subject) or _has_non_image_draw(subject):
         return None
     return _clean_prompt(subject)
 
 
 def _match_short_create(tokens: list[str]) -> str | None:
-    """create/draw [me] [a/an] SUBJECT — short subjects only."""
+    """draw/paint/illustrate [me] [a/an] SUBJECT — short subjects only.
+
+    ``make`` / ``create`` / ``generate`` (etc.) are *not* matched here — they
+    need an explicit image noun via the other matchers, so chat asks like
+    ``make your own example`` stay in the normal LLM turn.
+    """
     if len(tokens) < 2:
         return None
-    if tokens[0].lower() not in _VERBS_CREATE_OR_DRAW:
+    verb = tokens[0].lower()
+    # Ambiguous verbs need "… pic/image/photo" (see _match_verb_*).
+    if verb in _VERBS_IMAGE:
+        return None
+    if verb not in _VERBS_DRAW:
         return None
     i = 1
     if i < len(tokens) and tokens[i].lower() == "me":

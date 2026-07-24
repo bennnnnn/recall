@@ -154,7 +154,7 @@ export function makeConversationRowStyles(theme: Theme): ConversationRowStyles {
       paddingHorizontal: 8,
     },
     rowActive: {
-      backgroundColor: theme.primaryLight,
+      backgroundColor: theme.surfaceAlt,
       borderRadius: 10,
       marginHorizontal: 6,
       paddingHorizontal: 8,

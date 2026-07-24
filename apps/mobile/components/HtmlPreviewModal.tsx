@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Component, useEffect, useMemo, useState, type ErrorInfo, type ReactNode } from "react";
 import {
   Modal,
   Pressable,
@@ -15,24 +15,35 @@ import { useTranslation } from "react-i18next";
 
 import { CodeBlock } from "@/components/CodeBlock";
 import { Theme, useTheme } from "@/lib/theme";
-import {
-  htmlForInlinePreview,
-  previewHasVisibleText,
-} from "@/lib/htmlForInlinePreview";
+import { htmlForInlinePreview } from "@/lib/htmlForInlinePreview";
 import {
   looksLikeInteractiveHtml,
   shareHtmlPreview,
   wrapFullDocument,
-  writeHtmlPreviewFile,
 } from "@/lib/openHtmlPreview";
 import { injectPreviewCsp, stripScripts } from "@/lib/previewSandbox";
 import { CODE_FONT } from "@/lib/fonts";
-import {
-  getPreviewWebView,
-  STATIC_HTML_ORIGIN_WHITELIST,
-  useStaticOnlyNavigation,
-} from "@/lib/webView";
-import i18n from "@/lib/i18n";
+import { getPreviewWebView, useStaticOnlyNavigation } from "@/lib/webView";
+
+class PreviewRenderBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo): void {
+    console.warn("HtmlPreviewModal render failed", error, info.componentStack);
+  }
+
+  render(): ReactNode {
+    if (this.state.failed) return this.props.fallback;
+    return this.props.children;
+  }
+}
 
 type Props = {
   visible: boolean;
@@ -76,6 +87,11 @@ function makeTagStyles(theme: Theme) {
   };
 }
 
+/**
+ * react-native-webview path (Expo Go + dev builds). Prefer this over the
+ * static renderer so CSS/layout actually paint. Skip `@expo/dom-webview`
+ * (file:// often blank).
+ */
 function LiveWebPreview({
   html,
   styles: s,
@@ -83,58 +99,37 @@ function LiveWebPreview({
   html: string;
   styles: ReturnType<typeof makeStyles>;
 }) {
-  const fullHtml = useMemo(() => injectPreviewCsp(wrapFullDocument(html)), [html]);
+  // Drop CSP `sandbox` in meta — some WKWebView builds treat it harshly and
+  // paint an empty document; connect-src/script-src still lock down egress.
+  const fullHtml = useMemo(
+    () =>
+      injectPreviewCsp(wrapFullDocument(html)).replace(
+        /sandbox allow-scripts;?\s*/gi,
+        "",
+      ),
+    [html],
+  );
   const previewWebView = useMemo(() => getPreviewWebView(), []);
-  const [previewUri, setPreviewUri] = useState<string | null>(null);
   const onShouldStartLoadWithRequest = useStaticOnlyNavigation(fullHtml);
 
-  useEffect(() => {
-    if (previewWebView?.mode !== "expo-dom") {
-      setPreviewUri(null);
-      return;
-    }
-    let cancelled = false;
-    void writeHtmlPreviewFile(fullHtml).then((uri) => {
-      if (!cancelled) setPreviewUri(uri);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [fullHtml, previewWebView?.mode]);
-
-  const WebView = previewWebView?.Component;
+  const WebView = previewWebView?.mode === "rnc" ? previewWebView.Component : null;
   if (!WebView) return null;
-
-  const isRnc = previewWebView.mode === "rnc";
-  const source = isRnc
-    ? { html: fullHtml, baseUrl: "https://localhost/" }
-    : previewUri
-      ? { uri: previewUri }
-      : null;
-
-  if (!source) {
-    return (
-      <View style={s.loading}>
-        <Text style={s.loadingText}>{i18n.t("preview.loading")}</Text>
-      </View>
-    );
-  }
 
   return (
     <View style={s.webviewContainer}>
       <WebView
-        source={source}
+        source={{ html: fullHtml, baseUrl: "about:blank" }}
         style={s.webview}
         scrollEnabled
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-        {...(isRnc
-          ? {
-              originWhitelist: STATIC_HTML_ORIGIN_WHITELIST,
-              javaScriptEnabled: true,
-              domStorageEnabled: false,
-              allowsInlineMediaPlayback: true,
-            }
-          : { allowsInlineMediaPlayback: true, containerStyle: s.webviewContainer })}
+        // Guard blocks http(s); wildcard lets the inline document load.
+        originWhitelist={["*", "about:blank"]}
+        javaScriptEnabled
+        domStorageEnabled={false}
+        allowsInlineMediaPlayback
+        setSupportMultipleWindows={false}
+        // Avoid nested-scroll / zero-height quirks inside the full-screen modal.
+        nestedScrollEnabled
       />
     </View>
   );
@@ -161,27 +156,21 @@ function StaticHtmlPreview({
     () => htmlForInlinePreview(stripScripts(html)),
     [html],
   );
-  const showRenderHtml = previewHasVisibleText(html);
   const tagStyles = useMemo(() => makeTagStyles(theme), [theme]);
 
+  // Always RenderHtml — never dump raw source/CSS into the Run tab.
   return (
     <ScrollView
       style={s.scroll}
       contentContainerStyle={s.scrollContent}
       showsVerticalScrollIndicator
     >
-      {showRenderHtml ? (
-        <RenderHtml
-          contentWidth={contentWidth}
-          source={{ html: previewHtml }}
-          baseStyle={s.base}
-          tagsStyles={tagStyles}
-        />
-      ) : (
-        <Text style={s.sourceText} selectable>
-          {html.trim()}
-        </Text>
-      )}
+      <RenderHtml
+        contentWidth={contentWidth}
+        source={{ html: previewHtml }}
+        baseStyle={s.base}
+        tagsStyles={tagStyles}
+      />
     </ScrollView>
   );
 }
@@ -228,7 +217,12 @@ export function HtmlPreviewModal({ visible, html, onClose }: Props) {
   const contentWidth = Math.max(width - 32, 280);
   const [tab, setTab] = useState<PreviewTab>("run");
   const interactive = useMemo(() => looksLikeInteractiveHtml(html), [html]);
-  const canUseWebView = useMemo(() => getPreviewWebView() != null, []);
+  // Expo Go includes RNC WebView — use it so CSS pages actually render.
+  // Only fall back to static when RNC is unavailable (dom-webview alone).
+  const canUseNativeWebView = useMemo(
+    () => getPreviewWebView()?.mode === "rnc",
+    [],
+  );
 
   useEffect(() => {
     if (visible) setTab("run");
@@ -244,7 +238,7 @@ export function HtmlPreviewModal({ visible, html, onClose }: Props) {
       <View
         style={[s.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
       >
-        {tab === "run" && interactive && !canUseWebView ? (
+        {tab === "run" && interactive && !canUseNativeWebView ? (
           <View style={s.interactiveBanner}>
             <Ionicons name="flash-outline" size={16} color={theme.primary} />
             <Text style={s.interactiveBannerText}>{t("preview.expo_go_banner")}</Text>
@@ -260,15 +254,28 @@ export function HtmlPreviewModal({ visible, html, onClose }: Props) {
             >
               <CodeBlock code={html} lang="html" />
             </ScrollView>
-          ) : canUseWebView ? (
-            <LiveWebPreview html={html} styles={s} />
           ) : (
-            <StaticHtmlPreview
-              html={html}
-              contentWidth={contentWidth}
-              theme={theme}
-              styles={s}
-            />
+            <PreviewRenderBoundary
+              fallback={
+                <ScrollView
+                  style={s.scroll}
+                  contentContainerStyle={s.scrollContent}
+                >
+                  <Text style={s.base}>{t("preview.expo_go_banner")}</Text>
+                </ScrollView>
+              }
+            >
+              {canUseNativeWebView ? (
+                <LiveWebPreview html={html} styles={s} />
+              ) : (
+                <StaticHtmlPreview
+                  html={html}
+                  contentWidth={contentWidth}
+                  theme={theme}
+                  styles={s}
+                />
+              )}
+            </PreviewRenderBoundary>
           )}
         </View>
 
@@ -334,8 +341,6 @@ const makeStyles = (theme: Theme) =>
   codeScrollContent: { padding: 16, paddingBottom: 24 },
   webviewContainer: { flex: 1, alignSelf: "stretch" },
   webview: { flex: 1, backgroundColor: theme.surface },
-  loading: { flex: 1, alignItems: "center", justifyContent: "center" },
-  loadingText: { fontSize: 15, color: theme.textSecondary },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 16, paddingVertical: 16, paddingBottom: 16 },
   base: { color: theme.text, fontSize: 16, lineHeight: 22 },

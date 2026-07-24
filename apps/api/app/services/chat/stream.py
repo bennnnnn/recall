@@ -718,21 +718,28 @@ async def _run_tool_loop_path(
     if settings.mcp_tool_loop_enabled and not ctx.instant_reply and not ctx.lightweight_turn:
         from app.services import tool_loop as tool_loop_service
 
-        ctx.prompt_messages, tool_verified = await tool_loop_service.run_tool_rounds(
-            settings=settings,
-            model_alias=ctx.model,
-            messages=ctx.prompt_messages,
-            usage=usage,
-            on_status=on_status,
-            should_cancel=should_cancel,
-            user=ctx.user,
-            redis=redis,
+        ctx.prompt_messages, tool_verified, terminal_image = (
+            await tool_loop_service.run_tool_rounds(
+                settings=settings,
+                model_alias=ctx.model,
+                messages=ctx.prompt_messages,
+                usage=usage,
+                on_status=on_status,
+                should_cancel=should_cancel,
+                user=ctx.user,
+                redis=redis,
+                chat_id=ctx.chat_id,
+            )
         )
         # Heuristic math_tools is skipped when the tool loop is on —
         # carry sympy canonical fences so validate_math_fences still
         # overwrites/densifies geometry and graph JSON.
         if tool_verified is not None:
             ctx.verified_math = tool_verified
+        if terminal_image is not None:
+            ctx.terminal_image_message_id = terminal_image.message_id
+            ctx.terminal_image_content = terminal_image.final_content
+            ctx.terminal_image_model = terminal_image.resolved_model
 
 
 async def _run_llm_token_stream(
@@ -1020,6 +1027,21 @@ async def stream_and_finalize(
                     on_status=on_status,
                     should_cancel=should_cancel,
                 )
+
+                # generate_image already persisted the assistant ``[Image: …]``
+                # row — skip the visible LLM stream + second finalize insert.
+                if ctx.terminal_image_content and ctx.terminal_image_message_id:
+                    if result is not None:
+                        result["message_id"] = ctx.terminal_image_message_id
+                        result["final_content"] = ctx.terminal_image_content
+                        result["resolved_model"] = (
+                            ctx.terminal_image_model or "image-gen-model"
+                        )
+                    # Image gen has its own daily cap; refund the chat-token hold.
+                    await quota_service.refund_usage(
+                        redis, str(ctx.user_id), ctx.reserved_tokens
+                    )
+                    return
 
                 if (
                     on_status is not None

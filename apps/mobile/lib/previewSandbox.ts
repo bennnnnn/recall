@@ -2,7 +2,7 @@
  * Content-Security-Policy for the sandboxed HTML/JS preview.
  *
  * The preview runs model/user-generated HTML+JS in an in-app WebView. It has no
- * app tokens (baseUrl https://localhost/, no cookies), but without a CSP the JS
+ * app tokens (baseUrl about:blank, no cookies), but without a CSP the JS
  * could still make arbitrary network egress. This policy locks down the document:
  *  - default-src 'none': deny everything by default
  *  - script-src / style-src 'unsafe-inline' only — inline code runs (the

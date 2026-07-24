@@ -2,6 +2,7 @@
 
 from app.core.config import Settings
 from app.gateways.mcp.calendar_adapter import CalendarAdapter
+from app.gateways.mcp.image_gen_adapter import ImageGenAdapter
 from app.gateways.mcp.registry import register
 from app.gateways.mcp.sympy_adapter import SympyAdapter
 from app.gateways.mcp.web_search_adapter import WebSearchAdapter
@@ -16,3 +17,7 @@ def setup_mcp_adapters(settings: Settings) -> None:
     # only the pre-stream augment_prompt_messages path).
     if settings.math_tools_enabled:
         register(SympyAdapter(settings))
+    # Model-callable image gen — still requires mcp_tool_loop_enabled at
+    # runtime, and Pro + quota checks inside the adapter.
+    if settings.image_generation_enabled:
+        register(ImageGenAdapter(settings))

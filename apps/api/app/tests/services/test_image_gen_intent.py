@@ -13,8 +13,6 @@ from app.services.image_gen_intent import (
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
-        ("Create cat", "cat"),
-        ("create a cat", "cat"),
         ("Create a cat pic", "cat"),
         ("draw me a dog", "dog"),
         ("draw a dog", "dog"),
@@ -37,6 +35,14 @@ def test_extract_image_gen_prompt_matches(text: str, expected: str) -> None:
         "create an image compression script",
         "draw a conclusion from this",
         "make it blue",  # revision follow-up, not "create a picture of it blue"
+        # Ambiguous make/create without an image noun — stay in chat.
+        "Create cat",
+        "create a cat",
+        "make your own example",
+        "make an example",
+        "create a math problem",
+        "make a question",
+        "draw me an example",
         "a" * 501,
     ],
 )

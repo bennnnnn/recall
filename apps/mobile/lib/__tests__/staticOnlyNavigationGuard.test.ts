@@ -1,75 +1,66 @@
-import { createStaticOnlyNavigationGuard } from "@/lib/staticOnlyNavigationGuard";
+import {
+  createStaticOnlyNavigationGuard,
+  isExternalHttpUrl,
+  isPreviewFrameworkUrl,
+} from "@/lib/staticOnlyNavigationGuard";
+
+describe("isPreviewFrameworkUrl", () => {
+  it("allows blank / data / file loads", () => {
+    expect(isPreviewFrameworkUrl("")).toBe(true);
+    expect(isPreviewFrameworkUrl("about:blank")).toBe(true);
+    expect(isPreviewFrameworkUrl("about:srcdoc")).toBe(true);
+    expect(isPreviewFrameworkUrl("data:text/html,hi")).toBe(true);
+    expect(isPreviewFrameworkUrl("file:///tmp/preview.html")).toBe(true);
+  });
+
+  it("does not treat https as framework", () => {
+    expect(isPreviewFrameworkUrl("https://localhost/")).toBe(false);
+    expect(isPreviewFrameworkUrl("https://evil.example")).toBe(false);
+  });
+});
+
+describe("isExternalHttpUrl", () => {
+  it("detects http(s)", () => {
+    expect(isExternalHttpUrl("https://example.com")).toBe(true);
+    expect(isExternalHttpUrl("http://example.com")).toBe(true);
+    expect(isExternalHttpUrl("about:blank")).toBe(false);
+  });
+});
 
 describe("createStaticOnlyNavigationGuard", () => {
-  it("allows exactly one navigation, then denies the rest", () => {
+  it("allows repeated about:blank / data loads (WKWebView bootstrap)", () => {
     const guard = createStaticOnlyNavigationGuard();
-    expect(guard.shouldAllow()).toBe(true);
-    expect(guard.shouldAllow()).toBe(false);
-    expect(guard.shouldAllow()).toBe(false);
+    expect(guard.shouldAllow("about:blank")).toBe(true);
+    expect(guard.shouldAllow("about:blank")).toBe(true);
+    expect(guard.shouldAllow("data:text/html,%3Ch1%3Ehi%3C%2Fh1%3E")).toBe(true);
   });
 
-  it("denies a link/window.location navigation attempted after the initial load", () => {
-    // Simulates the sandbox WebView loading self-contained HTML, then the
-    // model/user HTML trying to navigate the WebView itself to another origin.
+  it("always denies http(s) navigations (phishing)", () => {
     const guard = createStaticOnlyNavigationGuard();
-    const initialLoad = guard.shouldAllow();
-    const linkClickToExternalSite = guard.shouldAllow();
-
-    expect(initialLoad).toBe(true);
-    expect(linkClickToExternalSite).toBe(false);
+    guard.shouldAllow("about:blank");
+    expect(guard.shouldAllow("https://evil.example/phish")).toBe(false);
+    expect(guard.shouldAllow("http://evil.example/")).toBe(false);
   });
 
-  it("re-arms the one allowed load after reset (new content)", () => {
+  it("allows one unknown-scheme load, then denies further unknowns", () => {
     const guard = createStaticOnlyNavigationGuard();
-    guard.shouldAllow();
-    expect(guard.shouldAllow()).toBe(false);
-
-    guard.reset();
-
-    expect(guard.shouldAllow()).toBe(true);
-    expect(guard.shouldAllow()).toBe(false);
+    expect(guard.shouldAllow("blob:opaque-1")).toBe(true);
+    expect(guard.shouldAllow("blob:opaque-2")).toBe(false);
   });
 
-  it("reset before any navigation request is a no-op", () => {
+  it("re-arms the unknown one-shot after reset", () => {
     const guard = createStaticOnlyNavigationGuard();
+    guard.shouldAllow("blob:a");
+    expect(guard.shouldAllow("blob:b")).toBe(false);
     guard.reset();
-
-    expect(guard.shouldAllow()).toBe(true);
-    expect(guard.shouldAllow()).toBe(false);
-  });
-
-  it("supports repeated reset/consume cycles, always re-arming exactly one load", () => {
-    const guard = createStaticOnlyNavigationGuard();
-
-    for (let i = 0; i < 5; i += 1) {
-      guard.reset();
-      expect(guard.shouldAllow()).toBe(true);
-      expect(guard.shouldAllow()).toBe(false);
-      expect(guard.shouldAllow()).toBe(false);
-    }
-  });
-
-  it("calling reset multiple times in a row does not grant extra navigations", () => {
-    const guard = createStaticOnlyNavigationGuard();
-    guard.shouldAllow();
-
-    guard.reset();
-    guard.reset();
-    guard.reset();
-
-    expect(guard.shouldAllow()).toBe(true);
-    expect(guard.shouldAllow()).toBe(false);
+    expect(guard.shouldAllow("blob:c")).toBe(true);
   });
 
   it("gives each guard instance independent state", () => {
     const guardA = createStaticOnlyNavigationGuard();
     const guardB = createStaticOnlyNavigationGuard();
-
-    expect(guardA.shouldAllow()).toBe(true);
-    expect(guardA.shouldAllow()).toBe(false);
-
-    // guardB is unaffected by guardA having consumed its one allowed load.
-    expect(guardB.shouldAllow()).toBe(true);
-    expect(guardB.shouldAllow()).toBe(false);
+    expect(guardA.shouldAllow("blob:a")).toBe(true);
+    expect(guardA.shouldAllow("blob:b")).toBe(false);
+    expect(guardB.shouldAllow("blob:a")).toBe(true);
   });
 });

@@ -75,15 +75,30 @@ export function isWebViewAvailable(): boolean {
   return getPreviewWebView() != null;
 }
 
-/** Inline `source={{ html }}` previews — navigation guard + CSP do the real work. */
+/**
+ * Inline `source={{ html }}` previews — must match the WebView `baseUrl`
+ * (use `about:blank`, not `https://localhost/`). Navigation guard + CSP do
+ * the real work for post-load navigations.
+ */
 export const STATIC_HTML_ORIGIN_WHITELIST: string[] = ["about:blank"];
+
+/** Pull URL from RN WebView's nativeEvent (or a plain `{ url }` test stub). */
+export function navigationRequestUrl(request: unknown): string {
+  if (request == null || typeof request !== "object") return "";
+  const rec = request as { url?: unknown; nativeEvent?: { url?: unknown } };
+  if (typeof rec.url === "string") return rec.url;
+  if (typeof rec.nativeEvent?.url === "string") return rec.nativeEvent.url;
+  return "";
+}
 
 /**
  * React wiring for {@link createStaticOnlyNavigationGuard}: pass the HTML
  * string (or other value identifying "new content") as `sourceKey` so a
  * legitimate content change still gets its one allowed load.
  */
-export function useStaticOnlyNavigation(sourceKey: unknown): () => boolean {
+export function useStaticOnlyNavigation(
+  sourceKey: unknown,
+): (request?: unknown) => boolean {
   const guardRef = useRef<StaticOnlyNavigationGuard | null>(null);
   if (guardRef.current == null) {
     guardRef.current = createStaticOnlyNavigationGuard();
@@ -94,5 +109,8 @@ export function useStaticOnlyNavigation(sourceKey: unknown): () => boolean {
     guard.reset();
   }, [sourceKey, guard]);
 
-  return useCallback(() => guard.shouldAllow(), [guard]);
+  return useCallback(
+    (request?: unknown) => guard.shouldAllow(navigationRequestUrl(request)),
+    [guard],
+  );
 }

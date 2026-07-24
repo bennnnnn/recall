@@ -26,7 +26,7 @@ def web_search_registered():
 @pytest.mark.asyncio
 async def test_tool_loop_disabled_passthrough():
     messages = [{"role": "user", "content": "hi"}]
-    out, verified = await tool_loop.run_tool_rounds(
+    out, verified, terminal = await tool_loop.run_tool_rounds(
         settings=_settings(mcp_tool_loop_enabled=False),
         model_alias="free-chat",
         messages=messages,
@@ -34,6 +34,7 @@ async def test_tool_loop_disabled_passthrough():
     )
     assert out == messages
     assert verified is None
+    assert terminal is None
 
 
 @pytest.mark.asyncio
@@ -69,7 +70,7 @@ async def test_tool_loop_single_web_search_round(web_search_registered):
         patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
         patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
     ):
-        out, verified = await tool_loop.run_tool_rounds(
+        out, verified, terminal = await tool_loop.run_tool_rounds(
             settings=_settings(mcp_tool_loop_enabled=True, mcp_tool_loop_max_rounds=3),
             model_alias="free-chat",
             messages=messages,
@@ -84,6 +85,7 @@ async def test_tool_loop_single_web_search_round(web_search_registered):
     assert any(m.get("role") == "tool" for m in out)
     assert any(m.get("role") == "assistant" and m.get("tool_calls") for m in out)
     assert verified is None
+    assert terminal is None
 
 
 @pytest.mark.asyncio
@@ -157,7 +159,7 @@ async def test_tool_loop_collects_sympy_canonical_fence(web_search_registered):
         patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
         patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
     ):
-        _out, verified = await tool_loop.run_tool_rounds(
+        _out, verified, terminal = await tool_loop.run_tool_rounds(
             settings=_settings(mcp_tool_loop_enabled=True, mcp_tool_loop_max_rounds=3),
             model_alias="free-chat",
             messages=messages,
@@ -166,6 +168,7 @@ async def test_tool_loop_collects_sympy_canonical_fence(web_search_registered):
 
     assert verified is not None
     assert verified.canonical_fence == fence
+    assert terminal is None
 
 
 @pytest.mark.asyncio
@@ -203,7 +206,7 @@ async def test_tool_loop_cancel_mid_round_trims_unanswered_tool_calls(web_search
         patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
         patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
     ):
-        out, _verified = await tool_loop.run_tool_rounds(
+        out, _verified, terminal = await tool_loop.run_tool_rounds(
             settings=_settings(mcp_tool_loop_enabled=True, mcp_tool_loop_max_rounds=3),
             model_alias="free-chat",
             messages=messages,
@@ -214,6 +217,7 @@ async def test_tool_loop_cancel_mid_round_trims_unanswered_tool_calls(web_search
     complete.assert_awaited_once()
     invoke.assert_not_awaited()
     assert out == messages
+    assert terminal is None
     assert not any(m.get("role") == "assistant" and m.get("tool_calls") for m in out)
 
 
@@ -246,3 +250,94 @@ async def test_invoke_validated_rejects_empty_query(web_search_registered):
     result = await mcp_registry.invoke_validated("web_search", '{"query": ""}')
     assert result is not None
     assert "Invalid arguments" in result.content
+
+
+@pytest.mark.asyncio
+async def test_tool_loop_generate_image_is_terminal():
+    """Successful generate_image stops further completion rounds."""
+    from app.gateways.mcp.base import ToolResult
+    from app.gateways.mcp.image_gen_adapter import ImageGenAdapter
+
+    mcp_registry.clear()
+    mcp_registry.register(ImageGenAdapter(_settings(image_generation_enabled=True)))
+    try:
+        messages = [{"role": "user", "content": "draw a watercolor fox"}]
+        marker = "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]"
+        complete = AsyncMock(
+            return_value={
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": "img1",
+                        "type": "function",
+                        "function": {
+                            "name": "generate_image",
+                            "arguments": '{"prompt": "watercolor fox"}',
+                        },
+                    }
+                ],
+            }
+        )
+        invoke = AsyncMock(
+            return_value=ToolResult(
+                name="generate_image",
+                content="ok",
+                data={
+                    "terminal": True,
+                    "image_marker": marker,
+                    "assistant_message_id": "01900000-0000-7000-8000-000000000001",
+                    "resolved_model": "image-gen-model",
+                },
+            )
+        )
+        statuses: list[tuple[str, str | None]] = []
+
+        async def on_status(phase: str, detail: str | None = None) -> None:
+            statuses.append((phase, detail))
+
+        pro_user = MagicMock()
+        with (
+            patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
+            patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
+            patch("app.services.tool_loop.plan_service.is_pro", return_value=True),
+        ):
+            _out, verified, terminal = await tool_loop.run_tool_rounds(
+                settings=_settings(
+                    mcp_tool_loop_enabled=True,
+                    mcp_tool_loop_max_rounds=3,
+                    image_generation_enabled=True,
+                ),
+                model_alias="free-chat",
+                messages=messages,
+                usage={},
+                on_status=on_status,
+                user=pro_user,
+            )
+
+        # One completion that requested the tool — no second "final answer" round.
+        assert complete.await_count == 1
+        invoke.assert_awaited_once()
+        assert statuses == [("image_gen", "watercolor fox")]
+        assert verified is None
+        assert terminal is not None
+        assert terminal.final_content == marker
+        assert terminal.message_id == "01900000-0000-7000-8000-000000000001"
+    finally:
+        mcp_registry.clear()
+
+
+@pytest.mark.asyncio
+async def test_tools_for_user_omits_image_gen_for_free():
+    from app.gateways.mcp.image_gen_adapter import ImageGenAdapter
+
+    mcp_registry.clear()
+    mcp_registry.register(ImageGenAdapter(_settings(image_generation_enabled=True)))
+    try:
+        with patch("app.services.tool_loop.plan_service.is_pro", return_value=False):
+            tools = tool_loop._tools_for_user(
+                _settings(image_generation_enabled=True), MagicMock()
+            )
+        names = [(t.get("function") or {}).get("name") for t in tools]
+        assert "generate_image" not in names
+    finally:
+        mcp_registry.clear()

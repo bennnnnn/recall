@@ -120,12 +120,13 @@ const DRAW_ME = new RegExp(
 );
 
 /**
- * Short "create/draw a cat" without an image noun. Anchored full-message only;
- * non-visual subjects are rejected below.
+ * Short "draw/paint a dog" without an image noun. Anchored full-message only.
+ * ``make`` / ``create`` / ``generate`` need an explicit image noun (matchers
+ * above) so chat asks like "make your own example" stay in the LLM turn.
  */
-const CREATE_OR_DRAW_SUBJECT = new RegExp(
+const SHORT_DRAW_SUBJECT = new RegExp(
   String.raw`^(?:please\s+)?(?:can you\s+)?` +
-    String.raw`(?:create|generate|make|draw|paint|illustrate)\s+` +
+    String.raw`(?:draw|paint|illustrate)\s+` +
     String.raw`(?:me\s+)?(?:an?\s+)?(.+)$`,
   "i",
 );
@@ -190,6 +191,17 @@ const NON_IMAGE_SUBJECT = new RegExp(
       "objects?",
       "strings?",
       "comparisons?",
+      // Learning / chat asks — "make your own example" is not a picture.
+      "examples?",
+      "problems?",
+      "equations?",
+      "questions?",
+      "exercises?",
+      "homework",
+      "solutions?",
+      "proofs?",
+      "worksheets?",
+      "assignments?",
     ].join("|") +
     String.raw`)\b`,
   "i",
@@ -205,13 +217,12 @@ function cleanPrompt(raw: string): string | null {
   return prompt;
 }
 
-function extractShortCreateSubject(trimmed: string): string | null {
+function extractShortDrawSubject(trimmed: string): string | null {
   if (trimmed.length > 80) return null;
-  const match = trimmed.match(CREATE_OR_DRAW_SUBJECT);
+  const match = trimmed.match(SHORT_DRAW_SUBJECT);
   if (!match?.[1]) return null;
   const subject = match[1].trim();
   if (subject.split(/\s+/).length > 8) return null;
-  // "make it blue" is an image *revision*, not "create a picture of it blue".
   if (/^(?:it|them|this|that)\b/i.test(subject)) return null;
   if (NON_IMAGE_SUBJECT.test(subject) || NON_IMAGE_DRAW.test(subject)) return null;
   return cleanPrompt(subject);
@@ -234,12 +245,12 @@ export function extractImageGenPrompt(text: string): string | null {
   match = trimmed.match(DRAW_ME);
   if (match?.[1]) {
     const subject = match[1];
-    if (NON_IMAGE_DRAW.test(subject)) return null;
+    if (NON_IMAGE_SUBJECT.test(subject) || NON_IMAGE_DRAW.test(subject)) return null;
     return cleanPrompt(subject);
   }
 
-  const shortCreate = extractShortCreateSubject(trimmed);
-  if (shortCreate) return shortCreate;
+  const shortDraw = extractShortDrawSubject(trimmed);
+  if (shortDraw) return shortDraw;
 
   // Short colloquial: "cat pic" / "sunset photo" as full message
   if (trimmed.length <= 80 && IMAGE_NOUN.test(trimmed)) {

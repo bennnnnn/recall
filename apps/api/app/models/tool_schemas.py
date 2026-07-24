@@ -63,3 +63,10 @@ class CalendarConflictsInput(BaseModel):
     action: Literal["conflicts"] = "conflicts"
     due_at: str = Field(min_length=1, max_length=64)
     events: list[CalendarConflictEvent] = Field(default_factory=list, max_length=50)
+
+
+class GenerateImageToolInput(BaseModel):
+    """Model-initiated image generation (Pro; tool loop only)."""
+
+    prompt: str = Field(min_length=1, max_length=2000)
+    aspect_ratio: Literal["1:1", "16:9", "9:16", "4:3", "3:4"] | None = None

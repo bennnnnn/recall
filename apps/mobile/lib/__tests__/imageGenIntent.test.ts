@@ -11,10 +11,17 @@ describe("extractImageGenPrompt", () => {
     expect(extractImageGenPrompt("Create a cat pic")).toBe("cat");
   });
 
-  it("extracts from Create cat / create a cat without image noun", () => {
-    expect(extractImageGenPrompt("Create cat")).toBe("cat");
-    expect(extractImageGenPrompt("create a cat")).toBe("cat");
+  it("extracts from short draw without an image noun", () => {
     expect(extractImageGenPrompt("draw a dog")).toBe("dog");
+  });
+
+  it("does not treat bare make/create as image gen (needs pic/image/photo)", () => {
+    expect(extractImageGenPrompt("Create cat")).toBeNull();
+    expect(extractImageGenPrompt("create a cat")).toBeNull();
+    expect(extractImageGenPrompt("make your own example")).toBeNull();
+    expect(extractImageGenPrompt("make an example")).toBeNull();
+    expect(extractImageGenPrompt("create a math problem")).toBeNull();
+    expect(extractImageGenPrompt("draw me an example")).toBeNull();
   });
 
   it("extracts from generate image of sunset", () => {
@@ -61,10 +68,8 @@ describe("extractImageGenPrompt", () => {
     );
   });
 
-  it("matches an ambiguous comparison request as an image request (known false positive)", () => {
-    expect(extractImageGenPrompt("draw me a comparison between X and Y")).toBe(
-      "comparison between X and Y",
-    );
+  it("rejects draw-me comparison (learning/chat, not a picture)", () => {
+    expect(extractImageGenPrompt("draw me a comparison between X and Y")).toBeNull();
   });
 });
 

@@ -135,11 +135,12 @@ export function htmlForInlinePreview(html: string): string {
 
   const visibleText = textWithoutTags(inner).trim();
   if (!visibleText && !hasImgTag(inner)) {
-    const escaped = trimmed
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-    return `<p>This page relies on CSS or JavaScript. Use <strong>Open in Safari</strong> for the live version.</p><pre>${escaped.slice(0, 4000)}</pre>`;
+    // Never dump raw CSS/HTML source into the Run tab — that reads as a bug.
+    return (
+      "<p><strong>This page needs a live browser preview.</strong></p>" +
+      "<p>It is mostly CSS/JavaScript, so the static preview has nothing to show. " +
+      "Use <strong>Share</strong> to open it, or run a dev build for in-app Run.</p>"
+    );
   }
 
   return `<div>${inner}</div>`;
