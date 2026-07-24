@@ -98,5 +98,8 @@ export function useStaticOnlyNavigation(sourceKey: unknown): () => boolean {
     guard.reset();
   }, [sourceKey, guard]);
 
-  return useCallback(() => guard.shouldAllow(), [guard]);
+  return useCallback(
+    (request?: { url?: string }) => guard.shouldAllow(request?.url ?? ""),
+    [guard],
+  );
 }

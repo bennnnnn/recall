@@ -136,6 +136,8 @@ function LiveWebPreview({
               javaScriptEnabled: true,
               domStorageEnabled: false,
               allowsInlineMediaPlayback: true,
+              // Don't let target=_blank / window.open dump a blank localhost tab in Safari.
+              setSupportMultipleWindows: false,
             }
           : { allowsInlineMediaPlayback: true, containerStyle: s.webviewContainer })}
       />
