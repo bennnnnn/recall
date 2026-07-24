@@ -28,8 +28,14 @@ import {
   shareHtmlPreview,
   wrapFullDocument,
 } from "@/lib/openHtmlPreview";
-import { injectPreviewCsp, PREVIEW_CSP_LIVE, stripScripts } from "@/lib/previewSandbox";
+import {
+  HTML_RUN_STAY_JS,
+  injectPreviewCsp,
+  PREVIEW_CSP_LIVE,
+  stripScripts,
+} from "@/lib/previewSandbox";
 import { CODE_FONT } from "@/lib/fonts";
+import { PREVIEW_INLINE_BASE_URL } from "@/lib/staticOnlyNavigationGuard";
 import { getPreviewWebView, useHtmlRunNavigation } from "@/lib/webView";
 
 class PreviewRenderBoundary extends Component<
@@ -115,13 +121,11 @@ function LiveWebPreview({
   html: string;
   styles: ReturnType<typeof makeStyles>;
 }) {
-  const { t } = useTranslation();
   const [loadError, setLoadError] = useState<string | null>(null);
   const previewWebView = useMemo(() => getPreviewWebView(), []);
 
-  // Allow CDN CSS/JS so real demos paint. App tokens stay isolated; only
-  // click/form top-level navigations off-document are blocked (iOS often
-  // mis-labels CDN fetches as top-frame, so an isTopFrame deny blanks pages).
+  // Allow CDN CSS/JS so real demos paint. Leave-document is blocked in-page
+  // (HTML_RUN_STAY_JS + CSP form-action), not via the native nav guard.
   const fullHtml = useMemo(
     () => injectPreviewCsp(wrapFullDocument(html), PREVIEW_CSP_LIVE),
     [html],
@@ -149,7 +153,7 @@ function LiveWebPreview({
         </View>
       ) : null}
       <WebView
-        source={{ html: fullHtml }}
+        source={{ html: fullHtml, baseUrl: PREVIEW_INLINE_BASE_URL }}
         style={s.webview}
         scrollEnabled
         originWhitelist={["*"]}
@@ -158,14 +162,11 @@ function LiveWebPreview({
         allowsInlineMediaPlayback
         setSupportMultipleWindows={false}
         nestedScrollEnabled
+        injectedJavaScriptBeforeContentLoaded={HTML_RUN_STAY_JS}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         onError={(e: { nativeEvent?: { description?: string } }) => {
-          setLoadError(
-            e.nativeEvent?.description ?? t("preview.empty_sandbox"),
-          );
-        }}
-        onHttpError={() => {
-          setLoadError(t("preview.empty_sandbox"));
+          const detail = e.nativeEvent?.description?.trim();
+          if (detail) setLoadError(detail);
         }}
       />
     </View>

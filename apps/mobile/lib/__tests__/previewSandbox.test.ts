@@ -30,6 +30,7 @@ describe("PREVIEW_CSP", () => {
     expect(PREVIEW_CSP_LIVE).toContain("script-src 'unsafe-inline' https: http:");
     expect(PREVIEW_CSP_LIVE).toContain("style-src 'unsafe-inline' https: http:");
     expect(PREVIEW_CSP_LIVE).toContain("connect-src https: http:");
+    expect(PREVIEW_CSP_LIVE).toContain("form-action 'none'");
     expect(PREVIEW_CSP_LIVE).not.toContain("sandbox");
   });
 });

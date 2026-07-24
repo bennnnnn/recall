@@ -87,7 +87,7 @@ describe("createStaticOnlyNavigationGuard", () => {
 });
 
 describe("createHtmlRunNavigationGuard", () => {
-  it("allows CDN loads; only blocks click/form navigations to the open web", () => {
+  it("always allows loads (stay-on-document is in-page, not native)", () => {
     const guard = createHtmlRunNavigationGuard();
     expect(
       guard.shouldAllow({
@@ -102,7 +102,7 @@ describe("createHtmlRunNavigationGuard", () => {
         isTopFrame: true,
         navigationType: "click",
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(guard.shouldAllow({ url: PREVIEW_INLINE_BASE_URL })).toBe(true);
     expect(guard.shouldAllow({ url: "about:blank" })).toBe(true);
   });

@@ -98,26 +98,20 @@ export function createStaticOnlyNavigationGuard(): StaticOnlyNavigationGuard {
 }
 
 /**
- * HTML Run tab: allow http(s) for document + CDN loads. iOS often reports CDN
- * script/style fetches as top-frame, so an isTopFrame deny blanks the page.
- * Only block explicit user navigations (click / form submit) to the open web.
+ * HTML Run tab: always allow loads.
+ *
+ * Returning false for http(s) (even "top-frame only") blanks CDN demos — iOS
+ * often mis-labels script/style fetches as top-frame. Returning true for those
+ * same mis-labeled requests can navigate the main frame away from the HTML.
+ * So the native nav guard cannot safely filter CDN vs leave-document traffic.
+ * Stay-on-document is enforced in-page (injected click/submit trap + CSP
+ * form-action 'none'), not here.
  */
 export function createHtmlRunNavigationGuard(): StaticOnlyNavigationGuard {
   return {
-    shouldAllow: (request) => {
-      const {
-        url = "",
-        navigationType = "other",
-      } = normalizeGuardRequest(request);
-      if (isPreviewFrameworkUrl(url)) return true;
-      if (isPreviewInlineDocumentUrl(url)) return true;
-      const userNav =
-        navigationType === "click" || navigationType === "formsubmit";
-      if (userNav && isExternalHttpUrl(url)) return false;
-      return true;
-    },
+    shouldAllow: () => true,
     reset: () => {
-      /* no one-shot state */
+      /* no state */
     },
   };
 }

@@ -42,8 +42,8 @@ export const PREVIEW_CSP = `${PREVIEW_CSP_INLINE}; sandbox allow-scripts`;
 /**
  * HTML Run tab — still isolated from the app (no shared cookies / tokens),
  * but allows http(s) subresources so CDN CSS/JS demos actually paint.
- * Top-level navigations away from the document are blocked in the WebView
- * nav guard, not here.
+ * Leave-document navigations are blocked in-page (see HTML_RUN_STAY_JS) and
+ * via form-action 'none'; the native nav guard always allows loads.
  */
 export const PREVIEW_CSP_LIVE = [
   "default-src 'none'",
@@ -56,8 +56,37 @@ export const PREVIEW_CSP_LIVE = [
   "frame-src https: http:",
   "worker-src blob: https: http:",
   "base-uri 'none'",
-  "form-action https: http:",
+  "form-action 'none'",
 ].join("; ");
+
+/**
+ * Injected before content loads on the HTML Run tab. Blocks <a> / form
+ * navigations that would leave the preview document. Hash / javascript:
+ * links still work for in-page demos.
+ */
+export const HTML_RUN_STAY_JS = `
+(function () {
+  function stay(e) {
+    try {
+      var t = e.target;
+      if (e.type === "submit") {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      while (t && t.tagName !== "A") t = t.parentElement;
+      if (!t || !t.getAttribute) return;
+      var href = t.getAttribute("href") || "";
+      if (!href || href.charAt(0) === "#" || href.indexOf("javascript:") === 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+    } catch (err) {}
+  }
+  document.addEventListener("click", stay, true);
+  document.addEventListener("submit", stay, true);
+})();
+true;
+`;
 
 /** True if the markup references http(s) assets. */
 export function htmlDependsOnNetwork(html: string): boolean {
