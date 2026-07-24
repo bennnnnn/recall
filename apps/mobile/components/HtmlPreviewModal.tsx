@@ -23,16 +23,10 @@ import {
   looksLikeInteractiveHtml,
   shareHtmlPreview,
   wrapFullDocument,
-  writeHtmlPreviewFile,
 } from "@/lib/openHtmlPreview";
 import { injectPreviewCsp, stripScripts } from "@/lib/previewSandbox";
 import { CODE_FONT } from "@/lib/fonts";
-import {
-  getPreviewWebView,
-  STATIC_HTML_ORIGIN_WHITELIST,
-  useStaticOnlyNavigation,
-} from "@/lib/webView";
-import i18n from "@/lib/i18n";
+import { getPreviewWebView, useStaticOnlyNavigation } from "@/lib/webView";
 
 type Props = {
   visible: boolean;
@@ -76,6 +70,11 @@ function makeTagStyles(theme: Theme) {
   };
 }
 
+/**
+ * Native react-native-webview path (dev build). Expo Go's `@expo/dom-webview`
+ * file:// path often paints a blank view — callers should use StaticHtmlPreview
+ * there instead.
+ */
 function LiveWebPreview({
   html,
   styles: s,
@@ -85,61 +84,25 @@ function LiveWebPreview({
 }) {
   const fullHtml = useMemo(() => injectPreviewCsp(wrapFullDocument(html)), [html]);
   const previewWebView = useMemo(() => getPreviewWebView(), []);
-  const [previewUri, setPreviewUri] = useState<string | null>(null);
   const onShouldStartLoadWithRequest = useStaticOnlyNavigation(fullHtml);
 
-  useEffect(() => {
-    if (previewWebView?.mode !== "expo-dom") {
-      setPreviewUri(null);
-      return;
-    }
-    let cancelled = false;
-    void writeHtmlPreviewFile(fullHtml).then((uri) => {
-      if (!cancelled) setPreviewUri(uri);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [fullHtml, previewWebView?.mode]);
-
-  const WebView = previewWebView?.Component;
+  const WebView = previewWebView?.mode === "rnc" ? previewWebView.Component : null;
   if (!WebView) return null;
-
-  const isRnc = previewWebView.mode === "rnc";
-  // Must match STATIC_HTML_ORIGIN_WHITELIST (`about:blank`). Using
-  // `https://localhost/` after the whitelist was tightened made WKWebView
-  // refuse the document load and iOS hand the URL to Safari ("can't connect").
-  const source = isRnc
-    ? { html: fullHtml, baseUrl: "about:blank" }
-    : previewUri
-      ? { uri: previewUri }
-      : null;
-
-  if (!source) {
-    return (
-      <View style={s.loading}>
-        <Text style={s.loadingText}>{i18n.t("preview.loading")}</Text>
-      </View>
-    );
-  }
 
   return (
     <View style={s.webviewContainer}>
       <WebView
-        source={source}
+        source={{ html: fullHtml, baseUrl: "about:blank" }}
         style={s.webview}
         scrollEnabled
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-        {...(isRnc
-          ? {
-              originWhitelist: STATIC_HTML_ORIGIN_WHITELIST,
-              javaScriptEnabled: true,
-              domStorageEnabled: false,
-              allowsInlineMediaPlayback: true,
-              // Don't let target=_blank / window.open dump a blank localhost tab in Safari.
-              setSupportMultipleWindows: false,
-            }
-          : { allowsInlineMediaPlayback: true, containerStyle: s.webviewContainer })}
+        // Guard blocks http(s); wildcard lets the inline document load. Tight
+        // about:blank-only whitelist left this view blank on some iOS builds.
+        originWhitelist={["*", "about:blank"]}
+        javaScriptEnabled
+        domStorageEnabled={false}
+        allowsInlineMediaPlayback
+        setSupportMultipleWindows={false}
       />
     </View>
   );
@@ -233,7 +196,13 @@ export function HtmlPreviewModal({ visible, html, onClose }: Props) {
   const contentWidth = Math.max(width - 32, 280);
   const [tab, setTab] = useState<PreviewTab>("run");
   const interactive = useMemo(() => looksLikeInteractiveHtml(html), [html]);
-  const canUseWebView = useMemo(() => getPreviewWebView() != null, []);
+  // Only the native RNC WebView gets LiveWebPreview. Expo Go ships
+  // `@expo/dom-webview`, which we used to prefer — but its file:// preview
+  // often renders a blank white view. Static HTML still shows the page.
+  const canUseNativeWebView = useMemo(
+    () => getPreviewWebView()?.mode === "rnc",
+    [],
+  );
 
   useEffect(() => {
     if (visible) setTab("run");
@@ -249,7 +218,7 @@ export function HtmlPreviewModal({ visible, html, onClose }: Props) {
       <View
         style={[s.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
       >
-        {tab === "run" && interactive && !canUseWebView ? (
+        {tab === "run" && interactive && !canUseNativeWebView ? (
           <View style={s.interactiveBanner}>
             <Ionicons name="flash-outline" size={16} color={theme.primary} />
             <Text style={s.interactiveBannerText}>{t("preview.expo_go_banner")}</Text>
@@ -265,7 +234,7 @@ export function HtmlPreviewModal({ visible, html, onClose }: Props) {
             >
               <CodeBlock code={html} lang="html" />
             </ScrollView>
-          ) : canUseWebView ? (
+          ) : canUseNativeWebView ? (
             <LiveWebPreview html={html} styles={s} />
           ) : (
             <StaticHtmlPreview
@@ -339,8 +308,6 @@ const makeStyles = (theme: Theme) =>
   codeScrollContent: { padding: 16, paddingBottom: 24 },
   webviewContainer: { flex: 1, alignSelf: "stretch" },
   webview: { flex: 1, backgroundColor: theme.surface },
-  loading: { flex: 1, alignItems: "center", justifyContent: "center" },
-  loadingText: { fontSize: 15, color: theme.textSecondary },
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 16, paddingVertical: 16, paddingBottom: 16 },
   base: { color: theme.text, fontSize: 16, lineHeight: 22 },
