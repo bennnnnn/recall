@@ -96,23 +96,25 @@ def _search_duckduckgo_sync(query: str, max_results: int) -> list[WebSearchHit]:
             # Older ddgs builds reject timeout= — still bounded by wait_for below.
             ddgs_cm = DDGS()
         with ddgs_cm as ddgs:
+            # Do not log the query anywhere below — it can contain private user
+            # content (CodeQL py/clear-text-logging-sensitive-data).
             if _is_newsish_query(query):
                 try:
                     _fetch(list(ddgs.news(query, max_results=max_results)))
                 except Exception:
-                    logger.warning("DuckDuckGo news search failed for query=%r", query[:120])
+                    logger.warning("DuckDuckGo news search failed")
             if not hits:
                 try:
                     _fetch(list(ddgs.text(query, max_results=max_results)))
                 except Exception:
-                    logger.warning("DuckDuckGo text search failed for query=%r", query[:120])
+                    logger.warning("DuckDuckGo text search failed")
             if not hits and not _is_newsish_query(query):
                 try:
                     _fetch(list(ddgs.news(query, max_results=max_results)))
                 except Exception:
-                    logger.warning("DuckDuckGo news fallback failed for query=%r", query[:120])
+                    logger.warning("DuckDuckGo news fallback failed")
     except Exception:
-        logger.exception("DuckDuckGo search failed for query=%r", query[:120])
+        logger.exception("DuckDuckGo search failed")
     return hits
 
 
@@ -124,8 +126,10 @@ async def _search_duckduckgo(query: str, max_results: int) -> list[WebSearchHit]
         )
     except Exception:
         # Timeout or provider error: empty hits so the turn streams without
-        # search rather than hanging on the fallback path.
-        logger.warning("DuckDuckGo fallback timed out/failed for query=%r", query[:120])
+        # search rather than hanging on the fallback path. Do not log the
+        # query — it can contain private user content (CodeQL
+        # py/clear-text-logging-sensitive-data).
+        logger.warning("DuckDuckGo fallback timed out/failed")
         return []
 
 
