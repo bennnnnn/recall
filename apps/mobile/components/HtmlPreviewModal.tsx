@@ -1,4 +1,12 @@
-import { Component, useEffect, useMemo, useState, type ErrorInfo, type ReactNode } from "react";
+import {
+  Component,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ErrorInfo,
+  type ReactNode,
+} from "react";
 import {
   Modal,
   Pressable,
@@ -99,6 +107,7 @@ function LiveWebPreview({
   html: string;
   styles: ReturnType<typeof makeStyles>;
 }) {
+  const { t } = useTranslation();
   // Drop CSP `sandbox` in meta — some WKWebView builds treat it harshly and
   // paint an empty document; connect-src/script-src still lock down egress.
   const fullHtml = useMemo(
@@ -111,9 +120,27 @@ function LiveWebPreview({
   );
   const previewWebView = useMemo(() => getPreviewWebView(), []);
   const onShouldStartLoadWithRequest = useStaticOnlyNavigation(fullHtml);
+  // A native load failure otherwise paints a silent blank WebView with no
+  // signal to the user or in logs — surface it instead of hiding it.
+  const [loadFailed, setLoadFailed] = useState(false);
+  useEffect(() => {
+    setLoadFailed(false);
+  }, [fullHtml]);
+  const onLoadFailure = useCallback((event: { nativeEvent: unknown }) => {
+    console.warn("HtmlPreviewModal WebView failed to load", event.nativeEvent);
+    setLoadFailed(true);
+  }, []);
 
   const WebView = previewWebView?.mode === "rnc" ? previewWebView.Component : null;
   if (!WebView) return null;
+
+  if (loadFailed) {
+    return (
+      <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent}>
+        <Text style={s.base}>{t("preview.load_error")}</Text>
+      </ScrollView>
+    );
+  }
 
   return (
     <View style={s.webviewContainer}>
@@ -130,6 +157,8 @@ function LiveWebPreview({
         setSupportMultipleWindows={false}
         // Avoid nested-scroll / zero-height quirks inside the full-screen modal.
         nestedScrollEnabled
+        onError={onLoadFailure}
+        onHttpError={onLoadFailure}
       />
     </View>
   );
