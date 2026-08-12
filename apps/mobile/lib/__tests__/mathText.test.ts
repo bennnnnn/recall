@@ -107,6 +107,17 @@ describe("parseSimpleLatex", () => {
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\left\{x\right\}`))).toBe("{x}");
   });
 
+  it("BUG FIX regression: \\langle/\\rangle (and \\left\\langle) render as angle brackets", () => {
+    // Live chat: vector components showed raw "\langle 2, 3, 4 \rangle"
+    // because MathText had no mapping (KaTeX never sees inline $...$).
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\vec{d} = \langle 2, 3, 4 \rangle`))).toBe(
+      "d⃗ = ⟨ 2, 3, 4 ⟩",
+    );
+    expect(
+      segmentsToPlain(parseSimpleLatex(String.raw`\left\langle 2,-1,1 \right\rangle`)),
+    ).toBe("⟨ 2,-1,1 ⟩");
+  });
+
   it("caps nested frac/sqrt depth instead of blowing the call stack", () => {
     let nested = "x";
     for (let i = 0; i < 40; i += 1) {

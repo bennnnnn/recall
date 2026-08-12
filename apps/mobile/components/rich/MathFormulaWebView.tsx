@@ -202,12 +202,18 @@ export const MathFormulaWebView = React.memo(function MathFormulaWebView({
         originWhitelist={STATIC_HTML_ORIGIN_WHITELIST}
         source={source}
         style={{ height, backgroundColor: "transparent" }}
-        scrollEnabled={false}
+        // Display blocks may be wider than the bubble — allow the WebView to
+        // pan horizontally (CSS overflow-x alone is ignored when scroll is off).
+        scrollEnabled={!compact && displayMode}
         javaScriptEnabled
         domStorageEnabled
         onMessage={onMessage}
-        showsHorizontalScrollIndicator={false}
+        showsHorizontalScrollIndicator={!compact && displayMode}
         showsVerticalScrollIndicator={false}
+        nestedScrollEnabled
+        // Height is locked to content — kill vertical bounce fighting the list.
+        bounces={false}
+        overScrollMode="never"
         onLoadEnd={onLoaded}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
       />

@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { MathFormulaWebView } from "@/components/rich/MathFormulaWebView";
 import { MathText } from "@/components/rich/MathText";
@@ -54,11 +54,19 @@ export const MathBlock = React.memo(function MathBlock({ latex }: { latex: strin
     );
   }
 
+  // No WebView — native MathText can still outgrow the bubble; allow pan.
   return (
-    <View style={s.wrap}>
-      <Text style={s.line} selectable>
-        <MathText latex={trimmed} textColor={theme.text} />
-      </Text>
+    <View style={[s.wrap, s.fallbackBox]}>
+      <ScrollView
+        horizontal
+        nestedScrollEnabled
+        showsHorizontalScrollIndicator
+        contentContainerStyle={s.lineScroll}
+      >
+        <Text style={s.line} selectable>
+          <MathText latex={trimmed} textColor={theme.text} />
+        </Text>
+      </ScrollView>
     </View>
   );
 });
@@ -68,6 +76,18 @@ const makeStyles = (theme: Theme) =>
     wrap: {
       marginVertical: 6,
       alignSelf: "stretch",
+    },
+    fallbackBox: {
+      backgroundColor: theme.contentSurface,
+      borderRadius: 10,
+      paddingVertical: 8,
+      paddingHorizontal: 4,
+    },
+    lineScroll: {
+      flexGrow: 1,
+      justifyContent: "center",
+      minWidth: "100%",
+      paddingHorizontal: 8,
     },
     line: {
       textAlign: "center",

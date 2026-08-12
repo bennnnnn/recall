@@ -42,10 +42,14 @@ export function renderKatexHtml(latex: string, options: KatexRenderOptions = {})
   const bg = options.bgColor ?? "transparent";
   const color = options.textColor ?? "inherit";
 
+  // Scrollable wide formulas: inner is at least full width (centers short
+  // display math) but grows with content so long expressions aren't clipped
+  // — the outer scroller is what the user pans horizontally.
   return `<div><style>${KATEX_CSS}
-.math-root{padding:${pad};background:${bg};color:${color};overflow:hidden;max-width:100%;}
+.math-root{padding:${pad};background:${bg};color:${color};max-width:100%;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;}
 .katex{color:${color};}
-.math-wrap{display:flex;justify-content:${align};align-items:center;max-width:100%;overflow-x:auto;}
+.math-wrap{display:flex;justify-content:${align};align-items:center;min-width:100%;width:max-content;box-sizing:border-box;}
+.katex-display{margin:0;}
 </style><div class="math-root"><div class="math-wrap">${body}</div></div></div>`;
 }
 
@@ -55,7 +59,6 @@ export function buildKatexStaticWebHtml(
   options: KatexRenderOptions = {},
 ): string {
   const inner = renderKatexHtml(latex, options);
-  const justify = options.displayMode ? "center" : "flex-start";
 
   return injectPreviewCsp(`<!DOCTYPE html>
 <html lang="en">
@@ -63,8 +66,8 @@ export function buildKatexStaticWebHtml(
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <style>
-  html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
-  body { display: flex; align-items: center; justify-content: ${justify}; }
+  html, body { margin: 0; padding: 0; background: transparent; overflow-x: auto; overflow-y: hidden; }
+  body { display: block; max-width: 100%; }
 </style>
 </head>
 <body>
