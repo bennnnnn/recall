@@ -251,8 +251,40 @@ class SympyAdapter:
         x_min = float(args.get("x_min") or -10)
         x_max = float(args.get("x_max") or 10)
         n = self.settings.math_graph_max_points
+        expr = str(args.get("expr") or "x**2")
+
+        # Axis-aligned circle/ellipse relations — parametric sample (not y=f(x)).
+        ellipse = math_service.parse_ellipse_relation(expr)
+        if ellipse is not None and not str(args.get("expr2") or "").strip():
+            a, b = ellipse
+            graph_result = await self._run_off_loop(math_service.sample_ellipse, a, b, n)
+            if graph_result is None:
+                return ToolResult(name=self.name, content="Math error: timed out.")
+            graph_spec = GraphBlockSpec(
+                expr=graph_result.expr,
+                variable=graph_result.variable,
+                x_min=graph_result.x_min,
+                x_max=graph_result.x_max,
+                y_min=-(b + max(1.0, b * 0.15)),
+                y_max=b + max(1.0, b * 0.15),
+                points=graph_result.points,
+                segments=[],
+                title=graph_result.expr,
+            )
+            fence = graph_spec.model_dump()
+            fence_json = json.dumps(fence, separators=(",", ":"))
+            return ToolResult(
+                name=self.name,
+                content=(
+                    f"Sampled {len(graph_result.points)} parametric points for {graph_result.expr}\n"
+                    "When a plot helps, emit ONLY this fence (NEVER ```json):\n"
+                    f"```graph\n{fence_json}\n```"
+                ),
+                data=_fence_data(fence),
+            )
+
         graph_input = GraphSampleInput(
-            expr=str(args.get("expr") or "x**2"),
+            expr=expr,
             variable=variable,
             x_min=x_min,
             x_max=x_max,

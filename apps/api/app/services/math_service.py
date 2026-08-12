@@ -918,6 +918,79 @@ def sample_function(data: GraphSampleInput) -> GraphSampleResult:
     )
 
 
+# Axis-aligned ellipse / circle relations only (not general F(x,y)=0).
+_CIRCLE_RELATION_RE = re.compile(r"^(?:x\*\*2\+y\*\*2|y\*\*2\+x\*\*2)=(\d+(?:\.\d+)?)$")
+_ELLIPSE_DIV_RELATION_RE = re.compile(r"^x\*\*2/(\d+(?:\.\d+)?)\+y\*\*2/(\d+(?:\.\d+)?)=1$")
+_ELLIPSE_DIV_RELATION_YX_RE = re.compile(r"^y\*\*2/(\d+(?:\.\d+)?)\+x\*\*2/(\d+(?:\.\d+)?)=1$")
+_ELLIPSE_SCALE_RELATION_RE = re.compile(
+    r"^\(x/(\d+(?:\.\d+)?)\)\*\*2\+\(y/(\d+(?:\.\d+)?)\)\*\*2=1$"
+)
+
+
+def parse_ellipse_relation(expr: str) -> tuple[float, float] | None:
+    """Parse ``x^2+y^2=r^2`` / ``x^2/a^2+y^2/b^2=1`` into semi-axes ``(a, b)``.
+
+    Returns ``None`` for anything that is not this narrow homework shape —
+    general implicit curves stay out of scope.
+    """
+    s = expr.strip().replace("^", "**")
+    s = re.sub(r"\s+", "", s)
+    if not s:
+        return None
+    m = _CIRCLE_RELATION_RE.fullmatch(s)
+    if m:
+        r2 = float(m.group(1))
+        if r2 <= 0:
+            return None
+        r = math.sqrt(r2)
+        return r, r
+    m = _ELLIPSE_DIV_RELATION_RE.fullmatch(s)
+    if m:
+        a2, b2 = float(m.group(1)), float(m.group(2))
+        if a2 <= 0 or b2 <= 0:
+            return None
+        return math.sqrt(a2), math.sqrt(b2)
+    m = _ELLIPSE_DIV_RELATION_YX_RE.fullmatch(s)
+    if m:
+        b2, a2 = float(m.group(1)), float(m.group(2))
+        if a2 <= 0 or b2 <= 0:
+            return None
+        return math.sqrt(a2), math.sqrt(b2)
+    m = _ELLIPSE_SCALE_RELATION_RE.fullmatch(s)
+    if m:
+        a, b = float(m.group(1)), float(m.group(2))
+        if a <= 0 or b <= 0:
+            return None
+        return a, b
+    return None
+
+
+def sample_ellipse(a: float, b: float, n: int = 96) -> GraphSampleResult:
+    """Parametric samples for ``(x/a)^2 + (y/b)^2 = 1`` as a closed polyline."""
+    if a <= 0 or b <= 0:
+        raise MathServiceError("Ellipse semi-axes must be positive")
+    count = max(16, min(int(n), 500))
+    thetas = np.linspace(0.0, 2.0 * math.pi, count, endpoint=False)
+    points: list[list[float]] = [
+        [round(float(a * math.cos(t)), 4), round(float(b * math.sin(t)), 4)] for t in thetas
+    ]
+    # Close the loop so the SVG polyline does not leave a gap at θ=0.
+    points.append(points[0])
+    if abs(a - b) < 1e-12:
+        label = f"x**2 + y**2 = {a * a:g}"
+    else:
+        label = f"x**2/{a * a:g} + y**2/{b * b:g} = 1"
+    pad_x = max(1.0, a * 0.15)
+    return GraphSampleResult(
+        expr=label,
+        variable="x",
+        x_min=-(a + pad_x),
+        x_max=a + pad_x,
+        points=points,
+        segments=[],
+    )
+
+
 _EQUATION_SIDE_CHARS = frozenset(
     "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+-*/().^ "
 )
