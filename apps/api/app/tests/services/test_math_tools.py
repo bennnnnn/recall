@@ -821,7 +821,7 @@ async def test_augment_prompt_times_out_gracefully(
     monkeypatch: pytest.MonkeyPatch,
     thread_sympy_executor: None,
 ) -> None:
-    """A hung solve should fall back to no verified block, not hang the caller.
+    """A hung solve should not hang the caller, and must inject an honesty note.
 
     Uses the in-process thread executor so the local ``slow_build`` closure is
     callable (closures aren't picklable across a subprocess boundary). The
@@ -845,5 +845,35 @@ async def test_augment_prompt_times_out_gracefully(
         settings,
     )
 
-    assert out == messages
     assert verified is None
+    assert len(out) == 2
+    note = next(m["content"] for m in out if m["role"] == "system")
+    assert "could not produce a verified result" in note
+    assert "Do NOT claim the answer was SymPy-verified" in note
+
+
+@pytest.mark.asyncio
+async def test_augment_prompt_math_service_error_injects_unverified_note(
+    monkeypatch: pytest.MonkeyPatch,
+    thread_sympy_executor: None,
+) -> None:
+    """Parse/solve failures used to drop silently — same verified-looking chat
+    UX as a successful SymPy block. Inject honesty instead."""
+    settings = Settings(math_tools_enabled=True)
+
+    def boom(intent, settings):  # type: ignore[no-untyped-def]
+        raise math_tools.math_service.MathServiceError("unsafe expr")
+
+    monkeypatch.setattr(math_tools, "_build_verified_block", boom)
+
+    messages = [{"role": "user", "content": "Solve x^2 + 2 = 6"}]
+    out, verified = await math_tools.augment_prompt_messages(
+        messages,
+        "Solve x^2 + 2 = 6",
+        settings,
+    )
+
+    assert verified is None
+    note = next(m["content"] for m in out if m["role"] == "system")
+    assert "kind=equation" in note
+    assert "Do NOT claim the answer was SymPy-verified" in note

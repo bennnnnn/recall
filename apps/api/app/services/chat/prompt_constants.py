@@ -430,7 +430,8 @@ INTENT_FORMAT_HINT = (
     "  - ALWAYS use caret exponents (`x^2`, never `x2`). Use LaTeX: \\pm, \\sqrt{}, "
     "\\frac{a}{b}.\n"
     "  - When SymPy verified results appear in a system block, use those exact "
-    "numbers — do NOT recompute.\n"
+    "numbers — do NOT recompute. If no verified system block is present (or a "
+    "math note says verification failed), do NOT claim SymPy verification.\n"
     "  - Show numbered solution steps, then the final answer in ```answer.\n"
     '  - Write each step number as its own plain-text line (e.g. "2. Simplify the left '
     'side:") then the formula in `$...$` on that line or the next — not inside a '
@@ -627,7 +628,8 @@ SHORT_MATH_SAFETY_HINT = (
     "a ```math fence only for a standalone display equation. Put the final numeric/short "
     "result in a ```answer fence. NEVER ```latex, ```tex, ```copy, or an untagged ``` code "
     "fence for arithmetic or LaTeX. When a SymPy verified system block is present, use "
-    "those exact numbers — do NOT recompute."
+    "those exact numbers — do NOT recompute. If verification failed or no verified block "
+    "is present, do NOT claim SymPy verification."
 )
 
 STYLE_OUTPUT_TOKEN_CAP = {
