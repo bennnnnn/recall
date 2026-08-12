@@ -131,6 +131,11 @@ describe("parseSimpleLatex", () => {
     expect(segmentsToPlain(parseSimpleLatex(String.raw`a \implies b`))).toBe("a ⇒ b");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`a \Longrightarrow b`))).toBe("a ⟹ b");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`f: a \mapsto b`))).toBe("f: a ↦ b");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`x \le 2`))).toBe("x ≤ 2");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`x \ge 0`))).toBe("x ≥ 0");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`A \cup B \cap C`))).toBe("A ∪ B ∩ C");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`x \in \mathbb{R}`))).toContain("ℝ");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`n \in \mathbb{Z}`))).toContain("ℤ");
   });
 
   it("BUG FIX regression: \\boxed{...} unwraps to its inner content, not raw backslash text", () => {

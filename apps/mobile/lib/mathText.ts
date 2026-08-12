@@ -36,9 +36,23 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\div/g, "÷"],
   [/\\leq/g, "≤"],
   [/\\geq/g, "≥"],
+  // Short forms — common in homework; without these "$x \le 2$" leaks "\le".
+  [/\\le(?![a-zA-Z])/g, "≤"],
+  [/\\ge(?![a-zA-Z])/g, "≥"],
   [/\\neq/g, "≠"],
   [/\\approx/g, "≈"],
   [/\\infty/g, "∞"],
+  [/\\cup(?![a-zA-Z])/g, "∪"],
+  [/\\cap(?![a-zA-Z])/g, "∩"],
+  [/\\setminus/g, "∖"],
+  [/\\emptyset/g, "∅"],
+  // Blackboard bold — docs claim native support; without this, steps leak
+  // "\mathbb{R}" as raw text (display KaTeX never sees inline $...$).
+  [/\\mathbb\{R\}/g, "ℝ"],
+  [/\\mathbb\{Z\}/g, "ℤ"],
+  [/\\mathbb\{N\}/g, "ℕ"],
+  [/\\mathbb\{Q\}/g, "ℚ"],
+  [/\\mathbb\{C\}/g, "ℂ"],
   // \sum/\prod/\int are big-operator SYMBOLS (Σ ∏ ∫), not roman-text
   // function names like \log/\sin — they used to be lumped into
   // ROMAN_FUNCTIONS below and rendered as the literal words "sum"/"prod"/

@@ -30,6 +30,20 @@ def test_solve_equation(lhs: str, rhs: str, expected_count: int) -> None:
     assert "x" in result.solutions_latex[0]
 
 
+def test_normalize_latex_frac_and_abs() -> None:
+    assert math_service._normalize_latex_to_sympy(r"\frac{1}{2}x") == "(1)/(2)x"
+    assert math_service._normalize_latex_to_sympy(r"\left|x-1\right|") == "Abs(x-1)"
+    assert math_service._normalize_latex_to_sympy(r"\frac{a}{b}+\frac{c}{d}") == "(a)/(b)+(c)/(d)"
+
+
+def test_extract_equation_from_latex_frac() -> None:
+    """Pasted homework with \\frac used to fail the ASCII-only equation walker."""
+    pairs = math_service.try_extract_equations_from_text(r"solve \frac{1}{2}x = 3")
+    assert pairs == [("(1)/(2)x", "3")]
+    result = math_service.solve_equation(EquationInput(lhs="(1)/(2)x", rhs="3", variables=["x"]))
+    assert len(result.solutions_latex) == 1
+
+
 @pytest.mark.parametrize(
     "lhs, rhs",
     [

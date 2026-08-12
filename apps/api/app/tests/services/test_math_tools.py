@@ -239,6 +239,28 @@ def test_extract_square_intent() -> None:
 
 
 @pytest.mark.parametrize(
+    "text",
+    [
+        "solve square root of x = 4",
+        "graph the square root of x",
+        "factor this perfect square trinomial",
+        "what is the square of 7",
+    ],
+)
+def test_square_root_does_not_become_geometry_square(text: str) -> None:
+    """BUG FIX: substring 'square' used to inject a default 5 cm square."""
+    intent = math_tools.extract_math_intent(text)
+    assert intent is None or intent.kind != "square"
+
+
+def test_draw_square_without_side_still_defaults() -> None:
+    intent = math_tools.extract_math_intent("Draw a square")
+    assert intent is not None
+    assert intent.kind == "square"
+    assert intent.side == 5
+
+
+@pytest.mark.parametrize(
     "text, expected_expr",
     [
         ("graph x^2 please", "x**2"),

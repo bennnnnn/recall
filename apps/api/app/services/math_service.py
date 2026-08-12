@@ -10,6 +10,7 @@ from typing import Any, Literal
 
 import numpy as np
 from sympy import (
+    Abs,
     Eq,
     Integral,
     Sum,
@@ -82,6 +83,7 @@ _TRANSFORMATIONS = (
 _LOCALS: dict[str, Any] = {
     "pi": math.pi,
     "e": math.e,
+    "Abs": Abs,
 }
 
 
@@ -89,8 +91,57 @@ class MathServiceError(ValueError):
     """Invalid or unsupported math input."""
 
 
+# Shallow LaTeX → SymPy-ish text. Nested \frac needs repeated passes (capped).
+_LATEX_FRAC_RE = re.compile(r"\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}")
+_LATEX_ABS_LEFT_RIGHT_RE = re.compile(
+    r"\\(?:left|lvert)\s*\|\s*(.*?)\s*\\(?:right|rvert)\s*\|",
+    re.DOTALL,
+)
+_LATEX_ABS_VERT_RE = re.compile(r"\\(?:lvert|rvert)\b")
+_LATEX_SYMBOL_SUBS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"\\infty"), "oo"),
+    (re.compile(r"\\pi\b"), "pi"),
+    (re.compile(r"\\cdot"), "*"),
+    (re.compile(r"\\times"), "*"),
+    (re.compile(r"\\div"), "/"),
+    # Before \\left/\\right: \\le must not steal the prefix of \\left.
+    (re.compile(r"\\leq"), "<="),
+    (re.compile(r"\\geq"), ">="),
+    (re.compile(r"\\le(?![a-zA-Z])"), "<="),
+    (re.compile(r"\\ge(?![a-zA-Z])"), ">="),
+    (re.compile(r"\\left"), ""),
+    (re.compile(r"\\right"), ""),
+]
+_LATEX_FUNCTION_RE = re.compile(
+    r"\\(sin|cos|tan|sec|csc|cot|arcsin|arccos|arctan|sinh|cosh|tanh|log|ln|sqrt|exp|min|max|Abs|abs)\b",
+    re.IGNORECASE,
+)
+
+
+def _normalize_latex_to_sympy(expr: str) -> str:
+    """Expand common LaTeX so pasted/OCR homework can pass the safe-char gate."""
+    s = expr
+    s = _LATEX_ABS_LEFT_RIGHT_RE.sub(r"Abs(\1)", s)
+    s = _LATEX_ABS_VERT_RE.sub("", s)
+    for pattern, replacement in _LATEX_SYMBOL_SUBS:
+        s = pattern.sub(replacement, s)
+
+    def _func_repl(match: re.Match[str]) -> str:
+        name = match.group(1).lower()
+        return "Abs" if name == "abs" else name
+
+    s = _LATEX_FUNCTION_RE.sub(_func_repl, s)
+    for _ in range(8):
+        nxt = _LATEX_FRAC_RE.sub(r"(\1)/(\2)", s)
+        if nxt == s:
+            break
+        s = nxt
+    return s
+
+
 def _normalize_expr(text: str) -> str:
     s = text.strip()
+    s = _normalize_latex_to_sympy(s)
     s = s.replace("^", "**")
     s = re.sub(r"\s+", " ", s)
     return s
@@ -882,7 +933,9 @@ def try_extract_equations_from_text(text: str) -> list[tuple[str, str]]:
     Walking every ``=`` here returns every clause; callers decide whether 1
     match means a single equation or 2+ means a system.
     """
-    cleaned = _strip_leading_filler(text)
+    # Expand LaTeX first so ``\frac{1}{2}x = 3`` survives the ASCII-only
+    # side walker (which rejects ``\`` / ``{}``).
+    cleaned = _normalize_latex_to_sympy(_strip_leading_filler(text))
     pairs: list[tuple[str, str]] = []
     start = 0
     while start < len(cleaned):
@@ -921,8 +974,10 @@ def try_extract_equation_from_text(text: str) -> EquationInput | None:
         return None
 
 
-# Inequality operators → canonical form. Longer LaTeX forms first so \\leq
-# wins over \\le. \\le/\\ge must not match the prefix inside \\left / \\geq.
+# Inequality operators → canonical form. Longer forms first so ``<=`` wins
+# over ``<``, and ``\\leq`` wins over ``\\le``. ``\\le``/``\\ge`` must not
+# match the prefix inside ``\\left`` / ``\\geq``. ASCII ``<=``/``>=`` are
+# required after LaTeX normalize turns ``\\leq`` into ``<=``.
 _INEQ_OPS: tuple[tuple[str, str], ...] = (
     ("\\leq", "<="),
     ("\\geq", ">="),
@@ -930,6 +985,8 @@ _INEQ_OPS: tuple[tuple[str, str], ...] = (
     ("\\ge", ">="),
     ("≤", "<="),
     ("≥", ">="),
+    ("<=", "<="),
+    (">=", ">="),
     ("<", "<"),
     (">", ">"),
 )
@@ -941,7 +998,7 @@ def try_extract_inequality_from_text(text: str) -> tuple[str, str, str] | None:
     or None. NOTE: callers gate this on a math keyword (needs_symbolic_math)
     having already matched, so prose like "less than 5 minutes" (no keyword)
     never reaches here — bare < / > is safe in that context."""
-    cleaned = _strip_leading_verb(text)
+    cleaned = _normalize_latex_to_sympy(_strip_leading_verb(text))
     best: tuple[int, str, str, str] | None = None  # (index, lhs, rhs, canon)
     for op, canon in _INEQ_OPS:
         idx = 0
