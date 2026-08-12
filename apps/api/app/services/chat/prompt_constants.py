@@ -432,6 +432,8 @@ INTENT_FORMAT_HINT = (
     "  - When SymPy verified results appear in a system block, use those exact "
     "numbers — do NOT recompute. If no verified system block is present (or a "
     "math note says verification failed), do NOT claim SymPy verification.\n"
+    "  - Never invent geometry/graph dimensions; only use measures the user stated "
+    "or that a verified system block provides.\n"
     "  - Show numbered solution steps, then the final answer in ```answer.\n"
     '  - Write each step number as its own plain-text line (e.g. "2. Simplify the left '
     'side:") then the formula in `$...$` on that line or the next — not inside a '
@@ -486,9 +488,16 @@ RESPONSE_FORMAT_HINT = (
 
 MATH_SOLVER_HINT = (
     "Math diagrams and plots (NOT image generation; NOT molecules):\n"
-    "- When the user asks to **draw** a rectangle, square, triangle, right triangle, "
-    "circle, trapezoid, parallelogram, or circle sector, emit a ```geometry fence "
-    "(NEVER ```json) so the app renders a labeled SVG:\n"
+    "- When the user asks to **draw** / **show** / **sketch** a rectangle, square, "
+    "triangle, right triangle, circle, trapezoid, parallelogram, or circle sector, "
+    "emit a ```geometry fence (NEVER ```json) so the app renders a labeled SVG.\n"
+    "- Dimension rule: numeric width/height/side/radius/angle/base/top/bottom MUST "
+    "come from the user's message or a verified SymPy system block. NEVER invent "
+    'dimensions for bare definitions (e.g. "what is a circle/trapezoid?") or when '
+    "measures are missing — explain in words or ask. Prefer a verified geometry "
+    "fence when the system block provides one.\n"
+    "- Schema field names (JSON values below are ILLUSTRATIVE ONLY — replace with "
+    "user-stated or verified numbers; do not copy sample dims as defaults):\n"
     'Rectangle: ```geometry\n{"type":"rectangle","width":8,"height":5,"unit":"cm",'
     '"show_diagonal":true,"show_angle":true}\n```\n'
     'Square: ```geometry\n{"type":"square","side":5,"unit":"cm","show_diagonal":true,'
@@ -544,14 +553,13 @@ MATH_SOLVER_HINT = (
     "```smiles\nNitrogen (N2)\nN#N\n```\n"
     "```smiles\nCCO\n```\n"
     "Optional caption on the line(s) above the SMILES. One molecule per fence.\n"
-    "- Limits and infinite series are in scope. When a verified SymPy result is "
-    "provided for one, use its exact result and convergence/divergence status "
-    "(including whether it's infinite) instead of estimating or re-deriving it.\n"
-    "- Statistics (mean/median/mode/variance/stdev of a data list), combinatorics "
-    "(factorial, combinations/nCr, permutations/nPr), number theory (gcd, lcm, prime "
-    "factorization, primality, mod), and small-matrix determinant/inverse are also in "
-    "scope. When a verified system block provides these, use its exact numbers instead "
-    "of recomputing."
+    "- Limits, infinite series, statistics (mean/median/mode/variance/stdev of a "
+    "data list), combinatorics (factorial, nCr, nPr), number theory (gcd, lcm, "
+    "prime factorization, primality, mod), and small-matrix determinant/inverse: "
+    "ONLY when a verified SymPy/system block is present for that ask — then use "
+    "its exact numbers (and convergence/divergence / infinity status when given) "
+    "and do NOT recompute. If no verified block is present, do NOT claim SymPy "
+    "verification; be cautious and say when you are unsure."
 )
 
 VISUALIZATION_HINTS = (
@@ -582,7 +590,8 @@ VISUALIZATION_HINTS = (
     "(e.g. O=O, N#N, CCO). One molecule per fence; optional caption above the SMILES. "
     "Never `$O=O$` / ```math for structures — always the SMILES card.\n\n"
     "**Geometry** (```geometry) — JSON spec for rectangles/squares/triangles/circles "
-    "with labels, diagonals, area. School shapes only — not molecules.\n\n"
+    "with labels, diagonals, area. School shapes only — not molecules. Use only "
+    "user-stated or verified dimensions; never invent measures.\n\n"
     "**Graphs** (```graph) — JSON spec with expr + points for y=f(x) plots.\n\n"
     "**Places** (```places) — JSON array of {name, url, note?, address?, price?} for local "
     "venue recommendations (any nearby place). Use when the user asks for something "
@@ -629,7 +638,7 @@ SHORT_MATH_SAFETY_HINT = (
     "result in a ```answer fence. NEVER ```latex, ```tex, ```copy, or an untagged ``` code "
     "fence for arithmetic or LaTeX. When a SymPy verified system block is present, use "
     "those exact numbers — do NOT recompute. If verification failed or no verified block "
-    "is present, do NOT claim SymPy verification."
+    "is present, do NOT claim SymPy verification. Never invent geometry dimensions."
 )
 
 STYLE_OUTPUT_TOKEN_CAP = {
