@@ -18,6 +18,7 @@ import {
 } from "@/lib/mathHtml";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { CODE_FONT } from "@/lib/fonts";
+import { supportsInlineHtmlMathWebView } from "@/lib/mathWebViewSupport";
 import {
   getPreviewWebView,
   STATIC_HTML_ORIGIN_WHITELIST,
@@ -105,8 +106,8 @@ export const MathFormulaWebView = React.memo(function MathFormulaWebView({
   );
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;
-  const canRenderInline = previewWebView?.mode === "rnc";
-  const canUseWebView = Boolean(WebView) && canRenderInline;
+  const canUseWebView =
+    Boolean(WebView) && supportsInlineHtmlMathWebView(previewWebView?.mode);
 
   // KaTeX is sync (common path). MathJax lives in an async Metro chunk so the
   // ~2MB vendor is not evaluated on every chat that touches MathFormulaWebView.
