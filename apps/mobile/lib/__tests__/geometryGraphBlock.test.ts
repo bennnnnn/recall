@@ -4,6 +4,7 @@ import {
   computeRightTriangleLabels,
   computeTriangleLabels,
   parseGeometrySpec,
+  diagonalAngleArcPath,
   rectangleAngleDisplay,
   scaleToFit,
 } from "@/lib/geometryBlock";
@@ -163,6 +164,19 @@ describe("geometryBlock", () => {
       const result = rectangleAngleDisplay({ type: "square" });
       expect(result.showCornerBracket).toBe(true);
       expect(result.showDiagonalAngleLabel).toBe(false);
+    });
+  });
+
+  describe("diagonalAngleArcPath", () => {
+    it("emits an SVG arc from the top edge toward the TL→BR diagonal", () => {
+      const d = diagonalAngleArcPath(10, 20, 80, 60, 18);
+      expect(d.startsWith("M ")).toBe(true);
+      expect(d).toContain(" A ");
+      // Start sits on the top edge (y = originY).
+      expect(d).toMatch(/^M [\d.]+ 20 /);
+      // End y is below the top (positive SVG y).
+      const endY = Number(d.trim().split(/\s+/).pop());
+      expect(endY).toBeGreaterThan(20);
     });
   });
 });

@@ -87,4 +87,37 @@ describe("GeometryBlock", () => {
 
     expect(JSON.stringify(toJSON())).toContain("90");
   });
+
+  it("draws a right-angle mark and 90° label on a right triangle", async () => {
+    const content = JSON.stringify({
+      type: "right_triangle",
+      base: 3,
+      height: 4,
+      unit: "cm",
+      show_angle: true,
+    });
+    const { toJSON } = await render(<GeometryBlock content={content} />);
+    const tree = JSON.stringify(toJSON());
+    expect(tree).toContain("right-angle-mark");
+    expect(tree).toContain("90°");
+  });
+
+  it("draws a diagonal-angle arc when rectangle show_angle + show_diagonal", async () => {
+    const content = JSON.stringify({
+      type: "rectangle",
+      width: 8,
+      height: 5,
+      unit: "cm",
+      show_diagonal: true,
+      show_angle: true,
+      diagonal: 9.43,
+      angle_deg: 32.01,
+    });
+    const { toJSON } = await render(<GeometryBlock content={content} />);
+    const tree = JSON.stringify(toJSON());
+    expect(tree).toContain("diagonal-angle-arc");
+    expect(tree).toContain("∠");
+    // Bracket (90°) must stay off when the diagonal angle is shown.
+    expect(tree).not.toContain("right-angle-mark");
+  });
 });
