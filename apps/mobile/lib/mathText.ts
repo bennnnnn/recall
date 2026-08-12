@@ -148,6 +148,14 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\angle/g, "∠"],
   [/\\perp/g, "⊥"],
   [/\\parallel/g, "∥"],
+  // Angle brackets for vectors / inner products — homework dumps
+  // `\langle 2,3,4\rangle` constantly; without these MathText leaks raw cmds.
+  [/\\langle/g, "⟨"],
+  [/\\rangle/g, "⟩"],
+  [/\\lvert/g, "|"],
+  [/\\rvert/g, "|"],
+  [/\\lVert/g, "‖"],
+  [/\\rVert/g, "‖"],
   // Vertical / bidirectional arrows (rightward/implies already handled).
   [/\\uparrow/g, "↑"],
   [/\\downarrow/g, "↓"],
@@ -347,6 +355,10 @@ function preprocessLatex(latex: string): string {
   // dangling "\right)" behind (e.g. `\left(\frac{1}{2}\right)`).
   s = s.replace(/\\left([([{|]|\.)/g, (_m, ch: string) => (ch === "." ? "" : ch));
   s = s.replace(/\\right([)\]}|]|\.)/g, (_m, ch: string) => (ch === "." ? "" : ch));
+  // After \langle→⟨ / \lvert→| (etc.) above, strip sized wrappers so
+  // `\left\langle … \right\rangle` doesn't leak a bare `\left`/`\right`.
+  s = s.replace(/\\left(?=[⟨⌈⌊|‖])/g, "");
+  s = s.replace(/\\right(?=[⟩⌉⌋|‖])/g, "");
   return s;
 }
 

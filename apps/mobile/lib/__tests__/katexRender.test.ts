@@ -35,4 +35,16 @@ describe("buildKatexStaticWebHtml", () => {
     expect(html).not.toContain("setTimeout(postHeight, 250)");
     expect(html).not.toContain("setTimeout(postHeight, 800)");
   });
+
+  it("BUG FIX regression: long display math can scroll horizontally instead of clipping", () => {
+    // Live chat: wide equations were cut off at the bubble edge because
+    // body/math-root used overflow:hidden and the WebView had scroll off.
+    const html = buildKatexStaticWebHtml(
+      String.raw`\vec{d}\cdot\vec{n}=(2)(2)+(3)(-1)+(4)(1)=5`,
+      { displayMode: true },
+    );
+    expect(html).toContain("overflow-x: auto");
+    expect(html).toContain("width:max-content");
+    expect(html).not.toMatch(/html, body \{[^}]*overflow: hidden/);
+  });
 });
