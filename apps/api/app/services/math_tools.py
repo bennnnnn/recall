@@ -304,6 +304,10 @@ def _extract_circle_intent(cleaned: str) -> MathIntent | None:
     # partial sector cue ("sector … radius 5") becomes a plain circle fence.
     if "sector" in lower or "pie slice" in lower:
         return None
+    # Algebra / unit-circle asks still contain "circle" (and often "radius") —
+    # do not steal them from equation/graph extractors that run later.
+    if mtm.geometry_deferred_for_algebra(lower):
+        return None
     wants_area = "area" in lower
     wants_circumference = "circumference" in lower
     radius = mtm.number_after(cleaned, "radius")
@@ -348,6 +352,8 @@ def _extract_right_triangle_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if "right triangle" not in lower:
         return None
+    if mtm.geometry_deferred_for_algebra(lower):
+        return None
     dims = mtm.first_dim_pair(cleaned)
     if dims is not None:
         base, height, unit = dims
@@ -370,6 +376,8 @@ def _extract_triangle_sides_intent(cleaned: str) -> MathIntent | None:
     base=8, height=5) shape instead of the SSS one actually named."""
     from app.services import math_text_match as mtm
 
+    if mtm.geometry_deferred_for_algebra(cleaned.lower()):
+        return None
     sides = mtm.triangle_sides_signal(cleaned)
     if sides is None:
         return None
@@ -384,6 +392,8 @@ def _extract_trapezoid_intent(cleaned: str) -> MathIntent | None:
 
     lower = cleaned.lower()
     if "trapezoid" not in lower and "trapezium" not in lower:
+        return None
+    if mtm.geometry_deferred_for_algebra(lower):
         return None
     top = mtm.number_after(cleaned, "top")
     bottom = mtm.number_after(cleaned, "bottom")
@@ -415,6 +425,8 @@ def _extract_parallelogram_intent(cleaned: str) -> MathIntent | None:
 
     lower = cleaned.lower()
     if "parallelogram" not in lower:
+        return None
+    if mtm.geometry_deferred_for_algebra(lower):
         return None
     base = mtm.number_after(cleaned, "base")
     height = mtm.number_after(cleaned, "height")
@@ -451,6 +463,8 @@ def _extract_sector_intent(cleaned: str) -> MathIntent | None:
         return None
     if "sector" in lower and not any(k in lower for k in ("circle", "radius", "pie", "arc")):
         return None
+    if mtm.geometry_deferred_for_algebra(lower):
+        return None
     radius = mtm.number_after(cleaned, "radius")
     angle = mtm.number_after(cleaned, "angle")
     if radius is not None and angle is not None:
@@ -478,6 +492,8 @@ def _extract_triangle_intent(cleaned: str) -> MathIntent | None:
     from app.services import math_text_match as mtm
 
     lower = cleaned.lower()
+    if mtm.geometry_deferred_for_algebra(lower):
+        return None
     base_n = mtm.number_after(cleaned, "base")
     height_n = mtm.number_after(cleaned, "height")
     if base_n is not None and height_n is not None and "triangle" in lower:

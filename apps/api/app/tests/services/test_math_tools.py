@@ -230,6 +230,44 @@ def test_geometry_does_not_invent_dims_without_draw_or_measures(text: str) -> No
 
 
 @pytest.mark.parametrize(
+    "text, expected_kind",
+    [
+        ("solve x^2 + y^2 = 25 for the circle of radius 5", "equation"),
+        ("find the equation of a circle with radius 4", None),
+        ("equation of the circle with center (0,0) and radius 5", None),
+        ("solve x^2 + y^2 = 1 (unit circle)", "equation"),
+    ],
+)
+def test_geometry_does_not_steal_algebra_asks(text: str, expected_kind: str | None) -> None:
+    """Geometry extractors run before equation/graph. A radius/dim cue must
+    not swallow an algebra ask into a ```geometry fence."""
+    intent = math_tools.extract_math_intent(text)
+    if expected_kind is None:
+        assert intent is None or intent.kind not in {
+            "circle",
+            "triangle",
+            "right_triangle",
+            "trapezoid",
+            "parallelogram",
+            "sector",
+        }
+    else:
+        assert intent is not None
+        assert intent.kind == expected_kind
+
+
+def test_draw_circle_with_radius_still_geometry() -> None:
+    """Draw cue wins over algebra deferral — explicit diagram requests stay
+    on the geometry path even if the sentence also says 'equation'."""
+    intent = math_tools.extract_math_intent(
+        "draw a circle with radius 4 and show the equation labels"
+    )
+    assert intent is not None
+    assert intent.kind == "circle"
+    assert intent.radius == 4
+
+
+@pytest.mark.parametrize(
     "text",
     [
         "(2,3)",
