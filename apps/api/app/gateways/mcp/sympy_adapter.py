@@ -91,7 +91,16 @@ class SympyAdapter:
         result = await self._run_off_loop(math_service.solve_equation, data)
         if result is None:
             return ToolResult(name=self.name, content="Math error: timed out.")
-        return ToolResult(name=self.name, content="\n".join(result.steps))
+        # Parity with heuristic solve: attach ```answer for post-stream rewrite.
+        answer = math_tools._format_equation_answer(result.solutions_latex, result.solution_kind)
+        return ToolResult(
+            name=self.name,
+            content=(
+                "\n".join(result.steps) + "\nEnd with this final-answer fence (copy verbatim):\n"
+                f"```answer\n{answer}\n```"
+            ),
+            data=_fence_data(math_tools._answer_canonical(answer)),
+        )
 
     async def _action_expr_op(self, args: dict[str, Any]) -> ToolResult:
         action = str(args.get("action") or "").strip().lower()
@@ -116,7 +125,18 @@ class SympyAdapter:
         system_result = await self._run_off_loop(math_service.solve_system, system_input)
         if system_result is None:
             return ToolResult(name=self.name, content="Math error: timed out.")
-        return ToolResult(name=self.name, content="\n".join(system_result.steps))
+        answer = math_tools._format_system_answer(
+            system_result.solutions, system_result.solution_kind
+        )
+        return ToolResult(
+            name=self.name,
+            content=(
+                "\n".join(system_result.steps)
+                + "\nEnd with this final-answer fence (copy verbatim):\n"
+                f"```answer\n{answer}\n```"
+            ),
+            data=_fence_data(math_tools._answer_canonical(answer)),
+        )
 
     async def _action_limit(self, args: dict[str, Any]) -> ToolResult:
         expr = str(args.get("expr") or "")

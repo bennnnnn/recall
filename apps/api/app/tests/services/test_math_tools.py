@@ -353,6 +353,26 @@ def test_extract_inequality_intent(text: str, expected_cmp: str) -> None:
     assert intent.lhs and intent.rhs
 
 
+def test_extract_compound_inequality_intent() -> None:
+    intent = math_tools.extract_math_intent("solve 1 < x < 5")
+    assert intent is not None
+    assert intent.kind == "inequality"
+    assert intent.lower == "1"
+    assert intent.lhs == "x"
+    assert intent.rhs == "5"
+    assert intent.comparator == "<"
+    assert intent.comparator_upper == "<"
+
+
+def test_extract_abs_inequality_intent() -> None:
+    intent = math_tools.extract_math_intent("solve |x-2| < 5")
+    assert intent is not None
+    assert intent.kind == "inequality"
+    assert intent.lhs == "Abs(x-2)"
+    assert intent.rhs == "5"
+    assert intent.comparator == "<"
+
+
 @pytest.mark.parametrize(
     "text, expected_expr, expected_var, expected_point",
     [

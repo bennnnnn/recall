@@ -59,7 +59,7 @@ class TestAugmentPromptMessagesForGraphPair:
 
 
 class TestDensifyPreservesSecondCurve:
-    def test_densify_sparse_first_curve_keeps_second_curve_intact(self):
+    def test_densify_sparse_first_curve_also_densifies_second_curve(self):
         sparse = GraphBlockSpec(
             expr="x**2",
             variable="x",
@@ -73,7 +73,27 @@ class TestDensifyPreservesSecondCurve:
             label2="y = 2x",
         )
         densified = math_fence.densify_sparse_graph(sparse)
-        assert len(densified.points) > len(sparse.points)  # curve 1 got densified
+        assert len(densified.points) > len(sparse.points)
         assert densified.expr2 == "2*x"
-        assert densified.points2 == [[-10, -20], [10, 20]]  # curve 2 untouched
+        assert densified.points2 is not None
+        assert len(densified.points2) > len(sparse.points2 or [])
         assert densified.label2 == "y = 2x"
+
+    def test_densify_sparse_second_curve_when_first_already_dense(self):
+        dense_pts = [[float(i), float(i * i)] for i in range(-24, 24)]  # 48 pts
+        sparse = GraphBlockSpec(
+            expr="x**2",
+            variable="x",
+            x_min=-10,
+            x_max=10,
+            points=dense_pts,
+            expr2="2*x",
+            variable2="x",
+            points2=[[-10, -20], [10, 20]],
+            label="y = x^2",
+            label2="y = 2x",
+        )
+        densified = math_fence.densify_sparse_graph(sparse)
+        assert densified.points == dense_pts  # curve 1 unchanged
+        assert densified.points2 is not None
+        assert len(densified.points2) > 2

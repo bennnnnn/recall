@@ -237,3 +237,34 @@ async def test_sympy_adapter_graph_includes_canonical_fence():
     assert fence["expr"] == "x**2"
     assert len(fence["points"]) >= 2
     assert "```graph" in result.content
+
+
+@pytest.mark.asyncio
+async def test_sympy_adapter_solve_includes_canonical_fence():
+    adapter = SympyAdapter(Settings())
+    result = await adapter.invoke(
+        {"action": "solve", "lhs": "x**2 - 1", "rhs": "0", "variables": ["x"]}
+    )
+    assert result.data is not None
+    fence = result.data["canonical_fence"]
+    assert fence["type"] == "answer"
+    assert fence["content"]
+    assert "```answer" in result.content
+    assert "x" in fence["content"] or "1" in fence["content"]
+
+
+@pytest.mark.asyncio
+async def test_sympy_adapter_system_includes_canonical_fence():
+    adapter = SympyAdapter(Settings())
+    result = await adapter.invoke(
+        {
+            "action": "system",
+            "equations": [["x + y", "3"], ["x - y", "1"]],
+            "variables": ["x", "y"],
+        }
+    )
+    assert result.data is not None
+    fence = result.data["canonical_fence"]
+    assert fence["type"] == "answer"
+    assert "x" in fence["content"] and "y" in fence["content"]
+    assert "```answer" in result.content

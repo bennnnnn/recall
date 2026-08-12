@@ -34,6 +34,8 @@ def test_normalize_latex_frac_and_abs() -> None:
     assert math_service._normalize_latex_to_sympy(r"\frac{1}{2}x") == "(1)/(2)x"
     assert math_service._normalize_latex_to_sympy(r"\left|x-1\right|") == "Abs(x-1)"
     assert math_service._normalize_latex_to_sympy(r"\frac{a}{b}+\frac{c}{d}") == "(a)/(b)+(c)/(d)"
+    assert math_service._normalize_latex_to_sympy("|x-2|") == "Abs(x-2)"
+    assert math_service._normalize_latex_to_sympy("|x-2|<5") == "Abs(x-2)<5"
 
 
 def test_extract_equation_from_latex_frac() -> None:
@@ -268,6 +270,32 @@ def test_try_extract_inequality_from_text() -> None:
     assert le is not None and le[2] == "<="
     # \le must NOT match the \le inside \left(...\right).
     assert math_service.try_extract_inequality_from_text("solve \\left(x + 1\\right) = 0") is None
+
+
+def test_abs_inequality_extract_and_solve() -> None:
+    ineq = math_service.try_extract_inequality_from_text("solve |x-2| < 5")
+    assert ineq == ("Abs(x-2)", "5", "<")
+    result = math_service.solve_inequality("Abs(x-2)", "5", "x", "<")
+    assert result.solutions_latex
+    joined = " ".join(result.solutions_latex)
+    assert "3" in joined or "-3" in joined or "x" in joined
+
+
+def test_abs_equation_extract_and_solve() -> None:
+    pairs = math_service.try_extract_equations_from_text("solve |x-2| = 5")
+    assert pairs == [("Abs(x-2)", "5")]
+    result = math_service.solve_equation(EquationInput(lhs="Abs(x-2)", rhs="5", variables=["x"]))
+    assert len(result.solutions_latex) == 2
+
+
+def test_compound_inequality_extract_and_solve() -> None:
+    compound = math_service.try_extract_compound_inequality_from_text("solve 1 < x < 5")
+    assert compound == ("1", "<", "x", "<", "5")
+    closed = math_service.try_extract_compound_inequality_from_text("solve 1 ≤ x ≤ 3")
+    assert closed == ("1", "<=", "x", "<=", "3")
+    result = math_service.solve_compound_inequality("1", "<", "x", "<", "5", "x")
+    assert result.solutions_latex
+    assert "1" in result.solutions_latex[0] or "Interval" in result.steps[1]
 
 
 def test_differentiate_expression() -> None:
