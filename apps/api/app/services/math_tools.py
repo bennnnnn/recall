@@ -7,7 +7,7 @@ import logging
 import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from app.core.config import Settings
 from app.models.math_schemas import (
@@ -768,6 +768,23 @@ def _answer_canonical(content: str) -> dict[str, str]:
     return {"type": "answer", "content": content}
 
 
+def _finish_with_answer(
+    lines: list[str],
+    answer: str,
+    *,
+    preface: str = (
+        "Do NOT recompute. Explain in plain language with $...$ for formulas. "
+        "End with this final-answer fence (copy verbatim):"
+    ),
+) -> VerifiedMathBlock:
+    """Attach a canonical ```answer fence the post-stream rewriter can enforce."""
+    lines.append(f"{preface}\n```answer\n{answer}\n```")
+    return VerifiedMathBlock(
+        text="\n".join(lines),
+        canonical_fence=_answer_canonical(answer),
+    )
+
+
 def _format_equation_answer(
     solutions_latex: list[str],
     solution_kind: str,
@@ -1411,8 +1428,7 @@ def _verified_block_calculus(
         )
         return VerifiedMathBlock(text="\n".join(lines))
     lines.append(f"Result: {out.latex}")
-    lines.append("Do NOT recompute. Explain in plain language with $...$ for formulas.")
-    return VerifiedMathBlock(text="\n".join(lines))
+    return _finish_with_answer(lines, out.latex)
 
 
 def _verified_block_limit(
@@ -1428,8 +1444,7 @@ def _verified_block_limit(
             "value) — render it as \\infty, do not treat it as an ordinary "
             "finite number."
         )
-    lines.append("Do NOT recompute. Explain in plain language with $...$ for formulas.")
-    return VerifiedMathBlock(text="\n".join(lines))
+    return _finish_with_answer(lines, limit_out.latex)
 
 
 def _verified_block_series(
@@ -1456,8 +1471,7 @@ def _verified_block_series(
             "This series diverges to infinity — render it as \\infty, do not "
             "treat it as an ordinary finite number."
         )
-    lines.append("Do NOT recompute. Explain in plain language with $...$ for formulas.")
-    return VerifiedMathBlock(text="\n".join(lines))
+    return _finish_with_answer(lines, series_out.latex)
 
 
 def _verified_block_statistics(
@@ -1475,11 +1489,25 @@ def _verified_block_statistics(
         f"range={result.range:g} population variance={result.variance_population:g} "
         f"population stdev={result.stdev_population:g} sample stdev={sample_stdev}"
     )
-    lines.append(
-        "Do NOT recompute any of these values — use the verified numbers above. Show "
-        "the relevant formula (e.g. mean = sum / count) with these exact numbers substituted in."
+    if intent.stats_op == "median":
+        answer = result.labels["median"]
+    elif intent.stats_op == "mode":
+        answer = result.labels["mode"]
+    elif intent.stats_op == "stdev":
+        answer = result.labels["population_stdev"]
+    elif intent.stats_op == "variance":
+        answer = f"{result.variance_population:g}"
+    else:
+        answer = result.labels["mean"]
+    return _finish_with_answer(
+        lines,
+        answer,
+        preface=(
+            "Do NOT recompute any of these values — use the verified numbers above. "
+            "Show the relevant formula with these exact numbers substituted in. "
+            "End with this final-answer fence (copy verbatim):"
+        ),
     )
-    return VerifiedMathBlock(text="\n".join(lines))
 
 
 def _verified_block_combinatorics(
@@ -1520,8 +1548,18 @@ def _verified_block_matrix(
         MatrixInput(operation=intent.matrix_op, rows=intent.matrix_rows)
     )
     lines.extend(result.steps)
-    lines.append("Do NOT recompute — use this exact verified result.")
-    return VerifiedMathBlock(text="\n".join(lines))
+    if result.operation == "inverse" and result.inverse_latex:
+        answer = result.inverse_latex
+    elif result.determinant is not None:
+        answer = f"{result.determinant:g}"
+    else:
+        return VerifiedMathBlock(text="\n".join(lines))
+    return _finish_with_answer(
+        lines,
+        answer,
+        preface="Do NOT recompute — use this exact verified result. "
+        "End with this final-answer fence (copy verbatim):",
+    )
 
 
 _BlockBuilder = Callable[[MathIntent, Settings, list[str]], VerifiedMathBlock | None]
@@ -1572,6 +1610,76 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
         return None
 
 
+def _intent_from_image_extract(extract: MathImageExtract) -> MathIntent | None:
+    """Map a vision extract onto an existing MathIntent kind (no second parser)."""
+    variable = extract.variables[0]
+    if extract.kind == "system" and extract.equations:
+        return MathIntent(
+            kind="system",
+            system_equations=extract.equations[:4],
+            system_variables=extract.variables,
+            operation="solve",
+        )
+    if extract.kind == "inequality" and extract.comparator:
+        return MathIntent(
+            kind="inequality",
+            lhs=extract.lhs,
+            rhs=extract.rhs,
+            comparator=extract.comparator,
+            operation="solve",
+            variable=variable,
+        )
+    if extract.kind == "calculus" and extract.expr and extract.operation:
+        return MathIntent(
+            kind="calculus",
+            expr=extract.expr,
+            operation=cast(
+                Literal["simplify", "differentiate", "integrate", "factor", "expand"],
+                extract.operation,
+            ),
+            variable=variable,
+        )
+    if extract.kind == "limit" and extract.expr and extract.limit_point:
+        return MathIntent(
+            kind="limit",
+            expr=extract.expr,
+            limit_point=extract.limit_point,
+            operation="limit",
+            variable=variable,
+        )
+    if extract.kind == "graph" and extract.expr:
+        return MathIntent(
+            kind="graph",
+            expr=extract.expr,
+            operation="graph",
+            variable=variable,
+        )
+    if extract.kind == "rectangle" and extract.width is not None and extract.height is not None:
+        return MathIntent(
+            kind="rectangle",
+            width=extract.width,
+            height=extract.height,
+            unit=extract.unit or "cm",
+            wants_area=True,
+            wants_perimeter=True,
+        )
+    if extract.kind == "circle" and extract.radius is not None:
+        return MathIntent(
+            kind="circle",
+            radius=extract.radius,
+            unit=extract.unit or "cm",
+            wants_area=True,
+            wants_circumference=True,
+        )
+    return MathIntent(
+        kind="equation",
+        lhs=extract.lhs,
+        rhs=extract.rhs,
+        operation="solve",
+        variable=variable,
+    )
+
+
 async def build_math_augmentation(
     user_content: str,
     settings: Settings,
@@ -1590,43 +1698,10 @@ async def build_math_augmentation(
         return None, None
 
     if image_math_extract is not None:
-        # OCR already produced a Pydantic-validated equation — use it directly
-        # instead of re-parsing the stringified "lhs = rhs" text back through
-        # try_extract_equations_from_text's restricted character-class regex,
-        # which mangles unicode symbols, commas, and abs-value bars a real
-        # photographed equation can contain. variables always has >=1 entry
-        # (schema default_factory=["x"]), so this is the model's best guess
-        # even when the image genuinely used "x".
-        #
-        # kind branches beyond the single-equation case (system/inequality)
-        # so a photographed system or inequality gets the same SymPy-verified
-        # path a single equation already did — previously ANY photo with more
-        # than one equation (or a bare inequality) silently fell back to
-        # unverified free-text, regardless of how well the OCR itself worked.
-        if image_math_extract.kind == "system" and image_math_extract.equations:
-            intent: MathIntent | None = MathIntent(
-                kind="system",
-                system_equations=image_math_extract.equations[:4],
-                system_variables=image_math_extract.variables,
-                operation="solve",
-            )
-        elif image_math_extract.kind == "inequality" and image_math_extract.comparator:
-            intent = MathIntent(
-                kind="inequality",
-                lhs=image_math_extract.lhs,
-                rhs=image_math_extract.rhs,
-                comparator=image_math_extract.comparator,
-                operation="solve",
-                variable=image_math_extract.variables[0],
-            )
-        else:
-            intent = MathIntent(
-                kind="equation",
-                lhs=image_math_extract.lhs,
-                rhs=image_math_extract.rhs,
-                operation="solve",
-                variable=image_math_extract.variables[0],
-            )
+        # OCR already produced a Pydantic-validated extract — map it straight
+        # to MathIntent (do not re-parse through the text regex, which mangles
+        # unicode ops / abs bars a photographed problem can contain).
+        intent = _intent_from_image_extract(image_math_extract)
     else:
         intent = extract_math_intent(user_content)
     if intent is None and has_image_attachment:

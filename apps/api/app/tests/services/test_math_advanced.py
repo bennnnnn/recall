@@ -199,6 +199,9 @@ class TestAugmentPromptMessagesForNewKinds:
         assert "mean=5" in verified.text
         assert "Do NOT recompute" in verified.text
         assert len(updated) == 3
+        assert verified.canonical_fence is not None
+        assert verified.canonical_fence["type"] == "answer"
+        assert "```answer" in verified.text
 
     @pytest.mark.asyncio
     async def test_combinatorics_produces_verified_block(self):
@@ -221,3 +224,5 @@ class TestAugmentPromptMessagesForNewKinds:
         updated, verified = await math_tools.augment_prompt_messages(messages, text, settings)
         assert verified is not None
         assert "-2" in verified.text
+        assert verified.canonical_fence == {"type": "answer", "content": "-2"}
+        assert "```answer" in verified.text
