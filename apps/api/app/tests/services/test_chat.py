@@ -268,6 +268,22 @@ def test_math_formula_shape_rule_is_unified():
         assert "NEVER indent a ```math fence inside that list item" not in blob
 
 
+def test_math_solver_hint_does_not_overclaim_unverified_scope():
+    """Stats/combo/NT/matrix used to be listed as broadly "in scope", and
+    geometry few-shots embedded concrete dims that taught inventing measures.
+    Gate advanced topics on a verified block; mark sample dims illustrative."""
+    from app.services.chat.prompt_constants import INTENT_FORMAT_HINT, MATH_SOLVER_HINT
+
+    lower = MATH_SOLVER_HINT.lower()
+    assert "never invent" in lower
+    assert "illustrative" in lower
+    assert "only when a verified" in lower
+    assert "do not claim sympy verification" in lower
+    # Must not claim bare "are also in scope" without the verified-block gate.
+    assert "are also in scope" not in lower
+    assert "never invent geometry" in INTENT_FORMAT_HINT.lower()
+
+
 @pytest.mark.asyncio
 async def test_build_prompt_injects_custom_instructions():
     user = MagicMock()
