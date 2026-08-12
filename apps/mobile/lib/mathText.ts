@@ -1,5 +1,7 @@
 /** Parse simple LaTeX into native Text segments (no WebView). */
 
+import { normalizeUnicodeScripts } from "@/lib/unicodeSupSub";
+
 export type MathSegment =
   | { type: "text"; value: string }
   | { type: "sup"; value: string }
@@ -59,6 +61,10 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\mathbb\{N\}/g, "ℕ"],
   [/\\mathbb\{Q\}/g, "ℚ"],
   [/\\mathbb\{C\}/g, "ℂ"],
+  [/\\mathbb\{P\}/g, "ℙ"],
+  [/\\mathbb\{H\}/g, "ℍ"],
+  [/\\mathbb\{F\}/g, "𝔽"],
+  [/\\mathbb\{K\}/g, "𝕂"],
   // \sum/\prod/\int are big-operator SYMBOLS (Σ ∏ ∫), not roman-text
   // function names like \log/\sin — they used to be lumped into
   // ROMAN_FUNCTIONS below and rendered as the literal words "sum"/"prod"/
@@ -320,6 +326,9 @@ function preprocessLatex(latex: string): string {
   if (s.includes(PROTECTED_ESCAPE_MARKER)) {
     s = s.split(PROTECTED_ESCAPE_MARKER).join("\\");
   }
+  // OCR / models often emit Unicode supers/subs (`x²`, `a₁₀`) instead of
+  // caret form. Rewrite to `^`/`_` so the segment parser builds real scripts.
+  s = normalizeUnicodeScripts(s);
   // Must run before every other substitution — it depends on the raw "\\"
   // row separator and "&" column separator, which later rules (e.g. the
   // \\, → " " spacing rule) would otherwise destroy.
