@@ -11,6 +11,7 @@ import {
   computeTrapezoidLabels,
   computeTriangleLabels,
   computeTriangleSidesLabels,
+  diagonalAngleArcPath,
   parseGeometrySpec,
   rectangleAngleDisplay,
   scaleToFit,
@@ -106,13 +107,21 @@ function RectangleDiagram({ spec, screenWidth, theme }: { spec: RectangleSpec; s
         </SvgText>
       ) : null}
       {showDiagonalAngleLabel ? (
-        // This is the angle the diagonal makes with the base — NOT the
-        // rectangle's own corner angle (always 90°, shown by the bracket
-        // glyph above when no diagonal is drawn). Labeling it "∠" avoids
-        // it reading as a contradiction of that right angle.
-        <SvgText x={x + 12} y={y + h - 8} fill={theme.textSecondary} fontSize={12}>
-          {`∠\u00A0${labels.angle}`}
-        </SvgText>
+        // Diagonal-vs-base angle at the top-left (where TL→BR diagonal
+        // meets the top edge) — NOT the rectangle's own 90° corner.
+        // Arc + ∠ label; bracket is suppressed when the diagonal is drawn.
+        <>
+          <Path
+            d={diagonalAngleArcPath(x, y, w, h)}
+            fill="none"
+            stroke={theme.textSecondary}
+            strokeWidth={1.5}
+            accessibilityLabel="diagonal-angle-arc"
+          />
+          <SvgText x={x + 22} y={y + 28} fill={theme.textSecondary} fontSize={12}>
+            {`∠\u00A0${labels.angle}`}
+          </SvgText>
+        </>
       ) : null}
       {spec.show_area ? (
         <SvgText x={x + w / 2} y={y + h + 34} fill={theme.textSecondary} fontSize={12} textAnchor="middle">
@@ -216,12 +225,23 @@ function RightTriangleDiagram({
         strokeWidth={2}
       />
       {showAngle ? (
-        <Polygon
-          points={`${x0},${y1} ${x0 + corner},${y1} ${x0 + corner},${y1 - corner} ${x0},${y1 - corner}`}
-          fill="none"
-          stroke={theme.textSecondary}
-          strokeWidth={1.5}
-        />
+        <>
+          <Polygon
+            points={`${x0},${y1} ${x0 + corner},${y1} ${x0 + corner},${y1 - corner} ${x0},${y1 - corner}`}
+            fill="none"
+            stroke={theme.textSecondary}
+            strokeWidth={1.5}
+            accessibilityLabel="right-angle-mark"
+          />
+          <SvgText
+            x={x0 + corner + 4}
+            y={y1 - corner - 2}
+            fill={theme.textSecondary}
+            fontSize={11}
+          >
+            90°
+          </SvgText>
+        </>
       ) : null}
       {showLabels ? (
         <>

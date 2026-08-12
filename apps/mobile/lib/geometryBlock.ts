@@ -475,6 +475,33 @@ export function rectangleAngleDisplay(spec: {
   };
 }
 
+/**
+ * SVG path for a small arc at the top-left corner of a rectangle, from the
+ * top edge toward the TL→BR diagonal. Encodes the same diagonal-vs-base
+ * angle shown as `∠ N°` text — a curved mark so the angle reads as a
+ * school-diagram cue, not a bare floating number.
+ *
+ * Coordinates use SVG's y-down convention (`atan2(height, width)`).
+ */
+export function diagonalAngleArcPath(
+  originX: number,
+  originY: number,
+  width: number,
+  height: number,
+  radius = 18,
+): string {
+  const w = Math.max(width, 1e-6);
+  const h = Math.max(height, 1e-6);
+  const theta = Math.atan2(h, w);
+  const r = Math.min(radius, w * 0.28, h * 0.28);
+  const x1 = originX + r;
+  const y1 = originY;
+  const x2 = originX + r * Math.cos(theta);
+  const y2 = originY + r * Math.sin(theta);
+  // sweep-flag 1 = clockwise in SVG → from +x down into the diagonal.
+  return `M ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2}`;
+}
+
 export function scaleToFit(
   width: number,
   height: number,
