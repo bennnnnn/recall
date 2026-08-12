@@ -31,6 +31,7 @@ class SystemOfEquationsInput(BaseModel):
 
 _VALID_INEQUALITY_COMPARATORS = frozenset({"<", ">", "<=", ">="})
 _VALID_CAMERA_CALC_OPS = frozenset({"simplify", "differentiate", "integrate", "factor", "expand"})
+_VALID_CAMERA_STATS_OPS = frozenset({"mean", "median", "mode", "variance", "stdev"})
 
 
 class MathImageExtract(BaseModel):
@@ -38,9 +39,10 @@ class MathImageExtract(BaseModel):
 
     `lhs`/`rhs` hold the first (or only) equation/inequality side — callers
     that only handled a single equation keep working. Structured kinds
-    (system, inequality, calculus, limit, graph, rectangle, circle) are
-    additive so photographed homework beyond ``lhs=rhs`` still gets a
-    verified SymPy path instead of unverified free-text."""
+    (system, inequality, calculus, limit, graph, rectangle, circle,
+    triangle_sides, statistics) are additive so photographed homework beyond
+    ``lhs=rhs`` still gets a verified SymPy path instead of unverified
+    free-text."""
 
     kind: Literal[
         "equation",
@@ -51,6 +53,8 @@ class MathImageExtract(BaseModel):
         "graph",
         "rectangle",
         "circle",
+        "triangle_sides",
+        "statistics",
     ] = "equation"
     # Defaults "0" let structured kinds omit equation sides in the vision JSON.
     lhs: str = Field(default="0", min_length=1, max_length=256)
@@ -69,11 +73,21 @@ class MathImageExtract(BaseModel):
     operation: str | None = None
     # kind == "limit": point approached (number or "infinity" / "oo").
     limit_point: str | None = Field(default=None, max_length=32)
+    # kind == "calculus" + integrate: definite bounds (both required, or neither).
+    integral_lower: str | None = Field(default=None, max_length=32)
+    integral_upper: str | None = Field(default=None, max_length=32)
     # kind == "rectangle" | "circle": printed dimensions (never invent).
     width: float | None = Field(default=None, ge=0, le=1_000_000)
     height: float | None = Field(default=None, ge=0, le=1_000_000)
     radius: float | None = Field(default=None, ge=0, le=1_000_000)
     unit: str = Field(default="cm", max_length=16)
+    # kind == "triangle_sides": printed SSS side lengths (never invent).
+    tri_a: float | None = Field(default=None, ge=0, le=1_000_000)
+    tri_b: float | None = Field(default=None, ge=0, le=1_000_000)
+    tri_c: float | None = Field(default=None, ge=0, le=1_000_000)
+    # kind == "statistics": printed data list + which summary was asked.
+    stats_op: str | None = None
+    stats_numbers: list[float] | None = Field(default=None, max_length=40)
 
     def _has_equation_sides(self) -> bool:
         return self.lhs.strip() not in ("", "0") or self.rhs.strip() not in ("", "0")
@@ -103,6 +117,17 @@ class MathImageExtract(BaseModel):
                     self.found = False
             else:
                 self.operation = op
+                # Definite integrals need BOTH bounds. A half-filled OCR
+                # guess must not invent the missing endpoint — drop to
+                # indefinite (same as heuristic when bounds parse fails).
+                lower = (self.integral_lower or "").strip()
+                upper = (self.integral_upper or "").strip()
+                if op == "integrate" and lower and upper:
+                    self.integral_lower = lower
+                    self.integral_upper = upper
+                else:
+                    self.integral_lower = None
+                    self.integral_upper = None
         if self.kind == "limit":
             if not (
                 self.expr and self.expr.strip() and self.limit_point and self.limit_point.strip()
@@ -125,6 +150,21 @@ class MathImageExtract(BaseModel):
                 self.kind = "equation" if self._has_equation_sides() else self.kind
                 if self.kind == "circle":
                     self.found = False
+        if self.kind == "triangle_sides":
+            sides = (self.tri_a, self.tri_b, self.tri_c)
+            if any(s is None or s <= 0 for s in sides):
+                self.kind = "equation" if self._has_equation_sides() else self.kind
+                if self.kind == "triangle_sides":
+                    self.found = False
+        if self.kind == "statistics":
+            op = (self.stats_op or "mean").strip().lower()
+            nums = self.stats_numbers or []
+            if op not in _VALID_CAMERA_STATS_OPS or len(nums) < 2:
+                self.kind = "equation" if self._has_equation_sides() else self.kind
+                if self.kind == "statistics":
+                    self.found = False
+            else:
+                self.stats_op = op
         return self
 
 

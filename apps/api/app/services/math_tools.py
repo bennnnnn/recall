@@ -1775,6 +1775,8 @@ def _intent_from_image_extract(extract: MathImageExtract) -> MathIntent | None:
                 extract.operation,
             ),
             variable=variable,
+            integral_lower=extract.integral_lower,
+            integral_upper=extract.integral_upper,
         )
     if extract.kind == "limit" and extract.expr and extract.limit_point:
         return MathIntent(
@@ -1807,6 +1809,30 @@ def _intent_from_image_extract(extract: MathImageExtract) -> MathIntent | None:
             unit=extract.unit or "cm",
             wants_area=True,
             wants_circumference=True,
+        )
+    if (
+        extract.kind == "triangle_sides"
+        and extract.tri_a is not None
+        and extract.tri_b is not None
+        and extract.tri_c is not None
+    ):
+        return MathIntent(
+            kind="triangle_sides",
+            tri_a=extract.tri_a,
+            tri_b=extract.tri_b,
+            tri_c=extract.tri_c,
+            unit=extract.unit or "cm",
+            operation="solve",
+        )
+    if extract.kind == "statistics" and extract.stats_numbers and extract.stats_op:
+        return MathIntent(
+            kind="statistics",
+            stats_op=cast(
+                Literal["mean", "median", "mode", "variance", "stdev"],
+                extract.stats_op,
+            ),
+            stats_numbers=extract.stats_numbers,
+            operation="solve",
         )
     return MathIntent(
         kind="equation",

@@ -21,7 +21,7 @@ _EXTRACT_PROMPT = (
     "Use ASCII math (* / ** for multiply/divide/power). Never invent dimensions "
     "or freehand diagrams — only extract numbers/expressions printed on the page. "
     "kind is one of: equation, system, inequality, calculus, limit, graph, "
-    "rectangle, circle. "
+    "rectangle, circle, triangle_sides, statistics. "
     "Equation: fill lhs, rhs. "
     'Example: {"kind":"equation","lhs":"2*x+3","rhs":"7","variables":["x"],'
     '"found":true}. '
@@ -33,9 +33,13 @@ _EXTRACT_PROMPT = (
     'Example: {"kind":"inequality","lhs":"x**2-1","rhs":"0","comparator":">",'
     '"variables":["x"],"found":true}. '
     "Calculus: fill expr plus operation "
-    "(simplify|differentiate|integrate|factor|expand). "
+    "(simplify|differentiate|integrate|factor|expand). For a definite integral "
+    "also fill integral_lower and integral_upper (both required; omit both "
+    "for indefinite). "
     'Example: {"kind":"calculus","operation":"differentiate","expr":"x**2",'
     '"variables":["x"],"found":true}. '
+    'Definite: {"kind":"calculus","operation":"integrate","expr":"x**2",'
+    '"integral_lower":"0","integral_upper":"1","variables":["x"],"found":true}. '
     "Limit: fill expr and limit_point (number or infinity). "
     'Example: {"kind":"limit","expr":"sin(x)/x","limit_point":"0",'
     '"variables":["x"],"found":true}. '
@@ -43,6 +47,13 @@ _EXTRACT_PROMPT = (
     'Example: {"kind":"graph","expr":"x**2","variables":["x"],"found":true}. '
     "Rectangle/circle: fill printed width+height or radius and optional unit. "
     'Example: {"kind":"rectangle","width":8,"height":5,"unit":"cm","found":true}. '
+    "Triangle with three printed side lengths (SSS): fill tri_a, tri_b, tri_c. "
+    'Example: {"kind":"triangle_sides","tri_a":3,"tri_b":4,"tri_c":5,'
+    '"unit":"cm","found":true}. '
+    "Statistics on a printed data list: fill stats_numbers and stats_op "
+    "(mean|median|mode|variance|stdev). "
+    'Example: {"kind":"statistics","stats_op":"mean","stats_numbers":[1,3,5,7],'
+    '"found":true}. '
     'If nothing extractable, set found=false and use lhs/rhs of "0".'
 )
 
