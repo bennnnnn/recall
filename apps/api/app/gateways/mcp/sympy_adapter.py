@@ -216,6 +216,16 @@ class SympyAdapter:
         newton_result = await self._run_off_loop(math_service.newton_method, newton_input)
         if newton_result is None:
             return ToolResult(name=self.name, content="Math error: timed out.")
+        if not newton_result.converged or newton_result.root is None:
+            return ToolResult(
+                name=self.name,
+                content=(
+                    f"Newton's method did not converge "
+                    f"(iterations={newton_result.iterations_used}). "
+                    "Do NOT present a root as found."
+                ),
+            )
+        answer = f"{newton_result.root:g}"
         return ToolResult(
             name=self.name,
             content=(
@@ -223,6 +233,7 @@ class SympyAdapter:
                 f"converged={newton_result.converged}, "
                 f"iterations={newton_result.iterations_used}"
             ),
+            data=_fence_data(math_tools._answer_canonical(answer)),
         )
 
     async def _action_rectangle(self, args: dict[str, Any]) -> ToolResult:

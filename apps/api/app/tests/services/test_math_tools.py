@@ -116,6 +116,10 @@ async def test_augment_prompt_injects_newton_iteration_table() -> None:
     assert "Converged" in verified.text
     assert "2.0945514817" in verified.text or "2.094551482" in verified.text
     assert any("Converged" in m["content"] for m in out if m["role"] == "system")
+    assert verified.canonical_fence is not None
+    assert verified.canonical_fence["type"] == "answer"
+    assert "```answer" in verified.text
+    assert verified.canonical_fence["content"]
 
 
 @pytest.mark.asyncio
@@ -139,6 +143,8 @@ async def test_augment_prompt_newton_reports_non_convergence() -> None:
     assert block is not None
     assert "did not converge" in block.text.lower()
     assert "do not present a root" in block.text.lower()
+    assert block.canonical_fence is None
+    assert "```answer" not in block.text
 
 
 def test_extract_rectangle_intent() -> None:
