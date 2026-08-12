@@ -67,6 +67,36 @@ def has_draw_shape(lower: str, shape: str) -> bool:
     return any(v in lower for v in ("draw ", "show ", "sketch ", "visualize ", "visualise "))
 
 
+def geometry_deferred_for_algebra(lower: str) -> bool:
+    """Geometry extractors run *before* equation/graph extractors.
+
+    A phrase like "solve x^2+y^2=25 for the circle of radius 5" used to match
+    the circle extractor (radius present) and steal the algebra path. Defer
+    geometry when the ask is clearly algebraic — unless the user also asked
+    to draw/show/sketch the shape.
+    """
+    if any(v in lower for v in ("draw ", "show ", "sketch ", "visualize ", "visualise ")):
+        return False
+    padded = f" {lower} "
+    return any(
+        cue in padded
+        for cue in (
+            " equation ",
+            " equations ",
+            " solve ",
+            " algebra ",
+            " complete the square ",
+            " unit circle ",
+            " expand ",
+            " factor ",
+            " differentiate ",
+            " derivative ",
+            " integrate ",
+            " integral ",
+        )
+    )
+
+
 def has_math_keyword(lower: str) -> bool:
     compact = lower.replace(" ", "")
     if "y=" in compact:
