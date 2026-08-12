@@ -118,6 +118,19 @@ describe("parseSimpleLatex", () => {
     ).toBe("⟨ 2,-1,1 ⟩");
   });
 
+  it("BUG FIX regression: \\lor/\\land (and \\vee/\\wedge) render as logical glyphs", () => {
+    // Inequality unions ask for `\lor` in the verified prompt; without these
+    // MathText leaked raw "\lor" / "\land" on the native inline path.
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`x < -1 \lor x > 1`))).toBe(
+      "x < -1 ∨ x > 1",
+    );
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`x < -1 \vee x > 1`))).toBe(
+      "x < -1 ∨ x > 1",
+    );
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`P \land Q`))).toBe("P ∧ Q");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`P \wedge Q`))).toBe("P ∧ Q");
+  });
+
   it("caps nested frac/sqrt depth instead of blowing the call stack", () => {
     let nested = "x";
     for (let i = 0; i < 40; i += 1) {
