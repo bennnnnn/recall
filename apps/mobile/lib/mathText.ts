@@ -44,6 +44,12 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\infty/g, "∞"],
   [/\\cup(?![a-zA-Z])/g, "∪"],
   [/\\cap(?![a-zA-Z])/g, "∩"],
+  // Logical or/and — inequality unions use `\lor` (prompt asks for
+  // `$x < -1 \lor x > 1$`); without these MathText leaks raw cmds.
+  [/\\lor(?![a-zA-Z])/g, "∨"],
+  [/\\vee(?![a-zA-Z])/g, "∨"],
+  [/\\land(?![a-zA-Z])/g, "∧"],
+  [/\\wedge(?![a-zA-Z])/g, "∧"],
   [/\\setminus/g, "∖"],
   [/\\emptyset/g, "∅"],
   // Blackboard bold — docs claim native support; without this, steps leak

@@ -119,6 +119,8 @@ describe("mathFenceRetag", () => {
     ).toBe(true);
     expect(looksLikeLatexFence(String.raw`x \to 0`)).toBe(true);
     expect(looksLikeLatexFence(String.raw`p \implies q`)).toBe(true);
+    expect(looksLikeLatexFence(String.raw`x < -1 \lor x > 1`)).toBe(true);
+    expect(looksLikeLatexFence(String.raw`P \land Q`)).toBe(true);
   });
 
   it("BUG FIX regression: spacing-only arithmetic (\\;) is math, not a Copy code box", () => {
