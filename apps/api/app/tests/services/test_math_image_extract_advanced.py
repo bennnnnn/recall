@@ -86,6 +86,46 @@ class TestMathImageExtractSchema:
         circle = MathImageExtract(kind="circle", radius=3, unit="cm")
         assert circle.kind == "circle"
 
+    def test_definite_integral_keeps_both_bounds(self):
+        parsed = MathImageExtract(
+            kind="calculus",
+            operation="integrate",
+            expr="x**2",
+            integral_lower="0",
+            integral_upper="1",
+            variables=["x"],
+        )
+        assert parsed.kind == "calculus"
+        assert parsed.integral_lower == "0"
+        assert parsed.integral_upper == "1"
+
+    def test_half_filled_integral_bounds_drop_to_indefinite(self):
+        parsed = MathImageExtract(
+            kind="calculus",
+            operation="integrate",
+            expr="x**2",
+            integral_lower="0",
+            variables=["x"],
+        )
+        assert parsed.kind == "calculus"
+        assert parsed.integral_lower is None
+        assert parsed.integral_upper is None
+
+    def test_triangle_sides_and_statistics_kinds(self):
+        tri = MathImageExtract(kind="triangle_sides", tri_a=3, tri_b=4, tri_c=5, unit="cm")
+        assert tri.kind == "triangle_sides"
+        stats = MathImageExtract(kind="statistics", stats_op="mean", stats_numbers=[1, 3, 5, 7])
+        assert stats.kind == "statistics"
+        assert stats.stats_op == "mean"
+
+    def test_incomplete_triangle_sides_marks_not_found(self):
+        parsed = MathImageExtract(kind="triangle_sides", tri_a=3, tri_b=4)
+        assert parsed.found is False
+
+    def test_incomplete_statistics_marks_not_found(self):
+        parsed = MathImageExtract(kind="statistics", stats_op="mean", stats_numbers=[5])
+        assert parsed.found is False
+
 
 class TestAugmentPromptMessagesFromImageExtract:
     @pytest.mark.asyncio
@@ -220,3 +260,66 @@ class TestAugmentPromptMessagesFromImageExtract:
         assert verified is not None
         assert verified.canonical_fence is not None
         assert verified.canonical_fence["type"] == "rectangle"
+
+    @pytest.mark.asyncio
+    async def test_definite_integral_extract_evaluates(self):
+        settings = Settings(
+            mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
+        )
+        extract = MathImageExtract(
+            kind="calculus",
+            operation="integrate",
+            expr="x**2",
+            integral_lower="0",
+            integral_upper="1",
+            variables=["x"],
+        )
+        text = "Solve the math problem in this image step by step."
+        _, verified = await math_tools.augment_prompt_messages(
+            [{"role": "user", "content": text}],
+            text,
+            settings,
+            has_image_attachment=True,
+            image_math_extract=extract,
+        )
+        assert verified is not None
+        assert verified.canonical_fence is not None
+        assert verified.canonical_fence["type"] == "answer"
+        # definite integral of x^2 from 0 to 1 is 1/3
+        content = verified.canonical_fence["content"]
+        assert "1/3" in content or "\\frac{1}{3}" in content
+
+    @pytest.mark.asyncio
+    async def test_triangle_sides_extract_builds_geometry_fence(self):
+        settings = Settings(
+            mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
+        )
+        extract = MathImageExtract(kind="triangle_sides", tri_a=3, tri_b=4, tri_c=5, unit="cm")
+        text = "Solve the math problem in this image step by step."
+        _, verified = await math_tools.augment_prompt_messages(
+            [{"role": "user", "content": text}],
+            text,
+            settings,
+            has_image_attachment=True,
+            image_math_extract=extract,
+        )
+        assert verified is not None
+        assert verified.canonical_fence is not None
+        assert verified.canonical_fence["type"] == "triangle_sides"
+
+    @pytest.mark.asyncio
+    async def test_statistics_extract_computes_mean(self):
+        settings = Settings(
+            mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
+        )
+        extract = MathImageExtract(kind="statistics", stats_op="mean", stats_numbers=[1, 3, 5, 7])
+        text = "Solve the math problem in this image step by step."
+        _, verified = await math_tools.augment_prompt_messages(
+            [{"role": "user", "content": text}],
+            text,
+            settings,
+            has_image_attachment=True,
+            image_math_extract=extract,
+        )
+        assert verified is not None
+        assert verified.canonical_fence == {"type": "answer", "content": "4"}
