@@ -299,6 +299,11 @@ def _extract_circle_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if "circle" not in lower:
         return None
+    # Sector mentions almost always include "circle" + "radius" — leave those
+    # to `_extract_sector_intent` (which runs first). Without this guard a
+    # partial sector cue ("sector … radius 5") becomes a plain circle fence.
+    if "sector" in lower or "pie slice" in lower:
+        return None
     wants_area = "area" in lower
     wants_circumference = "circumference" in lower
     radius = mtm.number_after(cleaned, "radius")
@@ -322,7 +327,19 @@ def _extract_circle_intent(cleaned: str) -> MathIntent | None:
             wants_area=wants_area,
             wants_circumference=wants_circumference,
         )
-    return MathIntent(kind="circle", radius=5, unit="cm", operation="solve")
+    # Default radius only on an explicit draw/show/sketch — never invent a
+    # 5 cm circle for "what is a circle?" / "unit circle" / algebra that
+    # merely mentions the word (those used to ship as SymPy-verified).
+    if mtm.has_draw_shape(lower, "circle"):
+        return MathIntent(
+            kind="circle",
+            radius=5,
+            unit="cm",
+            operation="solve",
+            wants_area=wants_area,
+            wants_circumference=wants_circumference,
+        )
+    return None
 
 
 def _extract_right_triangle_intent(cleaned: str) -> MathIntent | None:
@@ -341,7 +358,9 @@ def _extract_right_triangle_intent(cleaned: str) -> MathIntent | None:
             unit=unit,
             operation="solve",
         )
-    return MathIntent(kind="right_triangle", base=6, height=4, unit="cm", operation="solve")
+    if mtm.has_draw_shape(lower, "right triangle"):
+        return MathIntent(kind="right_triangle", base=6, height=4, unit="cm", operation="solve")
+    return None
 
 
 def _extract_triangle_sides_intent(cleaned: str) -> MathIntent | None:
@@ -369,32 +388,59 @@ def _extract_trapezoid_intent(cleaned: str) -> MathIntent | None:
     top = mtm.number_after(cleaned, "top")
     bottom = mtm.number_after(cleaned, "bottom")
     height = mtm.number_after(cleaned, "height")
-    return MathIntent(
-        kind="trapezoid",
-        trapezoid_top=top if top is not None else 4,
-        trapezoid_bottom=bottom if bottom is not None else 8,
-        height=height if height is not None else 5,
-        unit="cm",
-        operation="solve",
-    )
+    if top is not None and bottom is not None and height is not None:
+        return MathIntent(
+            kind="trapezoid",
+            trapezoid_top=top,
+            trapezoid_bottom=bottom,
+            height=height,
+            unit="cm",
+            operation="solve",
+        )
+    shape = "trapezoid" if "trapezoid" in lower else "trapezium"
+    if mtm.has_draw_shape(lower, shape):
+        return MathIntent(
+            kind="trapezoid",
+            trapezoid_top=4,
+            trapezoid_bottom=8,
+            height=5,
+            unit="cm",
+            operation="solve",
+        )
+    return None
 
 
 def _extract_parallelogram_intent(cleaned: str) -> MathIntent | None:
     from app.services import math_text_match as mtm
 
-    if "parallelogram" not in cleaned.lower():
+    lower = cleaned.lower()
+    if "parallelogram" not in lower:
         return None
     base = mtm.number_after(cleaned, "base")
     height = mtm.number_after(cleaned, "height")
     side = mtm.number_after(cleaned, "side")
-    return MathIntent(
-        kind="parallelogram",
-        base=base if base is not None else 8,
-        height=height if height is not None else 4,
-        side=side if side is not None else 5,
-        unit="cm",
-        operation="solve",
-    )
+    if base is not None and height is not None:
+        # Side is only needed for the slanted diagram. When the user gave
+        # base+height (enough for area) but no side, use a right parallelogram
+        # (side=height → zero shear) rather than inventing a fake slant length.
+        return MathIntent(
+            kind="parallelogram",
+            base=base,
+            height=height,
+            side=side if side is not None else height,
+            unit="cm",
+            operation="solve",
+        )
+    if mtm.has_draw_shape(lower, "parallelogram"):
+        return MathIntent(
+            kind="parallelogram",
+            base=8,
+            height=4,
+            side=5,
+            unit="cm",
+            operation="solve",
+        )
+    return None
 
 
 def _extract_sector_intent(cleaned: str) -> MathIntent | None:
@@ -407,13 +453,25 @@ def _extract_sector_intent(cleaned: str) -> MathIntent | None:
         return None
     radius = mtm.number_after(cleaned, "radius")
     angle = mtm.number_after(cleaned, "angle")
-    return MathIntent(
-        kind="sector",
-        radius=radius if radius is not None else 5,
-        sector_angle_deg=angle if angle is not None else 90,
-        unit="cm",
-        operation="solve",
-    )
+    if radius is not None and angle is not None:
+        return MathIntent(
+            kind="sector",
+            radius=radius,
+            sector_angle_deg=angle,
+            unit="cm",
+            operation="solve",
+        )
+    # Defaults only when the user asked to draw the shape — never invent a
+    # 90° / 5 cm sector for "sector of a circle with radius 5" alone.
+    if mtm.has_draw_shape(lower, "sector") or mtm.has_draw_shape(lower, "pie slice"):
+        return MathIntent(
+            kind="sector",
+            radius=radius if radius is not None else 5,
+            sector_angle_deg=angle if angle is not None else 90,
+            unit="cm",
+            operation="solve",
+        )
+    return None
 
 
 def _extract_triangle_intent(cleaned: str) -> MathIntent | None:
@@ -431,7 +489,9 @@ def _extract_triangle_intent(cleaned: str) -> MathIntent | None:
             operation="solve",
         )
 
-    if "triangle" in lower and any(k in lower for k in ("area", "draw", "visuali", "sketch")):
+    # "area of a triangle" is a definition question — do not invent base/height.
+    # Defaults only for an explicit draw/show/sketch/visualize request.
+    if mtm.has_draw_shape(lower, "triangle"):
         return MathIntent(kind="triangle", base=8, height=5, unit="cm", operation="solve")
     return None
 

@@ -203,6 +203,35 @@ def test_extract_circle_intent_defaults_without_dims() -> None:
 @pytest.mark.parametrize(
     "text",
     [
+        "what is a circle?",
+        "explain the unit circle",
+        "the circle is a set of points",
+        "what is a trapezoid?",
+        "define a parallelogram",
+        "area of a triangle",
+        "what is a right triangle",
+        "sector of a circle with radius 5",
+    ],
+)
+def test_geometry_does_not_invent_dims_without_draw_or_measures(text: str) -> None:
+    """BUG FIX: bare shape prose used to invent default dimensions and emit a
+    SymPy-verified ```geometry fence (e.g. circle r=5, trap 4x8x5)."""
+    intent = math_tools.extract_math_intent(text)
+    assert intent is None or intent.kind not in {
+        "circle",
+        "trapezoid",
+        "parallelogram",
+        "triangle",
+        "right_triangle",
+        "sector",
+        "square",
+        "rectangle",
+    }
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
         "(2,3)",
         "(2, 3)",
         "(2.3)",  # BUG FIX: comma-for-period mobile keyboard slip

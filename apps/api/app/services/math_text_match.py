@@ -851,16 +851,35 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
         or has_draw_shape(lower, "square")
         or has_draw_shape(lower, "circle")
         or has_draw_shape(lower, "trapezoid")
+        or has_draw_shape(lower, "trapezium")
         or has_draw_shape(lower, "parallelogram")
+        or has_draw_shape(lower, "sector")
+        or has_draw_shape(lower, "pie slice")
+        or has_draw_shape(lower, "triangle")
     ):
         return True
-    if "trapezoid" in lower or "trapezium" in lower:
+    # Shape words alone must NOT trigger verified geometry — bare
+    # "what is a trapezoid?" used to invent dimensions and sell them as
+    # SymPy-verified. Require printed measures (or the draw gates above).
+    if ("trapezoid" in lower or "trapezium" in lower) and (
+        number_after(cleaned, "top") is not None
+        and number_after(cleaned, "bottom") is not None
+        and number_after(cleaned, "height") is not None
+    ):
         return True
-    if "parallelogram" in lower:
+    if "parallelogram" in lower and (
+        number_after(cleaned, "base") is not None and number_after(cleaned, "height") is not None
+    ):
         return True
     # "sector" alone is an ordinary English word ("the tech sector") far
-    # more often than a circle sector — require a geometry-context word too.
-    if "sector" in lower and any(k in lower for k in ("circle", "radius", "pie", "arc")):
+    # more often than a circle sector — require geometry context AND both
+    # radius + angle (partial dims used to invent the missing one).
+    if (
+        "sector" in lower
+        and any(k in lower for k in ("circle", "radius", "pie", "arc"))
+        and number_after(cleaned, "radius") is not None
+        and number_after(cleaned, "angle") is not None
+    ):
         return True
     if triangle_sides_signal(cleaned) is not None:
         return True
@@ -870,9 +889,21 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
         return True
     if first_dim_pair(cleaned) is not None:
         return True
-    if "circle" in lower and (
-        number_after(cleaned, "radius") is not None or number_after(cleaned, "diameter") is not None
+    if (
+        "circle" in lower
+        and "sector" not in lower
+        and "pie slice" not in lower
+        and (
+            number_after(cleaned, "radius") is not None
+            or number_after(cleaned, "diameter") is not None
+        )
     ):
+        return True
+    if "triangle" in lower and (
+        number_after(cleaned, "base") is not None and number_after(cleaned, "height") is not None
+    ):
+        return True
+    if "right triangle" in lower and first_dim_pair(cleaned) is not None:
         return True
     if bare_coord(cleaned) is not None or plot_point(cleaned) is not None:
         return True
