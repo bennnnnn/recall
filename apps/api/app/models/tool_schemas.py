@@ -21,6 +21,8 @@ class SympyToolInput(BaseModel):
         "expand",
         "inequality",
         "rectangle",
+        "square",
+        "circle",
         "graph",
         "system",
         "limit",
@@ -39,6 +41,9 @@ class SympyToolInput(BaseModel):
     variables: list[str] = Field(default_factory=lambda: ["x"], max_length=4)
     width: float | None = None
     height: float | None = None
+    # square / circle geometry (printed dimensions — never invent freehand).
+    side: float | None = Field(default=None, gt=0, le=1_000_000)
+    radius: float | None = Field(default=None, gt=0, le=1_000_000)
     unit: str = "cm"
     variable: str = Field(default="x", max_length=8)
     variable2: str | None = Field(default=None, max_length=8)
@@ -56,6 +61,9 @@ class SympyToolInput(BaseModel):
     # series: bounds (infinity-aware — "oo"/"inf"/"infty" accepted).
     start: str | None = Field(default=None, max_length=32)
     end: str | None = Field(default=None, max_length=32)
+    # integrate: definite bounds (prefer these over start/end for clarity).
+    lower: str | None = Field(default=None, max_length=32)
+    upper: str | None = Field(default=None, max_length=32)
     # newton: initial guess.
     guess: float | None = Field(default=None, ge=-1_000_000, le=1_000_000)
 

@@ -10,12 +10,15 @@ from typing import Any, TypeVar
 from app.core.config import Settings
 from app.gateways.mcp.base import ToolResult
 from app.models.math_schemas import (
+    CircleGeometryBlockSpec,
+    CircleGeometryInput,
     EquationInput,
     GeometryBlockSpec,
     GraphBlockSpec,
     GraphSampleInput,
     NewtonMethodInput,
     RectangleGeometryInput,
+    SquareGeometryInput,
     SystemOfEquationsInput,
 )
 from app.models.tool_schemas import SympyToolInput
@@ -45,8 +48,9 @@ class SympyAdapter:
     def describe(self) -> str:
         return (
             "Symbolic math: solve equations / systems / inequalities, simplify, "
-            "differentiate, integrate, factor, expand, limits, series, Newton's "
-            "method, rectangle geometry, and graphs (optional second curve via expr2)."
+            "differentiate, integrate (optional lower/upper for definite), factor, "
+            "expand, limits, series, Newton's method, rectangle/square/circle "
+            "geometry, and graphs (optional second curve via expr2)."
         )
 
     def to_openai_tool(self) -> dict[str, Any]:
@@ -107,6 +111,16 @@ class SympyAdapter:
         action = str(args.get("action") or "").strip().lower()
         expr = str(args.get("expr") or "")
         variable = str(args.get("variable") or "x")
+        if action == "integrate":
+            lower = str(args.get("lower") or args.get("start") or "").strip()
+            upper = str(args.get("upper") or args.get("end") or "").strip()
+            if lower and upper:
+                expr_result = await self._run_off_loop(
+                    math_service.integrate_definite, expr, variable, lower, upper
+                )
+                if expr_result is None:
+                    return ToolResult(name=self.name, content="Math error: timed out.")
+                return ToolResult(name=self.name, content=expr_result.result)
         fn = {
             "simplify": math_service.simplify_expression,
             "diff": math_service.differentiate_expression,
@@ -246,6 +260,89 @@ class SympyAdapter:
             data=_fence_data(fence),
         )
 
+    async def _action_square(self, args: dict[str, Any]) -> ToolResult:
+        side = args.get("side")
+        if side is None:
+            side = args.get("width")
+        if side is None:
+            return ToolResult(
+                name=self.name,
+                content="Math error: square requires side (or width).",
+            )
+        square_input = SquareGeometryInput(
+            side=float(side),
+            unit=str(args.get("unit") or "cm"),
+        )
+        square_result = await self._run_off_loop(math_service.square_geometry, square_input)
+        if square_result is None:
+            return ToolResult(name=self.name, content="Math error: timed out.")
+        spec = GeometryBlockSpec(
+            type="square",
+            side=square_result.side,
+            width=square_result.side,
+            height=square_result.side,
+            unit=square_result.unit,
+            show_diagonal=True,
+            show_area=True,
+            show_perimeter=True,
+            diagonal=square_result.diagonal,
+            area=square_result.area,
+            perimeter=square_result.perimeter,
+            labels=square_result.labels,
+        )
+        fence = spec.model_dump()
+        fence_json = json.dumps(fence, separators=(",", ":"))
+        return ToolResult(
+            name=self.name,
+            content=(
+                f"Square side={square_result.side:g} {square_result.unit}: "
+                f"diagonal={square_result.diagonal:g}, area={square_result.area:g}\n"
+                "When a diagram helps, emit ONLY this fence (NEVER ```json):\n"
+                f"```geometry\n{fence_json}\n```"
+            ),
+            data=_fence_data(fence),
+        )
+
+    async def _action_circle(self, args: dict[str, Any]) -> ToolResult:
+        if args.get("radius") is None:
+            return ToolResult(
+                name=self.name,
+                content="Math error: circle requires radius.",
+            )
+        circle_input = CircleGeometryInput(
+            radius=float(args["radius"]),
+            unit=str(args.get("unit") or "cm"),
+        )
+        circle_result = await self._run_off_loop(math_service.circle_geometry, circle_input)
+        if circle_result is None:
+            return ToolResult(name=self.name, content="Math error: timed out.")
+        spec = CircleGeometryBlockSpec(
+            type="circle",
+            radius=circle_result.radius,
+            unit=circle_result.unit,
+            show_diameter=True,
+            show_area=True,
+            show_circumference=True,
+            diameter=circle_result.diameter,
+            area=circle_result.area,
+            circumference=circle_result.circumference,
+            labels=circle_result.labels,
+        )
+        fence = spec.model_dump()
+        fence_json = json.dumps(fence, separators=(",", ":"))
+        return ToolResult(
+            name=self.name,
+            content=(
+                f"Circle radius={circle_result.radius:g} {circle_result.unit}: "
+                f"diameter={circle_result.diameter:g}, "
+                f"area={circle_result.area:.2f}, "
+                f"circumference={circle_result.circumference:.2f}\n"
+                "When a diagram helps, emit ONLY this fence (NEVER ```json):\n"
+                f"```geometry\n{fence_json}\n```"
+            ),
+            data=_fence_data(fence),
+        )
+
     async def _action_graph(self, args: dict[str, Any]) -> ToolResult:
         variable = str(args.get("variable") or "x")
         x_min = float(args.get("x_min") or -10)
@@ -358,5 +455,7 @@ _ACTION_HANDLERS: dict[str, _ActionHandler] = {
     "series": SympyAdapter._action_series,
     "newton": SympyAdapter._action_newton,
     "rectangle": SympyAdapter._action_rectangle,
+    "square": SympyAdapter._action_square,
+    "circle": SympyAdapter._action_circle,
     "graph": SympyAdapter._action_graph,
 }

@@ -230,6 +230,37 @@ async def test_sympy_adapter_rectangle_includes_canonical_fence():
 
 
 @pytest.mark.asyncio
+async def test_sympy_adapter_integrate_definite():
+    adapter = SympyAdapter(Settings())
+    result = await adapter.invoke(
+        {"action": "integrate", "expr": "x**2", "variable": "x", "lower": "0", "upper": "1"}
+    )
+    assert result.content == "1/3"
+
+
+@pytest.mark.asyncio
+async def test_sympy_adapter_square_includes_canonical_fence():
+    adapter = SympyAdapter(Settings())
+    result = await adapter.invoke({"action": "square", "side": 5, "unit": "cm"})
+    assert result.data is not None
+    fence = result.data["canonical_fence"]
+    assert fence["type"] == "square"
+    assert fence["side"] == 5.0
+    assert "```geometry" in result.content
+
+
+@pytest.mark.asyncio
+async def test_sympy_adapter_circle_includes_canonical_fence():
+    adapter = SympyAdapter(Settings())
+    result = await adapter.invoke({"action": "circle", "radius": 3, "unit": "cm"})
+    assert result.data is not None
+    fence = result.data["canonical_fence"]
+    assert fence["type"] == "circle"
+    assert fence["radius"] == 3.0
+    assert "```geometry" in result.content
+
+
+@pytest.mark.asyncio
 async def test_sympy_adapter_graph_includes_canonical_fence():
     adapter = SympyAdapter(Settings())
     result = await adapter.invoke({"action": "graph", "expr": "x**2", "x_min": -2, "x_max": 2})
