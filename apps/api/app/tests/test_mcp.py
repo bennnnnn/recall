@@ -149,6 +149,9 @@ async def test_sympy_adapter_dispatches_parity_actions():
     )
     assert "converged=True" in newton_res.content
     assert "1.41" in newton_res.content  # √2 ≈ 1.4142…
+    assert newton_res.data is not None
+    assert newton_res.data["canonical_fence"]["type"] == "answer"
+    assert "1.41" in newton_res.data["canonical_fence"]["content"]
 
     system_res = await adapter.invoke(
         {

@@ -213,6 +213,34 @@ class TestAugmentPromptMessagesForNewKinds:
         updated, verified = await math_tools.augment_prompt_messages(messages, text, settings)
         assert verified is not None
         assert "10" in verified.text
+        assert verified.canonical_fence == {"type": "answer", "content": "10"}
+        assert "```answer" in verified.text
+
+    @pytest.mark.asyncio
+    async def test_number_theory_produces_answer_fence(self):
+        settings = Settings(
+            mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
+        )
+        text = "gcd of 48 and 18"
+        messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
+        _updated, verified = await math_tools.augment_prompt_messages(messages, text, settings)
+        assert verified is not None
+        assert verified.canonical_fence == {"type": "answer", "content": "6"}
+        assert "```answer\n6\n```" in verified.text
+
+    @pytest.mark.asyncio
+    async def test_number_theory_factorize_answer_fence(self):
+        settings = Settings(
+            mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
+        )
+        text = "prime factorization of 60"
+        messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
+        _updated, verified = await math_tools.augment_prompt_messages(messages, text, settings)
+        assert verified is not None
+        assert verified.canonical_fence is not None
+        assert verified.canonical_fence["type"] == "answer"
+        assert "2^{2}" in verified.canonical_fence["content"]
+        assert "```answer" in verified.text
 
     @pytest.mark.asyncio
     async def test_matrix_produces_verified_block(self):

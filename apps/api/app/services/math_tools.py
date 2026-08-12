@@ -23,6 +23,7 @@ from app.models.math_schemas import (
     MatrixInput,
     NewtonMethodInput,
     NumberTheoryInput,
+    NumberTheoryResult,
     ParallelogramGeometryBlockSpec,
     ParallelogramInput,
     RectangleGeometryInput,
@@ -922,21 +923,32 @@ def _verified_block_numerical_method(
     lines.append(f"Newton's method for {newton_input.expr} = 0, x0 = {newton_input.initial_guess}:")
     for step in newton_result.iterations:
         lines.append(f"  n={step.n}: x_{step.n} = {step.x_n}, f(x_{step.n}) = {step.f_x_n}")
-    if newton_result.converged:
-        lines.append(
-            f"Converged after {newton_result.iterations_used} iterations: root ≈ {newton_result.root}"
-        )
-    else:
+    if not newton_result.converged or newton_result.root is None:
         lines.append(
             f"Did not converge within {newton_result.iterations_used} iterations "
             "(the derivative may have vanished, or more iterations are needed) — "
             "do NOT present a root as found."
         )
+        lines.append(
+            "Do NOT recompute or invent different iteration values. Show the "
+            "worked steps by COPYING the verified iteration table above verbatim."
+        )
+        # No ```answer — post-stream must not force a root that was not found.
+        return VerifiedMathBlock(text="\n".join(lines))
+
     lines.append(
-        "Do NOT recompute or invent different iteration values. Show the "
-        "worked steps by COPYING the verified iteration table above verbatim."
+        f"Converged after {newton_result.iterations_used} iterations: root ≈ {newton_result.root}"
     )
-    return VerifiedMathBlock(text="\n".join(lines))
+    answer = f"{newton_result.root:g}"
+    return _finish_with_answer(
+        lines,
+        answer,
+        preface=(
+            "Do NOT recompute or invent different iteration values. Show the "
+            "worked steps by COPYING the verified iteration table above verbatim. "
+            "End with this final-answer fence (copy verbatim):"
+        ),
+    )
 
 
 def _verified_block_rectangle(
@@ -1552,6 +1564,18 @@ def _verified_block_statistics(
     )
 
 
+def _format_number_theory_answer(result: NumberTheoryResult) -> str:
+    """Short final for ```answer — matches the verified step language."""
+    if result.operation == "factorize" and result.factors is not None:
+        parts = [f"{p}^{{{e}}}" if e > 1 else f"{p}" for p, e in sorted(result.factors.items())]
+        return " \\times ".join(parts)
+    if result.operation == "is_prime" and result.result_bool is not None:
+        return "prime" if result.result_bool else "not prime"
+    if result.result_int is not None:
+        return str(result.result_int)
+    return result.steps[-1] if result.steps else ""
+
+
 def _verified_block_combinatorics(
     intent: MathIntent, settings: Settings, lines: list[str]
 ) -> VerifiedMathBlock | None:
@@ -1564,8 +1588,12 @@ def _verified_block_combinatorics(
     )
     lines.extend(result.steps)
     lines.append(f"Result: {result.result}")
-    lines.append("Do NOT recompute — use this exact verified result.")
-    return VerifiedMathBlock(text="\n".join(lines))
+    return _finish_with_answer(
+        lines,
+        str(result.result),
+        preface="Do NOT recompute — use this exact verified result. "
+        "End with this final-answer fence (copy verbatim):",
+    )
 
 
 def _verified_block_number_theory(
@@ -1577,8 +1605,15 @@ def _verified_block_number_theory(
         NumberTheoryInput(operation=intent.numtheory_op, a=intent.numtheory_a, b=intent.numtheory_b)
     )
     lines.extend(result.steps)
-    lines.append("Do NOT recompute — use this exact verified result.")
-    return VerifiedMathBlock(text="\n".join(lines))
+    answer = _format_number_theory_answer(result)
+    if not answer:
+        return VerifiedMathBlock(text="\n".join(lines))
+    return _finish_with_answer(
+        lines,
+        answer,
+        preface="Do NOT recompute — use this exact verified result. "
+        "End with this final-answer fence (copy verbatim):",
+    )
 
 
 def _verified_block_matrix(
