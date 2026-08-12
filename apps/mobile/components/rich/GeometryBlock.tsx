@@ -12,15 +12,22 @@ import {
   computeTriangleLabels,
   computeTriangleSidesLabels,
   diagonalAngleArcPath,
+  equalSideTickCounts,
+  footOfPerpendicular,
+  isIsoscelesSides,
+  midpoint,
   parseGeometrySpec,
   rectangleAngleDisplay,
   scaleToFit,
+  shouldShowTicks,
+  sideTickMarks,
   triangleSidesVertices,
   type CircleSpec,
   type ParallelogramSpec,
   type RectangleSpec,
   type RightTriangleSpec,
   type SectorSpec,
+  type TickSegment,
   type TrapezoidSpec,
   type TriangleSidesSpec,
   type TriangleSpec,
@@ -35,7 +42,33 @@ function diagramColors(theme: Theme) {
     diagonal: theme.danger,
     height: theme.accent,
     hypotenuse: theme.danger,
+    median: theme.textSecondary,
   };
+}
+
+function TickMarks({
+  segments,
+  color,
+}: {
+  segments: TickSegment[];
+  color: string;
+}) {
+  return (
+    <>
+      {segments.map((seg, i) => (
+        <Line
+          key={`tick-${i}-${seg.x1}-${seg.y1}`}
+          x1={seg.x1}
+          y1={seg.y1}
+          x2={seg.x2}
+          y2={seg.y2}
+          stroke={color}
+          strokeWidth={1.5}
+          accessibilityLabel="side-tick-mark"
+        />
+      ))}
+    </>
+  );
 }
 
 function RectangleDiagram({ spec, screenWidth, theme }: { spec: RectangleSpec; screenWidth: number; theme: Theme }) {
@@ -53,6 +86,16 @@ function RectangleDiagram({ spec, screenWidth, theme }: { spec: RectangleSpec; s
   const isSquare = spec.type === "square";
   const corner = 12;
   const { showCornerBracket, showDiagonalAngleLabel } = rectangleAngleDisplay(spec);
+  const showTicks = shouldShowTicks(spec.show_ticks, true);
+  // Square: one tick on every side. Rectangle: 1 on the length pair, 2 on the width pair.
+  const tickSegments = showTicks
+    ? [
+        ...sideTickMarks(x, y, x + w, y, 1),
+        ...sideTickMarks(x, y + h, x + w, y + h, 1),
+        ...sideTickMarks(x, y, x, y + h, isSquare ? 1 : 2),
+        ...sideTickMarks(x + w, y, x + w, y + h, isSquare ? 1 : 2),
+      ]
+    : [];
 
   return (
     <Svg width={svgW} height={svgH}>
@@ -66,6 +109,7 @@ function RectangleDiagram({ spec, screenWidth, theme }: { spec: RectangleSpec; s
         strokeWidth={2}
         rx={isSquare ? 2 : 4}
       />
+      {tickSegments.length > 0 ? <TickMarks segments={tickSegments} color={theme.textSecondary} /> : null}
       {showCornerBracket ? (
         <>
           <Polygon
@@ -154,6 +198,12 @@ function TriangleDiagram({ spec, screenWidth, theme }: { spec: TriangleSpec; scr
   const svgW = b + offsetX + 48;
   const svgH = h + offsetY + 36;
   const showLabels = spec.show_labels !== false;
+  // Base-height triangle is drawn isosceles — equal legs get one tick each.
+  const showTicks = shouldShowTicks(spec.show_ticks, true);
+  const showAltitude = spec.show_altitude !== false;
+  const tickSegments = showTicks
+    ? [...sideTickMarks(x0, y0, x2, y2, 1), ...sideTickMarks(x1, y1, x2, y2, 1)]
+    : [];
 
   return (
     <Svg width={svgW} height={svgH}>
@@ -163,15 +213,19 @@ function TriangleDiagram({ spec, screenWidth, theme }: { spec: TriangleSpec; scr
         stroke={theme.primary}
         strokeWidth={2}
       />
-      <Line
-        x1={x2}
-        y1={y2}
-        x2={x2}
-        y2={y0}
-        stroke={colors.height}
-        strokeWidth={2}
-        strokeDasharray="5,4"
-      />
+      {showAltitude ? (
+        <Line
+          x1={x2}
+          y1={y2}
+          x2={x2}
+          y2={y0}
+          stroke={colors.height}
+          strokeWidth={2}
+          strokeDasharray="5,4"
+          accessibilityLabel="altitude-line"
+        />
+      ) : null}
+      {tickSegments.length > 0 ? <TickMarks segments={tickSegments} color={theme.textSecondary} /> : null}
       {showLabels ? (
         <>
           <SvgText x={(x0 + x1) / 2} y={y0 + 18} fill={theme.text} fontSize={13} fontWeight="600" textAnchor="middle">
@@ -333,6 +387,7 @@ function TriangleSidesDiagram({
   screenWidth: number;
   theme: Theme;
 }) {
+  const colors = diagramColors(theme);
   const labels = computeTriangleSidesLabels(spec);
   const raw = triangleSidesVertices(spec.a, spec.b, spec.c);
   const maxX = Math.max(raw.x0, raw.x1, raw.x2);
@@ -352,6 +407,24 @@ function TriangleSidesDiagram({
   const svgW = maxX * scale + offsetX * 2;
   const svgH = maxY * scale + offsetY + 36;
   const showLabels = spec.show_labels !== false;
+  const tickCounts = equalSideTickCounts(spec.a, spec.b, spec.c);
+  const hasEqualSides = tickCounts.a > 0 || tickCounts.b > 0 || tickCounts.c > 0;
+  const showTicks = shouldShowTicks(spec.show_ticks, hasEqualSides);
+  const showAltitude = spec.show_altitude !== false;
+  const showMedian =
+    spec.show_median === true || (spec.show_median !== false && isIsoscelesSides(spec.a, spec.b, spec.c));
+  const foot = footOfPerpendicular(p0.x, p0.y, p1.x, p1.y, p2.x, p2.y);
+  const mid = midpoint(p0.x, p0.y, p1.x, p1.y);
+  // When altitude and median coincide (isosceles with base a), draw one line.
+  const altitudeIsMedian =
+    Math.hypot(foot.x - mid.x, foot.y - mid.y) < 1.5;
+  const tickSegments = showTicks
+    ? [
+        ...sideTickMarks(p0.x, p0.y, p1.x, p1.y, tickCounts.a),
+        ...sideTickMarks(p1.x, p1.y, p2.x, p2.y, tickCounts.b),
+        ...sideTickMarks(p2.x, p2.y, p0.x, p0.y, tickCounts.c),
+      ]
+    : [];
 
   return (
     <Svg width={svgW} height={svgH}>
@@ -361,6 +434,43 @@ function TriangleSidesDiagram({
         stroke={theme.primary}
         strokeWidth={2}
       />
+      {showAltitude ? (
+        <Line
+          x1={p2.x}
+          y1={p2.y}
+          x2={foot.x}
+          y2={foot.y}
+          stroke={colors.height}
+          strokeWidth={2}
+          strokeDasharray="5,4"
+          accessibilityLabel="altitude-line"
+        />
+      ) : null}
+      {showMedian && !altitudeIsMedian ? (
+        <Line
+          x1={p2.x}
+          y1={p2.y}
+          x2={mid.x}
+          y2={mid.y}
+          stroke={colors.median}
+          strokeWidth={1.5}
+          strokeDasharray="2,3"
+          accessibilityLabel="median-line"
+        />
+      ) : null}
+      {showMedian && altitudeIsMedian && !showAltitude ? (
+        <Line
+          x1={p2.x}
+          y1={p2.y}
+          x2={mid.x}
+          y2={mid.y}
+          stroke={colors.median}
+          strokeWidth={1.5}
+          strokeDasharray="2,3"
+          accessibilityLabel="median-line"
+        />
+      ) : null}
+      {tickSegments.length > 0 ? <TickMarks segments={tickSegments} color={theme.textSecondary} /> : null}
       {showLabels ? (
         <>
           <SvgText x={(p0.x + p1.x) / 2} y={p0.y + 18} fill={theme.text} fontSize={13} fontWeight="600" textAnchor="middle">

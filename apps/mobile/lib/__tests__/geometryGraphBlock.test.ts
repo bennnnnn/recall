@@ -3,10 +3,15 @@ import {
   computeRectangleLabels,
   computeRightTriangleLabels,
   computeTriangleLabels,
+  equalSideTickCounts,
+  footOfPerpendicular,
+  isIsoscelesSides,
+  midpoint,
   parseGeometrySpec,
   diagonalAngleArcPath,
   rectangleAngleDisplay,
   scaleToFit,
+  sideTickMarks,
 } from "@/lib/geometryBlock";
 import { graphBounds, graphPolylinePoints, parseGraphSpec } from "@/lib/graphBlock";
 
@@ -177,6 +182,51 @@ describe("geometryBlock", () => {
       // End y is below the top (positive SVG y).
       const endY = Number(d.trim().split(/\s+/).pop());
       expect(endY).toBeGreaterThan(20);
+    });
+  });
+
+  describe("tick / altitude helpers", () => {
+    it("assigns matching tick counts to equal sides", () => {
+      expect(equalSideTickCounts(5, 5, 6)).toEqual({ a: 1, b: 1, c: 0 });
+      expect(equalSideTickCounts(3, 4, 5)).toEqual({ a: 0, b: 0, c: 0 });
+      expect(equalSideTickCounts(5, 5, 5)).toEqual({ a: 1, b: 1, c: 1 });
+    });
+
+    it("builds perpendicular tick segments at the side midpoint", () => {
+      const marks = sideTickMarks(0, 0, 10, 0, 1, 5);
+      expect(marks).toHaveLength(1);
+      expect(marks[0]?.x1).toBeCloseTo(5);
+      expect(marks[0]?.x2).toBeCloseTo(5);
+      expect(Math.abs((marks[0]?.y2 ?? 0) - (marks[0]?.y1 ?? 0))).toBeCloseTo(10);
+    });
+
+    it("computes the altitude foot and median midpoint", () => {
+      const foot = footOfPerpendicular(0, 0, 6, 0, 3, 4);
+      expect(foot.x).toBeCloseTo(3);
+      expect(foot.y).toBeCloseTo(0);
+      const mid = midpoint(0, 0, 6, 0);
+      expect(mid).toEqual({ x: 3, y: 0 });
+      expect(isIsoscelesSides(5, 5, 6)).toBe(true);
+      expect(isIsoscelesSides(3, 4, 5)).toBe(false);
+    });
+
+    it("parses show_ticks / show_altitude / show_median on triangle_sides", () => {
+      const spec = parseGeometrySpec(
+        JSON.stringify({
+          type: "triangle_sides",
+          a: 5,
+          b: 5,
+          c: 6,
+          show_ticks: true,
+          show_altitude: true,
+          show_median: true,
+        }),
+      );
+      expect(spec?.type).toBe("triangle_sides");
+      if (spec?.type !== "triangle_sides") return;
+      expect(spec.show_ticks).toBe(true);
+      expect(spec.show_altitude).toBe(true);
+      expect(spec.show_median).toBe(true);
     });
   });
 });

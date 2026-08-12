@@ -7,6 +7,8 @@ export type RectangleSpec = {
   show_angle?: boolean;
   show_area?: boolean;
   show_perimeter?: boolean;
+  /** School-diagram congruence ticks on equal sides (default on). */
+  show_ticks?: boolean;
   diagonal?: number;
   angle_deg?: number;
   area?: number;
@@ -20,6 +22,10 @@ export type TriangleSpec = {
   height: number;
   unit?: string;
   show_labels?: boolean;
+  /** Congruence tick marks on equal legs (default on). */
+  show_ticks?: boolean;
+  /** Dashed altitude from apex to base (default on — already the height line). */
+  show_altitude?: boolean;
   area?: number;
   labels?: Record<string, string>;
 };
@@ -58,6 +64,12 @@ export type TriangleSidesSpec = {
   c: number;
   unit?: string;
   show_labels?: boolean;
+  /** Congruence ticks on equal sides (default on when any sides match). */
+  show_ticks?: boolean;
+  /** Altitude from the apex (opp. side a) to side a (default on). */
+  show_altitude?: boolean;
+  /** Median from the apex to the midpoint of side a (default off; on for isosceles). */
+  show_median?: boolean;
   area?: number;
   labels?: Record<string, string>;
 };
@@ -155,6 +167,8 @@ function parseRectangle(row: Record<string, unknown>): RectangleSpec | null {
   if (row.show_angle === true) spec.show_angle = true;
   if (row.show_area === true) spec.show_area = true;
   if (row.show_perimeter === true) spec.show_perimeter = true;
+  if (row.show_ticks === true) spec.show_ticks = true;
+  if (row.show_ticks === false) spec.show_ticks = false;
   const diagonal = Number(row.diagonal);
   if (Number.isFinite(diagonal)) spec.diagonal = diagonal;
   const angle = Number(row.angle_deg);
@@ -185,6 +199,10 @@ function parseTriangle(row: Record<string, unknown>): TriangleSpec | null {
   const unit = String(row.unit ?? "cm").trim();
   if (unit) spec.unit = unit;
   if (row.show_labels === true) spec.show_labels = true;
+  if (row.show_ticks === true) spec.show_ticks = true;
+  if (row.show_ticks === false) spec.show_ticks = false;
+  if (row.show_altitude === true) spec.show_altitude = true;
+  if (row.show_altitude === false) spec.show_altitude = false;
   const area = Number(row.area);
   if (Number.isFinite(area)) spec.area = area;
   spec.labels = readLabels(row);
@@ -252,6 +270,12 @@ function parseTriangleSides(row: Record<string, unknown>): TriangleSidesSpec | n
   const unit = String(row.unit ?? "cm").trim();
   if (unit) spec.unit = unit;
   if (row.show_labels === true) spec.show_labels = true;
+  if (row.show_ticks === true) spec.show_ticks = true;
+  if (row.show_ticks === false) spec.show_ticks = false;
+  if (row.show_altitude === true) spec.show_altitude = true;
+  if (row.show_altitude === false) spec.show_altitude = false;
+  if (row.show_median === true) spec.show_median = true;
+  if (row.show_median === false) spec.show_median = false;
   const area = Number(row.area);
   if (Number.isFinite(area)) spec.area = area;
   spec.labels = readLabels(row);
@@ -411,6 +435,111 @@ export function triangleSidesVertices(
   const cx = (b * b + a * a - c * c) / (2 * a);
   const cy = Math.sqrt(Math.max(0, b * b - cx * cx));
   return { x0: 0, y0: 0, x1: a, y1: 0, x2: cx, y2: cy };
+}
+
+export type TickSegment = { x1: number; y1: number; x2: number; y2: number };
+
+/**
+ * Congruence hash marks at the midpoint of a side, perpendicular to it.
+ * `count` is the number of parallel ticks (1 / 2 / 3 for distinct equal groups).
+ */
+export function sideTickMarks(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  count: number,
+  halfLen = 5,
+  spacing = 4,
+): TickSegment[] {
+  if (count <= 0) return [];
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len;
+  const uy = dy / len;
+  const px = -uy;
+  const py = ux;
+  const mx = (x1 + x2) / 2;
+  const my = (y1 + y2) / 2;
+  const start = -((count - 1) / 2) * spacing;
+  const marks: TickSegment[] = [];
+  for (let i = 0; i < count; i++) {
+    const ox = mx + ux * (start + i * spacing);
+    const oy = my + uy * (start + i * spacing);
+    marks.push({
+      x1: ox - px * halfLen,
+      y1: oy - py * halfLen,
+      x2: ox + px * halfLen,
+      y2: oy + py * halfLen,
+    });
+  }
+  return marks;
+}
+
+/** Tick counts for triangle sides a/b/c — 0 when unique, else 1/2/3 by equal-length group. */
+export function equalSideTickCounts(
+  a: number,
+  b: number,
+  c: number,
+  eps = 1e-6,
+): { a: number; b: number; c: number } {
+  const sides: Array<{ key: "a" | "b" | "c"; len: number }> = [
+    { key: "a", len: a },
+    { key: "b", len: b },
+    { key: "c", len: c },
+  ];
+  const used = new Set<"a" | "b" | "c">();
+  const out = { a: 0, b: 0, c: 0 };
+  let groupMark = 1;
+  for (const side of sides) {
+    if (used.has(side.key)) continue;
+    const group = sides.filter((other) => Math.abs(other.len - side.len) <= eps);
+    if (group.length < 2) {
+      used.add(side.key);
+      continue;
+    }
+    for (const member of group) {
+      out[member.key] = groupMark;
+      used.add(member.key);
+    }
+    groupMark += 1;
+  }
+  return out;
+}
+
+/** Foot of the perpendicular from C onto the line through A–B (not clamped). */
+export function footOfPerpendicular(
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+  cx: number,
+  cy: number,
+): { x: number; y: number } {
+  const abx = bx - ax;
+  const aby = by - ay;
+  const ab2 = abx * abx + aby * aby || 1;
+  const t = ((cx - ax) * abx + (cy - ay) * aby) / ab2;
+  return { x: ax + t * abx, y: ay + t * aby };
+}
+
+export function midpoint(ax: number, ay: number, bx: number, by: number): { x: number; y: number } {
+  return { x: (ax + bx) / 2, y: (ay + by) / 2 };
+}
+
+/** True when two of the three sides match (isosceles, including equilateral). */
+export function isIsoscelesSides(a: number, b: number, c: number, eps = 1e-6): boolean {
+  return (
+    Math.abs(a - b) <= eps || Math.abs(a - c) <= eps || Math.abs(b - c) <= eps
+  );
+}
+
+/** Whether congruence ticks should render (explicit flag, else default on). */
+export function shouldShowTicks(showTicks: boolean | undefined, defaultOn = true): boolean {
+  if (showTicks === false) return false;
+  if (showTicks === true) return true;
+  return defaultOn;
 }
 
 export function computeTrapezoidLabels(spec: TrapezoidSpec): Record<string, string> {

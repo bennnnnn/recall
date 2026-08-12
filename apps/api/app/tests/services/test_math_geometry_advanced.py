@@ -104,6 +104,23 @@ class TestAugmentPromptMessagesForNewShapes:
         assert verified is not None
         assert verified.canonical_fence is not None
         assert verified.canonical_fence["type"] == "triangle_sides"
+        assert verified.canonical_fence["show_altitude"] is True
+        assert verified.canonical_fence["show_ticks"] is True
+        # Scalene — median cue stays off (altitude alone is enough).
+        assert verified.canonical_fence["show_median"] is False
+
+    @pytest.mark.asyncio
+    async def test_isosceles_triangle_sides_enables_median_cue(self):
+        settings = Settings(
+            mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
+        )
+        text = "triangle with sides 5, 5, 6"
+        messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
+        _, verified = await math_tools.augment_prompt_messages(messages, text, settings)
+        assert verified is not None
+        assert verified.canonical_fence is not None
+        assert verified.canonical_fence["type"] == "triangle_sides"
+        assert verified.canonical_fence["show_median"] is True
 
     @pytest.mark.asyncio
     async def test_plain_circle_still_works(self):

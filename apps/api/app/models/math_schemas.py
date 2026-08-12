@@ -390,6 +390,8 @@ class TriangleGeometryBlockSpec(BaseModel):
     height: float = Field(gt=0, le=1_000_000)
     unit: str = "cm"
     show_labels: bool = True
+    show_ticks: bool = True
+    show_altitude: bool = True
     area: float | None = None
     labels: dict[str, str] = Field(default_factory=dict)
 
@@ -414,6 +416,9 @@ class TriangleSidesGeometryBlockSpec(BaseModel):
     c: float = Field(gt=0, le=1_000_000)
     unit: str = "cm"
     show_labels: bool = True
+    show_ticks: bool = True
+    show_altitude: bool = True
+    show_median: bool = False
     area: float | None = None
     labels: dict[str, str] = Field(default_factory=dict)
 
@@ -483,6 +488,7 @@ class GeometryBlockSpec(BaseModel):
     show_angle: bool = False
     show_area: bool = False
     show_perimeter: bool = False
+    show_ticks: bool = True
     diagonal: float | None = None
     angle_deg: float | None = None
     area: float | None = None
