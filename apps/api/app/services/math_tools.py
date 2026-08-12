@@ -971,6 +971,7 @@ def _verified_block_rectangle(
         show_angle=show_angle,
         show_area=show_area,
         show_perimeter=show_perimeter,
+        show_ticks=True,
         diagonal=rect_geo.diagonal,
         angle_deg=rect_geo.angle_deg,
         area=rect_geo.area,
@@ -1007,6 +1008,7 @@ def _verified_block_square(
         show_diagonal=True,
         show_area=True,
         show_perimeter=True,
+        show_ticks=True,
         diagonal=square_geo.diagonal,
         area=square_geo.area,
         perimeter=square_geo.perimeter,
@@ -1071,6 +1073,8 @@ def _verified_block_triangle(
         height=tri_geo.height,
         unit=tri_geo.unit,
         show_labels=True,
+        show_ticks=True,
+        show_altitude=True,
         area=tri_geo.area,
         labels=tri_geo.labels,
     )
@@ -1130,6 +1134,11 @@ def _verified_block_triangle_sides(
         f"perimeter={tri_geo.perimeter:g} {tri_geo.unit} "
         f"angles={tri_geo.angle_a_deg:g}°/{tri_geo.angle_b_deg:g}°/{tri_geo.angle_c_deg:g}°"
     )
+    isosceles = (
+        abs(tri_geo.a - tri_geo.b) < 1e-9
+        or abs(tri_geo.a - tri_geo.c) < 1e-9
+        or abs(tri_geo.b - tri_geo.c) < 1e-9
+    )
     tri_spec = TriangleSidesGeometryBlockSpec(
         type="triangle_sides",
         a=tri_geo.a,
@@ -1137,6 +1146,9 @@ def _verified_block_triangle_sides(
         c=tri_geo.c,
         unit=tri_geo.unit,
         show_labels=True,
+        show_ticks=True,
+        show_altitude=True,
+        show_median=isosceles,
         area=tri_geo.area,
         labels=tri_geo.labels,
     )

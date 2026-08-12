@@ -120,4 +120,44 @@ describe("GeometryBlock", () => {
     // Bracket (90°) must stay off when the diagonal angle is shown.
     expect(tree).not.toContain("right-angle-mark");
   });
+
+  it("draws side tick marks on a square by default", async () => {
+    const content = JSON.stringify({ type: "square", side: 5, unit: "cm" });
+    const { toJSON } = await render(<GeometryBlock content={content} />);
+    expect(JSON.stringify(toJSON())).toContain("side-tick-mark");
+  });
+
+  it("draws altitude and equal-side ticks on an isosceles SSS triangle", async () => {
+    const content = JSON.stringify({
+      type: "triangle_sides",
+      a: 6,
+      b: 5,
+      c: 5,
+      unit: "cm",
+      show_altitude: true,
+      show_ticks: true,
+      show_median: true,
+    });
+    const { toJSON } = await render(<GeometryBlock content={content} />);
+    const tree = JSON.stringify(toJSON());
+    expect(tree).toContain("altitude-line");
+    expect(tree).toContain("side-tick-mark");
+  });
+
+  it("draws a separate median when scalene and show_median is set", async () => {
+    const content = JSON.stringify({
+      type: "triangle_sides",
+      a: 3,
+      b: 4,
+      c: 5,
+      unit: "cm",
+      show_altitude: true,
+      show_median: true,
+      show_ticks: false,
+    });
+    const { toJSON } = await render(<GeometryBlock content={content} />);
+    const tree = JSON.stringify(toJSON());
+    expect(tree).toContain("altitude-line");
+    expect(tree).toContain("median-line");
+  });
 });
