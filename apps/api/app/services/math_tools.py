@@ -1749,8 +1749,10 @@ async def build_math_augmentation(
     if intent is None and has_image_attachment:
         lines = [
             "The user attached an image that may contain a math problem. "
-            "Extract the equation as lhs/rhs if possible, then explain using verified reasoning. "
-            "Use $...$ for formulas and ```geometry / ```graph JSON fences for diagrams."
+            "Extract the equation as lhs/rhs if possible, then explain carefully. "
+            "Do NOT claim SymPy verification unless a verified system block is present. "
+            "Use $...$ for formulas and ```geometry / ```graph JSON fences for diagrams "
+            "only when printed dimensions/points are known — never invent measures."
         ]
         return "\n".join(lines), None
 
@@ -1759,8 +1761,23 @@ async def build_math_augmentation(
 
     verified = await _build_verified_block_async(intent, settings)
     if not verified:
-        return None, None
+        # Intent matched but SymPy timed out / rejected / had no builder result.
+        # Inject honesty so the model does not reuse the same "verified" UX.
+        return _unverified_math_note(intent.kind), None
     return verified.text, verified
+
+
+def _unverified_math_note(kind: str) -> str:
+    """System note when symbolic intent fired but no VerifiedMathBlock landed."""
+    return (
+        "Math note: a symbolic problem was detected "
+        f"(kind={kind}), but SymPy could not produce a verified result "
+        "(timeout, unsupported expression, or incomplete extract).\n"
+        "Explain carefully and show your work. Do NOT claim the answer was "
+        "SymPy-verified. You may still use a ```answer fence for the final "
+        "result, but mark uncertainty when you are unsure. "
+        "Do not invent geometry/graph dimensions or point lists."
+    )
 
 
 async def augment_prompt_messages(
@@ -1811,4 +1828,9 @@ async def _build_verified_block_async(
             settings.math_solve_timeout_seconds,
             intent.kind,
         )
+        return None
+    except math_service.MathServiceError as exc:
+        # Sync builder also catches this; keep the async boundary honest if a
+        # patched/edge path raises through the executor.
+        logger.info("math_tools skipped: %s", exc)
         return None
