@@ -1,7 +1,8 @@
 /**
  * Unicode superscript / subscript characters for the Expo-Go math fallback.
  *
- * `MathText` renders math as native Text (no KaTeX WebView in Expo Go). Its
+ * `MathText` renders math as native Text when no inline-HTML WebView is
+ * available (neither RNC nor `@expo/dom-webview`). Its
  * `sup`/`sub` styles are just smaller text at the baseline — they don't raise
  * the exponent, so `2^x` reads as `2_x` (subscript) instead of `2ˣ`. Mapping
  * exponents to real Unicode superscripts makes them render raised in plain

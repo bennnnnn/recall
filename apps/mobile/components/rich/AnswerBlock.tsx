@@ -7,6 +7,7 @@ import { MathText } from "@/components/rich/MathText";
 import { isHeavyInlineMath, stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/mathFenceRetag";
 import { splitInlineMath } from "@/lib/markdownPreprocess";
 import { Theme, useTheme } from "@/lib/theme";
+import { supportsInlineHtmlMathWebView } from "@/lib/mathWebViewSupport";
 import { getPreviewWebView } from "@/lib/webView";
 
 type Props = { content: string };
@@ -40,7 +41,7 @@ export function AnswerBlock({ content }: Props) {
   const parts = splitInlineMath(text);
   const hasInlineMath = parts.some((p) => p.type === "math");
   const preview = getPreviewWebView();
-  const useKatex = answerNeedsKatex(text) && preview?.mode === "rnc";
+  const useKatex = answerNeedsKatex(text) && supportsInlineHtmlMathWebView(preview?.mode);
 
   return (
     <View style={s.row} accessibilityRole="text" accessibilityLabel={t("rich.answer_a11y", { text })}>

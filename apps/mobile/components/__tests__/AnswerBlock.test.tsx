@@ -12,7 +12,7 @@ jest.mock("@/components/rich/MathFormulaWebView", () => ({
 }));
 
 jest.mock("@/lib/webView", () => ({
-  getPreviewWebView: () => ({ mode: "rnc" }),
+  getPreviewWebView: () => ({ mode: "expo-dom" }),
 }));
 
 jest.mock("@expo/vector-icons", () => ({ Ionicons: "Ionicons" }));
@@ -45,5 +45,11 @@ describe("AnswerBlock", () => {
     expect(props.displayMode).toBe(true);
     expect(props.compact).toBeUndefined();
     expect(props.latex).toBe(latex);
+  });
+
+  it("uses KaTeX for heavy answers when only expo-dom WebView is available (Expo Go)", async () => {
+    const latex = String.raw`\begin{matrix}a&b\\c&d\end{matrix}`;
+    await render(<AnswerBlock content={latex} />);
+    expect(mockFormula).toHaveBeenCalled();
   });
 });

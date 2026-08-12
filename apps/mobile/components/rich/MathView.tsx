@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { MathFormulaWebView } from "@/components/rich/MathFormulaWebView";
 import { MathText } from "@/components/rich/MathText";
+import { supportsInlineHtmlMathWebView } from "@/lib/mathWebViewSupport";
 import { getPreviewWebView } from "@/lib/webView";
 import { splitMathLines } from "@/lib/mathText";
 import { stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/mathFenceRetag";
@@ -38,7 +39,8 @@ export const MathBlock = React.memo(function MathBlock({ latex }: { latex: strin
   }
 
   const preview = getPreviewWebView();
-  if (preview?.mode === "rnc") {
+  // RNC (dev client) or expo-dom (Expo Go) — both can host inline KaTeX HTML.
+  if (supportsInlineHtmlMathWebView(preview?.mode)) {
     return (
       <View style={s.wrap}>
         <MathFormulaWebView
