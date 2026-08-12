@@ -626,8 +626,12 @@ class MathIntent(BaseModel):
     expr: str | None = None
     variable: str = "x"
     # Inequality comparator (canonical: "<", ">", "<=", ">=") — only set when
-    # kind == "inequality".
+    # kind == "inequality". For compound ``low OP mid OP high``, ``comparator``
+    # is the lower op and ``comparator_upper`` the upper; ``lower`` holds the
+    # low bound and ``lhs``/``rhs`` are mid/high.
     comparator: str | None = None
+    comparator_upper: str | None = None
+    lower: str | None = None
     width: float | None = None
     height: float | None = None
     base: float | None = None

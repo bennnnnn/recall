@@ -6,6 +6,7 @@ import logging
 import math
 import re
 import statistics as _stats
+from itertools import pairwise
 from typing import Any, Literal
 
 import numpy as np
@@ -118,6 +119,48 @@ _LATEX_FUNCTION_RE = re.compile(
 )
 
 
+def _rewrite_bare_abs_bars(expr: str) -> str:
+    """Rewrite paired ``|inner|`` → ``Abs(inner)``.
+
+    Bare pipes are rejected by the expression allowlist; converting first lets
+    homework like ``|x-2|<5`` reach SymPy without loosening ``_SAFE_EXPR_CHARS``.
+    Unbalanced ``|`` is left as-is (still rejected later).
+    """
+    out: list[str] = []
+    i = 0
+    n = len(expr)
+    while i < n:
+        if expr[i] != "|":
+            out.append(expr[i])
+            i += 1
+            continue
+        depth = 0
+        j = i + 1
+        found = -1
+        while j < n:
+            ch = expr[j]
+            if ch == "|" and depth == 0:
+                found = j
+                break
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth = max(0, depth - 1)
+            j += 1
+        if found == -1:
+            out.append("|")
+            i += 1
+            continue
+        inner = expr[i + 1 : found]
+        if not inner.strip():
+            out.append("|")
+            i += 1
+            continue
+        out.append(f"Abs({inner})")
+        i = found + 1
+    return "".join(out)
+
+
 def _normalize_latex_to_sympy(expr: str) -> str:
     """Expand common LaTeX so pasted/OCR homework can pass the safe-char gate."""
     s = expr
@@ -136,6 +179,7 @@ def _normalize_latex_to_sympy(expr: str) -> str:
         if nxt == s:
             break
         s = nxt
+    s = _rewrite_bare_abs_bars(s)
     return s
 
 
@@ -188,7 +232,12 @@ def _reject_unsafe_expr(normalized: str) -> None:
         raise MathServiceError("Invalid expression")
 
 
-def _parse_expression(expr: str, variable_names: list[str] | None = None):
+def _parse_expression(
+    expr: str,
+    variable_names: list[str] | None = None,
+    *,
+    real: bool = False,
+):
     normalized = _normalize_expr(expr)
     if len(normalized) > 512:
         raise MathServiceError("Expression too long")
@@ -196,7 +245,7 @@ def _parse_expression(expr: str, variable_names: list[str] | None = None):
     local_dict = dict(_LOCALS)
     if variable_names:
         for name in variable_names:
-            local_dict[name] = Symbol(name)
+            local_dict[name] = Symbol(name, real=True) if real else Symbol(name)
     try:
         return parse_expr(
             normalized,
@@ -208,9 +257,15 @@ def _parse_expression(expr: str, variable_names: list[str] | None = None):
         raise MathServiceError(f"Could not parse expression: {expr}") from exc
 
 
+def _expr_needs_real_domain(*parts: str) -> bool:
+    """Abs-value homework needs a real domain; SymPy rejects Abs(complex) solve."""
+    return any("Abs(" in p or "abs(" in p for p in parts)
+
+
 def parse_equation(data: EquationInput) -> tuple[Any, Any, list[Any]]:
-    lhs = _parse_expression(data.lhs, data.variables)
-    rhs = _parse_expression(data.rhs, data.variables)
+    real = _expr_needs_real_domain(data.lhs, data.rhs)
+    lhs = _parse_expression(data.lhs, data.variables, real=real)
+    rhs = _parse_expression(data.rhs, data.variables, real=real)
     return Eq(lhs, rhs), lhs, rhs
 
 
@@ -293,7 +348,8 @@ def _classify_no_solution(lhs: Any, rhs: Any) -> Literal["none", "infinite"]:
 
 def solve_equation(data: EquationInput) -> MathSolveResult:
     equation, lhs, rhs = parse_equation(data)
-    syms = [Symbol(v) for v in data.variables]
+    real = _expr_needs_real_domain(data.lhs, data.rhs)
+    syms = [Symbol(v, real=True) if real else Symbol(v) for v in data.variables]
     try:
         raw_solutions = solve(equation, syms, dict=True)
     except Exception as exc:
@@ -992,6 +1048,61 @@ _INEQ_OPS: tuple[tuple[str, str], ...] = (
 )
 
 
+def _find_inequality_ops(cleaned: str) -> list[tuple[int, int, str]]:
+    """Non-overlapping ``(start, end, canon)`` hits, longest-op-first at each index."""
+    hits: list[tuple[int, int, str]] = []
+    i = 0
+    n = len(cleaned)
+    while i < n:
+        matched: tuple[int, int, str] | None = None
+        for op, canon in _INEQ_OPS:
+            if cleaned.startswith(op, i):
+                after = i + len(op)
+                if op in ("\\le", "\\ge") and after < n and cleaned[after].isalpha():
+                    continue
+                matched = (i, after, canon)
+                break
+        if matched is not None:
+            hits.append(matched)
+            i = matched[1]
+        else:
+            i += 1
+    return hits
+
+
+def try_extract_compound_inequality_from_text(
+    text: str,
+) -> tuple[str, str, str, str, str] | None:
+    """Extract ``low OP mid OP high`` (e.g. ``1 < x < 5``).
+
+    Returns ``(low, low_op, mid, high_op, high)`` with canonical ops, or None.
+    Must run before single-op extract so ``1 < x < 5`` is not eaten as ``1 < x``.
+    """
+    cleaned = _normalize_latex_to_sympy(_strip_leading_verb(text))
+    hits = _find_inequality_ops(cleaned)
+    if len(hits) < 2:
+        return None
+    for a, b in pairwise(hits):
+        left = a[0]
+        while left > 0 and cleaned[left - 1] in _EQUATION_SIDE_CHARS:
+            left -= 1
+        low = cleaned[left : a[0]].strip()
+        mid = cleaned[a[1] : b[0]].strip()
+        right = b[1]
+        while right < len(cleaned) and cleaned[right] in _EQUATION_SIDE_CHARS:
+            right += 1
+        high = cleaned[b[1] : right].strip()
+        if not (
+            _is_equation_side(low)
+            and _is_equation_side(mid)
+            and _is_equation_side(high)
+            and any(c.isalpha() for c in mid)
+        ):
+            continue
+        return low, a[2], mid, b[2], high
+    return None
+
+
 def try_extract_inequality_from_text(text: str) -> tuple[str, str, str] | None:
     """Best-effort extraction of a single `lhs OP rhs` inequality (OP ∈
     <, >, ≤, ≥, \\leq, \\geq, \\le, \\ge). Returns (lhs, rhs, canonical_comparator)
@@ -1000,32 +1111,77 @@ def try_extract_inequality_from_text(text: str) -> tuple[str, str, str] | None:
     never reaches here — bare < / > is safe in that context."""
     cleaned = _normalize_latex_to_sympy(_strip_leading_verb(text))
     best: tuple[int, str, str, str] | None = None  # (index, lhs, rhs, canon)
-    for op, canon in _INEQ_OPS:
-        idx = 0
-        while True:
-            i = cleaned.find(op, idx)
-            if i == -1:
-                break
-            after = i + len(op)
-            if op in ("\\le", "\\ge") and after < len(cleaned) and cleaned[after].isalpha():
-                idx = i + 1
-                continue
-            left = i
-            while left > 0 and cleaned[left - 1] in _EQUATION_SIDE_CHARS:
-                left -= 1
-            right = after
-            while right < len(cleaned) and cleaned[right] in _EQUATION_SIDE_CHARS:
-                right += 1
-            lhs = cleaned[left:i].strip()
-            rhs = cleaned[after:right].strip()
-            if _is_equation_side(lhs) and _is_equation_side(rhs):
-                if best is None or i < best[0]:
-                    best = (i, lhs, rhs, canon)
-                break
-            idx = i + 1
+    for start, after, canon in _find_inequality_ops(cleaned):
+        left = start
+        while left > 0 and cleaned[left - 1] in _EQUATION_SIDE_CHARS:
+            left -= 1
+        right = after
+        while right < len(cleaned) and cleaned[right] in _EQUATION_SIDE_CHARS:
+            right += 1
+        lhs = cleaned[left:start].strip()
+        rhs = cleaned[after:right].strip()
+        if _is_equation_side(lhs) and _is_equation_side(rhs):
+            if best is None or start < best[0]:
+                best = (start, lhs, rhs, canon)
     if best is None:
         return None
     return best[1], best[2], best[3]
+
+
+def solve_compound_inequality(
+    low: str,
+    low_op: str,
+    mid: str,
+    high_op: str,
+    high: str,
+    variable: str,
+) -> MathSolveResult:
+    """Solve ``low OP mid OP high`` (e.g. ``1 < x <= 3``) as an And of relations."""
+    from sympy import Ge, Gt, Le, Lt, S, solveset
+
+    sym = Symbol(variable, real=True)
+    low_e = _parse_expression(low, [variable], real=True)
+    mid_e = _parse_expression(mid, [variable], real=True)
+    high_e = _parse_expression(high, [variable], real=True)
+
+    ascending = low_op in ("<", "<=") and high_op in ("<", "<=")
+    descending = low_op in (">", ">=") and high_op in (">", ">=")
+    if ascending:
+        lower_rel = Gt(mid_e, low_e) if low_op == "<" else Ge(mid_e, low_e)
+        upper_rel = Lt(mid_e, high_e) if high_op == "<" else Le(mid_e, high_e)
+    elif descending:
+        # ``5 > x > 1`` → x < 5 and x > 1
+        lower_rel = Lt(mid_e, low_e) if low_op == ">" else Le(mid_e, low_e)
+        upper_rel = Gt(mid_e, high_e) if high_op == ">" else Ge(mid_e, high_e)
+    else:
+        raise MathServiceError(
+            f"Unsupported compound inequality direction: {low} {low_op} {mid} {high_op} {high}"
+        )
+
+    try:
+        # solveset rejects And(...); solve each side and intersect on Reals.
+        sol = solveset(lower_rel, sym, domain=S.Reals).intersect(
+            solveset(upper_rel, sym, domain=S.Reals)
+        )
+    except Exception as exc:
+        raise MathServiceError(
+            f"Could not solve compound inequality: {low} {low_op} {mid} {high_op} {high}"
+        ) from exc
+
+    sol_latex = latex(sol)
+    cmp_latex = {"<": "<", ">": ">", "<=": "\\leq", ">=": "\\geq"}
+    return MathSolveResult(
+        solutions_latex=[sol_latex],
+        steps=[
+            (
+                f"Compound inequality: {latex(low_e)} {cmp_latex[low_op]} "
+                f"{latex(mid_e)} {cmp_latex[high_op]} {latex(high_e)}"
+            ),
+            f"Solution: {sol_latex}",
+        ],
+        lhs_latex=latex(mid_e),
+        rhs_latex=f"{latex(low_e)}, {latex(high_e)}",
+    )
 
 
 def solve_inequality(lhs: str, rhs: str, variable: str, comparator: str) -> MathSolveResult:
@@ -1036,17 +1192,22 @@ def solve_inequality(lhs: str, rhs: str, variable: str, comparator: str) -> Math
     every other expression; the relational is built from SymPy Lt/Gt/Le/Ge, so
     no user string is eval'd.
     """
-    from sympy import Ge, Gt, Le, Lt, solve_univariate_inequality
+    from sympy import Ge, Gt, Le, Lt, S, solve_univariate_inequality, solveset
 
-    sym = Symbol(variable)
-    left = _parse_expression(lhs, [variable])
-    right = _parse_expression(rhs, [variable])
+    real = _expr_needs_real_domain(lhs, rhs)
+    sym = Symbol(variable, real=True) if real else Symbol(variable)
+    left = _parse_expression(lhs, [variable], real=real)
+    right = _parse_expression(rhs, [variable], real=real)
     diff_expr = simplify(left - right)
     rel_cls = {"<": Lt, ">": Gt, "<=": Le, ">=": Ge}.get(comparator)
     if rel_cls is None:
         raise MathServiceError(f"Unknown inequality comparator: {comparator}")
+    rel = rel_cls(diff_expr, 0)
     try:
-        sol = solve_univariate_inequality(rel_cls(diff_expr, 0), sym)
+        if real:
+            sol = solveset(rel_cls(left, right), sym, domain=S.Reals)
+        else:
+            sol = solve_univariate_inequality(rel, sym)
     except Exception as exc:  # NotImplementedError / non-univariate / etc.
         raise MathServiceError(f"Could not solve inequality: {lhs} {comparator} {rhs}") from exc
     sol_latex = latex(sol)

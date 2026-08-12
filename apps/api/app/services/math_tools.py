@@ -676,6 +676,20 @@ def _extract_inequality_intent(cleaned: str) -> MathIntent | None:
     # Inequality — only reached when a math keyword already matched (this
     # function is called solely from needs_symbolic_math-gated paths), so bare
     # < / > here is safe from prose false-positives like "less than 5 minutes".
+    compound = math_service.try_extract_compound_inequality_from_text(cleaned)
+    if compound is not None:
+        low, low_op, mid, high_op, high = compound
+        variables = math_service.guess_variables(f"{low} {mid} {high}")
+        return MathIntent(
+            kind="inequality",
+            lower=low,
+            lhs=mid,
+            rhs=high,
+            comparator=low_op,
+            comparator_upper=high_op,
+            operation="solve",
+            variable=variables[0] if variables else "x",
+        )
     ineq = math_service.try_extract_inequality_from_text(cleaned)
     if not ineq:
         return None
@@ -811,12 +825,23 @@ def _verified_block_inequality(
 ) -> VerifiedMathBlock | None:
     if not (intent.lhs and intent.rhs and intent.comparator):
         return None
-    result = math_service.solve_inequality(
-        intent.lhs[: settings.math_max_expr_length],
-        intent.rhs[: settings.math_max_expr_length],
-        intent.variable,
-        intent.comparator,
-    )
+    max_len = settings.math_max_expr_length
+    if intent.lower is not None and intent.comparator_upper is not None:
+        result = math_service.solve_compound_inequality(
+            intent.lower[:max_len],
+            intent.comparator,
+            intent.lhs[:max_len],
+            intent.comparator_upper,
+            intent.rhs[:max_len],
+            intent.variable,
+        )
+    else:
+        result = math_service.solve_inequality(
+            intent.lhs[:max_len],
+            intent.rhs[:max_len],
+            intent.variable,
+            intent.comparator,
+        )
     lines.extend(result.steps)
     answer = _format_equation_answer(result.solutions_latex, result.solution_kind)
     lines.append(

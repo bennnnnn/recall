@@ -2,10 +2,12 @@ import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
+import { MathFormulaWebView } from "@/components/rich/MathFormulaWebView";
 import { MathText } from "@/components/rich/MathText";
-import { stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/mathFenceRetag";
+import { isHeavyInlineMath, stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/mathFenceRetag";
 import { splitInlineMath } from "@/lib/markdownPreprocess";
 import { Theme, useTheme } from "@/lib/theme";
+import { getPreviewWebView } from "@/lib/webView";
 
 type Props = { content: string };
 
@@ -16,16 +18,19 @@ function normalizeAnswerContent(raw: string): string {
   return stripEmbeddedDollarWraps(stripRedundantDollarWrap(text));
 }
 
+function answerNeedsKatex(text: string): boolean {
+  if (isHeavyInlineMath(text)) return true;
+  return splitInlineMath(text).some((p) => p.type === "math" && isHeavyInlineMath(p.value));
+}
+
 /**
  * Final answer — same gray surface as other math blocks, no Copy affordance.
  * (```answer / short numeric or simplified-expression finals only.)
  *
- * Always renders via native `MathText` (no WebView). A WebView in the
- * centered gray box had no intrinsic width — `alignSelf: "center"` collapsed
- * it to a thin vertical sliver (the "thin line" artifact), and its
- * grow-only/overshooting height reports stretched the box into a tall pill.
- * `MathText` handles every token a final answer uses (\pm → ±, \text{},
- * \sqrt{}, \frac, superscripts, Greek) with reliable native layout.
+ * Light answers stay on native `MathText`. Heavy LaTeX environments
+ * (`\begin{cases|matrix|aligned|…}`) use the KaTeX WebView in **stretch
+ * displayMode** — never `compact` + centered zero-width wrap, which used to
+ * collapse into a thin vertical sliver / tall pill inside this gray box.
  */
 export function AnswerBlock({ content }: Props) {
   const theme = useTheme();
@@ -34,11 +39,21 @@ export function AnswerBlock({ content }: Props) {
   const text = normalizeAnswerContent(content);
   const parts = splitInlineMath(text);
   const hasInlineMath = parts.some((p) => p.type === "math");
+  const preview = getPreviewWebView();
+  const useKatex = answerNeedsKatex(text) && preview?.mode === "rnc";
 
   return (
     <View style={s.row} accessibilityRole="text" accessibilityLabel={t("rich.answer_a11y", { text })}>
-      <View style={s.box}>
-        {hasInlineMath ? (
+      <View style={[s.box, useKatex ? s.boxStretch : null]}>
+        {useKatex ? (
+          <MathFormulaWebView
+            latex={text}
+            displayMode
+            minHeight={48}
+            textColor={theme.text}
+            bgColor={theme.surfaceAlt}
+          />
+        ) : hasInlineMath ? (
           <Text style={s.answer} selectable>
             {parts.map((part, i) =>
               part.type === "math" ? (
@@ -78,6 +93,13 @@ const makeStyles = (t: Theme) =>
       borderRadius: 10,
       alignItems: "center",
       justifyContent: "center",
+    },
+    // Full-width chrome so the KaTeX WebView gets a real layout width
+    // (compact + alignSelf:center was the thin-sliver bug).
+    boxStretch: {
+      alignSelf: "stretch",
+      alignItems: "stretch",
+      paddingHorizontal: 10,
     },
     answer: {
       fontSize: 20,

@@ -119,6 +119,8 @@ def _is_point_marker(spec: GraphBlockSpec) -> bool:
 
 def _sample_domain(spec: GraphBlockSpec) -> tuple[float, float]:
     xs = [float(p[0]) for p in spec.points]
+    if spec.points2:
+        xs.extend(float(p[0]) for p in spec.points2)
     span_min, span_max = min(xs), max(xs)
     declared_min, declared_max = float(spec.x_min), float(spec.x_max)
     if declared_max > declared_min and (
@@ -133,47 +135,114 @@ def _sample_domain(spec: GraphBlockSpec) -> tuple[float, float]:
     return span_min - pad, span_max + pad
 
 
-def densify_sparse_graph(spec: GraphBlockSpec) -> GraphBlockSpec:
-    """Re-sample a sparse continuous function fence so the client draws a
-    smooth curve instead of a few straight segments."""
-    if spec.type == "vertical" or _is_point_marker(spec) or len(spec.points) >= _MIN_CURVE_POINTS:
-        return spec
-    if "=" in spec.expr and not spec.expr.strip().lower().startswith((spec.variable + "=", "y=")):
-        # Vertical / relation forms like "x = 4" cannot be sampled as y=f(x).
-        return spec
-    x_min, x_max = _sample_domain(spec)
-    settings = get_settings()
+def _expr_samplable_as_function(expr: str, variable: str) -> bool:
+    """False for relation forms like ``x = 4`` that aren't y=f(x)."""
+    e = expr.strip().lower()
+    if "=" in expr and not e.startswith((variable.lower() + "=", "y=")):
+        return False
+    return True
+
+
+def _curve_needs_densify(
+    points: list[list[float]] | None,
+    expr: str | None,
+    variable: str,
+) -> bool:
+    if not expr or not points or len(points) < 2:
+        return False
+    if len(points) >= _MIN_CURVE_POINTS:
+        return False
+    return _expr_samplable_as_function(expr, variable)
+
+
+def _resample_curve(
+    expr: str,
+    variable: str,
+    x_min: float,
+    x_max: float,
+    n: int,
+    max_expr_length: int,
+) -> tuple[list[list[float]], list[list[list[float]]], str, str, float, float] | None:
     try:
         sample = math_service.sample_function(
             GraphSampleInput(
-                expr=spec.expr[: settings.math_max_expr_length],
-                variable=spec.variable,
+                expr=expr[:max_expr_length],
+                variable=variable,
                 x_min=x_min,
                 x_max=x_max,
-                n=settings.math_graph_max_points,
+                n=n,
             )
         )
     except (MathServiceError, ValueError, TypeError):
-        return spec
+        return None
     if len(sample.points) < 2:
+        return None
+    segments = sample.segments if len(sample.segments) > 1 else []
+    return (
+        sample.points,
+        segments,
+        sample.expr,
+        sample.variable,
+        sample.x_min,
+        sample.x_max,
+    )
+
+
+def densify_sparse_graph(spec: GraphBlockSpec) -> GraphBlockSpec:
+    """Re-sample sparse continuous curve(s) so the client draws smooth plots.
+
+    Densifies curve 1 and curve 2 independently — previously an early return
+    when curve 1 was already dense left a sparse ``points2`` as a jagged
+    polyline, and densifying curve 1 preserved but never resampled curve 2.
+    """
+    if spec.type == "vertical" or _is_point_marker(spec):
         return spec
-    has_discontinuity = len(sample.segments) > 1
+
+    var2 = (spec.variable2 or spec.variable).strip() or "x"
+    needs1 = _curve_needs_densify(spec.points, spec.expr, spec.variable)
+    needs2 = _curve_needs_densify(spec.points2, spec.expr2, var2)
+    if not needs1 and not needs2:
+        return spec
+
+    x_min, x_max = _sample_domain(spec)
+    settings = get_settings()
+    n = settings.math_graph_max_points
+    max_len = settings.math_max_expr_length
+
+    points = spec.points
+    segments = spec.segments or []
+    expr = spec.expr
+    variable = spec.variable
+    out_x_min, out_x_max = float(spec.x_min), float(spec.x_max)
+
+    if needs1:
+        sampled = _resample_curve(spec.expr, spec.variable, x_min, x_max, n, max_len)
+        if sampled is not None:
+            points, segments, expr, variable, out_x_min, out_x_max = sampled
+
+    points2 = spec.points2
+    segments2 = spec.segments2
+    if needs2 and spec.expr2:
+        sampled2 = _resample_curve(spec.expr2, var2, x_min, x_max, n, max_len)
+        if sampled2 is not None:
+            points2, segments2, _, _, _, _ = sampled2
+
+    if points is spec.points and points2 is spec.points2:
+        return spec
+
     return GraphBlockSpec(
         type="function",
-        expr=sample.expr,
-        variable=sample.variable,
-        x_min=sample.x_min,
-        x_max=sample.x_max,
+        expr=expr,
+        variable=variable,
+        x_min=out_x_min,
+        x_max=out_x_max,
         title=spec.title,
-        points=sample.points,
-        segments=sample.segments if has_discontinuity else [],
-        # Preserve the second curve untouched — rebuilding this spec from
-        # scratch used to silently drop expr2/points2/etc. whenever the
-        # FIRST curve needed densifying, breaking a two-curve comparison plot.
+        points=points,
+        segments=segments,
         expr2=spec.expr2,
         variable2=spec.variable2,
-        points2=spec.points2,
-        segments2=spec.segments2,
+        points2=points2,
+        segments2=segments2,
         label=spec.label,
         label2=spec.label2,
     )
