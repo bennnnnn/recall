@@ -99,20 +99,24 @@ def test_corrects_hallucinated_geometry_values_to_canonical() -> None:
 
 
 def test_corrects_graph_fence_to_canonical_points() -> None:
+    # Already-dense canonical — rewrite without densify churn.
+    points = [[float(i) / 5, (float(i) / 5) ** 2] for i in range(-50, 51)]
     canonical = {
         "type": "function",
         "expr": "x**2",
         "variable": "x",
         "x_min": -10.0,
         "x_max": 10.0,
-        "points": [[0, 0], [1, 1]],
+        "points": points,
     }
     content = '```graph\n{"type":"function","expr":"x**2","points":[[0,0],[1,999]]}\n```'
 
     out = validate_math_fences(content, verified=_verified(canonical))
 
-    assert "[1,1]" in out
     assert "[1,999]" not in out
+    fence = out.split("```graph")[1].split("```")[0].strip()
+    data = json.loads(fence)
+    assert data["points"] == points
 
 
 def test_leaves_fence_alone_when_kind_differs_from_canonical() -> None:
@@ -154,18 +158,38 @@ def test_leaves_answer_fence_when_canonical_is_geometry() -> None:
     assert out == content
 
 
-def test_densifies_sparse_continuous_graph_fence() -> None:
-    """BUG FIX: models often list only roots/intercepts in ```graph — a
-    polyline through those looks like a V instead of the real curve."""
+def test_does_not_densify_unverified_sparse_graph_fence() -> None:
+    """Without a canonical fence, densifying would re-sample the model's
+    (possibly wrong) expr and make a hallucinated curve look smooth/true."""
     content = (
         '```graph\n{"type":"function","expr":"x**4 - 4*x**2 - 12","variable":"x",'
         '"x_min":-3,"x_max":3,"points":[[-2,0],[0,-12],[2,0]]}\n```'
     )
 
     out = validate_math_fences(content)
+    assert out == content
+
+
+def test_densifies_sparse_canonical_graph_after_rewrite() -> None:
+    """Verified sparse samples may still need densify — safe because expr
+    came from SymPy, not the model's free-text fence."""
+    canonical = {
+        "type": "function",
+        "expr": "x**4 - 4*x**2 - 12",
+        "variable": "x",
+        "x_min": -3.0,
+        "x_max": 3.0,
+        "points": [[-2.0, 0.0], [0.0, -12.0], [2.0, 0.0]],
+    }
+    # Model listed wrong y values — canonical wins, then densify.
+    content = (
+        '```graph\n{"type":"function","expr":"x**4 - 4*x**2 - 12","variable":"x",'
+        '"x_min":-3,"x_max":3,"points":[[-2,0],[0,999],[2,0]]}\n```'
+    )
+
+    out = validate_math_fences(content, verified=_verified(canonical))
     assert "```graph" in out
-    assert "[-2,0],[0,-12],[2,0]" not in out.replace(" ", "")
-    # Dense enough to draw a smooth W, not three straight segments.
+    assert "[0,999]" not in out.replace(" ", "")
     fence = out.split("```graph")[1].split("```")[0].strip()
     data = json.loads(fence)
     assert len(data["points"]) >= 48
@@ -176,6 +200,24 @@ def test_leaves_point_marker_graph_undensified() -> None:
         '```graph\n{"type":"function","expr":"(2, 3)","title":"Point (2, 3)","points":[[2,3]]}\n```'
     )
     assert validate_math_fences(content) == content
+
+
+def test_sample_domain_unions_declared_window_and_key_points() -> None:
+    """Default [-10,10] must expand when key points sit outside that window."""
+    from app.models.math_schemas import GraphBlockSpec
+    from app.services.math_fence import _sample_domain
+
+    spec = GraphBlockSpec(
+        type="function",
+        expr="x**2",
+        variable="x",
+        x_min=-10.0,
+        x_max=10.0,
+        points=[[-2.0, 4.0], [25.0, 625.0]],
+    )
+    x_min, x_max = _sample_domain(spec)
+    assert x_min <= -10.0
+    assert x_max >= 25.0
 
 
 def test_leaves_already_dense_graph_formatting_alone() -> None:

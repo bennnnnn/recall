@@ -8,11 +8,10 @@ in the model's output is replaced with the canonical JSON (or answer
 body) outright, so a drifted or hallucinated number never reaches the
 user even inside an otherwise schema-valid block.
 
-When there is no canonical sample, the model still often emits a continuous
-`` ```graph `` fence with only a few key points (roots / intercepts). Drawing
-those as a polyline makes a quartic look like a V. We densify those sparse
-fences by re-sampling the declared expression with SymPy before the client
-renders.
+When this turn produced a canonical `` ```graph `` fence but it (or the
+substituted JSON) is still sparse, we densify by re-sampling that *verified*
+expression. We do NOT densify an unverified model fence — re-sampling a
+hallucinated ``expr`` would smooth a wrong curve into looking authoritative.
 """
 
 from __future__ import annotations
@@ -118,17 +117,21 @@ def _is_point_marker(spec: GraphBlockSpec) -> bool:
 
 
 def _sample_domain(spec: GraphBlockSpec) -> tuple[float, float]:
+    """Choose a densify window from key points union declared x_min/x_max.
+
+    Take the span covering both (not "declared wins when wider") so
+    off-window roots/extrema in ``points`` still expand a default
+    [-10, 10] declaration, and a wider declared domain still covers
+    sparse root-only point lists.
+    """
     xs = [float(p[0]) for p in spec.points]
     if spec.points2:
         xs.extend(float(p[0]) for p in spec.points2)
     span_min, span_max = min(xs), max(xs)
     declared_min, declared_max = float(spec.x_min), float(spec.x_max)
-    if declared_max > declared_min and (
-        declared_min < span_min - 1e-9 or declared_max > span_max + 1e-9
-    ):
-        # Model declared a wider plotting window than the handful of key
-        # points it listed (common: roots only, domain still [-10, 10]).
-        return declared_min, declared_max
+    if declared_max > declared_min:
+        span_min = min(span_min, declared_min)
+        span_max = max(span_max, declared_max)
     if span_max <= span_min:
         return span_min - 1.0, span_max + 1.0
     pad = max(1.0, (span_max - span_min) * 0.25)
@@ -248,6 +251,10 @@ def densify_sparse_graph(spec: GraphBlockSpec) -> GraphBlockSpec:
     )
 
 
+def _graph_fence_body(spec: GraphBlockSpec) -> str:
+    return f"```graph\n{json.dumps(spec.model_dump(), separators=(',', ':'))}\n```"
+
+
 def _replace_fence(
     match: re.Match[str],
     label: str,
@@ -256,19 +263,26 @@ def _replace_fence(
     raw = match.group(1).strip()
     corrected = _canonical_replacement(raw, canonical_fence)
     if corrected is not None:
-        return f"```{label}\n{corrected}\n```"
+        if label != "graph":
+            return f"```{label}\n{corrected}\n```"
+        # Densify only the verified canonical curve — never an unverified
+        # model expr (that would polish a wrong function into looking true).
+        try:
+            parsed = GraphBlockSpec.model_validate(json.loads(corrected))
+        except (json.JSONDecodeError, ValidationError, TypeError):
+            return f"```{label}\n{corrected}\n```"
+        densified = densify_sparse_graph(parsed)
+        if densified is parsed:
+            return f"```graph\n{corrected}\n```"
+        return _graph_fence_body(densified)
     try:
         if label == "geometry":
             if not _validate_geometry(raw):
                 raise ValueError("invalid geometry")
             return match.group(0)
-        parsed = GraphBlockSpec.model_validate(json.loads(raw))
-        densified = densify_sparse_graph(parsed)
-        # Preserve the model's original fence text when we did not re-sample
-        # (point markers / already-dense curves) so we don't churn formatting.
-        if densified is parsed:
-            return match.group(0)
-        return f"```graph\n{json.dumps(densified.model_dump(), separators=(',', ':'))}\n```"
+        # Schema-valid but unverified: leave the model's points alone.
+        GraphBlockSpec.model_validate(json.loads(raw))
+        return match.group(0)
     except (json.JSONDecodeError, ValidationError, ValueError, TypeError):
         # Soft prose — never a CopyBlock / code fence. Callouts got routed
         # into copyable cards for short meta lines; keep math failures quiet.
