@@ -440,6 +440,33 @@ async def test_augment_prompt_injects_limit_block() -> None:
     assert verified is not None
     assert "Result: 9" in verified.text
     assert any("Result: 9" in m["content"] for m in out if m["role"] == "system")
+    assert verified.canonical_fence == {"type": "answer", "content": "9"}
+    assert "```answer" in verified.text
+
+
+@pytest.mark.asyncio
+async def test_augment_prompt_calculus_attaches_answer_fence() -> None:
+    settings = Settings(math_tools_enabled=True)
+    text = "differentiate x^2"
+    _out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": text}], text, settings
+    )
+    assert verified is not None
+    assert verified.canonical_fence is not None
+    assert verified.canonical_fence["type"] == "answer"
+    assert "2" in verified.canonical_fence["content"]
+    assert "```answer" in verified.text
+
+
+@pytest.mark.asyncio
+async def test_augment_prompt_unsolved_integral_has_no_answer_fence() -> None:
+    settings = Settings(math_tools_enabled=True)
+    _out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": "integrate x**x"}], "integrate x**x", settings
+    )
+    assert verified is not None
+    assert verified.canonical_fence is None
+    assert "```answer" not in verified.text
 
 
 @pytest.mark.asyncio

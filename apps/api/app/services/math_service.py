@@ -161,9 +161,28 @@ def _rewrite_bare_abs_bars(expr: str) -> str:
     return "".join(out)
 
 
+# OCR / homework unicode operators → ASCII before the allowlist runs.
+# Do NOT widen `_SAFE_EXPR_CHARS`; map glyphs here instead.
+# Escapes (not literals) keep RUF001 from flagging lookalike punctuation.
+_UNICODE_OP_SUBS: tuple[tuple[str, str], ...] = (
+    ("\u00d7", "*"),  # U+00D7 multiplication sign
+    ("\u22c5", "*"),  # U+22C5 dot operator
+    ("\u00b7", "*"),  # U+00B7 middle dot
+    ("\u2217", "*"),  # U+2217 asterisk operator
+    ("\u00f7", "/"),  # U+00F7 division sign
+    ("\u2215", "/"),  # U+2215 division slash
+    ("\u2044", "/"),  # U+2044 fraction slash
+    ("\u2212", "-"),  # U+2212 minus sign
+    ("\u2013", "-"),  # U+2013 en dash
+    ("\u2014", "-"),  # U+2014 em dash
+)
+
+
 def _normalize_latex_to_sympy(expr: str) -> str:
     """Expand common LaTeX so pasted/OCR homework can pass the safe-char gate."""
     s = expr
+    for glyph, repl in _UNICODE_OP_SUBS:
+        s = s.replace(glyph, repl)
     s = _LATEX_ABS_LEFT_RIGHT_RE.sub(r"Abs(\1)", s)
     s = _LATEX_ABS_VERT_RE.sub("", s)
     for pattern, replacement in _LATEX_SYMBOL_SUBS:

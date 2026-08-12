@@ -17,22 +17,33 @@ logger = logging.getLogger(__name__)
 
 _EXTRACT_PROMPT = (
     "Extract the primary math problem from this image as a single JSON object "
-    "(not an array) with keys: "
-    'kind ("equation", "system", or "inequality"), '
-    "lhs, rhs (the first or only equation/inequality side — always fill these, "
-    "even for a system), "
-    "variables (array of variable names), "
-    'equations (ONLY when kind is "system": array of [lhs, rhs] pairs for EVERY '
-    "equation in the system, including the first), "
-    'comparator (ONLY when kind is "inequality": one of "<", ">", "<=", ">="), '
-    "and found (boolean). "
-    'Single equation: {"kind":"equation","lhs":"2*x+3","rhs":"7","variables":["x"],'
+    "(not an array). Always include found (boolean) and variables (array). "
+    "Use ASCII math (* / ** for multiply/divide/power). Never invent dimensions "
+    "or freehand diagrams — only extract numbers/expressions printed on the page. "
+    "kind is one of: equation, system, inequality, calculus, limit, graph, "
+    "rectangle, circle. "
+    "Equation: fill lhs, rhs. "
+    'Example: {"kind":"equation","lhs":"2*x+3","rhs":"7","variables":["x"],'
     '"found":true}. '
-    'System of equations: {"kind":"system","lhs":"x+y","rhs":"5",'
+    "System: also fill equations as [lhs,rhs] pairs for EVERY equation "
+    "(including the first) and set lhs/rhs to the first pair. "
+    'Example: {"kind":"system","lhs":"x+y","rhs":"5",'
     '"equations":[["x+y","5"],["x-y","1"]],"variables":["x","y"],"found":true}. '
-    'Inequality: {"kind":"inequality","lhs":"x**2-1","rhs":"0","comparator":">",'
+    'Inequality: comparator one of "<", ">", "<=", ">=". '
+    'Example: {"kind":"inequality","lhs":"x**2-1","rhs":"0","comparator":">",'
     '"variables":["x"],"found":true}. '
-    'If no equation is visible, set found=false and use lhs/rhs of "0".'
+    "Calculus: fill expr plus operation "
+    "(simplify|differentiate|integrate|factor|expand). "
+    'Example: {"kind":"calculus","operation":"differentiate","expr":"x**2",'
+    '"variables":["x"],"found":true}. '
+    "Limit: fill expr and limit_point (number or infinity). "
+    'Example: {"kind":"limit","expr":"sin(x)/x","limit_point":"0",'
+    '"variables":["x"],"found":true}. '
+    "Graph: fill expr to plot as y=f(x). "
+    'Example: {"kind":"graph","expr":"x**2","variables":["x"],"found":true}. '
+    "Rectangle/circle: fill printed width+height or radius and optional unit. "
+    'Example: {"kind":"rectangle","width":8,"height":5,"unit":"cm","found":true}. '
+    'If nothing extractable, set found=false and use lhs/rhs of "0".'
 )
 
 # Must stay byte-for-byte identical to MATH_CAMERA_PROMPT in
@@ -80,7 +91,7 @@ async def extract_equation_from_image(
             response = await acompletion(
                 model=route.model,
                 messages=messages,
-                max_tokens=256,
+                max_tokens=384,
                 response_format={"type": "json_object"},
                 **kwargs,
             )

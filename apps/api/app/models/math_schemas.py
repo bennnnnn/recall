@@ -30,21 +30,31 @@ class SystemOfEquationsInput(BaseModel):
 
 
 _VALID_INEQUALITY_COMPARATORS = frozenset({"<", ">", "<=", ">="})
+_VALID_CAMERA_CALC_OPS = frozenset({"simplify", "differentiate", "integrate", "factor", "expand"})
 
 
 class MathImageExtract(BaseModel):
-    """Vision-extracted equation from a photo (validated before SymPy).
+    """Vision-extracted math from a photo (validated before SymPy).
 
-    `lhs`/`rhs` always hold the first (or only) equation/inequality side —
-    every caller that only ever handled a single equation keeps working
-    unchanged. `kind` plus `equations`/`comparator` are additive: a
-    photographed SYSTEM or INEQUALITY gets the same SymPy-verified path a
-    single equation already does, instead of silently falling back to
-    unverified free-text the moment the photo has more than one equation."""
+    `lhs`/`rhs` hold the first (or only) equation/inequality side — callers
+    that only handled a single equation keep working. Structured kinds
+    (system, inequality, calculus, limit, graph, rectangle, circle) are
+    additive so photographed homework beyond ``lhs=rhs`` still gets a
+    verified SymPy path instead of unverified free-text."""
 
-    kind: Literal["equation", "system", "inequality"] = "equation"
-    lhs: str = Field(min_length=1, max_length=256)
-    rhs: str = Field(min_length=1, max_length=256)
+    kind: Literal[
+        "equation",
+        "system",
+        "inequality",
+        "calculus",
+        "limit",
+        "graph",
+        "rectangle",
+        "circle",
+    ] = "equation"
+    # Defaults "0" let structured kinds omit equation sides in the vision JSON.
+    lhs: str = Field(default="0", min_length=1, max_length=256)
+    rhs: str = Field(default="0", min_length=1, max_length=256)
     variables: list[str] = Field(default_factory=lambda: ["x"], min_length=1, max_length=4)
     found: bool = True
     # kind == "system": every equation in the system as (lhs, rhs) pairs,
@@ -53,17 +63,68 @@ class MathImageExtract(BaseModel):
     equations: list[tuple[str, str]] | None = None
     # kind == "inequality": canonical comparator applied to lhs/rhs above.
     comparator: str | None = None
+    # kind == "calculus" | "limit" | "graph": expression on the page.
+    expr: str | None = Field(default=None, max_length=256)
+    # kind == "calculus": simplify / differentiate / integrate / factor / expand.
+    operation: str | None = None
+    # kind == "limit": point approached (number or "infinity" / "oo").
+    limit_point: str | None = Field(default=None, max_length=32)
+    # kind == "rectangle" | "circle": printed dimensions (never invent).
+    width: float | None = Field(default=None, ge=0, le=1_000_000)
+    height: float | None = Field(default=None, ge=0, le=1_000_000)
+    radius: float | None = Field(default=None, ge=0, le=1_000_000)
+    unit: str = Field(default="cm", max_length=16)
+
+    def _has_equation_sides(self) -> bool:
+        return self.lhs.strip() not in ("", "0") or self.rhs.strip() not in ("", "0")
 
     @model_validator(mode="after")
     def normalize_kind(self) -> MathImageExtract:
         # Best-effort OCR hint from a vision model — a malformed/incomplete
-        # kind must degrade gracefully to the single-equation case (which
-        # only needs lhs/rhs, always present) rather than fail the whole
-        # extraction and lose the camera-math verified path entirely.
+        # kind must degrade gracefully rather than fail the whole extraction.
         if self.kind == "system" and (not self.equations or len(self.equations) < 2):
             self.kind = "equation"
         if self.kind == "inequality" and self.comparator not in _VALID_INEQUALITY_COMPARATORS:
             self.kind = "equation"
+        # Defaults are "0"/"0" so structured kinds can omit sides. A bare
+        # equation claim with both sides still at the placeholder is "not
+        # found" (matches the vision prompt: found=false + lhs/rhs of "0").
+        if (
+            self.kind == "equation"
+            and self.lhs.strip() in ("", "0")
+            and self.rhs.strip() in ("", "0")
+        ):
+            self.found = False
+        if self.kind == "calculus":
+            op = (self.operation or "").strip().lower()
+            if not (self.expr and self.expr.strip() and op in _VALID_CAMERA_CALC_OPS):
+                self.kind = "equation" if self._has_equation_sides() else self.kind
+                if self.kind == "calculus":
+                    self.found = False
+            else:
+                self.operation = op
+        if self.kind == "limit":
+            if not (
+                self.expr and self.expr.strip() and self.limit_point and self.limit_point.strip()
+            ):
+                self.kind = "equation" if self._has_equation_sides() else self.kind
+                if self.kind == "limit":
+                    self.found = False
+        if self.kind == "graph":
+            if not (self.expr and self.expr.strip()):
+                self.kind = "equation" if self._has_equation_sides() else self.kind
+                if self.kind == "graph":
+                    self.found = False
+        if self.kind == "rectangle":
+            if self.width is None or self.height is None or self.width <= 0 or self.height <= 0:
+                self.kind = "equation" if self._has_equation_sides() else self.kind
+                if self.kind == "rectangle":
+                    self.found = False
+        if self.kind == "circle":
+            if self.radius is None or self.radius <= 0:
+                self.kind = "equation" if self._has_equation_sides() else self.kind
+                if self.kind == "circle":
+                    self.found = False
         return self
 
 

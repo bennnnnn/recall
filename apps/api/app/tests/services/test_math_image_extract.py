@@ -162,7 +162,8 @@ async def test_extract_equation_malformed_json_returns_none(raw_content: str):
 
 @pytest.mark.asyncio
 async def test_extract_equation_pydantic_validation_failure_returns_none():
-    # Missing the required "lhs"/"rhs" fields entirely.
+    # Missing lhs/rhs (defaults are placeholder "0") with found=true is treated
+    # as not found — same outcome as the old required-field validation failure.
     raw = '{"variables":["x"],"found":true}'
     with patch(
         "app.services.math_image_extract.acompletion",

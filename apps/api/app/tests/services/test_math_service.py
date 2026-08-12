@@ -38,6 +38,18 @@ def test_normalize_latex_frac_and_abs() -> None:
     assert math_service._normalize_latex_to_sympy("|x-2|<5") == "Abs(x-2)<5"
 
 
+def test_normalize_unicode_ops_to_ascii() -> None:
+    """OCR/homework glyphs must ascii-ize before the allowlist — not widen it."""
+    mul = "2\u00d7x+3"
+    assert math_service._normalize_latex_to_sympy(mul) == "2*x+3"
+    assert math_service._normalize_latex_to_sympy("6\u00f72") == "6/2"
+    assert math_service._normalize_latex_to_sympy("2\u2212x") == "2-x"
+    assert math_service._SAFE_EXPR_CHARS.match("2\u00d73") is None
+    result = math_service.solve_equation(EquationInput(lhs=mul, rhs="7", variables=["x"]))
+    assert len(result.solutions_latex) == 1
+    assert "2" in result.solutions_latex[0]
+
+
 def test_extract_equation_from_latex_frac() -> None:
     """Pasted homework with \\frac used to fail the ASCII-only equation walker."""
     pairs = math_service.try_extract_equations_from_text(r"solve \frac{1}{2}x = 3")
