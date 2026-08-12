@@ -17,6 +17,9 @@ class SympyToolInput(BaseModel):
         "simplify",
         "diff",
         "integrate",
+        "factor",
+        "expand",
+        "inequality",
         "rectangle",
         "graph",
         "system",
@@ -30,16 +33,23 @@ class SympyToolInput(BaseModel):
     lhs: str | None = Field(default=None, max_length=256)
     rhs: str | None = Field(default=None, max_length=256)
     expr: str | None = Field(default=None, max_length=256)
+    # graph: optional second curve (sampled server-side — never invent points2).
+    expr2: str | None = Field(default=None, max_length=256)
     text: str | None = Field(default=None, max_length=2000)
     variables: list[str] = Field(default_factory=lambda: ["x"], max_length=4)
     width: float | None = None
     height: float | None = None
     unit: str = "cm"
     variable: str = Field(default="x", max_length=8)
+    variable2: str | None = Field(default=None, max_length=8)
+    label: str | None = Field(default=None, max_length=64)
+    label2: str | None = Field(default=None, max_length=64)
     x_min: float = -10
     x_max: float = 10
     # system: list of (lhs, rhs) pairs (mirrors SystemOfEquationsInput).
     equations: list[tuple[str, str]] = Field(default_factory=list, max_length=4)
+    # inequality: comparator on lhs/rhs (compound inequalities stay on heuristic path).
+    comparator: Literal["<", ">", "<=", ">="] | None = None
     # limit: the point the variable approaches (+ direction "+-"/"+"/"-").
     point: str | None = Field(default=None, max_length=32)
     direction: str = Field(default="+-", max_length=4)
