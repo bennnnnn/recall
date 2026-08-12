@@ -6,6 +6,11 @@ node_modules/
 # Expo
 .expo/
 dist/
+# Vendored image-size ships its built CJS under dist/ (Metro override).
+!vendor/
+!vendor/image-size/
+!vendor/image-size/dist/
+!vendor/image-size/dist/**
 web-build/
 expo-env.d.ts
 

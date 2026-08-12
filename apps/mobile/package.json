@@ -108,7 +108,8 @@
       "postcss": "8.5.23",
       "undici": "6.28.0",
       "nanoid@3": "3.3.18",
-      "shell-quote": "1.9.0"
+      "shell-quote": "1.9.0",
+      "image-size": "file:vendor/image-size"
     },
     "patchedDependencies": {
       "react-native-draggable-flatlist@4.0.3": "patches/react-native-draggable-flatlist@4.0.3.patch"
