@@ -1,4 +1,4 @@
-import { toSubscript, toSuperscript } from "@/lib/unicodeSupSub";
+import { normalizeUnicodeScripts, toSubscript, toSuperscript } from "@/lib/unicodeSupSub";
 
 describe("toSuperscript", () => {
   it("maps digits and common letters to Unicode superscripts", () => {
@@ -38,5 +38,22 @@ describe("toSubscript", () => {
     expect(toSubscript("b")).toBeNull();
     expect(toSubscript("z")).toBeNull();
     expect(toSubscript("2,3")).toBeNull();
+  });
+});
+
+describe("normalizeUnicodeScripts", () => {
+  it("rewrites unicode superscript runs to caret LaTeX", () => {
+    expect(normalizeUnicodeScripts("x²")).toBe("x^2");
+    expect(normalizeUnicodeScripts("2¹⁰")).toBe("2^{10}");
+    expect(normalizeUnicodeScripts("eˣ")).toBe("e^x");
+  });
+
+  it("rewrites unicode subscript runs to underscore LaTeX", () => {
+    expect(normalizeUnicodeScripts("a₁₀")).toBe("a_{10}");
+    expect(normalizeUnicodeScripts("xₙ")).toBe("x_n");
+  });
+
+  it("leaves ordinary ASCII math unchanged", () => {
+    expect(normalizeUnicodeScripts("x^2 + y_1")).toBe("x^2 + y_1");
   });
 });

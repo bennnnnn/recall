@@ -130,3 +130,55 @@ export function toSuperscript(value: string): string | null {
 export function toSubscript(value: string): string | null {
   return toVerticalForm(value, SUBSCRIPT);
 }
+
+/** Reverse maps: Unicode super/subscript glyph → ASCII base char. */
+const FROM_SUPERSCRIPT: Record<string, string> = Object.fromEntries(
+  Object.entries(SUPERSCRIPT).map(([ascii, uni]) => [uni, ascii]),
+);
+const FROM_SUBSCRIPT: Record<string, string> = Object.fromEntries(
+  Object.entries(SUBSCRIPT).map(([ascii, uni]) => [uni, ascii]),
+);
+
+function isSuperscriptChar(ch: string): boolean {
+  return ch in FROM_SUPERSCRIPT;
+}
+
+function isSubscriptChar(ch: string): boolean {
+  return ch in FROM_SUBSCRIPT;
+}
+
+function scriptRunToCaret(run: string, kind: "sup" | "sub"): string {
+  const map = kind === "sup" ? FROM_SUPERSCRIPT : FROM_SUBSCRIPT;
+  const ascii = [...run].map((ch) => map[ch] ?? "").join("");
+  if (!ascii) return run;
+  const marker = kind === "sup" ? "^" : "_";
+  // Single char → ^2 / _n; multi-char → ^{10} / _{ij} so parseSimpleLatex
+  // groups the whole exponent the same way as typed LaTeX.
+  return ascii.length === 1 ? `${marker}${ascii}` : `${marker}{${ascii}}`;
+}
+
+/**
+ * Rewrite Unicode superscript/subscript runs into caret/underscore LaTeX
+ * (`x²` → `x^2`, `a₁₀` → `a_{10}`) so `parseSimpleLatex` can build real
+ * sup/sub segments. OCR and models often emit these glyphs instead of `^`.
+ */
+export function normalizeUnicodeScripts(input: string): string {
+  if (!input) return input;
+  let out = "";
+  let i = 0;
+  while (i < input.length) {
+    const ch = input[i]!;
+    if (isSuperscriptChar(ch) || isSubscriptChar(ch)) {
+      const kind: "sup" | "sub" = isSuperscriptChar(ch) ? "sup" : "sub";
+      const isRun = kind === "sup" ? isSuperscriptChar : isSubscriptChar;
+      let j = i + 1;
+      while (j < input.length && isRun(input[j]!)) j += 1;
+      out += scriptRunToCaret(input.slice(i, j), kind);
+      i = j;
+      continue;
+    }
+    out += ch;
+    i += 1;
+  }
+  return out;
+}

@@ -7,6 +7,17 @@ describe("parseSimpleLatex", () => {
     expect(segs.some((s) => s.type === "sup" && s.value === "2")).toBe(true);
   });
 
+  it("BUG FIX regression: unicode superscripts/subscripts parse as real scripts", () => {
+    // OCR / models emit `x²` / `a₁₀` instead of caret form; without normalize
+    // those glyphs stayed plain text and never became MathText sup/sub.
+    const sup = parseSimpleLatex("x²");
+    expect(sup.some((s) => s.type === "sup" && s.value === "2")).toBe(true);
+    expect(segmentsToPlain(sup)).toBe("x^2");
+    const sub = parseSimpleLatex("a₁₀");
+    expect(sub.some((s) => s.type === "sub" && s.value === "10")).toBe(true);
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`n \in \mathbb{P}`))).toContain("ℙ");
+  });
+
   it("handles pm and sqrt", () => {
     const segs = parseSimpleLatex(String.raw`x = \pm \sqrt{4}`);
     expect(segmentsToPlain(segs)).toContain("±");
