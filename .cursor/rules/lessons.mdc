@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **“square root” became a geometry square.** `_extract_square_intent` matched
+  substring `"square"` and invented a 5 cm square before algebra/graph
+  extractors. Fix: exclude algebraic phrases; default dimensions only with
+  draw/show cues (`has_draw_shape`).
 - **HTML Run tab solid blank (toolbar ok).** Often not the WebView: HMR left a
   missing symbol (`htmlDependsOnNetwork` / `isWebViewAvailable`); error boundary
   fell back to script-stripped static HTML → white. Also: nav-guard/CSP/onLayout

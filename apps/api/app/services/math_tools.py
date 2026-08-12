@@ -52,33 +52,11 @@ logger = logging.getLogger(__name__)
 _MAX_MATH_INPUT = 1000
 
 
-# Common LaTeX commands/symbols that appear in a pasted or OCR'd limit/series
-# expression — _parse_expression's safe-character allowlist rejects any
-# backslash outright, so these must be normalized to plain SymPy-parseable
-# syntax first. Not exhaustive: an unrecognized command left behind simply
-# fails to parse and the caller gracefully falls back to no verified block,
-# same as any other unparseable expression.
-_LATEX_SYMBOL_SUBS: list[tuple[re.Pattern[str], str]] = [
-    (re.compile(r"\\infty"), "oo"),
-    (re.compile(r"\\pi\b"), "pi"),
-    (re.compile(r"\\cdot"), "*"),
-    (re.compile(r"\\times"), "*"),
-    (re.compile(r"\\div"), "/"),
-    (re.compile(r"\\left"), ""),
-    (re.compile(r"\\right"), ""),
-]
-_LATEX_FUNCTION_RE = re.compile(
-    r"\\(sin|cos|tan|sec|csc|cot|arcsin|arccos|arctan|sinh|cosh|tanh|log|ln|sqrt|exp|min|max)\b",
-    re.IGNORECASE,
-)
-
-
 def _normalize_latex_expr(expr: str) -> str:
-    s = expr
-    for pattern, replacement in _LATEX_SYMBOL_SUBS:
-        s = pattern.sub(replacement, s)
-    s = _LATEX_FUNCTION_RE.sub(lambda m: m.group(1), s)
-    return s
+    """Delegate to math_service so limit/series paths share frac/abs handling."""
+    from app.services.math_service import _normalize_latex_to_sympy
+
+    return _normalize_latex_to_sympy(expr)
 
 
 def _strip_series_prefix(expr: str) -> str:
@@ -286,6 +264,20 @@ def _extract_square_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if "square" not in lower:
         return None
+    # Algebraic uses of the word "square" must not become a geometry diagram.
+    # BUG FIX: "solve square root of x = 4" / "graph the square root" used to
+    # match here (substring "square") and inject a default 5 cm square.
+    if any(
+        phrase in lower
+        for phrase in (
+            "square root",
+            "perfect square",
+            "squared",
+            "squares to",
+            "square of",
+        )
+    ):
+        return None
     dims = mtm.first_dim_pair(cleaned)
     side = mtm.number_after(cleaned, "side") or mtm.number_after(cleaned, "edge")
     if side is None and dims is not None and dims[0] == dims[1]:
@@ -294,7 +286,11 @@ def _extract_square_intent(cleaned: str) -> MathIntent | None:
         return MathIntent(
             kind="square", side=side, width=side, height=side, unit="cm", operation="solve"
         )
-    return MathIntent(kind="square", side=5, width=5, height=5, unit="cm", operation="solve")
+    # Default dimensions only when the user asked to draw/show the shape —
+    # never invent a square for bare prose that merely contains "square".
+    if mtm.has_draw_shape(lower, "square"):
+        return MathIntent(kind="square", side=5, width=5, height=5, unit="cm", operation="solve")
+    return None
 
 
 def _extract_circle_intent(cleaned: str) -> MathIntent | None:
