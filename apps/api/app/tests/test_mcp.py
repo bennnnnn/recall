@@ -109,6 +109,8 @@ async def test_sympy_adapter_rejects_rce_payload_via_solve():
         ("simplify", "x + x", "x", "2*x"),
         ("diff", "x**2", "x", "2*x"),
         ("integrate", "2*x", "x", "x**2"),
+        ("factor", "x**2 - 1", "x", "(x - 1)*(x + 1)"),
+        ("expand", "(x - 1)*(x + 1)", "x", "x**2 - 1"),
     ],
 )
 async def test_sympy_adapter_dispatches_simplify_diff_integrate(
@@ -118,7 +120,7 @@ async def test_sympy_adapter_dispatches_simplify_diff_integrate(
     valid actions, but invoke() had no branch for them — a model call with
     one of these actions fell through to the free-text intent-extraction
     fallback instead of calling the already-implemented math_service
-    functions."""
+    functions. factor/expand were advertised in describe() without handlers."""
     adapter = SympyAdapter(Settings())
     result = await adapter.invoke({"action": action, "expr": expr, "variable": variable})
     assert result.content == expected_result
@@ -268,3 +270,54 @@ async def test_sympy_adapter_system_includes_canonical_fence():
     assert fence["type"] == "answer"
     assert "x" in fence["content"] and "y" in fence["content"]
     assert "```answer" in result.content
+
+
+@pytest.mark.asyncio
+async def test_sympy_adapter_inequality_includes_canonical_fence():
+    adapter = SympyAdapter(Settings())
+    result = await adapter.invoke(
+        {
+            "action": "inequality",
+            "lhs": "x**2 - 1",
+            "rhs": "0",
+            "comparator": ">",
+            "variables": ["x"],
+        }
+    )
+    assert result.data is not None
+    fence = result.data["canonical_fence"]
+    assert fence["type"] == "answer"
+    assert fence["content"]
+    assert "```answer" in result.content
+
+
+@pytest.mark.asyncio
+async def test_sympy_adapter_inequality_rejects_bad_comparator():
+    adapter = SympyAdapter(Settings())
+    result = await adapter.invoke(
+        {"action": "inequality", "lhs": "x", "rhs": "0", "comparator": "!="}
+    )
+    assert "comparator" in result.content.lower()
+    assert result.data is None
+
+
+@pytest.mark.asyncio
+async def test_sympy_adapter_graph_pair_via_expr2():
+    adapter = SympyAdapter(Settings())
+    result = await adapter.invoke(
+        {
+            "action": "graph",
+            "expr": "x**2",
+            "expr2": "2*x",
+            "x_min": -2,
+            "x_max": 2,
+        }
+    )
+    assert result.data is not None
+    fence = result.data["canonical_fence"]
+    assert fence["expr"] == "x**2"
+    assert fence["expr2"] == "2*x"
+    assert fence["points2"] is not None
+    assert len(fence["points2"]) >= 2
+    assert fence["label2"]
+    assert "```graph" in result.content

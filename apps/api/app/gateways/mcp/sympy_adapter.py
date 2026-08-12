@@ -44,8 +44,9 @@ class SympyAdapter:
 
     def describe(self) -> str:
         return (
-            "Symbolic math: solve equations / systems, simplify, differentiate, "
-            "integrate, factor, expand, limits, series, Newton's method, geometry, graphs."
+            "Symbolic math: solve equations / systems / inequalities, simplify, "
+            "differentiate, integrate, factor, expand, limits, series, Newton's "
+            "method, rectangle geometry, and graphs (optional second curve via expr2)."
         )
 
     def to_openai_tool(self) -> dict[str, Any]:
@@ -110,11 +111,41 @@ class SympyAdapter:
             "simplify": math_service.simplify_expression,
             "diff": math_service.differentiate_expression,
             "integrate": math_service.integrate_expression,
+            "factor": math_service.factor_expression,
+            "expand": math_service.expand_expression,
         }[action]
         expr_result = await self._run_off_loop(fn, expr, variable)
         if expr_result is None:
             return ToolResult(name=self.name, content="Math error: timed out.")
         return ToolResult(name=self.name, content=expr_result.result)
+
+    async def _action_inequality(self, args: dict[str, Any]) -> ToolResult:
+        comparator = str(args.get("comparator") or "").strip()
+        if comparator not in ("<", ">", "<=", ">="):
+            return ToolResult(
+                name=self.name,
+                content='Math error: inequality requires comparator one of "<", ">", "<=", ">=".',
+            )
+        variables = list(args.get("variables") or ["x"])
+        variable = str(args.get("variable") or (variables[0] if variables else "x"))
+        result = await self._run_off_loop(
+            math_service.solve_inequality,
+            str(args.get("lhs") or ""),
+            str(args.get("rhs") or ""),
+            variable,
+            comparator,
+        )
+        if result is None:
+            return ToolResult(name=self.name, content="Math error: timed out.")
+        answer = math_tools._format_equation_answer(result.solutions_latex, result.solution_kind)
+        return ToolResult(
+            name=self.name,
+            content=(
+                "\n".join(result.steps) + "\nEnd with this final-answer fence (copy verbatim):\n"
+                f"```answer\n{answer}\n```"
+            ),
+            data=_fence_data(math_tools._answer_canonical(answer)),
+        )
 
     async def _action_system(self, args: dict[str, Any]) -> ToolResult:
         equations = [(str(lhs), str(rhs)) for lhs, rhs in (args.get("equations") or [])]
@@ -216,17 +247,52 @@ class SympyAdapter:
         )
 
     async def _action_graph(self, args: dict[str, Any]) -> ToolResult:
+        variable = str(args.get("variable") or "x")
+        x_min = float(args.get("x_min") or -10)
+        x_max = float(args.get("x_max") or 10)
+        n = self.settings.math_graph_max_points
         graph_input = GraphSampleInput(
             expr=str(args.get("expr") or "x**2"),
-            variable=str(args.get("variable") or "x"),
-            x_min=float(args.get("x_min") or -10),
-            x_max=float(args.get("x_max") or 10),
-            n=self.settings.math_graph_max_points,
+            variable=variable,
+            x_min=x_min,
+            x_max=x_max,
+            n=n,
         )
         graph_result = await self._run_off_loop(math_service.sample_function, graph_input)
         if graph_result is None:
             return ToolResult(name=self.name, content="Math error: timed out.")
         has_discontinuity = len(graph_result.segments) > 1
+
+        expr2_raw = str(args.get("expr2") or "").strip()
+        expr2 = expr2_raw or None
+        variable2 = None
+        points2 = None
+        segments2 = None
+        label = str(args.get("label") or "").strip() or None
+        label2 = str(args.get("label2") or "").strip() or None
+        if expr2:
+            var2 = str(args.get("variable2") or variable)
+            sample2 = await self._run_off_loop(
+                math_service.sample_function,
+                GraphSampleInput(
+                    expr=expr2,
+                    variable=var2,
+                    x_min=x_min,
+                    x_max=x_max,
+                    n=n,
+                ),
+            )
+            if sample2 is None:
+                return ToolResult(name=self.name, content="Math error: timed out.")
+            expr2 = sample2.expr
+            variable2 = sample2.variable
+            points2 = sample2.points
+            segments2 = sample2.segments if len(sample2.segments) > 1 else []
+            if label is None:
+                label = f"y = {graph_result.expr}"
+            if label2 is None:
+                label2 = f"y = {sample2.expr}"
+
         graph_spec = GraphBlockSpec(
             expr=graph_result.expr,
             variable=graph_result.variable,
@@ -234,14 +300,26 @@ class SympyAdapter:
             x_max=graph_result.x_max,
             points=graph_result.points,
             segments=graph_result.segments if has_discontinuity else [],
+            expr2=expr2,
+            variable2=variable2,
+            points2=points2,
+            segments2=segments2,
+            label=label,
+            label2=label2,
         )
         fence = graph_spec.model_dump()
         fence_json = json.dumps(fence, separators=(",", ":"))
+        if expr2:
+            summary = (
+                f"Sampled {len(graph_result.points)} + {len(points2 or [])} points "
+                f"for {graph_result.expr} and {expr2}\n"
+            )
+        else:
+            summary = f"Sampled {len(graph_result.points)} points for {graph_result.expr}\n"
         return ToolResult(
             name=self.name,
             content=(
-                f"Sampled {len(graph_result.points)} points for {graph_result.expr}\n"
-                "When a plot helps, emit ONLY this fence (NEVER ```json):\n"
+                summary + "When a plot helps, emit ONLY this fence (NEVER ```json):\n"
                 f"```graph\n{fence_json}\n```"
             ),
             data=_fence_data(fence),
@@ -272,6 +350,9 @@ _ACTION_HANDLERS: dict[str, _ActionHandler] = {
     "simplify": SympyAdapter._action_expr_op,
     "diff": SympyAdapter._action_expr_op,
     "integrate": SympyAdapter._action_expr_op,
+    "factor": SympyAdapter._action_expr_op,
+    "expand": SympyAdapter._action_expr_op,
+    "inequality": SympyAdapter._action_inequality,
     "system": SympyAdapter._action_system,
     "limit": SympyAdapter._action_limit,
     "series": SympyAdapter._action_series,
