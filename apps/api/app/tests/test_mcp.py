@@ -321,3 +321,14 @@ async def test_sympy_adapter_graph_pair_via_expr2():
     assert len(fence["points2"]) >= 2
     assert fence["label2"]
     assert "```graph" in result.content
+
+
+@pytest.mark.asyncio
+async def test_sympy_adapter_graph_ellipse_relation():
+    adapter = SympyAdapter(Settings())
+    result = await adapter.invoke({"action": "graph", "expr": "x**2 + y**2 = 1"})
+    assert result.data is not None
+    fence = result.data["canonical_fence"]
+    assert fence["points"][0] == fence["points"][-1]
+    assert len(fence["points"]) >= 16
+    assert "```graph" in result.content

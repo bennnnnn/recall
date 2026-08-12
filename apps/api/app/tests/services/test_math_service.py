@@ -50,6 +50,38 @@ def test_normalize_unicode_ops_to_ascii() -> None:
     assert "2" in result.solutions_latex[0]
 
 
+@pytest.mark.parametrize(
+    "expr, expected",
+    [
+        ("x^2 + y^2 = 1", (1.0, 1.0)),
+        ("x**2+y**2=25", (5.0, 5.0)),
+        ("x**2/9 + y**2/4 = 1", (3.0, 2.0)),
+        ("(x/3)**2+(y/2)**2=1", (3.0, 2.0)),
+        ("y**2 + x**2 = 1", (1.0, 1.0)),
+        ("x**2", None),
+        ("x**2 + y**2 = 0", None),
+    ],
+)
+def test_parse_ellipse_relation(expr: str, expected: tuple[float, float] | None) -> None:
+    got = math_service.parse_ellipse_relation(expr)
+    if expected is None:
+        assert got is None
+    else:
+        assert got is not None
+        assert got[0] == pytest.approx(expected[0])
+        assert got[1] == pytest.approx(expected[1])
+
+
+def test_sample_ellipse_closes_the_polyline() -> None:
+    sample = math_service.sample_ellipse(1.0, 1.0, 48)
+    assert len(sample.points) == 49  # 48 samples + close
+    assert sample.points[0] == sample.points[-1]
+    assert abs(sample.points[0][0] - 1.0) < 1e-3 or abs(sample.points[12][1] - 1.0) < 1e-3
+    # Points lie on the unit circle.
+    for x, y in sample.points:
+        assert x * x + y * y == pytest.approx(1.0, abs=1e-3)
+
+
 def test_extract_equation_from_latex_frac() -> None:
     """Pasted homework with \\frac used to fail the ASCII-only equation walker."""
     pairs = math_service.try_extract_equations_from_text(r"solve \frac{1}{2}x = 3")

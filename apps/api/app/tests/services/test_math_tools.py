@@ -607,6 +607,37 @@ async def test_augment_prompt_injects_graph_block() -> None:
 
 
 @pytest.mark.asyncio
+async def test_augment_prompt_injects_unit_circle_relation_graph() -> None:
+    settings = Settings(math_tools_enabled=True)
+    text = "graph x^2 + y^2 = 1"
+    _out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": text}], text, settings
+    )
+    assert verified is not None
+    assert verified.canonical_fence is not None
+    assert verified.canonical_fence["type"] == "function"
+    pts = verified.canonical_fence["points"]
+    assert len(pts) >= 16
+    assert pts[0] == pts[-1]  # closed curve
+    assert "parametric" in verified.text.lower() or "relation" in verified.text.lower()
+
+
+@pytest.mark.asyncio
+async def test_augment_prompt_injects_ellipse_relation_graph() -> None:
+    settings = Settings(math_tools_enabled=True)
+    text = "plot x^2/9 + y^2/4 = 1"
+    _out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": text}], text, settings
+    )
+    assert verified is not None
+    assert verified.canonical_fence is not None
+    xs = [p[0] for p in verified.canonical_fence["points"]]
+    ys = [p[1] for p in verified.canonical_fence["points"]]
+    assert max(xs) == pytest.approx(3.0, abs=0.05)
+    assert max(ys) == pytest.approx(2.0, abs=0.05)
+
+
+@pytest.mark.asyncio
 async def test_augment_prompt_attaches_segments_and_warns_on_discontinuous_graph() -> None:
     """BUG FIX (verified live): tan(x) over the default range drew a
     near-straight line across the pi/2 asymptote. The canonical fence must

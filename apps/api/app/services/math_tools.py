@@ -1303,6 +1303,36 @@ def _verified_block_graph(
 ) -> VerifiedMathBlock | None:
     if not intent.expr:
         return None
+    # Axis-aligned circle/ellipse relations (x^2+y^2=1, x^2/9+y^2/4=1) are
+    # not y=f(x) — sample parametrically into the same ```graph fence.
+    ellipse = math_service.parse_ellipse_relation(intent.expr)
+    if ellipse is not None:
+        a, b = ellipse
+        sample = math_service.sample_ellipse(a, b, settings.math_graph_max_points)
+        graph_spec = GraphBlockSpec(
+            expr=sample.expr,
+            variable=sample.variable,
+            x_min=sample.x_min,
+            x_max=sample.x_max,
+            # y-range for a square-ish viewport around the ellipse.
+            y_min=-(b + max(1.0, b * 0.15)),
+            y_max=b + max(1.0, b * 0.15),
+            points=sample.points,
+            segments=[],
+            title=sample.expr,
+        )
+        lines.append(
+            f"Relation samples for {sample.expr}: {len(sample.points)} parametric points "
+            "(closed curve)."
+        )
+        lines.append(
+            "When a plot helps, emit ONLY this fence ONCE — no 'corrected/final graph "
+            "spec' heading, and do NOT paste or re-list the points array in prose "
+            "(the app renders the fence as an SVG):\n"
+            f"{_fence('graph', graph_spec)}"
+        )
+        return VerifiedMathBlock(text="\n".join(lines), canonical_fence=graph_spec.model_dump())
+
     sample = math_service.sample_function(
         GraphSampleInput(
             expr=intent.expr[: settings.math_max_expr_length],
