@@ -5,9 +5,18 @@ from __future__ import annotations
 from unittest.mock import patch
 
 import pytest
+from pydantic import ValidationError
 
 from app.core.config import Settings
+from app.models.math_schemas import MathIntent
 from app.services import math_tools
+
+
+def test_math_intent_has_no_dead_expression_kind() -> None:
+    """Schema used to list kind=\"expression\" with no extractor or block
+    builder — dead surface that invited half-implemented paths. Removed."""
+    with pytest.raises(ValidationError):
+        MathIntent.model_validate({"kind": "expression", "expr": "x+1"})
 
 
 @pytest.mark.parametrize(

@@ -663,7 +663,6 @@ class MatrixResult(BaseModel):
 class MathIntent(BaseModel):
     kind: Literal[
         "equation",
-        "expression",
         "rectangle",
         "square",
         "triangle",
