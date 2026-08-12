@@ -66,13 +66,16 @@ class TestNewShapeTextSignals:
         for text in (
             "draw a trapezoid",
             "parallelogram with base 8 and height 4",
-            "sector of a circle with radius 5",
+            "sector of a circle with radius 5 and angle 90",
             "triangle with sides 3, 4, 5",
         ):
             assert math_text_match.needs_symbolic(text) is True
         # "sector" alone (no geometry context) must NOT false-positive on
         # the extremely common non-math usage ("the tech sector").
         assert math_text_match.needs_symbolic("the tech sector is booming") is False
+        # Partial sector dims used to invent the missing angle as 90° —
+        # do not enter the verified path without both radius and angle.
+        assert math_text_match.needs_symbolic("sector of a circle with radius 5") is False
 
 
 class TestAugmentPromptMessagesForNewShapes:
