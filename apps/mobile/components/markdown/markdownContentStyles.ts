@@ -33,11 +33,24 @@ export function makeVerifyCheckStyles(t: Theme) {
   });
 }
 
-export function makeMdMath(_t: Theme) {
+export function makeMdMath(t: Theme) {
   return StyleSheet.create({
     listContent: {
       flex: 1,
       flexShrink: 1,
+    },
+    // Filled disc (ChatGPT-style). iOS used to render U+00B7 middle-dot,
+    // which is a hairline glyph at body size and reads as "no bullet".
+    listBullet: {
+      width: 7,
+      height: 7,
+      borderRadius: 4,
+      backgroundColor: t.assistantText,
+      // Body is 16/25 — center the disc on the first line.
+      marginTop: 9,
+      marginRight: 10,
+      marginLeft: 2,
+      flexShrink: 0,
     },
   });
 }

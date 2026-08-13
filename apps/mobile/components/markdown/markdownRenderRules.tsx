@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { Image, Linking, Platform, Text, View } from "react-native";
+import { Image, Linking, Text, View } from "react-native";
 
 import { LinkPreviewCard } from "@/components/LinkPreviewCard";
 import { MathText } from "@/components/rich/MathText";
@@ -206,13 +206,7 @@ function makeSharedRules(
           if (task) {
             return (
               <View key={node.key} style={styles._VIEW_SAFE_list_item as object}>
-                <Text style={styles.bullet_list_icon as object} accessible={false}>
-                  {Platform.select({
-                    android: "\u2022",
-                    ios: "\u00B7",
-                    default: "\u2022",
-                  })}
-                </Text>
+                <View style={mdMath.listBullet} accessible={false} />
                 <View style={verifyCheckStyles.verifyRow}>
                   <View style={verifyCheckStyles.verifyContent}>{children}</View>
                   <VerifyCheckmark />
@@ -236,13 +230,7 @@ function makeSharedRules(
         }
         return (
           <View key={node.key} style={styles._VIEW_SAFE_list_item as object}>
-            <Text style={styles.bullet_list_icon as object} accessible={false}>
-              {Platform.select({
-                android: "\u2022",
-                ios: "\u00B7",
-                default: "\u2022",
-              })}
-            </Text>
+            <View style={mdMath.listBullet} accessible={false} />
             <View style={[styles._VIEW_SAFE_bullet_list_content as object, mdMath.listContent]}>
               {children}
             </View>
