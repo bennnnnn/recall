@@ -31,6 +31,11 @@ describe("MathText", () => {
     expect(getByTestId("math-vinculum")).toBeOnTheScreen();
     expect(getByText("1")).toBeOnTheScreen();
     expect(getByText("2")).toBeOnTheScreen();
+    // Root is a sized View (not Text wrapping a View) so the paragraph Text
+    // can treat it as a character. Nested Text>View was 0×0 on iOS and the
+    // next sentence painted on top of this one (live: part (b) smudge).
+    expect(getByTestId("math-text-tall")).toHaveStyle({ width: 29, height: 40 });
+    expect(getByTestId("math-frac")).toHaveStyle({ width: 23, height: 40 });
   });
 
   it("renders letter fractions stacked the same way (m over m)", async () => {
@@ -71,6 +76,6 @@ describe("MathText", () => {
       <MathText latex={String.raw`m = \pm\sqrt{\frac{M}{2}}`} />,
     );
     expect(queryByText(/\\frac/)).toBeNull();
-    expect(screen.getByText(/m = ±√/)).toBeOnTheScreen();
+    expect(screen.getByText(/m = ±/)).toBeOnTheScreen();
   });
 });

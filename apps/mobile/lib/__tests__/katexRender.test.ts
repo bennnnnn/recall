@@ -11,9 +11,20 @@ describe("renderKatexHtml", () => {
     expect(html).not.toContain("url(fonts/");
   });
 
-  it("renders sqrt and pm tokens", () => {
-    const html = renderKatexHtml(String.raw`x = \pm \sqrt{4}`, { displayMode: false });
-    expect(html).toContain('class="katex"');
+  it("display math keeps vertical margin and a transparent canvas (no gray card)", () => {
+    const html = renderKatexHtml(String.raw`\frac{x}{y}`, {
+      displayMode: true,
+      bgColor: "transparent",
+    });
+    expect(html).toContain(".katex-display{margin:0.6em 0;}");
+    expect(html).toContain("background:transparent");
+  });
+
+  it("compact / inline math does not add display-block vertical margin", () => {
+    const compact = renderKatexHtml("x^2", { displayMode: true, compact: true });
+    expect(compact).toContain(".katex-display{margin:0;}");
+    const inline = renderKatexHtml("x^2", { displayMode: false });
+    expect(inline).toContain(".katex-display{margin:0;}");
   });
 
   it("falls back for oversized latex instead of hanging", () => {

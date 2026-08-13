@@ -313,6 +313,20 @@ function normalizeVerificationBullets(content: string): string {
     .join("\n");
 }
 
+/**
+ * Check lines like `For $x = 2$: $2^2 + 2 = 6$` (or one `$x = 2: 2^2$` span)
+ * were rendering as `2:2²` — colon between two math runs with no space.
+ * Split the label from the formula and keep a space after the colon.
+ */
+export function layoutCheckVerificationLines(content: string): string {
+  let out = content.replace(
+    /\$([^$\n]*?=\s*-?\d+)\s*:\s*([^$\n]+)\$/g,
+    (_m, label: string, formula: string) => `$${label.trim()}$: $${formula.trim()}$`,
+  );
+  out = out.replace(/\$:\s*/g, "$: ");
+  return out;
+}
+
 // A backslash immediately followed by an ASCII punctuation character —
 // CommonMark's own escapable set (matches markdown-it's rules_inline/escape.mjs).
 const MATH_ESCAPE_BACKSLASH_RE = /\\(?=[!"#$%&'()*+,\-./:;<=>?@[\]^_`{|}~])/g;
@@ -529,6 +543,7 @@ export function preprocessMarkdown(content: string): string {
   out = unwrapNonCodeFences(out);
 
   out = protectMathEscapes(out);
+  out = layoutCheckVerificationLines(out);
 
   return out;
 }

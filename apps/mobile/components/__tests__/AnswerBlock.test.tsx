@@ -37,6 +37,14 @@ describe("AnswerBlock", () => {
     expect(mockFormula).not.toHaveBeenCalled();
   });
 
+  it("BUG FIX regression: strips a streaming ``` closer leaked into the answer body", async () => {
+    const { queryByText } = await render(
+      <AnswerBlock content={"x = -2 or x = 2\n```"} />,
+    );
+    expect(queryByText("```")).toBeNull();
+    expect(queryByText(/x = -2/)).toBeOnTheScreen();
+  });
+
   it("routes heavy \\begin{…} answers to stretch displayMode KaTeX (never compact)", async () => {
     const latex = String.raw`\begin{cases} x = 1 \\ y = 2 \end{cases}`;
     await render(<AnswerBlock content={latex} />);

@@ -4,6 +4,7 @@ import { StyleSheet, Text } from "react-native";
 import Markdown from "react-native-markdown-display";
 
 import { CodeBlock } from "@/components/CodeBlock";
+import { AnswerBlock } from "@/components/rich/AnswerBlock";
 import { makeRenderRules } from "@/components/markdown/markdownRenderRules";
 import { markdownItInstance } from "@/lib/markdownIt";
 import { preprocessMarkdown } from "@/lib/markdownPreprocess";
@@ -16,6 +17,7 @@ import {
   type StreamBlocksState,
 } from "@/lib/markdownStreamBlocks";
 import { classifyOpenStreamTail } from "@/lib/streamingOpenFence";
+import { shouldPreviewOpenFenceAsAnswer } from "@/lib/copyBlock";
 import {
   nextStreamUiFlushDelay,
   STREAM_UI_INTERVAL_MS,
@@ -145,7 +147,13 @@ export function MarkdownContent({ content, streaming = false }: Props) {
           </Markdown>
         ) : null}
         {openRegion.kind === "fence" ? (
-          <CodeBlock code={openRegion.body} lang={openRegion.lang} streaming />
+          shouldPreviewOpenFenceAsAnswer(openRegion.lang, openRegion.body) ? (
+            openRegion.body.trim() ? (
+              <AnswerBlock content={openRegion.body} />
+            ) : null
+          ) : (
+            <CodeBlock code={openRegion.body} lang={openRegion.lang} streaming />
+          )
         ) : openRegion.kind === "math" ? (
           <StreamingMathPreview body={openRegion.body} />
         ) : openRegion.text ? (
