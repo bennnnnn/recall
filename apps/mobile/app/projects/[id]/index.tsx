@@ -20,6 +20,7 @@ import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { LearningContinueCta } from "@/components/projects/LearningContinueCta";
 import { useAuth } from "@/contexts/AuthContext";
+import { useHome } from "@/contexts/HomeContext";
 import { api, type ProjectDetail, type VocabStatus } from "@/lib/api";
 import { queueChatLaunch } from "@/lib/chatLaunch";
 import {
@@ -46,7 +47,6 @@ import { resolveDailyGoal } from "@/lib/dailyGoals";
 import { localDateKey } from "@/lib/reminderCalendar";
 import {
   formatProjectListTitle,
-  isConceptProject,
   isTriviaProject,
   learningProjectTitle,
   projectStatsLabels,
@@ -56,6 +56,7 @@ import { weekdayFullLabel } from "@/lib/weekdayLabels";
 
 export default function ProjectDetailScreen() {
   const { token } = useAuth();
+  const { refresh: refreshHome } = useHome();
   const { t } = useTranslation();
   const router = useRouter();
   const navigation = useNavigation();
@@ -110,7 +111,8 @@ export default function ProjectDetailScreen() {
       // Paint cache immediately; only force-network when stale/missing so quiz
       // returns still refresh after invalidateProjectDetail.
       void load({ silent: hasPaint, force: !fresh });
-    }, [load, id]),
+      void refreshHome({ silent: true, force: true });
+    }, [load, id, refreshHome]),
   );
 
   const exportLearningPdf = useCallback(async () => {
@@ -228,7 +230,7 @@ export default function ProjectDetailScreen() {
 
   const isLang = isLanguageProject(project.kind);
   const isTrivia = isTriviaProject(project.kind);
-  const isConcept = isConceptProject(project.kind) && !isTrivia;
+  const showDeckBrowse = isLang && project.lists.length > 0;
   const stats = project.stats;
   const statLabels = projectStatsLabels(project.kind, t);
   const dailyGoal = isLang || isTrivia ? resolveDailyGoal(project.daily_goal) : undefined;
@@ -324,15 +326,6 @@ export default function ProjectDetailScreen() {
   return (
     <>
     <ScrollView style={s.root} contentContainerStyle={s.content}>
-      {isConcept ? (
-        <View style={s.hero}>
-          <Text style={s.title}>{project.title}</Text>
-          {project.description ? (
-            <Text style={s.description}>{project.description}</Text>
-          ) : null}
-        </View>
-      ) : null}
-
       {showDailyTracking ? (
         <ProjectDailyStrip
           days={project.daily_history ?? []}
@@ -388,32 +381,24 @@ export default function ProjectDetailScreen() {
         />
       ) : null}
 
-      {isConcept ? (
+      {showDeckBrowse ? (
         <>
-          {project.lists.length > 0 ? (
-            project.lists.map((group) => (
-              <View key={group.list_title} style={s.listSection}>
-                <Text style={s.listTitle}>
-                  {formatProjectListTitle(group.list_title, project.kind, t)}
-                </Text>
-                {group.items.map((item) => (
-                  <ProjectItemRow
-                    key={item.id}
-                    item={item}
-                    showSpeech={false}
-                    busy={conceptBusyId === item.id}
-                    onStatusChange={handleItemStatusChange}
-                  />
-                ))}
-              </View>
-            ))
-          ) : (
-            <View style={s.comingSoon}>
-              <Text style={s.comingSoonBody}>
-                {t("projects.concept_empty")}
+          {project.lists.map((group) => (
+            <View key={group.list_title} style={s.listSection}>
+              <Text style={s.listTitle}>
+                {formatProjectListTitle(group.list_title, project.kind, t)}
               </Text>
+              {group.items.map((item) => (
+                <ProjectItemRow
+                  key={item.id}
+                  item={item}
+                  showSpeech
+                  busy={conceptBusyId === item.id}
+                  onStatusChange={handleItemStatusChange}
+                />
+              ))}
             </View>
-          )}
+          ))}
         </>
       ) : null}
 
@@ -430,9 +415,6 @@ function makeStyles(theme: Theme) {
     root: { flex: 1, backgroundColor: theme.bg },
     content: { padding: 16, gap: 16, paddingBottom: 40 },
     studyCtaBeforeList: { marginBottom: 8 },
-    hero: { gap: 8 },
-    title: { fontSize: 28, fontWeight: "800", color: theme.text, letterSpacing: -0.5 },
-    description: { fontSize: 16, lineHeight: 24, color: theme.textSecondary },
     statsSection: {
       backgroundColor: theme.surface,
       borderRadius: 16,
@@ -482,14 +464,6 @@ function makeStyles(theme: Theme) {
     itemDef: { fontSize: 14, color: theme.textSecondary },
     itemNote: { fontSize: 13, lineHeight: 18, color: theme.textSecondary, fontStyle: "italic" },
     itemMeta: { fontSize: 11, fontWeight: "600", color: theme.textTertiary, marginTop: 2 },
-    comingSoon: {
-      backgroundColor: theme.surface,
-      borderRadius: 16,
-      padding: 16,
-      gap: 8,
-    },
-    comingSoonTitle: { fontSize: 16, fontWeight: "700", color: theme.text },
-    comingSoonBody: { fontSize: 14, lineHeight: 21, color: theme.textSecondary },
     practiceSection: {
       backgroundColor: theme.surface,
       borderRadius: 16,

@@ -1,10 +1,5 @@
 import type { ProjectKind } from "@/lib/api";
 
-export function isConceptProject(_kind: ProjectKind): boolean {
-  // Concept/math workspaces are not a product surface — only language + trivia.
-  return false;
-}
-
 export function isTriviaProject(kind: ProjectKind): boolean {
   return kind === "trivia";
 }
