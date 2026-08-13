@@ -12,6 +12,11 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **GitHub “Compare & pull request” on a branch you thought was merged.** Squash-merge
+  does not put those SHAs on `main`; pushing more onto the old head (or leaving
+  `claude/*` agent branches) recreates a PR prompt. Fix: never push a merged head;
+  cherry-pick leftovers onto a new branch from `origin/main`; `git push origin --delete`
+  the old branch. See `execution.mdc`.
 - **“square root” became a geometry square.** `_extract_square_intent` matched
   substring `"square"` and invented a 5 cm square before algebra/graph
   extractors. Fix: exclude algebraic phrases; default dimensions only with
