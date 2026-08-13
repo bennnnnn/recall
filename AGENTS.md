@@ -2,7 +2,7 @@
 
 Personal AI mobile chat with persistent memory.
 
-**Docs:** [CLAUDE.md](./CLAUDE.md) — architecture, golden rules, chat loop, milestones.
+**Docs:** [CLAUDE.md](./CLAUDE.md) — engineering map (catalog + seams, not the week-one MVP). Product: [FEATURES.md](./FEATURES.md).
 
 **Layout:**
 
