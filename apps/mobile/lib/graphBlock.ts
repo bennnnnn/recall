@@ -1,3 +1,5 @@
+import { toSuperscript } from "@/lib/unicodeSupSub";
+
 export type NumberLineInterval = {
   start: number | null;
   end: number | null;
@@ -314,6 +316,76 @@ export function formatInequalityExpr(expr: string): string {
     i += 1;
   }
   return out;
+}
+
+const AXIS_PAD_RATIO = 0.08;
+
+/** Expand data bounds so (0, 0) is in view and axes aren't glued to the frame. */
+export function expandBoundsForAxes(
+  bounds: ReturnType<typeof graphBounds>,
+): ReturnType<typeof graphBounds> {
+  let { xMin, xMax, yMin, yMax } = bounds;
+  if (xMin > 0) xMin = 0;
+  if (xMax < 0) xMax = 0;
+  if (yMin > 0) yMin = 0;
+  if (yMax < 0) yMax = 0;
+  const xSpan = xMax - xMin || 1;
+  const ySpan = yMax - yMin || 1;
+  return {
+    xMin: xMin - xSpan * AXIS_PAD_RATIO,
+    xMax: xMax + xSpan * AXIS_PAD_RATIO,
+    yMin: yMin - ySpan * AXIS_PAD_RATIO,
+    yMax: yMax + ySpan * AXIS_PAD_RATIO,
+  };
+}
+
+/** Turn SymPy/Python ``3*x**2 - 12`` into a readable ``3x² - 12``. */
+export function formatGraphExpr(expr: string): string {
+  const src = expr.trim();
+  let out = "";
+  let i = 0;
+  while (i < src.length) {
+    if (src[i] === "*" && src[i + 1] === "*") {
+      let j = i + 2;
+      let exp = "";
+      if (src[j] === "-") {
+        exp = "-";
+        j += 1;
+      }
+      while (j < src.length && src[j] >= "0" && src[j] <= "9") {
+        exp += src[j];
+        j += 1;
+      }
+      const sup = exp && !exp.endsWith("-") ? toSuperscript(exp) : null;
+      if (sup) {
+        out += sup;
+        i = j;
+        continue;
+      }
+    }
+    out += src[i];
+    i += 1;
+  }
+  let stripped = "";
+  for (let k = 0; k < out.length; k += 1) {
+    const ch = out[k];
+    if (ch === "*" && k > 0 && k + 1 < out.length) {
+      const prev = out[k - 1];
+      const next = out[k + 1];
+      const prevOk =
+        (prev >= "0" && prev <= "9") ||
+        (prev >= "A" && prev <= "Z") ||
+        (prev >= "a" && prev <= "z") ||
+        prev === ")";
+      const nextOk =
+        (next >= "A" && next <= "Z") ||
+        (next >= "a" && next <= "z") ||
+        next === "(";
+      if (prevOk && nextOk) continue;
+    }
+    stripped += ch;
+  }
+  return stripped;
 }
 
 export function mapGraphPoint(

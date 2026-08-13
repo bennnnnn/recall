@@ -148,7 +148,7 @@ describe("renderFence geometry/graph dispatch", () => {
       ],
     });
     const { getByText } = await render(<>{renderFence(node(content, "graph"))}</>);
-    expect(getByText("y = x**2")).toBeOnTheScreen();
+    expect(getByText("y = x²")).toBeOnTheScreen();
   });
 
   it("sniffs an untagged ```json geometry blob and routes it to GeometryBlock", async () => {

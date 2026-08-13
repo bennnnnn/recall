@@ -5,6 +5,8 @@ import Svg, { Circle, Line, Polyline, Text as SvgText } from "react-native-svg";
 
 import { InequalityRegionChart } from "@/components/rich/InequalityRegionChart";
 import {
+  expandBoundsForAxes,
+  formatGraphExpr,
   formatInequalityExpr,
   graphBounds,
   graphPolylinePoints,
@@ -65,16 +67,19 @@ export function FunctionGraphBlock({ content }: Props) {
 
   const hasCurve2 = spec.type === "function" && !!spec.expr2 && !!spec.points2?.length;
   const title =
-    spec.title ?? (spec.type === "vertical" ? spec.expr : `y = ${spec.expr}`);
+    spec.title ??
+    (spec.type === "vertical" ? spec.expr : `y = ${formatGraphExpr(spec.expr)}`);
   const bounds =
     spec.type === "vertical" && spec.x != null
-      ? {
-          xMin: (spec.x_min ?? spec.x - 5),
-          xMax: (spec.x_max ?? spec.x + 5),
+      ? expandBoundsForAxes({
+          xMin: spec.x_min ?? spec.x - 5,
+          xMax: spec.x_max ?? spec.x + 5,
           yMin: spec.y_min ?? Math.min(...spec.points.map((p) => p[1])),
           yMax: spec.y_max ?? Math.max(...spec.points.map((p) => p[1])),
-        }
-      : graphBounds(spec.points, hasCurve2 ? spec.points2 : undefined);
+        })
+      : expandBoundsForAxes(
+          graphBounds(spec.points, hasCurve2 ? spec.points2 : undefined),
+        );
   // A single point (or points sharing an x) has no line to draw — a
   // Polyline needs 2+ points to render anything visible. Vertical lines
   // intentionally share an x and still draw between the two endpoints.
@@ -117,8 +122,9 @@ export function FunctionGraphBlock({ content }: Props) {
       : [];
   const pad = 28;
   const axisColor = theme.border;
-  const xAxisY = CHART_HEIGHT - pad;
-  const yAxisX = pad;
+  const origin = mapGraphPoint(0, 0, bounds, chartWidth, CHART_HEIGHT);
+  const yAxisX = origin.px;
+  const xAxisY = origin.py;
   const curveColor2 = theme.accent;
 
   return (
@@ -128,11 +134,15 @@ export function FunctionGraphBlock({ content }: Props) {
         <View style={styles.legendRow}>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: theme.primary }]} />
-            <Text style={styles.legendText}>{spec.label ?? `y = ${spec.expr}`}</Text>
+            <Text style={styles.legendText}>
+              {spec.label ?? `y = ${formatGraphExpr(spec.expr)}`}
+            </Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: curveColor2 }]} />
-            <Text style={styles.legendText}>{spec.label2 ?? `y = ${spec.expr2}`}</Text>
+            <Text style={styles.legendText}>
+              {spec.label2 ?? `y = ${formatGraphExpr(spec.expr2 ?? "")}`}
+            </Text>
           </View>
         </View>
       ) : null}
@@ -141,12 +151,12 @@ export function FunctionGraphBlock({ content }: Props) {
           x1={yAxisX}
           y1={pad}
           x2={yAxisX}
-          y2={xAxisY}
+          y2={CHART_HEIGHT - pad}
           stroke={axisColor}
           strokeWidth={1}
         />
         <Line
-          x1={yAxisX}
+          x1={pad}
           y1={xAxisY}
           x2={chartWidth - pad}
           y2={xAxisY}
@@ -212,15 +222,26 @@ export function FunctionGraphBlock({ content }: Props) {
         >
           {spec.variable}
         </SvgText>
-        {/* Number line: min/max value at both ends of each axis. */}
-        <SvgText x={4} y={pad + 4} fill={theme.textSecondary} fontSize={11}>
+        <SvgText
+          x={Math.max(4, yAxisX - 4)}
+          y={pad + 4}
+          fill={theme.textSecondary}
+          fontSize={11}
+          textAnchor="end"
+        >
           {formatAxisNumber(bounds.yMax)}
         </SvgText>
-        <SvgText x={4} y={xAxisY - 2} fill={theme.textSecondary} fontSize={11}>
+        <SvgText
+          x={Math.max(4, yAxisX - 4)}
+          y={CHART_HEIGHT - pad + 4}
+          fill={theme.textSecondary}
+          fontSize={11}
+          textAnchor="end"
+        >
           {formatAxisNumber(bounds.yMin)}
         </SvgText>
         <SvgText
-          x={yAxisX + 2}
+          x={pad}
           y={xAxisY + 16}
           fill={theme.textSecondary}
           fontSize={11}
@@ -236,6 +257,16 @@ export function FunctionGraphBlock({ content }: Props) {
         >
           {formatAxisNumber(bounds.xMax)}
         </SvgText>
+        {Math.abs(bounds.xMin) > 1e-6 && Math.abs(bounds.xMax) > 1e-6 ? (
+          <SvgText
+            x={yAxisX + 4}
+            y={xAxisY + 16}
+            fill={theme.textSecondary}
+            fontSize={11}
+          >
+            0
+          </SvgText>
+        ) : null}
       </Svg>
     </View>
   );
@@ -248,8 +279,8 @@ const makeStyles = (theme: Theme) =>
       alignItems: "center",
     },
     title: {
-      fontFamily: CODE_FONT,
-      fontSize: 14,
+      fontSize: 15,
+      fontWeight: "600",
       color: theme.text,
       marginBottom: 6,
       textAlign: "center",
