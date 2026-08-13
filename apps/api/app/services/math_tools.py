@@ -1433,6 +1433,24 @@ def _verified_block_graph(
         )
         return VerifiedMathBlock(text="\n".join(lines), canonical_fence=graph_spec.model_dump())
 
+    line_spec = math_service.number_line_spec_from_expr(
+        intent.expr[: settings.math_max_expr_length], intent.variable
+    )
+    if line_spec is not None:
+        lines.append(
+            f"Shaded region for {line_spec.expr} on the coordinate plane: "
+            "dashed vertical boundary = endpoint not included, solid = included. "
+            "Shade the solution set. This is NOT y=f(x) — do not plot a 0/1 step "
+            "or a 1D number line."
+        )
+        lines.append(
+            "When a plot helps, emit ONLY this fence ONCE — no 'corrected/final graph "
+            "spec' heading, and do NOT paste or re-list the JSON in prose "
+            "(the app renders the fence as an SVG):\n"
+            f"{_fence('graph', line_spec)}"
+        )
+        return VerifiedMathBlock(text="\n".join(lines), canonical_fence=line_spec.model_dump())
+
     sample = math_service.sample_function(
         GraphSampleInput(
             expr=intent.expr[: settings.math_max_expr_length],

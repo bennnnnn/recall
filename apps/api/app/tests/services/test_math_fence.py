@@ -65,6 +65,20 @@ def test_vertical_line_graph_fence_validates() -> None:
     assert validate_math_fences(content) == content
 
 
+def test_rewrites_unverified_inequality_step_to_number_line() -> None:
+    content = (
+        '```graph\n{"type":"function","expr":"x > 3","title":"x > 3 (number line)",'
+        '"points":[[-10,0],[3,0],[3,1],[10,1]]}\n```'
+    )
+    out = validate_math_fences(content)
+    fence = out.split("```graph")[1].split("```")[0].strip()
+    data = json.loads(fence)
+    assert data["type"] == "number_line"
+    assert data["intervals"][0]["start"] == 3.0
+    assert data["intervals"][0]["end"] is None
+    assert data["title"] == "x > 3 (number line)"
+
+
 def test_validates_single_point_graph_fence() -> None:
     """BUG FIX regression: marking a single coordinate (e.g. "plot the
     point (2, 3)") is a legitimate single-point graph, not an error."""

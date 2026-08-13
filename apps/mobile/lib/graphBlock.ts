@@ -1,7 +1,14 @@
 import { toSuperscript } from "@/lib/unicodeSupSub";
 
+export type NumberLineInterval = {
+  start: number | null;
+  end: number | null;
+  start_inclusive: boolean;
+  end_inclusive: boolean;
+};
+
 export type GraphSpec = {
-  type: "function" | "vertical";
+  type: "function" | "vertical" | "number_line";
   expr: string;
   variable?: string;
   x_min?: number;
@@ -25,6 +32,7 @@ export type GraphSpec = {
   segments2?: [number, number][][];
   label?: string;
   label2?: string;
+  intervals?: NumberLineInterval[];
 };
 
 /** Match backend `GraphBlockSpec.points` max; chat samples default lower. */
@@ -87,6 +95,41 @@ function parseVerticalGraph(row: Record<string, unknown>): GraphSpec | null {
   };
 }
 
+function parseBound(raw: unknown): number | null {
+  if (raw == null) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+function parseNumberLineGraph(row: Record<string, unknown>): GraphSpec | null {
+  const expr = String(row.expr ?? "").trim();
+  if (!expr || expr.length > MAX_GRAPH_EXPR_LENGTH) return null;
+  const rawIntervals = Array.isArray(row.intervals) ? row.intervals : [];
+  if (rawIntervals.length > 8) return null;
+  const intervals: NumberLineInterval[] = [];
+  for (const item of rawIntervals) {
+    if (!item || typeof item !== "object") return null;
+    const iv = item as Record<string, unknown>;
+    const start = parseBound(iv.start);
+    const end = parseBound(iv.end);
+    if (start != null && end != null && start > end) return null;
+    intervals.push({
+      start,
+      end,
+      start_inclusive: Boolean(iv.start_inclusive),
+      end_inclusive: Boolean(iv.end_inclusive),
+    });
+  }
+  return {
+    type: "number_line",
+    expr,
+    variable: String(row.variable ?? "x"),
+    title: row.title != null ? String(row.title) : expr,
+    points: [],
+    intervals,
+  };
+}
+
 function parsePoints(raw: unknown): [number, number][] {
   if (!Array.isArray(raw)) return [];
   return downsamplePoints(
@@ -113,6 +156,9 @@ export function parseGraphSpec(raw: string): GraphSpec | null {
     const row = data as Record<string, unknown>;
     if (row.type === "vertical") {
       return parseVerticalGraph(row);
+    }
+    if (row.type === "number_line") {
+      return parseNumberLineGraph(row);
     }
     if (row.type !== "function") return null;
     const expr = String(row.expr ?? "").trim();
@@ -191,6 +237,85 @@ export function graphBounds(
     xMax += 1;
   }
   return { xMin, xMax, yMin, yMax };
+}
+
+/** Viewport for a number line: integers both sides of 0, room for arrows. */
+export function numberLineBounds(intervals: NumberLineInterval[]): {
+  xMin: number;
+  xMax: number;
+} {
+  const finite: number[] = [0];
+  let rayLeft = false;
+  let rayRight = false;
+  for (const iv of intervals) {
+    if (iv.start == null) rayLeft = true;
+    else finite.push(iv.start);
+    if (iv.end == null) rayRight = true;
+    else finite.push(iv.end);
+  }
+  let xMin = Math.min(...finite);
+  let xMax = Math.max(...finite);
+  xMin = Math.floor(xMin) - 1;
+  xMax = Math.ceil(xMax) + 1;
+  if (rayLeft) xMin -= 2;
+  if (rayRight) xMax += 2;
+  // Don't let the axis start at 0 — a number line continues through negatives.
+  if (xMin > -2) xMin = -2;
+  if (xMax < 2) xMax = 2;
+  if (xMax - xMin < 6) {
+    const extra = 6 - (xMax - xMin);
+    xMin -= Math.ceil(extra / 2);
+    xMax += Math.floor(extra / 2);
+  }
+  return { xMin, xMax };
+}
+
+/** Integer tick marks inside the viewport (capped so labels don't collide). */
+export function numberLineTicks(xMin: number, xMax: number): number[] {
+  const start = Math.floor(xMin) + 1;
+  const end = Math.ceil(xMax) - 1;
+  if (end < start) return [];
+  const count = end - start + 1;
+  const push = (n: number, into: number[]) => {
+    into.push(n === 0 ? 0 : n);
+  };
+  if (count <= 11) {
+    const out: number[] = [];
+    for (let n = start; n <= end; n += 1) push(n, out);
+    return out;
+  }
+  const step = Math.ceil(count / 9);
+  const out: number[] = [];
+  for (let n = start; n <= end; n += step) push(n, out);
+  if (out[out.length - 1] !== end) push(end, out);
+  if (!out.includes(0) && 0 >= start && 0 <= end) {
+    push(0, out);
+    out.sort((a, b) => a - b);
+  }
+  return out;
+}
+
+/** ``x >= 3`` → ``x ≥ 3`` for number-line titles. */
+export function formatInequalityExpr(expr: string): string {
+  let out = "";
+  let i = 0;
+  const src = expr.trim();
+  while (i < src.length) {
+    const two = src.slice(i, i + 2);
+    if (two === ">=") {
+      out += "≥";
+      i += 2;
+      continue;
+    }
+    if (two === "<=") {
+      out += "≤";
+      i += 2;
+      continue;
+    }
+    out += src[i];
+    i += 1;
+  }
+  return out;
 }
 
 const AXIS_PAD_RATIO = 0.08;

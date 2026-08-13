@@ -39,6 +39,7 @@ from app.models.math_schemas import (
     CombinatoricsInput,
     CombinatoricsResult,
     EquationInput,
+    GraphBlockSpec,
     GraphSampleInput,
     GraphSampleResult,
     MathExprResult,
@@ -51,6 +52,7 @@ from app.models.math_schemas import (
     NewtonIterationStep,
     NewtonMethodInput,
     NewtonMethodResult,
+    NumberLineInterval,
     NumberTheoryInput,
     NumberTheoryResult,
     ParallelogramInput,
@@ -891,6 +893,10 @@ def sample_function(data: GraphSampleInput) -> GraphSampleResult:
         raise MathServiceError("x_max must be greater than x_min")
     sym = Symbol(data.variable)
     parsed = _parse_expression(data.expr, [data.variable])
+    from sympy.core.relational import Relational
+
+    if isinstance(parsed, Relational):
+        raise MathServiceError("Inequality expressions are number lines, not y=f(x) plots")
 
     from sympy.utilities.lambdify import lambdify
 
@@ -1312,6 +1318,141 @@ def solve_inequality(lhs: str, rhs: str, variable: str, comparator: str) -> Math
         ],
         lhs_latex=latex(left),
         rhs_latex=latex(right),
+    )
+
+
+_MAX_NUMBER_LINE_INTERVALS = 8
+
+
+def expr_looks_like_inequality(expr: str) -> bool:
+    """True when ``expr`` has a comparison op (not a plain y=f(x) or x=c)."""
+    compact = expr.replace(" ", "")
+    return any(op in compact for op in (">=", "<=", ">", "<", "≥", "≤"))
+
+
+def _finite_or_none(bound: Any) -> float | None:
+    if bound is None:
+        return None
+    if getattr(bound, "is_infinite", False):
+        return None
+    try:
+        value = float(bound)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(value):
+        return None
+    return value
+
+
+def _collect_number_line_intervals(sol: Any, out: list[NumberLineInterval]) -> bool:
+    """Walk a SymPy set into number-line intervals. False = unsupported shape."""
+    from sympy import EmptySet, FiniteSet, Interval, Union
+    from sympy import S as sympy_S
+
+    if sol is None or sol is EmptySet or sol == sympy_S.EmptySet:
+        return True
+    if sol == sympy_S.Reals:
+        out.append(NumberLineInterval(start=None, end=None))
+        return True
+    if isinstance(sol, Interval):
+        start = _finite_or_none(sol.start)
+        end = _finite_or_none(sol.end)
+        out.append(
+            NumberLineInterval(
+                start=start,
+                end=end,
+                start_inclusive=start is not None and not bool(sol.left_open),
+                end_inclusive=end is not None and not bool(sol.right_open),
+            )
+        )
+        return True
+    if isinstance(sol, FiniteSet):
+        for point in sol:
+            value = _finite_or_none(point)
+            if value is None:
+                return False
+            out.append(
+                NumberLineInterval(
+                    start=value,
+                    end=value,
+                    start_inclusive=True,
+                    end_inclusive=True,
+                )
+            )
+        return True
+    if isinstance(sol, Union):
+        return all(_collect_number_line_intervals(arg, out) for arg in sol.args)
+    return False
+
+
+def _inequality_solution_set(expr: str, variable: str) -> Any:
+    """Solve a 1-variable inequality; returns a SymPy set (possibly empty)."""
+    from sympy import Ge, Gt, Le, Lt, S, solveset
+
+    compound = try_extract_compound_inequality_from_text(expr)
+    if compound is not None:
+        low, low_op, mid, high_op, high = compound
+        sym = Symbol(variable, real=True)
+        low_e = _parse_expression(low, [variable], real=True)
+        mid_e = _parse_expression(mid, [variable], real=True)
+        high_e = _parse_expression(high, [variable], real=True)
+        ascending = low_op in ("<", "<=") and high_op in ("<", "<=")
+        descending = low_op in (">", ">=") and high_op in (">", ">=")
+        if ascending:
+            lower_rel = Gt(mid_e, low_e) if low_op == "<" else Ge(mid_e, low_e)
+            upper_rel = Lt(mid_e, high_e) if high_op == "<" else Le(mid_e, high_e)
+        elif descending:
+            lower_rel = Lt(mid_e, low_e) if low_op == ">" else Le(mid_e, low_e)
+            upper_rel = Gt(mid_e, high_e) if high_op == ">" else Ge(mid_e, high_e)
+        else:
+            raise MathServiceError("Unsupported compound inequality direction")
+        return solveset(lower_rel, sym, domain=S.Reals).intersect(
+            solveset(upper_rel, sym, domain=S.Reals)
+        )
+
+    ineq = try_extract_inequality_from_text(expr)
+    if ineq is None:
+        raise MathServiceError("Not a 1-variable inequality")
+    lhs, rhs, comparator = ineq
+    # Number lines are real; solveset(..., Reals) returns Interval/Union,
+    # unlike solve_univariate_inequality which can return a Relational.
+    sym = Symbol(variable, real=True)
+    left = _parse_expression(lhs, [variable], real=True)
+    right = _parse_expression(rhs, [variable], real=True)
+    rel_cls = {"<": Lt, ">": Gt, "<=": Le, ">=": Ge}.get(comparator)
+    if rel_cls is None:
+        raise MathServiceError(f"Unknown inequality comparator: {comparator}")
+    return solveset(rel_cls(left, right), sym, domain=S.Reals)
+
+
+def number_line_spec_from_expr(expr: str, variable: str = "x") -> GraphBlockSpec | None:
+    """Turn ``x > 3`` / ``1 < x < 5`` into a number-line fence, or None.
+
+    Two-variable relations (``y > 2x``) stay out — those are half-planes, not
+    a 1D number line. Unsolvable / exotic sets also return None.
+    """
+    cleaned = expr.strip()
+    if not cleaned or not expr_looks_like_inequality(cleaned):
+        return None
+    vars_found = guess_variables(cleaned)
+    if len(vars_found) > 1:
+        return None
+    var = vars_found[0] if vars_found else variable
+    try:
+        sol = _inequality_solution_set(cleaned, var)
+        intervals: list[NumberLineInterval] = []
+        if not _collect_number_line_intervals(sol, intervals):
+            return None
+        if len(intervals) > _MAX_NUMBER_LINE_INTERVALS:
+            return None
+    except MathServiceError:
+        return None
+    return GraphBlockSpec(
+        type="number_line",
+        expr=cleaned[:256],
+        variable=var,
+        title=cleaned[:64],
+        intervals=intervals,
     )
 
 

@@ -13,7 +13,16 @@ import {
   scaleToFit,
   sideTickMarks,
 } from "@/lib/geometryBlock";
-import { graphBounds, graphPolylinePoints, parseGraphSpec, formatGraphExpr, expandBoundsForAxes } from "@/lib/graphBlock";
+import {
+  expandBoundsForAxes,
+  formatGraphExpr,
+  formatInequalityExpr,
+  graphBounds,
+  graphPolylinePoints,
+  numberLineBounds,
+  numberLineTicks,
+  parseGraphSpec,
+} from "@/lib/graphBlock";
 
 describe("geometryBlock", () => {
   it("parses square spec from side", () => {
@@ -256,6 +265,36 @@ describe("graphBlock", () => {
       [4, -5],
       [4, 5],
     ]);
+  });
+
+  it("parses a number_line fence for x > 3", () => {
+    const spec = parseGraphSpec(
+      JSON.stringify({
+        type: "number_line",
+        expr: "x > 3",
+        title: "x > 3",
+        intervals: [{ start: 3, end: null, start_inclusive: false, end_inclusive: false }],
+      }),
+    );
+    expect(spec?.type).toBe("number_line");
+    expect(spec?.intervals).toEqual([
+      { start: 3, end: null, start_inclusive: false, end_inclusive: false },
+    ]);
+  });
+
+  it("pretty-prints inequality titles", () => {
+    expect(formatInequalityExpr("x >= 3")).toBe("x ≥ 3");
+    expect(formatInequalityExpr("1 <= x < 5")).toBe("1 ≤ x < 5");
+  });
+
+  it("pads number-line bounds so the axis continues through negatives", () => {
+    const bounds = numberLineBounds([
+      { start: 3, end: null, start_inclusive: false, end_inclusive: false },
+    ]);
+    expect(bounds.xMin).toBeLessThan(0);
+    expect(bounds.xMax).toBeGreaterThan(3);
+    const ticks = numberLineTicks(bounds.xMin, bounds.xMax);
+    expect(ticks).toEqual(expect.arrayContaining([-1, 0, 1, 2, 3]));
   });
 
   it("builds polyline points", () => {

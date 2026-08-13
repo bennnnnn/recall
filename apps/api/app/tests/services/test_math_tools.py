@@ -779,6 +779,27 @@ async def test_vertical_line_graph_builds_canonical_fence() -> None:
     assert verified.canonical_fence["type"] == "vertical"
     assert verified.canonical_fence["x"] == 4.0
 
+
+@pytest.mark.asyncio
+async def test_graph_inequality_builds_number_line_fence() -> None:
+    settings = Settings(math_tools_enabled=True)
+    _out, verified = await math_tools.augment_prompt_messages(
+        [{"role": "user", "content": "graph x > 3"}],
+        "graph x > 3",
+        settings,
+    )
+    assert verified is not None
+    assert verified.canonical_fence is not None
+    assert verified.canonical_fence["type"] == "number_line"
+    iv = verified.canonical_fence["intervals"][0]
+    assert iv["start"] == 3.0
+    assert iv["end"] is None
+    assert iv["start_inclusive"] is False
+    assert "0/1" in verified.text
+
+
+@pytest.mark.asyncio
+async def test_graph_sample_respects_math_graph_max_points_above_200() -> None:
     """BUG FIX regression: a stray `min(..., 200)` silently capped every
     graph at 200 points regardless of math_graph_max_points, so raising
     the setting above 200 had no effect."""

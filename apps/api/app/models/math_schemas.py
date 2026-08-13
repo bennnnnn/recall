@@ -550,8 +550,27 @@ class GeometryBlockSpec(BaseModel):
         return self
 
 
+class NumberLineInterval(BaseModel):
+    """One piece of a 1-variable inequality on a number line.
+
+    ``start``/``end`` of ``None`` mean -inf / +inf. A closed (filled) circle is
+    ``inclusive``; an open circle is not.
+    """
+
+    start: float | None = None
+    end: float | None = None
+    start_inclusive: bool = False
+    end_inclusive: bool = False
+
+    @model_validator(mode="after")
+    def ordered_bounds(self) -> NumberLineInterval:
+        if self.start is not None and self.end is not None and self.start > self.end:
+            raise ValueError("interval start must be <= end")
+        return self
+
+
 class GraphBlockSpec(BaseModel):
-    type: Literal["function", "vertical"] = "function"
+    type: Literal["function", "vertical", "number_line"] = "function"
     # Same bounds as every other math input model in this file (EquationInput,
     # GraphSampleInput, MathImageExtract) — this one was missing them, an
     # inconsistency worth closing even though this field is currently
@@ -585,9 +604,20 @@ class GraphBlockSpec(BaseModel):
     # meaningful once expr2/points2 make this a two-curve plot.
     label: str | None = Field(default=None, max_length=64)
     label2: str | None = Field(default=None, max_length=64)
+    # 1-variable inequality on a number line (`type: "number_line"`). Empty
+    # on function/vertical fences so existing dumps stay valid.
+    intervals: list[NumberLineInterval] = Field(default_factory=list, max_length=8)
 
     @model_validator(mode="after")
     def vertical_or_function_shape(self) -> GraphBlockSpec:
+        if self.type == "number_line":
+            if not self.expr.strip():
+                raise ValueError("number_line requires expr")
+            if not self.title:
+                self.title = self.expr
+            self.points = []
+            self.segments = []
+            return self
         if self.type == "vertical":
             if self.x is None:
                 raise ValueError("vertical graph requires x")

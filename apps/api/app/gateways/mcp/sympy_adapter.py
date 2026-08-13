@@ -391,6 +391,21 @@ class SympyAdapter:
                 data=_fence_data(fence),
             )
 
+        line_spec = math_service.number_line_spec_from_expr(expr, variable)
+        if line_spec is not None and not str(args.get("expr2") or "").strip():
+            fence = line_spec.model_dump()
+            fence_json = json.dumps(fence, separators=(",", ":"))
+            return ToolResult(
+                name=self.name,
+                content=(
+                    f"Shaded region for {line_spec.expr} on the coordinate plane "
+                    "(dashed boundary = not included).\n"
+                    "When a plot helps, emit ONLY this fence (NEVER ```json):\n"
+                    f"```graph\n{fence_json}\n```"
+                ),
+                data=_fence_data(fence),
+            )
+
         graph_input = GraphSampleInput(
             expr=expr,
             variable=variable,
