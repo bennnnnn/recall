@@ -6,6 +6,7 @@ import { MathFormulaWebView } from "@/components/rich/MathFormulaWebView";
 import { MathText } from "@/components/rich/MathText";
 import { isHeavyInlineMath, stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/mathFenceRetag";
 import { splitInlineMath } from "@/lib/markdownPreprocess";
+import { stripTrailingFenceCloser } from "@/lib/streamingOpenFence";
 import { Theme, useTheme } from "@/lib/theme";
 import { supportsInlineHtmlMathWebView } from "@/lib/mathWebViewSupport";
 import { getPreviewWebView } from "@/lib/webView";
@@ -13,7 +14,7 @@ import { getPreviewWebView } from "@/lib/webView";
 type Props = { content: string };
 
 function normalizeAnswerContent(raw: string): string {
-  const text = raw.trim();
+  const text = stripTrailingFenceCloser(raw.trim());
   const boxed = text.match(/^\\boxed\{([\s\S]+)\}$/);
   if (boxed) return boxed[1].trim();
   return stripEmbeddedDollarWraps(stripRedundantDollarWrap(text));

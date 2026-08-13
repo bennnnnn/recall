@@ -17,12 +17,19 @@ export type OpenStreamRegion =
 
 const OPEN_FENCE_RE = /^(```|~~~)([^\n]*)(?:\n([\s\S]*))?$/;
 
+/** Closing ``` / ~~~ arrives in the open-fence body before scan.fenceOpen
+ * flips — AnswerBlock then shows leftover backticks (and `` looking like
+ * "..") until the fence is classified closed. */
+export function stripTrailingFenceCloser(body: string): string {
+  return body.replace(/(?:\r?\n)?[`~]{1,3}\s*$/, "");
+}
+
 export function parseOpenFenceTail(liveRaw: string): { lang: string; body: string } | null {
   const match = OPEN_FENCE_RE.exec(liveRaw);
   if (!match) return null;
   return {
     lang: (match[2] ?? "").trim(),
-    body: match[3] ?? "",
+    body: stripTrailingFenceCloser(match[3] ?? ""),
   };
 }
 

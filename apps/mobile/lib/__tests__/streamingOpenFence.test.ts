@@ -21,6 +21,19 @@ describe("parseOpenFenceTail", () => {
     expect(parseOpenFenceTail("just prose")).toBeNull();
     expect(parseOpenFenceTail("``python\nnope")).toBeNull();
   });
+
+  it("BUG FIX regression: strips a closing fence marker that leaked into the open body", () => {
+    // Live: ```answer body showed `x = 2 ``` ` (and `` looking like "..")
+    // until fenceOpen flipped and AnswerBlock remounted without the ticks.
+    expect(parseOpenFenceTail("```answer\nx = -2 or x = 2\n```")).toEqual({
+      lang: "answer",
+      body: "x = -2 or x = 2",
+    });
+    expect(parseOpenFenceTail("```answer\nx = 2``")).toEqual({
+      lang: "answer",
+      body: "x = 2",
+    });
+  });
 });
 
 describe("parseOpenMathTail", () => {
