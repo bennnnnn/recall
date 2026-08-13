@@ -3,7 +3,13 @@ name = "recall-api"
 version = "0.1.0"
 description = "Recall personal AI chat backend"
 readme = "README.md"
-requires-python = ">=3.12,<3.14"
+# Lower bound is 3.12.4, not 3.12: CPython 3.12.3 segfaults in the compiler
+# while byte-compiling app/tests/services/test_chat.py, so the whole backend
+# test suite dies with "Fatal Python error: Segmentation fault" during
+# collection and no usable error. 3.12.4 and later compile it fine. CI happens
+# to resolve a good interpreter, so this only ever bit a machine that landed on
+# 3.12.3 — hence the explicit floor rather than a comment nobody reads.
+requires-python = ">=3.12.4,<3.14"
 # Upper bounds match the pattern already used for mypy/ruff: allow patch/minor
 # within the locked band, block silent major/tooling jumps that break CI.
 # Exact versions live in uv.lock (frozen install in CI).

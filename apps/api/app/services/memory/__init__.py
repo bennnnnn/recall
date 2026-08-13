@@ -25,6 +25,36 @@ from app.services.memory.consolidation import (
 from app.services.memory.consolidation import (
     sections_need_consolidation as sections_need_consolidation,
 )
+from app.services.memory.selection import (
+    _ALWAYS_INJECT_TYPES as _ALWAYS_INJECT_TYPES,
+)
+from app.services.memory.selection import (
+    _SIMILARITY_GATED_TYPES as _SIMILARITY_GATED_TYPES,
+)
+from app.services.memory.selection import (
+    SECTION_LABELS as SECTION_LABELS,
+)
+from app.services.memory.selection import (
+    TYPE_PRIORITY as TYPE_PRIORITY,
+)
+from app.services.memory.selection import (
+    _confidence_value as _confidence_value,
+)
+from app.services.memory.selection import (
+    _eligible_memory as _eligible_memory,
+)
+from app.services.memory.selection import (
+    _merge_always_and_gated as _merge_always_and_gated,
+)
+from app.services.memory.selection import (
+    format_memory_block as format_memory_block,
+)
+from app.services.memory.selection import (
+    select_memories_for_prompt as select_memories_for_prompt,
+)
+from app.services.memory.selection import (
+    select_memories_semantic as select_memories_semantic,
+)
 from app.services.memory.text import (
     _split_sentences as _split_sentences,
 )
@@ -61,120 +91,6 @@ logger = logging.getLogger(__name__)
 # `app.services.memory.*` — including internal collaborators like
 # `_semantic_memories_from_vec`, `get_redis_client` and `create_background_task`
 # — and relocating them would break those seams for no behavioural gain.
-
-TYPE_PRIORITY = {"profile": 0, "preference": 1, "project": 2, "fact": 3, "focus": 4}
-SECTION_LABELS = {
-    "profile": "Profile",
-    "preference": "Preferences",
-    "project": "Projects",
-    "fact": "Facts",
-    "focus": "Focus",
-}
-# Always useful identity/style context — never gated by query similarity.
-_ALWAYS_INJECT_TYPES = frozenset({"profile", "preference"})
-# Topic-sensitive sections — only inject when cosine similarity clears the bar.
-_SIMILARITY_GATED_TYPES = frozenset({"project", "fact", "focus"})
-
-# Surfaces (home chips / suggestion prompts) must never echo these topics.
-
-
-def _confidence_value(memory: Memory) -> float:
-    if memory.confidence is None:
-        return 1.0
-    return float(memory.confidence)
-
-
-def _eligible_memory(memory: Memory, settings: Settings) -> bool:
-    return _confidence_value(memory) >= settings.memory_min_confidence and bool(memory.text.strip())
-
-
-def select_memories_for_prompt(
-    memories: list[Memory],
-    settings: Settings,
-    *,
-    omit_project_memory: bool = False,
-) -> list[Memory]:
-    """Non-semantic fallback: profile/preference only (no off-topic dump)."""
-    filtered = [
-        memory
-        for memory in memories
-        if _eligible_memory(memory, settings) and memory.type in _ALWAYS_INJECT_TYPES
-    ]
-    if omit_project_memory:
-        filtered = [memory for memory in filtered if memory.type != "project"]
-    filtered.sort(key=lambda m: (TYPE_PRIORITY.get(m.type, 99), -_confidence_value(m)))
-    type_cap = min(settings.memory_inject_limit, len(TYPE_PRIORITY))
-    return filtered[:type_cap]
-
-
-def format_memory_block(memories: list, *, max_chars: int = 0) -> str:
-    if not memories:
-        return ""
-    ordered = sorted(memories, key=lambda m: TYPE_PRIORITY.get(m.type, 99))
-    lines = ["Known facts about the user:"]
-    for memory in ordered:
-        label = SECTION_LABELS.get(memory.type, memory.type.title())
-        lines.append(f"\n## {label}\n{memory.text.strip()}")
-    block = "\n".join(lines)
-    if max_chars > 0 and len(block) > max_chars:
-        cut = max(1, max_chars - 1)
-        return f"{block[:cut].rstrip()}…"
-    return block
-
-
-def select_memories_semantic(
-    memories: list[Memory],
-    query_embedding: list[float],
-    settings: Settings,
-    *,
-    omit_project_memory: bool = False,
-) -> list[Memory]:
-    """profile/preference always; fact/focus/project only above similarity."""
-    from app.gateways.embedding_gateway import cosine_similarity, parse_embedding
-
-    always: list[Memory] = []
-    scored: list[tuple[float, Memory]] = []
-    for memory in memories:
-        if not _eligible_memory(memory, settings):
-            continue
-        if omit_project_memory and memory.type == "project":
-            continue
-        if memory.type in _ALWAYS_INJECT_TYPES:
-            always.append(memory)
-            continue
-        if memory.type not in _SIMILARITY_GATED_TYPES:
-            continue
-        vec = parse_embedding(getattr(memory, "embedding_json", None))
-        if vec is None:
-            continue
-        score = cosine_similarity(query_embedding, vec)
-        min_sim = settings.memory_min_similarity
-        if min_sim > 0 and score < min_sim:
-            continue
-        scored.append((score, memory))
-    scored.sort(key=lambda pair: pair[0], reverse=True)
-    always.sort(key=lambda m: (TYPE_PRIORITY.get(m.type, 99), -_confidence_value(m)))
-    gated = [memory for _, memory in scored]
-    merged = always + gated
-    type_cap = min(settings.memory_inject_limit, len(TYPE_PRIORITY))
-    return merged[:type_cap]
-
-
-def _merge_always_and_gated(
-    always: list[Memory],
-    gated: list[Memory],
-    settings: Settings,
-) -> list[Memory]:
-    seen: set[str] = set()
-    merged: list[Memory] = []
-    for memory in always + gated:
-        if memory.type in seen:
-            continue
-        seen.add(memory.type)
-        merged.append(memory)
-    merged.sort(key=lambda m: (TYPE_PRIORITY.get(m.type, 99), -_confidence_value(m)))
-    type_cap = min(settings.memory_inject_limit, len(TYPE_PRIORITY))
-    return merged[:type_cap]
 
 
 def _memory_query_cache_key(user_id: UUID, generation: bytes | str | None, query_text: str) -> str:
