@@ -237,7 +237,7 @@ export function graphBounds(
   return { xMin, xMax, yMin, yMax };
 }
 
-/** Viewport for a number line: include 0 and every finite bound, plus pad for arrows. */
+/** Viewport for a number line: integers both sides of 0, room for arrows. */
 export function numberLineBounds(intervals: NumberLineInterval[]): {
   xMin: number;
   xMax: number;
@@ -253,17 +253,44 @@ export function numberLineBounds(intervals: NumberLineInterval[]): {
   }
   let xMin = Math.min(...finite);
   let xMax = Math.max(...finite);
-  const span = Math.max(xMax - xMin, 4);
-  const pad = Math.max(2, span * 0.35);
-  if (rayLeft) xMin -= pad;
-  else xMin -= pad * 0.45;
-  if (rayRight) xMax += pad;
-  else xMax += pad * 0.45;
-  if (xMax <= xMin) {
-    xMin -= 2;
-    xMax += 2;
+  xMin = Math.floor(xMin) - 1;
+  xMax = Math.ceil(xMax) + 1;
+  if (rayLeft) xMin -= 2;
+  if (rayRight) xMax += 2;
+  // Don't let the axis start at 0 — a number line continues through negatives.
+  if (xMin > -2) xMin = -2;
+  if (xMax < 2) xMax = 2;
+  if (xMax - xMin < 6) {
+    const extra = 6 - (xMax - xMin);
+    xMin -= Math.ceil(extra / 2);
+    xMax += Math.floor(extra / 2);
   }
   return { xMin, xMax };
+}
+
+/** Integer tick marks inside the viewport (capped so labels don't collide). */
+export function numberLineTicks(xMin: number, xMax: number): number[] {
+  const start = Math.floor(xMin) + 1;
+  const end = Math.ceil(xMax) - 1;
+  if (end < start) return [];
+  const count = end - start + 1;
+  const push = (n: number, into: number[]) => {
+    into.push(n === 0 ? 0 : n);
+  };
+  if (count <= 11) {
+    const out: number[] = [];
+    for (let n = start; n <= end; n += 1) push(n, out);
+    return out;
+  }
+  const step = Math.ceil(count / 9);
+  const out: number[] = [];
+  for (let n = start; n <= end; n += step) push(n, out);
+  if (out[out.length - 1] !== end) push(end, out);
+  if (!out.includes(0) && 0 >= start && 0 <= end) {
+    push(0, out);
+    out.sort((a, b) => a - b);
+  }
+  return out;
 }
 
 /** ``x >= 3`` → ``x ≥ 3`` for number-line titles. */

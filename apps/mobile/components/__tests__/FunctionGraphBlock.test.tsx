@@ -92,6 +92,8 @@ describe("FunctionGraphBlock", () => {
     );
     expect(getByText("x > 3")).toBeOnTheScreen();
     expect(queryByText("y = x > 3")).toBeNull();
+    // Axis name used to sit on the +∞ arrow and look like a labeled "x" ray.
+    expect(queryByText("x")).toBeNull();
     expect(JSON.stringify(toJSON())).toContain("RNSVGSvgView");
   });
 

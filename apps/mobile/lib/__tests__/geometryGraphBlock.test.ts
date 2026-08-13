@@ -13,7 +13,7 @@ import {
   scaleToFit,
   sideTickMarks,
 } from "@/lib/geometryBlock";
-import { graphBounds, graphPolylinePoints, parseGraphSpec, numberLineBounds, formatInequalityExpr } from "@/lib/graphBlock";
+import { graphBounds, graphPolylinePoints, parseGraphSpec, numberLineBounds, numberLineTicks, formatInequalityExpr } from "@/lib/graphBlock";
 
 describe("geometryBlock", () => {
   it("parses square spec from side", () => {
@@ -278,12 +278,14 @@ describe("graphBlock", () => {
     expect(formatInequalityExpr("1 <= x < 5")).toBe("1 ≤ x < 5");
   });
 
-  it("pads number-line bounds so 0 and the cut are in view", () => {
+  it("pads number-line bounds so the axis continues through negatives", () => {
     const bounds = numberLineBounds([
       { start: 3, end: null, start_inclusive: false, end_inclusive: false },
     ]);
-    expect(bounds.xMin).toBeLessThanOrEqual(0);
+    expect(bounds.xMin).toBeLessThan(0);
     expect(bounds.xMax).toBeGreaterThan(3);
+    const ticks = numberLineTicks(bounds.xMin, bounds.xMax);
+    expect(ticks).toEqual(expect.arrayContaining([-1, 0, 1, 2, 3]));
   });
 
   it("builds polyline points", () => {

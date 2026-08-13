@@ -4,6 +4,7 @@ import {
   formatInequalityExpr,
   GraphSpec,
   numberLineBounds,
+  numberLineTicks,
   NumberLineInterval,
 } from "@/lib/graphBlock";
 
@@ -18,8 +19,9 @@ type Props = {
 
 const HEIGHT = 96;
 const PAD = 28;
-const RADIUS = 6;
-const ARROW = 8;
+const RADIUS = 7;
+const ARROW = 9;
+const RAY_INSET = RADIUS + 2;
 
 function formatTick(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
@@ -29,27 +31,26 @@ function mapX(x: number, xMin: number, xMax: number, width: number): number {
   return PAD + ((x - xMin) / (xMax - xMin || 1)) * (width - PAD * 2);
 }
 
-function ticksFor(intervals: NumberLineInterval[], xMin: number, xMax: number): number[] {
-  const raw = [0];
-  for (const iv of intervals) {
-    if (iv.start != null) raw.push(iv.start);
-    if (iv.end != null) raw.push(iv.end);
-  }
-  const seen = new Set<number>();
-  const out: number[] = [];
-  for (const n of raw) {
-    if (n < xMin || n > xMax) continue;
-    const key = Math.round(n * 1e6);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(n);
-  }
-  return out.sort((a, b) => a - b);
-}
-
 function arrowPoints(tipX: number, y: number, dir: "left" | "right"): string {
   const dx = dir === "right" ? -ARROW : ARROW;
   return `${tipX},${y} ${tipX + dx},${y - ARROW * 0.7} ${tipX + dx},${y + ARROW * 0.7}`;
+}
+
+function raySpan(
+  iv: NumberLineInterval,
+  xMin: number,
+  xMax: number,
+  width: number,
+): { x1: number; x2: number } | null {
+  if (iv.start != null && iv.end != null && iv.start === iv.end) return null;
+  const leftPx = PAD;
+  const rightPx = width - PAD;
+  let x1 = iv.start == null ? leftPx : mapX(iv.start, xMin, xMax, width);
+  let x2 = iv.end == null ? rightPx : mapX(iv.end, xMin, xMax, width);
+  if (iv.start != null) x1 += RAY_INSET;
+  if (iv.end != null) x2 -= RAY_INSET;
+  if (x2 <= x1) return null;
+  return { x1, x2 };
 }
 
 export function NumberLineChart({
@@ -65,7 +66,9 @@ export function NumberLineChart({
   const y = HEIGHT / 2;
   const leftPx = PAD;
   const rightPx = width - PAD;
-  const tickVals = ticksFor(intervals, xMin, xMax);
+  const tickVals = numberLineTicks(xMin, xMax);
+  const rayLeft = intervals.some((iv) => iv.start == null);
+  const rayRight = intervals.some((iv) => iv.end == null);
 
   return (
     <Svg width={width} height={HEIGHT} accessibilityLabel={formatInequalityExpr(spec.expr)}>
@@ -77,6 +80,10 @@ export function NumberLineChart({
         stroke={axisColor}
         strokeWidth={1.5}
       />
+      <Polygon points={arrowPoints(leftPx, y, "left")} fill={axisColor} />
+      {rayRight ? null : (
+        <Polygon points={arrowPoints(rightPx, y, "right")} fill={axisColor} />
+      )}
       {tickVals.map((n) => {
         const px = mapX(n, xMin, xMax, width);
         return (
@@ -92,22 +99,27 @@ export function NumberLineChart({
         );
       })}
       {intervals.map((iv, i) => {
-        const startPx = iv.start == null ? leftPx : mapX(iv.start, xMin, xMax, width);
-        const endPx = iv.end == null ? rightPx : mapX(iv.end, xMin, xMax, width);
-        const isPoint = iv.start != null && iv.end != null && iv.start === iv.end;
+        const span = raySpan(iv, xMin, xMax, width);
+        if (!span) return null;
         return (
           <Line
             key={`seg-${i}`}
-            x1={startPx}
+            x1={span.x1}
             y1={y}
-            x2={isPoint ? startPx : endPx}
+            x2={span.x2}
             y2={y}
             stroke={color}
-            strokeWidth={isPoint ? 0 : 3.5}
-            strokeLinecap="round"
+            strokeWidth={3.5}
+            strokeLinecap="butt"
           />
         );
       })}
+      {rayRight ? (
+        <Polygon points={arrowPoints(rightPx, y, "right")} fill={color} />
+      ) : null}
+      {rayLeft ? (
+        <Polygon points={arrowPoints(leftPx, y, "left")} fill={color} />
+      ) : null}
       {intervals.map((iv, i) => {
         const nodes: { px: number; filled: boolean; key: string }[] = [];
         if (iv.start != null) {
@@ -143,12 +155,6 @@ export function NumberLineChart({
           />
         ));
       })}
-      {intervals.some((iv) => iv.end == null) ? (
-        <Polygon points={arrowPoints(rightPx, y, "right")} fill={color} />
-      ) : null}
-      {intervals.some((iv) => iv.start == null) ? (
-        <Polygon points={arrowPoints(leftPx, y, "left")} fill={color} />
-      ) : null}
       {tickVals.map((n) => (
         <SvgText
           key={`l-${n}`}
@@ -161,15 +167,6 @@ export function NumberLineChart({
           {formatTick(n)}
         </SvgText>
       ))}
-      <SvgText
-        x={rightPx}
-        y={y - 12}
-        fill={labelColor}
-        fontSize={12}
-        textAnchor="end"
-      >
-        {spec.variable ?? "x"}
-      </SvgText>
     </Svg>
   );
 }
