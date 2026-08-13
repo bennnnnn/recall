@@ -10,8 +10,9 @@ user even inside an otherwise schema-valid block.
 
 When this turn produced a canonical `` ```graph `` fence but it (or the
 substituted JSON) is still sparse, we densify by re-sampling that *verified*
-expression. We do NOT densify an unverified model fence — re-sampling a
-hallucinated ``expr`` would smooth a wrong curve into looking authoritative.
+expression. Sparse *unverified* y=f(x) fences are also resampled from the
+fence's own ``expr`` — otherwise the client draws a 3-point polyline (a V
+for a parabola). Discrete point markers and vertical lines stay untouched.
 """
 
 from __future__ import annotations
@@ -280,9 +281,11 @@ def _replace_fence(
             if not _validate_geometry(raw):
                 raise ValueError("invalid geometry")
             return match.group(0)
-        # Schema-valid but unverified: leave the model's points alone.
-        GraphBlockSpec.model_validate(json.loads(raw))
-        return match.group(0)
+        parsed = GraphBlockSpec.model_validate(json.loads(raw))
+        densified = densify_sparse_graph(parsed)
+        if densified is parsed:
+            return match.group(0)
+        return _graph_fence_body(densified)
     except (json.JSONDecodeError, ValidationError, ValueError, TypeError):
         # Soft prose — never a CopyBlock / code fence. Callouts got routed
         # into copyable cards for short meta lines; keep math failures quiet.

@@ -15,7 +15,7 @@ describe("FunctionGraphBlock", () => {
     });
     const { getByText } = await render(<FunctionGraphBlock content={content} />);
 
-    expect(getByText("y = x**2")).toBeOnTheScreen();
+    expect(getByText("y = x²")).toBeOnTheScreen();
   });
 
   it("prefers an explicit title over the default y = expr label", async () => {

@@ -13,7 +13,7 @@ import {
   scaleToFit,
   sideTickMarks,
 } from "@/lib/geometryBlock";
-import { graphBounds, graphPolylinePoints, parseGraphSpec } from "@/lib/graphBlock";
+import { graphBounds, graphPolylinePoints, parseGraphSpec, formatGraphExpr, expandBoundsForAxes } from "@/lib/graphBlock";
 
 describe("geometryBlock", () => {
   it("parses square spec from side", () => {
@@ -470,5 +470,25 @@ describe("graphBlock", () => {
     );
     expect(bounds.yMin).toBe(-4);
     expect(bounds.yMax).toBe(4);
+  });
+
+  it("formatGraphExpr turns SymPy powers into readable math", () => {
+    expect(formatGraphExpr("3*x**2 - 12")).toBe("3x² - 12");
+    expect(formatGraphExpr("x**2")).toBe("x²");
+    expect(formatGraphExpr("2*sin(x)")).toBe("2sin(x)");
+  });
+
+  it("expandBoundsForAxes includes the origin so axes are not the data min", () => {
+    const tight = graphBounds([
+      [-2, 0],
+      [0, -12],
+      [2, 0],
+    ]);
+    expect(tight).toEqual({ xMin: -2, xMax: 2, yMin: -12, yMax: 0 });
+    const view = expandBoundsForAxes(tight);
+    expect(view.xMin).toBeLessThan(0);
+    expect(view.xMax).toBeGreaterThan(0);
+    expect(view.yMin).toBeLessThan(-12);
+    expect(view.yMax).toBeGreaterThan(0);
   });
 });
