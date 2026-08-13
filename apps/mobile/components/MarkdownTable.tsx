@@ -150,7 +150,7 @@ function makeStyles(theme: Theme) {
       borderColor: theme.border,
       borderRadius: 12,
       overflow: "hidden",
-      backgroundColor: theme.bg,
+      backgroundColor: theme.surface,
       alignSelf: "stretch",
     },
     row: {
@@ -160,7 +160,7 @@ function makeStyles(theme: Theme) {
       borderBottomColor: theme.border,
     },
     cell: {
-      backgroundColor: theme.bg,
+      backgroundColor: theme.surface,
       minWidth: 0,
     },
     cellFlex: {
@@ -178,7 +178,7 @@ function makeStyles(theme: Theme) {
       flexShrink: 1,
     },
     headerCell: {
-      backgroundColor: theme.surface,
+      backgroundColor: theme.surfaceAlt,
     },
   });
 }

@@ -1,4 +1,4 @@
-import { detectJsonRichFenceKind } from "@/lib/richBlocks";
+import { detectJsonRichFenceKind, parseQuoteAttribution } from "@/lib/richBlocks";
 
 describe("detectJsonRichFenceKind", () => {
   it("BUG FIX regression: recognizes a mistagged ```json geometry fence", () => {
@@ -42,5 +42,20 @@ describe("detectJsonRichFenceKind", () => {
 
   it("returns null for non-JSON content", () => {
     expect(detectJsonRichFenceKind("not json at all")).toBeNull();
+  });
+});
+
+describe("parseQuoteAttribution", () => {
+  it("splits a trailing dash line as the author", () => {
+    expect(parseQuoteAttribution("To be or not to be.\n— Shakespeare")).toEqual({
+      quote: "To be or not to be.",
+      author: "Shakespeare",
+    });
+  });
+
+  it("needs a newline before the dash — flattened AST text does not match", () => {
+    expect(parseQuoteAttribution("To be or not to be.— Shakespeare")).toEqual({
+      quote: "To be or not to be.— Shakespeare",
+    });
   });
 });

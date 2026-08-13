@@ -108,6 +108,9 @@ function makeMdStyles(t: Theme) {
     heading1: { fontSize: 20, fontWeight: "700", marginVertical: 8 },
     heading2: { fontSize: 18, fontWeight: "700", marginVertical: 6 },
     heading3: { fontSize: 16, fontWeight: "600", marginVertical: 4 },
+    heading4: { fontSize: 15, fontWeight: "600", marginVertical: 4, color: t.text },
+    heading5: { fontSize: 14, fontWeight: "600", marginVertical: 2, color: t.text },
+    heading6: { fontSize: 13, fontWeight: "600", marginVertical: 2, color: t.text },
     strong: { fontWeight: "700" },
     blockquote: {
       borderLeftWidth: 3,

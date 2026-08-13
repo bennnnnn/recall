@@ -1,13 +1,13 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { RichBodyText } from "@/components/rich/RichBodyText";
 import { Theme, useTheme } from "@/lib/theme";
 
-type Props = { quote: string; author?: string };
+type Props = { quote?: string; author?: string; children?: ReactNode };
 
-export function QuoteBlock({ quote, author }: Props) {
+export function QuoteBlock({ quote, author, children }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
 
@@ -19,9 +19,13 @@ export function QuoteBlock({ quote, author }: Props) {
         color={theme.textTertiary}
         style={s.icon}
       />
-      <RichBodyText style={s.quote} selectable>
-        {quote}
-      </RichBodyText>
+      {children ? (
+        <View>{children}</View>
+      ) : (
+        <RichBodyText style={s.quote} selectable>
+          {quote}
+        </RichBodyText>
+      )}
       {author ? <Text style={s.author}>— {author}</Text> : null}
     </View>
   );
