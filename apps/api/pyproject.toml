@@ -8,7 +8,7 @@ requires-python = ">=3.12,<3.14"
 # within the locked band, block silent major/tooling jumps that break CI.
 # Exact versions live in uv.lock (frozen install in CI).
 dependencies = [
-    "alembic>=1.14.0,<1.19",
+    "alembic>=1.19.1,<1.20",
     "asyncpg>=0.30.0,<0.32",
     "ddgs>=9.14.4,<10",
     "fastapi>=0.140.2,<0.141",
