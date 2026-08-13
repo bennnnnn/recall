@@ -4,7 +4,6 @@ import {
   PREVIEW_CSP_INLINE,
   PREVIEW_CSP_LIVE,
   escapeForInlineJsTemplate,
-  htmlDependsOnNetwork,
   injectPreviewCsp,
   prepareHtmlRunDocument,
   stripScripts,
@@ -46,20 +45,36 @@ describe("prepareHtmlRunDocument", () => {
     expect(out).toContain("addEventListener(\"click\"");
     expect(out).toContain("<h1>Hi</h1>");
   });
-});
 
-describe("htmlDependsOnNetwork", () => {
-  it("detects http(s) script/link/img and css urls", () => {
-    expect(htmlDependsOnNetwork('<script src="https://cdn.example/x.js">')).toBe(
-      true,
+  it("overrides window.open, location.assign/replace, and location.href", () => {
+    const out = prepareHtmlRunDocument(
+      "<!DOCTYPE html><html><head></head><body></body></html>",
     );
-    expect(htmlDependsOnNetwork('<link href="http://x/y.css" rel="stylesheet">')).toBe(
-      true,
+    expect(out).toContain("window.open = function");
+    expect(out).toContain("loc.assign = function");
+    expect(out).toContain("loc.replace = function");
+    expect(out).toContain("Object.defineProperty(loc, \"href\"");
+  });
+
+  it("strips meta-refresh before injecting CSP and stay script", () => {
+    const out = prepareHtmlRunDocument(
+      '<html><head><meta http-equiv="refresh" content="0;url=https://evil.example/phish"></head><body>ok</body></html>',
     );
-    expect(htmlDependsOnNetwork("body{background:url(https://x/a.png)}")).toBe(true);
-    expect(
-      htmlDependsOnNetwork("<style>h1{color:red}</style><h1>hi</h1>"),
-    ).toBe(false);
+    expect(out.toLowerCase()).not.toContain("refresh");
+    expect(out).not.toContain("evil.example");
+    expect(out).toContain("Content-Security-Policy");
+  });
+
+  it("injects the stay script immediately after the CSP meta, before user head scripts", () => {
+    const out = prepareHtmlRunDocument(
+      "<html><head><script>window.user=1</script></head><body></body></html>",
+    );
+    const cspAt = out.indexOf("Content-Security-Policy");
+    const stayAt = out.indexOf("window.open = function");
+    const userAt = out.indexOf("window.user=1");
+    expect(cspAt).toBeGreaterThan(-1);
+    expect(stayAt).toBeGreaterThan(cspAt);
+    expect(userAt).toBeGreaterThan(stayAt);
   });
 });
 

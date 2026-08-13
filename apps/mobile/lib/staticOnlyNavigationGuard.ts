@@ -6,11 +6,6 @@ export type NavigationGuardRequest = {
 };
 
 export type StaticOnlyNavigationGuard = {
-  /**
-   * Call from `onShouldStartLoadWithRequest`.
-   * Charts/math: deny all open-web http(s).
-   * HTML Run: allow CDN loads; deny only user-driven top-level navigations.
-   */
   shouldAllow: (request?: NavigationGuardRequest | string) => boolean;
   /** Call when the WebView's source content legitimately changes. */
   reset: () => void;
@@ -93,25 +88,6 @@ export function createStaticOnlyNavigationGuard(): StaticOnlyNavigationGuard {
     },
     reset: () => {
       allowedUnknownOnce = false;
-    },
-  };
-}
-
-/**
- * HTML Run tab: always allow loads.
- *
- * Returning false for http(s) (even "top-frame only") blanks CDN demos — iOS
- * often mis-labels script/style fetches as top-frame. Returning true for those
- * same mis-labeled requests can navigate the main frame away from the HTML.
- * So the native nav guard cannot safely filter CDN vs leave-document traffic.
- * Stay-on-document is enforced in-page (injected click/submit trap + CSP
- * form-action 'none'), not here.
- */
-export function createHtmlRunNavigationGuard(): StaticOnlyNavigationGuard {
-  return {
-    shouldAllow: () => true,
-    reset: () => {
-      /* no state */
     },
   };
 }

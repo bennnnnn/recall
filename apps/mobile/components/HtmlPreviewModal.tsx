@@ -36,18 +36,23 @@ import { CODE_FONT } from "@/lib/fonts";
 import { getPreviewWebView } from "@/lib/webView";
 
 class PreviewRenderBoundary extends Component<
-  { children: ReactNode; resetKey: string },
-  { error: string | null }
+  {
+    children: ReactNode;
+    resetKey: string;
+    errorColor: string;
+    errorMessage: string;
+  },
+  { hasError: boolean }
 > {
-  state: { error: string | null } = { error: null };
+  state: { hasError: boolean } = { hasError: false };
 
-  static getDerivedStateFromError(error: Error): { error: string } {
-    return { error: error.message || "Preview failed to render" };
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true };
   }
 
   componentDidUpdate(prevProps: { resetKey: string }): void {
-    if (prevProps.resetKey !== this.props.resetKey && this.state.error) {
-      this.setState({ error: null });
+    if (prevProps.resetKey !== this.props.resetKey && this.state.hasError) {
+      this.setState({ hasError: false });
     }
   }
 
@@ -56,11 +61,17 @@ class PreviewRenderBoundary extends Component<
   }
 
   render(): ReactNode {
-    if (this.state.error) {
+    if (this.state.hasError) {
       return (
         <View style={{ padding: 16 }}>
-          <Text style={{ color: "#B91C1C", fontSize: 14, lineHeight: 20 }}>
-            {this.state.error}
+          <Text
+            style={{
+              color: this.props.errorColor,
+              fontSize: 14,
+              lineHeight: 20,
+            }}
+          >
+            {this.props.errorMessage}
           </Text>
         </View>
       );
@@ -116,7 +127,8 @@ function makeTagStyles(theme: Theme) {
  *
  * Keep this path as close as charts: `source={{ html }}`, no baseUrl, no
  * onShouldStartLoadWithRequest. CDN is allowed by PREVIEW_CSP_LIVE; leave-page
- * is blocked by an in-document script + form-action 'none'.
+ * is blocked by an in-document script (click/submit/location/open), stripping
+ * meta-refresh, form-action 'none', and `domStorageEnabled={false}`.
  */
 function LiveWebPreview({
   html,
@@ -125,6 +137,7 @@ function LiveWebPreview({
   html: string;
   styles: ReturnType<typeof makeStyles>;
 }) {
+  const { t } = useTranslation();
   const [loadError, setLoadError] = useState<string | null>(null);
   const previewWebView = useMemo(() => getPreviewWebView(), []);
 
@@ -142,7 +155,7 @@ function LiveWebPreview({
   if (!WebView) {
     return (
       <View style={s.scrollContent}>
-        <Text style={s.base}>WebView is unavailable in this build.</Text>
+        <Text style={s.base}>{t("preview.webview_unavailable")}</Text>
       </View>
     );
   }
@@ -160,7 +173,7 @@ function LiveWebPreview({
         scrollEnabled
         originWhitelist={["*"]}
         javaScriptEnabled
-        domStorageEnabled
+        domStorageEnabled={false}
         allowsInlineMediaPlayback
         mixedContentMode="always"
         setSupportMultipleWindows={false}
@@ -286,7 +299,11 @@ export function HtmlPreviewModal({ visible, html, onClose }: Props) {
               <CodeBlock code={html} lang="html" />
             </ScrollView>
           ) : canUseNativeWebView ? (
-            <PreviewRenderBoundary resetKey={html}>
+            <PreviewRenderBoundary
+              resetKey={html}
+              errorColor={theme.danger}
+              errorMessage={t("preview.render_failed")}
+            >
               <LiveWebPreview html={html} styles={s} />
             </PreviewRenderBoundary>
           ) : (

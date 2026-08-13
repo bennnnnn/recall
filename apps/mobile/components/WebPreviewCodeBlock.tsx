@@ -1,12 +1,17 @@
-import { useMemo, useState } from "react";
+import React, { Suspense, useMemo, useState } from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 
 import { CodeBlock } from "@/components/CodeBlock";
-import { HtmlPreviewModal } from "@/components/HtmlPreviewModal";
 import { openHtmlInBrowser } from "@/lib/openHtmlPreview";
 import { Theme, useTheme } from "@/lib/theme";
+
+const HtmlPreviewModalLazy = React.lazy(() =>
+  import("@/components/HtmlPreviewModal").then((m) => ({
+    default: m.HtmlPreviewModal,
+  })),
+);
 
 type Props = {
   code: string;
@@ -68,7 +73,9 @@ export function WebPreviewCodeBlock({ code, lang = "html" }: Props) {
       />
 
       {modalOpen ? (
-        <HtmlPreviewModal visible html={code} onClose={() => setModalOpen(false)} />
+        <Suspense fallback={null}>
+          <HtmlPreviewModalLazy visible html={code} onClose={() => setModalOpen(false)} />
+        </Suspense>
       ) : null}
     </>
   );

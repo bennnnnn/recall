@@ -168,6 +168,7 @@ export function ChemistryBlock({ content }: Props) {
               scrollEnabled={false}
               style={s.webview}
               javaScriptEnabled
+              domStorageEnabled={false}
               onLoadEnd={onLoaded}
               onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
             />
