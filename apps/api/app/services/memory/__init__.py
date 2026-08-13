@@ -1,8 +1,6 @@
 import asyncio
 import hashlib
 import logging
-import re
-from datetime import UTC, date, datetime
 from typing import cast
 from uuid import UUID
 
@@ -12,8 +10,57 @@ from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.core.redis import get_redis_client
 from app.models.orm import Memory, User
+from app.services.memory.consolidation import (
+    accept_memory_section_rewrite as accept_memory_section_rewrite,
+)
+from app.services.memory.consolidation import (
+    consolidation_rewrite_preserves_facts as consolidation_rewrite_preserves_facts,
+)
+from app.services.memory.consolidation import (
+    extract_consolidation_anchors as extract_consolidation_anchors,
+)
+from app.services.memory.consolidation import (
+    section_needs_consolidation as section_needs_consolidation,
+)
+from app.services.memory.consolidation import (
+    sections_need_consolidation as sections_need_consolidation,
+)
+from app.services.memory.text import (
+    _split_sentences as _split_sentences,
+)
+from app.services.memory.text import (
+    embedding_text_hash as embedding_text_hash,
+)
+from app.services.memory.text import (
+    is_sensitive_memory_text as is_sensitive_memory_text,
+)
+from app.services.memory.text import (
+    join_memory_facts as join_memory_facts,
+)
+from app.services.memory.text import (
+    normalize_memory_text as normalize_memory_text,
+)
+from app.services.memory.text import (
+    split_memory_facts as split_memory_facts,
+)
+from app.services.memory.text import (
+    stamp_memory_as_of as stamp_memory_as_of,
+)
+from app.services.memory.text import (
+    strip_memory_as_of as strip_memory_as_of,
+)
 
 logger = logging.getLogger(__name__)
+
+# Pure text + consolidation-policy helpers live in the sibling modules imported
+# above, and are re-exported so every existing `from app.services.memory import
+# ...` and `memory_service.<name>` call site is unchanged.
+#
+# The stateful core (selection, semantic search, Redis caching, write locks,
+# CRUD) deliberately stays in this module: tests patch nine of its symbols at
+# `app.services.memory.*` — including internal collaborators like
+# `_semantic_memories_from_vec`, `get_redis_client` and `create_background_task`
+# — and relocating them would break those seams for no behavioural gain.
 
 TYPE_PRIORITY = {"profile": 0, "preference": 1, "project": 2, "fact": 3, "focus": 4}
 SECTION_LABELS = {
@@ -28,177 +75,7 @@ _ALWAYS_INJECT_TYPES = frozenset({"profile", "preference"})
 # Topic-sensitive sections — only inject when cosine similarity clears the bar.
 _SIMILARITY_GATED_TYPES = frozenset({"project", "fact", "focus"})
 
-_AS_OF_PREFIX_RE = re.compile(r"^As of \d{4}-\d{2}-\d{2}:\s*", re.IGNORECASE)
 # Surfaces (home chips / suggestion prompts) must never echo these topics.
-_SENSITIVE_MEMORY_RE = re.compile(
-    r"\b("
-    r"allerg(?:y|ies|ic)|diagnos(?:is|ed)|cancer|depress(?:ion|ed)|anxi(?:ety|ous)|"
-    r"therapist|psychiatr|medication|prescri(?:be|ption)|pregnant|hiv\b|diabetes|"
-    r"lawsuit|attorney|\blawyer\b|divorc(?:e|ing)|"
-    r"salary|mortgage|credit\s*card|bank\s*account|\bdebt\b|"
-    r"boyfriend|girlfriend|husband|wife|spouse|affair|\bdating\b"
-    r")\b",
-    re.IGNORECASE,
-)
-
-
-def normalize_memory_text(text: str) -> str:
-    clean = re.sub(r"\s+", " ", text.strip()).rstrip(".")
-    return clean
-
-
-def strip_memory_as_of(text: str) -> str:
-    """Remove a leading ``As of YYYY-MM-DD:`` stamp if present."""
-    return _AS_OF_PREFIX_RE.sub("", text.strip()).strip()
-
-
-def stamp_memory_as_of(text: str, *, as_of: date | None = None) -> str:
-    """Prefix section text with today's (or provided) as-of date for freshness."""
-    body = strip_memory_as_of(text)
-    if not body:
-        return body
-    day = as_of or datetime.now(UTC).date()
-    return f"As of {day.isoformat()}: {body}"
-
-
-def is_sensitive_memory_text(text: str) -> bool:
-    """True when text looks like health/legal/finance/relationship content."""
-    return bool(_SENSITIVE_MEMORY_RE.search(strip_memory_as_of(text)))
-
-
-def embedding_text_hash(text: str) -> str:
-    """Hash of the exact text an embedding was computed from — stored
-    alongside the vector so a later pass can tell "stale" from "current"
-    without needing the specific prior-snapshot text that triggered this
-    particular embed call. See migration 0057 and its BUG FIX docstring."""
-    return hashlib.sha256(text.encode()).hexdigest()
-
-
-def _split_sentences(text: str) -> list[str]:
-    parts = re.split(r"(?<=[.!?])\s+", text.strip())
-    return [part.strip() for part in parts if part.strip()]
-
-
-def section_needs_consolidation(text: str) -> bool:
-    """True only for migration-style glue (duplicates), not normal long summaries."""
-    clean = text.strip()
-    if not clean:
-        return False
-    sentences = _split_sentences(clean)
-    normalized = [normalize_memory_text(sentence).lower() for sentence in sentences]
-    if len(normalized) != len(set(normalized)):
-        return True
-    prefixes = [" ".join(sentence.split()[:3]) for sentence in normalized if sentence]
-    if len(prefixes) >= 2 and len(prefixes) != len(set(prefixes)):
-        return True
-    return len(clean) > 900 and len(sentences) >= 6
-
-
-def sections_need_consolidation(sections: dict[str, str]) -> bool:
-    return any(section_needs_consolidation(text) for text in sections.values())
-
-
-_CONSOLIDATION_ANCHOR_STOP = frozenset(
-    {
-        "user",
-        "the",
-        "and",
-        "for",
-        "with",
-        "who",
-        "that",
-        "this",
-        "their",
-        "they",
-        "prefers",
-        "likes",
-        "works",
-        "name",
-        "is",
-        "are",
-        "was",
-        "has",
-        "have",
-    }
-)
-
-
-def extract_consolidation_anchors(text: str) -> frozenset[str]:
-    """Salient tokens from prior memory text that a rewrite should preserve."""
-    anchors: set[str] = set()
-    for match in re.finditer(r"[\w.+-]+@[\w-]+\.[\w.-]+", text):
-        anchors.add(match.group(0).lower())
-    for match in re.finditer(r"\b\d{2,}\b", text):
-        anchors.add(match.group(0))
-    for match in re.finditer(r'"([^"]{2,80})"', text):
-        quoted = match.group(1).strip().lower()
-        if quoted:
-            anchors.add(quoted)
-    for match in re.finditer(r"\b[A-Z][a-zA-Z0-9-]{2,}\b", text):
-        token = match.group(0).lower()
-        if token not in _CONSOLIDATION_ANCHOR_STOP:
-            anchors.add(token)
-    return frozenset(anchors)
-
-
-def consolidation_rewrite_preserves_facts(
-    prior: str,
-    summary: str,
-    *,
-    min_preserved_ratio: float = 0.8,
-) -> bool:
-    """True when enough prior anchors appear in the rewritten summary.
-
-    BUG FIX (off-by-one): the safety gate is meant to reject a merge that
-    drops >= 20% of anchors (the default `min_preserved_ratio=0.8`). A `>=`
-    comparison here accepted a merge that preserved exactly 80% — i.e.
-    dropped exactly 20% — when the spec says that boundary should be
-    rejected too. Strict `>` closes it.
-    """
-    anchors = extract_consolidation_anchors(prior)
-    if len(anchors) < 2:
-        return True
-    haystack = summary.lower()
-    preserved = sum(1 for anchor in anchors if anchor in haystack)
-    return preserved / len(anchors) > min_preserved_ratio
-
-
-def accept_memory_section_rewrite(
-    *,
-    section_type: str,
-    prior: str,
-    summary: str,
-    confidence: float,
-    min_confidence: float,
-    enforce_length_floor: bool = True,
-) -> str | None:
-    """Validate a whole-section rewrite before upsert (extraction + consolidation).
-
-    Rejects low confidence, empty text, catastrophic shortening, and rewrites
-    that drop too many prior fact anchors — so a flaky LLM pass cannot silently
-    erase stable facts (name, employer, allergy, …).
-    """
-    if confidence < min_confidence:
-        return None
-    clean = normalize_memory_text(summary)
-    if not clean:
-        return None
-    # Exact-sentence dedupe can shrink well below 50%; only LLM merges use the floor.
-    if enforce_length_floor and prior and len(clean) < len(prior) * 0.5:
-        logger.warning(
-            "Skipping memory rewrite for %s: new text much shorter than existing",
-            section_type,
-        )
-        return None
-    if prior and not consolidation_rewrite_preserves_facts(prior, clean):
-        logger.warning(
-            "Skipping memory rewrite for %s: rewrite dropped prior fact anchors",
-            section_type,
-        )
-        return None
-    # Identical text is still "accepted" so extraction can re-embed stale rows;
-    # callers that only want real changes should compare against prior.
-    return clean
 
 
 def _confidence_value(memory: Memory) -> float:
@@ -785,28 +662,6 @@ async def _acquire_memory_write_lock_or_raise(user_id: UUID) -> str:
         if attempt < _DELETE_LOCK_RETRY_ATTEMPTS - 1:
             await asyncio.sleep(_DELETE_LOCK_RETRY_DELAY_SECONDS)
     raise MemoryWriteLockBusyError(user_id)
-
-
-def split_memory_facts(text: str) -> list[str]:
-    return _split_sentences(text)
-
-
-def join_memory_facts(facts: list[str]) -> str:
-    parts: list[str] = []
-    seen: set[str] = set()
-    for raw in facts:
-        clean = normalize_memory_text(raw)
-        if not clean:
-            continue
-        key = clean.lower()
-        if key in seen:
-            continue
-        seen.add(key)
-        parts.append(clean)
-    merged = ". ".join(parts)
-    if merged and not merged.endswith("."):
-        merged += "."
-    return merged
 
 
 async def delete_memory_fact(
