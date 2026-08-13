@@ -180,3 +180,40 @@ async def test_stream_message_sse_passes_cancel_event_as_should_cancel():
 
     assert "should_cancel" in captured_kwargs
     assert callable(captured_kwargs["should_cancel"])
+
+
+@pytest.mark.parametrize(
+    "path, body",
+    [
+        ("messages/stream", {"content": "hello"}),
+        ("regenerate/stream", {}),
+        ("edit/stream", {"message_id": str(uuid4()), "content": "revised"}),
+    ],
+)
+def test_stream_routes_return_429_when_chat_rate_limited(path: str, body: dict):
+    """All three streaming routes share require_chat_rate_limit; each must 429.
+
+    The check used to be copy-pasted into every route body, so a new streaming
+    entry point could silently ship without it. This pins the throttle to the
+    routes themselves rather than to any one handler.
+    """
+    user = _fake_user()
+    app = _app_with_user(user)
+    chat_id = uuid4()
+
+    with (
+        patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
+        patch(
+            "app.routers.chat_stream.allow_chat_message",
+            AsyncMock(return_value=False),
+        ),
+    ):
+        client = TestClient(app)
+        response = client.post(
+            f"/chats/{chat_id}/{path}",
+            headers={"Authorization": "Bearer tok"},
+            json=body,
+        )
+
+    assert response.status_code == 429
+    assert response.headers["Retry-After"] == "60"
