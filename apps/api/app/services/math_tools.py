@@ -1438,9 +1438,10 @@ def _verified_block_graph(
     )
     if line_spec is not None:
         lines.append(
-            f"Number line for {line_spec.expr}: open circle = endpoint not included, "
-            "filled = included; arrow toward infinity. This is NOT y=f(x) — do not "
-            "plot a 0/1 step function."
+            f"Shaded region for {line_spec.expr} on the coordinate plane: "
+            "dashed vertical boundary = endpoint not included, solid = included. "
+            "Shade the solution set. This is NOT y=f(x) — do not plot a 0/1 step "
+            "or a 1D number line."
         )
         lines.append(
             "When a plot helps, emit ONLY this fence ONCE — no 'corrected/final graph "

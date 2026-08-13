@@ -3,7 +3,7 @@ import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import Svg, { Circle, Line, Polyline, Text as SvgText } from "react-native-svg";
 
-import { NumberLineChart } from "@/components/rich/NumberLineChart";
+import { InequalityRegionChart } from "@/components/rich/InequalityRegionChart";
 import {
   formatInequalityExpr,
   graphBounds,
@@ -51,13 +51,13 @@ export function FunctionGraphBlock({ content }: Props) {
         <Text style={styles.title}>
           {formatInequalityExpr(spec.title ?? spec.expr)}
         </Text>
-        <NumberLineChart
+        <InequalityRegionChart
           spec={spec}
           width={chartWidth}
+          height={CHART_HEIGHT}
           color={theme.primary}
           axisColor={theme.border}
           labelColor={theme.textSecondary}
-          holeFill={theme.assistantBubble}
         />
       </View>
     );

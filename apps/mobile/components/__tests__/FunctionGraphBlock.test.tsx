@@ -80,7 +80,7 @@ describe("FunctionGraphBlock", () => {
     expect(JSON.stringify(toJSON())).toContain("RNSVGSvgView");
   });
 
-  it("renders a number line for x > 3, not y = x > 3", async () => {
+  it("shades the half-plane for x > 3 on xy axes, not y = x > 3", async () => {
     const content = JSON.stringify({
       type: "number_line",
       expr: "x > 3",
@@ -92,9 +92,9 @@ describe("FunctionGraphBlock", () => {
     );
     expect(getByText("x > 3")).toBeOnTheScreen();
     expect(queryByText("y = x > 3")).toBeNull();
-    // Axis name used to sit on the +∞ arrow and look like a labeled "x" ray.
-    expect(queryByText("x")).toBeNull();
-    expect(JSON.stringify(toJSON())).toContain("RNSVGSvgView");
+    const tree = JSON.stringify(toJSON());
+    expect(tree).toContain("RNSVGSvgView");
+    expect(tree).toContain("RNSVGRect");
   });
 
   it("renders two curves with a legend when expr2/points2 are present", async () => {
