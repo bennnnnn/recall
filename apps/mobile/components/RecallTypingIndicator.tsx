@@ -19,7 +19,7 @@ type Props = {
   phase?: string | null;
 };
 
-/** Blue disc whose pulse speed/strength tracks the live chat status phase. */
+/** Accent disc whose pulse speed/strength tracks the live chat status phase. */
 export function RecallTypingIndicator({ phase }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
@@ -88,7 +88,7 @@ function makeStyles(t: Theme) {
       width: 28,
       height: 28,
       borderRadius: 14,
-      backgroundColor: t.primary,
+      backgroundColor: t.accent,
     },
   });
 }

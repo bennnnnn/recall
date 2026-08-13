@@ -206,6 +206,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         /* best-effort */
       }
       try {
+        const { invalidateSuggestedRemindersCache } = await import(
+          "@/lib/suggestedRemindersCache"
+        );
+        invalidateSuggestedRemindersCache();
+      } catch {
+        /* best-effort */
+      }
+      try {
         const { invalidateChatListCache } = await import("@/lib/chatListCache");
         invalidateChatListCache();
       } catch {

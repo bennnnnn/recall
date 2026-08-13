@@ -6,6 +6,10 @@ import { useTranslation } from "react-i18next";
 import { isReminder } from "@/components/todos/todoHelpers";
 import { api, GoogleCalendarEvent, SuggestedReminder, Todo } from "@/lib/api";
 import {
+  fetchSuggestedReminders,
+  removeSuggestedReminderFromCache,
+} from "@/lib/suggestedRemindersCache";
+import {
   buildCalendarOverlapNotes,
   buildReminderOverlapNotes,
 } from "@/lib/reminderOverlap";
@@ -97,8 +101,8 @@ export function useTodosCalendarIntegration({
     const accessToken = tokenRef.current;
     if (!accessToken || focusSection === "list") return;
     try {
-      const result = await api.listSuggestedReminders(accessToken);
-      setSuggestedReminders(result.reminders);
+      const result = await fetchSuggestedReminders(accessToken);
+      setSuggestedReminders(result?.reminders ?? []);
       setSuggestedLoadError(false);
     } catch {
       setSuggestedReminders([]);
@@ -164,6 +168,7 @@ export function useTodosCalendarIntegration({
       setSuggestionBusyId(reminder.id);
       try {
         const created = await api.addSuggestedReminder(token, reminder.id);
+        removeSuggestedReminderFromCache(reminder.id);
         setSuggestedReminders((prev) => prev.filter((item) => item.id !== reminder.id));
         setTodos((prev) => [created, ...prev]);
         void syncTodoReminders([created, ...todos]);
@@ -183,6 +188,7 @@ export function useTodosCalendarIntegration({
       setSuggestionBusyId(reminder.id);
       try {
         await api.dismissSuggestedReminder(token, reminder.id);
+        removeSuggestedReminderFromCache(reminder.id);
         setSuggestedReminders((prev) => prev.filter((item) => item.id !== reminder.id));
       } catch {
         Alert.alert(t("todos.error"), t("common.error"));

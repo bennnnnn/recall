@@ -96,7 +96,7 @@ export const lightTheme: Theme = {
 
   text: "#1C1C1E",
   textSecondary: "#636366",
-  textTertiary: "#8E8E93",
+  textTertiary: "#6E6E73",
 
   // Soft brand wash — stands out vs gray assistant without white-on-blue markdown
   userBubble: "#D6EBFF",
@@ -119,7 +119,7 @@ export const lightTheme: Theme = {
 
   codeBg: "#F2F2F7",
   codeText: "#1C1C1E",
-  codeLang: "#8E8E93",
+  codeLang: "#6E6E73",
 
   scrim: "rgba(0,0,0,0.40)",
 

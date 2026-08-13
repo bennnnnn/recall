@@ -192,7 +192,12 @@ function AssistantActions({
   };
 
   return (
-    <View style={[a.row, hidden && a.rowHidden]} pointerEvents={hidden ? "none" : "auto"}>
+    <View
+      style={[a.row, hidden && a.rowHidden]}
+      pointerEvents={hidden ? "none" : "auto"}
+      accessibilityElementsHidden={hidden}
+      importantForAccessibility={hidden ? "no-hide-descendants" : "auto"}
+    >
       {!thumbsOnly ? (
         <>
           <Pressable

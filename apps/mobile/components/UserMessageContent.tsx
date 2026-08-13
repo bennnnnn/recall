@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 
 import { CollapsibleMessageBody } from "@/components/CollapsibleMessageBody";
 import { ChatMessageImage } from "@/components/ChatMessageImage";
@@ -22,6 +23,7 @@ type Props = {
 
 export function UserMessageContent({ message }: Props) {
   const C = useTheme();
+  const { t } = useTranslation();
   const s = useMemo(() => makeStyles(C), [C]);
   const parsed = useMemo(() => parseUserMessageContent(message.content), [message.content]);
   const quizLetter = useMemo(
@@ -85,7 +87,7 @@ export function UserMessageContent({ message }: Props) {
               <View style={s.fileChip}>
                 <Ionicons name="document-outline" size={16} color={C.primary} />
                 <Text style={s.fileChipText} numberOfLines={1}>
-                  Attached file
+                  {t("chat.attached_file")}
                 </Text>
               </View>
             ) : null}
