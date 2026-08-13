@@ -5,35 +5,37 @@ alwaysApply: true
 
 # Recall — project rules
 
-Read `CLAUDE.md` at repo root for full architecture.
+Read `CLAUDE.md` at repo root for the engineering map (catalog + seams). Product status is `FEATURES.md`. This is not a week-one MVP (~44k API, ~50k mobile).
 
 ## Golden rules
 
 1. Never put provider API keys in the mobile app — backend `.env` only.
-2. Use model aliases in app code: `free-chat`, `smart-chat`, `title-model`, `memory-model`. Alias → provider mapping lives in `apps/api/app/services/model_catalog.py` (LiteLLM calls via `gateways/litellm_gateway.py`).
+2. Use model aliases in app code: `free-chat`, `smart-chat`, `max-chat`, `title-model`, `memory-model`. Alias → provider mapping lives in `apps/api/app/services/model_catalog.py` (LiteLLM calls via `gateways/litellm_gateway.py`).
 3. Never send full chat history to the model — memory + recent window (~10–20 messages) only.
-4. Topic generation and memory extraction are best-effort background jobs — must never block streaming.
+4. Topic, memory, todos, projects, and other post-turn work are best-effort jobs — must never block streaming. Enqueue from `services/chat/post_turn.py` via `core/jobs.py`.
 5. No arbitrary code execution — render/highlight code only. The sole exception: HTML/CSS/JS preview in a sandboxed WebView (and chart/diagram rendering). Never run Python/shell/etc., and never run code outside that isolated WebView. The preview WebView needs a dev build (not Expo Go).
 6. Validate all LLM structured outputs with Pydantic before DB writes.
+7. Symbolic math is server-side SymPy only — mobile renders; it does not solve. See `docs/math.md`.
 
 ## Layering (backend)
 
 `routers/` → `services/` → `gateways/` + `repositories/`. No business logic in routers.
 
-New chat-loop code belongs in `apps/api/app/services/chat/`.
+New chat-loop code belongs in `apps/api/app/services/chat/`. Quota + prepare lock: `async with turn_resources(...)` in `stream.py`. New external IO belongs in `gateways/` (MCP adapters in `gateways/mcp/`). New durable work belongs in `background/handlers.py` + `core/jobs.py`, never on the stream path.
 
 ## Mobile
 
-- All HTTP/WebSocket via `apps/mobile/lib/api.ts`
+- All HTTP/WebSocket via `apps/mobile/lib/api.ts` (barrel over `lib/api/*.ts`)
 - Tokens in `expo-secure-store` only
-- Screens stay dumb; logic in hooks (`useChat`, auth context)
+- Screens stay dumb; logic in hooks (`useChat*`, `useMemoryActions`, auth context)
+- Rich fences: `lib/fenceRegistry.ts` + `components/rich/RichFence.tsx`
 
 ## In scope (current)
 
-Chat + memory, todos, proactive suggestions, full-text search, i18n, and rich rendering (markdown, math, charts, sandboxed HTML/JS preview).
+Chat + memory, Learning projects/quizzes, todos/reminders, search, suggestions, attachments/RAG, calendar/Gmail, speech, image gen, web search, i18n, Pro, and rich rendering (markdown, math, geometry/graph, charts, Mermaid, chemistry, sandboxed HTML/JS). MCP tool loop exists but is flag-gated **off**.
 
 ## v1 non-goals
 
-No tools/agents, no execution of non-web code (Python/shell/etc.) or execution outside the sandboxed preview WebView, no multi-user.
+No multi-user, no execution of non-web code or execution outside the sandboxed preview WebView, no duplex voice, no arbitrary user MCP servers. Do not treat “no tools/agents” as a hard absence — the tool loop is shipped and default-off.
 
 A **web client sharing this same API** is planned for a later version — keep `lib/api.ts` the single network boundary and rich-block rendering swappable so the app stays portable.

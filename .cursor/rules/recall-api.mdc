@@ -6,8 +6,13 @@ alwaysApply: false
 
 # Recall API (Python)
 
+~44k lines in `app/` excluding tests. Layers: routers → services → gateways/repositories.
+
 - async/await for all IO; full type hints; Pydantic v2 schemas
-- Config via `app/core/config.py` — never read `os.environ` elsewhere
+- Config / feature flags via `app/core/config.py` — never read `os.environ` elsewhere
+- Chat loop in `app/services/chat/`; quota/lock via `turn_resources`
+- Jobs: `background/handlers.py` registers; `core/jobs.py` is the queue only
+- MCP tools: `gateways/mcp/` adapters; `mcp_tool_loop_enabled` default off
 - Background jobs: wrap body in try/except; never raise into chat path
 - Mock LiteLLM, Redis, Google, Neon in tests — zero real network calls
 - Format/lint: `uv run ruff format . && uv run ruff check .`
