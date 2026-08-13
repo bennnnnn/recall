@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -19,13 +19,10 @@ import { AppSheet } from "@/components/AppSheet";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
 import { useAuth } from "@/contexts/AuthContext";
-import { api, Memory } from "@/lib/api";
-import {
-  fetchMemories,
-  getCachedMemories,
-  setMemoriesCache,
-} from "@/lib/memoryListCache";
-import { joinMemoryFacts, splitMemoryFacts } from "@/lib/memoryFacts";
+import { useMemoryActions } from "@/hooks/useMemoryActions";
+import { Memory } from "@/lib/api";
+import { getCachedMemories } from "@/lib/memoryListCache";
+import { splitMemoryFacts } from "@/lib/memoryFacts";
 import { Theme, useTheme } from "@/lib/theme";
 
 const TYPE_ORDER = ["profile", "preference", "project", "fact", "focus"];
@@ -165,17 +162,21 @@ export default function MemoryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  // Settings already warms this cache — paint instantly instead of skeleton.
-  const cachedOnMount = getCachedMemories();
-  const [loading, setLoading] = useState(() => !cachedOnMount);
-  const [memories, setMemories] = useState<Memory[]>(() => cachedOnMount ?? []);
-  const [error, setError] = useState(false);
+  const {
+    memories,
+    loading,
+    error,
+    load,
+    hasLoaded,
+    deleteSection,
+    deleteFact,
+    updateMemoryText,
+  } = useMemoryActions(token);
   const [refreshing, setRefreshing] = useState(false);
   const [expandedTypes, setExpandedTypes] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<Memory | null>(null);
   const [draftText, setDraftText] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
-  const hasLoadedRef = useRef(Boolean(cachedOnMount));
 
   const toggleSection = useCallback((type: string) => {
     setExpandedTypes((prev) => {
@@ -186,37 +187,13 @@ export default function MemoryScreen() {
     });
   }, []);
 
-  const applyMemories = useCallback((next: Memory[]) => {
-    setMemories(next);
-    setMemoriesCache(next);
-  }, []);
-
-  const load = useCallback(async (opts?: { silent?: boolean; force?: boolean }) => {
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-    const showSkeleton =
-      !opts?.silent && !hasLoadedRef.current && !getCachedMemories()?.length;
-    if (showSkeleton) setLoading(true);
-    setError(false);
-    const data = await fetchMemories(token, { force: opts?.force });
-    if (data) {
-      setMemories(data);
-    } else if (!getCachedMemories()?.length) {
-      setError(true);
-    }
-    hasLoadedRef.current = true;
-    if (showSkeleton) setLoading(false);
-  }, [token]);
-
   useFocusEffect(
     useCallback(() => {
       void load({
-        silent: hasLoadedRef.current || Boolean(getCachedMemories()),
+        silent: hasLoaded() || Boolean(getCachedMemories()),
         force: false,
       });
-    }, [load]),
+    }, [load, hasLoaded]),
   );
 
   const sections = useMemo(() => {
@@ -234,31 +211,22 @@ export default function MemoryScreen() {
   }, [savingEdit]);
 
   const saveEdit = useCallback(async () => {
-    if (!token || !editing) return;
+    if (!editing) return;
     const nextText = draftText.trim();
     if (!nextText) {
       Alert.alert(t("common.error"), t("memory.edit_failed"));
       return;
     }
-    const snapshot = memories;
-    const editingId = editing.id;
     setSavingEdit(true);
-    applyMemories(
-      memories.map((item) => (item.id === editingId ? { ...item, text: nextText } : item)),
-    );
-    try {
-      const updated = await api.updateMemory(token, editingId, nextText);
-      // Prefer server text (includes as-of stamp) over optimistic draft.
-      applyMemories(snapshot.map((item) => (item.id === updated.id ? updated : item)));
+    const ok = await updateMemoryText(editing.id, nextText);
+    setSavingEdit(false);
+    if (ok) {
       setEditing(null);
       setDraftText("");
-    } catch {
-      applyMemories(snapshot);
+    } else {
       Alert.alert(t("common.error"), t("memory.edit_failed"));
-    } finally {
-      setSavingEdit(false);
     }
-  }, [token, editing, draftText, memories, applyMemories, t]);
+  }, [editing, draftText, updateMemoryText, t]);
 
   if (!token) return <Redirect href="/login" />;
 
@@ -335,17 +303,12 @@ export default function MemoryScreen() {
                     text: t("common.delete"),
                     style: "destructive",
                     onPress: async () => {
-                      const snapshot = memories;
-                      applyMemories(memories.filter((item) => item.type !== section.type));
                       setExpandedTypes((prev) => {
                         const next = new Set(prev);
                         next.delete(section.type);
                         return next;
                       });
-                      try {
-                        await api.deleteMemorySection(token, section.type);
-                      } catch {
-                        applyMemories(snapshot);
+                      if (!(await deleteSection(section.type))) {
                         Alert.alert(t("common.error"), t("memory.delete_failed"));
                       }
                     },
@@ -364,28 +327,7 @@ export default function MemoryScreen() {
                     text: t("common.delete"),
                     style: "destructive",
                     onPress: async () => {
-                      const snapshot = memories;
-                      const facts = splitMemoryFacts(section.text);
-                      facts.splice(factIndex, 1);
-                      if (facts.length === 0) {
-                        applyMemories(memories.filter((item) => item.id !== section.id));
-                      } else {
-                        const nextText = joinMemoryFacts(facts);
-                        applyMemories(
-                          memories.map((item) =>
-                            item.id === section.id ? { ...item, text: nextText } : item,
-                          ),
-                        );
-                      }
-                      try {
-                        await api.deleteMemoryFact(token, section.id, factIndex, factText);
-                      } catch {
-                        // A 404 here can mean a background job already changed this
-                        // fact (see the server-side content-match fix) — reload from
-                        // the server instead of reverting to our now-stale snapshot,
-                        // so the user sees what's actually there.
-                        applyMemories(snapshot);
-                        void load({ silent: true, force: true });
+                      if (!(await deleteFact(section, factIndex, factText))) {
                         Alert.alert(t("common.error"), t("memory.delete_failed"));
                       }
                     },
