@@ -39,6 +39,44 @@ _DONE_PAYLOAD_KEYS = (
 )
 
 
+def build_start_event() -> dict[str, Any]:
+    """First frame of a turn; tells the client generation has begun."""
+    return {"type": "start"}
+
+
+def build_token_event(content: str) -> dict[str, Any]:
+    """One chunk of assistant text."""
+    return {"type": "token", "content": content}
+
+
+def build_status_event(phase: str, detail: str | None = None) -> dict[str, Any]:
+    """Turn-prep progress (see stream_status.StreamStatusPhase)."""
+    event: dict[str, Any] = {"type": "status", "phase": phase}
+    if detail:
+        event["detail"] = detail
+    return event
+
+
+def build_reasoning_event(content: str) -> dict[str, Any]:
+    """One chunk of reasoning-model thinking text."""
+    return {"type": "reasoning", "content": content}
+
+
+def build_stream_end_payload(result: dict[str, Any]) -> dict[str, Any]:
+    """Assemble the ``stream_end`` event fields from a stream result dict.
+
+    Sent once the token stream is done but before the DB commit is awaited,
+    so clients can settle layout while ``done`` is still pending.
+    """
+    stream_end: dict[str, Any] = {"type": "stream_end"}
+    resolved_model = result.get("resolved_model")
+    if resolved_model:
+        stream_end["resolved_model"] = resolved_model
+    if result.get("fallback_used"):
+        stream_end["fallback_used"] = result["fallback_used"]
+    return stream_end
+
+
 def pop_finalize_tasks(result: dict[str, Any]) -> asyncio.Task[None] | None:
     """Pop finalize tasks off the result dict; return the DB-commit task."""
     finalize_db_task = result.pop("_finalize_db_task", None)

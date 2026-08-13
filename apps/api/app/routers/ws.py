@@ -26,6 +26,11 @@ from app.services import tokens as tokens_service
 from app.services.chat.stream_events import (
     await_finalize_commit,
     build_done_payload,
+    build_reasoning_event,
+    build_start_event,
+    build_status_event,
+    build_stream_end_payload,
+    build_token_event,
     error_payload_for_exception,
     pop_finalize_tasks,
 )
@@ -95,7 +100,7 @@ async def _stream_over_ws(
             async for token_text in stream:
                 if cancel_event.is_set():
                     break
-                if not await _safe_send_json(websocket, {"type": "token", "content": token_text}):
+                if not await _safe_send_json(websocket, build_token_event(token_text)):
                     cancel_event.set()
                     break
         except asyncio.CancelledError:
@@ -108,13 +113,7 @@ async def _stream_over_ws(
             await _safe_send_json(websocket, error_payload_for_exception(exc))
             return
 
-        stream_end: dict[str, Any] = {"type": "stream_end"}
-        resolved_model = result.get("resolved_model")
-        if resolved_model:
-            stream_end["resolved_model"] = resolved_model
-        if result.get("fallback_used"):
-            stream_end["fallback_used"] = result["fallback_used"]
-        if not await _safe_send_json(websocket, stream_end):
+        if not await _safe_send_json(websocket, build_stream_end_payload(result)):
             return
 
         # Await the DB commit before sending `done` so the message_id we hand
@@ -191,7 +190,7 @@ async def _run_chat_stream(
     stream_factory: Callable[[dict[str, str]], AsyncIterator[str]],
 ) -> None:
     cancel_event.clear()
-    if not await _safe_send_json(websocket, {"type": "start"}):
+    if not await _safe_send_json(websocket, build_start_event()):
         return
     result: dict[str, str] = {}
     try:
@@ -230,13 +229,10 @@ def _status_emitters(websocket: WebSocket) -> tuple[Any, Any]:
     """Shared status/reasoning WS emitters for chargeable chat actions."""
 
     async def emit_status(phase: str, detail: str | None = None) -> None:
-        payload = {"type": "status", "phase": phase}
-        if detail:
-            payload["detail"] = detail
-        await _safe_send_json(websocket, payload)
+        await _safe_send_json(websocket, build_status_event(phase, detail))
 
     async def emit_reasoning(chunk: str) -> None:
-        await _safe_send_json(websocket, {"type": "reasoning", "content": chunk})
+        await _safe_send_json(websocket, build_reasoning_event(chunk))
 
     return emit_status, emit_reasoning
 

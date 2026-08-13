@@ -26,6 +26,11 @@ from app.services.chat.prompt_builder import StreamReasoningFn
 from app.services.chat.stream_events import (
     await_finalize_commit,
     build_done_payload,
+    build_reasoning_event,
+    build_start_event,
+    build_status_event,
+    build_stream_end_payload,
+    build_token_event,
     error_payload_for_exception,
     pop_finalize_tasks,
 )
@@ -55,7 +60,7 @@ async def _stream_tokens_sse(
 ) -> AsyncIterator[str]:
     result: dict[str, Any] = {}
     event_queue: asyncio.Queue[tuple[str, str, str | None] | None] = asyncio.Queue()
-    yield _sse({"type": "start"})
+    yield _sse(build_start_event())
 
     async def on_status(phase: str, detail: str | None = None) -> None:
         await event_queue.put(("status", phase, detail))
@@ -112,14 +117,11 @@ async def _stream_tokens_sse(
                 break
             kind, payload, extra = item
             if kind == "status":
-                status_event: dict[str, Any] = {"type": "status", "phase": payload}
-                if extra:
-                    status_event["detail"] = extra
-                yield _sse(status_event)
+                yield _sse(build_status_event(payload, extra))
             elif kind == "reasoning":
-                yield _sse({"type": "reasoning", "content": payload})
+                yield _sse(build_reasoning_event(payload))
             else:
-                yield _sse({"type": "token", "content": payload})
+                yield _sse(build_token_event(payload))
 
         if cancel_event.is_set():
             if not producer.done():
@@ -135,13 +137,7 @@ async def _stream_tokens_sse(
         if (exc := producer.exception()) is not None:
             raise exc
 
-        stream_end: dict[str, Any] = {"type": "stream_end"}
-        resolved_model = result.get("resolved_model")
-        if resolved_model:
-            stream_end["resolved_model"] = resolved_model
-        if result.get("fallback_used"):
-            stream_end["fallback_used"] = result["fallback_used"]
-        yield _sse(stream_end)
+        yield _sse(build_stream_end_payload(result))
         finalize_db_task = pop_finalize_tasks(result)
         if not await await_finalize_commit(finalize_db_task):
             yield _sse({"type": "error", "message": "Failed to save the response. Please retry."})
