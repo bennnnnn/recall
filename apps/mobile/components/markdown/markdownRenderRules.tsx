@@ -115,7 +115,9 @@ function renderTextWithMath(
           part.type === "math" ? (
             <MathText key={`${node.key}-m-${i}`} latex={part.value} />
           ) : (
-            part.value
+            <Text key={`${node.key}-t-${i}`} style={base} selectable>
+              {part.value}
+            </Text>
           ),
         )}
       </Fragment>
