@@ -18,7 +18,7 @@ A personal mobile AI chat app that remembers the user's preferences, projects, a
 
 **Domain concepts:**
 
-- **user** — Google or Apple sign-in; editable profile + preferences.
+- **user** — Google or Apple sign-in; editable profile + preferences; `plan` (`free` | `pro`) is driven by RevenueCat.
 - **chat** — a conversation; has an auto-generated title.
 - **message** — one turn (`user` | `assistant` | `system`).
 - **memory** — a structured fact about the user, typed: `profile` | `preference` | `project` | `fact` | `focus`.
@@ -27,10 +27,16 @@ A personal mobile AI chat app that remembers the user's preferences, projects, a
 - **todo** — a lightweight task the user tracks; optionally linked to a chat.
 - **suggestion** — a proactive follow-up prompt generated from the user's recent activity (best-effort background job).
 - **search** — full-text lookup across the user's chats and messages.
+- **project** — a utility workspace (Learning/vocabulary today) with `project_items` and quiz progress (`quiz_miss_events`, SM-2 scheduling).
+- **attachment** — an uploaded image/file (R2 in production) with extracted text chunked into `attachment_chunks` for retrieval.
+- **integration** — a connected Google account: `user_calendar_connections` and `user_gmail_connections`, feeding calendar context and `suggested_reminders`.
+- **push token** — a registered Expo device token for reminder/nudge notifications.
 
-**Rich rendering:** the message renderer also supports markdown, tables, math, callouts, code highlighting, and sandboxed previews — HTML/CSS/JS via WebView, charts (Vega), and Mermaid (source + external editor).
+**Rich rendering:** the message renderer also supports markdown, tables, math, callouts, code highlighting, and sandboxed previews — HTML/CSS/JS via WebView, charts (Vega), Mermaid (source + external editor), geometry/graph SVG, and chemistry (SMILES).
 
-**Not in scope (v1):** tools/agents, execution of non-web code (Python/shell/etc.), execution outside the sandboxed preview WebView, multi-user/teams. (A **web client sharing this same API** is planned for a later version — see FEATURES.md.)
+**Flag-gated, off by default:** the MCP tool layer. `gateways/mcp/` (sympy, calendar, image-gen, web-search adapters) plus `services/tool_loop.py` and `services/chat_tools.py` are implemented and tested, but `MCP_TOOLS_ENABLED` and `MCP_TOOL_LOOP_ENABLED` both default to `false`. Treat this path as optional until intentionally enabled — see `docs/math.md` and `FEATURES.md` §16.
+
+**Not in scope (v1):** execution of non-web code (Python/shell/etc.), execution outside the sandboxed preview WebView, multi-user/teams. (A **web client sharing this same API** is planned for a later version — see FEATURES.md.)
 
 ## Architecture
 
@@ -49,23 +55,47 @@ Backend layers (`apps/api/app/`) — keep layers thin and one-directional (route
 ```
 app/
   main.py            # app factory, middleware, router registration
+  worker_main.py     # separate worker process entrypoint (Fly api/worker split)
+  worker_health.py   # worker liveness probe
+  exceptions.py      # shared domain exceptions (ChatServiceError, QuotaExceededError, …)
   routers/           # HTTP + WebSocket endpoints ONLY (no business logic)
-  services/          # business logic: chat, memory, topic, quota, auth
-  gateways/          # external calls: litellm_gateway.py, google_auth.py
-  repositories/      # DB access (Neon): users, chats, messages, memories, usage
-  models/            # Pydantic schemas (API I/O) + structured-output schemas
-  background/        # async jobs: topic_generation.py, memory_extraction.py
-  core/              # config (pydantic-settings), db, redis, logging
+  services/          # business logic; subpackages: chat/ (+ chat/turn_prep/),
+                     #   todos/, projects/, home/, web_search/
+  gateways/          # external calls: litellm_gateway.py, google_auth.py, mcp/ adapters
+  repositories/      # DB access (Neon): users, chats, messages, memories, usage, …
+  models/            # Pydantic schemas (API I/O), orm.py, structured-output schemas
+  background/        # async job bodies: topic_generation.py, memory_extraction.py, …
+  core/              # config (pydantic-settings), db, redis, jobs.py (queue), logging
+  content/           # static content (legal copy)
   tests/
 ```
 
 **The chat loop** (where new chat code belongs → `services/chat/`):
 
-1. Verify session → 2. Check daily quota (Redis) → 3. Load memory + recent window (Neon) → 4. Stream via LiteLLM → 5. Persist messages → 6. Background topic (first turn only) → 7. Background memory extraction → 8. Update usage.
+1. Verify session → 2. Acquire per-chat prepare lock; wait for the previous turn's
+   pending finalize (`chat/finalize_registry.py`) → 3. Check + reserve daily quota (Redis) →
+   4. Image-generation intent interception (Pro; returns without an LLM turn) →
+   5. `turn_prep/`: load memory, recent window, attachments, calendar/Gmail, web search,
+   and SymPy pre-solve → 6. Stream via LiteLLM (or the MCP tool loop when enabled) →
+   7. Post-stream fence rewrite (`services/math_fence.py`) → 8. Persist messages + usage in a
+   finalize task → 9. Enqueue best-effort jobs: topic (first turn), memory extraction, todo /
+   project sync, compaction.
 
-**Streaming:** WebSocket endpoint (`routers/ws.py`) preferred (supports stop-generation); a cancel message aborts the active LLM task.
+Steps 6–8 are the only ones on the user's critical path; everything in step 9 is a durable
+Redis-Stream job (`core/jobs.py`) and must never raise into the stream.
 
-**Mobile** (`apps/mobile/`): Expo Router screens (Login, Chat, History, Memory, Settings, Search, Todos); API client in `lib/api.ts`; secure token storage; FlashList for messages; markdown + code highlighting + sandboxed HTML/chart previews in the message renderer; i18n via `lib/i18n`.
+**Streaming:** WebSocket endpoint (`routers/ws.py`) preferred (supports stop-generation);
+a cancel message aborts the active LLM task. `routers/chat_stream.py` is the SSE fallback
+(client disconnect cancels generation). Both transports share `chat/stream_events.py` for
+the `done` / `error` payloads.
+
+**Mobile** (`apps/mobile/`): Expo Router screens — Login, Onboarding, Chat (`index`), Memory,
+Todos, Projects (list + detail), and Settings (`settings/*`: models, preferences, memory,
+notifications, integrations, learning, data controls, about). Chat history and search live in
+the drawer (`components/drawer/`, `ConversationList.tsx`), not on their own routes. API client
+in `lib/api.ts` (a barrel over `lib/api/*`); secure token storage; FlashList for messages;
+markdown + code highlighting + sandboxed HTML/chart previews in the message renderer;
+i18n via `lib/i18n` (9 locales, key parity enforced by test).
 
 **Clients & the API contract:** the backend is a client-agnostic HTTP/WebSocket API with stateless JWT (Bearer) auth, so a future **web client reuses the same API** (no rewrite). Keep `lib/api.ts` the single network boundary and rich-block rendering swappable; only platform bits differ per client (web: cookie/web-storage tokens instead of expo-secure-store, web OAuth instead of native Google Sign-In, `<iframe>` instead of `react-native-webview`). Web needs its origin added to `cors_origins`.
 
@@ -172,9 +202,9 @@ Neon · Upstash Redis · LiteLLM (OpenRouter) · Google OAuth · Apple Sign-In �
 
 **Database — Neon (serverless Postgres), chosen over Supabase:** we run our own backend, auth (Google/JWT/Apple), and object storage (R2 in production), so we only need a database — not a BaaS bundle (auth/storage/realtime) we wouldn't use. Neon's usage-based pricing + scale-to-zero is cheaper at our scale, branching helps CI/preview, it's plain Postgres (portable, good for the future web client), and `pgvector` runs in the **same DB** for memory embeddings.
 
-**Shipped beyond MVP:** pgvector memory embeddings, RevenueCat Pro subscriptions, Sentry (backend + mobile), Fly `api`/`worker` process split. See `FEATURES.md` for the full product catalog.
+**Shipped beyond MVP:** pgvector memory embeddings, RevenueCat Pro subscriptions, Sentry (backend + mobile), Fly `api`/`worker` process split, attachment RAG (`services/attachment_rag.py` + `attachment_chunks`, `ATTACHMENT_RAG_ENABLED` defaults on), Google Calendar + Gmail integrations, push notifications, transactional email, image generation, web search. See `FEATURES.md` for the full product catalog.
 
-**Later:** LiteLLM Proxy (self-hosted routing), web client, full attachment RAG.
+**Later:** LiteLLM Proxy (self-hosted routing), web client. The MCP tool layer is built but flag-gated off (see Service Overview).
 
 ## Milestones (MVP week — complete)
 
