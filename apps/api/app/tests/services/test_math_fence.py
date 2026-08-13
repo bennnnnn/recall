@@ -158,16 +158,20 @@ def test_leaves_answer_fence_when_canonical_is_geometry() -> None:
     assert out == content
 
 
-def test_does_not_densify_unverified_sparse_graph_fence() -> None:
-    """Without a canonical fence, densifying would re-sample the model's
-    (possibly wrong) expr and make a hallucinated curve look smooth/true."""
+def test_densifies_unverified_sparse_function_graph_fence() -> None:
+    """Key-point sketches (vertex + intercepts) must be resampled so the
+    client draws a curve, not a 3-point V. Point-marker fences stay sparse.
+    """
     content = (
-        '```graph\n{"type":"function","expr":"x**4 - 4*x**2 - 12","variable":"x",'
-        '"x_min":-3,"x_max":3,"points":[[-2,0],[0,-12],[2,0]]}\n```'
+        '```graph\n{"type":"function","expr":"3*x**2 - 12","variable":"x",'
+        '"x_min":-2,"x_max":2,"points":[[-2,0],[0,-12],[2,0]]}\n```'
     )
 
     out = validate_math_fences(content)
-    assert out == content
+    fence = out.split("```graph")[1].split("```")[0].strip()
+    data = json.loads(fence)
+    assert len(data["points"]) >= 48
+    assert data["expr"] == "3*x**2 - 12"
 
 
 def test_densifies_sparse_canonical_graph_after_rewrite() -> None:
