@@ -109,15 +109,12 @@ function ChatScreen() {
     onTodosSync: handleTodosSync,
   });
 
-  const streamActive = streaming || finalizing;
-
-  const quotaNudge = useChatStreamLifecycle({
-    streamActive,
-    dismissChatError,
-    refreshHome,
-    token,
-    isPro,
-  });
+  const llmBusy = streaming || finalizing;
+  const imageGeneratingRef = useRef(false);
+  const stopTurnRef = useRef<() => void>(() => {});
+  const stopTurn = useCallback(() => {
+    stopTurnRef.current();
+  }, []);
 
   const idleComposerBottomPad = Math.max(insets.bottom, CHAT_COMPOSER_MIN_BOTTOM_PAD);
   const { keyboardHeight, composerAnimatedStyle } = useKeyboardInset({
@@ -127,7 +124,7 @@ function ChatScreen() {
   const scroll = useChatScroll({
     chatId,
     messagesLength: messages.length,
-    streamActive,
+    streamActive: llmBusy,
     windowHeight,
     keyboardHeight,
   });
@@ -145,8 +142,9 @@ function ChatScreen() {
     setChatId,
     setMessages,
     messages,
-    streaming: streamActive,
-    stopGeneration,
+    streaming: llmBusy,
+    imageGeneratingRef,
+    stopGeneration: stopTurn,
     setQuizLanguage,
     setQuizVariant,
     resolveQuizVariant,
@@ -237,7 +235,7 @@ function ChatScreen() {
     draft,
     router,
     selectedModel,
-    streaming: streamActive,
+    streaming: llmBusy,
     isPro,
     isOffline,
     onOpenUpgrade: () => openUpgradeRef.current?.(),
@@ -245,6 +243,20 @@ function ChatScreen() {
     onScrollToLatest: scroll.scrollToLatest,
     newMessageCountRef: scroll.newMessageCountRef,
     t,
+  });
+  imageGeneratingRef.current = imageGen.generating;
+  stopTurnRef.current = () => {
+    imageGen.cancel();
+    stopGeneration();
+  };
+  const streamActive = llmBusy || imageGen.generating;
+
+  const quotaNudge = useChatStreamLifecycle({
+    streamActive,
+    dismissChatError,
+    refreshHome,
+    token,
+    isPro,
   });
 
   const send = useChatSend({
@@ -486,9 +498,9 @@ function ChatScreen() {
     composerAnimatedStyle,
     input,
     setInput,
-    streaming,
+    streaming: streamActive,
     editing: { editingMessageId, setEditingMessageId },
-    stopGeneration,
+    stopGeneration: stopTurn,
     isOffline,
     voice: {
       voiceRecording,

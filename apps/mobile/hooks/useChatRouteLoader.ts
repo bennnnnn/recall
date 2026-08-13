@@ -33,6 +33,8 @@ type Options = {
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
   messages: Message[];
   streaming: boolean;
+  /** Latest image-gen in-flight flag — AppState/focus closures must not snapshot it. */
+  imageGeneratingRef?: React.MutableRefObject<boolean>;
   stopGeneration: () => void;
   setQuizLanguage: React.Dispatch<React.SetStateAction<string>>;
   setQuizVariant: React.Dispatch<React.SetStateAction<QuizVariant>>;
@@ -57,6 +59,7 @@ export function useChatRouteLoader({
   setMessages,
   messages,
   streaming,
+  imageGeneratingRef,
   stopGeneration,
   setQuizLanguage,
   setQuizVariant,
@@ -102,6 +105,8 @@ export function useChatRouteLoader({
   const chatLoadingRef = useRef(chatLoading);
   streamingRef.current = streaming;
   chatLoadingRef.current = chatLoading;
+
+  const turnBusy = () => streamingRef.current || Boolean(imageGeneratingRef?.current);
 
   const silentRefetchChat = useCallback(
     async (openChatId: string, cancelled: () => boolean) => {
@@ -154,6 +159,7 @@ export function useChatRouteLoader({
           chatId: openChatId,
           streaming: streamingRef.current,
           chatLoading: chatLoadingRef.current,
+          imageGenerating: Boolean(imageGeneratingRef?.current),
         })
       ) {
         return;
@@ -264,7 +270,7 @@ export function useChatRouteLoader({
         skipNextFocusRef.current = false;
         return;
       }
-      if (!token || !openChatId || streaming || chatLoading) return;
+      if (!token || !openChatId || turnBusy() || chatLoading) return;
 
       // Cancel in-flight refetch if the screen blurs or deps change (e.g. the
       // user navigates to a different chat mid-fetch). Without this, a slow
@@ -314,7 +320,7 @@ export function useChatRouteLoader({
 
   const startNewChat = useCallback(
     (opts?: { force?: boolean }) => {
-      if (streaming) {
+      if (turnBusy()) {
         if (!opts?.force) return;
         stopGeneration();
       }
@@ -334,7 +340,6 @@ export function useChatRouteLoader({
       void prepareDraftChat();
     },
     [
-      streaming,
       stopGeneration,
       chatId,
       discardEmptyChat,
@@ -353,7 +358,7 @@ export function useChatRouteLoader({
       const queued = typeof launch === "string" ? { prompt: launch.trim() } : launch;
       const prompt = queued.prompt?.trim() ?? "";
       if (!prompt) return;
-      if (streaming) stopGeneration();
+      if (turnBusy()) stopGeneration();
       discardEmptyChat(chatId);
       clearDraftChat();
       draftProjectIdRef.current = queued.projectId ?? null;
@@ -378,7 +383,6 @@ export function useChatRouteLoader({
       void prepareDraftChat(queued.projectId, "auto", queued.quizMode);
     },
     [
-      streaming,
       stopGeneration,
       discardEmptyChat,
       chatId,
