@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { Fragment, ReactNode } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { Image, Linking, Text, View } from "react-native";
 
@@ -41,6 +41,11 @@ import { isAllowedImageUri } from "@/lib/imageUriPolicy";
 import { isAllowedLinkUrl } from "@/lib/linkSchemePolicy";
 import { extractBlockquoteMeta, splitInlineMath } from "@/lib/markdownPreprocess";
 import { isHeavyInlineMath } from "@/lib/mathFenceRetag";
+import {
+  latexHasStackedFrac,
+  latexNeedsTallLine,
+  MATH_TALL_LINE_HEIGHT,
+} from "@/lib/mathText";
 import type { Theme } from "@/lib/theme";
 
 type StyleMap = Record<string, object>;
@@ -51,14 +56,16 @@ function renderTextWithMath(
   styles: StyleMap,
   inheritedStyles: object,
   mdTable: MdTableStyles,
-  mdMath: MdMathStyles,
+  _mdMath: MdMathStyles,
 ) {
   const parts = splitInlineMath(node.content);
+  const tallMath = parts.some((p) => p.type === "math" && latexNeedsTallLine(p.value));
   const base = [
     inheritedStyles,
     styles.text,
     inTableCell(parent) && mdTable.cellText,
     inTableHeader(parent) && mdTable.headerText,
+    tallMath && { lineHeight: MATH_TALL_LINE_HEIGHT },
   ];
 
   if (parts.length === 1 && parts[0].type === "text") {
@@ -69,13 +76,6 @@ function renderTextWithMath(
     );
   }
 
-  // Heavy inline math (a \begin{…} environment: matrix/cases/aligned/…)
-  // can't be laid out by the native MathText path. Route those to a
-  // block-inline KaTeX WebView chip — reusing the display MathBlock path
-  // (alignSelf: stretch → no WebView width-collapse), with the text runs
-  // around the chip kept as selectable Text. Common inline math ($x^2$,
-  // \frac, \sqrt, \mathbb, accents, Greek) contains no \begin{…} and stays
-  // on the fast native inline path below.
   const hasHeavy = parts.some(
     (p) => p.type === "math" && isHeavyInlineMath(p.value),
   );
@@ -101,6 +101,26 @@ function renderTextWithMath(
           );
         })}
       </View>
+    );
+  }
+
+  // Stacked \frac is a View. It must be a direct child of the paragraph
+  // Text (see `inline` / `textgroup` below). Wrapping this run in another
+  // Text — or splitting it into a column View inside those Texts — is what
+  // made part (b) paint two sentence halves on top of each other.
+  if (parts.some((p) => p.type === "math" && latexHasStackedFrac(p.value))) {
+    return (
+      <Fragment key={node.key}>
+        {parts.map((part, i) =>
+          part.type === "math" ? (
+            <MathText key={`${node.key}-m-${i}`} latex={part.value} />
+          ) : (
+            <Text key={`${node.key}-t-${i}`} style={base} selectable>
+              {part.value}
+            </Text>
+          ),
+        )}
+      </Fragment>
     );
   }
 
@@ -147,23 +167,8 @@ function makeSharedRules(
       styles: StyleMap,
       inheritedStyles: object = {},
     ) => renderTextWithMath(node, parent, styles, inheritedStyles, mdTable, mdMath),
-    textgroup: (
-      node: { key: string },
-      children: ReactNode,
-      parent: unknown,
-      styles: StyleMap,
-    ) => (
-      <Text
-        key={node.key}
-        style={[
-          styles.textgroup,
-          inTableCell(parent) && mdTable.cellText,
-          inTableHeader(parent) && mdTable.headerText,
-        ]}
-        selectable
-      >
-        {children}
-      </Text>
+    textgroup: (node: { key: string }, children: ReactNode) => (
+      <Fragment key={node.key}>{children}</Fragment>
     ),
     link: (
       node: AstNode,
@@ -300,8 +305,17 @@ function makeSharedRules(
         {"\n"}
       </Text>
     ),
-    inline: (node: { key: string }, children: ReactNode, _p: unknown, styles: StyleMap) => (
-      <Text key={node.key} style={styles.inline} selectable>
+    inline: (node: AstNode, children: ReactNode, _p: unknown, styles: StyleMap) => (
+      <Text
+        key={node.key}
+        style={[
+          styles.inline,
+          styles.body,
+          styles.text,
+          latexHasStackedFrac(astText(node)) && { lineHeight: MATH_TALL_LINE_HEIGHT },
+        ]}
+        selectable
+      >
         {children}
       </Text>
     ),
@@ -332,7 +346,10 @@ function makeSharedRules(
     ) => {
       const raw = astText(node);
       const parts = splitInlineMath(raw);
-      const boldStyle = [styles.strong, inTableCell(parent) && mdTable.headerText];
+      const boldStyle = [
+        styles.strong,
+        inTableCell(parent) && mdTable.headerText,
+      ];
       if (parts.some((part) => part.type === "math")) {
         return (
           <Text key={node.key} style={boldStyle} selectable>

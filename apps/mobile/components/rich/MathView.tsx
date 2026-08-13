@@ -5,9 +5,9 @@ import { MathFormulaWebView } from "@/components/rich/MathFormulaWebView";
 import { MathText } from "@/components/rich/MathText";
 import { supportsInlineHtmlMathWebView } from "@/lib/mathWebViewSupport";
 import { getPreviewWebView } from "@/lib/webView";
-import { splitMathLines } from "@/lib/mathText";
+import { MATH_TALL_LINE_HEIGHT, splitMathLines } from "@/lib/mathText";
 import { stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/mathFenceRetag";
-import { Theme, useTheme } from "@/lib/theme";
+import { useTheme } from "@/lib/theme";
 
 export function MathInline({ latex }: { latex: string }) {
   const theme = useTheme();
@@ -16,7 +16,6 @@ export function MathInline({ latex }: { latex: string }) {
 
 export const MathBlock = React.memo(function MathBlock({ latex }: { latex: string }) {
   const theme = useTheme();
-  const s = makeStyles(theme);
   const trimmed = stripEmbeddedDollarWraps(stripRedundantDollarWrap(latex.trim()));
   if (!trimmed) return null;
 
@@ -30,7 +29,7 @@ export const MathBlock = React.memo(function MathBlock({ latex }: { latex: strin
   const lines = splitMathLines(trimmed);
   if (lines.length > 1) {
     return (
-      <View style={s.wrap}>
+      <View style={styles.wrap}>
         {lines.map((line) => (
           <MathBlock key={`line:${line}`} latex={line} />
         ))}
@@ -42,13 +41,13 @@ export const MathBlock = React.memo(function MathBlock({ latex }: { latex: strin
   // RNC (dev client) or expo-dom (Expo Go) — both can host inline KaTeX HTML.
   if (supportsInlineHtmlMathWebView(preview?.mode)) {
     return (
-      <View style={s.wrap}>
+      <View style={styles.wrap}>
         <MathFormulaWebView
           latex={trimmed}
           displayMode
           minHeight={48}
           textColor={theme.text}
-          bgColor={theme.contentSurface}
+          bgColor="transparent"
         />
       </View>
     );
@@ -56,14 +55,14 @@ export const MathBlock = React.memo(function MathBlock({ latex }: { latex: strin
 
   // No WebView — native MathText can still outgrow the bubble; allow pan.
   return (
-    <View style={[s.wrap, s.fallbackBox]}>
+    <View style={[styles.wrap, styles.fallbackBox]}>
       <ScrollView
         horizontal
         nestedScrollEnabled
         showsHorizontalScrollIndicator
-        contentContainerStyle={s.lineScroll}
+        contentContainerStyle={styles.lineScroll}
       >
-        <Text style={s.line} selectable>
+        <Text style={styles.line} selectable>
           <MathText latex={trimmed} textColor={theme.text} />
         </Text>
       </ScrollView>
@@ -71,26 +70,23 @@ export const MathBlock = React.memo(function MathBlock({ latex }: { latex: strin
   );
 });
 
-const makeStyles = (theme: Theme) =>
-  StyleSheet.create({
-    wrap: {
-      marginVertical: 6,
-      alignSelf: "stretch",
-    },
-    fallbackBox: {
-      backgroundColor: theme.contentSurface,
-      borderRadius: 10,
-      paddingVertical: 8,
-      paddingHorizontal: 4,
-    },
-    lineScroll: {
-      flexGrow: 1,
-      justifyContent: "center",
-      minWidth: "100%",
-      paddingHorizontal: 8,
-    },
-    line: {
-      textAlign: "center",
-      lineHeight: 24,
-    },
-  });
+const styles = StyleSheet.create({
+  wrap: {
+    marginVertical: 8,
+    alignSelf: "stretch",
+  },
+  fallbackBox: {
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+  },
+  lineScroll: {
+    flexGrow: 1,
+    justifyContent: "center",
+    minWidth: "100%",
+    paddingHorizontal: 8,
+  },
+  line: {
+    textAlign: "center",
+    lineHeight: MATH_TALL_LINE_HEIGHT,
+  },
+});

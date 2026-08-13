@@ -89,7 +89,7 @@ export const MathFormulaWebView = React.memo(function MathFormulaWebView({
       displayMode,
       engine,
       textColor: textColor ?? theme.text,
-      bgColor: bgColor ?? theme.contentSurface,
+      bgColor: bgColor ?? "transparent",
       errorColor: theme.danger,
       compact,
     }),
@@ -99,7 +99,6 @@ export const MathFormulaWebView = React.memo(function MathFormulaWebView({
       textColor,
       bgColor,
       theme.text,
-      theme.contentSurface,
       theme.danger,
       compact,
     ],
@@ -190,7 +189,7 @@ export const MathFormulaWebView = React.memo(function MathFormulaWebView({
           s.wrap,
           compact ? s.wrapCompact : null,
           displayMode ? s.wrapBlock : null,
-          { height: initialHeight, backgroundColor: bgColor ?? theme.contentSurface },
+          { height: initialHeight, backgroundColor: bgColor ?? "transparent" },
         ]}
       />
     );

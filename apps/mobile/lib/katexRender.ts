@@ -37,10 +37,15 @@ export function renderKatexHtml(latex: string, options: KatexRenderOptions = {})
     body = `<code>${escapeHtml(trimmed)}</code>`;
   }
 
-  const pad = options.compact ? "0" : "10px 12px";
+  const pad = options.compact
+    ? "0"
+    : options.displayMode
+      ? "8px 4px"
+      : "4px 2px";
   const align = options.displayMode ? "center" : "left";
   const bg = options.bgColor ?? "transparent";
   const color = options.textColor ?? "inherit";
+  const displayMargin = options.displayMode && !options.compact ? "0.6em 0" : "0";
 
   // Scrollable wide formulas: inner is at least full width (centers short
   // display math) but grows with content so long expressions aren't clipped
@@ -49,7 +54,7 @@ export function renderKatexHtml(latex: string, options: KatexRenderOptions = {})
 .math-root{padding:${pad};background:${bg};color:${color};max-width:100%;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;}
 .katex{color:${color};}
 .math-wrap{display:flex;justify-content:${align};align-items:center;min-width:100%;width:max-content;box-sizing:border-box;}
-.katex-display{margin:0;}
+.katex-display{margin:${displayMargin};}
 </style><div class="math-root"><div class="math-wrap">${body}</div></div></div>`;
 }
 

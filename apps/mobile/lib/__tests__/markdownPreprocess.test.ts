@@ -1,4 +1,4 @@
-import { normalizeBoldInlineMath, normalizeMarkdownTables, isPipeTable, preprocessMarkdown, splitInlineMath } from "@/lib/markdownPreprocess";
+import { normalizeBoldInlineMath, normalizeMarkdownTables, isPipeTable, preprocessMarkdown, splitInlineMath, layoutCheckVerificationLines } from "@/lib/markdownPreprocess";
 import { repairBrokenMarkdownLinks } from "@/lib/placesList";
 import { markdownItInstance } from "@/lib/markdownIt";
 import { PROTECTED_ESCAPE_MARKER, parseSimpleLatex, segmentsToPlain } from "@/lib/mathText";
@@ -93,6 +93,20 @@ $)
       { type: "text", value: "Final Answer: " },
       { type: "math", value: "x = 2 or x = -2" },
     ]);
+  });
+
+  it("BUG FIX regression: check lines keep a space after 'x = 2:' so 2:2² does not glue", () => {
+    // Live: "For $x = 2$: $2^2 + 2 = 6$" (or one $x = 2: 2^2$ span) rendered
+    // as 2:2². Split the label from the formula and force a space after `:`.
+    expect(layoutCheckVerificationLines("For $x = 2$:$2^2 + 2 = 6$")).toBe(
+      "For $x = 2$: $2^2 + 2 = 6$",
+    );
+    expect(layoutCheckVerificationLines("For $x = 2: 2^2 + 2 = 6$")).toBe(
+      "For $x = 2$: $2^2 + 2 = 6$",
+    );
+    expect(layoutCheckVerificationLines("- [x] For $x = -2$:$(-2)^2 + 2 = 6$")).toBe(
+      "- [x] For $x = -2$: $(-2)^2 + 2 = 6$",
+    );
   });
 
   it("preprocess keeps math adjacent to bold labels", () => {

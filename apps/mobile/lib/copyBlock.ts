@@ -338,6 +338,18 @@ export function isExplicitCodeLang(lang: string): boolean {
   return !isProseLang(l);
 }
 
+/**
+ * While an ```answer fence is still open, MarkdownContent used to paint a
+ * CodeBlock (lang badge + raw `\quad \text{or}`). When the fence closed it
+ * swapped to AnswerBlock — a flash of source before the numbers. Preview
+ * the same AnswerBlock as soon as we know it's a final.
+ */
+export function shouldPreviewOpenFenceAsAnswer(lang: string, body: string): boolean {
+  if (isAnswerLang(lang)) return true;
+  if (isExplicitCodeLang(lang)) return false;
+  return looksLikeMathAnswer(body);
+}
+
 export function shouldRenderAsCopyBlock(
   lang: string,
   content: string,
