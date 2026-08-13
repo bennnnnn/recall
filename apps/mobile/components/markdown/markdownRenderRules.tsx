@@ -288,10 +288,21 @@ function makeSharedRules(
           </Text>
         );
       }
+      // markdown-display flattens `inline` into `textgroup`, and we render
+      // textgroup as a Fragment so stacked \frac Views can sit in this Text.
+      // A View here makes each `text` / `strong` / `em` a full-width block, so
+      // "An **open circle**" paints "An" on its own line.
+      // Do not use `styles.paragraph` — mergeStyle copies the library's
+      // flexDirection/flexWrap/width onto it, which turns nested Text into
+      // flex items that each take a line.
       return (
-        <View key={node.key} style={styles._VIEW_SAFE_paragraph as object}>
+        <Text
+          key={node.key}
+          style={[styles.body, styles.text, styles.paragraphRun]}
+          selectable
+        >
           {children}
-        </View>
+        </Text>
       );
     },
     hardbreak: (node: { key: string }, _c: unknown, _p: unknown, styles: StyleMap) => (
