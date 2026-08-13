@@ -17,6 +17,7 @@ import {
   isIsoscelesSides,
   midpoint,
   parseGeometrySpec,
+  parallelogramLayout,
   rectangleAngleDisplay,
   scaleToFit,
   shouldShowTicks,
@@ -255,7 +256,7 @@ function RightTriangleDiagram({
   const colors = diagramColors(theme);
   const labels = computeRightTriangleLabels(spec);
   const layout = scaleToFit(spec.base, spec.height, screenWidth - 48);
-  const offsetX = 56;
+  const offsetX = 48;
   const offsetY = 28;
   const b = layout.w;
   const h = layout.h;
@@ -263,7 +264,7 @@ function RightTriangleDiagram({
   const y0 = offsetY;
   const x1 = offsetX + b;
   const y1 = offsetY + h;
-  const svgW = b + offsetX + 56;
+  const svgW = b + offsetX + 48;
   const svgH = h + offsetY + 40;
   const showLabels = spec.show_labels !== false;
   const showHyp = spec.show_hypotenuse !== false;
@@ -557,24 +558,7 @@ function ParallelogramDiagram({
   theme: Theme;
 }) {
   const labels = computeParallelogramLabels(spec);
-  const inner = Math.max(screenWidth - 48 - 80, 120);
-  const scale = inner / Math.max(spec.base, spec.side, 1);
-  const b = spec.base * scale;
-  const h = spec.height * scale;
-  const s = spec.side * scale;
-  // Horizontal shear of the top edge \u2014 the slant side is the hypotenuse of
-  // the right triangle formed by the height and this shear.
-  const shear = Math.sqrt(Math.max(0, s * s - h * h));
-  const offsetX = 40 + shear;
-  const offsetY = 28;
-  const bx0 = offsetX;
-  const bx1 = offsetX + b;
-  const by = offsetY + h;
-  const tx0 = offsetX - shear;
-  const tx1 = tx0 + b;
-  const ty = offsetY;
-  const svgW = b + shear + offsetX + 40;
-  const svgH = h + offsetY + 40;
+  const { svgW, svgH, bx0, bx1, by, tx0, tx1, ty } = parallelogramLayout(spec, screenWidth);
   const showLabels = spec.show_labels !== false;
 
   return (

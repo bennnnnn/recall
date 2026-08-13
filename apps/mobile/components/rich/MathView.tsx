@@ -30,8 +30,10 @@ export const MathBlock = React.memo(function MathBlock({ latex }: { latex: strin
   if (lines.length > 1) {
     return (
       <View style={styles.wrap}>
-        {lines.map((line) => (
-          <MathBlock key={`line:${line}`} latex={line} />
+        {lines.map((line, i) => (
+          // Index disambiguates a restated line (e.g. `x = 4` twice); content
+          // alone collides the same way sibling math fences do without tokenIndex.
+          <MathBlock key={`line:${i}:${line}`} latex={line} />
         ))}
       </View>
     );
