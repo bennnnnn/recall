@@ -4,7 +4,6 @@ import { StyleSheet, Text, View } from "react-native";
 import { CODE_FONT } from "@/lib/fonts";
 import { fixImplicitExponents } from "@/lib/normalizeImplicitMath";
 import {
-  MATH_TALL_LINE_HEIGHT,
   parseSimpleLatex,
   segmentsToPlain,
   type MathSegment,
@@ -32,6 +31,23 @@ const FRAC_STACK_HEIGHT = 40;
 function fracStackSize(num: string, den: string): { width: number; height: number } {
   const chars = Math.max(num.length, den.length, 1);
   return { width: chars * FRAC_CHAR_PX + FRAC_PAD_PX, height: FRAC_STACK_HEIGHT };
+}
+
+function estimateMathTextSize(segments: MathSegment[]): { width: number; height: number } {
+  let width = 0;
+  let height = FRAC_STACK_HEIGHT;
+  for (const seg of segments) {
+    if (seg.type === "frac") {
+      const box = fracStackSize(segmentsToPlain(seg.num), segmentsToPlain(seg.den));
+      width += box.width + 6;
+      height = Math.max(height, box.height);
+    } else if (seg.type === "sqrt") {
+      width += segmentsToPlain([seg]).length * FRAC_CHAR_PX;
+    } else {
+      width += Math.max(seg.value.length, 1) * FRAC_CHAR_PX;
+    }
+  }
+  return { width: Math.max(width, 24), height };
 }
 
 function hasFracSegment(segments: MathSegment[]): boolean {
@@ -72,7 +88,8 @@ function renderSegments(
   segments: MathSegment[],
   keyPrefix: string,
   styles: Styles,
-  inView = false,
+  inFrac = false,
+  asBox = false,
 ): ReactNode[] {
   return segments.map((seg, i) => {
     const key = `${keyPrefix}-${i}`;
@@ -95,10 +112,8 @@ function renderSegments(
       );
     }
     if (seg.type === "frac") {
-      // True stacked fraction with a vinculum (horizontal bar): numerator
-      // above, bar, denominator below — nested View inside the outer Text
-      // so it still flows inline. Line height is bumped when any frac is
-      // present so the stack doesn't clip neighboring prose.
+      // True stacked fraction with a vinculum. Sized View — the paragraph
+      // Text treats it as a character. Do not wrap this in another Text.
       const numPlain = segmentsToPlain(seg.num);
       const denPlain = segmentsToPlain(seg.den);
       const box = fracStackSize(numPlain, denPlain);
@@ -118,9 +133,16 @@ function renderSegments(
     if (seg.type === "sqrt") {
       return <Text key={key}>{segmentsToPlain([seg])}</Text>;
     }
-    if (inView) {
+    if (inFrac) {
       return (
         <Text key={key} style={styles.fracPart}>
+          {seg.value}
+        </Text>
+      );
+    }
+    if (asBox) {
+      return (
+        <Text key={key} style={styles.base}>
           {seg.value}
         </Text>
       );
@@ -141,8 +163,24 @@ export function MathText({ latex, textColor }: Props) {
 
   if (!latex.trim()) return null;
 
+  // Stacked frac is a View. It must be the MathText root (not wrapped in
+  // Text) so the paragraph Text can treat it as a sized character. Text >
+  // Text > View is what iOS lays out as 0×0 and paints over the next line.
+  if (tall) {
+    const size = estimateMathTextSize(segments);
+    return (
+      <View
+        testID="math-text-tall"
+        collapsable={false}
+        style={[styles.tallRoot, size]}
+      >
+        {renderSegments(segments, "m", styles, false, true)}
+      </View>
+    );
+  }
+
   return (
-    <Text style={[styles.base, tall && styles.baseWithFrac]}>
+    <Text style={styles.base}>
       {renderSegments(segments, "m", styles)}
     </Text>
   );
@@ -157,9 +195,10 @@ const makeStyles = (theme: Theme, textColor?: string) => {
       lineHeight: 24,
       color,
     },
-    // Room for a stacked fraction so the numerator doesn't kiss the line above.
-    baseWithFrac: {
-      lineHeight: MATH_TALL_LINE_HEIGHT,
+    tallRoot: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
     },
     sup: {
       fontSize: 11,

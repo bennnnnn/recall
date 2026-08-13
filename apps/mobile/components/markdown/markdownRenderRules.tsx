@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { Fragment, ReactNode } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { Image, Linking, Text, View } from "react-native";
 
@@ -56,7 +56,7 @@ function renderTextWithMath(
   styles: StyleMap,
   inheritedStyles: object,
   mdTable: MdTableStyles,
-  mdMath: MdMathStyles,
+  _mdMath: MdMathStyles,
 ) {
   const parts = splitInlineMath(node.content);
   const tallMath = parts.some((p) => p.type === "math" && latexNeedsTallLine(p.value));
@@ -76,29 +76,16 @@ function renderTextWithMath(
     );
   }
 
-  // Nested Views cannot live inside a paragraph Text: iOS gives them a
-  // zero-size attachment and they paint on top of neighboring words
-  // (stacked \frac smudging the line). Environments also need KaTeX.
-  // Split the run so those spans are sibling Views, not Text children.
-  const hasNestedMathView = parts.some(
-    (p) =>
-      p.type === "math" &&
-      (isHeavyInlineMath(p.value) || latexHasStackedFrac(p.value)),
+  const hasHeavy = parts.some(
+    (p) => p.type === "math" && isHeavyInlineMath(p.value),
   );
-  if (hasNestedMathView) {
+  if (hasHeavy) {
     return (
       <View key={node.key}>
         {parts.map((part, i) => {
           const key = `${node.key}-m-${i}`;
           if (part.type === "math" && isHeavyInlineMath(part.value)) {
             return <MathBlock key={key} latex={part.value} />;
-          }
-          if (part.type === "math" && latexHasStackedFrac(part.value)) {
-            return (
-              <View key={key} style={mdMath.inlineFrac} testID="inline-frac-block">
-                <MathText latex={part.value} />
-              </View>
-            );
           }
           if (part.type === "math") {
             return (
@@ -114,6 +101,24 @@ function renderTextWithMath(
           );
         })}
       </View>
+    );
+  }
+
+  // Stacked \frac is a View. It must be a direct child of the paragraph
+  // Text (see `inline` / `textgroup` below). Wrapping this run in another
+  // Text — or splitting it into a column View inside those Texts — is what
+  // made part (b) paint two sentence halves on top of each other.
+  if (parts.some((p) => p.type === "math" && latexHasStackedFrac(p.value))) {
+    return (
+      <Fragment key={node.key}>
+        {parts.map((part, i) =>
+          part.type === "math" ? (
+            <MathText key={`${node.key}-m-${i}`} latex={part.value} />
+          ) : (
+            part.value
+          ),
+        )}
+      </Fragment>
     );
   }
 
@@ -160,23 +165,8 @@ function makeSharedRules(
       styles: StyleMap,
       inheritedStyles: object = {},
     ) => renderTextWithMath(node, parent, styles, inheritedStyles, mdTable, mdMath),
-    textgroup: (
-      node: { key: string },
-      children: ReactNode,
-      parent: unknown,
-      styles: StyleMap,
-    ) => (
-      <Text
-        key={node.key}
-        style={[
-          styles.textgroup,
-          inTableCell(parent) && mdTable.cellText,
-          inTableHeader(parent) && mdTable.headerText,
-        ]}
-        selectable
-      >
-        {children}
-      </Text>
+    textgroup: (node: { key: string }, children: ReactNode) => (
+      <Fragment key={node.key}>{children}</Fragment>
     ),
     link: (
       node: AstNode,
@@ -313,8 +303,17 @@ function makeSharedRules(
         {"\n"}
       </Text>
     ),
-    inline: (node: { key: string }, children: ReactNode, _p: unknown, styles: StyleMap) => (
-      <Text key={node.key} style={styles.inline} selectable>
+    inline: (node: AstNode, children: ReactNode, _p: unknown, styles: StyleMap) => (
+      <Text
+        key={node.key}
+        style={[
+          styles.inline,
+          styles.body,
+          styles.text,
+          latexHasStackedFrac(astText(node)) && { lineHeight: MATH_TALL_LINE_HEIGHT },
+        ]}
+        selectable
+      >
         {children}
       </Text>
     ),
@@ -345,42 +344,10 @@ function makeSharedRules(
     ) => {
       const raw = astText(node);
       const parts = splitInlineMath(raw);
-      const tallMath = parts.some(
-        (part) => part.type === "math" && latexNeedsTallLine(part.value),
-      );
       const boldStyle = [
         styles.strong,
         inTableCell(parent) && mdTable.headerText,
-        tallMath && { lineHeight: MATH_TALL_LINE_HEIGHT },
       ];
-      if (parts.some((part) => part.type === "math" && latexHasStackedFrac(part.value))) {
-        return (
-          <View key={node.key}>
-            {parts.map((part, i) => {
-              const key = `${node.key}-m-${i}`;
-              if (part.type === "math" && latexHasStackedFrac(part.value)) {
-                return (
-                  <View key={key} style={mdMath.inlineFrac}>
-                    <MathText latex={part.value} />
-                  </View>
-                );
-              }
-              if (part.type === "math") {
-                return (
-                  <Text key={key} style={boldStyle} selectable>
-                    <MathText latex={part.value} />
-                  </Text>
-                );
-              }
-              return (
-                <Text key={key} style={boldStyle} selectable>
-                  {part.value}
-                </Text>
-              );
-            })}
-          </View>
-        );
-      }
       if (parts.some((part) => part.type === "math")) {
         return (
           <Text key={node.key} style={boldStyle} selectable>

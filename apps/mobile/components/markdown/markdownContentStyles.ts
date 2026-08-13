@@ -52,11 +52,6 @@ export function makeMdMath(t: Theme) {
       marginLeft: 2,
       flexShrink: 0,
     },
-    // Stacked frac pulled out of the paragraph Text so it cannot overlay glyphs.
-    inlineFrac: {
-      paddingVertical: 8,
-      alignItems: "flex-start",
-    },
   });
 }
 
