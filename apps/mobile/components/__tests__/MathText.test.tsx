@@ -31,6 +31,10 @@ describe("MathText", () => {
     expect(getByTestId("math-vinculum")).toBeOnTheScreen();
     expect(getByText("1")).toBeOnTheScreen();
     expect(getByText("2")).toBeOnTheScreen();
+    // Explicit box so a View-in-Text attachment cannot collapse to 0×0
+    // and paint over neighboring prose (live: part (b) d²y/dt² smudge).
+    const box = getByTestId("math-frac");
+    expect(box).toHaveStyle({ width: 23, height: 40 });
   });
 
   it("renders letter fractions stacked the same way (m over m)", async () => {

@@ -39,6 +39,15 @@ export function latexNeedsTallLine(latex: string): boolean {
   return /\\(?:d|t|c)?frac|\\sqrt/.test(latex);
 }
 
+/**
+ * Stacked `\\frac` is a nested View. Inside a paragraph `Text` that View
+ * gets a zero-size text attachment on iOS and paints over neighboring
+ * words (the "smudged" line). Those spans must leave the text run.
+ */
+export function latexHasStackedFrac(latex: string): boolean {
+  return /\\(?:d|t|c)?frac/.test(latex);
+}
+
 const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\pm/g, "±"],
   [/\\mp/g, "∓"],

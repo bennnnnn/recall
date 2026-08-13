@@ -1,6 +1,7 @@
 import {
   MATH_TALL_LINE_HEIGHT,
   PROTECTED_ESCAPE_MARKER,
+  latexHasStackedFrac,
   latexNeedsTallLine,
   parseSimpleLatex,
   segmentsToPlain,
@@ -302,5 +303,14 @@ describe("latexNeedsTallLine", () => {
   it("is false for flat inline algebra", () => {
     expect(latexNeedsTallLine("x + 1 = 2")).toBe(false);
     expect(latexNeedsTallLine(String.raw`x^2`)).toBe(false);
+  });
+});
+
+describe("latexHasStackedFrac", () => {
+  it("is true only for frac commands (View-in-Text smudge)", () => {
+    expect(latexHasStackedFrac(String.raw`\frac{d^2y}{dt^2}`)).toBe(true);
+    expect(latexHasStackedFrac(String.raw`\dfrac{1}{2}`)).toBe(true);
+    expect(latexHasStackedFrac(String.raw`\sqrt{25}`)).toBe(false);
+    expect(latexHasStackedFrac("x + 1")).toBe(false);
   });
 });

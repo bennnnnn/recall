@@ -25,6 +25,15 @@ function isAtomicToken(plain: string): boolean {
   return /^[±+\-]?[a-zA-Z0-9]+$/.test(plain);
 }
 
+const FRAC_CHAR_PX = 9;
+const FRAC_PAD_PX = 14;
+const FRAC_STACK_HEIGHT = 40;
+
+function fracStackSize(num: string, den: string): { width: number; height: number } {
+  const chars = Math.max(num.length, den.length, 1);
+  return { width: chars * FRAC_CHAR_PX + FRAC_PAD_PX, height: FRAC_STACK_HEIGHT };
+}
+
 function hasFracSegment(segments: MathSegment[]): boolean {
   for (const seg of segments) {
     if (seg.type === "frac") return true;
@@ -92,8 +101,14 @@ function renderSegments(
       // present so the stack doesn't clip neighboring prose.
       const numPlain = segmentsToPlain(seg.num);
       const denPlain = segmentsToPlain(seg.den);
+      const box = fracStackSize(numPlain, denPlain);
       return (
-        <View key={key} style={styles.fracStack} testID="math-frac">
+        <View
+          key={key}
+          style={[styles.fracStack, box]}
+          testID="math-frac"
+          collapsable={false}
+        >
           {renderFracSide(seg.num, `${key}-n`, styles, !isAtomicToken(numPlain))}
           <View style={styles.vinculum} testID="math-vinculum" />
           {renderFracSide(seg.den, `${key}-d`, styles, !isAtomicToken(denPlain))}
@@ -160,7 +175,6 @@ const makeStyles = (theme: Theme, textColor?: string) => {
       alignItems: "center",
       justifyContent: "center",
       marginHorizontal: 3,
-      paddingVertical: 4,
     },
     fracSideRow: {
       flexDirection: "row",
@@ -176,7 +190,6 @@ const makeStyles = (theme: Theme, textColor?: string) => {
     // Vinculum — the straight horizontal fraction bar.
     vinculum: {
       alignSelf: "stretch",
-      minWidth: 10,
       height: StyleSheet.hairlineWidth * 2,
       marginVertical: 2,
       backgroundColor: color,

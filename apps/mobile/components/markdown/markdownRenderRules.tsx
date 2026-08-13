@@ -41,7 +41,11 @@ import { isAllowedImageUri } from "@/lib/imageUriPolicy";
 import { isAllowedLinkUrl } from "@/lib/linkSchemePolicy";
 import { extractBlockquoteMeta, splitInlineMath } from "@/lib/markdownPreprocess";
 import { isHeavyInlineMath } from "@/lib/mathFenceRetag";
-import { latexNeedsTallLine, MATH_TALL_LINE_HEIGHT } from "@/lib/mathText";
+import {
+  latexHasStackedFrac,
+  latexNeedsTallLine,
+  MATH_TALL_LINE_HEIGHT,
+} from "@/lib/mathText";
 import type { Theme } from "@/lib/theme";
 
 type StyleMap = Record<string, object>;
@@ -72,23 +76,29 @@ function renderTextWithMath(
     );
   }
 
-  // Heavy inline math (a \begin{…} environment: matrix/cases/aligned/…)
-  // can't be laid out by the native MathText path. Route those to a
-  // block-inline KaTeX WebView chip — reusing the display MathBlock path
-  // (alignSelf: stretch → no WebView width-collapse), with the text runs
-  // around the chip kept as selectable Text. Common inline math ($x^2$,
-  // \frac, \sqrt, \mathbb, accents, Greek) contains no \begin{…} and stays
-  // on the fast native inline path below.
-  const hasHeavy = parts.some(
-    (p) => p.type === "math" && isHeavyInlineMath(p.value),
+  // Nested Views cannot live inside a paragraph Text: iOS gives them a
+  // zero-size attachment and they paint on top of neighboring words
+  // (stacked \frac smudging the line). Environments also need KaTeX.
+  // Split the run so those spans are sibling Views, not Text children.
+  const hasNestedMathView = parts.some(
+    (p) =>
+      p.type === "math" &&
+      (isHeavyInlineMath(p.value) || latexHasStackedFrac(p.value)),
   );
-  if (hasHeavy) {
+  if (hasNestedMathView) {
     return (
       <View key={node.key}>
         {parts.map((part, i) => {
           const key = `${node.key}-m-${i}`;
           if (part.type === "math" && isHeavyInlineMath(part.value)) {
             return <MathBlock key={key} latex={part.value} />;
+          }
+          if (part.type === "math" && latexHasStackedFrac(part.value)) {
+            return (
+              <View key={key} style={mdMath.inlineFrac} testID="inline-frac-block">
+                <MathText latex={part.value} />
+              </View>
+            );
           }
           if (part.type === "math") {
             return (
@@ -343,6 +353,34 @@ function makeSharedRules(
         inTableCell(parent) && mdTable.headerText,
         tallMath && { lineHeight: MATH_TALL_LINE_HEIGHT },
       ];
+      if (parts.some((part) => part.type === "math" && latexHasStackedFrac(part.value))) {
+        return (
+          <View key={node.key}>
+            {parts.map((part, i) => {
+              const key = `${node.key}-m-${i}`;
+              if (part.type === "math" && latexHasStackedFrac(part.value)) {
+                return (
+                  <View key={key} style={mdMath.inlineFrac}>
+                    <MathText latex={part.value} />
+                  </View>
+                );
+              }
+              if (part.type === "math") {
+                return (
+                  <Text key={key} style={boldStyle} selectable>
+                    <MathText latex={part.value} />
+                  </Text>
+                );
+              }
+              return (
+                <Text key={key} style={boldStyle} selectable>
+                  {part.value}
+                </Text>
+              );
+            })}
+          </View>
+        );
+      }
       if (parts.some((part) => part.type === "math")) {
         return (
           <Text key={node.key} style={boldStyle} selectable>
