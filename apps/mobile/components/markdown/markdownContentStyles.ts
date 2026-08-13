@@ -98,6 +98,9 @@ export function makeMdStyles(t: Theme) {
     // Custom fence renderer handles code blocks / HTML preview inline.
     fence: { marginVertical: 0, padding: 0 },
     paragraph: { marginVertical: 0 },
+    // Text-only paragraph run. Do not reuse `paragraph` — markdown-display
+    // mergeStyle copies flexDirection/flexWrap/width onto that key.
+    paragraphRun: { marginVertical: 0 },
     bullet_list: { marginVertical: 4 },
     ordered_list: { marginVertical: 4 },
     heading1: { fontSize: 20, fontWeight: "700", marginBottom: 8, color: t.text },
