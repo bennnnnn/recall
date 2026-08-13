@@ -14,6 +14,7 @@
  */
 import { parseGraphSpec } from "@/lib/graphBlock";
 import { parseGeometrySpec } from "@/lib/geometryBlock";
+import { fallbackKindForLang } from "@/lib/fenceRegistry";
 import { parseCalloutKind, type CalloutKind } from "@/lib/richBlocks";
 
 export type FallbackFence =
@@ -28,13 +29,21 @@ export function classifyFallbackFence(
 ): FallbackFence {
   const l = (lang || "").trim().toLowerCase();
   const body = content.replace(/\n$/, "").trim();
-  if (l.startsWith("callout-") || l === "callout") {
-    return { kind: "callout", calloutKind: parseCalloutKind(l), body };
+  // Which fences degrade specially is declared in lib/fenceRegistry.ts; the
+  // mistagged-```json detection below stays here because it is content-derived,
+  // not lang-derived.
+  switch (fallbackKindForLang(l)) {
+    case "callout":
+      return { kind: "callout", calloutKind: parseCalloutKind(l), body };
+    case "geometry":
+      return { kind: "geometry", body };
+    case "graph":
+      return { kind: "graph", body };
   }
-  if (l === "geometry" || (l === "json" && parseGeometrySpec(body))) {
+  if (l === "json" && parseGeometrySpec(body)) {
     return { kind: "geometry", body };
   }
-  if (l === "graph" || ((l === "json" || l === "") && parseGraphSpec(body))) {
+  if ((l === "json" || l === "") && parseGraphSpec(body)) {
     return { kind: "graph", body };
   }
   return { kind: "code", lang: l, code: body };

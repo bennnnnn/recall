@@ -40,48 +40,10 @@ const SOCIAL_LANGS: Record<string, SocialPlatform> = {
 };
 const MESSAGE_LANGS = new Set(["sms", "message", "reply"]);
 const QUOTE_LANGS = new Set(["quote", "blockquote"]);
-const STRUCTURED_LANGS = new Set([
-  "email",
-  "quote",
-  "blockquote",
-  "compare",
-  "comparison",
-  "pros",
-  "kv",
-  "keyvalue",
-  "fields",
-  "steps",
-  "step",
-  "details",
-  "collapse",
-  "summary",
-  "math",
-  "answer",
-  "result",
-  "final",
-  "clock",
-  "time",
-  // Diagram / chart / visualization fences
-  "mermaid",
-  "chart",
-  "vega",
-  "vega-lite",
-  "plot",
-  "geometry",
-  "graph",
-  "smiles",
-  "chemistry",
-  "places",
-  ...CALLOUT_LANGS,
-  ...Object.keys(SOCIAL_LANGS),
-  ...MESSAGE_LANGS,
-]);
 
-export function isStructuredFenceLang(lang: string): boolean {
-  const l = lang.trim().toLowerCase();
-  if (STRUCTURED_LANGS.has(l)) return true;
-  return l.startsWith("callout-");
-}
+// Which langs are structured now lives in lib/fenceRegistry.ts, alongside the
+// other per-fence behaviour flags, so the lists cannot drift apart again.
+export { isStructuredFenceLang } from "@/lib/fenceRegistry";
 
 export function parseCalloutKind(lang: string): CalloutKind {
   const l = lang.trim().toLowerCase();

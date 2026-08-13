@@ -1,3 +1,4 @@
+import { isNeverCodeBlockLang } from "@/lib/fenceRegistry";
 import { looksLikeMathFenceBody, stripEmbeddedDollarWraps } from "@/lib/mathFenceRetag";
 
 const COPY_BLOCK_RE =
@@ -317,24 +318,9 @@ export function isAnswerLang(lang: string): boolean {
 export function isExplicitCodeLang(lang: string): boolean {
   const l = lang.trim().toLowerCase();
   if (!l) return false;
-  if (
-    l === "copy" ||
-    l === "message" ||
-    l === "email" ||
-    l === "sms" ||
-    l === "reply" ||
-    l === "clock" ||
-    l === "time" ||
-    l === "sources" ||
-    l === "places" ||
-    l === "graph" ||
-    l === "geometry" ||
-    l === "smiles" ||
-    l === "chemistry" ||
-    l === "math" ||
-    isAnswerLang(l)
-  )
-    return false;
+  // The exclusion list lives in lib/fenceRegistry.ts (`neverCodeBlock`) so it
+  // cannot drift from the structured-fence list again.
+  if (isNeverCodeBlockLang(l)) return false;
   return !isProseLang(l);
 }
 
