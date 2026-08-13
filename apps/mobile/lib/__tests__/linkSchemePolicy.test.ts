@@ -1,4 +1,12 @@
-import { isAllowedLinkUrl } from "@/lib/linkSchemePolicy";
+import { Linking } from "react-native";
+
+import { isAllowedLinkUrl, openAllowedUrl } from "@/lib/linkSchemePolicy";
+
+jest.mock("react-native", () => ({
+  Linking: {
+    openURL: jest.fn(),
+  },
+}));
 
 describe("isAllowedLinkUrl", () => {
   it("allows http(s), mailto, tel, sms, maps, geo schemes", () => {
@@ -43,5 +51,30 @@ describe("isAllowedLinkUrl", () => {
     expect(isAllowedLinkUrl("HTTPS://example.com")).toBe(true);
     expect(isAllowedLinkUrl("MAILTO:user@example.com")).toBe(true);
     expect(isAllowedLinkUrl("JavaScript:alert(1)")).toBe(false);
+  });
+});
+
+describe("openAllowedUrl", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (Linking.openURL as jest.Mock).mockResolvedValue(undefined);
+  });
+
+  it("opens allowlisted http(s) URLs", async () => {
+    await expect(openAllowedUrl("https://example.com")).resolves.toBe(true);
+    expect(Linking.openURL).toHaveBeenCalledWith("https://example.com");
+  });
+
+  it("does not open javascript: or data: URLs", async () => {
+    await expect(openAllowedUrl("javascript:alert(1)")).resolves.toBe(false);
+    await expect(openAllowedUrl("data:text/html,<script>alert(1)</script>")).resolves.toBe(
+      false,
+    );
+    expect(Linking.openURL).not.toHaveBeenCalled();
+  });
+
+  it("returns false when Linking.openURL rejects", async () => {
+    (Linking.openURL as jest.Mock).mockRejectedValueOnce(new Error("no handler"));
+    await expect(openAllowedUrl("https://example.com")).resolves.toBe(false);
   });
 });

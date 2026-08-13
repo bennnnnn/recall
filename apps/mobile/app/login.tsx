@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  Linking,
   Platform,
   Pressable,
   StyleSheet,
@@ -26,6 +25,7 @@ import { config, isGoogleSignInConfigured, isGoogleWebClientConfigured } from "@
 import { formatGoogleSignInError, isExpoGo } from "@/lib/google-auth";
 import { tap } from "@/lib/haptics";
 import { getLegalPrivacyUrl, getLegalTermsUrl } from "@/lib/legalUrls";
+import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
 
 /** Frosted-glass tint over the hero gradient — deliberately theme-invariant
@@ -284,7 +284,7 @@ export default function LoginScreen() {
 
           <View style={s.links}>
             <Pressable
-              onPress={() => void Linking.openURL(getLegalTermsUrl())}
+              onPress={() => void openAllowedUrl(getLegalTermsUrl())}
               accessibilityRole="link"
               accessibilityLabel={t("login.terms")}
             >
@@ -292,7 +292,7 @@ export default function LoginScreen() {
             </Pressable>
             <Text style={s.dot}>·</Text>
             <Pressable
-              onPress={() => void Linking.openURL(getLegalPrivacyUrl())}
+              onPress={() => void openAllowedUrl(getLegalPrivacyUrl())}
               accessibilityRole="link"
               accessibilityLabel={t("login.privacy")}
             >

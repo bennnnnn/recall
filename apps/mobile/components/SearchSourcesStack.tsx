@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import {
   Image,
-  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -12,6 +11,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import {
   SearchSource,
   faviconHost,
@@ -113,7 +113,7 @@ function SourceRow({
   const s = makeSheetStyles(theme);
   const domain = hostnameFromUrl(source.url);
   const open = () => {
-    if (source.url) Linking.openURL(source.url).catch(() => {});
+    void openAllowedUrl(source.url);
   };
 
   return (

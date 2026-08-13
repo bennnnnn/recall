@@ -1,11 +1,12 @@
 import { useMemo } from "react";
-import { Linking, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import Constants from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { InfoRow, makeSettingsStyles, NavRow } from "@/components/settings/settingsUi";
 import { getLegalPrivacyUrl, getLegalTermsUrl } from "@/lib/legalUrls";
+import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { useTheme } from "@/lib/theme";
 
 export default function AboutScreen() {
@@ -25,7 +26,7 @@ export default function AboutScreen() {
           <NavRow
             icon="shield-checkmark-outline"
             title={t("privacy.title")}
-            onPress={() => void Linking.openURL(getLegalPrivacyUrl())}
+            onPress={() => void openAllowedUrl(getLegalPrivacyUrl())}
             compact
             styles={s}
             theme={theme}
@@ -34,7 +35,7 @@ export default function AboutScreen() {
           <NavRow
             icon="document-text-outline"
             title={t("terms.title")}
-            onPress={() => void Linking.openURL(getLegalTermsUrl())}
+            onPress={() => void openAllowedUrl(getLegalTermsUrl())}
             compact
             styles={s}
             theme={theme}
