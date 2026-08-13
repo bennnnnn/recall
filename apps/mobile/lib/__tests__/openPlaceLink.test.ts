@@ -32,4 +32,12 @@ describe("openPlaceLink", () => {
       expect.stringContaining("google.com/maps/search"),
     );
   });
+
+  it("does not open javascript: venue URLs", async () => {
+    await openPlaceLink("javascript:alert(1)", "Evil");
+    expect(Linking.openURL).not.toHaveBeenCalledWith("javascript:alert(1)");
+    expect(Linking.openURL).toHaveBeenCalledWith(
+      expect.stringContaining("google.com/maps/search"),
+    );
+  });
 });

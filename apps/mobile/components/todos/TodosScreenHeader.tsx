@@ -35,6 +35,8 @@ type Props = {
   onVisibleMonthChange: (month: Date) => void;
   calendarLoadError: boolean;
   onRetryCalendar: () => void;
+  suggestedLoadError: boolean;
+  onRetrySuggested: () => void;
   selectedDaySuggestions: SuggestedReminder[];
   selectedDayHeading: string;
   selectedDayMeetings: GoogleCalendarEvent[];
@@ -47,7 +49,6 @@ type Props = {
   togglingId: string | null;
   onToggle: (todo: Todo) => void;
   onDue: (todo: Todo) => void;
-  onLinkProject?: (todo: Todo) => void;
   projectTitleById?: Map<string, string>;
   onDeleteItem: (todo: Todo) => void;
   listGroups: ListGroup[];
@@ -75,6 +76,8 @@ export function TodosScreenHeader({
   onVisibleMonthChange,
   calendarLoadError,
   onRetryCalendar,
+  suggestedLoadError,
+  onRetrySuggested,
   selectedDaySuggestions,
   selectedDayHeading,
   selectedDayMeetings,
@@ -87,7 +90,6 @@ export function TodosScreenHeader({
   togglingId,
   onToggle,
   onDue,
-  onLinkProject,
   projectTitleById,
   onDeleteItem,
   listGroups,
@@ -138,6 +140,15 @@ export function TodosScreenHeader({
               retryLabel={t("common.retry")}
             />
           ) : null}
+          {suggestedLoadError ? (
+            <StateView
+              variant="error"
+              compact
+              message={t("common.error")}
+              onRetry={onRetrySuggested}
+              retryLabel={t("common.retry")}
+            />
+          ) : null}
           {selectedDaySuggestions.length > 0 ? (
             <>
               <Text style={s.sectionHeading}>{t("calendar.from_email")}</Text>
@@ -177,7 +188,6 @@ export function TodosScreenHeader({
                   }
                   onToggle={onToggle}
                   onDue={onDue}
-                  onLinkProject={onLinkProject}
                   onDelete={onDeleteItem}
                 />
               ))}
@@ -201,7 +211,6 @@ export function TodosScreenHeader({
           onToggle={onToggle}
           onAddItem={onAddListItem}
           onDeleteItem={onDeleteItem}
-          onLinkProject={onLinkProject}
           onDeleteList={onDeleteList}
         />
       ) : null}

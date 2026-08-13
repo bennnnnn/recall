@@ -1,6 +1,5 @@
-import { Linking } from "react-native";
-
 import { googleMapsSearchUrl, isGenericSearchUrl } from "@/lib/placesList";
+import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 
 export async function openPlaceLink(url: string, label?: string): Promise<void> {
   const trimmed = url.trim();
@@ -12,16 +11,8 @@ export async function openPlaceLink(url: string, label?: string): Promise<void> 
 
   if (!target) return;
 
-  try {
-    await Linking.openURL(target);
-    return;
-  } catch {
-    if (fallback && fallback !== target) {
-      try {
-        await Linking.openURL(fallback);
-      } catch {
-        // ignore — simulator may lack Maps/browser handler
-      }
-    }
+  if (await openAllowedUrl(target)) return;
+  if (fallback && fallback !== target) {
+    await openAllowedUrl(fallback);
   }
 }

@@ -42,7 +42,7 @@ export async function fetchProjectDetail(
 
   const task = (async () => {
     try {
-      const data = await api.getProject(token, id);
+      const data = await api.getProject(token, id, { includeLists: true });
       setProjectDetailCache(id, data);
       return data;
     } catch {

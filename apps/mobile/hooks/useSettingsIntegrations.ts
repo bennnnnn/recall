@@ -18,6 +18,7 @@ export function useSettingsIntegrations() {
   const [gmailStatus, setGmailStatus] = useState<GoogleGmailStatus | null>(null);
   const [gmailBusy, setGmailBusy] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!token) {
@@ -31,6 +32,7 @@ export function useSettingsIntegrations() {
     ]);
     if (calendarR.status === "fulfilled") setCalendarStatus(calendarR.value);
     if (gmailR.status === "fulfilled") setGmailStatus(gmailR.value);
+    setLoadError(calendarR.status === "rejected" || gmailR.status === "rejected");
     setLoading(false);
   }, [token]);
 
@@ -172,6 +174,7 @@ export function useSettingsIntegrations() {
 
   return {
     loading,
+    loadError,
     calendarStatus,
     calendarBusy,
     gmailStatus,

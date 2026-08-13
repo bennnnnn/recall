@@ -53,9 +53,11 @@ export function ProjectDayItemsList({
   const [missedItems, setMissedItems] = useState<ProjectItem[]>(missedItemsProp ?? []);
   const [loading, setLoading] = useState(!useEmbedded && cachedItems === undefined);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(false);
     try {
       const [page, missed] = await Promise.all([
         api.getProjectDailyItems(token, projectId, activityDate, {
@@ -74,6 +76,7 @@ export function ProjectDayItemsList({
     } catch {
       setItems([]);
       setMissedItems([]);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -84,6 +87,7 @@ export function ProjectDayItemsList({
       setItems(itemsByDate?.[activityDate] ?? []);
       setMissedItems(missedItemsProp ?? []);
       setLoading(false);
+      setLoadError(false);
       return;
     }
     if (itemsByDate) {
@@ -183,6 +187,14 @@ export function ProjectDayItemsList({
 
       {loading ? (
         <StateView variant="loading" compact />
+      ) : loadError ? (
+        <StateView
+          variant="error"
+          compact
+          message={t("projects.load_failed")}
+          onRetry={() => void load()}
+          retryLabel={t("common.retry")}
+        />
       ) : items.length === 0 ? (
         <View style={s.emptyBlock}>
           <Text style={s.empty}>{emptyMessage}</Text>

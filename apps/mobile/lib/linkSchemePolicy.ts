@@ -1,3 +1,5 @@
+import { Linking } from "react-native";
+
 /**
  * Guard for markdown `[text](url)` link targets rendered in chat.
  *
@@ -13,6 +15,9 @@
  * allowlist is intentionally permissive on the *kind* of scheme (web + common
  * intents) but strict on *which* schemes — anything that can execute script
  * or read local files is rejected.
+ *
+ * HTML Run preview (`openHtmlPreview`) intentionally opens `data:` / `file:`
+ * and must not go through `openAllowedUrl`.
  */
 const ALLOWED_LINK_SCHEMES = new Set([
   "http:",
@@ -34,6 +39,19 @@ export function isAllowedLinkUrl(href: string | undefined | null): href is strin
   } catch {
     // Relative paths and bare strings aren't valid link targets for the OS
     // handler; require an absolute URL with an allowed scheme.
+    return false;
+  }
+}
+
+/** Open an allowlisted URL in the OS handler. Returns false if blocked or open fails. */
+export async function openAllowedUrl(
+  href: string | undefined | null,
+): Promise<boolean> {
+  if (!isAllowedLinkUrl(href)) return false;
+  try {
+    await Linking.openURL(href);
+    return true;
+  } catch {
     return false;
   }
 }

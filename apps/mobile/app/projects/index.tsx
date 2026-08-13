@@ -19,6 +19,7 @@ import { useTranslation } from "react-i18next";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useProjects } from "@/contexts/ProjectsContext";
+import { useHome } from "@/contexts/HomeContext";
 import { AddFab } from "@/components/AddFab";
 import { SkeletonList } from "@/components/SkeletonLoader";
 import { StateView } from "@/components/StateView";
@@ -79,6 +80,7 @@ export default function ProjectsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { projects, loading, error, refresh, setProjects } = useProjects();
+  const { refresh: refreshHome } = useHome();
   const visibleProjects = projects;
   const showAddLearning = useMemo(
     () => canAddLearningProject(projects),
@@ -98,7 +100,8 @@ export default function ProjectsScreen() {
     useCallback(() => {
       // Force after quiz sessions so Today x/y isn't stuck on a 20s stale window.
       void refresh({ silent: true, force: true });
-    }, [refresh]),
+      void refreshHome({ silent: true, force: true });
+    }, [refresh, refreshHome]),
   );
 
   useFocusEffect(

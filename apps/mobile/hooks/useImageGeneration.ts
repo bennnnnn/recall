@@ -68,6 +68,8 @@ export function useImageGeneration({
   const generatingRef = useRef(false);
   const streamingRef = useRef(streaming);
   const tokenRef = useRef(token);
+  const abortRef = useRef<AbortController | null>(null);
+  const userCancelRef = useRef(false);
   generatingRef.current = generating;
   streamingRef.current = streaming;
   tokenRef.current = token;
@@ -109,6 +111,8 @@ export function useImageGeneration({
       }
       generatingRef.current = true;
       setGenerating(true);
+      const abort = new AbortController();
+      abortRef.current = abort;
       const optimisticUserId = `local-img-${Date.now()}`;
       const createdAt = new Date().toISOString();
       setMessages((prev) => [
@@ -147,10 +151,14 @@ export function useImageGeneration({
           Alert.alert(t("chat.error_title"), t("chat.error_generic"));
           return;
         }
-        const result = await api.generateImage(authToken, {
-          chat_id: activeChatId,
-          prompt,
-        });
+        const result = await api.generateImage(
+          authToken,
+          {
+            chat_id: activeChatId,
+            prompt,
+          },
+          { signal: abort.signal },
+        );
         setMessages((prev) => {
           const without = prev.filter(
             (m) => m.id !== optimisticUserId && m.id !== IMAGE_GEN_PENDING_ASSISTANT_ID,
@@ -160,6 +168,10 @@ export function useImageGeneration({
         onScrollToLatest();
       } catch (error) {
         clearOptimistic();
+        if (userCancelRef.current) {
+          userCancelRef.current = false;
+          return;
+        }
         const message = error instanceof Error ? error.message : t("common.error");
         const parsed = parseApiErrorDetail(message) ?? message;
         if (parsed.toLowerCase().includes("pro")) {
@@ -173,6 +185,7 @@ export function useImageGeneration({
         }
         Alert.alert(t("chat.error_title"), resolved.message);
       } finally {
+        if (abortRef.current === abort) abortRef.current = null;
         generatingRef.current = false;
         setGenerating(false);
       }
@@ -190,8 +203,16 @@ export function useImageGeneration({
     ],
   );
 
+  const cancel = useCallback(() => {
+    if (!generatingRef.current && !abortRef.current) return;
+    userCancelRef.current = true;
+    abortRef.current?.abort();
+    abortRef.current = null;
+  }, []);
+
   return {
     generating,
     submitPrompt,
+    cancel,
   };
 }

@@ -77,6 +77,7 @@ describe("projectDetailCache", () => {
     expect(a).toEqual(detail);
     expect(b).toEqual(detail);
     expect(getProject).toHaveBeenCalledTimes(1);
+    expect(getProject).toHaveBeenCalledWith("token", "proj-1", { includeLists: true });
   });
 
   it("prefetch skips when cache is already fresh", () => {

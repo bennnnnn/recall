@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
 import { fetchLinkPreview, LinkPreview } from "@/lib/linkPreview";
+import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = { url: string };
@@ -30,7 +31,7 @@ export function LinkPreviewCard({ url }: Props) {
   }, [url]);
 
   const open = () => {
-    Linking.openURL(url).catch(() => {});
+    void openAllowedUrl(url);
   };
 
   if (failed) {

@@ -29,4 +29,8 @@ describe("shouldRefetchChatOnForeground", () => {
   it("skips while the initial chat load is in flight", () => {
     expect(shouldRefetchChatOnForeground({ ...base, chatLoading: true })).toBe(false);
   });
+
+  it("skips while image generation is in flight", () => {
+    expect(shouldRefetchChatOnForeground({ ...base, imageGenerating: true })).toBe(false);
+  });
 });

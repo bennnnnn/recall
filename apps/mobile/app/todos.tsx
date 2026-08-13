@@ -126,6 +126,8 @@ export default function TodosScreen() {
       onVisibleMonthChange={calendar.setVisibleMonth}
       calendarLoadError={calendar.calendarLoadError}
       onRetryCalendar={() => void calendar.loadCalendarEvents()}
+      suggestedLoadError={calendar.suggestedLoadError}
+      onRetrySuggested={() => void calendar.loadSuggestedReminders()}
       selectedDaySuggestions={calendar.selectedDaySuggestions}
       selectedDayHeading={calendar.selectedDayHeading}
       selectedDayMeetings={calendar.selectedDayMeetings}

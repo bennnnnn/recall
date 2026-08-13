@@ -7,12 +7,14 @@ export function shouldRefetchChatOnForeground(opts: {
   chatId: string | null;
   streaming: boolean;
   chatLoading: boolean;
+  imageGenerating?: boolean;
 }): boolean {
   return (
     opts.appState === "active" &&
     Boolean(opts.token) &&
     Boolean(opts.chatId) &&
     !opts.streaming &&
-    !opts.chatLoading
+    !opts.chatLoading &&
+    !opts.imageGenerating
   );
 }

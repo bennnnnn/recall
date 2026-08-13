@@ -10,9 +10,17 @@ export const imagesApi = {
   generateImage: (
     token: string,
     body: { chat_id: string; prompt: string; aspect_ratio?: string | null },
+    init?: RequestInit,
   ) =>
-    request<ImageGenerateResult>("/images/generate", token, {
-      method: "POST",
-      body: JSON.stringify(body),
-    }, true, 120_000),
+    request<ImageGenerateResult>(
+      "/images/generate",
+      token,
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+        ...init,
+      },
+      true,
+      120_000,
+    ),
 };

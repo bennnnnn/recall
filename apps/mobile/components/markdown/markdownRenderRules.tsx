@@ -1,6 +1,6 @@
 import { Fragment, ReactNode } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { Image, Linking, Text, View } from "react-native";
+import { Image, Text, View } from "react-native";
 
 import { LinkPreviewCard } from "@/components/LinkPreviewCard";
 import { MathText } from "@/components/rich/MathText";
@@ -38,7 +38,7 @@ import { VerifyCheckmark } from "@/components/markdown/VerifyCheckmark";
 import { isGenericSearchUrl } from "@/lib/placesList";
 import { openPlaceLink } from "@/lib/openPlaceLink";
 import { isAllowedImageUri } from "@/lib/imageUriPolicy";
-import { isAllowedLinkUrl } from "@/lib/linkSchemePolicy";
+import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { extractBlockquoteMeta, splitInlineMath } from "@/lib/markdownPreprocess";
 import { isHeavyInlineMath } from "@/lib/mathFenceRetag";
 import {
@@ -186,11 +186,10 @@ function makeSharedRules(
             // Reject javascript:/data:/file:/etc. before handing to the OS link
             // handler — model-emitted markdown can include arbitrary URLs and
             // Linking.openURL executes the payload on some platforms.
-            if (!isAllowedLinkUrl(href)) return;
             if (isGenericSearchUrl(href)) {
               void openPlaceLink(href, label);
             } else {
-              Linking.openURL(href).catch(() => {});
+              void openAllowedUrl(href);
             }
           }}
           suppressHighlighting
