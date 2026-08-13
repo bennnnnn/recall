@@ -25,6 +25,7 @@
   "chat.attach_camera": "Kamera",
   "chat.attach_failed": "Anhang fehlgeschlagen",
   "chat.attach_file": "Datei",
+  "chat.attached_file": "Angehängte Datei",
   "chat.attach_photo": "Fotomediathek",
   "chat.attach_solve_math_camera": "Mathe scannen",
   "chat.feedback_failed": "Feedback konnte nicht gespeichert werden.",

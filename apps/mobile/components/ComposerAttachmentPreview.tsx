@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
@@ -14,7 +15,7 @@ type Props = {
 export function ComposerAttachmentPreview({ attachment, uploading, onRemove }: Props) {
   const C = useTheme();
   const { t } = useTranslation();
-  const s = makeStyles(C);
+  const s = useMemo(() => makeStyles(C), [C]);
 
   if (attachment.kind === "image") {
     return (

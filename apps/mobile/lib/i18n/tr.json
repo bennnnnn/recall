@@ -25,6 +25,7 @@
   "chat.attach_camera": "Kamera",
   "chat.attach_failed": "Eklenemedi",
   "chat.attach_file": "Dosya",
+  "chat.attached_file": "Ekli dosya",
   "chat.attach_photo": "Fotoğraf galerisi",
   "chat.attach_solve_math_camera": "Matematik tara",
   "chat.feedback_failed": "Geri bildiriminiz kaydedilemedi.",

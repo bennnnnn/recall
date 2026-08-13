@@ -9,6 +9,7 @@ import { isExpoGo } from "@/lib/expoRuntime";
 import { connectGoogleCalendar } from "@/lib/google-calendar";
 import { connectGoogleGmail } from "@/lib/google-gmail";
 import { gmailSyncMessage } from "@/lib/gmailSyncFeedback";
+import { invalidateSuggestedRemindersCache } from "@/lib/suggestedRemindersCache";
 
 export function useSettingsIntegrations() {
   const { token } = useAuth();
@@ -156,6 +157,7 @@ export function useSettingsIntegrations() {
           setGmailBusy(true);
           try {
             await api.disconnectGoogleGmail(token);
+            invalidateSuggestedRemindersCache();
             const status = await api.googleGmailStatus(token);
             setGmailStatus(status);
             Alert.alert(t("settings.gmail_title"), t("settings.gmail_disconnected"));

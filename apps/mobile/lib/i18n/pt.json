@@ -25,6 +25,7 @@
   "chat.attach_camera": "Câmera",
   "chat.attach_failed": "Não foi possível anexar",
   "chat.attach_file": "Arquivo",
+  "chat.attached_file": "Arquivo anexado",
   "chat.attach_photo": "Biblioteca de fotos",
   "chat.attach_solve_math_camera": "Escanear matemática",
   "chat.feedback_failed": "Não foi possível salvar seu feedback.",

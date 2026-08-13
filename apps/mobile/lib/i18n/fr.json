@@ -25,6 +25,7 @@
   "chat.attach_camera": "Appareil photo",
   "chat.attach_failed": "Impossible de joindre",
   "chat.attach_file": "Fichier",
+  "chat.attached_file": "Fichier joint",
   "chat.attach_photo": "Photothèque",
   "chat.attach_solve_math_camera": "Scanner les maths",
   "chat.feedback_failed": "Impossible d'enregistrer votre avis.",

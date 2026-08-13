@@ -8,6 +8,8 @@ describe("surface hierarchy", () => {
     expect(lightTheme.userBubble).toBe("#D6EBFF");
     expect(lightTheme.primary).toBe("#007AFF");
     expect(lightTheme.accent).toBe("#0D9488");
+    expect(lightTheme.textTertiary).toBe("#6E6E73");
+    expect(lightTheme.codeLang).toBe("#6E6E73");
     expect(lightTheme.bg).toBe(lightTheme.composerBg);
     expect(darkTheme.bg).not.toBe(darkTheme.surface);
     expect(darkTheme.inputBg).toBe(darkTheme.surface);

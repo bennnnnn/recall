@@ -1,10 +1,15 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { api, SuggestedReminder } from "@/lib/api";
+import {
+  fetchSuggestedReminders,
+  getCachedSuggestedReminders,
+  removeSuggestedReminderFromCache,
+} from "@/lib/suggestedRemindersCache";
 import { Theme, useTheme } from "@/lib/theme";
 
 type Props = {
@@ -17,8 +22,10 @@ export function SuggestedRemindersNudge({ token, onDismiss, onAdded }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const router = useRouter();
-  const s = makeStyles(theme);
-  const [reminders, setReminders] = useState<SuggestedReminder[]>([]);
+  const s = useMemo(() => makeStyles(theme), [theme]);
+  const [reminders, setReminders] = useState<SuggestedReminder[]>(
+    () => getCachedSuggestedReminders()?.reminders.slice(0, 3) ?? [],
+  );
   const [busyId, setBusyId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -28,8 +35,8 @@ export function SuggestedRemindersNudge({ token, onDismiss, onAdded }: Props) {
       return;
     }
     try {
-      const data = await api.listSuggestedReminders(token);
-      setReminders(data.reminders.slice(0, 3));
+      const data = await fetchSuggestedReminders(token);
+      setReminders((data?.reminders ?? []).slice(0, 3));
     } catch {
       setReminders([]);
     }
@@ -46,6 +53,7 @@ export function SuggestedRemindersNudge({ token, onDismiss, onAdded }: Props) {
     setBusyId(id);
     try {
       await api.addSuggestedReminder(token, id);
+      removeSuggestedReminderFromCache(id);
       setReminders((prev) => prev.filter((r) => r.id !== id));
       onAdded?.();
     } catch {
@@ -60,6 +68,7 @@ export function SuggestedRemindersNudge({ token, onDismiss, onAdded }: Props) {
     setBusyId(id);
     try {
       await api.dismissSuggestedReminder(token, id);
+      removeSuggestedReminderFromCache(id);
       setReminders((prev) => prev.filter((r) => r.id !== id));
       onDismiss?.(id);
     } catch {

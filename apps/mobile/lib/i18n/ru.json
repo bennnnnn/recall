@@ -25,6 +25,7 @@
   "chat.attach_camera": "Камера",
   "chat.attach_failed": "Не удалось прикрепить",
   "chat.attach_file": "Файл",
+  "chat.attached_file": "Прикреплённый файл",
   "chat.attach_photo": "Фото",
   "chat.attach_solve_math_camera": "Сканировать математику",
   "chat.feedback_failed": "Не удалось сохранить отзыв.",
