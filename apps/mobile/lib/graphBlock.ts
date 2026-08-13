@@ -1,5 +1,12 @@
+export type NumberLineInterval = {
+  start: number | null;
+  end: number | null;
+  start_inclusive: boolean;
+  end_inclusive: boolean;
+};
+
 export type GraphSpec = {
-  type: "function" | "vertical";
+  type: "function" | "vertical" | "number_line";
   expr: string;
   variable?: string;
   x_min?: number;
@@ -23,6 +30,7 @@ export type GraphSpec = {
   segments2?: [number, number][][];
   label?: string;
   label2?: string;
+  intervals?: NumberLineInterval[];
 };
 
 /** Match backend `GraphBlockSpec.points` max; chat samples default lower. */
@@ -85,6 +93,41 @@ function parseVerticalGraph(row: Record<string, unknown>): GraphSpec | null {
   };
 }
 
+function parseBound(raw: unknown): number | null {
+  if (raw == null) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+function parseNumberLineGraph(row: Record<string, unknown>): GraphSpec | null {
+  const expr = String(row.expr ?? "").trim();
+  if (!expr || expr.length > MAX_GRAPH_EXPR_LENGTH) return null;
+  const rawIntervals = Array.isArray(row.intervals) ? row.intervals : [];
+  if (rawIntervals.length > 8) return null;
+  const intervals: NumberLineInterval[] = [];
+  for (const item of rawIntervals) {
+    if (!item || typeof item !== "object") return null;
+    const iv = item as Record<string, unknown>;
+    const start = parseBound(iv.start);
+    const end = parseBound(iv.end);
+    if (start != null && end != null && start > end) return null;
+    intervals.push({
+      start,
+      end,
+      start_inclusive: Boolean(iv.start_inclusive),
+      end_inclusive: Boolean(iv.end_inclusive),
+    });
+  }
+  return {
+    type: "number_line",
+    expr,
+    variable: String(row.variable ?? "x"),
+    title: row.title != null ? String(row.title) : expr,
+    points: [],
+    intervals,
+  };
+}
+
 function parsePoints(raw: unknown): [number, number][] {
   if (!Array.isArray(raw)) return [];
   return downsamplePoints(
@@ -111,6 +154,9 @@ export function parseGraphSpec(raw: string): GraphSpec | null {
     const row = data as Record<string, unknown>;
     if (row.type === "vertical") {
       return parseVerticalGraph(row);
+    }
+    if (row.type === "number_line") {
+      return parseNumberLineGraph(row);
     }
     if (row.type !== "function") return null;
     const expr = String(row.expr ?? "").trim();
@@ -189,6 +235,58 @@ export function graphBounds(
     xMax += 1;
   }
   return { xMin, xMax, yMin, yMax };
+}
+
+/** Viewport for a number line: include 0 and every finite bound, plus pad for arrows. */
+export function numberLineBounds(intervals: NumberLineInterval[]): {
+  xMin: number;
+  xMax: number;
+} {
+  const finite: number[] = [0];
+  let rayLeft = false;
+  let rayRight = false;
+  for (const iv of intervals) {
+    if (iv.start == null) rayLeft = true;
+    else finite.push(iv.start);
+    if (iv.end == null) rayRight = true;
+    else finite.push(iv.end);
+  }
+  let xMin = Math.min(...finite);
+  let xMax = Math.max(...finite);
+  const span = Math.max(xMax - xMin, 4);
+  const pad = Math.max(2, span * 0.35);
+  if (rayLeft) xMin -= pad;
+  else xMin -= pad * 0.45;
+  if (rayRight) xMax += pad;
+  else xMax += pad * 0.45;
+  if (xMax <= xMin) {
+    xMin -= 2;
+    xMax += 2;
+  }
+  return { xMin, xMax };
+}
+
+/** ``x >= 3`` → ``x ≥ 3`` for number-line titles. */
+export function formatInequalityExpr(expr: string): string {
+  let out = "";
+  let i = 0;
+  const src = expr.trim();
+  while (i < src.length) {
+    const two = src.slice(i, i + 2);
+    if (two === ">=") {
+      out += "≥";
+      i += 2;
+      continue;
+    }
+    if (two === "<=") {
+      out += "≤";
+      i += 2;
+      continue;
+    }
+    out += src[i];
+    i += 1;
+  }
+  return out;
 }
 
 export function mapGraphPoint(

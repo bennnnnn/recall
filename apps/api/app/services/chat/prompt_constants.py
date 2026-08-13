@@ -532,6 +532,13 @@ MATH_SOLVER_HINT = (
     '"label2":"y = 2x"}\n```\n'
     "- For a vertical line x=c (NOT a function y=f(x)), use type vertical:\n"
     '```graph\n{"type":"vertical","x":4,"y_min":-10,"y_max":10,"title":"x = 4"}\n```\n'
+    "- For a one-variable inequality (x > 3, 1 ≤ x < 5), emit type number_line "
+    "— NEVER a y=0/1 step function:\n"
+    '```graph\n{"type":"number_line","expr":"x > 3","title":"x > 3",'
+    '"intervals":[{"start":3,"end":null,"start_inclusive":false,'
+    '"end_inclusive":false}]}\n```\n'
+    "  Open circle = endpoint not included; filled = included. Arrow toward "
+    "infinity. Describe the number line in prose; do not plot this as y=f(x).\n"
     '- To mark one or more specific coordinates (e.g. "plot the point '
     '(2, 3)") rather than a continuous curve, use the same ```graph fence '
     "with just those points and a short title:\n"

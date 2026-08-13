@@ -11,6 +11,7 @@ from app.models.math_schemas import (
     GraphBlockSpec,
     GraphSampleInput,
     NewtonMethodInput,
+    NumberLineInterval,
     RectangleGeometryInput,
     SystemOfEquationsInput,
 )
@@ -234,6 +235,47 @@ def test_sample_function_quadratic() -> None:
     assert result.points[0][0] == pytest.approx(-2.0)
     zeroish = min(result.points, key=lambda p: abs(p[1]))
     assert zeroish[1] == pytest.approx(0.0, abs=0.5)
+
+
+def test_sample_function_rejects_relational_expr() -> None:
+    with pytest.raises(math_service.MathServiceError, match="number lines"):
+        math_service.sample_function(
+            GraphSampleInput(expr="x > 3", variable="x", x_min=-10, x_max=10, n=20)
+        )
+
+
+def test_number_line_from_x_gt_3() -> None:
+    spec = math_service.number_line_spec_from_expr("x > 3")
+    assert spec is not None
+    assert spec.type == "number_line"
+    assert len(spec.intervals) == 1
+    iv = spec.intervals[0]
+    assert iv.start == pytest.approx(3.0)
+    assert iv.end is None
+    assert iv.start_inclusive is False
+
+
+def test_number_line_from_compound() -> None:
+    spec = math_service.number_line_spec_from_expr("1 < x < 5")
+    assert spec is not None
+    assert len(spec.intervals) == 1
+    iv = spec.intervals[0]
+    assert iv.start == pytest.approx(1.0)
+    assert iv.end == pytest.approx(5.0)
+    assert iv.start_inclusive is False
+    assert iv.end_inclusive is False
+
+
+def test_number_line_from_quadratic_split() -> None:
+    spec = math_service.number_line_spec_from_expr("x**2 - 1 > 0")
+    assert spec is not None
+    assert len(spec.intervals) == 2
+    assert any(iv.start is None and iv.end == pytest.approx(-1.0) for iv in spec.intervals)
+    assert any(iv.start == pytest.approx(1.0) and iv.end is None for iv in spec.intervals)
+
+
+def test_number_line_skips_two_variable_half_plane() -> None:
+    assert math_service.number_line_spec_from_expr("y > 2*x") is None
 
 
 def test_sample_function_splits_segments_at_a_vertical_asymptote() -> None:
@@ -606,6 +648,20 @@ def test_graph_block_spec_allows_a_single_point_but_rejects_empty() -> None:
     GraphBlockSpec(expr="(2, 3)", points=[[2.0, 3.0]])
     with pytest.raises(ValueError, match="at least one"):
         GraphBlockSpec(expr="x", points=[])
+
+
+def test_graph_block_spec_number_line_does_not_need_points() -> None:
+    spec = GraphBlockSpec(
+        type="number_line",
+        expr="x > 3",
+        intervals=[
+            NumberLineInterval(start=3, end=None, start_inclusive=False, end_inclusive=False)
+        ],
+    )
+    assert spec.points == []
+    assert spec.intervals[0].start == 3.0
+    with pytest.raises(ValueError, match="expr"):
+        GraphBlockSpec(type="number_line", expr="  ", intervals=[])
 
 
 def test_graph_block_spec_rejects_more_points_than_the_backend_ever_samples() -> None:

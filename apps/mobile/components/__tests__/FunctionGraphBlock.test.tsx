@@ -80,6 +80,21 @@ describe("FunctionGraphBlock", () => {
     expect(JSON.stringify(toJSON())).toContain("RNSVGSvgView");
   });
 
+  it("renders a number line for x > 3, not y = x > 3", async () => {
+    const content = JSON.stringify({
+      type: "number_line",
+      expr: "x > 3",
+      title: "x > 3",
+      intervals: [{ start: 3, end: null, start_inclusive: false, end_inclusive: false }],
+    });
+    const { getByText, queryByText, toJSON } = await render(
+      <FunctionGraphBlock content={content} />,
+    );
+    expect(getByText("x > 3")).toBeOnTheScreen();
+    expect(queryByText("y = x > 3")).toBeNull();
+    expect(JSON.stringify(toJSON())).toContain("RNSVGSvgView");
+  });
+
   it("renders two curves with a legend when expr2/points2 are present", async () => {
     const content = JSON.stringify({
       type: "function",

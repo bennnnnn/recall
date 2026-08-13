@@ -95,15 +95,25 @@ def _canonical_replacement(raw: str, canonical_fence: dict[str, object] | None) 
         data = json.loads(raw)
     except json.JSONDecodeError:
         return None
-    if not isinstance(data, dict) or data.get("type") != canonical_fence.get("type"):
+    if not isinstance(data, dict):
         return None
-    return json.dumps(canonical_fence, separators=(",", ":"))
+    if data.get("type") == canonical_fence.get("type"):
+        return json.dumps(canonical_fence, separators=(",", ":"))
+    # Model often emits a y=f(x) step for "graph x > 3"; replace any graph
+    # fence with the verified number line.
+    if canonical_fence.get("type") == "number_line" and data.get("type") in {
+        "function",
+        "vertical",
+        "number_line",
+    }:
+        return json.dumps(canonical_fence, separators=(",", ":"))
+    return None
 
 
 def _is_point_marker(spec: GraphBlockSpec) -> bool:
     """True for coordinate markers / discrete points — never densify those
     into a continuous curve."""
-    if spec.type == "vertical":
+    if spec.type in {"vertical", "number_line"}:
         return True
     if len(spec.points) <= 1:
         return True
@@ -142,6 +152,8 @@ def _expr_samplable_as_function(expr: str, variable: str) -> bool:
     """False for relation forms like ``x = 4`` that aren't y=f(x)."""
     e = expr.strip().lower()
     if "=" in expr and not e.startswith((variable.lower() + "=", "y=")):
+        return False
+    if any(op in expr for op in (">", "<", "≥", "≤")):
         return False
     return True
 
@@ -251,6 +263,23 @@ def densify_sparse_graph(spec: GraphBlockSpec) -> GraphBlockSpec:
     )
 
 
+def _rewrite_inequality_graph(spec: GraphBlockSpec) -> GraphBlockSpec:
+    """Turn a y=f(x) fence whose expr is ``x > 3`` into a number line.
+
+    The model (and an older sample_function path) plotted inequalities as a
+    0/1 step. School graphs of ``x > 3`` are a number line, not a Heaviside.
+    """
+    if spec.type in {"number_line", "vertical"}:
+        return spec
+    line = math_service.number_line_spec_from_expr(spec.expr, spec.variable)
+    if line is None:
+        return spec
+    title = (spec.title or "").strip()
+    if title:
+        return line.model_copy(update={"title": title[:64]})
+    return line
+
+
 def _graph_fence_body(spec: GraphBlockSpec) -> str:
     return f"```graph\n{json.dumps(spec.model_dump(), separators=(',', ':'))}\n```"
 
@@ -280,8 +309,10 @@ def _replace_fence(
             if not _validate_geometry(raw):
                 raise ValueError("invalid geometry")
             return match.group(0)
-        # Schema-valid but unverified: leave the model's points alone.
-        GraphBlockSpec.model_validate(json.loads(raw))
+        parsed = GraphBlockSpec.model_validate(json.loads(raw))
+        rewritten = _rewrite_inequality_graph(parsed)
+        if rewritten is not parsed:
+            return _graph_fence_body(rewritten)
         return match.group(0)
     except (json.JSONDecodeError, ValidationError, ValueError, TypeError):
         # Soft prose — never a CopyBlock / code fence. Callouts got routed

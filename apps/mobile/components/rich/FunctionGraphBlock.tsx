@@ -3,7 +3,9 @@ import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import Svg, { Circle, Line, Polyline, Text as SvgText } from "react-native-svg";
 
+import { NumberLineChart } from "@/components/rich/NumberLineChart";
 import {
+  formatInequalityExpr,
   graphBounds,
   graphPolylinePoints,
   mapGraphPoint,
@@ -39,6 +41,24 @@ export function FunctionGraphBlock({ content }: Props) {
         <Text style={styles.fallbackText}>
           {t("rich.graph_error")}
         </Text>
+      </View>
+    );
+  }
+
+  if (spec.type === "number_line") {
+    return (
+      <View style={styles.wrap}>
+        <Text style={styles.title}>
+          {formatInequalityExpr(spec.title ?? spec.expr)}
+        </Text>
+        <NumberLineChart
+          spec={spec}
+          width={chartWidth}
+          color={theme.primary}
+          axisColor={theme.border}
+          labelColor={theme.textSecondary}
+          holeFill={theme.assistantBubble}
+        />
       </View>
     );
   }
