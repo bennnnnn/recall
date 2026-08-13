@@ -66,6 +66,8 @@
   "chat.empty_hint": "A cosa stai pensando?",
   "chat.empty_title": "Come posso aiutarti?",
   "chat.error_generic": "Qualcosa è andato storto. Riprova.",
+  "chat.error_connection_lost": "Connessione persa prima dell'arrivo della risposta. Riprova.",
+  "chat.error_unreachable": "Impossibile raggiungere il server. Controlla la connessione e riprova.",
   "chat.error_dismiss_a11y": "Dismiss error",
   "chat.error_title": "Impossibile ottenere una risposta",
   "chat.export_pdf_a11y": "Export as PDF",

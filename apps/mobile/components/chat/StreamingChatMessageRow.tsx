@@ -30,6 +30,7 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
   streamVisualActive,
   imageGenPending = false,
   lastAssistantId,
+  activeQuizMessageId,
   selectedModel,
   quizLanguage,
   highlightedMessageId,
@@ -37,9 +38,11 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
   onRegenerate,
   onEdit,
   onFeedback,
+  onQuizAnswer,
 }: Props) {
   const streamingDraft = useStreamingDraft();
   const isLastAssistant = item.role === "assistant" && item.id === lastAssistantId;
+  const isActiveQuiz = item.role === "assistant" && item.id === activeQuizMessageId;
 
   return (
     <MessageBubble
@@ -61,6 +64,7 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
       quizLanguage={quizLanguage}
       highlighted={item.id === highlightedMessageId}
       isSending={item.id === sendingMessageId}
+      onQuizAnswer={isActiveQuiz && !streamVisualActive ? onQuizAnswer : undefined}
     />
   );
 });

@@ -66,6 +66,8 @@
   "chat.empty_hint": "О чём хотите поговорить?",
   "chat.empty_title": "Чем могу помочь?",
   "chat.error_generic": "Что-то пошло не так. Попробуйте снова.",
+  "chat.error_connection_lost": "Соединение оборвалось до прихода ответа. Попробуйте снова.",
+  "chat.error_unreachable": "Не удалось связаться с сервером. Проверьте сеть и попробуйте снова.",
   "chat.error_dismiss_a11y": "Dismiss error",
   "chat.error_title": "Не удалось получить ответ",
   "chat.export_pdf_a11y": "Export as PDF",

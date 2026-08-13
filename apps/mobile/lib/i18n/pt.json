@@ -66,6 +66,8 @@
   "chat.empty_hint": "O que você tem em mente?",
   "chat.empty_title": "Como posso ajudar?",
   "chat.error_generic": "Algo deu errado. Tente novamente.",
+  "chat.error_connection_lost": "A conexão caiu antes da resposta chegar. Tente novamente.",
+  "chat.error_unreachable": "Não foi possível alcançar o servidor. Verifique a conexão e tente novamente.",
   "chat.error_dismiss_a11y": "Dismiss error",
   "chat.error_title": "Não foi possível obter resposta",
   "chat.export_pdf_a11y": "Export as PDF",

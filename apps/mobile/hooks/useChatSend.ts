@@ -260,8 +260,6 @@ export function useChatSend({
         setAttachBusy(false);
       }
 
-      newMessageCountRef.current += 1;
-
       let clientGeo: ClientGeo | null = null;
       const geoResult = await resolveClientGeoForQuery(
         authToken,
@@ -276,6 +274,7 @@ export function useChatSend({
         return;
       }
       clientGeo = geoResult.clientGeo;
+      newMessageCountRef.current += 1;
 
       if (editingMessageId && chatId) {
         const editId = editingMessageId;
