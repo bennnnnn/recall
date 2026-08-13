@@ -6,6 +6,7 @@ import {
   looksLikeSendDeliverable,
   shouldRenderAsCopyBlock,
   shouldRenderAsCodeBlock,
+  shouldPreviewOpenFenceAsAnswer,
 } from "@/lib/copyBlock";
 
 describe("copyBlock heuristics", () => {
@@ -84,5 +85,19 @@ describe("copyBlock heuristics", () => {
     expect(looksLikeMathAnswer("the answer")).toBe(false);
     expect(looksLikeMathAnswer("Great job")).toBe(false);
     expect(looksLikeMathAnswer("Copy")).toBe(false);
+  });
+
+  it("BUG FIX regression: open ```answer fences preview as AnswerBlock, not a code card", () => {
+    // Live: the final box flashed `x = -2 \quad \text{or} \quad x = 2` in a
+    // CodeBlock (lang badge "answer") until the fence closed, then swapped
+    // to the gray AnswerBlock with the numbers.
+    expect(
+      shouldPreviewOpenFenceAsAnswer(
+        "answer",
+        String.raw`x = -2 \quad \text{or} \quad x = 2`,
+      ),
+    ).toBe(true);
+    expect(shouldPreviewOpenFenceAsAnswer("python", "print(1)")).toBe(false);
+    expect(shouldPreviewOpenFenceAsAnswer("", "x = 2 or x = -2")).toBe(true);
   });
 });
