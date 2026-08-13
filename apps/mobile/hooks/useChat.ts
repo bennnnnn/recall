@@ -8,6 +8,7 @@ import {
   buildDoneMergeInput,
   mergeDoneIntoMessages,
   parseChatWsPayload,
+  shouldIgnoreStoppedStreamEvent,
 } from "@/lib/chatSocketReduce";
 import {
   publishStreamingDraft,
@@ -204,6 +205,9 @@ export function useChat(
 
   const handleChatPayload = useCallback(
     (payload: ChatSsePayload) => {
+      if (shouldIgnoreStoppedStreamEvent(payload.type, streamingRef.current)) {
+        return;
+      }
       if (payload.type === "start") {
         setSendingMessageId(null);
         setFinalizing(false);

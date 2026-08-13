@@ -1,4 +1,4 @@
-import { mergeDoneIntoMessages, appendToken, buildDoneMergeInput, applyStreamEndModel } from "@/lib/chatSocketReduce";
+import { mergeDoneIntoMessages, appendToken, buildDoneMergeInput, applyStreamEndModel, shouldIgnoreStoppedStreamEvent } from "@/lib/chatSocketReduce";
 import type { Message } from "@/lib/api";
 
 describe("chatSocketReduce", () => {
@@ -211,5 +211,16 @@ describe("chatSocketReduce", () => {
     ];
     const next = applyStreamEndModel(prev, "smart-chat");
     expect(next[0].model).toBe("smart-chat");
+  });
+
+  it("shouldIgnoreStoppedStreamEvent drops deltas after Stop, not start/done/error", () => {
+    expect(shouldIgnoreStoppedStreamEvent("token", false)).toBe(true);
+    expect(shouldIgnoreStoppedStreamEvent("status", false)).toBe(true);
+    expect(shouldIgnoreStoppedStreamEvent("reasoning", false)).toBe(true);
+    expect(shouldIgnoreStoppedStreamEvent("stream_end", false)).toBe(true);
+    expect(shouldIgnoreStoppedStreamEvent("token", true)).toBe(false);
+    expect(shouldIgnoreStoppedStreamEvent("start", false)).toBe(false);
+    expect(shouldIgnoreStoppedStreamEvent("done", false)).toBe(false);
+    expect(shouldIgnoreStoppedStreamEvent("error", false)).toBe(false);
   });
 });

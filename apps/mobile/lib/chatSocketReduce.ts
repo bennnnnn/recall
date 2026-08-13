@@ -22,6 +22,21 @@ export type ChatWsPayload = {
   fallback_used?: string;
 };
 
+const STOPPED_STREAM_DELTA_TYPES = new Set([
+  "token",
+  "status",
+  "reasoning",
+  "stream_end",
+]);
+
+/** Late stream deltas after Stop must not mutate the committed partial bubble. */
+export function shouldIgnoreStoppedStreamEvent(
+  type: string,
+  streaming: boolean,
+): boolean {
+  return !streaming && STOPPED_STREAM_DELTA_TYPES.has(type);
+}
+
 export function parseChatWsPayload(raw: string): ChatWsPayload | null {
   try {
     return JSON.parse(raw) as ChatWsPayload;
