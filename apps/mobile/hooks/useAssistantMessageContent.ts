@@ -11,10 +11,7 @@ import {
 } from "@/lib/streamUiTiming";
 
 type Options = {
-  message: Pick<
-    Message,
-    "id" | "content" | "search_sources" | "context_summarized" | "renderKey"
-  >;
+  message: Pick<Message, "id" | "content" | "search_sources" | "renderKey">;
   liveContent?: string;
   liveSearchSources?: Message["search_sources"];
   priorUserText?: string | null;
@@ -74,7 +71,6 @@ export function useAssistantMessageContent({
         priorUserText,
         storedSearchSources: message.search_sources,
         liveSearchSources: deriveSearchSources,
-        contextSummarized: message.context_summarized,
         messageId: message.id,
         isGenerating,
         renderKey: message.renderKey,
@@ -86,7 +82,6 @@ export function useAssistantMessageContent({
       priorUserText,
       message.search_sources,
       deriveSearchSources,
-      message.context_summarized,
       message.id,
       isGenerating,
       message.renderKey,

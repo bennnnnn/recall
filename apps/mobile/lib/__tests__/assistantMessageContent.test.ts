@@ -26,7 +26,6 @@ describe("deriveAssistantMessageContent", () => {
       ...base,
       content: "Answer with ```search_sources\n[]\n```",
       layoutFrozen: true,
-      contextSummarized: 1,
     });
 
     expect(result.showSearchSources).toBe(false);

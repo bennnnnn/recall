@@ -41,7 +41,6 @@ export type AssistantMessageContentInput = {
   priorUserText: string | null;
   storedSearchSources?: SearchSource[];
   liveSearchSources?: SearchSource[];
-  contextSummarized?: number;
   messageId: string;
   isGenerating: boolean;
   renderKey?: string;
