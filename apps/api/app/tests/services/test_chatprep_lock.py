@@ -53,7 +53,6 @@ async def test_stream_chat_acquire_fail_skips_prepare_and_raises_busy():
                 user_id=user.id,
                 chat_id=uuid4(),
                 content="hi",
-                pre_reserved=100,
                 user=user,
                 skip_usage_seed=True,
             ):
@@ -66,8 +65,9 @@ async def test_stream_chat_acquire_fail_skips_prepare_and_raises_busy():
     wait.assert_not_awaited()
     prepare.assert_not_awaited()
     release.assert_not_awaited()
-    # Edit path reserved before delegate — busy must not leak that quota.
-    refund.assert_awaited_once_with(redis, str(user.id), 100)
+    # Quota is reserved inside the turn_resources block, i.e. only after the
+    # lock is held — a busy chat cannot have reserved anything to leak.
+    refund.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -105,6 +105,7 @@ async def test_stream_chat_releases_lock_on_success():
             AsyncMock(return_value=MagicMock()),
         ),
         patch("app.services.chat.stream.stream_and_finalize", fake_stream),
+        patch("app.services.chat.stream.reserve_turn_quota", AsyncMock(return_value=100)),
     ):
         tokens = [
             t
@@ -114,7 +115,6 @@ async def test_stream_chat_releases_lock_on_success():
                 user_id=user.id,
                 chat_id=chat_id,
                 content="hi",
-                pre_reserved=100,
                 user=user,
                 skip_usage_seed=True,
             )
@@ -158,6 +158,7 @@ async def test_stream_chat_releases_lock_when_prepare_fails():
             AsyncMock(side_effect=RuntimeError("prepare boom")),
         ),
         patch("app.services.chat.stream.quota_service.refund_usage", refund),
+        patch("app.services.chat.stream.reserve_turn_quota", AsyncMock(return_value=100)),
     ):
         with pytest.raises(RuntimeError, match="prepare boom"):
             async for _ in stream_module.stream_chat_response(
@@ -166,7 +167,6 @@ async def test_stream_chat_releases_lock_when_prepare_fails():
                 user_id=user.id,
                 chat_id=chat_id,
                 content="hi",
-                pre_reserved=100,
                 user=user,
                 skip_usage_seed=True,
             ):
@@ -298,7 +298,9 @@ async def test_stream_edit_holds_chatprep_lock_across_delete_and_stream():
     held: dict[str, object] = {}
 
     async def fake_stream(*_a, **kwargs):
-        held["lock"] = kwargs.get("held_chatprep_lock")
+        # Edit hands its own lock + reservation down rather than re-acquiring.
+        resources = kwargs.get("resources")
+        held["lock"] = (resources.lock_key, resources.lock_token) if resources is not None else None
         yield "edited"
 
     target = MagicMock()

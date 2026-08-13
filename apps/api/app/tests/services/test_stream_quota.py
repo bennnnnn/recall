@@ -26,10 +26,23 @@ def _pro_user() -> MagicMock:
     return user
 
 
+def _borrowed_resources(redis, user_id, chat_id, reserved: int) -> stream_module.TurnResources:
+    """Resources already held by an outer turn (what stream_edit_response hands down)."""
+    return stream_module.TurnResources(
+        redis=redis,
+        user_id=user_id,
+        chat_id=chat_id,
+        lock_key=f"chatprep:{chat_id}",
+        lock_token="test-token",
+        reserved_tokens=reserved,
+    )
+
+
 @pytest.mark.asyncio
 async def test_stream_chat_response_refunds_pre_reserved_on_image_gen():
     """Edit reserves before stream_chat_response; image-gen must refund that hold."""
     user = _pro_user()
+    chat_id = uuid4()
     redis = AsyncMock()
     refund = AsyncMock()
 
@@ -56,9 +69,9 @@ async def test_stream_chat_response_refunds_pre_reserved_on_image_gen():
                 redis,
                 Settings(),
                 user_id=user.id,
-                chat_id=uuid4(),
+                chat_id=chat_id,
                 content="draw a cat",
-                pre_reserved=500,
+                resources=_borrowed_resources(redis, user.id, chat_id, 500),
                 user=user,
                 skip_usage_seed=True,
             )
@@ -100,6 +113,10 @@ async def test_stream_chat_response_refunds_on_cancelled_error():
         ),
         patch("app.services.chat.stream.stream_and_finalize", boom_stream),
         patch("app.services.chat.stream.quota_service.refund_usage", refund),
+        # This turn owns its own lock + reservation (the plain message path).
+        patch("app.services.chat.stream.acquire_lock", AsyncMock(return_value="tok")),
+        patch("app.services.chat.stream.release_lock", AsyncMock()),
+        patch("app.services.chat.stream.reserve_turn_quota", AsyncMock(return_value=250)),
     ):
         with pytest.raises(asyncio.CancelledError):
             async for _ in stream_module.stream_chat_response(
@@ -108,7 +125,6 @@ async def test_stream_chat_response_refunds_on_cancelled_error():
                 user_id=user.id,
                 chat_id=uuid4(),
                 content="hi",
-                pre_reserved=250,
                 user=user,
                 skip_usage_seed=True,
             ):
