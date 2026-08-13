@@ -47,6 +47,7 @@ export function useTodosCalendarIntegration({
   const [calendarEvents, setCalendarEvents] = useState<GoogleCalendarEvent[]>([]);
   const [calendarLoadError, setCalendarLoadError] = useState(false);
   const [suggestedReminders, setSuggestedReminders] = useState<SuggestedReminder[]>([]);
+  const [suggestedLoadError, setSuggestedLoadError] = useState(false);
   const [suggestionBusyId, setSuggestionBusyId] = useState<string | null>(null);
 
   const highlightRef = useRef(highlight);
@@ -98,8 +99,10 @@ export function useTodosCalendarIntegration({
     try {
       const result = await api.listSuggestedReminders(accessToken);
       setSuggestedReminders(result.reminders);
+      setSuggestedLoadError(false);
     } catch {
       setSuggestedReminders([]);
+      setSuggestedLoadError(true);
     }
   }, [focusSection]);
 
@@ -199,9 +202,11 @@ export function useTodosCalendarIntegration({
     calendarLoadError,
     loadCalendarEvents,
     suggestedReminders,
+    suggestedLoadError,
     suggestionBusyId,
     handleAddSuggestion,
     handleDismissSuggestion,
+    loadSuggestedReminders,
     overlapNotes,
     selectedDayReminders,
     selectedDayMeetings,

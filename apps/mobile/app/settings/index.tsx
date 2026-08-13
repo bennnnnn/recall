@@ -46,11 +46,12 @@ export default function SettingsScreen() {
       api.googleGmailStatus(token),
     ]);
     if (usageR.status === "fulfilled") setUsage(usageR.value);
+    else Alert.alert(t("common.error"));
     let count = 0;
     if (calendarR.status === "fulfilled" && calendarR.value.connected) count += 1;
     if (gmailR.status === "fulfilled" && gmailR.value.connected) count += 1;
     setConnectedCount(count);
-  }, [token]);
+  }, [token, t]);
 
   useFocusEffect(
     useCallback(() => {

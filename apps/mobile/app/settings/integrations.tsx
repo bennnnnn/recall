@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { IntegrationPanel, makeSettingsStyles, SettingsGroup } from "@/components/settings/settingsUi";
+import { StateView } from "@/components/StateView";
 import { useSettingsIntegrations } from "@/hooks/useSettingsIntegrations";
 import { useTheme } from "@/lib/theme";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,11 +21,13 @@ export default function IntegrationsSettingsScreen() {
     calendarBusy,
     gmailStatus,
     gmailBusy,
+    loadError,
     connectCalendar,
     disconnectCalendar,
     syncGmail,
     connectGmail,
     disconnectGmail,
+    refresh,
   } = useSettingsIntegrations();
 
   if (!token) return <Redirect href="/login" />;
@@ -34,6 +37,15 @@ export default function IntegrationsSettingsScreen() {
       style={s.scroll}
       contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 24, gap: 16 }]}
     >
+      {loadError ? (
+        <StateView
+          variant="error"
+          compact
+          message={t("common.error")}
+          onRetry={() => void refresh()}
+          retryLabel={t("common.retry")}
+        />
+      ) : null}
       <SettingsGroup styles={s}>
         <IntegrationPanel
           icon="calendar-outline"

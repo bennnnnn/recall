@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ScrollView, Switch, Text, View } from "react-native";
+import { Alert, ScrollView, Switch, Text, View } from "react-native";
 import { Redirect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -63,6 +63,7 @@ export default function ModelsSettingsScreen() {
     void updateUser({ enabled_models: buildModelPreferences(auto, nextModels) }).catch(
       () => {
         setDraft(null);
+        Alert.alert(t("common.error"));
       },
     );
   };
