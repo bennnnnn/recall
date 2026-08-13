@@ -19,7 +19,6 @@ type Props = {
   /** Stable parent callbacks (take the todo) — avoid per-row closures that defeat memo. */
   onToggle: (todo: Todo) => void;
   onDue?: (todo: Todo) => void;
-  onLinkProject?: (todo: Todo) => void;
   onDelete: (todo: Todo) => void;
   overlapWith?: string;
 };
@@ -32,7 +31,6 @@ export const TodoRow = memo(function TodoRow({
   projectTitle,
   onToggle,
   onDue,
-  onLinkProject,
   onDelete,
   overlapWith,
 }: Props) {
@@ -90,20 +88,6 @@ export const TodoRow = memo(function TodoRow({
           </Text>
         ) : null}
       </View>
-      {rowVariant === "open" && !todo.checked && onLinkProject ? (
-        <Pressable
-          onPress={() => onLinkProject(todo)}
-          hitSlop={8}
-          style={s.dueBtn}
-          accessibilityLabel={t("todos.link_project")}
-        >
-          <Ionicons
-            name={todo.project_id ? "folder" : "folder-outline"}
-            size={18}
-            color={todo.project_id ? C.primary : C.textTertiary}
-          />
-        </Pressable>
-      ) : null}
       {rowVariant === "open" && !todo.checked && onDue ? (
         <Pressable
           onPress={() => onDue(todo)}

@@ -32,7 +32,6 @@ type Props = {
   onToggle: (todo: Todo) => void;
   onAddItem: (topic: string, text: string) => void;
   onDeleteItem: (todo: Todo) => void;
-  onLinkProject?: (todo: Todo) => void;
   onDeleteList: (topic: string) => void;
 };
 
@@ -46,7 +45,6 @@ export function ListGroupsView({
   onToggle,
   onAddItem,
   onDeleteItem,
-  onLinkProject,
   onDeleteList,
 }: Props) {
   const { t } = useTranslation();
@@ -143,9 +141,6 @@ export function ListGroupsView({
                               : null
                           }
                           onToggle={() => onToggle(todo)}
-                          onLinkProject={
-                            onLinkProject ? () => onLinkProject(todo) : undefined
-                          }
                           onDelete={() => onDeleteItem(todo)}
                         />
                       </ScaleDecorator>
@@ -221,7 +216,6 @@ export function ListGroupsView({
       onAddItem,
       onDeleteItem,
       onDeleteList,
-      onLinkProject,
       onReorderItems,
       onToggle,
       projectTitleById,
@@ -257,7 +251,6 @@ function ListItemRow({
   onDrag,
   projectTitle,
   onToggle,
-  onLinkProject,
   onDelete,
 }: {
   todo: Todo;
@@ -267,7 +260,6 @@ function ListItemRow({
   onDrag?: () => void;
   projectTitle?: string | null;
   onToggle: () => void;
-  onLinkProject?: () => void;
   onDelete: () => void;
 }) {
   const { t } = useTranslation();
@@ -305,19 +297,6 @@ function ListItemRow({
           </Text>
         ) : null}
       </View>
-      {variant === "open" && onLinkProject ? (
-        <Pressable
-          onPress={onLinkProject}
-          hitSlop={8}
-          accessibilityLabel={t("todos.link_project")}
-        >
-          <Ionicons
-            name={todo.project_id ? "folder" : "folder-outline"}
-            size={16}
-            color={todo.project_id ? C.primary : C.textTertiary}
-          />
-        </Pressable>
-      ) : null}
       {variant === "done" ? (
         <Pressable
           onPress={onDelete}

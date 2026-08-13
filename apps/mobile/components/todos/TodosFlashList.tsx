@@ -26,7 +26,6 @@ type Props = {
   overlapNotes: Map<string, string>;
   onToggle: (todo: Todo) => void;
   onDue: (todo: Todo) => void;
-  onLinkProject?: (todo: Todo) => void;
   projectTitleById?: Map<string, string>;
   onDeleteItem: (todo: Todo) => void;
   showRemindersEmptyHero: boolean;
@@ -47,7 +46,6 @@ export function TodosFlashList({
   overlapNotes,
   onToggle,
   onDue,
-  onLinkProject,
   projectTitleById,
   onDeleteItem,
   showRemindersEmptyHero,
@@ -120,7 +118,6 @@ export function TodosFlashList({
           projectTitle={projectTitle}
           onToggle={onToggle}
           onDue={onDue}
-          onLinkProject={onLinkProject}
           onDelete={onDeleteItem}
         />
       );
@@ -132,7 +129,6 @@ export function TodosFlashList({
       overlapNotes,
       onToggle,
       onDue,
-      onLinkProject,
       projectTitleById,
       onDeleteItem,
     ],
