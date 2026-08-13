@@ -3,7 +3,12 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { CODE_FONT } from "@/lib/fonts";
 import { fixImplicitExponents } from "@/lib/normalizeImplicitMath";
-import { parseSimpleLatex, segmentsToPlain, type MathSegment } from "@/lib/mathText";
+import {
+  MATH_TALL_LINE_HEIGHT,
+  parseSimpleLatex,
+  segmentsToPlain,
+  type MathSegment,
+} from "@/lib/mathText";
 import { toSubscript, toSuperscript } from "@/lib/unicodeSupSub";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -137,9 +142,9 @@ const makeStyles = (theme: Theme, textColor?: string) => {
       lineHeight: 24,
       color,
     },
-    // Room for a stacked fraction (~11 + bar + 11) on the text line.
+    // Room for a stacked fraction so the numerator doesn't kiss the line above.
     baseWithFrac: {
-      lineHeight: 34,
+      lineHeight: MATH_TALL_LINE_HEIGHT,
     },
     sup: {
       fontSize: 11,
@@ -155,9 +160,7 @@ const makeStyles = (theme: Theme, textColor?: string) => {
       alignItems: "center",
       justifyContent: "center",
       marginHorizontal: 3,
-      // Nudge so the vinculum sits near the text midline of the surrounding
-      // 16px run rather than sitting on the baseline.
-      transform: [{ translateY: 2 }],
+      paddingVertical: 4,
     },
     fracSideRow: {
       flexDirection: "row",
@@ -166,7 +169,7 @@ const makeStyles = (theme: Theme, textColor?: string) => {
     fracPart: {
       fontFamily: CODE_FONT,
       fontSize: 11,
-      lineHeight: 13,
+      lineHeight: 14,
       color,
       textAlign: "center",
     },
@@ -175,7 +178,7 @@ const makeStyles = (theme: Theme, textColor?: string) => {
       alignSelf: "stretch",
       minWidth: 10,
       height: StyleSheet.hairlineWidth * 2,
-      marginVertical: 1,
+      marginVertical: 2,
       backgroundColor: color,
     },
   });

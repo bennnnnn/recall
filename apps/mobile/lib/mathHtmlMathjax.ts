@@ -9,7 +9,7 @@ import { MATHJAX_TEX_SVG_JS } from "@/lib/vendor/mathjaxTexSvgJs";
 export function buildMathjaxWebHtml(latex: string, options: MathHtmlOptions): string {
   const safeLatex = escapeForHtmlTemplate(latex.trim());
   const display = options.displayMode ? "true" : "false";
-  const pad = options.compact ? "0" : "12px 14px";
+  const pad = options.compact ? "0" : options.displayMode ? "8px 4px" : "4px 2px";
   // Prefer theme.danger from callers; keep a mode-agnostic CSS red as last resort
   // (not lightTheme.danger — that reads wrong on dark HTML backgrounds).
   const errorColor = options.errorColor ?? "currentColor";

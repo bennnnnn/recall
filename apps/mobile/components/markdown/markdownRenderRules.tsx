@@ -41,6 +41,7 @@ import { isAllowedImageUri } from "@/lib/imageUriPolicy";
 import { isAllowedLinkUrl } from "@/lib/linkSchemePolicy";
 import { extractBlockquoteMeta, splitInlineMath } from "@/lib/markdownPreprocess";
 import { isHeavyInlineMath } from "@/lib/mathFenceRetag";
+import { latexNeedsTallLine, MATH_TALL_LINE_HEIGHT } from "@/lib/mathText";
 import type { Theme } from "@/lib/theme";
 
 type StyleMap = Record<string, object>;
@@ -54,11 +55,13 @@ function renderTextWithMath(
   mdMath: MdMathStyles,
 ) {
   const parts = splitInlineMath(node.content);
+  const tallMath = parts.some((p) => p.type === "math" && latexNeedsTallLine(p.value));
   const base = [
     inheritedStyles,
     styles.text,
     inTableCell(parent) && mdTable.cellText,
     inTableHeader(parent) && mdTable.headerText,
+    tallMath && { lineHeight: MATH_TALL_LINE_HEIGHT },
   ];
 
   if (parts.length === 1 && parts[0].type === "text") {
@@ -332,7 +335,14 @@ function makeSharedRules(
     ) => {
       const raw = astText(node);
       const parts = splitInlineMath(raw);
-      const boldStyle = [styles.strong, inTableCell(parent) && mdTable.headerText];
+      const tallMath = parts.some(
+        (part) => part.type === "math" && latexNeedsTallLine(part.value),
+      );
+      const boldStyle = [
+        styles.strong,
+        inTableCell(parent) && mdTable.headerText,
+        tallMath && { lineHeight: MATH_TALL_LINE_HEIGHT },
+      ];
       if (parts.some((part) => part.type === "math")) {
         return (
           <Text key={node.key} style={boldStyle} selectable>

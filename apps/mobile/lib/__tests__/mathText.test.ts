@@ -1,4 +1,11 @@
-import { PROTECTED_ESCAPE_MARKER, parseSimpleLatex, segmentsToPlain, splitMathLines } from "@/lib/mathText";
+import {
+  MATH_TALL_LINE_HEIGHT,
+  PROTECTED_ESCAPE_MARKER,
+  latexNeedsTallLine,
+  parseSimpleLatex,
+  segmentsToPlain,
+  splitMathLines,
+} from "@/lib/mathText";
 
 describe("parseSimpleLatex", () => {
   it("parses superscripts", () => {
@@ -281,5 +288,19 @@ describe("splitMathLines", () => {
     expect(splitMathLines(cases)).toEqual([cases]);
     // Independent equations (no environment) still split.
     expect(splitMathLines("x = 1\ny = 2")).toEqual(["x = 1", "y = 2"]);
+  });
+});
+
+describe("latexNeedsTallLine", () => {
+  it("is true for stacked frac/sqrt so parent Text can clear the line above", () => {
+    expect(latexNeedsTallLine(String.raw`\frac{x}{y}`)).toBe(true);
+    expect(latexNeedsTallLine(String.raw`\dfrac{1}{2}`)).toBe(true);
+    expect(latexNeedsTallLine(String.raw`\sqrt{25}`)).toBe(true);
+    expect(MATH_TALL_LINE_HEIGHT).toBeGreaterThan(25);
+  });
+
+  it("is false for flat inline algebra", () => {
+    expect(latexNeedsTallLine("x + 1 = 2")).toBe(false);
+    expect(latexNeedsTallLine(String.raw`x^2`)).toBe(false);
   });
 });

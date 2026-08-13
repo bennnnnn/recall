@@ -27,6 +27,18 @@ export const PROTECTED_ESCAPE_MARKER = String.fromCharCode(0xe000);
 /** Cap nested \\frac / \\sqrt recursion on pathological model latex. */
 const MAX_MATH_NEST_DEPTH = 12;
 
+/**
+ * Stacked frac/sqrt need a taller parent `lineHeight` than body prose (16/25).
+ * Nested RN Text often keeps the outer line box, so the vinculum kisses the
+ * line above unless both MathText and the wrapping markdown Text use this.
+ */
+export const MATH_TALL_LINE_HEIGHT = 46;
+
+/** True when native/inline layout must leave room above/below the run. */
+export function latexNeedsTallLine(latex: string): boolean {
+  return /\\(?:d|t|c)?frac|\\sqrt/.test(latex);
+}
+
 const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\pm/g, "±"],
   [/\\mp/g, "∓"],
