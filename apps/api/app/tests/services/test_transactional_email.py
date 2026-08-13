@@ -352,7 +352,7 @@ async def test_enqueue_purchase_receipt_payload_shape():
 
 @pytest.mark.asyncio
 async def test_handle_transactional_email_welcome_dispatches():
-    from app.core import jobs
+    from app.background import handlers as job_handlers
 
     uid = uuid4()
     user = _user(name="Ada", locale="en")
@@ -367,17 +367,19 @@ async def test_handle_transactional_email_welcome_dispatches():
     settings = Settings()
 
     with (
-        patch("app.core.jobs.SessionLocal", return_value=FakeSession()),
+        patch("app.background.handlers.SessionLocal", return_value=FakeSession()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
         patch.object(tx_email, "send_welcome", AsyncMock(return_value=True)) as send,
     ):
-        await jobs._handle_transactional_email(settings, {"kind": "welcome", "user_id": str(uid)})
+        await job_handlers._handle_transactional_email(
+            settings, {"kind": "welcome", "user_id": str(uid)}
+        )
     send.assert_awaited_once_with(settings, user)
 
 
 @pytest.mark.asyncio
 async def test_handle_transactional_email_receipt_dispatches():
-    from app.core import jobs
+    from app.background import handlers as job_handlers
 
     uid = uuid4()
     user = _user(name="Bo", locale="en")
@@ -392,11 +394,11 @@ async def test_handle_transactional_email_receipt_dispatches():
     settings = Settings()
 
     with (
-        patch("app.core.jobs.SessionLocal", return_value=FakeSession()),
+        patch("app.background.handlers.SessionLocal", return_value=FakeSession()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
         patch.object(tx_email, "send_purchase_receipt", AsyncMock(return_value=True)) as send,
     ):
-        await jobs._handle_transactional_email(
+        await job_handlers._handle_transactional_email(
             settings,
             {
                 "kind": "receipt",
@@ -415,7 +417,7 @@ async def test_handle_transactional_email_receipt_dispatches():
 
 @pytest.mark.asyncio
 async def test_handle_transactional_email_unknown_kind_does_nothing():
-    from app.core import jobs
+    from app.background import handlers as job_handlers
 
     uid = uuid4()
     user = _user()
@@ -428,19 +430,21 @@ async def test_handle_transactional_email_unknown_kind_does_nothing():
             return False
 
     with (
-        patch("app.core.jobs.SessionLocal", return_value=FakeSession()),
+        patch("app.background.handlers.SessionLocal", return_value=FakeSession()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
         patch.object(tx_email, "send_welcome", AsyncMock()) as send_w,
         patch.object(tx_email, "send_purchase_receipt", AsyncMock()) as send_r,
     ):
-        await jobs._handle_transactional_email(Settings(), {"kind": "bogus", "user_id": str(uid)})
+        await job_handlers._handle_transactional_email(
+            Settings(), {"kind": "bogus", "user_id": str(uid)}
+        )
     send_w.assert_not_awaited()
     send_r.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_handle_transactional_email_missing_user_is_noop():
-    from app.core import jobs
+    from app.background import handlers as job_handlers
 
     class FakeSession:
         async def __aenter__(self):
@@ -450,11 +454,11 @@ async def test_handle_transactional_email_missing_user_is_noop():
             return False
 
     with (
-        patch("app.core.jobs.SessionLocal", return_value=FakeSession()),
+        patch("app.background.handlers.SessionLocal", return_value=FakeSession()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)),
         patch.object(tx_email, "send_welcome", AsyncMock()) as send,
     ):
-        await jobs._handle_transactional_email(
+        await job_handlers._handle_transactional_email(
             Settings(), {"kind": "welcome", "user_id": str(uuid4())}
         )
     send.assert_not_awaited()

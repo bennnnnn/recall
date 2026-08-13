@@ -9,6 +9,7 @@ from app.background import (
     gmail_periodic_sync,
     push_scheduler,
 )
+from app.background import handlers as job_handlers
 from app.core import jobs
 from app.core.background_tasks import drain_background_tasks
 from app.core.config import cors_allow_origins, get_settings, validate_production_settings
@@ -65,6 +66,9 @@ async def lifespan(_: FastAPI):
             f"expected one of {sorted(_VALID_PROCESS_ROLES)}"
         )
     if role in ("all", "worker"):
+        # Registers every job type before the consumer starts; without this the
+        # worker would discard live jobs as "unknown job type".
+        job_handlers.register_all()
         await jobs.start_worker(settings)
         await push_scheduler.start_push_scheduler(settings)
         await email_reminder_scheduler.start_email_reminder_scheduler(settings)

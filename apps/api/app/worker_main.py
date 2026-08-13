@@ -11,6 +11,7 @@ from app.background import (
     gmail_periodic_sync,
     push_scheduler,
 )
+from app.background import handlers as job_handlers
 from app.core import jobs
 from app.core.config import get_settings, validate_production_settings
 from app.core.db import engine, warmup_db_pool
@@ -29,6 +30,9 @@ async def _run_worker() -> None:
     validate_production_settings(settings)
     setup_mcp_adapters(settings)
     await warmup_db_pool()
+    # Registers every job type before the consumer starts; without this the
+    # worker would discard live jobs as "unknown job type".
+    job_handlers.register_all()
     await jobs.start_worker(settings)
     await push_scheduler.start_push_scheduler(settings)
     await email_reminder_scheduler.start_email_reminder_scheduler(settings)

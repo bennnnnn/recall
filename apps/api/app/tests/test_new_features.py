@@ -1286,16 +1286,16 @@ async def test_todos_repo_delete_not_found():
 
 @pytest.mark.asyncio
 async def test_handle_suggestions_delegates():
-    from app.core import jobs
+    from app.background import handlers as job_handlers
 
     uid = uuid4()
     settings = Settings()
 
     with patch(
-        "app.core.jobs.suggestion_generation.generate_suggestions",
+        "app.background.handlers.suggestion_generation.generate_suggestions",
         AsyncMock(),
     ) as handler:
-        await jobs._handle_suggestions(settings, {"user_id": str(uid)})
+        await job_handlers._handle_suggestions(settings, {"user_id": str(uid)})
 
     handler.assert_awaited_once()
     call_args = handler.call_args

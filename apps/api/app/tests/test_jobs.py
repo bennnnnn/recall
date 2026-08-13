@@ -8,6 +8,7 @@ from uuid import uuid4
 
 import pytest
 
+from app.background import handlers as job_handlers
 from app.core import jobs
 from app.core.config import Settings
 
@@ -21,7 +22,7 @@ class _FakeSessionCM:
 
 
 def _patch_session():
-    return patch("app.core.jobs.SessionLocal", lambda: _FakeSessionCM())
+    return patch("app.background.handlers.SessionLocal", lambda: _FakeSessionCM())
 
 
 def test_consumer_name_includes_hostname_and_pid():
@@ -204,8 +205,8 @@ async def test_process_entries_moves_unknown_type_to_dlq(fake_redis):
 @pytest.mark.asyncio
 async def test_handle_compress_delegates():
     cid = uuid4()
-    with patch("app.core.jobs.compaction.compress_chat_history", AsyncMock()) as job:
-        await jobs._handle_compress(Settings(), {"chat_id": str(cid)})
+    with patch("app.background.handlers.compaction.compress_chat_history", AsyncMock()) as job:
+        await job_handlers._handle_compress(Settings(), {"chat_id": str(cid)})
     job.assert_awaited_once()
     assert job.call_args.args[1] == cid
 
@@ -214,9 +215,9 @@ async def test_handle_compress_delegates():
 async def test_handle_topic_delegates():
     with (
         _patch_session(),
-        patch("app.core.jobs.topic_generation.generate_chat_title", AsyncMock()) as job,
+        patch("app.background.handlers.topic_generation.generate_chat_title", AsyncMock()) as job,
     ):
-        await jobs._handle_topic(
+        await job_handlers._handle_topic(
             Settings(),
             {"chat_id": str(uuid4()), "user_message": "hi", "assistant_message": "yo"},
         )
@@ -227,9 +228,11 @@ async def test_handle_topic_delegates():
 async def test_handle_memory_delegates():
     with (
         _patch_session(),
-        patch("app.core.jobs.memory_extraction.extract_and_store_memories", AsyncMock()) as job,
+        patch(
+            "app.background.handlers.memory_extraction.extract_and_store_memories", AsyncMock()
+        ) as job,
     ):
-        await jobs._handle_memory(
+        await job_handlers._handle_memory(
             Settings(),
             {"user_id": str(uuid4()), "chat_id": str(uuid4()), "transcript": "t"},
         )
@@ -241,11 +244,11 @@ async def test_handle_memory_consolidate_delegates():
     with (
         _patch_session(),
         patch(
-            "app.core.jobs.memory_consolidation.consolidate_user_memory_sections",
+            "app.background.handlers.memory_consolidation.consolidate_user_memory_sections",
             AsyncMock(),
         ) as job,
     ):
-        await jobs._handle_memory_consolidate(Settings(), {"user_id": str(uuid4())})
+        await job_handlers._handle_memory_consolidate(Settings(), {"user_id": str(uuid4())})
     job.assert_awaited_once()
 
 
@@ -579,8 +582,9 @@ async def test_reclaim_pending_jobs_processes_claimed_entries():
 
     jobs.register("reclaim-job", handler)
 
-    with patch("app.core.jobs.get_redis_client", return_value=redis):
-        await jobs._reclaim_pending_jobs(redis, Settings(), "worker-test")
+    # _reclaim_pending_jobs takes redis as an argument; it never resolved a
+    # client itself, so the old get_redis_client patch here was a no-op.
+    await jobs._reclaim_pending_jobs(redis, Settings(), "worker-test")
 
     assert seen == [{}]
     redis.xautoclaim.assert_awaited_once()
@@ -592,9 +596,8 @@ async def test_reclaim_pending_jobs_swallows_xautoclaim_errors():
     redis = AsyncMock()
     redis.xautoclaim = AsyncMock(side_effect=Exception("redis down"))
 
-    with patch("app.core.jobs.get_redis_client", return_value=redis):
-        # Must not raise.
-        await jobs._reclaim_pending_jobs(redis, Settings(), "worker-test")
+    # Must not raise.
+    await jobs._reclaim_pending_jobs(redis, Settings(), "worker-test")
 
     redis.xautoclaim.assert_awaited_once()
 
