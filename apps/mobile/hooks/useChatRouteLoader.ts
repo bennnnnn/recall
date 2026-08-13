@@ -281,7 +281,7 @@ export function useChatRouteLoader({
       return () => {
         cancelled = true;
       };
-    }, [token, routeChatId, streaming, chatLoading, silentRefetchChat]),
+    }, [token, routeChatId, chatLoading, silentRefetchChat]),
   );
 
   const loadOlderMessages = useCallback(async () => {

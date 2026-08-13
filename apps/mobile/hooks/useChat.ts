@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { chatWebSocketUrl, Message, SearchSource } from "@/lib/api";
 import { streamChatEditSse, streamChatMessageSse, streamChatRegenerateSse, isSseAbortError, type ChatSsePayload } from "@/lib/chatSse";
 import { clientGeoWsFields, type ClientGeo } from "@/lib/clientGeo";
@@ -39,7 +40,10 @@ export function useChat(
   chatId: string | null,
   options: UseChatOptions = {},
 ) {
+  const { t } = useTranslation();
   const [messages, setMessages] = useState<Message[]>([]);
+  const messagesRef = useRef<Message[]>([]);
+  messagesRef.current = messages;
   const [streaming, setStreaming] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [sendingMessageId, setSendingMessageId] = useState<string | null>(null);
@@ -343,7 +347,7 @@ export function useChat(
           clearStreamingBubble();
         }
         reportError(
-          payload.message ?? "Something went wrong. Try again.",
+          payload.message ?? t("chat.error_generic"),
           typeof payload.code === "string" ? payload.code : undefined,
         );
       }
@@ -355,6 +359,7 @@ export function useChat(
       restoreRegenerateBackup,
       reportError,
       updateStreamingDraft,
+      t,
     ],
   );
 
@@ -433,7 +438,7 @@ export function useChat(
           setSendingMessageId(null);
           if (failedEditBackup && !hadContent) {
             setMessages(failedEditBackup);
-            reportError("Connection lost before the reply arrived. Try again.");
+            reportError(t("chat.error_connection_lost"));
             return;
           }
           setMessages((prev) => {
@@ -458,7 +463,7 @@ export function useChat(
             );
           });
           if (!hadContent && !failedRegenerateBackup) {
-            reportError("Connection lost before the reply arrived. Try again.");
+            reportError(t("chat.error_connection_lost"));
           }
         }
       };
@@ -490,6 +495,7 @@ export function useChat(
     reportError,
     handleChatPayload,
     updateStreamingDraft,
+    t,
   ]);
 
   // Eagerly open the WebSocket once the user has settled on a chat, so the
@@ -534,10 +540,10 @@ export function useChat(
         setFinalizing(false);
         streamingRef.current = false;
         clearStreamingBubble();
-        reportError("Couldn't reach the server. Check your connection and try again.");
+        reportError(t("chat.error_unreachable"));
       }
     },
-    [token, chatId, beginSseStream, handleChatPayload, clearStreamingBubble, reportError],
+    [token, chatId, beginSseStream, handleChatPayload, clearStreamingBubble, reportError, t],
   );
 
   const regenerateViaSse = useCallback(
@@ -556,21 +562,19 @@ export function useChat(
       } catch (err) {
         if (isSseAbortError(err)) return;
         restoreRegenerateBackup();
-        reportError("Couldn't reach the server. Check your connection and try again.");
+        reportError(t("chat.error_unreachable"));
       }
     },
-    [token, chatId, beginSseStream, handleChatPayload, restoreRegenerateBackup, reportError],
+    [token, chatId, beginSseStream, handleChatPayload, restoreRegenerateBackup, reportError, t],
   );
 
   const ensureConnected = useCallback(async () => {
     try {
       await connect();
     } catch {
-      reportError(
-        "Could not connect to the server. Check your network and API URL.",
-      );
+      reportError(t("chat.error_unreachable"));
     }
-  }, [connect, reportError]);
+  }, [connect, reportError, t]);
 
   const sendMessage = useCallback(
     async (
@@ -654,13 +658,15 @@ export function useChat(
     async (model?: string | null, clientGeo?: ClientGeo | null) => {
       if (!token || !chatId) return;
 
-      let backup: Message | null = null;
+      const popped = popLastAssistantMessage(messagesRef.current);
+      regenerateBackupRef.current = popped.backup;
+      messagesRef.current = popped.messages;
       setMessages((prev) => {
-        const popped = popLastAssistantMessage(prev);
-        backup = popped.backup;
-        return popped.messages;
+        const latest = popLastAssistantMessage(prev);
+        if (latest.backup) regenerateBackupRef.current = latest.backup;
+        messagesRef.current = latest.messages;
+        return latest.messages;
       });
-      regenerateBackupRef.current = backup;
 
       setStreaming(true);
       streamingRef.current = true;
@@ -741,7 +747,7 @@ export function useChat(
         } catch (err) {
           if (isSseAbortError(err)) return;
           restoreEditBackup();
-          reportError("Couldn't reach the server. Check your connection and try again.");
+          reportError(t("chat.error_unreachable"));
         }
         return;
       }
@@ -766,13 +772,16 @@ export function useChat(
       appendStreamingPlaceholder,
       restoreEditBackup,
       updateStreamingDraft,
+      t,
     ],
   );
 
   const stopGeneration = useCallback(() => {
     sseAbortRef.current?.abort();
     sseAbortRef.current = null;
-    wsRef.current?.send(JSON.stringify({ type: "cancel" }));
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "cancel" }));
+    }
     setStreaming(false);
     setFinalizing(false);
     streamingRef.current = false;

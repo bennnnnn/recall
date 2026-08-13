@@ -65,6 +65,8 @@
   "chat.empty_hint": "What's on your mind?",
   "chat.empty_title": "How can I help?",
   "chat.error_generic": "Something went wrong. Try again.",
+  "chat.error_connection_lost": "Connection lost before the reply arrived. Try again.",
+  "chat.error_unreachable": "Couldn't reach the server. Check your connection and try again.",
   "chat.error_dismiss_a11y": "Dismiss error",
   "chat.error_title": "Could not get a reply",
   "chat.export_pdf_a11y": "Export as PDF",
