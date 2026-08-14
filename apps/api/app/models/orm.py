@@ -136,6 +136,12 @@ class Message(Base):
     __tablename__ = "messages"
     __table_args__ = (
         Index("ix_messages_chat_created", "chat_id", "created_at"),
+        # Composite (chat_id, created_at, id) serves the tuple-cursor
+        # pagination queries in repositories/messages.py, which order by
+        # (created_at DESC, id DESC) and filter on (created_at, id) — the
+        # id tiebreaker makes the sort stable when two messages share a
+        # millisecond timestamp. See migration 0063.
+        Index("ix_messages_chat_created_id", "chat_id", "created_at", "id"),
         Index("ix_messages_chat_role", "chat_id", "role"),
         Index("ix_messages_user_id", "user_id"),
         # DB index (migration 0009) is actually:
