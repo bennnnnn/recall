@@ -92,6 +92,7 @@ async def create(
     project_id: UUID | None = None,
     due_at: datetime | None = None,
     sort_order: int | None = None,
+    commit: bool = True,
 ) -> TodoItem:
     normalized_topic = topic.strip() or DEFAULT_TOPIC
     resolved_sort = sort_order
@@ -107,30 +108,39 @@ async def create(
         sort_order=resolved_sort,
     )
     session.add(todo)
-    await session.commit()
-    await session.refresh(todo)
+    if commit:
+        await session.commit()
+        await session.refresh(todo)
+    else:
+        await session.flush()
     return todo
 
 
-async def update(session: AsyncSession, todo: TodoItem, **fields: Any) -> TodoItem:
+async def update(
+    session: AsyncSession, todo: TodoItem, *, commit: bool = True, **fields: Any
+) -> TodoItem:
     for key, value in fields.items():
         if hasattr(todo, key):
             if key == "topic" and isinstance(value, str):
                 value = value.strip() or DEFAULT_TOPIC
             setattr(todo, key, value)
-    await session.commit()
-    await session.refresh(todo)
+    if commit:
+        await session.commit()
+        await session.refresh(todo)
     return todo
 
 
-async def delete_by_id(session: AsyncSession, todo_id: UUID, user_id: UUID) -> bool:
+async def delete_by_id(
+    session: AsyncSession, todo_id: UUID, user_id: UUID, *, commit: bool = True
+) -> bool:
     result = cast(
         CursorResult[Any],
         await session.execute(
             delete(TodoItem).where(TodoItem.id == todo_id, TodoItem.user_id == user_id)
         ),
     )
-    await session.commit()
+    if commit:
+        await session.commit()
     return result.rowcount > 0
 
 

@@ -15,7 +15,7 @@ from app.repositories import todos as todos_repo
 from app.services import home as home_service
 from app.services import time_context as time_context_service
 from app.services.action_dispatch import ActionHandler, apply_action_batch
-from app.services.todos.prompt_context import _due_local, _normalize, _topic_key
+from app.services.todos.prompt_context import _normalize, _topic_key
 
 logger = logging.getLogger(__name__)
 
@@ -25,9 +25,6 @@ _ACTION_RELOAD_LIMIT = 500
 # The model extracts actions from arbitrary user text; these limits prevent a
 # misparse from wiping large amounts of data in one turn.
 MAX_TODO_ACTIONS_PER_TURN = 12
-# Actions blocked from the post-reply background job only (assistant text must not
-# trigger whole-list deletes). Pre-turn sync may apply delete_list when the user asks.
-TODO_BLOCKED_FROM_TRANSCRIPT = frozenset({"delete_list"})
 
 REMINDER_TOPIC = "Reminders"
 
@@ -105,33 +102,7 @@ async def _apply_bulk_shift_due_today_to_tomorrow(
             user_timezone=user_timezone,
             target_date=tomorrow,
         )
-        await todos_repo.update(session, item, due_at=due_at)
-        applied += 1
-    return applied
-
-
-async def _apply_delete_overdue_open_reminders(
-    session: AsyncSession,
-    *,
-    user_id: UUID,
-    items: list[TodoItem],
-    user_timezone: str | None,
-) -> int:
-    """Delete open dated reminders whose due time is already past (local).
-
-    Not wired into transcript sync — that path must use capped per-item
-    ``delete`` actions only (unbounded regex wipe was too risky).
-    """
-    tz = time_context_service.resolve_timezone(user_timezone)
-    now = datetime.now(tz)
-    applied = 0
-    for item in items:
-        if item.checked or item.due_at is None:
-            continue
-        due_local = _due_local(item.due_at, user_timezone)
-        if due_local >= now:
-            continue
-        await todos_repo.delete_by_id(session, item.id, user_id)
+        await todos_repo.update(session, item, due_at=due_at, commit=False)
         applied += 1
     return applied
 
@@ -142,7 +113,6 @@ class _TodoApplyState:
     user_id: UUID
     chat_id: UUID | None
     user_timezone: str | None
-    feedback: list[str] | None
     items: list[TodoItem]
 
 
@@ -166,24 +136,23 @@ async def _todo_action_add(state: _TodoApplyState, action: TodoActionItem) -> in
     if _find_item_any_state(state.items, topic, content):
         return 0
     due_at = time_context_service.normalize_due_at(action.due_at, state.user_timezone)
-    await todos_repo.create(
+    new_todo = await todos_repo.create(
         state.session,
         user_id=state.user_id,
         content=content,
         topic=topic,
         chat_id=state.chat_id,
         due_at=due_at,
+        commit=False,
     )
-    state.items = await todos_repo.list_for_user(
-        state.session, state.user_id, limit=_ACTION_RELOAD_LIMIT
-    )
+    state.items.append(new_todo)
     return 1
 
 
 async def _todo_action_complete(state: _TodoApplyState, action: TodoActionItem) -> int:
     item = _find_item(state.items, action.topic, action.content)
     if item and not item.checked:
-        await todos_repo.update(state.session, item, checked=True)
+        await todos_repo.update(state.session, item, checked=True, commit=False)
         return 1
     return 0
 
@@ -191,7 +160,7 @@ async def _todo_action_complete(state: _TodoApplyState, action: TodoActionItem) 
 async def _todo_action_uncheck(state: _TodoApplyState, action: TodoActionItem) -> int:
     item = _find_item_any_state(state.items, action.topic, action.content)
     if item and item.checked:
-        await todos_repo.update(state.session, item, checked=False)
+        await todos_repo.update(state.session, item, checked=False, commit=False)
         return 1
     return 0
 
@@ -199,7 +168,7 @@ async def _todo_action_uncheck(state: _TodoApplyState, action: TodoActionItem) -
 async def _todo_action_delete(state: _TodoApplyState, action: TodoActionItem) -> int:
     item = _find_item_any_state(state.items, action.topic, action.content)
     if item:
-        await todos_repo.delete_by_id(state.session, item.id, state.user_id)
+        await todos_repo.delete_by_id(state.session, item.id, state.user_id, commit=False)
         state.items = [i for i in state.items if i.id != item.id]
         return 1
     logger.warning(
@@ -208,29 +177,6 @@ async def _todo_action_delete(state: _TodoApplyState, action: TodoActionItem) ->
         action.topic,
         (action.content or "")[:120],
     )
-    return 0
-
-
-async def _todo_action_delete_list(state: _TodoApplyState, action: TodoActionItem) -> int:
-    topic = action.topic
-    list_items = [
-        i for i in state.items if _topic_key(i.topic) == _topic_key(topic) and i.due_at is None
-    ]
-    open_count = sum(1 for i in list_items if not i.checked)
-    if open_count > 0:
-        if state.feedback is not None:
-            state.feedback.append(
-                f'Blocked delete list "{topic}": {open_count} item(s) still open.'
-            )
-        return 0
-    removed = await todos_repo.delete_by_topic(state.session, state.user_id, topic)
-    if removed:
-        if state.feedback is not None:
-            state.feedback.append(f'Deleted list "{topic}" ({removed} item(s)).')
-        state.items = [i for i in state.items if _topic_key(i.topic) != _topic_key(topic)]
-        return 1
-    if state.feedback is not None:
-        state.feedback.append(f'List "{topic}" not found or already empty.')
     return 0
 
 
@@ -245,12 +191,12 @@ async def _todo_action_set_due(state: _TodoApplyState, action: TodoActionItem) -
                 continue
             if _due_local_date(open_item, state.user_timezone) != today:
                 continue
-            await todos_repo.update(state.session, open_item, due_at=due_at)
+            await todos_repo.update(state.session, open_item, due_at=due_at, commit=False)
             applied += 1
         return applied
     item = _find_item_any_state(state.items, action.topic, action.content)
     if item:
-        await todos_repo.update(state.session, item, due_at=due_at)
+        await todos_repo.update(state.session, item, due_at=due_at, commit=False)
         return 1
     return 0
 
@@ -258,7 +204,7 @@ async def _todo_action_set_due(state: _TodoApplyState, action: TodoActionItem) -
 async def _todo_action_clear_due(state: _TodoApplyState, action: TodoActionItem) -> int:
     item = _find_item_any_state(state.items, action.topic, action.content)
     if item and item.due_at is not None:
-        await todos_repo.update(state.session, item, due_at=None)
+        await todos_repo.update(state.session, item, due_at=None, commit=False)
         return 1
     return 0
 
@@ -268,7 +214,6 @@ _TODO_ACTION_HANDLERS: dict[str, ActionHandler[_TodoApplyState, TodoActionItem]]
     "complete": _todo_action_complete,
     "uncheck": _todo_action_uncheck,
     "delete": _todo_action_delete,
-    "delete_list": _todo_action_delete_list,
     "set_due": _todo_action_set_due,
     "clear_due": _todo_action_clear_due,
 }
@@ -281,7 +226,6 @@ async def apply_todo_actions(
     actions: list[TodoActionItem],
     chat_id: UUID | None = None,
     user_timezone: str | None = None,
-    feedback: list[str] | None = None,
 ) -> int:
     if not actions:
         return 0
@@ -291,7 +235,6 @@ async def apply_todo_actions(
         user_id=user_id,
         chat_id=chat_id,
         user_timezone=user_timezone,
-        feedback=feedback,
         items=items,
     )
 
@@ -311,7 +254,7 @@ async def apply_todo_actions(
             chat_id,
         )
 
-    return await apply_action_batch(
+    applied = await apply_action_batch(
         actions=actions,
         state=state,
         handlers=_TODO_ACTION_HANDLERS,
@@ -321,3 +264,5 @@ async def apply_todo_actions(
         log_summary=_log_summary,
         invalidate_home=lambda: home_service.invalidate_home_cache(user_id),
     )
+    await session.commit()
+    return applied

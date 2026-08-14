@@ -461,7 +461,6 @@ def _integration_hints(
     memory_block: str,
     attachment_rag_block: str,
     todos_section: str | None,
-    todo_sync_feedback: str | None,
     is_day_plan: bool,
     projects_block: str,
     summary: str | None,
@@ -489,9 +488,7 @@ def _integration_hints(
     if attachment_rag_block:
         parts.append(attachment_rag_block)
     if todos_section:
-        parts.append(todos_section)
-    if todo_sync_feedback:
-        parts.append(todo_sync_feedback)
+        parts.append(wrap_untrusted("reminders and lists", todos_section, first_party=True))
     if not is_day_plan:
         parts.append(projects_service.PROJECT_HINT)
     if projects_block:
@@ -520,7 +517,6 @@ async def build_prompt_messages(
     quiz_grade: QuizAnswerGrade | None = None,
     client_timezone: str | None = None,
     prompt_location: str | None = None,
-    todo_sync_feedback: str | None = None,
     on_status: StreamStatusFn | None = None,
     omit_message_ids: set[UUID] | None = None,
 ) -> list[dict[str, str]]:
@@ -631,7 +627,6 @@ async def build_prompt_messages(
                 memory_block=blocks.memory_block,
                 attachment_rag_block=blocks.attachment_rag_block,
                 todos_section=blocks.todos_section,
-                todo_sync_feedback=todo_sync_feedback,
                 is_day_plan=is_day_plan,
                 projects_block=blocks.projects_block,
                 summary=summary,

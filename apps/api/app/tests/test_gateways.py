@@ -310,18 +310,6 @@ async def test_mock_todo_actions_add_and_complete():
     assert any(a.action == "complete" for a in done.actions)
 
 
-@pytest.mark.asyncio
-async def test_mock_todo_actions_delete_list():
-    from app.gateways.mock_llm import mock_todo_actions
-
-    result = await mock_todo_actions(
-        "User: delete the shopping list",
-        [{"topic": "Shopping", "content": "Eggs", "checked": False}],
-    )
-    assert result is not None
-    assert result.actions[0].action == "delete_list"
-
-
 def test_mock_llm_infer_list_title():
     from app.gateways.mock_llm import _infer_list_title
 

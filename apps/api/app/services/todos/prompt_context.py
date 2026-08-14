@@ -203,22 +203,6 @@ def should_inject_todos_prompt(
     return _has_overdue_open_reminders(items, user_timezone)
 
 
-async def load_todos_for_prompt(
-    session: AsyncSession,
-    user: User,
-    settings: Settings,
-    *,
-    client_timezone: str | None = None,
-    query_text: str | None = None,
-) -> str:
-    items = await todos_repo.list_for_user(session, user.id, limit=settings.todo_inject_limit)
-    tz = time_context_service.effective_timezone(user.timezone, client_timezone)
-    if not should_inject_todos_prompt(items, query_text=query_text, user_timezone=tz):
-        return ""
-    selected = select_todos_for_prompt(items, settings, query_text=query_text, user_timezone=tz)
-    return format_todos_block(selected, user_timezone=tz)
-
-
 async def build_todos_system_section(
     session: AsyncSession,
     user: User,
@@ -228,10 +212,17 @@ async def build_todos_system_section(
     query_text: str | None = None,
 ) -> str | None:
     """Todo hint + snapshot block, or None when the turn is unrelated."""
-    items = await todos_repo.list_for_user(session, user.id, limit=settings.todo_inject_limit)
     tz = time_context_service.effective_timezone(user.timezone, client_timezone)
-    if not should_inject_todos_prompt(items, query_text=query_text, user_timezone=tz):
+    probe: list[TodoItem] = []
+    text_hit = bool(
+        (query_text and day_planning_service.is_day_planning_question(query_text))
+        or query_implies_todos(query_text)
+    )
+    if not text_hit:
+        probe = await todos_repo.list_due_soon(session, user.id, before_utc=datetime.now(UTC))
+    if not should_inject_todos_prompt(probe, query_text=query_text, user_timezone=tz):
         return None
+    items = await todos_repo.list_for_user(session, user.id, limit=settings.todo_inject_limit)
     selected = select_todos_for_prompt(items, settings, query_text=query_text, user_timezone=tz)
     block = format_todos_block(selected, user_timezone=tz)
     if block:
