@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.services.attachment_rag import chunk_text, retrieve_for_prompt
+from app.services.attachment_rag import chunk_text, index_attachment, retrieve_for_prompt
 
 
 def _session_cm():
@@ -146,3 +146,72 @@ async def test_retrieve_for_prompt_times_out_hung_embed():
         )
 
     assert block == ""
+
+
+@pytest.mark.asyncio
+async def test_index_attachment_uses_short_lived_sessions():
+    """Download/extract/embed must not hold the SessionLocal opened to load the row."""
+    settings = Settings(attachment_rag_enabled=True, mock_llm_enabled=True)
+    row = MagicMock()
+    row.id = uuid4()
+    row.user_id = uuid4()
+    row.storage_key = "user/doc"
+    row.content_type = "text/plain"
+    open_count = 0
+    live = 0
+    max_live = 0
+
+    @asynccontextmanager
+    async def _cm(*_args, **_kwargs):
+        nonlocal open_count, live, max_live
+        open_count += 1
+        live += 1
+        max_live = max(max_live, live)
+        try:
+            yield MagicMock()
+        finally:
+            live -= 1
+
+    extract_called = False
+
+    async def _extract(*_args, **_kwargs):
+        nonlocal extract_called
+        extract_called = True
+        assert live == 0
+        return "hello from the attachment"
+
+    with (
+        patch("app.services.attachment_rag.SessionLocal", _cm),
+        patch(
+            "app.services.attachment_rag.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch(
+            "app.services.attachment_rag.attachment_content_service.read_attachment_bytes",
+            AsyncMock(return_value=b"hello from the attachment"),
+        ),
+        patch(
+            "app.services.attachment_rag.attachment_content_service.extract_text_from_bytes_async",
+            _extract,
+        ),
+        patch(
+            "app.services.attachment_rag.embedding_gateway.embed_text",
+            AsyncMock(return_value=[0.1] * 8),
+        ),
+        patch(
+            "app.services.attachment_rag.chunks_repo.replace_chunks",
+            AsyncMock(),
+        ) as replace_mock,
+    ):
+        count = await index_attachment(
+            settings,
+            user_id=row.user_id,
+            attachment_id=row.id,
+            chat_id=uuid4(),
+        )
+
+    assert extract_called is True
+    assert count == 1
+    assert open_count == 2
+    assert max_live == 1
+    replace_mock.assert_awaited_once()

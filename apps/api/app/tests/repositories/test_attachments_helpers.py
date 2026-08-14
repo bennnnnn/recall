@@ -37,7 +37,7 @@ async def test_list_orphans_returns_unlinked_old_rows():
     result.scalars.return_value = scalars
     session.execute = AsyncMock(return_value=result)
 
-    orphans = await attachments_repo.list_orphans(session, older_than_hours=24)
+    orphans = await attachments_repo.list_orphans(session, older_than_hours=24, limit=50)
 
     assert orphans == [row]
     session.execute.assert_awaited_once()

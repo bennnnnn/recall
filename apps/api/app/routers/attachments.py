@@ -18,6 +18,7 @@ from app.services.attachment_content import (
     bytes_match_claimed,
     ensure_verified_or_purge,
     is_image_content_type,
+    purge_invalid_upload,
 )
 from app.services.attachment_upload import AttachmentUploadError, create_presigned_upload
 from app.services.attachment_upload import (
@@ -105,6 +106,17 @@ async def upload_attachment_bytes(
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
 
+    gateway = get_storage_gateway(settings)
+    if not isinstance(gateway, LocalStorageGateway):
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Use presigned upload"
+        )
+    if row.message_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Attachment is already linked to a message",
+        )
+
     data = await request.body()
     if not data or len(data) > MAX_SIZE:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid upload size")
@@ -113,6 +125,9 @@ async def upload_attachment_bytes(
     # reserved (truncated or extended), and serving it back with the row's
     # metadata would be wrong.
     if len(data) != row.size_bytes:
+        await purge_invalid_upload(
+            gateway, session, attachment_id=row.id, storage_key=row.storage_key
+        )
         if is_image_content_type(row.content_type):
             await quota_service.refund_image_upload(get_redis_client(), user.id)
         raise HTTPException(
@@ -123,6 +138,9 @@ async def upload_attachment_bytes(
     # "image/png" can't be used to store a non-image blob that later gets served
     # back with the wrong Content-Type.
     if not bytes_match_claimed(row.content_type, data):
+        await purge_invalid_upload(
+            gateway, session, attachment_id=row.id, storage_key=row.storage_key
+        )
         if is_image_content_type(row.content_type):
             await quota_service.refund_image_upload(get_redis_client(), user.id)
         raise HTTPException(
@@ -130,11 +148,6 @@ async def upload_attachment_bytes(
             detail="Uploaded bytes do not match the declared content type",
         )
 
-    gateway = get_storage_gateway(settings)
-    if not isinstance(gateway, LocalStorageGateway):
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Use presigned upload"
-        )
     await gateway.write_bytes(row.storage_key, data)
 
 
@@ -200,15 +213,16 @@ async def serve_attachment_file(
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
     gateway = get_storage_gateway(settings)
-    await _reject_unverified_upload(
-        gateway=gateway,
-        session=session,
-        user=user,
-        attachment_id=attachment_id,
-        content_type=row.content_type,
-        storage_key=row.storage_key,
-        declared_size=row.size_bytes,
-    )
+    if row.verified_at is None:
+        await _reject_unverified_upload(
+            gateway=gateway,
+            session=session,
+            user=user,
+            attachment_id=attachment_id,
+            content_type=row.content_type,
+            storage_key=row.storage_key,
+            declared_size=row.size_bytes,
+        )
     if isinstance(gateway, LocalStorageGateway):
         path = gateway.resolve_local_path(row.storage_key)
         if path is None:
@@ -242,15 +256,16 @@ async def download_url(
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
     gateway = get_storage_gateway(settings)
-    await _reject_unverified_upload(
-        gateway=gateway,
-        session=session,
-        user=user,
-        attachment_id=attachment_id,
-        content_type=row.content_type,
-        storage_key=row.storage_key,
-        declared_size=row.size_bytes,
-    )
+    if row.verified_at is None:
+        await _reject_unverified_upload(
+            gateway=gateway,
+            session=session,
+            user=user,
+            attachment_id=attachment_id,
+            content_type=row.content_type,
+            storage_key=row.storage_key,
+            declared_size=row.size_bytes,
+        )
     if isinstance(gateway, LocalStorageGateway):
         url = f"/attachments/{attachment_id}/file"
     else:

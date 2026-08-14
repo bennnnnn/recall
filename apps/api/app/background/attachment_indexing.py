@@ -7,7 +7,6 @@ from typing import Any
 from uuid import UUID
 
 from app.core.config import Settings
-from app.core.db import SessionLocal
 from app.services import attachment_rag
 
 logger = logging.getLogger(__name__)
@@ -26,18 +25,16 @@ async def index_attachment_job(settings: Settings, payload: dict[str, Any]) -> N
         logger.warning("attachment_index job missing ids payload=%s", payload)
         return
 
-    async with SessionLocal() as session:
-        count = await attachment_rag.index_attachment(
-            session,
-            settings,
-            user_id=user_id,
-            attachment_id=attachment_id,
-            chat_id=chat_id,
+    count = await attachment_rag.index_attachment(
+        settings,
+        user_id=user_id,
+        attachment_id=attachment_id,
+        chat_id=chat_id,
+    )
+    if count:
+        logger.info(
+            "Indexed attachment_id=%s chunks=%s chat_id=%s",
+            attachment_id,
+            count,
+            chat_id,
         )
-        if count:
-            logger.info(
-                "Indexed attachment_id=%s chunks=%s chat_id=%s",
-                attachment_id,
-                count,
-                chat_id,
-            )
