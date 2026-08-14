@@ -51,7 +51,7 @@ export function FunctionGraphBlock({ content }: Props) {
     return (
       <View style={styles.wrap}>
         <Text style={styles.title}>
-          {formatInequalityExpr(spec.title ?? spec.expr)}
+          {formatInequalityExpr(formatGraphExpr(spec.title ?? spec.expr))}
         </Text>
         <InequalityRegionChart
           spec={spec}
@@ -66,9 +66,10 @@ export function FunctionGraphBlock({ content }: Props) {
   }
 
   const hasCurve2 = spec.type === "function" && !!spec.expr2 && !!spec.points2?.length;
-  const title =
+  const title = formatGraphExpr(
     spec.title ??
-    (spec.type === "vertical" ? spec.expr : `y = ${formatGraphExpr(spec.expr)}`);
+      (spec.type === "vertical" ? spec.expr : `y = ${formatGraphExpr(spec.expr)}`),
+  );
   const bounds =
     spec.type === "vertical" && spec.x != null
       ? expandBoundsForAxes({
@@ -135,13 +136,13 @@ export function FunctionGraphBlock({ content }: Props) {
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: theme.primary }]} />
             <Text style={styles.legendText}>
-              {spec.label ?? `y = ${formatGraphExpr(spec.expr)}`}
+              {formatGraphExpr(spec.label ?? `y = ${formatGraphExpr(spec.expr)}`)}
             </Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: curveColor2 }]} />
             <Text style={styles.legendText}>
-              {spec.label2 ?? `y = ${formatGraphExpr(spec.expr2 ?? "")}`}
+              {formatGraphExpr(spec.label2 ?? `y = ${formatGraphExpr(spec.expr2 ?? "")}`)}
             </Text>
           </View>
         </View>

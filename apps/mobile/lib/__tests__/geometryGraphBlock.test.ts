@@ -12,6 +12,7 @@ import {
   rectangleAngleDisplay,
   scaleToFit,
   sideTickMarks,
+  parallelogramLayout,
 } from "@/lib/geometryBlock";
 import {
   expandBoundsForAxes,
@@ -107,6 +108,23 @@ describe("geometryBlock", () => {
     const scaled = scaleToFit(8, 5, 300);
     expect(scaled.w).toBeGreaterThan(0);
     expect(scaled.h).toBeGreaterThan(0);
+  });
+
+  it("fits a parallelogram inside the bubble — does not double-count shear", () => {
+    const bubble = 390 - 32;
+    for (const spec of [
+      { base: 8, height: 5, side: 6 },
+      { base: 10, height: 6, side: 7 },
+      { base: 6, height: 3, side: 5 },
+    ]) {
+      const layout = parallelogramLayout(spec, 390);
+      expect(layout.tx0).toBeCloseTo(40);
+      expect(layout.bx1).toBeCloseTo(layout.svgW - 40);
+      expect(layout.svgW).toBeCloseTo(layout.b + layout.shear + 80);
+      const doubled = layout.b + layout.shear + layout.offsetX + 40;
+      expect(layout.svgW).toBeLessThan(doubled);
+      expect(layout.svgW).toBeLessThanOrEqual(bubble);
+    }
   });
 
   it("rejects dimensions above backend max", () => {
@@ -515,6 +533,12 @@ describe("graphBlock", () => {
     expect(formatGraphExpr("3*x**2 - 12")).toBe("3x² - 12");
     expect(formatGraphExpr("x**2")).toBe("x²");
     expect(formatGraphExpr("2*sin(x)")).toBe("2sin(x)");
+    expect(formatGraphExpr("x**2/9 + y**2/4 = 1")).toBe("x²/9 + y²/4 = 1");
+    expect(formatGraphExpr("y = 3*x**2")).toBe("y = 3x²");
+  });
+
+  it("composes formatGraphExpr then formatInequalityExpr for inequality titles", () => {
+    expect(formatInequalityExpr(formatGraphExpr("3*x - 6 >= 0"))).toBe("3x - 6 ≥ 0");
   });
 
   it("expandBoundsForAxes includes the origin so axes are not the data min", () => {

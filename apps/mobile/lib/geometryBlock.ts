@@ -642,5 +642,59 @@ export function scaleToFit(
   return { w: width * scale, h: height * scale, scale };
 }
 
+/** Horizontal span of a parallelogram: base plus the shear of the slanted side. */
+export function parallelogramSpan(base: number, height: number, side: number): number {
+  const shear = Math.sqrt(Math.max(0, side * side - height * height));
+  return base + shear;
+}
+
+export type ParallelogramLayout = {
+  b: number;
+  h: number;
+  s: number;
+  shear: number;
+  offsetX: number;
+  offsetY: number;
+  svgW: number;
+  svgH: number;
+  bx0: number;
+  bx1: number;
+  by: number;
+  tx0: number;
+  tx1: number;
+  ty: number;
+};
+
+/**
+ * Fit a parallelogram into the bubble. Scale against `base + shear` (the
+ * drawn width), not `max(base, side)` — otherwise the SVG is ~1.5–2× too
+ * wide and `alignItems: "center"` clips both slanted ends.
+ */
+export function parallelogramLayout(
+  spec: Pick<ParallelogramSpec, "base" | "height" | "side">,
+  screenWidth: number,
+): ParallelogramLayout {
+  const inner = Math.max(screenWidth - 48 - 80, 120);
+  const span = parallelogramSpan(spec.base, spec.height, spec.side);
+  const scale = inner / Math.max(span, spec.height, 1);
+  const b = spec.base * scale;
+  const h = spec.height * scale;
+  const s = spec.side * scale;
+  const shear = Math.sqrt(Math.max(0, s * s - h * h));
+  const offsetX = 40 + shear;
+  const offsetY = 28;
+  // Leftmost point is tx0 = offsetX - shear = 40; rightmost is bx1 = offsetX + b.
+  // Do not add shear again — offsetX already contains it.
+  const svgW = b + shear + 80;
+  const svgH = h + offsetY + 40;
+  const bx0 = offsetX;
+  const bx1 = offsetX + b;
+  const by = offsetY + h;
+  const tx0 = offsetX - shear;
+  const tx1 = tx0 + b;
+  const ty = offsetY;
+  return { b, h, s, shear, offsetX, offsetY, svgW, svgH, bx0, bx1, by, tx0, tx1, ty };
+}
+
 /** @deprecated use scaleToFit */
 export const scaleRectangle = scaleToFit;

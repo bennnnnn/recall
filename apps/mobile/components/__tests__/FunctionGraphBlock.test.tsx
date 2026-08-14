@@ -136,4 +136,51 @@ describe("FunctionGraphBlock", () => {
     const { queryByText } = await render(<FunctionGraphBlock content={content} />);
     expect(queryByText(/y = 2x/)).toBeNull();
   });
+
+  it("formats a backend-supplied SymPy title", async () => {
+    const content = JSON.stringify({
+      type: "function",
+      expr: "x**2/9 + y**2/4",
+      title: "x**2/9 + y**2/4 = 1",
+      points: [
+        [0, 0],
+        [1, 1],
+      ],
+    });
+    const { getByText } = await render(<FunctionGraphBlock content={content} />);
+    expect(getByText("x²/9 + y²/4 = 1")).toBeOnTheScreen();
+  });
+
+  it("formats comparison legend labels from raw SymPy", async () => {
+    const content = JSON.stringify({
+      type: "function",
+      title: "Comparison",
+      expr: "3*x**2",
+      points: [
+        [-1, 3],
+        [1, 3],
+      ],
+      expr2: "2*x",
+      points2: [
+        [-1, -2],
+        [1, 2],
+      ],
+      label: "y = 3*x**2",
+      label2: "y = 2*x",
+    });
+    const { getByText } = await render(<FunctionGraphBlock content={content} />);
+    expect(getByText("y = 3x²")).toBeOnTheScreen();
+    expect(getByText("y = 2x")).toBeOnTheScreen();
+  });
+
+  it("formats inequality titles including * multiplication", async () => {
+    const content = JSON.stringify({
+      type: "number_line",
+      expr: "3*x - 6 >= 0",
+      title: "3*x - 6 >= 0",
+      intervals: [{ start: 2, end: null, start_inclusive: true, end_inclusive: false }],
+    });
+    const { getByText } = await render(<FunctionGraphBlock content={content} />);
+    expect(getByText("3x - 6 ≥ 0")).toBeOnTheScreen();
+  });
 });
