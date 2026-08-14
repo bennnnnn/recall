@@ -111,11 +111,6 @@ def _memory_query_cache_key(user_id: UUID, generation: bytes | str | None, query
     return f"memquery:{user_id}:{gen_tag}:{digest}"
 
 
-def _memory_query_embed_key(user_id: UUID, query_text: str) -> str:
-    digest = hashlib.sha256(query_text.strip().lower().encode()).hexdigest()[:32]
-    return f"memembed:{user_id}:{digest}"
-
-
 def _memory_query_scoped_key(
     user_id: UUID,
     generation: bytes | str | None,
@@ -127,43 +122,6 @@ def _memory_query_scoped_key(
     scope = "p" if omit_project_memory else "g"
     sens = "x" if exclude_sensitive else "a"
     return f"{_memory_query_cache_key(user_id, generation, query_text)}:{scope}:{sens}"
-
-
-async def _get_cached_query_embedding(
-    user_id: UUID,
-    query_text: str,
-) -> list[float] | None:
-    from app.gateways.embedding_gateway import parse_embedding
-
-    redis = get_redis_client()
-    key = _memory_query_embed_key(user_id, query_text)
-    try:
-        cached = await redis.get(key)
-        if cached is None:
-            return None
-        raw = cached.decode() if isinstance(cached, bytes) else cached
-        return parse_embedding(raw)
-    except Exception:
-        logger.debug("Memory query embed cache read failed", exc_info=True)
-        return None
-
-
-async def _cache_query_embedding(
-    user_id: UUID,
-    query_text: str,
-    query_vec: list[float],
-    settings: Settings,
-) -> None:
-    from app.gateways import embedding_gateway
-
-    try:
-        await get_redis_client().set(
-            _memory_query_embed_key(user_id, query_text),
-            embedding_gateway.serialize_embedding(query_vec),
-            ex=max(60, settings.memory_query_embed_cache_ttl),
-        )
-    except Exception:
-        logger.debug("Memory query embed cache write failed", exc_info=True)
 
 
 async def _write_query_block_cache(cache_key: str, block: str, settings: Settings) -> None:
@@ -256,12 +214,11 @@ async def _warm_semantic_memory_cache(
     if not cleaned:
         return
     try:
-        query_vec = await embedding_gateway.embed_text(settings, cleaned)
+        query_vec = await embedding_gateway.get_or_embed_query(settings, user_id, cleaned)
         if not query_vec:
             return
         redis = get_redis_client()
         gen_before = await redis.get(_memory_generation_key(user_id))
-        await _cache_query_embedding(user_id, cleaned, query_vec, settings)
 
         async with SessionLocal() as session:
             user = await users_repo.get_by_id(session, user_id)
@@ -363,22 +320,14 @@ async def get_memory_block(
         except Exception:
             logger.debug("Memory query cache read failed", exc_info=True)
 
-        query_vec = await _get_cached_query_embedding(user.id, q)
-        if query_vec is None:
-            # Live embed with a short timeout so the current turn can still
-            # use semantic recall; on timeout/fail keep type-priority + warm.
-            from app.gateways import embedding_gateway
+        from app.gateways import embedding_gateway
 
-            try:
-                query_vec = await asyncio.wait_for(
-                    embedding_gateway.embed_text(settings, q),
-                    timeout=settings.memory_query_embed_timeout_seconds,
-                )
-            except (TimeoutError, Exception):
-                logger.debug("Live semantic embed failed/timed out", exc_info=True)
-                query_vec = None
-            if query_vec:
-                await _cache_query_embedding(user.id, q, query_vec, settings)
+        query_vec = await embedding_gateway.get_or_embed_query(
+            settings,
+            user.id,
+            q,
+            embed_timeout=settings.memory_query_embed_timeout_seconds,
+        )
 
         if query_vec is not None:
             block = await _semantic_block_from_vec(

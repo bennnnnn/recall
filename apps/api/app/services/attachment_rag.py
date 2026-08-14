@@ -155,13 +155,12 @@ async def retrieve_for_prompt(
         return ""
 
     try:
-        query_vec = await asyncio.wait_for(
-            embedding_gateway.embed_text(settings, query),
-            timeout=_RAG_EMBED_TIMEOUT_SECONDS,
+        query_vec = await embedding_gateway.get_or_embed_query(
+            settings,
+            user_id,
+            query,
+            embed_timeout=_RAG_EMBED_TIMEOUT_SECONDS,
         )
-    except TimeoutError:
-        logger.warning("Attachment RAG embed timed out for chat_id=%s", chat_id)
-        return ""
     except Exception:
         logger.warning("Attachment RAG embed failed for chat_id=%s", chat_id, exc_info=True)
         return ""

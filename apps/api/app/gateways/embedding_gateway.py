@@ -3,16 +3,29 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
+from uuid import UUID
 
 from litellm import aembedding
 
 from app.core.config import Settings
+from app.core.redis import get_redis_client
 from app.gateways import mock_llm
 from app.services.model_catalog import get as get_model
 
 logger = logging.getLogger(__name__)
+
+# Per-user, per-query embedding cache namespace. Shared by memory semantic
+# recall and attachment RAG so a single chat turn embeds the query once, not
+# twice (each used to call embed_text independently on the same query text).
+_EMBED_CACHE_PREFIX = "memembed"
+
+
+def _embed_cache_key(user_id: UUID, query: str) -> str:
+    digest = hashlib.sha256(query.strip().lower().encode()).hexdigest()[:32]
+    return f"{_EMBED_CACHE_PREFIX}:{user_id}:{digest}"
 
 
 async def embed_text(settings: Settings, text: str) -> list[float] | None:
@@ -66,3 +79,53 @@ def parse_embedding(raw: str | None) -> list[float] | None:
 
 def serialize_embedding(vec: list[float]) -> str:
     return json.dumps(vec)
+
+
+async def get_or_embed_query(
+    settings: Settings,
+    user_id: UUID,
+    query: str,
+    *,
+    embed_timeout: float | None = None,
+) -> list[float] | None:
+    """Embed ``query`` once per (user, query) using a shared Redis cache.
+
+    Memory semantic recall and attachment RAG both need the query embedding
+    on a chat turn; previously each called :func:`embed_text` independently —
+    two paid HTTP calls on a cache miss. This reads the ``memembed:`` cache
+    first, embeds on a miss, and writes the cache so the second caller (or
+    the next turn) hits. Cache failures degrade to a direct embed (never
+    block the turn on Redis). ``embed_timeout`` bounds only the live embed
+    call, not the cache reads.
+    """
+    q = query.strip()
+    if not q:
+        return None
+    key = _embed_cache_key(user_id, q)
+    try:
+        cached = await get_redis_client().get(key)
+        if cached is not None:
+            raw = cached if isinstance(cached, str) else cached.decode()
+            parsed = parse_embedding(raw)
+            if parsed:
+                return parsed
+    except Exception:
+        logger.debug("Embed cache read failed; falling back to live embed", exc_info=True)
+    try:
+        # asyncio.timeout(None) disables the timeout, so a single path covers
+        # both the bounded (RAG/memory live) and unbounded (warm) cases.
+        async with asyncio.timeout(embed_timeout):
+            vec = await embed_text(settings, q)
+    except Exception:
+        logger.debug("Embed call failed", exc_info=True)
+        return None
+    if vec:
+        try:
+            await get_redis_client().set(
+                key,
+                serialize_embedding(vec),
+                ex=max(60, settings.memory_query_embed_cache_ttl),
+            )
+        except Exception:
+            logger.debug("Embed cache write failed", exc_info=True)
+    return vec
