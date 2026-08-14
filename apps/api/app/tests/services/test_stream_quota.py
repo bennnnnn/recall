@@ -131,3 +131,52 @@ async def test_stream_chat_response_refunds_on_cancelled_error():
                 pass
 
     refund.assert_awaited_once_with(redis, str(user.id), 250)
+
+
+@pytest.mark.asyncio
+async def test_stream_chat_response_reserves_style_output_cap():
+    user = _pro_user()
+    user.response_style = "detailed"
+    redis = AsyncMock()
+    reserve = AsyncMock(return_value=3400)
+
+    async def empty_stream(*_a, **_k):
+        if False:
+            yield ""
+
+    with (
+        patch("app.services.chat.stream.SessionLocal", _FakeSessionCM),
+        patch("app.services.chat.stream.wait_for_pending_finalize", AsyncMock()),
+        patch(
+            "app.services.chat.stream.plan_service.resolve_user_model_override",
+            return_value="smart-chat",
+        ),
+        patch(
+            "app.services.chat.stream.quota_service.daily_limit_for_user",
+            return_value=100_000,
+        ),
+        patch(
+            "app.services.chat.stream._try_image_gen_for_turn",
+            AsyncMock(return_value=False),
+        ),
+        patch(
+            "app.services.chat.stream.prepare_chat_turn",
+            AsyncMock(return_value=MagicMock()),
+        ),
+        patch("app.services.chat.stream.stream_and_finalize", empty_stream),
+        patch("app.services.chat.stream.acquire_lock", AsyncMock(return_value="tok")),
+        patch("app.services.chat.stream.release_lock", AsyncMock()),
+        patch("app.services.chat.stream.reserve_turn_quota", reserve),
+    ):
+        async for _ in stream_module.stream_chat_response(
+            redis,
+            Settings(max_output_tokens=1200),
+            user_id=user.id,
+            chat_id=uuid4(),
+            content="hi",
+            user=user,
+            skip_usage_seed=True,
+        ):
+            pass
+
+    assert reserve.await_args.kwargs["max_output"] == 2200

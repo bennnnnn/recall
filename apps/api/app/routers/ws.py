@@ -195,34 +195,13 @@ async def _run_chat_stream(
     result: dict[str, str] = {}
     try:
         await _stream_over_ws(websocket, stream_factory(result), cancel_event, result)
-    except QuotaExceededError as exc:
-        await _safe_send_json(
-            websocket,
-            {"type": "error", "code": "quota_exceeded", "message": exc.message},
-        )
-    except RedisUnavailableError as exc:
-        await _safe_send_json(
-            websocket,
-            {"type": "error", "code": "unavailable", "message": exc.message},
-        )
-    except ChatServiceError as exc:
+    except Exception as exc:
+        if not isinstance(
+            exc,
+            QuotaExceededError | RedisUnavailableError | ChatServiceError | ModelUnavailableError,
+        ):
+            logger.exception("Unexpected chat stream error")
         await _safe_send_json(websocket, error_payload_for_exception(exc))
-    except ModelUnavailableError as exc:
-        await _safe_send_json(
-            websocket,
-            {
-                "type": "error",
-                "code": exc.code,
-                "message": exc.message,
-                "failed_model": exc.failed_alias,
-            },
-        )
-    except Exception:
-        logger.exception("Unexpected chat stream error")
-        await _safe_send_json(
-            websocket,
-            {"type": "error", "message": "Something went wrong. Try again."},
-        )
 
 
 def _status_emitters(websocket: WebSocket) -> tuple[Any, Any]:
@@ -374,12 +353,7 @@ async def _handle_message(
         await websocket.send_json({"type": "error", "message": "Invalid message"})
         return
 
-    # Strip only after Pydantic validation — payload content may be null/non-str.
-    content = request.content.strip()
-    if not content and not request.attachment_ids:
-        return
-
-    message_content = content
+    message_content = request.content
     message_model = request.model
 
     def _message_stream(

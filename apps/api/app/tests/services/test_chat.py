@@ -1009,6 +1009,58 @@ async def test_should_minimal_quiz_context_false_without_prior_quiz():
 
 
 @pytest.mark.asyncio
+async def test_grade_quiz_answer_failure_rolls_back_only_its_own_session():
+    from datetime import UTC, datetime
+
+    from app.services.chat.turn_prep.prepare import _grade_quiz_answer
+
+    user = MagicMock()
+    user.id = uuid4()
+    quiz_msg = MagicMock()
+    quiz_msg.content = (
+        '```vocab_quiz\n{"quiz_type":"trivia","word":"History","question":"Which wonder?",'
+        '"correct":"A","choices":[{"letter":"A","text":"Colossus"},'
+        '{"letter":"B","text":"Pyramid"}]}\n```'
+    )
+    quiz_msg.created_at = datetime.now(UTC)
+    grade_session = AsyncMock()
+
+    class SessionCM:
+        async def __aenter__(self):
+            return grade_session
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
+
+    with (
+        patch("app.services.chat.turn_prep.prepare.SessionLocal", return_value=SessionCM()),
+        patch(
+            "app.services.chat.quiz_messages.get_last_quiz_assistant",
+            AsyncMock(return_value=quiz_msg),
+        ),
+        patch(
+            "app.services.chat.quiz_messages.count_quiz_letter_answers_since",
+            AsyncMock(return_value=1),
+        ),
+        patch(
+            "app.services.chat.turn_prep.prepare.projects_service.apply_deterministic_quiz_answer",
+            AsyncMock(side_effect=RuntimeError("neon timeout")),
+        ),
+    ):
+        is_letter, grade = await _grade_quiz_answer(
+            user=user,
+            chat_id=uuid4(),
+            chat_project_id=uuid4(),
+            content="A",
+        )
+
+    assert is_letter is True
+    assert grade is None
+    grade_session.rollback.assert_awaited()
+    grade_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_build_prompt_passes_client_timezone():
     user = MagicMock()
     user.name = "Dev User"
@@ -1618,6 +1670,92 @@ async def test_cancelled_stream_skips_model_health_sample(stream_offline_io):
             await finalize_db
 
     record.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_hard_cancel_before_tokens_skips_model_health_sample(stream_offline_io):
+    """Cancel while waiting on the provider must not record success=False."""
+    import asyncio
+    from uuid import uuid4
+
+    from app.services.chat.stream import stream_and_finalize
+    from app.services.chat.turn_prep import StreamContext
+
+    async def fake_stream(**_kwargs):
+        raise asyncio.CancelledError()
+        yield  # pragma: no cover
+
+    record = AsyncMock()
+    ctx = StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=[{"role": "user", "content": "hi"}],
+        run_title=False,
+        user_message_content="hi",
+        reserved_tokens=100,
+        max_output_tokens=50,
+        skip_memory_jobs=True,
+    )
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
+        )
+        stack.enter_context(patch("app.services.model_health.record_sample", record))
+        with pytest.raises(asyncio.CancelledError):
+            async for _ in stream_and_finalize(
+                AsyncMock(),
+                Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+                ctx,
+                should_cancel=None,
+            ):
+                pass
+
+    record.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_stream_chat_response_rejects_empty_content(stream_offline_io):
+    from app.exceptions import ChatNotFoundError
+    from app.services.chat.stream import stream_chat_response
+
+    with pytest.raises(ChatNotFoundError, match="empty"):
+        async for _ in stream_chat_response(
+            AsyncMock(),
+            Settings(),
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            content="   ",
+        ):
+            pass
+
+
+@pytest.mark.asyncio
+async def test_try_image_gen_skips_recent_lookup_when_text_cannot_be_revision():
+    from app.services.chat.stream import _try_image_gen_for_turn
+
+    user = MagicMock()
+    user.id = uuid4()
+    list_recent = AsyncMock(return_value=[])
+    long_text = "x" * 121
+
+    with (
+        patch("app.services.chat.stream.plan_service.is_pro", return_value=True),
+        patch("app.services.chat.stream.extract_image_gen_prompt", return_value=None),
+        patch("app.services.chat.stream.messages_repo.list_recent", list_recent),
+    ):
+        handled = await _try_image_gen_for_turn(
+            Settings(),
+            user=user,
+            chat_id=uuid4(),
+            content=long_text,
+            result=None,
+            create_user_message=True,
+        )
+
+    assert handled is False
+    list_recent.assert_not_awaited()
 
 
 @pytest.mark.asyncio

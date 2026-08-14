@@ -2,7 +2,6 @@ import logging
 from uuid import UUID
 
 from redis.asyncio import Redis
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.db import SessionLocal
@@ -30,14 +29,18 @@ logger = logging.getLogger(__name__)
 
 
 async def _grade_quiz_answer(
-    session: AsyncSession,
     *,
     user: User,
     chat_id: UUID,
     chat_project_id: UUID | None,
     content: str,
 ) -> tuple[bool, QuizAnswerGrade | None]:
-    """Deterministically grade a letter/choice quiz answer when a project is linked."""
+    """Deterministically grade a letter/choice quiz answer when a project is linked.
+
+    Opens its own session so a grading failure (or the title-model verify
+    round-trip) cannot roll back the already-committed user message, and so
+    the turn's write connection is not pinned across that LLM call.
+    """
 
     is_letter_answer = False
     quiz_grade: QuizAnswerGrade | None = None
@@ -48,43 +51,47 @@ async def _grade_quiz_answer(
             get_last_quiz_assistant,
         )
 
-        prior_assistant = await get_last_quiz_assistant(session, chat_id)
-        quiz_choices: tuple[tuple[str, str], ...] | None = None
-        if prior_assistant is not None:
-            parsed = vocab_quiz_service.parse_vocab_quiz(prior_assistant.content)
-            if parsed is not None:
-                quiz_choices = parsed.choices
-        is_letter_answer = vocab_quiz_service.is_vocab_quiz_answer(content, choices=quiz_choices)
-        if is_letter_answer and prior_assistant is not None:
-            try:
-                attempt = await count_quiz_letter_answers_since(
-                    session,
-                    chat_id,
-                    after=prior_assistant.created_at,
-                    choices=quiz_choices,
-                )
-                quiz_grade = await projects_service.apply_deterministic_quiz_answer(
-                    session,
-                    user_id=user.id,
-                    chat_id=chat_id,
-                    project_id=chat_project_id,
-                    assistant_content=prior_assistant.content,
-                    user_answer=content,
-                    attempt=max(1, attempt),
-                )
-                if quiz_grade is None:
-                    logger.warning(
-                        "Quiz answer not recorded (no gradeable fence) user_id=%s chat_id=%s",
+        async with SessionLocal() as session:
+            prior_assistant = await get_last_quiz_assistant(session, chat_id)
+            quiz_choices: tuple[tuple[str, str], ...] | None = None
+            if prior_assistant is not None:
+                parsed = vocab_quiz_service.parse_vocab_quiz(prior_assistant.content)
+                if parsed is not None:
+                    quiz_choices = parsed.choices
+            is_letter_answer = vocab_quiz_service.is_vocab_quiz_answer(
+                content, choices=quiz_choices
+            )
+            if is_letter_answer and prior_assistant is not None:
+                try:
+                    attempt = await count_quiz_letter_answers_since(
+                        session,
+                        chat_id,
+                        after=prior_assistant.created_at,
+                        choices=quiz_choices,
+                    )
+                    quiz_grade = await projects_service.apply_deterministic_quiz_answer(
+                        session,
+                        user_id=user.id,
+                        chat_id=chat_id,
+                        project_id=chat_project_id,
+                        assistant_content=prior_assistant.content,
+                        user_answer=content,
+                        attempt=max(1, attempt),
+                    )
+                    await session.commit()
+                    if quiz_grade is None:
+                        logger.warning(
+                            "Quiz answer not recorded (no gradeable fence) user_id=%s chat_id=%s",
+                            user.id,
+                            chat_id,
+                        )
+                except Exception:
+                    await session.rollback()
+                    logger.exception(
+                        "Failed to record quiz answer for user_id=%s chat_id=%s",
                         user.id,
                         chat_id,
                     )
-            except Exception:
-                await session.rollback()
-                logger.exception(
-                    "Failed to record quiz answer for user_id=%s chat_id=%s",
-                    user.id,
-                    chat_id,
-                )
     elif web_search_service.is_vocab_quiz_answer(content):
         logger.warning(
             "Quiz letter answer without project_id — not recorded chat_id=%s",
@@ -157,13 +164,6 @@ async def prepare_chat_turn(
             input_tokens=estimate_tokens(user_content),
             commit=False,
         )
-        is_letter_answer, quiz_grade = await _grade_quiz_answer(
-            session,
-            user=user,
-            chat_id=chat_id,
-            chat_project_id=chat_project_id,
-            content=content,
-        )
         indexable_attachment_ids: list[str] = []
         if attachment_ids and settings.attachments_enabled:
             from app.repositories import attachments as attachments_repo
@@ -184,8 +184,15 @@ async def prepare_chat_turn(
                 ]
 
         await session.commit()
-        if quiz_grade is not None:
-            await _invalidate_home_for_user(user.id)
+
+    is_letter_answer, quiz_grade = await _grade_quiz_answer(
+        user=user,
+        chat_id=chat_id,
+        chat_project_id=chat_project_id,
+        content=content,
+    )
+    if quiz_grade is not None:
+        await _invalidate_home_for_user(user.id)
 
     bundle = await build_stream_prompt_context(
         user_id,

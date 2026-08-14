@@ -43,6 +43,8 @@ def test_extract_image_gen_prompt_matches(text: str, expected: str) -> None:
         "create a math problem",
         "make a question",
         "draw me an example",
+        "create an image of my tasks",
+        "make a picture of my todo list",
         "a" * 501,
     ],
 )

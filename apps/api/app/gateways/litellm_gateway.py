@@ -196,9 +196,9 @@ def _apply_usage(usage: dict[str, int] | None, chunk: Any) -> None:
     prompt = getattr(chunk_usage, "prompt_tokens", None)
     completion = getattr(chunk_usage, "completion_tokens", None)
     if prompt is not None:
-        usage["input"] = int(prompt)
+        usage["input"] = usage.get("input", 0) + int(prompt)
     if completion is not None:
-        usage["output"] = int(completion)
+        usage["output"] = usage.get("output", 0) + int(completion)
 
 
 def _apply_usage_from_response(usage: dict[str, int] | None, response: Any) -> None:

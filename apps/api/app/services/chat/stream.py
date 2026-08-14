@@ -258,6 +258,11 @@ async def _try_image_gen_for_turn(
     image_prompt = extract_image_gen_prompt(content)
     if not image_prompt:
         # Short follow-ups ("White", "make it blue") after an image-only reply.
+        # extract_image_revision_prompt rejects >120 chars or >8 tokens on
+        # text alone — skip the 20-row lookup for ordinary messages.
+        trimmed = content.strip()
+        if not trimmed or len(trimmed) > 120 or len(trimmed.split()) > 8:
+            return False
         async with SessionLocal() as session:
             recent = await messages_repo.list_recent(session, chat_id, limit=20)
         last_image_only, previous_subject = image_gen_revision_context(recent)
@@ -325,6 +330,10 @@ async def stream_chat_response(
     skip_usage_seed: bool = False,
     resources: TurnResources | None = None,
 ) -> AsyncIterator[str]:
+    content = content.strip()
+    if not content and not attachment_ids:
+        raise ChatNotFoundError("Message cannot be empty.")
+
     timing = TurnTimingTracker()
     timing.mark_phase("turn_start")
     status = wrap_stream_status(timing, on_status)
@@ -374,6 +383,7 @@ async def stream_chat_response(
                 settings=settings,
                 daily_limit=daily_limit,
                 vision_extra=vision_extra,
+                max_output=max_output_tokens_for_style(user.response_style, settings),
                 seed=False,
             )
 
@@ -407,6 +417,7 @@ async def stream_chat_response(
                 result=result,
                 on_status=status,
                 on_reasoning=on_reasoning,
+                resources=res,
             ),
         ):
             yield token
@@ -549,6 +560,7 @@ async def stream_regenerate_response(
                     result=result,
                     on_status=status,
                     on_reasoning=on_reasoning,
+                    resources=res,
                 ),
             ):
                 yield token
@@ -610,6 +622,7 @@ async def stream_edit_response(
                 content=content,
                 model=model,
                 settings=settings,
+                max_output=max_output_tokens_for_style(user.response_style, settings),
                 seed=False,
             )
             # The quota is reserved above; if the delete/summary-reset throws
@@ -782,6 +795,11 @@ async def _run_llm_token_stream(
             accum.parts.append(token)
             yield token
         stream_ok = bool(accum.parts) or accum.was_cancelled
+    except asyncio.CancelledError:
+        # Hard stop while waiting on the provider never polls should_cancel,
+        # so mark it here or the finally records a failed health sample.
+        accum.was_cancelled = True
+        raise
     finally:
         close = getattr(llm_stream, "aclose", None)
         if close is not None:
@@ -939,6 +957,14 @@ async def _enrich_final_content(
     return assistant_text
 
 
+def _log_background_task_failure(task: asyncio.Task[Any], message: str) -> None:
+    if task.cancelled():
+        return
+    exc = task.exception()
+    if exc is not None:
+        logger.exception(message, exc_info=exc)
+
+
 async def _register_and_enqueue_finalize(
     redis: Redis,
     settings: Settings,
@@ -973,9 +999,7 @@ async def _register_and_enqueue_finalize(
     )
     register_pending_finalize(ctx.chat_id, finalize_db_task)
     finalize_db_task.add_done_callback(
-        lambda t: logger.exception("Background DB finalization failed", exc_info=t.exception())
-        if t.exception()
-        else None
+        lambda t: _log_background_task_failure(t, "Background DB finalization failed")
     )
 
     async def _run_jobs_after_db() -> None:
@@ -987,9 +1011,7 @@ async def _register_and_enqueue_finalize(
 
     jobs_task = create_background_task(_run_jobs_after_db(), name="post_turn_jobs")
     jobs_task.add_done_callback(
-        lambda t: logger.exception("Background finalization failed", exc_info=t.exception())
-        if t.exception()
-        else None
+        lambda t: _log_background_task_failure(t, "Background finalization failed")
     )
     if result is not None:
         result["_finalize_task"] = jobs_task
@@ -1005,6 +1027,7 @@ async def stream_and_finalize(
     result: dict[str, Any] | None = None,
     on_status: StreamStatusFn | None = None,
     on_reasoning: StreamReasoningFn | None = None,
+    resources: TurnResources | None = None,
 ) -> AsyncIterator[str]:
     usage: dict[str, int] = {}
     accum = _StreamAccum()
@@ -1039,8 +1062,14 @@ async def stream_and_finalize(
                         result["message_id"] = ctx.terminal_image_message_id
                         result["final_content"] = ctx.terminal_image_content
                         result["resolved_model"] = ctx.terminal_image_model or "image-gen-model"
-                    # Image gen has its own daily cap; refund the chat-token hold.
-                    await quota_service.refund_usage(redis, str(ctx.user_id), ctx.reserved_tokens)
+                    # Image gen has its own daily cap; refund the chat-token hold
+                    # through TurnResources so __aexit__ cannot double-credit.
+                    if resources is not None:
+                        await resources.refund()
+                    else:
+                        await quota_service.refund_usage(
+                            redis, str(ctx.user_id), ctx.reserved_tokens
+                        )
                     return
 
                 if (

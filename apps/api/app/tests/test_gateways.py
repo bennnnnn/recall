@@ -1,6 +1,7 @@
 """Tests for gateways: google_auth, mock_llm."""
 
 import asyncio
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -83,6 +84,15 @@ async def test_stream_chat_completion_wraps_acompletion_failure():
                 max_tokens=100,
             ):
                 pass
+
+
+def test_apply_usage_accumulates_onto_existing_totals():
+    usage = {"input": 10, "output": 4}
+    chunk = SimpleNamespace(
+        usage=SimpleNamespace(prompt_tokens=7, completion_tokens=3),
+    )
+    litellm_gateway._apply_usage(usage, chunk)
+    assert usage == {"input": 17, "output": 7}
 
 
 def test_should_mock_llm_true_when_no_key():

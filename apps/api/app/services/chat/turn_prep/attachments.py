@@ -114,13 +114,18 @@ async def _process_attachments(
     if not isinstance(gateway, LocalStorageGateway):
         from app.exceptions import AttachmentValidationError
 
-        for row in attachment_rows:
-            data, error = await attachment_content_service.verify_uploaded_bytes(
-                gateway,
-                content_type=row.content_type,
-                storage_key=row.storage_key,
-                declared_size=row.size_bytes,
-            )
+        verified = await asyncio.gather(
+            *[
+                attachment_content_service.verify_uploaded_bytes(
+                    gateway,
+                    content_type=row.content_type,
+                    storage_key=row.storage_key,
+                    declared_size=row.size_bytes,
+                )
+                for row in attachment_rows
+            ]
+        )
+        for row, (data, error) in zip(attachment_rows, verified, strict=True):
             if error:
                 if attachment_content_service.is_image_content_type(row.content_type):
                     from app.services import quota as quota_service
