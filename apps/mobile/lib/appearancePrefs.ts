@@ -6,17 +6,10 @@
  */
 
 import {
-  documentDirectory,
-  getInfoAsync,
-  readAsStringAsync,
-  writeAsStringAsync,
-} from "expo-file-system/legacy";
-import * as SecureStore from "expo-secure-store";
-
-import {
   normalizeAppearancePreference,
   type AppearancePreference,
 } from "@/lib/appearance";
+import { prefFilePath, readLegacySecureStore, readPrefFile, writePrefFile } from "@/lib/filePrefs";
 
 const LEGACY_KEY = "appearance_preference";
 const FILE_NAME = "recall.appearance-preference.txt";
@@ -24,34 +17,18 @@ const FILE_NAME = "recall.appearance-preference.txt";
 let cachedPreference: AppearancePreference | null = null;
 
 function filePath(): string | null {
-  if (!documentDirectory) return null;
-  return `${documentDirectory}${FILE_NAME}`;
-}
-
-async function loadLegacySecureStore(): Promise<string | null> {
-  try {
-    return await SecureStore.getItemAsync(LEGACY_KEY);
-  } catch {
-    return null;
-  }
+  return prefFilePath(FILE_NAME);
 }
 
 export async function getAppearancePreference(): Promise<AppearancePreference> {
   if (cachedPreference !== null) return cachedPreference;
-  const path = filePath();
-  if (path) {
-    try {
-      const info = await getInfoAsync(path);
-      if (info.exists) {
-        cachedPreference = normalizeAppearancePreference(await readAsStringAsync(path));
-        return cachedPreference;
-      }
-    } catch {
-      /* fall through to legacy */
-    }
+  const fromFile = await readPrefFile(filePath());
+  if (fromFile !== null) {
+    cachedPreference = normalizeAppearancePreference(fromFile);
+    return cachedPreference;
   }
 
-  const legacy = await loadLegacySecureStore();
+  const legacy = await readLegacySecureStore(LEGACY_KEY);
   cachedPreference = normalizeAppearancePreference(legacy);
   if (legacy === "light" || legacy === "dark") {
     await setAppearancePreference(cachedPreference);
@@ -63,13 +40,7 @@ export async function setAppearancePreference(
   preference: AppearancePreference,
 ): Promise<void> {
   cachedPreference = preference;
-  const path = filePath();
-  if (!path) return;
-  try {
-    await writeAsStringAsync(path, preference);
-  } catch {
-    /* best-effort — in-memory preference still applies this session */
-  }
+  await writePrefFile(filePath(), preference);
 }
 
 /** Test helper — reset in-memory cache between cases. */

@@ -1,29 +1,54 @@
-import * as SecureStore from "expo-secure-store";
+import {
+  deleteLegacySecureStore,
+  deletePrefFile,
+  prefFilePath,
+  readLegacySecureStore,
+  readPrefFile,
+  safePrefUserId,
+  writePrefFile,
+} from "@/lib/filePrefs";
 
-const KEY_PREFIX = "reminder-seen-";
+const LEGACY_KEY_PREFIX = "reminder-seen-";
 
-function storageKey(userId: string): string {
-  return `${KEY_PREFIX}${userId}`;
+function legacyKey(userId: string): string {
+  return `${LEGACY_KEY_PREFIX}${userId}`;
+}
+
+function filePath(userId: string): string | null {
+  return prefFilePath(`recall.reminder-seen.${safePrefUserId(userId)}.json`);
+}
+
+function parseIds(raw: string): Set<string> {
+  const parsed = JSON.parse(raw) as unknown;
+  if (!Array.isArray(parsed)) return new Set();
+  return new Set(parsed.filter((id): id is string => typeof id === "string"));
 }
 
 export async function loadSeenReminderIds(userId: string): Promise<Set<string>> {
+  const fromFile = await readPrefFile(filePath(userId));
+  if (fromFile !== null) {
+    try {
+      return parseIds(fromFile);
+    } catch {
+      return new Set();
+    }
+  }
+
+  const legacy = await readLegacySecureStore(legacyKey(userId));
+  if (!legacy) return new Set();
   try {
-    const raw = await SecureStore.getItemAsync(storageKey(userId));
-    if (!raw) return new Set();
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return new Set();
-    return new Set(parsed.filter((id): id is string => typeof id === "string"));
+    const ids = parseIds(legacy);
+    if (ids.size > 0) {
+      await saveSeenReminderIds(userId, ids);
+    }
+    return ids;
   } catch {
     return new Set();
   }
 }
 
 export async function saveSeenReminderIds(userId: string, ids: Set<string>): Promise<void> {
-  try {
-    await SecureStore.setItemAsync(storageKey(userId), JSON.stringify([...ids]));
-  } catch {
-    /* Keychain may be unavailable on unsigned simulator builds */
-  }
+  await writePrefFile(filePath(userId), JSON.stringify([...ids]));
 }
 
 /** Drop seen ids for todos that are gone or completed. */
@@ -40,9 +65,6 @@ export async function markReminderIdsSeen(userId: string, ids: string[]): Promis
 }
 
 export async function clearSeenReminderIds(userId: string): Promise<void> {
-  try {
-    await SecureStore.deleteItemAsync(storageKey(userId));
-  } catch {
-    /* best-effort */
-  }
+  await deletePrefFile(filePath(userId));
+  await deleteLegacySecureStore(legacyKey(userId));
 }

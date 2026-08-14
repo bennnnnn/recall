@@ -19,6 +19,7 @@ jest.mock("expo-file-system/legacy", () => ({
   getInfoAsync: jest.fn(),
   readAsStringAsync: jest.fn(),
   writeAsStringAsync: jest.fn(),
+  deleteAsync: jest.fn(),
 }));
 
 const getInfoAsync = FileSystem.getInfoAsync as jest.Mock;

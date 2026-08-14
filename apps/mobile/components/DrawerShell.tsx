@@ -24,7 +24,8 @@ import { DrawerProvider } from "@/contexts/DrawerContext";
 import { registerDrawer } from "@/lib/drawer";
 import { tap } from "@/lib/haptics";
 import { Motion } from "@/lib/motion";
-import { useTheme } from "@/lib/theme";
+import { shadowOverlay } from "@/lib/shadow";
+import { type Theme, useTheme } from "@/lib/theme";
 
 /** Left-edge hit slop for swipe-to-open (pt). */
 const EDGE_WIDTH = 28;
@@ -38,6 +39,7 @@ const SPRING = { damping: 28, stiffness: 280 } as const;
 export function DrawerShell({ children }: { children: ReactNode }) {
   const { width } = useWindowDimensions();
   const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
   const drawerWidth = width * 0.82;
 
   const translateX = useSharedValue(-drawerWidth);
@@ -259,27 +261,30 @@ export function DrawerShell({ children }: { children: ReactNode }) {
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1 },
-  rootInner: { flex: 1 },
-  content: { flex: 1, zIndex: 1 },
-  contentBehind: { zIndex: 0 },
-  overlay: {
-    ...StyleSheet.absoluteFill,
-    zIndex: 150,
-  },
-  tapClose: {
-    ...StyleSheet.absoluteFill,
-    zIndex: 160,
-  },
-  drawer: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    left: 0,
-    boxShadow: "4 0 20 0 rgba(0, 0, 0, 0.18)",
-    elevation: 24,
-    zIndex: 200,
-    overflow: "hidden",
-  },
-});
+function makeStyles(theme: Theme) {
+  return StyleSheet.create({
+    root: { flex: 1 },
+    rootInner: { flex: 1 },
+    content: { flex: 1, zIndex: 1 },
+    contentBehind: { zIndex: 0 },
+    overlay: {
+      ...StyleSheet.absoluteFill,
+      zIndex: 150,
+    },
+    tapClose: {
+      ...StyleSheet.absoluteFill,
+      zIndex: 160,
+    },
+    drawer: {
+      position: "absolute",
+      top: 0,
+      bottom: 0,
+      left: 0,
+      ...shadowOverlay(theme),
+      // Side panel casts onto chat to the right, not down like a floating menu.
+      shadowOffset: { width: 4, height: 0 },
+      zIndex: 200,
+      overflow: "hidden",
+    },
+  });
+}
