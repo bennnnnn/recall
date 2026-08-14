@@ -641,7 +641,6 @@ async def test_topic_service_scopes_chat_by_user_id():
     title on another user's chat."""
     from app.services import topic as topic_service
 
-    user_id = uuid4()
     other_user_id = uuid4()
     chat_id = uuid4()
     mock_set = AsyncMock()
@@ -654,7 +653,9 @@ async def test_topic_service_scopes_chat_by_user_id():
             "app.services.topic.chat_titles.generate_title",
             AsyncMock(return_value="Fresh title"),
         ),
-        patch("app.services.topic.chats_repo.get_by_id", AsyncMock(return_value=None)) as scoped_get,
+        patch(
+            "app.services.topic.chats_repo.get_by_id", AsyncMock(return_value=None)
+        ) as scoped_get,
         patch("app.services.topic.chats_repo.set_title", mock_set),
     ):
         await topic_service.generate_chat_title(

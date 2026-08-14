@@ -361,9 +361,7 @@ async def _handle_message(
     # ChatNotFoundError mid-flight (which the client may not map to a visible
     # error). An empty message with attachments is valid (image-only turn).
     if not message_content.strip() and not request.attachment_ids:
-        await websocket.send_json(
-            {"type": "error", "message": "Message cannot be empty."}
-        )
+        await websocket.send_json({"type": "error", "message": "Message cannot be empty."})
         return
 
     def _message_stream(
