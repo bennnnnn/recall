@@ -19,6 +19,11 @@ import { LANGUAGES } from "@/lib/i18n";
 import { usageRemainingPercent } from "@/lib/quota";
 import { getDisplayName, sanitizeDisplayName } from "@/lib/profile";
 import { prefetchMemories } from "@/lib/memoryListCache";
+import {
+  connectedCountFromStatus,
+  fetchIntegrationStatus,
+  getCachedConnectedCount,
+} from "@/lib/integrationStatusCache";
 import { useTheme } from "@/lib/theme";
 
 type ProfileField = "name" | "age" | "country" | "job";
@@ -33,25 +38,22 @@ export default function SettingsScreen() {
   const router = useRouter();
 
   const [usage, setUsage] = useState<Awaited<ReturnType<typeof api.todayUsage>> | null>(null);
-  const [connectedCount, setConnectedCount] = useState(0);
+  const [connectedCount, setConnectedCount] = useState(getCachedConnectedCount);
   const [upgradeVisible, setUpgradeVisible] = useState(false);
   const [editField, setEditField] = useState<ProfileField | null>(null);
   const [fieldText, setFieldText] = useState("");
 
   const refreshSummary = useCallback(async () => {
     if (!token) return;
-    const [usageR, calendarR, gmailR] = await Promise.allSettled([
+    const [usageR, integrationsR] = await Promise.allSettled([
       api.todayUsage(token),
-      api.googleCalendarStatus(token),
-      api.googleGmailStatus(token),
+      fetchIntegrationStatus(token),
     ]);
     if (usageR.status === "fulfilled") setUsage(usageR.value);
-    else Alert.alert(t("common.error"));
-    let count = 0;
-    if (calendarR.status === "fulfilled" && calendarR.value.connected) count += 1;
-    if (gmailR.status === "fulfilled" && gmailR.value.connected) count += 1;
-    setConnectedCount(count);
-  }, [token, t]);
+    if (integrationsR.status === "fulfilled" && integrationsR.value) {
+      setConnectedCount(connectedCountFromStatus(integrationsR.value));
+    }
+  }, [token]);
 
   useFocusEffect(
     useCallback(() => {

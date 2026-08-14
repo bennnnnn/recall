@@ -221,18 +221,35 @@ export function ConversationList(_props: unknown) {
   // Snapshot when the drawer opens — isOpen flip re-renders this list.
   const activeChatId = isOpen ? getActiveChatIdGlobal() : null;
 
-  const listHeader = (
-    <DrawerListHeader
-      loading={loading}
-      error={error}
-      activeChatCount={allChats.length}
-      searchOpen={searchOpen}
-      onRetry={() => void load()}
-      hasSearchQuery={hasSearchQuery}
-      searchLoading={searchLoading}
-      searchError={searchError}
-      searchResultCount={searchResults.length}
-    />
+  const onRetryLoad = useCallback(() => {
+    void load();
+  }, [load]);
+
+  const listHeader = useMemo(
+    () => (
+      <DrawerListHeader
+        loading={loading}
+        error={error}
+        activeChatCount={allChats.length}
+        searchOpen={searchOpen}
+        onRetry={onRetryLoad}
+        hasSearchQuery={hasSearchQuery}
+        searchLoading={searchLoading}
+        searchError={searchError}
+        searchResultCount={searchResults.length}
+      />
+    ),
+    [
+      loading,
+      error,
+      allChats.length,
+      searchOpen,
+      onRetryLoad,
+      hasSearchQuery,
+      searchLoading,
+      searchError,
+      searchResults.length,
+    ],
   );
 
   const topFadeColors = topChromeFadeColors(theme);
