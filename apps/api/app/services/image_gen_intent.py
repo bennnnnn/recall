@@ -243,7 +243,10 @@ def _match_verb_then_image(tokens: list[str]) -> str | None:
         i += 1
     if i >= len(tokens):
         return None
-    return _clean_prompt(_join_subject(tokens[i:]))
+    subject = _join_subject(tokens[i:])
+    if _has_non_image_subject(subject) or _has_non_image_draw(subject):
+        return None
+    return _clean_prompt(subject)
 
 
 def _match_verb_subject_image(tokens: list[str]) -> str | None:
@@ -262,7 +265,10 @@ def _match_verb_subject_image(tokens: list[str]) -> str | None:
     subject_parts = tokens[i:-1]
     if not subject_parts:
         return None
-    return _clean_prompt(_join_subject(subject_parts))
+    subject = _join_subject(subject_parts)
+    if _has_non_image_subject(subject) or _has_non_image_draw(subject):
+        return None
+    return _clean_prompt(subject)
 
 
 def _match_draw_me(tokens: list[str]) -> str | None:
@@ -330,6 +336,8 @@ def _match_image_noun_message(tokens: list[str]) -> str | None:
         return None
     words = subject.lower().split()
     if any(w in {"script", "code", "compression", "format", "file"} for w in words):
+        return None
+    if _has_non_image_subject(subject) or _has_non_image_draw(subject):
         return None
     return _clean_prompt(subject)
 
