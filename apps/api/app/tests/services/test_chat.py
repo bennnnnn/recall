@@ -2461,6 +2461,82 @@ async def test_stream_edit_response_refunds_quota_when_delete_throws():
     refund_mock.assert_awaited_once()
 
 
+@pytest.mark.asyncio
+async def test_stream_edit_response_keeps_storage_when_stream_fails():
+    """Attachment files must not be deleted from object storage until the
+    re-stream has actually produced output — otherwise a stream failure
+    (model unavailable, disconnect, quota error) destroys user files for a
+    turn that never replied. The message rows are still committed (the
+    re-stream's recent window needs the tail gone), but the irrevocable R2
+    delete is deferred until after the stream completes successfully."""
+    from app.services import chat as chat_module
+
+    user_id = uuid4()
+    chat_id = uuid4()
+    message_id = uuid4()
+
+    fake_user = MagicMock()
+    fake_user.id = user_id
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+    fake_chat.summary_message_count = 0
+
+    fake_message = MagicMock()
+    fake_message.id = message_id
+    fake_message.role = "user"
+    fake_message.created_at = MagicMock()
+
+    session = AsyncMock()
+    session.__aenter__ = AsyncMock(return_value=session)
+    session.__aexit__ = AsyncMock(return_value=None)
+
+    async def _failing_stream(*args, **kwargs):
+        raise RuntimeError("model unavailable")
+        yield  # pragma: no cover - make this an async generator
+
+    delete_storage_mock = AsyncMock()
+
+    with (
+        patch("app.services.chat.stream.SessionLocal", return_value=session),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.repositories.messages.get_by_id", AsyncMock(return_value=fake_message)),
+        patch(
+            "app.repositories.messages.ids_from_chat_at_or_after",
+            AsyncMock(return_value=[message_id]),
+        ),
+        patch(
+            "app.services.attachment_lifecycle.detach_attachments_for_messages",
+            AsyncMock(return_value=["user/attachments/abc.bin"]),
+        ),
+        patch("app.services.attachment_lifecycle.delete_storage_keys", delete_storage_mock),
+        patch("app.repositories.messages.delete_messages_from", AsyncMock()),
+        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.services.quota.refund_usage", AsyncMock()),
+        patch(
+            "app.services.quota.daily_limit_for_user",
+            MagicMock(return_value=500_000),
+        ),
+        patch("app.services.chat.stream.stream_chat_response", _failing_stream),
+    ):
+        with pytest.raises(RuntimeError, match="model unavailable"):
+            async for _ in chat_module.stream_edit_response(
+                AsyncMock(),
+                Settings(max_output_tokens=100),
+                user_id=user_id,
+                chat_id=chat_id,
+                message_id=message_id,
+                new_content="new question",
+            ):
+                pass
+
+    # Storage files survived the failed turn — left for the orphan reaper.
+    delete_storage_mock.assert_not_awaited()
+
+
 async def _run_stream_edit_response(
     *, summary_message_count: int, total_before_edit: int, deleted_message_ids: list
 ):
