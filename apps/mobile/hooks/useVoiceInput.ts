@@ -8,7 +8,6 @@ import {
   requestVoicePermission,
   startVoiceRecording,
   type VoiceRecorder,
-  VOICE_INPUT_REBUILD_HINT,
 } from "@/lib/voiceAudio";
 
 type Options = {
@@ -146,6 +145,5 @@ export function useVoiceInput({ token, onTranscript, t }: Options) {
     voiceMeterLevel: meterLevel,
     toggleVoiceInput: toggleRecording,
     cancelVoiceInput: cancelRecording,
-    voiceInputRebuildHint: VOICE_INPUT_REBUILD_HINT,
   };
 }

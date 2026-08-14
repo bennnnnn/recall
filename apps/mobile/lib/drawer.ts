@@ -35,7 +35,7 @@ export type StartNewChatFn = (opts?: StartNewChatOptions) => void;
 
 let _newChat: StartNewChatFn | null = null;
 
-export function registerNewChat(fn: StartNewChatFn) {
+export function registerNewChat(fn: StartNewChatFn | null) {
   _newChat = fn;
 }
 

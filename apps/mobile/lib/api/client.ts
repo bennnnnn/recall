@@ -89,6 +89,16 @@ export async function logoutSession(token: string, refreshToken: string | null):
   }
 }
 
+export class ApiRequestError extends Error {
+  readonly status: number;
+
+  constructor(status: number, body: string) {
+    super(body || `Request failed: ${status}`);
+    this.name = "ApiRequestError";
+    this.status = status;
+  }
+}
+
 export function apiUrl(path: string) {
   return `${getApiUrl()}${path}`;
 }
@@ -125,7 +135,7 @@ export async function request<T>(
       }
       onUnauthorized?.();
       const text = await response.text();
-      throw new Error(text || `Request failed: ${response.status}`);
+      throw new ApiRequestError(response.status, text);
     }
 
     if (!response.ok) {
@@ -133,7 +143,7 @@ export async function request<T>(
         onUnauthorized?.();
       }
       const text = await response.text();
-      throw new Error(text || `Request failed: ${response.status}`);
+      throw new ApiRequestError(response.status, text);
     }
 
     if (response.status === 204) {

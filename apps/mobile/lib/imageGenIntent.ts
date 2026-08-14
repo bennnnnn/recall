@@ -217,6 +217,10 @@ function cleanPrompt(raw: string): string | null {
   return prompt;
 }
 
+function isNonImageSubject(subject: string): boolean {
+  return NON_IMAGE_SUBJECT.test(subject) || NON_IMAGE_DRAW.test(subject);
+}
+
 function extractShortDrawSubject(trimmed: string): string | null {
   if (trimmed.length > 80) return null;
   const match = trimmed.match(SHORT_DRAW_SUBJECT);
@@ -224,7 +228,7 @@ function extractShortDrawSubject(trimmed: string): string | null {
   const subject = match[1].trim();
   if (subject.split(/\s+/).length > 8) return null;
   if (/^(?:it|them|this|that)\b/i.test(subject)) return null;
-  if (NON_IMAGE_SUBJECT.test(subject) || NON_IMAGE_DRAW.test(subject)) return null;
+  if (isNonImageSubject(subject)) return null;
   return cleanPrompt(subject);
 }
 
@@ -234,18 +238,20 @@ export function extractImageGenPrompt(text: string): string | null {
 
   let match = trimmed.match(VERB_THEN_IMAGE);
   if (match?.[1]) {
+    if (isNonImageSubject(match[1])) return null;
     return cleanPrompt(match[1]);
   }
 
   match = trimmed.match(VERB_SUBJECT_IMAGE);
   if (match?.[1]) {
+    if (isNonImageSubject(match[1])) return null;
     return cleanPrompt(match[1]);
   }
 
   match = trimmed.match(DRAW_ME);
   if (match?.[1]) {
     const subject = match[1];
-    if (NON_IMAGE_SUBJECT.test(subject) || NON_IMAGE_DRAW.test(subject)) return null;
+    if (isNonImageSubject(subject)) return null;
     return cleanPrompt(subject);
   }
 

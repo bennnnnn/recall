@@ -1,7 +1,9 @@
 import {
   deletedIncludesActiveChat,
   getActiveChatIdGlobal,
+  registerNewChat,
   setActiveChatIdGlobal,
+  startNewChatGlobal,
 } from "@/lib/drawer";
 
 describe("deletedIncludesActiveChat", () => {
@@ -27,5 +29,21 @@ describe("deletedIncludesActiveChat", () => {
     expect(getActiveChatIdGlobal()).toBe("open-1");
     expect(deletedIncludesActiveChat(["open-1", "other"])).toBe(true);
     expect(deletedIncludesActiveChat(["other"])).toBe(false);
+  });
+});
+
+describe("registerNewChat", () => {
+  afterEach(() => {
+    registerNewChat(null);
+  });
+
+  it("clears the handler so a dead screen cannot create orphan drafts", () => {
+    const fn = jest.fn();
+    registerNewChat(fn);
+    startNewChatGlobal({ force: true });
+    expect(fn).toHaveBeenCalledWith({ force: true });
+    registerNewChat(null);
+    startNewChatGlobal({ force: true });
+    expect(fn).toHaveBeenCalledTimes(1);
   });
 });

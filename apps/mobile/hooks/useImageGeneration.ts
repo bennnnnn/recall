@@ -3,7 +3,8 @@ import { Alert } from "react-native";
 import { useRouter } from "expo-router";
 
 import { api } from "@/lib/api";
-import { parseApiErrorDetail, resolveChatError } from "@/lib/chatErrorMessage";
+import { ApiRequestError } from "@/lib/api/client";
+import { resolveChatError } from "@/lib/chatErrorMessage";
 import { notifyWarning } from "@/lib/haptics";
 import {
   IMAGE_GEN_PENDING_ASSISTANT_ID,
@@ -101,7 +102,7 @@ export function useImageGeneration({
         Alert.alert(t("chat.error_title"), t("chat.busy"));
         return;
       }
-      // Don't trust client isPro alone — try the API; 403/Pro errors open upgrade.
+      // Don't trust client isPro alone — try the API; HTTP 403 opens upgrade.
       if (isOffline) {
         notifyOfflineSendBlocked({
           warn: notifyWarning,
@@ -173,8 +174,7 @@ export function useImageGeneration({
           return;
         }
         const message = error instanceof Error ? error.message : t("common.error");
-        const parsed = parseApiErrorDetail(message) ?? message;
-        if (parsed.toLowerCase().includes("pro")) {
+        if (error instanceof ApiRequestError && error.status === 403) {
           onOpenUpgrade();
           return;
         }
