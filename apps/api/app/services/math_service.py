@@ -997,6 +997,34 @@ def sample_ellipse(a: float, b: float, n: int = 96) -> GraphSampleResult:
     )
 
 
+def build_ellipse_graph_spec(expr: str, n: int) -> GraphBlockSpec | None:
+    """If ``expr`` is an axis-aligned circle/ellipse relation, return the
+    parametrically-sampled ``GraphBlockSpec`` (with a square-ish viewport
+    around the curve); otherwise ``None``.
+
+    Shared by the heuristic ``_verified_block_graph`` (math_tools.py) and the
+    MCP ``sympy`` adapter so the sampling and y-range padding live in one
+    place — previously both copied the same ``-(b + max(1.0, b * 0.15))`` /
+    ``b + max(1.0, b * 0.15)`` viewport math, which could drift.
+    """
+    ellipse = parse_ellipse_relation(expr)
+    if ellipse is None:
+        return None
+    a, b = ellipse
+    sample = sample_ellipse(a, b, n)
+    return GraphBlockSpec(
+        expr=sample.expr,
+        variable=sample.variable,
+        x_min=sample.x_min,
+        x_max=sample.x_max,
+        y_min=-(b + max(1.0, b * 0.15)),
+        y_max=b + max(1.0, b * 0.15),
+        points=sample.points,
+        segments=[],
+        title=sample.expr,
+    )
+
+
 _EQUATION_SIDE_CHARS = frozenset(
     "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+-*/().^ "
 )

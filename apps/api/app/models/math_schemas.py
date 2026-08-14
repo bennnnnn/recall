@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -650,6 +651,17 @@ class GraphBlockSpec(BaseModel):
 
 class StatisticsInput(BaseModel):
     numbers: list[float] = Field(min_length=1, max_length=200)
+
+    @field_validator("numbers")
+    @classmethod
+    def reject_non_finite(cls, value: list[float]) -> list[float]:
+        # nan/inf propagate silently through max-min/fsum and produce a
+        # meaningless result; the matcher parses digits so this is mainly a
+        # guard against OCR/structured stats carrying a non-finite value.
+        for n in value:
+            if not math.isfinite(n):
+                raise ValueError("statistics values must be finite numbers")
+        return value
 
 
 class StatisticsResult(BaseModel):

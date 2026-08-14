@@ -77,9 +77,7 @@ async def test_extract_equation_uses_dedicated_ocr_timeout_not_solve_timeout():
         response.choices = [MagicMock(message=message)]
         return response
 
-    with patch(
-        "app.services.math_image_extract.acompletion", AsyncMock(side_effect=_slow_completion)
-    ):
+    with patch("app.gateways.litellm_gateway.acompletion", AsyncMock(side_effect=_slow_completion)):
         result = await mie.extract_equation_from_image(
             settings, content_type="image/jpeg", data=b"fake"
         )
@@ -115,7 +113,7 @@ def _real_path_settings() -> Settings:
 )
 async def test_extract_equation_parses_well_formed_json(raw_content: str):
     with patch(
-        "app.services.math_image_extract.acompletion",
+        "app.gateways.litellm_gateway.acompletion",
         AsyncMock(return_value=_fake_response(raw_content)),
     ):
         result = await mie.extract_equation_from_image(
@@ -131,7 +129,7 @@ async def test_extract_equation_parses_well_formed_json(raw_content: str):
 async def test_extract_equation_found_false_returns_none():
     raw = '{"lhs":"0","rhs":"0","variables":["x"],"found":false}'
     with patch(
-        "app.services.math_image_extract.acompletion",
+        "app.gateways.litellm_gateway.acompletion",
         AsyncMock(return_value=_fake_response(raw)),
     ):
         result = await mie.extract_equation_from_image(
@@ -151,7 +149,7 @@ async def test_extract_equation_found_false_returns_none():
 )
 async def test_extract_equation_malformed_json_returns_none(raw_content: str):
     with patch(
-        "app.services.math_image_extract.acompletion",
+        "app.gateways.litellm_gateway.acompletion",
         AsyncMock(return_value=_fake_response(raw_content)),
     ):
         result = await mie.extract_equation_from_image(
@@ -166,7 +164,7 @@ async def test_extract_equation_pydantic_validation_failure_returns_none():
     # as not found — same outcome as the old required-field validation failure.
     raw = '{"variables":["x"],"found":true}'
     with patch(
-        "app.services.math_image_extract.acompletion",
+        "app.gateways.litellm_gateway.acompletion",
         AsyncMock(return_value=_fake_response(raw)),
     ):
         result = await mie.extract_equation_from_image(
@@ -180,7 +178,7 @@ async def test_extract_equation_unwraps_single_element_list():
     """Models sometimes return [{...}] instead of {...}; accept that shape."""
     raw = '[{"lhs":"x^2","rhs":"5","variables":["x"],"found":true}]'
     with patch(
-        "app.services.math_image_extract.acompletion",
+        "app.gateways.litellm_gateway.acompletion",
         AsyncMock(return_value=_fake_response(raw)),
     ):
         result = await mie.extract_equation_from_image(
@@ -208,7 +206,7 @@ async def test_extract_equation_real_timeout_returns_none():
         await asyncio.sleep(5)
         raise AssertionError("should have been cancelled by the timeout")
 
-    with patch("app.services.math_image_extract.acompletion", side_effect=_hangs):
+    with patch("app.gateways.litellm_gateway.acompletion", side_effect=_hangs):
         result = await mie.extract_equation_from_image(
             settings, content_type="image/jpeg", data=b"fake"
         )
@@ -318,15 +316,17 @@ async def test_augment_prompt_messages_without_image_math_extract_mangles_ocr_te
 async def test_extract_equation_failure_logs_at_warning_not_debug(caplog):
     """BUG FIX: failures here used to log at DEBUG, so a real OCR outage
     (bad vision-model response, network failure, timeout) produced no signal
-    in prod logs at the default level."""
+    in prod logs at the default level. The vision call now lives in the
+    litellm gateway (vision_completion), which owns the provider-error log —
+    so the WARNING signal must surface there, not in the service logger."""
     settings = Settings(mock_llm_enabled=False, openrouter_api_key="test-key")
 
     with (
         patch(
-            "app.services.math_image_extract.acompletion",
+            "app.gateways.litellm_gateway.acompletion",
             AsyncMock(side_effect=RuntimeError("boom")),
         ),
-        caplog.at_level(logging.WARNING, logger="app.services.math_image_extract"),
+        caplog.at_level(logging.WARNING, logger="app.gateways.litellm_gateway"),
     ):
         result = await mie.extract_equation_from_image(
             settings, content_type="image/jpeg", data=b"fake"
@@ -334,6 +334,6 @@ async def test_extract_equation_failure_logs_at_warning_not_debug(caplog):
 
     assert result is None
     assert any(
-        "math image extract failed" in record.message and record.levelno == logging.WARNING
+        "Vision LLM" in record.message and record.levelno == logging.WARNING
         for record in caplog.records
     )

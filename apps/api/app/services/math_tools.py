@@ -560,20 +560,22 @@ def _extract_graph_intent(cleaned: str) -> MathIntent | None:
     g_expr = mtm.graph_expr(cleaned)
     if g_expr is None:
         return None
-    expr = _strip_trailing_filler(g_expr).replace("^", "**").replace(" ", "")
+    # _strip_trailing_filler(g_expr) used to run twice (once for the x= vertical
+    # check, once for the returned graph expr). Compute it once and derive
+    # both forms from it.
+    stripped = _strip_trailing_filler(g_expr)
+    expr_no_space = stripped.replace("^", "**").replace(" ", "")
     # Prefer vertical for "graph x=4"
-    if expr.lower().startswith("x="):
-        num = mtm.number_after(expr, "x=")
+    if expr_no_space.lower().startswith("x="):
+        num = mtm.number_after(expr_no_space, "x=")
         if num is None:
-            compact = expr.lower().replace(" ", "")
-            if compact.startswith("x="):
-                try:
-                    num = float(compact[2:])
-                except ValueError:
-                    num = None
+            try:
+                num = float(expr_no_space[2:])
+            except ValueError:
+                num = None
         if num is not None:
             return MathIntent(kind="vertical", point_x=num, operation="graph")
-    expr = _strip_trailing_filler(g_expr).replace("^", "**")
+    expr = stripped.replace("^", "**")
     return MathIntent(kind="graph", expr=expr, operation="graph")
 
 
@@ -1405,33 +1407,21 @@ def _verified_block_graph(
         return None
     # Axis-aligned circle/ellipse relations (x^2+y^2=1, x^2/9+y^2/4=1) are
     # not y=f(x) — sample parametrically into the same ```graph fence.
-    ellipse = math_service.parse_ellipse_relation(intent.expr)
-    if ellipse is not None:
-        a, b = ellipse
-        sample = math_service.sample_ellipse(a, b, settings.math_graph_max_points)
-        graph_spec = GraphBlockSpec(
-            expr=sample.expr,
-            variable=sample.variable,
-            x_min=sample.x_min,
-            x_max=sample.x_max,
-            # y-range for a square-ish viewport around the ellipse.
-            y_min=-(b + max(1.0, b * 0.15)),
-            y_max=b + max(1.0, b * 0.15),
-            points=sample.points,
-            segments=[],
-            title=sample.expr,
-        )
+    ellipse_spec = math_service.build_ellipse_graph_spec(
+        intent.expr[: settings.math_max_expr_length], settings.math_graph_max_points
+    )
+    if ellipse_spec is not None:
         lines.append(
-            f"Relation samples for {sample.expr}: {len(sample.points)} parametric points "
+            f"Relation samples for {ellipse_spec.expr}: {len(ellipse_spec.points)} parametric points "
             "(closed curve)."
         )
         lines.append(
             "When a plot helps, emit ONLY this fence ONCE — no 'corrected/final graph "
             "spec' heading, and do NOT paste or re-list the points array in prose "
             "(the app renders the fence as an SVG):\n"
-            f"{_fence('graph', graph_spec)}"
+            f"{_fence('graph', ellipse_spec)}"
         )
-        return VerifiedMathBlock(text="\n".join(lines), canonical_fence=graph_spec.model_dump())
+        return VerifiedMathBlock(text="\n".join(lines), canonical_fence=ellipse_spec.model_dump())
 
     line_spec = math_service.number_line_spec_from_expr(
         intent.expr[: settings.math_max_expr_length], intent.variable
@@ -1883,15 +1873,24 @@ async def build_math_augmentation(
     *,
     has_image_attachment: bool = False,
     image_math_extract: MathImageExtract | None = None,
+    needs_math: bool | None = None,
 ) -> tuple[str | None, VerifiedMathBlock | None]:
     """Compute the verified-math system block (or None) without mutating messages.
 
     Safe to run concurrently with web-search augmentation on the same base
     prompt — the caller injects returned blocks after gather.
+
+    ``needs_math`` lets a caller that already evaluated the math-intent signal
+    (e.g. prompt_builder uses it to gate the "calculating" status) pass it
+    through so the same message isn't scanned twice per turn. When None,
+    needs_symbolic_math is evaluated here (the historical behavior, kept for
+    any caller that doesn't pre-compute it).
     """
     if not settings.math_tools_enabled:
         return None, None
-    if not needs_symbolic_math(user_content, has_image_attachment=has_image_attachment):
+    if needs_math is None:
+        needs_math = needs_symbolic_math(user_content, has_image_attachment=has_image_attachment)
+    if not needs_math:
         return None, None
 
     if image_math_extract is not None:

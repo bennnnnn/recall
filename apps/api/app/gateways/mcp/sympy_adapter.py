@@ -111,6 +111,7 @@ class SympyAdapter:
         action = str(args.get("action") or "").strip().lower()
         expr = str(args.get("expr") or "")
         variable = str(args.get("variable") or "x")
+        expr_result: math_service.MathExprResult | None = None
         if action == "integrate":
             lower = str(args.get("lower") or args.get("start") or "").strip()
             upper = str(args.get("upper") or args.get("end") or "").strip()
@@ -118,20 +119,46 @@ class SympyAdapter:
                 expr_result = await self._run_off_loop(
                     math_service.integrate_definite, expr, variable, lower, upper
                 )
-                if expr_result is None:
-                    return ToolResult(name=self.name, content="Math error: timed out.")
-                return ToolResult(name=self.name, content=expr_result.result)
-        fn = {
-            "simplify": math_service.simplify_expression,
-            "diff": math_service.differentiate_expression,
-            "integrate": math_service.integrate_expression,
-            "factor": math_service.factor_expression,
-            "expand": math_service.expand_expression,
-        }[action]
-        expr_result = await self._run_off_loop(fn, expr, variable)
+        if expr_result is None:
+            fn = {
+                "simplify": math_service.simplify_expression,
+                "diff": math_service.differentiate_expression,
+                "integrate": math_service.integrate_expression,
+                "factor": math_service.factor_expression,
+                "expand": math_service.expand_expression,
+            }[action]
+            expr_result = await self._run_off_loop(fn, expr, variable)
         if expr_result is None:
             return ToolResult(name=self.name, content="Math error: timed out.")
-        return ToolResult(name=self.name, content=expr_result.result)
+        # Parity with the heuristic _verified_block_calculus path: an integral
+        # that SymPy couldn't close (it hands back a literal Integral(...) rather
+        # than raising) must NOT be asserted as a verified answer. Emit an
+        # honesty note and no ```answer / canonical fence so validate_math_fences
+        # does not overwrite the model's output with an unverified value.
+        if not expr_result.solved:
+            return ToolResult(
+                name=self.name,
+                content=(
+                    f"SymPy could not find a closed-form result (got: {expr_result.latex}). "
+                    "Do NOT claim this as a verified answer — tell the user no closed "
+                    "form was found, or explain why the integral is hard, instead of "
+                    "asserting a solution."
+                ),
+            )
+        # Attach a canonical ```answer fence so the post-stream rewriter
+        # (validate_math_fences) corrects the model's final answer to the
+        # verified SymPy value — same invariant _action_solve/_action_inequality
+        # already enforce for their kinds.
+        answer = expr_result.latex
+        return ToolResult(
+            name=self.name,
+            content=(
+                f"Result: {expr_result.latex}\n"
+                "End with this final-answer fence (copy verbatim):\n"
+                f"```answer\n{answer}\n```"
+            ),
+            data=_fence_data(math_tools._answer_canonical(answer)),
+        )
 
     async def _action_inequality(self, args: dict[str, Any]) -> ToolResult:
         comparator = str(args.get("comparator") or "").strip()
@@ -193,7 +220,24 @@ class SympyAdapter:
         )
         if limit_result is None:
             return ToolResult(name=self.name, content="Math error: timed out.")
-        return ToolResult(name=self.name, content=limit_result.result)
+        # Parity with _verified_block_limit: attach a canonical ```answer
+        # fence (the verified limit value) so validate_math_fences corrects
+        # the model's final answer; flag an infinite limit so the model
+        # renders \infty rather than treating it as a finite number.
+        content = f"Result: {limit_result.latex}"
+        if limit_result.is_infinite:
+            content += (
+                "\nThis limit is infinite (or does not exist as a finite two-sided "
+                "value) — render it as \\infty, do not treat it as an ordinary "
+                "finite number."
+            )
+        answer = limit_result.latex
+        return ToolResult(
+            name=self.name,
+            content=content + "\nEnd with this final-answer fence (copy verbatim):\n"
+            f"```answer\n{answer}\n```",
+            data=_fence_data(math_tools._answer_canonical(answer)),
+        )
 
     async def _action_series(self, args: dict[str, Any]) -> ToolResult:
         expr = str(args.get("expr") or "")
@@ -205,7 +249,27 @@ class SympyAdapter:
         )
         if series_result is None:
             return ToolResult(name=self.name, content="Math error: timed out.")
-        return ToolResult(name=self.name, content=series_result.result)
+        # Parity with _verified_block_series: attach a canonical ```answer
+        # fence (the verified sum value) so validate_math_fences corrects
+        # the model's final answer; flag divergence to infinity explicitly.
+        content = f"Result: {series_result.latex}"
+        if series_result.is_convergent is not None:
+            content += f"\nConvergent: {series_result.is_convergent}"
+            if series_result.is_absolutely_convergent is not None:
+                content += f" (absolutely convergent: {series_result.is_absolutely_convergent})"
+            content += "."
+        if series_result.is_infinite:
+            content += (
+                "\nThis series diverges to infinity — render it as \\infty, do "
+                "not treat it as an ordinary finite number."
+            )
+        answer = series_result.latex
+        return ToolResult(
+            name=self.name,
+            content=content + "\nEnd with this final-answer fence (copy verbatim):\n"
+            f"```answer\n{answer}\n```",
+            data=_fence_data(math_tools._answer_canonical(answer)),
+        )
 
     async def _action_newton(self, args: dict[str, Any]) -> ToolResult:
         newton_input = NewtonMethodInput(
@@ -362,29 +426,21 @@ class SympyAdapter:
         expr = str(args.get("expr") or "x**2")
 
         # Axis-aligned circle/ellipse relations — parametric sample (not y=f(x)).
-        ellipse = math_service.parse_ellipse_relation(expr)
-        if ellipse is not None and not str(args.get("expr2") or "").strip():
-            a, b = ellipse
-            graph_result = await self._run_off_loop(math_service.sample_ellipse, a, b, n)
-            if graph_result is None:
-                return ToolResult(name=self.name, content="Math error: timed out.")
-            graph_spec = GraphBlockSpec(
-                expr=graph_result.expr,
-                variable=graph_result.variable,
-                x_min=graph_result.x_min,
-                x_max=graph_result.x_max,
-                y_min=-(b + max(1.0, b * 0.15)),
-                y_max=b + max(1.0, b * 0.15),
-                points=graph_result.points,
-                segments=[],
-                title=graph_result.expr,
-            )
-            fence = graph_spec.model_dump()
+        # Shared with the heuristic _verified_block_graph so the sampling and
+        # y-range viewport stay in one place (math_service.build_ellipse_graph_spec).
+        # Routed through the bounded subprocess pool like the original
+        # sample_ellipse call was, so a pathological relation still can't
+        # block the worker event loop.
+        ellipse_spec = await self._run_off_loop(math_service.build_ellipse_graph_spec, expr, n)
+        if ellipse_spec is None or str(args.get("expr2") or "").strip():
+            ellipse_spec = None
+        if ellipse_spec is not None:
+            fence = ellipse_spec.model_dump()
             fence_json = json.dumps(fence, separators=(",", ":"))
             return ToolResult(
                 name=self.name,
                 content=(
-                    f"Sampled {len(graph_result.points)} parametric points for {graph_result.expr}\n"
+                    f"Sampled {len(ellipse_spec.points)} parametric points for {ellipse_spec.expr}\n"
                     "When a plot helps, emit ONLY this fence (NEVER ```json):\n"
                     f"```graph\n{fence_json}\n```"
                 ),
