@@ -10,6 +10,7 @@ import { connectGoogleCalendar } from "@/lib/google-calendar";
 import { connectGoogleGmail } from "@/lib/google-gmail";
 import { gmailSyncMessage } from "@/lib/gmailSyncFeedback";
 import { invalidateSuggestedRemindersCache } from "@/lib/suggestedRemindersCache";
+import { patchIntegrationStatusCache } from "@/lib/integrationStatusCache";
 
 export function useSettingsIntegrations() {
   const { token } = useAuth();
@@ -33,6 +34,13 @@ export function useSettingsIntegrations() {
     ]);
     if (calendarR.status === "fulfilled") setCalendarStatus(calendarR.value);
     if (gmailR.status === "fulfilled") setGmailStatus(gmailR.value);
+    if (calendarR.status === "fulfilled" || gmailR.status === "fulfilled") {
+      patchIntegrationStatusCache({
+        calendarConnected:
+          calendarR.status === "fulfilled" ? calendarR.value.connected : undefined,
+        gmailConnected: gmailR.status === "fulfilled" ? gmailR.value.connected : undefined,
+      });
+    }
     setLoadError(calendarR.status === "rejected" || gmailR.status === "rejected");
     setLoading(false);
   }, [token]);
@@ -58,6 +66,7 @@ export function useSettingsIntegrations() {
       const serverAuthCode = await connectGoogleCalendar({ write });
       const status = await api.connectGoogleCalendar(token, serverAuthCode);
       setCalendarStatus(status);
+      patchIntegrationStatusCache({ calendarConnected: status.connected });
     } catch (error) {
       const message = error instanceof Error ? error.message : t("settings.calendar_connect_failed");
       if (!message.toLowerCase().includes("cancel")) {
@@ -80,6 +89,7 @@ export function useSettingsIntegrations() {
           try {
             await api.disconnectGoogleCalendar(token);
             setCalendarStatus({ connected: false, configured: calendarStatus?.configured ?? true });
+            patchIntegrationStatusCache({ calendarConnected: false });
             Alert.alert(t("settings.calendar_title"), t("settings.calendar_disconnected"));
           } catch {
             Alert.alert(t("settings.calendar_title"), t("settings.calendar_connect_failed"));
@@ -98,6 +108,7 @@ export function useSettingsIntegrations() {
       const result = await api.syncGoogleGmail(token, { force: true });
       const status = await api.googleGmailStatus(token);
       setGmailStatus(status);
+      patchIntegrationStatusCache({ gmailConnected: status.connected });
       const message = gmailSyncMessage(result);
       Alert.alert(
         t("settings.gmail_title"),
@@ -120,6 +131,7 @@ export function useSettingsIntegrations() {
       await api.syncGoogleGmail(token, { force: true });
       const status = await api.googleGmailStatus(token);
       setGmailStatus(status);
+      patchIntegrationStatusCache({ gmailConnected: status.connected });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : t("settings.gmail_connect_failed");
       if (message !== "Gmail connect cancelled") {
@@ -160,6 +172,7 @@ export function useSettingsIntegrations() {
             invalidateSuggestedRemindersCache();
             const status = await api.googleGmailStatus(token);
             setGmailStatus(status);
+            patchIntegrationStatusCache({ gmailConnected: status.connected });
             Alert.alert(t("settings.gmail_title"), t("settings.gmail_disconnected"));
           } catch {
             Alert.alert(t("settings.gmail_title"), t("settings.gmail_connect_failed"));

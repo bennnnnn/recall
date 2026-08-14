@@ -224,6 +224,26 @@ export function DrawerChatFlashList({
       <StateView variant="empty" compact message={t("drawer.no_conversations")} />
     ) : null;
 
+  const contentContainerStyle = useMemo(
+    () => ({
+      paddingTop: contentPaddingTop,
+      paddingBottom: contentPaddingBottom,
+    }),
+    [contentPaddingTop, contentPaddingBottom],
+  );
+
+  const refreshControl = useMemo(
+    () => (
+      <RefreshControl
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        colors={[theme.primary]}
+        tintColor={theme.primary}
+      />
+    ),
+    [refreshing, onRefresh, theme.primary],
+  );
+
   return (
     <FlashList
       style={s.list}
@@ -234,21 +254,11 @@ export function DrawerChatFlashList({
       }
       getItemType={(item) => item.type}
       showsVerticalScrollIndicator={false}
-      contentContainerStyle={{
-        paddingTop: contentPaddingTop,
-        paddingBottom: contentPaddingBottom,
-      }}
+      contentContainerStyle={contentContainerStyle}
       keyboardShouldPersistTaps="handled"
       ListHeaderComponent={listHeader}
       ListEmptyComponent={listEmpty}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          colors={[theme.primary]}
-          tintColor={theme.primary}
-        />
-      }
+      refreshControl={refreshControl}
     />
   );
 }
