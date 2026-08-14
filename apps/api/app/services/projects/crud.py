@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -11,6 +12,7 @@ from app.models.orm import Project, ProjectItem, User
 from app.models.schemas import ProjectItemOut, ProjectListGroup, ProjectStats
 from app.repositories import project_items as project_items_repo
 from app.repositories import projects as projects_repo
+from app.services import home as home_service
 from app.services.projects import stats as project_stats
 from app.services.projects.common import (
     DEFAULT_LIST,
@@ -20,6 +22,13 @@ from app.services.projects.common import (
     normalize_project_kind,
 )
 from app.services.projects.prompt_context import _stats_for_items
+
+
+class ProjectsError(Exception):
+    def __init__(self, detail: str, *, status_code: int) -> None:
+        self.detail = detail
+        self.status_code = status_code
+        super().__init__(detail)
 
 
 def group_items(items: list[ProjectItem]) -> list[ProjectListGroup]:
@@ -170,7 +179,7 @@ async def create_learning_project(
         existing = await projects_repo.find_trivia_project(session, user.id)
         if existing:
             raise ValueError("trivia_project_exists")
-    return await projects_repo.create(
+    project = await projects_repo.create(
         session,
         user_id=user.id,
         title=title,
@@ -182,6 +191,82 @@ async def create_learning_project(
         daily_goal=daily_goal if normalized in LEARNING_PRODUCT_KINDS else None,
         timezone_name=time_context_service.effective_timezone(user.timezone, None),
     )
+    await home_service.invalidate_home_cache(user.id)
+    return project
+
+
+async def update_learning_project(
+    session: AsyncSession,
+    user: User,
+    project_id: UUID,
+    fields: dict[str, Any],
+    *,
+    client_timezone: str | None = None,
+) -> Project:
+    from app.services import daily_learning
+    from app.services import time_context as time_context_service
+
+    item = await projects_repo.get_by_id(session, project_id, user.id)
+    if item is None or not is_learning_product_kind(item.kind):
+        raise ProjectsError("Project not found", status_code=404)
+    patch = dict(fields)
+    if "kind" in patch:
+        patch["kind"] = normalize_project_kind(patch["kind"])
+        if patch["kind"] not in LEARNING_PRODUCT_KINDS:
+            raise ProjectsError("unsupported_project_kind", status_code=400)
+    new_goal = patch.get("daily_goal")
+    if isinstance(new_goal, int) and new_goal != item.daily_goal:
+        tz_name = time_context_service.effective_timezone(user.timezone, client_timezone)
+        tz = time_context_service.resolve_timezone(tz_name)
+        today = datetime.now(tz).date()
+        existing = daily_learning.parse_daily_goal_history(item)
+        patch["daily_goal_history"] = daily_learning.append_daily_goal_history(
+            existing or None,
+            old_goal=item.daily_goal,
+            new_goal=new_goal,
+            project_created=item.created_at,
+            effective_from=today,
+            timezone_name=tz_name,
+        )
+    updated = await projects_repo.update(session, item, **patch)
+    await home_service.invalidate_home_cache(user.id)
+    return updated
+
+
+async def update_learning_project_item(
+    session: AsyncSession,
+    user: User,
+    project_id: UUID,
+    item_id: UUID,
+    fields: dict[str, Any],
+) -> ProjectItem:
+    from app.services.projects.items import update_item
+
+    project = await projects_repo.get_by_id(session, project_id, user.id)
+    if project is None or not is_learning_product_kind(project.kind):
+        raise ProjectsError("Project not found", status_code=404)
+    if not fields:
+        raise ProjectsError("No fields to update", status_code=400)
+    item = await project_items_repo.get_by_id(session, item_id, user.id, project_id)
+    if not item:
+        raise ProjectsError("Item not found", status_code=404)
+    updated = await update_item(session, item, **fields)
+    await home_service.invalidate_home_cache(user.id)
+    return updated
+
+
+async def delete_learning_project(
+    session: AsyncSession,
+    user: User,
+    project_id: UUID,
+) -> None:
+    item = await projects_repo.get_by_id(session, project_id, user.id)
+    if item is None or not is_learning_product_kind(item.kind):
+        raise ProjectsError("Project not found", status_code=404)
+    deleted = await projects_repo.delete_by_id(session, project_id, user.id)
+    if not deleted:
+        raise ProjectsError("Project not found", status_code=404)
+    await home_service.invalidate_home_cache(user.id)
 
 
 async def get_project_detail(

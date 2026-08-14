@@ -158,16 +158,12 @@ async def apply_deterministic_quiz_answer(
     correct_letter = quiz.correct.upper()
     if not re.fullmatch(r"[A-D]", correct_letter):
         return None
-    verified = await vocab_quiz_service.verified_correct_letter(quiz)
-    if verified is not None:
-        correct_letter = verified
+    # Grade against the card's own answer key — never let the verifier replace
+    # it. A second LLM call is non-deterministic and context-blind; overriding
+    # would let the same card grade differently across retries and write a
+    # false miss into SM-2.
     is_correct = letter == correct_letter
     correct_text = quiz.correct_text
-    if verified is not None:
-        for choice_letter, choice_text in quiz.choices:
-            if choice_letter.upper() == correct_letter:
-                correct_text = choice_text
-                break
 
     try_number = max(1, attempt)
     tries_exhausted = (not is_correct) and (
@@ -175,6 +171,13 @@ async def apply_deterministic_quiz_answer(
     )
     # Persist correct immediately; persist misses only after 3 wrong tries.
     should_persist = is_correct or tries_exhausted
+    if should_persist:
+        verified = await vocab_quiz_service.verified_correct_letter(quiz)
+        if verified is not None and verified != correct_letter:
+            # Disagreement abstains: skip the ledger write rather than stamp
+            # SM-2 from an uncertain card. The grade returned to the model
+            # still uses quiz.correct so the hint matches the card the user saw.
+            should_persist = False
 
     if is_trivia:
         topic = quiz.word.strip()

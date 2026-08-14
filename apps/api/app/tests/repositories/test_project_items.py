@@ -204,6 +204,19 @@ async def test_update_syncs_mastered_fields(fake_session):
     assert updated.status == "mastered"
     assert updated.mastered is True
     assert updated.mastered_at is not None
+    fake_session.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_update_commit_false_flushes(fake_session):
+    item = _item(status="new")
+    item.status = "new"
+    item.mastered = False
+
+    await repo.update(fake_session, item, status="learning", commit=False)
+
+    fake_session.flush.assert_awaited_once()
+    fake_session.commit.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -215,6 +228,20 @@ async def test_delete_by_id_returns_rowcount(fake_session):
     deleted = await repo.delete_by_id(fake_session, uuid4(), uuid4())
 
     assert deleted is True
+    fake_session.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_delete_by_id_commit_false_flushes(fake_session):
+    mock_result = MagicMock()
+    mock_result.rowcount = 1
+    fake_session.execute.return_value = mock_result
+
+    deleted = await repo.delete_by_id(fake_session, uuid4(), uuid4(), commit=False)
+
+    assert deleted is True
+    fake_session.flush.assert_awaited_once()
+    fake_session.commit.assert_not_awaited()
 
 
 @pytest.mark.asyncio

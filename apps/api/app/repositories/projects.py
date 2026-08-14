@@ -105,6 +105,7 @@ async def create(
     level: str = "level1",
     daily_goal: int | None = None,
     timezone_name: str = "UTC",
+    commit: bool = True,
 ) -> Project:
     normalized_kind = "language" if kind == "vocabulary" else kind
     project = Project(
@@ -123,8 +124,12 @@ async def create(
         ),
     )
     session.add(project)
-    await session.commit()
-    await session.refresh(project)
+    if commit:
+        await session.commit()
+        await session.refresh(project)
+    else:
+        await session.flush()
+        await session.refresh(project)
     return project
 
 

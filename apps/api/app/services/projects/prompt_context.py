@@ -203,6 +203,7 @@ async def load_project_for_prompt(
             user_id,
             project_id,
             include_learning=_is_trivia_project(project),
+            max_chars=settings.quiz_exclusion_max_chars,
         )
         if covered_lines:
             block = f"{block}{''.join(covered_lines)}"

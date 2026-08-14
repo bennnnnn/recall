@@ -80,6 +80,23 @@ async def test_projects_create_normalizes_vocabulary_kind(fake_session):
 
 
 @pytest.mark.asyncio
+async def test_projects_create_commit_false_flushes(fake_session):
+    from app.repositories.projects import create
+
+    project = await create(
+        fake_session,
+        user_id=uuid4(),
+        title="Spanish",
+        kind="language",
+        commit=False,
+    )
+
+    assert project.kind == "language"
+    fake_session.flush.assert_awaited_once()
+    fake_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_projects_delete_by_id_not_found(fake_session):
     from app.repositories.projects import delete_by_id
 

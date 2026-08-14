@@ -55,6 +55,7 @@ def test_format_covered_quiz_lines_bans_ledger_and_just_answered():
     lines = projects_quiz_context._format_covered_quiz_lines(
         ["apple", "banana"],
         just_answered="cherry",
+        max_chars=10_000,
     )
     text = "\n".join(lines)
     assert "Do NOT ask these again" in text
@@ -68,7 +69,7 @@ def test_format_covered_quiz_lines_dedupes_case_and_caps():
     lines = projects_quiz_context._format_covered_quiz_lines(
         ["Apple", "apple", "Banana"] + [f"word{i}" for i in range(50)],
         just_answered="APPLE",
-        limit=5,
+        max_chars=40,
     )
     text = "\n".join(lines)
     assert text.count("- apple") + text.count("- Apple") + text.count("- APPLE") == 1
@@ -104,6 +105,7 @@ async def test_load_trivia_quiz_context_correct_bans_repeat():
     covered.note = None
     covered.example_sentence = None
     covered.last_incorrect_at = None
+    list_for_user = AsyncMock(return_value=[covered])
 
     with (
         patch(
@@ -112,7 +114,7 @@ async def test_load_trivia_quiz_context_correct_bans_repeat():
         ),
         patch(
             "app.repositories.project_items.list_for_user",
-            new=AsyncMock(return_value=[covered]),
+            new=list_for_user,
         ),
         patch(
             "app.repositories.project_items.list_quiz_exclusion_contents",
@@ -141,6 +143,7 @@ async def test_load_trivia_quiz_context_correct_bans_repeat():
     assert "Which treaty officially ended World War I?" in block
     assert "WRONG" not in block
     assert "prioritize revisiting" not in block
+    list_for_user.assert_not_awaited()
 
 
 def test_format_quiz_grading_hint_exhausted_moves_on():
@@ -195,6 +198,10 @@ async def test_apply_deterministic_marks_tries_exhausted_on_third_wrong():
             "app.services.projects.quiz_grading.apply_quiz_result",
             new=AsyncMock(),
         ),
+        patch(
+            "app.services.vocab_quiz.verified_correct_letter",
+            new=AsyncMock(return_value=None),
+        ),
     ):
         grade = await projects_service.apply_deterministic_quiz_answer(
             session,
@@ -228,6 +235,7 @@ async def test_apply_deterministic_wrong_before_limit_not_exhausted():
         target_language="en",
     )
     apply_result = AsyncMock()
+    verified = AsyncMock(return_value="A")
 
     with (
         patch(
@@ -246,6 +254,10 @@ async def test_apply_deterministic_wrong_before_limit_not_exhausted():
             "app.services.projects.quiz_grading.apply_quiz_result",
             new=apply_result,
         ),
+        patch(
+            "app.services.vocab_quiz.verified_correct_letter",
+            new=verified,
+        ),
     ):
         grade = await projects_service.apply_deterministic_quiz_answer(
             session,
@@ -262,6 +274,7 @@ async def test_apply_deterministic_wrong_before_limit_not_exhausted():
     assert grade.tries_exhausted is False
     assert grade.attempt == 2
     apply_result.assert_not_called()
+    verified.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -298,6 +311,10 @@ async def test_apply_deterministic_persists_free_text_miss_on_third_try():
         patch(
             "app.services.projects.quiz_grading.apply_quiz_result",
             new=apply_result,
+        ),
+        patch(
+            "app.services.vocab_quiz.verified_correct_letter",
+            new=AsyncMock(return_value=None),
         ),
     ):
         grade = await projects_service.apply_deterministic_quiz_answer(
@@ -595,6 +612,10 @@ async def test_apply_deterministic_quiz_answer_trivia_correct():
             "app.services.projects.quiz_grading.apply_quiz_result",
             new=AsyncMock(),
         ) as apply_mock,
+        patch(
+            "app.services.vocab_quiz.verified_correct_letter",
+            new=AsyncMock(return_value=None),
+        ),
     ):
         grade = await projects_service.apply_deterministic_quiz_answer(
             session,
@@ -652,6 +673,10 @@ async def test_apply_deterministic_quiz_answer_records_wrong_trivia_as_learning(
             "app.services.projects.quiz_grading.apply_quiz_result",
             new=AsyncMock(),
         ) as apply_mock,
+        patch(
+            "app.services.vocab_quiz.verified_correct_letter",
+            new=AsyncMock(return_value=None),
+        ),
     ):
         grade = await projects_service.apply_deterministic_quiz_answer(
             session,
@@ -716,6 +741,10 @@ async def test_apply_deterministic_trivia_backfills_answer_on_existing_item():
         patch(
             "app.services.projects.quiz_grading.apply_quiz_result",
             new=AsyncMock(),
+        ),
+        patch(
+            "app.services.vocab_quiz.verified_correct_letter",
+            new=AsyncMock(return_value=None),
         ),
     ):
         grade = await projects_service.apply_deterministic_quiz_answer(
