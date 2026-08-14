@@ -1254,6 +1254,28 @@ async def test_todos_repo_create():
 
 
 @pytest.mark.asyncio
+async def test_todos_repo_create_commit_false_flushes_without_commit():
+    from app.repositories.todos import create
+
+    todo_mock = MagicMock()
+    session = AsyncMock()
+    session.add = MagicMock()
+    session.commit = AsyncMock()
+    session.flush = AsyncMock()
+    session.refresh = AsyncMock()
+
+    with (
+        patch("app.repositories.todos.next_sort_order", AsyncMock(return_value=1)),
+        patch("app.repositories.todos.TodoItem", return_value=todo_mock),
+    ):
+        result = await create(session, user_id=uuid4(), content="Task 1", commit=False)
+    assert result is todo_mock
+    session.add.assert_called_once()
+    session.flush.assert_awaited_once()
+    session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_todos_repo_update_unchecks():
     from app.repositories.todos import update
 

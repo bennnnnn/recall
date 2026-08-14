@@ -30,8 +30,8 @@ async def extract_todo_actions(
                 "Current Reminders & Lists JSON:\n"
                 f"{snapshot}\n\n"
                 "Return ONLY JSON (no markdown): "
-                '{"actions": [{"action": "add|complete|uncheck|delete|delete_list|set_due|clear_due", '
-                '"topic": "list title", "content": "item text (omit for delete_list)", '
+                '{"actions": [{"action": "add|complete|uncheck|delete|set_due|clear_due", '
+                '"topic": "list title", "content": "item text", '
                 '"due_at": "ISO-8601 datetime or null"}]}. '
                 "Rules:\n"
                 "- For add WITHOUT a due date (list item): only when the user gave a clear "
@@ -59,8 +59,6 @@ async def extract_todo_actions(
                 "overdue reminders, emit one delete action per open overdue item in the "
                 "snapshot (match title + topic exactly). There is no separate server-side "
                 "bulk wipe — only these explicit delete actions are applied.\n"
-                "- For delete_list: when the user clearly wants to remove an entire list, emit one "
-                "action per list title; leave content empty. Skipped server-side if open items remain.\n"
                 "- Only emit actions the user clearly requested this turn (or confirmed via "
                 "Yes after an offer in the transcript).\n"
                 "- Return empty actions array if none."

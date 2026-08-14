@@ -243,7 +243,6 @@ async def build_stream_prompt_context(
     has_image_attachment: bool = False,
     image_math_extract: MathImageExtract | None = None,
     on_status: StreamStatusFn | None = None,
-    todo_sync_feedback: str | None = None,
     quiz_mode: str | None = None,
     user: User | None = None,
     chat: Chat | None = None,
@@ -312,7 +311,6 @@ async def build_stream_prompt_context(
         quiz_grade=quiz_grade,
         client_timezone=client_timezone,
         prompt_location=geo.user_location if geo.geo_query and geo.has_geo_fix else None,
-        todo_sync_feedback=todo_sync_feedback,
         on_status=on_status,
         omit_message_ids=omit_message_ids,
     )

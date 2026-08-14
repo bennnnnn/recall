@@ -164,14 +164,3 @@ def transcript_implies_todo_sync(transcript: str) -> bool:
         if _AFFIRMATIVE.match(user_m.group(1).strip()) and _REMINDER_OR_TODO_WORD.search(asst_body):
             return True
     return False
-
-
-def should_pre_sync_todos(user_message: str, transcript: str) -> bool:
-    if query_implies_todos(user_message):
-        return True
-    if transcript_implies_todo_sync(transcript):
-        return True
-    text = user_message.strip()
-    if _AFFIRMATIVE.match(text) and re.search(r"\bdelete\b", transcript, re.IGNORECASE):
-        return True
-    return False

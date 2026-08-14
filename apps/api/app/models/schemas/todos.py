@@ -53,7 +53,6 @@ class TodoActionItem(BaseModel):
         "complete",
         "uncheck",
         "delete",
-        "delete_list",
         "set_due",
         "clear_due",
     ]
@@ -64,10 +63,6 @@ class TodoActionItem(BaseModel):
 
     @model_validator(mode="after")
     def validate_action_fields(self) -> Self:
-        if self.action == "delete_list":
-            if not self.topic.strip():
-                raise ValueError("delete_list requires topic")
-            return self
         if not self.content.strip():
             raise ValueError("content is required for this action")
         if self.action == "set_due" and self.due_at is None:

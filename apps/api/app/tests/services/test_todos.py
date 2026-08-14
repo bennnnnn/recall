@@ -206,20 +206,16 @@ async def test_sync_todos_from_transcript_releases_db_before_llm():
 
 
 @pytest.mark.asyncio
-async def test_sync_todos_refuses_delete_list_from_transcript_and_caps_actions():
-    """A delete_list inferred from a transcript must not be applied, and only the
-    first MAX_TODO_ACTIONS_PER_TURN actions run."""
+async def test_sync_todos_caps_actions_per_turn():
+    """Only the first MAX_TODO_ACTIONS_PER_TURN actions run."""
     session = AsyncMock()
     user_id = uuid4()
     user = MagicMock()
     user.timezone = "UTC"
     extraction = MagicMock()
     extraction.actions = [
-        TodoActionItem(action="delete_list", topic="Work", content=""),
-        *[
-            TodoActionItem(action="add", topic="Shop", content=f"item-{i}")
-            for i in range(todos_service.MAX_TODO_ACTIONS_PER_TURN + 3)
-        ],
+        TodoActionItem(action="add", topic="Shop", content=f"item-{i}")
+        for i in range(todos_service.MAX_TODO_ACTIONS_PER_TURN + 3)
     ]
 
     captured: dict[str, object] = {}
@@ -250,11 +246,10 @@ async def test_sync_todos_refuses_delete_list_from_transcript_and_caps_actions()
             Settings(),
             user_id=user_id,
             chat_id=uuid4(),
-            transcript="User: delete my work list and add milk eggs bread extra\nAssistant: ok",
+            transcript="User: add milk eggs bread extra\nAssistant: ok",
         )
 
     sent = captured["actions"]
-    assert all(a.action != "delete_list" for a in sent)
     assert len(sent) == todos_service.MAX_TODO_ACTIONS_PER_TURN
 
 
@@ -292,54 +287,6 @@ def test_format_todos_block_splits_reminders_and_lists():
     assert "User Lists" in block
     assert "## Groceries" in block
     assert block.index("User Reminders") < block.index("User Lists")
-
-
-@pytest.mark.asyncio
-async def test_apply_todo_actions_delete_list():
-    session = AsyncMock()
-    done_a = _item("Task A", "Work")
-    done_a.checked = True
-    done_b = _item("Task B", "Work")
-    done_b.checked = True
-    with (
-        patch.object(
-            todos_repo,
-            "list_for_user",
-            AsyncMock(return_value=[done_a, done_b]),
-        ),
-        patch.object(
-            todos_repo,
-            "delete_by_topic",
-            AsyncMock(return_value=2),
-        ) as delete_mock,
-    ):
-        applied = await todos_service.apply_todo_actions(
-            session,
-            user_id=uuid4(),
-            actions=[TodoActionItem(action="delete_list", topic="Work", content="")],
-        )
-    assert applied == 1
-    delete_mock.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-async def test_apply_todo_actions_delete_list_blocked_when_open():
-    session = AsyncMock()
-    items = [_item("Task A", "Work")]
-    feedback: list[str] = []
-    with patch.object(
-        todos_repo,
-        "list_for_user",
-        AsyncMock(return_value=items),
-    ):
-        applied = await todos_service.apply_todo_actions(
-            session,
-            user_id=uuid4(),
-            actions=[TodoActionItem(action="delete_list", topic="Work", content="")],
-            feedback=feedback,
-        )
-    assert applied == 0
-    assert any("Blocked delete list" in line for line in feedback)
 
 
 @pytest.mark.asyncio
@@ -403,23 +350,6 @@ async def test_apply_todo_actions_set_due():
     update_mock.assert_awaited()
 
 
-@pytest.mark.asyncio
-async def test_load_todos_for_prompt():
-    session = AsyncMock()
-    user = MagicMock()
-    user.id = uuid4()
-    user.timezone = "UTC"
-    with patch.object(
-        todos_repo,
-        "list_for_user",
-        AsyncMock(return_value=[_item("Task")]),
-    ):
-        block = await todos_service.load_todos_for_prompt(
-            session, user, Settings(), query_text="Show my tasks"
-        )
-    assert "Task" in block
-
-
 def test_select_todos_for_prompt_prioritizes_overdue():
     now = datetime.now(UTC)
     overdue = _item("Overdue task")
@@ -472,12 +402,6 @@ def test_todo_hint_does_not_promise_pre_reply_application():
     assert "whole-list delete is NOT supported from chat" in hint
 
 
-def test_todo_sync_feedback_header_describes_post_reply_timing():
-    header = todos_service.TODO_SYNC_FEEDBACK_HEADER
-    assert "before this reply" not in header
-    assert "after the previous reply" in header
-
-
 def test_transcript_implies_todo_sync():
     assert todos_service.transcript_implies_todo_sync(
         "User: add eggs\nAssistant: Added eggs to Groceries."
@@ -518,31 +442,6 @@ def test_transcript_implies_todo_sync_overdue_delete():
 
 
 @pytest.mark.asyncio
-async def test_apply_delete_overdue_removes_past_due_only():
-    session = AsyncMock()
-    overdue = _item_overdue("Dd — midnight check", hours_ago=12)
-    future = _item("World Cup", topic="Reminders")
-    future.due_at = datetime.now(UTC) + timedelta(days=7)
-    no_due = _item("Milk")
-    checked = _item_overdue("Done already", hours_ago=5)
-    checked.checked = True
-    with patch.object(
-        todos_repo,
-        "delete_by_id",
-        AsyncMock(return_value=True),
-    ) as delete_mock:
-        applied = await todos_actions._apply_delete_overdue_open_reminders(
-            session,
-            user_id=uuid4(),
-            items=[overdue, future, no_due, checked],
-            user_timezone="UTC",
-        )
-    assert applied == 1
-    delete_mock.assert_awaited_once()
-    assert delete_mock.await_args.args[1] == overdue.id
-
-
-@pytest.mark.asyncio
 async def test_sync_todos_does_not_bulk_wipe_overdue_after_empty_llm_apply():
     """Transcript sync must not mass-delete overdue items via heuristic wipe."""
     session = AsyncMock()
@@ -578,9 +477,9 @@ async def test_sync_todos_does_not_bulk_wipe_overdue_after_empty_llm_apply():
             AsyncMock(return_value=0),
         ),
         patch.object(
-            todos_actions,
-            "_apply_delete_overdue_open_reminders",
-            AsyncMock(return_value=2),
+            todos_repo,
+            "delete_by_id",
+            AsyncMock(return_value=True),
         ) as delete_mock,
         patch.object(
             home_service,
@@ -768,6 +667,31 @@ async def test_apply_todo_actions_dedupes_add():
 
 
 @pytest.mark.asyncio
+async def test_apply_todo_actions_add_appends_for_same_batch_dedupe():
+    """After an add, the next action must see the new row in state.items
+    without a full list_for_user reload."""
+    session = AsyncMock()
+    created = _item("Eggs", "Groceries")
+    with (
+        patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])) as list_mock,
+        patch.object(todos_repo, "create", AsyncMock(return_value=created)) as create_mock,
+    ):
+        applied = await todos_service.apply_todo_actions(
+            session,
+            user_id=uuid4(),
+            actions=[
+                TodoActionItem(action="add", topic="Groceries", content="Eggs"),
+                TodoActionItem(action="add", topic="Groceries", content="Eggs"),
+            ],
+        )
+    assert applied == 1
+    create_mock.assert_awaited_once()
+    assert create_mock.await_args.kwargs.get("commit") is False
+    assert list_mock.await_count == 1
+    session.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_apply_todo_actions_wildcard_set_due_today():
     session = AsyncMock()
     due_today_a = _item_due_today("Walk", hour=9)
@@ -804,20 +728,21 @@ async def test_apply_todo_actions_wildcard_set_due_today():
 
 
 @pytest.mark.asyncio
-async def test_load_todos_for_prompt_skips_unrelated_query():
+async def test_build_todos_system_section_skips_unrelated_query():
     session = AsyncMock()
     user = MagicMock()
     user.id = uuid4()
     user.timezone = "UTC"
-    with patch.object(
-        todos_repo,
-        "list_for_user",
-        AsyncMock(return_value=[_item("Task")]),
+    list_mock = AsyncMock(return_value=[_item("Task")])
+    with (
+        patch.object(todos_repo, "list_due_soon", AsyncMock(return_value=[])),
+        patch.object(todos_repo, "list_for_user", list_mock),
     ):
-        block = await todos_service.load_todos_for_prompt(
+        section = await todos_service.build_todos_system_section(
             session, user, Settings(), query_text="Who am I?"
         )
-    assert block == ""
+    assert section is None
+    list_mock.assert_not_awaited()
 
 
 @pytest.mark.asyncio

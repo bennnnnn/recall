@@ -1442,13 +1442,9 @@ async def test_stream_skips_pre_reply_todo_llm_sync(stream_offline_io):
         patch("app.services.email.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
-            "app.services.todos.should_pre_sync_todos",
-            MagicMock(return_value=True),
-        ),
-        patch(
-            "app.services.todos.sync_todos_before_reply",
+            "app.services.todos.extract.extract_todo_actions",
             AsyncMock(),
-        ) as pre_sync,
+        ) as extract_mock,
         patch(
             "app.services.web_search.build_search_augmentation",
             AsyncMock(return_value=(None, [])),
@@ -1467,7 +1463,7 @@ async def test_stream_skips_pre_reply_todo_llm_sync(stream_offline_io):
         ):
             pass
 
-    pre_sync.assert_not_awaited()
+    extract_mock.assert_not_awaited()
 
 
 @pytest.mark.asyncio

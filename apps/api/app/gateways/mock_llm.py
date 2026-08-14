@@ -292,12 +292,6 @@ async def mock_todo_actions(user_message: str, current_todos: list[dict[str, obj
 
     text = user_message.lower()
     actions: list[TodoActionItem] = []
-    if "delete" in text and "list" in text:
-        topics = {str(t.get("topic") or "") for t in current_todos if t.get("topic")}
-        for topic in sorted(topics):
-            if topic and topic.lower() in text:
-                actions.append(TodoActionItem(action="delete_list", topic=topic, content=""))
-                break
     if "add" in text or "remind me" in text:
         # crude: extract after "add" or use whole user line
         for line in user_message.splitlines():

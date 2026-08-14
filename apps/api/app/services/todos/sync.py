@@ -11,22 +11,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.models.orm import Message
-from app.models.schemas import TodoActionItem, TodoExtractionResult
+from app.models.schemas import TodoExtractionResult
 from app.repositories import todos as todos_repo
 from app.repositories import users as users_repo
 from app.services import home as home_service
 from app.services.todos.actions import (
     _ACTION_RELOAD_LIMIT,
     MAX_TODO_ACTIONS_PER_TURN,
-    TODO_BLOCKED_FROM_TRANSCRIPT,
 )
 from app.services.todos.classification import _transcript_implies_bulk_shift_to_tomorrow
 
 logger = logging.getLogger(__name__)
-
-TODO_SYNC_FEEDBACK_HEADER = (
-    "Reminders & Lists sync results (applied after the previous reply — describe accurately):\n"
-)
 
 TODO_SYNC_RECENT_MESSAGES = 8
 
@@ -54,13 +49,6 @@ async def build_todo_sync_transcript(
     if len(recent) >= 2:
         return format_chat_transcript(recent)
     return f"User: {user_message}\nAssistant: {assistant_text}"
-
-
-def format_todo_sync_feedback(feedback: list[str]) -> str | None:
-    if not feedback:
-        return None
-    body = "\n".join(f"- {line}" for line in feedback)
-    return f"{TODO_SYNC_FEEDBACK_HEADER}{body}"
 
 
 @dataclass(frozen=True)
@@ -99,9 +87,7 @@ async def _apply_todo_extraction_result(
     chat_id: UUID,
     transcript: str,
     result: TodoExtractionResult | None,
-    allow_delete_list: bool,
     user_timezone: str | None,
-    feedback: list[str] | None = None,
 ) -> None:
     # Resolve apply via package so tests can patch todos_service.apply_todo_actions.
     # Bulk helpers are private — import (and patch) from actions.
@@ -109,29 +95,14 @@ async def _apply_todo_extraction_result(
     from app.services.todos.actions import _apply_bulk_shift_due_today_to_tomorrow
 
     if result and result.actions:
-        safe_actions: list[TodoActionItem] = []
-        for action in result.actions:
-            if not allow_delete_list and action.action in TODO_BLOCKED_FROM_TRANSCRIPT:
-                logger.warning(
-                    "Refused destructive todo action %s from transcript for "
-                    "user_id=%s topic=%s (requires explicit user action)",
-                    action.action,
-                    user_id,
-                    action.topic,
-                )
-                continue
-            safe_actions.append(action)
-            if len(safe_actions) >= MAX_TODO_ACTIONS_PER_TURN:
-                break
-        if safe_actions:
-            await apply_todo_actions(
-                session,
-                user_id=user_id,
-                actions=safe_actions,
-                chat_id=chat_id,
-                user_timezone=user_timezone,
-                feedback=feedback,
-            )
+        safe_actions = result.actions[:MAX_TODO_ACTIONS_PER_TURN]
+        await apply_todo_actions(
+            session,
+            user_id=user_id,
+            actions=safe_actions,
+            chat_id=chat_id,
+            user_timezone=user_timezone,
+        )
     if _transcript_implies_bulk_shift_to_tomorrow(transcript):
         items = await todos_repo.list_for_user(session, user_id, limit=_ACTION_RELOAD_LIMIT)
         bulk_applied = await _apply_bulk_shift_due_today_to_tomorrow(
@@ -141,8 +112,6 @@ async def _apply_todo_extraction_result(
             user_timezone=user_timezone,
         )
         if bulk_applied:
-            if feedback is not None:
-                feedback.append(f"Moved {bulk_applied} reminder(s) due today to tomorrow.")
             logger.info(
                 "Bulk-shifted %d todo(s) due today → tomorrow for user_id=%s",
                 bulk_applied,
@@ -151,7 +120,7 @@ async def _apply_todo_extraction_result(
             await home_service.invalidate_home_cache(user_id)
     # Deliberately no bulk overdue wipe here. Regex-triggered mass deletes had
     # unbounded blast radius; "delete overdue" must land as explicit LLM
-    # `delete` actions (capped) instead of `_apply_delete_overdue_open_reminders`.
+    # `delete` actions (capped).
 
 
 async def _run_extracted_todo_actions(
@@ -160,8 +129,6 @@ async def _run_extracted_todo_actions(
     user_id: UUID,
     chat_id: UUID,
     transcript: str,
-    allow_delete_list: bool,
-    feedback: list[str] | None = None,
 ) -> TodoExtractionResult | None:
     from app.core.db import SessionLocal
     from app.services.todos.extract import extract_todo_actions
@@ -189,35 +156,10 @@ async def _run_extracted_todo_actions(
             chat_id=chat_id,
             transcript=transcript,
             result=result,
-            allow_delete_list=allow_delete_list,
             user_timezone=loaded.user_timezone,
-            feedback=feedback,
         )
         await session.commit()
     return result
-
-
-async def sync_todos_before_reply(
-    settings: Settings,
-    *,
-    user_id: UUID,
-    chat_id: UUID,
-    transcript: str,
-) -> list[str]:
-    """Apply todo mutations before the assistant reply; return user-facing notes."""
-    feedback: list[str] = []
-    try:
-        await _run_extracted_todo_actions(
-            settings,
-            user_id=user_id,
-            chat_id=chat_id,
-            transcript=transcript,
-            allow_delete_list=True,
-            feedback=feedback,
-        )
-    except Exception:
-        logger.exception("Pre-reply todo sync failed for user_id=%s", user_id)
-    return feedback
 
 
 async def sync_todos_from_transcript(
@@ -233,7 +175,6 @@ async def sync_todos_from_transcript(
             user_id=user_id,
             chat_id=chat_id,
             transcript=transcript,
-            allow_delete_list=False,
         )
     except Exception:
         logger.exception("Todo sync failed for user_id=%s", user_id)
