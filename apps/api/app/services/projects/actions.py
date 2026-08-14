@@ -58,18 +58,6 @@ class _ProjectApplyState:
     items: list[ProjectItem]
 
 
-async def _reload_items_for_project(state: _ProjectApplyState, project_id: UUID) -> None:
-    """Refresh the in-memory dedup window for one project (not a global top-N)."""
-    fresh = await project_items_repo.list_recent_for_user(
-        state.session,
-        state.user_id,
-        project_id=project_id,
-        limit=_ACTION_RELOAD_LIMIT,
-    )
-    others = [item for item in state.items if item.project_id != project_id]
-    state.items = others + fresh
-
-
 def _prepare_project_action(action: ProjectActionItem) -> ProjectActionItem | None:
     title = action.project_title.strip()
     if not title:
@@ -98,15 +86,20 @@ async def _project_action_create_project(
     if _find_project(state.projects, title):
         return 0
     try:
-        project = await projects_repo.create(
-            state.session,
-            user_id=state.user_id,
-            title=title,
-            description=(action.description or "").strip() or None,
-            kind=kind,
-            level=action.level or "level1",
-            target_language="en",
-        )
+        # SAVEPOINT so a unique-index race rolls back this INSERT only —
+        # session.rollback() would discard earlier commit=False writes in
+        # the same batch (e.g. start_learning then create_project).
+        async with state.session.begin_nested():
+            project = await projects_repo.create(
+                state.session,
+                user_id=state.user_id,
+                title=title,
+                description=(action.description or "").strip() or None,
+                kind=kind,
+                level=action.level or "level1",
+                target_language="en",
+                commit=False,
+            )
     except IntegrityError:
         # BUG FIX (was silent): the in-memory checks above aren't
         # safe against two near-concurrent project-sync jobs for
@@ -115,7 +108,6 @@ async def _project_action_create_project(
         # guard — a race loses here and should just no-op, not
         # raise into the background job or poison the rest of
         # this turn's actions with an un-rolled-back session.
-        await state.session.rollback()
         logger.debug(
             "create_project raced with an existing active %s project for user_id=%s; skipping",
             kind,
@@ -128,7 +120,7 @@ async def _project_action_create_project(
         list_title = action.list_title.strip() or DEFAULT_LIST
         from app.services.projects.items import create_item
 
-        await create_item(
+        new_item = await create_item(
             state.session,
             user_id=state.user_id,
             project_id=project.id,
@@ -138,9 +130,10 @@ async def _project_action_create_project(
             definition=action.definition,
             example_sentence=action.example_sentence or action.note,
             chat_id=state.chat_id,
+            commit=False,
         )
         applied += 1
-        await _reload_items_for_project(state, project.id)
+        state.items.append(new_item)
     return applied
 
 
@@ -199,7 +192,7 @@ async def _project_action_add(state: _ProjectApplyState, action: ProjectActionIt
         return 0
     from app.services.projects.items import create_item
 
-    await create_item(
+    new_item = await create_item(
         state.session,
         user_id=state.user_id,
         project_id=project.id,
@@ -210,8 +203,9 @@ async def _project_action_add(state: _ProjectApplyState, action: ProjectActionIt
         example_sentence=action.example_sentence or action.note,
         chat_id=state.chat_id,
         status="new",
+        commit=False,
     )
-    await _reload_items_for_project(state, project.id)
+    state.items.append(new_item)
     return 1
 
 
@@ -243,8 +237,9 @@ async def _project_action_start_learning(
             example_sentence=action.example_sentence or action.note,
             chat_id=state.chat_id,
             status="new",
+            commit=False,
         )
-        await _reload_items_for_project(state, project.id)
+        state.items.append(item)
     if item and _item_status(item) != "mastered":
         if not _failed_quiz_today(item):
             from app.services.projects.quiz_grading import apply_quiz_result
@@ -254,7 +249,7 @@ async def _project_action_start_learning(
         if _item_status(item) == "new":
             from app.services.projects.items import update_item
 
-            await update_item(state.session, item, status="learning")
+            await update_item(state.session, item, status="learning", commit=False)
             return 1
     return 0
 
@@ -278,7 +273,7 @@ async def _project_action_master(state: _ProjectApplyState, action: ProjectActio
             return 0
         from app.services.projects.items import update_item
 
-        await update_item(state.session, item, status="mastered")
+        await update_item(state.session, item, status="mastered", commit=False)
         return 1
     return 0
 
@@ -293,7 +288,7 @@ async def _project_action_unmaster(state: _ProjectApplyState, action: ProjectAct
     if item and _item_status(item) == "mastered":
         from app.services.projects.items import update_item
 
-        await update_item(state.session, item, status="learning")
+        await update_item(state.session, item, status="learning", commit=False)
         return 1
     return 0
 
@@ -307,7 +302,7 @@ async def _project_action_delete(state: _ProjectApplyState, action: ProjectActio
     item = _find_item(state.items, project.id, list_title, action.content)
     if not item:
         return 0
-    await project_items_repo.delete_by_id(state.session, item.id, state.user_id)
+    await project_items_repo.delete_by_id(state.session, item.id, state.user_id, commit=False)
     state.items = [i for i in state.items if i.id != item.id]
     return 1
 
@@ -319,7 +314,7 @@ async def _project_action_delete_list(state: _ProjectApplyState, action: Project
     project = matched
     list_title = _resolve_list_title(project, action)
     removed = await project_items_repo.delete_by_list(
-        state.session, state.user_id, project.id, list_title
+        state.session, state.user_id, project.id, list_title, commit=False
     )
     if not removed:
         return 0

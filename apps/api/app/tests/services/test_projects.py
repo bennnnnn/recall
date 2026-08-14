@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -26,6 +27,18 @@ class _FakeSessionCM:
 
 def _session_local_side_effect(session: AsyncMock):
     return [_FakeSessionCM(session), _FakeSessionCM(session)]
+
+
+@asynccontextmanager
+async def _nested_savepoint():
+    yield
+
+
+def _session_with_savepoint() -> AsyncMock:
+    """AsyncMock session whose begin_nested() is sync, like SQLAlchemy's."""
+    session = AsyncMock()
+    session.begin_nested = MagicMock(side_effect=_nested_savepoint)
+    return session
 
 
 def test_transcript_implies_project_sync():
@@ -141,11 +154,12 @@ async def test_apply_project_actions_handles_create_project_race():
     """Simulates two near-concurrent project-sync jobs both passing the
     in-memory "no existing language project" check before either commits —
     the DB partial unique index (migration 0055) rejects the second INSERT
-    with IntegrityError. apply_project_actions must roll back and no-op
-    rather than raising into the background job."""
+    with IntegrityError. apply_project_actions must roll back the SAVEPOINT
+    and no-op rather than raising into the background job or discarding
+    earlier uncommitted writes in the same batch."""
     from sqlalchemy.exc import IntegrityError
 
-    session = AsyncMock()
+    session = _session_with_savepoint()
     user_id = uuid4()
     with (
         patch.object(
@@ -178,12 +192,13 @@ async def test_apply_project_actions_handles_create_project_race():
 
     assert applied == 0
     create_mock.assert_awaited_once()
-    session.rollback.assert_awaited_once()
+    session.rollback.assert_not_awaited()
+    session.begin_nested.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_apply_project_actions_create_and_add():
-    session = AsyncMock()
+    session = _session_with_savepoint()
     user_id = uuid4()
     project = _project("Spanish")
     with (
@@ -229,7 +244,7 @@ async def test_apply_project_actions_create_and_add():
 
 @pytest.mark.asyncio
 async def test_apply_project_actions_invalidates_home_cache():
-    session = AsyncMock()
+    session = _session_with_savepoint()
     user_id = uuid4()
     project = _project("Spanish")
     with (

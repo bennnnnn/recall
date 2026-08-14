@@ -203,8 +203,9 @@ def parse_vocab_quiz(content: str) -> ParsedVocabQuiz | None:
 async def verified_correct_letter(quiz: ParsedVocabQuiz) -> str | None:
     """Cheap second-pass check of the quiz answer key.
 
-    Returns a letter A-D when verification succeeds; ``None`` keeps the
-    LLM-asserted ``quiz.correct`` (mock LLM and failures also return None).
+    Returns a letter A-D when verification succeeds; ``None`` on mock LLM,
+    failures, or unparseable replies. Callers must treat disagreement as
+    abstain (skip persistence) — never as an override of ``quiz.correct``.
     """
     if not quiz.choices:
         return None

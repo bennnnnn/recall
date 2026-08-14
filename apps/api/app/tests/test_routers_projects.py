@@ -417,16 +417,16 @@ def test_update_project_daily_goal():
 
     with (
         patch(
-            "app.routers.projects.projects_repo.get_by_id",
+            "app.services.projects.crud.projects_repo.get_by_id",
             AsyncMock(return_value=project),
         ),
         patch(
-            "app.routers.projects.projects_repo.update",
+            "app.services.projects.crud.projects_repo.update",
             AsyncMock(return_value=updated),
         ) as update_mock,
-        patch("app.routers.projects.home_service.invalidate_home_cache", AsyncMock()),
+        patch("app.services.projects.crud.home_service.invalidate_home_cache", AsyncMock()),
         patch(
-            "app.routers.projects.datetime",
+            "app.services.projects.crud.datetime",
         ) as dt_mock,
     ):
         dt_mock.now.return_value = datetime(2026, 7, 8, 12, tzinfo=UTC)
@@ -453,13 +453,14 @@ def test_update_project_maps_vocabulary_kind():
 
     with (
         patch(
-            "app.routers.projects.projects_repo.get_by_id",
+            "app.services.projects.crud.projects_repo.get_by_id",
             AsyncMock(return_value=project),
         ),
         patch(
-            "app.routers.projects.projects_repo.update",
+            "app.services.projects.crud.projects_repo.update",
             AsyncMock(return_value=updated),
         ) as update_mock,
+        patch("app.services.projects.crud.home_service.invalidate_home_cache", AsyncMock()),
     ):
         client = TestClient(app)
         r = client.patch(
@@ -477,7 +478,7 @@ def test_delete_project_not_found():
     app = _app_with_user(user)
 
     with patch(
-        "app.routers.projects.projects_repo.get_by_id",
+        "app.services.projects.crud.projects_repo.get_by_id",
         AsyncMock(return_value=None),
     ):
         client = TestClient(app)
@@ -493,14 +494,14 @@ def test_delete_project_success():
 
     with (
         patch(
-            "app.routers.projects.projects_repo.get_by_id",
+            "app.services.projects.crud.projects_repo.get_by_id",
             AsyncMock(return_value=project),
         ),
         patch(
-            "app.routers.projects.projects_repo.delete_by_id",
+            "app.services.projects.crud.projects_repo.delete_by_id",
             AsyncMock(return_value=True),
         ),
-        patch("app.routers.projects.home_service.invalidate_home_cache", AsyncMock()),
+        patch("app.services.projects.crud.home_service.invalidate_home_cache", AsyncMock()),
     ):
         client = TestClient(app)
         r = client.delete(f"/projects/{project.id}", headers={"Authorization": "Bearer tok"})
@@ -516,18 +517,18 @@ def test_update_project_item_status():
 
     with (
         patch(
-            "app.routers.projects.projects_repo.get_by_id",
+            "app.services.projects.crud.projects_repo.get_by_id",
             AsyncMock(return_value=project),
         ),
         patch(
-            "app.routers.projects.project_items_repo.get_by_id",
+            "app.services.projects.crud.project_items_repo.get_by_id",
             AsyncMock(return_value=item),
         ),
         patch(
-            "app.routers.projects.update_item",
+            "app.services.projects.items.update_item",
             AsyncMock(return_value=item),
         ) as update_mock,
-        patch("app.routers.projects.home_service.invalidate_home_cache", AsyncMock()),
+        patch("app.services.projects.crud.home_service.invalidate_home_cache", AsyncMock()),
     ):
         client = TestClient(app)
         r = client.patch(

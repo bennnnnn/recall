@@ -47,7 +47,13 @@ async def create_item(
     )
 
 
-async def update_item(session: AsyncSession, item: ProjectItem, **fields: Any) -> ProjectItem:
+async def update_item(
+    session: AsyncSession,
+    item: ProjectItem,
+    *,
+    commit: bool = True,
+    **fields: Any,
+) -> ProjectItem:
     """Apply field updates; schedule SM-2 when status changes."""
     now = datetime.now(UTC)
     prior_status = item.status or ("mastered" if item.mastered else "new")
@@ -83,7 +89,7 @@ async def update_item(session: AsyncSession, item: ProjectItem, **fields: Any) -
             fields.pop("was_correct", None)
     else:
         fields.pop("was_correct", None)
-    return await project_items_repo.update(session, item, **fields)
+    return await project_items_repo.update(session, item, commit=commit, **fields)
 
 
 async def list_by_activity_date(

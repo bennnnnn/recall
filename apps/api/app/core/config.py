@@ -194,6 +194,11 @@ class Settings(BaseSettings):
     memory_inject_limit: int = 15
     # Hard cap on formatted memory block chars injected into the system prompt.
     memory_inject_max_chars: int = 1500
+    # Hard cap on formatted quiz exclusion-list chars injected into the system
+    # prompt. Item-count caps don't bound tokens when trivia questions are long;
+    # this is the quiz analogue of memory_inject_max_chars. Keep it generous —
+    # repeat-suppression is why the list exists — but it must be a char budget.
+    quiz_exclusion_max_chars: int = 4000
     memory_cache_ttl: int = 300
     memory_query_cache_ttl: int = 120
     # Run memory extraction every N completed assistant turns (always runs on turn 1).

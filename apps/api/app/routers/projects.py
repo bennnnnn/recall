@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -16,14 +16,11 @@ from app.models.schemas import (
     ProjectOut,
     ProjectUpdate,
 )
-from app.repositories import project_items as project_items_repo
 from app.repositories import projects as projects_repo
-from app.services import daily_learning
-from app.services import home as home_service
 from app.services import projects as projects_service
 from app.services import time_context as time_context_service
+from app.services.projects import crud as projects_crud
 from app.services.projects import items as project_items_service
-from app.services.projects.items import update_item
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -32,6 +29,10 @@ _CREATE_ERROR_STATUS = {
     "language_project_exists": status.HTTP_409_CONFLICT,
     "trivia_project_exists": status.HTTP_409_CONFLICT,
 }
+
+
+def _map_error(exc: projects_crud.ProjectsError) -> HTTPException:
+    return HTTPException(status_code=exc.status_code, detail=exc.detail)
 
 
 def _project_timezone(user: User, client_timezone: str | None) -> str:
@@ -74,7 +75,6 @@ async def create_project(
             status_code=_CREATE_ERROR_STATUS.get(code, status.HTTP_400_BAD_REQUEST),
             detail=code,
         ) from exc
-    await home_service.invalidate_home_cache(user.id)
     return ProjectOut.model_validate(item)
 
 
@@ -158,17 +158,12 @@ async def update_project_item(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> ProjectItemOut:
-    project = await projects_repo.get_by_id(session, project_id, user.id)
-    if project is None or not projects_service.is_learning_product_kind(project.kind):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
-    patch = body.model_dump(exclude_unset=True)
-    if not patch:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fields to update")
-    item = await project_items_repo.get_by_id(session, item_id, user.id, project_id)
-    if not item:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
-    updated = await update_item(session, item, **patch)
-    await home_service.invalidate_home_cache(user.id)
+    try:
+        updated = await projects_crud.update_learning_project_item(
+            session, user, project_id, item_id, body.model_dump(exclude_unset=True)
+        )
+    except projects_crud.ProjectsError as exc:
+        raise _map_error(exc) from exc
     return ProjectItemOut.model_validate(updated)
 
 
@@ -180,33 +175,16 @@ async def update_project(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> ProjectOut:
-    item = await projects_repo.get_by_id(session, project_id, user.id)
-    if item is None or not projects_service.is_learning_product_kind(item.kind):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
-    patch = body.model_dump(exclude_unset=True)
-    if "kind" in patch:
-        patch["kind"] = projects_service.normalize_project_kind(patch["kind"])
-        if patch["kind"] not in projects_service.LEARNING_PRODUCT_KINDS:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="unsupported_project_kind",
-            )
-    new_goal = patch.get("daily_goal")
-    if isinstance(new_goal, int) and new_goal != item.daily_goal:
-        tz_name = _project_timezone(user, client_timezone)
-        tz = time_context_service.resolve_timezone(tz_name)
-        today = datetime.now(tz).date()
-        existing = daily_learning.parse_daily_goal_history(item)
-        patch["daily_goal_history"] = daily_learning.append_daily_goal_history(
-            existing or None,
-            old_goal=item.daily_goal,
-            new_goal=new_goal,
-            project_created=item.created_at,
-            effective_from=today,
-            timezone_name=tz_name,
+    try:
+        updated = await projects_crud.update_learning_project(
+            session,
+            user,
+            project_id,
+            body.model_dump(exclude_unset=True),
+            client_timezone=client_timezone,
         )
-    updated = await projects_repo.update(session, item, **patch)
-    await home_service.invalidate_home_cache(user.id)
+    except projects_crud.ProjectsError as exc:
+        raise _map_error(exc) from exc
     return ProjectOut.model_validate(updated)
 
 
@@ -216,10 +194,7 @@ async def delete_project(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> None:
-    item = await projects_repo.get_by_id(session, project_id, user.id)
-    if item is None or not projects_service.is_learning_product_kind(item.kind):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
-    deleted = await projects_repo.delete_by_id(session, project_id, user.id)
-    if not deleted:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
-    await home_service.invalidate_home_cache(user.id)
+    try:
+        await projects_crud.delete_learning_project(session, user, project_id)
+    except projects_crud.ProjectsError as exc:
+        raise _map_error(exc) from exc

@@ -92,8 +92,8 @@ def _format_failed_review_lines(items: list[ProjectItem], *, limit: int = 12) ->
     return lines
 
 
-# Hard ban list for quiz prompts — raised so large decks stay out of the model's
-# "invent a new one" path. Soft "don't repeat" alone is not enough.
+# Fetch cap for the exclusion query. The prompt block is then trimmed by
+# Settings.quiz_exclusion_max_chars — an item count does not bound tokens.
 _COVERED_QUIZ_LIMIT = 200
 
 
@@ -101,34 +101,40 @@ def _format_covered_quiz_lines(
     contents: list[str],
     *,
     just_answered: str | None = None,
-    limit: int = _COVERED_QUIZ_LIMIT,
+    max_chars: int,
 ) -> list[str]:
     """Format a DB-backed exclusion list for the quiz prompt.
 
     ``contents`` should already be ledger texts (mastered, and for trivia also
     learning). Soft "don't repeat" in the system prompt is not enough on its own.
+    Budget is characters (the only seam that bounds tokens here); the first
+    item is always kept even if it alone exceeds ``max_chars``.
     """
     covered: list[str] = []
     seen: set[str] = set()
+    used = 0
 
     def _add(text: str) -> bool:
-        """Add text; return True when the covered list is full."""
+        """Add text; return True when the next item would exceed the budget."""
+        nonlocal used
         cleaned = text.strip()
         key = cleaned.lower()
         if not cleaned or key in seen:
-            return len(covered) >= limit
+            return False
+        # "- " prefix + newline between bullets.
+        line_len = len(cleaned) + 3
+        if covered and used + line_len > max_chars:
+            return True
         seen.add(key)
         covered.append(cleaned)
-        return len(covered) >= limit
+        used += line_len
+        return False
 
     truncated = False
-    if just_answered and _add(just_answered):
-        truncated = True
+    if just_answered:
+        _add(just_answered)
     for text in contents:
-        if truncated:
-            break
         if _add(text):
-            # More ledger rows may remain after this cap.
             truncated = True
             break
     if not covered:
@@ -138,7 +144,7 @@ def _format_covered_quiz_lines(
         "exact or paraphrased repeats count as repeats):"
     ]
     lines.extend(f"- {text}" for text in covered)
-    if truncated and len(contents) >= limit:
+    if truncated:
         lines.append(
             "- …and more ledger items not listed — "
             "still do not repeat any previously saved word/question."
@@ -153,7 +159,8 @@ async def _covered_quiz_prompt_lines(
     *,
     include_learning: bool,
     just_answered: str | None = None,
-    limit: int = _COVERED_QUIZ_LIMIT,
+    max_chars: int,
+    fetch_limit: int = _COVERED_QUIZ_LIMIT,
 ) -> list[str]:
     """Load exclusion texts from the DB and format them for the quiz prompt."""
     contents = await project_items_repo.list_quiz_exclusion_contents(
@@ -161,12 +168,12 @@ async def _covered_quiz_prompt_lines(
         user_id,
         project_id,
         include_learning=include_learning,
-        limit=limit,
+        limit=fetch_limit,
     )
     return _format_covered_quiz_lines(
         contents,
         just_answered=just_answered,
-        limit=limit,
+        max_chars=max_chars,
     )
 
 
@@ -201,12 +208,6 @@ async def load_project_quiz_context(
         ).strip()
 
     if _is_trivia_project(project):
-        items = await project_items_repo.list_for_user(
-            session,
-            user_id,
-            project_id=project_id,
-            limit=settings.project_item_inject_limit,
-        )
         if retry_same and answered_label:
             follow = (
                 f'WRONG on "{answered_label}" (try {attempt}/{MAX_QUIZ_TRIES_PER_QUESTION}) — '
@@ -254,9 +255,16 @@ async def load_project_quiz_context(
                     project_id,
                     include_learning=True,
                     just_answered=answered_label or None,
+                    max_chars=settings.quiz_exclusion_max_chars,
                 )
             )
         if retry_same or tries_exhausted:
+            items = await project_items_repo.list_for_user(
+                session,
+                user_id,
+                project_id=project_id,
+                limit=settings.project_item_inject_limit,
+            )
             lines.extend(_format_missed_quiz_lines(items))
         return "\n".join(lines)
     if not _is_language_project(project):
@@ -334,6 +342,7 @@ async def load_project_quiz_context(
                 project_id,
                 include_learning=False,
                 just_answered=answered_label or None,
+                max_chars=settings.quiz_exclusion_max_chars,
             )
         )
     if retry_same or tries_exhausted:

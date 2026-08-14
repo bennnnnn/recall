@@ -400,7 +400,9 @@ async def apply_quiz_result(
     return item
 
 
-async def update(session: AsyncSession, item: ProjectItem, **fields: Any) -> ProjectItem:
+async def update(
+    session: AsyncSession, item: ProjectItem, *, commit: bool = True, **fields: Any
+) -> ProjectItem:
     """Dumb field write. SM-2 scheduling belongs in services.projects.items.update_item."""
     now = datetime.now(UTC)
     prior_status = _item_status_label(item)
@@ -411,19 +413,27 @@ async def update(session: AsyncSession, item: ProjectItem, **fields: Any) -> Pro
             setattr(item, key, value)
     if "status" in fields:
         _sync_mastered_fields(item, str(fields["status"]), prior_status=prior_status, now=now)
-    await session.commit()
-    await session.refresh(item)
+    if commit:
+        await session.commit()
+        await session.refresh(item)
+    else:
+        await session.flush()
     return item
 
 
-async def delete_by_id(session: AsyncSession, item_id: UUID, user_id: UUID) -> bool:
+async def delete_by_id(
+    session: AsyncSession, item_id: UUID, user_id: UUID, *, commit: bool = True
+) -> bool:
     result = cast(
         CursorResult[Any],
         await session.execute(
             delete(ProjectItem).where(ProjectItem.id == item_id, ProjectItem.user_id == user_id)
         ),
     )
-    await session.commit()
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
     return result.rowcount > 0
 
 
@@ -432,6 +442,8 @@ async def delete_by_list(
     user_id: UUID,
     project_id: UUID,
     list_title: str,
+    *,
+    commit: bool = True,
 ) -> int:
     normalized = list_title.strip()
     if not normalized:
@@ -446,5 +458,8 @@ async def delete_by_list(
             )
         ),
     )
-    await session.commit()
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
     return int(result.rowcount or 0)
