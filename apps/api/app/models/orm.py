@@ -524,6 +524,9 @@ class Attachment(Base):
     source: Mapped[str] = mapped_column(
         String(16), nullable=False, server_default="upload", default="upload"
     )
+    # Set once bytes have been verified against the declared type/size.
+    # Subsequent /file and /url reads skip the full-object download.
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

@@ -6,8 +6,6 @@ import asyncio
 import logging
 from uuid import UUID
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.gateways import embedding_gateway
@@ -72,28 +70,37 @@ async def _embed_pieces(
 
 
 async def index_attachment(
-    session: AsyncSession,
     settings: Settings,
     *,
     user_id: UUID,
     attachment_id: UUID,
     chat_id: UUID | None = None,
 ) -> int:
-    """Extract, chunk, embed, and store chunks for one attachment. Returns chunk count."""
+    """Extract, chunk, embed, and store chunks for one attachment. Returns chunk count.
+
+    Short-lived sessions around the row load and ``replace_chunks`` only — the
+    download / extract / embed pipeline runs with no pool checkout held, same
+    discipline as ``retrieve_for_prompt``.
+    """
     if not settings.attachment_rag_enabled:
         return 0
 
-    row = await attachments_repo.get_by_id(session, attachment_id, user_id)
-    if row is None or not is_indexable_attachment(row):
-        return 0
+    async with SessionLocal() as session:
+        row = await attachments_repo.get_by_id(session, attachment_id, user_id)
+        if row is None or not is_indexable_attachment(row):
+            return 0
+        storage_key = row.storage_key
+        content_type = row.content_type
+        owner_id = row.user_id
+        row_id = row.id
 
     gateway = get_storage_gateway(settings)
-    data = await attachment_content_service.read_attachment_bytes(gateway, row.storage_key)
+    data = await attachment_content_service.read_attachment_bytes(gateway, storage_key)
     if not data:
         return 0
 
     text = await attachment_content_service.extract_text_from_bytes_async(
-        row.content_type, data, settings
+        content_type, data, settings
     )
     if not text:
         return 0
@@ -108,13 +115,14 @@ async def index_attachment(
 
     embedded = await _embed_pieces(settings, pieces)
 
-    await chunks_repo.replace_chunks(
-        session,
-        user_id=row.user_id,
-        attachment_id=row.id,
-        chat_id=chat_id,
-        chunks=embedded,
-    )
+    async with SessionLocal() as session:
+        await chunks_repo.replace_chunks(
+            session,
+            user_id=owner_id,
+            attachment_id=row_id,
+            chat_id=chat_id,
+            chunks=embedded,
+        )
     return len(embedded)
 
 

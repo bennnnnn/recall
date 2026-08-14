@@ -457,3 +457,49 @@ async def test_reap_orphan_attachments_skips_refund_when_row_linked_after_list()
 
     assert deleted == 0
     refund_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_reap_orphan_attachments_skips_failed_key_and_continues():
+    """One persistently-failing storage key must not abort the batch or
+    delete that row — the next reap retries it. Successful keys still go."""
+    settings = Settings()
+    ok = MagicMock()
+    ok.id = uuid4()
+    ok.storage_key = "user/ok"
+    ok.content_type = "application/pdf"
+    bad = MagicMock()
+    bad.id = uuid4()
+    bad.storage_key = "user/bad"
+    bad.content_type = "application/pdf"
+
+    async def delete_bytes(key: str) -> None:
+        if key == "user/bad":
+            raise RuntimeError("r2 down")
+
+    gateway = MagicMock()
+    gateway.delete_bytes = delete_bytes
+    deleted_ids: list[list] = []
+
+    async def delete_unlinked(_session, ids):
+        deleted_ids.append(list(ids))
+        return ["user/ok"]
+
+    with (
+        patch(
+            "app.services.attachment_lifecycle.attachments_repo.list_orphans",
+            AsyncMock(return_value=[ok, bad]),
+        ),
+        patch(
+            "app.services.attachment_lifecycle.attachments_repo.delete_unlinked_returning",
+            side_effect=delete_unlinked,
+        ),
+        patch(
+            "app.services.attachment_lifecycle.get_storage_gateway",
+            return_value=gateway,
+        ),
+    ):
+        deleted = await attachment_lifecycle.reap_orphan_attachments(settings)
+
+    assert deleted == 1
+    assert deleted_ids == [[ok.id]]

@@ -292,6 +292,7 @@ async def ensure_verified_or_purge(
     Returns an error detail when verification fails (after purge).
     """
     from app.gateways.storage_gateway import LocalStorageGateway
+    from app.repositories import attachments as attachments_repo
 
     if isinstance(gateway, LocalStorageGateway):
         return None
@@ -309,6 +310,7 @@ async def ensure_verified_or_purge(
             storage_key=storage_key,
         )
         return error
+    await attachments_repo.mark_verified(session, attachment_id)
     return None
 
 

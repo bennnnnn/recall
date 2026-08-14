@@ -44,18 +44,21 @@ async def detach_attachments_for_messages(
     return storage_keys
 
 
-async def delete_storage_keys(settings: Settings, storage_keys: list[str]) -> None:
-    """Best-effort byte delete after the DB commit that removed the rows."""
+async def delete_storage_keys(settings: Settings, storage_keys: list[str]) -> list[str]:
+    """Best-effort byte delete. Returns keys whose delete failed (keep those rows)."""
     if not storage_keys:
-        return
+        return []
     gateway = get_storage_gateway(settings)
     results = await asyncio.gather(
         *(gateway.delete_bytes(key) for key in storage_keys),
         return_exceptions=True,
     )
+    failed: list[str] = []
     for key, result in zip(storage_keys, results, strict=False):
         if isinstance(result, Exception):
             logger.warning("Failed to delete attachment bytes key=%s", key, exc_info=result)
+            failed.append(key)
+    return failed
 
 
 async def purge_attachments_for_messages(
@@ -110,17 +113,23 @@ async def reap_orphan_attachments(settings: Settings) -> int:
     """
     async with SessionLocal() as session:
         orphans = await attachments_repo.list_orphans(
-            session, older_than_hours=settings.attachment_orphan_grace_hours
+            session,
+            older_than_hours=settings.attachment_orphan_grace_hours,
+            limit=settings.attachment_orphan_reap_limit,
         )
     if not orphans:
         return 0
-    gateway = get_storage_gateway(settings)
-    for row in orphans:
-        await gateway.delete_bytes(row.storage_key)
+    # Gather with return_exceptions so one bad key is logged and skipped
+    # rather than aborting the batch. Only delete rows whose byte delete
+    # succeeded — a failed key keeps its row for the next reap.
+    failed_keys = set(
+        await delete_storage_keys(settings, [row.storage_key for row in orphans if row.storage_key])
+    )
+    ids_to_delete = [
+        row.id for row in orphans if not row.storage_key or row.storage_key not in failed_keys
+    ]
     async with SessionLocal() as session:
-        removed = await attachments_repo.delete_unlinked_returning(
-            session, [row.id for row in orphans]
-        )
+        removed = await attachments_repo.delete_unlinked_returning(session, ids_to_delete)
     # Refund the daily image slot for each reaped image. Uploads refund imgup;
     # generated images refund imggen. Map storage_key -> orphan row so we only
     # refund for rows that were actually removed (a row linked between list and

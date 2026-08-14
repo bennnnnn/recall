@@ -329,6 +329,10 @@ def test_confirm_upload_accepts_valid_r2_bytes():
             AsyncMock(return_value=row),
         ),
         patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
+        patch(
+            "app.repositories.attachments.mark_verified",
+            AsyncMock(),
+        ),
     ):
         client = TestClient(app)
         r = client.post(
@@ -392,10 +396,13 @@ def test_upload_rejects_bytes_not_matching_claimed_content_type():
     attachment_id = uuid4()
     row = MagicMock()
     row.id = attachment_id
+    row.message_id = None
     row.content_type = "image/png"
     row.storage_key = f"{user.id}/{attachment_id}"
+    row.size_bytes = 20
     gateway = MagicMock(spec=LocalStorageGateway)
     gateway.write_bytes = AsyncMock()
+    gateway.delete_bytes = AsyncMock()
 
     with (
         patch(
@@ -408,6 +415,10 @@ def test_upload_rejects_bytes_not_matching_claimed_content_type():
             "app.routers.attachments.quota_service.refund_image_upload",
             AsyncMock(),
         ) as refund_mock,
+        patch(
+            "app.repositories.attachments.delete_rows",
+            AsyncMock(return_value=1),
+        ) as delete_rows,
     ):
         client = TestClient(app)
         r = client.put(
@@ -418,6 +429,7 @@ def test_upload_rejects_bytes_not_matching_claimed_content_type():
 
     assert r.status_code == 400
     gateway.write_bytes.assert_not_awaited()
+    delete_rows.assert_awaited_once()
     refund_mock.assert_awaited_once()
 
 
@@ -427,6 +439,7 @@ def test_upload_accepts_bytes_matching_claimed_content_type():
     attachment_id = uuid4()
     row = MagicMock()
     row.id = attachment_id
+    row.message_id = None
     row.content_type = "image/png"
     row.storage_key = f"{user.id}/{attachment_id}"
     gateway = MagicMock(spec=LocalStorageGateway)
@@ -461,6 +474,7 @@ def test_serve_file_rejects_spoofed_r2_bytes():
     row.id = attachment_id
     row.content_type = "image/png"
     row.storage_key = "user/key"
+    row.verified_at = None
 
     gateway = MagicMock()
     gateway.read_bytes = AsyncMock(return_value=b"not-a-png")
@@ -541,6 +555,7 @@ def test_serve_file_r2_redirect_sets_nosniff_header():
     row.content_type = "image/png"
     row.storage_key = "user/key"
     row.size_bytes = 40
+    row.verified_at = None
 
     png_bytes = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
     gateway = MagicMock()
@@ -554,6 +569,10 @@ def test_serve_file_r2_redirect_sets_nosniff_header():
             AsyncMock(return_value=row),
         ),
         patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
+        patch(
+            "app.repositories.attachments.mark_verified",
+            AsyncMock(),
+        ),
     ):
         client = TestClient(app)
         r = client.get(
@@ -574,11 +593,13 @@ def test_upload_rejects_size_mismatch_with_declared_size():
     attachment_id = uuid4()
     row = MagicMock()
     row.id = attachment_id
+    row.message_id = None
     row.content_type = "image/png"
     row.storage_key = f"{user.id}/{attachment_id}"
     row.size_bytes = 128  # declared 128
     gateway = MagicMock(spec=LocalStorageGateway)
     gateway.write_bytes = AsyncMock()
+    gateway.delete_bytes = AsyncMock()
 
     png_bytes = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32  # actual 40, declared 128
 
@@ -593,6 +614,10 @@ def test_upload_rejects_size_mismatch_with_declared_size():
             "app.routers.attachments.quota_service.refund_image_upload",
             AsyncMock(),
         ) as refund_mock,
+        patch(
+            "app.repositories.attachments.delete_rows",
+            AsyncMock(return_value=1),
+        ) as delete_rows,
     ):
         client = TestClient(app)
         r = client.put(
@@ -604,6 +629,7 @@ def test_upload_rejects_size_mismatch_with_declared_size():
     assert r.status_code == 400
     assert "size" in r.json()["detail"].lower()
     gateway.write_bytes.assert_not_awaited()
+    delete_rows.assert_awaited_once()
     refund_mock.assert_awaited_once()
 
 
@@ -615,6 +641,7 @@ def test_download_url_rejects_spoofed_r2_bytes():
     row.id = attachment_id
     row.content_type = "image/png"
     row.storage_key = "user/key"
+    row.verified_at = None
 
     gateway = MagicMock()
     gateway.read_bytes = AsyncMock(return_value=b"not-a-png")
@@ -688,6 +715,7 @@ def test_upload_accepts_docx_bytes_matching_claimed_type():
     attachment_id = uuid4()
     row = MagicMock()
     row.id = attachment_id
+    row.message_id = None
     row.content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     row.storage_key = f"{user.id}/{attachment_id}"
     gateway = MagicMock(spec=LocalStorageGateway)
@@ -715,6 +743,104 @@ def test_upload_accepts_docx_bytes_matching_claimed_type():
 
     assert r.status_code == 204
     gateway.write_bytes.assert_awaited_once()
+
+
+def test_upload_rejects_already_linked_attachment():
+    user = _fake_user()
+    app = _app_with_user(user)
+    attachment_id = uuid4()
+    row = MagicMock()
+    row.id = attachment_id
+    row.message_id = uuid4()
+    row.content_type = "image/png"
+    row.storage_key = f"{user.id}/{attachment_id}"
+    gateway = MagicMock(spec=LocalStorageGateway)
+    gateway.write_bytes = AsyncMock()
+
+    with (
+        patch(
+            "app.routers.attachments.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
+    ):
+        client = TestClient(app)
+        r = client.put(
+            f"/attachments/{attachment_id}/upload",
+            headers={"Authorization": "Bearer tok"},
+            content=b"\x89PNG\r\n\x1a\n" + b"\x00" * 32,
+        )
+
+    assert r.status_code == 409
+    gateway.write_bytes.assert_not_awaited()
+
+
+def test_upload_r2_backend_returns_501_before_refund():
+    user = _fake_user()
+    app = _app_with_user(user)
+    attachment_id = uuid4()
+    row = MagicMock()
+    row.id = attachment_id
+    row.message_id = None
+    row.content_type = "image/png"
+    row.size_bytes = 4
+    gateway = MagicMock()
+    refund_mock = AsyncMock()
+
+    with (
+        patch(
+            "app.routers.attachments.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
+        patch(
+            "app.routers.attachments.quota_service.refund_image_upload",
+            refund_mock,
+        ),
+    ):
+        client = TestClient(app)
+        r = client.put(
+            f"/attachments/{attachment_id}/upload",
+            headers={"Authorization": "Bearer tok"},
+            content=b"nope",
+        )
+
+    assert r.status_code == 501
+    refund_mock.assert_not_awaited()
+
+
+def test_serve_file_skips_download_when_already_verified():
+    user = _fake_user()
+    app = _app_with_user(user)
+    attachment_id = uuid4()
+    row = MagicMock()
+    row.id = attachment_id
+    row.content_type = "image/png"
+    row.storage_key = "user/key"
+    row.size_bytes = 40
+    row.verified_at = datetime(2026, 8, 1)
+
+    gateway = MagicMock()
+    gateway.read_bytes = AsyncMock()
+    gateway.presign_download = AsyncMock(return_value="https://r2.example/signed")
+
+    with (
+        patch(
+            "app.routers.attachments.attachments_repo.get_by_id",
+            AsyncMock(return_value=row),
+        ),
+        patch("app.routers.attachments.get_storage_gateway", return_value=gateway),
+    ):
+        client = TestClient(app)
+        r = client.get(
+            f"/attachments/{attachment_id}/file",
+            headers={"Authorization": "Bearer tok"},
+            follow_redirects=False,
+        )
+
+    assert r.status_code == 302
+    gateway.read_bytes.assert_not_awaited()
+    gateway.presign_download.assert_awaited_once()
 
 
 # ── attachments_enabled feature-flag guard ────────────────────────────────────

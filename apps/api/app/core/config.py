@@ -83,6 +83,9 @@ class Settings(BaseSettings):
     # delete) once they're older than this grace window.
     attachment_orphan_grace_hours: int = 24
     attachment_orphan_reaper_interval_seconds: int = 3600
+    # Bounded reaper batch — the scheduler re-runs, so a limit drains over time
+    # instead of loading every orphan in the system into memory.
+    attachment_orphan_reap_limit: int = 100
 
     # Object storage for attachments. ``local`` writes to disk (dev);
     # ``r2`` presigns Cloudflare R2 (S3-compatible) URLs so the client uploads/

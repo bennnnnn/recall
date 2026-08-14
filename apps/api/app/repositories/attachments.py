@@ -122,18 +122,42 @@ async def list_for_user(
     return list(result.scalars().all())
 
 
-async def list_orphans(session: AsyncSession, *, older_than_hours: int) -> list[Attachment]:
+async def list_orphans(
+    session: AsyncSession,
+    *,
+    older_than_hours: int,
+    limit: int = 100,
+) -> list[Attachment]:
     """Attachments never linked to a message (message_id IS NULL) past the grace
     window — candidates for the reaper. Pending uploads that were never sent and
-    attachments unlinked by a message delete (FK SET NULL) both land here."""
+    attachments unlinked by a message delete (FK SET NULL) both land here.
+
+    Bounded so one reap cannot load every orphan in the system; the scheduler
+    re-runs and drains remaining rows over time.
+    """
     cutoff = datetime.now(UTC) - timedelta(hours=older_than_hours)
     result = await session.execute(
-        select(Attachment).where(
+        select(Attachment)
+        .where(
             Attachment.message_id.is_(None),
             Attachment.created_at < cutoff,
         )
+        .order_by(Attachment.created_at.asc(), Attachment.id.asc())
+        .limit(limit)
     )
     return list(result.scalars().all())
+
+
+async def mark_verified(session: AsyncSession, attachment_id: UUID) -> None:
+    """Record that stored bytes matched the declared type/size."""
+    from sqlalchemy import update as sql_update
+
+    await session.execute(
+        sql_update(Attachment)
+        .where(Attachment.id == attachment_id)
+        .values(verified_at=datetime.now(UTC))
+    )
+    await session.commit()
 
 
 async def delete_rows(
