@@ -224,6 +224,21 @@ CATALOG: tuple[ChatModel, ...] = (
         provider="openrouter",
         selectable=False,
     ),
+    _or(
+        id="speech-stt-model",
+        label="Speech transcription",
+        model="openai/whisper-1",
+        provider="openai",
+        selectable=False,
+    ),
+    _or(
+        id="speech-tts-model",
+        label="Speech synthesis",
+        # OpenRouter requires the dated snapshot slug; bare gpt-4o-mini-tts 404s.
+        model="openai/gpt-4o-mini-tts-2025-12-15",
+        provider="openai",
+        selectable=False,
+    ),
 )
 
 _BY_ID: dict[str, ChatModel] = {m.id: m for m in CATALOG}
@@ -246,6 +261,16 @@ def get(model_id: str) -> ChatModel:
 
 def default_model() -> ChatModel:
     return _DEFAULT
+
+
+def openrouter_slug(model_id: str) -> str:
+    """Return the raw OpenRouter model id (no ``openrouter/`` prefix) for a
+    product alias. Used by direct-HTTP gateways (speech, image generation)
+    that talk to OpenRouter without going through LiteLLM.
+    """
+    model = get(model_id).model
+    prefix = "openrouter/"
+    return model[len(prefix) :] if model.startswith(prefix) else model
 
 
 def known_ids() -> frozenset[str]:
