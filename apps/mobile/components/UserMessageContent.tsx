@@ -1,11 +1,10 @@
-import { useMemo } from "react";
+import React, { Suspense, useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
 import { CollapsibleMessageBody } from "@/components/CollapsibleMessageBody";
 import { ChatMessageImage } from "@/components/ChatMessageImage";
-import { ChatMessagePdf } from "@/components/ChatMessagePdf";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { Message } from "@/lib/api";
 import {
@@ -16,6 +15,12 @@ import {
 import { shouldCollapseMessage } from "@/lib/messageFold";
 import { isVocabQuizAnswer, parseQuizAnswerLetter } from "@/lib/parseVocabQuiz";
 import { Theme, useTheme } from "@/lib/theme";
+
+// Async-split pdf.js (~1.4MB) off the chat cold path — same pattern as
+// LazyHeavyRich / HtmlPreviewModal. Only a PDF attachment evaluates the vendor.
+const ChatMessagePdfLazy = React.lazy(() =>
+  import("@/components/ChatMessagePdf").then((m) => ({ default: m.ChatMessagePdf })),
+);
 
 type Props = {
   message: Message;
@@ -65,12 +70,14 @@ export function UserMessageContent({ message }: Props) {
       ) : null}
 
       {showPdf ? (
-        <ChatMessagePdf
-          attachmentId={pdfFile?.attachmentId}
-          path={pdfFile?.path}
-          localUri={message.local_file_uri}
-          fileName={pdfFileName}
-        />
+        <Suspense fallback={null}>
+          <ChatMessagePdfLazy
+            attachmentId={pdfFile?.attachmentId}
+            path={pdfFile?.path}
+            localUri={message.local_file_uri}
+            fileName={pdfFileName}
+          />
+        </Suspense>
       ) : null}
 
       {quizLetter ? (
