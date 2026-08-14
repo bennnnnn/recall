@@ -242,7 +242,9 @@ def test_select_memories_omits_project_section_for_project_chats():
 
 
 @pytest.mark.asyncio
-async def test_load_relevant_memories_prefers_db_semantic_search():
+async def test_load_relevant_memories_ranks_in_process_from_list():
+    """Semantic recall ranks the ≤5 list_for_user rows in-process. pgvector
+    search_semantic is not on this path (the column/index stay for later)."""
     from app.services.memory import load_relevant_memories
 
     user = AsyncMock()
@@ -252,13 +254,11 @@ async def test_load_relevant_memories_prefers_db_semantic_search():
     settings = Settings(semantic_memory_enabled=True, memory_min_confidence=0.4)
 
     db_hit = _memory("fact", "Hikes every weekend", 0.9)
+    db_hit.embedding_json = "[0.1, 0.2, 0.3]"
 
     with (
-        patch("app.repositories.memories.list_for_user", AsyncMock(return_value=[])),
-        patch(
-            "app.repositories.memories.search_semantic",
-            AsyncMock(return_value=[db_hit]),
-        ) as db_search,
+        patch("app.repositories.memories.list_for_user", AsyncMock(return_value=[db_hit])),
+        patch("app.repositories.memories.search_semantic", AsyncMock()) as db_search,
         patch(
             "app.gateways.embedding_gateway.embed_text",
             AsyncMock(return_value=[0.1, 0.2, 0.3]),
@@ -267,22 +267,13 @@ async def test_load_relevant_memories_prefers_db_semantic_search():
         result = await load_relevant_memories(session, user, settings, query_vec=[0.1, 0.2, 0.3])
 
     assert result == [db_hit]
-    db_search.assert_awaited_once()
+    db_search.assert_not_awaited()
     embed_mock.assert_not_awaited()
-    kwargs = db_search.await_args.kwargs
-    assert kwargs["min_confidence"] == settings.memory_min_confidence
-    assert kwargs["limit"] == settings.memory_inject_limit
 
 
 @pytest.mark.asyncio
-async def test_load_relevant_memories_applies_similarity_cutoff_to_db_path():
-    """The DB semantic path must receive max_distance derived from
-    memory_min_similarity, so it behaves like the in-memory path (which
-    filters low-similarity matches out). Also asserts on the returned
-    memories, not just the kwargs passed to search_semantic — when no
-    memory has a populated embedding yet, an empty db_hits list must still
-    fall back to type-priority selection rather than silently discarding
-    every gated memory (always-inject types still return)."""
+async def test_load_relevant_memories_applies_similarity_cutoff_in_process():
+    """Unembedded gated types are skipped; always-inject types still return."""
     from app.services.memory import load_relevant_memories
 
     user = AsyncMock()
@@ -304,35 +295,20 @@ async def test_load_relevant_memories_applies_similarity_cutoff_to_db_path():
 
     with (
         patch(
-            "app.repositories.memories.has_any_embedding",
-            AsyncMock(return_value=False),
-        ),
-        patch(
             "app.repositories.memories.list_for_user",
             AsyncMock(return_value=[unembedded_profile, unembedded_fact]),
         ),
-        patch(
-            "app.repositories.memories.search_semantic",
-            AsyncMock(return_value=[]),
-        ) as db_search,
-        patch(
-            "app.gateways.embedding_gateway.embed_text",
-            AsyncMock(return_value=[0.1, 0.2, 0.3]),
-        ),
+        patch("app.repositories.memories.search_semantic", AsyncMock()) as db_search,
     ):
         result = await load_relevant_memories(session, user, settings, query_vec=[0.1, 0.2, 0.3])
 
-    kwargs = db_search.await_args.kwargs
-    # cosine_distance = 1 - cosine_similarity → 1 - 0.15 = 0.85
-    assert kwargs["max_distance"] == pytest.approx(0.85)
-    # Without embeddings, only always-inject types survive the fallback.
+    db_search.assert_not_awaited()
     assert result == [unembedded_profile]
 
 
 @pytest.mark.asyncio
-async def test_load_relevant_memories_skips_max_distance_when_cutoff_disabled():
-    """When memory_min_similarity is 0, no max_distance filter is applied
-    (preserves the prior behaviour for configs that disable the cutoff)."""
+async def test_load_relevant_memories_includes_low_score_when_cutoff_disabled():
+    """When memory_min_similarity is 0, a gated section with any embedding injects."""
     from app.services.memory import load_relevant_memories
 
     user = AsyncMock()
@@ -343,35 +319,25 @@ async def test_load_relevant_memories_skips_max_distance_when_cutoff_disabled():
         semantic_memory_enabled=True,
         memory_min_confidence=0.4,
         memory_min_similarity=0.0,
+        memory_inject_limit=5,
     )
 
-    with (
-        patch(
-            "app.repositories.memories.has_any_embedding",
-            AsyncMock(return_value=False),
-        ),
-        patch("app.repositories.memories.list_for_user", AsyncMock(return_value=[])),
-        patch(
-            "app.repositories.memories.search_semantic",
-            AsyncMock(return_value=[]),
-        ) as db_search,
-        patch(
-            "app.gateways.embedding_gateway.embed_text",
-            AsyncMock(return_value=[0.1, 0.2, 0.3]),
-        ),
-    ):
-        await load_relevant_memories(session, user, settings, query_vec=[0.1, 0.2, 0.3])
+    fact = _memory("fact", "Hikes every weekend", 0.9)
+    fact.embedding_json = "[1.0, 0.0, 0.0]"
 
-    assert db_search.await_args.kwargs["max_distance"] is None
+    with (
+        patch("app.repositories.memories.list_for_user", AsyncMock(return_value=[fact])),
+        patch("app.repositories.memories.search_semantic", AsyncMock()) as db_search,
+    ):
+        result = await load_relevant_memories(session, user, settings, query_vec=[0.0, 1.0, 0.0])
+
+    db_search.assert_not_awaited()
+    assert result == [fact]
 
 
 @pytest.mark.asyncio
 async def test_load_relevant_memories_falls_back_to_in_memory_when_db_empty():
-    """Represents the transitional state where the pgvector column isn't
-    populated yet but the JSON fallback vector is — search_semantic filters
-    on Memory.embedding.isnot(None), so an unpopulated pgvector column is
-    exactly why db_hits comes back empty even though this memory IS
-    semantically embeddable via the JSON path."""
+    """Ranks from embedding_json on the list_for_user rows — one round-trip."""
     from app.services.memory import load_relevant_memories
 
     user = AsyncMock()
@@ -388,23 +354,15 @@ async def test_load_relevant_memories_falls_back_to_in_memory_when_db_empty():
 
     with (
         patch(
-            "app.repositories.memories.has_any_embedding",
-            AsyncMock(return_value=False),
-        ),
-        patch(
             "app.repositories.memories.list_for_user",
             AsyncMock(return_value=[in_memory_hit]),
         ),
-        patch("app.repositories.memories.search_semantic", AsyncMock(return_value=[])),
-        patch(
-            "app.gateways.embedding_gateway.embed_text",
-            AsyncMock(return_value=[0.95, 0.05, 0.0]),
-        ) as embed_mock,
+        patch("app.repositories.memories.search_semantic", AsyncMock()) as db_search,
     ):
         result = await load_relevant_memories(session, user, settings, query_vec=[0.95, 0.05, 0.0])
 
     assert result == [in_memory_hit]
-    embed_mock.assert_not_awaited()
+    db_search.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -424,19 +382,17 @@ async def test_load_relevant_memories_keeps_profile_when_vectors_populated_but_n
 
     profile = _memory("profile", "Name is Sam", 0.9)
     fact = _memory("fact", "Off-topic allergy detail", 0.9)
+    fact.embedding_json = "[1.0, 0.0, 0.0]"
     list_mock = AsyncMock(return_value=[profile, fact])
     with (
-        patch(
-            "app.repositories.memories.has_any_embedding",
-            AsyncMock(return_value=True),
-        ),
         patch("app.repositories.memories.list_for_user", list_mock),
-        patch("app.repositories.memories.search_semantic", AsyncMock(return_value=[])),
+        patch("app.repositories.memories.search_semantic", AsyncMock()) as db_search,
     ):
         result = await load_relevant_memories(session, user, settings, query_vec=[0.0, 1.0, 0.0])
 
     assert result == [profile]
     list_mock.assert_awaited()
+    db_search.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -642,10 +598,12 @@ async def test_get_memory_block_query_cache(fake_redis):
 
 
 @pytest.mark.asyncio
-async def test_invalidate_memory_block_clears_block_and_query_cache(fake_redis):
+async def test_invalidate_memory_block_bumps_generation_and_clears_block_keys(fake_redis):
+    """INCR + memblock DEL. Query keys are not SCAN-deleted — generation fold
+    makes them unreachable; they expire via memory_query_cache_ttl."""
     from app.services.memory import (
         _memory_block_key,
-        _memory_query_cache_key,
+        _memory_generation_key,
         get_memory_block,
         invalidate_memory_block,
     )
@@ -656,41 +614,32 @@ async def test_invalidate_memory_block_clears_block_and_query_cache(fake_redis):
     session = AsyncMock()
     settings = Settings(semantic_memory_enabled=True, memory_query_cache_ttl=120)
 
+    load_mock = AsyncMock(return_value=[_memory("fact", "Likes hiking", 0.9)])
     with (
         patch("app.services.memory.get_redis_client", return_value=fake_redis),
-        patch(
-            "app.services.memory.load_relevant_memories",
-            AsyncMock(return_value=[_memory("fact", "Likes hiking", 0.9)]),
-        ),
-        # This test doesn't exercise the warm-cache background task itself
-        # (see test_get_memory_block_warms_semantic_cache_via_tracked_background_task
-        # for that) — without this, the real task can outlive this test's
-        # event loop and warn "coroutine was never awaited" on teardown.
+        patch("app.services.memory.load_relevant_memories", load_mock),
         patch("app.services.memory.create_background_task", side_effect=_closing_background_task),
     ):
-        # No query → per-user block cache (memblock); with query → per-query cache (memquery).
         await get_memory_block(session, user, settings)
         await get_memory_block(session, user, settings, query_text="outdoor hobbies")
 
-    # Both the per-user block key and a per-query key should now exist.
-    query_key = f"{_memory_query_cache_key(user.id, None, 'outdoor hobbies')}:g:a"
-    assert await fake_redis.exists(_memory_block_key(user.id)) == 1
-    assert await fake_redis.exists(query_key) == 1
+        assert await fake_redis.exists(_memory_block_key(user.id)) == 1
 
-    with patch("app.services.memory.get_redis_client", return_value=fake_redis):
         await invalidate_memory_block(user.id)
 
-    assert await fake_redis.exists(_memory_block_key(user.id)) == 0
-    assert await fake_redis.exists(query_key) == 0
+        assert await fake_redis.exists(_memory_block_key(user.id)) == 0
+        gen = await fake_redis.get(_memory_generation_key(user.id))
+        assert gen is not None
+        assert int(gen) >= 1
+
+        load_mock.reset_mock()
+        await get_memory_block(session, user, settings, query_text="outdoor hobbies")
+        load_mock.assert_awaited()
 
 
 @pytest.mark.asyncio
-async def test_invalidate_memory_block_clears_multiple_query_keys(fake_redis):
-    from app.services.memory import (
-        _memory_query_cache_key,
-        get_memory_block,
-        invalidate_memory_block,
-    )
+async def test_invalidate_memory_block_makes_query_cache_unreachable(fake_redis):
+    from app.services.memory import get_memory_block, invalidate_memory_block
 
     user = AsyncMock()
     user.id = uuid4()
@@ -698,27 +647,22 @@ async def test_invalidate_memory_block_clears_multiple_query_keys(fake_redis):
     session = AsyncMock()
     settings = Settings(semantic_memory_enabled=True, memory_query_cache_ttl=120)
 
+    load_mock = AsyncMock(return_value=[_memory("fact", "Likes hiking", 0.9)])
     with (
         patch("app.services.memory.get_redis_client", return_value=fake_redis),
-        patch(
-            "app.services.memory.load_relevant_memories",
-            AsyncMock(return_value=[_memory("fact", "Likes hiking", 0.9)]),
-        ),
+        patch("app.services.memory.load_relevant_memories", load_mock),
         patch("app.services.memory.create_background_task", side_effect=_closing_background_task),
     ):
         await get_memory_block(session, user, settings, query_text="outdoor hobbies")
         await get_memory_block(session, user, settings, query_text="weekend plans")
+        assert load_mock.await_count == 2
 
-    outdoor = f"{_memory_query_cache_key(user.id, None, 'outdoor hobbies')}:g:a"
-    weekend = f"{_memory_query_cache_key(user.id, None, 'weekend plans')}:g:a"
-    assert await fake_redis.exists(outdoor) == 1
-    assert await fake_redis.exists(weekend) == 1
-
-    with patch("app.services.memory.get_redis_client", return_value=fake_redis):
         await invalidate_memory_block(user.id)
 
-    assert await fake_redis.exists(outdoor) == 0
-    assert await fake_redis.exists(weekend) == 0
+        load_mock.reset_mock()
+        await get_memory_block(session, user, settings, query_text="outdoor hobbies")
+        await get_memory_block(session, user, settings, query_text="weekend plans")
+        assert load_mock.await_count == 2
 
 
 @pytest.mark.asyncio

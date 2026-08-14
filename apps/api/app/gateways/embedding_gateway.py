@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 
@@ -29,9 +30,10 @@ async def embed_text(settings: Settings, text: str) -> list[float] | None:
         kwargs["api_base"] = route.api_base
 
     try:
-        response = await aembedding(
-            model=route.model, input=[text[: settings.embedding_input_max_chars]], **kwargs
-        )
+        async with asyncio.timeout(settings.background_llm_timeout_seconds):
+            response = await aembedding(
+                model=route.model, input=[text[: settings.embedding_input_max_chars]], **kwargs
+            )
         data = response.data[0]["embedding"]
         return list(data)
     except Exception:

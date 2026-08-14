@@ -13,6 +13,7 @@ Import this module once at startup, before the worker starts consuming
 list, not import-time discovery, so the set of live job types stays greppable.
 """
 
+import asyncio
 import logging
 from typing import Any
 from uuid import UUID
@@ -47,6 +48,9 @@ async def _handle_topic(settings: Settings, payload: dict[str, Any]) -> None:
 
 
 _MEMORY_LOCK_MAX_RETRIES = 3
+# Match core.jobs._RETRY_BACKOFF_S. Instant re-enqueue cannot outlast a lock
+# held for an LLM round-trip; the worker is not latency-sensitive.
+_MEMORY_LOCK_RETRY_BACKOFF_S = 2.0
 
 
 async def _handle_memory(settings: Settings, payload: dict[str, Any]) -> None:
@@ -72,6 +76,7 @@ async def _handle_memory(settings: Settings, payload: dict[str, Any]) -> None:
         )
         return
 
+    await asyncio.sleep(_MEMORY_LOCK_RETRY_BACKOFF_S * (retries + 1))
     await enqueue(
         get_redis_client(),
         "memory",

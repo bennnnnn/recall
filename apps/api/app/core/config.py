@@ -200,6 +200,8 @@ class Settings(BaseSettings):
     # Default 1 = every turn — sparse extraction missed durable facts between batches.
     memory_extract_every_n_turns: int = 1
     memory_query_embed_cache_ttl: int = 3600
+    # Chat-path live embed budget. Background jobs use background_llm_timeout_seconds.
+    memory_query_embed_timeout_seconds: float = 2.0
     # Provider embedding-input char cap (embedding_gateway.embed_text). Was a
     # bare `text[:8000]` inline in the gateway; every other tunable in this
     # codebase lives in Settings, so don't reintroduce an inline magic number
