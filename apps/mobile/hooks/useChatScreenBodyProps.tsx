@@ -99,6 +99,7 @@ export type UseChatScreenBodyPropsParams = {
   stopGeneration: () => void;
   isOffline: boolean;
   voice: {
+    voiceAvailable: boolean;
     voiceRecording: boolean;
     voiceTranscribing: boolean;
     voiceMeterLevel: number;
@@ -170,6 +171,7 @@ export function useChatScreenBodyProps({
   stopGeneration,
   isOffline,
   voice: {
+    voiceAvailable,
     voiceRecording,
     voiceTranscribing,
     voiceMeterLevel,
@@ -319,6 +321,7 @@ export function useChatScreenBodyProps({
       onSend,
       onStop: stopGeneration,
       isOffline,
+      voiceAvailable,
       voiceRecording,
       voiceTranscribing,
       voiceMeterLevel,
@@ -380,6 +383,7 @@ export function useChatScreenBodyProps({
       onSend,
       stopGeneration,
       isOffline,
+      voiceAvailable,
       voiceRecording,
       voiceTranscribing,
       voiceMeterLevel,

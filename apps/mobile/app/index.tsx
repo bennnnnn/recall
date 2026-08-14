@@ -251,7 +251,7 @@ function ChatScreen() {
   };
   const streamActive = llmBusy || imageGen.generating;
 
-  const quotaNudge = useChatStreamLifecycle({
+  const { turnRefreshKey, ...quotaNudge } = useChatStreamLifecycle({
     streamActive,
     dismissChatError,
     refreshHome,
@@ -310,6 +310,7 @@ function ChatScreen() {
   } = send;
 
   const {
+    voiceInputAvailable,
     voiceRecording,
     voiceTranscribing,
     voiceMeterLevel,
@@ -345,6 +346,7 @@ function ChatScreen() {
       dismissChatError();
       startNewChat(opts);
     });
+    return () => registerNewChat(null);
   }, [startNewChat, dismissChatError]);
 
   const {
@@ -383,7 +385,7 @@ function ChatScreen() {
   const { suggestions, dismiss: dismissSuggestion } = useChatSuggestions({
     token,
     enabled: Boolean(token) && displayMessages.length > 0,
-    refreshKey: `${streaming}-${finalizing}-${displayMessages.length}`,
+    refreshKey: turnRefreshKey,
   });
 
   const onSelectSuggestion = useCallback(
@@ -503,6 +505,7 @@ function ChatScreen() {
     stopGeneration: stopTurn,
     isOffline,
     voice: {
+      voiceAvailable: voiceInputAvailable,
       voiceRecording,
       voiceTranscribing,
       voiceMeterLevel,

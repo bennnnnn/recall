@@ -52,6 +52,7 @@ type Props = {
   onSend: () => void;
   onStop: () => void;
   isOffline: boolean;
+  voiceAvailable?: boolean;
   voiceRecording?: boolean;
   voiceTranscribing?: boolean;
   voiceMeterLevel?: number;
@@ -81,6 +82,7 @@ export const ChatComposer = memo(function ChatComposer({
   onSend,
   onStop,
   isOffline,
+  voiceAvailable = false,
   voiceRecording = false,
   voiceTranscribing = false,
   voiceMeterLevel = 0.12,
@@ -96,7 +98,7 @@ export const ChatComposer = memo(function ChatComposer({
 
   const hasSendableContent = Boolean(input.trim() || pendingAttachment);
   const showMic = composerShowsMic({
-    voiceAvailable: Boolean(onVoicePress && token),
+    voiceAvailable: Boolean(voiceAvailable && onVoicePress && token),
     voiceRecording,
     voiceTranscribing,
     hasSendableContent,

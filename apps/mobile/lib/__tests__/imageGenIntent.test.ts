@@ -52,6 +52,14 @@ describe("extractImageGenPrompt", () => {
     expect(extractImageGenPrompt("create an image compression script")).toBeNull();
   });
 
+  it("rejects image-noun phrasing whose subject is an app/code thing, not a picture", () => {
+    expect(extractImageGenPrompt("generate a picture of the database schema")).toBeNull();
+    expect(extractImageGenPrompt("create an image of my todo list")).toBeNull();
+    expect(extractImageGenPrompt("make a diagram picture")).toBeNull();
+    expect(extractImageGenPrompt("generate a picture of a diagram")).toBeNull();
+    expect(extractImageGenPrompt("draw me a diagram")).toBeNull();
+  });
+
   it("returns null for draw a conclusion", () => {
     expect(extractImageGenPrompt("draw a conclusion from this")).toBeNull();
   });

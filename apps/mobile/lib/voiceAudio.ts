@@ -135,8 +135,16 @@ export async function startVoiceRecording(): Promise<VoiceRecorder | null> {
   return {
     stop: async () => {
       clearInterval(tick);
-      if (recorder.isRecording) {
-        await recorder.stop();
+      try {
+        if (recorder.isRecording) {
+          await recorder.stop();
+        }
+      } finally {
+        try {
+          await mod.setAudioModeAsync({ allowsRecording: false });
+        } catch {
+          /* best-effort: TTS should not stay in record mode */
+        }
       }
       const rawUri = recorder.uri;
       if (!rawUri) return null;
@@ -153,6 +161,3 @@ export async function startVoiceRecording(): Promise<VoiceRecorder | null> {
     },
   };
 }
-
-export const VOICE_INPUT_REBUILD_HINT =
-  "Voice input needs a dev build with expo-audio. Rebuild:\n\ncd apps/mobile && pnpm expo run:android   # or run:ios";

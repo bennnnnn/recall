@@ -78,6 +78,7 @@ export type ChatScreenBodyProps = {
   onSend: () => void;
   onStop: () => void;
   isOffline: boolean;
+  voiceAvailable: boolean;
   voiceRecording: boolean;
   voiceTranscribing: boolean;
   voiceMeterLevel: number;
@@ -142,6 +143,7 @@ export function ChatScreenBody({
   onSend,
   onStop,
   isOffline,
+  voiceAvailable,
   voiceRecording,
   voiceTranscribing,
   voiceMeterLevel,
@@ -228,6 +230,7 @@ export function ChatScreenBody({
         onSend={onSend}
         onStop={onStop}
         isOffline={isOffline}
+        voiceAvailable={voiceAvailable}
         voiceRecording={voiceRecording}
         voiceTranscribing={voiceTranscribing}
         voiceMeterLevel={voiceMeterLevel}

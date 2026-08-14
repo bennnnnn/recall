@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAuthToken } from "@/contexts/AuthContext";
+import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { resolveAttachmentUri } from "@/lib/attachmentUri";
 import { downloadChatAttachment } from "@/lib/downloadChatAttachment";
 import { fetchAttachmentBase64 } from "@/lib/fetchAttachmentBytes";
@@ -56,6 +57,9 @@ export function ChatMessagePdf({
   const previewWebView = getPreviewWebView();
   const WebView = previewWebView?.Component;
   const canRenderInline = previewWebView?.mode === "rnc";
+  const { canMount, onLoaded } = useDeferredWebViewMount(
+    Boolean(remoteUri && canRenderInline && !compact),
+  );
 
   useEffect(() => {
     setPreviewBase64(null);
@@ -63,7 +67,7 @@ export function ChatMessagePdf({
   }, [remoteUri]);
 
   useEffect(() => {
-    if (!remoteUri || !canRenderInline || compact) return;
+    if (!remoteUri || !canRenderInline || compact || !canMount) return;
     let cancelled = false;
     setLoadingPreview(true);
     void (async () => {
@@ -71,7 +75,10 @@ export function ChatMessagePdf({
         const b64 = await fetchAttachmentBase64(remoteUri, token);
         if (!cancelled) setPreviewBase64(b64);
       } catch {
-        if (!cancelled) setPreviewFailed(true);
+        if (!cancelled) {
+          setPreviewFailed(true);
+          onLoaded();
+        }
       } finally {
         if (!cancelled) setLoadingPreview(false);
       }
@@ -79,7 +86,7 @@ export function ChatMessagePdf({
     return () => {
       cancelled = true;
     };
-  }, [remoteUri, canRenderInline, compact, token]);
+  }, [remoteUri, canRenderInline, compact, token, canMount, onLoaded]);
 
   const previewHtml = useMemo(
     () => (previewBase64 ? buildPdfPreviewHtml(previewBase64, theme) : null),
@@ -121,7 +128,7 @@ export function ChatMessagePdf({
         <Ionicons name="chevron-forward" size={18} color={theme.textTertiary} />
       </Pressable>
 
-      {!compact && canRenderInline && WebView && previewHtml ? (
+      {!compact && canRenderInline && WebView && canMount && previewHtml ? (
         <Pressable style={s.previewWrap} onPress={() => setViewerOpen(true)}>
           <WebView
             originWhitelist={STATIC_HTML_ORIGIN_WHITELIST}
@@ -129,10 +136,11 @@ export function ChatMessagePdf({
             scrollEnabled={false}
             style={s.previewWeb}
             javaScriptEnabled
+            onLoadEnd={onLoaded}
             onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
           />
         </Pressable>
-      ) : !compact && loadingPreview ? (
+      ) : !compact && canRenderInline && (!canMount || loadingPreview) ? (
         <View style={s.previewWrap}>
           <ActivityIndicator color={theme.primary} />
         </View>

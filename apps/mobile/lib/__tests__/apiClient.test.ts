@@ -11,6 +11,7 @@ jest.mock("@/lib/auth", () => ({
 }));
 
 import {
+  ApiRequestError,
   apiUrl,
   fetchWithTimeout,
   request,
@@ -112,6 +113,21 @@ describe("api client", () => {
 
     await expect(request("/users/me", "stale-token")).rejects.toThrow("expired");
     expect(onUnauthorized).toHaveBeenCalledTimes(1);
+  });
+
+  it("request throws ApiRequestError with HTTP status on failure", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      text: async () => '{"detail":"Image generation requires Pro"}',
+    });
+
+    const err = await request("/images/generate", "token").catch((error) => error);
+    expect(err).toBeInstanceOf(ApiRequestError);
+    expect(err).toMatchObject({
+      name: "ApiRequestError",
+      status: 403,
+    });
   });
 
   it("single-flights concurrent refresh attempts", async () => {
