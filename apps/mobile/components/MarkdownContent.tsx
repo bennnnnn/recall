@@ -25,7 +25,7 @@ import {
 import { CODE_FONT } from "@/lib/fonts";
 import { Theme, useTheme } from "@/lib/theme";
 
-type Props = { content: string; streaming?: boolean };
+type Props = { content: string; streaming?: boolean; mathFormat?: (expr: string) => string };
 
 type MarkdownChunkProps = {
   content: string;
@@ -65,7 +65,7 @@ const StreamingMathPreview = React.memo(function StreamingMathPreview({
   );
 });
 
-export function MarkdownContent({ content, streaming = false }: Props) {
+export function MarkdownContent({ content, streaming = false, mathFormat }: Props) {
   const t = useTheme();
   const { rules, mdStyles } = useMemo(() => makeRenderRules(t, streaming), [t, streaming]);
   // While streaming, throttle re-parses. Settled chunks parse once ever, so
@@ -112,7 +112,7 @@ export function MarkdownContent({ content, streaming = false }: Props) {
         streamPreprocessRef.current = cache;
         return streamed;
       }
-      return preprocessMarkdown(renderContent);
+      return preprocessMarkdown(renderContent, mathFormat);
     } catch {
       return renderContent;
     }

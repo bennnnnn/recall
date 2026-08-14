@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { CollapsibleMessageBody } from "@/components/CollapsibleMessageBody";
 import { ChatMessageImage } from "@/components/ChatMessageImage";
 import { MarkdownContent } from "@/components/MarkdownContent";
+import { formatMathExpr } from "@/lib/formatMathInput";
 import { Message } from "@/lib/api";
 import {
   guessFileNameFromCaption,
@@ -99,9 +100,9 @@ export function UserMessageContent({ message }: Props) {
               </View>
             ) : null}
             {showCaption ? (
-              <MarkdownContent content={parsed.caption} />
+              <MarkdownContent content={parsed.caption} mathFormat={formatMathExpr} />
             ) : plainText ? (
-              <MarkdownContent content={plainText} />
+              <MarkdownContent content={plainText} mathFormat={formatMathExpr} />
             ) : null}
           </View>
         </CollapsibleMessageBody>

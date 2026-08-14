@@ -1,0 +1,93 @@
+import { formatMathExpr } from "@/lib/formatMathInput";
+
+describe("formatMathExpr", () => {
+  describe("power", () => {
+    it("converts a bare variable+digit to an exponent", () => {
+      expect(formatMathExpr("x2+2=6")).toBe("x^2 + 2 = 6");
+    });
+    it("leaves an explicit caret exponent as-is", () => {
+      expect(formatMathExpr("x^2 = 4")).toBe("x^2 = 4");
+    });
+    it("does not turn a command tail into a false exponent", () => {
+      // \pm2 must stay \pm2, not \pm^2 (regression guard from fixImplicitExponents).
+      expect(formatMathExpr("x = \\pm2")).toBe("x = \\pm2");
+    });
+    it("can be disabled", () => {
+      expect(formatMathExpr("x2=4", { power: false })).toBe("x2 = 4");
+    });
+  });
+
+  describe("spacing", () => {
+    it("spaces a bare equals", () => {
+      expect(formatMathExpr("x=3")).toBe("x = 3");
+    });
+    it("spaces binary + and -", () => {
+      expect(formatMathExpr("2x+3=7")).toBe("2x + 3 = 7");
+      expect(formatMathExpr("a-b")).toBe("a - b");
+    });
+    it("leaves a unary minus unspaced", () => {
+      expect(formatMathExpr("x=-3")).toBe("x = -3");
+      expect(formatMathExpr("-x+2")).toBe("-x + 2");
+    });
+    it("does not space inside ^{...} exponents", () => {
+      expect(formatMathExpr("x^{n+1}=2")).toBe("x^{n+1} = 2");
+    });
+    it("does not space inside _{...} subscripts", () => {
+      expect(formatMathExpr("a_{ij}=0")).toBe("a_{ij} = 0");
+    });
+    it("does not break a LaTeX command name", () => {
+      expect(formatMathExpr("\\sqrt{4}=2")).toBe("\\sqrt{4} = 2");
+    });
+    it("can be disabled", () => {
+      expect(formatMathExpr("x=3", { spacing: false })).toBe("x=3");
+    });
+  });
+
+  describe("relations", () => {
+    it("converts >=, <=, !=", () => {
+      expect(formatMathExpr("x>=3")).toBe("x \\geq 3");
+      expect(formatMathExpr("x<=2")).toBe("x \\leq 2");
+      expect(formatMathExpr("x!=0")).toBe("x \\neq 0");
+    });
+    it("does not leave a bare = from >=", () => {
+      expect(formatMathExpr("x>=3")).not.toContain("=");
+      expect(formatMathExpr("x>=3")).not.toContain(">= ");
+    });
+    it("can be disabled", () => {
+      // Relations off → `>=` stays as `>=` (not \geq); `=` still gets spaced.
+      const out = formatMathExpr("x>=3", { relations: false });
+      expect(out).toContain(">=");
+      expect(out).not.toContain("\\geq");
+    });
+  });
+
+  describe("pm", () => {
+    it("converts +- to \\pm", () => {
+      expect(formatMathExpr("x = +-3")).toBe("x = \\pm 3");
+    });
+    it("can be disabled", () => {
+      // pm off → `+-` stays as `+-` (both unary after `=`), no \pm.
+      const out = formatMathExpr("x = +-3", { pm: false });
+      expect(out).toBe("x = +-3");
+      expect(out).not.toContain("\\pm");
+    });
+  });
+
+  describe("combined / real input", () => {
+    it("formats a full unspaced equation", () => {
+      expect(formatMathExpr("x2+2=6")).toBe("x^2 + 2 = 6");
+    });
+    it("formats a quadratic with a minus", () => {
+      expect(formatMathExpr("x2-5x+6=0")).toBe("x^2 - 5x + 6 = 0");
+    });
+    it("preserves an already-spaced equation", () => {
+      expect(formatMathExpr("x^2 + 2 = 6")).toBe("x^2 + 2 = 6");
+    });
+    it("handles a fraction and sqrt without corrupting them", () => {
+      expect(formatMathExpr("\\frac{1}{2}=0.5")).toBe("\\frac{1}{2} = 0.5");
+    });
+    it("returns empty for empty input", () => {
+      expect(formatMathExpr("")).toBe("");
+    });
+  });
+});

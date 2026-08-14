@@ -100,8 +100,9 @@ function unwrapParens(expr: string): string {
   return m ? m[1].trim() : s;
 }
 
-function wrapMath(expr: string): string {
-  return `$${fixImplicitExponents(unwrapParens(expr))}$`;
+function wrapMath(expr: string, format?: (expr: string) => string): string {
+  const body = format ? format(unwrapParens(expr)) : fixImplicitExponents(unwrapParens(expr));
+  return `$${body}$`;
 }
 
 /** Index just past any {...} groups immediately following `start` (balanced
@@ -175,7 +176,7 @@ function wrapInlineLatexCommands(line: string): string {
   return applyOutsideInlineMath(line, wrapInlineLatexCommandsInSegment);
 }
 
-function normalizeMathLine(line: string): string {
+function normalizeMathLine(line: string, format?: (expr: string) => string): string {
   if (/\]\(https?:\/\//.test(line) || /\[places\s*\n/i.test(line)) {
     return line;
   }
@@ -187,7 +188,7 @@ function normalizeMathLine(line: string): string {
   if (equationLabel) {
     const expr = equationLabel[2].trim();
     if (isMathLike(expr) || looksLikeBareEquation(expr)) {
-      return `${equationLabel[1]}${wrapMath(expr)}`;
+      return `${equationLabel[1]}${wrapMath(expr, format)}`;
     }
   }
 
@@ -200,18 +201,18 @@ function normalizeMathLine(line: string): string {
     const expr = verifyLabel[2].replace(/\s*[✓✔✅]\s*$/u, "").trim();
     if (isMathLike(expr) || looksLikeBareEquation(expr)) {
       const mark = verifyLabel[2].match(/[✓✔✅]\s*$/u)?.[0] ?? "";
-      return `${verifyLabel[1]}${wrapMath(expr)}${mark ? ` ${mark.trim()}` : ""}`;
+      return `${verifyLabel[1]}${wrapMath(expr, format)}${mark ? ` ${mark.trim()}` : ""}`;
     }
   }
 
   const trimmed = out.trim();
   if (looksLikeBareEquation(trimmed) && !trimmed.includes("$") && !/^[-*]\s/.test(trimmed)) {
-    return out.replace(trimmed, wrapMath(trimmed));
+    return out.replace(trimmed, wrapMath(trimmed, format));
   }
 
   out = applyOutsideInlineMath(out, (seg) =>
     seg.replace(MATH_IN_PARENS_RE, (full, inner: string) =>
-      isMathLike(String(inner)) ? wrapMath(String(inner)) : full,
+      isMathLike(String(inner)) ? wrapMath(String(inner), format) : full,
     ),
   );
 
@@ -220,21 +221,27 @@ function normalizeMathLine(line: string): string {
   return out.replace(/^(\s*)\$\-\s*(.+?)\s*\$$/, "$1- $2");
 }
 
-export function normalizeImplicitMathInProse(text: string): string {
-  return text.split("\n").map(normalizeMathLine).join("\n");
+export function normalizeImplicitMathInProse(
+  text: string,
+  format?: (expr: string) => string,
+): string {
+  return text.split("\n").map((line) => normalizeMathLine(line, format)).join("\n");
 }
 
-export function normalizeImplicitMath(content: string): string {
+export function normalizeImplicitMath(
+  content: string,
+  format?: (expr: string) => string,
+): string {
   const chunks: string[] = [];
   let last = 0;
   let match: RegExpExecArray | null;
   while ((match = PROTECTED_SPAN_RE.exec(content)) !== null) {
     if (match.index > last) {
-      chunks.push(normalizeImplicitMathInProse(content.slice(last, match.index)));
+      chunks.push(normalizeImplicitMathInProse(content.slice(last, match.index), format));
     }
     chunks.push(match[0]);
     last = match.index + match[0].length;
   }
-  chunks.push(normalizeImplicitMathInProse(content.slice(last)));
+  chunks.push(normalizeImplicitMathInProse(content.slice(last), format));
   return chunks.join("");
 }

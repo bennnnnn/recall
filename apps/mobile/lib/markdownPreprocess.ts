@@ -535,11 +535,14 @@ function wrapBareVegaJson(src: string): string {
   return out;
 }
 
-export function preprocessMarkdown(content: string): string {
+export function preprocessMarkdown(
+  content: string,
+  mathFormat?: (expr: string) => string,
+): string {
   let out = repairBrokenMarkdownLinks(content);
   out = repairCorruptedPriceTierMarkdown(out);
   out = normalizeVerificationBullets(out);
-  out = normalizeImplicitMath(out);
+  out = normalizeImplicitMath(out, mathFormat);
   out = normalizeBoldInlineMath(out);
   // The model often wraps inline math in backticks (`` `$x^2 = 4$` ``), which
   // markdown renders as inline CODE → raw literal `$...$`. Un-wrap backtick-
