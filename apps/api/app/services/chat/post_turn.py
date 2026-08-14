@@ -308,7 +308,12 @@ async def enqueue_post_turn_jobs(
             ),
         )
     if settings.history_compression_enabled:
-        job_specs.append(("compress", {"chat_id": str(ctx.chat_id)}, None))
+        # Dedupe by chat: rapid successive turns on the same chat coalesce —
+        # the worker skips a duplicate enqueue, and the one job that runs
+        # compresses whatever is pending at that time (including the later
+        # turn's messages). Avoids churning the worker with a no-op compress
+        # job on every turn.
+        job_specs.append(("compress", {"chat_id": str(ctx.chat_id)}, f"compress:{ctx.chat_id}"))
     if ctx.prior_count % 10 == 0:
         job_specs.append(("suggestions", {"user_id": str(ctx.user_id)}, None))
     for attachment_id in ctx.indexable_attachment_ids:
