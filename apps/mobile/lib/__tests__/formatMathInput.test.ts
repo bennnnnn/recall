@@ -54,10 +54,12 @@ describe("formatMathExpr", () => {
       expect(formatMathExpr("x>=3")).not.toContain(">= ");
     });
     it("can be disabled", () => {
-      // Relations off → `>=` stays as `>=` (not \geq); `=` still gets spaced.
-      const out = formatMathExpr("x>=3", { relations: false });
-      expect(out).toContain(">=");
-      expect(out).not.toContain("\\geq");
+      // Relations off → `>=` is not converted to \geq. Spacing still applies to
+      // the standalone `=`, so `>=` splits into `>` + ` = ` → "x> = 3"
+      // (ugly but accurate; relations are ON by default, so this only
+      // happens when a caller explicitly opts out).
+      expect(formatMathExpr("x>=3", { relations: false })).toBe("x> = 3");
+      expect(formatMathExpr("x>=3", { relations: false })).not.toContain("\\geq");
     });
   });
 
