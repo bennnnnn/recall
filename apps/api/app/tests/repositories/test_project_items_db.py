@@ -109,6 +109,41 @@ async def test_list_recent_for_user_scopes_to_project(db_session):
 
 
 @pytest.mark.asyncio
+async def test_list_recent_for_projects_caps_per_project_not_globally(db_session):
+    """list_recent_for_projects must return up to per_project_limit items per
+    project in one query — a busy deck must not crowd out a quiet deck's items
+    (the N+1 loop it replaced preserved this; a naive global LIMIT would not)."""
+    user = await _make_user(db_session)
+    project_a = Project(user_id=user.id, title="Busy", kind="language")
+    project_b = Project(user_id=user.id, title="Quiet", kind="trivia")
+    db_session.add_all([project_a, project_b])
+    await db_session.flush()
+
+    base = datetime(2026, 1, 1, tzinfo=UTC)
+    # Busy deck: 5 items. Quiet deck: 1 item. per_project_limit=3 → keep 3 from
+    # busy + 1 from quiet (4 total), not 3 globally.
+    busy = [
+        _build_item(
+            user.id, project_a.id, created_at=base + timedelta(minutes=i), content=f"busy-{i}"
+        )
+        for i in range(5)
+    ]
+    quiet = [_build_item(user.id, project_b.id, created_at=base, content="quiet-keep")]
+    db_session.add_all([*busy, *quiet])
+    await db_session.flush()
+
+    result = await project_items_repo.list_recent_for_projects(
+        db_session, user.id, [project_a.id, project_b.id], per_project_limit=3
+    )
+
+    by_project = {p.id: [i for i in result if i.project_id == p.id] for p in (project_a, project_b)}
+    assert len(by_project[project_a.id]) == 3  # capped at per_project_limit
+    assert len(by_project[project_b.id]) == 1  # not crowded out
+    # Recency within the busy deck's window is preserved.
+    assert by_project[project_a.id][0].content == "busy-4"
+
+
+@pytest.mark.asyncio
 async def test_apply_quiz_result_increment_is_atomic_not_lost(db_session):
     """BUG FIX (was silent): quiz_attempts/quiz_correct were read into Python,
     incremented, and written back — a concurrent writer's update landing between

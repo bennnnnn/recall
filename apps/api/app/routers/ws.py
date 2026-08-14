@@ -356,6 +356,14 @@ async def _handle_message(
     message_content = request.content
     message_model = request.model
 
+    # Reject an empty text-only message at the WS layer so the client gets an
+    # explicit error frame immediately, rather than the stream raising
+    # ChatNotFoundError mid-flight (which the client may not map to a visible
+    # error). An empty message with attachments is valid (image-only turn).
+    if not message_content.strip() and not request.attachment_ids:
+        await websocket.send_json({"type": "error", "message": "Message cannot be empty."})
+        return
+
     def _message_stream(
         result,
         text=message_content,

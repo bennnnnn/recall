@@ -668,7 +668,14 @@ async def stream_edit_response(
                 from_created_at=target.created_at,
                 from_message_id=target.id,
             )
-            await attachment_lifecycle.delete_storage_keys(settings, storage_keys)
+            # The message rows are committed above (the re-stream's recent
+            # window must not see the about-to-be-replaced tail). The
+            # attachment FILES in object storage are the only irrevocable
+            # step — defer that delete until the re-stream has actually
+            # produced output, so a stream failure (model unavailable,
+            # disconnect, quota error) does not destroy user files for a
+            # turn that never replied. On failure the keys are left orphaned
+            # for the attachment orphan reaper to clean up later.
 
         async for token in stream_chat_response(
             redis,
@@ -690,6 +697,12 @@ async def stream_edit_response(
             resources=res,
         ):
             yield token
+
+        # Re-stream succeeded — now safe to delete the orphaned attachment
+        # files. (Skipped on stream failure: the `async for` raises before
+        # reaching here, and turn_resources refunds quota.)
+        if storage_keys:
+            await attachment_lifecycle.delete_storage_keys(settings, storage_keys)
 
 
 @dataclass

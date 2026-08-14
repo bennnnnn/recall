@@ -141,21 +141,24 @@ class Settings(BaseSettings):
     # no HTTP). 0 disables the worker health server (e.g. process_role=all dev).
     worker_health_port: int = 8001
     speech_transcription_enabled: bool = True
-    speech_transcription_model: str = "openai/whisper-1"
+    # Operator override (raw OpenRouter slug). Empty → catalog alias
+    # `speech-stt-model` is the source of truth.
+    speech_transcription_model: str = ""
     speech_rate_limit_per_minute: int = 10
     daily_speech_transcriptions: int = 30
     daily_speech_transcriptions_pro: int = 200
-    # Cloud TTS (read-aloud). Product alias conceptually `tts-model`; provider
-    # mapping stays in speech.py (same pattern as Whisper).
+    # Cloud TTS (read-aloud). Operator override (raw OpenRouter slug); empty →
+    # catalog alias `speech-tts-model`.
     speech_tts_enabled: bool = True
-    # OpenRouter requires the dated snapshot slug; bare gpt-4o-mini-tts 404s.
-    speech_tts_model: str = "openai/gpt-4o-mini-tts-2025-12-15"
+    speech_tts_model: str = ""
     speech_tts_voice: str = "alloy"
     daily_speech_tts: int = 20
     daily_speech_tts_pro: int = 100
 
     image_generation_enabled: bool = True
-    image_generation_model: str = "black-forest-labs/flux.2-klein-4b"
+    # Operator override (raw OpenRouter slug); empty → catalog alias
+    # `image-gen-model`.
+    image_generation_model: str = ""
     daily_image_generations: int = 0
     daily_image_generations_pro: int = 10
 

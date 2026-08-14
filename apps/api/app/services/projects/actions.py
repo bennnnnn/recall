@@ -378,18 +378,15 @@ async def apply_project_actions(
         if not actions:
             return 0
     projects = await projects_repo.list_for_user(session, user_id, limit=200)
-    # Per-project recent window so a busy deck cannot push another project's
-    # items out of the in-memory dedup snapshot.
-    items: list[ProjectItem] = []
-    for project in projects:
-        items.extend(
-            await project_items_repo.list_recent_for_user(
-                session,
-                user_id,
-                project_id=project.id,
-                limit=_ACTION_RELOAD_LIMIT,
-            )
-        )
+    # One batched query with a per-project recency window (was N+1: one query
+    # per project). A busy deck still cannot push another project's items out
+    # of the in-memory dedup snapshot — row_number() caps per project.
+    items = await project_items_repo.list_recent_for_projects(
+        session,
+        user_id,
+        [project.id for project in projects],
+        per_project_limit=_ACTION_RELOAD_LIMIT,
+    )
     state = _ProjectApplyState(
         session=session,
         user_id=user_id,

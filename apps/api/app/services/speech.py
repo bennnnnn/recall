@@ -6,12 +6,16 @@ import logging
 
 from app.core.config import Settings
 from app.gateways import mock_llm, speech_gateway
+from app.services.model_catalog import openrouter_slug
 
 logger = logging.getLogger(__name__)
 
 _MAX_BYTES = 5_000_000
 _MAX_TTS_CHARS = 4000
 _MOCK_MP3_BYTES = b"\xff\xfb\x90\x00" + b"\x00" * 64
+
+_STT_ALIAS = "speech-stt-model"
+_TTS_ALIAS = "speech-tts-model"
 
 
 async def transcribe_audio(
@@ -33,7 +37,7 @@ async def transcribe_audio(
     if not settings.openrouter_api_key:
         return None
 
-    model = (settings.speech_transcription_model or "openai/whisper-1").strip()
+    model = (settings.speech_transcription_model or openrouter_slug(_STT_ALIAS)).strip()
     return await speech_gateway.transcribe_via_openrouter(
         settings,
         audio_bytes,
@@ -61,7 +65,7 @@ async def synthesize_speech(
     if not settings.openrouter_api_key:
         return None
 
-    model = (settings.speech_tts_model or "openai/gpt-4o-mini-tts-2025-12-15").strip()
+    model = (settings.speech_tts_model or openrouter_slug(_TTS_ALIAS)).strip()
     voice = (settings.speech_tts_voice or "alloy").strip()
     return await speech_gateway.synthesize_via_openrouter(
         settings,

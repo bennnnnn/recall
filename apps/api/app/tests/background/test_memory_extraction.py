@@ -96,6 +96,40 @@ async def test_extract_and_store_all_sections_below_confidence_skips_upsert():
 
 
 @pytest.mark.asyncio
+async def test_extract_skips_when_user_missing():
+    """A deleted user (stale job) must short-circuit before any LLM/DB work —
+    the prior `user is None or memory_enabled` check inverted this and let
+    extraction run against a deleted account."""
+    settings = Settings(memory_min_confidence=0.4)
+    upsert = AsyncMock()
+    revise = AsyncMock()
+    _, session_locals = _extraction_sessions()
+
+    with (
+        patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
+        patch(
+            "app.background.memory_extraction.users_repo.get_by_id",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.background.memory_extraction.memories_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.background.memory_extraction.memory_llm.revise_memory_sections",
+            revise,
+        ),
+        patch("app.background.memory_extraction.memories_repo.upsert_sections", upsert),
+    ):
+        await extract_and_store_memories(
+            settings, user_id=uuid4(), chat_id=uuid4(), transcript="chat"
+        )
+
+    upsert.assert_not_awaited()
+    revise.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_extract_and_store_drops_section_with_empty_summary_after_normalize():
     """A summary that normalizes to an empty string (e.g. all punctuation)
     must be dropped, not upserted as a blank memory row."""

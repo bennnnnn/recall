@@ -24,6 +24,8 @@ KNOWN_MODEL_ALIASES: frozenset[str] = frozenset(
         "embedding-model",
         "vision-chat",
         "image-gen-model",
+        "speech-stt-model",
+        "speech-tts-model",
     }
 )
 

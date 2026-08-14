@@ -634,6 +634,44 @@ async def test_topic_service_skips_when_title_none():
 
 
 @pytest.mark.asyncio
+async def test_topic_service_scopes_chat_by_user_id():
+    """A topic job carrying user_id must only title a chat owned by that
+    user — chats_repo.get_by_id(user_id) is used, not the unscoped
+    session.get, so a job injected with a known chat_id cannot set a
+    title on another user's chat."""
+    from app.services import topic as topic_service
+
+    other_user_id = uuid4()
+    chat_id = uuid4()
+    mock_set = AsyncMock()
+    session = AsyncMock()
+    session.commit = AsyncMock()
+
+    with (
+        patch("app.services.topic.SessionLocal", side_effect=[_FakeSessionCM(session)]),
+        patch(
+            "app.services.topic.chat_titles.generate_title",
+            AsyncMock(return_value="Fresh title"),
+        ),
+        patch(
+            "app.services.topic.chats_repo.get_by_id", AsyncMock(return_value=None)
+        ) as scoped_get,
+        patch("app.services.topic.chats_repo.set_title", mock_set),
+    ):
+        await topic_service.generate_chat_title(
+            Settings(), chat_id, "hi", "hello", user_id=other_user_id
+        )
+
+    # Scoped lookup used the (chat_id, user_id) pair — chat not owned by that
+    # user returns None, so no title is set.
+    scoped_get.assert_awaited_once()
+    assert scoped_get.await_args.args[1] == chat_id
+    assert scoped_get.await_args.args[2] == other_user_id
+    mock_set.assert_not_awaited()
+    session.get.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_topic_service_saves_when_title_returned():
     from app.models.orm import Chat
     from app.services import topic as topic_service

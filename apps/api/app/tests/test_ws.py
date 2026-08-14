@@ -307,7 +307,10 @@ def test_ws_passes_client_timezone_to_stream():
             assert ws.receive_json()["type"] == "done"
 
 
-def test_ws_empty_message_ignored():
+def test_ws_empty_message_sends_error_frame():
+    """An empty text-only message must produce a visible error frame at the
+    WS layer immediately, not be silently ignored or dropped mid-stream —
+    the client needs to know the turn was rejected so it can reset its UI."""
     _, tok = _token()
     user = _fake_user()
     chat_id = uuid4()
@@ -324,7 +327,9 @@ def test_ws_empty_message_ignored():
         with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
             ws.send_json({"token": tok})
             ws.send_json({"type": "message", "content": "   "})
-            ws.send_json({"type": "unknown"})
+            frame = ws.receive_json()
+            assert frame["type"] == "error"
+            assert "empty" in frame["message"].lower()
 
 
 # ── regenerate ─────────────────────────────────────────────────────────────────

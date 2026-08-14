@@ -33,8 +33,7 @@ async def _load_memory_extraction_snapshot(
     user_id: UUID,
 ) -> _MemoryExtractionSnapshot:
     user = await users_repo.get_by_id(session, user_id)
-    memory_enabled = user is None or getattr(user, "memory_enabled", True)
-    if not memory_enabled:
+    if user is None or not getattr(user, "memory_enabled", True):
         return _MemoryExtractionSnapshot(memory_enabled=False, existing_sections={})
 
     existing = await memories_repo.list_for_user(session, user_id)

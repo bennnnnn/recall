@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Literal
+from typing import Literal, cast
 from uuid import UUID
 
 from app.core.config import Settings
@@ -24,6 +24,7 @@ from app.services.attachment_content import (
     normalize_content_type,
 )
 from app.services.model_catalog import get as get_model
+from app.services.model_catalog import openrouter_slug
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,7 @@ def normalize_aspect_ratio(value: str | None) -> AspectRatio | None:
         return None
     trimmed = value.strip()
     if trimmed in _ALLOWED_ASPECT_RATIOS:
-        return trimmed  # type: ignore[return-value]
+        return cast(AspectRatio, trimmed)
     return None
 
 
@@ -71,7 +72,7 @@ async def generate_image(
     if not settings.openrouter_api_key:
         return None
 
-    model = (settings.image_generation_model or "black-forest-labs/flux.2-klein-4b").strip()
+    model = (settings.image_generation_model or openrouter_slug(_IMAGE_MODEL_ALIAS)).strip()
     return await image_gateway.generate_via_openrouter(
         settings,
         prompt=cleaned,
