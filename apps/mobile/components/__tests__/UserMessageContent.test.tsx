@@ -79,6 +79,16 @@ describe("UserMessageContent math/markdown rendering", () => {
     expect(queryByText("x^2 + 2 = 6")).toBeNull();
   });
 
+  it("spaces a bare unspaced equation the user typed", async () => {
+    // The math input formatter (formatMathExpr) adds spaces around `=` and
+    // binary operators before the bare equation is wrapped, so `x=3` renders
+    // as `x = 3` (not the cramped `x=3`), matching how a typed equation looks.
+    const { getByText } = await render(
+      <UserMessageContent message={userMessage("x=3")} />,
+    );
+    expect(getByText("x = 3")).toBeOnTheScreen();
+  });
+
   it("renders markdown emphasis instead of literal asterisks", async () => {
     const { getByText, queryByText } = await render(
       <UserMessageContent message={userMessage("**bold** text")} />,
