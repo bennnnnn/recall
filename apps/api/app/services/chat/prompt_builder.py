@@ -164,13 +164,14 @@ async def _augment_web_and_tools(
     if settings.mcp_tool_loop_enabled:
         return prompt_messages, [], None
 
-    if (
-        settings.math_tools_enabled
-        and math_tools_service.needs_symbolic_math(
-            user_content, has_image_attachment=has_image_attachment
-        )
-        and on_status is not None
-    ):
+    # Compute the math-intent signal ONCE: it gates the "calculating" status
+    # below AND build_math_augmentation's own needs_symbolic_math check, so
+    # passing it through avoids re-scanning the same message twice per turn
+    # (needs_symbolic_math runs ~30 substring/matcher passes over the text).
+    needs_math = settings.math_tools_enabled and math_tools_service.needs_symbolic_math(
+        user_content, has_image_attachment=has_image_attachment
+    )
+    if needs_math and on_status is not None:
         await on_status("calculating")
 
     (web_block, search_sources), (math_block, verified_math) = await asyncio.gather(
@@ -192,6 +193,7 @@ async def _augment_web_and_tools(
             settings,
             has_image_attachment=has_image_attachment,
             image_math_extract=image_math_extract,
+            needs_math=needs_math,
         ),
     )
 

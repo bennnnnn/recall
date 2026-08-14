@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import asyncio
 import base64
 import json
 import logging
-
-from litellm import acompletion
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway, mock_llm
@@ -82,8 +79,6 @@ async def extract_equation_from_image(
         return MathImageExtract(lhs="2*x+3", rhs="7", variables=["x"], found=True)
 
     try:
-        route = litellm_gateway.resolve_route("vision-chat")
-        kwargs = litellm_gateway._litellm_kwargs(settings, route)
         mime = content_type.split(";")[0].strip() or "image/jpeg"
         encoded = base64.standard_b64encode(data).decode("ascii")
         messages = [
@@ -98,14 +93,16 @@ async def extract_equation_from_image(
                 ],
             }
         ]
-        async with asyncio.timeout(settings.math_image_extract_timeout_seconds):
-            response = await acompletion(
-                model=route.model,
-                messages=messages,
-                max_tokens=384,
-                response_format={"type": "json_object"},
-                **kwargs,
-            )
+        response = await litellm_gateway.vision_completion(
+            settings=settings,
+            model_alias="vision-chat",
+            messages=messages,
+            max_tokens=384,
+            response_format={"type": "json_object"},
+            timeout_seconds=settings.math_image_extract_timeout_seconds,
+        )
+        if response is None:
+            return None
         raw = (response.choices[0].message.content or "{}").strip()
         if raw.startswith("```"):
             raw = raw.split("```")[1]

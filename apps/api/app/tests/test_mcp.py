@@ -104,26 +104,65 @@ async def test_sympy_adapter_rejects_rce_payload_via_solve():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "action, expr, variable, expected_result",
+    "action, expr, variable",
     [
-        ("simplify", "x + x", "x", "2*x"),
-        ("diff", "x**2", "x", "2*x"),
-        ("integrate", "2*x", "x", "x**2"),
-        ("factor", "x**2 - 1", "x", "(x - 1)*(x + 1)"),
-        ("expand", "(x - 1)*(x + 1)", "x", "x**2 - 1"),
+        ("simplify", "x + x", "x"),
+        ("diff", "x**2", "x"),
+        ("integrate", "2*x", "x"),
+        ("factor", "x**2 - 1", "x"),
+        ("expand", "(x - 1)*(x + 1)", "x"),
     ],
 )
-async def test_sympy_adapter_dispatches_simplify_diff_integrate(
-    action, expr, variable, expected_result
-):
+async def test_sympy_adapter_dispatches_simplify_diff_integrate(action, expr, variable):
     """BUG FIX: tool_schemas.py declared "simplify"/"diff"/"integrate" as
     valid actions, but invoke() had no branch for them — a model call with
     one of these actions fell through to the free-text intent-extraction
     fallback instead of calling the already-implemented math_service
-    functions. factor/expand were advertised in describe() without handlers."""
+    functions. factor/expand were advertised in describe() without handlers.
+
+    Parity fix (math review #1): these now attach a canonical ```answer
+    fence so validate_math_fences corrects the model's final answer to the
+    verified SymPy value — same invariant _action_solve enforces for
+    equation solves."""
     adapter = SympyAdapter(Settings())
     result = await adapter.invoke({"action": action, "expr": expr, "variable": variable})
-    assert result.content == expected_result
+    assert "Result:" in result.content
+    assert "```answer" in result.content
+    assert result.data is not None
+    assert result.data["canonical_fence"]["type"] == "answer"
+    assert result.data["canonical_fence"]["content"].strip()
+
+
+@pytest.mark.asyncio
+async def test_sympy_adapter_expr_op_definite_integrate_attaches_answer():
+    """A definite integral gets the same canonical ```answer fence as an
+    indefinite one (parity with the heuristic _verified_block_calculus)."""
+    adapter = SympyAdapter(Settings())
+    result = await adapter.invoke(
+        {"action": "integrate", "expr": "x**2", "variable": "x", "lower": "0", "upper": "1"}
+    )
+    assert "Result:" in result.content
+    assert "```answer" in result.content
+    assert result.data is not None
+    assert result.data["canonical_fence"]["type"] == "answer"
+    # ∫₀¹ x² dx = 1/3
+    assert "frac{1}{3}" in result.data["canonical_fence"]["content"]
+
+
+@pytest.mark.asyncio
+async def test_sympy_adapter_expr_op_unclosed_integral_emits_honesty_note():
+    """When SymPy can't find a closed form (hands back a literal Integral),
+    the adapter must NOT attach a ```answer / canonical fence — the model
+    must not be told to copy an unverified value as verified. Mirrors
+    _verified_block_calculus's solved=False branch."""
+    adapter = SympyAdapter(Settings())
+    # x**x has no elementary antiderivative — SymPy leaves it as an unevaluated
+    # Integral(...) rather than raising, so `solved` is False.
+    result = await adapter.invoke({"action": "integrate", "expr": "x**x", "variable": "x"})
+    assert "could not find a closed-form result" in result.content
+    assert "Do NOT claim this as a verified answer" in result.content
+    assert "```answer" not in result.content
+    assert result.data is None
 
 
 @pytest.mark.asyncio
@@ -137,12 +176,22 @@ async def test_sympy_adapter_dispatches_parity_actions():
     limit_res = await adapter.invoke(
         {"action": "limit", "expr": "sin(x)/x", "variable": "x", "point": "0"}
     )
-    assert limit_res.content == "1"
+    assert "Result:" in limit_res.content
+    assert "```answer" in limit_res.content
+    assert limit_res.data is not None
+    assert limit_res.data["canonical_fence"]["type"] == "answer"
+    # lim_{x→0} sin(x)/x = 1
+    assert limit_res.data["canonical_fence"]["content"].strip() == "1"
 
     series_res = await adapter.invoke(
         {"action": "series", "expr": "x", "variable": "x", "start": "1", "end": "10"}
     )
-    assert series_res.content == "55"
+    assert "Result:" in series_res.content
+    assert "```answer" in series_res.content
+    assert series_res.data is not None
+    assert series_res.data["canonical_fence"]["type"] == "answer"
+    # Σ_{1..10} x = 55
+    assert series_res.data["canonical_fence"]["content"].strip() == "55"
 
     newton_res = await adapter.invoke(
         {"action": "newton", "expr": "x**2 - 2", "variable": "x", "guess": 1.0}
@@ -238,7 +287,11 @@ async def test_sympy_adapter_integrate_definite():
     result = await adapter.invoke(
         {"action": "integrate", "expr": "x**2", "variable": "x", "lower": "0", "upper": "1"}
     )
-    assert result.content == "1/3"
+    assert "Result:" in result.content
+    assert "```answer" in result.content
+    assert result.data is not None
+    assert result.data["canonical_fence"]["type"] == "answer"
+    assert "frac{1}{3}" in result.data["canonical_fence"]["content"]
 
 
 @pytest.mark.asyncio

@@ -625,3 +625,51 @@ async def complete_text(
     except Exception:
         logger.exception("Text completion failed to parse response for %s", model_alias)
         return None
+
+
+async def vision_completion(
+    *,
+    settings: Settings,
+    model_alias: str,
+    messages: list[dict[str, Any]],
+    max_tokens: int,
+    response_format: dict[str, str] | None = None,
+    timeout_seconds: float | None = None,
+) -> Any | None:
+    """Non-streaming vision completion (image input) against a vision route.
+
+    Returns the LiteLLM response object, or None on provider
+    outage/timeout. This is the gateway seam for image-input completions
+    (camera math OCR) so services don't call ``litellm.acompletion`` directly
+    (layering: external IO belongs in gateways).
+
+    Deliberately does NOT retry against ``memory_fallback_model_alias``:
+    that alias is a text background model with no image-input support, so a
+    retry would always fail. A vision-capable fallback can be wired in later
+    by configuring a second vision alias; until then a single attempt with
+    honest None-on-failure is the correct behavior (OCR is best-effort and
+    must never raise into the chat path).
+    """
+    if mock_llm.should_mock_llm(settings):
+        return None
+    route = resolve_route(model_alias)
+    kwargs = _litellm_kwargs(settings, route)  # ModelUnavailableError if no key
+    params: dict[str, Any] = dict(
+        model=route.model, messages=messages, max_tokens=max_tokens, **kwargs
+    )
+    if response_format is not None:
+        params["response_format"] = response_format
+    timeout = (
+        settings.background_llm_timeout_seconds if timeout_seconds is None else timeout_seconds
+    )
+    try:
+        async with asyncio.timeout(timeout):
+            return await acompletion(**params)
+    except TimeoutError:
+        logger.warning("Vision LLM %s timed out after %ss", model_alias, timeout)
+        return None
+    except ModelUnavailableError:
+        raise
+    except Exception:
+        logger.warning("Vision LLM %s failed", model_alias, exc_info=True)
+        return None

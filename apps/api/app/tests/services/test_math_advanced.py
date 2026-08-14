@@ -203,6 +203,20 @@ class TestAugmentPromptMessagesForNewKinds:
         assert verified.canonical_fence["type"] == "answer"
         assert "```answer" in verified.text
 
+    def test_statistics_input_rejects_non_finite_numbers(self):
+        """nan/inf would propagate silently through max-min/fsum and produce
+        a meaningless verified result — reject at the Pydantic boundary so
+        the service never sees them."""
+        from app.models.math_schemas import StatisticsInput
+
+        StatisticsInput(numbers=[1, 2, 3])  # finite is fine
+        with pytest.raises(ValueError):
+            StatisticsInput(numbers=[1, float("nan"), 3])
+        with pytest.raises(ValueError):
+            StatisticsInput(numbers=[1, float("inf"), 3])
+        with pytest.raises(ValueError):
+            StatisticsInput(numbers=[1, float("-inf")])
+
     @pytest.mark.asyncio
     async def test_combinatorics_produces_verified_block(self):
         settings = Settings(
