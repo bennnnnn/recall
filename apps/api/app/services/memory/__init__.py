@@ -116,6 +116,19 @@ def _memory_query_embed_key(user_id: UUID, query_text: str) -> str:
     return f"memembed:{user_id}:{digest}"
 
 
+def _memory_query_scoped_key(
+    user_id: UUID,
+    generation: bytes | str | None,
+    query_text: str,
+    *,
+    omit_project_memory: bool,
+    exclude_sensitive: bool,
+) -> str:
+    scope = "p" if omit_project_memory else "g"
+    sens = "x" if exclude_sensitive else "a"
+    return f"{_memory_query_cache_key(user_id, generation, query_text)}:{scope}:{sens}"
+
+
 async def _get_cached_query_embedding(
     user_id: UUID,
     query_text: str,
@@ -135,6 +148,35 @@ async def _get_cached_query_embedding(
         return None
 
 
+async def _cache_query_embedding(
+    user_id: UUID,
+    query_text: str,
+    query_vec: list[float],
+    settings: Settings,
+) -> None:
+    from app.gateways import embedding_gateway
+
+    try:
+        await get_redis_client().set(
+            _memory_query_embed_key(user_id, query_text),
+            embedding_gateway.serialize_embedding(query_vec),
+            ex=max(60, settings.memory_query_embed_cache_ttl),
+        )
+    except Exception:
+        logger.debug("Memory query embed cache write failed", exc_info=True)
+
+
+async def _write_query_block_cache(cache_key: str, block: str, settings: Settings) -> None:
+    try:
+        await get_redis_client().set(
+            cache_key,
+            block,
+            ex=max(30, settings.memory_query_cache_ttl),
+        )
+    except Exception:
+        logger.debug("Memory query cache write failed", exc_info=True)
+
+
 async def _semantic_memories_from_vec(
     session: AsyncSession,
     user: User,
@@ -145,44 +187,7 @@ async def _semantic_memories_from_vec(
 ) -> list[Memory]:
     from app.repositories import memories as memories_repo
 
-    # cosine_distance = 1 - cosine_similarity, so a min_similarity cutoff maps
-    # to a max_distance cutoff. Apply it DB-side so the DB path behaves like
-    # the in-memory path (which filters by memory_min_similarity).
-    max_distance: float | None = None
-    if settings.memory_min_similarity > 0:
-        max_distance = 1.0 - settings.memory_min_similarity
-
     all_memories = await memories_repo.list_for_user(session, user.id)
-    always = [
-        memory
-        for memory in all_memories
-        if _eligible_memory(memory, settings) and memory.type in _ALWAYS_INJECT_TYPES
-    ]
-
-    db_hits = await memories_repo.search_semantic(
-        session,
-        user.id,
-        query_vec,
-        min_confidence=settings.memory_min_confidence,
-        limit=settings.memory_inject_limit,
-        max_distance=max_distance,
-    )
-    if db_hits:
-        gated = [
-            memory
-            for memory in db_hits
-            if memory.type in _SIMILARITY_GATED_TYPES
-            and not (omit_project_memory and memory.type == "project")
-        ]
-        return _merge_always_and_gated(always, gated, settings)
-
-    # Empty db_hits is ambiguous: no vectors yet vs. vectors but no match.
-    # Cheap EXISTS/LIMIT-1 probe — do not load every memory just to check.
-    if await memories_repo.has_any_embedding(session, user.id):
-        # Vectors exist but nothing cleared the bar — still inject profile/preference.
-        return _merge_always_and_gated(always, [], settings)
-
-    # Vectors not ready yet — fall back to JSON similarity / always-inject.
     semantic = select_memories_semantic(
         all_memories,
         query_vec,
@@ -256,29 +261,20 @@ async def _warm_semantic_memory_cache(
             return
         redis = get_redis_client()
         gen_before = await redis.get(_memory_generation_key(user_id))
-        embed_key = _memory_query_embed_key(user_id, cleaned)
-        ttl = max(60, settings.memory_query_embed_cache_ttl)
-        try:
-            await redis.set(
-                embed_key,
-                embedding_gateway.serialize_embedding(query_vec),
-                ex=ttl,
-            )
-        except Exception:
-            logger.debug("Memory query embed cache write failed", exc_info=True)
+        await _cache_query_embedding(user_id, cleaned, query_vec, settings)
 
         async with SessionLocal() as session:
             user = await users_repo.get_by_id(session, user_id)
             if user is None or not user.memory_enabled:
                 return
-            memories = await _semantic_memories_from_vec(
+            block = await _semantic_block_from_vec(
                 session,
                 user,
                 settings,
                 query_vec,
                 omit_project_memory=omit_project_memory,
+                exclude_sensitive=False,
             )
-            block = format_memory_block(memories, max_chars=settings.memory_inject_max_chars)
             # Optimization only, not a correctness guard (see
             # _memory_query_cache_key): skip the write outright if we
             # already know the generation moved on, since it would land
@@ -286,17 +282,14 @@ async def _warm_semantic_memory_cache(
             gen_after = await redis.get(_memory_generation_key(user_id))
             if gen_before != gen_after:
                 return
-            scope = "p" if omit_project_memory else "g"
-            # Match get_memory_block's :{scope}:{sens} layout (warm is chat-path).
-            query_key = f"{_memory_query_cache_key(user_id, gen_before, cleaned)}:{scope}:a"
-            try:
-                await redis.set(
-                    query_key,
-                    block,
-                    ex=max(30, settings.memory_query_cache_ttl),
-                )
-            except Exception:
-                logger.debug("Memory query cache write failed", exc_info=True)
+            query_key = _memory_query_scoped_key(
+                user_id,
+                gen_before,
+                cleaned,
+                omit_project_memory=omit_project_memory,
+                exclude_sensitive=False,
+            )
+            await _write_query_block_cache(query_key, block, settings)
     except Exception:
         logger.debug("Background semantic memory warm failed", exc_info=True)
 
@@ -309,6 +302,26 @@ def _filter_surface_memories(
     if not exclude_sensitive:
         return memories
     return [memory for memory in memories if not is_sensitive_memory_text(memory.text)]
+
+
+async def _semantic_block_from_vec(
+    session: AsyncSession,
+    user: User,
+    settings: Settings,
+    query_vec: list[float],
+    *,
+    omit_project_memory: bool,
+    exclude_sensitive: bool,
+) -> str:
+    memories = await load_relevant_memories(
+        session,
+        user,
+        settings,
+        query_vec=query_vec,
+        omit_project_memory=omit_project_memory,
+    )
+    memories = _filter_surface_memories(memories, exclude_sensitive=exclude_sensitive)
+    return format_memory_block(memories, max_chars=settings.memory_inject_max_chars)
 
 
 async def get_memory_block(
@@ -336,9 +349,13 @@ async def get_memory_block(
             logger.debug("Memory generation read failed", exc_info=True)
             generation = None
         # Fold project-chat / sensitive-surface scoping into the cache key.
-        scope = "p" if omit_project_memory else "g"
-        sens = "x" if exclude_sensitive else "a"
-        query_key = f"{_memory_query_cache_key(user.id, generation, q)}:{scope}:{sens}"
+        query_key = _memory_query_scoped_key(
+            user.id,
+            generation,
+            q,
+            omit_project_memory=omit_project_memory,
+            exclude_sensitive=exclude_sensitive,
+        )
         try:
             cached = await redis.get(query_key)
             if cached is not None:
@@ -355,37 +372,24 @@ async def get_memory_block(
             try:
                 query_vec = await asyncio.wait_for(
                     embedding_gateway.embed_text(settings, q),
-                    timeout=2.0,
+                    timeout=settings.memory_query_embed_timeout_seconds,
                 )
             except (TimeoutError, Exception):
                 logger.debug("Live semantic embed failed/timed out", exc_info=True)
                 query_vec = None
             if query_vec:
-                embed_key = _memory_query_embed_key(user.id, q)
-                ttl = max(60, settings.memory_query_embed_cache_ttl)
-                try:
-                    await redis.set(
-                        embed_key,
-                        embedding_gateway.serialize_embedding(query_vec),
-                        ex=ttl,
-                    )
-                except Exception:
-                    logger.debug("Memory query embed cache write failed", exc_info=True)
+                await _cache_query_embedding(user.id, q, query_vec, settings)
 
         if query_vec is not None:
-            memories = await load_relevant_memories(
+            block = await _semantic_block_from_vec(
                 session,
                 user,
                 settings,
-                query_vec=query_vec,
+                query_vec,
                 omit_project_memory=omit_project_memory,
+                exclude_sensitive=exclude_sensitive,
             )
-            memories = _filter_surface_memories(memories, exclude_sensitive=exclude_sensitive)
-            block = format_memory_block(memories, max_chars=max_chars)
-            try:
-                await redis.set(query_key, block, ex=max(30, settings.memory_query_cache_ttl))
-            except Exception:
-                logger.debug("Memory query cache write failed", exc_info=True)
+            await _write_query_block_cache(query_key, block, settings)
             return block
 
         # Cache miss — always-inject types now; warm semantic cache in background.
@@ -397,10 +401,7 @@ async def get_memory_block(
         )
         memories = _filter_surface_memories(memories, exclude_sensitive=exclude_sensitive)
         block = format_memory_block(memories, max_chars=max_chars)
-        try:
-            await redis.set(query_key, block, ex=max(30, settings.memory_query_cache_ttl))
-        except Exception:
-            logger.debug("Memory query cache write failed", exc_info=True)
+        await _write_query_block_cache(query_key, block, settings)
         # BUG FIX: asyncio.create_task alone only keeps a task alive via the
         # caller's local reference, which goes out of scope right after this
         # function returns — per asyncio's own docs, an unreferenced task is
@@ -418,7 +419,7 @@ async def get_memory_block(
         )
         warm_task.add_done_callback(
             lambda t: logger.debug("Semantic memory warm failed", exc_info=t.exception())
-            if t.exception()
+            if not t.cancelled() and t.exception()
             else None
         )
         return block
@@ -456,17 +457,19 @@ def _memory_block_key(user_id: UUID) -> str:
     return f"memblock:{user_id}"
 
 
-def _memory_query_key_prefix(user_id: UUID) -> str:
-    return f"memquery:{user_id}:"
-
-
 def _memory_generation_key(user_id: UUID) -> str:
     return f"memgen:{user_id}"
 
 
 async def invalidate_memory_block(user_id: UUID) -> None:
-    """Drop the per-user memory block cache AND any per-query semantic cache
-    entries — both can hold stale content after a memory write or delete."""
+    """Bump the generation and drop the four memblock keys.
+
+    Query-cache entries are not SCAN-deleted: the generation is folded into
+    ``memquery:`` keys, so INCR already makes them unreachable, and they
+    expire via ``memory_query_cache_ttl``. Embed cache is query-text-keyed
+    and is intentionally kept — a memory write does not stale a query's
+    embedding.
+    """
     try:
         redis = get_redis_client()
         await redis.incr(_memory_generation_key(user_id))
@@ -477,32 +480,14 @@ async def invalidate_memory_block(user_id: UUID) -> None:
             f"{block_key}:x",
             f"{block_key}:p:x",
         )
-        # Clear memquery:{user_id}:* entries (semantic recall is query-conditioned
-        # and can be stale after an extraction/rewrite/delete).
-        prefix = _memory_query_key_prefix(user_id)
-        batch: list[str] = []
-        async for key in redis.scan_iter(match=f"{prefix}*", count=200):
-            batch.append(key if isinstance(key, str) else key.decode())
-            if len(batch) >= 200:
-                await redis.delete(*batch)
-                batch.clear()
-        if batch:
-            await redis.delete(*batch)
-        embed_prefix = f"memembed:{user_id}:"
-        batch = []
-        async for key in redis.scan_iter(match=f"{embed_prefix}*", count=200):
-            batch.append(key if isinstance(key, str) else key.decode())
-            if len(batch) >= 200:
-                await redis.delete(*batch)
-                batch.clear()
-        if batch:
-            await redis.delete(*batch)
     except Exception:
         logger.debug("Memory block cache invalidation failed", exc_info=True)
 
 
-# Covers revise + optional fallback retry (each up to ~60s) with headroom.
-# Crash safety net only — normal release uses token compare-and-delete.
+# Covers one LLM round-trip + optional fallback retry (each up to ~60s) with
+# headroom. Consolidation merges sections in parallel so the hold stays one
+# round-trip, not 5x sequential. Crash safety net only — normal release uses
+# token compare-and-delete.
 _MEMORY_WRITE_LOCK_TTL = 150
 
 

@@ -1,4 +1,4 @@
-"""LLM prompts for memory section extract / merge / rewrite."""
+"""LLM prompts for memory section extract and merge."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import json
 from app.core.config import Settings
 from app.gateways import litellm_gateway, mock_llm
 from app.models.schemas import MemorySectionItem, MemorySectionUpdateResult
+from app.services.prompt_safety import wrap_untrusted
 
 
 async def revise_memory_sections(
@@ -50,7 +51,8 @@ async def revise_memory_sections(
             "role": "user",
             "content": (
                 f"Existing section summaries JSON:\n{existing_block}\n\n"
-                f"New conversation:\n{transcript}"
+                "New conversation:\n"
+                f"{wrap_untrusted('conversation transcript', transcript)}"
             ),
         },
     ]
@@ -109,53 +111,4 @@ async def merge_memory_section(
         messages=messages,
         schema=MemorySectionItem,
         max_tokens=1024,
-    )
-
-
-async def rewrite_memory_sections(
-    settings: Settings,
-    sections: dict[str, str],
-) -> MemorySectionUpdateResult | None:
-    """Rewrite bloated or duplicate section drafts into concise paragraphs.
-
-    Prefer :func:`merge_memory_section` for production consolidation (merge-not-replace).
-    """
-    if not sections:
-        return None
-    if mock_llm.should_mock_llm(settings):
-        return await mock_llm.mock_rewrite_memory_sections(sections)
-
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                "You clean up long-term memory section drafts for a personal AI assistant. "
-                "Return ONLY JSON (no markdown): "
-                '{"sections": [{"type": "profile|preference|project|fact|focus", '
-                '"summary": "2-4 sentence paragraph in third person", "confidence": 0.0-1.0}]}. '
-                "Section meanings:\n"
-                "- profile: name, identity, job, employer, location\n"
-                "- preference: how they like to learn, communicate, or use the app\n"
-                "- project: active personal projects\n"
-                "- fact: stable misc facts\n"
-                "- focus: current priorities\n\n"
-                "Rules:\n"
-                "- Return EVERY input section, rewritten.\n"
-                "- Each summary is ONE merged paragraph — never a bullet list.\n"
-                "- Remove duplicate or near-duplicate sentences; merge contradictions sensibly.\n"
-                "- Keep only stable, useful facts; drop noise and repetition.\n"
-                "- Do not invent facts not supported by the draft."
-            ),
-        },
-        {
-            "role": "user",
-            "content": f"Draft section text JSON:\n{json.dumps(sections, ensure_ascii=False)}",
-        },
-    ]
-    return await litellm_gateway.complete_structured(
-        settings=settings,
-        model_alias="memory-model",
-        messages=messages,
-        schema=MemorySectionUpdateResult,
-        max_tokens=2048,
     )

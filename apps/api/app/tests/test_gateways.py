@@ -390,15 +390,6 @@ def test_mock_reply_exhausts_after_three_wrong_tries():
 
 
 @pytest.mark.asyncio
-async def test_mock_rewrite_memory_sections():
-    from app.gateways.mock_llm import mock_rewrite_memory_sections
-
-    result = await mock_rewrite_memory_sections({"profile": "Lives in NYC"})
-    assert result is not None
-    assert len(result.sections) == 1
-
-
-@pytest.mark.asyncio
 async def test_mock_project_actions_create_project():
     from app.gateways.mock_llm import mock_project_actions
 
@@ -899,3 +890,22 @@ async def test_complete_structured_no_fallback_when_disabled():
         )
     assert result is None
     assert len(calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_embed_text_returns_none_on_timeout():
+    from app.gateways import embedding_gateway
+
+    settings = Settings(
+        mock_llm_enabled=False,
+        openrouter_api_key="sk-or-test",
+        background_llm_timeout_seconds=0,
+    )
+
+    async def _hang(**_kwargs: object) -> None:
+        await asyncio.sleep(30)
+        raise AssertionError("aembedding was not cancelled")
+
+    with patch("app.gateways.embedding_gateway.aembedding", _hang):
+        result = await embedding_gateway.embed_text(settings, "hello")
+    assert result is None

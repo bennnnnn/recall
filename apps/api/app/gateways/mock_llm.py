@@ -264,19 +264,6 @@ async def mock_merge_memory_section(section_type: str, prior_text: str):
     )
 
 
-async def mock_rewrite_memory_sections(sections: dict[str, str]):
-    from app.models.schemas import MemorySectionItem, MemorySectionUpdateResult
-
-    if not sections:
-        return None
-    rewritten: list[MemorySectionItem] = []
-    for memory_type, text in sections.items():
-        item = await mock_merge_memory_section(memory_type, text)
-        if item is not None:
-            rewritten.append(item)
-    return MemorySectionUpdateResult(sections=rewritten)
-
-
 _MOCK_FACTUAL_LOOKUP = re.compile(
     r"\b("
     r"who is|who was|what is the price|price of|how much|how many|"
