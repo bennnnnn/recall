@@ -39,11 +39,14 @@ logger = logging.getLogger(__name__)
 
 
 async def _handle_topic(settings: Settings, payload: dict[str, Any]) -> None:
+    user_id_raw = payload.get("user_id")
+    user_id = UUID(user_id_raw) if user_id_raw else None
     await topic_generation.generate_chat_title(
         settings,
         UUID(payload["chat_id"]),
         payload.get("user_message", ""),
         payload.get("assistant_message", ""),
+        user_id=user_id,
     )
 
 
@@ -115,7 +118,9 @@ async def _handle_projects(settings: Settings, payload: dict[str, Any]) -> None:
 
 
 async def _handle_compress(settings: Settings, payload: dict[str, Any]) -> None:
-    await compaction.compress_chat_history(settings, UUID(payload["chat_id"]))
+    user_id_raw = payload.get("user_id")
+    user_id = UUID(user_id_raw) if user_id_raw else None
+    await compaction.compress_chat_history(settings, UUID(payload["chat_id"]), user_id=user_id)
 
 
 async def _handle_suggestions(settings: Settings, payload: dict[str, Any]) -> None:

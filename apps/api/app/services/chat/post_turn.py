@@ -301,6 +301,7 @@ async def enqueue_post_turn_jobs(
                 "topic",
                 {
                     "chat_id": str(ctx.chat_id),
+                    "user_id": str(ctx.user_id),
                     "user_message": ctx.user_message_content,
                     "assistant_message": assistant_text,
                 },
@@ -313,7 +314,13 @@ async def enqueue_post_turn_jobs(
         # compresses whatever is pending at that time (including the later
         # turn's messages). Avoids churning the worker with a no-op compress
         # job on every turn.
-        job_specs.append(("compress", {"chat_id": str(ctx.chat_id)}, f"compress:{ctx.chat_id}"))
+        job_specs.append(
+            (
+                "compress",
+                {"chat_id": str(ctx.chat_id), "user_id": str(ctx.user_id)},
+                f"compress:{ctx.chat_id}",
+            )
+        )
     if ctx.prior_count % 10 == 0:
         job_specs.append(("suggestions", {"user_id": str(ctx.user_id)}, None))
     for attachment_id in ctx.indexable_attachment_ids:

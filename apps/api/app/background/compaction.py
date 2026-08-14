@@ -23,11 +23,17 @@ logger = logging.getLogger(__name__)
 _COMPRESS_LOCK_TTL_SECONDS = 120
 
 
-async def compress_chat_history(settings: Settings, chat_id: UUID) -> None:
+async def compress_chat_history(
+    settings: Settings, chat_id: UUID, *, user_id: UUID | None = None
+) -> None:
     """Fold messages older than the recent window into a rolling chat summary.
 
     Best-effort and batched: runs when enough messages have aged out, or sooner
     when the token budget is tight on long threads.
+
+    ``user_id`` scopes the chat lookup so a job injected with a known chat_id
+    cannot compress another user's chat (defense-in-depth). Older in-flight
+    payloads may omit it; those fall back to the unscoped lookup.
     """
     # BUG FIX (was silent, latent): a "compress" job is enqueued on essentially
     # every turn (see services/chat/post_turn.py) and this worker currently
@@ -45,7 +51,12 @@ async def compress_chat_history(settings: Settings, chat_id: UUID) -> None:
         return
     try:
         async with SessionLocal() as session:
-            chat = await session.get(Chat, chat_id)
+            if user_id is not None:
+                from app.repositories import chats as chats_repo
+
+                chat = await chats_repo.get_by_id(session, chat_id, user_id)
+            else:
+                chat = await session.get(Chat, chat_id)
             if chat is None:
                 return
 
