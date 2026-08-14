@@ -1,4 +1,4 @@
-import { Fragment, ReactNode } from "react";
+import { Children, Fragment, ReactNode } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { Image, Text, View } from "react-native";
 
@@ -16,6 +16,7 @@ import {
   type AstNode,
   type AstParent,
   astText,
+  astTextWithBreaks,
   countTableColumns,
   detectStandaloneLink,
   inTableCell,
@@ -39,7 +40,8 @@ import { isGenericSearchUrl } from "@/lib/placesList";
 import { openPlaceLink } from "@/lib/openPlaceLink";
 import { isAllowedImageUri } from "@/lib/imageUriPolicy";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
-import { extractBlockquoteMeta, splitInlineMath } from "@/lib/markdownPreprocess";
+import { splitInlineMath } from "@/lib/markdownPreprocess";
+import { parseQuoteAttribution } from "@/lib/richBlocks";
 import { isHeavyInlineMath } from "@/lib/mathFenceRetag";
 import {
   latexHasStackedFrac,
@@ -263,9 +265,16 @@ function makeSharedRules(
         </View>
       );
     },
-    blockquote: (node: AstNode) => {
-      const meta = extractBlockquoteMeta(astText(node));
-      return <QuoteBlock key={node.key} quote={meta.quote} author={meta.author} />;
+    blockquote: (node: AstNode, children: ReactNode) => {
+      const last = node.children?.[node.children.length - 1];
+      const lastMeta = last ? parseQuoteAttribution(astTextWithBreaks(last)) : undefined;
+      const lastIsOnlyAttr = Boolean(lastMeta?.author && !lastMeta.quote);
+      const body = lastIsOnlyAttr ? Children.toArray(children).slice(0, -1) : children;
+      return (
+        <QuoteBlock key={node.key} author={lastIsOnlyAttr ? lastMeta?.author : undefined}>
+          {body}
+        </QuoteBlock>
+      );
     },
     paragraph: (
       node: AstNode,
@@ -353,32 +362,15 @@ function makeSharedRules(
       children: ReactNode,
       parent: unknown,
       styles: StyleMap,
-    ) => {
-      const raw = astText(node);
-      const parts = splitInlineMath(raw);
-      const boldStyle = [
-        styles.strong,
-        inTableCell(parent) && mdTable.headerText,
-      ];
-      if (parts.some((part) => part.type === "math")) {
-        return (
-          <Text key={node.key} style={boldStyle} selectable>
-            {parts.map((part, i) =>
-              part.type === "math" ? (
-                <MathText key={`${node.key}-m-${i}`} latex={part.value} />
-              ) : (
-                part.value
-              ),
-            )}
-          </Text>
-        );
-      }
-      return (
-        <Text key={node.key} style={boldStyle} selectable>
-          {children}
-        </Text>
-      );
-    },
+    ) => (
+      <Text
+        key={node.key}
+        style={[styles.strong, inTableCell(parent) && mdTable.headerText]}
+        selectable
+      >
+        {children}
+      </Text>
+    ),
     em: (node: { key: string }, children: ReactNode, _p: unknown, styles: StyleMap) => (
       <Text key={node.key} style={styles.em} selectable>
         {children}

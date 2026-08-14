@@ -328,6 +328,37 @@ Bob | 88`;
     expect(out).not.toMatch(/^- - - - -$/m);
     expect(out).toContain("| one | two |");
   });
+
+  it("keeps YAML document separators inside a fence", () => {
+    const input = "```yaml\n---\nname: deploy\non: push\n---\n```";
+    const out = normalizeMarkdownTables(input);
+    expect(out).toBe(input);
+  });
+
+  it("keeps a bare tilde fence closer", () => {
+    const input = "~~~python\nprint('hi')\n~~~";
+    const out = normalizeMarkdownTables(input);
+    expect(out).toBe(input);
+  });
+
+  it("keeps a thematic break surrounded by blank lines", () => {
+    const input = "Intro.\n\n---\n\nAfter.";
+    const out = normalizeMarkdownTables(input);
+    expect(out).toBe(input);
+  });
+
+  it("keeps a setext heading underline", () => {
+    const input = "My Heading\n===\n\nBody.";
+    const out = normalizeMarkdownTables(input);
+    expect(out).toBe(input);
+  });
+
+  it("preprocessMarkdown does not strip YAML front matter from a fence", () => {
+    const input = "```yaml\n---\nname: deploy\non: push\n---\n```";
+    const out = preprocessMarkdown(input);
+    expect(out).toContain("---");
+    expect(out).toContain("name: deploy");
+  });
 });
 
 describe("vega retag (linear)", () => {

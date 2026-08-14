@@ -31,6 +31,20 @@ export function astText(node: AstNode): string {
   return (node.children ?? []).map(astText).join("");
 }
 
+/** Like `astText`, but soft/hard breaks and block siblings become newlines. */
+export function astTextWithBreaks(node: AstNode): string {
+  if (node.type === "softbreak" || node.type === "hardbreak") return "\n";
+  if (node.content) return node.content;
+  const kids = node.children ?? [];
+  if (kids.length === 0) return "";
+  const block =
+    node.type === "blockquote" ||
+    node.type === "bullet_list" ||
+    node.type === "ordered_list" ||
+    node.type === "list";
+  return kids.map(astTextWithBreaks).join(block ? "\n" : "");
+}
+
 function collectHtmlInline(nodes: AstNode[] | undefined): string[] {
   const out: string[] = [];
   for (const node of nodes ?? []) {

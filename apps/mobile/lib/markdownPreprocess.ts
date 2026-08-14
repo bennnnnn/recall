@@ -2,7 +2,7 @@ import { retagMoleculeMathToSmiles } from "@/lib/chemistryFence";
 import { retagMathAndDiagramFences } from "@/lib/mathFenceRetag";
 import { repairBrokenMarkdownLinks } from "@/lib/placesList";
 import { normalizeImplicitMath } from "@/lib/normalizeImplicitMath";
-import { parseQuoteAttribution, isStructuredFenceLang } from "@/lib/richBlocks";
+import { isStructuredFenceLang } from "@/lib/richBlocks";
 import {
   isAnswerLang,
   isExplicitCodeLang,
@@ -52,6 +52,26 @@ function isDividerLine(line: string): boolean {
   // Collapse whitespace first — avoid nested `(\s*[-–—_=*~]\s*){3,}` (js/redos).
   const compact = line.trim().replace(/\s+/g, "");
   return compact.length >= 3 && /^[-–—_=*~]+$/.test(compact);
+}
+
+/** CommonMark fence opener/closer: 3+ backticks or tildes, up to 3 leading spaces. */
+function readFenceMarker(line: string): { char: "`" | "~"; len: number; info: string } | null {
+  let i = 0;
+  while (i < line.length && i < 3 && line[i] === " ") i += 1;
+  const char = line[i];
+  if (char !== "`" && char !== "~") return null;
+  let len = 0;
+  while (i < line.length && line[i] === char) {
+    len += 1;
+    i += 1;
+  }
+  if (len < 3) return null;
+  return { char, len, info: line.slice(i).trim() };
+}
+
+/** `---` between two pipe rows is a fake separator; keep it as an hr / setext otherwise. */
+function isTableDebrisDivider(prev: string | undefined, next: string | undefined): boolean {
+  return Boolean(prev && next && isTableRow(prev) && isTableRow(next));
 }
 
 function isSeparatorRow(line: string): boolean {
@@ -116,6 +136,7 @@ export function normalizeMarkdownTables(content: string): string {
   const lines = out.split("\n");
   const fixed: string[] = [];
   let tableBuffer: string[] = [];
+  let openFence: { char: "`" | "~"; len: number } | null = null;
 
   const flushTable = () => {
     if (tableBuffer.length >= 2) {
@@ -126,8 +147,33 @@ export function normalizeMarkdownTables(content: string): string {
     tableBuffer = [];
   };
 
-  for (const line of lines) {
-    if (isDividerLine(line)) continue;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const marker = readFenceMarker(line);
+
+    if (openFence) {
+      if (
+        marker &&
+        marker.char === openFence.char &&
+        marker.len >= openFence.len &&
+        marker.info === ""
+      ) {
+        openFence = null;
+      }
+      fixed.push(line);
+      continue;
+    }
+
+    if (marker) {
+      flushTable();
+      openFence = { char: marker.char, len: marker.len };
+      fixed.push(line);
+      continue;
+    }
+
+    if (isDividerLine(line) && isTableDebrisDivider(lines[i - 1], lines[i + 1])) {
+      continue;
+    }
 
     if (isTableRow(line)) {
       if (isGhostTableRow(line)) continue;
@@ -546,13 +592,6 @@ export function preprocessMarkdown(content: string): string {
   out = layoutCheckVerificationLines(out);
 
   return out;
-}
-
-export function extractBlockquoteMeta(raw: string): {
-  quote: string;
-  author?: string;
-} {
-  return parseQuoteAttribution(raw);
 }
 
 /** Move $...$ out of **...** so emphasis nodes do not swallow math delimiters. */
