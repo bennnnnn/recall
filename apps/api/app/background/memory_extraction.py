@@ -45,7 +45,6 @@ async def _load_memory_extraction_snapshot(
 
 
 async def _apply_memory_extraction_result(
-    session: AsyncSession,
     settings: Settings,
     *,
     user_id: UUID,
@@ -55,9 +54,11 @@ async def _apply_memory_extraction_result(
     if not rows:
         return
 
-    await memories_repo.upsert_sections(session, user_id=user_id, items=rows)
     from app.gateways import embedding_gateway
 
+    # Phase 1 — persist the text upsert and collect what needs (re)embedding,
+    # then release the DB connection before the slow embedding HTTP calls.
+    #
     # Re-embed any section whose embedding is missing, or whose embedding no
     # longer matches its current text.
     #
@@ -70,38 +71,70 @@ async def _apply_memory_extraction_result(
     # change again — semantic search silently misranked that memory
     # indefinitely. Comparing against the persisted embedding_text_hash
     # instead makes staleness detectable across passes, not just within one.
-    updated = await memories_repo.list_for_user(session, user_id)
-    embed_tasks: list[tuple[Memory, str]] = []
-    for memory in updated:
-        # Re-embed if EITHER vector representation is missing — the DB semantic
-        # search filters on the `embedding` (pgvector) column, while the
-        # in-memory fallback reads `embedding_json`, so both must be populated.
-        # Checking only `embedding_json` left rows with pgvector-but-null-JSON
-        # re-embedding forever, and rows with JSON-but-null-pgvector skipped
-        # entirely (invisible to DB semantic search).
-        needs_embed = (
-            memory.embedding is None
-            or memory.embedding_json is None
-            or memory.embedding_text_hash != embedding_text_hash(memory.text)
-        )
-        if needs_embed:
-            embed_tasks.append((memory, memory.text))
+    embed_needed: list[tuple[UUID, str]] = []
+    async with SessionLocal() as session:
+        await memories_repo.upsert_sections(session, user_id=user_id, items=rows)
+        updated = await memories_repo.list_for_user(session, user_id)
+        for memory in updated:
+            # Re-embed if EITHER vector representation is missing — the DB
+            # semantic search filters on the `embedding` (pgvector) column,
+            # while the in-memory fallback reads `embedding_json`, so both
+            # must be populated. Checking only `embedding_json` left rows with
+            # pgvector-but-null-JSON re-embedding forever, and rows with
+            # JSON-but-null-pgvector skipped entirely (invisible to DB
+            # semantic search).
+            needs_embed = (
+                memory.embedding is None
+                or memory.embedding_json is None
+                or memory.embedding_text_hash != embedding_text_hash(memory.text)
+            )
+            if needs_embed:
+                embed_needed.append((memory.id, memory.text))
+        await session.commit()
 
-    if embed_tasks:
-        vectors = await asyncio.gather(
-            *(embedding_gateway.embed_text(settings, text) for _, text in embed_tasks)
-        )
-        for (memory, text), vec in zip(embed_tasks, vectors, strict=True):
-            if vec:
-                memory.embedding = vec
-                memory.embedding_json = embedding_gateway.serialize_embedding(vec)
-                memory.embedding_text_hash = embedding_text_hash(text)
-    await session.commit()
+    if not embed_needed:
+        await _invalidate_memory_caches(user_id)
+        return
+
+    # Phase 2 — embed with no DB connection held (slow provider HTTP). A
+    # failure here leaves the text persisted with no vector; the next pass
+    # detects that via `embedding is None` and re-embeds — same staleness
+    # recovery that already existed for a mid-pass embed failure.
+    vectors = await asyncio.gather(
+        *(embedding_gateway.embed_text(settings, text) for _, text in embed_needed)
+    )
+    to_write: list[tuple[UUID, list[float], str, str]] = []
+    for (memory_id, text), vec in zip(embed_needed, vectors, strict=True):
+        if vec:
+            to_write.append(
+                (
+                    memory_id,
+                    vec,
+                    embedding_gateway.serialize_embedding(vec),
+                    embedding_text_hash(text),
+                )
+            )
+
+    # Phase 3 — write vectors in a fresh short-lived session.
+    if to_write:
+        async with SessionLocal() as session:
+            for memory_id, vec, vec_json, text_hash in to_write:
+                row = await session.get(Memory, memory_id)
+                if row is None:
+                    continue
+                row.embedding = vec
+                row.embedding_json = vec_json
+                row.embedding_text_hash = text_hash
+            await session.commit()
+
+    await _invalidate_memory_caches(user_id)
+
+
+async def _invalidate_memory_caches(user_id: UUID) -> None:
+    from app.services import home as home_service
     from app.services import memory as memory_service
 
     await memory_service.invalidate_memory_block(user_id)
-    from app.services import home as home_service
-
     await home_service.invalidate_home_cache(user_id)
 
 
@@ -159,14 +192,12 @@ async def extract_and_store_memories(
             if not rows:
                 return None
 
-            async with SessionLocal() as session:
-                await _apply_memory_extraction_result(
-                    session,
-                    settings,
-                    user_id=user_id,
-                    chat_id=chat_id,
-                    rows=rows,
-                )
+            await _apply_memory_extraction_result(
+                settings,
+                user_id=user_id,
+                chat_id=chat_id,
+                rows=rows,
+            )
         finally:
             await release_memory_write_lock(user_id, lock_token)
         return None

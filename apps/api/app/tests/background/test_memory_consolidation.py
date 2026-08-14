@@ -6,6 +6,7 @@ import pytest
 
 from app.background.memory_consolidation import consolidate_user_memory_sections
 from app.core.config import Settings
+from app.models.orm import Memory
 from app.models.schemas import MemorySectionItem
 from app.services.memory import embedding_text_hash
 
@@ -145,7 +146,7 @@ async def test_consolidate_merges_messy_sections():
         confidence=0.9,
     )
 
-    _, session_locals = _consolidation_sessions(count=2)
+    _, session_locals = _consolidation_sessions(count=3)
     with (
         patch(
             "app.background.memory_consolidation.SessionLocal",
@@ -243,7 +244,7 @@ async def test_consolidate_applies_only_sections_that_need_merge():
         confidence=0.9,
     )
 
-    _, session_locals = _consolidation_sessions(count=2)
+    _, session_locals = _consolidation_sessions(count=3)
     with (
         patch(
             "app.background.memory_consolidation.SessionLocal",
@@ -330,6 +331,7 @@ async def test_consolidate_upserts_without_embedding_when_vector_missing():
     memory.text = "User's name is Bini. User's name is Binalfew. User is a developer."
 
     updated = SimpleNamespace(
+        id=uuid4(),
         type="profile",
         text="Bini (Binalfew) is a software developer with backend and mobile experience",
         embedding=None,
@@ -383,9 +385,20 @@ async def test_consolidate_stores_embedding_when_vector_present():
     memory.type = "profile"
     memory.text = "User's name is Bini. User's name is Binalfew. User is a developer."
 
-    updated = SimpleNamespace(
+    memory_id = uuid4()
+    listed = SimpleNamespace(
+        id=memory_id,
         type="profile",
         text="Bini (Binalfew) is a software developer with backend and mobile experience",
+        embedding=None,
+        embedding_json=None,
+        embedding_text_hash=None,
+    )
+    # Phase-3 session.get(Memory, id) re-fetches the row; the vector lands here.
+    fetched = SimpleNamespace(
+        id=memory_id,
+        type="profile",
+        text=listed.text,
         embedding=None,
         embedding_json=None,
         embedding_text_hash=None,
@@ -393,12 +406,13 @@ async def test_consolidate_stores_embedding_when_vector_present():
 
     merged = MemorySectionItem(
         type="profile",
-        summary=updated.text,
+        summary=listed.text,
         confidence=0.9,
     )
     vector = [0.1, 0.2, 0.3]
 
-    _, session_locals = _consolidation_sessions(count=2)
+    session, session_locals = _consolidation_sessions(count=3)
+    session.get = AsyncMock(return_value=fetched)
     with (
         patch(
             "app.background.memory_consolidation.SessionLocal",
@@ -406,7 +420,7 @@ async def test_consolidate_stores_embedding_when_vector_present():
         ),
         patch(
             "app.background.memory_consolidation.memories_repo.list_for_user",
-            AsyncMock(side_effect=[[memory], [updated]]),
+            AsyncMock(side_effect=[[memory], [listed]]),
         ),
         patch(
             "app.background.memory_consolidation.memory_llm.merge_memory_section",
@@ -432,9 +446,13 @@ async def test_consolidate_stores_embedding_when_vector_present():
         changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
 
     assert changed is True
-    assert updated.embedding == vector
-    assert updated.embedding_json == "[0.1,0.2,0.3]"
-    assert updated.embedding_text_hash == embedding_text_hash(updated.text)
+    session.get.assert_awaited_with(Memory, memory_id)
+    assert fetched.embedding == vector
+    assert fetched.embedding_json == "[0.1,0.2,0.3]"
+    assert fetched.embedding_text_hash == embedding_text_hash(fetched.text)
+    # The phase-1 list row is detached when phase 1 closes its session — the
+    # vector lands on the phase-3 re-fetch, not on `listed`.
+    assert listed.embedding is None
 
 
 @pytest.mark.asyncio
@@ -460,7 +478,10 @@ async def test_consolidate_reembeds_stale_section_even_if_untouched_this_pass():
         confidence=0.9,
     )
 
-    updated_profile = SimpleNamespace(
+    profile_id = uuid4()
+    preference_id = uuid4()
+    listed_profile = SimpleNamespace(
+        id=profile_id,
         type="profile",
         text=merged.summary,
         embedding=[0.1, 0.2, 0.3],
@@ -469,17 +490,29 @@ async def test_consolidate_reembeds_stale_section_even_if_untouched_this_pass():
     )
     # Simulates a section left over with a stale hash from a previous failed
     # embed attempt — untouched by this consolidation pass's `rows`.
-    updated_preference = SimpleNamespace(
+    listed_preference = SimpleNamespace(
+        id=preference_id,
         type="preference",
         text=preference.text,
         embedding=[0.4, 0.5, 0.6],
         embedding_json="[0.4,0.5,0.6]",
         embedding_text_hash="stale-hash-from-a-failed-embed",
     )
+    # Phase-3 re-fetches by id; the vector lands here (only the stale
+    # preference needs re-embedding — the profile's hash already matches).
+    fetched_preference = SimpleNamespace(
+        id=preference_id,
+        type="preference",
+        text=listed_preference.text,
+        embedding=None,
+        embedding_json=None,
+        embedding_text_hash=None,
+    )
 
     vector = [0.7, 0.8, 0.9]
 
-    _, session_locals = _consolidation_sessions(count=2)
+    session, session_locals = _consolidation_sessions(count=3)
+    session.get = AsyncMock(return_value=fetched_preference)
     with (
         patch(
             "app.background.memory_consolidation.SessionLocal",
@@ -490,7 +523,7 @@ async def test_consolidate_reembeds_stale_section_even_if_untouched_this_pass():
             AsyncMock(
                 side_effect=[
                     [profile, preference],
-                    [updated_profile, updated_preference],
+                    [listed_profile, listed_preference],
                 ]
             ),
         ),
@@ -520,9 +553,11 @@ async def test_consolidate_reembeds_stale_section_even_if_untouched_this_pass():
     assert changed is True
     # The stale preference section got re-embedded even though it wasn't
     # part of this pass's merge output.
-    assert updated_preference.embedding == vector
-    assert updated_preference.embedding_json == "[0.7,0.8,0.9]"
-    assert updated_preference.embedding_text_hash == embedding_text_hash(preference.text)
+    assert fetched_preference.embedding == vector
+    assert fetched_preference.embedding_json == "[0.7,0.8,0.9]"
+    assert fetched_preference.embedding_text_hash == embedding_text_hash(preference.text)
+    # The phase-1 list rows are detached; vectors land on the phase-3 re-fetches.
+    assert listed_preference.embedding == [0.4, 0.5, 0.6]
 
 
 @pytest.mark.asyncio

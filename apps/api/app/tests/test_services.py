@@ -418,7 +418,7 @@ async def test_extract_and_store_reembeds_when_text_changed():
     updated.embedding_json = "[0.1,0.2]"
 
     embed_calls = AsyncMock(return_value=[0.9, 0.8])
-    _, session_locals = _memory_extraction_sessions(count=2)
+    session, session_locals = _memory_extraction_sessions(count=3)
 
     with (
         patch(
@@ -445,6 +445,9 @@ async def test_extract_and_store_reembeds_when_text_changed():
         await extract_and_store_memories(settings, user_id=uuid4(), chat_id=uuid4(), transcript="t")
 
     embed_calls.assert_awaited_once()
+    # Phase 3 re-fetches the row by id and writes the vector — proves the
+    # embedding actually landed rather than the write silently no-op'ing.
+    assert session.get.await_count == 1
 
 
 @pytest.mark.asyncio
@@ -475,7 +478,7 @@ async def test_extract_and_store_reembeds_when_pgvector_missing():
     updated.embedding = None
 
     embed_calls = AsyncMock(return_value=[0.9, 0.8])
-    _, session_locals = _memory_extraction_sessions(count=2)
+    session, session_locals = _memory_extraction_sessions(count=3)
 
     with (
         patch(
@@ -502,6 +505,7 @@ async def test_extract_and_store_reembeds_when_pgvector_missing():
         await extract_and_store_memories(settings, user_id=uuid4(), chat_id=uuid4(), transcript="t")
 
     embed_calls.assert_awaited_once()
+    assert session.get.await_count == 1
 
 
 @pytest.mark.asyncio
@@ -534,8 +538,19 @@ async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_th
     updated.embedding_json = "[0.1,0.2]"
     updated.embedding_text_hash = "stale-hash-from-a-failed-embed"
 
+    # Phase-3 session.get(Memory, id) re-fetches the row; the fresh hash
+    # lands here, not on the phase-1 `updated` row (which is detached when
+    # phase 1 closes its session).
+    fetched = MagicMock()
+    fetched.type = "preference"
+    fetched.text = "likes TypeScript"
+    fetched.embedding = None
+    fetched.embedding_json = None
+    fetched.embedding_text_hash = None
+
     embed_calls = AsyncMock(return_value=[0.9, 0.8])
-    _, session_locals = _memory_extraction_sessions(count=2)
+    session, session_locals = _memory_extraction_sessions(count=3)
+    session.get = AsyncMock(return_value=fetched)
 
     with (
         patch(
@@ -562,7 +577,7 @@ async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_th
         await extract_and_store_memories(settings, user_id=uuid4(), chat_id=uuid4(), transcript="t")
 
     embed_calls.assert_awaited_once()
-    assert updated.embedding_text_hash == embedding_text_hash("likes TypeScript")
+    assert fetched.embedding_text_hash == embedding_text_hash("likes TypeScript")
     from app.background.memory_extraction import extract_and_store_memories
 
     session = AsyncMock()

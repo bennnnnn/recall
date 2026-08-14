@@ -7,6 +7,7 @@ import pytest
 
 from app.background.memory_extraction import extract_and_store_memories
 from app.core.config import Settings
+from app.models.orm import Memory
 from app.models.schemas import MemorySectionItem, MemorySectionUpdateResult
 from app.services.memory import embedding_text_hash
 
@@ -262,13 +263,32 @@ async def test_extract_accepts_rewrite_that_preserves_anchors_and_adds_fact():
 async def test_extract_and_store_stores_embedding_for_new_memory():
     """Full round trip: a newly-extracted section gets both the pgvector
     column and the JSON fallback populated, with a hash matching its text —
-    the invariant every later staleness check depends on."""
+    the invariant every later staleness check depends on.
+
+    The apply path now runs in two DB sessions (persist text + collect what
+    needs embedding, then close the connection; embed with no connection
+    held; reopen to write vectors), so the test asserts on the object the
+    phase-3 session.get(Memory, id) returns, not on the phase-1 list row."""
     settings = Settings(memory_min_confidence=0.4)
     extraction = MemorySectionUpdateResult(
         sections=[MemorySectionItem(type="fact", summary="Owns a bicycle.", confidence=0.9)]
     )
 
-    updated = SimpleNamespace(
+    memory_id = uuid4()
+    # Phase-1 list_for_user row: needs an id so phase 1 can record (id, text).
+    listed = SimpleNamespace(
+        id=memory_id,
+        type="fact",
+        text="Owns a bicycle",
+        embedding=None,
+        embedding_json=None,
+        embedding_text_hash=None,
+    )
+    # Phase-3 session.get(Memory, id) returns this object; the embedding is
+    # written onto it. Same shape, separate instance, mirroring how a fresh
+    # session re-fetches the row by id.
+    fetched = SimpleNamespace(
+        id=memory_id,
         type="fact",
         text="Owns a bicycle",
         embedding=None,
@@ -277,7 +297,8 @@ async def test_extract_and_store_stores_embedding_for_new_memory():
     )
     vector = [0.4, 0.5, 0.6]
 
-    _, session_locals = _extraction_sessions(count=2)
+    session, session_locals = _extraction_sessions(count=3)
+    session.get = AsyncMock(return_value=fetched)
     with (
         patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
         patch(
@@ -286,7 +307,7 @@ async def test_extract_and_store_stores_embedding_for_new_memory():
         ),
         patch(
             "app.background.memory_extraction.memories_repo.list_for_user",
-            AsyncMock(side_effect=[[], [updated]]),
+            AsyncMock(side_effect=[[], [listed]]),
         ),
         patch(
             "app.background.memory_extraction.memory_llm.revise_memory_sections",
@@ -305,9 +326,14 @@ async def test_extract_and_store_stores_embedding_for_new_memory():
             settings, user_id=uuid4(), chat_id=uuid4(), transcript="chat"
         )
 
-    assert updated.embedding == vector
-    assert updated.embedding_json == "[0.4,0.5,0.6]"
-    assert updated.embedding_text_hash == embedding_text_hash(updated.text)
+    # Phase 3 wrote the vector onto the re-fetched row.
+    session.get.assert_awaited_with(Memory, memory_id)
+    assert fetched.embedding == vector
+    assert fetched.embedding_json == "[0.4,0.5,0.6]"
+    assert fetched.embedding_text_hash == embedding_text_hash(fetched.text)
+    # The phase-1 list row is never mutated (it was detached when phase 1
+    # closed its session) — the vector lands on the phase-3 re-fetch.
+    assert listed.embedding is None
 
 
 @pytest.mark.asyncio
