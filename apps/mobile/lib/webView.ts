@@ -3,17 +3,11 @@ import { NativeModules, TurboModuleRegistry } from "react-native";
 import type { ComponentType } from "react";
 
 import {
-  createHtmlRunNavigationGuard,
   createStaticOnlyNavigationGuard,
-  PREVIEW_INLINE_BASE_URL,
   type StaticOnlyNavigationGuard,
 } from "@/lib/staticOnlyNavigationGuard";
 
-export {
-  createHtmlRunNavigationGuard,
-  createStaticOnlyNavigationGuard,
-  PREVIEW_INLINE_BASE_URL,
-};
+export { createStaticOnlyNavigationGuard };
 export type { StaticOnlyNavigationGuard };
 
 export type PreviewWebViewMode = "rnc" | "expo-dom";
@@ -71,14 +65,6 @@ export function getPreviewWebView(): PreviewWebViewResult | null {
 
   cachedPreviewWebView = null;
   return null;
-}
-
-export function getWebView(): ComponentType<Record<string, unknown>> | null {
-  return getPreviewWebView()?.Component ?? null;
-}
-
-export function isWebViewAvailable(): boolean {
-  return getPreviewWebView() != null;
 }
 
 /**
@@ -149,26 +135,6 @@ export function useStaticOnlyNavigation(
   const guardRef = useRef<StaticOnlyNavigationGuard | null>(null);
   if (guardRef.current == null) {
     guardRef.current = createStaticOnlyNavigationGuard();
-  }
-  const guard = guardRef.current;
-
-  useEffect(() => {
-    guard.reset();
-  }, [sourceKey, guard]);
-
-  return useCallback(
-    (request?: unknown) => guard.shouldAllow(guardRequestFromEvent(request)),
-    [guard],
-  );
-}
-
-/** HTML Run tab: allow CDN loads; block click/form navigations off-document. */
-export function useHtmlRunNavigation(
-  sourceKey: unknown,
-): (request?: unknown) => boolean {
-  const guardRef = useRef<StaticOnlyNavigationGuard | null>(null);
-  if (guardRef.current == null) {
-    guardRef.current = createHtmlRunNavigationGuard();
   }
   const guard = guardRef.current;
 

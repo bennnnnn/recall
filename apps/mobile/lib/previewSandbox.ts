@@ -43,7 +43,8 @@ export const PREVIEW_CSP = `${PREVIEW_CSP_INLINE}; sandbox allow-scripts`;
  * HTML Run tab — still isolated from the app (no shared cookies / tokens),
  * but allows http(s) subresources so CDN CSS/JS demos actually paint.
  * Leave-document navigations are blocked in-page (see HTML_RUN_STAY_JS) and
- * via form-action 'none'; the native nav guard always allows loads.
+ * via form-action 'none' plus stripping meta-refresh. There is no native nav
+ * guard on this path — iOS mis-labels CDN fetches as top-frame.
  */
 export const PREVIEW_CSP_LIVE = [
   "default-src 'none'",
@@ -61,8 +62,11 @@ export const PREVIEW_CSP_LIVE = [
 
 /**
  * Inlined into the HTML Run document (not via RN injectedJavaScript*).
- * Blocks <a> / form navigations that would leave the preview. Hash /
- * javascript: links still work for in-page demos.
+ * Blocks leave-document navigations: <a> clicks, form submits, location.assign /
+ * replace / href, window.open, and (separately) meta-refresh tags stripped
+ * before this script is injected. Hash / javascript: links still work for
+ * in-page demos. Injected immediately after the CSP meta so it runs before
+ * user scripts.
  */
 export const HTML_RUN_STAY_JS = `(function () {
   function stay(e) {
@@ -83,31 +87,36 @@ export const HTML_RUN_STAY_JS = `(function () {
   }
   document.addEventListener("click", stay, true);
   document.addEventListener("submit", stay, true);
+  try {
+    window.open = function () { return null; };
+  } catch (err) {}
+  try {
+    var loc = window.location;
+    loc.assign = function () {};
+    loc.replace = function () {};
+    var hrefNow = "";
+    try { hrefNow = loc.href; } catch (e) {}
+    Object.defineProperty(loc, "href", {
+      configurable: true,
+      get: function () { return hrefNow; },
+      set: function () {},
+    });
+  } catch (err) {}
 })();`;
+
+const META_REFRESH = /<\s*meta\b[^>]*\shttp-equiv\s*=\s*["']?refresh["']?[^>]*>/gi;
 
 /** Full document for the HTML Run WebView: wrap + live CSP + stay-on-page trap. */
 export function prepareHtmlRunDocument(html: string): string {
-  const withCsp = injectPreviewCsp(html, PREVIEW_CSP_LIVE);
+  const withoutRefresh = replaceUntilStable(html, META_REFRESH, "");
+  const withCsp = injectPreviewCsp(withoutRefresh, PREVIEW_CSP_LIVE);
   const stayTag = `<script>${HTML_RUN_STAY_JS}</script>`;
-  const headClose = /<\/head>/i.exec(withCsp);
-  if (headClose && headClose.index != null) {
-    return (
-      withCsp.slice(0, headClose.index) + stayTag + withCsp.slice(headClose.index)
-    );
+  const cspTag = /(<meta http-equiv="Content-Security-Policy"[^>]*>)/i.exec(withCsp);
+  if (cspTag && cspTag.index != null) {
+    const at = cspTag.index + cspTag[0].length;
+    return withCsp.slice(0, at) + stayTag + withCsp.slice(at);
   }
-  return withCsp.replace(
-    /(<meta http-equiv="Content-Security-Policy"[^>]*>)/i,
-    `$1${stayTag}`,
-  );
-}
-
-/** True if the markup references http(s) assets. */
-export function htmlDependsOnNetwork(html: string): boolean {
-  return (
-    /(?:src|href)\s*=\s*["']https?:\/\//i.test(html) ||
-    /@import\s+["']https?:\/\//i.test(html) ||
-    /url\(\s*["']?https?:\/\//i.test(html)
-  );
+  return stayTag + withCsp;
 }
 
 /**
@@ -273,7 +282,6 @@ const ON_ATTR_SQ = /[\s/]on\w+\s*=\s*'[^']*'/gi;
 const ON_ATTR_UQ = /[\s/]on\w+\s*=\s*[^\s>]+/gi;
 const SRCDOC_DQ = /\ssrcdoc\s*=\s*"[^"]*"/gi;
 const SRCDOC_SQ = /\ssrcdoc\s*=\s*'[^']*'/gi;
-const META_REFRESH = /<\s*meta\b[^>]*\shttp-equiv\s*=\s*["']?refresh["']?[^>]*>/gi;
 
 function isDangerousUrlScheme(cleaned: string): boolean {
   if (cleaned.startsWith("javascript:") || cleaned.startsWith("vbscript:")) {

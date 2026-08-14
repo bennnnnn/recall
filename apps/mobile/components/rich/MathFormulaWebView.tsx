@@ -205,7 +205,7 @@ export const MathFormulaWebView = React.memo(function MathFormulaWebView({
         // pan horizontally (CSS overflow-x alone is ignored when scroll is off).
         scrollEnabled={!compact && displayMode}
         javaScriptEnabled
-        domStorageEnabled
+        domStorageEnabled={false}
         onMessage={onMessage}
         showsHorizontalScrollIndicator={!compact && displayMode}
         showsVerticalScrollIndicator={false}
@@ -261,7 +261,7 @@ export const MathFormulaWebView = React.memo(function MathFormulaWebView({
             style={s.modalWebView}
             scrollEnabled
             javaScriptEnabled
-            domStorageEnabled
+            domStorageEnabled={false}
             showsHorizontalScrollIndicator={false}
             showsVerticalScrollIndicator
             onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}

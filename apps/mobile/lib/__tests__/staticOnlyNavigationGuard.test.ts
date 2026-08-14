@@ -1,5 +1,4 @@
 import {
-  createHtmlRunNavigationGuard,
   createStaticOnlyNavigationGuard,
   isExternalHttpUrl,
   isPreviewFrameworkUrl,
@@ -83,27 +82,5 @@ describe("createStaticOnlyNavigationGuard", () => {
     expect(guardA.shouldAllow("blob:a")).toBe(true);
     expect(guardA.shouldAllow("blob:b")).toBe(false);
     expect(guardB.shouldAllow("blob:a")).toBe(true);
-  });
-});
-
-describe("createHtmlRunNavigationGuard", () => {
-  it("always allows loads (stay-on-document is in-page, not native)", () => {
-    const guard = createHtmlRunNavigationGuard();
-    expect(
-      guard.shouldAllow({
-        url: "https://cdn.example/app.js",
-        isTopFrame: true,
-        navigationType: "other",
-      }),
-    ).toBe(true);
-    expect(
-      guard.shouldAllow({
-        url: "https://evil.example/phish",
-        isTopFrame: true,
-        navigationType: "click",
-      }),
-    ).toBe(true);
-    expect(guard.shouldAllow({ url: PREVIEW_INLINE_BASE_URL })).toBe(true);
-    expect(guard.shouldAllow({ url: "about:blank" })).toBe(true);
   });
 });
