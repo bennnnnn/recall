@@ -82,6 +82,47 @@ async def list_recent_for_user(
     return list((await session.execute(stmt)).scalars().all())
 
 
+async def list_recent_for_projects(
+    session: AsyncSession,
+    user_id: UUID,
+    project_ids: list[UUID],
+    *,
+    per_project_limit: int = 500,
+) -> list[ProjectItem]:
+    """One query returning up to `per_project_limit` most-recent items per project.
+
+    Replaces the N+1 loop of calling ``list_recent_for_user(project_id=p)`` per
+    project — same per-project recency window semantics (a busy deck cannot
+    push another project's items out of the dedup snapshot), one round-trip.
+    Uses a ``row_number()`` window to cap per project, then fetches full rows.
+    """
+    if not project_ids:
+        return []
+    rn = (
+        func.row_number()
+        .over(
+            partition_by=ProjectItem.project_id,
+            order_by=ProjectItem.created_at.desc(),
+        )
+        .label("rn")
+    )
+    subq = (
+        select(ProjectItem.id, rn)
+        .where(
+            ProjectItem.user_id == user_id,
+            ProjectItem.project_id.in_(project_ids),
+        )
+        .subquery()
+    )
+    keep_ids = select(subq.c.id).where(subq.c.rn <= per_project_limit)
+    stmt = (
+        select(ProjectItem)
+        .where(ProjectItem.id.in_(keep_ids))
+        .order_by(ProjectItem.created_at.desc())
+    )
+    return list((await session.execute(stmt)).scalars().all())
+
+
 def _like_escape(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
