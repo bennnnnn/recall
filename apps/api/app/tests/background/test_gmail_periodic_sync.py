@@ -55,7 +55,7 @@ async def test_periodic_cycle_syncs_due_users_concurrently_with_isolated_session
             side_effect=lambda: _FakeSessionCM(AsyncMock()),
         ),
         patch(
-            "app.background.gmail_periodic_sync.gmail_repo.list_all",
+            "app.background.gmail_periodic_sync.gmail_repo.list_due",
             AsyncMock(return_value=connections),
         ),
         patch(
@@ -72,7 +72,6 @@ async def test_periodic_cycle_syncs_due_users_concurrently_with_isolated_session
 @pytest.mark.asyncio
 async def test_periodic_cycle_skips_recently_synced_users():
     now = datetime.now(UTC)
-    fresh = SimpleNamespace(user_id=uuid4(), last_sync_at=now)
     stale = SimpleNamespace(user_id=uuid4(), last_sync_at=now - timedelta(hours=2))
     redis = _fake_redis()
     sync_mock = AsyncMock()
@@ -86,8 +85,8 @@ async def test_periodic_cycle_skips_recently_synced_users():
             side_effect=lambda: _FakeSessionCM(AsyncMock()),
         ),
         patch(
-            "app.background.gmail_periodic_sync.gmail_repo.list_all",
-            AsyncMock(return_value=[fresh, stale]),
+            "app.background.gmail_periodic_sync.gmail_repo.list_due",
+            AsyncMock(return_value=[stale]),
         ),
         patch(
             "app.background.gmail_periodic_sync.email_service.sync_gmail_for_user",
@@ -121,7 +120,7 @@ async def test_periodic_cycle_isolates_one_users_failure_from_the_rest():
             side_effect=lambda: _FakeSessionCM(AsyncMock()),
         ),
         patch(
-            "app.background.gmail_periodic_sync.gmail_repo.list_all",
+            "app.background.gmail_periodic_sync.gmail_repo.list_due",
             AsyncMock(return_value=connections),
         ),
         patch(

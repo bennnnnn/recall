@@ -47,6 +47,8 @@ class Settings(BaseSettings):
     # How many users' Gmail accounts the periodic sync cycle syncs concurrently
     # (each has its own DB session and outbound Gmail API calls).
     gmail_periodic_sync_concurrency: int = 5
+    # Max connections drained per 15-minute periodic cycle (SQL LIMIT).
+    gmail_periodic_sync_batch_size: int = 50
 
     attachments_enabled: bool = True
     # PDF/DOCX text extraction is sync, CPU-bound parsing; it runs on a worker
