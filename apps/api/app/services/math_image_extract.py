@@ -61,9 +61,27 @@ _EXTRACT_PROMPT = (
 # verified-math augmentation silently stops firing for the camera flow.
 MATH_CAMERA_PROMPT = "Solve the math problem in this image step by step."
 
+_SOLVE_KINDS = frozenset({"equation", "system", "inequality"})
+
 
 def is_math_camera_prompt(text: str) -> bool:
     return text.strip().casefold() == MATH_CAMERA_PROMPT.casefold()
+
+
+def camera_math_user_suffix(extracted: MathImageExtract) -> str | None:
+    """Extra user-text for the model. Structured kinds must not inject
+    ``Solve: 0 = 0`` from unused lhs/rhs defaults."""
+    if not extracted.found:
+        return None
+    if extracted.kind not in _SOLVE_KINDS:
+        return None
+    if extracted.kind == "inequality":
+        cmp_op = extracted.comparator if extracted.comparator else "="
+        return f"Solve: {extracted.lhs} {cmp_op} {extracted.rhs}"
+    if extracted.kind == "system" and extracted.equations:
+        lines = "\n".join(f"{lhs} = {rhs}" for lhs, rhs in extracted.equations)
+        return f"Solve:\n{lines}"
+    return f"Solve: {extracted.lhs} = {extracted.rhs}"
 
 
 async def extract_equation_from_image(

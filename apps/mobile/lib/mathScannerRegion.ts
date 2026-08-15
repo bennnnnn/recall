@@ -55,18 +55,29 @@ export function translateScanRegion(base: ScanRegion, dxRatio: number, dyRatio: 
 
 /**
  * Map a screen-space (ratio) region to pixel crop coordinates for
- * ImageManipulator, given the captured photo's actual pixel dimensions.
- * Assumes the camera preview fills the window edge-to-edge at "cover" scale
- * (CameraView's default, same assumption the original band-only crop made).
+ * ImageManipulator. CameraView fills the window with object-fit cover;
+ * pass the window size so letterboxed overflow is subtracted. Defaults
+ * keep the 1:1 mapping when window size equals the photo.
  */
 export function regionToImageCrop(
   region: ScanRegion,
   imageWidth: number,
   imageHeight: number,
+  windowWidth = imageWidth,
+  windowHeight = imageHeight,
 ): { originX: number; originY: number; width: number; height: number } {
-  const originX = Math.max(0, Math.min(imageWidth - 1, Math.round(region.x * imageWidth)));
-  const originY = Math.max(0, Math.min(imageHeight - 1, Math.round(region.y * imageHeight)));
-  const width = Math.max(1, Math.min(imageWidth - originX, Math.round(region.width * imageWidth)));
-  const height = Math.max(1, Math.min(imageHeight - originY, Math.round(region.height * imageHeight)));
+  const scale = Math.max(windowWidth / imageWidth, windowHeight / imageHeight);
+  const displayedW = imageWidth * scale;
+  const displayedH = imageHeight * scale;
+  const coverOriginX = (displayedW - windowWidth) / 2;
+  const coverOriginY = (displayedH - windowHeight) / 2;
+  const imgX = (region.x * windowWidth + coverOriginX) / scale;
+  const imgY = (region.y * windowHeight + coverOriginY) / scale;
+  const imgW = (region.width * windowWidth) / scale;
+  const imgH = (region.height * windowHeight) / scale;
+  const originX = Math.max(0, Math.min(imageWidth - 1, Math.round(imgX)));
+  const originY = Math.max(0, Math.min(imageHeight - 1, Math.round(imgY)));
+  const width = Math.max(1, Math.min(imageWidth - originX, Math.round(imgW)));
+  const height = Math.max(1, Math.min(imageHeight - originY, Math.round(imgH)));
   return { originX, originY, width, height };
 }

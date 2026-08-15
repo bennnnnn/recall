@@ -85,6 +85,24 @@ describe("regionToImageCrop", () => {
     expect(crop).toEqual({ originX: 250, originY: 200, width: 500, height: 600 });
   });
 
+  it("BUG FIX regression: cover-scale crop accounts for letterboxing when aspects differ", () => {
+    // Wide photo in a tall window: cover scales by height, crops the
+    // horizontal overflow. A centered full-width overlay is not the
+    // full image width.
+    const crop = regionToImageCrop(
+      { x: 0, y: 0.4, width: 1, height: 0.2 },
+      2000,
+      1000,
+      400,
+      800,
+    );
+    const naive = regionToImageCrop({ x: 0, y: 0.4, width: 1, height: 0.2 }, 2000, 1000);
+    expect(crop.originX).toBeGreaterThan(0);
+    expect(crop.originX).not.toBe(naive.originX);
+    expect(crop.width).toBeLessThan(naive.width);
+    expect(crop.originX + crop.width).toBeLessThanOrEqual(2000);
+  });
+
   it("never produces a crop that overflows the image bounds", () => {
     // A region ratio right at the edge should still round-trip to a crop
     // that fits inside the actual photo dimensions.

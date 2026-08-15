@@ -24,6 +24,22 @@ def test_is_math_camera_prompt():
     assert not mie.is_math_camera_prompt("What's in this image?")
 
 
+def test_camera_math_user_suffix_omits_structured_kinds():
+    graph = MathImageExtract(kind="graph", expr="x**2", found=True)
+    assert mie.camera_math_user_suffix(graph) is None
+    calc = MathImageExtract(kind="calculus", operation="differentiate", expr="x**2", found=True)
+    assert mie.camera_math_user_suffix(calc) is None
+    rect = MathImageExtract(kind="rectangle", width=8, height=5, found=True)
+    assert mie.camera_math_user_suffix(rect) is None
+
+
+def test_camera_math_user_suffix_keeps_equations():
+    eq = MathImageExtract(kind="equation", lhs="2*x+3", rhs="7", found=True)
+    assert mie.camera_math_user_suffix(eq) == "Solve: 2*x+3 = 7"
+    ineq = MathImageExtract(kind="inequality", lhs="x**2-1", rhs="0", comparator=">", found=True)
+    assert mie.camera_math_user_suffix(ineq) == "Solve: x**2-1 > 0"
+
+
 def test_needs_symbolic_math_for_camera_prompt():
     assert needs_symbolic_math(mie.MATH_CAMERA_PROMPT, has_image_attachment=True)
     assert not needs_symbolic_math(mie.MATH_CAMERA_PROMPT, has_image_attachment=False)

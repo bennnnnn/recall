@@ -213,10 +213,11 @@ async def _process_attachments(
             )
             if extracted is not None:
                 image_math_extract = extracted
-                eq = f"{extracted.lhs} = {extracted.rhs}"
-                # Prompt/stream path sees Solve:; stored bubble keeps
-                # the image marker + original caption only.
-                content = f"{content}\n\nSolve: {eq}"
+                suffix = math_image_extract_service.camera_math_user_suffix(extracted)
+                # Prompt/stream path sees Solve: for equations; stored bubble
+                # keeps the image marker + original caption only.
+                if suffix:
+                    content = f"{content}\n\n{suffix}"
 
     return _AttachmentProcessResult(
         user=user,
