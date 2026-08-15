@@ -140,7 +140,13 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
       // CameraView uses cover-style fill; regionToImageCrop maps the
       // on-screen rectangle into image pixel coordinates assuming the
       // preview covers the full window edge-to-edge.
-      const crop = regionToImageCrop(regionRef.current, imageWidth, imageHeight);
+      const crop = regionToImageCrop(
+        regionRef.current,
+        imageWidth,
+        imageHeight,
+        windowWidth,
+        windowHeight,
+      );
       const result = await ImageManipulator.manipulateAsync(
         photo.uri,
         [{ crop }],
@@ -159,7 +165,7 @@ export function MathEquationScanner({ visible, onClose, onCaptured }: Props) {
     } finally {
       setBusy(false);
     }
-  }, [busy, onCaptured, onClose, t]);
+  }, [busy, onCaptured, onClose, t, windowWidth, windowHeight]);
 
   const resetRegion = useCallback(() => {
     setRegion(clampScanRegion(defaultScanRegion()));
