@@ -31,6 +31,7 @@ from app.models.math_schemas import (
     RightTriangleGeometryInput,
     SectorGeometryBlockSpec,
     SectorInput,
+    SolidGeometryInput,
     SquareGeometryInput,
     StatisticsInput,
     SystemOfEquationsInput,
@@ -234,10 +235,33 @@ def _strip_newton_leadin(text_for_eq: str) -> str:
     return text_for_eq
 
 
+def _extract_solid_intent(cleaned: str) -> MathIntent | None:
+    from app.services import math_text_match as mtm
+
+    parsed = mtm.parse_solid(cleaned)
+    if parsed is None:
+        return None
+    return MathIntent(
+        kind="solid",
+        solid_shape=parsed.shape,
+        width=parsed.width,
+        height=parsed.height,
+        depth=parsed.depth,
+        side=parsed.side,
+        radius=parsed.radius,
+        unit=parsed.unit,
+        operation="solve",
+        wants_volume=parsed.wants_volume,
+        wants_surface_area=parsed.wants_surface_area,
+    )
+
+
 def _extract_rectangle_intent(cleaned: str) -> MathIntent | None:
     from app.services import math_text_match as mtm
 
     lower = cleaned.lower()
+    if mtm.classify_solid_shape(lower) is not None:
+        return None
     dims = mtm.first_dim_pair(cleaned)
     padded = f" {lower} "
     if dims is not None and ("rectangle" in lower or " rect " in padded or "diagonal" in lower):
@@ -263,6 +287,8 @@ def _extract_square_intent(cleaned: str) -> MathIntent | None:
     from app.services import math_text_match as mtm
 
     lower = cleaned.lower()
+    if mtm.classify_solid_shape(lower) is not None:
+        return None
     if "square" not in lower:
         return None
     # Algebraic uses of the word "square" must not become a geometry diagram.
@@ -298,6 +324,8 @@ def _extract_circle_intent(cleaned: str) -> MathIntent | None:
     from app.services import math_text_match as mtm
 
     lower = cleaned.lower()
+    if mtm.classify_solid_shape(lower) is not None:
+        return None
     if "circle" not in lower:
         return None
     # Sector mentions almost always include "circle" + "radius" — leave those
@@ -785,6 +813,7 @@ def _extract_inequality_intent(cleaned: str) -> MathIntent | None:
 
 
 _INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | None]] = (
+    _extract_solid_intent,
     _extract_rectangle_intent,
     _extract_square_intent,
     # Sector before the generic circle extractor: a sector mention almost
@@ -1135,6 +1164,38 @@ def _verified_block_square(
     )
     lines.append("Do NOT recompute diagonal, area, or perimeter.")
     return _diagram_block(lines, spec, f"{square_geo.area:g}")
+
+
+def _verified_block_solid(
+    intent: MathIntent, settings: Settings, lines: list[str]
+) -> VerifiedMathBlock | None:
+    if intent.solid_shape is None:
+        return None
+    geo = math_service.solid_geometry(
+        SolidGeometryInput(
+            shape=intent.solid_shape,
+            width=intent.width,
+            height=intent.height,
+            depth=intent.depth,
+            side=intent.side,
+            radius=intent.radius,
+            unit=intent.unit,
+        )
+    )
+    lines.append(
+        f"Solid ({geo.shape}): volume={geo.labels['volume']} "
+        f"surface_area={geo.labels['surface_area']}"
+    )
+    for key, value in geo.labels.items():
+        if key in {"volume", "surface_area"}:
+            continue
+        lines.append(f"{key}={value}")
+    lines.append("Do NOT recompute volume or surface area.")
+    if intent.wants_surface_area and not intent.wants_volume:
+        answer = geo.labels["surface_area"].rsplit(" ", 1)[0]
+    else:
+        answer = geo.labels["volume"].rsplit(" ", 1)[0]
+    return _finish_with_answer(lines, answer)
 
 
 def _verified_block_circle(
@@ -1758,6 +1819,7 @@ _BLOCK_BUILDERS: dict[str, _BlockBuilder] = {
     "numerical_method": _verified_block_numerical_method,
     "rectangle": _verified_block_rectangle,
     "square": _verified_block_square,
+    "solid": _verified_block_solid,
     "circle": _verified_block_circle,
     "triangle": _verified_block_triangle,
     "right_triangle": _verified_block_right_triangle,

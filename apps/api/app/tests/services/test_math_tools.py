@@ -226,6 +226,8 @@ def test_extract_circle_intent_defaults_without_dims() -> None:
         "area of a triangle",
         "what is a right triangle",
         "sector of a circle with radius 5",
+        "what is a cylinder?",
+        "what is a sphere",
     ],
 )
 def test_geometry_does_not_invent_dims_without_draw_or_measures(text: str) -> None:
@@ -241,6 +243,7 @@ def test_geometry_does_not_invent_dims_without_draw_or_measures(text: str) -> No
         "sector",
         "square",
         "rectangle",
+        "solid",
     }
 
 
@@ -340,6 +343,70 @@ def test_draw_square_without_side_still_defaults() -> None:
     assert intent is not None
     assert intent.kind == "square"
     assert intent.side == 5
+
+
+@pytest.mark.parametrize(
+    "text, shape, volume_asked, sa_asked",
+    [
+        ("volume of a cube with side 5 cm", "cube", True, False),
+        ("surface area of a cube side 4", "cube", False, True),
+        ("volume of a rectangular prism 3 by 4 by 5", "rectangular_prism", True, False),
+        ("volume of a cuboid length 3 width 4 height 5", "rectangular_prism", True, False),
+        ("volume of a cylinder radius 3 height 10", "cylinder", True, False),
+        ("volume of a cone radius 3 height 4", "cone", True, False),
+        ("volume of a sphere radius 3", "sphere", True, False),
+        ("volume of a square pyramid base 6 height 4", "pyramid", True, False),
+        ("surface area of a sphere with radius 3", "sphere", False, True),
+    ],
+)
+def test_extract_solid_intent(text: str, shape: str, volume_asked: bool, sa_asked: bool) -> None:
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "solid"
+    assert intent.solid_shape == shape
+    assert intent.wants_volume is volume_asked
+    assert intent.wants_surface_area is sa_asked
+
+
+def test_rectangular_prism_does_not_become_2d_rectangle() -> None:
+    intent = math_tools.extract_math_intent("volume of a rectangular prism 3 by 4 by 5")
+    assert intent is not None
+    assert intent.kind == "solid"
+    assert intent.solid_shape == "rectangular_prism"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "cube root of 8",
+        "solve the cubic equation",
+        "what is the cube of 7",
+    ],
+)
+def test_algebraic_cube_is_not_a_solid(text: str) -> None:
+    intent = math_tools.extract_math_intent(text)
+    assert intent is None or intent.kind != "solid"
+
+
+def test_verified_block_cube_volume() -> None:
+    settings = Settings(math_tools_enabled=True)
+    intent = math_tools.extract_math_intent("volume of a cube with side 5 cm")
+    assert intent is not None
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer == "125"
+    assert "```answer" in block.text
+    assert block.canonical_fence is not None
+    assert block.canonical_fence["type"] == "answer"
+
+
+def test_verified_block_prism_volume() -> None:
+    settings = Settings(math_tools_enabled=True)
+    intent = math_tools.extract_math_intent("volume of a rectangular prism 3 by 4 by 5")
+    assert intent is not None
+    block = math_tools._build_verified_block(intent, settings)
+    assert block is not None
+    assert block.canonical_answer == "60"
 
 
 @pytest.mark.parametrize(

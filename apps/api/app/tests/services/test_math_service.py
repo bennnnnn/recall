@@ -201,6 +201,28 @@ def test_square_geometry() -> None:
     assert result.diagonal == pytest.approx(5 * math.sqrt(2), rel=1e-3)
 
 
+def test_solid_geometry_cube_and_prism() -> None:
+    from app.models.math_schemas import SolidGeometryInput
+
+    cube = math_service.solid_geometry(SolidGeometryInput(shape="cube", side=5))
+    assert cube.volume == 125.0
+    assert cube.surface_area == 150.0
+
+    prism = math_service.solid_geometry(
+        SolidGeometryInput(shape="rectangular_prism", width=3, depth=4, height=5)
+    )
+    assert prism.volume == 60.0
+    assert prism.surface_area == 94.0
+
+
+def test_solid_geometry_sphere() -> None:
+    from app.models.math_schemas import SolidGeometryInput
+
+    sphere = math_service.solid_geometry(SolidGeometryInput(shape="sphere", radius=3))
+    assert sphere.volume == pytest.approx((4.0 / 3.0) * math.pi * 27, rel=1e-3)
+    assert sphere.surface_area == pytest.approx(4 * math.pi * 9, rel=1e-3)
+
+
 def test_triangle_geometry() -> None:
     from app.models.math_schemas import TriangleGeometryInput
 

@@ -42,7 +42,7 @@ The LLM can **talk** about almost any homework. **Verified** work (pre-stream Sy
 
 [`math_tools.py`](../apps/api/app/services/math_tools.py) is already the feature split: ordered `_INTENT_EXTRACTORS` plus `kind → _verified_block_*`. Do **not** split that file into one module per topic (a parallel registry is a worse seam). Do **not** add Skia; display math stays KaTeX/MathJax WebView, inline `MathText`, diagrams `react-native-svg`.
 
-Camera OCR is a **subset** of the kinds below (no square / trapezoid / matrix / series / Newton).
+Camera OCR is a **subset** of the kinds below (no square / trapezoid / matrix / series / Newton / solid).
 
 ### Verified today
 
@@ -52,6 +52,7 @@ Camera OCR is a **subset** of the kinds below (no square / trapezoid / matrix / 
 | Pre-algebra | Fractions/exponents in equations; gcd/lcm/primes/mod | `equation`, `number_theory` |
 | Algebra I–II | One equation, systems (≤4), inequalities + shaded region | `equation`, `system`, `inequality` + `number_line` graph |
 | Geometry (2D) | Rectangle, square, triangle (base/height), right triangle, SSS, trap, para, circle, sector | geometry fences |
+| Geometry (3D) | Cube, rectangular prism, cylinder, cone, sphere, pyramid (volume / surface area) | `solid` |
 | Graphs | y=f(x), two curves, vertical line, point, axis-aligned ellipse | `graph` / `graph_pair` |
 | Precalc / Calc I | simplify, factor, expand, d/dx, ∫, definite ∫, limits, series sum, Newton | `calculus`, `limit`, `series`, `numerical_method` |
 | Stats (descriptive) | mean, median, mode, variance, stdev | `statistics` |
@@ -76,14 +77,13 @@ flowchart TB
 
 Highest frequency first. The model still answers these; prompts must **not** claim SymPy verification.
 
-1. **3D solids** — cube, rectangular prism, cylinder, cone, sphere, pyramid (volume / surface area). Grade 6–10 staple. No kind.
-2. **Bare arithmetic / percent / ratio** — no extractor unless it looks like an equation.
-3. **Trig as a topic** — `sin(x)=1/2` may hit `equation`; `sin(30°)`, law of sines, identities do not have a kind. SSS uses law of **cosines** only.
-4. **Coordinate geometry** — distance, midpoint, slope of a line (a **point** exists; the rest does not).
-5. **Vectors** — magnitude, dot, cross.
-6. **Linear algebra beyond det/inv** — multiply, row-reduce, eigenvalues.
-7. **Calc II–III / ODE** — Taylor, polar/parametric (except ellipse), partials, double integrals, first-order ODE (`dsolve`). Single-variable calc is the ceiling.
-8. **Probability** — binomial / expected value (counting ≠ probability).
-9. **Complex numbers**, unit conversion.
+1. **Bare arithmetic / percent / ratio** — no extractor unless it looks like an equation.
+2. **Trig as a topic** — `sin(x)=1/2` may hit `equation`; `sin(30°)`, law of sines, identities do not have a kind. SSS uses law of **cosines** only.
+3. **Coordinate geometry** — distance, midpoint, slope of a line (a **point** exists; the rest does not).
+4. **Vectors** — magnitude, dot, cross.
+5. **Linear algebra beyond det/inv** — multiply, row-reduce, eigenvalues.
+6. **Calc II–III / ODE** — Taylor, polar/parametric (except ellipse), partials, double integrals, first-order ODE (`dsolve`). Single-variable calc is the ceiling.
+7. **Probability** — binomial / expected value (counting ≠ probability).
+8. **Complex numbers**, unit conversion.
 
-Do **not** implement this gap list in one PR. Next verified homework: **one kind at a time** on the existing seam (`MathIntent.kind` + extractor + `_verified_block_*` + pytest), starting with **3D solids**.
+Do **not** implement this gap list in one PR. Next verified homework: **one kind at a time** on the existing seam (`MathIntent.kind` + extractor + `_verified_block_*` + pytest).
