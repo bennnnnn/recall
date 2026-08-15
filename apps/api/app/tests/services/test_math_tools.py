@@ -410,6 +410,42 @@ def test_verified_block_prism_volume() -> None:
 
 
 @pytest.mark.parametrize(
+    "text, kind",
+    [
+        ("what is 7*8", "arithmetic"),
+        ("what is 15% of 80", "arithmetic"),
+        ("simplify the ratio 6:8", "arithmetic"),
+        ("sin 30", "trig"),
+        ("distance between (0,0) and (3,4)", "coord"),
+        ("midpoint of (0,0) and (4,6)", "coord"),
+        ("magnitude of <3,4>", "vector"),
+        ("dot product of <1,2> and <3,4>", "vector"),
+        ("binomial n=5 k=2 p=0.5", "probability"),
+        ("convert 5 ft to m", "unit"),
+        ("taylor of sin(x) at 0 order 3", "calculus"),
+    ],
+)
+def test_extract_school_homework_kinds(text: str, kind: str) -> None:
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == kind
+
+
+def test_verified_percent_and_distance() -> None:
+    settings = Settings(math_tools_enabled=True)
+    percent = math_tools.extract_math_intent("what is 15% of 80")
+    assert percent is not None
+    block = math_tools._build_verified_block(percent, settings)
+    assert block is not None
+    assert block.canonical_answer == "12"
+    dist = math_tools.extract_math_intent("distance between (0,0) and (3,4)")
+    assert dist is not None
+    dblock = math_tools._build_verified_block(dist, settings)
+    assert dblock is not None
+    assert dblock.canonical_answer == "5"
+
+
+@pytest.mark.parametrize(
     "text, expected_expr",
     [
         ("graph x^2 please", "x**2"),

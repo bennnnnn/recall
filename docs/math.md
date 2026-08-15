@@ -53,6 +53,14 @@ Camera OCR is a **subset** of the kinds below (no square / trapezoid / matrix / 
 | Algebra I–II | One equation, systems (≤4), inequalities + shaded region | `equation`, `system`, `inequality` + `number_line` graph |
 | Geometry (2D) | Rectangle, square, triangle (base/height), right triangle, SSS, trap, para, circle, sector | geometry fences |
 | Geometry (3D) | Cube, rectangular prism, cylinder, cone, sphere, pyramid (volume / surface area) | `solid` |
+| Arithmetic / percent / ratio | Bare `7*8`, `15% of 80`, simplify `6:8` | `arithmetic` |
+| Trig (evaluate) | `sin(30°)` etc. Equations like `sin(x)=1/2` stay `equation`. Identities / law of sines stay LLM | `trig` |
+| Coordinate geometry | Distance, midpoint, slope between two points | `coord` |
+| Vectors | Magnitude, dot, cross | `vector` |
+| Linear algebra | det, inverse, multiply, rref, eigenvalues (≤4) | `matrix` |
+| Calc II (thin) | Taylor, partials, first-order `dsolve`. Polar/parametric/double integrals stay LLM | `calculus` |
+| Probability | Binomial PMF, expected value of a list | `probability` |
+| Complex / units | Simplify `a+bi`; length/mass/time/temp convert | `complex`, `unit` |
 | Graphs | y=f(x), two curves, vertical line, point, axis-aligned ellipse | `graph` / `graph_pair` |
 | Precalc / Calc I | simplify, factor, expand, d/dx, ∫, definite ∫, limits, series sum, Newton | `calculus`, `limit`, `series`, `numerical_method` |
 | Stats (descriptive) | mean, median, mode, variance, stdev | `statistics` |
@@ -75,15 +83,11 @@ flowchart TB
 
 ### School-homework gaps (unverified LLM)
 
-Highest frequency first. The model still answers these; prompts must **not** claim SymPy verification.
+Still not a verified kind (the model may answer; it must **not** claim SymPy):
 
-1. **Bare arithmetic / percent / ratio** — no extractor unless it looks like an equation.
-2. **Trig as a topic** — `sin(x)=1/2` may hit `equation`; `sin(30°)`, law of sines, identities do not have a kind. SSS uses law of **cosines** only.
-3. **Coordinate geometry** — distance, midpoint, slope of a line (a **point** exists; the rest does not).
-4. **Vectors** — magnitude, dot, cross.
-5. **Linear algebra beyond det/inv** — multiply, row-reduce, eigenvalues.
-6. **Calc II–III / ODE** — Taylor, polar/parametric (except ellipse), partials, double integrals, first-order ODE (`dsolve`). Single-variable calc is the ceiling.
-7. **Probability** — binomial / expected value (counting ≠ probability).
-8. **Complex numbers**, unit conversion.
+1. **Trig identities / law of sines** — SSS still uses law of cosines only.
+2. **Polar / parametric curves** (except axis-aligned ellipse) and **double integrals**.
+3. **Linear algebra** beyond 4×4 multiply / rref / eigen (no general NL matrix parsing).
+4. **Full unit catalogs** (only common length/mass/time/temp).
 
-Do **not** implement this gap list in one PR. Next verified homework: **one kind at a time** on the existing seam (`MathIntent.kind` + extractor + `_verified_block_*` + pytest).
+New verified homework still lands as **one kind** on the existing seam (`MathIntent.kind` + extractor + `_verified_block_*` + pytest). `math_tools` is a package (`extract.py` registry, `block.py` builders, `school.py` extra kinds) — do not add a second kind table.

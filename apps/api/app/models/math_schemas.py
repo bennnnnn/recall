@@ -741,22 +741,32 @@ class NumberTheoryResult(BaseModel):
 
 
 class MatrixInput(BaseModel):
-    operation: Literal["determinant", "inverse"]
+    operation: Literal["determinant", "inverse", "multiply", "rref", "eigenvalues"]
     rows: list[list[float]] = Field(min_length=2, max_length=4)
+    rows_b: list[list[float]] | None = Field(default=None, min_length=2, max_length=4)
 
     @field_validator("rows")
     @classmethod
-    def rows_must_be_square(cls, value: list[list[float]]) -> list[list[float]]:
-        size = len(value)
-        if any(len(row) != size for row in value):
-            raise ValueError("matrix must be square for determinant/inverse")
+    def rows_bounded(cls, value: list[list[float]]) -> list[list[float]]:
+        width = len(value[0])
+        if width < 1 or width > 4 or any(len(row) != width for row in value):
+            raise ValueError("matrix rows must be rectangular and at most 4 wide")
         return value
+
+    @model_validator(mode="after")
+    def square_when_required(self) -> MatrixInput:
+        if self.operation in {"determinant", "inverse", "eigenvalues"}:
+            size = len(self.rows)
+            if any(len(row) != size for row in self.rows):
+                raise ValueError("matrix must be square for determinant/inverse/eigenvalues")
+        return self
 
 
 class MatrixResult(BaseModel):
-    operation: Literal["determinant", "inverse"]
+    operation: Literal["determinant", "inverse", "multiply", "rref", "eigenvalues"]
     determinant: float | None = None
     inverse_latex: str | None = None
+    result_latex: str | None = None
     steps: list[str] = Field(default_factory=list)
 
 
@@ -787,6 +797,13 @@ class MathIntent(BaseModel):
         "sector",
         "graph_pair",
         "solid",
+        "arithmetic",
+        "trig",
+        "coord",
+        "vector",
+        "probability",
+        "complex",
+        "unit",
     ]
     lhs: str | None = None
     rhs: str | None = None
@@ -819,6 +836,9 @@ class MathIntent(BaseModel):
             "limit",
             "series",
             "newton",
+            "taylor",
+            "partial",
+            "dsolve",
         ]
         | None
     ) = None
@@ -860,7 +880,7 @@ class MathIntent(BaseModel):
     numtheory_a: int | None = None
     numtheory_b: int | None = None
     # Matrix — determinant/inverse of a small square matrix.
-    matrix_op: Literal["determinant", "inverse"] | None = None
+    matrix_op: Literal["determinant", "inverse", "multiply", "rref", "eigenvalues"] | None = None
     matrix_rows: list[list[float]] | None = None
     # Triangle by three side lengths (SSS) — `base`/`side` above stay
     # base+height-only for the existing "triangle"/"right_triangle" kinds.
@@ -883,3 +903,15 @@ class MathIntent(BaseModel):
     depth: float | None = None
     wants_volume: bool = False
     wants_surface_area: bool = False
+    # School extras (arithmetic / coord / vectors / probability / units).
+    school_op: str | None = None
+    x2: float | None = None
+    y2: float | None = None
+    vec_a: list[float] | None = None
+    vec_b: list[float] | None = None
+    percent_rate: float | None = None
+    percent_base: float | None = None
+    unit_from: str | None = None
+    unit_to: str | None = None
+    taylor_n: int | None = None
+    matrix_rows_b: list[list[float]] | None = None

@@ -20,14 +20,14 @@ from app.services.text_normalize import collapse_ws
 StatsOp = Literal["mean", "median", "mode", "variance", "stdev"]
 CombinatoricsOp = Literal["factorial", "combinations", "permutations"]
 NumberTheoryOp = Literal["gcd", "lcm", "factorize", "is_prime", "mod"]
-MatrixOp = Literal["determinant", "inverse"]
+MatrixOp = Literal["determinant", "inverse", "multiply", "rref", "eigenvalues"]
 SolidShape = Literal["cube", "rectangular_prism", "cylinder", "cone", "sphere", "pyramid"]
 
 _MAX = 1000
 _NUM = re.compile(r"-?\d+(?:\.\d+)?")
 _BARE_COORD = re.compile(r"^\((?P<x>-?\d+(?:\.\d+)?),(?P<y>-?\d+(?:\.\d+)?)\)$")
 _CALC_OP = re.compile(
-    r"\b(simplify|differentiate|derivative|integrate|integral|factor|expand)\b",
+    r"\b(simplify|differentiate|derivative|integrate|integral|factor|expand|taylor|partial|dsolve)\b",
     re.IGNORECASE,
 )
 _DIM_SEPS = ("\u00d7", "by", "x", "*")
@@ -1176,4 +1176,34 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
         return True
     if matrix_signal(cleaned) is not None:
         return True
+    if school_homework_cue(cleaned):
+        return True
     return has_math_keyword(lower) and has_equation(cleaned)
+
+
+def school_homework_cue(cleaned: str) -> bool:
+    """Bare arithmetic / percent / coord / vectors / convert / binomial / ODE."""
+    lower = cleaned.lower()
+    if "% of " in lower and any(ch.isdigit() for ch in cleaned):
+        return True
+    if "convert" in lower and " to " in lower and any(ch.isdigit() for ch in cleaned):
+        return True
+    if any(w in lower for w in ("midpoint", "distance between", "slope of")) and "(" in cleaned:
+        return True
+    if any(w in lower for w in ("dot product", "cross product", "magnitude of <")):
+        return True
+    if "binomial" in lower or "expected value" in lower:
+        return True
+    if "taylor" in lower or "partial" in lower or "dy/dx" in lower:
+        return True
+    if "complex" in lower or "modulus" in lower:
+        return True
+    times = "\u00d7"
+    divide = "\u00f7"
+    if "what is" in lower and any(op in cleaned for op in ("+", "-", "*", "/", times, divide, "^")):
+        if any(ch.isdigit() for ch in cleaned):
+            return True
+    has_trig_call = any(f"{fn}(" in lower or f"{fn} " in lower for fn in ("sin", "cos", "tan"))
+    if has_trig_call and ("\u00b0" in cleaned or any(ch.isdigit() for ch in cleaned)):
+        return True
+    return False
