@@ -13,6 +13,7 @@ from app.background import (
 )
 from app.background import handlers as job_handlers
 from app.core import jobs
+from app.core.background_tasks import drain_background_tasks
 from app.core.config import get_settings, validate_production_settings
 from app.core.db import engine, warmup_db_pool
 from app.core.logging import setup_logging
@@ -74,6 +75,7 @@ async def _run_worker() -> None:
         await email_reminder_scheduler.stop_email_reminder_scheduler()
         await gmail_periodic_sync.stop_gmail_periodic_scheduler()
         await attachment_orphan_reaper.stop_orphan_reaper()
+        await drain_background_tasks(timeout_seconds=10.0)
         await engine.dispose()
         await get_redis_client().aclose()
         await aclose_pooled_clients()

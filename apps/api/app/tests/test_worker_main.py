@@ -24,6 +24,7 @@ async def test_run_worker_starts_and_shuts_down():
     start_worker = AsyncMock()
     stop_worker = AsyncMock()
     aclose_pools = AsyncMock()
+    drain = AsyncMock()
 
     with ExitStack() as stack:
         stack.enter_context(patch("app.worker_main.setup_logging"))
@@ -67,6 +68,7 @@ async def test_run_worker_starts_and_shuts_down():
         stack.enter_context(patch("app.worker_main.engine", engine_mock))
         stack.enter_context(patch("app.worker_main.get_redis_client", return_value=redis))
         stack.enter_context(patch("app.worker_main.aclose_pooled_clients", aclose_pools))
+        stack.enter_context(patch("app.worker_main.drain_background_tasks", drain))
         event_cls = stack.enter_context(patch("app.worker_main.asyncio.Event"))
         event_cls.return_value.wait = AsyncMock(return_value=None)
         await _run_worker()
@@ -74,6 +76,7 @@ async def test_run_worker_starts_and_shuts_down():
     warmup.assert_awaited_once()
     start_worker.assert_awaited_once()
     stop_worker.assert_awaited_once()
+    drain.assert_awaited_once()
     engine_mock.dispose.assert_awaited_once()
     redis.aclose.assert_awaited_once()
     aclose_pools.assert_awaited_once()
