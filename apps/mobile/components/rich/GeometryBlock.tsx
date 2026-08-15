@@ -79,9 +79,11 @@ function TickMarks({
 function InteriorAngleMarks({
   vertices,
   color,
+  fill,
 }: {
   vertices: { x: number; y: number }[];
   color: string;
+  fill: string;
 }) {
   const n = vertices.length;
   const marks = polygonInteriorAngleMarks(vertices);
@@ -99,6 +101,7 @@ function InteriorAngleMarks({
             b={b}
             c={c}
             color={color}
+            fill={fill}
           />
         );
       })}
@@ -112,12 +115,14 @@ function VertexAngleGraphic({
   b,
   c,
   color,
+  fill,
 }: {
   mark: VertexAngleMark;
   a: { x: number; y: number };
   b: { x: number; y: number };
   c: { x: number; y: number };
   color: string;
+  fill: string;
 }) {
   const right = isRightAngleDeg(mark.deg);
   const size = 14;
@@ -146,12 +151,23 @@ function VertexAngleGraphic({
           accessibilityLabel="interior-angle-arc"
         />
       )}
+      <Rect
+        x={mark.labelX - mark.labelWidth / 2}
+        y={mark.labelY - mark.labelHeight / 2}
+        width={mark.labelWidth}
+        height={mark.labelHeight}
+        rx={3}
+        fill={fill}
+        accessibilityLabel="interior-angle-backdrop"
+      />
       <SvgText
         x={mark.labelX}
         y={mark.labelY}
         fill={color}
         fontSize={11}
+        fontWeight="600"
         textAnchor="middle"
+        alignmentBaseline="middle"
         accessibilityLabel={`interior-angle-${mark.text}`}
       >
         {mark.text}
@@ -325,6 +341,7 @@ function TriangleDiagram({ spec, screenWidth, theme }: { spec: TriangleSpec; scr
             { x: x2, y: y2 },
           ]}
           color={theme.textSecondary}
+          fill={theme.contentSurface}
         />
       ) : null}
       {showLabels ? (
@@ -386,6 +403,7 @@ function RightTriangleDiagram({
             { x: x0, y: y0 },
           ]}
           color={theme.textSecondary}
+          fill={theme.contentSurface}
         />
       ) : null}
       {showLabels ? (
@@ -565,7 +583,11 @@ function TriangleSidesDiagram({
       ) : null}
       {tickSegments.length > 0 ? <TickMarks segments={tickSegments} color={theme.textSecondary} /> : null}
       {showAngle ? (
-        <InteriorAngleMarks vertices={[p0, p1, p2]} color={theme.textSecondary} />
+        <InteriorAngleMarks
+          vertices={[p0, p1, p2]}
+          color={theme.textSecondary}
+          fill={theme.contentSurface}
+        />
       ) : null}
       {showLabels ? (
         <>
@@ -640,6 +662,7 @@ function TrapezoidDiagram({
             { x: bx0, y: by },
           ]}
           color={theme.textSecondary}
+          fill={theme.contentSurface}
         />
       ) : null}
       {showLabels ? (
@@ -694,6 +717,7 @@ function ParallelogramDiagram({
             { x: bx0, y: by },
           ]}
           color={theme.textSecondary}
+          fill={theme.contentSurface}
         />
       ) : null}
       {showLabels ? (

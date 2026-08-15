@@ -106,6 +106,7 @@ describe("GeometryBlock", () => {
     expect(tree).toContain("36.9°");
     expect(tree).toContain("53.1°");
     expect(tree).toContain("interior-angle-arc");
+    expect(tree).toContain("interior-angle-backdrop");
   });
 
   it("draws a diagonal-angle arc when rectangle show_angle + show_diagonal", async () => {

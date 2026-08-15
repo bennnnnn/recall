@@ -672,7 +672,16 @@ export type VertexAngleMark = {
   labelY: number;
   text: string;
   deg: number;
+  labelWidth: number;
+  labelHeight: number;
 };
+
+const ANGLE_LABEL_FONT = 11;
+
+/** Backdrop size so `.5°` is not sitting on a stroke. */
+export function estimateAngleLabelSize(text: string): { width: number; height: number } {
+  return { width: Math.max(24, text.length * 6.6 + 10), height: ANGLE_LABEL_FONT + 7 };
+}
 
 /** School-diagram degree label: `90°` / `36.9°`. */
 export function formatAngleDeg(deg: number): string {
@@ -713,13 +722,21 @@ export function vertexAngleMark(
   const y2 = by + r * Math.sin(a1 + delta);
   const sweep = delta > 0 ? 1 : 0;
   const mid = a1 + delta / 2;
-  const labelR = r + 12;
+  const text = formatAngleDeg(deg);
+  const { width: labelWidth, height: labelHeight } = estimateAngleLabelSize(text);
+  // d * sin(half-angle) must clear half the string or "60.5°" sits on a side.
+  const half = Math.abs(delta) / 2;
+  const fromWedge = (labelWidth / 2 + 5) / Math.sin(Math.max(half, 0.2));
+  const minSide = Math.min(Math.hypot(ax - bx, ay - by), Math.hypot(cx - bx, cy - by));
+  const labelR = Math.min(Math.max(r + 18, fromWedge), Math.max(minSide * 0.42, r + 18));
   return {
     path: `M ${x1} ${y1} A ${r} ${r} 0 0 ${sweep} ${x2} ${y2}`,
     labelX: bx + labelR * Math.cos(mid),
     labelY: by + labelR * Math.sin(mid),
-    text: formatAngleDeg(deg),
+    text,
     deg,
+    labelWidth,
+    labelHeight,
   };
 }
 

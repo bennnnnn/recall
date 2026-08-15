@@ -7,6 +7,7 @@ import {
   footOfPerpendicular,
   formatAngleDeg,
   isRightAngleDeg,
+  estimateAngleLabelSize,
   polygonInteriorAngleMarks,
   isIsoscelesSides,
   midpoint,
@@ -83,6 +84,30 @@ describe("geometryBlock", () => {
     const degs = marks.map((m) => Math.round(m.deg)).sort((a, b) => a - b);
     expect(degs).toEqual([37, 53, 90]);
     expect(marks.some((m) => isRightAngleDeg(m.deg))).toBe(true);
+  });
+
+  it("sizes 60.5° labels so the decimal and degree sign fit a backdrop", () => {
+    const size = estimateAngleLabelSize("60.5°");
+    expect(size.width).toBeGreaterThan(40);
+    expect(size.height).toBeGreaterThanOrEqual(18);
+  });
+
+  it("places acute degree labels farther in than the arc so they clear the sides", () => {
+    const vertices = [
+      { x: 0, y: 160 },
+      { x: 120, y: 160 },
+      { x: 0, y: 0 },
+    ];
+    const marks = polygonInteriorAngleMarks(vertices);
+    const acute = marks.filter((m) => !isRightAngleDeg(m.deg));
+    expect(acute.length).toBe(2);
+    marks.forEach((mark, i) => {
+      if (isRightAngleDeg(mark.deg)) return;
+      const b = vertices[i];
+      const dist = Math.hypot(mark.labelX - b.x, mark.labelY - b.y);
+      expect(dist).toBeGreaterThan(16 + 12);
+      expect(mark.labelWidth).toBeGreaterThan(24);
+    });
   });
 
   it("parses triangle spec", () => {
