@@ -220,7 +220,7 @@ class TriangleSidesGeometryBlockSpec(BaseModel):
     unit: str = "cm"
     show_labels: bool = True
     show_ticks: bool = True
-    show_altitude: bool = True
+    show_altitude: bool = False
     show_median: bool = False
     show_angle: bool = True
     area: float | None = None

@@ -107,9 +107,9 @@ class TestAugmentPromptMessagesForNewShapes:
         assert verified is not None
         assert verified.canonical_fence is not None
         assert verified.canonical_fence["type"] == "triangle_sides"
-        assert verified.canonical_fence["show_altitude"] is True
+        assert verified.canonical_fence["show_altitude"] is False
         assert verified.canonical_fence["show_ticks"] is True
-        # Scalene — median cue stays off (altitude alone is enough).
+        # Scalene — no extra interior cues unless the user asked for them.
         assert verified.canonical_fence["show_median"] is False
 
     @pytest.mark.asyncio

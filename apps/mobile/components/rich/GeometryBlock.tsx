@@ -569,7 +569,7 @@ function TriangleSidesDiagram({
   const tickCounts = equalSideTickCounts(spec.a, spec.b, spec.c);
   const hasEqualSides = tickCounts.a > 0 || tickCounts.b > 0 || tickCounts.c > 0;
   const showTicks = shouldShowTicks(spec.show_ticks, hasEqualSides);
-  const showAltitude = spec.show_altitude !== false;
+  const showAltitude = spec.show_altitude === true;
   const showAngle = spec.show_angle !== false;
   let verts = [p0raw, p1raw, p2raw];
   let svgW = svgW0;

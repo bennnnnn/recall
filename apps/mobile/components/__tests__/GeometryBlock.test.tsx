@@ -148,6 +148,19 @@ describe("GeometryBlock", () => {
     expect(JSON.stringify(toJSON())).toContain("side-tick-mark");
   });
 
+  it("does not draw altitude on an SSS triangle unless asked", async () => {
+    const content = JSON.stringify({
+      type: "triangle_sides",
+      a: 5,
+      b: 9.4,
+      c: 12.66,
+      unit: "cm",
+      show_angle: true,
+    });
+    const { toJSON } = await render(<GeometryBlock content={content} />);
+    expect(JSON.stringify(toJSON())).not.toContain("altitude-line");
+  });
+
   it("draws altitude and equal-side ticks on an isosceles SSS triangle", async () => {
     const content = JSON.stringify({
       type: "triangle_sides",

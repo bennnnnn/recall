@@ -285,7 +285,7 @@ def _verified_block_triangle_sides(
         unit=tri_geo.unit,
         show_labels=True,
         show_ticks=True,
-        show_altitude=True,
+        show_altitude=False,
         show_median=isosceles,
         show_angle=True,
         area=tri_geo.area,
