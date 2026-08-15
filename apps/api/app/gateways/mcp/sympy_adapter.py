@@ -86,6 +86,9 @@ class SympyAdapter:
         except TimeoutError:
             logger.warning("sympy MCP tool call timed out")
             return None
+        except Exception:
+            logger.warning("sympy MCP tool call failed", exc_info=True)
+            return None
 
     async def _action_solve(self, args: dict[str, Any]) -> ToolResult:
         data = EquationInput(

@@ -29,6 +29,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import multiprocessing as mp
+import time
 from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from typing import Any, TypeVar
@@ -43,6 +44,12 @@ _T = TypeVar("_T")
 # and reused, so the spawn cost (re-importing SymPy) is paid once per pool
 # lifetime, not per call.
 _MP_CONTEXT = mp.get_context("spawn")
+
+# Wait for a worker slot without counting toward the solve timeout (and without
+# killing the in-flight occupant). A hung submit that never starts still
+# fails closed instead of blocking the request forever.
+_QUEUE_WAIT_SECONDS = 60.0
+_QUEUE_POLL_SECONDS = 0.01
 
 
 def _sympy_worker(fn: Callable[..., _T], *args: Any) -> _T:
@@ -112,18 +119,43 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
         timeout: float,  # noqa: ASYNC109 - we IMPLEMENT the timeout, not consume it
     ) -> _T:
         pool = self._ensure_pool()
+        t_submit = time.monotonic()
         future = pool.submit(_sympy_worker, fn, *args)
+        while not future.running() and not future.done():
+            if time.monotonic() - t_submit >= _QUEUE_WAIT_SECONDS:
+                future.cancel()
+                logger.warning(
+                    "sympy queued %.3fs without starting (worker slot busy)",
+                    time.monotonic() - t_submit,
+                )
+                raise TimeoutError("SymPy worker slot wait timed out")
+            await asyncio.sleep(_QUEUE_POLL_SECONDS)
+        t_start = time.monotonic()
+        queue_s = t_start - t_submit
         afut = asyncio.wrap_future(future)
         try:
             async with asyncio.timeout(timeout):
-                return await afut
+                result = await afut
+            if queue_s >= 0.05:
+                logger.info(
+                    "sympy queued=%.3fs ran=%.3fs",
+                    queue_s,
+                    time.monotonic() - t_start,
+                )
+            return result
         except TimeoutError:
+            logger.warning(
+                "sympy worker timed out after %.3fs (queued %.3fs)",
+                timeout,
+                queue_s,
+            )
             future.cancel()
             self._kill_pool()
             raise
         except BaseException:
-            # Request/WS cancel must kill the subprocess too — future.cancel()
-            # alone leaves the SymPy worker running (CPU leak on the single slot).
+            # Request/WS cancel must kill the subprocess if *this* call owns
+            # the worker. A cancel while still queued is handled above (the
+            # loop has not wrapped the future yet).
             future.cancel()
             self._kill_pool()
             raise
@@ -150,10 +182,17 @@ class ThreadSympyExecutor(BoundedSympyExecutor):
         *args: Any,
         timeout: float,  # noqa: ASYNC109 - we IMPLEMENT the timeout, not consume it
     ) -> _T:
-        loop = asyncio.get_running_loop()
+        t_submit = time.monotonic()
+        future = self._pool.submit(fn, *args)
+        while not future.running() and not future.done():
+            if time.monotonic() - t_submit >= _QUEUE_WAIT_SECONDS:
+                future.cancel()
+                raise TimeoutError("SymPy worker slot wait timed out")
+            await asyncio.sleep(_QUEUE_POLL_SECONDS)
+        afut = asyncio.wrap_future(future)
         try:
             async with asyncio.timeout(timeout):
-                return await loop.run_in_executor(self._pool, fn, *args)
+                return await afut
         except TimeoutError:
             raise
 
@@ -195,6 +234,8 @@ async def run_sympy(
     """Run a picklable callable in the bounded SymPy pool with a hard timeout.
 
     Raises ``TimeoutError`` if the callable does not complete within
-    ``timeout`` seconds (the subprocess is SIGTERM'd in that case).
+    ``timeout`` seconds of the worker starting (the subprocess is SIGTERM'd
+    in that case). Time spent queued behind another call does not count
+    toward ``timeout`` and does not kill the occupant.
     """
     return await get_sympy_executor().run(fn, *args, timeout=timeout)

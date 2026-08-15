@@ -242,6 +242,22 @@ async def test_sympy_adapter_simplify_times_out_instead_of_blocking(
 
 
 @pytest.mark.asyncio
+async def test_sympy_adapter_broken_pool_degrades_like_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+    thread_sympy_executor: None,
+):
+    from concurrent.futures.process import BrokenProcessPool
+
+    async def boom(*_args: object, **_kwargs: object) -> None:
+        raise BrokenProcessPool("killed by sibling timeout")
+
+    monkeypatch.setattr("app.services.sympy_executor.run_sympy", boom)
+    adapter = SympyAdapter(Settings(math_solve_timeout_seconds=5))
+    result = await adapter.invoke({"action": "simplify", "expr": "x + x", "variable": "x"})
+    assert "timed out" in result.content
+
+
+@pytest.mark.asyncio
 async def test_sympy_adapter_solve_times_out_instead_of_blocking(
     monkeypatch: pytest.MonkeyPatch,
     thread_sympy_executor: None,

@@ -49,6 +49,11 @@ _ANSWER_FENCE = re.compile(r"```(?:answer|result|final)\s*\n([\s\S]*?)```", re.I
 # Below this count a continuous y=f(x) fence is treated as "sparse key points"
 # the model listed for prose, not a renderable curve sample.
 _MIN_CURVE_POINTS = 48
+# Shared 5s SymPy budget for the whole reply — bound how many fences we
+# rewrite so one long message degrades per-fence instead of timing out all.
+_MAX_ANSWER_FENCES = 4
+_MAX_GEOMETRY_FENCES = 4
+_MAX_GRAPH_FENCES = 2
 
 
 def _validate_geometry(raw: str) -> bool:
@@ -339,9 +344,21 @@ def _replace_answer_fence(
 
 def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = None) -> str:
     canonical_fence = verified.canonical_fence if verified is not None else None
-    content = _ANSWER_FENCE.sub(lambda m: _replace_answer_fence(m, canonical_fence), content)
-    content = _GEOMETRY_FENCE.sub(lambda m: _replace_fence(m, "geometry", canonical_fence), content)
-    return _GRAPH_FENCE.sub(lambda m: _replace_fence(m, "graph", canonical_fence), content)
+    content = _ANSWER_FENCE.sub(
+        lambda m: _replace_answer_fence(m, canonical_fence),
+        content,
+        count=_MAX_ANSWER_FENCES,
+    )
+    content = _GEOMETRY_FENCE.sub(
+        lambda m: _replace_fence(m, "geometry", canonical_fence),
+        content,
+        count=_MAX_GEOMETRY_FENCES,
+    )
+    return _GRAPH_FENCE.sub(
+        lambda m: _replace_fence(m, "graph", canonical_fence),
+        content,
+        count=_MAX_GRAPH_FENCES,
+    )
 
 
 def validate_math_fences_worker(content: str, verified: VerifiedMathBlock | None = None) -> str:

@@ -951,3 +951,29 @@ async def test_augment_prompt_math_service_error_injects_unverified_note(
     note = next(m["content"] for m in out if m["role"] == "system")
     assert "kind=equation" in note
     assert "Do NOT claim the answer was SymPy-verified" in note
+
+
+@pytest.mark.asyncio
+async def test_augment_prompt_broken_pool_injects_unverified_note(
+    monkeypatch: pytest.MonkeyPatch,
+    thread_sympy_executor: None,
+) -> None:
+    """A sibling timeout's pool kill must not fail this turn before streaming."""
+    from concurrent.futures.process import BrokenProcessPool
+
+    async def boom(*_args: object, **_kwargs: object) -> None:
+        raise BrokenProcessPool("killed by sibling timeout")
+
+    monkeypatch.setattr("app.services.sympy_executor.run_sympy", boom)
+
+    settings = Settings(math_tools_enabled=True)
+    messages = [{"role": "user", "content": "Solve x^2 + 2 = 6"}]
+    out, verified = await math_tools.augment_prompt_messages(
+        messages,
+        "Solve x^2 + 2 = 6",
+        settings,
+    )
+
+    assert verified is None
+    note = next(m["content"] for m in out if m["role"] == "system")
+    assert "Do NOT claim the answer was SymPy-verified" in note
