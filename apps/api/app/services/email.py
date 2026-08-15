@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from datetime import UTC, datetime, timedelta
@@ -29,6 +30,8 @@ from app.services.ics_parser import parse_ics_invite
 logger = logging.getLogger(__name__)
 
 REMINDER_TOPIC = "From email"
+# Fan-out bound for per-message LLM extraction during sync (HTTP + periodic).
+_GMAIL_EXTRACT_CONCURRENCY = 5
 
 GMAIL_HINT = (
     "The user may have Gmail connected (read-only) as a **separate integration** from their "
@@ -321,29 +324,54 @@ async def _extract_with_llm(
     return item
 
 
-async def _process_message(
-    session: AsyncSession,
+async def _extract_reminder_item(
     settings: Settings,
-    user_id: UUID,
     message: GmailMessage,
     *,
-    default_tz: str | None = None,
-) -> bool:
-    """Extract a reminder from one Gmail message. Returns True if a row was created.
-
-    Caller is expected to skip message IDs already known via a batched existence
-    lookup — this path does not re-query per message.
-    """
+    default_tz: str | None,
+) -> SuggestedReminderItem | None:
     extracted = _parse_from_ics(message, default_tz=default_tz)
-    if extracted is None:
-        extracted = await _extract_with_llm(settings, message)
-    if extracted is None:
-        return False
+    if extracted is not None:
+        return extracted
+    return await _extract_with_llm(settings, message)
 
+
+async def _extract_new_reminders(
+    settings: Settings,
+    messages: list[GmailMessage],
+    *,
+    default_tz: str | None,
+    known_ids: set[str],
+) -> list[tuple[GmailMessage, SuggestedReminderItem]]:
+    """Run ICS/LLM extraction with no DB session held."""
+    pending = [message for message in messages if message.id not in known_ids]
+    if not pending:
+        return []
+    sem = asyncio.Semaphore(max(1, _GMAIL_EXTRACT_CONCURRENCY))
+
+    async def _one(message: GmailMessage) -> tuple[GmailMessage, SuggestedReminderItem | None]:
+        async with sem:
+            try:
+                return message, await _extract_reminder_item(
+                    settings, message, default_tz=default_tz
+                )
+            except Exception:
+                logger.exception("Failed to extract gmail message id=%s", message.id)
+                return message, None
+
+    results = await asyncio.gather(*(_one(message) for message in pending))
+    return [(message, item) for message, item in results if item is not None]
+
+
+async def _write_suggested_reminder(
+    session: AsyncSession,
+    user_id: UUID,
+    message: GmailMessage,
+    extracted: SuggestedReminderItem,
+) -> None:
     due_at = extracted.due_at
     if due_at is not None and due_at.tzinfo is None:
         due_at = due_at.replace(tzinfo=UTC)
-
     await suggested_repo.create(
         session,
         user_id=user_id,
@@ -354,7 +382,6 @@ async def _process_message(
         confidence=extracted.confidence,
         source_snippet=message.snippet[:500] if message.snippet else None,
     )
-    return True
 
 
 def gmail_sync_is_due(
@@ -415,14 +442,17 @@ async def sync_gmail_for_user(
     known_ids = await suggested_repo.existing_message_ids(
         session, user_id, [m.id for m in messages]
     )
+    extracted_rows = await _extract_new_reminders(
+        settings,
+        messages,
+        default_tz=default_tz,
+        known_ids=known_ids,
+    )
     created = 0
-    for message in messages:
-        if message.id in known_ids:
-            continue
+    for message, extracted in extracted_rows:
         try:
-            if await _process_message(session, settings, user_id, message, default_tz=default_tz):
-                created += 1
-                known_ids.add(message.id)
+            await _write_suggested_reminder(session, user_id, message, extracted)
+            created += 1
         except Exception:
             await session.rollback()
             logger.exception("Failed to process gmail message id=%s", message.id)
