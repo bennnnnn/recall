@@ -194,6 +194,7 @@ class TriangleGeometryBlockSpec(BaseModel):
     show_labels: bool = True
     show_ticks: bool = True
     show_altitude: bool = True
+    show_angle: bool = True
     area: float | None = None
     labels: dict[str, str] = Field(default_factory=dict)
 
@@ -221,6 +222,7 @@ class TriangleSidesGeometryBlockSpec(BaseModel):
     show_ticks: bool = True
     show_altitude: bool = True
     show_median: bool = False
+    show_angle: bool = True
     area: float | None = None
     labels: dict[str, str] = Field(default_factory=dict)
 
@@ -239,6 +241,7 @@ class TrapezoidGeometryBlockSpec(BaseModel):
     height: float = Field(gt=0, le=1_000_000)
     unit: str = "cm"
     show_labels: bool = True
+    show_angle: bool = False
     area: float | None = None
     labels: dict[str, str] = Field(default_factory=dict)
 
@@ -250,6 +253,7 @@ class ParallelogramGeometryBlockSpec(BaseModel):
     side: float = Field(gt=0, le=1_000_000)
     unit: str = "cm"
     show_labels: bool = True
+    show_angle: bool = False
     area: float | None = None
     perimeter: float | None = None
     labels: dict[str, str] = Field(default_factory=dict)

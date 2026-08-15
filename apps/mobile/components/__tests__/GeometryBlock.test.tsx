@@ -35,6 +35,9 @@ describe("GeometryBlock", () => {
     expect(tree).toContain("3 cm");
     expect(tree).toContain("4 cm");
     expect(tree).toContain("5 cm");
+    expect(tree).toContain("90°");
+    expect(tree).toContain("36.9°");
+    expect(tree).toContain("53.1°");
   });
 
   it("falls back for an impossible triangle (sides that can't close)", async () => {
@@ -100,6 +103,9 @@ describe("GeometryBlock", () => {
     const tree = JSON.stringify(toJSON());
     expect(tree).toContain("right-angle-mark");
     expect(tree).toContain("90°");
+    expect(tree).toContain("36.9°");
+    expect(tree).toContain("53.1°");
+    expect(tree).toContain("interior-angle-arc");
   });
 
   it("draws a diagonal-angle arc when rectangle show_angle + show_diagonal", async () => {

@@ -187,12 +187,16 @@ def right_triangle_geometry(data: RightTriangleGeometryInput) -> RightTriangleGe
     hypotenuse = math.sqrt(b * b + h * h)
     area = 0.5 * b * h
     unit = data.unit
+    angle_at_base = math.degrees(math.atan2(h, b))
+    angle_at_height = math.degrees(math.atan2(b, h))
     labels = {
         "base": f"{b:g} {unit}",
         "height": f"{h:g} {unit}",
         "hypotenuse": f"{hypotenuse:.2f} {unit}",
         "area": f"{area:g} {unit}²",
         "angle": "90°",
+        "angle_at_base": f"{angle_at_base:.1f}°",
+        "angle_at_height": f"{angle_at_height:.1f}°",
     }
     return RightTriangleGeometryResult(
         base=b,

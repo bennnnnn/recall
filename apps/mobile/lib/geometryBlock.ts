@@ -26,6 +26,8 @@ export type TriangleSpec = {
   show_ticks?: boolean;
   /** Dashed altitude from apex to base (default on — already the height line). */
   show_altitude?: boolean;
+  /** Interior vertex degrees (default on). */
+  show_angle?: boolean;
   area?: number;
   labels?: Record<string, string>;
 };
@@ -37,6 +39,7 @@ export type RightTriangleSpec = {
   unit?: string;
   show_labels?: boolean;
   show_hypotenuse?: boolean;
+  /** Interior vertex degrees, not only the 90° square (default on). */
   show_angle?: boolean;
   hypotenuse?: number;
   area?: number;
@@ -70,6 +73,7 @@ export type TriangleSidesSpec = {
   show_altitude?: boolean;
   /** Median from the apex to the midpoint of side a (default off; on for isosceles). */
   show_median?: boolean;
+  show_angle?: boolean;
   area?: number;
   labels?: Record<string, string>;
 };
@@ -81,6 +85,7 @@ export type TrapezoidSpec = {
   height: number;
   unit?: string;
   show_labels?: boolean;
+  show_angle?: boolean;
   area?: number;
   labels?: Record<string, string>;
 };
@@ -92,6 +97,7 @@ export type ParallelogramSpec = {
   side: number;
   unit?: string;
   show_labels?: boolean;
+  show_angle?: boolean;
   area?: number;
   perimeter?: number;
   labels?: Record<string, string>;
@@ -209,6 +215,7 @@ function parseTriangle(row: Record<string, unknown>): TriangleSpec | null {
   copyFlag(spec, row, "show_labels");
   copyFlag(spec, row, "show_ticks");
   copyFlag(spec, row, "show_altitude");
+  copyFlag(spec, row, "show_angle");
   const area = Number(row.area);
   if (Number.isFinite(area)) spec.area = area;
   spec.labels = readLabels(row);
@@ -279,6 +286,7 @@ function parseTriangleSides(row: Record<string, unknown>): TriangleSidesSpec | n
   copyFlag(spec, row, "show_ticks");
   copyFlag(spec, row, "show_altitude");
   copyFlag(spec, row, "show_median");
+  copyFlag(spec, row, "show_angle");
   const area = Number(row.area);
   if (Number.isFinite(area)) spec.area = area;
   spec.labels = readLabels(row);
@@ -295,6 +303,7 @@ function parseTrapezoid(row: Record<string, unknown>): TrapezoidSpec | null {
   const unit = String(row.unit ?? "cm").trim();
   if (unit) spec.unit = unit;
   copyFlag(spec, row, "show_labels");
+  copyFlag(spec, row, "show_angle");
   const area = Number(row.area);
   if (Number.isFinite(area)) spec.area = area;
   spec.labels = readLabels(row);
@@ -315,6 +324,7 @@ function parseParallelogram(row: Record<string, unknown>): ParallelogramSpec | n
   const unit = String(row.unit ?? "cm").trim();
   if (unit) spec.unit = unit;
   copyFlag(spec, row, "show_labels");
+  copyFlag(spec, row, "show_angle");
   const area = Number(row.area);
   if (Number.isFinite(area)) spec.area = area;
   const perimeter = Number(row.perimeter);
@@ -393,12 +403,16 @@ export function computeRightTriangleLabels(spec: RightTriangleSpec): Record<stri
   const unit = spec.unit ?? "cm";
   const area = spec.area ?? 0.5 * spec.base * spec.height;
   const hypotenuse = spec.hypotenuse ?? Math.sqrt(spec.base * spec.base + spec.height * spec.height);
+  const angleAtBase = (Math.atan2(spec.height, spec.base) * 180) / Math.PI;
+  const angleAtHeight = (Math.atan2(spec.base, spec.height) * 180) / Math.PI;
   return {
     base: spec.labels?.base ?? `${spec.base} ${unit}`,
     height: spec.labels?.height ?? `${spec.height} ${unit}`,
     hypotenuse: spec.labels?.hypotenuse ?? `${hypotenuse % 1 === 0 ? hypotenuse : hypotenuse.toFixed(2)} ${unit}`,
     area: spec.labels?.area ?? `${area % 1 === 0 ? area : area.toFixed(1)} ${unit}²`,
     angle: spec.labels?.angle ?? "90°",
+    angle_at_base: spec.labels?.angle_at_base ?? formatAngleDeg(angleAtBase),
+    angle_at_height: spec.labels?.angle_at_height ?? formatAngleDeg(angleAtHeight),
   };
 }
 
@@ -650,6 +664,76 @@ export function diagonalAngleArcPath(
   const y2 = originY + r * Math.sin(theta);
   // sweep-flag 1 = clockwise in SVG → from +x down into the diagonal.
   return `M ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2}`;
+}
+
+export type VertexAngleMark = {
+  path: string;
+  labelX: number;
+  labelY: number;
+  text: string;
+  deg: number;
+};
+
+/** School-diagram degree label: `90°` / `36.9°`. */
+export function formatAngleDeg(deg: number): string {
+  const rounded = Math.round(deg * 10) / 10;
+  if (Math.abs(rounded - Math.round(rounded)) < 0.05) {
+    return `${Math.round(rounded)}°`;
+  }
+  return `${rounded.toFixed(1)}°`;
+}
+
+export function isRightAngleDeg(deg: number, tolerance = 0.6): boolean {
+  return Math.abs(deg - 90) < tolerance;
+}
+
+/**
+ * Interior angle at vertex B of triangle ABC (SVG y-down). The shorter arc
+ * is the interior for convex polygons.
+ */
+export function vertexAngleMark(
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+  cx: number,
+  cy: number,
+  radius = 16,
+): VertexAngleMark {
+  const a1 = Math.atan2(ay - by, ax - bx);
+  const a2 = Math.atan2(cy - by, cx - bx);
+  let delta = a2 - a1;
+  while (delta > Math.PI) delta -= 2 * Math.PI;
+  while (delta < -Math.PI) delta += 2 * Math.PI;
+  const deg = (Math.abs(delta) * 180) / Math.PI;
+  const r = Math.max(radius, 8);
+  const x1 = bx + r * Math.cos(a1);
+  const y1 = by + r * Math.sin(a1);
+  const x2 = bx + r * Math.cos(a1 + delta);
+  const y2 = by + r * Math.sin(a1 + delta);
+  const sweep = delta > 0 ? 1 : 0;
+  const mid = a1 + delta / 2;
+  const labelR = r + 12;
+  return {
+    path: `M ${x1} ${y1} A ${r} ${r} 0 0 ${sweep} ${x2} ${y2}`,
+    labelX: bx + labelR * Math.cos(mid),
+    labelY: by + labelR * Math.sin(mid),
+    text: formatAngleDeg(deg),
+    deg,
+  };
+}
+
+export function polygonInteriorAngleMarks(
+  vertices: { x: number; y: number }[],
+  radius = 16,
+): VertexAngleMark[] {
+  const n = vertices.length;
+  if (n < 3) return [];
+  return vertices.map((b, i) => {
+    const a = vertices[(i + n - 1) % n];
+    const c = vertices[(i + 1) % n];
+    return vertexAngleMark(a.x, a.y, b.x, b.y, c.x, c.y, radius);
+  });
 }
 
 export function scaleToFit(
