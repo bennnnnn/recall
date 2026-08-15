@@ -4,14 +4,18 @@ Gated by ``dev_auth_enabled`` so they're unavailable in production over HTTP.
 For production ops, use ``scripts/replay_dlq.py`` instead.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, ValidationError
 from redis.asyncio import Redis
 
 from app.core import jobs
 from app.core.config import Settings
 from app.core.deps import get_current_user, get_redis, get_settings_dep
 from app.models.orm import User
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -54,19 +58,29 @@ def _require_admin(user: User, settings: Settings) -> None:
 
 @router.get("/dlq", response_model=list[DlqEntry])
 async def list_dlq(
-    count: int = 50,
+    count: int = Query(default=50, ge=1, le=500),
     user: User = Depends(get_current_user),
     redis: Redis = Depends(get_redis),
     settings: Settings = Depends(get_settings_dep),
 ) -> list[DlqEntry]:
     _require_admin(user, settings)
     entries = await jobs.list_dlq(redis, count=count)
-    return [DlqEntry(**e) for e in entries]
+    parsed: list[DlqEntry] = []
+    for entry in entries:
+        try:
+            parsed.append(DlqEntry.model_validate(entry))
+        except ValidationError:
+            logger.warning(
+                "Skipping malformed DLQ entry id=%s",
+                entry.get("id") if isinstance(entry, dict) else None,
+                exc_info=True,
+            )
+    return parsed
 
 
 @router.post("/dlq/replay", response_model=DlqReplayResult)
 async def replay_dlq(
-    count: int = 50,
+    count: int = Query(default=50, ge=1, le=500),
     user: User = Depends(get_current_user),
     redis: Redis = Depends(get_redis),
     settings: Settings = Depends(get_settings_dep),
