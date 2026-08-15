@@ -5,6 +5,9 @@ import {
   computeTriangleLabels,
   equalSideTickCounts,
   footOfPerpendicular,
+  formatAngleDeg,
+  isRightAngleDeg,
+  polygonInteriorAngleMarks,
   isIsoscelesSides,
   midpoint,
   parseGeometrySpec,
@@ -63,7 +66,23 @@ describe("geometryBlock", () => {
       const labels = computeRightTriangleLabels(spec);
       expect(labels.hypotenuse).toContain("7.21");
       expect(labels.area).toContain("12");
+      expect(labels.angle).toBe("90°");
+      expect(labels.angle_at_base).toContain("33.7");
+      expect(labels.angle_at_height).toContain("56.3");
     }
+  });
+
+  it("labels every interior vertex of a 3-4-5 right triangle", () => {
+    expect(formatAngleDeg(90)).toBe("90°");
+    expect(formatAngleDeg(36.869897)).toBe("36.9°");
+    const marks = polygonInteriorAngleMarks([
+      { x: 0, y: 40 },
+      { x: 30, y: 40 },
+      { x: 0, y: 0 },
+    ]);
+    const degs = marks.map((m) => Math.round(m.deg)).sort((a, b) => a - b);
+    expect(degs).toEqual([37, 53, 90]);
+    expect(marks.some((m) => isRightAngleDeg(m.deg))).toBe(true);
   });
 
   it("parses triangle spec", () => {

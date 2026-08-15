@@ -237,6 +237,8 @@ def test_right_triangle_geometry() -> None:
     assert result.hypotenuse == pytest.approx(7.2111, rel=1e-3)
     assert result.area == 12.0
     assert "7.21" in result.labels["hypotenuse"]
+    assert result.labels["angle_at_base"].startswith("33.7")
+    assert result.labels["angle_at_height"].startswith("56.3")
 
 
 def test_circle_geometry() -> None:

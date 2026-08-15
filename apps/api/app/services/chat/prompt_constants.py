@@ -509,6 +509,8 @@ MATH_SOLVER_HINT = (
     '"b":4,"c":5,"unit":"cm","show_labels":true}\n```\n'
     'Right triangle: ```geometry\n{"type":"right_triangle","base":6,"height":4,"unit":"cm",'
     '"show_labels":true,"show_hypotenuse":true,"show_angle":true}\n```\n'
+    "  When the user asks for degrees/angles, label EVERY interior vertex "
+    "(not only the 90° square) using the verified values.\n"
     'Circle: ```geometry\n{"type":"circle","radius":4,"unit":"cm","show_diameter":true,'
     '"show_area":true,"show_circumference":true}\n```\n'
     'Trapezoid: ```geometry\n{"type":"trapezoid","top":4,"bottom":8,"height":5,"unit":"cm",'

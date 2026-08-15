@@ -15,9 +15,11 @@ import {
   equalSideTickCounts,
   footOfPerpendicular,
   isIsoscelesSides,
+  isRightAngleDeg,
   midpoint,
   parseGeometrySpec,
   parallelogramLayout,
+  polygonInteriorAngleMarks,
   rectangleAngleDisplay,
   scaleToFit,
   shouldShowTicks,
@@ -33,6 +35,7 @@ import {
   type TrapezoidSpec,
   type TriangleSidesSpec,
   type TriangleSpec,
+  type VertexAngleMark,
 } from "@/lib/geometryBlock";
 import i18n from "@/lib/i18n";
 import { Theme, useTheme } from "@/lib/theme";
@@ -69,6 +72,90 @@ function TickMarks({
           accessibilityLabel="side-tick-mark"
         />
       ))}
+    </>
+  );
+}
+
+function InteriorAngleMarks({
+  vertices,
+  color,
+}: {
+  vertices: { x: number; y: number }[];
+  color: string;
+}) {
+  const n = vertices.length;
+  const marks = polygonInteriorAngleMarks(vertices);
+  return (
+    <>
+      {marks.map((mark, i) => {
+        const b = vertices[i];
+        const a = vertices[(i + n - 1) % n];
+        const c = vertices[(i + 1) % n];
+        return (
+          <VertexAngleGraphic
+            key={`ang-${i}-${mark.text}`}
+            mark={mark}
+            a={a}
+            b={b}
+            c={c}
+            color={color}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+function VertexAngleGraphic({
+  mark,
+  a,
+  b,
+  c,
+  color,
+}: {
+  mark: VertexAngleMark;
+  a: { x: number; y: number };
+  b: { x: number; y: number };
+  c: { x: number; y: number };
+  color: string;
+}) {
+  const right = isRightAngleDeg(mark.deg);
+  const size = 14;
+  const la = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+  const lc = Math.hypot(c.x - b.x, c.y - b.y) || 1;
+  const ux = ((a.x - b.x) / la) * size;
+  const uy = ((a.y - b.y) / la) * size;
+  const vx = ((c.x - b.x) / lc) * size;
+  const vy = ((c.y - b.y) / lc) * size;
+  return (
+    <>
+      {right ? (
+        <Polygon
+          points={`${b.x},${b.y} ${b.x + ux},${b.y + uy} ${b.x + ux + vx},${b.y + uy + vy} ${b.x + vx},${b.y + vy}`}
+          fill="none"
+          stroke={color}
+          strokeWidth={1.5}
+          accessibilityLabel="right-angle-mark"
+        />
+      ) : (
+        <Path
+          d={mark.path}
+          fill="none"
+          stroke={color}
+          strokeWidth={1.5}
+          accessibilityLabel="interior-angle-arc"
+        />
+      )}
+      <SvgText
+        x={mark.labelX}
+        y={mark.labelY}
+        fill={color}
+        fontSize={11}
+        textAnchor="middle"
+        accessibilityLabel={`interior-angle-${mark.text}`}
+      >
+        {mark.text}
+      </SvgText>
     </>
   );
 }
@@ -203,6 +290,7 @@ function TriangleDiagram({ spec, screenWidth, theme }: { spec: TriangleSpec; scr
   const showLabels = spec.show_labels !== false;
   const showTicks = shouldShowTicks(spec.show_ticks, false);
   const showAltitude = spec.show_altitude !== false;
+  const showAngle = spec.show_angle !== false;
   const tickSegments = showTicks
     ? [...sideTickMarks(x0, y0, x2, y2, 1), ...sideTickMarks(x1, y1, x2, y2, 1)]
     : [];
@@ -229,6 +317,16 @@ function TriangleDiagram({ spec, screenWidth, theme }: { spec: TriangleSpec; scr
         />
       ) : null}
       {tickSegments.length > 0 ? <TickMarks segments={tickSegments} color={theme.textSecondary} /> : null}
+      {showAngle ? (
+        <InteriorAngleMarks
+          vertices={[
+            { x: x0, y: y0 },
+            { x: x1, y: y1 },
+            { x: x2, y: y2 },
+          ]}
+          color={theme.textSecondary}
+        />
+      ) : null}
       {showLabels ? (
         <>
           <SvgText x={(x0 + x1) / 2} y={y0 + 18} fill={theme.text} fontSize={13} fontWeight="600" textAnchor="middle">
@@ -271,7 +369,6 @@ function RightTriangleDiagram({
   const showLabels = spec.show_labels !== false;
   const showHyp = spec.show_hypotenuse !== false;
   const showAngle = spec.show_angle !== false;
-  const corner = 14;
 
   return (
     <Svg width={svgW} height={svgH}>
@@ -282,23 +379,14 @@ function RightTriangleDiagram({
         strokeWidth={2}
       />
       {showAngle ? (
-        <>
-          <Polygon
-            points={`${x0},${y1} ${x0 + corner},${y1} ${x0 + corner},${y1 - corner} ${x0},${y1 - corner}`}
-            fill="none"
-            stroke={theme.textSecondary}
-            strokeWidth={1.5}
-            accessibilityLabel="right-angle-mark"
-          />
-          <SvgText
-            x={x0 + corner + 4}
-            y={y1 - corner - 2}
-            fill={theme.textSecondary}
-            fontSize={11}
-          >
-            90°
-          </SvgText>
-        </>
+        <InteriorAngleMarks
+          vertices={[
+            { x: x0, y: y1 },
+            { x: x1, y: y1 },
+            { x: x0, y: y0 },
+          ]}
+          color={theme.textSecondary}
+        />
       ) : null}
       {showLabels ? (
         <>
@@ -415,6 +503,7 @@ function TriangleSidesDiagram({
   const hasEqualSides = tickCounts.a > 0 || tickCounts.b > 0 || tickCounts.c > 0;
   const showTicks = shouldShowTicks(spec.show_ticks, hasEqualSides);
   const showAltitude = spec.show_altitude !== false;
+  const showAngle = spec.show_angle !== false;
   const showMedian =
     spec.show_median === true || (spec.show_median !== false && isIsoscelesSides(spec.a, spec.b, spec.c));
   const foot = footOfPerpendicular(p0.x, p0.y, p1.x, p1.y, p2.x, p2.y);
@@ -475,6 +564,9 @@ function TriangleSidesDiagram({
         />
       ) : null}
       {tickSegments.length > 0 ? <TickMarks segments={tickSegments} color={theme.textSecondary} /> : null}
+      {showAngle ? (
+        <InteriorAngleMarks vertices={[p0, p1, p2]} color={theme.textSecondary} />
+      ) : null}
       {showLabels ? (
         <>
           <SvgText x={(p0.x + p1.x) / 2} y={p0.y + 18} fill={theme.text} fontSize={13} fontWeight="600" textAnchor="middle">
@@ -528,6 +620,7 @@ function TrapezoidDiagram({
   const svgW = bottomW + offsetX * 2;
   const svgH = h + offsetY + 40;
   const showLabels = spec.show_labels !== false;
+  const showAngle = spec.show_angle === true;
 
   return (
     <Svg width={svgW} height={svgH}>
@@ -538,6 +631,17 @@ function TrapezoidDiagram({
         strokeWidth={2}
       />
       <Line x1={tx0} y1={ty} x2={tx0} y2={by} stroke={theme.accent} strokeWidth={2} strokeDasharray="5,4" />
+      {showAngle ? (
+        <InteriorAngleMarks
+          vertices={[
+            { x: tx0, y: ty },
+            { x: tx1, y: ty },
+            { x: bx1, y: by },
+            { x: bx0, y: by },
+          ]}
+          color={theme.textSecondary}
+        />
+      ) : null}
       {showLabels ? (
         <>
           <SvgText x={(tx0 + tx1) / 2} y={ty - 8} fill={theme.text} fontSize={13} fontWeight="600" textAnchor="middle">
@@ -570,6 +674,7 @@ function ParallelogramDiagram({
   const labels = computeParallelogramLabels(spec);
   const { svgW, svgH, bx0, bx1, by, tx0, tx1, ty } = parallelogramLayout(spec, screenWidth);
   const showLabels = spec.show_labels !== false;
+  const showAngle = spec.show_angle === true;
 
   return (
     <Svg width={svgW} height={svgH}>
@@ -580,6 +685,17 @@ function ParallelogramDiagram({
         strokeWidth={2}
       />
       <Line x1={tx0} y1={ty} x2={tx0} y2={by} stroke={theme.accent} strokeWidth={2} strokeDasharray="5,4" />
+      {showAngle ? (
+        <InteriorAngleMarks
+          vertices={[
+            { x: tx0, y: ty },
+            { x: tx1, y: ty },
+            { x: bx1, y: by },
+            { x: bx0, y: by },
+          ]}
+          color={theme.textSecondary}
+        />
+      ) : null}
       {showLabels ? (
         <>
           <SvgText x={(bx0 + bx1) / 2} y={by + 18} fill={theme.text} fontSize={13} fontWeight="600" textAnchor="middle">

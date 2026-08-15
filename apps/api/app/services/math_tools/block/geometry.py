@@ -207,6 +207,7 @@ def _verified_block_triangle(
         show_labels=True,
         show_ticks=True,
         show_altitude=True,
+        show_angle=True,
         area=tri_geo.area,
         labels=tri_geo.labels,
     )
@@ -230,7 +231,9 @@ def _verified_block_right_triangle(
         f"Right triangle: base={rt_geo.base:g} {rt_geo.unit} "
         f"height={rt_geo.height:g} {rt_geo.unit} "
         f"hypotenuse={rt_geo.hypotenuse:g} {rt_geo.unit} "
-        f"area={rt_geo.area:g} {rt_geo.unit}²"
+        f"area={rt_geo.area:g} {rt_geo.unit}² "
+        f"angles=90° / {rt_geo.labels['angle_at_base']} at base / "
+        f"{rt_geo.labels['angle_at_height']} at height"
     )
     rt_spec = RightTriangleGeometryBlockSpec(
         type="right_triangle",
@@ -248,7 +251,10 @@ def _verified_block_right_triangle(
         "When a diagram helps, emit ONLY this fence (NEVER ```json):\n"
         f"{_fence('geometry', rt_spec)}"
     )
-    lines.append("Do NOT recompute hypotenuse or area.")
+    lines.append("Do NOT recompute hypotenuse, area, or interior angles.")
+    lines.append(
+        "Put all three interior-angle degree labels on the vertices (not only the 90° square)."
+    )
     return _diagram_block(lines, rt_spec, f"{rt_geo.area:g}")
 
 
@@ -281,6 +287,7 @@ def _verified_block_triangle_sides(
         show_ticks=True,
         show_altitude=True,
         show_median=isosceles,
+        show_angle=True,
         area=tri_geo.area,
         labels=tri_geo.labels,
     )
@@ -320,6 +327,7 @@ def _verified_block_trapezoid(
         height=trap_geo.height,
         unit=trap_geo.unit,
         show_labels=True,
+        show_angle=bool(intent.wants_angle),
         area=trap_geo.area,
         labels=trap_geo.labels,
     )
@@ -353,6 +361,7 @@ def _verified_block_parallelogram(
         side=para_geo.side,
         unit=para_geo.unit,
         show_labels=True,
+        show_angle=bool(intent.wants_angle),
         area=para_geo.area,
         perimeter=para_geo.perimeter,
         labels=para_geo.labels,

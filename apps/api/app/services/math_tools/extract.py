@@ -23,6 +23,10 @@ from app.services.math_tools.school import SCHOOL_EXTRACTORS
 logger = logging.getLogger(__name__)
 
 
+def _wants_geometry_angles(lower: str) -> bool:
+    return any(w in lower for w in ("angle", "angles", "degree", "degrees"))
+
+
 def _extract_solid_intent(cleaned: str) -> MathIntent | None:
     from app.services import math_text_match as mtm
 
@@ -180,9 +184,17 @@ def _extract_right_triangle_intent(cleaned: str) -> MathIntent | None:
             height=height,
             unit=unit,
             operation="solve",
+            wants_angle=_wants_geometry_angles(lower),
         )
     if mtm.has_draw_shape(lower, "right triangle"):
-        return MathIntent(kind="right_triangle", base=6, height=4, unit="cm", operation="solve")
+        return MathIntent(
+            kind="right_triangle",
+            base=6,
+            height=4,
+            unit="cm",
+            operation="solve",
+            wants_angle=_wants_geometry_angles(lower),
+        )
     return None
 
 
@@ -200,7 +212,13 @@ def _extract_triangle_sides_intent(cleaned: str) -> MathIntent | None:
         return None
     a, b, c = sides
     return MathIntent(
-        kind="triangle_sides", tri_a=a, tri_b=b, tri_c=c, unit="cm", operation="solve"
+        kind="triangle_sides",
+        tri_a=a,
+        tri_b=b,
+        tri_c=c,
+        unit="cm",
+        operation="solve",
+        wants_angle=_wants_geometry_angles(cleaned.lower()),
     )
 
 
@@ -223,6 +241,7 @@ def _extract_trapezoid_intent(cleaned: str) -> MathIntent | None:
             height=height,
             unit="cm",
             operation="solve",
+            wants_angle=_wants_geometry_angles(lower),
         )
     shape = "trapezoid" if "trapezoid" in lower else "trapezium"
     if mtm.has_draw_shape(lower, shape):
@@ -233,6 +252,7 @@ def _extract_trapezoid_intent(cleaned: str) -> MathIntent | None:
             height=5,
             unit="cm",
             operation="solve",
+            wants_angle=_wants_geometry_angles(lower),
         )
     return None
 
@@ -259,6 +279,7 @@ def _extract_parallelogram_intent(cleaned: str) -> MathIntent | None:
             side=side if side is not None else height,
             unit="cm",
             operation="solve",
+            wants_angle=_wants_geometry_angles(lower),
         )
     if mtm.has_draw_shape(lower, "parallelogram"):
         return MathIntent(
@@ -268,6 +289,7 @@ def _extract_parallelogram_intent(cleaned: str) -> MathIntent | None:
             side=5,
             unit="cm",
             operation="solve",
+            wants_angle=_wants_geometry_angles(lower),
         )
     return None
 
@@ -320,12 +342,20 @@ def _extract_triangle_intent(cleaned: str) -> MathIntent | None:
             height=height_n,
             unit="cm",
             operation="solve",
+            wants_angle=_wants_geometry_angles(lower),
         )
 
     # "area of a triangle" is a definition question — do not invent base/height.
     # Defaults only for an explicit draw/show/sketch/visualize request.
     if mtm.has_draw_shape(lower, "triangle"):
-        return MathIntent(kind="triangle", base=8, height=5, unit="cm", operation="solve")
+        return MathIntent(
+            kind="triangle",
+            base=8,
+            height=5,
+            unit="cm",
+            operation="solve",
+            wants_angle=_wants_geometry_angles(lower),
+        )
     return None
 
 
