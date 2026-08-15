@@ -903,19 +903,19 @@ async def test_get_home_screen_cached_reuses_redis(fake_redis):
 
 
 @pytest.mark.asyncio
-async def test_invalidate_home_cache_clears_user_keys(fake_redis):
+async def test_invalidate_home_cache_bumps_generation(fake_redis):
+    """INCR, not SCAN — old keys expire via TTL; readers use the new gen."""
     user_id = uuid4()
     other_id = uuid4()
-    await fake_redis.set(f"home:{user_id}:UTC:1", "{}", ex=60)
-    await fake_redis.set(f"home:{user_id}:America/New_York:1", "{}", ex=60)
-    await fake_redis.set(f"home:{other_id}:UTC:1", "{}", ex=60)
+    await fake_redis.set(f"home:{user_id}:0:UTC:1", "{}", ex=60)
+    await fake_redis.set(f"home:{other_id}:0:UTC:1", "{}", ex=60)
 
     with patch("app.services.home.get_redis_client", return_value=fake_redis):
         await home_service.invalidate_home_cache(user_id)
 
-    assert await fake_redis.get(f"home:{user_id}:UTC:1") is None
-    assert await fake_redis.get(f"home:{user_id}:America/New_York:1") is None
-    assert await fake_redis.get(f"home:{other_id}:UTC:1") == "{}"
+    assert await fake_redis.get(home_service._home_generation_key(user_id)) == "1"
+    assert await fake_redis.get(f"home:{user_id}:0:UTC:1") == "{}"
+    assert await fake_redis.get(f"home:{other_id}:0:UTC:1") == "{}"
 
 
 @pytest.mark.asyncio
