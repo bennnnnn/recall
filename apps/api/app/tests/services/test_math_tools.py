@@ -70,6 +70,25 @@ async def test_augment_prompt_injects_system_solve_block() -> None:
 
 
 @pytest.mark.asyncio
+async def test_augment_prompt_no_intent_forbids_invented_geometry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services.math_tools import prompt as math_prompt
+
+    monkeypatch.setattr(math_prompt, "extract_math_intent", lambda _text: None)
+    settings = Settings(math_tools_enabled=True)
+    note, verified = await math_prompt.build_math_augmentation(
+        "find the angle",
+        settings,
+        needs_math=True,
+    )
+    assert verified is None
+    assert note is not None
+    assert "invent" in note.lower()
+    assert "```geometry" in note
+
+
+@pytest.mark.asyncio
 async def test_augment_prompt_system_flags_inconsistent_equations() -> None:
     settings = Settings(math_tools_enabled=True)
     text = "solve x+y=5, x+y=10"

@@ -54,7 +54,7 @@ Camera OCR is a **subset** of the kinds below (no square / trapezoid / matrix / 
 | Geometry (2D) | Rectangle, square, triangle (base/height), right triangle, SSS, trap, para, circle, sector | geometry fences |
 | Geometry (3D) | Cube, rectangular prism, cylinder, cone, sphere, pyramid (volume / surface area) | `solid` |
 | Arithmetic / percent / ratio | Bare `7*8`, `15% of 80`, simplify `6:8` | `arithmetic` |
-| Trig (evaluate) | `sin(30°)` etc. Equations like `sin(x)=1/2` stay `equation`. Identities / law of sines stay LLM | `trig` |
+| Trig (evaluate) | `sin(30°)` etc. Equations like `sin(x)=1/2` stay `equation`. Identities stay LLM. AAA triangles use law of sines (relative units). | `trig`, `triangle_sides` |
 | Coordinate geometry | Distance, midpoint, slope between two points | `coord` |
 | Vectors | Magnitude, dot, cross | `vector` |
 | Linear algebra | det, inverse, multiply, rref, eigenvalues (≤4) | `matrix` |
@@ -85,7 +85,7 @@ flowchart TB
 
 Still not a verified kind (the model may answer; it must **not** claim SymPy):
 
-1. **Trig identities / law of sines** — SSS still uses law of cosines only.
+1. **Trig identities** — remain LLM-only. **Angle-only triangles** (AAA summing to 180°) are verified via the law of sines with relative side units (not invented cm). SSS still uses law of cosines for angles-from-sides.
 2. **Polar / parametric curves** (except axis-aligned ellipse) and **double integrals**.
 3. **Linear algebra** beyond 4×4 multiply / rref / eigen (no general NL matrix parsing).
 4. **Full unit catalogs** (only common length/mass/time/temp).

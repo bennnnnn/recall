@@ -26,6 +26,7 @@ from app.services.math_text_match.geometry import (
     geometry_deferred_for_algebra,
     parse_solid,
     solid_homework_cue,
+    triangle_angles_signal,
     triangle_sides_signal,
 )
 from app.services.math_text_match.graph import (
@@ -90,6 +91,7 @@ __all__ = [
     "school_homework_cue",
     "solid_homework_cue",
     "stats_signal",
+    "triangle_angles_signal",
     "triangle_sides_signal",
     "vertical_line_x",
 ]

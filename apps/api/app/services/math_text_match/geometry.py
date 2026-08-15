@@ -224,3 +224,34 @@ def triangle_sides_signal(text: str) -> tuple[float, float, float] | None:
             except ValueError:
                 return None
     return None
+
+
+def triangle_angles_signal(text: str) -> tuple[float, float, float] | None:
+    """ "triangle with 120, 40, 20" → interior degrees.
+
+    Requires the word triangle, three numbers in (0, 180) that sum to 180°,
+    and no SSS "sides" cue — so "triangle with sides 3, 4, 5" stays SSS.
+    """
+    lower = text.lower()
+    if "triangle" not in lower:
+        return None
+    if any(p in lower for p in ("sides ", "side lengths", "side lengths of")):
+        return None
+    if "base" in lower or "height" in lower:
+        return None
+    candidates: list[float] = []
+    for match in _NUM.finditer(text):
+        try:
+            value = float(match.group(0))
+        except ValueError:
+            continue
+        if 0 < value < 180:
+            candidates.append(value)
+        if len(candidates) >= 3:
+            break
+    if len(candidates) < 3:
+        return None
+    angle_a, angle_b, angle_c = candidates[0], candidates[1], candidates[2]
+    if abs(angle_a + angle_b + angle_c - 180.0) > 0.6:
+        return None
+    return angle_a, angle_b, angle_c
