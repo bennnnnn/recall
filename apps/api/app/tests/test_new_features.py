@@ -1196,7 +1196,7 @@ async def test_suggestions_repo_delete_expired():
     session.execute = AsyncMock(return_value=mock_result)
     session.commit = AsyncMock()
 
-    deleted = await delete_expired(session)
+    deleted = await delete_expired(session, uuid4())
     assert deleted == 5
     session.commit.assert_awaited_once()
 

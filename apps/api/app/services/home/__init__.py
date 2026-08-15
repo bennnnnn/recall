@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -286,27 +287,32 @@ async def build_home_screen(
     )
 
 
-def _home_cache_key(user_id: UUID, tz: ZoneInfo, day_seed_value: int) -> str:
-    return f"home:{user_id}:{tz.key}:{day_seed_value}"
+def _home_generation_key(user_id: UUID) -> str:
+    return f"homegen:{user_id}"
 
 
-def _home_cache_prefix(user_id: UUID) -> str:
-    return f"home:{user_id}:"
+def _home_cache_key(user_id: UUID, tz: ZoneInfo, day_seed_value: int, generation: str) -> str:
+    # Generation is folded into the key (same pattern as memquery) so INCR
+    # makes every tz/day-seed payload unreachable without SCAN. Stale keys
+    # expire via home_cache_ttl.
+    return f"home:{user_id}:{generation}:{tz.key}:{day_seed_value}"
+
+
+async def _home_generation(redis: Redis, user_id: UUID) -> str:
+    try:
+        raw = await redis.get(_home_generation_key(user_id))
+    except Exception:
+        return "0"
+    if raw is None:
+        return "0"
+    return raw.decode() if isinstance(raw, bytes) else str(raw)
 
 
 async def invalidate_home_cache(user_id: UUID) -> None:
-    """Drop cached home payloads for all timezones/day seeds for this user."""
+    """Bump the home cache generation so all tz/day-seed keys miss."""
     try:
         redis = get_redis_client()
-        prefix = _home_cache_prefix(user_id)
-        batch: list[str] = []
-        async for key in redis.scan_iter(match=f"{prefix}*", count=200):
-            batch.append(key if isinstance(key, str) else key.decode())
-            if len(batch) >= 200:
-                await redis.delete(*batch)
-                batch.clear()
-        if batch:
-            await redis.delete(*batch)
+        await redis.incr(_home_generation_key(user_id))
     except Exception:
         logger.debug("Home cache invalidation failed", exc_info=True)
 
@@ -320,8 +326,9 @@ async def get_home_screen_cached(
 ) -> HomeScreenOut:
     home_tz = resolve_home_tz(user, client_timezone)
     seed = day_seed(user, home_tz)
-    cache_key = _home_cache_key(user.id, home_tz, seed)
     redis = get_redis_client()
+    generation = await _home_generation(redis, user.id)
+    cache_key = _home_cache_key(user.id, home_tz, seed, generation)
     try:
         cached = await redis.get(cache_key)
         if cached:

@@ -9,7 +9,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import SessionLocal
 from app.models.orm import Chat, Message
 
-TITLE_MATCH_LIMIT = 50
+# Extra rows per source so a merge of two independently-paged lists still
+# fills `limit` after sort. Offset is applied in SQL — do not also slice
+# `[offset:]` in Python.
+_SEARCH_MERGE_MARGIN = 10
+# Distinct message chat-ids used to hide title hits that already have a
+# body match. Bounded so a broad query cannot materialize the whole set.
+_DISTINCT_CHAT_CAP = 200
 
 
 def _trgm_match(column: Any, query: str) -> ColumnElement[bool]:
@@ -31,12 +37,8 @@ async def search_conversations(
         or_(_trgm_match(Message.content, q), Message.content.ilike(pattern)),
     )
 
-    msg_count_stmt = (
-        select(func.count())
-        .select_from(Message)
-        .join(Chat, Message.chat_id == Chat.id)
-        .where(*msg_where)
-    )
+    msg_count_stmt = select(func.count()).select_from(Message).where(*msg_where)
+    page_limit = limit + _SEARCH_MERGE_MARGIN
     title_stmt = (
         select(Chat)
         .where(
@@ -46,13 +48,9 @@ async def search_conversations(
             or_(_trgm_match(Chat.title, q), Chat.title.ilike(pattern)),
         )
         .order_by(Chat.updated_at.desc())
-        .limit(TITLE_MATCH_LIMIT)
+        .offset(offset)
+        .limit(page_limit)
     )
-    # Cap the distinct chat-id set so a broad query can't materialize an
-    # unbounded set in Python. The visible result window is already bounded
-    # by `limit + offset`; a cap well above that preserves dedup for the
-    # displayed window without scanning the whole matching message set.
-    _DISTINCT_CHAT_CAP = max(TITLE_MATCH_LIMIT, limit + offset) * 4
     msg_chat_ids_stmt = (
         select(Message.chat_id.distinct()).where(*msg_where).limit(_DISTINCT_CHAT_CAP)
     )
@@ -68,7 +66,8 @@ async def search_conversations(
         .join(Chat, Message.chat_id == Chat.id)
         .where(*msg_where)
         .order_by(Message.created_at.desc())
-        .limit(max(limit + offset, limit))
+        .offset(offset)
+        .limit(page_limit)
     )
 
     async def _count_messages() -> int:
@@ -122,7 +121,7 @@ async def search_conversations(
         )
 
     results.sort(key=lambda item: item["created_at"], reverse=True)
-    return results[offset : offset + limit], total
+    return results[:limit], total
 
 
 # Backwards-compatible alias for tests/imports that still reference this name.

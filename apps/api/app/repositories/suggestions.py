@@ -68,11 +68,12 @@ async def create_many(session: AsyncSession, user_id: UUID, items: list[dict[str
     await session.commit()
 
 
-async def delete_expired(session: AsyncSession) -> int:
+async def delete_expired(session: AsyncSession, user_id: UUID) -> int:
     result = cast(
         CursorResult[Any],
         await session.execute(
             delete(Suggestion).where(
+                Suggestion.user_id == user_id,
                 Suggestion.expires_at != None,  # noqa: E711
                 Suggestion.expires_at <= datetime.now(UTC),
             )

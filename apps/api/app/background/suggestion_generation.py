@@ -48,7 +48,7 @@ async def _load_suggestion_snapshot(
     if not user:
         return None
 
-    await suggestions_repo.delete_expired(session)
+    await suggestions_repo.delete_expired(session, user_id)
     active_count = await suggestions_repo.count_active(session, user_id)
     if active_count >= MAX_ACTIVE_SUGGESTIONS:
         logger.debug(
@@ -85,8 +85,8 @@ async def _apply_suggestion_result(
     if not items:
         return
     # Re-check cap in this session — the pre-LLM count can be stale when two
-    # every-10th-message jobs overlap during the model call.
-    await suggestions_repo.delete_expired(session)
+    # every-10th-message jobs overlap during the model call. Expired rows are
+    # already excluded by count_active; do not run a second delete_expired.
     active_count = await suggestions_repo.count_active(session, user_id)
     room = MAX_ACTIVE_SUGGESTIONS - active_count
     if room <= 0:
