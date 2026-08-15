@@ -33,7 +33,7 @@ describe("AnswerBlock", () => {
 
   it("keeps light finals on MathText (no KaTeX WebView)", async () => {
     const { getByLabelText } = await render(<AnswerBlock content={String.raw`x = \pm 2`} />);
-    expect(getByLabelText(/Answer:/)).toBeOnTheScreen();
+    expect(getByLabelText("Answer: x = ± 2")).toBeOnTheScreen();
     expect(mockFormula).not.toHaveBeenCalled();
   });
 

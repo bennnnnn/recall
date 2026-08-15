@@ -75,7 +75,11 @@ export const FENCES: readonly FenceSpec[] = [
     structured: true,
     neverCodeBlock: false,
   },
-  { id: "math", langs: ["math"], structured: true, neverCodeBlock: true },
+  // `latex`/`tex` are aliases of `math`. The model is told never to emit
+  // those tags, but it drifts; the settled path already retags closed
+  // fences. Registering them here makes the *open* streaming tail typeset
+  // instead of landing on CodeBlock (lang badge + raw source).
+  { id: "math", langs: ["math", "latex", "tex"], structured: true, neverCodeBlock: true },
   {
     id: "answer",
     langs: ["answer", "result", "final"],
@@ -171,4 +175,15 @@ export function isNeverCodeBlockLang(lang: string): boolean {
 /** How the crash-fallback renderer should degrade this fence, if specially. */
 export function fallbackKindForLang(lang: string): FallbackKind | null {
   return fenceSpecForLang(lang)?.fallback ?? null;
+}
+
+/** Explicit ```math / ```latex / ```tex — never reinterpret as an answer pill. */
+export function isMathFenceLang(lang: string): boolean {
+  return fenceIdForLang(lang) === "math";
+}
+
+/** Display math or a diagram fence — not a syntax-highlighted code card. */
+export function isMathDiagramLang(lang: string): boolean {
+  const id = fenceIdForLang(lang);
+  return id === "math" || id === "geometry" || id === "graph";
 }

@@ -64,6 +64,13 @@ describe("renderFence math dispatch", () => {
     expect(getByText("x² + 1")).toBeOnTheScreen();
   });
 
+  it("routes ```latex / ```tex the same as ```math (settled path)", async () => {
+    const latex = await render(<>{renderFence(node("x^2 + 1", "latex"))}</>);
+    expect(latex.getByText("x² + 1")).toBeOnTheScreen();
+    const tex = await render(<>{renderFence(node("x^2 + 1", "tex"))}</>);
+    expect(tex.getByText("x² + 1")).toBeOnTheScreen();
+  });
+
   it("routes an untagged fence that looks like LaTeX to MathBlock", async () => {
     const { getByText } = await render(<>{renderFence(node("\\alpha + \\beta"))}</>);
     // No preview WebView in this test env (react-native-webview isn't
@@ -128,6 +135,25 @@ describe("renderFence math key stability", () => {
       tokenIndex: 5,
     });
     expect(firstReparsed?.key).toBe(first?.key);
+  });
+
+  it("BUG FIX regression: two identical non-heuristic ```math bodies still get distinct keys", () => {
+    // `2 + 2` does not satisfy looksLikeLatexFence, so dispatch goes through
+    // RichFence's math branch — that branch must also thread tokenIndex.
+    const first = renderFence({
+      key: "k1",
+      content: "2 + 2",
+      sourceInfo: "math",
+      tokenIndex: 1,
+    });
+    const second = renderFence({
+      key: "k2",
+      content: "2 + 2",
+      sourceInfo: "math",
+      tokenIndex: 2,
+    });
+    expect(first?.key).toBeTruthy();
+    expect(first?.key).not.toBe(second?.key);
   });
 });
 

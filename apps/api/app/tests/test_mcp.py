@@ -197,6 +197,7 @@ async def test_sympy_adapter_dispatches_parity_actions():
         {"action": "newton", "expr": "x**2 - 2", "variable": "x", "guess": 1.0}
     )
     assert "converged=True" in newton_res.content
+    assert "```answer" in newton_res.content
     assert "1.41" in newton_res.content  # √2 ≈ 1.4142…
     assert newton_res.data is not None
     assert newton_res.data["canonical_fence"]["type"] == "answer"
@@ -434,4 +435,14 @@ async def test_sympy_adapter_graph_ellipse_relation():
     fence = result.data["canonical_fence"]
     assert fence["points"][0] == fence["points"][-1]
     assert len(fence["points"]) >= 16
+    assert "```graph" in result.content
+
+
+@pytest.mark.asyncio
+async def test_sympy_adapter_graph_number_line_runs_off_loop():
+    adapter = SympyAdapter(Settings())
+    result = await adapter.invoke({"action": "graph", "expr": "x > 3"})
+    assert result.data is not None
+    fence = result.data["canonical_fence"]
+    assert fence["type"] == "number_line"
     assert "```graph" in result.content

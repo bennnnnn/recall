@@ -18,6 +18,7 @@ import {
   shouldRenderAsCopyBlock,
 } from "@/lib/copyBlock";
 import { parseFenceLang, shouldUseHtmlPreview } from "@/lib/codeHighlight";
+import { isMathDiagramLang } from "@/lib/fenceRegistry";
 import {
   isClockFenceBody,
   isDigitalTimeOnly,
@@ -41,11 +42,6 @@ export type FenceNode = {
   tokenIndex?: number;
   index?: number;
 };
-
-function isMathDiagramLang(lang: string): boolean {
-  const l = lang.trim().toLowerCase();
-  return l === "graph" || l === "geometry" || l === "math" || l === "latex" || l === "tex";
-}
 
 function looksLikeMathMeta(content: string): boolean {
   return /^(Could not render that diagram\.?|Invalid (graph|geometry) block)/i.test(
@@ -112,7 +108,7 @@ function renderFenceInner(
   ) {
     return <CircularClockBlock key={key} content={content} />;
   }
-  const rich = renderRichFence(lang, content, key);
+  const rich = renderRichFence(lang, content, key, tokenIndex);
   if (rich) return rich;
   // Math diagram failures must never become a Copy template.
   if (looksLikeMathMeta(content) || isMathDiagramLang(l)) {

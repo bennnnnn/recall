@@ -6,6 +6,7 @@ import { MathFormulaWebView } from "@/components/rich/MathFormulaWebView";
 import { MathText } from "@/components/rich/MathText";
 import { isHeavyInlineMath, stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/mathFenceRetag";
 import { splitInlineMath } from "@/lib/markdownPreprocess";
+import { readableLatexFallback } from "@/lib/mathText";
 import { stripTrailingFenceCloser } from "@/lib/streamingOpenFence";
 import { Theme, useTheme } from "@/lib/theme";
 import { supportsInlineHtmlMathWebView } from "@/lib/mathWebViewSupport";
@@ -45,7 +46,11 @@ export function AnswerBlock({ content }: Props) {
   const useKatex = answerNeedsKatex(text) && supportsInlineHtmlMathWebView(preview?.mode);
 
   return (
-    <View style={s.row} accessibilityRole="text" accessibilityLabel={t("rich.answer_a11y", { text })}>
+    <View
+      style={s.row}
+      accessibilityRole="text"
+      accessibilityLabel={t("rich.answer_a11y", { text: readableLatexFallback(text) })}
+    >
       <View style={[s.box, useKatex ? s.boxStretch : null]}>
         {useKatex ? (
           <MathFormulaWebView

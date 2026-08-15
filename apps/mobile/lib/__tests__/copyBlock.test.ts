@@ -8,6 +8,7 @@ import {
   shouldRenderAsCodeBlock,
   shouldPreviewOpenFenceAsAnswer,
   shouldPreviewOpenFenceAsMath,
+  classifyOpenFencePreview,
 } from "@/lib/copyBlock";
 
 describe("copyBlock heuristics", () => {
@@ -106,5 +107,28 @@ describe("copyBlock heuristics", () => {
     expect(shouldPreviewOpenFenceAsMath("math", String.raw`\frac{1}{2}`)).toBe(true);
     expect(shouldPreviewOpenFenceAsMath("python", "print(1)")).toBe(false);
     expect(shouldPreviewOpenFenceAsMath("", String.raw`x^2 = 4`)).toBe(true);
+  });
+
+  it("BUG FIX regression: open ```math is never previewed as AnswerBlock mid-stream", () => {
+    // Half-streamed display math looks like a bare expression (no "=" yet)
+    // which looksLikeMathAnswer matches. Settled renderFence already guards
+    // with isMathDiagramLang; the open-tail path must share that rule.
+    expect(
+      classifyOpenFencePreview("math", String.raw`\frac{x^2}{2}`),
+    ).toBe("math");
+    expect(
+      shouldPreviewOpenFenceAsAnswer("math", String.raw`\frac{x^2}{2}`),
+    ).toBe(false);
+  });
+
+  it("BUG FIX regression: open ```latex/```tex preview as math, not a code card", () => {
+    expect(classifyOpenFencePreview("latex", String.raw`\frac{x^2}{2}`)).toBe("math");
+    expect(classifyOpenFencePreview("tex", "x^2 = 8")).toBe("math");
+    expect(shouldPreviewOpenFenceAsMath("latex", String.raw`\frac{x^2}{2}`)).toBe(true);
+  });
+
+  it("BUG FIX regression: open ```geometry/```graph preview as diagram, not JSON CodeBlock", () => {
+    expect(classifyOpenFencePreview("geometry", '{"type":"square"')).toBe("diagram");
+    expect(classifyOpenFencePreview("graph", '{"type":"function"')).toBe("diagram");
   });
 });

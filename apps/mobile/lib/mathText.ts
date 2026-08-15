@@ -346,6 +346,10 @@ function preprocessLatex(latex: string): string {
   // already solves this correctly for \frac's num/den; \sqrt reuses it.
   s = s.replace(/\\text\{([^}]+)\}/g, "$1");
   s = s.replace(/\\mathrm\{([^}]+)\}/g, "$1");
+  s = s.replace(/\\operatorname\{([^}]+)\}/g, "$1");
+  s = s.replace(/\\overbrace\{([^}]+)\}/g, "$1");
+  s = s.replace(/\\underbrace\{([^}]+)\}/g, "$1");
+  s = s.replace(/\\substack\{([^}]+)\}/g, "$1");
   // \boxed{...} has no plain-text equivalent (KaTeX/MathJax draw an actual
   // border) — unwrap to the inner content rather than leave the raw command
   // visible, matching \text/\mathrm's fallback above.
@@ -521,20 +525,21 @@ export function parseSimpleLatex(latex: string, depth = 0): MathSegment[] {
       const rest = input.slice(i + 1);
       const cmd = rest.match(/^[a-zA-Z]+/)?.[0];
       if (cmd) {
-        // Unknown commands must not paint as raw `\cmd` — drop the backslash
-        // and (if present) unwrap one `{…}` group so the argument still shows.
-        pushText(cmd);
+        // Unknown commands must not paint as raw `\cmd`. If a `{…}` group
+        // follows, drop the name and keep the argument (`\foo{x}` → `x`).
+        // Bare names (`\log`, `\sin`) stay as the function word.
         i += cmd.length + 1;
         if (input[i] === "{") {
           const group = readGroup(input, i);
           if (group) {
-            pushText(" ");
             for (const seg of parseSimpleLatex(group.value, depth + 1)) {
               if (seg.type === "text") pushText(seg.value);
               else out.push(seg);
             }
             i = group.next;
           }
+        } else {
+          pushText(cmd);
         }
         continue;
       }

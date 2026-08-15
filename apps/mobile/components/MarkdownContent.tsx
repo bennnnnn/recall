@@ -18,7 +18,7 @@ import {
   type StreamBlocksState,
 } from "@/lib/markdownStreamBlocks";
 import { classifyOpenStreamTail } from "@/lib/streamingOpenFence";
-import { shouldPreviewOpenFenceAsAnswer, shouldPreviewOpenFenceAsMath } from "@/lib/copyBlock";
+import { classifyOpenFencePreview } from "@/lib/copyBlock";
 import {
   nextStreamUiFlushDelay,
   STREAM_UI_INTERVAL_MS,
@@ -65,6 +65,21 @@ const StreamingMathPreview = React.memo(function StreamingMathPreview({
     <View style={{ marginVertical: 4 }}>
       <MathText latex={trimmed} textColor={theme.text} />
     </View>
+  );
+});
+
+/** Open ```geometry / ```graph — hold a quiet box, never dump JSON into CodeBlock. */
+const StreamingDiagramPlaceholder = React.memo(function StreamingDiagramPlaceholder() {
+  const theme = useTheme();
+  return (
+    <View
+      style={{
+        marginVertical: 8,
+        minHeight: 96,
+        borderRadius: 10,
+        backgroundColor: theme.contentSurface,
+      }}
+    />
   );
 });
 
@@ -133,6 +148,10 @@ export function MarkdownContent({ content, streaming = false, mathFormat }: Prop
     const unsettledStable = prepared.slice(settledEnd, safeLen);
     const liveRaw = prepared.slice(safeLen);
     const openRegion = classifyOpenStreamTail(liveRaw, cache?.scanState);
+    const fencePreview =
+      openRegion.kind === "fence"
+        ? classifyOpenFencePreview(openRegion.lang, openRegion.body)
+        : null;
 
     return (
       <>
@@ -150,12 +169,14 @@ export function MarkdownContent({ content, streaming = false, mathFormat }: Prop
           </Markdown>
         ) : null}
         {openRegion.kind === "fence" ? (
-          shouldPreviewOpenFenceAsAnswer(openRegion.lang, openRegion.body) ? (
+          fencePreview === "answer" ? (
             openRegion.body.trim() ? (
               <AnswerBlock content={openRegion.body} />
             ) : null
-          ) : shouldPreviewOpenFenceAsMath(openRegion.lang, openRegion.body) ? (
+          ) : fencePreview === "math" ? (
             <StreamingMathPreview body={openRegion.body} />
+          ) : fencePreview === "diagram" ? (
+            <StreamingDiagramPlaceholder />
           ) : (
             <CodeBlock code={openRegion.body} lang={openRegion.lang} streaming />
           )
