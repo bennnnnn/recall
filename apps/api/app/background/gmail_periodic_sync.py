@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from app.core.config import Settings
@@ -28,12 +29,12 @@ async def run_gmail_periodic_cycle(settings: Settings) -> None:
         return
     try:
         async with SessionLocal() as session:
-            connections = await gmail_repo.list_all(session)
-        due = [
-            conn
-            for conn in connections
-            if email_service.gmail_sync_is_due(conn.last_sync_at, settings)
-        ]
+            cutoff = datetime.now(UTC) - timedelta(seconds=settings.gmail_sync_interval_seconds)
+            due = await gmail_repo.list_due(
+                session,
+                cutoff=cutoff,
+                limit=max(1, settings.gmail_periodic_sync_batch_size),
+            )
 
         semaphore = asyncio.Semaphore(max(1, settings.gmail_periodic_sync_concurrency))
 

@@ -1,6 +1,7 @@
+from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import UserGmailConnection
@@ -56,6 +57,26 @@ async def delete_for_user(session: AsyncSession, user_id: UUID) -> bool:
     await session.delete(row)
     await session.commit()
     return True
+
+
+async def list_due(
+    session: AsyncSession,
+    *,
+    cutoff: datetime,
+    limit: int,
+) -> list[UserGmailConnection]:
+    """Connections that have never synced or last synced before ``cutoff``."""
+    result = await session.execute(
+        select(UserGmailConnection)
+        .where(
+            or_(
+                UserGmailConnection.last_sync_at.is_(None),
+                UserGmailConnection.last_sync_at < cutoff,
+            )
+        )
+        .limit(limit)
+    )
+    return list(result.scalars().all())
 
 
 async def list_all(session: AsyncSession) -> list[UserGmailConnection]:

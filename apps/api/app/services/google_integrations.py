@@ -187,7 +187,17 @@ async def disconnect_calendar(
     settings: Settings,
     user_id: UUID,
 ) -> None:
-    await revoke_on_disconnect(session, settings, user_id, disconnect="calendar")
+    try:
+        await revoke_on_disconnect(session, settings, user_id, disconnect="calendar")
+    except GoogleConnectError:
+        # Decrypt/key-rotation failures must not block disconnect — revocation
+        # is best-effort; leaving the row would make reconnect re-store the
+        # same undecryptable ciphertext with no in-app recovery path.
+        logger.warning(
+            "Google token revoke failed during calendar disconnect; continuing delete user_id=%s",
+            user_id,
+            exc_info=True,
+        )
     await calendar_repo.delete_for_user(session, user_id)
     await calendar_service.clear_events_cache(redis, user_id)
     await home_service.invalidate_home_cache(user_id)
@@ -249,7 +259,14 @@ async def disconnect_gmail(
     settings: Settings,
     user_id: UUID,
 ) -> None:
-    await revoke_on_disconnect(session, settings, user_id, disconnect="gmail")
+    try:
+        await revoke_on_disconnect(session, settings, user_id, disconnect="gmail")
+    except GoogleConnectError:
+        logger.warning(
+            "Google token revoke failed during Gmail disconnect; continuing delete user_id=%s",
+            user_id,
+            exc_info=True,
+        )
     await suggested_repo.delete_for_user(session, user_id)
     await gmail_repo.delete_for_user(session, user_id)
     await email_service.clear_gmail_cache(redis, user_id)

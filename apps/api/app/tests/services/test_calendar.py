@@ -334,6 +334,49 @@ async def test_load_calendar_for_prompt_notes_partial_failure():
 
 
 @pytest.mark.asyncio
+async def test_load_calendar_for_prompt_fetch_error_is_not_empty_calendar():
+    """A failed fetch must not tell the model the day is clear."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from app.core.config import Settings
+    from app.core.secrets import OAuthTokenDecryptError
+    from app.services.calendar import load_calendar_for_prompt
+
+    user = MagicMock()
+    user.id = uuid4()
+    user.timezone = "UTC"
+    session = AsyncMock()
+    redis = AsyncMock()
+    settings = Settings(google_client_id="x", google_client_secret="y")
+    connection = MagicMock(refresh_token="rt", calendar_id="primary")
+
+    with (
+        patch(
+            "app.services.calendar.is_connected",
+            AsyncMock(return_value=True),
+        ),
+        patch(
+            "app.services.calendar._load_cached_events",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.calendar.calendar_repo.get_for_user",
+            AsyncMock(return_value=connection),
+        ),
+        patch(
+            "app.services.calendar.decrypt_refresh_token",
+            side_effect=OAuthTokenDecryptError("bad key"),
+        ),
+    ):
+        block = await load_calendar_for_prompt(session, redis, user, settings)
+
+    assert block is not None
+    assert "couldn't load the calendar this time" in block.lower()
+    assert "No upcoming events" not in block
+    assert "do not say the calendar is empty" in block.lower()
+
+
+@pytest.mark.asyncio
 async def test_confirm_create_claims_proposal_before_google():
     """Proposal must be getdel'd before Google create so Redis failure after
     create cannot leave a retryable proposal (duplicate event)."""

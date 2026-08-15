@@ -239,3 +239,68 @@ async def test_connect_calendar_accepts_calendar_readonly_scope():
 
     upsert_mock.assert_awaited_once()
     assert "calendar.readonly" in result.scopes
+
+
+@pytest.mark.asyncio
+async def test_disconnect_calendar_deletes_row_when_revoke_decrypt_fails():
+    """Key rotation must not leave the connection undeletable."""
+    user_id = uuid4()
+    session = AsyncMock()
+    redis = AsyncMock()
+    settings = Settings()
+
+    with (
+        patch(
+            "app.services.google_integrations.revoke_on_disconnect",
+            AsyncMock(side_effect=google_integrations_service.GoogleConnectError("bad key")),
+        ),
+        patch(
+            "app.services.google_integrations.calendar_repo.delete_for_user",
+            AsyncMock(),
+        ) as delete_mock,
+        patch(
+            "app.services.google_integrations.calendar_service.clear_events_cache",
+            AsyncMock(),
+        ),
+        patch(
+            "app.services.google_integrations.home_service.invalidate_home_cache",
+            AsyncMock(),
+        ),
+    ):
+        await google_integrations_service.disconnect_calendar(session, redis, settings, user_id)
+
+    delete_mock.assert_awaited_once_with(session, user_id)
+
+
+@pytest.mark.asyncio
+async def test_disconnect_gmail_deletes_row_when_revoke_decrypt_fails():
+    user_id = uuid4()
+    session = AsyncMock()
+    redis = AsyncMock()
+    settings = Settings()
+
+    with (
+        patch(
+            "app.services.google_integrations.revoke_on_disconnect",
+            AsyncMock(side_effect=google_integrations_service.GoogleConnectError("bad key")),
+        ),
+        patch(
+            "app.services.google_integrations.suggested_repo.delete_for_user",
+            AsyncMock(),
+        ),
+        patch(
+            "app.services.google_integrations.gmail_repo.delete_for_user",
+            AsyncMock(),
+        ) as delete_mock,
+        patch(
+            "app.services.google_integrations.email_service.clear_gmail_cache",
+            AsyncMock(),
+        ),
+        patch(
+            "app.services.google_integrations.home_service.invalidate_home_cache",
+            AsyncMock(),
+        ),
+    ):
+        await google_integrations_service.disconnect_gmail(session, redis, settings, user_id)
+
+    delete_mock.assert_awaited_once_with(session, user_id)

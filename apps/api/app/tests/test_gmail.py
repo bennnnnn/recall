@@ -1,5 +1,6 @@
 """Tests for Gmail gateway and email service."""
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -401,6 +402,68 @@ async def test_sync_gmail_processes_messages():
     assert message_count == 1
     assert reminders_created == 1
     create_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_sync_gmail_gathers_llm_extracts_before_writes():
+    from app.gateways.google_gmail_gateway import GmailMessage
+    from app.services import email as email_service
+
+    session = AsyncMock()
+    settings = Settings()
+    user_id = uuid4()
+    conn = MagicMock()
+    conn.refresh_token = "refresh"
+    conn.google_email = "me@example.com"
+    user = MagicMock()
+    user.timezone = "UTC"
+
+    messages = [
+        GmailMessage(
+            id=f"g{i}",
+            subject=f"Meet {i}",
+            snippet="please confirm",
+            body_text="interview tomorrow",
+            received_at=None,
+            ics_content=None,
+        )
+        for i in range(3)
+    ]
+    item = email_service.SuggestedReminderItem(title="Interview", confidence=0.9)
+    extract_calls: list[str] = []
+
+    async def fake_extract(settings, message):
+        extract_calls.append(message.id)
+        await asyncio.sleep(0)
+        return item
+
+    with (
+        patch("app.services.email.gmail_gateway.is_configured", return_value=True),
+        patch("app.services.email.gmail_repo.get_for_user", AsyncMock(return_value=conn)),
+        patch(
+            "app.services.email.gmail_gateway.list_recent_messages",
+            AsyncMock(return_value=messages),
+        ),
+        patch("app.services.email.users_repo.get_by_id", AsyncMock(return_value=user)),
+        patch(
+            "app.services.email.suggested_repo.existing_message_ids",
+            AsyncMock(return_value=set()),
+        ),
+        patch("app.services.email._extract_with_llm", fake_extract),
+        patch(
+            "app.services.email.suggested_repo.create",
+            AsyncMock(),
+        ) as create_mock,
+        patch("app.services.email.gmail_repo.update_last_sync", AsyncMock()),
+    ):
+        message_count, reminders_created = await email_service.sync_gmail_for_user(
+            session, settings, user_id
+        )
+
+    assert message_count == 3
+    assert reminders_created == 3
+    assert extract_calls == ["g0", "g1", "g2"]
+    assert create_mock.await_count == 3
 
 
 @pytest.mark.asyncio
