@@ -1,5 +1,7 @@
 import katex from "katex";
 
+import { readableLatexFallback } from "@/lib/mathText";
+import { stripEmbeddedDollarWraps, stripRedundantDollarWrap } from "@/lib/mathFenceRetag";
 import { KATEX_CSS } from "@/lib/vendor/katexCss";
 import { injectPreviewCsp } from "@/lib/previewSandbox";
 
@@ -16,16 +18,16 @@ export type KatexRenderOptions = {
 };
 
 export function renderKatexHtml(latex: string, options: KatexRenderOptions = {}): string {
-  const trimmed = latex.trim();
+  const trimmed = stripEmbeddedDollarWraps(stripRedundantDollarWrap(latex.trim()));
   if (!trimmed) return "";
 
   let body = "";
   try {
     if (trimmed.length > MAX_KATEX_CHARS) {
-      body = `<code>${escapeHtml(trimmed.slice(0, 200))}…</code>`;
+      body = fallbackHtml(trimmed);
     } else {
       body = katex.renderToString(trimmed, {
-        throwOnError: false,
+        throwOnError: true,
         displayMode: options.displayMode ?? false,
         strict: "ignore",
         output: "html",
@@ -34,7 +36,7 @@ export function renderKatexHtml(latex: string, options: KatexRenderOptions = {})
       });
     }
   } catch {
-    body = `<code>${escapeHtml(trimmed)}</code>`;
+    body = fallbackHtml(trimmed);
   }
 
   const pad = options.compact
@@ -97,6 +99,10 @@ ${inner}
 </script>
 </body>
 </html>`);
+}
+
+function fallbackHtml(latex: string): string {
+  return `<span class="math-fallback">${escapeHtml(readableLatexFallback(latex))}</span>`;
 }
 
 function escapeHtml(value: string): string {

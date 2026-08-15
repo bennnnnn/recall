@@ -7,6 +7,7 @@ import {
   shouldRenderAsCopyBlock,
   shouldRenderAsCodeBlock,
   shouldPreviewOpenFenceAsAnswer,
+  shouldPreviewOpenFenceAsMath,
 } from "@/lib/copyBlock";
 
 describe("copyBlock heuristics", () => {
@@ -99,5 +100,11 @@ describe("copyBlock heuristics", () => {
     ).toBe(true);
     expect(shouldPreviewOpenFenceAsAnswer("python", "print(1)")).toBe(false);
     expect(shouldPreviewOpenFenceAsAnswer("", "x = 2 or x = -2")).toBe(true);
+  });
+
+  it("BUG FIX regression: open ```math fences preview as math, not a code card", () => {
+    expect(shouldPreviewOpenFenceAsMath("math", String.raw`\frac{1}{2}`)).toBe(true);
+    expect(shouldPreviewOpenFenceAsMath("python", "print(1)")).toBe(false);
+    expect(shouldPreviewOpenFenceAsMath("", String.raw`x^2 = 4`)).toBe(true);
   });
 });

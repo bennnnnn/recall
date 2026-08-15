@@ -109,12 +109,11 @@ describe("parseSimpleLatex", () => {
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\lim_{x \to 0}`))).toBe("lim_x → 0");
   });
 
-  it("still shows the backslash for a genuinely unknown command", () => {
-    // \widehat used to be this example — it's now a handled accent command
-    // (see the \overline/\hat/\vec/... regression tests below), so it no
-    // longer demonstrates the raw-fallback path. \varinjlim is obscure
-    // enough that it's unlikely to ever get a dedicated mapping.
-    expect(segmentsToPlain(parseSimpleLatex(String.raw`\varinjlim{x}`))).toContain("\\varinjlim");
+  it("degrades an unknown command to its name, never a raw backslash", () => {
+    // `\varinjlim` has no unicode mapping. Showing `\varinjlim{x}` in chat
+    // was the raw-LaTeX fallback; the name + argument is still readable.
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\varinjlim{x}`))).toBe("varinjlim x");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\varinjlim{x}`))).not.toContain("\\");
   });
 
   it("BUG FIX regression: \\left/\\right render as bare delimiters, not literal backslash text", () => {
@@ -264,6 +263,9 @@ describe("parseSimpleLatex", () => {
         parseSimpleLatex(String.raw`\begin{aligned} 2x + y &= 5 \\ x - y &= 1 \end{aligned}`),
       ),
     ).toBe("2x + y = 5;  x - y = 1");
+    expect(
+      segmentsToPlain(parseSimpleLatex(String.raw`\begin{multline}x = 1\end{multline}`)),
+    ).toBe("x = 1");
   });
 });
 
