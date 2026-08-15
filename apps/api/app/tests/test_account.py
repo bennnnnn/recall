@@ -304,6 +304,7 @@ async def test_build_export_structure():
         == export_service.EXPORT_MAX_MESSAGES_PER_CHAT
     )
     assert data["export_limits"]["max_todos"] == export_service.EXPORT_MAX_TODOS
+    assert data["export_limits"]["max_memories"] == export_service.EXPORT_MAX_MEMORIES
     assert data["export_limits"]["max_projects"] == export_service.EXPORT_MAX_PROJECTS
     assert data["export_limits"]["max_attachments"] == export_service.EXPORT_MAX_ATTACHMENTS
 
@@ -477,6 +478,55 @@ async def test_build_export_pages_memories():
         data = await export_service.build_export(session, user)
 
     assert [memory["text"] for memory in data["memories"]] == ["a", "b", "c"]
+
+
+@pytest.mark.asyncio
+async def test_build_export_caps_memories():
+    from app.services import export_service
+
+    session = AsyncMock()
+    user = MagicMock()
+    user.id = uuid4()
+    user.email = "e@x"
+    user.name = "n"
+    user.created_at = datetime(2024, 1, 1)
+
+    mems = [
+        MagicMock(type="fact", text="a", confidence=None, created_at=datetime(2024, 1, 1)),
+        MagicMock(type="focus", text="b", confidence=None, created_at=datetime(2024, 1, 2)),
+        MagicMock(type="profile", text="c", confidence=None, created_at=datetime(2024, 1, 3)),
+    ]
+
+    async def list_memories(_session, _user_id, *, offset, limit):
+        return mems[offset : offset + limit]
+
+    with (
+        patch.object(export_service, "EXPORT_MEMORY_PAGE_SIZE", 2),
+        patch.object(export_service, "EXPORT_MAX_MEMORIES", 2),
+        patch(
+            "app.services.export_service.chats_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.export_service.memories_repo.list_range",
+            AsyncMock(side_effect=list_memories),
+        ),
+        patch(
+            "app.services.export_service.todos_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.export_service.projects_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.export_service.attachments_repo.list_for_user",
+            AsyncMock(return_value=[]),
+        ),
+    ):
+        data = await export_service.build_export(session, user)
+
+    assert [memory["text"] for memory in data["memories"]] == ["a", "b"]
 
 
 @pytest.mark.asyncio

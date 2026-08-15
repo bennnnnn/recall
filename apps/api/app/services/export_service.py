@@ -5,8 +5,10 @@ from __future__ import annotations
 import json
 import logging
 from collections import defaultdict
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
+from contextlib import AbstractAsyncContextManager
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from typing import Any
 from uuid import UUID
 
@@ -15,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings, get_settings
 from app.core.db import SessionLocal
 from app.gateways.storage_gateway import StorageGateway, get_storage_gateway
-from app.models.orm import Attachment, Chat, Memory, Message, Project, ProjectItem, TodoItem, User
+from app.models.orm import Chat, Memory, Message, Project, ProjectItem, TodoItem, User
 from app.repositories import attachments as attachments_repo
 from app.repositories import chats as chats_repo
 from app.repositories import memories as memories_repo
@@ -31,6 +33,7 @@ EXPORT_MAX_CHATS = 500
 EXPORT_MAX_MESSAGES_PER_CHAT = 2_000
 EXPORT_MESSAGE_PAGE_SIZE = 200
 EXPORT_MEMORY_PAGE_SIZE = 50
+EXPORT_MAX_MEMORIES = 50
 EXPORT_MAX_TODOS = 2_000
 EXPORT_TODO_PAGE_SIZE = 200
 EXPORT_MAX_PROJECTS = 100
@@ -129,6 +132,7 @@ def _export_limits(settings: Settings) -> dict[str, int]:
     return {
         "max_chats": EXPORT_MAX_CHATS,
         "max_messages_per_chat": EXPORT_MAX_MESSAGES_PER_CHAT,
+        "max_memories": EXPORT_MAX_MEMORIES,
         "max_todos": EXPORT_MAX_TODOS,
         "max_projects": EXPORT_MAX_PROJECTS,
         "max_project_items": EXPORT_MAX_PROJECT_ITEMS,
@@ -138,7 +142,7 @@ def _export_limits(settings: Settings) -> dict[str, int]:
 
 
 async def _attachment_payload(
-    attachment: Attachment,
+    attachment: Any,
     *,
     settings: Settings,
     gateway: StorageGateway,
@@ -164,11 +168,36 @@ async def _attachment_payload(
     }
 
 
+class _BorrowedSession:
+    """Use an existing session without closing it (``build_export`` tests)."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def __aenter__(self) -> AsyncSession:
+        return self._session
+
+    async def __aexit__(self, *_args: object) -> None:
+        return None
+
+
+SessionFactory = Callable[[], AbstractAsyncContextManager[AsyncSession]]
+
+
+def _session_factory(session: AsyncSession | None) -> SessionFactory:
+    if session is not None:
+        return lambda: _BorrowedSession(session)
+    return SessionLocal
+
+
 async def _iter_export_json(
-    session: AsyncSession,
     user: User,
     settings: Settings,
+    *,
+    session_factory: SessionFactory,
 ) -> AsyncIterator[str]:
+    # Open a session per repository call and close it before yielding so a
+    # slow client download cannot pin a Neon connection for the stream lifetime.
     exported_at = datetime.now(UTC).isoformat()
     yield "{"
     yield f'"exported_at":{json.dumps(exported_at)},'
@@ -176,60 +205,67 @@ async def _iter_export_json(
     yield f'"user":{json.dumps(_user_payload(user))},'
     yield '"chats":['
 
-    chats = await chats_repo.list_for_user(
-        session,
-        user.id,
-        limit=EXPORT_MAX_CHATS,
-        include_archived=True,
-    )
-    for chat_index, chat in enumerate(chats):
+    async with session_factory() as session:
+        chats = await chats_repo.list_for_user(
+            session,
+            user.id,
+            limit=EXPORT_MAX_CHATS,
+            include_archived=True,
+        )
+        chat_rows = [(_chat_header(chat), chat.id) for chat in chats]
+
+    for chat_index, (header, chat_id) in enumerate(chat_rows):
         if chat_index:
             yield ","
-        header = json.dumps(_chat_header(chat))
-        yield header[:-1]
+        yield json.dumps(header)[:-1]
         yield ',"messages":['
 
         offset = 0
         first_message = True
         while offset < EXPORT_MAX_MESSAGES_PER_CHAT:
             page_size = min(EXPORT_MESSAGE_PAGE_SIZE, EXPORT_MAX_MESSAGES_PER_CHAT - offset)
-            messages = await messages_repo.list_range(
-                session,
-                chat.id,
-                offset=offset,
-                limit=page_size,
-            )
-            if not messages:
+            async with session_factory() as session:
+                messages = await messages_repo.list_range(
+                    session,
+                    chat_id,
+                    offset=offset,
+                    limit=page_size,
+                )
+                message_chunks = [json.dumps(_message_payload(message)) for message in messages]
+            if not message_chunks:
                 break
-            for message in messages:
+            for chunk in message_chunks:
                 if not first_message:
                     yield ","
                 first_message = False
-                yield json.dumps(_message_payload(message))
-            offset += len(messages)
-            if len(messages) < page_size:
+                yield chunk
+            offset += len(message_chunks)
+            if len(message_chunks) < page_size:
                 break
         yield "]}"
 
     yield '],"memories":['
     memory_offset = 0
     first_memory = True
-    while True:
-        memories = await memories_repo.list_range(
-            session,
-            user.id,
-            offset=memory_offset,
-            limit=EXPORT_MEMORY_PAGE_SIZE,
-        )
-        if not memories:
+    while memory_offset < EXPORT_MAX_MEMORIES:
+        page_size = min(EXPORT_MEMORY_PAGE_SIZE, EXPORT_MAX_MEMORIES - memory_offset)
+        async with session_factory() as session:
+            memories = await memories_repo.list_range(
+                session,
+                user.id,
+                offset=memory_offset,
+                limit=page_size,
+            )
+            memory_chunks = [json.dumps(_memory_payload(memory)) for memory in memories]
+        if not memory_chunks:
             break
-        for memory in memories:
+        for chunk in memory_chunks:
             if not first_memory:
                 yield ","
             first_memory = False
-            yield json.dumps(_memory_payload(memory))
-        memory_offset += len(memories)
-        if len(memories) < EXPORT_MEMORY_PAGE_SIZE:
+            yield chunk
+        memory_offset += len(memory_chunks)
+        if len(memory_chunks) < page_size:
             break
 
     yield '],"todos":['
@@ -237,60 +273,77 @@ async def _iter_export_json(
     first_todo = True
     while todo_offset < EXPORT_MAX_TODOS:
         page_size = min(EXPORT_TODO_PAGE_SIZE, EXPORT_MAX_TODOS - todo_offset)
-        todos = await todos_repo.list_for_user(
-            session,
-            user.id,
-            limit=page_size,
-            offset=todo_offset,
-        )
-        if not todos:
+        async with session_factory() as session:
+            todos = await todos_repo.list_for_user(
+                session,
+                user.id,
+                limit=page_size,
+                offset=todo_offset,
+            )
+            todo_chunks = [json.dumps(_todo_payload(todo)) for todo in todos]
+        if not todo_chunks:
             break
-        for todo in todos:
+        for chunk in todo_chunks:
             if not first_todo:
                 yield ","
             first_todo = False
-            yield json.dumps(_todo_payload(todo))
-        todo_offset += len(todos)
-        if len(todos) < page_size:
+            yield chunk
+        todo_offset += len(todo_chunks)
+        if len(todo_chunks) < page_size:
             break
 
     yield '],"projects":['
-    projects = await projects_repo.list_for_user(
-        session,
-        user.id,
-        include_archived=True,
-        limit=EXPORT_MAX_PROJECTS,
-    )
-    items_by_project: dict[UUID, list[ProjectItem]] = defaultdict(list)
-    if projects:
-        items = await project_items_repo.list_for_projects(
+    async with session_factory() as session:
+        projects = await projects_repo.list_for_user(
             session,
-            [project.id for project in projects],
-            limit=EXPORT_MAX_PROJECT_ITEMS,
+            user.id,
+            include_archived=True,
+            limit=EXPORT_MAX_PROJECTS,
         )
-        for item in items:
-            items_by_project[item.project_id].append(item)
+        project_rows = [(_project_header(project), project.id) for project in projects]
+        items_by_project: dict[UUID, list[dict[str, Any]]] = defaultdict(list)
+        if project_rows:
+            items = await project_items_repo.list_for_projects(
+                session,
+                [project_id for _, project_id in project_rows],
+                limit=EXPORT_MAX_PROJECT_ITEMS,
+            )
+            for item in items:
+                items_by_project[item.project_id].append(_project_item_payload(item))
 
-    for project_index, project in enumerate(projects):
+    for project_index, (header, project_id) in enumerate(project_rows):
         if project_index:
             yield ","
-        header = json.dumps(_project_header(project))
-        yield header[:-1]
+        yield json.dumps(header)[:-1]
         yield ',"items":['
-        for item_index, item in enumerate(items_by_project.get(project.id, [])):
+        for item_index, item_payload in enumerate(items_by_project.get(project_id, [])):
             if item_index:
                 yield ","
-            yield json.dumps(_project_item_payload(item))
+            yield json.dumps(item_payload)
         yield "]}"
 
     yield '],"attachments":['
-    attachments = await attachments_repo.list_for_user(
-        session,
-        user.id,
-        limit=EXPORT_MAX_ATTACHMENTS,
-    )
+    async with session_factory() as session:
+        attachments = await attachments_repo.list_for_user(
+            session,
+            user.id,
+            limit=EXPORT_MAX_ATTACHMENTS,
+        )
+        # Copy scalars before close — ORM instances expire with the session.
+        attachment_rows = [
+            SimpleNamespace(
+                id=attachment.id,
+                message_id=attachment.message_id,
+                storage_key=attachment.storage_key,
+                content_type=attachment.content_type,
+                size_bytes=attachment.size_bytes,
+                source=attachment.source,
+                created_at=attachment.created_at,
+            )
+            for attachment in attachments
+        ]
     gateway = get_storage_gateway(settings)
-    for attachment_index, attachment in enumerate(attachments):
+    for attachment_index, attachment in enumerate(attachment_rows):
         if attachment_index:
             yield ","
         yield json.dumps(await _attachment_payload(attachment, settings=settings, gateway=gateway))
@@ -304,9 +357,8 @@ async def iter_export_json(
 ) -> AsyncIterator[str]:
     """Stream a valid JSON export without holding all messages in memory."""
     resolved = settings if settings is not None else get_settings()
-    async with SessionLocal() as session:
-        async for chunk in _iter_export_json(session, user, resolved):
-            yield chunk
+    async for chunk in _iter_export_json(user, resolved, session_factory=SessionLocal):
+        yield chunk
 
 
 async def build_export(
@@ -317,6 +369,10 @@ async def build_export(
     """Materialize the export for tests and callers that need a dict."""
     resolved = settings if settings is not None else get_settings()
     parts: list[str] = []
-    async for chunk in _iter_export_json(session, user, resolved):
+    async for chunk in _iter_export_json(
+        user,
+        resolved,
+        session_factory=_session_factory(session),
+    ):
         parts.append(chunk)
     return json.loads("".join(parts))
