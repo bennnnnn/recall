@@ -21,6 +21,7 @@ def test_validate_production_settings_ok():
             cors_origins="https://app.recall.app",
             openrouter_api_key="sk-or-xxx",
             revenuecat_webhook_auth="whsec-xxx",
+            revenuecat_secret_key="sk_rc_xxx",
             oauth_token_encryption_key=_VALID_FERNET_KEY,
             storage_backend="r2",
             r2_account_id="acct",
@@ -100,6 +101,16 @@ def test_validate_production_settings_rejects_empty_cors_and_missing_secrets():
                 cors_origins="https://app.recall.app",
                 openrouter_api_key="sk-or-xxx",
                 revenuecat_webhook_auth="",
+            )
+        )
+    with pytest.raises(RuntimeError, match="REVENUECAT_SECRET_KEY"):
+        validate_production_settings(
+            Settings(
+                **base,
+                cors_origins="https://app.recall.app",
+                openrouter_api_key="sk-or-xxx",
+                revenuecat_webhook_auth="whsec-xxx",
+                revenuecat_secret_key="",
             )
         )
     with pytest.raises(RuntimeError, match="OAUTH_TOKEN_ENCRYPTION_KEY"):

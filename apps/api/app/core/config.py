@@ -381,6 +381,14 @@ def validate_production_settings(settings: Settings) -> None:
     # Unsigned RevenueCat webhooks would let anyone grant themselves Pro.
     if not settings.revenuecat_webhook_auth:
         errors.append("REVENUECAT_WEBHOOK_AUTH is required in production")
+    # TRANSFER (and POST /auth/me/sync-subscription) resolve plan via the REST
+    # API. Missing the secret makes every transfer a durable source-downgrade
+    # with no target upgrade.
+    if not settings.revenuecat_secret_key.strip():
+        errors.append(
+            "REVENUECAT_SECRET_KEY is required in production "
+            "(TRANSFER webhooks sync entitlements via the REST API)"
+        )
     # OAuth refresh tokens (Calendar/Gmail) must be encrypted at rest — a DB
     # leak shouldn't expose reusable Google OAuth tokens.
     if not settings.oauth_token_encryption_key:

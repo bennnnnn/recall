@@ -57,21 +57,27 @@ def _plan_from_revenuecat_payload(payload: dict, settings: Settings) -> str:
     return "pro" if active else "free"
 
 
+async def resolve_plan_from_revenuecat(settings: Settings, app_user_id: str) -> str | None:
+    """HTTP-only: return ``pro``/``free`` from the subscriber API, or None if
+    the secret is missing or the fetch failed. Never defaults to ``pro``."""
+    if not settings.revenuecat_secret_key.strip():
+        return None
+    payload = await revenuecat_gateway.fetch_subscriber(
+        settings.revenuecat_secret_key,
+        app_user_id,
+    )
+    if payload is None:
+        return None
+    return _plan_from_revenuecat_payload(payload, settings)
+
+
 async def sync_user_plan_from_revenuecat(
     session: AsyncSession,
     user: User,
     settings: Settings,
 ) -> User:
-    if not settings.revenuecat_secret_key.strip():
-        return user
-    payload = await revenuecat_gateway.fetch_subscriber(
-        settings.revenuecat_secret_key,
-        str(user.id),
-    )
-    if payload is None:
-        return user
-    plan = _plan_from_revenuecat_payload(payload, settings)
-    if plan == user.plan:
+    plan = await resolve_plan_from_revenuecat(settings, str(user.id))
+    if plan is None or plan == user.plan:
         return user
     updated = await users_repo.update(session, user, plan=plan)
     logger.info("Updated plan from RevenueCat user=%s plan=%s", user.id, plan)
@@ -108,23 +114,41 @@ async def handle_revenuecat_transfer(
     *,
     new_app_user_id: str,
     transferred_from: list[str],
-) -> None:
-    """Move entitlements between app user ids — downgrade sources, sync target from RC API."""
-    for old_id in transferred_from:
-        cleaned = old_id.strip()
-        if cleaned:
-            await apply_plan_for_app_user_id(session, cleaned, plan="free")
+) -> bool:
+    """Move entitlements between app user ids.
 
+    Fetches the target's plan from the RevenueCat API *before* any writes, then
+    upgrades the target and only then downgrades sources. Returns False when
+    the target plan could not be resolved so the webhook is not deduped and
+    RevenueCat can retry. Never defaults the target to ``pro``.
+    """
     cleaned_new = new_app_user_id.strip()
     if not cleaned_new:
-        return
+        return False
     try:
         user_id = UUID(cleaned_new)
     except ValueError:
         logger.warning("RevenueCat TRANSFER ignored invalid app_user_id=%s", cleaned_new)
-        return
+        return False
+
+    plan = await resolve_plan_from_revenuecat(settings, cleaned_new)
+    if plan is None:
+        logger.warning(
+            "RevenueCat TRANSFER deferred; subscriber fetch failed app_user_id=%s",
+            cleaned_new,
+        )
+        return False
+
     user = await users_repo.get_by_id(session, user_id)
     if user is None:
         logger.warning("RevenueCat TRANSFER user not found id=%s", cleaned_new)
-        return
-    await sync_user_plan_from_revenuecat(session, user, settings)
+        return False
+    if user.plan != plan:
+        await users_repo.update(session, user, plan=plan)
+        logger.info("RevenueCat TRANSFER set plan=%s user=%s", plan, user_id)
+
+    for old_id in transferred_from:
+        cleaned = old_id.strip()
+        if cleaned:
+            await apply_plan_for_app_user_id(session, cleaned, plan="free")
+    return True

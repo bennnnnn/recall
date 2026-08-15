@@ -145,27 +145,36 @@ async def test_handle_revenuecat_transfer_downgrades_old_and_syncs_new():
     session = AsyncMock()
     settings = Settings(revenuecat_secret_key="sk_test", revenuecat_entitlement_id="pro")
 
-    with patch(
-        "app.services.subscription.apply_plan_for_app_user_id",
-        AsyncMock(return_value=True),
-    ) as apply_mock:
-        with patch(
+    with (
+        patch(
+            "app.services.subscription.resolve_plan_from_revenuecat",
+            AsyncMock(return_value="pro"),
+        ) as resolve_mock,
+        patch(
             "app.services.subscription.users_repo.get_by_id",
             AsyncMock(return_value=user),
-        ):
-            with patch(
-                "app.services.subscription.sync_user_plan_from_revenuecat",
-                AsyncMock(return_value=MagicMock(plan="pro")),
-            ) as sync_mock:
-                await subscription_service.handle_revenuecat_transfer(
-                    session,
-                    settings,
-                    new_app_user_id=str(new_id),
-                    transferred_from=[str(old_id), "  "],
-                )
+        ),
+        patch(
+            "app.services.subscription.users_repo.update",
+            AsyncMock(return_value=user),
+        ) as update,
+        patch(
+            "app.services.subscription.apply_plan_for_app_user_id",
+            AsyncMock(return_value=True),
+        ) as apply_mock,
+    ):
+        ok = await subscription_service.handle_revenuecat_transfer(
+            session,
+            settings,
+            new_app_user_id=str(new_id),
+            transferred_from=[str(old_id), "  "],
+        )
 
+    assert ok is True
+    resolve_mock.assert_awaited_once_with(settings, str(new_id))
+    update.assert_awaited_once_with(session, user, plan="pro")
     apply_mock.assert_awaited_once_with(session, str(old_id), plan="free")
-    sync_mock.assert_awaited_once_with(session, user, settings)
+    assert resolve_mock.await_args_list[0].args[1] == str(new_id)
 
 
 @pytest.mark.asyncio
@@ -173,20 +182,67 @@ async def test_handle_revenuecat_transfer_skips_invalid_new_id():
     session = AsyncMock()
     settings = Settings()
 
-    with patch(
-        "app.services.subscription.apply_plan_for_app_user_id",
-        AsyncMock(),
-    ) as apply_mock:
-        with patch(
-            "app.services.subscription.sync_user_plan_from_revenuecat",
+    with (
+        patch(
+            "app.services.subscription.apply_plan_for_app_user_id",
             AsyncMock(),
-        ) as sync_mock:
-            await subscription_service.handle_revenuecat_transfer(
-                session,
-                settings,
-                new_app_user_id="not-a-uuid",
-                transferred_from=[],
-            )
+        ) as apply_mock,
+        patch(
+            "app.services.subscription.resolve_plan_from_revenuecat",
+            AsyncMock(),
+        ) as resolve_mock,
+    ):
+        ok = await subscription_service.handle_revenuecat_transfer(
+            session,
+            settings,
+            new_app_user_id="not-a-uuid",
+            transferred_from=["someone"],
+        )
 
+    assert ok is False
     apply_mock.assert_not_awaited()
-    sync_mock.assert_not_awaited()
+    resolve_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_handle_revenuecat_transfer_does_not_downgrade_when_fetch_fails():
+    old_id = uuid4()
+    new_id = uuid4()
+    session = AsyncMock()
+    settings = Settings(revenuecat_secret_key="sk_test")
+
+    with (
+        patch(
+            "app.services.subscription.resolve_plan_from_revenuecat",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.subscription.apply_plan_for_app_user_id",
+            AsyncMock(),
+        ) as apply_mock,
+        patch(
+            "app.services.subscription.users_repo.get_by_id",
+            AsyncMock(),
+        ) as get_mock,
+    ):
+        ok = await subscription_service.handle_revenuecat_transfer(
+            session,
+            settings,
+            new_app_user_id=str(new_id),
+            transferred_from=[str(old_id)],
+        )
+
+    assert ok is False
+    apply_mock.assert_not_awaited()
+    get_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_resolve_plan_from_revenuecat_none_without_secret():
+    settings = Settings(revenuecat_secret_key="")
+    with patch(
+        "app.services.subscription.revenuecat_gateway.fetch_subscriber",
+        AsyncMock(),
+    ) as fetch:
+        assert await subscription_service.resolve_plan_from_revenuecat(settings, "u") is None
+    fetch.assert_not_awaited()
