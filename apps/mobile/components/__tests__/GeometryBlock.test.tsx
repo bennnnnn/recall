@@ -106,6 +106,21 @@ describe("GeometryBlock", () => {
     expect(tree).toContain("36.9°");
     expect(tree).toContain("53.1°");
     expect(tree).toContain("interior-angle-arc");
+    expect(tree).toContain("interior-angle-backdrop");
+  });
+
+  it("draws leader lines when a skinny right triangle cannot fit 10° inside", async () => {
+    const content = JSON.stringify({
+      type: "right_triangle",
+      base: 2,
+      height: 34,
+      unit: "cm",
+      show_angle: true,
+    });
+    const { toJSON } = await render(<GeometryBlock content={content} />);
+    const tree = JSON.stringify(toJSON());
+    expect(tree).toContain("90°");
+    expect(tree).toContain("interior-angle-leader");
   });
 
   it("draws a diagonal-angle arc when rectangle show_angle + show_diagonal", async () => {
@@ -131,6 +146,19 @@ describe("GeometryBlock", () => {
     const content = JSON.stringify({ type: "square", side: 5, unit: "cm" });
     const { toJSON } = await render(<GeometryBlock content={content} />);
     expect(JSON.stringify(toJSON())).toContain("side-tick-mark");
+  });
+
+  it("does not draw altitude on an SSS triangle unless asked", async () => {
+    const content = JSON.stringify({
+      type: "triangle_sides",
+      a: 5,
+      b: 9.4,
+      c: 12.66,
+      unit: "cm",
+      show_angle: true,
+    });
+    const { toJSON } = await render(<GeometryBlock content={content} />);
+    expect(JSON.stringify(toJSON())).not.toContain("altitude-line");
   });
 
   it("draws altitude and equal-side ticks on an isosceles SSS triangle", async () => {
