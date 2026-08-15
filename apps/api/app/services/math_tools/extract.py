@@ -1,0 +1,647 @@
+"""Ordered MathIntent extractors. Registry: _INTENT_EXTRACTORS."""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import Callable, Sequence
+from typing import Literal
+
+from app.models.math_schemas import (
+    MathIntent,
+)
+from app.services import math_service
+from app.services.math_tools.helpers import (
+    _calc_expr_tail,
+    _normalize_latex_expr,
+    _parse_newton_guess,
+    _strip_newton_leadin,
+    _strip_series_prefix,
+    _strip_trailing_filler,
+)
+from app.services.math_tools.school import SCHOOL_EXTRACTORS
+
+logger = logging.getLogger(__name__)
+
+
+def _extract_solid_intent(cleaned: str) -> MathIntent | None:
+    from app.services import math_text_match as mtm
+
+    parsed = mtm.parse_solid(cleaned)
+    if parsed is None:
+        return None
+    return MathIntent(
+        kind="solid",
+        solid_shape=parsed.shape,
+        width=parsed.width,
+        height=parsed.height,
+        depth=parsed.depth,
+        side=parsed.side,
+        radius=parsed.radius,
+        unit=parsed.unit,
+        operation="solve",
+        wants_volume=parsed.wants_volume,
+        wants_surface_area=parsed.wants_surface_area,
+    )
+
+
+def _extract_rectangle_intent(cleaned: str) -> MathIntent | None:
+    from app.services import math_text_match as mtm
+
+    lower = cleaned.lower()
+    if mtm.classify_solid_shape(lower) is not None:
+        return None
+    dims = mtm.first_dim_pair(cleaned)
+    padded = f" {lower} "
+    if dims is not None and ("rectangle" in lower or " rect " in padded or "diagonal" in lower):
+        width, height, unit = dims
+        return MathIntent(
+            kind="rectangle",
+            width=width,
+            height=height,
+            unit=unit,
+            operation="solve",
+            wants_diagonal=" diagonal" in padded or padded.startswith("diagonal "),
+            wants_angle=" angle" in padded or "angles" in lower,
+            wants_area=" area" in padded or padded.startswith("area "),
+            wants_perimeter=" perimeter" in padded or padded.startswith("perimeter "),
+        )
+
+    if mtm.has_draw_shape(lower, "rectangle"):
+        return MathIntent(kind="rectangle", width=6, height=4, unit="cm", operation="solve")
+    return None
+
+
+def _extract_square_intent(cleaned: str) -> MathIntent | None:
+    from app.services import math_text_match as mtm
+
+    lower = cleaned.lower()
+    if mtm.classify_solid_shape(lower) is not None:
+        return None
+    if "square" not in lower:
+        return None
+    # Algebraic uses of the word "square" must not become a geometry diagram.
+    # BUG FIX: "solve square root of x = 4" / "graph the square root" used to
+    # match here (substring "square") and inject a default 5 cm square.
+    if any(
+        phrase in lower
+        for phrase in (
+            "square root",
+            "perfect square",
+            "squared",
+            "squares to",
+            "square of",
+        )
+    ):
+        return None
+    dims = mtm.first_dim_pair(cleaned)
+    side = mtm.number_after(cleaned, "side") or mtm.number_after(cleaned, "edge")
+    if side is None and dims is not None and dims[0] == dims[1]:
+        side = dims[0]
+    if side is not None:
+        return MathIntent(
+            kind="square", side=side, width=side, height=side, unit="cm", operation="solve"
+        )
+    # Default dimensions only when the user asked to draw/show the shape —
+    # never invent a square for bare prose that merely contains "square".
+    if mtm.has_draw_shape(lower, "square"):
+        return MathIntent(kind="square", side=5, width=5, height=5, unit="cm", operation="solve")
+    return None
+
+
+def _extract_circle_intent(cleaned: str) -> MathIntent | None:
+    from app.services import math_text_match as mtm
+
+    lower = cleaned.lower()
+    if mtm.classify_solid_shape(lower) is not None:
+        return None
+    if "circle" not in lower:
+        return None
+    # Sector mentions almost always include "circle" + "radius" — leave those
+    # to `_extract_sector_intent` (which runs first). Without this guard a
+    # partial sector cue ("sector … radius 5") becomes a plain circle fence.
+    if "sector" in lower or "pie slice" in lower:
+        return None
+    # Algebra / unit-circle asks still contain "circle" (and often "radius") —
+    # do not steal them from equation/graph extractors that run later.
+    if mtm.geometry_deferred_for_algebra(lower):
+        return None
+    wants_area = "area" in lower
+    wants_circumference = "circumference" in lower
+    radius = mtm.number_after(cleaned, "radius")
+    if radius is not None:
+        return MathIntent(
+            kind="circle",
+            radius=radius,
+            unit="cm",
+            operation="solve",
+            wants_area=wants_area,
+            wants_circumference=wants_circumference,
+        )
+    diameter = mtm.number_after(cleaned, "diameter")
+    if diameter is not None:
+        return MathIntent(
+            kind="circle",
+            radius=diameter / 2,
+            unit="cm",
+            operation="solve",
+            wants_diameter=True,
+            wants_area=wants_area,
+            wants_circumference=wants_circumference,
+        )
+    # Default radius only on an explicit draw/show/sketch — never invent a
+    # 5 cm circle for "what is a circle?" / "unit circle" / algebra that
+    # merely mentions the word (those used to ship as SymPy-verified).
+    if mtm.has_draw_shape(lower, "circle"):
+        return MathIntent(
+            kind="circle",
+            radius=5,
+            unit="cm",
+            operation="solve",
+            wants_area=wants_area,
+            wants_circumference=wants_circumference,
+        )
+    return None
+
+
+def _extract_right_triangle_intent(cleaned: str) -> MathIntent | None:
+    from app.services import math_text_match as mtm
+
+    lower = cleaned.lower()
+    if "right triangle" not in lower:
+        return None
+    if mtm.geometry_deferred_for_algebra(lower):
+        return None
+    dims = mtm.first_dim_pair(cleaned)
+    if dims is not None:
+        base, height, unit = dims
+        return MathIntent(
+            kind="right_triangle",
+            base=base,
+            height=height,
+            unit=unit,
+            operation="solve",
+        )
+    if mtm.has_draw_shape(lower, "right triangle"):
+        return MathIntent(kind="right_triangle", base=6, height=4, unit="cm", operation="solve")
+    return None
+
+
+def _extract_triangle_sides_intent(cleaned: str) -> MathIntent | None:
+    """Checked BEFORE the generic base+height triangle extractor below — a
+    "triangle with sides 3, 4, 5" mention must not fall into that extractor's
+    broad "triangle" + "area"/"draw"/... fallback and get the wrong (default
+    base=8, height=5) shape instead of the SSS one actually named."""
+    from app.services import math_text_match as mtm
+
+    if mtm.geometry_deferred_for_algebra(cleaned.lower()):
+        return None
+    sides = mtm.triangle_sides_signal(cleaned)
+    if sides is None:
+        return None
+    a, b, c = sides
+    return MathIntent(
+        kind="triangle_sides", tri_a=a, tri_b=b, tri_c=c, unit="cm", operation="solve"
+    )
+
+
+def _extract_trapezoid_intent(cleaned: str) -> MathIntent | None:
+    from app.services import math_text_match as mtm
+
+    lower = cleaned.lower()
+    if "trapezoid" not in lower and "trapezium" not in lower:
+        return None
+    if mtm.geometry_deferred_for_algebra(lower):
+        return None
+    top = mtm.number_after(cleaned, "top")
+    bottom = mtm.number_after(cleaned, "bottom")
+    height = mtm.number_after(cleaned, "height")
+    if top is not None and bottom is not None and height is not None:
+        return MathIntent(
+            kind="trapezoid",
+            trapezoid_top=top,
+            trapezoid_bottom=bottom,
+            height=height,
+            unit="cm",
+            operation="solve",
+        )
+    shape = "trapezoid" if "trapezoid" in lower else "trapezium"
+    if mtm.has_draw_shape(lower, shape):
+        return MathIntent(
+            kind="trapezoid",
+            trapezoid_top=4,
+            trapezoid_bottom=8,
+            height=5,
+            unit="cm",
+            operation="solve",
+        )
+    return None
+
+
+def _extract_parallelogram_intent(cleaned: str) -> MathIntent | None:
+    from app.services import math_text_match as mtm
+
+    lower = cleaned.lower()
+    if "parallelogram" not in lower:
+        return None
+    if mtm.geometry_deferred_for_algebra(lower):
+        return None
+    base = mtm.number_after(cleaned, "base")
+    height = mtm.number_after(cleaned, "height")
+    side = mtm.number_after(cleaned, "side")
+    if base is not None and height is not None:
+        # Side is only needed for the slanted diagram. When the user gave
+        # base+height (enough for area) but no side, use a right parallelogram
+        # (side=height → zero shear) rather than inventing a fake slant length.
+        return MathIntent(
+            kind="parallelogram",
+            base=base,
+            height=height,
+            side=side if side is not None else height,
+            unit="cm",
+            operation="solve",
+        )
+    if mtm.has_draw_shape(lower, "parallelogram"):
+        return MathIntent(
+            kind="parallelogram",
+            base=8,
+            height=4,
+            side=5,
+            unit="cm",
+            operation="solve",
+        )
+    return None
+
+
+def _extract_sector_intent(cleaned: str) -> MathIntent | None:
+    from app.services import math_text_match as mtm
+
+    lower = cleaned.lower()
+    if "sector" not in lower and "pie slice" not in lower:
+        return None
+    if "sector" in lower and not any(k in lower for k in ("circle", "radius", "pie", "arc")):
+        return None
+    if mtm.geometry_deferred_for_algebra(lower):
+        return None
+    radius = mtm.number_after(cleaned, "radius")
+    angle = mtm.number_after(cleaned, "angle")
+    if radius is not None and angle is not None:
+        return MathIntent(
+            kind="sector",
+            radius=radius,
+            sector_angle_deg=angle,
+            unit="cm",
+            operation="solve",
+        )
+    # Defaults only when the user asked to draw the shape — never invent a
+    # 90° / 5 cm sector for "sector of a circle with radius 5" alone.
+    if mtm.has_draw_shape(lower, "sector") or mtm.has_draw_shape(lower, "pie slice"):
+        return MathIntent(
+            kind="sector",
+            radius=radius if radius is not None else 5,
+            sector_angle_deg=angle if angle is not None else 90,
+            unit="cm",
+            operation="solve",
+        )
+    return None
+
+
+def _extract_triangle_intent(cleaned: str) -> MathIntent | None:
+    from app.services import math_text_match as mtm
+
+    lower = cleaned.lower()
+    if mtm.geometry_deferred_for_algebra(lower):
+        return None
+    base_n = mtm.number_after(cleaned, "base")
+    height_n = mtm.number_after(cleaned, "height")
+    if base_n is not None and height_n is not None and "triangle" in lower:
+        return MathIntent(
+            kind="triangle",
+            base=base_n,
+            height=height_n,
+            unit="cm",
+            operation="solve",
+        )
+
+    # "area of a triangle" is a definition question — do not invent base/height.
+    # Defaults only for an explicit draw/show/sketch/visualize request.
+    if mtm.has_draw_shape(lower, "triangle"):
+        return MathIntent(kind="triangle", base=8, height=5, unit="cm", operation="solve")
+    return None
+
+
+def _extract_point_intent(cleaned: str) -> MathIntent | None:
+    from app.services import math_text_match as mtm
+
+    point = mtm.bare_coord(cleaned) or mtm.plot_point(cleaned)
+    if point is None:
+        return None
+    return MathIntent(
+        kind="point",
+        point_x=point[0],
+        point_y=point[1],
+        operation="graph",
+    )
+
+
+def _extract_vertical_intent(cleaned: str) -> MathIntent | None:
+    from app.services import math_text_match as mtm
+
+    vert_x = mtm.vertical_line_x(cleaned)
+    if vert_x is None:
+        return None
+    return MathIntent(kind="vertical", point_x=vert_x, operation="graph")
+
+
+def _extract_graph_pair_intent(cleaned: str) -> MathIntent | None:
+    """Checked BEFORE the single-expression graph extractor below — "graph
+    y=x^2 and y=2x" must not fall into graph_expr's single-capture, which
+    would grab "x^2 and y=2x" as one unparseable expr and silently produce
+    no augmentation for a very ordinary "compare these two functions" ask."""
+    from app.services import math_text_match as mtm
+
+    pair = mtm.graph_expr_pair(cleaned)
+    if pair is None:
+        return None
+    first, second = pair
+    expr1 = _strip_trailing_filler(first).replace("^", "**")
+    expr2 = _strip_trailing_filler(second).replace("^", "**")
+    if not expr1 or not expr2:
+        return None
+    return MathIntent(kind="graph_pair", expr=expr1, expr2=expr2, operation="graph")
+
+
+def _extract_graph_intent(cleaned: str) -> MathIntent | None:
+    from app.services import math_text_match as mtm
+
+    g_expr = mtm.graph_expr(cleaned)
+    if g_expr is None:
+        return None
+    # _strip_trailing_filler(g_expr) used to run twice (once for the x= vertical
+    # check, once for the returned graph expr). Compute it once and derive
+    # both forms from it.
+    stripped = _strip_trailing_filler(g_expr)
+    expr_no_space = stripped.replace("^", "**").replace(" ", "")
+    # Prefer vertical for "graph x=4"
+    if expr_no_space.lower().startswith("x="):
+        num = mtm.number_after(expr_no_space, "x=")
+        if num is None:
+            try:
+                num = float(expr_no_space[2:])
+            except ValueError:
+                num = None
+        if num is not None:
+            return MathIntent(kind="vertical", point_x=num, operation="graph")
+    expr = stripped.replace("^", "**")
+    return MathIntent(kind="graph", expr=expr, operation="graph")
+
+
+def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
+    from app.services import math_text_match as mtm
+
+    op_word = mtm.calc_op(cleaned)
+    if op_word is None or op_word in {"taylor", "partial", "dsolve"}:
+        return None
+    calc_op: Literal["simplify", "differentiate", "integrate", "factor", "expand"] = (
+        "differentiate" if op_word in {"differentiate", "derivative"} else "integrate"
+    )
+    if op_word == "simplify":
+        calc_op = "simplify"
+    elif op_word == "factor":
+        calc_op = "factor"
+    elif op_word == "expand":
+        calc_op = "expand"
+    tail = _calc_expr_tail(cleaned)
+    expr = _strip_trailing_filler(tail) if tail is not None else cleaned
+    integral_lower: str | None = None
+    integral_upper: str | None = None
+    if calc_op == "integrate":
+        bounds = mtm.integral_bounds(expr)
+        if bounds is not None:
+            expr, integral_lower, integral_upper = bounds
+    return MathIntent(
+        kind="calculus",
+        expr=expr,
+        operation=calc_op,
+        integral_lower=integral_lower,
+        integral_upper=integral_upper,
+    )
+
+
+def _extract_limit_intent(cleaned: str) -> MathIntent | None:
+    from app.services import math_text_match as mtm
+
+    limit_hit = mtm.parse_limit(cleaned)
+    if limit_hit is None:
+        return None
+    expr = _normalize_latex_expr(_strip_trailing_filler(limit_hit.expr)).replace("^", "**")
+    limit_point = limit_hit.point.lstrip("\\")
+    if not expr:
+        return None
+    return MathIntent(
+        kind="limit",
+        expr=expr,
+        variable=limit_hit.var,
+        limit_point=limit_point,
+        operation="limit",
+    )
+
+
+def _extract_series_intent(cleaned: str) -> MathIntent | None:
+    from app.services import math_text_match as mtm
+
+    series_hit = mtm.parse_series(cleaned)
+    if series_hit is None:
+        return None
+    expr = _normalize_latex_expr(
+        _strip_series_prefix(_strip_trailing_filler(series_hit.expr))
+    ).replace("^", "**")
+    end = series_hit.end.lstrip("\\")
+    if not expr:
+        return None
+    return MathIntent(
+        kind="series",
+        expr=expr,
+        variable=series_hit.var,
+        series_start=series_hit.start,
+        series_end=end,
+        operation="series",
+    )
+
+
+def _extract_numerical_method_intent(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    if not ("newton" in lower or "numerically" in lower or "root of" in lower):
+        return None
+    guess, text_for_eq = _parse_newton_guess(cleaned)
+    text_for_eq = _strip_newton_leadin(text_for_eq)
+    newton_pairs = math_service.try_extract_equations_from_text(text_for_eq)
+    if not newton_pairs:
+        return None
+    lhs, rhs = newton_pairs[0]
+    rhs_is_zero = rhs.strip() in ("0", "0.0")
+    expr = lhs if rhs_is_zero else f"({lhs})-({rhs})"
+    variables = math_service.guess_variables(f"{lhs} {rhs}")
+    var = variables[0] if variables else "x"
+    return MathIntent(
+        kind="numerical_method",
+        expr=expr,
+        variable=var,
+        newton_guess=float(guess),
+        operation="newton",
+    )
+
+
+def _extract_statistics_intent(cleaned: str) -> MathIntent | None:
+    from app.services import math_text_match as mtm
+
+    signal = mtm.stats_signal(cleaned)
+    if signal is None:
+        return None
+    op, numbers = signal
+    return MathIntent(kind="statistics", stats_op=op, stats_numbers=numbers, operation="solve")
+
+
+def _extract_combinatorics_intent(cleaned: str) -> MathIntent | None:
+    from app.services import math_text_match as mtm
+
+    signal = mtm.combinatorics_signal(cleaned)
+    if signal is None:
+        return None
+    op, n, k = signal
+    return MathIntent(kind="combinatorics", combo_op=op, combo_n=n, combo_k=k, operation="solve")
+
+
+def _extract_number_theory_intent(cleaned: str) -> MathIntent | None:
+    from app.services import math_text_match as mtm
+
+    signal = mtm.number_theory_signal(cleaned)
+    if signal is None:
+        return None
+    op, a, b = signal
+    return MathIntent(
+        kind="number_theory", numtheory_op=op, numtheory_a=a, numtheory_b=b, operation="solve"
+    )
+
+
+def _extract_matrix_intent(cleaned: str) -> MathIntent | None:
+    from app.services import math_text_match as mtm
+
+    signal = mtm.matrix_signal(cleaned)
+    if signal is None:
+        return None
+    op, rows = signal
+    return MathIntent(kind="matrix", matrix_op=op, matrix_rows=rows, operation="solve")
+
+
+def _extract_system_intent(cleaned: str) -> MathIntent | None:
+    eq_pairs = math_service.try_extract_equations_from_text(cleaned)
+    if len(eq_pairs) < 2:
+        return None
+    # BUG FIX (most severe correctness bug found in the audit): this
+    # used to fall through to the single-equation branch below, which
+    # only ever looked at the FIRST clause and answered with the same
+    # "verified, do NOT recompute" confidence as a fully correct
+    # response — silently discarding every other equation in the system.
+    all_text = " ".join(f"{lhs} {rhs}" for lhs, rhs in eq_pairs)
+    variables = math_service.guess_variables(all_text)
+    return MathIntent(
+        kind="system",
+        system_equations=eq_pairs[:4],
+        system_variables=variables,
+        operation="solve",
+    )
+
+
+def _extract_equation_intent(cleaned: str) -> MathIntent | None:
+    eq_pairs = math_service.try_extract_equations_from_text(cleaned)
+    if len(eq_pairs) != 1:
+        return None
+    lhs, rhs = eq_pairs[0]
+    variables = math_service.guess_variables(lhs + rhs)
+    return MathIntent(
+        kind="equation",
+        lhs=lhs,
+        rhs=rhs,
+        operation="solve",
+        variable=variables[0] if variables else "x",
+    )
+
+
+def _extract_inequality_intent(cleaned: str) -> MathIntent | None:
+    # Inequality — only reached when a math keyword already matched (this
+    # function is called solely from needs_symbolic_math-gated paths), so bare
+    # < / > here is safe from prose false-positives like "less than 5 minutes".
+    compound = math_service.try_extract_compound_inequality_from_text(cleaned)
+    if compound is not None:
+        low, low_op, mid, high_op, high = compound
+        variables = math_service.guess_variables(f"{low} {mid} {high}")
+        return MathIntent(
+            kind="inequality",
+            lower=low,
+            lhs=mid,
+            rhs=high,
+            comparator=low_op,
+            comparator_upper=high_op,
+            operation="solve",
+            variable=variables[0] if variables else "x",
+        )
+    ineq = math_service.try_extract_inequality_from_text(cleaned)
+    if not ineq:
+        return None
+    lhs, rhs, comparator = ineq
+    variables = math_service.guess_variables(lhs + rhs)
+    return MathIntent(
+        kind="inequality",
+        lhs=lhs,
+        rhs=rhs,
+        comparator=comparator,
+        operation="solve",
+        variable=variables[0] if variables else "x",
+    )
+
+
+_INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | None]] = (
+    _extract_solid_intent,
+    *SCHOOL_EXTRACTORS,
+    _extract_rectangle_intent,
+    _extract_square_intent,
+    # Sector before the generic circle extractor: a sector mention almost
+    # always also says "circle" ("sector of a circle with radius 5"), which
+    # would otherwise satisfy the plain circle extractor first and steal it.
+    _extract_sector_intent,
+    _extract_circle_intent,
+    _extract_trapezoid_intent,
+    _extract_parallelogram_intent,
+    _extract_right_triangle_intent,
+    _extract_triangle_sides_intent,
+    _extract_triangle_intent,
+    _extract_point_intent,
+    _extract_vertical_intent,
+    _extract_graph_pair_intent,
+    _extract_graph_intent,
+    _extract_calculus_intent,
+    _extract_limit_intent,
+    _extract_series_intent,
+    _extract_numerical_method_intent,
+    _extract_statistics_intent,
+    _extract_combinatorics_intent,
+    _extract_number_theory_intent,
+    _extract_matrix_intent,
+    _extract_system_intent,
+    _extract_equation_intent,
+    _extract_inequality_intent,
+)
+
+
+def extract_math_intent(text: str) -> MathIntent | None:
+    from app.services import math_text_match as mtm
+
+    cleaned = mtm.prepare(text)
+    if not cleaned:
+        return None
+
+    for extractor in _INTENT_EXTRACTORS:
+        intent = extractor(cleaned)
+        if intent is not None:
+            return intent
+    return None
