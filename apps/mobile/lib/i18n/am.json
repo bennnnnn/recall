@@ -890,5 +890,19 @@
   "memory.edit_section_a11y": "ይህን ማህደረ ትውስታ አርትዕ",
   "memory.edit_title": "ማህደረ ትውስታ አርትዕ",
   "memory.edit_hint": "የተሳሳተ ነገር ካለ አስተካክል — Recall ከአሁን ጀምሮ ይህን ይጠቀማል።",
-  "memory.edit_failed": "ማህደረ ትውስታ ማስቀመጥ አልተቻለም። እንደገና ይሞክሩ።"
+  "memory.edit_failed": "ማህደረ ትውስታ ማስቀመጥ አልተቻለም። እንደገና ይሞክሩ።",
+  "chat.math_keyboard_a11y": "Math symbols",
+  "chat.math_keyboard_show": "Math symbols",
+  "chat.math_paste_scan_cta": "Scan math",
+  "chat.math_paste_scan_hint": "That paste looks like an image. Use the math scanner instead?",
+  "chat.math_keyboard_done": "Done",
+  "chat.math_keyboard_group_basics": "Basics",
+  "chat.math_keyboard_group_calc": "Calc",
+  "chat.math_keyboard_group_greek": "Greek",
+  "chat.math_keyboard_group_trig": "Trig",
+  "chat.math_keyboard_abc": "ABC",
+  "chat.math_keyboard_backspace": "Delete",
+  "chat.math_keyboard_next_slot": "Next box",
+  "chat.math_keyboard_caret_left": "Move cursor left",
+  "chat.math_keyboard_caret_right": "Move cursor right"
 }

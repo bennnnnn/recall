@@ -65,7 +65,7 @@ function looksLikeProseParenthetical(s: string): boolean {
   return words.length >= 2;
 }
 
-function isMathLike(inner: string): boolean {
+export function isMathLike(inner: string): boolean {
   const s = fixImplicitExponents(inner);
   if (s.length < 2) return false;
   // BARE_EQUATION_RE's char class allows `*` for multiplication, which also

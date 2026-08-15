@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Pressable,
   StyleSheet,
@@ -13,8 +13,15 @@ import { useTranslation } from "react-i18next";
 
 import { VoiceComposerWaveform } from "@/components/chat/VoiceComposerWaveform";
 import { VoiceMicButton } from "@/components/chat/VoiceMicButton";
+import {
+  MathDraftPreview,
+  MATH_DRAFT_PREVIEW_HEIGHT,
+  draftShowsMathPreview,
+} from "@/components/chat/MathDraftPreview";
+import { MathKeyboardBar } from "@/components/chat/MathKeyboardBar";
 import { ComposerAttachmentPreview } from "@/components/ComposerAttachmentPreview";
 import { SuggestedRemindersNudge } from "@/components/SuggestedRemindersNudge";
+import { useMathKeyboardInsert } from "@/hooks/useMathKeyboardInsert";
 import type { PendingAttachment } from "@/lib/attachments";
 import {
   composerShowsMic,
@@ -61,6 +68,8 @@ type Props = {
   onVoiceCancel?: () => void;
   /** When true, parent owns absolute bottom positioning (e.g. quiz dock). */
   docked?: boolean;
+  onOpenMathScanner?: () => void;
+  onMathChromeHeightChange?: (height: number) => void;
 };
 
 export const ChatComposer = memo(function ChatComposer({
@@ -89,10 +98,36 @@ export const ChatComposer = memo(function ChatComposer({
   onVoicePress,
   onVoiceCancel,
   docked = false,
+  onOpenMathScanner,
+  onMathChromeHeightChange,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
+  const [scanHint, setScanHint] = useState(false);
+  const inputRef = useRef<TextInput>(null);
+  const math = useMathKeyboardInsert({
+    input,
+    setInput: onChangeInput,
+    onImageOnlyPaste: onOpenMathScanner ? () => setScanHint(true) : undefined,
+  });
+  const showMathPreview = draftShowsMathPreview(input);
+  const mathChromeHeight =
+    (math.mathBarOpen ? math.padHeight : 0) +
+    (showMathPreview ? MATH_DRAFT_PREVIEW_HEIGHT : 0) +
+    (scanHint ? 40 : 0);
+
+  useEffect(() => {
+    onMathChromeHeightChange?.(visible ? mathChromeHeight : 0);
+  }, [mathChromeHeight, onMathChromeHeightChange, visible]);
+
+  const onToggleMathBar = useCallback(() => {
+    const wasOpen = math.mathBarOpen;
+    math.toggleMathBar();
+    if (wasOpen) {
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
+  }, [math.mathBarOpen, math.toggleMathBar, math.insertSymbol, math.backspace]);
 
   if (!visible) return null;
 
@@ -127,6 +162,24 @@ export const ChatComposer = memo(function ChatComposer({
           </View>
         ) : null}
         <View style={s.composer}>
+          {scanHint && onOpenMathScanner ? (
+            <View style={s.scanHint}>
+              <Text style={s.scanHintText}>{t("chat.math_paste_scan_hint")}</Text>
+              <Pressable
+                onPress={() => {
+                  setScanHint(false);
+                  onOpenMathScanner();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={t("chat.math_paste_scan_cta")}
+              >
+                <Text style={s.scanHintCta}>{t("chat.math_paste_scan_cta")}</Text>
+              </Pressable>
+              <Pressable onPress={() => setScanHint(false)} accessibilityRole="button" accessibilityLabel={t("common.cancel")}>
+                <Text style={s.scanHintDismiss}>×</Text>
+              </Pressable>
+            </View>
+          ) : null}
           <View style={s.inputWrap}>
             {pendingAttachment ? (
               <ComposerAttachmentPreview
@@ -146,6 +199,18 @@ export const ChatComposer = memo(function ChatComposer({
               >
                 <Ionicons name="attach-outline" size={22} color={theme.primary} />
               </Pressable>
+              {math.mathBarOpen ? null : (
+                <Pressable
+                  style={s.attachBtn}
+                  onPress={onToggleMathBar}
+                  hitSlop={{ top: 14, bottom: 14, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("chat.math_keyboard_show")}
+                  testID="math-keyboard-toggle"
+                >
+                  <Text style={s.mathToggle}>ƒ</Text>
+                </Pressable>
+              )}
               {voiceRecording || voiceTranscribing ? (
                 <VoiceComposerWaveform
                   recording={voiceRecording}
@@ -153,16 +218,35 @@ export const ChatComposer = memo(function ChatComposer({
                   meterLevel={voiceMeterLevel}
                 />
               ) : (
-                <TextInput
-                  style={s.input}
-                  placeholder={t("chat.placeholder")}
-                  placeholderTextColor={theme.textTertiary}
-                  value={input}
-                  onChangeText={onChangeInput}
-                  onFocus={onCloseAttachSheet}
-                  multiline
-                  returnKeyType="default"
-                />
+                <View style={s.inputField}>
+                  {showMathPreview ? (
+                    <MathDraftPreview
+                      input={input}
+                      caret={math.selection.start}
+                      onMoveCaret={math.moveCaret}
+                    />
+                  ) : null}
+                  <TextInput
+                    ref={inputRef}
+                    testID="chat-composer-input"
+                    style={[s.input, showMathPreview && s.inputHidden]}
+                    placeholder={showMathPreview ? "" : t("chat.placeholder")}
+                    placeholderTextColor={theme.textTertiary}
+                    value={input}
+                    onChangeText={math.onChangeText}
+                    onSelectionChange={math.onSelectionChange}
+                    selection={math.mathBarOpen ? math.selection : math.forcedSelection}
+                    caretHidden={math.mathBarOpen}
+                    pointerEvents={math.mathBarOpen ? "none" : "auto"}
+                    showSoftInputOnFocus={!math.mathBarOpen}
+                    onFocus={() => {
+                      onCloseAttachSheet();
+                      math.onComposerFocus();
+                    }}
+                    multiline
+                    returnKeyType="default"
+                  />
+                </View>
               )}
               <View style={s.sendBtnSlot}>
                 {streaming ? (
@@ -219,6 +303,17 @@ export const ChatComposer = memo(function ChatComposer({
               </View>
             </View>
           </View>
+          {math.mathBarOpen ? (
+            <MathKeyboardBar
+              open
+              height={math.padHeight}
+              onToggle={onToggleMathBar}
+              onInsert={math.insertSymbol}
+              onBackspace={math.backspace}
+              onNextSlot={math.nextSlot}
+              onStepCaret={math.stepCaret}
+            />
+          ) : null}
         </View>
       </View>
     </Animated.View>
@@ -267,6 +362,7 @@ function makeStyles(theme: Theme) {
       ...shadowRaised(theme),
     },
     inputRowMain: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
+    inputField: { flex: 1, justifyContent: "center", minHeight: 22, position: "relative" },
     attachBtn: {
       width: 32,
       height: 32,
@@ -274,6 +370,7 @@ function makeStyles(theme: Theme) {
       justifyContent: "center",
       marginBottom: 1,
     },
+    mathToggle: { fontSize: 18, fontWeight: "700", color: theme.primary, marginTop: -1 },
     input: {
       flex: 1,
       fontSize: 16,
@@ -281,6 +378,15 @@ function makeStyles(theme: Theme) {
       maxHeight: 100,
       paddingVertical: 0,
       minHeight: 22,
+    },
+    inputHidden: {
+      position: "absolute",
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+      color: "transparent",
+      maxHeight: undefined,
     },
     sendBtn: {
       width: 40,
@@ -310,5 +416,18 @@ function makeStyles(theme: Theme) {
     sendIcon: { color: theme.onPrimary, fontSize: 18, fontWeight: "700" },
     sendBtnDisabled: { backgroundColor: theme.border },
     sendIconDisabled: { color: theme.textTertiary },
+    scanHint: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      marginBottom: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      borderRadius: 10,
+      backgroundColor: theme.primaryLight,
+    },
+    scanHintText: { flex: 1, fontSize: 13, color: theme.text },
+    scanHintCta: { fontSize: 13, fontWeight: "700", color: theme.primary },
+    scanHintDismiss: { fontSize: 18, color: theme.textSecondary, paddingHorizontal: 4 },
   });
 }

@@ -890,5 +890,19 @@
   "memory.edit_section_a11y": "Modifier cette section de mémoire",
   "memory.edit_title": "Modifier la mémoire",
   "memory.edit_hint": "Corrigez ce qui est faux — Recall l’utilisera désormais.",
-  "memory.edit_failed": "Impossible d’enregistrer la mémoire. Réessayez."
+  "memory.edit_failed": "Impossible d’enregistrer la mémoire. Réessayez.",
+  "chat.math_keyboard_a11y": "Math symbols",
+  "chat.math_keyboard_show": "Math symbols",
+  "chat.math_paste_scan_cta": "Scan math",
+  "chat.math_paste_scan_hint": "That paste looks like an image. Use the math scanner instead?",
+  "chat.math_keyboard_done": "Done",
+  "chat.math_keyboard_group_basics": "Basics",
+  "chat.math_keyboard_group_calc": "Calc",
+  "chat.math_keyboard_group_greek": "Greek",
+  "chat.math_keyboard_group_trig": "Trig",
+  "chat.math_keyboard_abc": "ABC",
+  "chat.math_keyboard_backspace": "Delete",
+  "chat.math_keyboard_next_slot": "Next box",
+  "chat.math_keyboard_caret_left": "Move cursor left",
+  "chat.math_keyboard_caret_right": "Move cursor right"
 }

@@ -23,6 +23,10 @@ export type MathSegment =
  * command table runs.
  */
 export const PROTECTED_ESCAPE_MARKER = String.fromCharCode(0xe000);
+/** Bare `_` inside `$...$` — markdown-it would otherwise start emphasis. */
+export const PROTECTED_MATH_UNDERSCORE_MARKER = String.fromCharCode(0xe002);
+/** Bare `*` inside `$...$` — markdown-it would otherwise start emphasis. */
+export const PROTECTED_MATH_STAR_MARKER = String.fromCharCode(0xe003);
 
 /** Cap nested \\frac / \\sqrt recursion on pathological model latex. */
 const MAX_MATH_NEST_DEPTH = 12;
@@ -320,6 +324,12 @@ function preprocessLatex(latex: string): string {
   // before any command table below runs — see the marker's own doc comment.
   if (s.includes(PROTECTED_ESCAPE_MARKER)) {
     s = s.split(PROTECTED_ESCAPE_MARKER).join("\\");
+  }
+  if (s.includes(PROTECTED_MATH_UNDERSCORE_MARKER)) {
+    s = s.split(PROTECTED_MATH_UNDERSCORE_MARKER).join("_");
+  }
+  if (s.includes(PROTECTED_MATH_STAR_MARKER)) {
+    s = s.split(PROTECTED_MATH_STAR_MARKER).join("*");
   }
   // OCR / models often emit Unicode supers/subs (`x²`, `a₁₀`) instead of
   // caret form. Rewrite to `^`/`_` so the segment parser builds real scripts.

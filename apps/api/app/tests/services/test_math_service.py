@@ -51,6 +51,18 @@ def test_normalize_unicode_ops_to_ascii() -> None:
     assert "2" in result.solutions_latex[0]
 
 
+def test_normalize_unicode_scripts_and_glyphs() -> None:
+    """Superscript/subscript digits, √, π, vulgar fractions → ASCII/SymPy."""
+    assert math_service._normalize_latex_to_sympy("x\u00b2") == "x**2"
+    assert math_service._normalize_latex_to_sympy("a\u2081") == "a_1"
+    assert math_service._normalize_latex_to_sympy("x\u00b9\u2070") == "x**(10)"
+    assert math_service._normalize_latex_to_sympy("\u03c0") == "pi"
+    assert math_service._normalize_latex_to_sympy("\u221a(4)") == "sqrt(4)"
+    assert math_service._normalize_latex_to_sympy("\u00bd") == "(1)/(2)"
+    parsed = math_service._parse_expression("x\u00b2 + 1", ["x"])
+    assert parsed is not None
+
+
 @pytest.mark.parametrize(
     "expr, expected",
     [

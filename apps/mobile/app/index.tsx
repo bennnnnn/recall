@@ -309,6 +309,8 @@ function ChatScreen() {
     pendingOutboundId,
   } = send;
 
+  const [mathChromeExtra, setMathChromeExtra] = useState(0);
+
   const {
     voiceInputAvailable,
     voiceRecording,
@@ -438,6 +440,7 @@ function ChatScreen() {
     keyboardHeight,
     composerHeight: COMPOSER_HEIGHT,
     attachmentExtra: composerAttachmentExtra(pendingAttachment),
+    mathBarExtra: mathChromeExtra,
     messagesLength: displayMessages.length,
     streaming: streamActive,
   });
@@ -492,6 +495,8 @@ function ChatScreen() {
       mathScannerOpen,
       closeMathScanner,
       handleMathScanCaptured,
+      onOpenMathScanner: () => setMathScannerOpen(true),
+      onMathChromeHeightChange: setMathChromeExtra,
     },
     quotaNudge,
     chatError,

@@ -117,7 +117,61 @@ _UNICODE_OP_SUBS: tuple[tuple[str, str], ...] = (
     ("\u2212", "-"),  # U+2212 minus sign
     ("\u2013", "-"),  # U+2013 en dash
     ("\u2014", "-"),  # U+2014 em dash
+    ("\u03c0", "pi"),  # π
+    ("\u221e", "oo"),  # ∞
 )
+
+_UNICODE_VULGAR: tuple[tuple[str, str], ...] = (
+    ("\u00bd", "(1)/(2)"),
+    ("\u2153", "(1)/(3)"),
+    ("\u2154", "(2)/(3)"),
+    ("\u00bc", "(1)/(4)"),
+    ("\u00be", "(3)/(4)"),
+    ("\u2155", "(1)/(5)"),
+    ("\u2156", "(2)/(5)"),
+    ("\u2157", "(3)/(5)"),
+    ("\u2158", "(4)/(5)"),
+    ("\u2159", "(1)/(6)"),
+    ("\u215a", "(5)/(6)"),
+    ("\u215b", "(1)/(8)"),
+    ("\u215c", "(3)/(8)"),
+    ("\u215d", "(5)/(8)"),
+    ("\u215e", "(7)/(8)"),
+)
+
+_SUP_GLYPHS = "⁰¹²³⁴⁵⁶⁷⁸⁹"
+_SUP_ASCII = "0123456789"
+_SUB_GLYPHS = "₀₁₂₃₄₅₆₇₈₉"
+_SUB_ASCII = "0123456789"
+_SUP_TABLE = str.maketrans(_SUP_GLYPHS, _SUP_ASCII)
+_SUB_TABLE = str.maketrans(_SUB_GLYPHS, _SUB_ASCII)
+
+
+def _rewrite_unicode_script_runs(s: str) -> str:
+    out: list[str] = []
+    i = 0
+    n = len(s)
+    while i < n:
+        ch = s[i]
+        if ch in _SUP_GLYPHS:
+            j = i + 1
+            while j < n and s[j] in _SUP_GLYPHS:
+                j += 1
+            digits = s[i:j].translate(_SUP_TABLE)
+            out.append(f"**{digits}" if len(digits) == 1 else f"**({digits})")
+            i = j
+            continue
+        if ch in _SUB_GLYPHS:
+            j = i + 1
+            while j < n and s[j] in _SUB_GLYPHS:
+                j += 1
+            digits = s[i:j].translate(_SUB_TABLE)
+            out.append(f"_{digits}")
+            i = j
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
 
 
 def _normalize_latex_to_sympy(expr: str) -> str:
@@ -125,6 +179,11 @@ def _normalize_latex_to_sympy(expr: str) -> str:
     s = expr
     for glyph, repl in _UNICODE_OP_SUBS:
         s = s.replace(glyph, repl)
+    for glyph, repl in _UNICODE_VULGAR:
+        s = s.replace(glyph, repl)
+    s = re.sub("\u221a\\s*\\(([^()]*)\\)", r"sqrt(\1)", s)
+    s = s.replace("\u221a", "sqrt")
+    s = _rewrite_unicode_script_runs(s)
     s = _LATEX_ABS_LEFT_RIGHT_RE.sub(r"Abs(\1)", s)
     s = _LATEX_ABS_VERT_RE.sub("", s)
     for pattern, replacement in _LATEX_SYMBOL_SUBS:

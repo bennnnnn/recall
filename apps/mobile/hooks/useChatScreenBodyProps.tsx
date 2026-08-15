@@ -82,6 +82,8 @@ export type UseChatScreenBodyPropsParams = {
     mathScannerOpen: boolean;
     closeMathScanner: () => void;
     handleMathScanCaptured: (pending: PendingAttachment) => void;
+    onOpenMathScanner?: () => void;
+    onMathChromeHeightChange?: (height: number) => void;
   };
   quotaNudge: QuotaNudge;
   chatError: ResolvedChatError | null;
@@ -158,6 +160,8 @@ export function useChatScreenBodyProps({
     mathScannerOpen,
     closeMathScanner,
     handleMathScanCaptured,
+    onOpenMathScanner,
+    onMathChromeHeightChange,
   },
   quotaNudge,
   chatError,
@@ -318,6 +322,8 @@ export function useChatScreenBodyProps({
       mathScannerOpen,
       onCloseMathScanner: closeMathScanner,
       onMathScanCaptured: handleMathScanCaptured,
+      onOpenMathScanner,
+      onMathChromeHeightChange,
       onSend,
       onStop: stopGeneration,
       isOffline,
@@ -380,6 +386,8 @@ export function useChatScreenBodyProps({
       mathScannerOpen,
       closeMathScanner,
       handleMathScanCaptured,
+      onOpenMathScanner,
+      onMathChromeHeightChange,
       onSend,
       stopGeneration,
       isOffline,
