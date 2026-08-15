@@ -329,23 +329,32 @@ def _replace_fence(
         return "\n*Could not render that diagram.*\n"
 
 
-def _replace_answer_fence(
-    match: re.Match[str],
-    canonical_fence: dict[str, object] | None,
-) -> str:
-    """Rewrite ```answer bodies from SymPy when this turn computed one."""
-    if canonical_fence is None or canonical_fence.get("type") != "answer":
-        return match.group(0)
-    content = canonical_fence.get("content")
+def _canonical_answer_body(verified: VerifiedMathBlock | None) -> str | None:
+    if verified is None:
+        return None
+    if verified.canonical_answer and verified.canonical_answer.strip():
+        return verified.canonical_answer.strip()
+    fence = verified.canonical_fence
+    if fence is None or fence.get("type") != "answer":
+        return None
+    content = fence.get("content")
     if not isinstance(content, str) or not content.strip():
+        return None
+    return content.strip()
+
+
+def _replace_answer_fence(match: re.Match[str], answer_body: str | None) -> str:
+    """Rewrite ```answer bodies from SymPy when this turn computed one."""
+    if not answer_body:
         return match.group(0)
-    return f"```answer\n{content.strip()}\n```"
+    return f"```answer\n{answer_body}\n```"
 
 
 def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = None) -> str:
     canonical_fence = verified.canonical_fence if verified is not None else None
+    answer_body = _canonical_answer_body(verified)
     content = _ANSWER_FENCE.sub(
-        lambda m: _replace_answer_fence(m, canonical_fence),
+        lambda m: _replace_answer_fence(m, answer_body),
         content,
         count=_MAX_ANSWER_FENCES,
     )
