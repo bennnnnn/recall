@@ -49,7 +49,7 @@ async def test_periodic_cycle_syncs_due_users_concurrently_with_isolated_session
     settings = Settings(gmail_enabled=True, gmail_periodic_sync_concurrency=2)
 
     with (
-        patch("app.background.gmail_periodic_sync.get_redis_client", return_value=redis),
+        patch("app.background.periodic.get_redis_client", return_value=redis),
         patch(
             "app.background.gmail_periodic_sync.SessionLocal",
             side_effect=lambda: _FakeSessionCM(AsyncMock()),
@@ -67,6 +67,8 @@ async def test_periodic_cycle_syncs_due_users_concurrently_with_isolated_session
 
     assert {c.user_id for c in connections} == set(sync_calls)
     assert max_in_flight <= 2  # respected the configured concurrency bound
+    # Unbounded cycle: refresh between users so TTL cannot lapse mid-batch.
+    assert redis.eval.await_count >= len(connections)
 
 
 @pytest.mark.asyncio
@@ -79,7 +81,7 @@ async def test_periodic_cycle_skips_recently_synced_users():
     settings = Settings(gmail_enabled=True, gmail_sync_interval_seconds=3600)
 
     with (
-        patch("app.background.gmail_periodic_sync.get_redis_client", return_value=redis),
+        patch("app.background.periodic.get_redis_client", return_value=redis),
         patch(
             "app.background.gmail_periodic_sync.SessionLocal",
             side_effect=lambda: _FakeSessionCM(AsyncMock()),
@@ -114,7 +116,7 @@ async def test_periodic_cycle_isolates_one_users_failure_from_the_rest():
     settings = Settings(gmail_enabled=True)
 
     with (
-        patch("app.background.gmail_periodic_sync.get_redis_client", return_value=redis),
+        patch("app.background.periodic.get_redis_client", return_value=redis),
         patch(
             "app.background.gmail_periodic_sync.SessionLocal",
             side_effect=lambda: _FakeSessionCM(AsyncMock()),
@@ -134,3 +136,19 @@ async def test_periodic_cycle_isolates_one_users_failure_from_the_rest():
     # Token-based release uses Lua compare-and-delete via EVAL, not bare DELETE.
     redis.eval.assert_awaited()
     redis.delete.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_periodic_cycle_skips_when_gmail_disabled():
+    redis = _fake_redis()
+    settings = Settings(gmail_enabled=False)
+    with (
+        patch("app.background.periodic.get_redis_client", return_value=redis),
+        patch(
+            "app.background.gmail_periodic_sync.gmail_repo.list_due",
+            AsyncMock(),
+        ) as list_due,
+    ):
+        await gmail_periodic_sync.run_gmail_periodic_cycle(settings)
+    list_due.assert_not_awaited()
+    redis.set.assert_not_awaited()

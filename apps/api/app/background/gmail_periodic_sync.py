@@ -7,85 +7,82 @@ import logging
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
+from app.background.periodic import (
+    CycleLock,
+    lock_ttl_yield_next_tick,
+    run_locked_cycle,
+    start_periodic,
+    stop_periodic,
+)
 from app.core.config import Settings
 from app.core.db import SessionLocal
-from app.core.redis import get_redis_client
-from app.core.redis_lock import acquire_lock, release_lock
 from app.repositories import gmail_connections as gmail_repo
 from app.services import email as email_service
 
 logger = logging.getLogger(__name__)
 
+_NAME = "gmail_periodic"
 LOCK_KEY = "recall:gmail_periodic:lock"
 CHECK_INTERVAL_SECONDS = 900  # scan every 15 min; sync users stale > gmail_sync_interval
+LOCK_TTL_SECONDS = lock_ttl_yield_next_tick(CHECK_INTERVAL_SECONDS)
+
+
+async def _gmail_cycle(settings: Settings, lock: CycleLock) -> None:
+    redis = lock.redis
+    async with SessionLocal() as session:
+        cutoff = datetime.now(UTC) - timedelta(seconds=settings.gmail_sync_interval_seconds)
+        due = await gmail_repo.list_due(
+            session,
+            cutoff=cutoff,
+            limit=max(1, settings.gmail_periodic_sync_batch_size),
+        )
+
+    semaphore = asyncio.Semaphore(max(1, settings.gmail_periodic_sync_concurrency))
+    abort = asyncio.Event()
+
+    async def _sync_one(user_id: UUID) -> None:
+        if abort.is_set():
+            return
+        async with semaphore:
+            if abort.is_set():
+                return
+            try:
+                async with SessionLocal() as session:
+                    await email_service.sync_gmail_for_user(
+                        session,
+                        settings,
+                        user_id,
+                        redis=redis,
+                    )
+            except Exception:
+                logger.exception("Periodic Gmail sync failed user_id=%s", user_id)
+            if not await lock.refresh():
+                abort.set()
+                logger.warning("Gmail periodic lock lost; skipping remaining users")
+
+    await asyncio.gather(*(_sync_one(conn.user_id) for conn in due))
 
 
 async def run_gmail_periodic_cycle(settings: Settings) -> None:
-    if not settings.gmail_enabled:
-        return
-    redis = get_redis_client()
-    token = await acquire_lock(redis, LOCK_KEY, CHECK_INTERVAL_SECONDS - 30)
-    if not token:
-        return
-    try:
-        async with SessionLocal() as session:
-            cutoff = datetime.now(UTC) - timedelta(seconds=settings.gmail_sync_interval_seconds)
-            due = await gmail_repo.list_due(
-                session,
-                cutoff=cutoff,
-                limit=max(1, settings.gmail_periodic_sync_batch_size),
-            )
-
-        semaphore = asyncio.Semaphore(max(1, settings.gmail_periodic_sync_concurrency))
-
-        async def _sync_one(user_id: UUID) -> None:
-            async with semaphore:
-                try:
-                    async with SessionLocal() as session:
-                        await email_service.sync_gmail_for_user(
-                            session,
-                            settings,
-                            user_id,
-                            redis=redis,
-                        )
-                except Exception:
-                    logger.exception("Periodic Gmail sync failed user_id=%s", user_id)
-
-        await asyncio.gather(*(_sync_one(conn.user_id) for conn in due))
-    except Exception:
-        logger.exception("Gmail periodic cycle failed")
-    finally:
-        await release_lock(redis, LOCK_KEY, token)
-
-
-async def gmail_periodic_loop(settings: Settings) -> None:
-    while True:
-        try:
-            await run_gmail_periodic_cycle(settings)
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            logger.exception("Gmail periodic loop error")
-        await asyncio.sleep(CHECK_INTERVAL_SECONDS)
-
-
-_task: asyncio.Task | None = None
+    await run_locked_cycle(
+        name="gmail periodic",
+        lock_key=LOCK_KEY,
+        lock_ttl_seconds=LOCK_TTL_SECONDS,
+        enabled=settings.gmail_enabled,
+        fn=_gmail_cycle,
+        settings=settings,
+    )
 
 
 async def start_gmail_periodic_scheduler(settings: Settings) -> None:
-    global _task
-    if _task is not None or not settings.gmail_enabled:
-        return
-    _task = asyncio.create_task(gmail_periodic_loop(settings))
+    await start_periodic(
+        name=_NAME,
+        interval_seconds=CHECK_INTERVAL_SECONDS,
+        enabled=settings.gmail_enabled,
+        cycle=run_gmail_periodic_cycle,
+        settings=settings,
+    )
 
 
 async def stop_gmail_periodic_scheduler() -> None:
-    global _task
-    if _task is None:
-        return
-    _task.cancel()
-    try:
-        await _task
-    except asyncio.CancelledError:
-        pass
-    _task = None
+    await stop_periodic(_NAME)
