@@ -75,6 +75,8 @@ export type ChatScreenBodyProps = {
   mathScannerOpen: boolean;
   onCloseMathScanner: () => void;
   onMathScanCaptured: (pending: PendingAttachment) => void;
+  onOpenMathScanner?: () => void;
+  onMathChromeHeightChange?: (height: number) => void;
   onSend: () => void;
   onStop: () => void;
   isOffline: boolean;
@@ -140,6 +142,8 @@ export function ChatScreenBody({
   mathScannerOpen,
   onCloseMathScanner,
   onMathScanCaptured,
+  onOpenMathScanner,
+  onMathChromeHeightChange,
   onSend,
   onStop,
   isOffline,
@@ -236,6 +240,8 @@ export function ChatScreenBody({
         voiceMeterLevel={voiceMeterLevel}
         onVoicePress={onVoicePress}
         onVoiceCancel={onVoiceCancel}
+        onOpenMathScanner={onOpenMathScanner}
+        onMathChromeHeightChange={onMathChromeHeightChange}
       />
 
       <AttachmentSourceSheet

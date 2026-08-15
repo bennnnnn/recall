@@ -145,6 +145,7 @@ export function computeChatLayoutMetrics(options: {
   keyboardHeight: number;
   composerHeight: number;
   attachmentExtra: number;
+  mathBarExtra?: number;
   messagesLength: number;
   streaming: boolean;
 }): ChatLayoutMetrics {
@@ -158,7 +159,8 @@ export function computeChatLayoutMetrics(options: {
     options.keyboardHeight > 0
       ? 0
       : Math.max(options.insetsBottom, CHAT_COMPOSER_MIN_BOTTOM_PAD);
-  const composerBlockHeight = options.composerHeight + options.attachmentExtra;
+  const composerBlockHeight =
+    options.composerHeight + options.attachmentExtra + (options.mathBarExtra ?? 0);
   const composerClearance = composerBlockHeight + composerBottomPad + composerLift;
   // Reserve the feedback-row clearance whenever the thread has messages —
   // NOT only when idle. Toggling this on `!streaming` grew the list's bottom

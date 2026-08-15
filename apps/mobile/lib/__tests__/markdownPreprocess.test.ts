@@ -1,7 +1,13 @@
 import { normalizeBoldInlineMath, normalizeMarkdownTables, isPipeTable, preprocessMarkdown, splitInlineMath, layoutCheckVerificationLines } from "@/lib/markdownPreprocess";
 import { repairBrokenMarkdownLinks } from "@/lib/placesList";
 import { markdownItInstance } from "@/lib/markdownIt";
-import { PROTECTED_ESCAPE_MARKER, parseSimpleLatex, segmentsToPlain } from "@/lib/mathText";
+import {
+  PROTECTED_ESCAPE_MARKER,
+  PROTECTED_MATH_STAR_MARKER,
+  PROTECTED_MATH_UNDERSCORE_MARKER,
+  parseSimpleLatex,
+  segmentsToPlain,
+} from "@/lib/mathText";
 
 const RESTAURANT_LIST = `Here are some top-rated restaurants in San Francisco that might tickle your taste buds 🍽️:
 
@@ -380,6 +386,25 @@ describe("vega retag (linear)", () => {
 }`;
     const out = preprocessMarkdown("Chart:\n\n" + body + "\n\nDone.");
     expect(out).toContain("```vega-lite");
+  });
+
+  it("protects bare _ and * inside $...$ so markdown-it cannot emphasize them", () => {
+    const prepared = preprocessMarkdown("See $x_1 * y_2$ and $a_i^2$.");
+    expect(prepared).toContain(PROTECTED_MATH_UNDERSCORE_MARKER);
+    expect(prepared).toContain(PROTECTED_MATH_STAR_MARKER);
+    expect(prepared).not.toMatch(/\$x_1 \* y_2\$/);
+
+    const tokens = markdownItInstance.parse(prepared, {});
+    const inline = tokens.find((t) => t.type === "inline");
+    const types = (inline?.children ?? []).map((c) => c.type);
+    expect(types).not.toContain("em_open");
+    expect(types).not.toContain("strong_open");
+
+    const textToken = inline?.children?.find((c) => c.type === "text" && c.content.includes("$"));
+    expect(textToken?.content).toContain(PROTECTED_MATH_UNDERSCORE_MARKER);
+    const spans = [...(textToken?.content.matchAll(/\$([^$]+)\$/g) ?? [])].map((m) => m[1]);
+    expect(segmentsToPlain(parseSimpleLatex(spans[0]!))).toBe("x_1 * y_2");
+    expect(segmentsToPlain(parseSimpleLatex(spans[1]!))).toBe("a_i^2");
   });
 });
 

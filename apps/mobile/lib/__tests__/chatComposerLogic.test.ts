@@ -216,6 +216,19 @@ describe("chatComposerLogic", () => {
     expect(keyboard.composerLift).toBe(300);
     expect(keyboard.composerBottomPad).toBe(0);
     expect(keyboard.composerBlockHeight).toBe(144);
+
+    const withMathBar = computeChatLayoutMetrics({
+      insetsTop: 44,
+      insetsBottom: 20,
+      windowHeight: 800,
+      keyboardHeight: 0,
+      composerHeight: 100,
+      attachmentExtra: 0,
+      mathBarExtra: 44,
+      messagesLength: 0,
+      streaming: false,
+    });
+    expect(withMathBar.composerBlockHeight).toBe(144);
   });
 
   it("formatModelCostHint shows quota multiplier only, not token prices", () => {

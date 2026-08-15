@@ -11,7 +11,11 @@ import {
   shouldRenderAsPlainProseFence,
 } from "@/lib/copyBlock";
 import { isHtmlFenceLang, parseFenceLang } from "@/lib/codeHighlight";
-import { PROTECTED_ESCAPE_MARKER } from "@/lib/mathText";
+import {
+  PROTECTED_ESCAPE_MARKER,
+  PROTECTED_MATH_STAR_MARKER,
+  PROTECTED_MATH_UNDERSCORE_MARKER,
+} from "@/lib/mathText";
 
 // Title uses horizontal whitespace only; body lines are `>[^\n]*` (no ReDoS).
 const CALLOUT_RE =
@@ -396,15 +400,19 @@ const MATH_ESCAPE_BACKSLASH_RE = /\\(?=[!"#$%&'()*+,\-./:;<=>?@[\]^_`{|}~])/g;
  * leaving `\(...\)` in the preprocessed string makes splitInlineMath miss the
  * span entirely and the UI shows raw `(\frac{...})`. `$` is not escapable that
  * way, and splitInlineMath already handles `$...$`.
+ *
+ * Bare `_` and `*` inside the same spans are swapped for PUA markers so
+ * markdown-it's emphasis tokenizer cannot turn `$x_1 * y_2$` into nested
+ * em/strong. mathText.ts restores them before parsing subscripts.
  */
 function protectMathEscapes(content: string): string {
   return content.replace(
     /\$([^$\n]+?)\$|\\\(([\s\S]+?)\\\)/g,
     (_full: string, dollarBody: string | undefined, parenBody: string | undefined) => {
-      const body = (dollarBody ?? parenBody ?? "").replace(
-        MATH_ESCAPE_BACKSLASH_RE,
-        PROTECTED_ESCAPE_MARKER,
-      );
+      const body = (dollarBody ?? parenBody ?? "")
+        .replace(MATH_ESCAPE_BACKSLASH_RE, PROTECTED_ESCAPE_MARKER)
+        .replace(/_/g, PROTECTED_MATH_UNDERSCORE_MARKER)
+        .replace(/\*/g, PROTECTED_MATH_STAR_MARKER);
       return `$${body}$`;
     },
   );

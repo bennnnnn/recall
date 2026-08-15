@@ -9,6 +9,7 @@ type Options = {
   keyboardHeight: number;
   composerHeight: number;
   attachmentExtra: number;
+  mathBarExtra?: number;
   messagesLength: number;
   streaming: boolean;
 };
@@ -23,6 +24,7 @@ export function useChatLayoutMetrics(options: Options) {
       options.keyboardHeight,
       options.composerHeight,
       options.attachmentExtra,
+      options.mathBarExtra,
       options.messagesLength,
       options.streaming,
     ],

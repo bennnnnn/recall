@@ -25,6 +25,14 @@ Heuristic pre-solve and web-search injection are skipped. The model may call the
 - **Final algebra answer:** ` ```answer ` with the SymPy solution (post-stream rewrite when a
   canonical answer fence was computed).
 
+## Composer input (mobile)
+
+The API persists and forwards the user's message **verbatim**. Capture happens in the composer:
+
+- **Symbol toolbar** (`MathKeyboardBar` / `mathKeyboardSymbols.ts`) inserts LaTeX snippets (`$...$` when the caret is outside math).
+- **Paste** (`mathPasteNormalize.ts`) maps Unicode math glyphs to LaTeX when a change looks like a paste (same glyph set spirit as `_UNICODE_OP_SUBS` in `math_service/parse.py`). Image-only clipboard → existing camera OCR, not a second recognizer.
+- Bare `_` / `*` inside `$...$` are protected in `markdownPreprocess.ts` so markdown-it cannot turn subscripts/multiplication into emphasis.
+
 ## Key files
 
 | Layer | Path |
@@ -36,6 +44,7 @@ Heuristic pre-solve and web-search injection are skipped. The model may call the
 | MCP sympy | `apps/api/app/gateways/mcp/sympy_adapter.py` |
 | Prompt hints | `apps/api/app/services/chat/prompt_constants.py` |
 | Mobile preprocess | `apps/mobile/lib/markdownPreprocess.ts`, `normalizeImplicitMath.ts` |
+| Composer math input | `mathPasteNormalize.ts`, `mathKeyboardSymbols.ts`, `MathKeyboardBar` |
 | Render | `MathText`, `MathView` / `MathFormulaWebView`, `GeometryBlock`, `FunctionGraphBlock` |
 
 ## Curriculum coverage (K–12 through undergrad homework)
