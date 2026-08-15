@@ -1988,3 +1988,12 @@ async def _build_verified_block_async(
         # patched/edge path raises through the executor.
         logger.info("math_tools skipped: %s", exc)
         return None
+    except Exception:
+        # BrokenProcessPool / cancelled sibling futures after another caller's
+        # timeout kill — degrade to the honesty note, do not fail the turn.
+        logger.warning(
+            "math_tools solve failed for kind=%s",
+            intent.kind,
+            exc_info=True,
+        )
+        return None

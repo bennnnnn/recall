@@ -250,3 +250,19 @@ def test_leaves_already_dense_graph_formatting_alone() -> None:
     }
     content = f"```graph\n{json.dumps(payload)}\n```"
     assert validate_math_fences(content) == content
+
+
+def test_validate_math_fences_caps_per_kind() -> None:
+    from app.services.math_fence import _MAX_GEOMETRY_FENCES, _MAX_GRAPH_FENCES
+
+    bad_geo = "```geometry\n{bad json\n```"
+    geo = "\n".join([bad_geo] * (_MAX_GEOMETRY_FENCES + 1))
+    out_geo = validate_math_fences(geo)
+    assert out_geo.count("Could not render that diagram") == _MAX_GEOMETRY_FENCES
+    assert out_geo.count("```geometry") == 1
+
+    bad_graph = '```graph\n{"type":"function","expr":"x","points":[]}\n```'
+    graphs = "\n".join([bad_graph] * (_MAX_GRAPH_FENCES + 1))
+    out_graph = validate_math_fences(graphs)
+    assert out_graph.count("Could not render that diagram") == _MAX_GRAPH_FENCES
+    assert out_graph.count("```graph") == 1

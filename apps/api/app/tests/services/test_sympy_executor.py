@@ -15,6 +15,7 @@ import pytest
 
 from app.services.sympy_executor import (
     ProcessPoolSympyExecutor,
+    ThreadSympyExecutor,
     run_sympy,
     set_sympy_executor,
 )
@@ -133,3 +134,28 @@ async def test_concurrent_call_queued_behind_single_worker():
     # Submit two calls concurrently; with max_workers=1 they serialize.
     results = await asyncio.gather(_slow_add(), _slow_add())
     assert results == [3, 3]
+
+
+def _sleep(seconds: float) -> int:
+    time.sleep(seconds)
+    return 1
+
+
+@pytest.mark.asyncio
+async def test_timeout_excludes_queue_wait():
+    """The solve timeout starts when the worker runs, not when the call is
+    submitted — a queued call must not time out (and kill the occupant)
+    just because it waited for the single slot.
+
+    Uses the thread executor so occupancy is deterministic (no spawn delay).
+    """
+    executor = ThreadSympyExecutor(max_workers=1)
+    set_sympy_executor(executor)
+    try:
+        occupier = asyncio.create_task(run_sympy(_sleep, 0.4, timeout=5))
+        await asyncio.sleep(0.05)
+        result = await run_sympy(_add, 2, 3, timeout=0.15)
+        assert result == 5
+        assert await occupier == 1
+    finally:
+        executor.shutdown()
