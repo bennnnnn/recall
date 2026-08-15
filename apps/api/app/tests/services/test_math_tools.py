@@ -628,6 +628,7 @@ async def test_augment_prompt_rectangle_area_query_does_not_force_diagonal_and_a
     assert verified.canonical_fence["show_angle"] is False
     assert verified.canonical_fence["show_area"] is True
     assert verified.canonical_fence["show_perimeter"] is False
+    assert verified.canonical_answer == "20"
 
 
 @pytest.mark.asyncio

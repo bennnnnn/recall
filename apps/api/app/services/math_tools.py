@@ -833,10 +833,13 @@ def extract_math_intent(text: str) -> MathIntent | None:
 class VerifiedMathBlock:
     """The system-prompt hint text plus the exact fence (if any) it asked
     the model to reuse verbatim — canonical_fence lets a post-stream check
-    correct the model's actual output rather than only trusting compliance."""
+    correct the model's actual output rather than only trusting compliance.
+    Geometry/graph turns keep the diagram JSON on canonical_fence and the
+    numeric final on canonical_answer so ```answer can be rewritten too."""
 
     text: str
     canonical_fence: dict[str, Any] | None = None
+    canonical_answer: str | None = None
 
 
 def _fence(kind: str, spec: Any) -> str:
@@ -861,6 +864,23 @@ def _finish_with_answer(
     return VerifiedMathBlock(
         text="\n".join(lines),
         canonical_fence=_answer_canonical(answer),
+        canonical_answer=answer,
+    )
+
+
+def _diagram_block(
+    lines: list[str],
+    spec: Any,
+    answer: str | None = None,
+) -> VerifiedMathBlock:
+    """Diagram JSON on canonical_fence; optional numeric ```answer rewrite."""
+    if answer:
+        lines.append(f"End with this final-answer fence (copy verbatim):\n```answer\n{answer}\n```")
+    dump = spec.model_dump() if hasattr(spec, "model_dump") else spec
+    return VerifiedMathBlock(
+        text="\n".join(lines),
+        canonical_fence=dump,
+        canonical_answer=answer,
     )
 
 
@@ -1073,7 +1093,13 @@ def _verified_block_rectangle(
         f"{_fence('geometry', spec)}"
     )
     lines.append("Do NOT recompute diagonal, angle, area, or perimeter.")
-    return VerifiedMathBlock(text="\n".join(lines), canonical_fence=spec.model_dump())
+    if intent.wants_perimeter:
+        answer = f"{rect_geo.perimeter:g}"
+    elif intent.wants_diagonal and not intent.wants_area:
+        answer = f"{rect_geo.diagonal:g}"
+    else:
+        answer = f"{rect_geo.area:g}"
+    return _diagram_block(lines, spec, answer)
 
 
 def _verified_block_square(
@@ -1108,7 +1134,7 @@ def _verified_block_square(
         f"When a diagram helps, emit ONLY this fence (NEVER ```json):\n{_fence('geometry', spec)}"
     )
     lines.append("Do NOT recompute diagonal, area, or perimeter.")
-    return VerifiedMathBlock(text="\n".join(lines), canonical_fence=spec.model_dump())
+    return _diagram_block(lines, spec, f"{square_geo.area:g}")
 
 
 def _verified_block_circle(
@@ -1142,7 +1168,7 @@ def _verified_block_circle(
         f"{_fence('geometry', circle_spec)}"
     )
     lines.append("Do NOT recompute diameter, area, or circumference.")
-    return VerifiedMathBlock(text="\n".join(lines), canonical_fence=circle_spec.model_dump())
+    return _diagram_block(lines, circle_spec, f"{circle_geo.area:.2f}")
 
 
 def _verified_block_triangle(
@@ -1173,7 +1199,7 @@ def _verified_block_triangle(
         f"{_fence('geometry', tri_spec)}"
     )
     lines.append("Do NOT recompute area.")
-    return VerifiedMathBlock(text="\n".join(lines), canonical_fence=tri_spec.model_dump())
+    return _diagram_block(lines, tri_spec, f"{tri_geo.area:g}")
 
 
 def _verified_block_right_triangle(
@@ -1207,7 +1233,7 @@ def _verified_block_right_triangle(
         f"{_fence('geometry', rt_spec)}"
     )
     lines.append("Do NOT recompute hypotenuse or area.")
-    return VerifiedMathBlock(text="\n".join(lines), canonical_fence=rt_spec.model_dump())
+    return _diagram_block(lines, rt_spec, f"{rt_geo.area:g}")
 
 
 def _verified_block_triangle_sides(
@@ -1249,7 +1275,7 @@ def _verified_block_triangle_sides(
     lines.append(
         "Do NOT recompute area, perimeter, or angles — this is Heron's formula + the law of cosines."
     )
-    return VerifiedMathBlock(text="\n".join(lines), canonical_fence=tri_spec.model_dump())
+    return _diagram_block(lines, tri_spec, f"{tri_geo.area:g}")
 
 
 def _verified_block_trapezoid(
@@ -1284,7 +1310,7 @@ def _verified_block_trapezoid(
         f"{_fence('geometry', trap_spec)}"
     )
     lines.append("Do NOT recompute area — area = (top + bottom) / 2 \\times height.")
-    return VerifiedMathBlock(text="\n".join(lines), canonical_fence=trap_spec.model_dump())
+    return _diagram_block(lines, trap_spec, f"{trap_geo.area:g}")
 
 
 def _verified_block_parallelogram(
@@ -1318,7 +1344,7 @@ def _verified_block_parallelogram(
         f"{_fence('geometry', para_spec)}"
     )
     lines.append("Do NOT recompute area or perimeter.")
-    return VerifiedMathBlock(text="\n".join(lines), canonical_fence=para_spec.model_dump())
+    return _diagram_block(lines, para_spec, f"{para_geo.area:g}")
 
 
 def _verified_block_sector(
@@ -1349,7 +1375,7 @@ def _verified_block_sector(
         f"{_fence('geometry', sector_spec)}"
     )
     lines.append("Do NOT recompute arc length or area.")
-    return VerifiedMathBlock(text="\n".join(lines), canonical_fence=sector_spec.model_dump())
+    return _diagram_block(lines, sector_spec, f"{sector_geo.area:g}")
 
 
 def _verified_block_point(
@@ -1372,7 +1398,7 @@ def _verified_block_point(
         "to mark this one coordinate, nothing else:\n"
         f"{_fence('graph', point_spec)}"
     )
-    return VerifiedMathBlock(text="\n".join(lines), canonical_fence=point_spec.model_dump())
+    return _diagram_block(lines, point_spec, f"({px:g}, {py:g})")
 
 
 def _verified_block_vertical(
@@ -1397,7 +1423,7 @@ def _verified_block_vertical(
         "(the app renders the fence as an SVG):\n"
         f"{_fence('graph', vert_spec)}"
     )
-    return VerifiedMathBlock(text="\n".join(lines), canonical_fence=vert_spec.model_dump())
+    return _diagram_block(lines, vert_spec, f"{vx:g}")
 
 
 def _verified_block_graph(
@@ -1421,7 +1447,7 @@ def _verified_block_graph(
             "(the app renders the fence as an SVG):\n"
             f"{_fence('graph', ellipse_spec)}"
         )
-        return VerifiedMathBlock(text="\n".join(lines), canonical_fence=ellipse_spec.model_dump())
+        return _diagram_block(lines, ellipse_spec)
 
     line_spec = math_service.number_line_spec_from_expr(
         intent.expr[: settings.math_max_expr_length], intent.variable
@@ -1439,7 +1465,7 @@ def _verified_block_graph(
             "(the app renders the fence as an SVG):\n"
             f"{_fence('graph', line_spec)}"
         )
-        return VerifiedMathBlock(text="\n".join(lines), canonical_fence=line_spec.model_dump())
+        return _diagram_block(lines, line_spec)
 
     sample = math_service.sample_function(
         GraphSampleInput(
@@ -1477,7 +1503,7 @@ def _verified_block_graph(
         "(the app renders the fence as an SVG):\n"
         f"{_fence('graph', graph_spec)}"
     )
-    return VerifiedMathBlock(text="\n".join(lines), canonical_fence=graph_spec.model_dump())
+    return _diagram_block(lines, graph_spec)
 
 
 def _verified_block_graph_pair(
@@ -1529,7 +1555,7 @@ def _verified_block_graph_pair(
         "(the app renders both curves as one SVG, color-coded with a legend):\n"
         f"{_fence('graph', graph_spec)}"
     )
-    return VerifiedMathBlock(text="\n".join(lines), canonical_fence=graph_spec.model_dump())
+    return _diagram_block(lines, graph_spec)
 
 
 def _verified_block_calculus(

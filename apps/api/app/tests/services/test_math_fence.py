@@ -172,6 +172,31 @@ def test_leaves_answer_fence_when_canonical_is_geometry() -> None:
     assert out == content
 
 
+def test_rewrites_answer_fence_when_geometry_has_canonical_answer() -> None:
+    from app.services.math_tools import VerifiedMathBlock
+
+    content = (
+        '```geometry\n{"type":"rectangle","width":4,"height":5,"diagonal":99}\n```\n'
+        "```answer\n99\n```"
+    )
+    verified = VerifiedMathBlock(
+        text="unused",
+        canonical_fence={
+            "type": "rectangle",
+            "width": 4,
+            "height": 5,
+            "area": 20,
+            "diagonal": 6.403,
+        },
+        canonical_answer="20",
+    )
+    out = validate_math_fences(content, verified=verified)
+    assert '"diagonal":6.403' in out
+    assert '"diagonal":99' not in out
+    assert "```answer\n20\n```" in out
+    assert "```answer\n99\n```" not in out
+
+
 def test_densifies_unverified_sparse_function_graph_fence() -> None:
     """Key-point sketches (vertex + intercepts) must be resampled so the
     client draws a curve, not a 3-point V. Point-marker fences stay sparse.
