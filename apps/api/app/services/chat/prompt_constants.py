@@ -435,6 +435,7 @@ INTENT_FORMAT_HINT = (
     "  - Never invent geometry/graph dimensions; only use measures the user stated "
     "or that a verified system block provides.\n"
     "  - Show numbered solution steps, then the final answer in ```answer.\n"
+    "  - Never use a ```steps fence for math homework (that card is not the solver UI).\n"
     '  - Write each step number as its own plain-text line (e.g. "2. Simplify the left '
     'side:") then the formula in `$...$` on that line or the next — not inside a '
     "```math fence.\n"
@@ -510,7 +511,9 @@ MATH_SOLVER_HINT = (
     'Right triangle: ```geometry\n{"type":"right_triangle","base":6,"height":4,"unit":"cm",'
     '"show_labels":true,"show_hypotenuse":true,"show_angle":true}\n```\n'
     "  When the user asks for degrees/angles, label EVERY interior vertex "
-    "(not only the 90° square) using the verified values.\n"
+    "(not only the 90° square) using the verified values. "
+    "If they gave angles only (e.g. 120°, 40°, 20°), use the verified fence: "
+    "sides are relative units from the law of sines — NEVER invent centimetres.\n"
     'Circle: ```geometry\n{"type":"circle","radius":4,"unit":"cm","show_diameter":true,'
     '"show_area":true,"show_circumference":true}\n```\n'
     'Trapezoid: ```geometry\n{"type":"trapezoid","top":4,"bottom":8,"height":5,"unit":"cm",'
@@ -648,7 +651,8 @@ SHORT_MATH_SAFETY_HINT = (
     "result in a ```answer fence. NEVER ```latex, ```tex, ```copy, or an untagged ``` code "
     "fence for arithmetic or LaTeX. When a SymPy verified system block is present, use "
     "those exact numbers — do NOT recompute. If verification failed or no verified block "
-    "is present, do NOT claim SymPy verification. Never invent geometry dimensions."
+    "is present, do NOT claim SymPy verification. Never invent geometry dimensions. "
+    "If showing work: numbered `$...$` lines then ```answer — never a ```steps fence."
 )
 
 STYLE_OUTPUT_TOKEN_CAP = {

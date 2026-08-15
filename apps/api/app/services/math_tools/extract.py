@@ -327,6 +327,35 @@ def _extract_sector_intent(cleaned: str) -> MathIntent | None:
     return None
 
 
+def _extract_triangle_angles_intent(cleaned: str) -> MathIntent | None:
+    """AAA (and angle-sum) triangles — law of sines with relative side units.
+
+    Must run before the generic draw-a-triangle default (base=8, height=5)
+    so "triangle with 120, 40, 20" is not an invented isosceles.
+    """
+    from app.services import math_service
+    from app.services import math_text_match as mtm
+
+    if mtm.geometry_deferred_for_algebra(cleaned.lower()):
+        return None
+    angles = mtm.triangle_angles_signal(cleaned)
+    if angles is None:
+        return None
+    try:
+        side_a, side_b, side_c = math_service.sides_from_interior_angles(*angles)
+    except math_service.MathServiceError:
+        return None
+    return MathIntent(
+        kind="triangle_sides",
+        tri_a=side_a,
+        tri_b=side_b,
+        tri_c=side_c,
+        unit="units",
+        operation="solve",
+        wants_angle=True,
+    )
+
+
 def _extract_triangle_intent(cleaned: str) -> MathIntent | None:
     from app.services import math_text_match as mtm
 
@@ -644,6 +673,7 @@ _INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | None]] = (
     _extract_parallelogram_intent,
     _extract_right_triangle_intent,
     _extract_triangle_sides_intent,
+    _extract_triangle_angles_intent,
     _extract_triangle_intent,
     _extract_point_intent,
     _extract_vertical_intent,

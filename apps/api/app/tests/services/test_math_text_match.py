@@ -230,6 +230,18 @@ class TestTriangleSidesSignal:
     def test_triangle_sides_signal_requires_triangle_word(self):
         assert mtm.triangle_sides_signal("sides 3, 4, 5") is None
 
+    def test_triangle_angles_signal_aaa(self):
+        assert mtm.triangle_angles_signal("A triangle with 120, 40, 20") == (
+            120.0,
+            40.0,
+            20.0,
+        )
+        assert mtm.triangle_angles_signal("triangle with sides 3, 4, 5") is None
+        assert mtm.triangle_angles_signal("triangle base 8 height 5") is None
+
+    def test_needs_symbolic_angle_only_triangle(self):
+        assert mtm.needs_symbolic("A triangle with 120, 40, 20")
+
 
 class TestStatsSignal:
     def test_stats_signal_mean(self):

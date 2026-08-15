@@ -27,6 +27,21 @@ class TestTriangleSidesGeometry:
         with pytest.raises(ValueError):
             TriangleSidesInput(a=1, b=1, c=10)
 
+    def test_format_degree_label_rounds_near_integers(self):
+        assert math_service.format_degree_label(119.9) == "120°"
+        assert math_service.format_degree_label(90.0) == "90°"
+        assert math_service.format_degree_label(36.87) == "36.9°"
+
+    def test_sides_from_120_40_20_round_trip_angles(self):
+        a, b, c = math_service.sides_from_interior_angles(120, 40, 20)
+        result = math_service.triangle_sides_geometry(
+            TriangleSidesInput(a=a, b=b, c=c, unit="units")
+        )
+        assert result.labels["angle_a"] == "120°"
+        assert result.labels["angle_b"] == "40°"
+        assert result.labels["angle_c"] == "20°"
+        assert result.unit == "units"
+
 
 class TestTrapezoidGeometry:
     def test_area(self):
@@ -111,6 +126,27 @@ class TestAugmentPromptMessagesForNewShapes:
         assert verified.canonical_fence["show_ticks"] is True
         # Scalene — no extra interior cues unless the user asked for them.
         assert verified.canonical_fence["show_median"] is False
+
+    @pytest.mark.asyncio
+    async def test_angle_only_triangle_uses_relative_units_not_cm(self):
+        settings = Settings(
+            mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
+        )
+        text = "A triangle with 120, 40, 20"
+        messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
+        out, verified = await math_tools.augment_prompt_messages(messages, text, settings)
+        assert verified is not None
+        assert verified.canonical_fence is not None
+        assert verified.canonical_fence["type"] == "triangle_sides"
+        assert verified.canonical_fence["unit"] == "units"
+        labels = verified.canonical_fence["labels"]
+        assert labels["angle_a"] == "120°"
+        assert labels["angle_b"] == "40°"
+        assert labels["angle_c"] == "20°"
+        injected = " ".join(m["content"] for m in out if m["role"] == "system")
+        assert "centimetres" in injected.lower()
+        assert verified.canonical_answer is not None
+        assert "120°" in verified.canonical_answer
 
     @pytest.mark.asyncio
     async def test_isosceles_triangle_sides_enables_median_cue(self):

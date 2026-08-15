@@ -164,7 +164,7 @@ async def build_math_augmentation(
         return "\n".join(lines), None
 
     if intent is None:
-        return None, None
+        return _unverified_math_note("unknown"), None
 
     from app.services import math_tools as mt
 
@@ -185,7 +185,9 @@ def _unverified_math_note(kind: str) -> str:
         "Explain carefully and show your work. Do NOT claim the answer was "
         "SymPy-verified. You may still use a ```answer fence for the final "
         "result, but mark uncertainty when you are unsure. "
-        "Do not invent geometry/graph dimensions or point lists."
+        "Do not invent geometry/graph dimensions or point lists. "
+        "Do not emit a ```geometry fence unless the user stated the measures "
+        "(or a verified system block provided them)."
     )
 
 

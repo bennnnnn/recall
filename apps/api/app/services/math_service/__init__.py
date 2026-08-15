@@ -32,10 +32,12 @@ from app.services.math_service.extract_eq import (
 )
 from app.services.math_service.geometry import (
     circle_geometry,
+    format_degree_label,
     parallelogram_geometry,
     rectangle_geometry,
     right_triangle_geometry,
     sector_geometry,
+    sides_from_interior_angles,
     solid_geometry,
     square_geometry,
     trapezoid_geometry,
@@ -83,6 +85,7 @@ __all__ = [
     "expand_expression",
     "expr_looks_like_inequality",
     "factor_expression",
+    "format_degree_label",
     "guess_variables",
     "integrate_definite",
     "integrate_expression",
@@ -96,6 +99,7 @@ __all__ = [
     "sample_ellipse",
     "sample_function",
     "sector_geometry",
+    "sides_from_interior_angles",
     "simplify_expression",
     "solid_geometry",
     "solve_compound_inequality",

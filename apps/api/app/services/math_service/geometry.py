@@ -28,6 +28,34 @@ from app.models.math_schemas import (
 )
 from app.services.math_service.parse import MathServiceError
 
+_ANGLE_INT_TOL_DEG = 0.11
+
+
+def format_degree_label(deg: float) -> str:
+    """School labels: ``120°`` not ``119.9°`` when the value is a near-integer."""
+    nearest = round(deg)
+    if abs(deg - nearest) < _ANGLE_INT_TOL_DEG:
+        return f"{int(nearest)}°"
+    return f"{round(deg, 1):.1f}°"
+
+
+def sides_from_interior_angles(
+    angle_a: float,
+    angle_b: float,
+    angle_c: float,
+) -> tuple[float, float, float]:
+    """Law of sines with the smallest opposite side scaled to 1 (relative units)."""
+    if min(angle_a, angle_b, angle_c) <= 0 or max(angle_a, angle_b, angle_c) >= 180:
+        raise MathServiceError("each interior angle must be between 0° and 180°")
+    if abs(angle_a + angle_b + angle_c - 180.0) > 0.6:
+        raise MathServiceError("interior angles must sum to 180°")
+    smallest = min(angle_a, angle_b, angle_c)
+    k = 1.0 / math.sin(math.radians(smallest))
+    side_a = k * math.sin(math.radians(angle_a))
+    side_b = k * math.sin(math.radians(angle_b))
+    side_c = k * math.sin(math.radians(angle_c))
+    return round(side_a, 4), round(side_b, 4), round(side_c, 4)
+
 
 def rectangle_geometry(data: RectangleGeometryInput) -> RectangleGeometryResult:
     w, h = data.width, data.height
@@ -195,8 +223,8 @@ def right_triangle_geometry(data: RightTriangleGeometryInput) -> RightTriangleGe
         "hypotenuse": f"{hypotenuse:.2f} {unit}",
         "area": f"{area:g} {unit}²",
         "angle": "90°",
-        "angle_at_base": f"{angle_at_base:.1f}°",
-        "angle_at_height": f"{angle_at_height:.1f}°",
+        "angle_at_base": format_degree_label(angle_at_base),
+        "angle_at_height": format_degree_label(angle_at_height),
     }
     return RightTriangleGeometryResult(
         base=b,
@@ -247,9 +275,9 @@ def triangle_sides_geometry(data: TriangleSidesInput) -> TriangleSidesResult:
         "c": f"{c:g} {unit}",
         "area": f"{area:.2f} {unit}²",
         "perimeter": f"{perimeter:g} {unit}",
-        "angle_a": f"{angle_a:.1f}°",
-        "angle_b": f"{angle_b:.1f}°",
-        "angle_c": f"{angle_c:.1f}°",
+        "angle_a": format_degree_label(angle_a),
+        "angle_b": format_degree_label(angle_b),
+        "angle_c": format_degree_label(angle_c),
     }
     return TriangleSidesResult(
         a=a,

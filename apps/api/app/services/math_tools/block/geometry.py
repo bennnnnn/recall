@@ -295,6 +295,16 @@ def _verified_block_triangle_sides(
         "When a diagram helps, emit ONLY this fence (NEVER ```json):\n"
         f"{_fence('geometry', tri_spec)}"
     )
+    if intent.unit == "units":
+        lines.append(
+            "The user gave interior angles only. Sides are relative (law of sines) "
+            "with unit 'units' — do NOT call them centimetres or invent a side in cm. "
+            "Copy the degree labels from the fence (near-integers are already rounded)."
+        )
+        answer = (
+            f"{tri_geo.labels['angle_a']}, {tri_geo.labels['angle_b']}, {tri_geo.labels['angle_c']}"
+        )
+        return _diagram_block(lines, tri_spec, answer)
     lines.append(
         "Do NOT recompute area, perimeter, or angles — "
         "this is Heron's formula + the law of cosines."

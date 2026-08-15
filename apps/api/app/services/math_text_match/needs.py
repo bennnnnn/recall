@@ -9,7 +9,11 @@ from app.services.math_text_match.discrete import (
     number_theory_signal,
     stats_signal,
 )
-from app.services.math_text_match.geometry import parse_solid, triangle_sides_signal
+from app.services.math_text_match.geometry import (
+    parse_solid,
+    triangle_angles_signal,
+    triangle_sides_signal,
+)
 from app.services.math_text_match.graph import (
     bare_coord,
     graph_expr,
@@ -74,6 +78,8 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     ):
         return True
     if triangle_sides_signal(cleaned) is not None:
+        return True
+    if triangle_angles_signal(cleaned) is not None:
         return True
     if parse_solid(cleaned) is not None:
         return True
