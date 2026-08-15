@@ -63,6 +63,8 @@ from app.models.math_schemas import (
     RightTriangleGeometryResult,
     SectorInput,
     SectorResult,
+    SolidGeometryInput,
+    SolidGeometryResult,
     SquareGeometryInput,
     SquareGeometryResult,
     StatisticsInput,
@@ -688,6 +690,92 @@ def square_geometry(data: SquareGeometryInput) -> SquareGeometryResult:
         diagonal=round(diagonal, 4),
         area=round(area, 4),
         perimeter=round(perimeter, 4),
+        labels=labels,
+    )
+
+
+def solid_geometry(data: SolidGeometryInput) -> SolidGeometryResult:
+    """School volume and total surface area. Uses the same π as circle_geometry."""
+    unit = data.unit
+    shape = data.shape
+    volume: float
+    surface: float
+    extra: dict[str, str] = {}
+
+    if shape == "cube":
+        if data.side is None:
+            raise MathServiceError("cube requires side")
+        s = data.side
+        volume = s * s * s
+        surface = 6 * s * s
+        extra["side"] = f"{s:g} {unit}"
+    elif shape == "rectangular_prism":
+        if data.width is None or data.height is None or data.depth is None:
+            raise MathServiceError("rectangular prism requires three edges")
+        length, w, h = data.width, data.depth, data.height
+        volume = length * w * h
+        surface = 2 * (length * w + length * h + w * h)
+        extra["length"] = f"{length:g} {unit}"
+        extra["width"] = f"{w:g} {unit}"
+        extra["height"] = f"{h:g} {unit}"
+    elif shape == "cylinder":
+        if data.radius is None or data.height is None:
+            raise MathServiceError("cylinder requires radius and height")
+        r, h = data.radius, data.height
+        volume = math.pi * r * r * h
+        surface = 2 * math.pi * r * (r + h)
+        extra["radius"] = f"{r:g} {unit}"
+        extra["height"] = f"{h:g} {unit}"
+    elif shape == "cone":
+        if data.radius is None or data.height is None:
+            raise MathServiceError("cone requires radius and height")
+        r, h = data.radius, data.height
+        slant = math.sqrt(r * r + h * h)
+        volume = (1.0 / 3.0) * math.pi * r * r * h
+        surface = math.pi * r * (r + slant)
+        extra["radius"] = f"{r:g} {unit}"
+        extra["height"] = f"{h:g} {unit}"
+        extra["slant"] = f"{slant:.2f} {unit}"
+    elif shape == "sphere":
+        if data.radius is None:
+            raise MathServiceError("sphere requires radius")
+        r = data.radius
+        volume = (4.0 / 3.0) * math.pi * r * r * r
+        surface = 4 * math.pi * r * r
+        extra["radius"] = f"{r:g} {unit}"
+    elif shape == "pyramid":
+        pyr_h = data.height
+        if pyr_h is None:
+            raise MathServiceError("pyramid requires height")
+        if data.side is not None:
+            s = data.side
+            volume = (1.0 / 3.0) * s * s * pyr_h
+            slant = math.sqrt(pyr_h * pyr_h + (s / 2.0) * (s / 2.0))
+            surface = s * s + 2 * s * slant
+            extra["base"] = f"{s:g} {unit}"
+        elif data.width is not None and data.depth is not None:
+            length, w = data.width, data.depth
+            volume = (1.0 / 3.0) * length * w * pyr_h
+            face_l = math.sqrt(pyr_h * pyr_h + (w / 2.0) * (w / 2.0))
+            face_w = math.sqrt(pyr_h * pyr_h + (length / 2.0) * (length / 2.0))
+            surface = length * w + length * face_l + w * face_w
+            extra["length"] = f"{length:g} {unit}"
+            extra["width"] = f"{w:g} {unit}"
+        else:
+            raise MathServiceError("pyramid requires base side or length and width")
+        extra["height"] = f"{pyr_h:g} {unit}"
+    else:
+        raise MathServiceError(f"unsupported solid {shape}")
+
+    uses_pi = shape in {"cylinder", "cone", "sphere"}
+    vol_label = f"{volume:.2f} {unit}³" if uses_pi else f"{volume:g} {unit}³"
+    sa_label = f"{surface:.2f} {unit}²" if uses_pi else f"{surface:g} {unit}²"
+    labels = {**extra, "volume": vol_label, "surface_area": sa_label}
+    return SolidGeometryResult(
+        shape=shape,
+        volume=round(volume, 4),
+        surface_area=round(surface, 4),
+        unit=unit,
         labels=labels,
     )
 

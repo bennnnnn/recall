@@ -25,6 +25,7 @@ class TestNeedsSymbolic:
             "draw a rectangle 8 by 5",
             "draw a circle radius 4",
             "find the mean of 1, 2, 3, 4",
+            "volume of a cube with side 5",
             "5!",
             "is 17 prime?",
             "determinant of [[1,2],[3,4]]",
@@ -41,6 +42,7 @@ class TestNeedsSymbolic:
             "what do you mean by that",
             "the tech sector is growing",  # "sector" alone is not geometry
             "what is a trapezoid",  # bare shape name, no measures/draw cue
+            "what is a cylinder",
             "see you later",
         ],
     )
@@ -126,6 +128,34 @@ class TestFirstDimPair:
 
     def test_first_dim_pair_none_when_no_pair(self):
         assert mtm.first_dim_pair("just some text") is None
+
+
+class TestFirstDimTriple:
+    def test_three_edges(self):
+        assert mtm.first_dim_triple("3 by 4 by 5 cm") == (3.0, 4.0, 5.0, "cm")
+        assert mtm.first_dim_triple("3x4x5") == (3.0, 4.0, 5.0, "cm")
+
+    def test_pair_is_not_a_triple(self):
+        assert mtm.first_dim_triple("8 by 5 cm") is None
+
+
+class TestParseSolid:
+    def test_cube_volume(self):
+        parsed = mtm.parse_solid("volume of a cube with side 5 cm")
+        assert parsed is not None
+        assert parsed.shape == "cube"
+        assert parsed.side == 5.0
+        assert parsed.wants_volume is True
+
+    def test_prism_triple(self):
+        parsed = mtm.parse_solid("volume of a rectangular prism 3 by 4 by 5")
+        assert parsed is not None
+        assert parsed.shape == "rectangular_prism"
+        assert (parsed.width, parsed.depth, parsed.height) == (3.0, 4.0, 5.0)
+
+    def test_bare_shape_without_measures(self):
+        assert mtm.parse_solid("what is a cylinder") is None
+        assert mtm.parse_solid("cube root of 8") is None
 
 
 class TestNumberAfter:

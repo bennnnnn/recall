@@ -272,6 +272,24 @@ class SquareGeometryResult(BaseModel):
     labels: dict[str, str] = Field(default_factory=dict)
 
 
+class SolidGeometryInput(BaseModel):
+    shape: Literal["cube", "rectangular_prism", "cylinder", "cone", "sphere", "pyramid"]
+    width: float | None = Field(default=None, gt=0, le=1_000_000)
+    height: float | None = Field(default=None, gt=0, le=1_000_000)
+    depth: float | None = Field(default=None, gt=0, le=1_000_000)
+    side: float | None = Field(default=None, gt=0, le=1_000_000)
+    radius: float | None = Field(default=None, gt=0, le=1_000_000)
+    unit: str = Field(default="cm", max_length=16)
+
+
+class SolidGeometryResult(BaseModel):
+    shape: Literal["cube", "rectangular_prism", "cylinder", "cone", "sphere", "pyramid"]
+    volume: float
+    surface_area: float
+    unit: str
+    labels: dict[str, str] = Field(default_factory=dict)
+
+
 class TriangleGeometryInput(BaseModel):
     base: float = Field(gt=0, le=1_000_000)
     height: float = Field(gt=0, le=1_000_000)
@@ -768,6 +786,7 @@ class MathIntent(BaseModel):
         "parallelogram",
         "sector",
         "graph_pair",
+        "solid",
     ]
     lhs: str | None = None
     rhs: str | None = None
@@ -856,3 +875,11 @@ class MathIntent(BaseModel):
     # Second function for a "graph y=x^2 and y=2x" comparison plot — `expr`/
     # `variable` above hold the first curve, unchanged for every other kind.
     expr2: str | None = None
+    # 3D solids — volume / surface area. Reuses width/height/side/radius;
+    # depth is the third prism (or rectangular-pyramid) edge.
+    solid_shape: (
+        Literal["cube", "rectangular_prism", "cylinder", "cone", "sphere", "pyramid"] | None
+    ) = None
+    depth: float | None = None
+    wants_volume: bool = False
+    wants_surface_area: bool = False
