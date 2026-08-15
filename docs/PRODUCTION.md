@@ -65,8 +65,8 @@ Required for production attachments (`STORAGE_BACKEND=r2`).
 | `OPENROUTER_API_KEY` | yes | |
 | `CORS_ORIGINS` | yes | Explicit origins, never `*` |
 | `OAUTH_TOKEN_ENCRYPTION_KEY` | yes | Fernet key |
-| `REVENUECAT_WEBHOOK_AUTH` | yes | If monetizing |
-| `REVENUECAT_SECRET_KEY` | if monetizing | |
+| `REVENUECAT_WEBHOOK_AUTH` | yes | Shared secret for the webhook |
+| `REVENUECAT_SECRET_KEY` | yes | REST API; TRANSFER + plan sync |
 | `TAVILY_API_KEY` | if web search | |
 | R2 vars | yes | See §3 |
 

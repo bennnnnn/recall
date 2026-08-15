@@ -1628,6 +1628,135 @@ def test_revenuecat_webhook_transfer_downgrades_old_and_syncs_new():
     assert kwargs["transferred_from"] == [str(old_uid)]
 
 
+def test_revenuecat_webhook_transfer_failure_does_not_dedup():
+    import fakeredis.aioredis
+
+    from app.core.config import get_settings
+    from app.core.deps import get_redis
+
+    old_uid = uuid4()
+    new_uid = uuid4()
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        environment="development",
+        revenuecat_webhook_auth="",
+        dev_allow_unauthed_webhooks=True,
+    )
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    app.dependency_overrides[get_redis] = lambda: fake_redis
+
+    payload = {
+        "event": {
+            "type": "TRANSFER",
+            "event_id": "evt_transfer_fail",
+            "app_user_id": str(new_uid),
+            "transferred_from": [str(old_uid)],
+        }
+    }
+
+    with patch(
+        "app.routers.webhooks.subscription_service.handle_revenuecat_transfer",
+        AsyncMock(return_value=False),
+    ) as transfer_mock:
+        client = TestClient(app)
+        r1 = client.post("/webhooks/revenuecat", json=payload)
+        r2 = client.post("/webhooks/revenuecat", json=payload)
+
+    assert r1.status_code == 204
+    assert r2.status_code == 204
+    assert transfer_mock.await_count == 2
+
+
+def test_revenuecat_webhook_malformed_transfer_is_not_deduped():
+    import fakeredis.aioredis
+
+    from app.core.config import get_settings
+    from app.core.deps import get_redis
+
+    uid = uuid4()
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        environment="development",
+        revenuecat_webhook_auth="",
+        dev_allow_unauthed_webhooks=True,
+    )
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    app.dependency_overrides[get_redis] = lambda: fake_redis
+
+    payload = {
+        "event": {
+            "type": "TRANSFER",
+            "event_id": "evt_transfer_blank",
+            "app_user_id": str(uid),
+            "original_app_user_id": str(uid),
+        }
+    }
+    # Blank target after strip — _dispatch_event must return False.
+    payload["event"]["app_user_id"] = "   "
+
+    with patch(
+        "app.routers.webhooks.subscription_service.handle_revenuecat_transfer",
+        AsyncMock(),
+    ) as transfer_mock:
+        client = TestClient(app)
+        r1 = client.post("/webhooks/revenuecat", json=payload)
+        r2 = client.post("/webhooks/revenuecat", json=payload)
+
+    assert r1.status_code == 204
+    assert r2.status_code == 204
+    transfer_mock.assert_not_awaited()
+
+
+def test_verify_auth_non_ascii_header_is_401():
+    from fastapi import HTTPException
+
+    from app.routers.webhooks import _verify_auth
+
+    settings = Settings(revenuecat_webhook_auth="whsec-secret")
+    with pytest.raises(HTTPException) as exc:
+        _verify_auth("\x80whsec-secret", settings)
+    assert exc.value.status_code == 401
+
+
+def test_revenuecat_webhook_subscriber_lock_busy_returns_503():
+    import fakeredis.aioredis
+
+    from app.core.config import get_settings
+    from app.core.deps import get_redis
+    from app.routers import webhooks as webhooks_mod
+
+    uid = uuid4()
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        environment="development",
+        revenuecat_webhook_auth="",
+        dev_allow_unauthed_webhooks=True,
+    )
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    app.dependency_overrides[get_redis] = lambda: fake_redis
+
+    payload = {
+        "event": {
+            "type": "RENEWAL",
+            "event_id": "evt_busy",
+            "app_user_id": str(uid),
+        }
+    }
+
+    with (
+        patch.object(webhooks_mod, "acquire_lock", AsyncMock(return_value=None)),
+        patch(
+            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            AsyncMock(return_value=True),
+        ) as apply_mock,
+    ):
+        client = TestClient(app)
+        r = client.post("/webhooks/revenuecat", json=payload)
+
+    assert r.status_code == 503
+    apply_mock.assert_not_awaited()
+
+
 # ── admin DLQ ─────────────────────────────────────────────────────────────────
 
 

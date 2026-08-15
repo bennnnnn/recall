@@ -104,7 +104,7 @@ host that keeps the process alive — not a serverless function platform. A Dock
    - `GOOGLE_CLIENT_ID=` · `GOOGLE_CLIENT_SECRET=`
    - `OPENROUTER_API_KEY=`
    - `CORS_ORIGINS=https://app.recall.app` (explicit; never `*` in prod)
-   - `REVENUECAT_WEBHOOK_AUTH=` (and `REVENUECAT_SECRET_KEY=` if monetizing)
+   - `REVENUECAT_WEBHOOK_AUTH=` · `REVENUECAT_SECRET_KEY=`
    - `OAUTH_TOKEN_ENCRYPTION_KEY=` (or `./scripts/generate-prod-secrets.sh`)
    - `STORAGE_BACKEND=r2` · `R2_ACCOUNT_ID` · `R2_ACCESS_KEY_ID` ·
      `R2_SECRET_ACCESS_KEY` · `R2_BUCKET`

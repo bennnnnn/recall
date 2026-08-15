@@ -16,6 +16,7 @@ from app.core.config import Settings, get_settings
 from app.core.db import get_db
 from app.core.deps import get_redis
 from app.core.jobs import enqueue_purchase_receipt
+from app.core.redis_lock import acquire_lock, release_lock
 from app.services import subscription as subscription_service
 
 logger = logging.getLogger(__name__)
@@ -59,6 +60,19 @@ def _lock_key(event_id: str) -> str:
     return f"rcwebhook:lock:{event_id}"
 
 
+def _subscriber_lock_key(app_user_id: str) -> str:
+    return f"rcwebhook:user:{app_user_id}"
+
+
+def _secrets_match(candidate: str, expected: str) -> bool:
+    # hmac.compare_digest(str, str) raises TypeError on non-ASCII. Starlette
+    # decodes headers as latin-1, so a 0x80-0xFF byte would 500 this
+    # rate-limit-exempt route instead of 401.
+    if not candidate.isascii() or not expected.isascii():
+        return False
+    return hmac.compare_digest(candidate, expected)
+
+
 async def _already_processed(redis: Redis, event_id: str) -> bool:
     return bool(await redis.exists(_done_key(event_id)))
 
@@ -94,7 +108,7 @@ def _verify_auth(authorization: str | None, settings: Settings) -> None:
     candidates = (
         [token, token.removeprefix("Bearer ").strip()] if token.startswith("Bearer ") else [token]
     )
-    authorized = any(hmac.compare_digest(c, expected) for c in candidates)
+    authorized = any(_secrets_match(c, expected) for c in candidates)
     if not authorized:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
@@ -229,18 +243,19 @@ async def _dispatch_event(
     intentionally ignore, which are safe to reprocess if replayed."""
     if event_type == "TRANSFER":
         event = payload.get("event")
-        if isinstance(event, dict):
-            new_id = event.get("app_user_id")
-            old_ids = event.get("transferred_from") or []
-            if isinstance(new_id, str) and new_id.strip():
-                from_list = old_ids if isinstance(old_ids, list) else []
-                await subscription_service.handle_revenuecat_transfer(
-                    session,
-                    settings,
-                    new_app_user_id=new_id,
-                    transferred_from=[oid for oid in from_list if isinstance(oid, str)],
-                )
-        return True
+        if not isinstance(event, dict):
+            return False
+        new_id = event.get("app_user_id")
+        old_ids = event.get("transferred_from") or []
+        if not isinstance(new_id, str) or not new_id.strip():
+            return False
+        from_list = old_ids if isinstance(old_ids, list) else []
+        return await subscription_service.handle_revenuecat_transfer(
+            session,
+            settings,
+            new_app_user_id=new_id,
+            transferred_from=[oid for oid in from_list if isinstance(oid, str)],
+        )
     if event_type in _PRO_EVENTS:
         applied = await subscription_service.apply_plan_for_app_user_id(
             session,
@@ -355,6 +370,17 @@ async def revenuecat_webhook(
 
     event_type = _event_type(payload)
     event_ts = _event_timestamp_ms(payload)
+    # Per-subscriber lock (separate from the per-event_id claim): two different
+    # events for the same user must not both pass the watermark check-then-act.
+    subscriber_key = _subscriber_lock_key(app_user_id)
+    subscriber_token = await acquire_lock(redis, subscriber_key, _EVENT_CLAIM_TTL)
+    if subscriber_token is None:
+        if claimed and event_id:
+            await _release_claim(redis, event_id)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="RevenueCat webhook busy for subscriber",
+        )
     try:
         if (
             event_ts is not None
@@ -389,5 +415,6 @@ async def revenuecat_webhook(
         if processed and event_id:
             await _mark_processed(redis, event_id)
     finally:
+        await release_lock(redis, subscriber_key, subscriber_token)
         if claimed and event_id:
             await _release_claim(redis, event_id)
