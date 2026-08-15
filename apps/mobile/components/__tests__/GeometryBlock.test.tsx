@@ -160,4 +160,26 @@ describe("GeometryBlock", () => {
     expect(tree).toContain("altitude-line");
     expect(tree).toContain("median-line");
   });
+
+  it("hides labels when show_labels is false", async () => {
+    const content = JSON.stringify({
+      type: "triangle",
+      base: 8,
+      height: 5,
+      unit: "cm",
+      show_labels: false,
+    });
+    const { toJSON } = await render(<GeometryBlock content={content} />);
+    const tree = JSON.stringify(toJSON());
+    expect(tree).not.toContain("8 cm");
+    expect(tree).not.toContain("5 cm");
+  });
+
+  it("BUG FIX regression: SSS area label sits inside the SVG height", async () => {
+    const content = JSON.stringify({ type: "triangle_sides", a: 3, b: 4, c: 5, unit: "cm" });
+    const { getByTestId } = await render(<GeometryBlock content={content} />);
+    const svg = getByTestId("sss-svg");
+    const label = getByTestId("sss-area-label");
+    expect(Number(label.props.y)).toBeLessThan(Number(svg.props.height));
+  });
 });

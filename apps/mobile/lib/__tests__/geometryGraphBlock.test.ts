@@ -13,6 +13,7 @@ import {
   scaleToFit,
   sideTickMarks,
   parallelogramLayout,
+  baseHeightTriangleVertices,
 } from "@/lib/geometryBlock";
 import {
   expandBoundsForAxes,
@@ -73,6 +74,25 @@ describe("geometryBlock", () => {
     if (spec?.type === "triangle") {
       expect(spec.base).toBe(8);
       expect(spec.height).toBe(5);
+      expect(spec.show_labels).toBe(true);
+    }
+  });
+
+  it("BUG FIX regression: copies show_labels false so the renderer can hide labels", () => {
+    const spec = parseGeometrySpec(
+      '{"type":"triangle","base":8,"height":5,"show_labels":false}',
+    );
+    expect(spec?.type).toBe("triangle");
+    if (spec?.type === "triangle") {
+      expect(spec.show_labels).toBe(false);
+    }
+    const right = parseGeometrySpec(
+      '{"type":"right_triangle","base":3,"height":4,"show_hypotenuse":false,"show_angle":false}',
+    );
+    expect(right?.type).toBe("right_triangle");
+    if (right?.type === "right_triangle") {
+      expect(right.show_hypotenuse).toBe(false);
+      expect(right.show_angle).toBe(false);
     }
   });
 
@@ -83,6 +103,12 @@ describe("geometryBlock", () => {
       const labels = computeTriangleLabels(spec);
       expect(labels.area).toContain("20");
     }
+  });
+
+  it("BUG FIX regression: base+height vertices are not isosceles", () => {
+    const v = baseHeightTriangleVertices(8, 5);
+    expect(v.x2).not.toBeCloseTo((v.x0 + v.x1) / 2);
+    expect(v.x2).toBeCloseTo(2);
   });
 
   it("parses rectangle spec", () => {
