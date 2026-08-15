@@ -20,6 +20,7 @@ import {
   parseGeometrySpec,
   parallelogramLayout,
   polygonInteriorAngleMarks,
+  padDiagramForAngleLabels,
   rectangleAngleDisplay,
   scaleToFit,
   shouldShowTicks,
@@ -151,6 +152,17 @@ function VertexAngleGraphic({
           accessibilityLabel="interior-angle-arc"
         />
       )}
+      {mark.leader ? (
+        <Line
+          x1={mark.leader.x1}
+          y1={mark.leader.y1}
+          x2={mark.leader.x2}
+          y2={mark.leader.y2}
+          stroke={color}
+          strokeWidth={1}
+          accessibilityLabel="interior-angle-leader"
+        />
+      ) : null}
       <Rect
         x={mark.labelX - mark.labelWidth / 2}
         y={mark.labelY - mark.labelHeight / 2}
@@ -307,14 +319,27 @@ function TriangleDiagram({ spec, screenWidth, theme }: { spec: TriangleSpec; scr
   const showTicks = shouldShowTicks(spec.show_ticks, false);
   const showAltitude = spec.show_altitude !== false;
   const showAngle = spec.show_angle !== false;
+  let verts = [
+    { x: x0, y: y0 },
+    { x: x1, y: y1 },
+    { x: x2, y: y2 },
+  ];
+  let outW = svgW;
+  let outH = svgH;
+  if (showAngle) {
+    const padded = padDiagramForAngleLabels(verts, svgW, svgH);
+    verts = padded.vertices;
+    outW = padded.svgW;
+    outH = padded.svgH;
+  }
   const tickSegments = showTicks
-    ? [...sideTickMarks(x0, y0, x2, y2, 1), ...sideTickMarks(x1, y1, x2, y2, 1)]
+    ? [...sideTickMarks(verts[0].x, verts[0].y, verts[2].x, verts[2].y, 1), ...sideTickMarks(verts[1].x, verts[1].y, verts[2].x, verts[2].y, 1)]
     : [];
 
   return (
-    <Svg width={svgW} height={svgH}>
+    <Svg width={outW} height={outH}>
       <Polygon
-        points={`${x0},${y0} ${x1},${y1} ${x2},${y2}`}
+        points={`${verts[0].x},${verts[0].y} ${verts[1].x},${verts[1].y} ${verts[2].x},${verts[2].y}`}
         fill={theme.contentSurface}
         stroke={theme.primary}
         strokeWidth={2}
@@ -322,10 +347,10 @@ function TriangleDiagram({ spec, screenWidth, theme }: { spec: TriangleSpec; scr
       />
       {showAltitude ? (
         <Line
-          x1={x2}
-          y1={y2}
-          x2={x2}
-          y2={y0}
+          x1={verts[2].x}
+          y1={verts[2].y}
+          x2={verts[2].x}
+          y2={verts[0].y}
           stroke={colors.height}
           strokeWidth={2}
           strokeDasharray="5,4"
@@ -334,25 +359,30 @@ function TriangleDiagram({ spec, screenWidth, theme }: { spec: TriangleSpec; scr
       ) : null}
       {tickSegments.length > 0 ? <TickMarks segments={tickSegments} color={theme.textSecondary} /> : null}
       {showAngle ? (
-        <InteriorAngleMarks
-          vertices={[
-            { x: x0, y: y0 },
-            { x: x1, y: y1 },
-            { x: x2, y: y2 },
-          ]}
-          color={theme.textSecondary}
-          fill={theme.contentSurface}
-        />
+        <InteriorAngleMarks vertices={verts} color={theme.textSecondary} fill={theme.contentSurface} />
       ) : null}
       {showLabels ? (
         <>
-          <SvgText x={(x0 + x1) / 2} y={y0 + 18} fill={theme.text} fontSize={13} fontWeight="600" textAnchor="middle">
+          <SvgText
+            x={(verts[0].x + verts[1].x) / 2}
+            y={verts[0].y + 18}
+            fill={theme.text}
+            fontSize={13}
+            fontWeight="600"
+            textAnchor="middle"
+          >
             {labels.base}
           </SvgText>
-          <SvgText x={x2 + 10} y={(y2 + y0) / 2} fill={colors.height} fontSize={12} fontWeight="600">
+          <SvgText
+            x={verts[2].x + 10}
+            y={(verts[2].y + verts[0].y) / 2}
+            fill={colors.height}
+            fontSize={12}
+            fontWeight="600"
+          >
             {labels.height}
           </SvgText>
-          <SvgText x={x2} y={y2 - 8} fill={theme.textSecondary} fontSize={11} textAnchor="middle">
+          <SvgText x={verts[2].x} y={verts[2].y - 8} fill={theme.textSecondary} fontSize={11} textAnchor="middle">
             {labels.area}
           </SvgText>
         </>
@@ -386,38 +416,57 @@ function RightTriangleDiagram({
   const showLabels = spec.show_labels !== false;
   const showHyp = spec.show_hypotenuse !== false;
   const showAngle = spec.show_angle !== false;
+  let verts = [
+    { x: x0, y: y1 },
+    { x: x1, y: y1 },
+    { x: x0, y: y0 },
+  ];
+  let outW = svgW;
+  let outH = svgH;
+  if (showAngle) {
+    const padded = padDiagramForAngleLabels(verts, svgW, svgH);
+    verts = padded.vertices;
+    outW = padded.svgW;
+    outH = padded.svgH;
+  }
 
   return (
-    <Svg width={svgW} height={svgH}>
+    <Svg width={outW} height={outH}>
       <Polygon
-        points={`${x0},${y1} ${x1},${y1} ${x0},${y0}`}
+        points={`${verts[0].x},${verts[0].y} ${verts[1].x},${verts[1].y} ${verts[2].x},${verts[2].y}`}
         fill={theme.contentSurface}
         stroke={theme.primary}
         strokeWidth={2}
       />
       {showAngle ? (
-        <InteriorAngleMarks
-          vertices={[
-            { x: x0, y: y1 },
-            { x: x1, y: y1 },
-            { x: x0, y: y0 },
-          ]}
-          color={theme.textSecondary}
-          fill={theme.contentSurface}
-        />
+        <InteriorAngleMarks vertices={verts} color={theme.textSecondary} fill={theme.contentSurface} />
       ) : null}
       {showLabels ? (
         <>
-          <SvgText x={(x0 + x1) / 2} y={y1 + 18} fill={theme.text} fontSize={13} fontWeight="600" textAnchor="middle">
+          <SvgText
+            x={(verts[0].x + verts[1].x) / 2}
+            y={verts[0].y + 18}
+            fill={theme.text}
+            fontSize={13}
+            fontWeight="600"
+            textAnchor="middle"
+          >
             {labels.base}
           </SvgText>
-          <SvgText x={x0 - 10} y={(y0 + y1) / 2} fill={colors.height} fontSize={12} fontWeight="600" textAnchor="end">
+          <SvgText
+            x={verts[0].x - 10}
+            y={(verts[2].y + verts[0].y) / 2}
+            fill={colors.height}
+            fontSize={12}
+            fontWeight="600"
+            textAnchor="end"
+          >
             {labels.height}
           </SvgText>
           {showHyp ? (
             <SvgText
-              x={(x0 + x1) / 2 + 8}
-              y={(y0 + y1) / 2 - 6}
+              x={(verts[0].x + verts[1].x) / 2 + 8}
+              y={(verts[2].y + verts[0].y) / 2 - 6}
               fill={colors.hypotenuse}
               fontSize={12}
               fontWeight="600"
@@ -510,18 +559,28 @@ function TriangleSidesDiagram({
     x: offsetX + x * scale,
     y: offsetY + (maxY - y) * scale,
   });
-  const p0 = toSvg(raw.x0, raw.y0);
-  const p1 = toSvg(raw.x1, raw.y1);
-  const p2 = toSvg(raw.x2, raw.y2);
+  const p0raw = toSvg(raw.x0, raw.y0);
+  const p1raw = toSvg(raw.x1, raw.y1);
+  const p2raw = toSvg(raw.x2, raw.y2);
   const showLabels = spec.show_labels !== false;
-  const svgW = maxX * scale + offsetX * 2;
+  const svgW0 = maxX * scale + offsetX * 2;
   const labelBelow = showLabels ? 52 : 16;
-  const svgH = maxY * scale + offsetY + labelBelow;
+  const svgH0 = maxY * scale + offsetY + labelBelow;
   const tickCounts = equalSideTickCounts(spec.a, spec.b, spec.c);
   const hasEqualSides = tickCounts.a > 0 || tickCounts.b > 0 || tickCounts.c > 0;
   const showTicks = shouldShowTicks(spec.show_ticks, hasEqualSides);
   const showAltitude = spec.show_altitude !== false;
   const showAngle = spec.show_angle !== false;
+  let verts = [p0raw, p1raw, p2raw];
+  let svgW = svgW0;
+  let svgH = svgH0;
+  if (showAngle) {
+    const padded = padDiagramForAngleLabels(verts, svgW, svgH);
+    verts = padded.vertices;
+    svgW = padded.svgW;
+    svgH = padded.svgH;
+  }
+  const [p0, p1, p2] = verts;
   const showMedian =
     spec.show_median === true || (spec.show_median !== false && isIsoscelesSides(spec.a, spec.b, spec.c));
   const foot = footOfPerpendicular(p0.x, p0.y, p1.x, p1.y, p2.x, p2.y);
@@ -643,40 +702,46 @@ function TrapezoidDiagram({
   const svgH = h + offsetY + 40;
   const showLabels = spec.show_labels !== false;
   const showAngle = spec.show_angle === true;
+  let verts = [
+    { x: tx0, y: ty },
+    { x: tx1, y: ty },
+    { x: bx1, y: by },
+    { x: bx0, y: by },
+  ];
+  let outW = svgW;
+  let outH = svgH;
+  if (showAngle) {
+    const padded = padDiagramForAngleLabels(verts, svgW, svgH);
+    verts = padded.vertices;
+    outW = padded.svgW;
+    outH = padded.svgH;
+  }
+  const [tl, tr, br, bl] = verts;
 
   return (
-    <Svg width={svgW} height={svgH}>
+    <Svg width={outW} height={outH}>
       <Polygon
-        points={`${tx0},${ty} ${tx1},${ty} ${bx1},${by} ${bx0},${by}`}
+        points={`${tl.x},${tl.y} ${tr.x},${tr.y} ${br.x},${br.y} ${bl.x},${bl.y}`}
         fill={theme.contentSurface}
         stroke={theme.primary}
         strokeWidth={2}
       />
-      <Line x1={tx0} y1={ty} x2={tx0} y2={by} stroke={theme.accent} strokeWidth={2} strokeDasharray="5,4" />
+      <Line x1={tl.x} y1={tl.y} x2={tl.x} y2={bl.y} stroke={theme.accent} strokeWidth={2} strokeDasharray="5,4" />
       {showAngle ? (
-        <InteriorAngleMarks
-          vertices={[
-            { x: tx0, y: ty },
-            { x: tx1, y: ty },
-            { x: bx1, y: by },
-            { x: bx0, y: by },
-          ]}
-          color={theme.textSecondary}
-          fill={theme.contentSurface}
-        />
+        <InteriorAngleMarks vertices={verts} color={theme.textSecondary} fill={theme.contentSurface} />
       ) : null}
       {showLabels ? (
         <>
-          <SvgText x={(tx0 + tx1) / 2} y={ty - 8} fill={theme.text} fontSize={13} fontWeight="600" textAnchor="middle">
+          <SvgText x={(tl.x + tr.x) / 2} y={tl.y - 8} fill={theme.text} fontSize={13} fontWeight="600" textAnchor="middle">
             {labels.top}
           </SvgText>
-          <SvgText x={(bx0 + bx1) / 2} y={by + 18} fill={theme.text} fontSize={13} fontWeight="600" textAnchor="middle">
+          <SvgText x={(bl.x + br.x) / 2} y={bl.y + 18} fill={theme.text} fontSize={13} fontWeight="600" textAnchor="middle">
             {labels.bottom}
           </SvgText>
-          <SvgText x={tx0 - 8} y={(ty + by) / 2} fill={theme.accent} fontSize={12} fontWeight="600" textAnchor="end">
+          <SvgText x={tl.x - 8} y={(tl.y + bl.y) / 2} fill={theme.accent} fontSize={12} fontWeight="600" textAnchor="end">
             {labels.height}
           </SvgText>
-          <SvgText x={(bx0 + bx1) / 2} y={by + 34} fill={theme.textSecondary} fontSize={12} textAnchor="middle">
+          <SvgText x={(bl.x + br.x) / 2} y={bl.y + 34} fill={theme.textSecondary} fontSize={12} textAnchor="middle">
             {`${i18n.t("rich.area")}\u00A0${labels.area}`}
           </SvgText>
         </>
@@ -698,40 +763,46 @@ function ParallelogramDiagram({
   const { svgW, svgH, bx0, bx1, by, tx0, tx1, ty } = parallelogramLayout(spec, screenWidth);
   const showLabels = spec.show_labels !== false;
   const showAngle = spec.show_angle === true;
+  let verts = [
+    { x: tx0, y: ty },
+    { x: tx1, y: ty },
+    { x: bx1, y: by },
+    { x: bx0, y: by },
+  ];
+  let outW = svgW;
+  let outH = svgH;
+  if (showAngle) {
+    const padded = padDiagramForAngleLabels(verts, svgW, svgH);
+    verts = padded.vertices;
+    outW = padded.svgW;
+    outH = padded.svgH;
+  }
+  const [tl, tr, br, bl] = verts;
 
   return (
-    <Svg width={svgW} height={svgH}>
+    <Svg width={outW} height={outH}>
       <Polygon
-        points={`${tx0},${ty} ${tx1},${ty} ${bx1},${by} ${bx0},${by}`}
+        points={`${tl.x},${tl.y} ${tr.x},${tr.y} ${br.x},${br.y} ${bl.x},${bl.y}`}
         fill={theme.contentSurface}
         stroke={theme.primary}
         strokeWidth={2}
       />
-      <Line x1={tx0} y1={ty} x2={tx0} y2={by} stroke={theme.accent} strokeWidth={2} strokeDasharray="5,4" />
+      <Line x1={tl.x} y1={tl.y} x2={tl.x} y2={bl.y} stroke={theme.accent} strokeWidth={2} strokeDasharray="5,4" />
       {showAngle ? (
-        <InteriorAngleMarks
-          vertices={[
-            { x: tx0, y: ty },
-            { x: tx1, y: ty },
-            { x: bx1, y: by },
-            { x: bx0, y: by },
-          ]}
-          color={theme.textSecondary}
-          fill={theme.contentSurface}
-        />
+        <InteriorAngleMarks vertices={verts} color={theme.textSecondary} fill={theme.contentSurface} />
       ) : null}
       {showLabels ? (
         <>
-          <SvgText x={(bx0 + bx1) / 2} y={by + 18} fill={theme.text} fontSize={13} fontWeight="600" textAnchor="middle">
+          <SvgText x={(bl.x + br.x) / 2} y={bl.y + 18} fill={theme.text} fontSize={13} fontWeight="600" textAnchor="middle">
             {labels.base}
           </SvgText>
-          <SvgText x={tx0 - 8} y={(ty + by) / 2} fill={theme.accent} fontSize={12} fontWeight="600" textAnchor="end">
+          <SvgText x={tl.x - 8} y={(tl.y + bl.y) / 2} fill={theme.accent} fontSize={12} fontWeight="600" textAnchor="end">
             {labels.height}
           </SvgText>
-          <SvgText x={(tx0 + bx0) / 2 + 6} y={(ty + by) / 2 - 10} fill={theme.text} fontSize={12} fontWeight="600">
+          <SvgText x={(tl.x + bl.x) / 2 + 6} y={(tl.y + bl.y) / 2 - 10} fill={theme.text} fontSize={12} fontWeight="600">
             {labels.side}
           </SvgText>
-          <SvgText x={(bx0 + bx1) / 2} y={by + 34} fill={theme.textSecondary} fontSize={12} textAnchor="middle">
+          <SvgText x={(bl.x + br.x) / 2} y={bl.y + 34} fill={theme.textSecondary} fontSize={12} textAnchor="middle">
             {`${i18n.t("rich.area")}\u00A0${labels.area}`}
           </SvgText>
         </>

@@ -8,6 +8,7 @@ import {
   formatAngleDeg,
   isRightAngleDeg,
   estimateAngleLabelSize,
+  padDiagramForAngleLabels,
   polygonInteriorAngleMarks,
   isIsoscelesSides,
   midpoint,
@@ -107,7 +108,28 @@ describe("geometryBlock", () => {
       const dist = Math.hypot(mark.labelX - b.x, mark.labelY - b.y);
       expect(dist).toBeGreaterThan(16 + 12);
       expect(mark.labelWidth).toBeGreaterThan(24);
+      expect(mark.leader).toBeNull();
     });
+  });
+
+  it("puts 10° and 90° outside a skinny right triangle with leader lines", () => {
+    const vertices = [
+      { x: 0, y: 200 },
+      { x: 20, y: 200 },
+      { x: 0, y: 0 },
+    ];
+    const marks = polygonInteriorAngleMarks(vertices);
+    const tight = marks.filter((m) => Math.round(m.deg) <= 12 || isRightAngleDeg(m.deg));
+    expect(tight.length).toBeGreaterThanOrEqual(2);
+    for (const mark of tight) {
+      expect(mark.leader).not.toBeNull();
+      const inBox =
+        mark.labelX >= 2 && mark.labelX <= 18 && mark.labelY >= 2 && mark.labelY <= 198;
+      expect(inBox).toBe(false);
+    }
+    const padded = padDiagramForAngleLabels(vertices, 20, 200);
+    expect(padded.svgW).toBeGreaterThan(20);
+    expect(padded.svgH).toBeGreaterThan(200);
   });
 
   it("parses triangle spec", () => {

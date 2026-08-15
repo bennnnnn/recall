@@ -666,6 +666,13 @@ export function diagonalAngleArcPath(
   return `M ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2}`;
 }
 
+export type AngleLeader = {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+};
+
 export type VertexAngleMark = {
   path: string;
   labelX: number;
@@ -674,13 +681,29 @@ export type VertexAngleMark = {
   deg: number;
   labelWidth: number;
   labelHeight: number;
+  leader: AngleLeader | null;
 };
 
 const ANGLE_LABEL_FONT = 11;
+const RIGHT_ANGLE_SQUARE = 14;
 
 /** Backdrop size so `.5°` is not sitting on a stroke. */
 export function estimateAngleLabelSize(text: string): { width: number; height: number } {
   return { width: Math.max(24, text.length * 6.6 + 10), height: ANGLE_LABEL_FONT + 7 };
+}
+
+function closestPointOnRect(
+  px: number,
+  py: number,
+  cx: number,
+  cy: number,
+  w: number,
+  h: number,
+): { x: number; y: number } {
+  return {
+    x: Math.max(cx - w / 2, Math.min(cx + w / 2, px)),
+    y: Math.max(cy - h / 2, Math.min(cy + h / 2, py)),
+  };
 }
 
 /** School-diagram degree label: `90°` / `36.9°`. */
@@ -724,19 +747,73 @@ export function vertexAngleMark(
   const mid = a1 + delta / 2;
   const text = formatAngleDeg(deg);
   const { width: labelWidth, height: labelHeight } = estimateAngleLabelSize(text);
-  // d * sin(half-angle) must clear half the string or "60.5°" sits on a side.
   const half = Math.abs(delta) / 2;
-  const fromWedge = (labelWidth / 2 + 5) / Math.sin(Math.max(half, 0.2));
+  const fromWedge = (labelWidth / 2 + 5) / Math.sin(Math.max(half, 1e-3));
   const minSide = Math.min(Math.hypot(ax - bx, ay - by), Math.hypot(cx - bx, cy - by));
-  const labelR = Math.min(Math.max(r + 18, fromWedge), Math.max(minSide * 0.42, r + 18));
+  const interiorR = Math.min(Math.max(r + 18, fromWedge), Math.max(minSide * 0.42, r + 18));
+  const inX = bx + interiorR * Math.cos(mid);
+  const inY = by + interiorR * Math.sin(mid);
+  const right = isRightAngleDeg(deg);
+  const wedgeW = 2 * interiorR * Math.sin(half);
+  const overlapsSquare = right && interiorR < RIGHT_ANGLE_SQUARE + labelHeight / 2 + 8;
+  const fitsInside =
+    !overlapsSquare &&
+    wedgeW >= labelWidth * 0.75 &&
+    interiorR + labelHeight / 2 < minSide * 0.55;
+  if (fitsInside) {
+    return {
+      path: `M ${x1} ${y1} A ${r} ${r} 0 0 ${sweep} ${x2} ${y2}`,
+      labelX: inX,
+      labelY: inY,
+      text,
+      deg,
+      labelWidth,
+      labelHeight,
+      leader: null,
+    };
+  }
+  const outR = Math.max(r + 22, 32 + Math.max(labelWidth, labelHeight) * 0.4);
+  const labelX = bx + outR * Math.cos(mid + Math.PI);
+  const labelY = by + outR * Math.sin(mid + Math.PI);
+  const startX = bx + Math.min(r, 12) * Math.cos(mid);
+  const startY = by + Math.min(r, 12) * Math.sin(mid);
+  const end = closestPointOnRect(startX, startY, labelX, labelY, labelWidth, labelHeight);
   return {
     path: `M ${x1} ${y1} A ${r} ${r} 0 0 ${sweep} ${x2} ${y2}`,
-    labelX: bx + labelR * Math.cos(mid),
-    labelY: by + labelR * Math.sin(mid),
+    labelX,
+    labelY,
     text,
     deg,
     labelWidth,
     labelHeight,
+    leader: { x1: startX, y1: startY, x2: end.x, y2: end.y },
+  };
+}
+
+/** Grow the SVG so exterior degree labels are not clipped. */
+export function padDiagramForAngleLabels(
+  vertices: { x: number; y: number }[],
+  svgW: number,
+  svgH: number,
+  margin = 10,
+): { vertices: { x: number; y: number }[]; svgW: number; svgH: number } {
+  const marks = polygonInteriorAngleMarks(vertices);
+  let minX = 0;
+  let minY = 0;
+  let maxX = svgW;
+  let maxY = svgH;
+  for (const m of marks) {
+    minX = Math.min(minX, m.labelX - m.labelWidth / 2);
+    minY = Math.min(minY, m.labelY - m.labelHeight / 2);
+    maxX = Math.max(maxX, m.labelX + m.labelWidth / 2);
+    maxY = Math.max(maxY, m.labelY + m.labelHeight / 2);
+  }
+  const dx = minX < margin ? margin - minX : 0;
+  const dy = minY < margin ? margin - minY : 0;
+  return {
+    vertices: dx || dy ? vertices.map((v) => ({ x: v.x + dx, y: v.y + dy })) : vertices,
+    svgW: maxX + dx + margin,
+    svgH: maxY + dy + margin,
   };
 }
 

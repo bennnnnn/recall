@@ -109,6 +109,20 @@ describe("GeometryBlock", () => {
     expect(tree).toContain("interior-angle-backdrop");
   });
 
+  it("draws leader lines when a skinny right triangle cannot fit 10° inside", async () => {
+    const content = JSON.stringify({
+      type: "right_triangle",
+      base: 2,
+      height: 34,
+      unit: "cm",
+      show_angle: true,
+    });
+    const { toJSON } = await render(<GeometryBlock content={content} />);
+    const tree = JSON.stringify(toJSON());
+    expect(tree).toContain("90°");
+    expect(tree).toContain("interior-angle-leader");
+  });
+
   it("draws a diagonal-angle arc when rectangle show_angle + show_diagonal", async () => {
     const content = JSON.stringify({
       type: "rectangle",
