@@ -16,6 +16,7 @@ from app.models.math_schemas import (
     GeometryBlockSpec,
     GraphBlockSpec,
     GraphSampleInput,
+    MathExprResult,
     NewtonMethodInput,
     RectangleGeometryInput,
     SquareGeometryInput,
@@ -114,7 +115,7 @@ class SympyAdapter:
         action = str(args.get("action") or "").strip().lower()
         expr = str(args.get("expr") or "")
         variable = str(args.get("variable") or "x")
-        expr_result: math_service.MathExprResult | None = None
+        expr_result: MathExprResult | None = None
         if action == "integrate":
             lower = str(args.get("lower") or args.get("start") or "").strip()
             upper = str(args.get("upper") or args.get("end") or "").strip()

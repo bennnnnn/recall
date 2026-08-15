@@ -4,7 +4,7 @@ Server-side SymPy verifies and samples; the mobile app only renders. Do not add 
 
 ## Default product path (`MCP_TOOL_LOOP_ENABLED=false`)
 
-1. **Heuristic pre-stream** ([`math_tools.py`](../apps/api/app/services/math_tools.py)) — if `needs_symbolic_math`, SymPy runs off the event loop and a verified system block is injected (numbers + optional `canonical_fence` for ` ```geometry` / ` ```graph` / ` ```answer `).
+1. **Heuristic pre-stream** ([`math_tools/`](../apps/api/app/services/math_tools/)) — if `needs_symbolic_math`, SymPy runs off the event loop and a verified system block is injected (numbers + optional `canonical_fence` for ` ```geometry` / ` ```graph` / ` ```answer `).
 2. **LLM stream** — model explains using those values and emits fences.
 3. **Post-stream** ([`math_fence.py`](../apps/api/app/services/math_fence.py)) — replace matching geometry/graph/`answer` fences with the canonical fence when present; schema-validate otherwise; densify sparse continuous graphs (default ~96 points — enough for a smooth SVG, small enough that a fallback never dumps a wall of coordinates). At most a handful of fences of each kind are rewritten so one long reply cannot exhaust the shared 5s SymPy budget.
 4. **Mobile** — preprocess delimiters, then render: inline `$...$` → native `MathText`; display ` ```math` → KaTeX/MathJax WebView (dev build; tall blocks offer Expand → fullscreen scroll); diagrams → SVG. Crash fallback still draws geometry/graph as SVG (not raw JSON).
@@ -27,8 +27,8 @@ Heuristic pre-solve and web-search injection are skipped. The model may call the
 
 | Layer | Path |
 |-------|------|
-| SymPy core | `apps/api/app/services/math_service.py` |
-| Pre-stream inject | `apps/api/app/services/math_tools.py` |
+| SymPy core | `apps/api/app/services/math_service/` |
+| Pre-stream inject | `apps/api/app/services/math_tools/` |
 | Post-stream fences | `apps/api/app/services/math_fence.py` |
 | Camera OCR | `apps/api/app/services/math_image_extract.py` |
 | MCP sympy | `apps/api/app/gateways/mcp/sympy_adapter.py` |
@@ -38,9 +38,9 @@ Heuristic pre-solve and web-search injection are skipped. The model may call the
 
 ## Curriculum coverage (K–12 through undergrad homework)
 
-The LLM can **talk** about almost any homework. **Verified** work (pre-stream SymPy + canonical fences) only covers the `MathIntent.kind` list in [`math_schemas.py`](../apps/api/app/models/math_schemas.py) (~25 kinds). Anything else is unverified prose. That is intentional: Golden Rule 7 — the app renders; the server verifies what SymPy can close. Proof-based analysis and abstract algebra stay LLM-only.
+The LLM can **talk** about almost any homework. **Verified** work (pre-stream SymPy + canonical fences) only covers the `MathIntent.kind` list in [`math_schemas/`](../apps/api/app/models/math_schemas/) (~25 kinds). Anything else is unverified prose. That is intentional: Golden Rule 7 — the app renders; the server verifies what SymPy can close. Proof-based analysis and abstract algebra stay LLM-only.
 
-[`math_tools.py`](../apps/api/app/services/math_tools.py) is already the feature split: ordered `_INTENT_EXTRACTORS` plus `kind → _verified_block_*`. Do **not** split that file into one module per topic (a parallel registry is a worse seam). Do **not** add Skia; display math stays KaTeX/MathJax WebView, inline `MathText`, diagrams `react-native-svg`.
+[`math_tools/`](../apps/api/app/services/math_tools/) is the feature split: ordered `_INTENT_EXTRACTORS` in `extract.py` plus `kind → _verified_block_*` in `block/`. Do **not** add a second kind table. Do **not** add Skia; display math stays KaTeX/MathJax WebView, inline `MathText`, diagrams `react-native-svg`.
 
 Camera OCR is a **subset** of the kinds below (no square / trapezoid / matrix / series / Newton / solid).
 
@@ -90,4 +90,4 @@ Still not a verified kind (the model may answer; it must **not** claim SymPy):
 3. **Linear algebra** beyond 4×4 multiply / rref / eigen (no general NL matrix parsing).
 4. **Full unit catalogs** (only common length/mass/time/temp).
 
-New verified homework still lands as **one kind** on the existing seam (`MathIntent.kind` + extractor + `_verified_block_*` + pytest). `math_tools` is a package (`extract.py` registry, `block.py` builders, `school.py` extra kinds) — do not add a second kind table.
+New verified homework still lands as **one kind** on the existing seam (`MathIntent.kind` + extractor + `_verified_block_*` + pytest). `math_tools` is a package (`extract.py` registry, `block/` builders, `school.py` extra kinds) — do not add a second kind table.

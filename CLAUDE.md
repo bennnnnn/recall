@@ -106,7 +106,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Image gen (Pro) | `routers/images.py`, `image_generation.py`, `image_gen_intent.py` | composer send only (no prompt sheet) |
 | Speech STT/TTS | `routers/speech.py`, `services/speech.py` | `useVoiceInput`, message speaker |
 | Web search | `services/web_search/`, `gateways/web_search_*.py` | source chips under replies |
-| Math (SymPy) | `math_tools.py`, `math_service.py`, `math_fence.py`, `sympy_executor.py` | `MathText` / `MathView` / `geometry` / `graph` |
+| Math (SymPy) | `math_tools/`, `math_service/`, `math_fence.py`, `sympy_executor.py` | `MathText` / `MathView` / `geometry` / `graph` |
 | Calendar / Gmail | `routers/integrations.py`, `gmail_integrations.py`, `services/calendar.py`, `email.py` | `settings/integrations.tsx` |
 | Push / email out | `push_notifications.py`, `transactional_email.py`, `background/*scheduler*` | notification settings |
 | Billing | `routers/webhooks.py`, `gateways/revenuecat_gateway.py` | RevenueCat |
