@@ -4,14 +4,18 @@ import {
   isNeverCodeBlockLang,
   isStructuredFenceLang,
   fallbackKindForLang,
+  isMathFenceLang,
+  isMathDiagramLang,
 } from "@/lib/fenceRegistry";
 
 /**
  * Characterization test: the registry must reproduce the pre-existing language
- * sets exactly. These literals are transcribed from the lists that lived in
- * richBlocks.ts (STRUCTURED_LANGS) and copyBlock.ts (isExplicitCodeLang's
- * exclusions) before the registry existed. If a future change to FENCES alters
- * what renders, it fails here rather than silently in the app.
+ * sets exactly, plus deliberate additions. These literals started as the lists
+ * in richBlocks.ts (STRUCTURED_LANGS) and copyBlock.ts (isExplicitCodeLang's
+ * exclusions) before the registry existed. `latex`/`tex` were added as aliases
+ * of `math` so an open streaming ```latex fence typesets instead of CodeBlock.
+ * If a future change to FENCES alters what renders, it fails here rather than
+ * silently in the app.
  */
 
 const LEGACY_STRUCTURED = [
@@ -30,6 +34,8 @@ const LEGACY_STRUCTURED = [
   "collapse",
   "summary",
   "math",
+  "latex",
+  "tex",
   "answer",
   "result",
   "final",
@@ -79,6 +85,8 @@ const LEGACY_NEVER_CODE_BLOCK = [
   "smiles",
   "chemistry",
   "math",
+  "latex",
+  "tex",
   "answer",
   "result",
   "final",
@@ -142,5 +150,13 @@ describe("fence registry lookups", () => {
   it("has no duplicate language tag across fences", () => {
     const all = FENCES.flatMap((f) => f.langs);
     expect(new Set(all).size).toBe(all.length);
+  });
+
+  it("treats latex/tex as math fence aliases (open-stream typeset, not CodeBlock)", () => {
+    expect(fenceIdForLang("latex")).toBe("math");
+    expect(fenceIdForLang("tex")).toBe("math");
+    expect(isMathFenceLang("latex")).toBe(true);
+    expect(isMathDiagramLang("geometry")).toBe(true);
+    expect(isMathDiagramLang("python")).toBe(false);
   });
 });

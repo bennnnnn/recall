@@ -109,11 +109,14 @@ describe("parseSimpleLatex", () => {
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\lim_{x \to 0}`))).toBe("lim_x → 0");
   });
 
-  it("degrades an unknown command to its name, never a raw backslash", () => {
-    // `\varinjlim` has no unicode mapping. Showing `\varinjlim{x}` in chat
-    // was the raw-LaTeX fallback; the name + argument is still readable.
-    expect(segmentsToPlain(parseSimpleLatex(String.raw`\varinjlim{x}`))).toBe("varinjlim x");
+  it("degrades an unknown command by dropping a braced name, keeping the argument", () => {
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\varinjlim{x}`))).toBe("x");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\varinjlim{x}`))).not.toContain("\\");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\operatorname{lcm}(4,6)`))).toBe(
+      "lcm(4,6)",
+    );
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\overbrace{a+b}^{s}`))).toBe("a+b^s");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\underbrace{a+b}`))).toBe("a+b");
   });
 
   it("BUG FIX regression: \\left/\\right render as bare delimiters, not literal backslash text", () => {

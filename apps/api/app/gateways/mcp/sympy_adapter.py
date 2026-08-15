@@ -299,7 +299,9 @@ class SympyAdapter:
             content=(
                 f"Newton's method: root={newton_result.root}, "
                 f"converged={newton_result.converged}, "
-                f"iterations={newton_result.iterations_used}"
+                f"iterations={newton_result.iterations_used}\n"
+                "End with this final-answer fence (copy verbatim):\n"
+                f"```answer\n{answer}\n```"
             ),
             data=_fence_data(math_tools._answer_canonical(answer)),
         )
@@ -451,7 +453,9 @@ class SympyAdapter:
                 data=_fence_data(fence),
             )
 
-        line_spec = math_service.number_line_spec_from_expr(expr, variable)
+        line_spec = await self._run_off_loop(
+            math_service.number_line_spec_from_expr, expr, variable
+        )
         if line_spec is not None and not str(args.get("expr2") or "").strip():
             fence = line_spec.model_dump()
             fence_json = json.dumps(fence, separators=(",", ":"))

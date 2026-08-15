@@ -25,6 +25,7 @@ import { SocialPostCard } from "@/components/rich/SocialPostCard";
 import { StepList } from "@/components/rich/StepList";
 import { looksLikeLatexFence } from "@/lib/mathFenceRetag";
 import { isAnswerLang } from "@/lib/copyBlock";
+import { fenceIdForLang } from "@/lib/fenceRegistry";
 import {
   detectJsonRichFenceKind,
   isMessageLang,
@@ -39,10 +40,15 @@ import {
   parseSteps,
 } from "@/lib/richBlocks";
 
+function mathFenceKey(content: string, tokenIndex?: number): string {
+  return tokenIndex != null ? `math:${content}#${tokenIndex}` : `math:${content}`;
+}
+
 export function renderRichFence(
   lang: string,
   content: string,
   key: string,
+  tokenIndex?: number,
 ): ReactNode | null {
   const l = lang.trim().toLowerCase();
   if (!isStructuredFenceLang(l)) {
@@ -53,7 +59,7 @@ export function renderRichFence(
       // key, or MathBlock's WebView-backed renderer unmounts/remounts (a
       // full WebView reload, visible as a flicker) every ~48ms even though
       // nothing actually changed.
-      return <MathBlock key={`math:${content}`} latex={content} />;
+      return <MathBlock key={mathFenceKey(content, tokenIndex)} latex={content} />;
     }
     // Same class of instruction-drift as the LaTeX fallback above — the
     // model routinely emits ```json (or an untagged fence) instead of the
@@ -86,8 +92,8 @@ export function renderRichFence(
     return <SocialPostCard key={key} platform={social} text={content} />;
   }
 
-  if (l === "math") {
-    return <MathBlock key={`math:${content}`} latex={content} />;
+  if (fenceIdForLang(l) === "math") {
+    return <MathBlock key={mathFenceKey(content, tokenIndex)} latex={content} />;
   }
 
   if (isAnswerLang(l)) {
