@@ -139,6 +139,16 @@ def format_not_connected_calendar_block() -> str:
     )
 
 
+def format_calendar_load_error_block() -> str:
+    """Prompt block when the connection exists but this fetch failed."""
+    return (
+        "Google Calendar: couldn't load the calendar this time.\n"
+        "Do not say the calendar is empty, clear, or a clean slate. "
+        "Say you couldn't load Google Calendar just now; they can retry or reconnect in "
+        "Settings → Google Calendar."
+    )
+
+
 def _cache_key(user_id: UUID) -> str:
     return f"calendar:events:{user_id}"
 
@@ -348,7 +358,9 @@ async def load_calendar_for_prompt(
         return format_calendar_block(cached, user.timezone, settings.calendar_prompt_days)
     if cache_only:
         return None
-    result = await _fetch_upcoming_events(session, redis, user, settings, report_errors=False)
+    result = await _fetch_upcoming_events(session, redis, user, settings, report_errors=True)
+    if result.load_error:
+        return format_calendar_load_error_block()
     block = format_calendar_block(result.events, user.timezone, settings.calendar_prompt_days)
     if result.failed_calendars:
         block += (
