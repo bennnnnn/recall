@@ -23,6 +23,7 @@ import {
   shouldShowTicks,
   sideTickMarks,
   triangleSidesVertices,
+  baseHeightTriangleVertices,
   type CircleSpec,
   type ParallelogramSpec,
   type RectangleSpec,
@@ -190,17 +191,17 @@ function TriangleDiagram({ spec, screenWidth, theme }: { spec: TriangleSpec; scr
   const offsetY = 28;
   const b = layout.w;
   const h = layout.h;
-  const x0 = offsetX;
-  const y0 = offsetY + h;
-  const x1 = offsetX + b;
-  const y1 = offsetY + h;
-  const x2 = offsetX + b / 2;
-  const y2 = offsetY;
+  const raw = baseHeightTriangleVertices(b, h);
+  const x0 = offsetX + raw.x0;
+  const y0 = offsetY + raw.y0;
+  const x1 = offsetX + raw.x1;
+  const y1 = offsetY + raw.y1;
+  const x2 = offsetX + raw.x2;
+  const y2 = offsetY + raw.y2;
   const svgW = b + offsetX + 48;
   const svgH = h + offsetY + 36;
   const showLabels = spec.show_labels !== false;
-  // Base-height triangle is drawn isosceles — equal legs get one tick each.
-  const showTicks = shouldShowTicks(spec.show_ticks, true);
+  const showTicks = shouldShowTicks(spec.show_ticks, false);
   const showAltitude = spec.show_altitude !== false;
   const tickSegments = showTicks
     ? [...sideTickMarks(x0, y0, x2, y2, 1), ...sideTickMarks(x1, y1, x2, y2, 1)]
@@ -213,6 +214,7 @@ function TriangleDiagram({ spec, screenWidth, theme }: { spec: TriangleSpec; scr
         fill={theme.contentSurface}
         stroke={theme.primary}
         strokeWidth={2}
+        accessibilityLabel="triangle-outline"
       />
       {showAltitude ? (
         <Line
@@ -405,9 +407,10 @@ function TriangleSidesDiagram({
   const p0 = toSvg(raw.x0, raw.y0);
   const p1 = toSvg(raw.x1, raw.y1);
   const p2 = toSvg(raw.x2, raw.y2);
-  const svgW = maxX * scale + offsetX * 2;
-  const svgH = maxY * scale + offsetY + 36;
   const showLabels = spec.show_labels !== false;
+  const svgW = maxX * scale + offsetX * 2;
+  const labelBelow = showLabels ? 52 : 16;
+  const svgH = maxY * scale + offsetY + labelBelow;
   const tickCounts = equalSideTickCounts(spec.a, spec.b, spec.c);
   const hasEqualSides = tickCounts.a > 0 || tickCounts.b > 0 || tickCounts.c > 0;
   const showTicks = shouldShowTicks(spec.show_ticks, hasEqualSides);
@@ -428,7 +431,7 @@ function TriangleSidesDiagram({
     : [];
 
   return (
-    <Svg width={svgW} height={svgH}>
+    <Svg width={svgW} height={svgH} testID="sss-svg">
       <Polygon
         points={`${p0.x},${p0.y} ${p1.x},${p1.y} ${p2.x},${p2.y}`}
         fill={theme.contentSurface}
@@ -483,7 +486,14 @@ function TriangleSidesDiagram({
           <SvgText x={(p2.x + p0.x) / 2 - 8} y={(p2.y + p0.y) / 2} fill={theme.text} fontSize={13} fontWeight="600" textAnchor="end">
             {labels.c}
           </SvgText>
-          <SvgText x={(p0.x + p1.x + p2.x) / 3} y={Math.max(p0.y, p1.y) + 34} fill={theme.textSecondary} fontSize={12} textAnchor="middle">
+          <SvgText
+            x={(p0.x + p1.x + p2.x) / 3}
+            y={Math.max(p0.y, p1.y) + 34}
+            fill={theme.textSecondary}
+            fontSize={12}
+            textAnchor="middle"
+            testID="sss-area-label"
+          >
             {`${i18n.t("rich.area")}\u00A0${labels.area}`}
           </SvgText>
         </>

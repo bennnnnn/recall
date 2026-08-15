@@ -138,6 +138,15 @@ function readPositive(row: Record<string, unknown>, ...keys: string[]): number |
   return null;
 }
 
+/** Copy an explicit JSON boolean (true or false). Skipping `false` made
+ * `show_labels: false` (and similar) a no-op because renderers treat
+ * `undefined` as "show". */
+function copyFlag<T extends object>(spec: T, row: Record<string, unknown>, key: keyof T & string): void {
+  if (row[key] === true || row[key] === false) {
+    (spec as Record<string, unknown>)[key] = row[key];
+  }
+}
+
 function parseRectangle(row: Record<string, unknown>): RectangleSpec | null {
   const rawType = String(row.type ?? "").trim().toLowerCase();
   if (!RECTANGLE_TYPES.has(rawType)) return null;
@@ -163,12 +172,11 @@ function parseRectangle(row: Record<string, unknown>): RectangleSpec | null {
   };
   const unit = String(row.unit ?? "cm").trim();
   if (unit) spec.unit = unit;
-  if (row.show_diagonal === true) spec.show_diagonal = true;
-  if (row.show_angle === true) spec.show_angle = true;
-  if (row.show_area === true) spec.show_area = true;
-  if (row.show_perimeter === true) spec.show_perimeter = true;
-  if (row.show_ticks === true) spec.show_ticks = true;
-  if (row.show_ticks === false) spec.show_ticks = false;
+  copyFlag(spec, row, "show_diagonal");
+  copyFlag(spec, row, "show_angle");
+  copyFlag(spec, row, "show_area");
+  copyFlag(spec, row, "show_perimeter");
+  copyFlag(spec, row, "show_ticks");
   const diagonal = Number(row.diagonal);
   if (Number.isFinite(diagonal)) spec.diagonal = diagonal;
   const angle = Number(row.angle_deg);
@@ -198,11 +206,9 @@ function parseTriangle(row: Record<string, unknown>): TriangleSpec | null {
   const spec: TriangleSpec = { type: "triangle", base, height };
   const unit = String(row.unit ?? "cm").trim();
   if (unit) spec.unit = unit;
-  if (row.show_labels === true) spec.show_labels = true;
-  if (row.show_ticks === true) spec.show_ticks = true;
-  if (row.show_ticks === false) spec.show_ticks = false;
-  if (row.show_altitude === true) spec.show_altitude = true;
-  if (row.show_altitude === false) spec.show_altitude = false;
+  copyFlag(spec, row, "show_labels");
+  copyFlag(spec, row, "show_ticks");
+  copyFlag(spec, row, "show_altitude");
   const area = Number(row.area);
   if (Number.isFinite(area)) spec.area = area;
   spec.labels = readLabels(row);
@@ -226,9 +232,9 @@ function parseRightTriangle(row: Record<string, unknown>): RightTriangleSpec | n
   const spec: RightTriangleSpec = { type: "right_triangle", base, height };
   const unit = String(row.unit ?? "cm").trim();
   if (unit) spec.unit = unit;
-  if (row.show_labels === true) spec.show_labels = true;
-  if (row.show_hypotenuse === true) spec.show_hypotenuse = true;
-  if (row.show_angle === true) spec.show_angle = true;
+  copyFlag(spec, row, "show_labels");
+  copyFlag(spec, row, "show_hypotenuse");
+  copyFlag(spec, row, "show_angle");
   const hypotenuse = Number(row.hypotenuse);
   if (Number.isFinite(hypotenuse)) spec.hypotenuse = hypotenuse;
   const area = Number(row.area);
@@ -245,10 +251,10 @@ function parseCircle(row: Record<string, unknown>): CircleSpec | null {
   const spec: CircleSpec = { type: "circle", radius };
   const unit = String(row.unit ?? "cm").trim();
   if (unit) spec.unit = unit;
-  if (row.show_labels === true) spec.show_labels = true;
-  if (row.show_diameter === true) spec.show_diameter = true;
-  if (row.show_area === true) spec.show_area = true;
-  if (row.show_circumference === true) spec.show_circumference = true;
+  copyFlag(spec, row, "show_labels");
+  copyFlag(spec, row, "show_diameter");
+  copyFlag(spec, row, "show_area");
+  copyFlag(spec, row, "show_circumference");
   const diameter = Number(row.diameter);
   if (Number.isFinite(diameter)) spec.diameter = diameter;
   const area = Number(row.area);
@@ -269,13 +275,10 @@ function parseTriangleSides(row: Record<string, unknown>): TriangleSidesSpec | n
   const spec: TriangleSidesSpec = { type: "triangle_sides", a, b, c };
   const unit = String(row.unit ?? "cm").trim();
   if (unit) spec.unit = unit;
-  if (row.show_labels === true) spec.show_labels = true;
-  if (row.show_ticks === true) spec.show_ticks = true;
-  if (row.show_ticks === false) spec.show_ticks = false;
-  if (row.show_altitude === true) spec.show_altitude = true;
-  if (row.show_altitude === false) spec.show_altitude = false;
-  if (row.show_median === true) spec.show_median = true;
-  if (row.show_median === false) spec.show_median = false;
+  copyFlag(spec, row, "show_labels");
+  copyFlag(spec, row, "show_ticks");
+  copyFlag(spec, row, "show_altitude");
+  copyFlag(spec, row, "show_median");
   const area = Number(row.area);
   if (Number.isFinite(area)) spec.area = area;
   spec.labels = readLabels(row);
@@ -291,7 +294,7 @@ function parseTrapezoid(row: Record<string, unknown>): TrapezoidSpec | null {
   const spec: TrapezoidSpec = { type: "trapezoid", top, bottom, height };
   const unit = String(row.unit ?? "cm").trim();
   if (unit) spec.unit = unit;
-  if (row.show_labels === true) spec.show_labels = true;
+  copyFlag(spec, row, "show_labels");
   const area = Number(row.area);
   if (Number.isFinite(area)) spec.area = area;
   spec.labels = readLabels(row);
@@ -311,7 +314,7 @@ function parseParallelogram(row: Record<string, unknown>): ParallelogramSpec | n
   const spec: ParallelogramSpec = { type: "parallelogram", base, height, side };
   const unit = String(row.unit ?? "cm").trim();
   if (unit) spec.unit = unit;
-  if (row.show_labels === true) spec.show_labels = true;
+  copyFlag(spec, row, "show_labels");
   const area = Number(row.area);
   if (Number.isFinite(area)) spec.area = area;
   const perimeter = Number(row.perimeter);
@@ -328,7 +331,7 @@ function parseSector(row: Record<string, unknown>): SectorSpec | null {
   const spec: SectorSpec = { type: "sector", radius, angle_deg: angleRaw };
   const unit = String(row.unit ?? "cm").trim();
   if (unit) spec.unit = unit;
-  if (row.show_labels === true) spec.show_labels = true;
+  copyFlag(spec, row, "show_labels");
   const arcLength = Number(row.arc_length);
   if (Number.isFinite(arcLength)) spec.arc_length = arcLength;
   const area = Number(row.area);
@@ -435,6 +438,24 @@ export function triangleSidesVertices(
   const cx = (b * b + a * a - c * c) / (2 * a);
   const cy = Math.sqrt(Math.max(0, b * b - cx * cx));
   return { x0: 0, y0: 0, x1: a, y1: 0, x2: cx, y2: cy };
+}
+
+/** Apex sits at a quarter of the base so a base+height triangle is scalene,
+ * not an implied isosceles with equal-leg ticks. */
+export const BASE_HEIGHT_APEX_T = 0.25;
+
+export function baseHeightTriangleVertices(
+  base: number,
+  height: number,
+): { x0: number; y0: number; x1: number; y1: number; x2: number; y2: number } {
+  return {
+    x0: 0,
+    y0: height,
+    x1: base,
+    y1: height,
+    x2: base * BASE_HEIGHT_APEX_T,
+    y2: 0,
+  };
 }
 
 export type TickSegment = { x1: number; y1: number; x2: number; y2: number };
