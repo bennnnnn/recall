@@ -1,10 +1,11 @@
 /** Markdown renderer — v2 (no nested Markdown / plainFence), theme-aware. */
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { StyleSheet, Text } from "react-native";
+import { View } from "react-native";
 import Markdown from "react-native-markdown-display";
 
 import { CodeBlock } from "@/components/CodeBlock";
 import { AnswerBlock } from "@/components/rich/AnswerBlock";
+import { MathText } from "@/components/rich/MathText";
 import { makeRenderRules } from "@/components/markdown/markdownRenderRules";
 import { markdownItInstance } from "@/lib/markdownIt";
 import { preprocessMarkdown } from "@/lib/markdownPreprocess";
@@ -17,13 +18,12 @@ import {
   type StreamBlocksState,
 } from "@/lib/markdownStreamBlocks";
 import { classifyOpenStreamTail } from "@/lib/streamingOpenFence";
-import { shouldPreviewOpenFenceAsAnswer } from "@/lib/copyBlock";
+import { shouldPreviewOpenFenceAsAnswer, shouldPreviewOpenFenceAsMath } from "@/lib/copyBlock";
 import {
   nextStreamUiFlushDelay,
   STREAM_UI_INTERVAL_MS,
 } from "@/lib/streamUiTiming";
-import { CODE_FONT } from "@/lib/fonts";
-import { Theme, useTheme } from "@/lib/theme";
+import { useTheme } from "@/lib/theme";
 
 type Props = { content: string; streaming?: boolean; mathFormat?: (expr: string) => string };
 
@@ -50,18 +50,21 @@ const MarkdownStreamChunk = React.memo(function MarkdownStreamChunk({
   );
 });
 
-/** Open $$ / \[ body — plain text until the closer arrives (no KaTeX WebView). */
+/** Open $$ / \[ body — native MathText until the closer arrives (no KaTeX WebView). */
 const StreamingMathPreview = React.memo(function StreamingMathPreview({
   body,
 }: {
   body: string;
 }) {
   const theme = useTheme();
-  const s = useMemo(() => makeMathPreviewStyles(theme), [theme]);
+  const trimmed = body.trim();
+  if (!trimmed) {
+    return <View style={{ height: 8 }} />;
+  }
   return (
-    <Text style={s.body} selectable>
-      {body.length > 0 ? body : " "}
-    </Text>
+    <View style={{ marginVertical: 4 }}>
+      <MathText latex={trimmed} textColor={theme.text} />
+    </View>
   );
 });
 
@@ -151,6 +154,8 @@ export function MarkdownContent({ content, streaming = false, mathFormat }: Prop
             openRegion.body.trim() ? (
               <AnswerBlock content={openRegion.body} />
             ) : null
+          ) : shouldPreviewOpenFenceAsMath(openRegion.lang, openRegion.body) ? (
+            <StreamingMathPreview body={openRegion.body} />
           ) : (
             <CodeBlock code={openRegion.body} lang={openRegion.lang} streaming />
           )
@@ -174,16 +179,4 @@ export function MarkdownContent({ content, streaming = false, mathFormat }: Prop
       {prepared}
     </Markdown>
   );
-}
-
-function makeMathPreviewStyles(theme: Theme) {
-  return StyleSheet.create({
-    body: {
-      fontFamily: CODE_FONT,
-      fontSize: 15,
-      lineHeight: 22,
-      color: theme.text,
-      marginVertical: 4,
-    },
-  });
 }

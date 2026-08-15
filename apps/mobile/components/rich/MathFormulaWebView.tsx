@@ -17,7 +17,7 @@ import {
   type MathHtmlOptions,
 } from "@/lib/mathHtml";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
-import { CODE_FONT } from "@/lib/fonts";
+import { MathText } from "@/components/rich/MathText";
 import { supportsInlineHtmlMathWebView } from "@/lib/mathWebViewSupport";
 import {
   getPreviewWebView,
@@ -291,9 +291,9 @@ function MathLatexFallback({
       {!compact ? (
         <Text style={s.fallbackBadge}>{t("rich.math_preview", { engine: engineName })}</Text>
       ) : null}
-      <Text style={s.fallbackText} selectable>
-        {latex.trim()}
-      </Text>
+      <View>
+        <MathText latex={latex} textColor={theme.text} />
+      </View>
       {!compact ? (
         <Text style={s.fallbackHint}>{t("rich.math_dev_build")}</Text>
       ) : null}
@@ -367,12 +367,6 @@ const makeStyles = (theme: Theme) =>
       color: theme.primary,
       textTransform: "uppercase",
       letterSpacing: 0.4,
-    },
-    fallbackText: {
-      fontFamily: CODE_FONT,
-      fontSize: 14,
-      lineHeight: 20,
-      color: theme.text,
     },
     fallbackHint: {
       fontSize: 12,

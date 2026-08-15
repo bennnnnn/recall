@@ -30,8 +30,24 @@ describe("renderKatexHtml", () => {
   it("falls back for oversized latex instead of hanging", () => {
     const huge = "x".repeat(5000);
     const html = renderKatexHtml(huge, { displayMode: true });
-    expect(html).toContain("<code>");
+    expect(html).toContain("math-fallback");
     expect(html).not.toContain('class="katex"');
+  });
+
+  it("BUG FIX regression: dollar-wrapped fence bodies typeset instead of painting red source", () => {
+    // `$...$` inside a ```math fence is not KaTeX syntax. We strip the wrap
+    // so KaTeX typesets; leftover `$` used to paint the source in errorColor.
+    const html = renderKatexHtml("$x^2$", { displayMode: true });
+    expect(html).not.toContain("katex-error");
+    expect(html).toContain('class="katex"');
+    expect(html).not.toMatch(/\$x\^2\$/);
+  });
+
+  it("BUG FIX regression: a KaTeX-unknown command degrades to readable text, not source", () => {
+    const html = renderKatexHtml("\\notacommand{x}", { displayMode: true });
+    expect(html).not.toContain("katex-error");
+    expect(html).toContain("math-fallback");
+    expect(html).not.toContain("\\notacommand");
   });
 });
 

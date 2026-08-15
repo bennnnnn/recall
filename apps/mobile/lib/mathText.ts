@@ -87,9 +87,8 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\mathbb\{F\}/g, "𝔽"],
   [/\\mathbb\{K\}/g, "𝕂"],
   // \sum/\prod/\int are big-operator SYMBOLS (Σ ∏ ∫), not roman-text
-  // function names like \log/\sin — they used to be lumped into
-  // ROMAN_FUNCTIONS below and rendered as the literal words "sum"/"prod"/
-  // "int" instead of the actual glyph.
+  // function names like \log/\sin — they used to render as the literal
+  // words "sum"/"prod"/"int" instead of the actual glyph.
   [/\\sum/g, "Σ"],
   [/\\prod/g, "∏"],
   [/\\int/g, "∫"],
@@ -198,40 +197,6 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\Downarrow/g, "⇓"],
 ];
 
-/** Roman-type function names — render as their bare name (e.g. \log → "log"),
- * matching mathFenceRetag.ts's LATEX_CMD_RE list. Without this, any command
- * not in CMD_REPLACEMENTS above falls through to the generic \cmd fallback
- * and shows the literal backslash (e.g. "\log_2(2)" instead of "log2(2)"). */
-const ROMAN_FUNCTIONS = new Set([
-  "log",
-  "ln",
-  "exp",
-  "lim",
-  "sup",
-  "inf",
-  "sin",
-  "cos",
-  "tan",
-  "sec",
-  "csc",
-  "cot",
-  "arcsin",
-  "arccos",
-  "arctan",
-  "sinh",
-  "cosh",
-  "tanh",
-  "det",
-  "gcd",
-  "min",
-  "max",
-  "arg",
-  "deg",
-  "ker",
-  "dim",
-  "hom",
-]);
-
 // Accent commands, mapped to the Unicode combining mark that reproduces them
 // in plain text — applied to EVERY character of the group (not just the
 // last) so a multi-character span like "714285" gets a continuous line
@@ -295,7 +260,8 @@ const ENV_BRACKETS: Record<string, [string, string]> = {
   Vmatrix: ["‖", "‖"],
 };
 
-const ENV_RE = /\\begin\{(cases|matrix|pmatrix|bmatrix|vmatrix|Vmatrix|array|aligned|align\*?)\}([\s\S]*?)\\end\{\1\}/g;
+const ENV_RE =
+  /\\begin\{(cases|matrix|pmatrix|bmatrix|vmatrix|Vmatrix|array|aligned|align\*?|gathered|split|multline|eqnarray)\}([\s\S]*?)\\end\{\1\}/g;
 
 /** Split a LaTeX environment body into rows ("\\" is the row separator) and
  * cells within a row ("&" is the column/alignment separator), trimming each. */
@@ -329,7 +295,15 @@ function expandLatexEnvironments(latex: string): string {
         .map(([expr, cond]) => (cond ? `${expr} if ${cond}` : (expr ?? "")))
         .join("; ");
     }
-    if (env === "aligned" || env === "array" || env.startsWith("align")) {
+    if (
+      env === "aligned" ||
+      env === "array" ||
+      env === "gathered" ||
+      env === "split" ||
+      env === "multline" ||
+      env === "eqnarray" ||
+      env.startsWith("align")
+    ) {
       // Alignment columns carry no visible meaning outside KaTeX's layout —
       // just join the cells with a space and each row with a separator.
       return rows.map((cells) => cells.join(" ")).join(";  ");
@@ -547,8 +521,27 @@ export function parseSimpleLatex(latex: string, depth = 0): MathSegment[] {
       const rest = input.slice(i + 1);
       const cmd = rest.match(/^[a-zA-Z]+/)?.[0];
       if (cmd) {
-        pushText(ROMAN_FUNCTIONS.has(cmd.toLowerCase()) ? cmd : `\\${cmd}`);
+        // Unknown commands must not paint as raw `\cmd` — drop the backslash
+        // and (if present) unwrap one `{…}` group so the argument still shows.
+        pushText(cmd);
         i += cmd.length + 1;
+        if (input[i] === "{") {
+          const group = readGroup(input, i);
+          if (group) {
+            pushText(" ");
+            for (const seg of parseSimpleLatex(group.value, depth + 1)) {
+              if (seg.type === "text") pushText(seg.value);
+              else out.push(seg);
+            }
+            i = group.next;
+          }
+        }
+        continue;
+      }
+      // `\{` `\%` `\_` — emit the escaped character, not a stray backslash.
+      if (rest[0]) {
+        pushText(rest[0]);
+        i += 2;
         continue;
       }
     }
@@ -562,6 +555,15 @@ export function parseSimpleLatex(latex: string, depth = 0): MathSegment[] {
 
 export function segmentsToPlain(segments: MathSegment[]): string {
   return segments.map(segmentToPlain).join("");
+}
+
+/**
+ * Readable stand-in when KaTeX cannot typeset (parse error, no WebView).
+ * Never includes a leftover `\\command` — that is what showed as raw LaTeX.
+ */
+export function readableLatexFallback(latex: string): string {
+  const plain = segmentsToPlain(parseSimpleLatex(latex));
+  return plain.replace(/\\[a-zA-Z]+/g, (cmd) => cmd.slice(1));
 }
 
 /**

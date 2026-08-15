@@ -1,4 +1,4 @@
-import { isNeverCodeBlockLang } from "@/lib/fenceRegistry";
+import { fenceIdForLang, isNeverCodeBlockLang } from "@/lib/fenceRegistry";
 import { looksLikeMathFenceBody, stripEmbeddedDollarWraps } from "@/lib/mathFenceRetag";
 
 const COPY_BLOCK_RE =
@@ -334,6 +334,16 @@ export function shouldPreviewOpenFenceAsAnswer(lang: string, body: string): bool
   if (isAnswerLang(lang)) return true;
   if (isExplicitCodeLang(lang)) return false;
   return looksLikeMathAnswer(body);
+}
+
+/**
+ * While a ```math fence is still open, MarkdownContent used to paint a
+ * CodeBlock of the raw LaTeX. Preview with native MathText until it closes.
+ */
+export function shouldPreviewOpenFenceAsMath(lang: string, body: string): boolean {
+  if (fenceIdForLang(lang) === "math") return true;
+  if (isAnswerLang(lang) || isExplicitCodeLang(lang)) return false;
+  return Boolean(body.trim()) && looksLikeMathFenceBody(body);
 }
 
 export function shouldRenderAsCopyBlock(
