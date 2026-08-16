@@ -135,8 +135,27 @@ def expected_value(values: list[float], probs: list[float] | None) -> str:
     return f"{sum(v * p for v, p in zip(values, probs, strict=True)):g}"
 
 
+def _imaginary_unit_to_sympy(expr: str) -> str:
+    """Map standalone ``i``/``j`` to SymPy ``I`` without rewriting ``sin``/``pi``.
+
+    A naive ``str.replace("i", "I")`` turns ``sin`` into ``sIn`` and ``pi``
+    into ``pI``. Only replace when the letter is not inside an identifier.
+    """
+    out: list[str] = []
+    n = len(expr)
+    for idx, ch in enumerate(expr):
+        if ch in ("i", "j"):
+            prev_letter = idx > 0 and expr[idx - 1].isalpha()
+            next_letter = idx + 1 < n and expr[idx + 1].isalpha()
+            if not prev_letter and not next_letter:
+                out.append("I")
+                continue
+        out.append(ch)
+    return "".join(out)
+
+
 def evaluate_complex(expr: str) -> str:
-    parsed = _parse_expression(expr.replace("j", "I").replace("i", "I"), ["x"])
+    parsed = _parse_expression(_imaginary_unit_to_sympy(expr), ["x"])
     return str(latex(simplify(parsed)))
 
 
