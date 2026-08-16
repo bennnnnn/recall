@@ -212,6 +212,10 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context():
             "app.services.chat.turn_prep.prepare.build_stream_prompt_context",
             AsyncMock(side_effect=_fake_build_stream_prompt_context),
         ),
+        patch(
+            "app.services.chat.quiz_messages.get_last_quiz_assistant",
+            AsyncMock(return_value=None),
+        ),
     ):
         await prepare_chat_turn(
             user_id=user_id,
@@ -338,6 +342,10 @@ async def _run_prepare_chat_turn_with_caption(caption: str) -> AsyncMock:
         patch(
             "app.services.chat.turn_prep.prepare.build_stream_prompt_context",
             AsyncMock(side_effect=_fake_build_stream_prompt_context),
+        ),
+        patch(
+            "app.services.chat.quiz_messages.get_last_quiz_assistant",
+            AsyncMock(return_value=None),
         ),
     ):
         await prepare_chat_turn(

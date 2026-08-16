@@ -250,6 +250,7 @@ async def build_stream_prompt_context(
     quiz_grade: QuizAnswerGrade | None = None,
     omit_message_ids: set[UUID] | None = None,
     force_rich_context: bool = False,
+    turn_mode: _TurnMode | None = None,
 ) -> TurnPromptBundle:
     """Shared prompt assembly for new turns and regenerate."""
     meta: dict[str, Any] = {}
@@ -274,7 +275,7 @@ async def build_stream_prompt_context(
             if chat is None:
                 raise ChatNotFoundError("Chat not found.")
 
-        mode = await _classify_turn_mode(session, chat, content)
+        mode = turn_mode or await _classify_turn_mode(session, chat, content)
         if force_rich_context and not mode.rich_context:
             mode = replace(mode, rich_context=True)
 

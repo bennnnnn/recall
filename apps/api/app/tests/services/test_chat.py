@@ -1039,11 +1039,12 @@ async def test_grade_quiz_answer_failure_rolls_back_only_its_own_session():
         async def __aexit__(self, *_args: object) -> None:
             return None
 
+    get_last = AsyncMock(return_value=quiz_msg)
     with (
         patch("app.services.chat.turn_prep.prepare.SessionLocal", return_value=SessionCM()),
         patch(
             "app.services.chat.quiz_messages.get_last_quiz_assistant",
-            AsyncMock(return_value=quiz_msg),
+            get_last,
         ),
         patch(
             "app.services.chat.quiz_messages.count_quiz_letter_answers_since",
@@ -1059,12 +1060,39 @@ async def test_grade_quiz_answer_failure_rolls_back_only_its_own_session():
             chat_id=uuid4(),
             chat_project_id=uuid4(),
             content="A",
+            prior_assistant=quiz_msg,
         )
 
     assert is_letter is True
     assert grade is None
+    get_last.assert_not_awaited()
     grade_session.rollback.assert_awaited()
     grade_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_classify_turn_mode_returns_quiz_assistant_row():
+    from app.services.chat.turn_prep.mode import _classify_turn_mode
+
+    chat = MagicMock()
+    chat.id = uuid4()
+    chat.project_id = uuid4()
+    chat.quiz_mode = None
+    quiz_msg = MagicMock()
+    quiz_msg.content = (
+        '```vocab_quiz\n{"quiz_type":"trivia","word":"History","question":"Which wonder?",'
+        '"correct":"A","choices":[{"letter":"A","text":"Colossus"},'
+        '{"letter":"B","text":"Pyramid"}]}\n```'
+    )
+
+    with patch(
+        "app.services.chat.quiz_messages.get_last_quiz_assistant",
+        AsyncMock(return_value=quiz_msg),
+    ):
+        mode = await _classify_turn_mode(AsyncMock(), chat, "A")
+
+    assert mode.quiz_assistant is quiz_msg
+    assert mode.minimal_quiz is True
 
 
 @pytest.mark.asyncio

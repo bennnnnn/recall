@@ -6,7 +6,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.orm import Chat
+from app.models.orm import Chat, Message
 from app.services import calendar as calendar_service
 from app.services import day_planning as day_planning_service
 from app.services import email as email_service
@@ -77,6 +77,7 @@ class _TurnMode:
     active_vocab_turn: bool
     day_planning: bool
     day_reflection: bool
+    quiz_assistant: Message | None = None
 
 
 def _turn_needs_rich_context(
@@ -172,6 +173,7 @@ async def _classify_turn_mode(
         active_vocab_turn=active_vocab_turn,
         day_planning=day_planning,
         day_reflection=day_reflection,
+        quiz_assistant=quiz_assistant,
     )
 
 
